@@ -798,7 +798,10 @@ def checkModeled (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     | .recInfo _ _ _ _ => true | _ => false)
   let nonrecs := block.filter (fun ci => match ci with
     | .recInfo _ _ _ _ => false | _ => true)
-  unless block = nonrecs ++ recs do
+  -- the tag pass, not the derived structural equality on the members'
+  -- types (`ConLeche/Kernel/Env.lean`): the STATEMENT is unchanged, the
+  -- decision is `recsFormSuffix`
+  unless @decide _ (blockRecSuffixDec block) do
     throw (.notImplemented "recursor before other block members")
   let blockNames := block.map (·.name)
   match block.filter (fun ci => match ci with

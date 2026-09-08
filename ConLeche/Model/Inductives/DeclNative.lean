@@ -307,9 +307,20 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       fixEmptyUnitLaw hleaf hFD'.read hFD'.okTy (fun ψ => hunitParams ψ hu)⟩
   -- the dummy former: the constructors' readings and the index
   -- telescope need a carrier storing the former
+  -- the record's arities, from the former's telescope pin
+  have hicwT : ConLeche.IndCapsWF (.indInfo cvTa (ConLeche.nativeCaps p)) := by
+    have hsome : (cvTa.type.stripPis (p.nP + p.nIdx)).isSome = true := by
+      rw [hstripT]; rfl
+    refine ConLeche.IndCapsWF.of_caps ?_ ?_
+    · intro hu
+      rw [(ConLeche.nativeCaps_arity p).1 hu]
+      exact ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+    · intro he
+      rw [(ConLeche.nativeCaps_arity p).2 he]
+      exact ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
   obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
-    (ConLeche.nativeCaps p)
+    (ConLeche.nativeCaps p) hicwT
     (fun m₂ hac => by
       rw [hTname]
       exact hcapsLaws₀ m₂ hfrC₁
@@ -530,7 +541,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         rw [hlenFs₀ ψ j cA hjA]
         exact (hcf₀ j cA hjA).belowE ψ E hE)
     hIdx (fun ψ ρp hρp => (hX₀ ψ ρp hρp).1) (fun ψ ρp hρp => (hX₀ ψ ρp hρp).2)
-    (ConLeche.nativeCaps p)
+    (ConLeche.nativeCaps p) hicwT
     (fun m₂ hac => by
       rw [hTname]
       exact hcapsLawsF m₂ hfrC₁

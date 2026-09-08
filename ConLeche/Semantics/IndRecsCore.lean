@@ -200,8 +200,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
   · -- `EnvWF`
     intro c hc
     rcases hentR c hc with hcS | ⟨cv, mI, rP, rules, rfl, hfacts⟩
-    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm, hStbl⟩ := hwfS c hcS
-      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_, ?_⟩
+    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm, hStbl, hScaps⟩ := hwfS c hcS
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_, ?_, hScaps⟩
       · intro cv v hint heq
         obtain ⟨d1, d2, d3, d4⟩ := hSdef cv v hint heq
         exact ⟨d1, d2, hres₃ _ d3, d4⟩
@@ -223,7 +223,7 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         obtain ⟨t1, t2, t3, t4⟩ := g i b hb
         exact ⟨t1, t2, hres₃ _ t3, t4⟩
     · obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hswR _ hc
-      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -, -⟩ := hwfS c₀ hc₀
+      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -, -, -⟩ := hwfS c₀ hc₀
       have hcvt : c₀.toConstantVal = cv := by
         rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
         · rfl
@@ -233,7 +233,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
       refine ⟨hSw, hSlp, hres₃ _ hSres, hSb,
         fun _ _ _ hcon => ConstantInfo.noConfusion hcon, ?_,
         fun _ _ hcon => ConstantInfo.noConfusion hcon,
-        fun _ hcon => ConstantInfo.noConfusion hcon⟩
+        fun _ hcon => ConstantInfo.noConfusion hcon,
+        fun _ _ hcon => ConstantInfo.noConfusion hcon⟩
       intro cv' mI' rP' rules' heq r hr
       obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj heq
       obtain ⟨w1, w2, w3, w4, w5, -, -⟩ := hfacts r hr

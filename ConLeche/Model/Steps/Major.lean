@@ -215,9 +215,9 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
     obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
     obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
       (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
-    rcases hcase with ⟨hK, hlpj, hcnP, hstrip, rfl, hcerts,
+    rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨hetab, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
         hetacase⟩
     · -- K: the parameters-only constructor application
       refine ⟨⟨_, denoteMeta_mkAppN (hspt.take cnP)
@@ -258,7 +258,7 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
           rcases hetacase with hcw | ⟨hnF0, hlpj', hirr⟩
           · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
               hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
-              hlenus2, hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ :=
+              hlenus2, hlpc2, hslots2, -, -, hprojs, -, -, -⟩ :=
               ConLeche.structEtaCertWith_inv hcw
             have hTeq : T2 = T := by
               rw [hfnT] at hfnb2
@@ -449,9 +449,9 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
     obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
     obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
       (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
-    rcases hcase with ⟨hK, hlpj, hcnP, hstrip, rfl, hcerts,
+    rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨hetab, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
         hetacase⟩
     · -- R12: the K-flagged rescue
       obtain ⟨hdF, hokF⟩ := hfab (tmaj.getAppArgs.take cnP) (tsa.take cnP)
@@ -480,7 +480,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       · -- R13: the η certificate identifies the fabrication with the major
         obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2, hfna2,
           hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -, hlenus2,
-          hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
+          hlpc2, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
         have hTeq : T2 = T := by
           rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).1.symm
         have hUeq : ust2 = ust := by

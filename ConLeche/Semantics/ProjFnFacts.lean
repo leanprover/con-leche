@@ -161,7 +161,8 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
       (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
-      (fun tbl heq => ConstantInfo.noConfusion heq)⟩
+      (fun tbl heq => ConstantInfo.noConfusion heq),
+      (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr
@@ -275,7 +276,8 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
       (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
-      (fun tbl heq => ConstantInfo.noConfusion heq)⟩
+      (fun tbl heq => ConstantInfo.noConfusion heq),
+      (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr

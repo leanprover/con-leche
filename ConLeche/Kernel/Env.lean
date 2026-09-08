@@ -616,4 +616,99 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
 
 end Env
 
+/-! ## The block's recursor suffix, decided on the tags
+
+`checkModeled` (and its cached mirror) asks that a block's recursors
+form a SUFFIX of it, and it asks it as an equation between the block
+and its own stable partition — `block = nonrecs ++ recs`.  The
+statement is the one the fold consumes (`Semantics.DeclIndRun`'s first
+conjunct), so it stays; what changes here is the *decision*.  The
+derived `DecidableEq (List ConstantInfo)` compares every member's TYPE
+structurally, with no pointer shortcut and no memo, so a block whose
+constructor carries a DAG-shared tower is compared as a tree —
+`tests/e2e/tower_mutual.ndjson` and `tests/e2e/tower_nested.ndjson`
+exhaust memory on it.  The equation is decidable on the constructor
+TAGS alone, in one pass and without looking at an expression at all,
+and a `Decidable` instance is a subsingleton, so substituting this one
+leaves every proof about the guard untouched. -/
+
+/-- Is this member a recursor record? -/
+def ConstantInfo.isRecInfo : ConstantInfo → Bool
+  | .recInfo _ _ _ _ => true
+  | _ => false
+
+/-- Do the recursors form a suffix of the block?  The tag pass. -/
+def recsFormSuffix : List ConstantInfo → Bool
+  | [] => true
+  | ci :: rest =>
+    if ci.isRecInfo then rest.all ConstantInfo.isRecInfo
+    else recsFormSuffix rest
+
+/-- The block filters, in terms of the tag. -/
+theorem recsFilterNeg : (fun ci : ConstantInfo => match ci with
+    | .recInfo _ _ _ _ => false | _ => true) = fun ci => !ci.isRecInfo := by
+  funext ci; cases ci <;> rfl
+
+@[inherit_doc recsFilterNeg]
+theorem recsFilterPos : (fun ci : ConstantInfo => match ci with
+    | .recInfo _ _ _ _ => true | _ => false) = ConstantInfo.isRecInfo := by
+  funext ci; cases ci <;> rfl
+
+/-- **The tag pass decides the partition equation**, on the tag. -/
+theorem recsFormSuffix_iff' : ∀ block : List ConstantInfo,
+    recsFormSuffix block = true ↔
+      block = block.filter (fun ci => !ci.isRecInfo)
+        ++ block.filter ConstantInfo.isRecInfo := by
+  intro block
+  induction block with
+  | nil => simp [recsFormSuffix]
+  | cons ci rest ih =>
+    by_cases hci : ci.isRecInfo = true
+    · rw [recsFormSuffix, if_pos hci,
+        List.filter_cons_of_neg (by simp [hci]),
+        List.filter_cons_of_pos hci]
+      constructor
+      · intro hall
+        have hnil : rest.filter (fun x => !x.isRecInfo) = [] := by
+          rw [List.filter_eq_nil_iff]
+          intro x hx
+          simp [List.all_eq_true.mp hall x hx]
+        rw [hnil, List.nil_append, List.cons.injEq]
+        refine ⟨rfl, ?_⟩
+        exact (List.filter_eq_self.mpr
+          (fun x hx => List.all_eq_true.mp hall x hx)).symm
+      · intro heq
+        rcases hp : rest.filter (fun x => !x.isRecInfo) with _ | ⟨y, ys⟩
+        · refine List.all_eq_true.mpr fun x hx => ?_
+          have := (List.filter_eq_nil_iff.mp hp) x hx
+          simpa using this
+        · rw [hp, List.cons_append, List.cons.injEq] at heq
+          have hy : y ∈ rest.filter (fun x => !x.isRecInfo) := by rw [hp]; simp
+          have hy' : (!y.isRecInfo) = true := (List.mem_filter.mp hy).2
+          rw [← heq.1] at hy'
+          simp [hci] at hy'
+    · rw [recsFormSuffix, if_neg hci,
+        List.filter_cons_of_pos (by simp [hci]),
+        List.filter_cons_of_neg (by simp [hci]),
+        List.cons_append, List.cons.injEq]
+      simp [ih]
+
+@[inherit_doc recsFormSuffix_iff']
+theorem recsFormSuffix_iff (block : List ConstantInfo) :
+    recsFormSuffix block = true ↔
+      block = block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => false | _ => true)
+        ++ block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => true | _ => false) := by
+  rw [recsFilterNeg, recsFilterPos]
+  exact recsFormSuffix_iff' block
+
+/-- The substituted decision (`recsFormSuffix_iff`). -/
+instance blockRecSuffixDec (block : List ConstantInfo) :
+    Decidable (block = block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => false | _ => true)
+      ++ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => true | _ => false)) :=
+  decidable_of_iff _ (recsFormSuffix_iff block)
+
 end ConLeche

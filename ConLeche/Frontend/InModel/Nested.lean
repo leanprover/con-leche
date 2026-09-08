@@ -182,19 +182,73 @@ def matchCarrier (fam : Family) (o : Nat) (e : Expr) : Option (Nat × List Expr)
       else none
   | _ => none
 
+mutual
+
 /-- Rewrite every whole carrier occurrence into the auxiliary family
-(`o` binders below the parameter frame at entry). -/
-partial def specAll (fam : Family) (o : Nat) (e : Expr) : Expr :=
+(`o` binders below the parameter frame at entry).
+
+One memoized DAG walk, keyed by the node and the binder offset `o`
+(which shifts under binders, so a node's answer is not a function of
+the node alone), and dropped after each call.  No spec lemma, as in
+`InModel.mentionsAnyGo`: the modeller is untrusted and what it emits
+is checked at install.  Without the memo the rebuild runs once per
+path — `tests/e2e/tower_nested.ndjson`. -/
+partial def specAllGo (fam : Family) (memo : Std.HashMap (Expr × Nat) Expr)
+    (o : Nat) (e : Expr) : Expr × Std.HashMap (Expr × Nat) Expr :=
   match matchCarrier fam o e with
-  | some (tag, idx) => auxAt fam tag o (idx.map (specAll fam o))
+  | some (tag, idx) =>
+    let (idx', memo) := specAllGoList fam memo o idx
+    (auxAt fam tag o idx', memo)
   | none =>
     match e with
-    | .app f a => .app (specAll fam o f) (specAll fam o a)
-    | .lam d b m => .lam (specAll fam o d) (specAll fam (o + 1) b) m
-    | .forallE d b m => .forallE (specAll fam o d) (specAll fam (o + 1) b) m
-    | .letE t v b => .letE (specAll fam o t) (specAll fam o v) (specAll fam (o + 1) b)
-    | .proj s i x => .proj s i (specAll fam o x)
-    | e => e
+    | .bvar i => (.bvar i, memo)
+    | .sort u => (.sort u, memo)
+    | .fvar i t => (.fvar i t, memo)
+    | .const n us => (.const n us, memo)
+    | .lit l => (.lit l, memo)
+    | e =>
+      match memo[(e, o)]? with
+      | some r => (r, memo)
+      | none =>
+        let (r, memo) : Expr × Std.HashMap (Expr × Nat) Expr :=
+          match e with
+          | .app f a =>
+            let (f', memo) := specAllGo fam memo o f
+            let (a', memo) := specAllGo fam memo o a
+            (.app f' a', memo)
+          | .lam d b m =>
+            let (d', memo) := specAllGo fam memo o d
+            let (b', memo) := specAllGo fam memo (o + 1) b
+            (.lam d' b' m, memo)
+          | .forallE d b m =>
+            let (d', memo) := specAllGo fam memo o d
+            let (b', memo) := specAllGo fam memo (o + 1) b
+            (.forallE d' b' m, memo)
+          | .letE t v b =>
+            let (t', memo) := specAllGo fam memo o t
+            let (v', memo) := specAllGo fam memo o v
+            let (b', memo) := specAllGo fam memo (o + 1) b
+            (.letE t' v' b', memo)
+          | .proj s i x =>
+            let (x', memo) := specAllGo fam memo o x
+            (.proj s i x', memo)
+          | e => (e, memo)
+        (r, memo.insert (e, o) r)
+
+@[inherit_doc specAllGo]
+partial def specAllGoList (fam : Family) (memo : Std.HashMap (Expr × Nat) Expr)
+    (o : Nat) : List Expr → List Expr × Std.HashMap (Expr × Nat) Expr
+  | [] => ([], memo)
+  | x :: xs =>
+    let (y, memo) := specAllGo fam memo o x
+    let (ys, memo) := specAllGoList fam memo o xs
+    (y :: ys, memo)
+
+end
+
+@[inherit_doc specAllGo]
+def specAll (fam : Family) (o : Nat) (e : Expr) : Expr :=
+  (specAllGo fam {} o e).1
 
 /-! ## Reading the family off the recursor -/
 

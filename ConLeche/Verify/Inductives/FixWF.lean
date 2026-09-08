@@ -111,4 +111,16 @@ theorem nativeFieldsOk_inv {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx 
     simp only [Bool.and_eq_true, beq_iff_eq] at this
     exact ⟨ks, rfl, this.1, this.2⟩
 
+
+/-- **The fixpoint route's capability record names the parameter count
+as its arity**: what `direct_sum_ind_wf` needs of `capsOf`
+to establish `IndCapsWF` at the former's cons. -/
+theorem nativeCaps_arity (p : NativeParts) :
+    ((nativeCaps p).unitlike = true → (nativeCaps p).unitParams = p.nP) ∧
+    ((nativeCaps p).eta = true → (nativeCaps p).etaParams = p.nP) := by
+  unfold nativeCaps
+  split
+  · exact ⟨fun _ => rfl, fun _ => rfl⟩
+  · exact ⟨(fun h => nomatch h), (fun h => nomatch h)⟩
+
 end ConLeche

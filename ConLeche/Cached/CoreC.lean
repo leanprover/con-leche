@@ -434,7 +434,6 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true ∧
                 (fe.towerSlotsAllF Tn cnF || fe.recSlotsAllF Tn cnF) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
@@ -502,8 +501,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains Tn = false ∧
           targs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length ∧
-          (cvT.type.stripPis caps.unitParams).isSome = true then do
+          us'.length = cvT.levelParams.length then do
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
@@ -566,8 +564,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             | .const T' ust =>
               if (← pure (T' == T)) ∧ cvj.levelParams.length = ust.length then do
                 let margs ← pure (ExprC.getAppArgs tmaj)
-                if cnP ≤ margs.length ∧
-                    (cvj.type.stripPis cnP).isSome = true then do
+                if cnP ≤ margs.length then do
                   let ctorI ← pure rl.ctor
                   let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs.take cnP)
@@ -613,10 +610,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ustL caps = true then do
-                if cvj.levelParams.length = ust.length ∧
-                    (cvj.type.stripPis
-                      (caps.etaParams + caps.etaFields)).isSome
-                      = true then do
+                if cvj.levelParams.length = ust.length then do
                   let TI ← pure T
                   let projs ← projAppsI fe T TI ust margs major caps.etaFields
                   let ctorI ← pure caps.etaCtor

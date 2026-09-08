@@ -1052,7 +1052,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
        ((rl.k = true ∧
          cvj.levelParams.length = ust.length ∧
          cnP ≤ tmaj.getAppArgs.length ∧
-         (cvj.type.stripPis cnP).isSome = true ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs.take cnP) ∧
          iotaCertsFueled mode env fuel d false
@@ -1066,8 +1065,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          cvj.levelParams.length = ust.length ∧
-         (cvj.type.stripPis
-           (caps.etaParams + caps.etaFields)).isSome = true ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) ∧
          iotaCertsFueled mode env fuel d false
@@ -1202,14 +1199,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inl h.symm
     obtain ⟨rfl, hlvl⟩ := hTl
     rw [if_pos ⟨rfl, hlvl⟩] at h
-    by_cases harK : cnP ≤ tmaj.getAppArgs.length ∧
-        (cvj.type.stripPis cnP).isSome = true
+    by_cases harK1 : cnP ≤ tmaj.getAppArgs.length
     case neg =>
-      rw [if_neg harK] at h
+      rw [if_neg harK1] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
-    obtain ⟨harK1, harK2⟩ := harK
-    rw [if_pos ⟨harK1, harK2⟩] at h
+    rw [if_pos harK1] at h
     cases hguard : (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)).wscopedB d &&
         (Expr.mkAppN (.const rl.ctor ust)
@@ -1280,7 +1275,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inl ⟨hK, hlvl, harK1, harK2, rfl, hcertK,
+      Or.inl ⟨hK, hlvl, harK1, rfl, hcertK,
         ⟨tfab, htf, hdeq⟩, hpi⟩⟩
   · rw [if_neg hK] at h
     by_cases hE : rl.eta = true
@@ -1350,15 +1345,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inl h.symm
     obtain ⟨rfl, hplen, hlvl, hnz⟩ := hTl
     rw [if_pos ⟨rfl, hplen, hlvl, hnz⟩] at h
-    by_cases harE : cvj.levelParams.length = ust.length ∧
-        (cvj.type.stripPis
-          (caps.etaParams + caps.etaFields)).isSome = true
+    by_cases harE1 : cvj.levelParams.length = ust.length
     case neg =>
-      rw [if_neg harE] at h
+      rw [if_neg harE1] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
-    obtain ⟨harE1, harE2⟩ := harE
-    rw [if_pos ⟨harE1, harE2⟩] at h
+    rw [if_pos harE1] at h
     cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
           (etaFabArgsE env T' ust tmaj.getAppArgs major
             caps.etaFields)).wscopedB d &&
@@ -1433,7 +1425,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
         rfl, hfj, hpr, hfT, rfl, htw, hth,
         Or.inr ⟨hE, hnz, hplen, hlvl,
-          harE1, harE2, rfl, hcertE,
+          harE1, rfl, hcertE,
           Or.inr ⟨hZ.1, hZ.2, hpi⟩⟩⟩
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
@@ -1443,7 +1435,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
       Or.inr ⟨hE, hnz, hplen, hlvl,
-        harE1, harE2, rfl, hcertE,
+        harE1, rfl, hcertE,
         Or.inl hse⟩⟩
 
 /-- Inversion of one pairwise-defeq step. -/
@@ -1918,7 +1910,6 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       wtb.getAppArgs.length = cnP ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
-      (cvT.type.stripPis cnP).isSome = true ∧
       -- the slot discipline (task #175 W4c): one entry kind
       (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true ∧
       Level.isEquivList us us' = some true ∧
@@ -2005,11 +1996,10 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       wtb.getAppArgs.length = cnP ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
-      (cvT.type.stripPis cnP).isSome = true ∧
       (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true
   case neg => rw [if_neg hcond] at h; exact nomatch h
   rw [if_pos hcond] at h
-  obtain ⟨he1, he2, he3, he4, he5, he5b, he6, he7, he8, he9, he10⟩ := hcond
+  obtain ⟨he1, he2, he3, he4, he5, he5b, he6, he7, he8, he10⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -2077,7 +2067,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
     try dsimp only at h
     exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
       rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
-      he5b, he6, he7, he8, he9, he10, hlev, hic, hpc, hd1,
+      he5b, he6, he7, he8, he10, hlev, hic, hpc, hd1,
       fun hc => absurd hc (by simp [htt]), h⟩
   | true => ?_
   rw [htt] at h
@@ -2095,7 +2085,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   simp only [↓reduceIte] at h
   exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
     rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
-    he5b, he6, he7, he8, he9, he10, hlev, hic, hpc, hd1, fun _ => hic2, h⟩
+    he5b, he6, he7, he8, he10, hlev, hic, hpc, hd1, fun _ => hic2, h⟩
 
 /-- Inversion of the structure-eta certificate through its type
 reduction: the stuck side's type is inferred and reduced, and the
@@ -2136,7 +2126,6 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       reservedBasisNames.contains T = false ∧
       wta.getAppArgs.length = caps.unitParams ∧
       us'.length = cvT.levelParams.length ∧
-      (cvT.type.stripPis caps.unitParams).isSome = true ∧
       inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok wtb ∧
       isDefEqCore mode env fuel d wta wtb = .ok true ∧
@@ -2186,11 +2175,10 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   by_cases hcond : caps.unitlike = true ∧
       reservedBasisNames.contains T = false ∧
       wta.getAppArgs.length = caps.unitParams ∧
-      us'.length = cvT.levelParams.length ∧
-      (cvT.type.stripPis caps.unitParams).isSome = true
+      us'.length = cvT.levelParams.length
   case neg => rw [if_neg hcond] at h; exact nomatch h
   rw [if_pos hcond] at h
-  obtain ⟨he1, he2, he3, he4, he5⟩ := hcond
+  obtain ⟨he1, he2, he3, he4⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases htb : inferTypeIO mode env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
@@ -2212,7 +2200,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | true => ?_
   simp only [↓reduceIte] at h
   exact ⟨ta, wta, T, us', cvT, caps, tb, wtb, rfl, hwta, hwfn, hfT,
-    he1, he2, he3, he4, he5, rfl, hwtb, hde, h⟩
+    he1, he2, he3, he4, rfl, hwtb, hde, h⟩
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
@@ -2391,7 +2379,7 @@ theorem projEntry_body_wf {env : Env} (henv : EnvWF env) {T : Name}
     entry.body.constsResolve env = true ∧
     entry.body.looseBVarsBounded (entry.numParams + 1) = true := by
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
-  obtain ⟨-, -, -, -, -, -, -, h8⟩ := henv _ (List.mem_of_find?_eq_some hf')
+  obtain ⟨-, -, -, -, -, -, -, h8, -⟩ := henv _ (List.mem_of_find?_eq_some hf')
   obtain ⟨hsize, hb⟩ := h8 tbl rfl
   have hlt : i < tbl.bodies.size := by rw [hsize]; exact hi
   have := hb i (tbl.bodies[i]'hlt) (Array.getElem?_eq_getElem hlt)

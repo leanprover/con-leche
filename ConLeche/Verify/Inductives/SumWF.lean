@@ -25,10 +25,24 @@ variable {mode : CheckMode}
 /-- Stage 1 at the run level. -/
 theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
     {p p' : InductiveShape} {cvTa : ConstantVal} {F : Nat} {capsOf : InductiveShape → IndCaps}
-    (h : checkSumInd (fueledOps mode F) env p capsOf = .ok (env₁, cvTa, p')) :
+    (h : checkSumInd (fueledOps mode F) env p capsOf = .ok (env₁, cvTa, p'))
+    -- the capability record names the parameter count as
+    -- its arity (both records do: `nativeCaps`, and the empty one)
+    (hcapsOf : ∀ q : InductiveShape,
+      ((capsOf q).unitlike = true → (capsOf q).unitParams = q.nP) ∧
+      ((capsOf q).eta = true → (capsOf q).etaParams = q.nP)) :
     EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
-  obtain ⟨cvT, s, -, -, hccv, rfl, rfl, -⟩ := checkSumInd_shape h
-  exact ⟨envWF_cons_ind henv hccv, (checkConstantVal_typeWF hccv).1⟩
+  obtain ⟨cvT, s, -, -, hccv, rfl, rfl, bs, hstrip⟩ := checkSumInd_shape h
+  have hsome : (cvTa.type.stripPis (p.nP + p.nIdx)).isSome = true := by
+    rw [hstrip]; rfl
+  refine ⟨envWF_cons_ind henv hccv (IndCapsWF.of_caps ?_ ?_),
+    (checkConstantVal_typeWF hccv).1⟩
+  · intro hu
+    rw [(hcapsOf _).1 hu, InductiveShape.withSort_nP]
+    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+  · intro he
+    rw [(hcapsOf _).2 he, InductiveShape.withSort_nP]
+    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
 
 /-- A constructor's run at the former's environment: its type is
 closed and bounded. -/

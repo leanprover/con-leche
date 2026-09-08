@@ -63702,6 +63702,274 @@ allowlisted, overview-links 58/44 with no anchor in the three files
 touched), proofdeps 2846 rows and doors 0, axioms pinned at 12
 theorems over the three standard.
 
+## TASK #246 — THREE MORE TOWER KINDS, AND THE SEVEN WALKERS BEHIND THEM (2026-09-08, `agent/towers`)
+
+Task #233's sweep left a docket: the walkers no DAG-tower fixture
+reaches.  Three new kinds in `scripts/mk_tower_fixtures.py` reach
+them, and each one, run on master's binary first, failed:
+
+| kind | shape | master (16 GB cap, 60 s) | the walker `perf` named |
+|---|---|---|---|
+| `tower_recfield` | a RECURSIVE structure whose field after the recursive one is a depth-60 tower over the FIRST field's variable | OOM, 30 s / 23 s | `Expr.fvarLeaves` (48 % `List.reverseAux`, 20 % the walk) |
+| `tower_mutual` | a two-member MUTUAL block whose first constructor carries the same tower | hang (exit 124) | `InModel.mentionsAny`, 87.7 % |
+| `tower_nested` | a container on the fixpoint route, then a block NESTING it, with the tower in its constructor | OOM, 7 s / 13 s | `Expr.lowerBVars`, 16.7 % |
+
+All three accept in **34 / 50 / 62 ms** now, under the arena's own
+8 GB cap.  Getting there took **seven** fixes, because each walker
+was standing in front of the next: the fixture does not name one
+walker, it names a *path*.
+
+### 1. `Expr.mentionsFvar` — a memo, and NO cutoff
+
+`Expr.fvarLeaves` returns a list that IS tree-sized by construction,
+so #233 was right that it cannot be memoized where it stands; the fix
+belongs to its consumer.  `mentionsFvar q e` asks a `Bool` of it, and
+that memoizes on the node alone — `q` is fixed for the whole walk,
+unlike `hasLooseBVarB`'s index.
+
+**There is no cutoff to put in front of it, and this is a finding.**
+The packed `fvarB` field is the fvar range of a node's own spine and
+stops AT an `fvar` leaf (`fvarRange (.fvar idx _) = idx + 1`), while
+`fvarLeaves` descends hereditarily into that leaf's TYPE ANNOTATION.
+So `e.fvarB ≤ q` does not license "`q` does not occur in `e`": the
+field that serves `abstract1` cannot serve this question at all, and
+the memo is the whole remedy.  `mentionsFvarGo` / `mentionsFvarFast`
+with `mentionsFvarGo_spec` and `@[csimp]`, as #233 built twice; the
+pure `mentionsFvar` that `Model/Inductives/FixShadow.lean` unfolds is
+untouched.
+
+### 2. `lowerBVars`, `instantiate1Lift`, `instantiateLevelParams` — cutoff AND memo
+
+Three pure rebuilds on install paths that had neither guard, all three
+given the `abstract1` arrangement (the `O(1)` field read first, the
+memo behind it, a kernel-checked agreement lemma, `@[csimp]`, and the
+pure definition still the one every proof consumes):
+
+| pure | cutoff | memo key | spec |
+|---|---|---|---|
+| `lowerBVars` | `bvarB ≤ c + amount` | `(e, cutoff)` | `lowerBVars_of_bvarBound_le`, `lowerBVarsGo_spec` |
+| `instantiate1Lift` | `bvarB ≤ d` | `(e, cursor)` | `instantiate1Lift_of_bvarBound_le`, `instantiate1LiftGo_spec` |
+| `Expr.instantiateLevelParams` | `!hasLP` | `e` | `Expr.hasLP_eq`, `Expr.instLPGo_spec` |
+
+The last needed `Expr.hasLP_eq` on the Kernel side: the fact exists as
+`Cached.ExprC.hasLP_eq` in `Verify/Cached/Erase.lean`, which the kernel
+may not import, so `Kernel/ExprOps.lean` carries its own (with the two
+level-walker lemmas under it).
+
+**A `csimp` reaches only the code generated AFTER it.**
+`Expr.instPisAtLift` sat 1 200 lines above the new
+`instantiate1Lift` equation in the same file and therefore compiled
+against the unguarded walk — the profile still showed
+`instantiate1Lift` recursing into itself after the memo landed.  It is
+now below the equation, with a comment saying why.  Worth remembering:
+adding a `@[csimp]` late in a file silently leaves that file's own
+earlier callers behind.
+
+### 3. The modeller's walkers — memos, no spec lemmas
+
+`mentionsAny`, `maxHeight`, `specFam` and `substParams`
+(`Frontend/InModel/Kit.lean`) and `specAll` (`Nested.lean`) are five
+plain `Expr` recursions with no cutoff and nothing to short-circuit on.
+Each is now one memoized DAG walk — keyed by the node, or by the node
+and the binder offset where one shifts under binders (`substParams`,
+`specAll`).  **None carries a spec lemma, and none is owed one**: the
+in-process modeller is untrusted by the standing ruling (the `_model`
+family it emits is checked at install like any other declaration), so
+a memo here needs no `@[csimp]` twin.  Where a proof consumes the
+answer — §1 and §2 — the twin is there.
+
+### 4. The block-order guard was a structural comparison of the block
+
+With the modeller DAG-safe, `--progress` put the remaining hang at
+declaration 25 of 26, `inductive MutA` — the modeled INSTALL, not the
+modeller.  `gdb` named it: `checkIndDeclSF` → `instDecidableEqList` →
+`instDecidableEqConstantInfo` → `instDecidableEqExpr`, 68 % self.
+
+`checkModeled` (and its cached mirror) asks that the recursors form a
+suffix of the block, and asks it as `block = nonrecs ++ recs` — an
+equation between the block and its own stable partition, decided by
+the DERIVED `DecidableEq`, which compares every member's TYPE
+structurally with no pointer shortcut and no memo.  On a block whose
+constructor carries a tower that is `O(tree)`.
+
+The equation is decidable on the constructor TAGS alone.
+`recsFormSuffix` (`Kernel/Env.lean`) is that one pass, `recsFormSuffix_iff`
+proves it decides exactly this equation, and `blockRecSuffixDec` is the
+`Decidable` instance both call sites now name.  **The STATEMENT does
+not move** — `Semantics.DeclIndRun`'s first conjunct is the same
+proposition, and a `Decidable` is a subsingleton — so the only proof
+that changed is the bridge's, which now opens the guard with
+`of_decide_eq_true`.
+
+### 5. Gates
+
+`lake build` **517 jobs, zero warnings**; `lake test` warning-free.
+`tests/arena.sh` under `env -i`: **exit 0, 0 FAIL**, with **e2e
+181/181** (178), the **DAG-tower gate 14/14** (11) and the trusted
+sweep 138 + 181 + 14 with the three recorded divergences; every other
+count unchanged — 90/92 arena, 14/14 annot, 8/8 retired flags, 18/18
+mode flags, 3/3 prelude, 12/12 progress, route census 142 fix / 540
+basis, layering 263 / 189 / 3 / 1 with 0 base→lane and 0 impl→theory,
+**trust surface 10** escapes in 4 allowlisted files of 465,
+**proofdeps 2 846 rows, doors 0**, axioms pinned at **12 theorems**
+over the three standard.  `shake`: 463 removals, all allowlisted, one
+allowlist line deleted — `NativeInstallF.lean`'s `import
+…NativeInstall` is no longer proposed for removal.  `overview-links`
+58/44 OK, with four anchors repointed as PURE SHIFTS (the fuel knot's
+base case and `annotateBody`'s body in `Kernel/Core.lean`,
+`classifyFixKinds` and `checkNative` in `NativeInstall.lean`; each new
+target re-read and each citing paragraph still describes it).
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000`, against master `c6b51a3b`'s 681.14 G verified /
+657.60 G trusted: **681.19 G (+0.008 %) / 657.70 G (+0.015 %)**, 53 088
+declarations accepted in both modes, exit 0.  That is the ±0 a memo
+twin should be — every new memo sits behind an `O(1)` field read where
+a cutoff exists, and the paths that gained one (the modeled install,
+the in-process modeller) are entered once on this stream.
+
+### 6. Also
+
+`annotateBody`'s docstring said it was "the one place binder bodies —
+and the application rule — are type-checked; `infer` afterwards trusts
+the annotations".  The `.app` clause is structural and the inference
+sweep re-checks every application and every binder body and validates
+each annotation against its own result; the docstring now says that,
+and says what the sweep does take from the annotations — a licence to
+skip a *certificate* at a binder whose datum is `never`.
+## TASK #248 — THE CAPABILITY ARITIES ARE AN INSTALL-TIME INVARIANT: `IndCapsWF`, THE NINTH CONJUNCT OF `ConstWF` (2026-09-08, `agent/indcaps`)
+
+Item 3 of task #232's report (`_tmp/iota/REPORT.md` §5 on the unmerged
+`agent/iota`, prototype commit `6ca02382`): the `∀`-telescope arity a
+capability record names of its inductive was re-checked per call by the
+structure-η and unit-like certificates and pinned twice more, unread,
+in the structure rescue.  A property of a STORED declaration is an
+install-time invariant, whatever it costs ("invariants over runtime
+gates", strengthened 2026-09-08).  User ruling for this task: this
+EXTENDS the existing `ConstWF`/`EnvWF` invariant with a stored fact —
+unlike the rejected let-freedom invariant, which would have been a new
+invariant threaded through everything.  Re-derived on today's master
+(the prototype was forty merges stale; #210 Part C/D, #241 and #245
+moved the routes, the let arms and the ι spine in between).
+
+### 1. The invariant, and where it is established
+
+`IndCapsWF c` (`Verify/EnvWF.lean`): `∀ cv caps, c = .indInfo cv caps
+→ (caps.unitlike → (cv.type.stripPis caps.unitParams).isSome) ∧
+(caps.eta → (cv.type.stripPis caps.etaParams).isSome)`, the ninth
+conjunct of `ConstWF`.  Environment-independent, so `EnvWF.cons`
+passes it through untouched and the cached bridge's `constWF_le'`
+likewise; `EnvWF.indCaps` reads it off a `find?`.  It is `@[expose]`:
+`EnvWF.lean` is a plain `public section` since the modularisation, and
+the vacuous sites `intro` through it.
+
+* **Native route.**  `checkSumInd` already pins the former's telescope
+  at `nP + nIdx` before storing it (`checkSumInd_shape`);
+  `direct_sum_ind_wf` now takes `hcapsOf` — the record's arity IS the
+  parameter count, `nativeCaps_arity` (`Verify/Inductives/FixWF.lean`)
+  for the fixpoint record, vacuous for the empty one — and hands
+  `envWF_cons_ind` the invariant; `stageFixFormer`/`stageSumFormer`
+  take it as `hicw`, and `declNative` builds it from its `hstripT`.
+* **Modeled route — from checks the install already makes, no new
+  guard.**  The prototype granted `unitlike`/`eta` in `indBlockCaps`
+  only with `(cvT.type.stripPis nP).isSome` on the PARSED type and
+  carried the pin to the stored type through annotation.  That guard
+  is both redundant and, strictly, a verdict change: `checkEtaThm`/
+  `checkUnitThm` already pin the MODEL former's telescope at `nP`
+  (`EtaPins`), `checkMemberVal` stores a member's type only when it is
+  the model's under the block renaming, and renaming keeps the
+  telescope (`Expr.stripPis_isSome_of_renameConsts`) — while
+  annotation zeta-reduces a top-level `let`, so a parsed-type guard
+  would withhold from a `let`-topped former a capability its stored
+  type has.  `indCapsWF_of_pins` (`Verify/Extend/Iota.lean`, beside
+  `EtaPins`) combines the two facts; `indMembersPM` reads them off its
+  `EtaPins` and `MemberValRun` hypotheses, and the cached fold
+  (`foldIndMemberS_run`) threads `EtaPins` through its conses
+  (`EtaPins.step` at each member, freshness from `checkIndMember_inv`),
+  seeded at `checkIndDeclSF_run` by `etaPins_of_indBlockCaps` — moved
+  from `Semantics/IndBlockFacts` to `Verify/Extend/Iota` so the bridge
+  reaches it without a module entering a capstone's closure.  So the
+  KERNEL change is exactly the four deleted pins below.
+* **Basis blocks and value-kind conses** carry a vacuous ninth
+  component (`fun _ _ heq => ConstantInfo.noConfusion heq`; the two
+  intro helpers `constWF_intro'`/`structConstWF` take it as a
+  defaulted argument), 29 sites.
+
+### 2. What left the per-call paths
+
+The `stripPis` conjunct of `structEtaCertWith` and `structUnitCert`
+(spec and `CoreC` twins): the η row `structEtaCertWithFueled_step` and
+the unit-like row `structUnitIrrel_of_claims` (`Model/Steps/
+CapsRows.lean`) obtain `hstrip` from `m.wf.indCaps` — at
+`caps.etaParams`, rewritten by the inversion's `caps.etaParams = cnP`,
+and at `caps.unitParams`.  The two constructor-telescope pins of
+`majorToCtor` (K and η branches, spec and twin): consumed by nothing —
+`majorToCtorFueled_step`/`_reads` bound `hstrip` and never used it.
+Inversions restated: `majorToCtor_inv`, `structEtaCertWith_inv`,
+`structUnitCert_inv`; the sims `majorToCtorC_sim`,
+`structEtaCertWithC_sim`, `structUnitCertC_sim` follow textually.
+
+### 3. Verdicts: unchanged
+
+* The two certificate pins: the checker runs only on environments the
+  fold built, `EnvWF` holds there, and the deleted conjunct is the
+  invariant's clause at the certificate's own `find?` — it was `true`
+  at every evaluation.  The invariant is the proof of this sentence.
+* The two `majorToCtor` pins: on the native route every stored
+  constructor's telescope is pinned at `nP + nF` at install
+  (`SumInstall`), on the basis blocks it is literal, and on the modeled
+  route the ι-theorem check pins a certified rule's constructor at
+  `cnP + cnF` (`checkIotaThm`).  Only a modeled rule the check does not
+  certify (the `plain`-shape fast path, or an `inert` rule) leaves its
+  constructor unpinned, and only a stored constructor whose parameter
+  telescope is not syntactically `Π^cnP` would then differ: a refused
+  rescue becomes an attempted one — accept-ward, licensed by the P row
+  that never read the pin, and produced by no corpus (every count
+  below unchanged).  The official kernel rejects such a constructor at
+  install (`src/kernel/inductive.cpp`, `check_constructors`): its walk
+  `while (is_pi(t))` is the syntactic kind test with no `whnf`, it
+  stops at the first non-Π, and `is_valid_ind_app` then demands that
+  the residual is exactly `I p⃗ i⃗` with `nparams + nindices` arguments
+  — so a type whose parameter prefix is not Π^nparams fails there;
+  `declare_constructors` counts `nfields` off the same syntactic
+  telescope.  The input in question is therefore one official rejects,
+  and ConLeche's verdict on it can only move accept-ward.
+* The modeled route grants exactly what it granted.
+
+### 4. Re-derivation notes
+
+`rcases`: a `-` on an existential witness clears every hypothesis
+depending on it, silently (an `obtain ⟨-, …, hfmT, …⟩` over `EtaPins`
+lost `hfmT` with `mvalT`); `_` keeps them.  `stripPis_isSome_of_le`
+existed in `Verify/Inductives/StructBody.lean`; it moved to
+`EnvWF.lean` (`SumWF` does not see `StructBody`) rather than being
+duplicated.  The prototype's `Verify/Abstract → Verify/Subst` edge and
+its annotation lemma are not needed.  Three `OVERVIEW.md` anchors into
+`Kernel/Core.lean` sat below the four edits and moved by their +4 net
+lines; each target's content is unchanged and the expectation was
+regenerated after checking all three.
+
+### 5. Measured and gates
+
+`init-full`, one run per cell, `perf stat -e instructions:u` under
+`ulimit -v 16000000`, against master `c6b51a3b`'s 681.14 G verified /
+657.60 G trusted: **681.15 G (+0.001 %) / 657.70 G (+0.015 %)** —
+perf-neutral, as the report predicted (the deleted pins were `O(nP)`
+walks on rescues and on stuck-defeq certificates).  53 088
+declarations accepted in both modes, exit 0.
+
+Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green under `env -i` with every count unchanged
+(90/92 arena, 178/178 e2e, 14/14 annot, 18/18 mode flags, 3/3
+prelude, 12/12 progress, 11/11 DAG tower, trusted sweep 138+178+14
+with the three recorded divergences, route census 142 fix / 540 basis,
+layering 263/189/3/1 and 0/0 edges, trust surface 10 in 4 of 465,
+shake all allowlisted after one obsolete line — `Verify/Extend/Iota`'s
+`public import ConLeche.Verify.EnvWF` is now used —, overview-links
+58/44 with the three shifted `Kernel/Core.lean` anchors), proofdeps
+2846 rows and doors 0 (no module entered or left a closure), axioms
+pinned at 12 theorems over the three standard.
+
 ## Task #247 — TWO RESCUE BITS AND A ZERO-NESS DATUM BECOME STORED DECLARATION DATA (2026-09-08, `agent/iota-247`)
 
 Task #232's report listed, under "per-call checks on STORED
@@ -63814,22 +64082,33 @@ only extends with fresh names, and `capsNeverZero_eq` equates the two
 Booleans wherever the datum is the family's own.
 
 `init-full`, one run per mode, `perf stat -e instructions:u` under
-`ulimit -v 16000000`, against master `c6b51a3b`'s 681.14 G verified /
-657.60 G trusted: **681.38 G (+0.035 %) / 657.69 G (+0.014 %)**, 53 088
-declarations accepted in both modes.  The saved lookups (1.53 M
+`ulimit -v 16000000`: at the branch tip, against master `c6b51a3b`'s
+681.14 G verified / 657.60 G trusted, **681.38 G (+0.035 %) / 657.69 G
+(+0.014 %)**; after merging master `81263fe3` (#246 and #248),
+**681.37 G verified against master's 681.24 G (+0.019 %)**.  53 088
+declarations accepted in every cell.  The saved lookups (1.53 M
 `recRuleKOf` re-derivations, 46 544 telescope walks) are paid back by
 two extra fields on every parsed `RecRule` and one on every `IndCaps`;
 the net is inside the build-to-build spread and this batch's win is
 architectural, not arithmetic.
 
-Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
-`tests/arena.sh` green under `env -i` with every count unchanged
-(90/92 arena, 178/178 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode
-flags, 3/3 prelude, 12/12 progress, 11/11 DAG tower, trusted sweep
-138+178+14 with the three recorded divergences, route census 142 fix /
-540 basis, layering 263/189/3/1 and 0/0 edges, trust surface 10 in 4
-of 465), proofdeps 2846 rows and doors 0, axioms pinned at 12 theorems
-over the three standard.  `tests/shake-allowlist.txt` loses one line
+The merge with #248 meets in one place, `majorToCtor`'s η guard: that
+task deleted the branch's unread constructor-telescope pin and this
+one replaced the never-zero walk beside it, so the guard is now
+`rl.eta` (stored), the two arity/level comparisons, and
+`capsNeverZero` (stored).  `majorToCtor_inv` and the `Major.lean` rows
+take both deletions at once.
+
+Gates after the merge: `lake build` 517 jobs warning-free, `lake test`
+warning-free, `tests/arena.sh` green under `env -i` with every count
+as master's (90/92 arena, 181/181 e2e, 14/14 annot, 8/8 retired flags,
+18/18 mode flags, 3/3 prelude, 12/12 progress, 14/14 DAG tower,
+trusted sweep 138+181+14 with the three recorded divergences, route
+census 142 fix / 540 basis, layering 263/189/3/1 and 0/0 edges, trust
+surface 10 in 4 of 465, shake 461 removals all allowlisted),
+proofdeps 2846 rows and doors 0, axioms pinned at 12 theorems over the
+three standard.  `tests/shake-allowlist.txt` loses one line
 (`Kernel/Core` imports `Kernel/Env` for real now — `projFnName`), and
-ten `OVERVIEW.md` anchors are re-pointed at the same text, which moved
-with `Kernel/Core.lean`'s +111 lines.
+`OVERVIEW.md`'s anchors are re-pointed at the same text, which moved
+with the two batches' additions; every moved anchor was located by
+content and its new target read.

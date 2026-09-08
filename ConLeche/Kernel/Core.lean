@@ -1052,7 +1052,10 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 wtb.getAppArgs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true ∧
+                -- the former's telescope arity
+                -- `(cvT.type.stripPis cnP).isSome` is `EnvWF`'s
+                -- `IndCapsWF` clause: established at the block's
+                -- install, read by the η row from the invariant
                 -- the slot discipline (task #175 W4c): one entry kind
                 (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
               if ← liftFueled "level comparison"
@@ -1147,8 +1150,9 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           wta.getAppArgs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length ∧
-          (cvT.type.stripPis caps.unitParams).isSome = true then
+          -- `(cvT.type.stripPis caps.unitParams).isSome` is `EnvWF`'s
+          -- `IndCapsWF` clause, established at the block's install
+          us'.length = cvT.levelParams.length then
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then
@@ -1246,8 +1250,10 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
             match tmaj.getAppFn with
             | .const T' ust =>
               if T' = T ∧ cvj.levelParams.length = ust.length then
-                if cnP ≤ tmaj.getAppArgs.length ∧
-                    (cvj.type.stripPis cnP).isSome = true then
+                -- no constructor-telescope arity pin: the fabrication
+                -- is typed by `iotaCerts` below, and the P row
+                -- (`majorToCtorFueled_step`) consumes no such fact
+                if cnP ≤ tmaj.getAppArgs.length then
                   let fab := Expr.mkAppN (.const rl.ctor ust)
                     (tmaj.getAppArgs.take cnP)
                   -- scope guard (cf. `annotateProjElim`): scoping of
@@ -1303,10 +1309,8 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ust caps = true then
-                if cvj.levelParams.length = ust.length ∧
-                    (cvj.type.stripPis
-                      (caps.etaParams + caps.etaFields)).isSome
-                      = true then
+                -- no constructor-telescope arity pin, as in the K branch
+                if cvj.levelParams.length = ust.length then
                   let fab := Expr.mkAppN (.const caps.etaCtor ust)
                     (etaFabArgsE env T ust tmaj.getAppArgs major
                       caps.etaFields)
@@ -2639,11 +2643,14 @@ def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
 
 /-- The annotation body: compute the codomain-sort annotations of every
 binder, bottom-up, by real inference on the opened (already annotated)
-body.  This is the one place binder bodies — and the application rule —
-are type-checked; `infer` afterwards trusts the annotations.  For a
-`forallE` the annotation is the body's sort (so this also checks that
-the body *is* a type — the ∀-formation rule); for a `lam` it is the
-sort of the body's type. -/
+body.  For a `forallE` the annotation is the body's sort (so this also
+checks that the body *is* a type — the ∀-formation rule); for a `lam`
+it is the sort of the body's type.  The `.app` clause is structural:
+the application rule is not checked here.  The inference sweep that
+follows re-checks every application and every binder body and
+validates each annotation against its own result; what it takes from
+the annotations is a licence to skip a *certificate* at a binder whose
+datum is `never`, never a typing it does not redo. -/
 def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with

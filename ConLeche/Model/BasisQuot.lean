@@ -2295,7 +2295,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨quotA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
   obtain ⟨mp1⟩ := extendQuot mp hf1  hwf1
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
@@ -2307,7 +2311,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨quotMkA :: quotA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     show Expr.constsResolve _ quotMkA.toConstantVal.type = true
     have hf : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
         = some quotA := by
@@ -2346,7 +2354,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
       rw [show quotLiftA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))
@@ -2417,7 +2429,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
       rw [show quotIndA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))
@@ -2486,7 +2502,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE4
     refine EnvWF.cons hwf4 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
     rw [show quotSoundA.toConstantVal.type
         = Expr.forallE (.sort (.param uN))
