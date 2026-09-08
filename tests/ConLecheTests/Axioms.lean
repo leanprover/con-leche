@@ -61,7 +61,7 @@ measure different things and neither implies the other.
 | `no_constant_of_emptyPin` | the pin under it |
 
 **What is deliberately NOT pinned here** (2026-09-07, the user's
-two-loop ruling): anything about the `CON_LECHE_PROGRESS` lane.  That lane
+two-loop ruling): anything about the `--progress` lane.  That lane
 runs a *separate, openly unverified* fold in `Main.lean`
 (`checkDeclsProgressIO`) — the same steps as the verified one with a
 line printed before each declaration — and the default run calls

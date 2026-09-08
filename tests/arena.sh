@@ -438,9 +438,9 @@ prelude_count natop_before_eq.ndjson 35
 prelude_count natop_before_ble.ndjson 35
 echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
-# The progress lane (`CON_LECHE_PROGRESS=<stride>`, 2026-09-07).  Two
-# folds, one verdict: without the variable the driver runs the verified
-# `checkDecls`, with it the unverified `checkDeclsProgressIO`
+# The progress lane (`--progress[=<stride>]`, 2026-09-07; a FLAG since
+# task #229).  Two folds, one verdict: without the flag the driver runs
+# the verified `checkDecls`, with it the unverified `checkDeclsProgressIO`
 # — the same steps with a line printed before each declaration.  The
 # checks below are the contract: the lane prints, it prints EVERY
 # declaration at stride 1 (that is the localisation mode: a dying run
@@ -456,11 +456,11 @@ prog_check() { # <description> <condition-result>
     echo "PROGRESS FAIL: $1"; fail=1
   fi
 }
-# the accepting fixture: exit 0 with and without the variable, same
+# the accepting fixture: exit 0 with and without the flag, same
 # stdout verdict line, and one progress line per declaration at stride 1
 prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
-prog_err1=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
-prog_out1=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_err1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_out1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
 prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress [0-9]')
 # one line per FOLD record: the stream's records after the built-in
@@ -469,7 +469,7 @@ prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress [0-9]')
 prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
-prog_check "the verdict line is unchanged by the variable" \
+prog_check "the verdict line is unchanged by the flag" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
 prog_check "stride 1 prints one line per fold record" \
   "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
@@ -477,12 +477,41 @@ prog_check "the lane brackets the run (parse done / fold done)" \
   "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
      printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
 # the rejecting fixture: still exit 1, still naming the declaration
-prog_errB=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
+prog_errB=$(timeout 120 "$BIN" --progress=1 "$SPLIT_BAD" 2>&1 >/dev/null)
 prog_codeB=$?
 prog_check "stride 1 still rejects the bad fixture (exit 1)" \
   "$([ "$prog_codeB" = 1 ] && echo ok)"
 prog_check "the rejection still names the failing declaration" \
   "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
+# bare --progress is stride 1, and the flag composes with the mode flag
+# in either order
+prog_errBare=$(timeout 120 "$BIN" --progress "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_errPost=$(timeout 120 "$BIN" --trusted --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_errPre=$(timeout 120 "$BIN" --progress=1 --trusted "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "bare --progress is stride 1" \
+  "$([ "$(printf '%s\n' "$prog_errBare" | grep -c '^con-leche: progress [0-9]')" \
+      = "$prog_lines" ] && echo ok)"
+prog_check "--progress composes with --trusted in either order" \
+  "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: progress [0-9]')" \
+      = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: progress [0-9]')" ] && \
+    printf '%s' "$prog_errPost" | grep -q 'progress fold done' && echo ok)"
+# a bad stride is a USAGE error (exit 3), not a silently degraded run
+timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
+timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
+prog_check "--progress=x is a usage error (exit 3)" \
+  "$([ "$prog_codeX" = 3 ] && echo ok)"
+prog_check "--progress=0 is a usage error (exit 3)" \
+  "$([ "$prog_code0" = 3 ] && echo ok)"
+# THE ENVIRONMENT VARIABLE IS GONE (task #229), not aliased: a stale
+# script that still exports it gets a plain run, heartbeat and all
+# absent, so it cannot keep working silently.
+prog_errEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_outEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_codeEnv=$?
+prog_check "CON_LECHE_PROGRESS is ignored: no heartbeat" \
+  "$([ "$(printf '%s\n' "$prog_errEnv" | grep -c '^con-leche: progress')" = 0 ] && echo ok)"
+prog_check "CON_LECHE_PROGRESS changes no verdict" \
+  "$([ "$prog_outEnv" = "$prog_out" ] && [ "$prog_codeEnv" = "$prog_code" ] && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
 # THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget

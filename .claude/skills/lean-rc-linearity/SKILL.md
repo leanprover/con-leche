@@ -148,7 +148,7 @@ matched, and branch selection forces it before any later state op.
 
 ### 3.2 `progressLoop`: the boxed `forIn` accumulator
 
-`CON_LECHE_PROGRESS`'s `for`/`mut` loop compiled to `forIn`, whose state tuple
+The progress heartbeat's (`--progress`) `for`/`mut` loop compiled to `forIn`, whose state tuple
 `(fe, s)` stays live into the next step call — so the interned state *entered every
 declaration* at RC 2 and the first mutation struck (+110 G instructions in both
 modes). Fix: explicit tail recursion, accumulators as plain arguments
