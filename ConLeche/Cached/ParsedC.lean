@@ -101,9 +101,31 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` over `ExprC`. -/
-def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) : CheckCM FEnv := do
+/-! ## The theorem branch, cut in two (the deferred-body fan-out)
+
+`checkThmValC` is the only branch whose work splits cleanly into "what
+produces the installed constant" and "what needs the body": every step
+up to and including the `ienv` recording is the former, and exactly two
+— the value's `infer` and the `defeq` against the statement — are the
+latter.  The cut is what lets a fan-out defer the second half; the
+equation below says the two halves ARE the branch, so nothing about the
+sequential fold's meaning is bent to allow it.
+
+The cut is definitional: `thmPrepC` is the branch's prefix, `thmBodyC`
+its two body steps, and the push is what the branch ends with. -/
+
+/-- The install half of the theorem branch, in continuation-passing
+form: `checkThmValC` up to and including the `ienv` recording, handing
+the annotated value to `k`.  Everything here produces the installed
+constant.
+
+CPS rather than "returns `jv`" for a reason: with a return the branch
+would be `thmPrepC >>= …`, and reassociating the branch's own text into
+that shape is a monad law, not a definitional step (measured — `rfl`
+fails).  With the continuation the cut is the text itself, and the
+decomposition below is `rfl`. -/
+def thmPrepC {α : Type} (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
+    (value : ExprC) (k : ExprC → CheckCM α) : CheckCM α := do
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let ul ← opSIxC mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
@@ -117,12 +139,60 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := jv
-  recordCConst cvA.name cvA.type jty (some (vE, jv))
+  recordCConst cvA.name cvA.type jty (some (jv, jv))
+  k jv
+
+/-- The body half: the two steps of the theorem branch that need the
+value — the only work a fan-out defers.  Continuation-passing for the
+same reason as `thmPrepC`, and for one more: a body half that RETURNS
+would re-associate the branch's binds (`(a >>= b) >>= c` against
+`a >>= (b >>= c)`), which is a monad law rather than a definitional
+step, and the simulation proofs follow the branch's own associativity.
+With the continuation the elaborated term is the branch's, verbatim. -/
+def thmBodyC {α : Type} (fe : FEnv) (nm : Name) (jty jv : ExprC)
+    (k : CheckCM α) : CheckCM α := do
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
-    throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  pure (fe.push (.thmInfo cvA vE))
+    throw (.invalid s!"type mismatch in theorem {nm}")
+  k
+
+/-- `checkThmValP` over `ExprC`.
+
+**Written as its two halves** (`thmPrepC`, `thmBodyC`): the text is the
+branch's own, cut where the value first matters, so `checkThmValC_split`
+below is `rfl` and the deferred-body fan-out compares against the branch
+itself rather than against a restatement of it.  Cutting it after the
+fact is NOT definitional — the `unless … do throw` guards elaborate to
+`__do_jp` join points whose shape depends on the tail, so a prefix that
+returns its value does not reassociate into the branch by `rfl`
+(measured: `rfl` fails both at the function and pointwise). -/
+def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
+    (value : ExprC) : CheckCM FEnv :=
+  thmPrepC mode fe cvA jty value (fun jv =>
+    thmBodyC mode fe cvA.name jty jv (pure (fe.push (.thmInfo cvA jv))))
+
+/-- **The decomposition.**  The theorem branch IS its install half, its
+body half and the push, in that order, at the same index and in the same
+state — definitionally, because the two halves are the branch's own text
+cut where the value first matters.
+
+The first of the three lemmas the deferred-body fan-out's bridge needs
+(DESIGN, "Parallelism"): index- and schedule-independent, so it stands
+whatever is decided about the other two. -/
+theorem checkThmValC_split (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) :
+    checkThmValC mode fe cvA jty value
+      = thmPrepC mode fe cvA jty value (fun jv =>
+          thmBodyC mode fe cvA.name jty jv
+            (pure (fe.push (.thmInfo cvA jv)))) := rfl
+
+/-- The install pass's own step: the same prefix, handing back the
+environment the branch installs and the value a deferred body needs.
+That it shares `thmPrepC` with the branch above is what makes the two
+comparable at all. -/
+def thmInstallOnlyC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
+    (value : ExprC) : CheckCM (FEnv × ExprC) :=
+  thmPrepC mode fe cvA jty value (fun jv => pure (fe.push (.thmInfo cvA jv), jv))
 
 /-- `checkOpaqueValP` over `ExprC`. -/
 def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
@@ -313,6 +383,35 @@ theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
       obtain ⟨fe₁, s₁⟩ := pr
       simp only [checkDeclStepIdxC, hstep] at h
       exact ih (i + 1) fe₁ h
+
+/-! ### Checking in chunks is checking the stream
+
+The second of the deferred-body bridge's three lemmas, and the one that
+is pure list algebra: whatever a driver does with the stream, if it
+folds the same step over consecutive pieces from the same start it has
+folded over the stream.  `CheckCM` is `StateT CState (Except CheckError)`,
+lawful, so both are `List.foldlM_append` and an induction on it. -/
+
+/-- Two consecutive chunks. -/
+theorem foldlM_chunk_two (ds₁ ds₂ : List DeclC) (fe : FEnv) :
+    (ds₁ ++ ds₂).foldlM (checkDeclSPStepC mode) fe
+      = (do
+          let fe' ← ds₁.foldlM (checkDeclSPStepC mode) fe
+          ds₂.foldlM (checkDeclSPStepC mode) fe') :=
+  List.foldlM_append
+
+/-- Any number of chunks: folding the step over each chunk in order,
+threading the environment, is folding it over the stream.  This is what
+lets a chunked driver's acceptance be an acceptance of
+`checkDeclsSPCachedD`'s own fold. -/
+theorem foldlM_chunks (cs : List (List DeclC)) (fe : FEnv) :
+    cs.flatten.foldlM (checkDeclSPStepC mode) fe
+      = cs.foldlM (fun fe' c => c.foldlM (checkDeclSPStepC mode) fe') fe := by
+  induction cs generalizing fe with
+  | nil => rfl
+  | cons c cs ih =>
+    rw [List.flatten_cons, foldlM_chunk_two, List.foldlM_cons]
+    exact bind_congr fun fe' => ih fe'
 
 /-- `foldIdxC_ok` at the shape the two capstone proofs use. -/
 theorem foldIdxC_run'_ok (mode : CheckMode) (ds : List DeclC) (i : Nat)

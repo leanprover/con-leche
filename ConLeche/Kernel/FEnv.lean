@@ -1,4 +1,5 @@
 import ConLeche.Kernel.Core
+import Std.Data.TreeMap
 
 /-!
 # `FEnv`: the environment with a name index
@@ -39,7 +40,7 @@ the first `k` installed constants (`mkFEnv_find?_visibleBelow`,
 `ConLeche/Verify/EnvBound.lean`). -/
 structure FEnv where
   env : Env
-  idx : Std.HashMap Name (Nat × ConstantInfo)
+  idx : Std.TreeMap Name (Nat × ConstantInfo)
   /-- Entries with counter `< visibleBelow` are visible; also the next
   counter `push` hands out. -/
   visibleBelow : Nat
@@ -49,7 +50,7 @@ inserted last and wins, exactly as `List.find?` takes the first match —
 so the agreement with `Env.find?` is unconditional (no freshness
 assumption).  The `Nat` component is the running counter, so the build
 stays linear (the tail's length is returned, not recomputed). -/
-def mkFEnvGo : List ConstantInfo → Nat × Std.HashMap Name (Nat × ConstantInfo)
+def mkFEnvGo : List ConstantInfo → Nat × Std.TreeMap Name (Nat × ConstantInfo)
   | [] => (0, ∅)
   | ci :: cs =>
     let p := mkFEnvGo cs

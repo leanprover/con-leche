@@ -615,7 +615,9 @@ theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
     (jty value : ExprC) :
     Yields (checkThmValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.thm cvA.name :: sk)) := by
-  unfold checkThmValC
+  -- the branch is its two halves since the deferred-body cut; unfolding
+  -- it reaches the CPS composition, so both halves come with it
+  unfold checkThmValC thmPrepC thmBodyC
   yields
   all_goals (apply Yields.pure; exact h.push _)
 

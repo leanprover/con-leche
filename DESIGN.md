@@ -59241,3 +59241,208 @@ Three things follow for con-leche.
      memory-aware queue (never two giants at once, cost approximated
      by term size) is the refinement this corpus would actually need,
      and it is the same LPT machinery §7 names.
+
+### 9. The bridge, started (`FEnv.Agrees`)
+
+The spike of §6's first lemma, run before committing to it.  Three
+findings, then what is proved.
+
+**`PairM` does not transport.**  The obvious lever for a knot-wide
+relational argument is `ConLeche/Verify/PairM.lean` (1 125 lines) with
+`ConLeche/Verify/Mono.lean` (188 lines) as the worked example: fuel
+monotonicity for every entry point from one induction, because the
+bodies are polymorphic in the monad and `pairFns` runs both sides at
+once.  It pairs two `CoreFns` records **at a shared `env`** — the
+environment is a plain argument of each body, and every environment read
+is *pure control flow* inside it, which a pair monad cannot relate.  So
+an "extensional in its environment" lemma would have to unfold the
+bodies, which is exactly what `PairM` exists to avoid.
+
+**It is not needed.**  Both runs to be compared are cached runs, and the
+cached tier already simulates the *pure* checker.  Let the spec be the
+pivot: the worker's run at `feFinal.restrictTo k` simulates the pure
+checker at `env.prefixTo k`, the fold's run at `mkFEnv env_k` simulates
+the pure checker at the same environment, and the pure checker is a
+function.  The two cached runs therefore agree without any statement
+about the checker's dependence on its environment.  What the simulation
+needs is not extensionality but a weaker hypothesis on its index.
+
+**The generalisation is additive.**  The cached tier mentions
+`mkFEnv env` about 380 times, but only **40** places use the
+`mkFEnv_find?` / `mkFEnv_push` equations; the rest merely carry the
+term.  So each pinned statement can be generalised by adding an `_of`
+form over `FEnv.Agrees` and re-deriving the existing one from it at
+`FEnv.Agrees.mkFEnv` — one line, no consumer touched, no proof moved.
+
+**Proved so far** (`ConLeche/Verify/EnvBound.lean`): `FEnv.Agrees fe
+env` (`∀ n, fe.find? n = env.find? n`), its pointwise form, the fold's
+instance (`FEnv.Agrees.mkFEnv`, unconditional), the worker's instance
+(`FEnv.Agrees.restrictTo`, under the `Nodup` side condition),
+`find?_congr`, and the guard twins `findProj?`, `natLitSupportedF`,
+`strLitSupportedF`, `natOpStoredF`, `natOpGuardF`.  In
+`ConLeche/Verify/Cached/GuardsC.lean`, three cached guard specs carry
+the `_of` form with the old statement re-derived:
+`isUnitLikeTyC_spec_of`, `isCtorAppC_spec_of`,
+`unfoldableHeadC_spec_of`.
+
+**The door, and where the theory lives.**  The first cut put
+`FEnv.Agrees` in a module of its own and imported it into `GuardsC`.
+`tests/proofdeps.sh` refused it — *"SPCD_P :: ConLeche.Verify.FEnvAgree
+— a door: the capstone acquired a dependency it did not have"* — and it
+was right: declarations may be additive, but an IMPORT changes what the
+capstone reaches, which is what that gate measures.  The theory belongs
+in `EnvBound.lean` on content grounds anyway (it is bounded-lookup
+theory), and there it adds no module to any closure.  Gates after the
+move: `lake build` 0 warnings, `lake test` exit 0, proofdeps 2 851 rows
+as pinned, **doors 0**.
+
+**What is left**, in order: the knot simulation's own generalisation
+(`KnotC.lean`, 31 sites, same additive shape); the `Nodup` invariant
+threaded through the fold, which is the prerequisite `FEnv.Agrees.restrictTo`
+takes as a hypothesis and which DESIGN has docketed since task #108; the
+`.thmDecl` install/check decomposition; and the partition lemma, whose
+shape is `foldIdxC_ok`.  Only the second is new work of a kind this tree
+has not already done many times.
+
+### 10. The decomposition, done — and the fork the rest of the bridge sits on
+
+**Lemma (ii) is proved, definitionally** (`ConLeche/Cached/ParsedC.lean`).
+The theorem branch is now *written* as its two halves —
+
+    checkThmValC mode fe cvA jty value
+      = thmPrepC mode fe cvA jty value (fun jv =>
+          thmBodyC mode fe cvA.name jty jv (pure (fe.push (.thmInfo cvA jv))))
+
+— so `checkThmValC_split` is `rfl` and a fan-out compares against the
+branch itself rather than against a restatement of it.  `thmPrepC` is
+everything that produces the installed constant (the statement's sort
+check, the value's guards, `annotate`, the `ienv` recording);
+`thmBodyC` is the two steps that need the value.
+
+**Both halves are continuation-passing, and both had to be.**  Cutting
+the branch after the fact is not definitional, twice over: the
+`unless … do throw` guards elaborate to `__do_jp` join points whose
+shape depends on the tail, so a prefix that RETURNS its value does not
+reassociate into the branch by `rfl`; and a body half that returns
+re-associates the branch's binds (`(a >>= b) >>= c` against
+`a >>= (b >>= c)`), which is a monad law, and the simulation proofs
+follow the branch's own associativity.  Both failures were measured, in
+that order, before the CPS form stuck.  Blast radius: two proofs
+(`AgreeFloor.checkThmValC_skels`, `BridgeCP.checkThmValC_sim`), each an
+unfold list extended by the two halves.  Gates: `lake build` 0 warnings,
+`lake test` exit 0, proofdeps 2 851 rows, doors 0, trust surface
+unchanged.
+
+**Lemma (iii)'s list half is proved** (`foldlM_chunk_two`,
+`foldlM_chunks`, beside `foldIdxC_ok`): folding the step over
+consecutive chunks from the same start, threading the environment, is
+folding it over the stream — `CheckCM` is lawful, so it is
+`List.foldlM_append` and an induction on it.  That is what lets a
+chunked driver's acceptance BE an acceptance of `checkDeclsSPCachedD`'s
+own fold, and it holds whatever is decided below.
+
+**What remains of (iii) is blocked on a design decision, not on a
+proof.**  The
+fold's step checks a body at `mkFEnv env_i` in the fold's own memo
+state; a worker checks it at `feFinal.restrictTo k_i` in a fresh one.
+The *state* difference costs nothing — the existing simulation is stated
+from any `CSOK` state and `{}` is one, so both runs pivot through the
+same pure run.  The *index* difference is the whole question, and there
+are exactly two ways to close it.
+
+| | (A) keep `restrictTo` | (B) worker rebuilds `mkFEnv` |
+|---|---|---|
+| runtime | `O(1)` per job; the schedule is free | `O(|env|)` per worker or chunk: one index build (~0.1–0.2 s at Mathlib scale, ~30 s over 200 chunks), and `workers ×` the index in memory |
+| scheduling | any; the measured queue stands | chunks must be contiguous and in order |
+| proof | generalise the cached tier from the term `mkFEnv env` to any index that `FEnv.Agrees env` — **505 `mkFEnv` mentions, 70 `SSimC` mentions, ~9 000 lines** | nothing: the worker's index IS `mkFEnv env_i` (by `mkFEnv_push`), so the existing simulation applies verbatim |
+| prerequisite | the `Nodup` threading (`FEnv.Agrees.restrictTo`'s hypothesis) | none |
+
+The leaf work for (A) is done and cheap — `FEnv.Agrees` with its two
+instances and the guard twins (§9), and three cached guard specs already
+carry the `_of` form.  What (A) costs is the *volume* above, and it is
+mechanical rather than deep.  (B) trades a modest, measurable runtime
+cost for a bridge that needs no new simulation theory at all.
+
+Two other closures were considered and rejected: capturing each `fe_i`
+during the fold (the index is mutated in place, so capturing forces
+copy-on-write per push — task #179's quadratic, by construction), and
+checking bodies at the FINAL environment (unsound: a stream whose
+theorem cites a constant declared later would be accepted where the fold
+rejects it — which is exactly why `constsResolveFC` sits in the install
+half, at the prefix).
+
+**This is the user's call, and it is where the work stops.**
+
+### 11. The fork dissolved: a persistent index, and the capture it affords
+
+The user's question — *"could the capture issue be fixed with persistent
+data structures?"* — is the right one, and the answer closes §10's fork
+rather than choosing a side of it.
+
+**What was wrong with capture.**  Handing each worker the very `FEnv`
+the fold held is the ideal: no bounded view, no rebuild, and the value
+IS `mkFEnv env_i` by the `mkFEnv_push` chain, so the existing simulation
+applies with nothing generalised.  It was rejected because `FEnv.idx`
+was a `Std.HashMap`: capturing a version costs the NEXT insert its
+exclusivity, i.e. task #179's bucket-array copy per accepted constant.
+The obstacle was the data structure, not the design.
+
+**`FEnv.idx` is now a `Std.TreeMap`.**  A capture is a pointer; an
+insert after a capture is path-copying, not an array copy.  The key
+order is **hash first, structure second** — `compareLex (compareOn
+hashData) Name.cmp` — so the common comparison is one `UInt64` against
+another (the hash is a `@[computed_field]`) and the structural walk is
+reached only on a collision.
+
+**It is not a tax; on the larger stream it is a discount.**
+`perf stat -e instructions:u`, base `329d24ae`, sequential:
+
+| index | cone1 | Mathlib prefix (8 M lines, raw) |
+|---|---|---|
+| `Std.HashMap` (before) | 272.4 G | 925.8 G |
+| `Std.TreeMap`, structural order | 293.6 G (+7.8 %) | 966.6 G (+4.4 %) |
+| `Std.TreeMap`, **hash-first order** | 280.3 G (+2.9 %) | **907.7 G (−1.9 %)** |
+
+**The proof cost was 45 lines, in two files.**  `Name` already had its
+order theory (`cmp_self`, `eq_of_cmp`, `cmp_swap`, `cmp_trans` and the
+strict-order facts, `Kernel/PropWhen.lean`), so the obligations were
+four instances (`ReflCmp`, `OrientedCmp`, `TransCmp`, `LawfulEqCmp` for
+`cmp`), the `Ord` spelled as `compareLex (compareOn hashData) cmp` —
+which is what makes `Std`'s derived instances apply — three relays at
+`compare`, and in `EnvBound.lean` one bridge lemma
+(`compare a b = .eq ↔ a == b`, from `LawfulEqCmp`) plus three rewrites
+from `Std.HashMap.getElem?_insert` to `Std.TreeMap.getElem?_insert`.
+**Nothing else in the tree changed**: the ~9 000-line simulation tier
+compiled untouched, because it is stated in terms of `mkFEnv env` and
+`find?`, and those statements and their equations are unmoved.
+
+**What it does to the bridge.**  §10's index difference is GONE: the job
+carries the fold's own `FEnv`, so the worker and the fold run at the
+same index and the same pure comparand.  With it go the ~9 000-line
+generalisation, the `Nodup` prerequisite (`restrictTo` is not on the
+path), and the contiguous-chunk constraint — the dynamic queue of §7
+stands.  What remains of lemma (iii) is the fold-level composition, and
+its only obligation is memo-state independence, which the existing
+simulation already provides from any `CSOK` state (`{}` is one).
+
+**And the lane now runs the branch's own halves**: `parThmInstall` is
+`thmPrepC` followed by the push, and a worker runs `thmBodyC` — the two
+functions `checkThmValC_split` is about, not copies of them.
+
+**Measured, base `329d24ae`, 16 workers:**
+
+| stream | sequential | 16 workers | speedup |
+|---|---|---|---|
+| cone1 | 32.7 s (280.3 G) | 19.4 s (286.1 G) | **1.69 ×** |
+| Mathlib prefix | 126.7 s (907.7 G) | 59.8 s (952.7 G) | **2.12 ×** |
+
+The Mathlib figure is above the 1.71 × "ceiling" §5 computed, and the
+reason is worth recording: that ceiling was an INSTRUCTION share, and
+body checking has markedly worse IPC than the parse and the install.
+The body pass's own Σ is 93.7 s of a 126.7 s sequential run — **74 % of
+WALL against 41 % of instructions** — so the wall-clock ceiling is
+nearer 3.8 ×.  Instruction shares understate what a fan-out can take.
+
+Gates: `lake build` 0 warnings, `lake test` exit 0, proofdeps 2 851
+rows / doors 0, trust surface 18 escapes in 4 allowlisted files,
+138/138 e2e fixtures agreeing sequential against the lane.

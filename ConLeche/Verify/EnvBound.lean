@@ -42,6 +42,16 @@ def idxSpec : List ConstantInfo → Name → Option (Nat × ConstantInfo)
   | [], _ => none
   | ci :: cs, n => if ci.name == n then some (cs.length, ci) else idxSpec cs n
 
+/-- The index's key test and the specification's.  `Std.TreeMap`'s
+lemmas phrase a hit as `compare k a = .eq`; `idxSpec` (and `Env.find?`
+under it) phrases it as `==`.  They agree because the name order is
+`LawfulEqCmp` (`ConLeche/Kernel/PropWhen.lean`). -/
+private theorem compare_eq_iff_beq (a b : Name) :
+    (compare a b = .eq) ↔ (a == b) = true := by
+  constructor
+  · intro h; exact beq_iff_eq.mpr (Std.LawfulEqCmp.eq_of_compare h)
+  · intro h; exact Std.ReflCmp.cmp_eq_of_eq (beq_iff_eq.mp h)
+
 theorem mkFEnvGo_fst : ∀ l : List ConstantInfo, (mkFEnvGo l).1 = l.length
   | [] => rfl
   | ci :: cs => by
@@ -53,10 +63,11 @@ theorem mkFEnvGo_snd (n : Name) : ∀ l : List ConstantInfo,
   | [] => by simp [mkFEnvGo, idxSpec]
   | ci :: cs => by
     show ((mkFEnvGo cs).2.insert ci.name ((mkFEnvGo cs).1, ci))[n]? = _
-    rw [Std.HashMap.getElem?_insert, idxSpec]
+    rw [Std.TreeMap.getElem?_insert, idxSpec]
     by_cases hn : ci.name == n
-    · rw [if_pos hn, if_pos hn, mkFEnvGo_fst]
-    · rw [if_neg hn, if_neg hn, mkFEnvGo_snd n cs]
+    · rw [if_pos ((compare_eq_iff_beq _ _).mpr hn), if_pos hn, mkFEnvGo_fst]
+    · rw [if_neg (fun hc => hn ((compare_eq_iff_beq _ _).mp hc)), if_neg hn,
+        mkFEnvGo_snd n cs]
 
 /-- The index of `mkFEnv`, as the specification. -/
 theorem mkFEnv_idx (env : Env) (n : Name) :
@@ -250,15 +261,15 @@ theorem restrictTo_push_find? (env : Env) (k : Nat) (n : Name)
         | some (c, cj) => if c < k + 1 then some cj else none
         | none => none)
       = ((mkFEnv env).restrictTo (k + 1)).find? n
-  rw [Std.HashMap.getElem?_insert]
+  rw [Std.TreeMap.getElem?_insert]
   by_cases hn : ci.name == n
-  · rw [if_pos hn]
+  · rw [if_pos ((compare_eq_iff_beq _ _).mpr hn)]
     show (if k < k + 1 then some ci else none) = _
     rw [if_pos (Nat.lt_succ_self k)]
     have hb := mkFEnv_find?_visibleBelow env (k + 1) n hnd
     rw [hb, Env.find?, hci, List.find?_cons]
     simp only [hn]
-  · rw [if_neg hn]
+  · rw [if_neg (fun hc => hn ((compare_eq_iff_beq _ _).mp hc))]
     show _ = (match (mkFEnv env).idx[n]? with
         | some (c, cj) => if c < k + 1 then some cj else none
         | none => none)
@@ -295,6 +306,109 @@ theorem natOpStoredF_eq (env : Env) (c : Name) :
 theorem natOpGuardF_eq (env : Env) (c : Name) :
     natOpGuardF (mkFEnv env) c = natOpGuard env c := by
   simp only [natOpGuardF, natOpGuard, mkFEnv_find?, natLitSupportedF_eq]
+  rfl
+
+
+/-! ## `FEnv.Agrees`: an index that answers for an environment
+
+Every statement in the cached simulation tier is pinned to the *term*
+`mkFEnv env` — the index of exactly that environment, nothing hidden.
+That is what the sequential fold produces, and while the fold was the
+only consumer it cost nothing.
+
+The deferred-body fan-out (`agent/par-explore`) is the first consumer
+that does not produce it: a worker checks a theorem body against
+`feFinal.restrictTo k`, the bounded view of the final index at the
+declaration's own install counter.  That value is not the term
+`mkFEnv (env.prefixTo k)` — it shares one index with every other
+worker, which is the point — but it ANSWERS as that term does, which is
+`mkFEnv_find?_visibleBelow` above.
+
+`FEnv.Agrees` is the property those statements generalize to.  Both the
+fold's `mkFEnv env` and a worker's `restrictTo k` satisfy it, so a
+simulation stated over it covers both, and the pure checker at the
+environment stays the pivot the two cached runs are compared through —
+no "the checker is extensional in its environment" lemma is needed
+anywhere, which is why the bridge routes through the spec.
+
+It lives HERE, in the bounded-lookup theory, rather than in a module of
+its own: a new module would enter the capstones' import closure and
+`tests/proofdeps.sh` would report a door (it did, on the first cut).
+The declarations are additive; the reach is unchanged.
+
+**The `Nodup` side condition is real and is not discharged here.**  The
+bounded lookup is unconditionally sound (`mkFEnv_find?_visibleBelow_some`:
+it never reaches a constant installed at or after the bound); the
+converse — that it finds everything the prefix environment holds — fails
+if a later constant shadows an earlier one of the same name.  The
+checker rejects a duplicate name at insertion, so the invariant holds of
+every environment it builds; threading it through the fold is the
+prerequisite DESIGN dockets, and the fan-out's bridge is the first thing
+that needs it. -/
+
+/-- `fe` **answers for** `env`: the two agree on every lookup.  The
+index may be a bounded view of a larger one (a worker's), or the
+environment's own full index (the fold's). -/
+def FEnv.Agrees (fe : FEnv) (env : Env) : Prop :=
+  ∀ n, fe.find? n = env.find? n
+
+/-- The agreement, pointwise.  `Agrees` is a `def`, so its equation is
+not visible to `simp` through a hypothesis of that type; this is the
+form the rewrites below (and every consumer) use. -/
+theorem FEnv.Agrees.find? {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    (n : Name) : fe.find? n = env.find? n := h n
+
+/-- The fold's shape: an environment's own index answers for it, with
+no side condition (`mkFEnv_find?`). -/
+theorem FEnv.Agrees.mkFEnv (env : Env) : (ConLeche.mkFEnv env).Agrees env :=
+  mkFEnv_find? env
+
+/-- The worker's shape: the bounded view of a full index answers for the
+environment truncated to that bound — under name uniqueness, which is
+where the `Nodup` prerequisite enters the bridge. -/
+theorem FEnv.Agrees.restrictTo {env : Env} {k : Nat}
+    (hnd : (env.consts.map (·.name)).Nodup) :
+    ((ConLeche.mkFEnv env).restrictTo k).Agrees (env.prefixTo k) :=
+  fun n => mkFEnv_find?_visibleBelow env k n hnd
+
+/-- Two indices that answer for the same environment answer alike.  This
+is the shape a proof reaches for when it has the fold's index in hand
+and wants a worker's, or the other way round. -/
+theorem FEnv.Agrees.find?_congr {fe₁ fe₂ : FEnv} {env : Env}
+    (h₁ : fe₁.Agrees env) (h₂ : fe₂.Agrees env) (n : Name) :
+    fe₁.find? n = fe₂.find? n := by
+  rw [h₁ n, h₂ n]
+
+/-! ## The guard twins, at an index that merely agrees
+
+Each of these is the `_eq` lemma of `EnvBound.lean` with `mkFEnv env`
+generalized to any `fe` answering for `env`; every guard is defined by
+`fe.find?` alone, so each proof is the original with `mkFEnv_find?`
+replaced by the hypothesis. -/
+
+theorem FEnv.Agrees.findProj? {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    (T : Name) (i : Nat) : fe.findProj? T i = env.findProj? T i := by
+  rw [FEnv.findProj?, Env.findProj?, h.find?]
+  rfl
+
+theorem FEnv.Agrees.natLitSupportedF {fe : FEnv} {env : Env}
+    (h : fe.Agrees env) : natLitSupportedF fe = natLitSupported env := by
+  simp only [ConLeche.natLitSupportedF, natLitSupported, h.find?]
+
+theorem FEnv.Agrees.strLitSupportedF {fe : FEnv} {env : Env}
+    (h : fe.Agrees env) : strLitSupportedF fe = strLitSupported env := by
+  simp only [ConLeche.strLitSupportedF, strLitSupported, h.find?,
+    FEnv.Agrees.natLitSupportedF h]
+
+theorem FEnv.Agrees.natOpStoredF {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    (c : Name) : natOpStoredF fe c = natOpStored env c := by
+  simp only [ConLeche.natOpStoredF, natOpStored, h.find?]
+  rfl
+
+theorem FEnv.Agrees.natOpGuardF {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    (c : Name) : natOpGuardF fe c = natOpGuard env c := by
+  simp only [ConLeche.natOpGuardF, natOpGuard, h.find?,
+    FEnv.Agrees.natLitSupportedF h]
   rfl
 
 /-! ## The `Pi`-residual spelling

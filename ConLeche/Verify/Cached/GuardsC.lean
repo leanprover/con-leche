@@ -1181,20 +1181,27 @@ open ExprC in
 /-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
 the erasure — again a top-level match on the whnf'd node, so no
 invariant is needed; only the `FEnv` index has to be resolved. -/
-theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
-    isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env e := by
+theorem isUnitLikeTyC_spec_of {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    (e : ExprC) : isUnitLikeTyC fe e = isUnitLikeTy env e := by
   cases e with
   | const cn us =>
     show (cn == punitName &&
-      (match (mkFEnv env).find? punitName with
+      (match fe.find? punitName with
         | some (.indInfo _ _) => true
         | _ => false) &&
-      (match (mkFEnv env).find? punitRecName with
+      (match fe.find? punitRecName with
         | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
         | _ => false)) = _
-    rw [mkFEnv_find?, mkFEnv_find?]
+    rw [h.find?, h.find?]
     rfl
   | _ => rfl
+
+/-- The `mkFEnv` reading, which is `isUnitLikeTyC_spec_of` at
+`FEnv.Agrees.mkFEnv`: the generalisation is ADDITIVE, so every existing
+consumer of this statement is untouched. -/
+theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
+    isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env e :=
+  isUnitLikeTyC_spec_of (FEnv.Agrees.mkFEnv env) e
 
 open ExprC in
 /-- `isUnitLikeTyC_spec` transported along the value equation. -/
@@ -1207,24 +1214,28 @@ open ExprC in
 /-- The constructor-application guard agrees with the spec's
 `isCtorApp` on the erasure.  Unlike the two above it reads the
 *spine head*, so the node invariant is needed (`getAppFn_spec`). -/
-theorem isCtorAppC_spec {env : Env} {e : ExprC} :
-    isCtorAppC (mkFEnv env) e = isCtorApp env e := by
+theorem isCtorAppC_spec_of {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    {e : ExprC} : isCtorAppC fe e = isCtorApp env e := by
   have hfn := ExprC.getAppFn_spec e
   show (match ExprC.getAppFn e with
       | .const cn _ =>
-        match (mkFEnv env).find? cn with
+        match fe.find? cn with
         | some (.ctorInfo _ _ _) => true
         | _ => false
       | _ => false) = _
   rw [isCtorApp, ← hfn]
   cases ExprC.getAppFn e with
   | const cn us =>
-    show (match (mkFEnv env).find? cn with
+    show (match fe.find? cn with
         | some (.ctorInfo _ _ _) => true
         | _ => false) = _
-    rw [mkFEnv_find?]
+    rw [h.find?]
     rfl
   | _ => rfl
+
+theorem isCtorAppC_spec {env : Env} {e : ExprC} :
+    isCtorAppC (mkFEnv env) e = isCtorApp env e :=
+  isCtorAppC_spec_of (FEnv.Agrees.mkFEnv env)
 
 open ExprC in
 /-- `isCtorAppC_spec` transported along the value equation. -/
@@ -1285,12 +1296,12 @@ theorem headHintC_spec' {env : Env} {e : ExprC} {ex : Expr}
 open ExprC in
 /-- The lazy-delta unfoldability decision agrees with the spec's
 `unfoldableHead` on the erasure (again a spine-head read). -/
-theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
-    unfoldableHeadC (mkFEnv env) e = unfoldableHead env e := by
+theorem unfoldableHeadC_spec_of {fe : FEnv} {env : Env} (h : fe.Agrees env)
+    {e : ExprC} : unfoldableHeadC fe e = unfoldableHead env e := by
   have hfn := ExprC.getAppFn_spec e
   show (match ExprC.getAppFn e with
       | .const nm us =>
-        match (mkFEnv env).find? nm with
+        match fe.find? nm with
         | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
         | some (.thmInfo cv _) => us.length == cv.levelParams.length
         | _ => false
@@ -1299,11 +1310,15 @@ theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
   cases ExprC.getAppFn e with
   | const nm us =>
     dsimp only
-    rw [mkFEnv_find?]
+    rw [h.find?]
     cases env.find? nm with
     | none => rfl
     | some ci => cases ci <;> rfl
   | _ => rfl
+
+theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
+    unfoldableHeadC (mkFEnv env) e = unfoldableHead env e :=
+  unfoldableHeadC_spec_of (FEnv.Agrees.mkFEnv env)
 
 open ExprC in
 /-- `unfoldableHeadC_spec` transported along the value equation. -/

@@ -317,30 +317,24 @@ open ConLeche.Cached
 /-- A deferred theorem-body check. -/
 structure BodyJob where
   idx : Nat
-  bound : Nat
+  /-- The index the body must be checked at: the very `FEnv` the fold
+  held before this theorem's push, CAPTURED.  It costs a pointer because
+  `FEnv.idx` is persistent (`Std.TreeMap`); with the hash index a
+  capture would have cost the next insert its exclusivity, i.e. task
+  #179's bucket-array copy per constant. -/
+  fe : FEnv
   name : Name
   jty : ExprC
   jv : ExprC
 
 /-- The install half of a theorem, emitting its deferred body job.
-`checkThmValC` verbatim, with the two body steps replaced by the job. -/
+It IS the branch's own install half — `thmPrepC`
+(`ConLeche/Cached/ParsedC.lean`) — followed by the push, so what the
+fan-out defers is exactly what `checkThmValC_split` says it is. -/
 def parThmInstall (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
-    (jty : ExprC) (value : ExprC) : CheckCM (FEnv × BodyJob) := do
-  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
-  let ul ← opSIxC mode fe 0 jsty
-  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
-    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ExprC.looseBVarsBounded 0 value do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if value.hasFvar then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  recordCConst cvA.name cvA.type jty (some (jv, jv))
-  pure (fe.push (.thmInfo cvA jv), ⟨0, fe.visibleBelow, cvA.name, jty, jv⟩)
+    (jty : ExprC) (value : ExprC) : CheckCM (FEnv × BodyJob) :=
+  thmPrepC mode fe cvA jty value (fun jv =>
+    pure (fe.push (.thmInfo cvA jv), ⟨0, fe, cvA.name, jty, jv⟩))
 
 /-- The install pass's step: `checkDeclSPStepC` with theorem bodies
 deferred.  The accumulator carries the fold position, the environment
@@ -365,13 +359,11 @@ def parInstall (mode : CheckMode) (ds : List DeclC) :
   let p ← (ds.foldlM (parInstallStep mode) (0, mkFEnv Env.empty, #[])).run' {}
   pure (p.2.1, p.2.2)
 
-/-- One deferred body's check, at its own bounded view of the final
-environment: `checkThmValC`'s two body steps and nothing else. -/
-def bodyAct (mode : CheckMode) (fe : FEnv) (j : BodyJob) : CheckCM Unit := do
+/-- One deferred body's check: the branch's own body half (`thmBodyC`)
+at the index the fold held, and nothing else. -/
+def bodyAct (mode : CheckMode) (j : BodyJob) : CheckCM Unit := do
   flushC
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 j.jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt j.jty do
-    throw (.invalid s!"type mismatch in theorem {j.name}")
+  thmBodyC mode j.fe j.name j.jty j.jv (pure ())
 
 /-- Keep the failure of lowest fold position. -/
 def firstFailure : Option (CheckError × Nat) → Option (CheckError × Nat) →
@@ -382,9 +374,9 @@ def firstFailure : Option (CheckError × Nat) → Option (CheckError × Nat) →
 
 /-- One job, checked at its own bounded view of the final environment
 with a fresh memo state. -/
-def checkOneJob (mode : CheckMode) (feFinal : FEnv) (j : BodyJob) :
+def checkOneJob (mode : CheckMode) (j : BodyJob) :
     Option (CheckError × Nat) :=
-  match (bodyAct mode (feFinal.restrictTo j.bound) j).run' {} with
+  match (bodyAct mode j).run' {} with
   | .ok _ => none
   | .error e => some (e, j.idx)
 
@@ -393,10 +385,10 @@ clock reads: a plain `let` is a PURE binding and the compiler sinks it to
 its use site — past the second read — which is how the first cut of this
 instrument measured 0 ns for every job while the pass still took
 seconds. -/
-def timedJob (mode : CheckMode) (feFinal : FEnv) (j : BodyJob) :
+def timedJob (mode : CheckMode) (j : BodyJob) :
     IO (Option (CheckError × Nat) × Nat) := do
   let t0 ← IO.monoNanosNow
-  let r ← IO.lazyPure fun _ => checkOneJob mode feFinal j
+  let r ← IO.lazyPure fun _ => checkOneJob mode j
   let t1 ← IO.monoNanosNow
   pure (r, t1 - t0)
 
@@ -404,9 +396,9 @@ def timedJob (mode : CheckMode) (feFinal : FEnv) (j : BodyJob) :
 the balancing and `LEAN_NUM_THREADS` bounding the threads.  Kept beside
 the queue so the two can be compared on the same binary; selected by
 `CON_LECHE_PAR_JOB=1`. -/
-def parBodiesPerJob (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob) :
+def parBodiesPerJob (mode : CheckMode) (jobs : Array BodyJob) :
     IO (Option (CheckError × Nat) × Nat × Nat) := do
-  let ts ← jobs.mapM fun j => IO.asTask (timedJob mode feFinal j)
+  let ts ← jobs.mapM fun j => IO.asTask (timedJob mode j)
   let mut err : Option (CheckError × Nat) := none
   let mut span := 0
   let mut sum := 0
@@ -431,7 +423,7 @@ def nextJob (q : Std.Mutex Nat) (n : Nat) : BaseIO (Option Nat) :=
 
 /-- One worker: pull, check, repeat, carrying the lowest-position
 failure, the largest single-body time (the SPAN) and the total. -/
-partial def pullLoop (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob)
+partial def pullLoop (mode : CheckMode) (jobs : Array BodyJob)
     (q : Std.Mutex Nat) (acc : Option (CheckError × Nat)) (span sum : Nat) :
     IO (Option (CheckError × Nat) × Nat × Nat) := do
   match ← nextJob q jobs.size with
@@ -444,10 +436,10 @@ partial def pullLoop (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob)
     -- `IO.lazyPure`, not a `let`: a pure binding is sunk to its use site
     -- by the compiler, past the second clock read, and every job then
     -- measures 0 ns.
-    let r ← IO.lazyPure fun _ => checkOneJob mode feFinal j
+    let r ← IO.lazyPure fun _ => checkOneJob mode j
     let t1 ← IO.monoNanosNow
     let dt := t1 - t0
-    pullLoop mode feFinal jobs q (firstFailure acc r) (max span dt) (sum + dt)
+    pullLoop mode jobs q (firstFailure acc r) (max span dt) (sum + dt)
 
 /-- The body pass: `workers` tasks pulling from ONE shared queue.
 
@@ -464,11 +456,11 @@ the thread count without an environment variable.
 
 The verdict is the failing job of LOWEST fold position, so it does not
 depend on the schedule. -/
-def parBodies (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob)
+def parBodies (mode : CheckMode) (jobs : Array BodyJob)
     (workers : Nat) : IO (Option (CheckError × Nat) × Nat × Nat) := do
   let q ← Std.Mutex.new 0
   let ts ← (List.range (max workers 1)).mapM fun _ =>
-    IO.asTask (pullLoop mode feFinal jobs q none 0 0)
+    IO.asTask (pullLoop mode jobs q none 0 0)
   let mut err : Option (CheckError × Nat) := none
   let mut span := 0
   let mut sum := 0
@@ -731,8 +723,8 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
             -- across a worker's jobs) and no wall time.
             let perJob := (← IO.getEnv "CON_LECHE_PAR_JOB") == some "1"
             let (res, span, sum) ←
-              if perJob then parBodiesPerJob mode feFinal jobs
-              else parBodies mode feFinal jobs par
+              if perJob then parBodiesPerJob mode jobs
+              else parBodies mode jobs par
             IO.eprintln s!"con-leche: par job stats: {jobs.size} bodies, \
               Σ={sum / 1000000}ms, span(max)={span / 1000000}ms, \
               workers={par}"

@@ -177,6 +177,60 @@ theorem ne_of_lt {a b : Name} (h : a < b) : a ≠ b := by
 theorem lt_of_gt {a b : Name} (h : cmp a b = .gt) : b < a := by
   rw [lt_def, cmp_swap b a, h]; rfl
 
+/-! ## `Name` as an ordered key
+
+The persistent environment index (`FEnv.idx`, a `Std.TreeMap`) needs an
+`Ord` whose laws it can use.  The comparison is **hash first, structure
+second**: the cached hash is a `@[computed_field]`, so the common case
+is one `UInt64` compare and the structural walk is reached only on a
+collision.  Measured on the checker, against the same tree with a purely
+structural order: `init`-scale stream 293.6 G → 280.3 G, Mathlib prefix
+966.6 G → 907.7 G instructions.
+
+Spelling it as `compareLex (compareOn hashData) cmp` is what makes the
+laws free: `Std` derives `ReflCmp`, `OrientedCmp` and `TransCmp` for
+both combinators, so the only obligations are the four for `cmp`
+itself — and those are the theorems above. -/
+
+instance : Std.ReflCmp cmp := ⟨fun {a} => cmp_self a⟩
+
+instance : Std.OrientedCmp cmp := ⟨fun {a b} => cmp_swap a b⟩
+
+instance : Std.LawfulEqCmp cmp where
+  eq_of_compare h := eq_of_cmp h
+
+instance : Std.TransCmp cmp where
+  isLE_trans {a b c} h1 h2 := by
+    cases hab : cmp a b with
+    | lt =>
+      cases hbc : cmp b c with
+      | lt => simp [cmp_trans hab hbc, Ordering.isLE]
+      | eq => rw [eq_of_cmp hbc] at hab; simp [hab, Ordering.isLE]
+      | gt => rw [hbc] at h2; simp [Ordering.isLE] at h2
+    | eq => rw [eq_of_cmp hab]; exact h2
+    | gt => rw [hab] at h1; simp [Ordering.isLE] at h1
+
+/-- Names ordered by cached hash, then structurally. -/
+instance : Ord Name := ⟨compareLex (compareOn hashData) cmp⟩
+
+-- The derived instances are stated about `compareLex …`; instance search
+-- will not unfold the `Ord` instance to find them, so they are relayed
+-- at `compare` explicitly (the pattern `Init/Data/Order/Ord.lean` uses
+-- for its own lexicographic orders).
+instance : Std.ReflCmp (compare : Name → Name → Ordering) :=
+  inferInstanceAs (Std.ReflCmp (compareLex (compareOn hashData) cmp))
+
+instance : Std.OrientedCmp (compare : Name → Name → Ordering) :=
+  inferInstanceAs (Std.OrientedCmp (compareLex (compareOn hashData) cmp))
+
+instance : Std.TransCmp (compare : Name → Name → Ordering) :=
+  inferInstanceAs (Std.TransCmp (compareLex (compareOn hashData) cmp))
+
+instance : Std.LawfulEqCmp (compare : Name → Name → Ordering) where
+  compare_self := Std.ReflCmp.compare_self
+  eq_of_compare h :=
+    eq_of_cmp (compareLex_eq_eq.mp h).2
+
 /-- Trichotomy: names are linearly ordered by `<`. -/
 theorem lt_trichotomy (a b : Name) : a = b ∨ a < b ∨ b < a := by
   cases h : cmp a b with

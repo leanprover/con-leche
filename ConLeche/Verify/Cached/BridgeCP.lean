@@ -255,7 +255,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
       (checkThmValC mode (mkFEnv env) cvA jty value)
       (checkThmVal (fueledOpsM mode) env cvA ve) := by
-  unfold checkThmValC checkThmVal
+  unfold checkThmValC thmPrepC thmBodyC checkThmVal
   refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs hjty htf)
     (fun s₁ jsty wsty hs₁ hP => ?_)
   obtain ⟨hjsty, hwsty⟩ := hP

@@ -48,6 +48,8 @@ deriving DecidableEq, Repr, Inhabited
 a byte-wise `String` hash per limb. -/
 instance : Hashable Name := ⟨Name.hashData⟩
 
+
+
 /-- Name equality in the official kernel's shape (task #176 P1):
 **pointer** (`lean_name_eq`'s `if (n1 == n2) return true`), then the
 **cached hash** (`lean_name_hash_ptr`), then the structural walk —
