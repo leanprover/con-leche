@@ -3,8 +3,9 @@ import ConLeche.SetP.IndFrameP
 /-!
 # The reading's substitution algebra (task #161, IND TIER part 4)
 
-`Verify/Denote/SubstAlgebra.lean`'s and `TeleOpen.lean`'s absorption
-laws at `AVExpr`, and the `AVExpr.instSeq` corollaries the surviving
+`TeleOpen.lean`'s absorption laws at `AVExpr` (their `VExpr`
+originals were `Verify/Denote/SubstAlgebra.lean`'s, deleted at task
+#221), and the `AVExpr.instSeq` corollaries the surviving
 modeled-iota stages read.
 
 **Why these are not free, and why they are cheap.**  `AVExpr.liftN`

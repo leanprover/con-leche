@@ -253,8 +253,8 @@ theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
 /-! ## Two scoping facts the cached call-discipline needs
 
 Rehomed here at task #221 with the deletion of `Verify/Disc.lean` (the
-*memoized* knot's call discipline, whose knot induction
-`Verify/Bridge.lean` had already gone): these two were the only
+*memoized* knot's call discipline, whose knot induction had already
+gone): these two were the only
 declarations of that module the cached discipline
 (`Verify/Cached/DiscC*.lean`) still read. -/
 

@@ -16,9 +16,8 @@ import ConLeche.Verify.InstSpine
 The checker core threads a binder depth, used only to name freshly
 opened `fvar`s.  This module proves that every entry point's *result*
 is independent of the ambient depth, for inputs well-scoped at both
-depths — the theorem that justifies memoizing the cached knot
-(`ConLeche/Kernel/TypeCheckerC.lean`) under depth-free keys (see
-`ConLeche/Verify/Bridge.lean` for the retied cache invariant).
+depths — the theorem that justifies memoizing the executed knot
+(`ConLeche/Cached/CoreC.lean`) under depth-free keys.
 
 The proof is a bisimulation: a run at depth `d` on `e` is matched
 against the run at depth `d + 1` on `shiftFrom p e` (all `fvar`s at

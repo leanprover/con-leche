@@ -827,9 +827,11 @@ decreasing_by all_goals first
 hereditarily through annotations (the `Bool` mirror of the
 verification-side `WScoped`).
 
-Not on any per-memo-op path (task #43): the memoized knot's cache
+Not on any per-memo-op path (task #43): the executed knot's cache
 operations run unguarded, justified by the proven call discipline
-(`ConLeche/Verify/Disc.lean`).  Remaining executable call sites are the
+(`ConLeche/Verify/Cached/DiscC*.lean`; the memoized knot's own
+discipline, `ConLeche/Verify/Disc.lean`, went with that knot at task
+#221).  Remaining executable call sites are the
 scope guards on checker-fabricated terms in `ConLeche/Kernel/Core.lean`
 (the stuck-major rescues in `majorToCtor`; the projection
 eliminations went with task #175 wiring W5), each O(small
