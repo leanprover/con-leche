@@ -508,15 +508,15 @@
     18  
     19  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
 
-== ConLeche/Kernel/Env.lean#L529-L536
-   529  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   530    block.all fun ci => match ci with
-   531      | .indInfo cvT _ =>
-   532        match cvT.type.piSortTeleLen? with
-   533        | some n => decide (nP ≤ n)
-   534        | none => true
-   535      | .ctorInfo _ nPc _ => nPc == nP
-   536      | _ => true
+== ConLeche/Kernel/Env.lean#L535-L542
+   535  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   536    block.all fun ci => match ci with
+   537      | .indInfo cvT _ =>
+   538        match cvT.type.piSortTeleLen? with
+   539        | some n => decide (nP ≤ n)
+   540        | none => true
+   541      | .ctorInfo _ nPc _ => nPc == nP
+   542      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr

@@ -240,7 +240,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   block's shape — its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L529-L536)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L535-L542)),
   its index count off what is left of the type former's telescope, as
   official reads them, and
   nothing of the stream's recursor record, which official never reads as
