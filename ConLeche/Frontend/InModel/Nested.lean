@@ -44,9 +44,18 @@ Declines (the residual): a field mentioning the block other than as a
 whole member/mimic carrier (an occurrence under a binder — infinitary
 nesting), a container that is itself nested or mutual or whose mimics
 form a cycle (B4), a reflexive member, a `Prop` block with a large
-eliminator, a container field a later container field depends on.
-(Members' parameter telescopes and sorts are not compared: task #218,
-`Mutual.lean`'s header.)
+eliminator, a container field a later container field depends on, an
+index domain whose sort not even a ceiling bounds (`Kit.sortCeil`,
+task #227).  (Members' parameter telescopes and sorts are not
+compared: task #218, `Mutual.lean`'s header.)
+
+KNOWN GAP, not a decline (task #227's finding): a member whose index
+DOMAIN mentions a parameter — `inductive NB (α : Type) (a₀ : α) : α →
+Type` nesting through `List`, or `NB4 (α : Type) : List α → Type` —
+gets a `_impl.rec` the fold REJECTS (an application type mismatch at
+the tag dispatch), where official accepts the block.  It is older than
+the ceiling and independent of it: the same block with a closed index
+domain (`Nat`) installs, and the same domain in a MUTUAL block installs.
 -/
 
 namespace ConLeche.Frontend.InModel
@@ -505,8 +514,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     for j in List.range mem.nIdx do
       let ctxJ := (pbs ++ (mem.idxBs.take j)).reverse
       let dom := (mem.idxBs.getD j default)
-      let some ℓj := sortOf ctx.tbl ctxJ (dom.renameConsts rnF)
-        | throw s!"cannot infer the sort of index {j} of member {mem.tag} (the tag's universe)"
+      let some ℓj := idxSort ctx.tbl ctxJ (dom.renameConsts rnF)
+        | throw s!"cannot bound the sort of index {j} of member {mem.tag} (the tag's universe)"
       W := .max W ℓj
   let tagTy ← need "tag type" (Expr.replacePiBody nP t0.cv.type (.sort W))
   let tagCtors : List (Name × Nat × Expr × List Nat) ← mems.mapM fun mem => do

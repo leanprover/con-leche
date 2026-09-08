@@ -60625,3 +60625,165 @@ accepted **53 088** declarations, exit 0, route census **584 fix / 6
 basis / 1 inmodel**, at **679.098 G instructions:u** against #221's
 published 679.08 G — parity (+0.003 %).  **A rename costs nothing, as
 it should.**
+
+## TASK #227 — THE TAG'S UNIVERSE WITHOUT AN ENVIRONMENT: a sort CEILING, and the #218/#200 finding closed (2026-09-08, `agent/modsort`)
+
+### 0. The finding, and the ruling it is decided under
+
+Task #218's finding, verbatim: *"The tag's universe by the syntactic
+sort inferer (#200): a mutual or nested member whose index domain's
+sort needs `whnf` (an index `(x : α)` where the FIRST member binds
+`α : id Type`, or an index domain declared at a definition) declines
+with 'cannot infer the sort of index j'; official's `mk_rec_infos`
+infers it with the environment."*
+
+The user's ruling in force is #218's: *"the untrusted modeller works a
+bit yolo-like, and invalid input gets caught (in possible not very
+user friendly ways) when checking the model or installing the modelled
+inductive in the trusted code"* — and the standing one, *"no more
+restrictive than the official checker"*.  The level the modeller emits
+for the tag family is nevertheless a real datum: emit a wrong one and
+the generated family is ill-typed, so the block REJECTS where official
+accepts.  A guess is only allowed if it cannot be wrong.
+
+### 1. Why the level has to be known at emission (option (b) is not available)
+
+The modeller's records — the tag block first — are pushed AHEAD of the
+block and are checked by the fold as ordinary declarations; the modeled
+install runs afterwards, on the environment those checks built.  So the
+brief's option (b), "emit a level PLACEHOLDER and let the install
+instantiate it", cannot work: a tag family `tag.{w} : ∀ p⃗, Sort w` with
+an index field of sort `ℓ` is REJECTED by the fold itself, at the
+install's universe condition `Level.leq ℓ w`
+(`ConLeche/Kernel/Inductives/SumInstall.lean`), which no fresh `w`
+satisfies.  Whatever the modeller emits is checked before anything can
+patch it, so the level must be right when it is written.
+
+Nor can the encoding avoid the level.  The tag carries each member's
+index telescope as constructor FIELDS (`tag.m : ∀ p⃗ ı⃗_m, tag p⃗`) —
+that is what makes `tag p⃗` the disjoint union of the members' index
+tuples and lets `T_m._model := λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)` exist — and a
+data type storing a value of sort `ℓ` must live at `ℓ` or above.  A
+`Prop` tag would escape the condition (impredicativity) but not the
+recursor: the recursor models dispatch the motive on the tag with
+`tag.rec` into `Sort ℓ`, which needs LARGE elimination, which a `Prop`
+tag with fields does not have.
+
+### 2. The design: a sort CEILING, not a sort (option (a))
+
+The tag does not need the LEAST universe.  Nothing reads it: the
+install checks `field ≤ result`, never equality; the auxiliary family
+takes `tag p⃗` as an INDEX domain, and an index domain constrains no
+universe; every public slot is spelled at the member's own declared
+type.  A universe too large is as correct as the least one — and is
+computable where the least one is not.
+
+`Kit.sortCeil tbl ctx D` (`ConLeche/Frontend/InModel/Kit.lean`, used
+through `idxSort` at both rungs' tag construction) returns a level at
+least the `ℓ` with `D : Sort ℓ`, by four rules tried in order:
+
+1. **the exact reading** — `sortOf`, task #200's syntactic inferer,
+   where `D`'s type is syntactically a sort.  Unchanged, so no block
+   that installed before this function existed moves by a bit
+   (measured: the Mathlib cone's generated records are byte-identical,
+   §5);
+2. **up the type tower** — `D`'s type `T` is inferable but stuck
+   (`α : id Type`).  `T ≡ Sort ℓ`, so `T` itself lives at `ℓ+1`, and a
+   ceiling for `T` is above `ℓ`.  `id Type`'s own type reads as
+   `Sort 2` and bounds `ℓ = 1`;
+3. **down a `∀`** — `D = ∀ x : A, B` whose domain's sort is unreadable.
+   `sort(D) = imax (sort A) (sort B) ≤ max (sort A) (sort B)`, so the
+   parts' ceilings bound it;
+4. **the head's type** — `D`'s type is not inferable at all: `D = h a⃗`
+   at a head whose own declared type is stuck (`def FamW : id (Type →
+   Type)`, `D = FamW Nat`).  The head's type is `∀ x⃗, B` with
+   `B ≡ Sort ℓ`, so its sort is `imax … (ℓ+1)`, whose right argument is
+   non-zero — the `imax` is a `max` — and is therefore above `ℓ`; a
+   ceiling for the head's type bounds `ℓ` too.  This is the rule that
+   buys delta reduction without a value table: the modeller keeps only
+   the declared TYPES of the constants parsed so far (`StateD.constTypes`),
+   and carrying every definition's VALUE through a Mathlib-scale parse
+   was not worth a universe.
+
+A `letE` falls back to its zeta-reduct, and a fuel (128) bounds the
+walk and keeps the function total.  Nothing here is trusted: a ceiling
+computed for a "domain" that is not a type at all is a level like any
+other, and the tag family the modeller then emits fails the fold's own
+type check — the twin fixture below.
+
+**The residual** is now: a domain whose type is not inferable AND whose
+head's type is not inferable either (a `.proj`-headed domain, a constant
+missing from the table).  The decline reads "cannot bound the sort of
+index j".
+
+### 3. Fixtures
+
+* `ind_mutual_idxsort` (`tests/e2e/src/`, plain Lean): five blocks, one
+  per shape — `MA`/`MB` indexed by `(x : α)` at a parameter
+  `(α : id Type)` and by `(i : IdxW)` at `def IdxW : id Type := Nat`
+  (rules 2 and 2); `MC`/`MD` indexed by `FamW Nat` at
+  `def FamW : id (Type → Type)` (rule 4); `MU`/`MV`, the
+  universe-polymorphic twin at `(α : id (Type u))`; and the two closed
+  domains on NESTED blocks `NT`, `NU`.  Every block varies its indices
+  so Lean does not promote them to parameters.  **2 → 0** in both
+  modes (official 0, 93 declarations; con-leche 46 + 74 generated).
+* `ind_mutual_idxsort_bad` (`scripts/mk_idxsort_bad.py`): the same
+  stream with the constant `IdxW` replaced in place by `Nat.zero`, an
+  index domain that is not a type.  Official rejects ("type expected",
+  exit 1); con-leche's ceiling returns a level for `Nat.zero` like for
+  any term and the fold rejects the generated tag family ("expected a
+  sort" at `IdxSort.MA._model._impl.tag`), exit 1 — the ruling in
+  action.
+* `tests/inmodel.sh`'s default list gains the good fixture (5 blocks in
+  process, 74 generated records).
+
+### 4. Finding: an index DOMAIN mentioning a parameter, on the nested rung
+
+Older than this task and independent of it — it needs no `id` and no
+ceiling — but found on the way and worth a task: a NESTED block whose
+index domain mentions a parameter emits an `_impl.rec` the fold
+REJECTS (an application type mismatch at the tag dispatch,
+`@…tag.rec p⃗ (fun a => aux p⃗ a → Sort u)`), where official accepts the
+block.  Minimal witnesses, on master and on this branch alike:
+`inductive NB (α : Type) (a₀ : α) : α → Type` with
+`node : (x : α) → List (NB α a₀ a₀) → NB α a₀ x`, and
+`NB4 (α : Type) : List α → Type` nesting through `List` at `[]`.  The
+same block with a CLOSED index domain (`NB2 … : Nat → Type`) installs,
+and the same parameter-dependent domain in a MUTUAL block installs
+(`MA`/`MB` above), so the defect is a frame in the nested rung's group
+recursor, not the tag.  It is a wrong VERDICT (a reject, not a
+decline), which puts it above a coverage item; no Mathlib or init-full
+block is in the class (every Mathlib nested block is index-free; the
+two indexed blocks of the census are mutual).  Recorded in
+`ConLeche/Frontend/InModel/Nested.lean`'s header as a KNOWN GAP.
+
+### 5. Receipts (branch `agent/modsort`, master `3d560725`)
+
+* `lake build` 517 jobs, zero warnings; `lake test` green.
+* `tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0
+  FAIL** — arena tutorial 90/92 (032/033 by design), e2e **168/168**
+  (the two new fixtures), annot 14/14, retired 8/8, mode 18/18,
+  prelude 3/3, progress 6/6, DAG-tower 2/2, trusted sweep 138 + 168 +
+  14 with its three recorded divergences; axioms pinned at 11 theorems,
+  `[propext, Classical.choice, Quot.sound]`.
+* `tests/layering.sh` 263/189/3/1 modules, 0 impl→theory;
+  `tests/trust-surface.sh` 18 escapes in 4 allowlisted files of 464
+  scanned, 0 outside; `tests/proofdeps.sh` **2 846 rows, doors 0** (no
+  proof moved — the diff is the frontend and fixtures);
+  `tests/inmodel.sh` OK on eight fixtures;
+  `tests/overview-links.sh` 57 links / 44 files OK (the residual anchor
+  `Nested.lean#L43-L50` regenerated for the new decline clause; the
+  citing paragraph re-read and still true).
+* **init-full**, raw, default mode, `perf stat -e instructions:u`:
+  accepted **53 088**, route census **584 fix / 6 basis / 1 inmodel**
+  (`Lean.Syntax` still `inmodel`), at **679.151 G instructions:u**
+  against #222's 679.098 G — parity (+0.008 %; the ceiling runs once
+  per index binder of a mutual or nested block).
+* **The Mathlib mutual/nested cone**: all **51** blocks of the census
+  (13 mutual incl. mutual+nested, 41 nested incl. the same three) cut
+  from `_tmp/mathlib-scoping/mathlib-full.ndjson` with
+  `scripts/slice-cone.py` (138 MB, 4 961 declarations).  Accepted, exit
+  0, **4 958 declarations**, **51 modelled / 0 declined**, on this
+  branch and on master's binary alike — and the two runs'
+  `CON_LECHE_INMODEL_DUMP` streams are **byte-identical**, so not one
+  generated record of Mathlib's mutual and nested blocks moved.
