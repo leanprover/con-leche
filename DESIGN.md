@@ -61522,9 +61522,10 @@ The remaining **23 removals in 20 files** are what landed:
 `Verify/{CoreGated, InstSpine, ProjSlots, StdAxiomPin}`,
 `Verify/Cached/BridgeCSDecl`, `Verify/Denote/{EnvExt, IndFrame}`,
 `Verify/Extend/{Block, Ind, Sibs}`, `Verify/Inductives/FixParts`.
-In-tree import edges **1316 → 1293**; 459 modules, **459 still
-reachable from the library roots** (no module fell out of the build);
-517 build jobs before and after.
+In-tree import edges (`ConLeche/*` plus the three roots) **1309 →
+1286**; every one of the 459 modules (457 + the two test modules) is
+**still reachable from the eleven library roots**, so no module fell
+out of the build; 517 build jobs before and after.
 
 ### 6. Two classes the criterion still misses — the cold build is the arbiter
 
@@ -61619,4 +61620,26 @@ to regenerate (every removed edge was implied by another edge inside
 the capstones' closures), `tests/trust-surface.sh` (18 escapes in 4
 allowlisted files, 464 scanned), `tests/pindump.sh`,
 `tests/overview-links.sh` (58 links, 44 files — no linked range
-shifted), `tests/route-census.sh`, `tests/inmodel.sh`.
+shifted), `tests/route-census.sh`, `tests/inmodel.sh`.  Master (`e2ca64df`,
+task #229) merged and the trimmed battery re-run on the merge.
+
+### 11. The measurement, and the honest reading of it
+
+Cold builds of the two trees, same machine, `perf stat -e
+instructions:u` over the whole `lake build`:
+
+| tree | jobs | instructions:u |
+|---|---|---|
+| master `e2ca64df` | 517 | 4 916 435 513 227 |
+| this branch | 517 | 4 916 786 858 157 |
+
+**+0.007 %** — noise.  The structural number does move: the sum over
+all modules of the size of the module's transitive import closure —
+which is what "how much has to be rebuilt when a file changes" is
+proportional to — goes **52 360 → 52 013**, −347 (−0.66 %).  So the
+23 edges were real closure edges, not implied ones; a cold build is
+simply dominated by elaboration, and the payoff of removing an unused
+import is hygiene and incremental-rebuild fan-in, not wall clock.
+`tests/proofdeps.sh` seeing no row move says the same thing from the
+other side: none of the 23 was the *last* path from a capstone to any
+module.
