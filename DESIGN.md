@@ -62746,6 +62746,89 @@ the cursor for this reason (task #233: "both keys carry the CURSOR");
 structural equality's answer is a function of *both* nodes, and
 nothing less will do.
 
+### Task #235 addendum — THE SECOND LANE'S BATTERY, AND WHAT MASTER COST (2026-09-08, `agent/beqpair-battery`)
+
+Two lanes ran at `twochart.ndjson` at the same time and reached the
+same diagnosis (`Expr.beqGo`'s memo keyed on `addr a`), the same
+counters (8 913 237 800 nodes, 99.79 % re-binding writes) and the same
+repair (the pair packed into the `Nat` key slot, `φ` the golden-ratio
+constant) independently — which is the strongest evidence available
+that the reading is right and not a story fitted to one profile.  What
+the second lane has that the record above does not is breadth of
+streams and a master row; both are folded in here, all measured in one
+worktree so the columns are comparable to each other.
+
+**What the fixture cost before this task, and what #233/#236 did to
+it.**  The fixture README recorded 1 h 24 min from the sequential
+full-export run and noted it had never been run alone.  Run alone it
+is a quarter of an hour less than that by two orders of magnitude:
+
+| arm | `twochart` instructions:u | wall |
+|---|---:|---:|
+| master `8244482b` | 4 717 228 025 208 | 303.8 s |
+| `9c537ae6` (task #236) | 4 596 541 443 312 | 271.4 s |
+| the pair key | 374 615 757 641 | 43.1 s |
+
+So the **1 h 24 min is the full-export CONTEXT, not the declaration**
+— a 1 052 234-constant environment and the memory that goes with it,
+and/or the tree as it stood at `329d24ae` — and #233 and #236 together
+moved this fixture by 2.6 %, which is what one expects of two
+install-path fixes measured on a theorem body.  Anything aimed at this
+declaration has to be measured on the isolated run, and the isolated
+run is what the README now records.  Cross-check that the arms are
+what they say: master measured here at 826 520 700 231 on
+`jzero_neron`, against task #236's recorded 825 879 840 947 for that
+same commit — 0.08 % apart.
+
+**The battery**, `--verified`, single thread, `perf stat -e
+instructions:u`, `ulimit -v 22000000`, `nice -n 5`, one run per cell,
+base `9c537ae6` → the landed pair key, identical verdicts and
+declaration counts in every cell:
+
+| stream | base | landed | Δ |
+|---|---:|---:|---:|
+| **`twochart`** | 4 596 541 443 312 | **374 615 757 641** | **−91.85 %** |
+| `cone1` (declines) | 274 019 991 773 | 265 485 810 702 | −3.11 % |
+| `jzero_neron` | 709 147 331 200 | 698 185 622 193 | −1.55 % |
+| `semistable` | 278 878 382 777 | 277 606 125 735 | −0.46 % |
+| `jzero_struct` | 247 343 160 279 | 246 722 924 295 | −0.25 % |
+| `grind-ring-5` | 28 727 916 414 | 28 656 247 712 | −0.25 % |
+| `init-prelude` | 4 919 058 063 | 4 911 278 899 | −0.16 % |
+| `app-lam` | 160 979 091 638 | 160 979 333 720 | +0.00015 % |
+| `beta-ladder` | 40 364 249 006 | 40 365 039 186 | +0.002 % |
+| `let-ladder` | 8 463 817 135 | 8 463 751 882 | −0.0008 % |
+| `shared-subterm` | 457 192 122 | 457 193 976 | +0.0004 % |
+| `slice-2M` (declines) | 23 790 237 252 | 23 790 239 280 | +0.00001 % |
+
+and seven more arena perf fixtures (`repeated-subproblem`,
+`identical-nesting`, `church-numerals`, `shift-cascade`,
+`args-before-unfold`, `unroll-versus-evaluate`,
+`folded-constant-first`) all inside ±0.006 %.
+
+**`app-lam` is the row worth reading.**  It is the fixture the memo
+was built for — 24 k nodes, ~10^1160 unshared, unreachable without a
+memo — and it moves by 0.00015 %.  Its comparisons have ONE partner
+per node, which is the case task #192's half key was optimal for; the
+pair key is exactly as good there.  That is the shape of the whole
+result: the pair key costs nothing where the half key was already
+right, and is 415× the walk where it was not.  The two are not a
+trade-off, which is why nothing in the battery regresses.
+
+**A third repair was built and measured, and it is the one to
+remember.**  Beside `Std.HashMap (Nat × Nat) Unit` (§4 above: correct,
+and +0.50 % for the `Prod` cell), the other obvious exact memo is to
+keep the `addr a` key and make the VALUE a `List Nat` of every partner
+proved equal to it.  It works — 21 459 162 nodes on the fixture, the
+same 415× — and the partner lists are short, 1.8 elements on the
+average probe and 114 at the longest.  It costs one cons cell per
+write and an owned list per probe, and that is **+1.63 %
+`grind-ring-5`, +0.73 % `semistable`, +0.71 % `jzero_struct`,
++0.64 % `init-prelude`**: measurable exactly on the streams where the
+memoized descent runs but is not the bottleneck.  So all three exact
+repairs fix the algorithm and only the packed key is free; the
+allocation task #192 removed stays removed by construction rather
+than by luck.
+
 ### Task #235 addendum — THE PACKING'S SIDE CONDITION IS TESTED, NOT ASSUMED (2026-09-08, `agent/beqpair-guard`)
 
 `beqKey` packs the pair into one small `Nat`, and its exactness
