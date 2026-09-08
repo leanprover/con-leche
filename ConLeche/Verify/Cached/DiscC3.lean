@@ -664,6 +664,51 @@ theorem iotaIndexOkC_sim (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
         exact defEqListC_sim ih hs₁ (hres.drop cnP) hidx
           (fun x hx => hresW.getAppArgs x (List.mem_of_mem_drop hx)) hwis
 
+/-- A `Bool`-valued block that chains two lookups and three checks and
+is then branched on, is the nested chain that branches after each
+check: a failed check leaves the later lookups undone on both sides,
+and a passed one reaches the same continuation.  The ι step's
+certificate family is written in the first shape (one `certAtI`, so
+`.trusted` omits the lookups with the checks that read them), its pure
+comparand in the second. -/
+private theorem certBlock_reshape {α β γ : Type}
+    (A : CheckCM α) (B : α → CheckCM Bool) (C : CheckCM β)
+    (D E : β → CheckCM Bool) (F : CheckCM (Option γ)) :
+    ((A >>= fun a =>
+        B a >>= fun r₂ =>
+        if r₂ then
+          C >>= fun b =>
+          D b >>= fun r₃ =>
+          if r₃ then E b else pure false
+        else pure false) >>= fun ok =>
+      if ok then F else pure none)
+      = (A >>= fun a =>
+          B a >>= fun r₂ =>
+          if r₂ then
+            C >>= fun b =>
+            D b >>= fun r₃ =>
+            if r₃ then
+              E b >>= fun r₄ =>
+              if r₄ then F else pure none
+            else pure none
+          else pure none) := by
+  simp only [bind_assoc]
+  congr 1
+  funext a
+  congr 1
+  funext r₂
+  cases r₂ with
+  | false => simp
+  | true =>
+    simp only [if_true, bind_assoc]
+    congr 1
+    funext b
+    congr 1
+    funext r₃
+    cases r₃ with
+    | false => simp
+    | true => simp only [if_true]
+
 /-- Port of `iotaRec_certs_tail`: the shared certificate tail of the
 iota step (after the firing-mode comparands) — the two licensed
 telescope runs and the canonical-index comparison.  The interned
@@ -684,24 +729,23 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
     (hargs : RelCL args ex.getAppArgs)
     (hmargs : RelCL margs majorx.getAppArgs) :
     SimC mode env s₀ (RelOC d)
-      (constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
-        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mi.betaGate
-            tyRec (args.take mI ++ [major]) >>= fun r₂ =>
-        if r₂ then
-          constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
-          iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-              mi.betaGate tyCtor margs >>= fun r₃ =>
-          if r₃ then
-            iotaIndexOkI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mI rP
-                rl.ctorParams tyCtor margs ((args.take mI).drop rP) >>=
-              fun r₄ =>
-            if r₄ then
-              ruleRhsAtM (mkFEnv env) cI jI c cj us >>= fun rhs =>
-              mkAppNM rhs (args.take rP ++
-                  margs.drop rl.ctorParams) >>= fun red =>
-              pure (some red)
-            else pure none
-          else pure none
+      ((constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
+          iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mi.betaGate
+              tyRec (args.take mI ++ [major]) >>= fun r₂ =>
+          if r₂ then
+            constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
+            iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+                mi.betaGate tyCtor margs >>= fun r₃ =>
+            if r₃ then
+              iotaIndexOkI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mI rP
+                  rl.ctorParams tyCtor margs ((args.take mI).drop rP)
+            else pure false
+          else pure false) >>= fun ok =>
+        if ok then
+          ruleRhsAtM (mkFEnv env) cI jI c cj us >>= fun rhs =>
+          mkAppNM rhs (args.take rP ++
+              margs.drop rl.ctorParams) >>= fun red =>
+          pure (some red)
         else pure none)
       (iotaCerts (fueledFns mode env) env d mi.betaGate
           (cv.type.instantiateLevelParams cv.levelParams us)
@@ -723,6 +767,7 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
             else pure none
           else pure none
         else pure none) := by
+  rw [certBlock_reshape]
   have hwrecty : Expr.WScoped d
       (cv.type.instantiateLevelParams cv.levelParams us) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
