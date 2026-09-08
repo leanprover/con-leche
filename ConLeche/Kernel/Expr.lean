@@ -720,18 +720,40 @@ with `φ` any odd 64-bit constant (the golden-ratio one below).  **The
 probe verifies the whole pair**, not half of it: a stored entry at
 `key` whose value is `addr b` was written by some pair `(a', b)` with
 `k(a', b) = k(a, b)`, and since `x ↦ (x ^^^ c) &&& m` is injective on
-`x < 2^62` — which every heap address is, far below
-`LEAN_MAX_SMALL_NAT` — `addr a' = addr a`.  So a hit means exactly
+`x < 2^62`, `addr a' = addr a`.  So a hit means exactly
 `(a', b') = (a, b)`, as an `(addr a, addr b)` key would.
+
+**`beqKeyBound` is that `2^62`, and `beqGo` TESTS it rather than
+assuming it** (`pa < beqKeyBound`, folded into `isRec` so it gates the
+probe and the write alike).  The condition is on `addr a` — the half
+the entry's *value* does not pin — and every Lean object address
+satisfies it by a wide margin, far below `LEAN_MAX_SMALL_NAT`, which
+is exactly why leaving it implicit would have been comfortable.  It is
+tested because of what it guards: the one way this packing can report
+a pair equal that was never *proved* equal is two distinct `a`s
+agreeing modulo `2^62`, and that is a SOUNDNESS failure, unlike every
+other approximation in this function, which cost entries.  Tested, an
+address above the bound costs a memo entry and nothing else — and it
+is measured to cost **+0.02 %**: one perfectly-predicted comparison on
+a path that is about to hash a `Nat` anyway.  Same worktree, same
+conditions, without → with the test: `twochart` 374 462 085 195 →
+374 543 564 806, `jzero_struct` 246 653 101 054 → 246 713 515 566,
+`init-prelude` 4 907 514 362 → 4 908 620 682 — +0.022 %, +0.024 %,
++0.023 %, which is what a soundness side condition is worth paying.
+The mask is written `beqKeyBound - 1` so the two cannot drift apart.
 
 What the packing does cost is *collisions between distinct pairs*: two
 pairs with the same `key` and different `value`s cannot both be
 stored, so one entry is lost.  That is the same failure mode task
 #192's key had — a lost entry costs a re-walk, never an answer — but
 at a ~2^-62 rate per pair instead of at every occurrence of a shared
-node. -/
+node.  A collision stays a lost entry rather than a wrong answer
+precisely because the probe checks the value as well, under the tested
+bound. -/
+def beqKeyBound : USize := 0x4000000000000000
+
 @[inline] def beqKey (pa pb : USize) : Nat :=
-  ((pa ^^^ (pb * 0x9E3779B97F4A7C15)) &&& 0x3FFFFFFFFFFFFFFF).toNat
+  ((pa ^^^ (pb * 0x9E3779B97F4A7C15)) &&& (beqKeyBound - 1)).toNat
 
 /-- The executed equality: pointer test, computed-word test, then a
 **memoized** structural descent.
@@ -758,7 +780,8 @@ addresses, exactly as the reference kernel's `expr_eq_fn`
   still allocates **nothing at all** (task #192's property, kept:
   `USize.toNat` of an address is `lean_box`, a tag), and the probe
   still verifies the pair exactly.  See `beqKey` for why the packing
-  loses no pair and what it does cost.
+  loses no pair, for the `pa < beqKeyBound` side condition it is
+  exact under — tested here, not assumed — and for what it does cost.
 * only pairs proved **equal** are recorded, as official's
   `expr_eq_fn` does: a completed `false` aborts the whole comparison
   (every arm below propagates it to the root), so no unequal pair is
@@ -805,7 +828,10 @@ unsafe def beqGo (memo : Std.HashMap Nat Nat) (a b : Expr) :
   if pa == pb then (true, memo)
   else if a.data != b.data then (false, memo)
   else
-    let isRec := beqRecursive a
+    -- `pa < beqKeyBound` is the packing's side condition, tested here
+    -- rather than assumed: see `beqKey`.  Folded into `isRec`, so it
+    -- gates the probe below and the write at the end alike.
+    let isRec := beqRecursive a && pa < beqKeyBound
     let key := beqKey pa pb
     let vb := pb.toNat
     if isRec && memo.getD key 0 == vb then (true, memo)

@@ -62746,6 +62746,48 @@ the cursor for this reason (task #233: "both keys carry the CURSOR");
 structural equality's answer is a function of *both* nodes, and
 nothing less will do.
 
+### Task #235 addendum — THE PACKING'S SIDE CONDITION IS TESTED, NOT ASSUMED (2026-09-08, `agent/beqpair-guard`)
+
+`beqKey` packs the pair into one small `Nat`, and its exactness
+argument runs "since `x ↦ (x ^^^ c) &&& M` is injective on `x < 2^62`
+— which every heap address is".  The premise is true on every
+platform this runs on, and it was left implicit.
+
+**It is the one approximation in this function whose failure is a
+wrong ANSWER.**  Everything else the memo does cheaply degrades to
+work: a `false` is never recorded (so it is re-derived), a key
+collision between distinct pairs loses an entry (so that pair is
+re-walked), task #192's half key lost entries at every occurrence of a
+shared node (so the walk fell back to `O(tree)` — expensive, and the
+subject of this task, but never unsound).  The `< 2^62` premise is not
+like those: if two distinct `a`s ever agreed modulo `2^62`, a probe
+would report a pair equal that no descent had proved equal, and the
+checker would accept on it.  A premise carrying that weight belongs in
+the code and not only in the prose — this is a checker whose claim is
+about what it accepts.
+
+So `beqGo` tests it: `beqRecursive a && pa < beqKeyBound`, folded into
+`isRec` so the one test gates the probe and the write alike, with
+`beqKey`'s mask written `beqKeyBound - 1` so the constant and the
+bound cannot drift apart.  The condition is on `addr a`, the half the
+entry's *value* does not pin.  Above the bound a pair is simply not
+memoized — a lost entry, the same benign failure as a collision.
+
+**Measured**, same worktree and conditions, without → with the test:
+
+| stream | `cb6e2a74` | + the test | Δ |
+|---|---:|---:|---:|
+| `twochart` | 374 462 085 195 | 374 543 564 806 | +0.022 % |
+| `jzero_struct` | 246 653 101 054 | 246 713 515 566 | +0.024 % |
+| `init-prelude` | 4 907 514 362 | 4 908 620 682 | +0.023 % |
+
++0.02 %, flat across the three: one perfectly-predicted comparison on
+a path that is about to hash a `Nat` anyway.  Gates unchanged —
+`lake build` 517 jobs warning-free, `lake test`, `tests/arena.sh` exit
+0 with e2e 178/178, DAG-tower 11/11, trusted sweep 138 + 178 + 14,
+layering 263/189/3/1, trust surface 18 in 4 of 464, proofdeps 2846
+rows with doors 0.
+
 ### Task #235 addendum — THE REGRESSION FIXTURE: `tower_beqpair` (2026-09-08, `agent/beqpair-fixture`)
 
 The landing above changed a memo's key on the strength of a
