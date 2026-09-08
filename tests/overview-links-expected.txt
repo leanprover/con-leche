@@ -177,10 +177,10 @@
     39  (`Level.substPW_self`, `ConLeche/Verify/PropWhen.lean`) holds
     40  unconditionally — amendment 2's counterexample (DESIGN.md, task #161
 
-== ConLeche/Kernel/Expr.lean#L101-L103
-   101  structure BinderMeta where
-   102    pw : PropWhen
-   103    deriving DecidableEq, Repr, Hashable
+== ConLeche/Kernel/Expr.lean#L102-L104
+   102  structure BinderMeta where
+   103    pw : PropWhen
+   104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1286
   1286  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
