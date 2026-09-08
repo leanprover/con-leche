@@ -60285,3 +60285,126 @@ beside that lane's `REPORT.md`.  Kept, with their consumers named:
 `natop_cone_roots.json` (read by `mk_natop_fixture.py`),
 `extract_natop_prefix.py` and `diagnose_natop_prefix.py` (the recipe
 this document's §"Prefix allowlists" describes).
+
+
+## TASK #224 — TWO TOOLING REPAIRS: the trust-surface gate's blanking, and the cone slicer (2026-09-08, `agent/tooling`)
+
+Two items off the quiet-time docket, both instruments rather than
+checker code: no `.lean` file changed and no verdict moved.
+
+### 1. `tests/trust-surface.sh` blanked string literals with a regex
+
+The gate scans for compiler escapes (`implemented_by`, `extern`,
+`unsafe`, `native_decide`, a bare `axiom`, …) after removing comments
+and string literals, so that the checker's own *data* — the `Name`
+literals `"sorryAx"` and `"ofReduceBool"`, the `"unsafe axiom"`
+rejection messages — is not mistaken for an escape.  The removal was
+four `re.sub`s, and the string one, `"(?:\\.|[^"\\])*"`, has an escape
+class that cannot cross a backslash-NEWLINE — **Lean's string gap**,
+of which this tree has about ninety (`Main.lean` alone has 62).
+
+A gap-carrying literal therefore matched nothing at all; the engine
+resynchronised on the *next* quote, and from there the file was read
+one quote out of phase.  Task #213 saw the visible half — its own error
+message's word `axiom` reported as a bare `axiom` declaration, a
+phantom — and left the note; the half that matters is the other one,
+that real code after such a literal was being read as string content,
+where an escape could sit unseen.  The note's mitigation ("the
+pre-existing ones in `Main.lean` happen to be even in number") is
+exactly the kind of accident that stops being true on the next edit.
+
+**`code_only` is now a one-pass state machine** (`scan_code`,
+`scan_string`, `scan_block_comment`, `scan_raw_string`), covering:
+
+* line comments `--`, and NESTED block comments `/- … /- … -/ … -/`,
+  which subsumes `/-!` module docs and `/--` doc comments;
+* string literals with every escape INCLUDING the gap (`\` NEWLINE and
+  the continuation line's leading blanks);
+* **interpolation**: a `{…}` segment of a string is Lean source, so it
+  is left as CODE and an escape inside one *is* reported (the fixture
+  pins `s!"result: {hidden (unsafeCast ())}"`).  A `{` counts as an
+  interpolation only when a matching `}` closes it ON THE SAME LINE, and
+  the attempt is speculative — the blanking is restored if it does not
+  close — so a stray brace in a plain string cannot desynchronise
+  anything past its own line.  The form is scanned in EVERY string,
+  not just `s!"…"`: the prefix is not lexically decidable
+  (`throwError "…{e}…"` interpolates too, and `println! "…{x}…"` puts a
+  space between), and the asymmetry settles it — over-reading a literal
+  `{b}` in a plain string can only make the gate report MORE, which is
+  loud and fixable, while under-reading hides a TCB entry;
+* raw strings `r"…"`, `r#"…"#`, `r##"…"##` (no escapes inside);
+* character literals `'x'`, `'\n'`, `'"'`, `'\''`, where a `'` that
+  continues an identifier (`foo'`) is not one.
+
+Anything left unterminated at end of file is a hard error now, so a
+desynchronisation can never again be silent — which is the property the
+old regex lacked, not just the gap.
+
+**The self-test.**  `tests/trust-surface/lexer.lean` is a fixture — not
+built, imported by nothing, and listed in the gate's own `SKIP_DIRS`
+beside `tests/e2e/src/` for the same reason those are skipped: it
+deliberately contains what the gate hunts.  Every line the gate must
+report carries a trailing `EXPECT:` line-comment marker naming its
+tokens; every unmarked line must stay silent.  The fixture is thus its
+own expected output, with no second file to drift.  The ordinary run
+performs the check before the scan; `--selftest` runs it alone.  Run
+against the OLD regex the fixture fails with **5 HIDDEN and 8 PHANTOM**
+— the two `@[implemented_by]` attributes after a gap, the `unsafeCast`
+inside an interpolation and the closing `axiom`/`extern` all hidden.
+
+The census on the real tree is unchanged — 18 escapes in 4 allowlisted
+files (464 scanned), 0 outside, `--list` printing the same 18 lines —
+which is the point: the tree was clean, and the gate was not the
+instrument that could have told us.  Cost: 1.65 s against 0.95 s.
+
+### 2. Three copies of the cone slicer, two of them dead
+
+`_tmp/next-frontier/slice_fast.py`, `_tmp/sigmahom/slice_multi_fast.py`
+and `_tmp/indexed-fix/slice_multi_fast.py` are the same tool at three
+ages (the second adds comma-separated targets to the first; the third
+is the second with an undocumented format patch).  The first two died
+with `TypeError: 'int' object is not subscriptable` at `r[k]["name"]`.
+
+**The diagnosis is not a lean4export version bump.**  Both layouts
+carry the same `meta` (lean4export 3.1.0).  Raw `lean4export` writes
+every object's keys ALPHABETICALLY, so an expression record's `"ie"` tag
+comes first only when the node kind sorts after it
+(`{"ie":57,"proj":{…}}`) and LAST when it sorts before
+(`{"app":{"arg":3,"fn":7},"ie":8}` — four records in five are `app`).
+The retired `con-leche-preprocess` re-serialised every record with the
+tag FIRST (`{"ie":5,"app":{"arg":1,"fn":4}}`), and all three scripts
+were written against those **preprocessed** streams: they classify with
+`line.startswith(b'{"ie":')`, so on a raw stream every
+`app`/`bvar`/`const`/`forallE`/`lam` record falls through to the
+declaration path and `r["bvar"]` is the integer `0`.  Streams have been
+raw since task #207, so nothing in `_tmp/` still ran.  Both old streams
+are still on disk (`_tmp/infershare/init-full-pre.ndjson`,
+`_tmp/perfcmp/pre-nometa.ndjson`) if the layouts want comparing.
+
+**The dedup.**  One tracked tool, `scripts/slice-cone.py`, with
+`--help` stating the format it reads and the cone semantics; the three
+`_tmp/` copies became four-line wrappers that `runpy` it (kept rather
+than deleted so the lane notes' command lines still work; they are
+gitignored scratch either way).  It classifies a record by which tag it
+CONTAINS, so **both layouts read**, and it drops the `_model` companion
+rule, which task #219 made dead.  Validated: the cone of
+`Lean.Lsp.DiagnosticWith` out of `slice-small.ndjson` (3 216 declaration
+records, 364 663 records) and of
+`Lean.Lsp.TextDocumentEdit,Nat.pow,Lean.Lsp.DiagnosticWith` (3 221 /
+364 780) are accepted by `con-leche --verified` at exit 0 — 3 299 and
+3 304 declarations, the difference being the built-in prelude — as is
+`Nat.add` out of raw `init-full` (9 records, 9 accepted).  The two
+repaired `_tmp` scripts, the third one and `slice-cone.py` produce
+**byte-identical** output on all of these, which is the evidence that
+they were one tool.
+
+**A finding, left unfixed**: `scripts/resume_slice.py` — the *suffix*
+slicer, the companion tool — has the same defect and exits `unknown
+record kind 'forallE'` on every raw stream.  Its docstring already
+knows the exporter sorts keys, but its reader assumes the preprocessed
+layout in four places, two of them chunked fast paths (`head ==
+b'{"ie":'`, `IE_RE`'s `^` anchor, `APP_HEAD`, the newline-anchored
+`buf.count` census).  Porting `slice-cone.py`'s classification means
+reworking those, which is a separate item; the finding is recorded in
+the script's own docstring where the next reader will meet it, together
+with the cross-reference to `slice-cone.py`.
