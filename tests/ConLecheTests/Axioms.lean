@@ -39,10 +39,11 @@ It is under the `ConLecheTests` library (`lake test`), so it can never
 enter a capstone's own dependency closure — `tests/proofdeps.sh` would
 report the door if it ever did.
 
-**The eleven pinned theorems.**  The main theorem first — that is the
+**The twelve pinned theorems.**  The main theorem first — that is the
 statement a reader comes for — then the letters it is a corollary of,
 then the assembly under those, then the same letters about the pinned
-`Empty`.  Seven of them are also `tests/proofdeps.sh`'s roots —
+`Empty`, then the one `@[csimp]` equation the compiled equality rests
+on.  Seven of them are also `tests/proofdeps.sh`'s roots —
 `no_proof_of_False`, `no_proof_of_False_cached`, `no_proof_of_False_pure`,
 `no_proof_of_Empty_cached`, `checkDecls_sound`,
 `fold_preserves`, `no_proof_of_Empty_pure` — which pin the MODULES their proof
@@ -62,6 +63,7 @@ measure different things and neither implies the other.
 | `no_constant_of_False` | the business end at the invariant |
 | `no_constant_of_Empty` | the same about `Empty` |
 | `no_constant_of_emptyPin` | the pin under it |
+| `Expr.beq_eq_beqMemo` | the compiled expression equality IS `decide (a = b)` — the `@[csimp]` licence, so the trust-surface gate's "no escape" reading of `Expr.lean` is a theorem at these axioms (`Quot.sound` is the memo's quotient) |
 
 **What is deliberately NOT pinned here** (2026-09-07, the user's
 two-loop ruling): anything about the `--progress` lane.  That lane
@@ -153,5 +155,19 @@ info: 'ConLeche.Model.no_constant_of_emptyPin' depends on axioms: [propext, Clas
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_constant_of_emptyPin
+
+/-! ## The compiled equality (`ConLeche/Kernel/Expr.lean`)
+
+Not a capstone: the licence under which the compiler runs `beqMemo`
+for `Expr.beq`.  It is pinned because it is the theorem that turned a
+census row into a `@[csimp]` equation, and because its proof is the
+one place the tree quotients a runtime state (`Squash`, hence
+`Quot.sound`). -/
+
+/--
+info: 'ConLeche.Expr.beq_eq_beqMemo' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Expr.beq_eq_beqMemo
 
 end ConLecheTests.Axioms

@@ -49,13 +49,9 @@ them
 
 `#print axioms` and `tests/proofdeps.sh` measure the *proof* term; an
 `implemented_by` escape is invisible to both, so the escapes are
-enumerated here by hand and this list is the pin.
+enumerated here by hand and this list is the pin.  It has ONE row.
 
-1. **`ExprC.beqFast` for `ExprC.beq`** — written in this file,
-   docstringed at its definition: pointer equality implies structural
-   equality; address-keyed memo entries stay valid for one
-   comparison's lifetime.
-2. **The `@[computed_field]` machinery** (NEW).  The per-node derived
+1. **The `@[computed_field]` machinery**.  The per-node derived
    data (`hash`, `bvarB`, `fvarB`, `hasLP` — since task #167 one
    packed `UInt64`, `Expr.data`; since task #176 P3 also
    `Name.hashData` and `Level.hashData`, the cached hashes
@@ -65,9 +61,8 @@ enumerated here by hand and this list is the pin.
    *agreement between the stored word and that function is the code
    generator's*, not a theorem of this repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This
    file implements the computed fields feature by simulating it via
-   `implemented_by`."*  Hence it is an escape of exactly the class of
-   row 1, and it is likewise invisible to `#print axioms` and to
-   `tests/proofdeps.sh`.
+   `implemented_by`."*  Hence it is an escape, and it is likewise
+   invisible to `#print axioms` and to `tests/proofdeps.sh`.
 
    **USER RULING, 2026-09-04, verbatim:** *"Adopt computed_fields.
    It's a compiler feature, we trust the compiler."*
@@ -82,27 +77,22 @@ enumerated here by hand and this list is the pin.
    site must use a smart constructor) with the compiler's own, on the
    feature `Lean.Expr` itself is built from.
 
-**Census history, so the count is readable.**  The task-#163 census
-said *two* escapes (`beqFast`, `ofExprFast`); `ofExprFast` was
-**deleted by architecture** on 2026-09-03 (see `ofExpr` below), which
-left **one** — a shrink DESIGN.md records but this docstring did not,
-so its "exactly two" was stale by one row when B3a opened.  The
-corrected count with the computed-fields row is therefore **two, with
-a different second member**, not three; the escape *class* is what B2
-flagged for ruling, and it is the row above.
-
-**Task #176 added no row, and it is worth saying why.**  The
-pointer-and-hash-first `Name.beqPtr`/`Level.beqPtr`
-(`ConLeche/Kernel/Expr.lean`) replace `Name.beq`/`Level.beq` in compiled
-code through **`@[csimp]`**, i.e. on the strength of a *kernel-checked
-equality* (`Name.beq_eq_beqPtr`, `Level.beq_eq_beqPtr`) — **USER
-RULING, 2026-09-05, verbatim:** *"do *not* use `implemented_by`.  If
-you can prove them equal, use `csimp`."*  A `csimp` substitution is
-not an escape at all: the compiler is licensed by a theorem this
-repository proves, not by an unchecked attribute.  So `beqFast`
-(row 1) remains this tree's **only** `implemented_by`-class escape,
-and it stands alone; the computed-fields row (row 2) merely gained two
-users.
+**Why the equalities are not rows.**  The pointer-first
+`Name.beqPtr`/`Level.beqPtr` and the pointer-first, memoised
+`Expr.beqMemo` (`ConLeche/Kernel/Name.lean`, `ConLeche/Kernel/Expr.lean`)
+replace `Name.beq`/`Level.beq`/`Expr.beq` in compiled code through
+**`@[csimp]`**, i.e. on the strength of a *kernel-checked equality*
+(`Name.beq_eq_beqPtr`, `Level.beq_eq_beqPtr`, `Expr.beq_eq_beqMemo`) —
+**USER RULING, 2026-09-05, verbatim:** *"do *not* use
+`implemented_by`.  If you can prove them equal, use `csimp`."*  A
+`csimp` substitution is not an escape at all: the compiler is licensed
+by a theorem this repository proves, not by an unchecked attribute.
+The address reads behind them go through `Init.Util`'s `withPtrEq` and
+`withPtrAddr`, whose side conditions those files discharge, and the
+equality memo carries its invariant in its value type (`Expr.EqPair`)
+and verifies every hit by identity.  The tree's compiler-escape scan
+(`tests/trust-surface.sh`) is the gate that keeps the census at this
+one row.
 -/
 
 namespace ConLeche.Cached
@@ -164,9 +154,8 @@ Both moved to `ConLeche/Kernel/Expr.lean` at task #172 B3a, with the type
 itself: `BEq Expr` must be **one** instance tree-wide (the pure tier
 compares `Expr`s too, and two defeq-but-distinct instances make `rw`
 and `simp` fail across the seam — measured, on `DiscC5`'s `defeqStep`
-simulation).  `ExprC.beq` is `Expr.beq`; the trust census, including
-the `beqFast` escape and the computed-fields row, is that module's
-header. -/
+simulation).  `ExprC.beq` is `Expr.beq`, verified there (`Expr.beqMemo_eq`); the
+trust census is this module's header. -/
 
 /-! ## The former `Expr` boundary, and the former field invariant
 

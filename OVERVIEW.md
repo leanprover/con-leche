@@ -56,7 +56,7 @@ runs on a parsed export stream, the theorem
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorem uses exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L88-L89)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L90-L91)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how that theorem is reached.
@@ -138,7 +138,7 @@ differ from a textbook presentation and matter for the proof:
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
   stored in the binder's metadata
-  ([structure `BinderMeta` in `ConLeche/Kernel/Expr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Expr.lean#L101-L103)).
+  ([structure `BinderMeta` in `ConLeche/Kernel/Expr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Expr.lean#L102-L104)).
   The checker validates the coherence of these annotations at run time;
   the proof consumes them. This is the price of not having a syntactic
   type theory (see §4). The annotation pass also ζ-expands `let`, so

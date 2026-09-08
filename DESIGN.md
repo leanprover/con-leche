@@ -63474,3 +63474,139 @@ measured by reverting `ConLeche/` to master, rebuilding, and hashing).
 `ulimit -v 16000000` makes the shake half fail spuriously — `lake shake`
 mmaps the toolchain's oleans and the address-space cap kills the read.
 The ulimit belongs on checker runs, not on the battery.)
+
+## TASK #243 — THE EQUALITY MEMO IS VERIFIED: `Expr.beq`'s `implemented_by` becomes a `@[csimp]` equation (2026-09-08, `agent/beqv`)
+
+The tree had one `implemented_by`-class escape on the verified path:
+`@[implemented_by beqFast] def Expr.beq`, whose pointer short-circuits,
+budgeted descent and address-keyed memo rested on two runtime facts
+the census in `ConLeche/Cached/ExprC.lean` stated and nothing proved —
+(a) pointer-equal objects are equal, (b) a keyed address is not
+recycled during one comparison.  The user's ruling — *"do not use
+`implemented_by`.  If you can prove them equal, use `csimp`"* — had
+already turned `Name.beq`/`Level.beq` into `withPtrEq` + a proved
+equation; this task does the same for the memoised expression
+equality.  `Expr.beq` stays `decide (a = b)`; the executed function is
+`Expr.beqMemo`, and
+
+    theorem Expr.beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b)
+    @[csimp] theorem Expr.beq_eq_beqMemo : @Expr.beq = @Expr.beqMemo
+
+at `[propext, Classical.choice, Quot.sound]` (pinned in
+`tests/ConLecheTests/Axioms.lean`).  No `unsafe`, no `ptrAddrUnsafe`,
+no `implemented_by` remain in `ConLeche/Kernel/Expr.lean`; the
+trust-surface census goes from **18 rows in 4 files to 10 rows in 4
+files**, and the only escape class left on the checker is
+`@[computed_field]` (three cached hashes / the packed word).
+
+### 1. The proof shape: every branch returns its own `Decidable`
+
+The obstacle is `withPtrAddr a k h`, which demands
+`h : ∀ u₁ u₂, k u₁ = k u₂` — the continuation may read the address but
+its *result* may not depend on it.  A memoised descent's result is
+`(answer, memo)`, and the memo plainly depends on addresses.  Three
+decisions make the side condition `Subsingleton.elim`:
+
+1. **The answer is a `Decidable (a = b)`, not a `Bool`.**  `Decidable p`
+   is a subsingleton, so two answers for the same pair are equal by
+   type.  Every arm of the descent constructs `isTrue`/`isFalse` with
+   the proof in hand — the recursive results supply the equations for
+   the children, `Expr.app.inj` and friends transport them — so the
+   specification is met *by construction* and there is no separate
+   correctness proof of the recursion at all.
+2. **The state is behind `Squash`.**  The raw result
+   `BeqRes a b := { dec : Decidable (a = b), fuel : Nat, map : Option BeqMap }`
+   is returned as `Squash (BeqRes a b)`, the quotient identifying all
+   of them; a `Squash` is a subsingleton, and `Squash.lift` into a
+   subsingleton needs no proof either.  The compiler erases the
+   quotient: the runtime value is the raw structure.  `Quot.sound` was
+   already pinned, so the quotient costs no axiom.
+3. **A hit is verified by identity, not by the key.**  A memo entry
+   (`EqPair`) is the *pair of objects* a completed descent proved
+   equal, with the proof (erased) and the addresses it saw (the
+   probe's filter).  The probe finds a candidate by the packed
+   address-pair key, checks the stored addresses, and then tests each
+   stored object against the live one with `withPtrEqDecEq` — which is
+   the pointer test at runtime and the derived structural decision in
+   the pure model.  The `a = b` behind a hit is then the entry's own
+   proof transported along the two identities.  Fact (a) enters only
+   through `withPtrEq`'s contract; fact (b) is no longer needed: the
+   memo *holds* the objects it keyed, so their addresses stay theirs,
+   and an address match is an identity match.  The structural fallback
+   the `withPtrEqDecEq` contract requires exists for the pure model and
+   is never reached by compiled code.
+
+The pointer short-circuit at a node is `withPtrAddr` on both sides and
+`if pa == pb then ptrDec a b` — in the pure model both addresses are
+`0`, so this branch runs the derived decision (slow, correct); at
+runtime `ptrEq` fires inside `withPtrEqDecEq` and nothing walks.  The
+computed-word reject is `isFalse` from `a.data ≠ b.data → a ≠ b`,
+one `subst`.  The recursion is structural on `a`; the proof of
+`beqMemo_eq` is three lines (`withPtrEq` is `k ()`, the word guard
+cannot reject an equal pair, and a `Decidable` of `a = b` decides as
+the instance does).
+
+**The budget lives in the state.**  The old `beqB` returned
+`Option Bool × Nat` — its "budget exhausted" `none` is exactly the kind
+of address-dependent observable `withPtrAddr` forbids (the pointer
+short-circuit returns `some`, the descent may return `none`).  Folding
+the fuel and the optional map into the squashed state makes the budget
+unobservable: the descent counts nodes down while the map is absent,
+materialises it at zero and records every completed pair from there
+on.  This also replaces the old restart-from-scratch (`beqGo {} a b`
+after `beqB` gave up) by a continuation, which re-walks at most the
+budget's worth of pre-switch pairs once.
+
+**What the compiler had to be shown.**  Two shapes cost a closure per
+node until restructured: (i) the constructor-mismatch catch-all of a
+dependent `match a, b` is one alternative reached from ninety cases
+and was lambda-lifted when its result flowed into the write-back, so
+the write-back is a local `finish`, generic in the pair, that every
+arm tail-calls — a join point; (ii) the terms are `@&`-borrowed, as
+`beqB`'s were, since the write-back is the only consumer that stores
+them.  The `.sort`/`.const`/`.proj` arms compare levels and names by
+`==` (the pointer-and-hash-first `Level.beqPtr`/`Name.beqPtr`, lawful),
+not by the derived `decEq` — the first verified draft used the latter
+and paid for it on every constant.
+
+### 2. What it costs
+
+Same machine, same script (`_tmp/beqv/measure.sh`: `ulimit -v 16 G`,
+`nice -n 5`, `perf stat -e instructions:u`, one run per cell), master
+`e2b16cd9` rebuilt from a `git archive` beside the branch:
+
+| | master | verified, first draft | verified, optimised | Δ |
+|---|---:|---:|---:|---:|
+| `tower_beqpair` | 274 022 958 | 309 322 966 (+12.9 %) | 280 402 567 | **+2.3 %** |
+| `init-prelude` | 4 782 043 091 | 5 024 793 464 (+5.1 %) | 4 841 880 592 | **+1.25 %** |
+| `init-full` verified | 677.32 G (recorded) | not run | 690 563 362 427 = 690.56 G | **+1.95 %** |
+| `init-full` trusted | 658.86 G (recorded) | not run | 671 468 087 754 = 671.47 G | **+1.91 %** |
+
+The optimisation steps, each a full build and the same two cells
+(`tower_beqpair` / `init-prelude`):
+
+| step | `tower_beqpair` | `init-prelude` | kept |
+|---|---:|---:|---|
+| verified, first draft (derived `decEq` on names and levels; key computed at every node; owned terms) | 309 322 966 | 5 024 793 464 | — |
+| `==` for levels, names and level lists; key and `beqRecursive` only on the memo paths | 287 380 759 | 5 002 726 814 | yes |
+| terms `@&`-borrowed (the C went from 73 `lean_inc` / 59 `lean_dec` in `beqGo` to 49 / 31) | 280 402 567 | 4 841 880 592 | **yes — the shipped state** |
+| `isFalse` results returned from their arm, `finish` only for `isTrue` (32 allocation sites, 11 reuse checks) | 290 783 703 | 4 894 567 229 | no — slower than the join point it replaced |
+
+What remains of the price is structural: the descent returns a
+three-field cell per node where `beqB` returned a pair, and the memo
+entry holds two objects (two `inc`s per write, two `dec`s at teardown)
+where the old one held a boxed address — the objects are what make a
+hit verifiable.
+
+The DAG-tower gate (11 kinds) stays green — the memo loses no entry a
+DAG needs — and `init-full` accepts 53 088 in both modes.
+
+### 3. Docs and gates
+
+`tests/trust-surface.sh`: `Expr.lean`'s allowlist is `computed_field`
+alone; the header says why the equality is not an escape.  The census
+in `ConLeche/Cached/ExprC.lean` has one row.  README's
+"implemented_by" section became "Pointer tests and the equality
+memo".  `tests/ConLecheTests/Axioms.lean` pins `Expr.beq_eq_beqMemo`.
+OVERVIEW.md needed no change (it never named the escape; its gates
+paragraph still describes the escape scan).
