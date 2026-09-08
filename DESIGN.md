@@ -62226,3 +62226,56 @@ and 678 997 282 875 on the master before it — inside the noise band
 between them (+0.04 % / −0.12 %).  Two per-call hash maps on the
 install path cost nothing measurable, which is what the cutoff staying
 in front of the memo buys.
+
+## TASK #234 — THE GUARD TABLE IS ONE TRAVERSAL, AND THE DISJUNCTION SHORT-CIRCUITS: 14 % off `jzero_neron` on top of #233 (2026-09-08, `agent/usedlater`)
+
+#233 memoized `Expr.hasLooseBVarB` and `Expr.abstract1`, which is what
+stopped `ModularCurve.JZeroNeronObjectAtP` exhausting 22 GB.  Two
+things it left on the table, both measured here on the same base
+(`8244482b`), both in the caller rather than the walk:
+
+**1. `structProjGuards` still asks the question O(nF²) times.**  It
+calls `structUsedLater cty nP j` once for every PAIR `j < i < nF` —
+**1 431 calls at nF = 54 for 54 distinct answers** — and each call
+enters `hasLooseBVarBFast`, which allocates a FRESH memo.  So the memo
+is rebuilt 1 431 times over the same DAG and nothing is shared between
+the calls that ask about the same `j`.  `structProjGuardsFast`
+computes the nF answers once, threading ONE memo through them
+(`structUsedLaterGo`, `structUsedLaterList`), then folds over the
+recorded answers: the whole guard table becomes a single DAG
+traversal.
+
+**2. The disjunctions did not short-circuit.**  #233's
+`hasLooseBVarBGo` computes `(b₁ || b₂, memo)` at every binary node, so
+both children are always walked even once the first has answered
+`true`.  The pure `hasLooseBVarB` it is proved equal to uses `||`,
+which does short-circuit, so this was a divergence in *work* only —
+but on a `true` answer it is the difference between stopping at the
+first witness and walking the node's whole open subgraph.  The walk
+now matches `||`: `match hasLooseBVarBGo … with | (true, memo) =>
+(true, memo) | (false, memo) => …`.  The correctness proof splits on
+that match instead of `simp`ing through a `let`, which is why the
+memo-insert moved into `Expr.hasLooseBVarBIns` — projections rather
+than a destructuring `let`, so `split` can reach the walk's own
+matches.
+
+Both are `@[csimp]` as before; `structProjGuards`, `structUsedLater`
+and `Expr.hasLooseBVarB` are untouched, so `structProjGuards_getD`,
+`Expr.hasLooseBVarB_eq` and the model stage tables consume exactly
+what they did.
+
+**Measured** — `jzero_neron`, base `8244482b`, verified lane, single
+thread, `perf stat -e instructions:u`, `ulimit -v 22000000`, same
+verdict both arms (accepted, 40 903 declarations):
+
+| arm | instructions:u | wall |
+|---|---:|---:|
+| `8244482b` as-is | 825 879 840 947 | 103.4 s |
+| + this commit | **709 263 642 311** | **86.9 s** |
+
+**−116 616 198 636 instructions, −14.1 %** of the whole run — and the
+whole run is 40 903 declarations, of which this is one block, so the
+share of the block's own install is far larger than 14 %.  The figure
+also lands within **0.01 %** of an independent build of the same two
+refinements measured on `231c69e5` (709 189 664 567), which is the
+check that the two arms differ by these changes and nothing else.
