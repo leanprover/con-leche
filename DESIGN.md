@@ -61341,3 +61341,48 @@ overview-links) at the landing merge, where the e2e suite reads
   `CON_LECHE_INMODEL_DUMP` streams are **byte-identical** (master's
   binary, this branch before the #228 merge, and after it), so not one
   generated record of Mathlib's mutual and nested blocks moved.
+
+## TASK #229 — THE PROGRESS HEARTBEAT IS A FLAG (2026-09-08, `agent/progress`)
+
+`CON_LECHE_PROGRESS=<stride>` became `--progress[=<stride>]`.  The user's
+reason is the right one and short: the heartbeat is not a diagnostic
+knob but a **run mode selector** — it swaps the verified fold
+`Cached.checkDecls` for the separate, openly unverified `IO` twin
+`Main.checkDeclsProgressIO` — and a run mode is what a command-line flag
+is for.  The remaining `CON_LECHE_*` names (`INMODEL`, `INMODEL_DUMP`,
+`INMODEL_CENSUS`, `ROUTE_TRACE`, `PROJREC_TRACE`, `VERBOSE`,
+`SUPERVISED`, `TRACE_DECLS`, `OFFICIAL_KERNEL`, and the retired-flag
+guards) stay variables: they are diagnostics, tooling and debug
+switches.
+
+Semantics unchanged: the same fold, one line before every stride-th
+declaration, and a run WITH the flag is not covered by the main theorem
+(said in the docstring, in `--help`, in OVERVIEW §0/§2/§9 and here).
+Bare `--progress` is stride 1 (the localisation lane); `--progress=<n>`
+the general form; a non-numeral, and `0` — the flag asking for nothing —
+are usage errors (exit 3), the same provenance discipline the retired
+spellings follow.  The flag composes with `--verified`/`--trusted` in
+either order.  One new obligation the environment used to discharge for
+free: the OOM supervisor re-emits the flag into the child's argument
+vector (`childArgs`).
+
+**The variable is gone, not aliased.**  A run with `CON_LECHE_PROGRESS`
+set is a plain run — so a stale script that still exports it loses its
+heartbeat visibly instead of working on silently.  The arena's progress
+sweep pins that (12/12, up from 6): the flag's own contract as before,
+plus bare-flag = stride 1, either-order composition with `--trusted`,
+`--progress=x` and `--progress=0` as exit 3, and the ignored variable
+(no heartbeat, unchanged verdict).
+
+Callers moved with it: `tests/arena.sh`, `scripts/perf-tables.sh` (the
+flag joins `CMD` rather than the environment), `scripts/perf-tables-render.py`
+and the regenerated `PERF.md` metric row, `scripts/selfcheck.sh`, the
+`Verify/Cached/MainC.lean` and `tests/ConLecheTests/Axioms.lean`
+docstrings, and the rc-linearity skill note.  Gates: build warning-free,
+`lake test`, `tests/arena.sh` clean-env green (every other count
+unchanged), layering, trust surface, `tests/overview-links.sh` 58 links
+— two stale anchors repointed on the way (`Main.lean#L419` → `#L441`,
+the *usage text*, and `#L331` → `#L343`, the default run's *call* of
+`checkDecls`; both had drifted onto unrelated lines under earlier
+`--update`s).  init-full with `--progress=5000`: **53 088** accepted,
+exit 0, the heartbeat on stderr.

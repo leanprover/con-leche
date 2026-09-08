@@ -18,7 +18,7 @@ con-leche [--verified|--trusted] FILE.ndjson
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L419)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L441)).
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L37)):
 
@@ -35,9 +35,9 @@ is never used for "something unexpectedly went wrong"; that is exit 3,
 which verification is meant to make rare. Only exit 0 carries the
 theorem's guarantee.
 
-`CON_LECHE_PROGRESS=<stride>` prints a heartbeat line before every
-`stride`-th declaration on stderr; it runs a separate, unverified copy
-of the fold (see §2).
+The flag `--progress[=<stride>]` prints a heartbeat line before every
+`stride`-th declaration on stderr (bare, the stride is 1); it runs a
+separate, unverified copy of the fold (see §2).
 
 ## 1. What is proved
 
@@ -66,10 +66,10 @@ Read from the outside in:
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L901))
    and calls the pure fold `checkDecls`, printing nothing per
    declaration
-   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L331)).
-   The optional progress lane (`CON_LECHE_PROGRESS`) runs a separate,
+   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L343)).
+   The optional progress lane (`--progress`) runs a separate,
    plainly unverified fold of the same steps with a line printed before
-   each declaration; a run with it set is not covered by the theorem.
+   each declaration; a run with that flag is not covered by the theorem.
 2. **The shipped fold**
    ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L283-L286))
    folds the per-declaration step of the *cached* checker
@@ -436,7 +436,7 @@ declare it.)
   accepted as the changed statement. The rewrites are written to be
   meaning-preserving and each is small and inspectable, but that is a
   review claim, not a theorem.
-* `--trusted` mode and the `CON_LECHE_PROGRESS` lane.
+* `--trusted` mode and the `--progress` lane.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
 * Two deliberate accept-supersets relative to the official kernel, a

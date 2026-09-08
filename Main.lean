@@ -54,7 +54,7 @@ two must never drift apart. -/
 def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
 
 /-- **The progress lane's fold — UNVERIFIED, and the only unverified
-loop in the driver** (`CON_LECHE_PROGRESS`, user ruling 2026-09-07).
+loop in the driver** (the `--progress` lane, user ruling 2026-09-07).
 
 The default run calls `ConLeche.Cached.checkDecls` — the pure
 function `ConLeche.no_proof_of_False` is about — and prints nothing per
@@ -66,7 +66,7 @@ position-carrying step of the verified fold, over the same records from
 the same empty environment and state — with one line printed before
 each declaration.  Nobody should be bothered by the difference between
 these two trivial folds; what matters is that the difference is
-*stated*: a run with `CON_LECHE_PROGRESS` set is not covered by the main
+*stated*: a run WITH `--progress` is not covered by the main
 theorem, and a run without it is.
 
 **Written tail-recursively, threading `fe` and `s` LINEARLY** (task
@@ -80,7 +80,8 @@ the recursive call, so the C carries no `lean_inc` of either before the
 step (checked in `.lake/build/ir/Main.c`), and the cost per declaration
 is flat.
 
-**Stride 1 is the localisation lane.**  With `CON_LECHE_PROGRESS=1` every
+**Stride 1 is the localisation lane.**  With `--progress` (bare, or
+`--progress=1`) every
 declaration is announced before it is checked, so a run that dies — an
 OOM, a timeout, a `SIGKILL` — names on its last line the declaration it
 died in.  The index is the FOLD position, not the stream's record
@@ -133,19 +134,22 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
       checkDeclsProgressIO mode err stride total t0 trace inModelled ds i' fe' s'
     | .error e => return .error e
 
-/-- The progress heartbeat's stride (`CON_LECHE_PROGRESS=<stride>`;
-2026-09-07).  `none` — the variable unset — is off; a value that is not
-a decimal numeral is a hard error, per the provenance discipline the
-retired-variable arms follow (a run's output must be readable off its
-invocation, never silently degraded).  `0` is the explicit "off". -/
-def progressStride : IO (Except String Nat) := do
-  match ← IO.getEnv "CON_LECHE_PROGRESS" with
-  | none => return .ok 0
-  | some s =>
-    match s.toNat? with
-    | some n => return .ok n
-    | none => return .error s!"CON_LECHE_PROGRESS must be a declaration stride \
-        (a decimal numeral; 0 or unset is off), got {repr s}"
+/-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
+flag (2026-09-07; a FLAG since task #229 — it selects a run mode, the
+unverified progress fold instead of the verified one, which is what
+flags are for, and it was an environment variable before).  No flag is
+off; bare `--progress` is stride 1.  A value that is not a decimal
+numeral, and `0` — the flag asking for no heartbeat — are usage errors
+(exit 3), per the provenance discipline the retired spellings follow: a
+run's output must be readable off its invocation, never silently
+degraded. -/
+def progressStride (v : String) : Except String Nat :=
+  match v.toNat? with
+  | some 0 => .error "--progress takes a declaration stride of at least 1 \
+      (a decimal numeral); omit the flag for no heartbeat"
+  | some n => .ok n
+  | none => .error s!"--progress takes a declaration stride \
+      (a decimal numeral of at least 1), got {repr v}"
 
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
@@ -163,7 +167,7 @@ under `--trusted`.  The verified instance is covered by
 (`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
 accept (`trusted_agrees_skels_shipped`). -/
-def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
+def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -178,11 +182,9 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
         certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
       return 3
-    -- The opt-in progress heartbeat (2026-09-07): validated here, once,
-    -- before any work is done.
-    let stride ← match ← progressStride with
-      | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
-      | .ok n => pure n
+    -- The opt-in progress heartbeat (2026-09-07, `--progress[=<stride>]`):
+    -- validated by the argument parse, before any work is done, and
+    -- handed down as configuration.
     -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
     -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
     -- on the progress lane (so a traced run is as unverified as a
@@ -291,7 +293,7 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **Two loops** (user ruling, 2026-09-07).  Without
-      -- `CON_LECHE_PROGRESS` the driver calls the verified fold
+      -- `--progress` the driver calls the verified fold
       -- `ConLeche.Cached.checkDecls` directly — the exact
       -- function `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`)
       -- is about.  With it, the driver calls `checkDeclsProgressIO`
@@ -437,7 +439,7 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: con-leche [--verified|--trusted] FILE.ndjson",
+  "usage: con-leche [--verified|--trusted] [--progress[=<stride>]] FILE.ndjson",
   "",
   "  --verified        the default: the verified mode (graded model,",
   "                    annotation-gated checks).  The validated-",
@@ -468,7 +470,7 @@ def usage : String := String.intercalate "\n" [
   "                    certain steps omitted.  Replaces the retired",
   "                    --yolo/CON_LECHE_NO_PROOF_CERTS and",
   "                    --infer-only/CON_LECHE_INFER_ONLY",
-  "  CON_LECHE_PROGRESS=<stride>",
+  "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR: one",
   "                    'con-leche: progress <i>/<N> <decl> t=<s>s' line",
   "                    every <stride> declarations, plus one line when",
@@ -480,13 +482,19 @@ def usage : String := String.intercalate "\n" [
   "                    dies names the declaration it died in.",
   "                    <i> is the FOLD position, which the stream's",
   "                    declaration-record index sits near but not at a",
-  "                    fixed offset above.  Unset or 0 is off.",
+  "                    fixed offset above.  Bare --progress is stride 1",
+  "                    (the localisation lane: every declaration is",
+  "                    announced before it is checked).  Without the",
+  "                    flag there is no heartbeat; a stride that is not",
+  "                    a decimal numeral, or 0, is a usage error.  The",
+  "                    flag may come before or after --verified/",
+  "                    --trusted.",
   "",
   "                    NOTE: this lane runs a SEPARATE, UNVERIFIED fold",
   "                    (Main.checkDeclsProgressIO) — the same steps in",
   "                    the same order as the verified one with a line",
   "                    printed before each declaration, because a pure",
-  "                    fold cannot print.  A run WITHOUT this variable",
+  "                    fold cannot print.  A run WITHOUT this flag",
   "                    calls checkDecls, the function the main",
   "                    theorem (ConLeche.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
@@ -599,6 +607,9 @@ def usage : String := String.intercalate "\n" [
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
+  /-- The progress heartbeat's stride (`--progress[=<stride>]`, task
+  #229); `0` is "no flag given", i.e. no heartbeat. -/
+  progress : Nat := 0
   files : Array String := #[]
   bad : Option String := none
 
@@ -636,6 +647,12 @@ def parseArgs : List String → Args → Args
         verification lane it selected was deleted with the mode, and \
         the certified mode is --verified (default) (task #148 T7b)" }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
+  -- The progress heartbeat (task #229): a FLAG, in either order with
+  -- `--verified`/`--trusted`, because it selects a run mode — the
+  -- separate UNVERIFIED fold instead of the verified one.  Bare is
+  -- stride 1; `--progress=<n>` is the general form (below, with the
+  -- other `=`-carrying spellings).
+  | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \
         --trusted (checking-mode front door included, task #147)" }
@@ -667,6 +684,10 @@ def parseArgs : List String → Args → Args
       { a with bad := some "--core is retired; there is one core and one \
           expression representation since task #172 (the interned arena \
           and every driver over it were deleted)" }
+    else if s.startsWith "--progress=" then
+      match progressStride ((s.drop "--progress=".length).toString) with
+      | .ok n => parseArgs rest { a with progress := n }
+      | .error msg => { a with bad := some msg }
     else if s.startsWith "--check-range=" then
       { a with bad := some "--check-range is retired; the split \
           install/check driver was arena machinery and went with the \
@@ -678,6 +699,10 @@ def parseArgs : List String → Args → Args
 /-- The child's argument vector, reassembled from the parsed options. -/
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
+    -- The heartbeat is a flag now (task #229), so the supervisor must
+    -- re-emit it: the child no longer inherits it through the
+    -- environment.
+    ++ (if a.progress == 0 then #[] else #[s!"--progress={a.progress}"])
     -- Two modes, and `.verified` is the default, so it re-emits
     -- nothing.  (The dead R arm this replaced went with the
     -- constructor when `CheckMode` collapsed to two values.)
@@ -710,7 +735,7 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "CON_LECHE_SUPERVISED").isSome then
-      checkMain file a.mode
+      checkMain file a.mode a.progress
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString

@@ -191,7 +191,7 @@ theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
 
 `Main.lean` calls `checkDecls` — this letter's subject —
 directly on every run that is not printing progress.  The opt-in
-`CON_LECHE_PROGRESS` lane runs an unverified `IO` twin of the same fold
+`--progress` lane runs an unverified `IO` twin of the same fold
 (`Main.checkDeclsProgressIO`): the same `checkDeclStep` steps in
 the same order, with a line printed before each declaration.  **User
 ruling, 2026-09-07**: the two folds differ only in the print, and the

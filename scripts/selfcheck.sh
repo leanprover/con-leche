@@ -130,10 +130,10 @@ $(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
 # ---------------------------------------------------------------- 4/4
 lake build con-leche
 echo "[selfcheck] checking ($MODE)"
-# `CON_LECHE_PROGRESS` is deliberately NOT set by default: the heartbeat lane
+# `--progress` is deliberately NOT passed by default: the heartbeat lane
 # is the driver's one unverified fold (Main.lean, user ruling
-# 2026-09-07), so a run with it set does not stand behind the verified
-# capstone.  Set it in the environment for a diagnostic run.
+# 2026-09-07), so a run with the flag does not stand behind the verified
+# capstone.  Add the flag by hand for a diagnostic run.
 (
   ulimit -v 22000000
   set +e
