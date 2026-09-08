@@ -4,7 +4,7 @@ public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Verify.Knot
 public import ConLeche.Verify.Shift
 
-@[expose] public section
+public section
 
 /-!
 # Abstraction and the open/close roundtrip
@@ -30,7 +30,7 @@ variable {mode : CheckMode}
 open Expr
 
 /-- Every reachable `fvar` leaf with index `d` is exactly `fvar d ty`. -/
-def Expr.fvarConsistent (d : Nat) (ty : Expr) : Expr → Prop
+@[expose] def Expr.fvarConsistent (d : Nat) (ty : Expr) : Expr → Prop
   | .fvar idx ty' => idx = d → ty' = ty
   | .app f a => fvarConsistent d ty f ∧ fvarConsistent d ty a
   | .lam t b _ | .forallE t b _ => fvarConsistent d ty t ∧ fvarConsistent d ty b

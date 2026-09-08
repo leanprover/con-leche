@@ -5,7 +5,7 @@ public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.Abstract
 
-@[expose] public section
+public section
 
 /-!
 # Leaf-closure and loose-bvar preservation for `whnf` and `inferTypeCore`
@@ -124,11 +124,11 @@ theorem piResidual_looseBVars :
 open Expr
 
 /-- Every leaf annotation is bvar-closed. -/
-def Expr.LeavesBounded (e : Expr) : Prop :=
+@[expose] def Expr.LeavesBounded (e : Expr) : Prop :=
   ∀ l ∈ e.fvarLeaves, Expr.looseBVarsBounded 0 l.2 = true
 
 /-- The per-index leaf condition backing `fvarConsistent`. -/
-def Expr.LeafCond (d : Nat) (ty : Expr) (e : Expr) : Prop :=
+@[expose] def Expr.LeafCond (d : Nat) (ty : Expr) (e : Expr) : Prop :=
   ∀ l ∈ e.fvarLeaves, l.1 = d → l.2 = ty
 
 theorem Expr.fvarConsistent_of_leafCond {d : Nat} {ty : Expr} :

@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.SumRecData
 public import ConLeche.Model.Inductives.SumStageCtor
 public import ConLeche.Model.Inductives.StructRecFrames
-
-@[expose] public section
+public section
 
 /-!
 # The sum recursor's frames (task #175 sum-types, indexed)
@@ -39,11 +38,11 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- The field chains of the constructor data (at the parameter
 frame). -/
-def fssOf (nP : Nat) (cds : List CtorDatum) : List (List AnnotTerm) :=
+@[expose] def fssOf (nP : Nat) (cds : List CtorDatum) : List (List AnnotTerm) :=
   cds.map fun cd => (cd.2.2.1.drop nP).map (·.2.2)
 
 /-- The index readings of the constructor data. -/
-def essOf (cds : List CtorDatum) : List (List AnnotTerm) :=
+@[expose] def essOf (cds : List CtorDatum) : List (List AnnotTerm) :=
   cds.map fun cd => cd.2.2.2
 
 theorem fssOf_length (nP : Nat) (cds : List CtorDatum) : (fssOf nP cds).length = cds.length := by

@@ -104,7 +104,7 @@ def natRecAV (u : Nat) (M z s k : AnnotTerm) : AnnotTerm :=
 theorem interp_natRecAV_raw (u : Nat) (M z s k : AnnotTerm) (σ : Nat → V) :
     interp V σ (natRecAV u M z s k)
       = SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (natRecV V u)
-          (interp V σ M)) (interp V σ z)) (interp V σ s)) (interp V σ k) := rfl
+          (interp V σ M)) (interp V σ z)) (interp V σ s)) (interp V σ k) := by rfl
 
 /-- The spine reads to `natrec` (`natRecV_app`). -/
 theorem interp_natRecAV {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
@@ -190,7 +190,7 @@ theorem natRecAV_wellDenoted {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
 def natSortMotiveAV (w : Nat) : AnnotTerm := .lam (w + 1) natAV (.sort w)
 
 theorem interp_natSortMotiveAV (w : Nat) (σ : Nat → V) :
-    interp V σ (natSortMotiveAV w) = lamR (w + 1) omega fun _ => univ w := rfl
+    interp V σ (natSortMotiveAV w) = lamR (w + 1) omega fun _ => univ w := by rfl
 
 theorem natSortMotiveAV_mem (w : Nat) (σ : Nat → V) :
     interp V σ (natSortMotiveAV w) ∈ˢ natMotiveSpace V (w + 1) := by

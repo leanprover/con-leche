@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Verify.Inductives.FixRec
-
-@[expose] public section
+public section
 
 /-!
 # The generated recursive recursor's readings (task #188)
@@ -939,7 +938,7 @@ entries — bits included — and its domain's index expressions, read
 under the whole telescope, are the field's readings (task #202; a
 finitary field: the telescope is empty and this is the old
 `eisRead`). -/
-def FieldReadAt {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP nF i : Nat) (cty : Expr)
+@[expose] def FieldReadAt {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP nF i : Nat) (cty : Expr)
     (fvs0 : List Expr) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : Prop :=
   tl.length = (ConLeche.structFieldTeleOf cty nP nF i).length ∧
   (∀ (k : Nat) (b : Expr × BinderMeta) (p : Nat × Nat × AnnotTerm),

@@ -7,7 +7,7 @@ public import ConLeche.Model.Inductives.FixRecFrames
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor's K-frames, part 2: the package (task #188)

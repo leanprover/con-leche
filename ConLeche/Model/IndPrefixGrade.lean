@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.IndDomGrade
 public import ConLeche.Model.IndRuns
 public import ConLeche.Verify.BridgeWfImp
-
-@[expose] public section
+public section
 
 /-!
 # The prefix domains, graded and fired (task #161, IND TIER part 4)

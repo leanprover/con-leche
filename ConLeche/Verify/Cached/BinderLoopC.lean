@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Cached.DiscC3
 public import ConLeche.Verify.BinderLoop
 
-@[expose] public section
+public section
 
 /-!
 # Cached binder-loop walks (task #163, batches 9 + 11)

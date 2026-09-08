@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndZipField
 public import ConLeche.Model.Annot.BitRename
-
-@[expose] public section
+public section
 
 /-!
 # The block renaming, at the reading (task #161, IND TIER part 4)
@@ -49,7 +48,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 renamed constant resolves with the same level parameters, unresolved
 names stay unresolved, and the *annotated* valuation agrees on the
 renaming. -/
-def RenameOk (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+@[expose] def RenameOk (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
     (f : Name → Name) : Prop :=
   (∀ n ci, env.find? n = some ci → ∃ ci', env.find? (f n) = some ci' ∧
     ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams) ∧

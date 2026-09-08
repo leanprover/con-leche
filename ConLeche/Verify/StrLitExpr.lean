@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.Core
 public import ConLeche.Verify.Shift
 
-@[expose] public section
+public section
 
 /-!
 # Syntactic facts about the string-literal constructor form
@@ -22,7 +22,7 @@ open Expr
 
 /-- The character-list part of `strLitToConstructor`, as a standalone
 recursion (the kernel function folds; this is its unfolding). -/
-def strLitList : List Char → Expr
+@[expose] def strLitList : List Char → Expr
   | [] => .app (.const listNilName [.zero]) (.const charName [])
   | c :: cs =>
     .app (.app (.app (.const listConsName [.zero]) (.const charName []))

@@ -8,7 +8,7 @@ public import ConLeche.Verify.Inductives.StructBody
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The projection body's frame (task #175 S1)

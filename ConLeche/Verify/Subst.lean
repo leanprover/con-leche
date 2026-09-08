@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.ExprOps
 public import ConLeche.Verify.Shift
 
-@[expose] public section
+public section
 
 /-!
 # Substituting a free variable by a term
@@ -119,7 +119,7 @@ theorem stripPis_instantiate1_isSome {v : Expr} :
 
 /-- Structural equality up to `fvar` names and annotations and binder
 names — exactly what the interpretation never reads. -/
-def ErasedEq : Expr → Expr → Prop
+@[expose] def ErasedEq : Expr → Expr → Prop
   | .bvar i, .bvar j => i = j
   | .fvar i _, .fvar j _ => i = j
   | .sort u, .sort v => u = v
@@ -592,7 +592,7 @@ theorem ErasedEq.stripPis_inv :
 
 /-- Instantiate a sequence of arguments at descending indices (the
 per-domain effect of peeling a telescope). -/
-def instSeq : List Expr → Nat → Expr → Expr
+@[expose] def instSeq : List Expr → Nat → Expr → Expr
   | [], _, e => e
   | a :: as, t, e => instSeq as (t - 1) (e.instantiate1 a t)
 
@@ -1395,7 +1395,7 @@ theorem fvarsBelow_instantiate1_gen {d : Nat} {a : Expr} (ha : fvarsBelow d a) :
 
 
 /-- Replace `fvar p` by `a`, lowering higher `fvar` indices. -/
-def substFvarAt (p : Nat) (a : Expr) : Expr → Expr
+@[expose] def substFvarAt (p : Nat) (a : Expr) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar idx ty =>
     if idx = p then a

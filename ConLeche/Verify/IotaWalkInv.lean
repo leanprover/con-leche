@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Checker
 
-@[expose] public section
+public section
 
 /-!
 # Inverting the iota-install list checks (task #123)
@@ -38,7 +38,7 @@ theorem fueledOpsW_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
 
 /-- Pairwise fueled definitional equality of two spines (the semantic
 content of a successful `checkDefEqList`). -/
-def DefEqListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
+@[expose] def DefEqListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
     List Expr → List Expr → Prop
   | [], [] => True
   | a :: as, b :: bs =>
@@ -47,7 +47,7 @@ def DefEqListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
 
 /-- Pairwise fueled inferred-type check of a spine against expected
 types (the semantic content of a successful `checkTypedList`). -/
-def TypedListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
+@[expose] def TypedListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
     List Expr → List Expr → Prop
   | [], [] => True
   | a :: as, b :: bs =>
@@ -58,7 +58,7 @@ def TypedListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
 
 /-- Each expression is a fixed point of the annotation pass (the
 semantic content of a successful `checkAnnotList`). -/
-def AnnotListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) (l : List Expr) : Prop :=
+@[expose] def AnnotListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) (l : List Expr) : Prop :=
   ∀ a ∈ l, annotateCore mode env F d a = .ok a
 
 /-- Extract a member's inference run from a `TypedListOk` package

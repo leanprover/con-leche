@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.Bit
 
-@[expose] public section
+public section
 
 /-!
 # Bit validity of the literal spines (task #161, P3.5)

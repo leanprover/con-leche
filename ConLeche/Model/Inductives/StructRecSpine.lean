@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructStageCtor
 public import ConLeche.Model.IndProjKit
-
-@[expose] public section
+public section
 
 /-!
 # The recursor's frame kit (task #175 W4c, P3 module 6, part 8)
@@ -42,7 +41,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 
 /-- The binder data of a lifted Π-tower: each domain lifted at its own
 depth. -/
-def liftDoms (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
+@[expose] def liftDoms (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
   | _, [] => []
   | k, d :: ds => (d.1, d.2.1, d.2.2.liftN n k) :: liftDoms n (k + 1) ds
 
@@ -159,7 +158,7 @@ theorem spineFit_congr_below :
 /-! ## The family spine above the parameters -/
 
 /-- The parameter variables as seen from depth `D` (`D ≥ nP`). -/
-def paramBvarsAt (nP D : Nat) : List AnnotTerm :=
+@[expose] def paramBvarsAt (nP D : Nat) : List AnnotTerm :=
   (List.range nP).map fun k => .bvar (D - 1 - k)
 
 theorem paramBvars_eq_paramBvarsAt (nP nF : Nat) :

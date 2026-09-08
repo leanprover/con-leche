@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.BitShift
 public import ConLeche.Semantics.DenoteClosed
 
-@[expose] public section
+public section
 
 /-!
 # `denoteMeta`, closed and depth-independent (task #161, P3.2)

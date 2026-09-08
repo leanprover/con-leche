@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Level
 
-@[expose] public section
+public section
 
 /-!
 # Soundness of the level operations
@@ -23,7 +23,7 @@ which needs no justification, and `none` is an internal error.
 namespace ConLeche.Level
 
 /-- Evaluate a level under an assignment of its parameters. -/
-def eval (φ : Name → Nat) : Level → Nat
+@[expose] def eval (φ : Name → Nat) : Level → Nat
   | .zero => 0
   | .succ l => eval φ l + 1
   | .max l r => Max.max (eval φ l) (eval φ r)
@@ -31,7 +31,7 @@ def eval (φ : Name → Nat) : Level → Nat
   | .param n => φ n
 
 /-- The assignment corresponding to a parameter substitution. -/
-def substFn (φ : Name → Nat) : List Name → List Level → Name → Nat
+@[expose] def substFn (φ : Name → Nat) : List Name → List Level → Name → Nat
   | k :: ks, v :: vs, n => if k = n then eval φ v else substFn φ ks vs n
   | _, _, n => φ n
 

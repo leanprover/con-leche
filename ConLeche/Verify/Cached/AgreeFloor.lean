@@ -3,7 +3,7 @@ module
 public import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.EnvBound
 
-@[expose] public section
+public section
 
 /-!
 # The trusted↔P agreement floor (task #172, batch B7; restated at the
@@ -74,7 +74,7 @@ action — which is what makes the long `do` blocks of the drivers
 collapse to their final `pure`. -/
 
 /-- `P` holds of every value the action can return. -/
-def Yields {α : Type} (m : CheckCM α) (P : α → Prop) : Prop :=
+@[expose] def Yields {α : Type} (m : CheckCM α) (P : α → Prop) : Prop :=
   ∀ s a s', m s = .ok (a, s') → P a
 
 theorem Yields.mono {α : Type} {m : CheckCM α} {P Q : α → Prop}

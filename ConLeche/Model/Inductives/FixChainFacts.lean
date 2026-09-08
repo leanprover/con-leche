@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixChains
 public import ConLeche.Model.Inductives.FixTeleBound
-
-@[expose] public section
+public section
 
 /-!
 # The chain facts of a recursive constructor, and the index telescope

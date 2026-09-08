@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.SumRec
 public import ConLeche.Kernel.Inductives.NativeParts
 
-@[expose] public section
+public section
 
 /-!
 # The generated recursive recursor, unfolded (task #188)
@@ -198,7 +198,7 @@ theorem Expr.looseBVarsBounded_liftLooseBVars (k : Nat) :
 
 /-- `Expr.shiftFrom p`, iterated `n` times: insert `n` fresh variable
 slots at index `p`. -/
-def Expr.shiftFromN (p : Nat) : Nat → Expr → Expr
+@[expose] def Expr.shiftFromN (p : Nat) : Nat → Expr → Expr
   | 0, e => e
   | n + 1, e => Expr.shiftFrom p (Expr.shiftFromN p n e)
 

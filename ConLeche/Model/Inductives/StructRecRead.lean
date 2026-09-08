@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructRecKit2
 public import ConLeche.Verify.Inductives.StructRec
-
-@[expose] public section
+public section
 
 /-!
 # The generated recursor, read (task #175 S2)
@@ -46,7 +45,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 /-! ## Bits reset -/
 
 /-- Binder data with every codomain bit reset to `b`. -/
-def rebit (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
+@[expose] def rebit (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
   ds.map fun d => (d.1, b, d.2.2)
 
 @[simp] theorem rebit_nil (b : Nat) : rebit b [] = [] := rfl
@@ -257,7 +256,7 @@ theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
 /-! ## The three special entries -/
 
 /-- The field variables' spine at the minor's core. -/
-def fieldBvars (nF : Nat) : List AnnotTerm :=
+@[expose] def fieldBvars (nF : Nat) : List AnnotTerm :=
   (List.range nF).map fun k => AnnotTerm.bvar (nF - 1 - k)
 
 /-! ## The constructor telescope's residual -/

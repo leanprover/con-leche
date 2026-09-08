@@ -11,8 +11,7 @@ public import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.InstSpine
-
-@[expose] public section
+public section
 
 /-!
 # Depth invariance of the checker core

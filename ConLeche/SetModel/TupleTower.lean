@@ -389,7 +389,7 @@ theorem towerSet_ne_pt {w : Nat} : ∀ {n} (T : TeleS V n),
 /-- **The 0-field degeneracy**: the empty tower is `unitSet` at every
 level — hence unit-likeness (next lemma) and, at `w = 0`, the correct
 truth value `⟦True⟧`. -/
-theorem towerSet_nil {w : Nat} : towerSet w (.nil : TeleS V 0) = unitSet :=
+theorem towerSet_nil {w : Nat} : towerSet w (.nil : TeleS V 0) = unitSet := by
   rfl
 
 /-- Unit-likeness at `n = 0`: any two members are equal. -/

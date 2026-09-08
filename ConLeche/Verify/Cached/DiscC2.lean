@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC1
 
-@[expose] public section
+public section
 
 /-!
 # Cached body walks, part 2: the stuck-term certificates (task #163)

@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.IndMember
 public import ConLeche.Verify.Extend.Iota
 public import ConLeche.Verify.Extend.Ind
-
-@[expose] public section
+public section
 
 /-!
 # `caps_ok` at a member cons: the split, and the two live rows (task #161, IND TIER)

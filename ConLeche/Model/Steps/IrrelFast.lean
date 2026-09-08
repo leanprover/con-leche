@@ -12,7 +12,7 @@ public import ConLeche.Verify.PropRead
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The fast `isProof` "yes" arm: the squash-regime licence (task #168, stage 3)
@@ -138,7 +138,7 @@ theorem irrel_fast_fence :
 bits, and the residual is `.sort u` — the reading of a type former's
 stored type `∀ p⃗, Sort u` whose binders the reader checked to be
 `.never`. -/
-def NeverChain : Nat → Nat → AnnotTerm → Prop
+@[expose] def NeverChain : Nat → Nat → AnnotTerm → Prop
   | 0, u, e => e = .sort u
   | n + 1, u, e =>
     match e with

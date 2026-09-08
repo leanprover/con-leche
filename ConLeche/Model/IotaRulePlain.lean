@@ -6,8 +6,7 @@ public import ConLeche.Model.Annot.Bit
 -- task #161 S10: `acceptedReads_of` — the rule rhs's reading comes
 -- from the recorded RUN, not from `IotaRuleR`'s derivation row.
 public import ConLeche.Model.Steps.Accepted
-
-@[expose] public section
+public section
 
 /-!
 # The per-rule bridge, canonical branch (task #161, IND TIER part 9)

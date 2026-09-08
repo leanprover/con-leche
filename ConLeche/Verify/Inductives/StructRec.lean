@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.StructBody
 public import ConLeche.Verify.ProjSlots
 
-@[expose] public section
+public section
 
 /-!
 # The generated recursor, opened (task #175 S2)

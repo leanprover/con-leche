@@ -5,8 +5,7 @@ public import ConLeche.Model.Steps.Stuck
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.Denote.VClosed
-
-@[expose] public section
+public section
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)
@@ -152,7 +151,7 @@ theorem litMajorToCtorFueled_step {m : EnvModel V env}
 /-- The stuck-major rescue's contract, P currency (`MajorStepR`'s
 mirror: the `Red` derivation becomes an `interp` equation plus the
 reduct's grading). -/
-def MajorStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def MajorStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AnnotTerm} {recName : Name} {rules : List RecRule}
     {major major' : Expr} {vm : AnnotTerm},

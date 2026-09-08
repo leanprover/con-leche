@@ -7,7 +7,7 @@ public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.EnvWF
 
-@[expose] public section
+public section
 
 /-!
 # Iota — split out of `ConLeche.ModelV1.Extend`
@@ -37,7 +37,7 @@ open Expr
 everything `modeled_rule_fold` consumes.  `env` is the environment the
 theorem is stored in, `env₀` the provisional one carrying the block's
 rule-less recursors (the definitional-equality checks ran there). -/
-def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
+@[expose] def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF j : Nat) (r : RecRule)
     (cvj : ConstantVal) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
@@ -104,7 +104,7 @@ prefix variables) instead of the leading telescope variables; index
 premises between the prefix and the major flow through exactly as on
 the plain path (the statement's index arguments are pinned against
 the constructor residual's canonical tuple). -/
-def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
+@[expose] def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF j : Nat) (r : RecRule)
     (cvj : ConstantVal) (lvls : List Level) (pins : List Expr) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
@@ -814,7 +814,7 @@ hypothesis kit its fold obligation consumes.  `env` is the environment
 before the recursor group's installation, `env₀` the provisional one
 with the block's rule-less recursors (in which the rule's right-hand
 side was annotated). -/
-def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
+@[expose] def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP j : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
     (rbinders : List (Expr × BinderMeta)) (rbody : Expr),
@@ -1055,7 +1055,7 @@ conjunct of each half is task #135's: the model former's telescope
 residual is `Sort ℓA` at the statement's own `Eq` level, which is what
 lets a consumer type the equation's type slot at the level the
 statement names (see `checkEtaThm`). -/
-def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
+@[expose] def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     (caps : IndCaps) : Prop :=
   (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
@@ -1565,7 +1565,7 @@ itself a block member (so the block invariant's public/model
 identification reaches it), and — when it has fields — the freshness
 of its first projection, which is what makes a `etaFields > 0` family
 unable to complete before the projection fold runs. -/
-def BlockEtaPinned (mode : CheckMode) (blockNames : List Name)
+@[expose] def BlockEtaPinned (mode : CheckMode) (blockNames : List Name)
     (env : Env) : Prop :=
   ∀ (n : Name) (cvS : ConstantVal) (capsS : IndCaps),
     blockNames.contains n = true →

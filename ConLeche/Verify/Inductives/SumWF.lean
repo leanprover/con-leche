@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.StructWF
 public import ConLeche.Verify.Inductives.SumInv
 
-@[expose] public section
+public section
 
 /-!
 # The direct sum install: environment well-formedness (task #175

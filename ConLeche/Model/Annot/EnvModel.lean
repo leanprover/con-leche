@@ -4,7 +4,7 @@ public import ConLeche.Semantics.WellDenoted
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Denote.Pinned
 
-@[expose] public section
+public section
 
 /-!
 # `EnvModel` — the denoteAnnot-free carrier (task #161, P4 — a FINDING)
@@ -99,7 +99,7 @@ variable {V}
 measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
 function the carrier already owns, so no model content is
 transported. -/
-def EnvModel.cvalE {env : Env} (m : EnvModel V env) : TConstVal :=
+@[expose] def EnvModel.cvalE {env : Env} (m : EnvModel V env) : TConstVal :=
   fun n ψ => (m.acval n ψ).erase
 
 /-- **`acval_erase` is now `rfl`** — it used to be the field tying the
@@ -141,7 +141,7 @@ theorem EnvModel.cvalE_pinned {env : Env} (m : EnvModel V env)
 /-- The empty environment's core: the leaf is the bare `.const .empty
 [0]` at every name (`EnvModel.empty`'s valuation, one currency over), and
 every syntactic field is vacuous over `env.consts = []`. -/
-def EnvModel.empty : EnvModel V Env.empty where
+@[expose] def EnvModel.empty : EnvModel V Env.empty where
   wf := by intro c hc; cases hc
   acval := fun _ _ => .const .empty [0]
   cval_closedL := fun _ _ => trivial
@@ -161,7 +161,7 @@ and two valuations only, so it transposes verbatim. -/
 
 /-- **Residue 8, over the core**: the annotated valuation is
 level-insensitive (the `EnvModel` reading of `AcvalParams2`). -/
-def AcvalParams {env : Env} (m : EnvModel V env) : Prop :=
+@[expose] def AcvalParams {env : Env} (m : EnvModel V env) : Prop :=
   ∀ n ci, env.find? n = some ci →
     ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →

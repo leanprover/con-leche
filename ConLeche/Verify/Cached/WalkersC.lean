@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.GuardsC
 
-@[expose] public section
+public section
 
 /-!
 # The cached driver's walkers are the plain ones (task #214)

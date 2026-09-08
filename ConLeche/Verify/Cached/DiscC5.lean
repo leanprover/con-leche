@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC4
 
-@[expose] public section
+public section
 
 /-!
 # Cached body walks, part 5: definitional equality (task #163)

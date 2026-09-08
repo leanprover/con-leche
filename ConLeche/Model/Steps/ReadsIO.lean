@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Steps.Reads
 public import ConLeche.Model.Steps.TowerKit
 public import ConLeche.Model.Steps.InferIO
-
-@[expose] public section
+public section
 
 /-!
 # The io reads walk — `InferReadsIO` DISCHARGED (task #172, batch B3)

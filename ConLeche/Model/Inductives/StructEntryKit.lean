@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructRecLawKit
-
-@[expose] public section
+public section
 
 /-!
 # The projection entry's kit (task #175 W4c, P3 module 7, part 1)

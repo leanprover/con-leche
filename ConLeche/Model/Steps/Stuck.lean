@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Steps.Irrel
 public import ConLeche.Verify.Denote.StrLit
-
-@[expose] public section
+public section
 
 /-!
 # The stuck fallbacks over `interp` (task #161, P4 — batch 7)
@@ -350,7 +349,7 @@ and the last arm is `proofIrrelPQ_of_claims`. -/
 constructor applied to `b`'s installed projections.  Discharged at the
 **structure-capability tier** (the stored `EtaLaw` the caps pipeline
 installs), not here — `StructEtaCertStepR`'s exact position. -/
-def StructEtaIrrel (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def StructEtaIrrel (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.structEtaCertFueled μ env fuel d a b = .ok true →
@@ -374,7 +373,7 @@ asymmetry with `UnitIrrelPQ` in `Steps/Irrel.lean`: that one is
 `isUnitLikeTy` on both *whnf'd inferred types*, this one is the
 certificate's own telescope walk — two different obligations of the
 same tier.) -/
-def StructUnitIrrel (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def StructUnitIrrel (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.structUnitCertFueled μ env fuel d a b = .ok true →

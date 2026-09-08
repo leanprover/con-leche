@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Install
 
-@[expose] public section
+public section
 
 /-!
 # The structure-capability laws across a fresh cons (task #161, caps

@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote.SubstConst
 public import ConLeche.Verify.EnvGuards
 
-@[expose] public section
+public section
 
 /-!
 # The pinned-`Nat` recurrence fragment (V-free)
@@ -44,7 +44,7 @@ frame variables `x`, `y`, annotated by `Nat`.
 Shared with the div/mod certificates (`ConLeche/TTVerify/DivModPin.lean`),
 whose statements are the same shape but mention `Eq.{1}` — which is why
 the constant clause counts levels instead of demanding none. -/
-def natFragOk (env : Env) (c : Name) : Expr → Bool
+@[expose] def natFragOk (env : Env) (c : Name) : Expr → Bool
   | .sort _ => true
   | .fvar i ty =>
     (decide (i = 0) || decide (i = 1)) && (ty == .const natName [])

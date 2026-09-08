@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC5
 
-@[expose] public section
+public section
 
 /-!
 # Cached body walks, part 6: annotation

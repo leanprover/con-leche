@@ -4,8 +4,7 @@ public import ConLeche.Model.Steps.Reads
 public import ConLeche.Model.Annot.ValidSpine
 public import ConLeche.Semantics.LitStep
 public import ConLeche.Verify.EnvGuards
-
-@[expose] public section
+public section
 
 /-!
 # The literal tier, P currency (task #161)
@@ -160,7 +159,7 @@ shapes, the two `Bool` constructors for the comparison shapes), and it
 is carried by `NatOps`/`DivMod`, whose statement is exactly "stored
 as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
 guard off the environment, and nothing about the shapes changes. -/
-def NatOpGuardLaw (env : Env) : Prop :=
+@[expose] def NatOpGuardLaw (env : Env) : Prop :=
   ∀ c, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
     ConLeche.natOpStored env c = true → ConLeche.natOpGuard env c = true
 

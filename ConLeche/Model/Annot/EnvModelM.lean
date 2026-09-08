@@ -11,7 +11,7 @@ public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Verify.ProjTele
 
-@[expose] public section
+public section
 
 /-!
 # `EnvModelM` — the P-tier environment invariant (task #161, P4)
@@ -74,7 +74,7 @@ install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions (`Sound/NatOps`' shape at `interp`),
 which close `ReduceNatStep`/`PQ` below. -/
-def NatOps {V : Type w} [SetTheory V] {env : Env}
+@[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
     env.find? c = some (.defnInfo cv v hint) →
@@ -100,7 +100,7 @@ install from the recorded certificate runs (`DivModPinR`'s
 the run-certificate route again (`Interp/DivMod.lean`) — and
 preserved across every other fresh cons.  Consumed by the WF-op
 numeral transports (`Sound/NatOpsWf`' shape at `interp`). -/
-def DivMod {V : Type w} [SetTheory V] {env : Env}
+@[expose] def DivMod {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
     env.find? c = some (.defnInfo cv v hint) →
@@ -126,7 +126,7 @@ invisible to every other `EnvModelM` field, and the erasure factoring
 that would import the v1 law is refuted at exactly the λ-nodes this
 tower is made of (the literal-tier seal II finding 1).  See the task
 #161 LITERAL TIER seal III record. -/
-def EqLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def EqLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   env.find? eqName = some eqA →
   ∀ ψ : Name → Nat,
@@ -175,7 +175,7 @@ fresh cons (the law mentions two stored leaves, so it crosses).
 **Consumer**: the `ofReduceNat`/`ofReduceBool` axiom branch
 (`Interp/AxiomReduceP.lean`), whose innermost membership obligation
 is exactly `op a = a`. -/
-def ReduceOps {V : Type w} [SetTheory V] {env : Env}
+@[expose] def ReduceOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   ∀ c ∈ ConLeche.reduceOpNames, ∀ cv : ConstantVal,
     env.find? c = some (.axiomInfo cv) →
@@ -248,21 +248,21 @@ inductive TeleFit (V : Type w) [SetTheory V] :
 /-- The projection spines' values: each stored projection function
 applied to the type arguments and the stuck member
 (`projSpinesV`'s value level). -/
-noncomputable def projSpines {V : Type w} [SetTheory V]
+@[expose] noncomputable def projSpines {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
   (List.range nF).map fun j =>
     (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))
 
 /-- The fabricated η spine's values (`etaFabArgsV`'s value level). -/
-noncomputable def etaFabArgsV {V : Type w} [SetTheory V]
+@[expose] noncomputable def etaFabArgsV {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
   ts ++ projSpines val T ts b nF
 
 /-- **The fired structural-η law of an η-capable stored family**
 (`EtaLawV`'s mirror; see the note above for the shape). -/
-def EtaLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def EtaLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
@@ -286,7 +286,7 @@ def EtaLaw {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The fired unit-like law of a unit-like stored family**
 (`UnitLawV`'s mirror). -/
-def UnitLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def UnitLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
@@ -307,7 +307,7 @@ def UnitLaw {V : Type w} [SetTheory V] {env : Env}
 /-- **The stored families' capability laws at `interp`**
 (`CapsOkV`'s mirror, keyed identically; established at the inductive
 install — `IndStepPB`'s bill). -/
-def CapsOk {V : Type w} [SetTheory V] {env : Env}
+@[expose] def CapsOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
@@ -419,7 +419,7 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
 (`Term.instRevChain`'s `AnnotTerm` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
 arguments still to come). -/
-def _root_.ConLeche.Model.AnnotTerm.instRevChain :
+@[expose] def _root_.ConLeche.Model.AnnotTerm.instRevChain :
     List AnnotTerm → AnnotTerm → AnnotTerm
   | [], X => X
   | v :: vs, X =>
@@ -429,7 +429,7 @@ def _root_.ConLeche.Model.AnnotTerm.instRevChain :
 mirror, v1-verbatim at `AnnotTerm`): the residual decomposes as a spine
 whose trailing arguments agree with the recursor's index arguments,
 all at the ambient environment. -/
-def IotaIndexPin {V : Type w} [SetTheory V] (ρ : Nat → V)
+@[expose] def IotaIndexPin {V : Type w} [SetTheory V] (ρ : Nat → V)
     (restC : AnnotTerm) (cnP mI rP : Nat) (xs : List AnnotTerm) : Prop :=
   ∃ (Ha : AnnotTerm) (cargsa : List AnnotTerm),
     restC = AnnotTerm.mkAppN Ha cargsa ∧
@@ -441,7 +441,7 @@ def IotaIndexPin {V : Type w} [SetTheory V] (ρ : Nat → V)
 /-- **One rule's fired modeled-iota contract at `interp`**
 (`RecRuleLaw`; `RecRuleLawV`'s mirror — see the note above for
 every deviation). -/
-def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
     (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
     Prop :=
@@ -535,7 +535,7 @@ def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
 
 /-- The fired modeled-iota contract, keyed on every stored recursor
 (`RecRulesV`'s mirror). -/
-def RecRules {V : Type w} [SetTheory V] {env : Env}
+@[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
     (rules : List RecRule),
@@ -580,7 +580,7 @@ its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
-def _root_.ConLeche.Model.AnnotTerm.peelPis : AnnotTerm → List AnnotTerm → Option AnnotTerm
+@[expose] def _root_.ConLeche.Model.AnnotTerm.peelPis : AnnotTerm → List AnnotTerm → Option AnnotTerm
   | T, [] => some T
   | .pi _ _ _ B, a :: as => ConLeche.Model.AnnotTerm.peelPis (B.inst a) as
   | _, _ :: _ => none
@@ -602,7 +602,7 @@ the η certificate's `.proj T j b` fabrication (`etaProjs`).  Keyed on
 the entry so that the direct install alone answers it (the modeled
 route stores no tower entries); the η row reads it through slot `0` of
 an all-tower family. -/
-def TowerEtaLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def TowerEtaLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (T : Name)
     (entry : ProjEntry) : Prop :=
   ∀ (cvT : ConstantVal) (capsT : IndCaps),
@@ -629,7 +629,7 @@ field of a `Prop`-declared structure has no projection law (its value
 is not the point).  Consumers discharge it from the kernel's syntactic
 guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
 `towerGuardAt_of`. -/
-def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
+@[expose] def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
     Prop :=
   Level.eval (Level.substFn φ entry.levelParams us) entry.structSort = 0 →
     Level.eval (Level.substFn φ entry.levelParams us) entry.fieldSort = 0
@@ -638,7 +638,7 @@ def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
 by its result sort at every valuation (the field sorts are checked
 `≤` the result sort, `checkStructFieldSorts`), so the guard holds
 wherever the structure happens to be a proposition. -/
-def TowerO5 (entry : ProjEntry) : Prop :=
+@[expose] def TowerO5 (entry : ProjEntry) : Prop :=
   (Level.isEquiv entry.structSort .zero == some true) = false →
     ∀ ψ : Name → Nat,
       Level.eval ψ entry.structSort = 0 → Level.eval ψ entry.fieldSort = 0
@@ -689,7 +689,7 @@ of `projTele (nP + 1) body` — the body under `nP + 1` dummy binders
 parameters and the subject is exactly the checker's one
 `instantiateList` (`ProjEntry.typeAt`, `instPisAt_typeAt`).  The
 dummy binders carry the reading only; the law never reads them. -/
-def TowerEntryLaw {V : Type w} [SetTheory V] {env : Env}
+@[expose] def TowerEntryLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
     (T : Name) (i : Nat) (entry : ProjEntry) : Prop :=
   entry.structName = T ∧ entry.idx = i ∧
@@ -758,7 +758,7 @@ def TowerEntryLaw {V : Type w} [SetTheory V] {env : Env}
 /-- **The tower projection law, keyed on every stored entry**
 (`RecRules`'s sibling).  Task #175 tower-flag: every stored table is
 a real one, so the law is uniform — no flag premise. -/
-def TowerOk {V : Type w} [SetTheory V] {env : Env}
+@[expose] def TowerOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ (T : Name) (i : Nat) (entry : ProjEntry),
     env.findProj? T i = some entry →
@@ -935,7 +935,7 @@ case): the core is the mode-indexed empty's projection, and every P
 field is vacuous — no constants, guards false, and the empty leaf
 `.const .empty [0]` is bit-valid because a constant leaf carries no
 binder. -/
-noncomputable def EnvModelM.empty (V : Type w) [SetTheory V]
+@[expose] noncomputable def EnvModelM.empty (V : Type w) [SetTheory V]
     (μ : CheckMode) : EnvModelM V μ Env.empty where
   base2 := EnvModel.empty
   acval_validV := fun _ _ _ => by

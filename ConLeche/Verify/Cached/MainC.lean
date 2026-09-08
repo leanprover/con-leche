@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Model.Fold
-
-@[expose] public section
+public section
 
 /-!
 # The capstone letter of the SHIPPED driver

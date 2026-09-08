@@ -5,7 +5,7 @@ public import ConLeche.Model.IndCons
 public import ConLeche.Model.Annot.BitRename
 public import ConLeche.Verify.Extend.Block
 
-@[expose] public section
+public section
 
 /-!
 # The block member's key, P tier (task #161, IND TIER)
@@ -54,7 +54,7 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 member's *leaf* is its model's.  The other three conjuncts of
 `BlockInstalledTT` are V-free environment facts and are consumed from
 the v1 predicate directly. -/
-def BlockAcvalInstalled (blockNames : List Name) (env : Env)
+@[expose] def BlockAcvalInstalled (blockNames : List Name) (env : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) : Prop :=
   ∀ n, blockNames.contains n = true → ∀ ci : ConstantInfo,
     env.find? n = some ci →

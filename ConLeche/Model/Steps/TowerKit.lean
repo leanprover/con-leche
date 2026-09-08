@@ -5,7 +5,7 @@ public import ConLeche.Model.Steps.Stuck
 public import ConLeche.Model.Steps.ProjAVKit
 public import ConLeche.Verify.ProjTele
 
-@[expose] public section
+public section
 
 /-!
 # The tower-entry kit for the P `.proj` rows (task #175 wiring, W5 S3)

@@ -8,7 +8,7 @@ public import ConLeche.Semantics.BasisRules
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
@@ -242,7 +242,7 @@ def punitRecRule : RecRule :=
       { pw := .ifAllZero [u1N] } }
 
 theorem punitRecA_eq :
-    punitRecA = .recInfo punitRecA.toConstantVal 2 2 [punitRecRule] :=
+    punitRecA = .recInfo punitRecA.toConstantVal 2 2 [punitRecRule] := by
   rfl
 
 /-- **`PUnit.rec`'s rule's RHS reading**, at any assignment. -/

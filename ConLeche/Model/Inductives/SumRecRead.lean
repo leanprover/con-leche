@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructRecRead
-
-@[expose] public section
+public section
 
 /-!
 # The generated sum recursor's readings (task #175 sum-types, indexed)
@@ -158,7 +157,7 @@ theorem DenoteMetaSpine.unique {acval : Name → (Name → Nat) → AnnotTerm} {
 
 /-- The motive's domain reading `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` at the
 parameters' frame, over the former's index data `ips`. -/
-def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx : Nat)
+@[expose] def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx : Nat)
     (ℓ : Level) (ips : List (Nat × Nat × AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit (pwBit ψ PropWhen.never) ips)
     (.pi 0 (pwBit ψ PropWhen.never)
@@ -168,7 +167,7 @@ def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (n
 /-- The major premise's domain reading under the motive, `n` minors
 and the index variables: the family at the parameters and the index
 variables. -/
-def majorAVAt {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx n : Nat) :
+@[expose] def majorAVAt {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx n : Nat) :
     AnnotTerm :=
   AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + 1 + n + nIdx) ++ fieldBvars nIdx)
 

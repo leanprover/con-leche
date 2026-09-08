@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.ExceptBind
 
-@[expose] public section
+public section
 
 /-!
 # The direct simple-structure install: environment well-formedness

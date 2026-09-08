@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixRecKFrame
-
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor's premise (task #188)

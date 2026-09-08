@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Claims
 public import ConLeche.Semantics.Tower.TowerRec
 
-@[expose] public section
+public section
 
 /-!
 # The direct-structure leaves' bit validity and P packages (task #175, stage 4a)
@@ -38,7 +38,7 @@ universe uv
 variable {V : Type uv} [SetTheory V]
 
 /-- Hereditary bit validity of a field chain. -/
-def FieldsValid (ρ : Nat → V) : List AnnotTerm → Prop
+@[expose] def FieldsValid (ρ : Nat → V) : List AnnotTerm → Prop
   | [] => True
   | F :: Fs => AnnotValid V ρ F ∧
       ∀ a, a ∈ˢ interp V ρ F → FieldsValid (cons a ρ) Fs
@@ -165,7 +165,7 @@ theorem mkTowerGo_validV {w : Nat} {Fs : List AnnotTerm} {ρp : Nat → V}
   · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_validV hw hv (hb hw) hsp
 
 /-- The single hereditary validity premise of a `mkLamsC` leaf. -/
-def UnderTowerValid (ρ : Nat → V) (b : AnnotTerm) :
+@[expose] def UnderTowerValid (ρ : Nat → V) (b : AnnotTerm) :
     List (Nat × Nat × AnnotTerm) → Prop
   | [] => AnnotValid V ρ b
   | d :: ds => AnnotValid V ρ d.2.2 ∧

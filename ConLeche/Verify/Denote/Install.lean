@@ -7,7 +7,7 @@ public import ConLeche.Verify.EnvPreds
 public import ConLeche.Verify.Denote.Pinned
 public import ConLeche.Verify.Denote.Levels
 
-@[expose] public section
+public section
 
 /-!
 # Denotations survive environment extension — the install transport core
@@ -990,7 +990,7 @@ theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
 
 
 /-- Extend a valuation at one name by an explicitly chosen term. -/
-def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → Term) :
+@[expose] def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → Term) :
     TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
 
 theorem cvalWith_ne {cval : TConstVal} {n : Name}

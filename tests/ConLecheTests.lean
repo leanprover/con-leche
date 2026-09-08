@@ -11,7 +11,7 @@ the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
 
-@[expose] public section
+public section
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which
@@ -397,8 +397,8 @@ private def taintSkipExport : String := String.intercalate "\n" [
 
 /-! ## Level algebra -/
 
-private def u : Level := .param (.str .anonymous "u")
-private def v : Level := .param (.str .anonymous "v")
+@[expose] private def u : Level := .param (.str .anonymous "u")
+@[expose] private def v : Level := .param (.str .anonymous "v")
 
 #guard Level.isEquiv (.max u v) (.max v u) == some true
 #guard Level.isEquiv (.max u u) u == some true

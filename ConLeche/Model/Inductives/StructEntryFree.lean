@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructEntryKit2
-
-@[expose] public section
+public section
 
 /-!
 # Unused fields are invariant (task #175 W4c, P3 module 7, part 10)

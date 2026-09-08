@@ -11,8 +11,7 @@ public import ConLeche.Semantics.Skeleton
 public import ConLeche.Semantics.Hoist
 public import ConLeche.Semantics.LitStep
 public import ConLeche.Semantics.LitParams
-
-@[expose] public section
+public section
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)
@@ -72,7 +71,7 @@ every use in the quarter is at the induction-bounded checker fuel,
 and `sortSemAt_of_claims` *derives* the fact from the claims one
 level down — another canonical-frontier residue dissolved.  The
 subject's scoping package is carried so the claims can be applied. -/
-def SortSemAt {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def SortSemAt {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AnnotTerm}
     {ea : AnnotTerm},
@@ -89,7 +88,7 @@ def SortSemAt {env : Env} (m : EnvModel V env) (μ : CheckMode)
 form — the subject's `WellDenotedV` is consumed, because at the gated mode
 the slot's run establishes nothing.  Derived from the two lanes'
 (`sortSemAtIOS_of`, `InferIOP.lean`). -/
-def SortSemAtIOS {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def SortSemAtIOS {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AnnotTerm}
     {ea : AnnotTerm},
@@ -117,13 +116,13 @@ at the install tier — a stored type's annotations went through the
 checker's own front door, which is establishment — and folded into the
 environment structure there (with the owed `EnvWF` records, if the
 seal's invariants state them naturally). -/
-def AcvalValid {env : Env} (m : EnvModel V env) : Prop :=
+@[expose] def AcvalValid {env : Env} (m : EnvModel V env) : Prop :=
   ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotValid V ρ (m.acval n ψ)
 
 /-- **The `const` clause's residue, P currency** (`ConstType2C`
 transposed: no fuel, `WellDenotedV` conclusion). -/
-def ConstType {env : Env} (m : EnvModel V env)
+@[expose] def ConstType {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (n : Name) (ci : ConLeche.ConstantInfo) (us : List Level),
     env.find? n = some ci → ci.isTowerEntry = false →
@@ -523,7 +522,7 @@ takes. -/
 (`Steps/InferQ.lean`'s `NatHeads2`, body for body): the zero's
 membership and the successor's, at the annotated valuation's own
 `Nat` leaf. -/
-def NatHeads {env : Env} (m : EnvModel V env)
+@[expose] def NatHeads {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ConLeche.natLitSupported env = true →
   ∀ ρ : Nat → V,
@@ -603,7 +602,7 @@ later tiers exactly as the canonical ones do — the `String` clause is
 is the structure-type walk. -/
 
 /-- The `String`-literal clause, P currency. -/
-def InferStrLitStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferStrLitStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {s : String} {t : Expr} {Δa : List AnnotTerm}
     {ea ta : AnnotTerm},
@@ -616,7 +615,7 @@ def InferStrLitStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
         interp V ρ ea ∈ˢ interp V ρ ta
 
 /-- The projection clause, P currency. -/
-def InferProjStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferProjStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AnnotTerm}
     {ea ta : AnnotTerm},
@@ -694,7 +693,7 @@ statement by adding this premise, so nothing is routed: every consumer
 holds a `CtxOk` and discharges it by `of_ctxOk`, and the walk
 (`Steps/Reads.lean`) propagates it through the binder clauses
 (`weakenTop`/`openS` below). -/
-def LeafReads {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+@[expose] def LeafReads {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (d : Nat) (e : Expr) : Prop :=
   ∀ l ∈ e.fvarLeaves, ∃ tya, denoteMeta m.acval env φ d l.2 = some tya
 
@@ -761,7 +760,7 @@ without it the residue is *refutable* (the `.fvar` clause returns the
 leaf's stored annotation, which the subject's reading never mentions).
 It costs its consumers nothing — every one of them holds a `CtxOk` at
 the same depth, and `LeafReads.of_ctxOk` is a projection. -/
-def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AnnotTerm},
     inferTypeCore μ env fuel d e = .ok t →
@@ -773,7 +772,7 @@ def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
 
 /-- `InferReads` at the knot's io slot (task #172 B4); derived from
 the two lanes' (`inferReadsIOS_of`, `InferIOP.lean`). -/
-def InferReadsIOS {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferReadsIOS {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AnnotTerm},
     ConLeche.inferTypeIO μ env fuel d e = .ok t →
@@ -785,7 +784,7 @@ def InferReadsIOS {env : Env} (m : EnvModel V env) (μ : CheckMode)
 
 /-- **The head normal form reads** (P-tier totality residue, the
 reduction producer). -/
-def WhnfReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def WhnfReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AnnotTerm},
     whnf μ env fuel d e = .ok e' →
@@ -1117,7 +1116,7 @@ structure InferInputs (V : Type w) [SetTheory V] (μ : CheckMode) :
 /-- **The inference quarter, P currency** — `InferStep2D`'s shape with
 the mode pinned: the four claims at `fuel` give the inference claim at
 `fuel + 1`, at a validating mode. -/
-def InferStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+@[expose] def InferStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
     μ.verifiedChecks = true →
     WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →

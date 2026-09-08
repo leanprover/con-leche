@@ -9,7 +9,7 @@ public import ConLeche.Verify.ProjSlots
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The dummy Π-telescope over a projection body (task #175 S1)
@@ -36,7 +36,7 @@ namespace ConLeche
 open Expr
 
 /-- `k` closed `Sort 0` binders (bit `.never`) over `body`. -/
-def projTele : Nat → Expr → Expr
+@[expose] def projTele : Nat → Expr → Expr
   | 0, body => body
   | k + 1, body =>
     .forallE (.sort .zero) (projTele k body) ⟨.never⟩

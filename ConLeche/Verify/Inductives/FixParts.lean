@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.NativeParts
 
-@[expose] public section
+public section
 
 /-!
 # The direct recursive recogniser, inverted (task #188)

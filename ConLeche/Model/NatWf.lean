@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.DivMod
 public import ConLeche.PinGen.Certs
-
-@[expose] public section
+public section
 
 /-!
 # The WF-recursive `Nat` operations' literal values at `interp`
@@ -43,14 +42,14 @@ variable {env : Env} {φ : Name → Nat}
 theorem natLit_one (m : EnvModel V env) (ρ : Nat → V) :
     interp V ρ (natLit m φ 1)
       = SetTheory.app (interp V ρ (m.acval ConLeche.natSuccName φ))
-          (interp V ρ (m.acval ConLeche.natZeroName φ)) := rfl
+          (interp V ρ (m.acval ConLeche.natZeroName φ)) := by rfl
 
 /-- The literal `2` (definitional). -/
 theorem natLit_two (m : EnvModel V env) (ρ : Nat → V) :
     interp V ρ (natLit m φ 2)
       = SetTheory.app (interp V ρ (m.acval ConLeche.natSuccName φ))
           (SetTheory.app (interp V ρ (m.acval ConLeche.natSuccName φ))
-            (interp V ρ (m.acval ConLeche.natZeroName φ))) := rfl
+            (interp V ρ (m.acval ConLeche.natZeroName φ))) := by rfl
 
 /-! ## The clause dispatch, unpacked per operation
 

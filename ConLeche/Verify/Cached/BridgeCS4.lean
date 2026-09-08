@@ -7,7 +7,7 @@ public import ConLeche.Verify.Extend.Modeled
 public import ConLeche.Verify.Extend.Recs
 public import ConLeche.Verify.Extend.Proj
 
-@[expose] public section
+public section
 
 /-!
 # Cached shared-state checker: the per-declaration composition

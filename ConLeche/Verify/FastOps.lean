@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.StructInstallF
 public import ConLeche.Verify.InstList
 
-@[expose] public section
+public section
 
 /-!
 # The one-pass telescope operations equal their sequential specs

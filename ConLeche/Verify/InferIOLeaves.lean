@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.InferIOLemmas
 
-@[expose] public section
+public section
 
 /-!
 # Leaf-closure and loose-bvar preservation for the io lane

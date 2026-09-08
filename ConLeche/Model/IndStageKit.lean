@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.IndSubst
 
-@[expose] public section
+public section
 
 /-!
 # The stages' semantic prelude (task #161, IND TIER part 4, step 1)

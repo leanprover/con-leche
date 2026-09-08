@@ -4,7 +4,7 @@ public import ConLeche.Verify.Cached.KnotC
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Cached.CheckerC
 
-@[expose] public section
+public section
 
 /-!
 # Cached checker: the per-declaration faithfulness kit (task #163)
@@ -53,7 +53,7 @@ variable {mode : CheckMode}
 equal values, well-scoped at the call depth (the scopedness of
 intermediate results feeds the later call sites of a walk).  State-free
 — there is no arena for the relation to be relative to. -/
-def RelW (d : Nat) (v w : Expr) : Prop :=
+@[expose] def RelW (d : Nat) (v w : Expr) : Prop :=
   v = w ∧ Expr.WScoped d v
 
 section Runners

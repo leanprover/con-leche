@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.DeclSum
-
-@[expose] public section
+public section
 
 /-!
 # The constructors' loop, over any former leaf (task #188)

@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructStageFormer
-
-@[expose] public section
+public section
 
 /-!
 # The constructor's stage data (task #175 W4c, P3 module 6, part 3)
@@ -62,7 +61,7 @@ theorem denoteMetaSpine_indexed {acval : Name → (Name → Nat) → AnnotTerm} 
 
 /-- The parameter-variable spine of the constructor's opened body, in
 the reading's spelling. -/
-def paramBvars (nP nF : Nat) : List AnnotTerm :=
+@[expose] def paramBvars (nP nF : Nat) : List AnnotTerm :=
   (List.range nP).map fun k => AnnotTerm.bvar (nP + nF - 1 - k)
 
 omit [SetTheory V] in

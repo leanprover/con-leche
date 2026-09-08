@@ -7,7 +7,7 @@ public import ConLeche.Model.BasisStep
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The `Empty` block, P tier: the type-reading recipe, executed once

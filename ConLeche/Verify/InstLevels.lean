@@ -6,7 +6,7 @@ public import ConLeche.Verify.Level
 public import ConLeche.Verify.PropWhen
 public import ConLeche.Verify.Subst
 
-@[expose] public section
+public section
 
 /-!
 # Syntactic lemmas about level-parameter instantiation

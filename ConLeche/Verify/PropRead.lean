@@ -6,9 +6,10 @@ public import ConLeche.Verify.Shift
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
 `import all` restores that view HERE only. -/
+public import ConLeche.Kernel.PropWhen
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The head-symbol prop-ness readers under the verification walks
