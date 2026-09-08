@@ -454,10 +454,21 @@ inductive Declaration where
   opaques. -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
   | basisDecl (kind : BasisKind)
-  /-- An inductive block: type formers, constructors and recursors.
+  /-- An inductive block: type formers, constructors and recursors,
+  with **the parameter count the stream DECLARES** (task #228).
   Installed by a direct route, or — the modeled route — opaquely
-  after checking each member against its `_model` counterpart. -/
-  | indDecl (block : List ConstantInfo)
+  after checking each member against its `_model` counterpart.
+
+  The count is official's own declaration shape: `add_inductive`
+  takes `Declaration.inductDecl lparams nparams types` with ONE
+  `nparams` for the whole block (the replay reads it off an inductive
+  record's `numParams` field, `Lean4Checker/Replay.lean`), checks
+  every former and every constructor against it and generates the
+  recursor with it.  It is checked here by `indParamsOk` and used as
+  the block's parameter count by both routes — before task #228 the
+  count was read OFF the constructors, which agrees on every valid
+  stream and cannot see a declaration that lies. -/
+  | indDecl (block : List ConstantInfo) (numParams : Nat)
   deriving DecidableEq, Repr, Inhabited
 
 namespace Declaration
@@ -465,9 +476,60 @@ namespace Declaration
 /-- The name of a non-basis declaration (basis blocks install several). -/
 def name : Declaration → Name
   | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
-  | .basisDecl _ | .indDecl _ => .anonymous
+  | .basisDecl _ | .indDecl _ _ => .anonymous
 
 end Declaration
+
+/-- **The length of a syntactic Π-telescope ending in a SORT**:
+`some n` when the expression is `n` Π binders with a `.sort`
+residual, `none` when the residual is anything else — a constant that
+only *unfolds* to a telescope, say (task #195).  A spine walk: one
+child per step, never a tree.
+
+The distinction is what makes `indParamsOk` one-sided.  Official's
+telescope loop (`check_inductive_types`, `inductive.cpp`) reduces the
+residual to weak head normal form before every binder; at a `.sort`
+residual that reduction is the identity and no further binder can
+appear, so `n` is exactly the number of binders official counts. -/
+def Expr.piSortTeleLen? : Expr → Option Nat
+  | .forallE _ body _ => (Expr.piSortTeleLen? body).map (· + 1)
+  | .sort _ => some 0
+  | _ => none
+
+/-- **The stream's declared parameter count, checked as official
+checks it** (task #228).  Official trusts the count the declaration
+carries and checks the block AGAINST it, in two places:
+
+* `check_inductive_types` peels `nparams` Π binders off every type
+  former, reducing to weak head normal form before each, and throws
+  *"number of parameters mismatch in inductive datatype declaration"*
+  when the telescope runs out first;
+* the replay compares every exported constructor record with the one
+  the kernel GENERATES, whose `numParams` field is `nparams`, so a
+  constructor record declaring a different count is *"Invalid
+  constructor"* (`checkPostponedConstructors`).
+
+Both halves are below, and both are ONE-SIDED on purpose: `false`
+means official rejects, never merely that this checker cannot see
+why.  A former whose declared type is a Π-telescope ending in a sort
+and shorter than `nP` is one official cannot peel `nP` binders off
+(`Expr.piSortTeleLen?`); a former with any other residual may still
+unfold to a longer telescope and is left to the install stages, which
+peel it with `whnf` exactly as official does (`whnfTelescope`).
+
+The exported `numIndices` is deliberately NOT checked: nothing ever
+compares an inductive record against the generated `InductiveVal`
+(only constructors and recursors are postponed and compared), so a
+declared index count is not input official reads, and checking it
+would reject blocks official accepts. -/
+def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+  block.all fun ci => match ci with
+    | .indInfo cvT _ =>
+      match cvT.type.piSortTeleLen? with
+      | some n => decide (nP ≤ n)
+      | none => true
+    | .ctorInfo _ nPc _ => nPc == nP
+    | _ => true
 
 /-- The public projection-*function* name for field `i` of structure
 `T` — the modeled path's degenerate-recursor projection functions

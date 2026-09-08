@@ -33,21 +33,27 @@
 #    is a reject and not a decline.  138 keeps its 1 from the route's
 #    own pairwise duplicate-constructor guard.
 #
-#    FIVE rows stay at 2, both for stated reasons:
+#    FIVE rows stayed at 2 after #220, both for stated reasons; FOUR do
+#    now:
 #      * 045, 048, 051, 055 decline earlier still, at a NON-STANDARD
 #        AXIOM, and never reach their inductive at all (standing user
 #        ruling: a non-standard axiom is never accepted; the reference
 #        verdict is 1 for a reason con-leche reaches later than the
 #        reference does).
-#      * 047 declares `numParams = 2` on a type former with ONE Π
-#        binder and has neither a constructor nor a recursor record.
-#        Official rejects it at "number of parameters mismatch", read
-#        off the inductive record's own `numParams` — which
-#        `ConstantInfo.indInfo` does not carry (con-leche has never read
-#        it: before #220 the count came off the recursor, since #220 off
-#        the constructors).  Recovering this row means carrying the
-#        declared count through the frontend into the block; it is not
-#        this task's.
+#      * 047 was the fifth, and TASK #228 (2026-09-08) moved it to the
+#        reference verdict, REJECT (1): the parse now carries the
+#        block's DECLARED parameter count into the declaration record
+#        (`Declaration.indDecl`'s `numParams`, official's own
+#        `Declaration.inductDecl lparams nparams types`) and
+#        `indParamsOk` checks the block against it before either route
+#        — the type formers' telescopes, as `check_inductive_types`
+#        does ("number of parameters mismatch"), and every constructor
+#        record's own count, as the replay's postponed comparison does.
+#        047 declares `numParams = 2` on a type former with ONE Π
+#        binder and carries neither a constructor nor a recursor
+#        record; before #228 the count was READ off the constructors
+#        (before #220 off the recursor), so a declaration that lied was
+#        never contradicted.
 #
 # B. THREE good tutorial tests fell to a DECLINE (2) at task #207, so
 #    the accepted count read 87/92: 053_reduceCtorParam.mk,
@@ -164,7 +170,7 @@
 1 bad/tutorial/044_inductBadNonSort.ndjson
 2 bad/tutorial/045_inductBadNonSort2.ndjson
 1 bad/tutorial/046_inductLevelParam.ndjson
-2 bad/tutorial/047_inductTooFewParams.ndjson
+1 bad/tutorial/047_inductTooFewParams.ndjson
 2 bad/tutorial/048_inductWrongCtorParams.ndjson
 1 bad/tutorial/049_inductWrongCtorResParams.ndjson
 1 bad/tutorial/050_inductWrongCtorResLevel.ndjson

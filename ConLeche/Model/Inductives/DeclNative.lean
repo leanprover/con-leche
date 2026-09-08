@@ -58,8 +58,8 @@ theorem spineFit_take {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a direct recursive install.** -/
 theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : NativeParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? block = some p₀)
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
     (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
   obtain ⟨hnd₀, envP, cvTaP, p₁P, ctorsP, sortssP, kinds, hIndP, hCtorsP, hK, cvTa, env₁, p₁, p,
     ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl, hwl, hopT2, hsorts, hCtors, hFOk,

@@ -473,25 +473,38 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       unless env.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDecl env
-  | .indDecl block =>
-    -- ONE ROUTE (task #210): the fixpoint route takes every block it
-    -- RECOGNISES — one type former, one recursor, ordinary,
-    -- finitary-recursive or reflexive fields (the structure and sum
-    -- routes it replaced were deleted at Part C).  Everything else is
-    -- the modeled path's, and its model is the in-process modeller's
-    -- (`ConLeche/Frontend/InModel.lean`), whose records precede the
-    -- block in the very same parse; `checkModeled` DECLINES, naming the
-    -- block, when there is none.  The dispatch is the RECOGNISER alone
-    -- (task #219): a mutual or nested block carries several type
-    -- formers, resp. several recursors, so `sumSplit` refuses it
-    -- outright and no model lookup is needed to route it — which is why
-    -- a stream record that happens to be named `T._model` has no effect
-    -- on any block.  The module split (`CheckerBase ← Modeled ←
-    -- Checker`) is why the dispatch lives here and not inside
-    -- `checkModeled`.
-    match nativeParts? block with
-    | some p => checkNative ops env p
-    | none => checkModeled mode ops env block
+  | .indDecl block nP =>
+    -- TASK #228 — THE DECLARED PARAMETER COUNT, first and for both
+    -- routes.  Official reads `nparams` off the declaration and checks
+    -- the block against it (`check_inductive_types`' telescope loop,
+    -- and the replay's structural comparison of every constructor
+    -- record with the generated one); `indParamsOk` is that check,
+    -- one-sided, so a `false` is official's own reject.  It runs
+    -- BEFORE the dispatch because it is a property of the DECLARATION
+    -- and not of a route: the modeled path reaches it too, which is
+    -- where a block with no constructor and no recursor record — the
+    -- shape neither route recognises — is rejected rather than
+    -- declined (arena 047).
+    if indParamsOk nP block then
+      -- ONE ROUTE (task #210): the fixpoint route takes every block it
+      -- RECOGNISES — one type former, one recursor, ordinary,
+      -- finitary-recursive or reflexive fields (the structure and sum
+      -- routes it replaced were deleted at Part C).  Everything else is
+      -- the modeled path's, and its model is the in-process modeller's
+      -- (`ConLeche/Frontend/InModel.lean`), whose records precede the
+      -- block in the very same parse; `checkModeled` DECLINES, naming the
+      -- block, when there is none.  The dispatch is the RECOGNISER alone
+      -- (task #219): a mutual or nested block carries several type
+      -- formers, resp. several recursors, so `sumSplit` refuses it
+      -- outright and no model lookup is needed to route it — which is why
+      -- a stream record that happens to be named `T._model` has no effect
+      -- on any block.  The module split (`CheckerBase ← Modeled ←
+      -- Checker`) is why the dispatch lives here and not inside
+      -- `checkModeled`.
+      match nativeParts? nP block with
+      | some p => checkNative ops env p
+      | none => checkModeled mode ops env block
+    else throw (.invalid "number of parameters mismatch")
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

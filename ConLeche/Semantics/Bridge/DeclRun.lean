@@ -487,10 +487,10 @@ relation-free `Ind` gets a relation-free run record, and a caller that
 supplies `declIndRR` (today's, until S11b) has exactly **one** door.
 `tests/proofdeps.sh` pins both readings. -/
 theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
-    {Ind : List ConstantInfo → Env → Prop} {env env₂ : Env}
-    (hind : ∀ {block : List ConstantInfo},
-      checkDecl μ (fueledOps μ F) env (.indDecl block) = .ok env₂ →
-      Ind block env₂)
+    {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
+    (hind : ∀ {block : List ConstantInfo} {nP : Nat},
+      checkDecl μ (fueledOps μ F) env (.indDecl block nP) = .ok env₂ →
+      Ind block nP env₂)
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclRun μ F Ind env d env₂ := by
@@ -500,6 +500,6 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
   | basisDecl kind => exact declBasisRun h
-  | indDecl block => exact hind h
+  | indDecl block nP => exact hind h
 
 end ConLeche.Semantics

@@ -931,11 +931,15 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
         simp only [installBasisDecl_datF]
     · rw [if_neg hq, if_neg hq, foldlM_atF]
       simp only [installBasisDecl_datF]
-  | indDecl block =>
+  | indDecl block nP =>
     dsimp only
+    -- the declared parameter count (task #228) is a pure guard: the two
+    -- sides take the same branch, and its `throw` is fuel-free
     split
-    · exact checkNative_datF env _ F
-    · exact checkModeled_datF env block F
+    · split
+      · exact checkNative_datF env _ F
+      · exact checkModeled_datF env block F
+    · rfl
 
 theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :
     (checkDeclsPure mode (fueledOpsM mode) ds).val F =

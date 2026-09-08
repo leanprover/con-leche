@@ -193,8 +193,8 @@ ROUTE, task #210 Part B). -/
 /-- The `.indDecl` dispatch at the run level (the recogniser alone
 since task #219). -/
 def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
-    (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  match ConLeche.nativeParts? block with
+    (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
+  match ConLeche.nativeParts? nP block with
   | some p => DeclNativeRun μ F env p env₂
   | none => DeclIndRun μ F env block env₂
 

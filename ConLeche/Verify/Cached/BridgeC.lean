@@ -73,8 +73,8 @@ inductive DeclCRel : DeclC → Declaration → Prop where
         (.opaqueDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
   | basisDecl {kind : BasisKind} :
       DeclCRel (.basisDecl kind) (.basisDecl kind)
-  | indDecl {block : List ConstantInfo} :
-      DeclCRel (.indDecl block) (.indDecl block)
+  | indDecl {block : List ConstantInfo} {nP : Nat} :
+      DeclCRel (.indDecl block nP) (.indDecl block nP)
 
 section WalksP
 
@@ -385,12 +385,12 @@ on the related declaration.  (There is no bracket in the cached driver
 `checkDeclSPPlain_sim`.) -/
 theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs : CSOK mode env s₀)
     {pd : DeclC} {d : Declaration} (hrel : DeclCRel pd d)
-    (hnotind : ∀ block, pd ≠ .indDecl block) :
+    (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
       (checkDeclC mode (mkFEnv env) pd)
       (checkDecl mode (fueledOpsM mode) env d) := by
   cases hrel with
-  | indDecl => exact absurd rfl (hnotind _)
+  | indDecl => exact absurd rfl (hnotind _ _)
   | @basisDecl kind =>
     show SimC mode env s₀ _ (do
         if kind = .quotK then
@@ -608,7 +608,7 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
   injection hflush with hflush
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hflush
   have hcsok : CSOK mode env s₀.flushed := flushC_csok hres
-  have main : (∀ block, pd ≠ .indDecl block) →
+  have main : (∀ block nP, pd ≠ .indDecl block nP) →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
     intro hind
@@ -618,19 +618,27 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     rw [← checkDecl_datF, henvEq]
     exact hF
   cases hrel with
-  | @indDecl block =>
-    have hrun : (match nativeParts? block with
-        | some p => checkNativeS mode (mkFEnv env) p
-        | none => checkIndDeclSF mode (mkFEnv env) block) s₀.flushed =
+  | @indDecl block nP =>
+    -- the declared parameter count (task #228): a `false` throws on
+    -- both sides, so only the passing branch reaches the bridge
+    have hd : (if indParamsOk nP block = true then
+        (match nativeParts? nP block with
+          | some p => checkNativeS mode (mkFEnv env) p
+          | none => checkIndDeclSF mode (mkFEnv env) block)
+        else throw (CheckError.invalid "number of parameters mismatch")) s₀.flushed =
         .ok (fe', s') := h
-    obtain ⟨hres', hfe, F, hF⟩ :=
-      checkModeledOrNativeSF_run hμ henv hres.flushed hrun
-    exact ⟨hres', hfe, F, hF⟩
-  | defnDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | thmDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | opaqueDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | axiomDecl hty => exact main (fun _ h => DeclC.noConfusion h)
-  | basisDecl => exact main (fun _ h => DeclC.noConfusion h)
+    by_cases hok : indParamsOk nP block = true
+    · rw [if_pos hok] at hd
+      obtain ⟨hres', hfe, F, hF⟩ :=
+        checkModeledOrNativeSF_run hμ henv hok hres.flushed hd
+      exact ⟨hres', hfe, F, hF⟩
+    · rw [if_neg hok] at hd
+      exact nomatch hd
+  | defnDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
+  | thmDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
+  | opaqueDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
+  | axiomDecl hty => exact main (fun _ _ h => DeclC.noConfusion h)
+  | basisDecl => exact main (fun _ _ h => DeclC.noConfusion h)
 
 end WalksP
 

@@ -98,10 +98,10 @@ The inductive kind is `DeclRun`'s `Ind` parameter here, so the one
 premise is at whatever payload the caller instantiates — today
 `DeclIndRun`, after S5's ind unit `DeclIndRun`. -/
 theorem declEtaStepRun {μ : CheckMode} {F : Nat}
-    {Ind : List ConstantInfo → Env → Prop}
+    {Ind : List ConstantInfo → Nat → Env → Prop}
     {env : Env} {d : Declaration} {env₂ : Env}
-    (hind : ∀ {block : List ConstantInfo} {envI : Env},
-      Ind block envI → EtaFamiliesClosed envI)
+    (hind : ∀ {block : List ConstantInfo} {nP : Nat} {envI : Env},
+      Ind block nP envI → EtaFamiliesClosed envI)
     (hE : EtaFamiliesClosed env)
     (h : DeclRun μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
   cases d with
@@ -133,7 +133,7 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
   | basisDecl kind =>
     exact basisInstallRun_etaClosed kind.declsA h.2
       (basisIndOk_declsA kind) hE
-  | indDecl block => exact hind h
+  | indDecl block nP => exact hind h
 
 /-! `declEtaStep` — the `DeclR` instance — moved to
 `SetBase/DeclStructEta.lean` at task #175 wiring W5, where the

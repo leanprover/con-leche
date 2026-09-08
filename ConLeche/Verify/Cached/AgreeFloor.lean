@@ -460,9 +460,9 @@ def nativeSkels (p : NativeParts) (sk : List InstallSkel) : List InstallSkel :=
 (task #188; the sum's skeleton with the table at a structure-like
 block), then the modeled block.  The RECOGNISER decides, and nothing
 else (task #219), so the skeleton list needs no environment at all. -/
-def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
+def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
-  match nativeParts? block with
+  match nativeParts? nP block with
   | some p => nativeSkels p sk
   | none => indDeclSkelsModeled block sk
 
@@ -475,7 +475,7 @@ def declCSkels : DeclC → List InstallSkel → List InstallSkel
     if toleratedAxiomNames.contains cv.name then sk else .ax cv.name :: sk
   | .basisDecl kind, sk =>
     kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
-  | .indDecl block, sk => indDeclSkels block sk
+  | .indDecl block nP, sk => indDeclSkels nP block sk
 
 /-! ## The shared install stages
 
@@ -1201,12 +1201,16 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     simp only []
     yields
     all_goals exact hfold fe sk h
-  | indDecl block =>
+  | indDecl block nP =>
     simp only []
-    unfold indDeclSkels
-    cases nativeParts? block with
-    | none => exact checkIndDeclSF_skels mode h block
-    | some p => exact checkNativeS_skels mode h p
+    -- the declared parameter count (task #228): its `throw` installs
+    -- nothing, so the skeleton reading is the dispatch's as before
+    split
+    · unfold indDeclSkels
+      cases nativeParts? nP block with
+      | none => exact checkIndDeclSF_skels mode h block
+      | some p => exact checkNativeS_skels mode h p
+    · exact Yields.ofThrow
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
