@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.DeclCheck
 
-@[expose] public section
+public section
 
 /-!
 # The index's installation counters and the prefix view (task #108)

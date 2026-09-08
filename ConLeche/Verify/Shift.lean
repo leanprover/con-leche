@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Level
 
-@[expose] public section
+public section
 
 /-!
 # Free-variable bounds and shifting
@@ -27,7 +27,7 @@ namespace ConLeche.Expr
 /-- Every reachable `fvar` index is `< d`.  (Type annotations of `fvar`s
 are not descended into: the interpretation never reads them at leaves;
 their well-formedness is tracked separately by `FvarsOk`.) -/
-def fvarsBelow (d : Nat) : Expr → Prop
+@[expose] def fvarsBelow (d : Nat) : Expr → Prop
   | .bvar _ | .sort _ | .const .. | .lit _ => True
   | .fvar idx _ => idx < d
   | .app f a => fvarsBelow d f ∧ fvarsBelow d a
@@ -48,7 +48,7 @@ theorem fvarsBelow_mono {d d' : Nat} (h : d ≤ d') :
   induction e <;> simp_all [fvarsBelow] <;> omega
 
 /-- Bump every reachable `fvar` index `≥ p` by one. -/
-def shiftFrom (p : Nat) : Expr → Expr
+@[expose] def shiftFrom (p : Nat) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar idx ty => if idx ≥ p then .fvar (idx + 1) (shiftFrom p ty) else .fvar idx ty
   | .sort u => .sort u
@@ -112,7 +112,7 @@ theorem not_hasFvar_of_fvarsBelow_zero :
 /-- Well-scoped at depth `d`: every reachable `fvar` has index `< d`, and
 its type annotation is itself well-scoped at that index (annotations may
 only mention strictly earlier variables). -/
-def WScoped : (d : Nat) → Expr → Prop
+@[expose] def WScoped : (d : Nat) → Expr → Prop
   | d, .fvar idx ty => idx < d ∧ WScoped idx ty
   | d, .app f a => WScoped d f ∧ WScoped d a
   | d, .lam ty body _ | d, .forallE ty body _ => WScoped d ty ∧ WScoped d body

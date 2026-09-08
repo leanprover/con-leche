@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.Bit
 
-@[expose] public section
+public section
 
 /-!
 # The `denoteMeta` lemma battery (task #161, P3.2)

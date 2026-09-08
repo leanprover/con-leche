@@ -1,7 +1,6 @@
 import ConLeche.PinGen
 import ConLeche.PinGen.Prelude
 import ConLeche.PinGen.Certs
-
 /- NOT a `module` (task #231): `main` here drives `ConLeche/PinGen/*`, which
 is `meta` code (a `public meta section` there).  A `module` root cannot call
 it from a non-`meta` definition, and making the root `meta` instead produced

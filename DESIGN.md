@@ -9576,6 +9576,74 @@ plumbing difficulty.  The carrier is the bridge's own `EnvTT` field,
 discharged from this install's inline inversion, and that work is the
 bridge agent's.
 
+
+### Phase 2 — the proof tiers stop exporting their definition bodies
+
+The user's directive for this half: *"iterate to using only normal import and
+marking only as public what needs to be public"*, refined by the ruling that
+settles which code that means:
+
+> *"all the verified code of the checker can stay in a public expose section,
+> as else we cannot prove things about it"*
+
+so the rule the tree now follows is **checker code is exposed, because it is
+the subject of the proofs; proof code is private by default**.
+
+**What narrowed.**  300 of the 452 sectioned files trade
+`@[expose] public section` for a plain `public section`: their `def` bodies
+leave the public interface, and — since a theorem's proof term is private
+regardless — a proof file's whole content is now private but for its
+statements.  Every `@[expose]` that came back is one the **compiler asked
+for**, 296 of them across 43 files, and each is a definition some *other*
+file unfolds.  The bulk pass that found most of them is the brief's criterion
+made mechanical: a definition named inside a `simp [·]` / `simp only [·]` /
+`unfold` / `delta` / `rw [·]` position **in another file** is unfolded
+downstream, so it is exposed; 113 came out of that one scan, the rest out of
+the build.
+
+**Which tiers could not narrow, and why that is the same rule.**  Four keep
+their blanket: `Term/`, `SetTheory/`, `SetModel/` and `Semantics/` — the
+erased term language, the set-theory interface, the pure set constructions
+and the denotation.  These are not "proof code" in the sense the ruling
+divides on: the Model and Verify tiers reason about them *definitionally*,
+exactly as they reason about the checker, and the narrowing there produced
+failures the compiler cannot attribute (`simp only` silently not firing, a
+`refine` whose instance goes stuck, an `introN` with nothing to introduce)
+because a `simp only [f]` on a hidden `f` makes no progress rather than an
+error.  `Kernel/`, `Cached/` and `Frontend/` keep theirs by the ruling.  The
+narrowing is therefore the two tiers that are *only* proofs: **`Model/` (188
+files) and `Verify/` (105), plus the tests and the capstones**.
+
+**Three findings, all of them about proofs rather than visibility.**
+
+* **A `private` declaration's auxiliary matcher is not reused.**  Carried
+  over from phase 1 and hit again: a lemma whose statement contains a `match`
+  generates a matcher, and a private one is invisible to the next
+  declaration, which then generates its own — after which `rw` cannot find a
+  pattern that *prints identically* to the goal.  Re-privatising is what
+  phase 2 does, so this was expected and is why the exposure narrowing was
+  kept separate from a `private` sweep.
+* **`theorem … := rfl` and `:= by rfl` are not interchangeable.**  Phase 1
+  needed the second: a term-mode proof of an exported theorem is elaborated
+  in the module's PUBLIC view and may not unfold what the module does not
+  expose.  But the conversion **costs an `@[simp]` lemma its `rfl`-status**,
+  and `simp only`/`dsimp` rely on it — 85 of them had been converted, and one
+  (`liftFields_nil`, `Semantics/Tower/IdxEq.lean`) took a proof in a
+  different file down with it, silently: `simp only` stopped firing and the
+  goal was left unsolved with no mention of the lemma.  All 85 are back to
+  `:= rfl`, and the tool that does the conversion now refuses a `@[simp]`
+  declaration.  The rule: **on a `@[simp]` lemma, expose what it unfolds;
+  never move its proof into a tactic block.**
+* **Exposure travels only through `public import`.**  A file's public view
+  reaches an exposed body only if some chain of `public import`s carries it,
+  which is why the import half of phase 2 (`public import` → `import`) is
+  *not* independent of the exposure half: narrowing a middle module's import
+  silently removes a definitional unfolding three tiers up.  The failures
+  that produced were not the compiler's "unknown identifier" — the name still
+  resolves — but a `rfl` that no longer closes.  **The import narrowing is
+  therefore not in this landing**; it needs an oracle that models the public
+  closure, not the name resolution, and that is the next batch.
+
 ### What phase 1 already bought, measured
 
 A cold build's oleans, split by scope (454 modules):

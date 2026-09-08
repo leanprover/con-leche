@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.IndMembers
 public import ConLeche.Model.Steps.CapsRows
 
-@[expose] public section
+public section
 
 /-!
 # The reading's ∀-telescope (task #161, IND TIER part 2)
@@ -265,7 +265,7 @@ the environment the fit ends in, so the residual of the second
 telescope can be spoken about at all. -/
 
 /-- The environment a fit ends in: the arguments consed in order. -/
-def consN : List V → (Nat → V) → (Nat → V)
+@[expose] def consN : List V → (Nat → V) → (Nat → V)
   | [], ρ => ρ
   | t :: ts, ρ => consN ts (cons t ρ)
 

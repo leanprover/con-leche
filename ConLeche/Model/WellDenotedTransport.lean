@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Claims
 public import ConLeche.Semantics.DenoteClosed
-
-@[expose] public section
+public section
 
 /-!
 # `WellDenotedV`'s substitution metatheory (task #161, P3 batch 2)

@@ -35,7 +35,7 @@ noncomputable def univ : Nat → V
   | 0 => univZero
   | n + 1 => univChain (n + 2)
 
-theorem univ_zero : (univ 0 : V) = univZero := rfl
+theorem univ_zero : (univ 0 : V) = univZero := by rfl
 
 /-- Positive levels are Grothendieck universes. -/
 theorem univ_isTGUniverse {n : Nat} (hn : n ≠ 0) :

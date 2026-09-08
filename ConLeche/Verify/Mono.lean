@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.PairM
 
-@[expose] public section
+public section
 
 /-!
 # Fuel monotonicity, via the relational pair monad
@@ -17,13 +17,13 @@ namespace ConLeche
 variable {mode : CheckMode}
 
 /-- `q` succeeds wherever `p` succeeds, with the same value. -/
-def MRefines {α : Type} (p q : CheckM α) : Prop :=
+@[expose] def MRefines {α : Type} (p q : CheckM α) : Prop :=
   ∀ v, p = .ok v → q = .ok v
 
 theorem MRefines.rfl {α : Type} {p : CheckM α} : MRefines p p := fun _ h => h
 
 /-- Success refinement as a monad relation. -/
-def refinesRel : MonadRel CheckM CheckM where
+@[expose] def refinesRel : MonadRel CheckM CheckM where
   R := MRefines
   pure_rel _ := MRefines.rfl
   bind_rel {α β x₁ x₂ f₁ f₂} hx hf := by

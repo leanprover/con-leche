@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.NatSem
 
-@[expose] public section
+public section
 
 /-!
 # The WF-recursive `Nat` operations' guarded clauses at `interp`

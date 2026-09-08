@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Semantics.Tower.SumWire
 
-@[expose] public section
+public section
 
 /-!
 # The sum leaves' bit validity and P packages (task #175 sum-types,
@@ -179,7 +179,7 @@ theorem rChain_validV {d nIdx : Nat} {Fs Es : List AnnotTerm} {σ : Nat → V}
     trivial
 
 /-- Per-constructor hereditary validity. -/
-def SumFieldsValid (ρ : Nat → V) (Fss : List (List AnnotTerm)) : Prop :=
+@[expose] def SumFieldsValid (ρ : Nat → V) (Fss : List (List AnnotTerm)) : Prop :=
   ∀ Fs ∈ Fss, FieldsValid ρ Fs
 
 /-- The restricted chains are bit-valid. -/

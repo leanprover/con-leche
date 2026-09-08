@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.EnvWF
 
-@[expose] public section
+public section
 
 /-!
 # Denotation across level-preserving environment correspondences

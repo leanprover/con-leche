@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.StructInv
 public import ConLeche.Verify.FastOps
 
-@[expose] public section
+public section
 
 /-!
 # The direct recogniser and the projection slots, inverted (task #175 W4c, P3 module 7, part 7)

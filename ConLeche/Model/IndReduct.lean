@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.IndTowerRead
-
-@[expose] public section
+public section
 
 /-!
 # The reduct stage, at the reading (task #161, IND TIER part 5)

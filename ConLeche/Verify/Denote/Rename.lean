@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.Denote.Inst
 
-@[expose] public section
+public section
 
 /-!
 # Constant renaming and level instantiation, on the denotation side
@@ -56,7 +56,7 @@ variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 denotation: every renamed constant resolves with the same level
 parameters, unresolved names stay unresolved, and the valuation agrees
 on the renaming.  Transpose of `RenameOk`. -/
-def RenameOkT (cval : TConstVal) (env : Env) (f : Name → Name) : Prop :=
+@[expose] def RenameOkT (cval : TConstVal) (env : Env) (f : Name → Name) : Prop :=
   (∀ n ci, env.find? n = some ci → ∃ ci', env.find? (f n) = some ci' ∧
     ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams) ∧
   (∀ n, env.find? n = none → env.find? (f n) = none) ∧
@@ -130,7 +130,7 @@ type former ends in a sort, the checked theorem in an equation. -/
 
 /-- Related by constant renaming, modulo the positions the denotation
 never reads. -/
-def RenEqT (f : Name → Name) (e₁ e₂ : Expr) : Prop :=
+@[expose] def RenEqT (f : Name → Name) (e₁ e₂ : Expr) : Prop :=
   Expr.ErasedEq (e₁.renameConsts f) e₂
 
 /-- Renamed-equal expressions denote equally. -/

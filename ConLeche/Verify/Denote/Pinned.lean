@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.EnvPreds
 
-@[expose] public section
+public section
 
 /-!
 # The pinned basis constants' direct valuations
@@ -45,7 +45,7 @@ Each would have been caught only here, because `val_params` is what
 they violate and nothing before the install asserts it for a basis
 constant.  That is the house rule's point exactly (`ConLeche/Term/DESIGN.md`
 §3.1): a definition is a conjecture until a consumer elaborates it. -/
-def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
+@[expose] def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
   if n = natName then some (.const .nat [])
   else if n = natZeroName then some (.const .natZero [])
   else if n = natSuccName then some (.const .natSucc [])
@@ -84,7 +84,7 @@ accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
 exactly reading the four other reserved recursors' pinned shapes and
 finding that none of them is single-rule, zero-field and index-free.
 Without the clause the branch is unprovable; with it, it is a `decide`. -/
-def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
+@[expose] def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),
     env.find? n = some ci →
     reservedBasisNames.contains n = true →

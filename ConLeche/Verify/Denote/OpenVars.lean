@@ -5,7 +5,7 @@ public import ConLeche.Term.Subst
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 
-@[expose] public section
+public section
 
 /-!
 # The canonical opening variables
@@ -27,7 +27,7 @@ namespace ConLeche.Verify
 
 /-- The `k` opening variables of a telescope at depth `d`, outermost
 first. -/
-def openFvars : Nat → Nat → List Expr
+@[expose] def openFvars : Nat → Nat → List Expr
   | _, 0 => []
   | d, k + 1 => Expr.fvar d (.sort .zero) :: openFvars (d + 1) k
 
@@ -35,11 +35,11 @@ def openFvars : Nat → Nat → List Expr
   | _, 0 => rfl
   | d, k + 1 => by simp [openFvars, openFvars_length (d + 1) k]
 
-theorem openFvars_zero (d : Nat) : openFvars d 0 = [] := rfl
+theorem openFvars_zero (d : Nat) : openFvars d 0 = [] := by rfl
 
 theorem openFvars_succ (d k : Nat) :
     openFvars d (k + 1) =
-      Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := rfl
+      Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := by rfl
 
 theorem openFvars_bounded : ∀ (d k : Nat),
     ∀ a ∈ openFvars d k, a.looseBVarsBounded 0 = true
@@ -73,7 +73,7 @@ install meet at the base-`0` reverse opening of the stored pin. -/
 
 /-- Open `n` loose variables innermost-first, each at cut `0`, with
 ascending opener indices from `d`. -/
-def openRev (d : Nat) : Nat → Expr → Expr
+@[expose] def openRev (d : Nat) : Nat → Expr → Expr
   | 0, e => e
   | n + 1, e =>
     (openRev d n e).instantiate1 (.fvar (d + n) (.sort .zero)) 0
@@ -81,7 +81,7 @@ def openRev (d : Nat) : Nat → Expr → Expr
 /-- The value chain `denote` produces for a real-argument instantiation
 read through the reverse opening: outermost argument consumed first,
 each at cut `0`, lifted past the arguments still to come. -/
-def _root_.ConLeche.Term.Term.instRevChain : List ConLeche.Term.Term →
+@[expose] def _root_.ConLeche.Term.Term.instRevChain : List ConLeche.Term.Term →
     ConLeche.Term.Term → ConLeche.Term.Term
   | [], X => X
   | v :: vs, X =>

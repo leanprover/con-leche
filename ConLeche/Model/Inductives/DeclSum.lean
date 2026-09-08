@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclStruct
 public import ConLeche.Model.Inductives.SumStageRec
 public import ConLeche.Verify.Inductives.SumWF
-
-@[expose] public section
+public section
 
 /-!
 # The direct sum's install, assembled (task #175 sum-types, indexed)
@@ -59,7 +58,7 @@ theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}
 /-! ## The constructors' loop -/
 
 /-- The facts about the pending constructors at an environment. -/
-def PendingAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+@[expose] def PendingAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
@@ -70,7 +69,7 @@ def PendingAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP 
     CtorDataI m T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF i) (dsF i) (esF i) (srcsF i)
 
 /-- The facts about the consed constructors at an environment. -/
-def ConsedAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+@[expose] def ConsedAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))

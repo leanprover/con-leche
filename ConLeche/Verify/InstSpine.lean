@@ -4,7 +4,7 @@ public import ConLeche.Verify.Subst
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.InstLevels
 
-@[expose] public section
+public section
 
 /-!
 # Syntactic kit for `Expr.instSpine`

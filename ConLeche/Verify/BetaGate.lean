@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Core
 
-@[expose] public section
+public section
 
 /-!
 # The β gate's dead-branch collapse (task #161, S13a)

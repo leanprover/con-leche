@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructRecSpine
-
-@[expose] public section
+public section
 
 /-!
 # The recursor's frame kit, continued (task #175 W4c, P3 module 6, part 9)

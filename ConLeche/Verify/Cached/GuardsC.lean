@@ -4,7 +4,7 @@ public import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.Cached.OpsC
 public import ConLeche.Verify.EnvBound
 
-@[expose] public section
+public section
 
 /-!
 # The cached representation's guard walks and the conversion boundary
@@ -69,7 +69,7 @@ erasure-function-of-key form, and the cutoff arm is discharged by
 `hasLP_eq _` plus `Expr.allLevelParamsDefined_of_not_hasLevelParam`. -/
 
 /-- The definedness walk's memo invariant. -/
-def MemoLPDInv (ps : List Name) (memo : Std.HashMap ExprC Bool) : Prop :=
+@[expose] def MemoLPDInv (ps : List Name) (memo : Std.HashMap ExprC Bool) : Prop :=
   ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
     r = (Expr.allLevelParamsDefined ps e)
 
@@ -377,7 +377,7 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
 
 /-- Erasure of a cached leaf list (the counterpart of the arena's
 `leavesDen`; the annotation component goes through `eraseC`). -/
-def leavesEr (xs : List (Nat × ExprC)) : List (Nat × Expr) :=
+@[expose] def leavesEr (xs : List (Nat × ExprC)) : List (Nat × Expr) :=
   xs.map fun l => (l.1, l.2)
 
 @[simp] theorem leavesEr_nil : leavesEr [] = [] := rfl
@@ -401,7 +401,7 @@ condition is discharged by the constructor's own `sizeF`
 recurrence. -/
 
 /-- The leaf walk's `seen`-set invariant at a gray predicate `G`. -/
-def SeenInv (G : Expr → Prop) (acc : List (Nat × ExprC))
+@[expose] def SeenInv (G : Expr → Prop) (acc : List (Nat × ExprC))
     (seen : Std.HashMap ExprC Unit) : Prop :=
   ∀ (k : ExprC) (u : Unit), seen[k]? = some u →
     (∀ l ∈ (Expr.fvarLeaves k), l ∈ leavesEr acc) ∨ G k
@@ -806,7 +806,7 @@ subset walk needs of the base is exactly this pair of facts. -/
 
 /-- A cached base leaf list is a faithful stand-in for an `Expr`-side
 one: field-correct annotations, and the same *set* of erased leaves. -/
-def LeafBase (bl : List (Nat × ExprC))
+@[expose] def LeafBase (bl : List (Nat × ExprC))
     (B' : List (Nat × Expr)) : Prop :=
   ∀ l, l ∈ leavesEr bl ↔ l ∈ B'
 
@@ -851,7 +851,7 @@ theorem fvarLeaves_leafBase {base : ExprC} :
 /-! ### The subset walk -/
 
 /-- The subset walk's memo invariant. -/
-def MemoSubInv (B' : List (Nat × Expr))
+@[expose] def MemoSubInv (B' : List (Nat × Expr))
     (memo : Std.HashMap ExprC Bool) : Prop :=
   ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
     r = ((Expr.fvarLeaves e).all fun l => B'.contains l)
@@ -1386,7 +1386,7 @@ only the node matters). -/
 
 open ExprC in
 /-- The constant-resolution walk's memo invariant. -/
-def MemoCRInv (fe : FEnv) (memo : Std.HashMap ExprC Bool) : Prop :=
+@[expose] def MemoCRInv (fe : FEnv) (memo : Std.HashMap ExprC Bool) : Prop :=
   ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
     r = Expr.constsResolveF fe e
 
@@ -1618,7 +1618,7 @@ an entry simply *is* the readout of its key, and there is no `mono`
 
 /-- Memo invariant of `zeronessOfLGo`: every entry is the
 readout of its key. -/
-def PWMemoInvC (memo : PWMemo) : Prop :=
+@[expose] def PWMemoInvC (memo : PWMemo) : Prop :=
   ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.zeronessOf u
 
 theorem PWMemoInvC.empty : PWMemoInvC {} := by

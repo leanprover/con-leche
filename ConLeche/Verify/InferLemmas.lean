@@ -10,7 +10,7 @@ public import ConLeche.Verify.StrLitExpr
 public import ConLeche.Verify.InstList
 public import ConLeche.Verify.InstSpine
 
-@[expose] public section
+public section
 
 /-!
 # Preservation and inversion lemmas for the checker core

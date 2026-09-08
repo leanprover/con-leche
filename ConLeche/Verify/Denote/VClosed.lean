@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Term.Subst
 
-@[expose] public section
+public section
 
 /-!
 # Closed `Term`s
@@ -38,7 +38,7 @@ namespace ConLeche.Term
 namespace Term
 
 /-- `v` mentions no de Bruijn index `≥ n`. -/
-def bvarsBelow : Nat → Term → Prop
+@[expose] def bvarsBelow : Nat → Term → Prop
   | n, .bvar i => i < n
   | _, .sort _ => True
   | _, .const _ _ => True

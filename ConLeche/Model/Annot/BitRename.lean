@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Verify.Denote.Rename
 
-@[expose] public section
+public section
 
 /-!
 # The reading's two blindnesses (task #161, IND TIER)

@@ -5,7 +5,7 @@ public import ConLeche.Verify.Cached.GuardsC
 public import ConLeche.Verify.Cached.SimCEff
 public import ConLeche.Verify.InstSpine
 
-@[expose] public section
+public section
 
 /-!
 # Cached body walks, part 1: list helpers and small twins (task #163)

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.StdAxioms
 public import ConLeche.Kernel.BasisA
-meta import ConLeche.Kernel.BasisA
+public meta import ConLeche.Kernel.BasisA
 public import ConLeche.Kernel.BasisGen
 public import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.Core

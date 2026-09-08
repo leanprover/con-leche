@@ -6,7 +6,7 @@ public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.InferLemmas
 public import ConLeche.Semantics.EnvFacts
 
-@[expose] public section
+public section
 
 /-!
 # The P cons crossing at a tower head (task #175 W4c, P3 module 4)
@@ -57,7 +57,7 @@ structure NoProjEnv (env : Env) (T : Name) (i : Nat) : Prop where
 
 /-- The head's crossing condition: a table head's slots (every field
 of the structure, task #175 S1) are mentioned by no stored piece. -/
-def ConsCrossEnv (env : Env) (c₀ : ConstantInfo) : Prop :=
+@[expose] def ConsCrossEnv (env : Env) (c₀ : ConstantInfo) : Prop :=
   ∀ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl →
     ∀ i : Nat, NoProjEnv env tbl.structName i
 
@@ -68,7 +68,7 @@ theorem ConsCrossEnv.ofNtc {env : Env} {c₀ : ConstantInfo}
 
 /-- The per-subject condition: the head's slots, if a table's, are not
 mentioned. -/
-def ConsCrossAt (c₀ : ConstantInfo) (e : Expr) : Prop :=
+@[expose] def ConsCrossAt (c₀ : ConstantInfo) (e : Expr) : Prop :=
   ∀ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl →
     ∀ i : Nat, Expr.NoProjAt tbl.structName i e
 

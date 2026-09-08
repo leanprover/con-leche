@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Knot
 
-@[expose] public section
+public section
 
 /-!
 # A generic relational pair monad over the checker core
@@ -40,7 +40,7 @@ variable {M₁ M₂ : Type → Type}
   [MonadExceptOf CheckError M₁] [MonadExceptOf CheckError M₂]
 
 /-- Pairs of computations related by `rel`. -/
-def PairM (rel : MonadRel M₁ M₂) (α : Type) : Type :=
+@[expose] def PairM (rel : MonadRel M₁ M₂) (α : Type) : Type :=
   {pq : M₁ α × M₂ α // rel.R pq.1 pq.2}
 
 namespace PairM
@@ -95,7 +95,7 @@ end PairM
 
 /-- Componentwise relatedness of two core records.  (Task #172 B4: the
 io slot joins as the sixth component.) -/
-def FnsRel (rel : MonadRel M₁ M₂) (r₁ : CoreFns M₁) (r₂ : CoreFns M₂) :
+@[expose] def FnsRel (rel : MonadRel M₁ M₂) (r₁ : CoreFns M₁) (r₂ : CoreFns M₂) :
     Prop :=
   (∀ d e, rel.R (r₁.whnfCore d e) (r₂.whnfCore d e)) ∧
   (∀ d e, rel.R (r₁.whnf d e) (r₂.whnf d e)) ∧

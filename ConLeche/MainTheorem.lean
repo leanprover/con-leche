@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.MainC
-
-@[expose] public section
+public section
 
 /-!
 # The main theorem

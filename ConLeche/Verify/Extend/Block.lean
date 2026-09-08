@@ -4,7 +4,7 @@ public import ConLeche.Verify.Denote.Rename
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Extend.Inversions
 
-@[expose] public section
+public section
 
 /-!
 # The modeled block's fold invariant and member valuation
@@ -31,7 +31,7 @@ parameters), its checked type is the companion's under the block
 renaming (up to display names), and it is *valued* by the companion.
 Transpose of `BlockInstalled`; the group-local public↔`_model`
 identification, discarded at the block's end. -/
-def BlockInstalledTT (blockNames : List Name) (env' : Env)
+@[expose] def BlockInstalledTT (blockNames : List Name) (env' : Env)
     (cval : TConstVal) : Prop :=
   ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
     ∃ cvm mval hmcvm,

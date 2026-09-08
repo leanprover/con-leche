@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Cached.BridgeCSDecl
 public import ConLeche.Cached.ParsedC
 
-@[expose] public section
+public section
 
 /-!
 # The cached parsed-declaration driver, bridged (task #163)

@@ -8,7 +8,7 @@ public import ConLeche.Semantics.BasisRules
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The `Quot` block, P tier (task #161, ENDGAME H)

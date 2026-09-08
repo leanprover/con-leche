@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.InferLemmas
 
-@[expose] public section
+public section
 
 /-!
 # Inversion lemmas for the io lane (task #161, stage 2)

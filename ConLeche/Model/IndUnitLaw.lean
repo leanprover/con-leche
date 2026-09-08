@@ -4,7 +4,7 @@ public import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.BasisEq
 
-@[expose] public section
+public section
 
 /-!
 # The unit-like key, P tier (task #161, IND TIER part 2, item 1b)

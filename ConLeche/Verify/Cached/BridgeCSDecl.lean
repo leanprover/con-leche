@@ -6,7 +6,7 @@ public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Verify.Cached.WalkersC
 
-@[expose] public section
+public section
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge

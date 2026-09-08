@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.Steps.IotaKit
-
-@[expose] public section
+public section
 
 /-!
 # The P-tier frame kit (task #161, IND TIER part 3, step 1)
@@ -68,7 +67,7 @@ the ambient one, outermost first, so `.bvar 0` names the innermost
 environment shifted. -/
 
 /-- The value chain of a spine of readings (outermost first). -/
-noncomputable def chain (V : Type w) [SetTheory V] (ρ : Nat → V)
+@[expose] noncomputable def chain (V : Type w) [SetTheory V] (ρ : Nat → V)
     (ws : List AnnotTerm) : Nat → V :=
   consN (ws.map (interp V ρ)) ρ
 
@@ -155,7 +154,7 @@ argument first, at descending cuts. -/
 
 /-- Instantiate a spine of readings at descending cuts, outermost
 first (`Term.instSeq`'s twin). -/
-def _root_.ConLeche.Model.AnnotTerm.instSeq :
+@[expose] def _root_.ConLeche.Model.AnnotTerm.instSeq :
     List AnnotTerm → Nat → AnnotTerm → AnnotTerm
   | [], _, e => e
   | a :: as, t, e => ConLeche.Model.AnnotTerm.instSeq as (t - 1) (e.inst a t)
@@ -201,7 +200,7 @@ is `univ` on the nose (`interp_sort`), so the trick is even shorter
 here than in v1. -/
 
 /-- Pad an environment with `m` copies of `empty` below (`padE`). -/
-noncomputable def padE2 (V : Type w) [SetTheory V] (m : Nat)
+@[expose] noncomputable def padE2 (V : Type w) [SetTheory V] (m : Nat)
     (ρ' : Nat → V) : Nat → V :=
   fun i => if i < m then SetTheory.empty else ρ' (i - m)
 
@@ -253,7 +252,7 @@ one argument goes in. -/
 
 /-- A context's entries, instantiated after a variable *below* all of
 them is substituted (`ctxInstAt`). -/
-def ctxInstAtAV (v : AnnotTerm) (j : Nat) : List AnnotTerm → List AnnotTerm
+@[expose] def ctxInstAtAV (v : AnnotTerm) (j : Nat) : List AnnotTerm → List AnnotTerm
   | [] => []
   | B :: Γ => B.inst v (j + Γ.length) :: ctxInstAtAV v j Γ
 
@@ -262,7 +261,7 @@ def ctxInstAtAV (v : AnnotTerm) (j : Nat) : List AnnotTerm → List AnnotTerm
 
 theorem ctxInstAtAV_cons (v : AnnotTerm) (j : Nat) (B : AnnotTerm)
     (Γ : List AnnotTerm) :
-    ctxInstAtAV v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAtAV v j Γ :=
+    ctxInstAtAV v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAtAV v j Γ := by
   rfl
 
 theorem ctxInstAtAV_append (v : AnnotTerm) (j : Nat) :

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.ExprOps
 
-@[expose] public section
+public section
 
 /-!
 # Bulk instantiation equals the `instantiate1` fold (task #50)

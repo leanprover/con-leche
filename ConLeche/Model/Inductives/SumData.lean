@@ -4,8 +4,7 @@ public import ConLeche.Model.Inductives.StructCtorFrames
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Verify.Inductives.SumInv
-
-@[expose] public section
+public section
 
 /-!
 # The direct sum's constructor data and frames (task #175 sum-types,
@@ -215,7 +214,7 @@ theorem srcsOf_getElem? (xFvs idxArgs : List Expr) (sorts : List Level) (nF j : 
 
 /-- The fields not sourced by an index are propositions: each such
 field's domain is a truth value, hereditarily. -/
-def FieldsBoundSrc (ρ : Nat → V) : List AnnotTerm → List (Option Nat) → Prop
+@[expose] def FieldsBoundSrc (ρ : Nat → V) : List AnnotTerm → List (Option Nat) → Prop
   | [], _ => True
   | _ :: _, [] => True
   | F :: Fs, s :: ss => (s = none → interp V ρ F ∈ˢ (univ 0 : V)) ∧
@@ -270,7 +269,7 @@ theorem fieldsBoundSrc_of_frame {Γ : List AnnotTerm} {k nP nF : Nat} {srcs : Li
 
 /-- The family at the parameter variables and the index readings,
 read at the constructor's full frame. -/
-def ctorBodyAVI {env : Env} (m : EnvModel V env) (T : Name) (nP nF : Nat)
+@[expose] def ctorBodyAVI {env : Env} (m : EnvModel V env) (T : Name) (nP nF : Nat)
     (ψ : Name → Nat) (Es : List AnnotTerm) : AnnotTerm :=
   AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)
 

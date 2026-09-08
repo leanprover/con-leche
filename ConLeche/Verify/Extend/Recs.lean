@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Extend.Ind
 
-@[expose] public section
+public section
 
 /-!
 # Recs — the `V`-free half of `ConLeche.ModelV1.Extend.Recs`
@@ -76,7 +76,7 @@ theorem ProvFacts.find?_preserved {F : Nat} {blockNames : List Name} :
     exact hf
 
 /-- The shape-level swap pair (no obligations). -/
-def SwapPairSh (c₀ c₃ : ConstantInfo) : Prop :=
+@[expose] def SwapPairSh (c₀ c₃ : ConstantInfo) : Prop :=
   c₀ = c₃ ∨
   ∃ cv mI rP rules,
     c₀ = .recInfo cv mI rP [] ∧ c₃ = .recInfo cv mI rP rules

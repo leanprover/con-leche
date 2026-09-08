@@ -4,8 +4,7 @@ public import ConLeche.Model.Steps.Major
 public import ConLeche.Model.Steps.IotaGate
 public import ConLeche.Model.Steps.Reads
 public import ConLeche.Semantics.DefEqList
-
-@[expose] public section
+public section
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)

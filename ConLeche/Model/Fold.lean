@@ -9,8 +9,7 @@ public import ConLeche.Semantics.Inductives.DeclSumEta
 public import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.BasisFalse
-
-@[expose] public section
+public section
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -143,7 +142,7 @@ theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
 
 /-- **The P fold invariant**: the P environment invariant plus the
 η-family closure (the v1 fold's second half, reused verbatim). -/
-def EnvModelOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
+@[expose] def EnvModelOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
     Prop :=
   Nonempty (EnvModelM V μ env) ∧ EtaFamiliesClosed env
 

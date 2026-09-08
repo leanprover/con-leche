@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Extend.Modeled
 
-@[expose] public section
+public section
 
 /-!
 # Ind — the `V`-free half of `ConLeche.ModelV1.Extend.Ind`
@@ -229,7 +229,7 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
 their capability constructor is stored at the record's arities.  The
 block-fold form of the threaded `EtaFamiliesClosed` (which cannot hold
 for a former whose constructor is still pending). -/
-def EtaFamiliesClosedO (blockNames : List Name) (env : Env) : Prop :=
+@[expose] def EtaFamiliesClosedO (blockNames : List Name) (env : Env) : Prop :=
   ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     reservedBasisNames.contains T = false →

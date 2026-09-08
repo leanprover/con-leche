@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.TypeChecker
 
-@[expose] public section
+public section
 
 /-!
 # The defensive validation sites, as a named statement (task #161, P3)

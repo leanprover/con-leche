@@ -9,8 +9,7 @@ public import ConLeche.Verify.BinderLoop
 public import ConLeche.Verify.Mono
 public import ConLeche.Verify.Subst
 public import ConLeche.Kernel.Inductives.StructParts
-
-@[expose] public section
+public section
 
 /-!
 # The direct structure's annotated Π-bits are exact (task #175 W4c, P3 module 1)

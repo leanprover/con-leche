@@ -4,8 +4,7 @@ public import ConLeche.Model.Inductives.FixEntryLaw
 public import ConLeche.Model.Inductives.FixAssemblyKit
 public import ConLeche.Model.Inductives.StructStageTable
 public import ConLeche.Verify.Inductives.FixParts
-
-@[expose] public section
+public section
 
 /-!
 # The projection table's cons on the fixpoint route (task #210 Part A)

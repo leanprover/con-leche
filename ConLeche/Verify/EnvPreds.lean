@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.BasisA
 public import ConLeche.Verify.EnvWF
 
-@[expose] public section
+public section
 
 /-!
 # `V`-free environment predicates (task #123)
@@ -34,12 +34,12 @@ namespace ConLeche
 
 open Name
 
-def uN : Name := anonymous |>.str "u"
-def u1N : Name := anonymous |>.str "u_1"
-def vN : Name := anonymous |>.str "v"
+@[expose] def uN : Name := anonymous |>.str "u"
+@[expose] def u1N : Name := anonymous |>.str "u_1"
+@[expose] def vN : Name := anonymous |>.str "v"
 
 /-- Is this constant-info one of the basis kinds? -/
-def ConstantInfo.isBasis : ConstantInfo → Bool
+@[expose] def ConstantInfo.isBasis : ConstantInfo → Bool
   | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
   | _ => false
 
@@ -47,7 +47,7 @@ def ConstantInfo.isBasis : ConstantInfo → Bool
 the other members of its block are stored (pinned) too.  This holds
 because blocks install as a unit with the recursor last; iota soundness
 uses it to resolve the constants a rule right-hand side mentions. -/
-def BasisBlocks (env : Env) : Prop :=
+@[expose] def BasisBlocks (env : Env) : Prop :=
   (∀ cv mI rP rules,
     env.find? (eqName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
@@ -62,7 +62,7 @@ def BasisBlocks (env : Env) : Prop :=
 
 /-- Every stored recursor rule's constructor is itself stored: blocks
 carry their constructors, and the recursor is installed after them. -/
-def RecCtorsStored (env : Env) : Prop :=
+@[expose] def RecCtorsStored (env : Env) : Prop :=
   ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules, ∃ cvj cnP cnF,
@@ -82,7 +82,7 @@ the index is in range; the former is stored as an inductive and the
 constructor as a constructor at the entry's own arities and level
 parameters.  (Task #175 S1: the entry carries a *body*, not a type;
 the bodies' scoping is `EnvWF`'s table clause.) -/
-def TowerHead (env : Env) (entry : ProjEntry) : Prop :=
+@[expose] def TowerHead (env : Env) (entry : ProjEntry) : Prop :=
   reservedBasisNames.contains entry.structName = false ∧
   reservedBasisNames.contains (entry.structName.str "rec") = false ∧
   reservedBasisNames.contains entry.ctor = false ∧
@@ -117,7 +117,7 @@ native non-tower entry to one of the two `PSigma'` pair entries; the
 pin is retired with the pinned pair, and task #175 tower-flag retired
 the table-kind flag itself — the modeled route installs no table, so
 the discipline is uniform over every stored one. -/
-def ProjOkT (env : Env) : Prop :=
+@[expose] def ProjOkT (env : Env) : Prop :=
   ∀ n tbl, env.find? n = some (.projInfo tbl) →
     ∀ i, i < tbl.numFields → TowerHead env (tbl.entry i)
 
@@ -151,7 +151,7 @@ theorem BasisBlocks.empty : BasisBlocks Env.empty := by
     (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)
 
 /-- The pinned (annotated) declaration of one basis constant. -/
-def pinnedInfo (n : Name) : ConstantInfo :=
+@[expose] def pinnedInfo (n : Name) : ConstantInfo :=
   if n = eqName then eqA
   else if n = eqReflName then eqReflA
   else if n = eqName.str "rec" then eqRecA

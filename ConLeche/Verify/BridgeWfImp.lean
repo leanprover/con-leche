@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.BridgeDecl
 
-@[expose] public section
+public section
 
 /-!
 # `wfOpsM mode` runs to pure runs, per declaration-checker function

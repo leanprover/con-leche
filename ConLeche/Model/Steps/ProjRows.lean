@@ -9,8 +9,7 @@ public import ConLeche.Model.Steps.IotaGate
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.Denote.VClosed
-
-@[expose] public section
+public section
 
 /-!
 # The semantic projection rows (task #161, PROJ/STR install tier;

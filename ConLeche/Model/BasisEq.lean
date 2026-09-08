@@ -8,7 +8,7 @@ public import ConLeche.Semantics.BasisRules
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The `Eq` block, P tier (task #161, ENDGAME H)
@@ -106,7 +106,7 @@ theorem eqReflSpine_data {ψ : Name → Nat} {i j : Nat} {ρ : Nat → V}
 /-! ## `Eq` and `Eq.refl` -/
 
 /-- `Eq`'s type reading: three graph-regime binders. -/
-def eqTy (ψ : Name → Nat) : AnnotTerm :=
+@[expose] def eqTy (ψ : Name → Nat) : AnnotTerm :=
   .pi 0 1 (.sort (ψ uN)) (.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))
 
 /-- `Eq.refl`'s type reading: two squash-regime binders over the

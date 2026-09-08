@@ -13,7 +13,7 @@ public import ConLeche.Verify.InstSpine
 public import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.InferLeaves
 
-@[expose] public section
+public section
 
 /-!
 # The opened-statement frame: towers, spines, and the cross-frame walk
@@ -53,7 +53,7 @@ theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
 /-- A closed inhabitant of... nothing — a closed **term of type
 `Prop`**: `∀ p : Prop, p`.  (`False`, in fact, which is fine: only its
 *typing* is consumed.) -/
-def dummyPropT : Term := .pi (.sort 0) (.bvar 0)
+@[expose] def dummyPropT : Term := .pi (.sort 0) (.bvar 0)
 
 
 /-- The first `k` domains of a `.pi` tower, as a de Bruijn context —
@@ -78,7 +78,7 @@ them is substituted: the entry `i` places above the substituted slot is
 instantiated at cut `j + i` (`j` counts binders below the substituted
 slot that remain).  The entry adjacent to the slot — the list's last —
 gets cut `j`. -/
-def ctxInstAt (v : Term) (j : Nat) : List Term → List Term
+@[expose] def ctxInstAt (v : Term) (j : Nat) : List Term → List Term
   | [] => []
   | B :: Γ => B.inst v (j + Γ.length) :: ctxInstAt v j Γ
 
@@ -86,7 +86,7 @@ def ctxInstAt (v : Term) (j : Nat) : List Term → List Term
     ctxInstAt v j [] = [] := rfl
 
 theorem ctxInstAt_cons (v : Term) (j : Nat) (B : Term) (Γ : List Term) :
-    ctxInstAt v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAt v j Γ := rfl
+    ctxInstAt v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAt v j Γ := by rfl
 
 /-- `ctxInstAt` over an append: the left block's cuts shift by the
 right block's length. -/
@@ -317,11 +317,11 @@ theorem PiTele.prefix :
 
 /-- The context's λ-tower over a subject: the outermost binder is the
 context's last entry, matching `CtxSpine`'s peel. -/
-def lamCtx (Γ : List Term) (C : Term) : Term :=
+@[expose] def lamCtx (Γ : List Term) (C : Term) : Term :=
   Γ.foldl (fun acc A => .lam A acc) C
 
 theorem lamCtx_cons (B : Term) (Γ : List Term) (C : Term) :
-    lamCtx (B :: Γ) C = lamCtx Γ (.lam B C) := rfl
+    lamCtx (B :: Γ) C = lamCtx Γ (.lam B C) := by rfl
 
 theorem lamCtx_snoc (Γ : List Term) (A C : Term) :
     lamCtx (Γ ++ [A]) C = .lam A (lamCtx Γ C) := by

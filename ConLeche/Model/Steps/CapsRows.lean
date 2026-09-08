@@ -4,7 +4,7 @@ public import ConLeche.Model.Steps.Stuck
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Steps.TowerKit
 
-@[expose] public section
+public section
 
 /-!
 # The stored-family rows of `stuckIrrel`'s cascade (task #161, caps
@@ -75,7 +75,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 which `TeleFit` can be un-instantiated (see the module docstring);
 supplied at every call site by the certificate's `stripPis`
 conjunct. -/
-def PiChain : Nat → AnnotTerm → Prop
+@[expose] def PiChain : Nat → AnnotTerm → Prop
   | 0, _ => True
   | n + 1, e =>
     match e with

@@ -4,7 +4,7 @@ public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.CoreIO
 public import ConLeche.Verify.BetaGate
 
-@[expose] public section
+public section
 
 /-!
 # Knot equations

@@ -3,8 +3,7 @@ module
 public import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndCaps
 public import ConLeche.Semantics.EnvFactsCons
-
-@[expose] public section
+public section
 
 /-!
 # The member phase, P tier (task #161, IND TIER)
@@ -58,7 +57,7 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 `capsOk_cons_member` leaves open — a block former at
 `etaFields = 0`.  v1's counterpart is `etaLawKeyS`, reached through
 `memberEtaS`. -/
-def MemberEtaLaw (V : Type w) [SetTheory V] : Prop :=
+@[expose] def MemberEtaLaw (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvModelM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
     MemberValRun μ F env blockNames cv cvA →
@@ -96,7 +95,7 @@ stored, its telescope is pinned) is unreachable.  The caller has them
 — `memberInstallPM`'s `hpins`, at exactly this `cvA` and these `caps`
 — so this is a threading fix, not a strengthening of what the fold
 must prove. -/
-def MemberUnitLaw (V : Type w) [SetTheory V] : Prop :=
+@[expose] def MemberUnitLaw (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvModelM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
     MemberValRun μ F env blockNames cv cvA →

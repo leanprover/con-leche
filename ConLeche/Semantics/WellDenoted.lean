@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Semantics.Kit
 public import ConLeche.SetTheory.Derive.Sigma
-
 @[expose] public section
 
 /-!

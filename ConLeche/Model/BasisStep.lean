@@ -5,7 +5,7 @@ public import ConLeche.Model.DivMod
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.BasisTypeOk
 
-@[expose] public section
+public section
 
 /-!
 # The basis cons, P tier: the seven rows discharged once (task #161, ENDGAME E)

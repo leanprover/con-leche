@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.StructFrame
 public import ConLeche.Model.Capstone
 public import ConLeche.Model.Steps.ReadsIO
-
-@[expose] public section
+public section
 
 /-!
 # The direct structure's stage runs, as rows (task #175 W4c, P3 module 3, part 2)

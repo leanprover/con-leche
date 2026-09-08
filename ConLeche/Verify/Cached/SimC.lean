@@ -4,7 +4,7 @@ public import ConLeche.Cached.StateC
 public import ConLeche.Verify.Cached.OpsC
 public import ConLeche.Verify.Fueled
 
-@[expose] public section
+public section
 
 /-!
 # The cached-core faithfulness kit (task #163, batch 5)
@@ -190,7 +190,7 @@ was `WFc v' ∧ v' = v`, the invariant conjunct went with `WFc`, and one
 type made the second conjunct an equation between the two sides
 themselves.  The name is kept because the whole `DiscC` family is
 written in it, and it still marks *which* side is which. -/
-def RelC (v' : ExprC) (v : Expr) : Prop := v' = v
+@[expose] def RelC (v' : ExprC) (v : Expr) : Prop := v' = v
 
 theorem RelC.erase {v' : ExprC} {v : Expr} (h : RelC v' v) : v' = v := h
 
@@ -203,15 +203,15 @@ theorem RelC.det' {a b : ExprC} {v : Expr} (ha : RelC a v)
     (hb : RelC b v) : a = b := ha.trans hb.symm
 
 /-- Every expression is related to itself (there is one type). -/
-theorem RelC.refl (x : Expr) : RelC x x := rfl
+theorem RelC.refl (x : Expr) : RelC x x := by rfl
 
 /-- The list-level relation: the `DiscC` walks' replacement for the
 arena's `DenL`. -/
-def RelCL (l : List ExprC) (xs : List Expr) : Prop := l = xs
+@[expose] def RelCL (l : List ExprC) (xs : List Expr) : Prop := l = xs
 
 namespace RelCL
 
-theorem nil : RelCL [] [] := rfl
+theorem nil : RelCL [] [] := by rfl
 
 theorem cons {x : ExprC} {v : Expr} {l : List ExprC} {xs : List Expr}
     (hx : RelC x v) (hl : RelCL l xs) : RelCL (x :: l) (v :: xs) := by
@@ -364,28 +364,28 @@ theorem CSOKF.flushed {s : CState} (hs : CSOKF s) : CSOKF s.flushed :=
 value is `P`-related to the value of a successful fueled run.  The
 port of `SimAt` minus the arena extension and minus the state in the
 value relation. -/
-def SimC (mode : CheckMode) (env : Env) (s₀ : CState) {β α : Type}
+@[expose] def SimC (mode : CheckMode) (env : Env) (s₀ : CState) {β α : Type}
     (P : β → α → Prop) (c : CheckCM β) (p : FueledM α) : Prop :=
   ∀ v' s', c s₀ = .ok (v', s') →
     CSOK mode env s' ∧ ∃ v, P v' v ∧ ∃ F, p.val F = .ok v
 
 /-- A twin-only effect: invariant preservation and a value fact — no
 fueled counterpart. -/
-def CEff (mode : CheckMode) (env : Env) (s₀ : CState) {β : Type}
+@[expose] def CEff (mode : CheckMode) (env : Env) (s₀ : CState) {β : Type}
     (Q : β → Prop) (c : CheckCM β) : Prop :=
   ∀ v' s', c s₀ = .ok (v', s') → CSOK mode env s' ∧ Q v'
 
 /-- The result relation for expression-valued entry points: the cached
 term is related to the fueled value, well scoped at the ambient
 depth. -/
-def RelEC (d : Nat) (v' : ExprC) (v : Expr) : Prop :=
+@[expose] def RelEC (d : Nat) (v' : ExprC) (v : Expr) : Prop :=
   RelC v' v ∧ Expr.WScoped d v
 
 /-- The result relation for `Bool` and other data results. -/
-def RelVC {α : Type} (b a : α) : Prop := b = a
+@[expose] def RelVC {α : Type} (b a : α) : Prop := b = a
 
 /-- The result relation for optional expression results. -/
-def RelOC (d : Nat) : Option ExprC → Option Expr → Prop
+@[expose] def RelOC (d : Nat) : Option ExprC → Option Expr → Prop
   | none, none => True
   | some j, some v => RelEC d j v
   | _, _ => False

@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructEntryFree
 public import ConLeche.Semantics.NoBVar
-
-@[expose] public section
+public section
 
 /-!
 # Readings of leaf-free terms mention no excluded variable (task #188)
@@ -32,7 +31,7 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-- The slots the variables of `Q` read as at depth `d`. -/
-def exclP (Q : Nat → Prop) (d : Nat) : Nat → Prop :=
+@[expose] def exclP (Q : Nat → Prop) (d : Nat) : Nat → Prop :=
   fun i => ∃ q, Q q ∧ q < d ∧ i = d - 1 - q
 
 theorem shiftP_exclP (Q : Nat → Prop) (d : Nat) (hQ : ∀ q, Q q → q < d) :

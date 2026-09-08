@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixInv
 
-@[expose] public section
+public section
 
 /-!
 # The direct recursive install: environment well-formedness (task #188)

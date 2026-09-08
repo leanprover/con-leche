@@ -7,8 +7,7 @@ public import ConLeche.Model.IndDomGrade
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.Denote.IndFrame
-
-@[expose] public section
+public section
 
 /-!
 # The direct structure's opened frames (task #175 W4c, P3 module 3)

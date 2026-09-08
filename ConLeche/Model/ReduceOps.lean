@@ -6,8 +6,7 @@ public import ConLeche.Model.NatEqs
 public import ConLeche.Model.Capstone
 public import ConLeche.Model.ErasePwInv
 public import ConLeche.Model.DivMod
-
-@[expose] public section
+public section
 
 /-!
 # The compiler-trust identity law, established at `interp` from the

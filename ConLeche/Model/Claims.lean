@@ -5,7 +5,7 @@ public import ConLeche.Semantics.Skeleton
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.EnvModel
 
-@[expose] public section
+public section
 
 /-!
 # The P-generation claims: the ladder over `denoteMeta` (task #161, P3.3)
@@ -68,7 +68,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- The P-tier truthfulness currency: hereditary truthfulness plus
 bit validity. -/
-def WellDenotedV (V : Type w) [SetTheory V] (ρ : Nat → V) (e : AnnotTerm) :
+@[expose] def WellDenotedV (V : Type w) [SetTheory V] (ρ : Nat → V) (e : AnnotTerm) :
     Prop :=
   WellDenoted V ρ e ∧ AnnotValid V ρ e
 
@@ -76,7 +76,7 @@ def WellDenotedV (V : Type w) [SetTheory V] (ρ : Nat → V) (e : AnnotTerm) :
 — scope bound, leaf types annotate, their interpretations read the
 telescope, and they are `WellDenotedV` under every satisfying valuation.
 No fuel parameter. -/
-def CtxOk {env : Env} (m : EnvModel V env)
+@[expose] def CtxOk {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (d : Nat) (Δa : List AnnotTerm) (e : Expr) : Prop :=
   Δa.length = d ∧
   ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2 ∧
@@ -89,7 +89,7 @@ def CtxOk {env : Env} (m : EnvModel V env)
       (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ tya)
 
 /-- Head normalisation, dual success, P currency. -/
-def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
     whnfCore μ env fuel d e = .ok e' →
@@ -105,7 +105,7 @@ def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
           interp V ρ ea = interp V ρ ea'
 
 /-- The reduction loop, dual success, P currency. -/
-def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
     whnf μ env fuel d e = .ok e' →
@@ -121,7 +121,7 @@ def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
           interp V ρ ea = interp V ρ ea'
 
 /-- Definitional equality, P currency. -/
-def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.isDefEqCore μ env fuel d a b = .ok true →
@@ -141,7 +141,7 @@ def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- Inference, dual success, P currency: the subject's and the
 type's truthfulness — bit validity included — are *conclusions*. -/
-def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
     inferTypeCore μ env fuel d e = .ok t →
@@ -157,7 +157,7 @@ def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
           interp V ρ ea ∈ˢ interp V ρ ta
 
 /-- The P-generation step. -/
-def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+@[expose] def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
     DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →

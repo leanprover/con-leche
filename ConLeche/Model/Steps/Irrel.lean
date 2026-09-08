@@ -5,7 +5,7 @@ public import ConLeche.Model.Steps.Infer
 public import ConLeche.Verify.PinnedShapes
 public import ConLeche.Verify.InferIOLeaves
 
-@[expose] public section
+public section
 
 /-!
 # Proof irrelevance over `interp` (task #161, P4 — the semantic rows begin)
@@ -45,7 +45,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 sides' types whnf to a unit-like type.  Discharged at the
 structure-capability tier (a unit-like type's `interp` is a
 subsingleton — the caps invariant), not in the quarter. -/
-def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b ta wta tb wtb : Expr} {Δa : List AnnotTerm},
     ConLeche.inferTypeIO μ env fuel d a = .ok ta →

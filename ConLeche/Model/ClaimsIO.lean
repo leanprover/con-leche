@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Claims
 public import ConLeche.Kernel.CoreIO
-
-@[expose] public section
+public section
 
 /-!
 # The io claims family, PREMISE FORM (task #161, stage 2 — the freeze)
@@ -89,7 +88,7 @@ variable {V : Type w} [SetTheory V]
 /-- **The io inference family, premise form** (the frozen shape).
 Compare `InferClaim`: the subject's `WellDenotedV` is a *premise* here,
 and the run is the io lane's. -/
-def InferClaimIO (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferClaimIO (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
     inferTypeCoreIO μ env fuel d e = .ok t →
@@ -117,7 +116,7 @@ the premise form; at the gated mode the slot is `inferTypeCoreIO`
 call site's `of_claims` supplier consumes this one family. -/
 
 /-- Premise form at the io slot. -/
-def InferClaimIOS (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferClaimIOS (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
     ConLeche.inferTypeIO μ env fuel d e = .ok t →
@@ -153,7 +152,7 @@ theorem inferClaimIOS_of {μ : CheckMode} {env : Env}
 /-- **The five-way step** (statement only; the assembly proof is the
 campaign's B4).  The four sealed families and the io family, all at
 `fuel`, give the same five at `fuel + 1`. -/
-def CheckStep5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+@[expose] def CheckStep5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
     DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →

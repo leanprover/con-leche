@@ -4,7 +4,7 @@ public import ConLeche.Model.Install
 public import ConLeche.Model.NatStep
 public import ConLeche.Model.Steps.Accepted
 
-@[expose] public section
+public section
 
 /-!
 # The P capstone's shape (task #161, P4 — frozen early, per the ruling)

@@ -4,7 +4,7 @@ public import ConLeche.Verify.Denote.Tele
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.InstLevels
 
-@[expose] public section
+public section
 
 /-!
 # Real-argument instantiation, read through the reverse opening

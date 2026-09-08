@@ -6,8 +6,7 @@ public import ConLeche.Model.Annot.BitRename
 public import ConLeche.Semantics.DefEqStep
 public import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Steps.ProjAVKit
-
-@[expose] public section
+public section
 
 /-!
 # The definitional-equality quarter, P currency (task #161, P3 batch 5)
@@ -184,7 +183,7 @@ private theorem hoist_snd {Δa : List AnnotTerm} {e : AnnotTerm}
 /-! ## T1 — the routed definitions -/
 
 /-- The continuation's contract, P currency. -/
-def DefEqCont {env : Env} (m : EnvModel V env)
+@[expose] def DefEqCont {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (d : Nat)
     (k : Expr → Expr → CheckM Bool) : Prop :=
   ∀ {a b : Expr} {Δa : List AnnotTerm}, k a b = .ok true →
@@ -201,7 +200,7 @@ def DefEqCont {env : Env} (m : EnvModel V env)
       ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ aa = interp V ρ ba
 
 /-- **One iteration of the lazy-delta loop**, P currency. -/
-def DefEqStepAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def DefEqStepAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {k : Bool → Expr → Expr → CheckM Bool},
     (∀ pi : Bool, DefEqCont m φ d (k pi)) →
@@ -222,7 +221,7 @@ def DefEqStepAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- **Residue 3 — proof irrelevance**, P currency.  (`ProofIrrelP`
 would clash with the kernel's `ConLeche.proofIrrelFueled`.) -/
-def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.proofIrrelFueled μ env fuel d a b = .ok true →
@@ -242,7 +241,7 @@ def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
 U), P currency: `defeqStep`'s hoist runs `propIrrel` — the `Prop`
 branch with the head-symbol fast arms; the unit-like branch stays with
 `stuckIrrel`'s `proofIrrel`. -/
-def PropIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def PropIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.propIrrelFueled μ env fuel d a b = .ok true →
@@ -261,7 +260,7 @@ def PropIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
 /-- **Residue 4 — the literal acceleration**, P currency.  The
 existential is over the reduct's *reading* alone: there is no fuel to
 raise. -/
-def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm},
     ConLeche.reduceNatFueled μ env fuel d e = .ok (some e₂) →
@@ -279,7 +278,7 @@ def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
       Expr.LeavesBounded e₂ ∧ CtxOk m φ d Δa e₂
 
 /-- **Residue 5 — the same-head spine short-circuit**, P currency. -/
-def DefEqSpine (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def DefEqSpine (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.defeqSpineFueled μ env fuel d a b = .ok true →
@@ -332,7 +331,7 @@ def DefEqStuck (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- **Residue 6 — `stuckIrrel`**, P currency.  (`StuckIrrelP` would
 clash with the kernel's `ConLeche.stuckIrrelFueled`.) -/
-def StuckIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def StuckIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     ConLeche.stuckIrrelFueled μ env fuel d a b = .ok true →
@@ -349,7 +348,7 @@ def StuckIrrelPQ (μ : CheckMode) {env : Env} (m : EnvModel V env)
       ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ aa = interp V ρ ba
 
 /-- **Residue 10 — the stuck spine congruence**, P currency. -/
-def AppCongrStuck (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def AppCongrStuck (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
     isDefEqCore μ env fuel d a.getAppFn b.getAppFn = .ok true →
@@ -369,7 +368,7 @@ def AppCongrStuck (μ : CheckMode) {env : Env} (m : EnvModel V env)
       ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ aa = interp V ρ ba
 
 /-- **Residue 11 — the η certificate**, P currency. -/
-def EtaCertStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def EtaCertStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {ty bd b : Expr} {mb : ConLeche.BinderMeta}
     {Δa : List AnnotTerm},
@@ -390,7 +389,7 @@ def EtaCertStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- **Residue 7 — the string-literal expansion**, P currency
 (`Denote2StrLit2A`, fuel-free). -/
-def DenotePStrLit {env : Env} (m : EnvModel V env)
+@[expose] def DenotePStrLit {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (st : String) {sa : AnnotTerm},
     ConLeche.strLitSupported env = true →
@@ -405,7 +404,7 @@ def DenotePStrLit {env : Env} (m : EnvModel V env)
 /-- **Residue 2 — the delta identity**, P currency: unfolding a
 definition head does not move the validated reading.  Fuel-free, so
 `Denote2Delta2A`'s `∃ F' ≥ F` collapses to an equation. -/
-def DenoteMetaDelta {env : Env} (m : EnvModel V env)
+@[expose] def DenoteMetaDelta {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {x y : Expr} {xa : AnnotTerm},
     ConLeche.unfoldDefinition env x = some y →
@@ -415,7 +414,7 @@ def DenoteMetaDelta {env : Env} (m : EnvModel V env)
 /-- **The dual-success existence factor** the P currency owes: a
 `whnfCore` reduct annotates.  `WhnfCoreExists2E`'s transpose, routed
 for the same reason — no claim of the family concludes definedness. -/
-def WhnfCoreReductExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfCoreReductExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
     whnfCore μ env fuel d e = .ok e' →

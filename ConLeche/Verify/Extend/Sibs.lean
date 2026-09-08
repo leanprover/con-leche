@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.EnvPreds
 
-@[expose] public section
+public section
 
 /-!
 # Sibs — the `V`-free half of `ConLeche.ModelV1.Extend.Sibs`

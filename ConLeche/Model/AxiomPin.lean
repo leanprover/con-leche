@@ -3,7 +3,7 @@ module
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Model.AxiomMem
 
-@[expose] public section
+public section
 
 /-!
 # The pin tier, at the validated-annotation currency (task #161,

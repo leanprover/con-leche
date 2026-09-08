@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.ProjRename
 public import ConLeche.Model.IndProjEta
 public import ConLeche.Semantics.ProjFnFacts
-
-@[expose] public section
+public section
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)

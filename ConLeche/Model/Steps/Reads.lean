@@ -11,8 +11,7 @@ public import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Model.Steps.TowerKit
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Semantics.LitParams
-
-@[expose] public section
+public section
 
 /-!
 # The totality consolidation (task #161, P4 batch 6)
@@ -133,7 +132,7 @@ grading the walk never reads), so its statement is made here. -/
 
 /-- **The `whnfCore` reduct reads** — `WhnfCoreExists` with the
 `CtxOk` and grading premises dropped. -/
-def WhnfCoreReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def WhnfCoreReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AnnotTerm},
     whnfCore μ env fuel d e = .ok e' →
@@ -150,7 +149,7 @@ calls `whnfCore` and `whnf` at `fuel`; `whnf` at `fuel + 1` calls
 `fuel`.  `defeq` returns a `Bool` and so owes no reading — the two
 clauses that call it (`whnfCore`'s β, `infer`'s application) read it
 for the verdict only. -/
-def ReadsAll {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def ReadsAll {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   WhnfCoreReads m μ φ fuel ∧ WhnfReads m μ φ fuel ∧
     InferReads m μ φ fuel
@@ -166,7 +165,7 @@ their readability is not the walk's to prove.  Each is stated as the
 reads.  Discharged where the rules are installed: `checkDecl`'s
 recursor-installation path validates every rule's RHS through the
 checker's own front door, which is exactly this. -/
-def IotaReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def IotaReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {ea : AnnotTerm},
     ConLeche.iotaRecFueled μ env fuel d e = .ok (some e'') →
@@ -182,7 +181,7 @@ def IotaReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
 reduct is a spine argument of a `whnf`'d scrutinee selected by the
 projection table; reading it needs the table's own well-formedness, so
 the whole clause is routed (`ProjStep`'s shape, readings only). -/
-def WhnfCoreProjReads (μ : CheckMode) {env : Env}
+@[expose] def WhnfCoreProjReads (μ : CheckMode) {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe e' : Expr} {ea : AnnotTerm},
     whnfCore μ env (fuel + 1) d (.proj sn i pe) = .ok e' →
@@ -196,7 +195,7 @@ def WhnfCoreProjReads (μ : CheckMode) {env : Env}
 /-- **`infer`'s projection clause, routed to the install tier.**  The
 inferred type is `piResidual` of the entry's stored level-parametric
 type; its readability is the projection table's, not the walk's. -/
-def InferProjReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferProjReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {ea : AnnotTerm},
     inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
@@ -212,7 +211,7 @@ def InferProjReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
 built from the pinned heads; it reads under the same support guard the
 subject read through, and the tier that pins the operations owes the
 statement (`ReduceNatStep`'s shape, readings and scoping only). -/
-def ReduceNatReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def ReduceNatReads (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {ea : AnnotTerm},
     ConLeche.reduceNatFueled μ env fuel d e = .ok (some e₂) →

@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.BitInstall
 public import ConLeche.Semantics.ConstsBound
 
-@[expose] public section
+public section
 
 /-!
 # `denoteMeta` across an environment extension (task #161, P3.2)
@@ -48,7 +48,7 @@ open ConLeche (Env Expr Name Level PropWhen
 An **equation**, not an implication, for the reason the original is
 one: an install must not be able to assume silently that an
 annotation exists on one side and not the other. -/
-def DenotePEnvExtend (env₀ env : Env)
+@[expose] def DenotePEnvExtend (env₀ env : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (e : Expr), ConstsBound env₀ e →
     denoteMeta acval env₀ φ d e = denoteMeta acval env φ d e
@@ -169,7 +169,7 @@ forward — which is the only direction the harvests use for their
 subjects, whose acceptance guaranteed prefix-supported literals. -/
 
 /-- The literal guards are monotone across the extension. -/
-def LitGuardsMono (env₀ env : Env) : Prop :=
+@[expose] def LitGuardsMono (env₀ env : Env) : Prop :=
   (natLitSupported env₀ = true → natLitSupported env = true) ∧
   (strLitSupported env₀ = true → strLitSupported env = true)
 

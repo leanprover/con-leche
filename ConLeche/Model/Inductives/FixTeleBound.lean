@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixChains
-
-@[expose] public section
+public section
 /-!
 # The reflexive telescopes' bounds (task #202 Stage B)
 

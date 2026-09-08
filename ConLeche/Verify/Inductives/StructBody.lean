@@ -4,7 +4,7 @@ public import ConLeche.Verify.Inductives.StructResid
 public import ConLeche.Verify.ProjTele
 public import ConLeche.Verify.Cached.Erase
 
-@[expose] public section
+public section
 
 /-!
 # The projection bodies, opened (task #175 S1)
@@ -287,14 +287,14 @@ theorem structProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
 
 /-- The parameter variables, dummy-annotated (the reading ignores
 annotations). -/
-def fvsD (nP : Nat) : List Expr :=
+@[expose] def fvsD (nP : Nat) : List Expr :=
   (List.range nP).map fun k => Expr.fvar k (.sort .zero)
 
 /-- The subject variable. -/
-def tfvD (nP : Nat) : Expr := Expr.fvar nP (.sort .zero)
+@[expose] def tfvD (nP : Nat) : Expr := Expr.fvar nP (.sort .zero)
 
 /-- The earlier projections of the subject variable. -/
-def projArgsD (T : Name) (i nP : Nat) : List Expr :=
+@[expose] def projArgsD (T : Name) (i nP : Nat) : List Expr :=
   (List.range i).map fun j => Expr.proj T j (tfvD nP)
 
 theorem fvsD_length (nP : Nat) : (fvsD nP).length = nP := by simp [fvsD]

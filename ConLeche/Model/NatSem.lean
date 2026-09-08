@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.NatEqs
 
-@[expose] public section
+public section
 
 /-!
 # The numeral transports at `interp` (task #161, literal tier)
@@ -44,7 +44,7 @@ variable {env : Env} {φ : Name → Nat}
 
 /-- The numeral spine at an environment's `Nat` heads — exactly
 `denoteMeta`'s `.lit (.natVal n)` clause. -/
-def natLit {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+@[expose] def natLit {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (n : Nat) : AnnotTerm :=
   natLitAV (m.acval ConLeche.natZeroName φ)
     (m.acval ConLeche.natSuccName φ) n
@@ -60,11 +60,11 @@ theorem denoteMeta_natLit_spine (m : EnvModel V env)
 /-- The successor unfolding is syntactic. -/
 theorem natLit_succ (m : EnvModel V env) (n : Nat) :
     natLit m φ (n + 1)
-      = .app (m.acval ConLeche.natSuccName φ) (natLit m φ n) := rfl
+      = .app (m.acval ConLeche.natSuccName φ) (natLit m φ n) := by rfl
 
 /-- The zero numeral is the zero leaf (definitional). -/
 theorem natLit_zero (m : EnvModel V env) :
-    natLit m φ 0 = m.acval ConLeche.natZeroName φ := rfl
+    natLit m φ 0 = m.acval ConLeche.natZeroName φ := by rfl
 
 /-- Numerals inhabit the stored `Nat` and are graded
 (`natLit_factsAV` at the environment's heads). -/

@@ -5,7 +5,7 @@ public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Knot
 
-@[expose] public section
+public section
 
 /-!
 # The free-variable leaf closure

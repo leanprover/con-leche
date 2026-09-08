@@ -9,7 +9,7 @@ public import ConLeche.Verify.BinderLoop
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The pin tier's bit lemmas (task #161, ENDGAME B, task 1a)

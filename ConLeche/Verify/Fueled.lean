@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Mono
 public import ConLeche.Verify.Deep
 
-@[expose] public section
+public section
 
 /-!
 # The cache-refinement bridge, part A: fueled families
@@ -28,7 +28,7 @@ call site unifies `mi := mode`. -/
 variable {mi : CheckMode}
 
 /-- Monotone fuel-indexed families of pure computations. -/
-def FueledM (α : Type) : Type :=
+@[expose] def FueledM (α : Type) : Type :=
   {p : Nat → CheckM α //
     ∀ {f f' : Nat} {v : α}, f ≤ f' → p f = .ok v → p f' = .ok v}
 
@@ -73,7 +73,7 @@ end FueledM
 
 /-- The fueled record: each entry is the family of its fueled runs,
 monotone by `Mono.lean`. -/
-def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
+@[expose] def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
   whnfCore d e := ⟨fun F => whnfCore mode env F d e, fun hle h => whnfCore_mono hle h⟩
   whnf d e := ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
   infer d e := ⟨fun F => inferTypeCore mode env F d e,

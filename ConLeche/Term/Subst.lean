@@ -86,7 +86,7 @@ def inst : Term → Term → (k : Nat := 0) → Term
 
 @[simp] theorem inst_bvar (a : Term) (k i : Nat) :
     inst (.bvar i) a k =
-      (if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)) :=
+      (if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)) := by
   rfl
 @[simp] theorem inst_sort (a : Term) (k : Nat) (u : Nat) :
     inst (.sort u) a k = .sort u := rfl

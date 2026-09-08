@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.IndOpenRev
-
-@[expose] public section
+public section
 
 /-!
 # The nested-pin grading, produced (task #161, IND TIER part 7)

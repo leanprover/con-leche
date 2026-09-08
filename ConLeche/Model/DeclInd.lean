@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Model.ProjInstall
-
-@[expose] public section
+public section
 
 /-!
 # The modeled-inductive block, assembled at the reading (task #161,
