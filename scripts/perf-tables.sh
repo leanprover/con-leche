@@ -83,7 +83,7 @@ stream_path() {
 #    of that on init-full (2026-09-06): 666 084 645 143 instructions
 #    with the progress loop against 666 088 947 489 without — −0.0006 %,
 #    i.e. below the run-to-run spread.  The progress loop is the
-#    unverified IO twin of `checkDeclsSPCachedD`; the user ruled it an
+#    unverified IO twin of `checkDecls`; the user ruled it an
 #    acceptable producer for Mathlib-scale runs.
 # The Mathlib row also records peak RSS (`time -v`) and wall minutes,
 # which the renderer prints for that row only, as data.

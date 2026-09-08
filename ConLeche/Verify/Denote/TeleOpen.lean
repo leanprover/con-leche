@@ -13,66 +13,66 @@ differently:
 
 * the pins describe it **syntactically**, as `stripPis`' body with `k`
   loose bvars;
-* the laws consume it **semantically**, as a `VExpr` with the use
+* the laws consume it **semantically**, as a `Term` with the use
   site's spine `xs` already substituted.
 
 Composing the two is: open the `k` binders at fresh variables
 (`Expr.instSeq` at `openFvars`, so the existing `instSeq_*` algebra
 applies verbatim), denote, then substitute `xs` — which is
-`VExpr.instSeq`, the missing half.
+`Term.instSeq`, the missing half.
 
-**Why `VExpr.instSeq` mirrors `Expr.instSeq` clause for clause**
+**Why `Term.instSeq` mirrors `Expr.instSeq` clause for clause**
 (descending cuts, the same `t - 1`): the two are applied to the *same*
 telescope, one before and one after `denote`, and every index fact is
 then a transcription rather than a re-derivation.  The one place they
 differ is `instSeq_bvar`, and the difference is instructive:
 `Expr.instantiate1` does **not** lift, so the `Expr` lemma needs
-`looseBVarsBounded 0` on every argument; `VExpr.inst` does, so the
-`VExpr` lemma needs nothing and pays instead by producing
+`looseBVarsBounded 0` on every argument; `Term.inst` does, so the
+`Term` lemma needs nothing and pays instead by producing
 `liftN c x` — the lifts the consumer's own `inst` then absorbs.
 -/
 
-namespace ConLeche.VExpr
-namespace VExpr
+namespace ConLeche.Term
+namespace Term
 
-/-! ## `VExpr.instSeq` -/
+/-! ## `Term.instSeq` -/
 
 /-- Instantiate a spine at descending cuts, outermost argument first —
 the term-side counterpart of `ConLeche.Expr.instSeq`. -/
-def instSeq : List VExpr → Nat → VExpr → VExpr
+def instSeq : List Term → Nat → Term → Term
   | [], _, e => e
   | a :: as, t, e => instSeq as (t - 1) (e.inst a t)
 
-@[simp] theorem instSeq_nil (t : Nat) (e : VExpr) : instSeq [] t e = e := rfl
+@[simp] theorem instSeq_nil (t : Nat) (e : Term) : instSeq [] t e = e := rfl
 
-theorem instSeq_cons (a : VExpr) (as : List VExpr) (t : Nat) (e : VExpr) :
+theorem instSeq_cons (a : Term) (as : List Term) (t : Nat) (e : Term) :
     instSeq (a :: as) t e = instSeq as (t - 1) (e.inst a t) := rfl
 
 /-- A closed term is untouched. -/
-theorem instSeq_eq_self_of_closed {e : VExpr} (h : Closed e) :
-    ∀ (as : List VExpr) (t : Nat), instSeq as t e = e := by
+theorem instSeq_eq_self_of_closed {e : Term} (h : Closed e) :
+    ∀ (as : List Term) (t : Nat), instSeq as t e = e := by
   intro as
   induction as with
   | nil => intro t; rfl
   | cons a as ih => intro t; rw [instSeq_cons, inst_eq_self_of_closed h, ih]
 
-@[simp] theorem instSeq_sort (as : List VExpr) (t u : Nat) :
+@[simp] theorem instSeq_sort (as : List Term) (t u : Nat) :
     instSeq as t (.sort u) = .sort u :=
   instSeq_eq_self_of_closed (e := .sort u) trivial as t
 
-@[simp] theorem instSeq_const (as : List VExpr) (t : Nat) (c : BConst)
+@[simp] theorem instSeq_const (as : List Term) (t : Nat) (c : BConst)
     (us : List Nat) : instSeq as t (.const c us) = .const c us :=
   instSeq_eq_self_of_closed (e := .const c us) trivial as t
 
-theorem instSeq_app : ∀ (as : List VExpr) (t : Nat) (f a : VExpr),
+theorem instSeq_app : ∀ (as : List Term) (t : Nat) (f a : Term),
     instSeq as t (.app f a) = .app (instSeq as t f) (instSeq as t a) := by
   intro as
   induction as with
   | nil => intro t f a; rfl
   | cons x xs ih => intro t f a; rw [instSeq_cons, inst_app, ih]; rfl
 
-theorem instSeq_mkAppN : ∀ (as : List VExpr) (t : Nat) (f : VExpr)
-    (args : List VExpr),
+theorem instSeq_mkAppN : ∀ (as : List Term) (t : Nat) (f : Term)
+    (args : List Term),
     instSeq as t (mkAppN f args) =
       mkAppN (instSeq as t f) (args.map (instSeq as t ·)) := by
   intro as t f args
@@ -84,7 +84,7 @@ theorem instSeq_mkAppN : ∀ (as : List VExpr) (t : Nat) (f : VExpr)
 
 /-- Under a binder the cut steps up — the transcription of
 `Expr.instSeq_forallE`, with the same side condition. -/
-theorem instSeq_pi : ∀ (as : List VExpr) (t : Nat) (A B : VExpr),
+theorem instSeq_pi : ∀ (as : List Term) (t : Nat) (A B : Term),
     as.length ≤ t + 1 →
     instSeq as t (.pi A B) = .pi (instSeq as t A) (instSeq as (t + 1) B) := by
   intro as
@@ -101,7 +101,7 @@ theorem instSeq_pi : ∀ (as : List VExpr) (t : Nat) (A B : VExpr),
     | cons y ys => rw [show t - 1 + 1 = t + 1 - 1 from by simp at hlen; omega]
 
 /-- A variable below the substituted range is untouched. -/
-theorem instSeq_bvar_lt : ∀ (as : List VExpr) (t j : Nat),
+theorem instSeq_bvar_lt : ∀ (as : List Term) (t j : Nat),
     j + as.length ≤ t → instSeq as t (.bvar j) = .bvar j := by
   intro as
   induction as with
@@ -112,12 +112,12 @@ theorem instSeq_bvar_lt : ∀ (as : List VExpr) (t j : Nat),
     rw [instSeq_cons, inst_bvar, if_pos (by omega)]
     exact ih (t - 1) j (by omega)
 
-end VExpr
-end ConLeche.VExpr
+end Term
+end ConLeche.Term
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-! ## Opening a telescope's binders
 

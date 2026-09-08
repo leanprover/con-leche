@@ -6,7 +6,7 @@ import ConLeche.Verify.Shift
 
 `substFvarAt p a e` replaces every reachable `fvar p` leaf by `a` and
 lowers higher `fvar` indices by one — the syntactic side of the
-substitution lemma (`ConLeche.Model.Subst`).  The key equation is the
+substitution lemma (`ConLeche.ModelV1.Subst`).  The key equation is the
 *beta bridge*: opening a binder with a fresh variable and then
 substituting that variable equals opening with the term directly.
 -/
@@ -872,7 +872,7 @@ theorem instSeq_bvar :
 
 /-! ### The capture-avoiding instantiation sequence
 
-`Expr.instPisAtLift` (the opener behind `directProjTy`) substitutes
+`Expr.instPisAtLift` (the opener behind `structProjTy`) substitutes
 *open* arguments, so it lifts each inserted copy past the binders it
 descends under.  What the model needs is that a subsequent **closed**
 instantiation of the ambient variables collapses the whole thing onto

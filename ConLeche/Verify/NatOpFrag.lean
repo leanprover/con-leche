@@ -28,7 +28,7 @@ which is stated over an `EnvTT`.
 -- downstream re-qualifies
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {env : Env}
 

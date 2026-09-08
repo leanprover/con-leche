@@ -8,14 +8,14 @@ flushed per declaration, declarations consumed as `DeclC` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDeclsSPCachedD mode` is what the binary runs in BOTH modes — at
+`checkDecls mode` is what the binary runs in BOTH modes — at
 `.verified` under `--verified`, at `.trusted` under `--trusted` (the twin driver
-`checkDeclsSPCachedDT` / `ConLeche/Cached/ParsedT.lean` retired
+`checkDeclsT` / `ConLeche/Cached/ParsedT.lean` retired
 2026-09-06; the trusted lane is this driver at the other mode, and
 nothing else).  Acceptance at `.verified` is covered by
-`no_proof_of_Empty_SPCD_P` (`ConLeche/Verify/Cached/MainC.lean`); the two
+`no_proof_of_Empty_cached` (`ConLeche/Verify/Cached/MainC.lean`); the two
 modes agree on the install skeletons whenever both accept
-(`trusted_agrees_P_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
+(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it
@@ -144,7 +144,7 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
@@ -213,8 +213,8 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
     -- #219): a recognised block is the fixpoint route's, every other
     -- one the modeled path's (its model the in-process modeller's).
-    match directFixParts? block with
-    | some p => checkDirectFixS mode fe p
+    match nativeParts? block with
+    | some p => checkNativeS mode fe p
     | none => checkIndDeclSF mode fe block
 
 /-! ## Names and durations for the driver's messages -/
@@ -234,19 +234,19 @@ def declCLabel : DeclC → String
   | .basisDecl k => s!"basis block {repr k}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
   flushC
-  checkDeclSPC mode fe pd
+  checkDeclC mode fe pd
 
 /-- The fold's step with the **position carried and the error tagged**
 (2026-09-07): the accumulator is `(i, fe)`, and a failing step reports
 the `CheckError` together with `i`, the fold position of the
 declaration that failed.  On the accepting side it is
-`checkDeclSPStepC` exactly (`foldIdxC_ok`), which is why every
+`checkDeclStepC` exactly (`foldIdxC_ok`), which is why every
 statement about the plain fold survives the change untouched. -/
-def checkDeclStepIdxC (p : Nat × FEnv) (pd : DeclC) :
+def checkDeclStep (p : Nat × FEnv) (pd : DeclC) :
     StateT CState (Except (CheckError × Nat)) (Nat × FEnv) := fun s =>
-  match checkDeclSPStepC mode p.2 pd s with
+  match checkDeclStepC mode p.2 pd s with
   | .ok (fe', s') => .ok ((p.1 + 1, fe'), s')
   | .error e => .error (e, p.1)
 
@@ -269,16 +269,16 @@ declaration used to be located by a *second pass* in `Main.lean`
 it failed again — a full re-check of the accepted prefix, and a lie
 waiting to happen if the two runs ever disagreed.  The fold's
 accumulator now carries the position and the step tags its error with
-it (`checkDeclStepIdxC`), so a rejection *is* `(CheckError × Nat)` and
+it (`checkDeclStep`), so a rejection *is* `(CheckError × Nat)` and
 the driver reports the declaration by indexing the record array it
 already holds.  The **accept** side is untouched, deliberately:
-`checkDeclsSPCachedD mode ds = .ok env` is the same sentence it was, so
-`no_proof_of_Empty_SPCD_P` and the agreement floor keep their
+`checkDecls mode ds = .ok env` is the same sentence it was, so
+`no_proof_of_Empty_cached` and the agreement floor keep their
 statements verbatim and reach the plain fold through `foldIdxC_ok`
 below. -/
-def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
+def checkDecls (mode : CheckMode) (ds : List DeclC) :
     Except (CheckError × Nat) Env := do
-  let p ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run' {}
+  let p ← (ds.foldlM (checkDeclStep mode) (0, mkFEnv Env.empty)).run' {}
   pure p.2.env
 
 /-! ### The two folds agree on accepts
@@ -296,8 +296,8 @@ of the plain fold, at the same environment and residue state.  (The
 error side is where they differ, and is the point of the change.) -/
 theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
     ∀ (i : Nat) (fe : FEnv) {p : Nat × FEnv} {s s' : CState},
-      (ds.foldlM (checkDeclStepIdxC mode) (i, fe)) s = .ok (p, s') →
-      (ds.foldlM (checkDeclSPStepC mode) fe) s = .ok (p.2, s') := by
+      (ds.foldlM (checkDeclStep mode) (i, fe)) s = .ok (p, s') →
+      (ds.foldlM (checkDeclStepC mode) fe) s = .ok (p.2, s') := by
   induction ds with
   | nil =>
     intro i fe p s s' h
@@ -308,22 +308,22 @@ theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
     intro i fe p s s' h
     rw [List.foldlM_cons] at h ⊢
     simp only [Bind.bind, StateT.bind] at h ⊢
-    cases hstep : checkDeclSPStepC mode fe pd s with
+    cases hstep : checkDeclStepC mode fe pd s with
     | error e =>
-      simp only [checkDeclStepIdxC, hstep, Except.bind] at h
+      simp only [checkDeclStep, hstep, Except.bind] at h
       exact nomatch h
     | ok pr =>
       obtain ⟨fe₁, s₁⟩ := pr
-      simp only [checkDeclStepIdxC, hstep] at h
+      simp only [checkDeclStep, hstep] at h
       exact ih (i + 1) fe₁ h
 
 /-- `foldIdxC_ok` at the shape the two capstone proofs use. -/
 theorem foldIdxC_run'_ok (mode : CheckMode) (ds : List DeclC) (i : Nat)
     (fe : FEnv) {p : Nat × FEnv} {s : CState}
-    (h : (ds.foldlM (checkDeclStepIdxC mode) (i, fe)).run' s = .ok p) :
-    (ds.foldlM (checkDeclSPStepC mode) fe).run' s = .ok p.2 := by
+    (h : (ds.foldlM (checkDeclStep mode) (i, fe)).run' s = .ok p) :
+    (ds.foldlM (checkDeclStepC mode) fe).run' s = .ok p.2 := by
   simp only [StateT.run'] at h ⊢
-  cases hrun : (ds.foldlM (checkDeclStepIdxC mode) (i, fe)) s with
+  cases hrun : (ds.foldlM (checkDeclStep mode) (i, fe)) s with
   | error e => rw [hrun] at h; exact nomatch h
   | ok pr =>
     obtain ⟨p₁, s₁⟩ := pr

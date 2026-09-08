@@ -1274,7 +1274,7 @@ theorem iotaRec_WScoped (henv : EnvWF env)
       (List.mem_of_find?_eq_some hrule)
     exact WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hrf)
-  have hmajw : WScoped d major := prepareMajorP_WScoped henv hprep
+  have hmajw : WScoped d major := prepareMajorFueled_WScoped henv hprep
     (hargs _ (getD_mem (by omega)))
   refine Expr.WScoped.mkAppN hrhs ?_
   intro x hx
@@ -1431,7 +1431,7 @@ private theorem prepareMajor_shift (henv : EnvWF env)
     refine bind_rel _ _ (litMajorToCtor_shift henv ih hpd hw₀) ?_
     intro m₁ hm₁
     have hw₁ : WScoped d m₁ := by
-      rcases litMajorToCtorP_inv hm₁ with rfl | ⟨s, -, -, hred⟩
+      rcases litMajorToCtorFueled_inv hm₁ with rfl | ⟨s, -, -, hred⟩
       · exact litToCtorIfNat_WScoped hw₀
       · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
     exact majorToCtor_shift henv ih hpd recName rules hw₁
@@ -1461,7 +1461,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
       WScoped_getD (fun x hx => hwe.getAppArgs x hx) _
     refine bind_rel _ _ (prepareMajor_shift henv ih hpd c rules hwgd) ?_
     intro major hmaj
-    have hwmaj : WScoped d major := prepareMajorP_WScoped henv hmaj hwgd
+    have hwmaj : WScoped d major := prepareMajorFueled_WScoped henv hmaj hwgd
     rw [getAppFn_shiftFrom]
     cases hmfn : major.getAppFn <;> try rfl
     case fvar => rw [shiftFrom_fvar]; rfl
@@ -1716,7 +1716,7 @@ private theorem whnfCore_step (henv : EnvWF env)
     refine bind_rel _ _ (projLitToCtor_shift henv ih hpd hwe₂) ?_
     intro e₃ he₃
     have hwe₃ : WScoped d e₃ := by
-      rcases projLitToCtorP_inv he₃ with rfl | ⟨s, -, -, hred⟩
+      rcases projLitToCtorFueled_inv he₃ with rfl | ⟨s, -, -, hred⟩
       · exact hwe₂
       · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
     cases hfp : env.findProj? sn i with

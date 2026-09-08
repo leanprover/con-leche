@@ -45,7 +45,7 @@ Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## The provisioning fold, at the `EnvFacts` level -/
 
@@ -151,9 +151,9 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
 
 `EnvFacts.swap` takes `EnvWF env₃` as a hypothesis and needs no
 `RecCtorsStored`/`BasisPinnedTT`/`ProjOkT` of its own — but the *P*
-lane's carrier (`EnvS2Core`) carries all four, and the [set] install
+lane's carrier (`EnvModel`) carries all four, and the [set] install
 proves them inside `indRecsS`.  They are extracted here so that the
-ind tier's two swaps (`indRecsCoreR` below and `EnvS2PM.swapP`) share
+ind tier's two swaps (`indRecsCoreR` below and `EnvModelM.swapP`) share
 one proof, off `RuleFacts` alone.
 -/
 

@@ -18,7 +18,7 @@ interface, and it is deliberately small:
   than a wrapper around the certificate's `Bool`;
 * **`isNever_of_betaGateFires`** — a fired gate's datum is `.never`,
   which is what the P tier's licensing composition
-  (`AnnotOkP_beta_gate`, `SetP/Step2/GateP.lean`, via
+  (`WellDenotedV_beta_gate`, `Model/Steps/Gate.lean`, via
   `pwBit_ne_zero_of_isNever`) consumes.  No certificate appears in it;
 * **`verified_isNever_of_betaGateFires`** — a fired gate is a verified
   mode's gate, which is the pair the P tier's licensing theorem is
@@ -60,8 +60,8 @@ mode and one unverified one there is no partition to certify — the
 statements would be true and empty.  The user's ruling at the SetR
 removal is that they go, not that they be restated one-sided:
 *coverage certificates were the pathology.*  What the fence actually
-needs is stated where it is consumed (`AnnotOkP_beta_gate`,
-`SetP/Step2/GateP.lean`), against the datum, not against the mode
+needs is stated where it is consumed (`WellDenotedV_beta_gate`,
+`Model/Steps/Gate.lean`), against the datum, not against the mode
 set. -/
 
 /-- A fired gate's datum is `.never`. -/
@@ -70,7 +70,7 @@ theorem isNever_of_betaGateFires (h : betaGateFires mode pw = true) :
   (Bool.and_eq_true .. |>.mp h).2
 
 /-- A fired gate is a verified mode's gate: the pair the P tier's
-licensing theorem (`AnnotOkP_beta_gate`) is stated against. -/
+licensing theorem (`WellDenotedV_beta_gate`) is stated against. -/
 theorem verified_isNever_of_betaGateFires
     (h : betaGateFires mode pw = true) :
     (mode.verifiedChecks && pw.isNever) = true := by

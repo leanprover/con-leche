@@ -8,7 +8,7 @@
    accepts the block and its recursor.
 
    con-leche's fixpoint positivity check is SYNTACTIC
-   (Kernel/Direct/RecParts.lean:102-114): the head `Fn` is neither the
+   (Kernel/Inductives/NativeParts.lean:102-114): the head `Fn` is neither the
    block nor block-free after one look, so the block is `.unsupported`
    and falls to the preprocessor, whose structural check ("a field of R
    mentions it other than as `∀ z⃗, R p⃗ e⃗` after full head

@@ -1,20 +1,20 @@
-import ConLeche.Kernel.Modeled
+import ConLeche.Kernel.Inductives.Modeled
 import ConLeche.Kernel.TrustAxioms
-import ConLeche.Kernel.Direct.SumInstall
-import ConLeche.Kernel.Direct.RecInstall
+import ConLeche.Kernel.Inductives.SumInstall
+import ConLeche.Kernel.Inductives.NativeInstall
 
 /-!
 # The checker
 
 `checkDecl` checks one declaration against the current environment and,
-on success, returns the extended environment.  `checkDecls` folds it
+on success, returns the extended environment.  `checkDeclsPure` folds it
 over a list of declarations, starting from the empty environment.  The
 entry-point records (`CheckerOps` and its instantiations) and the
 common `checkConstantVal` live in `ConLeche/Kernel/CheckerBase.lean`;
-the modeled-inductive install in `ConLeche/Kernel/Modeled.lean`; the
-direct simple-structure install in `ConLeche/Kernel/Direct/Install.lean`.
+the modeled-inductive install in `ConLeche/Kernel/Inductives/Modeled.lean`; the
+direct simple-structure install in `ConLeche/Kernel/Inductives/StructInstall.lean`.
 Verification: `ConLeche.Verify.*` (inversions and claims) and
-`ConLeche.SetP.*` (the graded model's capstones).
+`ConLeche.Model.*` (the graded model's capstones).
 -/
 
 namespace ConLeche
@@ -480,22 +480,22 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- routes it replaced were deleted at Part C).  Everything else is
     -- the modeled path's, and its model is the in-process modeller's
     -- (`ConLeche/Frontend/InModel.lean`), whose records precede the
-    -- block in the very same parse; `checkIndDecl` DECLINES, naming the
+    -- block in the very same parse; `checkModeled` DECLINES, naming the
     -- block, when there is none.  The dispatch is the RECOGNISER alone
     -- (task #219): a mutual or nested block carries several type
-    -- formers, resp. several recursors, so `directSumSplit` refuses it
+    -- formers, resp. several recursors, so `sumSplit` refuses it
     -- outright and no model lookup is needed to route it — which is why
     -- a stream record that happens to be named `T._model` has no effect
     -- on any block.  The module split (`CheckerBase ← Modeled ←
     -- Checker`) is why the dispatch lives here and not inside
-    -- `checkIndDecl`.
-    match directFixParts? block with
-    | some p => checkDirectFix ops env p
-    | none => checkIndDecl mode ops env block
+    -- `checkModeled`.
+    match nativeParts? block with
+    | some p => checkNative ops env p
+    | none => checkModeled mode ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
-def checkDecls (ops : CheckerOps m) (ds : List Declaration) : m Env :=
+def checkDeclsPure (ops : CheckerOps m) (ds : List Declaration) : m Env :=
   ds.foldlM (checkDecl mode ops) Env.empty
 
 end ConLeche

@@ -1,15 +1,15 @@
-import ConLeche.Verify.Cached.BridgeCP
-import ConLeche.SetP.FoldP
+import ConLeche.Verify.Cached.BridgeC
+import ConLeche.Model.Fold
 
 /-!
 # The capstone letter of the SHIPPED driver
 
-`checkDeclsSPCachedD` (`ConLeche/Cached/ParsedC.lean`) is the only
+`checkDecls` (`ConLeche/Cached/ParsedC.lean`) is the only
 declaration driver the binary has since task #172, and
-`no_proof_of_Empty_SPCD_P` is its consistency letter, on the graded
+`no_proof_of_Empty_cached` is its consistency letter, on the graded
 (P) carrier.
 
-The fold `foldSPC_PM` threads the environment-free residue `CSOKF`
+The fold `fold_preserves` threads the environment-free residue `CSOKF`
 across the steps — the flush lives inside the step — and takes the
 per-step relation premise from `DeclCRel_total`: with one expression
 type every parsed record relates to a `Declaration` unconditionally,
@@ -17,13 +17,13 @@ which is why nothing here carries a store, a well-formedness bundle, or
 a conversion pass.
 
 Retired at task #172 with the arena they were fed from: the
-`checkDeclsSPCached` letters (`SPC_*` and `input_SPC_*`), which took a
+`checkDecls` letters (`SPC_*` and `input_SPC_*`), which took a
 `WFStore` and a `List DeclP` and converted once before folding.
 
 Retired at the SetR removal (2026-09-05) **with their subjects**: the
 collapsed-lane letters `no_proof_of_Empty_SPCD_{R,R2,R2M}`, their
 acceptance corollaries and the folds `foldSPC_{R,R2,R2M}`.  Every one
-of them was stated over an `EnvS`/`EnvS2U`/`EnvS2UM` carrier, and those
+of them was stated over an `EnvS`/`EnvModelU`/`EnvModelUM` carrier, and those
 carriers were the `ConLeche/SetR/*` tier — the B4 measurement having
 shown a zero acceptance delta between the two verified configurations,
 the P letter is the whole story.  This module used to be the only one
@@ -61,21 +61,21 @@ theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
   | .basisDecl _ => ⟨_, .basisDecl⟩
   | .indDecl _ => ⟨_, .indDecl⟩
 
-/-- The direct-parse driver, dissected (the `checkDeclsSPCached_run`
+/-- The direct-parse driver, dissected (the `checkDecls_run`
 mirror; no conversion pass to peel). -/
-theorem checkDeclsSPCachedD_run {μ : CheckMode}
+theorem checkDecls_run {μ : CheckMode}
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
-    ∃ fe s', (ds.foldlM (checkDeclSPStepC μ)
+    (h : checkDecls μ ds = .ok env') :
+    ∃ fe s', (ds.foldlM (checkDeclStepC μ)
         (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
       fe.env = env' := by
   -- The driver folds the POSITION-CARRYING step (2026-09-07, so that a
   -- rejection names its declaration); its accepts are the plain fold's
   -- accepts (`foldIdxC_ok`), which is why this statement — and every
   -- statement below it — is the one it was.
-  unfold checkDeclsSPCachedD at h
+  unfold checkDecls at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : (ds.foldlM (checkDeclStepIdxC μ)
+  cases hf : (ds.foldlM (checkDeclStep μ)
       (0, mkFEnv Env.empty)).run' ({} : CState) with
   | error e => rw [hf] at h; exact nomatch h
   | ok p =>
@@ -85,7 +85,7 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
         = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (ds.foldlM (checkDeclStepIdxC μ)
+    cases hrun : (ds.foldlM (checkDeclStep μ)
         (0, mkFEnv Env.empty)) ({} : CState) with
     | error e => rw [hrun] at hf; exact nomatch hf
     | ok pr =>
@@ -102,39 +102,39 @@ theorem wdecl_rel {ds : List DeclC} :
 
 /-! ## The P letter for the SHIPPED direct-parse driver (task #172 B4)
 
-Task #163 flipped the shipped path to `checkDeclsSPCachedD`; the P
+Task #163 flipped the shipped path to `checkDecls`; the P
 capstone family predates the flip, so the P mode had no statement
 about the function `Main.lean` actually runs — the same species of
-gap the S8 batch closed for `checkDeclsSP` (`SetP/MainP.lean`).  The
+gap the S8 batch closed for `checkDeclsPure` (`Model/MainP.lean`).  The
 closure is the retired `SPCD_R` recipe at the P invariant: the cached
 per-declaration bridge already lands at the pure `checkDecl` run,
-`checkDeclRun_ofEnvFactsE` lifts it to the run record, and `declStepPM` —
-the S11a P step, unchanged — walks the `EnvS2PM` carrier.  Nothing
+`checkDeclRun_ofEnvFactsE` lifts it to the run record, and `declStep_preserves` —
+the S11a P step, unchanged — walks the `EnvModelM` carrier.  Nothing
 semantic is added; the io-graded P core's soundness (B4's premise-form
-slot claims) arrives through `declStepPM`'s dependency cone.
+slot claims) arrives through `declStep_preserves`'s dependency cone.
 
 Since the SetR removal (2026-09-05) this is the tree's ONLY letter
-about an executable, and `no_proof_of_Empty_P` (`SetP/FoldP.lean`, the
+about an executable, and `no_proof_of_Empty_pure` (`Model/Fold.lean`, the
 pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters
 
-open ConLeche.SetP (EnvSPOk EnvS2PM declStepPM
-  no_constant_of_Empty_P no_constant_of_False_P)
+open ConLeche.Model (EnvModelOk EnvModelM declStep_preserves
+  no_constant_of_Empty no_constant_of_False)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- The direct-parse cached fold preserves the P invariant
-(the retired `foldSPC_R2M`'s recipe at `EnvSPOk`; the step is
-`declStepPM`, verbatim). -/
-theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
+(the retired `foldSPC_R2M`'s recipe at `EnvModelOk`; the step is
+`declStep_preserves`, verbatim). -/
+theorem fold_preserves (hμ : μ.verifiedChecks = true) :
     ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
       fe = mkFEnv fe.env →
-      EnvSPOk V μ fe.env →
+      EnvModelOk V μ fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
-      EnvSPOk V μ fe'.env
+      (ds.foldlM (checkDeclStepC μ) fe) s₀ = .ok (fe', s') →
+      EnvModelOk V μ fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
@@ -146,19 +146,19 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
     obtain ⟨d, hd⟩ := hrel pc List.mem_cons_self
     rw [hfe] at hstepC
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
-      checkDeclSPStepC_run hμ mp.toEnvFacts.wf hres hd hstepC
-    exact foldSPC_PM hμ ds fe₁ hfe₁
-      (declStepPM hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
+      checkDeclStepC_run hμ mp.toEnvFacts.wf hres hd hstepC
+    exact fold_preserves hμ ds fe₁ hfe₁
+      (declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
-theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
+theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
-    Nonempty (EnvS2PM V μ env') := by
-  obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
-  exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨ConLeche.SetP.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    (h : checkDecls μ ds = .ok env') :
+    Nonempty (EnvModelM V μ env') := by
+  obtain ⟨fe, s', hrun, rfl⟩ := checkDecls_run h
+  exact (fold_preserves hμ ds (mkFEnv Env.empty) rfl
+    ⟨⟨ConLeche.Model.EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩
     CSOKF.empty wdecl_rel hrun).1
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):
@@ -166,33 +166,33 @@ the checker, running a validating mode over the direct-parse cached
 core it ships with — io-graded skips live — never accepts a stream in
 which some stored constant has type `Empty`.  Hypotheses are
 input-level only. -/
-theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
+theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDecls μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
-  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
-  exact fun c hc hty => no_constant_of_Empty_P mp c hc hty
+  obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
+  exact fun c hc hty => no_constant_of_Empty mp c hc hty
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, about `False`** (task #181):
-the same letter as `no_proof_of_Empty_SPCD_P` at the pinned `False`
+the same letter as `no_proof_of_Empty_cached` at the pinned `False`
 block — no hypothesis about how the stream declared `False`. -/
-theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDecls μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
-  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
-  exact fun c hc hty => no_constant_of_False_P mp c hc hty
+  obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
+  exact fun c hc hty => no_constant_of_False mp c hc hty
 
 /-! ### The loop the binary runs
 
-`Main.lean` calls `checkDeclsSPCachedD` — this letter's subject —
+`Main.lean` calls `checkDecls` — this letter's subject —
 directly on every run that is not printing progress.  The opt-in
 `CON_LECHE_PROGRESS` lane runs an unverified `IO` twin of the same fold
-(`Main.checkDeclsProgressIO`): the same `checkDeclStepIdxC` steps in
+(`Main.checkDeclsProgressIO`): the same `checkDeclStep` steps in
 the same order, with a line printed before each declaration.  **User
 ruling, 2026-09-07**: the two folds differ only in the print, and the
 verified one is what the default run uses, so no monadic

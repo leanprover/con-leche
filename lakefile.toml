@@ -1,5 +1,5 @@
 name = "con-leche"
-defaultTargets = ["ConLecheBase", "ConLecheP", "ConLecheCaps", "con-leche"]
+defaultTargets = ["ConLecheBase", "ConLecheModel", "ConLecheCaps", "con-leche"]
 testDriver = "ConLecheTests"
 
 # NO DEPENDENCIES (task #207).  The package requires nothing: the
@@ -16,13 +16,13 @@ testDriver = "ConLecheTests"
 # for more focus").
 #
 #             ConLecheBase
-#   Kernel/* · model-free Verify/* · SetTheory/* · VExpr/*
+#   Kernel/* · model-free Verify/* · SetTheory/* · Term/*
 #   SetModel/* (pure set constructions) · Semantics/* (Expr-facing
 #   denotation and claims; the two halves of the former SetBase/*)
 #                               ↑
-#                           ConLecheP
-#                   de-based EnvS2Core · Annot
-#                   carriers · Interp2 rows ·
+#                           ConLecheModel
+#                   de-based EnvModel · Annot
+#                   carriers · Interp rows ·
 #                   self-standing fold · P capstone
 #                               ↑
 #             ConLecheCaps (exe/capstones)
@@ -32,7 +32,7 @@ testDriver = "ConLecheTests"
 # R core (`EnvS`, `Sound/*`, `Install/*`, the `R`/`R2`/`R2M` capstones).
 # The B4 measurement had shown a ZERO acceptance delta between the two
 # verified configurations (225 fixtures + init-full byte-identical), so
-# the graded lane's `no_proof_of_Empty_SPCD_P` covers the shipped path
+# the graded lane's `no_proof_of_Empty_cached` covers the shipped path
 # alone and the collapsed lane was retired whole.  The separation
 # campaign (task #161) had left the two trees genuinely disjoint — zero
 # edges in either direction — which is why the cut was clean: only
@@ -41,7 +41,7 @@ testDriver = "ConLecheTests"
 # HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
 # does NOT give an import barrier between `lean_lib`s of the SAME
 # package: import resolution is per-package, so a module in one lib may
-# import a module rooted in another (today `ConLeche.SetP.*` imports
+# import a module rooted in another (today `ConLeche.Model.*` imports
 # `ConLeche.Kernel.*` across exactly such a boundary).  The lib split is
 # therefore the layout, not the fence; `tests/layering.sh` is the fence.
 # A hard build error would need the lanes to become separate Lake
@@ -79,7 +79,7 @@ testDriver = "ConLecheTests"
 # `ConLeche.PinGen.Certs` — a real edge Lake orders.  The certificates
 # stay kernel-checked theorems in this library (that is where their
 # trust comes from), but nothing in the checker's build depends on it:
-# its only in-tree consumers are the generator and `ConLeche.SetP.NatWfP`,
+# its only in-tree consumers are the generator and `ConLeche.Model.NatWf`,
 # both by ordinary import.
 [[lean_lib]]
 name = "ConLechePinCerts"
@@ -87,7 +87,7 @@ roots = ["ConLeche.PinGen.Certs"]
 
 # The shared base: the checker itself (`ConLeche.Kernel.*`), the model-free
 # verification tier (`ConLeche.Verify.*`), the `SetTheory` interface, the
-# erased term language (`ConLeche.VExpr.*`, task #74 — its own module
+# erased term language (`ConLeche.Term.*`, task #74 — its own module
 # hierarchy, importing nothing from the checker; it was `ConLeche.TT.*`
 # until task #209 removed the declarative lane above it), `ConLeche.SetModel.*`
 # (the pure set constructions) and `ConLeche.Semantics.*` (the Expr-facing
@@ -96,18 +96,18 @@ roots = ["ConLeche.PinGen.Certs"]
 # this and nothing here may import it.
 [[lean_lib]]
 name = "ConLecheBase"
-roots = ["ConLeche", "ConLeche.VExpr", "ConLeche.SetModel", "ConLeche.Semantics"]
+roots = ["ConLeche", "ConLeche.Term", "ConLeche.SetModel", "ConLeche.Semantics"]
 
-# The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
-# de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,
+# The graded-model lane (task #161 S2): the `WellDenoted` bit carriers, the
+# de-basing's `EnvModel`/`EnvModelM`, the per-rule `…P` quarters and rows,
 # the basis/inductive/projection install `…P` families, `FoldP` and
 # `CapstoneP`.  Stands on `ConLecheBase`; since the SetR removal it is the
 # ONLY model lane.  Only the file paths ever moved — the Lean namespaces
-# are `ConLeche.SetR.{Interp2, Annot}` still, so no frozen statement
+# are `ConLeche.SetR.{Interp, Annot}` still, so no frozen statement
 # changed name.
 [[lean_lib]]
-name = "ConLecheP"
-roots = ["ConLeche.SetP"]
+name = "ConLecheModel"
+roots = ["ConLeche.Model"]
 
 # The capstone assembly (task #163): the cached checker variant's
 # verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`

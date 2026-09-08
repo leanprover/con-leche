@@ -1,7 +1,7 @@
 import ConLeche.Verify.FastOps
 import ConLeche.Verify.EnvBound
-import ConLeche.Kernel.Direct.SumInstallF
-import ConLeche.Kernel.Direct.RecInstallF
+import ConLeche.Kernel.Inductives.SumInstallF
+import ConLeche.Kernel.Inductives.NativeInstallF
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
@@ -12,7 +12,7 @@ in pure lookup subterms (`FEnv.find?` for `Env.find?`,
 `Expr.constsResolveF` for `Expr.constsResolve`, and the compound
 guards built from them), each of which `mkFEnv_find?` rewrites away.
 Environment-*extending* mirrors (`checkDefnValF` …) return the pushed
-index and are related run-wise in `ConLeche/Model/BridgeS.lean` — here
+index and are related run-wise in `ConLeche/ModelV1/BridgeS.lean` — here
 only the value-level pieces are proven equal.
 -/
 
@@ -252,67 +252,67 @@ theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
 
 /-! ### The direct simple-structure path (task #82) -/
 
-theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
+theorem checkStructDomsAtF_eq (ops : CheckerOps m) (env : Env)
     (off : Nat) (fvs doms : List Expr) :
     ∀ (j : Nat),
-      checkDirectDomsAtF ops (mkFEnv env) off fvs doms j
-        = checkDirectDomsAt ops env off fvs doms j
+      checkStructDomsAtF ops (mkFEnv env) off fvs doms j
+        = checkStructDomsAt ops env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectDomsAtF, checkDirectDomsAt, mkFEnv_env,
-      checkDirectDomsAtF_eq ops env off fvs doms j]
+    simp only [checkStructDomsAtF, checkStructDomsAt, mkFEnv_env,
+      checkStructDomsAtF_eq ops env off fvs doms j]
 
 /-! ### The direct sum path (task #175 sum-types, indexed) -/
 
-/-- `checkDirectFieldSortsIF` (task #175 indexed) at `mkFEnv`. -/
-theorem checkDirectFieldSortsIF_eq (ops : CheckerOps m) (env : Env)
+/-- `checkStructFieldSortsIF` (task #175 indexed) at `mkFEnv`. -/
+theorem checkStructFieldSortsIF_eq (ops : CheckerOps m) (env : Env)
     (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
     ∀ (j : Nat),
-      checkDirectFieldSortsIF ops (mkFEnv env) isProp large s nP fvs idxArgs j
-        = checkDirectFieldSortsI ops env isProp large s nP fvs idxArgs j
+      checkStructFieldSortsIF ops (mkFEnv env) isProp large s nP fvs idxArgs j
+        = checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectFieldSortsIF, checkDirectFieldSortsI, mkFEnv_env,
-      checkDirectFieldSortsIF_eq ops env isProp large s nP fvs idxArgs j]
+    simp only [checkStructFieldSortsIF, checkStructFieldSortsI, mkFEnv_env,
+      checkStructFieldSortsIF_eq ops env isProp large s nP fvs idxArgs j]
 
-/-- `checkDirectFieldSortsIFA` (task #175 indexed) at `List.toArray`. -/
-theorem checkDirectFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
+/-- `checkStructFieldSortsIFA` (task #175 indexed) at `List.toArray`. -/
+theorem checkStructFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
     (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
-    ∀ j, checkDirectFieldSortsIFA ops fe isProp large s nP fvs.toArray idxArgs j
-      = checkDirectFieldSortsIF ops fe isProp large s nP fvs idxArgs j
+    ∀ j, checkStructFieldSortsIFA ops fe isProp large s nP fvs.toArray idxArgs j
+      = checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectFieldSortsIFA, checkDirectFieldSortsIF,
+    simp only [checkStructFieldSortsIFA, checkStructFieldSortsIF,
       List.getElem?_toArray,
-      checkDirectFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
+      checkStructFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
 
 theorem normCtorValF_eq (ops : CheckerOps m) (env : Env) (T : Name) (nP nF : Nat)
     (cvC cvCa : ConstantVal) :
     normCtorValF ops (mkFEnv env) T nP nF cvC cvCa = normCtorVal ops env T nP nF cvC cvCa := by
   simp only [normCtorValF, normCtorVal, mkFEnv_env, checkConstantValF_eq]
 
-theorem checkDirectSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkDirectSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
+    checkSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
         large cvC nF cvTa
-      = checkDirectSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
+      = checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
-  simp only [checkDirectSumCtorF, checkDirectSumCtor, checkConstantValF_eq, normCtorValF_eq,
-    checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
-    checkDirectFieldSortsIFA_eq, checkDirectFieldSortsIF_eq, constsResolveF_eq]
+  simp only [checkSumCtorF, checkSumCtor, checkConstantValF_eq, normCtorValF_eq,
+    checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
+    checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
 
-theorem checkDirectSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+theorem checkSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      checkDirectSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
+      checkSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
           large cvTa cs
-        = checkDirectSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
+        = checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
-    simp only [checkDirectSumCtorsF, checkDirectSumCtors, checkDirectSumCtorF_eq,
-      checkDirectSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
+    simp only [checkSumCtorsF, checkSumCtors, checkSumCtorF_eq,
+      checkSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
@@ -372,41 +372,41 @@ section FixMirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-theorem directFixOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+theorem nativeOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (cty : Expr) (nF : Nat) (ks : List RecFieldKind) :
-    directFixOpenedOkF .plain (mkFEnv env₀) T lps nP nIdx cty nF ks
-      = directFixOpenedOk env₀ T lps nP nIdx cty nF ks := by
-  simp only [directFixOpenedOkF, directFixOpenedOk, DirectWalkers.plain, constsResolveF_eq]
+    nativeOpenedOkF .plain (mkFEnv env₀) T lps nP nIdx cty nF ks
+      = nativeOpenedOk env₀ T lps nP nIdx cty nF ks := by
+  simp only [nativeOpenedOkF, nativeOpenedOk, StructWalkers.plain, constsResolveF_eq]
     <;> rfl
 
-theorem directFixFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+theorem nativeFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
-    directFixFieldsOkF .plain (mkFEnv env₀) T lps nP nIdx ctorsA kinds
-      = directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
-  simp only [directFixFieldsOkF, directFixFieldsOk, directFixOpenedOkF_eq] <;> rfl
+    nativeFieldsOkF .plain (mkFEnv env₀) T lps nP nIdx ctorsA kinds
+      = nativeFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
+  simp only [nativeFieldsOkF, nativeFieldsOk, nativeOpenedOkF_eq] <;> rfl
 
-theorem checkDirectFixRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
+theorem checkNativeRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
     ∀ (k j : Nat),
-      checkDirectFixRulesF (m := m) .plain (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
+      checkNativeRulesF (m := m) .plain (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
           recC rlvls k j
-        = checkDirectFixRules (m := m) envR rlps T lps elim large nP nIdx tty ctors recC
+        = checkNativeRules (m := m) envR rlps T lps elim large nP nIdx tty ctors recC
             rlvls k j
   | 0, _ => rfl
   | k + 1, j => by
-    simp only [checkDirectFixRulesF, checkDirectFixRules,
-      checkDirectFixRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
+    simp only [checkNativeRulesF, checkNativeRules,
+      checkNativeRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
         (j + 1)]
-    simp only [DirectWalkers.plain, constsResolveF_eq]
+    simp only [StructWalkers.plain, constsResolveF_eq]
 
-theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
+theorem checkNativeRecF_eq (ops : CheckerOps m) (env : Env) (p : NativeParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    checkDirectFixRecF ops .plain (mkFEnv env) p cvTa ctorsA
-      = checkDirectFixRec ops env p cvTa ctorsA := by
-  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, checkConstantValF_eq,
-    push_mkFEnv, checkDirectFixRulesF_eq]
-  simp only [DirectWalkers.plain, constsResolveF_eq]
+    checkNativeRecF ops .plain (mkFEnv env) p cvTa ctorsA
+      = checkNativeRec ops env p cvTa ctorsA := by
+  simp only [checkNativeRecF, checkNativeRec, mkFEnv_env, checkConstantValF_eq,
+    push_mkFEnv, checkNativeRulesF_eq]
+  simp only [StructWalkers.plain, constsResolveF_eq]
 
 end FixMirrors
 

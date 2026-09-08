@@ -17,8 +17,22 @@ called Setlec until 2026-09-06 (task #186) and Lech until 2026-09-07 (task
 tree where either old name is allowed to appear — see the task #186 and task
 #211 sections at the end of this document.
 
+**THE RULE FOR THIS DOCUMENT'S NAMES, task #222.**  Task #222 removed
+the suffixes of tiers that no longer exist — `2`, `P`, `S2`, `Direct` —
+and renamed the load-bearing concepts to say what they are.  This
+journal's *historical* sections were not rewritten: a name in them that
+carries one of those markers (`AnnotOk2`, `denoteP`, `EnvS2Core`,
+`checkDeclsSPCachedD`, `SetP/FoldP.lean`, `checkDirectFix`, …) is the
+spelling of its own date, and the task #222 section at the end of this
+document holds the whole old→new mapping.  Only this opening block, and
+the sections dated after it, are kept current.  Two names are
+deliberately **reused**: `ConLeche/Model/*` and `EnvModel`, which
+before task #148 T7 named the retired direct model tier and its
+invariant; docstrings that still cite the retired tier now say
+`ConLeche/ModelV1/*`.
+
 **Where the consistency proof lives** (current, since the SetR removal of
-2026-09-05): the **graded ("P") tier**, `ConLeche/SetP/*`, with the
+2026-09-05): the **graded model tier**, `ConLeche/Model/*`, with the
 capstone assembly in `ConLeche/Verify/Cached/*`, and the statement a
 reader comes for in `ConLeche/MainTheorem.lean`.
 
@@ -40,29 +54,29 @@ nothing else — the `Empty` statement lives with the letters, and the
 | theorem | file | what it says |
 |---|---|---|
 | `ConLeche.no_proof_of_False` | `ConLeche/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `ConLeche/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
-| `ConLeche.Cached.no_proof_of_{False,Empty}_SPCD_P` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
-| `ConLeche.SetP.no_proof_of_{False,Empty}_P` | `ConLeche/SetP/FoldP.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
-| `ConLeche.SetP.no_proof_of_Empty_P_of` | `ConLeche/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
-| `ConLeche.Cached.checkDeclsSPCachedD_sound_P` | `ConLeche/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
-| `ConLeche.Cached.foldSPC_PM` | `ConLeche/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
-| `ConLeche.SetP.no_constant_of_{False,Empty}_P` | `ConLeche/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin_P`, the argument at any reserved name pinned to `emptyT u` |
+| `ConLeche.Cached.no_proof_of_{False,Empty}_cached` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
+| `ConLeche.Model.no_proof_of_{False,Empty}_pure` | `ConLeche/Model/Fold.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDeclsPure μ (fueledOps μ F)`, at every fuel |
+| `ConLeche.Model.no_proof_of_Empty_pure_of` | `ConLeche/Model/Fold.lean` | its install-tier-conditional form, the shape the harvest closes |
+| `ConLeche.Cached.checkDecls_sound` | `ConLeche/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvModelM` at the final environment |
+| `ConLeche.Cached.fold_preserves` | `ConLeche/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `ConLeche.Model.no_constant_of_{False,Empty}` | `ConLeche/Model/Capstone.lean` | the business end: an environment carrying the model invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin`, the argument at any reserved name pinned to `emptyT u` |
 
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/ConLecheTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
 of the eleven, so a drifting axiom footprint is a test failure. Seven
-of them — the main theorem, `no_proof_of_{False,Empty}_SPCD_P`,
-`checkDeclsSPCachedD_sound_P`, `foldSPC_PM` and
-`no_proof_of_{False,Empty}_P` — additionally have their
+of them — the main theorem, `no_proof_of_{False,Empty}_cached`,
+`checkDecls_sound`, `fold_preserves` and
+`no_proof_of_{False,Empty}_pure` — additionally have their
 module-level dependency closure pinned by `tests/proofdeps.sh`; the
 two gates measure different things (what a proof term ASSUMES vs which
 modules it REACHES) and neither implies the other.
 
 **THE PROGRESS LANE IS A SECOND, UNVERIFIED FOLD** (user ruling,
-2026-09-07).  A default run calls `checkDeclsSPCachedD` — the function
+2026-09-07).  A default run calls `checkDecls` — the function
 the theorem above is about — and prints nothing per declaration.  With
 `CON_LECHE_PROGRESS=<stride>` the driver instead runs
-`Main.checkDeclsProgressIO`: the same `checkDeclStepIdxC` steps in the
+`Main.checkDeclsProgressIO`: the same `checkDeclStep` steps in the
 same order, in `IO`, with one line printed before each declaration.
 The user's words: *"Let's just have multiple modes in main, with their
 own loops. The pure one does not print status and is the one that the
@@ -75,8 +89,9 @@ and why the replacement is better, is recorded under the progress-lane
 section below.
 
 **Three tiers were retired, by user ruling.** The direct `Expr` set
-model and its consistency proof (`ConLeche/Model/*`, 83 files / 62,992
-lines, invariant `EnvModel`) and the declarative verification lane
+model and its consistency proof (`ConLeche/ModelV1/*`, 83 files /
+62,992 lines, invariant `EnvModel` — task #222 reused both names for
+the graded tier) and the declarative verification lane
 (`ConLeche/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) went
 at task #148 T7/T7b, together with the `--tt-model` mode the second was
 stated at; the collapsed-model tier (`ConLeche/SetR/*` and its fourteen
@@ -91,11 +106,12 @@ the opening of this section is the one place kept current.
 tower consumes is the **syntax**, not the declarative semantics —
 `VExpr`/`BConst`/`mkAppN`, `liftN`/`inst`/`arrow` with their laws, and
 the basis constants — so at #209 those three modules moved out from
-under the retired theory's name to `ConLeche/VExpr/{Syntax,Subst,Const}`
-(`namespace ConLeche.VExpr`), and `ConLeche/TT/*` is gone.  They are read by
+under the retired theory's name to `ConLeche/Term/{Syntax,Subst,Const}`
+(`namespace ConLeche.Term`, `ConLeche/VExpr/*` until task #222), and
+`ConLeche/TT/*` is gone.  They are read by
 `Semantics/BasisType`, `SetModel/Value` and — `emptyT`, which the
-`Empty` letter is stated at — `SetP/CapstoneP`; the P tier's
-`interp2`/`bval2` are its **own**, in `ConLeche/Semantics/*`, and never
+`Empty` letter is stated at — `Model/Capstone`; the model tier's
+`interp`/`bval` are its **own**, in `ConLeche/Semantics/*`, and never
 were the lane's.  `ConLeche/TT/Semantics/*` (the lane's model and its
 soundness theorem) went at task #190 unread; `TT/Judgment`'s `HasType`
 relation lost its last reader with it and went at #209, together with
@@ -60392,3 +60408,220 @@ b'{"ie":'`, `IE_RE`'s `^` anchor, `APP_HEAD`, the newline-anchored
 reworking those, which is a separate item; the finding is recorded in
 the script's own docstring where the next reader will meet it, together
 with the cross-reference to `slice-cone.py`.
+
+---
+
+## TASK #222 — THE NAMING CLEANUP: the suffixes of deleted tiers go, and the load-bearing concepts say what they are (2026-09-08, `agent/naming`)
+
+**The user's directive, verbatim:** *"we have accumulated some
+idiosyncratic naming that made sense once, but no longer does, for
+example because we dropped the R tier, the TT tier, the collapsed set
+model.  also, some names do not do the importance of the named thing
+justice (AnnotOk2 sounds like a minor technicality) … maybe P and 2 can
+go."* … *"if conventions survive, maybe explain in the overview."* …
+*"good renamings, including Term and Model.  go for it."*  And, mid-
+flight: *"actually, Native and Modeled are good names, in an Inductives
+(or Inds) directory."*
+
+**No statement changed.**  Every capstone, pin and claim was renamed,
+never restated: `tests/proofdeps-expected.txt` is master's row set edge
+for edge (below), the axiom pin is the same eleven theorems at the same
+three axioms, and `init-full` accepts the same 53 088 declarations at
+the same instruction count.
+
+### 1. What each suffix once distinguished, and why it goes
+
+| marker | it distinguished | what is left |
+|---|---|---|
+| `2` | task #151's "tier B" two-regime interpretation (`interp2`, `denote2`, `bval2`, `AnnotOk2`, `Sat2`, `Claims2P`, `Step2/`) against the collapsed one | nothing "1" survives |
+| `P` | the graded set-model tier `SetP/*` against the deleted `SetR` tier and the deleted TT lane | one model tier |
+| `S2`, `SP`, `SPCachedD` | layered history — `EnvS2Core`, `EnvS2PM`, `checkDeclsSPCachedD`, `foldSPC_PM` | one fold, one carrier |
+| `Direct` | the direct install route against the modeled-via-external-tool route retired at task #207 | one native route and one modeled route, both in-process |
+
+`C` (cached), `I` (interned/indexed), `F` (over `FEnv`), `D` (the
+direct-parse record), `AV`/`Annot` (annotated-term readers) and `WF`
+DISTINGUISH live things and stay.  `OVERVIEW.md` §10 "Naming
+conventions" now says so, and says that **no other suffix carries
+meaning** — that section is the lasting part of this task.
+
+### 2. The mapping
+
+**Paths** (229 files move, history preserved by `git mv`):
+
+    ConLeche/VExpr/                       -> ConLeche/Term/
+    ConLeche/SetP/                        -> ConLeche/Model/
+    ConLeche/SetP/Step2/                  -> ConLeche/Model/Steps/
+    ConLeche/SetP/{Direct,DirectSum,DirectFix}/
+                                          -> ConLeche/Model/Inductives/
+    ConLeche/Kernel/Direct/               -> ConLeche/Kernel/Inductives/
+    ConLeche/Verify/Direct/               -> ConLeche/Verify/Inductives/
+    ConLeche/Semantics/Direct/            -> ConLeche/Semantics/Inductives/
+    ConLeche/Kernel/Modeled.lean          -> ConLeche/Kernel/Inductives/Modeled.lean
+    ConLeche/Semantics/Ok2.lean           -> ConLeche/Semantics/WellDenoted.lean
+    ConLeche/Kernel/{CoreP,CheckerP}.lean -> ConLeche/Kernel/{CoreGated,CheckerGated}.lean
+    ConLeche/Verify/CoreP.lean            -> ConLeche/Verify/CoreGated.lean
+    ConLeche/Verify/Cached/BridgeCP.lean  -> ConLeche/Verify/Cached/BridgeC.lean
+    every ConLeche/Model/**/*P.lean drops its P; Kernel/Inductives'
+    Parts/Install/InstallF -> Struct*, RecParts/RecInstall/RecInstallF -> Native*
+
+**Names** (1 335 identifier tokens, one word-boundary pass over a
+reviewed map; then five smaller passes, §4):
+
+| today | before |
+|---|---|
+| `WellDenoted` / `WellDenotedV` / `AnnotValid` | `AnnotOk2` / `AnnotOkP` / `AnnotValidV` |
+| `interp`, `bval`, `Sat` | `interp2`, `bval2`, `Sat2` |
+| `denoteAnnot`, `denoteMeta` | `denote2`, `denoteP` |
+| `EnvModel`, `EnvModelM`, `EnvModelOk` | `EnvS2Core`, `EnvS2PM`, `EnvSPOk` |
+| `Claims`, `WhnfClaim`, `WhnfCoreClaim`, `DefEqClaim`, `InferClaim`, `CheckStep` | `Claims2P`, `WhnfClaims2P`, `WhnfCoreClaims2P`, `DefEqClaims2P`, `InferClaims2P`, `CheckStep2P` |
+| `checkDecls`, `checkDeclStep`, `checkDeclStepC`, `checkDeclC` | `checkDeclsSPCachedD`, `checkDeclStepIdxC`, `checkDeclSPStepC`, `checkDeclSPC` |
+| `checkDeclsPure` | `checkDecls` (Kernel's pure fold) |
+| `no_proof_of_{False,Empty}_cached` | `no_proof_of_{False,Empty}_SPCD_P` |
+| `no_proof_of_{False,Empty}_pure` | `no_proof_of_{False,Empty}_P` |
+| `no_constant_of_{False,Empty,emptyPin}` | `…_P` |
+| `checkDecls_sound`, `checkDecls_skels`, `checkDecls_run` | `checkDeclsSPCachedD_*` |
+| `declStep_preserves`, `fold_preserves`, `trusted_agrees_*` | `declStepPM`, `foldSPC_PM`, `trusted_agrees_P_*` |
+| `CtxOk`, `DenoteMetaSpine`, `natOps_install`, `divMod_install`, `natLit_*` | `CtxOkP`, `DenoteSpineP`, `natOpsP_install`, `divModP_install`, `natLitP_*` |
+| `Term`, `AnnotTerm` | `VExpr`, `AVExpr` |
+| `checkNative`, `nativeParts?`, `NativeParts`, `declNative`, `native*` | `checkDirectFix`, `directFixParts?`, `DirectFixParts`, `declDirectFixP`, `directFix*` |
+| `InductiveShape` | `DirectSumParts` |
+| `checkModeled` | `checkIndDecl` |
+| `Struct*` / `Sum*` (the two stage kits) | `Direct*` / `DirectSum*` |
+| lib `ConLecheModel` | lib `ConLecheP` |
+| proofdeps roots `False_cached`, `Empty_cached`, `False_pure`, `Empty_pure`, `sound_cached`, `fold_preserves` | `False_SPCD_P`, `SPCD_P`, `False_P`, `P`, `sound_P`, `foldSPC_PM` |
+
+Extended by the same rule and worth naming: the parked β-certificate
+lane's `whnfCoreP`/`whnfP`/`inferTypeCoreP`/`pureFnsP`/`coreKnotP` →
+`*Gated`; `Verify/Knot.lean`'s record-applied helpers
+`iotaRecP`/`defEqListP`/`proofIrrelP`/`projCertP`/… → `*Fueled` (the
+`P` there meant "applied to `pureFns mode env fuel`"); the `T2` family
+(`natLitT2`, `charListT2`, `relT2`, `eqValT2`, `BConst.type2`) → `*AV`,
+the annotated mirror of a live `*T` construction at the erased tier;
+the `V2` value family (`natOpV2`, `psigmaV2`, `quotV2`, `lfpFamV2`, …)
+and the `Space2` family → the `2` drops.
+
+### 3. Where a proposed name clashed, and what was chosen
+
+* **Three denotations, one bare name.**  `ConLeche.Verify.denote`
+  (`Expr → Term`, erased) already holds `denote`, and it is the
+  primary one — 50 files read it.  So `denote2` became **`denoteAnnot`**
+  (the canonical annotation pass: the same recursion into `AnnotTerm`,
+  every binder numeral computed by the checker's own functions,
+  `Semantics/Canon.lean`) and `denoteP` became **`denoteMeta`** (the
+  validated-annotation reading: the same recursion with every numeral
+  read off the term's own binder metadata, no fuel and no mode).  The
+  brief's `denote` / `denoteEnv` would have put `Semantics.denote`
+  beside `Verify.denote` in seven files that open both, and
+  `denote2_closed` on top of the existing `denote_closed`.  The two
+  names now say which annotation each reads.
+* **The `AV` twins.**  `ctxInstAtP`, `instSeqP_*`, `projBodyValueP`,
+  `projRhsValueP`, `towerCtxEqP`, `PiTeleP` are the `AnnotTerm` twins
+  of live `ConLeche.Verify` names over `Term`; dropping the `P` would
+  have collided across two namespaces that many files open together, so
+  they take the tree's own annotated marker: `ctxInstAtAV`,
+  `instSeqAV_*`, `projBodyValueAV`, `projRhsValueAV`, `towerCtxEqAV`,
+  `PiTeleAV`.  Same reason for `bconst_app_dataAV`, `natLit_factsAV`,
+  `etaFabArgsV`.
+* **`dmNatFragP` → `dmNatFrag_graded`** — its `P`-less name is the
+  `Bool` walk it is a theorem about, in the same file.
+* **`ihTeleAtGoP`, `structProjArgP`, `structProjResidP`,
+  `structProjTyP` keep their `P`**: there it means the `.proj`-node
+  spelling, and `ihTeleAtGo` is a different live function.  So do
+  `nP`/`rP`/`cnP`/`frP` (parameters, frames), `exclP`/`shiftP`
+  (a predicate `P`), `constP` (level params), `hasLP`, and every
+  `h…P` hypothesis name.
+* **`ConLeche/Model/*` and `EnvModel` are deliberately REUSED.**  Both
+  named the first, direct model tier, retired at task #148 T7.  Its
+  ~40 surviving citations in docstrings now read `ConLeche/ModelV1/*`,
+  so that a citation of a deleted module cannot be mistaken for a
+  citation of a live one.  This document's opening block says the same
+  once.
+
+### 4. Findings
+
+**(1) A substring rule is not a rename — again, and this time inside a
+name rather than across one.**  Task #211's finding was that a rewrite
+pipeline whose output alphabet overlaps its input alphabet is a
+fixpoint iteration.  This batch's variant is smaller and sharper: the
+*path* rules ran before the token rules and were unanchored substring
+replacements, so `VExpr.` → `Term.` fired **inside** `AVExpr.` and
+turned `AVExpr.erase_bvar` into `ATerm.erase_bvar`.  The build caught
+it in one file within four minutes.  The token pass itself, which
+matches whole identifiers between `(?<![A-Za-z0-9_'])` and
+`(?![A-Za-z0-9'])`, produced **zero** such errors across 1 335 tokens
+and 385 files.  **Rename whole tokens against a dictionary; never
+substrings, not even for a path.**
+
+**(2) The map must be built from the tree BEFORE the moves.**  It was
+built after, so the old module basenames (`FoldP`, `InferP`, `WhnfP`,
+`Modeled`) were no longer in the tree's declaration list and never
+entered the map: prose paths like `Steps/InferP.lean` came out
+half-renamed.  The repair is a second pass keyed on the move list's own
+path suffixes, `Inductives/Parts.lean` → `Inductives/StructParts.lean`
+and so on.  **A rename batch has two dictionaries — declarations and
+module paths — and the second is the move list, not the tree.**
+
+**(3) Three classes no source-derived dictionary can see.**
+`toDirectSumParts` is Lean's OWN parent projection from `extends
+DirectSumParts` — generated, in no source declaration, and the build's
+error message (`the environment does not contain
+ConLeche.NativeParts.toDirectSumParts`) is the only witness.  A name
+inside `'…'` — the `#guard_msgs` `info:` lines of
+`tests/ConLecheTests/Axioms.lean` — is invisible to a lookahead that
+treats `'` as an identifier character, which it must, because Lean has
+primed names.  And a "hypothesis name" filter written as
+`h[A-Za-z0-9_']*P` keeps `harvestAxiomP`.  **Each was found by a
+different check; none by reading.**
+
+**(4) The proof-dependency pin is the sharpest check, and this time it
+is not byte-identical.**  Tasks #186 and #211 could `diff` the
+regenerated expectation against the substituted one and get zero.  Here
+the regenerated file differs from the substituted one **in order but
+not in content**: the generator sorts module names, and the renamed
+modules sort differently (`ConLeche.Kernel.Inductives.*` now precedes
+`ConLeche.Kernel.Env`).  A *sorted* diff is empty — **2 846 rows across
+the same 7 roots, 0 doors, 0 departures** — which is the same
+statement, and the expectation is the regenerated file.  **When a
+rename reorders a sorted pin, compare the sets, and say so.**
+
+**(5) What was NOT renamed, and why.**  The **e2e fixture names**
+(`direct_fix_refl`, `direct_sum_enum`, `direct_struct_raw`, …) stay:
+they are data — the `.ndjson.gz` streams, `tests/e2e-expected.txt`'s
+keys, and every reference in this journal and in `docs/` — and
+renaming them would orphan the record without changing a verdict.  The
+`Ind`/`DeclInd` family at the model tier stays: `Ind` there is the
+inductive declaration KIND, not a route.  `docs/*`, `PERF.md` and the
+archived `_probe/*.lean` (which imports a module deleted three tiers
+ago) keep their historical spellings; `git grep -w -i` for the eleven
+retired words returns **DESIGN.md, `docs/`, `_probe/` and exactly one
+line of `CLAUDE.md`** — the sentence that states this rule.
+
+### 5. Gates (`agent/naming` at its tip, master `9c912681` merged)
+
+`lake build` **517 jobs, zero warnings, zero errors**; a **cold**
+`lake build con-leche` (`rm -rf .lake/build/bin`) succeeds in 118 jobs;
+`lake test` green.
+
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0
+FAIL**.  Layering base **263** / model **189** / caps 3 / umbrella 1
+(the lane the fence counts is printed as `model` now — the letter `P`
+named a tier that is gone), 0 base→lane and 0 impl→theory.  Proofdeps
+**2 846 rows across 7 roots, doors 0**.  Pindump fresh (40 378 lines,
+229 prelude lines / 11 records).  Trust surface **18 escapes in 4
+allowlisted files of 464 scanned, 0 outside**, with #224's lexer
+self-test passing (8 expected occurrences, none hidden, none phantom).
+Route census 90 streams, 682 blocks — 142 fix, 0 inmodel, 540 basis, 0
+modeled.  `inmodel` OK.  Axioms pinned at 11 theorems,
+`[propext, Classical.choice, Quot.sound]`.  Arena tutorial 90/92 (032/033
+by design), e2e 166/166, annot 14/14, retired flags 8/8, mode flags
+18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2, trusted
+sweep 138 + 166 + 14 with its three recorded divergences.
+`tests/overview-links.sh`: **57 links, 44 files, OK** — no cited line
+moved (a rename is in place), and every citing paragraph was re-read
+against the declaration it names.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.098 G instructions:u** against #221's
+published 679.08 G — parity (+0.003 %).  **A rename costs nothing, as
+it should.**

@@ -279,7 +279,7 @@
 0 dag_tower_unfold.ndjson
 # The direct simple-structure install (task #82).  A *raw* lean4export
 # fixture: the stream carries no `_model` declaration at all — the artifact-free route
-# `directParts?` recognises, installed and modelled from the reference
+# `structParts?` recognises, installed and modelled from the reference
 # checks alone.  Accepted from task #82 until task #148 T0b (which
 # switched the route off: both lines declined, 2, the modeled fallback
 # having nothing to install from), and accepted again since task #175
@@ -421,7 +421,7 @@
 #   direct_idx_prop_large_bad: `Hidden.rec`'s motive patched to `Sort u`
 #                    (a large eliminator with a data field outside the
 #                    indices) — REJECTED at the constructor stage
-#                    (`checkDirectFieldSortsI`, official's
+#                    (`checkStructFieldSortsI`, official's
 #                    `elim_only_at_universe_zero`).
 #   direct_idx_prop_idx_bad: `Rel.symm`'s second minor replaced by the
 #                    first (`fun n => Rel.r n : ∀ n, Rel 0 n` where
@@ -624,7 +624,7 @@
 # STRUCTURE-LIKE recursive blocks (task #210 Part A: one constructor, no
 # index — the fixpoint route conses the block's PROJECTION TABLE at the
 # tagged tower's offset 1 and pins the structure route's capability
-# record, `directFixCaps`; raw exports, no `_model` artifacts):
+# record, `nativeCaps`; raw exports, no `_model` artifacts):
 #   direct_fix_struct_proj: `Chain` (a data field before the recursive
 #                     one: projection iota on both fields, a nested
 #                     `.t.h`, a definition through projections), `Dep α β`
@@ -647,7 +647,7 @@
 #                     check skipped) — REJECTED, as official: its
 #                     `is_structure_like` is `!is_rec()` too, so no
 #                     `try_eta_struct` at a recursive block; con-leche's
-#                     `directFixCaps` claims η only at a block without a
+#                     `nativeCaps` claims η only at a block without a
 #                     recursive or reflexive field.  (Granting it here was
 #                     tried: sound in the model, but `ind_nest_via_refl`'s
 #                     tool-modelled nesting over a reflexive structure-like
@@ -894,7 +894,7 @@
 #   the field domain (`normPosDom`): the redex mentions the block and
 #   whnf's to `N`, which no longer mentions it — nor the recursive
 #   field `x` it was applied to, so the model's later-use guard
-#   (`directUsedLater`) has nothing to fire on.  Official's verdict.
+#   (`structUsedLater`) has nothing to fire on.  Official's verdict.
 0 pre_decline_imax_field.ndjson
 
 # THE BUILT-IN PRELUDE AND THE GROUND HOIST (task #191, 2026-09-06;
@@ -1023,7 +1023,7 @@
 # --- structure.  A silent regression of #188 (the block went native, so
 # --- its _model.proj_i.iota artifacts went away).  Audit follow-up 2 —
 # --- CLOSED by task #210 Part A: the fixpoint route conses the projection
-# --- table of a structure-like block (`checkDirectFixTable`), so
+# --- table of a structure-like block (`checkNativeTable`), so
 # --- `Chain.h := fun self => self.1` types and its iota fires, piped and
 # --- raw alike (cf. direct_fix_struct_proj).  Official: 0.
 0 ind_rec_struct_proj.ndjson

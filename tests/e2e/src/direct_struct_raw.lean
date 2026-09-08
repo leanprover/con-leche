@@ -6,7 +6,7 @@
    not a single `_model` declaration in the stream and not a single one
    produced at run time.  (Until task #207 that took saying: the run
    had to disable the preprocessor.  Every run is raw now.)
-   Everything here is checked through `checkDirectStruct`.
+   Everything here is checked through `checkStruct`.
 
    `Wrap` is the general shape of the class: two parameters, two
    *dependent* fields (`snd`'s type mentions `fst`), result sort

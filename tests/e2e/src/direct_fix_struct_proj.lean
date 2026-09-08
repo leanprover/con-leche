@@ -8,7 +8,7 @@
 
    con-leche installs the block natively (`Chain fix`) and, since task
    #210 Part A, conses the PROJECTION TABLE of a structure-like block
-   at the fixpoint route's carrier (`checkDirectFixTable`: the fields
+   at the fixpoint route's carrier (`checkNativeTable`: the fields
    sit at projection offset 1 of the TAGGED tower, `ProjTable.off`).
    The shapes: `Chain` (a data field before the recursive one: iota on
    both, a nested `.t.h`, a definition through projections), `Dep α β`

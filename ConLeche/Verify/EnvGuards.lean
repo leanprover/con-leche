@@ -12,13 +12,13 @@ which an eta capability is owed — again a statement about what the
 environment stores.
 
 All four inversions and the premise were written in
-`ConLeche/Model/Interp.lean`, under that module's `variable (V) [SetTheory
+`ConLeche/ModelV1/Interp.lean`, under that module's `variable (V) [SetTheory
 V]`, but none of them mentions a valuation.  Relocated verbatim so the
 declarative type-theory bridge can consume them instead of restating
 them (task #123; the lane and its record are gone, task #209).
 
 `EtaFamiliesClosed` joined them in task #148's T1, from
-`ConLeche/Model/Interp.lean` and against `EnvTT.lean`'s restatement of
+`ConLeche/ModelV1/Interp.lean` and against `EnvTT.lean`'s restatement of
 it: the "eighth `V`-free duplicate" of the relocation note that used to
 sit on `EtaFamilyStored` in `ConLeche/TTVerify/EnvTT.lean`.  That note is
 discharged — every duplicate it listed now has exactly one home, here
@@ -548,7 +548,7 @@ direction is `natOpGuard_stored` below, by computation. -/
 
 /-- Inversion of the reduction-time test: the operation is stored as a
 definition.  This is exactly the hypothesis `NatOpsV`/`DivModV` (and
-`NatOpsP`/`DivModP`) take before handing back `natOpGuard`. -/
+`NatOps`/`DivMod`) take before handing back `natOpGuard`. -/
 theorem natOpStored_inv {env : Env} {c : Name}
     (h : natOpStored env c = true) :
     ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by

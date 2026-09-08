@@ -59,7 +59,7 @@ definition of `Cardinal.IsInaccessible` is the same structure in both):
 
 His consistency theorem is
 `theorem consistency (_ : OmegaInaccessibles.{u}) {env : VEnv} (_ : env.WF) (U : Nat) :
-  ¬ ∃ e, env.HasType U [] e VExpr.false`. -/
+  ¬ ∃ e, env.HasType U [] e Term.false`. -/
 def OmegaInaccessibles : Prop :=
   ∃ κ : ℕ → Cardinal.{u}, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible
 

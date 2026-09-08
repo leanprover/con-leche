@@ -6,17 +6,17 @@ import ConLeche.Verify.InferLeaves
 # `SetBase/Frame` — the opened binder's frame conditions
 
 One theorem, `frame_open2`, re-based out of
-`SetR/Interp2/Step2/InferQ.lean` at THE SEPARATION's S2 (task #161).
+`SetR/Interp/Steps/InferQ.lean` at THE SEPARATION's S2 (task #161).
 
 It is the **two-edit sever**'s first edit.  `InferQ` is 2U-lane content
 and the design review ruled the 2U lane goes to R whole; the graded
-lane's `Step2/InferP` imported the whole of it for this one lemma.  The
+lane's `Steps/InferP` imported the whole of it for this one lemma.  The
 lemma itself mentions no model at all — it is pure `Expr` scoping
 arithmetic (`WScoped`, `looseBVarsBounded`, `LeavesBounded` under
 `instantiate1`) — so it belongs BELOW both lanes and the edge dies.
 
 The statement is verbatim, in its original namespace
-(`ConLeche.SetR.Interp2`), so every consumer sees the same name.
+(`ConLeche.SetR.Interp`), so every consumer sees the same name.
 -/
 
 namespace ConLeche.Semantics

@@ -64,26 +64,26 @@ variable {V : Type uv} [SetTheory V]
 /-! ## Numerals under successors -/
 
 /-- `Nat.succ^j k`. -/
-def succsAV : Nat → AVExpr → AVExpr
+def succsAV : Nat → AnnotTerm → AnnotTerm
   | 0, k => k
   | j + 1, k => .app (.const .natSucc []) (succsAV j k)
 
-theorem interp2_succsAV : ∀ (j : Nat) {k : AVExpr} {σ : Nat → V} {i : Nat},
-    interp2 V σ k = vnat i → interp2 V σ (succsAV j k) = vnat (i + j)
+theorem interp_succsAV : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat},
+    interp V σ k = vnat i → interp V σ (succsAV j k) = vnat (i + j)
   | 0, _, _, _, h => h
   | j + 1, k, σ, i, h => by
-    show SetTheory.app (natSuccV2 V) (interp2 V σ (succsAV j k)) = vsucc (vnat (i + j))
-    rw [interp2_succsAV j h, natSuccV2_app V (vnat_mem_omega _), natsucc_eq_vsucc]
+    show SetTheory.app (natSuccV V) (interp V σ (succsAV j k)) = vsucc (vnat (i + j))
+    rw [interp_succsAV j h, natSuccV_app V (vnat_mem_omega _), natsucc_eq_vsucc]
 
-theorem succsAV_ok2 : ∀ (j : Nat) {k : AVExpr} {σ : Nat → V} {i : Nat},
-    AnnotOk2 V σ k → interp2 V σ k = vnat i → AnnotOk2 V σ (succsAV j k)
+theorem succsAV_wellDenoted : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat},
+    WellDenoted V σ k → interp V σ k = vnat i → WellDenoted V σ (succsAV j k)
   | 0, _, _, _, hok, _ => hok
   | j + 1, k, σ, i, hok, h => by
-    show AnnotOk2 V σ (.app (.const .natSucc []) (succsAV j k))
-    rw [AnnotOk2_app]
-    refine ⟨trivial, succsAV_ok2 j hok h, 1, omega, fun _ => omega, natSuccV2_mem V, ?_,
+    show WellDenoted V σ (.app (.const .natSucc []) (succsAV j k))
+    rw [WellDenoted_app]
+    refine ⟨trivial, succsAV_wellDenoted j hok h, 1, omega, fun _ => omega, natSuccV_mem V, ?_,
       fun h => absurd h Nat.one_ne_zero⟩
-    rw [interp2_succsAV j h]
+    rw [interp_succsAV j h]
     exact vnat_mem_omega _
 
 /-! ## The nested product over a telescope -/
@@ -183,9 +183,9 @@ theorem piTele_app_univZero {ℓ : Nat} (h0 : ℓ = 0) {famAt : List V → V}
 field chain (bit `ℓ`) ending in the conclusion at the accumulated
 tuple. -/
 noncomputable def minorSpI (ℓ : Nat) (c : List V → V) :
-    List AVExpr → (Nat → V) → List V → V
+    List AnnotTerm → (Nat → V) → List V → V
   | [], _, acc => c acc
-  | F :: Fs, ρf, acc => piR ℓ (interp2 V ρf F)
+  | F :: Fs, ρf, acc => piR ℓ (interp V ρf F)
       fun a => minorSpI ℓ c Fs (cons a ρf) (acc ++ [a])
 
 /-- Constructor `j`'s value at a field tuple: the injection of the
@@ -196,13 +196,13 @@ noncomputable def ctorValI (w j : Nat) (acc : List V) : V :=
 /-- Constructor `j`'s minor conclusion at a field tuple: the motive at
 the constructor's index tuple (read at the parameter frame), applied
 to the constructor's value. -/
-noncomputable def concI (w : Nat) (ρp : Nat → V) (M : V) (Es : List AVExpr) (j : Nat)
+noncomputable def concI (w : Nat) (ρp : Nat → V) (M : V) (Es : List AnnotTerm) (j : Nat)
     (acc : List V) : V :=
   SetTheory.app ((idxValsAt ρp Es acc).foldl SetTheory.app M) (ctorValI w j acc)
 
 theorem minorSpI_zero_univZero {ℓ : Nat} {c : List V → V} (h0 : ℓ = 0)
     (hc : ∀ acc, c acc ∈ˢ (univZero : V)) :
-    ∀ (Fs : List AVExpr) (ρf : Nat → V) (acc : List V),
+    ∀ (Fs : List AnnotTerm) (ρf : Nat → V) (acc : List V),
       minorSpI ℓ c Fs ρf acc ∈ˢ (univZero : V)
   | [], _, _ => hc _
   | _ :: _, _, _ => by
@@ -214,46 +214,46 @@ theorem minorSpI_zero_univZero {ℓ : Nat} {c : List V → V} (h0 : ℓ = 0)
 spine (`minorSp_spine` with the explicit conclusion). -/
 theorem minorSpI_spine {ℓ : Nat} {c : List V → V}
     (hc0 : ℓ = 0 → ∀ acc, c acc ∈ˢ (univZero : V)) :
-    ∀ {Fs args : List AVExpr} {ρf : Nat → V} {acc : List V} {f : AVExpr} {σ : Nat → V},
-      AnnotOk2 V σ f → interp2 V σ f ∈ˢ minorSpI ℓ c Fs ρf acc →
+    ∀ {Fs args : List AnnotTerm} {ρf : Nat → V} {acc : List V} {f : AnnotTerm} {σ : Nat → V},
+      WellDenoted V σ f → interp V σ f ∈ˢ minorSpI ℓ c Fs ρf acc →
       ArgsOkFit σ args Fs ρf →
-      AnnotOk2 V σ (AVExpr.mkAppN f args) ∧
-        interp2 V σ (AVExpr.mkAppN f args) ∈ˢ c (acc ++ args.map (interp2 V σ))
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args) ∈ˢ c (acc ++ args.map (interp V σ))
   | [], [], _, acc, f, σ, hokf, hmf, _ => by
     refine ⟨hokf, ?_⟩
-    show interp2 V σ f ∈ˢ c (acc ++ [])
+    show interp V σ f ∈ˢ c (acc ++ [])
     rw [List.append_nil]
     exact hmf
   | [], _ :: _, _, _, _, _, _, _, hfit => hfit.elim
   | _ :: _, [], _, _, _, _, _, _, hfit => hfit.elim
   | F :: Fs, a :: args, ρf, acc, f, σ, hokf, hmf, hfit => by
-    have hB0 : ℓ = 0 → ∀ x, x ∈ˢ interp2 V ρf F →
+    have hB0 : ℓ = 0 → ∀ x, x ∈ˢ interp V ρf F →
         minorSpI ℓ c Fs (cons x ρf) (acc ++ [x]) ∈ˢ (univZero : V) :=
       fun h0 x _ => minorSpI_zero_univZero h0 (hc0 h0) Fs (cons x ρf) (acc ++ [x])
-    have happ : SetTheory.app (interp2 V σ f) (interp2 V σ a)
-        ∈ˢ minorSpI ℓ c Fs (cons (interp2 V σ a) ρf) (acc ++ [interp2 V σ a]) :=
+    have happ : SetTheory.app (interp V σ f) (interp V σ a)
+        ∈ˢ minorSpI ℓ c Fs (cons (interp V σ a) ρf) (acc ++ [interp V σ a]) :=
       app_mem_piR hmf hfit.2.1 hB0
-    have hoka : AnnotOk2 V σ (.app f a) := by
-      rw [AnnotOk2_app]
-      exact ⟨hokf, hfit.1, ⟨ℓ, interp2 V ρf F, _, hmf, hfit.2.1, hB0⟩⟩
+    have hoka : WellDenoted V σ (.app f a) := by
+      rw [WellDenoted_app]
+      exact ⟨hokf, hfit.1, ⟨ℓ, interp V ρf F, _, hmf, hfit.2.1, hB0⟩⟩
     have hres := minorSpI_spine hc0 (Fs := Fs) (args := args) (f := .app f a) hoka happ hfit.2.2
     refine ⟨hres.1, ?_⟩
-    have hassoc : (acc ++ [interp2 V σ a]) ++ args.map (interp2 V σ)
-        = acc ++ (a :: args).map (interp2 V σ) := by simp
+    have hassoc : (acc ++ [interp V σ a]) ++ args.map (interp V σ)
+        = acc ++ (a :: args).map (interp V σ) := by simp
     rw [hassoc] at hres
     exact hres.2
 
 /-- At elimination level `0` the minor space is inhabited exactly when
 the conclusion is inhabited along a fitting spine. -/
 theorem minorSpI_zero_inhab {c : List V → V} :
-    ∀ {Fs : List AVExpr} {ρf : Nat → V} {acc : List V} {m : V} {as : List V},
+    ∀ {Fs : List AnnotTerm} {ρf : Nat → V} {acc : List V} {m : V} {as : List V},
       m ∈ˢ minorSpI 0 c Fs ρf acc → SpineFit ρf Fs as →
       ∃ y, y ∈ˢ c (acc ++ as)
   | [], _, acc, m, [], hm, _ => ⟨m, by simpa [minorSpI] using hm⟩
   | [], _, _, _, _ :: _, _, hsp => hsp.elim
   | _ :: _, _, _, _, [], _, hsp => hsp.elim
   | F :: Fs, ρf, acc, m, a :: as, hm, hsp => by
-    have hm' : m ∈ˢ piR 0 (interp2 V ρf F)
+    have hm' : m ∈ˢ piR 0 (interp V ρf F)
       (fun a => minorSpI 0 c Fs (cons a ρf) (acc ++ [a])) := hm
     rw [piR_zero] at hm'
     obtain ⟨y, hy⟩ := of_mem_truthVal hm' a hsp.1
@@ -263,10 +263,10 @@ theorem minorSpI_zero_inhab {c : List V → V} :
 /-- The fit of the projection spine from a fitting spine of the
 projections' values and their gradings. -/
 theorem argsOkFit_of_projSpine {σ ρf : Nat → V} {y : V} :
-    ∀ {Fs : List AVExpr} {k : Nat},
+    ∀ {Fs : List AnnotTerm} {k : Nat},
       SpineFit ρf Fs ((List.range' k Fs.length).map fun i => projS i y) →
-      (∀ i, k ≤ i → i < k + Fs.length → AnnotOk2 V σ (projAV i (.bvar 0))) →
-      (∀ i, interp2 V σ (projAV i (.bvar 0)) = projS i y) →
+      (∀ i, k ≤ i → i < k + Fs.length → WellDenoted V σ (projAV i (.bvar 0))) →
+      (∀ i, interp V σ (projAV i (.bvar 0)) = projS i y) →
       ArgsOkFit σ ((List.range' k Fs.length).map fun i => projAV i (.bvar 0)) Fs ρf
   | [], _, _, _, _ => trivial
   | F :: Fs, k, hsp, hok, hv => by
@@ -338,54 +338,54 @@ theorem frameIdx_length (nIdx : Nat) (ρ₀ : Nat → V) : (frameIdx nIdx ρ₀)
 /-! ## The spelled pieces -/
 
 /-- The index variables at depth `D'` below the K-frame. -/
-def idxVarsAV (nIdx D' : Nat) : List AVExpr :=
+def idxVarsAV (nIdx D' : Nat) : List AnnotTerm :=
   (List.range nIdx).map fun l => .bvar (D' + nIdx - 1 - l)
 
 /-- The motive applied to the index variables at depth `D'`. -/
-def motAppAV (n nIdx D' : Nat) : AVExpr :=
-  AVExpr.mkAppN (.bvar (D' + nIdx + n)) (idxVarsAV nIdx D')
+def motAppAV (n nIdx D' : Nat) : AnnotTerm :=
+  AnnotTerm.mkAppN (.bvar (D' + nIdx + n)) (idxVarsAV nIdx D')
 
 /-- The index variables read to the frame's index tuple. -/
 theorem map_idxVarsAV_interp {nIdx D' : Nat} {ρ₀ σ : Nat → V} (h : RecFrameS D' ρ₀ σ) :
-    (idxVarsAV nIdx D').map (interp2 V σ) = frameIdx nIdx ρ₀ := by
+    (idxVarsAV nIdx D').map (interp V σ) = frameIdx nIdx ρ₀ := by
   unfold idxVarsAV frameIdx
   rw [List.map_map]
   apply List.map_congr_left
   intro l hl
-  simp only [Function.comp_def, interp2_bvar]
+  simp only [Function.comp_def, interp_bvar]
   rw [show D' + nIdx - 1 - l = D' + (nIdx - 1 - l) from by
       have := List.mem_range.mp hl; omega,
     h.apply]
 
 /-- An application spine graded by the chain: its grading and its
 value as the fold. -/
-theorem mkAppN_ok2_of_chain :
-    ∀ {args : List AVExpr} {f : AVExpr} {σ : Nat → V},
-      AnnotOk2 V σ f → (∀ a ∈ args, AnnotOk2 V σ a) →
-      AppChainOk (interp2 V σ f) (args.map (interp2 V σ)) →
-      AnnotOk2 V σ (AVExpr.mkAppN f args) ∧
-        interp2 V σ (AVExpr.mkAppN f args)
-          = (args.map (interp2 V σ)).foldl SetTheory.app (interp2 V σ f)
+theorem mkAppN_wellDenoted_of_chain :
+    ∀ {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
+      WellDenoted V σ f → (∀ a ∈ args, WellDenoted V σ a) →
+      AppChainOk (interp V σ f) (args.map (interp V σ)) →
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args)
+          = (args.map (interp V σ)).foldl SetTheory.app (interp V σ f)
   | [], _, _, hf, _, _ => ⟨hf, rfl⟩
   | a :: args, f, σ, hf, hargs, hchain => by
     obtain ⟨v, A, B, hm, ha, hz⟩ := hchain 0 (by simp)
     simp only [List.take_zero, List.foldl_nil, List.map_cons, List.getD_cons_zero] at hm ha
-    have hoka : AnnotOk2 V σ (.app f a) := by
-      rw [AnnotOk2_app]
+    have hoka : WellDenoted V σ (.app f a) := by
+      rw [WellDenoted_app]
       exact ⟨hf, hargs a List.mem_cons_self, v, A, B, hm, ha, hz⟩
-    have hchain' : AppChainOk (interp2 V σ (.app f a)) (args.map (interp2 V σ)) := by
+    have hchain' : AppChainOk (interp V σ (.app f a)) (args.map (interp V σ)) := by
       intro l hl
       obtain ⟨v', A', B', hm', ha', hz'⟩ := hchain (l + 1) (by simpa using hl)
       simp only [List.map_cons, List.take_succ_cons, List.foldl_cons, List.getD_cons_succ] at hm' ha'
       exact ⟨v', A', B', hm', ha', hz'⟩
-    have ih := mkAppN_ok2_of_chain (args := args) (f := .app f a) hoka
+    have ih := mkAppN_wellDenoted_of_chain (args := args) (f := .app f a) hoka
       (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha')) hchain'
-    rw [AVExpr.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     exact ⟨ih.1, by rw [ih.2, List.map_cons, List.foldl_cons]; rfl⟩
 
 /-- The stage-`j` motive body, under the motive's own tag binder
 (`k = bvar 0`), at depth `D`: `Π (y : case (drop j) k), M ı⃗ (mk k y)`. -/
-def caseMotiveBodyAV (ℓ w : Nat) (Fss : List (List AVExpr)) (n nIdx D j : Nat) : AVExpr :=
+def caseMotiveBodyAV (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) : AnnotTerm :=
   .pi w ℓ (caseAVAt w ((Fss.map (towerBodyAV w)).drop j) (D + 1) (.bvar 0))
     (.app (motAppAV n nIdx (D + 2)) (sumInjAtAV w Fss (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
 
@@ -400,7 +400,7 @@ theorem imaxN_eq_zero_iff (w ℓ : Nat) : imaxN w ℓ = 0 ↔ ℓ = 0 := by
     exact ⟨fun h' => absurd (Nat.le_zero.mp (h' ▸ Nat.le_max_right w ℓ)) h, fun h' => absurd h' h⟩
 
 /-- The stage-`j` motive. -/
-def caseMotiveAV (ℓ w : Nat) (Fss : List (List AVExpr)) (n nIdx D j : Nat) : AVExpr :=
+def caseMotiveAV (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) : AnnotTerm :=
   .lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w Fss n nIdx D j)
 
 /-! ## The semantic pieces -/
@@ -424,8 +424,8 @@ tagged union of the restricted chains), the frame's index tuple
 fitting the telescope, every minor in its space (over the field chain
 at the parameter frame, with the conclusion `concI`), and the
 counts. -/
-structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr))
-    (Ids : List AVExpr) (famAt : List V → V) : Prop where
+structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AnnotTerm))
+    (Ids : List AnnotTerm) (famAt : List V → V) : Prop where
   hok : SumFieldsOkB w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
   hEs : ∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length
   hlenE : Ess.length = Fss.length
@@ -438,7 +438,7 @@ structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVE
 
 namespace RecHypCore
 
-variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
+variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {famAt : List V → V}
 
 /-- The motive at the frame's index tuple is in its space. -/
@@ -516,7 +516,7 @@ end RecHypCore
 
 namespace RecHypS
 
-variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
+variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {famAt : List V → V}
 
 end RecHypS
@@ -525,39 +525,39 @@ end RecHypS
 
 /-- The motive's index application at a frame: its value and its
 grading. -/
-theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {famAt : List V → V}
+theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+    {Ids : List AnnotTerm} {famAt : List V → V}
     (hfr : RecFrameS D' ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
-    interp2 V σ (motAppAV Fss.length Ids.length D') = frMi Fss.length Ids.length ρ₀ ∧
-    AnnotOk2 V σ (motAppAV Fss.length Ids.length D') := by
-  have hmot : interp2 V σ (.bvar (D' + Ids.length + Fss.length)) = frM Fss.length Ids.length ρ₀ := by
-    rw [interp2_bvar]; exact hfr.motive
-  have hargs : ∀ a ∈ idxVarsAV Ids.length D', AnnotOk2 V σ a := by
+    interp V σ (motAppAV Fss.length Ids.length D') = frMi Fss.length Ids.length ρ₀ ∧
+    WellDenoted V σ (motAppAV Fss.length Ids.length D') := by
+  have hmot : interp V σ (.bvar (D' + Ids.length + Fss.length)) = frM Fss.length Ids.length ρ₀ := by
+    rw [interp_bvar]; exact hfr.motive
+  have hargs : ∀ a ∈ idxVarsAV Ids.length D', WellDenoted V σ a := by
     intro a ha
     obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
     trivial
-  have hchain : AppChainOk (interp2 V σ (.bvar (D' + Ids.length + Fss.length)))
-      ((idxVarsAV Ids.length D').map (interp2 V σ)) := by
+  have hchain : AppChainOk (interp V σ (.bvar (D' + Ids.length + Fss.length)))
+      ((idxVarsAV Ids.length D').map (interp V σ)) := by
     rw [hmot, map_idxVarsAV_interp hfr]; exact hyp.hMchain
-  have h := mkAppN_ok2_of_chain (args := idxVarsAV Ids.length D')
+  have h := mkAppN_wellDenoted_of_chain (args := idxVarsAV Ids.length D')
     (f := .bvar (D' + Ids.length + Fss.length)) (σ := σ) trivial hargs hchain
   refine ⟨?_, h.1⟩
-  show interp2 V σ (AVExpr.mkAppN (.bvar (D' + Ids.length + Fss.length)) (idxVarsAV Ids.length D')) = _
+  show interp V σ (AnnotTerm.mkAppN (.bvar (D' + Ids.length + Fss.length)) (idxVarsAV Ids.length D')) = _
   rw [h.2, hmot, map_idxVarsAV_interp hfr]
   rfl
 
 /-- The stage-`j` motive body at a tag in `ω` reads to `motSem`, and
 is graded. -/
-theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {famAt : List V → V}
+theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+    {Ids : List AnnotTerm} {famAt : List V → V}
     (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) {k : V}
     (hk : k ∈ˢ (omega : V)) :
-    interp2 V (cons k σ)
+    interp V (cons k σ)
         (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j)
       = motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
           (frMi Fss.length Ids.length ρ₀) j k ∧
-    AnnotOk2 V (cons k σ)
+    WellDenoted V (cons k σ)
       (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
   generalize hR : rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess = Fss' at *
@@ -565,19 +565,19 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
   obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
   have hsh1 : shiftE (D + 1) 0 (cons (vnat i) σ) = ρ₀ := (hfr.push (vnat i))
   obtain ⟨hT, hokT⟩ := towers_facts hok
-  have hTd : ∀ T ∈ (Fss'.map (towerBodyAV w)).drop j, interp2 V ρ₀ T ∈ˢ (univ w : V) :=
+  have hTd : ∀ T ∈ (Fss'.map (towerBodyAV w)).drop j, interp V ρ₀ T ∈ˢ (univ w : V) :=
     fun T hT' => hT T (List.mem_of_mem_drop hT')
-  have hokTd : ∀ T ∈ (Fss'.map (towerBodyAV w)).drop j, AnnotOk2 V ρ₀ T :=
+  have hokTd : ∀ T ∈ (Fss'.map (towerBodyAV w)).drop j, WellDenoted V ρ₀ T :=
     fun T hT' => hokT T (List.mem_of_mem_drop hT')
   -- the domain: the `(j + i)`-th fibre
   have hdom := caseAVAt_facts (w := w) (Ts := (Fss'.map (towerBodyAV w)).drop j) (d := D + 1)
     (k := .bvar 0) (σ := cons (vnat i) σ) (by rw [hsh1]; exact hTd) (by rw [hsh1]; exact hokTd)
-    trivial (by rw [interp2_bvar]; exact hk)
+    trivial (by rw [interp_bvar]; exact hk)
   rw [hsh1] at hdom
-  have hdomv : interp2 V (cons (vnat i) σ)
+  have hdomv : interp V (cons (vnat i) σ)
       (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 1) (.bvar 0))
       = sumFibre w ρ₀ Fss' (j + i) := by
-    rw [hdom.2.1 i (by rw [interp2_bvar]; rfl)]
+    rw [hdom.2.1 i (by rw [interp_bvar]; rfl)]
     unfold selFibre sumFibre
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop, List.getElem?_map]
     cases hj : Fss'[j + i]? with
@@ -588,30 +588,30 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
   -- the codomain: the motive at the injection
   have hfr2 : ∀ y : V, RecFrameS (D + 2) ρ₀ (cons y (cons (vnat i) σ)) := fun y => hfr.step y _
   have hsh2 : ∀ y : V, shiftE (D + 2) 0 (cons y (cons (vnat i) σ)) = ρ₀ := fun y => hfr2 y
-  have htag : ∀ y : V, interp2 V (cons y (cons (vnat i) σ)) (succsAV j (.bvar 1)) = vnat (i + j) :=
-    fun y => interp2_succsAV j (by rw [interp2_bvar]; rfl)
+  have htag : ∀ y : V, interp V (cons y (cons (vnat i) σ)) (succsAV j (.bvar 1)) = vnat (i + j) :=
+    fun y => interp_succsAV j (by rw [interp_bvar]; rfl)
   have hMi := hR ▸ hyp.hM
   have hcod : ∀ y : V, y ∈ˢ sumFibre w ρ₀ Fss' (j + i) →
-      interp2 V (cons y (cons (vnat i) σ))
+      interp V (cons y (cons (vnat i) σ))
           (.app (motAppAV Fss.length Ids.length (D + 2))
             (sumInjAtAV w Fss' (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
         = SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w (j + i) y) ∧
-      AnnotOk2 V (cons y (cons (vnat i) σ))
+      WellDenoted V (cons y (cons (vnat i) σ))
         (.app (motAppAV Fss.length Ids.length (D + 2))
           (sumInjAtAV w Fss' (D + 2) (succsAV j (.bvar 1)) (.bvar 0))) := by
     intro y hy
-    have hpay : w ≠ 0 → interp2 V (cons y (cons (vnat i) σ)) (.bvar 0)
+    have hpay : w ≠ 0 → interp V (cons y (cons (vnat i) σ)) (.bvar 0)
         ∈ˢ sumFibre w ρ₀ Fss' (i + j) := by
-      intro _; rw [interp2_bvar, Nat.add_comm]; exact hy
+      intro _; rw [interp_bvar, Nat.add_comm]; exact hy
     have hv := sumInjAtAV_interp (hsh2 y) hok (htag y) hpay
-    rw [interp2_bvar] at hv
+    rw [interp_bvar] at hv
     have hij : i + j = j + i := Nat.add_comm i j
     obtain ⟨hMv, hMok⟩ := motApp_facts (hfr2 y) hyp
     refine ⟨?_, ?_⟩
-    · rw [interp2_app, hMv, hv, hij, cons_zero]
-    · rw [AnnotOk2_app]
-      refine ⟨hMok, sumInjAtAV_ok2 (hsh2 y) hok (succsAV_ok2 j trivial
-        (by rw [interp2_bvar]; rfl)) (htag y) trivial hpay,
+    · rw [interp_app, hMv, hv, hij, cons_zero]
+    · rw [WellDenoted_app]
+      refine ⟨hMok, sumInjAtAV_wellDenoted (hsh2 y) hok (succsAV_wellDenoted j trivial
+        (by rw [interp_bvar]; rfl)) (htag y) trivial hpay,
         ℓ + 1, sumSet w (sumFibre w ρ₀ Fss'), fun _ => (univ ℓ : V), ?_, ?_,
         fun h => absurd h (Nat.succ_ne_zero _)⟩
       · rw [hMv]; exact hMi
@@ -620,37 +620,37 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
   · show piR ℓ _ _ = _
     rw [motSem_vnat, hdomv]
     exact piR_congr fun y hy => (hcod y hy).1
-  · show AnnotOk2 V (cons (vnat i) σ) (.pi w ℓ _ _)
-    rw [AnnotOk2_pi]
+  · show WellDenoted V (cons (vnat i) σ) (.pi w ℓ _ _)
+    rw [WellDenoted_pi]
     refine ⟨hdom.2.2, fun y hy => ?_⟩
     rw [hdomv] at hy
     exact (hcod y hy).2
 
 /-- The stage-`j` motive: its value, its membership in the motive space,
 its applications, its grading. -/
-theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {famAt : List V → V}
+theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+    {Ids : List AnnotTerm} {famAt : List V → V}
     (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) :
-    interp2 V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+    interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j)
         = lamR (imaxN w ℓ + 1) omega
             (motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
               (frMi Fss.length Ids.length ρ₀) j) ∧
-      interp2 V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j) ∈ˢ natMotiveSpace V (imaxN w ℓ) ∧
       (∀ k, k ∈ˢ (omega : V) →
-        SetTheory.app (interp2 V σ (caseMotiveAV ℓ w
+        SetTheory.app (interp V σ (caseMotiveAV ℓ w
             (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) Fss.length Ids.length D j)) k
           = motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
               (frMi Fss.length Ids.length ρ₀) j k) ∧
-      AnnotOk2 V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      WellDenoted V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
-  have hv : interp2 V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+  have hv : interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j)
       = lamR (imaxN w ℓ + 1) omega
           (motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
             (frMi Fss.length Ids.length ρ₀) j) := by
-    show lamR (imaxN w ℓ + 1) omega (fun k => interp2 V (cons k σ) (caseMotiveBodyAV ℓ w _ _ _ D j)) = _
+    show lamR (imaxN w ℓ + 1) omega (fun k => interp V (cons k σ) (caseMotiveBodyAV ℓ w _ _ _ D j)) = _
     exact lamR_congr fun k hk => (motiveBody_facts hfr hyp j hk).1
   have hmot : ∀ k, k ∈ˢ (omega : V) →
       motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
@@ -665,8 +665,8 @@ theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (Lis
   · intro k hk
     rw [hv]
     exact app_lamR_pos (Nat.succ_ne_zero _) hk
-  · show AnnotOk2 V σ (.lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w _ _ _ D j))
-    rw [AnnotOk2_lam]
+  · show WellDenoted V σ (.lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w _ _ _ D j))
+    rw [WellDenoted_lam]
     refine ⟨trivial, fun k hk => (motiveBody_facts hfr hyp j hk).2,
       fun _ => (univ (imaxN w ℓ) : V), fun k hk => ?_, fun h => absurd h (Nat.succ_ne_zero _)⟩
     rw [(motiveBody_facts hfr hyp j hk).1]

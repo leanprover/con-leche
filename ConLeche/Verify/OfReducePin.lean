@@ -12,7 +12,7 @@ shared tier (task #148 T6).
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- `erasePw` fixes a sort (task #161 P5: `matchesPin` compares through
 `Expr.erasePw`, so the pin-shape inversions must see through it).
@@ -97,7 +97,7 @@ theorem reduceElem_sort {env : Env} {c : Name}
       | _ => exact nomatch h
 
 /-- Name and level-parameter components of a `matchesPin` hit.  A
-duplicate of `ConLeche/Model/StdAxioms.lean`'s lemma. -/
+duplicate of `ConLeche/ModelV1/StdAxioms.lean`'s lemma. -/
 theorem matchesPin_invT {cv pin : ConstantVal}
     (h : ConstantVal.matchesPin cv pin = true) :
     cv.name = pin.name ∧ cv.levelParams = pin.levelParams := by

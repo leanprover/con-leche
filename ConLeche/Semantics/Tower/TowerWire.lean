@@ -1,12 +1,12 @@
 import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.Denote2Closed
+import ConLeche.Semantics.DenoteClosed
 
 /-!
 # The direct-structure leaves' syntactic battery (task #175 wiring, W4)
 
 The wiring checklist's item 1: the `hAclosed` row of an install-step
-leaf is `AVExpr.liftN 1 (leaf) k = leaf`, and by
-`AVExpr.liftN_eq_self` (`SetBase/Denote2Closed.lean`) that is exactly
+leaf is `AnnotTerm.liftN 1 (leaf) k = leaf`, and by
+`AnnotTerm.liftN_eq_self` (`SetBase/DenoteClosed.lean`) that is exactly
 boundedness of the leaf's **erasure** — annotations are inert, only
 bvars move.  So this module is a bvar-bound walk per leaf
 constructor, plus the peel lemma that produces the binder-data bounds
@@ -18,40 +18,40 @@ Everything is a structural induction over the leaf formers of
 
 The `hAparams` row needs nothing from here: every leaf is a *plain
 function* of its computed numerals and binder data
-(`directTyAV`/`directMkAV`/`directRecAV`), so level-parameter
+(`structTyAV`/`structMkAV`/`structRecAV`), so level-parameter
 congruence at the install site is congruence of the inputs — the
-readings' own `denoteP` congruence, discharged where the readings are
+readings' own `denoteMeta` congruence, discharged where the readings are
 made.
 -/
 
 namespace ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-! ## Bound-variable bounds, at the erasure -/
 
 /-- The domains of a λ-frame, each bounded at its own depth
 (`(u, dom)` pairs — `mkLamsAV`'s data). -/
-def LamDomsBelow (k : Nat) : List (Nat × AVExpr) → Prop
+def LamDomsBelow (k : Nat) : List (Nat × AnnotTerm) → Prop
   | [] => True
-  | d :: ds => VExpr.bvarsBelow k d.2.erase ∧ LamDomsBelow (k + 1) ds
+  | d :: ds => Term.bvarsBelow k d.2.erase ∧ LamDomsBelow (k + 1) ds
 
 /-- The binder triples of a Π-frame, each domain bounded at its own
 depth (`(u, v, dom)` triples — `mkPisAV`/`mkLamsC`'s data). -/
-def DomsBelow (k : Nat) : List (Nat × Nat × AVExpr) → Prop
+def DomsBelow (k : Nat) : List (Nat × Nat × AnnotTerm) → Prop
   | [] => True
-  | d :: ds => VExpr.bvarsBelow k d.2.2.erase ∧ DomsBelow (k + 1) ds
+  | d :: ds => Term.bvarsBelow k d.2.2.erase ∧ DomsBelow (k + 1) ds
 
 /-- A field-domain chain, each domain bounded at its own depth. -/
-def FieldsBelow (k : Nat) : List AVExpr → Prop
+def FieldsBelow (k : Nat) : List AnnotTerm → Prop
   | [] => True
-  | F :: Fs => VExpr.bvarsBelow k F.erase ∧ FieldsBelow (k + 1) Fs
+  | F :: Fs => Term.bvarsBelow k F.erase ∧ FieldsBelow (k + 1) Fs
 
 /-- The domains' closedness, entry by entry. -/
 theorem DomsBelow.getD_below {K : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow K ds → ∀ k, k < ds.length →
-      VExpr.bvarsBelow (K + k) (ds.getD k default).2.2.erase
+    ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow K ds → ∀ k, k < ds.length →
+      Term.bvarsBelow (K + k) (ds.getD k default).2.2.erase
   | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
   | d :: ds, h, 0, _ => by simpa using h.1
   | d :: ds, h, k + 1, hk => by
@@ -60,8 +60,8 @@ theorem DomsBelow.getD_below {K : Nat} :
     rwa [show K + 1 + k = K + (k + 1) from by omega] at this
 
 theorem domsBelow_of_getD {K : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)},
-      (∀ k, k < ds.length → VExpr.bvarsBelow (K + k) (ds.getD k default).2.2.erase) → DomsBelow K ds
+    ∀ {ds : List (Nat × Nat × AnnotTerm)},
+      (∀ k, k < ds.length → Term.bvarsBelow (K + k) (ds.getD k default).2.2.erase) → DomsBelow K ds
   | [], _ => trivial
   | d :: ds, h => by
     refine ⟨by simpa using h 0 (by simp), domsBelow_of_getD (K := K + 1) (ds := ds) fun k hk => ?_⟩
@@ -69,39 +69,39 @@ theorem domsBelow_of_getD {K : Nat} :
     simpa [show K + (k + 1) = K + 1 + k from by omega] using this
 
 theorem DomsBelow.map {k : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow k ds →
+    ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →
       LamDomsBelow k (ds.map fun d => (d.1, d.2.2))
   | [], _ => trivial
   | _ :: _, h => ⟨h.1, DomsBelow.map h.2⟩
 
 theorem DomsBelow.mapC {m k : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow k ds →
+    ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →
       LamDomsBelow k (ds.map fun d => (m, d.2.2))
   | [], _ => trivial
   | _ :: _, h => ⟨h.1, DomsBelow.mapC h.2⟩
 
 theorem DomsBelow.fields {k : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow k ds →
+    ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →
       FieldsBelow k (ds.map (·.2.2))
   | [], _ => trivial
   | _ :: _, h => ⟨h.1, DomsBelow.fields h.2⟩
 
-/-! ## The `VExpr`-side helpers -/
+/-! ## The `Term`-side helpers -/
 
 namespace VExprAux
 
-open ConLeche.VExpr.VExpr
+open ConLeche.Term.Term
 
 /-- Lifting raises a bound by exactly the inserted count, at any
 cut. -/
 theorem bvarsBelow_liftN (n : Nat) :
-    ∀ (v : VExpr) (m k : Nat), VExpr.bvarsBelow m v →
-      VExpr.bvarsBelow (m + n) (VExpr.liftN n v k) := by
+    ∀ (v : Term) (m k : Nat), Term.bvarsBelow m v →
+      Term.bvarsBelow (m + n) (Term.liftN n v k) := by
   intro v
   induction v with
   | bvar i =>
     intro m k h
-    show VExpr.bvarsBelow (m + n) (.bvar (if i < k then i else i + n))
+    show Term.bvarsBelow (m + n) (.bvar (if i < k then i else i + n))
     by_cases hik : i < k
     · rw [if_pos hik]
       exact Nat.lt_of_lt_of_le (show i < m from h) (Nat.le_add_right m n)
@@ -140,12 +140,12 @@ theorem bvarsBelow_liftN (n : Nat) :
 
 /-- Application spines preserve a bound. -/
 theorem bvarsBelow_mkAppN :
-    ∀ {as : List VExpr} {f : VExpr} {k : Nat}, VExpr.bvarsBelow k f →
-      (∀ a ∈ as, VExpr.bvarsBelow k a) →
-      VExpr.bvarsBelow k (VExpr.mkAppN f as)
+    ∀ {as : List Term} {f : Term} {k : Nat}, Term.bvarsBelow k f →
+      (∀ a ∈ as, Term.bvarsBelow k a) →
+      Term.bvarsBelow k (Term.mkAppN f as)
   | [], _, _, hf, _ => hf
   | a :: as, f, k, hf, has => by
-    rw [VExpr.mkAppN_cons]
+    rw [Term.mkAppN_cons]
     exact bvarsBelow_mkAppN ⟨hf, has a (.head _)⟩
       fun a' ha' => has a' (.tail _ ha')
 
@@ -156,8 +156,8 @@ end VExprAux
 /-- The carrier body (graph regime): bounded from the field chain's
 own bounds. -/
 theorem towerBodyAVPos_below {w : Nat} :
-    ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
-      VExpr.bvarsBelow k (towerBodyAVPos w Fs).erase
+    ∀ {Fs : List AnnotTerm} {k : Nat}, FieldsBelow k Fs →
+      Term.bvarsBelow k (towerBodyAVPos w Fs).erase
   | [], _, _ => trivial
   | _ :: _, _, h =>
     ⟨⟨trivial, h.1⟩, h.1, towerBodyAVPos_below h.2⟩
@@ -165,32 +165,32 @@ theorem towerBodyAVPos_below {w : Nat} :
 /-- The carrier body (squash regime): bounded from the field chain's
 own bounds. -/
 theorem sqBodyAV_below :
-    ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
-      VExpr.bvarsBelow k (sqBodyAV Fs).erase
+    ∀ {Fs : List AnnotTerm} {k : Nat}, FieldsBelow k Fs →
+      Term.bvarsBelow k (sqBodyAV Fs).erase
   | [], _, _ => trivial
   | _ :: _, _, h =>
     ⟨⟨h.1, sqBodyAV_below h.2, trivial⟩, trivial⟩
 
 /-- The carrier body, both regimes. -/
-theorem towerBodyAV_below {w : Nat} {Fs : List AVExpr} {k : Nat}
+theorem towerBodyAV_below {w : Nat} {Fs : List AnnotTerm} {k : Nat}
     (h : FieldsBelow k Fs) :
-    VExpr.bvarsBelow k (towerBodyAV w Fs).erase := by
+    Term.bvarsBelow k (towerBodyAV w Fs).erase := by
   by_cases hw : w = 0
   · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_below h
   · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_below h
 
 /-- The uniform projection spelling adds no variables. -/
 theorem projAV_below :
-    ∀ {i : Nat} {e : AVExpr} {k : Nat}, VExpr.bvarsBelow k e.erase →
-      VExpr.bvarsBelow k (projAV i e).erase
+    ∀ {i : Nat} {e : AnnotTerm} {k : Nat}, Term.bvarsBelow k e.erase →
+      Term.bvarsBelow k (projAV i e).erase
   | 0, _, _, h => h
   | i + 1, e, _, h => projAV_below (i := i) (e := .proj 1 e) h
 
 /-- The recursor body mentions only the minor (`.bvar 1`) and the
 major (`.bvar 0`). -/
 theorem recBodyAV_below {nF k : Nat} (h2 : 2 ≤ k) :
-    VExpr.bvarsBelow k (recBodyAV nF).erase := by
-  rw [recBodyAV, AVExpr.erase_mkAppN]
+    Term.bvarsBelow k (recBodyAV nF).erase := by
+  rw [recBodyAV, AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (show 1 < k by omega) ?_
   intro a ha
   obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha
@@ -199,24 +199,24 @@ theorem recBodyAV_below {nF k : Nat} (h2 : 2 ≤ k) :
 
 /-- The tupler (graph regime): bounded at the full field frame. -/
 theorem mkTowerGoPos_below {w : Nat} :
-    ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
-      VExpr.bvarsBelow (k + Fs.length) (mkTowerGoPos w Fs).erase
+    ∀ {Fs : List AnnotTerm} {k : Nat}, FieldsBelow k Fs →
+      Term.bvarsBelow (k + Fs.length) (mkTowerGoPos w Fs).erase
   | [], _, _ => trivial
   | F :: Fs, k, h => by
-    have hF : VExpr.bvarsBelow (k + (Fs.length + 1))
+    have hF : Term.bvarsBelow (k + (Fs.length + 1))
         (F.liftN (Fs.length + 1)).erase := by
-      rw [AVExpr.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1) F.erase k 0 h.1
       exact this
-    have hbody : VExpr.bvarsBelow (k + (Fs.length + 1) + 1)
+    have hbody : Term.bvarsBelow (k + (Fs.length + 1) + 1)
         ((towerBodyAV w Fs).liftN (Fs.length + 1) 1).erase := by
-      rw [AVExpr.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1)
         (towerBodyAV w Fs).erase (k + 1) 1 (towerBodyAV_below h.2)
       rw [show k + 1 + (Fs.length + 1) = k + (Fs.length + 1) + 1
         by omega] at this
       exact this
-    have hrec : VExpr.bvarsBelow (k + (Fs.length + 1))
+    have hrec : Term.bvarsBelow (k + (Fs.length + 1))
         (mkTowerGoPos w Fs).erase := by
       have := mkTowerGoPos_below (w := w) (Fs := Fs) (k := k + 1) h.2
       rw [show k + 1 + Fs.length = k + (Fs.length + 1) by omega] at this
@@ -225,9 +225,9 @@ theorem mkTowerGoPos_below {w : Nat} :
       show Fs.length < k + (Fs.length + 1) by omega⟩, hrec⟩
 
 /-- The tupler, both regimes. -/
-theorem mkTowerGo_below {w : Nat} {Fs : List AVExpr} {k : Nat}
+theorem mkTowerGo_below {w : Nat} {Fs : List AnnotTerm} {k : Nat}
     (h : FieldsBelow k Fs) :
-    VExpr.bvarsBelow (k + Fs.length) (mkTowerGo w Fs).erase := by
+    Term.bvarsBelow (k + Fs.length) (mkTowerGo w Fs).erase := by
   by_cases hw : w = 0
   · subst hw; rw [mkTowerGo_zero]; trivial
   · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_below h
@@ -235,10 +235,10 @@ theorem mkTowerGo_below {w : Nat} {Fs : List AVExpr} {k : Nat}
 /-- The λ-tower former: bounded from the frame's own bounds and the
 body's at the full depth. -/
 theorem mkLamsAV_below :
-    ∀ {ds : List (Nat × AVExpr)} {b : AVExpr} {k : Nat},
+    ∀ {ds : List (Nat × AnnotTerm)} {b : AnnotTerm} {k : Nat},
       LamDomsBelow k ds →
-      VExpr.bvarsBelow (k + ds.length) b.erase →
-      VExpr.bvarsBelow k (mkLamsAV ds b).erase
+      Term.bvarsBelow (k + ds.length) b.erase →
+      Term.bvarsBelow k (mkLamsAV ds b).erase
   | [], _, _, _, hb => hb
   | d :: ds, b, k, h, hb =>
     ⟨h.1, mkLamsAV_below h.2 (by
@@ -246,10 +246,10 @@ theorem mkLamsAV_below :
       exact hb)⟩
 
 /-- The constant-bit tower, over Π-frame data. -/
-theorem mkLamsC_below {m : Nat} {ds : List (Nat × Nat × AVExpr)}
-    {b : AVExpr} {k : Nat} (h : DomsBelow k ds)
-    (hb : VExpr.bvarsBelow (k + ds.length) b.erase) :
-    VExpr.bvarsBelow k (mkLamsC m ds b).erase :=
+theorem mkLamsC_below {m : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {b : AnnotTerm} {k : Nat} (h : DomsBelow k ds)
+    (hb : Term.bvarsBelow (k + ds.length) b.erase) :
+    Term.bvarsBelow k (mkLamsC m ds b).erase :=
   mkLamsAV_below h.mapC (by
     rw [List.length_map]; exact hb)
 
@@ -258,11 +258,11 @@ theorem mkLamsC_below {m : Nat} {ds : List (Nat × Nat × AVExpr)}
 /-- A successful `stripPisAV` of a bounded reading bounds every binder
 domain at its own depth and the residual at the full depth. -/
 theorem stripPisAV_below :
-    ∀ {n : Nat} {e : AVExpr} {ps : List (Nat × Nat × AVExpr)}
-      {b : AVExpr} {k : Nat},
+    ∀ {n : Nat} {e : AnnotTerm} {ps : List (Nat × Nat × AnnotTerm)}
+      {b : AnnotTerm} {k : Nat},
       stripPisAV n e = some (ps, b) →
-      VExpr.bvarsBelow k e.erase →
-      DomsBelow k ps ∧ VExpr.bvarsBelow (k + n) b.erase
+      Term.bvarsBelow k e.erase →
+      DomsBelow k ps ∧ Term.bvarsBelow (k + n) b.erase
   | 0, e, ps, b, k, h, he => by
     obtain ⟨rfl, rfl⟩ : ps = [] ∧ b = e := by
       simpa [stripPisAV] using h.symm
@@ -281,23 +281,23 @@ theorem stripPisAV_below :
 
 /-- **The recursor leaf is bounded**: the body reads only the minor
 and the major, which sit inside any frame of length ≥ 2. -/
-theorem directRecAV_below {ℓ : Nat} {ds : List (Nat × Nat × AVExpr)}
+theorem structRecAV_below {ℓ : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     {nF : Nat} {k : Nat} (hd : DomsBelow k ds)
     (h2 : 2 ≤ ds.length) :
-    VExpr.bvarsBelow k (directRecAV ℓ ds nF).erase :=
+    Term.bvarsBelow k (structRecAV ℓ ds nF).erase :=
   mkLamsC_below hd (recBodyAV_below (by omega))
 
 /-! ## The `hAclosed` packages
 
-The install rows want `AVExpr.liftN 1 (leaf) k = leaf` for every cut
+The install rows want `AnnotTerm.liftN 1 (leaf) k = leaf` for every cut
 `k`; a leaf bounded at `0` is bounded at every cut
-(`VExpr.bvarsBelow.mono`), and a lift below the bound is the identity
-(`AVExpr.liftN_eq_self`). -/
+(`Term.bvarsBelow.mono`), and a lift below the bound is the identity
+(`AnnotTerm.liftN_eq_self`). -/
 
 /-- A closed leaf is `liftN`-invariant at every cut. -/
-theorem liftN_eq_self_of_closed {e : AVExpr}
-    (h : VExpr.bvarsBelow 0 e.erase) (k n : Nat) :
-    AVExpr.liftN n e k = e :=
-  AVExpr.liftN_eq_self e (VExpr.bvarsBelow.mono (Nat.zero_le k) h) n
+theorem liftN_eq_self_of_closed {e : AnnotTerm}
+    (h : Term.bvarsBelow 0 e.erase) (k n : Nat) :
+    AnnotTerm.liftN n e k = e :=
+  AnnotTerm.liftN_eq_self e (Term.bvarsBelow.mono (Nat.zero_le k) h) n
 
 end ConLeche.Semantics

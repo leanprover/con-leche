@@ -32,7 +32,7 @@ their own fuel.  The official kernel's *infer-only* mode is deferred
 until the refinement bridge's fuel-determinism machinery lands
 (DESIGN.md).
 
-Verification: `ConLeche.SetP.*` and `ConLeche.Verify.*` (claims),
+Verification: `ConLeche.Model.*` and `ConLeche.Verify.*` (claims),
 `ConLeche.Verify.*` (inversions), both stated against the bodies with
 hypotheses about the record and discharged by one induction at the
 knot.
@@ -68,14 +68,14 @@ structure CoreFns (m : Type → Type u) where
   /-- Type inference at the **infer-only grade** (task #170): the
   official kernel's `infer_type_core(e, infer_only = true)`, the entry
   every *internal* inference call site uses — a subject that already
-  carries a validated annotation invariant (`AnnotOkP` in the P
+  carries a validated annotation invariant (`WellDenotedV` in the P
   claims) is re-inferred without re-establishing it.  The knot decides
   the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
   false`) this is the full `infer`, verbatim (the flag is ignored,
   task #170's R clause); at the gated mode (`.verified`, the P core)
   it is the io body, whose application clause skips the per-argument
   certificate at a `.never` binder under the graph-regime license
-  (`ConLeche/SetP/IOLicenseP.lean`).  The **shipped** trusted core
+  (`ConLeche/Model/IOLicense.lean`).  The **shipped** trusted core
   selects the io body too (`CheckMode.ioGate` is `true` at both
   modes, the licence ruling of 2026-09-06); this mode-parametric
   spelling is not the thing that ships, so `μ.betaGate` here stays the
@@ -734,8 +734,8 @@ hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
 build plus a lookup per dependency (up to seven), and two more lookups
 for the `Bool` constructors.  That conclusion is *carried by the
 install fold invariant*, in both verification tiers and for every one
-of the sixteen guarded names: `NatOpsP`/`NatOpsV` (the seven structural
-ops, `natOpNames`) and `DivModP`/`DivModV` (the nine WF-pinned ops,
+of the sixteen guarded names: `NatOps`/`NatOpsV` (the seven structural
+ops, `natOpNames`) and `DivMod`/`DivModV` (the nine WF-pinned ops,
 `natDivModNames`) both read
 
   `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
@@ -812,11 +812,11 @@ equations need, at every level assignment.
 **The ι-slot licence** (the ι batch, 2026-09-05; DESIGN.md "THE ι
 AUDIT" §9.1): at a *licensed* walk (`lic = true`, set only by
 `iotaRec`'s two calls — the fire-time telescope runs, where the redex
-is a subterm of the subject and carries its own `AnnotOk2` app slots)
+is a subterm of the subject and carries its own `WellDenoted` app slots)
 a slot whose `∀`-binder datum is `.never` is skipped: the membership
 the run would establish follows from the slot and the head's
 membership in the telescope's reading (`io_domain_transfer`, the io
-gate's theorem verbatim; `SetP/Step2/IotaGateP.lean`).  The rescue's
+gate's theorem verbatim; `Model/Steps/IotaGate.lean`).  The rescue's
 synthetic-spine certifications (`majorToCtor`, the η/unit/K
 fabrications) run at `lic = false`: a fabricated spine is not a
 subterm of the subject and its grading is *produced* by this very
@@ -862,7 +862,7 @@ the constructor's telescope `tyCtor` along the major's spine `margs`
 must agree, past the `cnP` parameters, with the recursor's index
 arguments `idx` — the model's iota equation only speaks about the
 canonical indices.  At `mI = rP` there is nothing to compare (the law's
-`IotaIndexPinP` is discharged by `Or.inl rfl`) and the block is
+`IotaIndexPin` is discharged by `Or.inl rfl`) and the block is
 skipped.  The residual-head test that once stood beside the comparison
 (`stripPis` + "the body's head is a constant") was consumed by nothing
 in the P lane and is gone. -/
@@ -925,7 +925,7 @@ arm's obligation is *agreement* with the slow path, recorded by the
 landing census (DESIGN.md, task #168: 0 disagreements in 7.5 M calls).
 The **"yes" arm** (`isProofFast` on both sides → `true`) is the
 squash-regime licence, stage 3 of the same design
-(`prf_of_isProofFast`, `ConLeche/SetP/Step2/IrrelFastP.lean`), which the
+(`prf_of_isProofFast`, `ConLeche/Model/Steps/IrrelFast.lean`), which the
 verified mode's P row consumes; the trusted mode is unverified and
 inherits the arm without a row, as it inherits every other body. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
@@ -935,7 +935,7 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if isProofFast env.find? a && isProofFast env.find? b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
-    -- (`prf_of_isProofFast`, `ConLeche/SetP/Step2/IrrelFastP.lean`)
+    -- (`prf_of_isProofFast`, `ConLeche/Model/Steps/IrrelFast.lean`)
     pure true
   else
   -- task #172 B4: every inference here is at the io grade
@@ -957,7 +957,7 @@ path's): for every field index, the installed projection function's
 telescope is certified against the type's arguments and the stuck
 side.  A tower-backed family (the direct install's table, task #175
 S1) has no per-field telescope and needs no certificate: its η law
-(`TowerEtaLawP`) is keyed on the family's typing of the stuck side,
+(`TowerEtaLaw`) is keyed on the family's typing of the stuck side,
 which the caller already holds. -/
 def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
     (T : Name) (us' : List Level) (targs : List Expr) (b : Expr)
@@ -1474,7 +1474,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       -- nanoda's `subst_expr_levels` asserts it.  Without it
       -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
       -- level parameter the subject never had -- refuted concretely
-      -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
+      -- at `Interp/IotaArity.lean`.  Ungated: the reference has it
       -- unconditionally, so a mode gate would break parity.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then
         -- the major's preparation (K rescue / whnf / literal / eta) in
@@ -1573,10 +1573,10 @@ retired.  The model licence: at a squash instance (the structure's
 sort is `0` at the valuation) the constructor application reads as
 the point, and so does the selected field — for a non-`Prop`-declared
 family every field's sort is bounded by the structure's (the O5 bound
-`checkDirectFieldSorts` checks), so at a zero instantiation every
+`checkStructFieldSorts` checks), so at a zero instantiation every
 field is a proposition; for a `Prop`-declared family the guard says
-so of the projected field directly (`TowerEntryLawP`'s iota clause,
-`ConLeche/SetP/Annot/EnvS2P.lean`).  Ungated rules on a data field of a
+so of the projected field directly (`TowerEntryLaw`'s iota clause,
+`ConLeche/Model/Annot/EnvModelM.lean`).  Ungated rules on a data field of a
 `Prop`-declared structure stay out: such a node is not even typed
 (`inferBody`'s guard). -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
@@ -1617,8 +1617,8 @@ four); W6 replaces the two runs by the one telescope certificate,
 which is the same per-argument `inferIO` + `defeq` work the subject's
 run performed inside `inferSpine`, and drops the field's separate
 `inferIO`.  The official kernel's `reduce_proj` certifies nothing —
-this is the F4 conformance residue, which the P lane's `ProjStepP`
-row consumes through `certs_teleLicP`.  The spine is a subterm of the
+this is the F4 conformance residue, which the P lane's `ProjStep`
+row consumes through `certs_teleLic`.  The spine is a subterm of the
 subject, so the certificate is *licensed* like the ι slot's
 (`iotaCerts`' docstring): at the verified P mode a `.never` binder's
 certificate is skipped — every field binder of an ordinary `structure`
@@ -1652,9 +1652,9 @@ this binder?
 At `mode.betaGate` (i.e. at `.verified`, and nowhere else) a λ-binder
 whose *validated* annotation datum is `.never` — "the codomain sort is
 nonzero at every valuation" — licenses skipping the certificate: the
-sealed P claim's positive branch (`AnnotOkP_beta_gate`,
-`ConLeche/SetP/Step2/GateP.lean`) derives the domain membership from the
-redex's own `AnnotOk2` slot and consumes no certificate at all.
+sealed P claim's positive branch (`WellDenotedV_beta_gate`,
+`ConLeche/Model/Steps/Gate.lean`) derives the domain membership from the
+redex's own `WellDenoted` slot and consumes no certificate at all.
 
 At a possibly-zero datum, and at every non-gated mode, the certificate
 runs unconditionally — the establishment/consumption asymmetry fence,
@@ -1711,8 +1711,8 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           r.whnfCore depth (body.instantiate1 a)
         else do
           -- task #172 B4: the certificate's inference runs at the io
-          -- grade — the argument sits inside a subject whose AnnotOkP
-          -- the P claims carry (the user's criterion: AnnotOk2 is
+          -- grade — the argument sits inside a subject whose WellDenotedV
+          -- the P claims carry (the user's criterion: WellDenoted is
           -- around), and official's whnf never infers here at all
           let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
@@ -2045,9 +2045,9 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .lam ty body mb => do
       -- Task #168 stage 2: no domain-sort run at the io grade —
       -- official's `infer_lambda` skips it at `infer_only`
-      -- (`type_checker.cpp:131`), and the P row (`infer_lam_claimIOP`)
+      -- (`type_checker.cpp:131`), and the P row (`infer_lam_claimIO`)
       -- never consumed it: the domain's grading comes from the
-      -- premise (`AnnotOkP.hoist_lam`).  The codomain validation stays
+      -- premise (`WellDenotedV.hoist_lam`).  The codomain validation stays
       -- — it is what makes the λ datum trustworthy.
       let bt ← r.infer (depth + 1)
         (body.instantiate1 (.fvar depth ty))
@@ -2070,7 +2070,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .forallE ty body mt => do
         -- **THE io SITE.**  At a ∀ whose datum is `never` the
         -- certificate is dead weight: the premise-form io claim
-        -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `AnnotOk2` app
+        -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `WellDenoted` app
         -- slot (`io_domain_transfer` + `piR_dom_unique`,
         -- side-condition free).  At a possibly-zero datum the
         -- certificate runs unconditionally — the squash regime's

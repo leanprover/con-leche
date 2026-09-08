@@ -4,7 +4,7 @@ import ConLeche.Semantics.DeclRun
 # `declEtaStep` — the declaration fold's η-closure half, model-free
 (task #161 S3, THE SEPARATION; the design census's **C4**)
 
-The P fold (`Interp2/FoldP.lean`) used to run the *entire* v1
+The P fold (`Interp/FoldP.lean`) used to run the *entire* v1
 declaration fold — `declStepS`, with its five install obligations and
 an `EnvS` at the prefix environment — and keep only the second
 component, `EtaFamiliesClosed env₂`.  The census sized the extraction
@@ -41,7 +41,7 @@ blocker), this file moves with it.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- Does every pinned basis declaration that is an eta-capable
 former carry a reserved name?  Decidable, and `decide`d at each
@@ -136,7 +136,7 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
   | indDecl block => exact hind h
 
 /-! `declEtaStep` — the `DeclR` instance — moved to
-`SetBase/DeclDirectEta.lean` at task #175 wiring W5, where the
+`SetBase/DeclStructEta.lean` at task #175 wiring W5, where the
 `.indDecl` dispatch's η half is proved for BOTH arms and the instance
 reads the kernel's own case split instead of the flag. -/
 

@@ -17,7 +17,7 @@ is in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 An accepted stream is therefore not a proof of a contradiction: the
 checker cannot be talked into signing off on `theorem oops : False`.
 
-* `checkDeclsSPCachedD` is the shipped checking function — the one the
+* `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
 * `ds : List DeclC` is the parsed stream, `Env` the environment the
@@ -39,13 +39,13 @@ README.md.
 
 namespace ConLeche
 
-open ConLeche.Cached (DeclC checkDeclsSPCachedD)
+open ConLeche.Cached (DeclC checkDecls)
 
 /-- **The main theorem.**  An accepted stream never yields a constant of
 type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
+    (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry
 

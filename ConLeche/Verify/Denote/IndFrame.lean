@@ -17,7 +17,7 @@ import ConLeche.Verify.InferLeaves
 # The opened-statement frame: towers, spines, and the cross-frame walk
 
 Relocated verbatim from `ConLeche/TTVerify/IndBottom.lean` (task #148,
-T5): the pure denote/`VExpr` tier of the modeled-iota bottoms' frame
+T5): the pure denote/`Term` tier of the modeled-iota bottoms' frame
 machinery — `PiTele` (a `.pi` tower's domains as a de Bruijn context),
 `ctxInstAt`, the opened-telescope walks (`openPisAtFvars_leaves`,
 `openPisAtFvars_denoteTele`), the `instSeq`/`instRevChain` algebra,
@@ -33,7 +33,7 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- Indexing a list by its own `range` is mapping it. -/
 theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
@@ -51,7 +51,7 @@ theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
 /-- A closed inhabitant of... nothing — a closed **term of type
 `Prop`**: `∀ p : Prop, p`.  (`False`, in fact, which is fine: only its
 *typing* is consumed.) -/
-def dummyPropT : VExpr := .pi (.sort 0) (.bvar 0)
+def dummyPropT : Term := .pi (.sort 0) (.bvar 0)
 
 
 /-- The first `k` domains of a `.pi` tower, as a de Bruijn context —
@@ -59,13 +59,13 @@ innermost binder first, so the *outermost* domain is the last entry —
 with the body after `k` binders.  Each entry is as written in the
 tower, its dependencies pointing at the entries after it, which is
 exactly how a de Bruijn variable rule reads a context. -/
-inductive PiTele : Nat → VExpr → List VExpr → VExpr → Prop
-  | nil {T : VExpr} : PiTele 0 T [] T
-  | cons {k : Nat} {A B R : VExpr} {Γ : List VExpr} :
+inductive PiTele : Nat → Term → List Term → Term → Prop
+  | nil {T : Term} : PiTele 0 T [] T
+  | cons {k : Nat} {A B R : Term} {Γ : List Term} :
       PiTele k B Γ R → PiTele (k + 1) (.pi A B) (Γ ++ [A]) R
 
-theorem PiTele.length : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr}
-    {R : VExpr}, PiTele k T Γ R → Γ.length = k := by
+theorem PiTele.length : ∀ {k : Nat} {T : Term} {Γ : List Term}
+    {R : Term}, PiTele k T Γ R → Γ.length = k := by
   intro k T Γ R h
   induction h with
   | nil => rfl
@@ -76,20 +76,20 @@ them is substituted: the entry `i` places above the substituted slot is
 instantiated at cut `j + i` (`j` counts binders below the substituted
 slot that remain).  The entry adjacent to the slot — the list's last —
 gets cut `j`. -/
-def ctxInstAt (v : VExpr) (j : Nat) : List VExpr → List VExpr
+def ctxInstAt (v : Term) (j : Nat) : List Term → List Term
   | [] => []
   | B :: Γ => B.inst v (j + Γ.length) :: ctxInstAt v j Γ
 
-@[simp] theorem ctxInstAt_nil (v : VExpr) (j : Nat) :
+@[simp] theorem ctxInstAt_nil (v : Term) (j : Nat) :
     ctxInstAt v j [] = [] := rfl
 
-theorem ctxInstAt_cons (v : VExpr) (j : Nat) (B : VExpr) (Γ : List VExpr) :
+theorem ctxInstAt_cons (v : Term) (j : Nat) (B : Term) (Γ : List Term) :
     ctxInstAt v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAt v j Γ := rfl
 
 /-- `ctxInstAt` over an append: the left block's cuts shift by the
 right block's length. -/
-theorem ctxInstAt_append (v : VExpr) (j : Nat) :
-    ∀ (Γ₁ Γ₂ : List VExpr),
+theorem ctxInstAt_append (v : Term) (j : Nat) :
+    ∀ (Γ₁ Γ₂ : List Term),
       ctxInstAt v j (Γ₁ ++ Γ₂) =
         ctxInstAt v (j + Γ₂.length) Γ₁ ++ ctxInstAt v j Γ₂
   | [], Γ₂ => rfl
@@ -99,22 +99,22 @@ theorem ctxInstAt_append (v : VExpr) (j : Nat) :
     exact ⟨by congr 1; omega, trivial⟩
 
 /-- The snoc form `PiTele.cons` and `CtxSpine.cons` decompose along. -/
-theorem ctxInstAt_snoc (v : VExpr) (j : Nat) (Γ : List VExpr) (A : VExpr) :
+theorem ctxInstAt_snoc (v : Term) (j : Nat) (Γ : List Term) (A : Term) :
     ctxInstAt v j (Γ ++ [A]) = ctxInstAt v (j + 1) Γ ++ [A.inst v j] := by
   rw [ctxInstAt_append]
   rfl
 
 /-- A substituted tower is a tower over the substituted context — the
 `PiTele` transcription of `PiTower.inst`. -/
-theorem PiTele.inst : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
-    PiTele k T Γ R → ∀ (v : VExpr) (j : Nat),
+theorem PiTele.inst : ∀ {k : Nat} {T : Term} {Γ : List Term} {R : Term},
+    PiTele k T Γ R → ∀ (v : Term) (j : Nat),
       PiTele k (T.inst v j) (ctxInstAt v j Γ) (R.inst v (j + k)) := by
   intro k T Γ R h
   induction h with
   | nil => intro v j; simpa using PiTele.nil
   | @cons k A B R Γ _ ih =>
     intro v j
-    rw [VExpr.inst_pi, ctxInstAt_snoc]
+    rw [Term.inst_pi, ctxInstAt_snoc]
     have h1 := ih v (j + 1)
     rw [show j + 1 + k = j + (k + 1) from by omega] at h1
     exact PiTele.cons h1
@@ -189,10 +189,10 @@ rule wants it.) -/
 theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat} {fvs : List Expr} {body : Expr}
-      {T : VExpr},
+      {T : Term},
       openPisAtFvars k e j = some (fvs, body) →
       denote cval env ψ j e = some T →
-      ∃ (Γ : List VExpr) (R : VExpr),
+      ∃ (Γ : List Term) (R : Term),
         PiTele k T Γ R ∧
         denote cval env ψ (j + k) body = some R ∧
         ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
@@ -267,8 +267,8 @@ theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
 
 /-- `ctxInstAt`, per entry: the entry at index `i` is instantiated at
 its own residual depth. -/
-theorem ctxInstAt_getD (v : VExpr) (j : Nat) :
-    ∀ (Γ : List VExpr) (i : Nat), i < Γ.length →
+theorem ctxInstAt_getD (v : Term) (j : Nat) :
+    ∀ (Γ : List Term) (i : Nat), i < Γ.length →
       (ctxInstAt v j Γ).getD i default =
         (Γ.getD i default).inst v (j + Γ.length - 1 - i)
   | [], i, h => absurd h (by simp)
@@ -285,7 +285,7 @@ theorem ctxInstAt_getD (v : VExpr) (j : Nat) :
 /-- The tower, truncated: the first `n` binders with the inner tower as
 their body. -/
 theorem PiTele.prefix :
-    ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
+    ∀ {k : Nat} {T : Term} {Γ : List Term} {R : Term},
       PiTele k T Γ R → ∀ n, n ≤ k →
       ∃ mid, PiTele n T (Γ.drop (k - n)) mid ∧
         PiTele (k - n) mid (Γ.take (k - n)) R := by
@@ -315,25 +315,25 @@ theorem PiTele.prefix :
 
 /-- The context's λ-tower over a subject: the outermost binder is the
 context's last entry, matching `CtxSpine`'s peel. -/
-def lamCtx (Γ : List VExpr) (C : VExpr) : VExpr :=
+def lamCtx (Γ : List Term) (C : Term) : Term :=
   Γ.foldl (fun acc A => .lam A acc) C
 
-theorem lamCtx_cons (B : VExpr) (Γ : List VExpr) (C : VExpr) :
+theorem lamCtx_cons (B : Term) (Γ : List Term) (C : Term) :
     lamCtx (B :: Γ) C = lamCtx Γ (.lam B C) := rfl
 
-theorem lamCtx_snoc (Γ : List VExpr) (A C : VExpr) :
+theorem lamCtx_snoc (Γ : List Term) (A C : Term) :
     lamCtx (Γ ++ [A]) C = .lam A (lamCtx Γ C) := by
   unfold lamCtx
   rw [List.foldl_append]
   rfl
 
-theorem lamCtx_inst : ∀ (Γ : List VExpr) (C v : VExpr) (j : Nat),
+theorem lamCtx_inst : ∀ (Γ : List Term) (C v : Term) (j : Nat),
     (lamCtx Γ C).inst v j =
       lamCtx (ctxInstAt v j Γ) (C.inst v (j + Γ.length))
   | [], C, v, j => by simp [lamCtx, ctxInstAt]
   | B :: Γ, C, v, j => by
     rw [lamCtx_cons, lamCtx_inst Γ (.lam B C) v j, ctxInstAt_cons,
-      lamCtx_cons, VExpr.inst_lam]
+      lamCtx_cons, Term.inst_lam]
     congr 2
 
 /-- The checker's opener, read as an `instPisAt` at its own variables:
@@ -604,14 +604,14 @@ theorem instPisAt_bounded :
 
 /-- A subject with only low bound variables passes through `instSeq`
 untouched: every cut is above its range. -/
-theorem VExpr.instSeq_eq_self_of_bvarsBelow :
-    ∀ (vs : List VExpr) (t : Nat) {X : VExpr} {m : Nat},
-      VExpr.bvarsBelow m X → m + vs.length ≤ t + 1 →
-      VExpr.instSeq vs t X = X
+theorem Term.instSeq_eq_self_of_bvarsBelow :
+    ∀ (vs : List Term) (t : Nat) {X : Term} {m : Nat},
+      Term.bvarsBelow m X → m + vs.length ≤ t + 1 →
+      Term.instSeq vs t X = X
   | [], _, _, _, _, _ => rfl
   | a :: vs, t, X, m, hb, h => by
-    show VExpr.instSeq vs (t - 1) (X.inst a t) = _
-    rw [VExpr.inst_eq_self (VExpr.bvarsBelow.mono (by
+    show Term.instSeq vs (t - 1) (X.inst a t) = _
+    rw [Term.inst_eq_self (Term.bvarsBelow.mono (by
       simp only [List.length_cons] at h
       omega) hb)]
     cases t with
@@ -621,14 +621,14 @@ theorem VExpr.instSeq_eq_self_of_bvarsBelow :
         exact List.eq_nil_of_length_eq_zero (by omega)
       rfl
     | succ t' =>
-      exact VExpr.instSeq_eq_self_of_bvarsBelow vs t' hb (by
+      exact Term.instSeq_eq_self_of_bvarsBelow vs t' hb (by
         simp only [List.length_cons] at h
         omega)
 
 /-- Equal applications of equal arity have equal heads and spines. -/
-theorem VExpr.mkAppN_inj :
-    ∀ {as bs : List VExpr} {f g : VExpr},
-      VExpr.mkAppN f as = VExpr.mkAppN g bs → as.length = bs.length →
+theorem Term.mkAppN_inj :
+    ∀ {as bs : List Term} {f g : Term},
+      Term.mkAppN f as = Term.mkAppN g bs → as.length = bs.length →
       f = g ∧ as = bs := by
   intro as
   induction as with
@@ -642,7 +642,7 @@ theorem VExpr.mkAppN_inj :
     cases bs with
     | nil => exact nomatch hlen
     | cons b bs =>
-      rw [VExpr.mkAppN_cons, VExpr.mkAppN_cons] at h
+      rw [Term.mkAppN_cons, Term.mkAppN_cons] at h
       obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
       injection h1 with h2 h3
       exact ⟨h2, by rw [h3]⟩
@@ -887,7 +887,7 @@ theorem instPisAt_length :
 denoting residual — the definedness half of
 `instPisAt_denote_cross`. -/
 theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
-    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    {ψ : Name → Nat} (hcl : ∀ n ψ', Term.Closed (cval n ψ')) :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {D : Nat},
@@ -895,7 +895,7 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
         (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
           x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
-      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∀ {T : Term}, denote cval env ψ D ty = some T →
       ∃ vRs, denote cval env ψ D rs = some vRs := by
   intro sp
   induction sp with
@@ -978,7 +978,7 @@ what the `iota_j` statement walks need per element (task #148, T6:
 `DefEqAtW` asserts its two denotations exist, where `DefEqClaimsR`
 takes them as inputs). -/
 theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
-    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    {ψ : Name → Nat} (hcl : ∀ n ψ', Term.Closed (cval n ψ')) :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {D : Nat},
@@ -986,7 +986,7 @@ theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
         (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
           x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
-      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∀ {T : Term}, denote cval env ψ D ty = some T →
       ∀ d ∈ ds, ∃ v, denote cval env ψ D d = some v := by
   intro sp
   induction sp with
@@ -1041,7 +1041,7 @@ discards the residual component of every frame lemma it calls; the
 λ-row of `IotaWalksR` opens exactly that residual, so it needs the
 denotation too (task #148 T6). -/
 theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
-    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    {ψ : Name → Nat} (hcl : ∀ n ψ', Term.Closed (cval n ψ')) :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {D : Nat},
@@ -1049,7 +1049,7 @@ theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
         (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
           x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
-      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∀ {T : Term}, denote cval env ψ D ty = some T →
       ∃ v, denote cval env ψ D rs = some v := by
   intro sp
   induction sp with
@@ -1190,7 +1190,7 @@ theorem instLamsAt_index_WScoped :
       exact nomatch h
 
 /-- A nonempty tower's head domain is its context's outermost entry. -/
-theorem PiTele.head : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
+theorem PiTele.head : ∀ {k : Nat} {T : Term} {Γ : List Term} {R : Term},
     PiTele (k + 1) T Γ R →
     ∃ B, T = .pi (Γ.getD k default) B ∧ PiTele k B (Γ.take k) R := by
   intro k T Γ R h
@@ -1210,7 +1210,7 @@ theorem PiTele.head : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
 /-- A denoted spine, built pointwise. -/
 theorem DenoteSpine.of_getElem {cval : TConstVal} {env : Env}
     {φ : Name → Nat} {d : Nat} :
-    ∀ {as : List Expr} {vs : List VExpr}, as.length = vs.length →
+    ∀ {as : List Expr} {vs : List Term}, as.length = vs.length →
       (∀ (q : Nat), q < as.length →
         denote cval env φ d (as.getD q default) =
           some (vs.getD q default)) →
@@ -1242,10 +1242,10 @@ opener family produces the same values. -/
 theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : Term},
       e.stripLams k = some (bs, body) →
       denote cval env ψ j e = some V →
-      ∃ (Γ : List VExpr) (C : VExpr),
+      ∃ (Γ : List Term) (C : Term),
         V = lamCtx Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
@@ -1378,17 +1378,17 @@ context's interpretation be transported across two valuations that
 agree only *below* the context's depth — the unit law fires at a
 valuation extended by its two members.) -/
 theorem PiTele.bvarsBelow :
-    ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
-      PiTele k T Γ R → ∀ {d : Nat}, VExpr.bvarsBelow d T →
-      ∀ i, i < k → VExpr.bvarsBelow (d + i)
+    ∀ {k : Nat} {T : Term} {Γ : List Term} {R : Term},
+      PiTele k T Γ R → ∀ {d : Nat}, Term.bvarsBelow d T →
+      ∀ i, i < k → Term.bvarsBelow (d + i)
         (Γ.getD (k - 1 - i) default) := by
   intro k T Γ R h
   induction h with
   | nil => intro d _ i hi; exact nomatch hi
   | @cons k A B R Γ hp ih =>
     intro d hb i hi
-    have hbA : VExpr.bvarsBelow d A := hb.1
-    have hbB : VExpr.bvarsBelow (d + 1) B := hb.2
+    have hbA : Term.bvarsBelow d A := hb.1
+    have hbB : Term.bvarsBelow (d + 1) B := hb.2
     have hΓlen : Γ.length = k := hp.length
     cases i with
     | zero =>
@@ -1406,8 +1406,8 @@ theorem PiTele.bvarsBelow :
       exact h1
 
 /-- A `PiTele` is determined by its arity and tower. -/
-theorem PiTele.det : ∀ {k : Nat} {T : VExpr} {Γ Γ' : List VExpr}
-    {R R' : VExpr}, PiTele k T Γ R → PiTele k T Γ' R' →
+theorem PiTele.det : ∀ {k : Nat} {T : Term} {Γ Γ' : List Term}
+    {R R' : Term}, PiTele k T Γ R → PiTele k T Γ' R' →
     Γ = Γ' ∧ R = R' := by
   intro k
   induction k with
@@ -1433,10 +1433,10 @@ opener family produces the same values. -/
 theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : Term},
       e.stripPis k = some (bs, body) →
       denote cval env ψ j e = some V →
-      ∃ (Γ : List VExpr) (C : VExpr),
+      ∃ (Γ : List Term) (C : Term),
         PiTele k V Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
@@ -1568,7 +1568,7 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
 variable (sealed: the `instSeq`-of-`bvar` computation in a small
 context; DESIGN §22). -/
 theorem projBodyValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
-    {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : VExpr}
+    {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : Term}
     (hCβden : denote cval env ψ (0 + (cnP + cnF))
       (Expr.instSeq (openFvars 0 (cnP + cnF)) (cnP + cnF - 1)
         (.bvar (cnF - 1 - i))) = some Cβ) :
@@ -1594,7 +1594,7 @@ form is what a *renamed* domain pin needs (the projection statement's
 telescope is the constructor's renamed, not equal to it — task #148,
 T5 c4); `towerCtxEq` is the syntactic corollary. -/
 theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
-    {k : Nat} {Γβ Γc : List VExpr}
+    {k : Nat} {Γβ Γc : List Term}
     {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
@@ -1642,7 +1642,7 @@ theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
 /-- Two canonically-opened towers with pointwise-equal raw domains
 have the same denoted context (sealed for the same reason). -/
 theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
-    {k : Nat} {Γβ Γc : List VExpr}
+    {k : Nat} {Γβ Γc : List Term}
     {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
@@ -1679,7 +1679,7 @@ theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
     {stmtTy : Expr} {K : Nat} {fvs : List Expr} {tbody : Expr}
     {ℓA : Level} {αS lhsS rhsS : Expr} {fRn fCtor : Name}
     {lpsE lvls : List Level} {mI : Nat} {spN : List Expr}
-    {ciCm : ConstantInfo} {Tstmt : VExpr}
+    {ciCm : ConstantInfo} {Tstmt : Term}
     (hTstmt : denote cval env₀ ψ 0 stmtTy = some Tstmt)
     (hopen : openPisAtFvars K stmtTy 0 = some (fvs, tbody))
     (hheadEq : tbody.getAppFn = .const eqName [ℓA])
@@ -1720,7 +1720,7 @@ theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
 /-- The projection statement's right side denotes to the field's
 frame variable (sealed). -/
 theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
-    {fvs : List Expr} {rP cnF i : Nat} {vR : VExpr}
+    {fvs : List Expr} {rP cnF i : Nat} {vR : Term}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
       ∃ ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
@@ -1801,12 +1801,12 @@ produces the same tower. -/
 theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (sp : List Expr) {e : Expr} {j : Nat} {ds : List Expr}
-      {rest : Expr} {Vv : VExpr},
+      {rest : Expr} {Vv : Term},
       Expr.instLamsAt sp e = some (ds, rest) →
       (∀ (i : Nat) (x : Expr), sp[i]? = some x →
         ∃ ty, x = Expr.fvar (j + i) ty) →
       denote cval env ψ j e = some Vv →
-      ∃ (Γ : List VExpr) (C : VExpr),
+      ∃ (Γ : List Term) (C : Term),
         Vv = lamCtx Γ C ∧ Γ.length = sp.length ∧
         denote cval env ψ (j + sp.length) rest = some C ∧
         ∀ (i0 : Nat) (x : Expr), ds[i0]? = some x →

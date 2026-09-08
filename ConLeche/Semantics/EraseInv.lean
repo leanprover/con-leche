@@ -8,7 +8,7 @@ checker's erasure, lifted out of `SetR/Install/Axiom.lean` (design
 census §3.3, edge 6).  It is **pure `Expr` syntax** — no `EnvS`, no
 valuation, no relation — and both lanes invert through it: the
 collapsed lane at the axiom install, the graded lane at
-`Interp2/ErasePwInv.lean`'s composite heads.
+`Interp/ErasePwInv.lean`'s composite heads.
 
 Statements verbatim from their old home; the namespace is unchanged.
 -/

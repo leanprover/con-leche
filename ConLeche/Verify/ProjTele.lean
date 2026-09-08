@@ -8,7 +8,7 @@ import ConLeche.Verify.ProjSlots
 The projection table stores, per field, a **body**
 `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]` scoped at `nP + 1`, and a
 `.proj` use instantiates it in one `instantiateList`
-(`ProjEntry.typeAt`).  The reading (`denoteP`) has no clause for a
+(`ProjEntry.typeAt`).  The reading (`denoteMeta`) has no clause for a
 loose `bvar`, so the proof side reads the body through a syntactic
 device: `projTele (nP + 1) body`, the body under `nP + 1` closed
 binders of domain `Sort 0`.  Its reading opens the body at fresh
@@ -16,7 +16,7 @@ variables exactly as a stored telescope's did, and the checker's
 `instantiateList` is that telescope's `instPisAt` peel along the
 arguments and the subject (`instPisAt_projTele`,
 `instPisAt_typeAt`) — so the tower law's typing clause keeps its
-`peelPis` shape (`TowerEntryLawP`, `ConLeche/SetP/Annot/EnvS2P.lean`)
+`peelPis` shape (`TowerEntryLaw`, `ConLeche/Model/Annot/EnvModelM.lean`)
 with the stored type replaced by the telescope over the stored body.
 The binder domains are never consumed by the peel or by the law;
 they are a syntactic carrier for the reading only.

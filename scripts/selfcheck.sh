@@ -86,7 +86,7 @@ TOOLCHAIN=$(cat lean-toolchain)
 # The library roots (the lakefile's `defaultTargets` plus the certificate
 # library and the `con-leche` executable's root).  `ConLeche.Challenge` and the
 # test library are deliberately absent; see the header.
-ROOTS=(ConLeche ConLeche.VExpr ConLeche.SetModel ConLeche.Semantics ConLeche.SetP
+ROOTS=(ConLeche ConLeche.Term ConLeche.SetModel ConLeche.Semantics ConLeche.Model
        ConLeche.Verify.Cached ConLeche.MainTheorem ConLeche.PinGen.Certs Main)
 
 # ---------------------------------------------------------------- 1/4

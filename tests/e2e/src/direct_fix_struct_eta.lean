@@ -8,7 +8,7 @@
    definitional equality").  con-leche's fixpoint route stores the
    block's projection table (its `.proj` nodes type and reduce, as
    official's `infer_proj` does) but its capability record
-   (`directFixCaps`) claims η only at a block with no recursive or
+   (`nativeCaps`) claims η only at a block with no recursive or
    reflexive field, so the theorems are REJECTED too.  Granting η here
    was tried — the P tier proves the η law at the one-constructor fibre
    (`fixEntryEtaCore`) — and withdrawn: on `ind_nest_via_refl` the

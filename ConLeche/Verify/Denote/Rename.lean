@@ -28,7 +28,7 @@ the retraction does **not** touch: `denote_renameConsts` really has no
 counterpart here, and the `RenEqT`/`PiDomsRenEqT` pair really is
 stranded in `Model/TeleElim.lean`.
 
-`RenEqT`/`PiDomsRenEqT` restate `ConLeche/Model/TeleElim.lean`'s `RenEq`
+`RenEqT`/`PiDomsRenEqT` restate `ConLeche/ModelV1/TeleElim.lean`'s `RenEq`
 and `PiDomsRenEq`.  They are `V`-free and belong in `ConLeche/Verify/*`
 under #123's criterion; they are restated here rather than moved
 because `Model/TeleElim.lean` is mid-flight (`DESIGN.md` §14.6.2 names
@@ -42,7 +42,7 @@ here.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 

@@ -10,9 +10,9 @@ literal support guards (`natLitSupported`'s `natIndOk`,
 empty `levelParams` list.  No model, no environment invariant — pure
 `Env`/`ConstantInfo` arithmetic.
 
-They came out with the two-edit sever: `Step2/InferP` and
-`Step2/ReadsP` (graded lane) reached them through the 2U module
-`Step2/InferQ`, whose import the sever removes.  Statements verbatim,
+They came out with the two-edit sever: `Steps/InferP` and
+`Steps/ReadsP` (graded lane) reached them through the 2U module
+`Steps/InferQ`, whose import the sever removes.  Statements verbatim,
 namespace (`ConLeche.SetR`) unchanged.
 -/
 

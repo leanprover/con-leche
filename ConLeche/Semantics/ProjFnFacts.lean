@@ -42,7 +42,7 @@ Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- The stored projection entry: a degenerate recursor, at whatever
 rule list the caller installs.  (Moved to the base at task #161 S7 —
@@ -232,7 +232,7 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
 /-- **The projection entry's own syntactic obligations**, off
 `ProjFnR` alone (task #161 S7): the extended store's `EnvWF` and the
 stored rule's constructor.  Both lanes' conses need them — the R lane
-inside `projConsS`, the P lane at `projConsP` — and neither is
+inside `projConsS`, the P lane at `projCons` — and neither is
 semantic. -/
 theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name}

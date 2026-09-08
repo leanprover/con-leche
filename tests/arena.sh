@@ -15,7 +15,7 @@
 # An <expectation> is a single exit code.  Until task #148 T0b it could
 # also be a pair "<on>|<off>" for the five fixtures whose verdict
 # depended on the direct simple-structure master switch
-# (`ConLeche.directStructsEnabled`, ConLeche/Kernel/Direct.lean, task
+# (`ConLeche.structsEnabled`, ConLeche/Kernel/Inductives/*, task
 # #119/#120), and `--direct-off` ran the whole suite against a second
 # binary built with the switch off.  The switch now ships `false` — the
 # configuration both verified lanes reason about — so the shipped binary
@@ -440,7 +440,7 @@ echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
 # The progress lane (`CON_LECHE_PROGRESS=<stride>`, 2026-09-07).  Two
 # folds, one verdict: without the variable the driver runs the verified
-# `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
+# `checkDecls`, with it the unverified `checkDeclsProgressIO`
 # — the same steps with a line printed before each declaration.  The
 # checks below are the contract: the lane prints, it prints EVERY
 # declaration at stride 1 (that is the localisation mode: a dying run

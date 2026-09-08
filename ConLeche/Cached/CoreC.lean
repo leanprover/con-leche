@@ -1009,7 +1009,7 @@ skips — an inversion of what the trusted mode is defined to be (the
 real mode with certification-only steps omitted).  Validating the
 datum is certification-only work and stays in group A; consuming it is
 not.  The P tier's licensing theorem (`io_domain_transfer`,
-`SetP/IOLicenseP.lean`) never used the mode conjunct either: it spends
+`Model/IOLicense.lean`) never used the mode conjunct either: it spends
 only `pwBit_ne_zero_of_isNever`.
 
 **The read is `mode.ioSkip mt.pw`** (the twin's retirement): at
@@ -1937,7 +1937,7 @@ the complete list of what the trusted mode omits**.
 `whnfCoreBodyPC` is the P core's head normalization:
 `CheckMode.betaSkip .verified` is `PropWhen.isNever`, so the surviving
 branch reads the redex's **validated annotation datum**.  That is
-data, and it is the licence's own subject (`AnnotOkP_beta_gate`), not
+data, and it is the licence's own subject (`WellDenotedV_beta_gate`), not
 a flag.
 
 B3 added the remaining three configured families.  Their config read

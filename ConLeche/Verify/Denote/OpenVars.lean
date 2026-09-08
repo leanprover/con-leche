@@ -1,5 +1,5 @@
 import ConLeche.Kernel.ExprOps
-import ConLeche.VExpr.Subst
+import ConLeche.Term.Subst
 import ConLeche.Verify.Shift
 import ConLeche.Verify.Subst
 
@@ -77,11 +77,11 @@ def openRev (d : Nat) : Nat → Expr → Expr
 /-- The value chain `denote` produces for a real-argument instantiation
 read through the reverse opening: outermost argument consumed first,
 each at cut `0`, lifted past the arguments still to come. -/
-def _root_.ConLeche.VExpr.VExpr.instRevChain : List ConLeche.VExpr.VExpr →
-    ConLeche.VExpr.VExpr → ConLeche.VExpr.VExpr
+def _root_.ConLeche.Term.Term.instRevChain : List ConLeche.Term.Term →
+    ConLeche.Term.Term → ConLeche.Term.Term
   | [], X => X
   | v :: vs, X =>
-    ConLeche.VExpr.VExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    ConLeche.Term.Term.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- Substituting a variable above the reverse opening's range commutes
 to the outside (the opening touches only the variables below it). -/

@@ -1,20 +1,20 @@
-import ConLeche.VExpr.Subst
+import ConLeche.Term.Subst
 
 /-!
-# `AVExpr`: the sort-annotated variant of `VExpr` (task #151, tier A)
+# `AnnotTerm`: the sort-annotated variant of `Term` (task #151, tier A)
 
-`VExpr` (`ConLeche/VExpr/Syntax.lean`) carries **no** universe information at
+`Term` (`ConLeche/Term/Syntax.lean`) carries **no** universe information at
 its binders: `pi A B` and `lam A b` are the bare formers, and the
 interpretation reads them through the *collapsed* operators `piC`/`lamC`
-(`ConLeche/VExpr/Semantics/Interp.lean`), which is what makes the
+(`ConLeche/Term/Semantics/Interp.lean`), which is what makes the
 universe-cohabitation wall of the T5 c5 record (`docs/SetR-DESIGN.md`)
 unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)` holds, so no *typing* can
 separate a proposition's inhabitant from the proof point.
 
-`AVExpr` is the same syntax with the binder formers carrying **ground
+`AnnotTerm` is the same syntax with the binder formers carrying **ground
 numeral sorts**:
 
-| `VExpr` | `AVExpr` | annotation |
+| `Term` | `AnnotTerm` | annotation |
 |---|---|---|
 | `pi A B` | `pi u v A B` | the domain's sort `u` and the body's sort `v` |
 | `lam A b` | `lam u A b` | the domain's sort `u` |
@@ -24,8 +24,8 @@ numeral sorts**:
 **Design rulings this file implements** (task #151's own; recorded in
 `docs/SetR-DESIGN.md`'s tier-A section):
 
-* **Ground numerals, not `Level`s.**  `VExpr` already evaluates every
-  level expression at its use site (`ConLeche/VExpr/Syntax.lean`'s "universe
+* **Ground numerals, not `Level`s.**  `Term` already evaluates every
+  level expression at its use site (`ConLeche/Term/Syntax.lean`'s "universe
   levels are concrete `Nat`s"), so an annotation is a `Nat`.  There is
   no level substitution to commute with, which is what makes the whole
   substitution metatheory below *inert*.
@@ -39,18 +39,18 @@ numeral sorts**:
   (`interp ρ (.letE _ v b) = interp (cons ⟦v⟧ ρ) b`), and a graded
   re-reading of the `let` former has nothing to grade — `let` is not a
   type former.  Caching a premise no consumer reads would be dead
-  weight in every `AVExpr` traversal, so the slot is omitted.  (The
+  weight in every `AnnotTerm` traversal, so the slot is omitted.  (The
   premise is not lost: it is still in the derivation, and
   `ConLeche/SetR/Annot/Pass.lean`'s `HasSort` names it.)
 * **`eqE` keeps its (unannotated, unread) type slot**, exactly as
-  `VExpr` does — see `ConLeche/VExpr/Syntax.lean` on why `eqE`'s type slot is
+  `Term` does — see `ConLeche/Term/Syntax.lean` on why `eqE`'s type slot is
   never constrained.
 
 ## The structural kit
 
 `erase` forgets the annotations; `liftN`/`inst` are the de Bruijn
 operations, defined *clause for clause* against
-`ConLeche/VExpr/Subst.lean`'s.  Their whole content is the pair of
+`ConLeche/Term/Subst.lean`'s.  Their whole content is the pair of
 commutations `erase_liftN` / `erase_inst`: **annotations are inert data
 under substitution** — instantiation rewrites subterms and never
 touches a numeral — so the annotated operations project onto the plain
@@ -61,12 +61,12 @@ sort fact.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr
+open ConLeche.Term
 
-/-- `VExpr` with ground numeral sorts at the binder formers.  Node for
+/-- `Term` with ground numeral sorts at the binder formers.  Node for
 node the same syntax; see the module docstring for the annotation
 table and for why `letE` has no slot. -/
-inductive AVExpr where
+inductive AnnotTerm where
   /-- de Bruijn index -/
   | bvar (i : Nat)
   /-- `Sort u` at a concrete level -/
@@ -74,29 +74,29 @@ inductive AVExpr where
   /-- a built-in constant at a concrete level instantiation -/
   | const (c : BConst) (us : List Nat)
   /-- application -/
-  | app (f a : AVExpr)
+  | app (f a : AnnotTerm)
   /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
-  the codomain numeral `interp2` dispatches on (tier B's F4; the
+  the codomain numeral `interp` dispatches on (tier B's F4; the
   #152 resolution made it derivable, and `Annotates.lam` caches it) -/
-  | lam (u : Nat) (ty body : AVExpr)
+  | lam (u : Nat) (ty body : AnnotTerm)
   /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
-  | pi (u v : Nat) (ty body : AVExpr)
+  | pi (u v : Nat) (ty body : AnnotTerm)
   /-- `let _ : ty := value; body` — **no sort slot**, see the module
   docstring -/
-  | letE (ty value body : AVExpr)
+  | letE (ty value body : AnnotTerm)
   /-- `@Eq ty lhs rhs`; the `ty` slot is carried and never read, as in
-  `VExpr` -/
-  | eqE (ty lhs rhs : AVExpr)
+  `Term` -/
+  | eqE (ty lhs rhs : AnnotTerm)
   /-- field `i` of a pair -/
-  | proj (i : Nat) (e : AVExpr)
+  | proj (i : Nat) (e : AnnotTerm)
   /-- the canonical (irrelevant) proof of a derivable equation -/
   | prf
   deriving Repr, Inhabited
 
-namespace AVExpr
+namespace AnnotTerm
 
 /-- Forget the annotations. -/
-def erase : AVExpr → VExpr
+def erase : AnnotTerm → Term
   | .bvar i => .bvar i
   | .sort u => .sort u
   | .const c us => .const c us
@@ -112,23 +112,23 @@ def erase : AVExpr → VExpr
 @[simp] theorem erase_sort (u : Nat) : erase (.sort u) = .sort u := rfl
 @[simp] theorem erase_const (c : BConst) (us : List Nat) :
     erase (.const c us) = .const c us := rfl
-@[simp] theorem erase_app (f a : AVExpr) :
+@[simp] theorem erase_app (f a : AnnotTerm) :
     erase (.app f a) = .app (erase f) (erase a) := rfl
-@[simp] theorem erase_lam (u : Nat) (A b : AVExpr) :
+@[simp] theorem erase_lam (u : Nat) (A b : AnnotTerm) :
     erase (.lam u A b) = .lam (erase A) (erase b) := rfl
-@[simp] theorem erase_pi (u v : Nat) (A B : AVExpr) :
+@[simp] theorem erase_pi (u v : Nat) (A B : AnnotTerm) :
     erase (.pi u v A B) = .pi (erase A) (erase B) := rfl
-@[simp] theorem erase_letE (T v b : AVExpr) :
+@[simp] theorem erase_letE (T v b : AnnotTerm) :
     erase (.letE T v b) = .letE (erase T) (erase v) (erase b) := rfl
-@[simp] theorem erase_eqE (T a b : AVExpr) :
+@[simp] theorem erase_eqE (T a b : AnnotTerm) :
     erase (.eqE T a b) = .eqE (erase T) (erase a) (erase b) := rfl
-@[simp] theorem erase_proj (i : Nat) (e : AVExpr) :
+@[simp] theorem erase_proj (i : Nat) (e : AnnotTerm) :
     erase (.proj i e) = .proj i (erase e) := rfl
 @[simp] theorem erase_prf : erase .prf = .prf := rfl
 
 /-- Weakening: insert `n` fresh binders at depth `k`.  Clause for
-clause `VExpr.liftN`; the numerals ride along untouched. -/
-def liftN (n : Nat) : AVExpr → (k : Nat := 0) → AVExpr
+clause `Term.liftN`; the numerals ride along untouched. -/
+def liftN (n : Nat) : AnnotTerm → (k : Nat := 0) → AnnotTerm
   | .bvar i, k => .bvar (if i < k then i else i + n)
   | .sort u, _ => .sort u
   | .const c us, _ => .const c us
@@ -141,11 +141,11 @@ def liftN (n : Nat) : AVExpr → (k : Nat := 0) → AVExpr
   | .prf, _ => .prf
 
 /-- Weakening by one. -/
-abbrev lift (e : AVExpr) : AVExpr := liftN 1 e
+abbrev lift (e : AnnotTerm) : AnnotTerm := liftN 1 e
 
 /-- Single substitution at depth `k`.  Clause for clause
-`VExpr.inst`. -/
-def inst : AVExpr → AVExpr → (k : Nat := 0) → AVExpr
+`Term.inst`. -/
+def inst : AnnotTerm → AnnotTerm → (k : Nat := 0) → AnnotTerm
   | .bvar i, a, k =>
     if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)
   | .sort u, _, _ => .sort u
@@ -158,13 +158,13 @@ def inst : AVExpr → AVExpr → (k : Nat := 0) → AVExpr
   | .proj i e, a, k => .proj i (inst e a k)
   | .prf, _, _ => .prf
 
-/-- Iterated application (`VExpr.mkAppN`'s transpose). -/
-def mkAppN (f : AVExpr) : List AVExpr → AVExpr
+/-- Iterated application (`Term.mkAppN`'s transpose). -/
+def mkAppN (f : AnnotTerm) : List AnnotTerm → AnnotTerm
   | [] => f
   | a :: as => mkAppN (.app f a) as
 
-@[simp] theorem mkAppN_nil (f : AVExpr) : mkAppN f [] = f := rfl
-@[simp] theorem mkAppN_cons (f a : AVExpr) (as : List AVExpr) :
+@[simp] theorem mkAppN_nil (f : AnnotTerm) : mkAppN f [] = f := rfl
+@[simp] theorem mkAppN_cons (f a : AnnotTerm) (as : List AnnotTerm) :
     mkAppN f (a :: as) = mkAppN (.app f a) as := rfl
 
 /-! ### Clause equations for the substitution operations -/
@@ -174,83 +174,83 @@ def mkAppN (f : AVExpr) : List AVExpr → AVExpr
 @[simp] theorem liftN_sort (n k u : Nat) : liftN n (.sort u) k = .sort u := rfl
 @[simp] theorem liftN_const (n k : Nat) (c : BConst) (us : List Nat) :
     liftN n (.const c us) k = .const c us := rfl
-@[simp] theorem liftN_app (n k : Nat) (f a : AVExpr) :
+@[simp] theorem liftN_app (n k : Nat) (f a : AnnotTerm) :
     liftN n (.app f a) k = .app (liftN n f k) (liftN n a k) := rfl
-@[simp] theorem liftN_lam (n k u : Nat) (A b : AVExpr) :
+@[simp] theorem liftN_lam (n k u : Nat) (A b : AnnotTerm) :
     liftN n (.lam u A b) k = .lam u (liftN n A k) (liftN n b (k + 1)) := rfl
-@[simp] theorem liftN_pi (n k u v : Nat) (A B : AVExpr) :
+@[simp] theorem liftN_pi (n k u v : Nat) (A B : AnnotTerm) :
     liftN n (.pi u v A B) k = .pi u v (liftN n A k) (liftN n B (k + 1)) := rfl
-@[simp] theorem liftN_letE (n k : Nat) (T v b : AVExpr) :
+@[simp] theorem liftN_letE (n k : Nat) (T v b : AnnotTerm) :
     liftN n (.letE T v b) k =
       .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1)) := rfl
-@[simp] theorem liftN_eqE (n k : Nat) (T a b : AVExpr) :
+@[simp] theorem liftN_eqE (n k : Nat) (T a b : AnnotTerm) :
     liftN n (.eqE T a b) k = .eqE (liftN n T k) (liftN n a k) (liftN n b k) := rfl
-@[simp] theorem liftN_proj (n k i : Nat) (e : AVExpr) :
+@[simp] theorem liftN_proj (n k i : Nat) (e : AnnotTerm) :
     liftN n (.proj i e) k = .proj i (liftN n e k) := rfl
 @[simp] theorem liftN_prf (n k : Nat) : liftN n .prf k = .prf := rfl
 
-@[simp] theorem inst_bvar (a : AVExpr) (k i : Nat) :
+@[simp] theorem inst_bvar (a : AnnotTerm) (k i : Nat) :
     inst (.bvar i) a k =
       (if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)) :=
   rfl
-@[simp] theorem inst_sort (a : AVExpr) (k u : Nat) :
+@[simp] theorem inst_sort (a : AnnotTerm) (k u : Nat) :
     inst (.sort u) a k = .sort u := rfl
-@[simp] theorem inst_const (a : AVExpr) (k : Nat) (c : BConst) (us : List Nat) :
+@[simp] theorem inst_const (a : AnnotTerm) (k : Nat) (c : BConst) (us : List Nat) :
     inst (.const c us) a k = .const c us := rfl
-@[simp] theorem inst_app (a : AVExpr) (k : Nat) (f b : AVExpr) :
+@[simp] theorem inst_app (a : AnnotTerm) (k : Nat) (f b : AnnotTerm) :
     inst (.app f b) a k = .app (inst f a k) (inst b a k) := rfl
-@[simp] theorem inst_lam (a : AVExpr) (k u : Nat) (A b : AVExpr) :
+@[simp] theorem inst_lam (a : AnnotTerm) (k u : Nat) (A b : AnnotTerm) :
     inst (.lam u A b) a k = .lam u (inst A a k) (inst b a (k + 1)) := rfl
-@[simp] theorem inst_pi (a : AVExpr) (k u v : Nat) (A B : AVExpr) :
+@[simp] theorem inst_pi (a : AnnotTerm) (k u v : Nat) (A B : AnnotTerm) :
     inst (.pi u v A B) a k = .pi u v (inst A a k) (inst B a (k + 1)) := rfl
-@[simp] theorem inst_letE (a : AVExpr) (k : Nat) (T v b : AVExpr) :
+@[simp] theorem inst_letE (a : AnnotTerm) (k : Nat) (T v b : AnnotTerm) :
     inst (.letE T v b) a k =
       .letE (inst T a k) (inst v a k) (inst b a (k + 1)) := rfl
-@[simp] theorem inst_eqE (a : AVExpr) (k : Nat) (T b c : AVExpr) :
+@[simp] theorem inst_eqE (a : AnnotTerm) (k : Nat) (T b c : AnnotTerm) :
     inst (.eqE T b c) a k = .eqE (inst T a k) (inst b a k) (inst c a k) := rfl
-@[simp] theorem inst_proj (a : AVExpr) (k i : Nat) (e : AVExpr) :
+@[simp] theorem inst_proj (a : AnnotTerm) (k i : Nat) (e : AnnotTerm) :
     inst (.proj i e) a k = .proj i (inst e a k) := rfl
-@[simp] theorem inst_prf (a : AVExpr) (k : Nat) : inst .prf a k = .prf := rfl
+@[simp] theorem inst_prf (a : AnnotTerm) (k : Nat) : inst .prf a k = .prf := rfl
 
 /-! ### The erase-commutations
 
 **Annotations are inert data under substitution.**  Both operations
-project onto `VExpr`'s on the nose: nothing in `liftN`/`inst` reads or
+project onto `Term`'s on the nose: nothing in `liftN`/`inst` reads or
 writes a numeral slot, so `erase` is a homomorphism for them.  These
 two equations are the whole point of the structural kit — tier B and
 tier C move annotated terms through β, ζ and telescope steps by
 rewriting with them, never by re-deriving a sort fact. -/
 
 /-- `erase` commutes with lifting. -/
-@[simp] theorem erase_liftN : ∀ (e : AVExpr) (n k : Nat),
-    erase (liftN n e k) = VExpr.liftN n (erase e) k := by
+@[simp] theorem erase_liftN : ∀ (e : AnnotTerm) (n k : Nat),
+    erase (liftN n e k) = Term.liftN n (erase e) k := by
   intro e
   induction e with
   | bvar i => intros; rfl
   | sort u => intros; rfl
   | const c us => intros; rfl
   | app f a ihf iha => intro n k; simp only [liftN_app, erase_app, ihf, iha,
-      VExpr.liftN_app]
+      Term.liftN_app]
   | lam u A b ihA ihb => intro n k; simp only [liftN_lam, erase_lam, ihA, ihb,
-      VExpr.liftN_lam]
+      Term.liftN_lam]
   | pi u v A B ihA ihB => intro n k; simp only [liftN_pi, erase_pi, ihA, ihB,
-      VExpr.liftN_pi]
+      Term.liftN_pi]
   | letE T v b ihT ihv ihb => intro n k; simp only [liftN_letE, erase_letE,
-      ihT, ihv, ihb, VExpr.liftN_letE]
+      ihT, ihv, ihb, Term.liftN_letE]
   | eqE T a b ihT iha ihb => intro n k; simp only [liftN_eqE, erase_eqE,
-      ihT, iha, ihb, VExpr.liftN_eqE]
+      ihT, iha, ihb, Term.liftN_eqE]
   | proj i e ih => intro n k; simp only [liftN_proj, erase_proj, ih,
-      VExpr.liftN_proj]
+      Term.liftN_proj]
   | prf => intros; rfl
 
 /-- `erase` commutes with instantiation. -/
-@[simp] theorem erase_inst : ∀ (e a : AVExpr) (k : Nat),
-    erase (inst e a k) = VExpr.inst (erase e) (erase a) k := by
+@[simp] theorem erase_inst : ∀ (e a : AnnotTerm) (k : Nat),
+    erase (inst e a k) = Term.inst (erase e) (erase a) k := by
   intro e
   induction e with
   | bvar i =>
     intro a k
-    simp only [inst_bvar, VExpr.inst_bvar, erase_bvar]
+    simp only [inst_bvar, Term.inst_bvar, erase_bvar]
     split
     · rfl
     · split
@@ -259,62 +259,62 @@ rewriting with them, never by re-deriving a sort fact. -/
   | sort u => intros; rfl
   | const c us => intros; rfl
   | app f b ihf ihb => intro a k; simp only [inst_app, erase_app, ihf, ihb,
-      VExpr.inst_app]
+      Term.inst_app]
   | lam u A b ihA ihb => intro a k; simp only [inst_lam, erase_lam, ihA, ihb,
-      VExpr.inst_lam]
+      Term.inst_lam]
   | pi u v A B ihA ihB => intro a k; simp only [inst_pi, erase_pi, ihA, ihB,
-      VExpr.inst_pi]
+      Term.inst_pi]
   | letE T v b ihT ihv ihb => intro a k; simp only [inst_letE, erase_letE,
-      ihT, ihv, ihb, VExpr.inst_letE]
+      ihT, ihv, ihb, Term.inst_letE]
   | eqE T b c ihT ihb ihc => intro a k; simp only [inst_eqE, erase_eqE,
-      ihT, ihb, ihc, VExpr.inst_eqE]
+      ihT, ihb, ihc, Term.inst_eqE]
   | proj i e ih => intro a k; simp only [inst_proj, erase_proj, ih,
-      VExpr.inst_proj]
+      Term.inst_proj]
   | prf => intros; rfl
 
 /-- `erase` commutes with application spines. -/
-theorem erase_mkAppN : ∀ (as : List AVExpr) (f : AVExpr),
-    erase (mkAppN f as) = VExpr.mkAppN (erase f) (as.map erase) := by
+theorem erase_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
+    erase (mkAppN f as) = Term.mkAppN (erase f) (as.map erase) := by
   intro as
   induction as with
   | nil => intro f; rfl
   | cons a as ih => intro f; simpa using ih (.app f a)
 
-end AVExpr
+end AnnotTerm
 
 
 /-! ## `erase` at the constant clause
 
-Re-based here from `SetR/Interp2/EmptyPin2.lean` at THE SEPARATION's S2
+Re-based here from `SetR/Interp/EmptyPin2.lean` at THE SEPARATION's S2
 (task #161): pure syntax, and both lanes read a constant back out of an
-erasure with it.  (Its namespace was `ConLeche.SetR.Interp2`, re-opened
+erasure with it.  (Its namespace was `ConLeche.SetR.Interp`, re-opened
 by a nested block here until the 2026-09-06 namespace rename folded
 both into `ConLeche.Semantics`.) -/
 
 
-open ConLeche.VExpr (BConst)
+open ConLeche.Term (BConst)
 
 /-- **`erase` is injective at the constant clause.**  Every other
-`AVExpr` constructor erases to a different `VExpr` constructor, so a
+`AnnotTerm` constructor erases to a different `Term` constructor, so a
 constant erasure has a constant source — with the *same* name and the
 *same* level numerals, since the constant clause carries no
 annotation to forget. -/
-theorem erase_eq_const {ea : AVExpr} {c : BConst} {us : List Nat}
+theorem erase_eq_const {ea : AnnotTerm} {c : BConst} {us : List Nat}
     (h : ea.erase = .const c us) : ea = .const c us := by
   cases ea with
-  | bvar i => rw [AVExpr.erase_bvar] at h; exact nomatch h
-  | sort u => rw [AVExpr.erase_sort] at h; exact nomatch h
+  | bvar i => rw [AnnotTerm.erase_bvar] at h; exact nomatch h
+  | sort u => rw [AnnotTerm.erase_sort] at h; exact nomatch h
   | const c' us' =>
-    rw [AVExpr.erase_const] at h
+    rw [AnnotTerm.erase_const] at h
     injection h with h1 h2
     rw [h1, h2]
-  | app f a => rw [AVExpr.erase_app] at h; exact nomatch h
-  | lam u ty b => rw [AVExpr.erase_lam] at h; exact nomatch h
-  | pi u v ty b => rw [AVExpr.erase_pi] at h; exact nomatch h
-  | letE ty v b => rw [AVExpr.erase_letE] at h; exact nomatch h
-  | eqE ty l r => rw [AVExpr.erase_eqE] at h; exact nomatch h
-  | proj i e => rw [AVExpr.erase_proj] at h; exact nomatch h
-  | prf => rw [AVExpr.erase_prf] at h; exact nomatch h
+  | app f a => rw [AnnotTerm.erase_app] at h; exact nomatch h
+  | lam u ty b => rw [AnnotTerm.erase_lam] at h; exact nomatch h
+  | pi u v ty b => rw [AnnotTerm.erase_pi] at h; exact nomatch h
+  | letE ty v b => rw [AnnotTerm.erase_letE] at h; exact nomatch h
+  | eqE ty l r => rw [AnnotTerm.erase_eqE] at h; exact nomatch h
+  | proj i e => rw [AnnotTerm.erase_proj] at h; exact nomatch h
+  | prf => rw [AnnotTerm.erase_prf] at h; exact nomatch h
 
 
 end ConLeche.Semantics

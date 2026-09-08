@@ -1,7 +1,7 @@
 import ConLeche.MainTheorem
 import ConLeche.Verify.Cached.MainC
-import ConLeche.SetP.FoldP
-import ConLeche.SetP.CapstoneP
+import ConLeche.Model.Fold
+import ConLeche.Model.Capstone
 
 /-!
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1)
@@ -40,32 +40,32 @@ report the door if it ever did.
 statement a reader comes for — then the letters it is a corollary of,
 then the assembly under those, then the same letters about the pinned
 `Empty`.  Seven of them are also `tests/proofdeps.sh`'s roots —
-`no_proof_of_False`, `no_proof_of_False_SPCD_P`, `no_proof_of_False_P`,
-`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
-`foldSPC_PM`, `no_proof_of_Empty_P` — which pin the MODULES their proof
+`no_proof_of_False`, `no_proof_of_False_cached`, `no_proof_of_False_pure`,
+`no_proof_of_Empty_cached`, `checkDecls_sound`,
+`fold_preserves`, `no_proof_of_Empty_pure` — which pin the MODULES their proof
 terms reach.  The other four are pinned here only.  The two gates
 measure different things and neither implies the other.
 
 | theorem | what it says |
 |---|---|
 | `ConLeche.no_proof_of_False` | **THE MAIN THEOREM**: an accepted stream yields no constant of type `False` |
-| `no_proof_of_False_SPCD_P` | the shipped driver's letter, at every validating mode |
-| `no_proof_of_Empty_SPCD_P` | the same about the pinned `Empty` |
-| `checkDeclsSPCachedD_sound_P` | the acceptance corollary under the driver's letters |
-| `foldSPC_PM` | the fold that threads the model invariant |
-| `no_proof_of_False_P` | the pure fueled checker's letter |
-| `no_proof_of_Empty_P` | the same about `Empty` |
-| `no_proof_of_Empty_P_of` | its install-tier-conditional milestone shape |
-| `no_constant_of_False_P` | the business end at the invariant |
-| `no_constant_of_Empty_P` | the same about `Empty` |
-| `no_constant_of_emptyPin_P` | the pin under it |
+| `no_proof_of_False_cached` | the shipped driver's letter, at every validating mode |
+| `no_proof_of_Empty_cached` | the same about the pinned `Empty` |
+| `checkDecls_sound` | the acceptance corollary under the driver's letters |
+| `fold_preserves` | the fold that threads the model invariant |
+| `no_proof_of_False_pure` | the pure fueled checker's letter |
+| `no_proof_of_Empty_pure` | the same about `Empty` |
+| `no_proof_of_Empty_pure_of` | its install-tier-conditional milestone shape |
+| `no_constant_of_False` | the business end at the invariant |
+| `no_constant_of_Empty` | the same about `Empty` |
+| `no_constant_of_emptyPin` | the pin under it |
 
 **What is deliberately NOT pinned here** (2026-09-07, the user's
 two-loop ruling): anything about the `CON_LECHE_PROGRESS` lane.  That lane
 runs a *separate, openly unverified* fold in `Main.lean`
 (`checkDeclsProgressIO`) — the same steps as the verified one with a
 line printed before each declaration — and the default run calls
-`checkDeclsSPCachedD`, which is what the theorems above are about.  An
+`checkDecls`, which is what the theorems above are about.  An
 earlier round of that task carried a monad-generic loop with callbacks,
 a bridge at every lawful monad and a hand-proved `LawfulMonad IO`, all
 pinned here; the ruling replaced them with two trivial folds and a
@@ -88,67 +88,67 @@ info: 'ConLeche.no_proof_of_False' depends on axioms: [propext, Classical.choice
 /-! ## The shipped driver (`ConLeche/Verify/Cached/MainC.lean`) -/
 
 /--
-info: 'ConLeche.Cached.no_proof_of_False_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.no_proof_of_False_cached' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_False_SPCD_P
+#print axioms ConLeche.Cached.no_proof_of_False_cached
 
 /--
-info: 'ConLeche.Cached.no_proof_of_Empty_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.no_proof_of_Empty_cached' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_Empty_SPCD_P
+#print axioms ConLeche.Cached.no_proof_of_Empty_cached
 
 /--
-info: 'ConLeche.Cached.checkDeclsSPCachedD_sound_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.checkDeclsSPCachedD_sound_P
+#print axioms ConLeche.Cached.checkDecls_sound
 
 /--
-info: 'ConLeche.Cached.foldSPC_PM' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.fold_preserves' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.foldSPC_PM
+#print axioms ConLeche.Cached.fold_preserves
 
-/-! ## The pure fueled checker (`ConLeche/SetP/FoldP.lean`) -/
+/-! ## The pure fueled checker (`ConLeche/Model/Fold.lean`) -/
 
 /--
-info: 'ConLeche.SetP.no_proof_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_False_pure' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.SetP.no_proof_of_False_P
+#print axioms ConLeche.Model.no_proof_of_False_pure
 
 /--
-info: 'ConLeche.SetP.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_Empty_pure' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.SetP.no_proof_of_Empty_P
+#print axioms ConLeche.Model.no_proof_of_Empty_pure
 
 /--
-info: 'ConLeche.SetP.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_Empty_pure_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.SetP.no_proof_of_Empty_P_of
+#print axioms ConLeche.Model.no_proof_of_Empty_pure_of
 
-/-! ## The business end (`ConLeche/SetP/CapstoneP.lean`) -/
-
-/--
-info: 'ConLeche.SetP.no_constant_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.SetP.no_constant_of_False_P
+/-! ## The business end (`ConLeche/Model/Capstone.lean`) -/
 
 /--
-info: 'ConLeche.SetP.no_constant_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_constant_of_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.SetP.no_constant_of_Empty_P
+#print axioms ConLeche.Model.no_constant_of_False
 
 /--
-info: 'ConLeche.SetP.no_constant_of_emptyPin_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_constant_of_Empty' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.SetP.no_constant_of_emptyPin_P
+#print axioms ConLeche.Model.no_constant_of_Empty
+
+/--
+info: 'ConLeche.Model.no_constant_of_emptyPin' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.no_constant_of_emptyPin
 
 end ConLecheTests.Axioms

@@ -1,5 +1,5 @@
-import ConLeche.Kernel.Direct.SumInstallF
-import ConLeche.Kernel.Direct.RecInstallF
+import ConLeche.Kernel.Inductives.SumInstallF
+import ConLeche.Kernel.Inductives.NativeInstallF
 import ConLeche.Cached.CoreC
 
 /-!
@@ -31,26 +31,26 @@ def instPisAtLiftC : List Expr → Expr → Option Expr
   | a :: as, .forallE _ body _ => instPisAtLiftC as (ExprC.instantiate1Lift body a)
   | _ :: _, _ => none
 
-/-- `directProjBodiesGo` at the memoised substitution. -/
-def directProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
+/-- `structProjBodiesGo` at the memoised substitution. -/
+def structProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
   | 0, _, _ => some []
   | k + 1, i, .forallE fdom body _ =>
-    (directProjBodiesGoC T k (i + 1) (ExprC.instantiate1Lift body (directProjArgP T i))).map
+    (structProjBodiesGoC T k (i + 1) (ExprC.instantiate1Lift body (structProjArgP T i))).map
       (fdom :: ·)
   | _ + 1, _, _ => none
 
-/-- `directProjBodies` at the memoised substitution
-(`directProjBodiesC_eq`). -/
-def directProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
-  match instPisAtLiftC (directProjPs nP) cty with
-  | some r => (directProjBodiesGoC T nF 0 r).map List.toArray
+/-- `structProjBodies` at the memoised substitution
+(`structProjBodiesC_eq`). -/
+def structProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
+  match instPisAtLiftC (structProjPs nP) cty with
+  | some r => (structProjBodiesGoC T nF 0 r).map List.toArray
   | none => none
 
 /-- **The cached driver's walkers**: the memoised constant-resolution
 gate (`constsResolveFC`, verified at `constsResolveFC_spec`) and the
-memoised projection-body builder; equal to `DirectWalkers.plain`
-(`directWalkersC_eq_plain`). -/
-def directWalkersC : DirectWalkers := ⟨constsResolveFC, directProjBodiesC⟩
+memoised projection-body builder; equal to `StructWalkers.plain`
+(`structWalkersC_eq_plain`). -/
+def structWalkersC : StructWalkers := ⟨constsResolveFC, structProjBodiesC⟩
 
 variable (mode : CheckMode)
 
@@ -164,27 +164,27 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
-/-- `checkDirectFix` through the index (task #188).  The former's and
+/-- `checkNative` through the index (task #188).  The former's and
 the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
 transition. -/
-def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
+def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
   -- the provisional pass (task #210 Part D): the kinds, classified on
   -- the constructors normalised at a throwaway former
-  let (feP, cvTaP, p₁P) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+  let (feP, cvTaP, p₁P) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
     (fun _ => {})
   let p₂P := p₀.complete p₁P
   flushC
-  let (ctorsP, _) ← checkDirectSumCtorsF (sharedOpsC mode feP) feP feP p₂P.cvT.name
+  let (ctorsP, _) ← checkSumCtorsF (sharedOpsC mode feP) feP feP p₂P.cvT.name
     p₂P.cvT.levelParams p₂P.nP p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
   let kinds ← classifyFixKinds (m := CheckCM) p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx
     ctorsP
   flushC
-  let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
-    (fun p₁ => directFixCaps ((p₀.complete p₁).withKinds kinds))
+  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
+    (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds))
   let p := (p₀.complete p₁).withKinds kinds
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
@@ -192,24 +192,24 @@ def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
   flushC
   let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
-  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
+  let _isorts ← checkStructFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
     (tq.1.drop p.nP) [] p.nIdx
-  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
+  let (ctorsA, sortss) ← checkSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
     p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-  unless directFixFieldsOkF directWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
+  unless nativeFieldsOkF structWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
       p.kinds do
     throw (.internal "direct rec: field kinds")
-  unless directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
+  unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
       ctorsA p.kinds p.rhss do
     throw (.invalid "direct rec: recursor rules are not the generated ones")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
-  let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) directWalkersC fe₂ p cvTa ctorsA
+  let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p cvTa ctorsA
   -- the projection table at a structure-like block (task #210 Part A)
-  checkDirectFixTableF (m := CheckCM) directWalkersC p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
-    p.rulePrefix (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
+  checkNativeTableF (m := CheckCM) structWalkersC p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
+    p.rulePrefix (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
 
-/-- The modeled inductive block (mirrors `checkIndDecl`), returning
+/-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/
 def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     CheckCM FEnv := do

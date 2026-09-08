@@ -6,14 +6,14 @@ import ConLeche.Verify.Subst
 import ConLeche.Verify.EnvWF
 
 /-!
-# Iota — split out of `ConLeche.Model.Extend`
+# Iota — split out of `ConLeche.ModelV1.Extend`
 
 The kernel-checked hypothesis kits of modeled recursor rules
 (`RuleChecked`, from `checkIotaRules_inv`) and of a block's
 capability record (`EtaPins`, from `checkEtaThm_inv` /
 `checkUnitThm_inv`).
 
-Relocated from `ConLeche/Model/Extend/Iota.lean` (task #123): the whole
+Relocated from `ConLeche/ModelV1/Extend/Iota.lean` (task #123): the whole
 module is checker inversion over `Env`/`Expr` — 0 of its 1 394 lines
 mention a valuation — so both the set model and the declarative
 type-theory bridge import it from here.  The move is verbatim; the

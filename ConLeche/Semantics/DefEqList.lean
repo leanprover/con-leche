@@ -8,8 +8,8 @@ THE SEPARATION's shared base: three lemmas that were filed in
 **model-free** — pure inversions of the checker's `defEqList` run and of
 `recFireComparands`, naming no `EnvS`, no valuation and no relation of
 the `Infer`/`DefEq` family.  Both lanes consume them: `Bridge/Iota.lean`
-for `iota_stepR`, `Interp2/Step2/IotaRowsP.lean` for the graded lane's
-`IotaStepP` (design census §3.3, edge 13).
+for `iota_stepR`, `Interp/Steps/IotaRows.lean` for the graded lane's
+`IotaStep` (design census §3.3, edge 13).
 
 Statements verbatim from their old home; the namespace is unchanged.
 -/
@@ -28,8 +28,8 @@ theorem recFireComparands_fst_nil (rl : RecRule) (lps : List Name)
 /-- A successful `defEqList`'s components — the form the nested pin
 premise needs, since only *one* index's comparand is known to denote
 (the rule hypothesises exactly that one). -/
-theorem defEqListP_get {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListP mode env fuel d as bs = .ok true →
+theorem defEqListFueled_get {env : Env} {fuel d : Nat} :
+    ∀ {as bs : List Expr}, defEqListFueled mode env fuel d as bs = .ok true →
       ∀ i, i < as.length →
         isDefEqCore mode env fuel d (as.getD i default) (bs.getD i default)
           = .ok true := by
@@ -39,7 +39,7 @@ theorem defEqListP_get {env : Env} {fuel d : Nat} :
   | cons x xs ih =>
     intro bs h i hi
     cases bs with
-    | nil => simp [defEqListP, defEqList, pure, Except.pure] at h
+    | nil => simp [defEqListFueled, defEqList, pure, Except.pure] at h
     | cons y ys =>
       obtain ⟨hxy, htail⟩ := defEqList_step_inv h
       match i with
@@ -47,8 +47,8 @@ theorem defEqListP_get {env : Env} {fuel d : Nat} :
       | j + 1 => simpa using ih htail j (by simpa using hi)
 
 /-- A successful `defEqList` relates lists of equal length. -/
-theorem defEqListP_length {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListP mode env fuel d as bs = .ok true →
+theorem defEqListFueled_length {env : Env} {fuel d : Nat} :
+    ∀ {as bs : List Expr}, defEqListFueled mode env fuel d as bs = .ok true →
       as.length = bs.length := by
   intro as
   induction as with
@@ -56,11 +56,11 @@ theorem defEqListP_length {env : Env} {fuel d : Nat} :
     intro bs h
     cases bs with
     | nil => rfl
-    | cons _ _ => simp [defEqListP, defEqList, pure, Except.pure] at h
+    | cons _ _ => simp [defEqListFueled, defEqList, pure, Except.pure] at h
   | cons x xs ih =>
     intro bs h
     cases bs with
-    | nil => simp [defEqListP, defEqList, pure, Except.pure] at h
+    | nil => simp [defEqListFueled, defEqList, pure, Except.pure] at h
     | cons y ys => simpa using ih (defEqList_step_inv h).2
 
 

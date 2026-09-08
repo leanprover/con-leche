@@ -31,13 +31,13 @@ below.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- **`certifyNatEqs`, exposed as runs** (task #161 P4 H1 at the
 literal tier): the verdict is one `isDefEqCore` success per equation,
 and the recorded form is the checker's literal call —
 `fueledOps_isDefEq` at fuel `F`, depth `2`.  The P tier's
-`NatOpsP` establishment consumes these through `DefEqClaims2P`
+`NatOps` establishment consumes these through `DefEqClaim`
 instead of the relational `NatEqsR` below (whose `DefEq` only has
 collapse-currency soundness). -/
 theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :

@@ -41,13 +41,13 @@ theorem shiftE_fieldFrame {o : Nat} {ρp : Nat → V} {M : V} {ms : List V} (hms
 expression at the field's own frame under those values. -/
 theorem interp_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (as : List V) (E : AVExpr) :
-    interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+    (hi : i ≤ nF) (as : List V) (E : AnnotTerm) :
+    interp V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
         (ihIdxAtM nF o i l as.length E)
-      = interp2 V (consList as (consList (fs.take i) ρp)) E := by
+      = interp V (consList as (consList (fs.take i) ρp)) E := by
   unfold ihIdxAtM
-  rw [interp2_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
-    shiftE_consList_len', shiftE_fieldFrame hms, interp2_liftN, shiftE_consList_len,
+  rw [interp_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
+    shiftE_consList_len', shiftE_fieldFrame hms, interp_liftN, shiftE_consList_len,
     ← consList_append]
   have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
     rw [← List.append_assoc, List.take_append_drop]
@@ -59,7 +59,7 @@ the nested product over the telescope at the field's own frame. -/
 theorem piTele_ihTeleAtGo {v : Nat} {B : List V → V} {nF o i l : Nat} {ρp : Nat → V} {M : V}
     {ms : List V} (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF)
     (hihs : ihs.length = l) (hi : i ≤ nF) :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as acc : List V),
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as acc : List V),
       piTele v (teleOfFields (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
           ((ihTeleAtGo nF o i l as.length tl).map (·.2.2))) B acc
         = piTele v (teleOfFields (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2))) B acc
@@ -95,19 +95,19 @@ theorem consList_getD_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.
       rw [this, cons_zero, List.length_cons, Nat.add_sub_cancel, Nat.sub_self, List.getD_cons_zero]
 
 theorem map_teleVarsAV_interp' {m : Nat} {bs : List V} (hm : bs.length = m) (ρ : Nat → V) :
-    (teleVarsAV m).map (interp2 V (consList bs ρ)) = bs := by
+    (teleVarsAV m).map (interp V (consList bs ρ)) = bs := by
   subst hm
-  have h : (teleVarsAV bs.length).map (interp2 V (consList bs ρ))
+  have h : (teleVarsAV bs.length).map (interp V (consList bs ρ))
       = frameIdx bs.length (consList bs ρ) := by
     unfold teleVarsAV frameIdx
     rw [List.map_map]
     apply List.map_congr_left
     intro l _
-    simp only [Function.comp_def, interp2_bvar]
+    simp only [Function.comp_def, interp_bvar]
   rw [h, frameIdx_consList']
 
 theorem map_teleVarsAV_interp (bs : List V) (ρ : Nat → V) :
-    (teleVarsAV bs.length).map (interp2 V (consList bs ρ)) = bs :=
+    (teleVarsAV bs.length).map (interp V (consList bs ρ)) = bs :=
   map_teleVarsAV_interp' rfl ρ
 
 omit [SetTheory V] in
@@ -134,7 +134,7 @@ theorem prefixVarsAV_shift {nP n nF m nF' m' : Nat} (h : nF + m = nF' + m') :
 theorem map_prefixVarsAV_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenF : as₂.length = nF) (bs : List V) :
     (prefixVarsAV nP n nF bs.length).map
-        (interp2 V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ))))))
+        (interp V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ))))))
       = (as₁ ++ [M]) ++ ms := by
   unfold prefixVarsAV
   rw [List.map_append, List.map_append]
@@ -144,20 +144,20 @@ theorem map_prefixVarsAV_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M : V
     · simp [hlenP]
     · intro k h1 h2
       have hk : k < nP := by simpa using h1
-      simp only [List.getElem_map, List.getElem_range, interp2_bvar]
+      simp only [List.getElem_map, List.getElem_range, interp_bvar]
       rw [show nP + nF + n + 1 + bs.length - 1 - k = (((nP - 1 - k) + 1 + ms.length) + as₂.length) + bs.length
           from by omega,
         consList_apply_add, consList_apply_add, consList_apply_add, cons_succ,
         consList_getD_lt as₁ ρ (nP - 1 - k) (by omega), show as₁.length - 1 - (nP - 1 - k) = k from by omega,
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
-  · simp only [List.map_cons, List.map_nil, interp2_bvar]
+  · simp only [List.map_cons, List.map_nil, interp_bvar]
     rw [show nF + n + bs.length = ((0 + ms.length) + as₂.length) + bs.length from by omega,
       consList_apply_add, consList_apply_add, consList_apply_add, cons_zero]
   · apply List.ext_getElem
     · simp [hlenM]
     · intro l h1 h2
       have hl : l < n := by simpa using h1
-      simp only [List.getElem_map, List.getElem_range, interp2_bvar]
+      simp only [List.getElem_map, List.getElem_range, interp_bvar]
       rw [show nF + n - 1 - l + bs.length = ((n - 1 - l) + as₂.length) + bs.length from by omega,
         consList_apply_add, consList_apply_add, consList_getD_lt ms _ _ (by omega),
         show ms.length - 1 - (n - 1 - l) = l from by omega,
@@ -169,7 +169,7 @@ corresponding leaves). -/
 theorem lamTower_ihTeleAtGo {b nF o i : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs : List V} (hfs : fs.length = nF) (hi : i ≤ nF)
     {g₁ g₂ : (Nat → V) → V} :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as : List V),
       (∀ bs : List V, bs.length = tl.length →
         g₁ (consList bs (consList as (consList fs (consList ms (cons M ρp)))))
           = g₂ (consList bs (consList as (consList (fs.take i) ρp)))) →
@@ -179,9 +179,9 @@ theorem lamTower_ihTeleAtGo {b nF o i : Nat} {ρp : Nat → V} {M : V} {ms : Lis
     have := hg [] rfl
     simpa [lamTower, ihTeleAtGo] using this
   | d :: tl, as, hg => by
-    show lamR b (interp2 V _ (ihIdxAtM nF o i 0 as.length d.2.2))
+    show lamR b (interp V _ (ihIdxAtM nF o i 0 as.length d.2.2))
         (fun a => lamTower b (cons a _) (ihTeleAtGo nF o i 0 (as.length + 1) tl) g₁)
-      = lamR b (interp2 V _ d.2.2) (fun a => lamTower b (cons a _) tl g₂)
+      = lamR b (interp V _ d.2.2) (fun a => lamTower b (cons a _) tl g₂)
     have hd := interp_ihIdxAtM (ρp := ρp) (M := M) (l := 0) hms hfs (ihs := []) rfl hi as d.2.2
     rw [consList_nil] at hd
     rw [hd]
@@ -192,8 +192,8 @@ theorem lamTower_ihTeleAtGo {b nF o i : Nat} {ρp : Nat → V} {M : V} {ms : Lis
     rw [length_snoc', ← consList_snoc', ← consList_snoc'] at ih
     exact ih
 
-theorem prefixVarsAV_ok2 {nP n nF m : Nat} {σ : Nat → V} {a : AVExpr}
-    (ha : a ∈ prefixVarsAV nP n nF m) : AnnotOk2 V σ a := by
+theorem prefixVarsAV_wellDenoted {nP n nF m : Nat} {σ : Nat → V} {a : AnnotTerm}
+    (ha : a ∈ prefixVarsAV nP n nF m) : WellDenoted V σ a := by
   unfold prefixVarsAV at ha
   rcases List.mem_append.mp ha with ha | ha
   · rcases List.mem_append.mp ha with ha | ha
@@ -201,8 +201,8 @@ theorem prefixVarsAV_ok2 {nP n nF m : Nat} {σ : Nat → V} {a : AVExpr}
     · rw [List.mem_singleton] at ha; subst ha; trivial
   · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha; trivial
 
-theorem teleVarsAV_ok2 {m : Nat} {σ : Nat → V} {a : AVExpr} (ha : a ∈ teleVarsAV m) :
-    AnnotOk2 V σ a := by
+theorem teleVarsAV_wellDenoted {m : Nat} {σ : Nat → V} {a : AnnotTerm} (ha : a ∈ teleVarsAV m) :
+    WellDenoted V σ a := by
   obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha; trivial
 
 /-- The ih application's arguments read, under telescope values, to
@@ -210,11 +210,11 @@ the block, the field's index values and the field applied to the
 values. -/
 theorem ihAppAVb_args_interp {nP n nF e i : Nat} {as₁ ms ex fs bs : List V} {M : V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenE : ex.length = e) (hlenF : fs.length = nF)
-    (hi : i < nF) (Eis : List AVExpr) :
+    (hi : i < nF) (Eis : List AnnotTerm) :
     (prefixVarsAV nP n nF (bs.length + e) ++ Eis.map (ihIdxAtM nF (n + 1 + e) i 0 bs.length) ++
-        [AVExpr.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
-      (interp2 V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))))
-      = (as₁ ++ [M]) ++ ms ++ Eis.map (interp2 V (consList bs (consList (fs.take i) (consList as₁ ρ)))) ++
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
+      (interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))))
+      = (as₁ ++ [M]) ++ ms ++ Eis.map (interp V (consList bs (consList (fs.take i) (consList as₁ ρ)))) ++
         [(frameIdx bs.length (consList bs (consList (fs.take i) (consList as₁ ρ)))).foldl SetTheory.app
           (fs.getD i pt)] := by
   have hms : (ms ++ ex).length + 1 = n + 1 + e := by rw [List.length_append]; omega
@@ -226,25 +226,25 @@ theorem ihAppAVb_args_interp {nP n nF e i : Nat} {as₁ ms ex fs bs : List V} {M
       = consList bs (consList [] (consList fs (consList (ms ++ ex) (cons M (consList as₁ ρ))))) := by
     rw [consList_nil, consList_append]
   have hpre : (prefixVarsAV nP n nF (bs.length + e)).map
-      (interp2 V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))))
+      (interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))))
       = (as₁ ++ [M]) ++ ms := by
     rw [hσ, prefixVarsAV_shift (nF' := e + nF) (m' := bs.length) (by omega)]
     exact map_prefixVarsAV_interp hlenP hlenM (by rw [List.length_append]; omega) bs
-  have hEis : Eis.map (interp2 V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
+  have hEis : Eis.map (interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
       ∘ ihIdxAtM nF (n + 1 + e) i 0 bs.length)
-      = Eis.map (interp2 V (consList bs (consList (fs.take i) (consList as₁ ρ)))) := by
+      = Eis.map (interp V (consList bs (consList (fs.take i) (consList as₁ ρ)))) := by
     apply List.map_congr_left
     intro E _
     simp only [Function.comp_def]
     rw [hσ']
     exact interp_ihIdxAtM (ρp := consList as₁ ρ) (M := M) (l := 0) hms hlenF (ihs := []) rfl
       (Nat.le_of_lt hi) bs E
-  have hfld : interp2 V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
-      (AVExpr.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
+  have hfld : interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
+      (AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
       = (frameIdx bs.length (consList bs (consList (fs.take i) (consList as₁ ρ)))).foldl
           SetTheory.app (fs.getD i pt) := by
-    rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V _) (g := SetTheory.app),
-      map_teleVarsAV_interp, frameIdx_consList', interp2_bvar, consList_apply_add,
+    rw [interp_mkAppN, ← List.foldl_map (f := interp V _) (g := SetTheory.app),
+      map_teleVarsAV_interp, frameIdx_consList', interp_bvar, consList_apply_add,
       consList_getD_lt fs _ _ (by omega), show fs.length - 1 - (nF - 1 - i) = i from by omega]
   rw [hpre, hEis, List.map_cons, List.map_nil, hfld]
 
@@ -253,18 +253,18 @@ telescope at the field's own frame of the function at the block, the
 field's index values and the field applied to the telescope's values. -/
 theorem interp_ihAppAVb {b nP n nF e i : Nat} {as₁ ms ex fs : List V} {M : V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenE : ex.length = e) (hlenF : fs.length = nF)
-    (hi : i < nF) {Rm : Nat → AVExpr} {rV : V}
+    (hi : i < nF) {Rm : Nat → AnnotTerm} {rV : V}
     (hR : ∀ bs : List V,
-      interp2 V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
+      interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
         (Rm bs.length) = rV)
-    (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr) :
-    interp2 V (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))
+    (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
+    interp V (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))
         (ihAppAVb b Rm nP n nF e i tl Eis)
       = lamTower b (consList (fs.take i) (consList as₁ ρ)) tl fun σ' =>
-          ((as₁ ++ [M]) ++ ms ++ Eis.map (interp2 V σ') ++
+          ((as₁ ++ [M]) ++ ms ++ Eis.map (interp V σ') ++
             [(frameIdx tl.length σ').foldl SetTheory.app (fs.getD i pt)]).foldl SetTheory.app rV := by
   unfold ihAppAVb ihTeleAtR
-  rw [interp2_mkLamsC]
+  rw [interp_mkLamsC]
   have hms : (ms ++ ex).length + 1 = n + 1 + e := by rw [List.length_append]; omega
   have hfr : consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))
       = consList [] (consList fs (consList (ms ++ ex) (cons M (consList as₁ ρ)))) := by
@@ -272,7 +272,7 @@ theorem interp_ihAppAVb {b nP n nF e i : Nat} {as₁ ms ex fs : List V} {M : V} 
   rw [hfr]
   refine lamTower_ihTeleAtGo hms hlenF (Nat.le_of_lt hi) tl [] fun bs hbs => ?_
   simp only [consList_nil]
-  rw [← hbs, interp2_mkAppN, ← List.foldl_map (f := interp2 V _) (g := SetTheory.app), consList_append ms ex,
+  rw [← hbs, interp_mkAppN, ← List.foldl_map (f := interp V _) (g := SetTheory.app), consList_append ms ex,
     ihAppAVb_args_interp hlenP hlenM hlenE hlenF hi, hR bs]
 
 /-! ## Moved kit (from the P tier's `FixRuleKitP`; pure) -/
@@ -283,13 +283,13 @@ theorem interp_ihAppAVb {b nP n nF e i : Nat} {as₁ ms ex fs : List V} {M : V} 
 application chain. -/
 theorem minorSpI_appChainOk {ℓ : Nat} {c : List V → V}
     (hc0 : ℓ = 0 → ∀ acc, c acc ∈ˢ (univZero : V)) :
-    ∀ {Fs : List AVExpr} {ρf : Nat → V} {acc : List V} {m : V} {as : List V},
+    ∀ {Fs : List AnnotTerm} {ρf : Nat → V} {acc : List V} {m : V} {as : List V},
       m ∈ˢ minorSpI ℓ c Fs ρf acc → SpineFit ρf Fs as → AppChainOk m as
   | [], _, _, _, [], _, _ => fun l hl => absurd hl (Nat.not_lt_zero _)
   | [], _, _, _, _ :: _, _, hsp => hsp.elim
   | _ :: _, _, _, _, [], _, hsp => hsp.elim
   | F :: Fs, ρf, acc, m, a :: as, hm, hsp => by
-    have hB0 : ℓ = 0 → ∀ x, x ∈ˢ interp2 V ρf F →
+    have hB0 : ℓ = 0 → ∀ x, x ∈ˢ interp V ρf F →
         minorSpI ℓ c Fs (cons x ρf) (acc ++ [x]) ∈ˢ (univZero : V) :=
       fun h0 x _ => minorSpI_zero_univZero h0 (hc0 h0) Fs (cons x ρf) (acc ++ [x])
     have happ : SetTheory.app m a ∈ˢ minorSpI ℓ c Fs (cons a ρf) (acc ++ [a]) :=
@@ -297,7 +297,7 @@ theorem minorSpI_appChainOk {ℓ : Nat} {c : List V → V}
     intro l hl
     cases l with
     | zero =>
-      exact ⟨ℓ, interp2 V ρf F, fun x => minorSpI ℓ c Fs (cons x ρf) (acc ++ [x]), hm,
+      exact ⟨ℓ, interp V ρf F, fun x => minorSpI ℓ c Fs (cons x ρf) (acc ++ [x]), hm,
         by simpa using hsp.1, hB0⟩
     | succ l =>
       obtain ⟨v, A, B, h1, h2, h3⟩ := minorSpI_appChainOk hc0 (Fs := Fs) (as := as) happ hsp.2 l
@@ -307,15 +307,15 @@ theorem minorSpI_appChainOk {ℓ : Nat} {c : List V → V}
       · simpa only [List.getD_cons_succ] using h2
 
 
-theorem AnnotOk2_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
+theorem WellDenoted_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (as : List V) (E : AVExpr) :
-    AnnotOk2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+    (hi : i ≤ nF) (as : List V) (E : AnnotTerm) :
+    WellDenoted V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
         (ihIdxAtM nF o i l as.length E) ↔
-      AnnotOk2 V (consList as (consList (fs.take i) ρp)) E := by
+      WellDenoted V (consList as (consList (fs.take i) ρp)) E := by
   unfold ihIdxAtM
-  rw [AnnotOk2_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
-    shiftE_consList_len', shiftE_fieldFrame hms, AnnotOk2_liftN, shiftE_consList_len,
+  rw [WellDenoted_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
+    shiftE_consList_len', shiftE_fieldFrame hms, WellDenoted_liftN, shiftE_consList_len,
     ← consList_append]
   have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
     rw [← List.append_assoc, List.take_append_drop]
@@ -327,7 +327,7 @@ telescope at the field's own frame. -/
 theorem spineFit_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
     (hi : i ≤ nF) :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as bs : List V),
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as bs : List V),
       SpineFit (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
           ((ihTeleAtGo nF o i l as.length tl).map (·.2.2)) bs ↔
         SpineFit (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2)) bs
@@ -335,9 +335,9 @@ theorem spineFit_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : Lis
   | [], _, _ :: _ => Iff.rfl
   | _ :: _, _, [] => by simp [ihTeleAtGo, SpineFit]
   | d :: tl, as, b :: bs => by
-    show b ∈ˢ interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+    show b ∈ˢ interp V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
         (ihIdxAtM nF o i l as.length d.2.2) ∧ SpineFit _ _ bs ↔
-      b ∈ˢ interp2 V (consList as (consList (fs.take i) ρp)) d.2.2 ∧ SpineFit _ _ bs
+      b ∈ˢ interp V (consList as (consList (fs.take i) ρp)) d.2.2 ∧ SpineFit _ _ bs
     rw [interp_ihIdxAtM hms hfs hihs hi, consList_snoc', consList_snoc']
     have := spineFit_ihTeleAtGo (M := M) (ρp := ρp) hms hfs hihs hi tl (as ++ [b]) bs
     rw [length_snoc'] at this
@@ -347,7 +347,7 @@ theorem spineFit_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : Lis
 theorem fieldsOkB_ihTeleAtGo {w nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
     (hi : i ≤ nF) :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as : List V),
       FieldsOkB w (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2)) →
       FieldsOkB w (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
         ((ihTeleAtGo nF o i l as.length tl).map (·.2.2))
@@ -357,7 +357,7 @@ theorem fieldsOkB_ihTeleAtGo {w nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : 
       (ihTeleAtGo nF o i l (as.length + 1) tl).map (·.2.2))
     rw [List.map_cons] at hF
     obtain ⟨hok, hbnd, hrest⟩ := hF
-    refine ⟨(AnnotOk2_ihIdxAtM hms hfs hihs hi as _).mpr hok,
+    refine ⟨(WellDenoted_ihIdxAtM hms hfs hihs hi as _).mpr hok,
       fun hw => by rw [interp_ihIdxAtM hms hfs hihs hi]; exact hbnd hw, fun a ha => ?_⟩
     rw [interp_ihIdxAtM hms hfs hihs hi] at ha
     rw [consList_snoc']
@@ -369,7 +369,7 @@ theorem fieldsOkB_ihTeleAtGo {w nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : 
 
 /-- A graded telescope walks. -/
 theorem domsWalk_of_fieldsOkB {w : Nat} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
       FieldsOkB w ρ (ds.map (·.2.2)) → DomsWalk ρ ds
   | [], _, _ => trivial
   | _ :: ds, ρ, h => by
@@ -389,17 +389,17 @@ theorem famApp_mem_univ {w : Nat} {I X : V} (hX : X ∈ˢ lfpFamSpace V w I) (t 
 
 /-- **A field in a slot's value, applied along a fitting telescope
 spine, lies in the family at the index values** (task #202). -/
-theorem slotSet_fold_mem {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AVExpr)}
-    {Eis : List AVExpr} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univ w : V)) {f : V}
+theorem slotSet_fold_mem {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
+    {Eis : List AnnotTerm} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univ w : V)) {f : V}
     (hf : f ∈ˢ slotSet w u ρ tl Eis X) {bs : List V} (hsp : SpineFit ρ (tl.map (·.2.2)) bs) :
     bs.foldl SetTheory.app f
-      ∈ˢ SetTheory.app X (tupW u (Eis.map (interp2 V (consList bs ρ)))) := by
+      ∈ˢ SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ)))) := by
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · have hpt : f = pt := eq_pt_of_mem_slotSet_zero (fun t => by rw [← univ_zero]; exact hX t) hf
     unfold slotSet at hf
     obtain ⟨y, hy⟩ := mem_piTele_zero hf bs (fitsS_teleOfFields.mpr hsp)
     rw [List.nil_append] at hy
-    have hz : SetTheory.app X (tupW u (Eis.map (interp2 V (consList bs ρ)))) ∈ˢ (univZero : V) := by
+    have hz : SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ)))) ∈ˢ (univZero : V) := by
       rw [← univ_zero]; exact hX _
     rw [hpt, foldl_app_pt_sum, ← eq_pt_of_mem_univZero hz hy]
     exact hy
@@ -410,8 +410,8 @@ theorem slotSet_fold_mem {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × 
 
 /-- **A field in a slot's value has a graded application chain** along
 a fitting telescope spine. -/
-theorem slotSet_chainOk {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AVExpr)}
-    {Eis : List AVExpr} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univ w : V)) {f : V}
+theorem slotSet_chainOk {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
+    {Eis : List AnnotTerm} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univ w : V)) {f : V}
     (hf : f ∈ˢ slotSet w u ρ tl Eis X) {bs : List V} (hsp : SpineFit ρ (tl.map (·.2.2)) bs) :
     AppChainOk f bs := by
   rcases Nat.eq_zero_or_pos w with rfl | hw
@@ -421,7 +421,7 @@ theorem slotSet_chainOk {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × A
     subst hpt
     intro l hl
     have hlen : bs.length = tl.length := by rw [hsp.length_eq, List.length_map]
-    refine ⟨0, interp2 V (consList (bs.take l) ρ) ((tl.map (·.2.2)).getD l default),
+    refine ⟨0, interp V (consList (bs.take l) ρ) ((tl.map (·.2.2)).getD l default),
       fun _ => truthVal True, ?_, ?_, fun _ _ _ => truthVal_mem_univZero True⟩
     · rw [foldl_app_pt_sum, piR_zero]
       exact mem_truthVal.mpr ⟨fun _ _ => ⟨pt, mem_truthVal.mpr ⟨trivial, rfl⟩⟩, rfl⟩
@@ -435,15 +435,15 @@ theorem slotSet_chainOk {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × A
 /-- A λ-tower whose leaves lie in the bound lies in the nested product
 over its telescope. -/
 theorem lamTower_mem_piTele {m : Nat} {B : List V → V} {g : (Nat → V) → V} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {acc : List V},
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
       (∀ bs, SpineFit ρ (ds.map (·.2.2)) bs → g (consList bs ρ) ∈ˢ B (acc ++ bs)) →
       lamTower m ρ ds g ∈ˢ piTele m (teleOfFields ρ (ds.map (·.2.2))) B acc
   | [], ρ, acc, hg => by
     show g ρ ∈ˢ B acc
     simpa only [consList_nil, List.append_nil] using hg [] trivial
   | d :: ds, ρ, acc, hg => by
-    show lamR m (interp2 V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g)
-      ∈ˢ piR m (interp2 V ρ d.2.2)
+    show lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g)
+      ∈ˢ piR m (interp V ρ d.2.2)
         (fun a => piTele m (teleOfFields (cons a ρ) (ds.map (·.2.2))) B (acc ++ [a]))
     refine lamR_mem fun a ha => lamTower_mem_piTele fun bs hbs => ?_
     have := hg (a :: bs) ⟨ha, hbs⟩
@@ -541,21 +541,21 @@ theorem ihSpL_appChainOk {ℓ : Nat} {C : V} (hC0 : ℓ = 0 → C ∈ˢ (univZer
         by simpa only [List.getD_cons_succ] using h2, h3⟩
 
 /-- `UnderTowerOk` with a semantic bound at the leaves. -/
-def UnderTowerOkB (m : Nat) (b : AVExpr) (B : List V → V) :
-    (Nat → V) → List V → List (Nat × Nat × AVExpr) → Prop
-  | ρ, acc, [] => AnnotOk2 V ρ b ∧ interp2 V ρ b ∈ˢ B acc ∧ (m = 0 → B acc ∈ˢ (univZero : V))
-  | ρ, acc, d :: ds => AnnotOk2 V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp2 V ρ d.2.2 → UnderTowerOkB m b B (cons a ρ) (acc ++ [a]) ds
+def UnderTowerOkB (m : Nat) (b : AnnotTerm) (B : List V → V) :
+    (Nat → V) → List V → List (Nat × Nat × AnnotTerm) → Prop
+  | ρ, acc, [] => WellDenoted V ρ b ∧ interp V ρ b ∈ˢ B acc ∧ (m = 0 → B acc ∈ˢ (univZero : V))
+  | ρ, acc, d :: ds => WellDenoted V ρ d.2.2 ∧
+      ∀ a, a ∈ˢ interp V ρ d.2.2 → UnderTowerOkB m b B (cons a ρ) (acc ++ [a]) ds
 
-theorem underTowerOkB_of_leaves {m : Nat} {b : AVExpr} {B : List V → V} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {acc : List V},
+theorem underTowerOkB_of_leaves {m : Nat} {b : AnnotTerm} {B : List V → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
       DomsWalk ρ ds →
       (∀ bs, SpineFit ρ (ds.map (·.2.2)) bs →
-        AnnotOk2 V (consList bs ρ) b ∧ interp2 V (consList bs ρ) b ∈ˢ B (acc ++ bs) ∧
+        WellDenoted V (consList bs ρ) b ∧ interp V (consList bs ρ) b ∈ˢ B (acc ++ bs) ∧
         (m = 0 → B (acc ++ bs) ∈ˢ (univZero : V))) →
       UnderTowerOkB m b B ρ acc ds
   | [], ρ, acc, _, hb => by
-    show AnnotOk2 V ρ b ∧ interp2 V ρ b ∈ˢ B acc ∧ (m = 0 → B acc ∈ˢ (univZero : V))
+    show WellDenoted V ρ b ∧ interp V ρ b ∈ˢ B acc ∧ (m = 0 → B acc ∈ˢ (univZero : V))
     simpa only [consList_nil, List.append_nil] using hb [] trivial
   | d :: ds, ρ, acc, hok, hb => by
     refine ⟨hok.1, fun a ha => underTowerOkB_of_leaves (hok.2 a ha) fun bs hsp => ?_⟩
@@ -564,35 +564,35 @@ theorem underTowerOkB_of_leaves {m : Nat} {b : AVExpr} {B : List V → V} :
 
 /-- **A constant-bit λ-tower is graded and lies in the nested product**
 over its telescope of the bound. -/
-theorem mkLamsC_factsB {m : Nat} {b : AVExpr} {B : List V → V} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {acc : List V},
+theorem mkLamsC_factsB {m : Nat} {b : AnnotTerm} {B : List V → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
       UnderTowerOkB m b B ρ acc ds →
-      AnnotOk2 V ρ (mkLamsC m ds b) ∧
-        interp2 V ρ (mkLamsC m ds b) ∈ˢ piTele m (teleOfFields ρ (ds.map (·.2.2))) B acc
+      WellDenoted V ρ (mkLamsC m ds b) ∧
+        interp V ρ (mkLamsC m ds b) ∈ˢ piTele m (teleOfFields ρ (ds.map (·.2.2))) B acc
   | [], ρ, acc, h => ⟨h.1, h.2.1⟩
   | d :: ds, ρ, acc, h => by
-    have hrest : ∀ a, a ∈ˢ interp2 V ρ d.2.2 →
-        AnnotOk2 V (cons a ρ) (mkLamsC m ds b) ∧
-        interp2 V (cons a ρ) (mkLamsC m ds b)
+    have hrest : ∀ a, a ∈ˢ interp V ρ d.2.2 →
+        WellDenoted V (cons a ρ) (mkLamsC m ds b) ∧
+        interp V (cons a ρ) (mkLamsC m ds b)
           ∈ˢ piTele m (teleOfFields (cons a ρ) (ds.map (·.2.2))) B (acc ++ [a]) :=
       fun a ha => mkLamsC_factsB (h.2 a ha)
     refine ⟨?_, ?_⟩
-    · show AnnotOk2 V ρ (.lam m d.2.2 (mkLamsC m ds b))
-      rw [AnnotOk2_lam]
+    · show WellDenoted V ρ (.lam m d.2.2 (mkLamsC m ds b))
+      rw [WellDenoted_lam]
       refine ⟨h.1, fun a ha => (hrest a ha).1,
         fun a => piTele m (teleOfFields (cons a ρ) (ds.map (·.2.2))) B (acc ++ [a]),
         fun a ha => (hrest a ha).2, fun h0 a ha => ?_⟩
       subst h0
       refine piTele_zero_mem_univZero fun as' hf' => ?_
       exact underTowerOkB_zero (h.2 a ha) as' (fitsS_teleOfFields.mp hf')
-    · show lamR m (interp2 V ρ d.2.2) (fun a => interp2 V (cons a ρ) (mkLamsC m ds b))
-        ∈ˢ piR m (interp2 V ρ d.2.2)
+    · show lamR m (interp V ρ d.2.2) (fun a => interp V (cons a ρ) (mkLamsC m ds b))
+        ∈ˢ piR m (interp V ρ d.2.2)
           (fun a => piTele m (teleOfFields (cons a ρ) (ds.map (·.2.2))) B (acc ++ [a]))
       exact lamR_mem fun a ha => (hrest a ha).2
 where
   /-- the bound is a truth value at level zero, at every fitting spine -/
-  underTowerOkB_zero {b : AVExpr} {B : List V → V} :
-      ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {acc : List V},
+  underTowerOkB_zero {b : AnnotTerm} {B : List V → V} :
+      ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
         UnderTowerOkB 0 b B ρ acc ds → ∀ bs, SpineFit ρ (ds.map (·.2.2)) bs →
         B (acc ++ bs) ∈ˢ (univZero : V)
     | [], _, _, h, [], _ => by simpa using h.2.2 rfl
@@ -605,11 +605,11 @@ where
 /-! ## The sources -/
 
 omit [SetTheory V] in
-theorem srcList_length (Es : List AVExpr) (nF : Nat) : (srcList Es nF).length = nF := by
+theorem srcList_length (Es : List AnnotTerm) (nF : Nat) : (srcList Es nF).length = nF := by
   simp [srcList]
 
 omit [SetTheory V] in
-theorem srcList_bound {Es : List AVExpr} {nF : Nat} :
+theorem srcList_bound {Es : List AnnotTerm} {nF : Nat} :
     ∀ s ∈ srcList Es nF, ∀ l, s = some l → l < Es.length := by
   intro s hs l hl
   obtain ⟨j, -, rfl⟩ := List.mem_map.mp hs
@@ -621,7 +621,7 @@ theorem srcVals_length (is : List V) (src : List (Option Nat)) : (srcVals is src
 
 omit [SetTheory V] in
 /-- A source position's expression is the field's variable. -/
-theorem srcOfEs_some {Es : List AVExpr} {nF j l : Nat} (h : srcOfEs Es nF j = some l) :
+theorem srcOfEs_some {Es : List AnnotTerm} {nF j l : Nat} (h : srcOfEs Es nF j = some l) :
     l < Es.length ∧ Es.getD l default = .bvar (nF - 1 - j) := by
   unfold srcOfEs at h
   refine ⟨List.mem_range.mp (List.mem_of_find?_eq_some h), ?_⟩
@@ -631,7 +631,7 @@ theorem srcOfEs_some {Es : List AVExpr} {nF j l : Nat} (h : srcOfEs Es nF j = so
 
 omit [SetTheory V] in
 /-- At an unsourced field no index expression is the field's variable. -/
-theorem srcOfEs_none {Es : List AVExpr} {nF j l : Nat} (h : srcOfEs Es nF j = none)
+theorem srcOfEs_none {Es : List AnnotTerm} {nF j l : Nat} (h : srcOfEs Es nF j = none)
     (hl : Es[l]? = some (.bvar (nF - 1 - j))) : False := by
   unfold srcOfEs at h
   have hlt : l < Es.length := (List.getElem?_eq_some_iff.mp hl).1
@@ -642,10 +642,10 @@ theorem srcOfEs_none {Es : List AVExpr} {nF j l : Nat} (h : srcOfEs Es nF j = no
 /-- **The subsingleton criterion**: a spine fitting the fields whose
 index values are the tuple is the source spine (an index-sourced field
 is the index's value, the other fields are `Prop`s — points). -/
-theorem srcVals_of_fit {ρp : Nat → V} {Fs Es : List AVExpr}
+theorem srcVals_of_fit {ρp : Nat → V} {Fs Es : List AnnotTerm}
     (hprop : ∀ j, j < Fs.length → srcOfEs Es Fs.length j = none →
       ∀ fs : List V, SpineFit ρp (Fs.take j) fs →
-        interp2 V (consList fs ρp) (Fs.getD j default) ∈ˢ (univZero : V))
+        interp V (consList fs ρp) (Fs.getD j default) ∈ˢ (univZero : V))
     {fs is : List V} (hfit : SpineFit ρp Fs fs) (hidx : idxValsAt ρp Es fs = is) :
     fs = srcVals is (srcList Es Fs.length) := by
   have hlen : fs.length = Fs.length := hfit.length_eq
@@ -661,12 +661,12 @@ theorem srcVals_of_fit {ρp : Nat → V} {Fs Es : List AVExpr}
     simp only [srcVals, srcList, List.getElem_map, List.getElem_range, hs]
     obtain ⟨hl, hE⟩ := srcOfEs_some hs
     subst hidx
-    show fs.getD j pt = (Es.map (interp2 V (consList fs ρp))).getD l pt
-    have hr : (Es.map (interp2 V (consList fs ρp))).getD l pt = interp2 V (consList fs ρp) Es[l] := by
+    show fs.getD j pt = (Es.map (interp V (consList fs ρp))).getD l pt
+    have hr : (Es.map (interp V (consList fs ρp))).getD l pt = interp V (consList fs ρp) Es[l] := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl]; rfl
-    have hEl : Es[l] = AVExpr.bvar (Fs.length - 1 - j) := by
+    have hEl : Es[l] = AnnotTerm.bvar (Fs.length - 1 - j) := by
       rw [← hE, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl]; rfl
-    rw [hr, hEl, interp2_bvar, consList_getD_lt fs ρp _ (by omega),
+    rw [hr, hEl, interp_bvar, consList_getD_lt fs ρp _ (by omega),
       show fs.length - 1 - (Fs.length - 1 - j) = j from by omega]
   | none =>
     simp only [srcVals, srcList, List.getElem_map, List.getElem_range, hs]
@@ -691,7 +691,7 @@ noncomputable def isOfW (u nIdx : Nat) (t : V) : List V :=
 
 /-- A fitting spine over `Prop`-regime domains is the points. -/
 theorem spineFit_zero_replicate :
-    ∀ {Fs : List AVExpr} {ρ : Nat → V} {is : List V}, FieldsBound 0 ρ Fs → SpineFit ρ Fs is →
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V} {is : List V}, FieldsBound 0 ρ Fs → SpineFit ρ Fs is →
       is = List.replicate Fs.length pt
   | [], _, [], _, _ => rfl
   | [], _, _ :: _, _, h => h.elim
@@ -706,7 +706,7 @@ theorem spineFit_zero_replicate :
     rw [List.length_cons, List.replicate_succ]
     exact congrArg _ (spineFit_zero_replicate (hb.2 pt ha) hsp')
 
-theorem isOfW_tupW {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} (hI : IdxOk u ρp Ids)
+theorem isOfW_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxOk u ρp Ids)
     {is : List V} (hsp : SpineFit ρp Ids is) : isOfW u Ids.length (tupW u is) = is := by
   by_cases hu : u = 0
   · rw [isOfW, if_pos hu]
@@ -722,13 +722,13 @@ noncomputable def sqSpine (u nIdx : Nat) (src : List (Option Nat)) (t : V) : Lis
 
 /-- The predecessors of a tuple: the index tuples of the recursive
 fields' calls, along their telescopes at the source spine. -/
-noncomputable def sqPred (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
+noncomputable def sqPred (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rs : List Bool)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat)
     (src : List (Option Nat)) (t : V) : V :=
   sep (idxSet u ρp Ids) fun j => ∃ i ∈ recIdx rs nF, ∃ bs : List V,
     SpineFit (consList ((sqSpine u Ids.length src t).take i) ρp) ((tls.getD i []).map (·.2.2)) bs ∧
     j = tupW u ((Eis.getD i []).map
-      (interp2 V (consList bs (consList ((sqSpine u Ids.length src t).take i) ρp))))
+      (interp V (consList bs (consList ((sqSpine u Ids.length src t).take i) ρp))))
 
 /-- The bound: the motive's fibre at the tuple's indices and the point. -/
 noncomputable def sqB (u nIdx : Nat) (M : V) (t : V) : V :=
@@ -738,22 +738,22 @@ noncomputable def sqB (u nIdx : Nat) (M : V) (t : V) : V :=
 each recursive field, the λ-tower over its telescope of `g` at the
 call's index tuple. -/
 noncomputable def sqIhs (ℓ u : Nat) (ρp : Nat → V) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat)
     (fs : List V) (g : V) : List V :=
   (recIdx rs nF).map fun i =>
     lamTower ℓ (consList (fs.take i) ρp) (tls.getD i []) fun σ' =>
-      SetTheory.app g (tupW u ((Eis.getD i []).map (interp2 V σ')))
+      SetTheory.app g (tupW u ((Eis.getD i []).map (interp V σ')))
 
 /-- The step: the (only) minor `m` at the source spine and the ih values. -/
-noncomputable def sqSt (ℓ u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
+noncomputable def sqSt (ℓ u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rs : List Bool)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat)
     (src : List (Option Nat)) (m : V) (t g : V) : V :=
   (sqSpine u Ids.length src t ++
     sqIhs ℓ u ρp rs tls Eis nF (sqSpine u Ids.length src t) g).foldl SetTheory.app m
 
 /-- **The recursor's graph.** -/
-noncomputable def sqGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AVExpr) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
+noncomputable def sqGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AnnotTerm) (rs : List Bool)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat)
     (src : List (Option Nat)) (m : V) : V :=
   recGraph ℓ (idxSet u ρp Ids) (sqPred u ρp Ids rs tls Eis nF src) (sqB u Ids.length M)
     (sqSt ℓ u ρp Ids rs tls Eis nF src m)
@@ -762,9 +762,9 @@ noncomputable def sqGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AV
 
 section Singleton
 
-variable {ℓ u nF : Nat} {ρp : Nat → V} {M m : V} {Fss Ess Fss₀ : List (List AVExpr)}
-  {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))}
-  {Eiss : List (List (List AVExpr))} {src : List (Option Nat)}
+variable {ℓ u nF : Nat} {ρp : Nat → V} {M m : V} {Fss Ess Fss₀ : List (List AnnotTerm)}
+  {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eiss : List (List (List AnnotTerm))} {src : List (Option Nat)}
 
 /-- **The graph is a singleton at every tuple of the family**, by lfp
 induction on the family's functor: a proof of `t` at a sub-family is a
@@ -977,14 +977,14 @@ theorem appChainOk_append {m : V} {as bs : List V} (h1 : AppChainOk m as)
 /-- The conclusion at a walk leaf: the motive at the frame's index
 tuple, at the major (a pure reading). -/
 theorem interp_recConcAV_leaf (n nIdx : Nat) (t : V) (K : Nat → V) :
-    interp2 V (cons t K) (recConcAV n nIdx)
+    interp V (cons t K) (recConcAV n nIdx)
       = SetTheory.app ((frameIdx nIdx K).foldl SetTheory.app (frM n nIdx K)) t := by
   have hfr : RecFrameS 1 K (cons t K) := by
     unfold RecFrameS
     rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
   unfold recConcAV motAppAV
-  rw [interp2_app, interp2_mkAppN, ← List.foldl_map (f := interp2 V _) (g := SetTheory.app),
-    map_idxVarsAV_interp hfr, interp2_bvar, interp2_bvar, cons_zero]
+  rw [interp_app, interp_mkAppN, ← List.foldl_map (f := interp V _) (g := SetTheory.app),
+    map_idxVarsAV_interp hfr, interp_bvar, interp_bvar, cons_zero]
   congr 2
   exact hfr.motive
 
@@ -993,19 +993,19 @@ recursive field, the λ-tower over its telescope of the function at the
 block, the field's index values and the field applied to the
 telescope's values. -/
 noncomputable def sqIhValsK (ℓ : Nat) (ρP : Nat → V) (ps ms : List V) (M r : V) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat) (fs : List V) :
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat) (fs : List V) :
     List V :=
   (recIdx rs nF).map fun i =>
     lamTower ℓ (consList (fs.take i) ρP) (tls.getD i []) fun σ' =>
-      ((ps ++ [M]) ++ ms ++ (Eis.getD i []).map (interp2 V σ') ++
+      ((ps ++ [M]) ++ ms ++ (Eis.getD i []).map (interp V σ') ++
         [(frameIdx (tls.getD i []).length σ').foldl SetTheory.app (fs.getD i pt)]).foldl
         SetTheory.app r
 
 section Body
 
-variable {ℓ u nP : Nat} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
-  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))}
-  {Eiss : List (List (List AVExpr))} {rds : List (Nat × Nat × AVExpr)}
+variable {ℓ u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
+  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eiss : List (List (List AnnotTerm))} {rds : List (Nat × Nat × AnnotTerm)}
 
 set_option maxHeartbeats 3200000 in
 /-- **The squash body's facts** at a K-frame (task #202 A2): under the
@@ -1018,10 +1018,10 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       Ids rss tlss Eiss rds)
     (ht : t ∈ˢ SetTheory.app
       (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
-    AnnotOk2 V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+    WellDenoted V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 [])) ∧
-    interp2 V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+    interp V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 []))
       = (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) ++
@@ -1029,7 +1029,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
             (Eiss.getD 0 []) (Fss.getD 0 []).length
             (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length))).foldl
           SetTheory.app (ms.getD 0 pt) ∧
-    interp2 V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+    interp V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 []))
       ∈ˢ SetTheory.app (is.foldl SetTheory.app M) pt := by
@@ -1120,7 +1120,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   have hms := h.hyp.hms 0 (by omega)
   rw [hfrMs, hfrP, hfrM] at hms
   have hconc0 : ℓ = 0 → ∀ as', SpineFit (cons r ρb) (rds.map (·.2.2)) as' →
-      interp2 V (consList as' (cons r ρb)) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V) :=
+      interp V (consList as' (cons r ρb)) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V) :=
     fun h0 => absurd h0 hℓ
   have hfam' : ∀ t', SetTheory.app
       (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
@@ -1131,10 +1131,10 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       = consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))) := consList_snoc' _ _ _
   have hlenE : (is ++ [pt]).length = Ids.length + 1 := by rw [length_snoc', hlenI]
   have hR : ∀ (fs' bs : List V), fs'.length = (Fss.getD 0 []).length →
-      interp2 V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
+      interp V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
         (.bvar (bs.length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) = r := by
     intro fs' bs hlenF'
-    rw [interp2_bvar,
+    rw [interp_bvar,
       show bs.length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP
         = (((((0 + ps.length) + 1) + ms.length) + (is ++ [pt]).length) + fs'.length) + bs.length from by
         rw [hlenE, hlenM, hlenP, hlenF']; omega,
@@ -1149,27 +1149,27 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     rw [consList_nil, consList_nil, consList_append ms (is ++ [pt])]
   have hih : ∀ fs' : List V, SpineFit (consList ps (cons r ρb)) (Fss.getD 0 []) fs' →
       ∀ i ∈ recIdx (rss.getD 0 []) (Fss.getD 0 []).length,
-        AnnotOk2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        WellDenoted V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
           (ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             nP Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
             ((Eiss.getD 0 []).getD i [])) ∧
-        interp2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
           (ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             nP Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
             ((Eiss.getD 0 []).getD i []))
           = lamTower ℓ (consList (fs'.take i) (consList ps (cons r ρb))) ((tlss.getD 0 []).getD i []) (fun σ' =>
-              ((ps ++ [M]) ++ ms ++ ((Eiss.getD 0 []).getD i []).map (interp2 V σ') ++
+              ((ps ++ [M]) ++ ms ++ ((Eiss.getD 0 []).getD i []).map (interp V σ') ++
                 [(frameIdx ((tlss.getD 0 []).getD i []).length σ').foldl SetTheory.app (fs'.getD i pt)]).foldl
                 SetTheory.app r) ∧
         lamTower ℓ (consList (fs'.take i) (consList ps (cons r ρb))) ((tlss.getD 0 []).getD i []) (fun σ' =>
-              ((ps ++ [M]) ++ ms ++ ((Eiss.getD 0 []).getD i []).map (interp2 V σ') ++
+              ((ps ++ [M]) ++ ms ++ ((Eiss.getD 0 []).getD i []).map (interp V σ') ++
                 [(frameIdx ((tlss.getD 0 []).getD i []).length σ').foldl SetTheory.app (fs'.getD i pt)]).foldl
                 SetTheory.app r)
           ∈ˢ piTele ℓ (teleOfFields (consList (fs'.take i) (consList ps (cons r ρb)))
               (((tlss.getD 0 []).getD i []).map (·.2.2)))
               (fun as => SetTheory.app
                 ((((Eiss.getD 0 []).getD i []).map
-                  (interp2 V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
+                  (interp V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
                   SetTheory.app M)
                 (as.foldl SetTheory.app (fs'.getD i pt))) [] := by
     intro fs' hfit' i hi
@@ -1185,26 +1185,26 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
         SpineFit (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb))))))
           ((ihTeleAtR (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0
             ((tlss.getD 0 []).getD i [])).map (·.2.2)) bs →
-        AnnotOk2 V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
-          (AVExpr.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
+        WellDenoted V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
+          (AnnotTerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             (prefixVarsAV nP Fss.length (Fss.getD 0 []).length (((tlss.getD 0 []).getD i []).length + (Ids.length + 1)) ++
               ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 ((tlss.getD 0 []).getD i []).length) ++
-              [AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
+              [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
                 (teleVarsAV ((tlss.getD 0 []).getD i []).length)])) ∧
-        interp2 V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
-          (AVExpr.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
+        interp V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
+          (AnnotTerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             (prefixVarsAV nP Fss.length (Fss.getD 0 []).length (((tlss.getD 0 []).getD i []).length + (Ids.length + 1)) ++
               ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 ((tlss.getD 0 []).getD i []).length) ++
-              [AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
+              [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
                 (teleVarsAV ((tlss.getD 0 []).getD i []).length)]))
           ∈ˢ SetTheory.app
               ((((Eiss.getD 0 []).getD i []).map
-                (interp2 V (consList bs (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
+                (interp V (consList bs (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
                 SetTheory.app M)
               (bs.foldl SetTheory.app (fs'.getD i pt)) ∧
         (ℓ = 0 → SetTheory.app
               ((((Eiss.getD 0 []).getD i []).map
-                (interp2 V (consList bs (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
+                (interp V (consList bs (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl
                 SetTheory.app M)
               (bs.foldl SetTheory.app (fs'.getD i pt)) ∈ˢ (univZero : V)) := by
       intro bs hbs
@@ -1233,28 +1233,28 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       rw [← List.append_assoc] at hval
       have hok : ∀ a ∈ prefixVarsAV nP Fss.length (Fss.getD 0 []).length (bs.length + (Ids.length + 1)) ++
           ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 bs.length) ++
-          [AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + bs.length)) (teleVarsAV bs.length)],
-          AnnotOk2 V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb))))))) a := by
+          [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + bs.length)) (teleVarsAV bs.length)],
+          WellDenoted V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb))))))) a := by
         intro a ha
         rcases List.mem_append.mp ha with ha | ha
         · rcases List.mem_append.mp ha with ha | ha
-          · exact prefixVarsAV_ok2 ha
+          · exact prefixVarsAV_wellDenoted ha
           · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
             rw [hfr2, consList_nil]
-            have := (AnnotOk2_ihIdxAtM (M := M) (ρp := consList ps (cons r ρb)) hms' hlenF' (ihs := []) rfl
+            have := (WellDenoted_ihIdxAtM (M := M) (ρp := consList ps (cons r ρb)) hms' hlenF' (ihs := []) rfl
               (Nat.le_of_lt hik) bs E).mpr (hEok E hE)
             rwa [consList_nil] at this
         · rw [List.mem_singleton] at ha
           subst ha
           have hchainF : AppChainOk (fs'.getD i pt) bs := slotSet_chainOk hfam' hslotmem hbs'
-          refine (mkAppN_ok2_of_chain
+          refine (mkAppN_wellDenoted_of_chain
             (σ := consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
             (f := .bvar ((Fss.getD 0 []).length - 1 - i + bs.length)) (args := teleVarsAV bs.length) trivial
-            (fun a ha => teleVarsAV_ok2 ha) ?_).1
-          rw [map_teleVarsAV_interp, interp2_bvar, consList_apply_add, consList_getD_lt fs' _ _ (by omega),
+            (fun a ha => teleVarsAV_wellDenoted ha) ?_).1
+          rw [map_teleVarsAV_interp, interp_bvar, consList_apply_add, consList_getD_lt fs' _ _ (by omega),
             show fs'.length - 1 - ((Fss.getD 0 []).length - 1 - i) = i from by omega]
           exact hchainF
-      have hchain := mkAppN_ok2_of_chain (σ := consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
+      have hchain := mkAppN_wellDenoted_of_chain (σ := consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
         (f := .bvar (bs.length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) trivial hok
         (by rw [hargs, hR fs' bs hlenF']; exact hchainR)
       refine ⟨hchain.1, ?_, fun h0 => absurd h0 hℓ⟩
@@ -1271,7 +1271,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     have hfacts := mkLamsC_factsB (underTowerOkB_of_leaves
       (B := fun as => SetTheory.app
         ((((Eiss.getD 0 []).getD i []).map
-          (interp2 V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl SetTheory.app M)
+          (interp V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl SetTheory.app M)
         (as.foldl SetTheory.app (fs'.getD i pt))) (acc := []) hwalk
       (fun bs hbs => by simpa only [List.nil_append] using hleaf bs hbs))
     rw [hσ]
@@ -1285,7 +1285,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     have hp := piTele_ihTeleAtGo (v := ℓ) (M := M) (ρp := consList ps (cons r ρb))
       (B := fun as => SetTheory.app
         ((((Eiss.getD 0 []).getD i []).map
-          (interp2 V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl SetTheory.app M)
+          (interp V (consList as (consList (fs'.take i) (consList ps (cons r ρb)))))).foldl SetTheory.app M)
         (as.foldl SetTheory.app (fs'.getD i pt)))
       hms' hlenF' (ihs := []) rfl (Nat.le_of_lt hik) ((tlss.getD 0 []).getD i []) [] []
     simp only [List.length_nil] at hp
@@ -1293,22 +1293,22 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     exact hmem
   -- ## the inner body at a fitting field spine
   have hinner : ∀ fs' : List V, SpineFit (consList ps (cons r ρb)) (Fss.getD 0 []) fs' →
-      AnnotOk2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+      WellDenoted V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
               ((Eiss.getD 0 []).getD i []))) ∧
-      interp2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+      interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
               ((Eiss.getD 0 []).getD i [])))
         = (fs' ++ sqIhValsK ℓ (consList ps (cons r ρb)) ps ms M r (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
             (Fss.getD 0 []).length fs').foldl SetTheory.app (ms.getD 0 pt) ∧
-      interp2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+      interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1316,9 +1316,9 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
         ∈ˢ SetTheory.app ((idxValsAt (consList ps (cons r ρb)) (Ess.getD 0 []) fs').foldl SetTheory.app M) pt := by
     intro fs' hfit'
     have hlenF' : fs'.length = (Fss.getD 0 []).length := hfit'.length_eq
-    have hminor : interp2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+    have hminor : interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
         (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1)) = ms.getD 0 pt := by
-      rw [interp2_bvar,
+      rw [interp_bvar,
         show (Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1
           = (((Fss.length - 1) + is.length) + 1) + fs'.length from by rw [hlenI, hlenF']; omega,
         consList_apply_add, cons_succ, consList_apply_add, consList_getD_lt ms _ _ (by omega),
@@ -1327,7 +1327,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
           ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
             Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
             ((Eiss.getD 0 []).getD i [])).map
-          (interp2 V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))))
+          (interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))))
         = fs' ++ sqIhValsK ℓ (consList ps (cons r ρb)) ps ms M r (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
             (Fss.getD 0 []).length fs' := by
       rw [List.map_append, map_teleVarsAV_interp' hlenF', List.map_map]
@@ -1355,7 +1355,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       show _ ∈ˢ (List.map _ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length)).getD l pt
       rw [getD_map_lt hl', getD_map_lt hl']
       exact (hih fs' hfit' _ hi).2.2
-    have hchain := mkAppN_ok2_of_chain
+    have hchain := mkAppN_wellDenoted_of_chain
       (σ := consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
       (f := .bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
       (args := teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
@@ -1364,7 +1364,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
           ((Eiss.getD 0 []).getD i [])) trivial
       (fun a ha => by
         rcases List.mem_append.mp ha with ha | ha
-        · exact teleVarsAV_ok2 ha
+        · exact teleVarsAV_wellDenoted ha
         · obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
           exact (hih fs' hfit' i hi).1)
       (by
@@ -1395,14 +1395,14 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     exact hFok
   have hleafF : ∀ bs : List V, SpineFit (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       ((fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 [])).map (·.2.2)) bs →
-      AnnotOk2 V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+      WellDenoted V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
               ((Eiss.getD 0 []).getD i []))) ∧
-      interp2 V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+      interp V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1423,7 +1423,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     unfold RecFrameS
     rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
   have hsrcv : ((srcList (Ess.getD 0 []) (Fss.getD 0 []).length).map (srcAV Ids.length 1)).map
-      (interp2 V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
+      (interp V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
       = srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) := by
     rw [map_srcAV_interp hfr1 _ (fun s hs l hl => by rw [← hEs0]; exact srcList_bound s hs l hl), hfrIdx]
   have hfitS : SpineFit (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
@@ -1432,9 +1432,9 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     rw [hdoms, spineFit_liftFields, hshift, ← hfs₀]
     exact hfsfit
   have hchainF : AppChainOk
-      (interp2 V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+      (interp V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
         (mkLamsC ℓ (fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 []))
-          (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1442,16 +1442,16 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)) :=
     appChainOk_of_piTele hℓ hfactsF.2 (fitsS_teleOfFields.mpr hfitS)
   have hβ : (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).foldl SetTheory.app
-      (interp2 V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+      (interp V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
         (mkLamsC ℓ (fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 []))
-          (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
                 ((Eiss.getD 0 []).getD i [])))))
-      = interp2 V (consList (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length))
+      = interp V (consList (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length))
           (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-          (AVExpr.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1462,9 +1462,9 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       exact hℓ
     · rw [List.map_map]
       exact hfitS
-  have hall := mkAppN_ok2_of_chain (σ := cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
+  have hall := mkAppN_wellDenoted_of_chain (σ := cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
     (args := (srcList (Ess.getD 0 []) (Fss.getD 0 []).length).map (srcAV Ids.length 1)) hfactsF.1
-    (fun a ha => by obtain ⟨s, -, rfl⟩ := List.mem_map.mp ha; exact srcAV_ok2 _ _ _ _)
+    (fun a ha => by obtain ⟨s, -, rfl⟩ := List.mem_map.mp ha; exact srcAV_wellDenoted _ _ _ _)
     (by rw [hsrcv]; exact hchainF)
   have hinner₀ := hinner _ hfsfit
   rw [hfs₀] at hinner₀ hfsidx
@@ -1480,7 +1480,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
 /-! ## The recursor's value at a K-frame -/
 
 /-- A tuple of the index set is the tuple of a fitting spine. -/
-theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {t : V}
+theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {t : V}
     (ht : t ∈ˢ idxSet u ρp Ids) : ∃ is : List V, SpineFit ρp Ids is ∧ t = tupW u is := by
   by_cases hu : u = 0
   · subst hu
@@ -1491,22 +1491,22 @@ theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {t : V}
 
 /-- λ-towers at zeroness-agreeing bits agree. -/
 theorem lamTower_bit_agree {m m' : Nat} (hz : m = 0 ↔ m' = 0) {g : (Nat → V) → V} :
-    ∀ (ds : List (Nat × Nat × AVExpr)) (ρ : Nat → V), lamTower m ρ ds g = lamTower m' ρ ds g
+    ∀ (ds : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V), lamTower m ρ ds g = lamTower m' ρ ds g
   | [], _ => rfl
   | d :: ds, ρ => by
-    show lamR m (interp2 V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g)
-      = lamR m' (interp2 V ρ d.2.2) (fun a => lamTower m' (cons a ρ) ds g)
+    show lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g)
+      = lamR m' (interp V ρ d.2.2) (fun a => lamTower m' (cons a ρ) ds g)
     exact lamR_zero_agree hz fun a _ => lamTower_bit_agree hz ds (cons a ρ)
 
 /-- λ-towers with bodies agreeing at every fitting leaf agree. -/
 theorem lamTower_congr_leaves {m : Nat} {g₁ g₂ : (Nat → V) → V} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
       (∀ bs, SpineFit ρ (ds.map (·.2.2)) bs → g₁ (consList bs ρ) = g₂ (consList bs ρ)) →
       lamTower m ρ ds g₁ = lamTower m ρ ds g₂
   | [], ρ, hg => hg [] trivial
   | d :: ds, ρ, hg => by
-    show lamR m (interp2 V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₁)
-      = lamR m (interp2 V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₂)
+    show lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₁)
+      = lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₂)
     refine lamR_congr fun a ha => lamTower_congr_leaves fun bs hbs => hg (a :: bs) ⟨ha, hbs⟩
 
 omit [SetTheory V] in
@@ -1633,7 +1633,7 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
                 recSel (sqGraph ℓ u (ρP) M Ids (rss.getD 0 []) (tlss.getD 0 [])
                     (Eiss.getD 0 []) (Fss.getD 0 []).length
                     (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) (m))
-                  (tupW u (((Eiss.getD 0 []).getD i []).map (interp2 V σ')))).foldl
+                  (tupW u (((Eiss.getD 0 []).getD i []).map (interp V σ')))).foldl
             SetTheory.app (m) := by
   obtain ⟨hle, hFok, hprop⟩ := h.hsq rfl hℓ
   rw [hfrP] at hFok hprop
@@ -1746,7 +1746,7 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
       rw [consList_append] at hv
       -- the call's tuple is a predecessor
       have hj : tupW u (((Eiss.getD 0 []).getD (recIdx (rss.getD 0 []) (Fss.getD 0 []).length)[l] []).map
-          (interp2 V (consList bs (consList ((srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).take
+          (interp V (consList bs (consList ((srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).take
             (recIdx (rss.getD 0 []) (Fss.getD 0 []).length)[l]) (ρP)))))
           ∈ˢ sqPred u (ρP) Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
             (Fss.getD 0 []).length (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) (tupW u is) := by
@@ -1818,7 +1818,7 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
     apply List.map_congr_left
     intro i hi
     refine lamTower_congr_leaves fun bs hbs => ?_
-    have hj : tupW u (((Eiss.getD 0 []).getD i []).map (interp2 V (consList bs
+    have hj : tupW u (((Eiss.getD 0 []).getD i []).map (interp V (consList bs
         (consList ((srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).take i) (ρP)))))
         ∈ˢ sqPred u (ρP) Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
           (Fss.getD 0 []).length (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) (tupW u is) := by

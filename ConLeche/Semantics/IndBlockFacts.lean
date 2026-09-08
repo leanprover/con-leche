@@ -45,7 +45,7 @@ consumes it instead of `declIndS memberKeyS mp.base`.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- **The block's capability pins**, from the capability record's own
 definition: `indBlockCaps`' two Booleans *are* `checkEtaThm` and

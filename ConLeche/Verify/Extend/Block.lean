@@ -18,11 +18,11 @@ them; the namespace stays `ConLeche.Verify` so no call site moves.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-! ## The block fold invariant -/
 
-/-- The fold invariant of `checkIndDecl`: every installed block member
+/-- The fold invariant of `checkModeled`: every installed block member
 has its `_model` companion stored (as a definition with the same level
 parameters), its checked type is the companion's under the block
 renaming (up to display names), and it is *valued* by the companion.

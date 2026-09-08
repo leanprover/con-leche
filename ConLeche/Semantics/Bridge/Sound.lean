@@ -1,4 +1,4 @@
-import ConLeche.Semantics.Direct.DeclDirectFix
+import ConLeche.Semantics.Inductives.DeclNative
 import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
 
@@ -21,7 +21,7 @@ built it.
 -/
 
 namespace ConLeche.Semantics
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 universe w
 
 
@@ -50,16 +50,16 @@ theorem checkDeclRun_ofEnvFactsE
     DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
   checkDeclRun_of
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
-    -- clause's own `directFixParts?` dispatch — `declDirectFixRun_of`
+    -- clause's own `nativeParts?` dispatch — `declNativeRun_of`
     -- on the direct arm, `declIndRun_of` on the modeled one.
     (fun {block} hh => by
       rw [checkDecl] at hh
       rw [DeclIndRunDispatch]
       revert hh
-      cases hdf : directFixParts? block with
+      cases hdf : nativeParts? block with
       | some p =>
         intro hh
-        exact declDirectFixRun_of hh
+        exact declNativeRun_of hh
       | none =>
         intro hh
         exact declIndRun_of hh) h

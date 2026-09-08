@@ -49,7 +49,7 @@ def preludeIx : PreludeIx :=
 environment: 23 constants (19 basis + `Bool`, `Bool.false`,
 `Bool.true`, `Bool.rec`). -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
-  match checkDeclsSPCachedD mode preludeIx.decls.toList with
+  match checkDecls mode preludeIx.decls.toList with
   | .ok env => some env.consts.length
   | .error _ => none
 

@@ -11,7 +11,7 @@ monotone fueled families to plain executable computations
 fueled/cached operation records are related by part B's entry-point
 bridges, and the projection batteries push the pairing through every
 declaration-checker function.  The punchline: a successful
-`checkDecls mode (wfOpsM mode)` run is reproduced by `checkDecls mode (fueledOps mode F)`
+`checkDeclsPure mode (wfOpsM mode)` run is reproduced by `checkDeclsPure mode (fueledOps mode F)`
 for some fuel `F`.
 
 **The file split (task #184, the build-time audit).**  This module is the
@@ -110,7 +110,7 @@ the constant family that merely repeats the cached run (trivially
 related).  The battery then yields, for *every* environment: a
 successful cached `checkDecl` run is reproduced by its `wfOpsM mode`
 instantiation at some fuel (`checkDecl_wfOpsM_bridge`).
-`ConLeche/Model/BridgeWF.lean` turns `wfOpsM mode` runs into pure `fueledOps`
+`ConLeche/ModelV1/BridgeWF.lean` turns `wfOpsM mode` runs into pure `fueledOps`
 runs by threading `EnvWF` — obtained there from the environment
 model — through the declaration checker's intermediate environments,
 using the `*_wfeq` equalities below. -/
@@ -516,24 +516,24 @@ theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
     ((fueledOpsM mode).ensureSort env d a).val F =
       (fueledOps mode F).ensureSort env d a := rfl
 
-theorem checkDirectDomsAt_datF (env : Env) (off : Nat)
+theorem checkStructDomsAt_datF (env : Env) (off : Nat)
     (fvs doms : List Expr) (F : Nat) :
     ∀ j : Nat,
-      (checkDirectDomsAt (fueledOpsM mode) env off fvs doms j).val F =
-        checkDirectDomsAt (fueledOps mode F) env off fvs doms j
+      (checkStructDomsAt (fueledOpsM mode) env off fvs doms j).val F =
+        checkStructDomsAt (fueledOps mode F) env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    unfold checkDirectDomsAt
+    unfold checkStructDomsAt
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-      checkDirectDomsAt_datF env off fvs doms F j]
+      checkStructDomsAt_datF env off fvs doms F j]
 
-theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
+theorem checkStructProjTable_datF (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) (F : Nat) :
-    (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM _).val F =
-      (checkDirectProjTable T C lps nP nF rs guards off cvCa env : CheckM _) := by
-  unfold checkDirectProjTable
+    (checkStructProjTable T C lps nP nF rs guards off cvCa env : FueledM _).val F =
+      (checkStructProjTable T C lps nP nF rs guards off cvCa env : CheckM _) := by
+  unfold checkStructProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]
 
@@ -565,11 +565,11 @@ theorem whnfTelescope_datF (env : Env) (F : Nat) :
     · simp only [FueledM.atF_throw]
 
 /-- The former's telescope stage (task #195) at fuel `F`. -/
-theorem checkDirectSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
+theorem checkSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
     (cvTa₀ : ConstantVal) (F : Nat) :
-    (checkDirectSumTele (fueledOpsM mode) env cv n cvTa₀).val F =
-      checkDirectSumTele (fueledOps mode F) env cv n cvTa₀ := by
-  unfold checkDirectSumTele
+    (checkSumTele (fueledOpsM mode) env cv n cvTa₀).val F =
+      checkSumTele (fueledOps mode F) env cv n cvTa₀ := by
+  unfold checkSumTele
   cases hst : cvTa₀.type.stripPis n with
   | none =>
     simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF, checkConstantVal_datF]
@@ -578,28 +578,28 @@ theorem checkDirectSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
     cases body <;> simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF,
       checkConstantVal_datF]
 
-theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts)
-    (capsOf : DirectSumParts → IndCaps) (F : Nat) :
-    (checkDirectSumInd (fueledOpsM mode) env p capsOf).val F =
-      checkDirectSumInd (fueledOps mode F) env p capsOf := by
-  unfold checkDirectSumInd
+theorem checkSumInd_datF (env : Env) (p : InductiveShape)
+    (capsOf : InductiveShape → IndCaps) (F : Nat) :
+    (checkSumInd (fueledOpsM mode) env p capsOf).val F =
+      checkSumInd (fueledOps mode F) env p capsOf := by
+  unfold checkSumInd
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkDirectSumTele_datF]
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF]
 
-/-- `checkDirectFieldSortsI` (task #175 indexed) at fuel `F`. -/
-theorem checkDirectFieldSortsI_datF (env : Env) (isProp large : Bool)
+/-- `checkStructFieldSortsI` (task #175 indexed) at fuel `F`. -/
+theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) (F : Nat) :
     ∀ j : Nat,
-      (checkDirectFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs
+      (checkStructFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs
           j).val F =
-        checkDirectFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
+        checkStructFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    unfold checkDirectFieldSortsI
+    unfold checkStructFieldSortsI
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
       FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
       liftFueled_atF, unwrapOr_atF,
-      checkDirectFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
+      checkStructFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
 
 /-- Official's positivity walk as a normalisation (task #210 Part D)
 at fuel `F`. -/
@@ -660,70 +660,70 @@ theorem normCtorVal_datF (env : Env) (T : Name) (nP nF : Nat) (cvC cvCa : Consta
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantVal_datF, normFieldDoms_datF]
 
-theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
+theorem checkSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) (F : Nat) :
-    (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+    (checkSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
       cvC nF cvTa).val F =
-      checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+      checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
         cvC nF cvTa := by
-  unfold checkDirectSumCtor
+  unfold checkSumCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, normCtorVal_datF,
-    checkDirectFieldSortsI_datF, checkDirectDomsAt_datF]
+    checkStructFieldSortsI_datF, checkStructDomsAt_datF]
 
-theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
+theorem checkSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+      (checkSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
         cvTa cs).val F =
-        checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+        checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
           cvTa cs
   | [] => rfl
   | c :: cs => by
-    unfold checkDirectSumCtors
-    simp only [FueledM.atF_bind, FueledM.atF_pure, checkDirectSumCtor_datF,
-      checkDirectSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
+    unfold checkSumCtors
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtor_datF,
+      checkSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
 
 /-! ### The direct recursive install (task #188) -/
 
-theorem checkDirectFixRules_datF (envR : Env) (rlps : List Name) (T : Name)
+theorem checkNativeRules_datF (envR : Env) (rlps : List Name) (T : Name)
     (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level)
     (F : Nat) :
     ∀ k j : Nat,
-      (checkDirectFixRules (m := FueledM) envR rlps T lps elim large nP nIdx tty ctors
+      (checkNativeRules (m := FueledM) envR rlps T lps elim large nP nIdx tty ctors
         recC rlvls k j).val F =
-        checkDirectFixRules (m := CheckM) envR rlps T lps elim large nP nIdx tty ctors
+        checkNativeRules (m := CheckM) envR rlps T lps elim large nP nIdx tty ctors
           recC rlvls k j
   | 0, _ => rfl
   | k + 1, j => by
-    unfold checkDirectFixRules
+    unfold checkNativeRules
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       unwrapOr_atF,
-      checkDirectFixRules_datF envR rlps T lps elim large nP nIdx tty ctors recC rlvls F k
+      checkNativeRules_datF envR rlps T lps elim large nP nIdx tty ctors recC rlvls F k
         (j + 1)]
 
-theorem checkDirectFixRec_datF (env : Env) (p : DirectFixParts)
+theorem checkNativeRec_datF (env : Env) (p : NativeParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
-    (checkDirectFixRec (fueledOpsM mode) env p cvTa ctorsA).val F =
-      checkDirectFixRec (fueledOps mode F) env p cvTa ctorsA := by
-  unfold checkDirectFixRec
+    (checkNativeRec (fueledOpsM mode) env p cvTa ctorsA).val F =
+      checkNativeRec (fueledOps mode F) env p cvTa ctorsA := by
+  unfold checkNativeRec
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectFixRules_datF]
+    checkNativeRules_datF]
 
 /-- The projection table at a structure-like block (task #210 Part A)
 at fuel `F`: operation-free, so the fuel is irrelevant. -/
-theorem checkDirectFixTable_datF (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat))
+theorem checkNativeTable_datF (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
     (sortss : List (List Level)) (env : Env) (F : Nat) :
-    (checkDirectFixTable (m := FueledM) p ctorsA sortss env).val F =
-      checkDirectFixTable (m := CheckM) p ctorsA sortss env := by
-  unfold checkDirectFixTable
+    (checkNativeTable (m := FueledM) p ctorsA sortss env).val F =
+      checkNativeTable (m := CheckM) p ctorsA sortss env := by
+  unfold checkNativeTable
   split
   · split
-    · rw [checkDirectProjTable_datF]
+    · rw [checkStructProjTable_datF]
     · rfl
   · rfl
 
@@ -737,13 +737,13 @@ theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF]
 
-theorem checkDirectFix_datF (env : Env) (p : DirectFixParts) (F : Nat) :
-    (checkDirectFix (fueledOpsM mode) env p).val F =
-      checkDirectFix (fueledOps mode F) env p := by
-  unfold checkDirectFix
+theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
+    (checkNative (fueledOpsM mode) env p).val F =
+      checkNative (fueledOps mode F) env p := by
+  unfold checkNative
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF, checkDirectFixTable_datF,
-    checkDirectFixRec_datF, unwrapOr_atF, checkDirectFieldSortsI_datF, classifyFixKinds_datF]
+    FueledM.atF_ite, checkSumInd_datF, checkSumCtors_datF, checkNativeTable_datF,
+    checkNativeRec_datF, unwrapOr_atF, checkStructFieldSortsI_datF, classifyFixKinds_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
@@ -763,8 +763,8 @@ macro "datF_step4_alt" : tactic =>
     | (rw [checkIotaRules_datF])
     | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
-    | (rw [checkDirectStruct_datF])
-    | (rw [checkIndDecl_datF])
+    | (rw [checkStruct_datF])
+    | (rw [checkModeled_datF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -774,10 +774,10 @@ macro "datF_step4_alt" : tactic =>
 macro "datF_tac4" : tactic =>
   `(tactic| repeat' datF_step4_alt)
 
-theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
-    (checkIndDecl mode (fueledOpsM mode) env block).val F =
-      checkIndDecl mode (fueledOps mode F) env block := by
-  unfold checkIndDecl
+theorem checkModeled_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
+    (checkModeled mode (fueledOpsM mode) env block).val F =
+      checkModeled mode (fueledOps mode F) env block := by
+  unfold checkModeled
   datF_tac4
 
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
@@ -934,13 +934,13 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
   | indDecl block =>
     dsimp only
     split
-    · exact checkDirectFix_datF env _ F
-    · exact checkIndDecl_datF env block F
+    · exact checkNative_datF env _ F
+    · exact checkModeled_datF env block F
 
-theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
-    (checkDecls mode (fueledOpsM mode) ds).val F =
-      checkDecls mode (fueledOps mode F) ds := by
-  unfold checkDecls
+theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :
+    (checkDeclsPure mode (fueledOpsM mode) ds).val F =
+      checkDeclsPure mode (fueledOps mode F) ds := by
+  unfold checkDeclsPure
   rw [foldlM_atF]
   simp only [checkDecl_datF]
 

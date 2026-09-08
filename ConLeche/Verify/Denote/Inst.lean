@@ -5,7 +5,7 @@ import ConLeche.Verify.Subst
 # Denotation commutes with instantiation
 
 The transpose of `interp_substFvarAt` / `interp_beta`
-(`ConLeche/Model/Subst.lean`), and the bottleneck every interesting
+(`ConLeche/ModelV1/Subst.lean`), and the bottleneck every interesting
 clause of `CheckStepTT` runs through: the checker's `infer` on
 `.app f a` returns the *expression* `B.instantiate1 a`, while
 an application's type is the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
@@ -23,9 +23,9 @@ shifting, which is not obvious in advance:
 * an outer `fvar j` (`j < p`) denotes `.bvar (p-1-j)` at depth `p` and
   `.bvar (D-1-j)` at depth `D`, and `D-1-j = (p-1-j) + (D-p)` — the
   deeper denotation is the shallower one lifted by exactly `D - p`;
-* `VExpr.inst e a k` already substitutes `liftN k a`.
+* `Term.inst e a k` already substitutes `liftN k a`.
 
-So `k = D - p` makes `VExpr.inst`'s built-in lift *be* the depth shift,
+So `k = D - p` makes `Term.inst`'s built-in lift *be* the depth shift,
 and the substituted variable's case is discharged by `denote_lift`
 (`ConLeche/Verify/Denote/Shift.lean`) with nothing left over.
 
@@ -42,14 +42,14 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
 /-- `projNV` commutes with instantiation (no binders; task #175
 wiring W3). -/
 theorem inst_projNV :
-    ∀ (i : Nat) (v x : VExpr) (k : Nat),
+    ∀ (i : Nat) (v x : Term) (k : Nat),
       (projNV i v).inst x k = projNV i (v.inst x k)
   | 0, _, _, _ => rfl
   | i + 1, v, x, k => inst_projNV i (.proj 1 v) x k
@@ -57,13 +57,13 @@ theorem inst_projNV :
 /-- **The substitution lemma.**  Substituting the expression `a` for
 `fvar p` corresponds to instantiating the denotation at de Bruijn cut
 `D - p`. -/
-theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {p : Nat} {a : Expr} {x : VExpr}
+theorem denote_substFvarAt (hcl : ∀ n ψ, Term.Closed (cval n ψ))
+    {p : Nat} {a : Expr} {x : Term}
     (hwa : Expr.WScoped p a) (hba : a.looseBVarsBounded 0 = true)
     (ha : denote cval env φ p a = some x) :
     ∀ (e : Expr) (D : Nat), p ≤ D → Expr.fvarsBelow (D + 1) e →
       denote cval env φ D (Expr.substFvarAt p a e) =
-        (denote cval env φ (D + 1) e).map (VExpr.inst · x (D - p))
+        (denote cval env φ (D + 1) e).map (Term.inst · x (D - p))
   | .bvar i, D, hpD, hfb => by simp [Expr.substFvarAt]
   | .sort u, D, hpD, hfb => by simp [Expr.substFvarAt]
   | .const n us, D, hpD, hfb => by
@@ -73,7 +73,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       split
       · next hlen =>
         simp only [Option.map_some]
-        rw [VExpr.inst_eq_self_of_closed (hcl _ _)]
+        rw [Term.inst_eq_self_of_closed (hcl _ _)]
       · rfl
     · rfl
   | .fvar idx ty, D, hpD, hfb => by
@@ -84,17 +84,17 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       rw [show Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
             simp [Expr.substFvarAt],
         denote_lift (env := env) (φ := φ) hcl hwa.fvarsBelow D hpD, ha]
-      simp only [denote_fvar, Option.map_some, VExpr.inst_bvar,
+      simp only [denote_fvar, Option.map_some, Term.inst_bvar,
         show D + 1 - 1 - idx = D - idx from by omega]
       simp
     · by_cases h2 : idx > p
       · simp only [Expr.substFvarAt, if_neg h1, if_pos h2, denote_fvar,
-          Option.map_some, VExpr.inst_bvar,
+          Option.map_some, Term.inst_bvar,
           if_pos (show D + 1 - 1 - idx < D - p from by omega)]
         congr 2
         omega
       · simp only [Expr.substFvarAt, if_neg h1, if_neg h2, denote_fvar,
-          Option.map_some, VExpr.inst_bvar,
+          Option.map_some, Term.inst_bvar,
           if_neg (show ¬ D + 1 - 1 - idx < D - p from by omega),
           if_neg (show ¬ D + 1 - 1 - idx = D - p from by omega)]
         congr 2
@@ -120,7 +120,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       cases denote cval env φ (D + 2)
           (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
-      | some B => simp only [Option.map_some, VExpr.inst_pi]
+      | some B => simp only [Option.map_some, Term.inst_pi]
   | .lam ty body m, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_lam]
     rw [denote_substFvarAt hcl hwa hba ha ty D hpD hfb.1]
@@ -136,7 +136,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       cases denote cval env φ (D + 2)
           (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
-      | some B => simp only [Option.map_some, VExpr.inst_lam]
+      | some B => simp only [Option.map_some, Term.inst_lam]
   | .letE ty val body, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_letE]
     rw [denote_substFvarAt hcl hwa hba ha ty D hpD hfb.1,
@@ -156,7 +156,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         cases denote cval env φ (D + 2)
             (body.instantiate1 (.fvar (D + 1) ty)) with
         | none => rfl
-        | some B => simp only [Option.map_some, VExpr.inst_letE]
+        | some B => simp only [Option.map_some, Term.inst_letE]
   | .proj s i e, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_proj]
     rw [denote_substFvarAt hcl hwa hba ha e D hpD hfb]
@@ -168,7 +168,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       | none =>
         dsimp only
         split
-        · simp only [Option.map_some, VExpr.inst_proj]
+        · simp only [Option.map_some, Term.inst_proj]
         · rfl
       | some entry =>
         simp only [Option.map_some, inst_projNV]
@@ -176,14 +176,14 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     simp only [Expr.substFvarAt, denote_natLit]
     split
     · simp only [Option.map_some]
-      rw [VExpr.inst_eq_self_of_closed
+      rw [Term.inst_eq_self_of_closed
         (natLitT_closed (hcl _ _) (hcl _ _) k)]
     · rfl
   | .lit (.strVal s), D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_strLit]
     split
     · simp only [Option.map_some]
-      rw [VExpr.inst_eq_self_of_closed (strLitT_closed hcl s)]
+      rw [Term.inst_eq_self_of_closed (strLitT_closed hcl s)]
     · rfl
 termination_by e => e.sizeB
 decreasing_by
@@ -195,14 +195,14 @@ decreasing_by
 /-- **Beta, denotation side** — the form the reduction clauses consume:
 opening a binder body with the argument directly is opening it with a
 fresh variable and then instantiating.  Transpose of `interp_beta`. -/
-theorem denote_beta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {d : Nat} {ty body a : Expr} {x : VExpr}
+theorem denote_beta (hcl : ∀ n ψ, Term.Closed (cval n ψ))
+    {d : Nat} {ty body a : Expr} {x : Term}
     (hfb : Expr.fvarsBelow d body) (hwa : Expr.WScoped d a)
     (hba : a.looseBVarsBounded 0 = true)
     (ha : denote cval env φ d a = some x) (k : Nat) :
     denote cval env φ d (body.instantiate1 a k) =
       (denote cval env φ (d + 1)
-        (body.instantiate1 (.fvar d ty) k)).map (VExpr.inst · x 0) := by
+        (body.instantiate1 (.fvar d ty) k)).map (Term.inst · x 0) := by
   have h := denote_substFvarAt (p := d) hcl hwa hba ha
     (body.instantiate1 (.fvar d ty) k) d (Nat.le_refl d)
     (Expr.fvarsBelow_instantiate1 k hfb)
@@ -217,7 +217,7 @@ every inhabitation key needs the denotation to ignore exactly what the
 pin ignores.  It does — `denote` reads a binder's name only to build the
 `fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
 
-Transpose of `interp_erasedEq` (`ConLeche/Model/InterpLemmas.lean`), and
+Transpose of `interp_erasedEq` (`ConLeche/ModelV1/InterpLemmas.lean`), and
 another §8.4 reading: **the pin's tolerance and the denotation's
 blindness are the same set of syntax**, which is why a `matchesPin` hit
 is usable at all. -/

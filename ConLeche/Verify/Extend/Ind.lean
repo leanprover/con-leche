@@ -2,14 +2,14 @@ import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Extend.Modeled
 
 /-!
-# Ind — the `V`-free half of `ConLeche.Model.Extend.Ind`
+# Ind — the `V`-free half of `ConLeche.ModelV1.Extend.Ind`
 
-The bookkeeping the `checkIndDecl` member fold establishes about the
+The bookkeeping the `checkModeled` member fold establishes about the
 environment it returns: which names it installs, which kinds they get,
 that nothing else moves, and the two side invariants
 (`EtaFamiliesClosedO`, `BlockCapsPinned`) the block install threads.
 
-Relocated from `ConLeche/Model/Extend/Ind.lean` (task #123);
+Relocated from `ConLeche/ModelV1/Extend/Ind.lean` (task #123);
 `checkIndMember_sound` and `checkIndFold_sound` stay there, being
 statements about a valuation.  The `omit [SetTheory V] in` lines are
 dropped: there is no such section variable here.

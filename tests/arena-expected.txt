@@ -5,7 +5,7 @@
 #
 # Task #175 W4c (2026-09-05): the direct simple-structure route is the
 # priority route for every recognised block (the former master switch
-# `directStructsEnabled` and the artifact-absence gate are gone, see
+# `structsEnabled` and the artifact-absence gate are gone, see
 # `ConLeche/Kernel/Direct.lean`); the three duplicate-declaration
 # fixtures below carry the reference-correct reject again.  (Between
 # task #148 T0b and W4c the switch shipped `false`; before T0b an
@@ -60,7 +60,7 @@
 #    the e2e fixtures ind_pos_whnf_id / ind_pos_whnf_fn).  Task #210
 #    Part D (2026-09-07): the fixpoint route normalises every field
 #    domain the block occurs in by official's positivity walk before
-#    classifying it (`normPosDom`, ConLeche/Kernel/Direct/SumInstall.lean),
+#    classifying it (`normPosDom`, ConLeche/Kernel/Inductives/SumInstall.lean),
 #    and all three ACCEPT (0): 90/92, the two remaining declines the
 #    custom-axiom tests 032/033.
 0 good/tutorial/001_basicDef.ndjson

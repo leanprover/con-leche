@@ -40,7 +40,7 @@ directory's `.lake` (gitignored).
   and the Mathlib notions (`Cardinal.IsInaccessible`, `StrictMono`) are
   identical.  His theorem is
   `consistency (_ : OmegaInaccessibles.{u}) {env : VEnv} (_ : env.WF) (U : Nat) :
-  ¬ ∃ e, env.HasType U [] e VExpr.false` (sorried there, pending his
+  ¬ ∃ e, env.HasType U [] e Term.false` (sorried there, pending his
   model construction).
 
 * `isTGUniverse_vonNeumann : κ.IsInaccessible → ConLeche.IsTGUniverse (· ∈ ·) (V_ κ.ord)`

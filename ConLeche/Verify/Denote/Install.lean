@@ -31,7 +31,7 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in
 `env₂`, unchanged.  (The checker's installs are cons-extensions with a
@@ -93,14 +93,14 @@ next person does not take them for a gap.  They *are* consequences of
 there, `hext` carries those lookups over unchanged, and the guard reads
 nothing else.  That derivation is exactly
 `natLitSupported_inv` + `natLitSupported_congr` (and the `strLit`
-pair), which already exist — but in `ConLeche/Model/Interp.lean`, which
+pair), which already exist — but in `ConLeche/ModelV1/Interp.lean`, which
 this hierarchy does not import.
 
 **Both are `V`-free**: they are facts about `Env` alone and have no
 business in the set model's module.  Moving them to `ConLeche/Verify/*`
 is the right fix and would let these three hypotheses be discharged
 here rather than passed on; it is not done in this commit only because
-`ConLeche/Model/Interp.lean` is heavily trafficked and the move is better
+`ConLeche/ModelV1/Interp.lean` is heavily trafficked and the move is better
 made on its own. -/
 theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hext : EnvExtends env₁ env₂)
@@ -112,7 +112,7 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
       levelParamsAt env₂ listNilName = levelParamsAt env₁ listNilName)
     (hlpCons : strLitSupported env₁ = true →
       levelParamsAt env₂ listConsName = levelParamsAt env₁ listConsName) :
-    ∀ (d : Nat) (e : Expr) {v : VExpr},
+    ∀ (d : Nat) (e : Expr) {v : Term},
       denote cval env₁ φ d e = some v → denote cval env₂ φ d e = some v := by
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env₁) (φ := φ) with
@@ -285,7 +285,7 @@ Listing the seven is the fix.
 
 They are hypotheses for the same reason they are in `denote_mono`:
 deriving them from the guards needs
-`natLitSupported_inv`, which was stranded in `ConLeche/Model/Interp.lean`
+`natLitSupported_inv`, which was stranded in `ConLeche/ModelV1/Interp.lean`
 and now lives, `V`-free, in `ConLeche/Verify/EnvGuards.lean`.  Install sites discharge them from freshness. -/
 
 /-- Denotation reads the valuation only at names the environment
@@ -445,7 +445,7 @@ theorem LitAgree.of_fresh {env : Env} {cval cval' : TConstVal}
 Both guards read the environment only at fixed names, so an install
 under a *different* name leaves them alone.  Proving the congruence
 directly avoids needing `natLitSupported_inv`
-(`ConLeche/Model/Interp.lean`) at all — a fact the bridge would otherwise
+(`ConLeche/ModelV1/Interp.lean`) at all — a fact the bridge would otherwise
 have to restate, and the fifth stranded one.  **The inversion is only
 needed to derive the guard from its consequences; the congruence needs
 just the lookups**, which is a cheaper thing to want. -/
@@ -496,7 +496,7 @@ The converse is false in general — the larger environment denotes
 strictly more — so it is guarded exactly as the set model guards
 `interp_mono`: by `Expr.constsResolve`, which holds of every *stored*
 expression by `EnvWF`.  This is the transpose of `interp_mono`
-(`ConLeche/Model/InterpLemmas.lean`), and it is consumed the way the
+(`ConLeche/ModelV1/InterpLemmas.lean`), and it is consumed the way the
 model consumes it, through a telescope-level shrink at the law's own
 premise.
 
@@ -520,7 +520,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     (hntc : ∀ e', c₀ ≠ .projInfo e') :
     ∀ (d : Nat) (e : Expr), e.constsResolve env = true →
       denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
-  have hbranch : ∀ (sn : Name) (i : Nat) (ve : VExpr),
+  have hbranch : ∀ (sn : Name) (i : Nat) (ve : Term),
       (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
         | some entry => some (projNV (i + entry.off) ve)
         | none => if i < 2 then some (.proj i ve) else none)
@@ -692,7 +692,7 @@ environment, changed valuation.  The shared core of every field's
 transport — `has_type_cons` above is this plus a valuation rewrite, and
 `defn_eq_cons` / `thm_ok_cons` below are the same again. -/
 theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
-    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : VExpr}
+    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : Term}
     (hfresh : env.find? c₀.name = none)
     (hntc : ∀ e', c₀ ≠ .projInfo e')
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
@@ -876,7 +876,7 @@ theorem Installs.of_fresh {env : Env} {cval cval' : TConstVal}
 none. -/
 theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
-    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : Term}
     (h : denote cval env φ d e = some v) :
     denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
   denote_install hi.fresh hi.ntc hi.ag hi.lit
@@ -895,7 +895,7 @@ environment.  The two moves compose in one order only: shrink first
 agree on everything stored there, but not at the new constant). -/
 theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
-    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : Term}
     (hres : e.constsResolve env = true)
     (h : denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v) :
     denote cval env φ d e = some v := by
@@ -931,8 +931,8 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     (hi : Installs env cval cval' c₀)
     (hhead : reservedBasisNames.contains c₀.name = true →
       (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
-      ∀ (ψ : Name → Nat) (t : VExpr),
-        pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
+      ∀ (ψ : Name → Nat) (t : Term),
+        pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
   intro n ci hf hres
   by_cases hn : c₀.name = n
@@ -1000,16 +1000,16 @@ theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
 
 
 /-- Extend a valuation at one name by an explicitly chosen term. -/
-def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → VExpr) :
+def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → Term) :
     TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
 
 theorem cvalWith_ne {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} {c : Name} (h : c ≠ n) :
+    {V : (Name → Nat) → Term} {c : Name} (h : c ≠ n) :
     cvalWith cval n V c = cval c := by
   funext ψ; simp [cvalWith, h]
 
 theorem cvalWith_self {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} : cvalWith cval n V n = V := by
+    {V : (Name → Nat) → Term} : cvalWith cval n V n = V := by
   funext ψ; simp [cvalWith]
 
 /-! ## The valuation an install chooses
@@ -1031,7 +1031,7 @@ theorem cvalAt_ne {cval : TConstVal} {env : Env} {n : Name} {value : Expr}
   funext ψ; simp [cvalAt, h]
 
 theorem cvalAt_self {cval : TConstVal} {env : Env} {n : Name}
-    {value : Expr} {ψ : Name → Nat} {v : VExpr}
+    {value : Expr} {ψ : Name → Nat} {v : Term}
     (h : denoteClosed cval env ψ value = some v) :
     cvalAt cval env n value n ψ = v := by
   simp [cvalAt, h]

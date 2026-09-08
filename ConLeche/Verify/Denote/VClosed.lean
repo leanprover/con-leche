@@ -1,7 +1,7 @@
-import ConLeche.VExpr.Subst
+import ConLeche.Term.Subst
 
 /-!
-# Closed `VExpr`s
+# Closed `Term`s
 
 `bvarsBelow n v` — `v` mentions no de Bruijn index `≥ n` — with the two
 facts the bridge consumes: a term closed at the cut is invariant under
@@ -13,7 +13,7 @@ This is the exact mirror image of the saving recorded in
 `ConLeche/Verify/Denote.lean`.  There, the free-variable valuation `ρ`
 disappeared because the opened binder *is* a variable, so `denote`
 needs no valuation parameter where `interpExpr` needs one.  Here we pay
-for the same fact: `VExpr` has variables and `V` does not, so a
+for the same fact: `Term` has variables and `V` does not, so a
 constant's denotation is a *term* that must be **closed**, and lifting
 past it must be a no-op.  `interpExpr` needs no such condition because
 `cval n ψ : V` is a set and there is nothing in it to lift.
@@ -26,15 +26,15 @@ context, which for a term means it has no loose variables.
 
 The two lemmas below are structural inductions and nothing more; this
 is not the beginning of a syntactic metatheory (cf.
-`ConLeche/VExpr/DESIGN.md` §6), and like `ConLeche/TTVerify/Inversion.lean`
+`ConLeche/Term/DESIGN.md` §6), and like `ConLeche/TTVerify/Inversion.lean`
 they live on the bridge side so that they stay marked as a bridge need.
 -/
 
-namespace ConLeche.VExpr
-namespace VExpr
+namespace ConLeche.Term
+namespace Term
 
 /-- `v` mentions no de Bruijn index `≥ n`. -/
-def bvarsBelow : Nat → VExpr → Prop
+def bvarsBelow : Nat → Term → Prop
   | n, .bvar i => i < n
   | _, .sort _ => True
   | _, .const _ _ => True
@@ -47,9 +47,9 @@ def bvarsBelow : Nat → VExpr → Prop
   | _, .prf => True
 
 /-- Closed: no loose de Bruijn variables at all. -/
-abbrev Closed (v : VExpr) : Prop := bvarsBelow 0 v
+abbrev Closed (v : Term) : Prop := bvarsBelow 0 v
 
-theorem bvarsBelow.mono : ∀ {v : VExpr} {m n : Nat}, m ≤ n →
+theorem bvarsBelow.mono : ∀ {v : Term} {m n : Nat}, m ≤ n →
     bvarsBelow m v → bvarsBelow n v := by
   intro v
   induction v with
@@ -70,7 +70,7 @@ theorem bvarsBelow.mono : ∀ {v : VExpr} {m n : Nat}, m ≤ n →
   | proj i e ihe => intro m n hmn h; exact ihe hmn h
 
 /-- Lifting at a cut a term is already below is a no-op. -/
-theorem liftN_eq_self : ∀ {v : VExpr} {k : Nat}, bvarsBelow k v →
+theorem liftN_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     ∀ n : Nat, liftN n v k = v := by
   intro v
   induction v with
@@ -91,8 +91,8 @@ theorem liftN_eq_self : ∀ {v : VExpr} {k : Nat}, bvarsBelow k v →
   | proj i e ihe => intro k h n; rw [liftN_proj, ihe h]
 
 /-- Instantiating at a cut a term is already below is a no-op. -/
-theorem inst_eq_self : ∀ {v : VExpr} {k : Nat}, bvarsBelow k v →
-    ∀ a : VExpr, inst v a k = v := by
+theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
+    ∀ a : Term, inst v a k = v := by
   intro v
   induction v with
   | bvar i => intro k h a; have h' : i < k := h; simp [inst, h']
@@ -112,14 +112,14 @@ theorem inst_eq_self : ∀ {v : VExpr} {k : Nat}, bvarsBelow k v →
   | proj i e ihe => intro k h a; rw [inst_proj, ihe h]
 
 /-- A closed term is invariant under lifting at any cut. -/
-theorem liftN_eq_self_of_closed {v : VExpr} (h : Closed v) (n k : Nat) :
+theorem liftN_eq_self_of_closed {v : Term} (h : Closed v) (n k : Nat) :
     liftN n v k = v :=
   liftN_eq_self (bvarsBelow.mono (Nat.zero_le k) h) n
 
 /-- A closed term is invariant under instantiation at any cut. -/
-theorem inst_eq_self_of_closed {v : VExpr} (h : Closed v) (a : VExpr)
+theorem inst_eq_self_of_closed {v : Term} (h : Closed v) (a : Term)
     (k : Nat) : inst v a k = v :=
   inst_eq_self (bvarsBelow.mono (Nat.zero_le k) h) a
 
-end VExpr
-end ConLeche.VExpr
+end Term
+end ConLeche.Term

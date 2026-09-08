@@ -26,7 +26,7 @@ This module **cuts the weld at the five non-`ind` kinds**: each bridge
 below is the same inversion feeding `SetBase/DeclRun.lean`'s run record
 directly, with no derivation on the path.  The records are re-used, not
 duplicated — `DeclRun`'s payload is zero (task #161 S10 ruling 1: the
-family is valuation-free outright, since `acceptedReadsP_of` supplies
+family is valuation-free outright, since `acceptedReads_of` supplies
 every reading the P lane wants from the runs).
 
 **What is *not* here**: the `ind` kind.  It stays `DeclRun`'s `Ind`
@@ -47,7 +47,7 @@ not the import graph, which is S9's own finding.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## The shared front doors, run half -/
 

@@ -23,7 +23,7 @@ generator, and a stale paste would have been invisible.
 the pin module elaborates and defines the annotated constants with
 `addDecl`/`compileDecl`, so the definition's value is the very term
 `annotateCore` produced — the same closed literal the `decide`/`rfl`
-consumers in `ConLeche/SetP/*` saw before, now *derived* rather than
+consumers in `ConLeche/Model/*` saw before, now *derived* rather than
 transcribed, and re-derived on every build.  An annotation failure is
 an elaboration error, never a silently stale constant.
 

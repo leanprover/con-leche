@@ -3,7 +3,7 @@ import ConLeche.Semantics.Tower.SumRecCase
 /-!
 # The sum recursor leaf (task #175 sum-types, stage S4b; indexed)
 
-`directSumRecAV ℓ w rds Fss Ess srcs nIdx = mkLamsC ℓ rds (sumRecBodyAV …)` —
+`sumRecAV ℓ w rds Fss Ess srcs nIdx = mkLamsC ℓ rds (sumRecBodyAV …)` —
 the constant-bit λ-tower (bit `ℓ`) over the recursor type reading's
 binder data (parameters, motive, one minor per constructor, the
 `nIdx` index binders, major), whose body sits one binder below the
@@ -50,7 +50,7 @@ variable {V : Type uv} [SetTheory V]
 
 /-- A field's source at depth `D'` below the K-frame: the index
 variable it occurs as, or the point. -/
-def srcAV (nIdx D' : Nat) : Option Nat → AVExpr
+def srcAV (nIdx D' : Nat) : Option Nat → AnnotTerm
   | some l => .bvar (D' + nIdx - 1 - l)
   | none => .prf
 
@@ -60,13 +60,13 @@ noncomputable def srcVals (is : List V) (src : List (Option Nat)) : List V :=
     | some l => is.getD l pt
     | none => pt
 
-theorem srcAV_ok2 (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) : AnnotOk2 V σ (srcAV nIdx D' s) := by
+theorem srcAV_wellDenoted (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) : WellDenoted V σ (srcAV nIdx D' s) := by
   cases s <;> trivial
 
 /-- The sources read to their values at the frame. -/
 theorem map_srcAV_interp {nIdx D' : Nat} {ρ₀ σ : Nat → V} (h : RecFrameS D' ρ₀ σ)
     (src : List (Option Nat)) (hsrc : ∀ s ∈ src, ∀ l, s = some l → l < nIdx) :
-    (src.map (srcAV nIdx D')).map (interp2 V σ) = srcVals (frameIdx nIdx ρ₀) src := by
+    (src.map (srcAV nIdx D')).map (interp V σ) = srcVals (frameIdx nIdx ρ₀) src := by
   unfold srcVals
   rw [List.map_map]
   apply List.map_congr_left
@@ -74,19 +74,19 @@ theorem map_srcAV_interp {nIdx D' : Nat} {ρ₀ σ : Nat → V} (h : RecFrameS D
   cases s with
   | none => rfl
   | some l =>
-    simp only [Function.comp_def, srcAV, interp2_bvar]
+    simp only [Function.comp_def, srcAV, interp_bvar]
     exact h.idx (hsrc _ hs l rfl)
 
 /-! ## The major's projections -/
 
 /-- The major's tag and payload nodes are graded (graph regime)
 through the carrier's own `sigmaSet`. -/
-theorem major_proj_ok2 {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss' : List (List AVExpr)}
+theorem major_proj_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss' : List (List AnnotTerm)}
     (hok : SumFieldsOkB w ρ₀ Fss') (ht : σ 0 ∈ˢ sumSet w (sumFibre w ρ₀ Fss')) {i : Nat}
-    (hi : i < 2) : AnnotOk2 V σ (.proj i (.bvar 0)) := by
-  rw [AnnotOk2_proj]
+    (hi : i < 2) : WellDenoted V σ (.proj i (.bvar 0)) := by
+  rw [WellDenoted_proj]
   refine ⟨trivial, hi, w, w, omega, natFibre (sumFibre w ρ₀ Fss'), ?_, omega_mem_univ_pos hw, ?_⟩
-  · rw [interp2_bvar, show Nat.max w w = w from Nat.max_self w]
+  · rw [interp_bvar, show Nat.max w w = w from Nat.max_self w]
     exact ht
   · intro k hk
     obtain ⟨i', rfl, hfib⟩ := natFibre_of_mem (sumFibre w ρ₀ Fss') hk
@@ -106,6 +106,6 @@ theorem foldl_app_pt_sum : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = 
 /-! ## The hereditary premise -/
 
 /-- The conclusion `motive ı⃗ t` spelled at the body frame. -/
-def recConcAV (n nIdx : Nat) : AVExpr := .app (motAppAV n nIdx 1) (.bvar 0)
+def recConcAV (n nIdx : Nat) : AnnotTerm := .app (motAppAV n nIdx 1) (.bvar 0)
 
 end ConLeche.Semantics

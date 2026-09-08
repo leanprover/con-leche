@@ -48,7 +48,7 @@ related_formalizations:
 status:
   scope: >-
     Covered: `ConLeche.no_proof_of_False` is stated about
-    `ConLeche.Cached.checkDeclsSPCachedD .verified`, the function
+    `ConLeche.Cached.checkDecls .verified`, the function
     the `con-leche` binary runs on the parsed export.  Not covered: the
     parser, the `--trusted` mode.  The proof is parametric in a type
     satisfying the `SetTheory` interface (ZF without infinity and choice

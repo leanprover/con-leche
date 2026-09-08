@@ -20,7 +20,7 @@ there.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -110,7 +110,7 @@ end ConLeche.Verify
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -149,7 +149,7 @@ theorem openRev_shiftFrom {e : Expr} (hnf : e.hasFvar = false) :
 
 /-- **The base-independence of the opened denote**: a constant-frame
 subject's reverse opening denotes the same term at every base. -/
-theorem denote_openRev_base (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+theorem denote_openRev_base (hcl : ∀ n ψ, Term.Closed (cval n ψ))
     {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
     (hb : e.looseBVarsBounded n = true) :
     ∀ d : Nat, denote cval env φ (d + n) (openRev d n e) =
@@ -170,7 +170,7 @@ theorem denote_openRev_base (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     | some v =>
       simp only [Option.map_some, Option.some.injEq]
       rw [Nat.sub_zero]
-      refine VExpr.liftN_eq_self ?_ 1
+      refine Term.liftN_eq_self ?_ 1
       have hbv := denote_bvarsBelow hcl n (openRev 0 n e)
         (by
           have h2 := openRev_WScoped (d := 0)
@@ -181,15 +181,15 @@ theorem denote_openRev_base (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 
 /-- **Real-argument instantiation, read through the reverse
 opening.** -/
-theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
+theorem denote_openRev (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     ∀ (as : List Expr) {e : Expr} {d : Nat},
       (∀ a ∈ as, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true ∧
         Expr.fvarsBelow d a) →
       Expr.fvarsBelow d e → e.looseBVarsBounded as.length = true →
-      ∀ {vs : List VExpr}, DenoteSpine cval env φ d as vs →
+      ∀ {vs : List Term}, DenoteSpine cval env φ d as vs →
       denote cval env φ d (Expr.instSeq as (as.length - 1) e) =
         (denote cval env φ (d + as.length)
-          (openRev d as.length e)).map (VExpr.instRevChain vs) := by
+          (openRev d as.length e)).map (Term.instRevChain vs) := by
   intro as
   induction as with
   | nil =>
@@ -229,8 +229,8 @@ theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
       (hwa.mono (by omega)) hba ha' 0]
     show ((denote cval env φ (d + as.length + 1)
       (openRev d (as.length + 1) e)).map
-        (VExpr.inst · (va.liftN as.length) 0)).map
-        (VExpr.instRevChain vs') = _
+        (Term.inst · (va.liftN as.length) 0)).map
+        (Term.instRevChain vs') = _
     rw [Option.map_map,
       show d + as.length + 1 = d + (a :: as).length from by
         simp only [List.length_cons]
@@ -241,9 +241,9 @@ theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     | none => rfl
     | some X =>
       simp only [Option.map_some, Option.some.injEq, Function.comp_apply]
-      show VExpr.instRevChain vs' (X.inst (va.liftN as.length) 0) = _
-      rw [show VExpr.instRevChain (va :: vs') X =
-        VExpr.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
+      show Term.instRevChain vs' (X.inst (va.liftN as.length) 0) = _
+      rw [show Term.instRevChain (va :: vs') X =
+        Term.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
 
 /-- The reverse opening commutes with level instantiation: the opener

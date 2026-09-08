@@ -418,7 +418,7 @@ def ctorResidualOkF (fe : FEnv) (T ctorName : Name) (lps : List Name)
   (match fe.find? ctorName with
    | some (.ctorInfo cvCA _ _) =>
      (match cvCA.type.stripPis (nP + nF) with
-      | some (_, cbody) => cbody == directFam T lps nP nF
+      | some (_, cbody) => cbody == structFam T lps nP nF
       | none => false)
    | _ => false)
 

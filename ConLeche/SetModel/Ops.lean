@@ -97,7 +97,7 @@ pre-#100 `pi_congr_zero_agree`/`lam_congr_zero_agree` pair, and it is
 what lets a λ-tower carry its *result* sort at every binder rather than
 the exact `imax` fold: in `(a₁ : A₁) → … → (aₙ : Aₙ) → T` the sort of
 each suffix is `imax (…) r` with `r` the sort of `T`, and
-`imax x y = 0 ↔ y = 0`.  See `Interp2/Value.lean`'s annotation
+`imax x y = 0 ↔ y = 0`.  See `Interp/Value.lean`'s annotation
 convention. -/
 
 theorem piR_zero_agree {v v' : Nat} (hz : v = 0 ↔ v' = 0) {A : V}
@@ -157,7 +157,7 @@ product is a truth value, so membership of the canonical proof needs
 only that every fibre is *inhabited* — strictly weaker than
 `lamR_mem`'s pointwise `F x ∈ˢ B x`, and the form every tower whose
 value carries no regime tag has to use at kind `0`
-(`Interp2/BasisOk.lean`, the `psigmaMk` finding). -/
+(`Interp/BasisOk.lean`, the `psigmaMk` finding). -/
 theorem pt_mem_piR_zero {A : V} {B : V → V}
     (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) : (pt : V) ∈ˢ piR 0 A B := by
   rw [piR_zero]; exact pt_mem_truthVal h

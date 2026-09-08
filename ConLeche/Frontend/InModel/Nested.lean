@@ -480,7 +480,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let isProp := Level.isEquiv u .zero == some true
   if isProp && large then
     throw "Prop block with a large eliminator (the auxiliary family eliminates into Prop only)"
-  let ℓ := directElimLevel elim large
+  let ℓ := structElimLevel elim large
   let rlvls : List Level := if large then ℓ :: lps.map .param else lps.map .param
   let elimTag := if large then elim else freshLevelName lps
   let blockNames := (b.types.map (·.cv.name)) ++ b.ctors.map (·.cv.name) ++ b.recs.map (·.cv.name)
@@ -1180,8 +1180,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         let ctxI := ((cbs.take (nP + i)).map (·.1)).reverse
         let dom := (cbs.getD (nP + i) default).1
         let some ℓi := sortOf tbl' ctxI dom | stop := true; continue
-        let args := directProjPs nP ++ (List.range i).map fun j =>
-          Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
+        let args := structProjPs nP ++ (List.range i).map fun j =>
+          Expr.mkAppN (constP (projModelName t.cv.name j) lps) (structProjPs nP ++ [.bvar 0])
         let some (.forallE fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
         let some pty := Expr.replacePiBody nP t.cv.type
             (.forallE
@@ -1194,8 +1194,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
             mkLams (idxBsAt mem o2 ++ [sAt (o2 + mem.nIdx)])
               (if mem.tag == m then
                 -- `F_i[f_j := proj_j p⃗ s]`, at frame o2 + 1
-                let argsS := directProjPs nP ++ (List.range i).map fun j =>
-                  Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
+                let argsS := structProjPs nP ++ (List.range i).map fun j =>
+                  Expr.mkAppN (constP (projModelName t.cv.name j) lps) (structProjPs nP ++ [.bvar 0])
                 match Expr.instPisAtLift argsS cty with
                 | some (.forallE fd _ _) => fd.liftLooseBVars (o2 + 1 - 1) 1 |> fun x => x.liftLooseBVars 0 0 |> fun _ =>
                     -- fd is at frame `p⃗, x`: lift the parameters past the extras

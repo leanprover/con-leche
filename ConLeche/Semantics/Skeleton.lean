@@ -1,5 +1,5 @@
-import ConLeche.Semantics.Ok2
-import ConLeche.Semantics.Sat2
+import ConLeche.Semantics.WellDenoted
+import ConLeche.Semantics.Sat
 import ConLeche.Semantics.Univ
 import ConLeche.Semantics.BasisOk
 
@@ -7,15 +7,15 @@ import ConLeche.Semantics.BasisOk
 # The second soundness's per-former skeleton (task #151, arc step 4)
 
 *(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
-per-former rows are stated over `AnnotOk2`/`interp2`/`Sat2` and nothing
+per-former rows are stated over `WellDenoted`/`interp`/`Sat` and nothing
 else — that is the module's own design rule — so they carry no
 environment, and BOTH lanes' inference quarters close their rows with
-them.  Its `Annot/EnvS2` import was transitive cover (`Sat2`, now
-`SetBase/Sat2`).  Path and module name changed; namespaces, statements
+them.  Its `Annot/EnvModel` import was transitive cover (`Sat`, now
+`SetBase/Sat`).  Path and module name changed; namespaces, statements
 and proofs verbatim.)*
 
 
-The case statements of the `interp2` soundness, one per `AVExpr`
+The case statements of the `interp` soundness, one per `AnnotTerm`
 former, each stated over **exactly the facts the frozen Claims2
 interface carries** and nothing else.  Hypothesis-first per the
 `CheckStepR` precedent: a case that needs a fact the interface lacks is
@@ -25,10 +25,10 @@ a finding, not a hypothesis to invent.
 
 The assembly architecture (`docs/SetR-DESIGN.md`, "the second
 soundness — architecture") rules out re-signing the 44-case mutual
-induction: the soundness is **per-step graded lemmas on `AVExpr`**,
+induction: the soundness is **per-step graded lemmas on `AnnotTerm`**,
 composed along the bridge claims, with annotations following the run
 rather than crossing a bare `Red`.  So each case here takes the
-subterms' two facts — hereditary truthfulness (`AnnotOk2`) and
+subterms' two facts — hereditary truthfulness (`WellDenoted`) and
 membership — and produces the node's, in the shape the run-level claim
 will thread.
 
@@ -38,7 +38,7 @@ Two conventions, both forced:
   value, because the node's type is what the next case consumes;
 * **the binder cases take their numeral's justification as a
   hypothesis**, not the numeral alone.  The numeral is in the term
-  (`denote2` computes it); what a case needs is what the numeral is
+  (`denoteAnnot` computes it); what a case needs is what the numeral is
   *worth* semantically, and that is the sort fact — supplier
   `HasSort.mem_univ` (`Annot/Kinding.lean`), which is where every
   binder row's `hcod`/`hdom` premise below comes from.
@@ -65,12 +65,12 @@ than a residue.
 ## The `const` row, closed
 
 It was deferred at the first seal for a supplier reason, not a proof
-reason: `BConst.type` yields a `VExpr` and `denote2` maps
-`Expr → AVExpr`, so a built-in's *annotated* type could not be written
-at all, and there was no `interp2` analogue of `ConstOk.lean`'s
-capstone.  Migration step 2 supplied both — `BConst.type2`
-(`Interp2/BasisType.lean`, with `type2_erase` for faithfulness) and
-`bval2_mem_type` (`Interp2/BasisOk.lean`, all eighteen constants) — so
+reason: `BConst.type` yields a `Term` and `denoteAnnot` maps
+`Expr → AnnotTerm`, so a built-in's *annotated* type could not be written
+at all, and there was no `interp` analogue of `ConstOk.lean`'s
+capstone.  Migration step 2 supplied both — `BConst.typeAV`
+(`Interp/BasisType.lean`, with `typeAV_erase` for faithfulness) and
+`bval_mem_type` (`Interp/BasisOk.lean`, all eighteen constants) — so
 `sound_const` is now two facts wide and the skeleton covers **ten
 formers of ten**.
 
@@ -84,7 +84,7 @@ namespace ConLeche.Semantics
 open ConLeche.SetModel
 
 open SetTheory
-open ConLeche.Semantics (AVExpr)
+open ConLeche.Semantics (AnnotTerm)
 
 universe w
 
@@ -95,18 +95,18 @@ variable (V : Type w) [SetTheory V]
 /-- **`sort`.**  Interface facts: none.  The universe tower's own
 membership; the annotated type of `.sort u` is `.sort (u + 1)`. -/
 theorem sound_sort (ρ : Nat → V) (u : Nat) :
-    AnnotOk2 V ρ (.sort u) ∧
-      interp2 V ρ (.sort u) ∈ˢ interp2 V ρ (.sort (u + 1)) := by
+    WellDenoted V ρ (.sort u) ∧
+      interp V ρ (.sort u) ∈ˢ interp V ρ (.sort (u + 1)) := by
   refine ⟨by simp, ?_⟩
-  rw [interp2_sort, interp2_sort]
+  rw [interp_sort, interp_sort]
   exact univ_mem_univ u
 
 /-- **`bvar`.**  Interface fact: the annotated context's satisfaction
-(`Sat2`), which is the context currency the graded soundness threads. -/
-theorem sound_bvar {Δa : List AVExpr} {ρ : Nat → V} {i : Nat}
-    {Aa : AVExpr} (hΔ : Sat2 V Δa ρ) (hi : Δa[i]? = some Aa) :
-    AnnotOk2 V ρ (.bvar i) ∧
-      ρ i ∈ˢ interp2 V (fun j => ρ (j + i + 1)) Aa := by
+(`Sat`), which is the context currency the graded soundness threads. -/
+theorem sound_bvar {Δa : List AnnotTerm} {ρ : Nat → V} {i : Nat}
+    {Aa : AnnotTerm} (hΔ : Sat V Δa ρ) (hi : Δa[i]? = some Aa) :
+    WellDenoted V ρ (.bvar i) ∧
+      ρ i ∈ˢ interp V (fun j => ρ (j + i + 1)) Aa := by
   exact ⟨by simp, hΔ i Aa hi⟩
 
 /-! ## The binder rows -/
@@ -114,42 +114,42 @@ theorem sound_bvar {Δa : List AVExpr} {ρ : Nat → V} {i : Nat}
 /-- **`pi`.**  Interface facts: the domain's membership at its own
 numeral `u`, the codomain's at `v` under the binder, and the two
 hereditary halves.  The formation law is the `imax` rule *exactly*
-(`piR_mem_univ`), so the annotated type is `.sort (ConLeche.VExpr.imax u v)`
+(`piR_mem_univ`), so the annotated type is `.sort (ConLeche.Term.imax u v)`
 on the nose — no "may land lower" slack. -/
-theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AVExpr}
-    (hokA : AnnotOk2 V ρ Aa)
-    (hokB : ∀ x, x ∈ˢ interp2 V ρ Aa → AnnotOk2 V (cons x ρ) Ba)
-    (hA : interp2 V ρ Aa ∈ˢ (univ u : V))
-    (hB : ∀ x, x ∈ˢ interp2 V ρ Aa →
-      interp2 V (cons x ρ) Ba ∈ˢ (univ v : V)) :
-    AnnotOk2 V ρ (.pi u v Aa Ba) ∧
-      interp2 V ρ (.pi u v Aa Ba)
-        ∈ˢ interp2 V ρ (.sort (ConLeche.VExpr.imax u v)) := by
-  refine ⟨by rw [AnnotOk2_pi]; exact ⟨hokA, hokB⟩, ?_⟩
-  rw [interp2_pi, interp2_sort]
+theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AnnotTerm}
+    (hokA : WellDenoted V ρ Aa)
+    (hokB : ∀ x, x ∈ˢ interp V ρ Aa → WellDenoted V (cons x ρ) Ba)
+    (hA : interp V ρ Aa ∈ˢ (univ u : V))
+    (hB : ∀ x, x ∈ˢ interp V ρ Aa →
+      interp V (cons x ρ) Ba ∈ˢ (univ v : V)) :
+    WellDenoted V ρ (.pi u v Aa Ba) ∧
+      interp V ρ (.pi u v Aa Ba)
+        ∈ˢ interp V ρ (.sort (ConLeche.Term.imax u v)) := by
+  refine ⟨by rw [WellDenoted_pi]; exact ⟨hokA, hokB⟩, ?_⟩
+  rw [interp_pi, interp_sort]
   exact piR_mem_univ hA hB
 
 /-- **`lam`.**  Interface facts: the body's membership in the codomain
 under the binder, the codomain's kind-`0` fibre condition (the
 numeral's worth, from `HasSort.mem_univ`), and the two hereditary
 halves.  **No empty-domain side condition** — see the module
-docstring.  The `Π`'s domain numeral `u` is free: `interp2`'s `pi`
+docstring.  The `Π`'s domain numeral `u` is free: `interp`'s `pi`
 clause discards it (only the codomain sort dispatches), so the row
 holds at every annotation of the domain. -/
-theorem sound_lam {u v : Nat} {ρ : Nat → V} {Aa ba Ba : AVExpr}
-    (hokA : AnnotOk2 V ρ Aa)
-    (hokb : ∀ x, x ∈ˢ interp2 V ρ Aa → AnnotOk2 V (cons x ρ) ba)
-    (hb : ∀ x, x ∈ˢ interp2 V ρ Aa →
-      interp2 V (cons x ρ) ba ∈ˢ interp2 V (cons x ρ) Ba)
-    (hcod : v = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa →
-      interp2 V (cons x ρ) Ba ∈ˢ (univZero : V)) :
-    AnnotOk2 V ρ (.lam v Aa ba) ∧
-      interp2 V ρ (.lam v Aa ba)
-        ∈ˢ interp2 V ρ (.pi u v Aa Ba) := by
+theorem sound_lam {u v : Nat} {ρ : Nat → V} {Aa ba Ba : AnnotTerm}
+    (hokA : WellDenoted V ρ Aa)
+    (hokb : ∀ x, x ∈ˢ interp V ρ Aa → WellDenoted V (cons x ρ) ba)
+    (hb : ∀ x, x ∈ˢ interp V ρ Aa →
+      interp V (cons x ρ) ba ∈ˢ interp V (cons x ρ) Ba)
+    (hcod : v = 0 → ∀ x, x ∈ˢ interp V ρ Aa →
+      interp V (cons x ρ) Ba ∈ˢ (univZero : V)) :
+    WellDenoted V ρ (.lam v Aa ba) ∧
+      interp V ρ (.lam v Aa ba)
+        ∈ˢ interp V ρ (.pi u v Aa Ba) := by
   refine ⟨?_, ?_⟩
-  · rw [AnnotOk2_lam]
-    exact ⟨hokA, hokb, fun x => interp2 V (cons x ρ) Ba, hb, hcod⟩
-  · rw [interp2_lam, interp2_pi]
+  · rw [WellDenoted_lam]
+    exact ⟨hokA, hokb, fun x => interp V (cons x ρ) Ba, hb, hcod⟩
+  · rw [interp_lam, interp_pi]
     exact lamR_mem hb
 
 /-! ## The application row -/
@@ -158,17 +158,17 @@ theorem sound_lam {u v : Nat} {ρ : Nat → V} {Aa ba Ba : AVExpr}
 *annotated* `Π`, the argument's in its domain, and the `Π`'s kind-`0`
 fibre condition.  Closes at **both** kinds — the kind-`0` premise is
 exactly `app_mem_piR`'s, and its supplier is the `Π`'s own numeral. -/
-theorem sound_app {u v : Nat} {ρ : Nat → V} {fa aa Aa Ba : AVExpr}
-    (hokf : AnnotOk2 V ρ fa) (hoka : AnnotOk2 V ρ aa)
-    (hf : interp2 V ρ fa ∈ˢ interp2 V ρ (.pi u v Aa Ba))
-    (ha : interp2 V ρ aa ∈ˢ interp2 V ρ Aa)
-    (hcod : v = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa →
-      interp2 V (cons x ρ) Ba ∈ˢ (univZero : V)) :
-    AnnotOk2 V ρ (.app fa aa) ∧
-      interp2 V ρ (.app fa aa) ∈ˢ interp2 V ρ (Ba.inst aa) := by
-  refine ⟨AnnotOk2_app_of V hokf hoka hf ha hcod, ?_⟩
-  rw [interp2_pi] at hf
-  rw [interp2_app, interp2_inst0]
+theorem sound_app {u v : Nat} {ρ : Nat → V} {fa aa Aa Ba : AnnotTerm}
+    (hokf : WellDenoted V ρ fa) (hoka : WellDenoted V ρ aa)
+    (hf : interp V ρ fa ∈ˢ interp V ρ (.pi u v Aa Ba))
+    (ha : interp V ρ aa ∈ˢ interp V ρ Aa)
+    (hcod : v = 0 → ∀ x, x ∈ˢ interp V ρ Aa →
+      interp V (cons x ρ) Ba ∈ˢ (univZero : V)) :
+    WellDenoted V ρ (.app fa aa) ∧
+      interp V ρ (.app fa aa) ∈ˢ interp V ρ (Ba.inst aa) := by
+  refine ⟨WellDenoted_app_of V hokf hoka hf ha hcod, ?_⟩
+  rw [interp_pi] at hf
+  rw [interp_app, interp_inst0]
   exact app_mem_piR hf ha hcod
 
 /-- **The amendment's payoff, isolated**: the application's membership
@@ -176,48 +176,48 @@ follows from the *invariant alone*, at every kind.  Before the app
 clause carried its kind-`0` fibre component this was false — the slot
 gave no handle on `B`, and an inhabited `piR 0 A B` says only that the
 fibre is inhabited, never that its inhabitant is `pt`. -/
-theorem app_mem_of_slot {ρ : Nat → V} {fa aa : AVExpr}
-    (hok : AnnotOk2 V ρ (.app fa aa)) :
+theorem app_mem_of_slot {ρ : Nat → V} {fa aa : AnnotTerm}
+    (hok : WellDenoted V ρ (.app fa aa)) :
     ∃ B : V → V,
-      interp2 V ρ (.app fa aa) ∈ˢ B (interp2 V ρ aa) := by
-  rw [AnnotOk2_app] at hok
+      interp V ρ (.app fa aa) ∈ˢ B (interp V ρ aa) := by
+  rw [WellDenoted_app] at hok
   obtain ⟨-, -, v, A, B, hf, ha, hz⟩ := hok
-  exact ⟨B, by rw [interp2_app]; exact app_mem_piR hf ha hz⟩
+  exact ⟨B, by rw [interp_app]; exact app_mem_piR hf ha hz⟩
 
 /-! ## The `const` row -/
 
 /-- **`const`.**  Interface facts: the basis capstone
-(`bval2_mem_type`) and nothing else — a built-in is a closed leaf, so
+(`bval_mem_type`) and nothing else — a built-in is a closed leaf, so
 its row needs no context, no valuation and no hereditary premise.  With
 this the skeleton covers **ten formers of ten**. -/
-theorem sound_const (ρ : Nat → V) (c : ConLeche.VExpr.BConst)
+theorem sound_const (ρ : Nat → V) (c : ConLeche.Term.BConst)
     (us : List Nat) :
-    AnnotOk2 V ρ (.const c us) ∧
-      interp2 V ρ (.const c us)
-        ∈ˢ interp2 V ρ (BConst.type2 c us) :=
-  ⟨by simp, bval2_mem_type V c us ρ⟩
+    WellDenoted V ρ (.const c us) ∧
+      interp V ρ (.const c us)
+        ∈ˢ interp V ρ (BConst.typeAV c us) :=
+  ⟨by simp, bval_mem_type V c us ρ⟩
 
 /-! ## The remaining structural rows -/
 
 /-- **`letE`.**  Interface facts: the body's two facts at the value
-substituted.  ζ is annotation-free — `interp2`'s `letE` clause *is* the
+substituted.  ζ is annotation-free — `interp`'s `letE` clause *is* the
 contractum's reading — so the row is an identity, not a step. -/
-theorem sound_letE {ρ : Nat → V} {Ta va ba Ba : AVExpr}
-    (hokT : AnnotOk2 V ρ Ta) (hokv : AnnotOk2 V ρ va)
-    (hokb : AnnotOk2 V (cons (interp2 V ρ va) ρ) ba)
-    (hb : interp2 V (cons (interp2 V ρ va) ρ) ba
-      ∈ˢ interp2 V (cons (interp2 V ρ va) ρ) Ba) :
-    AnnotOk2 V ρ (.letE Ta va ba) ∧
-      interp2 V ρ (.letE Ta va ba)
-        ∈ˢ interp2 V (cons (interp2 V ρ va) ρ) Ba := by
-  refine ⟨by rw [AnnotOk2_letE]; exact ⟨hokT, hokv, hokb⟩, ?_⟩
-  rw [interp2_letE]
+theorem sound_letE {ρ : Nat → V} {Ta va ba Ba : AnnotTerm}
+    (hokT : WellDenoted V ρ Ta) (hokv : WellDenoted V ρ va)
+    (hokb : WellDenoted V (cons (interp V ρ va) ρ) ba)
+    (hb : interp V (cons (interp V ρ va) ρ) ba
+      ∈ˢ interp V (cons (interp V ρ va) ρ) Ba) :
+    WellDenoted V ρ (.letE Ta va ba) ∧
+      interp V ρ (.letE Ta va ba)
+        ∈ˢ interp V (cons (interp V ρ va) ρ) Ba := by
+  refine ⟨by rw [WellDenoted_letE]; exact ⟨hokT, hokv, hokb⟩, ?_⟩
+  rw [interp_letE]
   exact hb
 
 /-! ## The projection rows
 
-The `Σ`-eliminations, general in the fibre family (`Interp2/Value.lean`
-states them for the `bval2` tower's `fun x => app B x`; the invariant's
+The `Σ`-eliminations, general in the fibre family (`Interp/Value.lean`
+states them for the `bval` tower's `fun x => app B x`; the invariant's
 proj clause carries a meta-level `Bf`, so the two below are the
 general forms `mem_sigma_elim` supports directly). -/
 
@@ -252,16 +252,16 @@ theorem ssnd_mem_gen {u v : Nat} {A p : V} {Bf : V → V}
   · rw [hne hw, ssnd_spair, sfst_spair]; exact hb
 
 /-- **`proj 0`.**  Interface facts: the subject's `Σ`-package — which
-is exactly what `AnnotOk2`'s proj clause carries, so this row consumes
+is exactly what `WellDenoted`'s proj clause carries, so this row consumes
 the invariant and nothing else. -/
-theorem sound_proj_fst {ρ : Nat → V} {ea : AVExpr}
-    (hok : AnnotOk2 V ρ (.proj 0 ea)) :
+theorem sound_proj_fst {ρ : Nat → V} {ea : AnnotTerm}
+    (hok : WellDenoted V ρ (.proj 0 ea)) :
     ∃ (u : Nat) (A : V), A ∈ˢ (univ u : V) ∧
-      interp2 V ρ (.proj 0 ea) ∈ˢ A := by
-  rw [AnnotOk2_proj] at hok
+      interp V ρ (.proj 0 ea) ∈ˢ A := by
+  rw [WellDenoted_proj] at hok
   obtain ⟨-, -, u, v, A, Bf, hp, hA, -⟩ := hok
   refine ⟨u, A, hA, ?_⟩
-  rw [interp2_proj, if_pos rfl]
+  rw [interp_proj, if_pos rfl]
   exact sfst_mem_gen V hA hp
 
 end ConLeche.Semantics
