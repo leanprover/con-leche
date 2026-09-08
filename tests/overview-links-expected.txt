@@ -87,17 +87,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2657-L2666
-  2657        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2658        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2659        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2660        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2661        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2662    | fuel + 1 =>
-  2663      wrap
-  2664        { whnfCore := fun d e =>
-  2665            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2666          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2660-L2669
+  2660        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2661        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2662        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2663        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2664        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2665    | fuel + 1 =>
+  2666      wrap
+  2667        { whnfCore := fun d e =>
+  2668            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2669          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -132,8 +132,8 @@
 == ConLeche/Kernel/Core.lean#L1820
   1820  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
 
-== ConLeche/Kernel/Core.lean#L2541
-  2541    fun depth e =>
+== ConLeche/Kernel/Core.lean#L2544
+  2544    fun depth e =>
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -521,11 +521,11 @@
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
-== ConLeche/Kernel/Inductives/NativeInstall.lean#L241
-   241  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L486
+   486  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Inductives/NativeInstall.lean#L257
-   257  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L502
+   502  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

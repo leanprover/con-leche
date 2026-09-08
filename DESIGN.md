@@ -63702,6 +63702,141 @@ allowlisted, overview-links 58/44 with no anchor in the three files
 touched), proofdeps 2846 rows and doors 0, axioms pinned at 12
 theorems over the three standard.
 
+## TASK #246 — THREE MORE TOWER KINDS, AND THE SEVEN WALKERS BEHIND THEM (2026-09-08, `agent/towers`)
+
+Task #233's sweep left a docket: the walkers no DAG-tower fixture
+reaches.  Three new kinds in `scripts/mk_tower_fixtures.py` reach
+them, and each one, run on master's binary first, failed:
+
+| kind | shape | master (16 GB cap, 60 s) | the walker `perf` named |
+|---|---|---|---|
+| `tower_recfield` | a RECURSIVE structure whose field after the recursive one is a depth-60 tower over the FIRST field's variable | OOM, 30 s / 23 s | `Expr.fvarLeaves` (48 % `List.reverseAux`, 20 % the walk) |
+| `tower_mutual` | a two-member MUTUAL block whose first constructor carries the same tower | hang (exit 124) | `InModel.mentionsAny`, 87.7 % |
+| `tower_nested` | a container on the fixpoint route, then a block NESTING it, with the tower in its constructor | OOM, 7 s / 13 s | `Expr.lowerBVars`, 16.7 % |
+
+All three accept in **34 / 50 / 62 ms** now, under the arena's own
+8 GB cap.  Getting there took **seven** fixes, because each walker
+was standing in front of the next: the fixture does not name one
+walker, it names a *path*.
+
+### 1. `Expr.mentionsFvar` — a memo, and NO cutoff
+
+`Expr.fvarLeaves` returns a list that IS tree-sized by construction,
+so #233 was right that it cannot be memoized where it stands; the fix
+belongs to its consumer.  `mentionsFvar q e` asks a `Bool` of it, and
+that memoizes on the node alone — `q` is fixed for the whole walk,
+unlike `hasLooseBVarB`'s index.
+
+**There is no cutoff to put in front of it, and this is a finding.**
+The packed `fvarB` field is the fvar range of a node's own spine and
+stops AT an `fvar` leaf (`fvarRange (.fvar idx _) = idx + 1`), while
+`fvarLeaves` descends hereditarily into that leaf's TYPE ANNOTATION.
+So `e.fvarB ≤ q` does not license "`q` does not occur in `e`": the
+field that serves `abstract1` cannot serve this question at all, and
+the memo is the whole remedy.  `mentionsFvarGo` / `mentionsFvarFast`
+with `mentionsFvarGo_spec` and `@[csimp]`, as #233 built twice; the
+pure `mentionsFvar` that `Model/Inductives/FixShadow.lean` unfolds is
+untouched.
+
+### 2. `lowerBVars`, `instantiate1Lift`, `instantiateLevelParams` — cutoff AND memo
+
+Three pure rebuilds on install paths that had neither guard, all three
+given the `abstract1` arrangement (the `O(1)` field read first, the
+memo behind it, a kernel-checked agreement lemma, `@[csimp]`, and the
+pure definition still the one every proof consumes):
+
+| pure | cutoff | memo key | spec |
+|---|---|---|---|
+| `lowerBVars` | `bvarB ≤ c + amount` | `(e, cutoff)` | `lowerBVars_of_bvarBound_le`, `lowerBVarsGo_spec` |
+| `instantiate1Lift` | `bvarB ≤ d` | `(e, cursor)` | `instantiate1Lift_of_bvarBound_le`, `instantiate1LiftGo_spec` |
+| `Expr.instantiateLevelParams` | `!hasLP` | `e` | `Expr.hasLP_eq`, `Expr.instLPGo_spec` |
+
+The last needed `Expr.hasLP_eq` on the Kernel side: the fact exists as
+`Cached.ExprC.hasLP_eq` in `Verify/Cached/Erase.lean`, which the kernel
+may not import, so `Kernel/ExprOps.lean` carries its own (with the two
+level-walker lemmas under it).
+
+**A `csimp` reaches only the code generated AFTER it.**
+`Expr.instPisAtLift` sat 1 200 lines above the new
+`instantiate1Lift` equation in the same file and therefore compiled
+against the unguarded walk — the profile still showed
+`instantiate1Lift` recursing into itself after the memo landed.  It is
+now below the equation, with a comment saying why.  Worth remembering:
+adding a `@[csimp]` late in a file silently leaves that file's own
+earlier callers behind.
+
+### 3. The modeller's walkers — memos, no spec lemmas
+
+`mentionsAny`, `maxHeight`, `specFam` and `substParams`
+(`Frontend/InModel/Kit.lean`) and `specAll` (`Nested.lean`) are five
+plain `Expr` recursions with no cutoff and nothing to short-circuit on.
+Each is now one memoized DAG walk — keyed by the node, or by the node
+and the binder offset where one shifts under binders (`substParams`,
+`specAll`).  **None carries a spec lemma, and none is owed one**: the
+in-process modeller is untrusted by the standing ruling (the `_model`
+family it emits is checked at install like any other declaration), so
+a memo here needs no `@[csimp]` twin.  Where a proof consumes the
+answer — §1 and §2 — the twin is there.
+
+### 4. The block-order guard was a structural comparison of the block
+
+With the modeller DAG-safe, `--progress` put the remaining hang at
+declaration 25 of 26, `inductive MutA` — the modeled INSTALL, not the
+modeller.  `gdb` named it: `checkIndDeclSF` → `instDecidableEqList` →
+`instDecidableEqConstantInfo` → `instDecidableEqExpr`, 68 % self.
+
+`checkModeled` (and its cached mirror) asks that the recursors form a
+suffix of the block, and asks it as `block = nonrecs ++ recs` — an
+equation between the block and its own stable partition, decided by
+the DERIVED `DecidableEq`, which compares every member's TYPE
+structurally with no pointer shortcut and no memo.  On a block whose
+constructor carries a tower that is `O(tree)`.
+
+The equation is decidable on the constructor TAGS alone.
+`recsFormSuffix` (`Kernel/Env.lean`) is that one pass, `recsFormSuffix_iff`
+proves it decides exactly this equation, and `blockRecSuffixDec` is the
+`Decidable` instance both call sites now name.  **The STATEMENT does
+not move** — `Semantics.DeclIndRun`'s first conjunct is the same
+proposition, and a `Decidable` is a subsingleton — so the only proof
+that changed is the bridge's, which now opens the guard with
+`of_decide_eq_true`.
+
+### 5. Gates
+
+`lake build` **517 jobs, zero warnings**; `lake test` warning-free.
+`tests/arena.sh` under `env -i`: **exit 0, 0 FAIL**, with **e2e
+181/181** (178), the **DAG-tower gate 14/14** (11) and the trusted
+sweep 138 + 181 + 14 with the three recorded divergences; every other
+count unchanged — 90/92 arena, 14/14 annot, 8/8 retired flags, 18/18
+mode flags, 3/3 prelude, 12/12 progress, route census 142 fix / 540
+basis, layering 263 / 189 / 3 / 1 with 0 base→lane and 0 impl→theory,
+**trust surface 10** escapes in 4 allowlisted files of 465,
+**proofdeps 2 846 rows, doors 0**, axioms pinned at **12 theorems**
+over the three standard.  `shake`: 463 removals, all allowlisted, one
+allowlist line deleted — `NativeInstallF.lean`'s `import
+…NativeInstall` is no longer proposed for removal.  `overview-links`
+58/44 OK, with four anchors repointed as PURE SHIFTS (the fuel knot's
+base case and `annotateBody`'s body in `Kernel/Core.lean`,
+`classifyFixKinds` and `checkNative` in `NativeInstall.lean`; each new
+target re-read and each citing paragraph still describes it).
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000`, against master `c6b51a3b`'s 681.14 G verified /
+657.60 G trusted: **681.19 G (+0.008 %) / 657.70 G (+0.015 %)**, 53 088
+declarations accepted in both modes, exit 0.  That is the ±0 a memo
+twin should be — every new memo sits behind an `O(1)` field read where
+a cutoff exists, and the paths that gained one (the modeled install,
+the in-process modeller) are entered once on this stream.
+
+### 6. Also
+
+`annotateBody`'s docstring said it was "the one place binder bodies —
+and the application rule — are type-checked; `infer` afterwards trusts
+the annotations".  The `.app` clause is structural and the inference
+sweep re-checks every application and every binder body and validates
+each annotation against its own result; the docstring now says that,
+and says what the sweep does take from the annotations — a licence to
+skip a *certificate* at a binder whose datum is `never`.
 ## TASK #248 — THE CAPABILITY ARITIES ARE AN INSTALL-TIME INVARIANT: `IndCapsWF`, THE NINTH CONJUNCT OF `ConstWF` (2026-09-08, `agent/indcaps`)
 
 Item 3 of task #232's report (`_tmp/iota/REPORT.md` §5 on the unmerged

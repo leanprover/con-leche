@@ -538,6 +538,9 @@ theorem declIndRun_of
   split at h
   case isFalse => simp [throw, throwThe, MonadExceptOf.throw] at h
   next hsplit =>
+  -- the guard now decides the SAME statement through `recsFormSuffix`
+  -- (`ConLeche/Kernel/Env.lean`), so it arrives as a `decide`
+  have hsplit := of_decide_eq_true hsplit
   split at h
   case h_2 =>
     next hnone =>

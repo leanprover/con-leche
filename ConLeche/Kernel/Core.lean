@@ -2532,11 +2532,14 @@ def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
 
 /-- The annotation body: compute the codomain-sort annotations of every
 binder, bottom-up, by real inference on the opened (already annotated)
-body.  This is the one place binder bodies — and the application rule —
-are type-checked; `infer` afterwards trusts the annotations.  For a
-`forallE` the annotation is the body's sort (so this also checks that
-the body *is* a type — the ∀-formation rule); for a `lam` it is the
-sort of the body's type. -/
+body.  For a `forallE` the annotation is the body's sort (so this also
+checks that the body *is* a type — the ∀-formation rule); for a `lam`
+it is the sort of the body's type.  The `.app` clause is structural:
+the application rule is not checked here.  The inference sweep that
+follows re-checks every application and every binder body and
+validates each annotation against its own result; what it takes from
+the annotations is a licence to skip a *certificate* at a binder whose
+datum is `never`, never a typing it does not redo. -/
 def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
