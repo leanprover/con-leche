@@ -9644,6 +9644,71 @@ files) and `Verify/` (105), plus the tests and the capstones**.
   therefore not in this landing**; it needs an oracle that models the public
   closure, not the name resolution, and that is the next batch.
 
+
+### Phase 3 — plain `import` where the public closure allows it
+
+The end state the user asked for is "only normal import"; phase 2 had already
+found why the compiler cannot be the oracle here.  **A missing re-export
+never produces an "unknown identifier"** — the name still resolves through
+the private import — it produces a `rfl` that stops closing, a `simp only`
+that makes no progress, or an instance that goes stuck, none of which name
+the module at fault.  So phase 3 is a *model* of the module system's
+visibility, checked by the build rather than searched by it.
+
+**Two things a `public import` does, and only one of them is obvious.**
+
+* It re-exports: an importer's PUBLIC interface may mention what the import
+  carries.  This is what `scripts/pub-iface.lean` measures, by reading the
+  environment in the exporting view (`Environment.setExporting`) — literally
+  what an importer sees.  A declaration absent from that view is private and
+  contributes nothing; one present contributes the constants of its *type*,
+  and of its *value* when the body survived (an `@[expose]`d def).
+* It **carries**: a *private* import gives the importer the imported
+  module's public closure and nothing more.  So demoting an edge does not
+  only affect the module that owns it — it can take a definitional unfolding
+  away from a module three tiers up that never mentions that edge.
+
+The first attempt modelled only the first and broke the tree
+(`Frontend/InModel/Kit.lean`: `Unknown identifier `Name``).  The plan is
+therefore a fixpoint over **four** constraints, in
+`scripts/pub-import-plan.py`, starting from the all-public tree and demoting
+an edge only when nothing anywhere breaks:
+
+| constraint | source | what it protects |
+|---|---|---|
+| coverage | `scripts/dead-census.lean` | every constant a module mentions in a *term* |
+| publicness | `scripts/pub-iface.lean` | the module's own public interface |
+| opens | the census, by name prefix | a bare `open N` needs `N` to exist — DESIGN #223's blind spot |
+| source identifiers | the source text | a lemma named only in a TACTIC argument (`simp [f]`) need not appear in the proof term at all |
+
+Two model corrections are recorded in the script because both are easy to
+repeat.  The census walks the FINAL environment and adds
+`@[csimp]`/`@[implemented_by]` edges that an attribute in a *later* module
+creates, which show up as impossible backwards dependencies
+(`Kernel/ExprOps` "needing" `Verify/Level`); both sets are therefore
+intersected with each module's real transitive import closure.  And the
+census roots must cover **every** module that is built — the first run's
+roots reached `Kernel` and `Verify` through the `ConLeche` umbrella but not
+`Frontend/*`, whose rows were consequently empty, so the fixpoint stripped
+that whole cone bare.  The script now asserts its own coverage.
+
+**Result.**  384 of 1294 in-tree import edges become plain `import`, across
+207 files: 897 `public import` lines remain (was 1274) against 387 plain
+in-tree ones (was 3, all of them prose).  Two files kept their re-exports
+under the per-file fallback the method implies — a file the model cannot
+decide keeps what it had: `Semantics/IndRecsCore` (a lemma reached by
+dot-notation) and `Model/Install` (`RecCtorsStored.cons`, likewise).  The
+model is a filter on candidate demotions, never a claim; the build is the
+arbiter, and it is the reason the two fallbacks cost nothing but two files'
+worth of re-export.
+
+**One gate learned something.**  `lake build` does not build the test
+library, so a warning there is invisible to it — phase 2 shipped
+`@[expose] private def` in `tests/ConLecheTests.lean` (a private declaration
+cannot be exposed) and only the #233 lane's `lake test` saw it.  The
+attribute is gone and `lake test`'s warning output is part of the per-landing
+check from here on.
+
 ### What phase 1 already bought, measured
 
 A cold build's oleans, split by scope (454 modules):

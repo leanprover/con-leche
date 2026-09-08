@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Semantics.DeclIndRun
-public import ConLeche.Semantics.Bridge.DeclRun
-public import ConLeche.Verify.Extend.Iota
+import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Verify.Extend.Iota
 public import ConLeche.Verify.Extend.Proj
 
 @[expose] public section

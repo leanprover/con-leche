@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.StructResid
 public import ConLeche.Verify.ProjTele
-public import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.Cached.Erase
 
 public section
 

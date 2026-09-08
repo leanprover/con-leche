@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.FixRuleData
 public import ConLeche.Model.Inductives.FixRuleOk
-public import ConLeche.Model.Inductives.FixRecLeaf
-public import ConLeche.Semantics.Tower.FixWire
+import ConLeche.Model.Inductives.FixRecLeaf
+import ConLeche.Semantics.Tower.FixWire
 public section
 
 /-!

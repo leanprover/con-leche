@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.StructBody
-public import ConLeche.Verify.ProjSlots
+import ConLeche.Verify.ProjSlots
 
 public section
 

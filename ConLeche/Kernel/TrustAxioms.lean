@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Kernel.StdAxioms
-public import ConLeche.Kernel.BasisA
+import ConLeche.Kernel.BasisA
 public meta import ConLeche.Kernel.BasisA
-public import ConLeche.Kernel.BasisGen
-public import ConLeche.Kernel.Basis
+import ConLeche.Kernel.BasisGen
+import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.Core
 public import ConLeche.Kernel.TrustPins
 

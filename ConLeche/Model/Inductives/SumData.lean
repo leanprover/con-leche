@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.StructCtorFrames
+import ConLeche.Model.Inductives.StructCtorFrames
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Verify.Inductives.SumInv

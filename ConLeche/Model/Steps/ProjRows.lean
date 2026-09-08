@@ -1,14 +1,14 @@
 module
 
-public import ConLeche.Model.Steps.CapsRows
-public import ConLeche.Model.Steps.Stuck
-public import ConLeche.Model.Steps.InferIO
-public import ConLeche.Semantics.WellDenoted
-public import ConLeche.Model.Steps.TowerKit
+import ConLeche.Model.Steps.CapsRows
+import ConLeche.Model.Steps.Stuck
+import ConLeche.Model.Steps.InferIO
+import ConLeche.Semantics.WellDenoted
+import ConLeche.Model.Steps.TowerKit
 public import ConLeche.Model.Steps.IotaGate
-public import ConLeche.Verify.Denote
-public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 public section
 
 /-!

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Denote.Install
 public import ConLeche.Verify.Denote.VClosed
-public import ConLeche.Verify.Denote.Shift
+import ConLeche.Verify.Denote.Shift
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Install
+import ConLeche.Model.Install
 public import ConLeche.Model.NatStep
 public import ConLeche.Model.Steps.Accepted
 

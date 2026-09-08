@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Kernel.ExprOps
-public import ConLeche.Verify.Shift
+import ConLeche.Kernel.ExprOps
+import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.Knot
+import ConLeche.Verify.Knot
 
 public section
 

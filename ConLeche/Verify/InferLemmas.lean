@@ -1,11 +1,11 @@
 module
 
 public import ConLeche.Verify.Mono
-public import ConLeche.Kernel.TypeChecker
-public import ConLeche.Verify.Shift
-public import ConLeche.Verify.InstLevels
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Verify.Shift
+import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.Knot
+import ConLeche.Verify.Knot
 public import ConLeche.Verify.StrLitExpr
 public import ConLeche.Verify.InstList
 public import ConLeche.Verify.InstSpine

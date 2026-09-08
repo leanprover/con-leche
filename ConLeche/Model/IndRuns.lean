@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndFrame
-public import ConLeche.Verify.IotaWalkInv
+import ConLeche.Verify.IotaWalkInv
 public section
 
 /-!

@@ -3,9 +3,9 @@ module
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
-public import ConLeche.Verify.Extend.Block
+import ConLeche.Verify.Extend.Block
 
-public import ConLeche.Verify.Extend.Ind
+import ConLeche.Verify.Extend.Ind
 
 public import ConLeche.Semantics.ProjPhase
 

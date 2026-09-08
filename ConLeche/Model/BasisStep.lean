@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.EqTower
 public import ConLeche.Model.DivMod
-public import ConLeche.Model.NatEqs
+import ConLeche.Model.NatEqs
 public import ConLeche.Model.BasisTypeOk
 
 public section

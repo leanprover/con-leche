@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.ErasePwInv
+import ConLeche.Model.ErasePwInv
 public import ConLeche.Model.Harvest
-public import ConLeche.Verify.BinderLoop
+import ConLeche.Verify.BinderLoop
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.

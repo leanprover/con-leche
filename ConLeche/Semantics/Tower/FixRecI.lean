@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixSquashI
 public import ConLeche.Semantics.Tower.FixIhI
 public import ConLeche.Semantics.Tower.FixElemI
 

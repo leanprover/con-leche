@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.SumData
-public import ConLeche.Model.Inductives.StructBodyFrames
+import ConLeche.Model.Inductives.StructBodyFrames
 public import ConLeche.Verify.Inductives.FixWF
 public section
 

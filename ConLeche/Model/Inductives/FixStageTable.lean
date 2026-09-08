@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.FixEntryLaw
 public import ConLeche.Model.Inductives.FixAssemblyKit
-public import ConLeche.Model.Inductives.StructStageTable
-public import ConLeche.Verify.Inductives.FixParts
+import ConLeche.Model.Inductives.StructStageTable
+import ConLeche.Verify.Inductives.FixParts
 public section
 
 /-!

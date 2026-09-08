@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InstLevels
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.EnvModel
 

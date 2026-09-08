@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.BasisA
+import ConLeche.Kernel.BasisA
 public import ConLeche.Verify.EnvPreds
 
 @[expose] public section

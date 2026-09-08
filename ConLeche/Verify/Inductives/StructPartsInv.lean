@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.StructInv
-public import ConLeche.Verify.FastOps
+import ConLeche.Verify.FastOps
 
 public section
 

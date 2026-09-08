@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IotaRuleNested
-public import ConLeche.Verify.Denote.EnvExt
+import ConLeche.Verify.Denote.EnvExt
 public section
 
 /-!

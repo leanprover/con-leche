@@ -2,8 +2,8 @@ module
 
 public import ConLeche
 public import ConLeche.Frontend.ExportC
-public import ConLecheTests.PreludeTests
-public import ConLecheTests.Axioms
+import ConLecheTests.PreludeTests
+import ConLecheTests.Axioms
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for
@@ -397,8 +397,8 @@ private def taintSkipExport : String := String.intercalate "\n" [
 
 /-! ## Level algebra -/
 
-@[expose] private def u : Level := .param (.str .anonymous "u")
-@[expose] private def v : Level := .param (.str .anonymous "v")
+private def u : Level := .param (.str .anonymous "u")
+private def v : Level := .param (.str .anonymous "v")
 
 #guard Level.isEquiv (.max u v) (.max v u) == some true
 #guard Level.isEquiv (.max u u) u == some true

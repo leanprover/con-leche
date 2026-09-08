@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Model.Capstone
-public import ConLeche.Model.NatEqs
+import ConLeche.Model.Capstone
+import ConLeche.Model.NatEqs
 public import ConLeche.Model.DivModCert
-public import ConLeche.Model.Caps
-public import ConLeche.Model.RecRulesCons
+import ConLeche.Model.Caps
+import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
-public import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
 
 public section
 

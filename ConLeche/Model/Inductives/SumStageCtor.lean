@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.SumStageFormer
-public import ConLeche.Model.Inductives.StructStageCtor
+import ConLeche.Model.Inductives.StructStageCtor
 public section
 
 /-!

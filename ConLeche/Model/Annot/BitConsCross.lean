@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Model.Annot.BitExtendTower
-public import ConLeche.Model.Annot.BitInstall
+import ConLeche.Model.Annot.BitInstall
 public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.InferLemmas
-public import ConLeche.Semantics.EnvFacts
+import ConLeche.Verify.InferLemmas
+import ConLeche.Semantics.EnvFacts
 
 public section
 

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Extend.Inversions
 public import ConLeche.Verify.IotaWalkInv
-public import ConLeche.Verify.Shift
+import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.EnvWF

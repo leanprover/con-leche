@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Verify.OfReducePin
-public import ConLeche.Semantics.DeclRun
+import ConLeche.Verify.OfReducePin
+import ConLeche.Semantics.DeclRun
 public import ConLeche.Model.NatEqs
-public import ConLeche.Model.Capstone
+import ConLeche.Model.Capstone
 public import ConLeche.Model.ErasePwInv
-public import ConLeche.Model.DivMod
+import ConLeche.Model.DivMod
 public section
 
 /-!

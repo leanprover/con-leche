@@ -2,15 +2,15 @@ module
 
 public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.CtxOkKit
-public import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Annot.ValidSpine
-public import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 public import ConLeche.Semantics.Frame
-public import ConLeche.Semantics.Skeleton
+import ConLeche.Semantics.Skeleton
 public import ConLeche.Semantics.Hoist
 public import ConLeche.Semantics.LitStep
-public import ConLeche.Semantics.LitParams
+import ConLeche.Semantics.LitParams
 public section
 
 /-!

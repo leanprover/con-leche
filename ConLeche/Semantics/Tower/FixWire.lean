@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Tower.FixRecI
-public import ConLeche.Semantics.Tower.SumWire
+import ConLeche.Semantics.Tower.SumWire
 
 @[expose] public section
 

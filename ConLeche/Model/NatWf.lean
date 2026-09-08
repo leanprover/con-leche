@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.DivMod
-public import ConLeche.PinGen.Certs
+import ConLeche.PinGen.Certs
 public section
 
 /-!

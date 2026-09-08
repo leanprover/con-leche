@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.ProjRename
-public import ConLeche.Model.IndProjEta
+import ConLeche.Model.IndProjEta
 public import ConLeche.Semantics.ProjFnFacts
 public section
 

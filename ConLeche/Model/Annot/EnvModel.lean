@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.WellDenoted
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Denote.Pinned
 
 public section

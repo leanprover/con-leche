@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 public import ConLeche.Verify.OfReducePin
 
 public section

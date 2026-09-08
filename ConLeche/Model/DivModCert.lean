@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.NatWf
-public import ConLeche.Semantics.DivModEval
+import ConLeche.Semantics.DivModEval
 public section
 
 /-!

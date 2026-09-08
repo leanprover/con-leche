@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Verify.InferLemmas
-public import ConLeche.Verify.Leaves
-public import ConLeche.Verify.Subst
-public import ConLeche.Verify.Abstract
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.Subst
+import ConLeche.Verify.Abstract
 
 public section
 

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.WellDenotedTransport
-public import ConLeche.Model.Annot.BitShift
+import ConLeche.Model.Annot.BitShift
 public section
 
 /-!

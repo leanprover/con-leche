@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IotaRulePlain
-public import ConLeche.Model.IndPinRow
-public import ConLeche.Model.IndBottomNested
+import ConLeche.Model.IndPinRow
+import ConLeche.Model.IndBottomNested
 public section
 
 /-!

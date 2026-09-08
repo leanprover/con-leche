@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixChains
+import ConLeche.Model.Inductives.FixChains
 public import ConLeche.Model.Inductives.FixTeleBound
 public section
 

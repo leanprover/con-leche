@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.Bit
-public import ConLeche.Semantics.WellDenoted
+import ConLeche.Semantics.WellDenoted
 public section
 
 /-!

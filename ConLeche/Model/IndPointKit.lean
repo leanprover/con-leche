@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndZipper
-public import ConLeche.Model.Steps.Stuck
+import ConLeche.Model.Steps.Stuck
 public section
 
 /-!

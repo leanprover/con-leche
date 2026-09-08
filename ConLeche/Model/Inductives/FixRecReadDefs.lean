@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Semantics.Tower.FixRecI
 public section

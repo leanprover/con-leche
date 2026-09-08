@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCS4
-public import ConLeche.Verify.Inductives.StructWF
-public import ConLeche.Verify.Inductives.SumWF
-public import ConLeche.Verify.Inductives.FixWF
-public import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.FixWF
+import ConLeche.Verify.Cached.WalkersC
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Syntax
+import ConLeche.Semantics.Syntax
 public import ConLeche.Semantics.Tower.TowerLeaf
 public import ConLeche.Verify.Denote
 

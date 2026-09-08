@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Model.Steps.Reads
+import ConLeche.Model.Steps.Reads
 public import ConLeche.Model.Steps.ReadsIO
-public import ConLeche.Model.Steps.CapsRows
-public import ConLeche.Model.Steps.StrLit
+import ConLeche.Model.Steps.CapsRows
+import ConLeche.Model.Steps.StrLit
 public import ConLeche.Model.Steps.ProjRows
-public import ConLeche.Model.Steps.IotaRows
-public import ConLeche.Model.Steps.IrrelFast
+import ConLeche.Model.Steps.IotaRows
+import ConLeche.Model.Steps.IrrelFast
 public section
 
 /-!

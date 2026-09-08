@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InstSpine
 public import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.ProjSlots
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the

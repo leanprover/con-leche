@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.EnvGuards
 public import ConLeche.Verify.NatOpFrag
 
 public section

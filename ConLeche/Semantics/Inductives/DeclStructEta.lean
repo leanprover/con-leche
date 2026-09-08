@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockRun
-public import ConLeche.Semantics.DeclEta
-public import ConLeche.Verify.Extend.Inversions
+import ConLeche.Semantics.DeclEta
+import ConLeche.Verify.Extend.Inversions
 
-public import ConLeche.Verify.ExceptBind
-public import ConLeche.Verify.Inductives.StructInv
+import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Inductives.StructInv
 
 @[expose] public section
 

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructBits
 public import ConLeche.Model.Annot.BitInstall
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 
 public section
 

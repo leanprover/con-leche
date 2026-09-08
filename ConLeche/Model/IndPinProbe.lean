@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.NatEqs
-public import ConLeche.Model.Claims
+import ConLeche.Model.Claims
 public section
 
 /-!

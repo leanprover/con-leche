@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndNestedParam
-public import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.Bit
 public section
 
 /-!

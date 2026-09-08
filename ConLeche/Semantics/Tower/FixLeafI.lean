@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Semantics.Tower.SumLeaf
+import ConLeche.Semantics.Tower.SumLeaf
 public import ConLeche.Semantics.Tower.SumMk
 public import ConLeche.Semantics.NoBVar
-public import ConLeche.SetModel.Iter
+import ConLeche.SetModel.Iter
 public import ConLeche.SetModel.TowerMono
-public import ConLeche.Semantics.Univ
+import ConLeche.Semantics.Univ
 
 @[expose] public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Mono
+import ConLeche.Verify.Mono
 public import ConLeche.Verify.Deep
 
 public section
