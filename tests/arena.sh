@@ -525,7 +525,7 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # walking the tower — each through a lockstep comparison bounded by the
 # pin it is compared against.  Task #233 added the OPEN tower — one
 # built over a field's own variable rather than closed — which is what
-# a packed-bound cutoff cannot answer and only a memo can.  Task #235
+# a packed-bound cutoff cannot answer and only a memo can.  Task #240
 # added the EQUALITY-memo tower: two structurally equal towers that are
 # not the same objects, shaped so that one node's memo entry alternates
 # between two partners — which is what a memo keyed on one side of the

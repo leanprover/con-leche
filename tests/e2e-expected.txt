@@ -1194,7 +1194,7 @@
 # carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
 # `@[csimp]`).
 0 tower_usedlater.ndjson
-# tower_beqpair (task #235): two structurally equal depth-60 towers
+# tower_beqpair (task #240): two structurally equal depth-60 towers
 # that are not the same objects, compared by `Expr.beq`'s memoized
 # descent.  `G = fun (a b c : Nat) => a` makes `g x y z` defeq to `x`,
 # so a SHARED tower `S = g S S S` and an ALTERNATING pair
@@ -1204,7 +1204,7 @@
 # its entry holding `Q` at the third query and re-walks -- 3^60 -- at
 # every level.  THREE arguments is what makes it bite: at two the
 # entries the first walk leaves behind still serve the second, and the
-# cost is only quadratic.  Keyed on the PAIR (`beqPairKey`) it is two
+# cost is only quadratic.  Keyed on the PAIR (`beqKey`) it is two
 # entries per level.  Both orientations are in the fixture, since which
 # side of a declaration's defeq check is the key side is the checker's
 # business: `beqPairA` carries the alternating pair in the theorem's

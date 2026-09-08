@@ -337,12 +337,12 @@ def mk_usedlater():
 
 
 def mk_beqpair():
-    """The tower under the EQUALITY memo (task #235): two structurally
+    """The tower under the EQUALITY memo (task #240): two structurally
     equal towers that are not the same objects, in the shape that makes
     one node's memo entry ALTERNATE between two partners.
 
     `Expr.beq`'s memoized descent is what keeps a comparison `O(DAG)`,
-    and until #235 it keyed an entry on `addr a` alone with `addr b` as
+    and until #240 it keyed an entry on `addr a` alone with `addr b` as
     the value — one partner per node.  A node compared against two
     partners in turn then invalidates its own entry on every visit,
     nothing below it stays memoized, and the walk falls back to the

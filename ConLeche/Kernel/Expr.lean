@@ -704,7 +704,7 @@ the majority of the nodes of a real term. -/
   | _ => false
 
 /-- The memo key of a pair of addresses, packed into ONE small `Nat`
-(task #235).
+(task #240).
 
 `beqGo`'s memo must be keyed on the **pair** `(addr a, addr b)` (see
 there for what keying on `addr a` alone costs), and a `Nat × Nat` key
@@ -768,7 +768,7 @@ unshared tree) is unreachable.  Pointer identity and the word test
 still carry the overwhelming majority of comparisons; the memo is
 allocated only on the descent.
 
-**Its shape** (task #235; task #192's `Std.HashMap Nat Nat`, keyed on
+**Its shape** (task #240; task #192's `Std.HashMap Nat Nat`, keyed on
 `addr a` alone, is what this replaces, and the one before that was
 `Std.HashMap (USize × USize) Bool`).  The key is the **PAIR** of
 addresses, exactly as the reference kernel's `expr_eq_fn`
@@ -789,7 +789,7 @@ addresses, exactly as the reference kernel's `expr_eq_fn`
   address `0` is no object — is the whole probe.
 * leaves are neither probed nor recorded (`beqRecursive`).
 
-**WHY THE PAIR, AND WHAT THE HALF-KEY COST** (task #235).  Task #192
+**WHY THE PAIR, AND WHAT THE HALF-KEY COST** (task #240).  Task #192
 keyed the memo on `addr a` alone with `addr b` as the value, and said
 of it: "a key that gets re-bound (the same `a` proved equal to a
 second `b`) loses its old entry; that costs a re-walk, never an
