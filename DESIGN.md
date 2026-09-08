@@ -62820,7 +62820,7 @@ section originally cited as "task #234"; master landed it as **#236**
 (#234 went to the PERF-regeneration lane running at the same time), so
 those citations read #236 below.  The PR (leanprover/con-leche #3)
 called itself **task #235**, but master had already given #235 to the
-shake batch (`agent/shake-235`, the section directly above), so this
+shake batch (`agent/shake-235`, the TASK #235 section above), so this
 record and every citation of it in the diff (`Expr.lean`,
 `mk_tower_fixtures.py`, `arena.sh`, `e2e-expected.txt`) were
 renumbered to **#240** at review (2026-09-08) — the same collision PR
