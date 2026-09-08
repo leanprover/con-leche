@@ -61297,14 +61297,18 @@ block is in the class (every Mathlib nested block is index-free; the
 two indexed blocks of the census are mutual).  Recorded in
 `ConLeche/Frontend/InModel/Nested.lean`'s header as a KNOWN GAP.
 
-### 5. Receipts (branch `agent/modsort`, master `1c66d4a8` merged)
+### 5. Receipts (branch `agent/modsort`, master `ab75277f` merged)
 
 Master's task #228 landed mid-flight and appended the declared
 parameter count to the four `.indDecl` records the modeller pushes; the
 tag and auxiliary families are built over the FIRST member's parameter
 telescope (#218), so the count they declare is the count they have and
-`indParamsOk` passes on the modeller's own records unchanged.  Re-gated
-after the merge; the numbers below are the merged branch's.
+`indParamsOk` passes on the modeller's own records unchanged.  Tasks
+#226 and #225 merged after that and touch no file of this lane.  The
+numbers below are the merged branch's — the full battery at the #228
+merge, the trimmed one (build, `lake test`, arena, `inmodel`,
+overview-links) at the landing merge, where the e2e suite reads
+**176/176** and the trusted sweep 138 + 176 + 14.
 
 * `lake build` 517 jobs, zero warnings; `lake test` green.
 * `tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0
