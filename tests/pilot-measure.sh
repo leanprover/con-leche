@@ -6,9 +6,7 @@
 #
 #   instructions  perf stat -e instructions:u, median of 3
 #   wall          seconds, median of 3
-#   peak RSS      process-tree ru_maxrss (RUSAGE_CHILDREN), max of 3 —
-#                 this follows the re-exec'd supervised child, which a
-#                 sampler on the parent would miss
+#   peak RSS      process-tree ru_maxrss (RUSAGE_CHILDREN), max of 3
 #
 # Every run is under `timeout` and a 16 GB address-space ulimit.
 #

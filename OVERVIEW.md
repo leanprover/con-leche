@@ -18,9 +18,9 @@ con-leche [--verified|--trusted] FILE.ndjson
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L441)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L446)).
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L37)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L41)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -33,7 +33,13 @@ The distinction between 1 and 2 is deliberate: a reject is a verdict
 about the input, a decline is a statement about the checker. A decline
 is never used for "something unexpectedly went wrong"; that is exit 3,
 which verification is meant to make rare. Only exit 0 carries the
-theorem's guarantee.
+theorem's guarantee. An out-of-memory condition also exits 1: it is the
+Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
+then `exit(1)` — which no code of ours can catch, so the stderr message
+is what tells it apart from a reject. (Until task #230 the driver
+re-exec'd itself as a supervised child in order to translate that case
+into exit 3; a checker that spawns a copy of itself is not what belongs
+in the finished product, and the supervisor is gone.)
 
 The flag `--progress[=<stride>]` prints a heartbeat line before every
 `stride`-th declaration on stderr (bare, the stride is 1); it runs a
@@ -66,7 +72,7 @@ Read from the outside in:
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L901))
    and calls the pure fold `checkDecls`, printing nothing per
    declaration
-   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L343)).
+   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L348)).
    The optional progress lane (`--progress`) runs a separate,
    plainly unverified fold of the same steps with a line printed before
    each declaration; a run with that flag is not covered by the theorem.

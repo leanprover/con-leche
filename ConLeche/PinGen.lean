@@ -434,7 +434,7 @@ the module initializer, and this module's object code is still linked
 into the `con-leche` executable — through the `meta import` in
 `ConLeche/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
 so a closed parse of the 1.96 MB embed would cost ~0.26 G instructions
-at every process start (twice, under the OOM supervisor re-exec).  As a
+at every process start.  As a
 function it runs only when the generator asks, at export time (the
 embedded `lean-toolchain` string above is 25 bytes and does not repay
 the same treatment).  (Closed subterms

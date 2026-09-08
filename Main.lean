@@ -14,7 +14,11 @@ declarations; no model is ever read from the input (task #219).
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
-* 1 — a declaration was rejected as invalid
+* 1 — a declaration was rejected as invalid.  An out-of-memory
+  condition also exits 1: it is the Lean runtime's own panic
+  (`lean_internal_panic_out_of_memory` prints "INTERNAL PANIC: out of
+  memory" on stderr and calls `exit(1)`), uncatchable in process, so
+  the message on stderr is what tells the two apart (task #230).
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
@@ -151,7 +155,8 @@ def progressStride (v : String) : Except String Nat :=
   | none => .error s!"--progress takes a declaration stride \
       (a decimal numeral of at least 1), got {repr v}"
 
-/-- The real driver (run in the supervised child process).  `mode` is
+/-- The real driver, which `main` calls in process (task #230 removed
+the OOM supervisor that used to re-exec this as a child).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration.
 
@@ -696,20 +701,6 @@ def parseArgs : List String → Args → Args
       { a with bad := some s!"unknown option {s}" }
     else parseArgs rest { a with files := a.files.push s }
 
-/-- The child's argument vector, reassembled from the parsed options. -/
-def childArgs (a : Args) (file : String) : Array String :=
-  #[file]
-    -- The heartbeat is a flag now (task #229), so the supervisor must
-    -- re-emit it: the child no longer inherits it through the
-    -- environment.
-    ++ (if a.progress == 0 then #[] else #[s!"--progress={a.progress}"])
-    -- Two modes, and `.verified` is the default, so it re-emits
-    -- nothing.  (The dead R arm this replaced went with the
-    -- constructor when `CheckMode` collapsed to two values.)
-    ++ (match a.mode with
-        | .verified => #[]
-        | .trusted => #["--trusted"])
-
 def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
@@ -725,44 +716,16 @@ def main (args : List String) : IO UInt32 := do
     return 3
   match a.files.toList with
   | [file] =>
-    -- OOM supervision: the Lean runtime's out-of-memory handler
-    -- (`lean_internal_panic_out_of_memory`) prints "INTERNAL PANIC:
-    -- out of memory" and calls `exit(1)` — not catchable in-process
-    -- and indistinguishable from a *reject* at the exit-code level.
-    -- Re-exec the checker as a supervised child and translate a
-    -- panicking child (exit 1 with a panic marker on stderr) into
-    -- exit 3 (error), per the arena convention that 1 means "invalid
-    -- input proof".  Progress output streams through (stdout is
-    -- inherited); stderr is buffered for inspection and re-printed.
-    if (← IO.getEnv "CON_LECHE_SUPERVISED").isSome then
-      checkMain file a.mode a.progress
-    else
-      let child ← IO.Process.spawn {
-        cmd := (← IO.appPath).toString
-        args := childArgs a file
-        env := #[("CON_LECHE_SUPERVISED", some "1")]
-        stdout := .inherit
-        stderr := .piped }
-      -- The child's stderr is STREAMED, line by line, rather than read
-      -- to EOF and re-printed at the end (2026-09-07): a progress
-      -- heartbeat that only appears once the run is over is not a
-      -- heartbeat, and the same goes for the localisation lane's TRACE
-      -- lines when the run dies without returning.  The panic marker is
-      -- looked for on the way past, so the supervision below is
-      -- unchanged.
-      let errOut ← IO.getStderr
-      let mut panicked := false
-      repeat
-        let line ← child.stderr.getLine
-        if line.isEmpty then break
-        errOut.putStr line
-        errOut.flush
-        if (line.splitOn "INTERNAL PANIC").length > 1 then panicked := true
-      let code ← child.wait
-      if code = 1 ∧ panicked then
-        IO.eprintln "con-leche: internal panic in the checker process"
-        return 3
-      return code
+    -- The checker runs IN THIS PROCESS.  Task #65 used to re-exec it as
+    -- a supervised child so that the Lean runtime's out-of-memory
+    -- handler (`lean_internal_panic_out_of_memory`, which prints
+    -- "INTERNAL PANIC: out of memory" and calls `exit(1)`, uncatchable
+    -- in process) could be translated from exit 1 into exit 3.  Task
+    -- #230 removed that supervisor: a checker that spawns a copy of
+    -- itself is not what belongs in the finished product, and an
+    -- out-of-memory condition simply exits 1 with the runtime's panic
+    -- message on stderr, which is what distinguishes it from a reject.
+    checkMain file a.mode a.progress
   | _ =>
     IO.eprintln usage
     return 3
