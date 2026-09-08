@@ -942,7 +942,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
   -- types are annotated), and a `.proj` on any *other* structure names
   -- it the same on both sides — so the rename never had a matching
   -- case here.  Fixing the name keeps the entry-kind readings
-  -- (`denote`/`denoteP`, which consult the table at the struct name)
+  -- (`denote`/`denoteMeta`, which consult the table at the struct name)
   -- rename-invariant by construction (DESIGN, "W5 opening seam").
   | .proj s i e => .proj s i (renameConsts f e)
 
@@ -952,7 +952,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
 argument it costs `O(tree)`, not `O(DAG)` — the second row of task
 #213's tree-size-budget audit, and one of the two walkers that kept the
 budget on inductive blocks.  It is on the executed path of the modeled
-inductive install (`ConLeche/Kernel/Modeled.lean`,
+inductive install (`ConLeche/Kernel/Inductives/Modeled.lean`,
 `ConLeche/Kernel/DeclCheck.lean`), which meets whole annotated member
 types.
 

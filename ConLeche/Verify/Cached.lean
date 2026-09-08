@@ -17,7 +17,7 @@ import ConLeche.Verify.Cached.BridgeCS2
 import ConLeche.Verify.Cached.BridgeCS3
 import ConLeche.Verify.Cached.BridgeCS4
 import ConLeche.Verify.Cached.BridgeCSDecl
-import ConLeche.Verify.Cached.BridgeCP
+import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.AgreeFloor
 

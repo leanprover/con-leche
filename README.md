@@ -43,12 +43,12 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### The main theorem
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
   (ds : List DeclC) (env : Env)
-  (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
+  (accepted : checkDecls .verified ds = .ok env) :
   ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
 ```
 

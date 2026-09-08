@@ -12,7 +12,7 @@ shared tier (task #148 T6).
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- `erasePw` fixes a sort (task #161 P5: `matchesPin` compares through
 `Expr.erasePw`, so the pin-shape inversions must see through it).

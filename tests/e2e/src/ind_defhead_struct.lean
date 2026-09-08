@@ -9,7 +9,7 @@
    accepted.
 
    con-leche's structure recogniser needs a SYNTACTIC `∀ p⃗, Sort`
-   (Kernel/Direct/Parts.lean:469), the sum route refuses `n = 1 ∧
+   (Kernel/Inductives/Parts.lean:469), the sum route refuses `n = 1 ∧
    nIdx = 0` and the fixpoint route wants recursion, so no direct route
    takes the block; the preprocessor models it, but
    `ProjRec.projRecOwners` also requires `tty.stripPis nP` to end in a

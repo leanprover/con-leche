@@ -55,13 +55,13 @@ theorem ihSpL_zero_univZero {ℓ : Nat} {C : V} (h0 : ℓ = 0) (hC : C ∈ˢ (un
 
 /-- The graded fold of an ih-tower member along graded ih arguments. -/
 theorem ihSpL_spine {ℓ : Nat} {C : V} (hC0 : ℓ = 0 → C ∈ˢ (univZero : V)) :
-    ∀ {As : List V} {args : List AVExpr} {f : AVExpr} {σ : Nat → V},
-      AnnotOk2 V σ f → interp2 V σ f ∈ˢ ihSpL ℓ C As →
+    ∀ {As : List V} {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
+      WellDenoted V σ f → interp V σ f ∈ˢ ihSpL ℓ C As →
       args.length = As.length →
-      (∀ l, l < As.length → AnnotOk2 V σ (args.getD l default) ∧
-        interp2 V σ (args.getD l default) ∈ˢ As.getD l pt) →
+      (∀ l, l < As.length → WellDenoted V σ (args.getD l default) ∧
+        interp V σ (args.getD l default) ∈ˢ As.getD l pt) →
       (ℓ = 0 → ∀ A ∈ As, A ∈ˢ (univZero : V)) →
-      AnnotOk2 V σ (AVExpr.mkAppN f args) ∧ interp2 V σ (AVExpr.mkAppN f args) ∈ˢ C
+      WellDenoted V σ (ATerm.mkAppN f args) ∧ interp V σ (ATerm.mkAppN f args) ∈ˢ C
   | [], [], _, _, hokf, hmf, _, _, _ => ⟨hokf, hmf⟩
   | [], _ :: _, _, _, _, _, hlen, _, _ => nomatch hlen
   | _ :: _, [], _, _, _, _, hlen, _, _ => nomatch hlen
@@ -70,12 +70,12 @@ theorem ihSpL_spine {ℓ : Nat} {C : V} (hC0 : ℓ = 0 → C ∈ˢ (univZero : V
       fun h0 _ _ => ihSpL_zero_univZero h0 (hC0 h0) As
     have h0 := hargs 0 (by simp)
     simp only [List.getD_cons_zero] at h0
-    have happ : SetTheory.app (interp2 V σ f) (interp2 V σ a) ∈ˢ ihSpL ℓ C As :=
+    have happ : SetTheory.app (interp V σ f) (interp V σ a) ∈ˢ ihSpL ℓ C As :=
       app_mem_piR hmf h0.2 hB0
-    have hoka : AnnotOk2 V σ (.app f a) := by
-      rw [AnnotOk2_app]
+    have hoka : WellDenoted V σ (.app f a) := by
+      rw [WellDenoted_app]
       exact ⟨hokf, h0.1, ℓ, _, _, hmf, h0.2, hB0⟩
-    rw [AVExpr.mkAppN_cons]
+    rw [ATerm.mkAppN_cons]
     refine ihSpL_spine hC0 (As := As) (args := args) hoka happ (by simpa using hlen) ?_
       (fun h0 A hA => hz h0 A (List.mem_cons_of_mem _ hA))
     intro l hl
@@ -114,27 +114,27 @@ theorem ihSpL_zero_inhab {C : V} :
     exact ihSpL_zero_inhab hy (fun A hA => hg A (List.mem_cons_of_mem _ hA))
 
 omit [SetTheory V] in
-theorem AVExpr.mkAppN_append (f : AVExpr) :
-    ∀ (as bs : List AVExpr), AVExpr.mkAppN f (as ++ bs) = AVExpr.mkAppN (AVExpr.mkAppN f as) bs
+theorem ATerm.mkAppN_append (f : AnnotTerm) :
+    ∀ (as bs : List AnnotTerm), ATerm.mkAppN f (as ++ bs) = ATerm.mkAppN (ATerm.mkAppN f as) bs
   | [], _ => rfl
   | a :: as, bs => by
-    rw [List.cons_append, AVExpr.mkAppN_cons, AVExpr.mkAppN_cons]
-    exact AVExpr.mkAppN_append (.app f a) as bs
+    rw [List.cons_append, ATerm.mkAppN_cons, ATerm.mkAppN_cons]
+    exact ATerm.mkAppN_append (.app f a) as bs
 
 /-! ## The spelled pieces -/
 
 /-- Constructor `j`'s branch with abstract inductive-hypothesis
 arguments (`ihArgs D j`, spelled at the payload frame at depth `D + 1`). -/
-def caseBaseAVI (ℓ w : Nat) (Fss : List (List AVExpr)) (ar : Nat → Nat)
-    (ihArgs : Nat → Nat → List AVExpr) (n nIdx D j : Nat) : AVExpr :=
+def caseBaseAVI (ℓ w : Nat) (Fss : List (List AnnotTerm)) (ar : Nat → Nat)
+    (ihArgs : Nat → Nat → List AnnotTerm) (n nIdx D j : Nat) : AnnotTerm :=
   .lam ℓ ((towerBodyAV w (Fss.getD j [])).liftN D 0)
-    (AVExpr.mkAppN (.bvar (D + 1 + nIdx + n - 1 - j))
+    (ATerm.mkAppN (.bvar (D + 1 + nIdx + n - 1 - j))
       (((List.range (ar j)).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
 
 /-- The case recursor with inductive hypotheses from stage `j` with
 `r` constructors remaining, at depth `D`, on the tag `k`. -/
-def caseRecAVI (ℓ w : Nat) (Fss : List (List AVExpr)) (ar : Nat → Nat)
-    (ihArgs : Nat → Nat → List AVExpr) (n nIdx : Nat) : Nat → Nat → Nat → AVExpr → AVExpr
+def caseRecAVI (ℓ w : Nat) (Fss : List (List AnnotTerm)) (ar : Nat → Nat)
+    (ihArgs : Nat → Nat → List AnnotTerm) (n nIdx : Nat) : Nat → Nat → Nat → AnnotTerm → AnnotTerm
   | 0, _, _, _ => .lam ℓ (.const .empty [w]) .prf
   | r + 1, D, j, k =>
     natRecAV (imaxN w ℓ) (caseMotiveAV ℓ w Fss n nIdx D j) (caseBaseAVI ℓ w Fss ar ihArgs n nIdx D j)
@@ -155,8 +155,8 @@ noncomputable def baseSemI (ℓ : Nat) (f : Nat → V) (ms : Nat → V) (nF : Na
 /-- The recursive route's K-frame hypotheses: the sum route's core and
 the minors in their ih-extended spaces — the ih domains `ihDoms j f⃗` a
 function of the fields. -/
-structure RecHypI (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr))
-    (Ids : List AVExpr) (famAt : List V → V) (ihDoms : Nat → List V → List V) : Prop
+structure RecHypI (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AnnotTerm))
+    (Ids : List AnnotTerm) (famAt : List V → V) (ihDoms : Nat → List V → List V) : Prop
     extends RecHypCore ℓ w ρ₀ Fss Ess Ids famAt where
   hms : ∀ j, j < Fss.length →
     frMs Fss.length Ids.length ρ₀ j
@@ -169,7 +169,7 @@ structure RecHypI (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr
 
 namespace RecHypI
 
-variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
+variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {famAt : List V → V} {ihDoms : Nat → List V → List V}
 
 /-- At a zero elimination level the minors are the point. -/
@@ -186,34 +186,34 @@ end RecHypI
 payload of constructor `j`'s fibre the arguments read to the ih values
 `ihVals j y` (a function of the K-frame and the payload alone), are as
 many as the ih domains, graded, and their values lie in the domains. -/
-def IhArgsOk (w : Nat) (ρ₀ σ : Nat → V) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+def IhArgsOk (w : Nat) (ρ₀ σ : Nat → V) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (ihDoms : Nat → List V → List V) (ihVals : Nat → V → List V)
-    (ihArgs : Nat → Nat → List AVExpr) (D j : Nat) : Prop :=
+    (ihArgs : Nat → Nat → List AnnotTerm) (D j : Nat) : Prop :=
   ∀ y, y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j →
-    (ihArgs D j).map (interp2 V (cons y σ)) = ihVals j y ∧
+    (ihArgs D j).map (interp V (cons y σ)) = ihVals j y ∧
     (ihArgs D j).length = (ihDoms j (projList (Fss.getD j []).length y)).length ∧
     ∀ l, l < (ihDoms j (projList (Fss.getD j []).length y)).length →
-      AnnotOk2 V (cons y σ) ((ihArgs D j).getD l default) ∧
-      interp2 V (cons y σ) ((ihArgs D j).getD l default)
+      WellDenoted V (cons y σ) ((ihArgs D j).getD l default) ∧
+      interp V (cons y σ) ((ihArgs D j).getD l default)
         ∈ˢ (ihDoms j (projList (Fss.getD j []).length y)).getD l pt
 
 /-! ## The base branch -/
 
 /-- Constructor `j`'s branch with ihs (graph regime): its value, its
 grading, its membership in the stage motive at the numeral `0`. -/
-theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {famAt : List V → V} {ihDoms : Nat → List V → List V}
-    {ihVals : Nat → V → List V} {ihArgs : Nat → Nat → List AVExpr}
+theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+    {Ids : List AnnotTerm} {famAt : List V → V} {ihDoms : Nat → List V → List V}
+    {ihVals : Nat → V → List V} {ihArgs : Nat → Nat → List AnnotTerm}
     (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
     {j : Nat} (hj : j < Fss.length)
     (hih : IhArgsOk w ρ₀ σ Fss Ess Ids ihDoms ihVals ihArgs D j) :
-    interp2 V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+    interp V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length D j)
         = baseSemI ℓ (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
             (frMs Fss.length Ids.length ρ₀) (Fss.getD j []).length ihVals j ∧
-      AnnotOk2 V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      WellDenoted V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length D j) ∧
-      interp2 V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      interp V σ (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length D j)
         ∈ˢ motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
             (frMi Fss.length Ids.length ρ₀) j (vnat 0) := by
@@ -228,16 +228,16 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
   have hgetD : (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).getD j []
       = rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j []) := by
     rw [List.getD_eq_getElem?_getD, hjF]; rfl
-  have hdomv : interp2 V σ ((towerBodyAV w
+  have hdomv : interp V σ ((towerBodyAV w
         ((rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).getD j [])).liftN D 0)
       = towerSet w (teleOfFields ρ₀
           (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j []))) := by
-    rw [interp2_liftN, hfr, hgetD]
+    rw [interp_liftN, hfr, hgetD]
     exact towerBodyAV_interp (fun hw => hokF.toBound hw)
-  have hokdom : AnnotOk2 V σ ((towerBodyAV w
+  have hokdom : WellDenoted V σ ((towerBodyAV w
       ((rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).getD j [])).liftN D 0) := by
-    rw [AnnotOk2_liftN, hfr, hgetD]
-    exact towerBodyAV_ok2 hokF
+    rw [WellDenoted_liftN, hfr, hgetD]
+    exact towerBodyAV_wellDenoted hokF
   have hminor : ∀ y : V, cons y σ (D + 1 + Ids.length + Fss.length - 1 - j)
       = frMs Fss.length Ids.length ρ₀ j :=
     fun y => (hfr.push y).minor hj
@@ -249,27 +249,27 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
   -- the body at a payload: the minor's fold along the projections and the ihs
   have hbody : ∀ y : V, y ∈ˢ towerSet w (teleOfFields ρ₀
         (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j []))) →
-      AnnotOk2 V (cons y σ) (AVExpr.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      WellDenoted V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j)) ∧
-      interp2 V (cons y σ) (AVExpr.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         = (((List.range (Fss.getD j []).length).map fun i => projS i y) ++ ihVals j y).foldl
             SetTheory.app (frMs Fss.length Ids.length ρ₀ j) ∧
-      interp2 V (cons y σ) (AVExpr.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         ∈ˢ SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w j y) := by
     intro y hy
     have hyf : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j := by
       rw [hfj]; exact hy
     obtain ⟨hvals, hihlen, hihok⟩ := hih y hyf
-    have hpv : ∀ i, interp2 V (cons y σ) (projAV i (.bvar 0)) = projS i y := by
-      intro i; rw [projAV_interp, interp2_bvar]; rfl
-    have hval : interp2 V (cons y σ) (AVExpr.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+    have hpv : ∀ i, interp V (cons y σ) (projAV i (.bvar 0)) = projS i y := by
+      intro i; rw [projAV_interp, interp_bvar]; rfl
+    have hval : interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         = (((List.range (Fss.getD j []).length).map fun i => projS i y) ++ ihVals j y).foldl
             SetTheory.app (frMs Fss.length Ids.length ρ₀ j) := by
-      rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (cons y σ)) (g := SetTheory.app),
-        interp2_bvar, hminor, List.map_append, hvals, List.map_map]
+      rw [interp_mkAppN, ← List.foldl_map (f := interp V (cons y σ)) (g := SetTheory.app),
+        interp_bvar, hminor, List.map_append, hvals, List.map_map]
       congr 2
       apply List.map_congr_left
       intro i _
@@ -293,9 +293,9 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
       hokF.toBound hw
     have hlenR : (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])).length
         = (Fss.getD j []).length + 1 := rChain_length _ _ _ _
-    have hpok : ∀ i, i < (Fss.getD j []).length → AnnotOk2 V (cons y σ) (projAV i (.bvar 0)) := by
+    have hpok : ∀ i, i < (Fss.getD j []).length → WellDenoted V (cons y σ) (projAV i (.bvar 0)) := by
       intro i hi
-      exact projAV_ok2_tower (by simp) (by rw [interp2_bvar]; exact hy) hbnd (by omega)
+      exact projAV_wellDenoted_tower (by simp) (by rw [interp_bvar]; exact hy) hbnd (by omega)
     have hfit : ArgsOkFit (cons y σ)
         ((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0))
         (Fss.getD j []) (frP Fss.length Ids.length ρ₀) := by
@@ -306,7 +306,7 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
         exact hpok i (by omega)
       · exact hpv
     have hmap : (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)).map
-        (interp2 V (cons y σ))) = projList (Fss.getD j []).length y := by
+        (interp V (cons y σ))) = projList (Fss.getD j []).length y := by
       rw [List.map_map, projList_eq_map_range]
       apply List.map_congr_left
       intro i _
@@ -326,7 +326,7 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
       (args := (List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0))
       (ρf := frP Fss.length Ids.length ρ₀) (acc := [])
       (f := .bvar (D + 1 + Ids.length + Fss.length - 1 - j)) (σ := cons y σ) (by simp)
-      (by rw [interp2_bvar, hminor]; exact hms) hfit
+      (by rw [interp_bvar, hminor]; exact hms) hfit
     rw [List.nil_append, hmap] at hsp
     -- then along the ihs
     have hih' := ihSpL_spine (V := V) (ℓ := ℓ)
@@ -336,7 +336,7 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
       (As := ihDoms j (projList (Fss.getD j []).length y))
       (args := ihArgs D j)
       (σ := cons y σ) hsp.1 hsp.2 hihlen hihok (fun h0 A hA => hyp.hdoms0 h0 j _ A hA)
-    rw [← AVExpr.mkAppN_append] at hih'
+    rw [← ATerm.mkAppN_append] at hih'
     rw [hconv] at hih'
     exact ⟨hih'.1, hval, hih'.2⟩
   refine ⟨?_, ?_, ?_⟩
@@ -344,8 +344,8 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
     unfold baseSemI
     rw [hdomv, hfj]
     exact lamR_congr fun y hy => (hbody y hy).2.1
-  · show AnnotOk2 V σ (.lam ℓ _ _)
-    rw [AnnotOk2_lam]
+  · show WellDenoted V σ (.lam ℓ _ _)
+    rw [WellDenoted_lam]
     refine ⟨hokdom, fun y hy => (hbody y (hdomv ▸ hy)).1,
       fun y => SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w j y),
       fun y hy => (hbody y (hdomv ▸ hy)).2.2, fun h0 y hy => ?_⟩
@@ -364,26 +364,26 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
 /-- **The case recursor's facts** with inductive hypotheses (graph
 regime): `caseRec_facts` re-run with the ih branch.  The ih obligation
 is asked at every frame the nesting reaches. -/
-theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {famAt : List V → V} {ihDoms : Nat → List V → List V}
-    {ihVals : Nat → V → List V} {ihArgs : Nat → Nat → List AVExpr}
+theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+    {Ids : List AnnotTerm} {famAt : List V → V} {ihDoms : Nat → List V → List V}
+    {ihVals : Nat → V → List V} {ihArgs : Nat → Nat → List AnnotTerm}
     (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
     (hih : ∀ (D' j' : Nat) (σ' : Nat → V), RecFrameS D' ρ₀ σ' → j' < Fss.length →
       IhArgsOk w ρ₀ σ' Fss Ess Ids ihDoms ihVals ihArgs D' j') :
-    ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {k : AVExpr},
+    ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {k : AnnotTerm},
       RecFrameS D ρ₀ σ → j + r = Fss.length →
-      ((interp2 V σ k ∈ˢ (omega : V) →
-        interp2 V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      ((interp V σ k ∈ˢ (omega : V) →
+        interp V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
             (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length r D j k)
           ∈ˢ motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-              (frMi Fss.length Ids.length ρ₀) j (interp2 V σ k) ∧
-        ∀ i, interp2 V σ k = vnat i → i < r →
-          interp2 V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+              (frMi Fss.length Ids.length ρ₀) j (interp V σ k) ∧
+        ∀ i, interp V σ k = vnat i → i < r →
+          interp V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
               (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length r D j k)
             = baseSemI ℓ (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
                 (frMs Fss.length Ids.length ρ₀) (Fss.getD (j + i) []).length ihVals (j + i)) ∧
-      (AnnotOk2 V σ k → (ℓ ≠ 0 → interp2 V σ k ∈ˢ (omega : V)) →
-        AnnotOk2 V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (WellDenoted V σ k → (ℓ ≠ 0 → interp V σ k ∈ˢ (omega : V)) →
+        WellDenoted V σ (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length) ihArgs Fss.length Ids.length r D j k)))
   | 0, D, j, σ, k, hfr, hjr => by
     refine ⟨fun hk => ⟨?_, fun i _ hi => absurd hi (Nat.not_lt_zero i)⟩, fun _ _ => ?_⟩
@@ -392,8 +392,8 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
       show lamR ℓ (empty : V) _ ∈ˢ _
       rw [sumFibre_of_ge (by rw [hyp.rChains_length']; omega)]
       exact lamR_mem fun _ hx => absurd hx (not_mem_empty _)
-    · show AnnotOk2 V σ (.lam ℓ (.const .empty [w]) .prf)
-      rw [AnnotOk2_lam]
+    · show WellDenoted V σ (.lam ℓ (.const .empty [w]) .prf)
+      rw [WellDenoted_lam]
       exact ⟨trivial, fun _ hx => absurd hx (not_mem_empty _), fun _ => unitSet,
         fun _ hx => absurd hx (not_mem_empty _), fun _ _ hx => absurd hx (not_mem_empty _)⟩
   | r + 1, D, j, σ, k, hfr, hjr => by
@@ -402,28 +402,28 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
     obtain ⟨hzv, hzok, hzm⟩ := base_factsI hw hfr hyp hjn (hih D j σ hfr hjn)
     generalize hR : rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess = Fss' at *
     generalize hAr : (fun j => (Fss.getD j []).length) = ar at *
-    have hz : interp2 V σ (caseBaseAVI ℓ w Fss' ar ihArgs Fss.length Ids.length D j)
-        ∈ˢ SetTheory.app (interp2 V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) natzero := by
+    have hz : interp V σ (caseBaseAVI ℓ w Fss' ar ihArgs Fss.length Ids.length D j)
+        ∈ˢ SetTheory.app (interp V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) natzero := by
       rw [hMapp natzero natzero_mem, natzero_eq_vnat]; exact hzm
     -- the step's inner recursor at every step frame
     have hinner : ∀ (a b : V), b ∈ˢ (omega : V) →
-        interp2 V (cons a (cons b σ))
+        interp V (cons a (cons b σ))
             (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))
           ∈ˢ motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) (j + 1) b ∧
         (∀ i, b = vnat i → i < r →
-          interp2 V (cons a (cons b σ))
+          interp V (cons a (cons b σ))
               (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))
             = baseSemI ℓ (sumFibre w ρ₀ Fss') (frMs Fss.length Ids.length ρ₀)
                 (Fss.getD (j + 1 + i) []).length ihVals (j + 1 + i)) ∧
-        AnnotOk2 V (cons a (cons b σ))
+        WellDenoted V (cons a (cons b σ))
           (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1)) := by
       intro a b hb
       have h := caseRec_factsI hw hyp hih r (D := D + 2) (j := j + 1) (σ := cons a (cons b σ))
         (k := .bvar 1) (hfr.step a b) (by omega)
       rw [hR, hAr] at h
-      have hb' : interp2 V (cons a (cons b σ)) (.bvar 1) ∈ˢ (omega : V) := by
-        rw [interp2_bvar]; exact hb
-      refine ⟨(h.1 hb').1, fun i hi hir => (h.1 hb').2 i (by rw [interp2_bvar]; exact hi) hir,
+      have hb' : interp V (cons a (cons b σ)) (.bvar 1) ∈ˢ (omega : V) := by
+        rw [interp_bvar]; exact hb
+      refine ⟨(h.1 hb').1, fun i hi hir => (h.1 hb').2 i (by rw [interp_bvar]; exact hi) hir,
         h.2 trivial (fun _ => hb')⟩
     -- the motive at a successor is the next stage's motive
     have hsucc : ∀ (i : Nat), motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (vnat (i + 1))
@@ -431,19 +431,19 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
       intro i
       rw [motSem_vnat, motSem_vnat, show j + (i + 1) = j + 1 + i from by omega]
     -- the step: its value and its membership in the step space
-    have hsv : interp2 V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
+    have hsv : interp V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
           (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j)
           (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))))
         = lamR (imaxN w ℓ) omega fun b =>
-            lamR (imaxN w ℓ) (interp2 V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
-              fun a => interp2 V (cons a (cons b σ))
+            lamR (imaxN w ℓ) (interp V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
+              fun a => interp V (cons a (cons b σ))
                 (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1)) := rfl
     have hmb := fun (b : V) (hb : b ∈ˢ (omega : V)) => motiveBody_facts hfr hyp.toRecHypCore j hb
     rw [hR] at hmb
-    have hs : interp2 V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
+    have hs : interp V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
           (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j)
           (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))))
-        ∈ˢ natStepSpace2 V (imaxN w ℓ) (interp2 V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) := by
+        ∈ˢ natStepSpace2 V (imaxN w ℓ) (interp V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) := by
       rw [hsv]
       unfold natStepSpace2
       refine lamR_mem fun b hb => ?_
@@ -458,11 +458,11 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
       rwa [hMapp _ hk] at h
     · -- iota
       intro i hi hir
-      show interp2 V σ (natRecAV (imaxN w ℓ) _ _ _ k) = _
-      rw [interp2_natRecAV hMsp hz hs hk, hi, natrec_vnat]
+      show interp V σ (natRecAV (imaxN w ℓ) _ _ _ k) = _
+      rw [interp_natRecAV hMsp hz hs hk, hi, natrec_vnat]
       -- the iteration's values inhabit the stage motive
-      have hiter : ∀ i', natIter (interp2 V σ (caseBaseAVI ℓ w Fss' ar ihArgs Fss.length Ids.length D j))
-          (interp2 V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
+      have hiter : ∀ i', natIter (interp V σ (caseBaseAVI ℓ w Fss' ar ihArgs Fss.length Ids.length D j))
+          (interp V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
             (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j)
             (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))))) i'
           ∈ˢ motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (vnat i') := by
@@ -492,19 +492,19 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
       by_cases h0 : ℓ = 0
       · -- the point-headed spine
         have hz' : imaxN w ℓ = 0 := (imaxN_eq_zero_iff w ℓ).mpr h0
-        refine (mkAppN_ok2_of_pt_head (f := .const .natRec [imaxN w ℓ]) (σ := σ) trivial
+        refine (mkAppN_wellDenoted_of_pt_head (f := .const .natRec [imaxN w ℓ]) (σ := σ) trivial
           (by show natRecV2 V (imaxN w ℓ) = pt; rw [hz', natRecV2, lamR_zero]) ?_).1
         intro a ha
         simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
         rcases ha with rfl | rfl | rfl | rfl
         · exact hMok
         · exact hzok
-        · rw [AnnotOk2_lam]
+        · rw [WellDenoted_lam]
           refine ⟨trivial, fun b hb => ?_, fun b => piR (imaxN w ℓ)
               (motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j b)
               (fun _ => motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (natsucc b)),
             fun b hb => ?_, fun _ b hb => by rw [hz']; exact piR_zero_mem_univZero⟩
-          · rw [AnnotOk2_lam]
+          · rw [WellDenoted_lam]
             refine ⟨(hmb b hb).2, fun a _ => (hinner a b hb).2.2,
               fun _ => motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (natsucc b),
               fun a _ => ?_, fun _ a _ => ?_⟩
@@ -515,8 +515,8 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
               rw [natsucc_eq_vsucc, show vsucc (vnat i) = vnat (i + 1) from rfl, hsucc,
                 motSem_vnat, h0]
               exact piR_zero_mem_univZero
-          · show lamR (imaxN w ℓ) (interp2 V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
-              (fun a => interp2 V (cons a (cons b σ))
+          · show lamR (imaxN w ℓ) (interp V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
+              (fun a => interp V (cons a (cons b σ))
                 (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))) ∈ˢ piR (imaxN w ℓ) _ _
             rw [(hmb b hb).1]
             refine lamR_mem fun a _ => ?_
@@ -525,21 +525,21 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
             exact (hinner a _ hb).1
         · exact hokk
       · -- `Nat.rec`'s own chain
-        refine natRecAV_ok2 hMok hzok ?_ hokk hMsp hz hs (hkω h0)
-        rw [AnnotOk2_lam]
+        refine natRecAV_wellDenoted hMok hzok ?_ hokk hMsp hz hs (hkω h0)
+        rw [WellDenoted_lam]
         refine ⟨trivial, fun b hb => ?_, fun b => piR (imaxN w ℓ)
             (motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j b)
             (fun _ => motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (natsucc b)),
           fun b hb => ?_, fun h => absurd ((imaxN_eq_zero_iff w ℓ).mp h) h0⟩
-        · rw [AnnotOk2_lam]
+        · rw [WellDenoted_lam]
           refine ⟨(hmb b hb).2, fun a _ => (hinner a b hb).2.2,
             fun _ => motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (natsucc b),
             fun a _ => ?_, fun h => absurd ((imaxN_eq_zero_iff w ℓ).mp h) h0⟩
           obtain ⟨i, rfl⟩ := mem_omega_iff.mp hb
           rw [natsucc_eq_vsucc, show vsucc (vnat i) = vnat (i + 1) from rfl, hsucc]
           exact (hinner a _ hb).1
-        · show lamR (imaxN w ℓ) (interp2 V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
-            (fun a => interp2 V (cons a (cons b σ))
+        · show lamR (imaxN w ℓ) (interp V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
+            (fun a => interp V (cons a (cons b σ))
               (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))) ∈ˢ piR (imaxN w ℓ) _ _
           rw [(hmb b hb).1]
           refine lamR_mem fun a _ => ?_

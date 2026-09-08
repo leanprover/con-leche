@@ -14,8 +14,8 @@ run projection was not yet designed.  This module supplies it.
 out.  That is not a preference — it is a measurement.  The S10 seal
 counted the derivation conjuncts the graded lane reads from the
 ind-tier cone and found **three**, then rewired all three to
-`acceptedReadsP_of` ("whatever `inferTypeCore` accepts, `denoteP`
-reads", `SetP/Step2/AcceptedP.lean`), which produces those readings
+`acceptedReads_of` ("whatever `inferTypeCore` accepts, `denoteMeta`
+reads", `Model/Steps/AcceptedP.lean`), which produces those readings
 from the *runs*.  The count is now **zero**, so the run family owes no
 derivation row at all.
 
@@ -41,14 +41,14 @@ family is valuation-free outright, exactly like `DeclRun` — no
 **What consumes it**: `checkDeclRun_ofEnvFactsE`'s `Ind` slot
 (`SetBase/Bridge/Sound.lean`), fed by `declIndRun_of`
 (`SetBase/Bridge/DeclIndRun.lean`), and the graded lane's ind tier
-(`SetP/DeclIndP.lean` and the eight files below it).  The R lane keeps
+(`Model/DeclIndP.lean` and the eight files below it).  The R lane keeps
 proving `DeclIndRun`: nothing here replaces it, and the two families are
 independent consumers of the same checker inversions.
 -/
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## The block members -/
 

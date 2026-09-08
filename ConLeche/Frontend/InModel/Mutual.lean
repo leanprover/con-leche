@@ -18,7 +18,7 @@ parameter telescope `p⃗` becomes
   rewritten to `aux p⃗ (tag.m' p⃗)` (`specFam`), and the recursor is
   the kernel-shape one with inductive hypotheses (`Kit.recTy`);
 * the **public slots** the modeled install consumes
-  (`ConLeche/Kernel/Modeled.lean`): `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`,
+  (`ConLeche/Kernel/Inductives/Modeled.lean`): `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`,
   `C._model := λ p⃗ f⃗, aux.m.C p⃗ f⃗`, and
   `T_m.rec._model := λ p⃗ M⃗ S⃗ t, aux.rec p⃗ Mot S⃗ (tag.m p⃗) t` with
   `Mot i s := tag.rec p⃗ (λ i', aux p⃗ i' → Sort ℓ) M⃗ i s` — the
@@ -228,7 +228,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let isProp := Level.isEquiv u .zero == some true
   if isProp && large then
     throw "Prop block with a large eliminator (the auxiliary family eliminates into Prop only)"
-  let ℓ := directElimLevel elim large
+  let ℓ := structElimLevel elim large
   let rlvls : List Level := if large then ℓ :: lps.map .param else lps.map .param
   let elimTag := if large then elim else freshLevelName lps
   -- the block renaming of the modeled install (types, constructors, recursors)
@@ -420,8 +420,8 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         let dom := (cbs.getD (nP + i) default).1
         let some ℓi := sortOf tbl' ctxI dom | stop := true; continue
         -- the projection type `∀ p⃗ (x : T._model p⃗), F_i[f_j := proj_j p⃗ x]`
-        let args := directProjPs nP ++ (List.range i).map fun j =>
-          Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
+        let args := structProjPs nP ++ (List.range i).map fun j =>
+          Expr.mkAppN (constP (projModelName t.cv.name j) lps) (structProjPs nP ++ [.bvar 0])
         let some (.forallE fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
         let some pty := Expr.replacePiBody nP t.cv.type
             (.forallE

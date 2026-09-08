@@ -1,16 +1,16 @@
 import ConLeche.Kernel.Checker
 import ConLeche.Verify.Level
 import ConLeche.Verify.EnvWF
-import ConLeche.VExpr.Const
+import ConLeche.Term.Const
 
 /-!
 # Denotation of kernel expressions into the erased term language
 
-`denote cval env φ d e` maps a kernel `Expr` to a `ConLeche.VExpr.VExpr`.
+`denote cval env φ d e` maps a kernel `Expr` to a `ConLeche.Term.Term`.
 
 **Provenance note (task #209).**  This function was written as the
 front half of a *declarative* verification lane: a typing judgment
-`HasType` over `VExpr` with a model above it.  That lane is gone
+`HasType` over `Term` with a model above it.  That lane is gone
 (tasks #148, #190, #209) and `denote` survives as the semantics
 tier's reading of a stored term.  The design rationale below names
 rules of the deleted judgment where that is what decided a clause's
@@ -20,7 +20,7 @@ section.
 It is **the structural transpose of `ConLeche/Model/Interp.lean`'s
 `interpExpr`**, clause for clause, and the reader should hold the two
 side by side: everything below is `interpExpr` with the set-theoretic
-universe `V` replaced by the syntax `VExpr` and set-level operations
+universe `V` replaced by the syntax `Term` and set-level operations
 replaced by the corresponding term formers.
 
 | `interpExpr` | `denote` |
@@ -89,14 +89,14 @@ substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
 That was the original choice here and it is **withdrawn**: a `denote`
 that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
-commutes with lifting, and the swamp `ConLeche/VExpr/Subst.lean` is proud
+commutes with lifting, and the swamp `ConLeche/Term/Subst.lean` is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
 down.  The shift lemma (`ConLeche/Verify/Denote/Shift.lean`) is where this
 showed up concretely: with `b.inst xv` its `letE` case needs two
 commutation lemmas; with `.letE A xv b` it is structural and needs
 none.
 
-So a `let` denotes to `VExpr.letE`, and a consumer that wants the
+So a `let` denotes to `Term.letE`, and a consumer that wants the
 reduct gets it from a premise-free zeta equation.  The cost is one
 rule application at the zeta clause of `whnfCore`; the saving is that
 the reading keeps the property the term language advertises — its
@@ -121,8 +121,8 @@ them, and a *relational* denotation is not an option either: the defeq
 claim of the fuel induction needs both sides denoted by the *same*
 function, or the two existentials do not meet.
 
-So the term language gained `VExpr.proj` (task #119;
-`ConLeche/VExpr/Syntax.lean`), a former carrying exactly what the
+So the term language gained `Term.proj` (task #119;
+`ConLeche/Term/Syntax.lean`), a former carrying exactly what the
 checker's node carries, whose typing read `A` and `B` off the
 premise.  This clause is then the plain transpose of `interpExpr`'s,
 `i < 2` guard included, and the alphabet came out *smaller*:
@@ -134,13 +134,13 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- A valuation of the environment's constants by *terms* of the
 declarative type theory — level-polymorphically, each constant being a
 function of the level-parameter assignment.  The exact transpose of
 `ConLeche.ConstVal V = Name → (Name → Nat) → V`. -/
-abbrev TConstVal := Name → (Name → Nat) → VExpr
+abbrev TConstVal := Name → (Name → Nat) → Term
 
 /-- The term of a `Nat` literal: the `Nat.succ` valuation iterated on
 the `Nat.zero` valuation.  Transpose of `natLitVal`.
@@ -150,13 +150,13 @@ computes it, and the literal fast paths are discharged by lemma
 families proved by meta-level induction on the literal (task #119, the
 `Nat` interface), never by exhibiting a derivation of the size of the
 numeral. -/
-def natLitT (zv sv : VExpr) : Nat → VExpr
+def natLitT (zv sv : Term) : Nat → Term
   | 0 => zv
   | n + 1 => .app sv (natLitT zv sv n)
 
 /-- The character-list part of a string literal's constructor form.
 Transpose of `charListVal`. -/
-def charListT (nilV consV ofNatV zv sv : VExpr) : List Char → VExpr
+def charListT (nilV consV ofNatV zv sv : Term) : List Char → Term
   | [] => nilV
   | c :: cs =>
     .app (.app consV (.app ofNatV (natLitT zv sv c.toNat)))
@@ -175,7 +175,7 @@ form (`strLitToConstructor`), written out — each constant valued
 exactly as the `.const` clause values it on that form.  Transpose of
 `strLitVal`. -/
 def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
-    VExpr :=
+    Term :=
   .app (cval stringOfListName (Level.substFn φ [] []))
     (charListT
       (.app (cval listNilName
@@ -189,11 +189,11 @@ def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
       (cval natSuccName (Level.substFn φ [] []))
       s.toList)
 
-/-- The tower projection's `VExpr` spelling (task #175 wiring W3):
+/-- The tower projection's `Term` spelling (task #175 wiring W3):
 `.proj 0 ∘ (.proj 1)^i` — the erase image of the P reading's `projAV`
 (`SetBase/TowerLeaf.lean`), interpreting to `projS i` on the tuple
 tier's carriers.  Depends only on the index. -/
-def projNV : Nat → VExpr → VExpr
+def projNV : Nat → Term → Term
   | 0, e => .proj 0 e
   | i + 1, e => projNV i (.proj 1 e)
 
@@ -203,7 +203,7 @@ of `ConLeche.interpExpr`; see the module docstring, in particular for the
 absent free-variable valuation, for `letE`, and for the open `.proj`
 obligation. -/
 def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
-    (d : Nat) → Expr → Option VExpr
+    (d : Nat) → Expr → Option Term
   | _, .sort u => some (.sort (u.eval φ))
   | d, .fvar idx _ => some (.bvar (d - 1 - idx))
   | _, .const n us =>
@@ -270,7 +270,7 @@ decreasing_by
 /-- Denotation of a closed expression (as they appear in declarations).
 Transpose of `interpClosed`. -/
 def denoteClosed (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (e : Expr) : Option VExpr :=
+    (e : Expr) : Option Term :=
   denote cval env φ 0 e
 
 /-! ## Clause equations

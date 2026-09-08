@@ -15,12 +15,12 @@ namespace ConLeche
 
 /-- **The checker's mode setting** — two values since the R core's
 retirement (2026-09-05), validated once at startup and threaded as
-configuration, never re-read at runtime (the `directStructsEnabled`
+configuration, never re-read at runtime (the `structsEnabled`
 discipline).
 
 * `.verified` (the default, `--verified`): the verified lane.  The
   surface the **graded** set-theoretic
-  model proves — `no_proof_of_Empty_SPCD_P`
+  model proves — `no_proof_of_Empty_cached`
   (`ConLeche/Verify/Cached/MainC.lean`) is its letter over the driver
   this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
   #135, #136, #137, #146) are off; the β-certificate gate is on — at a
@@ -82,7 +82,7 @@ needed for the soundness *proof* rather than for soundness?  The
 second accessor the kernel branches on
 (task #152: the λ-rule's codomain-sort check, `inferBody`'s `.lam`
 clause).  This is deliberately **not** `ttChecks`: the λ codomain sort
-is a premise of the set lane's annotation pass (`ConLeche/SetP`), so it
+is a premise of the set lane's annotation pass (`ConLeche/Model`), so it
 must run at `.verified`; and it is a check the reference kernel's
 `infer_lambda` does not run, so it must not run at `.trusted`. -/
 def CheckMode.verifiedChecks : CheckMode → Bool
@@ -121,7 +121,7 @@ Read once per knot level by the cached knot (`coreKnotI`,
 `ConLeche/Cached/CoreC.lean`) to select what the internal inference call
 sites run: the io body, whose application clause skips the
 per-argument certificate at a `.never` binder under the graph-regime
-licence (`ConLeche/SetP/IOLicenseP.lean`) — official's `infer_only`.
+licence (`ConLeche/Model/IOLicense.lean`) — official's `infer_only`.
 **`true` at both modes** since the licence ruling of 2026-09-06 (the
 trusted mode is defined as the verified one minus certification-only
 work, and the io grade is a *licence*, not a certificate; the retired
@@ -182,7 +182,7 @@ family, skipped outright, so the licence is moot there. -/
 
 /-- **The io site's read** (`inferSpineIOI`): skip the per-argument
 application certificate at a `.never` binder (the graph-regime
-licence, `ConLeche/SetP/IOLicenseP.lean`), or wholesale when the
+licence, `ConLeche/Model/IOLicense.lean`), or wholesale when the
 certificate families are off.  At `.verified` it is `pw.isNever` — the
 licence reads the datum and nothing else, as the licence ruling of
 2026-09-06 has it — and at `.trusted` it is `true`. -/
@@ -220,8 +220,8 @@ placeholder `.inert`).
 official kernel's `inductive_reduce_rec` and lean4lean fire by
 constructor name plus `nfields` and compare nothing — typing justifies
 it).  Our soundness argument for a fire is the stored rule law
-(`RecRuleLawP`) at the recursor's own parameters, and the P lane has no
-typing derivation in hand: the redex is only `AnnotOkP`, and since the
+(`RecRuleLaw`) at the recursor's own parameters, and the P lane has no
+typing derivation in hand: the redex is only `WellDenotedV`, and since the
 ι-slot licence (2026-09-05) the major slot of a data-motive recursor is
 not even inferred, so nothing but these comparisons relates the
 constructor's `p⃗'`/`idx'` to the recursor's `p⃗`/`idx`.  Moving them
@@ -344,7 +344,7 @@ spelled as projections of the subject), instantiated at a use by ONE
 (`ProjEntry.typeAt`); reduced by the generic structural rule `proj_i
 (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by the stored
 `guards[i]`/`structSort` levels.  The bodies are taken from the
-annotated constructor type by substitution alone (`directProjBodies`)
+annotated constructor type by substitution alone (`structProjBodies`)
 — no annotate, no infer, no pins: a slot with no legal instantiation
 simply fails the guard at every use.
 
@@ -372,7 +372,7 @@ structure ProjTable where
   projected field's sort joined with the sorts of the earlier fields
   that a later field's type uses — exactly the sorts the official
   `infer_proj` requires to be `Prop` when projecting from a
-  propositional structure (task #175 W4c/O4, `directProjGuards`); the
+  propositional structure (task #175 W4c/O4, `structProjGuards`); the
   infer branch checks it at every use of a `Prop`-declared
   structure. -/
   guards : List Level

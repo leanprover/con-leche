@@ -2271,7 +2271,7 @@ theorem checkReducePin_wfimp {env env2 : Env} (henv : EnvWF env)
 
 /-! ## The direct simple-structure path (task #82)
 
-Run-level implications for the checks `checkDirectStruct` composes.
+Run-level implications for the checks `checkStruct` composes.
 The fabricated terms whose scoping has to be established here are the
 openings of the recursor and constructor telescopes (at the pin frame
 `nP + 2 + nF`), the generated projection type and the rule's
@@ -2280,17 +2280,17 @@ right-hand side — the last two are checked closed by the checker's own
 
 /-- The per-frame parameter-domain pins, `wfOpsM mode` run to pure run: each
 domain is scoped at its own frame. -/
-theorem checkDirectDomsAt_wfimp {env : Env} (henv : EnvWF env)
+theorem checkStructDomsAt_wfimp {env : Env} (henv : EnvWF env)
     {F off : Nat} {fvs doms : List Expr}
     (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       WScoped (off + i) (Expr.fvarTypeD x))
     (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
     ∀ {j : Nat} {v : Unit},
-      (checkDirectDomsAt (wfOpsM mode) env off fvs doms j).val F = .ok v →
-      checkDirectDomsAt (fueledOps mode F) env off fvs doms j = .ok v
+      (checkStructDomsAt (wfOpsM mode) env off fvs doms j).val F = .ok v →
+      checkStructDomsAt (fueledOps mode F) env off fvs doms j = .ok v
   | 0, _, h => h
   | j + 1, v, h => by
-    unfold checkDirectDomsAt at h ⊢
+    unfold checkStructDomsAt at h ⊢
     obtain ⟨a, ha, h⟩ := atF_bind_ok h
     have ha' := unwrapOr_atF_ok ha
     show ((unwrapOr fvs[j]? _ : CheckM _) >>= _) = _
@@ -2314,7 +2314,7 @@ theorem checkDirectDomsAt_wfimp {env : Env} (henv : EnvWF env)
       exact absurd h atF_throw_bind
     | true =>
       rw [if_pos rfl] at h ⊢
-      exact checkDirectDomsAt_wfimp henv hc ht h
+      exact checkStructDomsAt_wfimp henv hc ht h
 
 /-- Close a goal whose hypothesis is a pure run that begins with a
 `throw`: such a run never succeeds. -/
@@ -2411,14 +2411,14 @@ theorem stripPis_WScoped {d : Nat} :
 
 /-- The projection table, `wfOpsM mode` run to pure run (the stage is
 ops-free, task #175 S1). -/
-theorem checkDirectProjTable_wfimp {T C : Name} {lps : List Name}
+theorem checkStructProjTable_wfimp {T C : Name} {lps : List Name}
     {nP nF : Nat} {rs : Level} {guards : List Level} {off : Nat} {cvCa : ConstantVal}
     {env v : Env} {F : Nat}
-    (h : (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
+    (h : (checkStructProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
       = Except.ok v) :
-    (checkDirectProjTable T C lps nP nF rs guards off cvCa env : CheckM Env)
+    (checkStructProjTable T C lps nP nF rs guards off cvCa env : CheckM Env)
       = Except.ok v := by
-  rw [checkDirectProjTable_datF] at h
+  rw [checkStructProjTable_datF] at h
   exact h
 
 end ConLeche

@@ -42,7 +42,7 @@ here.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 

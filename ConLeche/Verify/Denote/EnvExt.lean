@@ -14,7 +14,7 @@ swap in both verification lanes.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- The stored level parameters only read the constant's
 level-parameter slot. -/

@@ -1,4 +1,4 @@
-import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.WellDenoted
 import ConLeche.Verify.Denote.VClosed
 
 /-!
@@ -8,13 +8,13 @@ import ConLeche.Verify.Denote.VClosed
 in `e` (`P` shifted under each binder).  Its consequence — the one the
 recursive route needs — is that the interpretation and the grading of
 such a term do not depend on the frame's values at those indices
-(`interp2_congr_noBVar`, `AnnotOk2_congr_noBVar`): the constructor
+(`interp_congr_noBVar`, `WellDenoted_congr_noBVar`): the constructor
 tower functor of a recursive type is spelled over the field chains
 with the recursive slots reading an arbitrary set `X`, while the
 ordinary domains' grading was established at a frame whose recursive
 slots hold the proof point (the constructors are read at a dummy
 former whose carrier is `PUnit`); the ordinary domains do not mention
-the recursive slots (a kernel guard, `directUsedLater`), so the
+the recursive slots (a kernel guard, `structUsedLater`), so the
 grading transfers.
 -/
 
@@ -22,7 +22,7 @@ namespace ConLeche.Semantics
 open ConLeche.SetModel
 
 open SetTheory
-open ConLeche.VExpr (VExpr)
+open ConLeche.Term (Term)
 
 universe w
 
@@ -34,7 +34,7 @@ def shiftP (P : Nat → Prop) : Nat → Prop
   | i + 1 => P i
 
 /-- No variable whose index satisfies `P` occurs in the term. -/
-def NoBVar (P : Nat → Prop) : AVExpr → Prop
+def NoBVar (P : Nat → Prop) : AnnotTerm → Prop
   | .bvar i => ¬ P i
   | .sort _ => True
   | .const _ _ => True
@@ -64,9 +64,9 @@ theorem agreeOff_cons_of {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P
 
 /-- **The interpretation of a term ignores the variables it does not
 mention.** -/
-theorem interp2_congr_noBVar :
-    ∀ (e : AVExpr) {P : Nat → Prop} {σ σ' : Nat → V},
-      NoBVar P e → AgreeOff P σ σ' → interp2 V σ e = interp2 V σ' e := by
+theorem interp_congr_noBVar :
+    ∀ (e : AnnotTerm) {P : Nat → Prop} {σ σ' : Nat → V},
+      NoBVar P e → AgreeOff P σ σ' → interp V σ e = interp V σ' e := by
   intro e
   induction e with
   | bvar i => intro P σ σ' h hag; exact hag i h
@@ -74,37 +74,37 @@ theorem interp2_congr_noBVar :
   | const c us => intros; rfl
   | app f a ihf iha =>
     intro P σ σ' h hag
-    simp only [interp2_app, ihf h.1 hag, iha h.2 hag]
+    simp only [interp_app, ihf h.1 hag, iha h.2 hag]
   | lam v A b ihA ihb =>
     intro P σ σ' h hag
-    simp only [interp2_lam, ihA h.1 hag]
+    simp only [interp_lam, ihA h.1 hag]
     congr 1
     funext x
     exact ihb h.2 (agreeOff_cons hag x)
   | pi u v A B ihA ihB =>
     intro P σ σ' h hag
-    simp only [interp2_pi, ihA h.1 hag]
+    simp only [interp_pi, ihA h.1 hag]
     congr 1
     funext x
     exact ihB h.2 (agreeOff_cons hag x)
   | letE T e b ihT ihe ihb =>
     intro P σ σ' h hag
-    simp only [interp2_letE]
+    simp only [interp_letE]
     rw [ihe h.2.1 hag]
     exact ihb h.2.2 (agreeOff_cons hag _)
   | eqE T a b ihT iha ihb =>
     intro P σ σ' h hag
-    simp only [interp2_eqE, iha h.2.1 hag, ihb h.2.2 hag]
+    simp only [interp_eqE, iha h.2.1 hag, ihb h.2.2 hag]
   | proj i e ihe =>
     intro P σ σ' h hag
-    simp only [interp2_proj, ihe h hag]
+    simp only [interp_proj, ihe h hag]
   | prf => intros; rfl
 
 /-- **The grading of a term ignores the variables it does not
 mention.** -/
-theorem AnnotOk2_congr_noBVar :
-    ∀ (e : AVExpr) {P : Nat → Prop} {σ σ' : Nat → V},
-      NoBVar P e → AgreeOff P σ σ' → (AnnotOk2 V σ e ↔ AnnotOk2 V σ' e) := by
+theorem WellDenoted_congr_noBVar :
+    ∀ (e : AnnotTerm) {P : Nat → Prop} {σ σ' : Nat → V},
+      NoBVar P e → AgreeOff P σ σ' → (WellDenoted V σ e ↔ WellDenoted V σ' e) := by
   intro e
   induction e with
   | bvar i => intros; simp
@@ -112,30 +112,30 @@ theorem AnnotOk2_congr_noBVar :
   | const c us => intros; simp
   | app f a ihf iha =>
     intro P σ σ' h hag
-    rw [AnnotOk2_app, AnnotOk2_app, ihf h.1 hag, iha h.2 hag,
-      interp2_congr_noBVar f h.1 hag, interp2_congr_noBVar a h.2 hag]
+    rw [WellDenoted_app, WellDenoted_app, ihf h.1 hag, iha h.2 hag,
+      interp_congr_noBVar f h.1 hag, interp_congr_noBVar a h.2 hag]
   | lam v A b ihA ihb =>
     intro P σ σ' h hag
-    rw [AnnotOk2_lam, AnnotOk2_lam, ihA h.1 hag, interp2_congr_noBVar A h.1 hag]
+    rw [WellDenoted_lam, WellDenoted_lam, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
     refine and_congr Iff.rfl (and_congr
       (forall_congr' fun x => imp_congr Iff.rfl (ihb h.2 (agreeOff_cons hag x)))
       (exists_congr fun B => and_congr
         (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl))
-    rw [interp2_congr_noBVar b h.2 (agreeOff_cons hag x)]
+    rw [interp_congr_noBVar b h.2 (agreeOff_cons hag x)]
   | pi u v A B ihA ihB =>
     intro P σ σ' h hag
-    rw [AnnotOk2_pi, AnnotOk2_pi, ihA h.1 hag, interp2_congr_noBVar A h.1 hag]
+    rw [WellDenoted_pi, WellDenoted_pi, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
     exact and_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl (ihB h.2 (agreeOff_cons hag x)))
   | letE T v b ihT ihv ihb =>
     intro P σ σ' h hag
-    rw [AnnotOk2_letE, AnnotOk2_letE, ihT h.1 hag, ihv h.2.1 hag,
-      ihb h.2.2 (agreeOff_cons_of hag (interp2_congr_noBVar v h.2.1 hag))]
+    rw [WellDenoted_letE, WellDenoted_letE, ihT h.1 hag, ihv h.2.1 hag,
+      ihb h.2.2 (agreeOff_cons_of hag (interp_congr_noBVar v h.2.1 hag))]
   | eqE T a b ihT iha ihb =>
     intro P σ σ' h hag
-    rw [AnnotOk2_eqE, AnnotOk2_eqE, iha h.2.1 hag, ihb h.2.2 hag]
+    rw [WellDenoted_eqE, WellDenoted_eqE, iha h.2.1 hag, ihb h.2.2 hag]
   | proj i e ihe =>
     intro P σ σ' h hag
-    rw [AnnotOk2_proj, AnnotOk2_proj, ihe h hag, interp2_congr_noBVar e h hag]
+    rw [WellDenoted_proj, WellDenoted_proj, ihe h hag, interp_congr_noBVar e h hag]
   | prf => intros; simp
 
 omit [SetTheory V] in
@@ -145,7 +145,7 @@ theorem shiftP_mono {P Q : Nat → Prop} (h : ∀ i, Q i → P i) : ∀ i, shift
 
 omit [SetTheory V] in
 theorem NoBVar.mono :
-    ∀ {e : AVExpr} {P Q : Nat → Prop}, (∀ i, Q i → P i) → NoBVar P e → NoBVar Q e := by
+    ∀ {e : AnnotTerm} {P Q : Nat → Prop}, (∀ i, Q i → P i) → NoBVar P e → NoBVar Q e := by
   intro e
   induction e with
   | bvar i => intro P Q h h'; exact fun hq => h' (h i hq)
@@ -164,7 +164,7 @@ theorem NoBVar.mono :
 omit [SetTheory V] in
 /-- A term bounded below `k` mentions no variable at or above `k`. -/
 theorem NoBVar_of_bvarsBelow :
-    ∀ {e : AVExpr} {k : Nat} {P : Nat → Prop}, VExpr.bvarsBelow k e.erase →
+    ∀ {e : AnnotTerm} {k : Nat} {P : Nat → Prop}, Term.bvarsBelow k e.erase →
       (∀ i, P i → k ≤ i) → NoBVar P e := by
   intro e
   induction e with

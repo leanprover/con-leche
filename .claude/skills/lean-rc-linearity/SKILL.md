@@ -157,7 +157,7 @@ modes). Fix: explicit tail recursion, accumulators as plain arguments
 ### 3.3 `diagLoop`: the diagnostic second pass
 
 "Non-progress is >20× slower" on Mathlib prefixes was *not* the verified fold —
-`checkDeclsSP`'s `List.foldlM` compiles to a specialized tail-recursive loop
+`checkDeclsPure`'s `List.foldlM` compiles to a specialized tail-recursive loop
 threading state uniquely (confirmed in the generated C). It was `checkMain`'s
 diagnostic second pass (error branch only, and every big Mathlib stream ends in a
 decline): its `for d in decls2` loop's boxed state tuple kept the re-parsed arena

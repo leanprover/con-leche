@@ -11,7 +11,7 @@ expression with the operation's stored value substituted in — four
 syntactic (scoping, `bvar`-closedness, leaf boundedness, the `Nat`
 leaf annotation) and one semantic (it denotes at the collapsed
 valuation).  The **graded lane consumes only the four**: both of
-`SetP/NatEqsP.lean`'s call sites destructure `⟨hw, hb, hL, hleaf, -⟩`.
+`Model/NatEqsP.lean`'s call sites destructure `⟨hw, hb, hL, hleaf, -⟩`.
 
 So the four move below both lanes, where a statement mentioning only
 `Env` and `Expr` belongs, and `natEqFrame_of_frag` keeps its name, its
@@ -27,7 +27,7 @@ cone for one definition.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {env : Env}
 
@@ -46,7 +46,7 @@ what `substConst0` replaces by `v`, whose own two guards stand in.
 This is the model-free half of the collapsed lane's
 `natEqFrame_of_frag` (`SetR/Bridge/Decl.lean`), split out here because
 the graded lane consumes **only** these four conjuncts — it drops the
-denotation half at both of its call sites (`SetP/NatEqsP.lean`) — and
+denotation half at both of its call sites (`Model/NatEqsP.lean`) — and
 because a lemma that mentions only `Env`/`Expr` belongs below both
 lanes, which is this file's own stated threshold ("a second consumer
 and nothing lane-specific in the statement").  `natEqFrame_of_frag`

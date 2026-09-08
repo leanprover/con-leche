@@ -1,10 +1,10 @@
 import ConLeche.SetModel.Ops
-import ConLeche.VExpr.Const
+import ConLeche.Term.Const
 
 /-!
 # The built-in constants, two-regime (task #151, tier B — B2)
 
-`ConLeche/VExpr/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
+`ConLeche/Term/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
 The old towers are `lamC`-built, so they inherit the domain-relative
 collapse; these are annotation-built, and the law surface changes with
 them in the way the tier-B design priced.
@@ -61,7 +61,7 @@ is gone:
 namespace ConLeche.SetModel
 
 open SetTheory
-open ConLeche.VExpr (BConst lv)
+open ConLeche.Term (BConst lv)
 
 universe w
 
@@ -182,7 +182,7 @@ theorem psigmaV2_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
 /-- **The pinned pair type's rigidity** (`mem_psigmaV_app`'s mirror at
-`interp2`): an inhabited `PSigma'` application forces both arguments
+`interp`): an inhabited `PSigma'` application forces both arguments
 into their places and exhibits the inhabitant in the sigma set.  Off
 either domain the application is canonical junk, which has no members
 (`app_lamR_of_not_mem`).  Added for the caps tier's pinned-pair η row
@@ -303,16 +303,16 @@ theorem maxOne_ne_zero (u : Nat) : Nat.max u 1 ≠ 0 := by
 `Sort 1`, so `A → Prop` has codomain sort `1` and is itself a *type*
 of sort `max u 1` — both products are in the graph regime, which is
 why a relation is a genuine graph and never the proof point. -/
-noncomputable def relSpace2 (u : Nat) (A : V) : V :=
+noncomputable def relSpace (u : Nat) (A : V) : V :=
   piR (Nat.max u 1) A fun _ => piR 1 A fun _ => univ 0
 
 /-- `Quot.{u}`; result sort `u + 1` (a type former). -/
 noncomputable def quotV2 (u : Nat) : V :=
   lamR (u + 1) (univ u) fun A =>
-    lamR (u + 1) (relSpace2 V u A) fun R => quotSet u A R
+    lamR (u + 1) (relSpace V u A) fun R => quotSet u A R
 
 theorem quotV2_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
-    (hR : R ∈ˢ relSpace2 V u A) :
+    (hR : R ∈ˢ relSpace V u A) :
     app (app (quotV2 V u) A) R = quotSet u A R := by
   rw [quotV2, app_lamR_pos (Nat.succ_ne_zero u) hA,
     app_lamR_pos (Nat.succ_ne_zero u) hR]
@@ -320,11 +320,11 @@ theorem quotV2_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
 /-- `Quot.mk.{u}`; result sort `u`. -/
 noncomputable def quotMkV2 (u : Nat) : V :=
   lamR u (univ u) fun A =>
-    lamR u (relSpace2 V u A) fun R =>
+    lamR u (relSpace V u A) fun R =>
       lamR u A fun a => quotClass u A R a
 
 theorem quotMkV2_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
-    (hR : R ∈ˢ relSpace2 V u A) (ha : a ∈ˢ A) :
+    (hR : R ∈ˢ relSpace V u A) (ha : a ∈ˢ A) :
     app (app (app (quotMkV2 V u) A) R) a = quotClass u A R a := by
   by_cases hu : u = 0
   · subst hu
@@ -380,13 +380,13 @@ theorem quotInv_of_mem2 {A R f h : V} (hh : h ∈ˢ quotInvSpace2 V A R f) :
 /-- `Quot.lift.{u,v}`; result sort `v`. -/
 noncomputable def quotLiftV2 (u v : Nat) : V :=
   lamR v (univ u) fun A =>
-    lamR v (relSpace2 V u A) fun R =>
+    lamR v (relSpace V u A) fun R =>
       lamR v (univ v) fun B =>
         lamR v (piR v A fun _ => B) fun f =>
           lamR v (quotInvSpace2 V A R f) fun _ => quotLiftR V u v A R f
 
 theorem quotLiftV2_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
-    (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u A)
+    (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V u A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
     (hh : h ∈ˢ quotInvSpace2 V A R f) :
     app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
@@ -418,7 +418,7 @@ theorem quotLiftV2_app_zero {u : Nat} (A R B f h : V) :
 /-- The two branches, packaged: `Quot.lift` fires at **every**
 numeral. -/
 theorem quotLiftV2_app_any {u v : Nat} {A R B f h : V}
-    (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u A)
+    (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V u A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
     (hh : h ∈ˢ quotInvSpace2 V A R f) :
     app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
@@ -533,12 +533,12 @@ theorem lfpFamV2_mem (u w : Nat) :
 /-! ## The value assignment -/
 
 /-- The two-regime value of each built-in constant at a concrete level
-instantiation — `ConLeche.VExpr.bval`'s transpose.  `quotInd`, `quotSound`
+instantiation — `ConLeche.Term.bval`'s transpose.  `quotInd`, `quotSound`
 and `propext` are the canonical proof because their result sorts *are*
 `0`; `punitUnit` is because `unitSet = {pt}` at every level.  The one
 value that differs from `bval` beyond the operator change is
 `emptyRec`. -/
-noncomputable def bval2 : BConst → List Nat → V
+noncomputable def bval : BConst → List Nat → V
   | .nat, _ => omega
   | .natZero, _ => natzero
   | .natSucc, _ => natSuccV2 V

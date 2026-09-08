@@ -25,7 +25,7 @@ every stored expression:
   constants, annotated before their entries exist.
 
 Both predicates are hereditary through `.fvar` type annotations, as
-`ConstsBound` is, because `denoteP` opens binders at annotated fvars.
+`ConstsBound` is, because `denoteMeta` opens binders at annotated fvars.
 -/
 
 namespace ConLeche

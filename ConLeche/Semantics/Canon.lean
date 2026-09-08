@@ -6,7 +6,7 @@ import ConLeche.Verify.Knot
 /-!
 # Canonical annotations (task #151 tier C — the R1 resolution of WALL 3)
 
-`denote2` is `denote` fused with the checker's *own* sort computation:
+`denoteAnnot` is `denote` fused with the checker's *own* sort computation:
 each binder numeral is the sort `inferTypeCore` + `whnf` produce — the
 #100-stage-6 annotate pass resurrected **at the metatheory level**.
 It is a definition in the proof development, never run by the binary:
@@ -16,9 +16,9 @@ context carry the same numerals, which is what WALL 3 demanded and no
 relational invariant could supply.
 
 The stored-constant leaves come from the **canonical annotated
-valuation** `acval` (an `EnvS2`-side object fixed at install), so
-`denote2` is parametric in it exactly as `denote` is in `cval`; the
-erasure law (`denote2_erase`) links the two levels pointwise under the
+valuation** `acval` (an `EnvModel`-side object fixed at install), so
+`denoteAnnot` is parametric in it exactly as `denote` is in `cval`; the
+erasure law (`denoteAnnot_erase`) links the two levels pointwise under the
 valuation-side link.
 
 Sort computations live in `sortOfE` (the type's sort: infer, then
@@ -37,8 +37,8 @@ design finding, not a proof gap).
 namespace ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.VExpr ConLeche.Verify
-open ConLeche.Semantics (AVExpr)
+open ConLeche.Term ConLeche.Verify
+open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level inferTypeCore whnf
   natLitSupported strLitSupported)
 
@@ -63,21 +63,21 @@ def lamSortE (mode : CheckMode) (env : Env) (φ : Name → Nat)
 
 /-- The annotated `Nat`-literal spine (the `natLitT` mirror over the
 annotated valuation). -/
-def natLitT2 (za sa : AVExpr) : Nat → AVExpr
+def natLitAV (za sa : AnnotTerm) : Nat → AnnotTerm
   | 0 => za
-  | n + 1 => .app sa (natLitT2 za sa n)
+  | n + 1 => .app sa (natLitAV za sa n)
 
 /-- The annotated character-list spine (the `charListT` mirror). -/
-def charListT2 (nilA consA ofNatA za sa : AVExpr) :
-    List Char → AVExpr
+def charListAV (nilA consA ofNatA za sa : AnnotTerm) :
+    List Char → AnnotTerm
   | [] => nilA
   | c :: cs =>
-    .app (.app consA (.app ofNatA (natLitT2 za sa c.toNat)))
-      (charListT2 nilA consA ofNatA za sa cs)
+    .app (.app consA (.app ofNatA (natLitAV za sa c.toNat)))
+      (charListAV nilA consA ofNatA za sa cs)
 
 /-- The uniform projection spellings erase onto each other:
 `projAV`'s image is `projNV` (task #175 wiring W3). -/
-theorem erase_projAV : ∀ (i : Nat) (ea : AVExpr),
+theorem erase_projAV : ∀ (i : Nat) (ea : AnnotTerm),
     (projAV i ea).erase = ConLeche.Verify.projNV i ea.erase
   | 0, _ => rfl
   | i + 1, ea => erase_projAV i (.proj 1 ea)
@@ -86,10 +86,10 @@ theorem erase_projAV : ∀ (i : Nat) (ea : AVExpr),
 computed by the checker's own functions and every constant leaf drawn
 from the canonical annotated valuation.  Clause for clause the
 `denote` recursion (`ConLeche/Verify/Denote.lean`), so the two erase
-pointwise (`denote2_erase`). -/
-def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
+pointwise (`denoteAnnot_erase`). -/
+def denoteAnnot (mode : CheckMode) (acval : Name → (Name → Nat) → AnnotTerm)
     (env : Env) (φ : Name → Nat) (fuel : Nat) :
-    (d : Nat) → Expr → Option AVExpr
+    (d : Nat) → Expr → Option AnnotTerm
   | _, .sort u => some (.sort (u.eval φ))
   | d, .fvar idx _ => some (.bvar (d - 1 - idx))
   | _, .const n us =>
@@ -100,46 +100,46 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
       else none
     | none => none
   | d, .forallE ty body _m => do
-    let ta ← denote2 mode acval env φ fuel d ty
-    let ba ← denote2 mode acval env φ fuel (d + 1)
+    let ta ← denoteAnnot mode acval env φ fuel d ty
+    let ba ← denoteAnnot mode acval env φ fuel (d + 1)
       (body.instantiate1 (.fvar d ty))
     let u ← sortOfE mode env φ fuel d ty
     let v ← sortOfE mode env φ fuel (d + 1)
       (body.instantiate1 (.fvar d ty))
     some (.pi u v ta ba)
   | d, .lam ty body _m => do
-    let ta ← denote2 mode acval env φ fuel d ty
-    let ba ← denote2 mode acval env φ fuel (d + 1)
+    let ta ← denoteAnnot mode acval env φ fuel d ty
+    let ba ← denoteAnnot mode acval env φ fuel (d + 1)
       (body.instantiate1 (.fvar d ty))
     let v ← lamSortE mode env φ fuel (d + 1)
       (body.instantiate1 (.fvar d ty))
     some (.lam v ta ba)
   | d, .app f a => do
-    let fa ← denote2 mode acval env φ fuel d f
-    let aa ← denote2 mode acval env φ fuel d a
+    let fa ← denoteAnnot mode acval env φ fuel d f
+    let aa ← denoteAnnot mode acval env φ fuel d a
     some (.app fa aa)
   | d, .letE ty val body => do
-    let ta ← denote2 mode acval env φ fuel d ty
-    let va ← denote2 mode acval env φ fuel d val
-    let ba ← denote2 mode acval env φ fuel (d + 1)
+    let ta ← denoteAnnot mode acval env φ fuel d ty
+    let va ← denoteAnnot mode acval env φ fuel d val
+    let ba ← denoteAnnot mode acval env φ fuel (d + 1)
       (body.instantiate1 (.fvar d ty))
     some (.letE ta va ba)
   | d, .proj sn i e => do
-    let ea ← denote2 mode acval env φ fuel d e
+    let ea ← denoteAnnot mode acval env φ fuel d e
     -- the entry-kind branch (task #175 wiring W3), clause-parallel
-    -- with `denote` and `denoteP`
+    -- with `denote` and `denoteMeta`
     match env.findProj? sn i with
     | some entry => some (projAV (i + entry.off) ea)
     | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
-      some (natLitT2 (acval natZeroName (Level.substFn φ [] []))
+      some (natLitAV (acval natZeroName (Level.substFn φ [] []))
         (acval natSuccName (Level.substFn φ [] [])) n)
     else none
   | _, .lit (.strVal s) =>
     if strLitSupported env then
       some (.app (acval stringOfListName (Level.substFn φ [] []))
-        (charListT2
+        (charListAV
           (.app (acval listNilName
               (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
             (acval charName (Level.substFn φ [] [])))
@@ -161,59 +161,59 @@ decreasing_by
 
 /-! ## The erasure law
 
-`denote2` erases to `denote`, pointwise under the valuation link: the
+`denoteAnnot` erases to `denote`, pointwise under the valuation link: the
 canonical annotation is an annotation *of the denotation*, exactly. -/
 
 /-- The literal spines erase pointwise. -/
-theorem natLitT2_erase {za sa : AVExpr} {zv sv : VExpr}
+theorem natLitAV_erase {za sa : AnnotTerm} {zv sv : Term}
     (hz : za.erase = zv) (hs : sa.erase = sv) :
-    ∀ n : Nat, (natLitT2 za sa n).erase = natLitT zv sv n := by
+    ∀ n : Nat, (natLitAV za sa n).erase = natLitT zv sv n := by
   intro n
   induction n with
   | zero => exact hz
-  | succ m ih => simp [natLitT2, natLitT, hs, ih]
+  | succ m ih => simp [natLitAV, natLitT, hs, ih]
 
-theorem charListT2_erase {nilA consA ofNatA za sa : AVExpr}
-    {nilV consV ofNatV zv sv : VExpr}
+theorem charListAV_erase {nilA consA ofNatA za sa : AnnotTerm}
+    {nilV consV ofNatV zv sv : Term}
     (h1 : nilA.erase = nilV) (h2 : consA.erase = consV)
     (h3 : ofNatA.erase = ofNatV) (hz : za.erase = zv)
     (hs : sa.erase = sv) :
     ∀ cs : List Char,
-      (charListT2 nilA consA ofNatA za sa cs).erase
+      (charListAV nilA consA ofNatA za sa cs).erase
         = charListT nilV consV ofNatV zv sv cs := by
   intro cs
   induction cs with
   | nil => exact h1
   | cons c cs ih =>
-    simp [charListT2, charListT, h2, h3, ih, natLitT2_erase hz hs]
+    simp [charListAV, charListT, h2, h3, ih, natLitAV_erase hz hs]
 
 /-- **The erasure law**: the canonical annotation is an annotation of
-the denotation, exactly (no ζ slack — `denote2`'s `letE` clause is
+the denotation, exactly (no ζ slack — `denoteAnnot`'s `letE` clause is
 structural). -/
-theorem denote2_erase {mode : CheckMode}
-    {acval : Name → (Name → Nat) → AVExpr} {cval : TConstVal}
+theorem denoteAnnot_erase {mode : CheckMode}
+    {acval : Name → (Name → Nat) → AnnotTerm} {cval : TConstVal}
     {env : Env} {φ : Name → Nat} {fuel : Nat}
     (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ) :
-    ∀ (d : Nat) (e : Expr) {ea : AVExpr},
-      denote2 mode acval env φ fuel d e = some ea →
+    ∀ (d : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteAnnot mode acval env φ fuel d e = some ea →
       denote cval env φ d e = some ea.erase := by
   intro d e
-  induction d, e using denote2.induct (env := env) with
+  induction d, e using denoteAnnot.induct (env := env) with
   | case1 d u =>
     intro ea h
-    rw [denote2] at h
+    rw [denoteAnnot] at h
     obtain rfl := Option.some.inj h
     rw [denote_sort]
     rfl
   | case2 d idx ty =>
     intro ea h
-    rw [denote2] at h
+    rw [denoteAnnot] at h
     obtain rfl := Option.some.inj h
     rw [denote_fvar]
     rfl
   | case3 d n us ci hf hlen =>
     intro ea h
-    rw [denote2, hf] at h
+    rw [denoteAnnot, hf] at h
     dsimp only at h
     rw [if_pos hlen] at h
     obtain rfl := Option.some.inj h
@@ -222,21 +222,21 @@ theorem denote2_erase {mode : CheckMode}
     rw [if_pos hlen, hlink]
   | case4 d n us ci hf hlen =>
     intro ea h
-    rw [denote2, hf] at h
+    rw [denoteAnnot, hf] at h
     dsimp only at h
     rw [if_neg hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro ea h
-    rw [denote2, hf] at h
+    rw [denoteAnnot, hf] at h
     exact nomatch h
   | case6 d ty body m ihty ihbody =>
     intro ea h
-    rw [denote2] at h
-    rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
+    rw [denoteAnnot] at h
+    rcases hta : denoteAnnot mode acval env φ fuel d ty with _ | ta
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
-    rcases hba : denote2 mode acval env φ fuel (d + 1)
+    rcases hba : denoteAnnot mode acval env φ fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
@@ -252,11 +252,11 @@ theorem denote2_erase {mode : CheckMode}
     rfl
   | case7 d ty body m ihty ihbody =>
     intro ea h
-    rw [denote2] at h
-    rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
+    rw [denoteAnnot] at h
+    rcases hta : denoteAnnot mode acval env φ fuel d ty with _ | ta
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
-    rcases hba : denote2 mode acval env φ fuel (d + 1)
+    rcases hba : denoteAnnot mode acval env φ fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
@@ -269,11 +269,11 @@ theorem denote2_erase {mode : CheckMode}
     rfl
   | case8 d f a ihf iha =>
     intro ea h
-    rw [denote2] at h
-    rcases hfa : denote2 mode acval env φ fuel d f with _ | fa
+    rw [denoteAnnot] at h
+    rcases hfa : denoteAnnot mode acval env φ fuel d f with _ | fa
     · rw [hfa] at h; exact nomatch h
     rw [hfa] at h
-    rcases haa : denote2 mode acval env φ fuel d a with _ | aa
+    rcases haa : denoteAnnot mode acval env φ fuel d a with _ | aa
     · rw [haa] at h; exact nomatch h
     rw [haa] at h
     obtain rfl := Option.some.inj h
@@ -281,14 +281,14 @@ theorem denote2_erase {mode : CheckMode}
     rfl
   | case9 d ty val body ihty ihval ihbody =>
     intro ea h
-    rw [denote2] at h
-    rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
+    rw [denoteAnnot] at h
+    rcases hta : denoteAnnot mode acval env φ fuel d ty with _ | ta
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
-    rcases hva : denote2 mode acval env φ fuel d val with _ | va
+    rcases hva : denoteAnnot mode acval env φ fuel d val with _ | va
     · rw [hva] at h; exact nomatch h
     rw [hva] at h
-    rcases hba : denote2 mode acval env φ fuel (d + 1)
+    rcases hba : denoteAnnot mode acval env φ fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
@@ -297,13 +297,13 @@ theorem denote2_erase {mode : CheckMode}
     rfl
   | case10 d sn i e ihe =>
     intro ea h
-    rw [denote2] at h
-    rcases hea : denote2 mode acval env φ fuel d e with _ | ea'
+    rw [denoteAnnot] at h
+    rcases hea : denoteAnnot mode acval env φ fuel d e with _ | ea'
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
     replace h : (match env.findProj? sn i with
         | some entry => some (projAV (i + entry.off) ea')
-        | none => if i < 2 then some (AVExpr.proj i ea') else none)
+        | none => if i < 2 then some (ATerm.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]
     dsimp only
@@ -325,39 +325,39 @@ theorem denote2_erase {mode : CheckMode}
         exact nomatch h
   | case11 d n hsup =>
     intro ea h
-    rw [denote2, if_pos hsup] at h
+    rw [denoteAnnot, if_pos hsup] at h
     obtain rfl := Option.some.inj h
     rw [denote_natLit, if_pos hsup,
-      natLitT2_erase (hlink _ _) (hlink _ _)]
+      natLitAV_erase (hlink _ _) (hlink _ _)]
   | case12 d n hsup =>
     intro ea h
-    rw [denote2, if_neg hsup] at h
+    rw [denoteAnnot, if_neg hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro ea h
-    rw [denote2, if_pos hsup] at h
+    rw [denoteAnnot, if_pos hsup] at h
     obtain rfl := Option.some.inj h
     rw [denote_strLit, if_pos hsup]
     refine congrArg some ?_ |>.symm
-    show VExpr.app _ _ = _
+    show Term.app _ _ = _
     rw [ConLeche.Verify.strLitT]
     congr 1
     · exact hlink _ _
-    · refine charListT2_erase ?_ ?_ (hlink _ _) (hlink _ _)
+    · refine charListAV_erase ?_ ?_ (hlink _ _) (hlink _ _)
         (hlink _ _) s.toList
-      · show VExpr.app ((acval _ _).erase) ((acval _ _).erase) = _
+      · show Term.app ((acval _ _).erase) ((acval _ _).erase) = _
         rw [hlink, hlink]
-      · show VExpr.app ((acval _ _).erase) ((acval _ _).erase) = _
+      · show Term.app ((acval _ _).erase) ((acval _ _).erase) = _
         rw [hlink, hlink]
   | case14 d s hsup =>
     intro ea h
-    rw [denote2, if_neg hsup] at h
+    rw [denoteAnnot, if_neg hsup] at h
     exact nomatch h
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro ea h
     cases x with
     | bvar i =>
-      rw [denote2.eq_def] at h
+      rw [denoteAnnot.eq_def] at h
       exact nomatch h
     | sort u => exact absurd rfl (hs u)
     | fvar i ty => exact absurd rfl (hfv i ty)

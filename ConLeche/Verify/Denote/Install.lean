@@ -31,7 +31,7 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in
 `env₂`, unchanged.  (The checker's installs are cons-extensions with a
@@ -112,7 +112,7 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
       levelParamsAt env₂ listNilName = levelParamsAt env₁ listNilName)
     (hlpCons : strLitSupported env₁ = true →
       levelParamsAt env₂ listConsName = levelParamsAt env₁ listConsName) :
-    ∀ (d : Nat) (e : Expr) {v : VExpr},
+    ∀ (d : Nat) (e : Expr) {v : Term},
       denote cval env₁ φ d e = some v → denote cval env₂ φ d e = some v := by
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env₁) (φ := φ) with
@@ -520,7 +520,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     (hntc : ∀ e', c₀ ≠ .projInfo e') :
     ∀ (d : Nat) (e : Expr), e.constsResolve env = true →
       denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
-  have hbranch : ∀ (sn : Name) (i : Nat) (ve : VExpr),
+  have hbranch : ∀ (sn : Name) (i : Nat) (ve : Term),
       (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
         | some entry => some (projNV (i + entry.off) ve)
         | none => if i < 2 then some (.proj i ve) else none)
@@ -692,7 +692,7 @@ environment, changed valuation.  The shared core of every field's
 transport — `has_type_cons` above is this plus a valuation rewrite, and
 `defn_eq_cons` / `thm_ok_cons` below are the same again. -/
 theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
-    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : VExpr}
+    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : Term}
     (hfresh : env.find? c₀.name = none)
     (hntc : ∀ e', c₀ ≠ .projInfo e')
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
@@ -876,7 +876,7 @@ theorem Installs.of_fresh {env : Env} {cval cval' : TConstVal}
 none. -/
 theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
-    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : Term}
     (h : denote cval env φ d e = some v) :
     denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
   denote_install hi.fresh hi.ntc hi.ag hi.lit
@@ -895,7 +895,7 @@ environment.  The two moves compose in one order only: shrink first
 agree on everything stored there, but not at the new constant). -/
 theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
-    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : Term}
     (hres : e.constsResolve env = true)
     (h : denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v) :
     denote cval env φ d e = some v := by
@@ -931,8 +931,8 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     (hi : Installs env cval cval' c₀)
     (hhead : reservedBasisNames.contains c₀.name = true →
       (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
-      ∀ (ψ : Name → Nat) (t : VExpr),
-        pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
+      ∀ (ψ : Name → Nat) (t : Term),
+        pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
   intro n ci hf hres
   by_cases hn : c₀.name = n
@@ -1000,16 +1000,16 @@ theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
 
 
 /-- Extend a valuation at one name by an explicitly chosen term. -/
-def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → VExpr) :
+def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → Term) :
     TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
 
 theorem cvalWith_ne {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} {c : Name} (h : c ≠ n) :
+    {V : (Name → Nat) → Term} {c : Name} (h : c ≠ n) :
     cvalWith cval n V c = cval c := by
   funext ψ; simp [cvalWith, h]
 
 theorem cvalWith_self {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} : cvalWith cval n V n = V := by
+    {V : (Name → Nat) → Term} : cvalWith cval n V n = V := by
   funext ψ; simp [cvalWith]
 
 /-! ## The valuation an install chooses
@@ -1031,7 +1031,7 @@ theorem cvalAt_ne {cval : TConstVal} {env : Env} {n : Name} {value : Expr}
   funext ψ; simp [cvalAt, h]
 
 theorem cvalAt_self {cval : TConstVal} {env : Env} {n : Name}
-    {value : Expr} {ψ : Name → Nat} {v : VExpr}
+    {value : Expr} {ψ : Name → Nat} {v : Term}
     (h : denoteClosed cval env ψ value = some v) :
     cvalAt cval env n value n ψ = v := by
   simp [cvalAt, h]

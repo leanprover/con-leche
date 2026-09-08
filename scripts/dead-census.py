@@ -40,7 +40,7 @@ the sources.
    cut, build, restore what the build demands, record each restore.
 2. *results that are not corollaries*: a top-level theorem no capstone
    is a corollary of is itself the deliverable (`AgreeFloor`'s
-   agreement floor, `BridgeDecl`'s `checkDecls_datF`), and reads dead.
+   agreement floor, `BridgeDecl`'s `checkDeclsPure_datF`), and reads dead.
    Only a reader can tell those apart; #209's rule stands — "imported
    by nothing" is not a dead-code criterion in a verification tree.
 
@@ -103,12 +103,12 @@ SEED_ATTRS = {"command_elab", "term_elab", "tactic", "builtin_command_elab",
 
 CAPSTONES = [
     "ConLeche.no_proof_of_False",
-    "ConLeche.Cached.no_proof_of_False_SPCD_P",
-    "ConLeche.SetP.no_proof_of_False_P",
-    "ConLeche.Cached.no_proof_of_Empty_SPCD_P",
-    "ConLeche.Cached.checkDeclsSPCachedD_sound_P",
-    "ConLeche.Cached.foldSPC_PM",
-    "ConLeche.SetP.no_proof_of_Empty_P",
+    "ConLeche.Cached.no_proof_of_False_cached",
+    "ConLeche.Model.no_proof_of_False_pure",
+    "ConLeche.Cached.no_proof_of_Empty_cached",
+    "ConLeche.Cached.checkDecls_sound",
+    "ConLeche.Cached.fold_preserves",
+    "ConLeche.Model.no_proof_of_Empty_pure",
 ]
 SEED_MODULE_PREFIXES = ("ConLecheTests", "ConLeche.Challenge",
                         "ConLeche.PinGen.Certs")

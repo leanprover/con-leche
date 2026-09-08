@@ -31,21 +31,21 @@ variable {V : Type uv} [SetTheory V]
 
 /-- The elements of a family: the pairs of a tuple and a member of its
 fibre. -/
-noncomputable def elemSet (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (μ : V) : V :=
+noncomputable def elemSet (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (μ : V) : V :=
   sigmaPairs (idxSet u ρp Ids) (fun t => SetTheory.app μ t)
 
 /-- An element's constructor tag (junk off the elements). -/
 noncomputable def elemTag (e : V) : Nat := natIdx (sfst (ssnd e))
 
 /-- An element's fields. -/
-noncomputable def elemFields (Fss : List (List AVExpr)) (e : V) : List V :=
+noncomputable def elemFields (Fss : List (List AnnotTerm)) (e : V) : List V :=
   projList (Fss.getD (elemTag e) []).length (ssnd (ssnd e))
 
 theorem elemTag_mk (t : V) (j : Nat) (fs : List V) : elemTag (kpair t (inj j (mkTower (fs ++ [pt])))) = j := by
   unfold elemTag
   rw [ssnd_kpair, sfst_inj, natIdx_vnat]
 
-theorem elemFields_mk {Fss : List (List AVExpr)} (t : V) {j : Nat} {fs : List V}
+theorem elemFields_mk {Fss : List (List AnnotTerm)} (t : V) {j : Nat} {fs : List V}
     (hlen : fs.length = (Fss.getD j []).length) :
     elemFields Fss (kpair t (inj j (mkTower (fs ++ [pt])))) = fs := by
   unfold elemFields
@@ -54,15 +54,15 @@ theorem elemFields_mk {Fss : List (List AVExpr)} (t : V) {j : Nat} {fs : List V}
 /-- The predecessors of an element: for each recursive field and each
 spine fitting its telescope, the call's tuple paired with the field
 applied to the spine. -/
-noncomputable def elemPred (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
-    (Fss : List (List AVExpr)) (μ : V) (e : V) : V :=
+noncomputable def elemPred (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss : List (List AnnotTerm)) (μ : V) (e : V) : V :=
   sep (elemSet u ρp Ids μ) fun e' =>
     ∃ i ∈ recIdx (rss.getD (elemTag e) []) (Fss.getD (elemTag e) []).length, ∃ bs : List V,
       SpineFit (consList ((elemFields Fss e).take i) ρp) (((tlss.getD (elemTag e) []).getD i []).map (·.2.2)) bs ∧
       e' = kpair
         (tupW u (((Eiss.getD (elemTag e) []).getD i []).map
-          (interp2 V (consList bs (consList ((elemFields Fss e).take i) ρp)))))
+          (interp V (consList bs (consList ((elemFields Fss e).take i) ρp)))))
         (bs.foldl SetTheory.app ((elemFields Fss e).getD i pt))
 
 /-- The bound: the motive at the tuple's indices and the element. -/
@@ -73,52 +73,52 @@ noncomputable def elemB (u nIdx : Nat) (M : V) (e : V) : V :=
 each recursive field, the λ-tower over its telescope of `g` at the
 call's element. -/
 noncomputable def elemIhs (ℓ u : Nat) (ρp : Nat → V) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (nF : Nat)
     (fs : List V) (g : V) : List V :=
   (recIdx rs nF).map fun i =>
     lamTower ℓ (consList (fs.take i) ρp) (tls.getD i []) fun σ' =>
-      SetTheory.app g (kpair (tupW u ((Eis.getD i []).map (interp2 V σ')))
+      SetTheory.app g (kpair (tupW u ((Eis.getD i []).map (interp V σ')))
         ((frameIdx (tls.getD i []).length σ').foldl SetTheory.app (fs.getD i pt)))
 
 /-- The step: the element's minor (from the minors' list) at its fields
 and the ih values. -/
 noncomputable def elemSt (ℓ u : Nat) (ρp : Nat → V) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
-    (Fss : List (List AVExpr)) (msL : List V) (e g : V) : V :=
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss : List (List AnnotTerm)) (msL : List V) (e g : V) : V :=
   (elemFields Fss e ++
     elemIhs ℓ u ρp (rss.getD (elemTag e) []) (tlss.getD (elemTag e) []) (Eiss.getD (elemTag e) [])
       (Fss.getD (elemTag e) []).length (elemFields Fss e) g).foldl SetTheory.app (msL.getD (elemTag e) pt)
 
 /-- **The recursor's graph over the elements.** -/
-noncomputable def elemGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AVExpr) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
-    (Fss : List (List AVExpr)) (msL : List V) (μ : V) : V :=
+noncomputable def elemGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AnnotTerm) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss : List (List AnnotTerm)) (msL : List V) (μ : V) : V :=
   recGraph ℓ (elemSet u ρp Ids μ) (elemPred u ρp Ids rss tlss Eiss Fss μ) (elemB u Ids.length M)
     (elemSt ℓ u ρp rss tlss Eiss Fss msL)
 
-theorem elemPred_subset (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
-    (Fss : List (List AVExpr)) (μ e : V) : elemPred u ρp Ids rss tlss Eiss Fss μ e ⊆ˢ elemSet u ρp Ids μ :=
+theorem elemPred_subset (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss : List (List AnnotTerm)) (μ e : V) : elemPred u ρp Ids rss tlss Eiss Fss μ e ⊆ˢ elemSet u ρp Ids μ :=
   sep_subset
 
-theorem mem_elemSet {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {μ e : V} :
+theorem mem_elemSet {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {μ e : V} :
     e ∈ˢ elemSet u ρp Ids μ ↔ ∃ t, t ∈ˢ idxSet u ρp Ids ∧ ∃ x, x ∈ˢ SetTheory.app μ t ∧ e = kpair t x :=
   mem_sigmaPairs
 
-theorem mk_mem_elemSet {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {μ t x : V} (ht : t ∈ˢ idxSet u ρp Ids)
+theorem mk_mem_elemSet {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {μ t x : V} (ht : t ∈ˢ idxSet u ρp Ids)
     (hx : x ∈ˢ SetTheory.app μ t) : kpair t x ∈ˢ elemSet u ρp Ids μ :=
   mem_sigmaPairs.mpr ⟨t, ht, x, hx, rfl⟩
 
 /-- The predecessors of a constructor value. -/
-theorem mem_elemPred_mk {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {rss : List (List Bool)}
-    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
-    {Fss : List (List AVExpr)} {μ t : V} {j : Nat} {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
+theorem mem_elemPred_mk {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    {Fss : List (List AnnotTerm)} {μ t : V} {j : Nat} {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
     {e' : V} :
     e' ∈ˢ elemPred u ρp Ids rss tlss Eiss Fss μ (kpair t (inj j (mkTower (fs ++ [pt])))) ↔
       e' ∈ˢ elemSet u ρp Ids μ ∧
       ∃ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length, ∃ bs : List V,
         SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs ∧
-        e' = kpair (tupW u (((Eiss.getD j []).getD i []).map (interp2 V (consList bs (consList (fs.take i) ρp)))))
+        e' = kpair (tupW u (((Eiss.getD j []).getD i []).map (interp V (consList bs (consList (fs.take i) ρp)))))
           (bs.foldl SetTheory.app (fs.getD i pt)) := by
   unfold elemPred
   rw [mem_sep, elemTag_mk, elemFields_mk t hlen]
@@ -127,9 +127,9 @@ theorem mem_elemPred_mk {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {rss : L
 
 section Singleton
 
-variable {ℓ u w : Nat} {ρp : Nat → V} {M : V} {msL : List V} {Fss Ess Fss₀ : List (List AVExpr)}
-  {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))}
-  {Eiss : List (List (List AVExpr))}
+variable {ℓ u w : Nat} {ρp : Nat → V} {M : V} {msL : List V} {Fss Ess Fss₀ : List (List AnnotTerm)}
+  {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eiss : List (List (List AnnotTerm))}
 
 /-- **The graph is a singleton at every element of the family**, by lfp
 induction on the family's functor: a member of the fibre at a
@@ -215,8 +215,8 @@ end Singleton
 
 section KFrame
 
-variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
-  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
+variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
+  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
 
 /-- A member of the family's fibre at a tuple is a constructor value
 whose spine fits the real fields with the tuple as its index values,
@@ -331,7 +331,7 @@ theorem elemSt_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw
     rw [consList_append] at hvsp
     have hfmem := slotSet_fold_mem hfam hmem hbs
     have hpre : kpair (tupW u (((Eiss.getD j []).getD i []).map
-        (interp2 V (consList bs (consList (fs.take i) (frP Fss.length Ids.length K))))))
+        (interp V (consList bs (consList (fs.take i) (frP Fss.length Ids.length K))))))
         (bs.foldl SetTheory.app (fs.getD i pt))
         ∈ˢ elemPred u (frP Fss.length Ids.length K) Ids rss tlss Eiss Fss
           (famK u w K Fss Ess Fss₀ Ids rss tlss Eiss) (kpair (tupW u is) (inj j (mkTower (fs ++ [pt])))) :=

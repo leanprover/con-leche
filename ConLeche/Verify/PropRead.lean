@@ -98,7 +98,7 @@ theorem isProofFast_shiftFrom (find? : Name → Option ConstantInfo) {p : Nat}
 
 /-! ## Inversions — what a reader's answer says about the term
 
-The "yes" arm's licence (`ConLeche/SetP/Step2/IrrelFastP.lean`) consumes
+The "yes" arm's licence (`ConLeche/Model/Steps/IrrelFast.lean`) consumes
 the readers through these: each `some` verdict is one of finitely many
 head shapes with the datum spelled out. -/
 

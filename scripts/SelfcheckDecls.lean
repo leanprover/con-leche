@@ -13,7 +13,7 @@ the con-leche code base".  Exporting the whole imported environment instead
 would drag in the ~200k constants of the Lean elaborator that nothing of
 ours depends on.
 
-    lake env lean --run scripts/SelfcheckDecls.lean ConLeche ConLeche.SetP ...
+    lake env lean --run scripts/SelfcheckDecls.lean ConLeche ConLeche.Model ...
 
 A constant counts as ours when the module that declares it is `ConLeche`,
 `ConLeche.*`, or one of the executable roots (`Main`).  Internal names

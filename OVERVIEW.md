@@ -64,16 +64,16 @@ Read from the outside in:
 
 1. **The driver** (`Main.lean`). The default run parses the stream
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L884))
-   and calls the pure fold `checkDeclsSPCachedD`, printing nothing per
+   and calls the pure fold `checkDecls`, printing nothing per
    declaration
    ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L331)).
    The optional progress lane (`CON_LECHE_PROGRESS`) runs a separate,
    plainly unverified fold of the same steps with a line printed before
    each declaration; a run with it set is not covered by the theorem.
 2. **The shipped fold**
-   ([function `checkDeclsSPCachedD` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L276-L279))
+   ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L276-L279))
    folds the per-declaration step of the *cached* checker
-   ([function `checkDeclStepIdxC` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L244))
+   ([function `checkDeclStep` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L244))
    over the records, threading the hash-consed environment and the memo
    state. Its error carries the position of the failing declaration.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -82,9 +82,9 @@ Read from the outside in:
    parser's record type. It is related to the pure checker by a
    one-directional simulation: whatever the cached checker accepts, the
    pure checker accepts
-   ([theorem `checkDeclsSPCachedD_sound_P` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L155-L163)).
+   ([theorem `checkDecls_sound` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L155-L163)).
    The capstone about the shipped fold is a corollary
-   ([theorem `no_proof_of_False_SPCD_P` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L181-L188)).
+   ([theorem `no_proof_of_False_cached` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L181-L188)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` and the annotation pass are tied in a knot over a fuel
@@ -93,14 +93,14 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2649-L2658)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_P` in `ConLeche/SetP/FoldP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/FoldP.lean#L291-L298)).
-5. **The model tier** (`ConLeche/SetP/*`, "P" for the graded set model)
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L291-L298)).
+5. **The model tier** (`ConLeche/Model/*`, "P" for the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStepPM` in `ConLeche/SetP/FoldP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/FoldP.lean#L158)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L158)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
-   ([theorem `no_constant_of_False_P` in `ConLeche/SetP/CapstoneP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/CapstoneP.lean#L147-L153)).
+   ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L147-L153)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -142,7 +142,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclsSPCachedD_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1278)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1278)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -156,16 +156,16 @@ is stated semantically.
 
 **Terms.** A kernel `Expr` denotes, under a level valuation, an
 *erased* term
-([type `VExpr` in `ConLeche/VExpr/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/VExpr/Syntax.lean#L165-L179)):
+([type `Term` in `ConLeche/Term/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Term/Syntax.lean#L165-L179)):
 de Bruijn indices, sorts at concrete levels, built-in constants at
 concrete level instantiations, no names, no binder infos. The
 *annotated* variant is the same syntax with a numeral sort at each
 binder
-([type `AVExpr` in `ConLeche/Semantics/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Syntax.lean#L69-L86)).
+([type `AnnotTerm` in `ConLeche/Semantics/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Syntax.lean#L69-L86)).
 
 **Interpretation.** The interpretation maps an annotated term to a
 set, totally and term-directed
-([function `interp2` in `ConLeche/Semantics/Interp.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Interp.lean#L149-L159)):
+([function `interp` in `ConLeche/Semantics/Interp.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Interp.lean#L149-L159)):
 a Π whose body sort is `0` is a predicate space with a single proof
 point, otherwise a dependent function space; a λ likewise; a sort is a
 universe of the chain; nothing needs to be well-typed to be
@@ -175,19 +175,19 @@ propositionally proven equation is a set equality.
 
 **The invariant.** In place of a typing judgement there is a semantic
 predicate
-([predicate `AnnotOk2` in `ConLeche/Semantics/Ok2.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Ok2.lean#L78-L112)):
+([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L78-L112)):
 hereditarily, every application applies a function to an argument of
 its domain, every λ has a bounded codomain, every projection hits a
 pair, and so on. Unlike syntactic typing it is preserved by β, ζ and
 the other reduction steps
-([the preservation lemmas in `ConLeche/Semantics/Ok2.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/Ok2.lean#L282-L340)).
+([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L282-L340)).
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
-([structure `EnvS2Core` in `ConLeche/SetP/Annot/EnvS2Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Annot/EnvS2Core.lean#L60-L96)).
+([structure `EnvModel` in `ConLeche/Model/Annot/EnvModel.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Annot/EnvModel.lean#L60-L96)).
 
 **The claims.** Each kernel function gets one claim, in the accepting
 direction only
-([the claim definitions in `ConLeche/SetP/Claims2P.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Claims2P.lean#L88-L156)):
+([the claim definitions in `ConLeche/Model/Claims.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Claims.lean#L88-L156)):
 
 * `whnfCore`/`whnf` return a term with the same denotation, with the
   invariant preserved;
@@ -197,9 +197,9 @@ direction only
 
 They are proved by one simultaneous induction on fuel, clause by
 clause
-([the reduction step in `ConLeche/SetP/Step2/WhnfP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/WhnfP.lean#L908-L909),
-[the definitional-equality step in `ConLeche/SetP/Step2/DefEqP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/DefEqP.lean#L1322-L1331),
-[the inference step in `ConLeche/SetP/Step2/InferP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/InferP.lean#L1128-L1135)).
+([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Whnf.lean#L908-L909),
+[the definitional-equality step in `ConLeche/Model/Steps/DefEq.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/DefEq.lean#L1322-L1331),
+[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Infer.lean#L1128-L1135)).
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
 does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,
@@ -237,14 +237,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   an input either; the install normalises every constructor field domain
   by official's positivity walk — weak head normal form before
   classifying, again under each Π binder
-  ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L158)) —
+  ([function `normPosDom` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L158)) —
   and classifies each field on the constructors it stored
-  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L237)),
+  ([function `classifyFixKinds` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L237)),
   runs official's checks — universe bound, elimination restriction and
   index occurrence — generates the recursor and its rules, and compares
   the generated recursor with the stream's, rejecting a record that is
   not it; the whole install is one entry
-  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L253)).
+  ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L253)).
   The two halves are deliberately independent (task #220): a block whose
   recursor record is a stub is still rejected by its own type and
   constructors, as official rejects it, instead of being declined for a
@@ -261,7 +261,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Container.lean#L593)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
-  [theorem `declDirectFixP` in `ConLeche/SetP/DirectFix/DeclDirectFixP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/DirectFix/DeclDirectFixP.lean#L60).
+  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L60).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Mutual and nested blocks** are handled by an in-process modeller
@@ -271,7 +271,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   equations, and installs the block through the modeled route, which
   checks those theorems like any other declaration and uses their
   equations semantically
-  ([function `checkIotaThm` in `ConLeche/Kernel/Modeled.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Modeled.lean#L64-L75)).
+  ([function `checkIotaThm` in `ConLeche/Kernel/Inductives/Modeled.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/Modeled.lean#L64-L75)).
   The construction and the code are a port of the maintainer's
   [lean-inductive-models](https://github.com/nomeata/lean-inductive-models),
   a standalone tool that translates mutual and nested inductive types
@@ -314,7 +314,7 @@ instead of trusting the operation's name.
   The model side reads the operation's membership off its pinned type
   shape and proves the literal semantics from the certified
   recurrences
-  ([theorem `natOpsP_install` in `ConLeche/SetP/NatEqsP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/NatEqsP.lean#L1096)).
+  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/NatEqs.lean#L1096)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
   [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L534-L549))
@@ -329,7 +329,7 @@ instead of trusting the operation's name.
   [the certificate library `ConLeche/PinGen/Certs.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/PinGen/Certs.lean#L1-L12)).
   The pins are committed per toolchain under `pins/` and regenerated
   with `lake exe natop-pins-export`. The model side is
-  [theorem `divModP_install` in `ConLeche/SetP/DivModCertP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/DivModCertP.lean#L2020).
+  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/DivModCert.lean#L2020).
 * **Order independence.** The certificates are spelled over the
   structural operations and the basis blocks, which an export may emit
   in any order. The built-in prelude supplies the basis blocks, and a
@@ -447,11 +447,11 @@ declare it.)
 | `ConLeche/Cached/` | The shipped cached checker: interned expressions, memo state, the cached core and declaration step, the parsed-record fold. |
 | `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
-| `ConLeche/VExpr/` | The erased term language, its substitution algebra and the basis constants. |
+| `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/SetP/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Step2/`), the declaration step, the inductive installs (`DirectFix/`, `Ind*`), the Nat-op certification, the capstones. |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`DirectFix/`, `Ind*`), the Nat-op certification, the capstones. |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the fixpoint route's kernel-side invariants (`Direct/`). |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The theorem, and the challenge statement kept as its own library. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |

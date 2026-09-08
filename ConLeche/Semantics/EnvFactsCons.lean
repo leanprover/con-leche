@@ -15,7 +15,7 @@ intermediate environment* of the member fold, and — as landed at S5 —
 nothing built an `EnvFacts` there except by projection from the `EnvS` the
 install fold was producing.  Bridge and install therefore had to walk
 together, and that is what kept `checkDeclR_sound`'s `m`, hence
-`FoldP`'s `mp.base`, hence `EnvS2PM.base`, alive.
+`FoldP`'s `mp.base`, hence `EnvModelM.base`, alive.
 
 **The one lemma that was missing** is stated here: a `denote`
 transport across a fresh cons **with a changed valuation**
@@ -47,7 +47,7 @@ no `EnvS`.  Both lanes consume it — the R lane through
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- A block member's kind: an `.indInfo`, a `.ctorInfo`, or a
 *rule-less* `.recInfo` (the provisioning's shape).  Named because six
@@ -57,7 +57,7 @@ def BlockMemberKind (c₀ : ConstantInfo) (cvA : ConstantVal) : Prop :=
     (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
     (∃ mI rP, c₀ = .recInfo cvA mI rP [])
 
-/-- A stored constant is not the fresh one.  (`declStepPM_of_cons`'s
+/-- A stored constant is not the fresh one.  (`declStep_preserves_of_cons`'s
 `hne`, which every cons re-derives.) -/
 theorem name_ne_of_mem_of_fresh {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) :

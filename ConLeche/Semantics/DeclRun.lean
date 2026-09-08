@@ -34,11 +34,11 @@ statement is frozen before a consumer has exercised it):
 
 | record | dropped | kept, and its P consumer |
 |---|---|---|
-| `ConstantValR` | the `∀ φ, ∃ Tv tT u, denoteClosed … ∧ Infer … ∧ DefEq …` front door | the six freshness/reservation/level/scoping guards (`hfresh` at every harvest and at `declEtaStep`), the annotate output (`annotate_syntax`), the two `allLevelParamsDefined`/`constsResolve` guards, and H1's own run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, through `acceptedReadsP_of`) |
+| `ConstantValR` | the `∀ φ, ∃ Tv tT u, denoteClosed … ∧ Infer … ∧ DefEq …` front door | the six freshness/reservation/level/scoping guards (`hfresh` at every harvest and at `declEtaStep`), the annotate output (`annotate_syntax`), the two `allLevelParamsDefined`/`constsResolve` guards, and H1's own run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, through `acceptedReads_of`) |
 | `ValueFrontR` | the `∀ φ, ∃ Tv Vv tv, …` front door | the value's two syntactic guards, its annotate output, its two resolution guards, and H1's run **pair** `∃ vtype, inferTypeCore … ∧ isDefEqCore …` (the leaf's reading, and the membership crossing) |
-| `NatEqsR` | **the whole relation** | replaced by its twin `NatEqsRun`, which `DeclDefnR` already carries beside it (H1); `natOpsP_install` consumes the runs |
-| `DivModPinR` | nothing — it is already valuation-free (its `_cval` parameter is unused) | re-stated without the dead parameter as `DivModPinRun`; `divModP_install` consumes the guards and the certificate verdict |
-| `ReducePinR` | the `∀ φ, ∃ E V, … DefEq …` identity | the three storage guards, both annotate outputs and the recorded identity-certificate run; `reduceOpsP_install` consumes exactly these |
+| `NatEqsR` | **the whole relation** | replaced by its twin `NatEqsRun`, which `DeclDefnR` already carries beside it (H1); `natOps_install` consumes the runs |
+| `DivModPinR` | nothing — it is already valuation-free (its `_cval` parameter is unused) | re-stated without the dead parameter as `DivModPinRun`; `divMod_install` consumes the guards and the certificate verdict |
+| `ReducePinR` | the `∀ φ, ∃ E V, … DefEq …` identity | the three storage guards, both annotate outputs and the recorded identity-certificate run; `reduceOps_install` consumes exactly these |
 | `DeclThmR` | the `∀ φ, ∃ Tv sT, … DefEq … (.sort 0)` is-a-proposition front | H1's prop-check run triple (`inferTypeCore` + `ensureSortCore` + `Level.isEquiv`) |
 | `DeclAxiomR` | (via `ConstantValR`) | the four-way branch disjunction verbatim — pure stored-data guards |
 | `DeclBasisRun` | nothing | re-used **verbatim**: it is already guards only |
@@ -61,7 +61,7 @@ DeclIndRun μ F env` and **`DeclRun`'s own text does not change**.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## Shared syntactic plumbing
 

@@ -28,7 +28,7 @@ over constants and two free variables, with no binder anywhere.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 private theorem substFn_nil0 (φ : Name → Nat) :
     Level.substFn φ [] [] = φ := funext fun _ => rfl
@@ -47,8 +47,8 @@ shallow fragment, denoting in the *extended* environment under the
 extended valuation is denoting the *substituted* expression in the old
 one. -/
 theorem denote_substConst0 {env : Env} {cval : TConstVal}
-    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {c₀ : ConstantInfo}
-    {c : Name} {v : Expr} {V : VExpr} (φ : Name → Nat)
+    (hcl : ∀ n ψ, Term.Closed (cval n ψ)) {c₀ : ConstantInfo}
+    {c : Name} {v : Expr} {V : Term} (φ : Name → Nat)
     (hname : c₀.name = c) (hfresh : env.find? c = none)
     (hlp : c₀.toConstantVal.levelParams = [])
     (hv : denoteClosed cval env φ v = some V)

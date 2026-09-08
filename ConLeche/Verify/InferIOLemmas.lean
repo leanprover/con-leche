@@ -192,7 +192,7 @@ inference and the conversion check ran and passed.
 
 The gated arm used to carry a `mode.verifiedChecks` conjunct as well.
 It went with the site's: the licensing theorem
-(`io_domain_transfer`, `SetP/IOLicenseP.lean`) spends only
+(`io_domain_transfer`, `Model/IOLicenseP.lean`) spends only
 `pwBit_ne_zero_of_isNever`, i.e. the **datum**, and never the mode —
 so the conjunct was never a premise anything needed, and carrying it
 made the trusted mode run a certificate the verified mode skips. -/
@@ -455,7 +455,7 @@ theorem inferTypeCoreIO_lit_eq {env : Env} {fuel d : Nat} {l : Literal} :
 /-! ## The three remaining lane-independent shapes (task #172, B3)
 
 `inferTypeCoreIO_lit_eq` is one instance of a small family, and the
-io reads walk (`SetP/Step2/ReadsIOP.lean`) wants the rest of it: a
+io reads walk (`Model/Steps/ReadsIOP.lean`) wants the rest of it: a
 clause that never touches `r` is the *same clause* in both bodies, so
 the io statement about it is the full statement transported across an
 equation rather than a re-proof.  Four of the eleven `inferBody`

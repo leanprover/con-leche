@@ -4,7 +4,7 @@ import ConLeche.Verify.Extend.Modeled
 /-!
 # Ind — the `V`-free half of `ConLeche.Model.Extend.Ind`
 
-The bookkeeping the `checkIndDecl` member fold establishes about the
+The bookkeeping the `checkModeled` member fold establishes about the
 environment it returns: which names it installs, which kinds they get,
 that nothing else moves, and the two side invariants
 (`EtaFamiliesClosedO`, `BlockCapsPinned`) the block install threads.

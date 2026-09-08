@@ -23,7 +23,7 @@ the shape lemmas already live; the module sits below both lanes.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- The empty level substitution is the identity assignment. -/
 theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by

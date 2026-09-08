@@ -1,6 +1,6 @@
 import ConLeche.SetModel
 import ConLeche.Semantics
-import ConLeche.SetP
+import ConLeche.Model
 import ConLeche.Verify.Cached
 import ConLeche.MainTheorem
 
@@ -120,19 +120,19 @@ is a corollary of and the assembly under those.
   checker, running the verified mode over the direct-parse cached core
   it ships with, never accepts a stream in which some stored constant
   has type `False` (resp. `Empty`).
-* `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
+* `sound_P` / `fold_preserves` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
 * `False_P` / `P` — the pure fueled checker the graded tower is stated
   about. -/
 private def roots : List (String × Name) :=
   [("main_False", `ConLeche.no_proof_of_False),
-   ("False_SPCD_P", `ConLeche.Cached.no_proof_of_False_SPCD_P),
-   ("False_P", `ConLeche.SetP.no_proof_of_False_P),
-   ("SPCD_P", `ConLeche.Cached.no_proof_of_Empty_SPCD_P),
-   ("sound_P", `ConLeche.Cached.checkDeclsSPCachedD_sound_P),
-   ("foldSPC_PM", `ConLeche.Cached.foldSPC_PM),
-   ("P", `ConLeche.SetP.no_proof_of_Empty_P)]
+   ("False_SPCD_P", `ConLeche.Cached.no_proof_of_False_cached),
+   ("False_P", `ConLeche.Model.no_proof_of_False_pure),
+   ("SPCD_P", `ConLeche.Cached.no_proof_of_Empty_cached),
+   ("sound_P", `ConLeche.Cached.checkDecls_sound),
+   ("fold_preserves", `ConLeche.Cached.fold_preserves),
+   ("P", `ConLeche.Model.no_proof_of_Empty_pure)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `ConLeche.*` module the root's proof term reaches, sorted.  The pinned

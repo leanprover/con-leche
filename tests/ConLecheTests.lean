@@ -91,7 +91,7 @@ def dummyAxiom : Declaration :=
   matches .error _
 
 -- The empty list of declarations is accepted.
-#guard (checkDecls .verified (pureOps .verified) []).toBool == true
+#guard (checkDeclsPure .verified (pureOps .verified) []).toBool == true
 
 /-! ## Sort-fragment definitions -/
 
@@ -101,34 +101,34 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
     (.regular 0)
 
 -- `def basicDef : Type := Prop` (tutorial test 001)
-#guard (checkDecls .verified (pureOps .verified) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
 
 -- `def bad : Prop := Type` is rejected (type mismatch).
-#guard checkDecls .verified (pureOps .verified) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
   matches .error (.invalid _)
 
 -- Duplicate universe parameters are rejected.
-#guard checkDecls .verified (pureOps .verified) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- Undeclared universe parameter in the type is rejected.
-#guard checkDecls .verified (pureOps .verified) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
     (.sort (.param (.str .anonymous "u")))]
   matches .error (.invalid _)
 
 -- Duplicate declarations are rejected.
-#guard checkDecls .verified (pureOps .verified) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
                    mkDef "d" [] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- `def levelComp4.{u} : Type 0 := Sort (imax u 0)` (tutorial test 018)
-#guard (checkDecls .verified (pureOps .verified) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
     (.sort (.imax (.param (.str .anonymous "u")) .zero))]).toBool
 
 /-! ## Dependent function types -/
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
-#guard (checkDecls .verified (pureOps .verified) [mkDef "arrowType" [] (.sort (.succ .zero))
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "arrowType" [] (.sort (.succ .zero))
   (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
@@ -136,7 +136,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `.ifAllZero []` ("the codomain is always a proposition"): the
 -- verified mode validates annotations and declines a `.never` on a
 -- Prop-codomain binder.
-#guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
@@ -148,18 +148,18 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `"pw": "never"` is indistinguishable from an absent field and is
 -- silently corrected rather than falsified, so the falsifiable claims
 -- are exactly the `ifAllZero` ones (see the `bad*` guards below).
-#guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
-#guard (checkDecls .trusted (pureOps .trusted) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .trusted (pureOps .trusted) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
-#guard checkDecls .verified (pureOps .verified) [mkDef "bad2" [] (.sort (.succ .zero))
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "bad2" [] (.sort (.succ .zero))
     (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
-#guard checkDecls .verified (pureOps .verified) [mkDef "sneaky" [] (.sort (.succ .zero))
+#guard checkDeclsPure .verified (pureOps .verified) [mkDef "sneaky" [] (.sort (.succ .zero))
     (.fvar 0 (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
@@ -170,18 +170,18 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
-#guard (checkDecls .verified (pureOps .verified) [mkThm "t"
+#guard (checkDeclsPure .verified (pureOps .verified) [mkThm "t"
     (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)
     (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
-#guard checkDecls .verified (pureOps .verified) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDeclsPure .verified (pureOps .verified) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
-#guard (checkDecls .verified (pureOps .verified) [mkDef "prp" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "prp" [] (.sort .zero)
     (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
@@ -326,7 +326,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (ConLeche.Cached.checkDecls .verified ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -377,7 +377,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (ConLeche.Cached.checkDecls .verified ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
@@ -424,7 +424,7 @@ The constructor form pins the reference kernels' exact spelling
 -- the guard is `false` without the support declarations
 #guard strLitSupported Env.empty == false
 
-/-! ## The β-certificate gate (task #161 S9, `ConLeche/Kernel/CoreP.lean`)
+/-! ## The β-certificate gate (task #161 S9, `ConLeche/Kernel/CoreGated.lean`)
 
 The gated knot is only worth its duplication if the gate is (a) LIVE —
 it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
@@ -457,13 +457,13 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 -- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
 -- skips the certificate and reduces.  If this guard ever reads
 -- `some (gateStuck …)` the duplicated knot has become a no-op.
-#guard (whnfCoreP .verified Env.empty 100 0 (gateRedex gateNever)).toOption
+#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (.sort .zero)
 
 -- (b) THE GATE IS DATUM-EXACT: at a possibly-zero datum the
 -- certificate runs unconditionally — the establishment/consumption
 -- asymmetry fence.
-#guard (whnfCoreP .verified Env.empty 100 0 (gateRedex gateMaybe)).toOption
+#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateMaybe)).toOption
   == some (gateStuck gateMaybe)
 
 -- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
@@ -471,9 +471,9 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 -- and, since the R core's retirement, this is also the tree's only
 -- witness that the UNGATED knot runs the certificate unconditionally
 -- (the task-#100 de-gating), at both data.
-#guard (whnfCoreP .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
+#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
-#guard (whnfCoreP .trusted Env.empty 100 0 (gateRedex gateMaybe)).toOption
+#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateMaybe)).toOption
   == some (gateStuck gateMaybe)
 #guard (whnfCore .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)

@@ -32,7 +32,7 @@ the direct sum install serves.  Every stream parse
 prelude declaration is dropped when it is the same declaration and
 declines the stream when it differs.  So "in the env initially and
 unconditionally" is "first in every fold": the verified fold
-`checkDeclsSPCachedD` sees `prelude ++ stream'` as one list of
+`checkDecls` sees `prelude ++ stream'` as one list of
 records and installs the prelude by exactly the routes it installs a
 stream's records by — **nothing in the kernel, the cached driver or
 the proofs changed** (the main theorem quantifies over the parsed

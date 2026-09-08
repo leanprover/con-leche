@@ -18,18 +18,18 @@ iteration protocol. Keep it up to date when decisions change.
 * Layering: implementation (`ConLeche/Kernel/*`, `ConLeche/Cached/*`,
   `Main.lean`) must never import theory/verification modules
   (`ConLeche/SetTheory/*`, `ConLeche/SetModel/*`, `ConLeche/Semantics/*`,
-  `ConLeche/SetP/*`, `ConLeche/Verify/*`). Proofs about kernel functions go in
+  `ConLeche/Model/*`, `ConLeche/Verify/*`). Proofs about kernel functions go in
   `ConLeche/Verify/*`; the pure set constructions (no `Expr` in sight) in
   `ConLeche/SetModel/*`; the Expr-facing denotation and claims in
   `ConLeche/Semantics/*`; the graded set model and the consistency proofs in
-  `ConLeche/SetP/*` (the direct `ConLeche/Model/*` tier was retired at task
+  `ConLeche/Model/*` (the direct `ConLeche/Model/*` tier was retired at task
   #148 T7; the collapsed-model `ConLeche/SetR/*` tier was deleted 2026-09-05;
   `ConLeche/SetBase/*` was split into SetModel/Semantics on 2026-09-06).
   Direct inductive installation (the ONE fixpoint route, task #210)
-  has its own directory per layer (`Kernel/Direct/*`, `Verify/Direct/*`,
-  `Semantics/Direct/*`, `SetP/Direct*/*` — the `Direct`/`DirectSum`
+  has its own directory per layer (`Kernel/Inductives/*`, `Verify/Inductives/*`,
+  `Semantics/Inductives/*`, `Model/Direct*/*` — the `Direct`/`DirectSum`
   names there are the shared stage kits the fixpoint assembly
-  `SetP/DirectFix/*` builds on; the structure and sum installers they
+  `Model/Inductives/*` builds on; the structure and sum installers they
   once served were deleted at task #210 Part C).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs

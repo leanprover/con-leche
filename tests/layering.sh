@@ -19,11 +19,11 @@
 # loosening).  What survives is the part of the fence that was never
 # about the R/P split:
 #   * any base→lane edge         (BASE PURITY — `ConLeche/{Kernel,Verify,
-#     SetTheory,VExpr,SetModel,Semantics}/*` stand BELOW the model lane and may not
-#     import `ConLeche/SetP/*`), AND
+#     SetTheory,Term,SetModel,Semantics}/*` stand BELOW the model lane and may not
+#     import `ConLeche/Model/*`), AND
 #   * any implementation→theory edge   (the CLAUDE.md rule:
 #     `ConLeche/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
-#     import `ConLeche/{SetTheory,SetModel,Semantics,SetP,Verify}/*`).
+#     import `ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*`).
 # Both were always the load-bearing half — S9's finding was precisely
 # that the R/P clause measured where code SITS, and only
 # `tests/proofdeps.sh` (the proof-term criterion) certifies a proof-path
@@ -33,7 +33,7 @@
 # `lean_lib` targets as the fence ("cross-import = build error").  That
 # is not what Lake does: import resolution is per *package*, so any
 # module of the `con-leche` package may import any other regardless of
-# which `lean_lib` roots it (today `ConLeche.SetP.*` imports
+# which `lean_lib` roots it (today `ConLeche.Model.*` imports
 # `ConLeche.Kernel.*` across exactly such a boundary, and builds).  A hard
 # build error would need the lanes to become separate Lake *packages*.
 # The lib split in `lakefile.toml` is therefore the LAYOUT; this gate is
@@ -67,26 +67,26 @@ for name, rel in mods.items():
     edges[name] = [m for m in IMP.findall(src) if m in mods]
 
 # --------------------------------------------------------------- the
-# classification.  **BY PATH ALONE** since S2's `ConLeche/SetP/*` move,
+# classification.  **BY PATH ALONE** since S2's `ConLeche/Model/*` move,
 # and since the SetR removal there is no closure left to compute:
-# `ConLeche/SetP{,/*}` is the lane, `ConLeche/Verify/Cached{,/*}` is the
+# `ConLeche/Model{,/*}` is the lane, `ConLeche/Verify/Cached{,/*}` is the
 # capstone assembly, `ConLeche.lean` is the base umbrella, everything else
 # is base.  (The old `neutral` class — a module under `ConLeche/SetR/`
 # that no R capstone reached — retired with that directory.)
 IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/')
 IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('ConLeche.Verify.', 'ConLeche.SetTheory.',
-               'ConLeche.SetP.', 'ConLeche.SetModel.', 'ConLeche.Semantics.',
-               'ConLeche.VExpr.')
+               'ConLeche.Model.', 'ConLeche.SetModel.', 'ConLeche.Semantics.',
+               'ConLeche.Term.')
 CAPS        = {'ConLeche.Verify.Cached.MainC', 'ConLeche.Verify.Cached',
                'ConLeche.MainTheorem'}
-UMBRELLAS   = {'ConLeche'}                  # `ConLeche.SetP` is gated as P
+UMBRELLAS   = {'ConLeche'}                  # `ConLeche.Model` is gated as P
 
 def lane(m):
     rel = mods[m]
     if m in CAPS:      return 'caps'
     if m in UMBRELLAS: return 'umbrella'
-    if rel == 'ConLeche/SetP.lean' or rel.startswith('ConLeche/SetP/'): return 'P'
+    if rel == 'ConLeche/Model.lean' or rel.startswith('ConLeche/Model/'): return 'P'
     return 'base'
 
 LANE = {m: lane(m) for m in mods}
@@ -113,11 +113,11 @@ def report(title, items, hint):
         print(f'    {hint}')
 
 report('base module importing the model lane', basev,
-       'ConLeche/{Kernel,Verify,SetTheory,VExpr,SetModel,Semantics}/* stand BELOW the '
-       'lane; nothing there may import ConLeche/SetP/*.')
+       'ConLeche/{Kernel,Verify,SetTheory,Term,SetModel,Semantics}/* stand BELOW the '
+       'lane; nothing there may import ConLeche/Model/*.')
 report('implementation importing theory', implv,
        'CLAUDE.md: ConLeche/Kernel/*, Main.lean must never import '
-       'ConLeche/{SetTheory,SetModel,Semantics,SetP,Verify}/*.')
+       'ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*.')
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "P", "caps", "umbrella")}

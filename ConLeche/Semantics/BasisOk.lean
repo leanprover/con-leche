@@ -2,7 +2,7 @@ import ConLeche.Semantics.BasisType
 import ConLeche.Semantics.Interp
 
 /-!
-# `bval2_mem_type` — every built-in inhabits its annotated type
+# `bval_mem_type` — every built-in inhabits its annotated type
 
 *(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 module already imported nothing but base, and the graded lane needs it.
@@ -11,18 +11,18 @@ verbatim.)*
 
 
 Step 2's second entry item, and the skeleton's `const` row's remaining
-supplier: `ConLeche/VExpr/Semantics/ConstOk.lean`'s capstone ported onto
-`piR`/`lamR` and `BConst.type2`.
+supplier: `ConLeche/Term/Semantics/ConstOk.lean`'s capstone ported onto
+`piR`/`lamR` and `BConst.typeAV`.
 
 ## The port pattern
 
 Each case is three moves, and the first two are mechanical:
 
-1. `show` the value at its own tower (`bval2` is a `match`, so this is
+1. `show` the value at its own tower (`bval` is a `match`, so this is
    definitional);
-2. `simp only` with `BConst.type2`, the smart constructors it mentions,
-   and the `interp2` clause equations — this reduces
-   `interp2 ρ (type2 c us)` to the tower's *own space*, which is the
+2. `simp only` with `BConst.typeAV`, the smart constructors it mentions,
+   and the `interp` clause equations — this reduces
+   `interp ρ (typeAV c us)` to the tower's *own space*, which is the
    whole point of having read the numeral convention off `Value.lean`
    rather than choosing one;
 3. apply the tower's membership argument — `lamR_mem` down the
@@ -38,8 +38,8 @@ over a vacuous domain rather than a proof-point argument.
 
 ## The `Nat.succ` wrinkle, inherited verbatim
 
-`type2`'s step premise mentions `Nat.succ`'s *value*
-(`natSuccT2 (.bvar 1)` interprets to `app (natSuccV2 V) n`) while
+`typeAV`'s step premise mentions `Nat.succ`'s *value*
+(`natSuccAV (.bvar 1)` interprets to `app (natSuccV2 V) n`) while
 `natStepSpace2` is written with the operator `natsucc`.  They agree on
 `ω`, which is what the outer product quantifies over — v1's
 `natStepSpace_eq`, restated here as `natStepSpace2_eq`.
@@ -49,7 +49,7 @@ namespace ConLeche.Semantics
 open ConLeche.SetModel
 
 open SetTheory
-open ConLeche.VExpr (BConst lv)
+open ConLeche.Term (BConst lv)
 
 universe w
 
@@ -57,26 +57,26 @@ variable (V : Type w) [SetTheory V]
 
 /-! ## `Nat` -/
 
-theorem bval2_mem_nat (us : List Nat) (ρ : Nat → V) :
-    bval2 V .nat us ∈ˢ interp2 V ρ (BConst.type2 .nat us) := by
+theorem bval_mem_nat (us : List Nat) (ρ : Nat → V) :
+    bval V .nat us ∈ˢ interp V ρ (BConst.typeAV .nat us) := by
   show (omega : V) ∈ˢ _
-  simp only [BConst.type2, interp2_sort]
+  simp only [BConst.typeAV, interp_sort]
   exact omega_mem_univ_succ 0
 
-theorem bval2_mem_natZero (us : List Nat) (ρ : Nat → V) :
-    bval2 V .natZero us ∈ˢ interp2 V ρ (BConst.type2 .natZero us) := by
+theorem bval_mem_natZero (us : List Nat) (ρ : Nat → V) :
+    bval V .natZero us ∈ˢ interp V ρ (BConst.typeAV .natZero us) := by
   show natzero ∈ˢ _
-  simp only [BConst.type2, natT2, interp2_const, bval2]
+  simp only [BConst.typeAV, natTyAV, interp_const, bval]
   exact natzero_mem
 
-theorem bval2_mem_natSucc (us : List Nat) (ρ : Nat → V) :
-    bval2 V .natSucc us ∈ˢ interp2 V ρ (BConst.type2 .natSucc us) := by
+theorem bval_mem_natSucc (us : List Nat) (ρ : Nat → V) :
+    bval V .natSucc us ∈ˢ interp V ρ (BConst.typeAV .natSucc us) := by
   show natSuccV2 V ∈ˢ _
-  simp only [BConst.type2, arrowA, natT2, interp2_pi, interp2_const,
-    AVExpr.liftN, bval2]
+  simp only [BConst.typeAV, arrowA, natTyAV, interp_pi, interp_const,
+    ATerm.liftN, bval]
   exact natSuccV2_mem V
 
-/-- The step space as `interp2` produces it (with `Nat.succ`'s *value*
+/-- The step space as `interp` produces it (with `Nat.succ`'s *value*
 applied) is the one the tower is written with (`natsucc`): they agree
 on `ω`.  v1's `natStepSpace_eq`. -/
 theorem natStepSpace2_eq {u : Nat} (M : V) :
@@ -85,22 +85,22 @@ theorem natStepSpace2_eq {u : Nat} (M : V) :
       = natStepSpace2 V u M :=
   piR_congr fun n hn => by rw [natSuccV2_app V hn]
 
-/-- `Nat.rec`'s type, as `interp2` produces it. -/
-theorem interp2_type_natRec (us : List Nat) (ρ : Nat → V) :
-    interp2 V ρ (BConst.type2 .natRec us) =
+/-- `Nat.rec`'s type, as `interp` produces it. -/
+theorem interp_type_natRec (us : List Nat) (ρ : Nat → V) :
+    interp V ρ (BConst.typeAV .natRec us) =
       piR (lv us 0) (natMotiveSpace V (lv us 0)) fun M =>
         piR (lv us 0) (app M natzero) fun _ =>
           piR (lv us 0) (natStepSpace2 V (lv us 0) M) fun _ =>
             piR (lv us 0) omega fun n => app M n := by
-  simp only [BConst.type2, arrowA, natT2, natZeroT2, natSuccT2,
-    interp2_pi, interp2_const, interp2_app, interp2_bvar, interp2_sort,
-    AVExpr.liftN, cons_zero, cons_succ, bval2, natMotiveSpace]
+  simp only [BConst.typeAV, arrowA, natTyAV, natZeroAV, natSuccAV,
+    interp_pi, interp_const, interp_app, interp_bvar, interp_sort,
+    ATerm.liftN, cons_zero, cons_succ, bval, natMotiveSpace]
   refine piR_congr fun M _ => piR_congr fun z _ => ?_
   rw [natStepSpace2_eq]
 
-theorem bval2_mem_natRec (us : List Nat) (ρ : Nat → V) :
-    bval2 V .natRec us ∈ˢ interp2 V ρ (BConst.type2 .natRec us) := by
-  rw [interp2_type_natRec]
+theorem bval_mem_natRec (us : List Nat) (ρ : Nat → V) :
+    bval V .natRec us ∈ˢ interp V ρ (BConst.typeAV .natRec us) := by
+  rw [interp_type_natRec]
   show natRecV2 V (lv us 0) ∈ˢ _
   refine lamR_mem fun M hM => lamR_mem fun z hz =>
     lamR_mem fun s hs => ?_
@@ -109,26 +109,26 @@ theorem bval2_mem_natRec (us : List Nat) (ρ : Nat → V) :
 
 /-! ## `PUnit` -/
 
-theorem bval2_mem_punit (us : List Nat) (ρ : Nat → V) :
-    bval2 V .punit us ∈ˢ interp2 V ρ (BConst.type2 .punit us) := by
+theorem bval_mem_punit (us : List Nat) (ρ : Nat → V) :
+    bval V .punit us ∈ˢ interp V ρ (BConst.typeAV .punit us) := by
   show (unitSet : V) ∈ˢ _
-  simp only [BConst.type2, interp2_sort]
+  simp only [BConst.typeAV, interp_sort]
   exact unitSet_mem_univ _
 
-theorem bval2_mem_punitUnit (us : List Nat) (ρ : Nat → V) :
-    bval2 V .punitUnit us
-      ∈ˢ interp2 V ρ (BConst.type2 .punitUnit us) := by
+theorem bval_mem_punitUnit (us : List Nat) (ρ : Nat → V) :
+    bval V .punitUnit us
+      ∈ˢ interp V ρ (BConst.typeAV .punitUnit us) := by
   show (pt : V) ∈ˢ _
-  simp only [BConst.type2, punitT2, interp2_const, bval2]
+  simp only [BConst.typeAV, punitAV, interp_const, bval]
   exact pt_mem_unitSet
 
-theorem bval2_mem_punitRec (us : List Nat) (ρ : Nat → V) :
-    bval2 V .punitRec us
-      ∈ˢ interp2 V ρ (BConst.type2 .punitRec us) := by
+theorem bval_mem_punitRec (us : List Nat) (ρ : Nat → V) :
+    bval V .punitRec us
+      ∈ˢ interp V ρ (BConst.typeAV .punitRec us) := by
   show punitRecV2 V (lv us 1) ∈ˢ _
-  simp only [BConst.type2, arrowA, punitT2, punitUnitT2, interp2_pi,
-    interp2_const, interp2_app, interp2_bvar, interp2_sort,
-    AVExpr.liftN, cons_zero, cons_succ, bval2]
+  simp only [BConst.typeAV, arrowA, punitAV, punitUnitAV, interp_pi,
+    interp_const, interp_app, interp_bvar, interp_sort,
+    ATerm.liftN, cons_zero, cons_succ, bval]
   refine lamR_mem fun M hM => lamR_mem fun m hm =>
     lamR_mem fun t ht => ?_
   rw [mem_unitSet ht]
@@ -136,29 +136,29 @@ theorem bval2_mem_punitRec (us : List Nat) (ρ : Nat → V) :
 
 /-! ## `Empty` -/
 
-theorem bval2_mem_empty (us : List Nat) (ρ : Nat → V) :
-    bval2 V .empty us ∈ˢ interp2 V ρ (BConst.type2 .empty us) := by
+theorem bval_mem_empty (us : List Nat) (ρ : Nat → V) :
+    bval V .empty us ∈ˢ interp V ρ (BConst.typeAV .empty us) := by
   show (empty : V) ∈ˢ _
-  simp only [BConst.type2, interp2_sort]
+  simp only [BConst.typeAV, interp_sort]
   exact empty_mem_univ _
 
-theorem bval2_mem_emptyRec (us : List Nat) (ρ : Nat → V) :
-    bval2 V .emptyRec us
-      ∈ˢ interp2 V ρ (BConst.type2 .emptyRec us) := by
+theorem bval_mem_emptyRec (us : List Nat) (ρ : Nat → V) :
+    bval V .emptyRec us
+      ∈ˢ interp V ρ (BConst.typeAV .emptyRec us) := by
   show emptyRecV2 V (lv us 1) ∈ˢ _
-  simp only [BConst.type2, arrowA, emptyT2, interp2_pi, interp2_const,
-    interp2_app, interp2_bvar, interp2_sort, AVExpr.liftN, cons_zero,
-    cons_succ, bval2]
+  simp only [BConst.typeAV, arrowA, emptyAV, interp_pi, interp_const,
+    interp_app, interp_bvar, interp_sort, ATerm.liftN, cons_zero,
+    cons_succ, bval]
   refine lamR_mem fun M _ => lamR_mem fun t ht => ?_
   exact absurd ht (not_mem_empty t)
 
 /-! ## `PSigma'` -/
 
-theorem bval2_mem_psigma (us : List Nat) (ρ : Nat → V) :
-    bval2 V .psigma us ∈ˢ interp2 V ρ (BConst.type2 .psigma us) := by
+theorem bval_mem_psigma (us : List Nat) (ρ : Nat → V) :
+    bval V .psigma us ∈ˢ interp V ρ (BConst.typeAV .psigma us) := by
   show psigmaV2 V (lv us 0) (lv us 1) ∈ˢ _
-  simp only [BConst.type2, arrowA, interp2_pi, interp2_bvar,
-    interp2_sort, AVExpr.liftN, cons_zero, psigmaV2,
+  simp only [BConst.typeAV, arrowA, interp_pi, interp_bvar,
+    interp_sort, ATerm.liftN, cons_zero, psigmaV2,
     psigmaFibreSpace]
   exact lamR_mem fun A hA => lamR_mem fun B hB =>
     sigma_mem_univ hA fun x hx =>
@@ -172,13 +172,13 @@ obligation would be `spair a b ∈ˢ sigmaSet 0 A B'` — **false**, since a
 kind-`0` `sigmaSet` is a truth value and `spair a b ≠ pt`.  The kind-`0`
 argument therefore moves from the leaf to the root: split first, then
 exhibit the tower's *inhabitation* with `pt_mem_piR_zero`. -/
-theorem bval2_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
-    bval2 V .psigmaMk us
-      ∈ˢ interp2 V ρ (BConst.type2 .psigmaMk us) := by
+theorem bval_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
+    bval V .psigmaMk us
+      ∈ˢ interp V ρ (BConst.typeAV .psigmaMk us) := by
   show psigmaMkV2 V (lv us 0) (lv us 1) ∈ˢ _
-  simp only [BConst.type2, arrowA, psigmaT2, interp2_pi, interp2_bvar,
-    interp2_sort, interp2_app, interp2_const, AVExpr.liftN,
-    AVExpr.mkAppN, cons_zero, cons_succ, bval2, lv,
+  simp only [BConst.typeAV, arrowA, psigmaAV, interp_pi, interp_bvar,
+    interp_sort, interp_app, interp_const, ATerm.liftN,
+    ATerm.mkAppN, cons_zero, cons_succ, bval, lv,
     List.getD_cons_zero, List.getD_cons_succ]
   by_cases hw : Nat.max (us.getD 0 0) (us.getD 1 0) = 0
   · -- the whole tower is the canonical proof; exhibit inhabitation
@@ -195,19 +195,19 @@ theorem bval2_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
 
 /-! ## `Quot` -/
 
-theorem bval2_mem_quot (us : List Nat) (ρ : Nat → V) :
-    bval2 V .quot us ∈ˢ interp2 V ρ (BConst.type2 .quot us) := by
+theorem bval_mem_quot (us : List Nat) (ρ : Nat → V) :
+    bval V .quot us ∈ˢ interp V ρ (BConst.typeAV .quot us) := by
   show quotV2 V (lv us 0) ∈ˢ _
-  simp only [BConst.type2, relT2, interp2_pi, interp2_bvar,
-    interp2_sort, AVExpr.liftN, cons_zero, quotV2, relSpace2]
+  simp only [BConst.typeAV, relAV, interp_pi, interp_bvar,
+    interp_sort, ATerm.liftN, cons_zero, quotV2, relSpace]
   exact lamR_mem fun A hA => lamR_mem fun R _ => quotSet_mem_univ hA
 
-theorem bval2_mem_quotMk (us : List Nat) (ρ : Nat → V) :
-    bval2 V .quotMk us ∈ˢ interp2 V ρ (BConst.type2 .quotMk us) := by
+theorem bval_mem_quotMk (us : List Nat) (ρ : Nat → V) :
+    bval V .quotMk us ∈ˢ interp V ρ (BConst.typeAV .quotMk us) := by
   show quotMkV2 V (lv us 0) ∈ˢ _
-  simp only [BConst.type2, relT2, quotT2, interp2_pi, interp2_bvar,
-    interp2_sort, interp2_app, interp2_const, AVExpr.liftN,
-    AVExpr.mkAppN, cons_zero, cons_succ, quotMkV2, relSpace2, bval2,
+  simp only [BConst.typeAV, relAV, quotAV, interp_pi, interp_bvar,
+    interp_sort, interp_app, interp_const, ATerm.liftN,
+    ATerm.mkAppN, cons_zero, cons_succ, quotMkV2, relSpace, bval,
     lv, List.getD_cons_zero]
   refine lamR_mem fun A hA => lamR_mem fun R hR =>
     lamR_mem fun a ha => ?_
@@ -218,14 +218,14 @@ theorem bval2_mem_quotMk (us : List Nat) (ρ : Nat → V) :
 tail is `quotLiftR_mem`.  Its kind-`0` fibre premise comes from the
 third binder (`B ∈ˢ univ v`, and `univ 0 = univZero`), so nothing new
 is needed. -/
-theorem bval2_mem_quotLift (us : List Nat) (ρ : Nat → V) :
-    bval2 V .quotLift us
-      ∈ˢ interp2 V ρ (BConst.type2 .quotLift us) := by
+theorem bval_mem_quotLift (us : List Nat) (ρ : Nat → V) :
+    bval V .quotLift us
+      ∈ˢ interp V ρ (BConst.typeAV .quotLift us) := by
   show quotLiftV2 V (lv us 0) (lv us 1) ∈ˢ _
-  simp only [BConst.type2, relT2, quotT2, interp2_pi, interp2_bvar,
-    interp2_sort, interp2_app, interp2_const, interp2_eqE,
-    AVExpr.liftN, AVExpr.mkAppN, cons_zero, cons_succ, quotLiftV2,
-    relSpace2, quotInvSpace2, bval2, lv, List.getD_cons_zero]
+  simp only [BConst.typeAV, relAV, quotAV, interp_pi, interp_bvar,
+    interp_sort, interp_app, interp_const, interp_eqE,
+    ATerm.liftN, ATerm.mkAppN, cons_zero, cons_succ, quotLiftV2,
+    relSpace, quotInvSpace2, bval, lv, List.getD_cons_zero]
   refine lamR_mem fun A hA => lamR_mem fun R hR =>
     lamR_mem fun B hB => lamR_mem fun f hf =>
       lamR_mem fun h hh => ?_
@@ -235,18 +235,18 @@ theorem bval2_mem_quotLift (us : List Nat) (ρ : Nat → V) :
 
 /-! ## The `pt`-valued propositions
 
-`Quot.ind`, `Quot.sound` and `propext` have `bval2 = pt`, so their
+`Quot.ind`, `Quot.sound` and `propext` have `bval = pt`, so their
 cases are *inhabitation* arguments rather than typings: every binder is
 `piR 0`, and `pt_mem_piR_zero_of` replaces the collapse lane's
 `pt_mem_piC_iff.mpr` line for line. -/
 
-theorem bval2_mem_quotInd (us : List Nat) (ρ : Nat → V) :
-    bval2 V .quotInd us ∈ˢ interp2 V ρ (BConst.type2 .quotInd us) := by
+theorem bval_mem_quotInd (us : List Nat) (ρ : Nat → V) :
+    bval V .quotInd us ∈ˢ interp V ρ (BConst.typeAV .quotInd us) := by
   show (pt : V) ∈ˢ _
-  simp only [BConst.type2, relT2, quotT2, quotMkT2, interp2_pi,
-    interp2_bvar, interp2_sort, interp2_app, interp2_const,
-    AVExpr.liftN, AVExpr.mkAppN, cons_zero, cons_succ,
-    bval2, lv, List.getD_cons_zero]
+  simp only [BConst.typeAV, relAV, quotAV, quotMkAV, interp_pi,
+    interp_bvar, interp_sort, interp_app, interp_const,
+    ATerm.liftN, ATerm.mkAppN, cons_zero, cons_succ,
+    bval, lv, List.getD_cons_zero]
   refine pt_mem_piR_zero_of fun A hA => ?_
   refine pt_mem_piR_zero_of fun R hR => ?_
   refine pt_mem_piR_zero_of fun M hM => ?_
@@ -263,14 +263,14 @@ theorem bval2_mem_quotInd (us : List Nat) (ρ : Nat → V) :
   rw [quotMkV2_app V hA hR ha] at h1
   exact mem_univ_zero hMq h1 ▸ h1
 
-theorem bval2_mem_quotSound (us : List Nat) (ρ : Nat → V) :
-    bval2 V .quotSound us
-      ∈ˢ interp2 V ρ (BConst.type2 .quotSound us) := by
+theorem bval_mem_quotSound (us : List Nat) (ρ : Nat → V) :
+    bval V .quotSound us
+      ∈ˢ interp V ρ (BConst.typeAV .quotSound us) := by
   show (pt : V) ∈ˢ _
-  simp only [BConst.type2, relT2, quotT2, quotMkT2, interp2_pi,
-    interp2_bvar, interp2_sort, interp2_app, interp2_const,
-    interp2_eqE, AVExpr.liftN, AVExpr.mkAppN, cons_zero, cons_succ,
-    bval2, lv, List.getD_cons_zero]
+  simp only [BConst.typeAV, relAV, quotAV, quotMkAV, interp_pi,
+    interp_bvar, interp_sort, interp_app, interp_const,
+    interp_eqE, ATerm.liftN, ATerm.mkAppN, cons_zero, cons_succ,
+    bval, lv, List.getD_cons_zero]
   refine pt_mem_piR_zero_of fun A hA => ?_
   refine pt_mem_piR_zero_of fun R hR => ?_
   refine pt_mem_piR_zero_of fun a ha => ?_
@@ -280,11 +280,11 @@ theorem bval2_mem_quotSound (us : List Nat) (ρ : Nat → V) :
     SetTheory.quotSound ha hb hwv]
   exact pt_mem_eqv_self _
 
-theorem bval2_mem_propext (us : List Nat) (ρ : Nat → V) :
-    bval2 V .propext us ∈ˢ interp2 V ρ (BConst.type2 .propext us) := by
+theorem bval_mem_propext (us : List Nat) (ρ : Nat → V) :
+    bval V .propext us ∈ˢ interp V ρ (BConst.typeAV .propext us) := by
   show (pt : V) ∈ˢ _
-  simp only [BConst.type2, interp2_pi, interp2_bvar, interp2_sort,
-    interp2_eqE, cons_zero, cons_succ]
+  simp only [BConst.typeAV, interp_pi, interp_bvar, interp_sort,
+    interp_eqE, cons_zero, cons_succ]
   refine pt_mem_piR_zero_of fun A hA => ?_
   refine pt_mem_piR_zero_of fun B hB => ?_
   refine pt_mem_piR_zero_of fun f hf => ?_
@@ -302,53 +302,53 @@ theorem bval2_mem_propext (us : List Nat) (ρ : Nat → V) :
 
 /-! ## `Classical.choice` -/
 
-theorem bval2_mem_choice (us : List Nat) (ρ : Nat → V) :
-    bval2 V .choice us ∈ˢ interp2 V ρ (BConst.type2 .choice us) := by
+theorem bval_mem_choice (us : List Nat) (ρ : Nat → V) :
+    bval V .choice us ∈ˢ interp V ρ (BConst.typeAV .choice us) := by
   show choiceV2 V (lv us 0) ∈ˢ _
-  simp only [BConst.type2, negT2, arrowA, emptyT2, interp2_pi,
-    interp2_bvar, interp2_sort, interp2_const, AVExpr.liftN, cons_zero,
-    cons_succ, choiceV2, dnegSpace2, bval2]
+  simp only [BConst.typeAV, negTyAV, arrowA, emptyAV, interp_pi,
+    interp_bvar, interp_sort, interp_const, ATerm.liftN, cons_zero,
+    cons_succ, choiceV2, dnegSpace2, bval]
   refine lamR_mem fun A hA => lamR_mem fun h hh => ?_
   obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hh
   exact schoice_mem hx
 
 /-! ## `lfpFam` (task #188) -/
 
-theorem bval2_mem_lfpFam (us : List Nat) (ρ : Nat → V) :
-    bval2 V .lfpFam us ∈ˢ interp2 V ρ (BConst.type2 .lfpFam us) := by
+theorem bval_mem_lfpFam (us : List Nat) (ρ : Nat → V) :
+    bval V .lfpFam us ∈ˢ interp V ρ (BConst.typeAV .lfpFam us) := by
   show lfpFamV2 V (lv us 0) (lv us 1) ∈ˢ _
-  simp only [BConst.type2, arrowA, interp2_pi, interp2_sort, interp2_bvar, AVExpr.lift,
-    AVExpr.liftN, cons_zero, cons_succ]
+  simp only [BConst.typeAV, arrowA, interp_pi, interp_sort, interp_bvar, ATerm.lift,
+    ATerm.liftN, cons_zero, cons_succ]
   exact lfpFamV2_mem V (lv us 0) (lv us 1)
 
 /-! ## The capstone
 
-`ConstOk.lean`'s `bval_mem_type`, over `interp2` and `BConst.type2`.
+`ConstOk.lean`'s `bval_mem_type`, over `interp` and `BConst.typeAV`.
 This is what the skeleton's `const` row waits on, and with it
 deliverable (2) stands at ten formers of ten. -/
 
 /-- **Every built-in constant inhabits its annotated type.** -/
-theorem bval2_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
-    bval2 V c us ∈ˢ interp2 V ρ (BConst.type2 c us) := by
+theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
+    bval V c us ∈ˢ interp V ρ (BConst.typeAV c us) := by
   cases c with
-  | nat => exact bval2_mem_nat V us ρ
-  | natZero => exact bval2_mem_natZero V us ρ
-  | natSucc => exact bval2_mem_natSucc V us ρ
-  | natRec => exact bval2_mem_natRec V us ρ
-  | punit => exact bval2_mem_punit V us ρ
-  | punitUnit => exact bval2_mem_punitUnit V us ρ
-  | punitRec => exact bval2_mem_punitRec V us ρ
-  | psigma => exact bval2_mem_psigma V us ρ
-  | psigmaMk => exact bval2_mem_psigmaMk V us ρ
-  | empty => exact bval2_mem_empty V us ρ
-  | emptyRec => exact bval2_mem_emptyRec V us ρ
-  | quot => exact bval2_mem_quot V us ρ
-  | quotMk => exact bval2_mem_quotMk V us ρ
-  | quotLift => exact bval2_mem_quotLift V us ρ
-  | quotInd => exact bval2_mem_quotInd V us ρ
-  | quotSound => exact bval2_mem_quotSound V us ρ
-  | propext => exact bval2_mem_propext V us ρ
-  | choice => exact bval2_mem_choice V us ρ
-  | lfpFam => exact bval2_mem_lfpFam V us ρ
+  | nat => exact bval_mem_nat V us ρ
+  | natZero => exact bval_mem_natZero V us ρ
+  | natSucc => exact bval_mem_natSucc V us ρ
+  | natRec => exact bval_mem_natRec V us ρ
+  | punit => exact bval_mem_punit V us ρ
+  | punitUnit => exact bval_mem_punitUnit V us ρ
+  | punitRec => exact bval_mem_punitRec V us ρ
+  | psigma => exact bval_mem_psigma V us ρ
+  | psigmaMk => exact bval_mem_psigmaMk V us ρ
+  | empty => exact bval_mem_empty V us ρ
+  | emptyRec => exact bval_mem_emptyRec V us ρ
+  | quot => exact bval_mem_quot V us ρ
+  | quotMk => exact bval_mem_quotMk V us ρ
+  | quotLift => exact bval_mem_quotLift V us ρ
+  | quotInd => exact bval_mem_quotInd V us ρ
+  | quotSound => exact bval_mem_quotSound V us ρ
+  | propext => exact bval_mem_propext V us ρ
+  | choice => exact bval_mem_choice V us ρ
+  | lfpFam => exact bval_mem_lfpFam V us ρ
 
 end ConLeche.Semantics

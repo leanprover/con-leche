@@ -1,4 +1,4 @@
-import ConLeche.Kernel.Direct.RecParts
+import ConLeche.Kernel.Inductives.NativeParts
 import ConLeche.Kernel.Level
 
 /-!
@@ -61,12 +61,12 @@ recursor has (mutual, reflexive, nested auxiliaries), the value is
 built at exactly its binders.  The rewritten definition is then
 checked by the ordinary definition path — type inferred, compared
 against the declared type — and nothing in `Kernel/Core`, `Cached`,
-`SetP` or `Verify` knows it happened.  Verdict semantics: a use of
+`Model` or `Verify` knows it happened.  Verdict semantics: a use of
 `T.f` unfolds to the recursor form, and iota reduces it on a
 constructor application exactly where `.proj` would reduce.
 
 Excluded, deliberately: direct-shaped blocks (they keep their native
-tower entries — `directPartsCore?` and non-recursiveness decide, the
+tower entries — `structPartsCore?` and non-recursiveness decide, the
 recognizer's own verdict), propositional owners (`T : Prop` — their
 recursor eliminates into `Prop` only, and the official `infer_proj`
 restriction on such owners is a different question), and any block
@@ -326,7 +326,7 @@ def projRecValue (o : ProjRecOwner) (ℓ : Level) (ty val : Expr) (i : Nat) :
 
 /-- Which block members the rewrite serves: the officially
 structure-like ones (one constructor, zero indices) of a block the
-direct install does not recognise — `directPartsCore?` rejects it
+direct install does not recognise — `structPartsCore?` rejects it
 (mutual, multi-constructor, indexed, shape mismatch) or it is
 recursive (the export's `isRec`, or a block name occurring in a
 constructor's binder domains: `directNonRec`'s verdict on a
@@ -346,11 +346,11 @@ def projRecOwners (block : List ConstantInfo)
   let recursive := types.any (·.2.2.2.2.2.2) ||
     ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (d, _) =>
       blockNames.any fun n => occursConstFast n d
-  if (directPartsCore? block).isSome && !recursive then []
+  if (structPartsCore? block).isSome && !recursive then []
   -- a block the fixpoint route takes serves its structure-like
   -- member's `.proj` nodes natively (task #210 Part A: the projection
   -- table at a one-constructor, index-free block), so no rewrite
-  else if (directFixParts? block).isSome then []
+  else if (nativeParts? block).isSome then []
   else
     types.filterMap fun (T, lps, tty, nP, nI, cs, _) => do
       let [C] := cs | none

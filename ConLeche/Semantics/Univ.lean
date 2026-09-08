@@ -14,11 +14,11 @@ The record's version of the question was: *`pt ∈ univ (u+1)` was forced
 (`lamC` collapses at every level), so every universe has to contain it,
 and a non-transitive universe chain was parked as the escape.*
 
-Under `interp2` the question **transforms**, because there is no
+Under `interp` the question **transforms**, because there is no
 collapse and hence no `pt` in the positive regime.  The transformed
 question and its answer:
 
-> Do `interp2`'s universes contain values that break the graph
+> Do `interp`'s universes contain values that break the graph
 > inversion at universe-codomain products — i.e. can something the
 > `SetTheory` universe tower happens to contain sneak into
 > `⟦(x : A) → Sort k⟧` without being a graph?
@@ -31,8 +31,8 @@ property of `f`, quantified over `f`'s own members.  Nothing about `B`,
 about universe transitivity, or about what a universe contains can add
 a member to it: universe transitivity says members of members of `U`
 are in `U`, which enlarges `U`, never `piSet A B`.  So
-`interp2_mem_pi_pos` holds at universe-valued fibres exactly as it does
-anywhere else (`interp2_univ_cod_inversion` is the instance, proved by
+`interp_mem_pi_pos` holds at universe-valued fibres exactly as it does
+anywhere else (`interp_univ_cod_inversion` is the instance, proved by
 the general lemma with no extra hypothesis).
 
 **Verdict on the parked contingency.**  The non-transitive-chain
@@ -126,14 +126,14 @@ theorem mem_piR_pos_iff {v : Nat} (hv : v ≠ 0) {A f : V} {B : V → V} :
 `⟦(x : A) → Sort k⟧` is a graph over `⟦A⟧` landing pointwise in
 `univ k`.  Proved by the general lemma — *there is no extra
 hypothesis*, which is the whole answer to the universe question. -/
-theorem interp2_univ_cod_inversion (V : Type w) [SetTheory V] {v : Nat}
-    (hv : v ≠ 0) {u k : Nat} {ρ : Nat → V} {A : AVExpr} {f : V}
-    (hf : f ∈ˢ interp2 V ρ (.pi u v A (.sort k))) :
-    graph (fun x => SetTheory.app f x) (interp2 V ρ A) = f ∧
-    (∀ x, x ∈ˢ interp2 V ρ A → SetTheory.app f x ∈ˢ (univ k : V)) ∧
-    (∀ a, ¬ a ∈ˢ interp2 V ρ A → SetTheory.app f a = empty) ∧
+theorem interp_univ_cod_inversion (V : Type w) [SetTheory V] {v : Nat}
+    (hv : v ≠ 0) {u k : Nat} {ρ : Nat → V} {A : AnnotTerm} {f : V}
+    (hf : f ∈ˢ interp V ρ (.pi u v A (.sort k))) :
+    graph (fun x => SetTheory.app f x) (interp V ρ A) = f ∧
+    (∀ x, x ∈ˢ interp V ρ A → SetTheory.app f x ∈ˢ (univ k : V)) ∧
+    (∀ a, ¬ a ∈ˢ interp V ρ A → SetTheory.app f a = empty) ∧
     f ≠ pt :=
-  interp2_mem_pi_pos V hv hf
+  interp_mem_pi_pos V hv hf
 
 /-! ## What the collapse's cohabitation actually was -/
 
@@ -154,7 +154,7 @@ theorem not_pt_mem_piR_empty {v : Nat} (hv : v ≠ 0) (B : V → V) :
 
 /-! ## Placement of the sorts themselves -/
 
-theorem interp2_sort_mem (V : Type w) [SetTheory V] (ρ : Nat → V) (n : Nat) :
-    interp2 V ρ (.sort n) ∈ˢ interp2 V ρ (.sort (n + 1)) := univ_mem_univ n
+theorem interp_sort_mem (V : Type w) [SetTheory V] (ρ : Nat → V) (n : Nat) :
+    interp V ρ (.sort n) ∈ˢ interp V ρ (.sort (n + 1)) := univ_mem_univ n
 
 end ConLeche.Semantics

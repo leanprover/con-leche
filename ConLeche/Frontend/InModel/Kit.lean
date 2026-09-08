@@ -1,4 +1,4 @@
-import ConLeche.Kernel.Direct.Parts
+import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Kernel.Level
 
 /-!
@@ -17,7 +17,7 @@ nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
   `T_m p⃗` into the auxiliary family at its tag, `aux p⃗ (tag.m p⃗ ı⃗)`;
 * the **kernel-shape recursor** of an indexed recursive family with
   inductive hypotheses — `directRecTyI`/`directRecRhsI`
-  (`ConLeche/Kernel/Direct/Parts.lean`) with the `ih` binders of the
+  (`ConLeche/Kernel/Inductives/StructParts.lean`) with the `ih` binders of the
   official `mk_rec_infos` threaded in; the direct fixpoint route
   regenerates and compares the recursor of the auxiliary family
   against exactly this shape by one `isDefEq`, so binder names are
@@ -62,7 +62,7 @@ def auxCtorName (T : Name) (k : Nat) (C : Name) : Name :=
 def modelName (n : Name) : Name := n.str "_model"
 
 /-- The iota theorem of rule `j` of a modeled recursor `R`:
-`R._model.iota_j` (`ConLeche/Kernel/Modeled.lean`'s lookup). -/
+`R._model.iota_j` (`ConLeche/Kernel/Inductives/Modeled.lean`'s lookup). -/
 def iotaName (R : Name) (j : Nat) : Name := (modelName R).str s!"iota_{j}"
 
 /-- A level-parameter name not among `lps`: `u`, then `u_1`, `u_2`, …
@@ -93,8 +93,8 @@ def mkPis (bs : List Expr) (body : Expr) : Expr :=
   bs.foldr (fun d acc => .forallE d acc bm) body
 
 /-- The variables `bvar (o + n - 1 - k)`, `k < n`: a telescope of `n`
-binders seen from `o` binders below it (`directPsAt`). -/
-def varsAt (o n : Nat) : List Expr := directPsAt o n
+binders seen from `o` binders below it (`structPsAt`). -/
+def varsAt (o n : Nat) : List Expr := structPsAt o n
 
 /-- A constant at its level parameters. -/
 def constP (n : Name) (lps : List Name) : Expr := .const n (lps.map .param)
@@ -192,7 +192,7 @@ def mentionsAny (ns : List Name) : Expr → Bool
 
 /-! ## The kernel-shape recursor of an indexed recursive family
 
-The generators of `ConLeche/Kernel/Direct/Parts.lean` (indexed, task #175)
+The generators of `ConLeche/Kernel/Inductives/StructParts.lean` (indexed, task #175)
 with the inductive hypotheses of the official `mk_rec_infos`: a minor
 premise binds the constructor's fields, then one `ih` per recursive
 field in field order — `motive e⃗_i f_i`, the field's own index
@@ -205,7 +205,7 @@ field positions (ascending). -/
 /-- The recursor's leading spine `p⃗ motive m⃗` as seen from under the
 `nF` fields and `e` further binders. -/
 def recPrefixAt (nP n nF e : Nat) : List Expr :=
-  directPsAt (e + nF + n + 1) nP ++ [Expr.bvar (e + nF + n)] ++
+  structPsAt (e + nF + n + 1) nP ++ [Expr.bvar (e + nF + n)] ++
     (List.range n).map fun l => Expr.bvar (e + nF + n - 1 - l)
 
 /-- The index arguments of recursive field `i` (domain `T p⃗ e⃗_i`,
@@ -242,7 +242,7 @@ def minorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
       (ihPis nP nF o pw doms recIdx 0
         (Expr.mkAppN (.bvar (nF + o - 1 + nIh))
           ((r.2.getAppArgs.drop nP).map (Expr.liftLooseBVars nIh 0) ++
-            [(directCtorSpineAt C lps o nP nF).liftLooseBVars nIh 0])))
+            [(structCtorSpineAt C lps o nP nF).liftLooseBVars nIh 0])))
 
 /-- The minors' `∀`-telescope over `body`, one per constructor, the
 first sitting `o` binders below the parameters. -/
@@ -273,14 +273,14 @@ over the former's type `tty = ∀ p⃗ ı⃗, Sort w` (`directRecTyI` with
 inductive hypotheses). -/
 def recTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat)) : Option Expr :=
-  let ℓ := directElimLevel elim large
+  let ℓ := structElimLevel elim large
   let pw := Level.zeronessOf ℓ
   let n := ctors.length
   (tty.stripPis nP).bind fun q =>
-  (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
+  (structMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
   (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
-        (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
+      (.forallE (structFamI T lps nP nIdx (n + 1) 0)
+        (Expr.mkAppN (.bvar (nIdx + n + 1)) (structPsAt 1 nIdx ++ [.bvar 0]))
         ⟨pw⟩)).bind fun major =>
   (minorsPis lps nP pw ctors 1 major).bind fun minors =>
     Expr.replacePisPw pw nP tty
@@ -292,14 +292,14 @@ def recTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
 def recRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
     (recC : Name) (rlvls : List Level) (j : Nat) : Option Expr :=
-  let ℓ := directElimLevel elim large
+  let ℓ := structElimLevel elim large
   let pw := Level.zeronessOf ℓ
   let n := ctors.length
   match ctors[j]? with
   | none => none
   | some (_, nF, cty, recIdx) =>
     (tty.stripPis nP).bind fun tq =>
-    (directMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
+    (structMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
     (cty.stripPis nP).bind fun q =>
     let tele := q.2.liftLooseBVars (n + 1) 0
     (tele.stripPis nF).bind fun r =>

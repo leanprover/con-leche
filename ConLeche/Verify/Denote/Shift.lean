@@ -57,7 +57,7 @@ denote (D+1) (body.instantiate1 (.fvar  D    ty))
 a single expression cannot see them, and the statement has to be
 generalized over the *cut*: `denote_shiftFrom` below relates `e` and
 `e.shiftFrom p` with the lift cut `d - p`, which the binder clause
-increments to `(d - p) + 1` exactly as `VExpr.liftN` increments its
+increments to `(d - p) + 1` exactly as `Term.liftN` increments its
 own cut.  That is why the generalization closes.
 
 The fact that makes the cut behave: **the freshly opened variable
@@ -70,18 +70,18 @@ set_option linter.unusedVariables false
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
 /-- Lifts at cut `0` compose by addition. -/
-theorem liftN_liftN : ∀ (v : VExpr) (m n k : Nat),
-    VExpr.liftN n (VExpr.liftN m v k) k = VExpr.liftN (m + n) v k := by
+theorem liftN_liftN : ∀ (v : Term) (m n k : Nat),
+    Term.liftN n (Term.liftN m v k) k = Term.liftN (m + n) v k := by
   intro v
   induction v with
   | bvar i =>
     intro m n k
-    simp only [VExpr.liftN_bvar]
+    simp only [Term.liftN_bvar]
     by_cases h : i < k
     · rw [if_pos h, if_pos h, if_pos h]
     · rw [if_neg h, if_neg h, if_neg (show ¬ i + m < k by omega)]
@@ -89,52 +89,52 @@ theorem liftN_liftN : ∀ (v : VExpr) (m n k : Nat),
   | sort u => intro _ _ _; rfl
   | const c us => intro _ _ _; rfl
   | prf => intro _ _ _; rfl
-  | app f a ihf iha => intro m n k; simp only [VExpr.liftN_app, ihf, iha]
-  | lam A b ihA ihb => intro m n k; simp only [VExpr.liftN_lam, ihA, ihb]
-  | pi A B ihA ihB => intro m n k; simp only [VExpr.liftN_pi, ihA, ihB]
+  | app f a ihf iha => intro m n k; simp only [Term.liftN_app, ihf, iha]
+  | lam A b ihA ihb => intro m n k; simp only [Term.liftN_lam, ihA, ihb]
+  | pi A B ihA ihB => intro m n k; simp only [Term.liftN_pi, ihA, ihB]
   | letE T v b ihT ihv ihb =>
-    intro m n k; simp only [VExpr.liftN_letE, ihT, ihv, ihb]
+    intro m n k; simp only [Term.liftN_letE, ihT, ihv, ihb]
   | eqE T a b ihT iha ihb =>
-    intro m n k; simp only [VExpr.liftN_eqE, ihT, iha, ihb]
-  | proj i e ihe => intro m n k; simp only [VExpr.liftN_proj, ihe]
+    intro m n k; simp only [Term.liftN_eqE, ihT, iha, ihb]
+  | proj i e ihe => intro m n k; simp only [Term.liftN_proj, ihe]
 
 /-- Lifting by zero is the identity. -/
-theorem liftN_zero : ∀ (v : VExpr) (k : Nat), VExpr.liftN 0 v k = v := by
+theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
   intro v
   induction v with
-  | bvar i => intro k; simp only [VExpr.liftN_bvar]; split <;> rfl
+  | bvar i => intro k; simp only [Term.liftN_bvar]; split <;> rfl
   | sort u => intro _; rfl
   | const c us => intro _; rfl
   | prf => intro _; rfl
-  | app f a ihf iha => intro k; simp only [VExpr.liftN_app, ihf, iha]
-  | lam A b ihA ihb => intro k; simp only [VExpr.liftN_lam, ihA, ihb]
-  | pi A B ihA ihB => intro k; simp only [VExpr.liftN_pi, ihA, ihB]
-  | letE T v b ihT ihv ihb => intro k; simp only [VExpr.liftN_letE, ihT, ihv,
+  | app f a ihf iha => intro k; simp only [Term.liftN_app, ihf, iha]
+  | lam A b ihA ihb => intro k; simp only [Term.liftN_lam, ihA, ihb]
+  | pi A B ihA ihB => intro k; simp only [Term.liftN_pi, ihA, ihB]
+  | letE T v b ihT ihv ihb => intro k; simp only [Term.liftN_letE, ihT, ihv,
     ihb]
-  | eqE T a b ihT iha ihb => intro k; simp only [VExpr.liftN_eqE, ihT, iha, ihb]
-  | proj i e ihe => intro k; simp only [VExpr.liftN_proj, ihe]
+  | eqE T a b ihT iha ihb => intro k; simp only [Term.liftN_eqE, ihT, iha, ihb]
+  | proj i e ihe => intro k; simp only [Term.liftN_proj, ihe]
 
 /-- A `Nat` literal's term is closed when the two constructor
 valuations are. -/
-theorem natLitT_closed {zv sv : VExpr} (hz : VExpr.Closed zv)
-    (hs : VExpr.Closed sv) : ∀ n, VExpr.Closed (natLitT zv sv n)
+theorem natLitT_closed {zv sv : Term} (hz : Term.Closed zv)
+    (hs : Term.Closed sv) : ∀ n, Term.Closed (natLitT zv sv n)
   | 0 => hz
   | n + 1 => ⟨hs, natLitT_closed hz hs n⟩
 
 /-- A character list's term is closed when its constituents are. -/
-theorem charListT_closed {nilV consV ofNatV zv sv : VExpr}
-    (hn : VExpr.Closed nilV) (hc : VExpr.Closed consV)
-    (ho : VExpr.Closed ofNatV) (hz : VExpr.Closed zv)
-    (hs : VExpr.Closed sv) :
-    ∀ cs : List Char, VExpr.Closed (charListT nilV consV ofNatV zv sv cs)
+theorem charListT_closed {nilV consV ofNatV zv sv : Term}
+    (hn : Term.Closed nilV) (hc : Term.Closed consV)
+    (ho : Term.Closed ofNatV) (hz : Term.Closed zv)
+    (hs : Term.Closed sv) :
+    ∀ cs : List Char, Term.Closed (charListT nilV consV ofNatV zv sv cs)
   | [] => hn
   | c :: cs =>
     ⟨⟨hc, ⟨ho, natLitT_closed hz hs c.toNat⟩⟩,
       charListT_closed hn hc ho hz hs cs⟩
 
 /-- A `String` literal's term is closed when the valuation is. -/
-theorem strLitT_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    (s : String) : VExpr.Closed (strLitT cval env φ s) := by
+theorem strLitT_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
+    (s : String) : Term.Closed (strLitT cval env φ s) := by
   refine ⟨hcl _ _, charListT_closed ?_ ?_ (hcl _ _) (hcl _ _) (hcl _ _)
     s.toList⟩
   · exact ⟨hcl _ _, hcl _ _⟩
@@ -143,15 +143,15 @@ theorem strLitT_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 /-- `projNV` commutes with lifting (it introduces no binders; task
 #175 wiring W3). -/
 theorem liftN_projNV (n : Nat) :
-    ∀ (i : Nat) (v : VExpr) (k : Nat),
+    ∀ (i : Nat) (v : Term) (k : Nat),
       (projNV i v).liftN n k = projNV i (v.liftN n k)
   | 0, _, _ => rfl
   | i + 1, v, k => liftN_projNV n i (.proj 1 v) k
 
 /-- `projNV` preserves bvar bounds (hereditary proj clauses). -/
 theorem projNV_bvarsBelow {d : Nat} :
-    ∀ (i : Nat) {v : VExpr}, VExpr.bvarsBelow d v →
-      VExpr.bvarsBelow d (projNV i v)
+    ∀ (i : Nat) {v : Term}, Term.bvarsBelow d v →
+      Term.bvarsBelow d (projNV i v)
   | 0, _, h => h
   | i + 1, v, h => projNV_bvarsBelow i (v := .proj 1 v) h
 
@@ -161,10 +161,10 @@ denoting `e` and lifting at cut `d - p`.
 The `cval` closedness hypothesis is what lets the `.const` and literal
 clauses go through: a constant's term must not move when the context
 around it grows (`ConLeche/Verify/Denote/VClosed.lean`). -/
-theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
+theorem denote_shiftFrom (hcl : ∀ n ψ, Term.Closed (cval n ψ)) {p : Nat} :
     ∀ (e : Expr) (d : Nat), p ≤ d → Expr.fvarsBelow d e →
       denote cval env φ (d + 1) (e.shiftFrom p) =
-        (denote cval env φ d e).map (VExpr.liftN 1 · (d - p))
+        (denote cval env φ d e).map (Term.liftN 1 · (d - p))
   | .bvar i, d, hpd, hfb => by simp [Expr.shiftFrom]
   | .sort u, d, hpd, hfb => by simp [Expr.shiftFrom]
   | .const n us, d, hpd, hfb => by
@@ -174,7 +174,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
       split
       · next hlen =>
         simp only [Option.map_some]
-        rw [VExpr.liftN_eq_self_of_closed (hcl _ _)]
+        rw [Term.liftN_eq_self_of_closed (hcl _ _)]
       · rfl
     · rfl
   | .fvar idx ty, d, hpd, hfb => by
@@ -184,12 +184,12 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     · next hge =>
       -- at or above the shift point: the index does not move, because
       -- `d + 1 - 1 - (idx + 1) = d - 1 - idx`
-      rw [denote_fvar, denote_fvar, Option.map_some, VExpr.liftN_bvar,
+      rw [denote_fvar, denote_fvar, Option.map_some, Term.liftN_bvar,
         if_pos (show d - 1 - idx < d - p by omega),
         show d + 1 - 1 - (idx + 1) = d - 1 - idx from by omega]
     · next hge =>
       -- below the shift point: the index moves up by one
-      rw [denote_fvar, denote_fvar, Option.map_some, VExpr.liftN_bvar,
+      rw [denote_fvar, denote_fvar, Option.map_some, Term.liftN_bvar,
         if_neg (show ¬ d - 1 - idx < d - p by omega),
         show d + 1 - 1 - idx = d - 1 - idx + 1 from by omega]
   | .app f a, d, hpd, hfb => by
@@ -209,7 +209,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
         show d + 1 - p = d - p + 1 from by omega]
       cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => rfl
-      | some B => simp only [Option.map_some, VExpr.liftN_pi]
+      | some B => simp only [Option.map_some, Term.liftN_pi]
   | .lam ty body m, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_lam]
     rw [denote_shiftFrom hcl ty d hpd hfb.1]
@@ -223,7 +223,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
         show d + 1 - p = d - p + 1 from by omega]
       cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => rfl
-      | some B => simp only [Option.map_some, VExpr.liftN_lam]
+      | some B => simp only [Option.map_some, Term.liftN_lam]
   | .letE ty val body, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_letE]
     rw [denote_shiftFrom hcl ty d hpd hfb.1,
@@ -241,7 +241,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
           show d + 1 - p = d - p + 1 from by omega]
         cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
         | none => rfl
-        | some B => simp only [Option.map_some, VExpr.liftN_letE]
+        | some B => simp only [Option.map_some, Term.liftN_letE]
   | .proj s i e, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_proj]
     rw [denote_shiftFrom hcl e d hpd hfb]
@@ -253,7 +253,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
       | none =>
         dsimp only
         split
-        · simp only [Option.map_some, VExpr.liftN_proj]
+        · simp only [Option.map_some, Term.liftN_proj]
         · rfl
       | some entry =>
         simp only [Option.map_some, liftN_projNV]
@@ -261,14 +261,14 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     simp only [Expr.shiftFrom, denote_natLit]
     split
     · simp only [Option.map_some]
-      rw [VExpr.liftN_eq_self_of_closed
+      rw [Term.liftN_eq_self_of_closed
         (natLitT_closed (hcl _ _) (hcl _ _) k)]
     · rfl
   | .lit (.strVal s), d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_strLit]
     split
     · simp only [Option.map_some]
-      rw [VExpr.liftN_eq_self_of_closed (strLitT_closed hcl s)]
+      rw [Term.liftN_eq_self_of_closed (strLitT_closed hcl s)]
     · rfl
 termination_by e => e.sizeB
 decreasing_by
@@ -280,10 +280,10 @@ decreasing_by
 /-- One level of weakening: denoting a `d`-scoped term at `d + 1` lifts
 it by one.  The transpose of `interp_weaken_top`, and the step
 `denote_lift`'s induction takes. -/
-theorem denote_weaken_top (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+theorem denote_weaken_top (hcl : ∀ n ψ, Term.Closed (cval n ψ))
     {d : Nat} {e : Expr} (hfb : Expr.fvarsBelow d e) :
     denote cval env φ (d + 1) e =
-      (denote cval env φ d e).map (VExpr.liftN 1 · 0) := by
+      (denote cval env φ d e).map (Term.liftN 1 · 0) := by
   have h := denote_shiftFrom (env := env) (φ := φ) hcl e d (Nat.le_refl d) hfb
   rw [Expr.shiftFrom_eq_self hfb, Nat.sub_self] at h
   exact h
@@ -292,11 +292,11 @@ theorem denote_weaken_top (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 gets a literal equation (its valuation absorbs the depth), the bridge
 gets a lift; see the module docstring for why that deviation is forced
 rather than chosen. -/
-theorem denote_lift (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+theorem denote_lift (hcl : ∀ n ψ, Term.Closed (cval n ψ))
     {p : Nat} {e : Expr} (hfb : Expr.fvarsBelow p e) :
     ∀ D : Nat, p ≤ D →
       denote cval env φ D e =
-        (denote cval env φ p e).map (VExpr.liftN (D - p) · 0) := by
+        (denote cval env φ p e).map (Term.liftN (D - p) · 0) := by
   intro D
   induction D with
   | zero =>
@@ -326,8 +326,8 @@ theorem denote_lift (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 
 /-! ## Scoping transfers to the denotation
 
-The one place the `Expr`/`VExpr` separation of §12.6 is crossed
-*deliberately*: a term scoped below depth `d` denotes to a `VExpr`
+The one place the `Expr`/`Term` separation of §12.6 is crossed
+*deliberately*: a term scoped below depth `d` denotes to a `Term`
 whose bound variables are below `d`.  That is not a leak — it is the
 direction that *does* hold, because `denote` maps an `fvar` at index
 `idx < d` to `.bvar (d - 1 - idx) < d` and opens each binder one level
@@ -335,14 +335,14 @@ deeper.  The converse (typing telling you about syntax) is what does
 not hold.
 
 Consumed at the `.const` clause of `inferBody`, where the stored type
-is a closed `Expr` and its denotation has to be a closed `VExpr` for
+is a closed `Expr` and its denotation has to be a closed `Term` for
 the environment invariant's typing to survive `denote_lift`. -/
 
-theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
+theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     ∀ (d : Nat) (e : Expr), Expr.WScoped d e →
       e.looseBVarsBounded 0 = true →
-      ∀ {v : VExpr}, denote cval env φ d e = some v →
-        VExpr.bvarsBelow d v := by
+      ∀ {v : Term}, denote cval env φ d e = some v →
+        Term.bvarsBelow d v := by
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env) (φ := φ) with
   | case1 d u =>
@@ -361,7 +361,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     simp only [denote_const, h1, if_pos h2] at h
     obtain rfl : v = cval n (Level.substFn φ ci.toConstantVal.levelParams us) :=
       (Option.some.inj h).symm
-    exact VExpr.bvarsBelow.mono (Nat.zero_le d) (hcl _ _)
+    exact Term.bvarsBelow.mono (Nat.zero_le d) (hcl _ _)
   | case4 d n us ci h1 h2 =>
     intro _ _ v h; simp only [denote_const, h1, if_neg h2] at h; exact nomatch h
   | case5 d n us h1 =>
@@ -437,7 +437,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     simp only [if_pos h3, Option.some.injEq] at h
     simp only [Expr.WScoped] at hws
     obtain rfl : v = .proj i B := h.symm
-    show VExpr.bvarsBelow d B
+    show Term.bvarsBelow d B
     exact ihe hws hb h1
   | case20 d sn i e B h1 h2 h3 ihe =>
     intro _ _ v h
@@ -448,7 +448,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     intro _ _ v h
     rw [denote_natLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
-    exact VExpr.bvarsBelow.mono (Nat.zero_le d)
+    exact Term.bvarsBelow.mono (Nat.zero_le d)
       (natLitT_closed (hcl _ _) (hcl _ _) n)
   | case22 d n hg =>
     intro _ _ v h; rw [denote_natLit, if_neg hg] at h; exact nomatch h
@@ -456,7 +456,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     intro _ _ v h
     rw [denote_strLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
-    exact VExpr.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
+    exact Term.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
   | case24 d t hg =>
     intro _ _ v h; rw [denote_strLit, if_neg hg] at h; exact nomatch h
   | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
@@ -475,10 +475,10 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
 /-- A closed expression denotes to a closed term. -/
-theorem denote_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {e : Expr} {v : VExpr} (hnf : e.hasFvar = false)
+theorem denote_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
+    {e : Expr} {v : Term} (hnf : e.hasFvar = false)
     (hb : e.looseBVarsBounded 0 = true)
-    (h : denoteClosed cval env φ e = some v) : VExpr.Closed v :=
+    (h : denoteClosed cval env φ e = some v) : Term.Closed v :=
   denote_bvarsBelow hcl 0 e (Expr.WScoped.of_not_hasFvar hnf) hb h
 
 /-- **A closed expression denotes the same at every depth.**  The
@@ -486,7 +486,7 @@ binder depth only enters `denote` through `fvar` leaves and there are
 none, so the whole `denote_weaken_top` chain collapses.  Consumed
 wherever a *stored declaration's* type has to be denoted in an open
 context — the environment states its typing at depth `0`. -/
-theorem denote_depth_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+theorem denote_depth_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
     {e : Expr} (hnf : e.hasFvar = false)
     (hb : e.looseBVarsBounded 0 = true) :
     ∀ d : Nat, denote cval env φ d e = denoteClosed cval env φ e := by
@@ -500,6 +500,6 @@ theorem denote_depth_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     | none => rfl
     | some v =>
       simp only [Option.map_some]
-      rw [VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
+      rw [Term.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
 
 end ConLeche.Verify

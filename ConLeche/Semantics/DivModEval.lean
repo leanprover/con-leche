@@ -14,7 +14,7 @@ at a valuation of the heads.  None of them mentions `EnvS`, `denote`
 or a relation of the `Infer`/`DefEq` family: `dmEvalV` is `SetTheory`
 evaluation over an abstract `val : Name → W`, and the rest is `Expr`
 syntax.  The collapsed lane's `DivModPin.lean` builds its certificate
-discharges on them; the graded lane's `Interp2/DivModCertP.lean`
+discharges on them; the graded lane's `Interp/DivModCertP.lean`
 consumes exactly these 17 symbols and nothing else of that file.
 
 Statements verbatim from their old home; the namespace is unchanged.
@@ -23,7 +23,7 @@ Statements verbatim from their old home; the namespace is unchanged.
 universe w
 
 namespace ConLeche.Semantics
-open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Term ConLeche.Verify SetTheory
 
 variable {V : Type w} [SetTheory V]
 

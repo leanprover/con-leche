@@ -512,12 +512,12 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           -- either order
           have hsubM : ∀ l ∈ major.fvarLeaves,
               l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves :=
-            prepareMajorP_ind hprep
+            prepareMajorFueled_ind hprep
               (fun x => ∀ l ∈ x.fvarLeaves,
                 l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves)
               (fun hw' hP l' hl' => hP l' (ihLoop hw' l' hl'))
               (fun hl hP l' hl' => by
-                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                rcases litMajorToCtorFueled_inv hl with rfl | ⟨s, -, -, hred⟩
                 · exact hP l' (litToCtorIfNat_fvarLeaves l' hl')
                 · have h0 := ihLoop hred l' hl'
                   rw [strLitToConstructor_fvarLeaves] at h0
@@ -560,7 +560,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         intro l hl
         obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
         have hsub₃ : ∀ l ∈ e₃.fvarLeaves, l ∈ e₂.fvarLeaves := by
-          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
           · exact fun l hl => hl
           · intro l hl
             have := ihLoop hred l hl
@@ -664,10 +664,10 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
             exact ⟨hbf', hb.2⟩
           -- the major's bound variables, through the chain in either order
           have hbmaj : major.looseBVarsBounded 0 = true :=
-            prepareMajorP_ind hprep (fun x => x.looseBVarsBounded 0 = true)
+            prepareMajorFueled_ind hprep (fun x => x.looseBVarsBounded 0 = true)
               (fun hw' hb' => ihLoop hw' hb')
               (fun hl hb' => by
-                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                rcases litMajorToCtorFueled_inv hl with rfl | ⟨s, -, -, hred⟩
                 · exact litToCtorIfNat_looseBVars hb'
                 · exact ihLoop hred (strLitToConstructor_looseBVars s 0))
               (fun hs hb' => by
@@ -695,7 +695,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
         have hbe₂ := ihLoop he hb
         have hbe₃ : e₃.looseBVarsBounded 0 = true := by
-          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
           · exact hbe₂
           · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
         rcases hcase with rfl |

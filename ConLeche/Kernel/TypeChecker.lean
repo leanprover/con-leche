@@ -5,7 +5,7 @@ import ConLeche.Kernel.Core
 
 The core bodies (`ConLeche.Kernel.Core`) tied together at `CheckM`, with
 no memoization: this instance is the **specification** — all semantic
-verification (`ConLeche/Verify/*`, `ConLeche/Semantics/*`, `ConLeche/SetP/*`)
+verification (`ConLeche/Verify/*`, `ConLeche/Semantics/*`, `ConLeche/Model/*`)
 reasons about these
 fueled entry points, and the refinement bridge (see DESIGN.md) carries
 every claim over to the cached instance the checker executes

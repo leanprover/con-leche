@@ -548,7 +548,7 @@ direction is `natOpGuard_stored` below, by computation. -/
 
 /-- Inversion of the reduction-time test: the operation is stored as a
 definition.  This is exactly the hypothesis `NatOpsV`/`DivModV` (and
-`NatOpsP`/`DivModP`) take before handing back `natOpGuard`. -/
+`NatOps`/`DivMod`) take before handing back `natOpGuard`. -/
 theorem natOpStored_inv {env : Env} {c : Name}
     (h : natOpStored env c = true) :
     ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by

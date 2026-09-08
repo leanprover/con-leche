@@ -9,8 +9,8 @@ statements about a *kernel function* with no model in sight, and both
 lanes' `whnfCore` walks simp with them.
 
 They came down with the two-edit sever's second edit — the graded
-lane's `Step2/WhnfP` was reading them through the 2U module
-`Step2/Whnf`, whose import the sever removes.
+lane's `Steps/WhnfP` was reading them through the 2U module
+`Steps/Whnf`, whose import the sever removes.
 
 Statements verbatim.  (The design census would rather see them in
 `ConLeche/Verify/*`, which is where proofs about kernel functions belong;
@@ -22,7 +22,7 @@ relation family and the whole derivation bridge above it.  This module
 then carried the `ConLeche.SetR` namespace and a `whnfCoreR_*` name
 prefix, and it was neither: six `rfl` facts about the *kernel's*
 `whnfCore`, with a live consumer in the graded lane
-(`SetP/Step2/WhnfP.lean`).  It is the clearest case in the tree of the
+(`Model/Steps/WhnfP.lean`).  It is the clearest case in the tree of the
 rule the batch ran on — *classify a module by what its statements
 mention, not by the namespace it sits in.*  The cleanup pass of
 2026-09-06 gave them their honest names: `whnfCore_leaf_*` (the

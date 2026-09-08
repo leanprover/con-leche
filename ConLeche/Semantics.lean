@@ -1,7 +1,7 @@
 import ConLeche.Semantics.Syntax
 import ConLeche.Semantics.Interp
 import ConLeche.Semantics.Kit
-import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.WellDenoted
 import ConLeche.Semantics.DefEqList
 import ConLeche.Semantics.EqTower
 import ConLeche.Semantics.EraseInv
@@ -9,13 +9,13 @@ import ConLeche.Semantics.ProjPhase
 import ConLeche.Semantics.DivModEval
 import ConLeche.Semantics.Frame
 import ConLeche.Semantics.LitParams
-import ConLeche.Semantics.Sat2
+import ConLeche.Semantics.Sat
 import ConLeche.Semantics.WhnfCoreLeaf
-import ConLeche.Semantics.DefEqStep2
+import ConLeche.Semantics.DefEqStep
 import ConLeche.Semantics.Canon
-import ConLeche.Semantics.LitStep2
-import ConLeche.Semantics.Denote2Closed
-import ConLeche.Semantics.Install2
+import ConLeche.Semantics.LitStep
+import ConLeche.Semantics.DenoteClosed
+import ConLeche.Semantics.Install
 import ConLeche.Semantics.ConstsBound
 import ConLeche.Semantics.BasisType
 import ConLeche.Semantics.Univ
@@ -25,8 +25,8 @@ import ConLeche.Semantics.Hoist
 import ConLeche.Semantics.Decl
 import ConLeche.Semantics.DeclEta
 import ConLeche.Semantics.DeclRun
-import ConLeche.Verify.Direct.SumWF
-import ConLeche.Semantics.Direct.DeclDirectSumEta
+import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Semantics.DeclIndRun
 import ConLeche.Semantics.IndBlockFacts
 import ConLeche.Semantics.IndBlockRun
@@ -55,16 +55,16 @@ abstraction (`piR`/`lamR`), the built-in constants' value towers and
 the unit-terminated tuple tower — is `ConLeche/SetModel/*`, the
 namespace `ConLeche.SetModel`, and mentions neither `Expr` nor the
 annotated syntax.  Everything that reads a term lives here: the
-annotated syntax `AVExpr` and its two-regime interpretation `interp2`,
-the membership kit, `AnnotOk2`, the canonical annotation pass, the
+annotated syntax `AnnotTerm` and its two-regime interpretation `interp`,
+the membership kit, `WellDenoted`, the canonical annotation pass, the
 per-declaration run records and the run bridge (`Bridge/*`), the
 direct-structure declaration records (`Direct/*`) and the tower
 introduction machinery that reads annotated field domains
 (`Tower/*`).  The namespace is `ConLeche.Semantics` (formerly
-`ConLeche.SetR.Interp2` and `ConLeche.SetR`, both retired with the
+`ConLeche.SetR.Interp` and `ConLeche.SetR`, both retired with the
 collapsed lane they were named for).  The layering rule is unchanged
 in substance: `ConLeche/{Kernel,Cached,Frontend}/*` and `Main.lean`
-never import this tier, `ConLeche/SetP/*` stands on it.
+never import this tier, `ConLeche/Model/*` stands on it.
 
 The history below is the base tier's own record (task #161), kept as
 written; its paths and namespaces are those of the time.
@@ -77,19 +77,19 @@ THE SEPARATION (task #161) splits the two model proofs into disjoint
 subtrees: `ConLeche.SetR.*` (the collapsed model — `EnvS`, `Sound/*`,
 `Install/*`, the `R`/`R2` capstones) and the graded-model tree (the `P`
 lane).  Six modules belonged to neither: they are the *semantic and
-syntactic primitives both lanes stand on*, filed under `SetR/Interp2`
+syntactic primitives both lanes stand on*, filed under `SetR/Interp`
 and `SetR/Annot` for historical reasons only (design census §2.3).
 S1 re-based them here, below both lanes:
 
 * `Ops` — `piR`, `lamC`, `app`, `piR_dom_unique` over the `SetTheory`
   interface;
-* `Value` — the graded value tower (with `VExpr.Const`);
-* `Syntax` — `AVExpr` and `AVExpr.erase`, the annotated syntax both
+* `Value` — the graded value tower (with `Term.Const`);
+* `Syntax` — `AnnotTerm` and `ATerm.erase`, the annotated syntax both
   lanes read (`erase` is the collapsed lane's own reading function);
-* `Interp` — `interp`/`interp2`;
-* `Kit` — the membership kit over `interp2`;
-* `Ok2` — `AnnotOk2`, the annotation invariant.  `Install/Axiom.lean`
-  states `AnnotOk2` conjuncts for the P consumer; that import was the
+* `Interp` — `interp`/`interp`;
+* `Kit` — the membership kit over `interp`;
+* `WellDenoted` — `WellDenoted`, the annotation invariant.  `Install/Axiom.lean`
+  states `WellDenoted` conjuncts for the P consumer; that import was the
   *single* R→P edge in the whole tree, and this re-basing kills it.
 
 S2 (the 2U/R move) added, on the same terms:
@@ -98,19 +98,19 @@ S2 (the 2U/R move) added, on the same terms:
   `Expr` scoping);
 * `LitParams` — the two `*_levelParams_nil` reads off the literal
   support guards;
-* `Sat2` — `Sat2` with its intro lemmas, and `interp2C_trans`;
+* `Sat` — `Sat` with its intro lemmas, and `interp2C_trans`;
 * `WhnfCoreLeaf` — the six `whnfCoreR_*` `rfl` lemmas about the kernel's
   `whnfCore` (S1 deferred them here by name);
-* `DefEqStep2` — the definitional-equality quarter's Tier A clauses,
-  which are pure `interp2` algebra and which both lanes' `DefEq…P`
-  quarters consume (whole-module move of `Interp2/Step2/DefEq`);
+* `DefEqStep` — the definitional-equality quarter's Tier A clauses,
+  which are pure `interp` algebra and which both lanes' `DefEq…P`
+  quarters consume (whole-module move of `Interp/Steps/DefEq`);
 * `Canon` — `sortOfE`/`lamSortE`, the annotated literal spines
-  (`natLitT2`, `charListT2`), the canonical annotation pass `denote2`
-  and its erasure law (whole-module move of `Annot/Canon`).  `denote2`
+  (`natLitAV`, `charListAV`), the canonical annotation pass `denoteAnnot`
+  and its erasure law (whole-module move of `Annot/Canon`).  `denoteAnnot`
   takes the annotated valuation as a *parameter*, so the pass carries
   no environment at all;
-* `LitStep2` — `natLit_facts2`, the numeral induction over
-  `natLitT2` (whole-module move of `Interp2/Step2/Lit`).
+* `LitStep` — `natLit_facts2`, the numeral induction over
+  `natLitAV` (whole-module move of `Interp/Steps/Lit`).
 
 S4 (the C3 artifact) added the **shared record family** — the design
 census's spec point 1 ("the bridge records are shared; the derivations
@@ -143,7 +143,7 @@ S6 (the residue) added:
   construction (the module docstring says so), its four imports are
   all base, and both lanes now build one — the R lane by projection
   from `EnvS` (`EnvS.toEnvFacts`), the P lane by projection from
-  `EnvS2PM` (`EnvS2PM.toEnvFacts`), which is what lets the P fold call the
+  `EnvModelM` (`EnvModelM.toEnvFacts`), which is what lets the P fold call the
   bridge without a collapsed-model carrier.
 
 S7 (the de-basing's last wall) added `IndRecsCoreR`, `ProjFnRR`,
@@ -186,7 +186,7 @@ is exactly the collapsed lane's own two instances — `EnvS.toEnvFacts`
 (`Decl.lean`) and `checkDeclR_sound`/`foldlM_R` (`Sound.lean`).
 
 **Only the file paths and module names moved.**  The Lean namespaces
-(`ConLeche.SetR.Interp2`, `ConLeche.SetR`) are unchanged, so every frozen
+(`ConLeche.SetR.Interp`, `ConLeche.SetR`) are unchanged, so every frozen
 statement keeps its name verbatim and no consumer outside the `import`
 lines was touched — the statement-freeze discipline (task #161).
 -/

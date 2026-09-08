@@ -57,7 +57,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
           (betaGateFires mode m.pw = true ∨
             ∃ ta, inferTypeIO mode env fuel d a = .ok ta ∧
               isDefEqCore mode env fuel d ta ty = .ok true)) ∨
-        (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
+        (∃ e'', iotaRecFueled mode env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore mode env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
   rw [whnfCore_succ] at h
@@ -108,7 +108,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
         exact Or.inr (Or.inr h.symm)
   all_goals
     try simp only [Bind.bind, Except.bind] at h
-    cases hio : iotaRecP mode env fuel d (.app _ a) with
+    cases hio : iotaRecFueled mode env fuel d (.app _ a) with
     | error err => rw [hio] at h; exact nomatch h
     | ok o =>
       rw [hio] at h
@@ -130,7 +130,7 @@ theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
           ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
             isDefEqCore mode env fuel d ta ty = .ok true) ∨
-        (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
+        (∃ e'', iotaRecFueled mode env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore mode env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
   obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -155,12 +155,12 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
     {e e' : Expr}
     (h : whnfStep (pureFns mode env fuel) env d k e = .ok e') :
     ∃ e₁, whnfCore mode env fuel d e = .ok e₁ ∧
-      ((∃ e₂, reduceNatP mode env fuel d e₁ = .ok (some e₂) ∧
+      ((∃ e₂, reduceNatFueled mode env fuel d e₁ = .ok (some e₂) ∧
           k e₂ = .ok e') ∨
-       (reduceNatP mode env fuel d e₁ = .ok none ∧
+       (reduceNatFueled mode env fuel d e₁ = .ok none ∧
         ∃ e₂, unfoldDefinition env e₁ = some e₂ ∧
           k e₂ = .ok e') ∨
-       (reduceNatP mode env fuel d e₁ = .ok none ∧
+       (reduceNatFueled mode env fuel d e₁ = .ok none ∧
         unfoldDefinition env e₁ = none ∧ e' = e₁)) := by
   simp only [whnfStep, Bind.bind, Except.bind] at h
   simp only [whnfCore_def] at h
@@ -170,7 +170,7 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
   rw [hwc] at h
   dsimp only at h
   simp only [reduceNat_fold] at h
-  cases hrn : reduceNatP mode env fuel d e₁ with
+  cases hrn : reduceNatFueled mode env fuel d e₁ with
   | error err => rw [hrn] at h; exact nomatch h
   | ok o =>
   rw [hrn] at h
@@ -305,7 +305,7 @@ binder meta — annotation included.  This is definitional
 (`Core.lean`'s λ clause returns `.forallE ty (bt.abstract1 depth)
 mb`), and it is why an inferred type needs no ∀-front-door pass of its
 own: the codomain check the λ clause ran (chain or leaf) *is* the
-validation of the copied datum, and the `denoteP` readings of the λ
+validation of the copied datum, and the `denoteMeta` readings of the λ
 and of its inferred type dispatch on the same regime numeral
 `pwBit φ m.pw` by their clause equations. -/
 theorem infer_lam_meta_copy {env : Env} {fuel d : Nat}
@@ -691,12 +691,12 @@ theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
     simp [Expr.getAppArgs]
 
 /-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
-the string-literal expansion step (`projLitToCtorP`), then either a
+the string-literal expansion step (`projLitToCtorFueled`), then either a
 stuck projection of the converted scrutinee or a firing table entry. -/
 theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ e₃, whnf mode env fuel d e = .ok e₂ ∧
-      projLitToCtorP mode env fuel d e₂ = .ok e₃ ∧
+      projLitToCtorFueled mode env fuel d e₂ = .ok e₃ ∧
       (e' = .proj sn i e₃ ∨
         ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
           env.findProj? sn i = some entry ∧
@@ -706,7 +706,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertAtP mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
+          projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
             e₃.getAppArgs = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
@@ -717,7 +717,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | ok e₂ =>
   rw [he] at h
   dsimp only at h
-  cases hlit : projLitToCtorP mode env fuel d e₂ with
+  cases hlit : projLitToCtorFueled mode env fuel d e₂ with
   | error err => rw [hlit] at h; exact nomatch h
   | ok e₃ =>
   rw [hlit] at h
@@ -737,7 +737,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertAtP mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
+      cases hcert : projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
           e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
@@ -764,11 +764,11 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 
 /-- At the verified mode the fire's gate runs the certificate
 (`projCertAt`; parity mirrors official, 2026-09-06). -/
-theorem projCertAtP_verified {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
+theorem projCertAtFueled_verified {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     {us : List Level} {args : List Expr} (hv : mode.verifiedChecks = true)
-    (h : projCertAtP mode env fuel d mode.verifiedChecks lic c us args = .ok true) :
-    projCertP mode env fuel d lic c us args = .ok true := by
-  simp only [projCertAtP, projCertAt, hv, ↓reduceIte] at h
+    (h : projCertAtFueled mode env fuel d mode.verifiedChecks lic c us args = .ok true) :
+    projCertFueled mode env fuel d lic c us args = .ok true := by
+  simp only [projCertAtFueled, projCertAt, hv, ↓reduceIte] at h
   exact h
 
 /-- Inversion for a successful projection certification (task #175 W6):
@@ -776,11 +776,11 @@ the head is a stored constructor and the spine is certified against
 its type at the redex's levels (`iotaCerts`). -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     {us : List Level} {args : List Expr}
-    (h : projCertP mode env fuel d lic c us args = .ok true) :
+    (h : projCertFueled mode env fuel d lic c us args = .ok true) :
     ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
-      iotaCertsP mode env fuel d lic
+      iotaCertsFueled mode env fuel d lic
         (cvC.type.instantiateLevelParams cvC.levelParams us) args = .ok true := by
-  dsimp only [projCertP] at h
+  dsimp only [projCertFueled] at h
   simp only [projCert] at h
   split at h
   · rename_i cvC nP nF hf
@@ -795,22 +795,22 @@ each step preserves is carried from the raw major to the prepared one
 whichever order ran.  Every consumer of the chain (scoping, bound
 variables, leaves, the P tier's readings and gradings) is an instance,
 so none of them names the order. -/
-theorem prepareMajorP_ind {env : Env} {fuel d : Nat} {recName : Name}
+theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (h : prepareMajorFueled mode env fuel d recName rules a = .ok m)
     (P : Expr → Prop)
     (hwhnf : ∀ {e e' : Expr}, whnf mode env fuel d e = .ok e' → P e → P e')
     (hlit : ∀ {e e' : Expr},
-      litMajorToCtorP mode env fuel d e = .ok e' → P e → P e')
+      litMajorToCtorFueled mode env fuel d e = .ok e' → P e → P e')
     (hmaj : ∀ {e e' : Expr},
-      majorToCtorP mode env fuel d recName rules e = .ok e' → P e → P e')
+      majorToCtorFueled mode env fuel d recName rules e = .ok e' → P e → P e')
     (ha : P a) : P m := by
-  dsimp only [prepareMajorP] at h
+  dsimp only [prepareMajorFueled] at h
   simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
     litMajorToCtor_fold] at h
   by_cases hk : recRuleK env rules = true
   · rw [if_pos hk] at h
-    cases h₁ : majorToCtorP mode env fuel d recName rules a with
+    cases h₁ : majorToCtorFueled mode env fuel d recName rules a with
     | error err => rw [h₁] at h; exact nomatch h
     | ok m₁ =>
       rw [h₁] at h
@@ -827,7 +827,7 @@ theorem prepareMajorP_ind {env : Env} {fuel d : Nat} {recName : Name}
     | ok m₁ =>
       rw [h₁] at h
       dsimp only at h
-      cases h₂ : litMajorToCtorP mode env fuel d m₁ with
+      cases h₂ : litMajorToCtorFueled mode env fuel d m₁ with
       | error err => rw [h₂] at h; exact nomatch h
       | ok m₂ =>
         rw [h₂] at h
@@ -836,13 +836,13 @@ theorem prepareMajorP_ind {env : Env} {fuel d : Nat} {recName : Name}
 
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
-    (h : iotaRecP mode env fuel d e = .ok (some eout)) :
+    (h : iotaRecFueled mode env fuel d e = .ok (some eout)) :
     ∃ c us cv mI rP rules major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP rules) ∧
       e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length ∧
-      prepareMajorP mode env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
+      prepareMajorFueled mode env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
@@ -852,22 +852,22 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       Level.isEquivList usj
         (recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).1 = some true ∧
-      defEqListP mode env fuel d (major.getAppArgs.take r.ctorParams)
+      defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
         (recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = .ok true ∧
-      iotaCertsP mode env fuel d mode.betaGate
+      iotaCertsFueled mode env fuel d mode.betaGate
         (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
-      iotaCertsP mode env fuel d mode.betaGate
+      iotaCertsFueled mode env fuel d mode.betaGate
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true ∧
-      iotaIndexOkP mode env fuel d mI rP r.ctorParams
+      iotaIndexOkFueled mode env fuel d mI rP r.ctorParams
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take rP ++
           major.getAppArgs.drop r.ctorParams) := by
-  dsimp only [iotaRecP] at h
+  dsimp only [iotaRecFueled] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
   simp only [prepareMajor_fold, defEqList_fold,
     iotaCerts_fold, iotaIndexOk_fold] at h
@@ -902,7 +902,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hprep : prepareMajorP mode env fuel d c rules
+  cases hprep : prepareMajorFueled mode env fuel d c rules
       (e.getAppArgs.getD mI (.bvar 0)) with
   | error err => rw [hprep] at h; exact nomatch h
   | ok major =>
@@ -961,7 +961,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hpeq : defEqListP mode env fuel d (major.getAppArgs.take r.ctorParams)
+  cases hpeq : defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
       (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs rP).2 with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
@@ -972,7 +972,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hcerts : iotaCertsP mode env fuel d mode.betaGate
+  cases hcerts : iotaCertsFueled mode env fuel d mode.betaGate
       (cv.type.instantiateLevelParams cv.levelParams us)
       (e.getAppArgs.take mI ++ [major]) with
   | error err => rw [hcerts] at h; exact nomatch h
@@ -984,7 +984,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hmcerts : iotaCertsP mode env fuel d mode.betaGate
+  cases hmcerts : iotaCertsFueled mode env fuel d mode.betaGate
       (cvj.type.instantiateLevelParams cvj.levelParams usj)
       major.getAppArgs with
   | error err => rw [hmcerts] at h; exact nomatch h
@@ -997,7 +997,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   -- the index block (`iotaIndexOk`)
-  cases hidx : iotaIndexOkP mode env fuel d mI rP r.ctorParams
+  cases hidx : iotaIndexOkFueled mode env fuel d mI rP r.ctorParams
       (cvj.type.instantiateLevelParams cvj.levelParams usj)
       major.getAppArgs ((e.getAppArgs.take mI).drop rP) with
   | error err => rw [hidx] at h; exact nomatch h
@@ -1018,12 +1018,12 @@ indices: the constructor telescope's residual exists and its index
 arguments compare equal to the recursor's. -/
 theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
     {margs idx : List Expr}
-    (h : iotaIndexOkP mode env fuel d mI rP cnP tyCtor margs idx = .ok true)
+    (h : iotaIndexOkFueled mode env fuel d mI rP cnP tyCtor margs idx = .ok true)
     (hne : mI ≠ rP) :
     ∃ residual, piResidual tyCtor margs = some residual ∧
-      defEqListP mode env fuel d (residual.getAppArgs.drop cnP) idx =
+      defEqListFueled mode env fuel d (residual.getAppArgs.drop cnP) idx =
         .ok true := by
-  dsimp only [iotaIndexOkP] at h
+  dsimp only [iotaIndexOkFueled] at h
   simp only [iotaIndexOk, if_neg hne, defEqList_fold] at h
   cases hres : piResidual tyCtor margs with
   | none => rw [hres] at h; simp [pure, Except.pure] at h
@@ -1037,7 +1037,7 @@ irrelevance) — and its scoping was checked syntactically (the scope
 guard). -/
 theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {major major' : Expr}
-    (h : majorToCtorP mode env fuel d recName rules major = .ok major') :
+    (h : majorToCtorFueled mode env fuel d recName rules major = .ok major') :
     major' = major ∨
     (major'.wscopedB d = true ∧ major'.looseBVarsBounded 0 = true ∧
      major'.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true ∧
@@ -1055,12 +1055,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          (cvj.type.stripPis cnP).isSome = true ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs.take cnP) ∧
-         iotaCertsP mode env fuel d false
+         iotaCertsFueled mode env fuel d false
            (cvj.type.instantiateLevelParams cvj.levelParams ust)
            (tmaj.getAppArgs.take cnP) = .ok true ∧
          (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
            isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
-         proofIrrelP mode env fuel d major' major = .ok true) ∨
+         proofIrrelFueled mode env fuel d major' major = .ok true) ∨
         (caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
          Name.isProjFnShape recName = false ∧
          piResultNeverZero cvT.levelParams ust cvT.type = true ∧
@@ -1071,14 +1071,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            (caps.etaParams + caps.etaFields)).isSome = true ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) ∧
-         iotaCertsP mode env fuel d false
+         iotaCertsFueled mode env fuel d false
            (cvj.type.instantiateLevelParams cvj.levelParams ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
            = .ok true ∧
-         (structEtaCertWithP mode env fuel d major' major tmaj = .ok true ∨
+         (structEtaCertWithFueled mode env fuel d major' major tmaj = .ok true ∨
           (caps.etaFields = 0 ∧ cvj.levelParams.length = ust.length ∧
-           proofIrrelP mode env fuel d major' major = .ok true))))) := by
-  dsimp only [majorToCtorP] at h
+           proofIrrelFueled mode env fuel d major' major = .ok true))))) := by
+  dsimp only [majorToCtorFueled] at h
   simp only [majorToCtor, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def, proofIrrel_fold,
     iotaCerts_fold, structEtaCertWith_fold] at h
@@ -1227,7 +1227,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     rw [hguard] at h
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hcertK : iotaCertsP mode env fuel d false
+    cases hcertK : iotaCertsFueled mode env fuel d false
         (cvj.type.instantiateLevelParams cvj.levelParams ust)
         (tmaj.getAppArgs.take cnP) with
     | error err => rw [hcertK] at h; exact nomatch h
@@ -1262,7 +1262,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hpi : proofIrrelP mode env fuel d
+    cases hpi : proofIrrelFueled mode env fuel d
         (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)) major with
     | error err => rw [hpi] at h; exact nomatch h
@@ -1380,7 +1380,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     rw [hguard] at h
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hcertE : iotaCertsP mode env fuel d false
+    cases hcertE : iotaCertsFueled mode env fuel d false
         (cvj.type.instantiateLevelParams cvj.levelParams ust)
         (etaFabArgsE env T' ust tmaj.getAppArgs major caps.etaFields) with
     | error err => rw [hcertE] at h; exact nomatch h
@@ -1395,7 +1395,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hse : structEtaCertWithP mode env fuel d
+    cases hse : structEtaCertWithFueled mode env fuel d
         (Expr.mkAppN (.const caps.etaCtor ust)
           (etaFabArgsE env T' ust tmaj.getAppArgs major caps.etaFields))
         major tmaj with
@@ -1414,7 +1414,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         exact Or.inl h.symm
       rw [if_pos hZ] at h
       try simp only [Bind.bind, Except.bind] at h
-      cases hpi : proofIrrelP mode env fuel d
+      cases hpi : proofIrrelFueled mode env fuel d
           (Expr.mkAppN (.const caps.etaCtor ust)
             (etaFabArgsE env T' ust tmaj.getAppArgs major caps.etaFields))
           major with
@@ -1451,10 +1451,10 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
     {as bs : List Expr}
-    (h : defEqListP mode env fuel d (a :: as) (b :: bs) = .ok true) :
+    (h : defEqListFueled mode env fuel d (a :: as) (b :: bs) = .ok true) :
     isDefEqCore mode env fuel d a b = .ok true ∧
-    defEqListP mode env fuel d as bs = .ok true := by
-  dsimp only [defEqListP] at h
+    defEqListFueled mode env fuel d as bs = .ok true := by
+  dsimp only [defEqListFueled] at h
   simp only [defEqList, Bind.bind, Except.bind] at h
   simp only [defeq_def, defEqList_fold] at h
   cases hde : isDefEqCore mode env fuel d a b with
@@ -1472,12 +1472,12 @@ theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
 are applications of the same constant, at pointwise-equivalent levels,
 with pairwise definitionally equal spines of equal length. -/
 theorem defeqSpine_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : defeqSpineP mode env fuel d a b = .ok true) :
+    (h : defeqSpineFueled mode env fuel d a b = .ok true) :
     ∃ n us us', a.getAppFn = .const n us ∧ b.getAppFn = .const n us' ∧
       a.getAppArgs.length = b.getAppArgs.length ∧
       Level.isEquivList us us' = some true ∧
-      defEqListP mode env fuel d a.getAppArgs b.getAppArgs = .ok true := by
-  dsimp only [defeqSpineP] at h
+      defEqListFueled mode env fuel d a.getAppArgs b.getAppArgs = .ok true := by
+  dsimp only [defeqSpineFueled] at h
   simp only [defeqSpine, defEqList_fold] at h
   revert h
   match hfa : a.getAppFn with
@@ -1514,14 +1514,14 @@ on without a run) or the certificate ran. -/
 theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
     {ty body : Expr} {m : BinderMeta} {arg : Expr}
     {rest : List Expr}
-    (h : iotaCertsP mode env fuel d lic (.forallE ty body m) (arg :: rest) =
+    (h : iotaCertsFueled mode env fuel d lic (.forallE ty body m) (arg :: rest) =
       .ok true) :
     ((lic && m.pw.isNever) = true ∧
-      iotaCertsP mode env fuel d lic (body.instantiate1 arg) rest = .ok true) ∨
+      iotaCertsFueled mode env fuel d lic (body.instantiate1 arg) rest = .ok true) ∨
     ∃ ta, inferTypeIO mode env fuel d arg = .ok ta ∧
       isDefEqCore mode env fuel d ta ty = .ok true ∧
-      iotaCertsP mode env fuel d lic (body.instantiate1 arg) rest = .ok true := by
-  dsimp only [iotaCertsP] at h
+      iotaCertsFueled mode env fuel d lic (body.instantiate1 arg) rest = .ok true := by
+  dsimp only [iotaCertsFueled] at h
   simp only [iotaCerts, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, defeq_def, iotaCerts_fold] at h
   by_cases hg : (lic && m.pw.isNever) = true
@@ -1549,11 +1549,11 @@ theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
 rescue's synthetic certifications): the certificate ran. -/
 theorem iotaCerts_step_inv {env : Env} {fuel d : Nat}
     {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
-    (h : iotaCertsP mode env fuel d false (.forallE ty body m) (arg :: rest) =
+    (h : iotaCertsFueled mode env fuel d false (.forallE ty body m) (arg :: rest) =
       .ok true) :
     ∃ ta, inferTypeIO mode env fuel d arg = .ok ta ∧
       isDefEqCore mode env fuel d ta ty = .ok true ∧
-      iotaCertsP mode env fuel d false (body.instantiate1 arg) rest = .ok true := by
+      iotaCertsFueled mode env fuel d false (body.instantiate1 arg) rest = .ok true := by
   rcases iotaCerts_step_inv_gate h with ⟨hg, -⟩ | hrun
   · exact absurd hg (by simp)
   · exact hrun
@@ -1614,7 +1614,7 @@ the slow branch.  The fast "not a proof" arm only ever answers
 `false`, so it contributes nothing here.  Ungated since 2026-09-06:
 the arms run in both modes, so no mode conjunct survives. -/
 theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : propIrrelP mode env fuel d a b = .ok true) :
+    (h : propIrrelFueled mode env fuel d a b = .ok true) :
     (isProofFast env.find? a = true ∧ isProofFast env.find? b = true) ∨
     ∃ ta sta uT tb stb vT,
       inferTypeIO mode env fuel d a = .ok ta ∧
@@ -1625,7 +1625,7 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
       inferTypeIO mode env fuel d tb = .ok stb ∧
       whnf mode env fuel d stb = .ok (.sort vT) ∧
       Level.isEquiv vT .zero = some true := by
-  dsimp only [propIrrelP] at h
+  dsimp only [propIrrelFueled] at h
   simp only [propIrrel, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def] at h
   split at h
@@ -1709,7 +1709,7 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
 both sides' types whnf to the basis unit type, or both types' sorts are
 `Prop`. -/
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : proofIrrelP mode env fuel d a b = .ok true) :
+    (h : proofIrrelFueled mode env fuel d a b = .ok true) :
     ∃ ta wta,
       inferTypeIO mode env fuel d a = .ok ta ∧
       whnf mode env fuel d ta = .ok wta ∧
@@ -1724,7 +1724,7 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
         inferTypeIO mode env fuel d tb = .ok stb ∧
         whnf mode env fuel d stb = .ok (.sort vT) ∧
         Level.isEquiv vT .zero = some true)) := by
-  dsimp only [proofIrrelP] at h
+  dsimp only [proofIrrelFueled] at h
   simp only [proofIrrel, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def] at h
   cases hta : inferTypeIO mode env fuel d a with
@@ -1854,19 +1854,19 @@ theorem recSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
 theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     {us' : List Level} {targs : List Expr} {b : Expr} {lpsT : List Name} :
     ∀ (idxs : List Nat),
-      structEtaProjCertsP mode env fuel d T us' targs b lpsT idxs = .ok true →
+      structEtaProjCertsFueled mode env fuel d T us' targs b lpsT idxs = .ok true →
       ∀ i ∈ idxs,
         (∃ (cvp : ConstantVal) (mIp rPp : Nat) (rulesp : List RecRule),
           env.find? (projFnName T i) =
             some (.recInfo cvp mIp rPp rulesp) ∧
           cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true ∧
-          iotaCertsP mode env fuel d false
+          iotaCertsFueled mode env fuel d false
             (cvp.type.instantiateLevelParams cvp.levelParams us')
             (targs ++ [b]) = .ok true)
   | [], _, i, hi => nomatch hi
   | i₀ :: rest, h, i, hi => by
-    dsimp only [structEtaProjCertsP] at h
+    dsimp only [structEtaProjCertsFueled] at h
     rw [structEtaProjCerts] at h
     simp only [iotaCerts_fold, structEtaProjCerts_fold] at h
     revert h
@@ -1887,7 +1887,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
       rw [if_pos hlps] at h
       obtain ⟨hlps, hstrp⟩ := hlps
       simp only [Bind.bind, Except.bind] at h
-      cases hic : iotaCertsP mode env fuel d false
+      cases hic : iotaCertsFueled mode env fuel d false
           (cvp.type.instantiateLevelParams cvp.levelParams us')
           (targs ++ [b]) with
       | error e => rw [hic] at h; exact nomatch h
@@ -1904,7 +1904,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
 set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
 theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
-    (h : structEtaCertWithP mode env fuel d a b wtb = .ok true) :
+    (h : structEtaCertWithFueled mode env fuel d a b wtb = .ok true) :
     ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
       (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps),
@@ -1924,25 +1924,25 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       -- the slot discipline (task #175 W4c): one entry kind
       (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true ∧
       Level.isEquivList us us' = some true ∧
-      iotaCertsP mode env fuel d false
+      iotaCertsFueled mode env fuel d false
         (cvT.type.instantiateLevelParams cvT.levelParams us')
         wtb.getAppArgs = .ok true ∧
       -- the per-slot certificates run at a projection-function family
       -- only (task #175 S1)
       (towerSlotsAll env T cnF = false →
-        structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+        structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
           cvT.levelParams (List.range cnF) = .ok true) ∧
-      defEqListP mode env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
+      defEqListFueled mode env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
         = .ok true ∧
       -- task #137's constructor-telescope certificate is a TT-lane
       -- check (task #147): delivered only at `mode.ttChecks`
       (mode.ttChecks = true →
-        iotaCertsP mode env fuel d false
+        iotaCertsFueled mode env fuel d false
           (cvc.type.instantiateLevelParams cvc.levelParams us)
           (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) = .ok true) ∧
-      defEqListP mode env fuel d (a.getAppArgs.drop cnP)
+      defEqListFueled mode env fuel d (a.getAppArgs.drop cnP)
         (etaProjs env T us' wtb.getAppArgs b cnF) = .ok true := by
-  dsimp only [structEtaCertWithP] at h
+  dsimp only [structEtaCertWithFueled] at h
   rw [structEtaCertWith] at h
   simp only [iotaCerts_fold, structEtaProjCerts_fold, defEqList_fold] at h
   revert h
@@ -2023,7 +2023,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp at h
   | true => ?_
   simp only [↓reduceIte] at h
-  cases hic : iotaCertsP mode env fuel d false
+  cases hic : iotaCertsFueled mode env fuel d false
       (cvT.type.instantiateLevelParams cvT.levelParams us')
       wtb.getAppArgs with
   | error e => rw [hic] at h; exact nomatch h
@@ -2036,17 +2036,17 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   simp only [↓reduceIte] at h
   -- the per-slot certificates: skipped at a tower family (task #175 S1)
   have hpcOf : ∀ r₂, (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
-      else structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+      else structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
         cvT.levelParams (List.range cnF)) = .ok r₂ →
       r₂ = true →
       towerSlotsAll env T cnF = false →
-      structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+      structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
         cvT.levelParams (List.range cnF) = .ok true := by
     intro r₂ hr hr2 htow
     rw [if_neg (by simp [htow])] at hr
     rw [← hr2]; exact hr
   cases hpc0 : (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
-      else structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+      else structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
         cvT.levelParams (List.range cnF)) with
   | error e => rw [hpc0] at h; exact nomatch h
   | ok r₂ => ?_
@@ -2057,7 +2057,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   have hpc := hpcOf true hpc0 rfl
   simp only [↓reduceIte] at h
-  cases hd1 : defEqListP mode env fuel d (a.getAppArgs.take cnP)
+  cases hd1 : defEqListFueled mode env fuel d (a.getAppArgs.take cnP)
       wtb.getAppArgs with
   | error e => rw [hd1] at h; exact nomatch h
   | ok r₃ => ?_
@@ -2084,7 +2084,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   rw [htt] at h
   simp only [↓reduceIte] at h
-  cases hic2 : iotaCertsP mode env fuel d false
+  cases hic2 : iotaCertsFueled mode env fuel d false
       (cvc.type.instantiateLevelParams cvc.levelParams us)
       (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) with
   | error e => rw [hic2] at h; exact nomatch h
@@ -2103,11 +2103,11 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
 reduction: the stuck side's type is inferred and reduced, and the
 `With` form of the certificate ran on the result. -/
 theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structEtaCertP mode env fuel d a b = .ok true) :
+    (h : structEtaCertFueled mode env fuel d a b = .ok true) :
     ∃ tb wtb, inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok wtb ∧
-      structEtaCertWithP mode env fuel d a b wtb = .ok true := by
-  dsimp only [structEtaCertP] at h
+      structEtaCertWithFueled mode env fuel d a b wtb = .ok true := by
+  dsimp only [structEtaCertFueled] at h
   rw [structEtaCert] at h
   split at h
   case isFalse => exact nomatch h
@@ -2127,7 +2127,7 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
 
 /-- Inversion of a successful unit-likeness certification. -/
 theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structUnitCertP mode env fuel d a b = .ok true) :
+    (h : structUnitCertFueled mode env fuel d a b = .ok true) :
     ∃ (ta wta : Expr) (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps) (tb wtb : Expr),
       inferTypeIO mode env fuel d a = .ok ta ∧
@@ -2142,10 +2142,10 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok wtb ∧
       isDefEqCore mode env fuel d wta wtb = .ok true ∧
-      iotaCertsP mode env fuel d false
+      iotaCertsFueled mode env fuel d false
         (cvT.type.instantiateLevelParams cvT.levelParams us')
         wta.getAppArgs = .ok true := by
-  dsimp only [structUnitCertP] at h
+  dsimp only [structUnitCertFueled] at h
   rw [structUnitCert] at h
   simp only [Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def, iotaCerts_fold] at h
@@ -2219,7 +2219,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
     {m₁ : BinderMeta}
-    (h : etaCertP mode env fuel d ty₁ body₁ m₁ b = .ok true) :
+    (h : etaCertFueled mode env fuel d ty₁ body₁ m₁ b = .ok true) :
     ∃ tb ty₂ fb m₂,
       inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok (.forallE ty₂ fb m₂) ∧
@@ -2227,7 +2227,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
       isDefEqCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁))
         (.app b (.fvar d ty₁)) = .ok true ∧
       (mode.verifiedChecks = true → m₁.pw = m₂.pw) := by
-  dsimp only [etaCertP] at h
+  dsimp only [etaCertFueled] at h
   simp only [etaCert, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def] at h
   cases htb : inferTypeIO mode env fuel d b with
@@ -2560,14 +2560,14 @@ theorem natLitToConstructor_WScoped (n : Nat) {d : Nat} :
 /-- Inversion of the literal-major conversion: either the one-layer
 `Nat` conversion applied, or the major was a supported string literal
 and the result is the reduced constructor form. -/
-theorem litMajorToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
-    (h : litMajorToCtorP mode env fuel d e = .ok e₁) :
+theorem litMajorToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
+    (h : litMajorToCtorFueled mode env fuel d e = .ok e₁) :
     e₁ = litToCtorIfNat env e ∨
     ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
       whnf mode env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
-    dsimp only [litMajorToCtorP, litMajorToCtor] at h
+    dsimp only [litMajorToCtorFueled, litMajorToCtor] at h
     revert h
     split
     · intro h
@@ -2577,26 +2577,26 @@ theorem litMajorToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
       subst h
       exact Or.inl rfl
   | .lit (.natVal n) =>
-    simp only [litMajorToCtorP, litMajorToCtor, pure, Except.pure,
+    simp only [litMajorToCtorFueled, litMajorToCtor, pure, Except.pure,
       Except.ok.injEq] at h
     exact Or.inl h.symm
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
   | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
-    simp only [litMajorToCtorP, litMajorToCtor, pure, Except.pure,
+    simp only [litMajorToCtorFueled, litMajorToCtor, pure, Except.pure,
       Except.ok.injEq] at h
     exact Or.inl h.symm
 
 /-- Inversion of the projection-scrutinee literal conversion: either the
 identity, or the scrutinee was a supported string literal and the
 result is the reduced constructor form. -/
-theorem projLitToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
-    (h : projLitToCtorP mode env fuel d e = .ok e₁) :
+theorem projLitToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
+    (h : projLitToCtorFueled mode env fuel d e = .ok e₁) :
     e₁ = e ∨
     ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
       whnf mode env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
-    dsimp only [projLitToCtorP, projLitToCtor] at h
+    dsimp only [projLitToCtorFueled, projLitToCtor] at h
     revert h
     split
     · intro h
@@ -2606,12 +2606,12 @@ theorem projLitToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
       subst h
       exact Or.inl rfl
   | .lit (.natVal n) =>
-    simp only [projLitToCtorP, projLitToCtor, pure, Except.pure,
+    simp only [projLitToCtorFueled, projLitToCtor, pure, Except.pure,
       Except.ok.injEq] at h
     exact Or.inl h.symm
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
   | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
-    simp only [projLitToCtorP, projLitToCtor, pure, Except.pure,
+    simp only [projLitToCtorFueled, projLitToCtor, pure, Except.pure,
       Except.ok.injEq] at h
     exact Or.inl h.symm
 
@@ -2774,9 +2774,9 @@ theorem natOpResult_atom {c : Name} {a b : Nat} {e₂ : Expr}
 /-- Literal acceleration produces closed atoms: a literal or a
 `Bool`-constant head. -/
 theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
-    (h : reduceNatP mode env fuel d e = .ok (some e₂)) :
+    (h : reduceNatFueled mode env fuel d e = .ok (some e₂)) :
     (∃ n, e₂ = .lit (.natVal n)) ∨ (∃ bn, e₂ = .const bn []) := by
-  dsimp only [reduceNatP] at h
+  dsimp only [reduceNatFueled] at h
   revert h
   match e with
   | .app (.const c []) a => ?_
@@ -3015,10 +3015,10 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
           -- the major's scoping, through the chain in either order
           have hmajw : WScoped d major :=
-            prepareMajorP_ind hprep (WScoped d)
+            prepareMajorFueled_ind hprep (WScoped d)
               (fun hw' hwe => ihLoop hw' hwe)
               (fun hl hwe => by
-                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                rcases litMajorToCtorFueled_inv hl with rfl | ⟨s, -, -, hred⟩
                 · exact litToCtorIfNat_WScoped hwe
                 · exact ihLoop hred (strLitToConstructor_WScoped s d))
               (fun hs hwe => by
@@ -3039,7 +3039,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
         have hwe₂ : WScoped d e₂ := ihLoop he hw
         have hwe₃ : WScoped d e₃ := by
-          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
           · exact hwe₂
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
@@ -3081,15 +3081,15 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env)
   (whnfPres_WScoped henv fuel).2 h hw
 
 /-- The major chain preserves well-scopedness (an instance of
-`prepareMajorP_ind`). -/
-theorem prepareMajorP_WScoped {env : Env} (henv : EnvWF env)
+`prepareMajorFueled_ind`). -/
+theorem prepareMajorFueled_WScoped {env : Env} (henv : EnvWF env)
     {fuel d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (h : prepareMajorFueled mode env fuel d recName rules a = .ok m)
     (hw : WScoped d a) : WScoped d m :=
-  prepareMajorP_ind h (WScoped d)
+  prepareMajorFueled_ind h (WScoped d)
     (fun hw' hwe => whnf_WScoped henv fuel hw' hwe)
     (fun hl hwe => by
-      rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+      rcases litMajorToCtorFueled_inv hl with rfl | ⟨s, -, -, hred⟩
       · exact litToCtorIfNat_WScoped hwe
       · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d))
     (fun hs hwe => by

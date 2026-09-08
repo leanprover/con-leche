@@ -1,5 +1,5 @@
 import ConLeche.Verify.Denote.Rename
-import ConLeche.Kernel.Modeled
+import ConLeche.Kernel.Inductives.Modeled
 
 /-!
 # The projection phase's fold invariant (task #161, S1)
@@ -11,14 +11,14 @@ predicate** — it quantifies over a `TConstVal` and the environment's
 stored constants, and names no `V`, no `interp` and no `EnvS`; its one
 consequence here, `projFwd_renameOkT`, is the model-free `RenameOkT`
 of `Verify/Denote/Rename.lean`.  The collapsed lane instantiates it at
-`m.cval`, the graded lane (`Interp2/ProjRenameP.lean`) at the
+`m.cval`, the graded lane (`Interp/ProjRenameP.lean`) at the
 carrier's own valuation.
 
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
 namespace ConLeche.Semantics
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- **The projection phase's fold invariant** ([set] transpose of
 `ProjPhaseInv`): the parent type and the constructor still carry their

@@ -9,7 +9,7 @@ byte-identical, so the knot can tie it); the executable knot's
 `inferIO` slot runs it at `mode.betaGate` and the full body everywhere
 else (task #170: R ignores the flag).  The leaf lane below
 (`coreKnotIO` / `inferTypeCoreIO`) remains the *statement subject* the
-`InferClaimsIO2P` family and the io-gate kernel fixtures are phrased
+`InferClaimIO` family and the io-gate kernel fixtures are phrased
 at; `Verify/Knot.lean`'s `inferTypeIO_on` identifies the executable
 slot with it at the gated mode, and `inferTypeIO_off` collapses the
 slot to `inferTypeCore` at every gate-off mode.  The stage-2
@@ -62,12 +62,12 @@ strict direction needs no argument.
 `annotate` are the *full* knot's, unchanged, so every certificate the
 reduction and definitional-equality bodies run is the certified one and
 every claim tier that models those bodies (`Red`/`Infer`/`DefEq` in
-`SetR/Rel.lean`, the `denote2` D lane, the graded P lane) keeps its
+`SetR/Rel.lean`, the `denoteAnnot` D lane, the graded P lane) keeps its
 present subject.  Only `infer` is the io body, and only the io body
 calls it.  Consequently
 
 * the new statement surface is **exactly one family**
-  (`InferClaimsIO2P`), and the step assembly goes five-way:
+  (`InferClaimIO`), and the step assembly goes five-way:
   `{whnfCore, whnf, defeq, infer, inferIO}` at `fuel` give the same
   five at `fuel + 1`;
 * nothing in the full lane can reach an io conclusion, which is the
@@ -115,7 +115,7 @@ def coreKnotIO (env : Env) : Nat → CoreFns m
       inferIO := fun d e => inferBodyIO mode (coreKnotIO env fuel) env d e }
 
 /-- The io core, tied at `CheckM`: the specification the
-`InferClaimsIO2P` family is stated at. -/
+`InferClaimIO` family is stated at. -/
 def pureFnsIO (env : Env) : Nat → CoreFns CheckM :=
   coreKnotIO mode env
 

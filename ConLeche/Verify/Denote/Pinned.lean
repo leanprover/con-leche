@@ -4,12 +4,12 @@ import ConLeche.Verify.EnvPreds
 /-!
 # The pinned basis constants' direct valuations
 
-`pinnedDirectT` — what a reserved basis constant denotes to in the
+`pinnedStructT` — what a reserved basis constant denotes to in the
 declarative layer, where it denotes to a bare `BConst` built-in.
 
 Relocated verbatim from `ConLeche/TTVerify/EnvTT.lean` (task #148, T1):
 the definition is `V`-free — it is a table from the checker's reserved
-names to `ConLeche/VExpr/Const.lean`'s built-ins — so it belongs where both
+names to `ConLeche/Term/Const.lean`'s built-ins — so it belongs where both
 verification lanes can import it.  The level-parameter names it reads
 are `ConLeche/Verify/EnvPreds.lean`'s `uN`/`vN`/`u1N` (the `uN`/`vN`/
 `u1N` restatements that stood beside it were the same relocation's
@@ -18,7 +18,7 @@ fourth item).
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- What a reserved basis constant denotes to, where it denotes to a
 bare built-in.  `none` for the four the layer derives rather than
@@ -39,9 +39,9 @@ built-in `empty` at level `0` is `Sort 0`-valued (`BConst.type`), and
 
 Each would have been caught only here, because `val_params` is what
 they violate and nothing before the install asserts it for a basis
-constant.  That is the house rule's point exactly (`ConLeche/VExpr/DESIGN.md`
+constant.  That is the house rule's point exactly (`ConLeche/Term/DESIGN.md`
 §3.1): a definition is a conjecture until a consumer elaborates it. -/
-def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
+def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
   if n = natName then some (.const .nat [])
   else if n = natZeroName then some (.const .natZero [])
   else if n = natSuccName then some (.const .natSucc [])
@@ -85,7 +85,7 @@ def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
     env.find? n = some ci →
     reservedBasisNames.contains n = true →
     (ConstantInfo.isBasis ci = true → ci = pinnedInfo n) ∧
-    ∀ (t : VExpr) (ψ : Name → Nat), pinnedDirectT n ψ = some t →
+    ∀ (t : Term) (ψ : Name → Nat), pinnedStructT n ψ = some t →
       cval n ψ = t
 
 theorem BasisPinnedTT.empty (cval : TConstVal) :

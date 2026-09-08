@@ -7,7 +7,7 @@ If the checker, in its default `--verified` mode, accepts a stream of
 declarations, then the resulting environment contains no constant of
 type `False`.
 
-* `checkDeclsSPCachedD` is the function the `con-leche` binary runs on the
+* `checkDecls` is the function the `con-leche` binary runs on the
   parsed export stream; `.verified` is the default mode.
 * `DeclC` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted.
@@ -22,12 +22,12 @@ The axioms used are exactly `propext`, `Classical.choice` and
 
 namespace ConLeche
 
-open ConLeche.Cached (DeclC checkDeclsSPCachedD)
+open ConLeche.Cached (DeclC checkDecls)
 
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
+    (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
-  fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_SPCD_P V rfl accepted c hc hty
+  fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_cached V rfl accepted c hc hty
 
 end ConLeche

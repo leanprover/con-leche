@@ -7,8 +7,8 @@ import ConLeche.Kernel.Env
 import ConLeche.Kernel.PropRead
 import ConLeche.Kernel.TypeChecker
 import ConLeche.Kernel.CoreIO
-import ConLeche.Kernel.CoreP
-import ConLeche.Kernel.CheckerP
+import ConLeche.Kernel.CoreGated
+import ConLeche.Kernel.CheckerGated
 import ConLeche.Kernel.Checker
 import ConLeche.Verify.Level
 import ConLeche.Verify.Shift
@@ -17,7 +17,7 @@ import ConLeche.Verify.EnvWF
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferIOLemmas
 import ConLeche.Verify.InferIOLeaves
-import ConLeche.Verify.CoreP
+import ConLeche.Verify.CoreGated
 import ConLeche.Verify.AnnotDefense
 import ConLeche.SetTheory.Basic
 import ConLeche.SetTheory.Core

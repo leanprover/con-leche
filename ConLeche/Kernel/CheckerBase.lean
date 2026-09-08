@@ -2,7 +2,7 @@ import ConLeche.Kernel.Env
 import ConLeche.Kernel.StdAxioms
 import ConLeche.Kernel.TypeChecker
 import ConLeche.Kernel.NatOpPins
-import ConLeche.Kernel.Direct.Parts
+import ConLeche.Kernel.Inductives.StructParts
 
 /-!
 # The declaration checker's common ground
@@ -13,7 +13,7 @@ instantiations, the common per-declaration constant check
 install paths share (`domsMatchAux`, `openPisAtFvars`,
 `checkTypedList`, `checkDefEqList`, `piResultSort`).  The
 modeled-inductive install builds on this in
-`ConLeche/Kernel/Modeled.lean`, everything else in
+`ConLeche/Kernel/Inductives/Modeled.lean`, everything else in
 `ConLeche/Kernel/Checker.lean`.
 -/
 

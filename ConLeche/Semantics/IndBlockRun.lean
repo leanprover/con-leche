@@ -26,7 +26,7 @@ priced comparison).
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## The projection fold -/
 
@@ -590,8 +590,8 @@ The answer is the S10 seal's own (residual A): the reading comes from
 the *run*, through the consumer's own acceptance walk, not from a
 derivation.  So the supplier is a **premise** here — `hden`, "an
 `inferTypeCore` verdict on a closed expression is a reading" — and the
-graded lane discharges it with `acceptedReadsP_of` composed with
-`denoteP_erase`.  The collapsed lane keeps `iotaRulesFactsR`
+graded lane discharges it with `acceptedReads_of` composed with
+`denoteMeta_erase`.  The collapsed lane keeps `iotaRulesFactsR`
 unchanged; neither lane re-proves the syntactic six. -/
 
 /-- **Every rule the per-recursor fold returns carries its model-free
@@ -827,7 +827,7 @@ record -/
 `declIndEtaClosed`'s proof verbatim, at the run family: it reads the
 member fold's `indNew`/`mono`/`ctorEntry`, the group's `noInd`/`keep`,
 and the three post-member phases' `ExtEta` extensions — no valuation
-anywhere.  This is what `declStepPM` hands `declEtaStepRun` now that
+anywhere.  This is what `declStep_preserves` hands `declEtaStepRun` now that
 the graded fold's ind premise is the run record. -/
 theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo}

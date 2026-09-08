@@ -14,7 +14,7 @@ import ConLeche.Verify.Denote.VClosed
 `ConLeche.SetR` kept).  The file never had a lane: the docstring below
 already said every field is V-free, and its four imports were base
 already.  What forced the move is that **both** lanes now build an
-`EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvS2PM.toEnvFacts`
+`EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvModelM.toEnvFacts`
 — and the P lane may not import `ConLeche/SetR/*`.
 
 The bridge (`ConLeche/SetR/Bridge/*`) turns a successful `--verified`
@@ -45,7 +45,7 @@ whole point of the factoring.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-- The environment facts the bridge consumes: a constant valuation,
 its closedness, the syntactic well-formedness of the store, level
@@ -59,7 +59,7 @@ structure EnvFacts (env : Env) where
   cval : TConstVal
   /-- Every constant denotes to a closed term.  Consumed by every
   lifting step (`denote_weaken_top`, `denote_lift`) and by M1. -/
-  cval_closed : ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (cval n ψ)
+  cval_closed : ∀ (n : Name) (ψ : Name → Nat), Term.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed.  Consumed by
   the frame-condition lemmas of `ConLeche/Verify/*`. -/
   wf : EnvWF env
@@ -70,7 +70,7 @@ structure EnvFacts (env : Env) where
       cval n φ₁ = cval n φ₂
   /-- **Every stored constant's type denotes.**  The weakest form of
   `EnvTT.has_type` / `EnvS.mem_type` the bridge needs: it names the
-  `VExpr` the `.const` rule's `denoteClosed` side condition asks for,
+  `Term` the `.const` rule's `denoteClosed` side condition asks for,
   and nothing else. -/
   ty_denotes : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
     ∃ t, denoteClosed cval env ψ c.toConstantVal.type = some t

@@ -1,4 +1,4 @@
-import ConLeche.Kernel.Direct.InstallF
+import ConLeche.Kernel.Inductives.StructInstallF
 import ConLeche.Verify.InstList
 
 /-!
@@ -6,7 +6,7 @@ import ConLeche.Verify.InstList
 
 The direct simple-structure install's hot loops run the `*F`/`*A`
 variants (`Expr.instPisAtF`, `Expr.instLamsAtF`, `openPisAtFvarsF`,
-`domsMatchAuxA`, `checkDirectDomsAtFA`, `checkDirectFieldUnivFA`, and
+`domsMatchAuxA`, `checkStructDomsAtFA`, `checkDirectFieldUnivFA`, and
 the threaded `directProjResid`); every lemma here identifies one of
 them **unconditionally** with the sequential function the Model/Verify
 layers keep seeing.  The `Go` cores accumulate the pending
@@ -113,14 +113,14 @@ theorem domsMatchAuxA_eq (g : Nat → Expr → Expr)
 section
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-theorem checkDirectDomsAtFA_eq (ops : CheckerOps m) (fe : FEnv)
+theorem checkStructDomsAtFA_eq (ops : CheckerOps m) (fe : FEnv)
     (off : Nat) (fvs doms : List Expr) :
-    ∀ j, checkDirectDomsAtFA ops fe off fvs.toArray doms.toArray j
-      = checkDirectDomsAtF ops fe off fvs doms j
+    ∀ j, checkStructDomsAtFA ops fe off fvs.toArray doms.toArray j
+      = checkStructDomsAtF ops fe off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectDomsAtFA, checkDirectDomsAtF,
-      List.getElem?_toArray, checkDirectDomsAtFA_eq ops fe off fvs doms j]
+    simp only [checkStructDomsAtFA, checkStructDomsAtF,
+      List.getElem?_toArray, checkStructDomsAtFA_eq ops fe off fvs doms j]
 
 end
 

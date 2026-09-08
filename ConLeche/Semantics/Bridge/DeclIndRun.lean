@@ -8,7 +8,7 @@ import ConLeche.Verify.Extend.Proj
 
 S11a cut the guard/derivation weld at the five non-`ind` declaration
 kinds; this module cuts it at the sixth, and it is the last one.
-`declIndRun_of` below produces `DeclIndRun` from `checkIndDecl`'s
+`declIndRun_of` below produces `DeclIndRun` from `checkModeled`'s
 verdict with **no derivation on the path**, which is what
 `checkDeclRun_ofEnvFactsE`'s `Ind` slot has been waiting for since S4.
 
@@ -47,7 +47,7 @@ prices.
 
 namespace ConLeche.Semantics
 
-open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Term ConLeche.Verify
 
 /-! ## The block members -/
 
@@ -511,7 +511,7 @@ theorem projInstallRunRS {μ : CheckMode} {F : Nat} {T ctorName : Name}
 
 /-! ## The assembly -/
 
-/-- **The `indDecl` branch, run half** (`checkIndDecl`) — the batch's
+/-- **The `indDecl` branch, run half** (`checkModeled`) — the batch's
 deliverable and the campaign's last door.
 
 `declIndRR`'s five folds, each replaced by its run twin, and **the
@@ -526,10 +526,10 @@ with it the run record's last conjunct.) -/
 theorem declIndRun_of
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo}
-    (h : checkIndDecl (m := CheckM) μ (fueledOps μ F) env block
+    (h : checkModeled (m := CheckM) μ (fueledOps μ F) env block
       = .ok env₂) :
     DeclIndRun μ F env block env₂ := by
-  simp only [checkIndDecl, Bind.bind, Except.bind, pure,
+  simp only [checkModeled, Bind.bind, Except.bind, pure,
     Except.pure] at h
   split at h
   case isFalse => simp [throw, throwThe, MonadExceptOf.throw] at h

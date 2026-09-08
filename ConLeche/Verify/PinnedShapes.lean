@@ -18,7 +18,7 @@ them without importing the TT lane.
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-- Which reserved names carry recursor-shaped pinned declarations.
 The transpose of `ConLeche/Model/BasisVal.lean`'s

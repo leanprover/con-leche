@@ -721,7 +721,7 @@ their certificate cases on `pwBit φ m.pw = 0`, and `isNever` is
 exactly the ∀-`φ` uniform version of the positive branch —
 `pwBit φ .never = 1` at every `φ`, and no other datum has that
 property (`.ifAllZero ps` holds at the all-zero valuation).  Sound
-*and* exact: `isNever_iff_forall_pwBit_ne_zero` (`SetP/Annot/Bit.lean`)
+*and* exact: `isNever_iff_forall_pwBit_ne_zero` (`Model/Annot/Bit.lean`)
 rests on `holds_never`/`holds_ifAllZero` here.
 
 The datum may be read **only** to skip a re-check; it must never
@@ -1011,8 +1011,8 @@ theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
     simp_all [List.all_append]
 
 /-- **Parameter locality**: a datum reads its valuation only at its
-own parameters (the `paramsDefined` footprint) — `denoteP`'s
-φ-congruence walk (`denoteP_params_ext`) rides this at every binder. -/
+own parameters (the `paramsDefined` footprint) — `denoteMeta`'s
+φ-congruence walk (`denoteMeta_params_ext`) rides this at every binder. -/
 theorem holds_ext {ps : List Name} {pw : PropWhen}
     (hdef : pw.paramsDefined ps = true) {φ₁ φ₂ : Name → Nat}
     (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) : pw.holds φ₁ = pw.holds φ₂ := by

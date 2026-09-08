@@ -19,7 +19,7 @@ denote stack to a neutral home"; this is the slice the bridge forced.)
 
 namespace ConLeche.Verify
 
-open ConLeche.VExpr
+open ConLeche.Term
 
 /-! ## The denotation reads only an expression's own level parameters
 

@@ -4,7 +4,7 @@
 # Runs every fixture of the arena, e2e and annot suites through the
 # three `--core=` variants and requires *identical* verdicts:
 #
-#   production        checkDeclsSP        (the shipped driver)
+#   production        checkDeclsPure        (the shipped driver)
 #   interned-shared   checkDeclsShared    (interned core, Expr-typed
 #                                          shared-state driver)
 #   cached            the pilot's clone   (same driver, cached core)

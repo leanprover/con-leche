@@ -150,7 +150,7 @@ def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
 
 The capture-avoiding substitution `Expr.instantiate1Lift` — the one
 substitution on the direct install's executed path with no memoised
-twin: `directProjBodies` runs it once per field over the constructor
+twin: `structProjBodies` runs it once per field over the constructor
 telescope, turning a DAG-shared field type into an unshared tree each
 time.  The twin has the `bvarB` cutoff (a node bounded at or below the
 cursor is returned unchanged), a BUDGETED plain descent first (4096

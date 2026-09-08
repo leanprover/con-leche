@@ -233,10 +233,10 @@ theorem substPW_paramsDefined {ks : List Name} {us : List Level}
 /-- **The pushforward's semantic reading** (task #161 P3): the
 instantiated datum's bit at `φ` is the datum's bit at the composed
 valuation `Level.substFn φ ks vs` — the same composed valuation
-`denote2`'s constant clause uses.  The `denoteP` level crossing rides
+`denoteAnnot`'s constant clause uses.  The `denoteMeta` level crossing rides
 this where the canonical lane needed the open checker metatheorems
 (`SortOfEInstLevels`/`LamSortEInstLevels`,
-`ConLeche/SetR/Interp2/Step2/Levels.lean`). -/
+`ConLeche/SetR/Interp/Steps/Levels.lean`). -/
 theorem holds_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ pw : PropWhen,
     (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs) := by

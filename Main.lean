@@ -56,12 +56,12 @@ def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
 /-- **The progress lane's fold — UNVERIFIED, and the only unverified
 loop in the driver** (`CON_LECHE_PROGRESS`, user ruling 2026-09-07).
 
-The default run calls `ConLeche.Cached.checkDeclsSPCachedD` — the pure
+The default run calls `ConLeche.Cached.checkDecls` — the pure
 function `ConLeche.no_proof_of_False` is about — and prints nothing per
 declaration.  A pure fold cannot print, so when the heartbeat is on the
 driver runs a *different, plainly unverified* fold instead.
 
-It is the same steps in the same order — `checkDeclStepIdxC mode`, the
+It is the same steps in the same order — `checkDeclStep mode`, the
 position-carrying step of the verified fold, over the same records from
 the same empty environment and state — with one line printed before
 each declaration.  Nobody should be bothered by the difference between
@@ -114,7 +114,7 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
       match pd with
       | .indDecl block =>
         let route :=
-          if (ConLeche.directFixParts? block).isSome then "fix"
+          if (ConLeche.nativeParts? block).isSome then "fix"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"
@@ -128,7 +128,7 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
         err.flush
       | _ => pure ()
-    match ConLeche.Cached.checkDeclStepIdxC mode (i, fe) pd s with
+    match ConLeche.Cached.checkDeclStep mode (i, fe) pd s with
     | .ok ((i', fe'), s') =>
       checkDeclsProgressIO mode err stride total t0 trace inModelled ds i' fe' s'
     | .error e => return .error e
@@ -159,7 +159,7 @@ hand-written trusted twin retired into an instantiation
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
 cached driver — at `.verified` under `--verified` (the default), at `.trusted`
 under `--trusted`.  The verified instance is covered by
-`no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
+`no_proof_of_Empty_cached` over `checkDecls`
 (`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
 accept (`trusted_agrees_P_skels_shipped`). -/
@@ -292,7 +292,7 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **Two loops** (user ruling, 2026-09-07).  Without
       -- `CON_LECHE_PROGRESS` the driver calls the verified fold
-      -- `ConLeche.Cached.checkDeclsSPCachedD` directly — the exact
+      -- `ConLeche.Cached.checkDecls` directly — the exact
       -- function `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`)
       -- is about.  With it, the driver calls `checkDeclsProgressIO`
       -- above: the same steps in the same order, in `IO`, printing one
@@ -338,7 +338,7 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
             inModelled decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) {}
         else
-          pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
+          pure (ConLeche.Cached.checkDecls mode decls.toList)
       match verdict with
       | .ok env =>
         progressDone decls.size
@@ -448,7 +448,7 @@ def usage : String := String.intercalate "\n" [
   "                    The seven TT-lane checks (tasks #126/#129/#130/",
   "                    #135/#136/#137/#146) are off; every other",
   "                    certificate family runs.  Covered by",
-  "                    no_proof_of_Empty_SPCD_P over the driver this",
+  "                    no_proof_of_Empty_cached over the driver this",
   "                    binary runs (ConLeche/Verify/Cached/MainC.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
@@ -487,7 +487,7 @@ def usage : String := String.intercalate "\n" [
   "                    the same order as the verified one with a line",
   "                    printed before each declaration, because a pure",
   "                    fold cannot print.  A run WITHOUT this variable",
-  "                    calls checkDeclsSPCachedD, the function the main",
+  "                    calls checkDecls, the function the main",
   "                    theorem (ConLeche.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
   "  CON_LECHE_ROUTE_TRACE=1",
@@ -589,7 +589,7 @@ def usage : String := String.intercalate "\n" [
   "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which the capstone",
-  "letter is about at the verified mode (no_proof_of_Empty_SPCD_P in",
+  "letter is about at the verified mode (no_proof_of_Empty_cached in",
   "ConLeche/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",
@@ -605,7 +605,7 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   -- The verified lane is the GRADED core since the R core's retirement
-  -- (2026-09-05); `no_proof_of_Empty_SPCD_P` is its letter.
+  -- (2026-09-05); `no_proof_of_Empty_cached` is its letter.
   | "--verified" :: rest, a => parseArgs rest { a with mode := .verified }
   -- The retired-spelling discipline (task #172): a verdict's
   -- provenance must be readable off the invocation, so a retired

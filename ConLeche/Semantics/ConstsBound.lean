@@ -14,7 +14,7 @@ collapsed lane in ten — and it is model-free: an `Expr`/`Env`
 predicate, with `Expr` clause equations and one `instantiate1` closure
 fact.  It was split across two lane modules for historical reasons: the
 definition sat in `Annot/SortCoh/Discharge.lean` (which "landed it with
-no lemmas"), the kit in `Interp2/Denote2Extend.lean`.  The graded
+no lemmas"), the kit in `Interp/Denote2Extend.lean`.  The graded
 lane's `Annot/BitExtend` imported the whole of the latter — a 2U module
 — for the kit alone, which is the crossing S2 removes.
 
@@ -22,7 +22,7 @@ lane's `Annot/BitExtend` imported the whole of the latter — a 2U module
 fact (a guard inversion producing two `isSome` obligations) and
 `BitExtend` reads it at the same clause.
 
-Statements verbatim, namespace (`ConLeche.SetR.Interp2`) unchanged.
+Statements verbatim, namespace (`ConLeche.SetR.Interp`) unchanged.
 -/
 
 namespace ConLeche.Semantics
@@ -52,7 +52,7 @@ decreasing_by all_goals first
 
 `ConstsBound` landed with no lemmas — its only consumer so far took it
 as a premise and never took it apart.  These are the clause equations
-and the one closure fact `denote2`'s binder cases need. -/
+and the one closure fact `denoteAnnot`'s binder cases need. -/
 
 @[simp] theorem constsBound_const {env₀ : Env} {n : Name}
     {us : List Level} :
@@ -100,7 +100,7 @@ and the one closure fact `denote2`'s binder cases need. -/
 
 /-- **The literal case is the catch-all.**  Stated, rather than left
 implicit, because it is the whole of finding 2: the premise of
-`Denote2EnvExtend` says *nothing* about a literal, while `denote2`'s
+`Denote2EnvExtend` says *nothing* about a literal, while `denoteAnnot`'s
 literal clauses are gated on an environment-global guard. -/
 @[simp] theorem constsBound_lit {env₀ : Env} {l : ConLeche.Literal} :
     ConstsBound env₀ (.lit l) := by rw [ConstsBound] <;> simp
@@ -166,7 +166,7 @@ theorem strLitSupported_listNames {env₀ : Env}
 
 `FindPreserved` came out of `Annot/SortCoh/Discharge.lean` beside
 `ConstsBound`; `LitGuardsAgree` and `levelParamsAt_congr` out of
-`Interp2/Denote2Extend.lean` with the kit.  All three are `Env`
+`Interp/Denote2Extend.lean` with the kit.  All three are `Env`
 arithmetic, and both lanes' extension statements are phrased in
 them. -/
 
@@ -194,7 +194,7 @@ theorem levelParamsAt_congr {env₀ env : Env}
 /-! ## From the environment invariant
 
 `constsBound_of_constsResolve` and `envWF_constsBound` came out of
-`Interp2/Keys2Cond.lean` at the same S2 sever: they are the bridge from
+`Interp/Keys2Cond.lean` at the same S2 sever: they are the bridge from
 the checker's decidable `constsResolve` and from `EnvWF` to
 `ConstsBound`, and both lanes' install rows start from them. -/
 
