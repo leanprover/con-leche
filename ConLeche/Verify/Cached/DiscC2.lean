@@ -513,8 +513,7 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
           if caps.unitlike = true ∧
               reservedBasisNames.contains Tn = false ∧
               targs.length = caps.unitParams ∧
-              us'.length = cvT.levelParams.length ∧
-              (cvT.type.stripPis caps.unitParams).isSome = true then
+              us'.length = cvT.levelParams.length then
             (coreKnotI .verified (mkFEnv env) f).inferIO d j >>= fun tb =>
             (coreKnotI .verified (mkFEnv env) f).whnf d tb >>= fun wtb =>
             (coreKnotI .verified (mkFEnv env) f).defeq d wta wtb >>= fun r =>
@@ -535,8 +534,7 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
           if caps.unitlike = true ∧
               reservedBasisNames.contains T = false ∧
               wta.getAppArgs.length = caps.unitParams ∧
-              us'.length = cvT.levelParams.length ∧
-              (cvT.type.stripPis caps.unitParams).isSome = true then
+              us'.length = cvT.levelParams.length then
             (fueledFns .verified env).inferIO d b >>= fun tb =>
             (fueledFns .verified env).whnf d tb >>= fun wtb =>
             (fueledFns .verified env).defeq d wta wtb >>= fun r =>
@@ -821,7 +819,6 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                   wtb.getAppArgs.length = cnP ∧
                   us'.length = cvT.levelParams.length ∧
                   cvc.levelParams = cvT.levelParams ∧
-                  (cvT.type.stripPis cnP).isSome = true ∧
                   (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
                 liftFueled "level comparison"
                   (Level.isEquivList us us') >>= fun ok =>
@@ -897,7 +894,6 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                     targs.length = cnP ∧
                     us'.length = cvT.levelParams.length ∧
                     cvc.levelParams = cvT.levelParams ∧
-                    (cvT.type.stripPis cnP).isSome = true ∧
                     ((mkFEnv env).towerSlotsAllF Tn cnF ||
                       (mkFEnv env).recSlotsAllF Tn cnF) = true then
                   isEquivListLM us us' >>= fun o =>

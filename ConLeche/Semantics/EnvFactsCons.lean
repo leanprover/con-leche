@@ -245,7 +245,9 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     (hEC : EtaFamiliesClosedO blockNames env)
     (hBP : BlockEtaPinned μ blockNames env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
-    (hkind : BlockMemberKind c₀ cvA) :
+    (hkind : BlockMemberKind c₀ cvA)
+    -- the capability arities of an inductive member
+    (hicw : IndCapsWF c₀) :
     EnvWF ⟨c₀ :: env.consts⟩ ∧
       BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
         (cvalModeled cval cvA.name) ∧
@@ -263,7 +265,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr

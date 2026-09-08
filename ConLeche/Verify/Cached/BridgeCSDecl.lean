@@ -274,6 +274,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       (fun _ => {}) = .ok (envP, cvTaP, p₁P) := by
     rw [← checkSumInd_datF]; exact hFP₁
   obtain ⟨henvP, hTfP⟩ := direct_sum_ind_wf henv hFP₁p
+    (fun _ => ⟨(fun h => nomatch h), (fun h => nomatch h)⟩)
   try simp only at h
   obtain ⟨uP, sPB, hflP, h⟩ := bindC_ok h
   rw [flushC_run] at hflP
@@ -311,6 +312,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) := by
     rw [← checkSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
+    (fun q => nativeCaps_arity ((p₀.complete q).withKinds kinds))
   -- the completed record, and the elimination guard on it
   try simp only at h
   generalize hp : (p₀.complete p₁).withKinds kinds = p at h
@@ -483,8 +485,19 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     have hcapsv' : indBlockCaps mode env cvT cvC nP nF = caps := by
       rw [← indBlockCapsF_eq]; exact hcapsv
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
+    -- the block record's arities at its (single) inductive member:
+    -- the member IS the former, and the record's guard
+    -- pins the former's telescope
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
-      foldIndMemberS_run hμ _ env henv hwf hfold
+      foldIndMemberS_run hμ _ env henv hwf (by
+        intro ci hci cv caps₀ hceq
+        have hmemI : ci ∈ [ConstantInfo.indInfo cvT c0] := by
+          rw [← heq1]
+          exact List.mem_filter.mpr ⟨(List.mem_filter.mp hci).1, by subst hceq; rfl⟩
+        obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
+          (hceq ▸ List.mem_singleton.mp hmemI)
+        rw [← hcapsv']
+        exact ConLeche.indCapsArity_of_indBlockCaps) hfold
     obtain ⟨fe₃, s₃, hrecs, h⟩ := bindC_ok h
     rw [hfe₂] at hrecs
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
@@ -619,7 +632,8 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     rename_i x1 x2 hne
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
-      foldIndMemberS_run hμ _ env henv hwf hfold
+      foldIndMemberS_run hμ _ env henv hwf
+        (fun _ _ _ _ _ => ⟨(fun h => absurd h (by decide)), (fun h => absurd h (by decide))⟩) hfold
     rw [hfe₂] at h
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
       checkIndRecsS_run hμ henv₂ hbnAll hwf₂ h

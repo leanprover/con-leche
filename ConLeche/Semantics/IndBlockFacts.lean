@@ -64,8 +64,9 @@ theorem etaPins_of_indBlockCaps {μ : CheckMode} {env : Env}
     simp only [indBlockCaps, Bool.and_eq_true] at hcape
     exact checkEtaThm_inv hcape.2
   · intro hcapu
-    simp only [indBlockCaps] at hcapu
-    exact checkUnitThm_inv hcapu
+    simp only [indBlockCaps, Bool.and_eq_true] at hcapu
+    exact checkUnitThm_inv hcapu.2
+
 
 /-- An empty capability record pins nothing, and asks nothing. -/
 theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}

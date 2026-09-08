@@ -346,11 +346,12 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
   have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
     refine ConLeche.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_⟩
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
     · intro tbl heq; exact nomatch heq
+    · intro cv2 caps heq; exact nomatch heq
   refine harvestAxiom (V := V) hμ mp hcv
     (A := fun _ => AnnotTerm.prf) (fun _ => trivial)
     (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)

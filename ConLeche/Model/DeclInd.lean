@@ -196,7 +196,7 @@ theorem declInd (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
             (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
           exact ⟨etaPins_of_indBlockCaps, fun _ => hCblockN,
-            fun _ h0 => hpf0 h0⟩)
+            fun _ h0 => hpf0 h0, indCapsArity_of_indBlockCaps⟩)
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     -- the recursor group
     obtain ⟨mp₂, hI₂, hIA₂⟩ :=
@@ -285,7 +285,8 @@ theorem declInd (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     obtain ⟨mp₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
       indMembersPM memberEtaLaw memberUnitLaw _ mp hbnNon
         (fun cv caps₂ _ => ⟨etaPins_empty,
-          ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
+          ⟨fun h => absurd h (by decide), fun h => absurd h (by decide),
+            fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     obtain ⟨mp₂, -, -⟩ :=
       indRecs hμ memberEtaLaw memberUnitLaw mp₁ hI₁ hIA₁

@@ -723,12 +723,15 @@ def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
 /-- The capabilities recorded for a single-constructor modeled block. -/
 def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
+  -- the former's telescope arity, validated once (see `indBlockCapsF`)
   eta := (cvC.levelParams = cvT.levelParams) &&
+    (cvT.type.stripPis nP).isSome &&
     checkEtaThm mode env cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
   etaFields := nF
-  unitlike := checkUnitThm mode env cvT.name cvT.levelParams nP
+  unitlike := (cvT.type.stripPis nP).isSome &&
+    checkUnitThm mode env cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
 

@@ -151,4 +151,21 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
 
+/-- **The block's capability arities**, from the record's own guard:
+each capability is granted only with the former's telescope pinned at
+the parameter count. -/
+theorem indCapsArity_of_indBlockCaps {μ : CheckMode} {env : Env}
+    {cvT cvC : ConstantVal} {nP nF : Nat} :
+    ((indBlockCaps μ env cvT cvC nP nF).unitlike = true →
+      (cvT.type.stripPis (indBlockCaps μ env cvT cvC nP nF).unitParams).isSome = true) ∧
+    ((indBlockCaps μ env cvT cvC nP nF).eta = true →
+      (cvT.type.stripPis (indBlockCaps μ env cvT cvC nP nF).etaParams).isSome = true) := by
+  refine ⟨?_, ?_⟩
+  · intro hcapu
+    simp only [indBlockCaps, Bool.and_eq_true] at hcapu ⊢
+    exact hcapu.1
+  · intro hcape
+    simp only [indBlockCaps, Bool.and_eq_true] at hcape ⊢
+    exact hcape.1.2
+
 end ConLeche

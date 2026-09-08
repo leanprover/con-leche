@@ -429,12 +429,17 @@ def ctorResidualOkF (fe : FEnv) (T ctorName : Name) (lps : List Name)
 /-- `indBlockCaps` through the index. -/
 def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
+  -- the former's telescope arity is validated HERE, once, for each
+  -- capability that names it (`EnvWF`'s `IndCapsWF`); the η/unit-like
+  -- certificates read it from the invariant, not per call
   eta := (cvC.levelParams = cvT.levelParams) &&
+    (cvT.type.stripPis nP).isSome &&
     checkEtaThmF mode fe cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
   etaFields := nF
-  unitlike := checkUnitThmF mode fe cvT.name cvT.levelParams nP
+  unitlike := (cvT.type.stripPis nP).isSome &&
+    checkUnitThmF mode fe cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
 
