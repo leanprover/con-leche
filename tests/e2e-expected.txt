@@ -1181,3 +1181,16 @@
 # comparison is reached; what this one gates is the annotation pass,
 # which does check the tower type.
 2 tower_axiom_nonstd.ndjson
+# tower_usedlater (task #233): a THREE-field structure whose last
+# field's type is a depth-60 tower built over the FIRST field's
+# variable.  `structProjGuards` asks `structUsedLater` about the
+# SECOND field, so the walk descends a tower that holds a loose
+# variable ABOVE the one it looks for: the `bvarB <= i` cutoff cannot
+# fire and there is no `true` to short-circuit the `||` on.  Named the
+# two walkers a cutoff alone does not cover -- `Expr.hasLooseBVarB`
+# (`Kernel/Inductives/StructParts.lean`) and, once past it, the pure
+# rebuild inside `abstract1Fast`, whose fvar-range cutoff cannot fire
+# either when the tower is built OVER the fvar being abstracted.  Both
+# carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
+# `@[csimp]`).
+0 tower_usedlater.ndjson

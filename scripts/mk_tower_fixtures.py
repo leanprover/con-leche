@@ -91,12 +91,19 @@ def base(s, tyname="Big"):
     return n, e, lU, lOne
 
 
-def block(s, n, e, lU, name_T, name_mk, name_rec, nF=1):
+def block(s, n, e, lU, name_T, name_mk, name_rec, nF=1, ftys=None):
     """`inductive T where | mk : (h_1 … h_nF : @Eq Nat T60 T60) → T`,
     with its recursor and iota rule — every field type carries the
     tower.  `nF = 1` is the constructor-field-type shape; `nF = 2` also
     exercises the PROJECTION BODIES, which substitute `T.field_0` into
-    the remaining telescope (`structProjBodies`)."""
+    the remaining telescope (`structProjBodies`).
+
+    `ftys` overrides the field types, outermost first — each written in
+    the scope of the fields BEFORE it (so field `j`'s type sees field
+    `k < j` at `bvar (j - 1 - k)`), and mentioning nothing above them.
+    That is what lets the same expressions serve as the constructor's
+    domains, the minor premise's and the rule rhs' λ-domains, which sit
+    under one extra binder each but never look past the fields."""
     eT = s.ex({"const": {"name": name_T, "us": []}})
     eB0 = s.ex({"bvar": 0})
     eMkC = s.ex({"const": {"name": name_mk, "us": []}})
@@ -115,10 +122,14 @@ def block(s, n, e, lU, name_T, name_mk, name_rec, nF=1):
     def app(f, a):
         return s.ex({"app": {"fn": f, "arg": a}})
 
-    def fields(inner):
-        """wrap `inner` in nF `(h : eqTy) →` binders"""
-        for _ in range(nF):
-            inner = pi(e["eqTy"], inner)
+    tys = ftys if ftys is not None else [e["eqTy"]] * nF
+    assert len(tys) == nF
+
+    def fields(inner, mk=None):
+        """wrap `inner` in the nF field binders (`pi` or `lam`)"""
+        mk = mk or pi
+        for j in range(nF - 1, -1, -1):
+            inner = mk(tys[j], inner)
         return inner
 
     def mk_applied():
@@ -138,8 +149,7 @@ def block(s, n, e, lU, name_T, name_mk, name_rec, nF=1):
     rhsBody = bv(nF)
     for j in range(1, nF + 1):
         rhsBody = app(rhsBody, bv(nF - j))
-    for _ in range(nF):
-        rhsBody = lam(e["eqTy"], rhsBody)
+    rhsBody = fields(rhsBody, lam)
     eRhs = lam(eMotiveTy, lam(eMinor, rhsBody), "implicit")
     s.L.append(json.dumps({"inductive": {
         "types": [{"name": name_T, "levelParams": [], "type": e["Type"],
@@ -288,6 +298,44 @@ def mk_proj():
     s.write("tests/e2e/tower_proj.ndjson")
 
 
+def mk_usedlater():
+    """The tower under `structUsedLater` (task #233): a THREE-field
+    structure whose LAST field's type is a tower built on the FIRST
+    field's variable — `t_0 = x`, `t_{k+1} = (K t_k) t_k`, the type
+    `@Eq Nat t_60 Nat.zero`, still defeq to `@Eq Nat x Nat.zero`.
+
+    `structProjGuards` asks `structUsedLater cty 0 j` for every earlier
+    field `j`, i.e. "does the constructor telescope's remainder after
+    binder `j` contain `bvar 0`?".  At `j = 1` (the second field, `y`)
+    that remainder is `(h : @Eq Nat t_60[x] Nat.zero) → T`, where the
+    tower mentions `x` — `bvar 1` there — and NOT `y`.  So the answer
+    is **false** while the packed bound is 2 at every tower node: the
+    `bvarB ≤ i` cutoff (task #210 Part B) cannot fire, `||` cannot
+    short-circuit on a `true`, and the plain tree recursion visits each
+    shared node once per path — `2^60`.
+
+    This is why the earlier tower fixtures do not reach it: their
+    towers are CLOSED (`t_0 = Nat.zero`), so the cutoff stops the walk
+    at the first tower node.  The cutoff covers "the variable cannot
+    occur"; the memo covers "the variable does not occur but a loose
+    variable above it does".  Accepts."""
+    s = Stream(); n, e, lU, _ = base(s, tyname="Used")
+
+    def app(f, a):
+        return s.ex({"app": {"fn": f, "arg": a}})
+
+    # the tower on the FIRST field's variable: inside the third field's
+    # type the fields are `y = bvar 0`, `x = bvar 1`
+    t = s.ex({"bvar": 1})
+    for _ in range(DEPTH):
+        t = app(app(e["K"], t), t)
+    eEqNat = s.ex({"app": {"fn": e["Eq"], "arg": e["Nat"]}})
+    fTy = app(app(eEqNat, t), e["zero"])
+    block(s, n, e, lU, n["T"], n["T.mk"], n["T.rec"], nF=3,
+          ftys=[e["Nat"], e["Nat"], fTy])
+    s.write("tests/e2e/tower_usedlater.ndjson")
+
+
 def mk_axiom_pin():
     """The tower in the type of an axiom under the PINNED name
     `propext`, over a standardly-shaped stored `Iff` family — the one
@@ -322,3 +370,4 @@ mk_quot()
 mk_proj()
 mk_axiom_pin()
 mk_axiom_nonstd()
+mk_usedlater()
