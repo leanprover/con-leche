@@ -24,11 +24,7 @@ iteration protocol. Keep it up to date when decisions change.
   `ConLeche/Verify/*`; the pure set constructions (no `Expr` in sight) in
   `ConLeche/SetModel/*`; the Expr-facing denotation and claims in
   `ConLeche/Semantics/*`; the graded set model and the consistency proofs in
-  `ConLeche/Model/*` (task #222 renamed `ConLeche/SetP/*` to this; the
-  first, direct model tier — cited in old docstrings as
-  `ConLeche/ModelV1/*` — was retired at task #148 T7; the
-  collapsed-model `ConLeche/SetR/*` tier was deleted 2026-09-05;
-  `ConLeche/SetBase/*` was split into SetModel/Semantics on 2026-09-06).
+  `ConLeche/Model/*`.
   Inductive installation has its own directory per layer
   (`Kernel/Inductives/*`, `Verify/Inductives/*`, `Semantics/Inductives/*`,
   `Model/Inductives/*`); the two routes there are the NATIVE one (the ONE

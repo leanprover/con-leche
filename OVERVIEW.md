@@ -496,10 +496,6 @@ seal is `Kernel/PropWhen`, whose representation stays hidden behind its
 API and laws; the proofs that need to see through it say `import all
 ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
-A docstring that cites `ConLeche/ModelV1/*` is citing a directory that
-no longer exists; it is not `ConLeche/Model/*`, which is this document's
-model tier.
-
 ## 11. Module map
 
 | Directory | Contents |

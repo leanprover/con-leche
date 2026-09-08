@@ -12,8 +12,8 @@ public section
 applications and `Nat` literals only): no free variables, no loose
 bound variables.  This module exposes the form as a structural
 recursion over the character list (`strLitList`) — the induction handle
-the model file (`ConLeche.ModelV1.StrLit`) and the walk proofs share — plus
-the closedness facts.
+the walk proofs and the model tier's literal steps share — plus the
+closedness facts.
 -/
 
 namespace ConLeche

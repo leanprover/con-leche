@@ -6,16 +6,13 @@ import ConLeche.Verify.EnvWF
 public section
 
 /-!
-# Modeled — the `V`-free half of `ConLeche.ModelV1.Extend.Modeled`
+# Modeled
 
 The `checkMemberVal` / `checkIndMember` / `provisionRecs` inversions
 that feed the member extension.
 
-Relocated from `ConLeche/ModelV1/Extend/Modeled.lean` (task #123);
-`extend_modeled_one` and the `BlockInstalled` fold invariant stay there,
-the former being a statement about a valuation and the latter being
-stated over a `ConstVal V`.  The `omit [SetTheory V] in` lines are
-dropped: there is no such section variable here.
+Every statement is over `Env`/`Expr` alone; the extension lemmas that
+carry a valuation are stated one tier up, against these inversions.
 -/
 
 set_option linter.unusedSimpArgs false

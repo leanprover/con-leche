@@ -25,8 +25,11 @@ At each operation call site the argument's well-scopedness comes from
   — the defeq comparisons run at the opened depth, over variables of
   that frame).
 
-`ConLeche/ModelV1/BridgeWF.lean` composes these with the intermediate
-`EnvWF` facts into `checkDecl_bridge`.
+The cached tier's bridge composes these with the intermediate `EnvWF`
+facts into the per-declaration bridge: `ConLeche/Verify/Cached/BridgeCS1.lean`
+through `BridgeCS3.lean` mirror the `_wfimp` walks per call site,
+`BridgeCS4.lean` and `BridgeCSDecl.lean` chain them along the phase
+drivers into `checkDeclSharedF_bridge`.
 -/
 
 set_option linter.unusedSimpArgs false

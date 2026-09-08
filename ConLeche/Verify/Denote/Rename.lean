@@ -19,29 +19,10 @@ modeled block's install does: the capability pins describe the
 stated at the **public** former, and `checkMemberVal`'s comparison
 relates the two only *through* `renameConsts`.
 
-**Retraction, recorded rather than quietly fixed.**  This module first
-also carried a `denote_instLevels` and its two literal helpers —
-written from the model's `interp_instLevels` without first searching
-this side.  All three already existed
-(`ConLeche/TTVerify/Extend.lean`, at `ValParams`, `natLitT_params`,
-`strLitT_params`), where the delta step needed them.  §0's practice
-says to look for the *set model's* counterpart before writing a bridge
-lemma; the miss says the same search has to be run on **this** side
-too, and `lake build`'s duplicate-name error is what caught it.  What
-the retraction does **not** touch: `denote_renameConsts` really has no
-counterpart here, and the `RenEqT`/`PiDomsRenEqT` pair really is
-stranded in `Model/TeleElim.lean`.
-
-`RenEqT`/`PiDomsRenEqT` restate `ConLeche/ModelV1/TeleElim.lean`'s `RenEq`
-and `PiDomsRenEq`.  They are `V`-free and belong in `ConLeche/Verify/*`
-under #123's criterion; they are restated here rather than moved
-because `Model/TeleElim.lean` is mid-flight (`DESIGN.md` §14.6.2 names
-this as one of the phase's two known frictions).  Same reasoning, and
-the same non-fix, as the duplicates task #148's T1 relocation cleared
-out of `ConLeche/TTVerify/EnvTT.lean` (`EtaFamilyStored` and its seven
-siblings, now in `ConLeche/Verify/EnvGuards.lean` and
-`ConLeche/Verify/EnvPreds.lean`): **do not** import `ConLeche/Model/*` from
-here.
+`RenEqT`/`PiDomsRenEqT` are `V`-free, which is why they live here and
+not in the model tier: **do not** import `ConLeche/Model/*` from this
+hierarchy — the model tier (`ConLeche/Model/IndRename.lean` and the
+frame files around it) imports them from here instead.
 -/
 
 namespace ConLeche.Verify
@@ -119,11 +100,10 @@ theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
 
 /-! ## The domain-agreement prefix relation
 
-`RenEqT` and `PiDomsRenEqT` are the model's `RenEq`/`PiDomsRenEq`,
-restated (see the module docstring).  Only the *first `k`* domains are
-constrained, and the residuals are left free: at a fold's use site the
-two telescopes agree on the parameter prefix and then diverge — the
-type former ends in a sort, the checked theorem in an equation. -/
+Only the *first `k`* domains are constrained, and the residuals are
+left free: at a fold's use site the two telescopes agree on the
+parameter prefix and then diverge — the type former ends in a sort, the
+checked theorem in an equation. -/
 
 /-- Related by constant renaming, modulo the positions the denotation
 never reads. -/

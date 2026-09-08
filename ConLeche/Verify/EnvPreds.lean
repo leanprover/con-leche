@@ -6,28 +6,20 @@ public import ConLeche.Verify.EnvWF
 public section
 
 /-!
-# `V`-free environment predicates (task #123)
+# `V`-free environment predicates
 
 Three `Prop`s over a bare `Env` — block completeness for the pinned
 basis blocks, "every stored recursor rule's constructor is stored", and
 the native projection-table discipline — plus the two level-parameter
-names the pinned basis declarations use and the basis-kind test on a
-`ConstantInfo`.
+names the pinned basis declarations use, the basis-kind test on a
+`ConstantInfo`, the pinned declarations themselves (`pinnedInfo`, with
+its two `*_cases` inversions) and `ProjOkT`, the strengthening of
+`ProjOk` that pins the pair block's own projection names.
 
-These were written inside `ConLeche/ModelV1/IndModel.lean` and
-`ConLeche/ModelV1/BasisVal.lean`, next to the semantic `IndOk`, but none of
-them mentions a valuation, a set-theoretic universe or the `SetTheory`
-class: they are statements about what the *checker's* environment
-stores.  Relocated verbatim so both the set model and the declarative
-type-theory bridge can import them (task #123; the lane and its
-record are gone, task #209).
-
-Task #148's T1 added the rest of that class: `pinnedInfo` (with its two
-`*_cases` inversions) from `ConLeche/ModelV1/BasisVal.lean`, and `ProjOkT`
-— the strengthening of `ProjOk` that pins the pair block's own
-projection names — from `ConLeche/TTVerify/EnvTT.lean`.  The bridge's
-`uNT`/`vNT`/`u1NT`, `isBasisKind`, `pinnedInfoT` and `RecCtorsStoredT`
-restatements are gone; the definitions here are the single home.
+None of them mentions a valuation, a set-theoretic universe or the
+`SetTheory` class: they are statements about what the *checker's*
+environment stores, and this module is their single home — the model
+tier imports them rather than restating them.
 -/
 
 namespace ConLeche

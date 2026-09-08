@@ -21,58 +21,45 @@ rules of the deleted judgment where that is what decided a clause's
 shape; those names no longer resolve to anything in the tree, and are
 kept because the *reasons* still bind — see DESIGN.md's task #209
 section.
-It is **the structural transpose of `ConLeche/ModelV1/Interp.lean`'s
-`interpExpr`**, clause for clause, and the reader should hold the two
-side by side: everything below is `interpExpr` with the set-theoretic
-universe `V` replaced by the syntax `Term` and set-level operations
-replaced by the corresponding term formers.
 
-| `interpExpr` | `denote` |
+The clauses in one line each:
+
+| `Expr` node | `denote` |
 |---|---|
-| `some (univ (u.eval φ))` | `some (.sort (u.eval φ))` |
-| `some (ρ idx)` | `some (.bvar (d - 1 - idx))` |
-| `cval n (Level.substFn φ ps us)` | *the same*, at `TConstVal` |
-| `piC A fun x => …` | `.pi ⟦ty⟧ ⟦body opened⟧` |
-| `lamC A fun x => …` | `.lam ⟦ty⟧ ⟦body opened⟧` |
-| `SetTheory.app vf va` | `.app ⟦f⟧ ⟦a⟧` |
-| `sfst ve`/`ssnd ve` | `.fst ⟦e⟧`/`.snd ⟦e⟧` (the formers, task #119) |
-| `natLitVal zv sv n` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
-| `letE` ↦ its zeta reduct | `none` — there is no `letE` former (task #241) |
+| `.sort u` | `some (.sort (u.eval φ))` |
+| `.fvar idx` | `some (.bvar (d - 1 - idx))` |
+| `.const n us` | the valuation, `cval n (Level.substFn φ ps us)` |
+| `.forallE ty body` | `.pi ⟦ty⟧ ⟦body opened⟧` |
+| `.lam ty body` | `.lam ⟦ty⟧ ⟦body opened⟧` |
+| `.app f a` | `.app ⟦f⟧ ⟦a⟧` |
+| `.proj` | `.fst ⟦e⟧` / `.snd ⟦e⟧` |
+| `.lit (.natVal n)` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
+| `.letE` | `none` — there is no `letE` former |
 
-Three points where the transpose is worth stating rather than reading
+Four properties of that reading are worth stating rather than reading
 off the table.
 
-## The free-variable valuation collapses
+## There is no free-variable valuation
 
-`interpExpr` carries `ρ : Nat → V` because a set has no notion of
-"variable": the interpretation of an opened binder has to be handed the
-member it stands for, and `updV` extends `ρ` at the binder's own depth.
-Here the opened binder *is* a variable, and which one it is is
-determined by its own `fvar` index together with the current depth —
-`fvar d` opened at depth `d` becomes de Bruijn index `0` under one
-binder, `1` under two, i.e. `.bvar (d' - 1 - d)` at depth `d'`.  So
-`ρ` and `updV` have no counterpart: the leaf clause computes what the
-valuation would have stored.  Correspondingly the counterpart of
-`FvarsOk` (which constrains `ρ`) is `CtxOk` (which constrains the de
-Bruijn context `Δ`).
+A free variable's term is determined by its own `fvar` index together
+with the current depth: `fvar d` opened at depth `d` is de Bruijn index
+`0` under one binder, `1` under two, i.e. `.bvar (d' - 1 - d)` at depth
+`d'`.  So `denote` takes no environment of variable values — the leaf
+clause computes what such an environment would have stored — and the
+predicate that constrains the free variables is `CtxOk`, over the de
+Bruijn context `Δ`.
 
-## Delta is `rfl`, because `denote` never delta-reduces either
+## Delta is `rfl`, because `denote` never delta-reduces
 
-`denote` does *not* unfold a constant: like `interpExpr` it reads the
-constant's value out of a valuation `cval`, and the environment
-invariant (`EnvTT.defn_eq`) records that a definition's valuation is
-the denotation of its body.  A delta step in the checker is therefore
-an *equation between denotations that already holds*, not a rule of the
-type theory — which is the concrete sense in which the reduction
-strategy drops out of the consistency argument.
-
-(An early design described the denotation as unfolding
-constants by well-founded recursion on the environment.  Carrying a
-valuation instead is the same thing done the way the set model already
-does it: the recursion on the environment becomes the *incremental
+`denote` does *not* unfold a constant: it reads the constant's value out
+of the valuation `cval`, and the environment invariant records that a
+definition's valuation is the denotation of its body.  A delta step in
+the checker is therefore an *equation between denotations that already
+holds*, not a rule of the type theory — which is the concrete sense in
+which the reduction strategy drops out of the consistency argument.
+The recursion over the environment lives in the *incremental
 construction of the valuation* as declarations install, which is
-exactly `EnvModel`'s existing induction and needs no new termination
-argument.  Task #119 follows the set model here, by direction.)
+`EnvModel`'s own induction and needs no separate termination argument.
 
 ## There is no `let` in the term language
 
@@ -84,53 +71,42 @@ compute:
 > **A structural `denote` is what keeps the bridge's substitution
 > metatheory small.**
 
-The accounting the retired lane's record did: four lemmas, where
-a computing `denote` needs lifting to commute with instantiation and
-with itself, and four becomes six and keeps going.
-
-`interpExpr`'s `letE` clause interprets the *zeta reduct* — the body
-opened at the value's interpretation — and the obvious transpose was to
-substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
-That was the original choice here and it is **withdrawn**: a `denote`
-that performs a substitution forces the bridge's own metatheory to
-prove that lifting commutes with instantiation, and then that lifting
-commutes with lifting, and the swamp `ConLeche/Term/Subst.lean` is proud
-of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
+A `denote` that performed a substitution — emitting `b.inst ⟦value⟧`
+for a `letE` — would force this layer's metatheory to prove that
+lifting commutes with instantiation, and then that lifting commutes
+with lifting, and the swamp `ConLeche/Term/Subst.lean` is proud of
+avoiding (lean4lean's 123 syntactic lemmas) would reappear one layer
 down.
 
-The structural alternative — a `Term.letE` former mirroring `Expr`'s —
-carried the clause until task #241, and it is gone too, for the reason
-that made it dead weight: **no stored expression carries a `let`**.
+The term language does not carry a `letE` former either, for the reason
+that made one dead weight: **no stored expression carries a `let`**.
 `annotateBody` is the one pass that meets a `letE` node from the
 stream, and it runs the official `infer_let` triple and returns the
-ζ *reduct* (task #217); every other kernel arm that used to accept a
-`letE` — `whnfCore`'s ζ step, `inferBody`'s and `inferBodyIO`'s
-triples — is now a positive `.internal` error (task #241).  So the
-clause is `none`, the term language has one former fewer, and the
-`letE` case of every reduction walk and every transport lemma is
-**vacuous**: they all carry `denote… = some _` as a premise.
+ζ *reduct*; every other kernel arm that could meet a `letE` —
+`whnfCore`'s ζ step, `inferBody`'s and `inferBodyIO`'s triples — is a
+positive `.internal` error.  So the clause is `none` and the `letE`
+case of every reduction walk and every transport lemma is **vacuous**:
+they all carry `denote… = some _` as a premise.
 
 ## Projections, and why the layer grew a former for them
 
-`interpExpr` reads a `.proj` node with the *untyped* set operations
-`sfst`/`ssnd`.  The layer originally had no untyped projection: its
-`psigmaFst`/`psigmaSnd` were constants applied to the pair's type
-arguments `A` and `B`, which a `.proj` node does not carry — the
-checker recovers them at *use* time, by whnf-ing the subject's inferred
-type (`ConLeche/Kernel/Core.lean`, the `.proj` clause of `annotateBody`).
-A denotation that is a function of the expression alone cannot emit
-them, and a *relational* denotation is not an option either: the defeq
-claim of the fuel induction needs both sides denoted by the *same*
-function, or the two existentials do not meet.
+A `.proj` node carries an index and a subject, and nothing else: the
+pair's type arguments `A` and `B` are not in it — the checker recovers
+them at *use* time, by whnf-ing the subject's inferred type
+(`ConLeche/Kernel/Core.lean`, the `.proj` clause of `annotateBody`).  A
+denotation that is a function of the expression alone therefore cannot
+emit a constant applied to `A` and `B`, and a *relational* denotation is
+not an option either: the defeq claim of the fuel induction needs both
+sides denoted by the *same* function, or the two existentials do not
+meet.
 
-So the term language gained projection formers (task #119;
-`ConLeche/Term/Syntax.lean` — one `proj i e` node until task #225
-split it into `fst`/`snd`), carrying exactly what the checker's node
-carries beyond the index, and typed by reading `A` and `B` off the
-premise.  This clause is then the plain transpose of `interpExpr`'s,
-the index decoded by `Term.projPair?` (whose `none` branch is the old
-`i < 2` guard), and the alphabet came out *smaller*: `psigmaFst` and
-`psigmaSnd` are derivable from the formers and left `BConst`.
+So the term language has untyped projection formers
+(`ConLeche/Term/Syntax.lean`: `fst`/`snd`), carrying exactly what the
+checker's node carries beyond the index, and typed by reading `A` and
+`B` off the premise.  This clause decodes the index with
+`Term.projPair?`, whose `none` branch is the `i < 2` guard, and the
+alphabet comes out *smaller* for it: `psigmaFst` and `psigmaSnd` are
+derivable from the formers and are not `BConst`s.
 -/
 
 set_option linter.unusedVariables false
@@ -201,10 +177,9 @@ tier's carriers.  Depends only on the index. -/
   | i + 1, e => projNV i (.snd e)
 
 /-- Denote an expression under constant valuation `cval`, level
-assignment `φ` and binder depth `d`.  Clause for clause the transpose
-of `ConLeche.interpExpr`; see the module docstring, in particular for the
-absent free-variable valuation, for `letE`, and for the open `.proj`
-obligation. -/
+assignment `φ` and binder depth `d`.  See the module docstring, in
+particular for the absent free-variable valuation, for `letE`, and for
+the `.proj` clause. -/
 @[expose] def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     (d : Nat) → Expr → Option Term
   | _, .sort u => some (.sort (u.eval φ))

@@ -5,17 +5,16 @@ public import ConLeche.Verify.Extend.Modeled
 public section
 
 /-!
-# Proj — the `V`-free half of `ConLeche.ModelV1.Extend.Proj`
+# Proj
 
 The `checkProjFn` stage inversions (lookups, type, rule, iota theorem,
 shape, and the whole-function inversion) and the `checkProjFold`
 bookkeeping family.
 
-Relocated from `ConLeche/ModelV1/Extend/Proj.lean` (task #123);
-`checkProjFn_sound` and `checkProjFold_sound` stay there, being
-statements about a valuation, as does `ProjPhaseInv`, which is stated over a
-`ConstVal V`.  The `omit [SetTheory V] in` lines are dropped: there is
-no such section variable here.
+Every statement is over `Env`/`Expr` alone; the projection phase's
+valuation-carrying invariant and soundness statements are one tier up
+(`ConLeche/Semantics/ProjPhase.lean`,
+`ConLeche/Semantics/Bridge/DeclIndRun.lean`).
 -/
 
 set_option linter.unusedSimpArgs false

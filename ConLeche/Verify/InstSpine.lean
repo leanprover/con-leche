@@ -190,12 +190,10 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
     exact hargs x (List.mem_of_mem_take hx)
 
 /-- A telescope that strips syntactically admits any instantiation
-walk of matching length.  (Relocated verbatim from
-`ConLeche/ModelV1/InstFrames.lean`, where it sat behind a `SetTheory`
-section variable it never used: it is a statement about `Expr` alone,
-and both verified lanes' install layers need it — the [set] projection
-bottom constructs its constructor/recursor `instPisAt` runs from the
-checker's `stripPis` pins rather than from a stored run.) -/
+walk of matching length.  A statement about `Expr` alone, and what the
+install layer needs: the projection bottom constructs its
+constructor/recursor `instPisAt` runs from the checker's `stripPis`
+pins rather than from a stored run. -/
 theorem instPisAt_isSome_of_stripPis :
     ∀ (args : List Expr) {e : Expr},
       (e.stripPis args.length).isSome = true →
