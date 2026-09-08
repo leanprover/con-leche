@@ -53,7 +53,7 @@ private instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
 hoist's name index; basis blocks are indexed by kind instead). -/
 def _root_.ConLeche.Cached.DeclC.names : DeclC → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
-  | .indDecl block => block.map (·.name)
+  | .indDecl block _ => block.map (·.name)
   | .basisDecl _ => []
 
 /-- The constants an `ExprC` DAG references, each node visited once
@@ -89,7 +89,7 @@ def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
   | .defnDecl cv v _ | .thmDecl cv v | .opaqueDecl cv v =>
     let (seen, acc) := usedConstsGo {} #[] cv.type
     (usedConstsGo seen acc v).2
-  | .indDecl block =>
+  | .indDecl block _ =>
     (block.foldl (init := (({} : Std.HashSet ExprC), (#[] : Array Name)))
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type

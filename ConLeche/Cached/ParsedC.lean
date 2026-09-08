@@ -45,7 +45,7 @@ inductive DeclC where
   | thmDecl (val : ConstantVal) (value : ExprC)
   | opaqueDecl (val : ConstantVal) (value : ExprC)
   | basisDecl (kind : BasisKind)
-  | indDecl (block : List ConstantInfo)
+  | indDecl (block : List ConstantInfo) (numParams : Nat)
 
 /-! ## The parsed-declaration checker -/
 
@@ -209,13 +209,17 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       unless fe.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block =>
-    -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-    -- #219): a recognised block is the fixpoint route's, every other
-    -- one the modeled path's (its model the in-process modeller's).
-    match nativeParts? block with
-    | some p => checkNativeS mode fe p
-    | none => checkIndDeclSF mode fe block
+  | .indDecl block nP =>
+    -- TASK #228: the stream's DECLARED parameter count, checked before
+    -- the dispatch and for both routes (`checkDecl`'s twin).
+    if indParamsOk nP block then
+      -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
+      -- #219): a recognised block is the fixpoint route's, every other
+      -- one the modeled path's (its model the in-process modeller's).
+      match nativeParts? nP block with
+      | some p => checkNativeS mode fe p
+      | none => checkIndDeclSF mode fe block
+    else throw (.invalid "number of parameters mismatch")
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -230,7 +234,7 @@ def declCLabel : DeclC → String
   | .thmDecl cv _ => s!"theorem {cv.name}"
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
   | .axiomDecl cv => s!"axiom {cv.name}"
-  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+  | .indDecl b _ => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
   | .basisDecl k => s!"basis block {repr k}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/

@@ -215,14 +215,14 @@ instantiation, not this text).
 `DeclBasisRun` is re-used verbatim: that kind's record was already guards
 only. -/
 def DeclRun (μ : CheckMode) (F : Nat)
-    (Ind : List ConstantInfo → Env → Prop) (env : Env) :
+    (Ind : List ConstantInfo → Nat → Env → Prop) (env : Env) :
     Declaration → Env → Prop
   | .defnDecl cv value hint, env₂ => DeclDefnRun μ F env cv value hint env₂
   | .thmDecl cv value, env₂ => DeclThmRun μ F env cv value env₂
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun μ F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun μ F env cv env₂
   | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
-  | .indDecl block, env₂ => Ind block env₂
+  | .indDecl block nP, env₂ => Ind block nP env₂
 
 /-! ## The projections, retired (2026-09-05)
 

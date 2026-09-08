@@ -168,7 +168,7 @@ def decl (w : ExportWriter) : DeclC → ExportWriter
     let (ti, w) := w.expr cv.type
     w.emit s!"\{\"axiom\":\{\"isUnsafe\":false,\"levelParams\":{jlist ls},\"name\":{ni},\"type\":{ti}}}"
   | .basisDecl _ => w
-  | .indDecl block =>
+  | .indDecl block nPd =>
     let types := block.filterMap fun ci => match ci with
       | .indInfo cv _ => some cv | _ => none
     let ctors := block.filterMap fun ci => match ci with
@@ -179,7 +179,9 @@ def decl (w : ExportWriter) : DeclC → ExportWriter
     | none => w
     | some tcv =>
     let T := tcv.name
-    let nP := (ctors.head?.map (·.2.1)).getD 0
+    -- the DECLARED parameter count (task #228), which is what the
+    -- record carries and what a re-read of this stream must see
+    let nP := nPd
     let nIdx := (recs.head?.map fun r => r.2.1 - r.2.2.1).getD 0
     let isRec := ctors.any fun c => mentions T c.1.type
     let (ti, w) := w.name T

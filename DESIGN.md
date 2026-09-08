@@ -60625,3 +60625,230 @@ accepted **53 088** declarations, exit 0, route census **584 fix / 6
 basis / 1 inmodel**, at **679.098 G instructions:u** against #221's
 published 679.08 G — parity (+0.003 %).  **A rename costs nothing, as
 it should.**
+
+
+## TASK #228 — THE DECLARED PARAMETER COUNT, CARRIED AND CHECKED (2026-09-08, `agent/numparams`)
+
+**What official does, read off the sources.**  The arena's reference
+checker replays each constant; the `.inductInfo` arm builds
+`Declaration.inductDecl lparams nparams types` where **`nparams` is
+the `numParams` of an inductive RECORD** (`Lean4Checker/Replay.lean`,
+`nparams := info.numParams`) and hands it to `add_inductive`.  The
+kernel never re-derives that number — it *checks the block against
+it*, in two places:
+
+* `check_inductive_types` (`inductive.cpp`) peels Π binders off every
+  type former, reducing to weak head normal form before each; it
+  counts the first `m_nparams` as parameters and the rest as indices,
+  and if the telescope runs out first (`i != m_nparams`) it throws
+  **"number of parameters mismatch in inductive datatype
+  declaration"**.  `m_nindices` is a RESULT of that walk, never an
+  input.
+* `declare_constructors` mints each `constructor_val` with
+  `m_nparams` and `nfields = arity - m_nparams`, and the replay's
+  `checkPostponedConstructors` compares every exported constructor
+  record with the generated one by `==` — so a constructor record
+  whose `numParams` is not the declaration's is **"Invalid
+  constructor"**.
+
+`check_constructors` itself never reads a constructor record's
+declared count; it walks the constructor's *type* against
+`m_nparams`.  And **nothing ever compares an inductive record against
+the `InductiveVal` the kernel generates** — only constructors and
+recursors are postponed — so the record's `numIndices`, `isRec`,
+`isReflexive` and `numNested` are fields official does not read at
+all.
+
+**Where ours differed.**  con-leche had never read the field.  Before
+task #220 the parameter count came off the RECURSOR record's argument
+sums; #220 moved it to the CONSTRUCTORS (`nativeCounts?`: `nP` is the
+count every constructor carries).  Both readings agree with official's
+on every valid stream and neither can contradict a declaration that
+LIES — which is arena test **047** (`bad/tutorial/047_inductTooFewParams`):
+`numParams = 2` on the former `inductTooFewParams : Sort 0 → Sort 0`,
+with no constructor and no recursor record at all.  Nothing was left to
+read the count off, the recogniser refused the block and the modeled
+path DECLINED it (exit 2) where the reference REJECTS (exit 1).  #220
+recorded it as a finding; this task is its fix.
+
+### 1. The count rides on the declaration, as it does for official
+
+`Declaration.indDecl` gained a second field, `numParams : Nat` —
+**one count for the whole block, which is official's own declaration
+shape** (`inductDecl lparams nparams types`), not one per type former.
+`Cached.DeclC.indDecl` gained the same field, and
+`DeclC.sameCanon` (the prelude dedupe) compares it: a block declaring
+a different count is a different declaration.
+
+`ConstantInfo.indInfo` was deliberately NOT touched.  It is the
+*stored* constant, and the count is input metadata that the install
+consumes and does not keep — the environment's inductive constants
+carry their capability record and nothing else.  (The mechanical
+argument agrees: `.indInfo` is named in 102 files of the tree, the
+declaration constructor in 30 source files — and the count belongs on
+one of them.)
+
+**The parse** (`Frontend/ExportC.lean`) reads `numParams` off the
+block's type records.  Official's replay takes it from *whichever*
+member of the block its walk reaches first — name order — so the
+count is well defined for the block exactly when its type records
+AGREE on it, as every record a real export writes does
+(`add_inductive` stores one `m_nparams` in every member's
+`InductiveVal`).  A block whose records disagree has no declared count
+this checker could hold official to, and is **positively declined** at
+the parse rather than checked against a number official might not have
+chosen.  That branch has never fired: a
+scan of every inductive record in the 332 committed and vendored
+streams — the arena's tests, the e2e fixtures and init-full, **2 520
+blocks** — finds no block whose type records disagree.
+
+### 2. The check: `indParamsOk`, one-sided by construction
+
+`ConLeche/Kernel/Env.lean` holds the gate beside the record it is
+about:
+
+```lean
+def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+  block.all fun ci => match ci with
+    | .indInfo cvT _ =>
+      match cvT.type.piSortTeleLen? with
+      | some n => decide (nP ≤ n)
+      | none => true
+    | .ctorInfo _ nPc _ => nPc == nP
+    | _ => true
+```
+
+`Expr.piSortTeleLen?` is `some n` when the type is `n` Π binders with
+a **`.sort` residual** and `none` otherwise.  That distinction is the
+whole one-sidedness argument: official's telescope loop whnf's the
+residual before every binder, and **whnf of a sort is that sort**, so
+at a `.sort` residual `n` is exactly the number of binders official
+can peel and `nP > n` is official's own reject.  At any other residual
+the type may still unfold to a longer telescope (task #195, the
+former declared AT A DEFINITION — fixture `ind_former_redex`), and the
+gate says nothing: the install stages peel it with `whnf` exactly as
+official does (`whnfTelescope`).  The constructor half is the replay's
+postponed comparison verbatim.  So **`false` here means official
+rejects**, never merely that this checker cannot see why — and
+`numIndices` is not checked at all, on purpose, because checking a
+field official does not read would reject blocks official accepts.
+
+The gate runs in `checkDecl`'s `.indDecl` arm **before the route
+dispatch**, as a pure `if`, because it is a property of the
+DECLARATION and not of a route — which is what moves 047, whose block
+neither route recognises.  `Cached/ParsedC.lean`'s `checkDeclC` is the
+same two lines.
+
+### 3. The recogniser now READS the declared count
+
+`nativeCounts?` takes it and stops deriving it:
+
+* at a former whose declared type is a Π-telescope ending in a sort,
+  `nP` is the declared count and `nIdx` what is left of the telescope
+  — official's `check_inductive_types` exactly, and no longer
+  dependent on the block having a constructor (that dependence is why
+  a constructor-less block used to fall back on the recursor record);
+* at a former declared at a definition the index count still cannot be
+  counted syntactically, so the recursor record's argument sums are
+  used as before, with the parameter count they imply cross-checked
+  against the declared one — a block of that shape with a broken
+  recursor record still DECLINES, as #220 recorded.
+
+`nativeShape?`'s existing `cs.all (c.2.1 == nP)` thereby becomes
+official's postponed-constructor comparison rather than a
+self-consistency check, and `nativeParts? nP block` carries the count
+to every caller (`Kernel/Checker.lean`, `Cached/ParsedC.lean`,
+`Main.lean`'s route trace, `Frontend/ProjRec.lean`'s
+does-the-fixpoint-route-take-it test).  `Frontend/ExportWrite.lean`
+now writes the DECLARED count into the record it emits instead of
+re-deriving it from the constructors, so a stream round-trips.
+
+### 4. The verified tiers
+
+No statement weakened; every change is an extra hypothesis or an extra
+case.  `DeclRun`'s inductive payload `Ind` takes the count
+(`List ConstantInfo → Nat → Env → Prop`) and
+`DeclIndRunDispatch μ F env block nP env₂` dispatches on
+`nativeParts? nP block`; `nativeShape?_inv`/`nativeParts?_inv`,
+`declNative` and `AgreeFloor`'s `indDeclSkels` take it as a parameter.
+The four monadic inversions of the `.indDecl` arm gained one case each
+for the guard — `checkDecl_datF` (`rfl`), `checkDeclC_skels`
+(`Yields.ofThrow`: a throw installs nothing),
+`checkDeclRun_ofEnvFactsE` and the cached bridge
+(`checkModeledOrNativeSF_run` now takes `indParamsOk nP block = true`,
+the branch both drivers take).  An earlier reject only removes cases
+from run relations that already quantify over successful runs.
+
+### 5. Fixtures
+
+**Arena 047 flips 2 → 1**, `con-leche: invalid: number of parameters
+mismatch [at inductive inductTooFewParams]`; the header of
+`tests/arena-expected.txt` says why, and group A's "five rows stay at
+2" is now four (045, 048, 051, 055, all declining earlier at a
+non-standard axiom).
+
+Two e2e twins of `direct_fix_nat.ndjson`, derived by
+`scripts/mk_ind_numparams.py`, which patch INDUCTIVE-RECORD METADATA
+and nothing else:
+
+* `ind_numparams_bad` — `numParams = 1` declared on `Nat' : Type`, a
+  former with no Π binder.  **This stream ACCEPTS on master** (the
+  count came off the constructors, which all say 0) and rejects here:
+  the accept-superset the task closed, pinned as a fixture.
+* `ind_numparams_indices` — every nonzero declared `numIndices` bumped
+  by three, `numParams` untouched: an unread field, so the stream
+  still ACCEPTS (0).  The guard on the one-sidedness, over a block
+  that carries both counts (`numParams = 2` with one index).
+
+### 6. Findings
+
+**(1) "Read it off the data" and "check the data against it" are
+different checkers, and only the second sees a lying declaration.**
+Twice now this route has derived a number the reference is *handed*
+— off the recursor before #220, off the constructors after — and both
+readings are correct on every valid stream and blind in the same way.
+A field the reference reads is input, and input is checked, not
+re-derived.
+
+**(2) The unread fields are as load-bearing as the read one.**
+`numIndices` sits beside `numParams` in the same record and looks just
+as checkable; checking it would have made con-leche reject streams
+official accepts, because nothing compares an inductive record against
+the generated `InductiveVal`.  The rule that separates them is not
+"what is in the record" but "what the reference reads" —
+`ind_numparams_indices` is that rule as a test.
+
+**(3) One arbitrary choice in the reference is a decline here.**
+`nparams` comes from the block member the replay's *name-ordered* walk
+reaches first, so on a block whose type records disagree there is no
+count official is committed to.  Rather than pick one and risk
+rejecting what official accepts, the parse declines that shape
+positively.  It has never fired; it is stated so that the gate's
+one-sidedness has no gap.
+
+### 7. Gates (`agent/numparams`, master `3d560725` merged)
+
+`lake build` 517 jobs, zero warnings; `lake test` green.
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0**.
+Layering base 263 / model 189 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory.  Proofdeps **2 846 rows across 7 roots, doors 0 — no row
+moved** (no regeneration needed).  Pindump fresh (40 378 lines, 229
+prelude lines / 11 records).  Trust surface 18 escapes in 4
+allowlisted files of 464 scanned, 0 outside.  `tests/overview-links.sh`
+after one `--update`: **58 links, 44 files, OK** — §5's fixpoint
+paragraph re-read and rewritten (the parameter count is now the
+declared one, checked, with `indParamsOk` cited), four anchors shifted
+by this batch's insertions.  Route census 90 streams, 682 blocks —
+142 fix, 0 inmodel, 540 basis, 0 modeled.  `inmodel` OK.  Axioms
+pinned at 11 theorems, `[propext, Classical.choice, Quot.sound]`.
+Arena tutorial **90/92** (032/033 by design), **e2e 168/168** (#222's
+166 plus the two new fixtures), annot 14/14, retired flags 8/8, mode
+flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2,
+trusted sweep 138 + 168 + 14 with its three recorded divergences.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088**, exit 0, route census **584 fix / 6 basis / 1
+inmodel** — #220's numbers to the declaration and to the block — at
+**679.215 G instructions:u** against #220's 679.17 G, i.e. parity
+(+0.007 %): the gate is one spine walk per type former and one
+comparison per constructor record.

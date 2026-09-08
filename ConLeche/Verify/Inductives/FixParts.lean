@@ -27,8 +27,8 @@ and rule metadata — is the RECURSOR PIN's, thrown at
 `checkNativeRec`, and no longer the recogniser's; so is the
 constructors' result shape, official's "invalid return type", thrown at
 `checkSumCtor`). -/
-theorem nativeShape?_inv {block : List ConstantInfo} {p : InductiveShape}
-    (h : nativeShape? block = some p) :
+theorem nativeShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : InductiveShape}
+    (h : nativeShape? nPd block = some p) :
     p.isProp = (Level.isEquiv p.resSort .zero == some true) ∧
     (∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
       reservedBasisNames.contains c.1.name = false) ∧
@@ -81,11 +81,11 @@ theorem List.mapM_option_length {α β : Type} {f : α → Option β} :
 
 /-- The recogniser is shape-only (task #210 Part D): the record's kinds
 are the placeholder the install fills. -/
-theorem nativeParts?_inv {block : List ConstantInfo} {p : NativeParts}
-    (h : nativeParts? block = some p) :
-    nativeShape? block = some p.toInductiveShape ∧ p.kinds = [] := by
+theorem nativeParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : NativeParts}
+    (h : nativeParts? nPd block = some p) :
+    nativeShape? nPd block = some p.toInductiveShape ∧ p.kinds = [] := by
   unfold nativeParts? at h
-  cases hs : nativeShape? block with
+  cases hs : nativeShape? nPd block with
   | none => rw [hs] at h; exact nomatch h
   | some p' =>
     rw [hs] at h

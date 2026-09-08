@@ -650,20 +650,26 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
 block goes to `checkNativeS`, everything else to `checkIndDeclSF`,
 and either way the pure fueled `checkDecl` reproduces the run. -/
 theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
+    {block : List ConstantInfo} {nP : Nat} (hok : indParamsOk nP block = true)
+    {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (match nativeParts? block with
+    (h : (match nativeParts? nP block with
           | some p => checkNativeS mode (mkFEnv env) p
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
+    ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block nP) =
       .ok feOut.env := by
+  -- the declared parameter count (task #228) is a pure guard shared by
+  -- the two drivers: `hok` is the branch both take
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match nativeParts? block with
-      | some p => checkNative (fueledOps mode F) env p
-      | none => checkModeled mode (fueledOps mode F) env block) = .ok feOut.env
-  cases hfp : nativeParts? block with
+    ∃ F, (if indParamsOk nP block = true then
+      (match nativeParts? nP block with
+        | some p => checkNative (fueledOps mode F) env p
+        | none => checkModeled mode (fueledOps mode F) env block)
+      else throw (.invalid "number of parameters mismatch")) = .ok feOut.env
+  simp only [if_pos hok]
+  cases hfp : nativeParts? nP block with
   | some p =>
     rw [hfp] at h
     obtain ⟨hres, hfe, F, hF⟩ := checkNativeS_run hμ henv hwf h

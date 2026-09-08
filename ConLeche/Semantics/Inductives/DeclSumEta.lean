@@ -190,9 +190,9 @@ theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
 /-- The `.indDecl` run dispatch keeps the η-families closed, by the
 kernel's own case split. -/
 theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
-    {env envI : Env} {block : List ConstantInfo}
+    {env envI : Env} {block : List ConstantInfo} {nP : Nat}
     (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
+    (h : DeclIndRunDispatch μ F env block nP envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatch at h
   split at h
   · exact declNativeRun_etaClosed hE h
