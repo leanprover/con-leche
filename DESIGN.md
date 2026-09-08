@@ -63610,3 +63610,94 @@ in `ConLeche/Cached/ExprC.lean` has one row.  README's
 memo".  `tests/ConLecheTests/Axioms.lean` pins `Expr.beq_eq_beqMemo`.
 OVERVIEW.md needed no change (it never named the escape; its gates
 paragraph still describes the escape scan).
+
+## TASK #245 — TWO ι-PATH WINS FROM THE #232 REPORT (2026-09-08, `agent/iota-245`)
+
+Task #232 measured where ι reduction spends its time and named two
+changes that pay (its report and measurement kit live on the unmerged
+branch `agent/iota`: `_tmp/iota/REPORT.md`, `scripts/iota/`): **variant
+A**, an arity pre-check in the cached whnf spine loop, and **variant
+B2**, the ι step's two instantiated-type lookups moved inside the
+certificate wrapper that is their only consumer.  This task lands
+exactly those two, re-derived on today's `Cached/CoreC.lean` (tasks
+#240, #241 and #243 moved it in between).  The report's other items —
+the `IndCapsWF` install-time invariant, the stored K bit, the `cidx`
+rule array, variant C — are out of scope.
+
+### 1. Variant A — ι is tried only where it could fire
+
+`whnfAppI` consumes a stuck spine argument by argument and asked
+`iotaRecI` at every prefix: #232 counted 1.51 M calls for 196 k fires
+on `grind-ring-5` and 37.4 M for 1.49 M on `init-full`, a 4 % fire
+rate.  Each of the other 96 % materialises the prefix's argument list
+(`getAppArgs`) only for `iotaRecI`'s first guard to reject it.
+
+`iotaArityOk` (`Cached/CoreC.lean`) asks that guard without
+allocating — `getAppFn`, one `FEnv.find?`, and `iotaNumArgs`, which
+counts the spine instead of building it — and the loop calls
+`iotaRecI` only where it holds.
+
+The proof is one implication and one rewrite.
+`iotaRecI_of_arityOk_false` (`Verify/Cached/DiscC4.lean`): the
+pre-check fails on exactly the three grounds the ι step's own guard
+returns `none` on — the head is not a constant, it is not a stored
+recursor, or the spine has the wrong number of arguments or of levels
+(`iotaNumArgs_getAppArgsAcc` identifies the two counts).
+`iotaArityOk_guard` turns the guarded call back into the bare one, and
+`whnfAppIotaC_sim` — whose statement now carries the guard — discharges
+it in its first line.  The pure comparand (`Verify/BetaSpine.lean`'s
+`whnfAppIota`) and the ι simulation itself are untouched, and seven of
+the nine head shapes in `whnfAppC_sim` needed no change at all: at a
+non-constant head the guarded and the bare call reduce to `pure none`
+definitionally, so the old `exact` still typechecks.
+
+### 2. Variant B2 — a certificate-only lookup ran in the trusted mode
+
+The ι step's certificate family is three checks — two telescope runs
+and the canonical-index comparison — over two instantiated types.  The
+checks sat under `certAtI`, so `.trusted` skipped them; the two
+`constTyAtM` lookups that feed them sat *outside* it, so `.trusted`
+computed them for nobody.  They now sit inside one `certAtI` with the
+three checks, which is the whole of what the trusted mode omits here.
+This is not an optimisation of the trusted lane as such: a
+certificate-only step had leaked out of the family, and the fix is to
+put it back.
+
+Nothing about the verified mode changes.  At `.verified`, `certAtI` is
+the identity by `rfl`, and the reshaped block is the old chain up to
+bind associativity and pushing a bind through two `if`s;
+`certBlock_reshape` (`Verify/Cached/DiscC3.lean`) proves the two
+programs *equal* — not merely equi-accepting — and
+`iotaRec_certs_tail`, restated in the new shape, opens with that
+rewrite and is otherwise the proof it was.  The equality holds because
+a failed check leaves the later lookup undone on both sides.
+
+### 3. Measured
+
+`init-full`, one run per cell, `perf stat -e instructions:u` under
+`ulimit -v 16000000`, against master `c566c0e6`:
+
+| cell | `--verified` | `--trusted` |
+|---|---|---|
+| master `c566c0e6` | 690.56 G | 671.47 G |
+| variant A alone | 681.09 G (**−1.36 %**) | 662.10 G (**−1.40 %**) |
+| A + B2 (this branch) | 681.14 G (**−1.36 %**) | 657.60 G (**−2.07 %**) |
+
+The last row is the committed build; the same source built once before
+gave 681.16 G / 657.58 G, so the build-to-build spread is 0.003 % and
+the noise floor #232 measured (0.015 % over three repeats) still
+holds.  B2's own share is the last row's trusted step, **−0.68 %**; its
+verified cell moves +0.009 %, which is codegen and noise (the two
+programs are equal by `certBlock_reshape`).  Variant A reproduces
+#232's −1.4 % on both modes exactly.  53 088 declarations accepted in
+both modes, exit 0.
+
+Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green under `env -i` with every count unchanged
+(90/92 arena, 178/178 e2e, 14/14 annot, 18/18 mode flags, 12/12
+progress, 11/11 DAG tower, trusted sweep 138+178+14 with the three
+recorded divergences, route census 142 fix / 540 basis, layering
+263/189/3/1 and 0/0 edges, trust surface 10 in 4 of 465, shake all
+allowlisted, overview-links 58/44 with no anchor in the three files
+touched), proofdeps 2846 rows and doors 0, axioms pinned at 12
+theorems over the three standard.

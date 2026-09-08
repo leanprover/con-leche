@@ -702,6 +702,27 @@ def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
     let rs ← pinArgsI lps us args t ps
     pure (r :: rs)
 
+/-- The length of an application spine, without building its argument
+list. -/
+def iotaNumArgs : ExprC → Nat → Nat
+  | .app f _, n => iotaNumArgs f (n + 1)
+  | _, n => n
+
+/-- The arity pre-check of the ι step: `iotaRecI` returns `none`
+unless the head is a stored recursor applied to exactly `majorIdx + 1`
+arguments with the recursor's own number of levels
+(`iotaRecI_of_arityOk_false`).  The whnf spine loop asks this before
+every ι attempt, which is allocation-free where the ι step's own guard
+would first materialise the argument list. -/
+def iotaArityOk (fe : FEnv) (e : ExprC) : Bool :=
+  match ExprC.getAppFn e with
+  | .const c us =>
+    match fe.find? c with
+    | some (.recInfo cv mI _ _) =>
+      iotaNumArgs e 0 == mI + 1 && us.length == cv.levelParams.length
+    | _ => false
+  | _ => false
+
 /-- Twin of `iotaRec`. -/
 def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
     CheckCM (Option ExprC) := do
@@ -757,32 +778,32 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                       || Name.isProjFnShape cn)
                     (defEqListI r fe depth (margs.take rl.ctorParams)
                       cmpArgs) then do
-                  let tyRec ← constTyAtM fe c cn us
-                  -- the two telescope runs, licensed (`iotaCertsIAux`)
-                  -- off `mode.betaGate` — the same function the β
-                  -- site reads, `true` at `.verified`.  Both are
-                  -- certificate families, off at `.trusted` — where
-                  -- the licence's value is therefore moot (the retired
-                  -- trusted config's `betaGate = true` was moot the same way; the
-                  -- read sits under `certAtI`, never beside it —
-                  -- DESIGN.md, "CORET RETIRED", inversion 22).
-                  if ← certAtI mode (iotaCertsI r fe depth mode.betaGate tyRec
-                     (args.take mI ++ [major])) then do
-                   let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← certAtI mode (iotaCertsI r fe depth mode.betaGate tyCtor
-                       margs) then do
-                    -- the canonical-index comparison, only where
-                    -- indices exist (the spec's `iotaRec`); a
-                    -- certificate family, off at `.trusted`
-                    if ← certAtI mode (iotaIndexOkI r fe depth mI rP
-                        rl.ctorParams tyCtor
-                        margs ((args.take mI).drop rP)) then do
+                  -- ONE certificate family: the two instantiated
+                  -- types, the two telescope runs and the
+                  -- canonical-index comparison (which exists only
+                  -- where indices do — the spec's `iotaRec`).  The
+                  -- telescope runs are licensed (`iotaCertsIAux`) off
+                  -- `mode.betaGate` — the same function the β site
+                  -- reads, `true` at `.verified`.  Nothing here is
+                  -- read outside the family, so the whole block is
+                  -- what `.trusted` omits: the types are looked up
+                  -- only where a certificate consumes them (DESIGN.md,
+                  -- "CORET RETIRED", inversion 22).
+                  if ← certAtI mode (do
+                      let tyRec ← constTyAtM fe c cn us
+                      if ← iotaCertsI r fe depth mode.betaGate tyRec
+                          (args.take mI ++ [major]) then do
+                        let tyCtor ← constTyAtM fe cj cjn usj
+                        if ← iotaCertsI r fe depth mode.betaGate tyCtor
+                            margs then
+                          iotaIndexOkI r fe depth mI rP rl.ctorParams tyCtor
+                            margs ((args.take mI).drop rP)
+                        else pure false
+                      else pure false) then do
                       let rhs ← ruleRhsAtM fe c cj cn cjn us
                       let red ← mkAppNM rhs
                         (args.take rP ++ margs.drop rl.ctorParams)
                       pure (some red)
-                    else pure none
-                   else pure none
                   else pure none
                  else pure none
                 else pure none
@@ -842,7 +863,10 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             mkAppNM fa rest
     | _ => do
       let fa ← pure (Expr.app v a)
-      match ← iotaRecI mode r fe depth fa with
+      -- the ι step is tried only where it could fire; every other
+      -- prefix of the spine returns `none` by `iotaRecI`'s own guard
+      match ← (if iotaArityOk fe fa then iotaRecI mode r fe depth fa
+               else pure none) with
       | some e'' => do
         let v' ← k e''
         whnfAppI r fe depth k v' rest

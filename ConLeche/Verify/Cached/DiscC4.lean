@@ -36,6 +36,59 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
+/-- The spine length the arity pre-check computes is the length of the
+argument list the ι step builds. -/
+private theorem iotaNumArgs_getAppArgsAcc (e : ExprC) :
+    ∀ acc : List ExprC,
+      iotaNumArgs e acc.length = (ExprC.getAppArgsAcc e acc).length := by
+  induction e with
+  | app g a ihg _ =>
+    intro acc
+    rw [iotaNumArgs, ExprC.getAppArgsAcc, ← ihg (a :: acc)]
+    rfl
+  | _ => intro acc; rfl
+
+private theorem iotaNumArgs_zero (e : ExprC) :
+    iotaNumArgs e 0 = (ExprC.getAppArgs e).length :=
+  iotaNumArgs_getAppArgsAcc e []
+
+/-- Where the arity pre-check fails, the ι step has nothing to do: its
+own guard returns `none` on exactly the same three grounds (the head is
+not a constant, it is not a stored recursor, or the spine has the wrong
+number of arguments or of levels). -/
+private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
+    {fe : FEnv} {d : Nat} {e : ExprC} (h : iotaArityOk fe e = false) :
+    iotaRecI mi r fe d e = pure none := by
+  unfold iotaArityOk at h
+  unfold iotaRecI
+  cases hg : ExprC.getAppFn e with
+  | const c us =>
+    rw [hg] at h
+    dsimp only at h
+    simp only [pure_bind]
+    cases hf : fe.find? c with
+    | none => rfl
+    | some ci =>
+      rw [hf] at h
+      cases ci with
+      | recInfo cv mI rP rules =>
+        dsimp only at h ⊢
+        rw [if_neg]
+        rintro ⟨hlen, hlvl⟩
+        rw [iotaNumArgs_zero, hlen, hlvl] at h
+        simp at h
+      | _ => rfl
+  | _ => rfl
+
+/-- The pre-check in the spine loop changes no verdict. -/
+private theorem iotaArityOk_guard {mi : CheckMode} {r : CoreFnsI}
+    {fe : FEnv} {d : Nat} {e : ExprC} :
+    (if iotaArityOk fe e then iotaRecI mi r fe d e else pure none)
+      = iotaRecI mi r fe d e := by
+  by_cases h : iotaArityOk fe e = true
+  · rw [if_pos h]
+  · rw [if_neg h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
+
 private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
     whnfCoreStepM mode (fueledFns mode env) env d kM e =
@@ -228,7 +281,9 @@ theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
     (hrest : RelCL rest xs) (hwrest : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ (RelEC d)
       (pure (Expr.app v a) >>= fun fa =>
-        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        (if iotaArityOk (mkFEnv env) fa then
+            iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa
+          else pure none) >>= fun o =>
         match o with
         | some e'' =>
           kI e'' >>= fun v' =>
@@ -236,6 +291,7 @@ theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
         | none =>
           whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
       (whnfAppIota mode (fueledFns mode env) env d kM vx xa xs) := by
+    simp only [iotaArityOk_guard]
     unfold whnfAppIota
     have hwapp : Expr.WScoped d (.app vx xa) := by
       simp only [Expr.WScoped]
