@@ -5,7 +5,7 @@
 {"in": 4, "str": {"pre": 1, "str": "refl"}}
 {"in": 5, "str": {"pre": 0, "str": "Quot"}}
 {"in": 6, "str": {"pre": 5, "str": "sound"}}
-{"in": 7, "str": {"pre": 0, "str": "Big"}}
+{"in": 7, "str": {"pre": 0, "str": "Bool"}}
 {"in": 8, "str": {"pre": 7, "str": "mk"}}
 {"in": 9, "str": {"pre": 7, "str": "rec"}}
 {"in": 10, "str": {"pre": 0, "str": "u"}}

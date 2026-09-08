@@ -485,14 +485,17 @@ prog_check "the rejection still names the failing declaration" \
   "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
-# THE DAG-TOWER GATE (task #215).  The frontend tree-size budget is
-# gone; what stands in its place is a fixture, not a limit.
+# THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget
+# is gone; what stands in its place is a fixture, not a limit.
 # `tests/e2e/tower_*.ndjson` (scripts/mk_tower_fixtures.py) put a shared
 # tower of depth 60 — about 2^60 nodes unshared, ~190 entries as a DAG —
 # into one record kind each.  A walk that is not DAG-safe never
-# finishes on one, so the fixture hangs and names the walker; the e2e
-# half runs the ones that pass today, and DESIGN's #215 record carries
-# the matrix of the ones that do not (they are quiet-time work).
+# finishes on one, so the fixture hangs (or exhausts memory) and names
+# the walker.  Task #226 completed the matrix: the four ACCEPTING kinds
+# and the four DECLINING ones, whose verdict has to be reached without
+# walking the tower — each through a lockstep comparison bounded by the
+# pin it is compared against.  The memory cap makes an unbounded walk
+# fail fast instead of swapping the machine.
 tower_ok=0
 tower_total=0
 tower_check() { # <description> <condition-result>
@@ -503,14 +506,27 @@ tower_check() { # <description> <condition-result>
     echo "TOWER FAIL: $1"; fail=1
   fi
 }
-t_code=0
-timeout 60 "$BIN" tests/e2e/tower_thm.ndjson >/dev/null 2>&1 || t_code=$?
-tower_check "a depth-60 tower in a theorem's type and value accepts" \
-  "$([ "$t_code" = 0 ] && echo ok)"
-t_code=0
-timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || t_code=$?
-tower_check "the retired budget's block fixture still accepts, uncapped" \
-  "$([ "$t_code" = 0 ] && echo ok)"
+tower_run() { # <fixture> <expected-exit> <description>
+  t_code=0
+  ( ulimit -v 8000000; timeout 60 "$BIN" "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
+    || t_code=$?
+  tower_check "$3" "$([ "$t_code" = "$2" ] && echo ok)"
+}
+tower_run tower_thm 0 "a depth-60 tower in a theorem's type and value accepts"
+tower_run budget_block 0 "the retired budget's block fixture still accepts, uncapped"
+tower_run tower_struct 0 "a tower in a structure's constructor field type accepts"
+tower_run tower_proj 0 \
+  "a tower under a two-field structure's projection bodies accepts"
+tower_run tower_axiom 2 \
+  "a tower in Quot.sound's type declines without walking it"
+tower_run tower_quot 2 \
+  "a tower in a quotient record's type declines without walking it"
+tower_run tower_prelude 2 \
+  "a tower in a prelude-named block declines without walking it"
+tower_run tower_axiom_pin 2 \
+  "a tower in propext's type declines without walking it"
+tower_run tower_axiom_nonstd 2 \
+  "a tower in a non-pinned axiom's type declines on the name"
 echo "DAG-tower gate: $tower_ok/$tower_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`
