@@ -105,7 +105,7 @@
    293      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
    294      ∀ c ∈ env'.consts,
    295        c.toConstantVal.type = .const falseName [] → False := by
-   296    obtain ⟨mp⟩ := checkDeclsPure_sound_P_of (V := V) hμ h
+   296    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
    297    exact fun c hc hty => no_constant_of_False mp c hc hty
    298  
 
@@ -183,7 +183,7 @@
    103    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1278
-  1278  `.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
+  1278  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 
 == ConLeche/Term/Syntax.lean#L165-L179
    165  inductive Term where
@@ -369,7 +369,7 @@
     92  variable {V}
     93  
     94  /-- **The collapsed valuation, recovered** — the re-supply the census
-    95  measured at 135 sites (§1.2).  `ATerm.erase` is a total syntactic
+    95  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
     96  function the carrier already owns, so no model content is
 
 == ConLeche/Model/Claims.lean#L88-L156
@@ -506,7 +506,7 @@
    506    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
    507  
    508  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
-   509  noncomputable def lfpFamV2 (u w : Nat) : V :=
+   509  noncomputable def lfpFamV (u w : Nat) : V :=
 
 == ConLeche/SetModel/Container.lean#L593
    593  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)

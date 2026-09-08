@@ -80,13 +80,13 @@ THEORY_PFX  = ('ConLeche.Verify.', 'ConLeche.SetTheory.',
                'ConLeche.Term.')
 CAPS        = {'ConLeche.Verify.Cached.MainC', 'ConLeche.Verify.Cached',
                'ConLeche.MainTheorem'}
-UMBRELLAS   = {'ConLeche'}                  # `ConLeche.Model` is gated as P
+UMBRELLAS   = {'ConLeche'}                  # `ConLeche.Model` is gated as the model lane
 
 def lane(m):
     rel = mods[m]
     if m in CAPS:      return 'caps'
     if m in UMBRELLAS: return 'umbrella'
-    if rel == 'ConLeche/Model.lean' or rel.startswith('ConLeche/Model/'): return 'P'
+    if rel == 'ConLeche/Model.lean' or rel.startswith('ConLeche/Model/'): return 'model'
     return 'base'
 
 LANE = {m: lane(m) for m in mods}
@@ -120,9 +120,9 @@ report('implementation importing theory', implv,
        'ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*.')
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
-     for l in ("base", "P", "caps", "umbrella")}
+     for l in ("base", "model", "caps", "umbrella")}
 if not fail:
-    print(f'layering: base {n["base"]} / P {n["P"]} / caps {n["caps"]} / '
+    print(f'layering: base {n["base"]} / model {n["model"]} / caps {n["caps"]} / '
           f'umbrella {n["umbrella"]} modules; '
           f'{len(basev)} base->lane edges, {len(implv)} impl->theory')
 sys.exit(fail)

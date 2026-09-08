@@ -55,7 +55,7 @@ measure different things and neither implies the other.
 | `fold_preserves` | the fold that threads the model invariant |
 | `no_proof_of_False_pure` | the pure fueled checker's letter |
 | `no_proof_of_Empty_pure` | the same about `Empty` |
-| `no_proof_of_Empty_P_of` | its install-tier-conditional milestone shape |
+| `no_proof_of_Empty_pure_of` | its install-tier-conditional milestone shape |
 | `no_constant_of_False` | the business end at the invariant |
 | `no_constant_of_Empty` | the same about `Empty` |
 | `no_constant_of_emptyPin` | the pin under it |
@@ -114,39 +114,39 @@ info: 'ConLeche.Cached.fold_preserves' depends on axioms: [propext, Classical.ch
 /-! ## The pure fueled checker (`ConLeche/Model/Fold.lean`) -/
 
 /--
-info: 'ConLeche.Model.no_proof_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_False_pure' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_proof_of_False_pure
 
 /--
-info: 'ConLeche.Model.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_Empty_pure' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_proof_of_Empty_pure
 
 /--
-info: 'ConLeche.Model.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_proof_of_Empty_pure_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Model.no_proof_of_Empty_P_of
+#print axioms ConLeche.Model.no_proof_of_Empty_pure_of
 
 /-! ## The business end (`ConLeche/Model/Capstone.lean`) -/
 
 /--
-info: 'ConLeche.Model.no_constant_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_constant_of_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_constant_of_False
 
 /--
-info: 'ConLeche.Model.no_constant_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_constant_of_Empty' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_constant_of_Empty
 
 /--
-info: 'ConLeche.Model.no_constant_of_emptyPin_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Model.no_constant_of_emptyPin' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Model.no_constant_of_emptyPin
