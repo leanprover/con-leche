@@ -196,22 +196,6 @@ theorem stripPis_binder_bounded :
         rw [show j + 1 + i = j + (i + 1) from by omega] at this
         exact this
 
-/-- A `stripPis` at a larger count strips at a smaller one. -/
-theorem stripPis_isSome_of_le :
-    ∀ {k n : Nat} {e : Expr}, k ≤ n → (e.stripPis n).isSome = true →
-      (e.stripPis k).isSome = true := by
-  intro k
-  induction k with
-  | zero => intro n e _ _; simp [stripPis]
-  | succ k ih =>
-    intro n e hle h
-    match n, hle with
-    | n + 1, hle =>
-      match e, h with
-      | .forallE d bo m, h =>
-        simp only [stripPis, Option.isSome_map] at h ⊢
-        exact ih (by omega) h
-
 /-! ## The generator -/
 
 theorem structProjBodiesGo_spec (T : Name) :

@@ -109,10 +109,10 @@ former's telescope before storing it, `checkSumInd`'s
 `stripPis (nP + nIdx)`; on the modeled route the capability theorems
 pin the model former's telescope and the stored type is the model's
 under the block renaming, `indCapsWF_of_pins`; the basis blocks' types
-are literal) and
-consumed by the structure-η and unit-like rows (`CapsRows`) from the
-invariant, where `structEtaCertWith` and `structUnitCert` used to
-re-check it per call ("invariants over runtime gates"). -/
+are literal) and consumed by the structure-η and unit-like rows
+(`CapsRows`) from the invariant, where `structEtaCertWith` and
+`structUnitCert` used to re-check it per call ("invariants over
+runtime gates"). -/
 @[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
   ∀ cv caps, c = .indInfo cv caps →
     (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
@@ -127,22 +127,21 @@ theorem IndCapsWF.of_caps {cv : ConstantVal} {caps : IndCaps}
   obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj heq
   exact ⟨hu, he⟩
 
-/-- `IndCapsWF` at an inductive stored with no capabilities. -/
-theorem IndCapsWF.empty {cv : ConstantVal} : IndCapsWF (.indInfo cv {}) :=
-  .of_caps (fun h => nomatch h) (fun h => nomatch h)
-
-/-- A longer telescope pin implies a shorter one. -/
-theorem Expr.stripPis_isSome_of_le :
+/-- A `stripPis` at a larger count strips at a smaller one. -/
+theorem stripPis_isSome_of_le :
     ∀ {k n : Nat} {e : Expr}, k ≤ n → (e.stripPis n).isSome = true →
-      (e.stripPis k).isSome = true
-  | 0, _, _, _, _ => rfl
-  | k + 1, 0, _, hle, _ => absurd hle (by omega)
-  | k + 1, n + 1, e, hle, h => by
-    cases e with
-    | forallE ty b m =>
-      simp only [Expr.stripPis, Option.isSome_map] at h ⊢
-      exact Expr.stripPis_isSome_of_le (by omega) h
-    | _ => simp [Expr.stripPis] at h
+      (e.stripPis k).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro n e _ _; simp [Expr.stripPis]
+  | succ k ih =>
+    intro n e hle h
+    match n, hle with
+    | n + 1, hle =>
+      match e, h with
+      | .forallE d bo m, h =>
+        simp only [Expr.stripPis, Option.isSome_map] at h ⊢
+        exact ih (by omega) h
 
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 @[expose] def ConstWF (env : Env) (c : ConstantInfo) : Prop :=

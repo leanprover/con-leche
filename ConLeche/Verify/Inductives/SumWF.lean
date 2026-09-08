@@ -39,10 +39,10 @@ theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
     (checkConstantVal_typeWF hccv).1⟩
   · intro hu
     rw [(hcapsOf _).1 hu, InductiveShape.withSort_nP]
-    exact Expr.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
   · intro he
     rw [(hcapsOf _).2 he, InductiveShape.withSort_nP]
-    exact Expr.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
 
 /-- A constructor's run at the former's environment: its type is
 closed and bounded. -/

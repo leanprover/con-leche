@@ -313,10 +313,10 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     refine ConLeche.IndCapsWF.of_caps ?_ ?_
     · intro hu
       rw [(ConLeche.nativeCaps_arity p).1 hu]
-      exact ConLeche.Expr.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+      exact ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
     · intro he
       rw [(ConLeche.nativeCaps_arity p).2 he]
-      exact ConLeche.Expr.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
+      exact ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
   obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
     (ConLeche.nativeCaps p) hicwT
