@@ -91,8 +91,18 @@ def nativeCaps (p : NativeParts) : IndCaps :=
       etaFields := c.2
       unitlike := p.nIdx == 0 && c.2 == 0
       unitParams := p.nP
-      ruleK := c.2 == 0 && p.isProp }
+      ruleK := c.2 == 0 && p.isProp
+      sortZ := Level.zeronessOf p.resSort }
   | _ => {}
+
+/-- The fixpoint route stores the family's own result-sort datum: the
+former's telescope ends in `Sort p.resSort`, so the record's `sortZ`
+is `piResultZ` of the type the install stores (`capsNeverZero_eq`). -/
+theorem nativeCaps_sortZ {p : NativeParts} {c : ConstantVal × Nat}
+    {e : Expr} (hc : p.ctors = [c]) (he : e.piResult = .sort p.resSort) :
+    (nativeCaps p).sortZ = piResultZ e := by
+  unfold nativeCaps piResultZ
+  rw [hc, he]
 
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/
@@ -555,6 +565,7 @@ def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env :=
   let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkNativeRec ops env₂ p cvTa ctorsA
   checkNativeTable p ctorsA sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-    (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
+    (sumRules env₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type
+      ctorsA rhss) :: env₂.consts⟩
 
 end ConLeche

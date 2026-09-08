@@ -891,17 +891,19 @@ theorem consSumCtorsF_skels (nP : Nat) :
     simpa [consSumCtorsF, sumCtorSkels, ciSkel] using hstep
 
 /-- The stored rules are one per constructor, in constructor order. -/
-theorem sumRules_map_ctor (nP mI rP : Nat) (recTy : Expr) :
+theorem sumRules_map_ctor (find? : Name → Option ConstantInfo)
+    (recName : Name) (nP mI rP : Nat) (recTy : Expr) :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr},
       rhss.length = ctorsA.length →
-      (sumRules nP mI rP recTy ctorsA rhss).map (·.ctor)
+      (sumRules find? recName nP mI rP recTy ctorsA rhss).map (·.ctor)
         = ctorsA.map (·.1.name)
   | [], [], _ => rfl
   | [], _ :: _, h => by simp at h
   | _ :: _, [], h => by simp at h
   | c :: cs, rhs :: rhss, h => by
-    simp only [sumRules, List.map_cons, List.cons.injEq, true_and]
-    exact sumRules_map_ctor nP mI rP recTy (by simpa using h)
+    simp only [sumRules, List.map_cons, List.cons.injEq, true_and,
+      recRuleBits_ctor]
+    exact sumRules_map_ctor find? recName nP mI rP recTy (by simpa using h)
 
 /-! ### The direct recursive install (task #188) -/
 
@@ -1096,11 +1098,13 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
     rw [hp'T]
     rwa [hns] at hcs
   have hpush := hbase.push (.recInfo cvRa p'.majorIdx p'.rulePrefix
-    (sumRules p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss))
+    (sumRules (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name
+      p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss))
   have hpush' : SkelIs (consSumCtorsF p'.nP ctorsA fe₁ |>.push (.recInfo cvRa p'.majorIdx
-      p'.rulePrefix (sumRules p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss)))
+      p'.rulePrefix (sumRules (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name
+        p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss)))
       (sumSkels p'.toInductiveShape sk) := by
-    simpa [ciSkel, sumSkels, hnR, sumRules_map_ctor _ _ _ _ hlen',
+    simpa [ciSkel, sumSkels, hnR, sumRules_map_ctor _ _ _ _ _ _ hlen',
       hctors] using hpush
   -- the projection table at a structure-like block (task #210 Part A)
   refine Yields.mono (checkNativeTableF_skels hpush' p' ctorsA sortss hlenC hlenS) ?_

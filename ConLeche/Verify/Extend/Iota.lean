@@ -858,7 +858,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
     RuleChecked mode F env' env₀ f cvA mI rP j r' ∧
       -- task #148 T6: the input-to-output link, which `RuleChecked`
       -- (stated over the *returned* rule alone) cannot carry: the
-      -- returned rule is the input with three fields replaced, and
+      -- returned rule is the input with its install-computed fields
+      -- replaced, and
       -- the input's own right-hand side is the well-formed pre-image
       -- of the annotated one.  The proof always knew this; the
       -- statement now says so.
@@ -866,7 +867,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
       (RecRule.rhs r).looseBVarsBounded 0 = true ∧
       (∃ cnP fire rhsA,
         annotateCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsA ∧
-        r' = {r with rhs := rhsA, ctorParams := cnP, fire := fire} ∧
+        r' = recRuleBits env'.find? cvA.name
+          {r with rhs := rhsA, ctorParams := cnP, fire := fire} ∧
         (fire = .inert →
           nestedRuleShape env' env₀ cvA.name cvA.levelParams
             cvA.type mI rP cnP j = none) ∧

@@ -132,6 +132,7 @@ def quotLiftRule : RecRule :=
 /-- `Eq.rec`'s single stored rule. -/
 def eqRecRule : RecRule :=
   { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
+    k := true,
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam (.bvar 0)
         (Expr.lam

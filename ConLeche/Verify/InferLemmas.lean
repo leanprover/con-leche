@@ -790,7 +790,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
   dsimp only [prepareMajorFueled] at h
   simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
     litMajorToCtor_fold] at h
-  by_cases hk : recRuleK env rules = true
+  by_cases hk : recRuleK rules = true
   · rw [if_pos hk] at h
     cases h₁ : majorToCtorFueled mode env fuel d recName rules a with
     | error err => rw [h₁] at h; exact nomatch h
@@ -1011,6 +1011,24 @@ theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
   | none => rw [hres] at h; simp [pure, Except.pure] at h
   | some residual => rw [hres] at h; exact ⟨residual, rfl, h⟩
 
+/-- **The stored zero-ness datum decides the official never-zero
+test**: at a capability record whose `sortZ` is the family's own
+(`piResultZ` of the type the environment stores — what every install
+route computes it from), reading the datum at a use's levels gives
+exactly the walk `piResultNeverZero` would have made down that type. -/
+theorem capsNeverZero_eq {lps : List Name} {us : List Level}
+    {caps : IndCaps} {e : Expr} (h : caps.sortZ = piResultZ e) :
+    capsNeverZero lps us caps = piResultNeverZero lps us e := by
+  unfold capsNeverZero piResultNeverZero
+  rw [h]
+  unfold piResultZ
+  cases e.piResult with
+  | sort u =>
+    rw [← Level.zeronessOf_subst, ← Level.isNeverZero_eq_isNever]
+  | _ =>
+    rw [Level.substPW_eq_self (by simp)]
+    simp
+
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
 K branch certified by proof irrelevance, in the structure-eta branch by
@@ -1031,7 +1049,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
        inferTypeIO mode env fuel d major = .ok tmaj₀ ∧
        whnf mode env fuel d tmaj₀ = .ok tmaj ∧
        tmaj.getAppFn = .const T ust ∧
-       ((caps.ruleK = true ∧ cnF = 0 ∧
+       ((rl.k = true ∧
          cvj.levelParams.length = ust.length ∧
          cnP ≤ tmaj.getAppArgs.length ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
@@ -1042,9 +1060,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
            isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
          proofIrrelFueled mode env fuel d major' major = .ok true) ∨
-        (caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-         Name.isProjFnShape recName = false ∧
-         piResultNeverZero cvT.levelParams ust cvT.type = true ∧
+        (rl.eta = true ∧
+         capsNeverZero cvT.levelParams ust caps = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          cvj.levelParams.length = ust.length ∧
@@ -1121,7 +1138,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
   | some (.indInfo cvT caps) =>
   intro h
   dsimp only at h
-  by_cases hK : caps.ruleK = true ∧ cnF = 0
+  by_cases hK : rl.k = true
   · rw [if_pos hK] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode env fuel d major with
@@ -1258,11 +1275,10 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inl ⟨hK.1, hK.2, hlvl, harK1, rfl, hcertK,
+      Or.inl ⟨hK, hlvl, harK1, rfl, hcertK,
         ⟨tfab, htf, hdeq⟩, hpi⟩⟩
   · rw [if_neg hK] at h
-    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape recName = false
+    by_cases hE : rl.eta = true
     case neg =>
       rw [if_neg hE] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1322,7 +1338,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     dsimp only at h
     by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        piResultNeverZero cvT.levelParams ust cvT.type = true
+        capsNeverZero cvT.levelParams ust caps = true
     case neg =>
       rw [if_neg hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1408,7 +1424,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
         rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
         rfl, hfj, hpr, hfT, rfl, htw, hth,
-        Or.inr ⟨hE.1, hE.2.1, hE.2.2, hnz, hplen, hlvl,
+        Or.inr ⟨hE, hnz, hplen, hlvl,
           harE1, rfl, hcertE,
           Or.inr ⟨hZ.1, hZ.2, hpi⟩⟩⟩
     | true =>
@@ -1418,7 +1434,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr ⟨hE.1, hE.2.1, hE.2.2, hnz, hplen, hlvl,
+      Or.inr ⟨hE, hnz, hplen, hlvl,
         harE1, rfl, hcertE,
         Or.inl hse⟩⟩
 

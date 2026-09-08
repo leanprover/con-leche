@@ -1416,7 +1416,7 @@ private theorem prepareMajor_shift (henv : EnvWF env)
       (prepareMajor mode (pureFns mode env fuel) env d recName rules major).map
         (shiftFrom p) := by
   simp only [prepareMajor]
-  by_cases hk : recRuleK env rules = true
+  by_cases hk : recRuleK rules = true
   · rw [if_pos hk, if_pos hk]
     refine bind_rel _ _ (majorToCtor_shift henv ih hpd recName rules hwmaj) ?_
     intro m₁ hm₁

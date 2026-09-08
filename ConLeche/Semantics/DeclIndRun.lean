@@ -242,7 +242,8 @@ def IotaRuleRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (rhsA.stripLams (rP + cnF)).isSome = true ∧
     (∃ t', inferTypeCore μ envSelf F 0 rhsA = .ok t') ∧
     ∃ fire,
-      r' = { r with rhs := rhsA, ctorParams := cnP, fire := fire } ∧
+      r' = recRuleBits env'.find? cvName
+        { r with rhs := rhsA, ctorParams := cnP, fire := fire } ∧
       ((Expr.recRulePlain tyA mI rP cnP = true ∧ fire = .plain ∧
           IotaThmRun μ F env' envSelf f cvName lps tyA mI rP j r
             cvj cnP cnF rhsA) ∨
@@ -366,9 +367,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
             isDefEqCore μ env' F (nP + nF) tr
               (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true))) ∧
     env'' = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-      [⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-        rhsA⟩] :: env'.consts⟩
+      [projFnRule env'.find? T ctorName pty nP nF i rhsA] :: env'.consts⟩
 
 /-- `ProjInstallR`'s run/guard half.  The valuation the install picks
 for the projection function (`cvalWith … (projModelName T i)`) was the

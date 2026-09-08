@@ -32,12 +32,12 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
     match rules with
     | [rl] =>
       match env.find? rl.ctor with
-      | some (.ctorInfo cvj cnP cnF) =>
+      | some (.ctorInfo cvj cnP _cnF) =>
         match (cvj.type.piResult).getAppFn with
         | .const T _ =>
           match env.find? T with
           | some (.indInfo cvT caps) =>
-            if caps.ruleK = true ∧ cnF = 0 then
+            if rl.k = true then
               (fueledFns mode env).inferIO d major >>= fun tm =>
               (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
@@ -67,15 +67,14 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                   else pure major
                 else pure major
               | _ => pure major
-            else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-                Name.isProjFnShape recName = false then
+            else if rl.eta = true then
               (fueledFns mode env).inferIO d major >>= fun tm =>
               (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                     ust.length = cvT.levelParams.length ∧
-                    piResultNeverZero cvT.levelParams ust cvT.type = true then
+                    capsNeverZero cvT.levelParams ust caps = true then
                   if cvj.levelParams.length = ust.length then
                     let fab := Expr.mkAppN (.const caps.etaCtor ust)
                       (etaFabArgsE env T ust tmaj.getAppArgs major
@@ -132,7 +131,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
           | .const T _ =>
             match (mkFEnv env).find? T with
             | some (.indInfo cvT caps) =>
-              if caps.ruleK = true ∧ cnF = 0 then
+              if rl.k = true then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 
@@ -170,8 +169,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     else pure i
                   else pure i
                 | _ => pure i
-              else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-                  Name.isProjFnShape recName = false then
+              else if rl.eta = true then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 
@@ -182,7 +180,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   pure (T' == T) >>= fun bq =>
                   if bq ∧ margs.length = caps.etaParams ∧
                       ust.length = cvT.levelParams.length ∧
-                      piResultNeverZero cvT.levelParams ustL cvT.type
+                      capsNeverZero cvT.levelParams ustL caps
                         = true then
                     if cvj.levelParams.length = ust.length then
                       pure T >>= fun TI =>
@@ -255,7 +253,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
               cases ciT with
               | indInfo cvT caps =>
                 dsimp only
-                by_cases hK : caps.ruleK = true ∧ cnF = 0
+                by_cases hK : rl.k = true
                 · rw [if_pos hK, if_pos hK]
                   refine SimC.bind (ih.inferIO hs hden hmaj)
                     (fun s₁ tm tmx hs₁ hP => ?_)
@@ -393,9 +391,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       = Expr.proj sn jx e' from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
                 · rw [if_neg hK, if_neg hK]
-                  by_cases hEta : caps.eta = true ∧
-                      rl.ctor = caps.etaCtor ∧
-                      Name.isProjFnShape recName = false
+                  by_cases hEta : rl.eta = true
                   · rw [if_pos hEta, if_pos hEta]
                     refine SimC.bind (ih.inferIO hs hden hmaj)
                       (fun s₁ tm tmx hs₁ hP => ?_)
@@ -828,15 +824,8 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
           · exact hw.getAppArgs x (List.mem_of_mem_take hx)
           · exact hmaj.getAppArgs x (List.mem_of_mem_drop hx)
 
-/-- The K flag at the indexed lookup is the spec's (nothing is
-hidden under `mkFEnv`). -/
-theorem recRuleKOf_mkFEnv (env : Env) (rules : List RecRule) :
-    recRuleKOf (mkFEnv env).find? rules = recRuleK env rules := by
-  unfold recRuleK
-  rw [show FEnv.find? (mkFEnv env) = env.find? from funext (mkFEnv_find? env)]
-
-/-- Simulation of the major chain, in either order (the K flag is read
-identically on both sides). -/
+/-- Simulation of the major chain, in either order (the K flag is the
+single rule's stored bit, read identically on both sides). -/
 theorem prepareMajorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : ExprC}
     {major : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -846,8 +835,7 @@ theorem prepareMajorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
         rules i)
       (prepareMajor mode (fueledFns mode env) env d recName rules major) := by
   unfold prepareMajorI prepareMajor
-  rw [recRuleKOf_mkFEnv]
-  by_cases hk : recRuleK env rules = true
+  by_cases hk : recRuleK rules = true
   · rw [if_pos hk, if_pos hk]
     refine SimC.bind (majorToCtorC_sim hμ ih henv hs hden hmaj)
       (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)

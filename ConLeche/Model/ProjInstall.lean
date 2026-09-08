@@ -267,9 +267,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
         (by rw [show (projFnName T i).isProjFnShape = true from rfl]
             exact fun hh => nomatch hh)
   have hfreshC : env'.find? (ConstantInfo.name (projEntry T lps pty nP i
-      [(⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ : RecRule)])) = none := hfresh
+      [projFnRule env'.find? T ctorName pty nP nF i rhsA])) = none := hfresh
   have hCne : ctorName ≠ projFnName T i := by
     intro hh
     rw [hh, hfresh] at hctor
@@ -298,30 +296,27 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
       eq_of_beq hround]
     exact hta
   have hnew : ∀ m₂ : EnvModel V
-      ⟨projEntry T lps pty nP i [⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩] :: env'.consts⟩,
+      ⟨projEntry T lps pty nP i
+        [projFnRule env'.find? T ctorName pty nP nF i rhsA] :: env'.consts⟩,
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)
         (fun ψ => mp.base2.acval (projModelName T i) ψ) →
-      ∀ (φ : Name → Nat), ∀ rl ∈ [(⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ : RecRule)],
+      ∀ (φ : Name → Nat),
+        ∀ rl ∈ [projFnRule env'.find? T ctorName pty nP nF i rhsA],
         RecRule.fire rl ≠ .inert →
         RecRuleLaw m₂ φ (projFnName T i) ⟨projFnName T i, lps, pty⟩
           nP nP rl := by
     intro m₂ hac φ rl hrl hfire
-    obtain rfl : rl = ⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ := by
+    obtain rfl : rl = projFnRule env'.find? T ctorName pty nP nF i rhsA := by
       rcases List.mem_cons.mp hrl with h | h
       · exact h
       · exact nomatch h
-    have hplainFire : (if Expr.recRulePlain pty nP nP nP then
-        RecRuleFire.plain else .inert) = .plain := by
+    have hplainFire : RecRule.fire
+        (projFnRule env'.find? T ctorName pty nP nF i rhsA) = .plain := by
       by_cases hc : Expr.recRulePlain pty nP nP nP = true
-      · simp [hc]
+      · simp [projFnRule, recRuleBits, hc]
       · exact absurd (show RecRule.fire _ = RecRuleFire.inert from by
-          simp only [eq_false_of_ne_true hc]; rfl) hfire
+          simp only [projFnRule, recRuleBits, eq_false_of_ne_true hc]; rfl)
+          hfire
     refine ⟨Nat.le_refl _, ?_⟩
     intro us hus
     obtain ⟨Ra, hRaden, hokRa, hRalaw⟩ := hbot φ us hus
@@ -336,10 +331,10 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     intro cvj' cnP' cnF' hfc' usj ρ xs ys TVa TVja restR restC hlenX
       hlenY husjlen hlev hplain hnested hidx hTVa hTVja hfitR hfitC
     -- the stored constructor is the one the kit named
+    dsimp only [projFnRule_ctor] at hfc'
     have hfcjE : env'.find? ctorName = some (.ctorInfo cvj' cnP' cnF') := by
       rw [Env.find?_cons, if_neg (show ¬(projEntry T lps pty nP i
-        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-          .plain else .inert, rhsA⟩]).name = ctorName from
+        [projFnRule env'.find? T ctorName pty nP nF i rhsA]).name = ctorName from
         fun hh => hCne hh.symm)] at hfc'
       exact hfc'
     obtain ⟨rfl, rfl, rfl⟩ : cvj' = cvj ∧ cnP' = nP ∧ cnF' = nF := by
@@ -370,7 +365,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
         (constsBound_instType mp.base2.wf
           (Env.find?_mem hctor) usj) hTVja').symm
     -- the two leaves the conclusion mentions
-    dsimp only at hfitR ⊢
+    dsimp only [projFnRule_ctor] at hfitR ⊢
     rw [hac, acvalWith_ne hCne] at hfitR
     rw [hac, acvalWith_ne hCne, acvalWith_self]
     refine hRalaw usj ρ xs ys TVa' TVja' restR restC hlenX hlenY
@@ -381,7 +376,12 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
   obtain ⟨mp₁, hacc, hinvA₁, hIA₁⟩ :=
     projCons mp rfl hfm hmlps hpnone hround hptyres hinv hinvA hilt
       hTf hCf hIB hIA hTblock hnotb hpinsT hCblock hFields hwf₁
-      (fun cvR mI rP rules₀ heq => hctors₁ cvR mI rP rules₀ heq)
+      (fun cvR mI rP rules₀ heq r hr => by
+        refine ⟨hctors₁ cvR mI rP rules₀ heq r hr, ?_, ?_⟩ <;>
+          · injection heq with _ _ _ h4
+            subst h4
+            rcases List.mem_singleton.mp hr with rfl
+            exact fun hb => hb)
       hnew
   -- the v1 valuation at the extension, read off the leaf equation
   -- through `acval_erase` (`memberInstallPM`'s move)
