@@ -22,8 +22,8 @@
     85  #guard_msgs in
     86  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L884
-   884    for line in contents.splitToList (· == '\n') do
+== ConLeche/Frontend/ExportC.lean#L885
+   885    for line in contents.splitToList (· == '\n') do
 
 == Main.lean#L331
    331            let now ← IO.monoMsNow

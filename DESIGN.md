@@ -60625,3 +60625,142 @@ accepted **53 088** declarations, exit 0, route census **584 fix / 6
 basis / 1 inmodel**, at **679.098 G instructions:u** against #221's
 published 679.08 G — parity (+0.003 %).  **A rename costs nothing, as
 it should.**
+
+## TASK #226 — THE DAG-TOWER MATRIX IS COMPLETE: four more record kinds, and the pin comparisons go lockstep (2026-09-08, `agent/towers`)
+
+**The user's word, verbatim:** *"ok, do 4, it does not hurt"* — item 4
+of the quiet-time docket that task #215 left: *"the per-kind tower
+matrix — the axiom, quotient and prelude-named mines, plus a
+projection-body tower — and the `canonEq`/`erasePw` short-circuiting
+that closes them."*
+
+### 1. What the gate is, and what it now covers
+
+`scripts/mk_tower_fixtures.py` puts a **shared tower of depth 60**
+(`T_0 = Nat.zero`, `T_{k+1} = (K T_k) T_k`, every `T_k` defeq to
+`Nat.zero`, ~190 entries as a DAG and about `2^60` nodes unshared) into
+**one record kind each**.  A walk that is not DAG-safe never finishes on
+one, so a regression makes a *test* fail instead of making a legitimate
+Mathlib declaration decline.  The matrix is now complete — the arena's
+DAG-tower section runs **9/9** (it ran 2/2), and `tests/e2e` **172/172**
+(it ran 166/166):
+
+| fixture | verdict | what it gates |
+|---|---|---|
+| `tower_thm` | 0 | the tower in a theorem's type and value |
+| `budget_block` | 0 | the retired budget's own fixture, uncapped |
+| `tower_struct` | 0 | the tower in a structure's constructor field type (#215, wired at #210 Part B) |
+| **`tower_proj`** | **0** | a TWO-field structure: the projection bodies substitute `T.field_0` into a telescope that carries the tower |
+| **`tower_axiom`** | **2** | `Quot.sound` with a tower type — divergent quotient pin |
+| **`tower_quot`** | **2** | a `quot` record for `Quot` with a tower type — divergent quotient pin |
+| **`tower_prelude`** | **2** | an inductive block named `Bool` with a tower in its field — differs from the built-in prelude's `Bool` |
+| **`tower_axiom_pin`** | **2** | `propext` with a tower type, over a standardly-shaped stored `Iff` family — divergent standard-axiom pin |
+| **`tower_axiom_nonstd`** | **2** | the same tower under a NON-pinned axiom name — the decline is on the name alone |
+
+All five new fixtures reach their verdict in **t = 0.0 s**.
+
+### 2. The walkers, and what replaced each
+
+| fixture | walker it exposed (measured: OOM under `ulimit -v 8 GB`) | replacement |
+|---|---|---|
+| `tower_axiom` | `Frontend.canonExpr` via `ConstantInfo.canon`, at the `Quot.sound` axiom arm | `ConstantInfo.canonEq` (lockstep) |
+| `tower_quot` | the same, at the `quot` record arm, through `.toConstantVal` | `ConstantVal.canonEq` (lockstep) |
+| `tower_prelude` | the same, through `DeclC.sameCanon`'s block arm | `canonEqList` (lockstep, member for member) |
+| `tower_axiom_pin` | **`Expr.erasePw` via `ConstantVal.matchesPin`** (`Kernel/StdAxioms.lean`) | `Expr.erasePwEq` / `matchesPinFast` (lockstep) |
+| `tower_proj` | **`Expr.abstract1`** (the PURE one) via `closeTelescope` / `normPosDom` in `Kernel/Inductives/SumInstall.lean` — 14.3 % self plus the `lam`/`app` constructor calls it drives, ≈ 28 % of the run | `abstract1Fast`: the `O(1)` fvar-range field read at every node |
+| `tower_axiom_nonstd` | none — it passed before and after | it gates the annotation pass, which does check the tower type |
+
+**The lockstep comparison** (task #215 drafted it as `canonEq` and
+dropped it when the name pre-filter sufficed for the basis-BLOCK match;
+this task revives it for exactly the sites the pre-filter does not
+cover).  Instead of building the canonical form of BOTH sides and
+comparing the results, the comparison descends both terms **together**,
+applying each side's own level-parameter renaming on the fly, and stops
+at the first disagreement.  Wherever the two agree they have the pin's
+shape, so **the walk is bounded by the PIN's tree size — a few dozen
+nodes — however large the stream side is**; where they disagree it stops
+there.  The **name pre-filter of #215 stays in front** of the block
+comparison.
+
+**The agreement is proved, not asserted.**  Each spec function is
+spelled exactly as the call site used to be —
+`ConstantVal.canonEq cv cv' = decide (cv.canon = cv'.canon)`,
+`ConstantInfo.canonEq`, `canonEqList`, and `matchesPin` is
+UNCHANGED — and each lockstep twin is swapped in by **`@[csimp]`**:
+`ConstantVal.canonEq_eq_canonEqFast`,
+`ConstantInfo.canonEq_eq_canonEqFast`,
+`canonEqList_eq_canonEqListFast`,
+`ConstantVal.matchesPin_eq_matchesPinFast`,
+`abstract1_eq_abstract1Fast`.  Kernel-checked, no trust point, and the
+*pure* definition stays the one every proof consumes — which matters
+here, because `matchesPin` IS consumed by proofs (`Verify/StdAxiomPin.lean`,
+`Verify/OfReducePin.lean`, `Verify/ReducePinInv.lean`, `Model/DivMod.lean`
+all unfold it): **not one of them changed a character.**  The
+descent lemmas underneath are `Expr.erasePwEq_iff` / `_eq`,
+`canonExprEqFast_iff`, `canonRulesEqFast_iff`,
+`ConstantVal.canonEqFast_iff`, `ConstantInfo.canonEqFast_iff`,
+`canonEqListFast_iff` and `abstract1_of_fvarRange_le`; the last says
+abstraction at or above the fvar range is the identity, and `fvarB_eq`
+(task #210 Part B) says the packed field is that range.
+
+### 3. Findings
+
+**(1) The projection-body tower did NOT already pass, and the walker
+was not a frontend one.**  It was expected to be a regression guard on
+#210 Part B's cached `instantiate1Lift`; it exposed the *pure*
+`Expr.abstract1` instead, in the NATIVE install route's
+`closeTelescope`.  `tower_struct` could not see it: at ONE field the
+telescope close has nothing to abstract *through* — the body after the
+single binder is the type former itself.  **A one-field structure is
+not a structure fixture; the second field is where the substitutions
+start.**  The cached twin `Cached.abstract1` has had the fvar-range
+cutoff since it was written and its docstring called it a "documented
+deviation from the arena twin"; the deviation is now gone, in the
+direction of the twin that was right.
+
+**(2) A pin comparison can be unreachable for a fixture to reach.**
+`stdAxiomOk`'s `propext` arm short-circuits on the stored `Iff`
+family, so an axiom named `propext` over an environment WITHOUT a
+standardly-shaped `Iff` never reaches `matchesPin` at all — it declines
+on the family.  The fixture therefore carries the `Iff` block, spelled
+as `iffRaw`/`iffIntroRaw`/`iffRecRaw` pin them (`iff_family` in the
+generator).  That it is spelled RIGHT is not taken on faith: the same
+stream with the *correct* `propext` type **accepts** (2 declarations),
+which is only possible if every guard including `matchesPin` passed.
+And with the `@[csimp]` removed, `tower_axiom_pin` **OOMs** — the
+before/after that names the walker.
+
+**(3) `==` at a derived `DecidableEq` type does not simp away.**  The
+first draft spelled the specs `canon x == canon y`, and every proof
+stalled on the `BEq` instance.  Spelling them `decide (canon x = canon y)`
+— which is what `instBEqOfDecidableEq` unfolds to, so the same function
+— made `decide_eq_true_eq` the whole bridge.  `Expr` is the exception
+that proves it: `Expr.beq` is `decide (· = ·)` by definition and carries
+a `LawfulBEq`, so `beq_iff_eq` fires there.
+
+### 4. Gates (`agent/towers`, master `3d560725`)
+
+`lake build` **517 jobs, zero warnings, zero errors**; `lake test` green.
+
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0 FAIL**.
+Layering base **263** / model **189** / caps 3 / umbrella 1, 0 base→lane
+and 0 impl→theory.  Proofdeps **2 846 rows across 7 roots, doors 0** —
+unchanged, as expected (`Frontend` is outside the roots, and
+`matchesPin`'s statement did not move).  Pindump fresh (40 378 lines,
+229 prelude lines / 11 records).  Trust surface **18 escapes in 4
+allowlisted files of 464 scanned, 0 outside**.  Route census 90 streams,
+682 blocks — 142 fix, 0 inmodel, 540 basis, 0 modeled.  `inmodel` OK.
+Arena tutorial 90/92 (032/033 by design), **e2e 172/172**, annot 14/14,
+retired flags 8/8, mode flags 18/18, prelude counts 3/3, progress lane
+6/6, **DAG-tower 9/9**, trusted sweep 138 + 172 + 14 with its three
+recorded divergences.  `tests/overview-links.sh`: **57 links, 44 files,
+OK** — one anchor moved by a line (`ExportC.lean#L884` → `#L885`, the
+parse loop; the citing paragraph re-read and still accurate) and the
+expectation regenerated.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.044 G instructions:u** against #222's
+published 679.098 G — **parity (−0.008 %)**.  The lockstep comparisons
+do strictly less work, and the `abstract1` cutoff pays for itself; on
+this stream neither is hot enough to show.
