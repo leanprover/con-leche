@@ -46,7 +46,7 @@ def NoBVar (P : Nat → Prop) : AnnotTerm → Prop
   | .lam _ A b => NoBVar P A ∧ NoBVar (shiftP P) b
   | .pi _ _ A B => NoBVar P A ∧ NoBVar (shiftP P) B
   | .letE T v b => NoBVar P T ∧ NoBVar P v ∧ NoBVar (shiftP P) b
-  | .eqE T a b => NoBVar P T ∧ NoBVar P a ∧ NoBVar P b
+  | .eqE a b => NoBVar P a ∧ NoBVar P b
   | .fst e => NoBVar P e
   | .snd e => NoBVar P e
 
@@ -96,9 +96,9 @@ theorem interp_congr_noBVar :
     simp only [interp_letE]
     rw [ihe h.2.1 hag]
     exact ihb h.2.2 (agreeOff_cons hag _)
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro P σ σ' h hag
-    simp only [interp_eqE, iha h.2.1 hag, ihb h.2.2 hag]
+    simp only [interp_eqE, iha h.1 hag, ihb h.2 hag]
   | fst e ihe =>
     intro P σ σ' h hag
     simp only [interp_fst, ihe h hag]
@@ -137,9 +137,9 @@ theorem WellDenoted_congr_noBVar :
     intro P σ σ' h hag
     rw [WellDenoted_letE, WellDenoted_letE, ihT h.1 hag, ihv h.2.1 hag,
       ihb h.2.2 (agreeOff_cons_of hag (interp_congr_noBVar v h.2.1 hag))]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro P σ σ' h hag
-    rw [WellDenoted_eqE, WellDenoted_eqE, iha h.2.1 hag, ihb h.2.2 hag]
+    rw [WellDenoted_eqE, WellDenoted_eqE, iha h.1 hag, ihb h.2 hag]
   | fst e ihe =>
     intro P σ σ' h hag
     rw [WellDenoted_fst, WellDenoted_fst, ihe h hag, interp_congr_noBVar e h hag]
@@ -167,7 +167,7 @@ theorem NoBVar.mono :
   | letE T v b ihT ihv ihb =>
     intro P Q h h'
     exact ⟨ihT h h'.1, ihv h h'.2.1, ihb (shiftP_mono h) h'.2.2⟩
-  | eqE T a b ihT iha ihb => intro P Q h h'; exact ⟨ihT h h'.1, iha h h'.2.1, ihb h h'.2.2⟩
+  | eqE a b iha ihb => intro P Q h h'; exact ⟨iha h h'.1, ihb h h'.2⟩
   | fst e ihe => intro P Q h h'; exact ihe h h'
   | snd e ihe => intro P Q h h'; exact ihe h h'
   | prf => intros; trivial
@@ -210,9 +210,9 @@ theorem NoBVar_of_bvarsBelow :
     cases i with
     | zero => exact hi.elim
     | succ i => exact Nat.succ_le_succ (hP i hi)
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k P h hP
-    exact ⟨ihT h.1 hP, iha h.2.1 hP, ihb h.2.2 hP⟩
+    exact ⟨iha h.1 hP, ihb h.2 hP⟩
   | fst e ihe => intro k P h hP; exact ihe h hP
   | snd e ihe => intro k P h hP; exact ihe h hP
   | prf => intros; trivial

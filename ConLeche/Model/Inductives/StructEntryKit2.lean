@@ -82,9 +82,9 @@ theorem WellDenoted_congr_below :
     rw [WellDenoted_letE, WellDenoted_letE, ihT k ρ ρ' hb.1 hag, ihv k ρ ρ' hb.2.1 hag,
       interp_congr_below V v k ρ ρ' hb.2.1 hag,
       ihb (k + 1) _ _ hb.2.2 (cons_agree_below hag _)]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ ρ' hb hag
-    rw [WellDenoted_eqE, WellDenoted_eqE, iha k ρ ρ' hb.2.1 hag, ihb k ρ ρ' hb.2.2 hag]
+    rw [WellDenoted_eqE, WellDenoted_eqE, iha k ρ ρ' hb.1 hag, ihb k ρ ρ' hb.2 hag]
   | fst e ihe =>
     intro k ρ ρ' hb hag
     rw [WellDenoted_fst, WellDenoted_fst, ihe k ρ ρ' hb hag,
@@ -136,9 +136,9 @@ theorem AnnotValid_congr_below :
     rw [AnnotValid_letE, AnnotValid_letE, ihT k ρ ρ' hb.1 hag, ihv k ρ ρ' hb.2.1 hag,
       interp_congr_below V v k ρ ρ' hb.2.1 hag,
       ihb (k + 1) _ _ hb.2.2 (cons_agree_below hag _)]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ ρ' hb hag
-    rw [AnnotValid_eqE, AnnotValid_eqE, iha k ρ ρ' hb.2.1 hag, ihb k ρ ρ' hb.2.2 hag]
+    rw [AnnotValid_eqE, AnnotValid_eqE, iha k ρ ρ' hb.1 hag, ihb k ρ ρ' hb.2 hag]
   | fst e ihe =>
     intro k ρ ρ' hb hag
     rw [AnnotValid_fst, AnnotValid_fst, ihe k ρ ρ' hb hag]

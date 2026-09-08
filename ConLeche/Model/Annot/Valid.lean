@@ -68,7 +68,7 @@ environment discipline of `WellDenoted`. -/
   | ρ, .letE T v b =>
     AnnotValid ρ T ∧ AnnotValid ρ v ∧
     AnnotValid (cons (interp V ρ v) ρ) b
-  | ρ, .eqE _ a b => AnnotValid ρ a ∧ AnnotValid ρ b
+  | ρ, .eqE a b => AnnotValid ρ a ∧ AnnotValid ρ b
   | ρ, .fst e => AnnotValid ρ e
   | ρ, .snd e => AnnotValid ρ e
   | _, .bvar _ => True
@@ -106,8 +106,8 @@ theorem AnnotValid_letE (ρ : Nat → V) (T v b : AnnotTerm) :
     AnnotValid V ρ (.letE T v b) =
       (AnnotValid V ρ T ∧ AnnotValid V ρ v ∧
         AnnotValid V (cons (interp V ρ v) ρ) b) := by rw [AnnotValid]
-theorem AnnotValid_eqE (ρ : Nat → V) (T a b : AnnotTerm) :
-    AnnotValid V ρ (.eqE T a b) =
+theorem AnnotValid_eqE (ρ : Nat → V) (a b : AnnotTerm) :
+    AnnotValid V ρ (.eqE a b) =
       (AnnotValid V ρ a ∧ AnnotValid V ρ b) := by rw [AnnotValid]
 theorem AnnotValid_fst (ρ : Nat → V) (e : AnnotTerm) :
     AnnotValid V ρ (.fst e) = AnnotValid V ρ e := by
@@ -186,7 +186,7 @@ theorem AnnotValid_liftN (n : Nat) :
     intro k ρ
     rw [AnnotTerm.liftN_letE, AnnotValid_letE, AnnotValid_letE, ihT, ihv,
       interp_liftN, ihb, cons_shiftE]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ
     rw [AnnotTerm.liftN_eqE, AnnotValid_eqE, AnnotValid_eqE, iha, ihb]
   | fst e ihe =>
@@ -271,7 +271,7 @@ theorem AnnotValid_inst :
           ρ)) a := by
       rw [shiftE_succ_cons]; exact ha
     rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
-  | eqE T x y ihT ihx ihy =>
+  | eqE x y ihx ihy =>
     intro a k ρ ha
     rw [AnnotTerm.inst_eqE, AnnotValid_eqE, AnnotValid_eqE, ihx a k ρ ha,
       ihy a k ρ ha]

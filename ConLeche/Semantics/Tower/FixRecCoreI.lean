@@ -727,7 +727,7 @@ def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List Ann
     AnnotTerm :=
   AnnotTerm.mkAppN (.const .psigma [s, 0]) [recTyAV Fss.length Ids.length rds,
     .lam 1 (recTyAV Fss.length Ids.length rds)
-      (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
+      (.eqE
         (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))]
 
 /-- The selected fixed point `(choice Σ prf).1` — **the recursor leaf**

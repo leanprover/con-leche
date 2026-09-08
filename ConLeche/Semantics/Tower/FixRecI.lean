@@ -731,10 +731,10 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
   have hs1ok : ∀ r : V, WellDenoted V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) := by
     intro r; rw [WellDenoted_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hsok
   have hbody : ∀ r : V, r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) →
-      interp V (cons r ρb) (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
+      interp V (cons r ρb) (.eqE
         (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))
         = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r ∧
-      WellDenoted V (cons r ρb) (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
+      WellDenoted V (cons r ρb) (.eqE
         (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)) := by
     intro r hr
     refine ⟨?_, ?_⟩
@@ -745,7 +745,7 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
       · rw [hs1]; exact hsm
       · rw [interp_bvar, cons_zero]; exact hr
   have hlamv : interp V ρb (.lam 1 (recTyAV Fss.length Ids.length rds)
-      (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
+      (.eqE
         (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)))
       = sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
     unfold sigBKI

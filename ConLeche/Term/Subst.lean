@@ -37,7 +37,7 @@ def liftN (n : Nat) : Term → (k : Nat := 0) → Term
   | .lam A b, k => .lam (liftN n A k) (liftN n b (k + 1))
   | .pi A B, k => .pi (liftN n A k) (liftN n B (k + 1))
   | .letE T v b, k => .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1))
-  | .eqE T a b, k => .eqE (liftN n T k) (liftN n a k) (liftN n b k)
+  | .eqE a b, k => .eqE (liftN n a k) (liftN n b k)
   | .fst e, k => .fst (liftN n e k)
   | .snd e, k => .snd (liftN n e k)
   | .prf, _ => .prf
@@ -56,7 +56,7 @@ def inst : Term → Term → (k : Nat := 0) → Term
   | .lam A b, a, k => .lam (inst A a k) (inst b a (k + 1))
   | .pi A B, a, k => .pi (inst A a k) (inst B a (k + 1))
   | .letE T v b, a, k => .letE (inst T a k) (inst v a k) (inst b a (k + 1))
-  | .eqE T b c, a, k => .eqE (inst T a k) (inst b a k) (inst c a k)
+  | .eqE b c, a, k => .eqE (inst b a k) (inst c a k)
   | .fst e, a, k => .fst (inst e a k)
   | .snd e, a, k => .snd (inst e a k)
   | .prf, _, _ => .prf
@@ -76,8 +76,8 @@ def inst : Term → Term → (k : Nat := 0) → Term
 @[simp] theorem liftN_letE (n k : Nat) (T v b : Term) :
     liftN n (.letE T v b) k =
       .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1)) := rfl
-@[simp] theorem liftN_eqE (n k : Nat) (T a b : Term) :
-    liftN n (.eqE T a b) k = .eqE (liftN n T k) (liftN n a k) (liftN n b k) := rfl
+@[simp] theorem liftN_eqE (n k : Nat) (a b : Term) :
+    liftN n (.eqE a b) k = .eqE (liftN n a k) (liftN n b k) := rfl
 @[simp] theorem liftN_fst (n k : Nat) (e : Term) :
     liftN n (.fst e) k = .fst (liftN n e k) := rfl
 @[simp] theorem liftN_snd (n k : Nat) (e : Term) :
@@ -101,8 +101,8 @@ def inst : Term → Term → (k : Nat := 0) → Term
 @[simp] theorem inst_letE (a : Term) (k : Nat) (T v b : Term) :
     inst (.letE T v b) a k =
       .letE (inst T a k) (inst v a k) (inst b a (k + 1)) := rfl
-@[simp] theorem inst_eqE (a : Term) (k : Nat) (T b c : Term) :
-    inst (.eqE T b c) a k = .eqE (inst T a k) (inst b a k) (inst c a k) := rfl
+@[simp] theorem inst_eqE (a : Term) (k : Nat) (b c : Term) :
+    inst (.eqE b c) a k = .eqE (inst b a k) (inst c a k) := rfl
 @[simp] theorem inst_fst (a : Term) (k : Nat) (e : Term) :
     inst (.fst e) a k = .fst (inst e a k) := rfl
 @[simp] theorem inst_snd (a : Term) (k : Nat) (e : Term) :

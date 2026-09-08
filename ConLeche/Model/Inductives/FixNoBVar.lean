@@ -79,7 +79,7 @@ theorem NoBVar_congr {P P' : Nat → Prop} (h : ∀ i, P i ↔ P' i) :
     intro i; cases i with
     | zero => exact Iff.rfl
     | succ i => exact h i
-  | eqE T a b ihT iha ihb => intro hn; exact ⟨ihT h hn.1, iha h hn.2.1, ihb h hn.2.2⟩
+  | eqE a b iha ihb => intro hn; exact ⟨iha h hn.1, ihb h hn.2⟩
   | fst e ih => intro hn; exact ih h hn
   | snd e ih => intro hn; exact ih h hn
 

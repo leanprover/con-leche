@@ -26,7 +26,7 @@ open ConLeche.Term
 /-- `Eq`'s valuation: the former, eta-expanded. -/
 def eqValT (ψ : Name → Nat) : Term :=
   .lam (.sort (ψ uN)) (.lam (.bvar 0) (.lam (.bvar 1)
-    (.eqE (.bvar 2) (.bvar 1) (.bvar 0))))
+    (.eqE (.bvar 1) (.bvar 0))))
 
 /-- `Eq.refl`'s valuation. -/
 def eqReflValT (ψ : Name → Nat) : Term :=
@@ -56,7 +56,7 @@ read them and neither reading is semantic). -/
 /-- The tower is closed. -/
 theorem eqValT_closed (ψ : Name → Nat) : Term.Closed (eqValT ψ) := by
   simp only [eqValT, Term.Closed, Term.bvarsBelow]
-  exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
+  exact ⟨trivial, by omega, by omega, by omega, by omega⟩
 
 
 /-- `Eq.refl`'s tower is closed. -/

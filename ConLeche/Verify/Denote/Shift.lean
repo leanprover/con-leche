@@ -98,8 +98,8 @@ theorem liftN_liftN : ∀ (v : Term) (m n k : Nat),
   | pi A B ihA ihB => intro m n k; simp only [Term.liftN_pi, ihA, ihB]
   | letE T v b ihT ihv ihb =>
     intro m n k; simp only [Term.liftN_letE, ihT, ihv, ihb]
-  | eqE T a b ihT iha ihb =>
-    intro m n k; simp only [Term.liftN_eqE, ihT, iha, ihb]
+  | eqE a b iha ihb =>
+    intro m n k; simp only [Term.liftN_eqE, iha, ihb]
   | fst e ihe => intro m n k; simp only [Term.liftN_fst, ihe]
   | snd e ihe => intro m n k; simp only [Term.liftN_snd, ihe]
 
@@ -116,7 +116,7 @@ theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
   | pi A B ihA ihB => intro k; simp only [Term.liftN_pi, ihA, ihB]
   | letE T v b ihT ihv ihb => intro k; simp only [Term.liftN_letE, ihT, ihv,
     ihb]
-  | eqE T a b ihT iha ihb => intro k; simp only [Term.liftN_eqE, ihT, iha, ihb]
+  | eqE a b iha ihb => intro k; simp only [Term.liftN_eqE, iha, ihb]
   | fst e ihe => intro k; simp only [Term.liftN_fst, ihe]
   | snd e ihe => intro k; simp only [Term.liftN_snd, ihe]
 

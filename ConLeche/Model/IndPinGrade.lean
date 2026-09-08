@@ -41,7 +41,7 @@ spelling could not have gone:
   slot.  v1's `dummyPropT` only had to do the second; here the spine's
   padding is charged a grading by `wellDenotedV_instSeq`.  `.prf` is the
   obvious candidate and it **fails**: `pt_not_mem_univZero`.  The
-  padding that works is `padA := .eqE (.sort 0) (.sort 0) (.sort 0)` —
+  padding that works is `padA := .eqE (.sort 0) (.sort 0)` —
   its reading is `eqv (univ 0) (univ 0) ∈ˢ univ 0` (`eqv_mem_univ`) and
   its grading is `True ∧ True`;
 * **the certificate's context is the public frame's, padded at the
@@ -71,7 +71,7 @@ entries *and* be **graded**.  `.prf` fails the first
 (`pt_not_mem_univZero`); a reflexive equation does both. -/
 
 /-- The reading tier's spine padding: a closed truth value. -/
-def padA : AnnotTerm := .eqE (.sort 0) (.sort 0) (.sort 0)
+def padA : AnnotTerm := .eqE (.sort 0) (.sort 0)
 
 @[simp] theorem interp_padA (ρ : Nat → V) :
     interp V ρ padA = eqv (univ 0 : V) (univ 0) := by

@@ -104,7 +104,7 @@ def WellDenoted : (Nat → V) → AnnotTerm → Prop
     WellDenoted ρ e ∧
     ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
       A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
-  | ρ, .eqE _ a b => WellDenoted ρ a ∧ WellDenoted ρ b
+  | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
   | _, .bvar _ => True
   | _, .sort _ => True
   | _, .const _ _ => True
@@ -159,8 +159,8 @@ theorem WellDenoted_snd (ρ : Nat → V) (e : AnnotTerm) :
         ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
           A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v) := by
   rw [WellDenoted]
-theorem WellDenoted_eqE (ρ : Nat → V) (T a b : AnnotTerm) :
-    WellDenoted V ρ (.eqE T a b) = (WellDenoted V ρ a ∧ WellDenoted V ρ b) := by
+theorem WellDenoted_eqE (ρ : Nat → V) (a b : AnnotTerm) :
+    WellDenoted V ρ (.eqE a b) = (WellDenoted V ρ a ∧ WellDenoted V ρ b) := by
   rw [WellDenoted]
 
 /-! ### The substitution metatheory (the `AnnotOkV` pair, transposed) -/
@@ -199,7 +199,7 @@ theorem WellDenoted_liftN (n : Nat) :
     intro k ρ
     rw [AnnotTerm.liftN_letE, WellDenoted_letE, WellDenoted_letE, ihT, ihv,
       interp_liftN, ihb, cons_shiftE]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ
     rw [AnnotTerm.liftN_eqE, WellDenoted_eqE, WellDenoted_eqE, iha, ihb]
   | fst e ihe =>
@@ -269,7 +269,7 @@ theorem WellDenoted_inst :
           ρ)) a := by
       rw [shiftE_succ_cons]; exact ha
     rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
-  | eqE T x y ihT ihx ihy =>
+  | eqE x y ihx ihy =>
     intro a k ρ ha
     rw [AnnotTerm.inst_eqE, WellDenoted_eqE, WellDenoted_eqE, ihx a k ρ ha,
       ihy a k ρ ha]
