@@ -1238,7 +1238,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
   obtain ⟨mp1, hac1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValAV ψ := by
@@ -1251,7 +1255,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
         = some eqA := by
@@ -1291,7 +1299,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (by first
+        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
+            first | exact absurd h (by decide) | rfl)
+        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
     · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
       rw [show eqRecA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

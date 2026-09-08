@@ -208,9 +208,9 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
     have hlrTargs : ∀ x ∈ tmaj.getAppArgs, LeafReads m φ d x :=
       fun x hx => hlrtm.of_subset
         (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)
-    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
+    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
         hetacase⟩
     · -- K: the parameters-only constructor application
       refine ⟨⟨_, denoteMeta_mkAppN (hspt.take cnP)
@@ -250,7 +250,7 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
           rcases hetacase with hcw | ⟨hnF0, hlpj', hirr⟩
           · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
               hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
-              hlenus2, hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ :=
+              hlenus2, hlpc2, hslots2, -, -, hprojs, -, -, -⟩ :=
               ConLeche.structEtaCertWith_inv hcw
             have hTeq : T2 = T := by
               rw [hfnT] at hfnb2
@@ -438,9 +438,9 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       exact (wellDenotedV_mkAppN_of_fitA fargsa (hokTVja ρ)
         ⟨m.acval_wellDenoted _ _ ρ, hav _ _ ρ⟩
         (fun x hx => hokArgs x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
-    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
+    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
         hetacase⟩
     · -- R12: the K-flagged rescue
       obtain ⟨hdF, hokF⟩ := hfab (tmaj.getAppArgs.take cnP) (tsa.take cnP)
@@ -468,7 +468,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       · -- R13: the η certificate identifies the fabrication with the major
         obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2, hfna2,
           hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -, hlenus2,
-          hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
+          hlpc2, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
         have hTeq : T2 = T := by
           rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).1.symm
         have hUeq : ust2 = ust := by

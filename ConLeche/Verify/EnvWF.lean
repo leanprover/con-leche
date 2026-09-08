@@ -101,6 +101,48 @@ theorem Env.findProj?_off_eq {env : Env} {T : Name} {i j : Nat} {e e' : ProjEntr
     (tbl.entry i).structSort = tbl.structSort := rfl
 @[simp] theorem ProjTable.entry_off (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).off = tbl.off := rfl
+/-- **The capability arities**: an inductive stored with the unit-like
+or the η capability has the `∀`-telescope its capability record's
+parameter count names.  A property of the stored declaration alone —
+established ONCE at the block's install (the native route pins the
+former's telescope before storing it, `checkSumInd`'s
+`stripPis (nP + nIdx)`; on the modeled route the capability theorems
+pin the model former's telescope and the stored type is the model's
+under the block renaming, `indCapsWF_of_pins`; the basis blocks' types
+are literal) and consumed by the structure-η and unit-like rows
+(`CapsRows`) from the invariant, where `structEtaCertWith` and
+`structUnitCert` used to re-check it per call ("invariants over
+runtime gates"). -/
+@[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
+  ∀ cv caps, c = .indInfo cv caps →
+    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
+    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true)
+
+/-- `IndCapsWF` at an inductive, from the two arity facts. -/
+theorem IndCapsWF.of_caps {cv : ConstantVal} {caps : IndCaps}
+    (hu : caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true)
+    (he : caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :
+    IndCapsWF (.indInfo cv caps) := by
+  intro cv' caps' heq
+  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj heq
+  exact ⟨hu, he⟩
+
+/-- A `stripPis` at a larger count strips at a smaller one. -/
+theorem stripPis_isSome_of_le :
+    ∀ {k n : Nat} {e : Expr}, k ≤ n → (e.stripPis n).isSome = true →
+      (e.stripPis k).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro n e _ _; simp [Expr.stripPis]
+  | succ k ih =>
+    intro n e hle h
+    match n, hle with
+    | n + 1, hle =>
+      match e, h with
+      | .forallE d bo m, h =>
+        simp only [Expr.stripPis, Option.isSome_map] at h ⊢
+        exact ih (by omega) h
+
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 @[expose] def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧
@@ -156,10 +198,20 @@ theorem Env.findProj?_off_eq {env : Env} {T : Name} {i j : Nat} {e e' : ProjEntr
       b.hasFvar = false ∧
       b.allLevelParamsDefined tbl.levelParams = true ∧
       b.constsResolve env = true ∧
-      b.looseBVarsBounded (tbl.numParams + 1) = true)
+      b.looseBVarsBounded (tbl.numParams + 1) = true) ∧
+  -- the capability arities (environment-independent)
+  IndCapsWF c
 
 /-- Every stored constant is syntactically well-formed. -/
 @[expose] def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
+
+/-- The capability arities of a stored inductive, off `EnvWF`. -/
+theorem EnvWF.indCaps {env : Env} (henv : EnvWF env) {T : Name}
+    {cv : ConstantVal} {caps : IndCaps}
+    (h : env.find? T = some (.indInfo cv caps)) :
+    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
+    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :=
+  (henv _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2.2.2 cv caps rfl
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
@@ -371,6 +423,22 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
           .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl]
         simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
 
+/-- A `∀`-telescope pin of a renamed expression is one of the
+expression itself (renaming touches no binder structure). -/
+theorem Expr.stripPis_isSome_of_renameConsts {f : Name → Name} :
+    ∀ (k : Nat) {e : Expr},
+      ((e.renameConsts f).stripPis k).isSome = true →
+      (e.stripPis k).isSome = true
+  | 0, _, _ => rfl
+  | k + 1, e, h => by
+    cases e with
+    | forallE ty b m =>
+      rw [show (Expr.forallE ty b m).renameConsts f =
+        .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
+      simp only [Expr.stripPis, Option.isSome_map] at h ⊢
+      exact Expr.stripPis_isSome_of_renameConsts k h
+    | _ => simp [Expr.renameConsts, Expr.stripPis] at h
+
 /-- Renaming maps that agree on every stored name rename a resolving
 expression identically. -/
 theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}
@@ -392,7 +460,7 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
@@ -403,7 +471,7 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
         let ⟨g0, g⟩ := h8 tbl heq
         ⟨g0, fun i b hb =>
           let ⟨g1, g2, g3, g4⟩ := g i b hb
-          ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩⟩
+          ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩, h9⟩
     intro cv mI rP rules heq r hr
     obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩

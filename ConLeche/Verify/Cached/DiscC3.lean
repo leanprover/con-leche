@@ -43,8 +43,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ cvj.levelParams.length = ust.length then
-                  if cnP ≤ tmaj.getAppArgs.length ∧
-                      (cvj.type.stripPis cnP).isSome = true then
+                  if cnP ≤ tmaj.getAppArgs.length then
                     let fab := Expr.mkAppN (.const rl.ctor ust)
                       (tmaj.getAppArgs.take cnP)
                     if fab.wscopedB d && fab.looseBVarsBounded 0 &&
@@ -77,10 +76,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                     ust.length = cvT.levelParams.length ∧
                     piResultNeverZero cvT.levelParams ust cvT.type = true then
-                  if cvj.levelParams.length = ust.length ∧
-                      (cvj.type.stripPis
-                        (caps.etaParams + caps.etaFields)).isSome
-                        = true then
+                  if cvj.levelParams.length = ust.length then
                     let fab := Expr.mkAppN (.const caps.etaCtor ust)
                       (etaFabArgsE env T ust tmaj.getAppArgs major
                         caps.etaFields)
@@ -145,8 +141,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   pure (T' == T) >>= fun bq =>
                   if bq ∧ cvj.levelParams.length = ust.length then
                     pure (ExprC.getAppArgs tmaj) >>= fun margs =>
-                    if cnP ≤ margs.length ∧
-                        (cvj.type.stripPis cnP).isSome = true then
+                    if cnP ≤ margs.length then
                       pure rl.ctor >>= fun ctorI =>
                       pure (Expr.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs.take cnP) >>= fun fab =>
@@ -189,10 +184,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       ust.length = cvT.levelParams.length ∧
                       piResultNeverZero cvT.levelParams ustL cvT.type
                         = true then
-                    if cvj.levelParams.length = ust.length ∧
-                        (cvj.type.stripPis
-                          (caps.etaParams + caps.etaFields)).isSome
-                          = true then
+                    if cvj.levelParams.length = ust.length then
                       pure T >>= fun TI =>
                       projAppsI (mkFEnv env) T TI ust margs i
                           caps.etaFields >>= fun projs =>

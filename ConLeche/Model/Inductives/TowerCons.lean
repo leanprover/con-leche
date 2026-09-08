@@ -57,7 +57,7 @@ theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
     obtain ⟨-, -, hpins, -⟩ := hnest lvls pins hn
     exact ConLeche.Expr.noProjAt_of_constsResolve hT _ (hpins pin hp).2.2.1
   table tbl hc j hj := by
-    obtain ⟨-, -, -, -, -, -, -, htbl⟩ := hwf _ hc
+    obtain ⟨-, -, -, -, -, -, -, htbl, -⟩ := hwf _ hc
     obtain ⟨hsize, hb⟩ := htbl tbl rfl
     have hlt : j < tbl.bodies.size := by rw [hsize]; exact hj
     have := hb j (tbl.bodies[j]'hlt) (Array.getElem?_eq_getElem hlt)

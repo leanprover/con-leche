@@ -169,6 +169,8 @@ theorem stageFixFormer (mp : EnvModelM V μ env)
     -- the block's capability record and its laws at the cons (task #210
     -- Part A)
     (caps : IndCaps)
+    -- the record's arities, from the install's telescope pin
+    (hicw : ConLeche.IndCapsWF (.indInfo cvTa caps))
     (hTlaws : ∀ m₂ : EnvModel V ⟨.indInfo cvTa caps :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => nativeTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
@@ -186,7 +188,7 @@ theorem stageFixFormer (mp : EnvModelM V μ env)
   have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
   have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
   have hwfI : ConLeche.EnvWF ⟨.indInfo cvTa caps :: env.consts⟩ :=
-    ConLeche.envWF_cons_ind mp.base2.wf hccv
+    ConLeche.envWF_cons_ind mp.base2.wf hccv hicw
   have hIdsLen : ∀ ψ, ((((pps ψ).drop p.nP).map (·.2.2))).length = p.nIdx := by
     intro ψ; simp [hFD.len ψ]
   let A : (Name → Nat) → AnnotTerm :=
