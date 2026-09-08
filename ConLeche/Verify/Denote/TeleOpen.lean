@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Denote.Rename
 public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 
 public section
 

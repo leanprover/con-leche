@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.Level
+import ConLeche.Kernel.Level
 
 public section
 

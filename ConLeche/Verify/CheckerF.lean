@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Verify.FastOps
+import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
-public import ConLeche.Kernel.Inductives.SumInstallF
+import ConLeche.Kernel.Inductives.SumInstallF
 public import ConLeche.Kernel.Inductives.NativeInstallF
 
 public section

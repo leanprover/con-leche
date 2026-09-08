@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.StructLaws
-public import ConLeche.Model.Inductives.StructRows
-public import ConLeche.Verify.InstLevels
+import ConLeche.Model.Inductives.StructRows
+import ConLeche.Verify.InstLevels
 public import ConLeche.Semantics.Tower.TowerWire
 public section
 

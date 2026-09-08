@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.StructParts
+import ConLeche.Kernel.Inductives.StructParts
 public import ConLeche.Verify.FastOps
 
 public section

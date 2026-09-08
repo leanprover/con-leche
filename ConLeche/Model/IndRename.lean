@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndZipField
-public import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!

@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Verify.EnvGuards
-public import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.Extend.Inversions
 public import ConLeche.Verify.NatOpFrag
 
 public section

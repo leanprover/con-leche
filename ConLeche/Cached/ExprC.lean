@@ -1,9 +1,9 @@
 module
 
 public import Std.Data.HashMap
-public import ConLeche.Kernel.Expr
+import ConLeche.Kernel.Expr
 public import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.Level
+import ConLeche.Kernel.Level
 
 @[expose] public section
 

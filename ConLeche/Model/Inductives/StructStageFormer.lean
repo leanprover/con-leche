@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructData
-public import ConLeche.Verify.Inductives.StructInv
+import ConLeche.Verify.Inductives.StructInv
 public section
 
 /-!

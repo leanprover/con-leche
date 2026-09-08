@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.ExprOps
 public import ConLeche.Verify.Shift
 
 public section

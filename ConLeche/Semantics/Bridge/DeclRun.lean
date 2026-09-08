@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Semantics.Bridge.Decl
-public import ConLeche.Verify.ReducePinInv
-public import ConLeche.Verify.DivModInv
+import ConLeche.Verify.ReducePinInv
+import ConLeche.Verify.DivModInv
 
 @[expose] public section
 

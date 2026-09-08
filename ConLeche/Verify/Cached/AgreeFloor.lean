@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.ParsedC
-public import ConLeche.Verify.EnvBound
+import ConLeche.Verify.EnvBound
 
 public section
 

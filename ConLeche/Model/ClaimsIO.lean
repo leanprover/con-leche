@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Claims
-public import ConLeche.Kernel.CoreIO
+import ConLeche.Kernel.CoreIO
 public section
 
 /-!

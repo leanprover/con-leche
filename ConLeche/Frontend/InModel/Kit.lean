@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.StructParts
-public import ConLeche.Kernel.Level
+import ConLeche.Kernel.Level
 
 @[expose] public section
 

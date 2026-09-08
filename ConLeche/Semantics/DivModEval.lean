@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.DivModInv
-public import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote
 public import ConLeche.SetTheory.Basic
 
 @[expose] public section

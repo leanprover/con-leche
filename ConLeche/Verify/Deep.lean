@@ -1,16 +1,16 @@
 module
 
-public import ConLeche.Kernel.TypeChecker
-public import ConLeche.Verify.Shift
-public import ConLeche.Verify.PropRead
-public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.InstLevels
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Verify.Shift
+import ConLeche.Verify.PropRead
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.InferIOLeaves
-public import ConLeche.Verify.Knot
-public import ConLeche.Verify.InferLemmas
-public import ConLeche.Verify.InferLeaves
-public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.InstSpine
+import ConLeche.Verify.Knot
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.InstSpine
 public section
 
 /-!

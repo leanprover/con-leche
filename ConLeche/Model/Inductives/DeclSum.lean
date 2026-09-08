@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.DeclStruct
 public import ConLeche.Model.Inductives.SumStageRec
-public import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumWF
 public section
 
 /-!

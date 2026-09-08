@@ -3,7 +3,9 @@
 Read DESIGN.md first — it holds the design decisions, verification style, and
 iteration protocol. Keep it up to date when decisions change.
 
-* Build: `lake build` (must stay warning-free). Tests: `lake test`
+* Build: `lake build` (must stay warning-free) — and `lake test` must be
+  warning-free too: it builds the test library, which `lake build` does
+  not, so a warning there is invisible to the build gate. Tests: `lake test`
   (`tests/ConLecheTests.lean`, `#guard`/`example`-based, fails at build time).
 * `OVERVIEW.md`'s line-anchored links are gated by
   `tests/overview-links.sh` (run from `tests/arena.sh` and CI): if you move
@@ -60,7 +62,12 @@ iteration protocol. Keep it up to date when decisions change.
   is not reused, so a `rw` elsewhere stops finding its pattern; and
   moving a `@[simp]` lemma's proof from `:= rfl` to `:= by rfl` costs
   it its `rfl`-status and `simp only` silently stops firing — expose
-  what it unfolds instead.  `import all X` is the escape for a
+  what it unfolds instead.  Imports narrow the same way: a
+  `public import` is for a re-export something else's PUBLIC statement
+  needs, and the plan for that is computed, not guessed
+  (`scripts/pub-import-plan.py` over `scripts/pub-iface.lean` and the
+  census) — a missing re-export does NOT say "unknown identifier", it
+  makes a `rfl` stop closing.  `import all X` is the escape for a
   representation that is sealed on purpose — `ConLeche/Kernel/PropWhen`
   (the datum's API and laws are its whole interface) and `Init.Util`'s
   `withPtrEq` — and nothing else; each site carries the reason.

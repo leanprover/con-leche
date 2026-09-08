@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Model.Steps.IotaKit
-public import ConLeche.Model.Steps.Stuck
-public import ConLeche.Verify.Denote
-public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.Denote.VClosed
+import ConLeche.Model.Steps.Stuck
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 public section
 
 /-!

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructRows
-public import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Tower.TowerRec
 public section
 
 /-!

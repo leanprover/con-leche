@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Denote.SubstConst
-public import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.EnvGuards
 
 public section
 

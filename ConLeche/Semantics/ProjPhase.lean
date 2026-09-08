@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Denote.Rename
-public import ConLeche.Kernel.Inductives.Modeled
+import ConLeche.Kernel.Inductives.Modeled
 
 @[expose] public section
 

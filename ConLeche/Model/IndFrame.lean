@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndTele
-public import ConLeche.Model.Steps.IotaKit
+import ConLeche.Model.Steps.IotaKit
 public section
 
 /-!

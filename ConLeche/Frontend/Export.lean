@@ -1,11 +1,11 @@
 module
 
 public import Lean.Data.Json
-public import ConLeche.Kernel.Env
-public import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.Basis
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.StdAxioms
-public import ConLeche.Kernel.Core
+import ConLeche.Kernel.Core
 
 @[expose] public section
 

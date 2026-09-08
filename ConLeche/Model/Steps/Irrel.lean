@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Steps.DefEq
 public import ConLeche.Model.Steps.Infer
-public import ConLeche.Verify.PinnedShapes
+import ConLeche.Verify.PinnedShapes
 public import ConLeche.Verify.InferIOLeaves
 
 public section

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.Denote.Pinned
 
 public section

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.KnotC
 public import ConLeche.Verify.BridgeDecl
-public import ConLeche.Cached.CheckerC
+import ConLeche.Cached.CheckerC
 
 public section
 

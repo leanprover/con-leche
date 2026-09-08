@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Semantics.Tower.FixWire
-public import ConLeche.Model.Inductives.SumIntro
+import ConLeche.Model.Inductives.SumIntro
 public section
 
 /-!

@@ -1,15 +1,15 @@
 module
 
 public import ConLeche.Semantics.DeclEta
-public import ConLeche.Verify.Extend.Iota
+import ConLeche.Verify.Extend.Iota
 
 public import ConLeche.Verify.Extend.Block
 
-public import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Denote.Rename
 
 public import ConLeche.Verify.Extend.Recs
 
-public import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
 
 @[expose] public section
 /-!

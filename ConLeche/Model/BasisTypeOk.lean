@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.BasisType
+import ConLeche.Semantics.BasisType
 public import ConLeche.Model.BitAgree
 public import ConLeche.Model.Claims
 

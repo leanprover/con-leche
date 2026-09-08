@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Semantics.Install
-public import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.EnvGuards
 
 public section
 

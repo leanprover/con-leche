@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Verify.InferIOLeaves
+import ConLeche.Verify.InferIOLeaves
 public import ConLeche.Model.CtxOkKit
-public import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Annot.BitInstall
 public import ConLeche.Model.Steps.BitLevels
-public import ConLeche.Semantics.Sat
+import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.WhnfCoreLeaf
 public import ConLeche.Model.ClaimsIO
 

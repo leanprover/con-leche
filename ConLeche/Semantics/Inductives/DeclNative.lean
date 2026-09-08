@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.DeclIndRun
-public import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
 
 @[expose] public section

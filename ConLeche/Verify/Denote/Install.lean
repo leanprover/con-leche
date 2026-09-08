@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Verify.Denote
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Denote
+import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvGuards
-public import ConLeche.Verify.EnvPreds
+import ConLeche.Verify.EnvPreds
 public import ConLeche.Verify.Denote.Pinned
 public import ConLeche.Verify.Denote.Levels
 

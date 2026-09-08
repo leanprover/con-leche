@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.BasisA
 public meta import ConLeche.Kernel.BasisA
-public import ConLeche.Kernel.BasisGen
+import ConLeche.Kernel.BasisGen
 
 @[expose] public section
 

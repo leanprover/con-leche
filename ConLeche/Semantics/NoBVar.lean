@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.WellDenoted
-public import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.Denote.VClosed
 @[expose] public section
 
 /-!

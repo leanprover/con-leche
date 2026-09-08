@@ -2,11 +2,11 @@ module
 
 public import ConLeche.Model.Inductives.StructRead
 public import ConLeche.Model.IndTowerRead
-public import ConLeche.Model.IndFrame
-public import ConLeche.Model.IndDomGrade
-public import ConLeche.Verify.Leaves
-public import ConLeche.Verify.BridgeWfImp
-public import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.IndFrame
+import ConLeche.Model.IndDomGrade
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!

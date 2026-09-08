@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndRecs
-public import ConLeche.Semantics.ProjPhase
+import ConLeche.Semantics.ProjPhase
 public section
 
 /-!

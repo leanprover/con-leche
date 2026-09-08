@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.SumData
-public import ConLeche.Model.Inductives.StructStageCtor
+import ConLeche.Model.Inductives.StructStageCtor
 public section
 
 /-!

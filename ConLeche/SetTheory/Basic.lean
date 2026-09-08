@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.SetTheory.Core
+import ConLeche.SetTheory.Core
 public import ConLeche.SetTheory.Derive.Natrec
 public import ConLeche.SetTheory.Derive.Univ
 

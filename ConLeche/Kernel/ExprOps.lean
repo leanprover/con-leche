@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Expr
+import ConLeche.Kernel.Expr
 public import ConLeche.Kernel.Level
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern): its constructors are `public` but the module is

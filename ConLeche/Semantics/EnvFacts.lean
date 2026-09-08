@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Verify.InferLemmas
-public import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Denote.Levels
 public import ConLeche.Verify.EnvPreds
-public import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.Denote.VClosed
 

@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Model.Steps.Infer
-public import ConLeche.Model.ClaimsIO
-public import ConLeche.Model.IOLicense
-public import ConLeche.Verify.InferIOLemmas
-public import ConLeche.Verify.InferIOLeaves
+import ConLeche.Model.ClaimsIO
+import ConLeche.Model.IOLicense
+import ConLeche.Verify.InferIOLemmas
+import ConLeche.Verify.InferIOLeaves
 public section
 
 /-!

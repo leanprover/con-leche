@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.IndDomGrade
-public import ConLeche.Model.IndRuns
-public import ConLeche.Verify.BridgeWfImp
+import ConLeche.Model.IndRuns
+import ConLeche.Verify.BridgeWfImp
 public section
 
 /-!

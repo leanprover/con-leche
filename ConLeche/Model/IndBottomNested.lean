@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.IndNestedParam
+import ConLeche.Model.IndNestedParam
 public import ConLeche.Model.IndOpenerGrade
 public section
 

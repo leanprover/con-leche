@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndPinGrade
-public import ConLeche.Model.IndPlainParam
+import ConLeche.Model.IndPlainParam
 public section
 
 /-!

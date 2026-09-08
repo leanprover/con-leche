@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.SumRecCase
+import ConLeche.Semantics.Tower.SumRecCase
 public import ConLeche.Semantics.Tower.FixFamI
 
 @[expose] public section
