@@ -68,7 +68,8 @@ theorem piTeleAV_of_stripPisAV :
   | k + 1, .bvar _, _, _, h | k + 1, .sort _, _, _, h | k + 1, .const _ _, _, _, h
   | k + 1, .app _ _, _, _, h | k + 1, .lam _ _ _, _, _, h
   | k + 1, .letE _ _ _, _, _, h | k + 1, .eqE _ _ _, _, _, h
-  | k + 1, .proj _ _, _, _, h | k + 1, .prf, _, _, h => by
+  | k + 1, .fst _, _, _, h | k + 1, .snd _, _, _, h
+  | k + 1, .prf, _, _, h => by
     simp [stripPisAV] at h
 
 /-- The peel's entries, read off the reversed context. -/

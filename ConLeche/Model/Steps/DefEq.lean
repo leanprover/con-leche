@@ -134,7 +134,7 @@ theorem denoteMeta_natSuccConst {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-! ## The `WellDenotedV` hoist kit
 
-`WellDenoted.hoist_pi`/`hoist_lam`/`hoist_proj`/`hoist_app`
+`WellDenoted.hoist_pi`/`hoist_lam`/`hoist_fst`/`hoist_snd`/`hoist_app`
 (`Steps/Dispatch.lean`) at the merged currency.  Private: they are
 plumbing, and the concurrently-written quarters may want the public
 names. -/
@@ -165,11 +165,17 @@ private theorem hoist_lam {Δa : List AnnotTerm} {v : Nat} {A b : AnnotTerm}
       (h _ (Sat_tail hρ)).2).2 (ρ 0) (hρ 0 A rfl)
     rwa [hcons] at this
 
-private theorem hoist_proj {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.proj i e)) :
+private theorem hoist_fst {Δa : List AnnotTerm} {e : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.fst e)) :
     ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ e := fun ρ hρ =>
-  ⟨WellDenoted.hoist_proj (V := V) (fun σ hσ => (h σ hσ).1) ρ hρ,
-    (AnnotValid_proj V ρ i e) ▸ (h ρ hρ).2⟩
+  ⟨WellDenoted.hoist_fst (V := V) (fun σ hσ => (h σ hσ).1) ρ hρ,
+    (AnnotValid_fst V ρ e) ▸ (h ρ hρ).2⟩
+
+private theorem hoist_snd {Δa : List AnnotTerm} {e : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.snd e)) :
+    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ e := fun ρ hρ =>
+  ⟨WellDenoted.hoist_snd (V := V) (fun σ hσ => (h σ hσ).1) ρ hρ,
+    (AnnotValid_snd V ρ e) ▸ (h ρ hρ).2⟩
 
 /-! ## T1 — the routed definitions -/
 
@@ -1201,14 +1207,14 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
       | true =>
         -- both nodes carry the same struct name and index (the W5
         -- congruence guard), so both readings take the same entry
-        -- kind: `.proj i` at a pair-backed entry, `projAV i` at a
+        -- kind: `.fst`/`.snd` at a pair-backed entry, `projAV i` at a
         -- tower-backed one — each a congruence in the subject's value
         obtain ⟨ia₁, he₁, hrd₁⟩ := denoteMeta_proj_inv hda
         obtain ⟨ia₂, he₂, hrd₂⟩ := denoteMeta_proj_inv hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
-        rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, -, rfl⟩
-        · rcases hrd₂ with ⟨entry', hfe', rfl⟩ | ⟨hnt', -, -⟩
+        rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, hdec₁⟩
+        · rcases hrd₂ with ⟨entry', hfe', rfl⟩ | ⟨hnt', -⟩
           · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
             exact interp_projAV_congr (ihd hde hwa hba
               (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
@@ -1217,13 +1223,20 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
               (fun σ hσ => WellDenotedV_projAV_hoist (hokA σ hσ))
               (fun σ hσ => WellDenotedV_projAV_hoist (hokB σ hσ)) ρ hρ)
           · rw [hnt'] at hfe; exact nomatch hfe
-        · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, -, rfl⟩
+        · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, hdec₂⟩
           · rw [hnt] at hfe'; exact nomatch hfe'
-          · exact deqStep_projCong (ihd hde hwa hba
-              (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
-              hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
-              hCa.proj_arg hCb.proj_arg
-              he₁ he₂ (hoist_proj hokA) (hoist_proj hokB) ρ hρ)
+          · rcases AnnotTerm.projPair?_cases₂ hdec₁ hdec₂ with
+              ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+            · exact deqStep_fstCong (ihd hde hwa hba
+                (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+                hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+                hCa.proj_arg hCb.proj_arg
+                he₁ he₂ (hoist_fst hokA) (hoist_fst hokB) ρ hρ)
+            · exact deqStep_sndCong (ihd hde hwa hba
+                (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+                hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+                hCa.proj_arg hCb.proj_arg
+                he₁ he₂ (hoist_snd hokA) (hoist_snd hokB) ρ hρ)
     · exact hfall h
   -- 15: one-sided λ on the left
   · rename_i ty₁ bd₁ mb₁ hnl

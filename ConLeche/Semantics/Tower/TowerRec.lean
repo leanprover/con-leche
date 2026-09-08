@@ -87,9 +87,9 @@ theorem projAV_wellDenoted_tower {w : Nat} :
       FieldsBound w ρ Fs → i < Fs.length →
       WellDenoted V σ (projAV i e)
   | 0, F :: Fs', ρ, e, σ, hok, hx, hbnd, _ => by
-    show WellDenoted V σ (.proj 0 e)
+    show WellDenoted V σ (.fst e)
     rw [WellDenoted]
-    refine ⟨hok, by omega, w, w, interp V ρ F,
+    refine ⟨hok, w, w, interp V ρ F,
       fun a => towerSet w (teleOfFields (cons a ρ) Fs'), ?_, hbnd.1,
       fun a ha => towerSet_univ_teleOfFields (hbnd.2 a ha)⟩
     rwa [show Nat.max w w = w from Nat.max_self w]
@@ -97,15 +97,15 @@ theorem projAV_wellDenoted_tower {w : Nat} :
     obtain ⟨a, b, ha, hb, hz, hpos⟩ :=
       mem_sigma_elim (A := interp V ρ F)
         (B := fun a => towerSet w (teleOfFields (cons a ρ) Fs')) hx
-    have hok1 : WellDenoted V σ (.proj 1 e) := by
+    have hok1 : WellDenoted V σ (.snd e) := by
       rw [WellDenoted]
-      refine ⟨hok, by omega, w, w, interp V ρ F,
+      refine ⟨hok, w, w, interp V ρ F,
         fun a => towerSet w (teleOfFields (cons a ρ) Fs'), ?_, hbnd.1,
         fun a' ha' => towerSet_univ_teleOfFields (hbnd.2 a' ha')⟩
       rwa [show Nat.max w w = w from Nat.max_self w]
-    have hmem1 : interp V σ (.proj 1 e)
+    have hmem1 : interp V σ (.snd e)
         ∈ˢ towerSet w (teleOfFields (cons a ρ) Fs') := by
-      rw [interp_proj, if_neg Nat.one_ne_zero]
+      rw [interp_snd]
       rcases Nat.eq_zero_or_pos w with rfl | hwpos
       · rw [hz rfl, ssnd_pt]
         rw [(towerSet_zero_elim _ hb).1] at hb
@@ -113,7 +113,7 @@ theorem projAV_wellDenoted_tower {w : Nat} :
       · rw [hpos (Nat.pos_iff_ne_zero.mp hwpos), ssnd_spair]
         exact hb
     exact projAV_wellDenoted_tower (i := i) (Fs := Fs') (ρ := cons a ρ)
-      (e := .proj 1 e) hok1 hmem1 (hbnd.2 a ha)
+      (e := .snd e) hok1 hmem1 (hbnd.2 a ha)
       (by exact Nat.lt_of_succ_lt_succ hi)
 
 /-! ## The semantic minor space -/
@@ -308,23 +308,23 @@ theorem projAV_wellDenoted_pt :
       WellDenoted V σ (projAV i e) ∧ interp V σ (projAV i e) = pt
   | 0, e, σ, hok, hpt => by
     refine ⟨?_, ?_⟩
-    · show WellDenoted V σ (.proj 0 e)
-      rw [WellDenoted_proj]
-      refine ⟨hok, by omega, 0, 0, unitSet, fun _ => unitSet, ?_,
+    · show WellDenoted V σ (.fst e)
+      rw [WellDenoted_fst]
+      refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_,
         unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
       rw [hpt, show Nat.max 0 0 = 0 from rfl, sigmaSet_zero]
       exact pt_mem_truthVal ⟨pt, pt_mem_unitSet, pt, pt_mem_unitSet⟩
     · rw [projAV_interp, hpt, projS_pt]
   | i + 1, e, σ, hok, hpt => by
-    have h1 : WellDenoted V σ (.proj 1 e) ∧ interp V σ (.proj 1 e) = pt := by
+    have h1 : WellDenoted V σ (.snd e) ∧ interp V σ (.snd e) = pt := by
       refine ⟨?_, ?_⟩
-      · rw [WellDenoted_proj]
-        refine ⟨hok, by omega, 0, 0, unitSet, fun _ => unitSet, ?_,
+      · rw [WellDenoted_snd]
+        refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_,
           unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
         rw [hpt, show Nat.max 0 0 = 0 from rfl, sigmaSet_zero]
         exact pt_mem_truthVal ⟨pt, pt_mem_unitSet, pt, pt_mem_unitSet⟩
-      · show (if 1 = 0 then sfst (interp V σ e) else ssnd (interp V σ e)) = pt
-        rw [if_neg Nat.one_ne_zero, hpt, ssnd_pt]
+      · show ssnd (interp V σ e) = pt
+        rw [hpt, ssnd_pt]
     exact projAV_wellDenoted_pt i h1.1 h1.2
 
 /-- An application spine of points is graded and is the point. -/

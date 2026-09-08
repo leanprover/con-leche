@@ -60,9 +60,12 @@ theorem AnnotValid_congr_noBVar :
   | eqE T a b ihT iha ihb =>
     intro P σ σ' h hag
     rw [AnnotValid, AnnotValid, iha h.2.1 hag, ihb h.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro P σ σ' h hag
-    rw [AnnotValid_proj, AnnotValid_proj, ihe h hag]
+    rw [AnnotValid_fst, AnnotValid_fst, ihe h hag]
+  | snd e ihe =>
+    intro P σ σ' h hag
+    rw [AnnotValid_snd, AnnotValid_snd, ihe h hag]
   | prf => intros; simp
 
 /-! ## The X-chains, valid at every family -/

@@ -80,7 +80,8 @@ theorem liftN_zero : ∀ (e : AnnotTerm) (k : Nat), liftN 0 e k = e := by
   | pi u v A B ihA ihB => intro k; rw [liftN_pi, ihA, ihB]
   | letE T v b ihT ihv ihb => intro k; rw [liftN_letE, ihT, ihv, ihb]
   | eqE T a b ihT iha ihb => intro k; rw [liftN_eqE, ihT, iha, ihb]
-  | proj i e ihe => intro k; rw [liftN_proj, ihe]
+  | fst e ihe => intro k; rw [liftN_fst, ihe]
+  | snd e ihe => intro k; rw [liftN_snd, ihe]
 
 /-- Two lifts at the same cut compose. -/
 theorem liftN_liftN : ∀ (e : AnnotTerm) (n m k : Nat),
@@ -108,8 +109,10 @@ theorem liftN_liftN : ∀ (e : AnnotTerm) (n m k : Nat),
     intro n m k; rw [liftN_letE, liftN_letE, ihT, ihv, ihb]; rfl
   | eqE T a b ihT iha ihb =>
     intro n m k; rw [liftN_eqE, liftN_eqE, ihT, iha, ihb]; rfl
-  | proj i e ihe =>
-    intro n m k; rw [liftN_proj, liftN_proj, ihe]; rfl
+  | fst e ihe =>
+    intro n m k; rw [liftN_fst, liftN_fst, ihe]; rfl
+  | snd e ihe =>
+    intro n m k; rw [liftN_snd, liftN_snd, ihe]; rfl
 
 end ConLeche.Semantics.AnnotTerm
 
@@ -319,7 +322,7 @@ theorem denoteMeta_substFvarAt
       simp only [Option.map_some]
       split
       · exact congrArg some (projAV_inst _ ea x (D - p)).symm
-      · split <;> rfl
+      · rcases i with _ | _ | i <;> rfl
   | .lit (.natVal k), D, hpD, hfb => by
     simp only [ConLeche.Expr.substFvarAt, denoteMeta]
     split

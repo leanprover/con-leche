@@ -50,7 +50,7 @@ theorem denoteMeta_proj_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
   rw [denoteMeta_proj, he]
   show (match env.findProj? s i with
     | some entry => some (projAV (i + entry.off) ia)
-    | none => if i < 2 then some (AnnotTerm.proj i ia) else none)
+    | none => AnnotTerm.projPair? i ia)
       = some (projAV (i + entry.off) ia)
   rw [hfe]
 
@@ -61,7 +61,7 @@ theorem denoteMeta_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
     (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteMeta acval env φ d e = some ia ∧ ea = projAV (i + entry.off) ia := by
   obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -, -⟩
+  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -⟩
   · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
     exact ⟨ia, hia, rfl⟩
   · rw [hnt] at hfe; exact nomatch hfe

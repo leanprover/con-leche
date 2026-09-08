@@ -82,9 +82,14 @@ theorem WellDenoted_congr_below :
   | eqE T a b ihT iha ihb =>
     intro k ρ ρ' hb hag
     rw [WellDenoted_eqE, WellDenoted_eqE, iha k ρ ρ' hb.2.1 hag, ihb k ρ ρ' hb.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro k ρ ρ' hb hag
-    rw [WellDenoted_proj, WellDenoted_proj, ihe k ρ ρ' hb hag, interp_congr_below V e k ρ ρ' hb hag]
+    rw [WellDenoted_fst, WellDenoted_fst, ihe k ρ ρ' hb hag,
+      interp_congr_below V e k ρ ρ' hb hag]
+  | snd e ihe =>
+    intro k ρ ρ' hb hag
+    rw [WellDenoted_snd, WellDenoted_snd, ihe k ρ ρ' hb hag,
+      interp_congr_below V e k ρ ρ' hb hag]
 
 theorem AnnotValid_congr_below :
     ∀ (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V),
@@ -131,9 +136,12 @@ theorem AnnotValid_congr_below :
   | eqE T a b ihT iha ihb =>
     intro k ρ ρ' hb hag
     rw [AnnotValid_eqE, AnnotValid_eqE, iha k ρ ρ' hb.2.1 hag, ihb k ρ ρ' hb.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro k ρ ρ' hb hag
-    rw [AnnotValid_proj, AnnotValid_proj, ihe k ρ ρ' hb hag]
+    rw [AnnotValid_fst, AnnotValid_fst, ihe k ρ ρ' hb hag]
+  | snd e ihe =>
+    intro k ρ ρ' hb hag
+    rw [AnnotValid_snd, AnnotValid_snd, ihe k ρ ρ' hb hag]
 
 theorem WellDenotedV_congr_below (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V)
     (hb : Term.bvarsBelow k e.erase) (hag : ∀ i, i < k → ρ i = ρ' i) :

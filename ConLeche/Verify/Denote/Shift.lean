@@ -96,7 +96,8 @@ theorem liftN_liftN : ∀ (v : Term) (m n k : Nat),
     intro m n k; simp only [Term.liftN_letE, ihT, ihv, ihb]
   | eqE T a b ihT iha ihb =>
     intro m n k; simp only [Term.liftN_eqE, ihT, iha, ihb]
-  | proj i e ihe => intro m n k; simp only [Term.liftN_proj, ihe]
+  | fst e ihe => intro m n k; simp only [Term.liftN_fst, ihe]
+  | snd e ihe => intro m n k; simp only [Term.liftN_snd, ihe]
 
 /-- Lifting by zero is the identity. -/
 theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
@@ -112,7 +113,8 @@ theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
   | letE T v b ihT ihv ihb => intro k; simp only [Term.liftN_letE, ihT, ihv,
     ihb]
   | eqE T a b ihT iha ihb => intro k; simp only [Term.liftN_eqE, ihT, iha, ihb]
-  | proj i e ihe => intro k; simp only [Term.liftN_proj, ihe]
+  | fst e ihe => intro k; simp only [Term.liftN_fst, ihe]
+  | snd e ihe => intro k; simp only [Term.liftN_snd, ihe]
 
 /-- A `Nat` literal's term is closed when the two constructor
 valuations are. -/
@@ -146,14 +148,14 @@ theorem liftN_projNV (n : Nat) :
     ∀ (i : Nat) (v : Term) (k : Nat),
       (projNV i v).liftN n k = projNV i (v.liftN n k)
   | 0, _, _ => rfl
-  | i + 1, v, k => liftN_projNV n i (.proj 1 v) k
+  | i + 1, v, k => liftN_projNV n i (.snd v) k
 
 /-- `projNV` preserves bvar bounds (hereditary proj clauses). -/
 theorem projNV_bvarsBelow {d : Nat} :
     ∀ (i : Nat) {v : Term}, Term.bvarsBelow d v →
       Term.bvarsBelow d (projNV i v)
   | 0, _, h => h
-  | i + 1, v, h => projNV_bvarsBelow i (v := .proj 1 v) h
+  | i + 1, v, h => projNV_bvarsBelow i (v := .snd v) h
 
 /-- **Depth shifting.**  Denoting `e.shiftFrom p` one level deeper is
 denoting `e` and lifting at cut `d - p`.
@@ -252,8 +254,9 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, Term.Closed (cval n ψ)) {p : Nat} :
       cases env.findProj? s i with
       | none =>
         dsimp only
-        split
-        · simp only [Option.map_some, Term.liftN_proj]
+        rcases i with _ | _ | i
+        · simp only [Term.projPair?, Option.map_some, Term.liftN_fst]
+        · simp only [Term.projPair?, Option.map_some, Term.liftN_snd]
         · rfl
       | some entry =>
         simp only [Option.map_some, liftN_projNV]
@@ -431,35 +434,33 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     simp only [Expr.WScoped] at hws
     obtain rfl : v = projNV (i + entry.off) B := h.symm
     exact projNV_bvarsBelow _ (ihe hws hb h1)
-  | case19 d sn i e B h1 h2 h3 ihe =>
+  | case19 d sn i e B h1 h2 ihe =>
     intro hws hb v h
     rw [denote_proj, h1, h2] at h
-    simp only [if_pos h3, Option.some.injEq] at h
     simp only [Expr.WScoped] at hws
-    obtain rfl : v = .proj i B := h.symm
-    show Term.bvarsBelow d B
-    exact ihe hws hb h1
-  | case20 d sn i e B h1 h2 h3 ihe =>
-    intro _ _ v h
-    rw [denote_proj, h1, h2] at h
-    simp only [if_neg h3] at h
-    exact nomatch h
-  | case21 d n hg =>
+    have hB : Term.bvarsBelow d B := ihe hws hb h1
+    rcases i with _ | _ | i
+    · simp only [Term.projPair?, Option.some.injEq] at h
+      exact h ▸ hB
+    · simp only [Term.projPair?, Option.some.injEq] at h
+      exact h ▸ hB
+    · exact nomatch h
+  | case20 d n hg =>
     intro _ _ v h
     rw [denote_natLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d)
       (natLitT_closed (hcl _ _) (hcl _ _) n)
-  | case22 d n hg =>
+  | case21 d n hg =>
     intro _ _ v h; rw [denote_natLit, if_neg hg] at h; exact nomatch h
-  | case23 d t hg =>
+  | case22 d t hg =>
     intro _ _ v h
     rw [denote_strLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
-  | case24 d t hg =>
+  | case23 d t hg =>
     intro _ _ v h; rw [denote_strLit, if_neg hg] at h; exact nomatch h
-  | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _ _ v h
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h

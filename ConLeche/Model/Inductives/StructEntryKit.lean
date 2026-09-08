@@ -136,21 +136,21 @@ theorem wellDenoted_projAV_pt :
     ∀ {i : Nat} {e : AnnotTerm} {ρ : Nat → V},
       WellDenoted V ρ e → interp V ρ e = (pt : V) → WellDenoted V ρ (projAV i e)
   | 0, e, ρ, hok, hpt => by
-    show WellDenoted V ρ (.proj 0 e)
-    rw [WellDenoted_proj]
-    refine ⟨hok, by decide, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
+    show WellDenoted V ρ (.fst e)
+    rw [WellDenoted_fst]
+    refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
       fun _ _ => unitSet_mem_univ 0⟩
     rw [hpt, nat_max_self]
     exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
   | i + 1, e, ρ, hok, hpt => by
-    show WellDenoted V ρ (projAV i (.proj 1 e))
+    show WellDenoted V ρ (projAV i (.snd e))
     refine wellDenoted_projAV_pt (i := i) ?_ ?_
-    · rw [WellDenoted_proj]
-      refine ⟨hok, by decide, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
+    · rw [WellDenoted_snd]
+      refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
         fun _ _ => unitSet_mem_univ 0⟩
       rw [hpt, nat_max_self]
       exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
-    · rw [interp_proj, if_neg (by decide), hpt, ssnd_pt]
+    · rw [interp_snd, hpt, ssnd_pt]
 
 /-- At a tower member in the graph regime the projection spelling is
 graded: each pair step's Σ package is the tower's own level, with the
@@ -166,9 +166,9 @@ theorem wellDenoted_projAV_tower {w : Nat} :
     intro Fs ρ' x e ρ hb hx hok hval hi
     match Fs, hb, hx, hi with
     | F :: Fs', hb, hx, _ =>
-      show WellDenoted V ρ (.proj 0 e)
-      rw [WellDenoted_proj]
-      refine ⟨hok, by decide, w, w, interp V ρ' F,
+      show WellDenoted V ρ (.fst e)
+      rw [WellDenoted_fst]
+      refine ⟨hok, w, w, interp V ρ' F,
         fun a => towerSet w (teleOfFields (cons a ρ') Fs'), ?_, hb.1,
         fun a ha => towerSet_univ_teleOfFields (hb.2 a ha)⟩
       rw [hval, nat_max_self]
@@ -177,7 +177,7 @@ theorem wellDenoted_projAV_tower {w : Nat} :
     intro Fs ρ' x e ρ hb hx hok hval hi
     match Fs, hb, hx, hi with
     | F :: Fs', hb, hx, hi =>
-      show WellDenoted V ρ (projAV i (.proj 1 e))
+      show WellDenoted V ρ (projAV i (.snd e))
       have hx' : x ∈ˢ sigmaSet (Nat.max w w) (interp V ρ' F)
           (fun a => towerSet w (teleOfFields (cons a ρ') Fs')) := by
         rw [nat_max_self]; exact hx
@@ -189,11 +189,11 @@ theorem wellDenoted_projAV_tower {w : Nat} :
       have hsnd := ssnd_mem_gen V hA hB hx'
       refine ih (Fs := Fs') (ρ' := cons (sfst x) ρ') (x := ssnd x) (hb.2 _ hfst) hsnd ?_ ?_
         (by simpa using hi)
-      · rw [WellDenoted_proj]
-        refine ⟨hok, by decide, w, w, interp V ρ' F,
+      · rw [WellDenoted_snd]
+        refine ⟨hok, w, w, interp V ρ' F,
           fun a => towerSet w (teleOfFields (cons a ρ') Fs'), ?_, hA, hB⟩
         rw [hval]; exact hx'
-      · rw [interp_proj, if_neg (by decide), hval]
+      · rw [interp_snd, hval]
 
 /-! ## The coarse guard -/
 

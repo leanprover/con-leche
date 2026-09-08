@@ -185,24 +185,42 @@
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1278
   1278  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 
-== ConLeche/Term/Syntax.lean#L165-L179
-   165  inductive Term where
-   166    /-- de Bruijn index -/
-   167    | bvar (i : Nat)
-   168    /-- `Sort u` at a concrete level -/
-   169    | sort (u : Nat)
-   170    /-- a built-in constant at a concrete level instantiation -/
-   171    | const (c : BConst) (us : List Nat)
-   172    /-- application -/
-   173    | app (f a : Term)
-   174    /-- `fun (_ : ty) => body` -/
-   175    | lam (ty body : Term)
-   176    /-- `(_ : ty) → body` -/
-   177    | pi (ty body : Term)
-   178    /-- `let _ : ty := value; body` -/
-   179    | letE (ty value body : Term)
+== ConLeche/Term/Syntax.lean#L170-L202
+   170  inductive Term where
+   171    /-- de Bruijn index -/
+   172    | bvar (i : Nat)
+   173    /-- `Sort u` at a concrete level -/
+   174    | sort (u : Nat)
+   175    /-- a built-in constant at a concrete level instantiation -/
+   176    | const (c : BConst) (us : List Nat)
+   177    /-- application -/
+   178    | app (f a : Term)
+   179    /-- `fun (_ : ty) => body` -/
+   180    | lam (ty body : Term)
+   181    /-- `(_ : ty) → body` -/
+   182    | pi (ty body : Term)
+   183    /-- `let _ : ty := value; body` -/
+   184    | letE (ty value body : Term)
+   185    /-- `@Eq ty lhs rhs`.
+   186  
+   187    **`ty` is never checked.**  It is carried so that the eventual
+   188    denotation of `@Eq A a b` is transparently `eqE A a b`, but the
+   189    interpretation reads only `lhs` and `rhs`
+   190  (`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`), so
+   191    soundness never constrains it — and it is a trap if you assume
+   192    otherwise: do **not** expect `ty` to relate the two sides. -/
+   193    | eqE (ty lhs rhs : Term)
+   194    /-- First field of a pair.  Carries **only** the subject: the pair's
+   195    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+   196    not from the term — see the module docstring.  Interpreted by
+   197    `sfst`, i.e. literally `interpExpr`'s clause. -/
+   198    | fst (e : Term)
+   199    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   200    | snd (e : Term)
+   201    /-- the canonical (irrelevant) proof of a derivable equation -/
+   202    | prf
 
-== ConLeche/Semantics/Syntax.lean#L69-L86
+== ConLeche/Semantics/Syntax.lean#L69-L95
     69  inductive AnnotTerm where
     70    /-- de Bruijn index -/
     71    | bvar (i : Nat)
@@ -221,8 +239,17 @@
     84    /-- `let _ : ty := value; body` — **no sort slot**, see the module
     85    docstring -/
     86    | letE (ty value body : AnnotTerm)
+    87    /-- `@Eq ty lhs rhs`; the `ty` slot is carried and never read, as in
+    88    `Term` -/
+    89    | eqE (ty lhs rhs : AnnotTerm)
+    90    /-- first field of a pair -/
+    91    | fst (e : AnnotTerm)
+    92    /-- second field of a pair -/
+    93    | snd (e : AnnotTerm)
+    94    /-- the canonical (irrelevant) proof of a derivable equation -/
+    95    | prf
 
-== ConLeche/Semantics/Interp.lean#L149-L159
+== ConLeche/Semantics/Interp.lean#L149-L160
    149  noncomputable def interp : (Nat → V) → AnnotTerm → V
    150    | ρ, .bvar i => ρ i
    151    | _, .sort u => univ u
@@ -232,10 +259,11 @@
    155    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
    156    | ρ, .letE _ e b => interp (cons (interp ρ e) ρ) b
    157    | ρ, .eqE _ a b => eqv (interp ρ a) (interp ρ b)
-   158    | ρ, .proj i e => if i = 0 then sfst (interp ρ e) else ssnd (interp ρ e)
-   159    | _, .prf => pt
+   158    | ρ, .fst e => sfst (interp ρ e)
+   159    | ρ, .snd e => ssnd (interp ρ e)
+   160    | _, .prf => pt
 
-== ConLeche/Semantics/WellDenoted.lean#L78-L112
+== ConLeche/Semantics/WellDenoted.lean#L78-L108
     78  def WellDenoted : (Nat → V) → AnnotTerm → Prop
     79    | ρ, .pi _u _v A B =>
     80      WellDenoted ρ A ∧
@@ -254,84 +282,80 @@
     93    | ρ, .letE T v b =>
     94      WellDenoted ρ T ∧ WellDenoted ρ v ∧
     95      WellDenoted (cons (interp V ρ v) ρ) b
-    96    | ρ, .proj i e =>
-    97      WellDenoted ρ e ∧ i < 2 ∧
+    96    | ρ, .fst e =>
+    97      WellDenoted ρ e ∧
     98      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
     99        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
-   100    | ρ, .eqE _ a b => WellDenoted ρ a ∧ WellDenoted ρ b
-   101    | _, .bvar _ => True
-   102    | _, .sort _ => True
-   103    | _, .const _ _ => True
-   104    | _, .prf => True
-   105  
-   106  /-! ### Clause equations -/
-   107  
-   108  @[simp] theorem WellDenoted_bvar (ρ : Nat → V) (i : Nat) :
-   109      WellDenoted V ρ (.bvar i) = True := by rw [WellDenoted]
-   110  @[simp] theorem WellDenoted_sort (ρ : Nat → V) (u : Nat) :
-   111      WellDenoted V ρ (.sort u) = True := by rw [WellDenoted]
-   112  @[simp] theorem WellDenoted_const (ρ : Nat → V) (c : ConLeche.Term.BConst)
+   100    | ρ, .snd e =>
+   101      WellDenoted ρ e ∧
+   102      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+   103        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
+   104    | ρ, .eqE _ a b => WellDenoted ρ a ∧ WellDenoted ρ b
+   105    | _, .bvar _ => True
+   106    | _, .sort _ => True
+   107    | _, .const _ _ => True
+   108    | _, .prf => True
 
-== ConLeche/Semantics/WellDenoted.lean#L282-L340
-   282  theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
-   283      {ρ : Nat → V}
-   284      (h : WellDenoted V ρ (.app (.lam v A b) a)) :
-   285      interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
-   286      WellDenoted V ρ (b.inst a) := by
-   287    rw [WellDenoted_app] at h
-   288    obtain ⟨hlam, ha, v', A', B', hslot, hmem, -⟩ := h
-   289    rw [WellDenoted_lam] at hlam
-   290    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
-   291    -- the slot's product is in the graph regime: the λ is not `pt`
-   292    have hv' : v' ≠ 0 := by
-   293      intro h0
-   294      subst h0
-   295      have h1 := eq_pt_of_mem_piR_zero hslot
-   296      rw [interp_lam] at h1
-   297      exact lamR_ne_pt hv h1
-   298    -- rigidity pins the slot's domain to the λ's own
-   299    have hown : interp V ρ (.lam v A b)
-   300        ∈ˢ piR v (interp V ρ A) B := by
-   301      rw [interp_lam]
-   302      exact lamR_mem hfib
-   303    have hAA : interp V ρ A = A' := piR_dom_unique hv hv' hown hslot
-   304    have haA : interp V ρ a ∈ˢ interp V ρ A := by
-   305      rw [hAA]
-   306      exact hmem
-   307    refine ⟨?_, ?_⟩
-   308    · rw [interp_app, interp_lam, app_lamR_pos hv haA, interp_inst0]
-   309    · exact (WellDenoted_inst0 V ha).mpr (hbody _ haA)
-   310  
-   311  /-- The graded ζ step — both conjuncts, no premises beyond the
-   312  subject's invariant (ζ is annotation-free: `interp`'s `letE` clause
-   313  is already the contractum's reading). -/
-   314  theorem WellDenoted_zeta {T v b : AnnotTerm} {ρ : Nat → V}
-   315      (h : WellDenoted V ρ (.letE T v b)) :
-   316      interp V ρ (.letE T v b) = interp V ρ (b.inst v) ∧
-   317      WellDenoted V ρ (b.inst v) := by
-   318    rw [WellDenoted_letE] at h
-   319    obtain ⟨-, hv, hb⟩ := h
-   320    refine ⟨?_, ?_⟩
-   321    · rw [interp_letE, interp_inst0]
-   322    · exact (WellDenoted_inst0 V hv).mpr hb
-   323  
-   324  /-- The graded β step at kind `0` — the residue side: with the
-   325  argument membership supplied (the retained `Prop`-codomain runtime
-   326  check's fact), the equality holds because both sides are the canonical
-   327  proof, and the transport is the hereditary component. -/
-   328  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
-   329      (h : WellDenoted V ρ (.app (.lam 0 A b) a))
-   330      (hmem : interp V ρ a ∈ˢ interp V ρ A) :
-   331      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
-   332      WellDenoted V ρ (b.inst a) := by
-   333    rw [WellDenoted_app] at h
-   334    obtain ⟨hlam, ha, -⟩ := h
-   335    rw [WellDenoted_lam] at hlam
-   336    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
-   337    refine ⟨?_, (WellDenoted_inst0 V ha).mpr (hbody _ hmem)⟩
-   338    rw [interp_app, interp_lam, lamR_zero, app_pt, interp_inst0]
-   339    exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
-   340  
+== ConLeche/Semantics/WellDenoted.lean#L300-L358
+   300  theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
+   301      {ρ : Nat → V}
+   302      (h : WellDenoted V ρ (.app (.lam v A b) a)) :
+   303      interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
+   304      WellDenoted V ρ (b.inst a) := by
+   305    rw [WellDenoted_app] at h
+   306    obtain ⟨hlam, ha, v', A', B', hslot, hmem, -⟩ := h
+   307    rw [WellDenoted_lam] at hlam
+   308    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
+   309    -- the slot's product is in the graph regime: the λ is not `pt`
+   310    have hv' : v' ≠ 0 := by
+   311      intro h0
+   312      subst h0
+   313      have h1 := eq_pt_of_mem_piR_zero hslot
+   314      rw [interp_lam] at h1
+   315      exact lamR_ne_pt hv h1
+   316    -- rigidity pins the slot's domain to the λ's own
+   317    have hown : interp V ρ (.lam v A b)
+   318        ∈ˢ piR v (interp V ρ A) B := by
+   319      rw [interp_lam]
+   320      exact lamR_mem hfib
+   321    have hAA : interp V ρ A = A' := piR_dom_unique hv hv' hown hslot
+   322    have haA : interp V ρ a ∈ˢ interp V ρ A := by
+   323      rw [hAA]
+   324      exact hmem
+   325    refine ⟨?_, ?_⟩
+   326    · rw [interp_app, interp_lam, app_lamR_pos hv haA, interp_inst0]
+   327    · exact (WellDenoted_inst0 V ha).mpr (hbody _ haA)
+   328  
+   329  /-- The graded ζ step — both conjuncts, no premises beyond the
+   330  subject's invariant (ζ is annotation-free: `interp`'s `letE` clause
+   331  is already the contractum's reading). -/
+   332  theorem WellDenoted_zeta {T v b : AnnotTerm} {ρ : Nat → V}
+   333      (h : WellDenoted V ρ (.letE T v b)) :
+   334      interp V ρ (.letE T v b) = interp V ρ (b.inst v) ∧
+   335      WellDenoted V ρ (b.inst v) := by
+   336    rw [WellDenoted_letE] at h
+   337    obtain ⟨-, hv, hb⟩ := h
+   338    refine ⟨?_, ?_⟩
+   339    · rw [interp_letE, interp_inst0]
+   340    · exact (WellDenoted_inst0 V hv).mpr hb
+   341  
+   342  /-- The graded β step at kind `0` — the residue side: with the
+   343  argument membership supplied (the retained `Prop`-codomain runtime
+   344  check's fact), the equality holds because both sides are the canonical
+   345  proof, and the transport is the hereditary component. -/
+   346  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
+   347      (h : WellDenoted V ρ (.app (.lam 0 A b) a))
+   348      (hmem : interp V ρ a ∈ˢ interp V ρ A) :
+   349      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
+   350      WellDenoted V ρ (b.inst a) := by
+   351    rw [WellDenoted_app] at h
+   352    obtain ⟨hlam, ha, -⟩ := h
+   353    rw [WellDenoted_lam] at hlam
+   354    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
+   355    refine ⟨?_, (WellDenoted_inst0 V ha).mpr (hbody _ hmem)⟩
+   356    rw [interp_app, interp_lam, lamR_zero, app_pt, interp_inst0]
+   357    exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
+   358  
 
 == ConLeche/Model/Annot/EnvModel.lean#L60-L96
     60  structure EnvModel (env : Env) where
@@ -447,17 +471,17 @@
    908  theorem whnfStep_of (_hμ : μ.verifiedChecks = true)
    909      (hin : WhnfInputs V μ) : WhnfStep μ V :=
 
-== ConLeche/Model/Steps/DefEq.lean#L1322-L1331
-  1322  theorem defEqStep_of (hμ : μ.verifiedChecks = true)
-  1323      (hin : DefEqInputs μ V) : DefEqStep μ V := by
-  1324    intro env m φ fuel ihwc ihw ihd _ihi
-  1325    exact defeq_claims
-  1326      (defeqStep_claim (hin.hex env m φ fuel) ihwc ihw (hin.hdel env m φ)
-  1327        (hin.hnat env m φ fuel) (hin.hpi env m φ fuel)
-  1328        (defeqStuck_claim hμ ihd (hin.hsi env m φ fuel)
-  1329          (hin.hstr env m φ) (hin.hap env m) (hin.happ env m φ fuel)
-  1330          (hin.heta env m φ fuel))
-  1331        (hin.hspine env m φ fuel))
+== ConLeche/Model/Steps/DefEq.lean#L1335-L1344
+  1335  theorem defEqStep_of (hμ : μ.verifiedChecks = true)
+  1336      (hin : DefEqInputs μ V) : DefEqStep μ V := by
+  1337    intro env m φ fuel ihwc ihw ihd _ihi
+  1338    exact defeq_claims
+  1339      (defeqStep_claim (hin.hex env m φ fuel) ihwc ihw (hin.hdel env m φ)
+  1340        (hin.hnat env m φ fuel) (hin.hpi env m φ fuel)
+  1341        (defeqStuck_claim hμ ihd (hin.hsi env m φ fuel)
+  1342          (hin.hstr env m φ) (hin.hap env m) (hin.happ env m φ fuel)
+  1343          (hin.heta env m φ fuel))
+  1344        (hin.hspine env m φ fuel))
 
 == ConLeche/Model/Steps/Infer.lean#L1128-L1135
   1128  theorem inferStep_of (h : InferInputs V μ)

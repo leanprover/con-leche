@@ -60625,3 +60625,155 @@ accepted **53 088** declarations, exit 0, route census **584 fix / 6
 basis / 1 inmodel**, at **679.098 G instructions:u** against #221's
 published 679.08 G — parity (+0.003 %).  **A rename costs nothing, as
 it should.**
+
+## TASK #225 — THE PROJECTION FORMERS SPLIT: `AnnotTerm.proj i e` becomes `fst e` / `snd e`, and the `i < 2` side condition becomes a decoder (2026-09-08, `agent/projfst`)
+
+**The user's standing request, verbatim:** *"the annotated term's `.proj
+0/1` should be `.fst/.snd`."*
+
+**No statement changed.**  Every capstone, pin and claim keeps its
+sentence; the claims are per-constructor and gained one case each.  The
+axiom pin is the same eleven theorems at the same three axioms,
+`tests/proofdeps.sh` is master's 2 846 rows edge for edge with doors 0
+and no new leaf, `tests/layering.sh`'s counts are unchanged, the arena
+verdicts are unchanged, and `init-full` accepts the same 53 088
+declarations at the same instruction count.
+
+### 1. What moved
+
+Both term tiers had one binary projection former carrying a `Nat`:
+
+    ConLeche.Term.proj       (i : Nat) (e : Term)        -- the erased tier
+    ConLeche.Semantics.AnnotTerm.proj (i : Nat) (e : AnnotTerm)
+
+with the index constrained *outside* the syntax — `WellDenoted`'s proj
+clause read
+
+    | ρ, .proj i e => WellDenoted ρ e ∧ i < 2 ∧ ∃ u v A Bf, …
+
+and `interp` dispatched on it, `if i = 0 then sfst … else ssnd …`.
+Both are now two unary formers, in lockstep across the tiers (the
+`erase` map stays a clause-for-clause homomorphism):
+
+    | fst (e : Term)      | fst (e : AnnotTerm)
+    | snd (e : Term)      | snd (e : AnnotTerm)
+
+`interp` gets two clauses with no test (`sfst (interp ρ e)`,
+`ssnd (interp ρ e)`); `WellDenoted` gets two clauses whose *only*
+difference from each other is the constructor matched — the `i < 2`
+conjunct is gone, and with it the `by omega` / `by decide` /
+`Nat.one_ne_zero` residue at every site that built or consumed the
+clause.
+
+### 2. WHERE THE `i < 2` INVARIANT WENT — the one decision worth recording
+
+The bound had **two jobs**, and only one of them was structural.
+
+* **As a conjunct of `WellDenoted`** it was an invariant carried
+  through every proof about annotated terms: hoisting, congruence,
+  substitution, the tower kit, the `Steps/Proj*` rows.  That job is
+  **gone, absorbed into the datatype** — a `.fst`/`.snd` node cannot
+  be out of range, so nothing carries, re-establishes or discharges the
+  bound any more.  This is the whole payoff: the sites that used to
+  produce `by omega` or destructure `⟨hok, hi2, u, v, A, Bf, …⟩` now
+  produce and destructure one component less.
+* **As a guard in the denotation** it was a *totality* decision, not an
+  invariant: the checker's `Expr.proj T i e` node carries an arbitrary
+  `Nat`, and when the projection table has no entry for `(T, i)` only
+  `i < 2` (the two pinned pair fields) may denote at all.  That job
+  **cannot be absorbed into the datatype** — the index is input — so it
+  becomes an explicit decoder, one per tier:
+
+      def Term.projPair? : Nat → Term → Option Term
+        | 0, e => some (.fst e)
+        | 1, e => some (.snd e)
+        | _ + 2, _ => none
+
+  and the three denotations (`Verify.denote`, `Semantics.denoteAnnot`,
+  `Model.denoteMeta`) read `| none => projPair? i ve` where they read
+  `| none => if i < 2 then some (.proj i ve) else none`.  The `none`
+  branch **is** the old guard: a `.proj T i` node with `2 ≤ i` and no
+  table entry still has no image, exactly as before.
+
+Consumers of the guard take one of three small lemmas beside the
+decoder (`ConLeche/Semantics/Syntax.lean`), which is the entire new API:
+
+    lt_of_projPair?         : projPair? i e = some x → i < 2
+    projPair?_exists_of_lt  : i < 2 → ∀ e, ∃ x, projPair? i e = some x
+    projPair?_cases         : projPair? i e = some x → x = .fst e ∨ x = .snd e
+    projPair?_cases₂        : two decodings AT ONE INDEX agree on the former
+
+`projPair?_cases₂` is the one that earns its place: a congruence site
+(`Steps/DefEq.lean`'s stuck projection, `Steps/ProjRows.lean`'s
+`projStep_of_claims`) has *two* readings at the *same* node index, and
+splitting them independently would leave two impossible cross cases.
+Splitting once, on the index, gives both.  The erased tier needs only
+the decoder itself, so `ConLeche.Term` carries `projPair?` and nothing
+else.
+
+### 3. The shapes that shortened
+
+* **The clause equations** double (`WellDenoted_fst`/`_snd`,
+  `AnnotValid_fst`/`_snd`, `interp_fst`/`_snd`, `liftN_fst`/`_snd`,
+  `inst_fst`/`_snd`, `erase_fst`/`_snd`) and each loses a conjunct or
+  an `if`.  `interp_fst` is `rfl`; `interp_proj` was an `if`.
+* **`WellDenoted.hoist_proj` / `of_proj`** (`Semantics/Hoist.lean`)
+  become `hoist_fst`/`hoist_snd` and `of_fst`/`of_snd`; `of_*` drops
+  its `(hi : i < 2)` argument outright — the converse no longer has a
+  side condition to be handed.
+* **`deqStep_projCong`** (`Semantics/DefEqStep.lean`) becomes
+  `deqStep_fstCong`/`deqStep_sndCong`, each `simp only [interp_fst, h]`.
+* **`major_proj_wellDenoted`** (`Semantics/Tower/SumRec.lean`) was one
+  theorem taking `i < 2`; it is now the shared `major_sigma` (the
+  `sigmaSet` package, which is what both clauses actually wanted) plus
+  `major_fst_wellDenoted` / `major_snd_wellDenoted`, two lines each.
+  `major_proj_validV` splits the same way.
+* **The tower spellings** are unchanged in meaning and clearer on the
+  page: `projNV`/`projAV` are `.fst ∘ .snd^i`, and `projAV_interp`'s
+  base case became `rfl` (it was `rw [if_pos rfl]`).
+* **`denote.induct` lost a case.**  The `if i < 2` was a *split* in the
+  function body, so the functional induction principle had four
+  projection cases (denote-fails / entry-found / in-range / out-of-range);
+  it now has three, and the four files that use it
+  (`Verify/Denote/{Install,Levels,Shift,EnvExt}.lean`, eight proofs)
+  merged `case19`/`case20` and renumbered `case21`…`case25` down by one.
+  This is the only *mechanical* consequence that was not local.
+
+### 4. Cost
+
+52 Lean files, **+683 / −455 lines** — and the insertions are
+overwhelmingly the second copy of a two-line clause, not new reasoning.
+Three proofs needed a genuinely different tactic, all three because a
+`split` on the vanished `if` had to become a case split on the index:
+`Verify/Denote/{Shift,Inst}.lean`'s shift/substitution transport and
+`Model/Annot/BitShift.lean`'s (`rcases i with _ | _ | i <;> rfl`).
+
+Two `OVERVIEW.md` citations widened rather than moved: §4's "Terms"
+paragraph now cites `ConLeche/Term/Syntax.lean#L170-L202` and
+`ConLeche/Semantics/Syntax.lean#L69-L95`, both extended to the end of
+the constructor list so the two projection formers are visible at the
+link; `Interp.lean` and the two `WellDenoted.lean` anchors were
+re-fitted to the (unchanged) declarations they name, and
+`Steps/DefEq.lean`'s shifted by the two new `hoist_*` lemmas.  Every
+citing paragraph was re-read: "every projection hits a pair" is still
+what `WellDenoted` says, in two clauses instead of one.
+
+### 5. Gates
+
+`lake build` warning-free, `lake test` green.  Layering **base 263 /
+model 189 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory** —
+unchanged.  Proofdeps **2 846 rows across 7 roots, doors 0**, accepted
+without regeneration (the change is inside modules the roots already
+reach).  Trust surface **18 escapes in 4 allowlisted files of 464
+scanned, 0 outside**.  Axioms pinned at 11 theorems,
+`[propext, Classical.choice, Quot.sound]`.  Arena tutorial 90/92
+(032/033 by design), e2e 166/166, annot 14/14, retired flags 8/8, mode
+flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2,
+trusted sweep 138 + 166 + 14 with its three recorded divergences.
+`inmodel` OK.  `tests/overview-links.sh`: 57 links, 44 files, OK.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.111 G instructions:u** against #222's
+published 679.098 G — parity (+0.002 %).  **The kernel was not
+touched, and a proof-side change costs nothing, as it should.**
