@@ -612,7 +612,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               -- `majorToCtor` (task #61)
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  piResultNeverZero cvT.levelParams ustL cvT.type = true then do
+                  capsNeverZero cvT.levelParams ustL caps = true then do
                 if cvj.levelParams.length = ust.length ∧
                     (cvj.type.stripPis
                       (caps.etaParams + caps.etaFields)).isSome

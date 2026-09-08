@@ -64,7 +64,8 @@ theorem _root_.ConLeche.nativeCaps_single {p : NativeParts} {c : ConstantVal × 
           !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive),
         etaCtor := c.1.name, etaParams := p.nP,
         etaFields := c.2, unitlike := p.nIdx == 0 && c.2 == 0, unitParams := p.nP,
-        ruleK := c.2 == 0 && p.isProp } := by
+        ruleK := c.2 == 0 && p.isProp,
+        sortZ := Level.zeronessOf p.resSort } := by
   unfold ConLeche.nativeCaps
   rw [h]
 

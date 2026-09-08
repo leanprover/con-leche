@@ -437,6 +437,12 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitlike := checkUnitThmF mode fe cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
+  sortZ := piResultZ cvT.type
+
+/-- `indBlockCaps_sortZ` at the indexed lookup. -/
+@[simp] theorem indBlockCapsF_sortZ (fe : FEnv) (cvT cvC : ConstantVal)
+    (nP nF : Nat) :
+    (indBlockCapsF mode fe cvT cvC nP nF).sortZ = piResultZ cvT.type := rfl
 
 /-! ## Indexed mirrors of the declaration-checker functions (task #63)
 

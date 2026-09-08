@@ -731,6 +731,14 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitlike := checkUnitThm mode env cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
+  sortZ := piResultZ cvT.type
+
+/-- The modeled route stores the family's own result-sort datum, so
+`capsNeverZero` at the stored record is `piResultNeverZero` at the
+stored type (`capsNeverZero_eq`). -/
+@[simp] theorem indBlockCaps_sortZ (env : Env) (cvT cvC : ConstantVal)
+    (nP nF : Nat) :
+    (indBlockCaps mode env cvT cvC nP nF).sortZ = piResultZ cvT.type := rfl
 
 /-- **Task #136: an eta-capable family's constructor returns the family
 applied to its parameters.**  Literally the conjunct `checkStructCtor`

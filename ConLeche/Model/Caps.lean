@@ -185,7 +185,7 @@ theorem etaFamilyStored_not_derivable :
       ¬ ConLeche.EtaFamilyStored env T caps := by
   refine ⟨unitNoFamilyEnv, Name.anonymous.str "ConLecheCapsWall.T",
     ⟨Name.anonymous.str "ConLecheCapsWall.T", [], .sort .zero⟩,
-    unitNoFamilyCaps, ?_, by decide, rfl, by decide, ?_⟩
+    unitNoFamilyCaps, ?_, rfl, rfl, by decide, ?_⟩
   · intro c hc
     rcases List.mem_singleton.mp hc with rfl
     exact ⟨rfl, rfl, rfl, rfl, by rintro _ _ _ ⟨⟩,

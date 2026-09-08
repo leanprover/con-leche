@@ -71,6 +71,16 @@ theorem zeronessOf_sound (φ : Name → Nat) :
         by simpa using hm
       rw [h1, if_neg hb, h2]
 
+/-- An intersection is unsatisfiable exactly when one side is. -/
+theorem isNever_inter (a b : PropWhen) :
+    (a.inter b).isNever = (a.isNever || b.isNever) := by
+  cases a with
+  | never => simp
+  | ifAllZero ps =>
+    cases b with
+    | never => simp
+    | ifAllZero qs => simp
+
 end ConLeche.PropWhen
 
 namespace ConLeche.Level
@@ -93,6 +103,21 @@ theorem zeronessOf_subst (ks : List Name) (vs : List Level) :
   | .imax a b => by
     show zeronessOf (subst ks vs b) = _
     exact zeronessOf_subst ks vs b
+
+/-- **The syntactic never-zero test IS the datum's unsatisfiability**:
+`isNeverZero` and `zeronessOf` are the same case analysis, one
+answering "no valuation makes this zero" and the other reading off
+which valuations do. -/
+theorem isNeverZero_eq_isNever :
+    ∀ l : Level, l.isNeverZero = (zeronessOf l).isNever
+  | .zero => rfl
+  | .succ _ => rfl
+  | .param _ => rfl
+  | .max a b => by
+    rw [Level.isNeverZero, zeronessOf, isNever_inter,
+      isNeverZero_eq_isNever a, isNeverZero_eq_isNever b]
+  | .imax _ b => by
+    rw [Level.isNeverZero, zeronessOf, isNeverZero_eq_isNever b]
 
 /-- `subst.go` at the identity substitution. -/
 theorem subst_go_self (ks : List Name) (n : Name) :

@@ -133,17 +133,38 @@ def piResultIsProp (e : Expr) : Bool :=
   | .sort u => Level.isEquiv u .zero == some true
   | _ => false
 
+/-- **The result-sort zero-ness datum of an inductive's type**
+(`IndCaps.sortZ`, computed at the block's install): the reading of the
+family's result sort as a predicate on its level parameters.  A type
+whose telescope does not end in a sort gets `ifAllZero []` — "zero at
+every valuation" — which no rescue passes. -/
+def piResultZ (e : Expr) : PropWhen :=
+  match e.piResult with
+  | .sort u => Level.zeronessOf u
+  | _ => .ifAllZero []
+
 /-- Is the result sort of a stored inductive's type, instantiated at
 the given levels, provably nonzero (official `is_never_zero`)?  The
-official kernel's structure rescue (`to_cnstr_when_structure`)
-requires this of the major's type; the basis `PUnit` rescue mirrors
-it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
-parameter `u` itself does not). -/
+**specification** of `capsNeverZero`: the walk down the family's type
+that the stored datum replaces. -/
 def piResultNeverZero (lps : List Name) (us : List Level) (e : Expr) :
     Bool :=
   match e.piResult with
   | .sort u => (Level.subst lps us u).isNeverZero
   | _ => false
+
+/-- Is a stored inductive's result sort, at the given level
+instantiation, provably nonzero (official `is_never_zero`)?  The
+official kernel's structure rescue (`to_cnstr_when_structure`)
+requires this of the major's type; the basis `PUnit` rescue mirrors
+it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
+parameter `u` itself does not).  Read off the stored datum: the
+instantiated datum is unsatisfiable exactly where the instantiated
+sort is never zero (`capsNeverZero_eq`,
+`ConLeche/Verify/InferLemmas.lean`). -/
+def capsNeverZero (lps : List Name) (us : List Level) (caps : IndCaps) :
+    Bool :=
+  (Level.substPW lps us caps.sortZ).isNever
 
 /-- Is this (whnf'd) type expression a unit-like inductive type — a
 stored inductive whose recursor (under the `<ind>.rec` naming
@@ -1281,7 +1302,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- is exactly the case the guard exists for.
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  piResultNeverZero cvT.levelParams ust cvT.type = true then
+                  capsNeverZero cvT.levelParams ust caps = true then
                 if cvj.levelParams.length = ust.length ∧
                     (cvj.type.stripPis
                       (caps.etaParams + caps.etaFields)).isSome

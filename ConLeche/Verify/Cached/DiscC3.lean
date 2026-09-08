@@ -75,7 +75,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               | .const T' ust =>
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                     ust.length = cvT.levelParams.length ∧
-                    piResultNeverZero cvT.levelParams ust cvT.type = true then
+                    capsNeverZero cvT.levelParams ust caps = true then
                   if cvj.levelParams.length = ust.length ∧
                       (cvj.type.stripPis
                         (caps.etaParams + caps.etaFields)).isSome
@@ -185,7 +185,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   pure (T' == T) >>= fun bq =>
                   if bq ∧ margs.length = caps.etaParams ∧
                       ust.length = cvT.levelParams.length ∧
-                      piResultNeverZero cvT.levelParams ustL cvT.type
+                      capsNeverZero cvT.levelParams ustL caps
                         = true then
                     if cvj.levelParams.length = ust.length ∧
                         (cvj.type.stripPis

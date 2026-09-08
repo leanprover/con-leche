@@ -91,8 +91,18 @@ def nativeCaps (p : NativeParts) : IndCaps :=
       etaFields := c.2
       unitlike := p.nIdx == 0 && c.2 == 0
       unitParams := p.nP
-      ruleK := c.2 == 0 && p.isProp }
+      ruleK := c.2 == 0 && p.isProp
+      sortZ := Level.zeronessOf p.resSort }
   | _ => {}
+
+/-- The fixpoint route stores the family's own result-sort datum: the
+former's telescope ends in `Sort p.resSort`, so the record's `sortZ`
+is `piResultZ` of the type the install stores (`capsNeverZero_eq`). -/
+theorem nativeCaps_sortZ {p : NativeParts} {c : ConstantVal × Nat}
+    {e : Expr} (hc : p.ctors = [c]) (he : e.piResult = .sort p.resSort) :
+    (nativeCaps p).sortZ = piResultZ e := by
+  unfold nativeCaps piResultZ
+  rw [hc, he]
 
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/

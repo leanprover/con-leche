@@ -1011,6 +1011,24 @@ theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
   | none => rw [hres] at h; simp [pure, Except.pure] at h
   | some residual => rw [hres] at h; exact ⟨residual, rfl, h⟩
 
+/-- **The stored zero-ness datum decides the official never-zero
+test**: at a capability record whose `sortZ` is the family's own
+(`piResultZ` of the type the environment stores — what every install
+route computes it from), reading the datum at a use's levels gives
+exactly the walk `piResultNeverZero` would have made down that type. -/
+theorem capsNeverZero_eq {lps : List Name} {us : List Level}
+    {caps : IndCaps} {e : Expr} (h : caps.sortZ = piResultZ e) :
+    capsNeverZero lps us caps = piResultNeverZero lps us e := by
+  unfold capsNeverZero piResultNeverZero
+  rw [h]
+  unfold piResultZ
+  cases e.piResult with
+  | sort u =>
+    rw [← Level.zeronessOf_subst, ← Level.isNeverZero_eq_isNever]
+  | _ =>
+    rw [Level.substPW_eq_self (by simp)]
+    simp
+
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
 K branch certified by proof irrelevance, in the structure-eta branch by
@@ -1044,7 +1062,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
          proofIrrelFueled mode env fuel d major' major = .ok true) ∨
         (rl.eta = true ∧
-         piResultNeverZero cvT.levelParams ust cvT.type = true ∧
+         capsNeverZero cvT.levelParams ust caps = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          cvj.levelParams.length = ust.length ∧
@@ -1325,7 +1343,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     dsimp only at h
     by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        piResultNeverZero cvT.levelParams ust cvT.type = true
+        capsNeverZero cvT.levelParams ust caps = true
     case neg =>
       rw [if_neg hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h

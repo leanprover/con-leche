@@ -345,6 +345,14 @@ structure IndCaps where
   when `unitlike`). -/
   unitParams : Nat := 0
   ruleK : Bool := false
+  /-- **The family's result-sort zero-ness datum** (install-computed
+  from the stored type: `piResultZ`; the default `ifAllZero []` reads
+  "zero at every valuation", which no rescue passes).  The structure-η
+  rescue fires only where the official kernel's `is_never_zero` holds
+  of the *instantiated* result sort, and this datum decides that at a
+  use by one level substitution (`capsNeverZero`) instead of a walk
+  down the family's type at every rescue. -/
+  sortZ : PropWhen := .ifAllZero []
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):
