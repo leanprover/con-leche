@@ -96,13 +96,12 @@ private def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
 up to the basis-matching canonical form (`ConstantInfo.canon`). -/
 def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
   | .basisDecl k, .basisDecl k' => k == k'
-  | .indDecl b nP, .indDecl b' nP' =>
-    nP == nP' && b.map ConstantInfo.canon == b'.map ConstantInfo.canon
+  | .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'
   | .opaqueDecl .., .defnDecl .. => false
   | .defnDecl .., .opaqueDecl .. => false
   | a, b =>
     match a.asInfo?, b.asInfo? with
-    | some x, some y => ConstantInfo.canon x == ConstantInfo.canon y
+    | some x, some y => ConstantInfo.canonEq x y
     | _, _ => false
 
 /-- The built-in prelude, indexed: its records in order, the
@@ -498,8 +497,8 @@ private def processLineCoreD (st : StateD) (j : Json) :
       return .inr "unsafe axiom"
     if cvp.name = quotSoundName then
       let cv ← parseConstantValTD st v
-      if ConstantInfo.canon (.axiomInfo cv) =
-          ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
+      if ConstantInfo.canonEq (.axiomInfo cv)
+          (quotBasis.getD 4 (.axiomInfo default)) then
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
@@ -547,8 +546,10 @@ private def processLineCoreD (st : StateD) (j : Json) :
       | "ind" => pure 3
       | k => throw s!"unknown quotient kind '{k}'"
     let pin := (BasisKind.quotK.decls.getD slot (.axiomInfo default))
-    if (ConstantInfo.canon (.axiomInfo cv)).toConstantVal =
-        (ConstantInfo.canon pin).toConstantVal then
+    -- the two records are compared at `toConstantVal`, which
+    -- `ConstantInfo.canon_toConstantVal` identifies with
+    -- `ConstantVal.canon` of each side
+    if ConstantVal.canonEq cv pin.toConstantVal then
       if slot = 0 then
         return pushDecl st (.basisDecl .quotK)
       else
@@ -621,7 +622,7 @@ private def processLineCoreD (st : StateD) (j : Json) :
     let pinHit : Option BasisKind :=
       ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
           k.decls.map (·.name) == blockNames).filter fun k =>
-        block.map ConstantInfo.canon == k.decls.map ConstantInfo.canon
+        canonEqList block k.decls
     if let some k := pinHit then
       if k == BasisKind.punitK then
         return pushDecl { st with punitSeen := true } (.basisDecl k)

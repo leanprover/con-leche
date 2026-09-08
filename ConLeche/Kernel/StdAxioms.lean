@@ -120,6 +120,95 @@ def ConstantVal.matchesPin (cv pin : ConstantVal) : Bool :=
   cv.name = pin.name && cv.levelParams = pin.levelParams &&
     cv.type.erasePw == pin.type.erasePw
 
+/-! ### The lockstep comparison (task #226)
+
+`matchesPin` above is the SPECIFICATION, and every proof about a pin
+hit consumes it (`Verify/StdAxiomPin.lean`, `Verify/OfReducePin.lean`,
+`Verify/ReducePinInv.lean`, `Model/DivMod.lean`).  What it says to do
+— build `erasePw` of BOTH sides, then compare — is `O(tree)` on the
+side that comes from the stream: `Expr.erasePw` rebuilds every node,
+so a DAG-shared type unfolds.  `tests/e2e/tower_axiom_pin.ndjson`
+(a `propext` whose type carries a depth-60 shared tower over a
+standardly-shaped stored `Iff`) exhausts memory on it.
+
+`Expr.erasePwEq` decides the same question by descending **both**
+terms together and stopping at the first disagreement.  Wherever the
+two agree they have the pin's shape, so the walk is bounded by the
+PIN's tree size — a few dozen nodes — however large the stream side
+is; and where they disagree it stops there.  `matchesPinFast` is
+swapped in for `matchesPin` by `@[csimp]` below, so the executed
+comparison is the lockstep one and the specification every proof reads
+is unchanged: same verdict on every input, only the work changes. -/
+
+/-- `a.erasePw = b.erasePw`, decided in lockstep
+(`erasePwEq_eq`). -/
+def Expr.erasePwEq : Expr → Expr → Bool
+  | .bvar i, .bvar j => i == j
+  | .fvar i t, .fvar j t' => i == j && t.erasePwEq t'
+  | .sort u, .sort v => u == v
+  | .const n us, .const n' us' => n == n' && us == us'
+  | .app f a, .app f' a' => f.erasePwEq f' && a.erasePwEq a'
+  | .lam t b _, .lam t' b' _ => t.erasePwEq t' && b.erasePwEq b'
+  | .forallE t b _, .forallE t' b' _ => t.erasePwEq t' && b.erasePwEq b'
+  | .letE t v b, .letE t' v' b' =>
+      t.erasePwEq t' && v.erasePwEq v' && b.erasePwEq b'
+  | .lit l, .lit l' => l == l'
+  | .proj s i e, .proj s' i' e' => s == s' && i == i' && e.erasePwEq e'
+  | _, _ => false
+
+/-- **The agreement**, propositional half: the lockstep descent holds
+exactly when the two erased forms are equal.  `erasePw` preserves
+every node's constructor and its non-recursive fields (it only resets
+the binder `pw` datum), so two erased terms are equal iff the
+originals agree constructor by constructor down to their leaves —
+which is what the descent tests. -/
+theorem Expr.erasePwEq_iff :
+    ∀ a b : Expr, a.erasePwEq b = true ↔ a.erasePw = b.erasePw := by
+  intro a
+  induction a with
+  | bvar i => intro b; cases b <;> simp [Expr.erasePwEq, Expr.erasePw]
+  | fvar i t ih =>
+    intro b; cases b <;> simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, ih]
+  | sort u => intro b; cases b <;> simp [Expr.erasePwEq, Expr.erasePw]
+  | const n us => intro b; cases b <;> simp [Expr.erasePwEq, Expr.erasePw]
+  | app f a ihf iha =>
+    intro b; cases b <;>
+      simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, ihf, iha]
+  | lam t b m iht ihb =>
+    intro c; cases c <;>
+      simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, iht, ihb]
+  | forallE t b m iht ihb =>
+    intro c; cases c <;>
+      simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, iht, ihb]
+  | letE t v b iht ihv ihb =>
+    intro c; cases c <;>
+      simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, iht, ihv, ihb, and_assoc]
+  | lit l => intro b; cases b <;> simp [Expr.erasePwEq, Expr.erasePw]
+  | proj s i e ih =>
+    intro b; cases b <;>
+      simp [Expr.erasePwEq, Expr.erasePw, Bool.and_eq_true, ih, and_assoc]
+
+/-- **The agreement**: the lockstep comparison returns exactly what
+`matchesPin`'s equation test returns, on every pair of terms. -/
+theorem Expr.erasePwEq_eq (a b : Expr) :
+    a.erasePwEq b = (a.erasePw == b.erasePw) := by
+  cases hb : (a.erasePw == b.erasePw) with
+  | true => exact (Expr.erasePwEq_iff a b).2 (eq_of_beq hb)
+  | false =>
+    refine Bool.eq_false_iff.2 fun h => ?_
+    exact absurd ((Expr.erasePwEq_iff a b).1 h) (by simpa using hb)
+
+/-- `matchesPin` at the lockstep comparison (`@[csimp]` below): the
+executed shape test. -/
+def ConstantVal.matchesPinFast (cv pin : ConstantVal) : Bool :=
+  cv.name = pin.name && cv.levelParams = pin.levelParams &&
+    cv.type.erasePwEq pin.type
+
+@[csimp] theorem ConstantVal.matchesPin_eq_matchesPinFast :
+    @ConstantVal.matchesPin = @ConstantVal.matchesPinFast := by
+  funext cv pin
+  simp [ConstantVal.matchesPin, ConstantVal.matchesPinFast, Expr.erasePwEq_eq]
+
 /-- `Iff (a b : Prop) : Prop`. -/
 def iffRaw : ConstantInfo :=
   .indInfo ⟨iffName, [], pi "a" prop <| pi "b" prop prop⟩ {}
