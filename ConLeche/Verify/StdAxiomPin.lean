@@ -1,5 +1,4 @@
 import ConLeche.Kernel.Checker
-import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.OfReducePin
 
 /-!

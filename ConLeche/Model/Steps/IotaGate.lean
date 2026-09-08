@@ -1,5 +1,4 @@
 import ConLeche.Model.Steps.IotaKit
-import ConLeche.Model.Steps.Gate
 import ConLeche.Model.IOLicense
 
 /-!

@@ -1,6 +1,5 @@
 import ConLeche.Verify.Denote
 import ConLeche.Verify.EnvWF
-import ConLeche.Verify.EnvGuards
 
 /-!
 # Denotation across level-preserving environment correspondences

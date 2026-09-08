@@ -1,5 +1,4 @@
 import ConLeche.Model.Inductives.FixRecPre
-import ConLeche.Model.Inductives.FixIntro
 
 /-!
 # The rule right-hand side's gradedness: the kit (task #188)

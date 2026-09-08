@@ -1,6 +1,5 @@
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.EnvWF
 import ConLeche.Verify.InstLevels
 
 /-!

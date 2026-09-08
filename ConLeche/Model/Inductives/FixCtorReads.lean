@@ -1,6 +1,5 @@
 import ConLeche.Model.Inductives.FixRecReadDefs
 import ConLeche.Model.Inductives.FixData
-import ConLeche.Model.Inductives.SumRecData
 import ConLeche.Verify.Inductives.StructBody
 
 /-!
