@@ -1611,4 +1611,51 @@ theorem BlockEtaPinned.cons {mode : CheckMode} {blockNames : List Name}
   · obtain ⟨hp, hc, hj⟩ := h n cvS capsS hnb hf hcape
     exact ⟨EtaPins.step hp hfresh, hc, fun hlt => hup n (hj hlt)⟩
 
+/-- **The block's capability pins**, from the capability record's own
+definition: `indBlockCaps`' two Booleans *are* `checkEtaThm` and
+`checkUnitThm`, which invert to the artifacts' shape pins.  Transpose
+of `Model/Extend/Decl.lean`'s `hpinsT0`. -/
+theorem etaPins_of_indBlockCaps {μ : CheckMode} {env : Env}
+    {cvT cvC : ConstantVal} {nP nF : Nat} :
+    EtaPins μ env cvT.name cvT.levelParams
+      (indBlockCaps μ env cvT cvC nP nF) := by
+  refine ⟨?_, ?_⟩
+  · intro hcape
+    simp only [indBlockCaps, Bool.and_eq_true] at hcape
+    exact checkEtaThm_inv hcape.2
+  · intro hcapu
+    simp only [indBlockCaps] at hcapu
+    exact checkUnitThm_inv hcapu
+
+/-- **A stored inductive member's capability arities** (`IndCapsWF` on
+the modeled route), from checks the install already makes: a
+capability's pin reads the model former's `∀`-telescope at the
+parameter count (`checkEtaThm`/`checkUnitThm`, through `EtaPins`),
+and the member's stored type is the model's under the block renaming
+(`checkMemberVal`), which keeps the telescope. -/
+theorem indCapsWF_of_pins {μ : CheckMode} {env : Env} {cvA : ConstantVal}
+    {caps : IndCaps} {f : Name → Name}
+    (hpins : EtaPins μ env cvA.name cvA.levelParams caps)
+    {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
+    (hfm : env.find? (cvA.name.str "_model") =
+      some (.defnInfo cvm mval hint))
+    (hty : (cvA.type.renameConsts f == cvm.type) = true) :
+    IndCapsWF (.indInfo cvA caps) := by
+  have hty' : cvA.type.renameConsts f = cvm.type := eq_of_beq hty
+  refine IndCapsWF.of_caps ?_ ?_
+  · intro hu
+    obtain ⟨_, _, cvmT, _, _, _, _, _, _, _, _, -, -, hfmT, -, -, -,
+      hstrip, -⟩ := hpins.2 hu
+    rw [hfm] at hfmT
+    obtain ⟨rfl, -, -⟩ := ConstantInfo.defnInfo.inj (Option.some.inj hfmT)
+    exact Expr.stripPis_isSome_of_renameConsts (f := f) _
+      (by rw [hty', hstrip]; rfl)
+  · intro he
+    obtain ⟨_, _, cvmT, _, _, _, _, _, _, _, _, -, -, hfmT, -, -, -, -, -,
+      hstrip, -⟩ := hpins.1 he
+    rw [hfm] at hfmT
+    obtain ⟨rfl, -, -⟩ := ConstantInfo.defnInfo.inj (Option.some.inj hfmT)
+    exact Expr.stripPis_isSome_of_renameConsts (f := f) _
+      (by rw [hty', hstrip]; rfl)
+
 end ConLeche

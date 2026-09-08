@@ -523,8 +523,12 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     interp V ρ aa = interp V ρ ba := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena,
     hfnb, hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus,
-    hlpc, hstrip, hslots, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
+    hlpc, hslots, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
     ConLeche.structEtaCertWith_inv hcw
+  -- the former's telescope arity, from the environment invariant
+  -- (`IndCapsWF`, established at the block's install)
+  have hstrip : (cvT.type.stripPis cnP).isSome = true := by
+    rw [← hepar]; exact (m.wf.indCaps hfT).2 heta
   have hmemB := hmemBW
   -- the reduced type is the family applied to its parameters
   rw [show wtb = Expr.mkAppN wtb.getAppFn wtb.getAppArgs from
@@ -946,8 +950,12 @@ theorem structUnitIrrel_of_claims {m : EnvModel V env}
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb, hta, hwta, hfn, hfind,
-    hunit, hres, hlenArgs, hlenUs, hstrip, htb, hwtb, hdeq, hcerts⟩ :=
+    hunit, hres, hlenArgs, hlenUs, htb, hwtb, hdeq, hcerts⟩ :=
     ConLeche.structUnitCert_inv h
+  -- the former's telescope arity, from the environment invariant
+  -- (`IndCapsWF`, established at the block's install)
+  have hstrip : (cvT.type.stripPis caps.unitParams).isSome = true :=
+    (m.wf.indCaps hfind).1 hunit
   -- one side's chain: the reading, membership and reduction package
   -- of an inferred type, whnf'd
   have side : ∀ (x tx wtx : Expr) (xa : AnnotTerm),

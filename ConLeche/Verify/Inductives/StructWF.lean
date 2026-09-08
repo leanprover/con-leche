@@ -99,20 +99,27 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
         b.constsResolve env = true ∧
         b.looseBVarsBounded (tbl.numParams + 1) = true := by
         intro tbl h
+        exact ConstantInfo.noConfusion h)
+    (h9 : IndCapsWF c := by
+        intro cv caps h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
 
 /-- A checked inductive-kind cons is well-formed (its `ConstWF` is the
 four type-slot facts; every value clause is refuted by the kind). -/
 theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {caps : IndCaps} {F : Nat} {cv : ConstantVal}
-    (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
+    (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA)
+    (hcaps : IndCapsWF (.indInfo cvA caps)) :
     EnvWF ⟨.indInfo cvA caps :: env.consts⟩ := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
   exact EnvWF.cons henv (structConstWF htf htp
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq)
-    (fun _ _ _ _ heq => nomatch heq))
+    (fun _ _ _ _ heq => nomatch heq)
+    (by intro cv value h; exact ConstantInfo.noConfusion h)
+    (by intro tbl h; exact ConstantInfo.noConfusion h)
+    hcaps)
 
 /-! ## Stage 5: the projection table (task #175 S1) -/
 
