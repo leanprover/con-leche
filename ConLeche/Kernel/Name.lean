@@ -80,8 +80,8 @@ you can prove them equal, use `csimp`"* (user ruling, 2026-09-05).
 Nothing here is taken on faith: `withPtrEq a b k h` is *defined* as
 `k ()` and its obligation is discharged at `beqPtr`, and `hashData` is
 a function of the value, so the hash guard cannot reject an equal
-pair.  This is therefore **not** an escape of `Expr.beqFast`'s class
-and adds no census row. -/
+pair.  `Expr.beq` is substituted the same way (`Expr.beq_eq_beqMemo`),
+so no equality in the tree is an escape. -/
 @[csimp] theorem Name.beq_eq_beqPtr : @Name.beq = @Name.beqPtr := by
   funext a b; exact (Name.beqPtr_eq a b).symm
 

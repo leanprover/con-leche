@@ -18,9 +18,9 @@
     33      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
     34    fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_cached V rfl accepted c hc hty
 
-== tests/ConLecheTests/Axioms.lean#L88-L89
-    88  #guard_msgs in
-    89  #print axioms ConLeche.no_proof_of_False
+== tests/ConLecheTests/Axioms.lean#L90-L91
+    90  #guard_msgs in
+    91  #print axioms ConLeche.no_proof_of_False
 
 == ConLeche/Frontend/ExportC.lean#L902
    902    for line in contents.splitToList (· == '\n') do

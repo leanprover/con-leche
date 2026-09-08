@@ -973,7 +973,7 @@ node itself — the probe is the cached `data` word plus `Expr.beq`,
 whose first test is pointer equality — and it is dropped after each
 call, since the answer depends on `f`.
 
-No node budget here (unlike `beqFast`): `renameConsts` is reached only
+No node budget here (unlike `Expr.beqMemo`): `renameConsts` is reached only
 from the modeled install, once per member type, never from a hot
 small-term path — measured on `init-full` at the task's gate. -/
 

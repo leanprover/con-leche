@@ -56,7 +56,7 @@ runs on a parsed export stream, the theorem
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorem uses exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L88-L89)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L90-L91)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how that theorem is reached.

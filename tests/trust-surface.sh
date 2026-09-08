@@ -77,16 +77,18 @@
 # tokens tolerated there).  A token in an allowlisted file that is not
 # on its own list fails just as loudly as one in a bare file.
 #
-#   ConLeche/Kernel/Expr.lean          unsafe, ptrAddrUnsafe,
-#                                    implemented_by, computed_field
-#       The tree's ONE `implemented_by`-class escape on the verified
-#       path: `@[implemented_by beqFast] Expr.beq`, a `ptrAddrUnsafe`
-#       short-circuit plus an address-keyed memo, and the packed
-#       `@[computed_field] data` (hash / bvar bound / fvar bound / …).
-#       Both are the user's standing ruling — *"Adopt computed_fields.
-#       It's a compiler feature, we trust the compiler"* (2026-09-04) —
-#       and the census that argues them is `ConLeche/Cached/ExprC.lean`
-#       §1–2.  Same escape class `Lean.Expr` itself lives on.
+#   ConLeche/Kernel/Expr.lean          computed_field
+#       The packed `@[computed_field] data` (hash / bvar bound / fvar
+#       bound / …) and `Level.hashData` — the user's standing ruling,
+#       *"Adopt computed_fields.  It's a compiler feature, we trust the
+#       compiler"* (2026-09-04); the census that argues it is
+#       `ConLeche/Cached/ExprC.lean`'s header.  Same escape class
+#       `Lean.Expr` itself lives on.  The expression equality is NOT an
+#       escape: `Expr.beq` goes through `@[csimp]` + `withPtrEq` /
+#       `withPtrAddr` with the memoised descent PROVED equal to
+#       `decide (a = b)` (`Expr.beqMemo_eq`), the same way the names
+#       and levels below do — so the file tolerates no `unsafe`, no
+#       `ptrAddrUnsafe` and no `implemented_by`.
 #
 #   ConLeche/Kernel/Name.lean          computed_field
 #       A cached hash only (`Name.hashData`), exactly as `Lean.Name`'s.
@@ -160,8 +162,7 @@ TOKENS = {
 
 ALLOW = {
     'ConLeche/Challenge.lean':       {'sorry'},
-    'ConLeche/Kernel/Expr.lean':
-        {'unsafe', 'ptrAddrUnsafe', 'implemented_by', 'computed_field'},
+    'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
 }
