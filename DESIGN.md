@@ -62745,3 +62745,54 @@ function of.**  `hasLooseBVarBGo` and `instantiate1Go` already key on
 the cursor for this reason (task #233: "both keys carry the CURSOR");
 structural equality's answer is a function of *both* nodes, and
 nothing less will do.
+
+### Task #235 addendum — THE REGRESSION FIXTURE: `tower_beqpair` (2026-09-08, `agent/beqpair-fixture`)
+
+The landing above changed a memo's key on the strength of a
+measurement; what it did not carry is a fixture that fails when the key
+regresses, and the house rule is that every feature lands together with
+its regression test.  `tests/e2e/tower_beqpair.ndjson` is that test and
+the **eleventh** kind of the DAG-tower gate (a new generator function in
+`scripts/mk_tower_fixtures.py`; the ten older fixtures regenerate
+byte-identical).
+
+`G = fun (a b c : Nat) => a`, so `g x y z` is defeq to `x` and every
+tower below is defeq to `Nat.zero` and structurally equal to every
+other — they differ only in what they SHARE: a shared tower
+`S_{k+1} = g S_k S_k S_k` against an alternating pair
+`P_{k+1} = g P_k Q_k P_k`, `Q_{k+1} = g Q_k P_k Q_k`, at depth 60.
+
+**THREE arguments, not two, is what makes it bite**, and the first
+attempt got this wrong.  Comparing `S` with `P` asks `(S,P)`, `(S,Q)`,
+`(S,P)` one level down, so a half-key memo finds `Q` in the entry at
+the third query and re-walks — `3^60` — at every level.  At TWO
+arguments the queries are `(S,P)`, `(S,Q)` and the entries the first
+walk leaves behind still serve the second at every level but the top:
+the cost is quadratic in the depth, and the two-argument fixture ran in
+**0.03 s on the unfixed binary** — it would have shipped as a test that
+tests nothing.  The shape was settled by simulating `beqGo`'s exact
+memo discipline over candidate families and reading off the ratio,
+which is the cheap way to do this: the two-argument analysis had
+*looked* right.
+
+Both ORIENTATIONS are in the one fixture, because which side of a
+declaration's defeq check ends up as the memo's key side is the
+checker's business and not the fixture's: `beqPairA` carries the
+alternating pair in the theorem's type and the shared tower in its
+value, `beqPairB` the other way round, and exactly one of the two is
+the exponential one.  It is `beqPairB` today — the DECLARED type is the
+key side — which the fixture records but does not depend on.
+
+Measured under the gate's own `ulimit -v 8 GB` + `timeout 60`: the
+unfixed binary (`9c537ae6`, the half key) **HANGS**, exit 124, with
+`perf record` showing 28.28 % `Expr.beqGo` self and a further 43 % in
+its memo's hash-map operations; the pair-keyed binary accepts in
+0.03 s.  It hangs rather than OOMs because a re-binding memo does not
+grow — the same reason #233's `tower_usedlater` hangs, and the reason
+no memory cap would have named either.
+
+Gates with the fixture in: `tests/arena.sh` exit 0 under a clean
+environment, **e2e 178/178** (was 177) and **DAG-tower 11/11** (was
+10), trusted sweep 138 + 178 + 14 with the three recorded divergences,
+every other count unchanged; `lake build` 517 jobs warning-free;
+`lake test` green.
