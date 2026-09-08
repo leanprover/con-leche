@@ -59,7 +59,7 @@ theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
   | .thmDecl _ _ => ⟨_, .thmDecl rfl rfl⟩
   | .opaqueDecl _ _ => ⟨_, .opaqueDecl rfl rfl⟩
   | .basisDecl _ => ⟨_, .basisDecl⟩
-  | .indDecl _ => ⟨_, .indDecl⟩
+  | .indDecl _ _ => ⟨_, .indDecl⟩
 
 /-- The direct-parse driver, dissected (the `checkDecls_run`
 mirror; no conversion pass to peel). -/

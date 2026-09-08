@@ -112,9 +112,9 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     -- declaration and cannot route a block.
     if trace then
       match pd with
-      | .indDecl block =>
+      | .indDecl block nP =>
         let route :=
-          if (ConLeche.nativeParts? block).isSome then "fix"
+          if (ConLeche.nativeParts? nP block).isSome then "fix"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"

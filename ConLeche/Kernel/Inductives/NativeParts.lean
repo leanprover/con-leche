@@ -423,8 +423,9 @@ the replay then compares each exported recursor record with the
 generated one, structurally, and a mismatch is a REJECT ("Invalid
 recursor", "No such recursor" — `Lean4Checker/Replay.lean`).  So the
 recogniser below reads the block's parameter and index counts the way
-official reads them — the parameters off the CONSTRUCTORS (every
-constructor carries the block's count), the indices off the type
+official reads them — the parameters as DECLARED (task #228: the count
+official's `add_inductive` is handed, checked against the former's
+telescope and against every constructor), the indices off the type
 former's own telescope — and pins nothing of the recursor record
 beyond the level-parameter shape that decides which recursor is
 generated.  Everything the recursor record claims is compared at the
@@ -435,31 +436,29 @@ whose recursor record was a stub fell through to a DECLINE and the
 semantic checks that would have rejected it — positivity, the field
 universes, the constructor result — never ran (arena finding F1). -/
 
-/-- **The block's parameter and index counts** (task #220), read as
-official reads them and not off the recursor record: `nP` is the count
-every CONSTRUCTOR carries (official compares the constructor records
-against the ones it generates at the declaration's count, so a
-constructor disagreeing with the block is invalid input either way),
-and `nIdx` is what is left of the type former's own Π-telescope
-(`check_inductive_types` peels the parameters and counts the rest).
-At a CONSTRUCTOR-LESS block no constructor carries the count and at a
-former declared AT A DEFINITION (task #195) the syntactic telescope is
-not the one official walks; in both cases the recursor record's own
-argument sums are the only reading available and are used as before —
-a block of either shape with a broken recursor record still declines. -/
-def nativeCounts? (cvT : ConstantVal) (cs : List (ConstantVal × Nat × Nat))
+/-- **The block's parameter and index counts** (task #228), read as
+official reads them: `nP` is the count the DECLARATION carries
+(`Declaration.indDecl`'s `numParams`, official's own `nparams`) and
+`nIdx` is what is left of the type former's Π-telescope once those
+binders are peeled (`check_inductive_types` peels the parameters and
+counts the rest).  The declared count is *checked* against the
+telescope here and against the constructors at `nativeShape?` — before
+task #228 it was READ off the constructors, which agrees on every
+valid stream and cannot see a declaration that lies.
+
+At a former declared AT A DEFINITION (task #195) the syntactic
+telescope is not the one official walks, so the number of INDICES
+cannot be counted here; the recursor record's own argument sums are
+the only reading available and are used as before, with the parameter
+count they imply cross-checked against the declared one.  A block of
+that shape with a broken recursor record still declines. -/
+def nativeCounts? (nPd : Nat) (cvT : ConstantVal) (cs : List (ConstantVal × Nat × Nat))
     (mI rP : Nat) : Option (Nat × Nat) :=
-  let fromRec : Option (Nat × Nat) :=
-    if rP < cs.length + 1 || mI < rP then none else some (rP - (cs.length + 1), mI - rP)
-  match cs with
-  | [] => fromRec
-  | c :: _ =>
-    match cvT.type.piBinders with
-    | (bs, .sort _) => if c.2.1 ≤ bs.length then some (c.2.1, bs.length - c.2.1) else none
-    | _ =>
-      match fromRec with
-      | some (nP, nIdx) => if nP == c.2.1 then some (nP, nIdx) else none
-      | none => none
+  match cvT.type.piBinders with
+  | (bs, .sort _) => if nPd ≤ bs.length then some (nPd, bs.length - nPd) else none
+  | _ =>
+    if rP < cs.length + 1 || mI < rP then none
+    else if rP - (cs.length + 1) == nPd then some (nPd, mI - rP) else none
 
 /-- **The recursor record's structural pin** (task #220): the two
 argument sums the record claims (`InductiveShape.majorIdx`,
@@ -506,14 +505,14 @@ generated, and so belongs to the shape).  Nothing else of the recursor
 record is pinned here — see the section docstring; the rules' bodies
 are `nativeRulesOk`'s and their metadata `nativeRecPinOk`'s, both
 at the install. -/
-def nativeShape? (block : List ConstantInfo) : Option InductiveShape :=
+def nativeShape? (nPd : Nat) (block : List ConstantInfo) : Option InductiveShape :=
   match block with
   | .indInfo cvT _ :: rest =>
     match sumSplit rest with
     | some (cs, cvR, mI, rP, rules) =>
       let T := cvT.name
       let lps := cvT.levelParams
-      match nativeCounts? cvT cs mI rP with
+      match nativeCounts? nPd cvT cs mI rP with
       | none => none
       | some (nP, nIdx) =>
       if reservedBasisNames.contains T == false &&
@@ -587,7 +586,7 @@ not a condition of recognition (task #220): its structural pin travels
 with the record (`nativeRecPinOk`) and the install throws on it, so
 that a block whose recursor record is a stub is REJECTED by its own
 type and constructors rather than declined. -/
-def nativeParts? (block : List ConstantInfo) : Option NativeParts :=
-  (nativeShape? block).map fun p => ⟨p, [], nativeRecPinOk p block⟩
+def nativeParts? (nPd : Nat) (block : List ConstantInfo) : Option NativeParts :=
+  (nativeShape? nPd block).map fun p => ⟨p, [], nativeRecPinOk p block⟩
 
 end ConLeche

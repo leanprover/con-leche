@@ -350,7 +350,9 @@ def projRecOwners (block : List ConstantInfo)
   -- a block the fixpoint route takes serves its structure-like
   -- member's `.proj` nodes natively (task #210 Part A: the projection
   -- table at a one-constructor, index-free block), so no rewrite
-  else if (nativeParts? block).isSome then []
+  -- (the block's DECLARED parameter count, task #228: the first type
+  -- record's, which is the one the parse carries into `indDecl`)
+  else if (nativeParts? ((types.head?.map (·.2.2.2.1)).getD 0) block).isSome then []
   else
     types.filterMap fun (T, lps, tty, nP, nI, cs, _) => do
       let [C] := cs | none
