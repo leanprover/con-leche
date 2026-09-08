@@ -936,7 +936,7 @@ theorem eqRecLaw {m : EnvModel V env}
   · intro _ _ h
     exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   have hR' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
       = some eqReflA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
@@ -1005,10 +1005,6 @@ theorem eqRecLaw {m : EnvModel V env}
   rw [hulev, interp_sort] at g1
   rw [interp_inst0] at g2
   simp only [interp_bvar, cons] at g2
-  have hp0 : interp V ρ y1 = interp V ρ x1 :=
-    hplain rfl 0 (by decide) (by decide)
-  have hp1 : interp V ρ y2 = interp V ρ x2 :=
-    hplain rfl 1 (by decide) (by decide)
   have hrecL : m₂.acval eqRecA.name
       (Level.substFn φ eqRecA.toConstantVal.levelParams us)
       = eqRecValAV ψ := by
