@@ -2,28 +2,28 @@
 
 | | |
 |---|---|
-| commit measured | `96344cd145c54d4bc4674ba854dfc3d94a6ce14c` |
-| tree | master at the commit above: every inductive block installs through the one fixpoint route (task #210 Part B). No cell here is comparable with any earlier PERF.md. |
-| date | 2026-09-07T19:09:51+00:00 |
+| commit measured | `1e6881c6e7e8bcb60e0a5af696dbfdaade12e10b` |
+| tree | master at the commit above: every file a `module`, the proof tiers' interfaces narrowed (task #231), the DAG-tower memos (task #233).  Same streams and the same method as the `96344cd1` table, so the cells are like-for-like against it. |
+| date | 2026-09-08T14:35:06+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |
 | streams | `lean4export` NDJSON, read unchanged by both checkers |
-| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes) |
+| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
 | official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| con-leche binary | md5 `e5c5c0540d27fda0635982ef15e5c7ec` |
+| con-leche binary | md5 `68724d97d28c735f885ffbf057e415be` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
-| `let-ladder` | 6.14 G | 8.31 G | 8.31 G | 1.35× | 1.35× |
+| `let-ladder` | 6.12 G | 8.31 G | 8.31 G | 1.36× | 1.36× |
 | `beta-ladder` | 10.13 G | 39.43 G | 39.44 G | 3.89× | 3.89× |
-| `init-prelude` | 2.21 G | 4.61 G | 4.75 G | 2.09× | 2.15× |
-| `grind-ring-5` | 13.40 G | 26.97 G | 27.79 G | 2.01× | 2.07× |
-| `app-lam` | 29.41 G | 158.02 G | 158.03 G | 5.37× | 5.37× |
-| `init-full` | 403.64 G | 659.46 G | 678.46 G | 1.63× | 1.68× |
-| `mathlib-full` | 10.53 T | 13.15 T | 14.14 T | 1.25× | 1.34× |
+| `init-prelude` | 2.21 G | 4.65 G | 4.79 G | 2.11× | 2.17× |
+| `grind-ring-5` | 13.43 G | 27.11 G | 27.93 G | 2.02× | 2.08× |
+| `app-lam` | 29.41 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
+| `init-full` | 403.53 G | 659.54 G | 678.17 G | 1.63× | 1.68× |
+| `mathlib-full` | 10.54 T | 13.32 T | 14.21 T | 1.26× | 1.35× |
 
 ## exit code / accepted declaration records
 
@@ -85,13 +85,13 @@ reader wants before pointing the checker at all of Mathlib.
 
 | | official v4.33.0 | trusted `--trusted` | verified `--verified` |
 |---|---|---|---|
-| wall | 31.6 min | 38.0 min | 42.6 min |
-| peak RSS (`time -v`) | 9.17 GiB | 12.56 GiB | 12.57 GiB |
+| wall | 31.3 min | 41.1 min | 43.6 min |
+| peak RSS (`time -v`) | 8.51 GiB | 12.56 GiB | 12.56 GiB |
 
 ## Notes
 
-* **Nothing here is comparable with any earlier table.**  Task #210 Part B put every inductive block on the one fixpoint route, and the streams and the census are those of this tree; older tables measured a different checker on different inputs.
-* **All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 656 667 declaration records in BOTH modes -> **1.34x verified, 1.25x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
+* **Comparable with the previous table (`96344cd1`), and with nothing before it.**  The streams, the method and the census are unchanged since the raw-stream regeneration at task #207, so these cells read against that table directly; the tree between the two is twenty-odd tasks of checker work (#217-#233).  What moved: `init-full` and the two ladders not at all, `init-prelude` +0.9 % and `grind-ring-5` +0.5 % on both con-leche columns, and `mathlib-full` +0.55 % verified / **+1.32 % trusted** -- the trusted Mathlib cell is the one number outside the spread the official binary itself showed between the two runs (up to 0.25 % on the small streams, +0.03 % at Mathlib scale), and it is recorded here rather than chased.  Master moved to `021ebda9` (task #236, a memo repair with parity on `init-full`) while this battery ran; that commit is not in these cells.
+* **All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes -> **1.35x verified, 1.26x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
 * **The verdict line counts declaration RECORDS** (task #187).  It
   used to print `env.consts.length`, the number of environment
   CONSTANTS, which counts an inductive block's type former, its
