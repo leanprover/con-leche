@@ -106,8 +106,10 @@ or the η capability has the `∀`-telescope its capability record's
 parameter count names.  A property of the stored declaration alone —
 established ONCE at the block's install (the native route pins the
 former's telescope before storing it, `checkSumInd`'s
-`stripPis (nP + nIdx)`; the modeled route's `indBlockCaps` grants each
-capability only with the pin; the basis blocks' types are literal) and
+`stripPis (nP + nIdx)`; on the modeled route the capability theorems
+pin the model former's telescope and the stored type is the model's
+under the block renaming, `indCapsWF_of_pins`; the basis blocks' types
+are literal) and
 consumed by the structure-η and unit-like rows (`CapsRows`) from the
 invariant, where `structEtaCertWith` and `structUnitCert` used to
 re-check it per call ("invariants over runtime gates"). -/
@@ -421,6 +423,22 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
         rw [show (Expr.forallE ty b m).renameConsts f =
           .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl]
         simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
+
+/-- A `∀`-telescope pin of a renamed expression is one of the
+expression itself (renaming touches no binder structure). -/
+theorem Expr.stripPis_isSome_of_renameConsts {f : Name → Name} :
+    ∀ (k : Nat) {e : Expr},
+      ((e.renameConsts f).stripPis k).isSome = true →
+      (e.stripPis k).isSome = true
+  | 0, _, _ => rfl
+  | k + 1, e, h => by
+    cases e with
+    | forallE ty b m =>
+      rw [show (Expr.forallE ty b m).renameConsts f =
+        .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
+      simp only [Expr.stripPis, Option.isSome_map] at h ⊢
+      exact Expr.stripPis_isSome_of_renameConsts k h
+    | _ => simp [Expr.renameConsts, Expr.stripPis] at h
 
 /-- Renaming maps that agree on every stored name rename a resolving
 expression identically. -/

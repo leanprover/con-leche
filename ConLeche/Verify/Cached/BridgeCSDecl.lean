@@ -485,9 +485,8 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     have hcapsv' : indBlockCaps mode env cvT cvC nP nF = caps := by
       rw [← indBlockCapsF_eq]; exact hcapsv
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
-    -- the block record's arities at its (single) inductive member:
-    -- the member IS the former, and the record's guard
-    -- pins the former's telescope
+    -- the block's capability pins at its (single) inductive member:
+    -- the member IS the former the record was computed for
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
       foldIndMemberS_run hμ _ env henv hwf (by
         intro ci hci cv caps₀ hceq
@@ -497,7 +496,7 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
           (hceq ▸ List.mem_singleton.mp hmemI)
         rw [← hcapsv']
-        exact ConLeche.indCapsArity_of_indBlockCaps) hfold
+        exact ConLeche.etaPins_of_indBlockCaps) hfold
     obtain ⟨fe₃, s₃, hrecs, h⟩ := bindC_ok h
     rw [hfe₂] at hrecs
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=

@@ -3,7 +3,6 @@ module
 import ConLeche.Kernel.TypeChecker
 public import ConLeche.Verify.Knot
 public import ConLeche.Verify.Shift
-import ConLeche.Verify.Subst
 
 public section
 
@@ -564,44 +563,5 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
 
-
-
-/-! ## A `∀`-telescope pin survives annotation
-
-`IndCapsWF` is stated of the STORED (annotated) type; the modeled
-route's capability guard reads the parsed one.  Annotation rebuilds
-every `∀` node (`annotateCore_forallE_inv`), so a `stripPis` pin of
-the input is a pin of the output. -/
-
-/-- Abstraction keeps a `∀`-telescope pin. -/
-theorem Expr.stripPis_abstract1_isSome :
-    ∀ (k : Nat) {e : Expr} (d j : Nat), (e.stripPis k).isSome = true →
-      ((e.abstract1 d j).stripPis k).isSome = true
-  | 0, _, _, _, _ => rfl
-  | k + 1, e, d, j, h => by
-    cases e with
-    | forallE ty b m =>
-      simp only [Expr.abstract1, Expr.stripPis, Option.isSome_map] at h ⊢
-      exact Expr.stripPis_abstract1_isSome k _ _ h
-    | _ => simp [Expr.stripPis] at h
-
-/-- Annotation keeps a `∀`-telescope pin. -/
-theorem annotateCore_stripPis_isSome {env : Env} :
-    ∀ (k : Nat) {fuel d : Nat} {e e' : Expr},
-      annotateCore mode env fuel d e = .ok e' →
-      (e.stripPis k).isSome = true → (e'.stripPis k).isSome = true
-  | 0, _, _, _, _, _, _ => rfl
-  | k + 1, fuel, d, e, e', h, hk => by
-    cases e with
-    | forallE ty b m =>
-      cases fuel with
-      | zero => rw [annotateCore_zero] at h; exact nomatch h
-      | succ fuel =>
-        obtain ⟨ty', body', pw, -, hbody, rfl⟩ := annotateCore_forallE_inv h
-        simp only [Expr.stripPis, Option.isSome_map] at hk ⊢
-        exact Expr.stripPis_abstract1_isSome k _ _
-          (annotateCore_stripPis_isSome k hbody
-            (ConLeche.Expr.stripPis_instantiate1_isSome k 0 hk))
-    | _ => simp [Expr.stripPis] at hk
 
 end ConLeche

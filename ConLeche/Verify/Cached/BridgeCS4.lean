@@ -171,10 +171,10 @@ generic step. -/
 theorem checkIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : List Name} {caps : IndCaps}
     {env : Env} (henv : EnvWF env) {ci : ConstantInfo} {fe' : FEnv}
     {s₀ s' : CState} (hwf : CSOKF s₀)
-    -- the block record's arities, at the (parsed) former's type
-    (hicw : ∀ cv caps₀, ci = .indInfo cv caps₀ →
-      (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-      (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true))
+    -- the block's capability pins at an inductive member (its stored
+    -- type is the model's under the block renaming: `indCapsWF_of_pins`)
+    (hpins : ∀ cv caps₀, ci = .indInfo cv caps₀ →
+      EtaPins mode env cv.name cv.levelParams caps)
     (h : checkIndMemberS mode blockNames caps (mkFEnv env) ci s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
@@ -194,20 +194,18 @@ theorem checkIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : Lis
   have hFmp : checkMemberVal (fueledOps mode F₁) blockNames env
       ci.toConstantVal = .ok cvA := by
     rw [← checkMemberVal_datF]; exact hFm
-  obtain ⟨hccv, -⟩ := checkMemberVal_inv hFmp
+  obtain ⟨hccv, -, cvm, mval, hint, hfm, -, hty⟩ := checkMemberVal_inv hFmp
   obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts' hccv
   cases ci with
   | indInfo cv caps0 =>
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
-    -- the arities at the STORED (annotated) type
+    -- the capability arities at the stored type
     have hicwA : IndCapsWF (.indInfo cvA caps) := by
-      obtain ⟨-, -, -, -, -, -, type, -, -, hann, -, -, -, -, hcvA⟩ :=
+      obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcvA⟩ :=
         checkConstantVal_inv hccv
-      obtain ⟨hu, he⟩ := hicw cv caps0 rfl
-      refine IndCapsWF.of_caps ?_ ?_
-      · intro h'; rw [hcvA]; exact annotateCore_stripPis_isSome _ hann (hu h')
-      · intro h'; rw [hcvA]; exact annotateCore_stripPis_isSome _ hann (he h')
+      refine indCapsWF_of_pins (μ := mode) ?_ hfm hty
+      rw [hcvA]; exact hpins cv caps0 rfl
     refine ⟨hs₂.residue, rfl, ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
@@ -243,10 +241,9 @@ theorem foldIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : List
     ∀ (cis : List ConstantInfo) (env : Env) {s₀ : CState}
       {fe' : FEnv} {s' : CState},
       EnvWF env → CSOKF s₀ →
-      -- the block record's arities, at every inductive member
+      -- the block's capability pins at every inductive member
       (∀ ci ∈ cis, ∀ cv caps₀, ci = .indInfo cv caps₀ →
-        (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-        (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true)) →
+        EtaPins mode env cv.name cv.levelParams caps) →
       (cis.foldlM (checkIndMemberS mode blockNames caps) (mkFEnv env)) s₀ =
         .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
@@ -257,15 +254,31 @@ theorem foldIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : List
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
     exact ⟨hwf, rfl, henv, 0, rfl⟩
-  | ci :: cis, env, s₀, fe', s', henv, hwf, hicw, h => by
+  | ci :: cis, env, s₀, fe', s', henv, hwf, hpins, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
     obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
-      checkIndMemberS_run hμ henv hwf (hicw ci List.mem_cons_self) hstep
+      checkIndMemberS_run hμ henv hwf (hpins ci List.mem_cons_self) hstep
+    -- the step conses one fresh constant, so the pins persist
+    have hpins₁ : ∀ ci' ∈ cis, ∀ cv caps₀, ci' = .indInfo cv caps₀ →
+        EtaPins mode fe₁.env cv.name cv.levelParams caps := by
+      have hF₁' : checkIndMember (fueledOps mode F₁) blockNames caps env ci
+          = .ok fe₁.env := by
+        rw [← checkIndMember_datF]; exact hF₁
+      obtain ⟨cvA, -, -, -, hccv, -, -, -, -, hkind⟩ :=
+        checkIndMember_inv hF₁'
+      have hfresh : env.find? cvA.name = none := by
+        obtain ⟨hf, -, -, -, -, -, type, -, -, -, -, -, -, -, hcvA⟩ :=
+          checkConstantVal_inv hccv
+        rw [hcvA]; exact hf
+      intro ci' hci' cv caps₀ hceq
+      have hp := hpins ci' (List.mem_cons_of_mem _ hci') cv caps₀ hceq
+      rcases hkind with ⟨-, henv₁eq⟩ | ⟨_, _, _, -, henv₁eq⟩
+      · rw [henv₁eq]; exact EtaPins.step hp hfresh
+      · rw [henv₁eq]; exact EtaPins.step hp hfresh
     rw [hfe₁] at h
     obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
-      foldIndMemberS_run hμ cis fe₁.env henv₁ hwf₁
-        (fun ci' hci' => hicw ci' (List.mem_cons_of_mem _ hci')) h
+      foldIndMemberS_run hμ cis fe₁.env henv₁ hwf₁ hpins₁ h
     refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂

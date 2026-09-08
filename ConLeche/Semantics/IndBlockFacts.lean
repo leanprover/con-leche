@@ -51,23 +51,6 @@ namespace ConLeche.Semantics
 
 open ConLeche.Term ConLeche.Verify
 
-/-- **The block's capability pins**, from the capability record's own
-definition: `indBlockCaps`' two Booleans *are* `checkEtaThm` and
-`checkUnitThm`, which invert to the artifacts' shape pins.  Transpose
-of `Model/Extend/Decl.lean`'s `hpinsT0`. -/
-theorem etaPins_of_indBlockCaps {μ : CheckMode} {env : Env}
-    {cvT cvC : ConstantVal} {nP nF : Nat} :
-    EtaPins μ env cvT.name cvT.levelParams
-      (indBlockCaps μ env cvT cvC nP nF) := by
-  refine ⟨?_, ?_⟩
-  · intro hcape
-    simp only [indBlockCaps, Bool.and_eq_true] at hcape
-    exact checkEtaThm_inv hcape.2
-  · intro hcapu
-    simp only [indBlockCaps, Bool.and_eq_true] at hcapu
-    exact checkUnitThm_inv hcapu.2
-
-
 /-- An empty capability record pins nothing, and asks nothing. -/
 theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
     {lps : List Name} : EtaPins μ env T lps {} :=

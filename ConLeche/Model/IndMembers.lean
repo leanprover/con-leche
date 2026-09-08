@@ -249,10 +249,7 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
           (caps.eta = true →
             blockNames.contains caps.etaCtor = true) ∧
           (caps.eta = true → 0 < caps.etaFields →
-            env.find? (ConLeche.projFnName cv.name 0) = none) ∧
-          -- the capability arities, at the parsed type
-          ((caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-            (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true))) →
+            env.find? (ConLeche.projFnName cv.name 0) = none)) →
       IndMembersRun μ F blockNames caps env members env₂ →
       BlockInstalledTT blockNames env mp.base2.cvalE →
       BlockAcvalInstalled blockNames env mp.base2.acval →
@@ -283,33 +280,24 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
       rw [hnameA]; exact hcv.2.2.1
     cases ci with
     | indInfo cv caps' =>
-      -- the stored (annotated) type keeps the parsed type's telescope
-      -- pin
+      -- the capability arities: the block's pins read the model
+      -- former's telescope, and the stored type is the model's under
+      -- the block renaming
       have hicw : ConLeche.IndCapsWF (.indInfo cvA caps) := by
-        obtain ⟨type', hcvr, hcvA', -⟩ := id hmv
-        obtain ⟨-, -, -, -, -, -, hann, -⟩ := hcvr
-        have harity := (hp cv caps' List.mem_cons_self).2.2.2
-        refine ConLeche.IndCapsWF.of_caps ?_ ?_
-        · intro hu
-          rw [hcvA']
-          exact ConLeche.annotateCore_stripPis_isSome _ hann (harity.1 hu)
-        · intro he
-          rw [hcvA']
-          exact ConLeche.annotateCore_stripPis_isSome _ hann (harity.2 he)
+        obtain ⟨type', -, hcvA', -, cvm, mval, hint, hfm, -, hty⟩ := id hmv
+        refine ConLeche.indCapsWF_of_pins (μ := μ) ?_ hfm hty
+        rw [hcvA']
+        exact (hp cv caps' List.mem_cons_self).1
       obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
         memberInstallPM hetaP hunitP mp hmv hI hIA hbnA
           (fun caps₃ heq => by
             obtain ⟨-, -, -, rfl⟩ := ConstantInfo.indInfo.inj heq
-            have h := hp cv caps' List.mem_cons_self
-            exact ⟨h.1, h.2.1, h.2.2.1⟩)
+            exact hp cv caps' List.mem_cons_self)
           hEC hBP rfl rfl (Or.inl ⟨caps, rfl⟩) hicw
       exact ih mp₁
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
-        (fun cv₂ caps₂ hmem =>
-          let h := hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)
-          let s := etaMemberData_step (c₀ := .indInfo cvA caps) hfreshA hpshapeA
-            ⟨h.1, h.2.1, h.2.2.1⟩
-          ⟨s.1, s.2.1, s.2.2, h.2.2.2⟩)
+        (fun cv₂ caps₂ hmem => etaMemberData_step hfreshA
+          hpshapeA (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)))
         hmatch
         hI₁ hIA₁ hEC₁ hBP₁
     | ctorInfo cv nP nF =>
@@ -320,11 +308,8 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
           (fun _ _ heq => ConstantInfo.noConfusion heq)
       exact ih mp₁
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
-        (fun cv₂ caps₂ hmem =>
-          let h := hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)
-          let s := etaMemberData_step (c₀ := .ctorInfo cvA nP nF) hfreshA hpshapeA
-            ⟨h.1, h.2.1, h.2.2.1⟩
-          ⟨s.1, s.2.1, s.2.2, h.2.2.2⟩)
+        (fun cv₂ caps₂ hmem => etaMemberData_step hfreshA
+          hpshapeA (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)))
         hmatch
         hI₁ hIA₁ hEC₁ hBP₁
     | axiomInfo cv => exact nomatch hmatch
