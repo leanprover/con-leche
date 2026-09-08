@@ -184,7 +184,7 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi (ConLeche.Term.imax u v) v (.pi u v (.bvar 2) (.bvar 1)) <|
     .pi 0 v (.pi u 0 (.bvar 3) (.pi u 0 (.bvar 4)
           (.pi 0 0 (AnnotTerm.mkAppN (.bvar 4) [.bvar 1, .bvar 0])
-            (.eqE (.bvar 4) (.app (.bvar 3) (.bvar 2))
+            (.eqE (.app (.bvar 3) (.bvar 2))
               (.app (.bvar 3) (.bvar 1)))))) <|
     .pi u v (quotAV u (.bvar 4) (.bvar 3)) <|
     .bvar 3
@@ -205,15 +205,14 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi u 0 (.bvar 1) <|
     .pi u 0 (.bvar 2) <|
     .pi 0 0 (AnnotTerm.mkAppN (.bvar 2) [.bvar 1, .bvar 0]) <|
-    .eqE (quotAV u (.bvar 4) (.bvar 3))
-      (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 2))
+    .eqE (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 2))
       (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 1))
   | .propext, _ =>
     -- `∀ (A B : Prop), (A → B) → (B → A) → A = B`
     .pi 1 0 (.sort 0) <| .pi 1 0 (.sort 0) <|
     .pi 0 0 (.pi 0 0 (.bvar 1) (.bvar 1)) <|
     .pi 0 0 (.pi 0 0 (.bvar 1) (.bvar 3)) <|
-    .eqE (.sort 0) (.bvar 3) (.bvar 2)
+    .eqE (.bvar 3) (.bvar 2)
   | .choice, us =>
     let u := lv us 0
     -- `∀ (A : Sort u), ¬¬A → A`

@@ -82,7 +82,9 @@ Differences from `ConLeche.Expr`, each deliberate:
   must be syntax rather than a constant: the conversion rule mentions
   it.  Making it a former (rather than a constant applied to three
   arguments) is what keeps every equational rule *premise-free in the
-  type* — the interpretation of `eqE T a b` reads only `a` and `b`.
+  type* — the interpretation of `eqE a b` reads only `a` and `b`, and
+  since **nothing** reads the type, the former does not carry it
+  (task #237; it did until then).
 * **`prf`, the canonical proof.**  Equality proofs are irrelevant
   (`eqE _ _ _` is always a `Prop`), so the layer needs no proof terms
   with structure: every rule that concludes an equation concludes it
@@ -186,15 +188,12 @@ inductive Term where
   | pi (ty body : Term)
   /-- `let _ : ty := value; body` -/
   | letE (ty value body : Term)
-  /-- `@Eq ty lhs rhs`.
-
-  **`ty` is never checked.**  It is carried so that the eventual
-  denotation of `@Eq A a b` is transparently `eqE A a b`, but the
-  interpretation reads only `lhs` and `rhs`
-(`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`), so
-  soundness never constrains it — and it is a trap if you assume
-  otherwise: do **not** expect `ty` to relate the two sides. -/
-  | eqE (ty lhs rhs : Term)
+  /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+  `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+  and a census (task #237) found no definition and no theorem in any
+  tier reading the slot the former used to carry.  It is gone; a
+  producer that knows the type simply drops it. -/
+  | eqE (lhs rhs : Term)
   /-- First field of a pair.  Carries **only** the subject: the pair's
   type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
   not from the term — see the module docstring.  Interpreted by

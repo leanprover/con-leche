@@ -85,8 +85,8 @@ theorem liftN_eq_self : ∀ (e : AnnotTerm) {k : Nat},
     intro k h n; rw [liftN_pi, ihA h.1 n, ihB h.2 n]
   | letE T v b ihT ihv ihb =>
     intro k h n; rw [liftN_letE, ihT h.1 n, ihv h.2.1 n, ihb h.2.2 n]
-  | eqE T a b ihT iha ihb =>
-    intro k h n; rw [liftN_eqE, ihT h.1 n, iha h.2.1 n, ihb h.2.2 n]
+  | eqE a b iha ihb =>
+    intro k h n; rw [liftN_eqE, iha h.1 n, ihb h.2 n]
   | fst e ihe =>
     intro k h n; rw [liftN_fst, ihe h n]
   | snd e ihe =>
@@ -120,8 +120,8 @@ theorem inst_eq_self : ∀ (e : AnnotTerm) {k : Nat},
     intro k h x; rw [inst_pi, ihA h.1 x, ihB h.2 x]
   | letE T v b ihT ihv ihb =>
     intro k h x; rw [inst_letE, ihT h.1 x, ihv h.2.1 x, ihb h.2.2 x]
-  | eqE T a b ihT iha ihb =>
-    intro k h x; rw [inst_eqE, ihT h.1 x, iha h.2.1 x, ihb h.2.2 x]
+  | eqE a b iha ihb =>
+    intro k h x; rw [inst_eqE, iha h.1 x, ihb h.2 x]
   | fst e ihe =>
     intro k h x; rw [inst_fst, ihe h x]
   | snd e ihe =>

@@ -271,7 +271,7 @@ theorem bval_mem_quotSound (us : List Nat) (ρ : Nat → V) :
     bval V .quotSound us
       ∈ˢ interp V ρ (BConst.typeAV .quotSound us) := by
   show (pt : V) ∈ˢ _
-  simp only [BConst.typeAV, relAV, quotAV, quotMkAV, interp_pi,
+  simp only [BConst.typeAV, relAV, quotMkAV, interp_pi,
     interp_bvar, interp_sort, interp_app, interp_const,
     interp_eqE, AnnotTerm.liftN, AnnotTerm.mkAppN, cons_zero, cons_succ,
     bval, lv, List.getD_cons_zero]

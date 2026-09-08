@@ -143,12 +143,12 @@ theorem WellDenoted.hoist_snd {Δa : List AnnotTerm} {e : AnnotTerm}
   fun ρ hρ => ((WellDenoted_snd V ρ e) ▸ h ρ hρ).1
 
 /-- The equality node's two sides. -/
-theorem WellDenoted.hoist_eqE {Δa : List AnnotTerm} {T a b : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.eqE T a b)) :
+theorem WellDenoted.hoist_eqE {Δa : List AnnotTerm} {a b : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.eqE a b)) :
     (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ a) ∧
       (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ b) :=
-  ⟨fun ρ hρ => ((WellDenoted_eqE V ρ T a b) ▸ h ρ hρ).1,
-    fun ρ hρ => ((WellDenoted_eqE V ρ T a b) ▸ h ρ hρ).2⟩
+  ⟨fun ρ hρ => ((WellDenoted_eqE V ρ a b) ▸ h ρ hρ).1,
+    fun ρ hρ => ((WellDenoted_eqE V ρ a b) ▸ h ρ hρ).2⟩
 
 /-- The β contractum, hoisted, at a positive codomain kind. -/
 theorem WellDenoted.hoist_beta_pos {Δa : List AnnotTerm} {v : Nat}
@@ -245,10 +245,10 @@ theorem WellDenoted.of_snd {Δa : List AnnotTerm} {e : AnnotTerm}
   exact ⟨he ρ hρ, hsig ρ hρ⟩
 
 /-- The converse at an equality node. -/
-theorem WellDenoted.of_eqE {Δa : List AnnotTerm} {T a b : AnnotTerm}
+theorem WellDenoted.of_eqE {Δa : List AnnotTerm} {a b : AnnotTerm}
     (ha : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ a)
     (hb : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ b) :
-    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.eqE T a b) := by
+    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.eqE a b) := by
   intro ρ hρ
   rw [WellDenoted_eqE]
   exact ⟨ha ρ hρ, hb ρ hρ⟩

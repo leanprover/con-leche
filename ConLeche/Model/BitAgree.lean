@@ -76,9 +76,9 @@ inductive AnnotTerm.BitAgree : AnnotTerm → AnnotTerm → Prop where
   | letE {T T' e e' b b' : AnnotTerm} :
       BitAgree T T' → BitAgree e e' → BitAgree b b' →
       BitAgree (.letE T e b) (.letE T' e' b')
-  | eqE {T T' a a' b b' : AnnotTerm} :
-      BitAgree T T' → BitAgree a a' → BitAgree b b' →
-      BitAgree (.eqE T a b) (.eqE T' a' b')
+  | eqE {a a' b b' : AnnotTerm} :
+      BitAgree a a' → BitAgree b b' →
+      BitAgree (.eqE a b) (.eqE a' b')
   | fst {e e' : AnnotTerm} :
       BitAgree e e' → BitAgree (.fst e) (.fst e')
   | snd {e e' : AnnotTerm} :
@@ -96,7 +96,7 @@ theorem refl : ∀ e : AnnotTerm, BitAgree e e
   | .lam _ A b => .lam Iff.rfl (refl A) (refl b)
   | .pi _ _ A B => .pi Iff.rfl (refl A) (refl B)
   | .letE T e b => .letE (refl T) (refl e) (refl b)
-  | .eqE T a b => .eqE (refl T) (refl a) (refl b)
+  | .eqE a b => .eqE (refl a) (refl b)
   | .fst e => .fst (refl e)
   | .snd e => .snd (refl e)
 
@@ -112,7 +112,7 @@ theorem symm : ∀ {e e' : AnnotTerm}, BitAgree e e' → BitAgree e' e := by
   | lam hz _ _ ihA ihb => exact .lam hz.symm ihA ihb
   | pi hz _ _ ihA ihB => exact .pi hz.symm ihA ihB
   | letE _ _ _ ihT ihe ihb => exact .letE ihT ihe ihb
-  | eqE _ _ _ ihT iha ihb => exact .eqE ihT iha ihb
+  | eqE _ _ iha ihb => exact .eqE iha ihb
   | fst _ ih => exact .fst ih
   | snd _ ih => exact .snd ih
 
@@ -131,7 +131,7 @@ theorem erase_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
   | lam _ _ _ ihA ihb => simp [AnnotTerm.erase, ihA, ihb]
   | pi _ _ _ ihA ihB => simp [AnnotTerm.erase, ihA, ihB]
   | letE _ _ _ ihT ihe ihb => simp [AnnotTerm.erase, ihT, ihe, ihb]
-  | eqE _ _ _ ihT iha ihb => simp [AnnotTerm.erase, ihT, iha, ihb]
+  | eqE _ _ iha ihb => simp [AnnotTerm.erase, iha, ihb]
   | fst _ ih => simp [AnnotTerm.erase, ih]
   | snd _ ih => simp [AnnotTerm.erase, ih]
 
@@ -159,7 +159,7 @@ theorem interp_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
     exact piR_zero_agree hz fun x _ => ihB (cons x ρ)
   | letE _ _ _ ihT ihe ihb =>
     intro ρ; simp only [interp_letE, ihe ρ]; exact ihb _
-  | eqE _ _ _ ihT iha ihb =>
+  | eqE _ _ iha ihb =>
     intro ρ; simp only [interp_eqE, iha, ihb]
   | fst _ ih => intro ρ; simp only [interp_fst, ih]
   | snd _ ih => intro ρ; simp only [interp_snd, ih]
@@ -197,7 +197,7 @@ theorem wellDenoted : ∀ {e e' : AnnotTerm}, BitAgree e e' →
     intro ρ
     rw [WellDenoted_letE, WellDenoted_letE, ihT ρ, ihe ρ,
       interp_eq V he ρ, ihb _]
-  | eqE _ _ _ ihT iha ihb =>
+  | eqE _ _ iha ihb =>
     intro ρ; rw [WellDenoted_eqE, WellDenoted_eqE, iha ρ, ihb ρ]
   | fst he ih =>
     intro ρ
@@ -235,7 +235,7 @@ theorem validV : ∀ {e e' : AnnotTerm}, BitAgree e e' →
     intro ρ
     rw [AnnotValid_letE, AnnotValid_letE, ihT ρ, ihe ρ,
       interp_eq V he ρ, ihb _]
-  | eqE _ _ _ ihT iha ihb =>
+  | eqE _ _ iha ihb =>
     intro ρ; rw [AnnotValid_eqE, AnnotValid_eqE, iha ρ, ihb ρ]
   | fst _ ih => intro ρ; rw [AnnotValid_fst, AnnotValid_fst, ih ρ]
   | snd _ ih => intro ρ; rw [AnnotValid_snd, AnnotValid_snd, ih ρ]

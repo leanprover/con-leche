@@ -82,7 +82,7 @@ theorem interp_liftN (n : Nat) :
   | letE T e b ihT ihe ihb =>
     intro k ρ
     simp only [AnnotTerm.liftN_letE, interp_letE, ihe, ihb, cons_shiftE]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ; simp only [AnnotTerm.liftN_eqE, interp_eqE, iha, ihb]
   | fst e ihe =>
     intro k ρ; simp only [AnnotTerm.liftN_fst, interp_fst, ihe]
@@ -136,7 +136,7 @@ theorem interp_inst :
     intro a k ρ
     simp only [AnnotTerm.inst_letE, interp_letE, ihe, ihb, shiftE_succ_cons,
       cons_instE]
-  | eqE T b c ihT ihb ihc =>
+  | eqE b c ihb ihc =>
     intro a k ρ; simp only [AnnotTerm.inst_eqE, interp_eqE, ihb, ihc]
   | fst e ihe =>
     intro a k ρ; simp only [AnnotTerm.inst_fst, interp_fst, ihe]
@@ -197,10 +197,10 @@ theorem interp_congr_below :
     cases i with
     | zero => rfl
     | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro k ρ ρ' hb hag
-    simp only [interp_eqE, iha k ρ ρ' hb.2.1 hag,
-      ihb k ρ ρ' hb.2.2 hag]
+    simp only [interp_eqE, iha k ρ ρ' hb.1 hag,
+      ihb k ρ ρ' hb.2 hag]
   | fst e ihe =>
     intro k ρ ρ' hb hag
     simp only [interp_fst, ihe k ρ ρ' hb hag]
