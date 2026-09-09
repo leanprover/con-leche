@@ -568,15 +568,15 @@
     21  `pins/<toolchain>.prelude.ndjson`, regenerated with
     22  `lake exe natop-pins-export` and gated by `tests/pindump.sh`.
 
-== ConLeche/Kernel/Env.lean#L579-L586
-   579  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   580    block.all fun ci => match ci with
-   581      | .indInfo cvT _ =>
-   582        match cvT.type.piSortTeleLen? with
-   583        | some n => decide (nP ≤ n)
-   584        | none => true
-   585      | .ctorInfo _ nPc _ => nPc == nP
-   586      | _ => true
+== ConLeche/Kernel/Env.lean#L581-L588
+   581  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   582    block.all fun ci => match ci with
+   583      | .indInfo cvT _ =>
+   584        match cvT.type.piSortTeleLen? with
+   585        | some n => decide (nP ≤ n)
+   586        | none => true
+   587      | .ctorInfo _ nPc _ => nPc == nP
+   588      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
