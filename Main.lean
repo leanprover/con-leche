@@ -195,42 +195,6 @@ def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
         (fun j hj => acc j (Nat.lt_of_lt_of_le hj (Nat.le_of_not_lt hk)))⟩
   termination_by k => e.pend.size - k
 
-/-- **Task #265's measurement flag — the target of the one-shot
-`Runtime.markPersistent`.**  Between phase A and phase B the driver
-holds a fully installed environment that phase B only READS (each
-record is checked against a prefix view of it, from a fresh memo
-state), so its objects' reference counts are pure overhead from there
-on — and once the pool hands that graph to a worker the runtime marks
-it multi-threaded, so every one of those counts becomes an ATOMIC
-read-modify-write on a line every core touches.
-`--mark-persistent[=<target>]` marks the graph persistent exactly once,
-at the phase boundary before any worker is spawned, and the target says
-which graph:
-
-* `env` — `fe.env`, the constant list alone;
-* `fenv` — the whole `FEnv`: the constant list AND the name index;
-* `pend` — the pending-check array, the records phase B walks;
-* `all` — the default: the `FEnv` and the pending array.
-
-There is no `ienv` target: phase B's checks start every record from
-`{}`, a FRESH `CState`, so the install pass's interning store is dead
-at the boundary and shares nothing with what phase B builds.
-
-Marking is `unsafe` (the marked closure is never freed) and changes no
-verdict; it is off unless the flag is given. -/
-inductive MarkTarget where
-  | env | fenv | pend | all
-  deriving Inhabited, BEq
-
-def MarkTarget.word : MarkTarget → String
-  | .env => "env" | .fenv => "fenv" | .pend => "pend" | .all => "all"
-
-def markTarget? (s : String) : Option MarkTarget :=
-  match s with
-  | "env" => some .env | "fenv" => some .fenv
-  | "pend" => some .pend | "all" => some .all
-  | _ => none
-
 /-! ### The pool: phase B on `--jobs=<n>` threads
 
 The records' checks are independent by construction — each reads the
@@ -383,7 +347,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (trace : Bool) (mark : Option MarkTarget)
+    (trace : Bool) (noMark : Bool)
     (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
@@ -408,32 +372,34 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     heartbeat s!"install done: {total}/{total} declarations installed, \
       {pend.size} checks pending t={secs (tCheck - t0)}s \
       (install {secs (tCheck - tParse)}s)"
-    -- THE SEAM between the phases (task #265): the installed
-    -- environment is complete and read-only from here on, so a one-shot
-    -- mark of it as persistent removes all reference counting on the
-    -- index and the records — instead of the ATOMIC counting the pool's
-    -- first spawn switches them to.  The result is DISCARDED and the
-    -- original `e` is what the phase below reads:
-    -- `Runtime.markPersistent` is the identity on the value and marks
-    -- the object graph in place, so nothing downstream — the
-    -- `InstalledEnv` and the `InstallRun` it carries — has to be
-    -- transported across it.  Term-level `unsafe`, the escape
-    -- `Lean.Environment.finalizeImport` uses for the same call.
-    -- Safety: still single-threaded here, and no live object in the
-    -- marked graph is ever mutated or freed after this point.
-    if let some m := mark then
-      let tm₀ ← IO.monoMsNow
-      match m with
-      | .env => let _ ← unsafe Runtime.markPersistent fe.env
-      | .fenv => let _ ← unsafe Runtime.markPersistent fe
-      | .pend => let _ ← unsafe Runtime.markPersistent pend
-      | .all =>
-        let _ ← unsafe Runtime.markPersistent fe
-        let _ ← unsafe Runtime.markPersistent pend
-      let tm₁ ← IO.monoMsNow
-      err.putStr s!"con-leche: mark-persistent {m.word}: \
-        {pend.size} pending checks marked in {secs (tm₁ - tm₀)}s\n"
-      err.flush
+    -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed
+    -- environment is complete and READ-ONLY from here on: every
+    -- recorded check reads a prefix view of it from a fresh memo state
+    -- and writes nothing back.  Handing that graph to a worker makes
+    -- the runtime mark it MULTI-THREADED, and every reference count on
+    -- it becomes an atomic read-modify-write on a cache line all the
+    -- workers touch — pure overhead, since nothing in the graph is
+    -- freed or mutated again.  Marking it PERSISTENT instead removes
+    -- the counting altogether, and on the pool that is worth 19-50 % of
+    -- the run's cycles and 18-32 % of its WALL TIME, growing with the
+    -- worker count.  Only for the pool: in the in-thread lane the
+    -- runtime's inlined single-threaded counting is nearly free and a
+    -- persistent object mispredicts its `m_rc > 0` fast path, so the
+    -- mark LOSES there and `--jobs=1` stays overhead-free.
+    --
+    -- The result is DISCARDED and the original `fe`/`pend` are what the
+    -- phase below reads: `Runtime.markPersistent` is the identity on
+    -- the value and marks the object graph in place, so nothing
+    -- downstream — the `InstalledEnv` above, the `InstallRun` it
+    -- carries — has to be transported across it, and no verdict can
+    -- turn on it.  Term-level `unsafe`, the escape
+    -- `Lean.Environment.finalizeImport` uses for this same call; it is
+    -- unsafe only in that the marked closure is never freed, and the
+    -- process exits right after.  `--no-mark-persistent` turns it off,
+    -- which is how the A/B above is measured on the shipped binary.
+    if jobs > 1 && !noMark then
+      let _ ← unsafe Runtime.markPersistent fe
+      let _ ← unsafe Runtime.markPersistent pend
     let workers := if jobs ≤ 1 then 1 else max 1 (min jobs pend.size)
     let res ← if jobs ≤ 1 then
         checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
@@ -515,7 +481,7 @@ fold the main theorem `ConLeche.no_proof_of_False`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
-    (mark : Option MarkTarget) : IO UInt32 := do
+    (noMark : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -681,7 +647,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace mark inModelled
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace noMark inModelled
         decls.toList
       match verdict with
       | .ok ⟨env, _⟩ =>
@@ -846,25 +812,22 @@ def usage : String := String.intercalate "\n" [
   "                    under 16 GB, four under 8 GB; past it the",
   "                    runtime cannot create the thread and aborts",
   "                    ('failed to create thread', exit 134).",
-  "  --mark-persistent[=env|fenv|pend|all]",
-  "                    A MEASUREMENT FLAG (task #265), off by default:",
-  "                    mark the installed environment's object graph",
-  "                    persistent ONCE, between the install phase and",
-  "                    the check phase, removing every reference-counter",
-  "                    update on it for the rest of the run (the pool",
-  "                    otherwise pays an ATOMIC one per operation, from",
-  "                    the multi-threaded marking the first spawn does).",
-  "                    Phase B only reads that graph, so this changes no",
-  "                    verdict; it is unsafe only in that the marked",
-  "                    closure is never freed (the process exits right",
-  "                    after).  The target selects the graph: env = the",
-  "                    constant list, fenv = the constant list and the",
-  "                    name index, pend = the pending-check array, all",
-  "                    (the bare flag) = fenv and pend.  There is no",
-  "                    ienv target: phase B starts every record from a",
-  "                    FRESH memo state, so the install pass's interning",
-  "                    store is dead at the boundary.  One stderr line",
-  "                    reports the mark.",
+  "                    At <n> of 2 or more the installed environment is",
+  "                    marked PERSISTENT once at the phase boundary: it",
+  "                    is read-only from there on, and the mark removes",
+  "                    the atomic reference counting the workers would",
+  "                    otherwise pay on every object of it -- worth",
+  "                    18-32 % of wall time, growing with <n>.",
+  "                    --jobs=1 never marks: single-threaded the",
+  "                    counting is nearly free and the mark costs more",
+  "                    than it saves.",
+  "  --no-mark-persistent",
+  "                    turn that mark off.  It changes no verdict --",
+  "                    the marked graph is read-only from the boundary",
+  "                    on -- so this is a MEASUREMENT switch: it is how",
+  "                    the mark's effect is measured on the shipped",
+  "                    binary.  At --jobs=1 there is no mark to turn",
+  "                    off and the flag does nothing.",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
@@ -1027,10 +990,11 @@ structure Args where
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
-  /-- Task #265's measurement flag (`--mark-persistent[=<target>]`):
-  mark the installed environment persistent once, between the driver's
-  two phases.  `none` is "no flag given". -/
-  mark : Option MarkTarget := none
+  /-- `--no-mark-persistent`: do NOT mark the installed environment
+  persistent at the phase boundary.  The mark is on by default whenever
+  the check phase runs on the pool; this turns it off, which is what
+  measures its effect on the shipped binary. -/
+  noMark : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -1076,8 +1040,8 @@ def parseArgs : List String → Args → Args
   -- `--progress=<n>` is the general form (below, with the other
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
-  -- Task #265's measurement flag; bare is `all`.
-  | "--mark-persistent" :: rest, a => parseArgs rest { a with mark := some .all }
+  -- The persistent mark is on by default on the pool; this turns it off.
+  | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \
         --trusted (checking-mode front door included, task #147)" }
@@ -1109,12 +1073,6 @@ def parseArgs : List String → Args → Args
       { a with bad := some "--core is retired; there is one core and one \
           expression representation since task #172 (the interned arena \
           and every driver over it were deleted)" }
-    else if s.startsWith "--mark-persistent=" then
-      match markTarget? ((s.drop "--mark-persistent=".length).toString) with
-      | some m => parseArgs rest { a with mark := some m }
-      | none => { a with bad := some s!"--mark-persistent takes one of \
-          env, fenv, pend, all (task #265), got \
-          {repr ((s.drop "--mark-persistent=".length).toString)}" }
     else if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
       | .ok n => parseArgs rest { a with progress := n }
@@ -1163,7 +1121,7 @@ def main (args : List String) : IO UInt32 := do
     let jobs := a.jobs.getD
       (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
        if hw = 0 then 1 else hw)
-    checkMain file a.mode a.progress jobs a.mark
+    checkMain file a.mode a.progress jobs a.noMark
   | _ =>
     IO.eprintln usage
     return 3

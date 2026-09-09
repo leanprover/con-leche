@@ -12,7 +12,8 @@ The binary reads a Lean export in `lean4export`'s NDJSON format and
 prints one verdict line:
 
 ```
-con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson
+con-leche [--verified|--trusted] [--jobs=<n>] [--no-mark-persistent]
+          [--progress[=<stride>]] FILE.ndjson
 con-leche --help
 ```
 
@@ -20,9 +21,12 @@ That is every flag the binary takes. `--verified` is the default and
 the mode the theorem is about; `--trusted` runs the same checker bodies
 with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below); `--progress[=<stride>]` turns on a heartbeat on stderr
+(below); `--no-mark-persistent` turns off the pool's one-shot mark of
+the installed environment (below), which changes no verdict and is
+there to measure what the mark is worth;
+`--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L722)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L747)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -57,7 +61,12 @@ threads; without it there is one worker per hardware thread, and
 worker thread reserves about 1 GiB of address space (its stack
 reservation; the resident set grows by about 25 MB per worker), so a
 run under an address-space limit (`ulimit -v`) must lower the count
-to what the limit affords — about ten workers under 16 GB. The
+to what the limit affords — about ten workers under 16 GB. From two
+workers up, the installed environment is marked persistent once at
+the phase boundary, which removes the atomic reference counting the
+workers would otherwise pay on it and is worth 18–32 % of wall time,
+growing with the worker count; `--no-mark-persistent` turns that off
+and is how the difference is measured. The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
 record in fold order is the one reported. The flag
@@ -134,7 +143,9 @@ Read from the outside in:
    fold position. At `--jobs=1` the check loop
    ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L182))
    runs it on every record in this thread and carries every fact;
-   otherwise a pool of worker threads
+   otherwise the installed environment — read-only from the boundary
+   on — is marked persistent once, so that the workers pay no atomic
+   reference counting on it, and a pool of worker threads
    ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L312))
    claims chunks of records off a shared counter, and the results,
    merged by record index, are walked in record order
@@ -143,9 +154,11 @@ Read from the outside in:
    pool's verdict is the sequential walk's, and what it assembles is
    the same fact about every record. Either way what comes out is a
    fully checked environment; which thread computed a check is
-   irrelevant to what it proves. The heartbeat and the route trace are
+   irrelevant to what it proves, and so is whether the mark happened:
+   it is the identity on the value, its result is discarded, and the
+   environment the driver goes on to use is the one it already had. The heartbeat and the route trace are
    printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L349-L352))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L349-L353))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
