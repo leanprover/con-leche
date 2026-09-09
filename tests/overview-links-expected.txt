@@ -29,7 +29,10 @@
     88  #print axioms ConLeche.no_proof_of_False
 
 == ConLeche/Frontend/ExportC.lean#L863
-   863  def parseExportStreamD (path : System.FilePath)
+   863        | .error e => return .error e
+
+== ConLeche/Frontend/Scan/Equiv.lean#L1000
+  1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
 == Main.lean#L96
     96  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)

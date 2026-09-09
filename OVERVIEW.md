@@ -120,7 +120,14 @@ Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L863))
-   and runs the fold's two phases as two loops. The install loop
+   and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
+   stream is proved equal to a naive reference over `List UInt8`
+   ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1000)):
+   the driver calls the reference, and the compiler runs the fast
+   recogniser on the strength of that equality; the stream-index
+   tables have the same kind of law, and what the parser then makes of
+   a record — index resolution, the smart constructors, the modeller —
+   is shared code, tested differentially rather than proved. The install loop
    ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L96))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L136-L138)):

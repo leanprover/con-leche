@@ -676,7 +676,8 @@ def scanNatListLoop (b : @& ByteArray) (i : USize) (acc : List Nat)
       if !wantItem then .err ⟨i.toNat, .expectedList⟩
       else
         let e := numEnd b i
-        if _hj : i < e then scanNatListLoop b e (readNatAt b i e :: acc) false
+        if e == i then .err ⟨i.toNat, .expectedNat⟩
+        else if _hj : i < e then scanNatListLoop b e (readNatAt b i e :: acc) false
         else .err ⟨i.toNat, .noProgress⟩
     else .err ⟨i.toNat, .expectedList⟩
   else .err ⟨i.toNat, .expectedList⟩
@@ -714,9 +715,14 @@ def scanHints (b : @& ByteArray) (i : USize) : ScanRes HintsRec :=
     let p := skipWs b (i + 1)
     if byteAt b p != 34 then .err ⟨i.toNat, .badHints⟩
     else
-      match keyAt b p (keyEnd b (p + 1) - (p + 1)) with
+      let ke := keyEnd b (p + 1)
+      if ke == 0 then .err ⟨p.toNat, .badHints⟩
+      else
+      match keyAt b p (ke - (p + 1)) with
       | .kRegular =>
-        let v := valueAt b p (p + 8)
+        let v := valueAt b p ke
+        if v == p then .err ⟨p.toNat, .expectedColon⟩
+        else
         let e := numEnd b v
         if e == v then .err ⟨v.toNat, .expectedNat⟩
         else

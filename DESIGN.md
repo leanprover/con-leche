@@ -65992,3 +65992,219 @@ was resolved in landing order, this one last.  The re-gate was
 trimmed on the coordinator's ruling to `lake build` and `lake test`,
 both warning-free, since the change is confined to the scanner and
 the battery had already run green on the pre-merge tree.
+
+## TASK #261 — the recogniser is its naive reference: `scanLineSpec = scanLineFwd`, kernel-checked, `@[csimp]`
+
+(Branch `agent/scanspec`, on master `58c81c74`; the assurance half of
+task #256.)
+
+### 1. What was asked and what is claimed
+
+Task #256 read the stream's bytes with a hand-rolled recogniser whose
+shape was chosen so that an equality with a naive reference would be
+STATEABLE.  This task states it and proves it.  `ConLeche/Frontend/Scan/Naive.lean`
+is the lean4export dialect written the way one writes it on a
+whiteboard — over `List UInt8`, no positions, no `ByteArray`, no
+machine words, hopelessly slow, never executed on a stream — and
+`ConLeche/Frontend/Scan/Equiv.lean` proves
+
+    theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd
+
+where `scanLineSpec b i` is the naive recogniser on the bytes at `i`
+lifted to the fast recogniser's type.  Total over every array and
+every position, no well-formedness hypothesis: both sides define the
+language, and the theorem says the fast recogniser accepts exactly the
+naive one's language with the same record on every line and the same
+tag at the same byte on every malformed one.  It is `@[csimp]`: the
+driver (`applyFinalLine`, `feedChunk` in `ConLeche/Frontend/ExportC.lean`)
+now calls `scanLineSpec`, and the compiler substitutes `scanLineFwd` on
+the strength of the equality — the arrangement the tree uses for every
+fast twin (`canonEqFast`, `beqMemo`, `constsResolveFFast`); nothing is
+`implemented_by`.  `#print axioms scanLineSpec_eq_scanLineFwd` gives
+`[propext, Classical.choice, Quot.sound]`.
+
+The stream-index table has the same kind of law, beside the structure
+in `ConLeche/Frontend/Scan/Types.lean` (the Std.HashMap pattern: the
+representation carries its own verification): `IdTable.get?` is the
+abstraction to the partial map `Nat → Option α`, and `get?_empty`,
+`get?_singleton`, `get?_insert` say `insert`/`singleton` are the naive
+map's rebinding through it — the dense frontier and the sparse
+overflow are invisible.  THE ASSURANCE BOUNDARY, stated
+precisely: the scanner and the id tables are proved equal to naive
+references; the semantic layer `applyLine` — index resolution, the
+smart constructors, packed fields, hashes, taint, prelude dedupe, the
+projection rewrite, the modeller — is shared code, differentially
+tested (task #256 §7) and not proved; the escape decoder `unescape`
+and `String.fromUTF8?` are shared leaves both sides run on the same
+bytes.
+
+### 2. The naive reference
+
+A naive scanner returns the value and the UNREAD REST of its input, or
+the tag and the suffix at which it stopped (`NRes α`); a byte offset is
+a derived quantity — how much of the input the rest is short by — and
+the lift computes it (`posAt`, `liftRes` in `Equiv/Kit.lean`).  The
+brief asked for `Except ScanErr (LineRec × List UInt8)`; a naive
+scanner over a list has no position to put in a `ScanErr`, and making
+it count would have made it the fast scanner with `Nat` positions.
+
+Every JSON object of the dialect is ONE generic slot loop,
+`naiveObjLoop`: a table gives each key its seen-bit and how its value
+is read into the object's state; the loop is JSON's member grammar;
+the eighteen record kinds differ only in their tables (`appFields`,
+`binderFields`, `indRecFields`, …), which is the whole of what a
+reader checks against the format.  One generic list loop; the line
+loop (an index key and a payload key, in either order, matched at the
+brace); the key alphabet as an association list `keyTable`.  One
+deliberate mirror of the fast side: a loop that continues after a
+sub-scanner guards its recursion with `if h : rest.length < l.length`
+and fails with `noProgress` otherwise, so that termination is the
+input's length and the spec needs no lemma about its own sub-scanners.
+
+The spec is `@[expose] public section`, like the checker code it
+specifies: the twins unfold every definition in it.
+
+### 3. The proof
+
+How it was ground: the statements and the structure are the
+orchestrator's (this record's author), the proofs were ground by Opus
+in four sessions — scalars, keys, objects, the line — each on a file
+of `sorry`-stubbed statements it was not allowed to change, and none
+changed.  The object loops were closed with a reusable TACTIC script
+rather than a generic lemma: the eighteen statements stand as set (one
+per fast loop, since `Fast.lean`'s loops are eighteen monomorphic
+functions by task #256's codegen decision), and what is shared is
+twelve step lemmas reading the generic naive loop under each fast
+branch condition plus one macro per case shape, dispatched by case
+name — a flat `first`-chain over the same macros was 30× slower.  The
+line loop reuses the same member step.
+
+`Equiv/Kit.lean` is the dictionary.  `bytes b` is the array's list cut
+at `b.usize` — the whole array whenever it fits in memory
+(`bytes_eq_of_size_lt`), and what a recogniser indexing with machine
+words sees of one that does not: `b.usize = b.size % 2^64`, and a
+theorem over ALL arrays has to say so.  `tailAt b i` is the unread
+input; `tailAt_of_lt` turns the byte at `i` into the head of the naive
+input and `usizeStep` turns `i + 1` into the tail.  `liftRes_shift` is
+the one lemma that chains positions: a result a sub-scanner produced
+at `j` lifts the same at every `i ≤ j`, given that the naive result's
+rest is a suffix of the input at `j` — which is what the suffix lemmas
+(`*_rest_suffix`, one per naive function) supply.  Every twin has the
+one shape `fastX b i = liftRes b i (naiveX (tailAt b i))` and is proved
+by the fast function's own induction (`fun_induction`).
+
+The chain: `Equiv/Scalars.lean` (whitespace, digits — `readNat64`'s
+machine-word path cannot overflow below 19 digits — literals, strings,
+the escape decoder's shift lemma, the quoted decimal, the binder
+spellings); `Equiv/Keys.lean` (the member step every slot loop takes —
+`keyEnd`/`keyAt`/`valueAt` against `naiveKeyBody`/`keyOf`/`naiveValue`,
+the classifier's first-byte-and-length dispatch against the table
+lookup — the generic list loop, `pw`, `hints`, the header skipper, and
+the suffix lemmas of the generic loops); `Equiv/Objects.lean` (the
+eighteen slot loops and the four member lists, uniformly);
+`Equiv.lean` (the line loop, `scanLineFwd`, the csimp theorem).
+
+Two facts of the module system shaped the proofs and are worth the
+record.  `String.toUTF8` is not exposed to a `module`, so the fast
+side's literals (`"pp".toUTF8`) cannot be evaluated by `rfl` or
+`decide` there — but `String.toUTF8_eq_toByteArray` is a theorem and
+`String.toByteArray` is the exposed representation projection, so
+`rw [lit_eq_toByteArray]; rfl` computes any literal's bytes.  And the
+equation compiler splits a naive function with a nested `match` into
+shape-specific equations (`naiveStrBody.eq_2` for `[d]`, `eq_3` for
+`d :: d₁ :: l`), so `simp [f]` does not unfold it on a variable cons;
+`rw [f.eq_def]` does.
+
+### 4. Findings on the fast side, fixed on the fast side
+
+The spec exposed three corners of `Fast.lean`; per the rule, the FAST
+side was changed to match the naive one, never the reverse.  None
+changes the verdict or the line number on any lean4export stream —
+all three are tags on malformed input.
+
+* A leading-zero member of a nat list (`"us":[01]`) reported
+  `noProgress` — the tag documented as unreachable — because `numEnd`
+  returns its start on a leading zero and the progress guard was the
+  only test.  Now `expectedNat`, as every other number.
+* `scanHints` classified `{"regular":n}`'s key without the
+  `keyEnd == 0` check every slot loop has; with an unterminated key the
+  length `0 - (p + 1)` wraps.  Harmless on any array that fits in
+  memory (no length test matches a number above 2^63), but in the
+  theorem's universe — a `2^64 − 1`-byte array — the wrapped length
+  could match and `valueAt` would then read from a wrapped position:
+  the equality was FALSE there.  Now `badHints`, before the classifier.
+* A hints object with the colon missing (`{"regular" 1}`) reported
+  `expectedNat` at the key, because `valueAt`'s "no colon" answer is
+  the key's own position and the number scanner then failed there.
+  Now `expectedColon`.
+
+### 5. Tests
+
+`tests/ConLecheTests/ScanTests.lean` gains an evaluation battery: on
+every line the suite already read, a line of each declaration kind
+from the fixtures, the escapes (`\uXXXX`, a surrogate pair, a lone
+surrogate, an unknown escape), and the corners above, the naive
+recogniser EVALUATES to the fast one's result (the same record, or the
+same tag at the same byte).  The theorem says so for every input;
+the guards are what catches a slip in the spec's fidelity to the
+FORMAT, which a theorem about two Lean functions cannot.  The lift is
+spelled out in the test rather than through `scanLineSpec`, because
+the compiler replaces `scanLineSpec` by `scanLineFwd` on the strength
+of the very equality under test — a `#guard` on the spec would compare
+the fast recogniser with itself.  `#guard_msgs in #print axioms` pins
+the theorem's footprint at the standard three.
+
+The theorem supersedes the two-binary differential harness task #264
+checked in (`scripts/scan-differential.py`): a kernel-checked equality
+over every input replaces a mutation sweep over some, and the script
+is deleted with this task; `ScanTests.lean`'s evaluation battery
+stays, for the spec's fidelity to the format.
+
+Chunking: the pure append lemma (`feedChunk` over a split buffer = over
+the whole) was judged out of proportion — it needs a locality lemma
+for every naive function (a line's reading depends only on its own
+bytes), a second induction over the whole spec — and the three-byte
+chunking test of task #256 stays as the gate.
+
+### 6. Gates and numbers
+
+On the tree merged with master `0167f51b` (tasks #264, #265): `lake
+build` warning-free; `lake test` warning-free (the evaluation battery
+and the `#guard_msgs` axiom pin under it); `tests/arena.sh` under
+`env -i` EXIT=0 with every count as master's — arena 90/92, e2e
+185/185, annot 14/14, retired flags 8/8, mode flags 18/18, prelude 3/3,
+progress 13/13, DAG-tower 14/14, the trusted sweep with its three
+recorded divergences; layering 0 impl->theory; proofdeps 3367 rows
+across 10 roots as pinned, doors 0; the axiom pin unchanged (16
+theorems at the standard three; the frontend's theorem is pinned in
+`ScanTests.lean` rather than `Axioms.lean`, so the count did not move);
+trust surface 12 escapes in 5 allowlisted files, 0 outside; shake 460
+removals all allowlisted; overview-links 72/47 OK.
+
+`#print axioms scanLineSpec_eq_scanLineFwd`:
+`[propext, Classical.choice, Quot.sound]`.
+
+The compiled scanner: the generated C of `ExportC.lean` differs from
+master's only in the module-initialiser lines the `Equiv` import adds
+(three calls to `scanLineFwd`, none to `scanLineSpec`), and
+`Fast.lean`'s only in the two cold-path compares of §4 and the
+temporaries renumbered after them.  The binary is therefore not
+byte-identical (it links the spec's modules and carries the fixes),
+and the instruction count is the measurement:
+
+| `init-full`, `--jobs=1` | master `0167f51b` | this branch | |
+|---|---|---|---|
+| `--verified` | 543.539 G | 543.519 G | −0.004 % |
+| `--trusted` | 526.118 G | 526.098 G | −0.004 % |
+
+53 088 declarations accepted, exit 0, in every run (`ulimit -v
+32000000`, `timeout 3600`, `perf stat -e instructions:u`, master's
+binary built from `git archive 0167f51b` on the same machine).  The
+earlier run against the pre-merge tree gave 561.20 G / 536.17 G against
+the brief's 561.21 G / 536.13 G, the same ±0.
+
+(Measured with `--jobs=1`: since task #265 the default worker count is
+the hardware thread count — 96 on this box — and 96 worker stacks at
+1 GiB each exceed any `ulimit -v`, which the run rule requires; the
+serial run is the like-for-like comparison with the numbers the brief
+gave.)

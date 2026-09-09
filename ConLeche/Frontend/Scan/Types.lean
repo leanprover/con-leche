@@ -1,6 +1,9 @@
 module
 
 public import Std.Data.HashMap.Basic
+/- The laws of `IdTable` below are proved here, beside the structure (the
+Std.HashMap pattern: the representation carries its own verification). -/
+import Std.Data.HashMap.Lemmas
 
 @[expose] public section
 
@@ -348,5 +351,56 @@ def IdTable.insert (t : IdTable α) (i : Nat) (x : α) : IdTable α :=
 /-- A table with index 0 bound (the implicit `Name.anonymous` /
 `Level.zero` of the format). -/
 def IdTable.singleton (x : α) : IdTable α := { dense := #[x] }
+
+/-! ### The table is its naive map
+
+`get?` is the abstraction of the dense-plus-sparse table to the partial
+map it represents, and these three laws say the operations are the
+naive map's — a function from stream indices, rebound one index at a
+time.  Nothing about the dense frontier or the overflow map is visible
+through `get?`, and these are the only facts the semantic layer uses
+about the table (task #261). -/
+
+theorem IdTable.get?_empty (i : Nat) : ({} : IdTable α).get? i = none := by
+  simp [IdTable.get?]
+
+theorem IdTable.get?_singleton (x : α) (i : Nat) :
+    (IdTable.singleton x).get? i = if i = 0 then some x else none := by
+  simp [IdTable.get?, IdTable.singleton]
+
+theorem IdTable.get?_insert (t : IdTable α) (i : Nat) (x : α) (j : Nat) :
+    (t.insert i x).get? j = if j = i then some x else t.get? j := by
+  unfold IdTable.insert
+  by_cases hi : i = t.dense.size
+  · subst hi
+    simp only [BEq.rfl, ↓reduceIte, IdTable.get?, Array.size_push]
+    by_cases hj : j < t.dense.size + 1
+    · rw [dif_pos hj, Array.getElem_push]
+      by_cases hj' : j < t.dense.size
+      · simp [hj', Nat.ne_of_lt hj']
+      · have : j = t.dense.size := by omega
+        simp [this]
+    · have h1 : j ≠ t.dense.size := by omega
+      have h2 : ¬ j < t.dense.size := by omega
+      simp [hj, h1, h2]
+  · have hne : (i == t.dense.size) = false := by simp [hi]
+    simp only [hne, Bool.false_eq_true, ↓reduceIte]
+    by_cases hlt : i < t.dense.size
+    · simp only [hlt, ↓reduceDIte, IdTable.get?, Array.size_set]
+      by_cases hj : j < t.dense.size
+      · simp only [hj, ↓reduceDIte, Array.getElem_set]
+        by_cases hji : j = i
+        · subst hji; simp
+        · simp [hji, Ne.symm hji]
+      · have : j ≠ i := by omega
+        simp [hj, this]
+    · simp only [hlt, ↓reduceDIte, IdTable.get?]
+      by_cases hj : j < t.dense.size
+      · have : j ≠ i := by omega
+        simp [hj, this]
+      · rw [dif_neg hj, dif_neg hj, Std.HashMap.getElem?_insert]
+        by_cases hji : j = i
+        · subst hji; simp
+        · simp [hji, Ne.symm hji]
 
 end ConLeche.Frontend

@@ -3,7 +3,11 @@ module
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
 public import ConLeche.Frontend.NatOpGround
-public import ConLeche.Frontend.Scan.Fast
+/- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
+(the naive recogniser); the compiler substitutes `scanLineFwd` on the
+strength of `scanLineSpec_eq_scanLineFwd` (`@[csimp]`).  `Scan.Fast`
+comes with it. -/
+public import ConLeche.Frontend.Scan.Equiv
 
 @[expose] public section
 
@@ -763,7 +767,7 @@ def ParseResultD.ofState (st : StateD) : ParseResultD :=
 ends.  A syntactic failure is reported at its offset in the line. -/
 def applyFinalLine (st : StateD) (b : @& ByteArray) (i : USize)
     (lineNo : Nat) : Except FrontendError StateD :=
-  match scanLineFwd b i with
+  match scanLineSpec b i with
   | .err e => .error (.parseError lineNo (ScanErr.render ⟨e.offset - i.toNat, e.what⟩))
   | .ok r _ =>
     match applyLine st r with
@@ -776,13 +780,15 @@ state, the line count, and where the incomplete tail begins (the
 caller carries it into the next chunk).  A line the chunk cut in half
 is told from a malformed one by whether the rest of the chunk holds a
 newline at all — which is why a scan failure is not immediately an
-error.  The loop's advance is the line, and `scanLineFwd` never
+error.  The loop's advance is the line, and the line reader never
 returns a position at or before its own start, so the remaining byte
-count is the termination measure. -/
+count is the termination measure.  The reader is `scanLineSpec`, the
+naive reference; what runs is `scanLineFwd`, by the kernel-checked
+equality the compiler substitutes (`ConLeche/Frontend/Scan/Equiv.lean`). -/
 def feedChunk (st : StateD) (b : @& ByteArray) (i : USize) (lineNo : Nat) :
     Except FrontendError (StateD × Nat × USize) :=
   if _h : i < b.usize then
-    match scanLineFwd b i with
+    match scanLineSpec b i with
     | .err e =>
       if newlineFrom b i then
         .error (.parseError (lineNo + 1)
