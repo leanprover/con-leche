@@ -64752,6 +64752,8 @@ tower.
   projection rewrites, prelude counts, hoists, modelled blocks and
   generated-record counts alike, and 53 088 declarations on the big
   one.
+* **A 1.5 GB Mathlib prefix** (27 232 079 lines): 0 differences, the
+  two parses together in 3.5 GB.
 * **Chunk sizes 1, 7, 4096 and 4 MiB** give the same parse.
 * **7 000 mutation-fuzzer cases** over three seeds (byte flips,
   deletions, insertions, digit and punctuation substitutions in a
@@ -64810,6 +64812,9 @@ Parse only (`CON_LECHE_INMODEL_CENSUS=1`, `init-full`, `ulimit -v
 |---|---|---|
 | before | 154.81 G | 477 |
 | after | 17.90 G | 55 |
+
+On the 1.5 GB Mathlib prefix, whose density is the same (481 per
+byte), 722.87 G → 90.75 G: **7.97×**.
 
 **8.65× on the parse**, which is short of the design's 8–15 G estimate
 and is reported as such: what is left is not the byte loops (they are
