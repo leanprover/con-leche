@@ -99,11 +99,16 @@ stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
 # went 2026-09-05 with the R core and `--set-model=r` (a hard error now).
 # Nothing retired is measured and nothing retired is printed.
 CONFIG_IDS=(official trusted verified)
+# The con-leche cells say `--jobs=1` explicitly (it is the default):
+# the worker pool's atomic reference counting adds about 1 % of
+# instructions that is not the checker's work, so the sequential lane
+# is the apples-to-apples cell against official, and the one every
+# earlier row was measured on.
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
-    trusted)   CMD=("$BIN" --trusted  "$2") ;;
-    verified)  CMD=("$BIN" --verified "$2") ;;
+    trusted)   CMD=("$BIN" --trusted  --jobs=1 "$2") ;;
+    verified)  CMD=("$BIN" --verified --jobs=1 "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
   esac
 }

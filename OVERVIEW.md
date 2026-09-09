@@ -18,7 +18,7 @@ con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjso
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L707)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L721)).
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
 
@@ -42,11 +42,12 @@ A run has two phases: the install phase reads the records in order
 in one thread, and the check phase checks every recorded declaration
 against the prefix of the installed environment it was installed at
 (see §2). The flag `--jobs=<n>` runs the check phase on `n` worker
-threads; without it there is one worker per hardware thread, and
-`--jobs=1` checks in the main thread with no thread at all. The
-verdict, and the declaration a rejection names, are the same at every
-`n`: the results are walked in record order, so the first failing
-record in fold order is the one reported. The flag
+threads; without it (`--jobs=1`) the checks run in the main thread
+with no thread at all — a worker thread reserves 1 GiB of address
+space, which is why the pool is opt-in. The verdict, and the
+declaration a rejection names, are the same at every `n`: the results
+are walked in record order, so the first failing record in fold order
+is the one reported. The flag
 `--progress[=<stride>]` prints a heartbeat on stderr with one line
 shape per phase — `install <i>/<N> <decl>` before every `stride`-th
 declaration is installed, `check <done>/<M> <decl>` after every
@@ -121,7 +122,7 @@ Read from the outside in:
    ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L182))
    runs it on every record in this thread and carries every fact;
    otherwise a pool of worker threads
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L309))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L312))
    claims chunks of records off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
@@ -131,7 +132,7 @@ Read from the outside in:
    fully checked environment; which thread computed a check is
    irrelevant to what it proves. The heartbeat and the route trace are
    printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L346-L349))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L349-L352))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
