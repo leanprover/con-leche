@@ -30,12 +30,15 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accepted incompleteness: Primitive projections are only supported
   - for structures that are not mutually recursive
   - inside the projection *functions* that the elaborator produces.
+* In anticipation of [lean4#14896](https://github.com/leanprover/lean4/pull/14896), theorem bodies are opaque. A k-rule like hack for `And` allows processing proofs built by Lean versions before that change.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axiom in the input stream.
 
   For practicality reasons, it silently *ignores* the other axiom declarations from the standard library, including `sorryAx`, but will complain if they are used.
 
   The checker (at the moment) will reject any other axiom.
+* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using `--threads`.
+* The parser is an agentic-hand-written parser over the input bytes.
 
 ## Design of the checker proof
 
@@ -97,6 +100,10 @@ This project intentionally explores a different point in the design space than [
 The lean4lean project aims at something bigger: Produce a verified checker that does *not* do steps that we assume to be not necessary, and understand the metatheory of the Lean logic, beyond just consistency.
 
 Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
+
+## The parser
+
+The parser is proven equivalent to a naive recursive descent parser, but this proof is unconnected to the rest of the development. It only serves to allow performance tweaks in the parser.
 
 ## Performance
 
