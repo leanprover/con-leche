@@ -88,6 +88,17 @@ def listConsName : Name := listName.str "cons"
 /-- The name `Char`. -/
 def charName : Name := anonymous |>.str "Char"
 
+/-- The name `And`: the one propositional structure whose recursor is
+rescued on a stuck proof (`majorToCtor`'s `And` branch,
+`ConLeche/Kernel/Core.lean`).  `And` is pinned by the built-in prelude
+(`pins/<toolchain>.prelude.ndjson`, installed first in every fold; a
+stream's own `And` is dropped as an identical copy or declines the
+stream), so the name always denotes the toolchain's `And`. -/
+def andName : Name := anonymous |>.str "And"
+
+/-- The name `And.intro`. -/
+def andIntroName : Name := andName.str "intro"
+
 /-- The name `Char.ofNat`. -/
 def charOfNatName : Name := charName.str "ofNat"
 

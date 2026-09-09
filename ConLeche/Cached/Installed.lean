@@ -18,12 +18,17 @@ together with the proof that `checkDecls` returns it
 declaration from CHECKING it:
 
 * **Phase A** folds `annotDeclStep` over the parsed records: a
-  `defn`/`thm`/`opaque` record is annotated and INSTALLED without its
+  `defn`/`opaque` record is annotated and INSTALLED without its
   inference — the syntactic guards and the annotation of its type and
-  value run, the constant is pushed — and a `PendingCheck` records the
-  datum the check needs (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean`)
-  together with the environment counter the declaration was installed
-  at (`fe.visibleBelow`, task #108).  Every other kind — axioms,
+  value run, the constant is pushed — and a `thm` record is installed
+  BY STATEMENT: its header alone is annotated and the constant pushed
+  with the record's own (raw) value, which nothing ever reads (a
+  theorem is opaque to reduction), so phase A never enters a theorem's
+  body; either way a `PendingCheck` records the datum the check needs
+  (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean` — the annotated
+  value of a definition or opaque, the raw value of a theorem) together
+  with the environment counter the declaration was installed at
+  (`fe.visibleBelow`, task #108).  Every other kind — axioms,
   inductive and basis blocks, and the pinned `Nat`-operation and
   `reduce*` branches, whose checks are not separable from their
   installs — takes the ordinary step `checkDeclStepC`.  An accepting
@@ -34,7 +39,8 @@ declaration from CHECKING it:
   `fe.restrictTo vis` (`FEnv.restrictTo`: an `O(1)` field update whose
   `find?` is the lookup in the environment truncated to the first
   `vis` constants, `mkFEnv_find?_visibleBelow`), each from a FRESH memo
-  state: `GroupChecked e i` says record `i`'s check succeeded.  It reads
+  state — a theorem's value is annotated here, at the view, before it
+  is inferred: `GroupChecked e i` says record `i`'s check succeeded.  It reads
   the installed environment, record `i`, and nothing else — a
   proposition workers can establish independently of one another.
 * `FullyChecked mode ds` is the subtype of installed environments every
@@ -134,19 +140,31 @@ def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
       pure (← checkDeclStepC mode fe (.defnDecl cv value hint), pend)
     else do
       let r ← annotValueC mode fe cv value true
+      -- RC linearity: the counter is read BEFORE the push, so that
+      -- `fe` reaches `push` unshared (read after it, the push copies
+      -- the whole index at every install)
+      let vis := fe.visibleBelow
       pure (fe.push (.defnInfo r.1 r.2.2 hint),
-        pend.push ⟨⟨.defn, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+        pend.push ⟨⟨.defn, r.1, r.2.2⟩, i, vis⟩)
   | .thmDecl cv value => do
-    let r ← annotValueC mode fe cv value true
-    pure (fe.push (.thmInfo r.1 r.2.2),
-      pend.push ⟨⟨.thm, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+    -- a theorem installs BY STATEMENT: the header's install half
+    -- only; the value is recorded raw and never touched here (phase B
+    -- annotates it, `checkPending`), so phase A never enters a
+    -- theorem's body
+    flushC
+    let r ← annotConstantValC mode fe cv
+    recordCConst r.1.name r.1.type r.2 none
+    let vis := fe.visibleBelow
+    pure (fe.push (.thmInfo r.1 value),
+      pend.push ⟨⟨.thm, r.1, value⟩, i, vis⟩)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then do
       pure (← checkDeclStepC mode fe (.opaqueDecl cv value), pend)
     else do
       let r ← annotValueC mode fe cv value false
+      let vis := fe.visibleBelow
       pure (fe.push (.axiomInfo r.1),
-        pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+        pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, vis⟩)
   | pd => do
     pure (← checkDeclStepC mode fe pd, pend)
 
@@ -223,10 +241,14 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
   let fe := fe.restrictTo pc.vis
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.cvA.type
   let u ← opSIxC mode fe 0 jsty
-  if pc.vg.kind = .thm then
-    unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
-      throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.jv
+  let jv ← if pc.vg.kind = .thm then do
+      unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
+        throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
+      -- a theorem's value arrives raw: its guards and annotation run
+      -- here, at the view (`annotValC` — `installValue`'s twin)
+      annotValC mode fe pc.vg.cvA pc.vg.cvA.type pc.vg.jv false
+    else pure pc.vg.jv
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt pc.vg.cvA.type do
     throw (.invalid s!"type mismatch in {pc.vg.kind.word} {pc.vg.cvA.name}")
 
@@ -294,6 +316,71 @@ theorem groupChecked_all {ds : List DeclC} {e : InstalledEnv mode ds}
   by_cases hi : i < e.pend.size
   · exact acc i hi
   · exact groupChecked_of_ge mode e (Nat.le_of_not_lt hi)
+
+/-! ## One record's check, as evidence
+
+The driver's check phase — the in-thread loop or a pool of workers —
+runs `checkRecord` on every record.  Its result is the record's own
+evidence: on an accept the `GroupChecked` fact of that record, on a
+failure the error tagged with the record's fold position, the tag
+`checkPendingList` gives.  A worker hands back exactly this (a `Nat`
+and an erased proof, or the error), so the thread that computed a
+check is irrelevant to what it proves, and the results of any number
+of workers, in whatever order they finished, are assembled into
+`∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
+results in record order, which is also what makes the verdict of a
+pool the verdict of the walk `checkPendingList`: the first failing
+record in fold order.  Nothing here is `IO`. -/
+
+/-- Record `k`'s check: its `GroupChecked` fact, or the error tagged with
+its fold position. -/
+def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
+    (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
+  match h : checkPending mode e.fe e.pend[k] {} with
+  | .ok ((), _) => .ok ⟨groupChecked_of_run mode e hk h⟩
+  | .error err => .error (err, e.pend[k].pos)
+
+/-- A checked record: its index with its `GroupChecked` fact — a `Nat`
+at run time. -/
+abbrev CheckedRecord {ds : List DeclC} (e : InstalledEnv mode ds) : Type :=
+  { k : Nat // GroupChecked mode e k }
+
+/-- A worker's result for one record: the checked record, or the error
+tagged with the record's fold position. -/
+abbrev RecordResult {ds : List DeclC} (e : InstalledEnv mode ds) : Type :=
+  Except (CheckError × Nat) (CheckedRecord mode e)
+
+/-- Record `k`'s check as a worker's result. -/
+def checkRecordResult {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
+    (hk : k < e.pend.size) : RecordResult mode e :=
+  match checkRecord mode e k hk with
+  | .ok ⟨h⟩ => .ok ⟨k, h⟩
+  | .error err => .error err
+
+/-- **The results, assembled in record order.**  Slot `j` of the table
+must hold record `j`'s result; the walk carries the facts of the
+records below `j` and stops at the first failure — the walk's verdict
+is therefore `checkPendingList`'s whatever order the results were
+produced in.  A slot that is empty or holds another record's result is
+an internal error (a pool that did not do its job), never a verdict on
+the input. -/
+def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
+    (tab : Array (Option (RecordResult mode e))) :
+    (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
+      Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
+  | j, acc =>
+    if hj : j < e.pend.size then
+      match tab[j]? with
+      | some (some (.ok ⟨k, hk⟩)) =>
+        if h : k = j then
+          collectChecks e tab (j + 1) (groupChecked_extend mode acc (h ▸ hk))
+        else .error (.internal s!"check phase: slot {j} holds record {k}", e.pend[j].pos)
+      | some (some (.error err)) => .error err
+      | _ => .error (.internal s!"check phase: record {j} was never checked", e.pend[j].pos)
+    else
+      .ok ⟨groupChecked_all mode
+        (fun i hi => acc i (Nat.lt_of_lt_of_le hi (Nat.le_of_not_lt hj)))⟩
+  termination_by j => e.pend.size - j
 
 /-! ## The fold, and the fully checked environment it is
 

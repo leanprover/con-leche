@@ -80,7 +80,6 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     (hfresh : env.find? c₀.name = none)
     -- a basis cons is never a value kind
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     -- the two blocks that supply their row bespoke are excluded
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
@@ -125,11 +124,10 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
-  · -- `hvalReads`: a basis cons is never a definition or a theorem
+  · -- `hvalReads`: a basis cons is never a definition
     intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
-    · exact absurd hdt.symm (hnotthm cv2 value2)
+    obtain ⟨hint2, hdt⟩ := hmem
+    exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
   · -- `nat_heads`: the guard reads three names, and this is none
     exact fun φ => natHeads_cons_offNat mp hnN hnZ hnS _ rfl φ
   · -- `nat_ops`
@@ -167,7 +165,6 @@ theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
@@ -203,9 +200,8 @@ theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V μ env)
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
-    · exact absurd hdt.symm (hnotthm cv2 value2)
+    obtain ⟨hint2, hdt⟩ := hmem
+    exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
   · exact fun φ => natHeads_cons_offNat mp hnN hnZ hnS _ rfl φ
   · exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ) hfresh
       (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
@@ -228,7 +224,6 @@ theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
@@ -265,9 +260,8 @@ theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V μ env)
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
-    · exact absurd hdt.symm (hnotthm cv2 value2)
+    obtain ⟨hint2, hdt⟩ := hmem
+    exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
   · exact fun φ => natHeads_cons_offNat mp hnN hnZ hnS _ rfl φ
   · exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ) hfresh
       (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
@@ -289,7 +283,6 @@ theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnEq : eqName ≠ c₀.name)
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
@@ -327,9 +320,8 @@ theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V μ env)
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
-    · exact absurd hdt.symm (hnotthm cv2 value2)
+    obtain ⟨hint2, hdt⟩ := hmem
+    exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
   · exact fun φ => hnh _ rfl φ
   · exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ) hfresh
       (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl

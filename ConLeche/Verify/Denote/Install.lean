@@ -640,7 +640,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
 /-- Denotations of *old* terms survive an install: same value, larger
 environment, changed valuation.  The shared core of every field's
 transport — `has_type_cons` above is this plus a valuation rewrite, and
-`defn_eq_cons` / `thm_ok_cons` below are the same again. -/
+`defn_eq_cons` below is the same again. -/
 theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
     {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : Term}
     (hfresh : env.find? c₀.name = none)

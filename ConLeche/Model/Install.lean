@@ -320,9 +320,8 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
       (value : Expr),
-      ((∃ hint : ReducibilityHint,
-          ConstantInfo.defnInfo cv value hint = c₀) ∨
-        ConstantInfo.thmInfo cv value = c₀) →
+      (∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint = c₀) →
       denoteMeta (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
     (hnh : ∀ φ : Name → Nat,
@@ -403,40 +402,26 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
             = mp.base2.acval c.name from acvalWith_ne (hne _ h)]
       exact mp.mem_type c h ψ ta' hta' ρ
   have hdr : ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
-      ((∃ hint : ReducibilityHint,
-          ConstantInfo.defnInfo cv value hint
-            ∈ (⟨c₀ :: env.consts⟩ : Env).consts) ∨
-        ConstantInfo.thmInfo cv value
+      (∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint
           ∈ (⟨c₀ :: env.consts⟩ : Env).consts) →
       denoteMeta (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 value
         = some (acvalWith mp.base2.acval c₀.name A cv.name ψ) := by
     intro ψ cv value hmem
-    rcases hmem with ⟨hint, hdt⟩ | hdt
-    · rcases List.mem_cons.mp hdt with h | h
-      · have hnm : cv.name = c₀.name := congrArg ConstantInfo.name h
-        have hleaf : acvalWith mp.base2.acval c₀.name A cv.name = A := by
-          rw [hnm]; exact acvalWith_self
-        rw [hleaf]
-        exact hvalReads ψ cv value (.inl ⟨hint, h⟩)
-      · rw [show acvalWith mp.base2.acval c₀.name A cv.name
-            = mp.base2.acval cv.name from
-            acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact hcompM ψ value ((hbound _ h).2.1 cv value hint rfl)
-          (hh.projTower.defn h)
-          (mp.defn_reads ψ cv value (.inl ⟨hint, h⟩))
-    · rcases List.mem_cons.mp hdt with h | h
-      · have hnm : cv.name = c₀.name := congrArg ConstantInfo.name h
-        have hleaf : acvalWith mp.base2.acval c₀.name A cv.name = A := by
-          rw [hnm]; exact acvalWith_self
-        rw [hleaf]
-        exact hvalReads ψ cv value (.inr h)
-      · rw [show acvalWith mp.base2.acval c₀.name A cv.name
-            = mp.base2.acval cv.name from
-            acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact hcompM ψ value ((hbound _ h).2.2 cv value rfl)
-          (hh.projTower.thm h)
-          (mp.defn_reads ψ cv value (.inr h))
+    obtain ⟨hint, hdt⟩ := hmem
+    rcases List.mem_cons.mp hdt with h | h
+    · have hnm : cv.name = c₀.name := congrArg ConstantInfo.name h
+      have hleaf : acvalWith mp.base2.acval c₀.name A cv.name = A := by
+        rw [hnm]; exact acvalWith_self
+      rw [hleaf]
+      exact hvalReads ψ cv value ⟨hint, h⟩
+    · rw [show acvalWith mp.base2.acval c₀.name A cv.name
+          = mp.base2.acval cv.name from
+          acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
+      exact hcompM ψ value ((hbound _ h).2 cv value hint rfl)
+        (hh.projTower.defn h)
+        (mp.defn_reads ψ cv value ⟨hint, h⟩)
   exact ⟨{
     base2 := coreCons mp.base2 A hfresh hh hAclosed hAparams hAok
     acval_validV := acvalWith_validV (n := c₀.name)
@@ -483,9 +468,8 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
       (value : Expr),
-      ((∃ hint : ReducibilityHint,
-          ConstantInfo.defnInfo cv value hint = c₀) ∨
-        ConstantInfo.thmInfo cv value = c₀) →
+      (∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint = c₀) →
       denoteMeta (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
     (hnh : ∀ φ : Name → Nat,

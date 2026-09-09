@@ -400,13 +400,6 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
             let r ← mkAppNM v args
             pure (some r)
           else pure none
-        | some (.thmInfo cv _) =>
-          if us.length = cv.levelParams.length then do
-            let v ← constValAtM (mkFEnv env) n nm us
-            let args ← pure (ExprC.getAppArgs i)
-            let r ← mkAppNM v args
-            pure (some r)
-          else pure none
         | _ => pure none
       | _ => pure none)
   refine CEff.pureB ?_
@@ -416,11 +409,6 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       | .const n us =>
         match env.find? n with
         | some (.defnInfo cv value _) =>
-          if us.length = cv.levelParams.length then
-            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
-              (Expr.getAppArgs i))
-          else none
-        | some (.thmInfo cv value) =>
           if us.length = cv.levelParams.length then
             some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
               (Expr.getAppArgs i))
@@ -446,7 +434,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         dsimp only
         by_cases hlen : us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos hlen]
-          refine CEff.bind (constValAtM_eff hs (Or.inl hfc)) ?_
+          refine CEff.bind (constValAtM_eff hs hfc) ?_
           intro s₁ v hs₁ hQv
           refine CEff.pureB ?_
           refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec _)) ?_
@@ -455,19 +443,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         · rw [if_neg hlen, if_neg hlen]
           exact CEff.pure hs trivial
       | axiomInfo cv => exact CEff.pure hs trivial
-      | thmInfo cv value =>
-        dsimp only
-        by_cases hlen : us.length = cv.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
-          refine CEff.bind (constValAtM_eff (hint := .opaque) hs
-            (Or.inr hfc)) ?_
-          intro s₁ v hs₁ hQv
-          refine CEff.pureB ?_
-          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec _)) ?_
-          intro s₂ r hs₂ hQr
-          exact CEff.pure hs₂ hQr
-        · rw [if_neg hlen, if_neg hlen]
-          exact CEff.pure hs trivial
+      | thmInfo cv value => exact CEff.pure hs trivial
       | indInfo cv caps => exact CEff.pure hs trivial
       | ctorInfo cv nP nF => exact CEff.pure hs trivial
       | recInfo cv mI rP rules => exact CEff.pure hs trivial

@@ -252,10 +252,12 @@ an unconditional equality — so the P-tier obligation is stated at the
 the fuel and the mode-conditioned direction removed. -/
 
 /-- **The unfolding supplier the P-tier delta exit consumes**: a stored
-value's validated annotation *is* the constant's own leaf, at every
-level assignment.  Both unfoldable kinds in one premise, as
-`unfoldDefinition`'s two branches differ only in the field that
-supplies the value.
+definition's validated annotation *is* the constant's own leaf, at
+every level assignment.  Definitions only: a theorem is opaque to
+reduction (`unfoldDefinition` has no `thmInfo` arm), so the invariant
+keeps no equation between a theorem's value and its leaf — the leaf is
+an inhabitant of the statement, and that is all the install
+establishes.
 
 Routed.  The install tier discharges it; `acvalDefnInst_noParams`
 (`Steps/Whnf.lean`) is the canonical tier's evidence that the shape is
@@ -263,9 +265,8 @@ inhabited well beyond vacuity, and the P shape asks for *less* than
 that one (no `us`, no instantiation). -/
 @[expose] def AcvalDefnInst {env : Env} (m : EnvModel V env) : Prop :=
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
-    ((∃ hint : ReducibilityHint,
-        ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
-      ConstantInfo.thmInfo cv value ∈ env.consts) →
+    (∃ hint : ReducibilityHint,
+      ConstantInfo.defnInfo cv value hint ∈ env.consts) →
     denoteMeta m.acval env ψ 0 value = some (m.acval cv.name ψ)
 
 /-- **The instantiated form, derived.**  This is the whole of what the
@@ -276,16 +277,15 @@ unconditional. -/
 theorem acvalDefnInst_subst {m : EnvModel V env}
     (hdi : AcvalDefnInst m) (φ : Name → Nat) {cv : ConstantVal}
     {value : Expr} {us : List Level}
-    (hmem : (∃ hint : ReducibilityHint,
-        ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
-      ConstantInfo.thmInfo cv value ∈ env.consts) :
+    (hmem : ∃ hint : ReducibilityHint,
+      ConstantInfo.defnInfo cv value hint ∈ env.consts) :
     denoteMeta m.acval env φ 0
         (value.instantiateLevelParams cv.levelParams us)
       = some (m.acval cv.name (Level.substFn φ cv.levelParams us)) := by
   rw [denotePInstLevels m φ cv.levelParams us 0 value]
   exact hdi _ cv value hmem
 
-/-- The shared core of `unfoldDefinition`'s two branches, P currency —
+/-- The core of `unfoldDefinition`'s definition branch, P currency —
 `delta2B_core` with the fuel move deleted. -/
 private theorem delta_core (m : EnvModel V env)
     {d : Nat} {e : Expr} {n : Name} {us : List Level}
@@ -343,20 +343,7 @@ theorem delta_of (m : EnvModel V env) (hdi : AcvalDefnInst m) :
           (by obtain ⟨-, -, -, -, hd, -⟩ :=
                 m.wf _ (find?_mem hfind)
               exact (hd cv value hint rfl).1)
-          (acvalDefnInst_subst hdi φ
-            (Or.inl ⟨hint, find?_mem hfind⟩)) hea
-      · exact nomatch hud
-    · next cv value hfind =>
-      split at hud
-      · next hlen =>
-        obtain rfl : e' = Expr.mkAppN
-            (value.instantiateLevelParams cv.levelParams us)
-            e.getAppArgs := (Option.some.inj hud).symm
-        exact delta_core m hfn hfind rfl hlen
-          (by obtain ⟨-, -, -, -, -, -, ht, -⟩ :=
-                m.wf _ (find?_mem hfind)
-              exact (ht cv value rfl).1)
-          (acvalDefnInst_subst hdi φ (Or.inr (find?_mem hfind))) hea
+          (acvalDefnInst_subst hdi φ ⟨hint, find?_mem hfind⟩) hea
       · exact nomatch hud
     · exact nomatch hud
   · exact nomatch hud

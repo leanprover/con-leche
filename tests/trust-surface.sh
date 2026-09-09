@@ -121,6 +121,25 @@
 #       here is in the binary; the spliced literals are ordinary data
 #       the proofs consume.
 #
+#   Main.lean                          unsafe
+#       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
+#       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
+#       once when the check phase runs on the pool, on the installed
+#       `FEnv` and the pending-check array.  It is the same escape
+#       `Lean.Environment.finalizeImport` uses for the same call, and
+#       it is `unsafe` for one reason only: a marked closure is never
+#       freed, and this process exits right after.  Nothing else about
+#       it can be observed.  The graph is READ-ONLY from the boundary
+#       on — every recorded check reads a prefix view of it from a
+#       fresh memo state and writes nothing back — the call is the
+#       IDENTITY on the value, and its result is DISCARDED, so the
+#       `InstalledEnv` the driver goes on to use is the one it already
+#       had and no verdict, and no step of the proof that `checkDecls`
+#       returns that environment, can turn on whether the mark
+#       happened.  `--no-mark-persistent` turns it off, and the output
+#       is identical either way.  No `implemented_by` and no
+#       `computed_field` is tolerated in this file.
+#
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
 # `ConLeche/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
 # ()` stubs gave the noncomputable model operators compiled garbage so
@@ -161,6 +180,7 @@ TOKENS = {
 }
 
 ALLOW = {
+    'Main.lean':                     {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},

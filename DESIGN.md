@@ -52535,6 +52535,51 @@ axiom pin: 11 theorems at `[propext, Classical.choice, Quot.sound]`).
   `include_str`s and the dump's `preludeFile` (§3).
 * **(vii) The format tag** bumped to `/2`.
 
+**The 1.5 GB Mathlib prefix** (task #256's 27 232 079-line cut of
+`mathlib-full.ndjson`, 162 092 declarations, 160 028 recorded checks),
+verified, under `ulimit -v 22000000`, `--progress=20000`:
+
+| jobs | instructions | cycles | wall | peak RSS | parse / install / check |
+|---|---|---|---|---|---|
+| 1 | 2 928.1 G | 2 281.9 G | 584.7 s (repeat 518.4) | 2.18 GB | 7.9 / 37.3 / 537.0 s (471.0) |
+| 2 | 2 884.5 G | 1 258.4 G | 168.3 s | 2.25 GB | 8.9 / 36.6 / 120.3 s |
+| 8 | 2 884.8 G | — | 89.0 s | 2.32 GB | 8.3 / 39.3 / 38.8 s |
+
+Two things this stream shows that init-full does not.  First the
+gain: **6.6× on the run and 12–14× on the check phase at eight
+workers**, with the serial floor (parse + install ≈ 45 s of 582) now
+the half of what remains.  Second, a finding about the in-thread
+lane: the pool executes FEWER instructions than `--jobs=1`
+(−1.5 %, despite its +0.9 % of atomic counting) and at two workers
+burns 1.8× fewer cycles for the same work — the in-thread lane runs
+at IPC 1.28 where a worker runs at 2.29 — so `--jobs=2` is 3.9× and
+`--jobs=8` 12–14× faster than `--jobs=1` on the check phase, and a
+single worker is about twice as fast as the main thread.  The code
+path is the same (`checkRecord` per record from `{}`); what differs
+is the HEAP: the main thread checks out of the heap that holds the
+2.2 GB environment it just built, a worker out of a fresh
+per-thread heap holding nothing but its own transients, and the
+extra instructions and the stalls are the allocator's — its slow
+paths over a heap of that size.  On init-full (430 MB) the same lane
+is normal (`--jobs=2` is 1.76× on the phase), so the effect grows
+with the environment.  A probe variant (not landed: `--jobs=1`
+routed through the pool, i.e. ONE worker on a fresh thread and the
+main thread waiting) confirms the mechanism: on the prefix the check
+phase takes 260.6 s at 1 337 G cycles against the in-thread lane's
+471–537 s at 2 282 G — 1.9× on one thread; on init-full it takes
+56.7 s against 49.7 s (+14 %: the atomic counting with nothing to
+gain from it).  So the in-thread lane is the faster `--jobs=1` for a
+small environment and the slower one for a large environment, with
+the crossover between 430 MB and 2.2 GB of environment.  **Open
+finding, not fixed here** (user ruling: *"keep an overhead-free
+single threaded lane"* — `--jobs=1` stays the in-thread loop with no
+thread, no marking and no pool): what the main thread's heap does
+differently on a large environment is for tasks #259/#263 to look
+at; #259's persistent mark removes the counting the pool pays for
+and is in the same territory.  Both binaries are in
+`_tmp/parallel/` (`con-leche-6f53e4f0`, `con-leche-pool1`) with the
+logs.
+
 ### 5. Gates
 
 Build warning-free; `lake test` (axiom pin 11 theorems, the prelude
@@ -65093,6 +65138,683 @@ cites `Main.lean#L518`, the `def usage` line itself, and every edit is
 below it, so `tests/overview-links.sh` passes unchanged and no
 `--update` was run.
 
+## Task #258 — THEOREMS ARE OPAQUE TO REDUCTION, THE PINNED `And` IS RESCUED, THEOREM VALUES ARE CHECKED IN PHASE B (2026-09-09, `agent/opaque-258`)
+
+Task #251's design, landed (the user: "ok, then lets do this, and
+move thm value checking into the check phase").  Three stages, one
+commit each, over master `eda57034` (stages 1–2) and `e4c34f68`
+(stage 3, after #256/#257).
+
+### 1. Opaque theorems — a de-gating (stage 1)
+
+`unfoldDefinition`/`unfoldableHead` and the cached
+`unfoldDefinitionI`/`unfoldableHeadC`/`constValAtM` lose their
+`thmInfo` arms: a stored theorem never unfolds (the docstrings say
+what this anticipates: https://github.com/leanprover/lean4/pull/14896,
+theorems opaque to the kernel).  `headHint` is unchanged (a theorem
+already read as `opaque`).  The theorem-value check keeps its
+is-a-proposition test (`bad/012_nonPropThm` rejects).
+
+The invariant gets WEAKER, so every consumer's hypothesis gets
+stronger; what simplified:
+* `AcvalDefnInst` (`Model/Steps/Whnf.lean`) is definitions-only;
+  `acvalDefnInst_subst` and `delta_of` lose their theorem case.
+* `EnvFacts.thm_ok` (`Semantics/EnvFacts.lean`) is DELETED with its
+  three constructions (`EnvModelM.toEnvFacts`, `IndRecsCore`,
+  `ProjFnFacts`, `EnvFactsCons` — the swap/cons transports of a
+  theorem's reading, each a `nomatch`-and-transport pair, gone).
+* `declStep_preserves_of_cons`' `hvalReads` premise (both forms,
+  `Model/Install.lean`) is definitions-only; `harvestThm`'s discharge
+  of it is `nomatch` (the harvest still reads the value ONCE, for the
+  leaf `A` — the constant is an inhabitant of its statement — and
+  `hmemA` is the whole content of a theorem's install); the basis,
+  inductive and tower cons lemmas (`BasisStep` ×4, `IndCons`,
+  `TowerCons`) shed their `hnotthm` premise at 20 call sites.
+* `CSOK.constVal` (`Verify/Cached/SimC.lean`) and
+  `constValAtM_eff`/`insertConstVal` (`SimCEff.lean`) are
+  definitions-only; `DiscC1`'s delta simulation, `GuardsC`'s
+  `unfoldableHeadC_spec`, `Deep`'s shift commutation and the three
+  `unfoldDefinition` scoping lemmas (`InferLeaves` ×2,
+  `InferLemmas`) have a `nomatch` theorem arm; `Swap`'s `defn_reads`
+  transport has one arm.
+
+**The RC fix.**  `checkDeclC`'s `.opaqueDecl` arm branches on
+`reduceOpNames` BEFORE the push, so the common arm hands `fe` to
+`checkOpaqueValC`'s `push` unshared (#251's finding: with `fe` live
+across the push, every opaque install copied the index).  The audit
+found the same shape in phase A's `annotStepC` (all three value arms
+read `fe.visibleBelow` AFTER `fe.push` in the same tuple, so every
+phase-A install copied the whole index — the shape #253 measured as
+its +3.77 %): the counter is now read into a `let` before the push.
+`BridgeC`, `AgreeFloor` and `PushChain` follow the opaque arm's new
+shape (a `split` before the bind).
+
+**Conformance.**  `tests/e2e/subject_reduction_redex` (the arena's
+`good/undecidability/subject-reduction-redex`, whose `Acc` ι step needs
+two theorems to unfold) flips accept → reject: an accept-SUBSET of the
+reference kernels until lean4#14896 lands, recorded in
+`tests/e2e-expected.txt`.  Nothing else in the corpus moves (the
+trusted sweep's three recorded divergences are unchanged).
+
+### 2. The pinned `And` and its η rescue (stage 2)
+
+THE DESIGN FORK, and where it went.  The brief listed the pieces of
+a `BasisKind` block (`Kernel/Basis/And.lean`, `BasisA`,
+`reservedBasisNames`, `Model/BasisBlocks`).  A `BasisKind` And is a
+HAND-WRITTEN block model — `Eq`'s is 1.3k lines, and `And` would add
+a two-field projection table (`ProjOkT`, `TowerOk`) on top — while the
+NATIVE model tier cannot be reused for a reserved-named block
+(`FixStageTable`/`FixStageFormer`/`StructCaps` take
+`reservedBasisNames.contains … = false` throughout).  And the rescue's
+soundness row consumes NONE of it: it is the K row's argument (the
+fabrication and the major are both proofs of the major's type, so
+`proofIrrel` identifies their readings — every proof is the point)
+plus the stored tower entries' typing law for the two `.proj` nodes.
+So `And` is pinned the way `Bool` is (task #191): a **built-in prelude
+member** (`pinnedPreludeMembers` in `ConLeche/PinGen/Prelude.lean`,
+regenerated `pins/leanprover-lean4-v4.33.0.prelude.ndjson`: 12
+records, `And`/`And.intro`/`And.rec`), installed FIRST in every fold
+through the native route (which stores its projection table), a
+stream's own `And` dropped as an identical copy or declining the
+stream (`pushDecl`'s dedupe) — so the name `And` denotes the
+toolchain's `And` in every fold the binary runs.  No
+`reservedBasisNames` entry (a reserved name cannot install through
+the native route), no `BasisA`, no block model.  User's ruling in
+force: `And` ONLY — the rescue is a name-keyed branch, not a change to
+the generic η rescue, and a stream with its own `Iff`/`Acc`-style
+proposition gets nothing (the probes below).
+
+**The branch** (`majorToCtor`, `ConLeche/Kernel/Core.lean`; cached twin
+`majorToCtorI`): after the K and η branches, `else if T = andName`:
+the major's io-inferred, reduced type `And a b`; the gate
+`andRescueSlots env rl.ctor cnP ust` (both tower entries of `And`
+stored, naming the rule's constructor at the major's parameter count,
+two fields, `ProjEntry.fireOk` at `ust` — `And`'s fields are
+propositions, so a `.proj And j h` node is typed by the tower infer
+branch); the fabrication `And.intro a b (.proj And 0 h) (.proj And 1 h)`;
+the K branch's certificates in the K branch's order: the scope guard,
+`iotaCerts` on the constructor's telescope (which types the two `.proj`
+nodes), the fabrication's type against the major's, `proofIrrel`.
+`ProjEntry.fireOk` moved above `majorToCtor` (definition order); the
+gate is abstracted over the lookup (`andRescueSlotsOf`) so
+`FEnv.andRescueSlotsF` shares its body.  This WORKS AROUND the absence
+of https://github.com/leanprover/lean4/pull/14925 (upstream builds
+`casesOn`/`recOn` of such a proposition from projections, so no
+`And.rec` on a proof is emitted).
+
+**The proofs.**  `majorToCtor_inv` (`Verify/InferLemmas.lean`) gains a
+third disjunct; `andRescueSlots_inv` unpacks the gate; the cached gate
+has its spec (`andRescueSlotsF_spec`, `GuardsC`) and congruence
+(`andRescueSlotsF_congr`, `KnotCongr`); `majorToCtorC_sim` (`DiscC3`)
+simulates the branch.  The two rows in `Model/Steps/Major.lean`: the
+reads row reads the two `.proj` nodes through `denoteMeta_proj_tower`;
+the step row is R12's argument at the fabrication, with the
+projections graded by `TowerEntryLaw`'s typing clause under the guard
+`towerGuardAt_of_fireOk` (not the η record's: `And` claims no η) —
+the tower-branch of the η row, minus the η-family facts, plus the K
+close.
+
+**Conformance.**  Accept-SUPERSET of official on the rescue
+(`to_cnstr_when_structure` requires a never-zero sort), sound by proof
+irrelevance and reported per the `proofIrrel` ruling.  The four probe
+fixtures from #251 are e2e fixtures (`and_rec_opaque` accept,
+`iff_rec_opaque`/`acc_rec_opaque` reject, `and_rec_def` accept;
+sources beside them).
+
+### 3. Theorem values checked in phase B (stage 3)
+
+The user's decision: "ok, then lets do this, and move thm value
+checking into the check phase."  Landed on #257's driver (`checkDecls`
+IS the two-phase fold), so this is a change of `checkDecls` itself:
+the statement of the main theorem stays, README stays.
+
+**A theorem is stored by its statement.**  `checkThmVal` (the spec),
+`checkThmValC` and phase A's theorem arm (`annotStepC`) push
+`thmInfo cvA value` with the RECORD'S OWN, RAW value: nothing reads a
+stored theorem value any more (stage 1), so what is stored is a datum,
+not an input.  Phase A's theorem arm is `flushC`, `annotConstantValC`
+(the header's guards and annotation), the type record, the push — it
+never enters a theorem's body.  Phase B's `checkPending` annotates the
+raw value at the prefix view (`annotValC`, `installValue`'s twin,
+after the is-a-proposition test) and infers/checks it; `checkValueGroup`
+takes the same shape in the spec, and `ValueGroup.jv` is documented as
+"annotated for a definition or opaque, raw for a theorem".  The
+annotated value is a realizability witness — checked against the
+statement and discarded, as an opaque's is.
+
+**The invariant, weaker again.**  `ConstWF` loses its theorem-value
+clause (the raw value has no resolve/level facts, and nothing reads
+it): `envWF_constsBound` sheds its theorem conjunct, the cross-install
+kit its theorem field (`NoProjEnv.thm`, `NoProjHead.thm`,
+`ConsCrossEnv.thm` and the `hnotthm` premises of `NoProjHead.ofType`),
+and some twenty nine-clause sites shrink (`EnvFactsCons`, `IndRecsCore`,
+`ProjFnFacts`, the basis files' `EnvWF.cons` tuples, `AxiomPin`,
+`AxiomReduce`, `Caps`, `StructWF`, `BridgeCS4`, `TowerCons`,
+`FixStageTable`, `InferLemmas`).  `DeclThmRun`'s environment carries
+the raw value; `harvestThm` conses it, its leaf still the annotated
+value's reading — from phase B's run, which is where the value is now
+read once.
+
+**The transfer (#251 (iv)'s "one more fact at the seam").**
+`annotValC_congr`: the annotation reads its index through `find?`
+alone (`coreKnotI_congr` for the knot, `constsResolveFC_congr` for the
+resolve walk), so phase B's annotation of a theorem's value at the
+view IS the annotation at the prefix environment.  `checkPending_run`
+consumes it in its theorem branch and asks the value's
+well-scopedness only of the other two kinds; `installRun_model`'s
+value helper takes the install facts (rather than `annotValueC`'s run)
+and the theorem arm supplies them from the header's install alone;
+`checkValueGroup_inv`/`_of_facts`/`_mono` carry the theorem's
+`installValue`, `checkDecl_of_split_thm` takes the raw value, and the
+definition/opaque splits gain a kind premise.  The fold's equality
+the driver returns (`fullyChecked_checkDecls`) is untouched and
+unconditional.
+
+**`--progress`.**  The two phases were already visible on #257's
+driver: `progress install done: N pending checks`, then one
+`progress check k/N <name>` line per record at the stride, then
+`progress fold done`.  Nothing added; a fuller design is a later task.
+
+### 4. Conformance, in one place
+
+* Accept-SUBSET of official on inputs whose typing needs a theorem to
+  unfold: `subject_reduction_redex` (0 → 1), the only such input in
+  the corpus and in Mathlib; lean4#14896 flips official the same way.
+* Accept-SUPERSET on the `And` rescue (official never η-rescues a
+  proposition), sound by proof irrelevance — `and_rec_opaque` accepts,
+  its `Iff`/`Acc` twins reject.
+* `bad/012_nonPropThm` still rejects (the is-a-proposition test stays).
+* The trusted sweep's three recorded divergences are unchanged.
+
+### 5. Numbers and gates
+
+**init-full**, one run per mode (`ulimit -v 16000000`, `timeout`,
+`perf stat -e instructions:u`), against the merged master
+`e4c34f68` (#256 + #257) built from a plain copy of its tree:
+
+| mode | master `e4c34f68` | this branch | delta |
+|---|---|---|---|
+| verified | 561.19 G | **547.35 G** | −2.47 % |
+| trusted | 536.10 G | **529.87 G** | −1.16 % |
+
+53 088 accepted in every cell.  (#251's corrected experiment was
+−0.76 % / −0.69 % on the old driver; the larger gain here is phase
+A's counter hoist — every phase-A install used to copy the whole
+index — on top of the opaque delta step and the theorem bodies
+leaving phase A.)
+
+**The 1.5 GB Mathlib prefix** (`mlpre-1_5G.ndjson`, verified,
+`ulimit -v 22000000`): exit 0, 162 092 accepted, **2 973.35 G**
+(#251's cell on the old driver and the old parser: 3 465.8 G with
+opaque theorems, 3 504.9 G without; the baseline moved with #256, so
+only the old cells are comparable).
+
+**All of Mathlib** (`mathlib-full.ndjson`, 5.6 GB, verified,
+`--progress=5000`, `ulimit -v 22000000`, `timeout 28800`): **exit 0,
+"accepted 654499 declarations (--verified)"** — the expected count —
+**13.23 T instructions** (#251's Mathlib cell on master was 14.21 T;
+its 19.83 T ran the RC-buggy arm), wall 4 702 s: parse 29.5 s, phase A
+done at 206 s (649 898 pending checks), phase B the remaining
+≈4 500 s — the shape (iv) predicted, with phase A now parse-bound.
+
+**Gates** (all under `env -i`): `lake build` 529 jobs warning-free;
+`lake test` warning-free (PreludeTests: 8 records, 27 constants, the
+dedupe at 8); `tests/arena.sh` green — arena tutorial 90/92 (as
+master), e2e 185/185 (the four probes added, `subject_reduction_redex`
+flipped to reject), annot 14/14, mode/retired/progress/DAG-tower
+lanes as master, prelude counts 3/3, trusted sweep 138 + 185 + 14
+with the three recorded divergences unchanged; proofdeps 3 367 module
+rows across 10 roots as pinned (no regeneration needed: no module
+was added, and the module-level closure did not move — the new
+lemmas live in existing modules), doors 0; axiom pin unchanged (the
+16 pinned theorems at `[propext, Classical.choice, Quot.sound]`);
+pindump fresh (the dump names `And` and `Bool` as prelude members, the
+prelude 267 lines / 12 records); trust surface 10 escapes in 4
+allowlisted files, 0 outside; shake 460 removals all allowlisted;
+`tests/overview-links.sh` 68 links / 46 files OK — every moved anchor
+relocated by its cited TEXT (an `--update` after a code move launders
+unchanged-header anchors, which the stage-1 run showed on
+`Installed.lean`, `ParsedC.lean` and `Core.lean`), the one changed
+citation (`installRun_model`'s docstring) re-read and retargeted, and
+one anchor found already stale on master (`whnfBody`, pointing at a
+blank line) repaired.  README.md: no sentence there became false
+(it describes the statement of the main theorem, which did not
+change).
+
+### 6. What the orchestrator should know
+
+* The `And` pin is NOT a `BasisKind` block (§2 says why); if the
+  hand-written block model is wanted regardless, it is a separate
+  task of Eq's size and buys the rescue's row nothing.
+* Phase A's `annotStepC` had the same RC slip as the opaque arm
+  (the counter read after the push) on both #253 and #257; the hoist
+  is part of stage 1 and is where most of the init-full gain comes
+  from.
+* The mechanical Verify grind of stage 2 (`majorToCtor_inv`'s third
+  disjunct, `andRescueSlots_inv`, the cached gate's spec/congruence,
+  DiscC3's simulation, the shift/fuel/pair lemmas) was delegated to
+  one Opus subagent, as permitted; everything else is this lane's.
+
+## Task #260 — THE CHECK PHASE ON A POOL OF WORKER THREADS, AND A HEARTBEAT THAT KNOWS THE TWO PHASES (2026-09-09, `agent/parallel-260`)
+
+The two-phase fold (tasks #253/#257) made every recorded check depend
+on the installed index at its own prefix view, its own record and a
+fresh memo state — independent by construction.  This task runs
+phase B on `--jobs=<n>` threads, under the user's lifting of the
+"no threads" rule for the check phase alone (it holds everywhere
+else: the parse and the install phase are one thread, and are the
+run's serial floor), and redesigns `--progress` to report the install
+phase and the check phase separately.  The driver stays ONE driver
+returning `{ env // checkDecls mode ds = .ok env }`; the transfer
+theorems are untouched.
+
+### 1. The proof plumbing: a check is its own evidence
+
+`ConLeche/Cached/Installed.lean` gains, IO-free and beside the fold:
+
+* `checkRecord e k hk : Except (CheckError × Nat) (PLift (GroupChecked mode e k))`
+  — record `k`'s check at the prefix view from `{}` (`checkPending`),
+  returned as the record's `GroupChecked` fact or as the error tagged
+  with the record's fold position, the tag `checkPendingList` gives;
+* `CheckedRecord e := { k // GroupChecked mode e k }` (a `Nat` at run
+  time), `RecordResult e := Except (CheckError × Nat) (CheckedRecord e)`,
+  `checkRecordResult` — what a worker hands back;
+* `collectChecks e tab j acc` — the walk over a results table
+  (`Array (Option (RecordResult e))`, slot `j` for record `j`) in
+  record order, carrying `∀ i < j, GroupChecked mode e i` and
+  extending it by each slot's fact (`groupChecked_extend`; the slot's
+  index is compared with `j` by decidable equality and substituted),
+  closing with `groupChecked_all`.  It stops at the first slot holding
+  an error, so its verdict is `checkPendingList`'s: the first failing
+  record in FOLD order, whatever order the slots were filled in.  An
+  empty slot, or one holding another record's result, is an internal
+  error (exit 3: a pool that did not do its job), never a verdict on
+  the input.
+
+So the thread that computed a check is irrelevant to what it proves,
+and nothing about the pool is stated or proved: `IO.asTask` and
+`IO.wait` carry values that carry their own facts, and the driver
+assembles `FullyChecked mode ds` from `∀ i, GroupChecked mode e i`
+exactly as before (`fullyChecked_checkDecls` untouched).  The
+sequential loop (`checkLoop`, `--jobs=1`) runs the same `checkRecord`
+and carries the facts directly, so both paths are the same
+per-record computation and differ only in who calls it.  The brief's
+alternative — relying on `(Task.spawn f).get = f ()` being `rfl` — was
+not needed: it would tie the proof to pure `Task.spawn` per record,
+which is the wrong granularity (§2), and the subtype route works
+through `IO` refs and worker-local arrays without any defeq
+argument.
+
+### 2. The pool: N long-lived workers, chunks off one counter
+
+The user's design note during the task: *"in threaded mode remember
+that we process millions of declarations, many of them fast — this
+may be relevant for the design of the job management."*  One task
+per record is the wrong granularity (a spawn, its marking, its result
+allocation cost more than most checks), so `Main.lean`'s pool is:
+
+* `checkPool` spawns `min jobs pend.size` workers with
+  `IO.asTask (prio := .dedicated)` — exactly that many threads,
+  whatever the runtime's own pool size — and `IO.wait`s for all of
+  them; three shared `IO.Ref Nat`s: `next` (the claim counter),
+  `limit` (the cut on failure), `done` (the completed-count);
+* `checkWorker` claims a chunk `[a, a + c)` with one atomic
+  `modifyGet` and runs `checkChunk` over it, until the counter is
+  past the records (fuel `pend.size + 1`: every claim advances the
+  counter by at least one, so the fuel is exact, no `partial`);
+* `chunkSize remaining workers = max 1 (min 256 (remaining / (4 · workers)))`
+  — guided self-scheduling: a quarter of an even share, capped at
+  256, so the counter is touched once per few hundred records while
+  far from the end and once per record near it, where a chunk held by
+  one worker would idle the others; a chunk is the unit an
+  hour-long tail item can strand (at most 255 records behind it,
+  each of which is otherwise sub-millisecond);
+* `checkChunk` appends `(k, checkRecordResult e k hk)` to the
+  worker's OWN array; on a failure it lowers `limit` to `k`
+  (`min`), and it skips every record at or above the limit — those
+  are above a known failure and the walk never asks for them;
+* the plain run pays ONE atomic per chunk and nothing per record;
+  the heartbeat lane (`--progress`) additionally bumps `done` once
+  per completed record, for an exact completed-count;
+* `mergeResults` folds the workers' arrays into the table by index
+  (linear: `Array.foldl` with `set!` on an exclusive array), and
+  `collectChecks` walks it.
+
+**Determinism on a failure.**  A worker that fails record `f` lowers
+the limit to `f`; the counter is monotone, so every record below `f`
+was claimed before `f` was and is finished by its worker (a check is
+a pure computation and cannot be cancelled mid-way: the pool DRAINS);
+the table is therefore complete below the first failure, and the
+walk reports it — the same declaration, the same message and the
+same exit code as `--jobs=1`, at every worker count.  Records above
+`f` may be missing from the table; the walk never reaches them.  The
+gate's fixture for this is `tests/annot/annot_split_bad2.ndjson`
+(`badFirst` ahead of `badDecl`, both `Prop := Type`): `badFirst` must
+be named at `--jobs=1/2/4/16` and at the default (more workers than
+records).
+
+**The default is one worker per hardware thread
+(`System.Platform.Internal.getHardwareConcurrency`, 1 if the runtime
+cannot tell), and each worker costs 1 GiB of address space — a
+finding, and a ruling.**  The gates found the cost: `--jobs=16` and
+`--jobs=32` on init-full under `ulimit -v 16000000` and the two
+DAG-tower fixtures with in-process models under the tower gate's
+8 GB cap (a 96-worker pool on this machine) ABORT with `libc++abi:
+terminating due to uncaught exception of type lean::exception:
+failed to create thread` (exit 134).  The runtime reserves **1 GiB
+of address space per thread**:
+`/proc/<pid>/maps` of a running 8-worker process shows one anonymous
+1024 MB `rw-p` mapping per thread (VmPeak 3.35 GB at one worker on
+init-core, 12.3 GB at eight, 40 GB at 32, 111 GB at 96 — +1.15 GB per
+worker); it is not mimalloc's arena reserve (`MIMALLOC_ARENA_RESERVE`
+set to 1 MiB removes 0.1 GB per thread and leaves the 1 GiB mappings)
+and it does not follow `ulimit -s` (16 MB changes nothing): it is the
+thread's stack reservation, lazily committed — the resident set grows
+by about 25 MB per worker (§4).  So under an address-space limit the
+count is bounded by the cap — about ten workers under 16 GB, four
+under 8 GB — and a hardware-thread default aborts there on a large
+machine.  The task's first answer was a default of `--jobs=1`; the
+user's ruling reversed it: *"the 16 GB limit is just our dev env, so
+should not influence the shipped tool."*  So the shipped default is
+the hardware thread count, `--help` and OVERVIEW §0 document the
+address-space cost and say to lower the count under a cap, and every
+checker run the project itself makes under a `ulimit -v` passes an
+explicit count that fits: the tower gate and `tests/route-census.sh`
+`--jobs=4`, `scripts/selfcheck.sh` `--jobs=8`, and
+`scripts/perf-tables.sh`'s con-leche cells `--jobs=1` — the
+sequential measurement cell.  `--jobs=1` is the in-thread loop with
+no thread, no shared state and no multi-threaded marking: the
+user's second ruling, *"keep an overhead-free single threaded lane"*,
+keeps it exactly so (§4 has the finding that argued for moving it
+onto a thread, left open).  `--jobs=0`, a non-numeral and bare
+`--jobs` are usage errors (exit 3), per the provenance discipline.
+
+**The seam for task #259.**  The runtime marks everything reachable
+from the first spawned closure — the installed index and the
+records — for multi-threaded reference counting, once; every RC
+operation on those objects is atomic from then on, and that is the
+pool's instruction overhead (§4).  The place where a one-shot
+persistent mark of the installed environment would go instead is
+marked in `checkDeclsIO`, between the phases, before any worker is
+spawned; nothing of it is implemented here.
+
+### 3. `--progress`, two phases
+
+One line shape per phase, all on stderr, opt-in as before:
+
+```
+con-leche: parse done: <N> fold records — … t=<s>s (parse <p>s)
+con-leche: install <i>/<N> <decl> t=<s>s            (BEFORE every stride-th install; <i> the fold position)
+con-leche: install done: <N>/<N> declarations installed, <M> checks pending t=<s>s (install <i>s)
+con-leche: check <done>/<M> <kind> <name> t=<s>s     (AFTER every stride-th COMPLETED check)
+con-leche: check done: <M>/<M> t=<s>s (check <c>s)
+con-leche: done: parse <p>s, install <i>s, check <c>s, <n> workers t=<s>s
+```
+
+`<M>` is the number of recorded checks (below `<N>`: the axioms,
+inductive and basis blocks and the pinned operations are checked at
+their install).  In the pool the counter is the completed-count from
+whichever worker finished, monotone, and the named declaration is
+the one just completed; a running check is on no line — the gap
+between two lines is where it sits, which is the same reading the
+install lines give at stride 1.  On a failure the phase's closing
+line says so (`install failed at <i>/<N>`, `check failed at fold
+position <i>`) and the summary still prints.  The verdict line on
+stdout is unchanged.  `--help` and OVERVIEW §0/§2 say all this in
+the present tense.
+
+### 4. Measured
+
+`init-full`, both modes, `--jobs=1,2,4,8`, `perf stat -e instructions:u`
+and GNU `time` (wall, maximum RSS) under `ulimit -v 16000000` and
+`timeout 3600`, `--progress=5000` for the phase durations, all eight
+cells back to back and the whole sweep REPEATED once (pass 2 in
+parentheses); the binary is task #258's tip `1074dcb1` plus this
+branch's first commit; 53 088 declarations accepted in every cell.
+
+| mode | jobs | instructions | overhead | wall | speed-up | peak RSS | parse / install / check |
+|---|---|---|---|---|---|---|---|
+| verified | 1 | 544.25 G (544.22) | — | 55.0 s (54.6) | 1.00× | 429 MB | 1.0 / 3.8 / 49.7 s |
+| verified | 2 | 549.11 G (549.15) | +0.89 % | 33.9 s (33.4) | 1.62× | 470 MB | 1.1 / 3.9 / 28.3 s |
+| verified | 4 | 549.30 G (549.29) | +0.93 % | 22.2 s (22.0) | 2.48× | 524 MB | 1.0 / 3.7 / 16.8 s |
+| verified | 8 | 549.36 G (549.33) | +0.94 % | 15.8 s (16.1) | 3.48× | 620 MB (591) | 1.1 / 3.8 / 10.4 s |
+| trusted | 1 | 526.78 G (526.76) | — | 53.0 s (52.3) | 1.00× | 430 MB | 1.1 / 3.7 / 47.7 s |
+| trusted | 2 | 531.42 G (531.36) | +0.88 % | 32.5 s (32.1) | 1.63× | 473 MB | |
+| trusted | 4 | 531.55 G (531.59) | +0.91 % | 20.8 s (21.6) | 2.55× | 547 MB (534) | |
+| trusted | 8 | 531.59 G (531.60) | +0.91 % | 15.2 s (15.2) | 3.49× | 588 MB (614) | |
+
+* **Instructions**: constant plus the multi-threaded reference
+  counting: **+0.9 %** at two workers and flat from there (the mark
+  happens once; the atomic RC ops are the same count at any `n`).
+  The two passes agree to 0.01 %.
+* **Wall**: the check phase goes 49.7 → 28.3 → 16.8 → 10.4 s
+  (1.76×, 2.96×, 4.78× on 2/4/8 workers); the run 3.5× at 8.  The
+  serial floor is parse + install = 4.8 s of 54.6, so the ceiling at
+  infinite workers is now ≈ 11× (not #251's 3.5×: task #256's parser
+  took the parse from 155 G to 18 G).  **What is reached, and why
+  not more.**  Past the cap a probe under `ulimit -v 48000000`
+  (§2: the cap had to rise from 16 GB to ≈ 22 GB for 16 workers and
+  ≈ 40 GB for 32 — 1.15 GB per thread; 8 workers fit under 16 GB,
+  VmPeak 13.3 GB on init-full) gives, verified, one run each,
+  `perf stat -e instructions:u,cycles:u`:
+
+  | jobs | instructions | cycles | check phase | speed-up of the phase |
+  |---|---|---|---|---|
+  | 1 | 544.25 G | 239.2 G | 49.1 s | 1.0× |
+  | 8 | 549.36 G | 394.3 G | 11.3 s | 4.3× |
+  | 16 | 549.33 G | 543.7 G | 8.8 s | 5.6× |
+  | 32 | 549.32 G | 733.7 G | 6.5 s | 7.5× |
+
+  The instructions are flat and the CYCLES grow — +65 % at eight
+  workers, ×3.1 at 32 — so what the workers lose is stall time, not
+  work; there is no tail to strand (the largest single check is
+  0.3 s, below), and the pool's shared state is one counter touched
+  once per chunk.  The suspect with the data behind it is the atomic
+  reference counting itself: every worker increments and decrements
+  the counts of the SAME hot objects (the index's nodes, the common
+  constants and levels), and an atomic on a cache line another core
+  just wrote is a cross-core transfer.  That is precisely what task
+  #259's one-shot persistent mark removes (no counting at all on the
+  installed environment), and the seam for it is in place; the
+  measurement to make there is the cycles column of this table.
+* **Peak RSS**: +40 MB at two workers, +95 MB at four, +190 MB at
+  eight (≈ 25 MB per worker: its fresh memo states and the chunk's
+  results); the 16 GB address-space cap held at every count.
+* **Per-record overhead of the pool** (the design note asked for the
+  number behind the chunk granularity), as instructions at `--jobs=2`
+  minus `--jobs=1` per recorded check, three repeats each, spread
+  below 0.01 %: init-prelude (1 664 checks, sub-millisecond each)
+  3 246.6 M → 3 274.0 M = **16.5 k instructions per record (+0.85 %)**;
+  init-core (3 214 checks) 4 912.3 M → 4 958.6 M = 14.4 k per record
+  (+0.94 %); init-full (52 505 checks) 544.25 G → 549.11 G = 92.6 k
+  per record (+0.89 %).  The overhead is proportional to the CHECK
+  WORK (+0.9 % on all three, from 16 k to 93 k per record), not to
+  the record count: it is the atomic reference counting the
+  multi-threaded mark switches on, and the pool's own per-record
+  machinery — one array push per record, one atomic per chunk of up
+  to 256 — is below what these cells can resolve.  One task per
+  record would have put a spawn, a closure mark and a task object on
+  every one of those 16 k-instruction checks; the chunking is what
+  keeps the pool's own cost invisible.
+* **No tail on init-full**: at stride 1 the largest gap between two
+  consecutive `check` lines of the sequential run is 0.3 s (one
+  theorem, `Array.extract_append._proof_1_1`), six checks take
+  0.2 s or more, and the sum of those is 1.4 s of 50 — so the check
+  phase's 4.8× on eight workers is not a stranded chunk.
+
+### 5. Gates
+
+`lake build` 529 jobs warning-free; `lake test` warning-free (the
+axiom pin holds 16 theorems at `[propext, Classical.choice, Quot.sound]`
+— unchanged: nothing of the pool enters a proof).  `tests/arena.sh`
+under `env -i`, without `ulimit -v` around the battery: layering
+271/189/3/1 modules, 0/0 edges; proofdeps 3367 rows across 10 roots,
+doors 0 (unchanged: `checkRecord`/`collectChecks` are read by no
+capstone); trust surface 10 escapes in 4 allowlisted files of 474
+scanned, 0 outside — `IO.asTask`, `IO.wait`, `IO.Ref` and
+`Task.Priority.dedicated` add no `unsafe`, no `extern` and nothing
+the lexer flags; pin dump fresh; overview-links 71 links / 46 files
+(six anchors re-pointed, three added, every moved anchor's cited text
+identical by content diff; `Main.lean`'s `checkDeclsIO` header line
+changed by its two new parameters, and its paragraph was rewritten);
+shake 460 removals all allowlisted; route census 90 streams, 765
+blocks (225 fix, 540 basis, 0 modeled); inmodel OK; arena 90/92 good
+accepted, e2e 185/185, annot 15/15 (one new: the two-failure
+fixture), retired flags 8/8, mode flags 18/18, prelude counts 3/3,
+**progress lane 17/17** (the two line shapes, the bracket order in
+one thread and on the pool, the failing close), **worker pool
+15/15** (verdict and named declaration identical at `--jobs=1/2/4/16`
+and at the default on the accepting, the rejecting and the
+two-failure fixture; the three usage errors), DAG tower 14/14 (at
+`--jobs=4` under its 8 GB cap), the trusted sweep 138 + 185 + 15
+with the three recorded divergences, and the **`--jobs=1` and
+`--jobs=4` sweeps**, 138 arena + 185 e2e + 15 annot each, as at the
+default (one worker per hardware thread — 96 here).  Verdict
+identity on init-full: 53 088 declarations accepted in all sixteen
+measured cells and every probe.
+
+The first battery run, at the hardware-thread default with no
+explicit count in the capped gates, is what produced §2's finding:
+the two modelled tower fixtures aborted under the tower gate's 8 GB
+cap; the test bug it also exposed (a `sed` pipeline's exit status
+read as the checker's) is fixed in the worker-pool section.
+
+## Task #265 — THE ONE-SHOT PERSISTENT MARK, ON THE POOL: IT PAYS, AND IT LANDS ON BY DEFAULT (2026-09-09, `agent/persist-265`)
+
+**The A/B task #259 asked for.**  #259 built the instrument — one
+`Runtime.markPersistent` of the installed environment at the driver's
+phase boundary — measured it on the *sequential* driver, and said **do
+not apply it**: −0.16 % instructions against a +3.6 % cycle loss,
+because the runtime's inlined RC fast paths are `LEAN_LIKELY` on
+`m_rc > 0` and a persistent object (`m_rc == 0`) fails both tests, so
+the mark trades 1.4 G nearly-free store-buffer writes for 1.4 G
+predicted-wrong branches.  But it also said the sequential comparison
+is against the wrong baseline for #260: the moment the pool hands the
+installed graph to a worker the runtime marks that closure
+**multi-threaded** by itself and every one of those 1.4 G counts
+becomes an atomic read-modify-write.  Its `mt` proxy priced the
+*uncontended* half of that at +10.2 % cycles — already ~6 % worse than
+the persistent mark — and predicted that with real threads "the mark
+stops being an optimisation and becomes a precondition, and its margin
+grows with the worker count".  #260 left the seam for it in
+`checkDeclsIO`.  This task measured it and the prediction is what
+happened.
+
+**The instrument.**  #259's flag ported onto #260's driver, applied
+once between `installLoop` and `checkLoop` and **before any worker is
+spawned**, on `fe` (the constant list and the name index) and `pend`
+(the pending-check array).  Result DISCARDED: `markPersistent` is the
+identity on the value and marks the graph in place, so the
+`InstalledEnv` and the `InstallRun` it carries need no transport across
+it, and no step of the proof that `checkDecls` returns that environment
+can turn on whether it happened.  Term-level `unsafe`, the escape
+`Lean.Environment.finalizeImport` uses for the same call.  There is no
+`ienv` target: phase B starts every record from a fresh `CState`, so
+the install pass's interning store is dead at the boundary.
+
+### The numbers
+
+`init-full`, both modes, `--jobs=2,4,8,16`, with and against without
+the mark, under `ulimit -v 32000000` (16 workers need ≈ 22 GB of
+address space at 1 GiB per thread) and `timeout 900`, `perf stat -e
+instructions:u,cycles:u,branch-misses:u,ls_dispatch.store_dispatch` and
+GNU `time` for wall and maximum RSS.  #259's method: **interleaved
+base/mark pairs in ONE loop, three repetitions, read at the minima, and
+only the ordering WITHIN a pair is evidence** — this box is shared and
+neither wall nor cycles is a measurement across pairs.
+
+| mode | jobs | instructions | cycles | **wall** | branch-misses | maxRSS |
+|---|---|---|---|---|---|---|
+| verified | 2 | −1.48 % | −18.8 % | **−17.9 %** (33.4 → 27.4 s) | −5.7 % | +0.7 % |
+| verified | 4 | −1.48 % | −29.7 % | **−25.4 %** (22.3 → 16.6 s) | −5.5 % | +4.2 % |
+| verified | 8 | −1.48 % | −40.2 % | **−28.9 %** (15.6 → 11.1 s) | −6.1 % | −0.2 % |
+| verified | 16 | −1.48 % | −49.9 % | **−32.1 %** (12.3 → 8.4 s) | −8.1 % | +4.5 % |
+| trusted | 2 | −1.46 % | −18.3 % | −17.5 % (32.3 → 26.7 s) | −4.5 % | −0.5 % |
+| trusted | 4 | −1.45 % | −26.6 % | −23.4 % (21.2 → 16.3 s) | −4.2 % | −0.2 % |
+| trusted | 8 | −1.46 % | −37.5 % | −28.5 % (15.2 → 10.9 s) | −5.6 % | +5.3 % |
+| trusted | 16 | −1.46 % | −47.8 % | −28.3 % (11.8 → 8.4 s) | −5.6 % | −3.1 % |
+
+**The mark is faster on wall in 24 of 24 pairs**, at every count, in
+both modes, in every repetition — no pair disagrees, which is what the
+method asks for before a cycle or wall claim is made at all.
+
+**What the columns say.**  The instruction win is flat at −1.47 %: that
+is #260's own +0.9 % of atomic reference counting given back, plus a
+little more (the multi-threaded marking traversal never happens
+either).  The interesting column is CYCLES, and it is not flat — it
+grows from −19 % at two workers to −50 % at sixteen.  Read it the other
+way round: **without** the mark the run's cycles climb 270 → 316 → 376
+→ 474 G from 2 to 16 workers while its instruction count does not move;
+**with** it they stay near-flat, 219 → 222 → 224 → 238 G.  The climb
+is the cross-core traffic — N cores executing `lock xadd` on the same
+reference-count words of the same environment objects, a cache-line
+transfer each time — and the mark deletes it.  That is exactly the half
+#259 said only real threads could show, and #260's open question ("the
+instructions are flat and the CYCLES grow… the suspect with the data
+behind it is the atomic reference counting itself"), answered: it was.
+
+**And the branch column flips sign against #259.**  Sequentially the
+mark COST 180 M mispredictions (+11 %); on the pool branch-misses go
+DOWN, 4–8 %.  The mechanism is the same fact seen from the other side:
+once the graph is multi-threaded the RC path taken is the ATOMIC one,
+not the inlined single-threaded arm whose `LEAN_LIKELY` a persistent
+object defeats, so the persistent short-circuit skips a contended
+atomic rather than a cheap store — and since essentially every object
+in the hot set is persistent, the test predicts consistently.  Stores
+fall 2–5 %, as they did sequentially.
+
+**No copy-and-leak with workers**: maximum RSS moves within ±5 % with
+no trend in either direction at any count (init-full 456–703 MB across
+the sweep, the marked and unmarked cells interleaved inside that
+range).  Predicted for the stated reason — phase B inserts into none of
+the marked maps — and now confirmed with the pool's own per-worker
+heaps in the picture.
+
+### What lands
+
+**The mark is ON by default whenever the check phase runs on the pool
+(`--jobs ≥ 2`), and never in the in-thread lane.**  `--jobs=1` keeps
+the user's *"overhead-free single threaded lane"* exactly: no thread,
+no shared state, no marking of any kind — and #259's measurement is
+precisely the reason it must not mark, since single-threaded the mark
+is a 3.6 % cycle LOSS.  So the two lanes now differ by one more thing,
+and each has the number that says why.
+
+`--no-mark-persistent` turns it off.  It is kept — the only new flag —
+because the A/B above must remain measurable **on the shipped binary**:
+a switch that is documented, verdict-neutral by construction, and does
+nothing at `--jobs=1` (there is no mark to turn off).  `--help` and
+OVERVIEW §0/§1 say all of this in the present tense.  #259's
+`--mark-persistent[=env|fenv|pend|all|mt]` does not land: the target
+selection was for finding out which half of the graph carried the win
+(`env` alone was 88 % of it), and the answer is in #259's record.
+
+**Verdict-neutrality is by construction, not by testing** (user ruling,
+this task: *"markPersistent will not change verdicts, no functional
+tests needed on that kind of work"*).  For the record it was checked
+anyway before that ruling arrived, on the port: all 182 arena `bad/`
+and `good/` fixtures at `--jobs=4`, marked against unmarked — 110
+accept, 59 reject, 13 decline, byte-identical output and identical exit
+code in every one.
+
+### Gates
+
+`lake build` 529 jobs warning-free; `lake test` warning-free (the axiom
+pin unchanged — nothing of the mark enters a proof); **trust surface**
+12 escapes in 5 allowlisted files of 474 scanned, 0 outside: the two
+term-level `unsafe`s are the new entry, `Main.lean → unsafe`, and the
+allowlist header carries the reason a reviewer needs — the marked graph
+is read-only from the boundary on, the call is the identity on the
+value, its result is discarded, and `unsafe` is earned only by the
+marked closure never being freed in a process that exits right after;
+shake 460 removals all allowlisted, 923 of 1253 in-tree edges public
+and none demotable; overview-links 71 links / 46 files, two anchors
+re-pointed (`Main.lean#L722 → #L747`, the usage text, content
+identical; `#L349-L352 → #L349-L353`, `checkDeclsIO`'s signature, which
+gained the `noMark` parameter) with both citing paragraphs re-read and
+rewritten.  No arena battery and no verdict sweep, per the ruling
+above.
+
 ## Task #264 — THE KEY CLASSIFIER COMPARES BYTES, NOT STRING CONSTANTS (2026-09-09, `agent/keylit`)
 
 Task #256's residue, found by reading the generated C.  The
@@ -65193,8 +65915,10 @@ the function (`mov 0x8(%rdi),%rcx` in the prologue), not one per
 compare.
 
 **Numbers** (`perf stat -e instructions:u`, `ulimit -v 16000000`,
-`timeout`; the driver is still the single sequential loop — #260 has
-not landed):
+`timeout`).  The baseline is this lane's base, master `a579ec28`,
+whose driver is still the single sequential loop; #258, #260 and #265
+landed beside it and moved init-full's absolute figures, so the rows
+below are a before/after of THIS change, not of the current master:
 
 | `init-full` run | master | this lane | Δ |
 |---|---|---|---|
@@ -65216,8 +65940,8 @@ computation, its range branch and the indirect jump together carry
 dispatch (a perfect hash of first byte and length) is a different,
 larger change and is docketed, not done here.
 
-**Gates.**  `lake build` 529 jobs and `lake test` 457 jobs
-warning-free; `tests/arena.sh` under `env -i` (no `ulimit -v` around
+**Gates.**  On master `a579ec28`: `lake build` 529 jobs and `lake
+test` 457 jobs warning-free; `tests/arena.sh` under `env -i` (no `ulimit -v` around
 the battery) green with every count as master's — arena 90/92, e2e
 181/181, annot 14/14, retired flags 8/8, mode flags 18/18, prelude
 3/3, progress lane 13/13, DAG tower 14/14, trusted sweep 138 + 181 +
@@ -65260,3 +65984,11 @@ Verdict identity on the big stream: `init-full` accepts 53 088
 declarations in both modes under both binaries, with byte-identical
 verdict lines, and its parse-only census (1 block modelled in-process,
 0 declined) is the same under both.
+
+**The merge** (master `d1da2114`, after #258, #260, #265 and the
+README commits).  Nothing outside `DESIGN.md` conflicted — master
+touched no line of `ConLeche/Frontend/Scan/*` — and the record tail
+was resolved in landing order, this one last.  The re-gate was
+trimmed on the coordinator's ruling to `lake build` and `lake test`,
+both warning-free, since the change is confined to the scanner and
+the battery had already run green on the pre-merge tree.

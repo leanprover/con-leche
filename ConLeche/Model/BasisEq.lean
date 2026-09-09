@@ -217,7 +217,7 @@ theorem extendEq (mp : EnvModelM V μ env)
       mp'.base2.acval
         = acvalWith mp.base2.acval eqA.name eqValAV := by
   refine declStep_preserves_of_basis_cons_eqrow mp (A := eqValAV) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h) (by decide)
     (Or.inl (fun _ h => nomatch h))
@@ -262,7 +262,7 @@ theorem extendEqRefl (mp : EnvModelM V μ env)
     denoteMeta_eqReflTy (m := mp.base2) (A := eqReflValAV) (c₀ := eqReflA)
       ψ (by decide) hE hEv
   refine declStep_preserves_of_basis_cons mp (A := eqReflValAV) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
@@ -1177,7 +1177,7 @@ theorem extendEqRec (mp : EnvModelM V μ env)
       pwBit ψ (ConLeche.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ u1N
   refine declStep_preserves_of_basis_rec_cons mp (A := eqRecValAV) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
@@ -1239,7 +1239,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1256,7 +1256,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1300,7 +1300,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)

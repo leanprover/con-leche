@@ -305,9 +305,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     exact SimC.throw_bind
   simp only [if_pos h4]
   refine SimC.bind_left (recordCConst_eff hs₄ hjty
-      (fun vE' vi h => by
-        cases h
-        exact rfl))
+      (fun vE' vi h => nomatch h))
     (fun s₅' u₀ hs₅' hQ' => ?_)
   refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₅' rfl hwv)
     (fun s₅ jvt wvt hs₅ hP₅ => ?_)
@@ -492,17 +490,26 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
+    -- the cached arm branches BEFORE the push (RC linearity), the spec
+    -- after it: the case split comes first on both sides
+    by_cases hred : reduceOpNames.contains cvR.name = true
+    case neg =>
+      simp only [if_neg hred]
+      rw [← bind_pure (checkOpaqueValC mode (mkFEnv env) _ jty _)]
+      refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty hv hs₁)
+        (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
+      obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
+      subst henvEq
+      rw [hmk]
+      simp only [mkFEnv_env]
+      exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
+    simp only [if_pos hred]
     refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty hv hs₁)
       (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
     obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
     subst henvEq
     rw [hmk]
     simp only [mkFEnv_env]
-    by_cases hred : reduceOpNames.contains cvR.name = true
-    case neg =>
-      simp only [if_neg hred]
-      exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
-    simp only [if_pos hred]
     rw [hv, checkReducePinF_eq]
     refine SimC.bind (checkReducePinS_sim hμ henv hvf hs₂)
       (fun s₄ u u' hs₄ hP₄ => ?_)
