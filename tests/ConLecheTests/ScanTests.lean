@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.Scan.Naive
+public import ConLeche.Frontend.Scan.Equiv
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a plain import is not.  A module needed at
 both levels is imported twice. -/
@@ -239,5 +240,13 @@ def probes : List String :=
    "{\"il\":2,\"max\":[1,0,3]}"]
 
 #guard probes.all fun s => specLine s == fastLine s
+
+-- The equality's footprint: the standard three, nothing else (the
+-- companion of the pin in `Axioms.lean`, for the frontend's theorem).
+/--
+info: 'ConLeche.Frontend.scanLineSpec_eq_scanLineFwd' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms scanLineSpec_eq_scanLineFwd
 
 end ConLecheTests
