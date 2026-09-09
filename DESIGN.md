@@ -64615,7 +64615,7 @@ Task #255's design, implemented: the frontend reads the stream's
 BYTES.  `Lean.Json` is gone from the checking path, and so is the byte
 fast path that used to sit in front of it — there is one grammar in
 the tree.  The naive reference recogniser and the `@[csimp]` twin
-`scanLineSpec = scanLine` are NOT here; they are task #257, and every
+`scanLineSpec = scanLine` are NOT here; they are task #261, and every
 shape decision below was made so that the equality stays STATEABLE.
 
 ### 1. What was measured, and what it cost
@@ -64658,7 +64658,7 @@ works (task #180's property).
 
 1. **The result stays `Array DeclC`.**  Only the bytes stream;
    `Main.lean` and the driver's type are untouched.
-2. **The naive reference is task #257's**; the `Lean.Json` frontend
+2. **The naive reference is task #261's**; the `Lean.Json` frontend
    served as the transition oracle and is deleted with this task.
 3. **A full csimp twin later** — so: every function is total and
    first-order, no `partial`, no `IO`, no `for`, no `Std.Range`, no
@@ -64873,7 +64873,7 @@ does.
 ### 12. Not here
 
 The naive reference over `List UInt8` and the kernel-checked
-`scanLineSpec = scanLine` (task #257).  Until they land, the assurance
+`scanLineSpec = scanLine` (task #261).  Until they land, the assurance
 that the list handed to `checkDecls` is the file's is the differential
 of §7 — which is the standard the rest of the frontend is held to, and
 one the parser did not meet at all before.
