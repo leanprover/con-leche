@@ -740,10 +740,12 @@ def parseArgs : List String → Args → Args
         the certified mode is --verified (default) (task #148 T7b)" }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   -- The progress heartbeat (task #229): a FLAG, in either order with
-  -- `--verified`/`--trusted`, because it selects a run mode — the
-  -- separate UNVERIFIED fold instead of the verified one.  Bare is
-  -- stride 1; `--progress=<n>` is the general form (below, with the
-  -- other `=`-carrying spellings).
+  -- `--verified`/`--trusted`, and independent of them — it turns on
+  -- the heartbeat the ONE driver prints between the steps of its two
+  -- phases (`installLoop`/`checkLoop`), which is the same driver, at
+  -- the same mode, as a run without it.  Bare is stride 1;
+  -- `--progress=<n>` is the general form (below, with the other
+  -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \
