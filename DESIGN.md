@@ -65678,3 +65678,139 @@ explicit count in the capped gates, is what produced §2's finding:
 the two modelled tower fixtures aborted under the tower gate's 8 GB
 cap; the test bug it also exposed (a `sed` pipeline's exit status
 read as the checker's) is fixed in the worker-pool section.
+
+## Task #265 — THE ONE-SHOT PERSISTENT MARK, ON THE POOL: IT PAYS, AND IT LANDS ON BY DEFAULT (2026-09-09, `agent/persist-265`)
+
+**The A/B task #259 asked for.**  #259 built the instrument — one
+`Runtime.markPersistent` of the installed environment at the driver's
+phase boundary — measured it on the *sequential* driver, and said **do
+not apply it**: −0.16 % instructions against a +3.6 % cycle loss,
+because the runtime's inlined RC fast paths are `LEAN_LIKELY` on
+`m_rc > 0` and a persistent object (`m_rc == 0`) fails both tests, so
+the mark trades 1.4 G nearly-free store-buffer writes for 1.4 G
+predicted-wrong branches.  But it also said the sequential comparison
+is against the wrong baseline for #260: the moment the pool hands the
+installed graph to a worker the runtime marks that closure
+**multi-threaded** by itself and every one of those 1.4 G counts
+becomes an atomic read-modify-write.  Its `mt` proxy priced the
+*uncontended* half of that at +10.2 % cycles — already ~6 % worse than
+the persistent mark — and predicted that with real threads "the mark
+stops being an optimisation and becomes a precondition, and its margin
+grows with the worker count".  #260 left the seam for it in
+`checkDeclsIO`.  This task measured it and the prediction is what
+happened.
+
+**The instrument.**  #259's flag ported onto #260's driver, applied
+once between `installLoop` and `checkLoop` and **before any worker is
+spawned**, on `fe` (the constant list and the name index) and `pend`
+(the pending-check array).  Result DISCARDED: `markPersistent` is the
+identity on the value and marks the graph in place, so the
+`InstalledEnv` and the `InstallRun` it carries need no transport across
+it, and no step of the proof that `checkDecls` returns that environment
+can turn on whether it happened.  Term-level `unsafe`, the escape
+`Lean.Environment.finalizeImport` uses for the same call.  There is no
+`ienv` target: phase B starts every record from a fresh `CState`, so
+the install pass's interning store is dead at the boundary.
+
+### The numbers
+
+`init-full`, both modes, `--jobs=2,4,8,16`, with and against without
+the mark, under `ulimit -v 32000000` (16 workers need ≈ 22 GB of
+address space at 1 GiB per thread) and `timeout 900`, `perf stat -e
+instructions:u,cycles:u,branch-misses:u,ls_dispatch.store_dispatch` and
+GNU `time` for wall and maximum RSS.  #259's method: **interleaved
+base/mark pairs in ONE loop, three repetitions, read at the minima, and
+only the ordering WITHIN a pair is evidence** — this box is shared and
+neither wall nor cycles is a measurement across pairs.
+
+| mode | jobs | instructions | cycles | **wall** | branch-misses | maxRSS |
+|---|---|---|---|---|---|---|
+| verified | 2 | −1.48 % | −18.8 % | **−17.9 %** (33.4 → 27.4 s) | −5.7 % | +0.7 % |
+| verified | 4 | −1.48 % | −29.7 % | **−25.4 %** (22.3 → 16.6 s) | −5.5 % | +4.2 % |
+| verified | 8 | −1.48 % | −40.2 % | **−28.9 %** (15.6 → 11.1 s) | −6.1 % | −0.2 % |
+| verified | 16 | −1.48 % | −49.9 % | **−32.1 %** (12.3 → 8.4 s) | −8.1 % | +4.5 % |
+| trusted | 2 | −1.46 % | −18.3 % | −17.5 % (32.3 → 26.7 s) | −4.5 % | −0.5 % |
+| trusted | 4 | −1.45 % | −26.6 % | −23.4 % (21.2 → 16.3 s) | −4.2 % | −0.2 % |
+| trusted | 8 | −1.46 % | −37.5 % | −28.5 % (15.2 → 10.9 s) | −5.6 % | +5.3 % |
+| trusted | 16 | −1.46 % | −47.8 % | −28.3 % (11.8 → 8.4 s) | −5.6 % | −3.1 % |
+
+**The mark is faster on wall in 24 of 24 pairs**, at every count, in
+both modes, in every repetition — no pair disagrees, which is what the
+method asks for before a cycle or wall claim is made at all.
+
+**What the columns say.**  The instruction win is flat at −1.47 %: that
+is #260's own +0.9 % of atomic reference counting given back, plus a
+little more (the multi-threaded marking traversal never happens
+either).  The interesting column is CYCLES, and it is not flat — it
+grows from −19 % at two workers to −50 % at sixteen.  Read it the other
+way round: **without** the mark the run's cycles climb 270 → 316 → 376
+→ 474 G from 2 to 16 workers while its instruction count does not move;
+**with** it they stay near-flat, 219 → 222 → 224 → 238 G.  The climb
+is the cross-core traffic — N cores executing `lock xadd` on the same
+reference-count words of the same environment objects, a cache-line
+transfer each time — and the mark deletes it.  That is exactly the half
+#259 said only real threads could show, and #260's open question ("the
+instructions are flat and the CYCLES grow… the suspect with the data
+behind it is the atomic reference counting itself"), answered: it was.
+
+**And the branch column flips sign against #259.**  Sequentially the
+mark COST 180 M mispredictions (+11 %); on the pool branch-misses go
+DOWN, 4–8 %.  The mechanism is the same fact seen from the other side:
+once the graph is multi-threaded the RC path taken is the ATOMIC one,
+not the inlined single-threaded arm whose `LEAN_LIKELY` a persistent
+object defeats, so the persistent short-circuit skips a contended
+atomic rather than a cheap store — and since essentially every object
+in the hot set is persistent, the test predicts consistently.  Stores
+fall 2–5 %, as they did sequentially.
+
+**No copy-and-leak with workers**: maximum RSS moves within ±5 % with
+no trend in either direction at any count (init-full 456–703 MB across
+the sweep, the marked and unmarked cells interleaved inside that
+range).  Predicted for the stated reason — phase B inserts into none of
+the marked maps — and now confirmed with the pool's own per-worker
+heaps in the picture.
+
+### What lands
+
+**The mark is ON by default whenever the check phase runs on the pool
+(`--jobs ≥ 2`), and never in the in-thread lane.**  `--jobs=1` keeps
+the user's *"overhead-free single threaded lane"* exactly: no thread,
+no shared state, no marking of any kind — and #259's measurement is
+precisely the reason it must not mark, since single-threaded the mark
+is a 3.6 % cycle LOSS.  So the two lanes now differ by one more thing,
+and each has the number that says why.
+
+`--no-mark-persistent` turns it off.  It is kept — the only new flag —
+because the A/B above must remain measurable **on the shipped binary**:
+a switch that is documented, verdict-neutral by construction, and does
+nothing at `--jobs=1` (there is no mark to turn off).  `--help` and
+OVERVIEW §0/§1 say all of this in the present tense.  #259's
+`--mark-persistent[=env|fenv|pend|all|mt]` does not land: the target
+selection was for finding out which half of the graph carried the win
+(`env` alone was 88 % of it), and the answer is in #259's record.
+
+**Verdict-neutrality is by construction, not by testing** (user ruling,
+this task: *"markPersistent will not change verdicts, no functional
+tests needed on that kind of work"*).  For the record it was checked
+anyway before that ruling arrived, on the port: all 182 arena `bad/`
+and `good/` fixtures at `--jobs=4`, marked against unmarked — 110
+accept, 59 reject, 13 decline, byte-identical output and identical exit
+code in every one.
+
+### Gates
+
+`lake build` 529 jobs warning-free; `lake test` warning-free (the axiom
+pin unchanged — nothing of the mark enters a proof); **trust surface**
+12 escapes in 5 allowlisted files of 474 scanned, 0 outside: the two
+term-level `unsafe`s are the new entry, `Main.lean → unsafe`, and the
+allowlist header carries the reason a reviewer needs — the marked graph
+is read-only from the boundary on, the call is the identity on the
+value, its result is discarded, and `unsafe` is earned only by the
+marked closure never being freed in a process that exits right after;
+shake 460 removals all allowlisted, 923 of 1253 in-tree edges public
+and none demotable; overview-links 71 links / 46 files, two anchors
+re-pointed (`Main.lean#L722 → #L747`, the usage text, content
+identical; `#L349-L352 → #L349-L353`, `checkDeclsIO`'s signature, which
+gained the `noMark` parameter) with both citing paragraphs re-read and
+rewritten.  No arena battery and no verdict sweep, per the ruling
+above.
