@@ -10,6 +10,7 @@ twice (`public import` for the `example`s' statements, `meta import` for
 the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
+meta import ConLeche.Cached.Installed
 
 public section
 

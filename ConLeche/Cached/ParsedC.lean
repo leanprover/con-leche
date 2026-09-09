@@ -12,22 +12,23 @@ flushed per declaration, declarations consumed as `DeclC` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDecls mode` is the pure reference fold — at `.verified` and at
-`.trusted` alike (the twin driver `checkDeclsT` / `ConLeche/Cached/ParsedT.lean`
-retired 2026-09-06; the trusted lane is this fold at the other mode,
-and nothing else).  Until task #253 it was what the binary ran; the
-binary's one driver (`Main.lean`) now installs every record first and
-checks the recorded declarations afterwards
-(`ConLeche/Cached/Installed.lean`), and returns a value whose TYPE
-carries the assurance (`FullyChecked`, the main theorem's subject).
-This fold keeps its own letters — acceptance at `.verified` is covered
-by `no_proof_of_Empty_cached` (`ConLeche/Verify/Cached/MainC.lean`), and
-the two modes agree on the install skeletons whenever both accept
-(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`) —
-and both it and the driver reach the specification of an installed
-and checked environment (`checkDecls_spec`, `fullyChecked_spec`,
-`ConLeche/Verify/Cached/InstalledC.lean`).  The driver's install step
-for the non-separable kinds IS this fold's step, `checkDeclStepC`.
+`checkDeclStepC` is the fold's step for every declaration kind that is
+checked as it is installed: axioms, inductive and basis blocks, the
+pinned `Nat`-operation and `reduce*` declarations — and, on this step,
+a definition, theorem or opaque too.  The declaration fold itself,
+`checkDecls` (`ConLeche/Cached/Installed.lean`), installs every record
+first (a separable value declaration by the install half of this
+step, annotated and pushed with its check recorded; everything else by
+this step) and checks the recorded declarations afterwards; the
+binary's driver (`Main.lean`) runs that fold with a heartbeat between
+the steps and returns its environment together with the proof that
+`checkDecls` returns it.  The fold runs at `.verified` and at
+`.trusted` alike (the twin driver `checkDeclsT` /
+`ConLeche/Cached/ParsedT.lean` retired 2026-09-06; the trusted lane is
+the same fold at the other mode, and nothing else): acceptance at
+`.verified` is covered by `no_proof_of_False` (`ConLeche/MainTheorem.lean`),
+and the two modes agree on the install skeletons whenever both accept
+(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it
@@ -253,100 +254,5 @@ def declCLabel : DeclC → String
 def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
   flushC
   checkDeclC mode fe pd
-
-/-- The fold's step with the **position carried and the error tagged**
-(2026-09-07): the accumulator is `(i, fe)`, and a failing step reports
-the `CheckError` together with `i`, the fold position of the
-declaration that failed.  On the accepting side it is
-`checkDeclStepC` exactly (`foldIdxC_ok`), which is why every
-statement about the plain fold survives the change untouched. -/
-def checkDeclStep (p : Nat × FEnv) (pd : DeclC) :
-    StateT CState (Except (CheckError × Nat)) (Nat × FEnv) := fun s =>
-  match checkDeclStepC mode p.2 pd s with
-  | .ok (fe', s') => .ok ((p.1 + 1, fe'), s')
-  | .error e => .error (e, p.1)
-
-/-- Task #171: the direct-parse driver.  `DeclC` records come straight
-from the frontend (`ConLeche/Frontend/ExportC.lean`) — no arena and no
-conversion pass.
-
-Task #172 B3b: the argument was `List WDeclC`, the subtype of records
-whose `ExprC` slots carried the field invariant `WFc`, because the
-capstone's entry premise was the parser's `WFc`-by-construction
-theorem.  Under `@[computed_field]` (B3a) `WFc` held of everything, so
-the receipt carried no information; the subtype, its predicate
-`DeclCWFc` and the fold's unwrapping step are gone, and the capstone
-letters below this driver are restated over `List DeclC` — strictly
-stronger, by the coordinator's ratification.
-
-**The error carries the position** (2026-09-07).  The failing
-declaration used to be located by a *second pass* in `Main.lean`
-(`diagLoopC`), which re-ran the same step over the same records until
-it failed again — a full re-check of the accepted prefix, and a lie
-waiting to happen if the two runs ever disagreed.  The fold's
-accumulator now carries the position and the step tags its error with
-it (`checkDeclStep`), so a rejection *is* `(CheckError × Nat)` and
-the driver reports the declaration by indexing the record array it
-already holds.  The **accept** side is untouched, deliberately:
-`checkDecls mode ds = .ok env` is the same sentence it was, so
-`no_proof_of_Empty_cached` and the agreement floor keep their
-statements verbatim and reach the plain fold through `foldIdxC_ok`
-below. -/
-def checkDecls (mode : CheckMode) (ds : List DeclC) :
-    Except (CheckError × Nat) Env := do
-  let p ← (ds.foldlM (checkDeclStep mode) (0, mkFEnv Env.empty)).run' {}
-  pure p.2.env
-
-/-! ### The two folds agree on accepts
-
-`foldIdxC_ok` and its `run'` corollary live here, beside the two folds,
-rather than in `ConLeche/Verify/*`: they are **self-contained** (they use
-nothing but the two definitions above — the `Std.HashMap` exception in
-CLAUDE.md), and their two consumers, `Verify/Cached/MainC.lean` and
-`Verify/Cached/AgreeFloor.lean`, share no `Verify` module: a new one
-holding them would enter all four capstones' proof closures, i.e. show
-up as a **door** in `tests/proofdeps.sh`. -/
-
-/-- An accepting run of the position-carrying fold is an accepting run
-of the plain fold, at the same environment and residue state.  (The
-error side is where they differ, and is the point of the change.) -/
-theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
-    ∀ (i : Nat) (fe : FEnv) {p : Nat × FEnv} {s s' : CState},
-      (ds.foldlM (checkDeclStep mode) (i, fe)) s = .ok (p, s') →
-      (ds.foldlM (checkDeclStepC mode) fe) s = .ok (p.2, s') := by
-  induction ds with
-  | nil =>
-    intro i fe p s s' h
-    simp only [List.foldlM_nil, pure, StateT.pure, Except.pure,
-      Except.ok.injEq, Prod.mk.injEq] at h ⊢
-    exact ⟨h.1 ▸ rfl, h.2⟩
-  | cons pd ds ih =>
-    intro i fe p s s' h
-    rw [List.foldlM_cons] at h ⊢
-    simp only [Bind.bind, StateT.bind] at h ⊢
-    cases hstep : checkDeclStepC mode fe pd s with
-    | error e =>
-      simp only [checkDeclStep, hstep, Except.bind] at h
-      exact nomatch h
-    | ok pr =>
-      obtain ⟨fe₁, s₁⟩ := pr
-      simp only [checkDeclStep, hstep] at h
-      exact ih (i + 1) fe₁ h
-
-/-- `foldIdxC_ok` at the shape the two capstone proofs use. -/
-theorem foldIdxC_run'_ok (mode : CheckMode) (ds : List DeclC) (i : Nat)
-    (fe : FEnv) {p : Nat × FEnv} {s : CState}
-    (h : (ds.foldlM (checkDeclStep mode) (i, fe)).run' s = .ok p) :
-    (ds.foldlM (checkDeclStepC mode) fe).run' s = .ok p.2 := by
-  simp only [StateT.run'] at h ⊢
-  cases hrun : (ds.foldlM (checkDeclStep mode) (i, fe)) s with
-  | error e => rw [hrun] at h; exact nomatch h
-  | ok pr =>
-    obtain ⟨p₁, s₁⟩ := pr
-    rw [hrun] at h
-    simp only [Functor.map, Except.map, Except.ok.injEq] at h
-    subst h
-    rw [foldIdxC_ok mode ds i fe hrun]
-    rfl
 
 end ConLeche.Cached

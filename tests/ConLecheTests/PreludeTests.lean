@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Installed
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a plain import is not (`IO of declaration …
 not available`).  A module needed at both levels is imported twice. -/
 meta import ConLeche.Frontend.Prelude
-meta import ConLeche.Cached.ParsedC
+meta import ConLeche.Cached.Installed
 
 public section
 

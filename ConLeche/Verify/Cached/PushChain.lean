@@ -154,25 +154,6 @@ theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
   yields
   all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
-theorem annotConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (annotConstantValC mode fe cv)
-      (fun p => p.1.name = cv.name ∧ fe.find? cv.name = none) := by
-  unfold annotConstantValC
-  yields
-  all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
-
-theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
-    (value : ExprC) (record : Bool) :
-    Yields (annotValueC mode fe cv value record)
-      (fun r => r.1.name = cv.name ∧ fe.find? cv.name = none) := by
-  unfold annotValueC
-  ybind
-  refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hp => ?_
-  obtain ⟨cvA, jty⟩ := p
-  ybind
-  exact Yields.pure hp
-
 /-! ## The value kinds -/
 
 theorem checkDefnValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
@@ -698,22 +679,6 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
   | axiomDecl cv => exact hord _
   | basisDecl kind => exact hord _
   | indDecl block nP => exact hord _
-
-/-- The tagged step's accept is the body's accept at the next position. -/
-theorem annotDeclStep_ok {mode : CheckMode} {p : Nat × FEnv × Array PendingCheck}
-    {pd : DeclC} {s : CState} {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (h : annotDeclStep mode p pd s = .ok (q, s')) :
-    ∃ fe' pend', q = (p.1 + 1, fe', pend') ∧
-      annotStepC mode p.1 p.2.1 p.2.2 pd s = .ok ((fe', pend'), s') := by
-  unfold annotDeclStep at h
-  cases hs : annotStepC mode p.1 p.2.1 p.2.2 pd s with
-  | error e => rw [hs] at h; exact nomatch h
-  | ok r =>
-    obtain ⟨⟨fe', pend'⟩, s₁⟩ := r
-    rw [hs] at h
-    simp only [Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨fe', pend', rfl, rfl⟩
 
 /-- **Phase A is a fresh chain**: from a canonical index, an accepting
 run returns a canonical index whose constants extend the start by

@@ -1,46 +1,49 @@
 module
 
-public import ConLeche.Verify.Cached.MainC
+public import ConLeche.Verify.Cached.BridgeC
+public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.KnotCongr
-public import ConLeche.Model.Installed
+import ConLeche.Verify.CheckerSplit
 
 public section
 
 /-!
-# The driver's type and the pure fold reach the specification (task #253)
+# The model along the install run, and the letters on the driver's type
 
-`FullyCheckedSpec μ` (`ConLeche/Verify/Installed.lean`) is the
-specification of an installed and checked environment, stated over the
-pure fueled checker, and `no_proof_of_False_spec`
-(`ConLeche/Model/Installed.lean`) its consistency letter.  This module is
-where the executable reaches it:
+`FullyChecked μ ds` (`ConLeche/Cached/Installed.lean`) is what the
+driver's two loops assemble: phase A's accepting run (`InstallRun`)
+installs a separable value declaration by the install half and records
+its datum, and every record was checked against the prefix view
+`fe.restrictTo vis` from a fresh memo state (`GroupChecked`).  This
+module walks the run with the graded model beside it:
 
-* **The driver's type** `FullyChecked μ ds` (`ConLeche/Cached/Installed.lean`):
-  phase A's accepting run (`InstallRun`) installs a separable value
-  declaration by the install half and records its datum, and every
-  record was checked against the prefix view `fe.restrictTo vis` from a
-  fresh memo state (`GroupChecked`).  The prefix view and `mkFEnv` of
-  the truncated environment have the same `find?`
+* `annotConstantValC_run` / `annotValC_run` / `annotValueC_run` — phase
+  A's install simulates the pure install halves
+  (`installConstantVal`, `installValue`, `ConLeche/Kernel/CheckerSplit.lean`).
+* `checkPending_run` — the check at the prefix view simulates the pure
+  check half `checkValueGroup` at the truncated environment.  The view
+  and `mkFEnv` of the truncated environment have the same `find?`
   (`mkFEnv_find?_visibleBelow`, under the name uniqueness every driver
   step preserves — `PushChain`), so by `coreKnotI_congr` they run the
-  SAME core, and the simulation stated at `mkFEnv env` covers the
-  check at the view: `checkPending_run` turns the cached check into
-  `checkValueGroup`'s pure run at the prefix.  `installRun_model` walks
-  the run, `fullyChecked_spec` packages the walk, and
-  `fullyChecked_sound` / `no_proof_of_False_checked` are the letters on
-  the driver's type.
-* **The ordinary fold** (`checkDecls`): every group is checked in full
-  as it is installed, so the trace it leaves has no pending datum
-  (`GroupInstalled`'s `none` case at every group) and every group is
-  trivially checked — `checkDecls_spec`.
+  SAME core, and the simulation stated at `mkFEnv env` covers the check
+  at the view.
+* `installRun_model` — the walk: at each position the model supplies
+  the well-formedness of the environment every bridge from the
+  executable core takes; an ordinary step is a `checkDecl` run by
+  `checkDeclStepC_run`, a separable value declaration is the two halves
+  re-associated into a `checkDecl` run (`checkDecl_of_split_*`,
+  `ConLeche/Verify/CheckerSplit.lean`) with the record's check consumed
+  at the position that produced it; `declStep_preserves` carries the
+  model across either.
+* `fullyChecked_sound` / `no_proof_of_False_checked` /
+  `no_proof_of_Empty_checked` — the letters on the driver's type.  The
+  fold's letters (`ConLeche/Verify/Cached/MainC.lean`) are these under
+  `checkDecls_fullyChecked`.
 
-Both walks thread the graded model (`declStep_preserves`) beside the
-trace, exactly as `fold_preserves` does: the model at each position
-supplies the well-formedness of the environment that every bridge from
-the executable core to the pure one takes as its hypothesis — which is
-why the set theory is a hypothesis of `fullyChecked_spec` although its
-conclusion does not mention it.
+The set theory is a hypothesis of every walk although the letters'
+conclusions do not mention it: the model is what supplies the
+well-formedness the bridges need.
 -/
 
 namespace ConLeche.Cached
@@ -50,82 +53,15 @@ open ConLeche ConLeche.Semantics ConLeche.Model
 universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## The push chain of a fold -/
-
-/-- The ordinary fold is a fresh chain. -/
-theorem fold_push {env : Env} :
-    ∀ (ds : List DeclC) {fe : FEnv} {s₀ : CState} {fe' : FEnv} {s' : CState},
-      PushChain env fe →
-      (ds.foldlM (checkDeclStepC μ) fe) s₀ = .ok (fe', s') → PushChain env fe' :=
-  fun ds {fe} {s₀} {fe'} {s'} h hrun =>
-    (Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe) (g := fun u _ => u)
-      (fun _ pd _ hacc => checkDeclStepC_push μ hacc pd) ds fe () h) s₀ fe' s' hrun
-
-/-! ## The ordinary fold -/
-
-/-- The fold's trace: every group checked in full as it was
-installed, the model threaded beside it. -/
-theorem fold_trace (hμ : μ.verifiedChecks = true) :
-    ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
-      fe = mkFEnv fe.env →
-      EnvModelOk V μ fe.env →
-      CSOKF s₀ →
-      (ds.foldlM (checkDeclStepC μ) fe) s₀ = .ok (fe', s') →
-      EnvModelOk V μ fe'.env ∧
-      ∃ gs : List Group, InstallTrace μ fe.env gs fe'.env ∧
-        (∀ g ∈ gs, g.value? = none) ∧
-        (∀ g ∈ gs, EnvWF (fe'.env.prefixTo g.vis))
-  | [], fe, fe', s₀, s', _, hm, _, h => by
-    obtain ⟨hfe, rfl⟩ := pureC_ok h
-    subst hfe
-    refine ⟨hm, [], ?_, ?_, ?_⟩
-    · show fe.env = fe.env
-      rfl
-    · intro _ hg; exact (List.not_mem_nil hg).elim
-    · intro _ hg; exact (List.not_mem_nil hg).elim
-  | pc :: ds, fe, fe', s₀, s', hfe, hm, hres, h => by
-    rw [List.foldlM_cons] at h
-    obtain ⟨fe₁, s₁, hstepC, h⟩ := bindC_ok h
-    obtain ⟨⟨mp⟩, hE⟩ := hm
-    obtain ⟨d, hd⟩ := DeclCRel_total pc
-    have hpush : PushChain fe.env fe₁ :=
-      checkDeclStepC_push μ (PushChain.refl fe.env) pc s₀ fe₁ s₁ (hfe ▸ hstepC)
-    rw [hfe] at hstepC
-    obtain ⟨hres₁, hfe₁, F, hF⟩ :=
-      checkDeclStepC_run hμ mp.toEnvFacts.wf hres hd hstepC
-    have hm₁ : EnvModelOk V μ fe₁.env :=
-      declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF)
-    obtain ⟨hm', gs, htr, hnone, hwf⟩ := fold_trace hμ ds fe₁ hfe₁ hm₁ hres₁ h
-    have hg : GroupInstalled μ F fe.env ⟨d, fe.env.consts.length, none⟩ fe₁.env :=
-      ⟨rfl, hpush.2.1, hF⟩
-    refine ⟨hm', ⟨d, fe.env.consts.length, none⟩ :: gs, ⟨F, fe₁.env, hg, htr⟩, ?_, ?_⟩
-    · intro g hg'
-      rcases List.mem_cons.mp hg' with rfl | hg'
-      · rfl
-      · exact hnone g hg'
-    · intro g hg'
-      rcases List.mem_cons.mp hg' with rfl | hg'
-      · rw [InstallTrace.prefix_head hg htr]
-        exact mp.toEnvFacts.wf
-      · exact hwf g hg'
-
-/-- **The ordinary fold yields a fully checked environment**, in the
-specification's sense: every group checked in full at its install. -/
-theorem checkDecls_spec (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} {env' : Env} (h : checkDecls μ ds = .ok env') :
-    ∃ sp : FullyCheckedSpec μ, sp.env = env' := by
-  obtain ⟨fe, s', hrun, rfl⟩ := checkDecls_run h
-  obtain ⟨⟨⟨mp⟩, -⟩, gs, htr, hnone, hwf⟩ := fold_trace (V := V) hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty hrun
-  have hchain := fold_push (env := Env.empty) ds (PushChain.refl Env.empty) hrun
-  refine ⟨⟨⟨fe.env, gs, htr, hchain.2.2 List.nodup_nil, hwf, mp.toEnvFacts.wf⟩, ?_⟩, rfl⟩
-  intro i
-  unfold GroupCheckedSpec
-  cases hi : gs[i]? with
-  | none => trivial
-  | some g =>
-    have := hnone g (List.mem_iff_getElem?.mpr ⟨i, hi⟩)
-    simp only [this]
+/-- Every parsed declaration relates to one: with one expression type
+the witness is the record itself. -/
+theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
+  | .axiomDecl _ => ⟨_, .axiomDecl rfl⟩
+  | .defnDecl _ _ _ => ⟨_, .defnDecl rfl rfl⟩
+  | .thmDecl _ _ => ⟨_, .thmDecl rfl rfl⟩
+  | .opaqueDecl _ _ => ⟨_, .opaqueDecl rfl rfl⟩
+  | .basisDecl _ => ⟨_, .basisDecl⟩
+  | .indDecl _ _ => ⟨_, .indDecl⟩
 
 /-! ## The two-phase driver: phase A's install halves -/
 
@@ -340,16 +276,16 @@ theorem restrictTo_find?_of_extends {feFinal : FEnv} {env : Env}
   rw [h1, mkFEnv_find?_visibleBelow feFinal.env env.consts.length n hnd,
     Env.prefixTo_of_extends hext]
 
-/-! ## The driver's trace -/
+/-! ## The model along the run -/
 
 set_option maxHeartbeats 2000000 in
-/-- **The driver's trace**: phase A's accepting run from a canonical
-index whose environment carries the model, with every record of the
-final index checked from a fresh memo state, threads the model and
-leaves an install trace whose value groups are checked at their
-prefixes.  (The model at each position supplies the well-formedness of
-the environment every bridge from the executable core takes; the
-records' checks are consumed at the positions that produced them.) -/
+/-- **The model along the run**: phase A's accepting run from a
+canonical index whose environment carries the model, with every record
+of the final index checked from a fresh memo state, carries the model
+to the final environment.  (The model at each position supplies the
+well-formedness of the environment every bridge from the executable
+core takes; the records' checks are consumed at the positions that
+produced them.) -/
 theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
@@ -357,19 +293,9 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
-    EnvModelOk V μ q.2.1.env ∧
-    ∃ gs : List Group, InstallTrace μ p.2.1.env gs q.2.1.env ∧
-      (∀ g ∈ gs, EnvWF (q.2.1.env.prefixTo g.vis)) ∧
-      (∀ g ∈ gs, ∀ vg, g.value? = some vg →
-        ∃ F, checkValueGroup (fueledOps μ F) (q.2.1.env.prefixTo g.vis) vg = .ok ()) := by
+    EnvModelOk V μ q.2.1.env := by
   induction hrun with
-  | nil p s =>
-    intro _ hm _ _ _
-    refine ⟨hm, [], ?_, ?_, ?_⟩
-    · show p.2.1.env = p.2.1.env
-      rfl
-    · intro _ hg; exact (List.not_mem_nil hg).elim
-    · intro _ hg; exact (List.not_mem_nil hg).elim
+  | nil p s => exact fun _ hm _ _ _ => hm
   | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
     intro hfe hm hresA hnd hB
     obtain ⟨i, fe, pend⟩ := p
@@ -381,14 +307,10 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
     obtain ⟨⟨mp⟩, hE⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
-    -- the ordinary step: a group checked in full at its install
+    -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : DeclC),
         (checkDeclStepC μ fe pd' >>= fun fe' => pure (fe', pend)) s = .ok ((fe₁, pend₁), s₁) →
-        EnvModelOk V μ q.2.1.env ∧
-        ∃ gs : List Group, InstallTrace μ fe.env gs q.2.1.env ∧
-          (∀ g ∈ gs, EnvWF (q.2.1.env.prefixTo g.vis)) ∧
-          (∀ g ∈ gs, ∀ vg, g.value? = some vg →
-            ∃ F, checkValueGroup (fueledOps μ F) (q.2.1.env.prefixTo g.vis) vg = .ok ()) := by
+        EnvModelOk V μ q.2.1.env := by
       intro pd' hst
       obtain ⟨fe₁', s₁', hstepC', hp⟩ := bindC_ok hst
       obtain ⟨hv, rfl⟩ := pureC_ok hp
@@ -397,20 +319,9 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       obtain ⟨d, hd⟩ := DeclCRel_total pd'
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hd hstepC'
-      have hm₁ : EnvModelOk V μ fe₁'.env :=
-        declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF)
-      obtain ⟨hm', gs, htr, hwf, hchk⟩ := ih hfe₁ hm₁ hres₁ hnd hB
-      have hg : GroupInstalled μ F fe.env ⟨d, fe.env.consts.length, none⟩ fe₁'.env :=
-        ⟨rfl, hpush₁.2.1, hF⟩
-      refine ⟨hm', ⟨d, fe.env.consts.length, none⟩ :: gs, ⟨F, _, hg, htr⟩, ?_, ?_⟩
-      · intro g hg'
-        rcases List.mem_cons.mp hg' with rfl | hg'
-        · rw [InstallTrace.prefix_head hg htr]; exact henv
-        · exact hwf g hg'
-      · intro g hg' vg hvg
-        rcases List.mem_cons.mp hg' with rfl | hg'
-        · exact nomatch hvg
-        · exact hchk g hg' vg hvg
+      exact ih hfe₁
+        (declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
+        hres₁ hnd hB
     -- a separable value declaration: phase A's install, phase B's check
     have value : ∀ (cv : ConstantVal) (value : ExprC) (record : Bool) (kind : ValueKind)
         (mk : ConstantVal → ExprC → ConstantInfo) (d : Declaration)
@@ -422,14 +333,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
           installConstantVal (fueledOps μ F) fe.env cv = .ok cvA →
           installValue (fueledOps μ F) fe.env cvA value = .ok jv →
           checkValueGroup (fueledOps μ F) fe.env ⟨kind, cvA, jv⟩ = .ok () →
-          GroupInstalled μ F fe.env ⟨d, fe.env.consts.length, some ⟨kind, cvA, jv⟩⟩
-            ⟨mk cvA jv :: fe.env.consts⟩ ∧
           checkDecl μ (fueledOps μ F) fe.env d = .ok ⟨mk cvA jv :: fe.env.consts⟩) →
-        EnvModelOk V μ q.2.1.env ∧
-        ∃ gs : List Group, InstallTrace μ fe.env gs q.2.1.env ∧
-          (∀ g ∈ gs, EnvWF (q.2.1.env.prefixTo g.vis)) ∧
-          (∀ g ∈ gs, ∀ vg, g.value? = some vg →
-            ∃ F, checkValueGroup (fueledOps μ F) (q.2.1.env.prefixTo g.vis) vg = .ok ()) := by
+        EnvModelOk V μ q.2.1.env := by
       intro cv value record kind mk d cvA jty jv hval hfe₁' hpend₁' hsplit
       subst hfe₁' hpend₁'
       rw [hfe] at hval
@@ -450,25 +355,13 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         (pc := ⟨⟨kind, cvA, jv⟩, i, fe.visibleBelow⟩) (by rw [hvis]; exact hfind)
         hwty' hwv CSOKF.empty hchk
       -- the two halves are the declaration's check
-      obtain ⟨hg, hF⟩ := hsplit cvA jv (max F₁ F₂)
+      have hF := hsplit cvA jv (max F₁ F₂)
         (installConstantVal_mono (Nat.le_max_left _ _) hI)
         (installValue_mono (Nat.le_max_left _ _) hV)
         (checkValueGroup_mono (Nat.le_max_right _ _) hC)
       have hm₁ : EnvModelOk V μ (fe.push (mk cvA jv)).env :=
         declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF)
-      obtain ⟨hm', gs, htr, hwf, hchk'⟩ := ih hfe₁ hm₁ hres₁ hnd hB
-      refine ⟨hm', ⟨d, fe.env.consts.length, some ⟨kind, cvA, jv⟩⟩ :: gs,
-        ⟨max F₁ F₂, _, hg, htr⟩, ?_, ?_⟩
-      · intro g hg'
-        rcases List.mem_cons.mp hg' with rfl | hg'
-        · rw [InstallTrace.prefix_head hg htr]; exact henv
-        · exact hwf g hg'
-      · intro g hg' vg hvg
-        rcases List.mem_cons.mp hg' with rfl | hg'
-        · cases hvg
-          rw [InstallTrace.prefix_head hg htr]
-          exact ⟨F₂, hC⟩
-        · exact hchk' g hg' vg hvg
+      exact ih hfe₁ hm₁ hres₁ hnd hB
     cases pd with
     | defnDecl cv val hint =>
       unfold annotStepC at hstepC
@@ -486,7 +379,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         intro cvA jv F hI hV hC
         have hnat' : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = false :=
           Bool.not_eq_true _ ▸ hnat
-        exact ⟨⟨rfl, hnat', rfl, hI, hV, rfl⟩, checkDecl_of_split_defn hnat' hI hV hC⟩
+        exact checkDecl_of_split_defn hnat' hI hV hC
     | thmDecl cv val =>
       unfold annotStepC at hstepC
       simp only [] at hstepC
@@ -498,7 +391,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       refine value cv val true .thm (fun cvA jv => .thmInfo cvA jv) (.thmDecl cv val)
         cvA jty jv hval rfl rfl ?_
       intro cvA jv F hI hV hC
-      exact ⟨⟨rfl, rfl, hI, hV, rfl⟩, checkDecl_of_split_thm rfl hI hV hC⟩
+      exact checkDecl_of_split_thm rfl hI hV hC
     | opaqueDecl cv val =>
       unfold annotStepC at hstepC
       simp only [] at hstepC
@@ -514,57 +407,29 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
           cvA jty jv hval rfl rfl ?_
         intro cvA jv F hI hV hC
         have hred' : reduceOpNames.contains cv.name = false := Bool.not_eq_true _ ▸ hred
-        exact ⟨⟨rfl, hred', rfl, hI, hV, rfl⟩, checkDecl_of_split_opaque hred' hI hV hC⟩
+        exact checkDecl_of_split_opaque hred' hI hV hC
     | axiomDecl cv => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | basisDecl kind => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold annotStepC at hstepC; exact ordinary _ hstepC
 
-/-- Every record of a fully checked environment was checked from a
-fresh memo state. -/
-theorem FullyChecked.records {ds : List DeclC} (fc : FullyChecked μ ds) :
-    ∀ pc ∈ fc.1.pend.toList, ∃ s'', checkPending μ fc.1.fe pc {} = .ok ((), s'') := by
-  intro pc hpc
-  obtain ⟨k, hk⟩ := List.mem_iff_getElem?.mp hpc
-  have h := fc.2 k
-  unfold GroupChecked at h
-  rw [Array.getElem?_toList] at hk
-  rw [hk] at h
-  exact h
+/-! ## The letters on the driver's type -/
 
-/-- **The driver's fully checked environment is one in the
-specification's sense** — the bridge from the executable steps to the
-pure checker's two halves.  The set theory is a hypothesis because the
-bridge threads the model for the well-formedness it needs; the
-conclusion does not mention it. -/
-theorem fullyChecked_spec (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} (fc : FullyChecked μ ds) :
-    ∃ sp : FullyCheckedSpec μ, sp.env = fc.env := by
-  obtain ⟨n, s, r⟩ := fc.1.run
-  have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  obtain ⟨⟨⟨mp⟩, -⟩, gs, htr, hwf, hchk⟩ := installRun_model (V := V) hμ r rfl
-    ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
-    (hchain.1.2.2 List.nodup_nil) fc.records
-  refine ⟨⟨⟨fc.1.fe.env, gs, htr, hchain.1.2.2 List.nodup_nil, hwf, mp.toEnvFacts.wf⟩, ?_⟩, rfl⟩
-  intro i
-  unfold GroupCheckedSpec
-  cases hi : gs[i]? with
-  | none => trivial
-  | some g =>
-    dsimp only
-    cases hvg : g.value? with
-    | none => trivial
-    | some vg => exact hchk g (List.mem_iff_getElem?.mpr ⟨i, hi⟩) vg hvg
-
-/-- **A fully checked environment carries the model.** -/
+/-- **A fully checked environment carries the model.**  The set theory
+is a hypothesis because the walk threads the model for the
+well-formedness it needs; the conclusion is the model itself. -/
 theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} (fc : FullyChecked μ ds) :
     Nonempty (EnvModelM V μ fc.env) := by
-  obtain ⟨sp, hsp⟩ := fullyChecked_spec V hμ fc
-  rw [← hsp]
-  exact fullyCheckedSpec_sound hμ sp
+  obtain ⟨n, s, r⟩ := fc.1.run
+  have hchain := installRun_trace μ r (PushChain.refl Env.empty)
+  exact (installRun_model (V := V) hμ r rfl
+    ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
+    (hchain.1.2.2 List.nodup_nil) fc.records).1
 
-/-- **THE LETTER ON THE DRIVER'S TYPE**: a fully checked environment, in
-a validating mode, holds no constant of type `False`. -/
+/-- **The letter on the driver's type**: a fully checked environment, in
+a validating mode, holds no constant of type `False`.  The main theorem
+(`ConLeche.no_proof_of_False`, about `checkDecls`) is this under
+`checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     (fc : FullyChecked μ ds) :
