@@ -241,4 +241,36 @@ theorem classifyFixKinds_inv {T : Name} {lps : List Name} {nP nIdx : Nat}
   subst h
   exact ⟨rfl, by simpa using hneg, by simpa using hun, List.mapM_option_length hk⟩
 
+/-- **One pass's shape** (task #268): the former's run at the record
+at the verdict `isRec`, the constructors' runs at the former's
+environment (the resolution guard pointed at that same environment),
+the kinds classified on the stored constructors, the record completed
+with them, and the settling bit — the classified record against the
+one the pass ran at. -/
+theorem checkNativePass_inv {env : Env} {p₀ : NativeParts} {isRec : Bool}
+    {q : NativePass Env} {b : Bool} {F : Nat}
+    (h : checkNativePass (fueledOps mode F) env p₀ isRec = .ok (q, b)) :
+    ∃ (p₁ : InductiveShape) (kinds : List (List RecFieldKind)),
+      checkSumInd (fueledOps mode F) env p₀.toInductiveShape
+        (fun p₁ => nativeCapsAt p₁ isRec) = .ok (q.env₁, q.cvTa, p₁) ∧
+      checkSumCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).cvT.name
+        (p₀.complete p₁).cvT.levelParams (p₀.complete p₁).nP (p₀.complete p₁).nIdx
+        (p₀.complete p₁).resSort (p₀.complete p₁).isProp (p₀.complete p₁).large q.cvTa
+        (p₀.complete p₁).ctors = .ok (q.ctorsA, q.sortss) ∧
+      classifyFixKinds (m := CheckM) (p₀.complete p₁).cvT.name (p₀.complete p₁).cvT.levelParams
+        (p₀.complete p₁).nP (p₀.complete p₁).nIdx q.ctorsA = .ok kinds ∧
+      q.p = (p₀.complete p₁).withKinds kinds ∧
+      b = (nativeCaps q.p == nativeCapsAt p₁ isRec) := by
+  unfold checkNativePass at h
+  obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
+  obtain ⟨env₁, cvTa, p₁⟩ := r₁
+  try simp only at h
+  obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
+  obtain ⟨ctorsA, sortss⟩ := r₂
+  try simp only at h
+  obtain ⟨kinds, hK, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  exact ⟨p₁, kinds, hInd, hCtors, hK, rfl, rfl⟩
+
 end ConLeche

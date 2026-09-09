@@ -115,12 +115,18 @@ theorem nativeFieldsOk_inv {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx 
 /-- **The fixpoint route's capability record names the parameter count
 as its arity**: what `direct_sum_ind_wf` needs of `capsOf`
 to establish `IndCapsWF` at the former's cons. -/
-theorem nativeCaps_arity (p : NativeParts) :
-    ((nativeCaps p).unitlike = true → (nativeCaps p).unitParams = p.nP) ∧
-    ((nativeCaps p).eta = true → (nativeCaps p).etaParams = p.nP) := by
-  unfold nativeCaps
+theorem nativeCapsAt_arity (p : InductiveShape) (isRec : Bool) :
+    ((nativeCapsAt p isRec).unitlike = true → (nativeCapsAt p isRec).unitParams = p.nP) ∧
+    ((nativeCapsAt p isRec).eta = true → (nativeCapsAt p isRec).etaParams = p.nP) := by
+  unfold nativeCapsAt
   split
   · exact ⟨fun _ => rfl, fun _ => rfl⟩
   · exact ⟨(fun h => nomatch h), (fun h => nomatch h)⟩
+
+/-- `nativeCapsAt_arity` at the classified verdict. -/
+theorem nativeCaps_arity (p : NativeParts) :
+    ((nativeCaps p).unitlike = true → (nativeCaps p).unitParams = p.nP) ∧
+    ((nativeCaps p).eta = true → (nativeCaps p).etaParams = p.nP) :=
+  nativeCapsAt_arity p.toInductiveShape (nativeIsRec p.kinds)
 
 end ConLeche

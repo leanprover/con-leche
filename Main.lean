@@ -202,11 +202,13 @@ installed index at its own prefix view, its own record, and a fresh
 memo state — so phase B is handed to `n` long-lived worker tasks
 (`IO.asTask` on dedicated threads: exactly `n` threads whatever the
 runtime's own pool size).  The work is millions of mostly tiny checks
-with a skewed tail (single bodies of an hour exist), so a worker claims
-CHUNKS of consecutive records off one shared counter — a few hundred
-at the start, shrinking towards the end (`chunkSize`) — and pays one
-atomic per chunk, not per record; a chunk is the unit a tail item can
-strand, and near the end chunks are single records.  Each worker keeps
+with a skewed tail (single bodies of an hour exist) and the heavy ones
+sit CLOSE TOGETHER in the stream, so a worker claims ONE record per
+atomic claim off one shared counter: a cluster of heavy declarations is
+spread over the whole pool instead of serialising inside one claimed
+range, and the only item that can strand the pool is the single largest
+check.  The claim costs one `modifyGet` on an `IO.Ref` per record,
+which is below the third decimal of a run.  Each worker keeps
 its results in its own array (record index, `RecordResult`), which
 is what a record's check IS: the `GroupChecked` fact of that record
 or its tagged error (`ConLeche.Cached.checkRecordResult`).  The pool
@@ -236,63 +238,46 @@ installed index and the records — for multi-threaded reference
 counting once, on the first spawn (an object already marked is not
 walked again); every reference-count operation on those objects is
 atomic from then on, which is the pool's instruction overhead over
-the sequential loop.  The heartbeat lane (`--progress`) additionally
-pays one atomic increment per completed record, for an exact
-completed-count; a plain run pays none. -/
+the sequential loop.  A plain run pays, on top of that, one atomic
+claim per record; the heartbeat lane (`--progress`) pays a second
+atomic increment per completed record, for an exact completed-count. -/
 
-/-- The chunk a worker claims when `remaining` records are unclaimed
-and `workers` threads share them: a quarter of an even share, at
-least one record and at most 256 — large while the counter is far
-from the end (one atomic per chunk), single records near it (no
-worker idles while another holds a chunk of the tail). -/
-def chunkSize (remaining workers : Nat) : Nat :=
-  max 1 (min 256 (remaining / (4 * workers)))
-
-/-- One chunk `[k, b)` of one worker: every record below the shared
-`limit` is checked and its result appended; a failure lowers the
-limit to its index; on the heartbeat lane the completed-count is
-bumped per record.  Stops early at the limit — those records are
-above a known failure and the walk will never ask for them. -/
-def checkChunk (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+/-- One claimed record of one worker: below the shared `limit` it is
+checked and its result appended; a failure lowers the limit to its
+index; on the heartbeat lane the completed-count is bumped.  A record
+at or above the limit is skipped — it is above a known failure and the
+walk will never ask for it. -/
+def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
-    (limit done : IO.Ref Nat) :
-    (k b : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
-      IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
-  | k, b, acc =>
-    if hk : k < e.pend.size then
-      if k < b then do
-        if k < (← limit.get) then
-          let r := ConLeche.Cached.checkRecordResult mode e k hk
-          if r matches .error _ then
-            limit.modify (min · k)
-          let acc := acc.push (k, r)
-          if stride > 0 then
-            let n ← done.modifyGet fun d => (d + 1, d + 1)
-            checkHeartbeat err stride t0 e n k hk
-          checkChunk mode err stride t0 e limit done (k + 1) b acc
-        else pure acc
-      else pure acc
-    else pure acc
-  termination_by k => e.pend.size - k
+    (limit done : IO.Ref Nat) (k : Nat) (hk : k < e.pend.size)
+    (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) :
+    IO (Array (Nat × ConLeche.Cached.RecordResult mode e)) := do
+  if k < (← limit.get) then
+    let r := ConLeche.Cached.checkRecordResult mode e k hk
+    if r matches .error _ then
+      limit.modify (min · k)
+    let acc := acc.push (k, r)
+    if stride > 0 then
+      let n ← done.modifyGet fun d => (d + 1, d + 1)
+      checkHeartbeat err stride t0 e n k hk
+    return acc
+  else return acc
 
-/-- One worker: claim a chunk off the shared counter, check it, repeat
-until the counter is past the records.  The fuel is exact: every claim
-advances the counter by at least one, so `pend.size + 1` claims see
-it past the end whatever the other workers do. -/
-def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 workers : Nat)
+/-- One worker: claim ONE record off the shared counter, check it,
+repeat until the counter is past the records.  The fuel is exact:
+every claim advances the counter by exactly one, so `pend.size + 1`
+claims see it past the end whatever the other workers do. -/
+def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
     (next limit done : IO.Ref Nat) :
     (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
       IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
   | 0, acc => pure acc
   | fuel + 1, acc => do
-    let m := e.pend.size
-    let (a, c) ← next.modifyGet fun a =>
-      let c := chunkSize (m - a) workers
-      ((a, c), a + c)
-    if a < m then
-      let acc ← checkChunk mode err stride t0 e limit done a (min (a + c) m) acc
-      checkWorker mode err stride t0 workers e next limit done fuel acc
+    let k ← next.modifyGet fun a => (a, a + 1)
+    if hk : k < e.pend.size then
+      let acc ← checkOne mode err stride t0 e limit done k hk acc
+      checkWorker mode err stride t0 e next limit done fuel acc
     else pure acc
 
 /-- The workers' arrays merged by record index into one table. -/
@@ -320,7 +305,7 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs :
   let mut tasks : Array (Task (Except IO.Error (Array (Nat × ConLeche.Cached.RecordResult mode e)))) := #[]
   for _ in [0:workers] do
     tasks := tasks.push (← IO.asTask (prio := .dedicated)
-      (checkWorker mode err stride t0 workers e next limit done (m + 1) #[]))
+      (checkWorker mode err stride t0 e next limit done (m + 1) #[]))
   let mut results : List (Array (Nat × ConLeche.Cached.RecordResult mode e)) := []
   let mut failure : Option IO.Error := none
   for t in tasks do
@@ -791,8 +776,9 @@ def usage : String := String.intercalate "\n" [
   "                    fresh memo state.  The recorded checks are",
   "                    independent of one another, so the check phase",
   "                    runs on <n> threads: long-lived workers claim",
-  "                    chunks of consecutive records off one shared",
-  "                    counter, and the results are merged by record",
+  "                    one record at a time off one shared counter, so",
+  "                    that a cluster of heavy declarations is spread",
+  "                    over the pool, and the results are merged by record",
   "                    index and walked in record order, so the verdict",
   "                    -- and the declaration a rejection names, the",
   "                    first failing one in fold order -- is the same at",

@@ -243,87 +243,106 @@ theorem classifyFixKindsC_ok {T : Name} {lps : List Name} {nP nIdx : Nat}
       simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
       exact ⟨trivial, rfl⟩
 
-/-- The direct recursive install at the cached driver is reproduced by
-the pure fueled `checkNative` (task #188). -/
-theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {p₀ : NativeParts} {s₀ : CState} (hwf : CSOKF s₀)
-    {feOut : FEnv} {s' : CState}
-    (h : checkNativeS mode (mkFEnv env) p₀ s₀ = .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkNative (fueledOps mode F) env p₀ = .ok feOut.env := by
-  unfold checkNativeS at h
-  rw [structWalkersC_eq_plain] at h
-  -- the front guard
-  by_cases hnd : (p₀.ctors.map (·.1.name)).Nodup
-  case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
-  rw [if_pos hnd] at h
-  -- THE PROVISIONAL PASS (task #210 Part D): a throwaway former, the
-  -- constructors at it, the kinds
-  obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl0
-  injection hfl0 with hfl0
-  obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
-  rw [checkSumIndF_pushC] at h
-  simp only [bind_assoc, pure_bind] at h
-  obtain ⟨qP, sP₁, hindP, h⟩ := bindC_ok h
-  obtain ⟨hsP₁, qP', hPP, FP₁, hFP₁⟩ :=
-    (checkSumIndS_sim hμ henv (flushC_csok hwf)) qP sP₁ hindP
-  obtain ⟨rfl, -⟩ := hPP
-  obtain ⟨envP, cvTaP, p₁P⟩ := qP
-  have hFP₁p : checkSumInd (fueledOps mode FP₁) env p₀.toInductiveShape
-      (fun _ => {}) = .ok (envP, cvTaP, p₁P) := by
-    rw [← checkSumInd_datF]; exact hFP₁
-  obtain ⟨henvP, hTfP⟩ := direct_sum_ind_wf henv hFP₁p
-    (fun _ => ⟨(fun h => nomatch h), (fun h => nomatch h)⟩)
-  try simp only at h
-  obtain ⟨uP, sPB, hflP, h⟩ := bindC_ok h
-  rw [flushC_run] at hflP
-  injection hflP with hflP
-  obtain rfl : sP₁.flushed = sPB := congrArg Prod.snd hflP
-  rw [checkSumCtorsF_eq] at h
-  obtain ⟨qP₂, sP₂, hctP, h⟩ := bindC_ok h
-  obtain ⟨hsP₂, qP₂', hPP₂, FP₂, hFP₂⟩ :=
-    (checkSumCtorsS_sim hμ henvP hTfP (flushC_csok hsP₁.residue)) qP₂ sP₂ hctP
-  obtain rfl : qP₂ = qP₂' := hPP₂
-  obtain ⟨ctorsP, sortssP⟩ := qP₂
-  try simp only [bind_assoc, pure_bind] at h
-  have hFP₂p : checkSumCtors (fueledOps mode FP₂) envP envP (p₀.complete p₁P).cvT.name
-      (p₀.complete p₁P).cvT.levelParams (p₀.complete p₁P).nP (p₀.complete p₁P).nIdx
-      (p₀.complete p₁P).resSort (p₀.complete p₁P).isProp (p₀.complete p₁P).large cvTaP
-      (p₀.complete p₁P).ctors = .ok (ctorsP, sortssP) := by
-    rw [← checkSumCtors_datF]; exact hFP₂
-  try simp only at h
-  obtain ⟨kinds, sK, hK, h⟩ := bindC_ok h
-  obtain ⟨hsK, hKp⟩ := classifyFixKindsC_ok hK
-  -- stage 1: the type former, at the kinds
-  obtain ⟨u1, sA', hfl0', h⟩ := bindC_ok h
-  rw [flushC_run] at hfl0'
-  injection hfl0' with hfl0'
-  obtain rfl : sK.flushed = sA' := congrArg Prod.snd hfl0'
+/-- One pass at the cached driver (task #268) is reproduced by the
+pure fueled `checkNativePass`: the former's environment is the index
+over the pure one, the memo state is sound at it, and the
+constructors' conses onto it are well-formed. -/
+theorem checkNativePassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    {p₀ : NativeParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
+    {q : NativePass FEnv} {b : Bool} {s' : CState}
+    (h : checkNativePassS mode (mkFEnv env) p₀ isRec s₀ = .ok ((q, b), s')) :
+    ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
+      q.cvTa.type.hasFvar = false ∧ EnvWF (consSumCtors q.p.nP q.ctorsA env₁) ∧
+      ∃ F, (checkNativePass (fueledOpsM mode) env p₀ isRec).val F
+        = .ok (⟨env₁, q.cvTa, q.p, q.ctorsA, q.sortss⟩, b) := by
+  unfold checkNativePassS at h
+  -- the type former, at the record at the verdict
   rw [checkSumIndF_pushC] at h
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨q1, s₁, hind, h⟩ := bindC_ok h
-  have hsK' : CSOKF sK := hsK ▸ hsP₂.residue
-  obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
-    (checkSumIndS_sim hμ henv (flushC_csok hsK')) q1 s₁ hind
+  obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ := (checkSumIndS_sim hμ henv hs) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa, p₁⟩ := q1
   have hF₁p : checkSumInd (fueledOps mode F₁) env p₀.toInductiveShape
-      (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) := by
+      (fun p₁ => nativeCapsAt p₁ isRec) = .ok (env₁, cvTa, p₁) := by
     rw [← checkSumInd_datF]; exact hF₁
-  obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
-    (fun q => nativeCaps_arity ((p₀.complete q).withKinds kinds))
-  -- the completed record, and the elimination guard on it
+  obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p (fun q => nativeCapsAt_arity q isRec)
+  -- every constructor, at the former's environment, the resolution
+  -- guard pointed at that same environment
   try simp only at h
-  generalize hp : (p₀.complete p₁).withKinds kinds = p at h
+  obtain ⟨uB, sB, hflB, h⟩ := bindC_ok h
+  rw [flushC_run] at hflB
+  injection hflB with hflB
+  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hflB
+  rw [checkSumCtorsF_eq] at h
+  obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
+  obtain ⟨hs₂, q2', hP2, F₂, hF₂⟩ :=
+    (checkSumCtorsS_sim hμ henv₁ hTf (flushC_csok hs₁.residue)) q2 s₂ hct
+  obtain rfl : q2 = q2' := hP2
+  obtain ⟨ctorsA, sortss⟩ := q2
+  have hF₂p : checkSumCtors (fueledOps mode F₂) env₁ env₁ (p₀.complete p₁).cvT.name
+      (p₀.complete p₁).cvT.levelParams (p₀.complete p₁).nP (p₀.complete p₁).nIdx
+      (p₀.complete p₁).resSort (p₀.complete p₁).isProp (p₀.complete p₁).large cvTa
+      (p₀.complete p₁).ctors = .ok (ctorsA, sortss) := by
+    rw [← checkSumCtors_datF]; exact hF₂
+  -- the kinds, classified on the stored constructors
+  try simp only at h
+  obtain ⟨kinds, sK, hK, h⟩ := bindC_ok h
+  obtain ⟨hsK, hKp⟩ := classifyFixKindsC_ok hK
+  obtain ⟨hq, rfl⟩ := pureC_ok h
+  simp only [Prod.mk.injEq] at hq
+  obtain ⟨rfl, rfl⟩ := hq
+  subst hsK
+  -- the constructors' conses
+  have henv₂ : EnvWF (consSumCtors (p₀.complete p₁).nP ctorsA env₁) := by
+    refine envWF_consSumCtors henv₁ ?_
+    intro c hc
+    obtain ⟨hlen, -, hall⟩ := checkSumCtors_inv hF₂p
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
+    have hj' : j < (p₀.complete p₁).ctors.length := by
+      have := (List.getElem?_eq_some_iff.mp hj).1
+      omega
+    obtain ⟨-, sorts, -, hrun⟩ := hall j ((p₀.complete p₁).ctors[j]) c
+      (List.getElem?_eq_getElem hj') hj
+    exact direct_sum_ctor_typeWF hrun
+  refine ⟨env₁, rfl, hs₂, henv₁, hTf, henv₂, max F₁ F₂, ?_⟩
+  have g₁ : checkSumInd (fueledOps mode (max F₁ F₂)) env p₀.toInductiveShape
+      (fun p₁ => nativeCapsAt p₁ isRec) = .ok (env₁, cvTa, p₁) := by
+    rw [← checkSumInd_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
+  have g₂ : checkSumCtors (fueledOps mode (max F₁ F₂)) env₁ env₁ (p₀.complete p₁).cvT.name
+      (p₀.complete p₁).cvT.levelParams (p₀.complete p₁).nP (p₀.complete p₁).nIdx
+      (p₀.complete p₁).resSort (p₀.complete p₁).isProp (p₀.complete p₁).large cvTa
+      (p₀.complete p₁).ctors = .ok (ctorsA, sortss) := by
+    rw [← checkSumCtors_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
+  rw [checkNativePass_datF]
+  unfold checkNativePass
+  simp only [Bind.bind, Except.bind, pure, Except.pure]
+  rw [g₁]
+  simp only [Except.bind]
+  rw [g₂]
+  simp only [Except.bind]
+  rw [hKp]
+
+/-- The install after the pass at the cached driver is reproduced by
+the pure fueled `checkNativeTail`. -/
+theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : Env}
+    (henv₁ : EnvWF env₁) {cvTa : ConstantVal} {p : NativeParts}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hTf : cvTa.type.hasFvar = false) (henv₂ : EnvWF (consSumCtors p.nP ctorsA env₁))
+    {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
+    (h : checkNativeTailS mode (mkFEnv env) ⟨mkFEnv env₁, cvTa, p, ctorsA, sortss⟩ s₀
+      = .ok (feOut, s')) :
+    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+    ∃ F, (checkNativeTail (fueledOpsM mode) env ⟨env₁, cvTa, p, ctorsA, sortss⟩).val F
+      = .ok feOut.env := by
+  unfold checkNativeTailS at h
+  rw [structWalkersC_eq_plain] at h
+  try simp only at h
+  -- the elimination guard on the completed record
   by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length)) = true
   · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
   rw [if_neg hg] at h
   -- the index binders' sorts, read
-  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl1
-  injection hfl1 with hfl1
-  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
   cases htq : openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 with
   | none => rw [htq] at h; exact absurd h throwC_bind_ok
   | some tq =>
@@ -343,23 +362,8 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     simp only [Expr.WScoped, Nat.zero_add] at hw
     exact hw.2
   obtain ⟨hsS, isorts', hPs, F₀, hF₀⟩ :=
-    (checkStructFieldSortsIS_sim hμ henv₁ hxPos (flushC_csok hs₁.residue)) isorts sS hsorts
+    (checkStructFieldSortsIS_sim hμ henv₁ hxPos hs) isorts sS hsorts
   obtain rfl : isorts = isorts' := hPs
-  have hF₀p : checkStructFieldSortsI (fueledOps mode F₀) env₁ true false p.resSort p.nP
-      (tq.1.drop p.nP) [] p.nIdx = .ok isorts := by
-    rw [← checkStructFieldSortsI_datF]; exact hF₀
-  -- stage 2: every constructor, at the former's environment, the
-  -- resolution guard pointed at that same environment
-  rw [checkSumCtorsF_eq] at h
-  obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
-  obtain ⟨hs₂, q2', hP2, F₂, hF₂⟩ :=
-    (checkSumCtorsS_sim hμ henv₁ hTf hsS) q2 s₂ hct
-  obtain rfl : q2 = q2' := hP2
-  obtain ⟨ctorsA, sortss⟩ := q2
-  have hF₂p : checkSumCtors (fueledOps mode F₂) env₁ env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-      = .ok (ctorsA, sortss) := by
-    rw [← checkSumCtors_datF]; exact hF₂
   -- the field kinds, re-checked
   try simp only at h
   rw [nativeFieldsOkF_eq] at h
@@ -372,28 +376,16 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       p.ctors.length ctorsA p.kinds p.rhss = true
   case neg => rw [if_neg hr] at h; exact absurd h throwC_bind_ok
   rw [if_pos hr] at h
-  -- the constructors' conses
-  obtain ⟨hlen, -, hall⟩ := checkSumCtors_inv hF₂p
-  have henv₂ : EnvWF (consSumCtors p.nP ctorsA env₁) := by
-    refine envWF_consSumCtors henv₁ ?_
-    intro c hc
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-    have hj' : j < p.ctors.length := by
-      have := (List.getElem?_eq_some_iff.mp hj).1
-      omega
-    obtain ⟨-, sorts, -, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    exact direct_sum_ctor_typeWF hrun
   rw [consSumCtorsF_mkFEnv] at h
-  -- stage 3: the recursor with the inductive hypotheses, generated
-  -- and compared
+  -- the recursor with the inductive hypotheses, generated and compared
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
-  obtain rfl : s₂.flushed = sC := congrArg Prod.snd hfl2
+  obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
   rw [checkNativeRecF_eq] at h
   obtain ⟨q3, s₃, hrc, h⟩ := bindC_ok h
   obtain ⟨hs₃, q3', hP3, F₃, hF₃⟩ :=
-    (checkNativeRecS_sim hμ henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
+    (checkNativeRecS_sim hμ henv₂ (flushC_csok hsS.residue)) q3 s₃ hrc
   obtain rfl : q3 = q3' := hP3
   obtain ⟨cvRa, rhss⟩ := q3
   have hF₃p : checkNativeRec (fueledOps mode F₃) (consSumCtors p.nP ctorsA env₁)
@@ -405,29 +397,12 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     = (consSumCtors p.nP ctorsA env₁).find? from
     mkFEnv_find?_fun _] at h
   obtain ⟨hwfO, hfeO, -, F₆, hF₆⟩ := checkNativeTableS_run _ henv₃ hs₃.residue h
-  obtain ⟨G, hleP₁, hleP₂, hle₁, hle₀, hle₂, hle₃, hle₆⟩ :
-      ∃ G, FP₁ ≤ G ∧ FP₂ ≤ G ∧ F₁ ≤ G ∧ F₀ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
-    ⟨max FP₁ (max FP₂ (max F₁ (max F₀ (max F₂ (max F₃ F₆))))), by omega, by omega, by omega,
-      by omega, by omega, by omega, by omega⟩
+  obtain ⟨G, hle₀, hle₃, hle₆⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
+    ⟨max F₀ (max F₃ F₆), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have gP₁ : checkSumInd (fueledOps mode G) env p₀.toInductiveShape
-      (fun _ => {}) = .ok (envP, cvTaP, p₁P) := by
-    rw [← checkSumInd_datF]; exact FueledM.up hleP₁ hFP₁
-  have gP₂ : checkSumCtors (fueledOps mode G) envP envP (p₀.complete p₁P).cvT.name
-      (p₀.complete p₁P).cvT.levelParams (p₀.complete p₁P).nP (p₀.complete p₁P).nIdx
-      (p₀.complete p₁P).resSort (p₀.complete p₁P).isProp (p₀.complete p₁P).large cvTaP
-      (p₀.complete p₁P).ctors = .ok (ctorsP, sortssP) := by
-    rw [← checkSumCtors_datF]; exact FueledM.up hleP₂ hFP₂
-  have g₁ : checkSumInd (fueledOps mode G) env p₀.toInductiveShape
-      (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) := by
-    rw [← checkSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₀ : checkStructFieldSortsI (fueledOps mode G) env₁ true false p.resSort p.nP
       (tq.1.drop p.nP) [] p.nIdx = .ok isorts := by
     rw [← checkStructFieldSortsI_datF]; exact FueledM.up hle₀ hF₀
-  have g₂ : checkSumCtors (fueledOps mode G) env₁ env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-      = .ok (ctorsA, sortss) := by
-    rw [← checkSumCtors_datF]; exact FueledM.up hle₂ hF₂
   have g₃ : checkNativeRec (fueledOps mode G) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) := by
     rw [← checkNativeRec_datF]; exact FueledM.up hle₃ hF₃
@@ -436,29 +411,105 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
         (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok feOut.env := by
     rw [← checkNativeTable_datF]; exact FueledM.up hle₆ hF₆
-  unfold checkNative
-  rw [if_pos hnd]
+  rw [checkNativeTail_datF]
+  unfold checkNativeTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [gP₁]
-  simp only [Except.bind]
-  rw [gP₂]
-  simp only [Except.bind]
-  rw [hKp]
-  simp only [Except.bind]
-  rw [g₁]
-  simp only [Except.bind]
-  rw [hp, if_neg hg]
+  rw [if_neg hg]
   try simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [htq]
   simp only [unwrapOr, pure, Except.pure, Except.bind]
   rw [g₀]
   simp only [Except.bind]
-  rw [g₂]
-  simp only [Except.bind]
   rw [if_pos hk, if_pos hr]
   rw [g₃]
   simp only [Except.bind]
   exact g₆
+
+/-- The direct recursive install at the cached driver is reproduced by
+the pure fueled `checkNative` (task #188): the pass at the syntactic
+reading, again at the classified verdict where it overshot (task
+#268), and the install after the settled one. -/
+theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    {p₀ : NativeParts} {s₀ : CState} (hwf : CSOKF s₀)
+    {feOut : FEnv} {s' : CState}
+    (h : checkNativeS mode (mkFEnv env) p₀ s₀ = .ok (feOut, s')) :
+    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+    ∃ F, checkNative (fueledOps mode F) env p₀ = .ok feOut.env := by
+  unfold checkNativeS at h
+  -- the front guard
+  by_cases hnd : (p₀.ctors.map (·.1.name)).Nodup
+  case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
+  rw [if_pos hnd] at h
+  obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl0
+  injection hfl0 with hfl0
+  obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
+  -- the pass at the syntactic reading
+  obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
+  obtain ⟨⟨fe₁, cvTa, p, ctorsA, sortss⟩, settled⟩ := r
+  obtain ⟨env₁, hq₁, hs₁, henv₁, hTf, henv₂, F₁, hF₁⟩ :=
+    checkNativePassS_run hμ henv (flushC_csok hwf) hP
+  simp only at hq₁ hs₁ henv₁ hTf henv₂ hF₁
+  subst hq₁
+  try simp only at h
+  cases settled with
+  | true =>
+    simp only [↓reduceIte] at h
+    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkNativeTailS_run hμ henv₁ hTf henv₂ hs₁ h
+    refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
+    have g₁ : checkNativePass (fueledOps mode (max F₁ F₂)) env p₀ (nativeRawRec p₀)
+        = .ok (⟨env₁, cvTa, p, ctorsA, sortss⟩, true) := by
+      rw [← checkNativePass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
+    have g₂ : checkNativeTail (fueledOps mode (max F₁ F₂)) env ⟨env₁, cvTa, p, ctorsA, sortss⟩
+        = .ok feOut.env := by
+      rw [← checkNativeTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
+    unfold checkNative
+    rw [if_pos hnd]
+    simp only [Bind.bind, Except.bind, pure, Except.pure]
+    rw [g₁]
+    simp only [Except.bind, ↓reduceIte]
+    exact g₂
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  -- the pass again, at the classified verdict
+  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl1
+  injection hfl1 with hfl1
+  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
+  obtain ⟨r', s₂, hP', h⟩ := bindC_ok h
+  obtain ⟨⟨fe₁', cvTa', p', ctorsA', sortss'⟩, settled'⟩ := r'
+  obtain ⟨env₁', hq₁', hs₁', henv₁', hTf', henv₂', F₂, hF₂⟩ :=
+    checkNativePassS_run hμ henv (flushC_csok hs₁.residue) hP'
+  simp only at hq₁' hs₁' henv₁' hTf' henv₂' hF₂
+  subst hq₁'
+  try simp only at h
+  cases settled' with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact absurd h throwC_bind_ok
+  | true =>
+  simp only [↓reduceIte] at h
+  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkNativeTailS_run hμ henv₁' hTf' henv₂' hs₁' h
+  obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
+    ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
+  refine ⟨hwfO, hfeO, G, ?_⟩
+  have g₁ : checkNativePass (fueledOps mode G) env p₀ (nativeRawRec p₀)
+      = .ok (⟨env₁, cvTa, p, ctorsA, sortss⟩, false) := by
+    rw [← checkNativePass_datF]; exact FueledM.up hle₁ hF₁
+  have g₂ : checkNativePass (fueledOps mode G) env p₀ (nativeIsRec p.kinds)
+      = .ok (⟨env₁', cvTa', p', ctorsA', sortss'⟩, true) := by
+    rw [← checkNativePass_datF]; exact FueledM.up hle₂ hF₂
+  have g₃ : checkNativeTail (fueledOps mode G) env ⟨env₁', cvTa', p', ctorsA', sortss'⟩
+      = .ok feOut.env := by
+    rw [← checkNativeTail_datF]; exact FueledM.up hle₃ hF₃
+  unfold checkNative
+  rw [if_pos hnd]
+  simp only [Bind.bind, Except.bind, pure, Except.pure]
+  rw [g₁]
+  simp only [Except.bind, Bool.false_eq_true, ↓reduceIte]
+  rw [g₂]
+  simp only [Except.bind, ↓reduceIte]
+  exact g₃
 
 /-- The inductive block at the cached driver is reproduced by the
 pure fueled `checkModeled`. -/

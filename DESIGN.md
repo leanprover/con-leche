@@ -35522,7 +35522,6 @@ does not touch.  Full battery re-run green post-merge.
   branch — verdict-neutrality is a theorem of the diff).
 
 
-
 ## TASK #172 — BATCH B3b: THE `WFc` TIER DELETES, AND THE SIX
 DIRECT-PARSE LETTERS RESTATE (2026-09-04, `agent/tricore-b3b`)
 
@@ -43662,7 +43661,6 @@ names, and building a general skip list was explicitly out of scope.
   fix (§2) it would be ~5 GiB.
 
 
-
 ## TASK #175 S1 — THE PROJECTION TABLE AS AN ARRAY OF BODIES (2026-09-06, `agent/s1-proj-array`)
 
 ### 0. What landed
@@ -49690,7 +49688,6 @@ allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
 `0 / 1 / 1 / 1 / 1 / 1`), annot 14/14, flags 8/8 + 16/16, heartbeat
 1/1, the trusted sweep with the 3 recorded divergences; init-full
 `--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
-
 
 
 ## Task #182 — the environment index is linear; the quadratic loop was the localisation lane (2026-09-06, `agent/fenv-linear`)
@@ -60258,7 +60255,6 @@ declaration and to the block — at **679.17 G instructions:u** against
 recursor-driven subtraction for a Π-spine walk of the type former.
 
 
-
 ## TASK #221 — DEAD-CODE REMOVAL ACROSS THE TREE: ten modules, 214 declarations, six macros (2026-09-08, `agent/deadcode2`)
 
 User directive: *"remove unused code"* (standing rule), *"dead code
@@ -66209,9 +66205,366 @@ the hardware thread count — 96 on this box — and 96 worker stacks at
 serial run is the like-for-like comparison with the numbers the brief
 gave.)
 
+### Post-landing: the same A/B on the shipped binary, at two larger scales
+
+Re-measured on master's own binary through `--no-mark-persistent`,
+which is what that flag is for.  Same method (interleaved pairs, three
+repetitions, minima, within-pair ordering the only evidence).
+
+**`init-full` again, both modes, three reps** — the landing reproduces
+the branch cell for cell: instructions −1.48 % / −1.46 % flat, cycles
+−17.5 % at two workers to −42.1 % (verified) and −48.6 % (trusted) at
+sixteen, wall −14.6 % to −28.6 %, **faster in 24 of 24 pairs**.  The
+deltas run 1–5 points milder than the pre-landing sweep because this
+one overlapped the full-Mathlib pair below for part of its duration;
+the instruction column, which load cannot move, is identical to three
+digits.
+
+**The 1.5 GB Mathlib prefix** (162 092 declarations, 160 028 recorded
+checks; `ulimit -v 32000000`, three reps, verified).  Here the
+`--progress` phase durations separate the mark's effect from the serial
+floor, and that is the row to read:
+
+| jobs | instructions | cycles | wall | **check phase** | maxRSS |
+|---|---|---|---|---|---|
+| 2 | −1.04 % | −9.0 % | −8.2 % (167.7 → 153.9 s) | **−9.3 %** (119.4 → 108.3 s) | +0.4 % |
+| 4 | −1.05 % | −17.6 % | −13.2 % (115.2 → 99.9 s) | **−18.7 %** (67.5 → 54.9 s) | +1.2 % |
+| 8 | −1.05 % | −24.5 % | −13.4 % (85.4 → 74.0 s) | **−24.9 %** (38.6 → 29.0 s) | +0.1 % |
+| 16 | −1.05 % | −33.6 % | −12.7 % (70.1 → 61.1 s) | **−32.2 %** (23.6 → 16.0 s) | +1.4 % |
+
+**12 of 12 pairs**, and the check phase — the only phase the mark
+touches — moves with the worker count exactly as on init-full
+(−9 → −32 %), while the whole-run wall flattens near −13 % because
+parse + install ≈ 45 s is an ever larger share of what remains.  That
+is the mark's shape stated correctly: it is a *check-phase* effect, and
+what a run sees of it depends on how much of the run is the check
+phase.
+
+**All of Mathlib** (`mathlib-full.ndjson`, 5.6 GB, `--verified
+--jobs=8`, one pair, `ulimit -v 32000000`): **654 499 declarations
+accepted both ways**; 12 238.7 → 12 108.9 G instructions (−1.06 %),
+6 560.8 → 5 313.9 G cycles (**−19.0 %**), 378.9 → 338.2 s wall
+(**−10.7 %**, forty-one seconds), branch-misses −2.5 %, peak RSS
+8 422 → 8 490 MB (+0.8 %).  **No copy-and-leak at 8.5 GB**, the largest
+environment the mark has been tried on, which is the scale the concern
+was really about.  This pair ran concurrently with the init-full sweep
+above, so its absolute wall would be lower on a quiet box; both halves
+were equally loaded and ran back to back, so the ordering stands.
+
+**Method footnote for the next lane.**  Two concurrent measurement jobs
+shared one set of scratch filenames for the `perf`/`time` output, so a
+counter read could in principle have picked up the other job's file.
+Every row was checked against its scale — 44 init-full cells all
+init-full-sized, both Mathlib cells Mathlib-sized, no cross-scale value
+anywhere — so nothing here is affected; the harness now gives each
+label its own scratch files.  A `grep` for the phase line also needs
+`-a`: a Mathlib-scale stderr contains bytes that make it bail as
+binary.
+
+## Task #267 — THE POOL CLAIMS ONE RECORD AT A TIME (2026-09-09, `agent/pool-267`)
+
+The user's reading of task #260's pool: *"few large decls dominate
+phase B and we certainly do not want them to end up being handled by
+the same agent while others are done.  and they are typically close to
+each other in the stream.  so maybe instead of grabbing chunks of
+increasing size, some work stealing approach works better at that job
+size distribution?"*  The hazard is exact: a claim was a CONTIGUOUS
+RANGE of up to 256 records processed sequentially by its claimer, so a
+cluster of heavy declarations inside one range is checked one after the
+other on one worker while the rest of the pool idles — and heavy
+declarations cluster, because a hard file is hard for several
+declarations in a row.
+
+**The change.**  `chunkSize` and `checkChunk` are gone; the claim is one
+record — `next.modifyGet fun a => (a, a + 1)` — and `checkOne` is the
+old chunk body without its recursion (the limit test, the check, the
+push, the heartbeat bump).  Everything else stands: the worker's own
+result array, the shared `limit` a failure lowers, `mergeResults`, the
+fuel `pend.size + 1` (exact as before, now because every claim advances
+the counter by exactly one rather than at least one), and the
+determinism argument on a failure.  **No proof plumbing moved**:
+`ConLeche/Cached/Installed.lean` — `checkRecord`, `checkRecordResult`,
+`collectChecks`, `groupChecked_extend` — is untouched, the merged table
+is still the sequential map from record index to that record's own
+evidence, and the walk in fold order still decides the verdict.  Work
+stealing proper (per-worker deques) was not built: per-record claiming
+removes the clustering entirely except for the single largest record,
+which no scheduler can split, and #260 had already measured the pool's
+own bookkeeping below the floor.
+
+### The granularity is free, and the measurement that shows it
+
+A cross-binary A/B (master's binary against the branch's) put the
+1.5 GB prefix's check phase at 29.3 s against 30.4 s and init-full's
+wall at 11.06 s against 11.22 s — a consistent ~1-3 % against the
+change, which would have decided the task the other way.  It is code
+layout, not granularity.  The instrument that separates them is ONE
+binary with the claim size behind an environment variable
+(`POOL_CLAIM`, a measurement build, not landed), swept 1/2/4/8/32/256
+in place; the landed code has the constant 1.
+
+**(a) Overhead on streams of tiny declarations** (one binary, claim 1
+against claim 256, three reps, minima, `perf stat -e instructions:u`):
+
+| stream | jobs | claim 256 | claim 1 | per record | wall |
+|---|---|---|---|---|---|
+| init-prelude (1 664 checks) | 8 | 3.236830 G | 3.236979 G | +90 instr (+0.005 %) | 0.19 → 0.18 s |
+| init-prelude | 16 | 3.236967 G | 3.237997 G | +619 instr (+0.03 %) | 0.19 → 0.18 s |
+| init-full (52 505 checks) | 8 | 540.492 G | 540.507 G | +0.3 k (+0.003 %) | 11.10 → 10.99 s |
+| init-full | 16 | 540.495 G | 540.465 G | −0.6 k (−0.006 %) | 8.67 → 8.48 s |
+
+The extra atomic per record is one `modifyGet` against a check that
+costs 1.9 M instructions on init-prelude and 10 M on init-full: it does
+not reach the third decimal of the run.  53 088 declarations accepted
+in every init-full cell.
+
+**(b) The tail on the 1.5 GB Mathlib prefix** (163 894 records, 160 028
+checks, 162 092 declarations accepted in all sixteen cells,
+`ulimit -v 32000000`).  Instrumented builds — old and new — print each
+worker's finish time; the spread between the first and the last worker
+to finish is the pool's idle time:
+
+| jobs | check phase old / new | worker-finish spread old / new | records per worker old / new |
+|---|---|---|---|
+| 8 | 29.3 s / 30.4 s | 45 ms / 31 ms | 16 283-22 063 / 19 671-20 368 |
+| 16 | 16.2 s / 17.5 s | 115 ms / 57 ms | 7 819-11 749 / 9 114-10 972 |
+
+**This prefix has no tail at either granularity**: the workers finish
+within 0.15-0.7 % of a 16-30 s phase already under the old chunking,
+because 160 000 records over 8-16 workers average the skew out.  The
+per-record claim halves the residual spread and flattens the
+record counts (a 1.36× spread across workers becomes 1.04×), and the
+check-phase column is the cross-binary artefact above — the same-binary
+sweep at `--jobs=8`, two reps, is FLAT across the whole range:
+
+| claim | 1 | 2 | 4 | 8 | 32 | 256 |
+|---|---|---|---|---|---|---|
+| check phase (s) | 30.0 / 30.5 | 30.1 / 30.3 | 29.8 / 30.1 | 29.8 / 29.8 | 29.4 / 29.9 | 30.0 / 30.1 |
+
+**(c) The clustered case, where the granularity is everything.**  The
+fixture is the distribution the user described: 32 heavy declarations
+ADJACENT in the middle of 10 000 trivial ones (`def c : Type := Prop`,
+sub-millisecond).  A heavy declaration is `def h : N (fun y : Type 1 =>
+y) Type := Prop`, where `N` is a Church numeral over `Type 1` built by
+squaring five times (`N_1 = 2`, `N_{k+1} = N_k * N_k`, so `N_5 =
+2^16`): the declared type is a few dozen lines and shallow, but
+whnf-reduces to `Type` only after 65 536 applications of the identity,
+so the RECORD is small and its CHECK is ~0.1 s (and ~130 MB) from the
+fresh memo state each record gets — a heavy job the frontend and the
+install phase barely notice.  That generator is not kept in the tree:
+the only thing it can assert is a wall-time ratio, and wall time is not
+a measurement on this machine, so it would be a flaky gate rather than
+a regression case; the worker pool's gates stay verdict-based and the
+recipe above is the reproduction.  Check phase, three reps:
+
+| jobs | old (chunks) | new (one record) |
+|---|---|---|
+| 8 | 4.5 / 4.8 / 4.1 s | 0.7 / 0.7 / 0.7 s |
+| 16 | 3.9 / 3.8 / 3.9 s | 0.4 / 0.4 / 0.4 s |
+
+**5.9× and 9.5×** on the minima, and the sweep on one binary at
+`--jobs=8` shows the whole curve: claim 1 → 0.7 s, 2 → 0.7, 4 → 0.7,
+8 → 1.2, 32 → 3.1, 256 → 3.9.  A claim of `c` serialises `min(c,
+cluster)` heavy records on one worker; only `c = 1` has no such number,
+and the intermediate the brief allowed (a tiny chunk of up to 4) is
+indistinguishable here only because 32 heavy records over 8 workers is
+4 apiece — it would serialise four of them on one worker whenever the
+cluster is smaller than the pool.
+
+**The price is the peak, and it is inherent.**  Spreading a cluster
+means the heavy checks now run at the SAME time, so their peaks add:
+on the synthetic, 169 → 990 MB at 8 workers and 181 → 1 935 MB at 16;
+on real streams, init-full +7-10 % (592 → 656 MB at 8 workers,
+747 → 805 MB at 16) and the prefix +1-2 % (2 347 → 2 390 MB).  That is
+the parallelism being taken, not a leak — the pool's memory bound was
+always "workers × the largest concurrent check" — and it is one more
+reason the per-worker address-space cost of §2 of #260 is the number to
+plan a `--jobs` count against.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free; the
+`--jobs` sections of `tests/arena.sh` — **progress lane 17/17**,
+**worker pool 15/15** (verdict and named declaration identical at
+`--jobs=1/2/4/16` and at the default on the accepting, the rejecting
+and the two-failure fixture; the three usage errors) — and
+`tests/overview-links.sh` 72 links / 47 files, three anchors in
+`Main.lean` re-pointed after the shift, each cited paragraph re-read
+(the text they cite is unchanged).  Verdict identity across the
+measurements: init-full 53 088 declarations and the prefix's 162 092 in
+every cell, at every claim size and worker count.  OVERVIEW §2 and
+`--help` say "one record at a time" in the present tense.
+
+## Task #268 — THE NATIVE INSTALL DOES NOT DO ITS WORK TWICE: THE PROVISIONAL PASS IS GONE (2026-09-09, `agent/indonce-268`)
+
+Task #266's phase-A census put the fixpoint route's blocks at 55 % of
+the install phase on the 1.5 GB Mathlib prefix, and inside them two
+repetitions: the **provisional pass** of task #210 Part D — the former
+with an EMPTY capability record into a throwaway environment, every
+constructor annotated, normalised and checked there, the kinds
+classified off those, then the whole thing again at the real record —
+at 22.7 G (6.2 % of phase A, 27 % of the route's cost), and
+`nativeFieldsOkF` (13.2 G, 3.6 %), the opened-form re-check of kinds
+the pass had already classified.  The user's words: *"do refactor
+inductive handling to avoid doing work twice, if the code impact is
+acceptable."*  The first repetition is gone; the second stays, and this
+record says why and what it would take.
+
+### Why the pass was there, and what actually depends on the record
+
+The former's capability record (`nativeCaps`) needs official's
+`is_rec` — some field recursive or reflexive — and the kinds need the
+constructors NORMALISED by official's positivity walk (`normPosDom`)
+at an environment where the former resolves, which carries the record:
+a circle, cut by the throwaway pass.  But the record depends on the
+kinds through ONE bit: `eta` at a one-constructor, index-free,
+non-`Prop` block (`!is_rec`); `unitlike`, `ruleK` and `sortZ` are the
+shape's.  And official's own `is_rec` (`declare_inductive_types`,
+before `check_constructors`) is read off the declared constructor
+types by `whnf` in an environment that does not yet hold the block —
+`whnf` cannot reduce `T …` there — so it is the syntactic occurrence
+up to reduction of a redex OVER the block.
+
+**The change.**  `nativeCapsAt (p : InductiveShape) (isRec : Bool)`
+is the record at a given verdict, `nativeCaps p = nativeCapsAt
+p.toInductiveShape (nativeIsRec p.kinds)` by definition.  One pass
+(`checkNativePass`, cached `checkNativePassS`; its products in
+`NativePass E`, `E` the environment representation) installs the
+former at `nativeCapsAt` at the SYNTACTIC reading `nativeRawRec p₀`
+— does some declared field domain of the constructor mention the
+block? read only at one constructor, where the record can depend on
+it — checks the constructors at that environment, classifies the
+kinds ON THE CONSTRUCTORS IT STORED, and reports whether the classified
+record `nativeCaps p` is the one the former carries (`settled`).  The
+raw reading is a SUPERSET of the classified `is_rec` (reduction never
+introduces the block: `normPosDom` keeps a block-free domain as
+declared), and a strict one exactly when a redex over the block reduces
+away — `(fun _ => Nat) T`, a definition unfolding to a block-free
+type — so the pass settles at every block but those; there
+`checkNative` runs the pass AGAIN at the classified verdict, which then
+stands (the second pass stores the same constructors the first did; a
+verdict that moves again is `.internal`, never a decline).  The install
+after the pass is `checkNativeTail` (`checkNativeTailS`): the
+elimination restriction, the index sorts, `nativeFieldsOk`,
+`nativeRulesOk`, the conses, the recursor, the table — unchanged.
+
+**The verdict is unchanged, and this is why.**  The settled pass IS
+the old second pass: the same former at the same record
+(`nativeCaps p`), the same constructors checked at the same
+environment, the same tail.  What moved is where the kinds come from —
+the stored constructors instead of a throwaway pass's — which is the
+order the OVERVIEW already described ("classifies each field on the
+constructors it stored"; now literally so).  Where the reading
+overshoots, the first pass is the old provisional pass at a record that
+differs from `{}` only in bits no constructor check can read (no
+constructor, recursor or table exists yet), and the second is the old
+real pass.  Error precedence: the pass is the first thing after the
+distinct-names guard, as the provisional pass was, so a block failing
+both a pass check and a later guard names the same error.  Coverage:
+no restriction was introduced — the route accepts, rejects and
+declines exactly as before; the arena's route census (225 fix / 540
+basis), tutorial (90/92), e2e (185/185), the trusted and `--jobs`
+sweeps are master's.
+
+### The proofs
+
+`DeclNativeRun` records the settled pass — the former's run at
+`nativeCapsAt p₁ isRec` for SOME verdict, the constructors at its
+environment, `classifyFixKinds` on them, and the equation
+`nativeCaps p = nativeCapsAt p₁ isRec` — and then the tail as before;
+`checkNativePass_inv` (`Verify/Inductives/FixInv.lean`),
+`checkNativeTail_inv` and `declNativeRun_of_pass` assemble it, and
+`declNativeRun_of` is the case split on the two passes.  **The model
+did not move**: `declNative` rewrites the former's record to
+`nativeCaps p` by the equation right after `checkSumInd_shape`
+(`rw [← hcaps] at hCtors hsorts hRec hTbl`), reads the kinds' length
+off the classification of the stored constructors, and is otherwise
+the same proof; `declNativeRun_etaClosed` the same.  The three cached
+mirrors are split into pass + tail lemmas (`checkNativePassS_push`/
+`checkNativeTailS_push`, `_skels` with `nativeSkels_withSort`, and
+`checkNativePassS_run`/`checkNativeTailS_run` in `BridgeCSDecl`,
+assembled at the joined fuel over the two branches);
+`nativeCapsAt_arity` is `nativeCaps_arity`'s source, and the eight
+`unfold nativeCaps` sites unfold `nativeCapsAt` (and `nativeIsRec`)
+too.  No stored datum changed shape.
+
+### `nativeFieldsOk` stays — what it checks that the classification does not
+
+`classifyFixKinds` reads the CLOSED form (`recCtorKinds`: `stripPis`,
+`recPositivity` on bvar-form domains, `structPsAt`, `structUsedLater`
+= a loose-bvar test, `mentionsConst` blind to annotations).  The model
+reads the OPENED form (`FixOpened`, off `nativeFieldsOk_inv`):
+resolution BEFORE the block of the ordinary domains and index
+expressions, `constsResolve env₀` walking INTO the `fvar` annotations
+(an opened domain carries every earlier field's domain as its
+variable's annotation), and `mentionsFvar` — annotations included —
+for the no-later-use of a recursive field.  The two agree on every
+block that reaches the check, but only through an argument the
+classification does not make: a later field's index expression naming
+an earlier RECURSIVE field is `.recursive` + `.unsupported` on the
+closed form (a decline, official accepts — the docketed finding) and
+would be a `.negative` on an annotation-walking opened form (a
+reject); so the opened-form facts follow from the closed-form
+classification only after the `structUsedLater` cut, through
+`instantiate`, and with the annotations' contents an induction over
+the fields.  That bvar/fvar bridging proof is the whole cost of
+removing the check, estimated beyond this task's budget, and a
+classifier rewritten on the opened form would have to reproduce the
+decline/reject boundary above exactly — so the runtime check stays as
+the model's reader, and the finding is recorded here for the docket.
+
+**The batch experiment, measured and dropped.**  A `resolveMany`
+walker (one memo seeded by the batch, then a lookup; the plain walker
+the gate itself, `constsResolveManyFC_spec` by `MemoCRInv`) in
+`nativeOpenedOkF` and `checkStructProjTableF`, on the hypothesis that
+the per-field walks re-walk the shared DAG through the annotations:
+built, proved, measured — prefix verified 2 902.895 → 2 905.034 G
+(+2.1 G), init-full 542.813 → 542.866 G — a loss, and reverted before
+landing.  The profile of the landed binary on the prefix puts the whole
+cached gate (`constsResolveFCGo` and its maps, every caller) at 0.85 %
+of the run, the kernel-level gate `Expr.constsResolveFGo` (the
+constructor stage's guard) and `mentionsFvar` at 0.00 %: the re-check's
+13.2 G of #266 is not a re-walk to share but the walks themselves.
+
+### The numbers (`--jobs=1`, `perf stat -e instructions:u`, `ulimit -v 16000000`, one run per cell; master `b45dc689` against `36ade5eb`)
+
+| stream | mode | master | this | Δ | install wall |
+|---|---|---|---|---|---|
+| init-full | verified | 543.561 G | 542.813 G | −0.748 G (−0.14 %) | 3.8 → 3.6 s |
+| init-full | trusted | 526.091 G | 525.417 G | −0.674 G (−0.13 %) | 4.2 → 3.7 s |
+| Mathlib 1.5 GB prefix | verified | 2 924.623 G | 2 902.895 G | −21.728 G (−0.74 %) | 37.8 → 33.3 s |
+| Mathlib 1.5 GB prefix | trusted | 2 711.386 G | 2 689.481 G | −21.905 G (−0.81 %) | 36.1 → 31.6 s |
+
+Against #266's phase A of 366 G on the prefix that is **−5.9 % of
+phase A** — the provisional pass's 22.7 G less the raw reading's
+`mentionsConst` walks and the second passes where it overshoots (not
+counted; bounded by the blocks whose declared field domain mentions
+the block under a redex).  Verdict identity: 53 088 and 162 092
+declarations accepted in every cell.  init-full's blocks are small, so
+its cells barely move; the prefix's structures are where the pass was
+paid.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free;
+`tests/arena.sh` under `env -i` with no `ulimit -v` around the battery:
+layering 277/189/3/1 with 0 edges, proofdeps 3 367 rows / 10 roots /
+**doors 0**, pindump fresh, trust surface 12 escapes in 5 allowlisted
+files / 0 outside, shake 460 proposed / 460 allowlisted, pub-imports
+931/1267 none demotable, route census 225 fix / 0 inmodel / 540 basis
+/ 0 modeled (master's: the fixture set grew at #258/#260, the brief's
+142 predates it), inmodel OK, axioms pinned (16 theorems at
+`[propext, Classical.choice, Quot.sound]`), arena tutorial 90/92, e2e
+185/185, progress lane 17/17, worker pool 15/15, DAG-tower 14/14,
+trusted sweep 138 + 185 + 15 with the 3 recorded divergences, the
+`--jobs=1` and `--jobs=4` sweeps identical; `tests/overview-links.sh`
+72 links / 47 files after three anchors were re-pointed
+(`checkDecls_skels`, `classifyFixKinds`, `checkNative` — the cited
+text unchanged, each citing paragraph re-read).
+
 ## Task #263 — PERF.md REGENERATED AT `159654b8`, AND PRUNED OF WHAT NO LONGER APPLIES (2026-09-09, `agent/perf-263`)
 
-The full battery re-run on today's master, the file re-rendered from
+The full battery re-run at `159654b8`, the file re-rendered from
 the tracked record (`perf-data/`), and every paragraph read as a
 stranger would read it.  PERF.md is a HUMAN document: present tense,
 no task numbers, no "since …", no path-dependencies.

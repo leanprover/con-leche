@@ -26,7 +26,7 @@ the installed environment (below), which changes no verdict and is
 there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L747)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L732)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -153,8 +153,8 @@ Read from the outside in:
    otherwise the installed environment — read-only from the boundary
    on — is marked persistent once, so that the workers pay no atomic
    reference counting on it, and a pool of worker threads
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L312))
-   claims chunks of records off a shared counter, and the results,
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L297))
+   claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
    — the walk stops at the first failing record in fold order, so the
@@ -165,7 +165,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat and the route trace are
    printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L349-L353))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L334-L338))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
@@ -268,7 +268,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1334-L1336)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -369,12 +369,12 @@ Inductive blocks are not trusted from the stream. Three cases:
   classifying, again under each Π binder
   ([function `normPosDom` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L162)) —
   and classifies each field on the constructors it stored
-  ([function `classifyFixKinds` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L496)),
+  ([function `classifyFixKinds` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L546)),
   runs official's checks — universe bound, elimination restriction and
   index occurrence — generates the recursor and its rules, and compares
   the generated recursor with the stream's, rejecting a record that is
   not it; the whole install is one entry
-  ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L512)).
+  ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L617)).
   The two halves are deliberately independent: a block whose
   recursor record is a stub is still rejected by its own type and
   constructors, as official rejects it, instead of being declined for a

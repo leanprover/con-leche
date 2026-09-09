@@ -166,51 +166,61 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
-/-- `checkNative` through the index (task #188).  The former's and
-the constructors' stages are the sum route's mirrors, the resolution
-guard pointed at the former's environment; one flush per environment
-transition. -/
+/-- `checkNativePass` through the index (task #268): one flush per
+environment transition. -/
+def checkNativePassS (fe : FEnv) (p₀ : NativeParts) (isRec : Bool) :
+    CheckCM (NativePass FEnv × Bool) := do
+  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
+    (fun p₁ => nativeCapsAt p₁ isRec)
+  let pC := p₀.complete p₁
+  flushC
+  let (ctorsA, sortss) ← checkSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.cvT.name
+    pC.cvT.levelParams pC.nP pC.nIdx pC.resSort pC.isProp pC.large cvTa pC.ctors
+  let kinds ← classifyFixKinds (m := CheckCM) pC.cvT.name pC.cvT.levelParams pC.nP pC.nIdx
+    ctorsA
+  let p := pC.withKinds kinds
+  pure (⟨fe₁, cvTa, p, ctorsA, sortss⟩, nativeCaps p == nativeCapsAt p₁ isRec)
+
+/-- `checkNativeTail` through the index: one flush entering the
+recursor's environment. -/
+def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
+  let p := q.p
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) q.cvTa.type 0)
+    (.internal "direct rec: type former telescope")
+  let _isorts ← checkStructFieldSortsIF (sharedOpsC mode q.env₁) q.env₁ true false p.resSort
+    p.nP (tq.1.drop p.nP) [] p.nIdx
+  unless nativeFieldsOkF structWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx q.ctorsA
+      p.kinds do
+    throw (.internal "direct rec: field kinds")
+  unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
+      q.ctorsA p.kinds p.rhss do
+    throw (.invalid "direct rec: recursor rules are not the generated ones")
+  let fe₂ := consSumCtorsF p.nP q.ctorsA q.env₁
+  flushC
+  let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p q.cvTa q.ctorsA
+  -- the projection table at a structure-like block (task #210 Part A)
+  checkNativeTableF (m := CheckCM) structWalkersC p q.ctorsA q.sortss (fe₂.push (.recInfo cvRa
+    p.majorIdx p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
+      cvRa.type q.ctorsA rhss)))
+
+/-- `checkNative` through the index (task #188): the pass at the
+syntactic `is_rec` reading, again at the classified verdict where the
+reading overshot (task #268), and the install after it. -/
 def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
-  -- the provisional pass (task #210 Part D): the kinds, classified on
-  -- the constructors normalised at a throwaway former
-  let (feP, cvTaP, p₁P) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
-    (fun _ => {})
-  let p₂P := p₀.complete p₁P
-  flushC
-  let (ctorsP, _) ← checkSumCtorsF (sharedOpsC mode feP) feP feP p₂P.cvT.name
-    p₂P.cvT.levelParams p₂P.nP p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
-  let kinds ← classifyFixKinds (m := CheckCM) p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx
-    ctorsP
-  flushC
-  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
-    (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds))
-  let p := (p₀.complete p₁).withKinds kinds
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
-    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
-  flushC
-  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
-    (.internal "direct rec: type former telescope")
-  let _isorts ← checkStructFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
-    (tq.1.drop p.nP) [] p.nIdx
-  let (ctorsA, sortss) ← checkSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
-    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-  unless nativeFieldsOkF structWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
-      p.kinds do
-    throw (.internal "direct rec: field kinds")
-  unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      ctorsA p.kinds p.rhss do
-    throw (.invalid "direct rec: recursor rules are not the generated ones")
-  let fe₂ := consSumCtorsF p.nP ctorsA fe₁
-  flushC
-  let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p cvTa ctorsA
-  -- the projection table at a structure-like block (task #210 Part A)
-  checkNativeTableF (m := CheckCM) structWalkersC p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
-    p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
-      cvRa.type ctorsA rhss)))
+  let (q, settled) ← checkNativePassS mode fe p₀ (nativeRawRec p₀)
+  if settled then checkNativeTailS mode fe q
+  else do
+    flushC
+    let (q', settled') ← checkNativePassS mode fe p₀ (nativeIsRec q.p.kinds)
+    unless settled' do
+      throw (.internal "direct rec: the capability record did not settle")
+    checkNativeTailS mode fe q'
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/
