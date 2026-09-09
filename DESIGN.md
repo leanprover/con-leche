@@ -35522,7 +35522,6 @@ does not touch.  Full battery re-run green post-merge.
   branch — verdict-neutrality is a theorem of the diff).
 
 
-
 ## TASK #172 — BATCH B3b: THE `WFc` TIER DELETES, AND THE SIX
 DIRECT-PARSE LETTERS RESTATE (2026-09-04, `agent/tricore-b3b`)
 
@@ -43662,7 +43661,6 @@ names, and building a general skip list was explicitly out of scope.
   fix (§2) it would be ~5 GiB.
 
 
-
 ## TASK #175 S1 — THE PROJECTION TABLE AS AN ARRAY OF BODIES (2026-09-06, `agent/s1-proj-array`)
 
 ### 0. What landed
@@ -49690,7 +49688,6 @@ allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
 `0 / 1 / 1 / 1 / 1 / 1`), annot 14/14, flags 8/8 + 16/16, heartbeat
 1/1, the trusted sweep with the 3 recorded divergences; init-full
 `--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
-
 
 
 ## Task #182 — the environment index is linear; the quadratic loop was the localisation lane (2026-09-06, `agent/fenv-linear`)
@@ -60258,7 +60255,6 @@ declaration and to the block — at **679.17 G instructions:u** against
 recursor-driven subtraction for a Π-spine walk of the type former.
 
 
-
 ## TASK #221 — DEAD-CODE REMOVAL ACROSS THE TREE: ten modules, 214 declarations, six macros (2026-09-08, `agent/deadcode2`)
 
 User directive: *"remove unused code"* (standing rule), *"dead code
@@ -66565,3 +66561,112 @@ trusted sweep 138 + 185 + 15 with the 3 recorded divergences, the
 72 links / 47 files after three anchors were re-pointed
 (`checkDecls_skels`, `classifyFixKinds`, `checkNative` — the cited
 text unchanged, each citing paragraph re-read).
+
+## Task #263 — PERF.md REGENERATED AT `159654b8`, AND PRUNED OF WHAT NO LONGER APPLIES (2026-09-09, `agent/perf-263`)
+
+The full battery re-run at `159654b8`, the file re-rendered from
+the tracked record (`perf-data/`), and every paragraph read as a
+stranger would read it.  PERF.md is a HUMAN document: present tense,
+no task numbers, no "since …", no path-dependencies.
+
+### 1. The numbers
+
+`perf stat -e instructions:u`, one run per cell, all flags explicit,
+the con-leche cells at `--jobs=1` (the script already passed it; since
+task #265 an uncapped default of 96 workers cannot run under any
+`ulimit -v`).
+
+| stream | official | trusted | verified | trusted ÷ official | verified ÷ official |
+|---|---|---|---|---|---|
+| `init-full` | 403.86 G | 526.11 G | 543.55 G | 1.30× | 1.35× |
+| `mathlib-full` | 10.54 T | 11.95 T | 12.85 T | 1.13× | 1.22× |
+
+The previous published table (`1e6881c6`) had 1.63× / 1.68× on
+`init-full` and 1.26× / 1.35× on `mathlib-full`; the small streams moved
+with it (`init-prelude` 2.11×/2.17× → 1.40×/1.47×, `grind-ring-5`
+2.02×/2.08× → 1.61×/1.70×, `let-ladder` 1.36× → 1.31×; `beta-ladder`
+3.89× → 3.94× and `app-lam` 5.37× → 5.35× are flat).  Every cell
+accepts, the verdict counts are unchanged, and
+`perf-data/census.tsv` regenerated **byte-identical**.
+
+Peak RSS on `mathlib-full` is now BELOW official's: 7.79 GiB in both
+modes against official's 9.17 GiB (it was 12.56 GiB).
+
+### 2. The worker-count table (new section)
+
+Wall time, one run per cell, `--verified`, `--progress=5000`;
+`init-full` under `ulimit -v 16000000`, `mathlib-full` under
+32000000.
+
+| stream | `--jobs=1` | `--jobs=4` | `--jobs=8` |
+|---|---|---|---|
+| `init-full` | 54.1 s | 16.7 s | 11.9 s |
+| `mathlib-full` | 3593.9 s | 435.0 s | 323.2 s |
+
+**A finding, and the reason the section claims nothing.**  On
+`mathlib-full` the check phase goes 3401 s → 249 s → 130 s: 4 → 8
+workers is 1.91×, clean parallel scaling, but 1 → 4 is 13.7×, which no
+worker count explains.  It is not contention (the one-worker run was
+repeated on a quiet machine: 3594 s wall against 3592 s of task-clock,
+i.e. CPU-busy throughout, and the two runs agree at every heartbeat)
+and it is not the persistent mark (a `--jobs=4 --no-mark-persistent`
+probe checks in 295 s against the marked run's 247 s — the mark is
+worth ~16 % of the pool's wall at this scale, not 14×).  The
+instruction counts are nearly flat across the worker counts (12.85 T at
+one worker, 12.10 T at four, 12.23 T at four unmarked), so the extra
+threads are not dividing work: a single thread runs the phase at
+3.58 G instructions per second against a pool worker's ~10.6 G.  The
+shape is that of a memory-latency-bound phase whose stalls the workers
+overlap, but **that is a hypothesis, not an attribution** — no
+cycles/stall counters were taken, and this task did not chase it.
+PERF.md states the wall times and the two rates as an observation, and
+computes no speed-up.
+
+For the same reason the `mathlib-full` instruction cells are ~36 %
+below the previous table's while the one-worker wall is ~37 % above it
+(3594 s against 2614 s): fewer instructions, more time to retire them.
+Worth a perf task on its own; not this one's work.
+
+### 3. Pruned from PERF.md
+
+* The **"Comparable with the previous table (`96344cd1`)"** note in
+  whole — the +0.9 %/+0.5 %/+1.32 % deltas, the official binary's
+  run-to-run spread, and the "master moved to `021ebda9` while this
+  battery ran" remark.  The `stalenote` slot the renderer printed it
+  from is deleted, so nothing can be rendered into it again.
+* "Same streams and the same method as the `96344cd1` table, so the
+  cells are like-for-like against it" from the header's `tree` row,
+  replaced by a description of the tree that is measured.
+* "Both numbers are **now** functions of the input file alone" → "are".
+* `--render` "re-renders from `perf-data/` without measuring" — it did
+  not: it preferred the gitignored cache.  It does now (§4), and the
+  note gives the explicit invocation.
+* The claim that the pool's atomic reference counting "is about a per
+  cent of instructions": true on `init-full`, false at Mathlib scale
+  (the marked pool runs FEWER instructions than the sequential lane).
+
+### 4. Kept, added, and the script changes
+
+Kept: what a cell is, `instructions:u`, the census and its
+count notes, the streams' provenance, the official column's meaning,
+the "same bytes, same job" and `--trusted` under-checking notes, and
+the Mathlib wall/RSS table as data.
+
+Added: a `check phase` header row (every con-leche cell passes
+`--jobs=1`), the worker-count section, and a note saying which lane the
+cells are.
+
+`scripts/perf-tables-render.py` reads `parallel.tsv` from beside the
+census and prints the section from it, with the prose in `meta.txt`'s
+`parallelnote` — so the render stays pure formatting and reproduces the
+committed file.  `scripts/perf-tables.sh --render` now reads the
+TRACKED record and nothing else; a battery run seeds the cache's
+`parallel.tsv` from the tracked one so its in-run renders keep the
+section, and `snapshot` never overwrites it.
+
+### 5. Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free,
+`tests/overview-links.sh` 72 links / 47 files OK (PERF.md is not
+line-anchored from OVERVIEW).  Docs, data and two scripts only: no
+`.lean` under `ConLeche/` changed.

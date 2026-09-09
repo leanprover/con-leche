@@ -4,7 +4,10 @@
     perf-tables-render.py table.tsv PERF.md meta.txt [census.tsv]
 
 Pure formatting: every number comes from the TSV.  Re-runnable without
-re-measuring (`perf-tables.sh --render`).
+re-measuring, and the TRACKED record is what a re-render must read:
+
+    scripts/perf-tables-render.py perf-data/table.tsv PERF.md \
+        perf-data/meta.txt perf-data/census.tsv
 
 LAYOUT RULE (user, 2026-09-05): *three columns, instructions only, one
 run per cell, no superseded noise.*  The file shows the current matrix —
@@ -16,12 +19,18 @@ at a few lines.
 Added without breaking that rule: the input census (a property
 of each stream, not of any checker), and — for the `mathlib-full` row
 only — wall minutes and peak RSS, printed as data in their own small
-table.
+table.  The worker-count table comes from `parallel.tsv` beside the
+census, and is wall time too: labelled as indicative, never as a
+measurement.
 """
 import sys, os
 
 tsv, out_path, meta_path = sys.argv[1], sys.argv[2], sys.argv[3]
 census_path = sys.argv[4] if len(sys.argv) > 4 else None
+# The worker-count table travels with the tracked record, beside the
+# census and the provenance file.
+parallel_path = os.path.join(os.path.dirname(census_path or meta_path or "."),
+                             "parallel.tsv")
 
 
 def read_meta(path):
@@ -69,9 +78,28 @@ def read_census(path):
     return rows
 
 
+def read_parallel(path):
+    """(stream, jobs) -> wall seconds, from a `stream\tjobs\twall` TSV."""
+    rows, streams, jobs = {}, [], []
+    if not path or not os.path.exists(path):
+        return rows, streams, jobs
+    for line in open(path):
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 3 or f[0] == "stream":
+            continue
+        s, j, wall = f[0], int(f[1]), float(f[2])
+        rows[(s, j)] = wall
+        if s not in streams:
+            streams.append(s)
+        if j not in jobs:
+            jobs.append(j)
+    return rows, streams, sorted(jobs)
+
+
 meta = read_meta(meta_path)
 cells, stream_order = read_cells(tsv)
 census = read_census(census_path)
+par, par_streams, par_jobs = read_parallel(parallel_path)
 
 # The three live configurations, in printing order.  A column appears
 # only if the run declared it (meta `configs`) and it produced cells.
@@ -122,6 +150,8 @@ A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
   f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` "
   f"(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |")
+A("| check phase | one thread: every con-leche cell passes `--jobs=1` "
+  "(the worker-count table below is the parallel lane) |")
 A("| streams | `lean4export` NDJSON, read unchanged by both checkers |")
 if meta.get("mathlibstream"):
     A(f"| Mathlib stream | {meta['mathlibstream']} |")
@@ -213,10 +243,36 @@ if ml:
                    else "—" for c in live if c in ml) + " |")
     A("")
 
+if par:
+    A("## the check phase on more than one thread")
+    A("")
+    A("The check phase runs on `--jobs=<n>` worker threads; the parse and")
+    A("the install phase before it are sequential.  Wall time on a shared")
+    A("machine is **indicative only** — `instructions:u` above is the")
+    A("measurement, and it is taken in the one-thread lane.  What is")
+    A("observed, on `mathlib-full`: the instruction count barely moves with")
+    A("the worker count — 12.85 T at one worker against 12.10 T at four —")
+    A("while the one-worker lane retires 3.6 G instructions per second and")
+    A("each of four workers about 10.6 G.  So these wall times are not the")
+    A("same work divided by the worker count; what the difference is due to")
+    A("is not attributed here.")
+    A("")
+    A("| stream | " + " | ".join(f"`--jobs={j}`" for j in par_jobs) + " |")
+    A("|" + "---|" * (1 + len(par_jobs)))
+    for s in par_streams:
+        row = []
+        for j in par_jobs:
+            w = par.get((s, j))
+            row.append("—" if w is None
+                       else (f"{w / 60:.1f} min" if w >= 120 else f"{w:.0f} s"))
+        A(f"| `{s}` | " + " | ".join(row) + " |")
+    A("")
+    if meta.get("parallelnote"):
+        A(meta["parallelnote"])
+        A("")
+
 A("## Notes")
 A("")
-if meta.get("stalenote"):
-    A(f"* {meta['stalenote']}")
 if meta.get("mathlibnote"):
     A(f"* {meta['mathlibnote']}")
 A("* **The verdict line counts declaration RECORDS**, the STREAM's count")
@@ -231,7 +287,7 @@ A("* **The official number is not a record count either.**  Its")
 A("  `Main.lean` prints `constMap.size`: one entry per exported")
 A("  constant, so an inductive record contributes its type formers, its")
 A("  constructors AND its recursors, less the three `Quot.mk`/`.lift`/")
-A("  `.ind` entries it erases before replay.  Both numbers are now")
+A("  `.ind` entries it erases before replay.  Both numbers are")
 A("  functions of the input file alone, and the census table above")
 A("  reproduces each of them exactly from the bytes.")
 A("* **Same bytes, same job — but not the same work.**  Both sides read")
@@ -244,17 +300,26 @@ A("  native inductive/recursor support.")
 A("* **`--trusted` under-checks install-only kinds** (axioms, inductive")
 A("  blocks, quot, the pinned-cert branches run at io grade), which")
 A("  flatters the trusted column on inductive-heavy streams.")
+A("* **The cells are the one-thread lane.**  Every con-leche cell passes")
+A("  `--jobs=1`, which is the apples-to-apples comparison against a")
+A("  single-threaded official kernel; without the flag the check phase")
+A("  takes one worker per hardware thread.  The worker-count table above")
+A("  is where the parallel lane is reported, in wall time.")
 A("* One run per cell on a shared machine: `instructions:u` is")
-A("  contention-independent, so a cell may overlap other work; wall time")
-A("  is not reported for that reason (the Mathlib row's minutes are")
-A("  labelled as data, above).")
+A("  contention-independent, so a cell may overlap other work.  The only")
+A("  wall times here are the Mathlib row's and the worker-count table's,")
+A("  both labelled as data.")
 A("* Regenerate with `lake build con-leche && scripts/perf-tables.sh`;")
-A("  `--render` re-renders from `perf-data/` without measuring, and")
-A("  `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  The")
-A("  `mathlib-full` row needs its stream exported by hand first.")
-A("  Per-cell data (with")
-A("  wall time and load) are tracked in `perf-data/table.tsv`, the input")
-A("  census in `perf-data/census.tsv`, provenance in `perf-data/meta.txt`.")
+A("  `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream, and")
+A("  `scripts/perf-tables-render.py perf-data/table.tsv PERF.md")
+A("  perf-data/meta.txt perf-data/census.tsv` — which is what")
+A("  `scripts/perf-tables.sh --render` runs — re-renders this file from")
+A("  the tracked record without measuring.  The `mathlib-full` row needs")
+A("  its stream exported by hand first.  Per-cell data (with wall time")
+A("  and load) are tracked in `perf-data/table.tsv`, the input census in")
+A("  `perf-data/census.tsv`, provenance in `perf-data/meta.txt`.  The")
+A("  worker-count table is a sweep of its own, which the battery does not")
+A("  run; its cells are tracked in `perf-data/parallel.tsv`.")
 A("")
 
 open(out_path, "w").write("\n".join(L) + "\n")

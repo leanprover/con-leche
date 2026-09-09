@@ -41,6 +41,11 @@ ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
 CENSUS=$CACHE/census.tsv
+# The worker-count table PERF.md prints is a sweep of its own (wall time
+# at `--jobs=1/4/8`), not part of this battery; the renderer picks it up
+# from beside the census, so a run copies the tracked one into the cache
+# rather than dropping the section from the rendered file.
+PARALLEL=$CACHE/parallel.tsv
 LOG=$CACHE/battery.log
 # The TRACKED record.  $CACHE lives under the gitignored _tmp, so the raw
 # cells behind PERF.md would not survive a clean of that directory; a full
@@ -204,6 +209,10 @@ render() {
   if [ ! -s "$t" ]; then t=$DATA/table.tsv; m=$DATA/meta.txt; fi
   local cn=$CENSUS
   if [ ! -s "$cn" ]; then cn=$DATA/census.tsv; fi
+  # the worker-count table lives beside whichever census is used
+  if [ ! -s "$(dirname "$cn")/parallel.tsv" ] && [ -s "$DATA/parallel.tsv" ]; then
+    cp "$DATA/parallel.tsv" "$(dirname "$cn")/parallel.tsv"
+  fi
   python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m" "$cn"
 }
 
@@ -213,12 +222,22 @@ snapshot() {
   cp "$TSV" "$DATA/table.tsv"
   cp "$CACHE/meta.txt" "$DATA/meta.txt"
   [ -s "$CENSUS" ] && cp "$CENSUS" "$DATA/census.tsv"
+  # `parallel.tsv` is the sweep's, not the battery's: never overwritten here
   say "tracked snapshot refreshed at $DATA"
 }
 
 # ---------------------------------------------------------------- main
 mkdir -p "$CACHE"
-if [ "${1:-}" = "--render" ]; then render; echo "PERF.md rewritten from $TSV"; exit 0; fi
+# `--render` re-renders from the TRACKED record and from nothing else:
+# that record is what PERF.md's cells and its hand-written provenance
+# notes come from, so this reproduces the committed file, while the
+# gitignored cache holds only the last run's raw cells.
+if [ "${1:-}" = "--render" ]; then
+  python3 "$ROOT/scripts/perf-tables-render.py" \
+    "$DATA/table.tsv" "$ROOT/PERF.md" "$DATA/meta.txt" "$DATA/census.tsv"
+  echo "PERF.md rewritten from $DATA"
+  exit 0
+fi
 
 for f in "$BIN" "$OFFICIAL"; do
   [ -x "$f" ] || { echo "missing binary: $f  (lake build con-leche)" >&2; exit 1; }
