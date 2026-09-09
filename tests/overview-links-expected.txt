@@ -17,12 +17,12 @@
     42      (accepted : checkDecls .verified ds = .ok env) :
     43      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
 
-== ConLeche/Cached/Installed.lean#L320-L324
-   320  def checkDecls (mode : CheckMode) (ds : List DeclC) :
-   321      Except (CheckError × Nat) Env := do
-   322    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
-   323    checkPendingList mode p.2.1 p.2.2.toList
-   324    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L342-L346
+   342  def checkDecls (mode : CheckMode) (ds : List DeclC) :
+   343      Except (CheckError × Nat) Env := do
+   344    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
+   345    checkPendingList mode p.2.1 p.2.2.toList
+   346    pure p.2.1.env
 
 == tests/ConLecheTests/Axioms.lean#L87-L88
     87  #guard_msgs in
@@ -34,10 +34,10 @@
 == Main.lean#L96
     96  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
-== ConLeche/Cached/Installed.lean#L130-L132
-   130  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
-   131      DeclC → CheckCM (FEnv × Array PendingCheck)
-   132    | .defnDecl cv value hint =>
+== ConLeche/Cached/Installed.lean#L136-L138
+   136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
+   137      DeclC → CheckCM (FEnv × Array PendingCheck)
+   138    | .defnDecl cv value hint =>
 
 == Main.lean#L165
    165  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
@@ -48,53 +48,53 @@
    199      IO (Except (ConLeche.CheckError × Nat)
    200        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
-== ConLeche/Cached/Installed.lean#L401-L402
-   401  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
-   402      checkDecls mode ds = .ok fc.env := by
+== ConLeche/Cached/Installed.lean#L423-L424
+   423  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
+   424      checkDecls mode ds = .ok fc.env := by
 
-== ConLeche/Cached/Installed.lean#L205-L209
-   205  structure InstalledEnv (ds : List DeclC) where
-   206    fe : FEnv
-   207    pend : Array PendingCheck
-   208    run : ∃ (n : Nat) (s : CState),
-   209      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
+== ConLeche/Cached/Installed.lean#L223-L227
+   223  structure InstalledEnv (ds : List DeclC) where
+   224    fe : FEnv
+   225    pend : Array PendingCheck
+   226    run : ∃ (n : Nat) (s : CState),
+   227      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
 
-== ConLeche/Cached/Installed.lean#L168-L173
-   168  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
-   169      (Nat × FEnv × Array PendingCheck) → CState → Prop where
-   170    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
-   171    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
-   172        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
-   173        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
+== ConLeche/Cached/Installed.lean#L186-L191
+   186  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
+   187      (Nat × FEnv × Array PendingCheck) → CState → Prop where
+   188    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
+   189    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
+   190        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
+   191        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
 
-== ConLeche/Cached/Installed.lean#L237-L240
-   237  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
-   238    match e.pend[i]? with
-   239    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
-   240    | none => True
+== ConLeche/Cached/Installed.lean#L259-L262
+   259  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
+   260    match e.pend[i]? with
+   261    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
+   262    | none => True
 
-== ConLeche/Cached/Installed.lean#L411-L412
-   411  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
-   412      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
+== ConLeche/Cached/Installed.lean#L433-L434
+   433  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
+   434      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L289-L296
-   289  produced them.) -/
-   290  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-   291      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   292      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   293      (hrun : InstallRun μ ds p s q s') :
-   294      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   295      NodupNames q.2.1.env →
-   296      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+== ConLeche/Verify/Cached/InstalledC.lean#L311-L318
+   311  value — is what the theorem's model step consumes. -/
+   312  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+   313      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   314      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   315      (hrun : InstallRun μ ds p s q s') :
+   316      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   317      NodupNames q.2.1.env →
+   318      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L537-L538
-   537  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   538      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
+   543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L420-L422
-   420  well-formedness it needs; the conclusion is the model itself. -/
-   421  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   422      {ds : List DeclC} (fc : FullyChecked μ ds) :
+== ConLeche/Verify/Cached/InstalledC.lean#L460-L462
+   460  well-formedness it needs; the conclusion is the model itself. -/
+   461  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   462      {ds : List DeclC} (fc : FullyChecked μ ds) :
 
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
@@ -142,17 +142,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2796-L2805
-  2796        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2797        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2798        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2799        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2800        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2801    | fuel + 1 =>
-  2802      wrap
-  2803        { whnfCore := fun d e =>
-  2804            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2805          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2862-L2871
+  2862        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2863        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2864        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2865        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2866        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2867    | fuel + 1 =>
+  2868      wrap
+  2869        { whnfCore := fun d e =>
+  2870            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2871          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -184,11 +184,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1956
-  1956  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+== ConLeche/Kernel/Core.lean#L2028
+  2028  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2680
-  2680    fun depth e =>
+== ConLeche/Kernel/Core.lean#L2750
+  2750        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -237,10 +237,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1330-L1332
-  1330  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
-  1331      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1332      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1334-L1336
+  1334  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+  1335      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1336      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -521,9 +521,9 @@
    159  /-- The P-generation step. -/
    160  @[expose] def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
-== ConLeche/Model/Steps/Whnf.lean#L844-L845
-   844  theorem whnfStep_of (_hμ : μ.verifiedChecks = true)
-   845      (hin : WhnfInputs V μ) : WhnfStep μ V :=
+== ConLeche/Model/Steps/Whnf.lean#L831-L832
+   831  theorem whnfStep_of (_hμ : μ.verifiedChecks = true)
+   832      (hin : WhnfInputs V μ) : WhnfStep μ V :=
 
 == ConLeche/Model/Steps/DefEq.lean#L1338-L1347
   1338  theorem defEqStep_of (hμ : μ.verifiedChecks = true)
@@ -550,30 +550,33 @@
 == ConLeche/Kernel/Basis/False.lean#L52
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== ConLeche/Frontend/Prelude.lean#L7-L19
+== ConLeche/Frontend/Prelude.lean#L7-L22
      7  /-!
      8  # The built-in prelude (task #191)
      9  
     10  **What it is.**  The checker's own little prelude: the six pinned
     11  basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`, `False`, `Quot` with its
-    12  soundness axiom) and the `Bool` block — every declaration the
+    12  soundness axiom), the `Bool` block — every declaration the
     13  pin-certified `Nat` operations' install needs that is neither in the
     14  operation's own dependency closure nor a stream-certified operation
-    15  itself (`ConLeche/PinGen/Prelude.lean` computes the set mechanically; the
-    16  committed file is `pins/<toolchain>.prelude.ndjson`, regenerated with
-    17  `lake exe natop-pins-export` and gated by `tests/pindump.sh`).
-    18  
-    19  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
+    15  itself — and the `And` block, pinned by design: the one propositional
+    16  structure whose recursor the stuck-major rescue serves
+    17  (`majorToCtor`'s `And` branch, `ConLeche/Kernel/Core.lean`, keyed on
+    18  the name), so the name must denote the toolchain's `And` in every
+    19  fold.  `ConLeche/PinGen/Prelude.lean` computes the set mechanically
+    20  (`pinnedPreludeMembers` adds `And`); the committed file is
+    21  `pins/<toolchain>.prelude.ndjson`, regenerated with
+    22  `lake exe natop-pins-export` and gated by `tests/pindump.sh`.
 
-== ConLeche/Kernel/Env.lean#L579-L586
-   579  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   580    block.all fun ci => match ci with
-   581      | .indInfo cvT _ =>
-   582        match cvT.type.piSortTeleLen? with
-   583        | some n => decide (nP ≤ n)
-   584        | none => true
-   585      | .ctorInfo _ nPc _ => nPc == nP
-   586      | _ => true
+== ConLeche/Kernel/Env.lean#L581-L588
+   581  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   582    block.all fun ci => match ci with
+   583      | .indInfo cvT _ =>
+   584        match cvT.type.piSortTeleLen? with
+   585        | some n => decide (nP ≤ n)
+   586        | none => true
+   587      | .ctorInfo _ nPc _ => nPc == nP
+   588      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
@@ -635,67 +638,67 @@
     53  task #227).  (Members' parameter telescopes and sorts are not
     54  compared: task #218, `Mutual.lean`'s header.)
 
-== ConLeche/Kernel/Core.lean#L549-L557
-   549  /-- The certified structural-`Nat` operations.  Six of them
-   550  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   551  here without one — it has no fast path (official's `reduce_nat` folds
-   552  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   553  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   554  must be certified for `sub`'s literal fold to be sound. -/
-   555  def natOpNames : List Name :=
-   556    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   557     natBeqName, natBleName]
+== ConLeche/Kernel/Core.lean#L545-L553
+   545  /-- The certified structural-`Nat` operations.  Six of them
+   546  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   547  here without one — it has no fast path (official's `reduce_nat` folds
+   548  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   549  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   550  must be certified for `sub`'s literal fold to be sound. -/
+   551  def natOpNames : List Name :=
+   552    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   553     natBeqName, natBleName]
 
-== ConLeche/Kernel/Core.lean#L481-L498
-   481  /-! ## Structural-Nat literal acceleration
-   482  
-   483  The official kernel accelerates the structural `Nat` operations on
-   484  literals (GMP-backed there).  Here the fast path is *certified*: an
-   485  operation participates only when its defining recurrence equations
-   486  hold by definitional equality — checked once, at install: `checkDecl`
-   487  positively rejects a nonstandard definition under one of these names,
-   488  so *presence in the store is the certificate* (no runtime flag, no
-   489  re-checking; a reduction-time re-check would in fact livelock — the
-   490  certification's own `pred zero` equation re-enters the fast path).
-   491  
-   492  The certification runs in the environment *before* the operation is
-   493  stored, on the equations with the operation's self-references replaced
-   494  by its (annotated) definition value (`Expr.substConst0`): running it
-   495  after insertion would let the operation's own just-enabled fast path
-   496  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   497  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   498  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/Core.lean#L477-L494
+   477  /-! ## Structural-Nat literal acceleration
+   478  
+   479  The official kernel accelerates the structural `Nat` operations on
+   480  literals (GMP-backed there).  Here the fast path is *certified*: an
+   481  operation participates only when its defining recurrence equations
+   482  hold by definitional equality — checked once, at install: `checkDecl`
+   483  positively rejects a nonstandard definition under one of these names,
+   484  so *presence in the store is the certificate* (no runtime flag, no
+   485  re-checking; a reduction-time re-check would in fact livelock — the
+   486  certification's own `pred zero` equation re-enters the fast path).
+   487  
+   488  The certification runs in the environment *before* the operation is
+   489  stored, on the equations with the operation's self-references replaced
+   490  by its (annotated) definition value (`Expr.substConst0`): running it
+   491  after insertion would let the operation's own just-enabled fast path
+   492  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   493  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   494  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L101-L108
-   101  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   102      List (Expr × Expr) → m Bool
-   103    | [] => pure true
-   104    | eq :: rest => do
-   105      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   106        certifyNatEqs ops env rest
-   107      else pure false
-   108  
+== ConLeche/Kernel/Checker.lean#L110-L117
+   110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+   111      List (Expr × Expr) → m Bool
+   112    | [] => pure true
+   113    | eq :: rest => do
+   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   115        certifyNatEqs ops env rest
+   116      else pure false
+   117  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
 
-== ConLeche/Kernel/Core.lean#L559-L574
-   559  /-- The WF-recursive operations with a *pinned-declaration* certified
-   560  fast path: at install, `checkDecl` compares the stream's definition
-   561  against a vendored pin of the toolchain's own (helper-unfolded)
-   562  definition by definitional equality, and then checks the pinned
-   563  `Nat.ble`-guarded characterization certificates
-   564  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   565  installing them.  Presence in the store is therefore again the
-   566  capability: a stored operation under one of these names has passed pin
-   567  and certificates, or the install declined.  (The name is historic:
-   568  the family started with `Nat.div`/`Nat.mod` and now covers every
-   569  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   570  `Nat.log2` left the list when its fast path did, official folding no
-   571  unary operation but `Nat.succ`.) -/
-   572  def natDivModNames : List Name :=
-   573    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   574     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/Core.lean#L555-L570
+   555  /-- The WF-recursive operations with a *pinned-declaration* certified
+   556  fast path: at install, `checkDecl` compares the stream's definition
+   557  against a vendored pin of the toolchain's own (helper-unfolded)
+   558  definition by definitional equality, and then checks the pinned
+   559  `Nat.ble`-guarded characterization certificates
+   560  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   561  installing them.  Presence in the store is therefore again the
+   562  capability: a stored operation under one of these names has passed pin
+   563  and certificates, or the install declined.  (The name is historic:
+   564  the family started with `Nat.div`/`Nat.mod` and now covers every
+   565  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   566  `Nat.log2` left the list when its fast path did, official folding no
+   567  unary operation but `Nat.succ`.) -/
+   568  def natDivModNames : List Name :=
+   569    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   570     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module

@@ -46,9 +46,6 @@ theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
   defn cv v hint hc :=
     ConLeche.Expr.noProjAt_of_constsResolve hT _
       ((hwf _ hc).2.2.2.2.1 cv v hint rfl).2.2.1
-  thm cv v hc :=
-    ConLeche.Expr.noProjAt_of_constsResolve hT _
-      ((hwf _ hc).2.2.2.2.2.2.1 cv v rfl).2.2.1
   rule cv mI rP rules hc r hr := by
     obtain ⟨-, -, -, -, -, hrec, -, -⟩ := hwf _ hc
     obtain ⟨-, -, hres, -, hnest⟩ := hrec cv mI rP rules rfl r hr
@@ -57,7 +54,7 @@ theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
     obtain ⟨-, -, hpins, -⟩ := hnest lvls pins hn
     exact ConLeche.Expr.noProjAt_of_constsResolve hT _ (hpins pin hp).2.2.1
   table tbl hc j hj := by
-    obtain ⟨-, -, -, -, -, -, -, htbl, -⟩ := hwf _ hc
+    obtain ⟨-, -, -, -, -, -, htbl, -⟩ := hwf _ hc
     obtain ⟨hsize, hb⟩ := htbl tbl rfl
     have hlt : j < tbl.bodies.size := by rw [hsize]; exact hj
     have := hb j (tbl.bodies[j]'hlt) (Array.getElem?_eq_getElem hlt)
@@ -69,8 +66,6 @@ structure NoProjHead (c₀ : ConstantInfo) (T : Name) (i : Nat) : Prop where
   type : Expr.NoProjAt T i c₀.toConstantVal.type
   defn : ∀ (cv : ConstantVal) (v : Expr) (hint : ConLeche.ReducibilityHint),
     c₀ = .defnInfo cv v hint → Expr.NoProjAt T i v
-  thm : ∀ (cv : ConstantVal) (v : Expr), c₀ = .thmInfo cv v →
-    Expr.NoProjAt T i v
   rule : ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     c₀ = .recInfo cv mI rP rules →
     ∀ r ∈ rules, Expr.NoProjAt T i (RecRule.rhs r) ∧
@@ -84,12 +79,10 @@ constructor, a recursor-free constant): only its type is asked. -/
 theorem NoProjHead.ofType {c₀ : ConstantInfo} {T : Name} {i : Nat}
     (hty : Expr.NoProjAt T i c₀.toConstantVal.type)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
     (hnottable : ∀ tbl, c₀ ≠ .projInfo tbl) :
     NoProjHead c₀ T i :=
   ⟨hty, fun cv v hint h => absurd h (hnotdefn cv v hint),
-    fun cv v h => absurd h (hnotthm cv v),
     fun cv mI rP rules h => absurd h (hnotrec cv mI rP rules),
     fun tbl h => absurd h (hnottable tbl)⟩
 
@@ -104,10 +97,6 @@ theorem NoProjEnv.cons {T : Name} {i : Nat} (h : NoProjEnv env T i)
     rcases List.mem_cons.mp hc with heq | hc
     · exact hh.defn cv v hint heq.symm
     · exact h.defn cv v hint hc
-  thm cv v hc := by
-    rcases List.mem_cons.mp hc with heq | hc
-    · exact hh.thm cv v heq.symm
-    · exact h.thm cv v hc
   rule cv mI rP rules hc := by
     rcases List.mem_cons.mp hc with heq | hc
     · exact hh.rule cv mI rP rules heq.symm
@@ -171,9 +160,10 @@ theorem declStep_preserves_of_tower_cons (mp : EnvModelM V μ env)
       obtain rfl := Option.some.inj ((hreads ψ).symm.trans hta)
       exact interp_sort_mem V ρ 0)
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
-  · -- `hvalReads`: a table is neither a definition nor a theorem
+  · -- `hvalReads`: a table is not a definition
     intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt <;> exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads`: the three guard names are reserved, this one is not
     exact fun φ => natHeads_cons_offNat mp
       (ne_of_notReserved hnres reserved_natName)

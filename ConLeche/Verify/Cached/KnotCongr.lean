@@ -39,6 +39,12 @@ theorem towerSlotsAllF_congr (hfe : fe₁.find? = fe₂.find?) :
     fe₁.towerSlotsAllF = fe₂.towerSlotsAllF := by
   funext T nF; unfold FEnv.towerSlotsAllF; simp only [findProj?_congr hfe]
 
+/-- `FEnv.andRescueSlotsF` reads `fe` only through `find?`. -/
+theorem andRescueSlotsF_congr (hfe : fe₁.find? = fe₂.find?) :
+    fe₁.andRescueSlotsF = fe₂.andRescueSlotsF := by
+  funext ctor nP ust; unfold FEnv.andRescueSlotsF
+  simp only [findProj?_congr hfe]
+
 /-- `FEnv.recSlotsAllF` reads `fe` only through `find?`. -/
 theorem recSlotsAllF_congr (hfe : fe₁.find? = fe₂.find?) :
     fe₁.recSlotsAllF = fe₂.recSlotsAllF := by
@@ -283,7 +289,7 @@ theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
   funext depth recName rules major; unfold majorToCtorI
   simp only [isCtorAppC_congr hfe, hfe, constTyAtM_congr hfe,
     iotaCertsI_congr hfe, proofIrrelI_congr hfe, projAppsI_congr hfe,
-    structEtaCertWithI_congr hfe]
+    structEtaCertWithI_congr hfe, andRescueSlotsF_congr hfe]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/
 theorem litMajorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :

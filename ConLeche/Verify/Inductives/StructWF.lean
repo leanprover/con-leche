@@ -84,13 +84,6 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
               pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
                 (List.range (mI - rP)).map
                   (fun i => Expr.bvar (mI - rP - 1 - i)))
-    (h7 : ∀ cv value, c = .thmInfo cv value →
-      value.hasFvar = false ∧
-      value.allLevelParamsDefined cv.levelParams = true ∧
-      value.constsResolve env = true ∧
-      value.looseBVarsBounded 0 = true := by
-        intro cv value h
-        exact ConstantInfo.noConfusion h)
     (h8 : ∀ tbl, c = .projInfo tbl →
       tbl.bodies.size = tbl.numFields ∧
       ∀ (i : Nat) (b : Expr), tbl.bodies[i]? = some b →
@@ -103,7 +96,7 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
     (h9 : IndCapsWF c := by
         intro cv caps h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩
 
 /-- A checked inductive-kind cons is well-formed (its `ConstWF` is the
 four type-slot facts; every value clause is refuted by the kind). -/
@@ -117,7 +110,6 @@ theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq)
-    (by intro cv value h; exact ConstantInfo.noConfusion h)
     (by intro tbl h; exact ConstantInfo.noConfusion h)
     hcaps)
 
@@ -164,8 +156,7 @@ theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
     EnvWF envOut := by
   obtain ⟨bodies, -, ⟨hsize, hall⟩, -, -, rfl⟩ := checkStructProjTable_inv h
   refine EnvWF.cons henv (structConstWF rfl rfl rfl rfl
-    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
-    (fun _ _ heq => nomatch heq) ?_)
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq) ?_)
   intro tbl heq
   obtain rfl := ConstantInfo.projInfo.inj heq
   refine ⟨hsize, fun i b hb => ?_⟩

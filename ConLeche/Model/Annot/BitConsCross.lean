@@ -43,8 +43,6 @@ structure NoProjEnv (env : Env) (T : Name) (i : Nat) : Prop where
   type : ∀ c ∈ env.consts, Expr.NoProjAt T i c.toConstantVal.type
   defn : ∀ (cv : ConstantVal) (v : Expr) (hint : ConLeche.ReducibilityHint),
     ConstantInfo.defnInfo cv v hint ∈ env.consts → Expr.NoProjAt T i v
-  thm : ∀ (cv : ConstantVal) (v : Expr),
-    ConstantInfo.thmInfo cv v ∈ env.consts → Expr.NoProjAt T i v
   rule : ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     ConstantInfo.recInfo cv mI rP rules ∈ env.consts →
     ∀ r ∈ rules, Expr.NoProjAt T i (RecRule.rhs r) ∧
@@ -119,12 +117,6 @@ theorem ConsCrossEnv.defn {env : Env} {c₀ : ConstantInfo}
     (hc : ConstantInfo.defnInfo cv v hint ∈ env.consts) :
     ConsCrossAt c₀ v := fun tbl heq i =>
   (h tbl heq i).defn cv v hint hc
-
-theorem ConsCrossEnv.thm {env : Env} {c₀ : ConstantInfo}
-    (h : ConsCrossEnv env c₀) {cv : ConstantVal} {v : Expr}
-    (hc : ConstantInfo.thmInfo cv v ∈ env.consts) :
-    ConsCrossAt c₀ v := fun tbl heq i =>
-  (h tbl heq i).thm cv v hc
 
 /-- A stored table's body at a field (task #175 S1). -/
 theorem ConsCrossEnv.body {env : Env} {c₀ : ConstantInfo}

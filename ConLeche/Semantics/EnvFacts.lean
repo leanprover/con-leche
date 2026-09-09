@@ -118,11 +118,6 @@ structure EnvFacts (env : Env) where
   denotation and residual walks computations.  `EnvS` carries the same
   field. -/
   proj_ok : ProjOkT env
-  /-- Every theorem is denoted by its proof value; the `thmInfo` half of
-  `defn_eq`. -/
-  thm_ok : ∀ cv value,
-    ConstantInfo.thmInfo cv value ∈ env.consts → ∀ ψ : Name → Nat,
-      denoteClosed cval env ψ value = some (cval cv.name ψ)
   /-- **The install fold's `Nat`-op invariant, narrowed to what the
   literal fast path reads** (task #161 de-gating item B3, harvest site
   37 / list entry P7): a *stored* one of the sixteen accelerated

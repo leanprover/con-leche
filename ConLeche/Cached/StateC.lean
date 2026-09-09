@@ -98,7 +98,6 @@ def unfoldableHeadC (fe : FEnv) (e : ExprC) : Bool :=
   | .const nm us .. =>
     match fe.find? nm with
     | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
-    | some (.thmInfo cv _) => us.length == cv.levelParams.length
     | _ => false
   | _ => false
 
@@ -373,14 +372,6 @@ def constValAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
   | none =>
     match fe.find? n with
     | some (.defnInfo cv v _) =>
-      let raw ← storedValIdxM n v
-      let i ← instLevelParamsM cv.levelParams us raw
-      modify fun s =>
-        let mp := s.constValAt
-        let s := { s with constValAt := ∅ }
-        { s with constValAt := mp.insert (n, us) i }
-      pure i
-    | some (.thmInfo cv v) =>
       let raw ← storedValIdxM n v
       let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>

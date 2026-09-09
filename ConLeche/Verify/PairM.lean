@@ -686,6 +686,10 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     · rw [if_pos hE, if_pos hE]
       fst_tac2
     rw [if_neg hE, if_neg hE]
+    by_cases hA : T = andName
+    · rw [if_pos hA, if_pos hA]
+      fst_tac2
+    rw [if_neg hA, if_neg hA]
     rfl
 
 set_option maxHeartbeats 800000 in
@@ -722,6 +726,10 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     · rw [if_pos hE, if_pos hE]
       snd_tac2
     rw [if_neg hE, if_neg hE]
+    by_cases hA : T = andName
+    · rw [if_pos hA, if_pos hA]
+      snd_tac2
+    rw [if_neg hA, if_neg hA]
     rfl
 
 theorem litMajorToCtor_fst_proj (d : Nat) (e : Expr) :

@@ -50,7 +50,16 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   pure ⟨.defnInfo cv value hint :: env.consts⟩
 
 /-- Check a `theorem` declaration's value against its checked constant
-(whose type must additionally be a proposition). -/
+(whose type must additionally be a proposition).  **A theorem is
+stored by its statement**: the constant keeps the record's own value
+(the raw one, as parsed) as an unread datum — a theorem is opaque to
+reduction (`unfoldDefinition` has no `thmInfo` arm), so nothing in the
+kernel or the invariant ever reads it — and the annotated value is a
+*realizability witness*, checked against the statement and then
+discarded, exactly as an opaque's is.  This is what lets the driver
+install a theorem before its value is looked at at all (phase A pushes
+the record's constant; phase B annotates and checks the value,
+`ConLeche/Cached/Installed.lean`). -/
 def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (value : Expr) : m Env := do
   -- the type of a theorem must be a proposition
@@ -62,12 +71,12 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     throw (.invalid s!"loose bound variable in value of {cv.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cv.name}")
-  let value ← ops.annotate env 0 value
-  unless value.allLevelParamsDefined cv.levelParams do
+  let jv ← ops.annotate env 0 value
+  unless jv.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-  unless value.constsResolve env do
+  unless jv.constsResolve env do
     throw (.invalid s!"unknown constant in value of {cv.name}")
-  let vtype ← ops.inferType env 0 value
+  let vtype ← ops.inferType env 0 jv
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
   pure ⟨.thmInfo cv value :: env.consts⟩

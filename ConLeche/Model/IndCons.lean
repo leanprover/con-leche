@@ -107,7 +107,6 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     -- the kind: an inductive block installs no value kind and no axiom
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
-    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnotax : ∀ cv, c₀ ≠ .axiomInfo cv)
     -- the head's own obligations (task #161 S7)
     (hh : ConsHead env c₀ A)
@@ -146,11 +145,10 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
-  · -- `hvalReads`: an inductive cons is never a definition or a theorem
+  · -- `hvalReads`: an inductive cons is never a definition
     intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
-    · exact absurd hdt.symm (hnotthm cv2 value2)
+    obtain ⟨hint2, hdt⟩ := hmem
+    exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
   · -- `nat_heads`: the guard's three names are reserved, this one is not
     exact fun φ => natHeads_cons_offNat mp
       (ne_of_notReserved hnres reserved_natName)
@@ -207,13 +205,11 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂) :
     ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_ind_cons mp hfresh hnres ?_ ?_ ?_ hh
+  refine declStep_preserves_of_ind_cons mp hfresh hnres ?_ ?_ hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     hcaps ?_ ?_
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
-  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
-      intro _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ h <;> exact nomatch h
   · refine fun m₂ hac φ => recRules_cons_fresh mp hfresh hh.projTower ?_ m₂ hac φ
@@ -259,7 +255,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V μ env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
   exact declStep_preserves_of_ind_cons mp hfresh hnres
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
 

@@ -349,23 +349,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
-  | some (.thmInfo cv value) =>
-    intro h
-    dsimp only at h
-    revert h
-    split
-    · intro h
-      simp only [Option.some.injEq] at h
-      subst h
-      intro l hl
-      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-      obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
-      rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
-      · rw [fvarLeaves_eq_nil_of_not_hasFvar
-          (by rw [hasFvar_instantiateLevelParams]; exact hvc)] at hl'
-        cases hl'
-      · exact fvarLeaves_getAppArgs hx l hlx
-    · intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
@@ -406,22 +390,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
-  | some (.thmInfo cv value) =>
-    intro h
-    dsimp only at h
-    revert h
-    split
-    · intro h
-      simp only [Option.some.injEq] at h
-      subst h
-      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-      obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
-      refine looseBVarsBounded_mkAppN ?_ ?_
-      · rw [looseBVarsBounded_instantiateLevelParams]
-        exact hvb
-      · intro x hx
-        exact looseBVarsBounded_getAppArgs hb x hx
-    · intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h

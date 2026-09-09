@@ -135,7 +135,7 @@ theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :
   | cA :: rest, env₀, h, hall => by
     simp only [ConLeche.consSumCtors]
     refine noProjEnv_consSumCtors (h.cons (c₀ := .ctorInfo cA.1 nP cA.2) (NoProjHead.ofType
-      (hall cA List.mem_cons_self) (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+      (hall cA List.mem_cons_self) (fun _ _ _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h) (fun _ h => nomatch h))) ?_
     exact fun c hc => hall c (List.mem_cons_of_mem _ hc)
 
@@ -700,14 +700,14 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         have h1 : NoProjEnv env₁ p.cvT.name j := by
           rw [h₁]
           exact h0.cons (c₀ := .indInfo cvTa (ConLeche.nativeCaps p))
-            (NoProjHead.ofType (hnpT j) (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+            (NoProjHead.ofType (hnpT j) (fun _ _ _ h => nomatch h)
               (fun _ _ _ _ h => nomatch h) (fun _ h => nomatch h))
         have h2 : NoProjEnv envC p.cvT.name j := by
           rw [hC]
           exact noProjEnv_consSumCtors h1 (fun c' hc' => by
             obtain rfl := List.mem_singleton.mp hc'
             exact hnpC j)
-        refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), (fun _ _ h => nomatch h), ?_,
+        refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), ?_,
           (fun _ h => nomatch h)⟩
         · show Expr.NoProjAt p.cvT.name j cvRa.type
           rw [hRtype]
