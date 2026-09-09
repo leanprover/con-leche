@@ -14,7 +14,8 @@ the lean4export repository) is a sequence of JSON objects: an initial
 `in`/`il`/`ie` give the table index) interleaved with declarations.
 Index 0 of the name table is `Name.anonymous`, index 0 of the level
 table is `Level.zero`; both are implicit.  Indices need not be dense or
-in order (hand-crafted arena tests have gaps), so the tables are maps;
+in order (hand-crafted arena tests have gaps), so the tables are
+partial maps (`IdTable`, a dense array with a sparse overflow);
 entries are resolved eagerly when inserted, so a later re-binding of an
 index cannot retroactively change anything built earlier.
 

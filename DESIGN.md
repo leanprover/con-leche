@@ -64608,3 +64608,267 @@ re-pointed or added; every target read against its paragraph);
 proofdeps 5743 rows across 14 roots, doors 0 after the regeneration
 above — the `main_False` root gains the eight modules of §3, and the
 four fold roots the artefact row.
+
+## Task #256 — A HAND-ROLLED RECOGNISER FOR THE LEAN4EXPORT DIALECT (2026-09-09, `agent/parser`)
+
+Task #255's design, implemented: the frontend reads the stream's
+BYTES.  `Lean.Json` is gone from the checking path, and so is the byte
+fast path that used to sit in front of it — there is one grammar in
+the tree.  The naive reference recogniser and the `@[csimp]` twin
+`scanLineSpec = scanLine` are NOT here; they are task #257, and every
+shape decision below was made so that the equality stays STATEABLE.
+
+### 1. What was measured, and what it cost
+
+`CON_LECHE_INMODEL_CENSUS=1` on `init-full` (324 561 407 bytes,
+6 058 389 lines) was **154.81 G instructions** — 477 per byte, 25.6 k
+per line — for two array reads and one `Expr.app` per hot line.  More
+than ninety per cent of it was representation: heap churn 32 %,
+`Lean.Json.parse` 18 %, DOM key lookups 14 %, `getLine`'s
+`getc`-per-byte loop 10 %, `String`/UTF-8 copies 10 %, and the byte
+fast path *failing* 5 % (it matched `{"ie":` at byte 0, but a raw
+export sorts its keys and writes `{"app":…,"ie":8}`, so 88.6 % of
+lines fell through it).
+
+### 2. The three modules
+
+`ConLeche/Frontend/Scan/Types.lean` is the dialect's SYNTAX: one
+record per line shape (`NameRec`, `LevelRec`, `ExprRec`, `CVRec`,
+`DeclRec`, `LineRec` …) in stream indices with nothing resolved, the
+whole key alphabet as a no-argument enumeration `Key`, the failure
+type `ScanErr` (a position and a static tag — no message is ever
+formatted while a stream is read), the success type `ScanRes`, and
+`IdTable`.
+
+`ConLeche/Frontend/Scan/Fast.lean` is the recogniser: `scanLineFwd`
+decodes one line and reports where the next begins.
+
+`ConLeche/Frontend/ExportC.lean` keeps everything else it had.  Its
+`applyLine` is the old `processLineD` with the DOM lookups replaced by
+record fields — the index resolution, the smart constructors, the
+taint policy, the prelude dedupe, the projection rewrite, the
+in-process modeller and the `DeclC` push are the same functions,
+clause for clause.  `feedChunk` applies every complete line of a
+chunk and says where the incomplete tail begins;
+`parseExportHandleD` reads 4 MiB at a time and carries the tail
+forward, so the handle is still read strictly forward and a pipe still
+works (task #180's property).
+
+### 3. The user's eight decisions, and where each one is
+
+1. **The result stays `Array DeclC`.**  Only the bytes stream;
+   `Main.lean` and the driver's type are untouched.
+2. **The naive reference is task #257's**; the `Lean.Json` frontend
+   served as the transition oracle and is deleted with this task.
+3. **A full csimp twin later** — so: every function is total and
+   first-order, no `partial`, no `IO`, no `for`, no `Std.Range`, no
+   local closure, and every loop is an explicit recursion with a
+   `termination_by`.
+4. **Key order is not assumed.**  Every object is read by a SLOT LOOP:
+   classify the key, scan its value into a slot, set a bit in `seen`;
+   the closing brace checks that every key the kind requires has been
+   seen.  Missing, duplicate and unknown keys are errors.
+5. **`meta` is liberal**: its value is required to be a
+   bracket- and string-balanced object and is skipped.
+6. **`IdTable` is a dense `Array` with a sparse `HashMap` overflow**,
+   so an in-order id is a push and the arena's gap and out-of-order
+   fixtures keep working.
+7. **Positions are `USize`**, on two lemmas: `usizeInBounds`
+   (`i < b.usize → i.toNat < b.size`, task #255's probe) and
+   `usizeStep` (a step inside the array cannot wrap).
+8. **The dead byte fast path is deleted** with the `Json` path:
+   `fastParse`, `FastNode`, `FastLine`, `fsLit`, `fsNat`, `fsStr`,
+   `fsNatList`, `fsBinderInfo`, the twenty-four literal `ByteArray`
+   constants, and `Export.lean`'s `getIdx`/`getIdxs`/`parseBinderInfo`/
+   `exprEntryChildren`/`parseHints`.
+
+### 4. Termination is the position, never a fuel
+
+Every loop advances into a fixed array, so `b.size - i.toNat` is the
+measure (the user's correction to the brief, 2026-09-09).  The
+one-byte steps discharge it by `usizeStep`; a step over a value a
+sub-scanner consumed discharges it by an explicit `i < j` test on the
+position that scanner returned, which in `USize` IS the `Nat`
+inequality the measure wants (`USize.lt_iff_toNat_lt`) and needs no
+overflow reasoning at all.  A failing test is the error tag
+`noProgress`: unreachable, because a scanner consumes at least the
+byte it dispatched on, and it is what makes the measure a theorem
+instead of a comment.  The later spec equality recurses structurally
+on `List UInt8`, which is the same measure.
+
+### 5. The shape decisions the profile forced
+
+The first working version was 32.05 G.  Three changes took it to
+17.75 G, and each is a fact about Lean's codegen worth recording:
+
+* **`Except ScanErr (α × USize)` is three heap objects** — the `ok`,
+  the pair, and `lean_box_usize` for the machine word — and the
+  recogniser returns tens of millions of them.  `ScanRes α`, one
+  constructor with the position in the constructor's SCALAR area
+  (`lean_ctor_set_usize` in the generated C), is one.  −3 G.
+* **A key must not be classified by trying candidates.**  The first
+  version tried every key sharing a first byte, longest first, so
+  `ie` — the commonest key in the stream — came eighth.  The scan to
+  the closing quote has to happen anyway, so it yields the key's
+  LENGTH, and `(first byte, length)` leaves at most four candidates
+  for one literal compare.  Key classification fell from 23 % of the
+  parse to 9 %.
+* **`Nat` arithmetic per digit is expensive** (an out-of-line call
+  with tag tests each for `*`, `+`, `-`).  A digit run of at most 18
+  digits accumulates in a `UInt64` and anything longer in `Nat`, which
+  overflows into GMP by itself — so a big `natVal` literal still needs
+  no special case.  `readNat` fell from 18 % to invisible.
+
+Two more shapes are deliberate: a digit run is scanned TWICE (once for
+its extent, once for its value) because returning a `(value,
+position)` pair would allocate, and the line's end is found by the
+record scanner itself — `scanLineFwd` returns the position after the
+newline, or `0` when the buffer ran out first, which is how the driver
+tells an incomplete tail from a malformed line without a separate pass
+over every byte.
+
+### 6. What the generated C says
+
+`.lake/build/ir/ConLeche/Frontend/Scan/Fast.c`: no `lean_alloc_ctor`
+in any of `byteAt`, `skipWs`, `skipDigits`, `numEnd`, `readNat`,
+`readNat64`, `matchLit`, `keyEnd`, `keyAt`, `valueAt`, `strClose`,
+`hasEscape`; 82 `lean_byte_array_uget` and zero `lean_byte_array_get`
+in the file; no `Std_Legacy_Range_forIn` and no `___lam__` anywhere.
+`IdTable.insert`'s dense case is `lean_array_push` under
+`lean_is_exclusive`, with the structure's constructor reused.
+
+### 7. The differential gate
+
+The retired `Lean.Json` frontend was kept alive in its own namespace in
+a scratch harness (outside the build, deleted with this task) that
+parses a stream BOTH ways and compares the `Array DeclC` record for
+record — through `Expr`'s own `==`, the memoised pointer-aware descent,
+because the derived `DecidableEq` walk does not finish on a depth-60
+tower.
+
+* **362 streams** — 163 `tests/e2e`, 14 `tests/annot`, 182
+  `_tmp/arena-tests` (good and bad), the committed prelude, `init-core`
+  and `init-full` — **0 differences**: records, taint skips,
+  projection rewrites, prelude counts, hoists, modelled blocks and
+  generated-record counts alike, and 53 088 declarations on the big
+  one.
+* **Chunk sizes 1, 7, 4096 and 4 MiB** give the same parse.
+* **7 000 mutation-fuzzer cases** over three seeds (byte flips,
+  deletions, insertions, digit and punctuation substitutions in a
+  random line of five fixtures): 6 944 identical, including the line
+  number of every rejection.  The 56 differences fall in four classes,
+  all of them the decisions of §3 at work; they are listed in §8.
+
+### 8. Deviations, reported per the restrictions ruling
+
+None of them touches any output lean4export writes; the two corpora
+and the 360 fixtures are byte-identical parses.
+
+* **Accept-subset, by decision 4**: a key outside the dialect, a
+  duplicate key, or a missing key the record kind needs is an error
+  where the DOM reader ignored it (46 of the 56 fuzz differences).
+  The recogniser also requires the format's mandated keys the CHECKER
+  does not read — `all`, `cidx`, `induct`, `k`, `isUnsafe` on a
+  constructor, `nondep`, a binder's `name` — because the recogniser
+  knows the whole format and a record missing one is a record it does
+  not know.  Every stream in the corpora carries them.
+* **Accept-subset, JSON's own number grammar**: a digit run may not
+  start with `0` unless it is `0`, and there is no exponent notation
+  (6 of the 56).  The fuzzer found the leading zero as an accept-
+  SUPERSET of the first implementation (`06` read as `6`, which
+  `Lean.Json` refuses) and it was fixed; the exponent is a plain subset
+  (`{"ie":3e8,…}` is rejected at its own line, where the DOM reader
+  accepted it and failed a few lines later).
+* **Accept-subset, UTF-8**: a string whose bytes are not UTF-8 is an
+  error (2 of the 56).  The old path went through `getLine`, which
+  replaces invalid bytes.
+* **Accept-superset, by decision 5, confined to the header**: a `meta`
+  record whose value is bracket-balanced is skipped without being
+  parsed, so a malformed one inside it is tolerated (2 of the 56).
+  Nothing in the header is read.
+
+Error TEXT for syntactic failures changed (a tag and a byte offset in
+the line, rather than `Lean.Json`'s Parsec messages); the LINE NUMBER
+did not, and `tests/e2e-expected.txt` pins exit codes.
+
+### 9. One Lean gotcha, worth the sentence
+
+`match … with | .ok (_, 0) => …` on a `USize` compiles, and does not
+fire: a numeral pattern of a machine-word type is not the comparison
+it looks like.  It cost an hour and the chunk-boundary bug it hid
+(every 4 MiB the driver reported "no progress") was invisible to the
+whole fixture suite, whose files are smaller than one chunk.  The
+sentinel is now compared with `==`, and the chunk-size sweep of §7 is
+the standing gate.
+
+### 10. What this buys
+
+Parse only (`CON_LECHE_INMODEL_CENSUS=1`, `init-full`, `ulimit -v
+16000000`, `timeout`, `perf stat -e instructions:u`):
+
+| | instructions | per byte |
+|---|---|---|
+| before | 154.81 G | 477 |
+| after | 17.90 G | 55 |
+
+**8.65× on the parse**, which is short of the design's 8–15 G estimate
+and is reported as such: what is left is not the byte loops (they are
+what the estimate priced) but the RECORDS — about eight small heap
+objects per line for the syntax record, its payload wrapper, the
+`Option`s of the three table lookups and the `Except` of the semantic
+step — plus the key classifier at 9 %.  Both are addressable and
+neither is in this task's way.
+
+Whole runs, one per configuration, same protocol.  The parser change
+is measured on the fold driver against the binary it replaced
+(master `5d26f46a`), because task #253's driver landed between:
+
+| | before | after | |
+|---|---|---|---|
+| `init-full` `--verified` | 675.22 G | 539.79 G | −20.1 % |
+| `init-full` `--trusted` | 657.36 G | 521.92 G | −20.6 % |
+| `init-prelude` | 4.82 G | 3.22 G | −33.1 % |
+| `grind-ring-5` | 27.18 G | 22.68 G | −16.6 % |
+| `init-full` peak RSS | 722 556 kB | 652 288 kB | −9.7 % |
+
+and on the merged tree, against the numbers task #253 recorded for
+master `eda57034`:
+
+| | master | this branch | |
+|---|---|---|---|
+| `init-full` `--verified` | 700.56 G | 561.21 G | −19.9 % |
+| `init-full` `--trusted` | 675.58 G | 536.13 G | −20.6 % |
+
+53 088 declarations accepted, exit 0, in every run.
+
+### 11. Gates
+
+`lake build` 531 jobs warning-free; `lake test` warning-free;
+`tests/arena.sh` under `env -i` with every count as master's;
+proofdeps doors 0; the axiom pin unchanged; the trust surface
+unchanged at 10 escapes in 4 files (468 files scanned rather than 465
+— the two new modules and the new test); `tests/overview-links.sh`
+regenerated for one anchor.
+
+The shake gate moved for a reason worth recording: with the `Json`
+path gone, `ConLeche/Frontend/Export.lean`'s `Lean.Data.Json`,
+`ConLeche.Kernel.ExprOps`, `ConLeche.Kernel.Basis` and
+`ConLeche.Kernel.Core` became CLEAN removals — the criterion's
+`--only` run proposes them with no compensating addition anywhere —
+so the imports and their four allowlist lines are deleted together.
+`Scan/Types.lean` takes `Std.Data.HashMap.Basic`, the narrower edge
+the same criterion asks for.
+
+`tests/ConLecheTests/ScanTests.lean` is the recogniser's own suite:
+key-order indifference on both layouts the corpora use, whitespace,
+the literals, the binder's dropped fields, the four refusals, and a
+three-byte chunking of a fixture that must parse as the whole buffer
+does.
+
+### 12. Not here
+
+The naive reference over `List UInt8` and the kernel-checked
+`scanLineSpec = scanLine` (task #257).  Until they land, the assurance
+that the list handed to `checkDecls` is the file's is the differential
+of §7 — which is the standard the rest of the frontend is held to, and
+one the parser did not meet at all before.
