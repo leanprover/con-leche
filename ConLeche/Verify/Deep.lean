@@ -1189,7 +1189,6 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             simp only [shiftFrom]
             rw [getAppArgs_shiftFrom, List.length_map]
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
             rw [etaFabArgsE_shift]
             have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)
                 (List.map (shiftFrom p)

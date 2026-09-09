@@ -1068,7 +1068,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          capsNeverZero cvT.levelParams ust caps = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
-         cvj.levelParams.length = ust.length ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) ∧
          iotaCertsFueled mode env fuel d false
@@ -1076,7 +1075,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
            = .ok true ∧
          (structEtaCertWithFueled mode env fuel d major' major tmaj = .ok true ∨
-          (caps.etaFields = 0 ∧ cvj.levelParams.length = ust.length ∧
+          (caps.etaFields = 0 ∧
            proofIrrelFueled mode env fuel d major' major = .ok true))))) := by
   dsimp only [majorToCtorFueled] at h
   simp only [majorToCtor, Bind.bind, Except.bind] at h
@@ -1349,12 +1348,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inl h.symm
     obtain ⟨rfl, hplen, hlvl, hnz⟩ := hTl
     rw [if_pos ⟨rfl, hplen, hlvl, hnz⟩] at h
-    by_cases harE1 : cvj.levelParams.length = ust.length
-    case neg =>
-      rw [if_neg harE1] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl h.symm
-    rw [if_pos harE1] at h
     cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
           (etaFabArgsE env T' ust tmaj.getAppArgs major
             caps.etaFields)).wscopedB d &&
@@ -1400,8 +1393,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     cases bse with
     | false =>
       simp only [Bool.false_eq_true, ↓reduceIte] at h
-      by_cases hZ : caps.etaFields = 0 ∧
-          cvj.levelParams.length = ust.length
+      by_cases hZ : caps.etaFields = 0
       case neg =>
         rw [if_neg hZ] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1428,9 +1420,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
         rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
         rfl, hfj, hpr, hfT, rfl, htw, hth,
-        Or.inr ⟨hE, hnz, hplen, hlvl,
-          harE1, rfl, hcertE,
-          Or.inr ⟨hZ.1, hZ.2, hpi⟩⟩⟩
+        Or.inr ⟨hE, hnz, hplen, hlvl, rfl, hcertE,
+          Or.inr ⟨hZ, hpi⟩⟩⟩
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -1438,8 +1429,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr ⟨hE, hnz, hplen, hlvl,
-        harE1, rfl, hcertE,
+      Or.inr ⟨hE, hnz, hplen, hlvl, rfl, hcertE,
         Or.inl hse⟩⟩
 
 /-- Inversion of one pairwise-defeq step. -/

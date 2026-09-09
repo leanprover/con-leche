@@ -610,29 +610,26 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ustL caps = true then do
-                if cvj.levelParams.length = ust.length then do
-                  let TI ← pure T
-                  let projs ← projAppsI fe T TI ust margs major caps.etaFields
-                  let ctorI ← pure caps.etaCtor
-                  let h ← pure (Expr.const ctorI ust)
-                  let fab ← mkAppNM h (margs ++ projs)
-                  if ← pure (ExprC.wscopedB depth fab &&
-                      ExprC.looseBVarsBounded 0 fab &&
-                      ExprC.leafGuard fab major) then do
-                    -- synthetic-spine certification, as in the K
-                    -- branch (task #71)
-                    let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    -- (a certificate family; off at `.trusted`)
-                    if ← certAtI mode (iotaCertsI r fe depth false tyCtor
-                        (margs ++ projs)) then do
-                      if ← structEtaCertWithI mode r fe depth fab major
-                          tmaj then
+                let TI ← pure T
+                let projs ← projAppsI fe T TI ust margs major caps.etaFields
+                let ctorI ← pure caps.etaCtor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                if ← pure (ExprC.wscopedB depth fab &&
+                    ExprC.looseBVarsBounded 0 fab &&
+                    ExprC.leafGuard fab major) then do
+                  -- synthetic-spine certification, as in the K
+                  -- branch (task #71)
+                  let tyCtor ← constTyAtM fe ctorI rl.ctor ust
+                  -- (a certificate family; off at `.trusted`)
+                  if ← certAtI mode (iotaCertsI r fe depth false tyCtor
+                      (margs ++ projs)) then do
+                    if ← structEtaCertWithI mode r fe depth fab major
+                        tmaj then
+                      pure fab
+                    else if caps.etaFields = 0 then
+                      if ← proofIrrelI r fe depth fab major then
                         pure fab
-                      else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length then
-                        if ← proofIrrelI r fe depth fab major then
-                          pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major

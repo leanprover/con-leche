@@ -1309,40 +1309,38 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ust caps = true then
-                -- no constructor-telescope arity pin, as in the K branch
-                if cvj.levelParams.length = ust.length then
-                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                -- no constructor-telescope arity pin, as in the K
+                -- branch, and no level-count pin: the η bit is set
+                -- only at a constructor stored with the former's own
+                -- level parameters (`RecCtorsStored`), which the
+                -- fabrication's levels are those of
+                let fab := Expr.mkAppN (.const caps.etaCtor ust)
                     (etaFabArgsE env T ust tmaj.getAppArgs major
                       caps.etaFields)
-                  -- scope guard, as in the K branch
-                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    -- synthetic-spine certification, as in the K
-                    -- branch (task #71)
-                    if ← iotaCerts r env depth false
-                        (cvj.type.instantiateLevelParams
-                          cvj.levelParams ust)
-                        (etaFabArgsE env T ust tmaj.getAppArgs major
-                          caps.etaFields) then
-                      if ← structEtaCertWith mode r env depth fab major
-                          tmaj then
+                -- scope guard, as in the K branch
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  -- synthetic-spine certification, as in the K
+                  -- branch (task #71)
+                  if ← iotaCerts r env depth false
+                      (cvj.type.instantiateLevelParams
+                        cvj.levelParams ust)
+                      (etaFabArgsE env T ust tmaj.getAppArgs major
+                        caps.etaFields) then
+                    if ← structEtaCertWith mode r env depth fab major
+                        tmaj then
+                      pure fab
+                    -- 0-field rescue for the pinned basis `PUnit`
+                    -- (the generic certificate excludes reserved
+                    -- names): the fabrication is the bare
+                    -- constructor, certified by proof
+                    -- irrelevance's unit-likeness branch; the
+                    -- instantiated non-Prop test is already in the
+                    -- branch guard above
+                    else if caps.etaFields = 0 then
+                      if ← proofIrrel r env depth fab major then
                         pure fab
-                      -- 0-field rescue for the pinned basis `PUnit`
-                      -- (the generic certificate excludes reserved
-                      -- names): the fabrication is the bare
-                      -- constructor, certified by proof
-                      -- irrelevance's unit-likeness branch; the
-                      -- official rescue additionally requires the
-                      -- instantiated result sort to be provably
-                      -- nonzero
-                      -- 0-field rescue: the instantiated non-Prop
-                      -- test is already in the branch guard above
-                      else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length then
-                        if ← proofIrrel r env depth fab major then
-                          pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major
@@ -1403,11 +1401,19 @@ def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
   | _ => false
 
 /-- **The η-rescue bit at install** (`RecRule.eta`): the rule's
-constructor is the η constructor of a stored η-capable inductive, and
-the recursor is not itself a projection function (whose rescue would
-reduce to its own reduct and loop).  Together with the singleton rule
-list this is the standing condition of `majorToCtor`'s structure-η
-rescue. -/
+constructor is the η constructor of a stored η-capable inductive,
+carries that inductive's own level parameters, and the recursor is not
+itself a projection function (whose rescue would reduce to its own
+reduct and loop).  Together with the singleton rule list this is the
+standing condition of `majorToCtor`'s structure-η rescue.
+
+The level-parameter conjunct is what lets the rescue fabricate the
+constructor application at the major type's levels without comparing
+the two lists per call: every route that grants η stores the
+constructor at the former's level parameters (the fixpoint route's
+recogniser pins `c.1.levelParams == lps`, the modeled route grants η
+only at `cvC.levelParams = cvT.levelParams`, and the pinned `PUnit`
+block is literal), so the conjunct holds wherever the rest does. -/
 def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     Bool :=
   match find? ctor with
@@ -1415,8 +1421,9 @@ def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     match (cvj.type.piResult).getAppFn with
     | .const T _ =>
       match find? T with
-      | some (.indInfo _ caps) =>
-        caps.eta && caps.etaCtor == ctor && !Name.isProjFnShape recName
+      | some (.indInfo cvT caps) =>
+        caps.eta && caps.etaCtor == ctor && !Name.isProjFnShape recName &&
+          cvj.levelParams == cvT.levelParams
       | _ => false
     | _ => false
   | _ => false
