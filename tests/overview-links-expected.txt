@@ -254,10 +254,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1334-L1336
-  1334  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
-  1335      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1336      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384
+  1382  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+  1383      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1384      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -598,11 +598,11 @@
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
-== ConLeche/Kernel/Inductives/NativeInstall.lean#L496
-   496  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L546
+   546  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Inductives/NativeInstall.lean#L512
-   512  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L617
+   617  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
