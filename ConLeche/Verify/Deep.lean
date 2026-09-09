@@ -272,24 +272,6 @@ private theorem unfoldDefinition_shiftFrom {env : Env} (henv : EnvWF env)
             e.getAppArgs) from by
           rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
       · rfl
-    case thmInfo cv value =>
-      dsimp only
-      split
-      · have hval : (value.instantiateLevelParams cv.levelParams
-            us).hasFvar = false := by
-          obtain ⟨-, -, -, -, -, -, hvalwf, -⟩ := henv _ (find?_mem hf)
-          obtain ⟨hvc, -, -, -⟩ := hvalwf cv value rfl
-          rw [hasFvar_instantiateLevelParams]
-          exact hvc
-        rw [getAppArgs_shiftFrom, Option.map_some]
-        rw [show Expr.mkAppN
-            (value.instantiateLevelParams cv.levelParams us)
-            (e.getAppArgs.map (shiftFrom p)) =
-          shiftFrom p (Expr.mkAppN
-            (value.instantiateLevelParams cv.levelParams us)
-            e.getAppArgs) from by
-          rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
-      · rfl
 
 /-- `headHint` only reads a head constant's name, which shifting
 preserves. -/

@@ -133,19 +133,25 @@ def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
       pure (← checkDeclStepC mode fe (.defnDecl cv value hint), pend)
     else do
       let r ← annotValueC mode fe cv value true
+      -- RC linearity: the counter is read BEFORE the push, so that
+      -- `fe` reaches `push` unshared (read after it, the push copies
+      -- the whole index at every install)
+      let vis := fe.visibleBelow
       pure (fe.push (.defnInfo r.1 r.2.2 hint),
-        pend.push ⟨⟨.defn, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+        pend.push ⟨⟨.defn, r.1, r.2.2⟩, i, vis⟩)
   | .thmDecl cv value => do
     let r ← annotValueC mode fe cv value true
+    let vis := fe.visibleBelow
     pure (fe.push (.thmInfo r.1 r.2.2),
-      pend.push ⟨⟨.thm, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+      pend.push ⟨⟨.thm, r.1, r.2.2⟩, i, vis⟩)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then do
       pure (← checkDeclStepC mode fe (.opaqueDecl cv value), pend)
     else do
       let r ← annotValueC mode fe cv value false
+      let vis := fe.visibleBelow
       pure (fe.push (.axiomInfo r.1),
-        pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, fe.visibleBelow⟩)
+        pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, vis⟩)
   | pd => do
     pure (← checkDeclStepC mode fe pd, pend)
 

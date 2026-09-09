@@ -1177,9 +1177,11 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     have key : Yields (checkOpaqueValC mode fe cvA jty value)
         (fun fe' => SkelIs fe' (.ax cv.name :: sk)) := by
       rw [← hp]; exact checkOpaqueValC_skels mode h cvA jty value
-    refine Yields.bind' key fun fe2 h2 => ?_
-    yields
-    all_goals (apply Yields.pure; exact h2)
+    split
+    · refine Yields.bind' key fun fe2 h2 => ?_
+      yields
+      all_goals (apply Yields.pure; exact h2)
+    · exact key
   | axiomDecl cv =>
     simp only []
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_

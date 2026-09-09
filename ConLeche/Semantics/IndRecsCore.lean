@@ -108,7 +108,6 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
       rec_rhs_denotes := hrhs
       rec_params_le := hle
       proj_ok := ?_
-      thm_ok := ?_
       nat_op_guard := ?_ }
   · -- val_params: the swap keeps every stored `ConstantVal`
     intro n ci hf φ₁ φ₂ hp
@@ -136,13 +135,6 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
     exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
       (m₀.proj_ok n tbl ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
-  · -- thm_ok: likewise a theorem is never a swap's right side
-    intro cv value hmem ψ
-    obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hsw _ hmem
-    rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
-    · rw [← hdeC]
-      exact m₀.thm_ok cv value hc₀ ψ
-    · exact nomatch heq
   · -- nat_op_guard: keyed on definitions, with the guard congruent
     intro c hmem hst
     obtain ⟨cv, v, hh, hf⟩ := natOpStored_inv hst

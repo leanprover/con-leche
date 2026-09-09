@@ -265,8 +265,7 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     RelC i (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us)
   constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cv v h,
-    (env.find? n = some (.defnInfo cv v h) ∨
-      env.find? n = some (.thmInfo cv v)) ∧
+    env.find? n = some (.defnInfo cv v h) ∧
     RelC i (v.instantiateLevelParams cv.levelParams us)
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
     ∃ cv mI rP rules rl,

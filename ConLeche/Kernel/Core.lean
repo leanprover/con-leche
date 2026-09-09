@@ -205,22 +205,20 @@ def isUnitLikeTy (env : Env) : Expr → Bool
       | _ => false)
   | _ => false
 
-/-- Unfold the (application of a) definition or theorem at the head,
-one step.  `none` when the head is not an unfoldable constant.
-Theorems unfold like the reference kernels' delta step (official
-`is_delta`: any constant with a value; theorems at hint `opaque`) —
-needed e.g. when a recursor major is a theorem application whose value
-reduces to a constructor (arena `subject-reduction-redex`). -/
+/-- Unfold the (application of a) definition at the head, one step.
+`none` when the head is not an unfoldable constant.  **Theorems are
+opaque to reduction**: a stored `thmInfo` never unfolds, so whether a
+declaration type-checks never depends on a theorem's value — this
+anticipates https://github.com/leanprover/lean4/pull/14896 (theorems
+become opaque to the kernel: `is_delta` stops unfolding them).  The
+one known input whose typing needs a theorem to unfold, the arena's
+`subject-reduction-redex`, is rejected (an accept-subset of the
+reference kernels until that PR lands). -/
 def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
   match e.getAppFn with
   | .const n us =>
     match env.find? n with
     | some (.defnInfo cv value _) =>
-      if us.length = cv.levelParams.length then
-        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
-          e.getAppArgs)
-      else none
-    | some (.thmInfo cv value) =>
       if us.length = cv.levelParams.length then
         some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
           e.getAppArgs)
@@ -240,14 +238,12 @@ def unfoldableHead (env : Env) (e : Expr) : Bool :=
   | .const n us =>
     match env.find? n with
     | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
-    | some (.thmInfo cv _) => us.length == cv.levelParams.length
     | _ => false
   | _ => false
 
 /-- The reducibility hint of the constant at the head of `e` (`opaque`
-when the head is not a stored definition; in particular a theorem
-unfolds at hint `opaque`, exactly the official kernel's
-`constant_info::get_hints`). -/
+when the head is not a stored definition — a theorem included, which
+never unfolds). -/
 def headHint (env : Env) (e : Expr) : ReducibilityHint :=
   match e.getAppFn with
   | .const n _ =>

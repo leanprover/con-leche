@@ -188,11 +188,17 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     checkThmValC mode fe cvA jty value
   | .opaqueDecl cv value => do
     let (cvA, jty) ← checkConstantValC mode fe cv
-    let fe2 ← checkOpaqueValC mode fe cvA jty value
+    -- RC linearity (cf. the parser-state rule): with `fe` still live
+    -- after the push — the `reduceOpNames` branch reads it —
+    -- `checkOpaqueValC`'s `fe.push` copied the whole index on EVERY
+    -- opaque install.  Branch first, so the common arm hands `fe` to
+    -- the push unshared.
     if reduceOpNames.contains cvA.name then do
-      let vE := value
-      checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name vE
-    pure fe2
+      let fe2 ← checkOpaqueValC mode fe cvA jty value
+      checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name value
+      pure fe2
+    else
+      checkOpaqueValC mode fe cvA jty value
   | .axiomDecl cv => do
     let (cvA, jty) ← checkConstantValC mode fe cv
     if stdAxiomOkF fe cvA then do

@@ -259,10 +259,12 @@
 # subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
 # `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
 # are *theorems* whose values must delta-unfold for the Acc iota step
-# to fire — theorem values unfold like the reference kernels' delta
-# step (task #66); the outer redex additionally exercises the
-# same-head spine shortcut with proof irrelevance on the Acc argument.
-0 subject_reduction_redex.ndjson
+# to fire.  Theorems are OPAQUE to reduction (anticipating
+# lean4#14896, which makes the official kernel stop unfolding them
+# too), so this is a REJECT: the one known input whose typing needs a
+# theorem to unfold — an accept-subset of the reference kernels until
+# that PR lands, and the fixture that pins the opacity.
+1 subject_reduction_redex.ndjson
 # dag_tower (task #65/#78): a 2^28-node doubling tower (add e e at 27
 # levels) over the beta-ladder prelude, DAG-shared through export-table
 # indices.  Since parse-time interning (task #78) the ordinary

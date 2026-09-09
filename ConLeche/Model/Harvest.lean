@@ -356,15 +356,14 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     exact hmemA ψ ρ
   · -- `hvalReads`
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · injection hdt with h1 h2 h3
-      show denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-            env.consts⟩ ψ 0 value2
-        = some (A ψ)
-      rw [h2]
-      exact hcomp ψ value' hcbV (hA ψ)
-    · exact nomatch hdt
+    obtain ⟨hint2, hdt⟩ := hmem
+    injection hdt with h1 h2 h3
+    show denoteMeta (acvalWith mp.base2.acval cv.name A)
+        ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+          env.consts⟩ ψ 0 value2
+      = some (A ψ)
+    rw [h2]
+    exact hcomp ψ value' hcbV (hA ψ)
   · -- `nat_heads` at the extension, from the guard agreement
     intro φ hg ρ
     show interp V ρ (acvalWith mp.base2.acval cv.name A natZeroName
@@ -528,10 +527,13 @@ three deltas are all shape:
   step is `declThmS`, which takes **no** `DivModPinS` (a theorem has
   neither the structural-`Nat` nor the div/mod pin clause, so the
   harvest sheds `hdm` too);
-* the erasure link reads the new base's `thm_ok` field where the
-  species reads `defn_eq` — the same equation, the other kind;
-* `hvalReads`'s two arms swap: the `defnInfo` arm is `nomatch` and the
-  `thmInfo` arm carries the reading.
+* there is no erasure link to read: a theorem is opaque to reduction
+  (`unfoldDefinition` has no `thmInfo` arm — anticipating
+  https://github.com/leanprover/lean4/pull/14896), so the invariant
+  keeps no equation between the value and the leaf, and `hvalReads`
+  is vacuous (its one arm is a `defnInfo`).  The value is still read
+  once, here: the leaf `A` is its reading, and `hmemA` is what makes
+  the constant an inhabitant of its statement.
 
 `DeclThmR`'s two extra conjuncts (H1's prop-check run triple and the
 semantic `.sort 0` front) are **not spent**: the type's P reading and
@@ -731,17 +733,11 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
     exact hmemA ψ ρ
-  · -- `hvalReads`: the `defn` arm is the impossible one here
+  · -- `hvalReads`: vacuous — a theorem is opaque to reduction, so the
+    -- invariant asks for no reading of its value at its leaf
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · injection hdt with h1 h2
-      show denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-            env.consts⟩ ψ 0 value2
-        = some (A ψ)
-      rw [h2]
-      exact hcomp ψ value' hcbV (hA ψ)
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
@@ -809,8 +805,8 @@ run, the crossing and `nat_heads` are all available verbatim, and
 
     ∀ ψ, (A ψ).erase = m'.cval cv.name ψ
 
-At a `def` this is the new base's `defn_eq` field and at a `theorem`
-its `thm_ok` field (`harvestDefn` / `harvestThm` above).  At an
+At a `def` this is the new base's `defn_eq` field (`harvestDefn`
+above; a theorem, opaque to reduction, has no such field).  At an
 `opaque` **neither field speaks**: v1 stores an axiom and keeps no
 equation between the discarded body and the leaf.  The equation is
 *true* — `extendValueS` values the constant by `cvalAt m.cval env
@@ -994,9 +990,8 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     exact hmemA ψ (Ta ψ) (hTa ψ) ρ
   · -- `hvalReads`: an axiom is neither a `def` nor a `thm`
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
@@ -1248,9 +1243,8 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     exact hmemA ψ ρ
   · -- `hvalReads`: an opaque stores an axiom — both arms impossible
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)

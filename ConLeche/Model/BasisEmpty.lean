@@ -89,7 +89,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     Nonempty (EnvModelM V μ ⟨emptyA :: env.consts⟩) := by
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [1]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
@@ -233,7 +233,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
       (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))

@@ -146,7 +146,6 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     rec_rhs_denotes := ?_
     rec_params_le := ?_
     proj_ok := ?_
-    thm_ok := ?_
     nat_op_guard := ?_ }, hcval₀⟩
   · -- closedness: the new leaf is the model projection's
     intro n ψ
@@ -220,12 +219,6 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
   · -- the projection table: the head is a recursor, not an entry
     exact ProjOkT.cons m.proj_ok hfresh0
       (fun entry heq => ConstantInfo.noConfusion heq)
-  · -- theorem unfoldings: vacuous at the head
-    intro cv value hmem ψ
-    rcases List.mem_cons.mp hmem with h | h
-    · exact nomatch h
-    · rw [← hag cv.name (hne _ h)]
-      exact hi.denoteUp (m.thm_ok cv value h ψ)
   · -- the `Nat`-op guard: the head is not a definition
     intro c hmem hst
     obtain ⟨cv, v, hh, hf⟩ := natOpStored_inv hst

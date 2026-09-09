@@ -171,9 +171,10 @@ theorem declStep_preserves_of_tower_cons (mp : EnvModelM V μ env)
       obtain rfl := Option.some.inj ((hreads ψ).symm.trans hta)
       exact interp_sort_mem V ρ 0)
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
-  · -- `hvalReads`: a table is neither a definition nor a theorem
+  · -- `hvalReads`: a table is not a definition
     intro _ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt <;> exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads`: the three guard names are reserved, this one is not
     exact fun φ => natHeads_cons_offNat mp
       (ne_of_notReserved hnres reserved_natName)

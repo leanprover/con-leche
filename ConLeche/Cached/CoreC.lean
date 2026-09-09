@@ -64,21 +64,14 @@ def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
   { r with infer := r.inferIO }
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is read
-through the `(name, levels)` cache).  Like the spec, theorem values
-unfold too. -/
+through the `(name, levels)` cache).  Like the spec, a theorem never
+unfolds. -/
 def unfoldDefinitionI (fe : FEnv) (e : ExprC) : CheckCM (Option ExprC) := do
   match ExprC.getAppFn e with
   | .const n us => do
     let nm ← pure n
     match fe.find? nm with
     | some (.defnInfo cv _ _) =>
-      if us.length = cv.levelParams.length then do
-        let v ← constValAtM fe n nm us
-        let args ← pure (ExprC.getAppArgs e)
-        let r ← mkAppNM v args
-        pure (some r)
-      else pure none
-    | some (.thmInfo cv _) =>
       if us.length = cv.levelParams.length then do
         let v ← constValAtM fe n nm us
         let args ← pure (ExprC.getAppArgs e)

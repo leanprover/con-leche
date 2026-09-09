@@ -1296,7 +1296,6 @@ theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
       | .const nm us =>
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
-        | some (.thmInfo cv _) => us.length == cv.levelParams.length
         | _ => false
       | _ => false) = _
   rw [unfoldableHead, ← hfn]

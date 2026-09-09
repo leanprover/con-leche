@@ -610,9 +610,11 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
         (fun fe' => PushChain env fe') :=
       checkOpaqueValC_push mode h
         (by show fe.find? cvA.name = none; rw [hp]; exact hfr) jty value
-    refine Yields.bind' key fun fe2 h2 => ?_
-    yields
-    all_goals (apply Yields.pure; exact h2)
+    split
+    · refine Yields.bind' key fun fe2 h2 => ?_
+      yields
+      all_goals (apply Yields.pure; exact h2)
+    · exact key
   | axiomDecl cv =>
     simp only []
     refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun p hp => ?_
