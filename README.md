@@ -43,7 +43,7 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### The main theorem
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function, when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -56,7 +56,7 @@ Of course this is just a corollary of a stronger statement that every environmen
 
 The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker.
 
-The parser is not covered by the verification.
+The parser is not covered by the verification. The `checkDecls` function is a pure fold over the declarations. It is not what `main` actually calls, though: the real driver lives in IO (e.g. for progress printing) and returns an `env` that is provably what `checkDecls` would compute.
 
 ### Set theory assumption
 

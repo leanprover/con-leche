@@ -65029,6 +65029,70 @@ edit laundered four unchanged-header anchors — `Main.lean#L501`, `#L97`,
 content diff, not the header diff); `tests/arena.sh` under `env -i`
 green with every count as master's.
 
+## Task #262 — THE USAGE SYNOPSIS IS COMPLETE, AND THE HELP TEXT STATES THE PRESENT FACT (2026-09-09, `agent/usage`)
+
+The manpage convention: the synopsis lists every flag the binary
+takes.  `OVERVIEW.md` §0 showed only the mode pair, so the two other
+live flags — `--progress[=<stride>]` and `--help` — were invisible
+there.  The synopsis is now the full one, on the binary's own two
+lines:
+
+```
+con-leche [--verified|--trusted] [--progress[=<stride>]] FILE.ndjson
+con-leche --help
+```
+
+and the prose beneath it names each of the four once.  `--progress`
+keeps its single explanation further down §0 (the paragraph now says
+what the two-phase driver actually prints: a line before every
+`stride`-th record installed and every `stride`-th recorded
+declaration checked, plus the parse/install/fold closing lines); the
+synopsis paragraph cross-references it rather than repeating it.  The
+retired spellings (`--set-model[=p|=r]`, `--no-model`, `--tt-model`,
+`--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
+`--check-range[=<r>]`) are *not* in the synopsis — they are not flags,
+they are hard errors — but §0 and the help text each say in one place
+that they are rejected with a message naming what stands in their
+place, which is the provenance rule stated as a fact about the tool.
+
+`Main.lean`'s `usage` string is HUMAN-facing text, so it now states
+the current state and nothing else.  Gone from it: the task numbers
+(`the seven TT-lane checks (tasks #126/#129/#130/#135/#136/#137/#146)
+are off`), the "replaces the retired `--yolo`/`--infer-only`"
+history under `--trusted`, and the dated list of retirements in the
+closing paragraph.  Corrected: the theorem the help cites, which was
+`no_proof_of_Empty_cached` over "the driver this binary runs" and is
+now the main theorem itself — if `checkDecls .verified ds = .ok env`
+then `env` holds no constant of type `False`
+(`ConLeche.no_proof_of_False`, `ConLeche/MainTheorem.lean`); and the
+route trace's "runs on the progress lane's UNVERIFIED fold", which
+has been false since the driver became one loop (#253/#257) — the
+trace is printed by the install phase of the one driver.  `--help`
+itself now has an entry: it prints the text on stdout and exits 0 in
+any argument position, reading no input.
+
+The `--progress` wording was written off a run, not off memory:
+`--progress=1` on `tests/e2e/delta_chain.ndjson` prints
+`con-leche: progress <i>/<N> <decl> t=<s>s` per installed record,
+`con-leche: progress install done: <M> pending checks`,
+`con-leche: progress check <k>/<M> <name> (fold position <i>) t=<s>s`
+per checked declaration, and `con-leche: progress fold done:
+<reached>/<N>`, around the parse line.
+
+No init-full run: the diff of `Main.lean` is 131 lines and every one
+of them is an element of the `usage` string literal (`git diff
+Main.lean` has no changed line outside `  "…",`), so the binary can
+differ only in what `--help` prints — recorded as a before/after diff
+of the `--help` output.  Gates: `lake build` 529 jobs and `lake test`
+457 jobs warning-free; `tests/arena.sh` under `env -i` green with
+every count as master's (arena 90/92, e2e 181/181, annot 14/14,
+retired flags 8/8, mode flags 18/18, progress lane 13/13, DAG tower
+14/14, proofdeps 3367 rows / doors 0, shake 460 all allowlisted,
+overview-links 68 links / 46 files).  No anchor moved: `OVERVIEW.md`
+cites `Main.lean#L518`, the `def usage` line itself, and every edit is
+below it, so `tests/overview-links.sh` passes unchanged and no
+`--update` was run.
+
 ## Task #258 — THEOREMS ARE OPAQUE TO REDUCTION, THE PINNED `And` IS RESCUED, THEOREM VALUES ARE CHECKED IN PHASE B (2026-09-09, `agent/opaque-258`)
 
 Task #251's design, landed (the user: "ok, then lets do this, and
