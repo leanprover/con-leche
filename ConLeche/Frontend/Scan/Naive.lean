@@ -790,21 +790,4 @@ def naiveLine (l : List UInt8) : NRes (LineRec × Option (List UInt8)) :=
       | l3 => .err .trailing l3
   | l1 => .err .expectedObject l1
 
-/-! ## The stream-index tables
-
-`IdTable` (`ConLeche/Frontend/Scan/Types.lean`) is a dense array with
-a sparse overflow.  Its naive reference is the partial map itself, a
-function from stream indices: `IdTable.get?` is the abstraction, and
-`Equiv.lean` proves `insert` and `singleton` commute with it
-(`IdTable.get?_insert`, `IdTable.get?_singleton`, `IdTable.get?_empty`),
-which is everything the semantic layer uses. -/
-
-/-- Bind one index in the naive map. -/
-def naiveBind (m : Nat → Option α) (i : Nat) (x : α) : Nat → Option α :=
-  fun j => if j = i then some x else m j
-
-/-- The naive map with index 0 bound. -/
-def naiveSingleton (x : α) : Nat → Option α :=
-  naiveBind (fun _ => none) 0 x
-
 end ConLeche.Frontend

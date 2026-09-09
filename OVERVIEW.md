@@ -79,7 +79,7 @@ Read from the outside in:
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L863))
    and runs two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
-   ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L997)):
+   ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1000)):
    the driver calls the reference, and the compiler runs the fast
    recogniser on the strength of that equality; the stream-index
    tables have the same kind of law, and what the parser then makes of

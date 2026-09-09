@@ -1,7 +1,9 @@
 module
 
-public import ConLeche.Frontend.Scan.Equiv.Objects
-public import ConLeche.Frontend.Scan.Equiv.IdTable
+public import ConLeche.Frontend.Scan.Equiv.Kit
+import ConLeche.Frontend.Scan.Equiv.Scalars
+import ConLeche.Frontend.Scan.Equiv.Keys
+import ConLeche.Frontend.Scan.Equiv.Objects
 
 public section
 
@@ -31,7 +33,8 @@ decoder and `String.fromUTF8?` are shared leaves (both sides run the
 same function on the same bytes); the semantic layer `applyLine` —
 index resolution, smart constructors, packed fields, taint, prelude
 dedupe, the modeller — is shared code, differentially tested; the
-stream-index tables have their own laws (`Equiv/IdTable.lean`).
+stream-index tables have their own laws (`IdTable.get?_insert` and its siblings,
+beside the structure in `ConLeche/Frontend/Scan/Types.lean`).
 -/
 
 namespace ConLeche.Frontend

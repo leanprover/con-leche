@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Frontend.Scan.Equiv.Keys
+public import ConLeche.Frontend.Scan.Equiv.Kit
+import ConLeche.Frontend.Scan.Equiv.Scalars
+import ConLeche.Frontend.Scan.Equiv.Keys
 
 public section
 

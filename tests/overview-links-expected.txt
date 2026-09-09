@@ -28,8 +28,8 @@
 == ConLeche/Frontend/ExportC.lean#L863
    863        | .error e => return .error e
 
-== ConLeche/Frontend/Scan/Equiv.lean#L997
-   997  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
+== ConLeche/Frontend/Scan/Equiv.lean#L1000
+  1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
 == Main.lean#L97
     97  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)

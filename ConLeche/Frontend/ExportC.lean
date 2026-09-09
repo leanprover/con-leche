@@ -3,10 +3,10 @@ module
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
 public import ConLeche.Frontend.NatOpGround
-public import ConLeche.Frontend.Scan.Fast
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the
-strength of `scanLineSpec_eq_scanLineFwd` (`@[csimp]`). -/
+strength of `scanLineSpec_eq_scanLineFwd` (`@[csimp]`).  `Scan.Fast`
+comes with it. -/
 public import ConLeche.Frontend.Scan.Equiv
 
 @[expose] public section
