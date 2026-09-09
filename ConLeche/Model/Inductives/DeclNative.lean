@@ -64,17 +64,9 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
     (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
-  obtain ⟨hnd₀, envP, cvTaP, p₁P, ctorsP, sortssP, kinds, hIndP, hCtorsP, hK, cvTa, env₁, p₁, p,
-    ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl, hwl, hopT2, hsorts, hCtors, hFOk,
-    -, hRec, hTbl⟩ := h
+  obtain ⟨hnd₀, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, tfvs, trest, isorts,
+    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl⟩ := h
   obtain ⟨hshape, -⟩ := ConLeche.nativeParts?_inv hdp
-  -- the kinds: classified on the provisional constructors, one list per
-  -- constructor (task #210 Part D)
-  have hlenK₀ : kinds.length = p₀.ctors.length := by
-    obtain ⟨-, -, -, hlK⟩ := ConLeche.classifyFixKinds_inv hK
-    obtain ⟨hlP, -, -⟩ := ConLeche.checkSumCtors_inv hCtorsP
-    obtain ⟨-, sP, -, -, -, rfl, -, -, -⟩ := ConLeche.checkSumInd_shape hIndP
-    rw [hlK, hlP]; simp
   obtain ⟨-, hClps₀, hresT₀, hresR₀⟩ := ConLeche.nativeShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195; task #210 Part B: on this route too) — every later
@@ -82,7 +74,15 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- invariants transport to it by the completion's projections
   obtain ⟨cvT, s, hTname₀₀, hTlps₀₀, hccvT, rfl, rfl, bsT, hstripT₀⟩ :=
     ConLeche.checkSumInd_shape hInd
-  try dsimp only at hCtors hRec hTbl hFOk hsorts hopT2 hwl
+  try dsimp only at hCtors hK hRec hTbl hFOk hsorts hopT2 hwl hcaps
+  -- the record the former carries is the classified one (task #268)
+  rw [← hcaps] at hCtors hsorts hRec hTbl
+  -- the kinds: classified on the stored constructors, one list per
+  -- constructor (task #210 Part D; task #268: the stored ones)
+  have hlenK₀ : kinds.length = p₀.ctors.length := by
+    obtain ⟨-, -, -, hlK⟩ := ConLeche.classifyFixKinds_inv hK
+    obtain ⟨hlP, -, -⟩ := ConLeche.checkSumCtors_inv hCtors
+    rw [hlK, hlP]; simp [ConLeche.NativeParts.withKinds]
   have hpT : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).cvT = p₀.cvT := by
     simp [ConLeche.NativeParts.withKinds]
   have hpC : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).ctors = p₀.ctors := by
@@ -255,7 +255,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hunitOf : (ConLeche.nativeCaps p).unitlike = true →
       ∃ c, p.ctors = [c] ∧ p.nIdx = 0 ∧ c.2 = 0 := by
     intro hu
-    unfold ConLeche.nativeCaps at hu
+    unfold ConLeche.nativeCaps ConLeche.nativeCapsAt at hu
     split at hu
     · next c hc =>
       simp only [Bool.and_eq_true, beq_iff_eq] at hu
@@ -272,7 +272,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- stores it): the two former stages
   have hetaOf : (ConLeche.nativeCaps p).eta = true → ∃ c, p.ctors = [c] := by
     intro he
-    unfold ConLeche.nativeCaps at he
+    unfold ConLeche.nativeCaps ConLeche.nativeCapsAt at he
     split at he
     · next c hc => exact ⟨c, hc⟩
     · exact nomatch he

@@ -84,13 +84,15 @@ block's own family is closed once its constructor is stored). -/
 theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p₀ : ConLeche.NativeParts} (hE : EtaFamiliesClosed env)
     (h : DeclNativeRun μ F env p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hnd, -, -, -, -, -, kinds, -, -, -, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, -, -,
-    -, hInd, rfl, -, -, -, hCtors, -, -, hRec, hTbl⟩ := h
+  obtain ⟨hnd, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, -, -, -, hInd, rfl,
+    hCtors, -, hcaps, -, -, -, -, -, hRec, hTbl⟩ := h
   obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := ConLeche.checkSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
     ConLeche.checkConstantVal_inv hcvT
-  -- the completed record, as one name
-  try dsimp only at hCtors hRec hTbl
+  -- the completed record, as one name; the record the former carries
+  -- is the classified one (task #268)
+  try dsimp only at hCtors hRec hTbl hcaps
+  rw [← hcaps] at hCtors hRec hTbl
   have hpT : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).cvT = p₀.cvT := by
     simp [ConLeche.NativeParts.withKinds]
   have hpC : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).ctors
@@ -157,7 +159,7 @@ theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       ((ConLeche.Env.find?_cons_self
         (ConstantInfo.indInfo cvTa (nativeCaps p)) env).symm.trans hf))
     -- η is claimed only at one constructor
-    simp only [ConLeche.nativeCaps] at he ⊢
+    simp only [ConLeche.nativeCaps, ConLeche.nativeCapsAt] at he ⊢
     revert he hlen hnames hall
     cases hcs : p.ctors with
     | nil => intro _ _ _ he; exact nomatch he

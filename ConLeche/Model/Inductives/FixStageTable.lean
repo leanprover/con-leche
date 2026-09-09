@@ -66,7 +66,7 @@ theorem _root_.ConLeche.nativeCaps_single {p : NativeParts} {c : ConstantVal × 
         etaFields := c.2, unitlike := p.nIdx == 0 && c.2 == 0, unitParams := p.nP,
         ruleK := c.2 == 0 && p.isProp,
         sortZ := Level.zeronessOf p.resSort } := by
-  unfold ConLeche.nativeCaps
+  unfold ConLeche.nativeCaps ConLeche.nativeCapsAt ConLeche.nativeIsRec
   rw [h]
 
 /-- At a structure-like block the table stage keeps the projection
@@ -82,7 +82,7 @@ theorem fixTableFamFree {p : NativeParts} {ctorsA : List (ConstantVal × Nat)}
       env₃.find? (projFnName p.cvT.name 0) = none := by
   intro he
   have he' := he
-  unfold ConLeche.nativeCaps at he'
+  unfold ConLeche.nativeCaps ConLeche.nativeCapsAt at he'
   split at he'
   · next c hc =>
     simp only [Bool.and_eq_true, beq_iff_eq] at he'
@@ -113,7 +113,7 @@ theorem fixCapsLawsAt_vacuous {env' : Env} (m' : EnvModel V env') {p : NativePar
     CapsLawsAt m' p.cvT.name cvTa (ConLeche.nativeCaps p) := by
   refine capsLawsAt_vacuous m' hU fun he => ⟨?_, hfr he⟩
   have he' := he
-  unfold ConLeche.nativeCaps at he'
+  unfold ConLeche.nativeCaps ConLeche.nativeCapsAt at he'
   split at he'
   · next c hc =>
     simp only [Bool.and_eq_true, beq_iff_eq] at he'

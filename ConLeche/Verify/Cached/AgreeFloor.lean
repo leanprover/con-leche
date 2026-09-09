@@ -1031,42 +1031,40 @@ theorem checkNativeTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List Insta
   | [_], [], hlen, hlenS => simp at hlen hlenS; omega
   | [_], _ :: _ :: _, hlen, hlenS => simp at hlen hlenS; omega
 
-theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (p : NativeParts) :
-    Yields (checkNativeS mode fe p)
-      (fun fe' => SkelIs fe' (nativeSkels p sk)) := by
-  unfold checkNativeS
-  -- the front guard: the distinct constructor names
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
-  case dupBad => exact Yields.ofThrowBind
-  case main =>
-  ybind
-  -- the provisional pass (task #210 Part D): a throwaway former, the
-  -- constructors at it, the kinds — nothing of it is kept
-  refine Yields.bind' (checkSumIndF_skels h _ p.toInductiveShape (fun _ => {}))
-    fun rP hP => ?_
-  obtain ⟨feP, cvTaP, p₁P⟩ := rP
-  obtain ⟨hP, sP, hpsP⟩ := hP
-  try simp only [] at hpsP
-  subst hpsP
-  try simp only []
-  ybind
-  refine Yields.bind' (checkSumCtorsF_names _ feP feP _ _ _ _ _ _ _ cvTaP _)
-    fun rP₂ _ => ?_
-  obtain ⟨ctorsP, sortssP⟩ := rP₂
-  try simp only []
-  refine Yields.bind fun kinds => ?_
-  ybind
+/-- One pass (task #268): the former's skeleton, the record's shape
+(the sort read), the constructors by name and field count. -/
+theorem checkNativePassS_skels (mode : CheckMode) {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (p : NativeParts) (isRec : Bool) :
+    Yields (checkNativePassS mode fe p isRec)
+      (fun r => SkelIs r.1.env₁ (.ind r.1.p.cvT.name :: sk) ∧
+        (∃ s, r.1.p.toInductiveShape = p.toInductiveShape.withSort s) ∧
+        r.1.ctorsA.map (fun c => (c.1.name, c.2)) = r.1.p.ctors.map (fun c => (c.1.name, c.2)) ∧
+        r.1.sortss.length = r.1.p.ctors.length) := by
+  unfold checkNativePassS
   refine Yields.bind' (checkSumIndF_skels h _ p.toInductiveShape
-    (fun p₁ => nativeCaps ((p.complete p₁).withKinds kinds))) fun r₁ h₁ => ?_
+    (fun p₁ => nativeCapsAt p₁ isRec)) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa, p₁⟩ := r₁
   obtain ⟨h₁, s, hps⟩ := h₁
   try simp only [] at hps
   subst hps
   try simp only []
-  generalize hp' : (p.complete (p.toInductiveShape.withSort s)).withKinds kinds = p'
-  have hp'T : p'.cvT = p.cvT := by rw [← hp']; simp [NativeParts.withKinds]
+  ybind
+  refine Yields.bind' (checkSumCtorsF_names _ fe₁ fe₁ _ _ _ _ _ _ _ cvTa _) fun r hr => ?_
+  obtain ⟨ctorsA, sortss⟩ := r
+  obtain ⟨hns, hlenS⟩ := hr
+  try simp only []
+  refine Yields.bind fun kinds => ?_
+  refine Yields.pure ⟨h₁, ⟨s, rfl⟩, hns, hlenS⟩
+
+/-- The install after the pass: the sum's skeleton with the table at a
+structure-like block. -/
+theorem checkNativeTailS_skels (mode : CheckMode) {fe : FEnv}
+    {sk : List InstallSkel} {q : NativePass FEnv}
+    (h₁ : SkelIs q.env₁ (.ind q.p.cvT.name :: sk))
+    (hns : q.ctorsA.map (fun c => (c.1.name, c.2)) = q.p.ctors.map (fun c => (c.1.name, c.2)))
+    (hlenS : q.sortss.length = q.p.ctors.length) :
+    Yields (checkNativeTailS mode fe q) (fun fe' => SkelIs fe' (nativeSkels q.p sk)) := by
+  unfold checkNativeTailS
   -- the elimination restriction, on the completed record
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
@@ -1074,13 +1072,7 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
   case elim =>
   ybind
   -- the index binders' sorts (read, not compared)
-  refine Yields.bind fun _tq => ?_
   refine Yields.bind fun _isorts => ?_
-  refine Yields.bind' (checkSumCtorsF_names _ fe₁ fe₁ p'.cvT.name
-    p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa p'.ctors)
-    fun r hr => ?_
-  obtain ⟨ctorsA, sortss⟩ := r
-  obtain ⟨hns, hlenS⟩ := hr
   try simp only []
   -- the field kinds, re-checked
   try ylet
@@ -1093,44 +1085,100 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
   case isFalse => exact Yields.ofThrowBind
   case isTrue _ =>
   ybind
-  refine Yields.bind' (checkNativeRecF_yields _ _ p' cvTa ctorsA)
+  refine Yields.bind' (checkNativeRecF_yields _ _ q.p q.cvTa q.ctorsA)
     fun r₃ h₃ => ?_
   obtain ⟨cvRa, rhss⟩ := r₃
   obtain ⟨hnR, hlen⟩ := h₃
   try simp only [] at hnR hlen
   try simp only []
-  have hctors : ctorsA.map (·.1.name) = p'.ctors.map (·.1.name) := by
+  have hctors : q.ctorsA.map (·.1.name) = q.p.ctors.map (·.1.name) := by
     have := congrArg (List.map Prod.fst) hns
     simpa [List.map_map, Function.comp_def] using this
-  have hlenA : ctorsA.length = p'.kinds.length := by
+  have hlenA : q.ctorsA.length = q.p.kinds.length := by
     simp only [nativeFieldsOkF, Bool.and_eq_true, beq_iff_eq] at hk
     exact hk.1
-  have hlenC : ctorsA.length = p'.ctors.length := by
+  have hlenC : q.ctorsA.length = q.p.ctors.length := by
     have := congrArg List.length hns
     simpa using this
-  have hlen' : rhss.length = ctorsA.length := by
+  have hlen' : rhss.length = q.ctorsA.length := by
     rw [hlen, nativeCtors4_length' hlenA]
-  have hbase : SkelIs (consSumCtorsF p'.nP ctorsA fe₁)
-      (sumCtorSkels p'.nP (p'.ctors.map fun c => (c.1.name, c.2))
-        (.ind p'.cvT.name :: sk)) := by
-    have hcs := consSumCtorsF_skels p'.nP (ctorsA := ctorsA) h₁
-    rw [hp'T]
+  have hbase : SkelIs (consSumCtorsF q.p.nP q.ctorsA q.env₁)
+      (sumCtorSkels q.p.nP (q.p.ctors.map fun c => (c.1.name, c.2))
+        (.ind q.p.cvT.name :: sk)) := by
+    have hcs := consSumCtorsF_skels q.p.nP (ctorsA := q.ctorsA) h₁
     rwa [hns] at hcs
-  have hpush := hbase.push (.recInfo cvRa p'.majorIdx p'.rulePrefix
-    (sumRules (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name
-      p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss))
-  have hpush' : SkelIs (consSumCtorsF p'.nP ctorsA fe₁ |>.push (.recInfo cvRa p'.majorIdx
-      p'.rulePrefix (sumRules (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name
-        p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss)))
-      (sumSkels p'.toInductiveShape sk) := by
+  have hpush := hbase.push (.recInfo cvRa q.p.majorIdx q.p.rulePrefix
+    (sumRules (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name
+      q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss))
+  have hpush' : SkelIs (consSumCtorsF q.p.nP q.ctorsA q.env₁ |>.push (.recInfo cvRa q.p.majorIdx
+      q.p.rulePrefix (sumRules (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name
+        q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss)))
+      (sumSkels q.p.toInductiveShape sk) := by
     simpa [ciSkel, sumSkels, hnR, sumRules_map_ctor _ _ _ _ _ _ hlen',
       hctors] using hpush
   -- the projection table at a structure-like block (task #210 Part A)
-  refine Yields.mono (checkNativeTableF_skels hpush' p' ctorsA sortss hlenC hlenS) ?_
+  refine Yields.mono (checkNativeTableF_skels hpush' q.p q.ctorsA q.sortss hlenC hlenS) ?_
   intro fe' h'
-  subst hp'
   unfold nativeSkels
   simpa [sumSkels] using h'
+
+/-- The completed record's skeleton is the recognised one's: the sort
+the former read is not in it. -/
+theorem nativeSkels_withSort {p q : NativeParts} {s : Level}
+    (hq : q.toInductiveShape = p.toInductiveShape.withSort s) (sk : List InstallSkel) :
+    nativeSkels q sk = nativeSkels p sk := by
+  have hc : q.ctors = p.ctors := by
+    show q.toInductiveShape.ctors = p.toInductiveShape.ctors
+    rw [hq]; rfl
+  have hi : q.nIdx = p.nIdx := by
+    show q.toInductiveShape.nIdx = p.toInductiveShape.nIdx
+    rw [hq]; rfl
+  have hT : q.cvT = p.cvT := by
+    show q.toInductiveShape.cvT = p.toInductiveShape.cvT
+    rw [hq]; rfl
+  unfold nativeSkels
+  rw [hc, hi, hT, hq]
+  simp [sumSkels]
+
+theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (p : NativeParts) :
+    Yields (checkNativeS mode fe p)
+      (fun fe' => SkelIs fe' (nativeSkels p sk)) := by
+  unfold checkNativeS
+  -- the front guard: the distinct constructor names
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
+  case dupBad => exact Yields.ofThrowBind
+  case main =>
+  ybind
+  -- the pass at the syntactic reading, and again where it overshot
+  -- (task #268)
+  refine Yields.bind' (checkNativePassS_skels mode h p (nativeRawRec p)) fun r hr => ?_
+  obtain ⟨q, settled⟩ := r
+  obtain ⟨h₁, ⟨s, hq⟩, hns, hlenS⟩ := hr
+  try simp only [] at h₁ hq hns hlenS
+  try simp only []
+  cases settled with
+  | true =>
+    simp only [↓reduceIte]
+    refine Yields.mono (checkNativeTailS_skels mode h₁ hns hlenS) ?_
+    intro fe' h'
+    rwa [nativeSkels_withSort hq] at h'
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  ybind
+  refine Yields.bind' (checkNativePassS_skels mode h p (nativeIsRec q.p.kinds)) fun r' hr' => ?_
+  obtain ⟨q', settled'⟩ := r'
+  obtain ⟨h₁', ⟨s', hq'⟩, hns', hlenS'⟩ := hr'
+  try simp only [] at h₁' hq' hns' hlenS'
+  try simp only []
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue _ =>
+  refine Yields.mono (checkNativeTailS_skels mode h₁' hns' hlenS') ?_
+  intro fe' h'
+  rwa [nativeSkels_withSort hq'] at h'
 
 /-! ### The tolerated-axiom branch
 

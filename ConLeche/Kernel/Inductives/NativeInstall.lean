@@ -80,12 +80,14 @@ the model: on `ind_nest_via_refl` the tool's nested model over a
 reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
 through η-expansion — official's `!is_rec` is load-bearing.)  On the
 sum route's domain (never one constructor without an index) this is
-`sumCaps`. -/
-def nativeCaps (p : NativeParts) : IndCaps :=
+`sumCaps`.  The `is_rec` verdict is a parameter (task #268): the
+former is installed before the constructors are classified, so the
+install runs at the syntactic reading (`nativeRawRec`) and confirms
+it against the classification (`nativeCaps`). -/
+def nativeCapsAt (p : InductiveShape) (isRec : Bool) : IndCaps :=
   match p.ctors with
   | [c] =>
-    { eta := p.nIdx == 0 && !p.isProp &&
-        !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive)
+    { eta := p.nIdx == 0 && !p.isProp && !isRec
       etaCtor := c.1.name
       etaParams := p.nP
       etaFields := c.2
@@ -95,13 +97,43 @@ def nativeCaps (p : NativeParts) : IndCaps :=
       sortZ := Level.zeronessOf p.resSort }
   | _ => {}
 
+/-- Official's `is_rec` off the classified kinds: some field is
+recursive or reflexive. -/
+def nativeIsRec (kinds : List (List RecFieldKind)) : Bool :=
+  kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive
+
+/-- The block's capability record at its classified kinds
+(`nativeCapsAt` at `nativeIsRec`). -/
+def nativeCaps (p : NativeParts) : IndCaps :=
+  nativeCapsAt p.toInductiveShape (nativeIsRec p.kinds)
+
+/-- **The syntactic reading of `is_rec`** (task #268): does the block
+occur in some declared field domain of some constructor?  Official's
+`is_rec` is read off the WHNF'd domains (`is_rec_argument`), and the
+classification (`classifyFixKinds`) reads it off the normalised
+constructors the install stores; the raw occurrence is a SUPERSET
+of it (reduction never introduces the block, so a domain free of it
+stays free — `normPosDom` keeps such a domain as declared), and a
+strict one exactly when a redex over the block reduces away.  It is
+the capability record the first pass runs at; the pass's own
+classification confirms it (`checkNative`) or the block is passed
+again at the classified verdict.  Read only where the record depends
+on it — one constructor — as `nativeCapsAt` does. -/
+def nativeRawRec (p : NativeParts) : Bool :=
+  match p.ctors with
+  | [c] =>
+    match c.1.type.stripPis (p.nP + c.2) with
+    | some (cbs, _) => (cbs.drop p.nP).any fun b => b.1.mentionsConst p.cvT.name
+    | none => false
+  | _ => false
+
 /-- The fixpoint route stores the family's own result-sort datum: the
 former's telescope ends in `Sort p.resSort`, so the record's `sortZ`
 is `piResultZ` of the type the install stores (`capsNeverZero_eq`). -/
 theorem nativeCaps_sortZ {p : NativeParts} {c : ConstantVal × Nat}
     {e : Expr} (hc : p.ctors = [c]) (he : e.piResult = .sort p.resSort) :
     (nativeCaps p).sortZ = piResultZ e := by
-  unfold nativeCaps piResultZ
+  unfold nativeCaps nativeCapsAt piResultZ
   rw [hc, he]
 
 /-- Does the variable `q` occur as a leaf of `e` (annotations
@@ -486,6 +518,24 @@ def checkNativeTable (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
     else pure env
   | _, _ => pure env
 
+/-- **What one pass over the former and the constructors yields**
+(task #268; `E` is the environment representation — `Env` at the pure
+install, `FEnv` at the cached driver's mirror): the former's
+environment, the annotated former, the record completed with the sort
+the former's run read and the kinds the pass classified, the
+annotated constructors and their fields' sorts. -/
+structure NativePass (E : Type) where
+  /-- the environment holding the former, at the record the pass ran at -/
+  env₁ : E
+  /-- the annotated former -/
+  cvTa : ConstantVal
+  /-- the completed record: the sort read, the kinds classified -/
+  p : NativeParts
+  /-- the annotated (normalised) constructors -/
+  ctorsA : List (ConstantVal × Nat)
+  /-- the fields' sorts, one list per constructor -/
+  sortss : List (List Level)
+
 /-- **The fields' kinds, classified at install** (task #210 Part D) on
 the stored constructors — their field domains normalised by official's
 positivity walk (`normCtorVal`), so the syntactic classification
@@ -503,37 +553,33 @@ def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   pure kinds
 
-/-- Check and install a **direct recursive block**: positivity, the
-elimination restriction, the distinct names, the former (with the
-block's capability record, `nativeCaps`), the constructors (at the
-former's environment), the kinds re-checked, the recursor with its
-rules, and — at a structure-like block — the projection table
-(`checkNativeTable`, task #210 Part A). -/
-def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
-  unless (p₀.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct rec: duplicate constructor")
-  -- THE PROVISIONAL PASS (task #210 Part D): the block's capability
-  -- record (`nativeCaps`) needs the fields' kinds — official's
-  -- `is_rec` — and the kinds need the constructors normalised at an
-  -- environment where the former resolves.  So the former is first
-  -- installed with an EMPTY record in a throwaway environment, the
-  -- constructors normalised and checked there, and the kinds
-  -- classified from those; the real former then carries the record
-  -- at the kinds, and every later stage runs on the completed record
-  -- `p`.  (Official adds the whole block in one step; this is the
-  -- same information in two.)
-  let (envP, cvTaP, p₁P) ← checkSumInd ops env p₀.toInductiveShape (fun _ => {})
-  let p₂P := p₀.complete p₁P
-  let (ctorsP, _) ← checkSumCtors ops envP envP p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP
-    p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
-  let kinds ← classifyFixKinds p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx ctorsP
-  -- the former's run completes the record with the sort it read
-  -- (task #195: a former declared at a definition that only unfolds
-  -- to its telescope); every later stage runs on the completed record
-  -- `p`, whose capability record the former already carries
+/-- **One pass over the former and the constructors** (task #268) at
+a given `is_rec` verdict: the former with the capability record at
+that verdict (`nativeCapsAt`), the constructors at the former's
+environment (normalised, checked; the resolution guard pointed at
+that same environment), the kinds classified on THOSE constructors
+(`classifyFixKinds`) and the record completed with them.  The last
+component says whether the classification confirms the verdict the
+pass ran at: `nativeCaps p` is the record the block owes, and it is
+the one the former carries exactly then. -/
+def checkNativePass (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) (isRec : Bool) :
+    m (NativePass Env × Bool) := do
   let (env₁, cvTa, p₁) ← checkSumInd ops env p₀.toInductiveShape
-    (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds))
-  let p := (p₀.complete p₁).withKinds kinds
+    (fun p₁ => nativeCapsAt p₁ isRec)
+  let pC := p₀.complete p₁
+  let (ctorsA, sortss) ← checkSumCtors ops env₁ env₁ pC.cvT.name pC.cvT.levelParams pC.nP
+    pC.nIdx pC.resSort pC.isProp pC.large cvTa pC.ctors
+  let kinds ← classifyFixKinds pC.cvT.name pC.cvT.levelParams pC.nP pC.nIdx ctorsA
+  let p := pC.withKinds kinds
+  pure (⟨env₁, cvTa, p, ctorsA, sortss⟩, nativeCaps p == nativeCapsAt p₁ isRec)
+
+/-- **The install after the pass** (task #268): the elimination
+restriction, the index binders' sorts, the kinds re-checked, the
+stream's rules against the generated ones, the constructors consed,
+the recursor with its rules, and — at a structure-like block — the
+projection table (`checkNativeTable`, task #210 Part A). -/
+def checkNativeTail (ops : CheckerOps m) (env : Env) (q : NativePass Env) : m Env := do
+  let p := q.p
   -- a large eliminator on a block whose sort may be `Prop`: two or more
   -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
   -- one constructor is the subsingleton case, taken (task #202 Stage
@@ -545,27 +591,52 @@ def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env :=
   -- universe: the former's telescope opened at variables, each index
   -- domain's sort inferred (no bound is checked — `isProp` set,
   -- `large` unset — the sorts are read, not compared)
-  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) q.cvTa.type 0)
     (.internal "direct rec: type former telescope")
-  let _isorts ← checkStructFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
+  let _isorts ← checkStructFieldSortsI ops q.env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
     p.nIdx
-  -- the constructors' field domains may mention the block: the
-  -- resolution guard is pointed at the former's environment; the kinds
-  -- classified at the provisional pass are re-checked on the stored
-  -- (normalised) constructors
-  let (ctorsA, sortss) ← checkSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP
-    p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-  unless nativeFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
+  -- the kinds, re-checked on the stored (normalised) constructors in
+  -- the opened form the model reads
+  unless nativeFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx q.ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   -- the stream's rules are the generated ones (official's replay
   -- compares the exported recursor structurally with its own)
   unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      ctorsA p.kinds p.rhss do
+      q.ctorsA p.kinds p.rhss do
     throw (.invalid "direct rec: recursor rules are not the generated ones")
-  let env₂ := consSumCtors p.nP ctorsA env₁
-  let (cvRa, rhss) ← checkNativeRec ops env₂ p cvTa ctorsA
-  checkNativeTable p ctorsA sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+  let env₂ := consSumCtors p.nP q.ctorsA q.env₁
+  let (cvRa, rhss) ← checkNativeRec ops env₂ p q.cvTa q.ctorsA
+  checkNativeTable p q.ctorsA q.sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
     (sumRules env₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type
-      ctorsA rhss) :: env₂.consts⟩
+      q.ctorsA rhss) :: env₂.consts⟩
+
+/-- Check and install a **direct recursive block**: the distinct
+names, the pass over the former (with the block's capability record)
+and the constructors — again where the record's syntactic reading
+overshot — and the install after it (`checkNativeTail`). -/
+def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  -- THE CAPABILITY RECORD'S VERDICT (task #268; before it, task #210
+  -- Part D's provisional pass): the record (`nativeCaps`) needs the
+  -- fields' kinds — official's `is_rec` — and the kinds need the
+  -- constructors normalised at an environment where the former
+  -- resolves, which carries the record.  The pass runs at the
+  -- syntactic reading of `is_rec` (`nativeRawRec`), which the
+  -- classification of the constructors it stored confirms at every
+  -- block but one whose declared field domain mentions the block
+  -- under a redex that reduces it away; there the block is passed
+  -- again at the classified verdict, which then stands (the second
+  -- pass stores the same constructors the first did, so a verdict
+  -- that moved again is an internal error, never a decline).
+  -- (Official adds the whole block in one step; this is the same
+  -- information in one pass, and two where the reading overshot.)
+  let (q, settled) ← checkNativePass ops env p₀ (nativeRawRec p₀)
+  if settled then checkNativeTail ops env q
+  else do
+    let (q', settled') ← checkNativePass ops env p₀ (nativeIsRec q.p.kinds)
+    unless settled' do
+      throw (.internal "direct rec: the capability record did not settle")
+    checkNativeTail ops env q'
 
 end ConLeche
