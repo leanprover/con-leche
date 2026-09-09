@@ -1,11 +1,7 @@
 module
 
-public import Lean.Data.Json
 import ConLeche.Kernel.Env
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.StdAxioms
-import ConLeche.Kernel.Core
 
 @[expose] public section
 
@@ -18,7 +14,8 @@ the lean4export repository) is a sequence of JSON objects: an initial
 `in`/`il`/`ie` give the table index) interleaved with declarations.
 Index 0 of the name table is `Name.anonymous`, index 0 of the level
 table is `Level.zero`; both are implicit.  Indices need not be dense or
-in order (hand-crafted arena tests have gaps), so the tables are maps;
+in order (hand-crafted arena tests have gaps), so the tables are
+partial maps (`IdTable`, a dense array with a sparse overflow);
 entries are resolved eagerly when inserted, so a later re-binding of an
 index cannot retroactively change anything built earlier.
 
@@ -27,15 +24,13 @@ proper is written against and would otherwise duplicate:
 
 * `canonLevel`/`canonExpr`/`ConstantInfo.canon`, the level-parameter
   canonicalization the basis and prelude matching compare up to;
-* `FrontendError`, the taint and tree-size sentinels, the budget and
-  the budgeted-name predicate;
-* the small `Json` readers (`getIdx`, `getIdxs`, `parseBinderInfo`,
-  `exprEntryChildren`, `parseHints`);
-* the byte-level fast path for hot table entries (perf-eng E5:
-  `FastNode`/`FastLine`/`fastParse` — 88 % of init-prelude lines
-  are `{"ie":…}`), which is a pure
-  bytes-to-record decoder and mentions no representation;
+* `FrontendError`, the taint sentinel and the error monad `M`;
 * `taintSummary`, the driver's decline message.
+
+The stream's **grammar** is not here: since task #256 the dialect has
+one recogniser, `ConLeche/Frontend/Scan/{Types,Fast}.lean` (the syntax
+records and the byte scanner), and the `Lean.Json` DOM this file used
+to read records out of is gone from the checking path.
 
 **The parse proper is `ConLeche/Frontend/ExportC.lean`** (task #171): it
 reads the stream *directly* to `ExprC` — no arena, no conversion
@@ -51,8 +46,6 @@ error.
 -/
 
 namespace ConLeche.Frontend
-
-open Lean (Json)
 
 /-- Rename level parameters (for basis-block matching up to
 level-parameter names). -/
@@ -388,271 +381,6 @@ declaration "no".  User ruling, 2026-09-07: *"delete it if it is
 unlikely to help (and we know such DAGs appear in practice)."* -/
 
 abbrev M := Except String
-
-def getIdx (j : Json) (key : String) : M Nat := do
-  (← j.getObjVal? key).getNat?
-
-def getIdxs (j : Json) (key : String) : M (Array Nat) := do
-  (← (← j.getObjVal? key).getArr?).mapM (·.getNat?)
-
-/-- Validate a binder record's `binderInfo` field and **discard** it
-(task #142).  Kernel typing erases binder annotations — the official
-kernel accepts a declaration however its binders are marked — so the
-frontend maps every parsed binder to `.default`, and an
-annotation-only deviation cannot exist anywhere downstream (in
-particular it can no longer make a basis block miss its pin).  The
-field is still parsed: an unknown spelling is a malformed record, not
-a silently ignored one. -/
-def parseBinderInfo (j : Json) : M Unit := do
-  match (← (← j.getObjVal? "binderInfo").getStr?) with
-  | "default" | "implicit" | "strictImplicit" | "instImplicit" => pure ()
-  | s => throw s!"unknown binderInfo {s}"
-
-/-- The child expression-table indices of an entry (for taint and size
-propagation). -/
-def exprEntryChildren (j : Json) : M (List Nat) := do
-  if let .ok v := j.getObjVal? "app" then
-    pure [← getIdx v "fn", ← getIdx v "arg"]
-  else if let .ok v := j.getObjVal? "lam" then
-    pure [← getIdx v "type", ← getIdx v "body"]
-  else if let .ok v := j.getObjVal? "forallE" then
-    pure [← getIdx v "type", ← getIdx v "body"]
-  else if let .ok v := j.getObjVal? "letE" then
-    pure [← getIdx v "type", ← getIdx v "value", ← getIdx v "body"]
-  else if let .ok v := j.getObjVal? "proj" then
-    pure [← getIdx v "struct"]
-  else
-    pure []
-
-/-- Parse a `def` record's `hints` field: `"abbrev"`, `"opaque"`, or
-`{"regular": n}`.  A missing field defaults to `regular 0` — hints
-steer only the unfolding order of lazy delta, so any default is
-behaviorally safe. -/
-def parseHints (v : Json) : M ReducibilityHint := do
-  match v.getObjVal? "hints" with
-  | .error _ => pure (.regular 0)
-  | .ok h =>
-    if let .ok s := h.getStr? then
-      match s with
-      | "abbrev" => pure .abbrev
-      | "opaque" => pure .opaque
-      | s => throw s!"unknown reducibility hint '{s}'"
-    else if let .ok n := h.getObjVal? "regular" then
-      pure (.regular (← n.getNat?))
-    else
-      throw "malformed hints field"
-
-/-! ### perf-eng E5: byte-level fast path for hot table entries
-
-The stream is dominated by tiny table-entry records — on
-init-prelude, 88 % of lines are `{"ie":…}` and 9 % are `{"in":…}` —
-and the generic `Lean.Json` DOM (Parsec + `DTreeMap` object per line)
-is pure overhead for them.  This fast path pattern-matches the exact
-emitter byte layouts of the hot shapes and interns directly; on ANY
-mismatch (unknown kind, `pw` field present, escaped/odd strings,
-taint-active const entries, trailing bytes) it returns `.fallback`
-with the state untouched and the generic path runs as before.  A
-handled line performs the byte-identical state update the generic
-path would (`parseNameEntry`/`parseExprEntry` semantics, including
-the taint/size bookkeeping); intern-time errors reuse the generic
-error strings.  No verified module imports the frontend. -/
-
-/-- A parsed hot expression-table node, still in stream indices. -/
-inductive FastNode where
-  | app (f a : Nat)
-  | binder (isAll : Bool) (name ty body : Nat)
-  | letE (name ty vl body : Nat)
-  | const (name : Nat) (us : List Nat)
-  | bvar (k : Nat)
-  | sort (l : Nat)
-
-/-- A parsed hot line. -/
-inductive FastLine where
-  | ie (i : Nat) (n : FastNode)
-  | inStr (i pre : Nat) (s : String)
-
-def bIE : ByteArray := "{\"ie\":".toUTF8
-def bIN : ByteArray := "{\"in\":".toUTF8
-def bAPP : ByteArray := ",\"app\":{\"arg\":".toUTF8
-def bFN : ByteArray := ",\"fn\":".toUTF8
-def bLAM : ByteArray := ",\"lam\":{\"binderInfo\":\"".toUTF8
-def bFORALL : ByteArray := ",\"forallE\":{\"binderInfo\":\"".toUTF8
-def bBODYQ : ByteArray := "\",\"body\":".toUTF8
-def bNAME : ByteArray := ",\"name\":".toUTF8
-def bTYPE : ByteArray := ",\"type\":".toUTF8
-def bCONST : ByteArray := ",\"const\":{\"name\":".toUTF8
-def bUS : ByteArray := ",\"us\":[".toUTF8
-def bBVAR : ByteArray := ",\"bvar\":".toUTF8
-def bSORT : ByteArray := ",\"sort\":".toUTF8
-def bLETE : ByteArray := ",\"letE\":{\"body\":".toUTF8
-def bVALUE : ByteArray := ",\"value\":".toUTF8
-def bSTRPRE : ByteArray := ",\"str\":{\"pre\":".toUTF8
-def bSTRK : ByteArray := ",\"str\":".toUTF8
-def bCLOSE2 : ByteArray := "}}".toUTF8
-def bCLOSE1 : ByteArray := "}".toUTF8
-def bBIdefault : ByteArray := "default".toUTF8
-def bBIimplicit : ByteArray := "implicit".toUTF8
-def bBIstrict : ByteArray := "strictImplicit".toUTF8
-def bBIinst : ByteArray := "instImplicit".toUTF8
-
-/-- Match a literal byte string at `i`; the position after it. -/
-def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :
-    Option Nat := Id.run do
-  let n := lit.size
-  if i + n > b.size then return none
-  for k in [0:n] do
-    if b[i + k]! != lit[k]! then return none
-  return some (i + n)
-
-/-- Parse a decimal `Nat` at `i` (≤ 20 digits; longer falls back). -/
-def fsNat (b : ByteArray) (i0 : Nat) : Option (Nat × Nat) := Id.run do
-  let mut acc : Nat := 0
-  let mut i := i0
-  let mut seen := false
-  for _ in [0:20] do
-    if h : i < b.size then
-      let c := b[i]
-      if 48 ≤ c.toNat ∧ c.toNat ≤ 57 then
-        acc := acc * 10 + (c.toNat - 48)
-        i := i + 1
-        seen := true
-      else break
-    else break
-  if h : i < b.size then
-    if 48 ≤ b[i].toNat ∧ b[i].toNat ≤ 57 then return none
-  if seen then return some (acc, i) else return none
-
-/-- Parse a JSON string at `i` with no escapes (backslash falls back;
-multi-byte UTF-8 passes through `String.fromUTF8?` validation). -/
-def fsStr (b : ByteArray) (i0 : Nat) : Option (String × Nat) := Id.run do
-  if h : i0 < b.size then
-    if b[i0] != 34 then return none
-  else return none
-  let mut close : Option Nat := none
-  for k in [i0 + 1 : b.size] do
-    let c := b[k]!
-    if c == 34 then
-      close := some k
-      break
-    else if c == 92 ∨ c < 32 then return none
-  match close with
-  | none => return none
-  | some k =>
-    match String.fromUTF8? (b.extract (i0 + 1) k) with
-    | some s => return some (s, k + 1)
-    | none => return none
-
-/-- The four `binderInfo` spellings (validated and discarded, as
-`parseBinderInfo`). -/
-def fsBinderInfo (b : ByteArray) (i : Nat) : Option Nat :=
-  (fsLit b i bBIstrict) <|> (fsLit b i bBIinst) <|>
-  (fsLit b i bBIimplicit) <|> (fsLit b i bBIdefault)
-
-/-- `NAT ("," NAT)* "]"` or `"]"` — the `us` list tail. -/
-def fsNatList (b : ByteArray) (i0 : Nat) :
-    Option (List Nat × Nat) := Id.run do
-  if h : i0 < b.size then
-    if b[i0] == 93 then return some ([], i0 + 1)  -- ']'
-  else return none
-  let mut i := i0
-  let mut acc : List Nat := []
-  for _ in [0 : b.size] do
-    match fsNat b i with
-    | none => return none
-    | some (v, j) =>
-      acc := v :: acc
-      if h : j < b.size then
-        if b[j] == 44 then i := j + 1  -- ','
-        else if b[j] == 93 then return some (acc.reverse, j + 1)
-        else return none
-      else return none
-  return none
-
-/-- Parse one hot line; `none` = not a handled shape. -/
-def fastParse (b : ByteArray) : Option FastLine := do
-  let n := b.size
-  let ate (i : Nat) (lit : ByteArray) : Option Nat := fsLit b i lit
-  let atEnd2 (i : Nat) : Option Unit := do
-    let j ← ate i bCLOSE2
-    if j = n then pure () else none
-  let atEnd1 (i : Nat) : Option Unit := do
-    let j ← ate i bCLOSE1
-    if j = n then pure () else none
-  match fsLit b 0 bIE with
-  | some i =>
-    let (idx, i) ← fsNat b i
-    -- dispatch on the byte after `,"`
-    if i + 2 < b.size then
-      match b[i + 2]! with
-      | 97 => do  -- 'a' → app
-        let i ← ate i bAPP
-        let (a, i) ← fsNat b i
-        let i ← ate i bFN
-        let (f, i) ← fsNat b i
-        atEnd2 i
-        pure (.ie idx (.app f a))
-      | 108 => do  -- 'l' → lam / letE
-        match ate i bLAM with
-        | some i => do
-          let i ← fsBinderInfo b i
-          let i ← ate i bBODYQ
-          let (bd, i) ← fsNat b i
-          let i ← ate i bNAME
-          let (nm, i) ← fsNat b i
-          let i ← ate i bTYPE
-          let (ty, i) ← fsNat b i
-          atEnd2 i
-          pure (.ie idx (.binder false nm ty bd))
-        | none => do
-          let i ← ate i bLETE
-          let (bd, i) ← fsNat b i
-          let i ← ate i bNAME
-          let (nm, i) ← fsNat b i
-          let i ← ate i bTYPE
-          let (ty, i) ← fsNat b i
-          let i ← ate i bVALUE
-          let (vl, i) ← fsNat b i
-          atEnd2 i
-          pure (.ie idx (.letE nm ty vl bd))
-      | 102 => do  -- 'f' → forallE
-        let i ← ate i bFORALL
-        let i ← fsBinderInfo b i
-        let i ← ate i bBODYQ
-        let (bd, i) ← fsNat b i
-        let i ← ate i bNAME
-        let (nm, i) ← fsNat b i
-        let i ← ate i bTYPE
-        let (ty, i) ← fsNat b i
-        atEnd2 i
-        pure (.ie idx (.binder true nm ty bd))
-      | 99 => do  -- 'c' → const
-        let i ← ate i bCONST
-        let (nm, i) ← fsNat b i
-        let i ← ate i bUS
-        let (us, i) ← fsNatList b i
-        atEnd2 i
-        pure (.ie idx (.const nm us))
-      | 98 => do  -- 'b' → bvar
-        let i ← ate i bBVAR
-        let (k, i) ← fsNat b i
-        atEnd1 i
-        pure (.ie idx (.bvar k))
-      | 115 => do  -- 's' → sort
-        let i ← ate i bSORT
-        let (l, i) ← fsNat b i
-        atEnd1 i
-        pure (.ie idx (.sort l))
-      | _ => none
-    else none
-  | none => do
-    let i ← fsLit b 0 bIN
-    let (idx, i) ← fsNat b i
-    let i ← ate i bSTRPRE
-    let (pre, i) ← fsNat b i
-    let i ← ate i bSTRK
-    let (s, i) ← fsStr b i
-    atEnd2 i
-    pure (.inStr idx pre s)
 
 /-- The taint skips WITHOUT the total: per-root counts and the first
 few skipped names.  Used where the caller already states the count
