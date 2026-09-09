@@ -243,20 +243,18 @@ theorem constsBound_of_constsResolve {env₀ : Env} :
     exact constsBound_proj.mpr (ihe h.2)
 
 /-- **`declStep2_of_axiom`'s `hbound` premise, from the invariant.**
-Every stored type and every stored `def`/`thm` body is prefix-bound,
-because `ConstWF` says it resolves. -/
+Every stored type and every stored `def` body is prefix-bound,
+because `ConstWF` says it resolves (a theorem's stored value has no
+clause: it is never read). -/
 theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
     ∀ c ∈ env.consts,
       ConstsBound env c.toConstantVal.type ∧
       (∀ cv value hint, c = .defnInfo cv value hint →
-        ConstsBound env value) ∧
-      (∀ cv value, c = .thmInfo cv value → ConstsBound env value) := by
+        ConstsBound env value) := by
   intro c hc
-  obtain ⟨-, -, hty, -, hdefn, -, hthm, -⟩ := hwf c hc
+  obtain ⟨-, -, hty, -, hdefn, -⟩ := hwf c hc
   exact ⟨constsBound_of_constsResolve _ hty,
     fun cv value hint heq =>
-      constsBound_of_constsResolve _ (hdefn cv value hint heq).2.2.1,
-    fun cv value heq =>
-      constsBound_of_constsResolve _ (hthm cv value heq).2.2.1⟩
+      constsBound_of_constsResolve _ (hdefn cv value hint heq).2.2.1⟩
 
 end ConLeche.Semantics

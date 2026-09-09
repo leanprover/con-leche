@@ -17,12 +17,12 @@
     42      (accepted : checkDecls .verified ds = .ok env) :
     43      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
 
-== ConLeche/Cached/Installed.lean#L326-L330
-   326  def checkDecls (mode : CheckMode) (ds : List DeclC) :
-   327      Except (CheckError × Nat) Env := do
-   328    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
-   329    checkPendingList mode p.2.1 p.2.2.toList
-   330    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L342-L346
+   342  def checkDecls (mode : CheckMode) (ds : List DeclC) :
+   343      Except (CheckError × Nat) Env := do
+   344    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
+   345    checkPendingList mode p.2.1 p.2.2.toList
+   346    pure p.2.1.env
 
 == tests/ConLecheTests/Axioms.lean#L87-L88
     87  #guard_msgs in
@@ -34,10 +34,10 @@
 == Main.lean#L96
     96  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
-== ConLeche/Cached/Installed.lean#L130-L132
-   130  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
-   131      DeclC → CheckCM (FEnv × Array PendingCheck)
-   132    | .defnDecl cv value hint =>
+== ConLeche/Cached/Installed.lean#L136-L138
+   136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
+   137      DeclC → CheckCM (FEnv × Array PendingCheck)
+   138    | .defnDecl cv value hint =>
 
 == Main.lean#L165
    165  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
@@ -48,53 +48,53 @@
    199      IO (Except (ConLeche.CheckError × Nat)
    200        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
-== ConLeche/Cached/Installed.lean#L407-L408
-   407  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
-   408      checkDecls mode ds = .ok fc.env := by
+== ConLeche/Cached/Installed.lean#L423-L424
+   423  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
+   424      checkDecls mode ds = .ok fc.env := by
 
-== ConLeche/Cached/Installed.lean#L211-L215
-   211  structure InstalledEnv (ds : List DeclC) where
-   212    fe : FEnv
-   213    pend : Array PendingCheck
-   214    run : ∃ (n : Nat) (s : CState),
-   215      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
+== ConLeche/Cached/Installed.lean#L223-L227
+   223  structure InstalledEnv (ds : List DeclC) where
+   224    fe : FEnv
+   225    pend : Array PendingCheck
+   226    run : ∃ (n : Nat) (s : CState),
+   227      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
 
-== ConLeche/Cached/Installed.lean#L174-L179
-   174  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
-   175      (Nat × FEnv × Array PendingCheck) → CState → Prop where
-   176    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
-   177    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
-   178        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
-   179        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
+== ConLeche/Cached/Installed.lean#L186-L191
+   186  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
+   187      (Nat × FEnv × Array PendingCheck) → CState → Prop where
+   188    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
+   189    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
+   190        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
+   191        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
 
-== ConLeche/Cached/Installed.lean#L243-L246
-   243  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
-   244    match e.pend[i]? with
-   245    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
-   246    | none => True
+== ConLeche/Cached/Installed.lean#L259-L262
+   259  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
+   260    match e.pend[i]? with
+   261    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
+   262    | none => True
 
-== ConLeche/Cached/Installed.lean#L417-L418
-   417  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
-   418      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
+== ConLeche/Cached/Installed.lean#L433-L434
+   433  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
+   434      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L289-L296
-   289  produced them.) -/
-   290  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-   291      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   292      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   293      (hrun : InstallRun μ ds p s q s') :
-   294      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   295      NodupNames q.2.1.env →
-   296      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+== ConLeche/Verify/Cached/InstalledC.lean#L311-L318
+   311  value — is what the theorem's model step consumes. -/
+   312  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+   313      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   314      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   315      (hrun : InstallRun μ ds p s q s') :
+   316      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   317      NodupNames q.2.1.env →
+   318      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
    543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
    544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L420-L422
-   420  well-formedness it needs; the conclusion is the model itself. -/
-   421  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   422      {ds : List DeclC} (fc : FullyChecked μ ds) :
+== ConLeche/Verify/Cached/InstalledC.lean#L460-L462
+   460  well-formedness it needs; the conclusion is the model itself. -/
+   461  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   462      {ds : List DeclC} (fc : FullyChecked μ ds) :
 
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
@@ -237,10 +237,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1332-L1334
-  1332  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
-  1333      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1334      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1334-L1336
+  1334  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+  1335      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1336      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -669,15 +669,15 @@
    493  `beq zero zero ≡ true`) vacuously — accepting definitions that
    494  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L101-L108
-   101  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   102      List (Expr × Expr) → m Bool
-   103    | [] => pure true
-   104    | eq :: rest => do
-   105      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   106        certifyNatEqs ops env rest
-   107      else pure false
-   108  
+== ConLeche/Kernel/Checker.lean#L110-L117
+   110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+   111      List (Expr × Expr) → m Bool
+   112    | [] => pure true
+   113    | eq :: rest => do
+   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   115        certifyNatEqs ops env rest
+   116      else pure false
+   117  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}

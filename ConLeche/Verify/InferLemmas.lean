@@ -2540,7 +2540,7 @@ theorem projEntry_body_wf {env : Env} (henv : EnvWF env) {T : Name}
     entry.body.constsResolve env = true ∧
     entry.body.looseBVarsBounded (entry.numParams + 1) = true := by
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
-  obtain ⟨-, -, -, -, -, -, -, h8, -⟩ := henv _ (List.mem_of_find?_eq_some hf')
+  obtain ⟨-, -, -, -, -, -, h8, -⟩ := henv _ (List.mem_of_find?_eq_some hf')
   obtain ⟨hsize, hb⟩ := h8 tbl rfl
   have hlt : i < tbl.bodies.size := by rw [hsize]; exact hi
   have := hb i (tbl.bodies[i]'hlt) (Array.getElem?_eq_getElem hlt)

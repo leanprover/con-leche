@@ -18,12 +18,17 @@ together with the proof that `checkDecls` returns it
 declaration from CHECKING it:
 
 * **Phase A** folds `annotDeclStep` over the parsed records: a
-  `defn`/`thm`/`opaque` record is annotated and INSTALLED without its
+  `defn`/`opaque` record is annotated and INSTALLED without its
   inference — the syntactic guards and the annotation of its type and
-  value run, the constant is pushed — and a `PendingCheck` records the
-  datum the check needs (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean`)
-  together with the environment counter the declaration was installed
-  at (`fe.visibleBelow`, task #108).  Every other kind — axioms,
+  value run, the constant is pushed — and a `thm` record is installed
+  BY STATEMENT: its header alone is annotated and the constant pushed
+  with the record's own (raw) value, which nothing ever reads (a
+  theorem is opaque to reduction), so phase A never enters a theorem's
+  body; either way a `PendingCheck` records the datum the check needs
+  (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean` — the annotated
+  value of a definition or opaque, the raw value of a theorem) together
+  with the environment counter the declaration was installed at
+  (`fe.visibleBelow`, task #108).  Every other kind — axioms,
   inductive and basis blocks, and the pinned `Nat`-operation and
   `reduce*` branches, whose checks are not separable from their
   installs — takes the ordinary step `checkDeclStepC`.  An accepting
@@ -34,7 +39,8 @@ declaration from CHECKING it:
   `fe.restrictTo vis` (`FEnv.restrictTo`: an `O(1)` field update whose
   `find?` is the lookup in the environment truncated to the first
   `vis` constants, `mkFEnv_find?_visibleBelow`), each from a FRESH memo
-  state: `GroupChecked e i` says record `i`'s check succeeded.  It reads
+  state — a theorem's value is annotated here, at the view, before it
+  is inferred: `GroupChecked e i` says record `i`'s check succeeded.  It reads
   the installed environment, record `i`, and nothing else — a
   proposition workers can establish independently of one another.
 * `FullyChecked mode ds` is the subtype of installed environments every
@@ -141,10 +147,16 @@ def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
       pure (fe.push (.defnInfo r.1 r.2.2 hint),
         pend.push ⟨⟨.defn, r.1, r.2.2⟩, i, vis⟩)
   | .thmDecl cv value => do
-    let r ← annotValueC mode fe cv value true
+    -- a theorem installs BY STATEMENT: the header's install half
+    -- only; the value is recorded raw and never touched here (phase B
+    -- annotates it, `checkPending`), so phase A never enters a
+    -- theorem's body
+    flushC
+    let r ← annotConstantValC mode fe cv
+    recordCConst r.1.name r.1.type r.2 none
     let vis := fe.visibleBelow
-    pure (fe.push (.thmInfo r.1 r.2.2),
-      pend.push ⟨⟨.thm, r.1, r.2.2⟩, i, vis⟩)
+    pure (fe.push (.thmInfo r.1 value),
+      pend.push ⟨⟨.thm, r.1, value⟩, i, vis⟩)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then do
       pure (← checkDeclStepC mode fe (.opaqueDecl cv value), pend)
@@ -229,10 +241,14 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
   let fe := fe.restrictTo pc.vis
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.cvA.type
   let u ← opSIxC mode fe 0 jsty
-  if pc.vg.kind = .thm then
-    unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
-      throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.jv
+  let jv ← if pc.vg.kind = .thm then do
+      unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
+        throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
+      -- a theorem's value arrives raw: its guards and annotation run
+      -- here, at the view (`annotValC` — `installValue`'s twin)
+      annotValC mode fe pc.vg.cvA pc.vg.cvA.type pc.vg.jv false
+    else pure pc.vg.jv
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt pc.vg.cvA.type do
     throw (.invalid s!"type mismatch in {pc.vg.kind.word} {pc.vg.cvA.name}")
 

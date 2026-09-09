@@ -419,7 +419,7 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
     · rw [show acvalWith mp.base2.acval c₀.name A cv.name
           = mp.base2.acval cv.name from
           acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-      exact hcompM ψ value ((hbound _ h).2.1 cv value hint rfl)
+      exact hcompM ψ value ((hbound _ h).2 cv value hint rfl)
         (hh.projTower.defn h)
         (mp.defn_reads ψ cv value ⟨hint, h⟩)
   exact ⟨{

@@ -1239,7 +1239,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1256,7 +1256,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1300,7 +1300,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)

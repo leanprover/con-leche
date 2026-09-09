@@ -58,7 +58,7 @@ a parsed export stream, the theorem
 > constant whose type is `False`.
 
 `checkDecls`
-([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L326-L330))
+([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L342-L346))
 installs every declaration of `ds` first — a definition, theorem or
 opaque annotated and pushed with its check recorded, everything else
 checked in full as it is installed — and then checks every recorded
@@ -87,10 +87,13 @@ Read from the outside in:
    and runs the fold's two phases as two loops. The install loop
    ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L96))
    takes every record through the install step
-   ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L130-L132)):
-   a definition, theorem or opaque is annotated and pushed with its
-   check *recorded* — the annotated header and value and the number of
-   constants installed before it — while an axiom, an inductive or
+   ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L136-L138)):
+   a definition or opaque is annotated and pushed with its check
+   *recorded* — the annotated header and value and the number of
+   constants installed before it — a theorem is installed by its
+   statement alone (its header annotated, its value recorded raw and
+   never entered by this loop: a theorem is opaque to reduction), and
+   an axiom, an inductive or
    basis block, and the pinned `Nat`-operation and `reduce*`
    declarations are checked in full as they are installed, by the
    fold's ordinary step. The loop carries the chain of its accepting
@@ -106,18 +109,18 @@ Read from the outside in:
    ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L197-L200))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
-   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L408)).
+   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L423-L424)).
 2. **The fully checked environment**
-   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L211-L215))
+   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L223-L227))
    is stated over the executable steps: the installed environment is
    the accepting install run
-   ([inductive `InstallRun` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L174-L179)),
+   ([inductive `InstallRun` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L186-L191)),
    and a record is checked when its check at the prefix view succeeded
-   ([definition `GroupChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L243-L246)).
+   ([definition `GroupChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L259-L262)).
    The records' checks are independent of one another, which is what
    lets a later loop hand them to workers. An accept of `checkDecls`
    is exactly such an environment, and conversely
-   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L417-L418)),
+   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L433-L434)),
    which is how the theorem about the fold is read off the walk of
    step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -129,14 +132,14 @@ Read from the outside in:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the install
    run
-   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L289-L296)),
+   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L311-L318)),
    and a record's check at the prefix view is covered by the
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L543-L544)).
    The walk carries the model to the final environment
-   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L420-L422)),
+   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L460-L462)),
    and the fold's letter
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L65-L71))
    is that model read through `checkDecls_fullyChecked`
@@ -206,7 +209,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1332-L1334)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1334-L1336)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -376,7 +379,7 @@ instead of trusting the operation's name.
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
   ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L477-L494),
-  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L101-L108)).
+  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L110-L117)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
   The model side reads the operation's membership off its pinned type

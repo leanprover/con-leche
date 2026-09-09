@@ -305,9 +305,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     exact SimC.throw_bind
   simp only [if_pos h4]
   refine SimC.bind_left (recordCConst_eff hs₄ hjty
-      (fun vE' vi h => by
-        cases h
-        exact rfl))
+      (fun vE' vi h => nomatch h))
     (fun s₅' u₀ hs₅' hQ' => ?_)
   refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₅' rfl hwv)
     (fun s₅ jvt wvt hs₅ hP₅ => ?_)

@@ -130,12 +130,12 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := jv
-  recordCConst cvA.name cvA.type jty (some (vE, jv))
+  recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  pure (fe.push (.thmInfo cvA vE))
+  -- stored by statement: the record's own value, unread (opaque)
+  pure (fe.push (.thmInfo cvA value))
 
 /-- `checkOpaqueValP` over `ExprC`. -/
 def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)

@@ -254,7 +254,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
@@ -269,8 +269,6 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
         intro r hr
         rw [← h4] at hr
         exact nomatch hr
-    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-        intro cv2 v2 heq <;> exact nomatch heq
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro tbl heq <;> exact nomatch heq
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →

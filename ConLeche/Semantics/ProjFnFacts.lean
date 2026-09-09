@@ -159,7 +159,6 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     refine EnvWF.cons m.wf ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
       (fun tbl heq => ConstantInfo.noConfusion heq),
       (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
@@ -268,7 +267,6 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   · refine EnvWF.cons hwfE ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
       (fun tbl heq => ConstantInfo.noConfusion heq),
       (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
