@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Cached.AgreeFloor
-public import ConLeche.Cached.Installed
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF

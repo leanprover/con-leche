@@ -10,7 +10,7 @@ public section
 the binary runs — install every record, then check every recorded
 declaration — and the subject of the main theorem
 (`ConLeche.no_proof_of_False`, `ConLeche/MainTheorem.lean`).  Its letters
-are the letters on the driver's type
+are the letters on the fully checked environment the driver assembles
 (`ConLeche/Verify/Cached/InstalledC.lean`) read through
 `checkDecls_fullyChecked`: an accept of the fold IS a fully checked
 environment, and a fully checked environment carries the graded model

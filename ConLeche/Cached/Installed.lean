@@ -150,8 +150,10 @@ def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
   | pd => do
     pure (← checkDeclStepC mode fe pd, pend)
 
-/-- Phase A's step with the position carried and the error tagged,
-exactly as `checkDeclStep` does. -/
+/-- Phase A's step with the position carried and the error tagged: the
+accumulator is `(i, fe, pend)`, and a failing step reports the
+`CheckError` together with `i`, the fold position of the declaration
+that failed. -/
 def annotDeclStep (p : Nat × FEnv × Array PendingCheck) (pd : DeclC) :
     StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array PendingCheck) :=
   fun s =>
@@ -251,11 +253,11 @@ def FullyChecked.env {ds : List DeclC} (fc : FullyChecked mode ds) : Env := fc.1
 
 /-! ## The records' checks, in the type
 
-A loop over the records that carries the checks it has established:
+The driver's check loop carries the checks it has established —
 `GroupChecked` of every record below `k`, extended one record at a
-time.  `checkRecord` is the one step both the pure fold and the driver's
-printing loop take; the accumulator's extension and the closing
-argument are the two lemmas beside it. -/
+time — and these are its three lemmas: a record's check as its
+`GroupChecked` fact, the accumulator's extension, and the closing
+argument. -/
 
 /-- Record `k`'s check, as its `GroupChecked` fact. -/
 theorem groupChecked_of_run {ds : List DeclC} (e : InstalledEnv mode ds) {k : Nat}

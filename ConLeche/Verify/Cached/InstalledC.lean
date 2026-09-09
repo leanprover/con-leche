@@ -9,7 +9,7 @@ import ConLeche.Verify.CheckerSplit
 public section
 
 /-!
-# The model along the install run, and the letters on the driver's type
+# The model along the install run, and the letters on the fully checked environment
 
 `FullyChecked μ ds` (`ConLeche/Cached/Installed.lean`) is what the
 driver's two loops assemble: phase A's accepting run (`InstallRun`)
@@ -37,7 +37,8 @@ module walks the run with the graded model beside it:
   at the position that produced it; `declStep_preserves` carries the
   model across either.
 * `fullyChecked_sound` / `no_proof_of_False_checked` /
-  `no_proof_of_Empty_checked` — the letters on the driver's type.  The
+  `no_proof_of_Empty_checked` — the letters on the fully checked
+  environment the driver assembles.  The
   fold's letters (`ConLeche/Verify/Cached/MainC.lean`) are these under
   `checkDecls_fullyChecked`.
 
@@ -412,7 +413,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     | basisDecl kind => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold annotStepC at hstepC; exact ordinary _ hstepC
 
-/-! ## The letters on the driver's type -/
+/-! ## The letters on the fully checked environment -/
 
 /-- **A fully checked environment carries the model.**  The set theory
 is a hypothesis because the walk threads the model for the
@@ -426,7 +427,7 @@ theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks =
     ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
     (hchain.1.2.2 List.nodup_nil) fc.records).1
 
-/-- **The letter on the driver's type**: a fully checked environment, in
+/-- **The letter on the fully checked environment**: such an environment, in
 a validating mode, holds no constant of type `False`.  The main theorem
 (`ConLeche.no_proof_of_False`, about `checkDecls`) is this under
 `checkDecls_fullyChecked`. -/
