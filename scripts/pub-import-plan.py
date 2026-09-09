@@ -59,6 +59,10 @@ FALLBACK = {
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),
     ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.EnvExt'),
     ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.Levels'),
+    # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
+    # `NodupNames` (EnvBound); the model reads statements, not exposed
+    # bodies, and the compiler wants the re-export.
+    ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

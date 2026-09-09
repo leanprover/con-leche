@@ -64378,3 +64378,233 @@ move as pure shifts of fifteen lines (the fuel knot's base case,
 `whnfLoop`, `annotateBody`); each new target was read before the
 expectation was regenerated, since `--update` alone re-snapshots the
 old anchor and would launder the citation.
+## Task #253 — THE DRIVER'S TYPE IS THE ASSURANCE: INSTALL FIRST, CHECK AFTERWARDS, RETURN A `FullyChecked ds` (2026-09-09, `agent/twophase`)
+
+Task #238 measured an annotate-first pipeline and left a scratch
+two-phase driver (`agent/annot`, 630 arena/e2e runs with zero
+deviations from the fold) and the sketch of one transfer theorem.  This
+task lands the driver as the binary's ONE driver, under the design the
+user gave while it was underway: a subtype for "environment properly
+installed", a per-group predicate "group `i` has been checked", a
+subtype "fully checked", the assembly of the latter from the former
+two, the main theorem on the fully checked subtype, and — the last
+step — the subtype indexed by the input `ds`, so that the driver
+returns `IO` of it and the main theorem is about *any* value of that
+type rather than about a particular fold.  The find?-extensionality
+seam the #238 report priced as the bulk of the work went the
+congruence way and cost one file.
+
+### 1. The type
+
+`ConLeche/Cached/Installed.lean` (implementation tier; imports nothing
+of the theory) holds the driver's vocabulary:
+
+* `annotConstantValC` / `annotValC` / `annotValueC` — the install halves
+  of the three value checkers: the syntactic guards and the annotation,
+  no inference; `annotStepC` / `annotDeclStep` — phase A's step: a
+  `defn`/`thm`/`opaque` off the pinned `Nat`-operation and `reduce*`
+  names is annotated and pushed and a `PendingCheck` records its
+  `ValueGroup` (the annotated header and value,
+  `ConLeche/Kernel/CheckerSplit.lean`), its fold position and the counter
+  `fe.visibleBelow` it was installed at; every other kind takes the
+  ordinary step `checkDeclStepC` — task #108's "not separable by
+  construction" list, unchanged.
+* `InstallRun mode ds p s p' s'` — the chain of accepting
+  `annotDeclStep`s over `ds`; `InstalledEnv mode ds` — the index and the
+  records with `∃ n s, InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s`.
+  The run is a proposition: nothing at run time.
+* `checkPending` — the check half at the PREFIX VIEW `fe.restrictTo vis`
+  (task #108's `O(1)` view) from a flushed state: `checkValueGroup`'s
+  calls — infer the type, `ensureSort`, the theorem's is-a-proposition
+  test (the scratch driver had dropped it; `bad/012_nonPropThm` rejects),
+  infer the value, `defeq` — with the fold's messages;
+  `GroupChecked mode e i` — record `i`'s check from a FRESH memo state
+  succeeded.  It reads the installed index, the record, and nothing
+  else, which is what makes the records' checks independent of one
+  another (a later loop may hand them to workers).
+* `FullyChecked mode ds := { e : InstalledEnv mode ds // ∀ i, GroupChecked mode e i }`,
+  `FullyChecked.assemble`, `FullyChecked.env`; and the three lemmas a
+  loop over the records uses to carry its checks in the type
+  (`groupChecked_of_run`, `groupChecked_extend`, `groupChecked_all`).
+
+**Phase B starts every record from a fresh memo state.**  The residue
+invariant `CSOKF` of phase A's final state is only known once the model
+induction over the whole run is complete, and the records' checks are
+consumed inside that induction — so a phase B threading one state
+across the records could not be stated per record.  From `{}` it can
+(`CSOKF.empty`), and that is also the shape a parallel phase B has.  The
+residue is the level memos and the converted-constant cache; the price
+is in §5.
+
+### 2. The driver
+
+`Main.lean` has one driver: `installLoop` then `checkLoop`.  Each is
+written against the step it runs and carries the proposition the type
+asks for — `installLoop` the `InstallRun` of the records it has
+consumed, in the SNOC direction (`InstallRun.snoc`) so that the call
+stays a tail call; `checkLoop` the `GroupChecked` of every record below
+its index.  What comes out is a `FullyChecked mode decls.toList`, the
+success line is printed from that value and from nothing else, and
+the heartbeat (`--progress`) and the route trace are printed between
+the steps and touch neither type.  So there is no second, unverified
+loop any more: the 2026-09-07 "two loops" ruling is superseded by the
+type — a run with `--progress` is covered exactly as a run without it.
+`checkDeclsProgressIO` and the `--two-phase` flag of the brief are gone
+before they landed; the ordinary fold `checkDecls` stays as the pure
+reference fold (§4).  Verdicts and exit codes are the fold's; a
+phase-B failure is tagged with the fold position of its declaration.
+The only observable difference from the fold is the ORDER of two
+failures on one stream — phase A annotates a value before the fold
+would have inferred its type's sort — which the arena did not exhibit.
+
+### 3. The theorem, and how the seams landed
+
+`ConLeche.no_proof_of_False (V) (ds) (fc : FullyChecked .verified ds) : ¬ ∃ c ∈ fc.env.consts, c.toConstantVal.type = .const falseName []`
+(`ConLeche/MainTheorem.lean`).  Under it, bottom-up:
+
+* **(b) find?-extensionality — the congruence way.**
+  `ConLeche/Verify/Cached/KnotCongr.lean` (70 lemmas, delegated as the
+  one mechanical grind): every `fe`-taking function of the cached core
+  is congruent in `fe.find?`, landing on
+  `coreKnotI_congr : fe₁.find? = fe₂.find? → coreKnotI mode fe₁ F = coreKnotI mode fe₂ F`
+  and `opSIxC_congr`.  Chosen over generalising the ~340 `mkFEnv env`
+  sites of the simulation tower because it is a statement about CODE
+  (the knot reads the index through `find?` and `findProj?`/the guard
+  twins, which unfold to `find?`; a census confirmed no `fe.env`,
+  `.idx` or `.visibleBelow` read in the knot), proven once, leaving the
+  tower's statements untouched; the check at the view rewrites by it
+  and the simulation stated at `mkFEnv env` applies.
+* **(a) name uniqueness — an install-time invariant, operationally.**
+  `ConLeche/Verify/Cached/PushChain.lean`: every accepted driver step
+  returns `PushChain env fe'` — a canonical index whose constants extend
+  `env` by names each fresh at its push (`checkDeclC_push`,
+  `annotStepC_push`, `installRun_trace`), walked with
+  `AgreeFloor.lean`'s final-value kit over every route (the modeled
+  route's member/recursor/projection stages, the fixpoint route's
+  former/constructor/recursor/table stages, the basis fold, the axiom
+  branch); every push in the tree is guarded, and this is the proof.
+  From the empty environment that is `NodupNames` of the final one, the
+  hypothesis of `mkFEnv_find?_visibleBelow`, plus the suffix relation
+  `Env.prefixTo_of_extends` that reads a declaration's install
+  environment off the final one.  No `EnvWF`, no model: it must hold
+  BEFORE the model induction, since every record's check needs it.
+* **(c) memo state** — `CSOKF.empty` per record (§1), `flushC_csok`
+  inside the step.
+* **(d) the split.**  `ConLeche/Kernel/CheckerSplit.lean`:
+  `installConstantVal`, `installValue`, `checkValueGroup` — the pure
+  checker's two halves; `ConLeche/Verify/CheckerSplit.lean`: their
+  inversions, assemblies and fuel monotonicity, and
+  `checkDecl_of_split_{defn,thm,opaque}` — the halves re-associated
+  into `checkDecl` at a common fuel.  The specification of an installed
+  and checked environment is `ConLeche/Verify/Installed.lean`
+  (`Group`, `GroupInstalled`, `InstallTrace`, `InstalledSpec`,
+  `GroupCheckedSpec`, `FullyCheckedSpec`), stated over the pure checker
+  alone, and `ConLeche/Model/Installed.lean` its letter
+  (`installTrace_preserves`, `fullyCheckedSpec_sound`,
+  `no_proof_of_False_spec`): the model threads through the trace by
+  `declStep_preserves`.
+* **The bridge** `ConLeche/Verify/Cached/InstalledC.lean`:
+  `annotValueC_run` (phase A's install simulates the install halves),
+  `checkPending_run` (the check at the view simulates `checkValueGroup`
+  at the truncated environment — the one place the congruence is used),
+  `installRun_model` (the walk along the run, model beside it — the
+  model at each position supplies the `EnvWF` every bridge takes, which
+  is why `fullyChecked_spec` takes a set theory although its conclusion
+  does not mention it), `fullyChecked_spec`, `fullyChecked_sound`,
+  `no_proof_of_False_checked`; and `checkDecls_spec`: the fold reaches
+  the same specification with every group `none` — checked in full at
+  its install.
+
+**Modules created and what each exports:**
+`Kernel/CheckerSplit.lean` (`ValueKind`, `ValueGroup`, the two pure
+halves); `Cached/Installed.lean` (the driver's steps, `InstallRun`,
+`InstalledEnv`, `GroupChecked`, `FullyChecked`, `assemble`);
+`Verify/CheckerSplit.lean` (halves ↔ `checkDecl`); `Verify/Installed.lean`
+(the specification subtypes); `Verify/Cached/PushChain.lean`
+(`PushChain`, every route's push lemma, `installRun_trace`);
+`Verify/Cached/KnotCongr.lean` (`coreKnotI_congr`);
+`Verify/Cached/InstalledC.lean` (the bridge and the letters on the
+driver's type); `Model/Installed.lean` (the specification's letter).
+`Verify/EnvBound.lean` gains `NodupNames` and `Env.prefixTo_of_extends`.
+
+### 4. What stays, what changed statement
+
+`checkDecls` and its letters (`checkDecls_sound`, `fold_preserves`,
+`no_proof_of_False_cached`, `no_proof_of_Empty_cached`,
+`ConLeche/Verify/Cached/MainC.lean`) and the agreement floor are
+untouched in statement and proof; the binary no longer runs that fold,
+and the docstrings say so.  The main theorem's statement of 2026-09-07
+survives verbatim as `no_proof_of_False_fold`.  `README.md` still quotes
+the fold-shaped statement under the name `no_proof_of_False`; it is
+the maintainer's file and is left for the maintainer.
+
+The old subtype design's "phase A alone yields an `InstalledEnv` in the
+specification's sense" is NOT what landed: the specification's
+`InstalledSpec` carries `EnvWF` of every group's install environment,
+and phase A cannot establish that model-free for the pinned basis
+blocks without reproducing the per-constant `EnvWF.cons` derivations
+the model files carry (19 blocks across `Model/Basis*.lean`).  The
+driver's `InstalledEnv mode ds` is operational instead — the run — and
+the bridge to the specification threads the model.  The user's later
+ruling (the type indexed by `ds`, the driver returning it) is exactly
+this shape, so nothing was lost: a parallel phase B produces the same
+per-record `GroupChecked` facts and needs no proof of its own.
+
+### 5. Measured and gates
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000` and `timeout 3000`, against master `b83142c0`'s
+675.19 G verified / 657.35 G trusted (the fold): **700.67 G
+(+3.77 %) / 675.58 G (+2.77 %)**, 53 088 declarations
+accepted in every cell, exit 0.  The delta is the price of §1's fresh
+state per record and of the check's cold memos, which task #238 had
+measured at +1.5 % (V3-cold, residue kept).  Accepted for the landing;
+the obvious lever is a WARM phase B — the fold never started a
+declaration from an empty memo either, and a phase B that threads one
+state across the records (its `CSOKF` established by the same chain of
+simulations the model induction runs, i.e. `GroupChecked` stated over a
+residue-carrying state rather than `{}`) would recover most of the
+difference.  Follow-up, not this task.  After the merge with task #252
+(master `5d26f46a`, 675.13 G verified) the verified cell re-measured at
+700.56 G (+3.77 %).
+
+`README.md` still quotes the fold-shaped statement under the name
+`no_proof_of_False`; that statement is now `no_proof_of_False_fold`.
+README is the maintainer's file and is left for the maintainer.
+
+**A proof-term-gate artefact, named.**  `tests/proofdeps.sh` reports
+`ConLeche.Verify.Cached.KnotCongr` in the closures of the four fold
+letters (`False_cached`, `Empty_cached`, `sound_cached`,
+`fold_preserves`), whose proofs were built in modules that do not
+import it.  The path is `ConLeche.Cached.inferSpineI.eq_def` (and
+`constsResolveFCGo.eq_def`): equation lemmas of the cached core are
+REALISED on demand by every module that unfolds the function — each
+realisation's proof `split`s through the function's matcher with a
+private splitter of the realising module — and the instrument's merged
+environment resolves the one shared name to the realisation
+`KnotCongr` made, whose splitter is `KnotCongr`-private.  (The module
+index the instrument prints for the lemma is `DiscC4`'s; its value is
+`KnotCongr`'s.)  Loading `KnotCongr` first or last in the umbrella does
+not change which realisation wins.  No proof of the fold's letters
+depends on anything in `KnotCongr`; the pin is regenerated with the row
+and this paragraph is its justification.
+
+Gates: `lake build` 527 jobs warning-free, `lake test` warning-free
+(21 pinned theorems at the three standard axioms — the main theorem,
+the two letters on the driver's type, the bridge, the specification's
+three, the fold's route, the fold's letter under its old statement,
+and the twelve of before), `tests/arena.sh` green under `env -i`:
+90/92 arena, 181/181 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode
+flags, 3/3 prelude, 13/13 progress (one new: one `check` line per
+pending record), 14/14 DAG tower, trusted sweep 138+181+14 with the
+three recorded divergences, route census 142 fix / 540 basis, layering
+270/190/3/1 and 0/0 edges, trust surface 10 in 4 of 473, shake 464
+removals all allowlisted (four new lines, all compensated relocations,
+one stale line deleted; the pub-import plan gains one fallback —
+`PushChain` re-exports `EnvBound` for `NodupNames` in an exposed
+body, which the plan's statement model does not see), overview-links
+68/49 (fourteen anchors
+re-pointed or added; every target read against its paragraph);
+proofdeps 5743 rows across 14 roots, doors 0 after the regeneration
+above — the `main_False` root gains the eight modules of §3, and the
+four fold roots the artefact row.

@@ -12,14 +12,22 @@ flushed per declaration, declarations consumed as `DeclC` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDecls mode` is what the binary runs in BOTH modes — at
-`.verified` under `--verified`, at `.trusted` under `--trusted` (the twin driver
-`checkDeclsT` / `ConLeche/Cached/ParsedT.lean` retired
-2026-09-06; the trusted lane is this driver at the other mode, and
-nothing else).  Acceptance at `.verified` is covered by
-`no_proof_of_Empty_cached` (`ConLeche/Verify/Cached/MainC.lean`); the two
-modes agree on the install skeletons whenever both accept
-(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
+`checkDecls mode` is the pure reference fold — at `.verified` and at
+`.trusted` alike (the twin driver `checkDeclsT` / `ConLeche/Cached/ParsedT.lean`
+retired 2026-09-06; the trusted lane is this fold at the other mode,
+and nothing else).  Until task #253 it was what the binary ran; the
+binary's one driver (`Main.lean`) now installs every record first and
+checks the recorded declarations afterwards
+(`ConLeche/Cached/Installed.lean`), and returns a value whose TYPE
+carries the assurance (`FullyChecked`, the main theorem's subject).
+This fold keeps its own letters — acceptance at `.verified` is covered
+by `no_proof_of_Empty_cached` (`ConLeche/Verify/Cached/MainC.lean`), and
+the two modes agree on the install skeletons whenever both accept
+(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`) —
+and both it and the driver reach the specification of an installed
+and checked environment (`checkDecls_spec`, `fullyChecked_spec`,
+`ConLeche/Verify/Cached/InstalledC.lean`).  The driver's install step
+for the non-separable kinds IS this fold's step, `checkDeclStepC`.
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it

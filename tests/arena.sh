@@ -504,6 +504,13 @@ prog_check "--progress composes with --trusted in either order" \
   "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: progress [0-9]')" \
       = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: progress [0-9]')" ] && \
     printf '%s' "$prog_errPost" | grep -q 'progress fold done' && echo ok)"
+# the check pass (task #253): the ONE loop installs every record, then
+# checks every recorded declaration — one `check` line per record,
+# bracketed by the `install done` line naming their number
+prog_lines2c=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress check [0-9]')
+prog_pending2=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: progress install done: \([0-9]*\) pending.*/\1/p')
+prog_check "stride 1 prints one check line per pending record" \
+  "$([ -n "$prog_pending2" ] && [ "$prog_lines2c" = "$prog_pending2" ] && [ "$prog_pending2" -gt 0 ] && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
 timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
 timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
