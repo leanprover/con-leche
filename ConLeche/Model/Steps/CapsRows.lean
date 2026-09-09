@@ -46,10 +46,11 @@ genuine divergence between the two fits:
 
 `teleFit_bvar_stuck` below is that gap, mechanized.  The guard that
 closes it is `PiChain n Ta` — the reading's first `n` heads are `.pi`
-nodes — and the certificate *supplies* it: `structEtaCertWith_inv`'s
-`(cvT.type.stripPis cnP).isSome = true` conjunct says exactly that the
-former's type is a syntactic ∀-chain of length `cnP`, and a syntactic
-∀-chain reads to a `PiChain` (`piChain_of_stripPis`).  So the frozen
+nodes — and the environment invariant *supplies* it: `IndCapsWF`'s
+`(cvT.type.stripPis caps.etaParams).isSome = true` clause says exactly
+that the former's type is a syntactic ∀-chain of length
+`caps.etaParams`, and a syntactic ∀-chain reads to a `PiChain`
+(`piChain_of_stripPis`).  So the frozen
 statement is usable; what it costs is this file's substitution
 metatheorem, which has no v1 counterpart because v1's fit never needed
 one.  Recorded as a finding, not a wall.
@@ -522,13 +523,13 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     (ρ : Nat → V) (hρ : Sat V Δa ρ) :
     interp V ρ aa = interp V ρ ba := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena,
-    hfnb, hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus,
+    hfnb, hfT, heta, hectr, hresT, hresc, hlenb, hlenus,
     hlpc, hslots, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
     ConLeche.structEtaCertWith_inv hcw
   -- the former's telescope arity, from the environment invariant
   -- (`IndCapsWF`, established at the block's install)
-  have hstrip : (cvT.type.stripPis cnP).isSome = true := by
-    rw [← hepar]; exact (m.wf.indCaps hfT).2 heta
+  have hstrip : (cvT.type.stripPis caps.etaParams).isSome = true :=
+    (m.wf.indCaps hfT).2 heta
   have hmemB := hmemBW
   -- the reduced type is the family applied to its parameters
   rw [show wtb = Expr.mkAppN wtb.getAppFn wtb.getAppArgs from
@@ -559,15 +560,15 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
   -- (and there is one), or every slot is a projection function — an
   -- all-tower family with no field is the latter case, nothing being
   -- fabricated either way
-  have hkind : (ConLeche.towerSlotsAll env T cnF = true ∧ 0 < cnF) ∨
-      ((∀ j, j < cnF → ∃ cvp mIp rPp rulesp,
+  have hkind : (ConLeche.towerSlotsAll env T caps.etaFields = true ∧ 0 < caps.etaFields) ∨
+      ((∀ j, j < caps.etaFields → ∃ cvp mIp rPp rulesp,
           env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp)) ∧
-        (ConLeche.towerSlotsAll env T cnF = true → cnF = 0)) := by
-    by_cases htow : ConLeche.towerSlotsAll env T cnF = true
-    · by_cases h0 : 0 < cnF
+        (ConLeche.towerSlotsAll env T caps.etaFields = true → caps.etaFields = 0)) := by
+    by_cases htow : ConLeche.towerSlotsAll env T caps.etaFields = true
+    · by_cases h0 : 0 < caps.etaFields
       · exact .inl ⟨htow, h0⟩
       · exact .inr ⟨fun j hj => absurd hj (by omega), fun _ => by omega⟩
-    · have hrec : ConLeche.recSlotsAll env T cnF = true := by
+    · have hrec : ConLeche.recSlotsAll env T caps.etaFields = true := by
         simpa [htow] using hslots
       exact .inr ⟨fun j hj => ConLeche.recSlotsAll_slot hrec j hj,
         fun h => absurd h htow⟩
@@ -610,9 +611,9 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     -- the ∀-chain guard, from the certificate's `stripPis` conjunct
     have hpcT : PiChain wtb.getAppArgs.length TVa := by
       rw [hlenb]
-      exact piChain_of_stripPis cnP
+      exact piChain_of_stripPis caps.etaParams
         (ConLeche.Expr.stripPis_instantiateLevelParams_isSome
-          cvT.levelParams us' cnP hstrip) hTVd
+          cvT.levelParams us' caps.etaParams hstrip) hTVd
     exact certs_tele ihd ihis hexi _ wtb.getAppArgs tsa TVa hcertT hpcT
       hTw hbdT hTL hTC hTVd (fun σ _ => hokTVa σ)
       (frame_spine hwr hbr hLr hCr) hspt hoT ρ hρ
@@ -628,7 +629,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     have := hmemB ρ hρ
     rwa [interp_mkAppN, hfold] at this
   have hlenTs : (tsa.map (interp V ρ)).length = caps.etaParams := by
-    rw [List.length_map, ← hspt.length, hlenb, hepar]
+    rw [List.length_map, ← hspt.length, hlenb]
   -- the fabricated projection spine's subject list: it reads, and it
   -- is graded
   have hspTb : DenoteMetaSpine m.acval env φ d (wtb.getAppArgs ++ [b])
@@ -648,10 +649,10 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     · exact hoT x hx'
     · rcases List.mem_singleton.mp hx' with rfl; exact hokB
   -- the parameter halves of the two certified lists, pointwise
-  have htake : (asa.take cnP).map (interp V ρ) = tsa.map (interp V ρ) :=
+  have htake : (asa.take caps.etaParams).map (interp V ρ) = tsa.map (interp V ρ) :=
     map_interp_of_defEqListFueled ihd hdefL1
       (fun x hx => frame_spine hwa hba hLa hCa x (List.mem_of_mem_take hx))
-      (frame_spine hwr hbr hLr hCr) (hspa.take cnP) hspt
+      (frame_spine hwr hbr hLr hCr) (hspa.take caps.etaParams) hspt
       (fun x hx => hoA x (List.mem_of_mem_take hx)) hoT ρ hρ
   rcases hkind with ⟨htow, h0⟩ | ⟨hrecs, htow0⟩
   · -- TOWER-BACKED SLOTS (task #175 W4c): the fabricated projections
@@ -661,7 +662,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     -- (task #175 S1: the family's slots are the table's, whose head
     -- data carries the former's level parameters; no per-slot
     -- certificate runs at a tower family)
-    have hslotE : ∀ j, j < cnF → ∃ entry : ProjEntry,
+    have hslotE : ∀ j, j < caps.etaFields → ∃ entry : ProjEntry,
         env.findProj? T j = some entry ∧
         entry.levelParams = cvT.levelParams := by
       intro j hj
@@ -693,13 +694,13 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     -- (task #210 Part A: the tagged tower of the fixpoint route)
     have hoffE : ∀ j entry, env.findProj? T j = some entry → entry.off = e0.off :=
       fun j entry hfe => ConLeche.Env.findProj?_off_eq hfe hfe0
-    have hprojden : ∀ j ∈ List.range cnF,
+    have hprojden : ∀ j ∈ List.range caps.etaFields,
         denoteMeta m.acval env φ d (.proj T j b) = some (projAV (j + e0.off) ba) := by
       intro j hj
       obtain ⟨entry, hfe, -⟩ := hslotE j (List.mem_range.mp hj)
       rw [← hoffE j entry hfe]
       exact denoteMeta_proj_tower hfe hdb
-    have hokProj : ∀ x ∈ (List.range cnF).map (fun j => projAV (j + e0.off) ba),
+    have hokProj : ∀ x ∈ (List.range caps.etaFields).map (fun j => projAV (j + e0.off) ba),
         ∀ σ : Nat → V, Sat V Δa σ → WellDenotedV V σ x := by
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
@@ -719,7 +720,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
       obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj us' (by rw [hlpe]; exact hlenus)
       obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
       have hlenVs : tsa.length = entry.numParams := by
-        rw [← hspt.length, hlenb, ← hepar, hparj]
+        rw [← hspt.length, hlenb, hparj]
       -- the body telescope's reading is a ∀-chain of the subject
       -- list's length, so it peels along it
       have hpc : PiChain (tsa ++ [ba]).length Ta := by
@@ -730,7 +731,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
       rw [hlpe] at hA
       exact (hA hgj σ tsa ba restj hlenVs (hokW σ hσ) (hokB σ hσ) (hmemB σ hσ)
         hpeel).1
-    have hframeProj : ∀ x ∈ (List.range cnF).map (fun j => Expr.proj T j b),
+    have hframeProj : ∀ x ∈ (List.range caps.etaFields).map (fun j => Expr.proj T j b),
         Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
           Expr.LeavesBounded x ∧ CtxOk m φ d Δa x := by
       intro x hx
@@ -740,19 +741,19 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
         fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
         ⟨hCb.1, fun l hl => hCb.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
     rw [ConLeche.etaProjs, if_pos htow] at hdefL2
-    have hdrop : (asa.drop cnP).map (interp V ρ)
-        = ((List.range cnF).map fun j => projAV (j + e0.off) ba).map (interp V ρ) :=
+    have hdrop : (asa.drop caps.etaParams).map (interp V ρ)
+        = ((List.range caps.etaFields).map fun j => projAV (j + e0.off) ba).map (interp V ρ) :=
       map_interp_of_defEqListFueled ihd hdefL2
         (fun x hx => frame_spine hwa hba hLa hCa x (List.mem_of_mem_drop hx))
-        hframeProj (hspa.drop cnP)
+        hframeProj (hspa.drop caps.etaParams)
         (DenoteMetaSpine.map_list _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     -- the constructor's arguments ARE the fabricated spine
     have hfab : asa.map (interp V ρ)
         = tsa.map (interp V ρ) ++ (List.range e0.numFields).map
             (fun j => ConLeche.SetTheory.Tower.projS (j + e0.off) (interp V ρ ba)) := by
-      rw [← List.take_append_drop cnP asa, List.map_append, htake, hdrop,
-        List.map_map, ← hfld', hefld]
+      rw [← List.take_append_drop caps.etaParams asa, List.map_append, htake, hdrop,
+        List.map_map, ← hfld']
       refine congrArg _ (List.map_congr_left fun j _ => ?_)
       rw [Function.comp_apply, projAV_interp]
     -- assemble
@@ -760,13 +761,13 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
   · -- PROJECTION-FUNCTION SLOTS: the stored-family law, as before
     -- the family is stored
     have hfam : ConLeche.EtaFamilyStored env T caps := by
-      refine ⟨by rw [hectr]; exact hresc, ⟨cvc, ?_⟩, ?_⟩
-      · rw [hectr, hepar, hefld]; exact hfc
+      refine ⟨by rw [hectr]; exact hresc, ⟨cvc, cnP, cnF, ?_⟩, ?_⟩
+      · rw [hectr]; exact hfc
       · intro j hj
-        exact hrecs j (by rw [← hefld]; exact hj)
+        exact hrecs j hj
     -- the fabricated projections are the projection functions' spines
-    have hetaP : ConLeche.etaProjs env T us' wtb.getAppArgs b cnF
-        = (List.range cnF).map (fun i =>
+    have hetaP : ConLeche.etaProjs env T us' wtb.getAppArgs b caps.etaFields
+        = (List.range caps.etaFields).map (fun i =>
             Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])) := by
       unfold ConLeche.etaProjs
       split
@@ -781,7 +782,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
       hlenTs hfitT hmemFam
     -- each slot is a recursor, certified (the per-slot certificates
     -- ran: the family is not a tower family, task #175 S1)
-    have hslotR : ∀ j ∈ List.range cnF, ∃ cvp mIp rPp rulesp,
+    have hslotR : ∀ j ∈ List.range caps.etaFields, ∃ cvp mIp rPp rulesp,
         env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp) ∧
         cvp.levelParams = cvT.levelParams ∧
         (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
@@ -789,13 +790,13 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
           (cvp.type.instantiateLevelParams cvp.levelParams us')
           (wtb.getAppArgs ++ [b]) = .ok true := by
       intro j hj
-      have hcnF : 0 < cnF := Nat.lt_of_le_of_lt (Nat.zero_le j) (List.mem_range.mp hj)
-      have htowF : ConLeche.towerSlotsAll env T cnF = false := by
-        cases h : ConLeche.towerSlotsAll env T cnF
+      have hcnF : 0 < caps.etaFields := Nat.lt_of_le_of_lt (Nat.zero_le j) (List.mem_range.mp hj)
+      have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
+        cases h : ConLeche.towerSlotsAll env T caps.etaFields
         · rfl
         · exact absurd (htow0 h) (by omega)
       exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j hj
-    have hprojden : ∀ j ∈ List.range cnF,
+    have hprojden : ∀ j ∈ List.range caps.etaFields,
         denoteMeta m.acval env φ d
             (Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
           = some (AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])) := by
@@ -812,7 +813,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
       · next hne =>
         exact absurd (show us'.length = cvp.levelParams.length from by
           rw [hlpj]; exact hlenus) hne
-    have hokProj : ∀ x ∈ (List.range cnF).map (fun j =>
+    have hokProj : ∀ x ∈ (List.range caps.etaFields).map (fun j =>
           AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])),
         ∀ σ : Nat → V, Sat V Δa σ → WellDenotedV V σ x := by
       intro x hx σ hσ
@@ -850,7 +851,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
       have := hmemp σ
       dsimp only [ConLeche.ConstantInfo.toConstantVal] at this
       rwa [hlpj] at this
-    have hframeProj : ∀ x ∈ (List.range cnF).map (fun i =>
+    have hframeProj : ∀ x ∈ (List.range caps.etaFields).map (fun i =>
           Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])),
         Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
           Expr.LeavesBounded x ∧ CtxOk m φ d Δa x := by
@@ -867,21 +868,21 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
         · first
           | exact (hframeTb y hy).2.2.1 l hly
           | exact (hframeTb y hy).2.2.2.2 l hly
-    have hdrop : (asa.drop cnP).map (interp V ρ)
-        = ((List.range cnF).map fun j =>
+    have hdrop : (asa.drop caps.etaParams).map (interp V ρ)
+        = ((List.range caps.etaFields).map fun j =>
             AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
           (interp V ρ) :=
       map_interp_of_defEqListFueled ihd hdefL2
         (fun x hx => frame_spine hwa hba hLa hCa x (List.mem_of_mem_drop hx))
-        hframeProj (hspa.drop cnP)
+        hframeProj (hspa.drop caps.etaParams)
         (DenoteMetaSpine.map_list _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     -- the constructor's arguments ARE the fabricated spine
     have hfab : asa.map (interp V ρ)
         = etaFabArgsV (fun n => interp V ρ (m.acval n (Level.substFn φ cvT.levelParams us'))) T
             (tsa.map (interp V ρ)) (interp V ρ ba) caps.etaFields := by
-      rw [etaFabArgsV, projSpines, ← List.take_append_drop cnP asa,
-        List.map_append, htake, hdrop, hefld, List.map_map]
+      rw [etaFabArgsV, projSpines, ← List.take_append_drop caps.etaParams asa,
+        List.map_append, htake, hdrop, List.map_map]
       refine congrArg _ (List.map_congr_left fun j _ => ?_)
       show interp V ρ (AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
         (tsa ++ [ba])) = _

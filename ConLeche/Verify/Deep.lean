@@ -839,11 +839,11 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       refine bind_congr_eq
         (ite_congr' (fun _ => rfl) (fun _ =>
           structEtaProjCerts_shift henv ih hpd T us' cvT.levelParams
-            (List.range cnF)
+            (List.range caps.etaFields)
             (fun x hx => hwwtb.getAppArgs x hx) hwb)) ?_
       intro b₂ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take cnP)
+      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take caps.etaParams)
         (bs := wtb.getAppArgs)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
         (fun x hx => hwwtb.getAppArgs x hx)
@@ -851,8 +851,8 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       refine bind_congr_eq h2 ?_
       intro b₃ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have hlist := etaProjs_shift p env T us' wtb.getAppArgs b cnF
-      have hwprojs : ∀ x ∈ etaProjs env T us' wtb.getAppArgs b cnF,
+      have hlist := etaProjs_shift p env T us' wtb.getAppArgs b caps.etaFields
+      have hwprojs : ∀ x ∈ etaProjs env T us' wtb.getAppArgs b caps.etaFields,
           WScoped d x := by
         intro x hx
         unfold etaProjs at hx
@@ -873,7 +873,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       have h4 := iotaCerts_shift henv ih hpd false
         (ty := cvc.type.instantiateLevelParams cvc.levelParams us)
         (WScoped.of_not_hasFvar htelc)
-        (args := wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF)
+        (args := wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b caps.etaFields)
         (fun x hx => by
           rcases List.mem_append.mp hx with hx | hx
           · exact hwwtb.getAppArgs x hx
@@ -888,8 +888,8 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
         · simpa using h4
       intro b₄ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop cnP)
-        (bs := etaProjs env T us' wtb.getAppArgs b cnF)
+      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop caps.etaParams)
+        (bs := etaProjs env T us' wtb.getAppArgs b caps.etaFields)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx))
         hwprojs
       rw [List.map_drop, ← hlist] at h3
@@ -1188,7 +1188,6 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             case const T' ust =>
             simp only [shiftFrom]
             rw [getAppArgs_shiftFrom, List.length_map]
-            refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
             rw [etaFabArgsE_shift]
             have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)

@@ -26,24 +26,26 @@ set_option linter.defProp false
 namespace ConLeche
 
 /-- The eta family of an eta-capable stored structure is complete: the
-capability record's constructor is stored as a constructor at exactly
-the record's arities, and every documented projection function is
-stored as a (degenerate) recursor.  This is the *premise* under which
-`CapsOk` owes the eta law: mid-block — the former is installed first,
-its constructor and projection functions after it — the premise fails
-and the law is not yet owed; the family-completing member's install
-discharges it.  The premises are deliberately **kind- and
-arity-pinned**: an installation of a non-constructor under the
-constructor's name (or a non-recursor under a projection name) never
-completes the family, which is what keeps the `CapsOk.cons` head
-obligations dischargeable at every install site. -/
+capability record's constructor is stored as a constructor, and every
+documented projection function is stored as a (degenerate) recursor.
+This is the *premise* under which `CapsOk` owes the eta law:
+mid-block — the former is installed first, its constructor and
+projection functions after it — the premise fails and the law is not
+yet owed; the family-completing member's install discharges it.  The
+premises are deliberately **kind-pinned**: an installation of a
+non-constructor under the constructor's name (or a non-recursor under
+a projection name) never completes the family, which is what keeps
+the `CapsOk.cons` head obligations dischargeable at every install
+site.  The constructor's own parameter and field counts are NOT
+pinned to the record's: the law is stated at the record's counts, and
+the η certificate works at them too, so the two never have to be
+compared at a use. -/
 @[expose] def EtaFamilyStored (env : Env) (T : Name) (caps : IndCaps) : Prop :=
   -- name-only conjunct (static in `caps`): a reserved-named capability
   -- constructor never completes a family, which keeps the basis
   -- installs' head obligations vacuous by computation
   reservedBasisNames.contains caps.etaCtor = false ∧
-  (∃ cvC, env.find? caps.etaCtor =
-    some (.ctorInfo cvC caps.etaParams caps.etaFields)) ∧
+  (∃ cvC cnP cnF, env.find? caps.etaCtor = some (.ctorInfo cvC cnP cnF)) ∧
   ∀ j, j < caps.etaFields → ∃ cv mI rP rules,
     env.find? (projFnName T j) = some (.recInfo cv mI rP rules)
 

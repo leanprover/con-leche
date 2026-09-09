@@ -177,17 +177,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2781-L2790
-  2781        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2782        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2783        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2784        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2785        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2786    | fuel + 1 =>
-  2787      wrap
-  2788        { whnfCore := fun d e =>
-  2789            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2790          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2796-L2805
+  2796        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2797        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2798        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2799        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2800        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2801    | fuel + 1 =>
+  2802      wrap
+  2803        { whnfCore := fun d e =>
+  2804            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2805          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -219,11 +219,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1941
-  1941  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+== ConLeche/Kernel/Core.lean#L1956
+  1956  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
 
-== ConLeche/Kernel/Core.lean#L2665
-  2665    fun depth e =>
+== ConLeche/Kernel/Core.lean#L2680
+  2680    fun depth e =>
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module

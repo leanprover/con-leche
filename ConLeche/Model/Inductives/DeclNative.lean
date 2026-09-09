@@ -284,9 +284,9 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro env' m' hfrC he hfam φ'
     exfalso
     obtain ⟨c, hc⟩ := hetaOf he
-    obtain ⟨-, ⟨cvC, hf⟩, -⟩ := hfam
+    obtain ⟨-, ⟨cvC, cnP, cnF, hf⟩, -⟩ := hfam
     rw [ConLeche.nativeCaps_single hc] at hf
-    have hf' : env'.find? c.1.name = some (.ctorInfo cvC p.nP c.2) := hf
+    have hf' : env'.find? c.1.name = some (.ctorInfo cvC cnP cnF) := hf
     rw [hfrC c hc] at hf'
     exact nomatch hf'
   have hfrC₁ : ∀ c, p.ctors = [c] →

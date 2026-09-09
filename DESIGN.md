@@ -64247,6 +64247,137 @@ in `Kernel/Core.lean`, one in `Kernel/Env.lean`); each new target was
 read and carries the same text, and the citing paragraphs are unchanged
 in substance.
 
+## Task #252 — THE η PATHS' CROSS PINS BECOME STORED DATA (2026-09-09, `agent/crosspins`)
+
+Task #232's item 5 listed the per-call comparisons the ι/η paths make
+between a stored inductive and its stored constructor.  Task #247 tried
+to key them on the former and found the obvious predicate false between
+a block's own conses.  Two of the three groups land here, by two
+different routes; the third is a finding.
+
+### 1. The rescue's level pin, inside the η bit (report item 5, part 1)
+
+`majorToCtor`'s η branch compared `cvj.levelParams.length` with the
+major type's levels at every rescue, and again at the zero-field arm.
+The comparison is between two STORED declarations, and the η bit
+`RecRule.eta` — whose set value `RecCtorsStored` already records as
+"the store's own verdict at `recRuleEtaOf`" — is exactly the place for
+it: `recRuleEtaOf` gains the conjunct `cvj.levelParams == cvT.levelParams`,
+`recRuleEtaOf_inv` yields it, `recCtors_bits` hands it to the row, and
+both tests are deleted (spec and `CoreC` twin).  `majorToCtor_inv`
+loses them; `majorToCtorFueled_step` reads the invariant before it
+splits on the branch (the K arm keeps its own pin, which is a
+comparison the K route does not otherwise make), and
+`majorToCtorFueled_reads` derives the length in the η arm from the
+invariant plus the branch's `ust.length = cvT.levelParams.length`.
+
+**Establishment cost: none.** `RecCtorsStored`'s η clause says the bit
+is `recRuleEtaOf`'s verdict, and every route stamps its rules through
+`recRuleBits`, which computes that very function — so strengthening the
+function strengthens the invariant at all fourteen `rec_ctors` sites
+with no proof anywhere.
+
+### 2. The certificate works at the record's counts (report item 5, part 2)
+
+`structEtaCertWith` pinned `caps.etaParams = cnP ∧ caps.etaFields = cnF`
+— the capability record's counts against the stored constructor's — and
+then did all its work at `cnP`/`cnF`.  The stored η law
+(`EtaLaw`, `Model/Annot/EnvModelM.lean`) is stated at the RECORD's
+counts, so the identification existed only to bridge the certificate's
+choice back to the law's.  The certificate now works at
+`caps.etaParams`/`caps.etaFields` throughout — the reduced type's
+parameter count, the slot discipline, the per-slot certificate range,
+the spine's take/drop, the fabricated projections — and the two pins
+are deleted.  The constructor's own counts survive in one place only,
+the redex-shape gate `a.getAppArgs.length = cnP + cnF`, which is
+official's `try_eta_struct_core` test read off `constructor_val`.
+
+`EtaFamilyStored` (`Verify/EnvGuards.lean`) is the premise the row
+builds from the certificate's lookups, and it demanded the constructor
+at the record's arities; it now demands only its KIND
+(`∃ cvC cnP cnF, find? caps.etaCtor = some (.ctorInfo cvC cnP cnF)`).
+The arity pin was never read: the kind is what makes the `CapsOk.cons`
+head obligations dischargeable (`etaFamilyStored_descend` refutes a
+value-kind cons by `ConstantInfo.noConfusion`, not by a count), and the
+law's establishment sites know their own constructor.  Nine files
+destructure the conjunct and take three binders where they took one.
+
+### 3. The remaining cross pins (report item 5, part 3) — NOT LANDED
+
+`structEtaCertWith`'s `cvc.levelParams = cvT.levelParams` and
+`structEtaProjCerts`' per-slot `cvp.levelParams = lpsT` and
+`(cvp.type.stripPis (targs.length + 1)).isSome` stay, and the reason is
+sharper than #247's.  These are not redundancies: each **gates a
+denotation**.  The η row reads the constructor's leaf at
+`Level.substFn φ cvc.levelParams us` and the law's at
+`Level.substFn φ cvT.levelParams us'`, and only the equality of the two
+LISTS identifies them (`substFn_congr` alone gives the `us`/`us'` half);
+the fabricated projection spine `projFnName T j` reads only when the
+use's levels match the stored projection function's count.  So they must
+become stored facts, and the constant to key them on is the family's
+LAST — the projection functions, which are exactly the constants
+`structEtaProjCerts` looks up.  The recipe is a `RecCtorsStored`
+conjunct on projection-function-shaped recursors (`Name.isProjFnShape`,
+which `checkConstantVal` reserves for the checker's own installs, so
+only `checkProjFn` ever stores one), and unlike §1 it is NOT free: the
+clause reads the recursor's own `ConstantVal`, so it cannot ride a
+`recRuleBits`-computed bit and every `ConsHead.ofBasis`/`ofFresh` site
+that conses a recursor owes it.  **A zero-field η family has no such
+constant at all** — no table entry, no projection function — so its own
+last-stored member is the recursor, which the certificate does not look
+up; that arm needs either a recursor lookup at the use or a different
+key.  Own task.
+
+### 4. Character: de-gating, no verdict can change
+
+* **The η bit's new conjunct.**  The bit is set on strictly fewer
+  rules, so this is the one item that is not literally accept-ward, and
+  it is stated as such.  No stored rule loses it: `recRuleEtaOf`
+  already requires `caps.eta`, and every route that grants η stores the
+  constructor at the former's level parameters — the fixpoint route's
+  recogniser pins `c.1.levelParams == lps` for every constructor
+  (`nativeShape?`), the modeled route grants `eta` only under
+  `cvC.levelParams = cvT.levelParams` (`indBlockCaps`), the pinned
+  `PUnit` block is literal, and a projection function's bit is `false`
+  by `isProjFnShape`.  Official is stronger still: `add_inductive`
+  stores the type former and every constructor with the same
+  `m_lparams` (`src/kernel/inductive.cpp`, `add_core` at the inductive
+  and at `declare_constructors`), so on any environment official
+  accepts the conjunct is a theorem, and the rescue cannot be lost.
+* **The certificate's counts.**  Accept-superset: the old guard implies
+  the new one conjunct by conjunct (rewrite by the two deleted pins), so
+  every pair the certificate accepted it still accepts.  It could accept
+  more only at a stored family whose record's counts differ from its
+  constructor's, which no route builds — `nativeCaps` takes `p.nP` and
+  the constructor's own field count and `consSumCtors` stores the
+  constructor at those; `indBlockCaps` takes `nP`/`nF` off the block's
+  `ctorInfo`.  On such an environment official would not have installed
+  the block at all: `check_constructors` counts `nfields` off the same
+  syntactic telescope it validated.
+* **`EtaFamilyStored` weakened.**  A premise, not a check: weakening it
+  strengthens `CapsOk` (the law is owed more often) and can only make
+  the consumers' obligations larger, never the accepted set.
+
+Measured on `init-full`, one run per mode, `perf stat -e
+instructions:u` under `ulimit -v 16000000` and `timeout 3000`, against
+master `b83142c0`'s 675.19 G verified / 657.35 G trusted: **675.13 G
+(−0.009 %) / 657.29 G (−0.009 %)** — perf-neutral, as expected: the
+deleted tests are `Nat`/list comparisons on rescues and on stuck-defeq
+certificates.  53 088 declarations accepted in both modes, exit 0.
+
+Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green under `env -i` with every count as master's
+(90/92 arena, 181/181 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode
+flags, 3/3 prelude, 12/12 progress, 14/14 DAG tower, trusted sweep
+138+181+14 with the three recorded divergences, route census 142 fix /
+540 basis, layering 263/189/3/1 and 0/0 edges, trust surface 10 in 4 of
+465, shake 461 removals all allowlisted, overview-links 58/44),
+proofdeps 2846 rows and doors 0, axioms pinned at 12 theorems over the
+three standard.  Three `OVERVIEW.md` anchors into `Kernel/Core.lean`
+move as pure shifts of fifteen lines (the fuel knot's base case,
+`whnfLoop`, `annotateBody`); each new target was read before the
+expectation was regenerated, since `--update` alone re-snapshots the
+old anchor and would launder the citation.
 ## Task #253 — THE DRIVER'S TYPE IS THE ASSURANCE: INSTALL FIRST, CHECK AFTERWARDS, RETURN A `FullyChecked ds` (2026-09-09, `agent/twophase`)
 
 Task #238 measured an annotate-first pipeline and left a scratch

@@ -1046,18 +1046,19 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
           match env.find? T with
           | some (.indInfo cvT caps) =>
             if caps.eta = true ∧ caps.etaCtor = c ∧
-                caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
                 reservedBasisNames.contains T = false ∧
                 reservedBasisNames.contains c = false ∧
-                wtb.getAppArgs.length = cnP ∧
+                wtb.getAppArgs.length = caps.etaParams ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
                 -- the former's telescope arity
-                -- `(cvT.type.stripPis cnP).isSome` is `EnvWF`'s
-                -- `IndCapsWF` clause: established at the block's
-                -- install, read by the η row from the invariant
+                -- `(cvT.type.stripPis caps.etaParams).isSome` is
+                -- `EnvWF`'s `IndCapsWF` clause: established at the
+                -- block's install, read by the η row from the
+                -- invariant
                 -- the slot discipline (task #175 W4c): one entry kind
-                (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
+                (towerSlotsAll env T caps.etaFields ||
+                  recSlotsAll env T caps.etaFields) = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
                 if ← iotaCerts r env depth false
@@ -1065,12 +1066,12 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       us') wtb.getAppArgs then
                   -- the per-slot certificates are the projection-function
                   -- kind's; a tabled family has none (task #175 S1)
-                  if ← (if towerSlotsAll env T cnF then pure true
+                  if ← (if towerSlotsAll env T caps.etaFields then pure true
                       else structEtaProjCerts r env depth T us'
                         wtb.getAppArgs b cvT.levelParams
-                        (List.range cnF)) then
+                        (List.range caps.etaFields)) then
                     if ← defEqList r env depth
-                        (a.getAppArgs.take cnP) wtb.getAppArgs then
+                        (a.getAppArgs.take caps.etaParams) wtb.getAppArgs then
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application is certified
                       -- against the constructor's own telescope, here
@@ -1084,10 +1085,13 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                             (cvc.type.instantiateLevelParams
                               cvc.levelParams us)
                             (wtb.getAppArgs ++
-                              etaProjs env T us' wtb.getAppArgs b cnF)
+                              etaProjs env T us' wtb.getAppArgs b
+                                caps.etaFields)
                         else pure true) then
-                        defEqList r env depth (a.getAppArgs.drop cnP)
-                          (etaProjs env T us' wtb.getAppArgs b cnF)
+                        defEqList r env depth
+                          (a.getAppArgs.drop caps.etaParams)
+                          (etaProjs env T us' wtb.getAppArgs b
+                            caps.etaFields)
                       else pure false
                     else pure false
                   else pure false
@@ -1119,7 +1123,11 @@ capabilities include eta, `b` inhabits that structure type, the
 constructor's parameters are the type's arguments, and every field is
 the corresponding installed projection function applied to `b`.  The
 type application is additionally certified against the type former's
-telescope (the memberships the stored eta law consumes). -/
+telescope (the memberships the stored eta law consumes).  The
+parameter and field counts the certificate works at are the
+capability RECORD's, which is what the stored law speaks; the
+constructor's own counts gate the redex's shape and nothing else
+(`etaCtorShape`). -/
 def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   -- The constructor-shape test FIRST (the divergence audit's D13):
@@ -1309,40 +1317,38 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ust caps = true then
-                -- no constructor-telescope arity pin, as in the K branch
-                if cvj.levelParams.length = ust.length then
-                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                -- no constructor-telescope arity pin, as in the K
+                -- branch, and no level-count pin: the η bit is set
+                -- only at a constructor stored with the former's own
+                -- level parameters (`RecCtorsStored`), which the
+                -- fabrication's levels are those of
+                let fab := Expr.mkAppN (.const caps.etaCtor ust)
                     (etaFabArgsE env T ust tmaj.getAppArgs major
                       caps.etaFields)
-                  -- scope guard, as in the K branch
-                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    -- synthetic-spine certification, as in the K
-                    -- branch (task #71)
-                    if ← iotaCerts r env depth false
-                        (cvj.type.instantiateLevelParams
-                          cvj.levelParams ust)
-                        (etaFabArgsE env T ust tmaj.getAppArgs major
-                          caps.etaFields) then
-                      if ← structEtaCertWith mode r env depth fab major
-                          tmaj then
+                -- scope guard, as in the K branch
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  -- synthetic-spine certification, as in the K
+                  -- branch (task #71)
+                  if ← iotaCerts r env depth false
+                      (cvj.type.instantiateLevelParams
+                        cvj.levelParams ust)
+                      (etaFabArgsE env T ust tmaj.getAppArgs major
+                        caps.etaFields) then
+                    if ← structEtaCertWith mode r env depth fab major
+                        tmaj then
+                      pure fab
+                    -- 0-field rescue for the pinned basis `PUnit`
+                    -- (the generic certificate excludes reserved
+                    -- names): the fabrication is the bare
+                    -- constructor, certified by proof
+                    -- irrelevance's unit-likeness branch; the
+                    -- instantiated non-Prop test is already in the
+                    -- branch guard above
+                    else if caps.etaFields = 0 then
+                      if ← proofIrrel r env depth fab major then
                         pure fab
-                      -- 0-field rescue for the pinned basis `PUnit`
-                      -- (the generic certificate excludes reserved
-                      -- names): the fabrication is the bare
-                      -- constructor, certified by proof
-                      -- irrelevance's unit-likeness branch; the
-                      -- official rescue additionally requires the
-                      -- instantiated result sort to be provably
-                      -- nonzero
-                      -- 0-field rescue: the instantiated non-Prop
-                      -- test is already in the branch guard above
-                      else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length then
-                        if ← proofIrrel r env depth fab major then
-                          pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major
@@ -1403,11 +1409,19 @@ def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
   | _ => false
 
 /-- **The η-rescue bit at install** (`RecRule.eta`): the rule's
-constructor is the η constructor of a stored η-capable inductive, and
-the recursor is not itself a projection function (whose rescue would
-reduce to its own reduct and loop).  Together with the singleton rule
-list this is the standing condition of `majorToCtor`'s structure-η
-rescue. -/
+constructor is the η constructor of a stored η-capable inductive,
+carries that inductive's own level parameters, and the recursor is not
+itself a projection function (whose rescue would reduce to its own
+reduct and loop).  Together with the singleton rule list this is the
+standing condition of `majorToCtor`'s structure-η rescue.
+
+The level-parameter conjunct is what lets the rescue fabricate the
+constructor application at the major type's levels without comparing
+the two lists per call: every route that grants η stores the
+constructor at the former's level parameters (the fixpoint route's
+recogniser pins `c.1.levelParams == lps`, the modeled route grants η
+only at `cvC.levelParams = cvT.levelParams`, and the pinned `PUnit`
+block is literal), so the conjunct holds wherever the rest does. -/
 def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     Bool :=
   match find? ctor with
@@ -1415,8 +1429,9 @@ def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     match (cvj.type.piResult).getAppFn with
     | .const T _ =>
       match find? T with
-      | some (.indInfo _ caps) =>
-        caps.eta && caps.etaCtor == ctor && !Name.isProjFnShape recName
+      | some (.indInfo cvT caps) =>
+        caps.eta && caps.etaCtor == ctor && !Name.isProjFnShape recName &&
+          cvj.levelParams == cvT.levelParams
       | _ => false
     | _ => false
   | _ => false
