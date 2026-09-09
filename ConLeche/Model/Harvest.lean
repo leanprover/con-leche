@@ -321,7 +321,6 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
           obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
           exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
         (fun _ _ _ _ heq => nomatch heq),
-        (fun _ _ heq => nomatch heq),
         (fun _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
@@ -356,15 +355,14 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     exact hmemA ψ ρ
   · -- `hvalReads`
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · injection hdt with h1 h2 h3
-      show denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-            env.consts⟩ ψ 0 value2
-        = some (A ψ)
-      rw [h2]
-      exact hcomp ψ value' hcbV (hA ψ)
-    · exact nomatch hdt
+    obtain ⟨hint2, hdt⟩ := hmem
+    injection hdt with h1 h2 h3
+    show denoteMeta (acvalWith mp.base2.acval cv.name A)
+        ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+          env.consts⟩ ψ 0 value2
+      = some (A ψ)
+    rw [h2]
+    exact hcomp ψ value' hcbV (hA ψ)
   · -- `nat_heads` at the extension, from the guard agreement
     intro φ hg ρ
     show interp V ρ (acvalWith mp.base2.acval cv.name A natZeroName
@@ -528,10 +526,13 @@ three deltas are all shape:
   step is `declThmS`, which takes **no** `DivModPinS` (a theorem has
   neither the structural-`Nat` nor the div/mod pin clause, so the
   harvest sheds `hdm` too);
-* the erasure link reads the new base's `thm_ok` field where the
-  species reads `defn_eq` — the same equation, the other kind;
-* `hvalReads`'s two arms swap: the `defnInfo` arm is `nomatch` and the
-  `thmInfo` arm carries the reading.
+* there is no erasure link to read: a theorem is opaque to reduction
+  (`unfoldDefinition` has no `thmInfo` arm — anticipating
+  https://github.com/leanprover/lean4/pull/14896), so the invariant
+  keeps no equation between the value and the leaf, and `hvalReads`
+  is vacuous (its one arm is a `defnInfo`).  The value is still read
+  once, here: the leaf `A` is its reading, and `hmemA` is what makes
+  the constant an inhabitant of its statement.
 
 `DeclThmR`'s two extra conjuncts (H1's prop-check run triple and the
 semantic `.sort 0` front) are **not spent**: the type's P reading and
@@ -679,26 +680,23 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AnnotTerm}, denoteMeta mp.base2.acval env ψ 0 e = some ea →
       denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
             env.consts⟩ ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteMeta_cons_fresh_mono
         (acval := mp.base2.acval)
-        (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+        (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
   refine ⟨(declStep_preserves_of_cons mp
-    (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+    (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
     (A := A) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ heq => nomatch heq),
-        (fun _ _ heq => by
-          obtain ⟨rfl, rfl⟩ := ConstantInfo.thmInfo.inj heq
-          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
         (fun _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
@@ -709,13 +707,13 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)
-      ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+      ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
         env.consts⟩ ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteMeta (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
           env.consts⟩ ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
@@ -725,48 +723,42 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `hmemNew`
     intro ψ ta hta ρ
     replace hta : denoteMeta (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
           env.consts⟩ ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
     exact hmemA ψ ρ
-  · -- `hvalReads`: the `defn` arm is the impossible one here
+  · -- `hvalReads`: vacuous — a theorem is opaque to reduction, so the
+    -- invariant asks for no reading of its value at its leaf
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · injection hdt with h1 h2
-      show denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-            env.consts⟩ ψ 0 value2
-        = some (A ψ)
-      rw [h2]
-      exact hcomp ψ value' hcbV (hA ψ)
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value) (A := A)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
   · -- `nat_ops` at the extension: a theorem is not a definition
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value) (A := A)
       hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
       (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `div_mod`/`eq_law` at the extension: a theorem is neither a
     -- definition nor an inductive
     exact fun φ => divMod_cons_fresh (mp.div_mod φ)
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) hfresh
       (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · exact eqLaw_cons_valueKind mp.eq_law
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `caps_ok` at the extension: a value-kind cons is neither a
     -- former, nor a capability constructor, nor a projection function,
     -- so no stored family can be completed here
     exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
@@ -774,18 +766,18 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
     exact reduceOps_cons_fresh mp.reduce_ops
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) hfresh
       (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
     -- tower entry
     exact fun φ => towerOk_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
@@ -809,8 +801,8 @@ run, the crossing and `nat_heads` are all available verbatim, and
 
     ∀ ψ, (A ψ).erase = m'.cval cv.name ψ
 
-At a `def` this is the new base's `defn_eq` field and at a `theorem`
-its `thm_ok` field (`harvestDefn` / `harvestThm` above).  At an
+At a `def` this is the new base's `defn_eq` field (`harvestDefn`
+above; a theorem, opaque to reduction, has no such field).  At an
 `opaque` **neither field speaks**: v1 stores an axiom and keeps no
 equation between the discarded body and the leaf.  The equation is
 *true* — `extendValueS` values the constant by `cvalAt m.cval env
@@ -960,7 +952,6 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ heq => nomatch heq),
-        (fun _ _ heq => nomatch heq),
         (fun _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩)
       hAvclosed hnres (fun _ heq => nomatch heq)
@@ -994,9 +985,8 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     exact hmemA ψ (Ta ψ) (hTa ψ) ρ
   · -- `hvalReads`: an axiom is neither a `def` nor a `thm`
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
@@ -1212,7 +1202,6 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ heq => nomatch heq),
-        (fun _ _ heq => nomatch heq),
         (fun _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
@@ -1248,9 +1237,8 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     exact hmemA ψ ρ
   · -- `hvalReads`: an opaque stores an axiom — both arms impossible
     intro ψ cv2 value2 hmem
-    rcases hmem with ⟨hint2, hdt⟩ | hdt
-    · exact nomatch hdt
-    · exact nomatch hdt
+    obtain ⟨_, hdt⟩ := hmem
+    exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)

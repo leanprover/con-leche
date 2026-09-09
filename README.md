@@ -30,12 +30,15 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accepted incompleteness: Primitive projections are only supported
   - for structures that are not mutually recursive
   - inside the projection *functions* that the elaborator produces.
+* In anticipation of [lean4#14896](https://github.com/leanprover/lean4/pull/14896), theorem bodies are opaque. A k-rule like hack for `And` allows processing proofs built by Lean versions before that change.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axiom in the input stream.
 
   For practicality reasons, it silently *ignores* the other axiom declarations from the standard library, including `sorryAx`, but will complain if they are used.
 
   The checker (at the moment) will reject any other axiom.
+* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using `--jobs`.
+* The parser is an agentic-hand-written parser over the input bytes.
 
 ## Design of the checker proof
 
@@ -43,7 +46,7 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### The main theorem
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function, when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -56,7 +59,7 @@ Of course this is just a corollary of a stronger statement that every environmen
 
 The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker.
 
-The parser is not covered by the verification.
+The parser is not covered by the verification. The `checkDecls` function is a pure fold over the declarations. It is not what `main` actually calls, though: the real driver lives in IO (e.g. for progress printing) and returns an `env` that is provably what `checkDecls` would compute.
 
 ### Set theory assumption
 
@@ -98,6 +101,10 @@ The lean4lean project aims at something bigger: Produce a verified checker that 
 
 Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
 
+## The parser
+
+The parser is proven equivalent to a naive reference parser written over a list of bytes, but this proof is unconnected to the rest of the development. It only serves to allow performance tweaks in the parser.
+
 ## Performance
 
 This checker is rather slow, compared to the official kernel or lean4lean. See [`PERF.md`](./PERF.md) for details.
@@ -116,6 +123,7 @@ This project was published when it was barely useable – able to process mathli
 * Direct support for mutual and nested types, dropping the run-time model generation.
 * Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
+* AI-translate the implementation to a different programming language, to be relisient against runtime and compiler bugs
 
 
 ## Contributions

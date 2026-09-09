@@ -464,7 +464,7 @@ theorem extendPUnit (mp : EnvModelM V μ env)
     Nonempty (EnvModelM V μ ⟨punitA :: env.consts⟩) := by
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punit [ψ uN]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
@@ -500,7 +500,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
       (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) ψ hP
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
@@ -538,7 +538,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
@@ -596,7 +596,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨punitA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -610,7 +610,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -642,7 +642,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
       ⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -875,7 +875,7 @@ theorem extendNat (mp : EnvModelM V μ env)
     Nonempty (EnvModelM V μ ⟨natA :: env.consts⟩) := by
   refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .nat []) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
@@ -914,7 +914,7 @@ theorem extendNatZero (mp : EnvModelM V μ env)
       (A := fun _ => AnnotTerm.const .natZero []) ψ hN
   refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natZero []) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
@@ -955,7 +955,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
       (A := fun _ => AnnotTerm.const .natSucc []) ψ hN
   refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
@@ -1853,7 +1853,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
       (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) hfresh
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
@@ -1912,7 +1912,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1929,7 +1929,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1956,7 +1956,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1995,7 +1995,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hS3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq),
+      (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)

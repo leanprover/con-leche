@@ -275,18 +275,13 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     exact this
   · -- `defn_reads`
     intro ψ cv value hmem
-    have hmem₀ : (∃ hint : ConLeche.ReducibilityHint,
-        ConstantInfo.defnInfo cv value hint ∈ env₀.consts) ∨
-        ConstantInfo.thmInfo cv value ∈ env₀.consts := by
-      rcases hmem with ⟨hint, hd⟩ | hd
-      · obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
-        rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
-        · exact Or.inl ⟨hint, hc₀⟩
-        · exact nomatch heq
-      · obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
-        rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
-        · exact Or.inr hc₀
-        · exact nomatch heq
+    have hmem₀ : ∃ hint : ConLeche.ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint ∈ env₀.consts := by
+      obtain ⟨hint, hd⟩ := hmem
+      obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
+      rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
+      · exact ⟨hint, hc₀⟩
+      · exact nomatch heq
     rw [← hde]
     exact mp.defn_reads ψ cv value hmem₀
   · -- `nat_heads`

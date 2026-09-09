@@ -180,14 +180,9 @@ theorem stripPis_isSome_of_le :
             pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
               (List.range (mI - rP)).map
                 (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
-  -- theorem values unfold in reduction (like the reference kernels'
-  -- delta step), so they carry the same syntactic facts as
-  -- definition values
-  (∀ cv value, c = .thmInfo cv value →
-    value.hasFvar = false ∧
-    value.allLevelParamsDefined cv.levelParams = true ∧
-    value.constsResolve env = true ∧
-    value.looseBVarsBounded 0 = true) ∧
+  -- (a theorem's stored value carries NO clause: a theorem is opaque
+  -- to reduction and stored by its statement — the value is the
+  -- record's own, unread by the kernel and by the invariant)
   -- a projection table's bodies (task #175 S1): closed with respect to
   -- free variables, level parameters within the structure's list,
   -- resolving, and scoped at the parameters and the subject; there
@@ -211,7 +206,7 @@ theorem EnvWF.indCaps {env : Env} (henv : EnvWF env) {T : Name}
     (h : env.find? T = some (.indInfo cv caps)) :
     (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
     (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :=
-  (henv _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2.2.2 cv caps rfl
+  (henv _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2.2 cv caps rfl
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
@@ -460,13 +455,10 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
-      fun cv value heq =>
-        let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
-        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩,
       fun tbl heq =>
         let ⟨g0, g⟩ := h8 tbl heq
         ⟨g0, fun i b hb =>

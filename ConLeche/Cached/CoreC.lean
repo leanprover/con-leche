@@ -64,21 +64,14 @@ def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
   { r with infer := r.inferIO }
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is read
-through the `(name, levels)` cache).  Like the spec, theorem values
-unfold too. -/
+through the `(name, levels)` cache).  Like the spec, a theorem never
+unfolds. -/
 def unfoldDefinitionI (fe : FEnv) (e : ExprC) : CheckCM (Option ExprC) := do
   match ExprC.getAppFn e with
   | .const n us => do
     let nm ← pure n
     match fe.find? nm with
     | some (.defnInfo cv _ _) =>
-      if us.length = cv.levelParams.length then do
-        let v ← constValAtM fe n nm us
-        let args ← pure (ExprC.getAppArgs e)
-        let r ← mkAppNM v args
-        pure (some r)
-      else pure none
-    | some (.thmInfo cv _) =>
       if us.length = cv.levelParams.length then do
         let v ← constValAtM fe n nm us
         let args ← pure (ExprC.getAppArgs e)
@@ -632,6 +625,37 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       pure fab
                     else if caps.etaFields = 0 then
                       if ← proofIrrelI r fe depth fab major then
+                        pure fab
+                      else pure major
+                    else pure major
+                  else pure major
+                else pure major
+              else pure major
+            | _ => pure major
+          else if T = andName then do
+            -- the `And`-only rescue, as in the spec body
+            let tmaj₀ ← r.inferIO depth major
+            let tmaj ← r.whnf depth tmaj₀
+            match ExprC.getAppFn tmaj with
+            | .const T' ust => do
+              let margs ← pure (ExprC.getAppArgs tmaj)
+              if (← pure (T' == T)) ∧ margs.length = cnP ∧
+                  cvj.levelParams.length = ust.length ∧
+                  fe.andRescueSlotsF rl.ctor cnP ust = true then do
+                let TI ← pure T
+                let projs ← projNodesI TI major [0, 1]
+                let ctorI ← pure rl.ctor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                if ← pure (ExprC.wscopedB depth fab &&
+                    ExprC.looseBVarsBounded 0 fab &&
+                    ExprC.leafGuard fab major) then do
+                  let tyCtor ← constTyAtM fe ctorI rl.ctor ust
+                  if ← certAtI mode (iotaCertsI r fe depth false tyCtor
+                      (margs ++ projs)) then do
+                    let tfab ← r.inferIO depth fab
+                    if ← r.defeq depth tmaj tfab then
+                      if ← certAtI mode (proofIrrelI r fe depth fab major) then
                         pure fab
                       else pure major
                     else pure major

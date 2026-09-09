@@ -10,20 +10,23 @@ public import ConLeche.Kernel.Checker
 `checkDecl` (`ConLeche/Kernel/Checker.lean`) installs a declaration and
 checks it in one run.  For a `defn`, `thm` or `opaque` the two halves
 are separable: the **install half** runs the syntactic guards and the
-annotation of the type and the value and pushes the constant; the
-**check half** runs the inferences and the conversion — the type's sort,
-the theorem's is-a-proposition test, the value's type against the
-declared one — and reads only the environment the constant was
-installed at and the annotated data the install half produced.  Every
+annotation of the type — and, for a definition or an opaque, of the
+value — and pushes the constant; the **check half** runs the
+inferences and the conversion — the type's sort, the theorem's
+is-a-proposition test, for a theorem the value's guards and annotation
+(a theorem is installed by its statement; its value reaches the check
+half raw), the value's type against the declared one — and reads only
+the environment the constant was installed at and the data the
+install half produced.  Every
 other kind (axioms, inductive and basis blocks, and the pinned
 `Nat`-operation and `reduce*` branches, whose certificates are checked
 as they are installed) is not separable and its install half IS
 `checkDecl`.
 
-`checkDeclInstall` and `checkValueGroup` are the two halves as pure
-functions over `CheckerOps`, the specification the two-phase driver's
-cached twins (`annotStepC`, `checkPending`, `ConLeche/Cached/ParsedC.lean`)
-simulate; `checkDecl_of_split` / `checkDecl_split`
+`installConstantVal`, `installValue` and `checkValueGroup` are the two
+halves as pure functions over `CheckerOps`, the specification the
+fold's cached twins (`annotValueC`, `checkPending`,
+`ConLeche/Cached/Installed.lean`) simulate; `checkDecl_of_split_*`
 (`ConLeche/Verify/CheckerSplit.lean`) say the two halves are `checkDecl`.
 `ValueGroup` is the datum that crosses the seam.
 -/
@@ -45,7 +48,11 @@ def ValueKind.word : ValueKind → String
   | .opaque => "opaque"
 
 /-- What the install half hands the check half: the kind, the header
-with its type annotated, and the annotated value. -/
+with its type annotated, and the value — ANNOTATED for a definition or
+an opaque (the install half annotated it and stored it), RAW for a
+theorem (the install half never looked at it: a theorem is stored by
+its statement, and the check half annotates the value itself,
+`checkValueGroup`). -/
 structure ValueGroup where
   kind : ValueKind
   cvA : ConstantVal
@@ -92,44 +99,22 @@ def installValue (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     throw (.invalid s!"unknown constant in value of {cv.name}")
   pure value
 
-/-- **The install half of `checkDecl`**: for a separable value kind, the
-guards, the annotations and the push, returning the datum the check
-half needs; for every other kind, `checkDecl` itself. -/
-def checkDeclInstall (ops : CheckerOps m) (env : Env) :
-    Declaration → m (Env × Option ValueGroup)
-  | .defnDecl cv value hint =>
-    if natOpNames.contains cv.name || natDivModNames.contains cv.name then do
-      pure (← checkDecl mode ops env (.defnDecl cv value hint), none)
-    else do
-      let cvA ← installConstantVal ops env cv
-      let jv ← installValue ops env cvA value
-      pure (⟨.defnInfo cvA jv hint :: env.consts⟩, some ⟨.defn, cvA, jv⟩)
-  | .thmDecl cv value => do
-    let cvA ← installConstantVal ops env cv
-    let jv ← installValue ops env cvA value
-    pure (⟨.thmInfo cvA jv :: env.consts⟩, some ⟨.thm, cvA, jv⟩)
-  | .opaqueDecl cv value =>
-    if reduceOpNames.contains cv.name then do
-      pure (← checkDecl mode ops env (.opaqueDecl cv value), none)
-    else do
-      let cvA ← installConstantVal ops env cv
-      let jv ← installValue ops env cvA value
-      pure (⟨.axiomInfo cvA :: env.consts⟩, some ⟨.opaque, cvA, jv⟩)
-  | d => do
-    pure (← checkDecl mode ops env d, none)
-
 /-- **The check half of a value declaration**, at the environment the
 constant was installed at: the type's sort, the theorem's
-is-a-proposition test, and the value's type against the declared one
-— the inference and conversion calls of `checkConstantVal` and
-`check{Defn,Thm,Opaque}Val`, in their order, with their messages. -/
+is-a-proposition test, for a theorem the value's guards and annotation
+(`installValue`: a theorem's value reaches the check half raw), and
+the value's type against the declared one — the inference and
+conversion calls of `checkConstantVal` and `check{Defn,Thm,Opaque}Val`,
+in their order, with their messages. -/
 def checkValueGroup (ops : CheckerOps m) (env : Env) (g : ValueGroup) : m Unit := do
   let stype ← ops.inferType env 0 g.cvA.type
   let u ← ops.ensureSort env 0 stype
-  if g.kind = .thm then
-    unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
-      throw (.invalid s!"type of theorem {g.cvA.name} is not a proposition")
-  let vtype ← ops.inferType env 0 g.jv
+  let jv ← if g.kind = .thm then do
+      unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
+        throw (.invalid s!"type of theorem {g.cvA.name} is not a proposition")
+      installValue ops env g.cvA g.jv
+    else pure g.jv
+  let vtype ← ops.inferType env 0 jv
   unless ← ops.isDefEq env 0 vtype g.cvA.type do
     throw (.invalid s!"type mismatch in {g.kind.word} {g.cvA.name}")
 

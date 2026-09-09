@@ -214,8 +214,6 @@ theorem indMember (mp : EnvModelM V μ env) {c₀ : ConstantInfo}
     (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
           intro _ _ _ h <;> exact nomatch h)
     (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-          intro _ _ h <;> exact nomatch h)
-    (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
           intro _ h <;> exact nomatch h)
     (ConsHead.ofFresh hwf
       (fun ψ => mp.base2.cval_closedL _ ψ) hnres'

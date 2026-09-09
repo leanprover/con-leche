@@ -107,9 +107,6 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
   have hndefn : ∀ cv2 v2 h2, c₀ ≠ .defnInfo cv2 v2 h2 := by
     rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro cv2 v2 h2 heq <;> exact nomatch heq
-  have hnthm : ∀ cv2 v2, c₀ ≠ .thmInfo cv2 v2 := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-      intro cv2 v2 heq <;> exact nomatch heq
   have hnproj : ∀ entry, c₀ ≠ .projInfo entry := by
     rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro entry heq <;> exact nomatch heq
@@ -146,7 +143,6 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
     rec_rhs_denotes := ?_
     rec_params_le := ?_
     proj_ok := ?_
-    thm_ok := ?_
     nat_op_guard := ?_ }, rfl⟩
   · -- closedness: the new leaf is an old leaf
     intro n ψ
@@ -200,13 +196,6 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
   · -- the projection table: the head is no entry
     exact ProjOkT.cons m.proj_ok hfresh'
       (fun entry heq => absurd heq (hnproj entry))
-  · -- the theorem unfoldings: vacuous at the head
-    intro cv value hmem ψ
-    rcases List.mem_cons.mp hmem with h | h
-    · exact absurd h.symm (hnthm cv value)
-    · rw [show cvalModeled m.cval cvA.name cv.name = m.cval cv.name from
-        cvalWith_ne (by rw [← hc₀name]; exact hne _ h)]
-      exact hi.denoteUp (m.thm_ok cv value h ψ)
   · -- the `Nat`-op guard: the head is not a definition
     intro c hmem hst
     obtain ⟨cv, v, hh, hf⟩ := natOpStored_inv hst
@@ -265,7 +254,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
@@ -280,8 +269,6 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
         intro r hr
         rw [← h4] at hr
         exact nomatch hr
-    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-        intro cv2 v2 heq <;> exact nomatch heq
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro tbl heq <;> exact nomatch heq
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →

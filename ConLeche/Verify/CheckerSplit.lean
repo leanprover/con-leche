@@ -146,9 +146,12 @@ theorem checkValueGroup_inv {vg : ValueGroup}
       inferTypeCore μ env F 0 vg.cvA.type = .ok stype ∧
       ensureSortCore μ env F 0 stype = .ok u ∧
       (vg.kind = .thm → Level.isEquiv u .zero = some true) ∧
-      ∃ vtype,
-        inferTypeCore μ env F 0 vg.jv = .ok vtype ∧
-        isDefEqCore μ env F 0 vtype vg.cvA.type = .ok true := by
+      ∃ jv,
+        (vg.kind = .thm → installValue (fueledOps μ F) env vg.cvA vg.jv = .ok jv) ∧
+        (vg.kind ≠ .thm → jv = vg.jv) ∧
+        ∃ vtype,
+          inferTypeCore μ env F 0 jv = .ok vtype ∧
+          isDefEqCore μ env F 0 vtype vg.cvA.type = .ok true := by
   simp only [checkValueGroup, fueledOps_inferType, fueledOps_ensureSort,
     fueledOps_isDefEq, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   cases hst : inferTypeCore μ env F 0 vg.cvA.type with
@@ -161,7 +164,8 @@ theorem checkValueGroup_inv {vg : ValueGroup}
   | ok u =>
   rw [hsort] at h
   try dsimp only at h
-  -- the theorem test, then the value's typing
+  -- the theorem test and the theorem's value install, then the value's
+  -- typing
   by_cases hk : vg.kind = .thm
   · rw [if_pos hk] at h
     cases heqv : Level.isEquiv u .zero with
@@ -173,7 +177,12 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     | false => simp at h
     | true =>
     simp only [↓reduceIte] at h
-    cases hvt : inferTypeCore μ env F 0 vg.jv with
+    cases hiv : installValue (fueledOps μ F) env vg.cvA vg.jv with
+    | error e => rw [hiv] at h; exact nomatch h
+    | ok jv =>
+    rw [hiv] at h
+    try dsimp only at h
+    cases hvt : inferTypeCore μ env F 0 jv with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
@@ -184,7 +193,8 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     rw [hde] at h
     cases r with
     | false => simp at h
-    | true => exact ⟨stype, u, rfl, hsort, fun _ => heqv, vtype, rfl, hde⟩
+    | true => exact ⟨stype, u, rfl, hsort, fun _ => heqv, jv, fun _ => rfl,
+        fun hk' => absurd hk hk', vtype, hvt, hde⟩
   · rw [if_neg hk] at h
     cases hvt : inferTypeCore μ env F 0 vg.jv with
     | error e => rw [hvt] at h; exact nomatch h
@@ -197,21 +207,25 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     rw [hde] at h
     cases r with
     | false => simp at h
-    | true => exact ⟨stype, u, rfl, hsort, fun hk' => absurd hk' hk, vtype, rfl, hde⟩
+    | true => exact ⟨stype, u, rfl, hsort, fun hk' => absurd hk' hk, vg.jv,
+        fun hk' => absurd hk' hk, fun _ => rfl, vtype, hvt, hde⟩
 
-theorem checkValueGroup_of_facts {vg : ValueGroup} {stype vtype : Expr} {u : Level}
+theorem checkValueGroup_of_facts {vg : ValueGroup} {jv stype vtype : Expr} {u : Level}
     (hst : inferTypeCore μ env F 0 vg.cvA.type = .ok stype)
     (hsort : ensureSortCore μ env F 0 stype = .ok u)
     (hthm : vg.kind = .thm → Level.isEquiv u .zero = some true)
-    (hvt : inferTypeCore μ env F 0 vg.jv = .ok vtype)
+    (hjv : vg.kind = .thm → installValue (fueledOps μ F) env vg.cvA vg.jv = .ok jv)
+    (hjv' : vg.kind ≠ .thm → jv = vg.jv)
+    (hvt : inferTypeCore μ env F 0 jv = .ok vtype)
     (hde : isDefEqCore μ env F 0 vtype vg.cvA.type = .ok true) :
     checkValueGroup (fueledOps μ F) env vg = .ok () := by
   simp only [checkValueGroup, fueledOps_inferType, fueledOps_ensureSort,
-    fueledOps_isDefEq, Bind.bind, Except.bind, Pure.pure, Except.pure, hst, hsort, hvt, hde,
-    ↓reduceIte]
+    fueledOps_isDefEq, Bind.bind, Except.bind, Pure.pure, Except.pure, hst, hsort]
   by_cases hk : vg.kind = .thm
-  · simp only [if_pos hk, liftFueled, hthm hk, Pure.pure, Except.pure, ↓reduceIte]
-  · simp only [if_neg hk]
+  · simp only [if_pos hk, liftFueled, hthm hk, Pure.pure, Except.pure, ↓reduceIte, hjv hk,
+      hvt, hde]
+  · obtain rfl := hjv' hk
+    simp only [if_neg hk, hvt, hde, ↓reduceIte]
 
 /-! ## Fuel -/
 
@@ -232,9 +246,10 @@ theorem installValue_mono {F' : Nat} (hle : F ≤ F') {cv : ConstantVal} {value 
 theorem checkValueGroup_mono {F' : Nat} (hle : F ≤ F') {vg : ValueGroup}
     (h : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkValueGroup (fueledOps μ F') env vg = .ok () := by
-  obtain ⟨stype, u, hst, hsort, hthm, vtype, hvt, hde⟩ := checkValueGroup_inv h
+  obtain ⟨stype, u, hst, hsort, hthm, jv, hiv, hjv', vtype, hvt, hde⟩ := checkValueGroup_inv h
   exact checkValueGroup_of_facts (inferTypeCore_mono hle hst) (ensureSortCore_mono hle hsort)
-    hthm (inferTypeCore_mono hle hvt) (isDefEqCore_mono hle hde)
+    hthm (fun hk => installValue_mono hle (hiv hk)) hjv' (inferTypeCore_mono hle hvt)
+    (isDefEqCore_mono hle hde)
 
 /-! ## `checkDecl` from the two halves -/
 
@@ -281,7 +296,7 @@ theorem checkThmVal_of_facts {cv : ConstantVal} {value jv vtype stype : Expr} {u
     (hvr : jv.constsResolve env = true)
     (hvt : inferTypeCore μ env F 0 jv = .ok vtype)
     (hde : isDefEqCore μ env F 0 vtype cv.type = .ok true) :
-    checkThmVal (fueledOps μ F) env cv value = .ok ⟨.thmInfo cv jv :: env.consts⟩ := by
+    checkThmVal (fueledOps μ F) env cv value = .ok ⟨.thmInfo cv value :: env.consts⟩ := by
   simp only [checkThmVal, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, liftFueled, Bind.bind, Except.bind, Pure.pure, Except.pure, hst,
     hsort, heqv, hlb, hif, hann, hvp, hvr, hvt, hde, Bool.false_eq_true, ↓reduceIte]
@@ -303,6 +318,7 @@ theorem checkOpaqueVal_of_facts {cv : ConstantVal} {value jv vtype : Expr}
 theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
     {hint : ReducibilityHint} {vg : ValueGroup}
     (hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = false)
+    (hk : vg.kind = .defn)
     (hI : installConstantVal (fueledOps μ F) env cv = .ok vg.cvA)
     (hV : installValue (fueledOps μ F) env vg.cvA value = .ok vg.jv)
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
@@ -311,7 +327,8 @@ theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
   obtain ⟨hfind, hres, hshape, hnd, hlb, hif, type', hann, htp, htr, hcvA⟩ :=
     installConstantVal_inv hI
   obtain ⟨hlbv, hivf, hannv, hvp, hvr⟩ := installValue_inv hV
-  obtain ⟨stype, u, hst, hsort, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
+  obtain ⟨stype, u, hst, hsort, -, jv, -, hjv', vtype, hvt, hde⟩ := checkValueGroup_inv hC
+  obtain rfl : jv = vg.jv := hjv' (by rw [hk]; decide)
   obtain ⟨h1, h2⟩ := Bool.or_eq_false_iff.mp hnat
   rw [hcvA] at hst hvp hde ⊢
   have hcc := checkConstantVal_of_facts hfind hres hshape hnd hlb hif hann htp htr hst hsort
@@ -320,18 +337,22 @@ theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
   simp only [checkDecl, Bind.bind, Except.bind, Pure.pure, Except.pure, hcc, hdv, h1, h2,
     Bool.false_eq_true, ↓reduceIte]
 
-/-- **A theorem's two halves are `checkDecl`.** -/
+/-- **A theorem's two halves are `checkDecl`**: the header's install
+half, and the check half holding the RAW value (which it annotates
+itself). -/
 theorem checkDecl_of_split_thm {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
     (hk : vg.kind = .thm)
     (hI : installConstantVal (fueledOps μ F) env cv = .ok vg.cvA)
-    (hV : installValue (fueledOps μ F) env vg.cvA value = .ok vg.jv)
+    (hjv : vg.jv = value)
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
-      = .ok ⟨.thmInfo vg.cvA vg.jv :: env.consts⟩ := by
+      = .ok ⟨.thmInfo vg.cvA value :: env.consts⟩ := by
   obtain ⟨hfind, hres, hshape, hnd, hlb, hif, type', hann, htp, htr, hcvA⟩ :=
     installConstantVal_inv hI
+  obtain ⟨stype, u, hst, hsort, hthm, jv, hiv, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
+  have hV := hiv hk
+  rw [hjv] at hV
   obtain ⟨hlbv, hivf, hannv, hvp, hvr⟩ := installValue_inv hV
-  obtain ⟨stype, u, hst, hsort, hthm, vtype, hvt, hde⟩ := checkValueGroup_inv hC
   rw [hcvA] at hst hvp hde ⊢
   have hcc := checkConstantVal_of_facts hfind hres hshape hnd hlb hif hann htp htr hst hsort
   have htv := checkThmVal_of_facts (cv := { cv with type := type' }) hst hsort (hthm hk)
@@ -341,6 +362,7 @@ theorem checkDecl_of_split_thm {cv : ConstantVal} {value : Expr} {vg : ValueGrou
 /-- **An opaque's two halves are `checkDecl`.** -/
 theorem checkDecl_of_split_opaque {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
     (hred : reduceOpNames.contains cv.name = false)
+    (hk : vg.kind = .opaque)
     (hI : installConstantVal (fueledOps μ F) env cv = .ok vg.cvA)
     (hV : installValue (fueledOps μ F) env vg.cvA value = .ok vg.jv)
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
@@ -349,7 +371,8 @@ theorem checkDecl_of_split_opaque {cv : ConstantVal} {value : Expr} {vg : ValueG
   obtain ⟨hfind, hres, hshape, hnd, hlb, hif, type', hann, htp, htr, hcvA⟩ :=
     installConstantVal_inv hI
   obtain ⟨hlbv, hivf, hannv, hvp, hvr⟩ := installValue_inv hV
-  obtain ⟨stype, u, hst, hsort, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
+  obtain ⟨stype, u, hst, hsort, -, jv, -, hjv', vtype, hvt, hde⟩ := checkValueGroup_inv hC
+  obtain rfl : jv = vg.jv := hjv' (by rw [hk]; decide)
   rw [hcvA] at hst hvp hde ⊢
   have hcc := checkConstantVal_of_facts hfind hres hshape hnd hlb hif hann htp htr hst hsort
   have hov := checkOpaqueVal_of_facts (cv := { cv with type := type' })

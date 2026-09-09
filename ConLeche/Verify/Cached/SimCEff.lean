@@ -595,8 +595,7 @@ invariant. -/
 theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
     {n : Name} {us : List Level} {i : ExprC}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hfind : env.find? n = some (.defnInfo cv v hint) ∨
-      env.find? n = some (.thmInfo cv v))
+    (hfind : env.find? n = some (.defnInfo cv v hint))
     (hrel : RelC i (v.instantiateLevelParams cv.levelParams us)) :
     CSOK mode env { s with constValAt := s.constValAt.insert (n, us) i } := by
   refine ⟨hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
@@ -779,11 +778,10 @@ theorem constTyAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
         exact ⟨hs₂.insertConstTy hfind hrel, hrel⟩
 
 /-- `constValAtM` under the index of `env` (the head is a stored
-definition or theorem). -/
+definition). -/
 theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
     {us : List Level} {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hfind : env.find? n = some (.defnInfo cv v hint) ∨
-      env.find? n = some (.thmInfo cv v)) :
+    (hfind : env.find? n = some (.defnInfo cv v hint)) :
     CEff mode env s₀
       (fun i => RelC i (v.instantiateLevelParams cv.levelParams us))
       (constValAtM (mkFEnv env) nI n us) := by
@@ -802,14 +800,6 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
             let s := { s with constValAt := ∅ }
             { s with constValAt := mp.insert (n, us) i }
           pure i
-        | some (.thmInfo cv v) =>
-          let raw ← storedValIdxM n v
-          let i ← instLevelParamsM cv.levelParams us raw
-          modify fun s =>
-            let mp := s.constValAt
-            let s := { s with constValAt := ∅ }
-            { s with constValAt := mp.insert (n, us) i }
-          pure i
         | _ => throw (.internal "constValAtM: not a stored definition") :
         CheckCM ExprC) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
@@ -820,13 +810,11 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
     obtain ⟨cv', v'', hint', hfind', hrel⟩ := hs.constVal n us _ hl
-    rcases hfind with hfind | hfind <;>
-      rcases hfind' with hfind' | hfind' <;>
-      rw [hfind] at hfind' <;> cases hfind' <;>
-      exact ⟨hs, hrel⟩
+    rw [hfind] at hfind'
+    cases hfind'
+    exact ⟨hs, hrel⟩
   | none =>
     rw [hl] at hr
-    rcases hfind with hfind | hfind <;>
     · rw [mkFEnv_find?, hfind] at hr
       dsimp only at hr
       simp only [Bind.bind, StateT.bind, Except.bind] at hr
@@ -848,10 +836,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
             StateT.modifyGet, pure, StateT.pure, Except.pure,
             Except.ok.injEq] at hr
           obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-          first
-          | exact ⟨hs₂.insertConstVal (Or.inl hfind) hrel, hrel⟩
-          | exact ⟨hs₂.insertConstVal (hint := .opaque) (Or.inr hfind) hrel,
-              hrel⟩
+          exact ⟨hs₂.insertConstVal hfind hrel, hrel⟩
 
 /-- `ruleRhsAtM` under the index of `env`. -/
 theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}

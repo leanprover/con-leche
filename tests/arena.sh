@@ -123,6 +123,7 @@ resolve() { # <expectation-field> <suite> <fixture> <mode>
 mismatch() { # <prefix> <fixture> <want> <got>
   case "$SWEEP" in
     trusted) echo "TRUSTED-MODE DIVERGENCE $2: $want_src expects exit $3, --trusted got $4";;
+    jobs) echo "JOBS DIVERGENCE $2: $want_src expects exit $3, $MODEFLAG got $4";;
     *) echo "$1 $2: expected exit $3, got $4";;
   esac
   fail=1
@@ -448,13 +449,20 @@ prelude_count natop_before_ble.ndjson 35
 echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
 # The progress lane (`--progress[=<stride>]`, 2026-09-07; a FLAG since
-# task #229).  Two folds, one verdict: without the flag the driver runs
-# the verified `checkDecls`, with it the unverified `checkDeclsProgressIO`
-# — the same steps with a line printed before each declaration.  The
-# checks below are the contract: the lane prints, it prints EVERY
-# declaration at stride 1 (that is the localisation mode: a dying run
-# names the declaration it died in on its last line), and it changes no
-# verdict, on an accepting and on a rejecting fixture alike.
+# task #229; two phases since task #260).  One driver, one verdict: the
+# heartbeat is printed between the steps of the driver whose result
+# carries the proof that `checkDecls` returns its environment, so the
+# flag changes no verdict by construction.  The contract checked here:
+# the lane prints one line SHAPE per phase — `install <i>/<N> <decl>`
+# BEFORE every declaration at stride 1 (the localisation mode: a run
+# dying in the install phase names the declaration it died in on its
+# last line) and `check <done>/<M> <decl>` AFTER every completed check
+# (M = the recorded checks, below N) — bracketed in order by `parse
+# done`, `install done` (naming M), `check done` and the `done:`
+# summary (the three phase durations and the worker count); it prints
+# EVERY declaration and EVERY check at stride 1; and it changes no
+# verdict, on an accepting and on a rejecting fixture alike, in one
+# thread and on the pool.
 prog_ok=0
 prog_total=0
 prog_check() { # <description> <condition-result>
@@ -466,51 +474,84 @@ prog_check() { # <description> <condition-result>
   fi
 }
 # the accepting fixture: exit 0 with and without the flag, same
-# stdout verdict line, and one progress line per declaration at stride 1
+# stdout verdict line, one install line per fold record and one check
+# line per recorded check at stride 1
 prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
 prog_err1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_out1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
-prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress [0-9]')
-# one line per FOLD record: the stream's records after the built-in
-# prelude's (task #191) — the total the closing "fold done: N/N" line
-# names; the verdict line counts the stream's records only
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: install [0-9]')
+# one install line per FOLD record: the stream's records after the
+# built-in prelude's (task #191) — the total the `install done: N/N`
+# line names; the verdict line counts the stream's records only
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: [0-9]*\/\([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the flag" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
-prog_check "stride 1 prints one line per fold record" \
+prog_check "stride 1 prints one install line per fold record" \
   "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
-prog_check "the lane brackets the run (parse done / fold done)" \
-  "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
-     printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
-# the rejecting fixture: still exit 1, still naming the declaration
+# the check phase: one `check` line per recorded check, the number the
+# `install done` line names (M, below N)
+prog_lines_c=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: check [0-9]')
+prog_pending=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: .*, \([0-9]*\) checks pending.*/\1/p')
+prog_check "stride 1 prints one check line per recorded check" \
+  "$([ -n "$prog_pending" ] && [ "$prog_lines_c" = "$prog_pending" ] && \
+     [ "$prog_pending" -gt 0 ] && [ "$prog_pending" -lt "$prog_decls" ] && echo ok)"
+# the bracket lines, in order: parse done, install done, check done,
+# the summary — and every install line before every check line
+prog_order=$(printf '%s\n' "$prog_err1" | sed -n \
+  -e 's/^con-leche: parse done: .*/P/p' \
+  -e 's/^con-leche: install done: .*/I/p' \
+  -e 's/^con-leche: check done: .*/C/p' \
+  -e 's/^con-leche: done: parse .*, install .*, check .*, [0-9]* worker.*/D/p' \
+  -e 's/^con-leche: install [0-9].*/i/p' \
+  -e 's/^con-leche: check [0-9].*/c/p' | tr -d '\n')
+prog_check "the lane brackets the run in order (parse done, install…, install done, check…, check done, done)" \
+  "$(printf '%s' "$prog_order" | grep -q '^Pi*Ic*CD$' && echo ok)"
+# the rejecting fixture: still exit 1, still naming the declaration,
+# the check phase's closing line saying it failed, the summary still printed
 prog_errB=$(timeout 120 "$BIN" --progress=1 "$SPLIT_BAD" 2>&1 >/dev/null)
 prog_codeB=$?
 prog_check "stride 1 still rejects the bad fixture (exit 1)" \
   "$([ "$prog_codeB" = 1 ] && echo ok)"
 prog_check "the rejection still names the failing declaration" \
   "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
+prog_check "a failing check closes with 'check failed at' and the summary" \
+  "$(printf '%s' "$prog_errB" | grep -q '^con-leche: check failed at fold position [0-9]' && \
+     printf '%s' "$prog_errB" | grep -q '^con-leche: done: parse' && echo ok)"
 # bare --progress is stride 1, and the flag composes with the mode flag
 # in either order
 prog_errBare=$(timeout 120 "$BIN" --progress "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_errPost=$(timeout 120 "$BIN" --trusted --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_errPre=$(timeout 120 "$BIN" --progress=1 --trusted "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_check "bare --progress is stride 1" \
-  "$([ "$(printf '%s\n' "$prog_errBare" | grep -c '^con-leche: progress [0-9]')" \
+  "$([ "$(printf '%s\n' "$prog_errBare" | grep -c '^con-leche: install [0-9]')" \
       = "$prog_lines" ] && echo ok)"
 prog_check "--progress composes with --trusted in either order" \
-  "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: progress [0-9]')" \
-      = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: progress [0-9]')" ] && \
-    printf '%s' "$prog_errPost" | grep -q 'progress fold done' && echo ok)"
-# the check pass (task #253): the ONE loop installs every record, then
-# checks every recorded declaration — one `check` line per record,
-# bracketed by the `install done` line naming their number
-prog_lines2c=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress check [0-9]')
-prog_pending2=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: progress install done: \([0-9]*\) pending.*/\1/p')
-prog_check "stride 1 prints one check line per pending record" \
-  "$([ -n "$prog_pending2" ] && [ "$prog_lines2c" = "$prog_pending2" ] && [ "$prog_pending2" -gt 0 ] && echo ok)"
+  "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: install [0-9]')" \
+      = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: install [0-9]')" ] && \
+    printf '%s' "$prog_errPost" | grep -q '^con-leche: check done' && echo ok)"
+# the pool (task #260): the same lines at --jobs=4 — every check
+# reported once, the count monotone (the completed-count, from
+# whichever worker finished), the same brackets in the same order
+prog_errJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_outJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>/dev/null)
+prog_codeJ=$?
+prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\)\/.*/\1/p' | tr '\n' ' ')
+prog_orderJ=$(printf '%s\n' "$prog_errJ" | sed -n \
+  -e 's/^con-leche: parse done: .*/P/p' \
+  -e 's/^con-leche: install done: .*/I/p' \
+  -e 's/^con-leche: check done: .*/C/p' \
+  -e 's/^con-leche: done: parse .*, install .*, check .*, [0-9]* workers.*/D/p' \
+  -e 's/^con-leche: install [0-9].*/i/p' \
+  -e 's/^con-leche: check [0-9].*/c/p' | tr -d '\n')
+prog_check "--jobs=4 --progress=1: the verdict is unchanged" \
+  "$([ "$prog_outJ" = "$prog_out" ] && [ "$prog_codeJ" = "$prog_code" ] && echo ok)"
+prog_check "--jobs=4 --progress=1 reports every check once, counting up" \
+  "$([ "$prog_countsJ" = "$(seq -s ' ' 1 "$prog_pending") " ] && echo ok)"
+prog_check "--jobs=4 --progress=1 brackets the run in order, naming the workers" \
+  "$(printf '%s' "$prog_orderJ" | grep -q '^Pi*Ic*CD$' && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
 timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
 timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
@@ -525,10 +566,66 @@ prog_errEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/n
 prog_outEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
 prog_codeEnv=$?
 prog_check "CON_LECHE_PROGRESS is ignored: no heartbeat" \
-  "$([ "$(printf '%s\n' "$prog_errEnv" | grep -c '^con-leche: progress')" = 0 ] && echo ok)"
+  "$([ "$(printf '%s\n' "$prog_errEnv" | grep -c '^con-leche: \(install\|check\|parse\|done\)')" = 0 ] && echo ok)"
 prog_check "CON_LECHE_PROGRESS changes no verdict" \
   "$([ "$prog_outEnv" = "$prog_out" ] && [ "$prog_codeEnv" = "$prog_code" ] && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
+
+# The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
+# <n> threads (one worker per hardware thread without the flag;
+# --jobs=1 in the main thread with no thread at all); the results are
+# merged by record index and walked in fold order, so the verdict and
+# the declaration a rejection names are the same at every <n>.  The
+# contract checked here: the verdict and the named declaration agree
+# across worker counts on an accepting fixture, on a rejecting one,
+# and on one with TWO failing records (`badFirst` ahead of `badDecl`:
+# the first in fold order must be named whichever worker finished
+# first, and at more workers than records); a bad count is a usage
+# error.  The full arena and e2e suites re-run at --jobs=1 and
+# --jobs=4 in the sweeps at the end.  Each worker thread reserves
+# about 1 GiB of ADDRESS SPACE, so every checker run under a
+# `ulimit -v` in this battery (the tower gate's 8 GB) passes an
+# explicit count that fits; the uncapped runs use the default.
+SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
+jobs_ok=0
+jobs_total=0
+jobs_check() { # <description> <condition-result>
+  jobs_total=$((jobs_total+1))
+  if [ "$2" = ok ]; then
+    jobs_ok=$((jobs_ok+1))
+  else
+    echo "JOBS FAIL: $1"; fail=1
+  fi
+}
+jobs_ref_good=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_GOOD" 2>&1); jobs_code_good=$?
+jobs_ref_bad=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD" 2>&1); jobs_code_bad=$?
+jobs_ref_bad=$(printf '%s' "$jobs_ref_bad" | sed 's/ t=[0-9.]*s$//')
+jobs_ref_bad2=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+jobs_check "--jobs=1 accepts the good fixture" "$([ "$jobs_code_good" = 0 ] && echo ok)"
+jobs_check "--jobs=1 names badFirst on the two-failure fixture" \
+  "$(printf '%s' "$jobs_ref_bad2" | grep -q 'badFirst \[at def badFirst' && echo ok)"
+for jn in 2 4 16; do
+  j_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1); j_cg=$?
+  j_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1); j_cb=$?
+  j_bad=$(printf '%s' "$j_bad" | sed 's/ t=[0-9.]*s$//')
+  j_bad2=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+  jobs_check "--jobs=$jn: the accepting verdict is --jobs=1's" \
+    "$([ "$j_good" = "$jobs_ref_good" ] && [ "$j_cg" = "$jobs_code_good" ] && echo ok)"
+  jobs_check "--jobs=$jn: the rejection is --jobs=1's, naming the declaration" \
+    "$([ "$j_bad" = "$jobs_ref_bad" ] && [ "$j_cb" = "$jobs_code_bad" ] && [ "$j_cb" = 1 ] && echo ok)"
+  jobs_check "--jobs=$jn: the two-failure fixture names the FIRST failing record" \
+    "$([ "$j_bad2" = "$jobs_ref_bad2" ] && echo ok)"
+done
+j_def=$(timeout 120 "$BIN" "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+jobs_check "without the flag (one worker per hardware thread) the same" \
+  "$([ "$j_def" = "$jobs_ref_bad2" ] && echo ok)"
+timeout 120 "$BIN" --jobs=0 "$SPLIT_GOOD" >/dev/null 2>&1; j_c0=$?
+timeout 120 "$BIN" --jobs=x "$SPLIT_GOOD" >/dev/null 2>&1; j_cx=$?
+timeout 120 "$BIN" --jobs "$SPLIT_GOOD" >/dev/null 2>&1; j_cbare=$?
+jobs_check "--jobs=0 is a usage error (exit 3)" "$([ "$j_c0" = 3 ] && echo ok)"
+jobs_check "--jobs=x is a usage error (exit 3)" "$([ "$j_cx" = 3 ] && echo ok)"
+jobs_check "bare --jobs is a usage error (exit 3)" "$([ "$j_cbare" = 3 ] && echo ok)"
+echo "worker pool: $jobs_ok/$jobs_total as expected"
 
 # THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget
 # is gone; what stands in its place is a fixture, not a limit.
@@ -563,7 +660,10 @@ tower_check() { # <description> <condition-result>
 }
 tower_run() { # <fixture> <expected-exit> <description>
   t_code=0
-  ( ulimit -v 8000000; timeout 60 "$BIN" "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
+  # `--jobs=4`: a worker thread reserves ~1 GiB of address space, and
+  # the default is one worker per hardware thread — under this cap
+  # the default would abort at thread creation on a large machine
+  ( ulimit -v 8000000; timeout 60 "$BIN" --jobs=4 "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
     || t_code=$?
   tower_check "$3" "$([ "$t_code" = "$2" ] && echo ok)"
 }
@@ -619,6 +719,27 @@ if [ "$MODE_SWEEPS" = on ]; then
     echo "trusted sweep: DIVERGED — see the lines above" \
          "(tests/trusted-expected.txt header: what may be recorded)"
   fi
+  # The worker-count sweeps (task #260): both suites again at --jobs=1
+  # (the in-thread check loop) and at --jobs=4 (the pool), against the
+  # certified expectations — the default pass above ran at one worker
+  # per hardware thread, and the verdict must be the same at every
+  # count.  No override table: a divergence here is a bug.
+  for jn in 1 4; do
+    SWEEP=jobs
+    MODEFLAG=--jobs=$jn
+    j_fail_before=$fail
+    arena_half
+    e2e_half
+    annot_half
+    SWEEP=cert
+    MODEFLAG=""
+    if [ "$fail" = "$j_fail_before" ]; then
+      echo "--jobs=$jn sweep: $arena_checked arena + $e2e_total e2e +" \
+           "$annot_total annot as at the default worker count"
+    else
+      echo "--jobs=$jn sweep: DIVERGED — see the lines above"
+    fi
+  done
 fi
 
 exit $fail

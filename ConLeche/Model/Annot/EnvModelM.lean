@@ -894,7 +894,7 @@ Wall C step (e)) — `EnvS.toEnvFacts`'s P-side twin, and the last thing
 | `cval`, `cval_closed`, `wf`, `proj_ok` | `base2`'s own |
 | `val_params` | `acval_params`, erased |
 | `ty_denotes` | `type_reads` through `denoteMeta_erase` |
-| `defn_eq`, `thm_ok` | `defn_reads` through `denoteMeta_erase` |
+| `defn_eq` | `defn_reads` through `denoteMeta_erase` (definitions only: a theorem is opaque to reduction, and the invariant keeps no equation for its value) |
 | `rec_rhs_denotes`, `rec_params_le` | `rec_rules`' `RecRuleLaw`, whose first two components are exactly those two facts |
 | `nat_op_guard` | `nat_ops`/`div_mod` through `natOpStored_inv` |
 
@@ -913,7 +913,7 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
       denoteMeta_erase m.base2.acval_erase 0 c.toConstantVal.type hta⟩
   defn_eq := fun cv value hint hmem ψ =>
     denoteMeta_erase m.base2.acval_erase 0 value
-      (m.defn_reads ψ cv value (.inl ⟨hint, hmem⟩))
+      (m.defn_reads ψ cv value ⟨hint, hmem⟩)
   rec_rhs_denotes := fun n cv mI rP rules hf r hr hfire us ψ hlen => by
     obtain ⟨-, hus⟩ := m.rec_rules ψ n cv mI rP rules hf r hr hfire
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen
@@ -921,9 +921,6 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
   rec_params_le := fun n cv mI rP rules hf r hr hfire =>
     (m.rec_rules (fun _ => 0) n cv mI rP rules hf r hr hfire).1
   proj_ok := m.base2.proj_ok
-  thm_ok := fun cv value hmem ψ =>
-    denoteMeta_erase m.base2.acval_erase 0 value
-      (m.defn_reads ψ cv value (.inr hmem))
   nat_op_guard := fun c hmem hst => by
     obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
     rcases hmem with hm | hm
@@ -947,9 +944,8 @@ binder. -/
   type_wellDenotedV := fun c hc => nomatch hc
   mem_type := fun c hc => nomatch hc
   defn_reads := fun ψ cv value hmem => by
-    rcases hmem with ⟨hint, hdt⟩ | hdt
-    · exact nomatch hdt
-    · exact nomatch hdt
+    obtain ⟨hint, hdt⟩ := hmem
+    exact nomatch hdt
   nat_heads := fun φ hg => by
     rw [show ConLeche.natLitSupported Env.empty = false from rfl] at hg
     exact nomatch hg
