@@ -107,22 +107,28 @@ partial def conlecheDeps (env : Environment) (todo : List Name)
         conlecheDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
-/-- The seven pinned roots: the MAIN THEOREM first, then the letters it
+/-- The pinned roots: the MAIN THEOREM first, then the letters it
 is a corollary of and the assembly under those.
 
 * `main_False` — **the statement the project exists to make**
-  (`ConLeche/MainTheorem.lean`): an accepted stream, at the shipped
-  `--verified` configuration named outright, yields no constant of type
+  (`ConLeche/MainTheorem.lean`; restated at task #253): a fully checked
+  environment — the type the binary's driver returns, at the shipped
+  `--verified` configuration named outright — holds no constant of type
   `False`.  It is pinned as a root because it is what a reader checks
-  first; it should reach exactly what the letter it wraps reaches, plus
-  `ConLeche.MainTheorem` itself.  (The `Empty` main theorem and the
-  `IO`-loop one were dropped from that file on 2026-09-07 — one main
-  theorem, and one loop that the theorem is about: the printing lane
-  runs an openly unverified twin fold in `Main.lean`.)
-* `False_cached` / `Empty_cached` — **the shipped driver's letters**: the
-  checker, running the verified mode over the direct-parse cached core
-  it ships with, never accepts a stream in which some stored constant
-  has type `False` (resp. `Empty`).
+  first.
+* `False_checked` / `fullyChecked_sound` / `fullyChecked_spec` — the
+  letter on the driver's type, the model it carries, and the bridge
+  from the driver's steps to the specification
+  (`ConLeche/Verify/Cached/InstalledC.lean`).
+* `False_spec` / `fullyCheckedSpec_sound` — the specification's letter
+  and its model (`ConLeche/Model/Installed.lean`).
+* `main_fold` / `fold_spec` — the ordinary fold's letter (the main
+  theorem's statement until task #253, kept verbatim) and the fold's
+  route into the specification.
+* `False_cached` / `Empty_cached` — **the fold's letters**: the checker,
+  running the verified mode over the direct-parse cached core, never
+  accepts a stream in which some stored constant has type `False`
+  (resp. `Empty`).
 * `sound_cached` / `fold_preserves` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
@@ -130,6 +136,13 @@ is a corollary of and the assembly under those.
   about. -/
 private def roots : List (String × Name) :=
   [("main_False", `ConLeche.no_proof_of_False),
+   ("False_checked", `ConLeche.Cached.no_proof_of_False_checked),
+   ("fullyChecked_sound", `ConLeche.Cached.fullyChecked_sound),
+   ("fullyChecked_spec", `ConLeche.Cached.fullyChecked_spec),
+   ("False_spec", `ConLeche.Model.no_proof_of_False_spec),
+   ("fullyCheckedSpec_sound", `ConLeche.Model.fullyCheckedSpec_sound),
+   ("main_fold", `ConLeche.no_proof_of_False_fold),
+   ("fold_spec", `ConLeche.Cached.checkDecls_spec),
    ("False_cached", `ConLeche.Cached.no_proof_of_False_cached),
    ("False_pure", `ConLeche.Model.no_proof_of_False_pure),
    ("Empty_cached", `ConLeche.Cached.no_proof_of_Empty_cached),

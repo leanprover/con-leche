@@ -5,12 +5,17 @@ public import ConLeche.Model.Fold
 public section
 
 /-!
-# The capstone letter of the SHIPPED driver
+# The capstone letter of the pure fold `checkDecls`
 
-`checkDecls` (`ConLeche/Cached/ParsedC.lean`) is the only
-declaration driver the binary has since task #172, and
+`checkDecls` (`ConLeche/Cached/ParsedC.lean`) was the binary's only
+declaration driver from task #172 to task #253, and
 `no_proof_of_Empty_cached` is its consistency letter, on the graded
-(P) carrier.
+(P) carrier.  Since task #253 the binary's driver installs first and
+checks afterwards, and its letter is the main theorem
+`ConLeche.no_proof_of_False` on the driver's output type
+(`ConLeche/MainTheorem.lean`, `ConLeche/Verify/Cached/InstalledC.lean`);
+the fold keeps this letter as the pure reference fold, and reaches the
+same specification (`checkDecls_spec`).
 
 The fold `fold_preserves` threads the environment-free residue `CSOKF`
 across the steps — the flush lives inside the step — and takes the

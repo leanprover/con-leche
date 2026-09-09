@@ -39,21 +39,28 @@ It is under the `ConLecheTests` library (`lake test`), so it can never
 enter a capstone's own dependency closure — `tests/proofdeps.sh` would
 report the door if it ever did.
 
-**The twelve pinned theorems.**  The main theorem first — that is the
-statement a reader comes for — then the letters it is a corollary of,
-then the assembly under those, then the same letters about the pinned
-`Empty`, then the one `@[csimp]` equation the compiled equality rests
-on.  Seven of them are also `tests/proofdeps.sh`'s roots —
-`no_proof_of_False`, `no_proof_of_False_cached`, `no_proof_of_False_pure`,
-`no_proof_of_Empty_cached`, `checkDecls_sound`,
-`fold_preserves`, `no_proof_of_Empty_pure` — which pin the MODULES their proof
-terms reach.  The other four are pinned here only.  The two gates
-measure different things and neither implies the other.
+**The twenty-one pinned theorems.**  The main theorem first — that is
+the statement a reader comes for — then the letter on the driver's
+type it wraps and the assembly under it (task #253: the model a fully
+checked environment carries, the bridge to the specification, the
+specification's letter), then the ordinary fold's letters, the
+assembly under those, the same letters about the pinned `Empty`, and
+the one `@[csimp]` equation the compiled equality rests on.  Fourteen
+of them are also `tests/proofdeps.sh`'s roots (`tests/ProofDeps.lean`
+names them), which pin the MODULES their proof terms reach.  The two
+gates measure different things and neither implies the other.
 
 | theorem | what it says |
 |---|---|
-| `ConLeche.no_proof_of_False` | **THE MAIN THEOREM**: an accepted stream yields no constant of type `False` |
-| `no_proof_of_False_cached` | the shipped driver's letter, at every validating mode |
+| `ConLeche.no_proof_of_False` | **THE MAIN THEOREM**: a fully checked environment — the driver's type — holds no constant of type `False` |
+| `no_proof_of_False_checked` / `no_proof_of_Empty_checked` | the same on the driver's type at every validating mode |
+| `fullyChecked_sound` | the model a fully checked environment carries |
+| `fullyChecked_spec` | the bridge: the driver's fully checked environment is one in the specification's sense |
+| `no_proof_of_False_spec` / `no_proof_of_Empty_spec` | the specification's letters |
+| `fullyCheckedSpec_sound` | the model the specification carries |
+| `checkDecls_spec` | the ordinary fold's route into the specification |
+| `ConLeche.no_proof_of_False_fold` | the ordinary fold's letter (the main theorem's statement until task #253) |
+| `no_proof_of_False_cached` | the shipped fold's own letter, at every validating mode |
 | `no_proof_of_Empty_cached` | the same about the pinned `Empty` |
 | `checkDecls_sound` | the acceptance corollary under the driver's letters |
 | `fold_preserves` | the fold that threads the model invariant |
@@ -89,6 +96,63 @@ info: 'ConLeche.no_proof_of_False' depends on axioms: [propext, Classical.choice
 -/
 #guard_msgs in
 #print axioms ConLeche.no_proof_of_False
+
+/-! ## The driver's type and its assembly (`ConLeche/Verify/Cached/InstalledC.lean`,
+`ConLeche/Model/Installed.lean`, task #253) -/
+
+/--
+info: 'ConLeche.Cached.no_proof_of_False_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.no_proof_of_False_checked
+
+/--
+info: 'ConLeche.Cached.no_proof_of_Empty_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.no_proof_of_Empty_checked
+
+/--
+info: 'ConLeche.Cached.fullyChecked_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.fullyChecked_sound
+
+/--
+info: 'ConLeche.Cached.fullyChecked_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.fullyChecked_spec
+
+/--
+info: 'ConLeche.Model.no_proof_of_False_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.no_proof_of_False_spec
+
+/--
+info: 'ConLeche.Model.no_proof_of_Empty_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.no_proof_of_Empty_spec
+
+/--
+info: 'ConLeche.Model.fullyCheckedSpec_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.fullyCheckedSpec_sound
+
+/--
+info: 'ConLeche.Cached.checkDecls_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.checkDecls_spec
+
+/--
+info: 'ConLeche.no_proof_of_False_fold' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.no_proof_of_False_fold
 
 /-! ## The shipped driver (`ConLeche/Verify/Cached/MainC.lean`) -/
 
