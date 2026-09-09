@@ -317,6 +317,71 @@ theorem groupChecked_all {ds : List DeclC} {e : InstalledEnv mode ds}
   · exact acc i hi
   · exact groupChecked_of_ge mode e (Nat.le_of_not_lt hi)
 
+/-! ## One record's check, as evidence
+
+The driver's check phase — the in-thread loop or a pool of workers —
+runs `checkRecord` on every record.  Its result is the record's own
+evidence: on an accept the `GroupChecked` fact of that record, on a
+failure the error tagged with the record's fold position, the tag
+`checkPendingList` gives.  A worker hands back exactly this (a `Nat`
+and an erased proof, or the error), so the thread that computed a
+check is irrelevant to what it proves, and the results of any number
+of workers, in whatever order they finished, are assembled into
+`∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
+results in record order, which is also what makes the verdict of a
+pool the verdict of the walk `checkPendingList`: the first failing
+record in fold order.  Nothing here is `IO`. -/
+
+/-- Record `k`'s check: its `GroupChecked` fact, or the error tagged with
+its fold position. -/
+def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
+    (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
+  match h : checkPending mode e.fe e.pend[k] {} with
+  | .ok ((), _) => .ok ⟨groupChecked_of_run mode e hk h⟩
+  | .error err => .error (err, e.pend[k].pos)
+
+/-- A checked record: its index with its `GroupChecked` fact — a `Nat`
+at run time. -/
+abbrev CheckedRecord {ds : List DeclC} (e : InstalledEnv mode ds) : Type :=
+  { k : Nat // GroupChecked mode e k }
+
+/-- A worker's result for one record: the checked record, or the error
+tagged with the record's fold position. -/
+abbrev RecordResult {ds : List DeclC} (e : InstalledEnv mode ds) : Type :=
+  Except (CheckError × Nat) (CheckedRecord mode e)
+
+/-- Record `k`'s check as a worker's result. -/
+def checkRecordResult {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
+    (hk : k < e.pend.size) : RecordResult mode e :=
+  match checkRecord mode e k hk with
+  | .ok ⟨h⟩ => .ok ⟨k, h⟩
+  | .error err => .error err
+
+/-- **The results, assembled in record order.**  Slot `j` of the table
+must hold record `j`'s result; the walk carries the facts of the
+records below `j` and stops at the first failure — the walk's verdict
+is therefore `checkPendingList`'s whatever order the results were
+produced in.  A slot that is empty or holds another record's result is
+an internal error (a pool that did not do its job), never a verdict on
+the input. -/
+def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
+    (tab : Array (Option (RecordResult mode e))) :
+    (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
+      Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
+  | j, acc =>
+    if hj : j < e.pend.size then
+      match tab[j]? with
+      | some (some (.ok ⟨k, hk⟩)) =>
+        if h : k = j then
+          collectChecks e tab (j + 1) (groupChecked_extend mode acc (h ▸ hk))
+        else .error (.internal s!"check phase: slot {j} holds record {k}", e.pend[j].pos)
+      | some (some (.error err)) => .error err
+      | _ => .error (.internal s!"check phase: record {j} was never checked", e.pend[j].pos)
+    else
+      .ok ⟨groupChecked_all mode
+        (fun i hi => acc i (Nat.lt_of_lt_of_le hi (Nat.le_of_not_lt hj)))⟩
+  termination_by j => e.pend.size - j
+
 /-! ## The fold, and the fully checked environment it is
 
 `checkDecls` is phase A as a `foldlM` over the records and phase B as a
