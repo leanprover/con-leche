@@ -87,10 +87,13 @@ reader wants before pointing the checker at all of Mathlib.
 The check phase runs on `--jobs=<n>` worker threads; the parse and
 the install phase before it are sequential.  Wall time on a shared
 machine is **indicative only** — `instructions:u` above is the
-measurement, and it is taken in the one-thread lane.  The
-instruction count barely moves with the worker count (12.85 T at one
-worker against 12.10 T at four, on `mathlib-full`), so what the extra
-threads buy is overlapped memory stalls, not divided work.
+measurement, and it is taken in the one-thread lane.  What is
+observed, on `mathlib-full`: the instruction count barely moves with
+the worker count — 12.85 T at one worker against 12.10 T at four —
+while the one-worker lane retires 3.6 G instructions per second and
+each of four workers about 10.6 G.  So these wall times are not the
+same work divided by the worker count; what the difference is due to
+is not attributed here.
 
 | stream | `--jobs=1` | `--jobs=4` | `--jobs=8` |
 |---|---|---|---|

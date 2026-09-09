@@ -66261,16 +66261,18 @@ probe checks in 295 s against the marked run's 247 s — the mark is
 worth ~16 % of the pool's wall at this scale, not 14×).  The
 instruction counts are nearly flat across the worker counts (12.85 T at
 one worker, 12.10 T at four, 12.23 T at four unmarked), so the extra
-threads are not dividing work: **the two-phase fold's check phase is
-memory-latency-bound at Mathlib scale** — a single thread runs it at
-3.58 G instructions per second against a pool worker's ~10.6 G — and
-what the workers overlap is stall time.  PERF.md states the wall times
-and that one sentence, and computes no speed-up.
+threads are not dividing work: a single thread runs the phase at
+3.58 G instructions per second against a pool worker's ~10.6 G.  The
+shape is that of a memory-latency-bound phase whose stalls the workers
+overlap, but **that is a hypothesis, not an attribution** — no
+cycles/stall counters were taken, and this task did not chase it.
+PERF.md states the wall times and the two rates as an observation, and
+computes no speed-up.
 
 For the same reason the `mathlib-full` instruction cells are ~36 %
 below the previous table's while the one-worker wall is ~37 % above it
-(3594 s against 2614 s): fewer instructions, worse locality.  Worth a
-perf task on its own; not this one's work.
+(3594 s against 2614 s): fewer instructions, more time to retire them.
+Worth a perf task on its own; not this one's work.
 
 ### 3. Pruned from PERF.md
 
