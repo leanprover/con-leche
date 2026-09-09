@@ -64558,7 +64558,19 @@ per-record `GroupChecked` facts and needs no proof of its own.
 (+3.77 %) / 675.58 G (+2.77 %)**, 53 088 declarations
 accepted in every cell, exit 0.  The delta is the price of §1's fresh
 state per record and of the check's cold memos, which task #238 had
-measured at +1.5 % (V3-cold, residue kept).
+measured at +1.5 % (V3-cold, residue kept).  Accepted for the landing;
+the obvious lever is a WARM phase B — the fold never started a
+declaration from an empty memo either, and a phase B that threads one
+state across the records (its `CSOKF` established by the same chain of
+simulations the model induction runs, i.e. `GroupChecked` stated over a
+residue-carrying state rather than `{}`) would recover most of the
+difference.  Follow-up, not this task.  After the merge with task #252
+(master `5d26f46a`, 675.13 G verified) the verified cell re-measured at
+700.56 G (+3.77 %).
+
+`README.md` still quotes the fold-shaped statement under the name
+`no_proof_of_False`; that statement is now `no_proof_of_False_fold`.
+README is the maintainer's file and is left for the maintainer.
 
 **A proof-term-gate artefact, named.**  `tests/proofdeps.sh` reports
 `ConLeche.Verify.Cached.KnotCongr` in the closures of the four fold
