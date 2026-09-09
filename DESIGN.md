@@ -51195,8 +51195,8 @@ search-and-replace:
 **1. Absolute paths (11 of them).**  `DESIGN.md`, `PERF.md`,
 `perf-data/meta.txt`, `docs/SetR-DESIGN.md` and
 `docs/retrospective-2026-09-01.md` spelled the *checkout directory* out in
-full — `/home/joachim/<old-name>/_tmp/…` and
-`/home/joachim/<old-name>/.claude/worktrees/…`.  That directory is not renamed
+full — `<checkout>/_tmp/…` and
+`<checkout>/.claude/worktrees/…`.  That directory is not renamed
 by this task (and could not be: the user owns the path), so substituting inside
 those strings would have produced eleven paths that do not exist.  They were
 rewritten to `<main-checkout>/…` instead — the form that is true now and stays
@@ -51504,9 +51504,9 @@ Setlec → ConLeche rename, so its own output says `setlec`):
 
     # run-progress.sh tag=accept (SETLEC_PROGRESS=1 — THE ACCEPTANCE RUN; the exit code is the verdict)
     # start   2026-09-06T18:08:44+00:00 (epoch 1788718124)
-    # binary  22e087c94376640fbe7af51d5d8f12f0  /home/joachim/setlec/.claude/worktrees/frontier4/.lake/build/bin/setlec
+    # binary  22e087c94376640fbe7af51d5d8f12f0  <checkout>/.claude/worktrees/frontier4/.lake/build/bin/setlec
     # mode    --verified --pre
-    # stream  /home/joachim/setlec/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
+    # stream  <checkout>/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
     # limits  ulimit -v 22000000 KB, timeout 28800 s
     setlec: accepted 695202 declarations (--verified)
     # end     2026-09-06T19:05:45+00:00
@@ -52709,7 +52709,7 @@ audit 169/0 unrecognised, prelude counts 3/3, e2e 101/101), full audit
 775/0, init-full stock 58 604 / 58 604 and regenerated 53 890 / 53 890
 (exit 0 — the verdict line now counts STREAM RECORDS per #191, exactly
 1 945 below the environment-constant counts above), the cone accepts.  **The Presieve cone**: cut from the raw Mathlib export with
-the String-support constants (`/home/joachim/setlec/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
+the String-support constants (`<checkout>/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
 the sigmahom slicer fixed for lean4export's key-sorted raw records —
 `"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
 the child scan must start at the line's head), preprocessed with the
@@ -54654,15 +54654,15 @@ corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    1    
 corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0      0.14s       99M  con-leche: accepted 11 declarations (--verified)
 corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0      0.17s       86M  con-leche: accepted 10 declarations (--verified)
 corner-cases/imax-right-successor          either  accept  reject     0    0      0.10s       66M  con-leche: accepted 2 declarations (--verified)
-corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
+corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
 corner-cases/proj-maybe-prop               either  accept  accept     0    0      0.13s       98M  con-leche: accepted 15 declarations (--verified)
 corner-cases/proj-maybe-prop-past          either  accept  accept     0    0      0.14s       99M  con-leche: accepted 15 declarations (--verified)
 corner-cases/proof-param-ok                accept  accept  accept     0    0      0.21s       96M
-corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
+corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
 corner-cases/subject-reduction-redex       either  accept  accept     0    0      0.36s       95M  con-leche: accepted 114 declarations (--verified)
 corner-cases/subject-reduction-reduct      either  reject  reject     1    1      0.28s       89M  con-leche: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
-ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
-extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
+ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
+extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
 init-prelude                               accept  accept  accept     0    0      1.01s      121M
 k-rec-conv                                 reject  reject  reject     1    1      0.14s      100M
 large-elim-param                           reject  reject  reject     1    2 *    0.13s       99M
@@ -54674,8 +54674,8 @@ nat-rec-k-lie                              reject  decline reject     2    2    
 nat-rec-rules                              reject  decline reject     2    2      0.14s       98M  con-leche: declined: the preprocessor declined to model a block (re-run con-leche-preprocess without --quiet for th
 nested-nonuniform-param                    either  accept  reject     0    0      0.17s      102M  con-leche: accepted 91 declarations (--verified)
 nested-unused-param                        reject  reject  reject     1    2 *    0.14s      102M
-orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
-orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
+orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
+orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
 perf/app-lam                               accept  accept  accept     0    0     57.82s     4061M
 perf/args-before-unfold                    accept  accept  accept     0    0      0.58s       97M
 perf/beta-ladder                           accept  accept  accept     0    0     12.81s      890M
@@ -54701,7 +54701,7 @@ proj-of-stuck-prop                         reject  decline reject     2    2    
 proj-of-subst-prop                         reject  decline reject     2    2      0.37s       93M  con-leche: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold po
 proof-irrel                                accept  decline accept     2    2      0.06s       68M  con-leche: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
 rec-k-lie                                  reject  reject  reject     1    2 *    0.22s       85M
-rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
+rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
 rec-of-subst-prop                          reject  decline reject     2    2      0.43s       98M  con-leche: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (-
 sparse-name-index                          accept  decline accept     2    2      0.06s       68M  con-leche: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
 ```

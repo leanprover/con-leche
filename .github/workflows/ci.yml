@@ -26,6 +26,8 @@
 #                                                no build and no
 #                                                separate step here:
 #                                                arena.sh is its caller
+#                      * tests/no-local-paths.sh no absolute home paths
+#                                                in tracked files
 #                      * tests/shake.sh          `lake shake`'s import
 #                                                proposals against
 #                                                tests/shake-allowlist.txt,

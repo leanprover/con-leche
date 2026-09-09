@@ -177,6 +177,9 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
+# Repo content must not reference local (absolute home) paths.
+if tests/no-local-paths.sh; then :; else fail=1; fi
+
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
 # compiler answers for neither: is an import LINE needed at all (`lake shake`,
 # read against task #223's criterion and an allowlist of the proposals that
