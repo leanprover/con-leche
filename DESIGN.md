@@ -66168,4 +66168,43 @@ chunking test of task #256 stays as the gate.
 
 ### 6. Gates and numbers
 
-TO BE FILLED.
+On the tree merged with master `0167f51b` (tasks #264, #265): `lake
+build` warning-free; `lake test` warning-free (the evaluation battery
+and the `#guard_msgs` axiom pin under it); `tests/arena.sh` under
+`env -i` EXIT=0 with every count as master's — arena 90/92, e2e
+185/185, annot 14/14, retired flags 8/8, mode flags 18/18, prelude 3/3,
+progress 13/13, DAG-tower 14/14, the trusted sweep with its three
+recorded divergences; layering 0 impl->theory; proofdeps 3367 rows
+across 10 roots as pinned, doors 0; the axiom pin unchanged (16
+theorems at the standard three; the frontend's theorem is pinned in
+`ScanTests.lean` rather than `Axioms.lean`, so the count did not move);
+trust surface 12 escapes in 5 allowlisted files, 0 outside; shake 460
+removals all allowlisted; overview-links 72/47 OK.
+
+`#print axioms scanLineSpec_eq_scanLineFwd`:
+`[propext, Classical.choice, Quot.sound]`.
+
+The compiled scanner: the generated C of `ExportC.lean` differs from
+master's only in the module-initialiser lines the `Equiv` import adds
+(three calls to `scanLineFwd`, none to `scanLineSpec`), and
+`Fast.lean`'s only in the two cold-path compares of §4 and the
+temporaries renumbered after them.  The binary is therefore not
+byte-identical (it links the spec's modules and carries the fixes),
+and the instruction count is the measurement:
+
+| `init-full`, `--jobs=1` | master `0167f51b` | this branch | |
+|---|---|---|---|
+| `--verified` | 543.539 G | 543.519 G | −0.004 % |
+| `--trusted` | 526.118 G | 526.098 G | −0.004 % |
+
+53 088 declarations accepted, exit 0, in every run (`ulimit -v
+32000000`, `timeout 3600`, `perf stat -e instructions:u`, master's
+binary built from `git archive 0167f51b` on the same machine).  The
+earlier run against the pre-merge tree gave 561.20 G / 536.17 G against
+the brief's 561.21 G / 536.13 G, the same ±0.
+
+(Measured with `--jobs=1`: since task #265 the default worker count is
+the hardware thread count — 96 on this box — and 96 worker stacks at
+1 GiB each exceed any `ulimit -v`, which the run rule requires; the
+serial run is the like-for-like comparison with the numbers the brief
+gave.)
