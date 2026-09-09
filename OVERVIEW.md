@@ -12,13 +12,22 @@ The binary reads a Lean export in `lean4export`'s NDJSON format and
 prints one verdict line:
 
 ```
-con-leche [--verified|--trusted] FILE.ndjson
+con-leche [--verified|--trusted] [--progress[=<stride>]] FILE.ndjson
+con-leche --help
 ```
 
-`--verified` is the default and the mode the theorem is about;
-`--trusted` runs the same checker bodies with the certification-only
-work switched off, is faster, and is outside the theorem
+That is every flag the binary takes. `--verified` is the default and
+the mode the theorem is about; `--trusted` runs the same checker bodies
+with the certification-only work switched off, is faster, and is
+outside the theorem; `--progress[=<stride>]` turns on a heartbeat on
+stderr (below); `--help` prints the usage text and exits 0
 ([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L518)).
+A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
+`--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
+`--check-range[=<r>]` — is never a silent alias: it is rejected with a
+message naming what stands in its place, so a verdict's provenance can
+be read off the invocation.
+
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
 
@@ -38,12 +47,14 @@ Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
 then `exit(1)` — which no code of ours can catch, so the stderr message
 is what tells it apart from a reject.
 
-The flag `--progress[=<stride>]` prints a heartbeat line before every
-`stride`-th declaration on stderr (bare, the stride is 1). It is
-printed between the steps of the one driver, which returns its
-environment together with the proof that `checkDecls` — the function
-the theorem is about — returns it (see §2), so a run with the flag is
-covered exactly as a run without it.
+The flag `--progress[=<stride>]` prints a heartbeat on stderr: one line
+before every `stride`-th record is installed and one before every
+`stride`-th recorded declaration is checked (bare, the stride is 1),
+with a line at the end of the parse, of the install phase and of the
+fold. The lines are printed between the steps of the one driver, which
+returns its environment together with the proof that `checkDecls` — the
+function the theorem is about — returns it (see §2), so a run with the
+flag is covered exactly as a run without it.
 
 ## 1. What is proved
 
