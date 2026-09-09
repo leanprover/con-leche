@@ -41,10 +41,12 @@ number, and there are three per line); a run of at most 18 digits
 accumulates in a machine word and anything longer in `Nat`, which
 overflows into GMP by itself, so a `natVal` literal needs no special
 case.  A key is classified by its first byte and its LENGTH — which
-leaves at most four candidates — and then one literal compare; the
-length comes from the scan to the closing quote that has to happen
-anyway.  A line's end is found by the record scanner itself: only the
-handful of bytes after the closing brace are looked at again.
+leaves at most four candidates — and then one compare of the rest;
+the length comes from the scan to the closing quote that has to
+happen anyway.  That compare is UNROLLED against byte literals (task
+#264), so no string constant is materialised and nothing is called.
+A line's end is found by the record scanner itself: only the handful
+of bytes after the closing brace are looked at again.
 -/
 
 namespace ConLeche.Frontend
@@ -111,10 +113,10 @@ decreasing_by
 
 /-! ## Keys
 
-A key is classified by its first byte and then by one literal
-compare, the closing quote included — so `"i"` is never mistaken for
-`"ie"`.  `keyLen` (`ConLeche/Frontend/Scan/Types.lean`) gives the
-position after the key without a second scan. -/
+A key is classified by its first byte and its length together — the
+length is what keeps `"i"` from being mistaken for `"ie"` — and then
+by an inline compare of the bytes between the two.  `keyEnd` gives
+the position after the key without a second scan. -/
 
 /-- The bytes of `lit` from `k` on match `b` from `i` on. -/
 def matchLit (b : @& ByteArray) (i : USize) (lit : @& ByteArray) (k : USize) : Bool :=
@@ -143,215 +145,302 @@ termination_by b.size - j.toNat
 decreasing_by
   have := usizeInBounds b j h; have := usizeStep b j h; omega
 
+/-! ### The key tails, compared inline
+
+A key's remaining bytes are compared by an unrolled chain of `byteAt`
+equalities against `UInt8` LITERALS, not against a `ByteArray` built
+from a `String` constant: a string literal in this position is a heap
+object the code generator materialises through a `lean_obj_once` cell
+on first use and then walks with a call, and the classifier runs once
+per key of every line.  `byteAt` reads `0` past the end of the array
+and no key byte is `0`, so a chain that runs off the line is `false` —
+exactly what a literal compare against a short line gives (task #264).
+-/
+
+/-- The byte at `i` is `c0`. -/
+@[inline] def lit1 (b : @& ByteArray) (i : USize) (c0 : UInt8) : Bool :=
+  byteAt b i == c0
+
+/-- The two bytes from `i` on are `c0` and `c1`. -/
+@[inline] def lit2 (b : @& ByteArray) (i : USize) (c0 c1 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1
+
+/-- The 3 bytes from `i` on are `c0` … `c2`. -/
+@[inline] def lit3 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2
+
+/-- The 4 bytes from `i` on are `c0` … `c3`. -/
+@[inline] def lit4 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3
+
+/-- The 5 bytes from `i` on are `c0` … `c4`. -/
+@[inline] def lit5 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4
+
+/-- The 6 bytes from `i` on are `c0` … `c5`. -/
+@[inline] def lit6 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 &&
+    byteAt b (i + 5) == c5
+
+/-- The 7 bytes from `i` on are `c0` … `c6`. -/
+@[inline] def lit7 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 &&
+    byteAt b (i + 5) == c5 && byteAt b (i + 6) == c6
+
+/-- The 8 bytes from `i` on are `c0` … `c7`. -/
+@[inline] def lit8 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 &&
+    byteAt b (i + 5) == c5 && byteAt b (i + 6) == c6 &&
+    byteAt b (i + 7) == c7
+
+/-- The 9 bytes from `i` on are `c0` … `c8`. -/
+@[inline] def lit9 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 c8 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 &&
+    byteAt b (i + 5) == c5 && byteAt b (i + 6) == c6 &&
+    byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8
+
+/-- The 10 bytes from `i` on are `c0` … `c9`. -/
+@[inline] def lit10 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 &&
+    byteAt b (i + 5) == c5 && byteAt b (i + 6) == c6 &&
+    byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8 &&
+    byteAt b (i + 9) == c9
+
 /-- Classify the key whose opening quote is at `i` and whose length
 is `kl` bytes: a switch on the first byte, then on the length — which
-leaves at most four candidates — and one literal compare of the rest.
-A key outside the dialect is `kUnknown`, which every slot loop
-rejects. -/
+leaves at most four candidates — and an unrolled `litN` compare of
+the rest.  A key outside the dialect is `kUnknown`, which every slot
+loop rejects. -/
 def keyAt (b : @& ByteArray) (i : USize) (kl : USize) : Key :=
+  let j := i + 1 + 1
   match byteAt b (i + 1) with
   | 97 =>   -- 'a'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "pp".toUTF8 0 then .kApp
-      else if matchLit b (i + 1 + 1) "rg".toUTF8 0 then .kArg
-      else if matchLit b (i + 1 + 1) "ll".toUTF8 0 then .kAll
+      if lit2 b j 112 112 then .kApp  -- "app"
+      else if lit2 b j 114 103 then .kArg  -- "arg"
+      else if lit2 b j 108 108 then .kAll  -- "all"
       else .kUnknown
     else if kl == 5 then
-      if matchLit b (i + 1 + 1) "xiom".toUTF8 0 then .kAxiom
+      if lit4 b j 120 105 111 109 then .kAxiom  -- "axiom"
       else .kUnknown
     else .kUnknown
   | 98 =>   -- 'b'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "ody".toUTF8 0 then .kBody
-      else if matchLit b (i + 1 + 1) "var".toUTF8 0 then .kBvar
+      if lit3 b j 111 100 121 then .kBody  -- "body"
+      else if lit3 b j 118 97 114 then .kBvar  -- "bvar"
       else .kUnknown
     else if kl == 10 then
-      if matchLit b (i + 1 + 1) "inderInfo".toUTF8 0 then .kBinderInfo
+      if lit9 b j 105 110 100 101 114 73 110 102 111 then
+        .kBinderInfo  -- "binderInfo"
       else .kUnknown
     else .kUnknown
   | 99 =>   -- 'c'
     if kl == 5 then
-      if matchLit b (i + 1 + 1) "onst".toUTF8 0 then .kConst
-      else if matchLit b (i + 1 + 1) "tors".toUTF8 0 then .kCtors
+      if lit4 b j 111 110 115 116 then .kConst  -- "const"
+      else if lit4 b j 116 111 114 115 then .kCtors  -- "ctors"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "tor".toUTF8 0 then .kCtor
-      else if matchLit b (i + 1 + 1) "idx".toUTF8 0 then .kCidx
+      if lit3 b j 116 111 114 then .kCtor  -- "ctor"
+      else if lit3 b j 105 100 120 then .kCidx  -- "cidx"
       else .kUnknown
     else .kUnknown
   | 100 =>   -- 'd'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "ef".toUTF8 0 then .kDef
+      if lit2 b j 101 102 then .kDef  -- "def"
       else .kUnknown
     else .kUnknown
   | 102 =>   -- 'f'
     if kl == 2 then
-      if matchLit b (i + 1 + 1) "n".toUTF8 0 then .kFn
+      if lit1 b j 110 then .kFn  -- "fn"
       else .kUnknown
     else if kl == 7 then
-      if matchLit b (i + 1 + 1) "orallE".toUTF8 0 then .kForallE
+      if lit6 b j 111 114 97 108 108 69 then .kForallE  -- "forallE"
       else .kUnknown
     else .kUnknown
   | 104 =>   -- 'h'
     if kl == 5 then
-      if matchLit b (i + 1 + 1) "ints".toUTF8 0 then .kHints
+      if lit4 b j 105 110 116 115 then .kHints  -- "hints"
       else .kUnknown
     else .kUnknown
   | 105 =>   -- 'i'
     if kl == 2 then
-      if matchLit b (i + 1 + 1) "e".toUTF8 0 then .kIe
-      else if matchLit b (i + 1 + 1) "n".toUTF8 0 then .kIn
-      else if matchLit b (i + 1 + 1) "l".toUTF8 0 then .kIl
+      if lit1 b j 101 then .kIe  -- "ie"
+      else if lit1 b j 110 then .kIn  -- "in"
+      else if lit1 b j 108 then .kIl  -- "il"
       else .kUnknown
     else if kl == 1 then
       .kI
     else if kl == 3 then
-      if matchLit b (i + 1 + 1) "dx".toUTF8 0 then .kIdx
+      if lit2 b j 100 120 then .kIdx  -- "idx"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "max".toUTF8 0 then .kImax
+      if lit3 b j 109 97 120 then .kImax  -- "imax"
       else .kUnknown
     else if kl == 9 then
-      if matchLit b (i + 1 + 1) "nductive".toUTF8 0 then .kInductive
+      if lit8 b j 110 100 117 99 116 105 118 101 then
+        .kInductive  -- "inductive"
       else .kUnknown
     else if kl == 5 then
-      if matchLit b (i + 1 + 1) "sRec".toUTF8 0 then .kIsRec
+      if lit4 b j 115 82 101 99 then .kIsRec  -- "isRec"
       else .kUnknown
     else if kl == 11 then
-      if matchLit b (i + 1 + 1) "sReflexive".toUTF8 0 then .kIsReflexive
+      if lit10 b j 115 82 101 102 108 101 120 105 118 101 then
+        .kIsReflexive  -- "isReflexive"
       else .kUnknown
     else if kl == 8 then
-      if matchLit b (i + 1 + 1) "sUnsafe".toUTF8 0 then .kIsUnsafe
+      if lit7 b j 115 85 110 115 97 102 101 then .kIsUnsafe  -- "isUnsafe"
       else .kUnknown
     else if kl == 6 then
-      if matchLit b (i + 1 + 1) "nduct".toUTF8 0 then .kInduct
+      if lit5 b j 110 100 117 99 116 then .kInduct  -- "induct"
       else .kUnknown
     else .kUnknown
   | 107 =>   -- 'k'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "ind".toUTF8 0 then .kKind
+      if lit3 b j 105 110 100 then .kKind  -- "kind"
       else .kUnknown
     else if kl == 1 then
       .kK
     else .kUnknown
   | 108 =>   -- 'l'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "am".toUTF8 0 then .kLam
+      if lit2 b j 97 109 then .kLam  -- "lam"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "etE".toUTF8 0 then .kLetE
+      if lit3 b j 101 116 69 then .kLetE  -- "letE"
       else .kUnknown
     else if kl == 11 then
-      if matchLit b (i + 1 + 1) "evelParams".toUTF8 0 then .kLevelParams
+      if lit10 b j 101 118 101 108 80 97 114 97 109 115 then
+        .kLevelParams  -- "levelParams"
       else .kUnknown
     else .kUnknown
   | 109 =>   -- 'm'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "ax".toUTF8 0 then .kMax
+      if lit2 b j 97 120 then .kMax  -- "max"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "eta".toUTF8 0 then .kMeta
+      if lit3 b j 101 116 97 then .kMeta  -- "meta"
       else .kUnknown
     else .kUnknown
   | 110 =>   -- 'n'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "ame".toUTF8 0 then .kName
+      if lit3 b j 97 109 101 then .kName  -- "name"
       else .kUnknown
     else if kl == 3 then
-      if matchLit b (i + 1 + 1) "um".toUTF8 0 then .kNum
+      if lit2 b j 117 109 then .kNum  -- "num"
       else .kUnknown
     else if kl == 6 then
-      if matchLit b (i + 1 + 1) "atVal".toUTF8 0 then .kNatVal
-      else if matchLit b (i + 1 + 1) "ondep".toUTF8 0 then .kNondep
+      if lit5 b j 97 116 86 97 108 then .kNatVal  -- "natVal"
+      else if lit5 b j 111 110 100 101 112 then .kNondep  -- "nondep"
       else .kUnknown
     else if kl == 7 then
-      if matchLit b (i + 1 + 1) "fields".toUTF8 0 then .kNfields
+      if lit6 b j 102 105 101 108 100 115 then .kNfields  -- "nfields"
       else .kUnknown
     else if kl == 9 then
-      if matchLit b (i + 1 + 1) "umParams".toUTF8 0 then .kNumParams
-      else if matchLit b (i + 1 + 1) "umFields".toUTF8 0 then .kNumFields
-      else if matchLit b (i + 1 + 1) "umMinors".toUTF8 0 then .kNumMinors
-      else if matchLit b (i + 1 + 1) "umNested".toUTF8 0 then .kNumNested
+      if lit8 b j 117 109 80 97 114 97 109 115 then
+        .kNumParams  -- "numParams"
+      else if lit8 b j 117 109 70 105 101 108 100 115 then
+        .kNumFields  -- "numFields"
+      else if lit8 b j 117 109 77 105 110 111 114 115 then
+        .kNumMinors  -- "numMinors"
+      else if lit8 b j 117 109 78 101 115 116 101 100 then
+        .kNumNested  -- "numNested"
       else .kUnknown
     else if kl == 10 then
-      if matchLit b (i + 1 + 1) "umIndices".toUTF8 0 then .kNumIndices
-      else if matchLit b (i + 1 + 1) "umMotives".toUTF8 0 then .kNumMotives
+      if lit9 b j 117 109 73 110 100 105 99 101 115 then
+        .kNumIndices  -- "numIndices"
+      else if lit9 b j 117 109 77 111 116 105 118 101 115 then
+        .kNumMotives  -- "numMotives"
       else .kUnknown
     else .kUnknown
   | 111 =>   -- 'o'
     if kl == 6 then
-      if matchLit b (i + 1 + 1) "paque".toUTF8 0 then .kOpaque
+      if lit5 b j 112 97 113 117 101 then .kOpaque  -- "opaque"
       else .kUnknown
     else .kUnknown
   | 112 =>   -- 'p'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "re".toUTF8 0 then .kPre
+      if lit2 b j 114 101 then .kPre  -- "pre"
       else .kUnknown
     else if kl == 5 then
-      if matchLit b (i + 1 + 1) "aram".toUTF8 0 then .kParam
+      if lit4 b j 97 114 97 109 then .kParam  -- "param"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "roj".toUTF8 0 then .kProj
+      if lit3 b j 114 111 106 then .kProj  -- "proj"
       else .kUnknown
     else if kl == 2 then
-      if matchLit b (i + 1 + 1) "w".toUTF8 0 then .kPw
+      if lit1 b j 119 then .kPw  -- "pw"
       else .kUnknown
     else .kUnknown
   | 113 =>   -- 'q'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "uot".toUTF8 0 then .kQuot
+      if lit3 b j 117 111 116 then .kQuot  -- "quot"
       else .kUnknown
     else .kUnknown
   | 114 =>   -- 'r'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "ecs".toUTF8 0 then .kRecs
+      if lit3 b j 101 99 115 then .kRecs  -- "recs"
       else .kUnknown
     else if kl == 5 then
-      if matchLit b (i + 1 + 1) "ules".toUTF8 0 then .kRules
+      if lit4 b j 117 108 101 115 then .kRules  -- "rules"
       else .kUnknown
     else if kl == 3 then
-      if matchLit b (i + 1 + 1) "hs".toUTF8 0 then .kRhs
+      if lit2 b j 104 115 then .kRhs  -- "rhs"
       else .kUnknown
     else if kl == 7 then
-      if matchLit b (i + 1 + 1) "egular".toUTF8 0 then .kRegular
+      if lit6 b j 101 103 117 108 97 114 then .kRegular  -- "regular"
       else .kUnknown
     else .kUnknown
   | 115 =>   -- 's'
     if kl == 3 then
-      if matchLit b (i + 1 + 1) "tr".toUTF8 0 then .kStr
+      if lit2 b j 116 114 then .kStr  -- "str"
       else .kUnknown
     else if kl == 4 then
-      if matchLit b (i + 1 + 1) "ort".toUTF8 0 then .kSort
-      else if matchLit b (i + 1 + 1) "ucc".toUTF8 0 then .kSucc
+      if lit3 b j 111 114 116 then .kSort  -- "sort"
+      else if lit3 b j 117 99 99 then .kSucc  -- "succ"
       else .kUnknown
     else if kl == 6 then
-      if matchLit b (i + 1 + 1) "truct".toUTF8 0 then .kStruct
-      else if matchLit b (i + 1 + 1) "trVal".toUTF8 0 then .kStrVal
-      else if matchLit b (i + 1 + 1) "afety".toUTF8 0 then .kSafety
+      if lit5 b j 116 114 117 99 116 then .kStruct  -- "struct"
+      else if lit5 b j 116 114 86 97 108 then .kStrVal  -- "strVal"
+      else if lit5 b j 97 102 101 116 121 then .kSafety  -- "safety"
       else .kUnknown
     else .kUnknown
   | 116 =>   -- 't'
     if kl == 4 then
-      if matchLit b (i + 1 + 1) "ype".toUTF8 0 then .kType
+      if lit3 b j 121 112 101 then .kType  -- "type"
       else .kUnknown
     else if kl == 8 then
-      if matchLit b (i + 1 + 1) "ypeName".toUTF8 0 then .kTypeName
+      if lit7 b j 121 112 101 78 97 109 101 then .kTypeName  -- "typeName"
       else .kUnknown
     else if kl == 3 then
-      if matchLit b (i + 1 + 1) "hm".toUTF8 0 then .kThm
+      if lit2 b j 104 109 then .kThm  -- "thm"
       else .kUnknown
     else if kl == 5 then
-      if matchLit b (i + 1 + 1) "ypes".toUTF8 0 then .kTypes
+      if lit4 b j 121 112 101 115 then .kTypes  -- "types"
       else .kUnknown
     else .kUnknown
   | 117 =>   -- 'u'
     if kl == 2 then
-      if matchLit b (i + 1 + 1) "s".toUTF8 0 then .kUs
+      if lit1 b j 115 then .kUs  -- "us"
       else .kUnknown
     else .kUnknown
   | 118 =>   -- 'v'
     if kl == 5 then
-      if matchLit b (i + 1 + 1) "alue".toUTF8 0 then .kValue
+      if lit4 b j 97 108 117 101 then .kValue  -- "value"
       else .kUnknown
     else .kUnknown
   | _ => .kUnknown
