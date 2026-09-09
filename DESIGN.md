@@ -66208,3 +66208,59 @@ the hardware thread count — 96 on this box — and 96 worker stacks at
 1 GiB each exceed any `ulimit -v`, which the run rule requires; the
 serial run is the like-for-like comparison with the numbers the brief
 gave.)
+
+### Post-landing: the same A/B on the shipped binary, at two larger scales
+
+Re-measured on master's own binary through `--no-mark-persistent`,
+which is what that flag is for.  Same method (interleaved pairs, three
+repetitions, minima, within-pair ordering the only evidence).
+
+**`init-full` again, both modes, three reps** — the landing reproduces
+the branch cell for cell: instructions −1.48 % / −1.46 % flat, cycles
+−17.5 % at two workers to −42.1 % (verified) and −48.6 % (trusted) at
+sixteen, wall −14.6 % to −28.6 %, **faster in 24 of 24 pairs**.  The
+deltas run 1–5 points milder than the pre-landing sweep because this
+one overlapped the full-Mathlib pair below for part of its duration;
+the instruction column, which load cannot move, is identical to three
+digits.
+
+**The 1.5 GB Mathlib prefix** (162 092 declarations, 160 028 recorded
+checks; `ulimit -v 32000000`, three reps, verified).  Here the
+`--progress` phase durations separate the mark's effect from the serial
+floor, and that is the row to read:
+
+| jobs | instructions | cycles | wall | **check phase** | maxRSS |
+|---|---|---|---|---|---|
+| 2 | −1.04 % | −9.0 % | −8.2 % (167.7 → 153.9 s) | **−9.3 %** (119.4 → 108.3 s) | +0.4 % |
+| 4 | −1.05 % | −17.6 % | −13.2 % (115.2 → 99.9 s) | **−18.7 %** (67.5 → 54.9 s) | +1.2 % |
+| 8 | −1.05 % | −24.5 % | −13.4 % (85.4 → 74.0 s) | **−24.9 %** (38.6 → 29.0 s) | +0.1 % |
+| 16 | −1.05 % | −33.6 % | −12.7 % (70.1 → 61.1 s) | **−32.2 %** (23.6 → 16.0 s) | +1.4 % |
+
+**12 of 12 pairs**, and the check phase — the only phase the mark
+touches — moves with the worker count exactly as on init-full
+(−9 → −32 %), while the whole-run wall flattens near −13 % because
+parse + install ≈ 45 s is an ever larger share of what remains.  That
+is the mark's shape stated correctly: it is a *check-phase* effect, and
+what a run sees of it depends on how much of the run is the check
+phase.
+
+**All of Mathlib** (`mathlib-full.ndjson`, 5.6 GB, `--verified
+--jobs=8`, one pair, `ulimit -v 32000000`): **654 499 declarations
+accepted both ways**; 12 238.7 → 12 108.9 G instructions (−1.06 %),
+6 560.8 → 5 313.9 G cycles (**−19.0 %**), 378.9 → 338.2 s wall
+(**−10.7 %**, forty-one seconds), branch-misses −2.5 %, peak RSS
+8 422 → 8 490 MB (+0.8 %).  **No copy-and-leak at 8.5 GB**, the largest
+environment the mark has been tried on, which is the scale the concern
+was really about.  This pair ran concurrently with the init-full sweep
+above, so its absolute wall would be lower on a quiet box; both halves
+were equally loaded and ran back to back, so the ordering stands.
+
+**Method footnote for the next lane.**  Two concurrent measurement jobs
+shared one set of scratch filenames for the `perf`/`time` output, so a
+counter read could in principle have picked up the other job's file.
+Every row was checked against its scale — 44 init-full cells all
+init-full-sized, both Mathlib cells Mathlib-sized, no cross-scale value
+anywhere — so nothing here is affected; the harness now gives each
+label its own scratch files.  A `grep` for the phase line also needs
+`-a`: a Mathlib-scale stderr contains bytes that make it bail as
+binary.
