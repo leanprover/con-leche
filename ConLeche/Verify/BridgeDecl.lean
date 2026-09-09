@@ -740,13 +740,27 @@ theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF]
 
+theorem checkNativePass_datF (env : Env) (p : NativeParts) (isRec : Bool) (F : Nat) :
+    (checkNativePass (fueledOpsM mode) env p isRec).val F =
+      checkNativePass (fueledOps mode F) env p isRec := by
+  unfold checkNativePass
+  simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumInd_datF, checkSumCtors_datF,
+    classifyFixKinds_datF]
+
+theorem checkNativeTail_datF (env : Env) (q : NativePass Env) (F : Nat) :
+    (checkNativeTail (fueledOpsM mode) env q).val F =
+      checkNativeTail (fueledOps mode F) env q := by
+  unfold checkNativeTail
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, checkNativeTable_datF, checkNativeRec_datF, unwrapOr_atF,
+    checkStructFieldSortsI_datF]
+
 theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
     (checkNative (fueledOpsM mode) env p).val F =
       checkNative (fueledOps mode F) env p := by
   unfold checkNative
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkSumInd_datF, checkSumCtors_datF, checkNativeTable_datF,
-    checkNativeRec_datF, unwrapOr_atF, checkStructFieldSortsI_datF, classifyFixKinds_datF]
+    FueledM.atF_ite, checkNativePass_datF, checkNativeTail_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first

@@ -472,47 +472,47 @@ theorem checkNativeTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
     · exact Yields.pure h
   · exact Yields.pure h
 
-theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) :
-    Yields (checkNativeS mode fe p) (fun fe' => PushChain env fe') := by
-  unfold checkNativeS
-  -- the front guard: the distinct constructor names
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
-  case main =>
-  ybind
-  -- the provisional pass: nothing of it is kept
-  refine Yields.bind fun rP => ?_
-  obtain ⟨feP, cvTaP, p₁P⟩ := rP
-  try simp only []
-  ybind
-  refine Yields.bind fun rP₂ => ?_
-  obtain ⟨ctorsP, sortssP⟩ := rP₂
-  try simp only []
-  refine Yields.bind fun kinds => ?_
-  ybind
+/-- One pass (task #268): the former's cons keeps the chain, the
+constructors are the block's by name and fresh at its environment. -/
+theorem checkNativePassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (p : NativeParts) (isRec : Bool) :
+    Yields (checkNativePassS mode fe p isRec)
+      (fun r => PushChain env r.1.env₁ ∧ r.1.p.ctors = p.ctors ∧
+        r.1.ctorsA.map (·.1.name) = r.1.p.ctors.map (·.1.name) ∧
+        ∀ c ∈ r.1.ctorsA, r.1.env₁.find? c.1.name = none) := by
+  unfold checkNativePassS
   refine Yields.bind' (checkSumIndF_push h _ p.toInductiveShape
-    (fun p₁ => nativeCaps ((p.complete p₁).withKinds kinds))) fun r₁ h₁ => ?_
+    (fun p₁ => nativeCapsAt p₁ isRec)) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa, p₁⟩ := r₁
   obtain ⟨h₁, s, hps⟩ := h₁
   try simp only [] at hps
   subst hps
   try simp only []
-  generalize hp' : (p.complete (p.toInductiveShape.withSort s)).withKinds kinds = p'
-  have hp'C : p'.ctors = p.ctors := by
-    rw [← hp']; simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
+  ybind
+  refine Yields.bind' (checkSumCtorsF_fresh _ fe₁ fe₁ _ _ _ _ _ _ _ cvTa _) fun r hr => ?_
+  obtain ⟨ctorsA, sortss⟩ := r
+  obtain ⟨hns, hfrs⟩ := hr
+  try simp only []
+  refine Yields.bind fun kinds => ?_
+  refine Yields.pure ⟨h₁, ?_, ?_, hfrs⟩
+  · simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
+  · rw [hns]
+    simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
+
+/-- The install after the pass keeps the chain. -/
+theorem checkNativeTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    {q : NativePass FEnv} (h₁ : PushChain env q.env₁)
+    (hnd : (q.p.ctors.map (·.1.name)).Nodup)
+    (hns : q.ctorsA.map (·.1.name) = q.p.ctors.map (·.1.name))
+    (hfrs : ∀ c ∈ q.ctorsA, q.env₁.find? c.1.name = none) :
+    Yields (checkNativeTailS mode fe q) (fun fe' => PushChain env fe') := by
+  unfold checkNativeTailS
   -- the elimination restriction, on the completed record
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?elim) (fun _ => Yields.ofThrowBind)
   case elim =>
   ybind
-  refine Yields.bind fun _tq => ?_
   refine Yields.bind fun _isorts => ?_
-  refine Yields.bind' (checkSumCtorsF_fresh _ fe₁ fe₁ p'.cvT.name
-    p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa p'.ctors)
-    fun r hr => ?_
-  obtain ⟨ctorsA, sortss⟩ := r
-  obtain ⟨hns, hfrs⟩ := hr
   try simp only []
   try ylet
   split
@@ -523,25 +523,58 @@ theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   case isFalse => exact Yields.ofThrowBind
   case isTrue _ =>
   ybind
-  have hbase : PushChain env (consSumCtorsF p'.nP ctorsA fe₁) := by
-    refine consSumCtorsF_push p'.nP h₁ ⟨?_, ?_⟩
-    · rw [hns, hp'C]; exact hnd
+  have hbase : PushChain env (consSumCtorsF q.p.nP q.ctorsA q.env₁) := by
+    refine consSumCtorsF_push q.p.nP h₁ ⟨?_, ?_⟩
+    · rw [hns]; exact hnd
     · intro n hn
       obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
       rw [← h₁.find?]
       exact hfrs c hc
-  refine Yields.bind' (checkNativeRecF_fresh _ (consSumCtorsF p'.nP ctorsA fe₁) p' cvTa
-    ctorsA) fun r₃ h₃ => ?_
+  refine Yields.bind' (checkNativeRecF_fresh _ (consSumCtorsF q.p.nP q.ctorsA q.env₁) q.p q.cvTa
+    q.ctorsA) fun r₃ h₃ => ?_
   obtain ⟨cvRa, rhss⟩ := r₃
   obtain ⟨hnR, hfrR⟩ := h₃
   try simp only [] at hnR hfrR
   try simp only []
-  have hpush := hbase.push (ci := .recInfo cvRa p'.majorIdx p'.rulePrefix
-    (sumRules (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name
-      p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss))
-    (by show (consSumCtorsF p'.nP ctorsA fe₁).find? cvRa.name = none
+  have hpush := hbase.push (ci := .recInfo cvRa q.p.majorIdx q.p.rulePrefix
+    (sumRules (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name
+      q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss))
+    (by show (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name = none
         rw [hnR]; exact hfrR)
-  exact checkNativeTableF_push hpush p' ctorsA sortss
+  exact checkNativeTableF_push hpush q.p q.ctorsA q.sortss
+
+theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (p : NativeParts) :
+    Yields (checkNativeS mode fe p) (fun fe' => PushChain env fe') := by
+  unfold checkNativeS
+  -- the front guard: the distinct constructor names
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
+  case main =>
+  ybind
+  -- the pass at the syntactic reading, and again where it overshot
+  refine Yields.bind' (checkNativePassS_push mode h p (nativeRawRec p)) fun r hr => ?_
+  obtain ⟨q, settled⟩ := r
+  obtain ⟨h₁, hpC, hns, hfrs⟩ := hr
+  try simp only [] at h₁ hpC hns hfrs
+  try simp only []
+  cases settled with
+  | true =>
+    simp only [↓reduceIte]
+    exact checkNativeTailS_push mode h₁ (by rw [hpC]; exact hnd) hns hfrs
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  ybind
+  refine Yields.bind' (checkNativePassS_push mode h p (nativeIsRec q.p.kinds)) fun r' hr' => ?_
+  obtain ⟨q', settled'⟩ := r'
+  obtain ⟨h₁', hpC', hns', hfrs'⟩ := hr'
+  try simp only [] at h₁' hpC' hns' hfrs'
+  try simp only []
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue _ =>
+  exact checkNativeTailS_push mode h₁' (by rw [hpC']; exact hnd) hns' hfrs'
 
 /-! ## The declaration clause and the two drivers' steps -/
 
