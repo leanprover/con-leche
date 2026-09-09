@@ -46,9 +46,9 @@ weaker; there is no second lane to be separated from.*
 
 ## WHAT IT MEASURES NOW
 
-A **frozen module-level dependency pin**: for each of the six
-pinned roots (the two main theorems and the four capstone letters and
-assembly lemmas under them), the exact set of `ConLeche.*` modules its type and
+A **frozen module-level dependency pin**: for each of the ten
+pinned roots (the main theorem, the letters it is a corollary of and
+the assembly lemmas under them), the exact set of `ConLeche.*` modules its type and
 proof term reach, transitively, at the constant level.  The expectation
 is `tests/proofdeps-expected.txt` and the gate is a diff, so any drift
 shows up as a named module appearing or disappearing — which is the
@@ -111,43 +111,34 @@ partial def conlecheDeps (env : Environment) (todo : List Name)
 is a corollary of and the assembly under those.
 
 * `main_False` — **the statement the project exists to make**
-  (`ConLeche/MainTheorem.lean`; restated at task #253): a fully checked
-  environment — the type the binary's driver returns, at the shipped
-  `--verified` configuration named outright — holds no constant of type
-  `False`.  It is pinned as a root because it is what a reader checks
-  first.
-* `False_checked` / `fullyChecked_sound` / `fullyChecked_spec` — the
-  letter on the driver's type, the model it carries, and the bridge
-  from the driver's steps to the specification
-  (`ConLeche/Verify/Cached/InstalledC.lean`).
-* `False_spec` / `fullyCheckedSpec_sound` — the specification's letter
-  and its model (`ConLeche/Model/Installed.lean`).
-* `main_fold` / `fold_spec` — the ordinary fold's letter (the main
-  theorem's statement until task #253, kept verbatim) and the fold's
-  route into the specification.
+  (`ConLeche/MainTheorem.lean`): what the fold `checkDecls` accepts at
+  the shipped `--verified` configuration, named outright, holds no
+  constant of type `False`.  It is pinned as a root because it is what
+  a reader checks first.
 * `False_cached` / `Empty_cached` — **the fold's letters**: the checker,
-  running the verified mode over the direct-parse cached core, never
+  running a validating mode over the direct-parse cached core, never
   accepts a stream in which some stored constant has type `False`
-  (resp. `Empty`).
-* `sound_cached` / `fold_preserves` — the acceptance corollary and the fold
-  under it, pinned separately so a change in the assembly is visible
-  even when the letter's own closure is unmoved.
+  (resp. `Empty`) (`ConLeche/Verify/Cached/MainC.lean`).
+* `sound_cached` — the acceptance corollary: the model an accept of the
+  fold carries.
+* `fold_checked` / `checked_fold` — the two transfer theorems: the
+  driver's fully checked environment is an accept of the fold, and
+  every accept is one (`ConLeche/Cached/Installed.lean`).
+* `False_checked` / `fullyChecked_sound` — the letter on the driver's
+  fully checked environment and the model it carries, the walk along
+  the install run (`ConLeche/Verify/Cached/InstalledC.lean`).
 * `False_pure` / `Empty_pure` — the pure fueled checker the graded tower is stated
   about. -/
 private def roots : List (String × Name) :=
   [("main_False", `ConLeche.no_proof_of_False),
-   ("False_checked", `ConLeche.Cached.no_proof_of_False_checked),
-   ("fullyChecked_sound", `ConLeche.Cached.fullyChecked_sound),
-   ("fullyChecked_spec", `ConLeche.Cached.fullyChecked_spec),
-   ("False_spec", `ConLeche.Model.no_proof_of_False_spec),
-   ("fullyCheckedSpec_sound", `ConLeche.Model.fullyCheckedSpec_sound),
-   ("main_fold", `ConLeche.no_proof_of_False_fold),
-   ("fold_spec", `ConLeche.Cached.checkDecls_spec),
    ("False_cached", `ConLeche.Cached.no_proof_of_False_cached),
-   ("False_pure", `ConLeche.Model.no_proof_of_False_pure),
    ("Empty_cached", `ConLeche.Cached.no_proof_of_Empty_cached),
    ("sound_cached", `ConLeche.Cached.checkDecls_sound),
-   ("fold_preserves", `ConLeche.Cached.fold_preserves),
+   ("fold_checked", `ConLeche.Cached.fullyChecked_checkDecls),
+   ("checked_fold", `ConLeche.Cached.checkDecls_fullyChecked),
+   ("False_checked", `ConLeche.Cached.no_proof_of_False_checked),
+   ("fullyChecked_sound", `ConLeche.Cached.fullyChecked_sound),
+   ("False_pure", `ConLeche.Model.no_proof_of_False_pure),
    ("Empty_pure", `ConLeche.Model.no_proof_of_Empty_pure)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per

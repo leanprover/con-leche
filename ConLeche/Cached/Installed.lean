@@ -6,12 +6,16 @@ public import ConLeche.Kernel.CheckerSplit
 @[expose] public section
 
 /-!
-# Installed environments, checked groups, fully checked environments
-(task #253)
+# The declaration fold: install first, check afterwards
 
-The binary's ONE driver (`Main.lean`) separates INSTALLING a declaration
-from CHECKING it, and its output type is the assurance that it did what
-it claims:
+`checkDecls mode ds` is the verified implementation: the pure fold the
+consistency theorem is stated about (`ConLeche.no_proof_of_False`,
+`ConLeche/MainTheorem.lean`), and the algorithm the binary's driver
+(`Main.lean`) runs — the driver's loops are this fold's two phases with
+a heartbeat between the steps, and the driver returns its environment
+together with the proof that `checkDecls` returns it
+(`fullyChecked_checkDecls`).  The fold separates INSTALLING a
+declaration from CHECKING it:
 
 * **Phase A** folds `annotDeclStep` over the parsed records: a
   `defn`/`thm`/`opaque` record is annotated and INSTALLED without its
@@ -34,22 +38,19 @@ it claims:
   the installed environment, record `i`, and nothing else — a
   proposition workers can establish independently of one another.
 * `FullyChecked mode ds` is the subtype of installed environments every
-  record of which is checked, and `FullyChecked.assemble` the
-  assembly.  The consistency theorem is stated on it
-  (`ConLeche.no_proof_of_False`, `ConLeche/MainTheorem.lean`): whoever
-  holds a `FullyChecked .verified ds` holds an environment with no
-  constant of type `False`, whatever loop — pure, printing, parallel —
-  produced it.
+  record of which is checked: the driver's intermediate, assembled by
+  `FullyChecked.assemble` from what its two loops carry.  **A fully
+  checked environment is exactly an accept of the fold**:
+  `fullyChecked_checkDecls` says `checkDecls` returns its environment,
+  `checkDecls_fullyChecked` that every accept yields one.
 
 Nothing here is `IO`: the driver's loops in `Main.lean` run these
 steps and carry their accepting runs as the proofs the subtypes ask
-for.  The verdict is the ordinary fold's (`checkDecls`) on every accept
-— both are `FullyCheckedSpec` environments
-(`ConLeche/Verify/Cached/InstalledC.lean`) — and a phase-B failure is
-tagged with the FOLD POSITION of the declaration it checks
-(`PendingCheck.pos`), as the fold's errors are.  The two may report a
-stream that fails for two reasons at different positions: phase A
-annotates a value before the fold would have inferred the type's sort.
+for.  A rejection carries the FOLD POSITION of the declaration it
+names (`annotDeclStep` tags its error with the position, a phase-B
+failure with `PendingCheck.pos`), so the driver reports the
+declaration by indexing the record array it already holds, with no
+second pass.
 -/
 
 namespace ConLeche.Cached
@@ -149,8 +150,10 @@ def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
   | pd => do
     pure (← checkDeclStepC mode fe pd, pend)
 
-/-- Phase A's step with the position carried and the error tagged,
-exactly as `checkDeclStep` does. -/
+/-- Phase A's step with the position carried and the error tagged: the
+accumulator is `(i, fe, pend)`, and a failing step reports the
+`CheckError` together with `i`, the fold position of the declaration
+that failed. -/
 def annotDeclStep (p : Nat × FEnv × Array PendingCheck) (pd : DeclC) :
     StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array PendingCheck) :=
   fun s =>
@@ -168,6 +171,22 @@ inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CS
   | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
       {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
       (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
+
+/-- The tagged step's accept is the body's accept at the next position. -/
+theorem annotDeclStep_ok {mode : CheckMode} {p : Nat × FEnv × Array PendingCheck}
+    {pd : DeclC} {s : CState} {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+    (h : annotDeclStep mode p pd s = .ok (q, s')) :
+    ∃ fe' pend', q = (p.1 + 1, fe', pend') ∧
+      annotStepC mode p.1 p.2.1 p.2.2 pd s = .ok ((fe', pend'), s') := by
+  unfold annotDeclStep at h
+  cases hs : annotStepC mode p.1 p.2.1 p.2.2 pd s with
+  | error e => rw [hs] at h; exact nomatch h
+  | ok r =>
+    obtain ⟨⟨fe', pend'⟩, s₁⟩ := r
+    rw [hs] at h
+    simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fe', pend', rfl, rfl⟩
 
 /-- A run extends at its end by one accepting step: what a loop that
 carries the run of the records it has consumed uses at each step. -/
@@ -234,11 +253,11 @@ def FullyChecked.env {ds : List DeclC} (fc : FullyChecked mode ds) : Env := fc.1
 
 /-! ## The records' checks, in the type
 
-A loop over the records that carries the checks it has established:
+The driver's check loop carries the checks it has established —
 `GroupChecked` of every record below `k`, extended one record at a
-time.  `checkRecord` is the one step both the pure fold and the driver's
-printing loop take; the accumulator's extension and the closing
-argument are the two lemmas beside it. -/
+time — and these are its three lemmas: a record's check as its
+`GroupChecked` fact, the accumulator's extension, and the closing
+argument. -/
 
 /-- Record `k`'s check, as its `GroupChecked` fact. -/
 theorem groupChecked_of_run {ds : List DeclC} (e : InstalledEnv mode ds) {k : Nat}
@@ -275,5 +294,141 @@ theorem groupChecked_all {ds : List DeclC} {e : InstalledEnv mode ds}
   by_cases hi : i < e.pend.size
   · exact acc i hi
   · exact groupChecked_of_ge mode e (Nat.le_of_not_lt hi)
+
+/-! ## The fold, and the fully checked environment it is
+
+`checkDecls` is phase A as a `foldlM` over the records and phase B as a
+walk over the records.  An accepting `InstallRun` is an accepting
+`foldlM` and conversely; every record checked is the walk's accept and
+conversely; so a `FullyChecked mode ds` and an accept of `checkDecls`
+are the same evidence in two dressings.  The lemmas are self-contained
+(they use nothing but the definitions above — the `Std.HashMap`
+exception in CLAUDE.md), so they live beside the fold: a `Verify`
+module holding them would enter every capstone's proof closure. -/
+
+/-- Phase B as a pure walk: every record checked from a fresh memo
+state, a failure tagged with the record's fold position. -/
+def checkPendingList (fe : FEnv) : List PendingCheck → Except (CheckError × Nat) Unit
+  | [] => .ok ()
+  | pc :: rest =>
+    match checkPending mode fe pc {} with
+    | .ok _ => checkPendingList fe rest
+    | .error e => .error (e, pc.pos)
+
+/-- **The declaration fold**: install every record (phase A), check
+every recorded declaration (phase B), return the environment. -/
+def checkDecls (mode : CheckMode) (ds : List DeclC) :
+    Except (CheckError × Nat) Env := do
+  let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
+  checkPendingList mode p.2.1 p.2.2.toList
+  pure p.2.1.env
+
+/-- An accepting run is an accepting `foldlM`. -/
+theorem InstallRun.foldlM {ds : List DeclC} {p p' : Nat × FEnv × Array PendingCheck}
+    {s s' : CState} (h : InstallRun mode ds p s p' s') :
+    (ds.foldlM (annotDeclStep mode) p) s = .ok (p', s') := by
+  induction h with
+  | nil p s => rfl
+  | cons hstep _ ih =>
+    rw [List.foldlM_cons]
+    simp only [Bind.bind, StateT.bind, hstep, Except.bind]
+    exact ih
+
+/-- An accepting `foldlM` is an accepting run. -/
+theorem InstallRun.of_foldlM :
+    ∀ (ds : List DeclC) (p : Nat × FEnv × Array PendingCheck) (s : CState)
+      {p' : Nat × FEnv × Array PendingCheck} {s' : CState},
+      (ds.foldlM (annotDeclStep mode) p) s = .ok (p', s') →
+      InstallRun mode ds p s p' s'
+  | [], p, s, p', s', h => by
+    simp only [List.foldlM_nil, pure, StateT.pure, Except.pure, Except.ok.injEq,
+      Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact .nil p s
+  | pd :: ds, p, s, p', s', h => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, StateT.bind] at h
+    cases hstep : annotDeclStep mode p pd s with
+    | error e => simp only [hstep, Except.bind] at h; exact nomatch h
+    | ok r =>
+      obtain ⟨p₁, s₁⟩ := r
+      simp only [hstep, Except.bind] at h
+      exact .cons hstep (InstallRun.of_foldlM ds p₁ s₁ h)
+
+/-- Every record checked is the walk's accept. -/
+theorem checkPendingList_ok (fe : FEnv) :
+    ∀ (l : List PendingCheck),
+      (∀ pc ∈ l, ∃ s', checkPending mode fe pc {} = .ok ((), s')) →
+      checkPendingList mode fe l = .ok ()
+  | [], _ => rfl
+  | pc :: rest, h => by
+    obtain ⟨s', hpc⟩ := h pc List.mem_cons_self
+    unfold checkPendingList
+    rw [hpc]
+    exact checkPendingList_ok fe rest fun pc' hpc' => h pc' (List.mem_cons_of_mem _ hpc')
+
+/-- The walk's accept checks every record. -/
+theorem checkPendingList_records (fe : FEnv) :
+    ∀ (l : List PendingCheck), checkPendingList mode fe l = .ok () →
+      ∀ pc ∈ l, ∃ s', checkPending mode fe pc {} = .ok ((), s')
+  | [], _, _, hpc => (List.not_mem_nil hpc).elim
+  | pc :: rest, h, pc', hpc' => by
+    unfold checkPendingList at h
+    cases hchk : checkPending mode fe pc {} with
+    | error e => rw [hchk] at h; exact nomatch h
+    | ok r =>
+      obtain ⟨⟨⟩, s'⟩ := r
+      rw [hchk] at h
+      rcases List.mem_cons.mp hpc' with rfl | hpc'
+      · exact ⟨s', hchk⟩
+      · exact checkPendingList_records fe rest h pc' hpc'
+
+/-- Every record of a fully checked environment was checked from a
+fresh memo state. -/
+theorem FullyChecked.records {ds : List DeclC} (fc : FullyChecked mode ds) :
+    ∀ pc ∈ fc.1.pend.toList, ∃ s'', checkPending mode fc.1.fe pc {} = .ok ((), s'') := by
+  intro pc hpc
+  obtain ⟨k, hk⟩ := List.mem_iff_getElem?.mp hpc
+  have h := fc.2 k
+  unfold GroupChecked at h
+  rw [Array.getElem?_toList] at hk
+  rw [hk] at h
+  exact h
+
+/-- **The fold returns a fully checked environment's environment**: what
+the driver's loops assembled, `checkDecls` computes — the proof the
+driver returns beside its environment. -/
+theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
+    checkDecls mode ds = .ok fc.env := by
+  obtain ⟨n, s, r⟩ := fc.1.run
+  unfold checkDecls
+  rw [r.foldlM]
+  show (checkPendingList mode fc.1.fe fc.1.pend.toList >>= fun _ => pure fc.1.fe.env) = _
+  rw [checkPendingList_ok mode fc.1.fe fc.1.pend.toList fc.records]
+  rfl
+
+/-- **Every accept of the fold is a fully checked environment.** -/
+theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
+    (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
+  unfold checkDecls at h
+  cases hrun : (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {} with
+  | error e => rw [hrun] at h; exact nomatch h
+  | ok r =>
+    obtain ⟨⟨n, fe, pend⟩, s⟩ := r
+    rw [hrun] at h
+    change (checkPendingList mode fe pend.toList >>= fun _ => pure fe.env) = _ at h
+    cases hchk : checkPendingList mode fe pend.toList with
+    | error e => rw [hchk] at h; exact nomatch h
+    | ok u =>
+      rw [hchk] at h
+      obtain rfl : fe.env = env := Except.ok.inj h
+      let e : InstalledEnv mode ds := ⟨fe, pend, n, s, InstallRun.of_foldlM mode ds _ _ hrun⟩
+      refine ⟨⟨e, fun i => ?_⟩, rfl⟩
+      unfold GroupChecked
+      cases hi : pend[i]? with
+      | none => trivial
+      | some pc =>
+        exact checkPendingList_records mode fe pend.toList hchk pc
+          (List.mem_iff_getElem?.mpr ⟨i, by rw [Array.getElem?_toList]; exact hi⟩)
 
 end ConLeche.Cached

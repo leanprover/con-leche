@@ -64877,3 +64877,154 @@ The naive reference over `List UInt8` and the kernel-checked
 that the list handed to `checkDecls` is the file's is the differential
 of §7 — which is the standard the rest of the frontend is held to, and
 one the parser did not meet at all before.
+
+## Task #257 — `checkDecls` IS THE FOLD THE BINARY RUNS; THE DRIVER RETURNS ITS ENVIRONMENT WITH THE PROOF THAT `checkDecls` RETURNS IT (2026-09-09, `agent/foldeq`)
+
+The user's ruling on task #253's result: *"FullyChecked is just
+checkDecls and an equality? so we can keep checkDecls as the verified
+impl and the main theorem (easier to explain, more concrete) and the
+IO drivers return an env with a proof that checkDecls would return that
+env as well.  same effect as the subtype design, but dressed
+differently."*  This task is that dressing.
+
+### 1. The one design decision: `checkDecls` is the two-phase fold
+
+The transfer theorem the brief asked for — `fullyChecked_checkDecls :
+(fc : FullyChecked mode ds) → checkDecls mode ds = .ok fc.env` — is not
+provable for the ONE-PASS `checkDecls` task #253 left in
+`ConLeche/Cached/ParsedC.lean`, and not for lack of the ingredients it
+named.  The cached core is fueled by recursion depth
+(`coreKnotI fe checkFuel`, `checkFuel = 100000`) and a memo hit returns
+without descending, so what a step accepts depends on the memo state
+it starts from: the one-pass fold's check half of a declaration runs
+right after that declaration's annotation, in the memos the annotation
+filled (`annotPwPiI` calls `inferIO` and `ensureSortI`, so the
+inference and reduction memos are warm), while phase B checks the
+record from `{}`; and the ordinary steps of the two runs start from
+different level-memo residues.  The simulation tower is
+one-directional (`SimC`: cached accept → pure accept at some fuel),
+there is no completeness direction, and none is true in general — a
+cold run can exhaust the depth budget where a warm one does not.
+Relating the one-pass fold to the driver would need a
+memo-monotonicity theorem over the whole cached core and every install
+route, whose natural relation ("the warm state contains the cold
+one's entries") is not even preserved across a hit.  That is task
+#253 §1's reason for the fresh state per record, seen from the other
+side.
+
+So the fold is redefined to be what the binary runs.
+`ConLeche/Cached/Installed.lean`:
+
+```
+def checkDecls (mode : CheckMode) (ds : List DeclC) : Except (CheckError × Nat) Env := do
+  let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
+  checkPendingList mode p.2.1 p.2.2.toList
+  pure p.2.1.env
+```
+
+— phase A as a `foldlM` over `annotDeclStep`, phase B as a walk over
+the records (`checkPendingList`, every record from `{}`, a failure
+tagged with the record's fold position), the environment.  The
+statement `checkDecls mode ds = .ok env` is the sentence it was, and
+`README.md`'s quoted theorem is the tree's theorem again, verbatim.
+The one-pass fold, `checkDeclStep`, `foldIdxC_ok` and
+`foldIdxC_run'_ok` are deleted; `checkDeclStepC` stays as the fold's
+step for the kinds checked as they are installed.
+
+### 2. The transfer, in both directions
+
+With the fold so defined the user's sentence is literally true:
+
+* `InstallRun.foldlM` / `InstallRun.of_foldlM` — an accepting
+  `InstallRun` is an accepting `foldlM` over `annotDeclStep` and
+  conversely (induction on the run, resp. on the list);
+* `checkPendingList_ok` / `checkPendingList_records` — every record
+  checked from `{}` is the walk's accept and conversely;
+* **`fullyChecked_checkDecls`** — the theorem the brief asked for; and
+  **`checkDecls_fullyChecked`** — every accept of the fold is a
+  `FullyChecked mode ds` with that environment.
+
+All six are self-contained over the definitions (the `Std.HashMap`
+exception in CLAUDE.md) and live beside the fold; a `Verify` module
+holding them would enter every capstone's proof closure.  Nothing of
+task #253's bridge carried the transfer: it is elementary once the
+fold is the driver's algorithm.  What task #253 built and this keeps,
+under the theorem: `installRun_model` (`Verify/Cached/InstalledC.lean`,
+now stated as the model walk alone — its trace conclusion is gone with
+the specification), `checkPending_run`, `annotValueC_run`,
+`coreKnotI_congr` (`KnotCongr.lean`), `PushChain.lean` with
+`installRun_trace` and `NodupNames`, and `checkDecl_of_split_*`
+(`Verify/CheckerSplit.lean`); `fullyChecked_sound` reads the model off
+`installRun_model` directly.
+
+### 3. The driver, and the theorem
+
+`Main.checkDeclsIO` runs `installLoop` then `checkLoop` (unchanged:
+the install run in snoc direction, `GroupChecked` per record) and
+returns `{ env : Env // checkDecls mode ds = .ok env }`, the
+`FullyChecked` it assembled turned into the fold's accept by
+`fullyChecked_checkDecls`; `checkMain` prints the success line from
+that value.  `ConLeche/MainTheorem.lean` holds one theorem,
+`no_proof_of_False (V) (ds) (env) (accepted : checkDecls .verified ds = .ok env)`,
+the 2026-09-07 statement, proved through `no_proof_of_False_cached`
+(`MainC.lean`), which is `fullyChecked_sound` under
+`checkDecls_fullyChecked`.  `no_proof_of_False_fold` is folded into
+it; `no_proof_of_False_checked` / `no_proof_of_Empty_checked` stay as
+the letters on the fully checked environment (`InstalledC.lean`).
+`README.md` untouched, its block identical to the theorem modulo
+indentation.
+
+### 4. Pruned
+
+The specification layer is unnecessary once the fold is the driver's
+algorithm and is deleted: `Verify/Installed.lean` (`Group`,
+`GroupInstalled`, `InstallTrace`, `InstalledSpec`, `GroupCheckedSpec`,
+`FullyCheckedSpec`), `Model/Installed.lean` (`installTrace_preserves`,
+`fullyCheckedSpec_sound`, `no_proof_of_False_spec`,
+`no_proof_of_Empty_spec`), `fullyChecked_spec`, `checkDecls_spec`,
+`fold_trace`, `fold_push`, `fold_preserves`, `checkDecls_run`,
+`wdecl_rel`, `Yields.run'`, `env_of_run`, and `checkDeclInstall`
+(`Kernel/CheckerSplit.lean`; its only caller was the specification).
+`MainC.lean` now imports `InstalledC.lean` (the direction reversed);
+`DeclCRel_total` moved to `InstalledC.lean`, `annotDeclStep_ok` to
+`Cached/Installed.lean`, `annotConstantValC_fresh` /
+`annotValueC_fresh` to `AgreeFloor.lean`, where the agreement floor's
+`checkDecls_skels` is now proved over the install run
+(`annotStepC_skels`, `installRun_skels`).  A warm phase B (one memo
+state threaded through the records) was asked for during the task and
+withdrawn by the user ("the status quo is nice and simple"); nothing
+of it was written.
+
+### 5. Measured and gates
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000` and `timeout 3000`, on the tree merged with
+master `58c81c74` (task #256's parser), against that master's
+561.21 G verified / 536.13 G trusted: **561.18 G / 536.10 G**
+(−0.005 % / −0.006 %, i.e. unchanged — the driver's steps are the
+ones it ran before), 53 088 declarations accepted in both, exit 0.
+
+`lake build` 529 jobs warning-free; `lake test` warning-free — the
+axiom pin now holds 16 theorems at `[propext, Classical.choice,
+Quot.sound]` (the main theorem, the fold's three letters, the two
+transfer theorems, the three on the fully checked environment, the
+pure checker's three, the three at the invariant, the `@[csimp]`
+equation); `tests/proofdeps.sh` regenerated for 10 roots
+(`main_False`, `False_cached`, `Empty_cached`, `sound_cached`,
+`fold_checked`, `checked_fold`, `False_checked`, `fullyChecked_sound`,
+`False_pure`, `Empty_pure`; the seven specification and one-pass roots
+are gone), 3367 rows, doors 0; trust surface 10 escapes in 4
+allowlisted files (474 scanned); shake 460 removals all allowlisted
+(four stale lines deleted, four compensated relocations recorded —
+`Kernel/CheckerSplit`'s `Kernel.Checker` import is now compensated by
+`CheckerBase`, the three Verify-tier lines by the `public → import`
+split the plan computes — and `PushChain`'s import of
+`ConLeche.Cached.Installed`, which `AgreeFloor` now re-exports, deleted
+as a CLEAN removal by the #223 criterion after the plan first asked
+for its demotion); pub-imports 923 of 1253 edges public, none demotable;
+`tests/overview-links.sh` 68 links / 46 files, every re-pointed anchor's
+target read against its paragraph (the `--update` after a docstring
+edit laundered four unchanged-header anchors — `Main.lean#L501`, `#L97`,
+`Installed.lean#L129`, `Axioms.lean#L97` — caught by reading the
+content diff, not the header diff); `tests/arena.sh` under `env -i`
+green with every count as master's.

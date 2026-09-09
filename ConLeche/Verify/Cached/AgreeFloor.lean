@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Installed
 import ConLeche.Verify.EnvBound
 
 public section
@@ -557,6 +557,25 @@ theorem checkConstantValC_name (mode : CheckMode) (fe : FEnv)
   unfold checkConstantValC
   yields
   all_goals (apply Yields.pure; rfl)
+
+theorem annotConstantValC_fresh (mode : CheckMode) (fe : FEnv)
+    (cv : ConstantVal) :
+    Yields (annotConstantValC mode fe cv)
+      (fun p => p.1.name = cv.name ∧ fe.find? cv.name = none) := by
+  unfold annotConstantValC
+  yields
+  all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
+
+theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
+    (value : ExprC) (record : Bool) :
+    Yields (annotValueC mode fe cv value record)
+      (fun r => r.1.name = cv.name ∧ fe.find? cv.name = none) := by
+  unfold annotValueC
+  ybind
+  refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hp => ?_
+  obtain ⟨cvA, jty⟩ := p
+  ybind
+  exact Yields.pure hp
 
 theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
@@ -1230,9 +1249,11 @@ theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
 
 /-! ## The floor
 
-The driver is one fold over the converted declaration list at any
-config, so the skeleton spec `declCSkels` computes the installed
-environment at *every* config.  Hence: whenever two configs both
+The fold installs every record by `annotStepC` (`checkDecls`,
+`ConLeche/Cached/Installed.lean`) — a separable value declaration by
+the install halves, everything else by `checkDeclStepC` — and its
+phase B pushes nothing, so the skeleton spec `declCSkels` computes the
+installed environment at *every* mode.  Hence: whenever two modes both
 **accept**, they installed the same constants, in the same order, with
 the same skeletons — and in particular the same names and the same
 count.
@@ -1241,22 +1262,6 @@ Scope, stated exactly: these are **accept-verdict** statements.  The
 trusted config's purpose is to reject less, and the recorded
 trusted-mode divergences are decline/accept divergences, untouched
 here. -/
-
-theorem Yields.run' {α : Type} {m : CheckCM α} {P : α → Prop}
-    (h : Yields m P) {s : CState} {a : α} (hr : StateT.run' m s = .ok a) :
-    P a := by
-  have hs : StateT.run' m s = (m s).bind (fun p => .ok p.1) := rfl
-  rw [hs] at hr
-  cases hm : m s with
-  | error e => rw [hm] at hr; cases hr
-  | ok b => rw [hm] at hr; cases hr; exact h s b.1 b.2 hm
-
-theorem env_of_run {X : Except (CheckError × Nat) (Nat × FEnv)} {env : Env}
-    (h : (do let p ← X; pure p.2.env) = .ok env) :
-    ∃ p, X = .ok p ∧ p.2.env = env := by
-  cases hx : X with
-  | error e => rw [hx] at h; cases h
-  | ok p => rw [hx] at h; cases h; exact ⟨p, rfl, rfl⟩
 
 theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
 
@@ -1267,20 +1272,67 @@ def streamSkels (ds : List DeclC) : List InstallSkel :=
 
 /-! ### The direct-parse entry points (task #171's route) -/
 
-/-- **The skeleton spec, at every config.**  This is the floor's whole
-content since the twin's retirement: one driver, one proof. -/
+/-- Phase A's step body installs the declaration's skeletons: the value
+kinds push the one constant the fold's value checkers push, everything
+else runs `checkDeclStepC`. -/
+theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : DeclC) :
+    Yields (annotStepC mode i fe pend pd) (fun r => SkelIs r.1 (declCSkels pd sk)) := by
+  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
+      CheckCM (FEnv × Array PendingCheck)) (fun r => SkelIs r.1 (declCSkels pd' sk)) :=
+    fun pd' => Yields.bind' (checkDeclStepC_skels mode h pd') fun fe' h' => Yields.pure h'
+  unfold annotStepC
+  cases pd with
+  | defnDecl cv value hint =>
+    simp only []
+    split
+    · exact hord _
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value true) fun r hr => ?_
+      obtain ⟨cvA, jty, jv⟩ := r
+      apply Yields.pure
+      show SkelIs (fe.push (.defnInfo cvA jv hint)) (.defn cv.name :: sk)
+      rw [← hr.1]; exact h.push _
+  | thmDecl cv value =>
+    simp only []
+    refine Yields.bind' (annotValueC_fresh mode fe cv value true) fun r hr => ?_
+    obtain ⟨cvA, jty, jv⟩ := r
+    apply Yields.pure
+    show SkelIs (fe.push (.thmInfo cvA jv)) (.thm cv.name :: sk)
+    rw [← hr.1]; exact h.push _
+  | opaqueDecl cv value =>
+    simp only []
+    split
+    · exact hord _
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value false) fun r hr => ?_
+      obtain ⟨cvA, jty, jv⟩ := r
+      apply Yields.pure
+      show SkelIs (fe.push (.axiomInfo cvA)) (.ax cv.name :: sk)
+      rw [← hr.1]; exact h.push _
+  | axiomDecl cv => exact hord _
+  | basisDecl kind => exact hord _
+  | indDecl block nP => exact hord _
+
+/-- Phase A's accepting run installs the stream's skeletons. -/
+theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
+    {p : Nat × FEnv × Array PendingCheck} {s : CState}
+    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+    (h : InstallRun mode ds p s q s') {sk : List InstallSkel} (hp : SkelIs p.2.1 sk) :
+    SkelIs q.2.1 (ds.foldl (fun sk pd => declCSkels pd sk) sk) := by
+  induction h generalizing sk with
+  | nil p s => exact hp
+  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
+    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+    rw [List.foldl_cons]
+    exact ih (annotStepC_skels mode p.1 hp p.2.2 pd s (fe₁, pend₁) s₁ hstepC)
+
+/-- **The skeleton spec, at every mode.**  This is the floor's whole
+content since the twin's retirement: one fold, one proof. -/
 theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
     {env : Env} (h : checkDecls mode ds = .ok env) :
     envSkels env = streamSkels ds := by
-  unfold checkDecls at h
-  -- the position-carrying fold's accept is the plain fold's accept
-  -- (`foldIdxC_run'_ok`); the skeleton spec is unchanged by the tag
-  obtain ⟨p, hx, rfl⟩ := env_of_run h
-  exact ((Yields.foldlM_rel (R := SkelIs)
-    (g := fun sk (pc : DeclC) => declCSkels pc sk)
-    (fun b a c hb => checkDeclStepC_skels mode hb a) ds
-    (mkFEnv Env.empty) [] skelIs_empty).run'
-      (foldIdxC_run'_ok mode ds 0 (mkFEnv Env.empty) hx)).2
+  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
+  obtain ⟨n, s, r⟩ := fc.1.run
+  exact (installRun_skels mode r skelIs_empty).2
 
 /-- **The floor, direct-parse route.**  Whenever the cached driver at
 two modes — in particular the trusted (`.trusted`) and the verified
