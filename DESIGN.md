@@ -52568,16 +52568,17 @@ main thread waiting) confirms the mechanism: on the prefix the check
 phase takes 260.6 s at 1 337 G cycles against the in-thread lane's
 471–537 s at 2 282 G — 1.9× on one thread; on init-full it takes
 56.7 s against 49.7 s (+14 %: the atomic counting with nothing to
-gain from it).  So the in-thread lane is the right `--jobs=1` for a
-small environment and the wrong one for a large environment, and
-the crossover is between 430 MB and 2.2 GB of environment.  Not
-decided here: whether `--jobs=1` should run its worker on a thread
-(one more 1 GiB reservation, +0.9 % instructions, the same
-determinism), or whether the allocator's behaviour on the main
-thread's heap is the thing to fix; task #259's persistent mark is
-in the same territory, since it removes the counting the pool pays
-for.  Both binaries are in `_tmp/parallel/` (`con-leche-6f53e4f0`,
-`con-leche-pool1`) with the logs.
+gain from it).  So the in-thread lane is the faster `--jobs=1` for a
+small environment and the slower one for a large environment, with
+the crossover between 430 MB and 2.2 GB of environment.  **Open
+finding, not fixed here** (user ruling: *"keep an overhead-free
+single threaded lane"* — `--jobs=1` stays the in-thread loop with no
+thread, no marking and no pool): what the main thread's heap does
+differently on a large environment is for tasks #259/#263 to look
+at; #259's persistent mark removes the counting the pool pays for
+and is in the same territory.  Both binaries are in
+`_tmp/parallel/` (`con-leche-6f53e4f0`, `con-leche-pool1`) with the
+logs.
 
 ### 5. Gates
 
@@ -65171,15 +65172,16 @@ gate's fixture for this is `tests/annot/annot_split_bad2.ndjson`
 be named at `--jobs=1/2/4/16` and at the default (more workers than
 records).
 
-**The default is `--jobs=1`, and the pool is opt-in — a finding.**
-The first cut defaulted to one worker per hardware thread
-(`System.Platform.Internal.getHardwareConcurrency`), and the gates
-found it: `--jobs=16` and `--jobs=32` on init-full under
-`ulimit -v 16000000` and the two DAG-tower fixtures with in-process
-models under the tower gate's 8 GB cap (a 96-worker pool on this
-machine) ABORT with `libc++abi: terminating due to uncaught
-exception of type lean::exception: failed to create thread` (exit
-134).  The runtime reserves **1 GiB of address space per thread**:
+**The default is one worker per hardware thread
+(`System.Platform.Internal.getHardwareConcurrency`, 1 if the runtime
+cannot tell), and each worker costs 1 GiB of address space — a
+finding, and a ruling.**  The gates found the cost: `--jobs=16` and
+`--jobs=32` on init-full under `ulimit -v 16000000` and the two
+DAG-tower fixtures with in-process models under the tower gate's
+8 GB cap (a 96-worker pool on this machine) ABORT with `libc++abi:
+terminating due to uncaught exception of type lean::exception:
+failed to create thread` (exit 134).  The runtime reserves **1 GiB
+of address space per thread**:
 `/proc/<pid>/maps` of a running 8-worker process shows one anonymous
 1024 MB `rw-p` mapping per thread (VmPeak 3.35 GB at one worker on
 init-core, 12.3 GB at eight, 40 GB at 32, 111 GB at 96 — +1.15 GB per
@@ -65187,18 +65189,24 @@ worker); it is not mimalloc's arena reserve (`MIMALLOC_ARENA_RESERVE`
 set to 1 MiB removes 0.1 GB per thread and leaves the 1 GiB mappings)
 and it does not follow `ulimit -s` (16 MB changes nothing): it is the
 thread's stack reservation, lazily committed — the resident set grows
-by about 25 MB per worker (§4).  So under the project's own
-address-space discipline (`ulimit -v 16000000` on every checker
-run, 8 GB in the tower gate) the count is bounded by the cap — about
-ten workers under 16 GB, four under 8 GB — and a hardware-thread
-default aborts on any large machine.  `--jobs=1` is the in-thread
-loop with no thread, no shared state and no multi-threaded marking —
-the sequential lane a measurement is made on, and
-`scripts/perf-tables.sh`'s con-leche cells say it explicitly.
-`--jobs=0`, a non-numeral and bare `--jobs` are usage errors (exit
-3), per the provenance discipline.  The alternative the user may
-rule for is a default of `min (hardware threads) 8`, which fits the
-16 GB cap on init-full; nothing in the code prevents it.
+by about 25 MB per worker (§4).  So under an address-space limit the
+count is bounded by the cap — about ten workers under 16 GB, four
+under 8 GB — and a hardware-thread default aborts there on a large
+machine.  The task's first answer was a default of `--jobs=1`; the
+user's ruling reversed it: *"the 16 GB limit is just our dev env, so
+should not influence the shipped tool."*  So the shipped default is
+the hardware thread count, `--help` and OVERVIEW §0 document the
+address-space cost and say to lower the count under a cap, and every
+checker run the project itself makes under a `ulimit -v` passes an
+explicit count that fits: the tower gate and `tests/route-census.sh`
+`--jobs=4`, `scripts/selfcheck.sh` `--jobs=8`, and
+`scripts/perf-tables.sh`'s con-leche cells `--jobs=1` — the
+sequential measurement cell.  `--jobs=1` is the in-thread loop with
+no thread, no shared state and no multi-threaded marking: the
+user's second ruling, *"keep an overhead-free single threaded lane"*,
+keeps it exactly so (§4 has the finding that argued for moving it
+onto a thread, left open).  `--jobs=0`, a non-numeral and bare
+`--jobs` are usage errors (exit 3), per the provenance discipline.
 
 **The seam for task #259.**  The runtime marks everything reachable
 from the first spawned closure — the installed index and the
@@ -65336,14 +65344,16 @@ fixture), retired flags 8/8, mode flags 18/18, prelude counts 3/3,
 one thread and on the pool, the failing close), **worker pool
 15/15** (verdict and named declaration identical at `--jobs=1/2/4/16`
 and at the default on the accepting, the rejecting and the
-two-failure fixture; the three usage errors), DAG tower 14/14, the
-trusted sweep 138 + 185 + 15 with the three recorded divergences,
-and the **`--jobs=4` sweep** 138 arena + 185 e2e + 15 annot as at
-the default.  Verdict identity on init-full: 53 088 declarations
-accepted in all sixteen measured cells and every probe.
+two-failure fixture; the three usage errors), DAG tower 14/14 (at
+`--jobs=4` under its 8 GB cap), the trusted sweep 138 + 185 + 15
+with the three recorded divergences, and the **`--jobs=1` and
+`--jobs=4` sweeps**, 138 arena + 185 e2e + 15 annot each, as at the
+default (one worker per hardware thread — 96 here).  Verdict
+identity on init-full: 53 088 declarations accepted in all sixteen
+measured cells and every probe.
 
-The first battery run, at the hardware-thread default, is what
-produced §2's finding: the two tower fixtures aborted under the
-tower gate's 8 GB cap, and the test bug it also exposed (a `sed`
-pipeline's exit status read as the checker's) is fixed in the
-worker-pool section.
+The first battery run, at the hardware-thread default with no
+explicit count in the capped gates, is what produced §2's finding:
+the two modelled tower fixtures aborted under the tower gate's 8 GB
+cap; the test bug it also exposed (a `sed` pipeline's exit status
+read as the checker's) is fixed in the worker-pool section.

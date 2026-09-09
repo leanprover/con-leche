@@ -130,14 +130,16 @@ $(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
 # ---------------------------------------------------------------- 4/4
 lake build con-leche
 echo "[selfcheck] checking ($MODE)"
-# `--progress` is deliberately NOT passed by default: the heartbeat lane
-# is the driver's one unverified fold (Main.lean, user ruling
-# 2026-09-07), so a run with the flag does not stand behind the verified
-# capstone.  Add the flag by hand for a diagnostic run.
+# `--progress` is not passed by default; add it by hand for a
+# diagnostic run (it changes no verdict: the heartbeat is printed
+# between the steps of the one driver, Main.lean).  `--jobs=8`: a
+# worker thread reserves ~1 GiB of address space, and the default is
+# one worker per hardware thread, which the 22 GB cap below cannot
+# afford on a large machine.
 (
   ulimit -v 22000000
   set +e
-  timeout 4h ./.lake/build/bin/con-leche "$MODE" \
+  timeout 4h ./.lake/build/bin/con-leche "$MODE" --jobs=8 \
     "$OUTDIR/con-leche-export.ndjson" \
     2> >(while IFS= read -r l; do printf '%s %s\n' "$(date +%H:%M:%S)" "$l"; done \
           | tee "$OUTDIR/check.log" >&2)

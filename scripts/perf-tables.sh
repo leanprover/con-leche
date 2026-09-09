@@ -99,11 +99,12 @@ stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
 # went 2026-09-05 with the R core and `--set-model=r` (a hard error now).
 # Nothing retired is measured and nothing retired is printed.
 CONFIG_IDS=(official trusted verified)
-# The con-leche cells say `--jobs=1` explicitly (it is the default):
-# the worker pool's atomic reference counting adds about 1 % of
-# instructions that is not the checker's work, so the sequential lane
-# is the apples-to-apples cell against official, and the one every
-# earlier row was measured on.
+# The con-leche cells run at `--jobs=1`: the check phase runs on one
+# worker per hardware thread by default, the pool's atomic reference
+# counting adds about 1 % of instructions that is not the checker's
+# work, and each worker thread reserves ~1 GiB of address space under
+# the cells' `ulimit -v` — the sequential lane is the apples-to-apples
+# cell against official, and the one every earlier row was measured on.
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;

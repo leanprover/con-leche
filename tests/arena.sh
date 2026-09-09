@@ -572,9 +572,8 @@ prog_check "CON_LECHE_PROGRESS changes no verdict" \
 echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
-# <n> threads (--jobs=1, the default, in the main thread with no
-# thread at all — each worker thread reserves 1 GiB of address space,
-# which is what bounds the count under `ulimit -v`); the results are
+# <n> threads (one worker per hardware thread without the flag;
+# --jobs=1 in the main thread with no thread at all); the results are
 # merged by record index and walked in fold order, so the verdict and
 # the declaration a rejection names are the same at every <n>.  The
 # contract checked here: the verdict and the named declaration agree
@@ -582,8 +581,11 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # and on one with TWO failing records (`badFirst` ahead of `badDecl`:
 # the first in fold order must be named whichever worker finished
 # first, and at more workers than records); a bad count is a usage
-# error.  The full arena and e2e suites re-run at --jobs=4 in the
-# sweep at the end.
+# error.  The full arena and e2e suites re-run at --jobs=1 and
+# --jobs=4 in the sweeps at the end.  Each worker thread reserves
+# about 1 GiB of ADDRESS SPACE, so every checker run under a
+# `ulimit -v` in this battery (the tower gate's 8 GB) passes an
+# explicit count that fits; the uncapped runs use the default.
 SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
 jobs_ok=0
 jobs_total=0
@@ -615,7 +617,7 @@ for jn in 2 4 16; do
     "$([ "$j_bad2" = "$jobs_ref_bad2" ] && echo ok)"
 done
 j_def=$(timeout 120 "$BIN" "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
-jobs_check "without the flag (one worker, the default) the same" \
+jobs_check "without the flag (one worker per hardware thread) the same" \
   "$([ "$j_def" = "$jobs_ref_bad2" ] && echo ok)"
 timeout 120 "$BIN" --jobs=0 "$SPLIT_GOOD" >/dev/null 2>&1; j_c0=$?
 timeout 120 "$BIN" --jobs=x "$SPLIT_GOOD" >/dev/null 2>&1; j_cx=$?
@@ -658,7 +660,10 @@ tower_check() { # <description> <condition-result>
 }
 tower_run() { # <fixture> <expected-exit> <description>
   t_code=0
-  ( ulimit -v 8000000; timeout 60 "$BIN" "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
+  # `--jobs=4`: a worker thread reserves ~1 GiB of address space, and
+  # the default is one worker per hardware thread — under this cap
+  # the default would abort at thread creation on a large machine
+  ( ulimit -v 8000000; timeout 60 "$BIN" --jobs=4 "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
     || t_code=$?
   tower_check "$3" "$([ "$t_code" = "$2" ] && echo ok)"
 }
@@ -714,12 +719,12 @@ if [ "$MODE_SWEEPS" = on ]; then
     echo "trusted sweep: DIVERGED — see the lines above" \
          "(tests/trusted-expected.txt header: what may be recorded)"
   fi
-  # The worker-count sweep (task #260): both suites again at --jobs=4
-  # (the pool), against the certified expectations — the default pass
-  # above ran the in-thread check loop (--jobs=1), and the verdict must
-  # be the same at every count.  No override table: a divergence here
-  # is a bug.
-  for jn in 4; do
+  # The worker-count sweeps (task #260): both suites again at --jobs=1
+  # (the in-thread check loop) and at --jobs=4 (the pool), against the
+  # certified expectations — the default pass above ran at one worker
+  # per hardware thread, and the verdict must be the same at every
+  # count.  No override table: a divergence here is a bug.
+  for jn in 1 4; do
     SWEEP=jobs
     MODEFLAG=--jobs=$jn
     j_fail_before=$fail

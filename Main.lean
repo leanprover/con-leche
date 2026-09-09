@@ -223,8 +223,8 @@ failure; records above it may be missing, and the walk never reaches
 them.  A worker cannot be cancelled mid-check (a check is a pure
 computation), so the pool drains.
 
-**Why the pool is opt-in** (`--jobs=<n>`, default 1): the runtime
-reserves 1 GiB of address space per thread — see `jobsCount`.
+Each worker thread reserves 1 GiB of address space — see
+`jobsCount`; the default count is the hardware thread count.
 
 Nothing in the pool touches the driver's type: what a worker returns
 carries its own evidence, and `collectChecks` assembles the
@@ -416,24 +416,25 @@ def progressStride (v : String) : Except String Nat :=
       (a decimal numeral of at least 1), got {repr v}"
 
 /-- The worker count, read off the `--jobs=<n>` flag: a decimal numeral
-of at least 1 (`1`, the default, is the in-thread check loop, the
-sequential lane).  `0` and a non-numeral are usage errors (exit 3).
+of at least 1 (`1` is the in-thread check loop, the sequential lane —
+no thread, no shared state, no multi-threaded marking).  `0` and a
+non-numeral are usage errors (exit 3).  Without the flag the count is
+the machine's hardware thread count (`main`).
 
-**Why the default is 1 and not the hardware thread count.**  The
-runtime reserves one gigabyte of ADDRESS SPACE per thread it creates
-(a 1 GiB anonymous mapping per worker — its stack reservation, lazily
-committed: the resident set grows by about 25 MB per worker), so a
-run under an address-space limit — `ulimit -v`, the project's own
-practice on every checker run — can only afford so many workers
-(about ten under 16 GB, four under 8 GB), and past that the thread
-creation fails and the runtime aborts ("failed to create thread",
-exit 134).  A default of one worker per hardware thread would abort
-under that limit on any large machine; a default of one worker is
-safe everywhere, and the parallel check phase is one flag away. -/
+**Address space.**  The runtime reserves one gigabyte of ADDRESS
+SPACE per thread it creates (a 1 GiB anonymous mapping per worker —
+its stack reservation, lazily committed: the resident set grows by
+about 25 MB per worker), so a run under an address-space limit
+(`ulimit -v`) can only afford so many workers — about ten under
+16 GB, four under 8 GB — and past that the thread creation fails and
+the runtime aborts ("failed to create thread", exit 134).  Such a run
+lowers the count with the flag; the shipped default is not shaped by
+a development-environment limit (user ruling, task #260), and the
+project's own capped gates pass an explicit count. -/
 def jobsCount (v : String) : Except String Nat :=
   match v.toNat? with
   | some 0 => .error "--jobs takes a worker count of at least 1 \
-      (a decimal numeral); omit the flag for one worker"
+      (a decimal numeral); omit the flag for one worker per hardware thread"
   | some n => .ok n
   | none => .error s!"--jobs takes a worker count \
       (a decimal numeral of at least 1), got {repr v}"
@@ -751,7 +752,7 @@ def usage : String := String.intercalate "\n" [
   "                    --yolo/CON_LECHE_NO_PROOF_CERTS and",
   "                    --infer-only/CON_LECHE_INFER_ONLY",
   "  --jobs=<n>        the number of worker threads for the check phase",
-  "                    (default 1).",
+  "                    (default: the machine's hardware thread count).",
   "                    The run has two phases: the INSTALL phase reads",
   "                    the records in order and installs every one of",
   "                    them in a single thread (a definition, theorem or",
@@ -768,19 +769,22 @@ def usage : String := String.intercalate "\n" [
   "                    index and walked in record order, so the verdict",
   "                    -- and the declaration a rejection names, the",
   "                    first failing one in fold order -- is the same at",
-  "                    every <n>.  --jobs=1, the default, checks in the",
+  "                    every <n>.  Without the flag <n> is the machine's",
+  "                    hardware thread count; --jobs=1 checks in the",
   "                    main thread with no thread and no shared state",
   "                    at all (the sequential lane a measurement is",
   "                    made on).  0 or a non-numeral is a usage error.",
   "                    The install phase is never parallel: it is the",
-  "                    parse and the fold's serial floor.  Each worker",
-  "                    thread reserves 1 GiB of ADDRESS SPACE (its",
-  "                    stack reservation; the resident set grows by",
-  "                    about 25 MB per worker), so under an address-",
-  "                    space limit (ulimit -v) the count is bounded by",
-  "                    the limit: about ten workers under 16 GB.  Past",
-  "                    it the runtime cannot create the thread and",
-  "                    aborts, which is why the default is 1.",
+  "                    parse and the fold's serial floor.  ADDRESS",
+  "                    SPACE: each worker thread reserves about 1 GiB",
+  "                    of address space (its stack reservation, lazily",
+  "                    committed; the resident set grows by about",
+  "                    25 MB per worker), so a run under an address-",
+  "                    space limit (ulimit -v) must lower the count to",
+  "                    what the limit affords -- about ten workers",
+  "                    under 16 GB, four under 8 GB; past it the",
+  "                    runtime cannot create the thread and aborts",
+  "                    ('failed to create thread', exit 134).",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
@@ -933,9 +937,9 @@ structure Args where
   /-- The progress heartbeat's stride (`--progress[=<stride>]`, task
   #229); `0` is "no flag given", i.e. no heartbeat. -/
   progress : Nat := 0
-  /-- The check phase's worker count (`--jobs=<n>`); `1` is "no flag
-  given": the in-thread loop (see `jobsCount` for why). -/
-  jobs : Nat := 1
+  /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
+  given": one worker per hardware thread. -/
+  jobs : Option Nat := none
   files : Array String := #[]
   bad : Option String := none
 
@@ -1016,11 +1020,11 @@ def parseArgs : List String → Args → Args
       | .error msg => { a with bad := some msg }
     else if s.startsWith "--jobs=" then
       match jobsCount ((s.drop "--jobs=".length).toString) with
-      | .ok n => parseArgs rest { a with jobs := n }
+      | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
-          flag for one worker" }
+          flag for one worker per hardware thread" }
     else if s.startsWith "--check-range=" then
       { a with bad := some "--check-range is retired; the split \
           install/check driver was arena machinery and went with the \
@@ -1053,9 +1057,12 @@ def main (args : List String) : IO UInt32 := do
     -- itself is not what belongs in the finished product, and an
     -- out-of-memory condition simply exits 1 with the runtime's panic
     -- message on stderr, which is what distinguishes it from a reject.
-    -- `--jobs=<n>`: the check phase's worker count, 1 without the flag
-    -- (`jobsCount` says why it is not the hardware thread count).
-    checkMain file a.mode a.progress a.jobs
+    -- `--jobs=<n>`: the check phase's worker count; without the flag,
+    -- one worker per hardware thread (1 if the runtime cannot tell).
+    let jobs := a.jobs.getD
+      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+       if hw = 0 then 1 else hw)
+    checkMain file a.mode a.progress jobs
   | _ =>
     IO.eprintln usage
     return 3
