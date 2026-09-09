@@ -66398,3 +66398,170 @@ and the two-failure fixture; the three usage errors) — and
 measurements: init-full 53 088 declarations and the prefix's 162 092 in
 every cell, at every claim size and worker count.  OVERVIEW §2 and
 `--help` say "one record at a time" in the present tense.
+
+## Task #268 — THE NATIVE INSTALL DOES NOT DO ITS WORK TWICE: THE PROVISIONAL PASS IS GONE (2026-09-09, `agent/indonce-268`)
+
+Task #266's phase-A census put the fixpoint route's blocks at 55 % of
+the install phase on the 1.5 GB Mathlib prefix, and inside them two
+repetitions: the **provisional pass** of task #210 Part D — the former
+with an EMPTY capability record into a throwaway environment, every
+constructor annotated, normalised and checked there, the kinds
+classified off those, then the whole thing again at the real record —
+at 22.7 G (6.2 % of phase A, 27 % of the route's cost), and
+`nativeFieldsOkF` (13.2 G, 3.6 %), the opened-form re-check of kinds
+the pass had already classified.  The user's words: *"do refactor
+inductive handling to avoid doing work twice, if the code impact is
+acceptable."*  The first repetition is gone; the second stays, and this
+record says why and what it would take.
+
+### Why the pass was there, and what actually depends on the record
+
+The former's capability record (`nativeCaps`) needs official's
+`is_rec` — some field recursive or reflexive — and the kinds need the
+constructors NORMALISED by official's positivity walk (`normPosDom`)
+at an environment where the former resolves, which carries the record:
+a circle, cut by the throwaway pass.  But the record depends on the
+kinds through ONE bit: `eta` at a one-constructor, index-free,
+non-`Prop` block (`!is_rec`); `unitlike`, `ruleK` and `sortZ` are the
+shape's.  And official's own `is_rec` (`declare_inductive_types`,
+before `check_constructors`) is read off the declared constructor
+types by `whnf` in an environment that does not yet hold the block —
+`whnf` cannot reduce `T …` there — so it is the syntactic occurrence
+up to reduction of a redex OVER the block.
+
+**The change.**  `nativeCapsAt (p : InductiveShape) (isRec : Bool)`
+is the record at a given verdict, `nativeCaps p = nativeCapsAt
+p.toInductiveShape (nativeIsRec p.kinds)` by definition.  One pass
+(`checkNativePass`, cached `checkNativePassS`; its products in
+`NativePass E`, `E` the environment representation) installs the
+former at `nativeCapsAt` at the SYNTACTIC reading `nativeRawRec p₀`
+— does some declared field domain of the constructor mention the
+block? read only at one constructor, where the record can depend on
+it — checks the constructors at that environment, classifies the
+kinds ON THE CONSTRUCTORS IT STORED, and reports whether the classified
+record `nativeCaps p` is the one the former carries (`settled`).  The
+raw reading is a SUPERSET of the classified `is_rec` (reduction never
+introduces the block: `normPosDom` keeps a block-free domain as
+declared), and a strict one exactly when a redex over the block reduces
+away — `(fun _ => Nat) T`, a definition unfolding to a block-free
+type — so the pass settles at every block but those; there
+`checkNative` runs the pass AGAIN at the classified verdict, which then
+stands (the second pass stores the same constructors the first did; a
+verdict that moves again is `.internal`, never a decline).  The install
+after the pass is `checkNativeTail` (`checkNativeTailS`): the
+elimination restriction, the index sorts, `nativeFieldsOk`,
+`nativeRulesOk`, the conses, the recursor, the table — unchanged.
+
+**The verdict is unchanged, and this is why.**  The settled pass IS
+the old second pass: the same former at the same record
+(`nativeCaps p`), the same constructors checked at the same
+environment, the same tail.  What moved is where the kinds come from —
+the stored constructors instead of a throwaway pass's — which is the
+order the OVERVIEW already described ("classifies each field on the
+constructors it stored"; now literally so).  Where the reading
+overshoots, the first pass is the old provisional pass at a record that
+differs from `{}` only in bits no constructor check can read (no
+constructor, recursor or table exists yet), and the second is the old
+real pass.  Error precedence: the pass is the first thing after the
+distinct-names guard, as the provisional pass was, so a block failing
+both a pass check and a later guard names the same error.  Coverage:
+no restriction was introduced — the route accepts, rejects and
+declines exactly as before; the arena's route census (225 fix / 540
+basis), tutorial (90/92), e2e (185/185), the trusted and `--jobs`
+sweeps are master's.
+
+### The proofs
+
+`DeclNativeRun` records the settled pass — the former's run at
+`nativeCapsAt p₁ isRec` for SOME verdict, the constructors at its
+environment, `classifyFixKinds` on them, and the equation
+`nativeCaps p = nativeCapsAt p₁ isRec` — and then the tail as before;
+`checkNativePass_inv` (`Verify/Inductives/FixInv.lean`),
+`checkNativeTail_inv` and `declNativeRun_of_pass` assemble it, and
+`declNativeRun_of` is the case split on the two passes.  **The model
+did not move**: `declNative` rewrites the former's record to
+`nativeCaps p` by the equation right after `checkSumInd_shape`
+(`rw [← hcaps] at hCtors hsorts hRec hTbl`), reads the kinds' length
+off the classification of the stored constructors, and is otherwise
+the same proof; `declNativeRun_etaClosed` the same.  The three cached
+mirrors are split into pass + tail lemmas (`checkNativePassS_push`/
+`checkNativeTailS_push`, `_skels` with `nativeSkels_withSort`, and
+`checkNativePassS_run`/`checkNativeTailS_run` in `BridgeCSDecl`,
+assembled at the joined fuel over the two branches);
+`nativeCapsAt_arity` is `nativeCaps_arity`'s source, and the eight
+`unfold nativeCaps` sites unfold `nativeCapsAt` (and `nativeIsRec`)
+too.  No stored datum changed shape.
+
+### `nativeFieldsOk` stays — what it checks that the classification does not
+
+`classifyFixKinds` reads the CLOSED form (`recCtorKinds`: `stripPis`,
+`recPositivity` on bvar-form domains, `structPsAt`, `structUsedLater`
+= a loose-bvar test, `mentionsConst` blind to annotations).  The model
+reads the OPENED form (`FixOpened`, off `nativeFieldsOk_inv`):
+resolution BEFORE the block of the ordinary domains and index
+expressions, `constsResolve env₀` walking INTO the `fvar` annotations
+(an opened domain carries every earlier field's domain as its
+variable's annotation), and `mentionsFvar` — annotations included —
+for the no-later-use of a recursive field.  The two agree on every
+block that reaches the check, but only through an argument the
+classification does not make: a later field's index expression naming
+an earlier RECURSIVE field is `.recursive` + `.unsupported` on the
+closed form (a decline, official accepts — the docketed finding) and
+would be a `.negative` on an annotation-walking opened form (a
+reject); so the opened-form facts follow from the closed-form
+classification only after the `structUsedLater` cut, through
+`instantiate`, and with the annotations' contents an induction over
+the fields.  That bvar/fvar bridging proof is the whole cost of
+removing the check, estimated beyond this task's budget, and a
+classifier rewritten on the opened form would have to reproduce the
+decline/reject boundary above exactly — so the runtime check stays as
+the model's reader, and the finding is recorded here for the docket.
+
+**The batch experiment, measured and dropped.**  A `resolveMany`
+walker (one memo seeded by the batch, then a lookup; the plain walker
+the gate itself, `constsResolveManyFC_spec` by `MemoCRInv`) in
+`nativeOpenedOkF` and `checkStructProjTableF`, on the hypothesis that
+the per-field walks re-walk the shared DAG through the annotations:
+built, proved, measured — prefix verified 2 902.895 → 2 905.034 G
+(+2.1 G), init-full 542.813 → 542.866 G — a loss, and reverted before
+landing.  The profile of the landed binary on the prefix puts the whole
+cached gate (`constsResolveFCGo` and its maps, every caller) at 0.85 %
+of the run, the kernel-level gate `Expr.constsResolveFGo` (the
+constructor stage's guard) and `mentionsFvar` at 0.00 %: the re-check's
+13.2 G of #266 is not a re-walk to share but the walks themselves.
+
+### The numbers (`--jobs=1`, `perf stat -e instructions:u`, `ulimit -v 16000000`, one run per cell; master `b45dc689` against `36ade5eb`)
+
+| stream | mode | master | this | Δ | install wall |
+|---|---|---|---|---|---|
+| init-full | verified | 543.561 G | 542.813 G | −0.748 G (−0.14 %) | 3.8 → 3.6 s |
+| init-full | trusted | 526.091 G | 525.417 G | −0.674 G (−0.13 %) | 4.2 → 3.7 s |
+| Mathlib 1.5 GB prefix | verified | 2 924.623 G | 2 902.895 G | −21.728 G (−0.74 %) | 37.8 → 33.3 s |
+| Mathlib 1.5 GB prefix | trusted | 2 711.386 G | 2 689.481 G | −21.905 G (−0.81 %) | 36.1 → 31.6 s |
+
+Against #266's phase A of 366 G on the prefix that is **−5.9 % of
+phase A** — the provisional pass's 22.7 G less the raw reading's
+`mentionsConst` walks and the second passes where it overshoots (not
+counted; bounded by the blocks whose declared field domain mentions
+the block under a redex).  Verdict identity: 53 088 and 162 092
+declarations accepted in every cell.  init-full's blocks are small, so
+its cells barely move; the prefix's structures are where the pass was
+paid.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free;
+`tests/arena.sh` under `env -i` with no `ulimit -v` around the battery:
+layering 277/189/3/1 with 0 edges, proofdeps 3 367 rows / 10 roots /
+**doors 0**, pindump fresh, trust surface 12 escapes in 5 allowlisted
+files / 0 outside, shake 460 proposed / 460 allowlisted, pub-imports
+931/1267 none demotable, route census 225 fix / 0 inmodel / 540 basis
+/ 0 modeled (master's: the fixture set grew at #258/#260, the brief's
+142 predates it), inmodel OK, axioms pinned (16 theorems at
+`[propext, Classical.choice, Quot.sound]`), arena tutorial 90/92, e2e
+185/185, progress lane 17/17, worker pool 15/15, DAG-tower 14/14,
+trusted sweep 138 + 185 + 15 with the 3 recorded divergences, the
+`--jobs=1` and `--jobs=4` sweeps identical; `tests/overview-links.sh`
+72 links / 47 files after three anchors were re-pointed
+(`checkDecls_skels`, `classifyFixKinds`, `checkNative` — the cited
+text unchanged, each citing paragraph re-read).
