@@ -66670,3 +66670,152 @@ section, and `snapshot` never overwrites it.
 `tests/overview-links.sh` 72 links / 47 files OK (PERF.md is not
 line-anchored from OVERVIEW).  Docs, data and two scripts only: no
 `.lean` under `ConLeche/` changed.
+
+## Task #269 — THE SEQUENTIAL CHECK LANE WAS LOSING TO ITS OWN HEAP, NOT TO THE MACHINE (2026-09-09, `agent/seqlane-269`)
+
+The user's question: *"investigate the sequential lane slowdown at
+mathlib scale. maybe just a noisy machine?"*  It is not the machine.
+The in-thread lane is CPU-bound and memory-stalled, and what stalls it
+is that phase B allocates out of the **main thread's** mimalloc heap —
+the heap the parse and the install have just built two gigabytes of
+live environment in and torn their temporaries out of again.  The same
+computation on a thread whose heap is fresh retires the same
+instructions twice as fast.
+
+### 1. The method, and why the noise question is settled
+
+The box is shared with agents outside this sandbox, so wall and cycles
+are evidence only as the ordering WITHIN an interleaved pair, read at
+the minima over three repetitions (#259's method), and the attribution
+rests on counters that do not care about co-tenants: `instructions`,
+and misses PER INSTRUCTION.  Counting is gated to the CHECK PHASE
+alone — `perf stat -D -1 --control fifo:…`, enabled from outside when
+the `install done` heartbeat appears, with the workload forked by
+`perf` so that every thread it later spawns is counted.  Load average
+is recorded before every cell.
+
+**`task-clock` answers the noise question by itself.**  In every
+single-threaded cell of every battery, `task-clock` divided by the
+check phase's own wall clock is **1.00** — the process was given the
+CPU for all of the time it took.  It is not being descheduled; it is
+slow while running.  The load average during the fifteen cells of the
+main battery ranged over 1.16 … 8.58 and the *ordering* never changed;
+what load does change is the SPREAD of the sequential lane (448–521 s,
+16 %) against the worker lane's (210–222 s, 2 %), which is itself a
+symptom — a memory-stalled loop competes with co-tenants for DRAM and a
+cache-resident one does not.  That spread is the honest explanation of
+the one-worker outlier in #263's table.
+
+### 2. The 2×2: it is the thread, not the mark
+
+The in-thread lane differs from a pool of one in exactly two ways —
+which thread runs the loop, and whether the installed graph was marked
+persistent — so both were made switchable on one binary and crossed.
+1.5 GB Mathlib prefix, `--verified`, three interleaved repetitions,
+minima of the check phase:
+
+| | thread | mark | **check** | IPC | instr | cache-miss/kinstr | dTLB-miss/kinstr | **DRAM fills/kinstr** |
+|---|---|---|---|---|---|---|---|---|
+| v1 | main | no | **448.0 s** | 1.29 | 2.564 T | 3.40 | 0.189 | **1.081** |
+| v2 | main | yes | 458.6 s | 1.26 | 2.563 T | 3.51 | 0.214 | 1.095 |
+| v3 | worker | no | **217.6 s** | 2.59 | 2.518 T | 1.08 | 0.008 | **0.046** |
+| v4 | worker | yes | **209.8 s** | 2.68 | 2.488 T | 1.08 | 0.009 | 0.045 |
+| v5 | 2 workers | yes | 107.8 s | 2.64 | 2.489 T | 1.05 | 0.007 | 0.049 |
+
+Every cell accepted the same 162 092 declarations.
+
+* **v1 → v3 is the whole effect: 2.06×, at −1.8 % instructions.**  Same
+  code, same mark state, same one thread of work; only the heap it
+  allocates from is different.  IPC doubles, and the load-immune rates
+  say why: **24× fewer demand fills from DRAM per instruction** (2.77 G
+  fills against 0.12 G — 177 GB of traffic against 7 GB), 24× fewer
+  dTLB load misses, 3× fewer cache misses.
+* **v1 → v2 is not the effect.**  The persistent mark costs the
+  in-thread lane 2.4 %, which is #259's finding reproduced (its +3.6 %
+  cycles); #259 was right about the mark and was measuring the wrong
+  variable.  On a worker the mark pays as #265 said (v3 → v4, −3.5 %).
+* v5 confirms the pool is clean: its `task-clock` is 213.6 s, exactly
+  v4's, over half the wall.  The per-worker rate is a worker-thread
+  rate; there was never a "pool worker is faster than a thread"
+  mystery, only a main thread that is slower than a thread.
+
+**The mechanism.**  A record's check runs from a fresh `CState` and its
+cost is dominated by the memo tables it grows and drops.  Those come
+out of the running thread's own mimalloc heap.  The main thread's heap
+at the phase boundary holds the whole installed environment live, with
+the parse's and the install's freed temporaries scattered through it,
+so mimalloc hands phase B blocks off partially-free pages spread over
+two gigabytes: every allocation and every free touches a cold line, and
+the count of cold lines touched is what the DRAM column measures.  A
+worker thread starts with an empty heap and packs the same tables into
+a working set that stays resident.
+
+### 3. What is NOT the cause
+
+* **Huge pages are not the lever.**  `MIMALLOC_ALLOW_LARGE_OS_PAGES=1`
+  on the in-thread lane cut dTLB misses per instruction 27 % (0.223 →
+  0.164) and page faults 25 %, and left the cache misses and the DRAM
+  fills *exactly* where they were (3.48 → 3.49, 1.213 → 1.240 per
+  kinstr) — 479 s → 488 s of check phase.  The TLB misses are a
+  symptom of the scatter, not the cost of it; an allocator environment
+  variable does not fix it.
+* **The fresh `{}` per record is not a lane difference at all.**  Both
+  lanes call `checkPending mode e.fe e.pend[k] {}` — the identical
+  expression, in `checkRecord`, which both the loop and the pool go
+  through.  A per-record state is what makes phase B parallel and what
+  the transfer theorem is stated over; it is also what makes the heap
+  it is allocated from matter.
+
+### 4. #260's "+14 % on init-full" was this same effect, backwards
+
+#260 reported a pool-of-one costing +14 % on `init-full` and that is
+what the `--jobs=1` ruling rested on.  It was a comparison between two
+batteries run at different times on a shared box.  Interleaved, three
+repetitions, same binary:
+
+| init-full, check phase | min | median | pairs won |
+|---|---|---|---|
+| in-thread (shipped) | 48.4 s | 49.1 s | — |
+| worker, no mark | 47.6 s | 47.9 s | 3/3 |
+| worker + mark | **44.6 s** | 45.0 s | 3/3 |
+
+The worker thread is **faster** on `init-full` too, by 8.5 % with the
+mark, and its counter signature is the same one, smaller: DRAM fills
+per kinstr 0.098 → 0.036, dTLB misses 0.078 → 0.007.  The effect exists
+at every scale; what changes with scale is how much of the wall it is
+worth, because the scatter grows with the environment.
+
+### 5. The change
+
+`--jobs=1` keeps its loop — no shared claim counter, no result table,
+the same `checkLoop` accumulator — and runs it on ONE dedicated worker
+thread, and the persistent mark now happens at every worker count
+rather than only above one.  Six lines in `checkDeclsIO`; nothing about
+what a check proves moves, because a `Task`'s result carries its own
+evidence and `markPersistent` is the identity on the value with its
+result discarded.  Measured on the shipped binary against a snapshot of
+the old one, interleaved, three repetitions:
+
+| stream | shipped `--jobs=1` | this `--jobs=1` | | pairs won |
+|---|---|---|---|---|
+| Mathlib 1.5 GB prefix | 454.0 s | **210.0 s** | **2.16×** | 3/3 |
+| `init-full` | 48.4 s | **44.5 s** | 1.09× | 3/3 |
+
+Instructions fall too (2.565 → 2.483 T on the prefix, −3.2 %: the
+mark's reference counting given back), maximum RSS rises 1.3 %
+(2124 → 2151 MB) and the lane reserves one worker thread's ~1 GiB of
+address space it did not before.  Verdicts identical in every cell
+(162 092 / 53 088).  Gates on the branch: `lake build` 541 jobs
+warning-free, `lake test` warning-free, `tests/arena.sh` green
+including the `--jobs=1` sweep (138 arena + 185 e2e + 15 annot), the
+worker pool 15/15 and the progress lane 17/17, `overview-links` 72
+links / 47 files.
+
+**The ruling this revises.**  `--jobs=1` was "the overhead-free
+in-thread lane", and the reason to keep it was that a thread and a mark
+are overhead.  They are — about 1 % of instructions — and the lane was
+paying twenty times that for the heap it ran on.  What `--jobs=1` still
+means is ONE worker and no shared state; what it no longer means is
+*the calling thread*.  A measurement that wants the old lane back has
+`--no-mark-persistent` for the mark half; the thread half is now gone
+from the binary.
