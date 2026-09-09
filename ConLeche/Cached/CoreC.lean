@@ -632,6 +632,37 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
+          else if T = andName then do
+            -- the `And`-only rescue, as in the spec body
+            let tmaj₀ ← r.inferIO depth major
+            let tmaj ← r.whnf depth tmaj₀
+            match ExprC.getAppFn tmaj with
+            | .const T' ust => do
+              let margs ← pure (ExprC.getAppArgs tmaj)
+              if (← pure (T' == T)) ∧ margs.length = cnP ∧
+                  cvj.levelParams.length = ust.length ∧
+                  fe.andRescueSlotsF rl.ctor cnP ust = true then do
+                let TI ← pure T
+                let projs ← projNodesI TI major [0, 1]
+                let ctorI ← pure rl.ctor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                if ← pure (ExprC.wscopedB depth fab &&
+                    ExprC.looseBVarsBounded 0 fab &&
+                    ExprC.leafGuard fab major) then do
+                  let tyCtor ← constTyAtM fe ctorI rl.ctor ust
+                  if ← certAtI mode (iotaCertsI r fe depth false tyCtor
+                      (margs ++ projs)) then do
+                    let tfab ← r.inferIO depth fab
+                    if ← r.defeq depth tmaj tfab then
+                      if ← certAtI mode (proofIrrelI r fe depth fab major) then
+                        pure fab
+                      else pure major
+                    else pure major
+                  else pure major
+                else pure major
+              else pure major
+            | _ => pure major
           else pure major
         | _ => pure major
       | _ => pure major

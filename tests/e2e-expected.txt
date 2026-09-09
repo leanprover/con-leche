@@ -265,6 +265,19 @@
 # theorem to unfold — an accept-subset of the reference kernels until
 # that PR lands, and the fixture that pins the opacity.
 1 subject_reduction_redex.ndjson
+# The And-only η rescue's probes (task #258; sources beside them, the
+# use-site theorems added through the task #208 probe kit because the
+# elaborator's defeq never unfolds a theorem): `And.rec` into `Nat` on a
+# THEOREM-proved major accepts — the stuck proof is rescued through
+# `And.intro a b h.1 h.2`, certified by proof irrelevance (an
+# accept-superset of official, which never η-rescues a proposition,
+# working around the absence of lean4#14925) — while the `Iff.rec` and
+# `Acc.rec` twins REJECT (no rescue exists: the ruling is And-only), and
+# the def-proved control accepts in both regimes.
+0 and_rec_opaque.ndjson
+1 iff_rec_opaque.ndjson
+1 acc_rec_opaque.ndjson
+0 and_rec_def.ndjson
 # dag_tower (task #65/#78): a 2^28-node doubling tower (add e e at 27
 # levels) over the beta-ladder prelude, DAG-shared through export-table
 # indices.  Since parse-time interning (task #78) the ordinary

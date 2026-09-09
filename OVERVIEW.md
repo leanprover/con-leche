@@ -134,7 +134,7 @@ Read from the outside in:
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
-   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L537-L538)).
+   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L543-L544)).
    The walk carries the model to the final environment
    ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L420-L422)),
    and the fold's letter
@@ -147,7 +147,7 @@ Read from the outside in:
    parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TypeChecker.lean#L28-L54));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2792-L2801)).
+   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2862-L2871)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L294-L301)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
@@ -176,16 +176,22 @@ faster and is outside the theorem. Both use the same core.
 
 The checker is a Lean-kernel-style type checker in the shape of the
 official one: `whnfCore` does β/ι/projection/quotient reduction,
-`whnf` adds δ-unfolding and the literal fast paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L1956)),
+`whnf` adds δ-unfolding of definitions — a theorem is opaque to
+reduction: its value is never unfolded, so whether a declaration
+type-checks never depends on a theorem's value — and the literal fast
+paths
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2028)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
-reduction as the environment's capability flags permit. Two things
+reduction as the environment's capability flags permit; one
+proposition, the pinned `And`, is additionally rescued when its
+recursor is stuck on a proof (`And.intro a b h.1 h.2` is fabricated
+and certified by proof irrelevance — `And` only, by ruling). Two things
 differ from a textbook presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
-  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2680))
+  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2750))
   records at every binder the sort of its codomain as a "Prop-when"
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
@@ -277,11 +283,11 @@ operations of §6.
 Inductive blocks are not trusted from the stream. Three cases:
 
 * **Pinned basis blocks.** `Eq`, `Nat`, `PUnit`, `Empty`, `False`,
-  `Quot` (with its soundness axiom) and `Bool` are installed from
-  built-in pins
+  `Quot` (with its soundness axiom), `Bool` and `And` are installed
+  from built-in pins
   ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Basis/False.lean#L52))
   as a prelude prepended to every stream
-  ([the built-in prelude in `ConLeche/Frontend/Prelude.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prelude.lean#L7-L19));
+  ([the built-in prelude in `ConLeche/Frontend/Prelude.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prelude.lean#L7-L22));
   a stream record under one of those names is dropped if identical and
   declined if different. Their denotations are fixed sets, which is why
   the main theorem can name `False` without a hypothesis about how the

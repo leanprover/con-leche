@@ -217,7 +217,8 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
       (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
     rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩
+      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩ |
+      ⟨rfl, hlenP, hlpj, hslots, rfl, hcerts, -, -⟩
     · -- K: the parameters-only constructor application
       refine ⟨⟨_, denoteMeta_mkAppN (hspt.take cnP)
         (denoteMeta_const hfcj (show ust.length
@@ -332,9 +333,53 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
       rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
       · exact absurd hl' (by simp [Expr.fvarLeaves])
       · exact (hallF y hy).2 l hly
+    · -- the pinned `And`: parameters plus the two `.proj` nodes at its
+      -- stored tower entries, which read to the tower readings
+      have hslot := ConLeche.andRescueSlots_inv hslots
+      have hp : ∀ j, j < 2 →
+          (∃ xa, denoteMeta m.acval env φ d (Expr.proj andName j e) = some xa) ∧
+            LeafReads m φ d (Expr.proj andName j e) := by
+        intro j hj
+        obtain ⟨entry, hfe, -⟩ := hslot j hj
+        refine ⟨⟨_, denoteMeta_proj_tower hfe hea⟩, ?_⟩
+        intro l hl
+        exact hlr l (by simpa [Expr.fvarLeaves] using hl)
+      have hallF : ∀ x ∈ tmaj.getAppArgs ++ [Expr.proj andName 0 e, Expr.proj andName 1 e],
+          (∃ xa, denoteMeta m.acval env φ d x = some xa) ∧
+            LeafReads m φ d x := by
+        intro x hx
+        rcases List.mem_append.mp hx with hx' | hx'
+        · obtain ⟨xa, hxa⟩ := hspt.mem x hx'
+          exact ⟨⟨xa, hxa⟩, hlrTargs x hx'⟩
+        · rcases List.mem_cons.mp hx' with rfl | hx''
+          · exact hp 0 (by decide)
+          · rcases List.mem_singleton.mp hx'' with rfl
+            exact hp 1 (by decide)
+      have hspF : ∃ ys, DenoteMetaSpine m.acval env φ d
+          (tmaj.getAppArgs ++ [Expr.proj andName 0 e, Expr.proj andName 1 e]) ys := by
+        have hall := fun x hx => (hallF x hx).1
+        revert hall
+        generalize tmaj.getAppArgs ++ [Expr.proj andName 0 e, Expr.proj andName 1 e] = args
+        intro hall
+        induction args with
+        | nil => exact ⟨[], .nil⟩
+        | cons x xs ih =>
+          obtain ⟨xa, hxa⟩ := hall x List.mem_cons_self
+          obtain ⟨ys, hys⟩ :=
+            ih (fun y hy => hall y (List.mem_cons_of_mem x hy))
+          exact ⟨xa :: ys, .cons hxa hys⟩
+      obtain ⟨ys, hspF⟩ := hspF
+      refine ⟨⟨_, denoteMeta_mkAppN hspF
+        (denoteMeta_const hfcj (show ust.length
+          = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
+          from hlpj.symm))⟩, ?_⟩
+      intro l hl
+      rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      · exact absurd hl' (by simp [Expr.fvarLeaves])
+      · exact (hallF y hy).2 l hly
 
-/-- **`MajorStep`, proved** (R12/R13/R14 and the identity
-fallthrough). -/
+/-- **`MajorStep`, proved** (R12/R13/R14, the pinned `And`'s rescue,
+and the identity fallthrough). -/
 theorem majorToCtorFueled_step {m : EnvModel V env}
     (hcaps : CapsOk m) (htower : TowerOk m φ) (hct : ConstType m φ) (hav : AcvalValid m)
     (ihw : WhnfClaim μ m φ fuel) (ihd : DefEqClaim μ m φ fuel)
@@ -403,9 +448,10 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
     -- branch reads it off the invariant's η clause (the constructor
     -- of an η-capable family carries the former's level parameters)
     have hlenCj : ust.length = cvj.levelParams.length := by
-      rcases hcase with ⟨-, hlpj, -⟩ | ⟨hetab, -, -, hlenU, -⟩
+      rcases hcase with ⟨-, hlpj, -⟩ | ⟨hetab, -, -, hlenU, -⟩ | ⟨-, -, hlpj, -⟩
       · exact hlpj.symm
       · rw [(hEbits hetab).2.2]; exact hlenU
+      · exact hlpj.symm
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
       hct d rl.ctor _ ust hfcj rfl (by exact hlenCj)
     dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVja hmemCj
@@ -456,7 +502,8 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
         (fun x hx => hokArgs x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
     rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩
+      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩ |
+      ⟨rfl, hlenP, hlpj, hslots, rfl, hcerts, -, hirr⟩
     · -- R12: the K-flagged rescue
       obtain ⟨hdF, hokF⟩ := hfab (tmaj.getAppArgs.take cnP) (tsa.take cnP)
         hcerts
@@ -733,5 +780,103 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           fun ρ hρ => (hpi hirr hwF hbB hLF hws hb hLb hCF hC hdF hvm
             hokF hokm ρ hρ).symm,
           hwF, hbB, hLF, hCF⟩
+    · -- THE PINNED `And`'S RESCUE: R12's argument — the fabrication and
+      -- the major are both proofs of the major's type, so proof
+      -- irrelevance identifies their readings (in the squash regime
+      -- every proof is the point) — at the fabrication of the major's
+      -- two projections, which read to the tower readings and are
+      -- graded by the stored entries' typing law (the guard from
+      -- `fireOk`, not from an η record: `And` claims no η)
+      have hslot := ConLeche.andRescueSlots_inv hslots
+      have hspM : DenoteMetaSpine m.acval env φ d (tmaj.getAppArgs ++ [major])
+          (tsa ++ [vm]) :=
+        hspt.append (DenoteMetaSpine.cons hvm DenoteMetaSpine.nil)
+      -- the family's leaf: its level count is the constructor's, which
+      -- is the entries' (`TowerEntryLaw`), which is the former's
+      obtain ⟨entry0, hfe0, hctor0, hnP0, -, -⟩ := hslot 0 (by decide)
+      obtain ⟨-, -, -, ⟨cvT0, capsT0, hfT0, hlpsT0, -⟩, -, cvC0, hfC0, hlpsC0, -, -⟩ :=
+        htower andName 0 entry0 hfe0
+      have hcvT0 : cvT0 = cvT := by
+        rw [hfT] at hfT0
+        exact (ConstantInfo.indInfo.inj (Option.some.inj hfT0)).1.symm
+      have hcvC0 : cvC0 = cvj := by
+        rw [hctor0, hfcj] at hfC0
+        exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfC0)).1.symm
+      have hlenus2 : ust.length = cvT.levelParams.length := by
+        rw [← hcvT0, hlpsT0, ← hlpsC0, hcvC0]; exact hlpj.symm
+      have hvT' : vT = m.acval andName (Level.substFn φ cvT.levelParams ust) := by
+        rw [denoteMeta_const hfT (show ust.length
+          = (ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
+          from hlenus2)] at hvT
+        exact (Option.some.inj hvT).symm
+      -- each projection: read to the tower reading, graded by the law
+      have hproj : ∀ j, j < 2 →
+          denoteMeta m.acval env φ d (Expr.proj andName j major)
+              = some (projAV (j + env.projOff andName) vm) ∧
+            ∀ ρ : Nat → V, Sat V Δa ρ →
+              WellDenotedV V ρ (projAV (j + env.projOff andName) vm) := by
+        intro j hj
+        obtain ⟨entry, hfe, hctor, hnP, -, hfire⟩ := hslot j hj
+        rw [← ConLeche.Env.findProj?_off hfe]
+        refine ⟨denoteMeta_proj_tower hfe hvm, ?_⟩
+        intro ρ hρ
+        obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, -⟩, hO5j, cvCj, hfCj, hlpsCj, hlawj, -⟩ :=
+          htower andName j entry hfe
+        have hcvTj : cvTj = cvT := by
+          rw [hfT] at hfTj
+          exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).1.symm
+        have hlpe : entry.levelParams = cvT.levelParams := by rw [← hlpsTj, hcvTj]
+        have hgj : TowerGuardAt φ entry ust := towerGuardAt_of_fireOk hO5j hfire
+        obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
+        obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
+        have hlenVs : tsa.length = entry.numParams := by
+          rw [← hspt.length, hlenP, hnP]
+        have hpc : PiChain (tsa ++ [vm]).length Ta := by
+          rw [List.length_append, List.length_singleton, hlenVs]
+          exact piChain_of_stripPis _
+            (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
+        obtain ⟨restj, hpeel⟩ := peelPis_of_piChain _ hpc
+        rw [hlpe, ← hvT'] at hA
+        exact (hA hgj ρ tsa vm restj hlenVs (hokTm ρ hρ) (hokm ρ hρ)
+          (hmemMW ρ hρ) hpeel).1
+      have hspF : DenoteMetaSpine m.acval env φ d
+          (tmaj.getAppArgs ++ [Expr.proj andName 0 major, Expr.proj andName 1 major])
+          (tsa ++ [projAV (0 + env.projOff andName) vm,
+            projAV (1 + env.projOff andName) vm]) :=
+        hspt.append (DenoteMetaSpine.cons (hproj 0 (by decide)).1
+          (DenoteMetaSpine.cons (hproj 1 (by decide)).1 DenoteMetaSpine.nil))
+      have hfrF : ∀ x ∈ tmaj.getAppArgs ++ [Expr.proj andName 0 major, Expr.proj andName 1 major],
+          Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+            Expr.LeavesBounded x ∧ CtxOk m φ d Δa x := by
+        intro x hx
+        rcases List.mem_append.mp hx with hx' | hx'
+        · exact frame_spine hwr hbr hLr hCr x hx'
+        · have hpj : ∀ j, Expr.WScoped d (Expr.proj andName j major) ∧
+              (Expr.proj andName j major).looseBVarsBounded 0 = true ∧
+              Expr.LeavesBounded (Expr.proj andName j major) ∧
+              CtxOk m φ d Δa (Expr.proj andName j major) := fun j =>
+            ⟨by simpa [Expr.WScoped] using hws,
+              by simpa [Expr.looseBVarsBounded] using hb,
+              fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
+              ⟨hC.1, fun l hl => hC.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
+          rcases List.mem_cons.mp hx' with rfl | hx''
+          · exact hpj 0
+          · rcases List.mem_singleton.mp hx'' with rfl
+            exact hpj 1
+      have hoksF : ∀ x ∈ tsa ++ [projAV (0 + env.projOff andName) vm,
+            projAV (1 + env.projOff andName) vm],
+          ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x := by
+        intro x hx
+        rcases List.mem_append.mp hx with hx' | hx'
+        · exact hoTs x hx'
+        · rcases List.mem_cons.mp hx' with rfl | hx''
+          · exact (hproj 0 (by decide)).2
+          · rcases List.mem_singleton.mp hx'' with rfl
+            exact (hproj 1 (by decide)).2
+      obtain ⟨hdF, hokF⟩ := hfab _ _ hcerts hfrF hspF hoksF
+      exact ⟨_, hdF, hokF,
+        fun ρ hρ => (hpi hirr hwF hbB hLF hws hb hLb hCF hC hdF hvm
+          hokF hokm ρ hρ).symm,
+        hwF, hbB, hLF, hCF⟩
 
 end ConLeche.Model

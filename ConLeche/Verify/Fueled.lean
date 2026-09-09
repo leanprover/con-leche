@@ -377,6 +377,10 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     · rw [if_pos hE, if_pos hE]
       atF_tac2
     rw [if_neg hE, if_neg hE]
+    by_cases hA : T = andName
+    · rw [if_pos hA, if_pos hA]
+      atF_tac2
+    rw [if_neg hA, if_neg hA]
     rfl
 
 theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :

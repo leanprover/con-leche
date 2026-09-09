@@ -38,38 +38,45 @@ def preludeIx : PreludeIx :=
 -- the prelude parses
 #guard builtinPreludeE.toOption.isSome
 
--- seven records: the six basis blocks (the four `quot` records and
--- `Quot.sound` fold into one) and the `Bool` inductive block
-#guard preludeIx.decls.size == 7
+-- eight records: the six basis blocks (the four `quot` records and
+-- `Quot.sound` fold into one), the `And` inductive block (pinned by
+-- design: the one propositional structure the stuck-major rescue
+-- serves, `ConLeche/PinGen/Prelude.lean`'s `pinnedPreludeMembers`) and
+-- the `Bool` inductive block
+#guard preludeIx.decls.size == 8
 #guard preludeIx.basis.length == 6
 #guard [BasisKind.eqK, .natK, .punitK, .emptyK, .falseK, .quotK].all
   (preludeIx.basis.contains ·)
+#guard preludeIx.byName.contains andName
+#guard preludeIx.byName.contains andIntroName
+#guard preludeIx.byName.contains (andName.str "rec")
 #guard preludeIx.byName.contains (Name.str .anonymous "Bool")
 #guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "rec")
 #guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "true")
 #guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "false")
-#guard preludeIx.byName.size == 4
+#guard preludeIx.byName.size == 7
 -- no basis name is in the by-name index: a stream's mismatching basis
 -- redefinition keeps REJECTING through the reserved-name check
 #guard !(preludeIx.byName.contains natName)
 #guard !(preludeIx.byName.contains eqName)
 
 /-- The fold accepts the prelude alone, at both modes, from the empty
-environment: 23 constants (19 basis + `Bool`, `Bool.false`,
-`Bool.true`, `Bool.rec`). -/
+environment: 27 constants (19 basis + `And`, `And.intro`, `And.rec` and
+`And`'s projection table + `Bool`, `Bool.false`, `Bool.true`,
+`Bool.rec`). -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
   match checkDecls mode preludeIx.decls.toList with
   | .ok env => some env.consts.length
   | .error _ => none
 
-#guard preludeEnvSize .verified == some 23
-#guard preludeEnvSize .trusted == some 23
+#guard preludeEnvSize .verified == some 27
+#guard preludeEnvSize .trusted == some 27
 
 -- the dedupe: the prelude's own text, parsed AGAINST the prelude,
 -- drops every record (all identical) — the result is the prelude and
 -- nothing more
 #guard match parseExportD builtinPreludeText preludeIx with
-  | .ok r => r.decls.size == 7 && r.preludeCount == 7 && r.preludeDropped == 7
+  | .ok r => r.decls.size == 8 && r.preludeCount == 8 && r.preludeDropped == 8
   | .error _ => false
 
 end ConLecheTests

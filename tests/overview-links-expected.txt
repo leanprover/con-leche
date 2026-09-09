@@ -87,9 +87,9 @@
    295      NodupNames q.2.1.env →
    296      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L537-L538
-   537  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   538      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
+   543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
 == ConLeche/Verify/Cached/InstalledC.lean#L420-L422
    420  well-formedness it needs; the conclusion is the model itself. -/
@@ -142,17 +142,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2792-L2801
-  2792        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2793        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2794        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2795        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2796        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2797    | fuel + 1 =>
-  2798      wrap
-  2799        { whnfCore := fun d e =>
-  2800            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2801          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2862-L2871
+  2862        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2863        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2864        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2865        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2866        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2867    | fuel + 1 =>
+  2868      wrap
+  2869        { whnfCore := fun d e =>
+  2870            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2871          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -184,11 +184,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1956
-  1956  
+== ConLeche/Kernel/Core.lean#L2028
+  2028  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2680
-  2680        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+== ConLeche/Kernel/Core.lean#L2750
+  2750        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -550,20 +550,23 @@
 == ConLeche/Kernel/Basis/False.lean#L52
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== ConLeche/Frontend/Prelude.lean#L7-L19
+== ConLeche/Frontend/Prelude.lean#L7-L22
      7  /-!
      8  # The built-in prelude (task #191)
      9  
     10  **What it is.**  The checker's own little prelude: the six pinned
     11  basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`, `False`, `Quot` with its
-    12  soundness axiom) and the `Bool` block — every declaration the
+    12  soundness axiom), the `Bool` block — every declaration the
     13  pin-certified `Nat` operations' install needs that is neither in the
     14  operation's own dependency closure nor a stream-certified operation
-    15  itself (`ConLeche/PinGen/Prelude.lean` computes the set mechanically; the
-    16  committed file is `pins/<toolchain>.prelude.ndjson`, regenerated with
-    17  `lake exe natop-pins-export` and gated by `tests/pindump.sh`).
-    18  
-    19  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
+    15  itself — and the `And` block, pinned by design: the one propositional
+    16  structure whose recursor the stuck-major rescue serves
+    17  (`majorToCtor`'s `And` branch, `ConLeche/Kernel/Core.lean`, keyed on
+    18  the name), so the name must denote the toolchain's `And` in every
+    19  fold.  `ConLeche/PinGen/Prelude.lean` computes the set mechanically
+    20  (`pinnedPreludeMembers` adds `And`); the committed file is
+    21  `pins/<toolchain>.prelude.ndjson`, regenerated with
+    22  `lake exe natop-pins-export` and gated by `tests/pindump.sh`.
 
 == ConLeche/Kernel/Env.lean#L579-L586
    579  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=

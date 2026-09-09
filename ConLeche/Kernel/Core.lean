@@ -1224,6 +1224,53 @@ def etaFabArgsE (env : Env) (T : Name) (ust : List Level)
     (targs : List Expr) (major : Expr) (nF : Nat) : List Expr :=
   targs ++ etaProjs env T ust targs major nF
 
+/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
+`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
+tower-backed entry under exactly the guard the tower infer branch
+types the node with — at a `Prop`-declared structure the field's guard
+level must be a proposition at this instantiation; at every other
+family the rule fires unconditionally.
+
+Until W6 the guard was "the structure's sort is provably nonzero at
+this instantiation", which is *not* what the official kernel does
+(`reduce_proj` reduces every constructor redex) and rejects the
+modelled basis's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
+at symbolic `u v`, where `max u v` is neither provably zero nor
+nonzero) once the pinned pair — whose entries were ungated — is
+retired.  The model licence: at a squash instance (the structure's
+sort is `0` at the valuation) the constructor application reads as
+the point, and so does the selected field — for a non-`Prop`-declared
+family every field's sort is bounded by the structure's (the O5 bound
+`checkStructFieldSorts` checks), so at a zero instantiation every
+field is a proposition; for a `Prop`-declared family the guard says
+so of the projected field directly (`TowerEntryLaw`'s iota clause,
+`ConLeche/Model/Annot/EnvModelM.lean`).  Ungated rules on a data field of a
+`Prop`-declared structure stay out: such a node is not even typed
+(`inferBody`'s guard). -/
+def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
+  !(Level.isEquiv entry.structSort .zero == some true) ||
+    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+      == some true)
+
+/-- **The pinned `And`'s projection slots, ready to fire**: the two
+tower entries of `And` are stored, name the rule's constructor at the
+major's parameter count, and their `Prop` guards pass at the levels
+`ust` (`ProjEntry.fireOk`: `And`'s fields are propositions, so a
+`.proj And j h` node is typed by the tower infer branch).  The gate of
+`majorToCtor`'s `And` branch; abstracted over the lookup so the
+indexed twin (`FEnv.andRescueSlotsF`) shares the body. -/
+def andRescueSlotsOf (findProj? : Name → Nat → Option ProjEntry)
+    (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
+  (List.range 2).all fun j =>
+    match findProj? andName j with
+    | some e => e.ctor == ctor && e.numParams == nP && e.numFields == 2 &&
+        e.fireOk ust
+    | none => false
+
+/-- `andRescueSlotsOf` at the plain environment. -/
+def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
+  andRescueSlotsOf env.findProj? ctor nP ust
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -1232,8 +1279,11 @@ single constructor is fabricated from the major's type and certified by
 proof irrelevance (in the model both are the proof point); for an
 eta-capable structure the constructor of the major's projections is
 fabricated and certified by the structure-eta certificate (in the model
-both are the tuple of the major's components).  An uncertified major
-stays put — sound, the reduction simply stays stuck. -/
+both are the tuple of the major's components); for the pinned `And` —
+a proposition, which official never η-rescues — the constructor of the
+major's projections is fabricated and certified by proof irrelevance
+(the `And` branch below).  An uncertified major stays put — sound, the
+reduction simply stays stuck. -/
 def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
     (_recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
   -- cheap syntactic gates before any inference: a rescue needs a
@@ -1343,6 +1393,54 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     -- instantiated non-Prop test is already in the
                     -- branch guard above
                     else if caps.etaFields = 0 then
+                      if ← proofIrrel r env depth fab major then
+                        pure fab
+                      else pure major
+                    else pure major
+                  else pure major
+                else pure major
+              else pure major
+            | _ => pure major
+          else if T = andName then
+            -- THE `And`-ONLY η RESCUE (user ruling: `And` and nothing
+            -- else — "this is a hack and we want its blast radius
+            -- limited").  `And.rec F h` at a stuck PROOF `h` (a theorem
+            -- is opaque to reduction) fires through the fabrication
+            -- `And.intro a b (.proj And 0 h) (.proj And 1 h)`,
+            -- certified the K branch's way: the synthetic spine against
+            -- the constructor's telescope (which types the two `.proj`
+            -- nodes through `And`'s projection table), the
+            -- fabrication's type against the major's, and proof
+            -- irrelevance — sound because in the model every proof is
+            -- the point.  Official does not η-rescue a proposition
+            -- (`to_cnstr_when_structure` requires a never-zero sort),
+            -- so this is an accept-superset there, reported per the
+            -- `proofIrrel` ruling; it WORKS AROUND the absence of
+            -- https://github.com/leanprover/lean4/pull/14925 (upstream
+            -- builds `casesOn`/`recOn` of such a proposition from
+            -- projections, so no `And.rec` on a proof is emitted), on
+            -- top of opaque theorems, which ANTICIPATE
+            -- https://github.com/leanprover/lean4/pull/14896.
+            let tmaj ← r.whnf depth (← r.inferIO depth major)
+            match tmaj.getAppFn with
+            | .const T' ust =>
+              if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
+                  cvj.levelParams.length = ust.length ∧
+                  andRescueSlots env rl.ctor cnP ust = true then
+                let fab := Expr.mkAppN (.const rl.ctor ust)
+                  (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
+                -- scope guard, as in the K branch
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  -- synthetic-spine certification, as in the K branch
+                  if ← iotaCerts r env depth false
+                      (cvj.type.instantiateLevelParams
+                        cvj.levelParams ust)
+                      (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major]) then
+                    -- the fabrication's type against the major's, then
+                    -- proof irrelevance as the soundness certificate
+                    if ← r.defeq depth tmaj (← r.inferIO depth fab) then
                       if ← proofIrrel r env depth fab major then
                         pure fab
                       else pure major
@@ -1695,34 +1793,6 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       else pure none
     | _ => pure none
   | _ => pure none
-
-/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
-`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
-tower-backed entry under exactly the guard the tower infer branch
-types the node with — at a `Prop`-declared structure the field's guard
-level must be a proposition at this instantiation; at every other
-family the rule fires unconditionally.
-
-Until W6 the guard was "the structure's sort is provably nonzero at
-this instantiation", which is *not* what the official kernel does
-(`reduce_proj` reduces every constructor redex) and rejects the
-modelled basis's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
-at symbolic `u v`, where `max u v` is neither provably zero nor
-nonzero) once the pinned pair — whose entries were ungated — is
-retired.  The model licence: at a squash instance (the structure's
-sort is `0` at the valuation) the constructor application reads as
-the point, and so does the selected field — for a non-`Prop`-declared
-family every field's sort is bounded by the structure's (the O5 bound
-`checkStructFieldSorts` checks), so at a zero instantiation every
-field is a proposition; for a `Prop`-declared family the guard says
-so of the projected field directly (`TowerEntryLaw`'s iota clause,
-`ConLeche/Model/Annot/EnvModelM.lean`).  Ungated rules on a data field of a
-`Prop`-declared structure stay out: such a node is not even typed
-(`inferBody`'s guard). -/
-def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
-  !(Level.isEquiv entry.structSort .zero == some true) ||
-    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-      == some true)
 
 /-- **The type of a `.proj` node at a tower-backed entry** (task #175
 S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
