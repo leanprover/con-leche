@@ -65095,11 +65095,11 @@ below it, so `tests/overview-links.sh` passes unchanged and no
 
 ## Task #264 — THE KEY CLASSIFIER COMPARES BYTES, NOT STRING CONSTANTS (2026-09-09, `agent/keylit`)
 
-Task #256's residue, found by reading the generated C.  The 73 key
-literals of the dialect were `String` constants; each one that the
-classifier compared against was turned into a `ByteArray` on first use
-through a `lean_obj_once` cell of its own and then walked by a call to
-`matchLit`, a two-array loop.  The profile put `keyAt` at 9.99 % of a
+Task #256's residue, found by reading the generated C.  The
+recogniser held 73 literals as `String` constants, 64 of them the key
+tails `keyAt` compares against; each was turned into a `ByteArray` on
+first use through a `lean_obj_once` cell of its own and then walked by
+a call to `matchLit`, a two-array loop.  The profile put `keyAt` at 9.99 % of a
 parse-only `init-full` run (`CON_LECHE_INMODEL_CENSUS=1`, 17.898 G
 instructions) — behind only the two big slot loops and the
 allocator.
@@ -65132,13 +65132,16 @@ non-empty, so the `matchLit`-returns-`true`-on-an-empty-literal case
 never arose.  `keyAt` is therefore the same total function of `(b, i,
 kl)`, on every input, in bounds or out.
 
-`matchLit` itself STAYS, with its eight remaining call sites
+`matchLit` itself STAYS, with its nine remaining call sites
 untouched: `scanBool`'s `"true"`/`"false"`, `scanBinderInfo`'s four
 spellings, `"never"` in the `pw` field and `"abbrev"`/`"opaque"` in
-`hints`.  Those are once per record, not once per key, and the lane
+`hints`.  Those run once per record, not once per key, and the lane
 was deliberately kept to the key path; they are the docket item this
-record leaves behind (8 of the 16 remaining `lean_obj_once` cells in
-`Scan/Fast.c`).
+record leaves behind.  Per function, the once-cells outside the
+module's `_init_` code go `keyAt` 64 → **0**, and the residue is
+exactly those nine sites (`scanBool` 2, `scanBinderInfo` 4, `scanPw`
+1, `scanHints` 2) plus `unescape`'s 6, which are the UTF-8 escape
+path's literals and are not on the hot path at all.
 
 **WHAT THE PROOF LANE MUST RE-PROVE** (`agent/scanspec`, task #261).
 `matchLit`'s statement and its twin are UNCHANGED — the definition,
@@ -65165,6 +65168,10 @@ which is a decidable computation on closed data (no new axiom, and no
 order, the `kl` tests and their order, and `keyAt`'s type are all
 unchanged, so the classifier twin's STATEMENT does not move — only the
 64 leaf rewrites inside its proof, plus the zeta step for `j`.
+`lit1 … lit10` sit in `Frontend/Scan/Fast.lean`'s `@[expose] public
+section` like everything else in the checker, so their bodies unfold
+in the tiers above; `@[inline]` is a code-generator attribute and
+changes nothing about the definition.
 
 **The generated C, before → after** (`.lake/build/ir/ConLeche/Frontend/Scan/Fast.c`,
 counted over the body of `lp_con_x2dleche_ConLeche_Frontend_keyAt`):
