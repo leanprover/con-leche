@@ -82,7 +82,9 @@ fail=0; nstreams=0; nblocks=0
 nfix=0; ninmodel=0; nbasis=0; nmodeled=0
 for s in "${streams[@]}"; do
   nstreams=$((nstreams+1))
-  ( ulimit -v 16000000; CON_LECHE_ROUTE_TRACE=1 timeout 3000 "$BIN" "$s" \
+  # `--jobs=4` under the cap: a worker thread reserves ~1 GiB of
+  # address space and the default is one worker per hardware thread
+  ( ulimit -v 16000000; CON_LECHE_ROUTE_TRACE=1 timeout 3000 "$BIN" --jobs=4 "$s" \
       > "$WORK/out.txt" 2> "$WORK/trace.txt" )
   cexit=$?
   if grep -q 'no install route for' "$WORK/trace.txt"; then

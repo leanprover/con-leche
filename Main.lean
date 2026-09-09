@@ -112,7 +112,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
   | pd :: rest, p, s, hrun => do
     if stride > 0 && p.1 % stride == 0 then
       let now ← IO.monoMsNow
-      err.putStr s!"con-leche: progress {p.1}/{total} \
+      err.putStr s!"con-leche: install {p.1}/{total} \
         {ConLeche.Cached.declCLabel pd} \
         t={ConLeche.Cached.msSecs (now - t0)}s\n"
       err.flush
@@ -153,65 +153,250 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           ConLeche.Cached.InstallRun.snoc mode hr h⟩)
     | .error e => return .error e
 
-/-- **Phase B's loop — the driver's check pass, carrying the checks it
-has established.**  Record `k` is checked against the prefix view of
-the installed index from a fresh memo state
-(`ConLeche.Cached.checkPending`), and the accumulator — `GroupChecked`
-of every record below `k`, a proposition — grows by one; at the end the
-installed environment and the accumulator ARE a `FullyChecked mode ds`,
-phase B of the fold `checkDecls`.  The records are independent: a
-later loop may hand them to workers and collect the same facts.  With
-`--progress`, one line per record. -/
+/-- The check phase's heartbeat: on the `stride`-th completed check
+(`n` completed so far, record `k` the one just completed), one line
+naming it.  The counter is the number of COMPLETED checks, so in the
+pool it is monotone whichever worker finished, and the line is printed
+after the check rather than before it: a check that is running is not
+on any line, the gap between two lines is where it sits. -/
+def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) {mode : ConLeche.CheckMode}
+    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    (n k : Nat) (hk : k < e.pend.size) : IO Unit := do
+  if stride > 0 && n % stride == 0 then
+    let now ← IO.monoMsNow
+    err.putStr s!"con-leche: check {n}/{e.pend.size} \
+      {e.pend[k].vg.kind.word} {e.pend[k].vg.cvA.name} \
+      t={ConLeche.Cached.msSecs (now - t0)}s\n"
+    err.flush
+
+/-- **Phase B in one thread — the check pass at `--jobs=1`.**  Record
+`k` is checked against the prefix view of the installed index from a
+fresh memo state (`ConLeche.Cached.checkRecord`), and the accumulator —
+`GroupChecked` of every record below `k`, a proposition — grows by
+one; at the end every record is checked, which with the installed
+environment IS a `FullyChecked mode ds`, phase B of the fold
+`checkDecls`.  Nothing is shared with any other thread, and nothing is
+marked for multi-threaded reference counting: this loop is the
+sequential baseline the pool below is measured against.  With
+`--progress`, one line per `stride` completed checks. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
-      IO (Except (ConLeche.CheckError × Nat) (ConLeche.Cached.FullyChecked mode ds))
+      IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i)))
   | k, acc =>
     if hk : k < e.pend.size then do
-      if stride > 0 && k % stride == 0 then
-        let now ← IO.monoMsNow
-        err.putStr s!"con-leche: progress check {k}/{e.pend.size} {e.pend[k].vg.cvA.name} \
-          (fold position {e.pend[k].pos}) t={ConLeche.Cached.msSecs (now - t0)}s\n"
-        err.flush
-      match h : ConLeche.Cached.checkPending mode e.fe e.pend[k] {} with
-      | .ok ((), _) =>
-        checkLoop mode err stride t0 e (k + 1)
-          (ConLeche.Cached.groupChecked_extend mode acc
-            (ConLeche.Cached.groupChecked_of_run mode e hk h))
-      | .error e' => return .error (e', e.pend[k].pos)
+      match ConLeche.Cached.checkRecord mode e k hk with
+      | .ok ⟨h⟩ =>
+        checkHeartbeat err stride t0 e (k + 1) k hk
+        checkLoop mode err stride t0 e (k + 1) (ConLeche.Cached.groupChecked_extend mode acc h)
+      | .error e' => return .error e'
     else
-      return .ok ⟨e, ConLeche.Cached.groupChecked_all mode
+      return .ok ⟨ConLeche.Cached.groupChecked_all mode
         (fun j hj => acc j (Nat.lt_of_lt_of_le hj (Nat.le_of_not_lt hk)))⟩
   termination_by k => e.pend.size - k
 
-/-- **The driver**: `installLoop` then `checkLoop`, and what comes out is
-the environment together with the proof that the fold `checkDecls`
+/-! ### The pool: phase B on `--jobs=<n>` threads
+
+The records' checks are independent by construction — each reads the
+installed index at its own prefix view, its own record, and a fresh
+memo state — so phase B is handed to `n` long-lived worker tasks
+(`IO.asTask` on dedicated threads: exactly `n` threads whatever the
+runtime's own pool size).  The work is millions of mostly tiny checks
+with a skewed tail (single bodies of an hour exist), so a worker claims
+CHUNKS of consecutive records off one shared counter — a few hundred
+at the start, shrinking towards the end (`chunkSize`) — and pays one
+atomic per chunk, not per record; a chunk is the unit a tail item can
+strand, and near the end chunks are single records.  Each worker keeps
+its results in its own array (record index, `RecordResult`), which
+is what a record's check IS: the `GroupChecked` fact of that record
+or its tagged error (`ConLeche.Cached.checkRecordResult`).  The pool
+merges the arrays by index into one table and walks it in record
+order (`ConLeche.Cached.collectChecks`): the walk stops at the first
+failing record in FOLD order, so the verdict — and the declaration the
+rejection names — is the sequential walk's, `checkPendingList`'s,
+whatever the workers' timing.  **Determinism on a failure**: a worker
+that fails record `f` lowers the shared `limit` to `f`, and no worker
+starts a record at or above the limit — every record below `f` was
+claimed before `f` was (the counter is monotone) and is finished by
+the worker that claimed it, so the table is complete below the first
+failure; records above it may be missing, and the walk never reaches
+them.  A worker cannot be cancelled mid-check (a check is a pure
+computation), so the pool drains.
+
+Each worker thread reserves 1 GiB of address space — see
+`jobsCount`; the default count is the hardware thread count.
+
+Nothing in the pool touches the driver's type: what a worker returns
+carries its own evidence, and `collectChecks` assembles the
+`∀ i, GroupChecked mode e i` the fully checked environment asks for
+from the table alone.  The transfer theorem is untouched.
+
+The runtime marks everything reachable from a task's closure — the
+installed index and the records — for multi-threaded reference
+counting once, on the first spawn (an object already marked is not
+walked again); every reference-count operation on those objects is
+atomic from then on, which is the pool's instruction overhead over
+the sequential loop.  The heartbeat lane (`--progress`) additionally
+pays one atomic increment per completed record, for an exact
+completed-count; a plain run pays none. -/
+
+/-- The chunk a worker claims when `remaining` records are unclaimed
+and `workers` threads share them: a quarter of an even share, at
+least one record and at most 256 — large while the counter is far
+from the end (one atomic per chunk), single records near it (no
+worker idles while another holds a chunk of the tail). -/
+def chunkSize (remaining workers : Nat) : Nat :=
+  max 1 (min 256 (remaining / (4 * workers)))
+
+/-- One chunk `[k, b)` of one worker: every record below the shared
+`limit` is checked and its result appended; a failure lowers the
+limit to its index; on the heartbeat lane the completed-count is
+bumped per record.  Stops early at the limit — those records are
+above a known failure and the walk will never ask for them. -/
+def checkChunk (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    (limit done : IO.Ref Nat) :
+    (k b : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
+      IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
+  | k, b, acc =>
+    if hk : k < e.pend.size then
+      if k < b then do
+        if k < (← limit.get) then
+          let r := ConLeche.Cached.checkRecordResult mode e k hk
+          if r matches .error _ then
+            limit.modify (min · k)
+          let acc := acc.push (k, r)
+          if stride > 0 then
+            let n ← done.modifyGet fun d => (d + 1, d + 1)
+            checkHeartbeat err stride t0 e n k hk
+          checkChunk mode err stride t0 e limit done (k + 1) b acc
+        else pure acc
+      else pure acc
+    else pure acc
+  termination_by k => e.pend.size - k
+
+/-- One worker: claim a chunk off the shared counter, check it, repeat
+until the counter is past the records.  The fuel is exact: every claim
+advances the counter by at least one, so `pend.size + 1` claims see
+it past the end whatever the other workers do. -/
+def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 workers : Nat)
+    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    (next limit done : IO.Ref Nat) :
+    (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
+      IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
+  | 0, acc => pure acc
+  | fuel + 1, acc => do
+    let m := e.pend.size
+    let (a, c) ← next.modifyGet fun a =>
+      let c := chunkSize (m - a) workers
+      ((a, c), a + c)
+    if a < m then
+      let acc ← checkChunk mode err stride t0 e limit done a (min (a + c) m) acc
+      checkWorker mode err stride t0 workers e next limit done fuel acc
+    else pure acc
+
+/-- The workers' arrays merged by record index into one table. -/
+def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Cached.DeclC}
+    {e : ConLeche.Cached.InstalledEnv mode ds}
+    (tab : Array (Option (ConLeche.Cached.RecordResult mode e))) :
+    List (Array (Nat × ConLeche.Cached.RecordResult mode e)) →
+      Array (Option (ConLeche.Cached.RecordResult mode e))
+  | [] => tab
+  | rs :: rest => mergeResults (rs.foldl (fun tab (k, r) => tab.set! k (some r)) tab) rest
+
+/-- **Phase B on a pool of `jobs` worker threads.**  Spawns
+`min jobs pend.size` workers, waits for all of them, merges their
+results and walks the table in record order.  A worker that failed as
+an `IO` action (not a check failing — the pool's own machinery) is an
+internal error, exit 3, never a verdict on the input. -/
+def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
+  let m := e.pend.size
+  let workers := max 1 (min jobs m)
+  let next ← IO.mkRef 0
+  let limit ← IO.mkRef m
+  let done ← IO.mkRef 0
+  let mut tasks : Array (Task (Except IO.Error (Array (Nat × ConLeche.Cached.RecordResult mode e)))) := #[]
+  for _ in [0:workers] do
+    tasks := tasks.push (← IO.asTask (prio := .dedicated)
+      (checkWorker mode err stride t0 workers e next limit done (m + 1) #[]))
+  let mut results : List (Array (Nat × ConLeche.Cached.RecordResult mode e)) := []
+  let mut failure : Option IO.Error := none
+  for t in tasks do
+    match ← IO.wait t with
+    | .ok rs => results := rs :: results
+    | .error ioe => failure := some ioe
+  if let some ioe := failure then
+    return .error (.internal s!"check phase: a worker failed: {ioe}", 0)
+  let tab := mergeResults (Array.replicate m none) results
+  return ConLeche.Cached.collectChecks mode e tab 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
+
+/-- **The driver**: `installLoop` then the check phase — `checkLoop` in
+this thread at `--jobs=1`, `checkPool` otherwise — and what comes out
+is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
-two loops are the fold's two phases with the heartbeat and the route
-trace printed between the steps; the fully checked environment they
-assemble is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`),
-so the success line `checkMain` prints is printed from an accept of
+loops are the fold's two phases with the heartbeat and the route trace
+printed between the steps; the fully checked environment they assemble
+is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
+the success line `checkMain` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
-position of the declaration it names. -/
-def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 : Nat)
+position of the declaration it names.  With `--progress`, one line at
+the phase boundary, one when the check phase ends, and a summary with
+the three phase durations (`tParse` is when the parse finished) and
+the worker count. -/
+def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
     (trace : Bool) (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+  let heartbeat (line : String) : IO Unit := do
+    if stride > 0 then
+      err.putStr s!"con-leche: {line}\n"
+      err.flush
+  let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   match ← installLoop mode err stride total t0 trace inModelled ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
-  | .error e => return .error e
+  | .error e =>
+    let now ← IO.monoMsNow
+    heartbeat s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
+      (install {secs (now - tParse)}s)"
+    heartbeat s!"done: parse {secs (tParse - t0)}s, install {secs (now - tParse)}s, \
+      check not reached t={secs (now - t0)}s"
+    return .error e
   | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
     let e : ConLeche.Cached.InstalledEnv mode ds := ⟨fe, pend, ⟨n, s, r⟩⟩
-    if stride > 0 then
-      let now ← IO.monoMsNow
-      err.putStr s!"con-leche: progress install done: {pend.size} \
-        pending checks t={ConLeche.Cached.msSecs (now - t0)}s\n"
-      err.flush
-    match ← checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j)) with
-    | .error e => return .error e
-    | .ok fc => return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
+    let tCheck ← IO.monoMsNow
+    heartbeat s!"install done: {total}/{total} declarations installed, \
+      {pend.size} checks pending t={secs (tCheck - t0)}s \
+      (install {secs (tCheck - tParse)}s)"
+    -- THE SEAM between the phases: the installed environment is
+    -- complete and read-only from here on.  A one-shot mark of it as
+    -- persistent (no reference counting at all on the index and the
+    -- records, instead of the atomic counting the pool's first spawn
+    -- switches them to) would go here, before any worker is spawned.
+    let workers := if jobs ≤ 1 then 1 else max 1 (min jobs pend.size)
+    let res ← if jobs ≤ 1 then
+        checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
+      else
+        checkPool mode err stride t0 jobs e
+    let now ← IO.monoMsNow
+    let summary := s!"done: parse {secs (tParse - t0)}s, install {secs (tCheck - tParse)}s, \
+      check {secs (now - tCheck)}s, {workers} worker{if workers = 1 then "" else "s"} \
+      t={secs (now - t0)}s"
+    match res with
+    | .error e' =>
+      heartbeat s!"check failed at fold position {e'.2} t={secs (now - t0)}s \
+        (check {secs (now - tCheck)}s)"
+      heartbeat summary
+      return .error e'
+    | .ok ⟨hall⟩ =>
+      heartbeat s!"check done: {pend.size}/{pend.size} t={secs (now - t0)}s \
+        (check {secs (now - tCheck)}s)"
+      heartbeat summary
+      let fc : ConLeche.Cached.FullyChecked mode ds := ⟨e, hall⟩
+      return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
 flag (2026-09-07; a FLAG since task #229 — it selects a run mode, the
@@ -228,6 +413,30 @@ def progressStride (v : String) : Except String Nat :=
       (a decimal numeral); omit the flag for no heartbeat"
   | some n => .ok n
   | none => .error s!"--progress takes a declaration stride \
+      (a decimal numeral of at least 1), got {repr v}"
+
+/-- The worker count, read off the `--jobs=<n>` flag: a decimal numeral
+of at least 1 (`1` is the in-thread check loop, the sequential lane —
+no thread, no shared state, no multi-threaded marking).  `0` and a
+non-numeral are usage errors (exit 3).  Without the flag the count is
+the machine's hardware thread count (`main`).
+
+**Address space.**  The runtime reserves one gigabyte of ADDRESS
+SPACE per thread it creates (a 1 GiB anonymous mapping per worker —
+its stack reservation, lazily committed: the resident set grows by
+about 25 MB per worker), so a run under an address-space limit
+(`ulimit -v`) can only afford so many workers — about ten under
+16 GB, four under 8 GB — and past that the thread creation fails and
+the runtime aborts ("failed to create thread", exit 134).  Such a run
+lowers the count with the flag; the shipped default is not shaped by
+a development-environment limit (user ruling, task #260), and the
+project's own capped gates pass an explicit count. -/
+def jobsCount (v : String) : Except String Nat :=
+  match v.toNat? with
+  | some 0 => .error "--jobs takes a worker count of at least 1 \
+      (a decimal numeral); omit the flag for one worker per hardware thread"
+  | some n => .ok n
+  | none => .error s!"--jobs takes a worker count \
       (a decimal numeral of at least 1), got {repr v}"
 
 /-- The real driver, which `main` calls in process (task #230 removed
@@ -247,7 +456,7 @@ environment with the proof that the fold `checkDecls` returns it, the
 fold the main theorem `ConLeche.no_proof_of_False`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design. -/
-def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := do
+def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -400,27 +609,23 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
       -- generated record that fails is named with its block; the fold
       -- POSITION still counts them.  The declaration NAME on the line
       -- is the portable handle.
+      -- The heartbeat's first line (`--progress`): the parse is done,
+      -- and the fold is about to start on this many records.  The
+      -- install and check phases print their own lines
+      -- (`checkDeclsIO`), and the summary closes the run.
       let tParse ← IO.monoMsNow
       if stride > 0 then
-        IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \
-          declarations after the {preludeCount} built-in prelude records \
-          ({preludeDropped} stream copies of prelude records dropped) \
-          t={ConLeche.Cached.msSecs (tParse - t0)}s (parse)"
+        IO.eprintln s!"con-leche: parse done: {decls.size} fold records — \
+          {decls.size - preludeCount} declarations after the {preludeCount} \
+          built-in prelude records ({preludeDropped} stream copies of prelude \
+          records dropped) t={ConLeche.Cached.msSecs (tParse - t0)}s \
+          (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
-      -- The closing line: how far the loop got (`= N` on an accept,
-      -- the failing position otherwise) and how long it took.
-      let progressDone : Nat → IO Unit := fun reached => do
-        if stride > 0 then
-          let now ← IO.monoMsNow
-          IO.eprintln s!"con-leche: progress fold done: {reached}/\
-            {decls.size} t={ConLeche.Cached.msSecs (now - t0)}s \
-            (fold {ConLeche.Cached.msSecs (now - tParse)}s)"
-          (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 trace inModelled decls.toList
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace inModelled
+        decls.toList
       match verdict with
       | .ok ⟨env, _⟩ =>
-        progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
         -- taint-skip verdict (user directive 2026-08-24) is a
         -- decline: declarations using tolerated axioms were skipped
@@ -479,7 +684,6 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
           verboseCounts
           return 2
       | .error (e, i) =>
-        progressDone i
         -- **No second pass** (2026-09-07): the fold's error carries
         -- the failing declaration's FOLD POSITION, so the message is
         -- read off the record array the driver already holds.  What
@@ -516,7 +720,7 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: con-leche [--verified|--trusted] [--progress[=<stride>]] FILE.ndjson",
+  "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson",
   "       con-leche --help",
   "",
   "  --verified        the default, and the mode the main theorem is",
@@ -549,40 +753,80 @@ def usage : String := String.intercalate "\n" [
   "                    outside the theorem.  The mode is never",
   "                    optimized on its own — it is the verified mode",
   "                    with certain steps omitted",
+  "  --jobs=<n>        the number of worker threads for the check phase",
+  "                    (default: the machine's hardware thread count).",
+  "                    The run has two phases: the INSTALL phase reads",
+  "                    the records in order and installs every one of",
+  "                    them in a single thread (a definition, theorem or",
+  "                    opaque is annotated and pushed with its check",
+  "                    recorded; everything else is checked in full as it",
+  "                    is installed), and the CHECK phase checks every",
+  "                    recorded declaration against the prefix of the",
+  "                    installed environment it was installed at, from a",
+  "                    fresh memo state.  The recorded checks are",
+  "                    independent of one another, so the check phase",
+  "                    runs on <n> threads: long-lived workers claim",
+  "                    chunks of consecutive records off one shared",
+  "                    counter, and the results are merged by record",
+  "                    index and walked in record order, so the verdict",
+  "                    -- and the declaration a rejection names, the",
+  "                    first failing one in fold order -- is the same at",
+  "                    every <n>.  Without the flag <n> is the machine's",
+  "                    hardware thread count; --jobs=1 checks in the",
+  "                    main thread with no thread and no shared state",
+  "                    at all (the sequential lane a measurement is",
+  "                    made on).  0 or a non-numeral is a usage error.",
+  "                    The install phase is never parallel: it is the",
+  "                    parse and the fold's serial floor.  ADDRESS",
+  "                    SPACE: each worker thread reserves about 1 GiB",
+  "                    of address space (its stack reservation, lazily",
+  "                    committed; the resident set grows by about",
+  "                    25 MB per worker), so a run under an address-",
+  "                    space limit (ulimit -v) must lower the count to",
+  "                    what the limit affords -- about ten workers",
+  "                    under 16 GB, four under 8 GB; past it the",
+  "                    runtime cannot create the thread and aborts",
+  "                    ('failed to create thread', exit 134).",
   "  --progress[=<stride>]",
-  "                    opt-in progress heartbeat on STDERR.  The driver",
-  "                    runs two phases and every <stride>-th step of",
-  "                    each announces itself: 'con-leche: progress",
-  "                    <i>/<N> <decl> t=<s>s' per record installed, and",
-  "                    'con-leche: progress check <k>/<M> <name> (fold",
-  "                    position <i>) t=<s>s' per recorded declaration",
-  "                    checked.  Around them come one line when the",
-  "                    parse finishes, one when the install phase does",
-  "                    ('progress install done: <M> pending checks')",
-  "                    and one when the fold does ('progress fold done:",
-  "                    <reached>/<N>').  t= is the elapsed time since",
-  "                    the run started, so a declaration that sits for",
-  "                    minutes is visible as a gap between two lines;",
-  "                    each line is printed BEFORE its declaration is",
-  "                    handled, so a run that dies names the",
-  "                    declaration it died in.  <i> is the FOLD",
-  "                    position, which the stream's declaration-record",
-  "                    index sits near but not at a fixed offset above.",
-  "                    Bare --progress is stride 1 (the localisation",
-  "                    lane: every declaration is announced before it is",
-  "                    checked).  Without the flag there is no",
-  "                    heartbeat; a stride that is not a decimal",
-  "                    numeral, or 0, is a usage error.  The flag may",
-  "                    come before or after --verified/--trusted.",
+  "                    opt-in progress heartbeat on STDERR, one line",
+  "                    shape per phase:",
+  "                      con-leche: parse done: <N> fold records ... t=<s>s",
+  "                      con-leche: install <i>/<N> <decl> t=<s>s",
+  "                      con-leche: install done: <N>/<N> ..., <M> checks pending t=<s>s",
+  "                      con-leche: check <done>/<M> <decl> t=<s>s",
+  "                      con-leche: check done: <M>/<M> t=<s>s",
+  "                      con-leche: done: parse <p>s, install <i>s, check <c>s, <n> workers",
+  "                    An install line is printed BEFORE every",
+  "                    <stride>-th declaration is installed (<i> is its",
+  "                    FOLD position, which the stream's record index",
+  "                    sits near but not at a fixed offset above), so a",
+  "                    run that dies in the install phase names the",
+  "                    declaration it died in on its last line.  A check",
+  "                    line is printed AFTER every <stride>-th COMPLETED",
+  "                    check: <done> counts completed checks -- in the",
+  "                    pool, from whichever worker finished, monotone --",
+  "                    and <decl> is the one just completed; <M>, the",
+  "                    number of recorded checks, is below <N>.  t= is",
+  "                    the time since the run started, so a declaration",
+  "                    that sits for minutes is visible as a gap between",
+  "                    two lines.  On a failure the phase's closing line",
+  "                    says so ('install failed at', 'check failed at')",
+  "                    and the summary still prints.  Bare --progress is",
+  "                    stride 1 (every declaration announced, every",
+  "                    check reported).  Without the flag there is no",
+  "                    heartbeat; a stride that is not a decimal numeral,",
+  "                    or 0, is a usage error.  The flag may come before",
+  "                    or after the other flags.",
   "",
-  "                    The heartbeat is printed between the steps of",
-  "                    the ONE driver the binary has: it installs every",
-  "                    record, then checks every recorded declaration,",
-  "                    and returns the environment together with the",
-  "                    proof that checkDecls returns it — what it",
-  "                    prints in between does not touch that value, so",
-  "                    a run with the flag is covered exactly as a run",
-  "                    without it.",
+  "                    The heartbeat is printed by the ONE driver: it",
+  "                    installs every record, then checks every recorded",
+  "                    declaration -- in one thread or on the pool --",
+  "                    and returns its environment with the proof that",
+  "                    checkDecls (the function the main theorem",
+  "                    ConLeche.no_proof_of_False is about) returns it;",
+  "                    what it prints in between does not touch that",
+  "                    type, so a run with the flag is covered exactly",
+  "                    as a run without it, and so is a run on the pool.",
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
@@ -702,6 +946,9 @@ structure Args where
   /-- The progress heartbeat's stride (`--progress[=<stride>]`, task
   #229); `0` is "no flag given", i.e. no heartbeat. -/
   progress : Nat := 0
+  /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
+  given": one worker per hardware thread. -/
+  jobs : Option Nat := none
   files : Array String := #[]
   bad : Option String := none
 
@@ -782,6 +1029,13 @@ def parseArgs : List String → Args → Args
       match progressStride ((s.drop "--progress=".length).toString) with
       | .ok n => parseArgs rest { a with progress := n }
       | .error msg => { a with bad := some msg }
+    else if s.startsWith "--jobs=" then
+      match jobsCount ((s.drop "--jobs=".length).toString) with
+      | .ok n => parseArgs rest { a with jobs := some n }
+      | .error msg => { a with bad := some msg }
+    else if s == "--jobs" then
+      { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
+          flag for one worker per hardware thread" }
     else if s.startsWith "--check-range=" then
       { a with bad := some "--check-range is retired; the split \
           install/check driver was arena machinery and went with the \
@@ -814,7 +1068,12 @@ def main (args : List String) : IO UInt32 := do
     -- itself is not what belongs in the finished product, and an
     -- out-of-memory condition simply exits 1 with the runtime's panic
     -- message on stderr, which is what distinguishes it from a reject.
-    checkMain file a.mode a.progress
+    -- `--jobs=<n>`: the check phase's worker count; without the flag,
+    -- one worker per hardware thread (1 if the runtime cannot tell).
+    let jobs := a.jobs.getD
+      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+       if hw = 0 then 1 else hw)
+    checkMain file a.mode a.progress jobs
   | _ =>
     IO.eprintln usage
     return 3
