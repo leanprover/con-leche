@@ -13,6 +13,7 @@ public import ConLeche.Verify.Cached.DiscC4
 public import ConLeche.Verify.Cached.DiscC5
 public import ConLeche.Verify.Cached.DiscC6
 public import ConLeche.Verify.Cached.KnotC
+public import ConLeche.Verify.Cached.KnotCongr
 public import ConLeche.Verify.Cached.SimCS
 public import ConLeche.Verify.Cached.BridgeCS1
 public import ConLeche.Verify.Cached.BridgeCS2
@@ -22,6 +23,8 @@ public import ConLeche.Verify.Cached.BridgeCSDecl
 public import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Verify.Cached.AgreeFloor
+public import ConLeche.Verify.Cached.PushChain
+public import ConLeche.Verify.Cached.InstalledC
 
 public section
 

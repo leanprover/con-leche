@@ -5,58 +5,148 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L448
-   448  def usage : String := String.intercalate "\n" [
+== Main.lean#L501
+   501  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L43
-    43  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L44
+    44  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L30-L34
-    30  theorem no_proof_of_False (V : Type w) [SetTheory V]
-    31      (ds : List DeclC) (env : Env)
-    32      (accepted : checkDecls .verified ds = .ok env) :
-    33      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
-    34    fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_cached V rfl accepted c hc hty
+== ConLeche/MainTheorem.lean#L43-L46
+    43  theorem no_proof_of_False (V : Type w) [SetTheory V]
+    44      (ds : List DeclC) (fc : FullyChecked .verified ds) :
+    45      ¬ ∃ c ∈ fc.env.consts, c.toConstantVal.type = .const falseName [] :=
+    46    fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_checked V rfl fc c hc hty
 
-== tests/ConLecheTests/Axioms.lean#L90-L91
-    90  #guard_msgs in
-    91  #print axioms ConLeche.no_proof_of_False
+== ConLeche/Cached/Installed.lean#L225-L226
+   225  def FullyChecked (ds : List DeclC) : Type :=
+   226    { e : InstalledEnv mode ds // ∀ i, GroupChecked mode e i }
+
+== tests/ConLecheTests/Axioms.lean#L97-L98
+    97  #guard_msgs in
+    98  #print axioms ConLeche.no_proof_of_False
 
 == ConLeche/Frontend/ExportC.lean#L863
    863  def parseExportStreamD (path : System.FilePath)
 
-== Main.lean#L350
-   350            pure (ConLeche.Cached.checkDecls mode decls.toList)
+== Main.lean#L97
+    97  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
-== ConLeche/Cached/ParsedC.lean#L287-L290
-   287  def checkDecls (mode : CheckMode) (ds : List DeclC) :
-   288      Except (CheckError × Nat) Env := do
-   289    let p ← (ds.foldlM (checkDeclStep mode) (0, mkFEnv Env.empty)).run' {}
-   290    pure p.2.env
+== ConLeche/Cached/Installed.lean#L129-L131
+   129  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
+   130      DeclC → CheckCM (FEnv × Array PendingCheck)
+   131    | .defnDecl cv value hint =>
 
-== ConLeche/Cached/ParsedC.lean#L252
-   252  declaration that failed.  On the accepting side it is
+== Main.lean#L165
+   165  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== ConLeche/Verify/Cached/MainC.lean#L158-L166
-   158  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-   159      {ds : List DeclC} {env' : Env}
-   160      (h : checkDecls μ ds = .ok env') :
-   161      Nonempty (EnvModelM V μ env') := by
-   162    obtain ⟨fe, s', hrun, rfl⟩ := checkDecls_run h
-   163    exact (fold_preserves hμ ds (mkFEnv Env.empty) rfl
-   164      ⟨⟨ConLeche.Model.EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩
-   165      CSOKF.empty wdecl_rel hrun).1
-   166  
+== ConLeche/Cached/Installed.lean#L186-L190
+   186  structure InstalledEnv (ds : List DeclC) where
+   187    fe : FEnv
+   188    pend : Array PendingCheck
+   189    run : ∃ (n : Nat) (s : CState),
+   190      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
 
-== ConLeche/Verify/Cached/MainC.lean#L184-L191
-   184  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
-   185      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-   186      {ds : List DeclC} {env' : Env}
-   187      (h : checkDecls μ ds = .ok env') :
-   188      ∀ c ∈ env'.consts,
-   189        c.toConstantVal.type = .const falseName [] → False := by
-   190    obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
-   191    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Cached/Installed.lean#L165-L171
+   165  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
+   166      (Nat × FEnv × Array PendingCheck) → CState → Prop where
+   167    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
+   168    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
+   169        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
+   170        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
+   171  
+
+== ConLeche/Cached/Installed.lean#L218-L222
+   218  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
+   219    match e.pend[i]? with
+   220    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
+   221    | none => True
+   222  
+
+== ConLeche/Cached/ParsedC.lean#L295-L298
+   295  def checkDecls (mode : CheckMode) (ds : List DeclC) :
+   296      Except (CheckError × Nat) Env := do
+   297    let p ← (ds.foldlM (checkDeclStep mode) (0, mkFEnv Env.empty)).run' {}
+   298    pure p.2.env
+
+== ConLeche/Verify/Cached/InstalledC.lean#L353-L364
+   353  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+   354      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   355      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   356      (hrun : InstallRun μ ds p s q s') :
+   357      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   358      NodupNames q.2.1.env →
+   359      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+   360      EnvModelOk V μ q.2.1.env ∧
+   361      ∃ gs : List Group, InstallTrace μ p.2.1.env gs q.2.1.env ∧
+   362        (∀ g ∈ gs, EnvWF (q.2.1.env.prefixTo g.vis)) ∧
+   363        (∀ g ∈ gs, ∀ vg, g.value? = some vg →
+   364          ∃ F, checkValueGroup (fueledOps μ F) (q.2.1.env.prefixTo g.vis) vg = .ok ()) := by
+
+== ConLeche/Verify/Cached/KnotCongr.lean#L537-L538
+   537  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   538      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+
+== ConLeche/Verify/Installed.lean#L98-L124
+    98  structure InstalledSpec (μ : CheckMode) where
+    99    env : Env
+   100    groups : List Group
+   101    trace : InstallTrace μ Env.empty groups env
+   102    nodup : NodupNames env
+   103    /-- Every group's install environment is syntactically well-formed
+   104    (the hypothesis every bridge from the executable core to the pure
+   105    one carries). -/
+   106    wf : ∀ g ∈ groups, EnvWF (env.prefixTo g.vis)
+   107    wfEnd : EnvWF env
+   108  
+   109  /-- **In a properly installed environment, group `i` has been
+   110  checked**: the pure check half succeeds on the group's datum at the
+   111  prefix of the environment the group was installed at.  A group without
+   112  a datum was checked in full at its install. -/
+   113  @[expose] def GroupCheckedSpec {μ : CheckMode} (e : InstalledSpec μ) (i : Nat) : Prop :=
+   114    match e.groups[i]? with
+   115    | some g =>
+   116      match g.value? with
+   117      | some vg => ∃ F, checkValueGroup (fueledOps μ F) (e.env.prefixTo g.vis) vg = .ok ()
+   118      | none => True
+   119    | none => True
+   120  
+   121  /-- **A fully checked environment**: properly installed, every group
+   122  checked. -/
+   123  @[expose] def FullyCheckedSpec (μ : CheckMode) : Type :=
+   124    { e : InstalledSpec μ // ∀ i, GroupCheckedSpec e i }
+
+== ConLeche/Model/Installed.lean#L111-L115
+   111  theorem no_proof_of_False_spec (V : Type w) [SetTheory V]
+   112      {μ : CheckMode} (hμ : μ.verifiedChecks = true) (fc : FullyCheckedSpec μ) :
+   113      ∀ c ∈ fc.env.consts,
+   114        c.toConstantVal.type = .const falseName [] → False := by
+   115    obtain ⟨mp⟩ := fullyCheckedSpec_sound (V := V) hμ fc
+
+== ConLeche/Verify/Cached/InstalledC.lean#L114-L116
+   114  theorem checkDecls_spec (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   115      {ds : List DeclC} {env' : Env} (h : checkDecls μ ds = .ok env') :
+   116      ∃ sp : FullyCheckedSpec μ, sp.env = env' := by
+
+== ConLeche/Verify/Cached/MainC.lean#L189-L196
+   189  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
+   190      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+   191      {ds : List DeclC} {env' : Env}
+   192      (h : checkDecls μ ds = .ok env') :
+   193      ∀ c ∈ env'.consts,
+   194        c.toConstantVal.type = .const falseName [] → False := by
+   195    obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
+   196    exact fun c hc hty => no_constant_of_False mp c hc hty
+
+== ConLeche/Verify/Cached/MainC.lean#L163-L171
+   163  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
+   164      {ds : List DeclC} {env' : Env}
+   165      (h : checkDecls μ ds = .ok env') :
+   166      Nonempty (EnvModelM V μ env') := by
+   167    obtain ⟨fe, s', hrun, rfl⟩ := checkDecls_run h
+   168    exact (fold_preserves hμ ds (mkFEnv Env.empty) rfl
+   169      ⟨⟨ConLeche.Model.EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+   170      CSOKF.empty wdecl_rel hrun).1
+   171  
 
 == ConLeche/Kernel/TypeChecker.lean#L28-L54
     28  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=

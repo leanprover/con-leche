@@ -122,6 +122,20 @@ theorem mkFEnv_find? (env : Env) (n : Name) :
 def Env.prefixTo (env : Env) (k : Nat) : Env :=
   ⟨env.consts.drop (env.consts.length - k)⟩
 
+/-- The prefix at the length of a suffix environment is that
+environment (task #253: the environment a declaration was installed at,
+read off the final one). -/
+theorem Env.prefixTo_of_extends {env env' : Env} {new : List ConstantInfo}
+    (h : env'.consts = new ++ env.consts) :
+    env'.prefixTo env.consts.length = env := by
+  unfold Env.prefixTo
+  rw [h, List.length_append, Nat.add_sub_cancel, List.drop_left]
+
+/-- Name uniqueness of an environment's constants — the hypothesis of
+`mkFEnv_find?_visibleBelow`, an install-time invariant of every driver
+(`ConLeche/Verify/Cached/PushChain.lean`). -/
+@[expose] def NodupNames (env : Env) : Prop := (env.consts.map (·.name)).Nodup
+
 /-- The bounded index lookup, on the specification. -/
 private def idxBelow (l : List ConstantInfo) (k : Nat) (n : Name) :
     Option ConstantInfo :=

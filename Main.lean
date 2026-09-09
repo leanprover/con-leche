@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
+public import ConLeche.Cached.Installed
 
 @[expose] public section
 
@@ -59,50 +60,60 @@ because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
 def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
 
-/-- **The progress lane's fold — UNVERIFIED, and the only unverified
-loop in the driver** (the `--progress` lane, user ruling 2026-09-07).
+/-- **Phase A's loop — the driver's install pass, carrying its own
+accepting run.**  Each record is installed by
+`ConLeche.Cached.annotDeclStep`: a separable value declaration is
+annotated and pushed with its check recorded, everything else is checked
+in full.  The loop carries the chain of accepting steps
+(`ConLeche.Cached.InstallRun`) of the records it has consumed — a
+proposition, so nothing at run time — and returns it with the result:
+what this loop returns IS an `InstalledEnv mode ds`
+(`ConLeche/Cached/Installed.lean`).  Whatever it prints between steps is
+irrelevant to that type, which is why ONE loop serves the plain run,
+the `--progress` heartbeat and the route trace alike (task #253; until
+then the heartbeat ran a separate, openly unverified twin of the
+verified fold).
 
-The default run calls `ConLeche.Cached.checkDecls` — the pure
-function `ConLeche.no_proof_of_False` is about — and prints nothing per
-declaration.  A pure fold cannot print, so when the heartbeat is on the
-driver runs a *different, plainly unverified* fold instead.
-
-It is the same steps in the same order — `checkDeclStep mode`, the
-position-carrying step of the verified fold, over the same records from
-the same empty environment and state — with one line printed before
-each declaration.  Nobody should be bothered by the difference between
-these two trivial folds; what matters is that the difference is
-*stated*: a run WITH `--progress` is not covered by the main
-theorem, and a run without it is.
-
-**Written tail-recursively, threading `fe` and `s` LINEARLY** (task
+**Written tail-recursively, threading `p` and `s` LINEARLY** (task
 #182's finding, `agent/fenv-linear`): a `for … in ds` loop with
 `let mut` accumulators desugars to code that `lean_inc`s both the
 `FEnv` and the `CState` before each step, so `lean_is_exclusive` is
 false at the index inserts and every hashmap copies its bucket array
 per declaration — quadratic at Mathlib scale, which is what made the
-`traceLoopC` probe unusable.  Here the previous `fe`/`s` are dead at
-the recursive call, so the C carries no `lean_inc` of either before the
-step (checked in `.lake/build/ir/Main.c`), and the cost per declaration
-is flat.
+`traceLoopC` probe unusable.  Here the previous `p`/`s` are dead at the
+recursive call, so the C carries no `lean_inc` of either before the
+step, and the cost per declaration is flat.  The run is carried in the
+SNOC direction (`InstallRun.snoc`) precisely so that the call stays a
+tail call: a cons-direction proof would wrap the result on the way
+back, one frame per declaration.
 
 **Stride 1 is the localisation lane.**  With `--progress` (bare, or
-`--progress=1`) every
-declaration is announced before it is checked, so a run that dies — an
-OOM, a timeout, a `SIGKILL` — names on its last line the declaration it
-died in.  The index is the FOLD position, not the stream's record
-index: the parse folds the basis and `quot` blocks and drops
-taint-skipped records, so the two drift apart by a stream-dependent
-amount.  Calibrate by NAME. -/
-def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name) :
-    List ConLeche.Cached.DeclC → Nat → ConLeche.FEnv → ConLeche.Cached.CState →
-      IO (Except (ConLeche.CheckError × Nat) ConLeche.Env)
-  | [], _, fe, _ => return .ok fe.env
-  | pd :: ds, i, fe, s => do
-    if stride > 0 && i % stride == 0 then
+`--progress=1`) every declaration is announced before it is installed,
+so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
+line the declaration it died in.  The index is the FOLD position, not
+the stream's record index: the parse folds the basis and `quot` blocks
+and drops taint-skipped records, so the two drift apart by a
+stream-dependent amount.  Calibrate by NAME. -/
+def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+    (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name)
+    (ds : List ConLeche.Cached.DeclC)
+    (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
+    (rest : List ConLeche.Cached.DeclC) →
+    (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
+    (s : ConLeche.Cached.CState) →
+    (∃ done, done ++ rest = ds ∧ ConLeche.Cached.InstallRun mode done p₀ s₀ p s) →
+      IO (Except (ConLeche.CheckError × Nat)
+        (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck)
+          (s' : ConLeche.Cached.CState), PLift (ConLeche.Cached.InstallRun mode ds p₀ s₀ p' s')))
+  | [], p, s, hrun =>
+    return .ok ⟨p, s, ⟨by
+      obtain ⟨done, hds, hr⟩ := hrun
+      rw [List.append_nil] at hds
+      exact hds ▸ hr⟩⟩
+  | pd :: rest, p, s, hrun => do
+    if stride > 0 && p.1 % stride == 0 then
       let now ← IO.monoMsNow
-      err.putStr s!"con-leche: progress {i}/{total} \
+      err.putStr s!"con-leche: progress {p.1}/{total} \
         {ConLeche.Cached.declCLabel pd} \
         t={ConLeche.Cached.msSecs (now - t0)}s\n"
       err.flush
@@ -135,10 +146,43 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
         err.flush
       | _ => pure ()
-    match ConLeche.Cached.checkDeclStep mode (i, fe) pd s with
-    | .ok ((i', fe'), s') =>
-      checkDeclsProgressIO mode err stride total t0 trace inModelled ds i' fe' s'
+    match h : ConLeche.Cached.annotDeclStep mode p pd s with
+    | .ok (p₁, s₁) =>
+      installLoop mode err stride total t0 trace inModelled ds p₀ s₀ rest p₁ s₁ (by
+        obtain ⟨done, hds, hr⟩ := hrun
+        exact ⟨done ++ [pd], by rw [List.append_assoc]; exact hds,
+          ConLeche.Cached.InstallRun.snoc mode hr h⟩)
     | .error e => return .error e
+
+/-- **Phase B's loop — the driver's check pass, carrying the checks it
+has established.**  Record `k` is checked against the prefix view of
+the installed index from a fresh memo state
+(`ConLeche.Cached.checkPending`), and the accumulator — `GroupChecked`
+of every record below `k`, a proposition — grows by one; at the end the
+installed environment and the accumulator ARE a `FullyChecked mode ds`.
+The records are independent: a later loop may hand them to workers
+and collect the same facts.  With `--progress`, one line per record. -/
+def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
+      IO (Except (ConLeche.CheckError × Nat) (ConLeche.Cached.FullyChecked mode ds))
+  | k, acc =>
+    if hk : k < e.pend.size then do
+      if stride > 0 && k % stride == 0 then
+        let now ← IO.monoMsNow
+        err.putStr s!"con-leche: progress check {k}/{e.pend.size} {e.pend[k].vg.cvA.name} \
+          (fold position {e.pend[k].pos}) t={ConLeche.Cached.msSecs (now - t0)}s\n"
+        err.flush
+      match h : ConLeche.Cached.checkPending mode e.fe e.pend[k] {} with
+      | .ok ((), _) =>
+        checkLoop mode err stride t0 e (k + 1)
+          (ConLeche.Cached.groupChecked_extend mode acc
+            (ConLeche.Cached.groupChecked_of_run mode e hk h))
+      | .error e' => return .error (e', e.pend[k].pos)
+    else
+      return .ok ⟨e, ConLeche.Cached.groupChecked_all mode
+        (fun j hj => acc j (Nat.lt_of_lt_of_le hj (Nat.le_of_not_lt hk)))⟩
+  termination_by k => e.pend.size - k
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
 flag (2026-09-07; a FLAG since task #229 — it selects a run mode, the
@@ -168,12 +212,12 @@ core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
 (2026-09-06), so the stream is parsed directly to `ExprC`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
-cached driver — at `.verified` under `--verified` (the default), at `.trusted`
-under `--trusted`.  The verified instance is covered by
-`no_proof_of_Empty_cached` over `checkDecls`
-(`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
-design and agrees with it on the install skeletons whenever both
-accept (`trusted_agrees_skels_shipped`). -/
+driver — `installLoop` then `checkLoop` above — at `.verified` under
+`--verified` (the default), at `.trusted` under `--trusted`.  The
+driver returns a `FullyChecked mode ds` (`ConLeche/Cached/Installed.lean`),
+the type the main theorem `ConLeche.no_proof_of_False`
+(`ConLeche/MainTheorem.lean`) is stated on; the trusted instance is
+unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
@@ -299,16 +343,17 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
-      -- **Two loops** (user ruling, 2026-09-07).  Without
-      -- `--progress` the driver calls the verified fold
-      -- `ConLeche.Cached.checkDecls` directly — the exact
-      -- function `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`)
-      -- is about.  With it, the driver calls `checkDeclsProgressIO`
-      -- above: the same steps in the same order, in `IO`, printing one
-      -- line before each declaration — plainly unverified, and said so
-      -- in its docstring, in `--help` and in DESIGN.  The two folds
-      -- differ in the print and nothing else, and nothing about the
-      -- verified statement is bent to accommodate the printing.
+      -- **One loop, and its type is the assurance** (task #253).  The
+      -- driver is `installLoop` then `checkLoop` above: phase A
+      -- installs every record and carries its accepting run, phase B
+      -- checks every recorded declaration against the prefix view of
+      -- the installed index and carries every check — and what comes
+      -- out is a `ConLeche.Cached.FullyChecked mode decls.toList`, the
+      -- type the main theorem `ConLeche.no_proof_of_False`
+      -- (`ConLeche/MainTheorem.lean`) is stated on.  The success line
+      -- below is printed from that value and from nothing else.
+      -- Printing between the steps (`--progress`, the route trace)
+      -- changes nothing about the type, so there is no second loop.
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the stream's declaration-record index.  The parse folds
@@ -330,8 +375,7 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
         IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \
           declarations after the {preludeCount} built-in prelude records \
           ({preludeDropped} stream copies of prelude records dropped) \
-          t={ConLeche.Cached.msSecs (tParse - t0)}s \
-          (parse; the progress lane's fold is UNVERIFIED — see --help)"
+          t={ConLeche.Cached.msSecs (tParse - t0)}s (parse)"
         (← IO.getStderr).flush
       -- The closing line: how far the loop got (`= N` on an accept,
       -- the failing position otherwise) and how long it took.
@@ -342,14 +386,23 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
             {decls.size} t={ConLeche.Cached.msSecs (now - t0)}s \
             (fold {ConLeche.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
-      let verdict ←
-        if stride > 0 || trace then
-          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
-            inModelled decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) {}
-        else
-          pure (ConLeche.Cached.checkDecls mode decls.toList)
+      let err ← IO.getStderr
+      let verdict ← do
+        match ← installLoop mode err stride decls.size t0 trace inModelled decls.toList
+            (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} decls.toList
+            (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
+        | .error e => pure (Except.error e)
+        | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
+          let e : ConLeche.Cached.InstalledEnv mode decls.toList := ⟨fe, pend, ⟨n, s, r⟩⟩
+          if stride > 0 then
+            let now ← IO.monoMsNow
+            err.putStr s!"con-leche: progress install done: {pend.size} \
+              pending checks t={ConLeche.Cached.msSecs (now - t0)}s\n"
+            err.flush
+          checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
       match verdict with
-      | .ok env =>
+      | .ok fc =>
+        let env := fc.env
         progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
         -- taint-skip verdict (user directive 2026-08-24) is a
@@ -497,14 +550,14 @@ def usage : String := String.intercalate "\n" [
   "                    flag may come before or after --verified/",
   "                    --trusted.",
   "",
-  "                    NOTE: this lane runs a SEPARATE, UNVERIFIED fold",
-  "                    (Main.checkDeclsProgressIO) — the same steps in",
-  "                    the same order as the verified one with a line",
-  "                    printed before each declaration, because a pure",
-  "                    fold cannot print.  A run WITHOUT this flag",
-  "                    calls checkDecls, the function the main",
-  "                    theorem (ConLeche.no_proof_of_False) is about; a",
-  "                    run with it is not covered by that theorem.",
+  "                    The heartbeat is printed by the ONE loop the",
+  "                    driver has (task #253): the loop installs every",
+  "                    record, then checks every recorded declaration,",
+  "                    and returns a value of the type the main theorem",
+  "                    (ConLeche.no_proof_of_False) is stated on; what",
+  "                    it prints in between does not touch that type,",
+  "                    so a run with the flag is covered exactly as a",
+  "                    run without it.",
   "  CON_LECHE_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
   "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",

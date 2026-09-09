@@ -18,9 +18,9 @@ con-leche [--verified|--trusted] FILE.ndjson
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L448)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L501)).
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L43)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -39,24 +39,34 @@ then `exit(1)` — which no code of ours can catch, so the stderr message
 is what tells it apart from a reject.
 
 The flag `--progress[=<stride>]` prints a heartbeat line before every
-`stride`-th declaration on stderr (bare, the stride is 1); it runs a
-separate, unverified copy of the fold (see §2).
+`stride`-th declaration on stderr (bare, the stride is 1). It is
+printed by the one loop the driver has, whose return type is what the
+theorem is about (see §2), so a run with the flag is covered exactly as
+a run without it.
 
 ## 1. What is proved
 
-The statement is one theorem about the function the `con-leche` binary
-runs on a parsed export stream, the theorem
-[`no_proof_of_False` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L30-L34):
+The statement is one theorem about the value the `con-leche` binary's
+driver returns for a parsed export stream, the theorem
+[`no_proof_of_False` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L43-L46):
 
-> For every model `V` of the `SetTheory` interface, if the checker in its
-> default `--verified` mode accepts a list of declarations, the resulting
-> environment stores no constant whose type is `False`.
+> For every model `V` of the `SetTheory` interface and every list of
+> declarations `ds`, an environment fully checked from `ds` in the
+> default `--verified` mode stores no constant whose type is `False`.
+
+"Fully checked from `ds`" is a type,
+[`FullyChecked` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L225-L226):
+an environment the install pass built from `ds` — the chain of its
+accepting steps is part of the value — in which every recorded
+declaration has been checked. The driver returns a value of that type
+and prints its success line from nothing else, so the theorem covers
+whatever loop produced the value, with or without a heartbeat.
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorem uses exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L90-L91)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L97-L98)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how that theorem is reached.
@@ -65,30 +75,65 @@ Everything below explains how that theorem is reached.
 
 Read from the outside in:
 
-1. **The driver** (`Main.lean`). The default run parses the stream
+1. **The driver** (`Main.lean`). The run parses the stream
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L863))
-   and calls the pure fold `checkDecls`, printing nothing per
-   declaration
-   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L350)).
-   The optional progress lane (`--progress`) runs a separate,
-   plainly unverified fold of the same steps with a line printed before
-   each declaration; a run with that flag is not covered by the theorem.
-2. **The shipped fold**
-   ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L287-L290))
-   folds the per-declaration step of the *cached* checker
-   ([function `checkDeclStep` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L252))
-   over the records, threading the environment and the memo
-   state. Its error carries the position of the failing declaration.
+   and runs two loops. The install loop
+   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L97))
+   takes every record through the install step
+   ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L129-L131)):
+   a definition, theorem or opaque is annotated and pushed with its
+   check *recorded* — the annotated header and value and the number of
+   constants installed before it — while an axiom, an inductive or
+   basis block, and the pinned `Nat`-operation and `reduce*`
+   declarations are checked in full as they are installed, by the same
+   step the pure fold uses. The loop carries the chain of its accepting
+   steps, a proposition, and what it returns is an installed
+   environment. The check loop
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L165))
+   then checks every recorded declaration against the *prefix* of the
+   installed index it was installed at — an `O(1)` view whose lookup
+   hides everything installed later — from a fresh memo state, and
+   carries every check; what it returns is a fully checked environment.
+   The heartbeat and the route trace are printed between the steps and
+   touch neither type.
+2. **The driver's type**
+   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L186-L190))
+   is stated over the executable steps: the installed environment is
+   the accepting install run
+   ([inductive `InstallRun` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L165-L171)),
+   and a record is checked when its check at the prefix view succeeded
+   ([definition `GroupChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L218-L222)).
+   The records' checks are independent of one another, which is what
+   lets a later loop hand them to workers. The pure fold
+   ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L295-L298)),
+   which checks each declaration as it installs it, is the reference
+   fold the agreement floor is stated about and keeps its own letter.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
    that ships: the same terms with a packed hash on every node, memo
    tables for reduction, inference and definitional equality keyed by
    those hashes, and the direct parser's record type. Nothing is
-   interned; the hash is what makes a term a usable memo key. It is related to the pure checker by a
-   one-directional simulation: whatever the cached checker accepts, the
-   pure checker accepts
-   ([theorem `checkDecls_sound` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L158-L166)).
-   The capstone about the shipped fold is a corollary
-   ([theorem `no_proof_of_False_cached` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L184-L191)).
+   interned; the hash is what makes a term a usable memo key. It is
+   related to the pure checker by a one-directional simulation:
+   whatever the cached checker accepts, the pure checker accepts. For
+   the driver's type the simulation is applied step by step along the
+   install run
+   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L353-L364)),
+   and a record's check at the prefix view is covered by the
+   simulation stated at the truncated environment because the view and
+   the truncated environment have the same lookup, and the cached core
+   reads its environment through that lookup alone
+   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L537-L538)).
+   The walk lands in the specification of an installed and checked
+   environment, stated over the pure checker alone
+   ([the specification in `ConLeche/Verify/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Installed.lean#L98-L124)),
+   whose consistency letter is
+   ([theorem `no_proof_of_False_spec` in `ConLeche/Model/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Installed.lean#L111-L115));
+   the pure fold reaches the same specification
+   ([theorem `checkDecls_spec` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L114-L116)),
+   and its own letter
+   ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L189-L196))
+   is a corollary of its simulation
+   ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L163-L171)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` and the annotation pass are tied in a knot over a fuel
@@ -441,7 +486,7 @@ declare it.)
   accepted as the changed statement. The rewrites are written to be
   meaning-preserving and each is small and inspectable, but that is a
   review claim, not a theorem.
-* `--trusted` mode and the `--progress` lane.
+* `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
 * Two deliberate accept-supersets relative to the official kernel, a
@@ -465,7 +510,7 @@ to know is short:
 | `D` | the direct-parse record type `DeclC` and the functions over it |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
 | `WF` | well-formedness (`EnvWF`, `StructWF`) |
-| `_pure` / `_cached` | the two capstones, over the pure fueled fold and over the fold the binary runs (`no_proof_of_False_pure`, `no_proof_of_False_cached`) |
+| `_pure` / `_cached` / `_spec` / `_checked` | the capstones over the pure fueled fold, over the cached fold, over the specification of an installed and checked environment, and over the driver's type (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_spec`, `no_proof_of_False_checked`) |
 
 Three words name things rather than tiers. An inductive block is
 installed by one of two routes: the **native** one (`checkNative`,
@@ -500,9 +545,9 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
 | Directory | Contents |
 |---|---|
-| `Main.lean` | The driver: argument parsing, the stream parse, the two folds, verdict and exit codes. |
+| `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Native*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
-| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record fold. |
+| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record fold, the install and check steps with the driver's type (`Installed.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`); the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
