@@ -37,7 +37,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
   For practicality reasons, it silently *ignores* the other axiom declarations from the standard library, including `sorryAx`, but will complain if they are used.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using `--threads`.
+* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using `--jobs`.
 * The parser is an agentic-hand-written parser over the input bytes.
 
 ## Design of the checker proof
@@ -103,7 +103,7 @@ Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory o
 
 ## The parser
 
-The parser is proven equivalent to a naive recursive descent parser, but this proof is unconnected to the rest of the development. It only serves to allow performance tweaks in the parser.
+The parser is proven equivalent to a naive reference parser written over a list of bytes, but this proof is unconnected to the rest of the development. It only serves to allow performance tweaks in the parser.
 
 ## Performance
 
