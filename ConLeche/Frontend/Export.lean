@@ -1,10 +1,7 @@
 module
 
 import ConLeche.Kernel.Env
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.StdAxioms
-import ConLeche.Kernel.Core
 
 @[expose] public section
 

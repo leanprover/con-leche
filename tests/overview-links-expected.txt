@@ -22,8 +22,8 @@
     90  #guard_msgs in
     91  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L902
-   902    for line in contents.splitToList (· == '\n') do
+== ConLeche/Frontend/ExportC.lean#L863
+   863  def parseExportStreamD (path : System.FilePath)
 
 == Main.lean#L350
    350            pure (ConLeche.Cached.checkDecls mode decls.toList)

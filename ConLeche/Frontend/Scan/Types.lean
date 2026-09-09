@@ -1,6 +1,6 @@
 module
 
-public import Std.Data.HashMap
+public import Std.Data.HashMap.Basic
 
 @[expose] public section
 
@@ -23,12 +23,12 @@ Three things live here besides the records:
 
 * `Key`, the dialect's whole key alphabet as a no-argument
   enumeration (Lean compiles such a type to a scalar, so classifying a
-  key allocates nothing) together with `keyLen`, the key's byte
-  length — the recogniser is order-insensitive, so every object is
-  read by a slot loop that classifies a key, fills its slot and marks
-  a seen-bit;
-* `ScanErr`, a position and a static tag: the recogniser never formats
-  a message, so the error path costs an allocation and no string work;
+  key allocates nothing) — the recogniser is order-insensitive, so
+  every object is read by a slot loop that classifies a key, fills its
+  slot and marks a seen-bit;
+* `ScanErr` and `ScanRes`: a failure is a position and a static tag,
+  so the recogniser never formats a message, and a success is ONE
+  object carrying the value and the position after it;
 * `IdTable`, the stream-index-keyed table the parse state uses for
   names, levels and expressions.  lean4export emits ids densely and in
   order, and a dense `Array` serves them without hashing; the sparse

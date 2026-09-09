@@ -39,10 +39,6 @@
 # line here with what the run asked for in exchange.
 ConLeche/Cached/ExprC.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Cached/ExprOpsC.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Cached/ExprOpsC.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/Cached/OpsC.lean
-ConLeche/Frontend/Export.lean	public import Lean.Data.Json	# compensated: +public import Lean.Data.Json.Basic in ConLeche/Frontend/Export.lean; +public import Lean.Data.Json.Parser in ConLeche/Frontend/ExportC.lean
-ConLeche/Frontend/Export.lean	import ConLeche.Kernel.ExprOps	# compensated: +public import Lean.Data.Json.Basic in ConLeche/Frontend/Export.lean; +public import Lean.Data.Json.Parser in ConLeche/Frontend/ExportC.lean
-ConLeche/Frontend/Export.lean	import ConLeche.Kernel.Basis	# compensated: +public import Lean.Data.Json.Basic in ConLeche/Frontend/Export.lean; +public import Lean.Data.Json.Parser in ConLeche/Frontend/ExportC.lean
-ConLeche/Frontend/Export.lean	import ConLeche.Kernel.Core	# compensated: +public import Lean.Data.Json.Basic in ConLeche/Frontend/Export.lean; +public import Lean.Data.Json.Parser in ConLeche/Frontend/ExportC.lean
 ConLeche/Frontend/ProjRec.lean	public import Std.Data.HashSet	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Frontend/ProjRec.lean	import ConLeche.Kernel.Level	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Kernel/Basis/Builder.lean	public import ConLeche.Kernel.Basis.Names	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Kernel/Basis/Builder.lean; +public import ConLeche.Kernel.Basis.Names in ConLeche/Kernel/Basis/Empty.lean (+5 more)
