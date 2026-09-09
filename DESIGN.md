@@ -66264,3 +66264,137 @@ anywhere — so nothing here is affected; the harness now gives each
 label its own scratch files.  A `grep` for the phase line also needs
 `-a`: a Mathlib-scale stderr contains bytes that make it bail as
 binary.
+
+## Task #267 — THE POOL CLAIMS ONE RECORD AT A TIME (2026-09-09, `agent/pool-267`)
+
+The user's reading of task #260's pool: *"few large decls dominate
+phase B and we certainly do not want them to end up being handled by
+the same agent while others are done.  and they are typically close to
+each other in the stream.  so maybe instead of grabbing chunks of
+increasing size, some work stealing approach works better at that job
+size distribution?"*  The hazard is exact: a claim was a CONTIGUOUS
+RANGE of up to 256 records processed sequentially by its claimer, so a
+cluster of heavy declarations inside one range is checked one after the
+other on one worker while the rest of the pool idles — and heavy
+declarations cluster, because a hard file is hard for several
+declarations in a row.
+
+**The change.**  `chunkSize` and `checkChunk` are gone; the claim is one
+record — `next.modifyGet fun a => (a, a + 1)` — and `checkOne` is the
+old chunk body without its recursion (the limit test, the check, the
+push, the heartbeat bump).  Everything else stands: the worker's own
+result array, the shared `limit` a failure lowers, `mergeResults`, the
+fuel `pend.size + 1` (exact as before, now because every claim advances
+the counter by exactly one rather than at least one), and the
+determinism argument on a failure.  **No proof plumbing moved**:
+`ConLeche/Cached/Installed.lean` — `checkRecord`, `checkRecordResult`,
+`collectChecks`, `groupChecked_extend` — is untouched, the merged table
+is still the sequential map from record index to that record's own
+evidence, and the walk in fold order still decides the verdict.  Work
+stealing proper (per-worker deques) was not built: per-record claiming
+removes the clustering entirely except for the single largest record,
+which no scheduler can split, and #260 had already measured the pool's
+own bookkeeping below the floor.
+
+### The granularity is free, and the measurement that shows it
+
+A cross-binary A/B (master's binary against the branch's) put the
+1.5 GB prefix's check phase at 29.3 s against 30.4 s and init-full's
+wall at 11.06 s against 11.22 s — a consistent ~1-3 % against the
+change, which would have decided the task the other way.  It is code
+layout, not granularity.  The instrument that separates them is ONE
+binary with the claim size behind an environment variable
+(`POOL_CLAIM`, a measurement build, not landed), swept 1/2/4/8/32/256
+in place; the landed code has the constant 1.
+
+**(a) Overhead on streams of tiny declarations** (one binary, claim 1
+against claim 256, three reps, minima, `perf stat -e instructions:u`):
+
+| stream | jobs | claim 256 | claim 1 | per record | wall |
+|---|---|---|---|---|---|
+| init-prelude (1 664 checks) | 8 | 3.236830 G | 3.236979 G | +90 instr (+0.005 %) | 0.19 → 0.18 s |
+| init-prelude | 16 | 3.236967 G | 3.237997 G | +619 instr (+0.03 %) | 0.19 → 0.18 s |
+| init-full (52 505 checks) | 8 | 540.492 G | 540.507 G | +0.3 k (+0.003 %) | 11.10 → 10.99 s |
+| init-full | 16 | 540.495 G | 540.465 G | −0.6 k (−0.006 %) | 8.67 → 8.48 s |
+
+The extra atomic per record is one `modifyGet` against a check that
+costs 1.9 M instructions on init-prelude and 10 M on init-full: it does
+not reach the third decimal of the run.  53 088 declarations accepted
+in every init-full cell.
+
+**(b) The tail on the 1.5 GB Mathlib prefix** (163 894 records, 160 028
+checks, 162 092 declarations accepted in all sixteen cells,
+`ulimit -v 32000000`).  Instrumented builds — old and new — print each
+worker's finish time; the spread between the first and the last worker
+to finish is the pool's idle time:
+
+| jobs | check phase old / new | worker-finish spread old / new | records per worker old / new |
+|---|---|---|---|
+| 8 | 29.3 s / 30.4 s | 45 ms / 31 ms | 16 283-22 063 / 19 671-20 368 |
+| 16 | 16.2 s / 17.5 s | 115 ms / 57 ms | 7 819-11 749 / 9 114-10 972 |
+
+**This prefix has no tail at either granularity**: the workers finish
+within 0.15-0.7 % of a 16-30 s phase already under the old chunking,
+because 160 000 records over 8-16 workers average the skew out.  The
+per-record claim halves the residual spread and flattens the
+record counts (a 1.36× spread across workers becomes 1.04×), and the
+check-phase column is the cross-binary artefact above — the same-binary
+sweep at `--jobs=8`, two reps, is FLAT across the whole range:
+
+| claim | 1 | 2 | 4 | 8 | 32 | 256 |
+|---|---|---|---|---|---|---|
+| check phase (s) | 30.0 / 30.5 | 30.1 / 30.3 | 29.8 / 30.1 | 29.8 / 29.8 | 29.4 / 29.9 | 30.0 / 30.1 |
+
+**(c) The clustered case, where the granularity is everything.**  The
+fixture is the distribution the user described: 32 heavy declarations
+ADJACENT in the middle of 10 000 trivial ones (`def c : Type := Prop`,
+sub-millisecond).  A heavy declaration is `def h : N (fun y : Type 1 =>
+y) Type := Prop`, where `N` is a Church numeral over `Type 1` built by
+squaring five times (`N_1 = 2`, `N_{k+1} = N_k * N_k`, so `N_5 =
+2^16`): the declared type is a few dozen lines and shallow, but
+whnf-reduces to `Type` only after 65 536 applications of the identity,
+so the RECORD is small and its CHECK is ~0.1 s (and ~130 MB) from the
+fresh memo state each record gets — a heavy job the frontend and the
+install phase barely notice.  That generator is not kept in the tree:
+the only thing it can assert is a wall-time ratio, and wall time is not
+a measurement on this machine, so it would be a flaky gate rather than
+a regression case; the worker pool's gates stay verdict-based and the
+recipe above is the reproduction.  Check phase, three reps:
+
+| jobs | old (chunks) | new (one record) |
+|---|---|---|
+| 8 | 4.5 / 4.8 / 4.1 s | 0.7 / 0.7 / 0.7 s |
+| 16 | 3.9 / 3.8 / 3.9 s | 0.4 / 0.4 / 0.4 s |
+
+**5.9× and 9.5×** on the minima, and the sweep on one binary at
+`--jobs=8` shows the whole curve: claim 1 → 0.7 s, 2 → 0.7, 4 → 0.7,
+8 → 1.2, 32 → 3.1, 256 → 3.9.  A claim of `c` serialises `min(c,
+cluster)` heavy records on one worker; only `c = 1` has no such number,
+and the intermediate the brief allowed (a tiny chunk of up to 4) is
+indistinguishable here only because 32 heavy records over 8 workers is
+4 apiece — it would serialise four of them on one worker whenever the
+cluster is smaller than the pool.
+
+**The price is the peak, and it is inherent.**  Spreading a cluster
+means the heavy checks now run at the SAME time, so their peaks add:
+on the synthetic, 169 → 990 MB at 8 workers and 181 → 1 935 MB at 16;
+on real streams, init-full +7-10 % (592 → 656 MB at 8 workers,
+747 → 805 MB at 16) and the prefix +1-2 % (2 347 → 2 390 MB).  That is
+the parallelism being taken, not a leak — the pool's memory bound was
+always "workers × the largest concurrent check" — and it is one more
+reason the per-worker address-space cost of §2 of #260 is the number to
+plan a `--jobs` count against.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free; the
+`--jobs` sections of `tests/arena.sh` — **progress lane 17/17**,
+**worker pool 15/15** (verdict and named declaration identical at
+`--jobs=1/2/4/16` and at the default on the accepting, the rejecting
+and the two-failure fixture; the three usage errors) — and
+`tests/overview-links.sh` 72 links / 47 files, three anchors in
+`Main.lean` re-pointed after the shift, each cited paragraph re-read
+(the text they cite is unchanged).  Verdict identity across the
+measurements: init-full 53 088 declarations and the prefix's 162 092 in
+every cell, at every claim size and worker count.  OVERVIEW §2 and
+`--help` say "one record at a time" in the present tense.

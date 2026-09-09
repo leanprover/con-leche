@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L747
-   747  def usage : String := String.intercalate "\n" [
+== Main.lean#L732
+   732  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L44
     44  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -49,8 +49,8 @@
 == Main.lean#L182
    182  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L312
-   312  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L297
+   297  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
@@ -58,12 +58,12 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L349-L353
-   349  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   350      (trace : Bool) (noMark : Bool)
-   351      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
-   352      IO (Except (ConLeche.CheckError × Nat)
-   353        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L334-L338
+   334  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   335      (trace : Bool) (noMark : Bool)
+   336      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
+   337      IO (Except (ConLeche.CheckError × Nat)
+   338        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
    488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
