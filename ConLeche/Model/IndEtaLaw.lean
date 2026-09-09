@@ -147,9 +147,9 @@ theorem memberEtaLaw : MemberEtaLaw V := by
     by_cases hC0 : caps.etaCtor = c₀.name
     · rw [hac, hC0, acvalWith_self, hc₀name]
     · rw [hac, acvalWith_ne hC0]
-      obtain ⟨cvC, hfC⟩ := hfam.2.1
+      obtain ⟨cvC, cnP, cnF, hfC⟩ := hfam.2.1
       have hfCe : env.find? caps.etaCtor
-          = some (.ctorInfo cvC caps.etaParams caps.etaFields) := by
+          = some (.ctorInfo cvC cnP cnF) := by
         rw [ConLeche.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfC
         exact hfC
       exact (hIA caps.etaCtor hbC _ hfCe ψ).symm

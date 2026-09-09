@@ -184,12 +184,12 @@ theorem projEtaLaw : ProjEtaLaw V := by
     exact hfT
   have hC0 : caps.etaCtor ≠ c₀.name := by
     intro hh
-    obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+    obtain ⟨-, ⟨cvC, _, _, hfC⟩, -⟩ := hfam
     rw [hh, ConLeche.Env.find?_cons_self, hc₀eq] at hfC
     exact nomatch hfC
-  obtain ⟨-, ⟨cvCst, hfCst⟩, -⟩ := id hfam
+  obtain ⟨-, ⟨cvCst, cnPst, cnFst, hfCst⟩, -⟩ := id hfam
   have hfCe : env.find? caps.etaCtor
-      = some (.ctorInfo cvCst caps.etaParams caps.etaFields) := by
+      = some (.ctorInfo cvCst cnPst cnFst) := by
     rw [ConLeche.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfCst
     exact hfCst
   -- the kernel's η-capability pins

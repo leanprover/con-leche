@@ -553,7 +553,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
         · exact ⟨⟨_, _, _, hU⟩, fun hb => Bool.noConfusion hb,
-            fun _ => recRuleEtaOf_of hU rfl hP rfl rfl rfl⟩
+            fun _ => recRuleEtaOf_of hU rfl hP rfl rfl rfl rfl⟩
         · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)

@@ -317,8 +317,8 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
         ConLeche.EtaFamilyStored env₃ T caps →
         ConLeche.EtaFamilyStored env₀ T caps := by
       intro T caps hst
-      obtain ⟨h1, ⟨cvC, hC⟩, h3⟩ := hst
-      refine ⟨h1, ⟨cvC, (hsame _ _
+      obtain ⟨h1, ⟨cvC, cnP, cnF, hC⟩, h3⟩ := hst
+      refine ⟨h1, ⟨cvC, cnP, cnF, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, ?_⟩
       intro j hj
       obtain ⟨cv, mI, rP, rules, hfj⟩ := h3 j hj

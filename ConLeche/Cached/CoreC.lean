@@ -428,13 +428,13 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           | some (.indInfo cvT caps) => do
             let targs ← pure (ExprC.getAppArgs wtb)
             if caps.eta = true ∧ caps.etaCtor = cn ∧
-                caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
                 reservedBasisNames.contains Tn = false ∧
                 reservedBasisNames.contains cn = false ∧
-                targs.length = cnP ∧
+                targs.length = caps.etaParams ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (fe.towerSlotsAllF Tn cnF || fe.recSlotsAllF Tn cnF) = true then do
+                (fe.towerSlotsAllF Tn caps.etaFields ||
+                  fe.recSlotsAllF Tn caps.etaFields) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
@@ -444,11 +444,14 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 if ← certAtI mode (iotaCertsI r fe depth false tyT targs) then do
                   -- the per-slot certificates are the projection-function
                   -- kind's; a tabled family has none (task #175 S1)
-                  if ← certAtI mode (if fe.towerSlotsAllF Tn cnF then pure true
+                  if ← certAtI mode
+                      (if fe.towerSlotsAllF Tn caps.etaFields then pure true
                       else structEtaProjCertsI r fe depth T Tn us'
-                        targs b cvT.levelParams (List.range cnF)) then do
-                    if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← projAppsI fe Tn T us' targs b cnF
+                        targs b cvT.levelParams
+                        (List.range caps.etaFields)) then do
+                    if ← defEqListI r fe depth
+                        (aargs.take caps.etaParams) targs then do
+                      let projs ← projAppsI fe Tn T us' targs b caps.etaFields
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application
                       -- `c targs (proj_i … b)` is certified against the
@@ -463,7 +466,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                           let tyCtor ← constTyAtM fe c cn us
                           iotaCertsI r fe depth false tyCtor (targs ++ projs)
                         else pure true) then
-                        defEqListI r fe depth (aargs.drop cnP) projs
+                        defEqListI r fe depth (aargs.drop caps.etaParams) projs
                       else pure false
                     else pure false
                   else pure false
@@ -610,29 +613,26 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ustL caps = true then do
-                if cvj.levelParams.length = ust.length then do
-                  let TI ← pure T
-                  let projs ← projAppsI fe T TI ust margs major caps.etaFields
-                  let ctorI ← pure caps.etaCtor
-                  let h ← pure (Expr.const ctorI ust)
-                  let fab ← mkAppNM h (margs ++ projs)
-                  if ← pure (ExprC.wscopedB depth fab &&
-                      ExprC.looseBVarsBounded 0 fab &&
-                      ExprC.leafGuard fab major) then do
-                    -- synthetic-spine certification, as in the K
-                    -- branch (task #71)
-                    let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    -- (a certificate family; off at `.trusted`)
-                    if ← certAtI mode (iotaCertsI r fe depth false tyCtor
-                        (margs ++ projs)) then do
-                      if ← structEtaCertWithI mode r fe depth fab major
-                          tmaj then
+                let TI ← pure T
+                let projs ← projAppsI fe T TI ust margs major caps.etaFields
+                let ctorI ← pure caps.etaCtor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                if ← pure (ExprC.wscopedB depth fab &&
+                    ExprC.looseBVarsBounded 0 fab &&
+                    ExprC.leafGuard fab major) then do
+                  -- synthetic-spine certification, as in the K
+                  -- branch (task #71)
+                  let tyCtor ← constTyAtM fe ctorI rl.ctor ust
+                  -- (a certificate family; off at `.trusted`)
+                  if ← certAtI mode (iotaCertsI r fe depth false tyCtor
+                      (margs ++ projs)) then do
+                    if ← structEtaCertWithI mode r fe depth fab major
+                        tmaj then
+                      pure fab
+                    else if caps.etaFields = 0 then
+                      if ← proofIrrelI r fe depth fab major then
                         pure fab
-                      else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length then
-                        if ← proofIrrelI r fe depth fab major then
-                          pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major

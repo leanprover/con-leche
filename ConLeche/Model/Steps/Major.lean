@@ -217,8 +217,7 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
       (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
     rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
-        hetacase⟩
+      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩
     · -- K: the parameters-only constructor application
       refine ⟨⟨_, denoteMeta_mkAppN (hspt.take cnP)
         (denoteMeta_const hfcj (show ust.length
@@ -228,8 +227,12 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
       rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
       · exact absurd hl' (by simp [Expr.fvarLeaves])
       · exact hlrTargs y (List.mem_of_mem_take hy) l hly
-    · -- η: parameters plus the stored projection spines
-      obtain ⟨heta, hectr⟩ := hEbits hetab
+    · -- η: parameters plus the stored projection spines; the
+      -- constructor's level parameters are the former's by the
+      -- invariant, so the fabrication's head reads
+      obtain ⟨heta, hectr, hlpsE⟩ := hEbits hetab
+      have hlpj : cvj.levelParams.length = ust.length := by
+        rw [hlpsE]; exact hlenU.symm
       -- each fabricated argument reads
       have hallF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs e
           caps.etaFields,
@@ -255,9 +258,9 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
           obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
           -- the projection function is stored (the R13 certificate
           -- pins it); at zero fields the range is empty
-          rcases hetacase with hcw | ⟨hnF0, hlpj', hirr⟩
+          rcases hetacase with hcw | ⟨hnF0, hirr⟩
           · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
-              hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
+              hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, -, -,
               hlenus2, hlpc2, hslots2, -, -, hprojs, -, -, -⟩ :=
               ConLeche.structEtaCertWith_inv hcw
             have hTeq : T2 = T := by
@@ -276,17 +279,16 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
               rw [hfT] at hfT2
               exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).2).symm
             rw [hcvTeq] at hprojs hlenus2
-            rw [hcapseq] at hefld2
-            rw [hTeq, ← hefld2] at hslots2
+            rw [hTeq, hcapseq] at hslots2
+            rw [hcapseq] at hprojs
             -- the per-slot certificates ran: not a tower family (task
             -- #175 S1)
-            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
-              cases h : ConLeche.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
+              cases h : ConLeche.towerSlotsAll env T caps.etaFields
               · rfl
-              · exact absurd (by rw [hefld2]; exact h) htow
+              · exact absurd h htow
             obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
-              ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
-                rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+              ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j hj
             have hspM : DenoteMetaSpine m.acval env φ d
                 (tmaj.getAppArgs ++ [e]) (tsa ++ [ea]) :=
               hspt.append (DenoteMetaSpine.cons hea DenoteMetaSpine.nil)
@@ -394,10 +396,16 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
     obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteMeta_mkAppN_inv htmaja
     obtain ⟨-, hoTs⟩ := hoist_spine tsa hokTm
     -- the constructor's stored type, read and graded
+    obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
+    obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
+      (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
+    -- the constructor's level count: the K branch pins it, the η
+    -- branch reads it off the invariant's η clause (the constructor
+    -- of an η-capable family carries the former's level parameters)
     have hlenCj : ust.length = cvj.levelParams.length := by
-      rcases hcase with ⟨-, hlpj, -⟩ | ⟨-, -, -, -, hlpj, -⟩
+      rcases hcase with ⟨-, hlpj, -⟩ | ⟨hetab, -, -, hlenU, -⟩
       · exact hlpj.symm
-      · exact hlpj.symm
+      · rw [(hEbits hetab).2.2]; exact hlenU
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
       hct d rl.ctor _ ust hfcj rfl (by exact hlenCj)
     dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVja hmemCj
@@ -446,13 +454,9 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       exact (wellDenotedV_mkAppN_of_fitA fargsa (hokTVja ρ)
         ⟨m.acval_wellDenoted _ _ ρ, hav _ _ ρ⟩
         (fun x hx => hokArgs x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
-    obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
-    obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
-      (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
     rcases hcase with ⟨hK, hlpj, hcnP, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨hetab, hnz, hlenP, hlenU, hlpj, rfl, hcerts,
-        hetacase⟩
+      ⟨hetab, hnz, hlenP, hlenU, rfl, hcerts, hetacase⟩
     · -- R12: the K-flagged rescue
       obtain ⟨hdF, hokF⟩ := hfab (tmaj.getAppArgs.take cnP) (tsa.take cnP)
         hcerts
@@ -464,7 +468,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           hokF hokm ρ hρ).symm,
         hwF, hbB, hLF, hCF⟩
     · -- R13/R14: the η-capable rescue
-      obtain ⟨heta, hectr⟩ := hEbits hetab
+      obtain ⟨heta, hectr, -⟩ := hEbits hetab
       have hspM : DenoteMetaSpine m.acval env φ d (tmaj.getAppArgs ++ [major])
           (tsa ++ [vm]) :=
         hspt.append (DenoteMetaSpine.cons hvm DenoteMetaSpine.nil)
@@ -476,10 +480,10 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
         · exact frame_spine hwr hbr hLr hCr x hx'
         · rcases List.mem_singleton.mp hx' with rfl
           exact ⟨hws, hb, hLb, hC⟩
-      rcases hetacase with hcw | ⟨hnF0, hlpj', hirr⟩
+      rcases hetacase with hcw | ⟨hnF0, hirr⟩
       · -- R13: the η certificate identifies the fabrication with the major
         obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2, hfna2,
-          hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -, hlenus2,
+          hfc2, hlena2, hfnb2, hfT2, -, -, -, -, -, hlenus2,
           hlpc2, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
         have hTeq : T2 = T := by
           rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).1.symm
@@ -495,8 +499,8 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           rw [hfT] at hfT2
           exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).2).symm
         rw [hcvTeq] at hprojs hlenus2
-        rw [hcapseq] at hefld2
-        rw [hTeq, ← hefld2] at hslots2
+        rw [hTeq, hcapseq] at hslots2
+        rw [hcapseq] at hprojs
         have hokMs : ∀ x ∈ tsa ++ [vm], ∀ ρ : Nat → V, Sat V Δa ρ →
             WellDenotedV V ρ x := by
           intro x hx
@@ -608,12 +612,11 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
                 (cvp.type.instantiateLevelParams cvp.levelParams ust)
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj
-            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
-              cases h : ConLeche.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
+              cases h : ConLeche.towerSlotsAll env T caps.etaFields
               · rfl
-              · exact absurd (by rw [hefld2]; exact h) htow
-            exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
-              rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+              · exact absurd h htow
+            exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j hj
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteMeta m.acval env φ d
                   (Expr.mkAppN (.const (projFnName T j) ust)

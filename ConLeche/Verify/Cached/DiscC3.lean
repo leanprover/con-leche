@@ -75,28 +75,25 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                     ust.length = cvT.levelParams.length ∧
                     capsNeverZero cvT.levelParams ust caps = true then
-                  if cvj.levelParams.length = ust.length then
-                    let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                      (etaFabArgsE env T ust tmaj.getAppArgs major
-                        caps.etaFields)
-                    if fab.wscopedB d && fab.looseBVarsBounded 0 &&
-                        fab.fvarLeaves.all
-                          (fun l => major.fvarLeaves.contains l) then
-                      iotaCerts (fueledFns mode env) env d false
-                          (cvj.type.instantiateLevelParams
-                            cvj.levelParams ust)
-                          (etaFabArgsE env T ust tmaj.getAppArgs major
-                            caps.etaFields) >>= fun rc =>
-                      if rc then
-                        structEtaCertWith mode (fueledFns mode env) env d fab major
-                            tmaj >>= fun r =>
-                        if r then pure fab
-                        else if caps.etaFields = 0 ∧
-                            cvj.levelParams.length = ust.length then
-                          proofIrrel (fueledFns mode env) env d fab major >>=
-                            fun r' =>
-                          if r' then pure fab
-                          else pure major
+                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                    (etaFabArgsE env T ust tmaj.getAppArgs major
+                      caps.etaFields)
+                  if fab.wscopedB d && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    iotaCerts (fueledFns mode env) env d false
+                        (cvj.type.instantiateLevelParams
+                          cvj.levelParams ust)
+                        (etaFabArgsE env T ust tmaj.getAppArgs major
+                          caps.etaFields) >>= fun rc =>
+                    if rc then
+                      structEtaCertWith mode (fueledFns mode env) env d fab major
+                          tmaj >>= fun r =>
+                      if r then pure fab
+                      else if caps.etaFields = 0 then
+                        proofIrrel (fueledFns mode env) env d fab major >>=
+                          fun r' =>
+                        if r' then pure fab
                         else pure major
                       else pure major
                     else pure major
@@ -182,32 +179,29 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       ust.length = cvT.levelParams.length ∧
                       capsNeverZero cvT.levelParams ustL caps
                         = true then
-                    if cvj.levelParams.length = ust.length then
-                      pure T >>= fun TI =>
-                      projAppsI (mkFEnv env) T TI ust margs i
-                          caps.etaFields >>= fun projs =>
-                      pure caps.etaCtor >>= fun ctorI =>
-                      pure (Expr.const ctorI ust) >>= fun h =>
-                      mkAppNM h (margs ++ projs) >>= fun fab =>
-                      pure (ExprC.wscopedB d fab &&
-                        ExprC.looseBVarsBounded 0 fab &&
-                        ExprC.leafGuard fab i) >>=
-                        fun g =>
-                      if g then
-                        constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
-                          fun tyCtor =>
-                        iotaCertsI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env)
-                            d false tyCtor (margs ++ projs) >>= fun rc =>
-                        if rc then
-                          structEtaCertWithI .verified (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d fab i tmaj >>= fun r =>
-                          if r then pure fab
-                          else if caps.etaFields = 0 ∧
-                              cvj.levelParams.length = ust.length then
-                            proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                                (mkFEnv env) d fab i >>= fun r' =>
-                            if r' then pure fab
-                            else pure i
+                    pure T >>= fun TI =>
+                    projAppsI (mkFEnv env) T TI ust margs i
+                        caps.etaFields >>= fun projs =>
+                    pure caps.etaCtor >>= fun ctorI =>
+                    pure (Expr.const ctorI ust) >>= fun h =>
+                    mkAppNM h (margs ++ projs) >>= fun fab =>
+                    pure (ExprC.wscopedB d fab &&
+                      ExprC.looseBVarsBounded 0 fab &&
+                      ExprC.leafGuard fab i) >>=
+                      fun g =>
+                    if g then
+                      constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
+                        fun tyCtor =>
+                      iotaCertsI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env)
+                          d false tyCtor (margs ++ projs) >>= fun rc =>
+                      if rc then
+                        structEtaCertWithI .verified (coreKnotI .verified (mkFEnv env) f)
+                            (mkFEnv env) d fab i tmaj >>= fun r =>
+                        if r then pure fab
+                        else if caps.etaFields = 0 then
+                          proofIrrelI (coreKnotI .verified (mkFEnv env) f)
+                              (mkFEnv env) d fab i >>= fun r' =>
+                          if r' then pure fab
                           else pure i
                         else pure i
                       else pure i
@@ -420,10 +414,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       simp only [hmargs.length,
                         beq_iff_eq]
                       split
-                      · split
-                        rotate_left
-                        · exact SimC.pure hs₂r ⟨hden, hmaj⟩
-                        refine SimC.bind_left (pureEq_eff hs₂r T)
+                      · refine SimC.bind_left (pureEq_eff hs₂r T)
                           (fun s₂t TI hs₂r hQTI => ?_)
                         subst TI
                         refine SimC.bind_left (projAppsC_eff T ust

@@ -87,7 +87,7 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
       ConLeche.EtaFamilyStored env T caps ∧
       T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
       ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
-  obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+  obtain ⟨hCres, ⟨cvC, cnP, cnF, hfC⟩, hfP⟩ := hfam
   -- the former is not the cons: the cons is not an `indInfo`
   have hnT : T ≠ c₀.name := by
     rintro rfl
@@ -97,8 +97,7 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
   have hnC : caps.etaCtor ≠ c₀.name := by
     intro heq
     rw [heq, ConLeche.Env.find?_cons, if_pos rfl] at hfC
-    exact hnotctor cvC caps.etaParams caps.etaFields
-      (Option.some.inj hfC)
+    exact hnotctor cvC cnP cnF (Option.some.inj hfC)
   -- no projection function is the cons: they are `recInfo`s
   have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
     intro j hj heq
@@ -109,7 +108,7 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
     rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
-  refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
+  refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, cnP, cnF, ?_⟩, ?_⟩,
     hnT, hnC, hnP⟩
   · rwa [hdown _ hnC] at hfC
   · intro j hj
@@ -191,7 +190,7 @@ theorem etaFamilyStored_not_derivable :
     exact ⟨rfl, rfl, rfl, rfl, by rintro _ _ _ ⟨⟩,
       by rintro _ _ _ _ ⟨⟩, by rintro _ _ ⟨⟩, by rintro _ ⟨⟩,
       ConLeche.IndCapsWF.of_caps (fun _ => rfl) (fun h => nomatch h)⟩
-  · rintro ⟨-, ⟨cvC, hfC⟩, -⟩
+  · rintro ⟨-, ⟨cvC, _, _, hfC⟩, -⟩
     exact nomatch hfC
 
 /-! ## The crossing -/

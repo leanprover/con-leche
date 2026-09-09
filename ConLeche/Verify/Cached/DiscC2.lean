@@ -813,13 +813,13 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
             match env.find? T with
             | some (.indInfo cvT caps) =>
               if caps.eta = true ∧ caps.etaCtor = c ∧
-                  caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains c = false ∧
-                  wtb.getAppArgs.length = cnP ∧
+                  wtb.getAppArgs.length = caps.etaParams ∧
                   us'.length = cvT.levelParams.length ∧
                   cvc.levelParams = cvT.levelParams ∧
-                  (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
+                  (towerSlotsAll env T caps.etaFields ||
+                    recSlotsAll env T caps.etaFields) = true then
                 liftFueled "level comparison"
                   (Level.isEquivList us us') >>= fun ok =>
                 if ok then
@@ -827,13 +827,13 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                       (cvT.type.instantiateLevelParams cvT.levelParams us')
                       wtb.getAppArgs >>= fun r₁ =>
                   if r₁ then
-                    (if towerSlotsAll env T cnF then pure true
+                    (if towerSlotsAll env T caps.etaFields then pure true
                       else structEtaProjCerts (fueledFns mode env) env d T us'
                         wtb.getAppArgs b cvT.levelParams
-                        (List.range cnF)) >>= fun r₂ =>
+                        (List.range caps.etaFields)) >>= fun r₂ =>
                     if r₂ then
                       defEqList (fueledFns mode env) env d
-                          (a.getAppArgs.take cnP) wtb.getAppArgs >>=
+                          (a.getAppArgs.take caps.etaParams) wtb.getAppArgs >>=
                         fun r₃ =>
                       if r₃ then
                         (if mode.ttChecks then
@@ -841,12 +841,12 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                               (cvc.type.instantiateLevelParams
                                 cvc.levelParams us)
                               (wtb.getAppArgs ++
-                                etaProjs env T us' wtb.getAppArgs b cnF)
+                                etaProjs env T us' wtb.getAppArgs b caps.etaFields)
                           else pure true) >>= fun r₄ =>
                         if r₄ then
                           defEqList (fueledFns mode env) env d
-                            (a.getAppArgs.drop cnP)
-                            (etaProjs env T us' wtb.getAppArgs b cnF)
+                            (a.getAppArgs.drop caps.etaParams)
+                            (etaProjs env T us' wtb.getAppArgs b caps.etaFields)
                         else pure false
                       else pure false
                     else pure false
@@ -888,14 +888,13 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
               | some (.indInfo cvT caps) =>
                 pure (ExprC.getAppArgs w) >>= fun targs =>
                 if caps.eta = true ∧ caps.etaCtor = cn ∧
-                    caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
                     reservedBasisNames.contains Tn = false ∧
                     reservedBasisNames.contains cn = false ∧
-                    targs.length = cnP ∧
+                    targs.length = caps.etaParams ∧
                     us'.length = cvT.levelParams.length ∧
                     cvc.levelParams = cvT.levelParams ∧
-                    ((mkFEnv env).towerSlotsAllF Tn cnF ||
-                      (mkFEnv env).recSlotsAllF Tn cnF) = true then
+                    ((mkFEnv env).towerSlotsAllF Tn caps.etaFields ||
+                      (mkFEnv env).recSlotsAllF Tn caps.etaFields) = true then
                   isEquivListLM us us' >>= fun o =>
                   liftFueled "level comparison" o >>= fun ok =>
                   if ok then
@@ -903,15 +902,15 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                     iotaCertsI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env) d
                         false tyT targs >>= fun r₁ =>
                     if r₁ then
-                      (if (mkFEnv env).towerSlotsAllF Tn cnF then pure true
+                      (if (mkFEnv env).towerSlotsAllF Tn caps.etaFields then pure true
                         else structEtaProjCertsI (coreKnotI .verified (mkFEnv env) f)
                           (mkFEnv env) d T Tn us' targs j cvT.levelParams
-                          (List.range cnF)) >>= fun r₂ =>
+                          (List.range caps.etaFields)) >>= fun r₂ =>
                       if r₂ then
                         defEqListI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env)
-                            d (aargs.take cnP) targs >>= fun r₃ =>
+                            d (aargs.take caps.etaParams) targs >>= fun r₃ =>
                         if r₃ then
-                          projAppsI (mkFEnv env) Tn T us' targs j cnF >>=
+                          projAppsI (mkFEnv env) Tn T us' targs j caps.etaFields >>=
                             fun projs =>
                           (if CheckMode.verified.ttChecks then
                               constTyAtM (mkFEnv env) c cn us >>= fun tyCtor =>
@@ -920,7 +919,7 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                             else pure true) >>= fun r₄ =>
                           if r₄ then
                             defEqListI (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d (aargs.drop cnP) projs
+                              (mkFEnv env) d (aargs.drop caps.etaParams) projs
                           else pure false
                         else pure false
                       else pure false
@@ -1022,7 +1021,8 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                       · split
                         · exact SimC.pure hs₃ rfl
                         · exact structEtaProjCertsC_sim ih henv
-                            T T us' cvT.levelParams (List.range cnF) hs₃
+                            T T us' cvT.levelParams
+                            (List.range caps.etaFields) hs₃
                             htargs hdenb hwwtb.getAppArgs hwb
                       obtain rfl : r₂ = r₂' := hPr₂
                       cases r₂ with
@@ -1032,7 +1032,7 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                       | true =>
                         simp only [↓reduceIte]
                         refine SimC.bind (defEqListC_sim ih hs₄
-                          (haargs.take cnP) htargs
+                          (haargs.take caps.etaParams) htargs
                           (fun x hx => hwa.getAppArgs x
                             (List.mem_of_mem_take hx))
                           hwwtb.getAppArgs)
@@ -1045,10 +1045,10 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                         | true =>
                           simp only [↓reduceIte]
                           refine SimC.bind_left (projAppsC_eff T us'
-                            cnF hs₅ htargs hdenb)
+                            caps.etaFields hs₅ htargs hdenb)
                             (fun s₆ projs hs₆ hQp => ?_)
                           have hwprojs : ∀ x ∈ etaProjs env T us'
-                              (Expr.getAppArgs w) j cnF,
+                              (Expr.getAppArgs w) j caps.etaFields,
                               Expr.WScoped d x := by
                             intro x hx
                             unfold etaProjs at hx
@@ -1092,7 +1092,8 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                             exact SimC.pure hs₈ rfl
                           | true =>
                             simp only [↓reduceIte]
-                            exact defEqListC_sim ih hs₈ (haargs.drop cnP) hQp
+                            exact defEqListC_sim ih hs₈
+                              (haargs.drop caps.etaParams) hQp
                               (fun x hx => hwa.getAppArgs x
                                 (List.mem_of_mem_drop hx)) hwprojs
                 · exact SimC.pure hs rfl
