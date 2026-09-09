@@ -248,53 +248,24 @@ theorem lit_value : lit "value" = [118, 97, 108, 117, 101] := by rw [lit_eq_toBy
 
 /-! ### The literals the fast classifier compares against -/
 
-theorem slit_app : lit "pp" = [112, 112] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_arg : lit "rg" = [114, 103] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_all : lit "ll" = [108, 108] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_axiom : lit "xiom" = [120, 105, 111, 109] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_body : lit "ody" = [111, 100, 121] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_bvar : lit "var" = [118, 97, 114] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_binderInfo :
     lit "inderInfo" = [105, 110, 100, 101, 114, 73, 110, 102, 111] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_const : lit "onst" = [111, 110, 115, 116] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_ctors : lit "tors" = [116, 111, 114, 115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_ctor : lit "tor" = [116, 111, 114] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_cidx : lit "idx" = [105, 100, 120] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_def : lit "ef" = [101, 102] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_fn : lit "n" = [110] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_forallE :
     lit "orallE" = [111, 114, 97, 108, 108, 69] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_hints : lit "ints" = [105, 110, 116, 115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_ie : lit "e" = [101] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_in : lit "n" = [110] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_il : lit "l" = [108] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_idx : lit "dx" = [100, 120] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_imax : lit "max" = [109, 97, 120] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_inductive :
     lit "nductive" = [110, 100, 117, 99, 116, 105, 118, 101] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_isRec : lit "sRec" = [115, 82, 101, 99] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_isReflexive :
     lit "sReflexive" = [115, 82, 101, 102, 108, 101, 120, 105, 118, 101] := by
   rw [lit_eq_toByteArray]; rfl
 theorem slit_isUnsafe :
     lit "sUnsafe" = [115, 85, 110, 115, 97, 102, 101] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_induct : lit "nduct" = [110, 100, 117, 99, 116] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_kind : lit "ind" = [105, 110, 100] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_lam : lit "am" = [97, 109] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_letE : lit "etE" = [101, 116, 69] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_levelParams :
     lit "evelParams" = [101, 118, 101, 108, 80, 97, 114, 97, 109, 115] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_max : lit "ax" = [97, 120] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_meta : lit "eta" = [101, 116, 97] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_name : lit "ame" = [97, 109, 101] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_num : lit "um" = [117, 109] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_natVal : lit "atVal" = [97, 116, 86, 97, 108] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_nondep : lit "ondep" = [111, 110, 100, 101, 112] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_nfields :
     lit "fields" = [102, 105, 101, 108, 100, 115] := by
   rw [lit_eq_toByteArray]; rfl
@@ -316,32 +287,12 @@ theorem slit_numIndices :
 theorem slit_numMotives :
     lit "umMotives" = [117, 109, 77, 111, 116, 105, 118, 101, 115] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_opaque : lit "paque" = [112, 97, 113, 117, 101] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_pre : lit "re" = [114, 101] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_param : lit "aram" = [97, 114, 97, 109] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_proj : lit "roj" = [114, 111, 106] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_pw : lit "w" = [119] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_quot : lit "uot" = [117, 111, 116] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_recs : lit "ecs" = [101, 99, 115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_rules : lit "ules" = [117, 108, 101, 115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_rhs : lit "hs" = [104, 115] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_regular :
     lit "egular" = [101, 103, 117, 108, 97, 114] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_str : lit "tr" = [116, 114] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_sort : lit "ort" = [111, 114, 116] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_succ : lit "ucc" = [117, 99, 99] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_struct : lit "truct" = [116, 114, 117, 99, 116] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_strVal : lit "trVal" = [116, 114, 86, 97, 108] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_safety : lit "afety" = [97, 102, 101, 116, 121] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_type : lit "ype" = [121, 112, 101] := by rw [lit_eq_toByteArray]; rfl
 theorem slit_typeName :
     lit "ypeName" = [121, 112, 101, 78, 97, 109, 101] := by
   rw [lit_eq_toByteArray]; rfl
-theorem slit_thm : lit "hm" = [104, 109] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_types : lit "ypes" = [121, 112, 101, 115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_us : lit "s" = [115] := by rw [lit_eq_toByteArray]; rfl
-theorem slit_value : lit "alue" = [97, 108, 117, 101] := by rw [lit_eq_toByteArray]; rfl
 
 /-! ### `keyOf`, first byte by first byte -/
 
@@ -1091,19 +1042,197 @@ theorem isPrefixOf_key {lst k' r : List UInt8} (hl : k'.length = lst.length) :
       simp
       rw [BEq.comm]
 
-theorem matchLit_key (b : ByteArray) (j : USize) (s : String) (k' r lst : List UInt8)
-    (hsz : s.toUTF8.size < USize.size) (hlit : lit s = lst)
-    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = lst.length) :
-    (matchLit b j s.toUTF8 0 = true) = (k' = lst) := by
-  rw [matchLit_lit b j s hsz, hT, hlit, isPrefixOf_key hl]
-  simp
-
 theorem keyOf_nil : keyOf [] = Key.kUnknown := by
   unfold keyOf keyTable
   simp only [lit_eq_toByteArray]
   rfl
 
-/-- The classifier — first byte, length, one literal compare — is the
+
+/-! ### The unrolled literal compares (task #264)
+
+`keyAt` compares a key's tail by `litN b j c₀ … c_{n-1}`, an unrolled
+chain of `byteAt` equalities; when the key has exactly `n` more bytes,
+every read is inside the key and the chain is the list equality. -/
+
+/-- One byte of a key: the tail at `j` starts with `c`, so `byteAt b j = c`
+and the tail at `j + 1` is the rest. -/
+theorem key_byte_step {b : ByteArray} {j : USize} {c : UInt8} {t : List UInt8}
+    (h : tailAt b j = c :: t) : byteAt b j = c ∧ tailAt b (j + 1) = t := by
+  have hlt : j < b.usize := by
+    by_cases hlt : j < b.usize
+    · exact hlt
+    · rw [tailAt_of_not_lt hlt] at h; exact absurd h (by simp)
+  have hx := tailAt_of_lt hlt
+  rw [h] at hx
+  injection hx with h1 h2
+  exact ⟨by rw [byteAt_eq, h]; rfl, h2.symm⟩
+
+/-- A small `USize` literal step, `j + (m + 1) = j + m + 1`. -/
+theorem usize_lit_step (j : USize) (m : Nat) (hm : m + 1 < 2 ^ 32) :
+    j + (m + 1).toUSize = j + m.toUSize + 1 := by
+  rw [USize.add_assoc]; congr 1
+  apply USize.toNat_inj.mp
+  have h1 : m + 1 < USize.size := Nat.lt_of_lt_of_le hm USize.le_size
+  have h2 : m < USize.size := by omega
+  have h3 : (1 : Nat) < USize.size := by omega
+  simp only [USize.toNat_add, Nat.toUSize, USize.toNat_ofNat', USize.size] at *
+  rw [Nat.mod_eq_of_lt h1, Nat.mod_eq_of_lt h2]
+  have : (1 : USize).toNat = 1 := by
+    simp only [USize.toNat_ofNat] at *; exact Nat.mod_eq_of_lt h3
+  rw [this, Nat.mod_eq_of_lt h1]
+theorem usize_add_2 (j : USize) : j + 2 = j + 1 + 1 := usize_lit_step j 1 (by decide)
+theorem usize_add_3 (j : USize) : j + 3 = j + 2 + 1 := usize_lit_step j 2 (by decide)
+theorem usize_add_4 (j : USize) : j + 4 = j + 3 + 1 := usize_lit_step j 3 (by decide)
+theorem usize_add_5 (j : USize) : j + 5 = j + 4 + 1 := usize_lit_step j 4 (by decide)
+theorem usize_add_6 (j : USize) : j + 6 = j + 5 + 1 := usize_lit_step j 5 (by decide)
+theorem usize_add_7 (j : USize) : j + 7 = j + 6 + 1 := usize_lit_step j 6 (by decide)
+theorem usize_add_8 (j : USize) : j + 8 = j + 7 + 1 := usize_lit_step j 7 (by decide)
+theorem usize_add_9 (j : USize) : j + 9 = j + 8 + 1 := usize_lit_step j 8 (by decide)
+
+theorem lit1_key (b : ByteArray) (j : USize) (c0 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 1) :
+    (lit1 b j c0 = true) = (k' = [c0]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨_, _⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit1
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  simp only [e0, beq_iff_eq, List.cons.injEq, and_true]
+
+theorem lit2_key (b : ByteArray) (j : USize) (c0 c1 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 2) :
+    (lit2 b j c0 c1 = true) = (k' = [c0, c1]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨_, _⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit2
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  simp only [e0, e1, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+
+theorem lit3_key (b : ByteArray) (j : USize) (c0 c1 c2 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 3) :
+    (lit3 b j c0 c1 c2 = true) = (k' = [c0, c1, c2]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨_, _⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit3
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  simp only [usize_add_2, e0, e1, e2, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit4_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 4) :
+    (lit4 b j c0 c1 c2 c3 = true) = (k' = [c0, c1, c2, c3]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨_, _⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit4
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  simp only [usize_add_3, usize_add_2, e0, e1, e2, e3, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit5_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 5) :
+    (lit5 b j c0 c1 c2 c3 c4 = true) = (k' = [c0, c1, c2, c3, c4]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨_, _⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit5
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  simp only [usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit6_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 c5 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 6) :
+    (lit6 b j c0 c1 c2 c3 c4 c5 = true) = (k' = [c0, c1, c2, c3, c4, c5]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨a5, _ | ⟨_, _⟩⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit6
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  obtain ⟨e5, t5⟩ := key_byte_step t4
+  simp only [usize_add_5, usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, e5, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit7_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 c5 c6 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 7) :
+    (lit7 b j c0 c1 c2 c3 c4 c5 c6 = true) = (k' = [c0, c1, c2, c3, c4, c5, c6]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨a5, _ | ⟨a6, _ | ⟨_, _⟩⟩⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit7
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  obtain ⟨e5, t5⟩ := key_byte_step t4
+  obtain ⟨e6, t6⟩ := key_byte_step t5
+  simp only [usize_add_6, usize_add_5, usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, e5, e6, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit8_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 c5 c6 c7 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 8) :
+    (lit8 b j c0 c1 c2 c3 c4 c5 c6 c7 = true) = (k' = [c0, c1, c2, c3, c4, c5, c6, c7]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨a5, _ | ⟨a6, _ | ⟨a7, _ | ⟨_, _⟩⟩⟩⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit8
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  obtain ⟨e5, t5⟩ := key_byte_step t4
+  obtain ⟨e6, t6⟩ := key_byte_step t5
+  obtain ⟨e7, t7⟩ := key_byte_step t6
+  simp only [usize_add_7, usize_add_6, usize_add_5, usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, e5, e6, e7, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit9_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 c5 c6 c7 c8 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 9) :
+    (lit9 b j c0 c1 c2 c3 c4 c5 c6 c7 c8 = true) = (k' = [c0, c1, c2, c3, c4, c5, c6, c7, c8]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨a5, _ | ⟨a6, _ | ⟨a7, _ | ⟨a8, _ | ⟨_, _⟩⟩⟩⟩⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit9
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  obtain ⟨e5, t5⟩ := key_byte_step t4
+  obtain ⟨e6, t6⟩ := key_byte_step t5
+  obtain ⟨e7, t7⟩ := key_byte_step t6
+  obtain ⟨e8, t8⟩ := key_byte_step t7
+  simp only [usize_add_8, usize_add_7, usize_add_6, usize_add_5, usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, e5, e6, e7, e8, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+theorem lit10_key (b : ByteArray) (j : USize) (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 : UInt8) (k' r : List UInt8)
+    (hT : tailAt b j = k' ++ 34 :: r) (hl : k'.length = 10) :
+    (lit10 b j c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 = true) = (k' = [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9]) := by
+  rcases k' with _ | ⟨a0, _ | ⟨a1, _ | ⟨a2, _ | ⟨a3, _ | ⟨a4, _ | ⟨a5, _ | ⟨a6, _ | ⟨a7, _ | ⟨a8, _ | ⟨a9, _ | ⟨_, _⟩⟩⟩⟩⟩⟩⟩⟩⟩⟩⟩ <;> simp only [List.length_cons, List.length_nil] at hl <;> try omega
+  simp only [List.cons_append, List.nil_append] at hT
+  unfold lit10
+  obtain ⟨e0, t0⟩ := key_byte_step hT
+  obtain ⟨e1, t1⟩ := key_byte_step t0
+  obtain ⟨e2, t2⟩ := key_byte_step t1
+  obtain ⟨e3, t3⟩ := key_byte_step t2
+  obtain ⟨e4, t4⟩ := key_byte_step t3
+  obtain ⟨e5, t5⟩ := key_byte_step t4
+  obtain ⟨e6, t6⟩ := key_byte_step t5
+  obtain ⟨e7, t7⟩ := key_byte_step t6
+  obtain ⟨e8, t8⟩ := key_byte_step t7
+  obtain ⟨e9, t9⟩ := key_byte_step t8
+  simp only [usize_add_9, usize_add_8, usize_add_7, usize_add_6, usize_add_5, usize_add_4, usize_add_3, usize_add_2, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, beq_iff_eq, Bool.and_eq_true, List.cons.injEq, and_true]
+  simp only [and_assoc]
+
+/-- The classifier — first byte, length, one unrolled compare — is the
 table lookup. -/
 theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize)
     (hk : naiveKeyBody (tailAt b (i + 1)) = some (k, r)) :
@@ -1143,18 +1272,9 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "pp" k' r
-            [112, 112]
-            (size_toUTF8_lt "pp" 2 rfl (by decide)) slit_app hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "rg" k' r
-            [114, 103]
-            (size_toUTF8_lt "rg" 2 rfl (by decide)) slit_arg hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "ll" k' r
-            [108, 108]
-            (size_toUTF8_lt "ll" 2 rfl (by decide)) slit_all hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 112 112 k' r hT2 (by simp [hL0]),
+          lit2_key b (i + 1 + 1) 114 103 k' r hT2 (by simp [hL0]),
+          lit2_key b (i + 1 + 1) 108 108 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [112, 112]
         case pos => subst e0; simp
         by_cases e1 : k' = [114, 103]
@@ -1170,10 +1290,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "xiom" k' r
-            [120, 105, 111, 109]
-            (size_toUTF8_lt "xiom" 4 rfl (by decide)) slit_axiom hT2
-            (by simp [hL1])]
+        simp only [lit4_key b (i + 1 + 1) 120 105 111 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [120, 105, 111, 109]
         case pos => subst e0; simp
         have n0 : ¬ k' = [108, 108] := by
@@ -1208,14 +1325,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ody" k' r
-            [111, 100, 121]
-            (size_toUTF8_lt "ody" 3 rfl (by decide)) slit_body hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "var" k' r
-            [118, 97, 114]
-            (size_toUTF8_lt "var" 3 rfl (by decide)) slit_bvar hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 111 100 121 k' r hT2 (by simp [hL0]),
+          lit3_key b (i + 1 + 1) 118 97 114 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [111, 100, 121]
         case pos => subst e0; simp
         by_cases e1 : k' = [118, 97, 114]
@@ -1229,10 +1340,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 9
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz10]))]
-        simp only [matchLit_key b (i + 1 + 1) "inderInfo" k' r
-            [105, 110, 100, 101, 114, 73, 110, 102, 111]
-            (size_toUTF8_lt "inderInfo" 9 rfl (by decide)) slit_binderInfo hT2
-            (by simp [hL1])]
+        simp only [lit9_key b (i + 1 + 1) 105 110 100 101 114 73 110 102 111 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [105, 110, 100, 101, 114, 73, 110, 102, 111]
         case pos => subst e0; simp
         have n1 : ¬ k' = [111, 100, 121] := by
@@ -1260,14 +1368,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "onst" k' r
-            [111, 110, 115, 116]
-            (size_toUTF8_lt "onst" 4 rfl (by decide)) slit_const hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "tors" k' r
-            [116, 111, 114, 115]
-            (size_toUTF8_lt "tors" 4 rfl (by decide)) slit_ctors hT2
-            (by simp [hL0])]
+        simp only [lit4_key b (i + 1 + 1) 111 110 115 116 k' r hT2 (by simp [hL0]),
+          lit4_key b (i + 1 + 1) 116 111 114 115 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [111, 110, 115, 116]
         case pos => subst e0; simp
         by_cases e1 : k' = [116, 111, 114, 115]
@@ -1285,14 +1387,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "tor" k' r
-            [116, 111, 114]
-            (size_toUTF8_lt "tor" 3 rfl (by decide)) slit_ctor hT2
-            (by simp [hL1]),
-          matchLit_key b (i + 1 + 1) "idx" k' r
-            [105, 100, 120]
-            (size_toUTF8_lt "idx" 3 rfl (by decide)) slit_cidx hT2
-            (by simp [hL1])]
+        simp only [lit3_key b (i + 1 + 1) 116 111 114 k' r hT2 (by simp [hL1]),
+          lit3_key b (i + 1 + 1) 105 100 120 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [116, 111, 114]
         case pos => subst e0; simp
         by_cases e1 : k' = [105, 100, 120]
@@ -1325,10 +1421,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "ef" k' r
-            [101, 102]
-            (size_toUTF8_lt "ef" 2 rfl (by decide)) slit_def hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 101 102 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
       have m0 : ¬ k' = [101, 102] := by
         intro hx
@@ -1339,10 +1432,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 1
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
-        simp only [matchLit_key b (i + 1 + 1) "n" k' r
-            [110]
-            (size_toUTF8_lt "n" 1 rfl (by decide)) slit_fn hT2
-            (by simp [hL0])]
+        simp only [lit1_key b (i + 1 + 1) 110 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [110]
         case pos => subst e0; simp
         have n1 : ¬ k' = [111, 114, 97, 108, 108, 69] := by
@@ -1354,10 +1444,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 6
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz7]))]
-        simp only [matchLit_key b (i + 1 + 1) "orallE" k' r
-            [111, 114, 97, 108, 108, 69]
-            (size_toUTF8_lt "orallE" 6 rfl (by decide)) slit_forallE hT2
-            (by simp [hL1])]
+        simp only [lit6_key b (i + 1 + 1) 111 114 97 108 108 69 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [111, 114, 97, 108, 108, 69]
         case pos => subst e0; simp
         have n0 : ¬ k' = [110] := by
@@ -1378,10 +1465,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "ints" k' r
-            [105, 110, 116, 115]
-            (size_toUTF8_lt "ints" 4 rfl (by decide)) slit_hints hT2
-            (by simp [hL0])]
+        simp only [lit4_key b (i + 1 + 1) 105 110 116 115 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [105, 110, 116, 115] := by
         intro hx
@@ -1392,18 +1476,9 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 1
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
-        simp only [matchLit_key b (i + 1 + 1) "e" k' r
-            [101]
-            (size_toUTF8_lt "e" 1 rfl (by decide)) slit_ie hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "n" k' r
-            [110]
-            (size_toUTF8_lt "n" 1 rfl (by decide)) slit_in hT2
-            (by simp [hL0]),
-          matchLit_key b (i + 1 + 1) "l" k' r
-            [108]
-            (size_toUTF8_lt "l" 1 rfl (by decide)) slit_il hT2
-            (by simp [hL0])]
+        simp only [lit1_key b (i + 1 + 1) 101 k' r hT2 (by simp [hL0]),
+          lit1_key b (i + 1 + 1) 110 k' r hT2 (by simp [hL0]),
+          lit1_key b (i + 1 + 1) 108 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [101]
         case pos => subst e0; simp
         by_cases e1 : k' = [110]
@@ -1455,10 +1530,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "dx" k' r
-            [100, 120]
-            (size_toUTF8_lt "dx" 2 rfl (by decide)) slit_idx hT2
-            (by simp [hL2])]
+        simp only [lit2_key b (i + 1 + 1) 100 120 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [100, 120]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1507,10 +1579,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL3 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL3, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "max" k' r
-            [109, 97, 120]
-            (size_toUTF8_lt "max" 3 rfl (by decide)) slit_imax hT2
-            (by simp [hL3])]
+        simp only [lit3_key b (i + 1 + 1) 109 97 120 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [109, 97, 120]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1559,10 +1628,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL4 : k'.length = 8
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL4, usz9]))]
-        simp only [matchLit_key b (i + 1 + 1) "nductive" k' r
-            [110, 100, 117, 99, 116, 105, 118, 101]
-            (size_toUTF8_lt "nductive" 8 rfl (by decide)) slit_inductive hT2
-            (by simp [hL4])]
+        simp only [lit8_key b (i + 1 + 1) 110 100 117 99 116 105 118 101 k' r hT2 (by simp [hL4])]
         by_cases e0 : k' = [110, 100, 117, 99, 116, 105, 118, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1611,10 +1677,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL5 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL5, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "sRec" k' r
-            [115, 82, 101, 99]
-            (size_toUTF8_lt "sRec" 4 rfl (by decide)) slit_isRec hT2
-            (by simp [hL5])]
+        simp only [lit4_key b (i + 1 + 1) 115 82 101 99 k' r hT2 (by simp [hL5])]
         by_cases e0 : k' = [115, 82, 101, 99]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1663,10 +1726,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL6 : k'.length = 10
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL6, usz11]))]
-        simp only [matchLit_key b (i + 1 + 1) "sReflexive" k' r
-            [115, 82, 101, 102, 108, 101, 120, 105, 118, 101]
-            (size_toUTF8_lt "sReflexive" 10 rfl (by decide)) slit_isReflexive hT2
-            (by simp [hL6])]
+        simp only [lit10_key b (i + 1 + 1) 115 82 101 102 108 101 120 105 118 101 k' r hT2 (by simp [hL6])]
         by_cases e0 : k' = [115, 82, 101, 102, 108, 101, 120, 105, 118, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1715,10 +1775,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL7 : k'.length = 7
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL7, usz8]))]
-        simp only [matchLit_key b (i + 1 + 1) "sUnsafe" k' r
-            [115, 85, 110, 115, 97, 102, 101]
-            (size_toUTF8_lt "sUnsafe" 7 rfl (by decide)) slit_isUnsafe hT2
-            (by simp [hL7])]
+        simp only [lit7_key b (i + 1 + 1) 115 85 110 115 97 102 101 k' r hT2 (by simp [hL7])]
         by_cases e0 : k' = [115, 85, 110, 115, 97, 102, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1767,10 +1824,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL8 : k'.length = 5
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL8, usz6]))]
-        simp only [matchLit_key b (i + 1 + 1) "nduct" k' r
-            [110, 100, 117, 99, 116]
-            (size_toUTF8_lt "nduct" 5 rfl (by decide)) slit_induct hT2
-            (by simp [hL8])]
+        simp only [lit5_key b (i + 1 + 1) 110 100 117 99 116 k' r hT2 (by simp [hL8])]
         by_cases e0 : k' = [110, 100, 117, 99, 116]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1856,10 +1910,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ind" k' r
-            [105, 110, 100]
-            (size_toUTF8_lt "ind" 3 rfl (by decide)) slit_kind hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 105 110 100 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [105, 110, 100]
         case pos => subst e0; simp
         have n0 : ¬ k' = [] := by
@@ -1887,10 +1938,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "am" k' r
-            [97, 109]
-            (size_toUTF8_lt "am" 2 rfl (by decide)) slit_lam hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 97 109 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 109]
         case pos => subst e0; simp
         have n1 : ¬ k' = [101, 116, 69] := by
@@ -1906,10 +1954,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "etE" k' r
-            [101, 116, 69]
-            (size_toUTF8_lt "etE" 3 rfl (by decide)) slit_letE hT2
-            (by simp [hL1])]
+        simp only [lit3_key b (i + 1 + 1) 101 116 69 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [101, 116, 69]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 109] := by
@@ -1925,10 +1970,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 10
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz11]))]
-        simp only [matchLit_key b (i + 1 + 1) "evelParams" k' r
-            [101, 118, 101, 108, 80, 97, 114, 97, 109, 115]
-            (size_toUTF8_lt "evelParams" 10 rfl (by decide)) slit_levelParams hT2
-            (by simp [hL2])]
+        simp only [lit10_key b (i + 1 + 1) 101 118 101 108 80 97 114 97 109 115 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [101, 118, 101, 108, 80, 97, 114, 97, 109, 115]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 109] := by
@@ -1956,10 +1998,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "ax" k' r
-            [97, 120]
-            (size_toUTF8_lt "ax" 2 rfl (by decide)) slit_max hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 97 120 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 120]
         case pos => subst e0; simp
         have n1 : ¬ k' = [101, 116, 97] := by
@@ -1971,10 +2010,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "eta" k' r
-            [101, 116, 97]
-            (size_toUTF8_lt "eta" 3 rfl (by decide)) slit_meta hT2
-            (by simp [hL1])]
+        simp only [lit3_key b (i + 1 + 1) 101 116 97 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [101, 116, 97]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 120] := by
@@ -1995,10 +2031,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ame" k' r
-            [97, 109, 101]
-            (size_toUTF8_lt "ame" 3 rfl (by decide)) slit_name hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 97 109 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 109, 101]
         case pos => subst e0; simp
         have n1 : ¬ k' = [97, 116, 86, 97, 108] := by
@@ -2047,10 +2080,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "um" k' r
-            [117, 109]
-            (size_toUTF8_lt "um" 2 rfl (by decide)) slit_num hT2
-            (by simp [hL1])]
+        simp only [lit2_key b (i + 1 + 1) 117 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [117, 109]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 109, 101] := by
@@ -2099,14 +2129,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 5
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz6]))]
-        simp only [matchLit_key b (i + 1 + 1) "atVal" k' r
-            [97, 116, 86, 97, 108]
-            (size_toUTF8_lt "atVal" 5 rfl (by decide)) slit_natVal hT2
-            (by simp [hL2]),
-          matchLit_key b (i + 1 + 1) "ondep" k' r
-            [111, 110, 100, 101, 112]
-            (size_toUTF8_lt "ondep" 5 rfl (by decide)) slit_nondep hT2
-            (by simp [hL2])]
+        simp only [lit5_key b (i + 1 + 1) 97 116 86 97 108 k' r hT2 (by simp [hL2]),
+          lit5_key b (i + 1 + 1) 111 110 100 101 112 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [97, 116, 86, 97, 108]
         case pos => subst e0; simp
         by_cases e1 : k' = [111, 110, 100, 101, 112]
@@ -2153,10 +2177,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL3 : k'.length = 6
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL3, usz7]))]
-        simp only [matchLit_key b (i + 1 + 1) "fields" k' r
-            [102, 105, 101, 108, 100, 115]
-            (size_toUTF8_lt "fields" 6 rfl (by decide)) slit_nfields hT2
-            (by simp [hL3])]
+        simp only [lit6_key b (i + 1 + 1) 102 105 101 108 100 115 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [102, 105, 101, 108, 100, 115]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 109, 101] := by
@@ -2205,22 +2226,10 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL4 : k'.length = 8
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL4, usz9]))]
-        simp only [matchLit_key b (i + 1 + 1) "umParams" k' r
-            [117, 109, 80, 97, 114, 97, 109, 115]
-            (size_toUTF8_lt "umParams" 8 rfl (by decide)) slit_numParams hT2
-            (by simp [hL4]),
-          matchLit_key b (i + 1 + 1) "umFields" k' r
-            [117, 109, 70, 105, 101, 108, 100, 115]
-            (size_toUTF8_lt "umFields" 8 rfl (by decide)) slit_numFields hT2
-            (by simp [hL4]),
-          matchLit_key b (i + 1 + 1) "umMinors" k' r
-            [117, 109, 77, 105, 110, 111, 114, 115]
-            (size_toUTF8_lt "umMinors" 8 rfl (by decide)) slit_numMinors hT2
-            (by simp [hL4]),
-          matchLit_key b (i + 1 + 1) "umNested" k' r
-            [117, 109, 78, 101, 115, 116, 101, 100]
-            (size_toUTF8_lt "umNested" 8 rfl (by decide)) slit_numNested hT2
-            (by simp [hL4])]
+        simp only [lit8_key b (i + 1 + 1) 117 109 80 97 114 97 109 115 k' r hT2 (by simp [hL4]),
+          lit8_key b (i + 1 + 1) 117 109 70 105 101 108 100 115 k' r hT2 (by simp [hL4]),
+          lit8_key b (i + 1 + 1) 117 109 77 105 110 111 114 115 k' r hT2 (by simp [hL4]),
+          lit8_key b (i + 1 + 1) 117 109 78 101 115 116 101 100 k' r hT2 (by simp [hL4])]
         by_cases e0 : k' = [117, 109, 80, 97, 114, 97, 109, 115]
         case pos => subst e0; simp
         by_cases e1 : k' = [117, 109, 70, 105, 101, 108, 100, 115]
@@ -2263,14 +2272,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL5 : k'.length = 9
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL5, usz10]))]
-        simp only [matchLit_key b (i + 1 + 1) "umIndices" k' r
-            [117, 109, 73, 110, 100, 105, 99, 101, 115]
-            (size_toUTF8_lt "umIndices" 9 rfl (by decide)) slit_numIndices hT2
-            (by simp [hL5]),
-          matchLit_key b (i + 1 + 1) "umMotives" k' r
-            [117, 109, 77, 111, 116, 105, 118, 101, 115]
-            (size_toUTF8_lt "umMotives" 9 rfl (by decide)) slit_numMotives hT2
-            (by simp [hL5])]
+        simp only [lit9_key b (i + 1 + 1) 117 109 73 110 100 105 99 101 115 k' r hT2 (by simp [hL5]),
+          lit9_key b (i + 1 + 1) 117 109 77 111 116 105 118 101 115 k' r hT2 (by simp [hL5])]
         by_cases e0 : k' = [117, 109, 73, 110, 100, 105, 99, 101, 115]
         case pos => subst e0; simp
         by_cases e1 : k' = [117, 109, 77, 111, 116, 105, 118, 101, 115]
@@ -2354,10 +2357,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 5
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz6]))]
-        simp only [matchLit_key b (i + 1 + 1) "paque" k' r
-            [112, 97, 113, 117, 101]
-            (size_toUTF8_lt "paque" 5 rfl (by decide)) slit_opaque hT2
-            (by simp [hL0])]
+        simp only [lit5_key b (i + 1 + 1) 112 97 113 117 101 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz6]; omega))]
       have m0 : ¬ k' = [112, 97, 113, 117, 101] := by
         intro hx
@@ -2368,10 +2368,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "re" k' r
-            [114, 101]
-            (size_toUTF8_lt "re" 2 rfl (by decide)) slit_pre hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 114 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [114, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 114, 97, 109] := by
@@ -2391,10 +2388,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "aram" k' r
-            [97, 114, 97, 109]
-            (size_toUTF8_lt "aram" 4 rfl (by decide)) slit_param hT2
-            (by simp [hL1])]
+        simp only [lit4_key b (i + 1 + 1) 97 114 97 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [97, 114, 97, 109]
         case pos => subst e0; simp
         have n1 : ¬ k' = [114, 101] := by
@@ -2414,10 +2408,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "roj" k' r
-            [114, 111, 106]
-            (size_toUTF8_lt "roj" 3 rfl (by decide)) slit_proj hT2
-            (by simp [hL2])]
+        simp only [lit3_key b (i + 1 + 1) 114 111 106 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [114, 111, 106]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 114, 97, 109] := by
@@ -2437,10 +2428,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL3 : k'.length = 1
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL3, usz2]))]
-        simp only [matchLit_key b (i + 1 + 1) "w" k' r
-            [119]
-            (size_toUTF8_lt "w" 1 rfl (by decide)) slit_pw hT2
-            (by simp [hL3])]
+        simp only [lit1_key b (i + 1 + 1) 119 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [119]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 114, 97, 109] := by
@@ -2475,10 +2463,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "uot" k' r
-            [117, 111, 116]
-            (size_toUTF8_lt "uot" 3 rfl (by decide)) slit_quot hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 117 111 116 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
       have m0 : ¬ k' = [117, 111, 116] := by
         intro hx
@@ -2489,10 +2474,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ecs" k' r
-            [101, 99, 115]
-            (size_toUTF8_lt "ecs" 3 rfl (by decide)) slit_recs hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 101 99 115 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [101, 99, 115]
         case pos => subst e0; simp
         have n1 : ¬ k' = [101, 103, 117, 108, 97, 114] := by
@@ -2512,10 +2494,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "ules" k' r
-            [117, 108, 101, 115]
-            (size_toUTF8_lt "ules" 4 rfl (by decide)) slit_rules hT2
-            (by simp [hL1])]
+        simp only [lit4_key b (i + 1 + 1) 117 108 101 115 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [117, 108, 101, 115]
         case pos => subst e0; simp
         have n0 : ¬ k' = [101, 99, 115] := by
@@ -2535,10 +2514,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "hs" k' r
-            [104, 115]
-            (size_toUTF8_lt "hs" 2 rfl (by decide)) slit_rhs hT2
-            (by simp [hL2])]
+        simp only [lit2_key b (i + 1 + 1) 104 115 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [104, 115]
         case pos => subst e0; simp
         have n0 : ¬ k' = [101, 99, 115] := by
@@ -2558,10 +2534,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL3 : k'.length = 6
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL3, usz7]))]
-        simp only [matchLit_key b (i + 1 + 1) "egular" k' r
-            [101, 103, 117, 108, 97, 114]
-            (size_toUTF8_lt "egular" 6 rfl (by decide)) slit_regular hT2
-            (by simp [hL3])]
+        simp only [lit6_key b (i + 1 + 1) 101 103 117 108 97 114 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [101, 103, 117, 108, 97, 114]
         case pos => subst e0; simp
         have n0 : ¬ k' = [101, 99, 115] := by
@@ -2596,10 +2569,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "tr" k' r
-            [116, 114]
-            (size_toUTF8_lt "tr" 2 rfl (by decide)) slit_str hT2
-            (by simp [hL0])]
+        simp only [lit2_key b (i + 1 + 1) 116 114 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [116, 114]
         case pos => subst e0; simp
         have n0 : ¬ k' = [97, 102, 101, 116, 121] := by
@@ -2627,14 +2597,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ort" k' r
-            [111, 114, 116]
-            (size_toUTF8_lt "ort" 3 rfl (by decide)) slit_sort hT2
-            (by simp [hL1]),
-          matchLit_key b (i + 1 + 1) "ucc" k' r
-            [117, 99, 99]
-            (size_toUTF8_lt "ucc" 3 rfl (by decide)) slit_succ hT2
-            (by simp [hL1])]
+        simp only [lit3_key b (i + 1 + 1) 111 114 116 k' r hT2 (by simp [hL1]),
+          lit3_key b (i + 1 + 1) 117 99 99 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [111, 114, 116]
         case pos => subst e0; simp
         by_cases e1 : k' = [117, 99, 99]
@@ -2660,18 +2624,9 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 5
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz6]))]
-        simp only [matchLit_key b (i + 1 + 1) "truct" k' r
-            [116, 114, 117, 99, 116]
-            (size_toUTF8_lt "truct" 5 rfl (by decide)) slit_struct hT2
-            (by simp [hL2]),
-          matchLit_key b (i + 1 + 1) "trVal" k' r
-            [116, 114, 86, 97, 108]
-            (size_toUTF8_lt "trVal" 5 rfl (by decide)) slit_strVal hT2
-            (by simp [hL2]),
-          matchLit_key b (i + 1 + 1) "afety" k' r
-            [97, 102, 101, 116, 121]
-            (size_toUTF8_lt "afety" 5 rfl (by decide)) slit_safety hT2
-            (by simp [hL2])]
+        simp only [lit5_key b (i + 1 + 1) 116 114 117 99 116 k' r hT2 (by simp [hL2]),
+          lit5_key b (i + 1 + 1) 116 114 86 97 108 k' r hT2 (by simp [hL2]),
+          lit5_key b (i + 1 + 1) 97 102 101 116 121 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [116, 114, 117, 99, 116]
         case pos => subst e0; simp
         by_cases e1 : k' = [116, 114, 86, 97, 108]
@@ -2716,10 +2671,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 3
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
-        simp only [matchLit_key b (i + 1 + 1) "ype" k' r
-            [121, 112, 101]
-            (size_toUTF8_lt "ype" 3 rfl (by decide)) slit_type hT2
-            (by simp [hL0])]
+        simp only [lit3_key b (i + 1 + 1) 121 112 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [121, 112, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [104, 109] := by
@@ -2739,10 +2691,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL1 : k'.length = 7
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL1, usz8]))]
-        simp only [matchLit_key b (i + 1 + 1) "ypeName" k' r
-            [121, 112, 101, 78, 97, 109, 101]
-            (size_toUTF8_lt "ypeName" 7 rfl (by decide)) slit_typeName hT2
-            (by simp [hL1])]
+        simp only [lit7_key b (i + 1 + 1) 121 112 101 78 97 109 101 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [121, 112, 101, 78, 97, 109, 101]
         case pos => subst e0; simp
         have n0 : ¬ k' = [104, 109] := by
@@ -2762,10 +2711,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL2 : k'.length = 2
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
-        simp only [matchLit_key b (i + 1 + 1) "hm" k' r
-            [104, 109]
-            (size_toUTF8_lt "hm" 2 rfl (by decide)) slit_thm hT2
-            (by simp [hL2])]
+        simp only [lit2_key b (i + 1 + 1) 104 109 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [104, 109]
         case pos => subst e0; simp
         have n1 : ¬ k' = [121, 112, 101] := by
@@ -2785,10 +2731,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL3 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL3, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "ypes" k' r
-            [121, 112, 101, 115]
-            (size_toUTF8_lt "ypes" 4 rfl (by decide)) slit_types hT2
-            (by simp [hL3])]
+        simp only [lit4_key b (i + 1 + 1) 121 112 101 115 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [121, 112, 101, 115]
         case pos => subst e0; simp
         have n0 : ¬ k' = [104, 109] := by
@@ -2823,10 +2766,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 1
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
-        simp only [matchLit_key b (i + 1 + 1) "s" k' r
-            [115]
-            (size_toUTF8_lt "s" 1 rfl (by decide)) slit_us hT2
-            (by simp [hL0])]
+        simp only [lit1_key b (i + 1 + 1) 115 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz2]; omega))]
       have m0 : ¬ k' = [115] := by
         intro hx
@@ -2837,10 +2777,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       by_cases hL0 : k'.length = 4
       case pos =>
         rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
-        simp only [matchLit_key b (i + 1 + 1) "alue" k' r
-            [97, 108, 117, 101]
-            (size_toUTF8_lt "alue" 4 rfl (by decide)) slit_value hT2
-            (by simp [hL0])]
+        simp only [lit4_key b (i + 1 + 1) 97 108 117 101 k' r hT2 (by simp [hL0])]
       rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [97, 108, 117, 101] := by
         intro hx

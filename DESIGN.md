@@ -66154,6 +66154,12 @@ of the very equality under test — a `#guard` on the spec would compare
 the fast recogniser with itself.  `#guard_msgs in #print axioms` pins
 the theorem's footprint at the standard three.
 
+The theorem supersedes the two-binary differential harness task #264
+checked in (`scripts/scan-differential.py`): a kernel-checked equality
+over every input replaces a mutation sweep over some, and the script
+is deleted with this task; `ScanTests.lean`'s evaluation battery
+stays, for the spec's fidelity to the format.
+
 Chunking: the pure append lemma (`feedChunk` over a split buffer = over
 the whole) was judged out of proportion — it needs a locality lemma
 for every naive function (a line's reading depends only on its own
