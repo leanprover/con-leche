@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
 public import ConLeche.Frontend.NatOpGround
+public import ConLeche.Frontend.Scan.Fast
 
 @[expose] public section
 
@@ -21,12 +22,16 @@ every parsed term well-formed **by construction** — the entry obligation
 the capstone consumes (`ConLeche/Verify/Cached/ParseC.lean`), replacing
 `OfStoreC`'s index-memo lemma.
 
-Every record kind, the taint policy, the sentinels
-and the error strings mirror `ConLeche/Frontend/Export.lean` clause by
-clause — verdict identity with the arena path is the contract.  The
-byte-level fast path (`fastParse`, shared with the arena parser — it
-produces stream indices, not representations) plugs in through
-direct-construction apply functions.
+**The stream is read as bytes** (task #256): the driver asks the
+handle for 4 MiB at a time, carries the incomplete tail into the next
+chunk, and hands every complete line to the byte recogniser of
+`ConLeche/Frontend/Scan/Fast.lean`, which decodes it into a syntax
+record (`LineRec`) still in stream indices.  `applyLine` below is the
+semantic half: it resolves the indices against the tables, builds the
+nodes through the smart constructors, and runs the taint policy, the
+prelude dedupe, the projection rewrite and the in-process modeller.
+There is one grammar in the tree and no `Lean.Json` on the checking
+path.
 
 The pin-matching consumers (basis and quotient blocks) read the parsed
 slot itself; the tree-size budget that used to bound them was retired
@@ -60,7 +65,6 @@ constant motives need it).
 
 namespace ConLeche.Frontend
 
-open Lean (Json)
 open ConLeche
 open ConLeche.Cached (ExprC DeclC)
 
@@ -125,12 +129,12 @@ def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
 /-- The direct parse state: stream-index-keyed tables of *values*
 (names and levels as trees, expressions as `ExprC` — a table hit is a
 shared node by reference), the parsed declarations as `DeclC`, and
-the taint/size bookkeeping of the arena parser, unchanged (both are
-keyed by stream indices, so they are representation-independent). -/
+the taint bookkeeping, unchanged (both are keyed by stream indices, so
+they are representation-independent). -/
 structure StateD where
-  names : Std.HashMap Nat Name := .ofList [(0, .anonymous)]
-  levels : Std.HashMap Nat Level := .ofList [(0, .zero)]
-  exprs : Std.HashMap Nat ExprC := {}
+  names : IdTable Name := IdTable.singleton .anonymous
+  levels : IdTable Level := IdTable.singleton .zero
+  exprs : IdTable ExprC := {}
   decls : Array DeclC := #[]
   tainted : Std.HashMap Nat Name := {}
   taintedNames : Std.HashMap Name Name := {}
@@ -231,28 +235,22 @@ def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
         s!"prelude (the toolchain's own {n}, installed first)")
 
 def StateD.name (st : StateD) (i : Nat) : M Name :=
-  match st.names[i]? with
+  match st.names.get? i with
   | some n => pure n
   | none => throw s!"undefined name index {i}"
 
 def StateD.level (st : StateD) (i : Nat) : M Level :=
-  match st.levels[i]? with
+  match st.levels.get? i with
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
 def StateD.expr (st : StateD) (i : Nat) : M ExprC :=
-  match st.exprs[i]? with
+  match st.exprs.get? i with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
 
-def getNameD (st : StateD) (j : Json) (key : String) : M Name := do
-  st.name (← getIdx j key)
-
-def getExprD (st : StateD) (j : Json) (key : String) : M ExprC := do
-  st.expr (← getIdx j key)
-
-/-- Declaration-level expression lookup (twin of `getDeclEIdx'`): the
-taint sentinel, then the table read.
+/-- Declaration-level expression lookup: the taint sentinel, then the
+table read.
 
 The frontend tree-size budget that used to sit here was **retired at
 task #215**: every consumer it bounded is now either name-selected (the
@@ -261,122 +259,84 @@ basis-pin match) or a memoized DAG walk (`Expr.renameConsts`,
 the adversarial DAG-tower fixtures in `tests/e2e` are the standing
 gate in its place — a limit told a user "no", a fixture tells *us*
 which walker regressed. -/
-def getDeclD (st : StateD) (j : Json) (key : String) : M ExprC := do
-  let i ← getIdx j key
+def getDeclD (st : StateD) (i : Nat) : M ExprC := do
   if st.tainted[i]?.isSome then
     throw taintSentinel
   st.expr i
 
-/-- Declaration-level lookup for the inductive-block and quotient
-readers (twin of `getDeclExpr'`); since task #172 B3a there is one
-type, so the "tree" is the parsed node itself. -/
-def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
-  getDeclD st j key
-
-/-- Twin of `parsePw` over the direct name table. -/
-def parsePwD (st : StateD) (j : Json) : M PropWhen := do
-  match j.getObjVal? "pw" with
-  | .error _ => pure .never
-  | .ok v =>
-    if let .ok s := v.getStr? then
-      match s with
-      | "never" => pure .never
-      | _ => throw s!"unknown pw {s}"
-    else if let .ok a := v.getArr? then
-      pure (.ifAllZero (← a.toList.mapM (fun i => do st.name (← i.getNat?))))
-    else
-      throw "malformed pw field"
+/-- The `pw` datum over the direct name table. -/
+def parsePwD (st : StateD) : PwRec → M PropWhen
+  | .never => pure .never
+  | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM st.name))
 
 /-! ## Table entries -/
 
-/-- Twin of `parseNameEntry`: the name value is built directly. -/
-def parseNameEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
-  let n ← if let .ok v := j.getObjVal? "str" then do
-      let p ← st.name (← getIdx v "pre")
-      pure (Name.str p (← (← v.getObjVal? "str").getStr?))
-    else if let .ok v := j.getObjVal? "num" then do
-      let p ← st.name (← getIdx v "pre")
-      pure (Name.num p (← (← v.getObjVal? "i").getNat?))
-    else
-      throw "malformed name entry"
-  pure { st with names := st.names.insert i n }
+/-- A name-table entry: the name value is built directly. -/
+def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
+  | .str pre s => do
+    let p ← st.name pre
+    pure { st with names := st.names.insert i (Name.str p s) }
+  | .num pre n => do
+    let p ← st.name pre
+    pure { st with names := st.names.insert i (Name.num p n) }
 
-/-- Twin of `parseLevelEntry`. -/
-def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
-  let l ←
-    if let .ok v := j.getObjVal? "succ" then
-      pure (Level.succ (← st.level (← v.getNat?)))
-    else if let .ok v := j.getObjVal? "max" then
-      match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure (Level.max (← st.level a) (← st.level b))
-      | _ => throw "malformed max level"
-    else if let .ok v := j.getObjVal? "imax" then
-      match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure (Level.imax (← st.level a) (← st.level b))
-      | _ => throw "malformed imax level"
-    else if let .ok v := j.getObjVal? "param" then
-      pure (Level.param (← st.name (← v.getNat?)))
-    else
-      throw "malformed level entry"
+/-- A level-table entry. -/
+def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
+  let l ← match r with
+    | .succ u => do pure (Level.succ (← st.level u))
+    | .max a b => do pure (Level.max (← st.level a) (← st.level b))
+    | .imax a b => do pure (Level.imax (← st.level a) (← st.level b))
+    | .param n => do pure (Level.param (← st.name n))
   pure { st with levels := st.levels.insert i l }
 
-/-- Twin of `parseExprEntry`: build the `ExprC` node from the
+/-- The child expression-table indices of an entry (for taint
+propagation). -/
+def exprRecChildren : ExprRec → List Nat
+  | .app f a => [f, a]
+  | .lam ty bd _ => [ty, bd]
+  | .forallE ty bd _ => [ty, bd]
+  | .letE ty vl bd => [ty, vl, bd]
+  | .proj _ _ st => [st]
+  | _ => []
+
+/-- An expression-table entry: build the `ExprC` node from the
 children's table values (the derived fields are the compiler's, task
-#172 B3a), with the taint/size bookkeeping unchanged. -/
-def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
-    : M StateD := do
-  let (e, taintConst) ←
-    if let .ok v := j.getObjVal? "bvar" then do
-      pure (ExprC.mkBVar (← v.getNat?), none)
-    else if let .ok v := j.getObjVal? "sort" then do
-      pure (ExprC.mkSort (← st.level (← v.getNat?)), none)
-    else if let .ok v := j.getObjVal? "const" then do
-      let n ← getNameD st v "name"
-      let us ← (← (← v.getObjVal? "us").getArr?).mapM
-        (fun u => do st.level (← u.getNat?))
+#172 B3a), with the taint bookkeeping unchanged.
+
+Binder names are display data the official kernel's equality and hash
+ignore; ours are `.anonymous` on every parsed binder (task #203,
+beside the `.default` annotation of task #142), so `==` is
+α-equivalence downstream.  The `name` field is still required to be
+present and well-formed (the recogniser reads it), it is just not
+resolved. -/
+def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
+  let (e, taintConst) ← match r with
+    | .bvar k => pure (ExprC.mkBVar k, none)
+    | .sort u => do pure (ExprC.mkSort (← st.level u), none)
+    | .const n us => do
+      let nm ← st.name n
+      let ls ← us.mapM st.level
       let taintC : Option Name ←
         if st.taintedNames.isEmpty then pure none
-        else do pure st.taintedNames[n]?
-      pure (ExprC.mkConst n us.toList, taintC)
-    else if let .ok v := j.getObjVal? "app" then do
-      pure (ExprC.mkApp (← getExprD st v "fn") (← getExprD st v "arg"), none)
-    -- Binder names are display data the official kernel's equality
-    -- and hash ignore; ours are `.anonymous` on every parsed binder
-    -- (task #203, beside the `.default` annotation of task #142), so
-    -- `==` is α-equivalence downstream.  The `name` field is still
-    -- required to be present and well-formed (`getIdx`), it is just
-    -- not resolved.
-    else if let .ok v := j.getObjVal? "lam" then do
-      parseBinderInfo v
-      let _ ← getIdx v "name"
-      pure (ExprC.mkLam
-        (← getExprD st v "type") (← getExprD st v "body")
-        ⟨← parsePwD st v⟩, none)
-    else if let .ok v := j.getObjVal? "forallE" then do
-      parseBinderInfo v
-      let _ ← getIdx v "name"
-      pure (ExprC.mkForallE
-        (← getExprD st v "type") (← getExprD st v "body")
-        ⟨← parsePwD st v⟩, none)
-    else if let .ok v := j.getObjVal? "letE" then do
-      let _ ← getIdx v "name"
-      pure (ExprC.mkLetE
-        (← getExprD st v "type") (← getExprD st v "value")
-        (← getExprD st v "body"), none)
-    else if let .ok v := j.getObjVal? "proj" then do
-      pure (ExprC.mkProj (← getNameD st v "typeName")
-        (← (← v.getObjVal? "idx").getNat?) (← getExprD st v "struct"), none)
-    else if let .ok v := j.getObjVal? "natVal" then
-      match (← v.getStr?).toNat? with
-      | some n => pure (ExprC.mkLit (.natVal n), none)
-      | none => throw "malformed natVal literal"
-    else if let .ok v := j.getObjVal? "strVal" then do
-      pure (ExprC.mkLit (.strVal (← v.getStr?)), none)
-    else
-      throw "malformed or unsupported expr entry"
-  let cs ← exprEntryChildren j
+        else do pure st.taintedNames[nm]?
+      pure (ExprC.mkConst nm ls, taintC)
+    | .app f a => do pure (ExprC.mkApp (← st.expr f) (← st.expr a), none)
+    | .lam ty bd pw => do
+      pure (ExprC.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+    | .forallE ty bd pw => do
+      pure (ExprC.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+    | .letE ty vl bd => do
+      pure (ExprC.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd), none)
+    | .proj tn ix s => do
+      pure (ExprC.mkProj (← st.name tn) ix (← st.expr s), none)
+    | .natVal n => pure (ExprC.mkLit (.natVal n), none)
+    | .strVal s => pure (ExprC.mkLit (.strVal s), none)
+  -- the child scan runs only once a tolerated axiom has put something
+  -- in the table: an entry can be tainted only below one
   let taint : Option Name :=
-    taintConst <|> cs.findSome? (fun c => st.tainted[c]?)
+    taintConst <|>
+      (if st.tainted.isEmpty then none
+       else (exprRecChildren r).findSome? (fun c => st.tainted[c]?))
   let st := { st with exprs := st.exprs.insert i e }
   if let some root := taint then
     let t := st.tainted
@@ -387,21 +347,13 @@ def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
 
 /-! ## Declaration records -/
 
-/-- Twin of `parseConstantValP`: the type stays `ExprC`. -/
-def parseConstantValD (st : StateD) (v : Json) : M ConstantVal := do
-  let name ← getNameD st v "name"
-  let ty ← getDeclD st v "type"
+/-- A declaration's common data; the type stays `ExprC`. -/
+def parseCVD (st : StateD) (cv : CVRec) : M ConstantVal := do
+  let name ← st.name cv.name
+  let ty ← getDeclD st cv.type
   pure { name := name
-         levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
+         levelParams := ← cv.levelParams.mapM st.name
          type := ty }
-
-/-- Twin of `parseConstantVal` (tree form, the bounded consumers). -/
-def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
-  pure {
-    name := ← getNameD st v "name"
-    levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
-    type := ← getDeclExprD st v "type"
-  }
 
 /-- The projection-function rewrite at a definition record
 (`ConLeche/Frontend/ProjRec.lean`): the value is `fun p⃗ self => .proj T i
@@ -451,65 +403,63 @@ def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
   { st with genRecords := st.genRecords + 1,
             genOwner := d.names.foldl (fun m n => m.insert n T0) m }
 
+/-- One recursor rule of an inductive record, resolved. -/
+def parseRuleD (st : StateD) (ru : RuleRec) : M RecRule := do
+  pure (RecRule.mk (← st.name ru.ctor) ru.nfields 0 .inert
+    (← getDeclD st ru.rhs) false false false)
+
 /-- The export's shape data of an inductive record, for the in-process
 modeller (task #200). -/
-def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
-  let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
-    pure { cv := ← parseConstantValTD st t
-           nP := ← (← t.getObjVal? "numParams").getNat?
-           nIdx := ← (← t.getObjVal? "numIndices").getNat?
-           ctors := (← (← getIdxs t "ctors").mapM st.name).toList
-           isRec := ← (← t.getObjVal? "isRec").getBool?
-           isReflexive := ← (← t.getObjVal? "isReflexive").getBool?
-           numNested := ← (← t.getObjVal? "numNested").getNat? : InModel.IndTypeRec }
-  let ctors ← (← (← v.getObjVal? "ctors").getArr?).toList.mapM fun c => do
-    pure { cv := ← parseConstantValTD st c
-           nP := ← (← c.getObjVal? "numParams").getNat?
-           nF := ← (← c.getObjVal? "numFields").getNat? : InModel.IndCtorRec }
-  let recs ← (← (← v.getObjVal? "recs").getArr?).toList.mapM fun r => do
-    let rules ← (← (← r.getObjVal? "rules").getArr?).toList.mapM fun ru => do
-      pure (RecRule.mk (← getNameD st ru "ctor")
-        (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-        (← getDeclExprD st ru "rhs") false false false)
-    pure { cv := ← parseConstantValTD st r
-           nP := ← (← r.getObjVal? "numParams").getNat?
-           nM := ← (← r.getObjVal? "numMotives").getNat?
-           nm := ← (← r.getObjVal? "numMinors").getNat?
-           nI := ← (← r.getObjVal? "numIndices").getNat?
+def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
+    (recs : List IndRecRec) : M InModel.BlockRec := do
+  let types ← types.mapM fun t => do
+    pure { cv := ← parseCVD st t.cv
+           nP := t.numParams
+           nIdx := t.numIndices
+           ctors := ← t.ctors.mapM st.name
+           isRec := t.isRec
+           isReflexive := t.isReflexive
+           numNested := t.numNested : InModel.IndTypeRec }
+  let ctors ← ctors.mapM fun c => do
+    pure { cv := ← parseCVD st c.cv
+           nP := c.numParams
+           nF := c.numFields : InModel.IndCtorRec }
+  let recs ← recs.mapM fun r => do
+    let rules ← r.rules.mapM (parseRuleD st)
+    pure { cv := ← parseCVD st r.cv
+           nP := r.numParams
+           nM := r.numMotives
+           nm := r.numMinors
+           nI := r.numIndices
            rules := rules : InModel.IndRecRec }
   pure ⟨types, ctors, recs⟩
 
-/-- Twin of `processLineCore` over the direct state, producing `DeclC`
-records.  Every branch, guard and error string mirrors the arena
-parser's. -/
-def processLineCoreD (st : StateD) (j : Json) :
-    M (StateD ⊕ String) := do
-  if let .ok v := j.getObjVal? "in" then
-    return .inl (← parseNameEntryD st j (← v.getNat?))
-  else if let .ok v := j.getObjVal? "il" then
-    return .inl (← parseLevelEntryD st j (← v.getNat?))
-  else if let .ok v := j.getObjVal? "ie" then
-    return .inl (← parseExprEntryD st j (← v.getNat?))
-  else if (j.getObjVal? "meta").isOk then
-    return .inl st
-  else if let .ok v := j.getObjVal? "axiom" then
-    let cvp ← parseConstantValD st v
-    if (← (← v.getObjVal? "isUnsafe").getBool?) then
+/-- The record's own semantics: the declaration kinds, producing
+`DeclC` records.  Every branch, guard and error string is the one the
+`Lean.Json` reader this replaced had (task #256); only the reads
+changed, from key lookups in a DOM to fields of a syntax record. -/
+def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ String) := do
+  match d with
+  | .ax cvr isUnsafe =>
+    let cvp ← parseCVD st cvr
+    if isUnsafe then
       return .inr "unsafe axiom"
     if cvp.name = quotSoundName then
-      let cv ← parseConstantValTD st v
-      if ConstantInfo.canonEq (.axiomInfo cv)
+      if ConstantInfo.canonEq (.axiomInfo cvp)
           (quotBasis.getD 4 (.axiomInfo default)) then
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
     return pushDecl st (.axiomDecl cvp)
-  else if let .ok v := j.getObjVal? "def" then
-    let cvp ← parseConstantValD st v
-    match (← (← v.getObjVal? "safety").getStr?) with
+  | .defn cvr value hints safety =>
+    let cvp ← parseCVD st cvr
+    match safety with
     | "safe" =>
-      let vl ← getDeclD st v "value"
-      let h ← parseHints v
+      let vl ← getDeclD st value
+      let h : ReducibilityHint := match hints with
+        | .«abbrev» => .«abbrev»
+        | .«opaque» => .«opaque»
+        | .regular n => .regular n
       -- the projection-function rewrite (2026-09-06): a non-direct
       -- structure-like's `fun p⃗ self => .proj T i self` becomes the
       -- recursor application, at the field sort the artifact names
@@ -520,9 +470,9 @@ def processLineCoreD (st : StateD) (j : Json) :
       | none =>
         return pushDecl st (.defnDecl cvp vl h)
     | s => return .inr s!"definition with safety '{s}'"
-  else if let .ok v := j.getObjVal? "thm" then
-    let cvp ← parseConstantValD st v
-    let vl ← getDeclD st v "value"
+  | .thm cvr value =>
+    let cvp ← parseCVD st cvr
+    let vl ← getDeclD st value
     -- a proof field's projection function is exported as a theorem
     -- (the elaborator's choice for a `Prop`-valued field): the same
     -- rewrite applies (2026-09-06)
@@ -532,15 +482,15 @@ def processLineCoreD (st : StateD) (j : Json) :
         (fun st => { st with projRewrites := st.projRewrites.push cvp.name }) id
     | none =>
       return pushDecl st (.thmDecl cvp vl)
-  else if let .ok v := j.getObjVal? "opaque" then
-    let cvp ← parseConstantValD st v
-    if (← (← v.getObjVal? "isUnsafe").getBool?) then
+  | .opaq cvr value isUnsafe =>
+    let cvp ← parseCVD st cvr
+    if isUnsafe then
       return .inr "unsafe opaque declaration"
-    let vl ← getDeclD st v "value"
+    let vl ← getDeclD st value
     return pushDecl st (.opaqueDecl cvp vl)
-  else if let .ok v := j.getObjVal? "quot" then
-    let cv ← parseConstantValTD st v
-    let slot ← match (← (← v.getObjVal? "kind").getStr?) with
+  | .quot cvr kind =>
+    let cv ← parseCVD st cvr
+    let slot ← match kind with
       | "type" => pure 0
       | "ctor" => pure 1
       | "lift" => pure 2
@@ -557,16 +507,13 @@ def processLineCoreD (st : StateD) (j : Json) :
         return .inl st
     else
       return .inr "quotient declaration mismatch"
-  else if let .ok v := j.getObjVal? "inductive" then
+  | .ind tys cts rcs =>
     let st := { st with indCount := st.indCount + 1 }
-    let tys ← (← v.getObjVal? "types").getArr?
     -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
     -- not an error.  The official kernel admits unsafe blocks (it skips
     -- positivity for them); we support no unsafe declaration at all, and
-    -- unsafe axioms/opaques/definitions already decline positively
-    -- (`:475`, `:518`, the `def` arm's safety branch).  The inductive
-    -- path used to `throw`, which the driver reports as exit 3.
-    if ← tys.anyM fun t => do (← t.getObjVal? "isUnsafe").getBool? then
+    -- unsafe axioms/opaques/definitions already decline positively.
+    if tys.any (·.isUnsafe) then
       return .inr "unsafe inductive declaration"
     -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
     -- hands `add_inductive` the `numParams` of ONE inductive record of
@@ -580,32 +527,24 @@ def processLineCoreD (st : StateD) (j : Json) :
     -- records disagree has no declared count this checker could hold
     -- official to, and is positively declined here rather than checked
     -- against a count official might not have chosen.
-    let nPs ← tys.mapM fun t => do (← t.getObjVal? "numParams").getNat?
-    let nPd := nPs[0]?.getD 0
+    let nPs := tys.map (·.numParams)
+    let nPd := nPs.head?.getD 0
     unless nPs.all (· == nPd) do
       return .inr "inductive block whose type records disagree on numParams"
     let types ← tys.mapM fun t => do
-      pure (ConstantInfo.indInfo (← parseConstantValTD st t) {})
-    let ctors ← (← (← v.getObjVal? "ctors").getArr?).mapM fun c => do
-      pure (ConstantInfo.ctorInfo (← parseConstantValTD st c)
-        (← (← c.getObjVal? "numParams").getNat?)
-        (← (← c.getObjVal? "numFields").getNat?))
-    let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
-      let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
-        pure (RecRule.mk (← getNameD st ru "ctor")
-          (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-          (← getDeclExprD st ru "rhs") false false false)
-      let nP ← (← r.getObjVal? "numParams").getNat?
-      let nM ← (← r.getObjVal? "numMotives").getNat?
-      let nm ← (← r.getObjVal? "numMinors").getNat?
-      let ni ← (← r.getObjVal? "numIndices").getNat?
-      pure (ConstantInfo.recInfo (← parseConstantValTD st r)
-        (nP + nM + nm + ni) (nP + nM + nm) rules.toList)
-    let block := types.toList ++ ctors.toList ++ recs.toList
+      pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
+    let ctors ← cts.mapM fun c => do
+      pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
+    let recs ← rcs.mapM fun r => do
+      let rules ← r.rules.mapM (parseRuleD st)
+      pure (ConstantInfo.recInfo (← parseCVD st r.cv)
+        (r.numParams + r.numMotives + r.numMinors + r.numIndices)
+        (r.numParams + r.numMotives + r.numMinors) rules)
+    let block := types ++ ctors ++ recs
     -- the projection rewrite's owner table (the export's own shape
     -- data: index/constructor counts, recursion flag, motive/minor
     -- counts)
-    let st ← registerProjOwners st v block
+    let st ← registerProjOwners st tys cts rcs block
     -- TASK #215 — the basis-pin NAME pre-filter.
     -- `ConstantInfo.canon` rebuilds the WHOLE block as an unshared tree
     -- (`Frontend.canonExpr`, unmemoized) just to compare it against five
@@ -639,7 +578,7 @@ def processLineCoreD (st : StateD) (j : Json) :
       -- the run's decline, naming the class (the residual: infinitary
       -- nesting, a `Prop` block with a large eliminator).
       let T0 := (block.head?.map (·.name)).getD .anonymous
-      let b ← blockRecOf st v
+      let b ← blockRecOf st tys cts rcs
       let st :=
         let m := st.indBlocks
         let st := { st with indBlocks := {} }
@@ -671,28 +610,21 @@ def processLineCoreD (st : StateD) (j : Json) :
           return pushDecl st1 (.indDecl block nPd)
       else
         return pushDecl st (.indDecl block nPd)
-  else
-    throw "unrecognized line"
 where
   /-- Record the structure-like owners of a parsed block that the
   projection rewrite serves (`projRecOwners`). -/
-  registerProjOwners (st : StateD) (v : Json) (block : List ConstantInfo) :
-      M StateD := do
-    let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
-      let cv ← parseConstantValTD st t
-      pure (cv.name, cv.levelParams, cv.type,
-        ← (← t.getObjVal? "numParams").getNat?,
-        ← (← t.getObjVal? "numIndices").getNat?,
-        (← (← getIdxs t "ctors").mapM st.name).toList,
-        ← (← t.getObjVal? "isRec").getBool?)
-    let ctors ← (← (← v.getObjVal? "ctors").getArr?).toList.mapM fun c => do
-      let cv ← parseConstantValTD st c
-      pure (cv.name, ← (← c.getObjVal? "numFields").getNat?, cv.type)
-    let recs ← (← (← v.getObjVal? "recs").getArr?).toList.mapM fun r => do
-      let cv ← parseConstantValTD st r
-      pure (cv.name, cv.levelParams, cv.type,
-        ← (← r.getObjVal? "numMotives").getNat?,
-        ← (← r.getObjVal? "numMinors").getNat?)
+  registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+      (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
+    let types ← tys.mapM fun t => do
+      let cv ← parseCVD st t.cv
+      pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
+        ← t.ctors.mapM st.name, t.isRec)
+    let ctors ← cts.mapM fun c => do
+      let cv ← parseCVD st c.cv
+      pure (cv.name, c.numFields, cv.type)
+    let recs ← rcs.mapM fun r => do
+      let cv ← parseCVD st r.cv
+      pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
     match projRecOwners block types ctors recs with
     | [] => pure st
     | owners =>
@@ -700,41 +632,42 @@ where
       let st := { st with projOwners := {} }
       pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
 
-/-- Twin of `declRecordScan` (read-only pre-scan for the taint
-policy). -/
-def declRecordScanD (st : StateD) (j : Json) :
-    M (Option (List Name × List Nat)) := do
-  for k in ["axiom", "quot"] do
-    if let .ok v := j.getObjVal? k then
-      return some ([← getNameD st v "name"], [← getIdx v "type"])
-  for k in ["def", "thm", "opaque"] do
-    if let .ok v := j.getObjVal? k then
-      return some ([← getNameD st v "name"],
-        [← getIdx v "type", ← getIdx v "value"])
-  if let .ok v := j.getObjVal? "inductive" then
+/-- The read-only pre-scan for the taint policy: the names a
+declaration record declares, and the expression indices it reads. -/
+def declRecordScanD (st : StateD) (d : DeclRec) : M (List Name × List Nat) := do
+  match d with
+  | .ax cv _ => pure ([← st.name cv.name], [cv.type])
+  | .quot cv _ => pure ([← st.name cv.name], [cv.type])
+  | .defn cv v _ _ => pure ([← st.name cv.name], [cv.type, v])
+  | .thm cv v => pure ([← st.name cv.name], [cv.type, v])
+  | .opaq cv v _ => pure ([← st.name cv.name], [cv.type, v])
+  | .ind tys cts rcs =>
     let mut names := []
     let mut idxs := []
-    for key in ["types", "ctors", "recs"] do
-      for t in (← (← v.getObjVal? key).getArr?) do
-        names := (← getNameD st t "name") :: names
-        idxs := (← getIdx t "type") :: idxs
-    for r in (← (← v.getObjVal? "recs").getArr?) do
-      for ru in (← (← r.getObjVal? "rules").getArr?) do
-        idxs := (← getIdx ru "rhs") :: idxs
-    return some (names.reverse, idxs)
-  return none
+    for t in tys do
+      names := (← st.name t.cv.name) :: names
+      idxs := t.cv.type :: idxs
+    for c in cts do
+      names := (← st.name c.cv.name) :: names
+      idxs := c.cv.type :: idxs
+    for r in rcs do
+      names := (← st.name r.cv.name) :: names
+      idxs := r.cv.type :: idxs
+    for r in rcs do
+      for ru in r.rules do
+        idxs := ru.rhs :: idxs
+    return (names.reverse, idxs)
 
-/-- Twin of `processLine` (the taint policy). -/
-def processLineD (st : StateD) (j : Json) :
-    M (StateD ⊕ String) := do
-  if let .ok v := j.getObjVal? "axiom" then
-    let name ← getNameD st v "name"
+/-- The taint policy at a declaration record. -/
+def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ String) := do
+  if let .ax cv _ := d then
+    let name ← st.name cv.name
     if toleratedAxiomNames.contains name then
       let m := st.taintedNames
       let st := { st with taintedNames := {} }
       return .inl { st with taintedNames := m.insert name name }
-  let scan ← declRecordScanD st j
-  if let some (names, idxs) := scan then
+  if !st.tainted.isEmpty then
+    let (names, idxs) ← declRecordScanD st d
     if let some root := idxs.findSome? (fun i => st.tainted[i]?) then
       let m := st.taintedNames
       let sk := st.taintSkipped
@@ -749,78 +682,28 @@ def processLineD (st : StateD) (j : Json) :
   -- `processLineCoreD`, so every insert inside copies them — the
   -- task-#78 copy-on-write pathology, measured at +48 % on
   -- `init-core` when the retired size-decline message took the state.)
-  match processLineCoreD st j with
+  match processLineCoreD st d with
   | .ok r => pure r
   | .error e =>
     if e = taintSentinel then
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else throw e
 
-/-! ## The byte fast path's direct apply functions -/
-
-/-- Fast-path outcome over the direct state (see `FastRes`). -/
-inductive FastResD where
-  | handled (r : Except String StateD)
-  | fallback (st : StateD)
-
-/-- Semantic phase for a hot `{"ie":…}` line, direct construction. -/
-def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode)
-    : FastResD :=
-  let mk : Option (ExprC × List Nat) :=
-    match fn with
-    | .app f a => do
-      let fe ← st.exprs[f]?
-      let ae ← st.exprs[a]?
-      pure (ExprC.mkApp fe ae, [f, a])
-    -- binder names: `.anonymous`, as on the generic path (task #203);
-    -- the name index is parsed, not resolved
-    | .binder isAll _nm ty bd => do
-      let tI ← st.exprs[ty]?
-      let bI ← st.exprs[bd]?
-      pure (if isAll then (ExprC.mkForallE tI bI ⟨.never⟩, [ty, bd])
-            else (ExprC.mkLam tI bI ⟨.never⟩, [ty, bd]))
-    | .letE _nm ty vl bd => do
-      let tI ← st.exprs[ty]?
-      let vI ← st.exprs[vl]?
-      let bI ← st.exprs[bd]?
-      pure (ExprC.mkLetE tI vI bI, [ty, vl, bd])
-    | .const nm us => do
-      let nI ← st.names[nm]?
-      let usI ← us.mapM (st.levels[·]?)
-      pure (ExprC.mkConst nI usI, [])
-    | .bvar k => pure (ExprC.mkBVar k, [])
-    | .sort l => do
-      let lI ← st.levels[l]?
-      pure (ExprC.mkSort lI, [])
-  match mk with
-  | none => .fallback st
-  | some (node, cs) =>
-    if (match fn with | .const .. => true | _ => false)
-        && !st.taintedNames.isEmpty then .fallback st
-    else
-      let taint : Option Name := cs.findSome? (fun c => st.tainted[c]?)
-      let st := { st with exprs := st.exprs.insert i node }
-      if let some root := taint then
-        let t := st.tainted
-        let st := { st with tainted := {} }
-        .handled (.ok { st with tainted := t.insert i root })
-      else
-        .handled (.ok st)
-
-/-- Semantic phase for a hot `{"in":…,"str":…}` line. -/
-def fastApplyIND (st : StateD) (i pre : Nat) (s : String) : FastResD :=
-  match st.names[pre]? with
-  | none => .fallback st
-  | some p =>
-    .handled (.ok { st with names := st.names.insert i (Name.str p s) })
-
-/-- The fast path over the direct state (shares `fastParse` with the
-arena parser — the byte layer produces stream indices). -/
-def fastEntryD (st : StateD) (line : String) : FastResD :=
-  match fastParse line.toUTF8 with
-  | some (.ie i n) => fastApplyIED st i n
-  | some (.inStr i pre s) => fastApplyIND st i pre s
-  | none => .fallback st
+/-- **The semantic layer**: one scanned line applied to the parse
+state.  This is what the `Lean.Json`-based `processLineD` was, with
+the DOM key lookups replaced by the fields of the syntax record the
+byte recogniser produced (`ConLeche/Frontend/Scan/Fast.lean`, task
+#256); the index resolution, the smart constructors, the taint
+policy, the prelude dedupe, the projection rewrite and the in-process
+modeller are unchanged. -/
+def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ String) :=
+  match r with
+  | .expr i e => do pure (.inl (← parseExprEntryD st i e))
+  | .name i n => do pure (.inl (← parseNameEntryD st i n))
+  | .level i l => do pure (.inl (← parseLevelEntryD st i l))
+  | .decl d => applyDeclD st d
+  | .header => pure (.inl st)
+  | .blank => pure (.inl st)
 
 /-! ## The line feed and the drivers -/
 
@@ -876,19 +759,55 @@ def ParseResultD.ofState (st : StateD) : ParseResultD :=
    st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled,
    st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
 
-/-- Twin of `feedLine`. -/
-def feedLineD (st : StateD) (line : String) (lineNo : Nat) :
-    Except FrontendError StateD :=
-  if line.trimAscii.isEmpty then .ok st
-  else
-    match fastEntryD st line with
-    | .handled (.ok st) => .ok st
-    | .handled (.error msg) => .error (.parseError lineNo msg)
-    | .fallback st =>
-      match Json.parse line >>= (fun j => processLineD st j) with
-      | .error msg => .error (.parseError lineNo msg)
-      | .ok (.inr what) => .error (.unsupported what)
-      | .ok (.inl st) => .ok st
+/-- Scan and apply the LAST line of a stream — the one no newline
+ends.  A syntactic failure is reported at its offset in the line. -/
+def applyFinalLine (st : StateD) (b : @& ByteArray) (i : USize)
+    (lineNo : Nat) : Except FrontendError StateD :=
+  match scanLineFwd b i with
+  | .err e => .error (.parseError lineNo (ScanErr.render ⟨e.offset - i.toNat, e.what⟩))
+  | .ok r _ =>
+    match applyLine st r with
+    | .error msg => .error (.parseError lineNo msg)
+    | .ok (.inr what) => .error (.unsupported what)
+    | .ok (.inl st) => .ok st
+
+/-- Every COMPLETE line of the chunk from `i`, applied in order: the
+state, the line count, and where the incomplete tail begins (the
+caller carries it into the next chunk).  A line the chunk cut in half
+is told from a malformed one by whether the rest of the chunk holds a
+newline at all — which is why a scan failure is not immediately an
+error.  The loop's advance is the line, and `scanLineFwd` never
+returns a position at or before its own start, so the remaining byte
+count is the termination measure. -/
+def feedChunk (st : StateD) (b : @& ByteArray) (i : USize) (lineNo : Nat) :
+    Except FrontendError (StateD × Nat × USize) :=
+  if _h : i < b.usize then
+    match scanLineFwd b i with
+    | .err e =>
+      if newlineFrom b i then
+        .error (.parseError (lineNo + 1)
+          (ScanErr.render ⟨e.offset - i.toNat, e.what⟩))
+      else .ok (st, lineNo, i)
+    | .ok r j =>
+      -- `0` is the recogniser's "the buffer ended before a newline
+      -- did": these bytes are an incomplete tail, not a line.  (A
+      -- `USize` numeral must be COMPARED, not matched: a literal
+      -- pattern of a machine-word type does not fire.)
+      if j == 0 then .ok (st, lineNo, i)
+      else
+        match applyLine st r with
+        | .error msg => .error (.parseError (lineNo + 1) msg)
+        | .ok (.inr what) => .error (.unsupported what)
+        | .ok (.inl st) =>
+          if _hj : i < j then feedChunk st b j (lineNo + 1)
+          else .error (.parseError (lineNo + 1) "the line scanner made no progress")
+  else .ok (st, lineNo, i)
+termination_by b.size - i.toNat
+decreasing_by
+  exact Nat.sub_lt_sub_left (usizeInBounds b i _h) (USize.lt_iff_toNat_lt.mp _hj)
+
+/-- How many bytes the streaming driver asks for at a time. -/
+def chunkSize : USize := 4 * 1024 * 1024
 
 /-- Wholesale direct parse (tests and small inputs).  `prelude` is the
 built-in prelude the result is prepended with and deduped against
@@ -897,42 +816,54 @@ def parseExportD (contents : String)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) :
     Except FrontendError ParseResultD := do
-  let mut st : StateD := .init prelude inModel census
-  let mut lineNo := 0
-  for line in contents.splitToList (· == '\n') do
-    lineNo := lineNo + 1
-    st ← feedLineD st line lineNo
-  return .ofState st
+  let b := contents.toUTF8
+  let (st, lineNo, tail) ← feedChunk (.init prelude inModel census) b 0 0
+  if tail < b.usize then
+    let st ← applyFinalLine st b tail (lineNo + 1)
+    return .ofState st
+  else
+    return .ofState st
 
-/-- Streaming direct parse off an open handle (twin of
-`parseExportStream`; explicit recursion so the tables stay uniquely
-referenced across steps).
+/-- Streaming direct parse off an open handle.
 
-The handle is read strictly forward, one `getLine` at a time, and is
-never seeked, re-opened or asked for its size — so the source may be a
+The handle is read strictly forward, 4 MiB at a time, and is never
+seeked, re-opened or asked for its size — so the source may be a
 *pipe* just as well as a file (task #180: no scratch file at all,
 anywhere; `Main.lean`).  It is a property to preserve: a seek or a
-re-open here would silently re-introduce a temp file. -/
+re-open here would silently re-introduce a temp file.
+
+The unconsumed tail of a chunk — at most one incomplete line — is
+carried into the next one, and `st` is threaded as a plain argument so
+that the parse tables stay uniquely referenced across steps (task #78:
+a handler that closes over the state holds it at RC 2 and every insert
+inside copies it). -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
-    (census : Bool := false) :
+    (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
-  let rec loop (lineNo : Nat) (st : StateD) :
+  let rec loop (st : StateD) (carry : ByteArray) (lineNo : Nat) :
       IO (Except FrontendError ParseResultD) := do
-    let raw ← h.getLine
-    if raw.isEmpty then
-      return .ok (.ofState st)
-    let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
-    match feedLineD st line (lineNo + 1) with
-    | .error e => return .error e
-    | .ok st => loop (lineNo + 1) st
-  loop 0 (.init prelude inModel census)
+    let buf0 ← h.read chunk
+    if buf0.isEmpty then
+      if carry.isEmpty then
+        return .ok (.ofState st)
+      else
+        match applyFinalLine st carry 0 (lineNo + 1) with
+        | .error e => return .error e
+        | .ok st => return .ok (.ofState st)
+    else
+      let buf := if carry.isEmpty then buf0 else carry ++ buf0
+      match feedChunk st buf 0 lineNo with
+      | .error e => return .error e
+      | .ok (st, lineNo, tail) =>
+        loop st (buf.extract tail.toNat buf.size) lineNo
+  loop (.init prelude inModel census) ByteArray.empty 0
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
-    (census : Bool := false) :
+    (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) prelude inModel census
+  parseExportHandleD (← IO.FS.Handle.mk path .read) prelude inModel census chunk
 
 end ConLeche.Frontend
