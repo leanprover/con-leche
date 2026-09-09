@@ -3,6 +3,7 @@ module
 public import ConLeche
 public import ConLeche.Frontend.ExportC
 import ConLecheTests.PreludeTests
+import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
@@ -10,6 +11,7 @@ twice (`public import` for the `example`s' statements, `meta import` for
 the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
+meta import ConLeche.Cached.Installed
 
 public section
 

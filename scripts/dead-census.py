@@ -107,7 +107,8 @@ CAPSTONES = [
     "ConLeche.Model.no_proof_of_False_pure",
     "ConLeche.Cached.no_proof_of_Empty_cached",
     "ConLeche.Cached.checkDecls_sound",
-    "ConLeche.Cached.fold_preserves",
+    "ConLeche.Cached.fullyChecked_checkDecls",
+    "ConLeche.Cached.no_proof_of_False_checked",
     "ConLeche.Model.no_proof_of_Empty_pure",
 ]
 SEED_MODULE_PREFIXES = ("ConLecheTests", "ConLeche.Challenge",

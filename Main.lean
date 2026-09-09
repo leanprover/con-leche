@@ -68,11 +68,10 @@ in full.  The loop carries the chain of accepting steps
 (`ConLeche.Cached.InstallRun`) of the records it has consumed — a
 proposition, so nothing at run time — and returns it with the result:
 what this loop returns IS an `InstalledEnv mode ds`
-(`ConLeche/Cached/Installed.lean`).  Whatever it prints between steps is
-irrelevant to that type, which is why ONE loop serves the plain run,
-the `--progress` heartbeat and the route trace alike (task #253; until
-then the heartbeat ran a separate, openly unverified twin of the
-verified fold).
+(`ConLeche/Cached/Installed.lean`), phase A of the fold `checkDecls`.
+Whatever it prints between steps is irrelevant to that type, which is
+why ONE loop serves the plain run, the `--progress` heartbeat and the
+route trace alike.
 
 **Written tail-recursively, threading `p` and `s` LINEARLY** (task
 #182's finding, `agent/fenv-linear`): a `for … in ds` loop with
@@ -159,9 +158,10 @@ has established.**  Record `k` is checked against the prefix view of
 the installed index from a fresh memo state
 (`ConLeche.Cached.checkPending`), and the accumulator — `GroupChecked`
 of every record below `k`, a proposition — grows by one; at the end the
-installed environment and the accumulator ARE a `FullyChecked mode ds`.
-The records are independent: a later loop may hand them to workers
-and collect the same facts.  With `--progress`, one line per record. -/
+installed environment and the accumulator ARE a `FullyChecked mode ds`,
+phase B of the fold `checkDecls`.  The records are independent: a
+later loop may hand them to workers and collect the same facts.  With
+`--progress`, one line per record. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
@@ -183,6 +183,35 @@ def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
       return .ok ⟨e, ConLeche.Cached.groupChecked_all mode
         (fun j hj => acc j (Nat.lt_of_lt_of_le hj (Nat.le_of_not_lt hk)))⟩
   termination_by k => e.pend.size - k
+
+/-- **The driver**: `installLoop` then `checkLoop`, and what comes out is
+the environment together with the proof that the fold `checkDecls`
+(`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
+theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
+two loops are the fold's two phases with the heartbeat and the route
+trace printed between the steps; the fully checked environment they
+assemble is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`),
+so the success line `checkMain` prints is printed from an accept of
+`checkDecls` and from nothing else.  A rejection carries the fold
+position of the declaration it names. -/
+def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 : Nat)
+    (trace : Bool) (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
+    IO (Except (ConLeche.CheckError × Nat)
+      { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+  match ← installLoop mode err stride total t0 trace inModelled ds
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ds
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
+  | .error e => return .error e
+  | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
+    let e : ConLeche.Cached.InstalledEnv mode ds := ⟨fe, pend, ⟨n, s, r⟩⟩
+    if stride > 0 then
+      let now ← IO.monoMsNow
+      err.putStr s!"con-leche: progress install done: {pend.size} \
+        pending checks t={ConLeche.Cached.msSecs (now - t0)}s\n"
+      err.flush
+    match ← checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j)) with
+    | .error e => return .error e
+    | .ok fc => return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
 flag (2026-09-07; a FLAG since task #229 — it selects a run mode, the
@@ -212,11 +241,11 @@ core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
 (2026-09-06), so the stream is parsed directly to `ExprC`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
-driver — `installLoop` then `checkLoop` above — at `.verified` under
-`--verified` (the default), at `.trusted` under `--trusted`.  The
-driver returns a `FullyChecked mode ds` (`ConLeche/Cached/Installed.lean`),
-the type the main theorem `ConLeche.no_proof_of_False`
-(`ConLeche/MainTheorem.lean`) is stated on; the trusted instance is
+driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
+default), at `.trusted` under `--trusted`.  The driver returns the
+environment with the proof that the fold `checkDecls` returns it, the
+fold the main theorem `ConLeche.no_proof_of_False`
+(`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
@@ -343,17 +372,18 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
-      -- **One loop, and its type is the assurance** (task #253).  The
-      -- driver is `installLoop` then `checkLoop` above: phase A
-      -- installs every record and carries its accepting run, phase B
-      -- checks every recorded declaration against the prefix view of
-      -- the installed index and carries every check — and what comes
-      -- out is a `ConLeche.Cached.FullyChecked mode decls.toList`, the
-      -- type the main theorem `ConLeche.no_proof_of_False`
-      -- (`ConLeche/MainTheorem.lean`) is stated on.  The success line
-      -- below is printed from that value and from nothing else.
-      -- Printing between the steps (`--progress`, the route trace)
-      -- changes nothing about the type, so there is no second loop.
+      -- **One driver, and it returns its proof.**  `checkDeclsIO`
+      -- above runs the fold's two phases — phase A installs every
+      -- record and carries its accepting run, phase B checks every
+      -- recorded declaration against the prefix view of the installed
+      -- index and carries every check — and what comes out is the
+      -- environment with the proof that `ConLeche.Cached.checkDecls`
+      -- returns it, the fold the main theorem
+      -- `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`) is
+      -- about.  The success line below is printed from that value and
+      -- from nothing else.  Printing between the steps (`--progress`,
+      -- the route trace) changes nothing about the proof, so there is
+      -- no second loop.
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the stream's declaration-record index.  The parse folds
@@ -387,22 +417,9 @@ def checkMain (file : String) (mode : CheckMode) (stride : Nat) : IO UInt32 := d
             (fold {ConLeche.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← do
-        match ← installLoop mode err stride decls.size t0 trace inModelled decls.toList
-            (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} decls.toList
-            (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
-        | .error e => pure (Except.error e)
-        | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
-          let e : ConLeche.Cached.InstalledEnv mode decls.toList := ⟨fe, pend, ⟨n, s, r⟩⟩
-          if stride > 0 then
-            let now ← IO.monoMsNow
-            err.putStr s!"con-leche: progress install done: {pend.size} \
-              pending checks t={ConLeche.Cached.msSecs (now - t0)}s\n"
-            err.flush
-          checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
+      let verdict ← checkDeclsIO mode err stride decls.size t0 trace inModelled decls.toList
       match verdict with
-      | .ok fc =>
-        let env := fc.env
+      | .ok ⟨env, _⟩ =>
         progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
         -- taint-skip verdict (user directive 2026-08-24) is a

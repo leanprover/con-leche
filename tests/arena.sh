@@ -448,10 +448,10 @@ prelude_count natop_before_ble.ndjson 35
 echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
 # The progress lane (`--progress[=<stride>]`, 2026-09-07; a FLAG since
-# task #229).  Two folds, one verdict: without the flag the driver runs
-# the verified `checkDecls`, with it the unverified `checkDeclsProgressIO`
-# — the same steps with a line printed before each declaration.  The
-# checks below are the contract: the lane prints, it prints EVERY
+# task #229).  One driver, one verdict: the heartbeat is printed
+# between the steps of the driver whose result carries the proof that
+# `checkDecls` returns its environment, so the flag changes no verdict
+# by construction.  The checks below are the contract: the lane prints, it prints EVERY
 # declaration at stride 1 (that is the localisation mode: a dying run
 # names the declaration it died in on its last line), and it changes no
 # verdict, on an accepting and on a rejecting fixture alike.

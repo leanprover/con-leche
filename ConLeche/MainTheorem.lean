@@ -1,22 +1,23 @@
 module
 
-public import ConLeche.Verify.Cached.InstalledC
+public import ConLeche.Verify.Cached.MainC
 public section
 
 /-!
 # The main theorem
 
-A fully checked environment contains no constant of type `False`.
+What the checker accepts contains no constant of type `False`.
 
-* `FullyChecked mode ds` (`ConLeche/Cached/Installed.lean`) is the type
-  the binary's driver returns: an environment **properly installed**
-  from the parsed declarations `ds` — the chain of accepting install
-  steps that built it — in which **every recorded declaration has been
-  checked** against the prefix of the environment it was installed at.
-  Whoever holds a value of that type holds the evidence; the theorem is
-  stated on the type and says nothing about the loop that produced the
-  value — `Main.lean`'s loop, with or without its progress heartbeat,
-  or any later one.
+* `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
+  fold: it installs every parsed declaration — a definition, theorem
+  or opaque annotated and pushed with its check recorded, everything
+  else checked in full as it is installed — and then checks every
+  recorded declaration against the prefix of the environment it was
+  installed at.  The binary's driver (`Main.lean`) runs this fold with a
+  heartbeat between the steps and returns its environment together
+  with the proof that `checkDecls` returns it
+  (`Cached.fullyChecked_checkDecls`), so the success line is printed
+  from an accept of `checkDecls` and from nothing else.
 * `DeclC` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted; `.verified` is the
   default mode.
@@ -25,29 +26,18 @@ A fully checked environment contains no constant of type `False`.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 
-The ordinary fold `checkDecls` (`ConLeche/Cached/ParsedC.lean`) — the
-binary's driver until task #253, and still the pure reference fold the
-agreement floor is stated about — keeps its own letter,
-`no_proof_of_False_fold`.
-
 The axioms used are exactly `propext`, `Classical.choice` and
 `Quot.sound` (`tests/ConLecheTests/Axioms.lean`).
 -/
 
 namespace ConLeche
 
-open ConLeche.Cached (DeclC checkDecls FullyChecked)
+open ConLeche.Cached (DeclC checkDecls)
 
-/-- **The main theorem**: a fully checked environment, in the verified
-mode, contains no constant of type `False`. -/
+/-- **The main theorem**: if `checkDecls`, in the verified mode, accepts
+the declarations `ds` with the environment `env`, then `env` contains
+no constant of type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
-    (ds : List DeclC) (fc : FullyChecked .verified ds) :
-    ¬ ∃ c ∈ fc.env.consts, c.toConstantVal.type = .const falseName [] :=
-  fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_checked V rfl fc c hc hty
-
-/-- The ordinary fold's letter: what `checkDecls` accepts contains no
-constant of type `False`. -/
-theorem no_proof_of_False_fold (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=

@@ -116,6 +116,7 @@ This project was published when it was barely useable – able to process mathli
 * Direct support for mutual and nested types, dropping the run-time model generation.
 * Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
+* AI-translate the implementation to a different programming language, to be relisient against runtime and compiler bugs
 
 
 ## Contributions
