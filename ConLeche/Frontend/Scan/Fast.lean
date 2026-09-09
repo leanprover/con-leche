@@ -6,6 +6,45 @@ public import ConLeche.Frontend.Scan.Types
 
 /-!
 # The byte recogniser for the lean4export dialect (task #256)
+
+The stream arrives as `ByteArray` chunks and is read here directly:
+no line `String`, no JSON DOM, no key lookups.  `scanLineFwd` decodes
+one line into the syntax record of
+`ConLeche/Frontend/Scan/Types.lean` and reports where the next line
+begins; `ConLeche/Frontend/ExportC.lean` applies the record.
+
+**The shape is chosen so that the equality with a naive reference
+recogniser is STATEABLE** (the `@[csimp]` twin the tree uses for
+`canonEq`/`canonEqFast` and for `Expr.renameConsts`): every function
+here is total, first-order and explicitly recursive, with no
+`partial`, no `IO`, no `for`, no local closure, and errors as a
+position and a static tag rather than a formatted message.
+
+**Termination is the position, never a fuel.**  Every loop advances
+into a fixed array, so `b.size - i.toNat` decreases: the one-byte
+steps by `usizeStep`, and a step over a value a sub-scanner consumed
+by the explicit `i < j` guard the sub-scanner's own result carries.
+A guard that fails is `noProgress` — unreachable, since a scanner
+consumes at least the byte it dispatched on, and it is what makes the
+measure a theorem rather than a comment.
+
+**Positions are `USize`**, so the loops compile to `size_t`
+arithmetic and `lean_byte_array_uget` with no boxing and no bounds
+test; the two lemmas at the top (`usizeInBounds`, `usizeStep`) are
+what the dependent `if` needs, and `usizeStep` is also what rules out
+the wrap-around a machine word could otherwise hide.
+
+**What the bytes cost.**  A digit run is scanned twice — once for its
+extent, once for its value — because that keeps `Nat` reading
+allocation-free (a `(value, position)` pair would be a heap object per
+number, and there are three per line); a run of at most 18 digits
+accumulates in a machine word and anything longer in `Nat`, which
+overflows into GMP by itself, so a `natVal` literal needs no special
+case.  A key is classified by its first byte and its LENGTH — which
+leaves at most four candidates — and then one literal compare; the
+length comes from the scan to the closing quote that has to happen
+anyway.  A line's end is found by the record scanner itself: only the
+handful of bytes after the closing brace are looked at again.
 -/
 
 namespace ConLeche.Frontend
