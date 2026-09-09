@@ -65074,6 +65074,327 @@ edit laundered four unchanged-header anchors — `Main.lean#L501`, `#L97`,
 content diff, not the header diff); `tests/arena.sh` under `env -i`
 green with every count as master's.
 
+## Task #262 — THE USAGE SYNOPSIS IS COMPLETE, AND THE HELP TEXT STATES THE PRESENT FACT (2026-09-09, `agent/usage`)
+
+The manpage convention: the synopsis lists every flag the binary
+takes.  `OVERVIEW.md` §0 showed only the mode pair, so the two other
+live flags — `--progress[=<stride>]` and `--help` — were invisible
+there.  The synopsis is now the full one, on the binary's own two
+lines:
+
+```
+con-leche [--verified|--trusted] [--progress[=<stride>]] FILE.ndjson
+con-leche --help
+```
+
+and the prose beneath it names each of the four once.  `--progress`
+keeps its single explanation further down §0 (the paragraph now says
+what the two-phase driver actually prints: a line before every
+`stride`-th record installed and every `stride`-th recorded
+declaration checked, plus the parse/install/fold closing lines); the
+synopsis paragraph cross-references it rather than repeating it.  The
+retired spellings (`--set-model[=p|=r]`, `--no-model`, `--tt-model`,
+`--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
+`--check-range[=<r>]`) are *not* in the synopsis — they are not flags,
+they are hard errors — but §0 and the help text each say in one place
+that they are rejected with a message naming what stands in their
+place, which is the provenance rule stated as a fact about the tool.
+
+`Main.lean`'s `usage` string is HUMAN-facing text, so it now states
+the current state and nothing else.  Gone from it: the task numbers
+(`the seven TT-lane checks (tasks #126/#129/#130/#135/#136/#137/#146)
+are off`), the "replaces the retired `--yolo`/`--infer-only`"
+history under `--trusted`, and the dated list of retirements in the
+closing paragraph.  Corrected: the theorem the help cites, which was
+`no_proof_of_Empty_cached` over "the driver this binary runs" and is
+now the main theorem itself — if `checkDecls .verified ds = .ok env`
+then `env` holds no constant of type `False`
+(`ConLeche.no_proof_of_False`, `ConLeche/MainTheorem.lean`); and the
+route trace's "runs on the progress lane's UNVERIFIED fold", which
+has been false since the driver became one loop (#253/#257) — the
+trace is printed by the install phase of the one driver.  `--help`
+itself now has an entry: it prints the text on stdout and exits 0 in
+any argument position, reading no input.
+
+The `--progress` wording was written off a run, not off memory:
+`--progress=1` on `tests/e2e/delta_chain.ndjson` prints
+`con-leche: progress <i>/<N> <decl> t=<s>s` per installed record,
+`con-leche: progress install done: <M> pending checks`,
+`con-leche: progress check <k>/<M> <name> (fold position <i>) t=<s>s`
+per checked declaration, and `con-leche: progress fold done:
+<reached>/<N>`, around the parse line.
+
+No init-full run: the diff of `Main.lean` is 131 lines and every one
+of them is an element of the `usage` string literal (`git diff
+Main.lean` has no changed line outside `  "…",`), so the binary can
+differ only in what `--help` prints — recorded as a before/after diff
+of the `--help` output.  Gates: `lake build` 529 jobs and `lake test`
+457 jobs warning-free; `tests/arena.sh` under `env -i` green with
+every count as master's (arena 90/92, e2e 181/181, annot 14/14,
+retired flags 8/8, mode flags 18/18, progress lane 13/13, DAG tower
+14/14, proofdeps 3367 rows / doors 0, shake 460 all allowlisted,
+overview-links 68 links / 46 files).  No anchor moved: `OVERVIEW.md`
+cites `Main.lean#L518`, the `def usage` line itself, and every edit is
+below it, so `tests/overview-links.sh` passes unchanged and no
+`--update` was run.
+
+## Task #258 — THEOREMS ARE OPAQUE TO REDUCTION, THE PINNED `And` IS RESCUED, THEOREM VALUES ARE CHECKED IN PHASE B (2026-09-09, `agent/opaque-258`)
+
+Task #251's design, landed (the user: "ok, then lets do this, and
+move thm value checking into the check phase").  Three stages, one
+commit each, over master `eda57034` (stages 1–2) and `e4c34f68`
+(stage 3, after #256/#257).
+
+### 1. Opaque theorems — a de-gating (stage 1)
+
+`unfoldDefinition`/`unfoldableHead` and the cached
+`unfoldDefinitionI`/`unfoldableHeadC`/`constValAtM` lose their
+`thmInfo` arms: a stored theorem never unfolds (the docstrings say
+what this anticipates: https://github.com/leanprover/lean4/pull/14896,
+theorems opaque to the kernel).  `headHint` is unchanged (a theorem
+already read as `opaque`).  The theorem-value check keeps its
+is-a-proposition test (`bad/012_nonPropThm` rejects).
+
+The invariant gets WEAKER, so every consumer's hypothesis gets
+stronger; what simplified:
+* `AcvalDefnInst` (`Model/Steps/Whnf.lean`) is definitions-only;
+  `acvalDefnInst_subst` and `delta_of` lose their theorem case.
+* `EnvFacts.thm_ok` (`Semantics/EnvFacts.lean`) is DELETED with its
+  three constructions (`EnvModelM.toEnvFacts`, `IndRecsCore`,
+  `ProjFnFacts`, `EnvFactsCons` — the swap/cons transports of a
+  theorem's reading, each a `nomatch`-and-transport pair, gone).
+* `declStep_preserves_of_cons`' `hvalReads` premise (both forms,
+  `Model/Install.lean`) is definitions-only; `harvestThm`'s discharge
+  of it is `nomatch` (the harvest still reads the value ONCE, for the
+  leaf `A` — the constant is an inhabitant of its statement — and
+  `hmemA` is the whole content of a theorem's install); the basis,
+  inductive and tower cons lemmas (`BasisStep` ×4, `IndCons`,
+  `TowerCons`) shed their `hnotthm` premise at 20 call sites.
+* `CSOK.constVal` (`Verify/Cached/SimC.lean`) and
+  `constValAtM_eff`/`insertConstVal` (`SimCEff.lean`) are
+  definitions-only; `DiscC1`'s delta simulation, `GuardsC`'s
+  `unfoldableHeadC_spec`, `Deep`'s shift commutation and the three
+  `unfoldDefinition` scoping lemmas (`InferLeaves` ×2,
+  `InferLemmas`) have a `nomatch` theorem arm; `Swap`'s `defn_reads`
+  transport has one arm.
+
+**The RC fix.**  `checkDeclC`'s `.opaqueDecl` arm branches on
+`reduceOpNames` BEFORE the push, so the common arm hands `fe` to
+`checkOpaqueValC`'s `push` unshared (#251's finding: with `fe` live
+across the push, every opaque install copied the index).  The audit
+found the same shape in phase A's `annotStepC` (all three value arms
+read `fe.visibleBelow` AFTER `fe.push` in the same tuple, so every
+phase-A install copied the whole index — the shape #253 measured as
+its +3.77 %): the counter is now read into a `let` before the push.
+`BridgeC`, `AgreeFloor` and `PushChain` follow the opaque arm's new
+shape (a `split` before the bind).
+
+**Conformance.**  `tests/e2e/subject_reduction_redex` (the arena's
+`good/undecidability/subject-reduction-redex`, whose `Acc` ι step needs
+two theorems to unfold) flips accept → reject: an accept-SUBSET of the
+reference kernels until lean4#14896 lands, recorded in
+`tests/e2e-expected.txt`.  Nothing else in the corpus moves (the
+trusted sweep's three recorded divergences are unchanged).
+
+### 2. The pinned `And` and its η rescue (stage 2)
+
+THE DESIGN FORK, and where it went.  The brief listed the pieces of
+a `BasisKind` block (`Kernel/Basis/And.lean`, `BasisA`,
+`reservedBasisNames`, `Model/BasisBlocks`).  A `BasisKind` And is a
+HAND-WRITTEN block model — `Eq`'s is 1.3k lines, and `And` would add
+a two-field projection table (`ProjOkT`, `TowerOk`) on top — while the
+NATIVE model tier cannot be reused for a reserved-named block
+(`FixStageTable`/`FixStageFormer`/`StructCaps` take
+`reservedBasisNames.contains … = false` throughout).  And the rescue's
+soundness row consumes NONE of it: it is the K row's argument (the
+fabrication and the major are both proofs of the major's type, so
+`proofIrrel` identifies their readings — every proof is the point)
+plus the stored tower entries' typing law for the two `.proj` nodes.
+So `And` is pinned the way `Bool` is (task #191): a **built-in prelude
+member** (`pinnedPreludeMembers` in `ConLeche/PinGen/Prelude.lean`,
+regenerated `pins/leanprover-lean4-v4.33.0.prelude.ndjson`: 12
+records, `And`/`And.intro`/`And.rec`), installed FIRST in every fold
+through the native route (which stores its projection table), a
+stream's own `And` dropped as an identical copy or declining the
+stream (`pushDecl`'s dedupe) — so the name `And` denotes the
+toolchain's `And` in every fold the binary runs.  No
+`reservedBasisNames` entry (a reserved name cannot install through
+the native route), no `BasisA`, no block model.  User's ruling in
+force: `And` ONLY — the rescue is a name-keyed branch, not a change to
+the generic η rescue, and a stream with its own `Iff`/`Acc`-style
+proposition gets nothing (the probes below).
+
+**The branch** (`majorToCtor`, `ConLeche/Kernel/Core.lean`; cached twin
+`majorToCtorI`): after the K and η branches, `else if T = andName`:
+the major's io-inferred, reduced type `And a b`; the gate
+`andRescueSlots env rl.ctor cnP ust` (both tower entries of `And`
+stored, naming the rule's constructor at the major's parameter count,
+two fields, `ProjEntry.fireOk` at `ust` — `And`'s fields are
+propositions, so a `.proj And j h` node is typed by the tower infer
+branch); the fabrication `And.intro a b (.proj And 0 h) (.proj And 1 h)`;
+the K branch's certificates in the K branch's order: the scope guard,
+`iotaCerts` on the constructor's telescope (which types the two `.proj`
+nodes), the fabrication's type against the major's, `proofIrrel`.
+`ProjEntry.fireOk` moved above `majorToCtor` (definition order); the
+gate is abstracted over the lookup (`andRescueSlotsOf`) so
+`FEnv.andRescueSlotsF` shares its body.  This WORKS AROUND the absence
+of https://github.com/leanprover/lean4/pull/14925 (upstream builds
+`casesOn`/`recOn` of such a proposition from projections, so no
+`And.rec` on a proof is emitted).
+
+**The proofs.**  `majorToCtor_inv` (`Verify/InferLemmas.lean`) gains a
+third disjunct; `andRescueSlots_inv` unpacks the gate; the cached gate
+has its spec (`andRescueSlotsF_spec`, `GuardsC`) and congruence
+(`andRescueSlotsF_congr`, `KnotCongr`); `majorToCtorC_sim` (`DiscC3`)
+simulates the branch.  The two rows in `Model/Steps/Major.lean`: the
+reads row reads the two `.proj` nodes through `denoteMeta_proj_tower`;
+the step row is R12's argument at the fabrication, with the
+projections graded by `TowerEntryLaw`'s typing clause under the guard
+`towerGuardAt_of_fireOk` (not the η record's: `And` claims no η) —
+the tower-branch of the η row, minus the η-family facts, plus the K
+close.
+
+**Conformance.**  Accept-SUPERSET of official on the rescue
+(`to_cnstr_when_structure` requires a never-zero sort), sound by proof
+irrelevance and reported per the `proofIrrel` ruling.  The four probe
+fixtures from #251 are e2e fixtures (`and_rec_opaque` accept,
+`iff_rec_opaque`/`acc_rec_opaque` reject, `and_rec_def` accept;
+sources beside them).
+
+### 3. Theorem values checked in phase B (stage 3)
+
+The user's decision: "ok, then lets do this, and move thm value
+checking into the check phase."  Landed on #257's driver (`checkDecls`
+IS the two-phase fold), so this is a change of `checkDecls` itself:
+the statement of the main theorem stays, README stays.
+
+**A theorem is stored by its statement.**  `checkThmVal` (the spec),
+`checkThmValC` and phase A's theorem arm (`annotStepC`) push
+`thmInfo cvA value` with the RECORD'S OWN, RAW value: nothing reads a
+stored theorem value any more (stage 1), so what is stored is a datum,
+not an input.  Phase A's theorem arm is `flushC`, `annotConstantValC`
+(the header's guards and annotation), the type record, the push — it
+never enters a theorem's body.  Phase B's `checkPending` annotates the
+raw value at the prefix view (`annotValC`, `installValue`'s twin,
+after the is-a-proposition test) and infers/checks it; `checkValueGroup`
+takes the same shape in the spec, and `ValueGroup.jv` is documented as
+"annotated for a definition or opaque, raw for a theorem".  The
+annotated value is a realizability witness — checked against the
+statement and discarded, as an opaque's is.
+
+**The invariant, weaker again.**  `ConstWF` loses its theorem-value
+clause (the raw value has no resolve/level facts, and nothing reads
+it): `envWF_constsBound` sheds its theorem conjunct, the cross-install
+kit its theorem field (`NoProjEnv.thm`, `NoProjHead.thm`,
+`ConsCrossEnv.thm` and the `hnotthm` premises of `NoProjHead.ofType`),
+and some twenty nine-clause sites shrink (`EnvFactsCons`, `IndRecsCore`,
+`ProjFnFacts`, the basis files' `EnvWF.cons` tuples, `AxiomPin`,
+`AxiomReduce`, `Caps`, `StructWF`, `BridgeCS4`, `TowerCons`,
+`FixStageTable`, `InferLemmas`).  `DeclThmRun`'s environment carries
+the raw value; `harvestThm` conses it, its leaf still the annotated
+value's reading — from phase B's run, which is where the value is now
+read once.
+
+**The transfer (#251 (iv)'s "one more fact at the seam").**
+`annotValC_congr`: the annotation reads its index through `find?`
+alone (`coreKnotI_congr` for the knot, `constsResolveFC_congr` for the
+resolve walk), so phase B's annotation of a theorem's value at the
+view IS the annotation at the prefix environment.  `checkPending_run`
+consumes it in its theorem branch and asks the value's
+well-scopedness only of the other two kinds; `installRun_model`'s
+value helper takes the install facts (rather than `annotValueC`'s run)
+and the theorem arm supplies them from the header's install alone;
+`checkValueGroup_inv`/`_of_facts`/`_mono` carry the theorem's
+`installValue`, `checkDecl_of_split_thm` takes the raw value, and the
+definition/opaque splits gain a kind premise.  The fold's equality
+the driver returns (`fullyChecked_checkDecls`) is untouched and
+unconditional.
+
+**`--progress`.**  The two phases were already visible on #257's
+driver: `progress install done: N pending checks`, then one
+`progress check k/N <name>` line per record at the stride, then
+`progress fold done`.  Nothing added; a fuller design is a later task.
+
+### 4. Conformance, in one place
+
+* Accept-SUBSET of official on inputs whose typing needs a theorem to
+  unfold: `subject_reduction_redex` (0 → 1), the only such input in
+  the corpus and in Mathlib; lean4#14896 flips official the same way.
+* Accept-SUPERSET on the `And` rescue (official never η-rescues a
+  proposition), sound by proof irrelevance — `and_rec_opaque` accepts,
+  its `Iff`/`Acc` twins reject.
+* `bad/012_nonPropThm` still rejects (the is-a-proposition test stays).
+* The trusted sweep's three recorded divergences are unchanged.
+
+### 5. Numbers and gates
+
+**init-full**, one run per mode (`ulimit -v 16000000`, `timeout`,
+`perf stat -e instructions:u`), against the merged master
+`e4c34f68` (#256 + #257) built from a plain copy of its tree:
+
+| mode | master `e4c34f68` | this branch | delta |
+|---|---|---|---|
+| verified | 561.19 G | **547.35 G** | −2.47 % |
+| trusted | 536.10 G | **529.87 G** | −1.16 % |
+
+53 088 accepted in every cell.  (#251's corrected experiment was
+−0.76 % / −0.69 % on the old driver; the larger gain here is phase
+A's counter hoist — every phase-A install used to copy the whole
+index — on top of the opaque delta step and the theorem bodies
+leaving phase A.)
+
+**The 1.5 GB Mathlib prefix** (`mlpre-1_5G.ndjson`, verified,
+`ulimit -v 22000000`): exit 0, 162 092 accepted, **2 973.35 G**
+(#251's cell on the old driver and the old parser: 3 465.8 G with
+opaque theorems, 3 504.9 G without; the baseline moved with #256, so
+only the old cells are comparable).
+
+**All of Mathlib** (`mathlib-full.ndjson`, 5.6 GB, verified,
+`--progress=5000`, `ulimit -v 22000000`, `timeout 28800`): **exit 0,
+"accepted 654499 declarations (--verified)"** — the expected count —
+**13.23 T instructions** (#251's Mathlib cell on master was 14.21 T;
+its 19.83 T ran the RC-buggy arm), wall 4 702 s: parse 29.5 s, phase A
+done at 206 s (649 898 pending checks), phase B the remaining
+≈4 500 s — the shape (iv) predicted, with phase A now parse-bound.
+
+**Gates** (all under `env -i`): `lake build` 529 jobs warning-free;
+`lake test` warning-free (PreludeTests: 8 records, 27 constants, the
+dedupe at 8); `tests/arena.sh` green — arena tutorial 90/92 (as
+master), e2e 185/185 (the four probes added, `subject_reduction_redex`
+flipped to reject), annot 14/14, mode/retired/progress/DAG-tower
+lanes as master, prelude counts 3/3, trusted sweep 138 + 185 + 14
+with the three recorded divergences unchanged; proofdeps 3 367 module
+rows across 10 roots as pinned (no regeneration needed: no module
+was added, and the module-level closure did not move — the new
+lemmas live in existing modules), doors 0; axiom pin unchanged (the
+16 pinned theorems at `[propext, Classical.choice, Quot.sound]`);
+pindump fresh (the dump names `And` and `Bool` as prelude members, the
+prelude 267 lines / 12 records); trust surface 10 escapes in 4
+allowlisted files, 0 outside; shake 460 removals all allowlisted;
+`tests/overview-links.sh` 68 links / 46 files OK — every moved anchor
+relocated by its cited TEXT (an `--update` after a code move launders
+unchanged-header anchors, which the stage-1 run showed on
+`Installed.lean`, `ParsedC.lean` and `Core.lean`), the one changed
+citation (`installRun_model`'s docstring) re-read and retargeted, and
+one anchor found already stale on master (`whnfBody`, pointing at a
+blank line) repaired.  README.md: no sentence there became false
+(it describes the statement of the main theorem, which did not
+change).
+
+### 6. What the orchestrator should know
+
+* The `And` pin is NOT a `BasisKind` block (§2 says why); if the
+  hand-written block model is wanted regardless, it is a separate
+  task of Eq's size and buys the rescue's row nothing.
+* Phase A's `annotStepC` had the same RC slip as the opaque arm
+  (the counter read after the push) on both #253 and #257; the hoist
+  is part of stage 1 and is where most of the init-full gain comes
+  from.
+* The mechanical Verify grind of stage 2 (`majorToCtor_inv`'s third
+  disjunct, `andRescueSlots_inv`, the cached gate's spec/congruence,
+  DiscC3's simulation, the shift/fuel/pair lemmas) was delegated to
+  one Opus subagent, as permitted; everything else is this lane's.
+
 ## Task #260 — THE CHECK PHASE ON A POOL OF WORKER THREADS, AND A HEARTBEAT THAT KNOWS THE TWO PHASES (2026-09-09, `agent/parallel-260`)
 
 The two-phase fold (tasks #253/#257) made every recorded check depend

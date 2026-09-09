@@ -721,36 +721,38 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat) : IO UInt32
 
 def usage : String := String.intercalate "\n" [
   "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson",
+  "       con-leche --help",
   "",
-  "  --verified        the default: the verified mode (graded model,",
-  "                    annotation-gated checks).  The validated-",
-  "                    annotation beta gate skips per-redex argument",
-  "                    certificates at provably non-Prop binders, and",
-  "                    the io-graded knot skips the per-argument",
-  "                    application certificate under the same licence.",
-  "                    The seven TT-lane checks (tasks #126/#129/#130/",
-  "                    #135/#136/#137/#146) are off; every other",
-  "                    certificate family runs.  Covered by",
-  "                    no_proof_of_Empty_cached over the driver this",
-  "                    binary runs (ConLeche/Verify/Cached/MainC.lean)",
+  "  --verified        the default, and the mode the main theorem is",
+  "                    about: the graded model with the annotation-",
+  "                    gated checks.  The validated-annotation beta",
+  "                    gate skips per-redex argument certificates at",
+  "                    provably non-Prop binders, and the io-graded",
+  "                    knot skips the per-argument application",
+  "                    certificate under the same licence; every other",
+  "                    certificate family runs.  The theorem: if the",
+  "                    declaration fold accepts a stream in this mode",
+  "                    (checkDecls .verified ds = .ok env), the",
+  "                    environment env holds no constant whose type is",
+  "                    False (ConLeche.no_proof_of_False,",
+  "                    ConLeche/MainTheorem.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
   "                    certification-only work switched off (the",
   "                    verifiedChecks and certs mode functions false):",
-  "                    the annotation validations and the lambda-",
-  "                    codomain sort check, and the certificate",
-  "                    families the reference kernel does not run (the",
-  "                    beta/io argument certificates, the iota/eta/unit/K",
+  "                    the annotation validations, the lambda-codomain",
+  "                    sort check, and the certificate families the",
+  "                    reference kernel does not run (the beta/io",
+  "                    argument certificates, the iota/eta/unit/K",
   "                    telescope certificates, the projection",
-  "                    certificate) are omitted; every check official",
-  "                    performs stays.  Everything believed necessary",
-  "                    for SOUNDNESS stays (which is",
+  "                    certificate) are omitted; every check the",
+  "                    official kernel performs stays.  Everything",
+  "                    believed necessary for SOUNDNESS stays, which is",
   "                    not the same as necessary for the soundness",
-  "                    proof to go through), and the mode is never",
-  "                    optimized on its own: it is the real mode with",
-  "                    certain steps omitted.  Replaces the retired",
-  "                    --yolo/CON_LECHE_NO_PROOF_CERTS and",
-  "                    --infer-only/CON_LECHE_INFER_ONLY",
+  "                    proof to go through: an accept in this mode is",
+  "                    outside the theorem.  The mode is never",
+  "                    optimized on its own — it is the verified mode",
+  "                    with certain steps omitted",
   "  --jobs=<n>        the number of worker threads for the check phase",
   "                    (default: the machine's hardware thread count).",
   "                    The run has two phases: the INSTALL phase reads",
@@ -825,6 +827,9 @@ def usage : String := String.intercalate "\n" [
   "                    what it prints in between does not touch that",
   "                    type, so a run with the flag is covered exactly",
   "                    as a run without it, and so is a run on the pool.",
+  "  --help            print this text on STDOUT and exit 0, in any",
+  "                    argument position; no input is read.",
+  "",
   "  CON_LECHE_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
   "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
@@ -837,8 +842,8 @@ def usage : String := String.intercalate "\n" [
   "                    tests/route-census.sh pins the per-route counts",
   "                    over every good fixture: no block may read",
   "                    'modeled'.",
-  "                    Runs on the progress lane's UNVERIFIED fold",
-  "                    (above).",
+  "                    Printed by the install phase of the one",
+  "                    driver, beside the --progress heartbeat.",
   "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
   "                    default every mutual or nested inductive block",
@@ -923,14 +928,18 @@ def usage : String := String.intercalate "\n" [
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
-  "representation and checked by the one driver, which the capstone",
-  "letter is about at the verified mode (no_proof_of_Empty_cached in",
-  "ConLeche/Verify/Cached/MainC.lean).  Retired: --set-model/",
-  "--set-model=p (now --verified) and --no-model (now --trusted),",
-  "2026-09-06; the --core selector, the interned arena and the",
-  "--install-only/--check-range split driver (task #172); and the R",
-  "core with --set-model=r (2026-09-05, with the collapsed-model",
-  "consistency proof it was the subject of)."]
+  "representation and checked by the one driver, which returns its",
+  "environment together with the proof that the fold checkDecls — the",
+  "function the main theorem ConLeche.no_proof_of_False",
+  "(ConLeche/MainTheorem.lean) is stated on — returns it.",
+  "",
+  "RETIRED FLAGS.  --set-model, --set-model=p, --set-model=r,",
+  "--no-model, --tt-model, --yolo, --infer-only, --pre, --core,",
+  "--core=<c>, --install-only, --check-range and --check-range=<r>",
+  "are not part of the synopsis and are never silent aliases: each is",
+  "rejected with a message naming what stands in its place, and the",
+  "run exits 3 without reading the input, so a verdict's provenance",
+  "is readable off the invocation."]
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
@@ -978,10 +987,12 @@ def parseArgs : List String → Args → Args
         the certified mode is --verified (default) (task #148 T7b)" }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   -- The progress heartbeat (task #229): a FLAG, in either order with
-  -- `--verified`/`--trusted`, because it selects a run mode — the
-  -- separate UNVERIFIED fold instead of the verified one.  Bare is
-  -- stride 1; `--progress=<n>` is the general form (below, with the
-  -- other `=`-carrying spellings).
+  -- `--verified`/`--trusted`, and independent of them — it turns on
+  -- the heartbeat the ONE driver prints between the steps of its two
+  -- phases (`installLoop`/`checkLoop`), which is the same driver, at
+  -- the same mode, as a run without it.  Bare is stride 1;
+  -- `--progress=<n>` is the general form (below, with the other
+  -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \

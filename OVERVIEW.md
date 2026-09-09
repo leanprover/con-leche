@@ -13,12 +13,22 @@ prints one verdict line:
 
 ```
 con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson
+con-leche --help
 ```
 
-`--verified` is the default and the mode the theorem is about;
-`--trusted` runs the same checker bodies with the certification-only
-work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L722)).
+That is every flag the binary takes. `--verified` is the default and
+the mode the theorem is about; `--trusted` runs the same checker bodies
+with the certification-only work switched off, is faster, and is
+outside the theorem; `--jobs=<n>` sets the check phase's worker count
+(below); `--progress[=<stride>]` turns on a heartbeat on stderr
+(below); `--help` prints the usage text and exits 0
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L518)).
+A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
+`--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
+`--check-range[=<r>]` — is never a silent alias: it is rejected with a
+message naming what stands in its place, so a verdict's provenance can
+be read off the invocation.
+
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
 
@@ -330,7 +340,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   block's shape — its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L579-L586)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L581-L588)),
   its index count off what is left of the type former's telescope, as
   official reads them, and
   nothing of the stream's recursor record, which official never reads as
