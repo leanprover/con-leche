@@ -352,6 +352,19 @@ termination_by b.size - i.toNat
 decreasing_by
   have := usizeInBounds b i h; have := usizeStep b i h; omega
 
+/-- The position after a JSON *number* at `i`, or `i` when there is
+none.  A digit run, with JSON's own leading-zero rule: `0` stands
+alone, and no other number starts with one.  (The rule is not
+pedantry — without it `06` would read as `6`, which is a record the
+toolchain's own reader refuses and this one would have accepted.)  A
+`natVal` literal is a quoted decimal STRING and not a JSON number, so
+it does not come through here. -/
+def numEnd (b : @& ByteArray) (i : USize) : USize :=
+  let e := skipDigits b i
+  if e == i then i
+  else if byteAt b i == 48 && e != i + 1 then i
+  else e
+
 /-- The value of the decimal digit run `[i, e)`: a machine word while
 the run is short enough for one, `Nat` accumulation (which overflows
 into GMP by itself) for a long literal. -/
@@ -534,7 +547,7 @@ def scanNatListLoop (b : @& ByteArray) (i : USize) (acc : List Nat)
     else if isDigit c then
       if !wantItem then .err ⟨i.toNat, .expectedList⟩
       else
-        let e := skipDigits b i
+        let e := numEnd b i
         if _hj : i < e then scanNatListLoop b e (readNatAt b i e :: acc) false
         else .err ⟨i.toNat, .noProgress⟩
     else .err ⟨i.toNat, .expectedList⟩
@@ -576,7 +589,7 @@ def scanHints (b : @& ByteArray) (i : USize) : ScanRes HintsRec :=
       match keyAt b p (keyEnd b (p + 1) - (p + 1)) with
       | .kRegular =>
         let v := valueAt b p (p + 8)
-        let e := skipDigits b v
+        let e := numEnd b v
         if e == v then .err ⟨v.toNat, .expectedNat⟩
         else
           let q := skipWs b e
@@ -660,7 +673,7 @@ def scanStrNameLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kPre =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanStrNameLoop b e false (seen ||| 1) (readNatAt b v e) s
@@ -716,7 +729,7 @@ def scanNumNameLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kI =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanNumNameLoop b e false (seen ||| 1) (readNatAt b v e) pre
@@ -724,7 +737,7 @@ def scanNumNameLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kPre =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanNumNameLoop b e false (seen ||| 2) n (readNatAt b v e)
@@ -771,7 +784,7 @@ def scanAppExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kArg =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanAppExprLoop b e false (seen ||| 1) (readNatAt b v e) fn
@@ -779,7 +792,7 @@ def scanAppExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kFn =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanAppExprLoop b e false (seen ||| 2) arg (readNatAt b v e)
@@ -835,7 +848,7 @@ def scanLamExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kBody =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLamExprLoop b e false (seen ||| 2) (readNatAt b v e) ty pw
@@ -843,7 +856,7 @@ def scanLamExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLamExprLoop b e false (seen ||| 4) bd ty pw
@@ -851,7 +864,7 @@ def scanLamExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLamExprLoop b e false (seen ||| 8) bd (readNatAt b v e) pw
@@ -918,7 +931,7 @@ def scanForallExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kBody =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanForallExprLoop b e false (seen ||| 2) (readNatAt b v e) ty pw
@@ -926,7 +939,7 @@ def scanForallExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanForallExprLoop b e false (seen ||| 4) bd ty pw
@@ -934,7 +947,7 @@ def scanForallExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanForallExprLoop b e false (seen ||| 8) bd (readNatAt b v e) pw
@@ -991,7 +1004,7 @@ def scanLetExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kBody =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLetExprLoop b e false (seen ||| 1) (readNatAt b v e) ty vl
@@ -999,7 +1012,7 @@ def scanLetExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLetExprLoop b e false (seen ||| 2) bd ty vl
@@ -1016,7 +1029,7 @@ def scanLetExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLetExprLoop b e false (seen ||| 8) bd (readNatAt b v e) vl
@@ -1024,7 +1037,7 @@ def scanLetExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kValue =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanLetExprLoop b e false (seen ||| 16) bd ty (readNatAt b v e)
@@ -1071,7 +1084,7 @@ def scanConstExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanConstExprLoop b e false (seen ||| 1) (readNatAt b v e) us
@@ -1128,7 +1141,7 @@ def scanProjExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kIdx =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanProjExprLoop b e false (seen ||| 1) (readNatAt b v e) st tn
@@ -1136,7 +1149,7 @@ def scanProjExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kStruct =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanProjExprLoop b e false (seen ||| 2) ix (readNatAt b v e) tn
@@ -1144,7 +1157,7 @@ def scanProjExprLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kTypeName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanProjExprLoop b e false (seen ||| 4) ix st (readNatAt b v e)
@@ -1192,7 +1205,7 @@ def scanRuleLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kCtor =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanRuleLoop b e false (seen ||| 1) (readNatAt b v e) nf rhs
@@ -1200,7 +1213,7 @@ def scanRuleLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNfields =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanRuleLoop b e false (seen ||| 2) ct (readNatAt b v e) rhs
@@ -1208,7 +1221,7 @@ def scanRuleLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kRhs =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanRuleLoop b e false (seen ||| 4) ct nf (readNatAt b v e)
@@ -1333,7 +1346,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 16) isUns kf lps (readNatAt b v e) nIdx nMin nMot nP rules ty
@@ -1341,7 +1354,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumIndices =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 32) isUns kf lps nm (readNatAt b v e) nMin nMot nP rules ty
@@ -1349,7 +1362,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumMinors =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 64) isUns kf lps nm nIdx (readNatAt b v e) nMot nP rules ty
@@ -1357,7 +1370,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumMotives =>
           if (seen &&& 128) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 128) isUns kf lps nm nIdx nMin (readNatAt b v e) nP rules ty
@@ -1365,7 +1378,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumParams =>
           if (seen &&& 256) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 256) isUns kf lps nm nIdx nMin nMot (readNatAt b v e) rules ty
@@ -1382,7 +1395,7 @@ def scanIndRecLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 1024) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndRecLoop b e false (seen ||| 1024) isUns kf lps nm nIdx nMin nMot nP rules (readNatAt b v e)
@@ -1525,7 +1538,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndTypeLoop b e false (seen ||| 64) ctors isRec isRefl isUns lps (readNatAt b v e) nIdx nNest nP ty
@@ -1533,7 +1546,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumIndices =>
           if (seen &&& 128) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndTypeLoop b e false (seen ||| 128) ctors isRec isRefl isUns lps nm (readNatAt b v e) nNest nP ty
@@ -1541,7 +1554,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumNested =>
           if (seen &&& 256) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndTypeLoop b e false (seen ||| 256) ctors isRec isRefl isUns lps nm nIdx (readNatAt b v e) nP ty
@@ -1549,7 +1562,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumParams =>
           if (seen &&& 512) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndTypeLoop b e false (seen ||| 512) ctors isRec isRefl isUns lps nm nIdx nNest (readNatAt b v e) ty
@@ -1557,7 +1570,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 1024) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndTypeLoop b e false (seen ||| 1024) ctors isRec isRefl isUns lps nm nIdx nNest nP (readNatAt b v e)
@@ -1642,7 +1655,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kCidx =>
           if (seen &&& 1) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 1) isUns lps nm nF nP ty
@@ -1650,7 +1663,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kInduct =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 2) isUns lps nm nF nP ty
@@ -1676,7 +1689,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 16) isUns lps (readNatAt b v e) nF nP ty
@@ -1684,7 +1697,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumFields =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 32) isUns lps nm (readNatAt b v e) nP ty
@@ -1692,7 +1705,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kNumParams =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 64) isUns lps nm nF (readNatAt b v e) ty
@@ -1700,7 +1713,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 128) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 128) isUns lps nm nF nP (readNatAt b v e)
@@ -1802,7 +1815,7 @@ def scanAxiomDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanAxiomDeclLoop b e false (seen ||| 4) isUns lps (readNatAt b v e) ty
@@ -1810,7 +1823,7 @@ def scanAxiomDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanAxiomDeclLoop b e false (seen ||| 8) isUns lps nm (readNatAt b v e)
@@ -1888,7 +1901,7 @@ def scanDefDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanDefDeclLoop b e false (seen ||| 8) hints lps (readNatAt b v e) safety ty vl
@@ -1905,7 +1918,7 @@ def scanDefDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanDefDeclLoop b e false (seen ||| 32) hints lps nm safety (readNatAt b v e) vl
@@ -1913,7 +1926,7 @@ def scanDefDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kValue =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanDefDeclLoop b e false (seen ||| 64) hints lps nm safety ty (readNatAt b v e)
@@ -1982,7 +1995,7 @@ def scanThmDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanThmDeclLoop b e false (seen ||| 4) lps (readNatAt b v e) ty vl
@@ -1990,7 +2003,7 @@ def scanThmDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanThmDeclLoop b e false (seen ||| 8) lps nm (readNatAt b v e) vl
@@ -1998,7 +2011,7 @@ def scanThmDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kValue =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanThmDeclLoop b e false (seen ||| 16) lps nm ty (readNatAt b v e)
@@ -2075,7 +2088,7 @@ def scanOpaqueDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanOpaqueDeclLoop b e false (seen ||| 8) isUns lps (readNatAt b v e) ty vl
@@ -2083,7 +2096,7 @@ def scanOpaqueDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanOpaqueDeclLoop b e false (seen ||| 16) isUns lps nm (readNatAt b v e) vl
@@ -2091,7 +2104,7 @@ def scanOpaqueDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kValue =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanOpaqueDeclLoop b e false (seen ||| 32) isUns lps nm ty (readNatAt b v e)
@@ -2158,7 +2171,7 @@ def scanQuotDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kName =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanQuotDeclLoop b e false (seen ||| 4) kind lps (readNatAt b v e) ty
@@ -2166,7 +2179,7 @@ def scanQuotDeclLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
         | .kType =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
           else
-            let e := skipDigits b v
+            let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanQuotDeclLoop b e false (seen ||| 8) kind lps nm (readNatAt b v e)
@@ -2331,7 +2344,7 @@ def scanLineLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
           | .kIn | .kIl | .kIe =>
             if idxKind != 0 then .err ⟨i.toNat, .duplicateKey⟩
             else
-              let e := skipDigits b v
+              let e := numEnd b v
               if e == v then .err ⟨v.toNat, .expectedNat⟩
               else if _hj : i < e then
                 scanLineLoop b e false
@@ -2341,7 +2354,7 @@ def scanLineLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
           | .kBvar | .kSort | .kSucc | .kParam =>
             if !pl.isAbsent then .err ⟨i.toNat, .duplicateKey⟩
             else
-              let e := skipDigits b v
+              let e := numEnd b v
               if e == v then .err ⟨v.toNat, .expectedNat⟩
               else if _hj : i < e then
                 let n := readNatAt b v e
