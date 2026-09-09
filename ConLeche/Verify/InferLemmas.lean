@@ -1897,34 +1897,35 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
-      caps.eta = true ∧ caps.etaCtor = c ∧ caps.etaParams = cnP ∧
-      caps.etaFields = cnF ∧
+      caps.eta = true ∧ caps.etaCtor = c ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = cnP ∧
+      wtb.getAppArgs.length = caps.etaParams ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
       -- the slot discipline (task #175 W4c): one entry kind
-      (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true ∧
+      (towerSlotsAll env T caps.etaFields ||
+        recSlotsAll env T caps.etaFields) = true ∧
       Level.isEquivList us us' = some true ∧
       iotaCertsFueled mode env fuel d false
         (cvT.type.instantiateLevelParams cvT.levelParams us')
         wtb.getAppArgs = .ok true ∧
       -- the per-slot certificates run at a projection-function family
       -- only (task #175 S1)
-      (towerSlotsAll env T cnF = false →
+      (towerSlotsAll env T caps.etaFields = false →
         structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
-          cvT.levelParams (List.range cnF) = .ok true) ∧
-      defEqListFueled mode env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
-        = .ok true ∧
+          cvT.levelParams (List.range caps.etaFields) = .ok true) ∧
+      defEqListFueled mode env fuel d (a.getAppArgs.take caps.etaParams)
+        wtb.getAppArgs = .ok true ∧
       -- task #137's constructor-telescope certificate is a TT-lane
       -- check (task #147): delivered only at `mode.ttChecks`
       (mode.ttChecks = true →
         iotaCertsFueled mode env fuel d false
           (cvc.type.instantiateLevelParams cvc.levelParams us)
-          (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) = .ok true) ∧
-      defEqListFueled mode env fuel d (a.getAppArgs.drop cnP)
-        (etaProjs env T us' wtb.getAppArgs b cnF) = .ok true := by
+          (wtb.getAppArgs ++
+            etaProjs env T us' wtb.getAppArgs b caps.etaFields) = .ok true) ∧
+      defEqListFueled mode env fuel d (a.getAppArgs.drop caps.etaParams)
+        (etaProjs env T us' wtb.getAppArgs b caps.etaFields) = .ok true := by
   dsimp only [structEtaCertWithFueled] at h
   rw [structEtaCertWith] at h
   simp only [iotaCerts_fold, structEtaProjCerts_fold, defEqList_fold] at h
@@ -1984,16 +1985,16 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   intro h
   dsimp only at h
   by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
-      caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = cnP ∧
+      wtb.getAppArgs.length = caps.etaParams ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
-      (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true
+      (towerSlotsAll env T caps.etaFields ||
+        recSlotsAll env T caps.etaFields) = true
   case neg => rw [if_neg hcond] at h; exact nomatch h
   rw [if_pos hcond] at h
-  obtain ⟨he1, he2, he3, he4, he5, he5b, he6, he7, he8, he10⟩ := hcond
+  obtain ⟨he1, he2, he5, he5b, he6, he7, he8, he10⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -2017,19 +2018,21 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   simp only [↓reduceIte] at h
   -- the per-slot certificates: skipped at a tower family (task #175 S1)
-  have hpcOf : ∀ r₂, (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
+  have hpcOf : ∀ r₂, (if towerSlotsAll env T caps.etaFields = true then
+        (Except.ok true : Except CheckError Bool)
       else structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
-        cvT.levelParams (List.range cnF)) = .ok r₂ →
+        cvT.levelParams (List.range caps.etaFields)) = .ok r₂ →
       r₂ = true →
-      towerSlotsAll env T cnF = false →
+      towerSlotsAll env T caps.etaFields = false →
       structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
-        cvT.levelParams (List.range cnF) = .ok true := by
+        cvT.levelParams (List.range caps.etaFields) = .ok true := by
     intro r₂ hr hr2 htow
     rw [if_neg (by simp [htow])] at hr
     rw [← hr2]; exact hr
-  cases hpc0 : (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
+  cases hpc0 : (if towerSlotsAll env T caps.etaFields = true then
+        (Except.ok true : Except CheckError Bool)
       else structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
-        cvT.levelParams (List.range cnF)) with
+        cvT.levelParams (List.range caps.etaFields)) with
   | error e => rw [hpc0] at h; exact nomatch h
   | ok r₂ => ?_
   rw [hpc0] at h
@@ -2039,7 +2042,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   have hpc := hpcOf true hpc0 rfl
   simp only [↓reduceIte] at h
-  cases hd1 : defEqListFueled mode env fuel d (a.getAppArgs.take cnP)
+  cases hd1 : defEqListFueled mode env fuel d (a.getAppArgs.take caps.etaParams)
       wtb.getAppArgs with
   | error e => rw [hd1] at h; exact nomatch h
   | ok r₃ => ?_
@@ -2060,7 +2063,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       Bind.bind, Except.bind, if_true] at h
     try dsimp only at h
     exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-      rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
+      rfl, hfc, hal, rfl, hfT, he1, he2, he5,
       he5b, he6, he7, he8, he10, hlev, hic, hpc, hd1,
       fun hc => absurd hc (by simp [htt]), h⟩
   | true => ?_
@@ -2068,7 +2071,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   simp only [↓reduceIte] at h
   cases hic2 : iotaCertsFueled mode env fuel d false
       (cvc.type.instantiateLevelParams cvc.levelParams us)
-      (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) with
+      (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b caps.etaFields) with
   | error e => rw [hic2] at h; exact nomatch h
   | ok r₄ => ?_
   rw [hic2] at h
@@ -2078,7 +2081,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   simp only [↓reduceIte] at h
   exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-    rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
+    rfl, hfc, hal, rfl, hfT, he1, he2, he5,
     he5b, he6, he7, he8, he10, hlev, hic, hpc, hd1, fun _ => hic2, h⟩
 
 /-- Inversion of the structure-eta certificate through its type

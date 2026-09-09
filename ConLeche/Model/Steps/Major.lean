@@ -260,7 +260,7 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
           -- pins it); at zero fields the range is empty
           rcases hetacase with hcw | ⟨hnF0, hirr⟩
           · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
-              hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
+              hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, -, -,
               hlenus2, hlpc2, hslots2, -, -, hprojs, -, -, -⟩ :=
               ConLeche.structEtaCertWith_inv hcw
             have hTeq : T2 = T := by
@@ -279,17 +279,16 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
               rw [hfT] at hfT2
               exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).2).symm
             rw [hcvTeq] at hprojs hlenus2
-            rw [hcapseq] at hefld2
-            rw [hTeq, ← hefld2] at hslots2
+            rw [hTeq, hcapseq] at hslots2
+            rw [hcapseq] at hprojs
             -- the per-slot certificates ran: not a tower family (task
             -- #175 S1)
-            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
-              cases h : ConLeche.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
+              cases h : ConLeche.towerSlotsAll env T caps.etaFields
               · rfl
-              · exact absurd (by rw [hefld2]; exact h) htow
+              · exact absurd h htow
             obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
-              ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
-                rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+              ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j hj
             have hspM : DenoteMetaSpine m.acval env φ d
                 (tmaj.getAppArgs ++ [e]) (tsa ++ [ea]) :=
               hspt.append (DenoteMetaSpine.cons hea DenoteMetaSpine.nil)
@@ -484,7 +483,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       rcases hetacase with hcw | ⟨hnF0, hirr⟩
       · -- R13: the η certificate identifies the fabrication with the major
         obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2, hfna2,
-          hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -, hlenus2,
+          hfc2, hlena2, hfnb2, hfT2, -, -, -, -, -, hlenus2,
           hlpc2, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
         have hTeq : T2 = T := by
           rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).1.symm
@@ -500,8 +499,8 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           rw [hfT] at hfT2
           exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).2).symm
         rw [hcvTeq] at hprojs hlenus2
-        rw [hcapseq] at hefld2
-        rw [hTeq, ← hefld2] at hslots2
+        rw [hTeq, hcapseq] at hslots2
+        rw [hcapseq] at hprojs
         have hokMs : ∀ x ∈ tsa ++ [vm], ∀ ρ : Nat → V, Sat V Δa ρ →
             WellDenotedV V ρ x := by
           intro x hx
@@ -613,12 +612,11 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
                 (cvp.type.instantiateLevelParams cvp.levelParams ust)
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj
-            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
-              cases h : ConLeche.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
+              cases h : ConLeche.towerSlotsAll env T caps.etaFields
               · rfl
-              · exact absurd (by rw [hefld2]; exact h) htow
-            exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
-              rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+              · exact absurd h htow
+            exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j hj
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteMeta m.acval env φ d
                   (Expr.mkAppN (.const (projFnName T j) ust)

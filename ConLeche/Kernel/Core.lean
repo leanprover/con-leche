@@ -1046,18 +1046,19 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
           match env.find? T with
           | some (.indInfo cvT caps) =>
             if caps.eta = true ∧ caps.etaCtor = c ∧
-                caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
                 reservedBasisNames.contains T = false ∧
                 reservedBasisNames.contains c = false ∧
-                wtb.getAppArgs.length = cnP ∧
+                wtb.getAppArgs.length = caps.etaParams ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
                 -- the former's telescope arity
-                -- `(cvT.type.stripPis cnP).isSome` is `EnvWF`'s
-                -- `IndCapsWF` clause: established at the block's
-                -- install, read by the η row from the invariant
+                -- `(cvT.type.stripPis caps.etaParams).isSome` is
+                -- `EnvWF`'s `IndCapsWF` clause: established at the
+                -- block's install, read by the η row from the
+                -- invariant
                 -- the slot discipline (task #175 W4c): one entry kind
-                (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
+                (towerSlotsAll env T caps.etaFields ||
+                  recSlotsAll env T caps.etaFields) = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
                 if ← iotaCerts r env depth false
@@ -1065,12 +1066,12 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       us') wtb.getAppArgs then
                   -- the per-slot certificates are the projection-function
                   -- kind's; a tabled family has none (task #175 S1)
-                  if ← (if towerSlotsAll env T cnF then pure true
+                  if ← (if towerSlotsAll env T caps.etaFields then pure true
                       else structEtaProjCerts r env depth T us'
                         wtb.getAppArgs b cvT.levelParams
-                        (List.range cnF)) then
+                        (List.range caps.etaFields)) then
                     if ← defEqList r env depth
-                        (a.getAppArgs.take cnP) wtb.getAppArgs then
+                        (a.getAppArgs.take caps.etaParams) wtb.getAppArgs then
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application is certified
                       -- against the constructor's own telescope, here
@@ -1084,10 +1085,13 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                             (cvc.type.instantiateLevelParams
                               cvc.levelParams us)
                             (wtb.getAppArgs ++
-                              etaProjs env T us' wtb.getAppArgs b cnF)
+                              etaProjs env T us' wtb.getAppArgs b
+                                caps.etaFields)
                         else pure true) then
-                        defEqList r env depth (a.getAppArgs.drop cnP)
-                          (etaProjs env T us' wtb.getAppArgs b cnF)
+                        defEqList r env depth
+                          (a.getAppArgs.drop caps.etaParams)
+                          (etaProjs env T us' wtb.getAppArgs b
+                            caps.etaFields)
                       else pure false
                     else pure false
                   else pure false
@@ -1119,7 +1123,11 @@ capabilities include eta, `b` inhabits that structure type, the
 constructor's parameters are the type's arguments, and every field is
 the corresponding installed projection function applied to `b`.  The
 type application is additionally certified against the type former's
-telescope (the memberships the stored eta law consumes). -/
+telescope (the memberships the stored eta law consumes).  The
+parameter and field counts the certificate works at are the
+capability RECORD's, which is what the stored law speaks; the
+constructor's own counts gate the redex's shape and nothing else
+(`etaCtorShape`). -/
 def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   -- The constructor-shape test FIRST (the divergence audit's D13):
