@@ -65099,10 +65099,10 @@ Task #256's residue, found by reading the generated C.  The
 recogniser held 73 literals as `String` constants, 64 of them the key
 tails `keyAt` compares against; each was turned into a `ByteArray` on
 first use through a `lean_obj_once` cell of its own and then walked by
-a call to `matchLit`, a two-array loop.  The profile put `keyAt` at 9.99 % of a
-parse-only `init-full` run (`CON_LECHE_INMODEL_CENSUS=1`, 17.898 G
-instructions) — behind only the two big slot loops and the
-allocator.
+a call to `matchLit`, a two-array loop.  The profile put `keyAt` at
+9.99 % of a parse-only `init-full` run
+(`CON_LECHE_INMODEL_CENSUS=1`, 17.898 G instructions) — behind only
+the two big slot loops and the allocator.
 
 **What changed, and only that.**  `keyAt`'s 64 tail compares.  A
 `matchLit b (i + 1 + 1) "pp".toUTF8 0` is now `lit2 b j 112 112`,
@@ -65196,23 +65196,25 @@ compare.
 `timeout`; the driver is still the single sequential loop — #260 has
 not landed):
 
-| run | master | this lane | Δ |
+| `init-full` run | master | this lane | Δ |
 |---|---|---|---|
-| `init-full` parse only (`CON_LECHE_INMODEL_CENSUS=1`) | 17.898 G | **17.217 G** | −3.81 % |
-| `init-full` `--verified` | 561.170 G | **560.478 G** | −0.12 % |
-| `init-full` `--trusted` | 536.121 G | **535.424 G** | −0.13 % |
-| Mathlib 1.5 GB prefix, parse only | 90.750 G | **87.724 G** | −3.33 % |
+| parse only (`CON_LECHE_INMODEL_CENSUS=1`) | 17.898 G | **17.217 G** | −3.81 % |
+| `--verified` | 561.170 G | **560.478 G** | −0.12 % |
+| `--trusted` | 536.121 G | **535.424 G** | −0.13 % |
 
 The parse-only saving is 0.68 G and it is all of the whole-run saving
 (0.69 G verified, 0.70 G trusted), which is the check that the change
-is confined to the parse.  In the profile `keyAt` goes 9.99 % of
-17.898 G = 1.79 G to 6.90 % of 17.217 G = 1.19 G.  **The finding this
-leaves:** what remains in `keyAt` is no longer the literals but the
-first-byte dispatch — gcc compiles the `match` to a jump table, and
-the table's address computation, its range branch and the indirect
-jump together carry 48 % of the function's samples.  Turning that into a computed dispatch (a perfect hash of
-first byte and length) is a different, larger change and is docketed,
-not done here.
+is confined to the parse.  On the user's ruling the measurement stops
+there — "only light measurement please, a speedup on init-full is
+enough" — so no Mathlib-scale cell was taken for this lane.  In the
+profile `keyAt` goes 9.99 % of 17.898 G = 1.79 G to 6.90 % of
+17.217 G = 1.19 G.  **The finding this leaves:** what remains in
+`keyAt` is no longer the literals but the first-byte dispatch — gcc
+compiles the `match` to a jump table, and the table's address
+computation, its range branch and the indirect jump together carry
+48 % of the function's samples.  Turning that into a computed
+dispatch (a perfect hash of first byte and length) is a different,
+larger change and is docketed, not done here.
 
 **Gates.**  `lake build` 529 jobs and `lake test` 457 jobs
 warning-free; `tests/arena.sh` under `env -i` (no `ulimit -v` around
@@ -65254,10 +65256,7 @@ lane built anything.
   to one line of five whole fixtures, which reaches the deeper slot
   loops.
 
-Verdict identity on the big streams: `init-full` accepts 53 088
+Verdict identity on the big stream: `init-full` accepts 53 088
 declarations in both modes under both binaries, with byte-identical
-verdict lines; the 1.5 GB Mathlib prefix
-(`.claude/worktrees/annot/_tmp/annot/anomaly/mlpre-1_5G.ndjson`,
-read-only) gives the identical parse-only census under both — 39
-blocks modelled in-process, the same 39 names in the same order, 1 802
-generated records, 0 declined.
+verdict lines, and its parse-only census (1 block modelled in-process,
+0 declined) is the same under both.
