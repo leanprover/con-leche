@@ -52535,6 +52535,50 @@ axiom pin: 11 theorems at `[propext, Classical.choice, Quot.sound]`).
   `include_str`s and the dump's `preludeFile` (§3).
 * **(vii) The format tag** bumped to `/2`.
 
+**The 1.5 GB Mathlib prefix** (task #256's 27 232 079-line cut of
+`mathlib-full.ndjson`, 162 092 declarations, 160 028 recorded checks),
+verified, under `ulimit -v 22000000`, `--progress=20000`:
+
+| jobs | instructions | cycles | wall | peak RSS | parse / install / check |
+|---|---|---|---|---|---|
+| 1 | 2 928.1 G | 2 281.9 G | 584.7 s (repeat 518.4) | 2.18 GB | 7.9 / 37.3 / 537.0 s (471.0) |
+| 2 | 2 884.5 G | 1 258.4 G | 168.3 s | 2.25 GB | 8.9 / 36.6 / 120.3 s |
+| 8 | 2 884.8 G | — | 89.0 s | 2.32 GB | 8.3 / 39.3 / 38.8 s |
+
+Two things this stream shows that init-full does not.  First the
+gain: **6.6× on the run and 12–14× on the check phase at eight
+workers**, with the serial floor (parse + install ≈ 45 s of 582) now
+the half of what remains.  Second, a finding about the in-thread
+lane: the pool executes FEWER instructions than `--jobs=1`
+(−1.5 %, despite its +0.9 % of atomic counting) and at two workers
+burns 1.8× fewer cycles for the same work — the in-thread lane runs
+at IPC 1.28 where a worker runs at 2.29 — so `--jobs=2` is 3.9× and
+`--jobs=8` 12–14× faster than `--jobs=1` on the check phase, and a
+single worker is about twice as fast as the main thread.  The code
+path is the same (`checkRecord` per record from `{}`); what differs
+is the HEAP: the main thread checks out of the heap that holds the
+2.2 GB environment it just built, a worker out of a fresh
+per-thread heap holding nothing but its own transients, and the
+extra instructions and the stalls are the allocator's — its slow
+paths over a heap of that size.  On init-full (430 MB) the same lane
+is normal (`--jobs=2` is 1.76× on the phase), so the effect grows
+with the environment.  A probe variant (not landed: `--jobs=1`
+routed through the pool, i.e. ONE worker on a fresh thread and the
+main thread waiting) confirms the mechanism: on the prefix the check
+phase takes 260.6 s at 1 337 G cycles against the in-thread lane's
+471–537 s at 2 282 G — 1.9× on one thread; on init-full it takes
+56.7 s against 49.7 s (+14 %: the atomic counting with nothing to
+gain from it).  So the in-thread lane is the right `--jobs=1` for a
+small environment and the wrong one for a large environment, and
+the crossover is between 430 MB and 2.2 GB of environment.  Not
+decided here: whether `--jobs=1` should run its worker on a thread
+(one more 1 GiB reservation, +0.9 % instructions, the same
+determinism), or whether the allocator's behaviour on the main
+thread's heap is the thing to fix; task #259's persistent mark is
+in the same territory, since it removes the counting the pool pays
+for.  Both binaries are in `_tmp/parallel/` (`con-leche-6f53e4f0`,
+`con-leche-pool1`) with the logs.
+
 ### 5. Gates
 
 Build warning-free; `lake test` (axiom pin 11 theorems, the prelude
