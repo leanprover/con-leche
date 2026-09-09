@@ -45,6 +45,11 @@
 # Same prefix with `def badDecl : Prop := Type` at declaration index 2
 # (SPLIT_BAD): a genuine reject, past the annotated prefix.
 1 annot_split_bad.ndjson
+# Same with a second bad definition (`badFirst`, also `Prop := Type`)
+# AHEAD of badDecl: the rejection must name badFirst, the first
+# failing record in fold order, at every --jobs (the pool's
+# determinism fixture, SPLIT_BAD2 in arena.sh).
+1 annot_split_bad2.ndjson
 
 # Pass fills (task #161 P5; these were the pre-P5 decline fixtures —
 # their offending binder carries NO pw field, so the pass computes the

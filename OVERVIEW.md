@@ -12,13 +12,13 @@ The binary reads a Lean export in `lean4export`'s NDJSON format and
 prints one verdict line:
 
 ```
-con-leche [--verified|--trusted] FILE.ndjson
+con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson
 ```
 
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L518)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L707)).
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
 
@@ -38,12 +38,25 @@ Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
 then `exit(1)` — which no code of ours can catch, so the stderr message
 is what tells it apart from a reject.
 
-The flag `--progress[=<stride>]` prints a heartbeat line before every
-`stride`-th declaration on stderr (bare, the stride is 1). It is
-printed between the steps of the one driver, which returns its
+A run has two phases: the install phase reads the records in order
+in one thread, and the check phase checks every recorded declaration
+against the prefix of the installed environment it was installed at
+(see §2). The flag `--jobs=<n>` runs the check phase on `n` worker
+threads; without it there is one worker per hardware thread, and
+`--jobs=1` checks in the main thread with no thread at all. The
+verdict, and the declaration a rejection names, are the same at every
+`n`: the results are walked in record order, so the first failing
+record in fold order is the one reported. The flag
+`--progress[=<stride>]` prints a heartbeat on stderr with one line
+shape per phase — `install <i>/<N> <decl>` before every `stride`-th
+declaration is installed, `check <done>/<M> <decl>` after every
+`stride`-th completed check — bracketed by `parse done`, `install
+done`, `check done` and a `done:` summary with the three phase
+durations and the worker count (bare, the stride is 1). The heartbeat
+is printed between the steps of the one driver, which returns its
 environment together with the proof that `checkDecls` — the function
 the theorem is about — returns it (see §2), so a run with the flag is
-covered exactly as a run without it.
+covered exactly as a run without it, and so is a run on the pool.
 
 ## 1. What is proved
 
@@ -58,7 +71,7 @@ a parsed export stream, the theorem
 > constant whose type is `False`.
 
 `checkDecls`
-([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L342-L346))
+([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
 installs every declaration of `ds` first — a definition, theorem or
 opaque annotated and pushed with its check recorded, everything else
 checked in full as it is installed — and then checks every recorded
@@ -98,18 +111,30 @@ Read from the outside in:
    declarations are checked in full as they are installed, by the
    fold's ordinary step. The loop carries the chain of its accepting
    steps, a proposition, and what it returns is an installed
-   environment. The check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L165))
-   then checks every recorded declaration against the *prefix* of the
-   installed index it was installed at — an `O(1)` view whose lookup
-   hides everything installed later — from a fresh memo state, and
-   carries every check; what it returns is a fully checked environment.
-   The heartbeat and the route trace are printed between the steps and
-   touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L197-L200))
+   environment. The check phase then checks every recorded declaration
+   against the *prefix* of the installed index it was installed at — an
+   `O(1)` view whose lookup hides everything installed later — from a
+   fresh memo state. A record's check is its own evidence
+   ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L337-L338)):
+   the fact that the record is checked, or its error tagged with its
+   fold position. At `--jobs=1` the check loop
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L182))
+   runs it on every record in this thread and carries every fact;
+   otherwise a pool of worker threads
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L309))
+   claims chunks of records off a shared counter, and the results,
+   merged by record index, are walked in record order
+   ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
+   — the walk stops at the first failing record in fold order, so the
+   pool's verdict is the sequential walk's, and what it assembles is
+   the same fact about every record. Either way what comes out is a
+   fully checked environment; which thread computed a check is
+   irrelevant to what it proves. The heartbeat and the route trace are
+   printed between the steps and touch neither type. The driver
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L346-L349))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
-   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L423-L424)).
+   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
 2. **The fully checked environment**
    ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L223-L227))
    is stated over the executable steps: the installed environment is
@@ -120,7 +145,7 @@ Read from the outside in:
    The records' checks are independent of one another, which is what
    lets a later loop hand them to workers. An accept of `checkDecls`
    is exactly such an environment, and conversely
-   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L433-L434)),
+   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L498-L499)),
    which is how the theorem about the fold is read off the walk of
    step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
