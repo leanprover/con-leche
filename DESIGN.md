@@ -65814,3 +65814,181 @@ identical; `#L349-L352 → #L349-L353`, `checkDeclsIO`'s signature, which
 gained the `noMark` parameter) with both citing paragraphs re-read and
 rewritten.  No arena battery and no verdict sweep, per the ruling
 above.
+
+## Task #264 — THE KEY CLASSIFIER COMPARES BYTES, NOT STRING CONSTANTS (2026-09-09, `agent/keylit`)
+
+Task #256's residue, found by reading the generated C.  The
+recogniser held 73 literals as `String` constants, 64 of them the key
+tails `keyAt` compares against; each was turned into a `ByteArray` on
+first use through a `lean_obj_once` cell of its own and then walked by
+a call to `matchLit`, a two-array loop.  The profile put `keyAt` at
+9.99 % of a parse-only `init-full` run
+(`CON_LECHE_INMODEL_CENSUS=1`, 17.898 G instructions) — behind only
+the two big slot loops and the allocator.
+
+**What changed, and only that.**  `keyAt`'s 64 tail compares.  A
+`matchLit b (i + 1 + 1) "pp".toUTF8 0` is now `lit2 b j 112 112`,
+where `j` is the one new binding `let j := i + 1 + 1` at the head of
+`keyAt` and `lit1 … lit10` are ten new `@[inline]` definitions above
+it, each an unrolled conjunction
+
+```
+lit3 b i c0 c1 c2 = (byteAt b i == c0 && byteAt b (i+1) == c1 && byteAt b (i+2) == c2)
+```
+
+over `UInt8` literals.  Nothing else moved: the `match` on the first
+byte, the `kl == n` chains, their ORDER, the `Key` returned in each
+arm and `keyAt`'s signature are the ones master has, and the check is
+mechanical — a script re-extracts the `(first byte, kl, tail bytes,
+Key)` quadruple of all 66 arms from both revisions and they are equal
+as ordered lists, with each emitted byte list equal to the key
+spelling minus its first byte (the spelling is on the line as a
+comment).
+
+**Why the behaviour is identical, not merely equal on the corpus.**
+`matchLit b p lit 0` walks `lit` and returns `false` the moment `p +
+k` leaves the array; `byteAt` reads `0` past the end and no key byte
+is `0`, so each conjunct is `false` at exactly the same position and
+`&&` (macro-inlined, short-circuiting) stops there.  Every literal is
+non-empty, so the `matchLit`-returns-`true`-on-an-empty-literal case
+never arose.  `keyAt` is therefore the same total function of `(b, i,
+kl)`, on every input, in bounds or out.
+
+`matchLit` itself STAYS, with its nine remaining call sites
+untouched: `scanBool`'s `"true"`/`"false"`, `scanBinderInfo`'s four
+spellings, `"never"` in the `pw` field and `"abbrev"`/`"opaque"` in
+`hints`.  Those run once per record, not once per key, and the lane
+was deliberately kept to the key path; they are the docket item this
+record leaves behind.  Per function, the once-cells outside the
+module's `_init_` code go `keyAt` 64 → **0**, and the residue is
+exactly those nine sites (`scanBool` 2, `scanBinderInfo` 4, `scanPw`
+1, `scanHints` 2) plus `unescape`'s 6, which are the UTF-8 escape
+path's literals and are not on the hot path at all.
+
+**WHAT THE PROOF LANE MUST RE-PROVE** (`agent/scanspec`, task #261).
+`matchLit`'s statement and its twin are UNCHANGED — the definition,
+its `termination_by lit.size - k.toNat` and its other call sites are
+untouched, so a `matchLit` twin proved against master still holds.
+What must be redone is the classifier's twin, and only in its leaves:
+`keyAt` gained a `let j := i + 1 + 1` at the head (one zeta step; `j`
+is definitionally `i + 1 + 1`, not `i + 2`, so nothing about `USize`
+associativity is needed), and each of the 64 leaves changed from
+`matchLit b (i + 1 + 1) lit 0` to `litN b j c₀ … c_{n-1}`.  The
+bridging lemma is one per arity, or one schema:
+
+```
+matchLit b p (ByteArray.mk #[c₀, …, c_{n-1}]) 0 = litN b p c₀ … c_{n-1}
+```
+
+which unfolds `matchLit` `n` times on the left and `litN` once on the
+right — both sides are then the same conjunction of `byteAt`
+compares, given `byteAt`'s definition and `usizeInBounds`.  If the
+spec side keeps the `String` literal instead of a `ByteArray.mk`, the
+extra step is the closed equation `"…".toUTF8 = ByteArray.mk #[…]`,
+which is a decidable computation on closed data (no new axiom, and no
+`native_decide`).  The `Key` an arm returns, the arms'
+order, the `kl` tests and their order, and `keyAt`'s type are all
+unchanged, so the classifier twin's STATEMENT does not move — only the
+64 leaf rewrites inside its proof, plus the zeta step for `j`.
+`lit1 … lit10` sit in `Frontend/Scan/Fast.lean`'s `@[expose] public
+section` like everything else in the checker, so their bodies unfold
+in the tiers above; `@[inline]` is a code-generator attribute and
+changes nothing about the definition.
+
+**The generated C, before → after** (`.lake/build/ir/ConLeche/Frontend/Scan/Fast.c`,
+counted over the body of `lp_con_x2dleche_ConLeche_Frontend_keyAt`):
+
+| in `keyAt`'s body | master | this lane |
+|---|---|---|
+| `lean_obj_once` | 64 | **0** |
+| calls to `matchLit` | 64 | **0** |
+| `_closed__` references | 192 | **0** |
+| `lean_alloc_ctor` / `lean_alloc` | 0 | 0 |
+| `lean_string_*` | 0 | 0 |
+| `lean_inc` / `lean_dec` | 0 | 0 |
+| `lean_byte_array_uget` | 1 | 266 |
+
+and over the whole file, `lean_obj_once` 80 → 16 (the eight surviving
+`matchLit` sites), `keyAt___closed__*` 442 → 0.  The byte's bounds
+test is one load of the `ByteArray`'s size that gcc hoists once for
+the function (`mov 0x8(%rdi),%rcx` in the prologue), not one per
+compare.
+
+**Numbers** (`perf stat -e instructions:u`, `ulimit -v 16000000`,
+`timeout`).  The baseline is this lane's base, master `a579ec28`,
+whose driver is still the single sequential loop; #258, #260 and #265
+landed beside it and moved init-full's absolute figures, so the rows
+below are a before/after of THIS change, not of the current master:
+
+| `init-full` run | master | this lane | Δ |
+|---|---|---|---|
+| parse only (`CON_LECHE_INMODEL_CENSUS=1`) | 17.898 G | **17.217 G** | −3.81 % |
+| `--verified` | 561.170 G | **560.478 G** | −0.12 % |
+| `--trusted` | 536.121 G | **535.424 G** | −0.13 % |
+
+The parse-only saving is 0.68 G and it is all of the whole-run saving
+(0.69 G verified, 0.70 G trusted), which is the check that the change
+is confined to the parse.  On the user's ruling the measurement stops
+there — "only light measurement please, a speedup on init-full is
+enough" — so no Mathlib-scale cell was taken for this lane.  In the
+profile `keyAt` goes 9.99 % of 17.898 G = 1.79 G to 6.90 % of
+17.217 G = 1.19 G.  **The finding this leaves:** what remains in
+`keyAt` is no longer the literals but the first-byte dispatch — gcc
+compiles the `match` to a jump table, and the table's address
+computation, its range branch and the indirect jump together carry
+48 % of the function's samples.  Turning that into a computed
+dispatch (a perfect hash of first byte and length) is a different,
+larger change and is docketed, not done here.
+
+**Gates.**  On master `a579ec28`: `lake build` 529 jobs and `lake
+test` 457 jobs warning-free; `tests/arena.sh` under `env -i` (no `ulimit -v` around
+the battery) green with every count as master's — arena 90/92, e2e
+181/181, annot 14/14, retired flags 8/8, mode flags 18/18, prelude
+3/3, progress lane 13/13, DAG tower 14/14, trusted sweep 138 + 181 +
+14, inmodel OK, axioms pinned (16 theorems at `[propext,
+Classical.choice, Quot.sound]`), proofdeps 3367 rows / doors 0, trust
+surface 10 escapes in 4 allowlisted files, shake 460 all allowlisted,
+overview-links 68 links / 46 files (no anchor moved: `OVERVIEW.md`
+cites no line of `ConLeche/Frontend/Scan/*`).
+
+**The differential.**  #256's harness went with its worktree, so the
+acceptance evidence is a fresh one — and this time it is CHECKED IN,
+at `scripts/scan-differential.py`.  It runs two builds of the binary
+on the same mutated stream and compares the exit code and the whole
+of stdout+stderr, which for a syntactic failure carries the line
+number, the error tag and the BYTE OFFSET: a classifier that
+mis-lengths a key by one byte is caught even where the verdict happens
+to agree.  Its `harvest` mode builds the corpus — 28 records, one
+shortest representative per key-shape, from `tests/e2e`,
+`tests/arena` and `_tmp/arena-tests/good`, using all 70 keys the
+fixtures carry; a case is the header plus ONE mutated record, so the
+mutation is always reached.  The OLD binary here is master's, copied
+out of the main checkout's `.lake/build/bin` at `a579ec28` before this
+lane built anything.
+
+* `keysweep`, 30 400 cases, **0 differences**: every one of the 66 key
+  spellings substituted into every key span of every record, plus, for
+  every third record, each spelling truncated at either end, extended
+  at either end, and each of its positions replaced by one of four
+  letters — the classifier's whole (first byte, length) table together
+  with its near misses.
+* `fuzz`, 6 000 cases, **0 differences**: a byte substituted, inserted
+  or deleted, half the time inside a key, plus whole-key replacement by
+  another dialect key, a dialect key with one letter changed, or a
+  random letter run.
+* `stream`, 2 500 cases, **0 differences**: the same mutations applied
+  to one line of five whole fixtures, which reaches the deeper slot
+  loops.
+
+Verdict identity on the big stream: `init-full` accepts 53 088
+declarations in both modes under both binaries, with byte-identical
+verdict lines, and its parse-only census (1 block modelled in-process,
+0 declined) is the same under both.
+
+**The merge** (master `d1da2114`, after #258, #260, #265 and the
+README commits).  Nothing outside `DESIGN.md` conflicted — master
+touched no line of `ConLeche/Frontend/Scan/*` — and the record tail
+was resolved in landing order, this one last.  The re-gate was
+trimmed on the coordinator's ruling to `lake build` and `lake test`,
+both warning-free, since the change is confined to the scanner and
+the battery had already run green on the pre-merge tree.
