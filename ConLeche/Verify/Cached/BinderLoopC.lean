@@ -254,11 +254,6 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           obtain rfl : mb0x = mb0 := hstk.1.2.symm
           dsimp only
           refine SimC.pureB ?_
-          obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec v
-            (memo := {}) PWMemoInvC.empty
-            (p := (zeronessOfLGo {} v).1)
-            (memo' := (zeronessOfLGo {} v).2) rfl
-          rw [hzeq]
           split
           case isFalse => exact SimC.throw_bind
           refine SimC.bind_left (abstractRangeM_eff hs₄ hbtd)
@@ -358,24 +353,27 @@ def RelLStk : List (Level × PropWhen) → List (Level × PropWhen) → Prop
   | (u, pw) :: r, (ux, pwx) :: rx => (u = ux ∧ pw = pwx) ∧ RelLStk r rx
   | _, _ => False
 
+/-- Task #272: the cached fold THREADS the codomain sort's zero-ness
+datum (`zeronessOf (imax u v) = zeronessOf v`), where the mirror
+recomputes it at every node; `hpv` is the threading invariant. -/
 theorem inferPisOutC_sim :
     ∀ {stk : List (Level × PropWhen)} {stkx : List (Level × PropWhen)}
-      {v : Level} {lv : Level} {memo : PWMemo} {s₀ : CState},
+      {v : Level} {lv : Level} {pv : PropWhen} {s₀ : CState},
       CSOK mode env s₀ → RelLStk stk stkx → v = lv →
-      PWMemoInvC memo →
+      pv = Level.zeronessOf v →
       SimC mode env s₀ (fun (iv : Level) (ivx : Level) => iv = ivx)
-        (inferPisOutI mode stk v memo)
+        (inferPisOutI mode stk v pv)
         (inferPisOut (m := FueledM) mode stkx lv) := by
   intro stk
   induction stk with
   | nil =>
-    intro stkx v lv memo s₀ hs hstk hv _hminv
+    intro stkx v lv pv s₀ hs hstk hv _hpv
     cases stkx with
     | nil => exact SimC.pure hs hv
     | cons ux rx => exact absurd hstk (by simp [RelLStk])
   | cons upw rest ih =>
     obtain ⟨u, pw⟩ := upw
-    intro stkx v lv memo s₀ hs hstk hv hminv
+    intro stkx v lv pv s₀ hs hstk hv hpv
     cases stkx with
     | nil => exact absurd hstk (by simp [RelLStk])
     | cons uxp rx =>
@@ -383,32 +381,26 @@ theorem inferPisOutC_sim :
       obtain ⟨⟨hu, rfl⟩, hrest⟩ := hstk
       subst hu
       subst hv
+      subst hpv
       show SimC mode env s₀ _
         (do
-          let (pv, memo) ← pure (zeronessOfLGo memo v)
-          if mode.verifiedChecks && !(pv == pw) then
+          if mode.verifiedChecks && !(Level.zeronessOf v == pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           pure (.imax u v) >>= fun v' =>
-            inferPisOutI mode rest v' memo)
+            inferPisOutI mode rest v' (Level.zeronessOf v))
         (do
           if mode.verifiedChecks && !(Level.zeronessOf v == pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           inferPisOut (m := FueledM) mode rx (.imax u v))
-      refine SimC.pureB ?_
-      obtain ⟨hminv', hzeq⟩ := zeronessOfLGo_spec v
-        (memo := memo) hminv
-        (p := (zeronessOfLGo memo v).1)
-        (memo' := (zeronessOfLGo memo v).2) rfl
       dsimp only
-      rw [hzeq]
       split
       · exact SimC.throw_bind
       refine SimC.bind_left (pureEq_eff hs (Level.imax u v))
         (fun s₁ v' hs₁ hv' => ?_)
       subst hv'
-      exact ih (stkx := rx) (lv := .imax u v) hs₁ hrest rfl hminv'
+      exact ih (stkx := rx) (lv := .imax u v) hs₁ hrest rfl rfl
 
 theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
@@ -433,7 +425,7 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   cases wbt
   case sort v =>
     dsimp only
-    refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
+    refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl rfl)
       (fun s₄ iv ivx hs₄ hiv => ?_)
     exact SimC.of_eff (pureC_eff hs₄ (x := Expr.sort iv))
       _ (fun s hQ => by
@@ -949,7 +941,7 @@ theorem annotateBindersOutC_sim
           (annotBinderMeta pw? bi) hQab hcur)]
 
 /-- A bare pure read against a pure fueled result (the write's last
-step: `zeronessOfLGo` on the sort level). -/
+step: `Level.zeronessOf` on the sort level). -/
 private theorem simC_pure_pure {β α : Type}
     {P : β → α → Prop} {b : β} {a : α} {s₀ : CState}
     (hs : CSOK mode env s₀) (h : P b a) :
@@ -981,11 +973,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₂ hbtd hwbt)
       (fun s₃ v lv hs₃ hPv => ?_)
     obtain rfl : v = lv := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec v
-      (memo := {}) PWMemoInvC.empty
-      (p := (zeronessOfLGo {} v).1)
-      (memo' := (zeronessOfLGo {} v).2) rfl
-    exact simC_pure_pure hs₃ hzeq
+    exact simC_pure_pure hs₃ rfl
 
 /-- The λ twin of `annotPwPiC_sim`. -/
 theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
@@ -1012,11 +1000,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₃ hbttd hwbtt)
       (fun s₄ vb lvb hs₄ hPv => ?_)
     obtain rfl : vb = lvb := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec vb
-      (memo := {}) PWMemoInvC.empty
-      (p := (zeronessOfLGo {} vb).1)
-      (memo' := (zeronessOfLGo {} vb).2) rfl
-    exact simC_pure_pure hs₄ hzeq
+    exact simC_pure_pure hs₄ rfl
 
 /-- The write the telescope loops use (ungated, both modes). -/
 theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}
