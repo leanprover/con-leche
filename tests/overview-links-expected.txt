@@ -874,10 +874,10 @@
     21  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
     22    `opaque`s (their exported values are identity functions modulo the
     23    `have := trustCompiler` wrapper); at install their stored values are
-    24    pinned against the toolchain's own definitions
-    25    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
-    26    definitional equality — the task-#47 pattern: drift declines,
-    27    never silently.
+    24    pinned against the identity function
+    25    (`ConLeche/Kernel/TrustPins.lean`, hand-pinned since task #273 —
+    26    every toolchain's definition after zeta) by definitional equality —
+    27    the task-#47 pattern: drift declines, never silently.
     28  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
     29    those stored opaques (the task-#34 standard-axioms machinery).  With
     30    the stored reduce operation certified to be the identity (a

@@ -1,38 +1,48 @@
 module
-public import ConLeche.Kernel.Expr
-meta import ConLeche.PinGen
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
-# Pinned compiler-trust opaque values (generated, task #95)
+# Pinned compiler-trust opaque values (task #95; hand-written since task #273)
 
-The `#gen_trust_pins` command reads the toolchain prelude's
-`Lean.reduceNat` / `Lean.reduceBool` opaque values and splices their
-pinned defining expressions (`reduceNatDeclPin` / `reduceBoolDeclPin`
-`: Expr`; the `have := trustCompiler` wrapper is zeta-expanded by the
-conversion, leaving the plain identity function).  At install
-(`checkReducePin` in `ConLeche/Kernel/Checker.lean`) the stream's stored
-opaque value is compared against the pin by definitional equality —
-toolchain drift surfaces as a decline, never silently.
+The pinned defining expressions of the toolchain's `Lean.reduceNat` /
+`Lean.reduceBool` opaques: the plain identity functions, written with
+the same builder (`ConLeche/Kernel/Basis/Builder.lean`) that
+`ConLeche/Kernel/TrustAxioms.lean` writes the family's axiom shapes,
+`Lean.trustCompiler` and the types with.  At install (`checkReducePin`
+in `ConLeche/Kernel/Checker.lean`) the stream's stored opaque value is
+compared against the pin by definitional equality — drift declines,
+never silently — and the identity certificate `value x ≡ x` is what
+the model consumes (`EnvModel.reduce_ops`).
 
-These two pins stay *generated at elaboration time*: `#gen_trust_pins`
-reads only the toolchain's own `Init`, which is always built, so it
-never had the build-ordering defect that moved the Nat-operation pins
-to a committed file at task #176 (see `ConLeche/Kernel/NatOpPins.lean`).
-
-A build toolchain WITHOUT the opaques (lean4 master since 2026-09:
-`Lean.reduceBool`, `Lean.reduceNat`, `Lean.trustCompiler` and the
-`ofReduce*` axioms are gone from `Init`) gets the identity pin
-`fun x => x` — which is what every toolchain's pin has been, the
-`have := trustCompiler` being zeta-expanded — so a stream from an older
-toolchain that declares them still installs, against the hand-pinned
-`ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`
-(task #273).
-
-Rebuild caveat: Lake sees no dependency edge to the toolchain prelude;
-`touch` this file to force regeneration after a toolchain bump.
+**Nothing here reads the compiling environment.**  Until task #273
+these two pins were GENERATED at elaboration time (`#gen_trust_pins`,
+reading `Lean.reduceBool`/`reduceNat` out of the COMPILING toolchain's
+`Init`), which made the binary's behaviour depend on the toolchain
+that compiled it — the one such dependency left once the Nat-op pins
+became committed files — and lean4 master has removed the two opaques
+(with `Lean.trustCompiler` and the `ofReduce*` axioms) from `Init`
+altogether, so there was nothing to read there.  The user's ruling:
+*"the host toolchain of the binary is irrelevant for our purposes; if
+not, there is a design flaw."*  The pin has been the same on every
+toolchain that had the opaques —
+`opaque reduceBool (b : Bool) : Bool := have := trustCompiler; b`,
+whose `have` the conversion zeta-expanded away, leaving `fun b => b` —
+so it is written down here once.  Should a toolchain ever respell the
+opaques, the install-time comparison declines its streams and the
+toolchain matrix (`scripts/natop-matrix.sh`) shows it; no
+generator-side assertion is kept.
 -/
 
-set_option maxRecDepth 1000000
-set_option maxHeartbeats 1000000
+namespace ConLeche
 
-#gen_trust_pins
+open BasisDSL
+
+/-- `Lean.reduceBool`'s pinned value: `fun (b : Bool) => b`. -/
+def reduceBoolDeclPin : Expr := lm "b" (cnst (bn "Bool")) (bv 0)
+
+/-- `Lean.reduceNat`'s pinned value: `fun (n : Nat) => n`. -/
+def reduceNatDeclPin : Expr := lm "n" (cnst (bn "Nat")) (bv 0)
+
+end ConLeche

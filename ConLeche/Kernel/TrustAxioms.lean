@@ -21,10 +21,10 @@ taint-skipped:
 * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
   `opaque`s (their exported values are identity functions modulo the
   `have := trustCompiler` wrapper); at install their stored values are
-  pinned against the toolchain's own definitions
-  (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
-  definitional equality — the task-#47 pattern: drift declines,
-  never silently.
+  pinned against the identity function
+  (`ConLeche/Kernel/TrustPins.lean`, hand-pinned since task #273 —
+  every toolchain's definition after zeta) by definitional equality —
+  the task-#47 pattern: drift declines, never silently.
 * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
   those stored opaques (the task-#34 standard-axioms machinery).  With
   the stored reduce operation certified to be the identity (a
@@ -198,9 +198,9 @@ def ofReduceAxOk (env : Env) (cvA : ConstantVal) : Bool :=
 /-! ## The reduce-operation install pin -/
 
 /-- The pinned defining expression of a reduce operation
-(`ConLeche/Kernel/TrustPins.lean`, generated at build time from the
-toolchain's own prelude; the `have := trustCompiler` wrapper is
-zeta-expanded by the generator, leaving the plain identity). -/
+(`ConLeche/Kernel/TrustPins.lean`: the plain identity, hand-written
+with the basis builder — every toolchain's `have := trustCompiler; b`
+after zeta). -/
 def reduceDeclPin (c : Name) : Expr :=
   if c = reduceNatName then reduceNatDeclPin else reduceBoolDeclPin
 

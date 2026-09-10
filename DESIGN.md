@@ -67370,7 +67370,14 @@ so the gates ran on the merged tree):
   justified: the checker's gate reads the variant record, so the
   capstones reach the structure's module exactly as they reach
   `ConLeche.Kernel.NatOpPins` (checker data, no theorems).
-  Expectation regenerated (`tests/proofdeps.sh --list`).
+  Expectation regenerated (`tests/proofdeps.sh --list`).  The same
+  gate fired once more when the trust pins became builder-written
+  constants (below): `ConLeche.Kernel.Basis.Builder` entered the
+  closure through `reduceBoolDeclPin`'s value (`lm`/`cnst`/`bn` are
+  definitions there) — until then the builder's output reached the
+  capstones only through the `#annotate_basis` splice; justified the
+  same way (constructor-wrapping definitions, checker data) and
+  regenerated.
 * **`tests/shake.sh`** proposed two new removals; both were real and
   are removed rather than allowlisted: `ConLeche/PinGen/Dump.lean`'s
   `public meta import ConLeche.Kernel.NatOpPinSet` (the loader names the
@@ -67497,15 +67504,37 @@ are shared verbatim across the three toolchains.
 
 ### 6. What else the nightly exposed, and what stays open
 
-* **Trust pins on a toolchain without the opaques** (§1.3): the
-  generator splices the identity `fun x => x` when `Lean.reduceBool`
-  / `Lean.reduceNat` is absent from the BUILD toolchain — exactly the
-  pin every toolchain has had (`have := trustCompiler` zeta-expanded;
-  probed on v4.33.0: `Expr.lam (const Bool) (bvar 0)`), so a stream
-  from an older toolchain that declares them still installs against
-  the hand-pinned `ofReduce*` axiom shapes of
-  `ConLeche/Kernel/TrustAxioms.lean`.  A nightly stream never declares
-  them; nothing to pin.
+* **The trust pins are hand-written constants now** (§1.3, and the
+  user's addition before READY: *"the binary's behaviour must not
+  depend on the toolchain that compiled it … the host toolchain of
+  the binary is irrelevant for our purposes; if not, there is a
+  design flaw"*).  `#gen_trust_pins` read `Lean.reduceBool` /
+  `Lean.reduceNat` out of the COMPILING toolchain's `Init` at
+  elaboration time — the last such dependency once the Nat-op pins
+  became committed files — and the first fix here (an identity
+  fallback when the opaques are absent) papered over the nightly's
+  absence but kept the dependency.  Now `ConLeche/Kernel/TrustPins.lean`
+  writes the two pins down: `fun (b : Bool) => b`, `fun (n : Nat) => n`
+  — exactly the value every toolchain that had the opaques produced
+  after the conversion zeta-expanded `have := trustCompiler` (probed
+  on v4.33.0's spliced constants: `Expr.lam (const Bool) (bvar 0)`),
+  through the same `ConLeche/Kernel/Basis/Builder.lean` builder
+  `TrustAxioms.lean` writes the axiom shapes with, and with no read of
+  any environment; `#gen_trust_pins`, its `elab`, and
+  `ConLeche/Kernel/TrustPins.lean`'s `meta import ConLeche.PinGen` are
+  DELETED (so `ConLeche.PinGen`'s object code no longer links into the
+  binary at all).  No generator-side assertion replaces them (a first
+  version had one; the user dropped it): should a toolchain respell
+  the opaques, the install-time defeq declines its streams and the
+  matrix workflow shows it, which is enough.  A stream from an older
+  toolchain that declares
+  the opaques installs against the constant and the hand-pinned
+  `ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`; a
+  nightly stream never declares them.  Consequence for §5(b): the
+  "nightly-built binary" runs are a plain build check now — the
+  sources compile on the nightly, and by construction the binary's
+  behaviour is the v4.33.0-built one's; the v4.33.0-built matrix is the
+  evidence.
 * **Certificate proofs**: `ConLeche/PinGen/Certs.lean` elaborates
   unchanged on the nightly (the `dcongr` `cases inst` finds the
   structure's `casesOn`; `if_pos`/`dif_pos` still exist there).  #274
