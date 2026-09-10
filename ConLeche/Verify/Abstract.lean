@@ -158,6 +158,10 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   | some entry => ?_
   intro h
   dsimp only at h
+  -- the node's own structure name (task #271), then the parameter count
+  split at h
+  case isFalse => exact nomatch h
+  case isTrue _hsn =>
   split at h
   case isFalse => exact nomatch h
   case isTrue hlen =>

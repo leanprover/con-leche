@@ -67,7 +67,7 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
       p.nP (tfvs.drop p.nP) [] p.nIdx = .ok isorts ∧
     nativeFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds = true ∧
     nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      ctorsA p.kinds p.rhss = true ∧
+      ctorsA p.kinds p.rhss p.cvR.type = true ∧
     checkNativeRec (m := ConLeche.CheckM) (fueledOps μ F) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) ∧
     -- the projection table at a structure-like block (task #210 Part A)
@@ -90,7 +90,7 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
       nativeFieldsOk env q.p.cvT.name q.p.cvT.levelParams q.p.nP q.p.nIdx q.ctorsA q.p.kinds
         = true ∧
       nativeRulesOk q.p.cvR.name (q.p.cvR.levelParams.map .param) .never q.p.nP
-        q.p.ctors.length q.ctorsA q.p.kinds q.p.rhss = true ∧
+        q.p.ctors.length q.ctorsA q.p.kinds q.p.rhss q.p.cvR.type = true ∧
       checkNativeRec (m := ConLeche.CheckM) (fueledOps μ F) (consSumCtors q.p.nP q.ctorsA q.env₁)
         q.p q.cvTa q.ctorsA = .ok (cvRa, rhss) ∧
       checkNativeTable (m := ConLeche.CheckM) q.p q.ctorsA q.sortss
@@ -135,7 +135,7 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [if_pos hk] at h
   try simp only [bind, Except.bind] at h
   by_cases hr : nativeRulesOk q.p.cvR.name (q.p.cvR.levelParams.map .param) .never q.p.nP
-      q.p.ctors.length q.ctorsA q.p.kinds q.p.rhss = true
+      q.p.ctors.length q.ctorsA q.p.kinds q.p.rhss q.p.cvR.type = true
   case neg =>
     rw [if_neg hr] at h
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])

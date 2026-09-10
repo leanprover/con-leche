@@ -376,6 +376,10 @@ echo "retired flags: $split_ok/$split_total as expected"
 # verdict's provenance must be readable off the invocation.  `--pre`
 # joined them at task #207, when the preprocessor it asserted about was
 # dropped: every input is a raw lean4export stream now.
+# `CON_LECHE_INMODEL_CENSUS=1` is checked here too (task #271, issue
+# #8): it is a parse-only diagnostic, the fold never runs, and the run
+# must therefore DECLINE (exit 2) whatever the stream — exit 0 is
+# reserved for a stream `Cached.checkDecls` accepted.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -419,6 +423,22 @@ if CON_LECHE_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
   echo "MODE FAIL: CON_LECHE_INFER_ONLY=1 did not error"
+  fail=1
+fi
+mode_total=$((mode_total+1))
+if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+    >/dev/null 2>&1; [ $? = 2 ]; then
+  mode_ok=$((mode_ok+1))                           # task #271: parse only = DECLINE
+else
+  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a good stream"
+  fail=1
+fi
+mode_total=$((mode_total+1))
+if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_BAD" \
+    >/dev/null 2>&1; [ $? = 2 ]; then
+  mode_ok=$((mode_ok+1))                           # …and on a bad one: the fold never ran
+else
+  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a bad stream"
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"

@@ -391,6 +391,59 @@ def nativeCtors4 (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFie
     List (Name × Nat × Expr × List Nat) :=
   List.zipWith (fun cA ks => (cA.1.name, cA.2, cA.1.type, recIdxOf ks)) ctorsA kinds
 
+/-- **The rule's `λ` prefix against the stream's own recursor type**
+(task #271, issue #7).
+
+The rule `λ p⃗ motive minor⃗ f⃗_j, …` binds, in order, the recursor's
+parameters, its motive, its minor premises and constructor `j`'s
+fields — and every one of those binder types appears again in the
+recursor RECORD's own type
+`∀ p⃗ motive minor⃗ ı⃗ (t : T p⃗ ı⃗), motive ı⃗ t`: the first `nP + 1 + n`
+binders at exactly the same de Bruijn depths, and the fields as the
+first `nF` binders of the `j`-th minor premise's type, which stands
+`n - j` binders shallower than the rule's fields do.  So the rule's
+whole `λ` prefix is *elsewhere in the same stream*, and this compares
+the two.  Official's replay compares an exported recursor with the
+generated one as a whole, so a stream whose recursor IS the generated
+one satisfies this; a rule that retargets a binder type does not.
+
+It is deliberately NOT a comparison with `structRecRhsR`.  The
+generated rule cannot be compared with the exported one binder for
+binder, because the two are generated from different data: this route
+generates from the STORED constructors — their field domains
+normalised by official's positivity walk — and from the type former's
+DECLARED telescope, while official generates from the declared
+constructor types and from a telescope reduced to weak head normal
+form.  Both directions occur on real streams: at the arena's
+`053_reduceCtorParam.mk` the export's minor carries the declared redex
+`constType (reduceCtorParam α) …` where this route has the reduct, and
+at `HPow` the export's parameter binder is `Sort (w+1)` where this
+route's declared telescope still has `outParam (Sort (w+1))`.
+Comparing the terms rejects 45 e2e fixtures and three good arena tests
+that official accepts.  For the same reason the fields are read off
+the recursor's minor and not off the constructor RECORD: at
+`Lean.SourceInfo.synthetic` the record's third field is
+`optParam Bool false` where the generated recursor — and the rule —
+has `Bool`. -/
+def nativeRulePrefixOk (recTy : Expr) (nP n j nF : Nat) (rhs : Expr) : Bool :=
+  match rhs.stripLams (nP + 1 + n + nF), recTy.stripPis (nP + 1 + n) with
+  | some (rbs, _), some (tbs, _) =>
+    (List.range (nP + 1 + n)).all (fun i =>
+      match rbs[i]?, tbs[i]? with
+      | some b, some t => Expr.resetMeta b.1 == Expr.resetMeta t.1
+      | _, _ => false) &&
+    (match tbs[nP + 1 + j]? with
+     | some mty =>
+       (match (mty.1.liftLooseBVars (n - j) 0).stripPis nF with
+        | some (fbs, _) =>
+          (List.range nF).all fun i =>
+            match rbs[nP + 1 + n + i]?, fbs[i]? with
+            | some b, some f => Expr.resetMeta b.1 == Expr.resetMeta f.1
+            | _, _ => false
+        | none => false)
+     | none => false)
+  | _, _ => false
+
 /-- **The stream's rules against the generated ones** (task #210 Part
 D, at install): rule `j` fires constructor `j` with its field count,
 and its body is the canonical right-hand side with the inductive
@@ -400,9 +453,13 @@ elaborator generated the stream's rules from), at the parse
 placeholder's binder data (`resetMeta`).  Official's replay compares an
 exported recursor structurally with the one it generates; this is that
 comparison, on the bodies (the type is `isDefEq`'d at
-`checkNativeRec`). -/
+`checkNativeRec`) and — since task #271 — on the `λ` prefix's binder
+types, against the stream's own recursor type and constructor records
+(`nativeRulePrefixOk`, which says why the comparison is against the
+stream's own recursor type and not against the generated term). -/
 def nativeRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : Nat)
-    (cs : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) (rhss : List Expr) :
+    (cs : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) (rhss : List Expr)
+    (recTy : Expr) :
     Bool :=
   rhss.length == n && kinds.length == n &&
   (List.range n).all fun j =>
@@ -413,7 +470,8 @@ def nativeRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : Nat
        | some (_, rbody) =>
          rbody == Expr.resetMeta (structRuleBodyR recC rlvls pw nP n nF j (recIdxOf ks)
            (structFieldTeleOf cA.type nP nF) (structFieldIdxOf cA.type nP nF))
-       | none => false)
+       | none => false) &&
+      nativeRulePrefixOk recTy nP n j nF rhs
     | _, _, _ => false
 
 /-! ## Recognition

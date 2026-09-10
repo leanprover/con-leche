@@ -24,6 +24,10 @@ Exit codes follow the lean kernel arena convention:
   the message on stderr is what tells the two apart (task #230).
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
+  A diagnostic run that stops before the fold exits 2 for the same
+  reason it is not an accept: `CON_LECHE_INMODEL_CENSUS=1` reports the
+  in-process modeller's outcomes after the parse and never checks
+  anything (task #271).
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
 
 **NO TEMPORARY FILES** (task #180, 2026-09-07).  The checker writes
@@ -514,6 +518,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         IO.eprintln s!"con-leche: the built-in prelude is unsupported ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
+      | .error (.invalid what) =>
+        IO.eprintln s!"con-leche: the built-in prelude contradicts itself ({what}); \
+          regenerate it with `lake exe natop-pins-export` ({modeTag})"
+        return 3
     -- Streaming frontend (task #57, task #180): the parse reads the
     -- file line by line, so neither a wholesale text buffer nor a
     -- scratch file exists in this process.
@@ -529,6 +537,13 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.unsupported what) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
+    -- TASK #271 (issues #5 and #7): a stream whose inductive block
+    -- contradicts its own declarations in a REDUNDANT field is
+    -- rejected at the parse, as official's replay rejects a recursor
+    -- or constructor record that is not the generated one.
+    | .error (.invalid what) =>
+      IO.eprintln s!"con-leche: invalid: {what} ({modeTag})"
+      return 1
     | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
@@ -548,7 +563,13 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           IO.eprintln s!"con-leche: inmodel declined {n}: {why}"
         IO.eprintln s!"con-leche: inmodel census: {inModelled.size} modelled, \
           {inModelDeclined.size} declined ({modeTag}, parse only)"
-        return 0
+        -- TASK #271 (issue #8): exit 2, never 0.  The census stops
+        -- after the parse, so `Cached.checkDecls` never runs and there
+        -- is no accepting fold to report; exit 0 is the code reserved
+        -- for one, and a caller that reads the code alone would take
+        -- the run for an accept.  A DECLINE is what this run is:
+        -- nothing is claimed about the stream.
+        return 2
       if let some out ← IO.getEnv "CON_LECHE_INMODEL_DUMP" then
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen
@@ -893,6 +914,13 @@ def usage : String := String.intercalate "\n" [
   "                    route for'.",
   "                    A verdict produced with it set is not the",
   "                    checker's verdict on the stream.",
+  "  CON_LECHE_INMODEL_CENSUS=1",
+  "                    report every mutual or nested block's modelling",
+  "                    outcome and STOP AFTER THE PARSE.  The fold does",
+  "                    not run, so nothing is checked and the run",
+  "                    always EXITS 2 (declined) -- exit 0 is reserved",
+  "                    for a stream the fold accepted, and a census run",
+  "                    obtains no such verdict.",
   "  CON_LECHE_INMODEL_DUMP=OUT",
   "                    write a copy of the raw input with the generated",
   "                    records spliced in ahead of each modelled block",

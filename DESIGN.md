@@ -66858,3 +66858,185 @@ half of it `Name.hashData`), `Level.subst.go` (18.6 %),
 n against a parameter LIST of length n, i.e. the list-based
 level-parameter set, not this task's site.  Recalibrating or fixing it
 is a task of its own; nothing here touches it.
+
+## TASK #271 — the inductive block's redundant fields, validated (issues #5, #7, #8; a note for #6)
+
+Four GitHub issues, three of them fixed here.
+
+**The line official draws.**  The replay behind the official kernel
+hands `add_inductive` the type formers, the constructors and the
+parameter count; the kernel checks those and GENERATES the
+constructors and the recursors; the replay then compares each exported
+CONSTRUCTOR and RECURSOR record with the generated one, structurally,
+and a mismatch is a REJECT ("Invalid constructor", "Invalid recursor",
+`Lean4Checker/Replay.lean`).  An exported INDUCTIVE record is never
+compared with the generated `InductiveVal` — which is exactly why
+issue #7's last row (`numIndices := 1` on the type record) is an
+ACCEPT for official.  So:
+
+| record | field | who reads it | this task |
+|---|---|---|---|
+| type | `numParams` | `Declaration.inductDecl` | task #228, unchanged |
+| type | `ctors` | the replay's grouping | validated; IS the block's ctor order |
+| type | `numIndices`, `numNested`, `isRec`, `isReflexive`, `all` | nobody | not checked (official accepts a lie) |
+| ctor | `name`, `type`, `levelParams` | the comparison | already pinned by the routes |
+| ctor | `numParams` | the comparison | task #228, unchanged |
+| ctor | `numFields`, `cidx`, `induct` | the comparison | **validated at the parse** |
+| rec | `numParams`, `numMotives`, `numMinors`, `numIndices`, `k` | the comparison | **validated at the parse** |
+| rec | `levelParams`, `name`, argument sums, rule ctor/nfields | the comparison | `nativeRecLpsOk`, `nativeRecPinOk`, unchanged |
+| rec | `rules[].rhs` | the comparison | body since #210 Part D; **λ prefix now too** |
+| rec | `all` | the comparison | NOT decoded by the recogniser; see "Left open" |
+
+### Where each check sits, and why
+
+**The parse (`ConLeche/Frontend/ExportC.lean`, the `.ind` branch).**
+Everything that is a consistency check between the stream's OWN fields
+lives there, outside the fold and outside the main theorem.  A block
+that fails is `.invalid`, a new `FrontendError` case (exit 1) beside
+the existing `unsupported` (exit 2); `RecordVerdict` is the two-valued
+result a declaration record now carries out of `processLineCoreD`.
+
+* `types[].ctors` — duplicate-free, in bijection with the constructor
+  records — and it IS the block's constructor order.  The records are
+  REORDERED to it before anything else reads them, which is issue #5:
+  a stream whose record array is in another order is the same block and
+  now accepts, as official, nanoda and nanobruijn do.  `cidx` is then
+  the redundant copy and is checked against the position; `induct`
+  against the owning type record.
+* `numFields`: official's `check_constructors` walks `is_pi` WITHOUT
+  reducing and stores the count past the parameters, so
+  `nPd + numFields` must be the constructor type's syntactic Π-telescope
+  length (`indPiTeleLen`).  Measured on init-full and the whole arena
+  and e2e corpus: no false reject.
+* the recursor records' `numParams`, `numMotives` (= the number of type
+  records), `numMinors` (= the number of constructors), `numIndices`
+  (= the owning former's telescope past the parameters, only when the
+  former's declared type IS a Π-telescope ending in a sort) and `k`
+  (official's `is_K_target`: a `Prop` block, one type, one constructor
+  taking only the parameters).  **Not at a nested block**: the kernel
+  specialises nested into mutual with a mimic type per nested
+  occurrence and generates `T.rec`, `T.rec_1`, … for the SPECIALISED
+  block, whose motives and minors count the mimics — `ind_nest_inf`'s
+  `InfNest.rec` declares two motives at one declared type.  The gate is
+  the type record's `numNested`, a field official never compares:
+  reading it here only ever weakens the check.
+
+**The recogniser gains two decoded fields.**  `IndCtorRec` now carries
+`cidx` and `induct` (`Option Nat`, so a record that omits one is not
+contradicted — the dialect does not require them and no fixture in the
+tree omits them).  Both scanners and the equivalence proof
+(`scanIndCtorLoop_eq`) took the two extra state slots without a new
+case: the `obj_num` macro is agnostic in the slot's setter.
+
+**The kernel, two places.**
+
+* `nativeRulePrefixOk` (`Kernel/Inductives/NativeParts.lean`), a new
+  conjunct of `nativeRulesOk`.  A rule's `λ` prefix binds the
+  parameters, the motive, the minors and constructor `j`'s fields, and
+  every one of those binder types appears again in the recursor
+  RECORD's own type: the first `nP + 1 + n` at the same de Bruijn
+  depths, the fields as the first `nF` binders of the `j`-th minor
+  premise's type, `n - j` binders shallower.  **THE FINDING**: the
+  prefix cannot be compared with the term `structRecRhsR` generates,
+  because this route generates from the STORED constructors (field
+  domains normalised by the positivity walk) and from the former's
+  DECLARED telescope, while official generates from the declared
+  constructor types and from a telescope reduced to weak head normal
+  form.  Both directions occur on real streams — at arena
+  `053_reduceCtorParam.mk` the export's minor carries the declared
+  redex `constType (reduceCtorParam α) …` where this route has the
+  reduct; at `HPow` the export's parameter binder is `Sort (w+1)`
+  where this route's declared telescope still has
+  `outParam (Sort (w+1))`; at `Lean.SourceInfo.synthetic` the ctor
+  record's third field is `optParam Bool false` where the generated
+  recursor has `Bool`.  A term comparison rejects 45 e2e fixtures and
+  three good arena tests official accepts (measured).  The
+  stream-internal comparison has none of that: both halves of a real
+  export come from the one generated recursor.
+  `nativeRulesOk` took the recursor type as a new argument and NO PROOF
+  CHANGED SHAPE — the four Verify/Semantics sites read it as the same
+  opaque `Bool` guard.
+* the ANNOTATE pass's `.proj` clause (`Kernel/Core.lean`,
+  `Cached/CoreC.lean`) now checks official's `infer_proj` premise
+  `const_name(I) == proj_sname(e)` while the name is still the
+  stream's.  It was normalising the node's structure name to the
+  subject type's head, which REPAIRED a node naming another inductive
+  before the inference pass's own `T = sn` test could see it — issue
+  #7's `proj.typeName` row.  The normalisation stays (a node that
+  passes names the head already), so reduction's table lookup is as
+  complete on annotated terms as before.  Proof impact: three
+  mechanical sites — one more `split` in `annotateCore_proj_inv`
+  (`Verify/Abstract.lean`), one more `ite_rel` in the fvar-shift
+  bisimulation (`Verify/Deep.lean`), one more `by_cases` in the
+  cached-pure discipline (`Verify/Cached/DiscC6.lean`).  No statement
+  changed.
+
+**Issue #8, the census exit code.**  `CON_LECHE_INMODEL_CENSUS=1`
+stops after the parse — `Cached.checkDecls` never runs — and used to
+`return 0`, the code reserved for a fold that accepted.  It returns 2
+now, with its existing "parse only" line; `Main.lean`'s header and its
+usage text say so, beside `CON_LECHE_INMODEL=0`.  Two rows in
+`tests/arena.sh`'s mode-flag section pin it, on a good stream and on a
+bad one.  It stays an environment variable: the user's ruling that run
+modes are flags and the remaining `CON_LECHE_*` names are diagnostics
+puts it on the diagnostic side.
+
+**Issue #6, closed as a feature.**  `OVERVIEW.md` §9 listed two
+deliberate accept-supersets; it lists three now — the large eliminator
+of a single-constructor block whose result sort can be zero, which the
+per-field `PropWhen` criterion licenses and which is what carries the
+models of mutual and nested blocks.  Prose only, no code.
+
+### Verdict changes
+
+| fixture | before | after |
+|---|---|---|
+| `bad/tutorial/048_inductWrongCtorParams` | 2 | **1** (the reference verdict) |
+| `bad/tutorial/051_inductInIndex` | 2 | **1** (the reference verdict) |
+| `bad/tutorial/055_indNegReducible` | 2 | **1** (the reference verdict) |
+
+All three carry a stub recursor record (`numMotives := 0`,
+`numMinors := 0`; 048 also `numParams := 0` at a one-parameter block)
+written by the arena's `bad_raw_consts` helper, and all three used to
+reach only the non-standard-axiom decline at the end of the stream.
+`tests/arena-expected.txt`'s note A is updated: the group of four that
+"decline earlier still, at a non-standard axiom" is down to 045.
+
+Outside the gates, the arena's own `ctor-num-fields` test — which lies
+about `numFields` to make a structure look unit-like and expects a
+reject — moves from a DECLINE (neutral there) to a REJECT.
+
+Ten new e2e fixtures (`tests/e2e-expected.txt`), one per row of issue
+#7's table plus issue #5's stream and two accepting controls.
+
+### Left open
+
+* `recs[].all` is compared by official's replay and is NOT validated
+  here: the recogniser does not decode the `all` key at all (neither
+  `IndTypeRec` nor `IndRecRec` carries it), so validating it means a
+  third scanner field and a third equivalence-proof slot, and no row of
+  issue #7's table covers it.  A block whose recursor lies about `all`
+  is still accepted.
+* The rule prefix is compared against the stream's own recursor type,
+  which is an internal-consistency check and not official's comparison
+  with the generated term.  A stream that lies CONSISTENTLY in both the
+  recursor type and the rule — a type that is `isDefEq` to the
+  generated one but not syntactically it, with a rule to match — is
+  still accepted.  Closing that needs an `isDefEq` comparison of the
+  prefix binder types at the recursor's environment, opened at fvars;
+  that is a task of its own.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green with the three expectation moves recorded above
+(arena tutorial 90/92 accepted, e2e 195/195, annot 15/15, DAG-tower
+14/14, mode flags 20/20, trusted and `--jobs=1`/`--jobs=4` sweeps
+clean), `tests/overview-links.sh` regenerated after eight anchors
+moved (all pure line shifts; the `ExportC.lean` one was already off its
+own paragraph's subject and now points at `def parseExportStreamD`).
+`init-full --verified` accepts 53 088, unchanged, at 542.90 G
+instructions:u against master's 544.21 G on the same host (`--jobs=1`,
+`perf stat -e instructions:u`) — the new checks cost nothing
+measurable.  Re-gated after merging task #272: same verdicts
+throughout, 539.56 G at `--jobs=4` with that task's improvement in.
