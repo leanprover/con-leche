@@ -66858,3 +66858,119 @@ half of it `Name.hashData`), `Level.subst.go` (18.6 %),
 n against a parameter LIST of length n, i.e. the list-based
 level-parameter set, not this task's site.  Recalibrating or fixing it
 is a task of its own; nothing here touches it.
+
+## TASK #274 — THE PIN MATRIX: EVERY LEAN SINCE v4.28.0 EXPORTS THE PINNED NAT OPS, AND WE CHECK THEM (2026-09-10, `agent/pin-matrix-274`)
+
+**The gap.**  The checker vendors the toolchain's own definitions of
+the fifteen kernel-accelerated `Nat` operations (`pins/<toolchain>.json`
+via `ConLeche/Kernel/NatOpPins.lean`) and of the two compiler-trust
+opaque values (`ConLeche/Kernel/TrustPins.lean`), and compares a
+stream's declaration against the pin by definitional equality at
+install.  Every gate we had exports with the repo's OWN
+`lean-toolchain`, so the one thing the pins are exposed to — a stream
+produced by a *different* Lean — was never exercised.  con-leche is
+being bundled with Lean releases, so that is exactly the stream it
+gets handed, and the first report of drift (lean4 master's `Decidable`
+rewrite declining at `Nat.mod`) came from downstream.
+
+**What landed.**  A script and a workflow, no Lean.
+
+* `scripts/natop-matrix.sh <toolchain>` does all the per-toolchain
+  work and is runnable locally exactly as CI runs it: install the
+  toolchain with elan if missing; find an exporter FOR THAT TOOLCHAIN;
+  export the dependency cone of the pinned constants out of `Init`;
+  run the con-leche binary over it under `ulimit -v` + `timeout` with
+  an explicit `--jobs=4`; print one summary line on stdout
+  (`toolchain | exporter | records | verdict | first failing record`)
+  and everything else on stderr, with the checker's exit code passed
+  through.  The constant list is cross-checked against
+  `ConLeche/Kernel/Core.lean`'s `natOpNames` + `natDivModNames` on every
+  run, so it cannot go stale silently.
+* `.github/workflows/natop-matrix.yml`: `enumerate` (GitHub API, floor
+  v4.28.0, plus the newest `-rc` and the newest nightly — no hard-coded
+  list) → `build` (ONE binary from `lean-toolchain`, ci.yml's elan +
+  `.lake` cache recipe, uploaded as an artifact) → `matrix`
+  (`fail-fast: false`, one job per toolchain).  Stable releases hard-fail;
+  the rc and the nightly carry `continue-on-error: true`, so upstream
+  drift shows red in the summary without blocking.  Triggers:
+  `workflow_dispatch`, weekly `schedule`, and pushes touching the pins,
+  the pin generator, the script or the workflow.
+
+**The exporter, per toolchain.**  Two sources, in this order.  Lean
+ships `leanexport` in its own `bin/` since `src/LeanExport.lean` landed
+upstream (2026-08-28, lean4#14885) — nightlies from then on, releases
+after v4.34.0-rc2 — with lean4export's command line
+(`leanexport Init -- Nat.div ...`).  Otherwise the script builds
+github.com/leanprover/lean4export, which tags a release per Lean
+release; the ref is the exact tag when it exists and otherwise the
+newest tag that is not newer than the target (v4.28.1, v4.32.1 and
+v4.33.1 have no tag of their own and fall back one patch level), and
+the clone's `lean-toolchain` is overwritten with the target either way
+— the exporter must link against the toolchain whose environment it
+dumps.  The export itself runs under `elan run <toolchain>`: the
+exporter calls `findSysroot`, which shells out to `lean --print-prefix`,
+and a bare `lean` would answer for whatever `lean-toolchain` the
+current directory names.
+
+**A third kind of drift, and the silent one.**  A pinned constant that
+no longer EXISTS under that name does not decline: both exporters
+answer an unknown name with `panic! "Constant X not found in
+environment."` and still exit 0, so the stream comes back short and the
+checker never sees the record.  The script reads those names off the
+exporter's stderr and turns an otherwise-accepting run into
+`accept(incomplete)` with a non-zero exit.  This is not hypothetical:
+on today's nightly `Lean.reduceBool` and `Lean.reduceNat` — the whole
+compiler-trust escape hatch `ConLeche/Kernel/TrustPins.lean` pins — are
+gone from `Init`.
+
+### The local results (2026-09-10, checker built at `lean-toolchain` = v4.33.0)
+
+| toolchain | exporter | records | verdict | first failing record |
+|---|---|---|---|---|
+| v4.28.0 | lean4export@v4.28.0 | ? | decline | `def Nat.gcd @189` |
+| v4.28.1 | lean4export@v4.28.0 | ? | decline | `def Nat.gcd @189` |
+| v4.29.0 | lean4export@v4.29.0 | 325 | accept | — |
+| v4.29.1 | lean4export@v4.29.1 | 325 | accept | — |
+| v4.30.0 | lean4export@v4.30.0 | 353 | accept | — |
+| v4.31.0 | lean4export@v4.31.0 | 353 | accept | — |
+| v4.32.0 | lean4export@v4.32.0 | 353 | accept | — |
+| v4.32.1 | lean4export@v4.32.0 | 353 | accept | — |
+| v4.32.2 | lean4export@v4.32.2 | 353 | accept | — |
+| v4.33.0 | lean4export@v4.33.0 | 353 | accept | — |
+| v4.33.1 | lean4export@v4.33.0 | 353 | accept | — |
+| v4.34.0-rc2 | lean4export@v4.34.0-rc2 | ? | decline | `def Nat.land @332` |
+| nightly-2026-09-10 | leanexport(bundled) | ? | decline | `def Nat.div @141`; absent from `Init`: `Lean.reduceBool` `Lean.reduceNat` |
+
+Nine of eleven stable releases accept.  The three failures are three
+different drifts, and the cone diff names each of them:
+
+* **v4.28.0 / v4.28.1** — one name, `WellFounded.Nat.fix._proof_2`,
+  which those toolchains spell `WellFounded.Nat.fix.go._proof_2`.  The
+  `Nat.gcd` pin blob mentions it, `constsResolve` fails, and the gate
+  declines with "pin ground constants absent".  The two cones are
+  otherwise identical (292 declarations, one name different).
+* **v4.34.0-rc2** — the `Decidable` rewrite, already in the release
+  candidate and not only on master: `dif_pos`/`dif_neg`/`if_pos`/`if_neg`
+  and `ite_cond_eq_true`/`ite_cond_eq_false` are replaced by
+  `dite_eq_left`/`dite_eq_right`/`ite_eq_left`/`ite_eq_right`/
+  `ite_true`/`ite_false`, and `Nat.div_eq` by `Nat.div_eq_ite`.  First
+  bite at `Nat.land`.
+* **nightly** — the same rewrite gone further (`Bool.Reflects`,
+  `Decidable.reflects_decide`, `Bool.decEq._proof_1`, …), biting at
+  `Nat.div`; plus the removal of `Lean.reduceBool`/`Lean.reduceNat`
+  described above.
+
+**Not this lane's work**: the pins themselves (task #273) and the
+question of whether the v4.28.x floor should be raised or the `gcd` pin
+widened.  The workflow reports; it does not fix.
+
+### Gates
+
+Prose-and-script lane: no Lean source changed, so no `lake` gate is
+implicated.  `bash -n scripts/natop-matrix.sh` clean,
+`tests/no-local-paths.sh` OK, `actionlint 1.7.12` clean on both
+workflows (no `shellcheck` on this machine, so the embedded `run:`
+scripts were read rather than linted), and the thirteen local runs in
+the table above — including the two failure shapes the script must get
+right (the `Nat.gcd` decline and the silently truncated nightly
+export).
