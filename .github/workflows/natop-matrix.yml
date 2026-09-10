@@ -47,6 +47,17 @@
 #              `scripts/natop-matrix.sh`, append its one-line summary to
 #              the run summary.  `fail-fast: false` so one red toolchain
 #              does not hide the others.
+#   regenerate REPRODUCES EVERY COMMITTED DUMP (task #275).  The three
+#              jobs above ask whether the pins still describe upstream;
+#              this one asks whether the committed pins are what the
+#              repository's own generator produces — for all of them, not
+#              just the repository toolchain's, which is all `ci.yml`'s
+#              `tests/pindump.sh` can reach with the toolchains it has.
+#              `PINDUMP_INSTALL=1` lets that same gate install each
+#              pinner's toolchain with elan and diff the regenerated dump
+#              against the committed file.  It is a HARD failure: a dump
+#              that no longer regenerates is our staleness, not upstream's
+#              drift.
 #
 # The per-toolchain work is ALL in `scripts/natop-matrix.sh`, on
 # purpose: it is runnable on a developer machine exactly as CI runs it
@@ -88,11 +99,14 @@ on:
   push:
     paths:
       - 'pins/**'
+      - 'pinners/**'
+      - 'PinDump.lean'
       - 'ConLeche/PinGen.lean'
       - 'ConLeche/PinGen/**'
       - 'ConLeche/Kernel/NatOpPins.lean'
       - 'ConLeche/Kernel/TrustPins.lean'
       - 'scripts/natop-matrix.sh'
+      - 'tests/pindump.sh'
       - '.github/workflows/natop-matrix.yml'
 
 permissions:
@@ -297,3 +311,59 @@ jobs:
           path: _tmp/pin-matrix/exports/
           if-no-files-found: ignore
           retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 4. Every committed dump, reproduced from its pinner.
+  #
+  # Independent of the three jobs above (no `needs`): it builds no
+  # con-leche binary and exports nothing — it runs the generator, once
+  # per `pinners/*/`, on that pinner's own toolchain.
+  #
+  # THE COST is one toolchain download per pinner (elan, ~150 MB each)
+  # plus a ~10 s cold build of the generator's nine modules; the check
+  # itself is a `diff`.  There is deliberately no matrix here: the
+  # pinners are few, the gate is the same script a developer runs, and
+  # a matrix would hide which dump is stale behind a job name.
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan (toolchain comes from lean-toolchain)
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      # The repository toolchain's `.lake`, shared with ci.yml's key
+      # shape.  The pinners' own `.lake` directories are not cached:
+      # they hold nine modules and rebuild in seconds.
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-
+
+      # PINDUMP_INSTALL=1 is what makes this job differ from the one
+      # `tests/arena.sh` runs in ci.yml: a pinner whose toolchain is
+      # missing is installed and reproduced instead of skipped.
+      - name: PINDUMP_INSTALL=1 tests/pindump.sh
+        run: |
+          set -euo pipefail
+          PINDUMP_INSTALL=1 bash tests/pindump.sh 2>&1 | tee pindump.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '## Pin dumps reproduced from `pinners/*/`'
+            echo
+            echo '```'
+            tail -20 pindump.log 2>/dev/null || echo '(no log)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

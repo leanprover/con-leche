@@ -1,0 +1,59 @@
+# A PINNER (task #275): the Lake project that regenerates ONE committed
+# pin dump, on the toolchain that dump describes.
+#
+#     cd pinners/<toolchain> && lake exe natop-pins-export ../../pins
+#
+# The toolchain is `lean-toolchain` beside this file — elan reads it,
+# so `lake` here runs the Lean this dump is a dump of, and the
+# generator reads the same file to label the dump
+# (`ConLeche.PinGen.readToolchainString`).  See `pinners/README.md`.
+#
+# WHAT IS SHARED, AND WHY IT CAN BE.  Nothing is copied: both targets
+# take their sources from the repository root with `srcDir = "../.."`,
+# so there is exactly ONE copy of the generator in the tree — the one
+# the repository's own `lake exe natop-pins-export` builds.  The cone
+# reached from `PinDump` is
+#
+#     PinDump                                the executable root
+#     ConLeche.PinGen{,.Dump,.Prelude}       the generator
+#     ConLeche.PinGen.Certs                  the certificate theorems
+#     ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
+#
+# — and the last line is the reason the generator is not free-standing:
+# a dump is an encoding of `ConLeche.Expr`, so the generator builds the
+# checker's expression datatypes.  Those three files, and the five
+# above them, are written in the subset every toolchain accepts;
+# that claim is not a hope, it is what this project's cold build
+# checks, on every toolchain, in `tests/pindump.sh` and in CI.
+#
+# IF A TOOLCHAIN CANNOT SHARE A FILE, fork it — but note HOW, because
+# the obvious way silently does nothing (measured, task #275).  Lake
+# resolves a module through the first library whose ROOTS COVER it, and
+# listing a `srcDir = "."` library first does NOT shadow a covering
+# library that comes later: the shared copy still wins and the fork is
+# dead code.  So a fork means narrowing the coverage:
+#
+#   1. replace `roots = ["ConLeche"]` below with the explicit cone —
+#      the six `ConLeche.*` modules listed above — MINUS the module
+#      being forked;
+#   2. add a `lean_lib` with `srcDir = "."` whose root IS that module;
+#   3. put the fixed copy in THIS directory under its module path (say
+#      `ConLeche/PinGen/Certs.lean`) and say at its top why it is
+#      forked and how it differs.
+#
+# No fork exists today, which is why the root stays the whole
+# `ConLeche` hierarchy: any module the cone grows into then resolves
+# without editing this file.  `lake build` here builds the executable
+# and nothing else, so that root is never built as a library.
+name = "pinner"
+defaultTargets = ["natop-pins-export"]
+
+[[lean_lib]]
+name = "ConLecheShared"
+srcDir = "../.."
+roots = ["ConLeche"]
+
+[[lean_exe]]
+name = "natop-pins-export"
+srcDir = "../.."
+root = "PinDump"

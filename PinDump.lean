@@ -23,6 +23,18 @@ the battery.
     lake exe natop-pins-export                 # regenerate in place
     lake exe natop-pins-export _tmp/scratch    # for the freshness gate
 
+**Which toolchain's dump it writes is the project it is run in**
+(task #275).  The same sources are built by the repository AND by one
+`pinners/<toolchain>/` Lake project per committed pin variant; the
+generator labels and names its output after the `lean-toolchain` it
+finds by searching upward from the working directory
+(`ConLeche.PinGen.readToolchainString`, cross-checked against
+`Lean.versionString`), which is why regenerating a foreign variant is
+
+    cd pinners/<toolchain> && lake exe natop-pins-export ../../pins
+
+and nothing else.  See `pinners/README.md`.
+
 `import ConLeche.PinGen.Certs` above is the *build-order edge* the old
 mechanism lacked: the certificate theorems are read out of their olean
 at run time (`importModules` at `OLeanLevel.private`, so the proof
@@ -43,7 +55,7 @@ def main (args : List String) : IO UInt32 := do
   if args.length > 1 then
     IO.eprintln "usage: natop-pins-export [output-directory]"
     return 1
-  let (dump, prelude) ← computeDumpAndPrelude
+  let (dump, prelude) ← computeDumpAndPrelude (← readToolchainString)
   IO.FS.createDirAll outDir
   let path := outDir / toolchainFileName dump.toolchain
   IO.FS.withFile path .write fun h => do

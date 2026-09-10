@@ -437,11 +437,53 @@ process init. -/
 def natopPrefixJson : String :=
   include_str "../scripts/natop_prefix.json"
 
-/-- The repository's pinned toolchain (`lean-toolchain`).  The dump
-records it and is *named* after it, so a second toolchain's dump can
-sit beside the first (task #176). -/
-def toolchainString : String :=
-  (include_str "../lean-toolchain").trimAscii.toString
+/-- The Lake project's toolchain (`lean-toolchain`) — the string the
+dump records and is *named* after, so a second toolchain's dump can sit
+beside the first (task #176).
+
+**Not an `include_str` (task #275).**  These sources are shared by
+several Lake projects — the repository itself and one `pinners/<t>/`
+project per pin variant — and an embed would burn the toolchain of
+whichever tree the file physically lives in into every one of them.
+The string is read at RUN time instead, by searching upward from the
+working directory for `lean-toolchain` exactly as elan does when it
+picks the binary that is running: the answer is the project the
+generator was invoked in, and `readToolchainString` below cross-checks
+it against `Lean.versionString` so an invocation from the wrong
+directory is an error rather than a mislabelled dump. -/
+partial def findToolchainFile (dir : System.FilePath) :
+    IO (Option System.FilePath) := do
+  let cand := dir / "lean-toolchain"
+  if ← cand.pathExists then
+    return some cand
+  match dir.parent with
+  | none => return none
+  | some p => findToolchainFile p
+
+/-- The `lean-toolchain` string of the project the generator was
+invoked in (see `findToolchainFile`), cross-checked against the running
+Lean's version: a release toolchain `…:vX` must be Lean `X`, a nightly
+`…:nightly-D` must be a version ending in `nightly-D`.  Any other
+spelling (a pr-release, a local build) is taken as given — there is
+nothing to compare it against. -/
+def readToolchainString : IO String := do
+  let cwd ← IO.currentDir
+  let some f ← findToolchainFile cwd
+    | throw (IO.userError
+        s!"natop-pins-export: no `lean-toolchain` at or above {cwd}; \
+run the generator from its Lake project's directory")
+  let tc := (← IO.FS.readFile f).trimAscii.toString
+  let tag := (tc.splitOn ":").getLast!
+  let ok :=
+    if tag.startsWith "v" then tag.drop 1 == Lean.versionString
+    else if tag.startsWith "nightly-" then Lean.versionString.endsWith tag
+    else true
+  unless ok do
+    throw (IO.userError
+      s!"natop-pins-export: {f} names toolchain `{tc}`, but the running \
+Lean is {Lean.versionString} — the generator must run under the toolchain \
+it dumps")
+  return tc
 
 /-- Parse the stream-prefix allowlists.  Deliberately a *function* (of
 the JSON text), not a closed `def`: a 0-ary definition is evaluated in
@@ -449,12 +491,10 @@ the module initializer, and this module's object code WAS linked into
 the `con-leche` executable until task #273 (through the `meta import`
 in `ConLeche/Kernel/TrustPins.lean`), where a closed parse of the
 1.96 MB embed would have cost ~0.26 G instructions at every process
-start; the discipline stays.  As a
-function it runs only when the generator asks, at export time (the
-embedded `lean-toolchain` string above is 25 bytes and does not repay
-the same treatment).  (Closed subterms
-extracted from function bodies are lazy `once`-cells in the emitted
-code, so no eager work remains.) -/
+start; the discipline stays.  As a function it runs only when the
+generator asks, at export time.  (Closed subterms extracted from
+function bodies are lazy `once`-cells in the emitted code, so no eager
+work remains.) -/
 def loadPrefixes (json : String) : Except String (Std.HashMap String (List String)) := do
   let j ← Json.parse json
   let o ← j.getObj?

@@ -107,53 +107,82 @@ need the prelude generalised the way the pins were.
 
 ### Adding a toolchain's variant
 
-A dump is computed by the generator running ON its toolchain, so it
-cannot be regenerated here; the cross-toolchain matrix lane
-(`scripts/natop-matrix.sh`, run in CI over every supported toolchain)
-is what tells you a new one is needed — its export declines at a
-pin-certified operation with "no pin variant matched".  Then, in a
-scratch worktree:
+A dump is computed by the generator running ON its toolchain, so every
+committed dump has a **pinner** beside it — a self-contained Lake
+project carrying that toolchain (`pinners/<toolchain>/`, see
+`pinners/README.md`).  Adding a variant means adding a pinner.
 
-1. set `lean-toolchain` to the new toolchain and `lake build
-   natop-pins-export` (if the certificate proofs in
-   `ConLeche/PinGen/Certs.lean` or the generator's cone rule need a fix
-   for the new prelude, make it — it must leave the OTHER dumps
-   byte-identical when regenerated on their toolchains, or the
-   difference is explained in the commit);
-2. `lake exe natop-pins-export _tmp/newpins` and copy the `.json` here
-   (the `.prelude.ndjson` it wrote beside it must equal the committed
-   prelude below its meta line — `diff <(tail -n +2 a) <(tail -n +2
-   b)`; if it does not, stop: that is a prelude drift, see above);
-3. add the new file to `#load_natop_pins` in
+What tells you a new one is needed is the cross-toolchain matrix lane
+(`scripts/natop-matrix.sh`, run in CI over every supported toolchain):
+its export declines at a pin-certified operation with "no pin variant
+matched".  Then:
+
+1. `cp -r pinners/leanprover-lean4-v4.33.0 pinners/<sanitised new
+   toolchain>` and put the new toolchain in its `lean-toolchain`.  The
+   directory name is the toolchain string with everything outside
+   `[A-Za-z0-9._-]` turned into `-` — the same sanitisation the dump's
+   filename gets, and the gate checks the two agree.
+2. `cd pinners/<new> && lake build`.  If a shared source does not
+   compile on that toolchain, fork it into the pinner as
+   `pinners/README.md` describes — and if the fix belongs in
+   `ConLeche/PinGen/Certs.lean` or the generator's cone rule instead,
+   it must leave the OTHER dumps byte-identical when regenerated on
+   their toolchains, or the difference is explained in the commit.
+3. `lake exe natop-pins-export ../../pins` — from the pinner
+   directory; that is what tells the generator which toolchain it is
+   dumping.  It writes the new `.json` here, and a
+   `.prelude.ndjson` beside it which must equal the committed prelude
+   below its meta line (`diff <(tail -n +2 a) <(tail -n +2 b)`).  If it
+   does not, stop: that is a prelude drift, see above.  Delete the
+   regenerated prelude — only the repository toolchain's is committed.
+4. add the new dump to `#load_natop_pins` in
    `ConLeche/Kernel/NatOpPins.lean` AFTER the existing entries;
-4. restore `lean-toolchain`, rebuild, and run the matrix lane: the new
-   toolchain's export must now accept, and every older one still.
+5. `tests/pindump.sh` (it now reproduces the new dump too), then the
+   matrix lane: the new toolchain's export must accept, and every older
+   one still.
 
-Dropping a toolchain is the reverse: delete its dump and its
-`#load_natop_pins` line.
+Commit the dump and its pinner together.  Dropping a toolchain is the
+reverse: delete its dump, its pinner and its `#load_natop_pins` line.
 
 ## Regenerating
 
-    lake exe natop-pins-export
+    lake exe natop-pins-export                                  # the repository toolchain's
+    cd pinners/<toolchain> && lake exe natop-pins-export ../../pins   # any variant's
 
 writes `pins/<toolchain>.json` and `pins/<toolchain>.prelude.ndjson`
-and prints both paths.  The generator lives in the certificate
-library's world (`PinDump.lean`; its root imports
-`ConLeche.PinGen.Certs`, so the proof bodies are visible to it and Lake
-builds them first).  **Never edit a file here by hand** — regenerate.
+and prints both paths.  Which toolchain it writes for is the Lake
+project it is run in: the generator searches upward from the working
+directory for `lean-toolchain` exactly as elan does when it picks the
+Lean that is running, and refuses to run if that name disagrees with
+`Lean.versionString`.  The two commands above are the same sources
+built by two projects — `pinners/leanprover-lean4-v4.33.0/` is the
+repository toolchain's pinner and produces the identical file.
+
+The generator lives in the certificate library's world (`PinDump.lean`;
+its root imports `ConLeche.PinGen.Certs`, so the proof bodies are
+visible to it and Lake builds them first).  **Never edit a file here by
+hand** — regenerate.
 
 ## Staleness is a test failure
 
 `tests/pindump.sh`, run from `tests/arena.sh` in the standard battery,
-regenerates the CURRENT toolchain's dump and the prelude into a
-scratch directory and `diff -q`s them against the committed ones.  A
-difference fails the battery, and the only fix is to regenerate and
-commit.  The gate also checks that a dump and a prelude exist for the
-toolchain in `lean-toolchain`, that `ConLeche/Kernel/NatOpPins.lean`
-and `ConLeche/Frontend/Prelude.lean` embed those basenames, that the
-dump names the prelude, and that every committed dump is embedded and
-every embedded dump committed.  The OTHER toolchains' dumps cannot be
-regenerated on this toolchain; the matrix lane exercises them.
+walks `pinners/*/` and, for each pinner whose toolchain elan has,
+builds it, regenerates into a scratch directory and `diff -q`s the
+result against the committed dump.  A difference fails the battery, and
+the only fix is to regenerate and commit.  A pinner whose toolchain is
+not installed is a labelled SKIP; `PINDUMP_INSTALL=1` makes elan
+install it first, which is how CI reproduces EVERY dump.  The
+repository's own toolchain is always installed, so its pinner always
+runs.
+
+The gate also checks that a dump and a prelude exist for the toolchain
+in `lean-toolchain`, that `ConLeche/Kernel/NatOpPins.lean` and
+`ConLeche/Frontend/Prelude.lean` embed those basenames, that the dump
+names the prelude, that every committed dump is embedded and every
+embedded dump committed, and that every committed dump has a pinner
+named after its own toolchain.  A foreign pinner's regenerated prelude
+is checked against the committed one below its meta line — a difference
+there is reported as PRELUDE DRIFT.
 
 The loader accepts dumps from any Lean version (that is the point of
 the variants), so a forgotten regeneration after a toolchain bump is
