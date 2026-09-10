@@ -1,69 +1,64 @@
 module
-public import ConLeche.Kernel.Expr
+public import ConLeche.Kernel.NatOpPinSet
 meta import ConLeche.PinGen.Dump
 
 /-!
 # Pinned Nat-operation declarations and certificate proofs (generated)
 
-`#load_natop_pins` below splices, per pin-certified operation
-(`Nat.div`, `Nat.mod`, …), the pinned defining expression
-(`nat…DeclPin : Expr`) and the certificate proof blobs
-(`nat…CertProofs : List Expr`) out of the **committed dump**
-`pins/leanprover-lean4-v4.33.0.json` (the repository's top-level
-`pins/` directory — see `pins/README.md`), embedded below with
-`include_str`, whose paths resolve relative to THIS source file's
-directory.  The hand-pinned certificate *statements* the proofs are
-checked against stay in `ConLeche/Kernel/Checker.lean`.
+`#load_natop_pins` below splices, per **committed dump** listed —
+`pins/<toolchain>.json`, the repository's top-level `pins/` directory,
+see `pins/README.md` — one **pin variant** `natOpPinSet_v<i> :
+NatOpPinSet` (`ConLeche/Kernel/NatOpPinSet.lean`): per pin-certified
+operation (`Nat.div`, `Nat.mod`, …) that toolchain's pinned defining
+expression and certificate proof blobs, as constants
+`nat…DeclPin_v<i> : Expr` / `nat…CertProofs_v<i> : List Expr`.  The
+variants are listed in `natOpPinSets` in the order below, which is the
+order the install gate tries them in (`checkDivModPinLoop`,
+`ConLeche/Kernel/Checker.lean`): the first whose guards pass, whose pin
+is definitionally equal to the stream's stored value and whose
+certificates check enables the operation's fast path.  The
+hand-pinned certificate *statements* the proofs are checked against
+stay in `ConLeche/Kernel/Checker.lean` and are shared by every variant.
 
 ## Why a committed file (task #176, 2026-09-06)
 
-Until now the pins were *computed* while this module elaborated: the
-`#gen_natop_pins` command of `ConLeche/PinGen.lean` loaded
-`ConLeche/PinGen/Certs.olean` **by name** (`importModules` at
-`OLeanLevel.private`, the only way to see the certificate theorems'
-proof bodies from a `module`).  Loading an olean by name is not an
-import edge, so Lake never ordered the two, and the `extraDepTargets`
-that stood in for the edge did not reach this module when it was built
-through the executable's import graph.  On a cold tree
+Until then the pins were *computed* while this module elaborated, out
+of an olean loaded BY NAME, which Lake never ordered — on a cold tree
+`lake build con-leche` failed.  The user's ruling: *"committing the pin
+as a file is fine — as soon as we want to support multiple toolchains
+we have to do that.  CI can keep the export up to date."*  So this
+module is an ordinary one whose only elaboration-time dependency is
+`ConLeche/PinGen/Dump.lean` (the interchange format); nothing in the
+checker's build depends on the certificate library.
 
-    $ lake build con-leche
-    error: ConLeche/Kernel/NatOpPins.lean:33:0: object file
-    '…/.lake/build/lib/lean/ConLeche/PinGen/Certs.olean' of module
-    ConLeche.PinGen.Certs does not exist
+## Why several files (task #273, 2026-09-10)
 
-The user's ruling: *"committing the pin as a file is fine — as soon as
-we want to support multiple toolchains we have to do that.  CI can keep
-the export up to date.  So let's just do that.  `lake build con-leche`
-should work out of the box."*
-
-So this module is now an ordinary one.  Its only elaboration-time
-dependency is `ConLeche/PinGen/Dump.lean` — the interchange format,
-`Lean` plus `ConLeche.Kernel.Expr` and nothing else, reached by an
-ordinary import edge.  Nothing in the checker's build depends on the
-certificate library any more.
+A pin describes one toolchain's definition.  When lean4 master
+rewrote `Decidable` into a structure the v4.33.0 pins stopped
+describing its `Nat.mod`, and a con-leche bundled with a Lean release
+must accept that release's own exports — so the binary now embeds the
+dumps of every supported toolchain and tries them in order.  The
+repository's own toolchain (`lean-toolchain`) comes FIRST: on its
+streams the first attempt matches and the loop costs nothing extra.
+Adding a toolchain = adding its dump here (recipe in `pins/README.md`);
+the loader accepts dumps from any Lean version, and `tests/pindump.sh`
+is what insists that the current toolchain's dump exists and is fresh.
 
 ## Where the trust still comes from
 
-The certificates are still **kernel-checked theorems**
-(`ConLeche/PinGen/Certs.lean`, the `ConLechePinCerts` library, still built
-by `lake build`): the dump carries their proof *terms*, and the
-statements those terms inhabit are re-checked by this checker at
-install time against the hand-pinned `divModCertStmts`.  The
-committed file is a cache of a computation, not a new axiom.
-
-## Regenerating
-
-    lake exe natop-pins-export            # rewrites the committed dump
-
-`tests/pindump.sh` (run from `tests/arena.sh`) regenerates into a
-scratch directory and `diff -q`s, so a stale dump fails the battery
-loudly.  A toolchain bump writes a *new* file named after the new
-toolchain: regenerate, add the file, and point the `include_str` below
-at it — the loader refuses a dump whose `leanVersion` is not the
-running one, so a forgotten bump is an error, never a silent wrong pin.
+The certificates are **kernel-checked theorems**
+(`ConLeche/PinGen/Certs.lean`, the `ConLechePinCerts` library, built by
+`lake build`): a dump carries their proof *terms*, and the statements
+those terms inhabit are re-checked by this checker at install time
+against the hand-pinned `divModCertStmts`.  The committed files are a
+cache of a computation, not a new axiom; a corrupted dump fails its
+certificate check and the stream declines.
 -/
 
 set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
-#load_natop_pins include_str "../../pins/leanprover-lean4-v4.33.0.json"
+#load_natop_pins
+  include_str "../../pins/leanprover-lean4-v4.33.0.json",
+  include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json",
+  include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json"

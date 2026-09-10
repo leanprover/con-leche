@@ -17,21 +17,25 @@ pinconsts = sys.argv[2]
 targets = ["Nat.div", "Nat.mod", "Nat.gcd", "Nat.land", "Nat.lor", "Nat.xor",
            "Nat.shiftLeft", "Nat.shiftRight"]
 
-# parse pinconsts.txt into {op: {"pin": set, "proofs": set}}
-opsets = {}
+# parse pinconsts.txt into {variant: {op: {"pin": set, "proofs": set}}}
+# (section headers are `== <toolchain> <op> <kind>`)
+variants = {}
 cur = None
 for line in open(pinconsts):
     line = line.strip()
     if line.startswith("== "):
-        _, op, kind = line.split()
-        cur = opsets.setdefault(op, {}).setdefault(kind, set())
+        _, tc, op, kind = line.split()
+        cur = variants.setdefault(tc, {}).setdefault(op, {}).setdefault(kind, set())
     elif line and cur is not None:
         cur.add(line)
 
+# the stream's declared-before-op prefixes, once
+positions = {}
+prefix_sets = {}
+
 names = {0: ""}
 declared = set()
-prefixes = {}
-remaining = set(t for t in targets if t in opsets)
+remaining = set(t for t in targets if any(t in ops for ops in variants.values()))
 
 with open(stream) as f:
     for line in f:
@@ -66,22 +70,26 @@ with open(stream) as f:
         for n in new:
             if n in remaining:
                 remaining.discard(n)
-                s = opsets[n]
-                missing_pin = sorted(s.get("pin", set()) - declared)
-                missing_prf = sorted(s.get("proofs", set()) - declared)
-                prefixes[n] = (len(declared), missing_pin, missing_prf)
+                positions[n] = len(declared)
+                prefix_sets[n] = set(declared)
         declared.update(new)
         # recursors: streams declare Foo.rec implicitly with inductives
         if not remaining:
             break
 
-for op in targets:
-    if op not in prefixes:
-        print(f"{op}: NOT REACHED in stream")
-        continue
-    pos, mp, mf = prefixes[op]
-    print(f"{op} (at ~{pos} decls): missing-in-pin={len(mp)} missing-in-proofs={len(mf)}")
-    for n in mp:
-        print(f"  PIN   {n}")
-    for n in mf:
-        print(f"  PROOF {n}")
+for tc, opsets in variants.items():
+    print(f"variant {tc}:")
+    for op in targets:
+        if op not in opsets:
+            continue
+        if op not in positions:
+            print(f"  {op}: NOT REACHED in stream")
+            continue
+        s = opsets[op]
+        mp = sorted(s.get("pin", set()) - prefix_sets[op])
+        mf = sorted(s.get("proofs", set()) - prefix_sets[op])
+        print(f"  {op} (at ~{positions[op]} decls): missing-in-pin={len(mp)} missing-in-proofs={len(mf)}")
+        for n in mp:
+            print(f"    PIN   {n}")
+        for n in mf:
+            print(f"    PROOF {n}")

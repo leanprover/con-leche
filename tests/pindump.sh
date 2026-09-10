@@ -31,10 +31,22 @@
 #
 # It also checks that the committed dump is named after, and records,
 # the toolchain in `lean-toolchain` — a bump must add a dump for the new
-# toolchain and re-point the `include_str` in
-# `ConLeche/Kernel/NatOpPins.lean`.  (The loader independently refuses a
-# dump whose `leanVersion` is not the running one, so a forgotten bump
-# is a build error, never a silent wrong pin.)
+# toolchain and list it in `ConLeche/Kernel/NatOpPins.lean`.
+#
+# PIN VARIANTS (task #273).  `pins/` holds one dump PER SUPPORTED
+# TOOLCHAIN and `ConLeche/Kernel/NatOpPins.lean` embeds ALL of them (the
+# install gate tries them in that order).  Only the CURRENT toolchain's
+# dump can be regenerated here — a dump is computed by the generator
+# running ON its toolchain — so this gate regenerates and diffs that
+# one, and for the others checks only that every committed `pins/*.json`
+# is embedded and every embedded dump is committed.  The other dumps
+# are exercised by the cross-toolchain matrix lane (`scripts/
+# natop-matrix.sh`, task #274): a toolchain whose export declines
+# there is the signal that a new dump is needed; the recipe is in
+# `pins/README.md`.  (The loader accepts dumps from any Lean version
+# since #273 — a binary built on one toolchain carries several
+# toolchains' pins — so a forgotten regeneration after a bump is
+# caught HERE, in the standard battery, not at build time.)
 #
 # Usage: tests/pindump.sh
 set -u
@@ -60,9 +72,24 @@ fi
 
 if ! grep -q "include_str \"../../pins/$BASE\"" ConLeche/Kernel/NatOpPins.lean; then
   echo "PINDUMP FAIL — ConLeche/Kernel/NatOpPins.lean does not embed $BASE;"
-  echo '    a toolchain bump must re-point the include_str at the new dump.'
+  echo '    a toolchain bump must list the new dump in its #load_natop_pins.'
   exit 1
 fi
+
+# every committed dump is embedded, every embedded dump is committed
+for f in pins/*.json; do
+  b=$(basename "$f")
+  if ! grep -q "include_str \"../../pins/$b\"" ConLeche/Kernel/NatOpPins.lean; then
+    echo "PINDUMP FAIL — committed dump $f is not embedded by ConLeche/Kernel/NatOpPins.lean"
+    exit 1
+  fi
+done
+for b in $(grep -o 'include_str "../../pins/[^"]*\.json"' ConLeche/Kernel/NatOpPins.lean | sed 's#.*/pins/##; s/"$//'); do
+  if [ ! -f "pins/$b" ]; then
+    echo "PINDUMP FAIL — ConLeche/Kernel/NatOpPins.lean embeds pins/$b, which is not committed"
+    exit 1
+  fi
+done
 
 if [ ! -f "$PCOMMITTED" ]; then
   echo "PINDUMP FAIL — no committed built-in prelude for toolchain $TC:"
@@ -132,6 +159,7 @@ if [ "$stale" = 1 ]; then
 fi
 
 echo "pindump: $COMMITTED fresh ($(wc -l < "$COMMITTED") lines, toolchain $TC)"
+echo "pindump: $(ls pins/*.json | wc -l) dump(s) embedded: $(ls pins/*.json | xargs -n1 basename | tr '\n' ' ')"
 echo "pindump: $PCOMMITTED fresh ($(wc -l < "$PCOMMITTED") lines, $(grep -c '"inductive"\|"quot"\|"axiom"\|"def"\|"thm"\|"opaque"' "$PCOMMITTED") declaration records)"
 rm -rf "$SCRATCH"
 exit 0

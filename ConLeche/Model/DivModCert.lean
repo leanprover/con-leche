@@ -2038,9 +2038,10 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
     (hgenv : ConLeche.divModEnvGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
       = true)
+    {ps : ConLeche.NatOpPinSet}
     (hcerts : ConLeche.checkDivModCerts (m := ConLeche.CheckM)
       (ConLeche.fueledOps μ F) env c value'
-      (ConLeche.divModCertStmts c) (ConLeche.divModCertProofs c)
+      (ConLeche.divModCertStmts c) (ConLeche.divModCertProofs ps c)
       = .ok true)
     {A Ta : (Name → Nat) → AnnotTerm}
     (hA : ∀ ψ, denoteMeta mp.base2.acval env ψ 0 value' = some (A ψ))
@@ -2075,17 +2076,16 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
   have fr := dmFrame_of hcmem hgenv hA hAclosed hvf' hbv' hTa hTok
     hAok hmemA φ
   have hruns := ConLeche.checkDivModCerts_inv hcerts
+  -- the matched variant's proof list stays opaque (task #273): the
+  -- `CertRuns` destructuring below reads the STATEMENT list's shape
+  -- and takes the proofs as they come
+  generalize ConLeche.divModCertProofs ps cq = prs at hruns
   rw [hac]
   simp only [ConLeche.natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hcmem
   rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   all_goals (
-    simp only [ConLeche.divModCertStmts, ConLeche.divModCertProofs,
-      ConLeche.natDivCertProofs, ConLeche.natModCertProofs,
-      ConLeche.natGcdCertProofs, ConLeche.natLandCertProofs,
-      ConLeche.natLorCertProofs, ConLeche.natXorCertProofs,
-      ConLeche.natShiftLeftCertProofs, ConLeche.natShiftRightCertProofs,
-      reduceIte] at hruns
+    simp only [ConLeche.divModCertStmts, reduceIte] at hruns
     simp +decide only [DivModClausesV, if_false, if_true])
   · -- `Nat.div`
     cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>

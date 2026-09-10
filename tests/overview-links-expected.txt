@@ -719,21 +719,21 @@
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
-     2  public import ConLeche.Kernel.Expr
+     2  public import ConLeche.Kernel.NatOpPinSet
      3  meta import ConLeche.PinGen.Dump
      4  
      5  /-!
      6  # Pinned Nat-operation declarations and certificate proofs (generated)
      7  
-     8  `#load_natop_pins` below splices, per pin-certified operation
-     9  (`Nat.div`, `Nat.mod`, …), the pinned defining expression
-    10  (`nat…DeclPin : Expr`) and the certificate proof blobs
-    11  (`nat…CertProofs : List Expr`) out of the **committed dump**
-    12  `pins/leanprover-lean4-v4.33.0.json` (the repository's top-level
-    13  `pins/` directory — see `pins/README.md`), embedded below with
-    14  `include_str`, whose paths resolve relative to THIS source file's
-    15  directory.  The hand-pinned certificate *statements* the proofs are
-    16  checked against stay in `ConLeche/Kernel/Checker.lean`.
+     8  `#load_natop_pins` below splices, per **committed dump** listed —
+     9  `pins/<toolchain>.json`, the repository's top-level `pins/` directory,
+    10  see `pins/README.md` — one **pin variant** `natOpPinSet_v<i> :
+    11  NatOpPinSet` (`ConLeche/Kernel/NatOpPinSet.lean`): per pin-certified
+    12  operation (`Nat.div`, `Nat.mod`, …) that toolchain's pinned defining
+    13  expression and certificate proof blobs, as constants
+    14  `nat…DeclPin_v<i> : Expr` / `nat…CertProofs_v<i> : List Expr`.  The
+    15  variants are listed in `natOpPinSets` in the order below, which is the
+    16  order the install gate tries them in (`checkDivModPinLoop`,
 
 == ConLeche/PinGen/Certs.lean#L7-L18
      7  /-!
@@ -874,10 +874,10 @@
     21  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
     22    `opaque`s (their exported values are identity functions modulo the
     23    `have := trustCompiler` wrapper); at install their stored values are
-    24    pinned against the toolchain's own definitions
-    25    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
-    26    definitional equality — the task-#47 pattern: drift declines,
-    27    never silently.
+    24    pinned against the identity function
+    25    (`ConLeche/Kernel/TrustPins.lean`, hand-pinned since task #273 —
+    26    every toolchain's definition after zeta) by definitional equality —
+    27    the task-#47 pattern: drift declines, never silently.
     28  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
     29    those stored opaques (the task-#34 standard-axioms machinery).  With
     30    the stored reduce operation certified to be the identity (a

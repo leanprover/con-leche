@@ -32,6 +32,9 @@ def fueledOpsGated (F : Nat) : CheckerOps CheckM where
   isDefEq env d a b := isDefEqCoreGated mode env F d a b
   ensureSort env d e := ensureSortCoreGated mode env F d e
   whnf env d e := ConLeche.whnfGated mode env F d e
+  orElse x k := match x with
+    | .ok true => pure ()
+    | _ => k none
 
 /-- The pure gated instantiation at the standard fuel. -/
 def pureOpsGated : CheckerOps CheckM := fueledOpsGated mode checkFuel

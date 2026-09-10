@@ -233,6 +233,116 @@ theorem checkDivModCertsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
       simp only [Bool.false_eq_true, ↓reduceIte]
       exact SimC.pure hs₃ rfl
 
+/-- **The variant-fallback combinator simulates** (task #273).  The
+cached attempt's success is reproduced by the fueled attempt (`hx`);
+every other outcome runs the continuation — on the state the attempt
+left, well-formed by `hx`, or after an error on the pre-attempt state
+— and the fueled loop reproduces that with its own `none`
+continuation (`hk`, for whatever outcome the cached lane delivered).
+The common fuel is the larger of the attempt's and the
+continuation's. -/
+theorem SimC.orElse {s₀ : CState} (hs : CSOK mode env s₀)
+    {x : CheckCM Bool} {x' : FueledM Bool}
+    {k : Option CheckError → CheckCM Unit}
+    {k' : Option CheckError → FueledM Unit}
+    (hx : SimC mode env s₀ RelVC x x')
+    (hk : ∀ r (s₁ : CState), CSOK mode env s₁ →
+      SimC mode env s₁ RelVC (k r) (k' none)) :
+    SimC mode env s₀ RelVC ((sharedOpsC mode (mkFEnv env)).orElse x k)
+      ((fueledOpsM mode).orElse x' k') := by
+  intro v' s' h
+  dsimp only [sharedOpsC] at h
+  revert h
+  cases hxs : x s₀ with
+  | ok p =>
+    obtain ⟨b, s₁⟩ := p
+    obtain ⟨hs₁, v, hv, F₁, hF₁⟩ := hx b s₁ hxs
+    subst hv
+    cases b with
+    | true =>
+      intro h
+      cases h
+      exact ⟨hs₁, (), rfl, F₁, by simp only [fueledOpsM_orElse_atF, hF₁]; rfl⟩
+    | false =>
+      intro h
+      obtain ⟨hs', v₂, hv₂, F₂, hF₂⟩ := hk none s₁ hs₁ v' s' h
+      refine ⟨hs', v₂, hv₂, max F₁ F₂, ?_⟩
+      simp only [fueledOpsM_orElse_atF]
+      rw [x'.property (Nat.le_max_left _ _) hF₁]
+      exact (k' none).property (Nat.le_max_right _ _) hF₂
+  | error e =>
+    intro h
+    obtain ⟨hs', v₂, hv₂, F₂, hF₂⟩ := hk (some e) s₀ hs v' s' h
+    refine ⟨hs', v₂, hv₂, F₂, ?_⟩
+    simp only [fueledOpsM_orElse_atF]
+    cases hx' : x'.val F₂ with
+    | ok b =>
+      cases b with
+      | true => cases v₂; rfl
+      | false => exact hF₂
+    | error e' => exact hF₂
+
+/-- One pin variant's attempt as a `SimC`. -/
+theorem checkDivModPinAtS_sim (hμ : mode.verifiedChecks = true)
+    (henv : EnvWF env) {c : Name} (hc : c ∈ natDivModNames)
+    {value' : Expr} (hvf : value'.hasFvar = false) {ps : NatOpPinSet}
+    (hping : (divModPinGuard ps env c &&
+      divModCertsGuard ps env c value') = true)
+    {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkDivModPinAt (sharedOpsC mode (mkFEnv env)) env c value' ps)
+      (checkDivModPinAt (fueledOpsM mode) env c value' ps) := by
+  unfold checkDivModPinAt
+  dsimp only [sharedOpsC]
+  have hping' := hping
+  simp only [Bool.and_eq_true] at hping'
+  have hping'' := hping'.1
+  unfold divModPinGuard at hping''
+  simp only [Bool.and_eq_true] at hping''
+  have hpinF : (divModDeclPin ps c).hasFvar = false := by
+    simpa using hping''.1.1.2
+  refine SimC.bind (opE_annotate_sim hμ henv hs
+      (Expr.WScoped.of_not_hasFvar hpinF))
+    (fun s₁ pinA pinA' hs₁ hP => ?_)
+  obtain ⟨rfl, hwpin⟩ := hP
+  refine SimC.bind (opB_sim hμ henv hs₁
+      (Expr.WScoped.of_not_hasFvar hvf) hwpin)
+    (fun s₂ b b' hs₂ hP₂ => ?_)
+  obtain rfl : b = b' := hP₂
+  cases b with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimC.pure hs₂ rfl
+  | true =>
+    simp only [↓reduceIte]
+    exact checkDivModCertsS_sim hμ henv hvf (divModCertStmts_wscopedB hc) hs₂
+
+/-- The variant loop as a `SimC`, for any two reason accumulators (the
+cached lane's carry the outcomes, the fueled lane's the `none` text;
+neither affects success). -/
+theorem checkDivModPinLoopS_sim (hμ : mode.verifiedChecks = true)
+    (henv : EnvWF env) {c : Name} (hc : c ∈ natDivModNames)
+    {value' : Expr} (hvf : value'.hasFvar = false) :
+    ∀ (pss : List NatOpPinSet) (tried tried' : List String) {s₀ : CState},
+      CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkDivModPinLoop (sharedOpsC mode (mkFEnv env)) env c value'
+          pss tried)
+        (checkDivModPinLoop (fueledOpsM mode) env c value' pss tried')
+  | [], _, _, s₀, hs => by
+    unfold checkDivModPinLoop
+    exact SimC.throw
+  | ps :: rest, tried, tried', s₀, hs => by
+    unfold checkDivModPinLoop
+    by_cases hping : (divModPinGuard ps env c &&
+        divModCertsGuard ps env c value') = true
+    case neg =>
+      simp only [if_neg hping]
+      exact checkDivModPinLoopS_sim hμ henv hc hvf rest _ _ hs
+    simp only [if_pos hping]
+    exact SimC.orElse hs (checkDivModPinAtS_sim hμ henv hc hvf hping hs)
+      (fun r s₁ hs₁ => checkDivModPinLoopS_sim hμ henv hc hvf rest _ _ hs₁)
+
 /-- `checkDivModPin` at the cached shared operations. -/
 theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env2 : Env} {c : Name}
     (hc : c ∈ natDivModNames)
@@ -243,7 +353,6 @@ theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       (checkDivModPin (sharedOpsC mode (mkFEnv env)) env env2 c)
       (checkDivModPin (fueledOpsM mode) env env2 c) := by
   unfold checkDivModPin
-  dsimp only [sharedOpsC]
   by_cases h1 : divModEnvGuard env2 c = true
   case neg => simp only [if_neg h1]; exact SimC.throw
   simp only [if_pos h1]
@@ -258,44 +367,7 @@ theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     | recInfo cv' mI rP rules => exact SimC.throw
     | projInfo _ => exact SimC.throw
     | defnInfo cv' value' hint' =>
-      dsimp only
-      by_cases hping : (divModPinGuard env c &&
-          divModCertsGuard env c value') = true
-      case neg => simp only [if_neg hping]; exact SimC.throw
-      simp only [if_pos hping]
-      have hping' := hping
-      simp only [Bool.and_eq_true] at hping'
-      have hping'' := hping'.1
-      unfold divModPinGuard at hping''
-      simp only [Bool.and_eq_true] at hping''
-      have hpinF : (divModDeclPin c).hasFvar = false := by
-        simpa using hping''.1.1.2
-      refine SimC.bind (opE_annotate_sim hμ henv hs
-          (Expr.WScoped.of_not_hasFvar hpinF))
-        (fun s₁ pinA pinA' hs₁ hP => ?_)
-      obtain ⟨rfl, hwpin⟩ := hP
-      have hvf : value'.hasFvar = false := hv'f _ _ _ hfind
-      refine SimC.bind (opB_sim hμ henv hs₁
-          (Expr.WScoped.of_not_hasFvar hvf) hwpin)
-        (fun s₂ b b' hs₂ hP₂ => ?_)
-      obtain rfl : b = b' := hP₂
-      cases b with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte]
-        exact SimC.throw
-      | true =>
-        simp only [↓reduceIte]
-        refine SimC.bind (checkDivModCertsS_sim hμ henv hvf
-            (divModCertStmts_wscopedB hc) hs₂)
-          (fun s₃ ok ok' hs₃ hP₃ => ?_)
-        obtain rfl : ok = ok' := hP₃
-        cases ok with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
-          exact SimC.throw
-        | true =>
-          simp only [↓reduceIte]
-          exact SimC.pure hs₃ rfl
+      exact checkDivModPinLoopS_sim hμ henv hc (hv'f _ _ _ hfind) _ _ _ hs
 
 /-- `installBasisDecl` (operation-free) as a `SimC`. -/
 theorem installBasisDeclS_sim {env' : Env} {ci : ConstantInfo}

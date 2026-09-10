@@ -73,7 +73,11 @@ def OpsRel {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
   (∀ env d e, rel.R (o₁.inferType env d e) (o₂.inferType env d e)) ∧
   (∀ env d a b, rel.R (o₁.isDefEq env d a b) (o₂.isDefEq env d a b)) ∧
   (∀ env d e, rel.R (o₁.ensureSort env d e) (o₂.ensureSort env d e)) ∧
-  (∀ env d e, rel.R (o₁.whnf env d e) (o₂.whnf env d e))
+  (∀ env d e, rel.R (o₁.whnf env d e) (o₂.whnf env d e)) ∧
+  (∀ (x₁ : M₁ Bool) (x₂ : M₂ Bool) (k₁ : Option CheckError → M₁ Unit)
+      (k₂ : Option CheckError → M₂ Unit),
+    rel.R x₁ x₂ → (∀ r, rel.R (k₁ r) (k₂ r)) →
+    rel.R (o₁.orElse x₁ k₁) (o₂.orElse x₂ k₂))
 
 /-- The paired operation record. -/
 def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
@@ -87,7 +91,11 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
     ⟨(o₁.isDefEq env d a b, o₂.isDefEq env d a b), h.2.2.1 env d a b⟩
   ensureSort env d e :=
     ⟨(o₁.ensureSort env d e, o₂.ensureSort env d e), h.2.2.2.1 env d e⟩
-  whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2 env d e⟩
+  whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2.1 env d e⟩
+  orElse x k :=
+    ⟨(o₁.orElse x.val.1 (fun r => (k r).val.1),
+      o₂.orElse x.val.2 (fun r => (k r).val.2)),
+      h.2.2.2.2.2 _ _ _ _ x.property (fun r => (k r).property)⟩
 
 /-- The fueled operations as monotone families. -/
 @[expose] def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
@@ -101,6 +109,47 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
     ⟨fun F => ensureSortCore mode env F d e, fun hle h => ensureSortCore_mono hle h⟩
   whnf env d e :=
     ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
+  -- the variant-fallback combinator (task #273): monotone because the
+  -- result is `Unit` — an attempt that errs at one fuel and matches at
+  -- a larger one changes the branch, not the success; the continuation
+  -- is handed `none` (see `CheckerOps.orElse`)
+  orElse x k :=
+    ⟨fun F => match x.val F with
+      | .ok true => pure ()
+      | _ => (k none).val F, by
+      intro F F' v hle h
+      dsimp only at h ⊢
+      cases hx : x.val F with
+      | ok b =>
+        rw [hx] at h
+        rw [x.property hle hx]
+        cases b with
+        | true => exact h
+        | false => exact (k none).property hle h
+      | error e =>
+        rw [hx] at h
+        cases hx' : x.val F' with
+        | ok b =>
+          cases b with
+          | true => cases v; rfl
+          | false => exact (k none).property hle h
+        | error e' => exact (k none).property hle h⟩
+
+/-- `fueledOpsM`'s combinator at a fuel, by definition. -/
+@[simp] theorem fueledOpsM_orElse_atF (x : FueledM Bool)
+    (k : Option CheckError → FueledM Unit) (F : Nat) :
+    ((fueledOpsM mode).orElse x k).val F =
+      match x.val F with
+      | .ok true => pure ()
+      | _ => (k none).val F := rfl
+
+/-- `fueledOps`' combinator, by definition (restated here for the
+`atF` battery; `ConLeche/Verify/Extend/Inversions.lean` has the same
+statement for its consumers). -/
+theorem fueledOps_orElse' (F : Nat) (x : CheckM Bool)
+    (k : Option CheckError → CheckM Unit) :
+    (fueledOps mode F).orElse x k =
+      match x with | .ok true => pure () | _ => k none := rfl
 
 /-! ## The WF-conditional fueled comparand
 
@@ -157,6 +206,8 @@ noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
       ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
     else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
       fun _ h => h⟩
+  -- no precondition: the combinator runs no core body of its own
+  orElse x k := (fueledOpsM mode).orElse x k
 
 /-- Over a well-formed environment and a well-scoped argument `wfOpsM mode`
 *is* the fueled record. -/
@@ -189,6 +240,11 @@ theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
   dsimp only [wfOpsM, fueledOpsM]
   exact if_pos ⟨henv, hg⟩
+
+theorem wfOpsM_orElse (x : FueledM Bool)
+    (k : Option CheckError → FueledM Unit) :
+    (wfOpsM mode).orElse x k = (fueledOpsM mode).orElse x k := by
+  dsimp only [wfOpsM]
 
 /-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
 
@@ -864,12 +920,42 @@ theorem checkDivModCerts_datF (env : Env) (c : Name) (annVal : Expr)
       | false => rfl
     · rfl
 
+theorem checkDivModPinAt_datF (env : Env) (c : Name) (value' : Expr)
+    (ps : NatOpPinSet) (F : Nat) :
+    (checkDivModPinAt (fueledOpsM mode) env c value' ps).val F =
+      checkDivModPinAt (fueledOps mode F) env c value' ps := by
+  unfold checkDivModPinAt
+  repeat (first
+    | (rw [checkDivModCerts_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+
+theorem checkDivModPinLoop_datF (env : Env) (c : Name) (value' : Expr)
+    (F : Nat) :
+    ∀ (pss : List NatOpPinSet) (tried : List String),
+      (checkDivModPinLoop (fueledOpsM mode) env c value' pss tried).val F =
+        checkDivModPinLoop (fueledOps mode F) env c value' pss tried
+  | [], _ => rfl
+  | ps :: rest, tried => by
+    unfold checkDivModPinLoop
+    split
+    · rw [fueledOpsM_orElse_atF, fueledOps_orElse', checkDivModPinAt_datF]
+      cases checkDivModPinAt (fueledOps mode F) env c value' ps with
+      | ok b =>
+        cases b with
+        | true => rfl
+        | false => exact checkDivModPinLoop_datF env c value' F rest _
+      | error e => exact checkDivModPinLoop_datF env c value' F rest _
+    · exact checkDivModPinLoop_datF env c value' F rest _
+
 theorem checkDivModPin_datF (env env2 : Env) (c : Name) (F : Nat) :
     (checkDivModPin (fueledOpsM mode) env env2 c).val F =
       checkDivModPin (fueledOps mode F) env env2 c := by
   unfold checkDivModPin
   repeat (first
-    | (rw [checkDivModCerts_datF])
+    | (rw [checkDivModPinLoop_datF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
