@@ -1,7 +1,6 @@
 module
 public import Lean
 public meta import ConLeche.Kernel.Expr
-public meta import ConLeche.Kernel.NatOpPinSet
 
 /-!
 # The pin-dump interchange format (task #176)
@@ -621,8 +620,11 @@ def spliceDump (i : Nat) (d : PinDumpFile) : Elab.TermElabM Lean.Name := do
   let setName := (`ConLeche.natOpPinSet).appendAfter suffix
   let setDecl := Declaration.defnDecl {
     name := setName, levelParams := [],
-    type := .const ``ConLeche.NatOpPinSet [],
-    value := mkAppN (.const ``ConLeche.NatOpPinSet.mk [])
+    -- single-backtick names: the structure lives in
+    -- `ConLeche/Kernel/NatOpPinSet.lean`, which the SPLICING module
+    -- imports (`ConLeche/Kernel/NatOpPins.lean`), not this format module
+    type := .const `ConLeche.NatOpPinSet [],
+    value := mkAppN (.const `ConLeche.NatOpPinSet.mk [])
       (#[mkStrLit d.toolchain] ++ pins ++ proofs),
     hints := .abbrev, safety := .safe }
   addExposed setDecl
@@ -643,7 +645,7 @@ def loadPinsFromTexts (texts : Array String) : Elab.Command.CommandElabM Unit :=
     for i in [0:dumps.size] do
       let n ← spliceDump i dumps[i]!
       sets := sets ++ [.const n []]
-    let setT : Lean.Expr := .const ``ConLeche.NatOpPinSet []
+    let setT : Lean.Expr := .const `ConLeche.NatOpPinSet []
     let listDecl := Declaration.defnDecl {
       name := `ConLeche.natOpPinSets, levelParams := [],
       type := Lean.Expr.app (.const ``List [.zero]) setT,

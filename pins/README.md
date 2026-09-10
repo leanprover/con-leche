@@ -4,7 +4,8 @@ Committed **generated data**: one pin dump per supported Lean
 toolchain, and the built-in prelude of the repository's own toolchain:
 
     pins/leanprover-lean4-v4.33.0.json                        the repository toolchain's dump
-    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     a second toolchain's dump (a "pin variant")
+    pins/leanprover-lean4-v4.34.0-rc2.json                    further toolchains' dumps ("pin variants")
+    pins/leanprover-lean4-nightly-nightly-2026-09-10.json
     pins/leanprover-lean4-v4.33.0.prelude.ndjson              the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
@@ -91,8 +92,10 @@ others follow in the order they were added.
 So one binary — built on the repository toolchain — accepts the
 exports of every toolchain it carries a variant for (and of the
 toolchains in between whose definitions did not drift: the v4.33.0
-variant accepts v4.29.0 … v4.33.1 exports, the nightly variant the
-lean4-master ones since the `Decidable` rewrite of v4.34.0-rc2).
+variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
+`if_pos`/`dif_pos`/`Nat.div_eq` family the certificate blobs cite and
+needs its own; the nightly variant covers lean4 master since the
+`Decidable` rewrite).
 
 **The prelude is one file**, the repository toolchain's.  It holds
 only the pinned basis blocks and the `Bool`/`And` blocks, which have
