@@ -66735,3 +66735,126 @@ Docstrings, prose and line anchors only — no term, no statement and no
 import changed, so **the binary cannot change**.  `lake build` 541 jobs
 warning-free, `lake test` warning-free, `tests/overview-links.sh` 72
 links / 47 files OK, `tests/no-local-paths.sh` OK.
+
+## TASK #272 — THE ∀ TELESCOPE'S ZERO-NESS DATUM IS THREADED, NOT RECOMPUTED (2026-09-10, `agent/fanout-272`)
+
+GitHub issue #9: the check phase is quadratic in the number of
+constants one declaration references.  `tests/scale/gen.py fanout n` —
+`n` tiny `Prop` definitions plus `top : Prop := m_0 → … → m_{n-1} →
+m_0` — measured 4.3× per doubling of the check phase's wall time
+against the official kernel's linear growth (0.3 s / 1.3 s / 5.6 s at
+n = 10 000 / 20 000 / 40 000; parse and install flat).
+
+### The site
+
+Not the constant lookups: the ∀ TELESCOPE the fanout body happens to
+be.  `inferPisI` (`ConLeche/Cached/CoreC.lean`) peels the `n` binders,
+infers the leaf's sort once, and folds `imax` outward in
+`inferPisOutI`.  At every node that fold validated the binder's
+prop-ness annotation against the node's codomain sort — task #161's
+`(forall-cod)` check — by reading `zeronessOf v` out of a `Level`-keyed
+memo (`zeronessOfLGo`, the last computing piece of the retired
+`CStore`).
+
+The memo MISSED at every single node.  Its key is the accumulated
+level `v`, and the fold's next `v` is `.imax u v` — a level that has
+never been seen before, by construction.  So each of the `n` nodes ran
+`Level.zeronessOf` afresh, and `zeronessOf` walks an `imax` down its
+right spine (`| .imax _ b => zeronessOf b`), which at node `i` is `i`
+deep: `O(n²)` steps, plus `n` structural hashes and inserts of levels
+whose sizes sum to `O(n²)`.  On the n = 40 000 stream `perf record`
+put **90.3 % of the run in `Level.zeronessOf`**, and the arithmetic
+matches: n²/2 ≈ 8·10⁸ readout steps against 9.0·10⁹ retired
+instructions.
+
+The fix is the equation the file's own annotation loop already folds
+on (`annotateBindersOutI`'s docstring, task #161 P5): `zeronessOf
+(imax u v) = zeronessOf v`, definitionally.  Every node of a ∀
+telescope therefore shares its codomain sort's datum, so
+`inferPisOutI` now takes the datum instead of a memo, computes it ONCE
+in the leaf phase (`inferPisLeafI`) and threads it — the shape the λ
+loop (`inferLamsOutI`'s `prevPw`) has had all along.
+
+With no fold threading it, the memo is dead: the three remaining
+readouts (`inferLamsLeafI`, `annotPwPiI`, `annotPwLamI`) each called
+`zeronessOfLGo {}` once, i.e. allocated a hash map to miss in it.
+`PWMemo`/`zeronessOfLGo` (`Cached/StateC.lean`) and their
+correspondence battery `PWMemoInvC`/`PWMemoInvC.insert`/
+`zeronessOfLGo_spec` (`Verify/Cached/GuardsC.lean`) are deleted; the
+three sites read `Level.zeronessOf` directly, which is what the pure
+mirror reads, so their three four-line agreement obligations in
+`Verify/Cached/BinderLoopC.lean` became `rfl`.
+
+### The proof
+
+`inferPisOutC_sim` (`Verify/Cached/BinderLoopC.lean`) related the
+memoized fold to the mirror `inferPisOut` (`Verify/BinderLoop.lean`,
+which recomputes `Level.zeronessOf v` at every node and is unchanged)
+under `PWMemoInvC memo`.  Its new hypothesis is the threading
+invariant `pv = Level.zeronessOf v`; the leaf establishes it by `rfl`,
+and the step re-establishes it by `rfl` as well — `Level.zeronessOf
+(.imax u v)` IS `Level.zeronessOf v`.  With the invariant substituted,
+the cached and the mirror `if` conditions are syntactically the same
+term and the `zeronessOfLGo_spec` rewrite that used to bridge them is
+gone.  Net: the proof got shorter.
+
+### Numbers
+
+Retired instructions, `--verified --jobs=1`, whole run (parse +
+install + check; only the check phase differs):
+
+| n | before | after | ratio |
+|---|---|---|---|
+| 10 000 | 1.199 G | 0.833 G | 1.44× |
+| 20 000 | 3.085 G | 1.652 G | 1.87× |
+| 40 000 | 8.955 G | 3.289 G | 2.72× |
+| 80 000 | 29.158 G | 6.568 G | 4.44× |
+
+Per doubling: **2.57 / 2.90 / 3.26 before** (rising — quadratic),
+**1.98 / 1.99 / 2.00 after** (linear).  The check phase alone at
+n = 80 000 goes from 28.7 s to 0.2 s.  The growth is the same at
+`--jobs=2`, which is what the shape says it must be — one declaration
+is one worker's work — so this is not the sequential-lane locality
+finding (#269).
+
+`telescope`, the other shape that is one declaration with an n-binder
+∀ chain, was quadratic for the same reason and nobody had noticed: at
+n = 8000 it drops 419.8 M → 187.3 M instructions, from 1.42 to 1.04
+per doubling.
+
+`init-full`, `--verified --jobs=4`, one run each on the same machine:
+**541.13 G → 539.50 G, −0.30 %**, 53 088 declarations accepted in both
+(the win is the three hash-map allocations per telescope leaf and the
+level hashing the fold no longer does).
+
+### The gate that did not catch it
+
+`tests/scale.sh` HAS a `fanout` shape, and it passed on the buggy
+binary: its base n was 100, so the largest measured n was 800, where
+the quadratic (n²/2 ≈ 3·10⁵ readout steps) is still far under the
+per-declaration linear work.  A superlinear check of ONE declaration
+needs that declaration big, so `fanout`'s base n is now 1000 and
+`telescope`'s 500 (the two one-declaration telescope shapes; every
+other def shape keeps its base).  On the buggy binary those bases read
+1.06/1.11/1.19 and 1.11/1.19/1.32 — caught at the largest step, which
+is the step this harness gates — and 1.00 at every step after the fix.
+The added cost is about a second of measured time.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` OK (arena 90/92, e2e 185/185, annot 15/15, trusted
+sweep and both `--jobs` sweeps unchanged, layering / proofdeps /
+pindump / trust-surface / overview-links / no-local-paths / shake all
+OK), `tests/scale.sh` all shapes PASS except `lparams`.
+
+**`lparams` fails on master too** (1.89 against its 1.65 gate, exactly
+the same number from master's binary — measured, not inferred): a
+pre-existing drift of a documented known-superlinear shape, whose gate
+was calibrated at 1.49/8× on 2026-08-24.  A 38-sample profile at
+n = 1600 says where it went: `Level.allParamsDefined` (34.7 %,
+half of it `Name.hashData`), `Level.subst.go` (18.6 %),
+`Name.decEq` (18.2 %) and `Name.nodup` (12.5 %) — a level tree of size
+n against a parameter LIST of length n, i.e. the list-based
+level-parameter set, not this task's site.  Recalibrating or fixing it
+is a task of its own; nothing here touches it.
