@@ -1766,17 +1766,19 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
     (nm : Nat)
     (nF : Nat)
     (nP : Nat)
-    (ty : Nat) : ScanRes IndCtorRec :=
+    (ty : Nat)
+    (ci : Option Nat)
+    (ind : Option Nat) : ScanRes IndCtorRec :=
   if h : i < b.usize then
     let c := b.uget i (usizeInBounds b i h)
-    if isWs c then scanIndCtorLoop b (i + 1) wantMember seen isUns lps nm nF nP ty
+    if isWs c then scanIndCtorLoop b (i + 1) wantMember seen isUns lps nm nF nP ty ci ind
     else if c == 125 then
       if wantMember && seen != 0 then .err ⟨i.toNat, .expectedKey⟩
       else if (seen &&& 252) != 252 then .err ⟨i.toNat, .missingKey⟩
-      else .ok (⟨⟨nm, lps, ty⟩, isUns, nF, nP⟩) (i + 1)
+      else .ok (⟨⟨nm, lps, ty⟩, isUns, nF, nP, ci, ind⟩) (i + 1)
     else if c == 44 then
       if wantMember then .err ⟨i.toNat, .expectedKey⟩
-      else scanIndCtorLoop b (i + 1) true seen isUns lps nm nF nP ty
+      else scanIndCtorLoop b (i + 1) true seen isUns lps nm nF nP ty ci ind
     else if c == 34 then
       if !wantMember then .err ⟨i.toNat, .expectedComma⟩
       else
@@ -1793,6 +1795,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
               scanIndCtorLoop b e false (seen ||| 1) isUns lps nm nF nP ty
+                (some (readNatAt b v e)) ind
             else .err ⟨i.toNat, .noProgress⟩
         | .kInduct =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1800,7 +1803,8 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndCtorLoop b e false (seen ||| 2) isUns lps nm nF nP ty
+              scanIndCtorLoop b e false (seen ||| 2) isUns lps nm nF nP ty ci
+                (some (readNatAt b v e))
             else .err ⟨i.toNat, .noProgress⟩
         | .kIsUnsafe =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1809,7 +1813,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndCtorLoop b e false (seen ||| 4) x lps nm nF nP ty
+                scanIndCtorLoop b e false (seen ||| 4) x lps nm nF nP ty ci ind
               else .err ⟨i.toNat, .noProgress⟩
         | .kLevelParams =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1818,7 +1822,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndCtorLoop b e false (seen ||| 8) isUns x nm nF nP ty
+                scanIndCtorLoop b e false (seen ||| 8) isUns x nm nF nP ty ci ind
               else .err ⟨i.toNat, .noProgress⟩
         | .kName =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1826,7 +1830,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndCtorLoop b e false (seen ||| 16) isUns lps (readNatAt b v e) nF nP ty
+              scanIndCtorLoop b e false (seen ||| 16) isUns lps (readNatAt b v e) nF nP ty ci ind
             else .err ⟨i.toNat, .noProgress⟩
         | .kNumFields =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1834,7 +1838,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndCtorLoop b e false (seen ||| 32) isUns lps nm (readNatAt b v e) nP ty
+              scanIndCtorLoop b e false (seen ||| 32) isUns lps nm (readNatAt b v e) nP ty ci ind
             else .err ⟨i.toNat, .noProgress⟩
         | .kNumParams =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1842,7 +1846,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndCtorLoop b e false (seen ||| 64) isUns lps nm nF (readNatAt b v e) ty
+              scanIndCtorLoop b e false (seen ||| 64) isUns lps nm nF (readNatAt b v e) ty ci ind
             else .err ⟨i.toNat, .noProgress⟩
         | .kType =>
           if (seen &&& 128) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1850,7 +1854,7 @@ def scanIndCtorLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndCtorLoop b e false (seen ||| 128) isUns lps nm nF nP (readNatAt b v e)
+              scanIndCtorLoop b e false (seen ||| 128) isUns lps nm nF nP (readNatAt b v e) ci ind
             else .err ⟨i.toNat, .noProgress⟩
         | _ => .err ⟨i.toNat, .unknownKey⟩
     else .err ⟨i.toNat, .expectedComma⟩
@@ -1863,10 +1867,11 @@ decreasing_by
       | exact Nat.sub_lt_sub_left (usizeInBounds b i h) (USize.lt_iff_toNat_lt.mp _hj)
 
 /-- One member of an inductive record's `ctors`.  `cidx` and `induct`
-are the format's fields and are not read. -/
+are the format's REDUNDANT fields (task #271): read here, validated
+against the block's own records at `ConLeche/Frontend/ExportC.lean`. -/
 def scanIndCtor (b : @& ByteArray) (i : USize) : ScanRes IndCtorRec :=
   if byteAt b i == 123 then
-    scanIndCtorLoop b (i + 1) true 0 false [] 0 0 0 0
+    scanIndCtorLoop b (i + 1) true 0 false [] 0 0 0 0 none none
   else .err ⟨i.toNat, .expectedObject⟩
 
 def scanIndCtorListLoop (b : @& ByteArray) (i : USize) (acc : List IndCtorRec)

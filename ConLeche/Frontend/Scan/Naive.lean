@@ -518,10 +518,12 @@ def naiveIndType : List UInt8 → NRes IndTypeRec :=
 
 def naiveIndTypes : List UInt8 → NRes (List IndTypeRec) := naiveList (· == 123) naiveIndType
 
-/-- A constructor: `cidx` and `induct` validated and dropped. -/
+/-- A constructor.  `cidx` and `induct` are the format's redundant
+fields (task #271): read here, validated against the block's own
+records at `ConLeche/Frontend/ExportC.lean`. -/
 def indCtorFields : Key → Option (Slot IndCtorRec)
-  | .kCidx => some (.drop 1 naiveNat)
-  | .kInduct => some (.drop 2 naiveNat)
+  | .kCidx => some (.of 1 naiveNat fun n r => { r with cidx := some n })
+  | .kInduct => some (.of 2 naiveNat fun n r => { r with induct := some n })
   | .kIsUnsafe => some (.of 4 naiveBool fun b r => { r with isUnsafe := b })
   | .kLevelParams => some (.of 8 naiveNatList fun ls r => { r with cv.levelParams := ls })
   | .kName => some (.of 16 naiveNat fun n r => { r with cv.name := n })
@@ -531,7 +533,7 @@ def indCtorFields : Key → Option (Slot IndCtorRec)
   | _ => none
 
 def naiveIndCtor : List UInt8 → NRes IndCtorRec :=
-  naiveObject indCtorFields 252 ⟨⟨0, [], 0⟩, false, 0, 0⟩ id
+  naiveObject indCtorFields 252 ⟨⟨0, [], 0⟩, false, 0, 0, none, none⟩ id
 
 def naiveIndCtors : List UInt8 → NRes (List IndCtorRec) := naiveList (· == 123) naiveIndCtor
 

@@ -514,6 +514,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         IO.eprintln s!"con-leche: the built-in prelude is unsupported ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
+      | .error (.invalid what) =>
+        IO.eprintln s!"con-leche: the built-in prelude contradicts itself ({what}); \
+          regenerate it with `lake exe natop-pins-export` ({modeTag})"
+        return 3
     -- Streaming frontend (task #57, task #180): the parse reads the
     -- file line by line, so neither a wholesale text buffer nor a
     -- scratch file exists in this process.
@@ -529,6 +533,13 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.unsupported what) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
+    -- TASK #271 (issues #5 and #7): a stream whose inductive block
+    -- contradicts its own declarations in a REDUNDANT field is
+    -- rejected at the parse, as official's replay rejects a recursor
+    -- or constructor record that is not the generated one.
+    | .error (.invalid what) =>
+      IO.eprintln s!"con-leche: invalid: {what} ({modeTag})"
+      return 1
     | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3

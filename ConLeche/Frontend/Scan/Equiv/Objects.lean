@@ -1385,11 +1385,12 @@ theorem naiveIndCtor_rest_suffix (l : List UInt8) : (naiveIndCtor l).rest <:+ l 
   exact naiveObject_rest_suffix _ _ indCtorFields_read_suffix _ _ l
 
 theorem scanIndCtorLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen : UInt32)
-    (isUns : Bool) (lps : List Nat) (nm nF nP ty : Nat) :
-    scanIndCtorLoop b i wantMember seen isUns lps nm nF nP ty =
-      liftRes b i ((naiveObjLoop indCtorFields 252 (tailAt b i) wantMember seen ⟨⟨nm, lps, ty⟩, isUns, nF, nP⟩).map
+    (isUns : Bool) (lps : List Nat) (nm nF nP ty : Nat) (ci ind : Option Nat) :
+    scanIndCtorLoop b i wantMember seen isUns lps nm nF nP ty ci ind =
+      liftRes b i ((naiveObjLoop indCtorFields 252 (tailAt b i) wantMember seen
+          ⟨⟨nm, lps, ty⟩, isUns, nF, nP, ci, ind⟩).map
         (id)) := by
-  fun_induction scanIndCtorLoop b i wantMember seen isUns lps nm nF nP ty
+  fun_induction scanIndCtorLoop b i wantMember seen isUns lps nm nF nP ty ci ind
   obj_head indCtorFields_read_suffix
   obj_num indCtorFields_read_suffix case10 case11 case12 case13
   obj_num indCtorFields_read_suffix case14 case15 case16 case17
@@ -1406,7 +1407,8 @@ theorem scanIndCtorLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen
 theorem scanIndCtor_eq (b : ByteArray) (i : USize) :
     scanIndCtor b i = liftRes b i (naiveIndCtor (tailAt b i)) := by
   unfold scanIndCtor naiveIndCtor
-  exact objWrap indCtorFields_read_suffix (scanIndCtorLoop_eq b (i + 1) true 0 false [] 0 0 0 0)
+  exact objWrap indCtorFields_read_suffix
+    (scanIndCtorLoop_eq b (i + 1) true 0 false [] 0 0 0 0 none none)
 
 theorem naiveIndCtors_rest_suffix (l : List UInt8) : (naiveIndCtors l).rest <:+ l := by
   exact naiveList_rest_suffix _ _ naiveIndCtor_rest_suffix l
