@@ -20,11 +20,11 @@ Three properties, each a design constraint rather than an observation:
   and the valuation alone.
 * **Term-directed, and the regime is read off the annotation.**  The
   binder cases dispatch on the binder's codomain-sort *numeral*
-  (`Interp/Ops.lean`), never on the semantic value.  That inspection —
+  (`SetModel/Ops.lean`), never on the semantic value.  That inspection —
   "is this value everywhere the proof point over its domain?" — *is*
   the domain-relative collapse (task #100), and it is what this layer
-  removes.  Its cost was the countermodel recorded in
-  `docs/SetR-DESIGN.md`: empty-domain abstractions collapse at every
+  removes.  Its cost was a countermodel: under the collapse
+  empty-domain abstractions collapse at every
   level, so `⟦fun (x : ∀ p : Prop, p) => Prop⟧ = pt` and guarded beta
   produces `app pt univZero = pt ≠ univZero`.  Here
   `⟦fun (x : A) => e⟧` with a `Type`-sorted body is a graph over `⟦A⟧`

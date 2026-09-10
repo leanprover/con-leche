@@ -66670,3 +66670,68 @@ section, and `snapshot` never overwrites it.
 `tests/overview-links.sh` 72 links / 47 files OK (PERF.md is not
 line-anchored from OVERVIEW).  Docs, data and two scripts only: no
 `.lean` under `ConLeche/` changed.
+
+## Task #270 — `docs/` REMOVED AS OBSOLETE; ITS FINDINGS NOW LIVE IN THE DOCSTRINGS THAT USE THEM (2026-09-10, `agent/docsrm-270`)
+
+`docs/` is deleted.  It held four literature surveys from 2026-09-01,
+the retrospective of the parked sort-coherence campaign, that
+campaign's summary, and `SetR-DESIGN.md` (988 KB) — the design ledger
+of the collapsed-model `SetR` tier, which was itself deleted on
+2026-09-05.  All of it is history; this file is the project's ledger,
+and the removed files are in git history at the commit before this one.
+
+The `docs/` mentions in the task records ABOVE are left alone: the
+ledger records what was true when each task ran.
+
+Twelve docstrings cited `docs/SetR-DESIGN.md` for findings that shaped
+the current design.  Each now **states** the finding it relies on
+instead of pointing at a file:
+
+* `Kernel/Core.lean` — the λ codomain `ensureSort` says what no
+  metatheorem supplies: validity for `Infer` ("every inferred type has
+  a sort") is refuted at the application clause, and nothing else in
+  the checker computes a λ's codomain sort.
+* `Semantics/Interp.lean` — the collapse's countermodel (empty-domain
+  abstractions collapse at every level) is stated as such.
+* `Semantics/Kit.lean`, `Semantics/Syntax.lean` (×2),
+  `Semantics/Univ.lean` (×2), `SetModel/Ops.lean` (×2) — the
+  universe-cohabitation wall: `pt ∈ˢ piC A (fun _ => univ 0)` holds
+  exactly at an unknown-empty domain, which is why no *typing*
+  separates a proposition's inhabitant from the proof point under the
+  collapse, and why the two-regime operators remove the wall.  The
+  purely historical "had to dodge" citation lost its parenthetical.
+* `Semantics/Skeleton.lean`, `Semantics/WellDenoted.lean` — the
+  assembly architecture and the two `WellDenoted` upgrades, stated
+  without the record they were written in.
+* `Verify/Extend/Iota.lean` — the eta head obligation is a threaded
+  *invariant*, not an obligation forwarded to the caller: the dead
+  cases die on facts that hold at every install.
+
+`git grep -n "docs/" -- ':!DESIGN.md'` is empty.  `README.md` never
+mentioned `docs/`.
+
+Five more citations of the same class — a docstring pointing at a file
+that does not exist — went with them: `Interp/Ops.lean` (three sites,
+in `Model/Steps/Stuck.lean`, `Semantics/Interp.lean` and
+`Semantics/WellDenoted.lean`) is `SetModel/Ops.lean`, where `lamR_eta`,
+`app_mem_piR` and `app_lamR_pos` actually live; `Interp/Pilot.lean`
+(two sites in `Semantics/WellDenoted.lean`) is gone, and its
+`graded_beta_pos` with it — the value-level kernel `WellDenoted_beta_pos`
+really rewrites with is `app_lamR_pos`, and the second site's "in
+`Pilot.lean`'s style" said nothing the sentence needs.  Written in the
+repo-relative style so no line moves.
+
+**Not fixed, and a task's worth of work**: citations of whole deleted
+trees — `ConLeche/SetR/*` (e.g. `SetR/Annot/Kinding.lean`, cited by
+`Semantics/WellDenoted.lean`'s `appSlot_of_pi`), `ConLeche/TTVerify/*`,
+`ConLeche/SetBase/*` and `ConLeche/Term/Semantics/*`.  A census wants a
+resolver that knows the two citation styles (full path and
+`ConLeche/`-relative) before it can tell a stale pointer from a
+relative one.
+
+### Gates
+
+Docstrings, prose and line anchors only — no term, no statement and no
+import changed, so **the binary cannot change**.  `lake build` 541 jobs
+warning-free, `lake test` warning-free, `tests/overview-links.sh` 72
+links / 47 files OK, `tests/no-local-paths.sh` OK.
