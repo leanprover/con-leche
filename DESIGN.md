@@ -67259,12 +67259,26 @@ every toolchain, on every run.
 No file needed forking.  On v4.34.0-rc2 and nightly-2026-09-10 the
 shared sources build with 37 deprecation warnings each
 (`if_pos`/`dif_neg`/`if_false` renamed upstream) and no errors, and the
-dumps are byte-identical anyway.  The
-fork mechanism is documented in both `pinners/README.md` and each
-pinner's lakefile — a `lean_lib` with `srcDir = "."` listed BEFORE the
-shared one, the forked file under its module path, and its reason at
-its top — but nothing uses it, so it is designed and not exercised.
-That is the honest status.
+dumps are byte-identical anyway.
+
+**The fork mechanism was measured rather than assumed, and the obvious
+form of it does not work.**  Lake resolves a module through the first
+library whose ROOTS COVER it, and a `lean_lib` with `srcDir = "."`
+listed BEFORE the shared library does NOT shadow it: a probe pinner
+with a deliberately corrupted `ConLeche/Kernel/Name.lean` in its own
+directory built clean — the shared copy won and the fork was dead code.
+What does work is narrowing the coverage: replace the shared library's
+`roots = ["ConLeche"]` with the explicit cone minus the forked module,
+and give the fork's own library that module as its root.  The same
+probe then failed on the corrupted file, which is the proof.  Both
+`pinners/README.md` and every pinner lakefile carry that recipe, in
+three steps and with the trap named.
+
+That is also why the shared library's root is the whole `ConLeche`
+hierarchy while no fork exists: a glob root means a module the cone
+grows into resolves without editing three lakefiles, and `lake build`
+in a pinner builds only the executable, so the root is never built as a
+library.
 
 ### The generator's toolchain string
 

@@ -58,16 +58,25 @@ term representation, none of the checking.
 Those eight modules must therefore be written in the subset every
 supported toolchain accepts.  That is not a hope: it is what the cold
 build in `tests/pindump.sh` and in CI checks, on every toolchain, every
-time.  A cold pinner build is about 20 jobs and ten seconds.
+time.  A cold pinner build is eighteen jobs and a few seconds.
 
-**If a toolchain cannot share a file**, fork it: put the fixed copy in
-that pinner's own directory under its module path (say
-`ConLeche/PinGen/Certs.lean`), add a `lean_lib` for it with
-`srcDir = "."` BEFORE the shared library in that pinner's lakefile, and
-say at the top of the forked file why it is forked and what it differs
-from.  No fork exists today — the nightly builds the shared sources
-with deprecation warnings only, and produces a byte-identical dump; so
-does v4.34.0-rc2.
+**If a toolchain cannot share a file**, fork it — but note how, because
+the obvious way silently does nothing.  Lake resolves a module through
+the first library whose ROOTS COVER it, and putting a `srcDir = "."`
+library FIRST does not shadow a later library that also covers the
+module: the shared copy still wins and the fork is dead code (measured,
+task #275).  A fork is therefore a narrowing:
+
+1. replace the shared library's `roots = ["ConLeche"]` with the
+   explicit cone above, minus the module being forked;
+2. add a `lean_lib` with `srcDir = "."` whose root is that module;
+3. put the fixed copy in the pinner's own directory under its module
+   path (say `ConLeche/PinGen/Certs.lean`), and say at its top why it
+   is forked and how it differs.
+
+No fork exists today — v4.34.0-rc2 and the nightly build the shared
+sources with deprecation warnings only, and produce byte-identical
+dumps.
 
 ## Adding or dropping a toolchain
 

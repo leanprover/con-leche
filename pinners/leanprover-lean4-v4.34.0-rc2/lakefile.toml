@@ -26,16 +26,25 @@
 # that claim is not a hope, it is what this project's cold build
 # checks, on every toolchain, in `tests/pindump.sh` and in CI.
 #
-# IF A TOOLCHAIN CANNOT SHARE A FILE, fork it: drop the fixed copy in
-# THIS directory under its module path (say
-# `ConLeche/PinGen/Certs.lean`), put a `lean_lib` for it with
-# `srcDir = "."` BEFORE the shared library below, and say at the top of
-# the forked file why it is forked.  No fork exists today.
+# IF A TOOLCHAIN CANNOT SHARE A FILE, fork it — but note HOW, because
+# the obvious way silently does nothing (measured, task #275).  Lake
+# resolves a module through the first library whose ROOTS COVER it, and
+# listing a `srcDir = "."` library first does NOT shadow a covering
+# library that comes later: the shared copy still wins and the fork is
+# dead code.  So a fork means narrowing the coverage:
 #
-# `lake build` here builds the executable and nothing else — the
-# shared library's root is the whole `ConLeche` hierarchy (so that any
-# module the cone grows into resolves without editing this file), which
-# is not something a pinner should ever build.
+#   1. replace `roots = ["ConLeche"]` below with the explicit cone —
+#      the six `ConLeche.*` modules listed above — MINUS the module
+#      being forked;
+#   2. add a `lean_lib` with `srcDir = "."` whose root IS that module;
+#   3. put the fixed copy in THIS directory under its module path (say
+#      `ConLeche/PinGen/Certs.lean`) and say at its top why it is
+#      forked and how it differs.
+#
+# No fork exists today, which is why the root stays the whole
+# `ConLeche` hierarchy: any module the cone grows into then resolves
+# without editing this file.  `lake build` here builds the executable
+# and nothing else, so that root is never built as a library.
 name = "pinner"
 defaultTargets = ["natop-pins-export"]
 
