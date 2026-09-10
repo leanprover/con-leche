@@ -19,7 +19,7 @@ dependency cone WITH THAT TOOLCHAIN'S exporter (the bundled
 built at the matching tag) and checks the result with the con-leche
 binary in this tree.  One summary line on stdout, the checker's exit
 code passed through.  `.github/workflows/natop-matrix.yml` runs it
-over every release since v4.28.0 plus the newest rc and nightly; the
+over every release since v4.29.0 plus the newest rc and nightly; the
 script is the whole of the per-toolchain logic, so a red matrix job
 reproduces with one command here.
 

@@ -52,8 +52,9 @@
 #   2. Otherwise github.com/leanprover/lean4export, built HERE against
 #      the target toolchain.  That repo tags a release per Lean release
 #      (`v4.33.0`, `v4.29.1`, ...), so the ref is the exact tag when it
-#      exists; a Lean patch release with no tag of its own (v4.28.1,
-#      v4.32.1, v4.33.1 as of this writing) falls back to the newest
+#      exists; a Lean patch release with no tag of its own (v4.32.1 and
+#      v4.33.1 in the matrix, v4.28.1 below its floor, as of this
+#      writing) falls back to the newest
 #      tag that is not newer than the target, and the clone's
 #      `lean-toolchain` is overwritten with the target either way — the
 #      exporter must link against the toolchain whose environment it

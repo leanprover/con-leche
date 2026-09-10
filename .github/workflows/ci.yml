@@ -57,7 +57,7 @@
 #     which is what a bundled con-leche is handed — is never exercised.
 #     That is `.github/workflows/natop-matrix.yml`'s job: it exports the
 #     pinned `Nat` operations and the compiler-trust opaque values with
-#     every Lean release since v4.28.0, the newest release candidate and
+#     every Lean release since v4.29.0, the newest release candidate and
 #     the newest nightly, and checks the results with one binary built
 #     from `lean-toolchain`.  Weekly, on dispatch, and on pushes that
 #     touch the pins or `scripts/natop-matrix.sh`.
