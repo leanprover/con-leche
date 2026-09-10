@@ -67173,10 +67173,391 @@ the table above — including the two failure shapes the script must get
 right (the `Nat.gcd` decline and the silently truncated nightly
 export).
 
+## TASK #273 — PIN VARIANTS: one binary carries every supported toolchain's Nat-op pins (2026-09-10, `agent/natop-273`)
+
+**The report** (Sebastian Ullrich, bundling con-leche with Lean
+releases): *"con-leche pinned at v4.33.0 declines almost immediately
+on this toolchain's [lean4 master] exports — `leanexport Init` dies at
+fold position 222: unsupported Nat.div/mod spelling (Nat.mod: pin
+ground constants absent)."*  And on `nightly-2026-09-06` the
+generator itself aborts: *"pin generation for Nat.mod failed:
+certificate residual outside the op's dependency cone: Decidable.rec
+(NO VALUE (inductive-kind?))"*.  Both reproduced verbatim on
+`nightly-2026-09-10` (the newest nightly on the day; it ships
+`leanexport` in its `bin/`, lean4export 3.1.0 format, githash
+587587f2): master's v4.33.0-built binary declines the nightly's
+`Init.Prelude` export at fold position 219, and `lake exe
+natop-pins-export` on the nightly aborts on `Decidable.rec`.  The
+user's ruling on the shape of the fix: *"time to become multi-prelude
+capable.  we already prepared that, so we need to dump the current
+pin, embed all of them and use the first that works.  goes well with
+the new CI job."*
+
+### 1. What changed upstream, and why the pin stopped describing it
+
+lean4 master (already v4.34.0-rc2, per the #274 matrix) rewrote
+`Decidable` from a two-constructor inductive into a STRUCTURE —
+`class Decidable (p : Prop) where intro :: decide : Bool;
+reflects_decide : decide.Reflects p` — with `Decidable.isTrue` /
+`isFalse` now `@[match_pattern] abbrev`s, `Decidable.falseTrueCases`
+an abbrev eliminator, and `dite c t e := h.decide.casesOn e t
+h.reflects_decide`.  `Nat.mod`'s source is unchanged.  Three
+consequences, in the order they bite:
+
+1. **The generator's cone rule had a hole.**  `coneOf`
+   (`ConLeche/PinGen.lean`) collected only the constants *referenced*
+   by types and values on its walk; its docstring claimed that
+   "recursor and constructor names resolve through their stored
+   inductive block", but nothing inserted them.  Up to v4.33
+   `Decidable.rec` entered `Nat.mod`'s cone only because
+   `Decidable.casesOn`'s value (reached through `ite`) mentions it;
+   on master `ite`/`dite` go through `h.decide.casesOn` and
+   `Decidable.rec` is no longer referenced — while the certificate
+   proofs still case-split on `Decidable` (`dcongr`, the `match
+   Nat.decLe …` arms), so the closed proof blobs contain
+   `Decidable.rec` and the generator rejected it as a residual outside
+   the cone.  FIX: an inductive in the cone brings every type of its
+   block (`iv.all`), their constructors and their recursors (`.rec`,
+   `.rec_k` for nested) into the cone, because the stream declares the
+   whole block in one record.  The v4.33.0 dump regenerated with the
+   fixed generator is **byte-identical** (`diff -q` clean) — the rule
+   change adds members that were always reachable there.  The
+   certificate proofs (`ConLeche/PinGen/Certs.lean`) elaborate on the
+   nightly unchanged; the nightly dump is 42 184 lines against
+   v4.33.0's 40 378, and its built-in prelude sidecar is
+   byte-identical to v4.33.0's below the meta line, so ONE embedded
+   prelude serves both.
+
+2. **The first guard to fire was not the real mismatch.**  The
+   "ground constants absent" decline names `Decidable.casesOn` /
+   `isTrue` / `isFalse`, which the nightly's DFS-ordered export does
+   not declare before `Nat.mod` (on master `Nat.decLe` no longer
+   reaches them).  Had they been present — a linear, source-order
+   export — the v4.33 pin would have MATCHED: the pins mention `ite`,
+   `dite`, `Nat.decLe`, `Nat.decLt` BY NAME (they are not helpers, so
+   the helper unfolding keeps them), and the nightly's `Nat.mod` value
+   has the same `ite` spelling, so the definitional comparison
+   succeeds syntactically — and then the v4.33 certificate blobs,
+   which apply `Decidable.rec` with two minors where master's has
+   one, are ill-typed against that stream: `annotate`/`inferType`
+   THROWS, and until this task a thrown error inside the gate was a
+   hard fold error on a valid stream.  Latent because nobody had fed a
+   linear-order export before: every export that reached the gate was
+   DFS-ordered (lean4export walks `env.constants` in hash order) and
+   failed the ground guard first.  The reverse direction (the nightly
+   variant on a v4.33 stream) is the same failure.
+
+3. **`Lean.reduceBool` / `Lean.reduceNat` / `Lean.trustCompiler` and
+   the `ofReduce*` axioms are gone from `Init`** on the nightly (not in
+   the source tree, not in the export) — the second drift, found
+   because the nightly checker build died at `#gen_trust_pins`
+   ("Lean.reduceNat is absent from the compiling environment").
+
+### 2. The design: pin variants, and "first that works" means guards ∧ defeq ∧ certificates
+
+`pins/` holds one dump per supported toolchain and
+`ConLeche/Kernel/NatOpPins.lean` embeds ALL of them, one
+`#load_natop_pins` argument per dump, in the order the gate tries
+them (the repository toolchain first).  The loader
+(`ConLeche/PinGen/Dump.lean`) splices each dump as a **pin variant**
+`natOpPinSet_v<i> : NatOpPinSet` (`ConLeche/Kernel/NatOpPinSet.lean`:
+the toolchain string, eight pins, eight proof lists) and lists them in
+`natOpPinSets`; it no longer insists that a dump was generated by the
+running Lean — that is the point — and `tests/pindump.sh` is what
+insists that the CURRENT toolchain's dump exists and is fresh (it
+regenerated and diffed that one only, and checked embed ↔ commit
+correspondence for the rest; **task #275 below reproduces ALL of them**,
+one Lake project per variant).  The gate (`checkDivModPin`,
+`ConLeche/Kernel/Checker.lean`) is now a loop: per variant, the
+syntactic guards (pin and certificate ground constants resolve), then
+the ATTEMPT `checkDivModPinAt` — the pin annotated and compared by
+definitional equality, and on a match the variant's certificates
+checked (`checkDivModCerts`, unchanged) — and the first attempt that
+returns `true` enables the fast path; a guard failure, a `false`, OR
+AN ERROR moves on to the next variant; no variant left is a decline
+(exit 2) whose message names, per variant, what it failed on.  The
+`.internal` "certificate failed after pin match" (exit 3) is gone
+from this gate by necessity: §1.2 shows the pin comparison cannot
+tell toolchains apart, so a certificate failure after a match is "not
+this variant", and the pre-existing hard error on a valid stream goes
+with it.  Rider from the orchestrator, honoured: the recovery is
+scoped to the attempt — the ordinary definition check before the gate
+and the `.internal` "operation not stored" path keep their semantics.
+
+**The one place the checker recovers from an error, and why it is
+fuel-monotone.**  The checker had no try/catch, and a naive one is not
+monotone in fuel: an attempt caught as "false" at fuel F can be "true"
+at F′, which would break `FueledM`/`wfOpsM` (every operation there is
+a family whose `.ok` results persist under more fuel).  The shape that
+IS monotone is a new `CheckerOps` field
+
+    orElse : m Bool → (Option CheckError → m Unit) → m Unit
+
+"run the attempt; on `true` the whole is `pure ()`; on `false` or on
+an error the continuation runs" — monotone because the result is
+`Unit`: an attempt that errs at F and matches at F′ changes which
+branch ran, not whether the whole succeeded.  The continuation is told
+the outcome (`none` after `false`, `some e` after an error) FOR
+DIAGNOSTIC TEXT ONLY — the reason list the decline message carries.  A
+fuel-indexed family cannot carry an outcome that differs between
+fuels, so the pure instantiations (`fueledOps`, `fueledOpsGated`,
+`fueledOpsM`, `wfOpsM`) hand the continuation `none` regardless, and
+the executable's `sharedOpsC` delivers it (after an error the
+cached state is the PRE-attempt one — the memo entries the failed
+attempt wrote are discarded with it, `StateT`'s own semantics).  What
+this costs the proofs: the loop's success must not depend on the
+accumulated reasons, which is true by construction (they only enter
+the final `throw`), and the bridge lemmas quantify over both lanes'
+accumulators independently.  Messages are not part of any verdict
+claim; the exit code is the error's constructor, `.notImplemented` on
+both lanes.  Measured cost when the first variant matches: the loop
+runs exactly the old gate's work (guards, one annotate, one defeq,
+the certificates) — init-full is unchanged within noise (§4).
+
+### 3. The proof-tier changes (one Fable session, as assessed)
+
+* `ConLeche/Verify/DivModInv.lean`: `checkDivModPinAt_inv`,
+  `checkDivModPinLoop_inv` (list induction), `checkDivModPin_inv` now
+  yields `∃ ps ∈ natOpPinSets, guards ∧ (∃ pinA, annotate ∧ defeq) ∧
+  certificates` — the matched variant.
+* `ConLeche/Semantics/DeclRun.lean` `DivModPinRun` and
+  `Semantics/Bridge/DeclRun.lean` `divModPinRun_of`: the same `∃ ps`.
+* `ConLeche/Model/DivModCert.lean` `divMod_install`: takes `hcerts`
+  for the matched variant; the `CertRuns` destructuring generalises
+  the proof list away (`generalize divModCertProofs ps cq = prs`) and
+  reads only the STATEMENT list's shape — `dmClause1`/`dmClause2`
+  always took the proof term opaquely, so nothing below moved.
+  `Model/Harvest.lean` destructures the new run.
+* `ConLeche/Verify/BridgeDecl.lean`: `OpsRel`/`pairOps` get the
+  combinator clause; `fueledOpsM.orElse` with its monotonicity proof;
+  `wfOpsM.orElse := fueledOpsM.orElse` (no precondition — it runs no
+  core body of its own); `fueledOpsM_orElse_atF`, `wfOpsM_orElse`; the
+  `atF` battery gains `checkDivModPinAt_datF`,
+  `checkDivModPinLoop_datF`, and `checkDivModPin_datF` stays an
+  EQUALITY at every fuel (both lanes ignore the outcome, so they
+  accumulate the same reasons).
+* `ConLeche/Verify/BridgeWfImp.lean`: `checkDivModPinAt_wfimp` (the
+  old body), `checkDivModPinLoop_wfimp`, `checkDivModPin_wfimp`.
+* `ConLeche/Verify/Cached/BridgeCS1.lean`: **`SimC.orElse`** — cached
+  attempt `ok true` ⇒ reproduced by the fueled attempt; `ok false` ⇒
+  the continuation on the attempt's (well-formed) state, at the max of
+  the two fuels by monotonicity; error ⇒ the continuation on the
+  pre-attempt state, and the fueled side's own attempt at that fuel
+  either matched (`pure ()`) or falls to its continuation — then
+  `checkDivModPinAtS_sim`, `checkDivModPinLoopS_sim` (over any two
+  accumulators), `checkDivModPinS_sim`.
+* `ConLeche/Verify/CheckerF.lean`: the F-twins' equalities per
+  function (`checkDivModPinLoopF_eq` by list induction);
+  `ConLeche/Kernel/DeclCheck.lean` carries the twins.
+
+No statement of the main theorem changed; `checkDecls` is the same
+fold over the same `checkDecl` with a different gate body.
+
+### 4. Gates and measurements
+
+All on the repository toolchain (v4.33.0), worktree at master 5b83410a
+merged in (`#274` and `#272` landed meanwhile; master's Core.lean moved,
+so the gates ran on the merged tree):
+
+* `lake build` and `lake test` warning-free (543 + 464 jobs);
+* `tests/arena.sh` (no `ulimit` around it) green end to end: arena
+  90/92, e2e 195/195, annot 15/15, the mode/progress/pool/DAG sweeps as
+  expected, `pindump` fresh for v4.33.0 with 3 dumps embedded,
+  `proofdeps` 3 377 rows / 0 doors after the regeneration below,
+  `overview-links` 72 links OK after `--update`, `shake` 460 removals
+  all allowlisted after two genuine removals (below);
+* **`tests/proofdeps.sh`**: `ConLeche.Kernel.NatOpPinSet` ENTERED every
+  capstone's proof-term closure — a door by the gate's definition, and
+  justified: the checker's gate reads the variant record, so the
+  capstones reach the structure's module exactly as they reach
+  `ConLeche.Kernel.NatOpPins` (checker data, no theorems).
+  Expectation regenerated (`tests/proofdeps.sh --list`).  The same
+  gate fired once more when the trust pins became builder-written
+  constants (below): `ConLeche.Kernel.Basis.Builder` entered the
+  closure through `reduceBoolDeclPin`'s value (`lm`/`cnst`/`bn` are
+  definitions there) — until then the builder's output reached the
+  capstones only through the `#annotate_basis` splice; justified the
+  same way (constructor-wrapping definitions, checker data) and
+  regenerated.
+* **`tests/shake.sh`** proposed two new removals; both were real and
+  are removed rather than allowlisted: `ConLeche/PinGen/Dump.lean`'s
+  `public meta import ConLeche.Kernel.NatOpPinSet` (the loader names the
+  structure with single backticks; the SPLICING module
+  `ConLeche/Kernel/NatOpPins.lean` is what imports it) and
+  `ConLeche/Kernel/CheckerBase.lean`'s `import ConLeche.Kernel.Env`
+  (reached through `TypeChecker`'s public chain).
+* **`tests/overview-links.sh`**: the cited pin-module header
+  (`NatOpPins.lean#L1-L16`) changed; the citing OVERVIEW paragraph
+  ("compares the stream's definition by definitional equality against a
+  *pinned* copy of the toolchain's own definition … The pins are
+  committed per toolchain under `pins/`") still describes the
+  mechanism — with variants it is "against the pinned copies of the
+  supported toolchains' definitions, the first that works"; the prose
+  is the human-facing document's and was left for its owner —
+  anchors updated.
+* **init-full, verified, `--jobs=4`, `perf stat -e instructions:u`**,
+  master's binary (built at 5b83410a) against this branch's, same
+  stream, verdicts identical (accepted 53 088):
+
+  | binary | instructions |
+  |---|---|
+  | master (one pin) | 539 570 629 557 |
+  | branch, 2 variants (374b4e71) | 539 561 356 170 (−0.002 %) |
+  | branch, 3 variants (598f4a98) | 539 599 429 126 (+0.005 %) |
+
+  The loop costs nothing when the first variant matches — as
+  predicted: it runs the old gate's work and nothing else.
+
+### 5. The cross-toolchain matrix
+
+Two binaries, every export in verified mode under `ulimit -v
+16000000`, `timeout`, `--jobs=4`.
+
+**(a) The v4.33.0-built branch binary (3 variants) on master's
+`scripts/natop-matrix.sh` (task #274: the pinned constants' dependency
+cone exported by the toolchain-matching exporter; floor v4.29.0 by
+user ruling — v4.28.x spells `WellFounded.Nat.fix._proof_2` as
+`WellFounded.Nat.fix.go._proof_2`, no cover):**
+
+| toolchain | exporter | records | verdict | first failing record |
+|---|---|---|---|---|
+| v4.29.0 | lean4export@v4.29.0 | 325 | accept | – |
+| v4.29.1 | lean4export@v4.29.1 | 325 | accept | – |
+| v4.30.0 | lean4export@v4.30.0 | 353 | accept | – |
+| v4.31.0 | lean4export@v4.31.0 | 353 | accept | – |
+| v4.32.0 | lean4export@v4.32.0 | 353 | accept | – |
+| v4.32.1 | lean4export@v4.32.0 | 353 | accept | – |
+| v4.33.0 | lean4export@v4.33.0 | 353 | accept | – |
+| v4.33.1 | lean4export@v4.33.0 | 353 | accept | – |
+| v4.34.0-rc2 | lean4export@v4.34.0-rc2 | 353 | accept | – (declined at `Nat.land @332` with 2 variants, see below) |
+| nightly-2026-09-10 | leanexport (bundled) | 357 | accept(incomplete) | the script's flag: `Lean.reduceBool`/`reduceNat` absent from Init (§1.3); the checker accepted every record |
+
+Master's binary before this task (the #274 run): v4.29.0 … v4.33.1
+accept, rc2 DECLINES at `Nat.land`, the nightly at `Nat.mod`.
+
+**Why rc2 needed its own variant — a THIRD spelling.**  rc2 does not
+yet have the `Decidable` rewrite; it has the lemma renames
+(`if_pos`/`if_neg`/`dif_pos`/`dif_neg` deprecated for
+`ite_eq_left/right`/`dite_eq_left/right`, `Nat.div_eq` → `Nat.div_eq_ite`).
+The v4.33.0 certificate blobs cite `Nat.div_eq`, `if_pos`, `if_neg`
+as cone residuals (they are theorems in `Nat.land`'s cone on v4.33,
+kept rather than inlined by the task-#113 rule), and rc2's DFS cone
+export declares none of them (the deprecated aliases exist but
+nothing in the cone references them) — the guard fails; the nightly
+variant's blobs cite `Decidable.intro`/`Bool.Reflects`/
+`Decidable.falseTrueCases`, which rc2 does not have — the guard
+fails.  The decline message is the diagnosis:
+
+    unsupported Nat.div/mod spelling (Nat.land: no pin variant matched —
+    leanprover/lean4:v4.33.0: pin or certificate ground constants absent;
+    leanprover/lean4-nightly:nightly-2026-09-10: pin or certificate ground
+    constants absent) [at def Nat.land, fold position 332]
+
+and `scripts/diagnose_natop_prefix.py` names the constants per
+variant.  The rc2 dump differs from v4.33.0's in exactly the three
+name entries `div_eq` → `div_eq_ite` (40 378 lines both).  Note the
+asymmetry with the MODULE export: the nightly-built binary with two
+variants accepted rc2's `Init.Prelude` (1 819 declarations) because
+a module export declares the deprecated aliases and the v4.33.0
+variant then matches.
+
+**(b) The nightly-built binary (`lake build con-leche` in a scratch
+tree at `leanprover/lean4-nightly:nightly-2026-09-10`, the same
+sources, all variants embedded, the prelude include re-pointed at the
+nightly's byte-identical sidecar) on module exports made with that
+toolchain's bundled `leanexport` and with lean4export at the
+toolchain-matching revisions (`ca36c44`/`caccfbe`/`15f6055`/`483e011`
+for v4.28.0/v4.29.0/v4.33.0/v4.34.0-rc2; exporter stderr clean of
+"not found"):**
+
+| export | verdict |
+|---|---|
+| nightly `Init.Prelude` (3.8 MB) | accept, 1 835 declarations |
+| nightly `Init` (345 MB) | accept, 57 875 declarations |
+| v4.34.0-rc2 `Init.Prelude` | accept, 1 819 |
+| v4.33.0 `Init.Prelude` | accept, 1 810 |
+| v4.29.0 `Init.Prelude` | accept, 1 773 |
+
+So the bundling case works both ways: a binary built on the release
+accepts the release's own exports, and it still accepts older
+toolchains' exports through the older variants.
+
+**Provenance of the committed dumps (for the `pinners/<toolchain>/`
+follow-up).**  Each dump was produced by `lake exe natop-pins-export`
+in a scratch copy of this tree with `lean-toolchain` set to the
+toolchain named in the file, this task's generator (the cone-rule fix
+of §1.1 and the trust-pin fallback of §6), and NO other source change:
+
+| dump | toolchain string | generator build | Certs.lean |
+|---|---|---|---|
+| `leanprover-lean4-v4.33.0.json` | `leanprover/lean4:v4.33.0` | warning-free | unchanged; byte-identical to the pre-task dump |
+| `leanprover-lean4-v4.34.0-rc2.json` | `leanprover/lean4:v4.34.0-rc2` | 37 deprecation warnings (`dif_pos`/`dif_neg`/`if_pos`/`if_neg` → `dite_eq_left/right`, `ite_eq_left/right`) | unchanged; a fork for rc2 would rename those (cosmetic — the deprecated aliases are what the blobs then cite) |
+| `leanprover-lean4-nightly-nightly-2026-09-10.json` | `leanprover/lean4-nightly:nightly-2026-09-10` | warning-free | unchanged (the old lemma names resolve there without a deprecation warning) |
+
+The prelude sidecars the three runs wrote are byte-identical below
+their meta lines; the committed one is v4.33.0's.  The only file the
+scratch builds touched beyond `lean-toolchain` was
+`ConLeche/Frontend/Prelude.lean`'s `include_str`, re-pointed at the
+toolchain's own sidecar to satisfy `tests/pindump.sh`'s naming
+check — not needed for the dumps.  So the follow-up's fork list is
+EMPTY today: `PinGen.lean`, `Dump.lean`, `Prelude.lean`, `Certs.lean`
+are shared verbatim across the three toolchains.
+
+### 6. What else the nightly exposed, and what stays open
+
+* **The trust pins are hand-written constants now** (§1.3, and the
+  user's addition before READY: *"the binary's behaviour must not
+  depend on the toolchain that compiled it … the host toolchain of
+  the binary is irrelevant for our purposes; if not, there is a
+  design flaw"*).  `#gen_trust_pins` read `Lean.reduceBool` /
+  `Lean.reduceNat` out of the COMPILING toolchain's `Init` at
+  elaboration time — the last such dependency once the Nat-op pins
+  became committed files — and the first fix here (an identity
+  fallback when the opaques are absent) papered over the nightly's
+  absence but kept the dependency.  Now `ConLeche/Kernel/TrustPins.lean`
+  writes the two pins down: `fun (b : Bool) => b`, `fun (n : Nat) => n`
+  — exactly the value every toolchain that had the opaques produced
+  after the conversion zeta-expanded `have := trustCompiler` (probed
+  on v4.33.0's spliced constants: `Expr.lam (const Bool) (bvar 0)`),
+  through the same `ConLeche/Kernel/Basis/Builder.lean` builder
+  `TrustAxioms.lean` writes the axiom shapes with, and with no read of
+  any environment; `#gen_trust_pins`, its `elab`, and
+  `ConLeche/Kernel/TrustPins.lean`'s `meta import ConLeche.PinGen` are
+  DELETED (so `ConLeche.PinGen`'s object code no longer links into the
+  binary at all).  No generator-side assertion replaces them (a first
+  version had one; the user dropped it): should a toolchain respell
+  the opaques, the install-time defeq declines its streams and the
+  matrix workflow shows it, which is enough.  A stream from an older
+  toolchain that declares
+  the opaques installs against the constant and the hand-pinned
+  `ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`; a
+  nightly stream never declares them.  Consequence for §5(b): the
+  "nightly-built binary" runs are a plain build check now — the
+  sources compile on the nightly, and by construction the binary's
+  behaviour is the v4.33.0-built one's; the v4.33.0-built matrix is the
+  evidence.
+* **Certificate proofs**: `ConLeche/PinGen/Certs.lean` elaborates
+  unchanged on the nightly (the `dcongr` `cases inst` finds the
+  structure's `casesOn`; `if_pos`/`dif_pos` still exist there).  #274
+  reports rc2 renaming `if_pos/if_neg` → `ite_eq_left/right`; the old
+  names resolve on rc2 (with deprecation warnings) and on the nightly
+  (without), so no rewrite was needed for either dump.
+* **`scripts/DumpNatOpPinConsts.lean`** was stale against today's
+  `Expr` constructors (a 4-argument `.lam` pattern); fixed, and it
+  and `scripts/diagnose_natop_prefix.py` now report PER VARIANT
+  (section headers `== <toolchain> <op> <kind>`).
+* **v4.28.x**: the floor of the matrix is v4.29.0 by user ruling (the
+  4.28 cones spell `WellFounded.Nat.fix._proof_2` as
+  `WellFounded.Nat.fix.go._proof_2`; no cover).
+* The `orderResidual`/`preludeNames` fields of a dump are
+  informational (the frontend's hoist reads `natOpDeps`, not the
+  dump); a second variant's prelude index is not consulted.
+
 ## TASK #275 — PIN GENERATION IS REPRODUCIBLE FROM THE REPOSITORY: one Lake project per committed dump (2026-09-10, `agent/pinners-275`)
 
-Task #273 landed a second pin variant, `pins/leanprover-lean4-nightly-
-nightly-2026-09-10.json`, and `pins/README.md` had to say of it that it
+Task #273 above landed two further pin variants
+(`leanprover-lean4-v4.34.0-rc2`, `leanprover-lean4-nightly-nightly-
+2026-09-10`), and `pins/README.md` had to say of them that they
 "cannot be regenerated here": a dump is computed by the generator
 running ON its toolchain, and the tree has one `lean-toolchain`.  The
 recipe was "set `lean-toolchain` to the new toolchain in a scratch
@@ -67358,7 +67739,7 @@ keeps running the default gate, where the foreign toolchains are SKIPs.
 ### Gates
 
 `lake build` and `lake test` warning-free at the repository root;
-`tests/pindump.sh` green (2 pinners reproduced, 0 skipped), and its
+`tests/pindump.sh` green (3 pinners reproduced, 0 skipped), and its
 SKIP and `PINDUMP_INSTALL=1` branches exercised by hand with the
 installed-toolchain list forced empty; `tests/arena.sh` green;
 `tests/no-local-paths.sh` OK (the pinners' `srcDir`s are relative);

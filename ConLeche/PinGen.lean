@@ -62,11 +62,11 @@ The stream-prefix allowlists are extracted by
 
 Layering: this module depends on `Lean`, and since #176 the checker
 does not import it at all (`ConLeche/Kernel/NatOpPins.lean` reaches only
-`ConLeche/PinGen/Dump.lean`, the format module).  Its remaining in-tree
-consumers are the generator executable, `ConLeche/Kernel/TrustPins.lean`
-(`#gen_trust_pins`, which reads only the toolchain's `Init` and so
-needs no build ordering) and `ConLeche/Kernel/ZeroSetPin.lean`.  No
-checker runtime code may call into `Lean.*` APIs.
+`ConLeche/PinGen/Dump.lean`, the format module).  Its only in-tree
+consumer is the generator executable (`ConLeche/Kernel/TrustPins.lean`
+stopped importing it at task #273: its pins are hand-written
+constants, and `#gen_trust_pins` is gone).  No checker runtime code
+may call into `Lean.*` APIs.
 -/
 
 public meta section
@@ -487,14 +487,14 @@ it dumps")
 
 /-- Parse the stream-prefix allowlists.  Deliberately a *function* (of
 the JSON text), not a closed `def`: a 0-ary definition is evaluated in
-the module initializer, and this module's object code is still linked
-into the `con-leche` executable — through the `meta import` in
-`ConLeche/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
-so a closed parse of the 1.96 MB embed would cost ~0.26 G instructions
-at every process start.  As a function it runs only when the generator
-asks, at export time.  (Closed subterms extracted from function bodies
-are lazy `once`-cells in the emitted code, so no eager work
-remains.) -/
+the module initializer, and this module's object code WAS linked into
+the `con-leche` executable until task #273 (through the `meta import`
+in `ConLeche/Kernel/TrustPins.lean`), where a closed parse of the
+1.96 MB embed would have cost ~0.26 G instructions at every process
+start; the discipline stays.  As a function it runs only when the
+generator asks, at export time.  (Closed subterms extracted from
+function bodies are lazy `once`-cells in the emitted code, so no eager
+work remains.) -/
 def loadPrefixes (json : String) : Except String (Std.HashMap String (List String)) := do
   let j ← Json.parse json
   let o ← j.getObj?
@@ -609,67 +609,5 @@ def opDumpsOf (results : Array (OpSpec × ConLeche.Expr × List ConLeche.Expr)) 
     pin := blobOf pin
     proofs := (proofs.map blobOf).toArray }
 
-
-/-! ## Compiler-trust pins (task #95)
-
-The pinned defining expressions of the toolchain's `Lean.reduceNat` /
-`Lean.reduceBool` opaques (identity functions modulo the
-`have := trustCompiler` wrapper, which the conversion's zeta-expansion
-removes).  Compared by definitional equality at install
-(`checkReducePin`); the model never inspects these blobs. -/
-
-/-- `(toolchain opaque, generated pin name)`. -/
-def trustOpSpecs : List (Lean.Name × Lean.Name) :=
-  [(`Lean.reduceNat, `ConLeche.reduceNatDeclPin),
-   (`Lean.reduceBool, `ConLeche.reduceBoolDeclPin)]
-
-/-- Read one reduce operation's opaque value from the compiling
-environment and convert it. -/
-def computeTrustOp (op : Lean.Name) : MetaM ConLeche.Expr := do
-  let env ← getEnv
-  let some ci := env.find? op |
-    -- lean4 master (2026-09, first seen on v4.34.0-rc2's successor
-    -- nightlies) has no `Lean.reduceBool`/`Lean.reduceNat` at all.  The
-    -- pin has been the identity on every toolchain that had them (the
-    -- `have := trustCompiler` is zeta-expanded by the conversion), so a
-    -- toolchain without them gets exactly that pin: a stream from an
-    -- older toolchain that declares them still installs, against the
-    -- hand-pinned `ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`
-    -- (task #273).
-    let elemTy : ConLeche.Name :=
-      if op == `Lean.reduceNat then .str .anonymous "Nat" else .str .anonymous "Bool"
-    return .lam (.const elemTy []) (.bvar 0) ⟨.never⟩
-  let some v := ci.value? (allowOpaque := true) |
-    throwError "{op} has no value in the compiling environment"
-  checkConsts s!"trust pin {op}"
-    (fun c => c == `Nat || c == `Bool || c == `True ||
-      c == `Lean.trustCompiler) v
-  match toConLeche v with
-  | .ok e => return e
-  | .error m => throwError "trust pin conversion ({op}): {m}"
-
-/-- Generate the compiler-trust pins (see `ConLeche/Kernel/TrustPins.lean`). -/
-elab "#gen_trust_pins" : command => do
-  let genEnv ← importModules (loadExts := false) (level := .private)
-    #[{module := `Init}] {} 0
-  let mut results : List (Lean.Name × ConLeche.Expr) := []
-  let opts ← getOptions
-  for (op, pinName) in trustOpSpecs do
-    let (r, _, _) ←
-      try
-        (computeTrustOp op).toIO
-          { fileName := "<gen_trust_pins>", fileMap := default,
-            options := opts, maxRecDepth := 1000000, maxHeartbeats := 0 }
-          { env := genEnv }
-      catch e =>
-        throwError "trust pin generation for {op} failed: {e.toMessageData}"
-    results := results ++ [(pinName, r)]
-  Elab.Command.liftTermElabM do
-    for (pinName, pinS) in results do
-      let pinDecl := Declaration.defnDecl {
-        name := pinName, levelParams := [], type := exprT,
-        value := buildExprValue pinS, hints := .abbrev, safety := .safe }
-      addDecl pinDecl
-      compileDecl pinDecl
 
 end ConLeche.PinGen
