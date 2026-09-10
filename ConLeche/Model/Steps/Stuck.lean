@@ -39,7 +39,7 @@ same reason `IrrelP.lean`'s proof irrelevance was:
   from (`acval_const_congr` on the nose vs. `ihd` at the head), so
   both are one call to the same `spine_congr`.
 
-* **T3 (η).**  `lamR_eta` (`Interp/Ops.lean`) is *regime-uniform*: at
+* **T3 (η).**  `lamR_eta` (`SetModel/Ops.lean`) is *regime-uniform*: at
   bit `0` both sides collapse to `pt`, above it both are graphs, and
   the single statement covers both.  So the η discharge needs **no
   case split on the bit** — the v1 lane's two-branch argument

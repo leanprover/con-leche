@@ -66710,8 +66710,28 @@ instead of pointing at a file:
 `git grep -n "docs/" -- ':!DESIGN.md'` is empty.  `README.md` never
 mentioned `docs/`.
 
+Five more citations of the same class — a docstring pointing at a file
+that does not exist — went with them: `Interp/Ops.lean` (three sites,
+in `Model/Steps/Stuck.lean`, `Semantics/Interp.lean` and
+`Semantics/WellDenoted.lean`) is `SetModel/Ops.lean`, where `lamR_eta`,
+`app_mem_piR` and `app_lamR_pos` actually live; `Interp/Pilot.lean`
+(two sites in `Semantics/WellDenoted.lean`) is gone, and its
+`graded_beta_pos` with it — the value-level kernel `WellDenoted_beta_pos`
+really rewrites with is `app_lamR_pos`, and the second site's "in
+`Pilot.lean`'s style" said nothing the sentence needs.  Written in the
+repo-relative style so no line moves.
+
+**Not fixed, and a task's worth of work**: citations of whole deleted
+trees — `ConLeche/SetR/*` (e.g. `SetR/Annot/Kinding.lean`, cited by
+`Semantics/WellDenoted.lean`'s `appSlot_of_pi`), `ConLeche/TTVerify/*`,
+`ConLeche/SetBase/*` and `ConLeche/Term/Semantics/*`.  A census wants a
+resolver that knows the two citation styles (full path and
+`ConLeche/`-relative) before it can tell a stale pointer from a
+relative one.
+
 ### Gates
 
-Docstrings only — no term, no statement and no import changed, so **the
-binary cannot change**.  `lake build` warning-free, `lake test`
-warning-free, `tests/overview-links.sh`, `tests/no-local-paths.sh`.
+Docstrings, prose and line anchors only — no term, no statement and no
+import changed, so **the binary cannot change**.  `lake build` 541 jobs
+warning-free, `lake test` warning-free, `tests/overview-links.sh` 72
+links / 47 files OK, `tests/no-local-paths.sh` OK.

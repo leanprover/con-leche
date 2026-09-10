@@ -20,7 +20,7 @@ Three properties, each a design constraint rather than an observation:
   and the valuation alone.
 * **Term-directed, and the regime is read off the annotation.**  The
   binder cases dispatch on the binder's codomain-sort *numeral*
-  (`Interp/Ops.lean`), never on the semantic value.  That inspection —
+  (`SetModel/Ops.lean`), never on the semantic value.  That inspection —
   "is this value everywhere the proof point over its domain?" — *is*
   the domain-relative collapse (task #100), and it is what this layer
   removes.  Its cost was a countermodel: under the collapse

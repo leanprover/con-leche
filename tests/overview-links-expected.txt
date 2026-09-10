@@ -398,8 +398,8 @@
    330  The clause's kind-`0` fibre component (added at the consumer seal —
    331  see the module docstring) is not a wish: it is exactly what an
    332  *annotated* `Π` hands over at the application site.  Stated at the
-   333  value level in `Interp/Pilot.lean`'s style, so the supplier is a
-   334  theorem before the clause that consumes it is relied on. -/
+   333  value level, so the supplier is a theorem before the clause that
+   334  consumes it is relied on. -/
    335  
    336  /-- **The app slot, established from the function type's own
    337  annotation.**  Given the function in an annotated `Π`'s

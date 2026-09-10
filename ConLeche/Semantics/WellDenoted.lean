@@ -36,7 +36,7 @@ rewrites).
 
 The app slot first landed **without** its kind-`0` fibre component,
 while the λ clause carried the identically-shaped one.  The asymmetry
-was a gap, not a saving: `app_mem_piR` (`Interp/Ops.lean`) needs
+was a gap, not a saving: `app_mem_piR` (`SetModel/Ops.lean`) needs
 exactly `v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero` to conclude
 `app ⟦f⟧ ⟦a⟧ ∈ˢ B ⟦a⟧`, the slot's `B` is existentially bound so no
 handle on it survives extraction, and the truth-value route does not
@@ -274,8 +274,8 @@ theorem WellDenoted_inst0 {e a : AnnotTerm} {ρ : Nat → V}
 `RedS2`'s β case in both conjuncts, at a provably-positive codomain
 kind: the interp-equality *and* the truthfulness transport, from the
 subject's `WellDenoted` alone — no argument re-check.  This is the
-family-2 removal's core theorem; `Interp/Pilot.lean`'s
-`graded_beta_pos` is its value-level kernel.  At kind `0` the domain
+family-2 removal's core theorem; `app_lamR_pos`
+(`SetModel/Ops.lean`) is its value-level kernel.  At kind `0` the domain
 membership is not recoverable (impredicativity — the #49/#73 residue),
 which is why the runtime gate is a kind test, not a deletion. -/
 theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
@@ -330,8 +330,8 @@ theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
 The clause's kind-`0` fibre component (added at the consumer seal —
 see the module docstring) is not a wish: it is exactly what an
 *annotated* `Π` hands over at the application site.  Stated at the
-value level in `Interp/Pilot.lean`'s style, so the supplier is a
-theorem before the clause that consumes it is relied on. -/
+value level, so the supplier is a theorem before the clause that
+consumes it is relied on. -/
 
 /-- **The app slot, established from the function type's own
 annotation.**  Given the function in an annotated `Π`'s
