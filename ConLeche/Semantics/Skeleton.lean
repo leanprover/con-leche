@@ -27,8 +27,7 @@ a finding, not a hypothesis to invent.
 
 ## What a case is
 
-The assembly architecture (`docs/SetR-DESIGN.md`, "the second
-soundness — architecture") rules out re-signing the 44-case mutual
+The assembly architecture rules out re-signing the 44-case mutual
 induction: the soundness is **per-step graded lemmas on `AnnotTerm`**,
 composed along the bridge claims, with annotations following the run
 rather than crossing a bare `Red`.  So each case here takes the

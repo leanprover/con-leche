@@ -11,8 +11,8 @@ public import ConLeche.Term.Subst
 its binders: `pi A B` and `lam A b` are the bare formers, and the
 interpretation reads them through the *collapsed* operators `piC`/`lamC`
 (`ConLeche/Term/Semantics/Interp.lean`), which is what makes the
-universe-cohabitation wall of the T5 c5 record (`docs/SetR-DESIGN.md`)
-unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)` holds, so no *typing* can
+universe-cohabitation wall unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)`
+holds whenever the domain cannot be shown empty-free, so no *typing* can
 separate a proposition's inhabitant from the proof point.
 
 `AnnotTerm` is the same syntax with the binder formers carrying **ground
@@ -24,8 +24,7 @@ numeral sorts**:
 | `lam A b` | `lam u A b` | the domain's sort `u` |
 | everything else | the same node | none |
 
-**Design rulings this file implements** (task #151's own; recorded in
-`docs/SetR-DESIGN.md`'s tier-A section):
+**Design rulings this file implements** (task #151's own):
 
 * **Ground numerals, not `Level`s.**  `Term` already evaluates every
   level expression at its use site (`ConLeche/Term/Syntax.lean`'s "universe

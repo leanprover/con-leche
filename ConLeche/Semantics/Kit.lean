@@ -279,7 +279,7 @@ theorem interp_beta_zero (ρ : Nat → V) (A b a : AnnotTerm) {B : V → V}
 Unconditional in the domain and in the fibres — in particular at
 universe-valued codomains, where the collapse's
 `pt ∈ˢ piC A (fun _ => univ 0)` was the wall that the eta-law
-derivation had to dodge (`docs/SetR-DESIGN.md`, T5 c5). -/
+derivation had to dodge. -/
 theorem interp_not_pt_mem_pi_pos {v : Nat} (hv : v ≠ 0) {u : Nat}
     {ρ : Nat → V} {A B : AnnotTerm} :
     ¬ (pt : V) ∈ˢ interp V ρ (.pi u v A B) :=

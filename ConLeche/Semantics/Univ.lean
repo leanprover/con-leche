@@ -46,8 +46,8 @@ could *be* `pt`; here `lamR_ne_pt` says it never is, and
 `not_pt_mem_piR_pos` says the proof point inhabits no graph-regime
 product at all.  Both `ConLeche/SetTheory/Core.lean`'s transitivity
 clause and the ω-chain stay exactly as they are; this layer imposes no
-new demand on them.  Recorded as a **negative finding** in
-`docs/SetR-DESIGN.md`, tier B.
+new demand on them.  This is a **negative finding**: the contingency is
+closed, not deferred.
 
 Two further facts fall out and are proved below:
 
@@ -60,8 +60,7 @@ Two further facts fall out and are proved below:
   case** (`pt_mem_piC_univZero_iff`): `pt ∈ˢ piC A (fun _ => univ 0)`
   holds **iff** `A = ∅` — the proof point is not in `univ 0` at all
   (`pt_not_mem_univZero`).  So the wall the eta-law derivation dodged
-  (`docs/SetR-DESIGN.md`, T5 c5) is precisely the unknown-empty
-  domain, and it is gone here: `piR v ∅ B = {∅}`, which does not
+  is precisely the unknown-empty domain, and it is gone here: `piR v ∅ B = {∅}`, which does not
   contain `pt`.
 -/
 

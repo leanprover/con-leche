@@ -159,17 +159,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2862-L2871
-  2862        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2863        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2864        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2865        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2866        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2867    | fuel + 1 =>
-  2868      wrap
-  2869        { whnfCore := fun d e =>
-  2870            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2871          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2863-L2872
+  2863        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2864        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2865        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2866        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2867        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2868    | fuel + 1 =>
+  2869      wrap
+  2870        { whnfCore := fun d e =>
+  2871            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2872          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -204,8 +204,8 @@
 == ConLeche/Kernel/Core.lean#L2028
   2028  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2750
-  2750        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+== ConLeche/Kernel/Core.lean#L2751
+  2751        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -291,34 +291,34 @@
    204    | snd (e : Term)
    205    /-- the canonical (irrelevant) proof of a derivable equation -/
 
-== ConLeche/Semantics/Syntax.lean#L73-L99
-    73    | const (c : BConst) (us : List Nat)
-    74    /-- application -/
-    75    | app (f a : AnnotTerm)
-    76    /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
-    77    the codomain numeral `interp` dispatches on (tier B's F4; the
-    78    #152 resolution made it derivable, and `Annotates.lam` caches it) -/
-    79    | lam (u : Nat) (ty body : AnnotTerm)
-    80    /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
-    81    | pi (u v : Nat) (ty body : AnnotTerm)
-    82    /-- `@Eq _ lhs rhs`; no annotation, and no type slot either, as in
-    83    `Term` (task #237) -/
-    84    | eqE (lhs rhs : AnnotTerm)
-    85    /-- first field of a pair -/
-    86    | fst (e : AnnotTerm)
-    87    /-- second field of a pair -/
-    88    | snd (e : AnnotTerm)
-    89    /-- the canonical (irrelevant) proof of a derivable equation -/
-    90    | prf
-    91    deriving Repr, Inhabited
-    92  
-    93  namespace AnnotTerm
-    94  
-    95  /-- Forget the annotations. -/
-    96  def erase : AnnotTerm → Term
-    97    | .bvar i => .bvar i
-    98    | .sort u => .sort u
-    99    | .const c us => .const c us
+== ConLeche/Semantics/Syntax.lean#L72-L98
+    72    | const (c : BConst) (us : List Nat)
+    73    /-- application -/
+    74    | app (f a : AnnotTerm)
+    75    /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
+    76    the codomain numeral `interp` dispatches on (tier B's F4; the
+    77    #152 resolution made it derivable, and `Annotates.lam` caches it) -/
+    78    | lam (u : Nat) (ty body : AnnotTerm)
+    79    /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
+    80    | pi (u v : Nat) (ty body : AnnotTerm)
+    81    /-- `@Eq _ lhs rhs`; no annotation, and no type slot either, as in
+    82    `Term` (task #237) -/
+    83    | eqE (lhs rhs : AnnotTerm)
+    84    /-- first field of a pair -/
+    85    | fst (e : AnnotTerm)
+    86    /-- second field of a pair -/
+    87    | snd (e : AnnotTerm)
+    88    /-- the canonical (irrelevant) proof of a derivable equation -/
+    89    | prf
+    90    deriving Repr, Inhabited
+    91  
+    92  namespace AnnotTerm
+    93  
+    94  /-- Forget the annotations. -/
+    95  def erase : AnnotTerm → Term
+    96    | .bvar i => .bvar i
+    97    | .sort u => .sort u
+    98    | .const c us => .const c us
 
 == ConLeche/Semantics/Interp.lean#L153-L164
    153    | _, .const c us => bval V c us

@@ -9,8 +9,8 @@ import ConLeche.SetTheory.Derive.Sigma
 
 The second soundness's invariant — `AnnotOkV`'s clause-for-clause
 transpose onto the annotated syntax and the two-regime interpretation,
-with the two upgrades the removal campaign stands on (the architecture
-record in `docs/SetR-DESIGN.md`, validated by `Interp/Pilot.lean`):
+with the two upgrades the removal campaign stands on — each an interface
+change a consumer forced, not a convenience:
 
 * **the application slot carries the product kind** —
   `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A ∧ (v = 0 → fibres are truth

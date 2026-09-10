@@ -2103,10 +2103,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- restoring the I6/I7 symmetry task #100 stage 6 broke): the
         -- ∀ clause's own `ensureSort` move, on the body's inferred
         -- type.  It is what the set lane's annotation pass needs —
-        -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies
-        -- (`docs/SetR-DESIGN.md` findings A3, B5, A5: validity for
-        -- `Infer` is refuted at the application clause, so the fact
-        -- has to be computed).  The reference kernel's `infer_lambda`
+        -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies:
+        -- validity for `Infer` ("every inferred type has a sort") is
+        -- refuted at the application clause, and nothing else in the
+        -- checker computes a λ's codomain sort, so the fact has to be
+        -- computed here.  The reference kernel's `infer_lambda`
         -- does not run it, so `.trusted` — the trusted lane —
         -- does not either.
         --
