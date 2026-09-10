@@ -36,11 +36,15 @@
 # longer EXISTS under that name.  Both exporters answer an unknown name
 # with `panic! "Constant X not found in environment."` and still exit 0,
 # so the stream simply comes back short and the checker never sees the
-# record.  The script reads those names off the exporter's stderr; a run
-# that is otherwise an accept becomes `accept(incomplete)` and fails.
-# (Measured 2026-09-10: `Lean.reduceBool` and `Lean.reduceNat` — the
-# whole compiler-trust escape hatch — are gone from `Init` on lean4
-# master.)
+# record.  The script reads those names off the exporter's stderr.  A
+# missing NAT OPERATION makes an otherwise accepting run
+# `accept(incomplete)` and fails it: that pin was never exercised.  A
+# missing TRUST PIN (`Lean.reduceBool` / `Lean.reduceNat`) is only
+# reported: the compiler-trust family was removed from `Init` upstream
+# (lean4 master, 2026-09), the checker pins those opaques to the
+# identity only when a stream declares them, and a stream without them
+# is complete — so the run stays an accept, with the absence noted in
+# the summary's last column.
 #
 # THE EXPORTER.  Two sources, in this order:
 #
@@ -294,12 +298,25 @@ echo "natop-matrix: $(wc -l < "$STREAM") stream lines in $STREAM" >&2
 # from `Init` on lean4 master.)  The names are read off the exporter's
 # stderr — the message is the same in lean4export and in the bundled
 # leanexport.
-MISSING="$(sed -n 's/.*Constant \([^ ]*\) not found in environment.*/\1/p' \
-             "$STREAM.err" | sort -u | tr '\n' ' ' | sed 's/ $//')"
+MISSING_ALL="$(sed -n 's/.*Constant \([^ ]*\) not found in environment.*/\1/p' \
+             "$STREAM.err" | sort -u)"
+# Split the absent names: a Nat operation is a real hole in the run, a
+# trust pin is an upstream removal the checker tolerates (see the header).
+MISSING=""; MISSING_TRUST=""
+for name in $MISSING_ALL; do
+  is_trust=0
+  for t in "${TRUST_PINS[@]}"; do [ "$name" = "$t" ] && is_trust=1; done
+  if [ "$is_trust" = 1 ]; then MISSING_TRUST="$MISSING_TRUST $name"
+  else MISSING="$MISSING $name"; fi
+done
+MISSING="${MISSING# }"; MISSING_TRUST="${MISSING_TRUST# }"
 if [ -n "$MISSING" ]; then
-  echo "natop-matrix: PINNED CONSTANTS ABSENT FROM Init: $MISSING" >&2
+  echo "natop-matrix: PINNED NAT OPERATIONS ABSENT FROM Init: $MISSING" >&2
 fi
-if [ -s "$STREAM.err" ] && [ -z "$MISSING" ]; then
+if [ -n "$MISSING_TRUST" ]; then
+  echo "natop-matrix: trust pins absent from Init (removed upstream, tolerated): $MISSING_TRUST" >&2
+fi
+if [ -s "$STREAM.err" ] && [ -z "$MISSING_ALL" ]; then
   echo "natop-matrix: the exporter wrote to stderr:" >&2
   head -5 "$STREAM.err" | sed 's/^/    /' >&2
 fi
@@ -344,11 +361,16 @@ if [ "$rc" = 0 ]; then
 fi
 
 # An accept over a stream the exporter could not complete is not an
-# accept of the pins: the absent constants were never checked.
+# accept of the pins: an absent Nat operation was never checked.  Absent
+# trust pins are noted but change neither the verdict nor the exit code.
 if [ -n "$MISSING" ]; then
   if [ "$rc" = 0 ]; then VERDICT="accept(incomplete)"; rc=1; fi
   if [ "$FAILREC" = "-" ]; then FAILREC="absent from Init: $MISSING"
   else FAILREC="$FAILREC; absent from Init: $MISSING"; fi
+fi
+if [ -n "$MISSING_TRUST" ]; then
+  note="trust pins absent from Init (tolerated): $MISSING_TRUST"
+  if [ "$FAILREC" = "-" ]; then FAILREC="$note"; else FAILREC="$FAILREC; $note"; fi
 fi
 
 emit_summary
