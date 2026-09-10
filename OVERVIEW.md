@@ -21,12 +21,12 @@ That is every flag the binary takes. `--verified` is the default and
 the mode the theorem is about; `--trusted` runs the same checker bodies
 with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below); `--no-mark-persistent` turns off the pool's one-shot mark of
-the installed environment (below), which changes no verdict and is
-there to measure what the mark is worth;
+(below); `--no-mark-persistent` turns off the check phase's one-shot
+mark of the installed environment (below), which changes no verdict and
+is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L753)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L791)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -57,15 +57,21 @@ in one thread, and the check phase checks every recorded declaration
 against the prefix of the installed environment it was installed at
 (see §2). The flag `--jobs=<n>` runs the check phase on `n` worker
 threads; without it there is one worker per hardware thread, and
-`--jobs=1` checks in the main thread with no thread at all. Each
-worker thread reserves about 1 GiB of address space (its stack
+`--jobs=1` runs one worker with no shared counter and no result table.
+The check phase always runs on worker threads, never on the main
+thread: its per-record memo state is allocated out of the running
+thread's heap, and the main thread's heap is the one the parse and the
+install have just fragmented, which at Mathlib scale costs the
+single-worker lane a factor of two in wall time at the same
+instruction count. Each worker thread reserves about 1 GiB of address space (its stack
 reservation; the resident set grows by about 25 MB per worker), so a
 run under an address-space limit (`ulimit -v`) must lower the count
-to what the limit affords — about ten workers under 16 GB. From two
-workers up, the installed environment is marked persistent once at
+to what the limit affords — about ten workers under 16 GB. At every
+worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
-workers would otherwise pay on it and is worth 18–32 % of wall time,
-growing with the worker count; `--no-mark-persistent` turns that off
+workers would otherwise pay on it and is worth 18–32 % of wall time on
+the pool, growing with the worker count, and 3.5 % at one worker;
+`--no-mark-persistent` turns that off
 and is how the difference is measured. The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
@@ -147,13 +153,14 @@ Read from the outside in:
    fresh memo state. A record's check is its own evidence
    ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L337-L338)):
    the fact that the record is checked, or its error tagged with its
-   fold position. At `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L186))
-   runs it on every record in this thread and carries every fact;
-   otherwise the installed environment — read-only from the boundary
-   on — is marked persistent once, so that the workers pay no atomic
-   reference counting on it, and a pool of worker threads
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L301))
+   fold position. The installed environment — read-only from the
+   boundary on — is marked persistent once, so that no check pays
+   reference counting on it, and the checks are then run on worker
+   threads: at `--jobs=1` the check loop
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L192))
+   runs it on every record on one such thread and carries every fact;
+   otherwise a pool of them
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L307))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
@@ -165,7 +172,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat and the route trace are
    printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L338-L342))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L345-L349))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).

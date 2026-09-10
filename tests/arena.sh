@@ -596,7 +596,8 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
 # <n> threads (one worker per hardware thread without the flag;
-# --jobs=1 in the main thread with no thread at all); the results are
+# --jobs=1 one worker, with no shared counter and no result table);
+# the results are
 # merged by record index and walked in fold order, so the verdict and
 # the declaration a rejection names are the same at every <n>.  The
 # contract checked here: the verdict and the named declaration agree
@@ -606,7 +607,8 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # first, and at more workers than records); a bad count is a usage
 # error.  The full arena and e2e suites re-run at --jobs=1 and
 # --jobs=4 in the sweeps at the end.  Each worker thread reserves
-# about 1 GiB of ADDRESS SPACE, so every checker run under a
+# about 1 GiB of ADDRESS SPACE — including the single worker the
+# check phase always runs on — so every checker run under a
 # `ulimit -v` in this battery (the tower gate's 8 GB) passes an
 # explicit count that fits; the uncapped runs use the default.
 SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
@@ -743,7 +745,7 @@ if [ "$MODE_SWEEPS" = on ]; then
          "(tests/trusted-expected.txt header: what may be recorded)"
   fi
   # The worker-count sweeps (task #260): both suites again at --jobs=1
-  # (the in-thread check loop) and at --jobs=4 (the pool), against the
+  # (the single-worker check loop) and at --jobs=4 (the pool), against the
   # certified expectations — the default pass above ran at one worker
   # per hardware thread, and the verdict must be the same at every
   # count.  No override table: a divergence here is a bug.

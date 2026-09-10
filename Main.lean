@@ -179,10 +179,16 @@ fresh memo state (`ConLeche.Cached.checkRecord`), and the accumulator —
 `GroupChecked` of every record below `k`, a proposition — grows by
 one; at the end every record is checked, which with the installed
 environment IS a `FullyChecked mode ds`, phase B of the fold
-`checkDecls`.  Nothing is shared with any other thread, and nothing is
-marked for multi-threaded reference counting: this loop is the
-sequential baseline the pool below is measured against.  With
-`--progress`, one line per `stride` completed checks. -/
+`checkDecls`.  Nothing is shared with any other thread and no counter
+is claimed: this loop is the sequential baseline the pool below is
+measured against.  It runs on ONE DEDICATED WORKER THREAD all the same
+(task #269): the loop's cost is dominated by the per-record memo
+state, that state comes out of the running thread's own mimalloc heap,
+and the main thread's heap after the install phase is two gigabytes of
+live environment with the parse's and the install's freed temporaries
+scattered through it — allocating phase B out of that scatter costs a
+factor of two in wall time at Mathlib scale for the same instructions.
+With `--progress`, one line per `stride` completed checks. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
@@ -321,8 +327,9 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs :
   let tab := mergeResults (Array.replicate m none) results
   return ConLeche.Cached.collectChecks mode e tab 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
 
-/-- **The driver**: `installLoop` then the check phase — `checkLoop` in
-this thread at `--jobs=1`, `checkPool` otherwise — and what comes out
+/-- **The driver**: `installLoop` then the check phase — `checkLoop` on
+one dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and
+what comes out
 is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
@@ -376,6 +383,28 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- persistent object mispredicts its `m_rc > 0` fast path, so the
     -- mark LOSES there and `--jobs=1` stays overhead-free.
     --
+    -- **TASK #269 SUPERSEDES THE `jobs > 1` GUARD.**  The sentence
+    -- above is right about the RC arithmetic and wrong about the
+    -- lane, because at Mathlib scale the RC arithmetic is not what
+    -- the in-thread lane is losing to.  Phase B's per-record memo
+    -- state is allocated out of the thread's own mimalloc heap, and
+    -- the MAIN thread's heap is the one parse and install just built
+    -- and tore down: two gigabytes of live environment with the
+    -- freed parse and install temporaries scattered through it.  The
+    -- check's allocations come back out of that scatter, so every one
+    -- of them touches a cold line.  On the 1.5 GB Mathlib prefix the
+    -- identical computation on a thread whose heap is FRESH retires
+    -- the same instructions (-1.8 %) at 2.68 IPC against 1.29, with
+    -- 24x fewer demand fills from DRAM per instruction (0.045 vs
+    -- 1.081 per thousand) and 22x fewer dTLB load misses: 448 s of
+    -- check phase becomes 210 s (the interleaved shipped-vs-this pair
+    -- on that stream is 454 s -> 210 s, 3/3 repetitions).  So
+    -- `--jobs=1` runs its loop on a dedicated thread too, and once
+    -- it does the graph is
+    -- multi-threaded and the mark is worth having in this lane as
+    -- well (a further -3.5 %).  The measurement is task #269's
+    -- section in DESIGN.md.
+    --
     -- The result is DISCARDED and the original `fe`/`pend` are what the
     -- phase below reads: `Runtime.markPersistent` is the identity on
     -- the value and marks the object graph in place, so nothing
@@ -386,12 +415,20 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- unsafe only in that the marked closure is never freed, and the
     -- process exits right after.  `--no-mark-persistent` turns it off,
     -- which is how the A/B above is measured on the shipped binary.
-    if jobs > 1 && !noMark then
+    if !noMark then
       let _ ← unsafe Runtime.markPersistent fe
       let _ ← unsafe Runtime.markPersistent pend
-    let workers := if jobs ≤ 1 then 1 else max 1 (min jobs pend.size)
+    let workers := max 1 (min jobs pend.size)
     let res ← if jobs ≤ 1 then
-        checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j))
+        -- ONE worker, and no pool: no shared claim counter, no result
+        -- table, the same `checkLoop` accumulator — only the thread is
+        -- new.  A worker that fails as an `IO` action (not a check
+        -- failing) is an internal error, exit 3, never a verdict.
+        match ← IO.wait (← IO.asTask (prio := .dedicated)
+            (checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j)))) with
+        | .ok r => pure r
+        | .error ioe =>
+          pure (.error (.internal s!"check phase: the worker failed: {ioe}", 0))
       else
         checkPool mode err stride t0 jobs e
     let now ← IO.monoMsNow
@@ -429,10 +466,11 @@ def progressStride (v : String) : Except String Nat :=
       (a decimal numeral of at least 1), got {repr v}"
 
 /-- The worker count, read off the `--jobs=<n>` flag: a decimal numeral
-of at least 1 (`1` is the in-thread check loop, the sequential lane —
-no thread, no shared state, no multi-threaded marking).  `0` and a
-non-numeral are usage errors (exit 3).  Without the flag the count is
-the machine's hardware thread count (`main`).
+of at least 1 (`1` is the sequential lane — one worker, no shared
+counter and no result table, but a worker THREAD all the same: see
+`checkDeclsIO` for the heap the check phase must not allocate from).
+`0` and a non-numeral are usage errors (exit 3).  Without the flag the
+count is the machine's hardware thread count (`main`).
 
 **Address space.**  The runtime reserves one gigabyte of ADDRESS
 SPACE per thread it creates (a 1 GiB anonymous mapping per worker —
@@ -804,10 +842,17 @@ def usage : String := String.intercalate "\n" [
   "                    -- and the declaration a rejection names, the",
   "                    first failing one in fold order -- is the same at",
   "                    every <n>.  Without the flag <n> is the machine's",
-  "                    hardware thread count; --jobs=1 checks in the",
-  "                    main thread with no thread and no shared state",
-  "                    at all (the sequential lane a measurement is",
-  "                    made on).  0 or a non-numeral is a usage error.",
+  "                    hardware thread count; --jobs=1 runs ONE worker",
+  "                    with no shared counter and no result table (the",
+  "                    sequential lane a measurement is made on), but",
+  "                    it is still a worker THREAD: the check phase",
+  "                    allocates its per-record memo state out of the",
+  "                    running thread's heap, and the main thread's",
+  "                    heap is the one parse and install have just",
+  "                    fragmented, which at Mathlib scale costs the",
+  "                    lane a factor of two in wall time at the same",
+  "                    instruction count (task #269).  0 or a",
+  "                    non-numeral is a usage error.",
   "                    The install phase is never parallel: it is the",
   "                    parse and the fold's serial floor.  ADDRESS",
   "                    SPACE: each worker thread reserves about 1 GiB",
@@ -819,22 +864,19 @@ def usage : String := String.intercalate "\n" [
   "                    under 16 GB, four under 8 GB; past it the",
   "                    runtime cannot create the thread and aborts",
   "                    ('failed to create thread', exit 134).",
-  "                    At <n> of 2 or more the installed environment is",
-  "                    marked PERSISTENT once at the phase boundary: it",
-  "                    is read-only from there on, and the mark removes",
+  "                    The installed environment is marked PERSISTENT",
+  "                    once at the phase boundary, at every <n>: it is",
+  "                    read-only from there on, and the mark removes",
   "                    the atomic reference counting the workers would",
   "                    otherwise pay on every object of it -- worth",
-  "                    18-32 % of wall time, growing with <n>.",
-  "                    --jobs=1 never marks: single-threaded the",
-  "                    counting is nearly free and the mark costs more",
-  "                    than it saves.",
+  "                    18-32 % of wall time on the pool, growing with",
+  "                    <n>, and 3.5 % at <n> = 1.",
   "  --no-mark-persistent",
   "                    turn that mark off.  It changes no verdict --",
   "                    the marked graph is read-only from the boundary",
   "                    on -- so this is a MEASUREMENT switch: it is how",
   "                    the mark's effect is measured on the shipped",
-  "                    binary.  At --jobs=1 there is no mark to turn",
-  "                    off and the flag does nothing.",
+  "                    binary.",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
