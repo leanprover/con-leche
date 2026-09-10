@@ -67949,3 +67949,118 @@ same three digits in every cell of each column); every cell accepted
 main-thread lane ranges over 53.0–71.0 s with the machine's load while
 the worker lane sits at 49.4–49.8 s — a memory-stalled loop competes
 with co-tenants for DRAM and a cache-resident one does not.
+
+## TASK #276 — PERF.md REGENERATED AT `1d470aa7` (2026-09-10, `agent/perf-276`)
+
+The full battery re-run at `1d470aa7`, the worker-count sweep re-run
+beside it, the file re-rendered from the tracked record
+(`perf-data/`), and every paragraph read against the binary that is
+actually measured.  PERF.md is a HUMAN document: present tense, no
+task numbers, no "since …".
+
+### 1. The numbers
+
+`perf stat -e instructions:u`, one run per cell, all flags explicit,
+the con-leche cells at `--jobs=1`, `nice -n 5`, `ulimit -v` 16 GB
+(`mathlib-full`: 22 GB, `--progress=5000`).  Per-cell load average is
+in `perf-data/table.tsv` and ranged over 1.89 … 4.67; the battery's
+idle wait was capped at five minutes per cell, so a foreign
+measurement process delays a cell rather than blocking the run.
+
+| stream | official | trusted | verified | trusted ÷ official | verified ÷ official | (#263) |
+|---|---|---|---|---|---|---|
+| `let-ladder` | 6.13 G | 8.06 G | 8.06 G | 1.31× | 1.31× | 1.31× / 1.31× |
+| `beta-ladder` | 10.12 G | 39.94 G | 39.95 G | 3.95× | 3.95× | 3.94× / 3.94× |
+| `init-prelude` | 2.21 G | 3.04 G | 3.20 G | 1.38× | 1.45× | 1.40× / 1.47× |
+| `grind-ring-5` | 13.41 G | 21.54 G | 22.69 G | 1.61× | 1.69× | 1.61× / 1.70× |
+| `app-lam` | 29.41 G | 157.30 G | 157.31 G | 5.35× | 5.35× | 5.35× / 5.35× |
+| `init-full` | 403.44 G | 521.13 G | 538.46 G | 1.29× | 1.33× | 1.30× / 1.35× |
+| `mathlib-full` | 10.54 T | 11.16 T | 12.01 T | **1.06×** | **1.14×** | 1.13× / 1.22× |
+
+Every cell accepts, the verdict counts are unchanged (670 627 /
+654 499 / 654 499 on `mathlib-full`), and `perf-data/census.tsv`
+regenerated **byte-identical**.
+
+The deltas against #263's table are the checker's alone — the official
+column moved −0.1 % on `init-full` and +0.0 % on `mathlib-full`, i.e.
+run-to-run.  con-leche's `mathlib-full` cells fall 6.6 % (trusted
+11.95 → 11.16 T) and 6.5 % (verified 12.85 → 12.01 T), `init-full`
+0.9 % in both modes: the parse work of #264, the install work of
+#266–#268, #272's ∀-telescope datum, and #269's lane (whose worker
+thread gives the persistent mark's reference counting back).
+
+Wall and peak RSS on `mathlib-full`, printed as data:
+
+| | official | trusted | verified |
+|---|---|---|---|
+| wall | 30.7 min (was 33.5) | 17.5 min (was 63.8) | 19.0 min (was 60.6) |
+| peak RSS | 9.16 GiB | 7.87 GiB (was 7.79) | 7.87 GiB (was 7.79) |
+
+The wall collapse in the con-leche columns is #269 — those cells are
+`--jobs=1`, which now runs on a dedicated worker thread — and the
+1 % of RSS is that thread.  Wall stays labelled as data: one run
+each, shared machine.
+
+### 2. The worker-count sweep
+
+Wall time, one run per cell, `--verified --progress=5000`;
+`init-full` under `ulimit -v 16000000`, `mathlib-full` under
+32000000.
+
+| stream | `--jobs=1` | `--jobs=4` | `--jobs=8` | (#263) |
+|---|---|---|---|---|
+| `init-full` | 50.2 s | 16.8 s | 11.2 s | 54.1 / 16.7 / 11.9 |
+| `mathlib-full` | 1143.6 s | 444.7 s | 326.4 s | 3593.9 / 435.0 / 323.2 |
+
+**#263's one-worker outlier is gone, and with it the section's
+un-attributed gap.**  The check phase alone is 961.7 → 263.1 →
+142.3 s on `mathlib-full` (3.66× at four workers, 6.76× at eight) and
+45.3 → 11.9 → 6.3 s on `init-full`, while the instruction count moves
+0.2 % across the three worker counts (12.014 / 12.038 / 12.039 T).
+What the wall table adds to the check phase is the sequential prefix:
+26 s of parse and 150 s of install, 16 % of the one-worker run and
+56 % of the eight-worker one.
+
+### 3. Pruned from PERF.md
+
+Everything that described the retired in-thread `--jobs=1` lane, or
+the anomaly it produced:
+
+* the header's `check phase` row said "one thread" — it says "one
+  worker";
+* the worker-count section's paragraph, which reported "the one-worker
+  lane retires 3.6 G instructions per second and each of four workers
+  about 10.6 G", "these wall times are not the same work divided by
+  the worker count" and "what the difference is due to is not
+  attributed here".  There is nothing left to attribute: the paragraph
+  now states what the worker count shortens (the check phase), the
+  flat instruction count across worker counts, and that the rest of
+  the wall is the sequential prefix;
+* the Notes bullet "**The cells are the one-thread lane**" → "the
+  single-worker lane", saying what `--jobs=1` is (one worker thread,
+  no shared claim counter, no result table);
+* `parallelnote`'s prefix arithmetic (158 s of install, "5 % of the
+  one-worker run, and 60 % of the eight-worker one") → 150 s, 16 %
+  and 56 %;
+* `mathlibnote`'s ratios.
+
+The census section, the count notes, the streams' provenance, the
+official column's meaning, the "same bytes, same job" and `--trusted`
+under-checking notes and the Mathlib wall/RSS table are unchanged.
+
+**Not touched, and worth a look**: `README.md`'s opening says the
+checker processes a Mathlib export "in about an hour within 12GB of
+memory" and is "roughly 1.6× slower than the official kernel on
+common workloads".  Both are conservative rather than wrong now
+(19 min at one worker, 7.87 GiB, 1.14× on Mathlib and 1.33× on
+`init-full`), so nothing here oversells; a README pass is its own
+task.
+
+### 4. Gates
+
+`lake build` 541 jobs warning-free (binary md5
+`625a61babe10de48dde3ced724ad0f13`), `tests/no-local-paths.sh` OK,
+`tests/overview-links.sh` 72 links / 47 files OK — PERF.md is not
+line-anchored from OVERVIEW, README links it without an anchor.  Docs,
+data and one renderer's prose only: no `.lean` changed, so the binary
+measured is master's.

@@ -2,29 +2,30 @@
 
 | | |
 |---|---|
-| commit measured | `159654b87a7377ebb1ebc4bf9626bd0df3fbc720` |
+| commit measured | `1d470aa7ce0b933b0c5559d83a7f9d4e20e7a39b` |
 | tree | master at the commit above: the two-phase fold — every record installed, then every recorded declaration checked against the prefix view of the installed index — over the hand-rolled `lean4export` parser. |
-| date | 2026-09-09T15:02:56+00:00 |
+| date | 2026-09-10T17:41:04+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |
-| check phase | one thread: every con-leche cell passes `--jobs=1` (the worker-count table below is the parallel lane) |
+| check phase | one worker: every con-leche cell passes `--jobs=1` (the worker-count table below is the parallel lane) |
 | streams | `lean4export` NDJSON, read unchanged by both checkers |
 | Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
+| concurrent load | shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv` |
 | official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| con-leche binary | md5 `4e88ec2e65559af012992203f05d92eb` |
+| con-leche binary | md5 `625a61babe10de48dde3ced724ad0f13` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
 | `let-ladder` | 6.13 G | 8.06 G | 8.06 G | 1.31× | 1.31× |
-| `beta-ladder` | 10.13 G | 39.91 G | 39.91 G | 3.94× | 3.94× |
-| `init-prelude` | 2.21 G | 3.08 G | 3.24 G | 1.40× | 1.47× |
-| `grind-ring-5` | 13.43 G | 21.66 G | 22.80 G | 1.61× | 1.70× |
-| `app-lam` | 29.41 G | 157.36 G | 157.36 G | 5.35× | 5.35× |
-| `init-full` | 403.86 G | 526.11 G | 543.55 G | 1.30× | 1.35× |
-| `mathlib-full` | 10.54 T | 11.95 T | 12.85 T | 1.13× | 1.22× |
+| `beta-ladder` | 10.12 G | 39.94 G | 39.95 G | 3.95× | 3.95× |
+| `init-prelude` | 2.21 G | 3.04 G | 3.20 G | 1.38× | 1.45× |
+| `grind-ring-5` | 13.41 G | 21.54 G | 22.69 G | 1.61× | 1.69× |
+| `app-lam` | 29.41 G | 157.30 G | 157.31 G | 5.35× | 5.35× |
+| `init-full` | 403.44 G | 521.13 G | 538.46 G | 1.29× | 1.33× |
+| `mathlib-full` | 10.54 T | 11.16 T | 12.01 T | 1.06× | 1.14× |
 
 ## exit code / accepted declaration records
 
@@ -79,32 +80,31 @@ reader wants before pointing the checker at all of Mathlib.
 
 | | official v4.33.0 | trusted `--trusted` | verified `--verified` |
 |---|---|---|---|
-| wall | 33.5 min | 63.8 min | 60.6 min |
-| peak RSS (`time -v`) | 9.17 GiB | 7.79 GiB | 7.79 GiB |
+| wall | 30.7 min | 17.5 min | 19.0 min |
+| peak RSS (`time -v`) | 9.16 GiB | 7.87 GiB | 7.87 GiB |
 
 ## the check phase on more than one thread
 
 The check phase runs on `--jobs=<n>` worker threads; the parse and
 the install phase before it are sequential.  Wall time on a shared
 machine is **indicative only** — `instructions:u` above is the
-measurement, and it is taken in the one-thread lane.  What is
-observed, on `mathlib-full`: the instruction count barely moves with
-the worker count — 12.85 T at one worker against 12.10 T at four —
-while the one-worker lane retires 3.6 G instructions per second and
-each of four workers about 10.6 G.  So these wall times are not the
-same work divided by the worker count; what the difference is due to
-is not attributed here.
+measurement, and it is taken at one worker.  What the worker count
+shortens is the check phase alone: on `mathlib-full` that phase
+takes 962 s at one worker, 263 s at four and 142 s at eight, and the
+instruction count moves 0.2 % across the three (12.01 T, 12.04 T,
+12.04 T).  The wall times below are that phase plus the sequential
+prefix, which no worker count shortens.
 
 | stream | `--jobs=1` | `--jobs=4` | `--jobs=8` |
 |---|---|---|---|
-| `init-full` | 54 s | 17 s | 12 s |
-| `mathlib-full` | 59.9 min | 7.3 min | 5.4 min |
+| `init-full` | 50 s | 17 s | 11 s |
+| `mathlib-full` | 19.1 min | 7.4 min | 5.4 min |
 
-Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation, committed lazily, so the resident set grows by some 25 MB per worker — and a run under an `ulimit -v` can afford only so many of them: the `init-full` cells above are measured under 16 GB, the `mathlib-full` cells under 32 GB.  Only the check phase runs on the pool.  On `mathlib-full` the sequential prefix ahead of it is 26 s of parse and 158 s of install — 5 % of the one-worker run, and 60 % of the eight-worker one, which is the floor no worker count goes below.
+Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation, committed lazily, so the resident set grows by some 25 MB per worker — and a run under an `ulimit -v` can afford only so many of them: the `init-full` cells above are measured under 16 GB, the `mathlib-full` cells under 32 GB.  Only the check phase runs on the pool.  On `mathlib-full` the sequential prefix ahead of it is 26 s of parse and 150 s of install — 16 % of the one-worker run and 56 % of the eight-worker one, which is the floor no worker count goes below.
 
 ## Notes
 
-* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells.  **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes — **1.22× verified, 1.13× trusted**; the smaller `init-full` stream sits at 1.35× / 1.30×.  The count difference is the official binary's counting (see below), not a verdict difference.
+* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells.  **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes — **1.14× verified, 1.06× trusted**; the smaller `init-full` stream sits at 1.33× / 1.29×.  The count difference is the official binary's counting (see below), not a verdict difference.
 * **The verdict line counts declaration RECORDS**, the STREAM's count
   `decls.size - preludeCount + preludeDropped` (so a stream that
   re-declares a prelude block identically reports what it declared),
@@ -130,8 +130,9 @@ Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation
 * **`--trusted` under-checks install-only kinds** (axioms, inductive
   blocks, quot, the pinned-cert branches run at io grade), which
   flatters the trusted column on inductive-heavy streams.
-* **The cells are the one-thread lane.**  Every con-leche cell passes
-  `--jobs=1`, which is the apples-to-apples comparison against a
+* **The cells are the single-worker lane.**  Every con-leche cell passes
+  `--jobs=1` — one worker thread, no shared claim counter and no
+  result table — which is the apples-to-apples comparison against a
   single-threaded official kernel; without the flag the check phase
   takes one worker per hardware thread.  The worker-count table above
   is where the parallel lane is reported, in wall time.
