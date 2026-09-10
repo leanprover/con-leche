@@ -330,14 +330,15 @@ def divModCertGuardF (fe : FEnv) (c : Name) (annVal : Expr)
   (Expr.substConst0 c annVal eqE).constsResolveF fe
 
 /-- `divModPinGuard` through the index. -/
-def divModPinGuardF (fe : FEnv) (c : Name) : Bool :=
-  (divModDeclPin c).looseBVarsBounded 0 && !(divModDeclPin c).hasFvar &&
-  (divModDeclPin c).allLevelParamsDefined [] &&
-  (divModDeclPin c).constsResolveF fe
+def divModPinGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
+  (divModDeclPin ps c).looseBVarsBounded 0 && !(divModDeclPin ps c).hasFvar &&
+  (divModDeclPin ps c).allLevelParamsDefined [] &&
+  (divModDeclPin ps c).constsResolveF fe
 
 /-- `divModCertsGuard` through the index. -/
-def divModCertsGuardF (fe : FEnv) (c : Name) (annVal : Expr) : Bool :=
-  ((divModCertStmts c).zip (divModCertProofs c)).all
+def divModCertsGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name)
+    (annVal : Expr) : Bool :=
+  ((divModCertStmts c).zip (divModCertProofs ps c)).all
     (fun p => divModCertGuardF fe c annVal p.1.1 p.1.2 p.2)
 
 /-- `checkEtaThm` through the index. -/
@@ -873,25 +874,39 @@ def checkDivModCertsF (ops : CheckerOps m) (fe : FEnv) (c : Name)
     else pure false
   | _, _ => pure false
 
+/-- `checkDivModPinAt` through the index. -/
+def checkDivModPinAtF (ops : CheckerOps m) (fe : FEnv) (c : Name)
+    (value' : Expr) (ps : NatOpPinSet) : m Bool := do
+  let pinA ← ops.annotate fe.env 0 (divModDeclPin ps c)
+  let okPin ← ops.isDefEq fe.env 0 value' pinA
+  if okPin then
+    checkDivModCertsF ops fe c value' (divModCertStmts c)
+      (divModCertProofs ps c)
+  else pure false
+
+/-- `checkDivModPinLoop` through the index. -/
+def checkDivModPinLoopF (ops : CheckerOps m) (fe : FEnv) (c : Name)
+    (value' : Expr) : List NatOpPinSet → List String → m Unit
+  | [], tried =>
+    throw (.notImplemented s!"unsupported Nat.div/mod spelling ({c}: no \
+      pin variant matched — {String.intercalate "; " tried})")
+  | ps :: rest, tried =>
+    if divModPinGuardF ps fe c && divModCertsGuardF ps fe c value' then
+      ops.orElse (checkDivModPinAtF ops fe c value' ps) fun r =>
+        checkDivModPinLoopF ops fe c value' rest
+          (tried ++ [divModAttemptReason ps r])
+    else
+      checkDivModPinLoopF ops fe c value' rest
+        (tried ++ [s!"{ps.toolchain}: pin or certificate ground constants \
+          absent"])
+
 /-- `checkDivModPin` through the index. -/
 def checkDivModPinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name) :
     m Unit := do
   if divModEnvGuardF fe2 c then
     match fe2.find? c with
     | some (.defnInfo _ value' _) =>
-      if divModPinGuardF fe c && divModCertsGuardF fe c value' then do
-        let pinA ← ops.annotate fe.env 0 (divModDeclPin c)
-        let okPin ← ops.isDefEq fe.env 0 value' pinA
-        if okPin then do
-          let ok ← checkDivModCertsF ops fe c value'
-            (divModCertStmts c) (divModCertProofs c)
-          if ok then pure ()
-          else throw (.internal
-            s!"pinned Nat.div/mod certificate failed after pin match ({c})")
-        else throw (.notImplemented
-          s!"unsupported Nat.div/mod spelling ({c})")
-      else throw (.notImplemented
-        s!"unsupported Nat.div/mod spelling ({c}: pin ground constants absent)")
+      checkDivModPinLoopF ops fe c value' natOpPinSets []
     | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")

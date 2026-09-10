@@ -588,7 +588,17 @@ environment and convert it. -/
 def computeTrustOp (op : Lean.Name) : MetaM ConLeche.Expr := do
   let env ← getEnv
   let some ci := env.find? op |
-    throwError "{op} is absent from the compiling environment"
+    -- lean4 master (2026-09, first seen on v4.34.0-rc2's successor
+    -- nightlies) has no `Lean.reduceBool`/`Lean.reduceNat` at all.  The
+    -- pin has been the identity on every toolchain that had them (the
+    -- `have := trustCompiler` is zeta-expanded by the conversion), so a
+    -- toolchain without them gets exactly that pin: a stream from an
+    -- older toolchain that declares them still installs, against the
+    -- hand-pinned `ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`
+    -- (task #273).
+    let elemTy : ConLeche.Name :=
+      if op == `Lean.reduceNat then .str .anonymous "Nat" else .str .anonymous "Bool"
+    return .lam (.const elemTy []) (.bvar 0) ⟨.never⟩
   let some v := ci.value? (allowOpaque := true) |
     throwError "{op} has no value in the compiling environment"
   checkConsts s!"trust pin {op}"

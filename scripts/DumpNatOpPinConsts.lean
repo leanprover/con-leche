@@ -38,12 +38,10 @@ def dumpOp (label : String) (pin : Expr) (proofs : List Expr) : IO Unit := do
   IO.println s!"== {label} proofs"
   for n in prfC.reverse do IO.println (nameStr n)
 
+-- one section per PIN VARIANT (task #273: the binary embeds the dumps
+-- of several toolchains, `natOpPinSets`); the section label is
+-- `<toolchain> <op>`, which `diagnose_natop_prefix.py` reads
 #eval do
-  dumpOp "Nat.land" natLandDeclPin natLandCertProofs
-  dumpOp "Nat.lor" natLorDeclPin natLorCertProofs
-  dumpOp "Nat.xor" natXorDeclPin natXorCertProofs
-  dumpOp "Nat.gcd" natGcdDeclPin natGcdCertProofs
-  dumpOp "Nat.shiftLeft" natShiftLeftDeclPin natShiftLeftCertProofs
-  dumpOp "Nat.shiftRight" natShiftRightDeclPin natShiftRightCertProofs
-  dumpOp "Nat.div" natDivDeclPin natDivCertProofs
-  dumpOp "Nat.mod" natModDeclPin natModCertProofs
+  for ps in natOpPinSets do
+    for c in natDivModNames do
+      dumpOp s!"{ps.toolchain} {nameStr c}" (divModDeclPin ps c) (divModCertProofs ps c)

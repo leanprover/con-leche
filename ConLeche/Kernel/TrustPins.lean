@@ -19,6 +19,15 @@ reads only the toolchain's own `Init`, which is always built, so it
 never had the build-ordering defect that moved the Nat-operation pins
 to a committed file at task #176 (see `ConLeche/Kernel/NatOpPins.lean`).
 
+A build toolchain WITHOUT the opaques (lean4 master since 2026-09:
+`Lean.reduceBool`, `Lean.reduceNat`, `Lean.trustCompiler` and the
+`ofReduce*` axioms are gone from `Init`) gets the identity pin
+`fun x => x` — which is what every toolchain's pin has been, the
+`have := trustCompiler` being zeta-expanded — so a stream from an older
+toolchain that declares them still installs, against the hand-pinned
+`ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`
+(task #273).
+
 Rebuild caveat: Lake sees no dependency edge to the toolchain prelude;
 `touch` this file to force regeneration after a toolchain bump.
 -/

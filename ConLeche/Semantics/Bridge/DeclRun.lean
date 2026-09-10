@@ -115,14 +115,14 @@ theorem divModPinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     (h : checkDivModPin (m := CheckM) (fueledOps μ F) env env' c
       = .ok ()) :
     DivModPinRun μ F env env' c v := by
-  obtain ⟨henv, cv', value', hint', hfind, hguards, ⟨pinA, hpa, -⟩,
-    hcerts⟩ := checkDivModPin_inv h
+  obtain ⟨henv, cv', value', hint', hfind, ps, hmem, hguards,
+    ⟨pinA, hpa, -⟩, hcerts⟩ := checkDivModPin_inv h
   obtain rfl : value' = v := by
     rw [hstore] at hfind
     exact (ConstantInfo.defnInfo.inj (Option.some.inj hfind)).2.1.symm
   obtain ⟨hpin, hcertsG⟩ := by
     simpa only [Bool.and_eq_true] using hguards
-  exact ⟨henv, hpin, hcertsG, pinA, hpa, hcerts⟩
+  exact ⟨henv, ps, hmem, hpin, hcertsG, pinA, hpa, hcerts⟩
 
 /-! ## The four value/axiom kinds, run half
 

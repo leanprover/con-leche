@@ -108,17 +108,84 @@ theorem natOpStoredOk_tyPinned {n : Name}
     exact ⟨cv, v, hint, heq, h.2⟩
   · intro h; exact nomatch h
 
-/-- Unpack a successful `checkDivModPin` run. -/
+/-- One variant's successful attempt, unpacked: the variant's pin
+annotated and definitionally equal to the stored value, and the
+variant's certificates checked (task #273). -/
+theorem checkDivModPinAt_inv {env : Env} {F : Nat} {c : Name}
+    {value' : Expr} {ps : NatOpPinSet}
+    (h : checkDivModPinAt (fueledOps mode F) env c value' ps = .ok true) :
+    (∃ pinA, annotateCore mode env F 0 (divModDeclPin ps c) = .ok pinA ∧
+      isDefEqCore mode env F 0 value' pinA = .ok true) ∧
+    checkDivModCerts (fueledOps mode F) env c value'
+      (divModCertStmts c) (divModCertProofs ps c) = .ok true := by
+  unfold checkDivModPinAt at h
+  simp only [fueledOps_annotate, fueledOps_isDefEq, Bind.bind,
+    Except.bind] at h
+  revert h
+  cases hann : annotateCore mode env F 0 (divModDeclPin ps c) with
+  | error e => intro h; exact nomatch h
+  | ok pinA =>
+    intro h
+    dsimp only at h
+    revert h
+    cases hde : isDefEqCore mode env F 0 value' pinA with
+    | error e => intro h; exact nomatch h
+    | ok b =>
+      cases b with
+      | false => intro h; simp [pure, Except.pure] at h
+      | true =>
+        intro h
+        simp only [↓reduceIte] at h
+        exact ⟨⟨pinA, rfl, hde⟩, h⟩
+
+/-- The variant loop's success: some listed variant passed its guards
+and its attempt. -/
+theorem checkDivModPinLoop_inv {env : Env} {F : Nat} {c : Name}
+    {value' : Expr} {u : Unit} :
+    ∀ {pss : List NatOpPinSet} {tried : List String},
+      checkDivModPinLoop (fueledOps mode F) env c value' pss tried = .ok u →
+      ∃ ps ∈ pss,
+        (divModPinGuard ps env c && divModCertsGuard ps env c value') = true ∧
+        checkDivModPinAt (fueledOps mode F) env c value' ps = .ok true
+  | [], _, h => nomatch h
+  | ps :: rest, tried, h => by
+    unfold checkDivModPinLoop at h
+    revert h
+    split
+    case isTrue hg =>
+      rw [fueledOps_orElse]
+      cases hx : checkDivModPinAt (fueledOps mode F) env c value' ps with
+      | ok b =>
+        cases b with
+        | true => intro _; exact ⟨ps, List.mem_cons_self .., hg, hx⟩
+        | false =>
+          intro h
+          obtain ⟨ps', hm, hrest⟩ := checkDivModPinLoop_inv h
+          exact ⟨ps', List.mem_cons_of_mem _ hm, hrest⟩
+      | error e =>
+        intro h
+        obtain ⟨ps', hm, hrest⟩ := checkDivModPinLoop_inv h
+        exact ⟨ps', List.mem_cons_of_mem _ hm, hrest⟩
+    case isFalse =>
+      intro h
+      obtain ⟨ps', hm, hrest⟩ := checkDivModPinLoop_inv h
+      exact ⟨ps', List.mem_cons_of_mem _ hm, hrest⟩
+
+/-- Unpack a successful `checkDivModPin` run: the environment guard,
+the stored definition, and the pin variant that matched — its guards,
+its pin definitionally equal to the stored value, its certificates
+checked. -/
 theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
     (h : checkDivModPin (fueledOps mode F) env env2 c = .ok u) :
     divModEnvGuard env2 c = true ∧
     ∃ cv' value' hint',
       env2.find? c = some (.defnInfo cv' value' hint') ∧
-      (divModPinGuard env c && divModCertsGuard env c value') = true ∧
-      (∃ pinA, annotateCore mode env F 0 (divModDeclPin c) = .ok pinA ∧
-        isDefEqCore mode env F 0 value' pinA = .ok true) ∧
-      checkDivModCerts (fueledOps mode F) env c value'
-        (divModCertStmts c) (divModCertProofs c) = .ok true := by
+      ∃ ps ∈ natOpPinSets,
+        (divModPinGuard ps env c && divModCertsGuard ps env c value') = true ∧
+        (∃ pinA, annotateCore mode env F 0 (divModDeclPin ps c) = .ok pinA ∧
+          isDefEqCore mode env F 0 value' pinA = .ok true) ∧
+        checkDivModCerts (fueledOps mode F) env c value'
+          (divModCertStmts c) (divModCertProofs ps c) = .ok true := by
   unfold checkDivModPin at h
   revert h
   split
@@ -137,39 +204,10 @@ theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
       | recInfo cv' mI rP rules => intro h; exact nomatch h
       | projInfo _ => intro h; exact nomatch h
       | defnInfo cv' value' hint' =>
-        dsimp only
-        split
-        case isFalse => intro h; exact nomatch h
-        case isTrue hping =>
-          simp only [fueledOps_annotate, fueledOps_isDefEq, Bind.bind,
-            Except.bind]
-          cases hann : annotateCore mode env F 0 (divModDeclPin c) with
-          | error e => intro h; exact nomatch h
-          | ok pinA =>
-            intro h
-            dsimp only at h
-            revert h
-            cases hde : isDefEqCore mode env F 0 value' pinA with
-            | error e => intro h; exact nomatch h
-            | ok b =>
-              cases b with
-              | false => intro h; simp [throw, throwThe,
-                  MonadExceptOf.throw] at h
-              | true =>
-                intro h
-                simp only [↓reduceIte] at h
-                revert h
-                cases hcert : checkDivModCerts (fueledOps mode F) env c value'
-                    (divModCertStmts c) (divModCertProofs c) with
-                | error e => intro h; exact nomatch h
-                | ok ok =>
-                  cases ok with
-                  | false => intro h; simp [throw, throwThe,
-                      MonadExceptOf.throw] at h
-                  | true =>
-                    intro h
-                    exact ⟨cv', value', hint', rfl, hping,
-                      ⟨pinA, rfl, hde⟩, hcert⟩
+        intro h
+        obtain ⟨ps, hm, hg', hat⟩ := checkDivModPinLoop_inv h
+        exact ⟨cv', value', hint', rfl, ps, hm, hg',
+          checkDivModPinAt_inv hat⟩
 
 
 /-- The pin names are distinct from every constant the install path

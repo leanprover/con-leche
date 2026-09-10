@@ -1,9 +1,11 @@
 # `pins/` — the Nat-operation pin certificates and the built-in prelude
 
-Committed **generated data**, two files per Lean toolchain:
+Committed **generated data**: one pin dump per supported Lean
+toolchain, and the built-in prelude of the repository's own toolchain:
 
-    pins/leanprover-lean4-v4.33.0.json
-    pins/leanprover-lean4-v4.33.0.prelude.ndjson
+    pins/leanprover-lean4-v4.33.0.json                        the repository toolchain's dump
+    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     a second toolchain's dump (a "pin variant")
+    pins/leanprover-lean4-v4.33.0.prelude.ndjson              the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
 
@@ -66,19 +68,66 @@ and the guards need that the operation's own closure does not reach,
 and the prelude is the part of that which is not a stream-certified
 operation (see `ConLeche/PinGen/Prelude.lean` and DESIGN.md, task #191).
 
-## One file pair per toolchain
+## One dump per toolchain — the pin variants
 
 The names are the `lean-toolchain` string with everything outside
 `[A-Za-z0-9._-]` turned into `-`.  A pin computed from one toolchain
-describes only that toolchain, so supporting a second means storing
-both pairs, side by side in this directory.
-
-`ConLeche/Kernel/NatOpPins.lean` embeds exactly one dump with
+describes only that toolchain's definitions, so supporting several
+toolchains means storing their dumps side by side in this directory,
+and `ConLeche/Kernel/NatOpPins.lean` embeds **all of them** with
 `include_str` (paths there resolve relative to that source file's
-directory, hence `"../../pins/…"`) and splices it at elaboration time;
-`ConLeche/Frontend/Prelude.lean` embeds the matching prelude the same
-way.  A toolchain bump means: regenerate, add the new files here, and
-re-point both `include_str`s.
+directory, hence `"../../pins/…"`), one `#load_natop_pins` argument per
+dump, in the order the install gate tries them: each dump becomes a
+**pin variant** (`ConLeche.NatOpPinSet`, listed in
+`ConLeche.natOpPinSets`), and at a pin-certified operation's install
+the checker takes the FIRST variant whose ground constants the stream
+declares, whose pin is definitionally equal to the stream's stored
+value and whose certificates check; only when no variant matches does
+the stream decline, naming what each variant failed on.  The
+repository's own toolchain (`lean-toolchain`) is listed first, so on
+its streams the first attempt matches and the loop costs nothing; the
+others follow in the order they were added.
+
+So one binary — built on the repository toolchain — accepts the
+exports of every toolchain it carries a variant for (and of the
+toolchains in between whose definitions did not drift: the v4.33.0
+variant accepts v4.29.0 … v4.33.1 exports, the nightly variant the
+lean4-master ones since the `Decidable` rewrite of v4.34.0-rc2).
+
+**The prelude is one file**, the repository toolchain's.  It holds
+only the pinned basis blocks and the `Bool`/`And` blocks, which have
+not changed across the supported toolchains (the nightly's generated
+prelude is byte-identical to v4.33.0's below its meta line); a stream
+whose copy of a prelude declaration differs declines the run, naming
+it, so a toolchain that does change them shows up loudly and would
+need the prelude generalised the way the pins were.
+
+### Adding a toolchain's variant
+
+A dump is computed by the generator running ON its toolchain, so it
+cannot be regenerated here; the cross-toolchain matrix lane
+(`scripts/natop-matrix.sh`, run in CI over every supported toolchain)
+is what tells you a new one is needed — its export declines at a
+pin-certified operation with "no pin variant matched".  Then, in a
+scratch worktree:
+
+1. set `lean-toolchain` to the new toolchain and `lake build
+   natop-pins-export` (if the certificate proofs in
+   `ConLeche/PinGen/Certs.lean` or the generator's cone rule need a fix
+   for the new prelude, make it — it must leave the OTHER dumps
+   byte-identical when regenerated on their toolchains, or the
+   difference is explained in the commit);
+2. `lake exe natop-pins-export _tmp/newpins` and copy the `.json` here
+   (the `.prelude.ndjson` it wrote beside it must equal the committed
+   prelude below its meta line — `diff <(tail -n +2 a) <(tail -n +2
+   b)`; if it does not, stop: that is a prelude drift, see above);
+3. add the new file to `#load_natop_pins` in
+   `ConLeche/Kernel/NatOpPins.lean` AFTER the existing entries;
+4. restore `lean-toolchain`, rebuild, and run the matrix lane: the new
+   toolchain's export must now accept, and every older one still.
+
+Dropping a toolchain is the reverse: delete its dump and its
+`#load_natop_pins` line.
 
 ## Regenerating
 
@@ -93,16 +142,19 @@ builds them first).  **Never edit a file here by hand** — regenerate.
 ## Staleness is a test failure
 
 `tests/pindump.sh`, run from `tests/arena.sh` in the standard battery,
-regenerates into a scratch directory and `diff -q`s both files against
-the committed ones.  A difference fails the battery, and the only fix
-is to regenerate and commit.  The gate also checks that a dump and a
-prelude exist for the toolchain in `lean-toolchain`, that
-`ConLeche/Kernel/NatOpPins.lean` and `ConLeche/Frontend/Prelude.lean` embed
-those same basenames, and that the dump names the prelude.
+regenerates the CURRENT toolchain's dump and the prelude into a
+scratch directory and `diff -q`s them against the committed ones.  A
+difference fails the battery, and the only fix is to regenerate and
+commit.  The gate also checks that a dump and a prelude exist for the
+toolchain in `lean-toolchain`, that `ConLeche/Kernel/NatOpPins.lean`
+and `ConLeche/Frontend/Prelude.lean` embed those basenames, that the
+dump names the prelude, and that every committed dump is embedded and
+every embedded dump committed.  The OTHER toolchains' dumps cannot be
+regenerated on this toolchain; the matrix lane exercises them.
 
-Independently, the loader **refuses a dump generated by a different
-Lean version** — a forgotten regeneration after a toolchain bump is a
-build error naming the fix, never a silently wrong pin.
+The loader accepts dumps from any Lean version (that is the point of
+the variants), so a forgotten regeneration after a toolchain bump is
+caught by this gate in the standard battery, not at build time.
 
 ## Trust does not rest on these files
 
