@@ -2124,6 +2124,80 @@ theorem checkDivModCerts_wfimp {env : Env} (henv : EnvWF env) {F : Nat}
         (fun st hs => hsc st (List.mem_cons_of_mem _ hs)) h
     | false => simpa using h
 
+/-- One pin variant's attempt, `wfOpsM mode` run to pure run (the
+variant's guards supply the pin's scoping, the definition check the
+stored value's; task #273). -/
+theorem checkDivModPinAt_wfimp {env : Env} (henv : EnvWF env) {F : Nat}
+    {c : Name} (hc : c ∈ natDivModNames) {value' : Expr}
+    (hvf : value'.hasFvar = false) {ps : NatOpPinSet}
+    (hping : (divModPinGuard ps env c &&
+      divModCertsGuard ps env c value') = true) {b : Bool}
+    (h : (checkDivModPinAt (wfOpsM mode) env c value' ps).val F = .ok b) :
+    checkDivModPinAt (fueledOps mode F) env c value' ps = .ok b := by
+  unfold checkDivModPinAt at h ⊢
+  have hping' := hping
+  simp only [Bool.and_eq_true] at hping'
+  have hping'' := hping'.1
+  unfold divModPinGuard at hping''
+  simp only [Bool.and_eq_true] at hping''
+  have hpinF : (divModDeclPin ps c).hasFvar = false := by
+    simpa using hping''.1.1.2
+  rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hpinF)] at h
+  obtain ⟨pinA, hann, h⟩ := atF_bind_ok h
+  have hann' : annotateCore mode env F 0 _ = .ok pinA := hann
+  show (annotateCore mode env F 0 _ >>= _) = _
+  rw [hann']
+  simp only [Bind.bind, Except.bind]
+  have hpinAW : WScoped 0 pinA :=
+    annotateCore_WScoped F _ hann' (WScoped.of_not_hasFvar hpinF)
+  rw [wfOpsM_isDefEq henv (wscopedB_of_not_hasFvar hvf)
+    hpinAW.to_wscopedB] at h
+  obtain ⟨b', hde, h⟩ := atF_bind_ok h
+  have hde' : isDefEqCore mode env F 0 value' pinA = .ok b' := hde
+  show (isDefEqCore mode env F 0 value' pinA >>= _) = _
+  rw [hde']
+  simp only [Bind.bind, Except.bind]
+  cases b' with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h ⊢
+    exact h
+  | true =>
+    simp only [↓reduceIte] at h ⊢
+    exact checkDivModCerts_wfimp henv hvf (divModCertStmts_wscopedB hc) h
+
+/-- The variant loop, `wfOpsM mode` run to pure run: the fueled
+family's combinator hands its continuation `none`, and so does the
+pure lane's — the two loops accumulate the same reasons and agree
+branch for branch. -/
+theorem checkDivModPinLoop_wfimp {env : Env} (henv : EnvWF env) {F : Nat}
+    {c : Name} (hc : c ∈ natDivModNames) {value' : Expr}
+    (hvf : value'.hasFvar = false) {u : Unit} :
+    ∀ {pss : List NatOpPinSet} {tried : List String},
+      (checkDivModPinLoop (wfOpsM mode) env c value' pss tried).val F = .ok u →
+      checkDivModPinLoop (fueledOps mode F) env c value' pss tried = .ok u
+  | [], _, h => absurd h atF_throw
+  | ps :: rest, tried, h => by
+    unfold checkDivModPinLoop at h ⊢
+    revert h
+    split
+    case isTrue hping =>
+      rw [wfOpsM_orElse, fueledOpsM_orElse_atF, fueledOps_orElse']
+      cases hx : (checkDivModPinAt (wfOpsM mode) env c value' ps).val F with
+      | ok b =>
+        rw [checkDivModPinAt_wfimp henv hc hvf hping hx]
+        cases b with
+        | true => intro h; exact h
+        | false => exact checkDivModPinLoop_wfimp henv hc hvf
+      | error e =>
+        intro h
+        cases hx' : checkDivModPinAt (fueledOps mode F) env c value' ps with
+        | ok b =>
+          cases b with
+          | true => cases u; rfl
+          | false => exact checkDivModPinLoop_wfimp henv hc hvf h
+        | error e' => exact checkDivModPinLoop_wfimp henv hc hvf h
+    case isFalse => exact checkDivModPinLoop_wfimp henv hc hvf
+
 theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     {c : Name} (hc : c ∈ natDivModNames)
     (hv'f : ∀ cv' v' h', env2.find? c = some (.defnInfo cv' v' h') →
@@ -2148,56 +2222,7 @@ theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     | recInfo cv' mI rP rules => intro h; exact absurd h atF_throw
     | projInfo _ => intro h; exact absurd h atF_throw
     | defnInfo cv' value' hint' =>
-      intro h
-      dsimp only at h ⊢
-      by_cases hping : (divModPinGuard env c &&
-          divModCertsGuard env c value') = true
-      case neg =>
-        rw [if_neg hping] at h
-        exact absurd h atF_throw
-      rw [if_pos hping] at h ⊢
-      have hping' := hping
-      simp only [Bool.and_eq_true] at hping'
-      have hping'' := hping'.1
-      unfold divModPinGuard at hping''
-      simp only [Bool.and_eq_true] at hping''
-      have hpinF : (divModDeclPin c).hasFvar = false := by
-        simpa using hping''.1.1.2
-      rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hpinF)] at h
-      obtain ⟨pinA, hann, h⟩ := atF_bind_ok h
-      have hann' : annotateCore mode env F 0 _ = .ok pinA := hann
-      show (annotateCore mode env F 0 _ >>= _) = _
-      rw [hann']
-      simp only [Bind.bind, Except.bind]
-      have hvf : value'.hasFvar = false := hv'f _ _ _ hfind
-      have hpinAW : WScoped 0 pinA :=
-        annotateCore_WScoped F _ hann' (WScoped.of_not_hasFvar hpinF)
-      rw [wfOpsM_isDefEq henv (wscopedB_of_not_hasFvar hvf)
-        hpinAW.to_wscopedB] at h
-      obtain ⟨b, hde, h⟩ := atF_bind_ok h
-      have hde' : isDefEqCore mode env F 0 value' pinA = .ok b := hde
-      show (isDefEqCore mode env F 0 value' pinA >>= _) = _
-      rw [hde']
-      simp only [Bind.bind, Except.bind]
-      cases b with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte] at h ⊢
-        exact absurd h atF_throw
-      | true =>
-        simp only [↓reduceIte] at h ⊢
-        obtain ⟨ok, hcert, h⟩ := atF_bind_ok h
-        have hcert' := checkDivModCerts_wfimp henv hvf
-          (divModCertStmts_wscopedB hc) hcert
-        show (checkDivModCerts (fueledOps mode F) env c value' _ _ >>= _) = _
-        rw [hcert']
-        simp only [Bind.bind, Except.bind]
-        cases ok with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte] at h
-          exact absurd h atF_throw
-        | true =>
-          simp only [↓reduceIte] at h ⊢
-          exact h
+      exact checkDivModPinLoop_wfimp henv hc (hv'f _ _ _ hfind)
 
 /-- The compiler-trust install gate, `wfOpsM mode` run to pure run (the
 raw witness value's scoping comes from the preceding opaque check). -/

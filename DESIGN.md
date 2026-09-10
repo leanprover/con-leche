@@ -51195,8 +51195,8 @@ search-and-replace:
 **1. Absolute paths (11 of them).**  `DESIGN.md`, `PERF.md`,
 `perf-data/meta.txt`, `docs/SetR-DESIGN.md` and
 `docs/retrospective-2026-09-01.md` spelled the *checkout directory* out in
-full — `/home/joachim/<old-name>/_tmp/…` and
-`/home/joachim/<old-name>/.claude/worktrees/…`.  That directory is not renamed
+full — `<checkout>/_tmp/…` and
+`<checkout>/.claude/worktrees/…`.  That directory is not renamed
 by this task (and could not be: the user owns the path), so substituting inside
 those strings would have produced eleven paths that do not exist.  They were
 rewritten to `<main-checkout>/…` instead — the form that is true now and stays
@@ -51504,9 +51504,9 @@ Setlec → ConLeche rename, so its own output says `setlec`):
 
     # run-progress.sh tag=accept (SETLEC_PROGRESS=1 — THE ACCEPTANCE RUN; the exit code is the verdict)
     # start   2026-09-06T18:08:44+00:00 (epoch 1788718124)
-    # binary  22e087c94376640fbe7af51d5d8f12f0  /home/joachim/setlec/.claude/worktrees/frontier4/.lake/build/bin/setlec
+    # binary  22e087c94376640fbe7af51d5d8f12f0  <checkout>/.claude/worktrees/frontier4/.lake/build/bin/setlec
     # mode    --verified --pre
-    # stream  /home/joachim/setlec/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
+    # stream  <checkout>/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
     # limits  ulimit -v 22000000 KB, timeout 28800 s
     setlec: accepted 695202 declarations (--verified)
     # end     2026-09-06T19:05:45+00:00
@@ -52570,7 +52570,8 @@ small environment and the slower one for a large environment, with
 the crossover between 430 MB and 2.2 GB of environment.  **Open
 finding, not fixed here** (user ruling: *"keep an overhead-free
 single threaded lane"* — `--jobs=1` stays the in-thread loop with no
-thread, no marking and no pool): what the main thread's heap does
+thread, no marking and no pool; SUPERSEDED by task #269, which found
+the cause and moved the lane onto a worker thread): what the main thread's heap does
 differently on a large environment is for tasks #259/#263 to look
 at; #259's persistent mark removes the counting the pool pays for
 and is in the same territory.  Both binaries are in
@@ -52709,7 +52710,7 @@ audit 169/0 unrecognised, prelude counts 3/3, e2e 101/101), full audit
 775/0, init-full stock 58 604 / 58 604 and regenerated 53 890 / 53 890
 (exit 0 — the verdict line now counts STREAM RECORDS per #191, exactly
 1 945 below the environment-constant counts above), the cone accepts.  **The Presieve cone**: cut from the raw Mathlib export with
-the String-support constants (`/home/joachim/setlec/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
+the String-support constants (`<checkout>/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
 the sigmahom slicer fixed for lean4export's key-sorted raw records —
 `"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
 the child scan must start at the line's head), preprocessed with the
@@ -54654,15 +54655,15 @@ corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    1    
 corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0      0.14s       99M  con-leche: accepted 11 declarations (--verified)
 corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0      0.17s       86M  con-leche: accepted 10 declarations (--verified)
 corner-cases/imax-right-successor          either  accept  reject     0    0      0.10s       66M  con-leche: accepted 2 declarations (--verified)
-corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
+corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
 corner-cases/proj-maybe-prop               either  accept  accept     0    0      0.13s       98M  con-leche: accepted 15 declarations (--verified)
 corner-cases/proj-maybe-prop-past          either  accept  accept     0    0      0.14s       99M  con-leche: accepted 15 declarations (--verified)
 corner-cases/proof-param-ok                accept  accept  accept     0    0      0.21s       96M
-corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
+corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
 corner-cases/subject-reduction-redex       either  accept  accept     0    0      0.36s       95M  con-leche: accepted 114 declarations (--verified)
 corner-cases/subject-reduction-reduct      either  reject  reject     1    1      0.28s       89M  con-leche: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
-ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
-extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
+ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
+extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
 init-prelude                               accept  accept  accept     0    0      1.01s      121M
 k-rec-conv                                 reject  reject  reject     1    1      0.14s      100M
 large-elim-param                           reject  reject  reject     1    2 *    0.13s       99M
@@ -54674,8 +54675,8 @@ nat-rec-k-lie                              reject  decline reject     2    2    
 nat-rec-rules                              reject  decline reject     2    2      0.14s       98M  con-leche: declined: the preprocessor declined to model a block (re-run con-leche-preprocess without --quiet for th
 nested-nonuniform-param                    either  accept  reject     0    0      0.17s      102M  con-leche: accepted 91 declarations (--verified)
 nested-unused-param                        reject  reject  reject     1    2 *    0.14s      102M
-orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
-orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
+orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
+orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
 perf/app-lam                               accept  accept  accept     0    0     57.82s     4061M
 perf/args-before-unfold                    accept  accept  accept     0    0      0.58s       97M
 perf/beta-ladder                           accept  accept  accept     0    0     12.81s      890M
@@ -54701,7 +54702,7 @@ proj-of-stuck-prop                         reject  decline reject     2    2    
 proj-of-subst-prop                         reject  decline reject     2    2      0.37s       93M  con-leche: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold po
 proof-irrel                                accept  decline accept     2    2      0.06s       68M  con-leche: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
 rec-k-lie                                  reject  reject  reject     1    2 *    0.22s       85M
-rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
+rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  <checkout>/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
 rec-of-subst-prop                          reject  decline reject     2    2      0.43s       98M  con-leche: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (-
 sparse-name-index                          accept  decline accept     2    2      0.06s       68M  con-leche: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
 ```
@@ -65522,7 +65523,9 @@ sequential measurement cell.  `--jobs=1` is the in-thread loop with
 no thread, no shared state and no multi-threaded marking: the
 user's second ruling, *"keep an overhead-free single threaded lane"*,
 keeps it exactly so (§4 has the finding that argued for moving it
-onto a thread, left open).  `--jobs=0`, a non-numeral and bare
+onto a thread, left open).  [SUPERSEDED by task #269: §4's finding is
+the heap the loop allocates from, and `--jobs=1` now runs its loop on
+one dedicated worker thread.]  `--jobs=0`, a non-numeral and bare
 `--jobs` are usage errors (exit 3), per the provenance discipline.
 
 **The seam for task #259.**  The runtime marks everything reachable
@@ -65769,7 +65772,9 @@ heaps in the picture.
 ### What lands
 
 **The mark is ON by default whenever the check phase runs on the pool
-(`--jobs ≥ 2`), and never in the in-thread lane.**  `--jobs=1` keeps
+(`--jobs ≥ 2`), and never in the in-thread lane.**  [SUPERSEDED by task
+#269: the mark is on at every worker count, because `--jobs=1` is a
+worker thread too.]  `--jobs=1` keeps
 the user's *"overhead-free single threaded lane"* exactly: no thread,
 no shared state, no marking of any kind — and #259's measurement is
 precisely the reason it must not mark, since single-threaded the mark
@@ -66671,6 +66676,1080 @@ section, and `snapshot` never overwrites it.
 line-anchored from OVERVIEW).  Docs, data and two scripts only: no
 `.lean` under `ConLeche/` changed.
 
+## Task #270 — `docs/` REMOVED AS OBSOLETE; ITS FINDINGS NOW LIVE IN THE DOCSTRINGS THAT USE THEM (2026-09-10, `agent/docsrm-270`)
+
+`docs/` is deleted.  It held four literature surveys from 2026-09-01,
+the retrospective of the parked sort-coherence campaign, that
+campaign's summary, and `SetR-DESIGN.md` (988 KB) — the design ledger
+of the collapsed-model `SetR` tier, which was itself deleted on
+2026-09-05.  All of it is history; this file is the project's ledger,
+and the removed files are in git history at the commit before this one.
+
+The `docs/` mentions in the task records ABOVE are left alone: the
+ledger records what was true when each task ran.
+
+Twelve docstrings cited `docs/SetR-DESIGN.md` for findings that shaped
+the current design.  Each now **states** the finding it relies on
+instead of pointing at a file:
+
+* `Kernel/Core.lean` — the λ codomain `ensureSort` says what no
+  metatheorem supplies: validity for `Infer` ("every inferred type has
+  a sort") is refuted at the application clause, and nothing else in
+  the checker computes a λ's codomain sort.
+* `Semantics/Interp.lean` — the collapse's countermodel (empty-domain
+  abstractions collapse at every level) is stated as such.
+* `Semantics/Kit.lean`, `Semantics/Syntax.lean` (×2),
+  `Semantics/Univ.lean` (×2), `SetModel/Ops.lean` (×2) — the
+  universe-cohabitation wall: `pt ∈ˢ piC A (fun _ => univ 0)` holds
+  exactly at an unknown-empty domain, which is why no *typing*
+  separates a proposition's inhabitant from the proof point under the
+  collapse, and why the two-regime operators remove the wall.  The
+  purely historical "had to dodge" citation lost its parenthetical.
+* `Semantics/Skeleton.lean`, `Semantics/WellDenoted.lean` — the
+  assembly architecture and the two `WellDenoted` upgrades, stated
+  without the record they were written in.
+* `Verify/Extend/Iota.lean` — the eta head obligation is a threaded
+  *invariant*, not an obligation forwarded to the caller: the dead
+  cases die on facts that hold at every install.
+
+`git grep -n "docs/" -- ':!DESIGN.md'` is empty.  `README.md` never
+mentioned `docs/`.
+
+Five more citations of the same class — a docstring pointing at a file
+that does not exist — went with them: `Interp/Ops.lean` (three sites,
+in `Model/Steps/Stuck.lean`, `Semantics/Interp.lean` and
+`Semantics/WellDenoted.lean`) is `SetModel/Ops.lean`, where `lamR_eta`,
+`app_mem_piR` and `app_lamR_pos` actually live; `Interp/Pilot.lean`
+(two sites in `Semantics/WellDenoted.lean`) is gone, and its
+`graded_beta_pos` with it — the value-level kernel `WellDenoted_beta_pos`
+really rewrites with is `app_lamR_pos`, and the second site's "in
+`Pilot.lean`'s style" said nothing the sentence needs.  Written in the
+repo-relative style so no line moves.
+
+**Not fixed, and a task's worth of work**: citations of whole deleted
+trees — `ConLeche/SetR/*` (e.g. `SetR/Annot/Kinding.lean`, cited by
+`Semantics/WellDenoted.lean`'s `appSlot_of_pi`), `ConLeche/TTVerify/*`,
+`ConLeche/SetBase/*` and `ConLeche/Term/Semantics/*`.  A census wants a
+resolver that knows the two citation styles (full path and
+`ConLeche/`-relative) before it can tell a stale pointer from a
+relative one.
+
+### Gates
+
+Docstrings, prose and line anchors only — no term, no statement and no
+import changed, so **the binary cannot change**.  `lake build` 541 jobs
+warning-free, `lake test` warning-free, `tests/overview-links.sh` 72
+links / 47 files OK, `tests/no-local-paths.sh` OK.
+
+## TASK #272 — THE ∀ TELESCOPE'S ZERO-NESS DATUM IS THREADED, NOT RECOMPUTED (2026-09-10, `agent/fanout-272`)
+
+GitHub issue #9: the check phase is quadratic in the number of
+constants one declaration references.  `tests/scale/gen.py fanout n` —
+`n` tiny `Prop` definitions plus `top : Prop := m_0 → … → m_{n-1} →
+m_0` — measured 4.3× per doubling of the check phase's wall time
+against the official kernel's linear growth (0.3 s / 1.3 s / 5.6 s at
+n = 10 000 / 20 000 / 40 000; parse and install flat).
+
+### The site
+
+Not the constant lookups: the ∀ TELESCOPE the fanout body happens to
+be.  `inferPisI` (`ConLeche/Cached/CoreC.lean`) peels the `n` binders,
+infers the leaf's sort once, and folds `imax` outward in
+`inferPisOutI`.  At every node that fold validated the binder's
+prop-ness annotation against the node's codomain sort — task #161's
+`(forall-cod)` check — by reading `zeronessOf v` out of a `Level`-keyed
+memo (`zeronessOfLGo`, the last computing piece of the retired
+`CStore`).
+
+The memo MISSED at every single node.  Its key is the accumulated
+level `v`, and the fold's next `v` is `.imax u v` — a level that has
+never been seen before, by construction.  So each of the `n` nodes ran
+`Level.zeronessOf` afresh, and `zeronessOf` walks an `imax` down its
+right spine (`| .imax _ b => zeronessOf b`), which at node `i` is `i`
+deep: `O(n²)` steps, plus `n` structural hashes and inserts of levels
+whose sizes sum to `O(n²)`.  On the n = 40 000 stream `perf record`
+put **90.3 % of the run in `Level.zeronessOf`**, and the arithmetic
+matches: n²/2 ≈ 8·10⁸ readout steps against 9.0·10⁹ retired
+instructions.
+
+The fix is the equation the file's own annotation loop already folds
+on (`annotateBindersOutI`'s docstring, task #161 P5): `zeronessOf
+(imax u v) = zeronessOf v`, definitionally.  Every node of a ∀
+telescope therefore shares its codomain sort's datum, so
+`inferPisOutI` now takes the datum instead of a memo, computes it ONCE
+in the leaf phase (`inferPisLeafI`) and threads it — the shape the λ
+loop (`inferLamsOutI`'s `prevPw`) has had all along.
+
+With no fold threading it, the memo is dead: the three remaining
+readouts (`inferLamsLeafI`, `annotPwPiI`, `annotPwLamI`) each called
+`zeronessOfLGo {}` once, i.e. allocated a hash map to miss in it.
+`PWMemo`/`zeronessOfLGo` (`Cached/StateC.lean`) and their
+correspondence battery `PWMemoInvC`/`PWMemoInvC.insert`/
+`zeronessOfLGo_spec` (`Verify/Cached/GuardsC.lean`) are deleted; the
+three sites read `Level.zeronessOf` directly, which is what the pure
+mirror reads, so their three four-line agreement obligations in
+`Verify/Cached/BinderLoopC.lean` became `rfl`.
+
+### The proof
+
+`inferPisOutC_sim` (`Verify/Cached/BinderLoopC.lean`) related the
+memoized fold to the mirror `inferPisOut` (`Verify/BinderLoop.lean`,
+which recomputes `Level.zeronessOf v` at every node and is unchanged)
+under `PWMemoInvC memo`.  Its new hypothesis is the threading
+invariant `pv = Level.zeronessOf v`; the leaf establishes it by `rfl`,
+and the step re-establishes it by `rfl` as well — `Level.zeronessOf
+(.imax u v)` IS `Level.zeronessOf v`.  With the invariant substituted,
+the cached and the mirror `if` conditions are syntactically the same
+term and the `zeronessOfLGo_spec` rewrite that used to bridge them is
+gone.  Net: the proof got shorter.
+
+### Numbers
+
+Retired instructions, `--verified --jobs=1`, whole run (parse +
+install + check; only the check phase differs):
+
+| n | before | after | ratio |
+|---|---|---|---|
+| 10 000 | 1.199 G | 0.833 G | 1.44× |
+| 20 000 | 3.085 G | 1.652 G | 1.87× |
+| 40 000 | 8.955 G | 3.289 G | 2.72× |
+| 80 000 | 29.158 G | 6.568 G | 4.44× |
+
+Per doubling: **2.57 / 2.90 / 3.26 before** (rising — quadratic),
+**1.98 / 1.99 / 2.00 after** (linear).  The check phase alone at
+n = 80 000 goes from 28.7 s to 0.2 s.  The growth is the same at
+`--jobs=2`, which is what the shape says it must be — one declaration
+is one worker's work — so this is not the sequential-lane locality
+finding (#269).
+
+`telescope`, the other shape that is one declaration with an n-binder
+∀ chain, was quadratic for the same reason and nobody had noticed: at
+n = 8000 it drops 419.8 M → 187.3 M instructions, from 1.42 to 1.04
+per doubling.
+
+`init-full`, `--verified --jobs=4`, one run each on the same machine:
+**541.13 G → 539.50 G, −0.30 %**, 53 088 declarations accepted in both
+(the win is the three hash-map allocations per telescope leaf and the
+level hashing the fold no longer does).
+
+### The gate that did not catch it
+
+`tests/scale.sh` HAS a `fanout` shape, and it passed on the buggy
+binary: its base n was 100, so the largest measured n was 800, where
+the quadratic (n²/2 ≈ 3·10⁵ readout steps) is still far under the
+per-declaration linear work.  A superlinear check of ONE declaration
+needs that declaration big, so `fanout`'s base n is now 1000 and
+`telescope`'s 500 (the two one-declaration telescope shapes; every
+other def shape keeps its base).  On the buggy binary those bases read
+1.06/1.11/1.19 and 1.11/1.19/1.32 — caught at the largest step, which
+is the step this harness gates — and 1.00 at every step after the fix.
+The added cost is about a second of measured time.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` OK (arena 90/92, e2e 185/185, annot 15/15, trusted
+sweep and both `--jobs` sweeps unchanged, layering / proofdeps /
+pindump / trust-surface / overview-links / no-local-paths / shake all
+OK), `tests/scale.sh` all shapes PASS except `lparams`.
+
+**`lparams` fails on master too** (1.89 against its 1.65 gate, exactly
+the same number from master's binary — measured, not inferred): a
+pre-existing drift of a documented known-superlinear shape, whose gate
+was calibrated at 1.49/8× on 2026-08-24.  A 38-sample profile at
+n = 1600 says where it went: `Level.allParamsDefined` (34.7 %,
+half of it `Name.hashData`), `Level.subst.go` (18.6 %),
+`Name.decEq` (18.2 %) and `Name.nodup` (12.5 %) — a level tree of size
+n against a parameter LIST of length n, i.e. the list-based
+level-parameter set, not this task's site.  Recalibrating or fixing it
+is a task of its own; nothing here touches it.
+
+## TASK #271 — the inductive block's redundant fields, validated (issues #5, #7, #8; a note for #6)
+
+Four GitHub issues, three of them fixed here.
+
+**The line official draws.**  The replay behind the official kernel
+hands `add_inductive` the type formers, the constructors and the
+parameter count; the kernel checks those and GENERATES the
+constructors and the recursors; the replay then compares each exported
+CONSTRUCTOR and RECURSOR record with the generated one, structurally,
+and a mismatch is a REJECT ("Invalid constructor", "Invalid recursor",
+`Lean4Checker/Replay.lean`).  An exported INDUCTIVE record is never
+compared with the generated `InductiveVal` — which is exactly why
+issue #7's last row (`numIndices := 1` on the type record) is an
+ACCEPT for official.  So:
+
+| record | field | who reads it | this task |
+|---|---|---|---|
+| type | `numParams` | `Declaration.inductDecl` | task #228, unchanged |
+| type | `ctors` | the replay's grouping | validated; IS the block's ctor order |
+| type | `numIndices`, `numNested`, `isRec`, `isReflexive`, `all` | nobody | not checked (official accepts a lie) |
+| ctor | `name`, `type`, `levelParams` | the comparison | already pinned by the routes |
+| ctor | `numParams` | the comparison | task #228, unchanged |
+| ctor | `numFields`, `cidx`, `induct` | the comparison | **validated at the parse** |
+| rec | `numParams`, `numMotives`, `numMinors`, `numIndices`, `k` | the comparison | **validated at the parse** |
+| rec | `levelParams`, `name`, argument sums, rule ctor/nfields | the comparison | `nativeRecLpsOk`, `nativeRecPinOk`, unchanged |
+| rec | `rules[].rhs` | the comparison | body since #210 Part D; **λ prefix now too** |
+| rec | `all` | the comparison | NOT decoded by the recogniser; see "Left open" |
+
+### Where each check sits, and why
+
+**The parse (`ConLeche/Frontend/ExportC.lean`, the `.ind` branch).**
+Everything that is a consistency check between the stream's OWN fields
+lives there, outside the fold and outside the main theorem.  A block
+that fails is `.invalid`, a new `FrontendError` case (exit 1) beside
+the existing `unsupported` (exit 2); `RecordVerdict` is the two-valued
+result a declaration record now carries out of `processLineCoreD`.
+
+* `types[].ctors` — duplicate-free, in bijection with the constructor
+  records — and it IS the block's constructor order.  The records are
+  REORDERED to it before anything else reads them, which is issue #5:
+  a stream whose record array is in another order is the same block and
+  now accepts, as official, nanoda and nanobruijn do.  `cidx` is then
+  the redundant copy and is checked against the position; `induct`
+  against the owning type record.
+* `numFields`: official's `check_constructors` walks `is_pi` WITHOUT
+  reducing and stores the count past the parameters, so
+  `nPd + numFields` must be the constructor type's syntactic Π-telescope
+  length (`indPiTeleLen`).  Measured on init-full and the whole arena
+  and e2e corpus: no false reject.
+* the recursor records' `numParams`, `numMotives` (= the number of type
+  records), `numMinors` (= the number of constructors), `numIndices`
+  (= the owning former's telescope past the parameters, only when the
+  former's declared type IS a Π-telescope ending in a sort) and `k`
+  (official's `is_K_target`: a `Prop` block, one type, one constructor
+  taking only the parameters).  **Not at a nested block**: the kernel
+  specialises nested into mutual with a mimic type per nested
+  occurrence and generates `T.rec`, `T.rec_1`, … for the SPECIALISED
+  block, whose motives and minors count the mimics — `ind_nest_inf`'s
+  `InfNest.rec` declares two motives at one declared type.  The gate is
+  the type record's `numNested`, a field official never compares:
+  reading it here only ever weakens the check.
+
+**The recogniser gains two decoded fields.**  `IndCtorRec` now carries
+`cidx` and `induct` (`Option Nat`, so a record that omits one is not
+contradicted — the dialect does not require them and no fixture in the
+tree omits them).  Both scanners and the equivalence proof
+(`scanIndCtorLoop_eq`) took the two extra state slots without a new
+case: the `obj_num` macro is agnostic in the slot's setter.
+
+**The kernel, two places.**
+
+* `nativeRulePrefixOk` (`Kernel/Inductives/NativeParts.lean`), a new
+  conjunct of `nativeRulesOk`.  A rule's `λ` prefix binds the
+  parameters, the motive, the minors and constructor `j`'s fields, and
+  every one of those binder types appears again in the recursor
+  RECORD's own type: the first `nP + 1 + n` at the same de Bruijn
+  depths, the fields as the first `nF` binders of the `j`-th minor
+  premise's type, `n - j` binders shallower.  **THE FINDING**: the
+  prefix cannot be compared with the term `structRecRhsR` generates,
+  because this route generates from the STORED constructors (field
+  domains normalised by the positivity walk) and from the former's
+  DECLARED telescope, while official generates from the declared
+  constructor types and from a telescope reduced to weak head normal
+  form.  Both directions occur on real streams — at arena
+  `053_reduceCtorParam.mk` the export's minor carries the declared
+  redex `constType (reduceCtorParam α) …` where this route has the
+  reduct; at `HPow` the export's parameter binder is `Sort (w+1)`
+  where this route's declared telescope still has
+  `outParam (Sort (w+1))`; at `Lean.SourceInfo.synthetic` the ctor
+  record's third field is `optParam Bool false` where the generated
+  recursor has `Bool`.  A term comparison rejects 45 e2e fixtures and
+  three good arena tests official accepts (measured).  The
+  stream-internal comparison has none of that: both halves of a real
+  export come from the one generated recursor.
+  `nativeRulesOk` took the recursor type as a new argument and NO PROOF
+  CHANGED SHAPE — the four Verify/Semantics sites read it as the same
+  opaque `Bool` guard.
+* the ANNOTATE pass's `.proj` clause (`Kernel/Core.lean`,
+  `Cached/CoreC.lean`) now checks official's `infer_proj` premise
+  `const_name(I) == proj_sname(e)` while the name is still the
+  stream's.  It was normalising the node's structure name to the
+  subject type's head, which REPAIRED a node naming another inductive
+  before the inference pass's own `T = sn` test could see it — issue
+  #7's `proj.typeName` row.  The normalisation stays (a node that
+  passes names the head already), so reduction's table lookup is as
+  complete on annotated terms as before.  Proof impact: three
+  mechanical sites — one more `split` in `annotateCore_proj_inv`
+  (`Verify/Abstract.lean`), one more `ite_rel` in the fvar-shift
+  bisimulation (`Verify/Deep.lean`), one more `by_cases` in the
+  cached-pure discipline (`Verify/Cached/DiscC6.lean`).  No statement
+  changed.
+
+**Issue #8, the census exit code.**  `CON_LECHE_INMODEL_CENSUS=1`
+stops after the parse — `Cached.checkDecls` never runs — and used to
+`return 0`, the code reserved for a fold that accepted.  It returns 2
+now, with its existing "parse only" line; `Main.lean`'s header and its
+usage text say so, beside `CON_LECHE_INMODEL=0`.  Two rows in
+`tests/arena.sh`'s mode-flag section pin it, on a good stream and on a
+bad one.  It stays an environment variable: the user's ruling that run
+modes are flags and the remaining `CON_LECHE_*` names are diagnostics
+puts it on the diagnostic side.
+
+**Issue #6, closed as a feature.**  `OVERVIEW.md` §9 listed two
+deliberate accept-supersets; it lists three now — the large eliminator
+of a single-constructor block whose result sort can be zero, which the
+per-field `PropWhen` criterion licenses and which is what carries the
+models of mutual and nested blocks.  Prose only, no code.
+
+### Verdict changes
+
+| fixture | before | after |
+|---|---|---|
+| `bad/tutorial/048_inductWrongCtorParams` | 2 | **1** (the reference verdict) |
+| `bad/tutorial/051_inductInIndex` | 2 | **1** (the reference verdict) |
+| `bad/tutorial/055_indNegReducible` | 2 | **1** (the reference verdict) |
+
+All three carry a stub recursor record (`numMotives := 0`,
+`numMinors := 0`; 048 also `numParams := 0` at a one-parameter block)
+written by the arena's `bad_raw_consts` helper, and all three used to
+reach only the non-standard-axiom decline at the end of the stream.
+`tests/arena-expected.txt`'s note A is updated: the group of four that
+"decline earlier still, at a non-standard axiom" is down to 045.
+
+Outside the gates, the arena's own `ctor-num-fields` test — which lies
+about `numFields` to make a structure look unit-like and expects a
+reject — moves from a DECLINE (neutral there) to a REJECT.
+
+Ten new e2e fixtures (`tests/e2e-expected.txt`), one per row of issue
+#7's table plus issue #5's stream and two accepting controls.
+
+### Left open
+
+* `recs[].all` is compared by official's replay and is NOT validated
+  here: the recogniser does not decode the `all` key at all (neither
+  `IndTypeRec` nor `IndRecRec` carries it), so validating it means a
+  third scanner field and a third equivalence-proof slot, and no row of
+  issue #7's table covers it.  A block whose recursor lies about `all`
+  is still accepted.
+* The rule prefix is compared against the stream's own recursor type,
+  which is an internal-consistency check and not official's comparison
+  with the generated term.  A stream that lies CONSISTENTLY in both the
+  recursor type and the rule — a type that is `isDefEq` to the
+  generated one but not syntactically it, with a rule to match — is
+  still accepted.  Closing that needs an `isDefEq` comparison of the
+  prefix binder types at the recursor's environment, opened at fvars;
+  that is a task of its own.
+
+### Gates
+
+`lake build` 541 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green with the three expectation moves recorded above
+(arena tutorial 90/92 accepted, e2e 195/195, annot 15/15, DAG-tower
+14/14, mode flags 20/20, trusted and `--jobs=1`/`--jobs=4` sweeps
+clean), `tests/overview-links.sh` regenerated after eight anchors
+moved (all pure line shifts; the `ExportC.lean` one was already off its
+own paragraph's subject and now points at `def parseExportStreamD`).
+`init-full --verified` accepts 53 088, unchanged, at 542.90 G
+instructions:u against master's 544.21 G on the same host (`--jobs=1`,
+`perf stat -e instructions:u`) — the new checks cost nothing
+measurable.  Re-gated after merging task #272: same verdicts
+throughout, 539.56 G at `--jobs=4` with that task's improvement in.
+
+## TASK #274 — THE PIN MATRIX: EVERY LEAN SINCE v4.29.0 EXPORTS THE PINNED NAT OPS, AND WE CHECK THEM (2026-09-10, `agent/pin-matrix-274`)
+
+**The gap.**  The checker vendors the toolchain's own definitions of
+the fifteen kernel-accelerated `Nat` operations (`pins/<toolchain>.json`
+via `ConLeche/Kernel/NatOpPins.lean`) and of the two compiler-trust
+opaque values (`ConLeche/Kernel/TrustPins.lean`), and compares a
+stream's declaration against the pin by definitional equality at
+install.  Every gate we had exports with the repo's OWN
+`lean-toolchain`, so the one thing the pins are exposed to — a stream
+produced by a *different* Lean — was never exercised.  con-leche is
+being bundled with Lean releases, so that is exactly the stream it
+gets handed, and the first report of drift (lean4 master's `Decidable`
+rewrite declining at `Nat.mod`) came from downstream.
+
+**What landed.**  A script and a workflow, no Lean.
+
+* `scripts/natop-matrix.sh <toolchain>` does all the per-toolchain
+  work and is runnable locally exactly as CI runs it: install the
+  toolchain with elan if missing; find an exporter FOR THAT TOOLCHAIN;
+  export the dependency cone of the pinned constants out of `Init`;
+  run the con-leche binary over it under `ulimit -v` + `timeout` with
+  an explicit `--jobs=4`; print one summary line on stdout
+  (`toolchain | exporter | records | verdict | first failing record`)
+  and everything else on stderr, with the checker's exit code passed
+  through.  The constant list is cross-checked against
+  `ConLeche/Kernel/Core.lean`'s `natOpNames` + `natDivModNames` on every
+  run, so it cannot go stale silently.
+* `.github/workflows/natop-matrix.yml`: `enumerate` (GitHub API, floor
+  v4.29.0, plus the newest `-rc` and the newest nightly — no hard-coded
+  list) → `build` (ONE binary from `lean-toolchain`, ci.yml's elan +
+  `.lake` cache recipe, uploaded as an artifact) → `matrix`
+  (`fail-fast: false`, one job per toolchain).  Stable releases hard-fail;
+  the rc and the nightly carry `continue-on-error: true`, so upstream
+  drift shows red in the summary without blocking.  Triggers:
+  `workflow_dispatch`, weekly `schedule`, and pushes touching the pins,
+  the pin generator, the script or the workflow.
+
+**The exporter, per toolchain.**  Two sources, in this order.  Lean
+ships `leanexport` in its own `bin/` since `src/LeanExport.lean` landed
+upstream (2026-08-28, lean4#14885) — nightlies from then on, releases
+after v4.34.0-rc2 — with lean4export's command line
+(`leanexport Init -- Nat.div ...`).  Otherwise the script builds
+github.com/leanprover/lean4export, which tags a release per Lean
+release; the ref is the exact tag when it exists and otherwise the
+newest tag that is not newer than the target (v4.32.1 and v4.33.1 in
+the matrix, and v4.28.1 below its floor, have no tag of their own and
+fall back one patch level), and
+the clone's `lean-toolchain` is overwritten with the target either way
+— the exporter must link against the toolchain whose environment it
+dumps.  The export itself runs under `elan run <toolchain>`: the
+exporter calls `findSysroot`, which shells out to `lean --print-prefix`,
+and a bare `lean` would answer for whatever `lean-toolchain` the
+current directory names.
+
+**A third kind of drift, and the silent one.**  A pinned constant that
+no longer EXISTS under that name does not decline: both exporters
+answer an unknown name with `panic! "Constant X not found in
+environment."` and still exit 0, so the stream comes back short and the
+checker never sees the record.  The script reads those names off the
+exporter's stderr and turns an otherwise-accepting run into
+`accept(incomplete)` with a non-zero exit.  This is not hypothetical:
+on today's nightly `Lean.reduceBool` and `Lean.reduceNat` — the whole
+compiler-trust escape hatch `ConLeche/Kernel/TrustPins.lean` pins — are
+gone from `Init`.
+
+### The local results (2026-09-10, checker built at `lean-toolchain` = v4.33.0)
+
+Measured at the original v4.28.0 floor, so the two rows the ruling
+below removed from the matrix are still here — they are the evidence
+for it.
+
+| toolchain | exporter | records | verdict | first failing record |
+|---|---|---|---|---|
+| v4.28.0 | lean4export@v4.28.0 | ? | decline | `def Nat.gcd @189` |
+| v4.28.1 | lean4export@v4.28.0 | ? | decline | `def Nat.gcd @189` |
+| v4.29.0 | lean4export@v4.29.0 | 325 | accept | — |
+| v4.29.1 | lean4export@v4.29.1 | 325 | accept | — |
+| v4.30.0 | lean4export@v4.30.0 | 353 | accept | — |
+| v4.31.0 | lean4export@v4.31.0 | 353 | accept | — |
+| v4.32.0 | lean4export@v4.32.0 | 353 | accept | — |
+| v4.32.1 | lean4export@v4.32.0 | 353 | accept | — |
+| v4.32.2 | lean4export@v4.32.2 | 353 | accept | — |
+| v4.33.0 | lean4export@v4.33.0 | 353 | accept | — |
+| v4.33.1 | lean4export@v4.33.0 | 353 | accept | — |
+| v4.34.0-rc2 | lean4export@v4.34.0-rc2 | ? | decline | `def Nat.land @332` |
+| nightly-2026-09-10 | leanexport(bundled) | ? | decline | `def Nat.div @141`; absent from `Init`: `Lean.reduceBool` `Lean.reduceNat` |
+
+Nine of the eleven stable releases at or above v4.28.0 accept.  The
+three failures are three different drifts, and the cone diff names each
+of them:
+
+* **v4.28.0 / v4.28.1** — one name, `WellFounded.Nat.fix._proof_2`,
+  which those toolchains spell `WellFounded.Nat.fix.go._proof_2`.  The
+  `Nat.gcd` pin blob mentions it, `constsResolve` fails, and the gate
+  declines with "pin ground constants absent".  The two cones are
+  otherwise identical (292 declarations, one name different).
+* **v4.34.0-rc2** — the `Decidable` rewrite, already in the release
+  candidate and not only on master: `dif_pos`/`dif_neg`/`if_pos`/`if_neg`
+  and `ite_cond_eq_true`/`ite_cond_eq_false` are replaced by
+  `dite_eq_left`/`dite_eq_right`/`ite_eq_left`/`ite_eq_right`/
+  `ite_true`/`ite_false`, and `Nat.div_eq` by `Nat.div_eq_ite`.  First
+  bite at `Nat.land`.
+* **nightly** — the same rewrite gone further (`Bool.Reflects`,
+  `Decidable.reflects_decide`, `Bool.decEq._proof_1`, …), biting at
+  `Nat.div`; plus the removal of `Lean.reduceBool`/`Lean.reduceNat`
+  described above.
+
+**THE FLOOR IS v4.29.0** (user ruling, 2026-09-10, after the table
+above).  The v4.28.x spelling predates the pins — they were never
+maintained against it — so a v4.28.x matrix row would be a permanently
+red gate reporting a decision already taken, not drift.  The workflow
+enumerates from v4.29.0; `scripts/natop-matrix.sh v4.28.0` still runs
+by hand and still declines, which is how the two rows above were
+measured.  With the floor in force the matrix is nine stable releases
+plus the newest rc plus the newest nightly — eleven jobs, nine of them
+gating, and green today except for the two watched ones.
+
+**Not this lane's work**: the pins themselves (task #273) — widening
+the `gcd` pin, or answering the `Lean.reduceBool`/`Lean.reduceNat`
+removal.  The workflow reports; it does not fix.
+
+### Gates
+
+Prose-and-script lane: no Lean source changed, so no `lake` gate is
+implicated.  `bash -n scripts/natop-matrix.sh` clean,
+`tests/no-local-paths.sh` OK, `actionlint 1.7.12` clean on both
+workflows (no `shellcheck` on this machine, so the embedded `run:`
+scripts were read rather than linted), and the thirteen local runs in
+the table above — including the two failure shapes the script must get
+right (the `Nat.gcd` decline and the silently truncated nightly
+export).
+
+## TASK #273 — PIN VARIANTS: one binary carries every supported toolchain's Nat-op pins (2026-09-10, `agent/natop-273`)
+
+**The report** (Sebastian Ullrich, bundling con-leche with Lean
+releases): *"con-leche pinned at v4.33.0 declines almost immediately
+on this toolchain's [lean4 master] exports — `leanexport Init` dies at
+fold position 222: unsupported Nat.div/mod spelling (Nat.mod: pin
+ground constants absent)."*  And on `nightly-2026-09-06` the
+generator itself aborts: *"pin generation for Nat.mod failed:
+certificate residual outside the op's dependency cone: Decidable.rec
+(NO VALUE (inductive-kind?))"*.  Both reproduced verbatim on
+`nightly-2026-09-10` (the newest nightly on the day; it ships
+`leanexport` in its `bin/`, lean4export 3.1.0 format, githash
+587587f2): master's v4.33.0-built binary declines the nightly's
+`Init.Prelude` export at fold position 219, and `lake exe
+natop-pins-export` on the nightly aborts on `Decidable.rec`.  The
+user's ruling on the shape of the fix: *"time to become multi-prelude
+capable.  we already prepared that, so we need to dump the current
+pin, embed all of them and use the first that works.  goes well with
+the new CI job."*
+
+### 1. What changed upstream, and why the pin stopped describing it
+
+lean4 master (already v4.34.0-rc2, per the #274 matrix) rewrote
+`Decidable` from a two-constructor inductive into a STRUCTURE —
+`class Decidable (p : Prop) where intro :: decide : Bool;
+reflects_decide : decide.Reflects p` — with `Decidable.isTrue` /
+`isFalse` now `@[match_pattern] abbrev`s, `Decidable.falseTrueCases`
+an abbrev eliminator, and `dite c t e := h.decide.casesOn e t
+h.reflects_decide`.  `Nat.mod`'s source is unchanged.  Three
+consequences, in the order they bite:
+
+1. **The generator's cone rule had a hole.**  `coneOf`
+   (`ConLeche/PinGen.lean`) collected only the constants *referenced*
+   by types and values on its walk; its docstring claimed that
+   "recursor and constructor names resolve through their stored
+   inductive block", but nothing inserted them.  Up to v4.33
+   `Decidable.rec` entered `Nat.mod`'s cone only because
+   `Decidable.casesOn`'s value (reached through `ite`) mentions it;
+   on master `ite`/`dite` go through `h.decide.casesOn` and
+   `Decidable.rec` is no longer referenced — while the certificate
+   proofs still case-split on `Decidable` (`dcongr`, the `match
+   Nat.decLe …` arms), so the closed proof blobs contain
+   `Decidable.rec` and the generator rejected it as a residual outside
+   the cone.  FIX: an inductive in the cone brings every type of its
+   block (`iv.all`), their constructors and their recursors (`.rec`,
+   `.rec_k` for nested) into the cone, because the stream declares the
+   whole block in one record.  The v4.33.0 dump regenerated with the
+   fixed generator is **byte-identical** (`diff -q` clean) — the rule
+   change adds members that were always reachable there.  The
+   certificate proofs (`ConLeche/PinGen/Certs.lean`) elaborate on the
+   nightly unchanged; the nightly dump is 42 184 lines against
+   v4.33.0's 40 378, and its built-in prelude sidecar is
+   byte-identical to v4.33.0's below the meta line, so ONE embedded
+   prelude serves both.
+
+2. **The first guard to fire was not the real mismatch.**  The
+   "ground constants absent" decline names `Decidable.casesOn` /
+   `isTrue` / `isFalse`, which the nightly's DFS-ordered export does
+   not declare before `Nat.mod` (on master `Nat.decLe` no longer
+   reaches them).  Had they been present — a linear, source-order
+   export — the v4.33 pin would have MATCHED: the pins mention `ite`,
+   `dite`, `Nat.decLe`, `Nat.decLt` BY NAME (they are not helpers, so
+   the helper unfolding keeps them), and the nightly's `Nat.mod` value
+   has the same `ite` spelling, so the definitional comparison
+   succeeds syntactically — and then the v4.33 certificate blobs,
+   which apply `Decidable.rec` with two minors where master's has
+   one, are ill-typed against that stream: `annotate`/`inferType`
+   THROWS, and until this task a thrown error inside the gate was a
+   hard fold error on a valid stream.  Latent because nobody had fed a
+   linear-order export before: every export that reached the gate was
+   DFS-ordered (lean4export walks `env.constants` in hash order) and
+   failed the ground guard first.  The reverse direction (the nightly
+   variant on a v4.33 stream) is the same failure.
+
+3. **`Lean.reduceBool` / `Lean.reduceNat` / `Lean.trustCompiler` and
+   the `ofReduce*` axioms are gone from `Init`** on the nightly (not in
+   the source tree, not in the export) — the second drift, found
+   because the nightly checker build died at `#gen_trust_pins`
+   ("Lean.reduceNat is absent from the compiling environment").
+
+### 2. The design: pin variants, and "first that works" means guards ∧ defeq ∧ certificates
+
+`pins/` holds one dump per supported toolchain and
+`ConLeche/Kernel/NatOpPins.lean` embeds ALL of them, one
+`#load_natop_pins` argument per dump, in the order the gate tries
+them (the repository toolchain first).  The loader
+(`ConLeche/PinGen/Dump.lean`) splices each dump as a **pin variant**
+`natOpPinSet_v<i> : NatOpPinSet` (`ConLeche/Kernel/NatOpPinSet.lean`:
+the toolchain string, eight pins, eight proof lists) and lists them in
+`natOpPinSets`; it no longer insists that a dump was generated by the
+running Lean — that is the point — and `tests/pindump.sh` is what
+insists that the CURRENT toolchain's dump exists and is fresh (it
+regenerated and diffed that one only, and checked embed ↔ commit
+correspondence for the rest; **task #275 below reproduces ALL of them**,
+one Lake project per variant).  The gate (`checkDivModPin`,
+`ConLeche/Kernel/Checker.lean`) is now a loop: per variant, the
+syntactic guards (pin and certificate ground constants resolve), then
+the ATTEMPT `checkDivModPinAt` — the pin annotated and compared by
+definitional equality, and on a match the variant's certificates
+checked (`checkDivModCerts`, unchanged) — and the first attempt that
+returns `true` enables the fast path; a guard failure, a `false`, OR
+AN ERROR moves on to the next variant; no variant left is a decline
+(exit 2) whose message names, per variant, what it failed on.  The
+`.internal` "certificate failed after pin match" (exit 3) is gone
+from this gate by necessity: §1.2 shows the pin comparison cannot
+tell toolchains apart, so a certificate failure after a match is "not
+this variant", and the pre-existing hard error on a valid stream goes
+with it.  Rider from the orchestrator, honoured: the recovery is
+scoped to the attempt — the ordinary definition check before the gate
+and the `.internal` "operation not stored" path keep their semantics.
+
+**The one place the checker recovers from an error, and why it is
+fuel-monotone.**  The checker had no try/catch, and a naive one is not
+monotone in fuel: an attempt caught as "false" at fuel F can be "true"
+at F′, which would break `FueledM`/`wfOpsM` (every operation there is
+a family whose `.ok` results persist under more fuel).  The shape that
+IS monotone is a new `CheckerOps` field
+
+    orElse : m Bool → (Option CheckError → m Unit) → m Unit
+
+"run the attempt; on `true` the whole is `pure ()`; on `false` or on
+an error the continuation runs" — monotone because the result is
+`Unit`: an attempt that errs at F and matches at F′ changes which
+branch ran, not whether the whole succeeded.  The continuation is told
+the outcome (`none` after `false`, `some e` after an error) FOR
+DIAGNOSTIC TEXT ONLY — the reason list the decline message carries.  A
+fuel-indexed family cannot carry an outcome that differs between
+fuels, so the pure instantiations (`fueledOps`, `fueledOpsGated`,
+`fueledOpsM`, `wfOpsM`) hand the continuation `none` regardless, and
+the executable's `sharedOpsC` delivers it (after an error the
+cached state is the PRE-attempt one — the memo entries the failed
+attempt wrote are discarded with it, `StateT`'s own semantics).  What
+this costs the proofs: the loop's success must not depend on the
+accumulated reasons, which is true by construction (they only enter
+the final `throw`), and the bridge lemmas quantify over both lanes'
+accumulators independently.  Messages are not part of any verdict
+claim; the exit code is the error's constructor, `.notImplemented` on
+both lanes.  Measured cost when the first variant matches: the loop
+runs exactly the old gate's work (guards, one annotate, one defeq,
+the certificates) — init-full is unchanged within noise (§4).
+
+### 3. The proof-tier changes (one Fable session, as assessed)
+
+* `ConLeche/Verify/DivModInv.lean`: `checkDivModPinAt_inv`,
+  `checkDivModPinLoop_inv` (list induction), `checkDivModPin_inv` now
+  yields `∃ ps ∈ natOpPinSets, guards ∧ (∃ pinA, annotate ∧ defeq) ∧
+  certificates` — the matched variant.
+* `ConLeche/Semantics/DeclRun.lean` `DivModPinRun` and
+  `Semantics/Bridge/DeclRun.lean` `divModPinRun_of`: the same `∃ ps`.
+* `ConLeche/Model/DivModCert.lean` `divMod_install`: takes `hcerts`
+  for the matched variant; the `CertRuns` destructuring generalises
+  the proof list away (`generalize divModCertProofs ps cq = prs`) and
+  reads only the STATEMENT list's shape — `dmClause1`/`dmClause2`
+  always took the proof term opaquely, so nothing below moved.
+  `Model/Harvest.lean` destructures the new run.
+* `ConLeche/Verify/BridgeDecl.lean`: `OpsRel`/`pairOps` get the
+  combinator clause; `fueledOpsM.orElse` with its monotonicity proof;
+  `wfOpsM.orElse := fueledOpsM.orElse` (no precondition — it runs no
+  core body of its own); `fueledOpsM_orElse_atF`, `wfOpsM_orElse`; the
+  `atF` battery gains `checkDivModPinAt_datF`,
+  `checkDivModPinLoop_datF`, and `checkDivModPin_datF` stays an
+  EQUALITY at every fuel (both lanes ignore the outcome, so they
+  accumulate the same reasons).
+* `ConLeche/Verify/BridgeWfImp.lean`: `checkDivModPinAt_wfimp` (the
+  old body), `checkDivModPinLoop_wfimp`, `checkDivModPin_wfimp`.
+* `ConLeche/Verify/Cached/BridgeCS1.lean`: **`SimC.orElse`** — cached
+  attempt `ok true` ⇒ reproduced by the fueled attempt; `ok false` ⇒
+  the continuation on the attempt's (well-formed) state, at the max of
+  the two fuels by monotonicity; error ⇒ the continuation on the
+  pre-attempt state, and the fueled side's own attempt at that fuel
+  either matched (`pure ()`) or falls to its continuation — then
+  `checkDivModPinAtS_sim`, `checkDivModPinLoopS_sim` (over any two
+  accumulators), `checkDivModPinS_sim`.
+* `ConLeche/Verify/CheckerF.lean`: the F-twins' equalities per
+  function (`checkDivModPinLoopF_eq` by list induction);
+  `ConLeche/Kernel/DeclCheck.lean` carries the twins.
+
+No statement of the main theorem changed; `checkDecls` is the same
+fold over the same `checkDecl` with a different gate body.
+
+### 4. Gates and measurements
+
+All on the repository toolchain (v4.33.0), worktree at master 5b83410a
+merged in (`#274` and `#272` landed meanwhile; master's Core.lean moved,
+so the gates ran on the merged tree):
+
+* `lake build` and `lake test` warning-free (543 + 464 jobs);
+* `tests/arena.sh` (no `ulimit` around it) green end to end: arena
+  90/92, e2e 195/195, annot 15/15, the mode/progress/pool/DAG sweeps as
+  expected, `pindump` fresh for v4.33.0 with 3 dumps embedded,
+  `proofdeps` 3 377 rows / 0 doors after the regeneration below,
+  `overview-links` 72 links OK after `--update`, `shake` 460 removals
+  all allowlisted after two genuine removals (below);
+* **`tests/proofdeps.sh`**: `ConLeche.Kernel.NatOpPinSet` ENTERED every
+  capstone's proof-term closure — a door by the gate's definition, and
+  justified: the checker's gate reads the variant record, so the
+  capstones reach the structure's module exactly as they reach
+  `ConLeche.Kernel.NatOpPins` (checker data, no theorems).
+  Expectation regenerated (`tests/proofdeps.sh --list`).  The same
+  gate fired once more when the trust pins became builder-written
+  constants (below): `ConLeche.Kernel.Basis.Builder` entered the
+  closure through `reduceBoolDeclPin`'s value (`lm`/`cnst`/`bn` are
+  definitions there) — until then the builder's output reached the
+  capstones only through the `#annotate_basis` splice; justified the
+  same way (constructor-wrapping definitions, checker data) and
+  regenerated.
+* **`tests/shake.sh`** proposed two new removals; both were real and
+  are removed rather than allowlisted: `ConLeche/PinGen/Dump.lean`'s
+  `public meta import ConLeche.Kernel.NatOpPinSet` (the loader names the
+  structure with single backticks; the SPLICING module
+  `ConLeche/Kernel/NatOpPins.lean` is what imports it) and
+  `ConLeche/Kernel/CheckerBase.lean`'s `import ConLeche.Kernel.Env`
+  (reached through `TypeChecker`'s public chain).
+* **`tests/overview-links.sh`**: the cited pin-module header
+  (`NatOpPins.lean#L1-L16`) changed; the citing OVERVIEW paragraph
+  ("compares the stream's definition by definitional equality against a
+  *pinned* copy of the toolchain's own definition … The pins are
+  committed per toolchain under `pins/`") still describes the
+  mechanism — with variants it is "against the pinned copies of the
+  supported toolchains' definitions, the first that works"; the prose
+  is the human-facing document's and was left for its owner —
+  anchors updated.
+* **init-full, verified, `--jobs=4`, `perf stat -e instructions:u`**,
+  master's binary (built at 5b83410a) against this branch's, same
+  stream, verdicts identical (accepted 53 088):
+
+  | binary | instructions |
+  |---|---|
+  | master (one pin) | 539 570 629 557 |
+  | branch, 2 variants (374b4e71) | 539 561 356 170 (−0.002 %) |
+  | branch, 3 variants (598f4a98) | 539 599 429 126 (+0.005 %) |
+
+  The loop costs nothing when the first variant matches — as
+  predicted: it runs the old gate's work and nothing else.
+
+### 5. The cross-toolchain matrix
+
+Two binaries, every export in verified mode under `ulimit -v
+16000000`, `timeout`, `--jobs=4`.
+
+**(a) The v4.33.0-built branch binary (3 variants) on master's
+`scripts/natop-matrix.sh` (task #274: the pinned constants' dependency
+cone exported by the toolchain-matching exporter; floor v4.29.0 by
+user ruling — v4.28.x spells `WellFounded.Nat.fix._proof_2` as
+`WellFounded.Nat.fix.go._proof_2`, no cover):**
+
+| toolchain | exporter | records | verdict | first failing record |
+|---|---|---|---|---|
+| v4.29.0 | lean4export@v4.29.0 | 325 | accept | – |
+| v4.29.1 | lean4export@v4.29.1 | 325 | accept | – |
+| v4.30.0 | lean4export@v4.30.0 | 353 | accept | – |
+| v4.31.0 | lean4export@v4.31.0 | 353 | accept | – |
+| v4.32.0 | lean4export@v4.32.0 | 353 | accept | – |
+| v4.32.1 | lean4export@v4.32.0 | 353 | accept | – |
+| v4.33.0 | lean4export@v4.33.0 | 353 | accept | – |
+| v4.33.1 | lean4export@v4.33.0 | 353 | accept | – |
+| v4.34.0-rc2 | lean4export@v4.34.0-rc2 | 353 | accept | – (declined at `Nat.land @332` with 2 variants, see below) |
+| nightly-2026-09-10 | leanexport (bundled) | 357 | accept(incomplete) | the script's flag: `Lean.reduceBool`/`reduceNat` absent from Init (§1.3); the checker accepted every record |
+
+Master's binary before this task (the #274 run): v4.29.0 … v4.33.1
+accept, rc2 DECLINES at `Nat.land`, the nightly at `Nat.mod`.
+
+**Why rc2 needed its own variant — a THIRD spelling.**  rc2 does not
+yet have the `Decidable` rewrite; it has the lemma renames
+(`if_pos`/`if_neg`/`dif_pos`/`dif_neg` deprecated for
+`ite_eq_left/right`/`dite_eq_left/right`, `Nat.div_eq` → `Nat.div_eq_ite`).
+The v4.33.0 certificate blobs cite `Nat.div_eq`, `if_pos`, `if_neg`
+as cone residuals (they are theorems in `Nat.land`'s cone on v4.33,
+kept rather than inlined by the task-#113 rule), and rc2's DFS cone
+export declares none of them (the deprecated aliases exist but
+nothing in the cone references them) — the guard fails; the nightly
+variant's blobs cite `Decidable.intro`/`Bool.Reflects`/
+`Decidable.falseTrueCases`, which rc2 does not have — the guard
+fails.  The decline message is the diagnosis:
+
+    unsupported Nat.div/mod spelling (Nat.land: no pin variant matched —
+    leanprover/lean4:v4.33.0: pin or certificate ground constants absent;
+    leanprover/lean4-nightly:nightly-2026-09-10: pin or certificate ground
+    constants absent) [at def Nat.land, fold position 332]
+
+and `scripts/diagnose_natop_prefix.py` names the constants per
+variant.  The rc2 dump differs from v4.33.0's in exactly the three
+name entries `div_eq` → `div_eq_ite` (40 378 lines both).  Note the
+asymmetry with the MODULE export: the nightly-built binary with two
+variants accepted rc2's `Init.Prelude` (1 819 declarations) because
+a module export declares the deprecated aliases and the v4.33.0
+variant then matches.
+
+**(b) The nightly-built binary (`lake build con-leche` in a scratch
+tree at `leanprover/lean4-nightly:nightly-2026-09-10`, the same
+sources, all variants embedded, the prelude include re-pointed at the
+nightly's byte-identical sidecar) on module exports made with that
+toolchain's bundled `leanexport` and with lean4export at the
+toolchain-matching revisions (`ca36c44`/`caccfbe`/`15f6055`/`483e011`
+for v4.28.0/v4.29.0/v4.33.0/v4.34.0-rc2; exporter stderr clean of
+"not found"):**
+
+| export | verdict |
+|---|---|
+| nightly `Init.Prelude` (3.8 MB) | accept, 1 835 declarations |
+| nightly `Init` (345 MB) | accept, 57 875 declarations |
+| v4.34.0-rc2 `Init.Prelude` | accept, 1 819 |
+| v4.33.0 `Init.Prelude` | accept, 1 810 |
+| v4.29.0 `Init.Prelude` | accept, 1 773 |
+
+So the bundling case works both ways: a binary built on the release
+accepts the release's own exports, and it still accepts older
+toolchains' exports through the older variants.
+
+**Provenance of the committed dumps (for the `pinners/<toolchain>/`
+follow-up).**  Each dump was produced by `lake exe natop-pins-export`
+in a scratch copy of this tree with `lean-toolchain` set to the
+toolchain named in the file, this task's generator (the cone-rule fix
+of §1.1 and the trust-pin fallback of §6), and NO other source change:
+
+| dump | toolchain string | generator build | Certs.lean |
+|---|---|---|---|
+| `leanprover-lean4-v4.33.0.json` | `leanprover/lean4:v4.33.0` | warning-free | unchanged; byte-identical to the pre-task dump |
+| `leanprover-lean4-v4.34.0-rc2.json` | `leanprover/lean4:v4.34.0-rc2` | 37 deprecation warnings (`dif_pos`/`dif_neg`/`if_pos`/`if_neg` → `dite_eq_left/right`, `ite_eq_left/right`) | unchanged; a fork for rc2 would rename those (cosmetic — the deprecated aliases are what the blobs then cite) |
+| `leanprover-lean4-nightly-nightly-2026-09-10.json` | `leanprover/lean4-nightly:nightly-2026-09-10` | warning-free | unchanged (the old lemma names resolve there without a deprecation warning) |
+
+The prelude sidecars the three runs wrote are byte-identical below
+their meta lines; the committed one is v4.33.0's.  The only file the
+scratch builds touched beyond `lean-toolchain` was
+`ConLeche/Frontend/Prelude.lean`'s `include_str`, re-pointed at the
+toolchain's own sidecar to satisfy `tests/pindump.sh`'s naming
+check — not needed for the dumps.  So the follow-up's fork list is
+EMPTY today: `PinGen.lean`, `Dump.lean`, `Prelude.lean`, `Certs.lean`
+are shared verbatim across the three toolchains.
+
+### 6. What else the nightly exposed, and what stays open
+
+* **The trust pins are hand-written constants now** (§1.3, and the
+  user's addition before READY: *"the binary's behaviour must not
+  depend on the toolchain that compiled it … the host toolchain of
+  the binary is irrelevant for our purposes; if not, there is a
+  design flaw"*).  `#gen_trust_pins` read `Lean.reduceBool` /
+  `Lean.reduceNat` out of the COMPILING toolchain's `Init` at
+  elaboration time — the last such dependency once the Nat-op pins
+  became committed files — and the first fix here (an identity
+  fallback when the opaques are absent) papered over the nightly's
+  absence but kept the dependency.  Now `ConLeche/Kernel/TrustPins.lean`
+  writes the two pins down: `fun (b : Bool) => b`, `fun (n : Nat) => n`
+  — exactly the value every toolchain that had the opaques produced
+  after the conversion zeta-expanded `have := trustCompiler` (probed
+  on v4.33.0's spliced constants: `Expr.lam (const Bool) (bvar 0)`),
+  through the same `ConLeche/Kernel/Basis/Builder.lean` builder
+  `TrustAxioms.lean` writes the axiom shapes with, and with no read of
+  any environment; `#gen_trust_pins`, its `elab`, and
+  `ConLeche/Kernel/TrustPins.lean`'s `meta import ConLeche.PinGen` are
+  DELETED (so `ConLeche.PinGen`'s object code no longer links into the
+  binary at all).  No generator-side assertion replaces them (a first
+  version had one; the user dropped it): should a toolchain respell
+  the opaques, the install-time defeq declines its streams and the
+  matrix workflow shows it, which is enough.  A stream from an older
+  toolchain that declares
+  the opaques installs against the constant and the hand-pinned
+  `ofReduce*` axiom shapes of `ConLeche/Kernel/TrustAxioms.lean`; a
+  nightly stream never declares them.  Consequence for §5(b): the
+  "nightly-built binary" runs are a plain build check now — the
+  sources compile on the nightly, and by construction the binary's
+  behaviour is the v4.33.0-built one's; the v4.33.0-built matrix is the
+  evidence.
+* **Certificate proofs**: `ConLeche/PinGen/Certs.lean` elaborates
+  unchanged on the nightly (the `dcongr` `cases inst` finds the
+  structure's `casesOn`; `if_pos`/`dif_pos` still exist there).  #274
+  reports rc2 renaming `if_pos/if_neg` → `ite_eq_left/right`; the old
+  names resolve on rc2 (with deprecation warnings) and on the nightly
+  (without), so no rewrite was needed for either dump.
+* **`scripts/DumpNatOpPinConsts.lean`** was stale against today's
+  `Expr` constructors (a 4-argument `.lam` pattern); fixed, and it
+  and `scripts/diagnose_natop_prefix.py` now report PER VARIANT
+  (section headers `== <toolchain> <op> <kind>`).
+* **v4.28.x**: the floor of the matrix is v4.29.0 by user ruling (the
+  4.28 cones spell `WellFounded.Nat.fix._proof_2` as
+  `WellFounded.Nat.fix.go._proof_2`; no cover).
+* The `orderResidual`/`preludeNames` fields of a dump are
+  informational (the frontend's hoist reads `natOpDeps`, not the
+  dump); a second variant's prelude index is not consulted.
+
+## TASK #275 — PIN GENERATION IS REPRODUCIBLE FROM THE REPOSITORY: one Lake project per committed dump (2026-09-10, `agent/pinners-275`)
+
+Task #273 above landed two further pin variants
+(`leanprover-lean4-v4.34.0-rc2`, `leanprover-lean4-nightly-nightly-
+2026-09-10`), and `pins/README.md` had to say of them that they
+"cannot be regenerated here": a dump is computed by the generator
+running ON its toolchain, and the tree has one `lean-toolchain`.  The
+recipe was "set `lean-toolchain` to the new toolchain in a scratch
+worktree, build, generate, set it back".  A committed generated file
+whose recipe is a sequence of edits to a tracked file is not
+reproducible — it is a file someone once made.  The maintainer's
+instruction: **one Lake project per necessary toolchain, in a
+subdirectory of `pinners`, each self-contained and with their own
+dumper, or sharing only files written in a way that all necessary
+toolchains support.**
+
+### The layout
+
+    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
+
+Two files each.  The directory name is the dump's basename without
+`.json` (the toolchain string sanitised the way the generator names its
+output), and `tests/pindump.sh` checks that correspondence in both
+directions.  Regeneration is
+
+    cd pinners/<toolchain> && lake exe natop-pins-export ../../pins
+
+elan reads the `lean-toolchain` beside the lakefile, so `lake` there
+runs the Lean the dump describes.
+
+### srcDir vs. symlinks — the finding
+
+**Lake accepts a `srcDir` outside the package root**, and both a
+`lean_lib` and a `lean_exe` take one.  Measured, not assumed: a probe
+package with `srcDir = "../../.."` built `ConLeche.PinGen.Certs` and
+`PinDump` from the repository tree on the nightly toolchain, and the
+paths Lean reports are the relative ones (`../../ConLeche/Kernel/
+Expr.lean`), so `include_str` inside a shared source resolves relative
+to the file's REAL location and keeps working.  So no symlinks, no
+`pinners/common/`, and nothing was moved: a pinner's two targets point
+at the repository root and the tree holds exactly ONE generator, the
+one `lake exe natop-pins-export` at the root builds.  The main
+lakefile, `lake build` and `lake test` are untouched.
+
+This is a deliberate simplification of the brief, which offered a
+`pinners/common/` holding the shared sources (with the main tree's
+`ConLeche/PinGen/*` becoming symlinks into it, or the main lakefile
+taking its sources from it).  Both of those variants have to solve a
+problem `srcDir = "../.."` does not have: `ConLeche/PinGen.lean`
+`include_str`s `../scripts/natop_prefix.json`, so moving the file
+means moving or symlinking that data too, and a `pinners/common/
+ConLeche/` tree would put a second copy of every module PATH in the
+repository for the census, shake and layering scripts to trip over.
+What `common/` would have bought — a visible manifest of what is
+shared — the pinner's own lakefile buys instead, in a comment that
+names the cone.
+
+### What is shared, and the one honest surprise
+
+The brief's premise was that the generator "imports only `Lean`".  It
+does not, and this is worth recording: `ConLeche/PinGen.lean` and
+`ConLeche/PinGen/Dump.lean` carry `public meta import
+ConLeche.Kernel.Expr`.  The cone a pinner compiles is eight modules:
+
+    PinDump                                the executable root
+    ConLeche.PinGen, .Dump, .Prelude       the generator
+    ConLeche.PinGen.Certs                  the certificate theorems
+    ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
+
+The last line is structural, not accidental: a dump IS an encoding of
+`ConLeche.Expr` (the share table's entries are that inductive's
+constructors) and the splice back into `ConLeche/Kernel/NatOpPins.lean`
+names them with double-backtick name quotation, which needs the type
+to exist while `Dump.lean` elaborates.  A free-standing generator would
+need a forked copy of the term representation, checked against the real
+one by nothing.  So a pinner builds three checker modules — the three
+that define the term representation, none of the checking — and the
+price is that those three must stay inside the subset every supported
+toolchain accepts.  That price is now PAID BY A
+GATE rather than by hope: the cold pinner build is what checks it, on
+every toolchain, on every run.
+
+No file needed forking.  On v4.34.0-rc2 and nightly-2026-09-10 the
+shared sources build with 37 deprecation warnings each
+(`if_pos`/`dif_neg`/`if_false` renamed upstream) and no errors, and the
+dumps are byte-identical anyway.
+
+**The fork mechanism was measured rather than assumed, and the obvious
+form of it does not work.**  Lake resolves a module through the first
+library whose ROOTS COVER it, and a `lean_lib` with `srcDir = "."`
+listed BEFORE the shared library does NOT shadow it: a probe pinner
+with a deliberately corrupted `ConLeche/Kernel/Name.lean` in its own
+directory built clean — the shared copy won and the fork was dead code.
+What does work is narrowing the coverage: replace the shared library's
+`roots = ["ConLeche"]` with the explicit cone minus the forked module,
+and give the fork's own library that module as its root.  The same
+probe then failed on the corrupted file, which is the proof.  Both
+`pinners/README.md` and every pinner lakefile carry that recipe, in
+three steps and with the trap named.
+
+That is also why the shared library's root is the whole `ConLeche`
+hierarchy while no fork exists: a glob root means a module the cone
+grows into resolves without editing three lakefiles, and `lake build`
+in a pinner builds only the executable, so the root is never built as a
+library.
+
+### The generator's toolchain string
+
+One source change was unavoidable.  `ConLeche.PinGen.toolchainString`
+was `include_str "../lean-toolchain"` — the toolchain of whatever tree
+the source physically sits in, which is exactly the wrong answer once
+several projects build the same source.  It is now read at RUN time,
+by searching upward from the working directory for `lean-toolchain`:
+that is precisely the search elan performs to decide which Lean is
+running, so the file the generator reads and the binary executing it
+are the same project's by construction.  `readToolchainString` also
+cross-checks the two — a `…:vX` toolchain must be Lean `X`, a
+`…:nightly-D` a version ending in `nightly-D` — so running the
+executable from the wrong directory is an error naming both, not a
+mislabelled dump.  `computeDumpAndPrelude` takes the string as a
+parameter; `PinDump.main` supplies it.
+
+`lake exe natop-pins-export` from the repository root is unchanged, and
+`pinners/leanprover-lean4-v4.33.0/` is the same computation in a second
+project.  The root executable is kept rather than retired: the
+`ConLechePinCerts` library has to stay for `ConLeche.Model.NatWf`
+either way, the executable on top of it costs nothing, and retiring it
+would churn every doc pointer to buy uniformity the gate already
+enforces.
+
+### The reproducibility table
+
+Every committed dump, regenerated cold on its own toolchain and diffed
+against the committed file:
+
+| pinner | toolchain | cold build | dump | prelude |
+|---|---|---|---|---|
+| `leanprover-lean4-v4.33.0` | `leanprover/lean4:v4.33.0` | 18 jobs, seconds, warning-free | **byte-identical** | **byte-identical** |
+| `leanprover-lean4-v4.34.0-rc2` | `leanprover/lean4:v4.34.0-rc2` | 18 jobs, seconds, 37 deprecation warnings | **byte-identical** | identical below its meta line |
+| `leanprover-lean4-nightly-nightly-2026-09-10` | `leanprover/lean4-nightly:nightly-2026-09-10` | 18 jobs, seconds, 37 deprecation warnings | **byte-identical** | identical below its meta line |
+| repository root (`lake exe natop-pins-export`) | `leanprover/lean4:v4.33.0` | — | **byte-identical** | **byte-identical** |
+
+The prelude is ONE committed file, the repository toolchain's, because
+it holds only the pinned basis blocks and `Bool`/`And` and those have
+not drifted.  A foreign pinner's regenerated prelude is therefore
+compared below its meta line (which carries the generating Lean's
+version and githash); `pins/README.md` asked for that check by hand,
+and the gate does it now and calls a difference PRELUDE DRIFT.
+
+A quiet confirmation on the way in: the generator built on the nightly
+reproduces #273's committed nightly dump exactly, modulo the two fields
+the wrong `lean-toolchain` embed poisoned (`toolchain`, `preludeFile`).
+That is independent evidence that the dump is a function of the
+toolchain and the sources, and nothing else.
+
+### The gate
+
+`tests/pindump.sh` walks `pinners/*/`.  For each pinner whose toolchain
+elan has: build it, regenerate into `_tmp/pindump-gate/`, diff.  For
+one it does not have: a labelled SKIP — unless `PINDUMP_INSTALL=1`,
+when elan installs it first.  A run in which NO pinner ran is a
+failure, and since the repository's own toolchain is always installed
+that cannot happen silently.  The default cost is therefore bounded by
+what the machine already has, and on a fresh clone it is one pinner.
+
+Warning-freedom stays the repository toolchain's rule, enforced where
+it always was — on the root `natop-pins-export` target, which `lake
+build` does not reach.  A foreign toolchain's deprecation warnings do
+not change the dump and do not fail the gate.
+
+The correspondence checks now close a triangle: every committed dump is
+embedded by `NatOpPins`, every embedded dump is committed, and every
+committed dump has a pinner named after its own toolchain.
+
+CI: `natop-matrix.yml` gains a `regenerate` job running the same gate
+with `PINDUMP_INSTALL=1`, so every dump is reproduced there — a hard
+failure, because that staleness is ours and not upstream's.  The other
+three jobs ask whether the pins still describe upstream; this one asks
+whether the committed pins are what our generator produces.  `ci.yml`
+keeps running the default gate, where the foreign toolchains are SKIPs.
+
+### Gates
+
+`lake build` and `lake test` warning-free at the repository root;
+`tests/pindump.sh` green (3 pinners reproduced, 0 skipped), and its
+SKIP and `PINDUMP_INSTALL=1` branches exercised by hand with the
+installed-toolchain list forced empty; `tests/arena.sh` green;
+`tests/no-local-paths.sh` OK (the pinners' `srcDir`s are relative);
+both workflows parse.
+
 ## Task #269 — THE SEQUENTIAL CHECK LANE WAS LOSING TO ITS OWN HEAP, NOT TO THE MACHINE (2026-09-09, `agent/seqlane-269`)
 
 The user's question: *"investigate the sequential lane slowdown at
@@ -66819,3 +67898,54 @@ means is ONE worker and no shared state; what it no longer means is
 *the calling thread*.  A measurement that wants the old lane back has
 `--no-mark-persistent` for the mark half; the thread half is now gone
 from the binary.
+
+### 6. The decision, and what landed (2026-09-10)
+
+The user ruled: *"let's do the single worker thread, seems the best
+workaround for the problem."*  So §5's change lands as it stands, and
+the two rulings above it are superseded where they say `--jobs=1` runs
+in the calling thread and never marks — both sites now carry a
+SUPERSEDED note pointing here.  What `--jobs=1` means is unchanged in
+every way a caller can observe apart from speed: one worker, no shared
+counter, no result table, the same verdict and the same named
+declaration at every count.
+
+The branch was merged with master (tasks #270–#275).  The two sides
+touch `Main.lean` in disjoint regions — #271's exit-code arms and its
+`CON_LECHE_INMODEL_CENSUS` usage entry against this task's check-phase
+lane and its `--jobs` usage entry — so the merge is textual only there.
+What it did NOT compose by itself was the prose written before the
+branch: three sites still said the old fact and were rewritten to the
+new one — OVERVIEW §0's run paragraph (the check phase always runs on
+worker threads, one at `--jobs=1`, and the mark is at every count),
+`jobsCount`'s own docstring (which still called `1` "the in-thread
+check loop … no thread, no multi-threaded marking"), and the header
+comments of `tests/arena.sh` and `tests/trust-surface.sh`.
+
+Gates on the merge: `lake build` 541 jobs warning-free, `lake test`
+warning-free, `tests/arena.sh` green — 90/92 arena, 195/195 e2e, 15/15
+annot, worker pool 15/15, progress lane 17/17, DAG tower 14/14, and
+both sweeps (`--jobs=1` and `--jobs=4`, 138 arena + 195 e2e + 15 annot
+each) as at the default worker count — and `tests/no-local-paths.sh`
+OK; `overview-links` 72 links / 47 files, regenerated for the four
+`Main.lean` anchors the merge moved, each new target re-read against
+the paragraph that cites it.
+
+One light re-measurement on the merged binary, since the change is
+verdict-neutral runtime work and §5's battery already answers the
+mechanism: `init-full`, `--verified --jobs=1`, master's binary against
+this one, interleaved pairs, `perf stat -e instructions:u,task-clock`,
+load average recorded per cell.
+
+| pair | load | master | this | |
+|---|---|---|---|---|
+| 1 | 13.1 / 16.7 | 71.0 s | **49.4 s** | **1.44×** |
+| 2 | 8.1 / 4.3 | 53.0 s | **49.6 s** | **1.07×** |
+| 3 | 4.1 / 3.0 | 53.6 s | **49.8 s** | **1.08×** |
+
+3/3 pairs won; instructions 542.68 G against 538.46 G (−0.78 %, the
+same three digits in every cell of each column); every cell accepted
+53 088 declarations.  The pairs also show the spread §1 predicted: the
+main-thread lane ranges over 53.0–71.0 s with the machine's load while
+the worker lane sits at 49.4–49.8 s — a memory-stalled loop competes
+with co-tenants for DRAM and a cache-resident one does not.

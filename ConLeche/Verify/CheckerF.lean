@@ -124,13 +124,14 @@ theorem divModCertGuardF_eq (env : Env) (c : Name) (annVal : Expr)
       = divModCertGuard env c annVal hyps eqE proof := by
   simp only [divModCertGuardF, divModCertGuard, constsResolveF_eq] <;> rfl
 
-theorem divModPinGuardF_eq (env : Env) (c : Name) :
-    divModPinGuardF (mkFEnv env) c = divModPinGuard env c := by
+theorem divModPinGuardF_eq (ps : NatOpPinSet) (env : Env) (c : Name) :
+    divModPinGuardF ps (mkFEnv env) c = divModPinGuard ps env c := by
   simp only [divModPinGuardF, divModPinGuard, constsResolveF_eq] <;> rfl
 
-theorem divModCertsGuardF_eq (env : Env) (c : Name) (annVal : Expr) :
-    divModCertsGuardF (mkFEnv env) c annVal
-      = divModCertsGuard env c annVal := by
+theorem divModCertsGuardF_eq (ps : NatOpPinSet) (env : Env) (c : Name)
+    (annVal : Expr) :
+    divModCertsGuardF ps (mkFEnv env) c annVal
+      = divModCertsGuard ps env c annVal := by
   simp only [divModCertsGuardF, divModCertsGuard, divModCertGuardF_eq] <;> rfl
 
 theorem checkEtaThmF_eq (env : Env) (T ctorName : Name)
@@ -332,13 +333,31 @@ theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
     simp only [checkDivModCertsF, checkDivModCerts, divModCertGuardF_eq,
       mkFEnv_env, checkDivModCertsF_eq ops env c annVal srest prest]
 
+omit [MonadExceptOf CheckError m] in
+theorem checkDivModPinAtF_eq (ops : CheckerOps m) (env : Env) (c : Name)
+    (value' : Expr) (ps : NatOpPinSet) :
+    checkDivModPinAtF ops (mkFEnv env) c value' ps
+      = checkDivModPinAt ops env c value' ps := by
+  simp only [checkDivModPinAtF, checkDivModPinAt, mkFEnv_env,
+    checkDivModCertsF_eq]
+
+theorem checkDivModPinLoopF_eq (ops : CheckerOps m) (env : Env) (c : Name)
+    (value' : Expr) :
+    ∀ (pss : List NatOpPinSet) (tried : List String),
+      checkDivModPinLoopF ops (mkFEnv env) c value' pss tried
+        = checkDivModPinLoop ops env c value' pss tried
+  | [], _ => rfl
+  | ps :: rest, tried => by
+    simp only [checkDivModPinLoopF, checkDivModPinLoop, divModPinGuardF_eq,
+      divModCertsGuardF_eq, checkDivModPinAtF_eq,
+      checkDivModPinLoopF_eq ops env c value' rest]
+
 theorem checkDivModPinF_eq (ops : CheckerOps m) (env env2 : Env)
     (c : Name) :
     checkDivModPinF ops (mkFEnv env) (mkFEnv env2) c
       = checkDivModPin ops env env2 c := by
   simp only [checkDivModPinF, checkDivModPin, mkFEnv_find?,
-    divModEnvGuardF_eq, divModPinGuardF_eq, divModCertsGuardF_eq,
-    checkDivModCertsF_eq] <;> rfl
+    divModEnvGuardF_eq, checkDivModPinLoopF_eq] <;> rfl
 
 theorem checkReducePinF_eq (ops : CheckerOps m) (env env2 : Env)
     (c : Name) (value : Expr) :

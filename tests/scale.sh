@@ -168,14 +168,25 @@ rss_max3() { # rss_max3 MODE FILE -> max of 3 runs, empty on failure
 # fields-raw recalibrated after the direct-install instantiation fix
 # (DESIGN.md "fields-raw: the near-cubic direct install"): measured
 # 1.92/8x 2.22/32x, gated at 2.20/2.50.
+#
+# fanout and telescope carry a BIGGER base n than the other def
+# shapes (1000 and 500 against 100/50) since task #272, GitHub issue
+# #9: both are one declaration with an n-binder ∀ telescope, and the
+# quadratic there — the codomain sort's zero-ness recomputed at every
+# node — was INVISIBLE at their old sizes, where the per-declaration
+# linear work still dominates.  Measured on the buggy binary at the
+# new bases: fanout 1.06/1.11/1.19, telescope 1.11/1.19/1.32, i.e.
+# caught (and only at the largest step — which is what this harness
+# gates); after the fix both read 1.00 at every step.  A superlinear
+# check of ONE declaration needs that declaration big.
 SPECS="
 chain:chain:def:100:32:1.15:1.15:1.60
 spine:spine:def:50:32:1.15:1.15:-
 many:many:def:100:32:1.15:1.15:1.60
-telescope:telescope:def:50:32:1.15:1.15:-
+telescope:telescope:def:500:32:1.15:1.15:-
 dag:dag:def:200:32:1.15:1.15:1.60
 delta:delta:def:100:32:1.15:1.15:-
-fanout:fanout:def:100:32:1.15:1.15:-
+fanout:fanout:def:1000:32:1.15:1.15:-
 lets:lets:def:100:32:1.15:1.15:-
 lparams:lparams:def:100:32:1.65:1.95:-
 thm:thm:def:200:32:1.15:1.15:1.60

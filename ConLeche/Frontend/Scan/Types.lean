@@ -200,12 +200,20 @@ structure IndTypeRec where
   numNested : Nat
   numParams : Nat
 
-/-- One member of an inductive block's `ctors`. -/
+/-- One member of an inductive block's `ctors`.  `cidx` and `induct`
+are the format's REDUNDANT fields (task #271, issues #5 and #7): the
+block's own records determine both, and the parse validates what the
+stream claims against them.  They are optional in the dialect — a
+record that omits one carries `none` and is not contradicted. -/
 structure IndCtorRec where
   cv : CVRec
   isUnsafe : Bool
   numFields : Nat
   numParams : Nat
+  /-- the claimed position of this constructor in its type's `ctors` -/
+  cidx : Option Nat := none
+  /-- the claimed owning inductive type, as a name index -/
+  induct : Option Nat := none
 
 /-- One member of an inductive block's `recs`. -/
 structure IndRecRec where

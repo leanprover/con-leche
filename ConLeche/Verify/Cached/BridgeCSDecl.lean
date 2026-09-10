@@ -373,7 +373,7 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   rw [if_pos hk] at h
   -- the stream's rules against the generated ones
   by_cases hr : nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP
-      p.ctors.length ctorsA p.kinds p.rhss = true
+      p.ctors.length ctorsA p.kinds p.rhss p.cvR.type = true
   case neg => rw [if_neg hr] at h; exact absurd h throwC_bind_ok
   rw [if_pos hr] at h
   rw [consSumCtorsF_mkFEnv] at h

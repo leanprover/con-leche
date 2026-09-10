@@ -2103,10 +2103,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- restoring the I6/I7 symmetry task #100 stage 6 broke): the
         -- ∀ clause's own `ensureSort` move, on the body's inferred
         -- type.  It is what the set lane's annotation pass needs —
-        -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies
-        -- (`docs/SetR-DESIGN.md` findings A3, B5, A5: validity for
-        -- `Infer` is refuted at the application clause, so the fact
-        -- has to be computed).  The reference kernel's `infer_lambda`
+        -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies:
+        -- validity for `Infer` ("every inferred type has a sort") is
+        -- refuted at the application clause, and nothing else in the
+        -- checker computes a λ's codomain sort, so the fact has to be
+        -- computed here.  The reference kernel's `infer_lambda`
         -- does not run it, so `.trusted` — the trusted lane —
         -- does not either.
         --
@@ -2819,7 +2820,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       unless ← r.defeq depth tv ty' do
         throw (.invalid "let value type mismatch")
       r.annotate depth (b.instantiate1 v)
-    | .proj _sn i pe => do
+    | .proj sn i pe => do
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this
       -- establishes the semantic proj clause of `AnnotOk`).  A table
@@ -2832,6 +2833,14 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .const T _ =>
         match env.findProj? T i with
         | some entry => do
+          -- TASK #271 (issue #7): the node's OWN structure name is
+          -- official's `infer_proj` premise `const_name(I) ==
+          -- proj_sname(e)`, and it is checked HERE and not only on the
+          -- annotated term: the normalization to the type's head below
+          -- would otherwise repair a node that names another
+          -- inductive, and official rejects it ("invalid projection").
+          unless T = sn do
+            throw (.invalid "invalid projection: the node names another structure")
           unless te.getAppArgs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
           pure (.proj T i e')

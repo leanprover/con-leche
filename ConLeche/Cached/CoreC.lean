@@ -1184,7 +1184,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
         -- half of the spec's `.lam` clause check.
         match stk with
         | (_, mb₀) :: _ => do
-          let pv ← pure (zeronessOfLGo {} vb).1
+          let pv ← pure (Level.zeronessOf vb)
           unless pv == mb₀.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
@@ -1229,18 +1229,29 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
 
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
-value. -/
-def inferPisOutI : List (Level × PropWhen) → Level → PWMemo → CheckCM Level
-  | [], v, _memo => pure v
-  | (u, pw) :: rest, v, memo => do
+value.
+
+Task #272 (GitHub issue #9): the codomain sort's zero-ness datum is
+THREADED, not recomputed.  `zeronessOf (imax u v) = zeronessOf v`
+holds definitionally, so every node of a ∀ telescope shares the leaf's
+datum — the chain the annotation loop already folds
+(`annotateBindersOutI`).  The fold used to read it out of a
+`Level`-keyed memo, which MISSED at every step (a node's key
+`.imax u v` is new each time) and then walked `zeronessOf` down the
+growing right spine: `O(k²)` in the telescope depth `k`, and it was
+90 % of the check phase on a ∀ chain of 40 000 binders. -/
+def inferPisOutI : List (Level × PropWhen) → Level → PropWhen →
+    CheckCM Level
+  | [], v, _pv => pure v
+  | (u, pw) :: rest, v, pv => do
     -- Task #161: validate the node's prop-ness annotation against its
-    -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
-    -- `v` at this node); the readout is memoized across the fold.
-    let (pv, memo) ← pure (zeronessOfLGo memo v)
+    -- inferred codomain sort (`pv` is the zero-ness of `v`, the spec
+    -- `∀`-clause's `v` at this node).
     if mode.verifiedChecks && !(pv == pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← pure (.imax u v)
-    inferPisOutI rest v' memo
+    -- `zeronessOf v' = zeronessOf v = pv` (the `.imax` clause).
+    inferPisOutI rest v' pv
 
 /-- Leaf phase of `inferPisI`: bulk-open the residual body, infer its
 sort, then fold the domain sorts outward. -/
@@ -1251,7 +1262,7 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   let wbt ← r.whnf (d + k) bt
   match wbt with
   | .sort v => do
-    let iv ← inferPisOutI mode stk v ({} : PWMemo)
+    let iv ← inferPisOutI mode stk v (Level.zeronessOf v)
     pure (Expr.sort iv)
   | _ => throw (.invalid "expected a sort")
 
@@ -1677,7 +1688,7 @@ def annotPwPiI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
   | none => do
     let bt ← r.inferIO depth body'
     let v ← ensureSortI r depth bt
-    pure (zeronessOfLGo {} v).1
+    pure (Level.zeronessOf v)
 
 /-- The telescope loop's write.  UNGATED since 2026-09-06: writing the
 datum is part of the real checker's algorithm (the readers and the
@@ -1731,7 +1742,7 @@ def annotPwLamI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     let bt ← r.inferIO depth body'
     let btt ← r.inferIO depth bt
     let vb ← ensureSortI r depth btt
-    pure (zeronessOfLGo {} vb).1
+    pure (Level.zeronessOf vb)
 
 /-- The λ twin of `annotatePisPwI`, ungated with it. -/
 def annotateLamsPwI (r : CoreFnsI) (fe : FEnv) (d k : Nat) (leaf' : ExprC) :
@@ -1833,7 +1844,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         throw (.invalid "let value type mismatch")
       let ob ← inst1M b v
       r.annotate depth ob
-    | .proj _sn i pe => do
+    | .proj sn i pe => do
       let e' ← r.annotate depth pe
       let tpe ← r.inferIO depth e'
       let te ← r.whnf depth tpe
@@ -1843,6 +1854,9 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← pure (ExprC.getAppArgs te)
+          -- TASK #271 (issue #7), as in the pure twin
+          unless T = sn do
+            throw (.invalid "invalid projection: the node names another structure")
           unless targs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
           pure (Expr.proj T i e')

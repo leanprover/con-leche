@@ -26,6 +26,8 @@
 #                                                no build and no
 #                                                separate step here:
 #                                                arena.sh is its caller
+#                      * tests/no-local-paths.sh no absolute home paths
+#                                                in tracked files
 #                      * tests/shake.sh          `lake shake`'s import
 #                                                proposals against
 #                                                tests/shake-allowlist.txt,
@@ -50,6 +52,15 @@
 #     making it more informative.  See DESIGN.md's frontier sections.
 #   * the performance battery (PERF.md).  Timings on a shared CI runner
 #     are noise.
+#   * TOOLCHAIN DRIFT.  Everything here exports with the repo's own
+#     `lean-toolchain`, so a stream produced by a *different* Lean —
+#     which is what a bundled con-leche is handed — is never exercised.
+#     That is `.github/workflows/natop-matrix.yml`'s job: it exports the
+#     pinned `Nat` operations and the compiler-trust opaque values with
+#     every Lean release since v4.29.0, the newest release candidate and
+#     the newest nightly, and checks the results with one binary built
+#     from `lean-toolchain`.  Weekly, on dispatch, and on pushes that
+#     touch the pins or `scripts/natop-matrix.sh`.
 #
 # ---------------------------------------------------------------------
 # NOTES ON THE ENVIRONMENT
@@ -57,8 +68,12 @@
 #   * Toolchain: installed by `elan` from the repo's `lean-toolchain`
 #     (leanprover/lean4:v4.33.0 at the time of writing).  Never pin the
 #     version here — `lean-toolchain` is the single source, and
-#     `tests/pindump.sh` independently refuses a pin dump that is not
-#     the running toolchain's.
+#     `tests/pindump.sh` independently refuses a repository dump that is
+#     not the running toolchain's.  It reproduces the OTHER committed
+#     dumps too, one per `pinners/*/`, but only for toolchains elan
+#     already has — which here is none of them, so those are labelled
+#     SKIPs.  `natop-matrix.yml`'s `regenerate` job runs the same gate
+#     with `PINDUMP_INSTALL=1` and reproduces every one.
 #   * Network: needed once, for elan.  The package has NO dependencies
 #     since task #207 (`lake-manifest.json`'s `packages` array is
 #     empty) and the arena fixtures are vendored, so nothing else is

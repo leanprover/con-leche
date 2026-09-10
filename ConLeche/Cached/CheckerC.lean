@@ -86,6 +86,14 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   isDefEq _ d a b := opB mode fe d a b
   ensureSort _ d e := opS mode fe d e
   whnf _ d e := opE mode fe (·.whnf) d e
+  -- the executable's instantiation delivers the attempt's outcome to
+  -- the continuation (the decline message names what each pin variant
+  -- failed on); after an error the state is the PRE-attempt one — the
+  -- memo entries the failed attempt wrote are discarded with it
+  orElse x k := fun s => match x s with
+    | .ok (true, s') => .ok ((), s')
+    | .ok (false, s') => k none s'
+    | .error e => k (some e) s
 
 /-! ## Thin phase drivers (one `CState` per declaration)
 
@@ -196,7 +204,7 @@ def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
       p.kinds do
     throw (.internal "direct rec: field kinds")
   unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      q.ctorsA p.kinds p.rhss do
+      q.ctorsA p.kinds p.rhss p.cvR.type do
     throw (.invalid "direct rec: recursor rules are not the generated ones")
   let fe₂ := consSumCtorsF p.nP q.ctorsA q.env₁
   flushC

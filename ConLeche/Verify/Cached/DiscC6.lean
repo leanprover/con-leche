@@ -281,6 +281,10 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         dsimp only
         refine SimC.pureB ?_
         simp only [RelCL.length htargs]
+        -- the node's own structure name (task #271), then the parameter count
+        by_cases hsn : Tw = snN
+        case neg => rw [if_neg hsn, if_neg hsn]; exact SimC.throw
+        rw [if_pos hsn, if_pos hsn]
         by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
         · rw [if_pos hlen, if_pos hlen]
           exact SimC.of_eff

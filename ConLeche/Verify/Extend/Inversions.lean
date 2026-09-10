@@ -36,6 +36,13 @@ theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).ensureSort env d e = ensureSortCore mode env F d e := rfl
 theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).whnf env d e = ConLeche.whnf mode env F d e := rfl
+/-- The pure lane's variant-fallback combinator (task #273): the
+continuation is handed `none` whatever the outcome — the outcome is
+diagnostic text the executable's lane delivers. -/
+theorem fueledOps_orElse (F : Nat) (x : CheckM Bool)
+    (k : Option CheckError → CheckM Unit) :
+    (fueledOps mode F).orElse x k =
+      match x with | .ok true => pure () | _ => k none := rfl
 
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}

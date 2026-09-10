@@ -33,13 +33,23 @@
 #    is a reject and not a decline.  138 keeps its 1 from the route's
 #    own pairwise duplicate-constructor guard.
 #
-#    FIVE rows stayed at 2 after #220, both for stated reasons; FOUR do
-#    now:
-#      * 045, 048, 051, 055 decline earlier still, at a NON-STANDARD
-#        AXIOM, and never reach their inductive at all (standing user
-#        ruling: a non-standard axiom is never accepted; the reference
-#        verdict is 1 for a reason con-leche reaches later than the
-#        reference does).
+#    FIVE rows stayed at 2 after #220, both for stated reasons; ONE
+#    does now:
+#      * 045 declines earlier still, at a NON-STANDARD AXIOM, and never
+#        reaches its inductive at all (standing user ruling: a
+#        non-standard axiom is never accepted; the reference verdict is
+#        1 for a reason con-leche reaches later than the reference
+#        does).  048, 051 and 055 were in that group and TASK #271
+#        (2026-09-10) moved all three to the reference verdict, REJECT
+#        (1): the parse now checks the RECURSOR records' own counts
+#        against the block (`numParams`, `numMotives`, `numMinors`,
+#        `numIndices` and the K flag, which is what official's replay
+#        compares an exported recursor with the generated one for), and
+#        all three carry a stub recursor record — `numMotives := 0`,
+#        `numMinors := 0`, and 048 also `numParams := 0` at a
+#        one-parameter block — written by the arena's `bad_raw_consts`
+#        helper.  The reject comes out at the block, ahead of the
+#        axiom decline at the end of the stream.
 #      * 047 was the fifth, and TASK #228 (2026-09-08) moved it to the
 #        reference verdict, REJECT (1): the parse now carries the
 #        block's DECLARED parameter count into the declaration record
@@ -171,13 +181,13 @@
 2 bad/tutorial/045_inductBadNonSort2.ndjson
 1 bad/tutorial/046_inductLevelParam.ndjson
 1 bad/tutorial/047_inductTooFewParams.ndjson
-2 bad/tutorial/048_inductWrongCtorParams.ndjson
+1 bad/tutorial/048_inductWrongCtorParams.ndjson
 1 bad/tutorial/049_inductWrongCtorResParams.ndjson
 1 bad/tutorial/050_inductWrongCtorResLevel.ndjson
-2 bad/tutorial/051_inductInIndex.ndjson
+1 bad/tutorial/051_inductInIndex.ndjson
 1 bad/tutorial/052_indNeg.ndjson
 1 bad/tutorial/054_reduceCtorType.mk.ndjson
-2 bad/tutorial/055_indNegReducible.ndjson
+1 bad/tutorial/055_indNegReducible.ndjson
 1 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
 1 bad/tutorial/071_BogusRecursor.ndjson
 1 bad/tutorial/085_projOutOfRange.ndjson

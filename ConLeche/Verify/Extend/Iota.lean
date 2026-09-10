@@ -1557,8 +1557,12 @@ theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
 eta head obligation at a member install is about a family that may
 already be stored, and about the run's projection freshness.  Both are
 `V`-free, both step at every install, and both are supplied at the
-assembly (`docs/SetR-DESIGN.md`, §"`MemberEtaS`: a threaded
-invariant, not a forwarded obligation"). -/
+assembly.  The eta head obligation is a threaded *invariant*, not an
+obligation forwarded to the caller: its dead cases die on facts that
+hold at every install — the member's own `isProjFnShape = false` guard,
+the closedness of outside eta families, and `BlockEtaPinned`'s unstored
+first projection — leaving only the 0-field family, whose law fires with
+its projection premises vacuous. -/
 
 /-- **Every stored eta-capable block former carries what its family's
 completion needs**: its `EtaPins`, a capability constructor that is

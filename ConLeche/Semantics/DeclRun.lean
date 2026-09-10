@@ -125,11 +125,14 @@ so this is a re-statement, not a projection. -/
 def DivModPinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
     (c : Name) (value' : Expr) : Prop :=
   divModEnvGuard env₂ c = true ∧
-  divModPinGuard env c = true ∧
-  divModCertsGuard env c value' = true ∧
-  ∃ pinA, annotateCore μ env F 0 (divModDeclPin c) = .ok pinA ∧
-    checkDivModCerts (m := CheckM) (fueledOps μ F) env c value'
-      (divModCertStmts c) (divModCertProofs c) = .ok true
+  -- the pin variant that matched (task #273): its guards, its pin
+  -- annotated, its certificates checked
+  ∃ ps ∈ natOpPinSets,
+    divModPinGuard ps env c = true ∧
+    divModCertsGuard ps env c value' = true ∧
+    ∃ pinA, annotateCore μ env F 0 (divModDeclPin ps c) = .ok pinA ∧
+      checkDivModCerts (m := CheckM) (fueledOps μ F) env c value'
+        (divModCertStmts c) (divModCertProofs ps c) = .ok true
 
 /-- `ReducePinR`'s run/guard half: the storage guards, both annotate
 outputs and the recorded identity-certificate run, without the

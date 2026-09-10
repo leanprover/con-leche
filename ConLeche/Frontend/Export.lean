@@ -42,7 +42,12 @@ representation.
 Declaration kinds the checker cannot represent yet map to
 `FrontendError.unsupported`, which the driver turns into the arena's
 "declined" exit code — as opposed to malformed input, which is a hard
-error.
+error.  A record that CONTRADICTS ITSELF — an inductive block whose
+redundant fields disagree with the block's own declarations (task
+#271, issues #5 and #7) — maps to `FrontendError.invalid`, the
+arena's "rejected" exit code: the stream is well formed and says
+something false about a declaration official's replay regenerates and
+compares.
 -/
 
 namespace ConLeche.Frontend
@@ -342,6 +347,23 @@ theorem canonEqListFast_iff :
 inductive FrontendError where
   | parseError (line : Nat) (msg : String)
   | unsupported (what : String)
+  /-- The stream contradicts itself: exit 1 (task #271). -/
+  | invalid (what : String)
+
+/-- What a declaration record can carry out of the parse when it does
+not produce a state: a positive DECLINE (a feature the checker does
+not support) or a REJECT (task #271: the record's redundant fields
+contradict the block's own declarations, which official's replay
+regenerates and compares — "Invalid constructor", "Invalid recursor",
+"duplicate constructor name", "No such constructor"). -/
+inductive RecordVerdict where
+  | declined (what : String)
+  | invalid (what : String)
+
+/-- The frontend error a record verdict becomes. -/
+def RecordVerdict.toError : RecordVerdict → FrontendError
+  | .declined what => .unsupported what
+  | .invalid what => .invalid what
 
 /-- Internal sentinel: a declaration-level expression lookup hit a
 tainted entry.  Backstop only — `processLine`'s read-only pre-scan

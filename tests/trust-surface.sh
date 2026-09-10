@@ -124,8 +124,8 @@
 #   Main.lean                          unsafe
 #       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
 #       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
-#       once when the check phase runs on the pool, on the installed
-#       `FEnv` and the pending-check array.  It is the same escape
+#       once at the phase boundary at every worker count, on the
+#       installed `FEnv` and the pending-check array.  It is the same escape
 #       `Lean.Environment.finalizeImport` uses for the same call, and
 #       it is `unsafe` for one reason only: a marked closure is never
 #       freed, and this process exits right after.  Nothing else about

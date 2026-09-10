@@ -177,6 +177,9 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
+# Repo content must not reference local (absolute home) paths.
+if tests/no-local-paths.sh; then :; else fail=1; fi
+
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
 # compiler answers for neither: is an import LINE needed at all (`lake shake`,
 # read against task #223's criterion and an allowlist of the proposals that
@@ -373,6 +376,10 @@ echo "retired flags: $split_ok/$split_total as expected"
 # verdict's provenance must be readable off the invocation.  `--pre`
 # joined them at task #207, when the preprocessor it asserted about was
 # dropped: every input is a raw lean4export stream now.
+# `CON_LECHE_INMODEL_CENSUS=1` is checked here too (task #271, issue
+# #8): it is a parse-only diagnostic, the fold never runs, and the run
+# must therefore DECLINE (exit 2) whatever the stream — exit 0 is
+# reserved for a stream `Cached.checkDecls` accepted.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -416,6 +423,22 @@ if CON_LECHE_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
   echo "MODE FAIL: CON_LECHE_INFER_ONLY=1 did not error"
+  fail=1
+fi
+mode_total=$((mode_total+1))
+if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+    >/dev/null 2>&1; [ $? = 2 ]; then
+  mode_ok=$((mode_ok+1))                           # task #271: parse only = DECLINE
+else
+  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a good stream"
+  fail=1
+fi
+mode_total=$((mode_total+1))
+if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_BAD" \
+    >/dev/null 2>&1; [ $? = 2 ]; then
+  mode_ok=$((mode_ok+1))                           # …and on a bad one: the fold never ran
+else
+  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a bad stream"
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
@@ -573,7 +596,8 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
 # <n> threads (one worker per hardware thread without the flag;
-# --jobs=1 in the main thread with no thread at all); the results are
+# --jobs=1 one worker, with no shared counter and no result table);
+# the results are
 # merged by record index and walked in fold order, so the verdict and
 # the declaration a rejection names are the same at every <n>.  The
 # contract checked here: the verdict and the named declaration agree
@@ -583,7 +607,8 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # first, and at more workers than records); a bad count is a usage
 # error.  The full arena and e2e suites re-run at --jobs=1 and
 # --jobs=4 in the sweeps at the end.  Each worker thread reserves
-# about 1 GiB of ADDRESS SPACE, so every checker run under a
+# about 1 GiB of ADDRESS SPACE — including the single worker the
+# check phase always runs on — so every checker run under a
 # `ulimit -v` in this battery (the tower gate's 8 GB) passes an
 # explicit count that fits; the uncapped runs use the default.
 SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
@@ -720,7 +745,7 @@ if [ "$MODE_SWEEPS" = on ]; then
          "(tests/trusted-expected.txt header: what may be recorded)"
   fi
   # The worker-count sweeps (task #260): both suites again at --jobs=1
-  # (the in-thread check loop) and at --jobs=4 (the pool), against the
+  # (the single-worker check loop) and at --jobs=4 (the pool), against the
   # certified expectations — the default pass above ran at one worker
   # per hardware thread, and the verdict must be the same at every
   # count.  No override table: a divergence here is a bug.

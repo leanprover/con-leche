@@ -527,14 +527,18 @@ def preludeFileName (tc : String) : String :=
 
 /-! ## The whole dump -/
 
-/-- Compute the pin dump AND the prelude: the per-operation pins and
+/-- Compute the pin dump AND the prelude, labelled with
+`toolchainString` (the caller reads it off the Lake project the
+generator runs in — `ConLeche.PinGen.readToolchainString`; task #275):
+the per-operation pins and
 certificate proofs (`computeOps`), the order-sensitivity analysis over
 them, the prelude's roots (the basis, then the preludable
 order-sensitive owners), its serialization, and the invariant check
 — **every operation's need is covered by its own closure, the basis,
 the prelude, or a stream-certified operation** (`classifyOp` throws
 otherwise).  Returns the dump file and the prelude's lines. -/
-def computeDumpAndPrelude : IO (PinDumpFile × Array String) := do
+def computeDumpAndPrelude (toolchainString : String) :
+    IO (PinDumpFile × Array String) := do
   let (env, results) ← computeOps
   let mut reports : Array OpSensitivity := #[]
   let mut members : NameSet := pinnedPreludeMembers.foldl (·.insert ·) {}

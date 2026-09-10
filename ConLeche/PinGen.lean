@@ -62,11 +62,11 @@ The stream-prefix allowlists are extracted by
 
 Layering: this module depends on `Lean`, and since #176 the checker
 does not import it at all (`ConLeche/Kernel/NatOpPins.lean` reaches only
-`ConLeche/PinGen/Dump.lean`, the format module).  Its remaining in-tree
-consumers are the generator executable, `ConLeche/Kernel/TrustPins.lean`
-(`#gen_trust_pins`, which reads only the toolchain's `Init` and so
-needs no build ordering) and `ConLeche/Kernel/ZeroSetPin.lean`.  No
-checker runtime code may call into `Lean.*` APIs.
+`ConLeche/PinGen/Dump.lean`, the format module).  Its only in-tree
+consumer is the generator executable (`ConLeche/Kernel/TrustPins.lean`
+stopped importing it at task #273: its pins are hand-written
+constants, and `#gen_trust_pins` is gone).  No checker runtime code
+may call into `Lean.*` APIs.
 -/
 
 public meta section
@@ -267,8 +267,23 @@ partial def coneOf (env : Environment) (root : Lean.Name) : NameSet :=
         let mut es := [ci.type]
         if let some v := ci.value? (allowOpaque := true) then es := v :: es
         if let .inductInfo iv := ci then
+          -- An inductive is declared by ONE stream record together with
+          -- every type of its block, their constructors and their
+          -- recursors (task #273): those names are cone members by the
+          -- inductive's presence, whether or not anything in the cone
+          -- refers to them.  (Before the fix only *referenced* names
+          -- entered the cone; `Decidable.rec` happened to be referenced
+          -- by `Decidable.casesOn`'s value up to v4.33 and stopped being
+          -- when `Decidable` became a structure — the generator then
+          -- rejected the certificate proofs' case splits on it.)
+          for t in iv.all do
+            unless seen.contains t do work := t :: work
           for ctor in iv.ctors do
+            seen := seen.insert ctor
             if let some cci := env.find? ctor then es := cci.type :: es
+          seen := seen.insert (mkRecName iv.name)
+          for k in [1:iv.numNested + 1] do
+            seen := seen.insert (.str iv.name s!"rec_{k}")
         for e in es do
           for d in (constsOf e).toList do
             unless seen.contains d do work := d :: work
@@ -422,24 +437,64 @@ process init. -/
 def natopPrefixJson : String :=
   include_str "../scripts/natop_prefix.json"
 
-/-- The repository's pinned toolchain (`lean-toolchain`).  The dump
-records it and is *named* after it, so a second toolchain's dump can
-sit beside the first (task #176). -/
-def toolchainString : String :=
-  (include_str "../lean-toolchain").trimAscii.toString
+/-- The Lake project's toolchain (`lean-toolchain`) — the string the
+dump records and is *named* after, so a second toolchain's dump can sit
+beside the first (task #176).
+
+**Not an `include_str` (task #275).**  These sources are shared by
+several Lake projects — the repository itself and one `pinners/<t>/`
+project per pin variant — and an embed would burn the toolchain of
+whichever tree the file physically lives in into every one of them.
+The string is read at RUN time instead, by searching upward from the
+working directory for `lean-toolchain` exactly as elan does when it
+picks the binary that is running: the answer is the project the
+generator was invoked in, and `readToolchainString` below cross-checks
+it against `Lean.versionString` so an invocation from the wrong
+directory is an error rather than a mislabelled dump. -/
+partial def findToolchainFile (dir : System.FilePath) :
+    IO (Option System.FilePath) := do
+  let cand := dir / "lean-toolchain"
+  if ← cand.pathExists then
+    return some cand
+  match dir.parent with
+  | none => return none
+  | some p => findToolchainFile p
+
+/-- The `lean-toolchain` string of the project the generator was
+invoked in (see `findToolchainFile`), cross-checked against the running
+Lean's version: a release toolchain `…:vX` must be Lean `X`, a nightly
+`…:nightly-D` must be a version ending in `nightly-D`.  Any other
+spelling (a pr-release, a local build) is taken as given — there is
+nothing to compare it against. -/
+def readToolchainString : IO String := do
+  let cwd ← IO.currentDir
+  let some f ← findToolchainFile cwd
+    | throw (IO.userError
+        s!"natop-pins-export: no `lean-toolchain` at or above {cwd}; \
+run the generator from its Lake project's directory")
+  let tc := (← IO.FS.readFile f).trimAscii.toString
+  let tag := (tc.splitOn ":").getLast!
+  let ok :=
+    if tag.startsWith "v" then tag.drop 1 == Lean.versionString
+    else if tag.startsWith "nightly-" then Lean.versionString.endsWith tag
+    else true
+  unless ok do
+    throw (IO.userError
+      s!"natop-pins-export: {f} names toolchain `{tc}`, but the running \
+Lean is {Lean.versionString} — the generator must run under the toolchain \
+it dumps")
+  return tc
 
 /-- Parse the stream-prefix allowlists.  Deliberately a *function* (of
 the JSON text), not a closed `def`: a 0-ary definition is evaluated in
-the module initializer, and this module's object code is still linked
-into the `con-leche` executable — through the `meta import` in
-`ConLeche/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
-so a closed parse of the 1.96 MB embed would cost ~0.26 G instructions
-at every process start.  As a
-function it runs only when the generator asks, at export time (the
-embedded `lean-toolchain` string above is 25 bytes and does not repay
-the same treatment).  (Closed subterms
-extracted from function bodies are lazy `once`-cells in the emitted
-code, so no eager work remains.) -/
+the module initializer, and this module's object code WAS linked into
+the `con-leche` executable until task #273 (through the `meta import`
+in `ConLeche/Kernel/TrustPins.lean`), where a closed parse of the
+1.96 MB embed would have cost ~0.26 G instructions at every process
+start; the discipline stays.  As a function it runs only when the
+generator asks, at export time.  (Closed subterms extracted from
+function bodies are lazy `once`-cells in the emitted code, so no eager
+work remains.) -/
 def loadPrefixes (json : String) : Except String (Std.HashMap String (List String)) := do
   let j ← Json.parse json
   let o ← j.getObj?
@@ -554,57 +609,5 @@ def opDumpsOf (results : Array (OpSpec × ConLeche.Expr × List ConLeche.Expr)) 
     pin := blobOf pin
     proofs := (proofs.map blobOf).toArray }
 
-
-/-! ## Compiler-trust pins (task #95)
-
-The pinned defining expressions of the toolchain's `Lean.reduceNat` /
-`Lean.reduceBool` opaques (identity functions modulo the
-`have := trustCompiler` wrapper, which the conversion's zeta-expansion
-removes).  Compared by definitional equality at install
-(`checkReducePin`); the model never inspects these blobs. -/
-
-/-- `(toolchain opaque, generated pin name)`. -/
-def trustOpSpecs : List (Lean.Name × Lean.Name) :=
-  [(`Lean.reduceNat, `ConLeche.reduceNatDeclPin),
-   (`Lean.reduceBool, `ConLeche.reduceBoolDeclPin)]
-
-/-- Read one reduce operation's opaque value from the compiling
-environment and convert it. -/
-def computeTrustOp (op : Lean.Name) : MetaM ConLeche.Expr := do
-  let env ← getEnv
-  let some ci := env.find? op |
-    throwError "{op} is absent from the compiling environment"
-  let some v := ci.value? (allowOpaque := true) |
-    throwError "{op} has no value in the compiling environment"
-  checkConsts s!"trust pin {op}"
-    (fun c => c == `Nat || c == `Bool || c == `True ||
-      c == `Lean.trustCompiler) v
-  match toConLeche v with
-  | .ok e => return e
-  | .error m => throwError "trust pin conversion ({op}): {m}"
-
-/-- Generate the compiler-trust pins (see `ConLeche/Kernel/TrustPins.lean`). -/
-elab "#gen_trust_pins" : command => do
-  let genEnv ← importModules (loadExts := false) (level := .private)
-    #[{module := `Init}] {} 0
-  let mut results : List (Lean.Name × ConLeche.Expr) := []
-  let opts ← getOptions
-  for (op, pinName) in trustOpSpecs do
-    let (r, _, _) ←
-      try
-        (computeTrustOp op).toIO
-          { fileName := "<gen_trust_pins>", fileMap := default,
-            options := opts, maxRecDepth := 1000000, maxHeartbeats := 0 }
-          { env := genEnv }
-      catch e =>
-        throwError "trust pin generation for {op} failed: {e.toMessageData}"
-    results := results ++ [(pinName, r)]
-  Elab.Command.liftTermElabM do
-    for (pinName, pinS) in results do
-      let pinDecl := Declaration.defnDecl {
-        name := pinName, levelParams := [], type := exprT,
-        value := buildExprValue pinS, hints := .abbrev, safety := .safe }
-      addDecl pinDecl
-      compileDecl pinDecl
 
 end ConLeche.PinGen

@@ -1,0 +1,369 @@
+# The pinned-Nat-operation toolchain matrix (task #274).
+#
+# ---------------------------------------------------------------------
+# WHAT THIS WORKFLOW COVERS — and why it is separate from ci.yml
+#
+# con-leche vendors the toolchain's own definitions of the fifteen
+# kernel-accelerated `Nat` operations (`pins/<toolchain>.json`, embedded
+# by `ConLeche/Kernel/NatOpPins.lean`) and of the two compiler-trust
+# opaque values `Lean.reduceBool` / `Lean.reduceNat`
+# (`ConLeche/Kernel/TrustPins.lean`).  At install the stream's
+# declaration is compared against the pin by definitional equality, so a
+# stream exported by a toolchain OTHER than the one the checker was
+# built with is accepted only as long as upstream has not respelled the
+# operation or the auxiliaries its pin mentions.
+#
+# That is a real and recurring failure mode: when `Decidable` was
+# rewritten upstream, `Nat.div`/`Nat.mod`'s exports stopped resolving
+# against the pin and the stream was declined at that record — reported
+# from downstream, not by our own gates, because `ci.yml` only ever
+# exports with the repo's own `lean-toolchain`.  This workflow is the
+# gate that would have caught it: for every Lean release since v4.29.0,
+# plus the newest release candidate, plus the newest nightly, it exports
+# the pinned constants' dependency cone WITH THAT TOOLCHAIN'S EXPORTER
+# and runs ONE con-leche binary — built from the repo's own
+# `lean-toolchain` — over the result.
+#
+# HARD-FAIL POLICY.  A stable release is a hard failure: those exports
+# exist in the wild and are what a bundled con-leche is handed.  The
+# release-candidate and nightly entries run with `continue-on-error`, so
+# upstream drift shows red in the run summary and in the job list
+# without blocking a merge — the drift is upstream's, and the fix (a
+# regenerated pin, a widened gate) lands on its own schedule.  Flip the
+# `continue-on-error` expression below if that policy changes.
+#
+# ---------------------------------------------------------------------
+# THE THREE JOBS
+#
+#   enumerate  asks the GitHub API for the toolchains.  No hard-coded
+#              list beyond the v4.29.0 floor: every non-prerelease
+#              `leanprover/lean4` tag at or above the floor, plus the
+#              single newest `-rc` prerelease, plus the newest
+#              `leanprover/lean4-nightly` release.
+#   build      builds con-leche ONCE, from `lean-toolchain`, with the
+#              same elan + `.lake` cache recipe as ci.yml, and uploads
+#              the binary.
+#   matrix     one job per toolchain: download the binary, run
+#              `scripts/natop-matrix.sh`, append its one-line summary to
+#              the run summary.  `fail-fast: false` so one red toolchain
+#              does not hide the others.
+#   regenerate REPRODUCES EVERY COMMITTED DUMP (task #275).  The three
+#              jobs above ask whether the pins still describe upstream;
+#              this one asks whether the committed pins are what the
+#              repository's own generator produces — for all of them, not
+#              just the repository toolchain's, which is all `ci.yml`'s
+#              `tests/pindump.sh` can reach with the toolchains it has.
+#              `PINDUMP_INSTALL=1` lets that same gate install each
+#              pinner's toolchain with elan and diff the regenerated dump
+#              against the committed file.  It is a HARD failure: a dump
+#              that no longer regenerates is our staleness, not upstream's
+#              drift.
+#
+# The per-toolchain work is ALL in `scripts/natop-matrix.sh`, on
+# purpose: it is runnable on a developer machine exactly as CI runs it
+# (`scripts/natop-matrix.sh v4.33.0`), which is how a drift report gets
+# diagnosed.  Nothing in this file does checking logic.
+#
+# NOTES ON THE ENVIRONMENT
+#
+#   * The exporter is per toolchain, and the script finds it: Lean ships
+#     `leanexport` in its own `bin/` since lean4#14885 (2026-08-28), and
+#     for older toolchains the script builds
+#     github.com/leanprover/lean4export at the matching tag.  So the
+#     matrix jobs need the network for elan, for the lean4export clone,
+#     and for nothing else.
+#   * The exports are small (a few hundred declarations), so a matrix
+#     job is dominated by the toolchain download and the exporter build,
+#     not by checking.
+#
+# WHY THE FLOOR IS v4.29.0 AND NOT v4.28.0 (user ruling, 2026-09-10).
+# v4.28.0 and v4.28.1 decline, and over a single name: those toolchains
+# spell `WellFounded.Nat.fix._proof_2` as
+# `WellFounded.Nat.fix.go._proof_2`, the `Nat.gcd` pin blob mentions it,
+# `constsResolve` fails and the gate declines with "pin ground constants
+# absent".  The two cones are otherwise identical — 292 declarations,
+# one name different.  That spelling PREDATES the pins: the pins were
+# never maintained against it, so a v4.28.x row would be a permanently
+# red gate reporting a decision already taken, not drift.  The floor is
+# the ruling; `scripts/natop-matrix.sh v4.28.0` still runs by hand.
+
+name: Nat-op pin matrix
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays, 05:17 UTC.  Weekly is the right cadence: the thing being
+    # watched is upstream drift, which arrives with nightlies and
+    # releases, not with our own pushes.
+    - cron: '17 5 * * 1'
+  push:
+    paths:
+      - 'pins/**'
+      - 'pinners/**'
+      - 'PinDump.lean'
+      - 'ConLeche/PinGen.lean'
+      - 'ConLeche/PinGen/**'
+      - 'ConLeche/Kernel/NatOpPins.lean'
+      - 'ConLeche/Kernel/TrustPins.lean'
+      - 'scripts/natop-matrix.sh'
+      - 'tests/pindump.sh'
+      - '.github/workflows/natop-matrix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: natop-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -------------------------------------------------------------------
+  # 1. The toolchain list, from the API.
+  enumerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      toolchains: ${{ steps.list.outputs.toolchains }}
+    steps:
+      - name: Enumerate releases, the newest rc and the newest nightly
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The floor.  Releases before this one are out of scope: the
+          # project's pins were not maintained against them (see the
+          # v4.28.x note in this file's header).
+          FLOOR: v4.29.0
+        run: |
+          set -euo pipefail
+
+          # Every leanprover/lean4 release, newest first.  `--paginate`
+          # walks the whole list; the floor is applied with a version
+          # sort so the comparison keeps working as the list grows.
+          gh api repos/leanprover/lean4/releases --paginate \
+            --jq '.[] | select(.draft | not) | [.tag_name, (.prerelease | tostring)] | @tsv' \
+            > releases.tsv
+
+          # Stable releases at or above the floor.  The floor test is
+          # a two-element version sort per tag — it needs no tag to be
+          # exactly the floor and keeps working as the list grows.
+          stable=""
+          for t in $(awk -F'\t' '$2 == "false" { print $1 }' releases.tsv | sort -V); do
+            if [ "$(printf '%s\n%s\n' "$FLOOR" "$t" | sort -V | head -1)" = "$FLOOR" ]; then
+              stable="$stable $t"
+            fi
+          done
+
+          # The newest release candidate: prereleases are listed newest
+          # first by the API, so the first `-rc` tag is it.
+          rc=$(awk -F'\t' '$2 == "true" { print $1 }' releases.tsv \
+               | grep -m1 -- '-rc' || true)
+
+          # The newest nightly.
+          nightly=$(gh api repos/leanprover/lean4-nightly/releases \
+                      --jq '[.[] | select(.draft | not) | .tag_name] | .[0]')
+
+          {
+            for t in $stable; do
+              printf '{"toolchain":"leanprover/lean4:%s","name":"%s","stable":true}\n' "$t" "$t"
+            done
+            if [ -n "$rc" ]; then
+              printf '{"toolchain":"leanprover/lean4:%s","name":"%s","stable":false}\n' "$rc" "$rc"
+            fi
+            if [ -n "$nightly" ]; then
+              printf '{"toolchain":"leanprover/lean4-nightly:%s","name":"%s","stable":false}\n' \
+                "$nightly" "$nightly"
+            fi
+          } > entries.ndjson
+
+          echo 'The matrix:'
+          cat entries.ndjson
+
+          # One JSON array on one line, for `fromJSON` below.
+          json=$(jq -c -s '.' entries.ndjson)
+          echo "toolchains=$json" >> "$GITHUB_OUTPUT"
+
+          # Each job renders its own step summary (GitHub does not
+          # merge them into one table), so this one just says what the
+          # matrix is.
+          {
+            echo '## Nat-op pin matrix'
+            echo
+            echo "Floor \`$FLOOR\`; $(wc -l < entries.ndjson) toolchains:"
+            echo
+            jq -r '"* `" + .toolchain + "`" + (if .stable then "" else "  _(watched, not gated)_" end)' \
+              entries.ndjson
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -------------------------------------------------------------------
+  # 2. ONE binary, built from the repo's own lean-toolchain.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      # `--default-toolchain none` on purpose: elan then reads
+      # `lean-toolchain` and installs exactly that on the first `lake`
+      # call, so the toolchain is named in ONE place in the repo.
+      - name: Install elan (toolchain comes from lean-toolchain)
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      # The same cache key shape as ci.yml, so a matrix run on a branch
+      # ci.yml has already built starts warm.
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-
+
+      - name: lake build con-leche
+        run: |
+          set -euo pipefail
+          lake build con-leche
+
+      - name: Upload the binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: con-leche-binary
+          path: .lake/build/bin/con-leche
+          if-no-files-found: error
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 3. One job per toolchain.
+  matrix:
+    needs: [enumerate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.enumerate.outputs.toolchains) }}
+    # The rc and the nightly are watched, not gated: upstream drift
+    # shows red in the summary without blocking.  Stable releases fail
+    # the workflow.
+    continue-on-error: ${{ !matrix.entry.stable }}
+    name: ${{ matrix.entry.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Download the binary
+        uses: actions/download-artifact@v4
+        with:
+          name: con-leche-binary
+          path: bin
+
+      - name: Export the pinned constants and check them
+        id: probe
+        env:
+          TOOLCHAIN: ${{ matrix.entry.toolchain }}
+        run: |
+          set -uo pipefail
+          # `set +e` on purpose: the default shell is `bash -e {0}`, and
+          # the whole point here is to CAPTURE the script's non-zero
+          # exit and still write the summary row.
+          set +e
+          chmod +x bin/con-leche
+          # The script prints its one-line summary on stdout and its log
+          # on stderr; the exit code is the checker's (0 accept,
+          # 1 reject, 2 decline, 3 anything that never reached a
+          # verdict).
+          line=$(bash scripts/natop-matrix.sh --binary bin/con-leche "$TOOLCHAIN")
+          rc=$?
+          echo "summary=$line" >> "$GITHUB_OUTPUT"
+          {
+            echo '| toolchain | exporter | records | verdict | first failing record |'
+            echo '|---|---|---|---|---|'
+            printf '| %s |\n' "$line"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+      - name: Record the summary line even when the probe failed
+        if: always() && steps.probe.outputs.summary == ''
+        env:
+          TOOLCHAIN: ${{ matrix.entry.toolchain }}
+        run: |
+          {
+            echo '| toolchain | exporter | records | verdict | first failing record |'
+            echo '|---|---|---|---|---|'
+            printf '| %s | n/a | n/a | job-failed | - |\n' "$TOOLCHAIN"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the export and the checker log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: natop-export-${{ matrix.entry.name }}
+          path: _tmp/pin-matrix/exports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 4. Every committed dump, reproduced from its pinner.
+  #
+  # Independent of the three jobs above (no `needs`): it builds no
+  # con-leche binary and exports nothing — it runs the generator, once
+  # per `pinners/*/`, on that pinner's own toolchain.
+  #
+  # THE COST is one toolchain download per pinner (elan, ~150 MB each)
+  # plus a ~10 s cold build of the generator's nine modules; the check
+  # itself is a `diff`.  There is deliberately no matrix here: the
+  # pinners are few, the gate is the same script a developer runs, and
+  # a matrix would hide which dump is stale behind a job name.
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan (toolchain comes from lean-toolchain)
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      # The repository toolchain's `.lake`, shared with ci.yml's key
+      # shape.  The pinners' own `.lake` directories are not cached:
+      # they hold nine modules and rebuild in seconds.
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-
+
+      # PINDUMP_INSTALL=1 is what makes this job differ from the one
+      # `tests/arena.sh` runs in ci.yml: a pinner whose toolchain is
+      # missing is installed and reproduced instead of skipped.
+      - name: PINDUMP_INSTALL=1 tests/pindump.sh
+        run: |
+          set -euo pipefail
+          PINDUMP_INSTALL=1 bash tests/pindump.sh 2>&1 | tee pindump.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '## Pin dumps reproduced from `pinners/*/`'
+            echo
+            echo '```'
+            tail -20 pindump.log 2>/dev/null || echo '(no log)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
