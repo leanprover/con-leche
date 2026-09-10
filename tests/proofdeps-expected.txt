@@ -29,6 +29,7 @@ main_False :: ConLeche.Kernel.Inductives.SumInstallF
 main_False :: ConLeche.Kernel.Inductives.SumParts
 main_False :: ConLeche.Kernel.Level
 main_False :: ConLeche.Kernel.Name
+main_False :: ConLeche.Kernel.NatOpPinSet
 main_False :: ConLeche.Kernel.NatOpPins
 main_False :: ConLeche.Kernel.PropRead
 main_False :: ConLeche.Kernel.PropWhen
@@ -453,6 +454,7 @@ False_cached :: ConLeche.Kernel.Inductives.SumInstallF
 False_cached :: ConLeche.Kernel.Inductives.SumParts
 False_cached :: ConLeche.Kernel.Level
 False_cached :: ConLeche.Kernel.Name
+False_cached :: ConLeche.Kernel.NatOpPinSet
 False_cached :: ConLeche.Kernel.NatOpPins
 False_cached :: ConLeche.Kernel.PropRead
 False_cached :: ConLeche.Kernel.PropWhen
@@ -876,6 +878,7 @@ Empty_cached :: ConLeche.Kernel.Inductives.SumInstallF
 Empty_cached :: ConLeche.Kernel.Inductives.SumParts
 Empty_cached :: ConLeche.Kernel.Level
 Empty_cached :: ConLeche.Kernel.Name
+Empty_cached :: ConLeche.Kernel.NatOpPinSet
 Empty_cached :: ConLeche.Kernel.NatOpPins
 Empty_cached :: ConLeche.Kernel.PropRead
 Empty_cached :: ConLeche.Kernel.PropWhen
@@ -1299,6 +1302,7 @@ sound_cached :: ConLeche.Kernel.Inductives.SumInstallF
 sound_cached :: ConLeche.Kernel.Inductives.SumParts
 sound_cached :: ConLeche.Kernel.Level
 sound_cached :: ConLeche.Kernel.Name
+sound_cached :: ConLeche.Kernel.NatOpPinSet
 sound_cached :: ConLeche.Kernel.NatOpPins
 sound_cached :: ConLeche.Kernel.PropRead
 sound_cached :: ConLeche.Kernel.PropWhen
@@ -1720,6 +1724,7 @@ fold_checked :: ConLeche.Kernel.Inductives.SumInstallF
 fold_checked :: ConLeche.Kernel.Inductives.SumParts
 fold_checked :: ConLeche.Kernel.Level
 fold_checked :: ConLeche.Kernel.Name
+fold_checked :: ConLeche.Kernel.NatOpPinSet
 fold_checked :: ConLeche.Kernel.NatOpPins
 fold_checked :: ConLeche.Kernel.PropRead
 fold_checked :: ConLeche.Kernel.PropWhen
@@ -1755,6 +1760,7 @@ checked_fold :: ConLeche.Kernel.Inductives.SumInstallF
 checked_fold :: ConLeche.Kernel.Inductives.SumParts
 checked_fold :: ConLeche.Kernel.Level
 checked_fold :: ConLeche.Kernel.Name
+checked_fold :: ConLeche.Kernel.NatOpPinSet
 checked_fold :: ConLeche.Kernel.NatOpPins
 checked_fold :: ConLeche.Kernel.PropRead
 checked_fold :: ConLeche.Kernel.PropWhen
@@ -1792,6 +1798,7 @@ False_checked :: ConLeche.Kernel.Inductives.SumInstallF
 False_checked :: ConLeche.Kernel.Inductives.SumParts
 False_checked :: ConLeche.Kernel.Level
 False_checked :: ConLeche.Kernel.Name
+False_checked :: ConLeche.Kernel.NatOpPinSet
 False_checked :: ConLeche.Kernel.NatOpPins
 False_checked :: ConLeche.Kernel.PropRead
 False_checked :: ConLeche.Kernel.PropWhen
@@ -2214,6 +2221,7 @@ fullyChecked_sound :: ConLeche.Kernel.Inductives.SumInstallF
 fullyChecked_sound :: ConLeche.Kernel.Inductives.SumParts
 fullyChecked_sound :: ConLeche.Kernel.Level
 fullyChecked_sound :: ConLeche.Kernel.Name
+fullyChecked_sound :: ConLeche.Kernel.NatOpPinSet
 fullyChecked_sound :: ConLeche.Kernel.NatOpPins
 fullyChecked_sound :: ConLeche.Kernel.PropRead
 fullyChecked_sound :: ConLeche.Kernel.PropWhen
@@ -2624,6 +2632,7 @@ False_pure :: ConLeche.Kernel.Inductives.SumInstall
 False_pure :: ConLeche.Kernel.Inductives.SumParts
 False_pure :: ConLeche.Kernel.Level
 False_pure :: ConLeche.Kernel.Name
+False_pure :: ConLeche.Kernel.NatOpPinSet
 False_pure :: ConLeche.Kernel.NatOpPins
 False_pure :: ConLeche.Kernel.PropRead
 False_pure :: ConLeche.Kernel.PropWhen
@@ -3004,6 +3013,7 @@ Empty_pure :: ConLeche.Kernel.Inductives.SumInstall
 Empty_pure :: ConLeche.Kernel.Inductives.SumParts
 Empty_pure :: ConLeche.Kernel.Level
 Empty_pure :: ConLeche.Kernel.Name
+Empty_pure :: ConLeche.Kernel.NatOpPinSet
 Empty_pure :: ConLeche.Kernel.NatOpPins
 Empty_pure :: ConLeche.Kernel.PropRead
 Empty_pure :: ConLeche.Kernel.PropWhen
