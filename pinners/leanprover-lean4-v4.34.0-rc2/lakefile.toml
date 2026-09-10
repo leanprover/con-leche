@@ -14,15 +14,15 @@
 # the repository's own `lake exe natop-pins-export` builds.  The cone
 # reached from `PinDump` is
 #
-#     PinDump                       the executable root
-#     ConLeche.PinGen{,.Dump,.Prelude}   the generator
-#     ConLeche.PinGen.Certs              the certificate theorems
-#     ConLeche.Kernel.{Name,PropWhen,Expr}
+#     PinDump                                the executable root
+#     ConLeche.PinGen{,.Dump,.Prelude}       the generator
+#     ConLeche.PinGen.Certs                  the certificate theorems
+#     ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
 #
 # — and the last line is the reason the generator is not free-standing:
 # a dump is an encoding of `ConLeche.Expr`, so the generator builds the
-# checker's expression datatypes.  Those files, and the four above
-# them, are written in the subset every supported toolchain accepts;
+# checker's expression datatypes.  Those three files, and the five
+# above them, are written in the subset every toolchain accepts;
 # that claim is not a hope, it is what this project's cold build
 # checks, on every toolchain, in `tests/pindump.sh` and in CI.
 #
