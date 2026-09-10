@@ -4,8 +4,24 @@ Instruments, not checker code: fixture generators (`mk_*.py`), the
 census and slicing tools (`dead-census.*`, `slice-cone.py`,
 `stream-census.py`), the perf-table renderer, `selfcheck.sh`, and the
 pin-prefix recipe (`extract_natop_prefix.py`,
-`diagnose_natop_prefix.py`, `natop_prefix.json`).  Nothing here is on
-the build's critical path; each file's header says who consumes it.
+`diagnose_natop_prefix.py`, `natop_prefix.json`) and the pin-drift
+probe (`natop-matrix.sh`).  Nothing here is on the build's critical
+path; each file's header says who consumes it.
+
+## `natop-matrix.sh` — the pin-drift probe (task #274)
+
+    scripts/natop-matrix.sh v4.33.0
+    scripts/natop-matrix.sh leanprover/lean4-nightly:nightly-2026-09-10
+
+Exports the pinned `Nat` operations' and compiler-trust values'
+dependency cone WITH THAT TOOLCHAIN'S exporter (the bundled
+`leanexport` where the toolchain has one, otherwise a lean4export
+built at the matching tag) and checks the result with the con-leche
+binary in this tree.  One summary line on stdout, the checker's exit
+code passed through.  `.github/workflows/natop-matrix.yml` runs it
+over every release since v4.29.0 plus the newest rc and nightly; the
+script is the whole of the per-toolchain logic, so a red matrix job
+reproduces with one command here.
 
 ## Re-running `shake` (the unused-import minimizer) — tasks #223, #235
 

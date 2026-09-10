@@ -204,7 +204,7 @@ def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
       p.kinds do
     throw (.internal "direct rec: field kinds")
   unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      q.ctorsA p.kinds p.rhss do
+      q.ctorsA p.kinds p.rhss p.cvR.type do
     throw (.invalid "direct rec: recursor rules are not the generated ones")
   let fe₂ := consSumCtorsF p.nP q.ctorsA q.env₁
   flushC

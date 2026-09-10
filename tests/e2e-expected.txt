@@ -1262,3 +1262,46 @@
 # by the node and the CUTOFF, behind an `O(1)` loose-bvar field read),
 # with the kernel-checked `lowerBVarsGo_spec` and `@[csimp]`.
 0 tower_nested.ndjson
+# TASK #271 (issues #5 and #7) — THE INDUCTIVE BLOCK'S REDUNDANT
+# FIELDS.  Official's replay compares every exported CONSTRUCTOR and
+# RECURSOR record with the one `add_inductive` generates, and reads a
+# type record's `ctors` list to group the constructors; the rows below
+# are one-field edits of the arena tutorial's own exports, each at the
+# verdict official gives.
+#
+# ind_ctor_order: the tutorial's `Color` with the two entries of
+# `inductive.ctors` SWAPPED and `types[0].ctors` unchanged.  The block's
+# constructor order is `types[].ctors`, not the record array's, so this
+# is the same block and must ACCEPT (issue #5; the official kernel,
+# nanoda and nanobruijn accept it).
+0 ind_ctor_order.ndjson
+# ind_redundant_fields: the tutorial's `TwoBool`, unedited — the
+# positive control the five `TwoBool` rows below are one-field edits of.
+0 ind_redundant_fields.ndjson
+# `cidx` disagreeing with the constructor's position in `types[].ctors`,
+# `induct` naming another declaration, `types[0].ctors` listing `mk`
+# twice, `Color`'s `types[0].ctors` missing `b` (whose record is still
+# there), and `numFields := 3` on a two-field constructor.  All five are
+# "Invalid constructor" / "duplicate constructor name" / "No such
+# constructor" for official; the `numFields` row DECLINED before this
+# task, at the field telescope, which is what makes the arena's
+# `ctor-num-fields` test neutral there.
+1 ind_ctor_cidx_bad.ndjson
+1 ind_ctor_induct_bad.ndjson
+1 ind_ctors_dup_bad.ndjson
+1 ind_ctors_missing_bad.ndjson
+1 ind_ctor_numfields_bad.ndjson
+# `k := true` on `TwoBool.rec`, whose generated recursor is not K-like
+# (K is a `Prop` block with one constructor taking only the
+# parameters).  Official: "Invalid recursor".
+1 ind_rec_k_bad.ndjson
+# ind_rule_binder_bad: the tutorial's `PredWithTypeField` (arena
+# 056_predWithTypeField, the accepting control) with ONE binder type
+# inside the recursor rule's λ prefix retargeted — the field binder
+# `(α : Type)` reads `(α : Prop)`.  The rule's prefix is compared with
+# the recursor record's own type, where the binder is still `Type`.
+1 ind_rule_binder_bad.ndjson
+# proj_typename_bad: the tutorial's `Prod.snd` (arena 096_projRed, the
+# accepting control) with the `.proj` node's `typeName` pointing at
+# another inductive.  Official: "invalid projection x.1".
+1 proj_typename_bad.ndjson

@@ -26,7 +26,7 @@ the installed environment (below), which changes no verdict and is
 there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L732)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L753)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -34,7 +34,7 @@ message naming what stands in its place, so a verdict's provenance can
 be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L44)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L48)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -119,7 +119,7 @@ Everything below explains how that theorem is reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L863))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L999))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1000)):
@@ -128,7 +128,7 @@ Read from the outside in:
    tables have the same kind of law, and what the parser then makes of
    a record — index resolution, the smart constructors, the modeller —
    is shared code, tested differentially rather than proved. The install loop
-   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L96))
+   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L100))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L136-L138)):
    a definition or opaque is annotated and pushed with its check
@@ -148,12 +148,12 @@ Read from the outside in:
    ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L337-L338)):
    the fact that the record is checked, or its error tagged with its
    fold position. At `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L182))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L186))
    runs it on every record in this thread and carries every fact;
    otherwise the installed environment — read-only from the boundary
    on — is marked persistent once, so that the workers pay no atomic
    reference counting on it, and a pool of worker threads
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L297))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L301))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
@@ -165,7 +165,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat and the route trace are
    printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L334-L338))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L338-L342))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
@@ -209,7 +209,7 @@ Read from the outside in:
    parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TypeChecker.lean#L28-L54));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2863-L2872)).
+   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2871-L2880)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L294-L301)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
@@ -564,9 +564,14 @@ declare it.)
 * `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
-* Two deliberate accept-supersets relative to the official kernel, a
-  semantic comparison of universe levels and a proof-irrelevance
-  fall-through, both licensed by the soundness proof.
+* Three deliberate accept-supersets relative to the official kernel, a
+  semantic comparison of universe levels, a proof-irrelevance
+  fall-through, and the large eliminator of a single-constructor block
+  whose result sort can be zero — where the official kernel generates
+  only the small one, this checker takes the subsingleton case under
+  the per-field `PropWhen` criterion, which is what carries the models
+  of mutual and nested blocks. All three are licensed by the soundness
+  proof.
 
 ## 10. Naming conventions
 
