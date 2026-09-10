@@ -23,6 +23,12 @@ over every release since v4.29.0 plus the newest rc and nightly; the
 script is the whole of the per-toolchain logic, so a red matrix job
 reproduces with one command here.
 
+When it says a toolchain's export no longer matches any pin variant,
+the fix is a new dump — and a new **pinner**, the Lake project that
+regenerates it on that toolchain (`pinners/README.md`, and the recipe
+in `pins/README.md`).  The generator itself is `PinDump.lean` plus
+`ConLeche/PinGen/*`; nothing in `scripts/` regenerates a dump.
+
 ## Re-running `shake` (the unused-import minimizer) — tasks #223, #235
 
 `shake` is no longer a Mathlib program: it was upstreamed into Lake
