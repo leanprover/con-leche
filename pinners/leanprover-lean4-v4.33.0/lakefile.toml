@@ -17,7 +17,7 @@
 #     PinDump                       the executable root
 #     ConLeche.PinGen{,.Dump,.Prelude}   the generator
 #     ConLeche.PinGen.Certs              the certificate theorems
-#     ConLeche.Kernel.{Name,PropWhen,Expr,NatOpPinSet}
+#     ConLeche.Kernel.{Name,PropWhen,Expr}
 #
 # — and the last line is the reason the generator is not free-standing:
 # a dump is an encoding of `ConLeche.Expr`, so the generator builds the

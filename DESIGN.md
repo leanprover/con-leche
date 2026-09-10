@@ -67191,6 +67191,7 @@ toolchains support.**
 ### The layout
 
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
 
 Two files each.  The directory name is the dump's basename without
@@ -67235,31 +67236,30 @@ names the cone.
 The brief's premise was that the generator "imports only `Lean`".  It
 does not, and this is worth recording: `ConLeche/PinGen.lean` and
 `ConLeche/PinGen/Dump.lean` carry `public meta import
-ConLeche.Kernel.Expr`, and since #273 `Dump.lean` also imports
-`ConLeche.Kernel.NatOpPinSet`.  The cone a pinner compiles is nine
-modules:
+ConLeche.Kernel.Expr`.  The cone a pinner compiles is eight modules:
 
-    PinDump                                            the executable root
-    ConLeche.PinGen, .Dump, .Prelude                   the generator
-    ConLeche.PinGen.Certs                              the certificate theorems
-    ConLeche.Kernel.{Name,PropWhen,Expr,NatOpPinSet}   the checker's Expr datatypes
+    PinDump                                the executable root
+    ConLeche.PinGen, .Dump, .Prelude       the generator
+    ConLeche.PinGen.Certs                  the certificate theorems
+    ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
 
 The last line is structural, not accidental: a dump IS an encoding of
 `ConLeche.Expr` (the share table's entries are that inductive's
 constructors) and the splice back into `ConLeche/Kernel/NatOpPins.lean`
-names them with double-backtick name quotation, which needs the type to exist while
-`Dump.lean` elaborates.  A free-standing generator would need a forked
-copy of the term representation, checked against the real one by
-nothing.  So a pinner builds four checker modules — the four that
-define the term representation and the pin record, none of the
-checking — and the price is that those four must stay inside the
-subset every supported toolchain accepts.  That price is now PAID BY A
+names them with double-backtick name quotation, which needs the type
+to exist while `Dump.lean` elaborates.  A free-standing generator would
+need a forked copy of the term representation, checked against the real
+one by nothing.  So a pinner builds three checker modules — the three
+that define the term representation, none of the checking — and the
+price is that those three must stay inside the subset every supported
+toolchain accepts.  That price is now PAID BY A
 GATE rather than by hope: the cold pinner build is what checks it, on
 every toolchain, on every run.
 
-No file needed forking.  On nightly-2026-09-10 the shared sources build
-with 37 deprecation warnings (`if_pos`/`dif_neg`/`if_false` renamed
-upstream) and no errors, and the dump is byte-identical anyway.  The
+No file needed forking.  On v4.34.0-rc2 and nightly-2026-09-10 the
+shared sources build with 37 deprecation warnings each
+(`if_pos`/`dif_neg`/`if_false` renamed upstream) and no errors, and the
+dumps are byte-identical anyway.  The
 fork mechanism is documented in both `pinners/README.md` and each
 pinner's lakefile — a `lean_lib` with `srcDir = "."` listed BEFORE the
 shared one, the forked file under its module path, and its reason at
@@ -67297,8 +67297,9 @@ against the committed file:
 
 | pinner | toolchain | cold build | dump | prelude |
 |---|---|---|---|---|
-| `leanprover-lean4-v4.33.0` | `leanprover/lean4:v4.33.0` | 20 jobs, ~9 s, warning-free | **byte-identical** | **byte-identical** |
-| `leanprover-lean4-nightly-nightly-2026-09-10` | `leanprover/lean4-nightly:nightly-2026-09-10` | 20 jobs, ~9 s, 37 deprecation warnings | **byte-identical** | identical below its meta line |
+| `leanprover-lean4-v4.33.0` | `leanprover/lean4:v4.33.0` | 18 jobs, seconds, warning-free | **byte-identical** | **byte-identical** |
+| `leanprover-lean4-v4.34.0-rc2` | `leanprover/lean4:v4.34.0-rc2` | 18 jobs, seconds, 37 deprecation warnings | **byte-identical** | identical below its meta line |
+| `leanprover-lean4-nightly-nightly-2026-09-10` | `leanprover/lean4-nightly:nightly-2026-09-10` | 18 jobs, seconds, 37 deprecation warnings | **byte-identical** | identical below its meta line |
 | repository root (`lake exe natop-pins-export`) | `leanprover/lean4:v4.33.0` | — | **byte-identical** | **byte-identical** |
 
 The prelude is ONE committed file, the repository toolchain's, because

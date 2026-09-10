@@ -11,6 +11,7 @@ A **pinner** is that recipe: a Lake project whose `lean-toolchain` is
 the dump's toolchain.
 
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
 
 The directory name is the dump's basename without `.json` — the
@@ -43,18 +44,18 @@ from the repository root with `srcDir = "../.."`, so the tree holds
 exactly ONE generator — the one the repository's own
 `lake exe natop-pins-export` builds.  The cone a pinner compiles is
 
-    PinDump                                            the executable root
-    ConLeche.PinGen, .Dump, .Prelude                   the generator
-    ConLeche.PinGen.Certs                              the certificate theorems
-    ConLeche.Kernel.{Name,PropWhen,Expr,NatOpPinSet}   the checker's Expr datatypes
+    PinDump                                the executable root
+    ConLeche.PinGen, .Dump, .Prelude       the generator
+    ConLeche.PinGen.Certs                  the certificate theorems
+    ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
 
 The last line is why the generator is not free-standing: a dump is an
 encoding of `ConLeche.Expr`, and the splice back into
 `ConLeche/Kernel/NatOpPins.lean` names that type's constructors.  So a
-pinner does build four checker modules — the four that define the term
-representation and the pin record, none of the checking.
+pinner does build three checker modules — the three that define the
+term representation, none of the checking.
 
-Those nine modules must therefore be written in the subset every
+Those eight modules must therefore be written in the subset every
 supported toolchain accepts.  That is not a hope: it is what the cold
 build in `tests/pindump.sh` and in CI checks, on every toolchain, every
 time.  A cold pinner build is about 20 jobs and ten seconds.
@@ -65,7 +66,8 @@ that pinner's own directory under its module path (say
 `srcDir = "."` BEFORE the shared library in that pinner's lakefile, and
 say at the top of the forked file why it is forked and what it differs
 from.  No fork exists today — the nightly builds the shared sources
-with deprecation warnings only, and produces a byte-identical dump.
+with deprecation warnings only, and produces a byte-identical dump; so
+does v4.34.0-rc2.
 
 ## Adding or dropping a toolchain
 
