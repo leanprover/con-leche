@@ -1,0 +1,50 @@
+# A PINNER (task #275): the Lake project that regenerates ONE committed
+# pin dump, on the toolchain that dump describes.
+#
+#     cd pinners/<toolchain> && lake exe natop-pins-export ../../pins
+#
+# The toolchain is `lean-toolchain` beside this file — elan reads it,
+# so `lake` here runs the Lean this dump is a dump of, and the
+# generator reads the same file to label the dump
+# (`ConLeche.PinGen.readToolchainString`).  See `pinners/README.md`.
+#
+# WHAT IS SHARED, AND WHY IT CAN BE.  Nothing is copied: both targets
+# take their sources from the repository root with `srcDir = "../.."`,
+# so there is exactly ONE copy of the generator in the tree — the one
+# the repository's own `lake exe natop-pins-export` builds.  The cone
+# reached from `PinDump` is
+#
+#     PinDump                       the executable root
+#     ConLeche.PinGen{,.Dump,.Prelude}   the generator
+#     ConLeche.PinGen.Certs              the certificate theorems
+#     ConLeche.Kernel.{Name,PropWhen,Expr,NatOpPinSet}
+#
+# — and the last line is the reason the generator is not free-standing:
+# a dump is an encoding of `ConLeche.Expr`, so the generator builds the
+# checker's expression datatypes.  Those files, and the four above
+# them, are written in the subset every supported toolchain accepts;
+# that claim is not a hope, it is what this project's cold build
+# checks, on every toolchain, in `tests/pindump.sh` and in CI.
+#
+# IF A TOOLCHAIN CANNOT SHARE A FILE, fork it: drop the fixed copy in
+# THIS directory under its module path (say
+# `ConLeche/PinGen/Certs.lean`), put a `lean_lib` for it with
+# `srcDir = "."` BEFORE the shared library below, and say at the top of
+# the forked file why it is forked.  No fork exists today.
+#
+# `lake build` here builds the executable and nothing else — the
+# shared library's root is the whole `ConLeche` hierarchy (so that any
+# module the cone grows into resolves without editing this file), which
+# is not something a pinner should ever build.
+name = "pinner"
+defaultTargets = ["natop-pins-export"]
+
+[[lean_lib]]
+name = "ConLecheShared"
+srcDir = "../.."
+roots = ["ConLeche"]
+
+[[lean_exe]]
+name = "natop-pins-export"
+srcDir = "../.."
+root = "PinDump"

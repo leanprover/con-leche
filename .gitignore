@@ -2,3 +2,4 @@
 /_tmp
 .claude/
 __pycache__/
+/pinners/*/.lake
