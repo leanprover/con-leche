@@ -2903,7 +2903,8 @@ private theorem annotate_step (henv : EnvWF env)
     | some entry =>
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
-      exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
+      -- the node's structure name (task #271), then the parameter count
+      exact ite_rel _ (fun _ => ite_rel _ (fun _ => rfl) (fun _ => rfl)) (fun _ => rfl)
 
 end Helpers
 

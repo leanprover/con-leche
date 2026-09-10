@@ -1833,7 +1833,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         throw (.invalid "let value type mismatch")
       let ob ← inst1M b v
       r.annotate depth ob
-    | .proj _sn i pe => do
+    | .proj sn i pe => do
       let e' ← r.annotate depth pe
       let tpe ← r.inferIO depth e'
       let te ← r.whnf depth tpe
@@ -1843,6 +1843,9 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← pure (ExprC.getAppArgs te)
+          -- TASK #271 (issue #7), as in the pure twin
+          unless T = sn do
+            throw (.invalid "invalid projection: the node names another structure")
           unless targs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
           pure (Expr.proj T i e')
