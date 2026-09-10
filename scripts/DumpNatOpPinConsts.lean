@@ -19,10 +19,10 @@ partial def collect (e : Expr) (acc : List Name) : List Name :=
   match e with
   | .const n _ => if acc.contains n then acc else n :: acc
   | .app f a => collect a (collect f acc)
-  | .lam _ ty b _ => collect b (collect ty acc)
-  | .forallE _ ty b _ => collect b (collect ty acc)
-  | .letE _ ty v b => collect b (collect v (collect ty acc))
-  | .fvar _ _ ty => collect ty acc
+  | .lam ty b _ => collect b (collect ty acc)
+  | .forallE ty b _ => collect b (collect ty acc)
+  | .letE ty v b => collect b (collect v (collect ty acc))
+  | .fvar _ ty => collect ty acc
   | _ => acc
 
 partial def nameStr : Name → String

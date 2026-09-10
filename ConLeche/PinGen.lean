@@ -267,8 +267,23 @@ partial def coneOf (env : Environment) (root : Lean.Name) : NameSet :=
         let mut es := [ci.type]
         if let some v := ci.value? (allowOpaque := true) then es := v :: es
         if let .inductInfo iv := ci then
+          -- An inductive is declared by ONE stream record together with
+          -- every type of its block, their constructors and their
+          -- recursors (task #273): those names are cone members by the
+          -- inductive's presence, whether or not anything in the cone
+          -- refers to them.  (Before the fix only *referenced* names
+          -- entered the cone; `Decidable.rec` happened to be referenced
+          -- by `Decidable.casesOn`'s value up to v4.33 and stopped being
+          -- when `Decidable` became a structure — the generator then
+          -- rejected the certificate proofs' case splits on it.)
+          for t in iv.all do
+            unless seen.contains t do work := t :: work
           for ctor in iv.ctors do
+            seen := seen.insert ctor
             if let some cci := env.find? ctor then es := cci.type :: es
+          seen := seen.insert (mkRecName iv.name)
+          for k in [1:iv.numNested + 1] do
+            seen := seen.insert (.str iv.name s!"rec_{k}")
         for e in es do
           for d in (constsOf e).toList do
             unless seen.contains d do work := d :: work
