@@ -67036,5 +67036,7 @@ clean), `tests/overview-links.sh` regenerated after eight anchors
 moved (all pure line shifts; the `ExportC.lean` one was already off its
 own paragraph's subject and now points at `def parseExportStreamD`).
 `init-full --verified` accepts 53 088, unchanged, at 542.90 G
-instructions:u against master's 544.21 G on the same host — the new
-checks cost nothing measurable.
+instructions:u against master's 544.21 G on the same host (`--jobs=1`,
+`perf stat -e instructions:u`) — the new checks cost nothing
+measurable.  Re-gated after merging task #272: same verdicts
+throughout, 539.56 G at `--jobs=4` with that task's improvement in.
