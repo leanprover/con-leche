@@ -67247,7 +67247,7 @@ modules:
 The last line is structural, not accidental: a dump IS an encoding of
 `ConLeche.Expr` (the share table's entries are that inductive's
 constructors) and the splice back into `ConLeche/Kernel/NatOpPins.lean`
-names them with `` `` ``-quotation, which needs the type to exist while
+names them with double-backtick name quotation, which needs the type to exist while
 `Dump.lean` elaborates.  A free-standing generator would need a forked
 copy of the term representation, checked against the real one by
 nothing.  So a pinner builds four checker modules — the four that
