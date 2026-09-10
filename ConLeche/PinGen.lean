@@ -448,9 +448,9 @@ whichever tree the file physically lives in into every one of them.
 The string is read at RUN time instead, by searching upward from the
 working directory for `lean-toolchain` exactly as elan does when it
 picks the binary that is running: the answer is the project the
-generator was invoked in, and `toolchainCheck` below cross-checks it
-against `Lean.versionString` so an invocation from the wrong directory
-is an error rather than a mislabelled dump. -/
+generator was invoked in, and `readToolchainString` below cross-checks
+it against `Lean.versionString` so an invocation from the wrong
+directory is an error rather than a mislabelled dump. -/
 partial def findToolchainFile (dir : System.FilePath) :
     IO (Option System.FilePath) := do
   let cand := dir / "lean-toolchain"
@@ -491,11 +491,10 @@ the module initializer, and this module's object code is still linked
 into the `con-leche` executable — through the `meta import` in
 `ConLeche/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
 so a closed parse of the 1.96 MB embed would cost ~0.26 G instructions
-at every process start.  As a
-function it runs only when the generator asks, at export time.
-(Closed subterms
-extracted from function bodies are lazy `once`-cells in the emitted
-code, so no eager work remains.) -/
+at every process start.  As a function it runs only when the generator
+asks, at export time.  (Closed subterms extracted from function bodies
+are lazy `once`-cells in the emitted code, so no eager work
+remains.) -/
 def loadPrefixes (json : String) : Except String (Std.HashMap String (List String)) := do
   let j ← Json.parse json
   let o ← j.getObj?
