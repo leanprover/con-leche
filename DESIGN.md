@@ -67178,6 +67178,23 @@ the table above — including the two failure shapes the script must get
 right (the `Nat.gcd` decline and the silently truncated nightly
 export).
 
+### Follow-up (2026-09-10, master, after the first CI run post-push)
+
+The first post-push run (`actions/runs/34507565604`, at b46cb0e6 with
+the three pin variants) was green on every row except the nightly,
+which the script failed as `accept(incomplete)`: the checker had
+accepted all 357 records, and the only absent constants were the two
+trust pins `Lean.reduceBool` / `Lean.reduceNat`.  Those are gone from
+`Init` upstream for good (task #273), and the checker pins them to the
+identity only when a stream declares them, so a stream without them is
+complete.  `scripts/natop-matrix.sh` now splits the absent names: an
+absent NAT OPERATION still yields `accept(incomplete)` and a non-zero
+exit (that pin was never exercised); absent TRUST PINS are reported in
+the summary's last column and on stderr and change neither verdict nor
+exit code.  Verified locally with master's binary: nightly-2026-09-10 →
+`357 | accept | trust pins absent from Init (tolerated): Lean.reduceBool
+Lean.reduceNat`, exit 0; v4.33.0 → `353 | accept | -`, exit 0.
+
 ## TASK #273 — PIN VARIANTS: one binary carries every supported toolchain's Nat-op pins (2026-09-10, `agent/natop-273`)
 
 **The report** (Sebastian Ullrich, bundling con-leche with Lean
