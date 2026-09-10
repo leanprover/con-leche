@@ -5,11 +5,11 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L732
-   732  def usage : String := String.intercalate "\n" [
+== Main.lean#L753
+   753  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L44
-    44  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L48
+    48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/MainTheorem.lean#L40-L43
     40  theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -28,14 +28,14 @@
     87  #guard_msgs in
     88  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L863
-   863        | .error e => return .error e
+== ConLeche/Frontend/ExportC.lean#L999
+   999  def parseExportStreamD (path : System.FilePath)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1000
   1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== Main.lean#L96
-    96  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L100
+   100  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
@@ -46,11 +46,11 @@
    337  def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L182
-   182  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L186
+   186  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L297
-   297  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L301
+   301  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
@@ -58,12 +58,12 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L334-L338
-   334  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   335      (trace : Bool) (noMark : Bool)
-   336      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
-   337      IO (Except (ConLeche.CheckError × Nat)
-   338        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L338-L342
+   338  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   339      (trace : Bool) (noMark : Bool)
+   340      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
+   341      IO (Except (ConLeche.CheckError × Nat)
+   342        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
    488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
@@ -159,17 +159,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2863-L2872
-  2863        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2864        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2865        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2866        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2867        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2868    | fuel + 1 =>
-  2869      wrap
-  2870        { whnfCore := fun d e =>
-  2871            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2872          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2871-L2880
+  2871        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2872        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2873        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2874        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2875        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2876    | fuel + 1 =>
+  2877      wrap
+  2878        { whnfCore := fun d e =>
+  2879            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2880          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
