@@ -18,7 +18,7 @@
 # against the pin and the stream was declined at that record — reported
 # from downstream, not by our own gates, because `ci.yml` only ever
 # exports with the repo's own `lean-toolchain`.  This workflow is the
-# gate that would have caught it: for every Lean release since v4.28.0,
+# gate that would have caught it: for every Lean release since v4.29.0,
 # plus the newest release candidate, plus the newest nightly, it exports
 # the pinned constants' dependency cone WITH THAT TOOLCHAIN'S EXPORTER
 # and runs ONE con-leche binary — built from the repo's own
@@ -36,7 +36,7 @@
 # THE THREE JOBS
 #
 #   enumerate  asks the GitHub API for the toolchains.  No hard-coded
-#              list beyond the v4.28.0 floor: every non-prerelease
+#              list beyond the v4.29.0 floor: every non-prerelease
 #              `leanprover/lean4` tag at or above the floor, plus the
 #              single newest `-rc` prerelease, plus the newest
 #              `leanprover/lean4-nightly` release.
@@ -64,6 +64,17 @@
 #   * The exports are small (a few hundred declarations), so a matrix
 #     job is dominated by the toolchain download and the exporter build,
 #     not by checking.
+#
+# WHY THE FLOOR IS v4.29.0 AND NOT v4.28.0 (user ruling, 2026-09-10).
+# v4.28.0 and v4.28.1 decline, and over a single name: those toolchains
+# spell `WellFounded.Nat.fix._proof_2` as
+# `WellFounded.Nat.fix.go._proof_2`, the `Nat.gcd` pin blob mentions it,
+# `constsResolve` fails and the gate declines with "pin ground constants
+# absent".  The two cones are otherwise identical — 292 declarations,
+# one name different.  That spelling PREDATES the pins: the pins were
+# never maintained against it, so a v4.28.x row would be a permanently
+# red gate reporting a decision already taken, not drift.  The floor is
+# the ruling; `scripts/natop-matrix.sh v4.28.0` still runs by hand.
 
 name: Nat-op pin matrix
 
@@ -105,8 +116,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           # The floor.  Releases before this one are out of scope: the
-          # project's pins were not maintained against them.
-          FLOOR: v4.28.0
+          # project's pins were not maintained against them (see the
+          # v4.28.x note in this file's header).
+          FLOOR: v4.29.0
         run: |
           set -euo pipefail
 

@@ -67041,7 +67041,7 @@ instructions:u against master's 544.21 G on the same host (`--jobs=1`,
 measurable.  Re-gated after merging task #272: same verdicts
 throughout, 539.56 G at `--jobs=4` with that task's improvement in.
 
-## TASK #274 — THE PIN MATRIX: EVERY LEAN SINCE v4.28.0 EXPORTS THE PINNED NAT OPS, AND WE CHECK THEM (2026-09-10, `agent/pin-matrix-274`)
+## TASK #274 — THE PIN MATRIX: EVERY LEAN SINCE v4.29.0 EXPORTS THE PINNED NAT OPS, AND WE CHECK THEM (2026-09-10, `agent/pin-matrix-274`)
 
 **The gap.**  The checker vendors the toolchain's own definitions of
 the fifteen kernel-accelerated `Nat` operations (`pins/<toolchain>.json`
@@ -67069,7 +67069,7 @@ rewrite declining at `Nat.mod`) came from downstream.
   `ConLeche/Kernel/Core.lean`'s `natOpNames` + `natDivModNames` on every
   run, so it cannot go stale silently.
 * `.github/workflows/natop-matrix.yml`: `enumerate` (GitHub API, floor
-  v4.28.0, plus the newest `-rc` and the newest nightly — no hard-coded
+  v4.29.0, plus the newest `-rc` and the newest nightly — no hard-coded
   list) → `build` (ONE binary from `lean-toolchain`, ci.yml's elan +
   `.lake` cache recipe, uploaded as an artifact) → `matrix`
   (`fail-fast: false`, one job per toolchain).  Stable releases hard-fail;
@@ -67085,8 +67085,9 @@ after v4.34.0-rc2 — with lean4export's command line
 (`leanexport Init -- Nat.div ...`).  Otherwise the script builds
 github.com/leanprover/lean4export, which tags a release per Lean
 release; the ref is the exact tag when it exists and otherwise the
-newest tag that is not newer than the target (v4.28.1, v4.32.1 and
-v4.33.1 have no tag of their own and fall back one patch level), and
+newest tag that is not newer than the target (v4.32.1 and v4.33.1 in
+the matrix, and v4.28.1 below its floor, have no tag of their own and
+fall back one patch level), and
 the clone's `lean-toolchain` is overwritten with the target either way
 — the exporter must link against the toolchain whose environment it
 dumps.  The export itself runs under `elan run <toolchain>`: the
@@ -67107,6 +67108,10 @@ gone from `Init`.
 
 ### The local results (2026-09-10, checker built at `lean-toolchain` = v4.33.0)
 
+Measured at the original v4.28.0 floor, so the two rows the ruling
+below removed from the matrix are still here — they are the evidence
+for it.
+
 | toolchain | exporter | records | verdict | first failing record |
 |---|---|---|---|---|
 | v4.28.0 | lean4export@v4.28.0 | ? | decline | `def Nat.gcd @189` |
@@ -67123,8 +67128,9 @@ gone from `Init`.
 | v4.34.0-rc2 | lean4export@v4.34.0-rc2 | ? | decline | `def Nat.land @332` |
 | nightly-2026-09-10 | leanexport(bundled) | ? | decline | `def Nat.div @141`; absent from `Init`: `Lean.reduceBool` `Lean.reduceNat` |
 
-Nine of eleven stable releases accept.  The three failures are three
-different drifts, and the cone diff names each of them:
+Nine of the eleven stable releases at or above v4.28.0 accept.  The
+three failures are three different drifts, and the cone diff names each
+of them:
 
 * **v4.28.0 / v4.28.1** — one name, `WellFounded.Nat.fix._proof_2`,
   which those toolchains spell `WellFounded.Nat.fix.go._proof_2`.  The
@@ -67142,9 +67148,19 @@ different drifts, and the cone diff names each of them:
   `Nat.div`; plus the removal of `Lean.reduceBool`/`Lean.reduceNat`
   described above.
 
-**Not this lane's work**: the pins themselves (task #273) and the
-question of whether the v4.28.x floor should be raised or the `gcd` pin
-widened.  The workflow reports; it does not fix.
+**THE FLOOR IS v4.29.0** (user ruling, 2026-09-10, after the table
+above).  The v4.28.x spelling predates the pins — they were never
+maintained against it — so a v4.28.x matrix row would be a permanently
+red gate reporting a decision already taken, not drift.  The workflow
+enumerates from v4.29.0; `scripts/natop-matrix.sh v4.28.0` still runs
+by hand and still declines, which is how the two rows above were
+measured.  With the floor in force the matrix is nine stable releases
+plus the newest rc plus the newest nightly — eleven jobs, nine of them
+gating, and green today except for the two watched ones.
+
+**Not this lane's work**: the pins themselves (task #273) — widening
+the `gcd` pin, or answering the `Lean.reduceBool`/`Lean.reduceNat`
+removal.  The workflow reports; it does not fix.
 
 ### Gates
 
