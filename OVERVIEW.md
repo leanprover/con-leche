@@ -449,16 +449,19 @@ instead of trusting the operation's name.
   `xor`, `shiftLeft`, `shiftRight`;
   [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L555-L570))
   are defined by well-founded recursion and have no recurrence the
-  kernel can check directly. Their install compares the stream's
-  definition by definitional equality against a *pinned* copy of the
-  toolchain's own definition, and then checks pinned *certificate
-  theorems*, `Nat.ble`-guarded characterisations of each operation
-  whose proof terms were produced by Lean itself at pin-generation
-  time, as theorem declarations, without installing them
+  kernel can check directly. The binary embeds *pinned* copies of
+  several supported toolchains' own definitions of each operation,
+  each with its pinned *certificate theorems* — `Nat.ble`-guarded
+  characterisations of the operation whose proof terms were produced
+  by Lean itself at pin-generation time. The install tries the pins in
+  order and uses the first whose copy is definitionally equal to the
+  stream's definition and whose certificates check, as theorem
+  declarations, without installing them; a stream matching none of
+  them declines
   ([the pin module `ConLeche/Kernel/NatOpPins.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/NatOpPins.lean#L1-L16),
   [the certificate library `ConLeche/PinGen/Certs.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/PinGen/Certs.lean#L7-L18)).
-  The pins are committed per toolchain under `pins/` and regenerated
-  with `lake exe natop-pins-export`. The model side is
+  The pins are committed per toolchain under `pins/`, each generated
+  on its toolchain with `lake exe natop-pins-export`. The model side is
   [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/DivModCert.lean#L2023).
 * **Order independence.** The certificates are spelled over the
   structural operations and the basis blocks, which an export may emit
@@ -525,8 +528,8 @@ The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.reduceNat` and the axioms `Lean.ofReduceBool` and
 `Lean.ofReduceNat`, is neither rejected nor trusted: `trustCompiler`
 installs as an opaque with value `True.intro`, the two reduce
-operations install as ordinary opaques pinned to the toolchain's
-definitions, and the two axioms are accepted only after the install
+operations install as ordinary opaques pinned to the identity
+function, and the two axioms are accepted only after the install
 certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model
