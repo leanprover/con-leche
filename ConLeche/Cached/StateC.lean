@@ -43,21 +43,6 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-! ## The zero-ness memo
-
-The only piece of the retired `CStore` that computed anything: a
-`Level`-keyed memo for the binder loops' zero-ness readout. -/
-
-/-- Memo table for the zero-ness readout (structural `Level` keys). -/
-abbrev PWMemo := Std.HashMap Level PropWhen
-
-/-- The zero-ness readout, memoized on the level tree. -/
-@[inline] def zeronessOfLGo (memo : PWMemo) (u : Level) :
-    PropWhen × PWMemo :=
-  match memo[u]? with
-  | some r => (r, memo)
-  | none => let r := Level.zeronessOf u; (r, memo.insert u r)
-
 /-! ## The environment-index guards -/
 
 /-- `isUnitLikeTy` through the index, on a (whnf'd) `ExprC`. -/

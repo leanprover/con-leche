@@ -1619,48 +1619,16 @@ theorem constsResolveFC_spec {fe : FEnv} {e : ExprC} :
     constsResolveFC fe e = Expr.constsResolveF fe e :=
   (constsResolveFCGo_spec MemoCRInv.empty).1
 
-/-! ### The zero-ness readout's memo (task #163, batch 9)
+/-! ### The zero-ness readout (task #163, batch 9; task #272)
 
-The binder-telescope loops call `zeronessOfLGo`, threading a `PWMemo`
-across the `inferPisOutI` fold.  The keys are structural `Level`s, so
-an entry simply *is* the readout of its key, and there is no `mono`
-(nothing is state-indexed). -/
-
-/-- Memo invariant of `zeronessOfLGo`: every entry is the
-readout of its key. -/
-@[expose] def PWMemoInvC (memo : PWMemo) : Prop :=
-  ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.zeronessOf u
-
-theorem PWMemoInvC.empty : PWMemoInvC {} := by
-  intro u pw hpw
-  simp at hpw
-
-theorem PWMemoInvC.insert {memo : PWMemo} {u : Level}
-    (h : PWMemoInvC memo) :
-    PWMemoInvC (memo.insert u (Level.zeronessOf u)) := by
-  intro u' pw' hpw'
-  rw [Std.HashMap.getElem?_insert] at hpw'
-  by_cases hk : u = u'
-  · subst hk
-    rw [if_pos (by simp)] at hpw'
-    cases hpw'
-    rfl
-  · rw [if_neg (by simpa using hk)] at hpw'
-    exact h u' pw' hpw'
-
-/-- The memoized zero-ness readout agrees with the tree readout and
-maintains its memo invariant. -/
-theorem zeronessOfLGo_spec (v : Level)
-    {memo : PWMemo} {p : PropWhen} {memo' : PWMemo}
-    (hminv : PWMemoInvC memo)
-    (hgo : zeronessOfLGo memo v = (p, memo')) :
-    PWMemoInvC memo' ∧ p = Level.zeronessOf v := by
-  unfold zeronessOfLGo at hgo
-  split at hgo
-  · rename_i r hhit
-    cases hgo
-    exact ⟨hminv, hminv v _ hhit⟩
-  · cases hgo
-    exact ⟨hminv.insert, rfl⟩
+The binder-telescope loops used to read the zero-ness datum out of a
+`Level`-keyed memo (`PWMemo`/`zeronessOfLGo`), with a correspondence
+battery here saying an entry *is* the readout of its key.  Task #272
+deleted the table: the `inferPisOutI` fold THREADS the datum (every
+node of a ∀ telescope shares it, `zeronessOf (imax u v) = zeronessOf
+v`), where the memo missed on every node and paid the readout over the
+growing level; the three remaining readouts are one call each, and the
+mirror reads `Level.zeronessOf` directly, so their agreement is
+`rfl`. -/
 
 end ConLeche.Cached
