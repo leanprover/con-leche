@@ -67172,3 +67172,179 @@ scripts were read rather than linted), and the thirteen local runs in
 the table above — including the two failure shapes the script must get
 right (the `Nat.gcd` decline and the silently truncated nightly
 export).
+
+## TASK #275 — PIN GENERATION IS REPRODUCIBLE FROM THE REPOSITORY: one Lake project per committed dump (2026-09-10, `agent/pinners-275`)
+
+Task #273 landed a second pin variant, `pins/leanprover-lean4-nightly-
+nightly-2026-09-10.json`, and `pins/README.md` had to say of it that it
+"cannot be regenerated here": a dump is computed by the generator
+running ON its toolchain, and the tree has one `lean-toolchain`.  The
+recipe was "set `lean-toolchain` to the new toolchain in a scratch
+worktree, build, generate, set it back".  A committed generated file
+whose recipe is a sequence of edits to a tracked file is not
+reproducible — it is a file someone once made.  The maintainer's
+instruction: **one Lake project per necessary toolchain, in a
+subdirectory of `pinners`, each self-contained and with their own
+dumper, or sharing only files written in a way that all necessary
+toolchains support.**
+
+### The layout
+
+    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
+
+Two files each.  The directory name is the dump's basename without
+`.json` (the toolchain string sanitised the way the generator names its
+output), and `tests/pindump.sh` checks that correspondence in both
+directions.  Regeneration is
+
+    cd pinners/<toolchain> && lake exe natop-pins-export ../../pins
+
+elan reads the `lean-toolchain` beside the lakefile, so `lake` there
+runs the Lean the dump describes.
+
+### srcDir vs. symlinks — the finding
+
+**Lake accepts a `srcDir` outside the package root**, and both a
+`lean_lib` and a `lean_exe` take one.  Measured, not assumed: a probe
+package with `srcDir = "../../.."` built `ConLeche.PinGen.Certs` and
+`PinDump` from the repository tree on the nightly toolchain, and the
+paths Lean reports are the relative ones (`../../ConLeche/Kernel/
+Expr.lean`), so `include_str` inside a shared source resolves relative
+to the file's REAL location and keeps working.  So no symlinks, no
+`pinners/common/`, and nothing was moved: a pinner's two targets point
+at the repository root and the tree holds exactly ONE generator, the
+one `lake exe natop-pins-export` at the root builds.  The main
+lakefile, `lake build` and `lake test` are untouched.
+
+This is a deliberate simplification of the brief, which offered a
+`pinners/common/` holding the shared sources (with the main tree's
+`ConLeche/PinGen/*` becoming symlinks into it, or the main lakefile
+taking its sources from it).  Both of those variants have to solve a
+problem `srcDir = "../.."` does not have: `ConLeche/PinGen.lean`
+`include_str`s `../scripts/natop_prefix.json`, so moving the file
+means moving or symlinking that data too, and a `pinners/common/
+ConLeche/` tree would put a second copy of every module PATH in the
+repository for the census, shake and layering scripts to trip over.
+What `common/` would have bought — a visible manifest of what is
+shared — the pinner's own lakefile buys instead, in a comment that
+names the cone.
+
+### What is shared, and the one honest surprise
+
+The brief's premise was that the generator "imports only `Lean`".  It
+does not, and this is worth recording: `ConLeche/PinGen.lean` and
+`ConLeche/PinGen/Dump.lean` carry `public meta import
+ConLeche.Kernel.Expr`, and since #273 `Dump.lean` also imports
+`ConLeche.Kernel.NatOpPinSet`.  The cone a pinner compiles is nine
+modules:
+
+    PinDump                                            the executable root
+    ConLeche.PinGen, .Dump, .Prelude                   the generator
+    ConLeche.PinGen.Certs                              the certificate theorems
+    ConLeche.Kernel.{Name,PropWhen,Expr,NatOpPinSet}   the checker's Expr datatypes
+
+The last line is structural, not accidental: a dump IS an encoding of
+`ConLeche.Expr` (the share table's entries are that inductive's
+constructors) and the splice back into `ConLeche/Kernel/NatOpPins.lean`
+names them with `` `` ``-quotation, which needs the type to exist while
+`Dump.lean` elaborates.  A free-standing generator would need a forked
+copy of the term representation, checked against the real one by
+nothing.  So a pinner builds four checker modules — the four that
+define the term representation and the pin record, none of the
+checking — and the price is that those four must stay inside the
+subset every supported toolchain accepts.  That price is now PAID BY A
+GATE rather than by hope: the cold pinner build is what checks it, on
+every toolchain, on every run.
+
+No file needed forking.  On nightly-2026-09-10 the shared sources build
+with 37 deprecation warnings (`if_pos`/`dif_neg`/`if_false` renamed
+upstream) and no errors, and the dump is byte-identical anyway.  The
+fork mechanism is documented in both `pinners/README.md` and each
+pinner's lakefile — a `lean_lib` with `srcDir = "."` listed BEFORE the
+shared one, the forked file under its module path, and its reason at
+its top — but nothing uses it, so it is designed and not exercised.
+That is the honest status.
+
+### The generator's toolchain string
+
+One source change was unavoidable.  `ConLeche.PinGen.toolchainString`
+was `include_str "../lean-toolchain"` — the toolchain of whatever tree
+the source physically sits in, which is exactly the wrong answer once
+several projects build the same source.  It is now read at RUN time,
+by searching upward from the working directory for `lean-toolchain`:
+that is precisely the search elan performs to decide which Lean is
+running, so the file the generator reads and the binary executing it
+are the same project's by construction.  `readToolchainString` also
+cross-checks the two — a `…:vX` toolchain must be Lean `X`, a
+`…:nightly-D` a version ending in `nightly-D` — so running the
+executable from the wrong directory is an error naming both, not a
+mislabelled dump.  `computeDumpAndPrelude` takes the string as a
+parameter; `PinDump.main` supplies it.
+
+`lake exe natop-pins-export` from the repository root is unchanged, and
+`pinners/leanprover-lean4-v4.33.0/` is the same computation in a second
+project.  The root executable is kept rather than retired: the
+`ConLechePinCerts` library has to stay for `ConLeche.Model.NatWf`
+either way, the executable on top of it costs nothing, and retiring it
+would churn every doc pointer to buy uniformity the gate already
+enforces.
+
+### The reproducibility table
+
+Every committed dump, regenerated cold on its own toolchain and diffed
+against the committed file:
+
+| pinner | toolchain | cold build | dump | prelude |
+|---|---|---|---|---|
+| `leanprover-lean4-v4.33.0` | `leanprover/lean4:v4.33.0` | 20 jobs, ~9 s, warning-free | **byte-identical** | **byte-identical** |
+| `leanprover-lean4-nightly-nightly-2026-09-10` | `leanprover/lean4-nightly:nightly-2026-09-10` | 20 jobs, ~9 s, 37 deprecation warnings | **byte-identical** | identical below its meta line |
+| repository root (`lake exe natop-pins-export`) | `leanprover/lean4:v4.33.0` | — | **byte-identical** | **byte-identical** |
+
+The prelude is ONE committed file, the repository toolchain's, because
+it holds only the pinned basis blocks and `Bool`/`And` and those have
+not drifted.  A foreign pinner's regenerated prelude is therefore
+compared below its meta line (which carries the generating Lean's
+version and githash); `pins/README.md` asked for that check by hand,
+and the gate does it now and calls a difference PRELUDE DRIFT.
+
+A quiet confirmation on the way in: the generator built on the nightly
+reproduces #273's committed nightly dump exactly, modulo the two fields
+the wrong `lean-toolchain` embed poisoned (`toolchain`, `preludeFile`).
+That is independent evidence that the dump is a function of the
+toolchain and the sources, and nothing else.
+
+### The gate
+
+`tests/pindump.sh` walks `pinners/*/`.  For each pinner whose toolchain
+elan has: build it, regenerate into `_tmp/pindump-gate/`, diff.  For
+one it does not have: a labelled SKIP — unless `PINDUMP_INSTALL=1`,
+when elan installs it first.  A run in which NO pinner ran is a
+failure, and since the repository's own toolchain is always installed
+that cannot happen silently.  The default cost is therefore bounded by
+what the machine already has, and on a fresh clone it is one pinner.
+
+Warning-freedom stays the repository toolchain's rule, enforced where
+it always was — on the root `natop-pins-export` target, which `lake
+build` does not reach.  A foreign toolchain's deprecation warnings do
+not change the dump and do not fail the gate.
+
+The correspondence checks now close a triangle: every committed dump is
+embedded by `NatOpPins`, every embedded dump is committed, and every
+committed dump has a pinner named after its own toolchain.
+
+CI: `natop-matrix.yml` gains a `regenerate` job running the same gate
+with `PINDUMP_INSTALL=1`, so every dump is reproduced there — a hard
+failure, because that staleness is ours and not upstream's.  The other
+three jobs ask whether the pins still describe upstream; this one asks
+whether the committed pins are what our generator produces.  `ci.yml`
+keeps running the default gate, where the foreign toolchains are SKIPs.
+
+### Gates
+
+`lake build` and `lake test` warning-free at the repository root;
+`tests/pindump.sh` green (2 pinners reproduced, 0 skipped), and its
+SKIP and `PINDUMP_INSTALL=1` branches exercised by hand with the
+installed-toolchain list forced empty; `tests/arena.sh` green;
+`tests/no-local-paths.sh` OK (the pinners' `srcDir`s are relative);
+both workflows parse.
