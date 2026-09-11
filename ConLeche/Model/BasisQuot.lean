@@ -772,7 +772,7 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
     (hreps := fun _ _ cvR _ _ _ hc T hT => by
       injection hc with h1
       rw [← h1] at hT
-      simp [ConLeche.quotIndName, ConLeche.quotName] at hT)
+      simp at hT)
     (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -2242,7 +2242,7 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
     (hreps := fun _ _ cvR _ _ _ hc T hT => by
       injection hc with h1
       rw [← h1] at hT
-      simp [ConLeche.quotLiftName, ConLeche.quotName] at hT)
+      simp at hT)
     (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

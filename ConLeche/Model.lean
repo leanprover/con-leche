@@ -23,6 +23,14 @@ public import ConLeche.Model.Steps.Nat
 public import ConLeche.Model.Steps.CapsRows
 public import ConLeche.Model.Steps.Tiers
 public import ConLeche.Model.Install
+public import ConLeche.Model.IndRep
+public import ConLeche.Model.IndRepCons
+public import ConLeche.Model.IndRepSwap
+public import ConLeche.Model.IndRepToolkit
+public import ConLeche.Model.BasisRep
+public import ConLeche.Model.Inductives.BlockData
+public import ConLeche.Model.Inductives.FixRep
+public import ConLeche.Model.Annot.ConsMono
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.NatSem
 public import ConLeche.Model.Caps
