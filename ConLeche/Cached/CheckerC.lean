@@ -230,14 +230,32 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
 
+/-- `mutualFormers` through the index with the driver's flush at every
+member: each member's former is checked at the index holding the
+earlier ones, and the memo invariant is re-established there (the
+`provisionRecsS` arrangement).  The pure comparand is `mutualFormers`
+unchanged. -/
+def mutualFormersS (nP : Nat) : List (ConstantVal × Nat) → FEnv →
+    CheckCM (FEnv × List MutualFormerA)
+  | [], fe => pure (fe, [])
+  | (cv, nIdx) :: rest, fe => do
+    flushC
+    let cvTa₀ ← checkConstantValF (sharedOpsC mode fe) fe cv
+    let (cvTa, s) ← checkSumTeleF (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀
+    let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
+      (.internal "mutual: type former telescope")
+    unless tbody == Expr.sort s do
+      throw (.internal "mutual: type former result sort")
+    let (fe', fs) ← mutualFormersS nP rest (fe.push (.indInfo cvTa {}))
+    pure (fe', ⟨cvTa, nIdx, s⟩ :: fs)
+
 /-- `checkMutualCore` through the index (task #278): the stages at the
 index's environment, one flush per environment transition. -/
 def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     (streamRecs : Option (List (ConstantVal × List RecRule))) : CheckCM FEnv := do
   let nP := b.nP
   mutualShapeOk (m := CheckCM) b
-  flushC
-  let (fe₁, fms) ← mutualFormersF (m := CheckCM) (fun fe => sharedOpsC mode fe) nP b.formers fe
+  let (fe₁, fms) ← mutualFormersS mode nP b.formers fe
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
   flushC
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
