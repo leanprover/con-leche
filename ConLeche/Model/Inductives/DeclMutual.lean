@@ -216,6 +216,17 @@ theorem mutualNIdxOf_members3 {b : MutualBlock} {t : Nat} (ht : t < b.k) :
   rw [members3_find? ht]
   rfl
 
+/-- Every entry of the member table carries a member's index. -/
+theorem members3_mem_lt {b : MutualBlock} {x : Name × Nat × Nat} (h : x ∈ b.members3) :
+    x.2.1 < b.k := by
+  unfold ConLeche.MutualBlock.members3 at h
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp h
+  obtain ⟨⟨cv, nIdx⟩, mIdx⟩ := q
+  have hget : b.formers[mIdx]? = some (cv, nIdx) :=
+    List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
+  show mIdx < b.formers.length
+  exact (List.getElem?_eq_some_iff.mp hget).1
+
 /-- Official's positivity walk names a MEMBER of the block, or nothing. -/
 theorem mutualPositivity_tgt (members : List (Name × Nat × Nat)) (lps : List Name) (nP o : Nat) :
     ∀ (e : Expr) (kk : Nat),
@@ -469,24 +480,25 @@ theorem stageMemberConsG (mp : EnvModelM V μ env) (hE₀ : ConLeche.EtaFamilies
 set_option maxHeartbeats 1600000 in
 /-- **The formers' loop at an arbitrary leaf** (`stageMutualFormersGo`
 with the fibre leaf abstracted; `idxs i` is the block position of the
-loop's `i`-th member). -/
+loop's `i`-th member).  The leaf's four facts are per member, beside
+its binder data. -/
 theorem stageMembersGoG {nP : Nat} {resSort : Level} {lps : List Name}
     {Aof : Nat → (Name → Nat) → AnnotTerm}
     {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {lvlsF : Nat → (Name → Nat) → List Nat}
-    (hAbelow : ∀ (t : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (Aof t ψ).erase)
-    (hAparams : ∀ (t : Nat) (ψ₁ ψ₂ : Name → Nat), (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
-      Aof t ψ₁ = Aof t ψ₂)
-    (hAok : ∀ (t : Nat) (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Aof t ψ))
-    (hAmem : ∀ (t : Nat) (ψ : Name → Nat) (ρ : Nat → V),
-      interp V ρ (Aof t ψ) ∈ˢ interp V ρ (mkPisAV (ppsF t ψ) (.sort (resSort.eval ψ)))) :
+    {lvlsF : Nat → (Name → Nat) → List Nat} :
     ∀ (fs : List MutualFormerA) (idxs : Nat → Nat) (env' : Env) (mp' : EnvModelM V μ env'),
       ConLeche.EtaFamiliesClosed env' →
       (∀ f ∈ fs, MemberConsOk env' f.cvTa) →
       (fs.map (fun f => f.cvTa.name)).Nodup →
       (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
         f.cvTa.levelParams = lps ∧
-        FormerData mp'.base2 f.cvTa (nP + f.nIdx) resSort (ppsF (idxs i)) (lvlsF (idxs i))) →
+        FormerData mp'.base2 f.cvTa (nP + f.nIdx) resSort (ppsF (idxs i)) (lvlsF (idxs i)) ∧
+        (∀ ψ : Name → Nat, Term.bvarsBelow 0 (Aof (idxs i) ψ).erase) ∧
+        (∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+          Aof (idxs i) ψ₁ = Aof (idxs i) ψ₂) ∧
+        (∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Aof (idxs i) ψ)) ∧
+        (∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (Aof (idxs i) ψ)
+          ∈ˢ interp V ρ (mkPisAV (ppsF (idxs i) ψ) (.sort (resSort.eval ψ))))) →
       ∃ mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fs env'),
         (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
           mp₁.base2.acval f.cvTa.name = Aof (idxs i)) ∧
@@ -501,17 +513,15 @@ theorem stageMembersGoG {nP : Nat} {resSort : Level} {lps : List Name}
   | cons f₁ rest ih =>
     intro idxs env' mp' hE hcons hnd hmem
     obtain ⟨cvTa, nIdx, s⟩ := f₁
-    obtain ⟨hlps₀, hFD₀⟩ := hmem 0 ⟨cvTa, nIdx, s⟩ rfl
+    obtain ⟨hlps₀, hFD₀, hbel₀, hpar₀, hok₀', hmem₀'⟩ := hmem 0 ⟨cvTa, nIdx, s⟩ rfl
     have hok₀ : MemberConsOk env' cvTa := hcons ⟨cvTa, nIdx, s⟩ List.mem_cons_self
     have hfresh : env'.find? cvTa.name = none := hok₀.fresh
-    have hcb₀ : ConstsBound env' cvTa.type := constsBound_of_constsResolve _ hok₀.resolve
     rw [List.map_cons, List.nodup_cons] at hnd
     have hne₀ : ∀ (i : Nat) (f : MutualFormerA), rest[i]? = some f → cvTa.name ≠ f.cvTa.name := by
       intro i f hf hh
       exact hnd.1 (hh ▸ List.mem_map_of_mem (List.mem_of_getElem? hf))
-    obtain ⟨mpI, hacI⟩ := stageMemberConsG mp' hE hok₀ hFD₀ (hAbelow (idxs 0))
-      (fun ψ₁ ψ₂ hφ => hAparams (idxs 0) ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ))
-      (hAok (idxs 0)) (hAmem (idxs 0))
+    obtain ⟨mpI, hacI⟩ := stageMemberConsG mp' hE hok₀ hFD₀ hbel₀
+      (fun ψ₁ ψ₂ hφ => hpar₀ ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ)) hok₀' hmem₀'
     have hE' : ConLeche.EtaFamiliesClosed ⟨.indInfo cvTa {} :: env'.consts⟩ :=
       ConLeche.EtaFamiliesClosed.cons_nonind hE hfresh (fun cv'' caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
@@ -522,13 +532,13 @@ theorem stageMembersGoG {nP : Nat} {resSort : Level} {lps : List Name}
       obtain ⟨i, hi⟩ := List.getElem?_of_mem hf
       exact hne₀ i f hi) hnd.2 (by
       intro i f hf
-      obtain ⟨hlps, hFD⟩ := hmem (i + 1) f (by simpa using hf)
+      obtain ⟨hlps, hFD, hb, hp, ho, hm⟩ := hmem (i + 1) f (by simpa using hf)
       have hcb : ConstsBound env' f.cvTa.type :=
         constsBound_of_constsResolve _ (hcons f (List.mem_cons_of_mem _
           (List.mem_of_getElem? hf))).resolve
       exact ⟨hlps,
         hFD.cross (c₀ := .indInfo cvTa {}) hfresh
-          (ConsCrossAt.ofNtc fun _ h => nomatch h) hcb mpI.base2 hacI⟩)
+          (ConsCrossAt.ofNtc fun _ h => nomatch h) hcb mpI.base2 hacI, hb, hp, ho, hm⟩)
     refine ⟨mp₁, ?_, ?_⟩
     · intro i f hf
       cases i with
@@ -548,12 +558,6 @@ theorem stageMembersG {F nP : Nat} {resSort : Level} {lps : List Name}
     {Aof : Nat → (Name → Nat) → AnnotTerm}
     {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {lvlsF : Nat → (Name → Nat) → List Nat}
-    (hAbelow : ∀ (t : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (Aof t ψ).erase)
-    (hAparams : ∀ (t : Nat) (ψ₁ ψ₂ : Name → Nat), (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
-      Aof t ψ₁ = Aof t ψ₂)
-    (hAok : ∀ (t : Nat) (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Aof t ψ))
-    (hAmem : ∀ (t : Nat) (ψ : Name → Nat) (ρ : Nat → V),
-      interp V ρ (Aof t ψ) ∈ˢ interp V ρ (mkPisAV (ppsF t ψ) (.sort (resSort.eval ψ))))
     {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
@@ -561,16 +565,275 @@ theorem stageMembersG {F nP : Nat} {resSort : Level} {lps : List Name}
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       f.cvTa.levelParams = lps ∧
-      FormerData mp.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) (lvlsF t)) :
+      FormerData mp.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) (lvlsF t) ∧
+      (∀ ψ : Name → Nat, Term.bvarsBelow 0 (Aof t ψ).erase) ∧
+      (∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) → Aof t ψ₁ = Aof t ψ₂) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Aof t ψ)) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (Aof t ψ)
+        ∈ˢ interp V ρ (mkPisAV (ppsF t ψ) (.sort (resSort.eval ψ))))) :
     ∃ mp₁ : EnvModelM V μ env₁,
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         mp₁.base2.acval f.cvTa.name = Aof t) ∧
       (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → n ≠ f.cvTa.name) →
         mp₁.base2.acval n = mp.base2.acval n) := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
-  exact stageMembersGoG hAbelow hAparams hAok hAmem fms (fun i => i) env mp hE
+  exact stageMembersGoG fms (fun i => i) env mp hE
     (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
     hnd hmem
+
+/-! ## Kit: the readings that do not move -/
+
+/-- **`denoteMeta_acvalWith_unmentioned` at two carriers agreeing off a
+block**: a term whose constants all resolve in the pre-block
+environment — literal spines included, which is what `constsResolve`'s
+literal clauses give — reads the same under any two carriers that agree
+there. -/
+theorem denoteMeta_congr_of_resolve {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₀ env : Env} {φ : Name → Nat}
+    (hag : ∀ n : Name, (env₀.find? n).isSome = true → acval₁ n = acval₂ n) :
+    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
+      denoteMeta acval₁ env φ d e = denoteMeta acval₂ env φ d e := by
+  intro d e
+  induction d, e using denoteMeta.induct (env := env) with
+  | case1 d u => intro _; rw [denoteMeta, denoteMeta]
+  | case2 d idx ty => intro _; rw [denoteMeta, denoteMeta]
+  | case3 d n us ci hf hlen =>
+    intro hcr
+    rw [denoteMeta, denoteMeta, hf]
+    dsimp only
+    rw [if_pos hlen, if_pos hlen, hag n (by simpa [Expr.constsResolve] using hcr)]
+  | case4 d n us ci hf hlen =>
+    intro _
+    rw [denoteMeta, denoteMeta, hf]
+    dsimp only
+    rw [if_neg hlen, if_neg hlen]
+  | case5 d n us hf => intro _; rw [denoteMeta, denoteMeta, hf]
+  | case6 d ty body m ihty ihbody =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    rw [denoteMeta, denoteMeta, ihty hcr.1,
+      ihbody (Expr.constsResolve_instantiate1 hcr.1 0 hcr.2)]
+  | case7 d ty body m ihty ihbody =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    rw [denoteMeta, denoteMeta, ihty hcr.1,
+      ihbody (Expr.constsResolve_instantiate1 hcr.1 0 hcr.2)]
+  | case8 d f a ihf iha =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    rw [denoteMeta, denoteMeta, ihf hcr.1, iha hcr.2]
+  | case9 d ty val body =>
+    intro _
+    rw [denoteMeta, denoteMeta]
+  | case10 d sn i e ihe =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    rw [denoteMeta, denoteMeta, ihe hcr.2]
+  | case11 d n hsup =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
+      hag ConLeche.natZeroName hcr.1.2, hag ConLeche.natSuccName hcr.2]
+  | case12 d n hsup =>
+    intro _
+    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+  | case13 d s hsup =>
+    intro hcr
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
+    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, hZ⟩, hS⟩, -⟩, hO⟩, -⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hcr
+    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
+      hag ConLeche.stringOfListName hO, hag ConLeche.listNilName hN,
+      hag ConLeche.listConsName hC, hag ConLeche.charName hH,
+      hag ConLeche.charOfNatName hF, hag ConLeche.natZeroName hZ,
+      hag ConLeche.natSuccName hS]
+  | case14 d s hsup =>
+    intro _
+    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+  | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro _
+    cases x with
+    | bvar i => rw [denoteMeta.eq_def, denoteMeta.eq_def]
+    | sort u => exact absurd rfl (hs u)
+    | fvar i ty => exact absurd rfl (hfv i ty)
+    | const n us => exact absurd rfl (hc n us)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
+    | app f a => exact absurd rfl (happ f a)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
+    | proj sn i e => exact absurd rfl (hproj sn i e)
+    | lit l =>
+      cases l with
+      | natVal n => exact absurd rfl (hnat n)
+      | strVal s => exact absurd rfl (hstr s)
+
+set_option maxHeartbeats 1600000 in
+/-- **A mutual constructor's data at two carriers agreeing off the
+block** (`fixCtorDataI_ident` at `k` members): the openings and the
+residual's index arguments are syntactic, and the index readings, the
+recursive slots' index expressions, the reflexive telescopes and the
+ORDINARY fields' domains all read expressions that resolve BEFORE the
+block, so they do not move.  What moves is exactly the recursive and
+reflexive entries — the members' leaves. -/
+theorem mutualCtorDataI_ident {env₀ : Env} {m₁ m₂ : EnvModel V env}
+    (hag : ∀ n : Name, (env₀.find? n).isSome = true → m₁.acval n = m₂.acval n)
+    {members : List (Name × Nat × Nat)} {T : Name} {lps : List Name} {cvC : ConstantVal}
+    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {idx₁ idx₂ : List Expr}
+    {ds₁ ds₂ : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es₁ Es₂ : (Name → Nat) → List AnnotTerm} {srcs₁ srcs₂ : List (Option Nat)}
+    {ks : List (RecFieldKind × Nat)}
+    {fvsP₁ fvsP₂ xFvs₁ xFvs₂ : List Expr} {xrest₁ xrest₂ : Expr}
+    {Eiss₁ Eiss₂ : (Name → Nat) → List (List AnnotTerm)}
+    {tss₁ tss₂ : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (h₁ : MutualCtorDataI m₁ env₀ members T lps cvC nP nF nIdx resSort isProp large idx₁ ds₁ Es₁
+      srcs₁ ks fvsP₁ xFvs₁ xrest₁ Eiss₁ tss₁)
+    (h₂ : MutualCtorDataI m₂ env₀ members T lps cvC nP nF nIdx resSort isProp large idx₂ ds₂ Es₂
+      srcs₂ ks fvsP₂ xFvs₂ xrest₂ Eiss₂ tss₂) :
+    idx₁ = idx₂ ∧ fvsP₁ = fvsP₂ ∧ xFvs₁ = xFvs₂ ∧ xrest₁ = xrest₂ ∧
+    (∀ ψ : Name → Nat, Es₁ ψ = Es₂ ψ) ∧ (∀ ψ : Name → Nat, Eiss₁ ψ = Eiss₂ ψ) ∧
+    (∀ ψ : Name → Nat, tss₁ ψ = tss₂ ψ) ∧
+    ∀ (ψ : Name → Nat) (i : Nat), i < nF → kindAt ks i ≠ .recursive → kindAt ks i ≠ .reflexive →
+      ((ds₁ ψ).getD (nP + i) default).2.2 = ((ds₂ ψ).getD (nP + i) default).2.2 := by
+  have hcg : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
+      denoteMeta m₁.acval env ψ d e = denoteMeta m₂.acval env ψ d e :=
+    fun ψ => denoteMeta_congr_of_resolve (φ := ψ) hag
+  obtain ⟨crest₁, hopP₁, hopX₁⟩ := h₁.opens
+  obtain ⟨crest₂, hopP₂, hopX₂⟩ := h₂.opens
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP₁.symm.trans hopP₂))
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopX₁.symm.trans hopX₂))
+  have hidx : idx₁ = idx₂ := by rw [h₁.idxEq, h₂.idxEq]
+  subst hidx
+  -- a reflexive field's opening is the same at both carriers
+  have hrefl : ∀ (ψ : Name → Nat) (i : Nat) (x : Expr), xFvs₁[i]? = some x →
+      kindAt ks i = .reflexive →
+      ((tss₁ ψ).getD i []).length = ((tss₂ ψ).getD i []).length ∧
+      ∃ afvs body,
+        ConLeche.openPisAtFvars ((tss₁ ψ).getD i []).length x.fvarTypeD (nP + i)
+          = some (afvs, body) ∧
+        (∀ k a, afvs[k]? = some a →
+          ((tss₁ ψ).getD i []).getD k default = ((tss₂ ψ).getD i []).getD k default) ∧
+        DenoteMetaSpine m₁.acval env ψ (nP + i + ((tss₁ ψ).getD i []).length)
+          (body.getAppArgs.drop nP) ((Eiss₁ ψ).getD i []) ∧
+        DenoteMetaSpine m₂.acval env ψ (nP + i + ((tss₁ ψ).getD i []).length)
+          (body.getAppArgs.drop nP) ((Eiss₂ ψ).getD i []) ∧
+        (∀ e ∈ body.getAppArgs.drop nP, Expr.constsResolve env₀ e = true) := by
+    intro ψ i x hx hk
+    obtain ⟨afvs, body, hop₁, hlen₁, hdoms₁, hsp₁⟩ := h₁.reflOpen ψ i x hx hk
+    obtain ⟨afvs₂, body₂, hop₂, hlen₂, hdoms₂, hsp₂⟩ := h₂.reflOpen ψ i x hx hk
+    have hlen : ((tss₁ ψ).getD i []).length = ((tss₂ ψ).getD i []).length := by
+      rw [hlen₁, hlen₂]
+    rw [← hlen] at hop₂ hsp₂
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop₁.symm.trans hop₂))
+    obtain ⟨afvs', body', hop', -, hresA, -, -, -, hresB, -, -⟩ := h₁.opened.reflF i x hx hk
+    rw [← hlen₁] at hop'
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop₁.symm.trans hop'))
+    refine ⟨hlen, afvs, body, hop₁, fun k a hka => ?_, hsp₁, hsp₂, hresB⟩
+    have hd₁ := hdoms₁ k a hka
+    have hd₂ := hdoms₂ k a hka
+    rw [hcg ψ (nP + i + k) _ (hresA a (List.mem_of_getElem? hka))] at hd₁
+    have h22 := Option.some.inj (hd₁.symm.trans hd₂)
+    have hlenA := openPisAtFvars_length _ hop₁
+    have hkA : k < afvs.length := (List.getElem?_eq_some_iff.mp hka).1
+    have hB₁ := h₁.tssBits ψ i
+    have hB₂ := h₂.tssBits ψ i
+    have hP₁ := h₁.tssPiBits ψ i
+    have hP₂ := h₂.tssPiBits ψ i
+    generalize hL₁ : (tss₁ ψ).getD i [] = L₁ at hlen hlenA hB₁ hP₁ h22 ⊢
+    generalize hL₂ : (tss₂ ψ).getD i [] = L₂ at hlen hB₂ hP₂ h22 ⊢
+    have hk₁ : k < L₁.length := by rw [← hlenA]; exact hkA
+    have hk₂ : k < L₂.length := by rw [← hlen]; exact hk₁
+    have hm₁ : L₁.getD k default ∈ L₁ := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk₁]; exact List.getElem_mem hk₁
+    have hm₂ : L₂.getD k default ∈ L₂ := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk₂]; exact List.getElem_mem hk₂
+    obtain ⟨hb₁, hle₁⟩ := hP₁ _ hm₁
+    obtain ⟨hb₂, hle₂⟩ := hP₂ _ hm₂
+    have hz := (hB₁ _ hm₁).trans (hB₂ _ hm₂).symm
+    have h21 : (L₁.getD k default).2.1 = (L₂.getD k default).2.1 := by
+      rcases Nat.lt_or_ge (L₁.getD k default).2.1 1 with hlt | hge
+      · have h0 : (L₁.getD k default).2.1 = 0 := by omega
+        rw [h0, (hz.mp h0).symm]
+      · have h1 : (L₁.getD k default).2.1 = 1 := by omega
+        have hne : (L₂.getD k default).2.1 ≠ 0 := fun h0 => by
+          have := hz.mpr h0; omega
+        omega
+    exact Prod.ext (hb₁.trans hb₂.symm) (Prod.ext h21 h22)
+  refine ⟨rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_⟩
+  · intro ψ
+    have hres : ∀ a ∈ idx₁, Expr.constsResolve env₀ a = true := by
+      rw [h₁.idxEq]; exact h₁.opened.residRes
+    exact DenoteMetaSpine.unique
+      (DenoteMetaSpine.congr (h₁.idxRead ψ) (fun a ha => hcg ψ (nP + nF) a (hres a ha)))
+      (h₂.idxRead ψ)
+  · intro ψ
+    have hl₁ := h₁.eissLen ψ
+    have hl₂ := h₂.eissLen ψ
+    apply List.ext_getElem?
+    intro i
+    rcases Nat.lt_or_ge i nF with hi | hi
+    · have hx : xFvs₁[i]? = some (xFvs₁[i]'(by rw [h₁.xLen]; exact hi)) :=
+        List.getElem?_eq_getElem _
+      have hD : (Eiss₁ ψ).getD i [] = (Eiss₂ ψ).getD i [] := by
+        rcases h₁.opened.kinds i hi with hk | hk | hk
+        · rw [h₁.ordNone ψ i (by rw [hk]; exact nofun) (by rw [hk]; exact nofun),
+            h₂.ordNone ψ i (by rw [hk]; exact nofun) (by rw [hk]; exact nofun)]
+        · have hr₁ := h₁.eisRead ψ i _ hx hk
+          have hr₂ := h₂.eisRead ψ i _ hx hk
+          obtain ⟨-, -, -, hres, -, -⟩ := h₁.opened.recF i _ hx hk
+          exact DenoteMetaSpine.unique
+            (DenoteMetaSpine.congr hr₁ (fun a ha => hcg ψ (nP + i) a (hres a ha))) hr₂
+        · obtain ⟨-, afvs, body, -, -, hr₁, hr₂, hres⟩ := hrefl ψ i _ hx hk
+          exact DenoteMetaSpine.unique
+            (DenoteMetaSpine.congr hr₁ (fun a ha => hcg ψ _ a (hres a ha))) hr₂
+      rw [List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)]
+      congr 1
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)] at hD
+      exact hD
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+  · intro ψ
+    have hl₁ := h₁.tssLen ψ
+    have hl₂ := h₂.tssLen ψ
+    apply List.ext_getElem?
+    intro i
+    rcases Nat.lt_or_ge i nF with hi | hi
+    · have hx : xFvs₁[i]? = some (xFvs₁[i]'(by rw [h₁.xLen]; exact hi)) :=
+        List.getElem?_eq_getElem _
+      have hD : (tss₁ ψ).getD i [] = (tss₂ ψ).getD i [] := by
+        by_cases hk : kindAt ks i = .reflexive
+        · obtain ⟨hlen, afvs, body, hop, hdoms, -, -, -⟩ := hrefl ψ i _ hx hk
+          have hlenA := openPisAtFvars_length _ hop
+          generalize hL₁ : (tss₁ ψ).getD i [] = L₁ at hlen hlenA hdoms ⊢
+          generalize hL₂ : (tss₂ ψ).getD i [] = L₂ at hlen hdoms ⊢
+          apply List.ext_getElem
+          · exact hlen
+          · intro k hk₁ hk₂
+            obtain ⟨a, ha⟩ : ∃ a, afvs[k]? = some a :=
+              ⟨_, List.getElem?_eq_getElem (by rw [hlenA]; exact hk₁)⟩
+            have hh := hdoms k a ha
+            rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+              List.getElem?_eq_getElem hk₁, List.getElem?_eq_getElem hk₂, Option.getD_some,
+              Option.getD_some] at hh
+            exact hh
+        · rw [h₁.tssNone ψ i hk, h₂.tssNone ψ i hk]
+      rw [List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)]
+      congr 1
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)] at hD
+      exact hD
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+  · intro ψ i hi hnr hnf
+    have hx : xFvs₁[i]? = some (xFvs₁[i]'(by rw [h₁.xLen]; exact hi)) :=
+      List.getElem?_eq_getElem _
+    have hk : kindAt ks i = .ordinary := by
+      rcases h₁.opened.kinds i hi with hk | hk | hk
+      · exact hk
+      · exact absurd hk hnr
+      · exact absurd hk hnf
+    have hd₁ := h₁.domRead ψ i _ hx
+    have hd₂ := h₂.domRead ψ i _ hx
+    rw [hcg ψ (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
+    exact Option.some.inj (hd₁.symm.trans hd₂)
 
 /-! ## Kit: a member's index telescope, from its former's data alone -/
 
