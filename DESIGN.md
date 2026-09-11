@@ -68356,3 +68356,66 @@ the mutual route.  Against the scaffold design:
   leaf is spelled from the AUX family's constructors (the rewritten
   ones); the substituted-functor form is one β/δ lemma away, not
   definitional.
+
+### 5. M1 — the kernel, as built (2026-09-11)
+
+**Files.**  `Kernel/Inductives/MutualKit.lean` (the modeller's
+telescope helpers, `specFam` — now parametrised by the scaffold's
+names — `mentionsAny`, the height rule; the frontend's `Kit.lean`
+re-exports them for the nested rung), `MutualParts.lean` (`mutualParts?`,
+`MutualParts`, the `k`-motive generators `mutualRecTy`/`mutualRecRhs`,
+the stream comparison `mutualRulesOk`/`mutualRulePrefixOk`, the
+structural pin `mutualRecPinOk`), `MutualInstall.lean` (`MutualBlock`,
+the staged `checkMutualCore`, `checkMutual`), `MutualInstallF.lean`
+(the index-threaded stages), `Cached/CheckerC.lean` (`checkMutualCoreS`,
+`checkMutualS`), the dispatch in `Kernel/Checker.lean` and
+`Cached/ParsedC.lean` (`nativeParts?`, then `mutualParts?`, then the
+modeled path), `Main.lean` (route label `mutual`), `tests/route-census.sh`.
+`checkDefnVal` moved from `Checker.lean` to `CheckerBase.lean` (the
+install uses it below the checker).  `Frontend/InModel/Mutual.lean`
+DELETED; its block records (`IndTypeRec`, `BlockRec`, `Ctx`, `need`)
+moved to `Frontend/InModel/Block.lean`; `InModel.wants` is nested-only.
+
+**What the install does, stage by stage** (the module docstring has
+the design; this is the order): the shape (distinct names, one
+level-parameter list, every constructor returns a member, grouped in
+member order) → the formers at official's `whnf` telescope → sorts
+`isEquiv`, parameter domains `isDefEq` against the first → the
+eliminator (`large = s₁.isNeverZero`; the records' level parameters
+must agree) → the scoping of the block's own records (they are
+type-checked at the scaffold, which holds more) → the residual
+(a member mentioned other than as a plain application: decline) →
+the tag's universe (the checker's `inferType`/`ensureSort` of every
+index domain) → the tag block and the aux block through
+`checkNative` at fresh names `T._mutual.i.{tag,aux}` → the members,
+constructors and recursors as definitions at the scaffold (the
+recursor's type generated, the stream's `isDefEq`'d against it) → the
+rules generated, compared structurally with the stream's, certified by
+one `isDefEq` each → the stored block → the projection tables of the
+structure-like members (one constructor, no index; official's
+`infer_proj` condition), guard levels from the fields' sorts read at
+the stored environment.  The synthesised scaffold records carry
+`resetMeta`'d rule bodies (what `nativeRulesOk` compares against — the
+one bug the reflexive fixture found).
+
+**Verdicts.**  e2e: every fixture as recorded except two coverage
+GAINS — `mutual_struct_proj` 2→0 (a reflexive member in a mutual
+block; the modeller declined it, official accepts) and
+`ind_defhead_mutual` 2→0 (a def-headed former in a mutual block, audit
+A3/C3; official accepts); the bad twins reject with official's
+messages ("parameters of all inductive datatypes must match",
+"mutually inductive types must live in the same universe").  Arena:
+138/138 as recorded.  Route census: 90 streams, 765 blocks — 225 fix,
+0 mutual (the arena's good tests have no mutual block), 540 basis, 0
+modeled.  `tests/inmodel.sh` narrowed to the nested fixtures.
+`ind_proj_mutual_nested` stays 2, now at the NESTED member's raw
+`.proj` (the mutual member's types).
+
+**Restrictions beyond official on this route, as findings**: (i) the
+residual decline (a member under a redex or nested — `replaceConst` +
+an unpinned scaffold recursor closes it; corpus-vacuous); (ii) caps
+`{}` on members — no η/unit-likeness at a recursion-free mutual
+block's structure-like members (official grants them; corpus-vacuous;
+M4 with the fibre exposure); (iii) projection tables only at
+index-free structure-like members (official's `infer_proj` allows
+indices; the fixpoint route has the same restriction).
