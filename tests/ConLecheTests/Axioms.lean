@@ -41,7 +41,7 @@ report the door if it ever did.
 
 **The eighteen pinned theorems.**  The main theorem first — that is
 the statement a reader comes for — with the functionality of the
-relation it is stated over and the headline theorem derived from it,
+relation it is stated over and the main corollary derived from it,
 then the letters on the fold it is stated about, the two transfer theorems between an accept of the fold
 and the driver's fully checked environment, the letters on that
 environment and the model it carries, the pure fueled checker's
@@ -55,7 +55,7 @@ different things and neither implies the other.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` |
-| `ConLeche.no_proof_of_False` | **THE HEADLINE THEOREM**: hence it holds no constant of type `False` |
+| `ConLeche.no_proof_of_False` | **THE MAIN COROLLARY**: hence it holds no constant of type `False` |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
 | `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
@@ -79,14 +79,14 @@ without it.
 
 namespace ConLecheTests.Axioms
 
-/-! ## The main theorem and the headline theorem (`ConLeche/MainTheorem.lean`)
+/-! ## The main theorem and the main corollary (`ConLeche/MainTheorem.lean`)
 
 The statements the project exists to make (task #277): every accepted
 environment has a model (`model_exists`, over the relation `Denotes`
 of `ConLeche/Denotes.lean`, whose functionality is pinned beside it),
-and hence — the headline, derived from it in three lines — holds no
-constant of type `False`.  Everything below them is what they are
-corollaries of. -/
+and hence — the main corollary, derived from it in three lines —
+holds no constant of type `False`.  Everything below them is what
+they are corollaries of. -/
 
 /--
 info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]

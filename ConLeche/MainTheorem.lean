@@ -6,7 +6,7 @@ import ConLeche.Model.Denotes
 public section
 
 /-!
-# The main theorem, and the headline theorem it implies
+# The main theorem, and the main corollary it implies
 
 What the checker accepts has a model; hence it contains no constant of
 type `False`.  The statements, with a plain-words account of every
@@ -96,7 +96,7 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
     cases hw with
     | strLit h' => exact ih h'
 
-/-- **The headline theorem.**  An accepted stream never yields a
+/-- **The main corollary.**  An accepted stream never yields a
 constant of type `False`: its type would denote the empty set, and
 `Model.mem` puts the constant inside it. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]

@@ -115,7 +115,7 @@ is a corollary of and the assembly under those.
   the shipped `--verified` configuration, named outright, has a model
   in every set theory (`Nonempty (Model V env)`, `ConLeche/Denotes.lean`).
   It is pinned as a root because it is what a reader checks first.
-* `main_False` — **the headline theorem**, derived from it: that
+* `main_False` — **the main corollary**, derived from it: that
   environment holds no constant of type `False`.
 * `False_cached` / `Empty_cached` — **the fold's letters**: the checker,
   running a validating mode over the direct-parse cached core, never
