@@ -69137,11 +69137,69 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   regimes; `ℓ = 0` is the point on both sides).  Every spine-fit
   premise is the member leaf's TYPING (M2.3's `MutualRecTyping.lean`)
   and is taken as a hypothesis.
-* **NOT landed**: `mutualRuleOk` (the rule's `WellDenotedV`, the twin
-  of `fixRuleOk`).  It needs the `k`-motive twin of `ihAppAV_facts` —
-  the ih application's membership in its ih domain, whose motive is the
-  TARGET member's — which is its own piece, not a generalisation of the
-  fixpoint route's proof.
+* **NOT landed here**: `mutualRuleOk` (the rule's `WellDenotedV`, the
+  twin of `fixRuleOk`).  It needs the `k`-motive twin of
+  `ihAppAV_facts` — the ih application's membership in its ih domain,
+  whose motive is the TARGET member's — which is its own piece, not a
+  generalisation of the fixpoint route's proof.  **Landed at M2.2c′,
+  §8.6.**
+
+#### 8.6 M2.2c′ landed: `mutualRuleOk` (2026-09-11)
+
+`Model/Inductives/MutualRuleOk.lean` — the two pieces M2.2c left open.
+
+* **`ihAppAVK_facts`** — the `k`-motive twin of `ihAppAV_facts`.  At a
+  rule's leaf frame `consList as₂ (consList ms (consList Ms (consList
+  as₁ ρ)))`, the ih of recursive field `i` targeting member `tgt` is
+  graded, bit-valid, and lies in the ih domain — the nested product
+  over the field's telescope of **member `tgt`'s** motive `Ms.getD tgt`
+  at the field's index values and the field applied to the telescope.
+  WHY IT IS ITS OWN PIECE: the membership is read off member `tgt`'s
+  STORED recursor type, whose conclusion is `mutualConcAV k n nIdx tgt`
+  — the motive `k - 1 - tgt` binders up — so the fixpoint route's
+  `recConcAV_at` step does not transfer; its twin `mutualConcAV_at` is
+  proved here (`consList_motive_apply` at the `k` motive slots).
+  Everything ELSE transfers verbatim, because a `k`-motive frame is a
+  one-motive frame over `Mrest ++ ms` (`consList_motives_cons`): the
+  telescope kit (`spineFit_ihTeleAtGo`, `fieldsOkB_ihTeleAtGo`,
+  `fieldsValid_ihTeleAtGo`, `WellDenoted_ihIdxAtM`/`AnnotValid_`) is
+  used at that reading, while the three genuinely `k`-motive lemmas
+  (`ihAppAVK_args_interp`, `interp_ihDomBodyM`, `interp_ihDomAVM`) are
+  used at the `k`-motive frame directly.  The premises are member
+  `tgt`'s recursor typing (`mutualRecLeafFacts`'s conclusion, taken as
+  a hypothesis over an ABSTRACT binder-data list `rds`, so the caller
+  instantiates with `mutualRecDataAV … (tgts j i)`) and, per telescope
+  spine, the index expressions' grading and validity, the field's
+  `AppChainOk` and the spine fit of `(p⃗, M⃗, S⃗, e⃗_i(a⃗), f_i a⃗)` —
+  `mutualRecIotaCore`'s `hih` premise, reused unchanged in shape.
+* **`mutualRuleOk`** — the twin of `fixRuleOk`, over
+  `mutualRuleDataAV`/`mutualRuleCoreAV`.  Two structural notes.
+  (i) The rule's binder data IS the stored recursor type's block prefix
+  plus the constructor's lifted fields: `mutualRecDataAV … mm`'s
+  `take (nP + k + n)` is the rule's `X`, so BOTH λ-tower walks — the
+  domain walk (`domsWalk_of_fieldsOkB` ∘ `domsWalk_take`) and the
+  bit-validity walk (`fieldsValid_getD` per entry) — come off the one
+  hypothesis `∀ σ, WellDenotedV V σ (mkPisAV (mutualRecDataAV … mm)
+  (mutualConcAV …))`, through `WellDenoted_mkPisAV_inv` /
+  `AnnotValid_mkPisAV_inv`.  That replaces the fixpoint route's
+  `FixPre.hdoms` + `okΓ` pair.
+  (ii) `mutualBlock_split`: a spine fitting the block prefix is
+  `ps ++ Ms ++ ms` with `Ms.length = k`, and minor `q` lands in its
+  ih-extended space at `interp_minorAVAtRM`'s shape — its own member's
+  motive in the conclusion, its fields' TARGET motives in the ih
+  domains (`ihDomsIM ℓ ρp (fun i => Ms.getD (tgts q i) pt) …`).  The
+  motives' own memberships are not needed and are not produced.
+  The conclusion type is read by `interp_minorConcAVM` at `o = k + n`.
+  There is no `MutualKFrame` package yet, so the two `ℓ = 0` facts the
+  fixpoint route gets from `fixKFrame_of` (`conc_univZero` and
+  `hdoms0`) are hypotheses here (`hzeroC`, `hzeroD`), as are the
+  block's field data (`hfields`), the fields' telescopes (`hteles`) and
+  the minors' readings (`hminor`); each is exactly the corresponding
+  clause of `fixRuleOk`'s `hframes`/`hvalid` at `k` motives, so the
+  stage discharges them the same way.
+* Note on offsets: `ihAppAVK`'s extras count is spelled `n + k` (from
+  `ihTeleAtR nF (n + k) …`) and the rule data's lift `k + n` (from
+  `Ls.length + cds.length`); both orders occur, one `omega` apart.
 
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
