@@ -980,4 +980,464 @@ theorem ihDomTag_facts {ℓ W w b nF o i l : Nat} (hbz : ℓ = 0 ↔ b = 0)
       rw [h0, univ_zero] at this
       exact this
 
+/-! ## The minors: the ih tower -/
+
+/-- **What one recursive slot provides** at a field spine: its
+telescope is graded and valid, its index expression is the ONE tagged
+tuple, whose value at every fitting telescope spine is a tag element,
+and the field applied to the telescope's values lies in the auxiliary
+fibre there. -/
+def SlotTagOk (W w i : Nat) (ρp : Nat → V) (fs : List V) (Idss : List (List AnnotTerm))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss' : List (List (List AnnotTerm))) (Fss₀ Ess' : List (List AnnotTerm))
+    (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : Prop :=
+  FieldsOkB w (consList (fs.take i) ρp) (tl.map (·.2.2)) ∧
+  FieldsValid (consList (fs.take i) ρp) (tl.map (·.2.2)) ∧
+  ∃ (tgt : Nat) (Es : List AnnotTerm),
+    Eis = [tagTupleAV W tgt (i + tl.length) Idss Es] ∧
+    ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (tl.map (·.2.2)) bs →
+      (∀ E ∈ Es, WellDenotedV V (consList bs (consList (fs.take i) ρp)) E) ∧
+      (∃ Ids, Idss[tgt]? = some Ids ∧
+        SpineFit ρp Ids (Es.map (interp V (consList bs (consList (fs.take i) ρp))))) ∧
+      AppChainOk (fs.getD i pt) bs ∧
+      bs.foldl SetTheory.app (fs.getD i pt) ∈ˢ
+        auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+          (inj tgt (mkTower (Es.map (interp V (consList bs (consList (fs.take i) ρp))) ++ [pt])))
+
+/-- **An ih binder's domain lands in the minors' universe.** -/
+theorem ihDomTag_univ {ℓ W w b nF o i l : Nat} (hbz : ℓ = 0 ↔ b = 0) (hw0 : w = 0 → ℓ = 0)
+    {ρp : Nat → V} {M : V} {ms : List V} (hms : ms.length + 1 = o)
+    {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l) (hi : i < nF)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)}
+    (hT : TagOk W ρp Idss)
+    (hM : M ∈ˢ auxMotSp ℓ W w ρp Idss rss tlss Eiss' Fss₀ Ess')
+    {tl : List (Nat × Nat × AnnotTerm)} {tgt : Nat} {Es : List AnnotTerm}
+    (htlOk : FieldsOkB w (consList (fs.take i) ρp) (tl.map (·.2.2)))
+    (hslot : ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (tl.map (·.2.2)) bs →
+      (∀ E ∈ Es, WellDenotedV V (consList bs (consList (fs.take i) ρp)) E) ∧
+      (∃ Ids, Idss[tgt]? = some Ids ∧
+        SpineFit ρp Ids (Es.map (interp V (consList bs (consList (fs.take i) ρp))))) ∧
+      AppChainOk (fs.getD i pt) bs ∧
+      bs.foldl SetTheory.app (fs.getD i pt) ∈ˢ
+        auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+          (inj tgt (mkTower (Es.map (interp V (consList bs (consList (fs.take i) ρp))) ++ [pt])))) :
+    interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+        (ihDomAVM 0 nF o i l (rebit b tl) [tagTupleAV W tgt (i + tl.length) Idss Es])
+      ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V) := by
+  have hval : interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+      (ihDomAVM 0 nF o i l (rebit b tl) [tagTupleAV W tgt (i + tl.length) Idss Es])
+      = piTele ℓ (teleOfFields (consList (fs.take i) ρp) (tl.map (·.2.2)))
+          (fun as => SetTheory.app
+            (([tagTupleAV W tgt (i + tl.length) Idss Es].map
+              (interp V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
+            (as.foldl SetTheory.app (fs.getD i pt))) [] := by
+    have h := interp_ihDomAV (ℓ := ℓ) (o := o) (i := i) (l := l) (ms := ms) (M := M) (ρp := ρp)
+      (fs := fs) (ihs := ihs) hms hfs hihs hi
+      (tl := rebit b tl) (fun d hd => by rw [mem_rebit hd]; exact hbz.symm)
+      [tagTupleAV W tgt (i + tl.length) Idss Es]
+    rwa [rebit_map_dom] at h
+  have hB : ∀ as : List V, SpineFit (consList (fs.take i) ρp) (tl.map (·.2.2)) as →
+      SetTheory.app
+        (([tagTupleAV W tgt (i + tl.length) Idss Es].map
+          (interp V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
+        (as.foldl SetTheory.app (fs.getD i pt)) ∈ˢ (univ ℓ : V) := by
+    intro as hsp
+    obtain ⟨hEok, ⟨Ids, hIds, hspIdx⟩, -, hxmem⟩ := hslot as hsp
+    have hlenAs : as.length = tl.length := by rw [hsp.length_eq, List.length_map]
+    have hfr : shiftE (i + tl.length) 0 (consList as (consList (fs.take i) ρp)) = ρp := by
+      rw [← consList_append, show i + tl.length = (fs.take i ++ as).length from by
+        rw [List.length_append, List.length_take, hlenAs]; omega, shiftE_consList]
+    have htag := tagTupleAV_facts hT hIds hfr (fun E hE => (hEok E hE).1) hspIdx
+    have ht := tagTuple_mem hT hIds hspIdx
+    simp only [List.map_cons, List.map_nil, List.foldl_cons, List.foldl_nil]
+    rw [htag.1]
+    exact (auxMot_chain hM ht hxmem).2
+  rw [hval]
+  by_cases h0 : ℓ = 0
+  · rw [if_pos h0, univ_zero, h0]
+    refine piTele_zero_mem_univZero fun as hfit => ?_
+    rw [List.nil_append]
+    have := hB as (fitsS_teleOfFields.mp hfit)
+    rwa [h0, univ_zero] at this
+  · rw [if_neg h0]
+    refine piTele_mem_univ_max (u := w) (v := ℓ) (fun hw => h0 (hw0 hw)) h0 _ htlOk
+      fun as hsp => ?_
+    rw [List.nil_append]
+    exact univ_mono (Nat.le_max_right w ℓ) _ (hB as hsp)
+
+/-- **The ih binders' Π-tower at tagged slots**: graded, valid, and in
+the minors' universe. -/
+theorem ihPisTag_facts {ℓ W w b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) (hw0 : w = 0 → ℓ = 0)
+    {ρp : Nat → V} {M : V} {ms : List V} (hms : ms.length + 1 = o)
+    {fs : List V} (hfs : fs.length = nF)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)}
+    (hT : TagOk W ρp Idss) (hTV : SumFieldsValid ρp Idss)
+    (hM : M ∈ˢ auxMotSp ℓ W w ρp Idss rss tlss Eiss' Fss₀ Ess')
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)} :
+    ∀ (is : List Nat) (l : Nat) (ihs : List V) (body : AnnotTerm),
+      ihs.length = l → (∀ i ∈ is, i < nF) →
+      (∀ i ∈ is,
+        SlotTagOk W w i ρp fs Idss rss tlss Eiss' Fss₀ Ess' (tls.getD i []) (Eiss.getD i [])) →
+      (∀ ihs' : List V, ihs'.length = l + is.length →
+        WellDenotedV V (consList ihs' (consList fs (consList ms (cons M ρp)))) body ∧
+        interp V (consList ihs' (consList fs (consList ms (cons M ρp)))) body
+          ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V)) →
+      WellDenotedV V (consList ihs (consList fs (consList ms (cons M ρp))))
+          (ihPisAVM (fun _ => 0) nF o b tls Eiss is l body) ∧
+        interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+          (ihPisAVM (fun _ => 0) nF o b tls Eiss is l body)
+            ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V)
+  | [], l, ihs, body, hihs, _, _, hbody => by
+    show WellDenotedV V _ body ∧ _
+    exact hbody ihs (by simp [hihs])
+  | i :: is, l, ihs, body, hihs, hlt, hslots, hbody => by
+    have hi : i < nF := hlt i List.mem_cons_self
+    obtain ⟨htlOk, htlV, tgt, Es, hEq, hslot⟩ := hslots i List.mem_cons_self
+    have hdom := ihDomTag_facts (b := b) (o := o) (l := l) hbz hms hfs hihs hi hT hTV hM
+      htlOk htlV hslot
+    have hdomU := ihDomTag_univ (b := b) (o := o) (l := l) hbz hw0 hms hfs hihs hi hT hM
+      htlOk hslot
+    have hstep : ∀ x : V,
+        x ∈ˢ interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+          (ihDomAVM 0 nF o i l (rebit b (tls.getD i [])) (Eiss.getD i [])) →
+        WellDenotedV V (consList (ihs ++ [x]) (consList fs (consList ms (cons M ρp))))
+            (ihPisAVM (fun _ => 0) nF o b tls Eiss is (l + 1) body) ∧
+          interp V (consList (ihs ++ [x]) (consList fs (consList ms (cons M ρp))))
+            (ihPisAVM (fun _ => 0) nF o b tls Eiss is (l + 1) body)
+              ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V) := by
+      intro x _
+      refine ihPisTag_facts hbz hw0 hms hfs hT hTV hM is (l + 1) (ihs ++ [x]) body
+        (by simp [hihs]) (fun i' hi' => hlt i' (List.mem_cons_of_mem _ hi'))
+        (fun i' hi' => hslots i' (List.mem_cons_of_mem _ hi')) ?_
+      intro ihs' hl
+      exact hbody ihs' (by rw [hl, List.length_cons]; omega)
+    show (WellDenoted V _ (.pi 0 b _ _) ∧ AnnotValid V _ (.pi 0 b _ _)) ∧ _
+    rw [hEq]
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [WellDenoted_pi]
+      refine ⟨hdom.1.1, fun x hx => ?_⟩
+      rw [consList_snoc']
+      exact ((hstep x (by rw [hEq]; exact hx)).1).1
+    · rw [AnnotValid_pi]
+      refine ⟨hdom.1.2, fun x hx => ?_, fun hb0 x hx => ?_⟩
+      · rw [consList_snoc']
+        exact ((hstep x (by rw [hEq]; exact hx)).1).2
+      · have h0 : ℓ = 0 := hbz.mpr hb0
+        have := (hstep x (by rw [hEq]; exact hx)).2
+        rw [if_pos h0, univ_zero] at this
+        rw [consList_snoc']
+        exact this
+    · rw [show ihPisAVM (fun _ => 0) nF o b tls Eiss (i :: is) l body
+        = .pi 0 b (ihDomAVM 0 nF o i l (rebit b (tls.getD i [])) (Eiss.getD i []))
+            (ihPisAVM (fun _ => 0) nF o b tls Eiss is (l + 1) body) from rfl, hEq, interp_pi]
+      by_cases h0 : ℓ = 0
+      · rw [if_pos h0, univ_zero, hbz.mp h0]
+        exact piR_zero_mem_univZero
+      · have hb0 : b ≠ 0 := fun h => h0 (hbz.mpr h)
+        rw [if_neg h0, piR_congr_bit (show b = 0 ↔ Nat.max w ℓ = 0 from
+          ⟨fun h => absurd h hb0, fun h => absurd h (max_ne_zero_right (u := w) h0)⟩)]
+        have hdomU' : interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+            (ihDomAVM 0 nF o i l (rebit b (tls.getD i []))
+              [tagTupleAV W tgt (i + (tls.getD i []).length) Idss Es])
+              ∈ˢ (univ (Nat.max w ℓ) : V) := by
+          have h := hdomU
+          rwa [if_neg h0] at h
+        have hstep' : ∀ x : V, x ∈ˢ interp V (consList ihs (consList fs (consList ms (cons M ρp))))
+              (ihDomAVM 0 nF o i l (rebit b (tls.getD i []))
+                [tagTupleAV W tgt (i + (tls.getD i []).length) Idss Es]) →
+            interp V (cons x (consList ihs (consList fs (consList ms (cons M ρp)))))
+              (ihPisAVM (fun _ => 0) nF o b tls Eiss is (l + 1) body)
+                ∈ˢ (univ (Nat.max w ℓ) : V) := by
+          intro x hx
+          have h := (hstep x (by rw [hEq]; exact hx)).2
+          rw [if_neg h0] at h
+          rw [consList_snoc']
+          exact h
+        have h := piR_mem_univ (u := Nat.max w ℓ) (v := Nat.max w ℓ) hdomU' hstep'
+        rwa [if_neg (max_ne_zero_right (u := w) h0),
+          show Nat.max (Nat.max w ℓ) (Nat.max w ℓ) = Nat.max w ℓ from Nat.max_self _] at h
+
+/-! ## The minors: the conclusion -/
+
+/-- **The constructor leaf at the block's variables reads its value**
+(the `ctorValI` half of `interp_minorConcAV`, on its own). -/
+theorem interp_ctorAppAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name} {nP nF w j o : Nat}
+    {ρp : Nat → V} {ms : List V} {M : V} (hms : ms.length + 1 = o)
+    {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF)
+    {Fss : List (List AnnotTerm)}
+    (hleafC : m.acval C ψ = sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hclC : Term.bvarsBelow 0 (m.acval C ψ).erase)
+    (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
+    (hokB : SumFieldsOkB w ρp Fss)
+    (hsatC : Sat V (((ds.take nP).map (·.2.2)).reverse) ρp)
+    {as : List V} (hsp : SpineFit ρp ((ds.drop nP).map (·.2.2)) as) :
+    interp V (consList as (consList ms (cons M ρp)))
+        (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF))
+      = ctorValI w j as := by
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
+  have hσ : ∀ k, consList as (consList ms (cons M ρp)) (k + (o + nF)) = ρp k := by
+    intro k
+    rw [show k + (o + nF) = (k + o) + as.length from by omega, consList_apply_add,
+      show k + o = (k + 1) + ms.length from by omega, consList_apply_add]
+    rfl
+  have hleafC' : m.acval C ψ
+      = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
+    rw [hleafC, List.take_append_drop]
+  rw [interp_mkAppN,
+    ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
+    List.map_append, show nP + o + nF = nP + (o + nF) from by omega,
+    map_paramBvarsAt_interp hσ,
+    show fieldBvars nF = (List.range nF).map (fun k => AnnotTerm.bvar (nF - 1 - k)) from rfl,
+    map_fieldBvars_interp hlenAs, interp_closed (V := V) hclC _ (fun k => ρp (k + nP)), hleafC']
+  have hlenP' : ((((ds.take nP).map (·.2.2)))).length = nP := by simp [hlenDs]
+  have hsp₁ := spineFit_of_sat (Δ₀ := []) (Ds := (ds.take nP).map (·.2.2))
+    (by rw [List.append_nil]; exact hsatC)
+  rw [hlenP'] at hsp₁
+  unfold ctorValI
+  rcases Nat.eq_zero_or_pos w with hw0 | hwpos
+  · rw [hw0, sumMkAV_zero, foldl_app_pt_sum, if_pos rfl]
+  · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
+    rw [sumMkAV_fold hw' hsp₁ (by rw [consList_range_reverse]; exact hsp)
+      (by rw [consList_range_reverse]; exact SumFieldsOkB_uChains hokB)
+      (by rw [uChains_getElem?, hFsj]; rfl), if_neg hw']
+
+/-- **The minor's conclusion at a tagged constructor**: the motive at
+the tagged index tuple, applied to the constructor's value — graded,
+valid, and in the elimination level's universe. -/
+theorem minorConcTag_facts {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
+    {ℓ W w nP nF o mem : Nat} {ρp : Nat → V} {M : V} {ms : List V} (hms : ms.length + 1 = o)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)}
+    (hT : TagOk W ρp Idss) (hTV : SumFieldsValid ρp Idss)
+    (hM : M ∈ˢ auxMotSp ℓ W w ρp Idss rss tlss Eiss' Fss₀ Ess')
+    {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF) {Es₀ : List AnnotTerm}
+    (hEs : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      (∀ E ∈ Es₀, WellDenotedV V (consList fs ρp) E) ∧
+      ∃ Ids, Idss[mem]? = some Ids ∧ SpineFit ρp Ids (Es₀.map (interp V (consList fs ρp))))
+    (hctorOk : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      WellDenotedV V (consList fs (consList ms (cons M ρp)))
+        (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)))
+    (hctorVal : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      interp V (consList fs (consList ms (cons M ρp)))
+          (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF))
+        ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+            (inj mem (mkTower (Es₀.map (interp V (consList fs ρp)) ++ [pt]))))
+    {fs : List V} (hsp : SpineFit ρp ((ds.drop nP).map (·.2.2)) fs) :
+    WellDenotedV V (consList fs (consList ms (cons M ρp)))
+        (AnnotTerm.mkAppN (.bvar (nF + o - 1))
+          (([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN o nF) ++
+            [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])) ∧
+      interp V (consList fs (consList ms (cons M ρp)))
+        (AnnotTerm.mkAppN (.bvar (nF + o - 1))
+          (([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN o nF) ++
+            [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]))
+          ∈ˢ (univ ℓ : V) := by
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hlenAs : fs.length = nF := by rw [hsp.length_eq, hlenFs]
+  have hshM : shiftE o 0 (consList ms (cons M ρp)) = ρp := by
+    rw [← hms]; exact shiftE_minors rfl
+  have hshF : shiftE o nF (consList fs (consList ms (cons M ρp))) = consList fs ρp := by
+    rw [← hlenAs, shiftE_consList_len, hshM]
+  obtain ⟨hEok, Ids, hIds, hspIdx⟩ := hEs fs hsp
+  have hfrT : shiftE nF 0 (consList fs ρp) = ρp := by rw [← hlenAs]; exact shiftE_consList fs ρp
+  have htag := tagTupleAV_facts hT hIds hfrT (fun E hE => (hEok E hE).1) hspIdx
+  have ht := tagTuple_mem hT hIds hspIdx
+  obtain ⟨hchain, huniv⟩ := auxMot_chain hM ht (hctorVal fs hsp)
+  have hMval : consList fs (consList ms (cons M ρp)) (nF + o - 1) = M := by
+    rw [show nF + o - 1 = (o - 1) + fs.length from by omega, consList_apply_add,
+      show o - 1 = 0 + ms.length from by omega, consList_apply_add]
+    rfl
+  have hE1ok : WellDenotedV V (consList fs (consList ms (cons M ρp)))
+      ((tagTupleAV W mem nF Idss Es₀).liftN o nF) := by
+    refine ⟨?_, ?_⟩
+    · rw [WellDenoted_liftN, hshF]; exact htag.2
+    · rw [AnnotValid_liftN, hshF]
+      exact tagTupleAV_validV hTV hIds hfrT fun E hE => (hEok E hE).2
+  have hE1v : interp V (consList fs (consList ms (cons M ρp)))
+      ((tagTupleAV W mem nF Idss Es₀).liftN o nF)
+      = inj mem (mkTower (Es₀.map (interp V (consList fs ρp)) ++ [pt])) := by
+    rw [interp_liftN, hshF, htag.1]
+  have hargsv : (([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN o nF) ++
+        [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]).map
+      (interp V (consList fs (consList ms (cons M ρp))))
+      = [inj mem (mkTower (Es₀.map (interp V (consList fs ρp)) ++ [pt])),
+         interp V (consList fs (consList ms (cons M ρp)))
+           (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF))] := by
+    simp only [List.map_cons, List.map_nil, List.singleton_append]
+    rw [hE1v]
+  have happ := mkAppN_wellDenoted_of_chain
+    (args := ([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN o nF) ++
+      [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])
+    (f := (.bvar (nF + o - 1)))
+    (σ := consList fs (consList ms (cons M ρp))) trivial
+    (fun a ha => by
+      rcases List.mem_append.mp ha with ha | ha
+      · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+        rw [List.mem_singleton] at hE
+        subst hE
+        exact hE1ok.1
+      · rw [List.mem_singleton] at ha
+        subst ha
+        exact (hctorOk fs hsp).1)
+    (by rw [hargsv, interp_bvar, hMval]; exact hchain)
+  refine ⟨⟨happ.1, ?_⟩, ?_⟩
+  · refine AnnotValid_mkAppN trivial fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+      rw [List.mem_singleton] at hE
+      subst hE
+      exact hE1ok.2
+    · rw [List.mem_singleton] at ha
+      subst ha
+      exact (hctorOk fs hsp).2
+  · rw [happ.2, hargsv, interp_bvar, hMval]
+    exact huniv
+
+/-! ## The minors -/
+
+omit [SetTheory V] in
+/-- Lifted binder data's domains are the lifted domains. -/
+theorem liftDoms_map_dom (n : Nat) :
+    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k : Nat),
+      (liftDoms n k ds).map (·.2.2) = liftFields n k (ds.map (·.2.2))
+  | [], _ => rfl
+  | d :: ds, k => by
+    simp only [liftDoms, List.map_cons, liftFields_cons, liftDoms_map_dom n ds (k + 1)]
+
+/-- A graded field chain stays graded in a bigger universe (the bound
+moves up; the zero regime has none). -/
+theorem FieldsOkB_mono {u u' : Nat} (hu : u ≠ 0) (hle : u ≤ u') :
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsOkB u ρ Fs → FieldsOkB u' ρ Fs
+  | [], _, _ => trivial
+  | _ :: _, _, h =>
+    ⟨h.1, fun _ => univ_mono hle _ (h.2.1 hu), fun a ha => FieldsOkB_mono hu hle (h.2.2 a ha)⟩
+
+/-- **A minor premise's domain at a tagged constructor**: graded,
+valid, and in the minors' universe `if ℓ = 0 then 0 else max w ℓ`. -/
+theorem minorTag_facts {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
+    {ℓ W w b nP nF j mem : Nat} (hbz : ℓ = 0 ↔ b = 0) (hw0 : w = 0 → ℓ = 0)
+    {ρp : Nat → V} {M : V} {ms : List V} (hlenM : ms.length = j)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)}
+    (hT : TagOk W ρp Idss) (hTV : SumFieldsValid ρp Idss)
+    (hM : M ∈ˢ auxMotSp ℓ W w ρp Idss rss tlss Eiss' Fss₀ Ess')
+    {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF)
+    (hFok : FieldsOkB w ρp ((ds.drop nP).map (·.2.2)))
+    (hFV : FieldsValid ρp ((ds.drop nP).map (·.2.2)))
+    {Es₀ : List AnnotTerm}
+    (hEs : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      (∀ E ∈ Es₀, WellDenotedV V (consList fs ρp) E) ∧
+      ∃ Ids, Idss[mem]? = some Ids ∧ SpineFit ρp Ids (Es₀.map (interp V (consList fs ρp))))
+    (hctorOk : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      WellDenotedV V (consList fs (consList ms (cons M ρp)))
+        (AnnotTerm.mkAppN (m.acval C ψ)
+          (paramBvarsAt nP (nP + (1 + j) + nF) ++ fieldBvars nF)))
+    (hctorVal : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      interp V (consList fs (consList ms (cons M ρp)))
+          (AnnotTerm.mkAppN (m.acval C ψ)
+            (paramBvarsAt nP (nP + (1 + j) + nF) ++ fieldBvars nF))
+        ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+            (inj mem (mkTower (Es₀.map (interp V (consList fs ρp)) ++ [pt]))))
+    (hslots : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      ∀ i ∈ recIdx (rss.getD j []) nF,
+        SlotTagOk W w i ρp fs Idss rss tlss Eiss' Fss₀ Ess'
+          ((tlss.getD j []).getD i []) ((Eiss'.getD j []).getD i [])) :
+    WellDenotedV V (consList ms (cons M ρp))
+        (minorAVAtR m C ψ nP nF b (1 + j) ds [tagTupleAV W mem nF Idss Es₀]
+          (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss'.getD j [])) ∧
+      interp V (consList ms (cons M ρp))
+        (minorAVAtR m C ψ nP nF b (1 + j) ds [tagTupleAV W mem nF Idss Es₀]
+          (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss'.getD j []))
+          ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V) := by
+  have ho : ms.length + 1 = 1 + j := by omega
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hshM : shiftE (1 + j) 0 (consList ms (cons M ρp)) = ρp := by
+    rw [← ho]; exact shiftE_minors rfl
+  have hdomsOk : FieldsOkB w (consList ms (cons M ρp))
+      ((rebit b (liftDoms (1 + j) 0 (ds.drop nP))).map (·.2.2)) := by
+    rw [rebit_map_dom, liftDoms_map_dom]
+    exact FieldsOkB_liftFields.mpr (by rw [hshM]; exact hFok)
+  have hdomsV : FieldsValid (consList ms (cons M ρp))
+      ((rebit b (liftDoms (1 + j) 0 (ds.drop nP))).map (·.2.2)) := by
+    rw [rebit_map_dom, liftDoms_map_dom]
+    exact FieldsValid_liftFields.mpr (by rw [hshM]; exact hFV)
+  have hspTr : ∀ fs : List V,
+      SpineFit (consList ms (cons M ρp))
+        ((rebit b (liftDoms (1 + j) 0 (ds.drop nP))).map (·.2.2)) fs →
+      SpineFit ρp ((ds.drop nP).map (·.2.2)) fs := by
+    intro fs hsp
+    rw [rebit_map_dom, liftDoms_map_dom, spineFit_liftFields, hshM] at hsp
+    exact hsp
+  have hbodyFacts : ∀ fs : List V, SpineFit ρp ((ds.drop nP).map (·.2.2)) fs →
+      WellDenotedV V (consList fs (consList ms (cons M ρp)))
+          (ihPisAVM (fun _ => 0) nF (1 + j) b (tlss.getD j []) (Eiss'.getD j [])
+            (recIdx (rss.getD j []) nF) 0
+            ((AnnotTerm.mkAppN (.bvar (nF + (1 + j) - 1))
+              (([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN (1 + j) nF) ++
+                [AnnotTerm.mkAppN (m.acval C ψ)
+                  (paramBvarsAt nP (nP + (1 + j) + nF) ++ fieldBvars nF)])).liftN
+              (recIdx (rss.getD j []) nF).length 0)) ∧
+        interp V (consList fs (consList ms (cons M ρp)))
+          (ihPisAVM (fun _ => 0) nF (1 + j) b (tlss.getD j []) (Eiss'.getD j [])
+            (recIdx (rss.getD j []) nF) 0
+            ((AnnotTerm.mkAppN (.bvar (nF + (1 + j) - 1))
+              (([tagTupleAV W mem nF Idss Es₀].map fun E => E.liftN (1 + j) nF) ++
+                [AnnotTerm.mkAppN (m.acval C ψ)
+                  (paramBvarsAt nP (nP + (1 + j) + nF) ++ fieldBvars nF)])).liftN
+              (recIdx (rss.getD j []) nF).length 0))
+            ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max w ℓ) : V) := by
+    intro fs hsp
+    have hlenAs : fs.length = nF := by rw [hsp.length_eq, hlenFs]
+    refine ihPisTag_facts hbz hw0 ho hlenAs hT hTV hM (recIdx (rss.getD j []) nF) 0 [] _ rfl
+      (fun i hi => (mem_recIdx.mp hi).1) (hslots fs hsp) ?_
+    intro ihs' hl
+    rw [Nat.zero_add] at hl
+    have hsh : shiftE (recIdx (rss.getD j []) nF).length 0
+        (consList ihs' (consList fs (consList ms (cons M ρp))))
+        = consList fs (consList ms (cons M ρp)) := by
+      rw [← hl]; exact shiftE_consList ihs' _
+    obtain ⟨hcOk, hcU⟩ := minorConcTag_facts ho hT hTV hM hlenDs hEs hctorOk hctorVal hsp
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [WellDenoted_liftN, hsh]; exact hcOk.1
+    · rw [AnnotValid_liftN, hsh]; exact hcOk.2
+    · rw [interp_liftN, hsh]
+      by_cases h0 : ℓ = 0
+      · rw [if_pos h0, ← h0]; exact hcU
+      · rw [if_neg h0]; exact univ_mono (Nat.le_max_right w ℓ) _ hcU
+  refine ⟨⟨?_, ?_⟩, ?_⟩
+  · unfold minorAVAtR minorAVAtRM
+    exact WellDenoted_mkPisAV_of (w := w) hdomsOk
+      fun fs hsp => ((hbodyFacts fs (hspTr fs hsp)).1).1
+  · unfold minorAVAtR minorAVAtRM
+    refine AnnotValid_mkPisAV_of (w := ℓ) (fun d hd => by rw [mem_rebit hd]; exact hbz.symm)
+      hdomsV (fun fs hsp => ((hbodyFacts fs (hspTr fs hsp)).1).2) ?_
+    intro h0 fs hsp
+    have h := (hbodyFacts fs (hspTr fs hsp)).2
+    rwa [if_pos h0, univ_zero] at h
+  · unfold minorAVAtR minorAVAtRM
+    by_cases h0 : ℓ = 0
+    · rw [if_pos h0, univ_zero]
+      refine interp_mkPisAV_mem_univZero (fun d hd => by rw [mem_rebit hd]; exact hbz.mp h0) ?_
+      intro hnil
+      have hsp0 : SpineFit (consList ms (cons M ρp))
+          ((rebit b (liftDoms (1 + j) 0 (ds.drop nP))).map (·.2.2)) [] := by
+        rw [hnil]; trivial
+      have h := (hbodyFacts [] (hspTr [] hsp0)).2
+      rw [if_pos h0, univ_zero] at h
+      exact h
+    · rw [if_neg h0]
+      have hw : w ≠ 0 := fun hw => h0 (hw0 hw)
+      refine interp_mkPisAV_mem_univ (t := Nat.max w ℓ) (max_ne_zero_right (u := w) h0)
+        (fun d hd => by rw [mem_rebit hd]; exact fun h => h0 (hbz.mpr h))
+        (FieldsOkB_mono hw (Nat.le_max_left w ℓ) hdomsOk) fun fs hsp => ?_
+      have h := (hbodyFacts fs (hspTr fs hsp)).2
+      rwa [if_neg h0] at h
+
 end ConLeche.Model
