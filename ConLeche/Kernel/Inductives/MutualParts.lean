@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeParts
-public import ConLeche.Kernel.Inductives.MutualKit
 
 @[expose] public section
 

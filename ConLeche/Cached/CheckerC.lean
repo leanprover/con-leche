@@ -231,56 +231,36 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
     checkNativeTailS mode fe q'
 
 /-- `checkMutualCore` through the index (task #278): the stages at the
-index's environment, one flush per environment transition, the two
-scaffold installs through `checkNativeS`. -/
+index's environment, one flush per environment transition. -/
 def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     (streamRecs : Option (List (ConstantVal × List RecRule))) : CheckCM FEnv := do
-  let k := b.k
-  let n := b.n
   let nP := b.nP
-  let lps := b.lps
   mutualShapeOk (m := CheckCM) b
   flushC
-  let fms ← mutualFormersF (sharedOpsC mode fe) fe nP b.formers
+  let (fe₁, fms) ← mutualFormersF (m := CheckCM) (fun fe => sharedOpsC mode fe) nP b.formers fe
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
+  flushC
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
-  mutualCrossChecks (sharedOpsC mode fe) fe.env nP f₀ (tq₀.1.map Expr.fvarTypeD) fms
+  mutualCrossChecks (sharedOpsC mode fe₁) fe₁.env nP f₀ (tq₀.1.map Expr.fvarTypeD) fms
   unless b.large == f₀.s.isNeverZero do
     throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
-  unless mutualScopeOkF structWalkersC fe b streamRecs do
-    throw (.invalid "mutual: a record of the block mentions an unknown constant")
-  let sc ← unwrapOr
-    (mutualScaffoldFresh fe.find? f₀.cvTa.name k n (fe.env.consts.length + 2) 0)
-    (.internal "mutual: no fresh scaffold name")
-  mutualResidualOk (m := CheckCM) sc b b.ctors
-  let W ← mutualTagUniv (sharedOpsC mode fe) fe.env nP fms (.succ .zero)
-  let elimTag := MutualKit.freshLevelName lps
-  let tagBlock ← unwrapOr (mutualTagBlock sc lps nP W elimTag fms) (.internal "mutual: tag block")
-  let pTag ← unwrapOr (nativeParts? nP tagBlock) (.internal "mutual: tag block shape")
-  let feT ← checkNativeS mode fe pTag
-  let auxBlock ← unwrapOr
-    (mutualAuxBlock sc lps nP f₀.s b.elim b.large f₀ b.members3 b.ctors)
-    (.internal "mutual: auxiliary block")
-  let pAux ← unwrapOr (nativeParts? nP auxBlock) (.internal "mutual: auxiliary block shape")
-  let feA ← checkNativeS mode feT pAux
+  let isProp := Level.isEquiv f₀.s .zero == some true
+  let (ctorsA, sortss) ← checkMutualCtorsF (sharedOpsC mode fe₁) structWalkersC fe₁ b fms isProp
+    b.ctors
+  let kinds ← classifyMutualKinds (m := CheckCM) b.members3 b.lps nP ctorsA
+  unless mutualFieldsOkF structWalkersC fe b.members3 b.lps nP ctorsA kinds do
+    throw (.internal "mutual: field kinds")
+  let fe₂ := consMutualCtorsF nP ctorsA fe₁
   flushC
-  let feS₁ ← mutualDefineFormersF (m := CheckCM) (fun fe => sharedOpsC mode fe) sc lps nP
-    fms.zipIdx feA
-  let (feS₂, ctorsA) ← mutualDefineCtorsF (m := CheckCM) (fun fe => sharedOpsC mode fe) sc lps
-    nP b.ctors.zipIdx feS₁
-  let formers4 : List MutualFormer := fms.map fun f => ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩
-  let ctors4 : List MutualCtor4 := (b.ctors.zip ctorsA).map fun (c, cvCa) =>
-    ⟨c.cv.name, c.nF, cvCa.type, c.member,
-      mutualRecFields b.memberNames b.nIdxOf lps nP c.nF cvCa.type⟩
-  let (feS, recTys) ← mutualDefineRecsF (m := CheckCM) (fun fe => sharedOpsC mode fe) sc b
-    formers4 ctors4 f₀.s streamRecs fms.zipIdx feS₂
+  let (formers4, ctors4) := mutualGenData b fms ctorsA kinds
+  let cvRas ← checkMutualRecTysF (sharedOpsC mode fe₂) structWalkersC fe₂ b formers4 ctors4
+    streamRecs b.k
+  let feR := provisionMutualRecsF b fms cvRas.zipIdx fe₂
+  let rulesOf ← checkMutualAllRulesF (m := CheckCM) structWalkersC feR b formers4 ctors4
+    streamRecs b.k
+  let fe₃ := storeMutualRecsF fe₂ b fms rulesOf cvRas.zipIdx fe₂
   flushC
-  let rulesOf ← mutualAllRules (sharedOpsC mode feS) feS.env b formers4 ctors4 ctorsA recTys
-    streamRecs k
-  let feF := mutualStoreF fe b fms ctorsA recTys rulesOf
-  flushC
-  mutualTablesF (m := CheckCM) (fun fe => sharedOpsC mode fe) structWalkersC b ctorsA
-    fms.zipIdx feF
+  mutualTablesF (m := CheckCM) structWalkersC b ctorsA sortss fms.zipIdx fe₃
 
 /-- `checkMutual` through the index. -/
 def checkMutualS (fe : FEnv) (p : MutualParts) : CheckCM FEnv := do

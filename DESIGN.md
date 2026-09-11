@@ -68715,3 +68715,29 @@ R3 through `checkNative`'s kits; R4 as M1 (the block-record entry).
 My recommendation: (a′).  (c) saves two to four sessions and keeps
 exactly the run-time translation the maintainer objected to; (b) is
 the cleanest end state at roughly double the cost.
+
+### 7. M1 reworked under the ruling (2026-09-11): the native-shaped mutual install
+
+The scaffold, the synthetic definitions, the per-rule certification,
+the residual decline and the kernel kit are gone (`MutualKit.lean`
+deleted, the frontend's `Kit.lean` restored; `MutualInstall.lean`
+rewritten, `MutualInstallF.lean` and `checkMutualCoreS` with it).  The
+install is now the fixpoint route's shape: the formers at official's
+telescope, consed with caps `{}`; the cross-member checks; the
+eliminator; the constructors at the environment holding all formers
+through `checkMutualCtor` — `checkSumCtor` with the positivity
+normalisation over the member list (`normPosDomM`) and the residual
+at the constructor's own member; the kinds classified member-aware
+(`mutualCtorKinds` → `(kind, target member)`, `classifyMutualKinds`:
+negative REJECTS, nested declines) and re-checked opened
+(`mutualFieldsOk`); the `k` recursor types generated and the stream's
+`isDefEq`'d against them (`checkMutualRecTy`); the recursors
+provisioned rule-less, the rules generated and scoped there, the
+stream's compared structurally (`checkMutualMemberRules`), the group
+stored with `paramsBlind := true`; the tables.  No step beyond
+official's checks can fail on a valid block.  Gates on the binary:
+e2e (plain and gzipped) every fixture as recorded, with the two gains
+of §5 kept; arena 138/138; route census unchanged; `tests/inmodel.sh`
+OK; the Mathlib mutual cone 369/369 in both modes, all 10 blocks
+`mutual`.  The Verify tier's datF lemmas for the deleted stages are
+replaced by the new stages' (Opus).
