@@ -139,7 +139,7 @@ own λ-data (`leaf_data`). -/
 /-- **The member leaf's typing hypotheses**, at every member and every
 assignment (`MutualRecTyping.lean`'s `MutualLeafHyp` at the block's
 data). -/
-def LeafHyp (V : Type w) [SetTheory V] {env₀ : Env} (m₀ : EnvModel V env₀) : Prop :=
+@[expose] def LeafHyp (V : Type w) [SetTheory V] {env₀ : Env} (m₀ : EnvModel V env₀) : Prop :=
   ∀ t, t < p.k → ∀ ψ : Name → Nat,
     MutualLeafHyp V m₀ ψ p.elimL (p.ℓ ψ) (p.W ψ) (p.wB ψ) p.nP (p.s ψ) (p.bb ψ) p.k p.n
       (p.Ls ψ) p.nIdxs (p.ppsOf 0 ψ) (p.ipss ψ) (p.Idss ψ) p.rss (p.tlss ψ) (p.EissO ψ)
@@ -437,7 +437,7 @@ stated at a SPLIT block frame `(p⃗, M⃗, S⃗, ı⃗, t)`, so discharging thi
 means splitting the spine — `fixRecLawCore` does that for the fixpoint
 route inside itself, the mutual route's twin of that step is not
 written yet, and until it is this is the stage's one open premise. -/
-def RuleFires (V : Type w) [SetTheory V] {env₀ : Env} (m₀ : EnvModel V env₀)
+@[expose] def RuleFires (V : Type w) [SetTheory V] {env₀ : Env} (m₀ : EnvModel V env₀)
     (t J mI rP : Nat) (cdF : (Name → Nat) → CtorDatumR) : Prop :=
   ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs ys : List AnnotTerm),
     xs.length = mI → ys.length = p.nP + (cdF ψ).2.1 →
