@@ -557,6 +557,8 @@ indices, one field-free constructor, the constant functor with fibre
   xrestF := fun _ => .const punitName [.param uN]
   eissF := fun _ _ => []
   tssF := fun _ _ => []
+  essC := fun _ _ => []
+  eissC := fun _ _ => []
   k := 1
   nIdxs := [0]
   memberNames := [punitName]
@@ -678,7 +680,7 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     isProp := rfl
     mI := rfl
     rP := rfl
-    rules := rfl
+    rules := fun _ => rfl
     former := ?_
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩,
@@ -2248,6 +2250,10 @@ over the one-point index set, and the pin's own injections. -/
   tssF := fun j _ => match j with
     | 1 => [[]]
     | _ => []
+  essC := fun _ _ => []
+  eissC := fun j _ => match j with
+    | 1 => [[]]
+    | _ => []
   k := 1
   nIdxs := [0]
   memberNames := [natName]
@@ -2407,7 +2413,7 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     isProp := rfl
     mI := rfl
     rP := rfl
-    rules := rfl
+    rules := fun _ => rfl
     former := ?_
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩,

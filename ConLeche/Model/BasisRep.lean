@@ -94,6 +94,8 @@ injection.  One member, the block's own former `T` (task #278 M2.6). -/
   xFvsF := fun _ => []
   xrestF := fun _ => default
   eissF := fun _ _ => []
+  essC := fun _ _ => []
+  eissC := fun _ _ => []
   tssF := fun _ _ => []
   k := 1
   nIdxs := [0]
@@ -150,7 +152,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     isProp := rfl
     mI := rfl
     rP := rfl
-    rules := by rw [hrules]; rfl
+    rules := fun _ => by rw [hrules]; rfl
     former := ?_
     ctors := fun j cA hj => nomatch hj
     memsFound := fun j hj => absurd hj (Nat.not_lt_zero j)

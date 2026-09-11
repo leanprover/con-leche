@@ -134,6 +134,14 @@ structure IndRepData (V : Type w) where
   eissF : Nat → (Name → Nat) → List (List AnnotTerm)
   /-- per constructor: the reflexive fields' telescopes -/
   tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
+  /-- per constructor: the result's index readings AT THE CONTAINER (the
+  stored type's `esF` at a single family; at a mutual block the tagged
+  singleton `[⟨inj m ⟨e⃗⟩⟩]` over the tag telescope, task #278) -/
+  essC : Nat → (Name → Nat) → List AnnotTerm
+  /-- per constructor: the recursive fields' index expressions AT THE
+  CONTAINER (`eissF` at a single family; the tagged singletons at a
+  mutual block) -/
+  eissC : Nat → (Name → Nat) → List (List AnnotTerm)
   /-- the number of members of the block (`1` at a single family) -/
   k : Nat
   /-- per member: its index count (`nIdx` is the CONTAINER's) -/
@@ -187,26 +195,32 @@ with nothing: the constructors `J` with `mems J = mm`. -/
 @[expose] def memberCtors (mm : Nat) : List (ConstantVal × Nat) :=
   (d.ctorsA.zipIdx.filter fun x => d.mems x.2 == mm).map (·.1)
 
-/-- The constructor data list. -/
+/-- The constructor data list, at the STORED readings (`IndRep.ctors`). -/
 @[expose] def cds (ψ : Name → Nat) : List CtorDatumR :=
   fixCtorDataList d.dsF d.esF d.ksF d.eissF d.tssF ψ d.ctorsA 0
+
+/-- The constructor data list at the CONTAINER's index readings (the
+chains, `IndRep.chains`/`fibre`); the same list as `cds` at a single
+family. -/
+@[expose] def cdsC (ψ : Name → Nat) : List CtorDatumR :=
+  fixCtorDataList d.dsF d.essC d.ksF d.eissC d.tssF ψ d.ctorsA 0
 
 /-- The recursive flags. -/
 @[expose] def rss : List (List Bool) := rssOfK d.ksF d.ctorsA.length
 
 /-- The reflexive telescopes. -/
-@[expose] def tlss (ψ : Name → Nat) : List (List (List (Nat × Nat × AnnotTerm))) := tlssOfR (d.cds ψ)
+@[expose] def tlss (ψ : Name → Nat) : List (List (List (Nat × Nat × AnnotTerm))) := tlssOfR (d.cdsC ψ)
 
 /-- The recursive fields' index expressions. -/
-@[expose] def Eiss (ψ : Name → Nat) : List (List (List AnnotTerm)) := eissOfR (d.cds ψ)
+@[expose] def Eiss (ψ : Name → Nat) : List (List (List AnnotTerm)) := eissOfR (d.cdsC ψ)
 
 /-- The field domains (the real readings: a recursive entry is the
 former's leaf applied, which the X-chain ignores in favour of the
 slot). -/
-@[expose] def Fss (ψ : Name → Nat) : List (List AnnotTerm) := fssOfR d.nP (d.cds ψ)
+@[expose] def Fss (ψ : Name → Nat) : List (List AnnotTerm) := fssOfR d.nP (d.cdsC ψ)
 
 /-- The results' index readings. -/
-@[expose] def Ess (ψ : Name → Nat) : List (List AnnotTerm) := essOfR (d.cds ψ)
+@[expose] def Ess (ψ : Name → Nat) : List (List AnnotTerm) := essOfR (d.cdsC ψ)
 
 /-- The index-tuple set at a parameter frame. -/
 @[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : V := idxSet (d.u ψ) ρp (d.IdsC ψ)
@@ -273,8 +287,11 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   mI : mI = d.nP + d.k + d.ctorsA.length + d.nIdxAt mm
   /-- the recursor's rule prefix -/
   rP : rP = d.nP + d.k + d.ctorsA.length
-  /-- the recursor's rules are the MEMBER's constructors, in order -/
-  rules : rules.map (·.ctor) = (d.memberCtors mm).map (·.1.name)
+  /-- the recursor's rules, when it carries any, are the MEMBER's
+  constructors in order (a rule-less entry — a mutual block's recursor
+  PROVISIONED before its rules are checked, task #278 — claims the
+  representation with this clause vacuous) -/
+  rules : rules ≠ [] → rules.map (·.ctor) = (d.memberCtors mm).map (·.1.name)
   /-- the former's type reads as the member's telescope -/
   former : FormerData m cvT (d.nP + d.nIdxAt mm) d.resSort (d.ppsM mm) (d.lvlsM mm)
   /-- every constructor OF THE BLOCK is stored and its type reads as

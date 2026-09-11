@@ -245,6 +245,8 @@ data, the functor `fixFunVI` and the tagged-tower injections. -/
   xFvsF := xFvsF
   xrestF := xrestF
   eissF := eissF
+  essC := esF
+  eissC := eissF
   tssF := tssF
   k := 1
   nIdxs := [p.nIdx]
@@ -360,7 +362,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     isProp := hProp
     mI := hmI
     rP := hrP
-    rules := by
+    rules := fun _ => by
       rw [IndRepData.memberCtors_of_all (d := d) (mm := 0) (fun _ => rfl)]
       exact sumRules_map_ctor hlenR
     former := hFD

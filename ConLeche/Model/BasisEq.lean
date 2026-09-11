@@ -1207,6 +1207,8 @@ is the second parameter, and the fixpoint route's own functor. -/
   xFvsF := fun _ => []
   xrestF := fun _ => .app (.app (.app (.const eqName [.param uN]) eqFvAlpha) eqFvA) eqFvA
   eissF := fun _ _ => []
+  essC := fun _ _ => eqEs
+  eissC := fun _ _ => []
   tssF := fun _ _ => []
   k := 1
   nIdxs := [1]
@@ -1458,7 +1460,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     isProp := rfl
     mI := rfl
     rP := rfl
-    rules := rfl
+    rules := fun _ => rfl
     former := ?_
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩,
