@@ -1222,6 +1222,24 @@ theorem underTowerValid_append {b : AnnotTerm} :
     have h' := h (a :: as) ⟨ha, hsp⟩
     rwa [consList_cons] at h'
 
+/-- **A stored rule's shape, positionally**: it is `recRuleBits` of the
+generated record at one of the member's own constructors. -/
+theorem mutualRules_getElem? {find? : Name → Option ConstantInfo} {recName : Name}
+    {nP mI rP : Nat} {recTy : Expr} :
+    ∀ {l : List (MutualCtor × Expr)} {r : RecRule},
+      r ∈ ConLeche.mutualRules find? recName nP mI rP recTy l →
+      ∃ cr ∈ l, r = ConLeche.recRuleBits find? recName
+        { ctor := cr.1.cv.name, nfields := cr.1.nF, ctorParams := nP,
+          fire := if Expr.recRulePlain recTy mI rP nP then .plain else .inert,
+          rhs := cr.2, paramsBlind := true }
+  | [], _, h => by simp [ConLeche.mutualRules] at h
+  | cr :: cs, r, h => by
+    simp only [ConLeche.mutualRules, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨cr, List.mem_cons_self, rfl⟩
+    · obtain ⟨cr', hm, he⟩ := mutualRules_getElem? h
+      exact ⟨cr', List.mem_cons_of_mem _ hm, he⟩
+
 /-! ## Kit: the group store's environment extension
 
 The store conses the `k` recursors onto the constructors' carrier, so
@@ -4044,7 +4062,117 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [hcv]; exact hres
   have hAparams : ∀ t, t < prts.k → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ (cvRas.getD t default).levelParams, ψ₁ q = ψ₂ q) →
-      prts.leaf mp₂.base2 t ψ₁ = prts.leaf mp₂.base2 t ψ₂ := by sorry
+      prts.leaf mp₂.base2 t ψ₁ = prts.leaf mp₂.base2 t ψ₂ := by
+    intro t ht ψ₁ ψ₂ hφR
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+    rw [hcv] at hφR
+    have hφRl : ∀ q ∈ p.toBlock.rlps, ψ₁ q = ψ₂ q := hφR
+    have hφ : ∀ q ∈ p.toBlock.lps, ψ₁ q = ψ₂ q := by
+      intro q hq
+      refine hφRl q ?_
+      show q ∈ (if p.toBlock.large then p.toBlock.elim :: p.toBlock.lps else p.toBlock.lps)
+      cases p.toBlock.large
+      · exact hq
+      · exact List.mem_cons_of_mem _ hq
+    have hev : p.toBlock.elimLevel.eval ψ₁ = p.toBlock.elimLevel.eval ψ₂ := by
+      show Level.eval ψ₁ (ConLeche.structElimLevel p.toBlock.elim p.toBlock.large)
+        = Level.eval ψ₂ (ConLeche.structElimLevel p.toBlock.elim p.toBlock.large)
+      unfold ConLeche.structElimLevel
+      cases hL : p.toBlock.large
+      · rfl
+      · show ψ₁ p.toBlock.elim = ψ₂ p.toBlock.elim
+        refine hφRl p.toBlock.elim ?_
+        show p.toBlock.elim ∈ (if p.toBlock.large then p.toBlock.elim :: p.toBlock.lps
+          else p.toBlock.lps)
+        rw [hL]
+        exact List.mem_cons_self
+    have hbb : pwBit ψ₁ (Level.zeronessOf p.toBlock.elimLevel)
+        = pwBit ψ₂ (Level.zeronessOf p.toBlock.elimLevel) := by
+      by_cases hz : p.toBlock.elimLevel.eval ψ₁ = 0
+      · rw [(pwBit_zeronessOf ψ₁ _).mpr hz, (pwBit_zeronessOf ψ₂ _).mpr (by rw [← hev]; exact hz)]
+      · have n1 : pwBit ψ₁ (Level.zeronessOf p.toBlock.elimLevel) ≠ 0 := fun h =>
+          hz ((pwBit_zeronessOf ψ₁ _).mp h)
+        have n2 : pwBit ψ₂ (Level.zeronessOf p.toBlock.elimLevel) ≠ 0 := fun h =>
+          hz (by rw [hev]; exact (pwBit_zeronessOf ψ₂ _).mp h)
+        have e1 : pwBit ψ₁ (Level.zeronessOf p.toBlock.elimLevel) = 1 := by
+          unfold pwBit
+          split
+          · next h => exact absurd (by unfold pwBit; rw [if_pos h]) n1
+          · rfl
+        have e2 : pwBit ψ₂ (Level.zeronessOf p.toBlock.elimLevel) = 1 := by
+          unfold pwBit
+          split
+          · next h => exact absurd (by unfold pwBit; rw [if_pos h]) n2
+          · rfl
+        rw [e1, e2]
+    have hwB : f₀.s.eval ψ₁ = f₀.s.eval ψ₂ :=
+      ((hFD 0 f₀ hf0).params ψ₁ ψ₂ (by rw [hlpsF 0 f₀ hf0]; exact hφ)).2
+    obtain ⟨hW, hIdss, htlss, hEiss, hFss0, hEss⟩ := hParams ψ₁ ψ₂ hφ
+    have hLs : prts.Ls ψ₁ = prts.Ls ψ₂ := by
+      show (List.range fms.length).map _ = (List.range fms.length).map _
+      refine List.map_congr_left fun q hq => ?_
+      have hql : q < fms.length := List.mem_range.mp hq
+      refine mp₂.base2.acval_params _ _ (hFPc (hfindF q _ (hfmGet q hql))) ψ₁ ψ₂ ?_
+      show ∀ r ∈ (fms.getD q default).cvTa.levelParams, ψ₁ r = ψ₂ r
+      rw [hlpsF q _ (hfmGet q hql)]
+      exact hφ
+    have hpps0 : (ppsF 0 ψ₁).take p.toBlock.nP = (ppsF 0 ψ₂).take p.toBlock.nP := by
+      rw [(hppsPar 0 hk0 ψ₁ ψ₂ hφ).1]
+    have hipss : prts.ipss ψ₁ = prts.ipss ψ₂ := by
+      show (List.range fms.length).map _ = (List.range fms.length).map _
+      refine List.map_congr_left fun q hq => ?_
+      show (ppsF q ψ₁).drop p.toBlock.nP = (ppsF q ψ₂).drop p.toBlock.nP
+      rw [(hppsPar q (List.mem_range.mp hq) ψ₁ ψ₂ hφ).1]
+    have hFssR : FssRf ψ₁ = FssRf ψ₂ := by
+      show mutFss p.toBlock.nP ctorsA.length dsF ψ₁ = mutFss p.toBlock.nP ctorsA.length dsF ψ₂
+      unfold mutFss
+      exact List.map_congr_left fun J hJ => by
+        rw [hCDparams₁ J (List.mem_range.mp hJ) ψ₁ ψ₂ hφ]
+    have hcds : prts.cds ψ₁ = prts.cds ψ₂ := by
+      show fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ₁ ctorsA 0
+        = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ₂ ctorsA 0
+      refine List.ext_getElem? fun J => ?_
+      rw [fixCtorDataList_getElem?, fixCtorDataList_getElem?]
+      cases hJ : ctorsA[J]? with
+      | none => rfl
+      | some cA =>
+        have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+        obtain ⟨hd, he, hei, ht'⟩ := hCDparams J hJl ψ₁ ψ₂ hφ
+        have hidJ := hident J cA hJ
+        have hesF : esF J ψ₁ = esF J ψ₂ := by
+          rw [← hidJ.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.1 ψ₂, he]
+        have heissF : eissF J ψ₁ = eissF J ψ₂ := by
+          rw [← hidJ.2.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.2.1 ψ₂, hei]
+        have htssF : tssF J ψ₁ = tssF J ψ₂ := by
+          rw [← hidJ.2.2.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.2.2.1 ψ₂, ht']
+        simp only [Nat.zero_add]
+        rw [hCDparams₁ J hJl ψ₁ ψ₂ hφ, hesF, heissF, htssF]
+    show mutualRecAVI mp₂.base2 ψ₁ (p.toBlock.elimLevel.eval ψ₁) (Wf ψ₁) (f₀.s.eval ψ₁)
+        p.toBlock.nP (auxRecSort (Wf ψ₁) (Wf ψ₁) (f₀.s.eval ψ₁) (p.toBlock.elimLevel.eval ψ₁))
+        (pwBit ψ₁ (Level.zeronessOf p.toBlock.elimLevel)) p.toBlock.elimLevel (prts.Ls ψ₁)
+        prts.nIdxs ((ppsF 0 ψ₁).take p.toBlock.nP) (prts.ipss ψ₁) (Idssf ψ₁) rssf (tlssf ψ₁)
+        (Eissf ψ₁) (FssRf ψ₁) (Fss0f ψ₁) (Essf ψ₁) memF (fun J => tgtAt (ksF J))
+        (prts.cds ψ₁) t
+      = mutualRecAVI mp₂.base2 ψ₂ (p.toBlock.elimLevel.eval ψ₂) (Wf ψ₂) (f₀.s.eval ψ₂)
+        p.toBlock.nP (auxRecSort (Wf ψ₂) (Wf ψ₂) (f₀.s.eval ψ₂) (p.toBlock.elimLevel.eval ψ₂))
+        (pwBit ψ₂ (Level.zeronessOf p.toBlock.elimLevel)) p.toBlock.elimLevel (prts.Ls ψ₂)
+        prts.nIdxs ((ppsF 0 ψ₂).take p.toBlock.nP) (prts.ipss ψ₂) (Idssf ψ₂) rssf (tlssf ψ₂)
+        (Eissf ψ₂) (FssRf ψ₂) (Fss0f ψ₂) (Essf ψ₂) memF (fun J => tgtAt (ksF J))
+        (prts.cds ψ₂) t
+    rw [hev, hW, hwB, hbb, hLs, hpps0, hipss, hIdss, htlss, hEiss, hFssR, hFss0, hEss, hcds]
+    refine mutualRecAVI_congrψ hbb hev fun cd hcd => ?_
+    -- a constructor's leaf reads only the block's level parameters
+    obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcd
+    rw [show prts.cds ψ₂ = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ₂
+        ctorsA 0 from rfl, fixCtorDataList_getElem?] at hJ
+    obtain ⟨cA, hcA, hcdEq⟩ := Option.map_eq_some_iff.mp hJ
+    have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA).1
+    have hname : cd.1 = cA.1.name := by rw [← hcdEq]
+    rw [hname]
+    refine mp₂.base2.acval_params _ _ (hcons₂ J cA hJl hcA).1.1 ψ₁ ψ₂ ?_
+    show ∀ r ∈ cA.1.levelParams, ψ₁ r = ψ₂ r
+    rw [hlpsC J cA hcA]
+    exact hφ
   have htyWF : ∀ t, t < prts.k → (cvRas.getD t default).type.hasFvar = false ∧
       (cvRas.getD t default).type.allLevelParamsDefined
         (cvRas.getD t default).levelParams = true ∧
@@ -4056,7 +4184,50 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   obtain ⟨mp₄, hacc₄, hoff₄⟩ := stageMutualRecs prts hyp mp₂ hrectys hrules hk hnd hfreshR
     hresR hE₂ hRDs' hIdsBelow hchainBelow hAparams hnres hpshape htyWF
     (hreps fms cvRas rulesOf _ mp₂ prts _ mp₂.base2 hyp hk rfl hnCtors).1
-    (by sorry) (by sorry)
+    (by
+      -- **`hctorStored`**: a stored rule's constructor is one of the
+      -- member's own, hence a constructor of the block, hence stored
+      intro t ht r hr
+      obtain ⟨cr, hcr, rfl⟩ := mutualRules_getElem? hr
+      obtain ⟨hlenU, hallU⟩ := ConLeche.checkMutualAllRules_inv hrules
+      obtain ⟨rules, hrget, hrun⟩ := hallU t (by rw [hkF]; exact ht)
+      have hrD : rulesOf.getD t [] = rules := by
+        rw [List.getD_eq_getElem?_getD, hrget]; rfl
+      rw [hrD] at hcr
+      obtain ⟨-, hlenR, hallR⟩ := ConLeche.checkMutualMemberRules_inv hrun
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem hcr
+      obtain ⟨J, c, rhs, hown, hget, -, -, -, -, -⟩ :=
+        hallR i (by rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hi).1)
+      obtain rfl : cr = (c, rhs) := Option.some.inj (hi.symm.trans hget)
+      -- the member's own constructor is one of the block's
+      have hmemC : c ∈ p.toBlock.ctors := by
+        have h := List.mem_of_getElem? hown
+        have h2 := List.mem_filter.mp h
+        obtain ⟨x, hx, hxe⟩ := List.mem_map.mp h2.1
+        obtain rfl : x.1 = c := by
+          have := congrArg Prod.snd hxe
+          simpa using this
+        have hx' := List.mk_mem_zipIdx_iff_getElem?.mp (by
+          show (x.1, x.2) ∈ p.toBlock.ctors.zipIdx
+          simpa using hx)
+        exact List.mem_of_getElem? hx'
+      -- and every block constructor is stored
+      obtain ⟨J', hJ'⟩ : ∃ J', ctorsA[J']? = some (ctorsA.getD J' default) ∧
+          (ctorsA.getD J' default).1.name = c.cv.name := by
+        obtain ⟨J', hJ'⟩ := List.getElem?_of_mem
+          (show c.cv.name ∈ p.toBlock.ctors.map (·.cv.name) from List.mem_map_of_mem hmemC)
+        rw [← hnamesC, List.getElem?_map] at hJ'
+        obtain ⟨cA, hcA, hnm⟩ := Option.map_eq_some_iff.mp hJ'
+        refine ⟨J', hcAGet J' (List.getElem?_eq_some_iff.mp hcA).1, ?_⟩
+        rw [show ctorsA.getD J' default = cA from by
+          rw [List.getD_eq_getElem?_getD, hcA]; rfl]
+        exact hnm
+      have hJl' : J' < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ'.1).1
+      refine ⟨(ctorsA.getD J' default).1, p.toBlock.nP, (ctorsA.getD J' default).2, ?_⟩
+      show _ = _
+      rw [ConLeche.recRuleBits_ctor, ← hJ'.2]
+      exact (hcons₂ J' _ hJl' hJ'.1).1.1)
+    (by sorry)
     (hreps fms cvRas rulesOf _ mp₂ prts _ mp₂.base2 hyp hk rfl hnCtors).2
   sorry
 

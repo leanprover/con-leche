@@ -1407,4 +1407,144 @@ theorem mutualRecLeafFacts
 
 end Facts
 
+/-! ## The recursor leaf's level-parameter dependence (task #278, M2.5f)
+
+`mutualRecAVI m ψ …` reads `ψ` in exactly three places: the elimination
+level's `PropWhen` bit, its VALUE (the motive premises' result sort)
+and the constructors' leaves inside the minor premises
+(`minorAVAtRM`'s `m.acval C ψ`).  Two assignments agreeing on those
+three therefore spell the same leaf — which is the recursor stage's
+`acval_params` obligation (`declMutual`'s `hAparams`). -/
+
+section Congr
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+/-- The minor premise's domain reads `ψ` only through its
+constructor's leaf. -/
+theorem minorAVAtRM_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {mot : Nat}
+    {moti : Nat → Nat} {C : Name} {nP nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {Es : List AnnotTerm} {ri : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eiss : List (List AnnotTerm)} (h : m.acval C ψ₁ = m.acval C ψ₂) :
+    minorAVAtRM mot moti m C ψ₁ nP nF b o ds Es ri tls Eiss
+      = minorAVAtRM mot moti m C ψ₂ nP nF b o ds Es ri tls Eiss := by
+  unfold minorAVAtRM
+  rw [h]
+
+/-- The minor entries read `ψ` only through the constructors' leaves. -/
+theorem fixMinorsDataM_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      (∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) →
+      fixMinorsDataM mots tgts m ψ₁ nP b cds o = fixMinorsDataM mots tgts m ψ₂ nP b cds o
+  | _, _, [], _, _ => rfl
+  | mots, tgts, cd :: cs, o, h => by
+    obtain ⟨C, nF, ds, Es, ri, Eiss, tls⟩ := cd
+    rw [fixMinorsDataM, fixMinorsDataM,
+      minorAVAtRM_congrψ (m := m) (h _ List.mem_cons_self),
+      fixMinorsDataM_congrψ (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)
+        (fun cd' hcd' => h cd' (List.mem_cons_of_mem _ hcd'))]
+
+/-- The motive premise reads `ψ` only through the elimination level's
+value (its own bit is the constant `never` bit). -/
+theorem motiveAVIL_congrψ {L : AnnotTerm} {ψ₁ ψ₂ : Name → Nat} {nP nIdx : Nat} {ℓ : Level}
+    {ips : List (Nat × Nat × AnnotTerm)} (hev : ℓ.eval ψ₁ = ℓ.eval ψ₂) :
+    motiveAVIL L ψ₁ nP nIdx ℓ ips = motiveAVIL L ψ₂ nP nIdx ℓ ips := by
+  unfold motiveAVIL
+  rw [pwBit_never, pwBit_never, hev]
+
+/-- The `k` motive entries, likewise. -/
+theorem motivesDataGo_congrψ {ψ₁ ψ₂ : Name → Nat} {nP : Nat} {ℓ : Level} {b : Nat}
+    (hev : ℓ.eval ψ₁ = ℓ.eval ψ₂) :
+    ∀ (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
+      (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (k i : Nat),
+      motivesDataGo Lof nIdxOf ipsOf ψ₁ nP ℓ b k i
+        = motivesDataGo Lof nIdxOf ipsOf ψ₂ nP ℓ b k i
+  | _, _, _, 0, _ => rfl
+  | Lof, nIdxOf, ipsOf, k + 1, i => by
+    rw [motivesDataGo, motivesDataGo, motiveAVIL_congrψ hev,
+      motivesDataGo_congrψ hev (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1))
+        (fun t => ipsOf (t + 1)) k (i + 1)]
+
+/-- The stored recursor type's binder data, at two assignments. -/
+theorem mutualRecDataAV_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {Ls : List AnnotTerm}
+    {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} {mm : Nat}
+    (hb : pwBit ψ₁ (Level.zeronessOf ℓ) = pwBit ψ₂ (Level.zeronessOf ℓ))
+    (hev : ℓ.eval ψ₁ = ℓ.eval ψ₂)
+    (hac : ∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) :
+    mutualRecDataAV m ψ₁ Ls nP nIdxs ℓ pps ipss cds mots tgts mm
+      = mutualRecDataAV m ψ₂ Ls nP nIdxs ℓ pps ipss cds mots tgts mm := by
+  unfold mutualRecDataAV
+  rw [hb, motivesDataGo_congrψ hev, fixMinorsDataM_congrψ _ _ cds Ls.length hac]
+
+/-- The fixpoint route's binder data at an explicit leaf, likewise. -/
+theorem fixRecDataAVL_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {L : AnnotTerm}
+    {nP nIdx : Nat} {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    (hb : pwBit ψ₁ (Level.zeronessOf ℓ) = pwBit ψ₂ (Level.zeronessOf ℓ))
+    (hev : ℓ.eval ψ₁ = ℓ.eval ψ₂)
+    (hac : ∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) :
+    fixRecDataAVL m ψ₁ L nP nIdx ℓ pps ips cds = fixRecDataAVL m ψ₂ L nP nIdx ℓ pps ips cds := by
+  unfold fixRecDataAVL fixMinorsData
+  rw [hb, motiveAVIL_congrψ hev, fixMinorsDataM_congrψ _ _ cds 1 hac]
+
+/-- The auxiliary recursor's binder data: its constructor data are the
+block's at the tagged expressions, so its leaves are the block's. -/
+theorem auxRecDataAV_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {W w nP : Nat}
+    {elimL : Level} {pps : List (Nat × Nat × AnnotTerm)} {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {Fss₀ Ess' : List (List AnnotTerm)}
+    {mems : Nat → Nat} {tgts : Nat → Nat → Nat} {cds : List CtorDatumR}
+    (hb : pwBit ψ₁ (Level.zeronessOf elimL) = pwBit ψ₂ (Level.zeronessOf elimL))
+    (hev : elimL.eval ψ₁ = elimL.eval ψ₂)
+    (hac : ∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) :
+    auxRecDataAV m ψ₁ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds
+      = auxRecDataAV m ψ₂ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds := by
+  unfold auxRecDataAV
+  refine fixRecDataAVL_congrψ hb hev ?_
+  intro cd hcd
+  obtain ⟨J, hJ, rfl⟩ := List.mem_map.mp (show cd ∈ (List.range cds.length).map
+    (fun J => auxCtorDatum W Idss (mems J) (tgts J) (cds.getD J default)) from hcd)
+  have hJl : J < cds.length := List.mem_range.mp hJ
+  have hmem : cds.getD J default ∈ cds := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJl, Option.getD_some]
+    exact List.getElem_mem hJl
+  exact hac (cds.getD J default) hmem
+
+/-- The auxiliary recursor's leaf. -/
+theorem auxRecAV_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {ℓ W w nP s : Nat}
+    {elimL : Level} {pps : List (Nat × Nat × AnnotTerm)} {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {FssR Fss₀ Ess' : List (List AnnotTerm)}
+    {mems : Nat → Nat} {tgts : Nat → Nat → Nat} {cds : List CtorDatumR}
+    (hb : pwBit ψ₁ (Level.zeronessOf elimL) = pwBit ψ₂ (Level.zeronessOf elimL))
+    (hev : elimL.eval ψ₁ = elimL.eval ψ₂)
+    (hac : ∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) :
+    auxRecAV m ψ₁ ℓ W w nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds
+      = auxRecAV m ψ₂ ℓ W w nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds := by
+  unfold auxRecAV
+  rw [auxRecDataAV_congrψ hb hev hac]
+
+/-- **Member `mm`'s recursor leaf, at two assignments**: agreeing on
+the elimination level's bit and value and on every constructor's leaf
+is enough. -/
+theorem mutualRecAVI_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {ℓ W w nP s b : Nat}
+    {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {FssR Fss₀ Ess' : List (List AnnotTerm)} {mems : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {cds : List CtorDatumR} {mm : Nat}
+    (hb : pwBit ψ₁ (Level.zeronessOf elimL) = pwBit ψ₂ (Level.zeronessOf elimL))
+    (hev : elimL.eval ψ₁ = elimL.eval ψ₂)
+    (hac : ∀ cd ∈ cds, m.acval cd.1 ψ₁ = m.acval cd.1 ψ₂) :
+    mutualRecAVI m ψ₁ ℓ W w nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀ Ess'
+        mems tgts cds mm
+      = mutualRecAVI m ψ₂ ℓ W w nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀ Ess'
+        mems tgts cds mm := by
+  unfold mutualRecAVI
+  rw [mutualRecDataAV_congrψ hb hev hac, auxRecAV_congrψ hb hev hac]
+
+end Congr
+
 end ConLeche.Model
