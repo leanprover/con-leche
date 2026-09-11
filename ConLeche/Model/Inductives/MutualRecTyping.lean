@@ -706,7 +706,8 @@ structure MutualLeafHyp (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V e
   /-- the constructors' data, positionally -/
   hcd : ∀ J cd, cds[J]? = some cd →
     cd.2.2.1.length = nP + cd.2.1 ∧
-    (cd.2.2.1.take nP).map (·.2.2) = pps.map (·.2.2) ∧
+    (∀ ρp : Nat → V, Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) ρp ↔
+      Sat V ((pps.map (·.2.2)).reverse) ρp) ∧
     m.acval cd.1 ψ = sumMkAV wB J cd.2.2.1 ((cd.2.2.1.drop nP).map (·.2.2)) (uChains FssR) ∧
     Term.bvarsBelow 0 (m.acval cd.1 ψ).erase ∧
     FssR[J]? = some ((cd.2.2.1.drop nP).map (·.2.2)) ∧
@@ -952,8 +953,8 @@ theorem mutualAuxSpine_of
         ⟨_, List.getElem?_eq_getElem (by rw [hyp.hn]; omega)⟩
       obtain ⟨hlenDs, htakeP, hleafC, hclC, hFsj, hrecIdx, htls, hEissO, hEiss'⟩ :=
         hyp.hcd J cd hcd
-      have hsatC : Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) (consList ps ρ) := by
-        rw [htakeP]; exact hsatP
+      have hsatC : Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) (consList ps ρ) :=
+        (htakeP _).mpr hsatP
       have hnF : ((cd.2.2.1.drop nP).map (·.2.2)).length = cd.2.1 := by
         rw [List.length_map, List.length_drop, hlenDs]; omega
       have har : (FssR.getD J []).length = cd.2.1 := by

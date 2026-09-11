@@ -230,15 +230,16 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
       rw [← List.map_append, List.take_append_drop]] at hspC'
     obtain ⟨qs, fs, hysv, hspq, hspf⟩ := spineFit_append_inv hspC'
     have hlenqs : qs.length = p.nP := by
-      rw [hspq.length_eq, htakeP, List.length_map, hh.hlenP]
+      rw [hspq.length_eq, List.length_map, List.length_take, hlenDs]
+      omega
     have hfseq : fs = (ys.drop p.nP).map (interp V ρ) := by
       rw [List.map_drop, hysv, List.drop_left' hlenqs]
     subst hfseq
     -- the CONSTRUCTOR's parameter frame (never identified with the recursor's)
     have hsatC : Sat V (((p.ppsOf 0 ψ).map (·.2.2)).reverse) (consList qs ρ) := by
       have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hspq
-      rw [List.append_nil, htakeP] at h
-      exact h
+      rw [List.append_nil] at h
+      exact (htakeP _).mp h
     have hFC := hh.hframes _ hsatC
     -- the constructor's value: the injection of its field tower
     have hokU : SumFieldsOkB (p.wB ψ) (consList qs ρ) (uChains (p.FssR ψ)) :=
