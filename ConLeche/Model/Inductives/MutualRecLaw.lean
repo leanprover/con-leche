@@ -334,4 +334,67 @@ theorem interp_mutualRecAVI_fold {m : EnvModel V env} {ψ : Name → Nat}
     List.map_cons, List.map_nil, List.map_cons, List.map_nil, List.map_cons, List.map_nil,
     htag.1, hmaj]
 
+/-! ## The dispatch's value, frame by frame -/
+
+/-- **The motive dispatch's value** at any frame `D` binders below the
+parameter frame: the tag recursor at the parameter frame applied to
+the tag motive and the frame's motive slots.  Two frames over the SAME
+parameter frame whose motive slots carry the same values therefore
+give the same dispatch — which is what the rule's inductive
+hypotheses need, their frames sitting at a different depth from the
+recursor's own. -/
+theorem interp_motDispAV_eq {ℓ W w D mOff k : Nat} {ρp σ : Nat → V}
+    (hfr : shiftE D 0 σ = ρp) {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss Ess' : List (List AnnotTerm)} :
+    interp V σ (motDispAV ℓ W w D mOff k Idss rss tlss Eiss' Fss Ess')
+      = (interp V ρp (tagMotAV ℓ W w Idss rss tlss Eiss' Fss Ess') :: motVals σ mOff k).foldl
+          SetTheory.app (interp V ρp (dispTowerAV ℓ W w k Idss)) := by
+  unfold motDispAV
+  rw [interp_mkAppN, ← List.foldl_map (f := interp V σ) (g := SetTheory.app), List.map_cons,
+    interp_liftN, interp_liftN, hfr]
+  congr 2
+  unfold motVals
+  rw [List.map_map]
+  apply List.map_congr_left
+  intro m' _
+  simp only [Function.comp_def, interp_bvar]
+
+/-- Two frames over one parameter frame with equal motive slots give
+equal dispatches. -/
+theorem interp_motDispAV_congr {ℓ W w D D' mOff mOff' k : Nat} {ρp σ σ' : Nat → V}
+    (hfr : shiftE D 0 σ = ρp) (hfr' : shiftE D' 0 σ' = ρp)
+    (hmot : motVals σ mOff k = motVals σ' mOff' k) {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)} :
+    interp V σ (motDispAV ℓ W w D mOff k Idss rss tlss Eiss' Fss Ess')
+      = interp V σ' (motDispAV ℓ W w D' mOff' k Idss rss tlss Eiss' Fss Ess') := by
+  rw [interp_motDispAV_eq hfr, interp_motDispAV_eq hfr', hmot]
+
+/-- **The block frame's motive slots are the motives**: at
+`(p⃗, M⃗, S⃗, ı⃗, t)` — the frame of member `mm`'s recursor body, with
+`nIdx` index values — the dispatch's slots `mOff + k - 1 - m'` at
+`mOff = n + nIdx + 1` carry `M⃗` in member order, whatever `nIdx` is. -/
+theorem motVals_blockFrame {n nIdx k : Nat} {as₁ Ms ms is : List V} {t : V} {ρ : Nat → V}
+    (hlenK : Ms.length = k) (hlenM : ms.length = n) (hlenI : is.length = nIdx) :
+    motVals (consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ) (n + nIdx + 1) k = Ms := by
+  have hσ : consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ
+      = consList (ms ++ is ++ [t]) (consList Ms (consList as₁ ρ)) := by
+    simp only [List.append_assoc]
+    rw [consList_append, consList_append]
+  have hlenT : (ms ++ is ++ [t]).length = n + nIdx + 1 := by
+    simp only [List.length_append, List.length_singleton, hlenM, hlenI]
+  unfold motVals
+  rw [hσ]
+  apply List.ext_getElem
+  · simp [hlenK]
+  · intro m' h1 h2
+    have hm' : m' < k := by simpa using h1
+    simp only [List.getElem_map, List.getElem_range]
+    rw [show n + nIdx + 1 + k - 1 - m' = (k - 1 - m') + (ms ++ is ++ [t]).length from by
+        rw [hlenT]; omega,
+      consList_apply_add, consList_getD_lt Ms _ (k - 1 - m') (by omega),
+      show Ms.length - 1 - (k - 1 - m') = m' from by omega,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+
 end ConLeche.Model
