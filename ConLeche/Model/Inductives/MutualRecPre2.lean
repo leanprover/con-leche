@@ -288,7 +288,7 @@ theorem domsBelow_fixMinorsData {m : EnvModel V env} {ψ : Name → Nat} {nP b :
 
 omit [SetTheory V] in
 /-- The entries of a `List.range`-indexed list. -/
-theorem getD_range_map {α : Type _} (f : Nat → α) (k : Nat) (d : α) {i : Nat} :
+theorem getD_range_map_ite {α : Type _} (f : Nat → α) (k : Nat) (d : α) {i : Nat} :
     ((List.range k).map f).getD i d = if i < k then f i else d := by
   rw [List.getD_eq_getElem?_getD, List.getElem?_map]
   by_cases hi : i < k
@@ -329,7 +329,7 @@ theorem auxCtorDatum_minor_below {m : EnvModel V env} {ψ : Name → Nat} {W nP 
     subst hE
     exact tagTupleAV_below hIdss h.esBelow
   · intro i E hE
-    rw [getD_range_map] at hE
+    rw [getD_range_map_ite] at hE
     split at hE
     · rw [List.mem_singleton] at hE
       subst hE
