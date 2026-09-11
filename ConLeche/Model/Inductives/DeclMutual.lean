@@ -37,11 +37,7 @@ cross-member parameter identification (`paramFrames` at
 member's index telescope can be graded at another member's parameter
 frame, and the tag is the union of all of them.
 
-**What the tail still owes** (the `sorry`): the auxiliary recursor's
-two facts (`MutualLeafHyp`'s `haux`/`hauxConc`) — BLOCKED on
-`MutualRecPre2.lean`'s `EntriesOk`/`AuxSlotTagged`/`SlotTagOk` being
-unexposed `def`s with elimination-only API (the note at the end of
-`declMutual` spells it out) — and, after them, `stageMutualRecs`
+**What the tail still owes** (the `sorry`): `stageMutualRecs`
 (`mutualRuleOk` and `denoteMeta_mutualRecRhs` for the rules, then
 `mutualRecRuleLaw` with `ruleFires_of`) and `stageMutualTables`
 (`MutualTableOk` at every member).
@@ -49,8 +45,9 @@ unexposed `def`s with elimination-only API (the note at the end of
 Everything before them is in: the members' and constructors' readings
 at the constructors' carrier (`formerReadsM_of`, `mutualCtorReadsM_of`,
 `mutualRecData_of`), the `MutualRecParts` bundle, and all of its
-`LeafHyp` but those two — `MutualFrameOkM` at every parameter frame
-included.
+`LeafHyp` — `MutualFrameOkM` at every parameter frame, the auxiliary
+former's `LeafTyping`, `AuxFrameOk` and the auxiliary recursor's own
+two facts included.
 -/
 
 namespace ConLeche.Model
@@ -1155,7 +1152,7 @@ theorem formerParamsOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP 
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {lvls : (Name → Nat) → List Nat}
     (hFD : FormerData m cvT (nP + nIdx) resSort pps lvls)
-    {s b : Nat} {ψ : Name → Nat} (hu : ∀ i, i < nP → (lvls ψ).getD i 0 ≤ s)
+    {s b : Nat} {ψ : Name → Nat} (hu : s ≠ 0 → ∀ i, i < nP → (lvls ψ).getD i 0 ≤ s)
     (ρb : Nat → V) : EntriesOk V s ρb (rebit b ((pps ψ).take nP)) := by
   have hlen : (pps ψ).length = nP + nIdx := hFD.len ψ
   have hlenT : ((pps ψ).take nP).length = nP := by rw [List.length_take]; omega
@@ -1185,13 +1182,13 @@ theorem formerParamsOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP 
     rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
       List.getElem?_eq_getElem (show k < (pps ψ).length by omega)]
     rfl
-  refine ⟨⟨?_, ?_⟩, fun _ => ?_⟩
+  refine ⟨⟨?_, ?_⟩, fun hs => ?_⟩
   · rw [hdk]
     exact fieldsOkB_getD hokB (by rw [List.length_map]; omega) hsp'
   · rw [hdk]
     exact fieldsValid_getD hvB (by rw [List.length_map]; omega) hsp'
   · rw [hdk, hentry]
-    exact univ_mono (hu k hkl) _ (hFD.lvl ψ k (by omega) (consList as ρb) hsat)
+    exact univ_mono (hu hs k hkl) _ (hFD.lvl ψ k (by omega) (consList as ρb) hsat)
 
 /-- **A leaf's hereditary premise over an appended telescope**: the
 leading binders graded and in the graph regime, the premise at every
@@ -1275,6 +1272,7 @@ theorem fixBodyAVI_validV {u w nIdx : Nat} {ρp : Nat → V} {Ids : List AnnotTe
         exact sumBodyAV_validV (hchains X hX t ht)
   · exact nomatch h
 
+set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
@@ -2243,6 +2241,11 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [List.getD_eq_getElem?_getD, hJ]; rfl
     rw [hnF, ← (hident J cA hJ).2.2.2.2.1 ψ]
     exact congrArg some hgd
+  have hEssD : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
+      (Essf ψ).getD J [] = [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] := by
+    intro J cA hJ ψ
+    rw [List.getD_eq_getElem?_getD, hEssG J cA hJ ψ]
+    rfl
   -- the constructors' names, freshness and resolution
   have hnamesC : ctorsA.map (·.1.name) = p.toBlock.ctors.map (·.cv.name) := by
     refine List.ext_getElem? fun J => ?_
@@ -3267,6 +3270,261 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     refine ⟨hEok, ⟨_, hIdsT, hfit⟩, slotSet_chainOk hfamU hfield hbs, ?_⟩
     unfold auxFib auxTup
     exact hfold
+  -- **the auxiliary recursor's frame facts** (`AuxFrameOk`)
+  have hfrmG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
+      AuxFrameOk mp₂.base2 ψ (p.toBlock.elimLevel.eval ψ) (Wf ψ) (f₀.s.eval ψ)
+        (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) p.toBlock.nP
+        ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ)
+        (auxCtorData (Wf ψ) (Idssf ψ) memF (fun J => tgtAt (ksF J))
+          (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)) ρp := by
+    intro ψ ρp hρ
+    obtain ⟨hTag, hVal⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ
+    obtain ⟨hFix, -, -⟩ := hChainFull 0 f₀ hf0 ψ ρp hρ
+    obtain ⟨hX, -⟩ := hXAll 0 f₀ hf0 ψ ρp hρ
+    refine ⟨hTag, hVal, hFix, hX, hLeafTG ψ (fun k => ρp (k + p.toBlock.nP)), ?_⟩
+    intro j cd' hcd' M hM ms hms
+    rw [auxCtorData_getElem?] at hcd'
+    obtain ⟨cd, hcdj, rfl⟩ := Option.map_eq_some_iff.mp hcd'
+    obtain ⟨cA, hcA, hJl, rfl⟩ := hdecG ψ j cd hcdj
+    have hlenDs := (hCD₁ j cA hcA).len ψ
+    have hρJ : Sat V (((dsF j ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp :=
+      ((hframesJ j hJl).1 ψ ρp).mp
+        (hframeAll 0 (memF j) f₀ _ hf0 (hfmGet _ (hmotLt j hJl)) ψ ρp hρ)
+    have hfrJ := (hframesJ j hJl).2 ψ ρp hρJ
+    have hnFJ : nFs j = cA.2 := by
+      show (ctorsA.getD j default).2 = cA.2
+      rw [List.getD_eq_getElem?_getD, hcA]; rfl
+    have hlenEis0 : (eissF₀ j ψ).length = nFs j := by
+      rw [(hident j cA hcA).2.2.2.2.2.1 ψ, (hCD₁ j cA hcA).eissLen ψ, hnFJ]
+    -- the datum's chain entries, positionally
+    have hris : ConLeche.recIdxOf (kindsOf (ksF j)) = recIdx (rssf.getD j []) cA.2 := by
+      rw [mutRss_getD hJl, ← (hksJ j cA hcA).1, ← kindsOf_length, recIdx_rsOf]
+    have htls : tssF j ψ = (tlssf ψ).getD j [] := by
+      show _ = (mutTlss ctorsA.length tssF₀ ψ).getD j []
+      rw [mutTlss_getD hJl]
+      exact ((hident j cA hcA).2.2.2.2.2.2.1 ψ).symm
+    have hEiss : ((List.range cA.2).map fun i =>
+          [tagTupleAV (Wf ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idssf ψ)
+            ((eissF j ψ).getD i [])])
+        = (Eissf ψ).getD j [] := by
+      rw [mutEiss'_getDJ hJl hlenEis0, (hident j cA hcA).2.2.2.2.2.2.1 ψ,
+        (hident j cA hcA).2.2.2.2.2.1 ψ, hnFJ]
+    show WellDenotedV V (consList ms (cons M ρp))
+        (minorAVAtR mp₂.base2 cA.1.name ψ p.toBlock.nP cA.2
+          (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) (1 + j) (dsF j ψ)
+          [tagTupleAV (Wf ψ) (memF j) cA.2 (Idssf ψ) (esF j ψ)]
+          (ConLeche.recIdxOf (kindsOf (ksF j))) (tssF j ψ)
+          ((List.range cA.2).map fun i =>
+            [tagTupleAV (Wf ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idssf ψ)
+              ((eissF j ψ).getD i [])])) ∧
+      interp V (consList ms (cons M ρp))
+        (minorAVAtR mp₂.base2 cA.1.name ψ p.toBlock.nP cA.2
+          (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) (1 + j) (dsF j ψ)
+          [tagTupleAV (Wf ψ) (memF j) cA.2 (Idssf ψ) (esF j ψ)]
+          (ConLeche.recIdxOf (kindsOf (ksF j))) (tssF j ψ)
+          ((List.range cA.2).map fun i =>
+            [tagTupleAV (Wf ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idssf ψ)
+              ((eissF j ψ).getD i [])]))
+        ∈ˢ (univ (if p.toBlock.elimLevel.eval ψ = 0 then 0
+          else Nat.max (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ)) : V)
+    rw [hris, hEiss, htls]
+    have hFok : FieldsOkB (f₀.s.eval ψ) ρp (((dsF j ψ).drop p.toBlock.nP).map (·.2.2)) := by
+      rw [← hsEq _ _ (hfmGet _ (hmotLt j hJl)) ψ]
+      exact hfrJ.1
+    refine minorTag_facts (pwBit_zeronessOf ψ _).symm (hw0G ψ) hms hTag hVal hM hlenDs
+      hFok hfrJ.2.1 (fun fs hfs => ⟨(hfrJ.2.2.2 fs hfs).1,
+        ⟨_, hIdssGet ψ (memF j) (hmotLt j hJl), (hfrJ.2.2.2 fs hfs).2⟩⟩)
+      (fun fs hfs => ?_) (fun fs hfs => ?_) (fun fs hfs i hi => ?_)
+    · have h := hCtorOkG ψ ρp hρ j _ hcdj M ms fs hfs
+      rw [hms] at h
+      exact h
+    · rw [interp_ctorAppAV (o := 1 + j) (by omega) hlenDs (hleafC₂ j cA hcA ψ)
+        (mp₂.base2.cval_closedL _ ψ) (hFssG ψ j hJl) (hFssOkP j cA hcA ψ ρp hρJ).1 hρJ hfs]
+      exact ((hFrameOkG ψ ρp hρ).ctor j _ hcdj fs hfs).2.2
+    · exact hSlotTagG ψ ρp hρ j _ hcdj fs hfs i hi
+  -- **the auxiliary family's chains and the constructors' readings**
+  -- (`auxRecLeafFacts`' `hchains`)
+  have hchainsG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
+      XChainsOk (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) rssf (tlssf ψ)
+          (Eissf ψ) (Fss0f ψ) (Essf ψ) ∧
+      ChainsRealI (fixFamI (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) 1
+          rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp
+          ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ)
+          (Essf ψ) ∧
+      (∀ j, j < ctorsA.length → FieldsOkB (f₀.s.eval ψ) ρp ((FssRf ψ).getD j []) ∧
+        ∀ bs : List V, SpineFit ρp ((FssRf ψ).getD j []) bs →
+          (∀ E ∈ (Essf ψ).getD j [], WellDenoted V (consList bs ρp) E) ∧
+          SpineFit ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2))
+            (idxValsAt ρp ((Essf ψ).getD j []) bs)) := by
+    intro ψ ρp hρ
+    obtain ⟨hTag, hVal⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ
+    obtain ⟨hFix, hReal, -⟩ := hChainFull 0 f₀ hf0 ψ ρp hρ
+    obtain ⟨hX, -⟩ := hXAll 0 f₀ hf0 ψ ρp hρ
+    rw [tagIps_doms]
+    refine ⟨hX, hReal, fun j hj => ?_⟩
+    have hcA := hcAGet j hj
+    have hlenDs := (hCD₁ j _ hcA).len ψ
+    have hρJ : Sat V (((dsF j ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp :=
+      ((hframesJ j hj).1 ψ ρp).mp
+        (hframeAll 0 (memF j) f₀ _ hf0 (hfmGet _ (hmotLt j hj)) ψ ρp hρ)
+    have hfrJ := (hframesJ j hj).2 ψ ρp hρJ
+    have hFssJ : (FssRf ψ).getD j [] = ((dsF j ψ).drop p.toBlock.nP).map (·.2.2) :=
+      mutFss_getD hj
+    have hnFJ : nFs j = (ctorsA.getD j default).2 := rfl
+    have hlenF : (((dsF j ψ).drop p.toBlock.nP).map (·.2.2)).length = (ctorsA.getD j default).2 := by
+      rw [List.length_map, List.length_drop, hlenDs, Nat.add_sub_cancel_left]
+    refine ⟨by rw [hFssJ, ← hsEq _ _ (hfmGet _ (hmotLt j hj)) ψ]; exact hfrJ.1, fun bs hbs => ?_⟩
+    rw [hFssJ] at hbs
+    obtain ⟨hEok, hfit⟩ := hfrJ.2.2.2 bs hbs
+    have hlenbs : bs.length = (ctorsA.getD j default).2 := by rw [hbs.length_eq, hlenF]
+    have hfr : shiftE (ctorsA.getD j default).2 0 (consList bs ρp) = ρp := by
+      rw [← hlenbs]; exact shiftE_consList _ _
+    obtain ⟨hvalT, hokT⟩ := tagTupleAV_facts hTag (hIdssGet ψ (memF j) (hmotLt j hj)) hfr
+      (fun E hE => (hEok E hE).1) hfit
+    rw [hEssD j _ hcA ψ]
+    refine ⟨fun E hE => by rw [List.mem_singleton] at hE; subst hE; exact hokT, ?_⟩
+    show SpineFit ρp (auxIds (Wf ψ) (Idssf ψ))
+      ([tagTupleAV (Wf ψ) (memF j) (ctorsA.getD j default).2 (Idssf ψ) (esF j ψ)].map
+        (interp V (consList bs ρp)))
+    rw [List.map_singleton, hvalT]
+    refine ⟨?_, trivial⟩
+    rw [(tagTyAV_facts hTag).1]
+    exact tagTuple_mem hTag (hIdssGet ψ (memF j) (hmotLt j hj)) hfit
+  -- **the minors' readings** (`auxRecLeafFacts`' `hminorRead`)
+  have hminorReadG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
+      ∀ (j : Nat) (cd : CtorDatumR),
+        (auxCtorData (Wf ψ) (Idssf ψ) memF (fun J => tgtAt (ksF J))
+          (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0))[j]?
+          = some cd →
+      ∀ (M : V) (ms : List V), ms.length = j →
+        interp V (consList ms (cons M ρp))
+            (minorAVAtR mp₂.base2 cd.1 ψ p.toBlock.nP cd.2.1
+              (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) (1 + j) cd.2.2.1 cd.2.2.2.1
+              cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+          = minorSpI (p.toBlock.elimLevel.eval ψ)
+              (fun fs => ihSpL (p.toBlock.elimLevel.eval ψ)
+                (concI (f₀.s.eval ψ) ρp M ((Essf ψ).getD j []) j fs)
+                (ihDomsI (p.toBlock.elimLevel.eval ψ) ρp M rssf (tlssf ψ) (Eissf ψ)
+                  (fun j' => ((FssRf ψ).getD j' []).length) j fs))
+              ((FssRf ψ).getD j []) ρp [] := by
+    intro ψ ρp hρ j cd' hcd' M ms hms
+    rw [auxCtorData_getElem?] at hcd'
+    obtain ⟨cd, hcdj, rfl⟩ := Option.map_eq_some_iff.mp hcd'
+    obtain ⟨cA, hcA, hJl, rfl⟩ := hdecG ψ j cd hcdj
+    have hlenDs := (hCD₁ j cA hcA).len ψ
+    have hρJ : Sat V (((dsF j ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp :=
+      ((hframesJ j hJl).1 ψ ρp).mp
+        (hframeAll 0 (memF j) f₀ _ hf0 (hfmGet _ (hmotLt j hJl)) ψ ρp hρ)
+    have hnFJ : nFs j = cA.2 := by
+      show (ctorsA.getD j default).2 = cA.2
+      rw [List.getD_eq_getElem?_getD, hcA]; rfl
+    have hlenEis0 : (eissF₀ j ψ).length = nFs j := by
+      rw [(hident j cA hcA).2.2.2.2.2.1 ψ, (hCD₁ j cA hcA).eissLen ψ, hnFJ]
+    have hris : ConLeche.recIdxOf (kindsOf (ksF j)) = recIdx (rssf.getD j []) cA.2 := by
+      rw [mutRss_getD hJl, ← (hksJ j cA hcA).1, ← kindsOf_length, recIdx_rsOf]
+    have htls : tssF j ψ = (tlssf ψ).getD j [] := by
+      show _ = (mutTlss ctorsA.length tssF₀ ψ).getD j []
+      rw [mutTlss_getD hJl]
+      exact ((hident j cA hcA).2.2.2.2.2.2.1 ψ).symm
+    have hEiss : ((List.range cA.2).map fun i =>
+          [tagTupleAV (Wf ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idssf ψ)
+            ((eissF j ψ).getD i [])])
+        = (Eissf ψ).getD j [] := by
+      rw [mutEiss'_getDJ hJl hlenEis0, (hident j cA hcA).2.2.2.2.2.2.1 ψ,
+        (hident j cA hcA).2.2.2.2.2.1 ψ, hnFJ]
+    show interp V (consList ms (cons M ρp))
+        (minorAVAtR mp₂.base2 cA.1.name ψ p.toBlock.nP cA.2
+          (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) (1 + j) (dsF j ψ)
+          [tagTupleAV (Wf ψ) (memF j) cA.2 (Idssf ψ) (esF j ψ)]
+          (ConLeche.recIdxOf (kindsOf (ksF j))) (tssF j ψ)
+          ((List.range cA.2).map fun i =>
+            [tagTupleAV (Wf ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idssf ψ)
+              ((eissF j ψ).getD i [])])) = _
+    rw [hris, hEiss, htls, hEssD j cA hcA ψ, mutFss_getD hJl]
+    exact interp_minorAVAtR (ℓ := p.toBlock.elimLevel.eval ψ) (Fss := FssRf ψ) (rss := rssf)
+      (tlss := tlssf ψ) (Eiss := Eissf ψ) (pwBit_zeronessOf ψ _).symm hms hlenDs
+      (hleafC₂ j cA hcA ψ) (mp₂.base2.cval_closedL _ ψ) (hFssG ψ j hJl)
+      (hFssOkP j cA hcA ψ ρp hρJ).1 hρJ
+  -- **the chains' validity** (`auxRecLeafFacts`' `hvFss`)
+  have hvFssG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
+      SumFieldsValid ρp (FssRf ψ) ∧
+      (∀ j, j < ctorsA.length → ∀ bs : List V, SpineFit ρp ((FssRf ψ).getD j []) bs →
+        ∀ E ∈ (Essf ψ).getD j [], AnnotValid V (consList bs ρp) E) ∧
+      (∀ j, j < ctorsA.length → ∀ i ∈ recIdx (rssf.getD j []) ((FssRf ψ).getD j []).length,
+        ∀ fs : List V, SpineFit ρp ((FssRf ψ).getD j []) fs →
+        FieldsValid (consList (fs.take i) ρp) ((((tlssf ψ).getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp)
+          ((((tlssf ψ).getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ ((Eissf ψ).getD j []).getD i [],
+          AnnotValid V (consList bs (consList (fs.take i) ρp)) E) := by
+    intro ψ ρp hρ
+    obtain ⟨hTag, hVal⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ
+    have hρJ : ∀ j, j < ctorsA.length →
+        Sat V (((dsF j ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp := by
+      intro j hj
+      exact ((hframesJ j hj).1 ψ ρp).mp
+        (hframeAll 0 (memF j) f₀ _ hf0 (hfmGet _ (hmotLt j hj)) ψ ρp hρ)
+    refine ⟨?_, fun j hj bs hbs E hE => ?_, fun j hj i hi fs hfs => ?_⟩
+    · by_cases hne : 0 < ctorsA.length
+      · exact (hFssOkP 0 _ (hcAGet 0 hne) ψ ρp (hρJ 0 hne)).2
+      · have h0 : ctorsA.length = 0 := by omega
+        show SumFieldsValid ρp (mutFss p.toBlock.nP ctorsA.length dsF ψ)
+        rw [h0]
+        intro Fs hFs
+        simp only [mutFss, List.range_zero, List.map_nil] at hFs
+        exact nomatch hFs
+    · have hcA := hcAGet j hj
+      have hlenDs := (hCD₁ j _ hcA).len ψ
+      have hfrJ := (hframesJ j hj).2 ψ ρp (hρJ j hj)
+      rw [mutFss_getD hj] at hbs
+      obtain ⟨hEok, hfit⟩ := hfrJ.2.2.2 bs hbs
+      have hlenbs : bs.length = (ctorsA.getD j default).2 := by
+        rw [hbs.length_eq, List.length_map, List.length_drop, hlenDs, Nat.add_sub_cancel_left]
+      have hfr : shiftE (ctorsA.getD j default).2 0 (consList bs ρp) = ρp := by
+        rw [← hlenbs]; exact shiftE_consList _ _
+      rw [hEssD j _ hcA ψ, List.mem_singleton] at hE
+      subst hE
+      exact tagTupleAV_validVC hVal (hIdssGet ψ (memF j) (hmotLt j hj)) hfr
+        (fun E hE => (hEok E hE).2)
+    · have hcA := hcAGet j hj
+      have hlenDs := (hCD₁ j _ hcA).len ψ
+      have hlenFj : ((FssRf ψ).getD j []).length = (ctorsA.getD j default).2 := by
+        rw [mutFss_getD hj, List.length_map, List.length_drop, hlenDs, Nat.add_sub_cancel_left]
+      have hcdj : (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[j]?
+          = some ((ctorsA.getD j default).1.name, (ctorsA.getD j default).2, dsF j ψ, esF j ψ,
+              ConLeche.recIdxOf (kindsOf (ksF j)), eissF j ψ, tssF j ψ) := by
+        rw [fixCtorDataList_getElem?, hcA]
+        simp only [Nat.zero_add, Option.map_some]
+      rw [mutFss_getD hj] at hfs
+      have hslot := hSlotTagG ψ ρp hρ j _ hcdj fs hfs i (by rw [← hlenFj]; exact hi)
+      refine ⟨hslot.2.1, fun bs hbs E hE => ?_⟩
+      obtain ⟨tgt, Es, heq, hrest⟩ := hslot.2.2
+      obtain ⟨hEok, -, -, -⟩ := hrest bs hbs
+      rw [heq, List.mem_singleton] at hE
+      subst hE
+      have hlenBs : bs.length = (((tlssf ψ).getD j []).getD i []).length := by
+        rw [hbs.length_eq, List.length_map]
+      have hilt : i < (ctorsA.getD j default).2 := by
+        have h := (mem_recIdx.mp hi).1
+        rwa [hlenFj] at h
+      have hlenTake : (fs.take i).length = i := by
+        rw [List.length_take, hfs.length_eq, List.length_map, List.length_drop,
+          (hCD₁ j _ hcA).len ψ]
+        omega
+      have hfrT : shiftE (i + (((tlssf ψ).getD j []).getD i []).length) 0
+          (consList bs (consList (fs.take i) ρp)) = ρp := by
+        rw [← consList_append,
+          show i + (((tlssf ψ).getD j []).getD i []).length = (fs.take i ++ bs).length from by
+            rw [List.length_append, hlenTake, hlenBs]]
+        exact shiftE_consList _ _
+      obtain ⟨Ids, hIds⟩ : ∃ Ids, (Idssf ψ)[tgt]? = some Ids := by
+        obtain ⟨-, ⟨Ids, hIds, -⟩, -, -⟩ := hrest bs hbs
+        exact ⟨Ids, hIds⟩
+      exact tagTupleAV_validVC hVal hIds hfrT (fun E hE => (hEok E hE).2)
   -- **the auxiliary recursor's leaf is closed** (`nativeRecAVI_below`
   -- at `auxRecDataAV_below`)
   have hclRG : ∀ ψ : Name → Nat, Term.bvarsBelow 0
@@ -3356,6 +3614,93 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
             omega)]
           rfl] at hE'
         exact nomatch hE'
+  -- **the auxiliary recursor's own facts** (`auxRecLeafFacts`,
+  -- `auxConc_facts`)
+  have hlenP0G : ∀ ψ : Name → Nat, ((ppsF 0 ψ).take p.toBlock.nP).length = p.toBlock.nP := by
+    intro ψ
+    rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega
+  have hclLG : ∀ ψ : Name → Nat, Term.bvarsBelow 0
+      (auxFormerAV (Wf ψ) (f₀.s.eval ψ) ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ)
+        (Eissf ψ) (Fss0f ψ) (Essf ψ)).erase := fun ψ =>
+    auxFormerAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ)) (hlenP0G ψ)
+      (hIdsBelow ψ) (hchainBelow ψ)
+  have hEisLenG : ∀ (ψ : Name → Nat) (j i : Nat),
+      i ∈ recIdx (rssf.getD j []) ((FssRf ψ).getD j []).length →
+      (((Eissf ψ).getD j []).getD i []).length = 1 := by
+    intro ψ j i hi
+    by_cases hj : j < ctorsA.length
+    · have hcA := hcAGet j hj
+      have hlenFj : ((FssRf ψ).getD j []).length = nFs j := by
+        rw [mutFss_getD hj, List.length_map, List.length_drop, (hCD₁ j _ hcA).len ψ,
+          Nat.add_sub_cancel_left]
+      have hilt : i < nFs j := by
+        have h := (mem_recIdx.mp hi).1
+        rwa [hlenFj] at h
+      have hlenEis0 : (eissF₀ j ψ).length = nFs j := by
+        rw [(hident j _ hcA).2.2.2.2.2.1 ψ, (hCD₁ j _ hcA).eissLen ψ]
+      rw [mutEiss'_getD hj hilt hlenEis0]
+      rfl
+    · exfalso
+      have h := (mem_recIdx.mp hi).2
+      rw [show rssf.getD j [] = [] from by
+        show (mutRss ctorsA.length ksF).getD j [] = []
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simp [mutRss]; omega)]
+        rfl] at h
+      simp at h
+  have hppsG : ∀ (ψ : Name → Nat) (ρb : Nat → V),
+      EntriesOk V (auxRecSort (Wf ψ) (Wf ψ) (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ)) ρb
+        (rebit (pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)) ((ppsF 0 ψ).take p.toBlock.nP)) := by
+    intro ψ ρb
+    refine formerParamsOk (hFD₂ 0 f₀ hf0) (fun hs i hi => ?_) ρb
+    have hℓ0 : p.toBlock.elimLevel.eval ψ ≠ 0 := fun h0 =>
+      hs ((auxRecSort_zero_iff _ _ _ _).mpr h0)
+    exact Nat.le_trans (hWge ψ 0 i hk0) (auxRecSort_ge _ _ _ _ hℓ0).1
+  have hauxG : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      WellDenotedV V ρ
+        (auxRecAV mp₂.base2 ψ (p.toBlock.elimLevel.eval ψ) (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
+          (auxRecSort (Wf ψ) (Wf ψ) (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ))
+          p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+          (FssRf ψ) (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
+          (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)) ∧
+      interp V ρ
+          (auxRecAV mp₂.base2 ψ (p.toBlock.elimLevel.eval ψ) (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
+            (auxRecSort (Wf ψ) (Wf ψ) (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ))
+            p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+            (FssRf ψ) (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
+            (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0))
+        ∈ˢ interp V ρ (mkPisAV
+          (auxRecDataAV mp₂.base2 ψ (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP p.toBlock.elimLevel
+            ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ)
+            memF (fun J => tgtAt (ksF J))
+            (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0))
+          (recConcAV ctorsA.length 1)) := by
+    intro ψ
+    exact auxRecLeafFacts rfl rfl (pwBit_zeronessOf ψ _).symm (hw0G ψ)
+      (auxRecSort_zero_iff _ _ _ _)
+      (fun h0 => (auxRecSort_ge _ _ _ _ h0).2.1)
+      (fun h0 => (auxRecSort_ge _ _ _ _ h0).2.2.1)
+      (fun h0 => (auxRecSort_ge _ _ _ _ h0).2.2.2)
+      (hlenP0G ψ) (by rw [auxCtorData_length, fixCtorDataList_length]) mutFss_length mutEss'_length
+      (fun j hj => by rw [hEssD j _ (hcAGet j hj) ψ]; rfl) (hEisLenG ψ) (hIdsBelow ψ)
+      (hslotTagG ψ) (hTbelowG ψ)
+      (auxRecDataAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ)) (hlenP0G ψ)
+        (hIdsBelow ψ) (hchainBelow ψ) (hRawCtor ψ))
+      (hclLG ψ) (hppsG ψ) (hfrmG ψ) (hchainsG ψ) (hminorReadG ψ) (hvFssG ψ)
+  have hauxConcG : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
+      SpineFit ρ ((auxRecDataAV mp₂.base2 ψ (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
+          p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+          (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
+          (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)).map (·.2.2))
+        as →
+      interp V (consList as ρ) (recConcAV ctorsA.length 1)
+        ∈ˢ (univ (p.toBlock.elimLevel.eval ψ) : V) := by
+    intro ψ ρ as hsp
+    exact (auxConc_facts (m := mp₂.base2) (ψ := ψ) (W := Wf ψ) (wB := f₀.s.eval ψ)
+      (Fss := FssRf ψ)
+      (cds := auxCtorData (Wf ψ) (Idssf ψ) memF (fun J => tgtAt (ksF J))
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0))
+      rfl rfl (hlenP0G ψ) (by rw [auxCtorData_length, fixCtorDataList_length])
+      (hclLG ψ) (hfrmG ψ) (hminorReadG ψ) ρ as hsp).2
   -- **the recursor stage's data** (`MutualRecParts`): the chain lists
   -- are the block's CONCRETE spellings, so the datum's derived lists
   -- and the stage's agree by `rfl`
@@ -3527,71 +3872,18 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (by rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega)
         (hIdsBelow ψ) (hchainBelow ψ)
     case hclR => exact hclRG ψ
-    case haux =>
-      -- **BLOCKED** — `auxRecLeafFacts`' `hpps`/`hslotTag` and, through
-      -- `minorTag_facts`, its `hslots`, are `MutualRecPre2.lean`'s
-      -- `EntriesOk`/`AuxSlotTagged`/`SlotTagOk`: plain (non-`@[expose]`)
-      -- `def`s with ELIMINATION-ONLY API, so the stage cannot build
-      -- them.  See the note at the end of this proof.
-      sorry
-    case hauxConc =>
-      -- **BLOCKED** the same way: `auxConc_facts`' `hfrm` is
-      -- `AuxFrameOk`, whose `minors` field only `minorTag_facts`
-      -- produces, and that asks for `SlotTagOk`.
-      sorry
+    case haux => exact hauxG ψ
+    case hauxConc => exact hauxConcG ψ
     case hstore =>
       intro ρ
       have hnq : prts.nIdxs.getD t 0 = prts.nIdxOf t := getD_range_map _ _ _ ht _
       rw [hnq]
       exact (hRDs t ht).okTy ψ ρ
-  -- **WIP (M2.5f)**: `MutualRecParts` and all of its `LeafHyp` but the
-  -- auxiliary recursor's own two facts (`haux`, `hauxConc`) are in;
-  -- the recursor stage (`stageMutualRecs`) and the table stage
-  -- (`stageMutualTables`) are what is left after them.
-  --
-  -- **BLOCKED at `haux`/`hauxConc` — a MODULE-SYSTEM blocker, not a
-  -- statement one.**  `MutualRecPre2.lean`'s
-  --
-  --   `def EntriesOk` (~L1447), `def AuxSlotTagged` (~L418),
-  --   `def SlotTagOk` (~L990)
-  --
-  -- are plain `def`s in a `public section` — their bodies are private
-  -- to that module — and the API beside them is elimination-only
-  -- (`entriesOk_append` needs an `EntriesOk` to start,
-  -- `EntriesOk.fieldsOkB`/`.fieldsValid`/`entriesOk_at`/
-  -- `prefix_of_entriesOk` all consume one; `AuxSlotTagged` is consumed
-  -- by `auxEbelow_of`, `SlotTagOk` by `ihPisTag_facts`).  All three are
-  -- PREMISES this stage has to supply:
-  --
-  --   `auxRecLeafFacts`/`auxFixPre_of`: `hpps : ∀ ρb, EntriesOk V s ρb
-  --     (rebit b pps)` and `hslotTag : AuxSlotTagged W nP Idss tlss Eiss'`;
-  --   `minorTag_facts` (the only producer of `AuxFrameOk.minors`, which
-  --     both `auxRecLeafFacts` and `auxConc_facts` take through `hfrm`):
-  --     `hslots : … → SlotTagOk W wB i ρp fs Idss rss tlss Eiss' Fss₀ Ess' …`.
-  --
-  -- `declMutual` is their FIRST consumer — nothing outside
-  -- `MutualRecPre2.lean` has ever built one — so the missing exposure
-  -- only shows up now.  The fix is in that file (another lane's): mark
-  -- the three `def`s `@[expose]`, or add the three introduction lemmas
-  -- beside them (the honest shapes are
-  -- `entriesOk_of_rows : (∀ k d, ds[k]? = some d → ∀ as, SpineFit ρ
-  --    ((ds.map (·.2.2)).take k) as → WellDenotedV V (consList as ρ) d.2.2
-  --    ∧ (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ univ s)) → EntriesOk V s ρ ds`,
-  -- and the two obvious `⟨…⟩` intros for `AuxSlotTagged`/`SlotTagOk`).
-  --
-  -- With them the rest of `haux` is ordinary work this stage already
-  -- has the pieces for: `hpps` from `FormerData.lvls` + `hWge` +
-  -- `auxRecSort_ge`; `hslotTag` from `mutEiss'_getD`; `AuxFrameOk`'s
-  -- `tag`/`tagValid`/`chains`/`xchains` from `hIdxAll`/`hChainFull`/
-  -- `hXAll` (the `hframes` case above), `former` from
-  -- `auxFormer_hleafT (hclL)`, `minors` from `minorTag_facts` at
-  -- `MutualFrameOkM.ctor`/`.slot` (proved above) — and DESIGN §8.4's
-  -- recorded "mixed-regime chain lemma" gap is NOT one:
-  -- `minorTag_facts`' `hctorOk` goes through `appChainOk_of_mkPisAV'`,
-  -- whose uniform-bit premise is exactly `CtorDataI.bits`
-  -- (`resSort.eval ψ = 0 ↔ d.2.1 = 0` at EVERY binder — a Π-type's
-  -- codomain sort is the `imax` with the constructor's result sort, so
-  -- the CODOMAIN bits are uniform even though the DOMAIN bits mix).
+  -- **WIP (M2.5f)**: `MutualRecParts` and ALL of its `LeafHyp` are in
+  -- (`hyp`); what is left is the recursor stage (`stageMutualRecs`,
+  -- through `mutualRuleOk`, `denoteMeta_mutualRecRhs`,
+  -- `mutualRecRuleLaw` and `ruleFires_of`) and the table stage
+  -- (`stageMutualTables`, `MutualTableOk` at every member).
   sorry
 
 end ConLeche.Model
