@@ -327,7 +327,6 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
 
 /-! ## The member's representation -/
 
-set_option maxHeartbeats 3200000 in
 /-- **A member of a natively installed mutual block is represented**,
 from the facts the block's stages hold at the carrier storing the
 formers, the constructors and the recursors.
@@ -607,5 +606,75 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     refine ⟨rfl, ?_⟩
     have := mkTower_inj (by rw [List.length_append, List.length_append, hlen, hlen']) htow
     exact List.append_cancel_right this
+
+/-! ## The head's obligation, at one recursor's cons -/
+
+/-- **A fresh recursor claims its block**: the clause's head obligation
+from the member's representation at the consed carrier.
+
+At the mutual install this is instantiable only at the STORE: the
+install's `provisionMutualRecs` conses the `k` recursors with
+`rules = []`, and `indRep_rules_nil` says a rule-less entry claims a
+member with no constructors — so `stageMutualRecProvision`'s `hreps`
+is false for every member that has one (the module docstring's second
+obstacle). -/
+theorem mutualIndRepsHead_of {c₀ : ConstantInfo} {cvR : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} (hc₀ : c₀ = .recInfo cvR mI rP rules)
+    {T : Name} (hT : cvR.name = T.str "rec")
+    {m₂ : EnvModel V ⟨c₀ :: env.consts⟩} {cvT : ConstantVal} {caps : IndCaps}
+    {d : IndRepData V} {mm : Nat}
+    (hfT : Env.find? ⟨c₀ :: env.consts⟩ T = some (.indInfo cvT caps))
+    (hrep : IndRep m₂ T cvT cvR mI rP rules d mm) :
+    IndRepsHead env c₀ m₂ := by
+  intro cvR' mI' rP' rules' hc T' hT'
+  rw [hc₀] at hc
+  obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
+  have hTT : T' = T := by
+    have := hT.symm.trans hT'
+    exact (Name.str.inj this).1.symm
+  subst hTT
+  exact Or.inl ⟨cvT, caps, d, mm, hfT, hrep⟩
+
+/-! ## The clause at the group store -/
+
+/-- **The clause at the recursors' group store**: every recursor the
+store finds is the constructors' environment's — its representation is
+the provisioned carrier's, transported across the rule-list swap
+(`IndRep.swap`) — or one of the block's `k`, whose representation the
+caller supplies (`mutualIndRep_of`).
+
+This is `stageMutualRecsStore`'s `hreps` obligation; `IndReps.swap`
+does NOT serve, because its escape for an entry the swap CHANGED is
+`ModeledLeaf` alone, and a natively stored group's `k` recursors are
+exactly the changed entries. -/
+theorem mutualIndReps_of {env₂ : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {rulesOf : List (List (MutualCtor × Expr))} {cvRas : List ConstantVal}
+    {envP : Env} {mP : EnvModel V envP}
+    {m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂)}
+    (hcg : ConLeche.SwapCongr envP
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂))
+    (hac : m₃.acval = mP.acval)
+    (hprefix : IndReps mP)
+    (hin : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c → envP.find? n = some c)
+    (hblock : ∀ x ∈ cvRas.zipIdx, ∀ T : Name, x.1.name = T.str "rec" →
+      ∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+        (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂).find? T
+            = some (.indInfo cvT caps) ∧
+        IndRep m₃ T cvT x.1 (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix
+          (ConLeche.mutualRules env₂.find? x.1.name b.nP
+            (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix x.1.type
+            (rulesOf.getD x.2 [])) d mm) :
+    IndReps m₃ := by
+  intro n cvR mI rP rules hf T hn
+  rcases storeMutualRecs_find?_inv hf with h₂ | ⟨x, hx, hc, hname⟩
+  · -- the constructors' environment's own recursor: the prefix's entry
+    rcases hprefix n cvR mI rP rules (hin _ _ h₂) T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hmod
+    · exact Or.inl ⟨cvT, caps, d, mm,
+        hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h), hd.swap hcg hac⟩
+    · exact Or.inr (hmod.swap hcg hac)
+  · -- one of the block's `k`
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
+    obtain ⟨cvT, caps, d, mm, hfT, hd⟩ := hblock x hx T (by rw [hname]; exact hn)
+    exact Or.inl ⟨cvT, caps, d, mm, hfT, hd⟩
 
 end ConLeche.Model
