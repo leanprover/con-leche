@@ -483,13 +483,23 @@ theorem denoteMeta_mutualRecRhs {m : EnvModel V env} {ψ : Name → Nat} {lps : 
   rw [show nP + formers.length + ctors.length - 1 + nF
       = nP + formers.length + ctors.length + nF - 1 from by omega,
     denoteMeta_mutualRuleBody hfR hop0 hCf hCb hstripC hrecBnd hfrF hlenT
-      (by rw [hlen2]; omega) hlenX hidxT hidx2 hidxX hJn,
+      hlen2 hlenX hidxT hidx2 hidxX hJn,
     Option.map_some] at hinnerR
   rw [hinnerR]
+  -- assembly
+  have hlenLs : ((List.range formers.length).map Lof).length = formers.length := by simp
+  have hmotD : motivesDataGo (fun t => ((List.range formers.length).map Lof).getD t default)
+      (fun t => ((List.range formers.length).map nIdxOf).getD t 0)
+      (fun t => ((List.range formers.length).map ipsOf).getD t []) ψ nP
+      (ConLeche.structElimLevel elim large)
+      (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large))) formers.length 0
+      = motivesDataGo Lof nIdxOf ipsOf ψ nP (ConLeche.structElimLevel elim large)
+        (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large))) formers.length 0 :=
+    motivesDataGo_congr _ _ fun t ht =>
+      ⟨getD_range_map _ _ _ ht _, getD_range_map _ _ _ ht _, getD_range_map _ _ _ ht _⟩
+  simp only [Option.map_some]
   unfold mutualRuleDataAV
-  rw [List.map_append, List.map_append, List.map_append, mkLamsAV_append, mkLamsAV_append,
-    mkLamsAV_append]
-  simp only [List.length_map, List.length_range]
-  rfl
+  rw [hlenLs, hmotD, hpps0, hlenC, List.map_append, List.map_append, List.map_append,
+    mkLamsAV_append, mkLamsAV_append, mkLamsAV_append, rebit_map_lam, rebit_map_lam]
 
 end ConLeche.Model
