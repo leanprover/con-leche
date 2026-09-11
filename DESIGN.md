@@ -68890,6 +68890,54 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   at the aux family: the member's carrier is the aux fixpoint's fibre)
   once `inductives` carries it; merge, then M3.
 
+#### 8.3 M2.2 landed; M2.3's premise strategy (2026-09-11)
+
+* **M2.2 landed** (`94405139`): `motiveAVIL`/`majorAVAtL`/`fixRecDataAVL`
+  over an explicit former leaf `L`, `fixKFrame_ofL`/`fixPre_ofL`/
+  `fixSpine_splitL`/`fixFamAt_ofL`/`interp_majorAVAtL`; the originals
+  are one-line instances; `fixPre_ofL`'s `okΓ` is `WellDenoted`-only
+  (`prefixOk_of_okΓD`) — the proof never used `AnnotValid` there.
+* **The auxiliary data** (`Model/Inductives/MutualRecPre.lean`,
+  `27e97cfe`): `tagIps W Idss = [(W, W, tagTyAV W Idss)]`;
+  `auxFormerAV := nativeTyAVI W w (pps ++ tagIps) (auxIds W Idss) …`
+  (closed — `auxFormerAV_below`; frame-independent — `auxFormer_hleafT`,
+  exactly `fixFamAt_ofL`'s `hleafT`); `auxCtorData` (each `CtorDatumR`
+  with `Es := [tagTupleAV W mem nF Idss Es]`, slot `i` with
+  `[tagTupleAV W (tgts i) (i + tl_i.length) Idss Eis_i]` — `mutualEss`/
+  `mutualEiss` per datum); `auxRecDataAV := fixRecDataAVL m ψ auxFormerAV
+  nP 1 elimL pps (tagIps W Idss) (auxCtorData …)`; `auxMotive_interp`:
+  the auxiliary motive's domain reads `auxMotSp` (the dispatch's target).
+  NAMING: `MutualLeafI`'s `Fss` is the X-CHAINS (`FixPre`'s `Fss₀`);
+  the real chains are `FssR` in the mutual files.
+* **The universe of the auxiliary recursor type** (`FixPre.hRecTy`,
+  `s = 0 ↔ ℓ = 0`): the fixpoint route takes it from the checker's sort
+  inference of the STORED generated type; the auxiliary type is never
+  inferred.  It is assembled semantically by `piR_mem_univ` along the
+  binders — the tag in `univ W`, `aux ⟨i⟩` in `univ w`, the motive and
+  minors' levels computed from `ℓ` and `w`, the conclusion in `univ ℓ`
+  — which needs the PARAMETER domains' levels: not recorded anywhere
+  (`FormerData.okTy` is `WellDenotedV` only; a Π-type's universe
+  membership does not bound its domains — an empty product is in every
+  universe), so `FormerData` gains `lvls ψ` with
+  `interp dom_i ∈ univ (lvls ψ)[i]` under `Sat` of the earlier binders,
+  from the checker's own Π-inference peel (`inferTypeCore_forall_inv`
+  exposes each domain's `whnf … = .sort u_i`; `ClaimsAt.sortRow` reads
+  it).  At `ℓ = 0` every bit is `0` and the type is a truth value (the
+  native stage's own argument).  The mutual regime fact `w = 0 → ℓ = 0`
+  (official: mutual `Prop` blocks eliminate into `Prop` only) makes
+  `hsingle`/`hprop` vacuous.
+* **Delegation map (Opus, concurrent):** M2.2b — motive-offset
+  generalisation of `ihDomAV`/`ihPisAV`/`minorAVAtR`/`fixMinorsData`
+  (native = offset `0`), `mutualRecDataAV`/`mutualConcAV` (k motives),
+  the `denoteMeta` reading of `mutualRecTy`, `interp_minorAVAtRM` at a
+  k-motive frame with `ihDomsIM` (per-field motive); M2.4 — the mutual
+  readings and the aux chain facts + `MkPreS`; M2.3b — closedness,
+  grading/validity/universes of the auxiliary binder data, `auxFixPre_of`
+  (via `fixPre_ofL`), `auxRecLeafFacts` (via `fixRecLeafFacts`); M2.3c —
+  `FormerData.lvls`.  After them: the public leaf `mutualRecAVI m`
+  (mine), the rules (M2.2c: `mutualRecRhs`'s reading, the k-motive
+  `RecRuleLaw` from `nativeRecAVI_iota` + the dispatch's law), M2.5.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
