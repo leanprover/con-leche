@@ -69304,6 +69304,61 @@ leaf's λ-data IS the reading's data by `rfl`; `leaf`/`rds`/`conc`/
   `auxFixPre_of`'s `FixPre`).  Everything else `declMutual` owes is in
   the lane's report.
 
+#### 8.6 M2.5d″ landed: the block's ι law closes (2026-09-11)
+
+`ruleFires_of` proves `MutualRecParts.RuleFires` outright; M2.5d′'s two
+premises are gone.
+
+* **The spine transfer is exported** (`MutualRecTyping.lean`).
+  `mutualAuxSpine_of` is `mutualRecBody_facts`' own `hfitA` step, moved
+  out: at a spine `(p⃗, M⃗, S⃗, ı⃗, t)` fitting member `mm`'s stored binder
+  data, `(p⃗, disp, S⃗, ⟨inj mm ı⃗⟩, t)` fits the AUXILIARY recursor's —
+  motive slot the dispatch (`auxMotive_interp` + `motDispAV_facts`),
+  minor slots by `minor_space_eq` through `spineFit_transfer`, the one
+  auxiliary index slot the tagged tuple, the major slot
+  `interp_majorAVAtK`/`interp_majorAVAtL`.  It is stated at the
+  CALLER's frame `ρ` and parameter VALUES `ps` (the
+  `(fun j => …)`/`range`-map form the body wants is two new kit lemmas
+  away: `paramFrame_shift`, `paramVals_consList`), and its hypotheses
+  are the five component fits `spineFit_append_inv` yields when the
+  public spine is cut along `mutualRecDataAV_doms`, so a caller passes
+  its split verbatim.  `mutualRecBody_facts`' statement and
+  `mutualRecLeafFacts` are unchanged; the body keeps only what it still
+  needs after the spine (the dispatch's law and grading, the tagged
+  tuple's value).  `mutualIhSpine_of` is NEW — the body never sees a
+  constructor's fields: at constructor `J`'s field spine and a
+  recursive slot's telescope spine it gives the slot's three index
+  facts (`MutualFrameOkM.slot`) and the TARGET member's public recursor
+  spine `(p⃗, M⃗, S⃗, e⃗_i(b⃗), f_i b⃗)`, i.e. `mutualRecIotaCore`'s `hih`.
+* **`hfitB` — the fields at the RECURSOR's parameters.**  The two
+  parameter spines are never identified.  The recursor's spine puts the
+  major in the major domain's reading (the auxiliary fibre at
+  `⟨inj t ı⃗⟩`) and `FixPre.hK` AT THE AUXILIARY SPINE presents that
+  fibre as the restricted tagged union at the recursor's parameters
+  (`RecHypCore.hfam`); `sumSet_elim` + `towerSet_elim_teleOfFields` at
+  `rChains 1 1 FssR Ess'` invert it, `inj_inj` and `mkTower`
+  injectivity identify the constructor's tag and fields, and
+  `sumMkAV_fold` gives the major's value at the constructor's own
+  parameter spine.  Exactly `fixRecLawCore`'s graph-regime step; the
+  squash regime is vacuous (`wB ψ = 0 → ℓ ψ = 0`).  So the auxiliary
+  `FixPre` does double duty — it is what makes the fibre inversion
+  available without a separate `ChainsRealI` hypothesis.
+* **`(p.FssR ψ).length = p.n` is DERIVED**, not assumed: `FixPre.hlen`
+  against `fixRecDataAVL_length` at `auxRecDataAV` (both sides count
+  `nP + cds.length + 3`).
+* **What `declMutual` now owes `ruleFires_of`** (beyond `hyp`, the
+  counts and the readings it already owed): `hpre` — the auxiliary
+  `FixPre` at every ψ (`auxFixPre_of`); `hregime` — `wB ψ = 0 →
+  ℓ ψ = 0`; `hAcl` — every member leaf is closed.  **Interface note on
+  `hAcl`**: it is asked for EVERY index `q` because
+  `mutualRecIotaCore`'s `hclR` is unrestricted, while
+  `MutualRecParts.leaf_below` proves it for `q < p.k` only.  The proof
+  uses `Rof` only at `mm` and at the slots' targets, all `< Ls.length`
+  (`htgt`), so restricting `hclR` to `q < Ls.length` in
+  `MutualRecLaw.lean` would let `declMutual` hand over `leaf_below`
+  directly; that file is another lane's, so the wide form stands for
+  now.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
