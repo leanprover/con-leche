@@ -605,6 +605,12 @@ private theorem nodup_ctors_of_blockNames {b : MutualBlock} (h : b.blockNames.No
   unfold MutualBlock.blockNames at h
   exact (List.nodup_append.mp (List.nodup_append.mp h).1).2.1
 
+/-- The block's members have distinct names. -/
+private theorem nodup_members_of_blockNames {b : MutualBlock} (h : b.blockNames.Nodup) :
+    (b.formers.map (·.1.name)).Nodup := by
+  unfold MutualBlock.blockNames MutualBlock.memberNames at h
+  exact (List.nodup_append.mp (List.nodup_append.mp h).1).1
+
 /-- … and so do its recursors. -/
 private theorem nodup_recs_of_blockNames {b : MutualBlock} (h : b.blockNames.Nodup) :
     ((List.range b.k).map b.recName).Nodup := by
@@ -666,17 +672,20 @@ theorem mutualShapeOk_nodup (b : MutualBlock) :
   yields
   all_goals (apply Yields.pure; assumption)
 
-/-- The formers' fold is a fresh chain: each member is checked at the
-index it is pushed onto. -/
-theorem mutualFormersS_push (mode : CheckMode) (nP : Nat) :
-    ∀ (fs : List (ConstantVal × Nat)) {env : Env} {fe : FEnv}, PushChain env fe →
-      Yields (mutualFormersS mode nP fs fe) (fun r => PushChain env r.1)
-  | [], _, _, h => by
-      unfold mutualFormersS
-      exact Yields.pure h
-  | (cv, nIdx) :: fs, env, fe, h => by
-      unfold mutualFormersS
-      ybind
+/-- The formers' checks: every member's name is the declared one and
+is fresh at the block's starting index (the stage checks them ALL
+there — official's `check_inductive_types` runs before
+`declare_inductive_types`). -/
+theorem mutualFormerChecksS_fresh (mode : CheckMode) (nP : Nat) :
+    ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
+      Yields (mutualFormerChecksS mode fe nP fs)
+        (fun fms => fms.map (·.cvTa.name) = fs.map (·.1.name) ∧
+          ∀ f ∈ fms, fe.find? f.cvTa.name = none)
+  | [], _ => by
+      unfold mutualFormerChecksS
+      exact Yields.pure ⟨rfl, fun _ hf => nomatch hf⟩
+  | (cv, nIdx) :: fs, fe => by
+      unfold mutualFormerChecksS
       refine Yields.bind' (checkConstantValF_fresh (sharedOpsC mode fe) fe cv) fun cvTa₀ h₀ => ?_
       obtain ⟨hn₀, hfr⟩ := h₀
       refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
@@ -691,11 +700,42 @@ theorem mutualFormersS_push (mode : CheckMode) (nP : Nat) :
       split
       case isFalse => exact Yields.ofThrowBind
       case isTrue =>
-      refine Yields.bind' (mutualFormersS_push mode nP fs (env := env)
-        (h.push (ci := .indInfo cvTa {})
-          (by show fe.find? cvTa.name = none; rw [hn']; exact hfr))) fun q hq => ?_
-      obtain ⟨fe', fms⟩ := q
-      exact Yields.pure hq
+      refine Yields.bind' (mutualFormerChecksS_fresh mode nP fs (fe := fe)) fun fms hq => ?_
+      refine Yields.pure ⟨by simp [hn', hq.1], fun f hf => ?_⟩
+      rcases List.mem_cons.mp hf with rfl | hf
+      · show fe.find? cvTa.name = none
+        rw [hn']; exact hfr
+      · exact hq.2 f hf
+
+/-- The formers' conses: a fresh chain from the block's starting
+index. -/
+theorem consMutualFormersF_push :
+    ∀ {fms : List MutualFormerA} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (fms.map (·.cvTa.name)) →
+      PushChain env (consMutualFormersF fms fe)
+  | [], _, _, h, _ => h
+  | f :: fs, env, fe, h, hf => by
+    have hfr : fe.find? f.cvTa.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consMutualFormersF_push (fms := fs) (h.push hfr)
+      (FreshNames.step (c := .indInfo f.cvTa {}) hf)
+
+/-- The formers' stage is a fresh chain: the members' names are the
+block's, distinct by the shape guard, and every one of them is fresh
+at the index the whole stage runs at. -/
+theorem mutualFormersS_push (mode : CheckMode) (nP : Nat)
+    (fs : List (ConstantVal × Nat)) {env : Env} {fe : FEnv} (h : PushChain env fe)
+    (hnd : (fs.map (·.1.name)).Nodup) :
+    Yields (mutualFormersS mode nP fs fe) (fun r => PushChain env r.1) := by
+  unfold mutualFormersS
+  ybind
+  refine Yields.bind' (mutualFormerChecksS_fresh mode nP fs (fe := fe)) fun fms hq => ?_
+  refine Yields.pure (consMutualFormersF_push h ⟨by rw [hq.1]; exact hnd, ?_⟩)
+  intro n hn
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+  rw [← h.find?]
+  exact hq.2 f hf
 
 /-- One constructor is checked at the environment it is pushed onto. -/
 theorem checkMutualCtorF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
@@ -856,7 +896,8 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   unfold checkMutualCoreS
   simp only []
   refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_
-  refine Yields.bind' (mutualFormersS_push mode b.nP b.formers h) fun r h₁ => ?_
+  refine Yields.bind' (mutualFormersS_push mode b.nP b.formers h
+    (nodup_members_of_blockNames hnd)) fun r h₁ => ?_
   obtain ⟨fe₁, fms⟩ := r
   simp only [] at h₁ ⊢
   ybind

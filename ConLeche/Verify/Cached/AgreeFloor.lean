@@ -1314,21 +1314,18 @@ private theorem foldl_zipIdx_congr {α β γ : Type} [Inhabited α] [Inhabited �
         rw [he] at hs
         simpa only [List.getD_cons_succ] using hs
 
-/-- The formers' stage: one `.ind` per member, at the declared name,
-and the checked formers carry the declared names and index counts.
-The fold flushes at every member (the next member's operations run at
-the extended index). -/
-theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat) :
-    ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
-      Yields (mutualFormersS mode nP fs fe)
-        (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
-          r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
-  | [], fe, sk, h => by
-      unfold mutualFormersS
-      exact Yields.pure ⟨h, rfl⟩
-  | (cv, nIdx) :: fs, fe, sk, h => by
-      unfold mutualFormersS
-      ybind
+/-- The formers' checks: the checked formers carry the declared names
+and index counts.  The whole stage runs at ONE index, so it pushes
+nothing. -/
+theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) :
+    ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
+      Yields (mutualFormerChecksS mode fe nP fs)
+        (fun fms => fms.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
+  | [], fe => by
+      unfold mutualFormerChecksS
+      exact Yields.pure rfl
+  | (cv, nIdx) :: fs, fe => by
+      unfold mutualFormerChecksS
       refine Yields.bind' (checkConstantValF_name (sharedOpsC mode fe) fe cv) fun cvTa₀ hn₀ => ?_
       refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
         fun r hn => ?_
@@ -1342,13 +1339,51 @@ theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat) :
       split
       case isFalse => exact Yields.ofThrowBind
       case isTrue =>
-      refine Yields.bind'
-        (mutualFormersS_skels mode nP fs (h.push (.indInfo cvTa {}))) fun q hq => ?_
-      obtain ⟨fe', fms⟩ := q
-      obtain ⟨hq₁, hq₂⟩ := hq
-      refine Yields.pure ⟨?_, ?_⟩
-      · simpa [mutualIndSkels, ciSkel, hn'] using hq₁
-      · simp [hn', hq₂]
+      refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+      exact Yields.pure (by simp [hn', hq])
+
+/-- The names a list of checked formers conses, as the skeleton fold
+reads them. -/
+private theorem mutualIndSkels_congr :
+    ∀ {fs gs : List (ConstantVal × Nat)} (sk : List InstallSkel),
+      fs.map (·.1.name) = gs.map (·.1.name) → mutualIndSkels fs sk = mutualIndSkels gs sk
+  | [], [], _, _ => rfl
+  | [], _ :: _, _, h => by simp at h
+  | _ :: _, [], _, h => by simp at h
+  | f :: fs, g :: gs, sk, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    simp only [mutualIndSkels, List.foldl_cons, h.1]
+    exact mutualIndSkels_congr _ h.2
+
+/-- The formers' conses: one `.ind` per member, at the checked name
+(the first member deepest, as `consMutualFormers`). -/
+theorem consMutualFormersF_skels :
+    ∀ {fms : List MutualFormerA} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (consMutualFormersF fms fe)
+        (mutualIndSkels (fms.map (fun f => (f.cvTa, f.nIdx))) sk)
+  | [], _, _, h => h
+  | f :: fs, fe, sk, h => by
+    have hstep := consMutualFormersF_skels (fms := fs)
+      (h.push (.indInfo f.cvTa {}))
+    simpa [consMutualFormersF, mutualIndSkels, ciSkel] using hstep
+
+/-- The formers' stage: one `.ind` per member, at the declared name,
+and the checked formers carry the declared names and index counts.
+The stage flushes once, checks every member at that one index, and
+conses afterwards. -/
+theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
+    (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk) :
+    Yields (mutualFormersS mode nP fs fe)
+      (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
+        r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2))) := by
+  unfold mutualFormersS
+  ybind
+  refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+  refine Yields.pure ⟨?_, hq⟩
+  refine (mutualIndSkels_congr (fs := fms.map (fun f => (f.cvTa, f.nIdx))) sk ?_) ▸
+    consMutualFormersF_skels h
+  have := congrArg (List.map Prod.fst) hq
+  simpa [List.map_map, Function.comp_def] using this
 
 /-- The constructors' normalisation stores a constant of the declared
 name. -/

@@ -795,6 +795,14 @@ theorem checkMutualAllRulesF_eq (envR : Env) (b : MutualBlock)
 
 end MutualMirrors
 
+theorem consMutualFormersF_mkFEnv :
+    ∀ (fms : List MutualFormerA) (env : Env),
+      consMutualFormersF fms (mkFEnv env) = mkFEnv (consMutualFormers fms env)
+  | [], _ => rfl
+  | f :: fs, env => by
+    simp only [consMutualFormersF, consMutualFormers, push_mkFEnv,
+      consMutualFormersF_mkFEnv fs ⟨.indInfo f.cvTa {} :: env.consts⟩]
+
 theorem consMutualCtorsF_mkFEnv (nP : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (env : Env),
       consMutualCtorsF nP cs (mkFEnv env) = mkFEnv (consMutualCtors nP cs env)
@@ -951,34 +959,28 @@ theorem mutualTablesS_run {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
     rw [hp₁]
     exact hp'
 
-/-- The formers' flushing fold at the cached driver: every member is
-checked at the index it is pushed onto, with the memo flushed for
-that environment. -/
-theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
+/-- **The formers' checks at the cached driver**: every member's
+former is checked at the SAME index — the block's starting one — so
+one memo invariant carries the whole stage, and the pure comparand is
+`mutualFormerChecks` at that one environment. -/
+theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
     ∀ (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
-      {r : FEnv × List MutualFormerA} {s' : CState},
-      EnvWF env → CSOKF s₀ →
-      mutualFormersS mode nP l (mkFEnv env) s₀ = .ok (r, s') →
-      CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
-      (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
-      ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2)
-  | [], env, s₀, r, s', henv, hwf, h => by
-    unfold mutualFormersS at h
+      {fms : List MutualFormerA} {s' : CState},
+      EnvWF env → CSOK mode env s₀ →
+      mutualFormerChecksS mode (mkFEnv env) nP l s₀ = .ok (fms, s') →
+      CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
+      ∃ F, mutualFormerChecks (fueledOps mode F) env nP l = .ok fms
+  | [], env, s₀, fms, s', _, hs, h => by
+    unfold mutualFormerChecksS at h
     obtain ⟨hr, rfl⟩ := pureC_ok h
     subst hr
-    exact ⟨hwf, rfl, henv, (fun f hf => nomatch hf), 0, rfl⟩
-  | (cv, nIdx) :: rest, env, s₀, r, s', henv, hwf, h => by
-    unfold mutualFormersS at h
-    -- the flush entering the member's environment
-    obtain ⟨u, s₁, hfl, h⟩ := bindC_ok h
-    rw [flushC_run] at hfl
-    injection hfl with hfl
-    obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
-    -- the constant check and official's telescope
+    exact ⟨hs, (fun f hf => nomatch hf), 0, rfl⟩
+  | (cv, nIdx) :: rest, env, s₀, fms, s', henv, hs, h => by
+    unfold mutualFormerChecksS at h
+    -- the constant check and official's telescope, both at `env`
     rw [checkConstantValF_eq] at h
     obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ok h
-    obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ :=
-      (checkConstantValS_sim hμ henv (flushC_csok hwf)) cvTa₀ s₂ hcv
+    obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
     obtain ⟨rfl, hw₀⟩ := hP₀
     rw [checkSumTeleF_pushC] at h
     obtain ⟨q, s₃, hte, h⟩ := bindC_ok h
@@ -1001,33 +1003,25 @@ theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
       rw [if_neg hb] at h
       exact absurd h throwC_bind_ok
     rw [if_pos hb] at h
-    -- the member's environment
-    have hF₁p : checkConstantVal (fueledOps mode (max F₁ F₂)) env cv = .ok cvTa₀ := by
-      rw [← checkConstantVal_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
     have hF₂p : checkSumTele (fueledOps mode (max F₁ F₂)) env cv (nP + nIdx) cvTa₀
         = .ok (cvTa, sx) := by
       rw [← checkSumTele_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
+    have hF₁p : checkConstantVal (fueledOps mode (max F₁ F₂)) env cv = .ok cvTa₀ := by
+      rw [← checkConstantVal_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
     obtain ⟨cv', hccv'⟩ : ∃ cv',
         checkConstantVal (fueledOps mode (max F₁ F₂)) env cv' = .ok cvTa := by
       rcases checkSumTele_shape hF₂p with ⟨rfl, -⟩ | ⟨ty, hccv⟩
       · exact ⟨cv, hF₁p⟩
       · exact ⟨{ cv with type := ty }, hccv⟩
     have hTf : cvTa.type.hasFvar = false := (checkConstantVal_typeWF hccv').1
-    have henv' : EnvWF ⟨.indInfo cvTa {} :: env.consts⟩ :=
-      envWF_cons_ind henv hccv'
-        (IndCapsWF.of_caps (fun hu => absurd hu (by decide)) (fun he => absurd he (by decide)))
-    rw [push_mkFEnv] at h
+    -- the rest of the stage, at the SAME environment
     obtain ⟨q2, s₄, hrec, h⟩ := bindC_ok h
-    obtain ⟨hwf', hfe', henv'', hall, F₃, hF₃⟩ :=
-      mutualFormersS_run hμ rest ⟨.indInfo cvTa {} :: env.consts⟩ henv' hs₃.residue hrec
-    obtain ⟨feR, fmsR⟩ := q2
-    simp only [] at h
+    obtain ⟨hs₄, hall, F₃, hF₃⟩ := mutualFormerChecksS_run hμ rest env henv hs₃ hrec
     obtain ⟨hr, rfl⟩ := pureC_ok h
     subst hr
-    simp only [] at hwf' hfe' henv'' hall hF₃ ⊢
     obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
       ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
-    refine ⟨hwf', hfe', henv'', ?_, G, ?_⟩
+    refine ⟨hs₄, ?_, G, ?_⟩
     · intro f hf
       rcases List.mem_cons.mp hf with rfl | hf
       · exact hTf
@@ -1036,11 +1030,10 @@ theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
         rw [← checkConstantVal_datF]; exact FueledM.up hle₁ hF₁
       have g₂ : checkSumTele (fueledOps mode G) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, sx) := by
         rw [← checkSumTele_datF]; exact FueledM.up hle₂ hF₂
-      have g₃ : mutualFormers (fueledOps mode G) nP rest ⟨.indInfo cvTa {} :: env.consts⟩
-          = .ok (feR.env, fmsR) := by
-        rw [← mutualFormers_datF]
-        exact FueledM.up hle₃ (by rw [mutualFormers_datF]; exact hF₃)
-      unfold mutualFormers
+      have g₃ : mutualFormerChecks (fueledOps mode G) env nP rest = .ok q2 := by
+        rw [← mutualFormerChecks_datF]
+        exact FueledM.up hle₃ (by rw [mutualFormerChecks_datF]; exact hF₃)
+      unfold mutualFormerChecks
       simp only [Bind.bind, Except.bind, pure, Except.pure]
       rw [g₁]
       simp only [Except.bind]
@@ -1048,6 +1041,32 @@ theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
       simp only [Except.bind, unwrapOr, hst, if_pos hb]
       rw [g₃]
       simp only [pure, Except.pure, Except.bind, if_pos hb]
+
+/-- The formers' stage at the cached driver: ONE flush entering it,
+the checks at that index, the conses after them. -/
+theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat}
+    (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
+    {r : FEnv × List MutualFormerA} {s' : CState}
+    (henv : EnvWF env) (hwf : CSOKF s₀)
+    (h : mutualFormersS mode nP l (mkFEnv env) s₀ = .ok (r, s')) :
+    CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
+    (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
+    ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2) := by
+  unfold mutualFormersS at h
+  obtain ⟨u, s₁, hfl, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl
+  injection hfl with hfl
+  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
+  obtain ⟨fms, s₂, hchk, h⟩ := bindC_ok h
+  obtain ⟨hs₂, hTfs, F, hF⟩ := mutualFormerChecksS_run hμ l env henv (flushC_csok hwf) hchk
+  obtain ⟨hr, rfl⟩ := pureC_ok h
+  subst hr
+  simp only []
+  rw [consMutualFormersF_mkFEnv]
+  refine ⟨hs₂.residue, rfl, ?_, hTfs, F, ?_⟩
+  · exact envWF_consMutualFormers henv (mutualFormerChecks_typeWF hF)
+  · unfold mutualFormers
+    simp only [Bind.bind, Except.bind, pure, Except.pure, hF, mkFEnv_env]
 
 /-- A `getD` is a member or the default. -/
 private theorem getD_mem_or_default {α : Type} [Inhabited α] (l : List α) (i : Nat) :
