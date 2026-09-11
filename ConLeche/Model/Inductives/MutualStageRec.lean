@@ -612,4 +612,175 @@ theorem mutualRecRuleLaw (p : MutualRecParts) {env₀ envE : Env} {m₀ : EnvMod
   exact hlaw
 
 
+/-! ## The provision and the store, as a swap -/
+
+section Swap
+
+variable {b : MutualBlock} {fms : List MutualFormerA}
+  {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env}
+
+/-- The head the provision conses for entry `(cvRa, mIdx)`. -/
+@[expose] def provHead (b : MutualBlock) (fms : List MutualFormerA)
+    (x : ConstantVal × Nat) : ConstantInfo :=
+  .recInfo x.1 (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix []
+
+/-- The head the store conses for entry `(cvRa, mIdx)`. -/
+@[expose] def storeHead (env₂ : Env) (b : MutualBlock) (fms : List MutualFormerA)
+    (rulesOf : List (List (MutualCtor × Expr))) (x : ConstantVal × Nat) : ConstantInfo :=
+  .recInfo x.1 (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix
+    (ConLeche.mutualRules env₂.find? x.1.name b.nP
+      (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix x.1.type (rulesOf.getD x.2 []))
+
+/-- A lookup past a cons whose head carries another name. -/
+theorem find?_cons_of_name_ne {c : ConstantInfo} {env : Env} {n : Name} (h : ¬ c.name = n) :
+    (Env.mk (c :: env.consts)).find? n = env.find? n := by
+  rw [ConLeche.Env.find?_cons, if_neg h]
+
+/-- **The provision and the store are a shape-level swap**: the same
+`k` names, in the same order, on lookup-comparable environments,
+differing only in their rule lists. -/
+theorem swapShList_provision_store :
+    ∀ (l : List (ConstantVal × Nat)) {env env' : Env},
+      ConLeche.SwapShList env.consts env'.consts →
+      ConLeche.SwapShList (ConLeche.provisionMutualRecs b fms l env).consts
+        (ConLeche.storeMutualRecs env₂ b fms rulesOf l env').consts
+  | [], _, _, h => h
+  | (cvRa, mIdx) :: rest, env, env', h => by
+    simp only [ConLeche.provisionMutualRecs, ConLeche.storeMutualRecs]
+    exact swapShList_provision_store rest
+      (ConLeche.SwapShList.cons (Or.inr ⟨cvRa, _, _, _, rfl, rfl⟩) h)
+
+/-- **The swap sits at no reserved basis name**: the only entries the
+store changes are the block's recursors. -/
+theorem swapNResS_provision_store :
+    ∀ (l : List (ConstantVal × Nat)) {env env' : Env},
+      (∀ x ∈ l, ConLeche.reservedBasisNames.contains x.1.name = false) →
+      SwapNResS env env' →
+      SwapNResS (ConLeche.provisionMutualRecs b fms l env)
+        (ConLeche.storeMutualRecs env₂ b fms rulesOf l env')
+  | [], _, _, _, h => h
+  | (cvRa, mIdx) :: rest, env, env', hres, h => by
+    simp only [ConLeche.provisionMutualRecs, ConLeche.storeMutualRecs]
+    refine swapNResS_provision_store rest (fun x hx => hres x (List.mem_cons_of_mem _ hx)) ?_
+    intro n cv mI rP rules h₀ h₃
+    by_cases hn : cvRa.name = n
+    · refine Or.inr ?_
+      show ConLeche.reservedBasisNames.contains n = false
+      rw [← hn]
+      exact hres (cvRa, mIdx) List.mem_cons_self
+    · rw [find?_cons_of_name_ne (c := .recInfo cvRa
+        (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix []) hn] at h₀
+      rw [find?_cons_of_name_ne (c := .recInfo cvRa
+        (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix
+        (ConLeche.mutualRules env₂.find? cvRa.name b.nP
+          (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix cvRa.type
+          (rulesOf.getD mIdx []))) hn] at h₃
+      exact h n cv mI rP rules h₀ h₃
+
+/-- The store's lookups: the base environment's, or one of the `k`
+stored recursors. -/
+theorem storeMutualRecs_find?_inv :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {n : Name} {c : ConstantInfo},
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf l env).find? n = some c →
+      env.find? n = some c ∨ ∃ x ∈ l, c = storeHead env₂ b fms rulesOf x ∧ x.1.name = n
+  | [], _, _, _, h => Or.inl h
+  | (cvRa, mIdx) :: rest, env, n, c, h => by
+    simp only [ConLeche.storeMutualRecs] at h
+    rcases storeMutualRecs_find?_inv h with h' | ⟨x, hx, hc, hn⟩
+    · rw [ConLeche.Env.find?_cons] at h'
+      split at h'
+      · next hname =>
+        exact Or.inr ⟨(cvRa, mIdx), List.mem_cons_self, (Option.some.inj h').symm, hname⟩
+      · exact Or.inl h'
+    · exact Or.inr ⟨x, List.mem_cons_of_mem _ hx, hc, hn⟩
+
+/-- The provision's lookups, at a name none of the `k` recursors
+carries: the base environment's. -/
+theorem provisionMutualRecs_find?_of_ne :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {n : Name},
+      (∀ x ∈ l, n ≠ x.1.name) →
+      (ConLeche.provisionMutualRecs b fms l env).find? n = env.find? n
+  | [], _, _, _ => rfl
+  | (cvRa, mIdx) :: rest, env, n, hne => by
+    simp only [ConLeche.provisionMutualRecs]
+    rw [provisionMutualRecs_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx)),
+      ConLeche.Env.find?_cons,
+      if_neg (fun hh => hne (cvRa, mIdx) List.mem_cons_self hh.symm)]
+
+/-- The provision finds each of its own heads. -/
+theorem provisionMutualRecs_find?_self :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {x : ConstantVal × Nat},
+      x ∈ l → (l.map (·.1.name)).Nodup →
+      (ConLeche.provisionMutualRecs b fms l env).find? x.1.name = some (provHead b fms x)
+  | (cvRa, mIdx) :: rest, env, x, hx, hnd => by
+    simp only [ConLeche.provisionMutualRecs]
+    have hndc : (∀ (y : ConstantVal) (q : Nat), (y, q) ∈ rest → ¬ y.name = cvRa.name) ∧
+        (rest.map (·.1.name)).Nodup := by simpa using hnd
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · rw [provisionMutualRecs_find?_of_ne
+        (fun y hy hh => hndc.1 y.1 y.2 (by simpa using hy) hh.symm)]
+      exact ConLeche.Env.find?_cons_self (provHead b fms (cvRa, mIdx)) env
+    · exact provisionMutualRecs_find?_self hx' hndc.2
+
+/-- **The three remaining syntactic environment facts survive the
+swap** (`swapEnvFacts`'s non-`EnvWF` half, with the `RuleFacts`
+premise replaced by the store's own rule data). -/
+theorem swapFacts_of_shList {env₀ env₃ : Env} {cval : TConstVal}
+    (hsw : ConLeche.SwapShList env₀.consts env₃.consts)
+    (hnres : SwapNResS env₀ env₃)
+    (hctors₀ : ConLeche.RecCtorsStored env₀)
+    (hbp₀ : BasisPinnedTT env₀ cval)
+    (hproj₀ : ProjOkT env₀)
+    (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₃.find? n = some (.recInfo cv mI rP rules) →
+      env₀.find? n = some (.recInfo cv mI rP rules) ∨
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF, env₀.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf env₀.find? r.ctor = true) ∧
+        (r.eta = true → ConLeche.recRuleEtaOf env₀.find? n r.ctor = true)) :
+    ConLeche.RecCtorsStored env₃ ∧ BasisPinnedTT env₃ cval ∧ ProjOkT env₃ := by
+  have hcg : ConLeche.SwapCongr env₀ env₃ := ConLeche.SwapShList.congr hsw
+  have hcorr := ConLeche.swapSh_find?_corr hsw
+  have hsame : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (env₃.find? n = some ci ↔ env₀.find? n = some ci) :=
+    fun n ci hnr => ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
+  have hkeep : ∀ (m : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₀.find? m = some ci → env₃.find? m = some ci :=
+    fun m ci hnr hf => hcg.findUp m ci hf hnr
+  refine ⟨?_, ?_, ?_⟩
+  · -- `RecCtorsStored`
+    intro n cv mI rP rules hf r hr
+    rcases hnew n cv mI rP rules hf with hf₀ | hfacts
+    · obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := hctors₀ n cv mI rP rules hf₀ r hr
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => recRuleKOf_mono hkeep (hk hb),
+        fun hb => recRuleEtaOf_mono hkeep (he hb)⟩
+    · obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := hfacts r hr
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => recRuleKOf_mono hkeep (hk hb),
+        fun hb => recRuleEtaOf_mono hkeep (he hb)⟩
+  · -- `BasisPinnedTT`: a genuinely swapped entry is never reserved
+    intro n ci hf hres
+    have hf₀ : env₀.find? n = some ci := by
+      rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+      · rw [← heq]; exact hf
+      · rcases hnres n cv mI rP rules h₀ h₃ with rfl | hnr
+        · rw [h₃] at hf
+          obtain rfl := Option.some.inj hf
+          exact h₀
+        · rw [hnr] at hres
+          exact nomatch hres
+    exact hbp₀ n ci hf₀ hres
+  · -- `ProjOkT`: projection tables are untouched
+    intro n tbl hf i hi
+    exact ConLeche.TowerHead.mono (fun n' ci hnr hf' => (hsame n' ci hnr).mpr hf')
+      (hproj₀ n tbl ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
+
+end Swap
+
+
 end ConLeche.Model
