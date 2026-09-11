@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.MutualStageRec
+public import ConLeche.Model.Inductives.MutualRuleRead
+public import ConLeche.Verify.ProjSlots
+import ConLeche.Verify.Inductives.FixRec
 public section
 
 /-!
@@ -414,5 +417,199 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
       (hRuleOk ψ) hfitRa (fun h => absurd h hℓ0)
       (fun _ => hiota)
     exact hcore
+
+/-! ## The mutual generated terms carry no new `.proj` node (task #278, M2.5f)
+
+The table stage's `NoProjEnv` bookkeeping asks that no stored piece of
+the block's environment mentions `T.proj j` for a member `T` the table
+is about.  The generated recursor types and rules are built from the
+members' and constructors' own types through the SAME pieces the
+fixpoint route uses (`structFamI`, `structPsAt`, `structCtorSpineAt`,
+`structFieldTeleOf`/`structFieldIdxOf`, `structTeleAt`/`structIdxAt`),
+so these are `Verify/Inductives/FixRec.lean`'s lemmas at `k` motives. -/
+
+section NoProj
+
+variable {T : Name} {i : Nat}
+
+theorem noProjAt_mutualRecPrefixAt (nP k n nF e : Nat) :
+    ∀ a ∈ ConLeche.mutualRecPrefixAt nP k n nF e, Expr.NoProjAt T i a := by
+  intro a ha
+  simp only [ConLeche.mutualRecPrefixAt, List.mem_append, List.mem_map] at ha
+  rcases ha with (ha | ⟨q, -, rfl⟩) | ⟨q, -, rfl⟩
+  · exact ConLeche.Expr.NoProjAt.structPsAt _ _ a ha
+  · simp
+  · simp
+
+theorem noProjAt_mutualIhApp {recOf : Nat → Name} {rlvls : List Level} {pw : PropWhen}
+    {nP k n nF j m' : Nat} {tele : List (Expr × BinderMeta)} {idx : List Expr}
+    (ht : ∀ d ∈ tele, Expr.NoProjAt T i d.1) (hidx : ∀ e ∈ idx, Expr.NoProjAt T i e) :
+    Expr.NoProjAt T i (ConLeche.mutualIhApp recOf rlvls pw nP k n nF j m' tele idx) := by
+  unfold ConLeche.mutualIhApp
+  refine ConLeche.Expr.NoProjAt.mkLamsOf (ConLeche.Expr.NoProjAt.structTeleAt ht) ?_
+  refine ConLeche.Expr.NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+  rcases ha with (ha | ⟨e, he, rfl⟩) | rfl
+  · exact noProjAt_mutualRecPrefixAt _ _ _ _ _ a ha
+  · exact ConLeche.Expr.NoProjAt.structIdxAt (hidx e he)
+  · exact ConLeche.Expr.NoProjAt.mkAppN (by simp) (ConLeche.Expr.NoProjAt.structTeleVars _)
+
+theorem noProjAt_mutualRuleBody {recOf : Nat → Name} {rlvls : List Level} {pw : PropWhen}
+    {nP k n nF J : Nat} {recFields : List (Nat × Nat)}
+    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
+    (ht : ∀ q, ∀ d ∈ teleOf q, Expr.NoProjAt T i d.1)
+    (hidx : ∀ q, ∀ e ∈ idxOf q, Expr.NoProjAt T i e) :
+    Expr.NoProjAt T i
+      (ConLeche.mutualRuleBody recOf rlvls pw nP k n nF J recFields teleOf idxOf) := by
+  unfold ConLeche.mutualRuleBody
+  refine ConLeche.Expr.NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_map] at ha
+  rcases ha with ⟨q, -, rfl⟩ | ⟨q, -, rfl⟩
+  · simp
+  · obtain ⟨qi, qm⟩ := q
+    exact noProjAt_mutualIhApp (ht qi) (hidx qi)
+
+theorem noProjAt_mutualIhPis {nF o : Nat} {pw : PropWhen}
+    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
+    (ht : ∀ q, ∀ d ∈ teleOf q, Expr.NoProjAt T i d.1)
+    (hidx : ∀ q, ∀ e ∈ idxOf q, Expr.NoProjAt T i e) :
+    ∀ {is : List (Nat × Nat)} {l : Nat} {body : Expr}, Expr.NoProjAt T i body →
+      Expr.NoProjAt T i (ConLeche.mutualIhPis nF o pw teleOf idxOf is l body)
+  | [], _, _, hb => hb
+  | (q, m') :: is, l, body, hb => by
+    simp only [ConLeche.mutualIhPis, ConLeche.Expr.noProjAt_forallE]
+    refine ⟨ConLeche.Expr.NoProjAt.mkPisOf (ConLeche.Expr.NoProjAt.structTeleAt (ht q)) ?_,
+      noProjAt_mutualIhPis ht hidx hb⟩
+    refine ConLeche.Expr.NoProjAt.mkAppN (by simp) ?_
+    intro a ha
+    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+    rcases ha with ⟨e, he, rfl⟩ | rfl
+    · exact ConLeche.Expr.NoProjAt.structIdxAt (hidx q e he)
+    · exact ConLeche.Expr.NoProjAt.mkAppN (by simp) (ConLeche.Expr.NoProjAt.structTeleVars _)
+
+theorem noProjAt_mutualMinorTy {lps : List Name} {nP o : Nat} {pw : PropWhen}
+    {c : ConLeche.MutualCtor4} {mty : Expr}
+    (h : ConLeche.mutualMinorTy lps nP o pw c = some mty)
+    (hC : Expr.NoProjAt T i c.cty) : Expr.NoProjAt T i mty := by
+  unfold ConLeche.mutualMinorTy at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨q, hq, r, hr, hm⟩ := h
+  have hcrest : Expr.NoProjAt T i q.2 := ConLeche.Expr.NoProjAt.stripPis nP hq hC
+  refine ConLeche.Expr.NoProjAt.replacePisPw c.nF hm hcrest.liftLooseBVars ?_
+  refine noProjAt_mutualIhPis (fun _ => ConLeche.Expr.NoProjAt.structFieldTeleOf hC)
+    (fun _ => ConLeche.Expr.NoProjAt.structFieldIdxOf hC) ?_
+  refine ConLeche.Expr.NoProjAt.liftLooseBVars ?_
+  refine ConLeche.Expr.NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+  rcases ha with ⟨e, he, rfl⟩ | rfl
+  · exact (ConLeche.Expr.NoProjAt.getAppArgs
+      (ConLeche.Expr.NoProjAt.stripPis c.nF hr hcrest) e
+      (List.mem_of_mem_drop he)).liftLooseBVars
+  · exact ConLeche.Expr.NoProjAt.structCtorSpineAt _ _ _ _ _
+
+theorem noProjAt_mutualMinorsPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ {cs : List ConLeche.MutualCtor4} {o : Nat} {body mins : Expr},
+      ConLeche.mutualMinorsPis lps nP pw cs o body = some mins →
+      (∀ c ∈ cs, Expr.NoProjAt T i c.cty) → Expr.NoProjAt T i body → Expr.NoProjAt T i mins
+  | [], _, body, mins, h, _, hb => by rw [mutualMinorsPis_nil h]; exact hb
+  | c :: cs, o, body, mins, h, hcs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := mutualMinorsPis_cons h
+    rw [ConLeche.Expr.noProjAt_forallE]
+    exact ⟨noProjAt_mutualMinorTy hmty (hcs _ List.mem_cons_self),
+      noProjAt_mutualMinorsPis hrest (fun c' hc' => hcs c' (List.mem_cons_of_mem _ hc')) hb⟩
+
+theorem noProjAt_mutualMinorsLams {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ {cs : List ConLeche.MutualCtor4} {o : Nat} {body mins : Expr},
+      ConLeche.mutualMinorsLams lps nP pw cs o body = some mins →
+      (∀ c ∈ cs, Expr.NoProjAt T i c.cty) → Expr.NoProjAt T i body → Expr.NoProjAt T i mins
+  | [], _, body, mins, h, _, hb => by rw [mutualMinorsLams_nil h]; exact hb
+  | c :: cs, o, body, mins, h, hcs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := mutualMinorsLams_cons h
+    rw [ConLeche.Expr.noProjAt_lam]
+    exact ⟨noProjAt_mutualMinorTy hmty (hcs _ List.mem_cons_self),
+      noProjAt_mutualMinorsLams hrest (fun c' hc' => hcs c' (List.mem_cons_of_mem _ hc')) hb⟩
+
+theorem noProjAt_mutualMotiveTy {lps : List Name} {nP : Nat} {ℓ : Level} {q : Nat}
+    {f : ConLeche.MutualFormer} {mty : Expr}
+    (h : ConLeche.mutualMotiveTy lps nP ℓ q f = some mty)
+    (hT : Expr.NoProjAt T i f.tty) : Expr.NoProjAt T i mty := by
+  unfold ConLeche.mutualMotiveTy at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨r, hr, hm⟩ := h
+  refine ConLeche.Expr.NoProjAt.replacePisPw f.nIdx hm
+    (ConLeche.Expr.NoProjAt.stripPis nP hr hT).liftLooseBVars ?_
+  simp only [ConLeche.Expr.noProjAt_forallE, ConLeche.Expr.noProjAt_sort, and_true]
+  exact ConLeche.Expr.NoProjAt.structFamI _ _ _ _ _ _
+
+theorem noProjAt_mutualMotivesPis {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen} :
+    ∀ {fs : List ConLeche.MutualFormer} {q : Nat} {body mots : Expr},
+      ConLeche.mutualMotivesPis lps nP ℓ pw fs q body = some mots →
+      (∀ f ∈ fs, Expr.NoProjAt T i f.tty) → Expr.NoProjAt T i body → Expr.NoProjAt T i mots
+  | [], _, body, mots, h, _, hb => by rw [mutualMotivesPis_nil h]; exact hb
+  | f :: fs, q, body, mots, h, hfs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := mutualMotivesPis_cons h
+    rw [ConLeche.Expr.noProjAt_forallE]
+    exact ⟨noProjAt_mutualMotiveTy hmty (hfs _ List.mem_cons_self),
+      noProjAt_mutualMotivesPis hrest (fun f' hf' => hfs f' (List.mem_cons_of_mem _ hf')) hb⟩
+
+theorem noProjAt_mutualMotivesLams {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen} :
+    ∀ {fs : List ConLeche.MutualFormer} {q : Nat} {body mots : Expr},
+      ConLeche.mutualMotivesLams lps nP ℓ pw fs q body = some mots →
+      (∀ f ∈ fs, Expr.NoProjAt T i f.tty) → Expr.NoProjAt T i body → Expr.NoProjAt T i mots
+  | [], _, body, mots, h, _, hb => by rw [mutualMotivesLams_nil h]; exact hb
+  | f :: fs, q, body, mots, h, hfs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := mutualMotivesLams_cons h
+    rw [ConLeche.Expr.noProjAt_lam]
+    exact ⟨noProjAt_mutualMotiveTy hmty (hfs _ List.mem_cons_self),
+      noProjAt_mutualMotivesLams hrest (fun f' hf' => hfs f' (List.mem_cons_of_mem _ hf')) hb⟩
+
+/-- **The generated recursor type of a mutual member has no `.proj`
+node** the members' and constructors' types do not have. -/
+theorem noProjAt_mutualRecTy {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List ConLeche.MutualFormer} {ctors : List ConLeche.MutualCtor4} {recTy : Expr}
+    (h : ConLeche.mutualRecTy lps elim large nP formers ctors mm = some recTy)
+    (hT : ∀ f ∈ formers, Expr.NoProjAt T i f.tty)
+    (hC : ∀ c ∈ ctors, Expr.NoProjAt T i c.cty) : Expr.NoProjAt T i recTy := by
+  obtain ⟨f, f₀, tbs, itele, major, minors, motives, hf, hf₀, hs, hmaj, hmin, hmot, hr⟩ :=
+    mutualRecTy_unfold h
+  have hTf : Expr.NoProjAt T i f.tty := hT _ (List.mem_of_getElem? hf)
+  have hTf₀ : Expr.NoProjAt T i f₀.tty := hT _ (List.mem_of_getElem? hf₀)
+  have hI : Expr.NoProjAt T i itele := ConLeche.Expr.NoProjAt.stripPis nP hs hTf
+  refine ConLeche.Expr.NoProjAt.replacePisPw nP hr hTf₀ ?_
+  refine noProjAt_mutualMotivesPis hmot hT ?_
+  refine noProjAt_mutualMinorsPis hmin hC ?_
+  refine ConLeche.Expr.NoProjAt.replacePisPw f.nIdx hmaj hI.liftLooseBVars ?_
+  simp only [ConLeche.Expr.noProjAt_forallE]
+  refine ⟨ConLeche.Expr.NoProjAt.structFamI _ _ _ _ _ _,
+    ConLeche.Expr.NoProjAt.mkAppN (by simp) ?_⟩
+  intro a ha
+  rcases List.mem_append.mp ha with h' | h'
+  · exact ConLeche.Expr.NoProjAt.structPsAt _ _ a h'
+  · rcases List.mem_singleton.mp h' with rfl; simp
+
+/-- **The generated rules of a mutual block have no `.proj` node** the
+members' and constructors' types do not have. -/
+theorem noProjAt_mutualRecRhs {lps : List Name} {elim : Name} {large : Bool} {nP J : Nat}
+    {formers : List ConLeche.MutualFormer} {ctors : List ConLeche.MutualCtor4}
+    {recOf : Nat → Name} {rlvls : List Level} {rhs : Expr}
+    (h : ConLeche.mutualRecRhs lps elim large nP formers ctors recOf rlvls J = some rhs)
+    (hT : ∀ f ∈ formers, Expr.NoProjAt T i f.tty)
+    (hC : ∀ c ∈ ctors, Expr.NoProjAt T i c.cty) : Expr.NoProjAt T i rhs := by
+  obtain ⟨c, f₀, cbs, crest0, inner, minors, motives, hJc, hf0, hsC, hinner, hmin, hmot, hr⟩ :=
+    mutualRecRhs_unfold h
+  have hcty : Expr.NoProjAt T i c.cty := hC _ (List.mem_of_getElem? hJc)
+  have hTf₀ : Expr.NoProjAt T i f₀.tty := hT _ (List.mem_of_getElem? hf0)
+  have hcrest : Expr.NoProjAt T i crest0 := ConLeche.Expr.NoProjAt.stripPis nP hsC hcty
+  have hinnerP : Expr.NoProjAt T i inner :=
+    ConLeche.Expr.NoProjAt.pisToLamsPw c.nF hinner hcrest.liftLooseBVars
+      (noProjAt_mutualRuleBody (fun _ => ConLeche.Expr.NoProjAt.structFieldTeleOf hcty)
+        (fun _ => ConLeche.Expr.NoProjAt.structFieldIdxOf hcty))
+  refine ConLeche.Expr.NoProjAt.pisToLamsPw nP hr hTf₀ ?_
+  exact noProjAt_mutualMotivesLams hmot hT (noProjAt_mutualMinorsLams hmin hC hinnerP)
+
+end NoProj
 
 end ConLeche.Model
