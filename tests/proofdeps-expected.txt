@@ -50,6 +50,7 @@ main_model :: ConLeche.Model.Annot.BitInstall
 main_model :: ConLeche.Model.Annot.BitLemmas
 main_model :: ConLeche.Model.Annot.BitRename
 main_model :: ConLeche.Model.Annot.BitShift
+main_model :: ConLeche.Model.Annot.ConsMono
 main_model :: ConLeche.Model.Annot.EnvModel
 main_model :: ConLeche.Model.Annot.EnvModelM
 main_model :: ConLeche.Model.Annot.Valid
@@ -64,6 +65,7 @@ main_model :: ConLeche.Model.BasisEmpty
 main_model :: ConLeche.Model.BasisEq
 main_model :: ConLeche.Model.BasisFalse
 main_model :: ConLeche.Model.BasisQuot
+main_model :: ConLeche.Model.BasisRep
 main_model :: ConLeche.Model.BasisStep
 main_model :: ConLeche.Model.BasisTypeOk
 main_model :: ConLeche.Model.BitAgree
@@ -114,6 +116,9 @@ main_model :: ConLeche.Model.IndProjKit
 main_model :: ConLeche.Model.IndRecs
 main_model :: ConLeche.Model.IndReduct
 main_model :: ConLeche.Model.IndRename
+main_model :: ConLeche.Model.IndRep
+main_model :: ConLeche.Model.IndRepCons
+main_model :: ConLeche.Model.IndRepSwap
 main_model :: ConLeche.Model.IndRuns
 main_model :: ConLeche.Model.IndStageKit
 main_model :: ConLeche.Model.IndSubst
@@ -123,6 +128,7 @@ main_model :: ConLeche.Model.IndTransport
 main_model :: ConLeche.Model.IndUnitLaw
 main_model :: ConLeche.Model.IndZipField
 main_model :: ConLeche.Model.IndZipper
+main_model :: ConLeche.Model.Inductives.BlockData
 main_model :: ConLeche.Model.Inductives.DeclNative
 main_model :: ConLeche.Model.Inductives.DeclStruct
 main_model :: ConLeche.Model.Inductives.DeclSum
@@ -146,6 +152,7 @@ main_model :: ConLeche.Model.Inductives.FixRecLeaf
 main_model :: ConLeche.Model.Inductives.FixRecPre
 main_model :: ConLeche.Model.Inductives.FixRecRead
 main_model :: ConLeche.Model.Inductives.FixRecReadDefs
+main_model :: ConLeche.Model.Inductives.FixRep
 main_model :: ConLeche.Model.Inductives.FixRuleData
 main_model :: ConLeche.Model.Inductives.FixRuleKit
 main_model :: ConLeche.Model.Inductives.FixRuleOk
