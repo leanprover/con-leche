@@ -415,7 +415,7 @@ theorem auxRecDataAV_below {m : EnvModel V env} {ψ : Name → Nat} {W w nP : Na
 entry of `Eiss'` is a tagged tuple over raw expressions scoped at the
 slot's own frame (`mutualEiss`'s shape, membership-wise, so that the
 out-of-range entries are the empty list). -/
-def AuxSlotTagged (W nP : Nat) (Idss : List (List AnnotTerm))
+@[expose] def AuxSlotTagged (W nP : Nat) (Idss : List (List AnnotTerm))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm))) :
     Prop :=
   ∀ j i, ∀ E ∈ (Eiss'.getD j []).getD i [],
@@ -987,7 +987,7 @@ telescope is graded and valid, its index expression is the ONE tagged
 tuple, whose value at every fitting telescope spine is a tag element,
 and the field applied to the telescope's values lies in the auxiliary
 fibre there. -/
-def SlotTagOk (W w i : Nat) (ρp : Nat → V) (fs : List V) (Idss : List (List AnnotTerm))
+@[expose] def SlotTagOk (W w i : Nat) (ρp : Nat → V) (fs : List V) (Idss : List (List AnnotTerm))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss₀ Ess' : List (List AnnotTerm))
     (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : Prop :=
@@ -1444,7 +1444,7 @@ theorem minorTag_facts {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
 
 /-- The binder data's entries along every fitting walk: graded, valid,
 and (in the graph regime) in the recursor's sort. -/
-def EntriesOk (V : Type w) [SetTheory V] (s : Nat) :
+@[expose] def EntriesOk (V : Type w) [SetTheory V] (s : Nat) :
     (Nat → V) → List (Nat × Nat × AnnotTerm) → Prop
   | _, [] => True
   | ρ, d :: ds => WellDenotedV V ρ d.2.2 ∧ (s ≠ 0 → interp V ρ d.2.2 ∈ˢ (univ s : V)) ∧
