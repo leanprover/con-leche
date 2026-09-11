@@ -68808,6 +68808,88 @@ the fold's arm, the cached bridge (`checkMutualS_run`/`_skels`, Opus,
 in progress) and the run relation/inversions (`DeclMutualRun`, Opus,
 in progress).
 
+#### 8.1 M2.1 SEALED — the motive dispatch (2026-09-11, `926fa9fe`)
+
+The dispatch as built differs from the paragraph above in ONE respect,
+forced by grading: it does NOT bind `x`.  `λ Mv M'⃗ i x, tag.rec … x` is
+not `WellDenoted` for a GENERIC tag motive `Mv : Π (i : tag), Sort ℓ'`
+(the case split's value at `i` is an element of the SET `Mv i`, which
+need not be a function space, so the application to `x` has no Π
+package) — and `WellDenoted` of a λ-tower is hereditary over EVERY
+value of every binder, so the β-redex's tower must be graded
+generically.  The dispatch is therefore the TAG RECURSOR itself,
+`λ Mv (M'_1 … M'_k : Π ı⃗_{m'}, Mv ⟨inj m' ı⃗⟩) (i : tag), caseTag i M'⃗`
+(`dispTowerAV := mkLamsC (dispLevel w ℓ) dispDs dispLamAV`, type
+`Π Mv M'⃗ (i : tag), Mv i` = `mkPisAV dispDs dispResTyAV`), applied to
+`tagMotAV := λ i, Π (x : aux ⟨i⟩), Sort ℓ` and the block's motives
+(`motDispAV`).  Its value at `inj m ⟨ı⃗⟩` is the SET `M_m ı⃗` (a
+function space on the fibre), so it is an element of the auxiliary
+motive space `Π (i : tag) (x : aux i), Sort ℓ` (`auxMotSp`) exactly as
+the aux recursor needs, with the computation law
+`app (app disp (inj m y)) x = app (M_m (projs y)) x`
+(`motDispAV_facts`, `Model/Inductives/MutualDisp.lean`).  The pieces:
+`TagFrameHyp` (a generic K-frame `consList ms (cons Mv ρp)`: motive in
+`tagMotSp`, minors in `tagMinorSp Mv m'`), `tagRecHyp` (its `RecHypI`,
+the sum route's case-split hypotheses), `dispBody_facts`
+(`caseRec_factsI`'s iota and grading at the frame `(i)`),
+`tagMinorTyAV_facts` (the minor types read the minor spaces),
+`dispTower_under` (`UnderTowerOk` by a `range'` walk over the minors),
+`dispTower_facts` (`mkLamsC_mem`/`_wellDenoted`), `minors_spineFit_go`;
+`memberMotSp := tagMinorSp (tagMotV)` with `memberMotSp_eq` the nested
+product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
+`tagTupleAV_facts` restated at ANY frame `shiftE d 0 τ = ρp`.
+
+#### 8.2 M2's remaining breakdown (fixed 2026-09-11)
+
+* **M2.2 — leaf-generic recursor premise** (Opus, mechanical): the
+  fixpoint route's `motiveAVI`/`majorAVAt`/`fixRecDataAV` and
+  `fixKFrame_of`/`fixPre_of` (+ helpers) read the former's leaf as
+  `m.acval T ψ`; they get L-twins over an explicit closed leaf
+  `L : AnnotTerm` (`…L`), the originals their definitional instances,
+  and `fixPre_ofL`'s `okΓ` asks `WellDenoted` only (the proof used just
+  that half).  Nothing outside `Model/Inductives/{SumRecRead,
+  FixRecReadDefs,FixRecKFrame,FixRecPre}` changes.
+* **M2.3 — the auxiliary recursor and the member leaf**: the aux
+  former leaf `auxFormerAV := nativeTyAVI W w pps [tagTyAV] rss tlss
+  Eiss' Fss Ess'` (closed; `hleafT` by `interp_liftN`-style frame
+  independence); the aux binder data `auxRecDataAV := fixRecDataAVL m ψ
+  auxFormerAV nP 1 elimL pps [tagIdx] cds_aux` with `cds_aux` the mutual
+  constructors' data at `Es := [tagTupleAV W m nF Idss e⃗]`,
+  `Eiss := [[tagTupleAV W m'' (i + tele) Idss e⃗_i]]` (= `mutualEss`/
+  `mutualEiss`); `FixPre` for it from `fixPre_ofL` with SEMANTIC
+  premises (no stored aux type): `hframes` from the aux family's
+  `FixChainsOkI`/`XChainsOk`/`ChainsRealI` (M2.4's output) and the
+  minor readings (`interp_minorAVAtR`-style at `Es = [tagTuple]`);
+  `hbelow`/`okΓ`/`hokTy`/`hunivTy` for the SPELLED data (closedness by
+  the spellings' `bvarsBelow` lemmas; grading by the dispatch-style
+  walks; universe placement of the aux minor from the PUBLIC minor's
+  checker typing through a `piTele` congruence — both are `Sort ℓ`-
+  valued at the same telescope).  Then member `m`'s public leaf
+  `mutualRecAVI m := λ p⃗ M⃗ S⃗ ı⃗_m t, nativeRecAVI … p⃗ (motDispAV M⃗) S⃗
+  ⟨inj m ı⃗⟩ t` (a `mkLamsC` over the reading of the STORED `mutualRecTy
+  m`), typed by `mkLamsC_mem` — the aux minor space at `Mot := disp`
+  equals the public minor space by `piTele_congr_fit` + the dispatch's
+  computation law — and its rule law from `nativeRecAVI_iota` + β of
+  `T_{m''}.rec`'s leaf inside the inductive hypotheses.
+* **M2.4 — the mutual readings** (Opus, after M2.3 fixes the data):
+  `MutualCtorDataI` — `FixCtorDataI` with a per-field TARGET member
+  (`recEntry` reads to `mkAppN (m.acval T_{m''} ψ) (params ++ e⃗_i)`),
+  derived from `checkMutualCtor`/`mutualOpenedOk`/`mutualCtorKinds`'s
+  run; the aux chain data (`Fss`, the X-chains `Fss₀`, `Ess'`, `Eiss'`,
+  `rss`, `tlss`) from it, and `FixChainsOkI`/`XChainsOk`/`ChainsRealI`
+  for the aux family (the recursive slot's reading `mutualTyAVI m'' p⃗
+  e⃗` β-reduces to the aux fibre at the tagged tuple — `mutualTyAVI_fold`
+  — which is the X-slot's value at `E = tagTuple`).
+* **M2.5 — stages, `declMutual`, the fold arm** (Opus, after M2.3/M2.4):
+  k former conses with leaf `mutualTyAVI … m`
+  (`declStep_preserves_of_ind_member_cons`), the constructor conses
+  with `sumMkAV W J …` at the GLOBAL position, the recursor conses with
+  `mutualRecAVI m` + `RecRules`, the tables (`FixStageTable`'s shape),
+  `Model/Fold.lean`'s third arm.
+* **M2.6** — the #280 conjunct for the members (from `mutualTyAVI_fold`
+  at the aux family: the member's carrier is the aux fixpoint's fibre)
+  once `inductives` carries it; merge, then M3.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
