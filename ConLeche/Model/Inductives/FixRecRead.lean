@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Verify.Inductives.FixRec
+public import ConLeche.Kernel.Inductives.MutualParts
 public section
 
 /-!
@@ -1042,7 +1043,8 @@ position `l`, instantiated at the recursor's frame, reads to
 `ihDomAV`: the field's telescope moved binderwise (`denoteMeta_ihIdxAtM`
 at each binder), then the motive at the field's index readings and the
 field applied to the telescope's own variables. -/
-theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i : Nat} {pw : PropWhen}
+theorem denoteMeta_ihDomM {m : EnvModel V env} {ψ : Name → Nat} {mot nP nF o l i : Nat}
+    {pw : PropWhen}
     {cty : Expr}
     {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
     (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
@@ -1060,12 +1062,13 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
     denoteMeta m.acval env ψ (nP + o + nF + l)
         (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
           (Expr.mkPisOf (ConLeche.structTeleAt nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i))
-            (Expr.mkAppN (.bvar (nF + o - 1 + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+            (Expr.mkAppN
+              (.bvar (nF + o - 1 + l + (ConLeche.structFieldTeleOf cty nP nF i).length - mot))
               ((ConLeche.structFieldIdxOf cty nP nF i).map
                   (ConLeche.structIdxAt nF o i l (ConLeche.structFieldTeleOf cty nP nF i).length) ++
                 [Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
                   (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)]))))
-      = some (ihDomAV nF o i l (rebit (pwBit ψ pw) tl) Eis) := by
+      = some (ihDomAVM mot nF o i l (rebit (pwBit ψ pw) tl) Eis) := by
   obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
   obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
   have hS : (fvs0.take (nP + i)).length = nP + i := by
@@ -1129,7 +1132,7 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
     rw [hy, denoteMeta_fvar,
       show nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 -
         (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
-  unfold ihDomAV
+  unfold ihDomAVM
   rw [rebit_length, hlenTl]
   refine denoteMeta_instSeq_mkPisOf _ (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl)) _ _ (P ++ X ++ F ++ I)
     (nP + o + nF + l) hlenL hLidx
@@ -1176,9 +1179,11 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
     rw [denoteMeta_mkAppN (hspI.append (.cons hfieldApp .nil)) (hbvarA _ (by omega))]
 
 set_option maxHeartbeats 1600000 in
-/-- **The `ih` binders' `∀`-tower** reads to `ihPisAV`, the body read
-under all of them. -/
-theorem denoteMeta_ihPis {m : EnvModel V env} {ψ : Name → Nat} {nP nF o : Nat} {pw : PropWhen}
+/-- **The `ih` binders' `∀`-tower** reads to `ihPisAVM`, the body read
+under all of them; ih `i` names the motive `moti i` binders above the
+innermost one (task #278). -/
+theorem denoteMeta_ihPisM {m : EnvModel V env} {ψ : Name → Nat} {nP nF o : Nat} {pw : PropWhen}
+    {moti : Nat → Nat}
     {cty : Expr} {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
     {fvs0 : List Expr} {crest : Expr}
     (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
@@ -1200,17 +1205,17 @@ theorem denoteMeta_ihPis {m : EnvModel V env} {ψ : Name → Nat} {nP nF o : Nat
           ∃ ty, x = Expr.fvar (nP + o + nF + k) ty) ∧
         denoteMeta m.acval env ψ (nP + o + nF + l)
             (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
-              (ConLeche.structIhPis nF o pw (ConLeche.structFieldTeleOf cty nP nF)
-                (ConLeche.structFieldIdxOf cty nP nF) is l body))
+              (ConLeche.mutualIhPis nF o pw (ConLeche.structFieldTeleOf cty nP nF)
+                (ConLeche.structFieldIdxOf cty nP nF) (is.map fun i => (i, moti i)) l body))
           = (denoteMeta m.acval env ψ (nP + o + nF + l + is.length)
               (Expr.instSeq (P ++ X ++ F ++ I') (nP + o + nF + l + is.length - 1) body)).map
-              (ihPisAV nF o (pwBit ψ pw) tls Eiss is l) := by
+              (ihPisAVM moti nF o (pwBit ψ pw) tls Eiss is l) := by
   intro is
   induction is with
   | nil =>
     intro l body I _ _ hlenI hidxI
     refine ⟨I, by simp [hlenI], hidxI, ?_⟩
-    simp only [ConLeche.structIhPis, List.length_nil, Nat.add_zero, ihPisAV]
+    simp only [List.map_nil, ConLeche.mutualIhPis, List.length_nil, Nat.add_zero, ihPisAVM]
     cases denoteMeta m.acval env ψ (nP + o + nF + l)
       (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1) body) <;> rfl
   | cons i is ihs =>
@@ -1218,8 +1223,8 @@ theorem denoteMeta_ihPis {m : EnvModel V env} {ψ : Name → Nat} {nP nF o : Nat
     have hiF : i < nF := hlt i List.mem_cons_self
     have hlenL : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
       rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hlenI]
-    have hdom := denoteMeta_ihDom (pw := pw) hop0 hCf hCb hstripC hiF ho (heis i List.mem_cons_self) hP hX hF
-      hlenI hidxP hidxX hidxF hidxI
+    have hdom := denoteMeta_ihDomM (pw := pw) (mot := moti i) hop0 hCf hCb hstripC hiF ho
+      (heis i List.mem_cons_self) hP hX hF hlenI hidxP hidxX hidxF hidxI
     have hann : ∀ (ann rest : Expr) (dd : Nat),
         denoteMeta m.acval env ψ dd
             (rest.instantiate1
@@ -1231,7 +1236,7 @@ theorem denoteMeta_ihPis {m : EnvModel V env} {ψ : Name → Nat} {nP nF o : Nat
       exact denoteMeta_erasedEq (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl rest)
         (show Expr.ErasedEq (Expr.fvar (nP + o + nF + l) ann)
           (Expr.fvar (nP + o + nF + l) (.sort .zero)) from rfl)) dd
-    simp only [ConLeche.structIhPis]
+    simp only [List.map_cons, ConLeche.mutualIhPis]
     rw [Expr.instSeq_forallE (P ++ X ++ F ++ I) (nP + o + nF + l - 1) _ _ _
         (by rw [hlenL]; omega),
       show nP + o + nF + l - 1 + 1 = nP + o + nF + l from by omega,
@@ -1322,6 +1327,53 @@ theorem denoteMeta_instSeq_lift {m : EnvModel V env} {ψ : Name → Nat} {d d' t
   rw [denoteMeta_erasedEq herased d] at hE
   rw [denoteMeta_erasedEq herased d', denoteMeta_lift m.acval_closed hw d' hdd, hE, Option.map_some]
 
+/-! ## The mutual generators, related to the fixpoint route's -/
+
+/-- The fixpoint route's `ih` tower is the mutual one at the single
+motive (task #278). -/
+theorem structIhPis_eq_mutualIhPis (nF o : Nat) (pw : PropWhen)
+    (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) :
+    ∀ (is : List Nat) (l : Nat) (body : Expr),
+      ConLeche.structIhPis nF o pw teleOf idxOf is l body
+        = ConLeche.mutualIhPis nF o pw teleOf idxOf (is.map fun i => (i, 0)) l body
+  | [], _, _ => rfl
+  | i :: is, l, body => by
+    rw [List.map_cons]
+    show Expr.forallE _ (ConLeche.structIhPis nF o pw teleOf idxOf is (l + 1) body) _
+      = Expr.forallE _ (ConLeche.mutualIhPis nF o pw teleOf idxOf (is.map fun i => (i, 0))
+          (l + 1) body) _
+    rw [structIhPis_eq_mutualIhPis nF o pw teleOf idxOf is (l + 1) body, Nat.sub_zero]
+
+/-- The fixpoint route's minor premise is the mutual one at the single
+motive. -/
+theorem structMinorTyR_eq_mutualMinorTy (C : Name) (lps : List Name) (nP nF o : Nat)
+    (pw : PropWhen) (cty : Expr) (recIdx : List Nat) :
+    ConLeche.structMinorTyR C lps nP nF o pw cty recIdx
+      = ConLeche.mutualMinorTy lps nP o pw ⟨C, nF, cty, 0, recIdx.map fun i => (i, 0)⟩ := by
+  unfold ConLeche.structMinorTyR ConLeche.mutualMinorTy
+  simp only [List.length_map, structIhPis_eq_mutualIhPis, Nat.sub_zero]
+
+/-- `mutualMinorTy`, unfolded to its three steps
+(`structMinorTyR_unfold`'s twin). -/
+theorem mutualMinorTy_unfold {lps : List Name} {nP o : Nat} {pw : PropWhen}
+    {c : ConLeche.MutualCtor4} {mty : Expr}
+    (h : ConLeche.mutualMinorTy lps nP o pw c = some mty) :
+    ∃ (cbs fbs : List (Expr × BinderMeta)) (crest0 res : Expr),
+      c.cty.stripPis nP = some (cbs, crest0) ∧
+      crest0.stripPis c.nF = some (fbs, res) ∧
+      Expr.replacePisPw pw c.nF (crest0.liftLooseBVars o 0)
+        (ConLeche.mutualIhPis c.nF o pw (ConLeche.structFieldTeleOf c.cty nP c.nF)
+          (ConLeche.structFieldIdxOf c.cty nP c.nF) c.recFields 0
+          ((Expr.mkAppN (.bvar (c.nF + o - 1 - c.member))
+            ((res.getAppArgs.drop nP).map (Expr.liftLooseBVars o c.nF) ++
+              [ConLeche.structCtorSpineAt c.name lps o nP c.nF])).liftLooseBVars
+            c.recFields.length 0))
+        = some mty := by
+  unfold ConLeche.mutualMinorTy at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨q, hq, r, hr, hmty⟩ := h
+  exact ⟨q.1, r.1, q.2, r.2, hq, hr, hmty⟩
+
 /-! ## The recursive minor premise -/
 
 set_option maxHeartbeats 3200000 in
@@ -1330,14 +1382,16 @@ parameters and the `o` extras, reads to `minorAVAtR`: the sum route's
 reading (`denoteP_minorAt`) with the `ih` binders (`denoteMeta_ihPis`)
 between the fields and the conclusion, which is therefore read one
 frame lower and lifted (`denoteMeta_instSeq_lift`). -/
-theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name} {lps : List Name}
+theorem denoteMeta_minorAtRM {m : EnvModel V env} {ψ : Name → Nat} {T C : Name} {lps : List Name}
+    {mot : Nat} {moti : Nat → Nat}
     {ciT ci : ConstantInfo} (hfT : env.find? T = some ciT)
     (hlpsT : ciT.toConstantVal.levelParams = lps)
     (hfC : env.find? C = some ci) (hlpsC : ci.toConstantVal.levelParams = lps)
     {nP nF nIdx : Nat} {pw : PropWhen} {cty mty : Expr} {extras : List Expr}
     {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
     {tls : List (List (Nat × Nat × AnnotTerm))}
-    (hmin : ConLeche.structMinorTyR C lps nP nF extras.length pw cty recIdx = some mty)
+    (hmin : ConLeche.mutualMinorTy lps nP extras.length pw
+      ⟨C, nF, cty, mot, recIdx.map fun i => (i, moti i)⟩ = some mty)
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hresid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
       cty.stripPis (nP + nF)
@@ -1354,12 +1408,14 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
     {tfvs : List Expr} (hlenT : tfvs.length = nP)
     (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a)
-    (ho : 0 < extras.length)
+    (ho : 0 < extras.length) (hmot : mot < extras.length)
     (hidxE : ∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) :
     denoteMeta m.acval env ψ (nP + extras.length)
         (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty)
-      = some (minorAVAtR m C ψ nP nF (pwBit ψ pw) extras.length ds Es recIdx tls Eiss) := by
-  obtain ⟨cbs, fbs, crest0, res, hsC, hsF, hrep⟩ := ConLeche.structMinorTyR_unfold hmin
+      = some (minorAVAtRM mot moti m C ψ nP nF (pwBit ψ pw) extras.length ds Es recIdx
+          tls Eiss) := by
+  obtain ⟨cbs, fbs, crest0, res, hsC, hsF, hrep⟩ := mutualMinorTy_unfold hmin
+  simp only [List.length_map] at hrep
   obtain ⟨cbs', es, hsAll, hlenes⟩ := hresid
   have hstripC : (cty.stripPis (nP + nF)).isSome = true := by rw [hsAll]; rfl
   have hres : res = Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es) := by
@@ -1410,9 +1466,8 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
   have hminor := denoteMeta_replacePisPw (acval := m.acval) (env := env) (φ := ψ) nF hmin' hopX
     hcreadO hstX
   obtain ⟨hlenX, hidxX, hclX⟩ := opening_vars_at hopX
-  obtain ⟨mfv, hhead⟩ : ∃ mfv, extras[0]? = some mfv := ⟨_, List.getElem?_eq_getElem ho⟩
-  obtain ⟨tyM, rfl⟩ := hidxE 0 mfv hhead
-  rw [Nat.add_zero] at hhead
+  obtain ⟨mfv, hhead⟩ : ∃ mfv, extras[mot]? = some mfv := ⟨_, List.getElem?_eq_getElem hmot⟩
+  obtain ⟨tyM, rfl⟩ := hidxE mot mfv hhead
   -- the frame, as one instantiation sequence
   have hcomb : ∀ Y : Expr,
       Expr.instSeq xFvs (nF - 1)
@@ -1439,10 +1494,10 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
   -- the conclusion, at the field frame
   have hcore : denoteMeta m.acval env ψ (nP + extras.length + nF)
       (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + extras.length + nF - 1)
-        (Expr.mkAppN (.bvar (nF + extras.length - 1))
+        (Expr.mkAppN (.bvar (nF + extras.length - 1 - mot))
           (es.map (Expr.liftLooseBVars extras.length nF) ++
             [ConLeche.structCtorSpineAt C lps extras.length nP nF])))
-      = some (AnnotTerm.mkAppN (.bvar (nF + extras.length - 1))
+      = some (AnnotTerm.mkAppN (.bvar (nF + extras.length - 1 - mot))
           ((Es.map fun E => E.liftN extras.length nF) ++
             [AnnotTerm.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])) := by
@@ -1452,9 +1507,9 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
     have hspine := denoteMeta_famSpine_at (m := m) (ψ := ψ) hfC hlpsC (o := extras.length) hlenT
       hlenX hidxT hidxX
     rw [denoteMeta_mkAppN (hspI.append (.cons hspine .nil)) (by rw [denoteMeta_fvar]),
-      show nP + extras.length + nF - 1 - nP = nF + extras.length - 1 from by omega]
+      show nP + extras.length + nF - 1 - (nP + mot) = nF + extras.length - 1 - mot from by omega]
   -- the conclusion is closed and bounded by the field frame
-  have hcoreF : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
+  have hcoreF : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1 - mot))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
         [ConLeche.structCtorSpineAt C lps extras.length nP nF])).hasFvar = false := by
     refine ConLeche.hasFvar_mkAppN _ _ rfl ?_
@@ -1472,7 +1527,7 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
         rfl
       · obtain ⟨k, -, rfl⟩ := List.mem_map.mp h1
         rfl
-  have hcoreB : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
+  have hcoreB : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1 - mot))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
         [ConLeche.structCtorSpineAt C lps extras.length nP nF])).looseBVarsBounded
       (nP + extras.length + nF) = true := by
@@ -1499,9 +1554,9 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
         omega
   -- the `ih` binders
   obtain ⟨fvs0, crest00, hop0⟩ := openPisAtFvars_of_stripPis_isSome (nP + nF) 0 hstripC
-  obtain ⟨I', hlenI', hidxI', hIH⟩ := denoteMeta_ihPis (m := m) (ψ := ψ) (pw := pw) (Eiss := Eiss)
-    (tls := tls) hop0 hCf hCb hstripC ho hlenT rfl hlenX hidxT hidxE hidxX recIdx 0
-    ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
+  obtain ⟨I', hlenI', hidxI', hIH⟩ := denoteMeta_ihPisM (m := m) (ψ := ψ) (pw := pw) (Eiss := Eiss)
+    (tls := tls) (moti := moti) hop0 hCf hCb hstripC ho hlenT rfl hlenX hidxT hidxE hidxX recIdx 0
+    ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1 - mot))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
         [ConLeche.structCtorSpineAt C lps extras.length nP nF])).liftLooseBVars recIdx.length 0)
     [] hrecBnd (fun i hi => hfr i hi fvs0 crest00 hop0) rfl
@@ -1510,11 +1565,11 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
   -- the conclusion, under the `ih` binders
   have hcoreR : denoteMeta m.acval env ψ (nP + extras.length + nF + recIdx.length)
       (Expr.instSeq (tfvs ++ extras ++ xFvs ++ I') (nP + extras.length + nF + recIdx.length - 1)
-        ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
+        ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1 - mot))
           (es.map (Expr.liftLooseBVars extras.length nF) ++
             [ConLeche.structCtorSpineAt C lps extras.length nP nF])).liftLooseBVars
           recIdx.length 0))
-      = some ((AnnotTerm.mkAppN (.bvar (nF + extras.length - 1))
+      = some ((AnnotTerm.mkAppN (.bvar (nF + extras.length - 1 - mot))
           ((Es.map fun E => E.liftN extras.length nF) ++
             [AnnotTerm.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])).liftN
@@ -1530,6 +1585,41 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
     exact hlift
   rw [hminor, hIH, hcoreR, Option.map_some, Option.map_some]
   rfl
+
+/-- **The recursive minor premise at offset `o`** at the fixpoint
+route's single motive. -/
+theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name} {lps : List Name}
+    {ciT ci : ConstantInfo} (hfT : env.find? T = some ciT)
+    (hlpsT : ciT.toConstantVal.levelParams = lps)
+    (hfC : env.find? C = some ci) (hlpsC : ci.toConstantVal.levelParams = lps)
+    {nP nF nIdx : Nat} {pw : PropWhen} {cty mty : Expr} {extras : List Expr}
+    {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
+    {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hmin : ConLeche.structMinorTyR C lps nP nF extras.length pw cty recIdx = some mty)
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hresid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
+      cty.stripPis (nP + nF)
+        = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es)) ∧
+      es.length = nIdx)
+    {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    (hCread : denoteMeta m.acval env ψ 0 cty
+      = some (mkPisAV ds (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es))))
+    (hlenD : ds.length = nP + nF) (hlenE : Es.length = nIdx)
+    (hrecBnd : ∀ i ∈ recIdx, i < nF)
+    (hfr : ∀ i ∈ recIdx, ∀ (fvs : List Expr) (rest : Expr),
+      openPisAtFvars (nP + nF) cty 0 = some (fvs, rest) →
+      FieldReadAt m ψ nP nF i cty fvs (tls.getD i []) (Eiss.getD i []))
+    {tfvs : List Expr} (hlenT : tfvs.length = nP)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
+    (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a)
+    (ho : 0 < extras.length)
+    (hidxE : ∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) :
+    denoteMeta m.acval env ψ (nP + extras.length)
+        (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty)
+      = some (minorAVAtR m C ψ nP nF (pwBit ψ pw) extras.length ds Es recIdx tls Eiss) :=
+  denoteMeta_minorAtRM (mot := 0) (moti := fun _ => 0) hfT hlpsT hfC hlpsC
+    (by rw [← structMinorTyR_eq_mutualMinorTy]; exact hmin) hCf hCb hresid hCread hlenD hlenE
+    hrecBnd hfr hlenT hidxT hspW ho ho hidxE
 
 /-! ## The minors' telescopes -/
 
@@ -1560,7 +1650,7 @@ theorem denoteMeta_minorsPisR {m : EnvModel V env} {ψ : Name → Nat} {T : Name
     | nil =>
     refine ⟨extras, by simp, hidxE, ?_⟩
     rw [ConLeche.structMinorsPisR_nil hmin]
-    simp only [List.length_nil, Nat.add_zero, fixMinorsData]
+    simp only [List.length_nil, Nat.add_zero, fixMinorsData, fixMinorsDataM]
     cases denoteMeta m.acval env ψ (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) body) <;> rfl
   | (C, nF, cty, recIdx) :: cs, cds, body, mins, extras, hcr, hmin, ho, hidxE => by
@@ -1649,7 +1739,7 @@ theorem denoteMeta_minorsLamsR {m : EnvModel V env} {ψ : Name → Nat} {T : Nam
     | nil =>
     refine ⟨extras, by simp, hidxE, ?_⟩
     rw [ConLeche.structMinorsLamsR_nil hmin]
-    simp only [List.length_nil, Nat.add_zero, fixMinorsData, List.map_nil]
+    simp only [List.length_nil, Nat.add_zero, fixMinorsData, fixMinorsDataM, List.map_nil]
     cases denoteMeta m.acval env ψ (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) body) <;> rfl
   | (C, nF, cty, recIdx) :: cs, cds, body, mins, extras, hcr, hmin, ho, hidxE => by

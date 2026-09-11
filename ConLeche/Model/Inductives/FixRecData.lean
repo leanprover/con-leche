@@ -66,23 +66,39 @@ section Congr
 variable {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂} {ψ : Name → Nat}
   {T : Name} {nP nIdx : Nat}
 
+theorem minorAVAtRM_congr {mot : Nat} {moti : Nat → Nat} {C : Name} {nF b o : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)}
+    {Es : List AnnotTerm} {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
+    {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hC : m₁.acval C ψ = m₂.acval C ψ) :
+    minorAVAtRM mot moti m₁ C ψ nP nF b o ds Es recIdx tls Eiss
+      = minorAVAtRM mot moti m₂ C ψ nP nF b o ds Es recIdx tls Eiss := by
+  unfold minorAVAtRM
+  rw [hC]
+
 theorem minorAVAtR_congr {C : Name} {nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     {Es : List AnnotTerm} {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
     {tls : List (List (Nat × Nat × AnnotTerm))}
     (hC : m₁.acval C ψ = m₂.acval C ψ) :
     minorAVAtR m₁ C ψ nP nF b o ds Es recIdx tls Eiss
-      = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx tls Eiss := by
-  unfold minorAVAtR
-  rw [hC]
+      = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx tls Eiss :=
+  minorAVAtRM_congr hC
 
-theorem fixMinorsData_congr {b : Nat} :
-    ∀ (cds : List CtorDatumR) (o : Nat), (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
-      fixMinorsData m₁ ψ nP b cds o = fixMinorsData m₂ ψ nP b cds o
-  | [], _, _ => rfl
-  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
-    simp only [fixMinorsData]
-    rw [minorAVAtR_congr (h _ List.mem_cons_self),
-      fixMinorsData_congr cs (o + 1) fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
+theorem fixMinorsDataM_congr {b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
+      fixMinorsDataM mots tgts m₁ ψ nP b cds o = fixMinorsDataM mots tgts m₂ ψ nP b cds o
+  | _, _, [], _, _ => rfl
+  | mots, tgts, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
+    simp only [fixMinorsDataM]
+    rw [minorAVAtRM_congr (h _ List.mem_cons_self),
+      fixMinorsDataM_congr (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)
+        fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
+
+theorem fixMinorsData_congr {b : Nat} (cds : List CtorDatumR) (o : Nat)
+    (h : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
+    fixMinorsData m₁ ψ nP b cds o = fixMinorsData m₂ ψ nP b cds o :=
+  fixMinorsDataM_congr _ _ cds o h
 
 theorem fixRuleDataAV_congr {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     {ds : List (Nat × Nat × AnnotTerm)}

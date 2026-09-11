@@ -369,6 +369,28 @@ noncomputable def ihDomsI (ℓ : Nat) (ρp : Nat → V) (M : V) (rss : List (Lis
           SetTheory.app M)
         (as.foldl SetTheory.app (fs.getD i pt))) []
 
+/-- The ih domains at a field spine, at a **per-field motive** (task
+#278: in a mutual block the ih of a field targeting member `m'` is over
+member `m'`'s motive): under the field's telescope (a nested product at
+the elimination level `ℓ`), the field's motive at the field's index
+values at the field applied to the telescope's values. -/
+noncomputable def ihDomsIM (ℓ : Nat) (ρp : Nat → V) (Mot : Nat → V) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (ar : Nat → Nat) (j : Nat) (fs : List V) : List V :=
+  (recIdx (rss.getD j []) (ar j)).map fun i =>
+    piTele ℓ (teleOfFields (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)))
+      (fun as => SetTheory.app
+        ((((Eiss.getD j []).getD i []).map (interp V (consList as (consList (fs.take i) ρp)))).foldl
+          SetTheory.app (Mot i))
+        (as.foldl SetTheory.app (fs.getD i pt))) []
+
+/-- The fixpoint route's single motive is the constant per-field
+motive. -/
+theorem ihDomsI_eq_ihDomsIM (ℓ : Nat) (ρp : Nat → V) (M : V) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (ar : Nat → Nat) (j : Nat) (fs : List V) :
+    ihDomsI ℓ ρp M rss tlss Eiss ar j fs = ihDomsIM ℓ ρp (fun _ => M) rss tlss Eiss ar j fs := rfl
+
 /-- The ih values at a payload: under the field's telescope (a λ-tower
 at the elimination level `ℓ`), the function at the spine and the field
 applied to the telescope's values. -/

@@ -36,6 +36,79 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The minor premise, read -/
 
+/-- The minor's conclusion at a `k`-motive frame (task #278) — motive
+`mot` (the constructor's own member) at the constructor's index
+readings and the constructor at the block's variables — reads to
+`concI` at a fitting field spine over the block (`o` binders: the `k`
+motives and the minors before it). -/
+theorem interp_minorConcAVM {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
+    {mot nP nF w j o : Nat} {ρp : Nat → V} {Ms ms : List V} (hms : ms.length + Ms.length = o)
+    (hmot : mot < Ms.length)
+    {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF) {Es : List AnnotTerm}
+    {Fss : List (List AnnotTerm)}
+    (hleafC : m.acval C ψ = sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hclC : Term.bvarsBelow 0 (m.acval C ψ).erase)
+    (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
+    (hokB : SumFieldsOkB w ρp Fss)
+    (hsatC : Sat V (((ds.take nP).map (·.2.2)).reverse) ρp)
+    {as : List V} (hsp : SpineFit ρp ((ds.drop nP).map (·.2.2)) as) :
+    interp V (consList as (consList ms (consList Ms ρp)))
+        (AnnotTerm.mkAppN (.bvar (nF + o - 1 - mot))
+          ((Es.map fun E => E.liftN o nF) ++
+            [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]))
+      = concI w ρp (Ms.getD mot pt) Es j as := by
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
+  have hsh : shiftE o 0 (consList ms (consList Ms ρp)) = ρp := by
+    rw [← consList_append,
+      show o = (Ms ++ ms).length from by rw [List.length_append]; omega, shiftE_consList]
+  have hMval : consList as (consList ms (consList Ms ρp)) (nF + o - 1 - mot) = Ms.getD mot pt := by
+    rw [show nF + o - 1 - mot = (o - 1 - mot) + as.length from by omega, consList_apply_add,
+      show o - 1 - mot = ms.length + Ms.length - 1 - mot from by omega]
+    exact consList_motive_apply hmot
+  have hσ : ∀ k, consList as (consList ms (consList Ms ρp)) (k + (o + nF)) = ρp k := by
+    intro k
+    rw [show k + (o + nF) = (k + o) + as.length from by omega, consList_apply_add,
+      ← consList_append, show k + o = k + (Ms ++ ms).length from by rw [List.length_append]; omega,
+      consList_apply_add]
+  have hshF : shiftE o nF (consList as (consList ms (consList Ms ρp))) = consList as ρp := by
+    rw [← hlenAs, shiftE_consList_len, hsh]
+  have hleafC' : m.acval C ψ
+      = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
+    rw [hleafC, List.take_append_drop]
+  rw [AnnotTerm.mkAppN_append_one, interp_app, interp_mkAppN, interp_bvar, hMval,
+    ← List.foldl_map (f := interp V (consList as (consList ms (consList Ms ρp))))
+      (g := SetTheory.app),
+    List.map_map]
+  have hidxv : Es.map ((interp V (consList as (consList ms (consList Ms ρp)))) ∘
+      fun E => E.liftN o nF) = idxValsAt ρp Es as := by
+    unfold idxValsAt
+    apply List.map_congr_left
+    intro E _
+    simp only [Function.comp]
+    rw [interp_liftN, hshF]
+  rw [hidxv]
+  unfold concI
+  congr 1
+  rw [interp_mkAppN,
+    ← List.foldl_map (f := interp V (consList as (consList ms (consList Ms ρp))))
+      (g := SetTheory.app),
+    List.map_append, show nP + o + nF = nP + (o + nF) from by omega,
+    map_paramBvarsAt_interp hσ,
+    show fieldBvars nF = (List.range nF).map (fun k => AnnotTerm.bvar (nF - 1 - k)) from rfl,
+    map_fieldBvars_interp hlenAs, interp_closed (V := V) hclC _ (fun k => ρp (k + nP)), hleafC']
+  have hlenP' : ((((ds.take nP).map (·.2.2)))).length = nP := by simp [hlenDs]
+  have hsp₁ := spineFit_of_sat (Δ₀ := []) (Ds := (ds.take nP).map (·.2.2))
+    (by rw [List.append_nil]; exact hsatC)
+  rw [hlenP'] at hsp₁
+  unfold ctorValI
+  rcases Nat.eq_zero_or_pos w with hw0 | hwpos
+  · rw [hw0, sumMkAV_zero, foldl_app_pt_sum, if_pos rfl]
+  · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
+    rw [sumMkAV_fold hw' hsp₁ (by rw [consList_range_reverse]; exact hsp)
+      (by rw [consList_range_reverse]; exact SumFieldsOkB_uChains hokB)
+      (by rw [uChains_getElem?, hFsj]; rfl), if_neg hw']
+
 /-- The minor's conclusion — the motive at the constructor's index
 readings and the constructor at the block's variables — reads to
 `concI` at a fitting field spine over the block (`o` binders: the
@@ -54,55 +127,78 @@ theorem interp_minorConcAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
         (AnnotTerm.mkAppN (.bvar (nF + o - 1))
           ((Es.map fun E => E.liftN o nF) ++
             [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]))
-      = concI w ρp M Es j as := by
+      = concI w ρp M Es j as :=
+  interp_minorConcAVM (Ms := [M]) (mot := 0) hms (by simp) hlenDs hleafC hclC hFsj hokB hsatC hsp
+
+/-- **A recursive minor premise reads to the ih-extended minor space at
+a `k`-motive frame** (task #278): at the frame of the `j` earlier
+minors over the `k` motives over the parameter frame, with the
+conclusion over motive `mot` (the constructor's own member) and ih `i`
+over motive `moti i` (the field's target member). -/
+theorem interp_minorAVAtRM {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
+    {mot : Nat} {moti : Nat → Nat} {nP nF ℓ w b j k : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat → V}
+    {Ms ms : List V} (hlenMs : Ms.length = k)
+    (hlenM : ms.length = j) (hmot : mot < k)
+    {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF)
+    {Es : List AnnotTerm} {Fss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    (hmoti : ∀ i ∈ recIdx (rss.getD j []) nF, moti i < k)
+    (hleafC : m.acval C ψ = sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hclC : Term.bvarsBelow 0 (m.acval C ψ).erase)
+    (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
+    (hokB : SumFieldsOkB w ρp Fss)
+    (hsatC : Sat V (((ds.take nP).map (·.2.2)).reverse) ρp) :
+    interp V (consList ms (consList Ms ρp))
+        (minorAVAtRM mot moti m C ψ nP nF b (k + j) ds Es (recIdx (rss.getD j []) nF)
+          (tlss.getD j []) (Eiss.getD j []))
+      = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp (Ms.getD mot pt) Es j fs)
+          (ihDomsIM ℓ ρp (fun i => Ms.getD (moti i) pt) rss tlss Eiss
+            (fun j' => (Fss.getD j' []).length) j fs))
+        ((ds.drop nP).map (·.2.2)) ρp [] := by
+  have hms : ms.length + Ms.length = k + j := by omega
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
-  have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
-  have hsh : shiftE o 0 (consList ms (cons M ρp)) = ρp := by
-    rw [← hms, shiftE_consList_add ms 1 (cons M ρp), shiftE_succ_cons, shiftE_zero_zero]
-  have hMval : consList as (consList ms (cons M ρp)) (nF + o - 1) = M := by
-    rw [show nF + o - 1 = (o - 1) + as.length from by omega, consList_apply_add,
-      show o - 1 = 0 + ms.length from by omega, consList_apply_add]
-    rfl
-  have hσ : ∀ k, consList as (consList ms (cons M ρp)) (k + (o + nF)) = ρp k := by
-    intro k
-    rw [show k + (o + nF) = (k + o) + as.length from by omega, consList_apply_add,
-      show k + o = (k + 1) + ms.length from by omega, consList_apply_add]
-    rfl
-  have hshF : shiftE o nF (consList as (consList ms (cons M ρp))) = consList as ρp := by
-    rw [← hlenAs, shiftE_consList_len, hsh]
-  have hleafC' : m.acval C ψ
-      = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
-    rw [hleafC, List.take_append_drop]
-  rw [AnnotTerm.mkAppN_append_one, interp_app, interp_mkAppN, interp_bvar, hMval,
-    ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
-    List.map_map]
-  have hidxv : Es.map ((interp V (consList as (consList ms (cons M ρp)))) ∘
-      fun E => E.liftN o nF) = idxValsAt ρp Es as := by
-    unfold idxValsAt
-    apply List.map_congr_left
-    intro E _
-    simp only [Function.comp]
-    rw [interp_liftN, hshF]
-  rw [hidxv]
-  unfold concI
-  congr 1
-  rw [interp_mkAppN,
-    ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
-    List.map_append, show nP + o + nF = nP + (o + nF) from by omega,
-    map_paramBvarsAt_interp hσ,
-    show fieldBvars nF = (List.range nF).map (fun k => AnnotTerm.bvar (nF - 1 - k)) from rfl,
-    map_fieldBvars_interp hlenAs, interp_closed (V := V) hclC _ (fun k => ρp (k + nP)), hleafC']
-  have hlenP' : ((((ds.take nP).map (·.2.2)))).length = nP := by simp [hlenDs]
-  have hsp₁ := spineFit_of_sat (Δ₀ := []) (Ds := (ds.take nP).map (·.2.2))
-    (by rw [List.append_nil]; exact hsatC)
-  rw [hlenP'] at hsp₁
-  unfold ctorValI
-  rcases Nat.eq_zero_or_pos w with hw0 | hwpos
-  · rw [hw0, sumMkAV_zero, foldl_app_pt_sum, if_pos rfl]
-  · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
-    rw [sumMkAV_fold hw' hsp₁ (by rw [consList_range_reverse]; exact hsp)
-      (by rw [consList_range_reverse]; exact SumFieldsOkB_uChains hokB)
-      (by rw [uChains_getElem?, hFsj]; rfl), if_neg hw']
+  have hlenFds : ((ds.drop nP)).length = nF := by simp [hlenDs]
+  have hsh : shiftE (k + j) 0 (consList ms (consList Ms ρp)) = ρp := by
+    rw [← consList_append,
+      show k + j = (Ms ++ ms).length from by rw [List.length_append]; omega, shiftE_consList]
+  have har : (Fss.getD j []).length = nF := by
+    rw [List.getD_eq_getElem?_getD, hFsj, Option.getD_some, hlenFs]
+  unfold minorAVAtRM
+  refine interp_minorSpI_of_tele
+    (by simp only [rebit_length, liftDoms_length, List.length_map]) ?_ ?_ ?_
+  · intro d hd
+    rw [mem_rebit hd]; exact hbz
+  · -- the field domains agree along a fitting chain
+    intro j' as hj' hsp
+    rw [hlenFs] at hj'
+    have hlenAs : as.length = j' := by
+      rw [hsp.length_eq, List.length_take, hlenFs]; omega
+    rw [rebit_getD _ _ _ (by rw [liftDoms_length]; omega)]
+    show interp V (consList as (consList ms (consList Ms ρp)))
+      ((liftDoms (k + j) 0 (ds.drop nP)).getD j' default).2.2 = _
+    obtain ⟨q, hq⟩ : ∃ q, (ds.drop nP)[j']? = some q :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenFds]; exact hj')⟩
+    have hsh' : shiftE (k + j) j' (consList as (consList ms (consList Ms ρp)))
+        = consList as ρp := by
+      rw [← hlenAs, shiftE_consList_len, hsh]
+    rw [List.getD_eq_getElem?_getD, liftDoms_getElem?, hq, Option.map_some, Option.getD_some]
+    show interp V (consList as (consList ms (consList Ms ρp))) (q.2.2.liftN (k + j) (0 + j')) = _
+    rw [interp_liftN, Nat.zero_add, hsh', fields_getD (by rw [hlenFds]; exact hj'),
+      List.getD_eq_getElem?_getD, hq, Option.getD_some]
+  · -- the core: the ih tower over the motives at the index values and
+    -- the constructor leaf's fold
+    intro as hsp
+    have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
+    rw [List.nil_append]
+    unfold ihDomsIM
+    simp only [har]
+    refine interp_ihPisAVM hbz hms hlenAs (recIdx (rss.getD j []) nF) 0 [] _ rfl
+      (fun i hi => (mem_recIdx.mp hi).1) (fun i hi => by rw [hlenMs]; exact hmoti i hi) ?_
+    intro ihs' hl
+    rw [Nat.zero_add] at hl
+    rw [interp_liftN, ← hl, shiftE_consList]
+    exact interp_minorConcAVM (o := k + j) (mot := mot) hms (by omega) hlenDs hleafC hclC hFsj
+      hokB hsatC hsp
 
 /-- **A recursive minor premise reads to the ih-extended minor space**:
 at the frame of the `j` earlier minors over the motive over the
@@ -122,48 +218,9 @@ theorem interp_minorAVAtR {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
           (Eiss.getD j []))
       = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M Es j fs)
           (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
-        ((ds.drop nP).map (·.2.2)) ρp [] := by
-  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
-  have hlenFds : ((ds.drop nP)).length = nF := by simp [hlenDs]
-  have hsh : shiftE (1 + j) 0 (consList ms (cons M ρp)) = ρp := by
-    rw [← hlenM, Nat.add_comm, shiftE_consList_add ms 1 (cons M ρp), shiftE_succ_cons,
-      shiftE_zero_zero]
-  have har : (Fss.getD j []).length = nF := by
-    rw [List.getD_eq_getElem?_getD, hFsj, Option.getD_some, hlenFs]
-  unfold minorAVAtR
-  refine interp_minorSpI_of_tele
-    (by simp only [rebit_length, liftDoms_length, List.length_map]) ?_ ?_ ?_
-  · intro d hd
-    rw [mem_rebit hd]; exact hbz
-  · -- the field domains agree along a fitting chain
-    intro j' as hj' hsp
-    rw [hlenFs] at hj'
-    have hlenAs : as.length = j' := by
-      rw [hsp.length_eq, List.length_take, hlenFs]; omega
-    rw [rebit_getD _ _ _ (by rw [liftDoms_length]; omega)]
-    show interp V (consList as (consList ms (cons M ρp)))
-      ((liftDoms (1 + j) 0 (ds.drop nP)).getD j' default).2.2 = _
-    obtain ⟨q, hq⟩ : ∃ q, (ds.drop nP)[j']? = some q :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hlenFds]; exact hj')⟩
-    have hsh' : shiftE (1 + j) j' (consList as (consList ms (cons M ρp))) = consList as ρp := by
-      rw [← hlenAs, shiftE_consList_len, hsh]
-    rw [List.getD_eq_getElem?_getD, liftDoms_getElem?, hq, Option.map_some, Option.getD_some]
-    show interp V (consList as (consList ms (cons M ρp))) (q.2.2.liftN (1 + j) (0 + j')) = _
-    rw [interp_liftN, Nat.zero_add, hsh', fields_getD (by rw [hlenFds]; exact hj'),
-      List.getD_eq_getElem?_getD, hq, Option.getD_some]
-  · -- the core: the ih tower over the motive at the index values and
-    -- the constructor leaf's fold
-    intro as hsp
-    have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
-    rw [List.nil_append]
-    unfold ihDomsI
-    simp only [har]
-    refine interp_ihPisAV hbz (by omega) hlenAs (recIdx (rss.getD j []) nF) 0 [] _ rfl
-      (fun i hi => (mem_recIdx.mp hi).1) ?_
-    intro ihs' hl
-    rw [Nat.zero_add] at hl
-    rw [interp_liftN, ← hl, shiftE_consList]
-    exact interp_minorConcAV (o := 1 + j) (by omega) hlenDs hleafC hclC hFsj hokB hsatC hsp
+        ((ds.drop nP).map (·.2.2)) ρp [] :=
+  interp_minorAVAtRM (Ms := [M]) (mot := 0) (moti := fun _ => 0) (k := 1) hbz (by simp) hlenM
+    (by omega) hlenDs (fun _ _ => by omega) hleafC hclC hFsj hokB hsatC
 
 /-! ## The family at an index spine -/
 
