@@ -68617,13 +68617,17 @@ moves.  The maintainer decides; not implemented in stage 1.
 
 ### 11. STAGE 2 — the proof, the promotion, the gates (2026-09-11)
 
-**The premise adopted** (`684bba8a`, the maintainer: "ok, that seems
-like a good start"): `pi`/`lam` read their bodies on the domain and
-carry `hP`; `Denotes_functional` re-proved with `piR_congr`/`lamR_congr`
-(one `obtain rfl` and one congruence per binder case).  Master merged
-(`0de392ec`): task #281 had landed `tests/challenge.sh` — the same rot
-§7 found, gated — and a one-line import fix in `Challenge.lean`; the
-gate is kept, the file is this task's.
+**The premise adopted** (the maintainer: "ok, that seems like a good
+start"): `pi`/`lam` read their bodies on the domain and carry `hP`;
+`Denotes_functional` re-proved with `piR_congr`/`lamR_congr` (one
+`obtain rfl` and one congruence per binder case).  Task #281 had
+landed `tests/challenge.sh` — the same rot §7 found, gated — and a
+one-line import fix in `Challenge.lean`; the gate is kept, the file is
+this task's.  (The branch was first merged with a master that was then
+rewritten by the maintainer — the nested-inductives design record was
+withdrawn — and REBUILT as thirteen linear cherry-picks on the new
+master `2cf6e025`; the earlier commit ids quoted in §9–§10 name the
+pre-rebase commits, whose content is unchanged.)
 
 **The proof**, two files, 467 lines, no invariant or checker change:
 
