@@ -468,7 +468,7 @@ theorem extendPUnit (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT punitA.name ψ
           = some (Term.const .punit [ψ uN]) from rfl] at hp
@@ -504,7 +504,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT punitUnitA.name ψ
           = some (Term.const .punitUnit [ψ uN]) from rfl] at hp
@@ -541,7 +541,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT punitRecA.name ψ
           = some (Term.const .punitRec [ψ uN, ψ u1N]) from rfl] at hp
@@ -877,7 +877,7 @@ theorem extendNat (mp : EnvModelM V μ env)
     (A := fun _ => AnnotTerm.const .nat []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natA.name ψ
           = some (Term.const .nat []) from rfl] at hp
@@ -916,7 +916,7 @@ theorem extendNatZero (mp : EnvModelM V μ env)
     (A := fun _ => AnnotTerm.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natZeroA.name ψ
           = some (Term.const .natZero []) from rfl] at hp
@@ -957,7 +957,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natSuccA.name ψ
           = some (Term.const .natSucc []) from rfl] at hp
@@ -1856,7 +1856,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natRecA.name ψ
           = some (Term.const .natRec [ψ uN]) from rfl] at hp

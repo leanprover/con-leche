@@ -68732,3 +68732,126 @@ already read "`ConLeche.no_proof_of_False` is its corollary" and needed
 nothing.  The unrelated "headline count/number" of export records
 (`Main.lean`, `ConLeche/Frontend/ExportC.lean`) and
 `Model/IndProjCaps.lean`'s "the headline is" stay as they are.
+
+## TASK #283 — `Model` PINS `Eq` TO SET EQUALITY (2026-09-11, `agent/eqpin-283`)
+
+The maintainer: "why don't we pin `Eq` like we pin `False` in `Model`,
+to drive down that point?"  The point is the one §2.3 of #277 and the
+`Model` docstring both make in prose: a theorem `a = b` the checker
+accepts makes `⟦a⟧ = ⟦b⟧` in the model, so a definitional equality — a
+definition's unfolding, an iota rule, η — is covered by the main
+theorem as soon as a reader states it as a `rfl` theorem.  Until now
+that argument rested on a constant the *statement did not mention*:
+`Model` had no clause about `Eq`, so "and `Eq` denotes set equality"
+was a promise about the proof tier, not a consequence of the theorem.
+This task makes it a field.
+
+### 1. The field
+
+`ConLeche/Denotes.lean`, fourth field of `structure Model`, stated the
+way `false_empty` is — of whatever the stored `Eq` denotes, hence
+vacuous on an environment that stores nothing:
+
+```lean
+  eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+    Denotes cval env φ ρ (.const eqName [u]) E →
+    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+    app (app (app E A) a) b = eqv a b
+```
+
+The application order is `Eq : {α : Sort u} → α → α → Prop`'s: the
+type, then the two sides.
+
+**The three membership premises are the graph's own domains, and none
+is droppable.**  `Eq`'s pinned leaf (`eqValAV`, `ConLeche/Model/EqTower.lean`)
+is the three-fold *graph* `lamR 1 (univ (ψ u)) fun A => lamR 1 A fun a
+=> lamR 1 A fun b => eqv a b`, and `SetTheory.app` of a graph at a
+point outside its domain is not the body's value — `eqValAV_app₃` is
+three `app_lamR_pos` steps, one per binder, each consuming exactly one
+of the three memberships.  A premise-free statement would therefore be
+FALSE, not merely unprovable: it would claim something about
+`app … A a b` at an `A` the graph never sees.  The
+assignment the graph's outer domain is taken at is
+`Level.substFn φ eqA.levelParams [u]`, and `eqA`'s parameter list is
+the single `` `u ``, so that assignment sends `` `u `` to
+`Level.eval φ u` — which is why the first premise is spelled
+`A ∈ˢ univ (Level.eval φ u)` and the statement needs no `eqA`.
+
+### 2. The discharge, and the one invariant premise that had to go
+
+`Model.ofEnvModelM` (`ConLeche/Model/Denotes.lean`) discharges the
+field from `EnvModelM.eq_law` (`Model/Annot/EnvModelM.lean`), whose
+*value* clause is literally the three-fold application above at
+`interp V ρ (acval eqName ψ)`; `interp_cvalOf` moves that to the
+statement's `cvalOf` leaf, exactly as `false_empty` moves
+`EnvModel.cvalE_pinned`'s.  Fifteen lines.
+
+**The one thing that did not fit.**  `false_empty` needs nothing about
+*which* declaration sits at `falseName`, because `pinnedStructT`'s
+valuation clause is unconditional on the stored info — `cvalE_pinned`
+asks only that something is stored.  `Eq` has no `pinnedStructT` entry
+(the layer carries no `BConst` for it, #161 ENDGAME D §4), so its
+value fact is the environment law `eq_law`, and that law is premised
+on `env.find? eqName = some eqA`.  The `Denotes` hypothesis gives only
+`env.find? eqName = some ci`, and the bridge from one to the other —
+`BasisPinnedTT`'s declaration clause — carried a premise
+`ConstantInfo.isBasis ci = true`.
+
+That premise is now **gone** (`ConLeche/Verify/Denote/Pinned.lean`):
+the clause reads `ci = pinnedInfo n`.  It cost nothing to remove.
+Every establishment site already proved the stronger form and threw it
+away: all nineteen `ConsHead.ofBasis` applications passed
+`(fun _ => rfl)` — the head *is* `pinnedInfo` of its own name — and a
+non-reserved cons (`ConsHead.ofFresh`, `TowerCons`) makes the whole
+conjunction vacuous through `hnres`.  The two consumers
+(`unitLike_eq_punit`, `ConLeche/Verify/PinnedShapes.lean`) lost an
+argument.  Nothing else moved: no checker code, no other invariant
+field, no model construction.  The rule the episode illustrates is the
+house one about premises that no site needs: an invariant premise that
+every supplier discharges by `rfl` is not a weakening you are being
+paid for, it is a wall the *statement* tier eventually runs into.
+
+### 3. What the field buys, end to end
+
+A stored theorem `h : @Eq.{u} A a b` is a constant whose type denotes
+`app (app (app ⟦Eq.{u}⟧ ⟦A⟧) ⟦a⟧) ⟦b⟧`; `mem` puts `cval h φ` inside
+it; `eq_equality` says that set is `eqv ⟦a⟧ ⟦b⟧`; and a truth value
+with a member is `{pt}`, so `⟦a⟧ = ⟦b⟧` (`SetTheory.mem_eqv`).  So
+`rfl`-stated delta, iota and η equations are true in the model —
+*from the main theorem alone*, with no appeal to the proof tier.  The
+`Model` docstring, `ConLeche/Challenge.lean`'s summary and OVERVIEW §1
+now say this by pointing at the field instead of arguing it.
+
+### 4. Gates
+
+The tree at the READY commit, every run in this worktree under
+`env -i`: `lake build` 544 jobs warning-free; `lake test` green;
+`tests/arena.sh` 0 FAIL — layering 280/190/3/1 with 0 base→lane and
+0 impl→theory, **proofdeps 3 819 rows / 11 roots / 0 doors, byte-for-byte
+as pinned** (the new field adds no module edge: `Model/Denotes.lean`'s
+imports are untouched and `eqA`/`pinnedInfo` were already in
+`main_model`'s closure through `EnvModelM`), trust surface 14 escapes
+in 5 allowlisted files (484 scanned), overview-links 77 links / 49
+files after re-anchoring the three citations the edits moved
+(`Model`, `Model.ofEnvModelM`, `Denotes_of_denoteMeta` — each citing
+paragraph re-read; only §1's needed rewording), challenge OK (the
+three statements identical: `Model` is a structure, so `model_exists`'s
+statement moves with the field and identity had to be re-established),
+shake 457 proposals all allowlisted, pub-imports 940/1279 none
+demotable, pindump fresh, axioms 18 theorems at
+`[propext, Classical.choice, Quot.sound]`, arena tutorial 90/92, e2e
+195/195, annot 15/15, retired flags 8/8, mode flags 20/20, prelude
+counts 3/3, progress lane 17/17, worker pool 15/15, DAG-tower 14/14,
+trusted sweep with its 3 recorded divergences, `--jobs=1`/`--jobs=4`
+sweeps as at the default.
+
+**Comparator, run for real** (the #183 recipe, `_tmp/lean4export/lean4export`
+at v4.33.0 and `_tmp/comparator-tool`, `enable_nanoda` dropped from the
+local config because `nanoda_bin` needs `cargo`): challenge 65 jobs with
+exactly its three `sorry` warnings, solution 440 jobs, the three
+theorems exported from both, "Lean default kernel accepts the
+solution", **"Your solution is okay!"** (exit 0).
+
+No checker code changed, so the binary is master's.  README is
+human-written: the one-sentence change to its delta/iota paragraph is
+proposed in the task report, not applied.

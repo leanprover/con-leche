@@ -148,7 +148,7 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hhead : ConLeche.reservedBasisNames.contains c₀.name = true →
-      (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
+      c₀ = pinnedInfo c₀.name ∧
       ∀ (ψ : Name → Nat) (t : Term),
         pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
@@ -186,7 +186,7 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
   pin : ConLeche.reservedBasisNames.contains c₀.name = true →
-    (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
+    c₀ = pinnedInfo c₀.name ∧
     ∀ (ψ : Name → Nat) (t : Term),
       pinnedStructT c₀.name ψ = some t → (A ψ).erase = t
   /-- a head table's slots are mentioned by no stored piece, so
@@ -215,7 +215,7 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     {A : (Name → Nat) → AnnotTerm}
     (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     (hvclosed : ∀ ψ : Name → Nat, Term.Closed ((A ψ).erase))
-    (hpinned : ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name)
+    (hpinned : c₀ = pinnedInfo c₀.name)
     (hleaf : ∀ (ψ : Name → Nat) (t : Term),
       pinnedStructT c₀.name ψ = some t → (A ψ).erase = t)
     (hnotproj : ∀ tbl, c₀ ≠ .projInfo tbl)

@@ -182,7 +182,7 @@ theorem extendQuot (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotA.name ψ
           = some (Term.const .quot [ψ uN]) from rfl] at hp
@@ -220,7 +220,7 @@ theorem extendQuotMk (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotMkA.name ψ
           = some (Term.const .quotMk [ψ uN]) from rfl] at hp
@@ -773,7 +773,7 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotIndA.name ψ
           = some (Term.const .quotInd [ψ uN]) from rfl] at hp
@@ -1144,7 +1144,7 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inr (by decide))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotSoundA.name ψ
           = some (Term.const .quotSound [ψ uN]) from rfl] at hp
@@ -2239,7 +2239,7 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotLiftA.name ψ
           = some (Term.const .quotLift [ψ uN, ψ vN]) from rfl] at hp

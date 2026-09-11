@@ -105,7 +105,7 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
     hres⟩ := isUnitLikeTy_inv h
   -- the recursor's stored declaration is the pinned one
   have hpin : pinnedInfo (c.str "rec") = .recInfo cvr mI rP [r] :=
-    ((hbp _ _ hfr hres).1 rfl).symm
+    (hbp _ _ hfr hres).1.symm
   -- and every pin but `PUnit.rec`'s is refuted by the test's own
   -- three conditions, or by its name
   have hc : c = punitName := by
@@ -135,7 +135,7 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
   subst hc
   have hp : ConstantInfo.indInfo cvi capsi = pinnedInfo punitName :=
-    (hbp _ _ hfc (by decide)).1 rfl
+    (hbp _ _ hfc (by decide)).1
   rw [show pinnedInfo punitName = punitA from rfl] at hp
   exact ⟨us, rfl, hp ▸ hfc⟩
 

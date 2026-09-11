@@ -223,7 +223,7 @@ theorem extendEq (mp : EnvModelM V μ env)
     (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqValAV_erase ψ]; exact eqValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqA.name ψ
           = none from rfl] at hp
@@ -268,7 +268,7 @@ theorem extendEqRefl (mp : EnvModelM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqReflValAV_erase ψ]; exact eqReflValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqReflA.name ψ
           = none from rfl] at hp
@@ -1182,7 +1182,7 @@ theorem extendEqRec (mp : EnvModelM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqRecValAV_erase ψ]; exact eqRecValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqRecA.name ψ
           = none from rfl] at hp
