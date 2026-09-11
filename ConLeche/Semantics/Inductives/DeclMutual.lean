@@ -214,32 +214,48 @@ theorem EtaFamiliesClosed.ofFreshExt {env envOut : Env}
 
 variable {μ : CheckMode}
 
-/-- Stage 1: the formers, each checked and consed with `{}`. -/
-theorem mutualFormers_freshExt {F nP : Nat} :
-    ∀ {l : List (ConstantVal × Nat)} {env env' : Env} {fms : List MutualFormerA},
-      ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env
-        = .ok (env', fms) →
-      FreshEtaExt env env'
-  | [], env, env', fms, h => by
-    obtain ⟨rfl, -⟩ := ConLeche.mutualFormers_nil_inv h
-    exact FreshEtaExt.rfl' _
-  | (cv, nIdx) :: rest, env, env', fms, h => by
-    obtain ⟨cvTa₀, cvTa, s, bs, fs, hccv₀, htele, -, hrest, -⟩ :=
-      ConLeche.mutualFormers_inv h
-    have hccv : ∃ cv', checkConstantVal (fueledOps μ F) env cv' = .ok cvTa := by
-      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, hccv₀⟩
-      · exact ⟨{ cv with type := ty }, hccv⟩
-    obtain ⟨cv', hccv'⟩ := hccv
-    obtain ⟨hfresh, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
-      ConLeche.checkConstantVal_inv hccv'
-    refine FreshEtaExt.consChain (c := .indInfo cvTa {}) ?_ ?_
-      (mutualFormers_freshExt hrest)
-    · show env.find? cvTa.name = none
-      rw [hTeq]; exact hfresh
-    · intro cv'' caps heq
-      obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
-      rfl
+/-- The formers' conses, read off. -/
+theorem consMutualFormers_consts :
+    ∀ {fms : List MutualFormerA} {env : Env},
+      (ConLeche.consMutualFormers fms env).consts
+        = (fms.map (fun f => ConstantInfo.indInfo f.cvTa {})).reverse ++ env.consts
+  | [], env => by simp [ConLeche.consMutualFormers]
+  | f :: fs, env => by
+    simp only [ConLeche.consMutualFormers, List.map_cons, List.reverse_cons]
+    rw [consMutualFormers_consts]
+    simp
+
+/-- Stage 1: the formers' conses, all of names fresh at the PRE-BLOCK
+environment (where each was checked) and all carrying the block's
+capability record `{}`. -/
+theorem consMutualFormers_freshExt {fms : List MutualFormerA} {env : Env}
+    (hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none) :
+    FreshEtaExt env (ConLeche.consMutualFormers fms env) := by
+  refine ⟨_, consMutualFormers_consts, ?_, ?_⟩
+  · intro ci hci
+    simp only [List.mem_reverse, List.mem_map] at hci
+    obtain ⟨f, hf, rfl⟩ := hci
+    exact hfresh f hf
+  · intro ci hci cv caps heq
+    simp only [List.mem_reverse, List.mem_map] at hci
+    obtain ⟨f, hf, rfl⟩ := hci
+    obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
+    rfl
+
+/-- Stage 1: the formers, each checked at the pre-block environment
+and consed with `{}`. -/
+theorem mutualFormers_freshExt {F nP : Nat} {l : List (ConstantVal × Nat)}
+    {env env' : Env} {fms : List MutualFormerA}
+    (h : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env
+      = .ok (env', fms)) :
+    FreshEtaExt env env' := by
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv h
+  refine consMutualFormers_freshExt (fun f hf => ?_)
+  obtain ⟨cv', hccv'⟩ := ConLeche.mutualFormerChecks_checked hchecks f hf
+  obtain ⟨hfresh, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
+    ConLeche.checkConstantVal_inv hccv'
+  show env.find? f.cvTa.name = none
+  rw [hTeq]; exact hfresh
 
 /-- Stage 3: the constructors' conses. -/
 theorem consMutualCtors_consts {nP : Nat} :
