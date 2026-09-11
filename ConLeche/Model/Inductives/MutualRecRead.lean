@@ -298,7 +298,7 @@ its type's shape and its reading — the fixpoint route's premises of
 index count and index data named. -/
 structure FormerReadM {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (lps : List Name)
     (nP : Nat) (f : ConLeche.MutualFormer) (L : AnnotTerm) (nIdx : Nat)
-    (ips : List (Nat × Nat × AnnotTerm)) : Prop where
+    (pps ips : List (Nat × Nat × AnnotTerm)) : Prop where
   find : ∃ ci : ConstantInfo, env.find? f.name = some ci ∧ ci.toConstantVal.levelParams = lps
   leaf : L = m.acval f.name ψ
   idxCount : nIdx = f.nIdx
@@ -309,27 +309,30 @@ structure FormerReadM {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (lps 
   strip : (f.tty.stripPis (nP + f.nIdx)).isSome = true
   read : ∃ (ppsAll : List (Nat × Nat × AnnotTerm)) (w : Nat),
     denoteMeta m.acval env ψ 0 f.tty = some (mkPisAV ppsAll (.sort w)) ∧
-    ppsAll.length = nP + f.nIdx ∧ ips = ppsAll.drop nP
+    ppsAll.length = nP + f.nIdx ∧ pps = ppsAll.take nP ∧ ips = ppsAll.drop nP
 
 /-- The members' reading premises, positionally. -/
 @[expose] def FormerReadsM {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (lps : List Name)
     (nP : Nat) (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
-    (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (formers : List ConLeche.MutualFormer) : Prop :=
+    (ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm))
+    (formers : List ConLeche.MutualFormer) : Prop :=
   ∀ t, t < formers.length →
-    FormerReadM m ψ lps nP (formers.getD t default) (Lof t) (nIdxOf t) (ipsOf t)
+    FormerReadM m ψ lps nP (formers.getD t default) (Lof t) (nIdxOf t) (ppsOf t) (ipsOf t)
 
 theorem FormerReadsM.head {m : EnvModel V env} {ψ : Name → Nat} {lps : List Name} {nP : Nat}
-    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat} {ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
+    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
+    {ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
     {f : ConLeche.MutualFormer} {fs : List ConLeche.MutualFormer}
-    (h : FormerReadsM m ψ lps nP Lof nIdxOf ipsOf (f :: fs)) :
-    FormerReadM m ψ lps nP f (Lof 0) (nIdxOf 0) (ipsOf 0) := h 0 (by simp)
+    (h : FormerReadsM m ψ lps nP Lof nIdxOf ppsOf ipsOf (f :: fs)) :
+    FormerReadM m ψ lps nP f (Lof 0) (nIdxOf 0) (ppsOf 0) (ipsOf 0) := h 0 (by simp)
 
 theorem FormerReadsM.tail {m : EnvModel V env} {ψ : Name → Nat} {lps : List Name} {nP : Nat}
-    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat} {ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
+    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
+    {ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
     {f : ConLeche.MutualFormer} {fs : List ConLeche.MutualFormer}
-    (h : FormerReadsM m ψ lps nP Lof nIdxOf ipsOf (f :: fs)) :
+    (h : FormerReadsM m ψ lps nP Lof nIdxOf ppsOf ipsOf (f :: fs)) :
     FormerReadsM m ψ lps nP (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1))
-      (fun t => ipsOf (t + 1)) fs :=
+      (fun t => ppsOf (t + 1)) (fun t => ipsOf (t + 1)) fs :=
   fun t ht => h (t + 1) (by simp; omega)
 
 set_option maxHeartbeats 1600000 in
@@ -459,8 +462,8 @@ theorem denoteMeta_mutualMotivesPis {m : EnvModel V env} {ψ : Name → Nat} {lp
     (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (q : Nat) (a : Expr), tfvs[q]? = some a → Expr.WScoped (0 + q + 1) a) :
     ∀ {formers : List ConLeche.MutualFormer} {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
-      {ipsOf : Nat → List (Nat × Nat × AnnotTerm)} {body mots : Expr} {extras : List Expr},
-      FormerReadsM m ψ lps nP Lof nIdxOf ipsOf formers →
+      {ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm)} {body mots : Expr} {extras : List Expr},
+      FormerReadsM m ψ lps nP Lof nIdxOf ppsOf ipsOf formers →
       ConLeche.mutualMotivesPis lps nP ℓ pw formers extras.length body = some mots →
       (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) →
       ∃ extras' : List Expr, extras'.length = formers.length + extras.length ∧
@@ -471,17 +474,17 @@ theorem denoteMeta_mutualMotivesPis {m : EnvModel V env} {ψ : Name → Nat} {lp
               (Expr.instSeq (tfvs ++ extras') (nP + extras.length + formers.length - 1) body)).map
               (mkPisAV (motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ (pwBit ψ pw) formers.length
                 extras.length))
-  | [], Lof, nIdxOf, ipsOf, body, mots, extras, _, hmot, hidxE => by
+  | [], Lof, nIdxOf, ppsOf, ipsOf, body, mots, extras, _, hmot, hidxE => by
     rw [mutualMotivesPis_nil hmot]
     refine ⟨extras, by simp, hidxE, ?_⟩
     simp only [List.length_nil, Nat.add_zero, motivesDataGo, mkPisAV]
     cases denoteMeta m.acval env ψ (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) body) <;> rfl
-  | f :: fs, Lof, nIdxOf, ipsOf, body, mots, extras, hfr, hmot, hidxE => by
+  | f :: fs, Lof, nIdxOf, ppsOf, ipsOf, body, mots, extras, hfr, hmot, hidxE => by
     obtain ⟨mty, rest, hmty, hrest, rfl⟩ := mutualMotivesPis_cons hmot
     obtain ⟨ci, hfT, hlpsT⟩ := hfr.head.find
     obtain ⟨tbs, itele, hsT⟩ := hfr.head.stripP
-    obtain ⟨ppsAll, w, hTread, hlenP, hips⟩ := hfr.head.read
+    obtain ⟨ppsAll, w, hTread, hlenP, -, hips⟩ := hfr.head.read
     have hlenTE : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
     have hnil : (tfvs ++ extras) = [] ∨ nP + extras.length - 1 + 1 = nP + extras.length := by
       rcases Nat.eq_zero_or_pos (nP + extras.length) with h0 | hpos
@@ -681,5 +684,266 @@ theorem denoteMeta_mutualMinorsPis {m : EnvModel V env} {ψ : Name → Nat} {lps
       fixMinorsDataM, mkPisAV, ← hC', ← hnF']
     cases denoteMeta m.acval env ψ (nP + extras.length + (cs.length + 1))
       (Expr.instSeq (tfvs ++ extras') (nP + extras.length + (cs.length + 1) - 1) body) <;> rfl
+
+/-! ## The generated type -/
+
+omit [SetTheory V] in
+theorem getD_range_map {α : Type} (g : Nat → α) (k t : Nat) (h : t < k) (d : α) :
+    ((List.range k).map g).getD t d = g t := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_eq_getElem (show t < (List.range k).length from by simpa using h),
+    List.getElem_range]
+  rfl
+
+set_option maxHeartbeats 3200000 in
+/-- **The generated `k`-motive recursor type of member `mm` reads to
+the Π-tower over `mutualRecDataAV`** with the core `motive_mm ı⃗ t`. -/
+theorem denoteMeta_mutualRecTy {m : EnvModel V env} {ψ : Name → Nat} {lps : List Name}
+    {elim : Name} {large : Bool} {nP mm : Nat}
+    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
+    {ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
+    {Tname : Nat → Name} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {formers : List ConLeche.MutualFormer} {ctors : List ConLeche.MutualCtor4}
+    {cds : List CtorDatumR}
+    (hformers : FormerReadsM m ψ lps nP Lof nIdxOf ppsOf ipsOf formers)
+    (hctors : MutualCtorReadsM m ψ lps nP Tname nIdxOf mots tgts ctors cds)
+    (hmots : ∀ J, J < ctors.length → mots J < formers.length)
+    (hfT : ∀ q : Nat, ∃ ci : ConstantInfo,
+      env.find? (Tname q) = some ci ∧ ci.toConstantVal.levelParams = lps)
+    {recTy : Expr}
+    (hgen : ConLeche.mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    denoteMeta m.acval env ψ 0 recTy
+      = some (mkPisAV
+          (mutualRecDataAV m ψ ((List.range formers.length).map Lof) nP
+            ((List.range formers.length).map nIdxOf) (ConLeche.structElimLevel elim large)
+            (ppsOf 0) ((List.range formers.length).map ipsOf) cds mots tgts mm)
+          (mutualConcAV formers.length ctors.length (nIdxOf mm) mm)) := by
+  obtain ⟨f, f₀, tbs, itele, major, minors, motives, hfmm, hf0, hsT, hmaj, hmin, hmotives, hrec⟩ :=
+    mutualRecTy_unfold hgen
+  have hmmlt : mm < formers.length := (List.getElem?_eq_some_iff.mp hfmm).1
+  have h0lt : 0 < formers.length := by omega
+  have hfmmD : formers.getD mm default = f := by
+    rw [List.getD_eq_getElem?_getD, hfmm]; rfl
+  have hf0D : formers.getD 0 default = f₀ := by
+    rw [List.getD_eq_getElem?_getD, hf0]; rfl
+  have hfr0 := hformers 0 h0lt
+  have hfrmm := hformers mm hmmlt
+  rw [hf0D] at hfr0
+  rw [hfmmD] at hfrmm
+  obtain ⟨tbs0, itele0, hsT0⟩ := hfr0.stripP
+  obtain ⟨ppsAll0, w0, hTread0, hlenP0, hpps0, hips0⟩ := hfr0.read
+  obtain ⟨ciM, hfMfind, hlpsM⟩ := hfrmm.find
+  obtain ⟨ppsAllM, wM, hTreadM, hlenPM, hppsM, hipsM⟩ := hfrmm.read
+  obtain ⟨tfvs, trest, hopT⟩ :=
+    openPisAtFvars_of_stripPis_isSome nP 0 (show (f₀.tty.stripPis nP).isSome = true by rw [hsT0]; rfl)
+  obtain ⟨hlenT, hidxT, hclT, hspW⟩ := opening_vars hopT hfr0.hasFvar
+  have hlenC : cds.length = ctors.length := hctors.length_eq
+  -- the parameter prefix
+  have hst : stripPisAV nP (mkPisAV ppsAll0 (.sort w0))
+      = some (ppsAll0.take nP, mkPisAV (ppsAll0.drop nP) (.sort w0)) :=
+    stripPisAV_mkPisAV_take nP ppsAll0 _ (by omega)
+  rw [denoteMeta_replacePisPw nP hrec hopT hTread0 hst, Nat.zero_add]
+  -- the motives, at the parameters
+  obtain ⟨extras1, hlen1, hidx1, hread1⟩ :=
+    denoteMeta_mutualMotivesPis (pw := Level.zeronessOf (ConLeche.structElimLevel elim large))
+      (extras := []) hlenT hidxT hspW hformers hmotives (by intro k x hx; simp at hx)
+  simp only [List.append_nil, List.length_nil, Nat.add_zero] at hlen1 hread1
+  rw [hread1]
+  -- the minors, at the motives
+  obtain ⟨extras2, hlen2, hidx2, hread2⟩ :=
+    denoteMeta_mutualMinorsPis hfT hlenT hidxT hspW (extras := extras1) hctors
+      (by rw [hlen1]; exact hmin) (by rw [hlen1]; omega)
+      (fun J hJ => by rw [hlen1]; exact hmots J hJ) hidx1
+  rw [hlen1] at hread2 hlen2
+  have hlen2' : extras2.length = formers.length + ctors.length := by rw [hlen2]; omega
+  rw [hread2]
+  -- the index telescope and the major, under the motives and the minors
+  have hclE2 : ∀ a ∈ extras2, a.looseBVarsBounded 0 = true := fun a ha => by
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+    obtain ⟨ty, rfl⟩ := hidx2 q a hq
+    rfl
+  have hclTE : ∀ a ∈ tfvs ++ extras2, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    rcases List.mem_append.mp ha with h | h
+    · exact hclT a h
+    · exact hclE2 a h
+  have hlenTE : (tfvs ++ extras2).length = nP + formers.length + ctors.length := by
+    rw [List.length_append, hlenT, hlen2]; omega
+  obtain ⟨mfv, hhead⟩ : ∃ x, extras2[mm]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlen2]; omega)⟩
+  obtain ⟨tyM, rfl⟩ := hidx2 mm mfv hhead
+  have htb0 : itele.looseBVarsBounded nP = true := by
+    have := Expr.stripPis_body_bounded nP hsT hfrmm.bounded
+    rwa [Nat.zero_add] at this
+  have hmaj' := ConLeche.replacePisPw_instSeq (tfvs ++ extras2)
+    (nP + formers.length + ctors.length - 1) (by rw [hlenTE]; omega) hmaj
+  have hres := ConLeche.instSeq_minorTele tfvs extras2 hlenT hclT htb0
+  rw [hlen2', show nP + (formers.length + ctors.length) - 1
+    = nP + formers.length + ctors.length - 1 from by omega] at hres
+  rw [hres] at hmaj'
+  obtain ⟨htread, htw, htstrip⟩ := ctorResidual hfrmm.hasFvar hTreadM hlenPM hsT hfrmm.strip hlenT
+    hidxT hspW
+  obtain ⟨ifvs, irest, hopI⟩ := openPisAtFvars_of_stripPis_isSome f.nIdx
+    (nP + formers.length + ctors.length) htstrip
+  have htreadN := ctorResidual_read_lift htread htw hlenPM (formers.length + ctors.length)
+  rw [show nP + (formers.length + ctors.length) = nP + formers.length + ctors.length from by omega,
+    AnnotTerm.liftN_sort] at htreadN
+  have hstI : stripPisAV f.nIdx
+      (mkPisAV (liftDoms (formers.length + ctors.length) 0 (ppsAllM.drop nP)) (.sort wM))
+      = some (liftDoms (formers.length + ctors.length) 0 (ppsAllM.drop nP), .sort wM) := by
+    have := stripPisAV_mkPisAV
+      (liftDoms (formers.length + ctors.length) 0 (ppsAllM.drop nP)) (AnnotTerm.sort wM)
+    rwa [liftDoms_length, List.length_drop, hlenPM, Nat.add_sub_cancel_left] at this
+  have hmajR := denoteMeta_replacePisPw (acval := m.acval) (env := env) (φ := ψ) f.nIdx hmaj' hopI
+    htreadN hstI
+  obtain ⟨hlenI, hidxI, hclI⟩ := opening_vars_at hopI
+  -- the major's domain and the conclusion, instantiated
+  have hnilI : ifvs = [] ∨ f.nIdx - 1 + 1 = f.nIdx := by
+    rcases Nat.eq_zero_or_pos f.nIdx with h0 | hpos
+    · left; rw [h0] at hlenI; exact List.eq_nil_of_length_eq_zero hlenI
+    · right; omega
+  have hdom1 : Expr.instSeq (tfvs ++ extras2)
+      (nP + formers.length + ctors.length - 1 + f.nIdx)
+      (ConLeche.structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0)
+      = Expr.mkAppN (.const f.name (lps.map .param))
+          (tfvs ++ (List.range f.nIdx).map fun k => Expr.bvar (f.nIdx - 1 - k)) := by
+    unfold ConLeche.structFamI
+    rw [Expr.instSeq_mkAppN, List.map_append,
+      Expr.instSeq_eq_self _ _ (e := Expr.const f.name (lps.map .param)) rfl,
+      show nP + formers.length + ctors.length - 1 + f.nIdx
+        = (0 + (formers.length + ctors.length) + f.nIdx) + nP - 1 from by omega,
+      ConLeche.map_instSeq_structPsAt (tfvs ++ extras2)
+        (0 + (formers.length + ctors.length) + f.nIdx) nP hclTE (by rw [hlenTE]; omega),
+      List.take_append_of_le_length (by omega), List.take_of_length_le (by omega),
+      structPsAt_zero, ConLeche.map_instSeq_fieldBvars_above (tfvs ++ extras2) _ f.nIdx
+        (by rw [hlenTE]; omega)]
+  have hcod1 : Expr.instSeq (tfvs ++ extras2)
+      (nP + formers.length + ctors.length - 1 + f.nIdx + 1)
+      (Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+        (ConLeche.structPsAt 1 f.nIdx ++ [.bvar 0]))
+      = Expr.mkAppN (.fvar (nP + mm) tyM) (ConLeche.structPsAt 1 f.nIdx ++ [.bvar 0]) := by
+    have hhead' : Expr.instSeq (tfvs ++ extras2)
+        (nP + formers.length + ctors.length - 1 + f.nIdx + 1)
+        (.bvar (f.nIdx + ctors.length + formers.length - mm)) = Expr.fvar (nP + mm) tyM := by
+      have := Expr.instSeq_bvar (tfvs ++ extras2)
+        (nP + formers.length + ctors.length - 1 + f.nIdx + 1)
+        (f.nIdx + ctors.length + formers.length - mm) hclTE (by omega) (by rw [hlenTE]; omega)
+      rw [show nP + formers.length + ctors.length - 1 + f.nIdx + 1
+          - (f.nIdx + ctors.length + formers.length - mm) = nP + mm from by omega,
+        List.getElem?_append_right (by omega), hlenT,
+        show nP + mm - nP = mm from by omega, hhead] at this
+      exact (Option.some.inj this).symm
+    rw [Expr.instSeq_mkAppN, hhead', List.map_append]
+    congr 2
+    · refine (List.map_congr_left ?_).trans (List.map_id _)
+      intro a ha
+      obtain ⟨k, hk, rfl⟩ := List.mem_map.mp ha
+      exact ConLeche.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)
+    · simp only [List.map_cons, List.map_nil]
+      rw [ConLeche.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)]
+  have hdom2 : Expr.instSeq ifvs (f.nIdx - 1) (Expr.mkAppN (.const f.name (lps.map .param))
+      (tfvs ++ (List.range f.nIdx).map fun k => Expr.bvar (f.nIdx - 1 - k)))
+      = Expr.mkAppN (.const f.name (lps.map .param)) (tfvs ++ ifvs) := by
+    rw [Expr.instSeq_mkAppN, List.map_append,
+      Expr.instSeq_eq_self _ _ (e := Expr.const f.name (lps.map .param)) rfl,
+      map_instSeq_closed ifvs (f.nIdx - 1) hclT,
+      ConLeche.map_instSeq_fieldBvars ifvs f.nIdx hclI hlenI]
+  have hcod2 : Expr.instSeq ifvs (f.nIdx - 1 + 1)
+      (Expr.mkAppN (.fvar (nP + mm) tyM) (ConLeche.structPsAt 1 f.nIdx ++ [.bvar 0]))
+      = Expr.mkAppN (.fvar (nP + mm) tyM) (ifvs ++ [.bvar 0]) := by
+    rw [instSeq_idx_congr (sp := ifvs) (t := f.nIdx - 1 + 1) (t' := f.nIdx) _ hnilI,
+      Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (e := Expr.fvar (nP + mm) tyM) rfl,
+      List.map_append, map_instSeq_structPsAt_one ifvs f.nIdx hclI hlenI]
+    simp only [List.map_cons, List.map_nil]
+    rw [ConLeche.instSeq_bvar_lt ifvs _ 0 (by omega)]
+  have hbody : Expr.instSeq ifvs (f.nIdx - 1) (Expr.instSeq (tfvs ++ extras2)
+      (nP + formers.length + ctors.length - 1 + f.nIdx)
+      (.forallE (ConLeche.structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0)
+        (Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+          (ConLeche.structPsAt 1 f.nIdx ++ [.bvar 0]))
+        ⟨Level.zeronessOf (ConLeche.structElimLevel elim large)⟩))
+      = .forallE (Expr.mkAppN (.const f.name (lps.map .param)) (tfvs ++ ifvs))
+          (Expr.mkAppN (.fvar (nP + mm) tyM) (ifvs ++ [.bvar 0]))
+          ⟨Level.zeronessOf (ConLeche.structElimLevel elim large)⟩ := by
+    rw [Expr.instSeq_forallE (tfvs ++ extras2) (nP + formers.length + ctors.length - 1 + f.nIdx)
+        _ _ _ (by rw [hlenTE]; omega), hdom1, hcod1,
+      Expr.instSeq_forallE ifvs (f.nIdx - 1) _ _ _ (by omega), hdom2, hcod2]
+  rw [hbody] at hmajR
+  -- the major's reading and the conclusion
+  have hidxI' : ∀ (k : Nat) (x : Expr), ifvs[k]? = some x →
+      ∃ ty, x = Expr.fvar (nP + (formers.length + ctors.length) + k) ty := by
+    intro k x hx
+    rw [show nP + (formers.length + ctors.length) + k
+      = nP + formers.length + ctors.length + k from by omega]
+    exact hidxI k x hx
+  have hspine := denoteMeta_famSpine_at (m := m) (ψ := ψ) hfMfind hlpsM
+    (o := formers.length + ctors.length) hlenT hlenI hidxT hidxI'
+  rw [show nP + (formers.length + ctors.length) + f.nIdx
+    = nP + formers.length + ctors.length + f.nIdx from by omega] at hspine
+  have hconc : denoteMeta m.acval env ψ (nP + formers.length + ctors.length + f.nIdx + 1)
+      ((Expr.mkAppN (.fvar (nP + mm) tyM) (ifvs ++ [.bvar 0])).instantiate1
+        (.fvar (nP + formers.length + ctors.length + f.nIdx)
+          (Expr.mkAppN (.const f.name (lps.map .param)) (tfvs ++ ifvs))) 0)
+      = some (mutualConcAV formers.length ctors.length f.nIdx mm) := by
+    rw [Expr.mkAppN_instantiate1, List.map_append]
+    simp only [List.map_cons, List.map_nil]
+    rw [Expr.instantiate1_eq_self (e := Expr.fvar (nP + mm) tyM) rfl,
+      map_instantiate1_closed hclI]
+    simp +decide only [Expr.instantiate1, ↓reduceIte]
+    have hspI : DenoteMetaSpine m.acval env ψ
+        (nP + formers.length + ctors.length + f.nIdx + 1) ifvs (idxVarsAV f.nIdx 1) := by
+      have := denoteMetaSpine_fvars (acval := m.acval) (env := env) (φ := ψ)
+        (nP + formers.length + ctors.length + f.nIdx + 1) ifvs
+        (nP + formers.length + ctors.length) hidxI
+      rw [hlenI] at this
+      have he : ((List.range f.nIdx).map fun k =>
+          AnnotTerm.bvar (nP + formers.length + ctors.length + f.nIdx + 1 - 1
+            - (nP + formers.length + ctors.length + k))) = idxVarsAV f.nIdx 1 := by
+        unfold idxVarsAV
+        apply List.map_congr_left
+        intro k _
+        congr 1
+        omega
+      rwa [he] at this
+    rw [denoteMeta_mkAppN (hspI.append (.cons (denoteMeta_fvar _ _ _ _) .nil))
+        (denoteMeta_fvar _ _ _ _),
+      show nP + formers.length + ctors.length + f.nIdx + 1 - 1 - (nP + mm)
+        = 1 + f.nIdx + ctors.length + formers.length - 1 - mm from by omega,
+      show nP + formers.length + ctors.length + f.nIdx + 1 - 1
+        - (nP + formers.length + ctors.length + f.nIdx) = 0 from by omega,
+      AnnotTerm.mkAppN_append_one]
+    rfl
+  have hpi : denoteMeta m.acval env ψ (nP + formers.length + ctors.length + f.nIdx)
+      (.forallE (Expr.mkAppN (.const f.name (lps.map .param)) (tfvs ++ ifvs))
+        (Expr.mkAppN (.fvar (nP + mm) tyM) (ifvs ++ [.bvar 0]))
+        ⟨Level.zeronessOf (ConLeche.structElimLevel elim large)⟩)
+      = some (.pi 0 (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large)))
+          (majorAVAtK (m.acval f.name ψ) nP f.nIdx formers.length ctors.length)
+          (mutualConcAV formers.length ctors.length f.nIdx mm)) := by
+    rw [denoteMeta_forallE, hspine, hconc]
+    rfl
+  rw [hpi, Option.map_some] at hmajR
+  rw [hmajR]
+  -- assembly
+  have hLmm : ((List.range formers.length).map Lof).getD mm default = m.acval f.name ψ := by
+    rw [getD_range_map _ _ _ hmmlt, hfrmm.leaf]
+  have hNmm : ((List.range formers.length).map nIdxOf).getD mm 0 = f.nIdx := by
+    rw [getD_range_map _ _ _ hmmlt, hfrmm.idxCount]
+  have hImm : ((List.range formers.length).map ipsOf).getD mm [] = ppsAllM.drop nP := by
+    rw [getD_range_map _ _ _ hmmlt, hipsM]
+  have hlenLs : ((List.range formers.length).map Lof).length = formers.length := by simp
+  have hmotD : motivesDataGo (fun t => ((List.range formers.length).map Lof).getD t default)
+      (fun t => ((List.range formers.length).map nIdxOf).getD t 0)
+      (fun t => ((List.range formers.length).map ipsOf).getD t []) ψ nP
+      (ConLeche.structElimLevel elim large)
+      (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large))) formers.length 0
+      = motivesDataGo Lof nIdxOf ipsOf ψ nP (ConLeche.structElimLevel elim large)
+        (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large))) formers.length 0 :=
+    motivesDataGo_congr _ _ fun t ht =>
+      ⟨getD_range_map _ _ _ ht _, getD_range_map _ _ _ ht _, getD_range_map _ _ _ ht _⟩
+  unfold mutualRecDataAV
+  rw [hlenLs, hLmm, hNmm, hImm, hmotD, hpps0, hfrmm.idxCount,
+    mkPisAV_append, mkPisAV_append, mkPisAV_append, mkPisAV_append, hlenC]
+  rfl
 
 end ConLeche.Model
