@@ -143,3 +143,190 @@ theorem formerReadsM_of {m : EnvModel V env} {lps : List Name} {nP : Nat}
   obtain ⟨⟨tbs, itele⟩, hq⟩ := Option.isSome_iff_exists.mp
     (ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) hstripS)
   exact ⟨tbs, itele, hq⟩
+
+/-! ## The constructors' reading premises -/
+
+/-- **The per-constructor facts of a mutual block at a position**
+(`FixCtorFactsAt` with the member's name and index count looked up
+through `mots`): the constructor is stored at the block's parameter
+count and level parameters, and its data are its `MutualCtorDataI` at
+its OWN member. -/
+@[expose] def MutualCtorFactsAt {env : Env} (m : EnvModel V env) (env₀ : Env)
+    (members : List (Name × Nat × Nat)) (lps : List Name) (nP : Nat) (isProp large : Bool)
+    (Tname : Nat → Name) (nIdxOf : Nat → Nat) (mots : Nat → Nat) (resSortOf : Nat → Level)
+    (idxF : Nat → List Expr)
+    (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (ksF : Nat → List (RecFieldKind × Nat)) (fvsPF xFvsF : Nat → List Expr)
+    (xrestF : Nat → Expr) (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (J : Nat) (cA : ConstantVal × Nat) : Prop :=
+  env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2) ∧
+  cA.1.levelParams = lps ∧
+  MutualCtorDataI m env₀ members (Tname (mots J)) lps cA.1 nP cA.2 (nIdxOf (mots J))
+    (resSortOf J) isProp large (idxF J) (dsF J) (esF J) (srcsF J) (ksF J) (fvsPF J) (xFvsF J)
+    (xrestF J) (eissF J) (tssF J)
+
+set_option maxHeartbeats 1600000 in
+/-- **The constructors' reading premises from their facts**
+(`fixCtorReadsR_of` with a per-field TARGET member).  The datum's
+recursive positions are `recIdxOf` of the kinds stripped of their
+targets, and `htgt` is what the earlier stages know about a target:
+it is a member of the block, so the recursor's member table resolves
+it to the same name and index count the constructor's data mention. -/
+theorem mutualCtorReadsM_of {m : EnvModel V env} {env₀ : Env}
+    {members : List (Name × Nat × Nat)} {lps : List Name} {nP : Nat} {isProp large : Bool}
+    {Tname : Nat → Name} {nIdxOf : Nat → Nat} {mots : Nat → Nat} {resSortOf : Nat → Level}
+    {idxF : Nat → List Expr}
+    {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+    {ksF : Nat → List (RecFieldKind × Nat)} {fvsPF xFvsF : Nat → List Expr}
+    {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (ψ : Name → Nat) {ctorsA : List (ConstantVal × Nat)} {ctors4 : List MutualCtor4}
+    (hlen4 : ctors4.length = ctorsA.length)
+    (hc4 : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+      ctors4[J]? = some (MutualCtor4.mk cA.1.name cA.2 cA.1.type (mots J)
+        (ConLeche.mutualRecFieldsOf (ksF J))))
+    (htgt : ∀ J i, J < ctorsA.length → i ∈ ConLeche.recIdxOf (kindsOf (ksF J)) →
+      Tname (tgtAt (ksF J) i) = mutualNameOf members (tgtAt (ksF J) i) ∧
+      nIdxOf (tgtAt (ksF J) i) = mutualNIdxOf members (tgtAt (ksF J) i))
+    (hcf : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+      MutualCtorFactsAt m env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
+        idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF J cA) :
+    MutualCtorReadsM m ψ lps nP Tname nIdxOf mots (fun J => tgtAt (ksF J)) ctors4
+      (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0) := by
+  refine ⟨by rw [fixCtorDataList_length, hlen4], ?_⟩
+  intro J hJ
+  have hJ' : J < ctorsA.length := by rw [← hlen4]; exact hJ
+  obtain ⟨cA, hA⟩ : ∃ cA, ctorsA[J]? = some cA := ⟨_, List.getElem?_eq_getElem hJ'⟩
+  have h4 : ctors4.getD J default
+      = MutualCtor4.mk cA.1.name cA.2 cA.1.type (mots J)
+          (ConLeche.mutualRecFieldsOf (ksF J)) := by
+    rw [List.getD_eq_getElem?_getD, hc4 J cA hA]; rfl
+  have hcd : (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0).getD J default
+      = (cA.1.name, cA.2, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)), eissF J ψ,
+          tssF J ψ) := by
+    rw [List.getD_eq_getElem?_getD, fixCtorDataList_getElem?, hA, Nat.zero_add]
+    rfl
+  rw [h4, hcd]
+  obtain ⟨hf, hlps, hD⟩ := hcf J cA hA
+  obtain ⟨hCf, -, -, hCb, -⟩ := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
+  simp only [ConstantInfo.toConstantVal] at hCf hCb
+  have hksLen := hD.ksLen
+  -- a recursive position is a field
+  have hmemF : ∀ i, i ∈ ConLeche.recIdxOf (kindsOf (ksF J)) →
+      i < cA.2 ∧ (kindAt (ksF J) i = .recursive ∨ kindAt (ksF J) i = .reflexive) := by
+    intro i hi
+    obtain ⟨hlt, hk⟩ := mem_recIdxOf.mp hi
+    rw [kindsOf_length, hksLen] at hlt
+    rw [kindsOf_getD (by rw [hksLen]; exact hlt)] at hk
+    exact ⟨hlt, hk⟩
+  -- the opening
+  obtain ⟨crest, hopP, hopX⟩ := hD.opens
+  have hopAll : openPisAtFvars (nP + cA.2) cA.1.type 0 = some (fvsPF J ++ xFvsF J, xrestF J) :=
+    openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
+  obtain ⟨cbs, es, hst, -⟩ := hD.resid
+  have hlenAll : (fvsPF J ++ xFvsF J).length = nP + cA.2 := by
+    rw [List.length_append, hD.pLen, hD.xLen]
+  have hidxAll := (opening_vars_at hopAll).2.1
+  have hxAt : ∀ (i' : Nat), i' < cA.2 → ∀ x, (xFvsF J)[i']? = some x →
+      (fvsPF J ++ xFvsF J)[nP + i']? = some x := by
+    intro i' hi' x hx
+    rw [List.getElem?_append_right (by rw [hD.pLen]; omega), hD.pLen, Nat.add_sub_cancel_left]
+    exact hx
+  have hfvL : ∀ (i' : Nat), ∀ a ∈ (fvsPF J ++ xFvsF J).take (nP + i'),
+      ∃ (k : Nat) (ty : Expr), a = Expr.fvar k ty := by
+    intro i' a ha
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
+    obtain ⟨ty, rfl⟩ := hidxAll q a hq
+    exact ⟨_, ty, rfl⟩
+  have hbGet : ∀ (i' : Nat), i' < cA.2 → ∃ b, cbs[nP + i']? = some b ∧
+      cbs.getD (nP + i') default = b := by
+    intro i' hi'
+    have hlt : nP + i' < cbs.length := by rw [ConLeche.Expr.stripPis_length _ hst]; omega
+    exact ⟨_, List.getElem?_eq_getElem hlt, by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl⟩
+  have hpb : ∀ (i' : Nat), i' < cA.2 → ∀ x, (xFvsF J)[i']? = some x →
+      ∀ b, cbs[nP + i']? = some b →
+        (x.fvarTypeD.piBinders).1.length = (b.1.piBinders).1.length ∧
+        (x.fvarTypeD.piBinders).2.getAppArgs.length
+          = (b.1.piBinders).2.getAppArgs.length := by
+    intro i' hi' x hx b hb
+    have hty := openPisAtFvars_fvarTypeD (nP + cA.2) hopAll hst (nP + i') b x hb
+      (hxAt i' hi' x hx)
+    have hlenTake : ((fvsPF J ++ xFvsF J).take (nP + i')).length = nP + i' := by
+      rw [List.length_take, hlenAll]
+      omega
+    obtain ⟨h1, h2⟩ := Expr.piBinders_instSeq ((fvsPF J ++ xFvsF J).take (nP + i'))
+      (nP + i' - 1) b.1 (hfvL i') (by rw [hlenTake]; omega)
+    rw [hty]
+    refine ⟨h1, ?_⟩
+    rw [h2, Expr.getAppArgs_instSeq_fvars _ _ _ (hfvL i'), List.length_map]
+  refine ⟨rfl, mutualRecFieldsOf_eq (ksF J), rfl, rfl, ⟨_, hf, hlps⟩, hCf, hCb,
+    hD.resid, hD.read ψ, hD.len ψ, hD.lenE ψ, rfl, ?_, recIdxOf_pairwise _, hD.eissLen ψ, ?_,
+    hD.tssLen ψ, ?_, ?_, ?_, ?_⟩
+  · exact fun i' hi' => (hmemF i' hi').1
+  · -- the index readings' count, at the field's TARGET member
+    intro i' hi'
+    obtain ⟨hlt, hk⟩ := hmemF i' hi'
+    rw [(htgt J i' hJ' hi').2]
+    rcases hk with hk | hk
+    · exact hD.eisLen ψ i' hk hlt
+    · exact hD.eisLenRefl ψ i' hk hlt
+  · -- the telescope's length: the raw binder type's own `∀`-binders
+    intro i' hi'
+    obtain ⟨hlt, hk⟩ := hmemF i' hi'
+    obtain ⟨x, hx⟩ : ∃ x, (xFvsF J)[i']? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hD.xLen]; exact hlt)⟩
+    obtain ⟨b, hb, hbd⟩ := hbGet i' hlt
+    have hteleEq : ConLeche.structFieldTeleOf cA.1.type nP cA.2 i' = (b.1.piBinders).1 := by
+      unfold ConLeche.structFieldTeleOf
+      rw [hst]
+      simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
+    rw [hteleEq, ← (hpb i' hlt x hx b hb).1]
+    rcases hk with hk | hk
+    · obtain ⟨hfn, -, -, -, -, -⟩ := hD.opened.recF i' x hx hk
+      rw [Expr.piBinders_nil_of_getAppFn_const hfn,
+        hD.tssNone ψ i' (fun h => by rw [hk] at h; exact nomatch h)]
+      rfl
+    · obtain ⟨afvs, body, -, hlenTl, -, -⟩ := hD.reflOpen ψ i' x hx hk
+      rw [hlenTl]
+  · -- a field's domain reads to its entry
+    intro i' hi' fvs o hop x hx
+    obtain ⟨hlt, -⟩ := hmemF i' hi'
+    obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans hopAll))
+    rw [List.getElem?_append_right (by rw [hD.pLen]; omega), hD.pLen,
+      Nat.add_sub_cancel_left] at hx
+    exact hD.domRead ψ i' x hx
+  · -- the domain's argument count, under the field's own telescope
+    intro i' hi' cbs' body' hst'
+    obtain ⟨hlt, hk⟩ := hmemF i' hi'
+    obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hst'.symm.trans hst))
+    obtain ⟨x, hx⟩ : ∃ x, (xFvsF J)[i']? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hD.xLen]; exact hlt)⟩
+    obtain ⟨b, hb, hbd⟩ := hbGet i' hlt
+    rw [hbd, ← (hpb i' hlt x hx b hb).2, (htgt J i' hJ' hi').2]
+    rcases hk with hk | hk
+    · obtain ⟨hfn, -, hlenA, -, -, -⟩ := hD.opened.recF i' x hx hk
+      rw [Expr.piBinders_nil_body (Expr.piBinders_nil_of_getAppFn_const hfn)]
+      exact hlenA
+    · obtain ⟨afvs, body, hop, -, -, -, -, hlenA, -, -⟩ := hD.opened.reflF i' x hx hk
+      have hbody := openPisAtFvars_instSeq (x.fvarTypeD.piBinders).1.length hop
+        (Expr.stripPis_piBinders x.fvarTypeD)
+      have hfvA : ∀ a ∈ afvs, ∃ (k : Nat) (ty : Expr), a = Expr.fvar k ty := by
+        intro a ha
+        obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+        obtain ⟨ty, rfl⟩ := (opening_vars_at hop).2.1 q a hq
+        exact ⟨_, ty, rfl⟩
+      rw [hbody, Expr.getAppArgs_instSeq_fvars _ _ _ hfvA, List.length_map] at hlenA
+      exact hlenA
+  · -- a field's entry, at the field's TARGET member
+    intro i' hi'
+    obtain ⟨hlt, hk⟩ := hmemF i' hi'
+    rw [(htgt J i' hJ' hi').1]
+    rcases hk with hk | hk
+    · rw [hD.tssNone ψ i' (fun h => by rw [hk] at h; exact nomatch h),
+        hD.recEntry ψ i' hk hlt]
+      rfl
+    · exact hD.reflEntry ψ i' hk hlt
