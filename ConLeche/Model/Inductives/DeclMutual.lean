@@ -22,6 +22,30 @@ loop (`stageMutualCtors`, constructor `J` at its GLOBAL block
 position), `stageMutualRecs` (the `k` recursors, provisioned rule-less
 and stored as a group) and `stageMutualTables` (the structure-like
 members' projection tables).
+
+**The order, and why it is not the fixpoint route's.**  A mutual
+constructor's type mentions the members, so its data can only be READ
+at the environment holding all `k` formers; but the block's chains —
+and hence the members' real leaves — are built from that reading.  The
+fixpoint route breaks the circle with a dummy former; here the
+CHAIN-FREE FIRST PASS does it (`stageMembersG` at the sum route's
+chain-free towers), and the two readings are identified off the
+recursive and reflexive slots (`mutualCtorDataI_ident`), which is
+exactly where the X-chains are the shadow of the real ones.  The
+cross-member parameter identification (`paramFrames` at
+`mutualDomsOk`'s rows) also lives at that first carrier: without it no
+member's index telescope can be graded at another member's parameter
+frame, and the tag is the union of all of them.
+
+**What the tail still owes** (the `sorry`): `stageMutualRecs` and
+`stageMutualTables`.  For the first, the pieces in order are the
+members' and constructors' readings at the constructors' carrier
+(`formerReadsM_of`, `mutualCtorReadsM_of`, `mutualRecData_of`), the
+`MutualRecParts` bundle, its `LeafHyp` (`MutualFrameOkM` at every
+parameter frame, `auxFixPre_of` and `auxRecLeafFacts` for the
+auxiliary recursor, and the stored type's typing), `mutualRuleOk` and
+`denoteMeta_mutualRecRhs` for the rules, and `mutualRecRuleLaw` with
+`ruleFires_of`.  For the second, `MutualTableOk` at every member.
 -/
 
 namespace ConLeche.Model
@@ -378,6 +402,34 @@ theorem consMutualFormers_extend :
       fun h => hL.2 ((litGuardsMono_cons hf).2 h)⟩, fun sn i h => hP sn i ?_⟩
     exact ConLeche.Verify.findProj?_cons_of_base_none
       (c₀ := .indInfo f.cvTa {}) (fun _ hh => nomatch hh) sn i h
+
+/-- **The constructors' conses, as an environment extension.** -/
+theorem consMutualCtors_extend {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
+      (∀ c ∈ ctorsA, env.find? c.1.name = none) →
+      (ctorsA.map (·.1.name)).Nodup →
+      FindPreserved env (ConLeche.consMutualCtors nP ctorsA env) ∧
+      LitGuardsMono env (ConLeche.consMutualCtors nP ctorsA env) ∧
+      (∀ (sn : Name) (i : Nat), env.findProj? sn i = none →
+        (ConLeche.consMutualCtors nP ctorsA env).findProj? sn i = none)
+  | [], _, _, _ => ⟨fun h => h, ⟨fun h => h, fun h => h⟩, fun _ _ h => h⟩
+  | c :: cs, env, hfresh, hnd => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    have hc : env.find? c.1.name = none := hfresh c List.mem_cons_self
+    have hfresh' : ∀ g ∈ cs,
+        (Env.mk (ConstantInfo.ctorInfo c.1 nP c.2 :: env.consts)).find? g.1.name = none := by
+      intro g hg
+      refine (find?_cons_of_name_ne (c := .ctorInfo c.1 nP c.2) (fun hh => ?_)).trans
+        (hfresh g (List.mem_cons_of_mem _ hg))
+      refine hnd.1 ?_
+      have hnm : c.1.name = g.1.name := hh
+      rw [hnm]
+      exact List.mem_map_of_mem hg
+    obtain ⟨hF, hL, hP⟩ := consMutualCtors_extend hfresh' hnd.2
+    refine ⟨fun h => hF (findPreserved_cons hc h), ⟨fun h => hL.1 ((litGuardsMono_cons hc).1 h),
+      fun h => hL.2 ((litGuardsMono_cons hc).2 h)⟩, fun sn i h => hP sn i ?_⟩
+    exact ConLeche.Verify.findProj?_cons_of_base_none
+      (c₀ := .ctorInfo c.1 nP c.2) (fun _ hh => nomatch hh) sn i h
 
 /-- The former's data crosses the whole formers' loop: its type
 resolves before the block, so neither the new constants nor the new
@@ -2039,6 +2091,97 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         rwa [Nat.zero_add] at hh)
       (fun J cA hJ => (hframesJ J (List.getElem?_eq_some_iff.mp hJ).1).1)
       hFssOkP (fun _ _ _ _ _ _ _ _ => trivial) hE₁ hfoundC hleafTJ hpendC trivial
+  -- the members' data at the constructors' carrier
+  obtain ⟨hFPc, hLGc, hPJc⟩ := consMutualCtors_extend (nP := p.toBlock.nP) hfreshC hndA
+  have hcbF₁ : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      ConstsBound (ConLeche.consMutualFormers fms env) f.cvTa.type := by
+    intro t f hft
+    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t f hft
+    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    exact constsBound_of_constsResolve _ (hmono₁ _ (by rw [hty]; exact htr))
+  have hFD₃ : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      FormerData mp₂.base2 f.cvTa (p.toBlock.nP + f.nIdx) f₀.s (ppsF t) (lvlsF t) :=
+    fun t f hft => FormerData.crossEnv (hFD₂ t f hft) (hcbF₁ t f hft) hFPc hLGc hPJc
+      (fun n hn => (hag₂ n (fun cA hcA hh => by
+        rw [hh, hfreshC cA hcA] at hn
+        exact nomatch hn)).symm)
+  -- the generators' data, read off `mutualGenData`
+  obtain ⟨hf4, hc4⟩ := Prod.mk.inj hgd
+  have hlen4F : formers4.length = fms.length := by rw [← hf4]; simp
+  have hget4F : ∀ t : Nat, t < fms.length →
+      formers4.getD t default
+        = ⟨(fms.getD t default).cvTa.name, (fms.getD t default).nIdx,
+           (fms.getD t default).cvTa.type⟩ := by
+    intro t ht
+    rw [← hf4, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem ht, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
+    rfl
+  have hlen4C : ctors4.length = ctorsA.length := by
+    have h1 : kinds.length = ctorsA.length := hlenAK.symm
+    rw [← hc4, List.length_zipWith, List.length_zip, h1, hlenA]
+    omega
+  -- **the members' reading premises**
+  have hFFacts : ∀ t : Nat, t < fms.length →
+      MutualFormerFacts mp₂.base2 p.toBlock.lps p.toBlock.nP (formers4.getD t default)
+        (fms.getD t default).cvTa (fms.getD t default).s (ppsF t) (lvlsF t) := by
+    intro t ht
+    have hft := hfmGet t ht
+    obtain ⟨bs, hstrip⟩ := hstripF _ _ hft
+    refine ⟨⟨{}, ?_⟩, by rw [hget4F t ht], hlpsF _ _ hft, ⟨bs, by rw [hget4F t ht]; exact hstrip⟩,
+      ?_⟩
+    · rw [hget4F t ht]
+      exact hFPc (hfindF _ _ hft)
+    · rw [hget4F t ht]
+      exact FormerData.congr_sort (hFD₃ _ _ hft) (fun ψ => (hsEq _ _ hft ψ).symm)
+  have hFReads : ∀ ψ : Name → Nat,
+      FormerReadsM mp₂.base2 ψ p.toBlock.lps p.toBlock.nP
+        (fun t => mp₂.base2.acval (fms.getD t default).cvTa.name ψ)
+        (fun t => (fms.getD t default).nIdx)
+        (fun t => (ppsF t ψ).take p.toBlock.nP) (fun t => (ppsF t ψ).drop p.toBlock.nP)
+        formers4 :=
+    fun ψ => formerReadsM_of
+      (fun t ht => by rw [hget4F t (by rw [← hlen4F]; exact ht)])
+      (fun t ht => by rw [hget4F t (by rw [← hlen4F]; exact ht)])
+      (fun t ht => hFFacts t (by rw [← hlen4F]; exact ht)) ψ
+  -- **the constructors' reading premises**
+  have hCReads : ∀ ψ : Name → Nat,
+      MutualCtorReadsM mp₂.base2 ψ p.toBlock.lps p.toBlock.nP
+        (fun t => (fms.getD t default).cvTa.name) (fun t => (fms.getD t default).nIdx) memF
+        (fun J => tgtAt (ksF J)) ctors4
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0) := by
+    intro ψ
+    refine mutualCtorReadsM_of (env₀ := ConLeche.consMutualFormers fms env)
+      (members := p.toBlock.members3) (isProp := Level.isEquiv f₀.s Level.zero == some true)
+      (large := p.toBlock.large) (resSortOf := fun J => (fms.getD (memF J) default).s)
+      (idxF := idxF₁) (srcsF := srcsF) (fvsPF := fvsPF) (xFvsF := xFvsF) (xrestF := xrestF)
+      ψ hlen4C ?_ ?_ ?_
+    · intro J cA hJ
+      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+      have hzip : (p.toBlock.ctors.zip ctorsA)[J]?
+          = some (p.toBlock.ctors.getD J default, cA) := by
+        rw [List.zip, List.getElem?_zipWith, hctorGet J hJl, hJ]
+      rw [← hc4, List.getElem?_zipWith, hzip,
+        List.getElem?_eq_getElem (show J < kinds.length by rw [← hlenAK]; exact hJl)]
+      simp only [Option.some.injEq]
+      have hnm : cA.1.name = (p.toBlock.ctors.getD J default).cv.name := by
+        have h1 := congrArg (fun l => l[J]?) hnamesC
+        rw [List.getElem?_map, List.getElem?_map, hJ, hctorGet J hJl] at h1
+        simpa using h1
+      have hnF : cA.2 = (p.toBlock.ctors.getD J default).nF := (hrunC J cA hJ).1
+      rw [← hnm, ← hnF]
+      show _ = MutualCtor4.mk cA.1.name cA.2 cA.1.type (p.toBlock.ctors.getD J default).member
+        (ConLeche.mutualRecFieldsOf (kinds.getD J []))
+      have hkJ : (kinds.getD J [] : List (RecFieldKind × Nat))
+          = kinds[J]'(show J < kinds.length by omega) := by
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (show J < kinds.length by omega)]
+        rfl
+      rw [hkJ]
+    · intro J i hJ _
+      have htl := (hksJ J _ (hcAGet J hJ)).2.2 i
+      exact ⟨(hmemT _ _ (hfmGet _ htl)).1.symm, (hmemT _ _ (hfmGet _ htl)).2.symm⟩
+    · intro J cA hJ
+      exact (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).1
   -- **WIP (M2.5f)**: the formers' and the constructors' stages are in;
   -- the recursor stage (`stageMutualRecs`) and the table stage
   -- (`stageMutualTables`) are what is left.  This `sorry` is the lane's
