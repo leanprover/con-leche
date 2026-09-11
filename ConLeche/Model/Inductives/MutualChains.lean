@@ -1091,4 +1091,122 @@ theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (Lis
     rw [hlenR] at hJ
     exact hreal J hJ
 
+/-! ## The constructor leaf's premise -/
+
+/-- **The constructor's residual folds to the auxiliary family's
+fibre** at the TAGGED index tuple: its own member's leaf applied at
+the parameter variables and its index expressions is the auxiliary
+family at the 1-tuple `⟨inj mem ⟨e⃗⟩⟩` (`mutualLeafApp`), which is the
+restricted tagged union there (`fixFamI_app_eq_sum` at the 1-tuple
+spine). -/
+theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTerm)}
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Fss Ess' : List (List AnnotTerm)} {ρ : Nat → V}
+    (hlenM : ppsM.length = nP + ((ppsM.drop nP).map (·.2.2)).length)
+    (hIdsM : Idss[mem]? = some ((ppsM.drop nP).map (·.2.2)))
+    (hTag : TagOk W ρ Idss)
+    (hX : XChainsOk W w ρ (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (hreal : ChainsRealI (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess') W w ρ (auxIds W Idss)
+      rss tlss Eiss' Fss₀ Fss Ess')
+    (hρ : Sat V ((ppsM.take nP).map (·.2.2)).reverse ρ)
+    {A : AnnotTerm}
+    (hA : ∀ σ : Nat → V, interp V σ A
+      = interp V (fun j => ρ (j + nP))
+          (mutualTyAVI W w ppsM ((ppsM.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss₀ Ess'
+            mem))
+    {bs : List V} {Es : List AnnotTerm} (hlenbs : bs.length = nF)
+    (hEok : ∀ E ∈ Es, WellDenoted V (consList bs ρ) E)
+    (hfit : SpineFit ρ ((ppsM.drop nP).map (·.2.2)) (Es.map (interp V (consList bs ρ)))) :
+    interp V (consList bs ρ) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + nF) ++ Es))
+      = sumSet w (sumFibre w (consList (idxValsAt ρ [tagTupleAV W mem nF Idss Es] bs) ρ)
+          (rChains 1 1 Fss Ess')) := by
+  have hfr : shiftE nF 0 (consList bs ρ) = ρ := by rw [← hlenbs]; exact shiftE_consList _ ρ
+  obtain ⟨hval, -⟩ := tagTupleAV_facts hTag hIdsM hfr hEok hfit
+  have hmem : inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt]))
+      ∈ˢ interp V ρ (tagTyAV W Idss) := by
+    rw [(tagTyAV_facts hTag).1]
+    exact tagTuple_mem hTag hIdsM hfit
+  have hsp1 : SpineFit ρ (auxIds W Idss)
+      [inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt]))] := ⟨hmem, trivial⟩
+  have hfold := mutualLeafApp hlenM hIdsM hTag hX.hok hρ hA (as := bs) (Eis := Es) hfit
+  rw [hlenbs] at hfold
+  rw [hfold]
+  have hsum := fixFamI_app_eq_sum hX hreal hsp1
+  rw [show (auxIds W Idss).length = 1 from rfl] at hsum
+  show SetTheory.app (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess')
+      (auxTup W (inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt])))) = _
+  unfold auxFamI auxTup
+  rw [hsum]
+  unfold idxValsAt
+  rw [List.map_singleton, hval]
+
+/-- **The constructor leaf's premise** (`MkPreS`) at a mutual block:
+`ctorWalksGen`'s parameter walk with the ONE tagged index expression —
+the fibre fold is `mutualCtorFold`. -/
+theorem mutualCtorMkPre {m : EnvModel V env} {nP nF J w : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
+    {Fss Ess' : List (List AnnotTerm)} {Es' : List AnnotTerm}
+    (hlenDs : ds.length = nP + nF)
+    (hokTy : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hFsj : Fss[J]? = some ((ds.drop nP).map (·.2.2)))
+    (hEsj : Ess'[J]? = some Es')
+    (hlenE' : Es'.length = 1)
+    (hFssOk : ∀ ρ : Nat → V, Sat V (((ds.take nP).map (·.2.2)).reverse) ρ →
+      SumFieldsOkB w ρ Fss)
+    (hfold : ∀ ρ : Nat → V, Sat V (((ds.take nP).map (·.2.2)).reverse) ρ →
+      ∀ bs : List V, SpineFit ρ ((ds.drop nP).map (·.2.2)) bs →
+        interp V (consList bs ρ) bodyC
+          = sumSet w (sumFibre w (consList (idxValsAt ρ Es' bs) ρ) (rChains 1 1 Fss Ess')))
+    (ρ : Nat → V) :
+    MkPreS w J ρ ((ds.drop nP).map (·.2.2)) (uChains Fss) bodyC (ds.take nP) := by
+  have hlenP : (ds.take nP).length = nP := List.length_take_of_le (by omega)
+  let Fs : List AnnotTerm := (ds.drop nP).map (·.2.2)
+  have hFsE : Fs = (ds.drop nP).map (·.2.2) := rfl
+  have hst := stripPisAV_mkPisAV ds bodyC
+  rw [hlenDs] at hst
+  have htele := piTeleAV_of_stripPisAV hst
+  obtain ⟨okΓ, -⟩ := piTeleAV_graded (V := V) htele (Δ₀ := []) (fun ρ' _ => hokTy ρ')
+  simp only [List.append_nil] at okΓ
+  have hΓplen : (((ds.take nP).map (·.2.2)).reverse).length = nP := by
+    rw [List.length_reverse, List.length_map, hlenP]
+  have okΓp : ∀ i, i < nP → ∀ ρ' : Nat → V,
+      Sat V ((((ds.take nP).map (·.2.2)).reverse).drop (nP - i)) ρ' →
+      WellDenotedV V ρ' ((((ds.take nP).map (·.2.2)).reverse).getD (nP - 1 - i) default) := by
+    intro i hi ρ' hρ'
+    rw [← getD_reverse_take hlenDs hi]
+    refine okΓ i (by omega) ρ' ?_
+    rw [drop_fields_eq hlenDs i (by omega)]
+    exact hρ'
+  have hentP : ∀ i, i < nP → ∃ q, (ds.take nP)[i]? = some q ∧
+      q.2.2 = (((ds.take nP).map (·.2.2)).reverse).getD (nP - 1 - i) default := by
+    intro i hi
+    have hil : i < (ds.take nP).length := by omega
+    exact ⟨_, List.getElem?_eq_getElem hil,
+      by rw [getD_reverse_of_peel hlenP hi (List.getElem?_eq_getElem hil)]⟩
+  have hchain : (rChains 1 1 Fss Ess')[J]? = some (rChain 1 1 Fs Es') := by
+    rw [rChains_getElem?, hFsE, hFsj, hEsj]
+  have hw := hereditaryWalk (V := V)
+    (Q := fun ρ' pds => MkPreS w J ρ' Fs (uChains Fss) bodyC pds)
+    hΓplen hlenP hentP okΓp
+    (fun ρ' hρ' => ?_)
+    (fun ρ' d ds' _ hok hrec => ⟨hok.1, hrec⟩)
+    0 (Nat.zero_le _) ρ (by
+      rw [Nat.sub_zero, List.drop_eq_nil_of_le (by rw [hΓplen]; exact Nat.le_refl _)]
+      exact Sat_nil V ρ)
+  · rw [List.drop_zero] at hw; exact hw
+  -- the base: at the parameter frame
+  refine ⟨SumFieldsOkB_uChains (hFssOk ρ' hρ'), by rw [uChains_getElem?, hFsE, hFsj]; rfl,
+    fun bs hsp => ?_⟩
+  have hlenI : (idxValsAt ρ' Es' bs).length = 1 := by simp [idxValsAt, hlenE']
+  refine ⟨sumFibre w (consList (idxValsAt ρ' Es' bs) ρ') (rChains 1 1 Fss Ess'), ?_, ?_⟩
+  · exact hfold ρ' hρ' bs (by rw [← hFsE]; exact hsp)
+  · rw [sumFibre_of_getElem? hchain]
+    have hshift : shiftE 1 0 (consList (idxValsAt ρ' Es' bs) ρ') = ρ' := by
+      rw [← hlenI]; exact shiftE_consList _ _
+    refine restricted_member_intro (Fs := liftFields 1 0 Fs) ?_ ?_
+    · rw [spineFit_liftFields, hshift]
+      exact hsp
+    · rw [EqAll_idxEqsAt hlenE' hsp.length_eq, hshift, frameIdx_consList hlenI]
+
 end ConLeche.Model
