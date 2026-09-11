@@ -2143,10 +2143,29 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (fun t ht => by rw [hget4F t (by rw [← hlen4F]; exact ht)])
       (fun t ht => by rw [hget4F t (by rw [← hlen4F]; exact ht)])
       (fun t ht => hFFacts t (by rw [← hlen4F]; exact ht)) ψ
+  -- **`Tname`'s totality**: `mutualRecData_of` asks for member `q`'s
+  -- former at EVERY `q`, so the `getD`-default must be a MEMBER
+  -- (`default`'s name is `Name.anonymous`, which no environment
+  -- carries)
+  have hfmF₀ : ∀ q : Nat, ∃ t : Nat, fms[t]? = some (fms.getD q f₀) := by
+    intro q
+    cases hq : fms[q]? with
+    | none =>
+      refine ⟨0, ?_⟩
+      rw [hf0, List.getD_eq_getElem?_getD, hq]
+      rfl
+    | some f =>
+      refine ⟨q, ?_⟩
+      rw [hq, List.getD_eq_getElem?_getD, hq]
+      rfl
+  have hgetDf₀ : ∀ t : Nat, t < fms.length → fms.getD t f₀ = fms.getD t default := by
+    intro t ht
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
+    rfl
   -- **the constructors' reading premises**
   have hCReads : ∀ ψ : Name → Nat,
       MutualCtorReadsM mp₂.base2 ψ p.toBlock.lps p.toBlock.nP
-        (fun t => (fms.getD t default).cvTa.name) (fun t => (fms.getD t default).nIdx) memF
+        (fun t => (fms.getD t f₀).cvTa.name) (fun t => (fms.getD t default).nIdx) memF
         (fun J => tgtAt (ksF J)) ctors4
         (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0) := by
     intro ψ
@@ -2179,9 +2198,50 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [hkJ]
     · intro J i hJ _
       have htl := (hksJ J _ (hcAGet J hJ)).2.2 i
-      exact ⟨(hmemT _ _ (hfmGet _ htl)).1.symm, (hmemT _ _ (hfmGet _ htl)).2.symm⟩
+      refine ⟨?_, (hmemT _ _ (hfmGet _ htl)).2.symm⟩
+      show (fms.getD (tgtAt (ksF J) i) f₀).cvTa.name = _
+      rw [hgetDf₀ _ htl]
+      exact (hmemT _ _ (hfmGet _ htl)).1.symm
     · intro J cA hJ
-      exact (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).1
+      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+      have hfacts := (hcons₂ J cA hJl hJ).1
+      refine ⟨hfacts.1, hfacts.2.1, ?_⟩
+      dsimp only
+      rw [show fms.getD (memF J) f₀ = fms.getD (memF J) default from hgetDf₀ _ (hmotLt J hJl)]
+      exact hfacts.2.2
+  have hfTname : ∀ q : Nat, ∃ ci : ConstantInfo,
+      (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
+          (fms.getD q f₀).cvTa.name = some ci ∧
+        ci.toConstantVal.levelParams = p.toBlock.lps := by
+    intro q
+    obtain ⟨t, ht⟩ := hfmF₀ q
+    exact ⟨.indInfo (fms.getD q f₀).cvTa {}, hFPc (hfindF t _ ht), hlpsF t _ ht⟩
+  -- **member `t`'s stored recursor type's reading** (`mutualRecData_of`)
+  obtain ⟨hlenRec, hallRec⟩ := ConLeche.checkMutualRecTys_inv hrectys
+  have hkF : p.toBlock.k = fms.length := by
+    show p.toBlock.formers.length = fms.length
+    rw [hlenFms]
+  have hmots4 : ∀ J, J < ctors4.length → memF J < formers4.length := by
+    intro J hJ
+    rw [hlen4F]
+    exact hmotLt J (by rw [← hlen4C]; exact hJ)
+  have hRDs : ∀ t : Nat, t < fms.length →
+      MutualRecData mp₂.base2 (cvRas.getD t default) p.toBlock.nP fms.length ctorsA.length
+        ((fms.getD t default).nIdx) t p.toBlock.elimLevel
+        (mutualRdsAV mp₂.base2 fms.length p.toBlock.nP p.toBlock.elimLevel
+          (fun t ψ => mp₂.base2.acval (fms.getD t default).cvTa.name ψ)
+          (fun t => (fms.getD t default).nIdx)
+          (fun t ψ => (ppsF t ψ).take p.toBlock.nP) (fun t ψ => (ppsF t ψ).drop p.toBlock.nP)
+          (fun ψ => fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)
+          memF (fun J => tgtAt (ksF J)) t) := by
+    intro t ht
+    obtain ⟨cvRa, hget, hrun⟩ := hallRec t (by rw [hkF]; exact ht)
+    have hcv : cvRas.getD t default = cvRa := by rw [List.getD_eq_getElem?_getD, hget]; rfl
+    rw [hcv]
+    have h := (mutualRecData_of (V := V) hμ mp₂ hrun hFReads hCReads hmots4 hfTname
+      (show t < formers4.length by rw [hlen4F]; exact ht)).1
+    rw [hlen4F, hlen4C] at h
+    exact h
   -- **WIP (M2.5f)**: the formers' and the constructors' stages are in;
   -- the recursor stage (`stageMutualRecs`) and the table stage
   -- (`stageMutualTables`) are what is left.  This `sorry` is the lane's
