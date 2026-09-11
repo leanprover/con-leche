@@ -69265,6 +69265,45 @@ Also recorded: `IndReps.swap`'s escape for an entry the swap changed is
 `ModeledLeaf` alone, so a natively stored group re-assembles its `k`
 entries with `IndRep.swap` (`mutualIndReps_of`).
 
+#### 8.8 The clause discharged for the members; three run-level findings (2026-09-11)
+
+* **`mutualIndRep_of`** (`Model/Inductives/MutualRep.lean`, `b01342ba`):
+  every field of `IndRep` at member `mm`, no flagged hypothesis left.
+  `mutualRepData`'s container readings are literally `auxCtorDatum`'s
+  (`essC J ψ = [tagTupleAV (W ψ) (mems J) (nFs J) (Idss ψ) (esF J ψ)]`,
+  `eissC` the per-slot tagged singletons), so `cdsC` IS `auxCtorData`
+  entrywise and the chains coincide; `Φ` is `fixFunVI` at the REAL field
+  chains as `fixRepData` does, with the X-chains reaching it through
+  `AgreeOffRecs` (a recursive entry is ignored by `chainXI`).  `leaf` is
+  `mutualTyAVI_fold` + `fixFamI_congr`; `fibre`/`functor` are `FixRep`'s
+  verbatim.  `mutualIndRepsHead_of` serves the provisioned cons (`rules
+  = []`, the shape clause vacuous) and the store unchanged.
+* **`IndReps.swap` does not serve a native group store** — its escape
+  for an entry the swap CHANGED is `ModeledLeaf` alone, and a natively
+  stored group's `k` recursors are exactly the changed entries.
+  `mutualIndReps_of` re-assembles per entry (`IndRep.swap`/
+  `ModeledLeaf.swap` + `storeMutualRecs_find?_inv`).  A third disjunct
+  ("or the caller supplies `IndRep m₃` there") would let both routes
+  share one lemma; not needed for this lane.
+* **`hProp` was not dischargeable and is now semantic.**  The checker
+  validates every constructor against the FIRST member's `isProp`
+  (`checkMutualCore`: `isProp := Level.isEquiv f₀.s .zero == some true`)
+  while `checkMutualCtor`'s `resSort` is the constructor's OWN member's
+  `f.s`; bridging the two syntactically needs transitivity of
+  `Level.isEquiv`, which the tree does not have (and which no consumer
+  wants: all three uses applied `isEquiv_sound` immediately).  The
+  hypothesis in `MutualShadow.lean`/`MutualChains.lean` is therefore
+  `isProp = true → ∀ ψ, resSort.eval ψ = 0`, which `mutualCrossChecks`
+  supports through `isEquiv_sound`.  Six signatures, no outside callers.
+* **Two more run-level findings** (`declMutual`'s assembly):
+  `checkMutual` runs NO index-telescope sort check, so `TagOk` comes
+  from `FormerData.lvls` (the parameter binders' universes, M2.3c), not
+  from `idxOk_of`; and the formers' stage needs a CHAIN-FREE first pass
+  (`stageMembersG`) because the members' leaves mention the block's
+  chains while the chains are read at the formers' carrier — the
+  circularity is broken by consing the members with their readings
+  before the chain facts are established.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
