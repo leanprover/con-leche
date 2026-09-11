@@ -125,6 +125,9 @@ This project was published when it was barely useable – able to process mathli
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
 * AI-translate the implementation to a different programming language, to be relisient against runtime and compiler bugs
 
+## Acknowledgements
+
+Joachim would like to thank Mario Carneiro for all the groundwork this builds on, and Arthur Adjedj for helpful discussions to understand what I actually built here.
 
 ## Contributions
 
