@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecLaw
 public import ConLeche.Model.Inductives.StructCaps
 public import ConLeche.Model.Swap
+import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.IndCons
 import ConLeche.Model.RecRulesCons
 import ConLeche.Verify.Inductives.MutualWF
@@ -907,6 +908,239 @@ theorem stageMutualRecsStore (p : MutualRecParts)
       exact hlaws m₃ hac φ x.2 hxk rl hrl hfire
   exact EnvModelM.swapP mpP hsw (ConLeche.mutual_recs_wf henv₂ hrectys hrules) hctors₃ hbp₃
     hproj₃ hrecP hreps
+
+
+/-! ## The leaf is closed -/
+
+omit [SetTheory V] in
+/-- A lifted field chain is bounded at the lifted depth. -/
+theorem liftFields_below {n : Nat} :
+    ∀ {Fs : List AnnotTerm} {K k : Nat}, FieldsBelow K Fs → FieldsBelow (K + n) (liftFields n k Fs)
+  | [], _, _, _ => trivial
+  | F :: Fs, K, k, h => ⟨by
+      rw [AnnotTerm.erase_liftN]
+      exact VExprAux.bvarsBelow_liftN n _ K k h.1, by
+      have := liftFields_below (n := n) (Fs := Fs) (K := K + 1) (k := k + 1) h.2
+      rwa [show K + 1 + n = K + n + 1 from by omega] at this⟩
+
+omit [SetTheory V] in
+/-- Binder data built from a bounded field chain with constant bits. -/
+theorem domsBelow_mapBits {u v : Nat} :
+    ∀ {Fs : List AnnotTerm} {K : Nat}, FieldsBelow K Fs →
+      DomsBelow K (Fs.map fun F => (u, v, F))
+  | [], _, _ => trivial
+  | _ :: _, _, h => ⟨h.1, domsBelow_mapBits h.2⟩
+
+omit [SetTheory V] in
+/-- **Tag minor `m'`'s type is closed** at its K-frame position. -/
+theorem tagMinorTyAV_below {ℓ W w m' nP : Nat} {Idss : List (List AnnotTerm)}
+    (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids) :
+    Term.bvarsBelow (nP + (1 + m')) (tagMinorTyAV ℓ W w m' Idss : AnnotTerm).erase := by
+  have hIdsm : FieldsBelow nP (Idss.getD m' []) := by
+    rw [List.getD_eq_getElem?_getD]
+    cases hm : Idss[m']? with
+    | none => exact trivial
+    | some Ids => exact hIds Ids (List.mem_of_getElem? hm)
+  unfold tagMinorTyAV
+  refine mkPisAV_below_of (domsBelow_mapBits (liftFields_below (n := 1 + m') hIdsm)) ?_
+  rw [List.length_map, liftFields_length]
+  simp only [AnnotTerm.erase_app, Term.bvarsBelow]
+  refine ⟨?_, ?_⟩
+  · show (Idss.getD m' []).length + m' < nP + (1 + m') + (Idss.getD m' []).length
+    omega
+  · have := tagTupleAV_below (W := W) (nP := nP) (m := m')
+      (d := 1 + m' + (Idss.getD m' []).length) (Idss := Idss)
+      (Es := teleVarsAV (Idss.getD m' []).length) hIds (fun E hE => by
+        obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hE
+        have := List.mem_range.mp hq
+        show (Idss.getD m' []).length - 1 - q < nP + (1 + m' + (Idss.getD m' []).length)
+        omega)
+    exact Term.bvarsBelow.mono (by omega) this
+
+omit [SetTheory V] in
+/-- **The tag recursor's binder data is closed** at the parameter frame. -/
+theorem dispDs_below {ℓ W w k nP : Nat} {Idss : List (List AnnotTerm)}
+    (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids) :
+    DomsBelow nP (dispDs ℓ W w k Idss) := by
+  refine ⟨?_, ?_⟩
+  · show Term.bvarsBelow nP (tagMotTyAV ℓ W w Idss : AnnotTerm).erase
+    unfold tagMotTyAV
+    exact ⟨tagTyAV_below hIds, trivial⟩
+  · refine domsBelow_of_getD (K := nP + 1) fun q hq => ?_
+    rw [List.length_map, List.length_range] at hq
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem (show q < (List.range k).length from by simpa using hq),
+      List.getElem_range]
+    have := tagMinorTyAV_below (ℓ := ℓ) (W := W) (w := w) (m' := q) (nP := nP) hIds
+    exact Term.bvarsBelow.mono (by omega) this
+
+omit [SetTheory V] in
+/-- **The tag recursor is closed** at the parameter frame: its binder
+data is, and its residual is the tag's case split on chains bounded
+there. -/
+theorem dispTowerAV_below {ℓ W w k nP : Nat} {Idss : List (List AnnotTerm)}
+    (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids) :
+    Term.bvarsBelow nP (dispTowerAV ℓ W w k Idss : AnnotTerm).erase := by
+  have hchains : ∀ Fs' ∈ rChains (k + 1) 0 Idss (List.replicate k []),
+      FieldsBelow (nP + (k + 1)) Fs' :=
+    rChains_below (Nat.zero_le _) hIds (fun j _ => by
+      rw [List.getD_eq_getElem?_getD]
+      cases hj : (List.replicate k ([] : List AnnotTerm))[j]? with
+      | none => exact ⟨rfl, fun E hE => nomatch hE⟩
+      | some Es =>
+        have : Es = [] := by
+          have := List.getElem?_eq_some_iff.mp hj
+          rw [← this.2]
+          exact List.getElem_replicate _
+        subst this
+        exact ⟨rfl, fun E hE => nomatch hE⟩)
+  refine mkLamsC_below (dispDs_below hIds) ?_
+  rw [show (dispDs ℓ W w k Idss).length = k + 1 from by simp [dispDs]]
+  unfold dispLamAV dispBodyAV
+  simp only [AnnotTerm.erase_lam, AnnotTerm.erase_app, Term.bvarsBelow]
+  refine ⟨?_, ?_, ?_⟩
+  · rw [AnnotTerm.erase_liftN]
+    have := VExprAux.bvarsBelow_liftN (k + 1) (tagTyAV W Idss : AnnotTerm).erase nP 0
+      (tagTyAV_below hIds)
+    exact Term.bvarsBelow.mono (by omega) this
+  · have := caseRecAVI_below (ℓ := dispLevel w ℓ) (w := W) (K := nP + (k + 1))
+      (Fss := rChains (k + 1) 0 Idss (List.replicate k []))
+      (ar := fun j => (Idss.getD j []).length) (ihArgs := fun _ _ => [])
+      (n := k) (nIdx := 0) (by omega) hchains (fun _ _ a ha => nomatch ha) k
+      (D := 1) (j := 0) (kx := .fst (.bvar 0)) (by
+        show Term.bvarsBelow (nP + (k + 1) + 1) (Term.fst (Term.bvar 0))
+        show 0 < nP + (k + 1) + 1
+        omega)
+    exact this
+  · show Term.bvarsBelow (nP + (k + 1) + 1) (Term.snd (Term.bvar 0))
+    show 0 < nP + (k + 1) + 1
+    omega
+
+
+omit [SetTheory V] in
+/-- **The tag motive is closed** at the parameter frame: the tag type,
+the auxiliary functor and the auxiliary tupler all are. -/
+theorem tagMotAV_below {ℓ W w nP : Nat} {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)}
+    (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
+    (hchains : ∀ chain ∈ chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss Ess',
+      FieldsBelow (nP + 2) chain) :
+    Term.bvarsBelow nP (tagMotAV ℓ W w Idss rss tlss Eiss' Fss Ess' : AnnotTerm).erase := by
+  have hauxB : FieldsBelow nP (auxIds W Idss) := ⟨tagTyAV_below hIds, trivial⟩
+  unfold tagMotAV auxAtAV
+  simp only [AnnotTerm.erase_lam, AnnotTerm.erase_pi, AnnotTerm.erase_sort, AnnotTerm.erase_app,
+    Term.bvarsBelow]
+  refine ⟨tagTyAV_below hIds, ⟨?_, ?_⟩, trivial⟩
+  · rw [AnnotTerm.erase_liftN]
+    exact VExprAux.bvarsBelow_liftN 1 _ nP 0 (fixBodyAVI_below hauxB hchains)
+  · rw [AnnotTerm.erase_mkAppN]
+    refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+    · rw [AnnotTerm.erase_liftN]
+      exact VExprAux.bvarsBelow_liftN 1 _ nP 0 (tuplerAV_below hauxB)
+    · intro a ha
+      obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
+      rw [List.mem_singleton] at ha₀
+      subst ha₀
+      show 0 < nP + 1
+      omega
+
+
+omit [SetTheory V] in
+/-- **The motive dispatch is closed** at the frame it sits in: the tag
+recursor and the tag motive are scoped at the parameters, and the
+block's motive variables sit inside the frame. -/
+theorem motDispAV_below {ℓ W w D mOff k nP : Nat} {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)}
+    (hmOff : mOff + k ≤ D)
+    (hTower : Term.bvarsBelow nP (dispTowerAV ℓ W w k Idss).erase)
+    (hMot : Term.bvarsBelow nP (tagMotAV ℓ W w Idss rss tlss Eiss' Fss Ess').erase) :
+    Term.bvarsBelow (nP + D)
+      (motDispAV ℓ W w D mOff k Idss rss tlss Eiss' Fss Ess' : AnnotTerm).erase := by
+  unfold motDispAV
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+  · rw [AnnotTerm.erase_liftN]
+    exact VExprAux.bvarsBelow_liftN D _ nP 0 hTower
+  · intro a ha
+    obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
+    rcases List.mem_cons.mp ha₀ with rfl | ha'
+    · rw [AnnotTerm.erase_liftN]
+      exact VExprAux.bvarsBelow_liftN D _ nP 0 hMot
+    · obtain ⟨m', hm', rfl⟩ := List.mem_map.mp ha'
+      have := List.mem_range.mp hm'
+      show mOff + k - 1 - m' < nP + D
+      omega
+
+omit [SetTheory V] in
+/-- **The member recursor's body is closed** under its binder tower:
+the auxiliary recursor's leaf is closed, the dispatch and the tagged
+tuple are scoped at the parameters, and everything else is a variable
+of the frame. -/
+theorem mutualRecBodyAV_below {ℓ W w nP k n nIdx t : Nat} {Idss : List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : List (List (List AnnotTerm))} {Fss₀ Ess' : List (List AnnotTerm)}
+    {auxLeaf : AnnotTerm}
+    (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
+    (hAux : Term.bvarsBelow 0 auxLeaf.erase)
+    (hTower : Term.bvarsBelow nP (dispTowerAV ℓ W w k Idss).erase)
+    (hMot : Term.bvarsBelow nP (tagMotAV ℓ W w Idss rss tlss Eiss' Fss₀ Ess').erase) :
+    Term.bvarsBelow (nP + (k + n + nIdx + 1))
+      (mutualRecBodyAV ℓ W w nP k n nIdx t Idss rss tlss Eiss' Fss₀ Ess' auxLeaf).erase := by
+  unfold mutualRecBodyAV
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+  · rw [AnnotTerm.liftN_eq_self _ hAux (k + n + nIdx + 1)]
+    exact Term.bvarsBelow.mono (Nat.zero_le _) hAux
+  · intro a ha
+    obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
+    simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at ha₀
+    rcases ha₀ with ((((ha | ha) | ha) | ha) | ha)
+    · -- the parameter variables
+      obtain ⟨q, hq, rfl⟩ := List.mem_map.mp ha
+      have := List.mem_range.mp hq
+      show nP + (k + n + nIdx + 1) - 1 - q < nP + (k + n + nIdx + 1)
+      omega
+    · -- the dispatch
+      subst ha
+      exact motDispAV_below (by omega) hTower hMot
+    · -- the minor variables
+      obtain ⟨J, hJ, rfl⟩ := List.mem_map.mp ha
+      have := List.mem_range.mp hJ
+      show nIdx + 1 + n - 1 - J < nP + (k + n + nIdx + 1)
+      omega
+    · -- the tagged tuple of the index variables
+      subst ha
+      exact tagTupleAV_below hIds (fun E hE =>
+        Term.bvarsBelow.mono (by omega)
+          (idxVarsAV_below (K := nP + (k + n + nIdx + 1) - 1) (by omega) E hE))
+    · -- the major
+      subst ha
+      show 0 < nP + (k + n + nIdx + 1)
+      omega
+
+/-- **Member `t`'s recursor leaf is closed**: its binder data is
+(`MutualRecData.below`), the auxiliary recursor's leaf is
+(`MutualLeafHyp.hclR`) and its body is `mutualRecBodyAV_below`'s. -/
+theorem MutualRecParts.leaf_below (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env₀}
+    (hyp : p.LeafHyp V m₀) {t : Nat} (ht : t < p.k) (ψ : Name → Nat)
+    (hds : DomsBelow 0 (p.rds m₀ t ψ))
+    (hlen : (p.rds m₀ t ψ).length = p.nP + p.k + p.n + p.nIdxOf t + 1)
+    (hIds : ∀ Ids ∈ p.Idss ψ, FieldsBelow p.nP Ids)
+    (hchains : ∀ chain ∈ chainsXI (p.W ψ) (auxIds (p.W ψ) (p.Idss ψ)) 1 p.rss (p.tlss ψ)
+        (p.Eiss' ψ) (p.Fss₀ ψ) (p.Ess' ψ),
+      FieldsBelow (p.nP + 2) chain) :
+    Term.bvarsBelow 0 (p.leaf m₀ t ψ).erase := by
+  have hh := hyp t ht ψ
+  have hLs : (p.Ls ψ).length = p.k := by simp [MutualRecParts.Ls]
+  unfold MutualRecParts.leaf mutualRecAVI
+  rw [hLs, hh.hn, p.nIdxs_getD ht]
+  refine mkLamsC_below hds ?_
+  rw [Nat.zero_add, show (mutualRecDataAV m₀ ψ (p.Ls ψ) p.nP p.nIdxs p.elimL (p.ppsOf 0 ψ)
+    (p.ipss ψ) (p.cds ψ) p.mems p.tgts t).length = p.nP + p.k + p.n + p.nIdxOf t + 1 from hlen]
+  exact Term.bvarsBelow.mono (by omega)
+    (mutualRecBodyAV_below hIds hh.hclR (dispTowerAV_below hIds) (tagMotAV_below hIds hchains))
 
 
 /-! ## The stage -/
