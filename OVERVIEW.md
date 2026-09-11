@@ -103,14 +103,14 @@ a parsed export stream. The main theorem,
 
 What a term denotes, and what a model is, are one short module a
 reader can take in at one sitting: the relation
-[`Denotes` in `ConLeche/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L135-L136),
+[`Denotes` in `ConLeche/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L134-L135),
 one rule per syntax form on the checker's own terms — a bound variable
 reads its environment, `Sort u` the universe chain, a constant its
 set, an application the function's graph, a binder the dependent
 product or the truth value of its body depending on the *regime* the
 checker annotated it with, which it may claim only if the body really
 denotes a truth value there — and the structure
-[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L218-L228).
+[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L217-L227).
 So every theorem the stream proves is true in the model, and the
 theorem certifies every proposition annotation the checker stored.
 Definitional equalities need no clause: a definition's unfolding or an
@@ -253,7 +253,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L375-L376)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L373-L374)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -353,7 +353,7 @@ where the invariant reads: wherever the invariant's reading of a term
 is defined and graded, `interp` of the reading is a `Denotes`-denotation
 of the term, with the invariant's sort facts discharging the regime
 premises of the binder rules
-([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L217-L223)).
+([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L215-L221)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
 closing operation translates between the two.
