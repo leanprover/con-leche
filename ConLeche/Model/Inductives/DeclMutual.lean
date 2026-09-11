@@ -835,6 +835,107 @@ theorem mutualCtorDataI_ident {env₀ : Env} {m₁ m₂ : EnvModel V env}
     rw [hcg ψ (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
     exact Option.some.inj (hd₁.symm.trans hd₂)
 
+/-! ## Kit: the opened guard travels to the formers' environment
+
+The kernel re-checks the opened constructor form at the PRE-BLOCK
+environment (`mutualFieldsOk env …`) but CHECKS the constructor at the
+formers' environment, and `MutualStageCtor.lean`'s stage ties the two
+into one `env₀`.  The guard is a conjunction of `constsResolve env₀`
+facts, so it travels along the formers' conses. -/
+
+theorem constsResolve_consMutualFormers : ∀ {fms : List MutualFormerA} {env : Env} {e : Expr},
+    Expr.constsResolve env e = true →
+    Expr.constsResolve (ConLeche.consMutualFormers fms env) e = true
+  | [], _, _, h => h
+  | f :: fs, env, e, h => by
+    show Expr.constsResolve
+      (ConLeche.consMutualFormers fs ⟨.indInfo f.cvTa {} :: env.consts⟩) e = true
+    exact constsResolve_consMutualFormers (Expr.constsResolve_mono h)
+
+omit [SetTheory V] in
+/-- The opened-form guard travels to a larger environment. -/
+theorem MutualOpened.mono {env₀ env₀' : Env} {members : List (Name × Nat × Nat)}
+    {lps : List Name} {nP nF : Nat} {ks : List (RecFieldKind × Nat)}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    (hm : ∀ e : Expr, Expr.constsResolve env₀ e = true → Expr.constsResolve env₀' e = true)
+    (h : MutualOpened env₀ members lps nP nF ks fvsP xFvs xrest) :
+    MutualOpened env₀' members lps nP nF ks fvsP xFvs xrest where
+  residRes e he := hm e (h.residRes e he)
+  ord i x hx hk := hm _ (h.ord i x hx hk)
+  recF i x hx hk := by
+    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h.recF i x hx hk
+    exact ⟨h1, h2, h3, fun e he => hm e (h4 e he), h5, h6⟩
+  reflF i x hx hk := by
+    obtain ⟨afvs, body, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h.reflF i x hx hk
+    exact ⟨afvs, body, h1, h2, fun a ha => hm _ (h3 a ha), h4, h5, h6,
+      fun e he => hm e (h7 e he), h8, h9⟩
+  kinds := h.kinds
+
+/-- … and so does a constructor's data: its `env₀` is the guard's. -/
+theorem MutualCtorDataI.monoEnv₀ {m : EnvModel V env} {env₀ env₀' : Env}
+    {members : List (Name × Nat × Nat)} {T : Name} {lps : List Name} {cvC : ConstantVal}
+    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)} {fvsP xFvs : List Expr}
+    {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hm : ∀ e : Expr, Expr.constsResolve env₀ e = true → Expr.constsResolve env₀' e = true)
+    (h : MutualCtorDataI m env₀ members T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
+      srcs ks fvsP xFvs xrest Eiss tss) :
+    MutualCtorDataI m env₀' members T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
+      srcs ks fvsP xFvs xrest Eiss tss :=
+  { h with opened := h.opened.mono hm }
+
+/-! ## Kit: `FieldsBelow`, positionally -/
+
+/-- A field chain is bounded when its entries are. -/
+theorem fieldsBelow_of_getD : ∀ (L : List AnnotTerm) (K : Nat),
+    (∀ i, i < L.length → Term.bvarsBelow (K + i) (L.getD i default).erase) → FieldsBelow K L
+  | [], _, _ => trivial
+  | F :: L, K, h => by
+    refine ⟨by simpa using h 0 (by simp), ?_⟩
+    refine fieldsBelow_of_getD L (K + 1) fun i hi => ?_
+    have hh := h (i + 1) (by simp; omega)
+    simpa [show K + 1 + i = K + (i + 1) from by omega] using hh
+
+/-- … and conversely. -/
+theorem getD_of_fieldsBelow : ∀ (L : List AnnotTerm) (K : Nat), FieldsBelow K L →
+    ∀ i, i < L.length → Term.bvarsBelow (K + i) (L.getD i default).erase
+  | [], _, _, i, hi => by simp at hi
+  | F :: L, K, h, i, hi => by
+    cases i with
+    | zero => simpa using h.1
+    | succ i =>
+      have hh := getD_of_fieldsBelow L (K + 1) h.2 i (by simp at hi ⊢; omega)
+      simpa [show K + 1 + i = K + (i + 1) from by omega] using hh
+
+omit [SetTheory V] in
+/-- The shadow chain only reads the ORDINARY slots. -/
+theorem shadowFs_congr {nP nF : Nat} {ks : List RecFieldKind} {Fs₁ Fs₂ : List AnnotTerm}
+    (h : ∀ i, i < nF → ¬ recAt nP ks (nP + i) →
+      Fs₁.getD i default = Fs₂.getD i default) :
+    shadowFs nP ks nF Fs₁ = shadowFs nP ks nF Fs₂ := by
+  refine List.ext_getElem? fun i => ?_
+  by_cases hi : i < nF
+  · rw [shadowFs_getElem? hi, shadowFs_getElem? hi]
+    by_cases hr : recAt nP ks (nP + i)
+    · rw [if_pos hr, if_pos hr]
+    · rw [if_neg hr, if_neg hr, h i hi hr]
+  · rw [List.getElem?_eq_none (by rw [shadowFs_length]; omega),
+      List.getElem?_eq_none (by rw [shadowFs_length]; omega)]
+
+/-- The shadow chain is bounded where the real one is: the shadowed
+slots carry `Sort 0`. -/
+theorem shadowFs_below {nP nF : Nat} {ks : List RecFieldKind} {Fs : List AnnotTerm}
+    (hlen : Fs.length = nF) (h : FieldsBelow nP Fs) :
+    FieldsBelow nP (shadowFs nP ks nF Fs) := by
+  refine fieldsBelow_of_getD _ nP fun i hi => ?_
+  have hi' : i < nF := by rw [shadowFs_length] at hi; exact hi
+  rw [shadowFs_getD hi']
+  split
+  · exact trivial
+  · exact getD_of_fieldsBelow Fs nP h i (by omega)
+
 /-! ## Kit: a member's index telescope, from its former's data alone -/
 
 omit [SetTheory V] in
