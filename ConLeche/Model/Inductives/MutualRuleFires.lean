@@ -25,16 +25,29 @@ public section
   `paramsBlind` price) and whose `hiota` is `mutualRecIotaCore`'s
   conclusion.
 
-Two premises are left for the caller, both at the SPLIT frame, where
-they are the fixpoint route's own two steps:
+Both steps at the split frame are done here, and they are the fixpoint
+route's own two:
 
-* `hfitB` — the constructor's fields, refitted at the recursor's
-  parameter values (`fixRecLawCore`'s graph-regime inversion:
-  `sumSet_elim` + `towerSet_elim_teleOfFields` at the auxiliary
-  family's restricted chain);
-* `hiota` — `mutualRecIotaCore`'s conclusion, whose own spine premises
-  (`hspAux`, `hih`, the auxiliary `FixPre`) are the member leaf's
-  typing at the rule's frame.
+* the constructor's fields, **refitted at the recursor's parameter
+  values** — the constructor's own parameter spine is never identified
+  with the recursor's; instead the major lies in the major domain's
+  reading, which is the auxiliary fibre at `⟨inj t ı⃗⟩`, and the
+  auxiliary premise's K-frame (`FixPre.hK` at the auxiliary spine)
+  presents that fibre as the restricted tagged union at the
+  RECURSOR's parameters (`RecHypCore.hfam`).  `sumSet_elim` +
+  `towerSet_elim_teleOfFields` at `rChains 1 1 FssR Ess'`, with
+  `inj_inj` and `mkTower` injectivity identifying the constructor's tag
+  and fields (`fixRecLawCore`'s graph-regime inversion; the squash
+  regime is vacuous — `wB ψ = 0 → ℓ ψ = 0`);
+* `mutualRecIotaCore`'s conclusion, whose spine premises are the member
+  leaf's typing at the rule's frame: `hspAux` is
+  `mutualAuxSpine_of` and `hih` is `mutualIhSpine_of`
+  (`Model/Inductives/MutualRecTyping.lean`), `hpre` the auxiliary
+  `FixPre` (`auxFixPre_of`).
+
+`(p.FssR ψ).length = p.n` is not a hypothesis: it is the auxiliary
+premise's own length clause (`FixPre.hlen` against
+`fixRecDataAVL_length`).
 -/
 
 namespace ConLeche.Model
@@ -88,34 +101,26 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
     (hRuleOk : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (p.ruleAV m₀ J (cdF ψ) ψ))
     (hmem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (p.leaf m₀ t ψ) ∈ˢ interp V ρ (mkPisAV (p.rds m₀ t ψ) (p.conc t)))
-    -- the constructor's fields, refitted at the RECURSOR's parameter
-    -- values (`fixRecLawCore`'s graph-regime inversion)
-    (hfitB : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as₁ Ms ms is as₂ : List V) (tv : V)
-      (ys : List AnnotTerm),
-      p.ℓ ψ ≠ 0 → as₁.length = p.nP → Ms.length = p.k → ms.length = p.n →
-      is.length = p.nIdxOf t → as₂.length = (cdF ψ).2.1 →
-      SpineFit ρ ((p.rds m₀ t ψ).map (·.2.2)) (as₁ ++ Ms ++ ms ++ is ++ [tv]) →
-      tv = interp V ρ (AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
-        (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys) →
-      SpineFit ρ ((cdF ψ).2.2.1.map (·.2.2)) (ys.map (interp V ρ)) →
-      SpineFit (consList as₁ ρ) (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) as₂)
-    -- the ι equation at the split frame (`mutualRecIotaCore`)
-    (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as₁ Ms ms is as₂ : List V) (tv : V),
-      p.ℓ ψ ≠ 0 → as₁.length = p.nP → Ms.length = p.k → ms.length = p.n →
-      is.length = p.nIdxOf t → as₂.length = (cdF ψ).2.1 →
-      SpineFit ρ ((p.rds m₀ t ψ).map (·.2.2)) (as₁ ++ Ms ++ ms ++ is ++ [tv]) →
-      SpineFit (consList as₁ ρ) (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) as₂ →
-      (as₁ ++ Ms ++ ms ++ is ++ [tv]).foldl SetTheory.app (interp V ρ (p.leaf m₀ t ψ))
-        = interp V (consList as₂ (consList ms (consList Ms (consList as₁ ρ))))
-            (mutualRuleCoreAV (p.bb ψ) (fun q => p.leaf m₀ q ψ) (p.tgts J) p.nP p.k p.n
-              (cdF ψ).2.1 J (cdF ψ).2.2.2.2.1 (cdF ψ).2.2.2.2.2.2 (cdF ψ).2.2.2.2.2.1)) :
+    -- every member's recursor leaf is closed (`MutualRecParts.leaf_below`)
+    (hAcl : ∀ (q : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (p.leaf m₀ q ψ).erase)
+    -- the mutual regime: a `Prop`-valued block eliminates into `Prop` only
+    (hregime : ∀ ψ : Name → Nat, p.wB ψ = 0 → p.ℓ ψ = 0)
+    -- the AUXILIARY recursor's premise (`auxFixPre_of`)
+    (hpre : ∀ ψ : Name → Nat, FixPre V (p.ℓ ψ) (p.wB ψ) (p.W ψ) p.nP (p.FssR ψ) (p.Ess' ψ)
+      (p.Fss₀ ψ) (auxIds (p.W ψ) (p.Idss ψ)) p.rss (p.tlss ψ) (p.Eiss' ψ)
+      (auxRecDataAV m₀ ψ (p.W ψ) (p.wB ψ) p.nP p.elimL (p.ppsOf 0 ψ) (p.Idss ψ) p.rss
+        (p.tlss ψ) (p.Eiss' ψ) (p.Fss₀ ψ) (p.Ess' ψ) p.mems p.tgts (p.cds ψ)) (p.s ψ)) :
     p.RuleFires V m₀ t J mI rP cdF := by
   subst hmI
   subst hrP
   intro ψ ρ xs ys hxl hyl hspR hspC _hpin
   have hh := hyp t ht ψ
   have hLs : (p.Ls ψ).length = p.k := by simp [MutualRecParts.Ls]
-  obtain ⟨hlenDs, -, -, -, -, -, -, -, -⟩ := hh.hcd J (cdF ψ) (hcdJ ψ)
+  obtain ⟨hlenDs, htakeP, -, -, hFssJ, hrecIdxJ, htlsJ, hEissOJ, hEissJ⟩ :=
+    hh.hcd J (cdF ψ) (hcdJ ψ)
+  have hJn : J < p.n := by
+    have h := (List.getElem?_eq_some_iff.mp (hcdJ ψ)).1
+    rwa [hh.hn] at h
   -- the rule's tower, and its bits
   have hldsBits : ∀ d ∈ mutualRuleDataAV m₀ ψ (p.Ls ψ) p.nP p.nIdxs p.elimL (p.ppsOf 0 ψ)
       (p.ipss ψ) (p.cds ψ) p.mems p.tgts (cdF ψ).2.2.1, d.1 = p.bb ψ :=
@@ -133,7 +138,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
     (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]).map (interp V ρ) = vs
     at hspR'
   obtain ⟨as₃, ts, rfl, hsp₃, hspT⟩ := spineFit_append_inv hspR'
-  obtain ⟨tv, rfl, -⟩ := spineFit_singleton hspT
+  obtain ⟨tv, rfl, htmaj⟩ := spineFit_singleton hspT
   obtain ⟨as₂', is, rfl, hsp₂, hspI⟩ := spineFit_append_inv hsp₃
   obtain ⟨as₁', Ss, rfl, hsp₁, hspS⟩ := spineFit_append_inv hsp₂
   obtain ⟨ps, Ms, rfl, hspP, hspM⟩ := spineFit_append_inv hsp₁
@@ -212,10 +217,165 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
       · exact hxs_ok a (List.mem_of_mem_take h)
       · exact hys_ok a (List.mem_of_mem_drop h)
   · -- the graph regime
+    have hw : p.wB ψ ≠ 0 := fun h0 => hℓ0 (hregime ψ h0)
+    -- the recursor's parameter frame, and the block's data there
+    have hsatP : Sat V (((p.ppsOf 0 ψ).map (·.2.2)).reverse) (consList ps ρ) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hspP
+      rwa [List.append_nil] at h
+    have hF := hh.hframes _ hsatP
+    -- the constructor's spine, split at its own parameters
+    have hspC' := hspC
+    rw [show (cdF ψ).2.2.1.map (·.2.2) = ((cdF ψ).2.2.1.take p.nP).map (·.2.2)
+        ++ ((cdF ψ).2.2.1.drop p.nP).map (·.2.2) from by
+      rw [← List.map_append, List.take_append_drop]] at hspC'
+    obtain ⟨qs, fs, hysv, hspq, hspf⟩ := spineFit_append_inv hspC'
+    have hlenqs : qs.length = p.nP := by
+      rw [hspq.length_eq, htakeP, List.length_map, hh.hlenP]
+    have hfseq : fs = (ys.drop p.nP).map (interp V ρ) := by
+      rw [List.map_drop, hysv, List.drop_left' hlenqs]
+    subst hfseq
+    -- the CONSTRUCTOR's parameter frame (never identified with the recursor's)
+    have hsatC : Sat V (((p.ppsOf 0 ψ).map (·.2.2)).reverse) (consList qs ρ) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hspq
+      rw [List.append_nil, htakeP] at h
+      exact h
+    have hFC := hh.hframes _ hsatC
+    -- the constructor's value: the injection of its field tower
+    have hokU : SumFieldsOkB (p.wB ψ) (consList qs ρ) (uChains (p.FssR ψ)) :=
+      SumFieldsOkB_uChains hFC.fieldsB
+    have hjU : (uChains (p.FssR ψ))[J]?
+        = some (((cdF ψ).2.2.1.drop p.nP).map (·.2.2) ++ [idxEqAV []]) := by
+      rw [uChains_getElem?, hFssJ]; rfl
+    have hmajV : tv = inj J (mkTower ((ys.drop p.nP).map (interp V ρ) ++ [pt])) := by
+      rw [htv, interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hysv,
+        show sumMkAV (p.wB ψ) J (cdF ψ).2.2.1 (((cdF ψ).2.2.1.drop p.nP).map (·.2.2))
+            (uChains (p.FssR ψ))
+          = sumMkAV (p.wB ψ) J ((cdF ψ).2.2.1.take p.nP ++ (cdF ψ).2.2.1.drop p.nP)
+              (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ)) from by
+          rw [List.take_append_drop]]
+      exact sumMkAV_fold hw hspq hspf hokU hjU
+    -- member `t`'s index telescope, and the index spine at the parameters
+    obtain ⟨IdsM, hIdsMM, hlenIdsMM, hipdMM⟩ := hh.hIdss t ht
+    have hfr1 : consList (ps ++ Ms) ρ = consList Ms (consList ps ρ) := consList_append _ _ _
+    have hfr2 : consList (ps ++ Ms ++ Ss) ρ = consList Ss (consList Ms (consList ps ρ)) := by
+      rw [consList_append, hfr1]
+    have hfr4 : consList (ps ++ Ms ++ Ss ++ is ++ [tv]) ρ
+        = cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))) := by
+      rw [consList_append, consList_append, hfr2, consList_cons, consList_nil]
+    have hshY : shiftE (p.k + p.n) 0 (consList Ss (consList Ms (consList ps ρ)))
+        = consList ps ρ := by
+      rw [← consList_append, show p.k + p.n = (Ms ++ Ss).length from by
+        simp [hlenMs, hlenSs]]
+      exact shiftE_consList _ _
+    have hidxFit : SpineFit (consList ps ρ) IdsM is := by
+      have h := hspI
+      rw [hfr2, spineFit_liftDoms_iff, hshY, hipdMM] at h
+      exact h
+    -- the AUXILIARY recursor's spine (`mutualAuxSpine_of`)
+    have hspAux := mutualAuxSpine_of hh hlenMs hlenSs
+      (by rw [p.nIdxs_getD ht]; exact hlenIs) hspP hspM hspS hspI htmaj
+    -- the number of constructor chains, off the auxiliary premise's length clause
+    have hlenFss : (p.FssR ψ).length = p.n := by
+      have h1 := (hpre ψ).hlen
+      unfold auxRecDataAV at h1
+      rw [fixRecDataAVL_length hh.hlenP
+          (show (tagIps (p.W ψ) (p.Idss ψ)).length = 1 from rfl), auxCtorData_length, hh.hn,
+        show (auxIds (p.W ψ) (p.Idss ψ)).length = 1 from rfl] at h1
+      omega
+    -- the auxiliary recursor's K-frame at this spine
+    obtain ⟨hK, htK⟩ := (hpre ψ).hK ρ
+      (ps ++ [interp V (cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))))
+          (motDispAV (p.ℓ ψ) (p.W ψ) (p.wB ψ) (p.k + p.n + p.nIdxs.getD t 0 + 1)
+            (p.n + p.nIdxs.getD t 0 + 1) p.k (p.Idss ψ) p.rss (p.tlss ψ) (p.Eiss' ψ)
+            (p.Fss₀ ψ) (p.Ess' ψ))] ++ Ss ++ [inj t (mkTower (is ++ [pt]))]) tv hspAux
+    have hKfr : consList (ps ++ [interp V
+          (cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))))
+          (motDispAV (p.ℓ ψ) (p.W ψ) (p.wB ψ) (p.k + p.n + p.nIdxs.getD t 0 + 1)
+            (p.n + p.nIdxs.getD t 0 + 1) p.k (p.Idss ψ) p.rss (p.tlss ψ) (p.Eiss' ψ)
+            (p.Fss₀ ψ) (p.Ess' ψ))] ++ Ss ++ [inj t (mkTower (is ++ [pt]))]) ρ
+        = consList [inj t (mkTower (is ++ [pt]))] (consList Ss (cons (interp V
+            (cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))))
+            (motDispAV (p.ℓ ψ) (p.W ψ) (p.wB ψ) (p.k + p.n + p.nIdxs.getD t 0 + 1)
+              (p.n + p.nIdxs.getD t 0 + 1) p.k (p.Idss ψ) p.rss (p.tlss ψ) (p.Eiss' ψ)
+              (p.Fss₀ ψ) (p.Ess' ψ))) (consList ps ρ))) :=
+      consList_kframe ps _ Ss [inj t (mkTower (is ++ [pt]))] ρ
+    have hlenmsF : Ss.length = (p.FssR ψ).length := by rw [hlenSs, hlenFss]
+    have hsh : shiftE ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1) 0
+        (consList [inj t (mkTower (is ++ [pt]))] (consList Ss (cons (interp V
+            (cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))))
+            (motDispAV (p.ℓ ψ) (p.W ψ) (p.wB ψ) (p.k + p.n + p.nIdxs.getD t 0 + 1)
+              (p.n + p.nIdxs.getD t 0 + 1) p.k (p.Idss ψ) p.rss (p.tlss ψ) (p.Eiss' ψ)
+              (p.Fss₀ ψ) (p.Ess' ψ))) (consList ps ρ)))) = consList ps ρ :=
+      kframe_frP (his := show [inj t (mkTower (is ++ [pt]))].length
+        = (auxIds (p.W ψ) (p.Idss ψ)).length from rfl) hlenmsF
+    -- the major in the restricted tagged union at the RECURSOR's parameters
+    have ht' : tv ∈ˢ sumSet (p.wB ψ) (sumFibre (p.wB ψ)
+        (consList (ps ++ [interp V
+            (cons tv (consList is (consList Ss (consList Ms (consList ps ρ)))))
+            (motDispAV (p.ℓ ψ) (p.W ψ) (p.wB ψ) (p.k + p.n + p.nIdxs.getD t 0 + 1)
+              (p.n + p.nIdxs.getD t 0 + 1) p.k (p.Idss ψ) p.rss (p.tlss ψ) (p.Eiss' ψ)
+              (p.Fss₀ ψ) (p.Ess' ψ))] ++ Ss ++ [inj t (mkTower (is ++ [pt]))]) ρ)
+        (rChains ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
+          (auxIds (p.W ψ) (p.Idss ψ)).length (p.FssR ψ) (p.Ess' ψ))) := by
+      rw [← hK.hyp.hfam]
+      exact htK
+    obtain ⟨Es', hEsj⟩ : ∃ Es', (p.Ess' ψ)[J]? = some Es' :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hK.hreal.2.1, hlenFss]; exact hJn)⟩
+    have hRj : (rChains ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
+          (auxIds (p.W ψ) (p.Idss ψ)).length (p.FssR ψ) (p.Ess' ψ))[J]?
+        = some (rChain ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
+            (auxIds (p.W ψ) (p.Idss ψ)).length (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) Es') := by
+      rw [rChains_getElem?, hFssJ, hEsj]
+    have hlenFs : (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)).length = (cdF ψ).2.1 := by
+      rw [List.length_map, List.length_drop, hlenDs]; omega
+    -- **`hfitB`**: the fields, refitted at the RECURSOR's parameters
     have hfitB' : SpineFit (consList ps ρ) (((cdF ψ).2.2.1.drop p.nP).map (·.2.2))
-        ((ys.drop p.nP).map (interp V ρ)) :=
-      hfitB ψ ρ ps Ms Ss is ((ys.drop p.nP).map (interp V ρ)) tv ys hℓ0 hlenPs hlenMs hlenSs
-        hlenIs hlenAs₂ hspRF htv hspC
+        ((ys.drop p.nP).map (interp V ρ)) := by
+      obtain ⟨i, a, ha, hta⟩ := sumSet_elim hw ht'
+      rw [hmajV] at hta
+      obtain ⟨rfl, rfl⟩ := inj_inj hta
+      rw [sumFibre_of_getElem? hRj] at ha
+      obtain ⟨hfitR, heta⟩ := towerSet_elim_teleOfFields hw ha
+      have hlenR : (rChain ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
+          (auxIds (p.W ψ) (p.Idss ψ)).length (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) Es').length
+          = (cdF ψ).2.1 + 1 := by
+        rw [rChain, List.length_append, liftFields_length, hlenFs, List.length_singleton]
+      have hpl : projList (rChain ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
+          (auxIds (p.W ψ) (p.Idss ψ)).length (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) Es').length
+          (mkTower ((ys.drop p.nP).map (interp V ρ) ++ [pt]))
+          = (ys.drop p.nP).map (interp V ρ) ++ [pt] := by
+        refine mkTower_inj ?_ heta.symm
+        rw [projList_length, hlenR, List.length_append, hlenAs₂, List.length_singleton]
+      rw [hpl] at hfitR
+      unfold rChain at hfitR
+      have hpref := spineFit_prefix (as := (ys.drop p.nP).map (interp V ρ)) (bs := [pt]) hfitR
+      rw [List.take_left' (by rw [liftFields_length, hlenFs, hlenAs₂])] at hpref
+      rw [spineFit_liftFields, hKfr, hsh] at hpref
+      exact hpref
+    -- **`hiota`**: `mutualRecIotaCore` at the split
+    have hiota : (ps ++ Ms ++ Ss ++ is ++ [tv]).foldl SetTheory.app
+          (interp V ρ (p.leaf m₀ t ψ))
+        = interp V (consList ((ys.drop p.nP).map (interp V ρ))
+            (consList Ss (consList Ms (consList ps ρ))))
+            (mutualRuleCoreAV (p.bb ψ) (fun q => p.leaf m₀ q ψ) (p.tgts J) p.nP p.k p.n
+              (cdF ψ).2.1 J (cdF ψ).2.2.2.2.1 (cdF ψ).2.2.2.2.2.2 (cdF ψ).2.2.2.2.2.1) := by
+      have h := mutualRecIotaCore (V := V) (EissRaw := p.EissO ψ)
+        (Rof := fun q => p.leaf m₀ q ψ) hh.hbz hℓ0 hw (by rw [hLs]; exact ht)
+        (by rw [hh.hn]; exact hJn) (by rw [hlenFss, hh.hn]) hlenPs (by rw [hLs]; exact hlenMs)
+        (by rw [hh.hn]; exact hlenSs) (by rw [p.nIdxs_getD ht]; exact hlenIs) hlenAs₂
+        (by rw [List.getD_eq_getElem?_getD, hFssJ, Option.getD_some]; exact hlenFs)
+        (fun q _ => rfl)
+        (fun q hq σ => (p.leaf_facts hyp (by rwa [hLs] at hq) ψ σ).1.1)
+        (fun q => hAcl q ψ) hh.hclR hF.tag hIdsMM hidxFit hspRF
+        (by rw [hLs, hh.hn, hfr4]) (hpre ψ) hspAux hmajV
+        (fun i hi => by
+          rw [hEissJ, List.getD_eq_getElem?_getD, List.getElem?_map,
+            List.getElem?_range (mem_recIdx.mp hi).1]
+          rfl)
+        (fun i _ => by rw [hLs]; exact hh.htgts J i)
+        (mutualIhSpine_of hh (hcdJ ψ) hlenMs hlenSs hspP hspM hspS hfitB')
+      rw [hLs, hh.hn, ← hrecIdxJ, ← htlsJ, ← hEissOJ] at h
+      exact h
     -- the rule's tower fits the block and the fields
     have hshift : shiftE (p.k + p.n) 0 (consList ((ps ++ Ms) ++ Ss) ρ) = consList ps ρ := by
       rw [show (ps ++ Ms) ++ Ss = ps ++ (Ms ++ Ss) from by simp only [List.append_assoc],
@@ -251,8 +411,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
         (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys)
       hh.hbz (by omega) rfl hldsBits hldsLen hlenPs hlenMs hlenSs hxv rfl htv.symm
       (hRuleOk ψ) hfitRa (fun h => absurd h hℓ0)
-      (fun _ => hiota ψ ρ ps Ms Ss is ((ys.drop p.nP).map (interp V ρ)) tv hℓ0 hlenPs hlenMs
-        hlenSs hlenIs hlenAs₂ hspRF hfitB')
+      (fun _ => hiota)
     exact hcore
 
 end ConLeche.Model
