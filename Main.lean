@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
+public import ConLeche.ExportGen
 
 @[expose] public section
 
@@ -52,7 +53,10 @@ no preprocessor detection, no spawn, no pipe. -/
 def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
     IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  Frontend.parseExportStreamD file prelude inModel census
+  IO.FS.withTempFile fun handle path => do
+    handle.putStr (ExportGen.generateString (← IO.FS.readBinFile file))
+    handle.flush
+    Frontend.parseExportStreamD path prelude inModel census
 
 /-- `declPName` for the direct-parse `DeclC` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
