@@ -68282,3 +68282,77 @@ rejects the mismatch) — a harmless accept-superset (a weaker recursor).
   fibre `tag.m` — the sum over all `n` restricted chains collapses to
   the member's own constructor's tower at that tag) and η/unit-like as
   official.
+
+### 4. The nested lane's requirements (task #279 §5.6, received during M1) — three honoured, one CONFLICT
+
+The nested design (C′: official's `elim_nested_inductive_fn` mirrored
+in the kernel, the auxiliary block fed to THIS install, the copies
+identified with the containers by Bekić's lemma) asks four things of
+the mutual route.  Against the scaffold design:
+
+* **R1 (one simultaneous least fixed point over the tagged index
+  tuples, exposed as a theorem — (M0)).**  HONOURED, with the
+  encoding named.  The auxiliary family's carrier is `lfpFam I Φ`
+  with `I = ⟦tag p⃗⟧`, the tag family's carrier — the fixpoint route's
+  tagged sum of the members' index towers, whose elements are
+  `inj m (mkTower (ı⃗ ++ [pt]))` — and the aux family's index tuple is
+  the 1-tuple `tupW u' [inj m (mkTower (ı⃗ ++ [pt]))]`; `Φ` is
+  `fixFunVI` at `Ids = [tagAV]`.  So a member's leaf is
+  `λ p⃗ ı⃗, app (lfpFam I Φ) ⟨inj m ⟨ı⃗⟩⟩`, a fibre of one least fixed
+  point of a monotone functor on families over a tagged sum, with the
+  closed member from `container_closed_exists`.  What R1 makes
+  MANDATORY (it was M4's first item): `declNative` must EXPOSE the
+  auxiliary leaf — today it returns `Nonempty (EnvModelM …)` and the
+  leaf's identity dies inside the witness — and `declMutual` must
+  state the members' leaves through it.  Moved into M2.  (T2)'s
+  restriction to a member subset is `sep` on the tag of the 1-tuple's
+  element.
+* **R3 (reflexive and indexed members).**  HONOURED by construction:
+  the aux family carries reflexive fields (#202's kits, through
+  `checkNative`) and the tag constructors carry the members' index
+  telescopes; the modeller's "reflexive member" decline is gone with
+  it (`mutual_struct_proj`'s block now installs).
+* **R4 (the generator produces the auxiliary block's recursors in
+  `all` order with official's `ih` placement; the entry takes a block
+  record not looked up in the stream).**  HONOURED: `mutualRecTy`/
+  `mutualRecRhs` (`MutualParts.lean`) generate member `m`'s recursor
+  with `k` motives and the `n` minors in member-then-constructor
+  order, the `ih` at the target member's motive; `checkMutualCore`
+  takes the block record (formers, constructors, the eliminator's
+  level-parameter shape) and RETURNS the generated recursors, with
+  the comparison against the stream's records a separate step
+  (`checkMutual` = core + comparison).  The nested lane synthesises
+  its auxiliary block's records exactly as this install synthesises
+  the tag's and the aux's for `checkNative`.
+* **R2 (a member's elements are `inj c (mkTower fs)` with `c` the
+  constructor's index WITHIN ITS OWN TYPE).**  **CONFLICT — not
+  satisfiable by a reduction to the single-family installer, in the
+  scaffold or in the pure-semantic form.**  The fixpoint route's fibre
+  is `sumSet w (sumFibre … chains)` with `inj j` the chain's POSITION;
+  the auxiliary family's chains are ALL the block's constructors, so
+  `Odd.succ` is `inj 2 …`, not `inj 0 …`.  No parameter of the
+  existing tower changes that: the recursor's case split selects the
+  minor from the tag alone, and local tags collide across members
+  (`Even.zero`/`Odd.succ` both `inj 0`) unless the case split also
+  reads the index tuple's member — a different case-split
+  construction, i.e. option (b)'s model (per-member constructor sums,
+  the case split refined by the member, `FixLeafI`/`FixFamI`/
+  `FixCaseI`/`FixRecI` and their Model readings restated; my estimate
+  15–30 Fable sessions), or the SAME construction reached by threading
+  a tag assignment `tagOf : Nat → Nat` plus the member-of-tuple read
+  through the sum and fixpoint towers (`inj j` → `inj (tagOf j)`,
+  the case split at `(member ı⃗, c)`; the single route at `tagOf = id`;
+  every lemma about `inj j` touched; 8–15 sessions).  The alternative
+  that costs the NESTED lane instead: state (M2) up to the retagging
+  bijection `retag_j : inj J ↦ inj (J − J₀(j))` between a copy's fibre
+  and the container's, and value the restored recursors as the
+  auxiliary ones composed with it (`T.rec_1 := auxRec ∘ retag`; the
+  rule laws follow from the auxiliary laws by the same unfolding) —
+  bookkeeping, no new theory, on their side.  **The choice is the
+  maintainer's**; the kernel (M1) is identical under both, so M1
+  proceeds and M2's model-tier design waits for the ruling.
+* **Nice to have (the leaf spelled as the substituted functor of the
+  block's own stored constructor types).**  Not with the scaffold: the
+  leaf is spelled from the AUX family's constructors (the rewritten
+  ones); the substituted-functor form is one β/δ lemma away, not
+  definitional.
