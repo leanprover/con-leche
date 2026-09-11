@@ -178,8 +178,9 @@ theorem interp_mutualRuleCoreAV {ℓ b nP k n nF j : Nat} (hbz : ℓ = 0 ↔ b =
     {as₁ Ms ms as₂ : List V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenK : Ms.length = k) (hk : 0 < k) (hlenM : ms.length = n)
     (hlenF : as₂.length = nF) (hjn : j < n)
-    {Rof : Nat → AnnotTerm} (hRcl : ∀ t, Term.bvarsBelow 0 (Rof t).erase) {tgts : Nat → Nat}
-    {rs : List Bool} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} :
+    {Rof : Nat → AnnotTerm} {tgts : Nat → Nat} {rs : List Bool}
+    (hRcl : ∀ i ∈ recIdx rs nF, Term.bvarsBelow 0 (Rof (tgts i)).erase)
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} :
     interp V (consList as₂ (consList ms (consList Ms (consList as₁ ρ))))
         (mutualRuleCoreAV b Rof tgts nP k n nF j (recIdx rs nF) tls Eis)
       = (as₂ ++ (recIdx rs nF).map fun i =>
@@ -208,7 +209,7 @@ theorem interp_mutualRuleCoreAV {ℓ b nP k n nF j : Nat} (hbz : ℓ = 0 ↔ b =
   simp only [Function.comp_def]
   have h := interp_ihAppAVK (b := b) (ρ := ρ) hlenP hlenK hk hlenM hlenF hik
     (R := Rof (tgts i)) (rV := interp V ρ (Rof (tgts i)))
-    (fun bs => interp_closed (V := V) (hRcl (tgts i)) _ ρ) (tls.getD i []) (Eis.getD i [])
+    (fun bs => interp_closed (V := V) (hRcl i hi) _ ρ) (tls.getD i []) (Eis.getD i [])
   rw [h, lamTower_bit_agree hbz.symm]
 
 omit [SetTheory V] in
@@ -449,7 +450,7 @@ theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s
       = mutualRecAVI m ψ ℓ W w nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀ Ess'
           mems tgts cds q)
     (hokR : ∀ q, q < Ls.length → ∀ σ : Nat → V, WellDenoted V σ (Rof q))
-    (hclR : ∀ q, Term.bvarsBelow 0 (Rof q).erase)
+    (hclR : ∀ q, q < Ls.length → Term.bvarsBelow 0 (Rof q).erase)
     (hclA : Term.bvarsBelow 0
       (auxRecAV m ψ ℓ W w nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds).erase)
     (hT : TagOk W (consList as₁ ρ) Idss)
@@ -519,7 +520,8 @@ theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s
       (show [inj mm (mkTower (is ++ [pt]))].length = 1 from rfl) ρ,
     hFsj]
   -- the right-hand side: the rule's core
-  rw [interp_mutualRuleCoreAV (ℓ := ℓ) hbz hlenP hlenK hk hlenM hlenF hj hclR]
+  rw [interp_mutualRuleCoreAV (ℓ := ℓ) hbz hlenP hlenK hk hlenM hlenF hj
+    (fun i hi => hclR (tgts j i) (htgt i hi))]
   -- the minors agree; match the inductive hypotheses
   congr 2
   apply List.map_congr_left

@@ -102,7 +102,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
     (hmem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (p.leaf m₀ t ψ) ∈ˢ interp V ρ (mkPisAV (p.rds m₀ t ψ) (p.conc t)))
     -- every member's recursor leaf is closed (`MutualRecParts.leaf_below`)
-    (hAcl : ∀ (q : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (p.leaf m₀ q ψ).erase)
+    (hAcl : ∀ (q : Nat), q < p.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (p.leaf m₀ q ψ).erase)
     -- the mutual regime: a `Prop`-valued block eliminates into `Prop` only
     (hregime : ∀ ψ : Name → Nat, p.wB ψ = 0 → p.ℓ ψ = 0)
     -- the AUXILIARY recursor's premise (`auxFixPre_of`)
@@ -366,7 +366,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
         (by rw [List.getD_eq_getElem?_getD, hFssJ, Option.getD_some]; exact hlenFs)
         (fun q _ => rfl)
         (fun q hq σ => (p.leaf_facts hyp (by rwa [hLs] at hq) ψ σ).1.1)
-        (fun q => hAcl q ψ) hh.hclR hF.tag hIdsMM hidxFit hspRF
+        (fun q hq => hAcl q (by rwa [hLs] at hq) ψ) hh.hclR hF.tag hIdsMM hidxFit hspRF
         (by rw [hLs, hh.hn, hfr4]) (hpre ψ) hspAux hmajV
         (fun i hi => by
           rw [hEissJ, List.getD_eq_getElem?_getD, List.getElem?_map,
