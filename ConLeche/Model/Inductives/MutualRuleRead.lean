@@ -340,4 +340,156 @@ theorem denoteMeta_mutualMinorsLams {m : EnvModel V env} {ψ : Name → Nat} {lp
     cases denoteMeta m.acval env ψ (nP + extras.length + (cs.length + 1))
       (Expr.instSeq (tfvs ++ extras') (nP + extras.length + (cs.length + 1) - 1) body) <;> rfl
 
+/-! ## The generated rule -/
+
+set_option maxHeartbeats 3200000 in
+/-- **Rule `J` of a mutual block reads to the λ-tower over
+`mutualRuleDataAV`** at constructor `J`'s data, with the core
+`minor_J f⃗ ih⃗` (`denoteMeta_structRecRhsR`'s `k`-motive twin). -/
+theorem denoteMeta_mutualRecRhs {m : EnvModel V env} {ψ : Name → Nat} {lps : List Name}
+    {elim : Name} {large : Bool} {nP J : Nat}
+    {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
+    {ppsOf ipsOf : Nat → List (Nat × Nat × AnnotTerm)}
+    {Tname : Nat → Name} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {formers : List ConLeche.MutualFormer} {ctors : List ConLeche.MutualCtor4}
+    {cds : List CtorDatumR}
+    (hformers : FormerReadsM m ψ lps nP Lof nIdxOf ppsOf ipsOf formers)
+    (hctors : MutualCtorReadsM m ψ lps nP Tname nIdxOf mots tgts ctors cds)
+    (hmots : ∀ Q, Q < ctors.length → mots Q < formers.length)
+    (hfT : ∀ q : Nat, ∃ ci : ConstantInfo,
+      env.find? (Tname q) = some ci ∧ ci.toConstantVal.levelParams = lps)
+    {recOf : Nat → Name} {rlps : List Name}
+    (hfR : ∀ t : Nat, ∃ ci : ConstantInfo,
+      env.find? (recOf t) = some ci ∧ ci.toConstantVal.levelParams = rlps)
+    {rhs : Expr}
+    (hgen : ConLeche.mutualRecRhs lps elim large nP formers ctors recOf (rlps.map .param) J
+      = some rhs)
+    {C : Name} {nF : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    {recIdxJ : List Nat} {EissJ : List (List AnnotTerm)}
+    {tlsJ : List (List (Nat × Nat × AnnotTerm))}
+    (hJd : cds[J]? = some (C, nF, ds, Es, recIdxJ, EissJ, tlsJ)) :
+    denoteMeta m.acval env ψ 0 rhs
+      = some (mkLamsAV
+          (mutualRuleDataAV m ψ ((List.range formers.length).map Lof) nP
+            ((List.range formers.length).map nIdxOf) (ConLeche.structElimLevel elim large)
+            (ppsOf 0) ((List.range formers.length).map ipsOf) cds mots tgts ds)
+          (mutualRuleCoreAV
+            (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel elim large)))
+            (fun t => m.acval (recOf t) ψ) (tgts J) nP formers.length ctors.length nF J
+            recIdxJ tlsJ EissJ)) := by
+  obtain ⟨c, f₀, cbs, crest0, inner, minors, motives, hJc, hf0, hsC, hinner, hmin, hmotives, hr⟩ :=
+    mutualRecRhs_unfold hgen
+  have hJn : J < ctors.length := (List.getElem?_eq_some_iff.mp hJc).1
+  have h0lt : 0 < formers.length := by
+    have := hmots J hJn; omega
+  have hlenC : cds.length = ctors.length := hctors.length_eq
+  have hcJ := hctors.2 J hJn
+  have hcD : ctors.getD J default = c := by rw [List.getD_eq_getElem?_getD, hJc]; rfl
+  have hcdD : cds.getD J default = (C, nF, ds, Es, recIdxJ, EissJ, tlsJ) := by
+    rw [List.getD_eq_getElem?_getD, hJd]; rfl
+  rw [hcD, hcdD] at hcJ
+  have hnF : c.nF = nF := hcJ.base.nF.symm
+  have hrf : c.recFields = recIdxJ.map fun i => (i, tgts J i) := hcJ.fields
+  rw [hnF, hrf] at hinner
+  -- the first former's opening
+  have hfr0 := hformers 0 h0lt
+  have hf0D : formers.getD 0 default = f₀ := by rw [List.getD_eq_getElem?_getD, hf0]; rfl
+  rw [hf0D] at hfr0
+  obtain ⟨tbs0, itele0, hsT0⟩ := hfr0.stripP
+  obtain ⟨ppsAll0, w0, hTread0, hlenP0, hpps0, hips0⟩ := hfr0.read
+  obtain ⟨tfvs, trest, hopT⟩ :=
+    openPisAtFvars_of_stripPis_isSome nP 0 (show (f₀.tty.stripPis nP).isSome = true by
+      rw [hsT0]; rfl)
+  obtain ⟨hlenT, hidxT, hclT, hspW⟩ := opening_vars hopT hfr0.hasFvar
+  -- the constructor's data
+  have hCread := hcJ.base.read
+  rw [hnF] at hCread
+  have hlenD : ds.length = nP + nF := by have := hcJ.base.len; rw [hnF] at this; exact this
+  have hCf : c.cty.hasFvar = false := hcJ.base.hasFvar
+  have hCb : c.cty.looseBVarsBounded 0 = true := hcJ.base.bounded
+  have hstripC : (c.cty.stripPis (nP + nF)).isSome = true := by
+    obtain ⟨cbs0, es0, hs0, -⟩ := hcJ.base.resid
+    rw [hnF] at hs0
+    rw [hs0]; rfl
+  have hnil : tfvs = [] ∨ nP - 1 + 1 = nP := by
+    rcases Nat.eq_zero_or_pos nP with h0 | hpos
+    · left; rw [h0] at hlenT; exact List.eq_nil_of_length_eq_zero hlenT
+    · right; omega
+  have hst : stripPisAV nP (mkPisAV ppsAll0 (.sort w0))
+      = some (ppsAll0.take nP, mkPisAV (ppsAll0.drop nP) (.sort w0)) :=
+    stripPisAV_mkPisAV_take nP ppsAll0 _ (by omega)
+  rw [denoteMeta_pisToLamsPw nP hr hopT hTread0 hst, Nat.zero_add]
+  -- the motives, at the parameters
+  obtain ⟨extras1, hlen1, hidx1, hread1⟩ :=
+    denoteMeta_mutualMotivesLams (pw := Level.zeronessOf (ConLeche.structElimLevel elim large))
+      (extras := []) hlenT hidxT hspW hformers hmotives (by intro k x hx; simp at hx)
+  simp only [List.append_nil, List.length_nil, Nat.add_zero] at hlen1 hread1
+  rw [hread1]
+  -- the minors, at the motives
+  obtain ⟨extras2, hlen2, hidx2, hread2⟩ :=
+    denoteMeta_mutualMinorsLams hfT hlenT hidxT hspW (extras := extras1) hctors
+      (by rw [hlen1]; exact hmin) (by rw [hlen1]; omega)
+      (fun Q hQ => by rw [hlen1]; exact hmots Q hQ) hidx1
+  rw [hlen1] at hread2 hlen2
+  rw [hread2]
+  -- the fields, under the motives and the minors
+  have hlenTE : (tfvs ++ extras2).length = nP + formers.length + ctors.length := by
+    rw [List.length_append, hlenT, hlen2]
+    omega
+  have hcb0 : crest0.looseBVarsBounded nP = true := by
+    have := Expr.stripPis_body_bounded nP hsC hCb
+    rwa [Nat.zero_add] at this
+  have hinner' := ConLeche.pisToLamsPw_instSeq (tfvs ++ extras2)
+    (nP + formers.length + ctors.length - 1) (by rw [hlenTE]; omega) hinner
+  have hres := ConLeche.instSeq_minorTele tfvs extras2 hlenT hclT hcb0
+  rw [hlen2, show ctors.length + formers.length = formers.length + ctors.length from by omega,
+    show nP + (formers.length + ctors.length) - 1
+      = nP + formers.length + ctors.length - 1 from by omega] at hres
+  rw [hres] at hinner'
+  obtain ⟨hcread, hcw, hcstrip⟩ := ctorResidual hCf hCread hlenD hsC hstripC hlenT hidxT hspW
+  obtain ⟨xFvs, xrest, hopX⟩ :=
+    openPisAtFvars_of_stripPis_isSome nF (nP + formers.length + ctors.length) hcstrip
+  have hcreadN : denoteMeta m.acval env ψ (nP + formers.length + ctors.length)
+      (Expr.instSeq tfvs (nP - 1) crest0)
+      = some (mkPisAV (liftDoms (formers.length + ctors.length) 0 (ds.drop nP))
+          ((AnnotTerm.mkAppN (m.acval (Tname (mots J)) ψ) (paramBvars nP nF ++ Es)).liftN
+            (formers.length + ctors.length) nF)) := by
+    have := ctorResidual_read_lift hcread hcw hlenD (formers.length + ctors.length)
+    rwa [show nP + (formers.length + ctors.length)
+      = nP + formers.length + ctors.length from by omega] at this
+  have hstX : stripPisAV nF (mkPisAV (liftDoms (formers.length + ctors.length) 0 (ds.drop nP))
+      ((AnnotTerm.mkAppN (m.acval (Tname (mots J)) ψ) (paramBvars nP nF ++ Es)).liftN
+        (formers.length + ctors.length) nF))
+      = some (liftDoms (formers.length + ctors.length) 0 (ds.drop nP),
+          (AnnotTerm.mkAppN (m.acval (Tname (mots J)) ψ) (paramBvars nP nF ++ Es)).liftN
+            (formers.length + ctors.length) nF) := by
+    have := stripPisAV_mkPisAV (liftDoms (formers.length + ctors.length) 0 (ds.drop nP))
+      ((AnnotTerm.mkAppN (m.acval (Tname (mots J)) ψ) (paramBvars nP nF ++ Es)).liftN
+        (formers.length + ctors.length) nF)
+    rwa [liftDoms_length, List.length_drop, hlenD, Nat.add_sub_cancel_left] at this
+  have hinnerR := denoteMeta_pisToLamsPw (acval := m.acval) (env := env) (φ := ψ) nF hinner' hopX
+    hcreadN hstX
+  obtain ⟨hlenX, hidxX, hclX⟩ := opening_vars_at hopX
+  obtain ⟨fvs0, crest00, hop0⟩ := openPisAtFvars_of_stripPis_isSome (nP + nF) 0 hstripC
+  have hrecBnd : ∀ i ∈ recIdxJ, i < nF := by
+    have := hcJ.base.recIdxBnd
+    rw [hnF] at this
+    exact this
+  have hfrF : ∀ i ∈ recIdxJ, FieldReadAt m ψ nP nF i c.cty fvs0 (tlsJ.getD i []) (EissJ.getD i []) := by
+    intro i hi
+    have := fieldReadAtT_of hcJ.base hi (by rw [hnF]; exact hop0)
+    rw [hnF] at this
+    exact this
+  rw [show nP + formers.length + ctors.length - 1 + nF
+      = nP + formers.length + ctors.length + nF - 1 from by omega,
+    denoteMeta_mutualRuleBody hfR hop0 hCf hCb hstripC hrecBnd hfrF hlenT
+      (by rw [hlen2]; omega) hlenX hidxT hidx2 hidxX hJn,
+    Option.map_some] at hinnerR
+  rw [hinnerR]
+  unfold mutualRuleDataAV
+  rw [List.map_append, List.map_append, List.map_append, mkLamsAV_append, mkLamsAV_append,
+    mkLamsAV_append]
+  simp only [List.length_map, List.length_range]
+  rfl
+
 end ConLeche.Model

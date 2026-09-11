@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.MutualChains
-public import ConLeche.Model.Inductives.MutualRecPre2
+public import ConLeche.Model.Inductives.MutualRecPre
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
 public section
@@ -43,6 +43,45 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The member leaf's closedness, grading and validity -/
 
+
+/-! ## Closedness of the tagged tuple
+
+`tagTuplerAV_below`/`tagTupleAV_below` are proved in
+`Model/Inductives/MutualRecPre2.lean` too, but that module and
+`MutualChains.lean` both declare `tagTupleAV_validV` and so cannot be
+imported together; until that duplicate is resolved the two closedness
+lemmas are restated here under their own names. -/
+
+omit [SetTheory V] in
+/-- Member `m`'s tag tupler is bounded at the parameters. -/
+theorem tagTuplerAV_belowM {W nP m : Nat} {Idss : List (List AnnotTerm)}
+    (h : ∀ Ids ∈ Idss, FieldsBelow nP Ids) :
+    Term.bvarsBelow nP (tagTuplerAV W m Idss).erase := by
+  have hIds : FieldsBelow nP (Idss.getD m []) := by
+    rw [List.getD_eq_getElem?_getD]
+    cases hm : Idss[m]? with
+    | none => exact trivial
+    | some Ids => exact h Ids (List.mem_of_getElem? hm)
+  unfold tagTuplerAV
+  refine sumMkAV_below (nP := 0) (domsBelow_tuplerData hIds) hIds
+    (fun Fs' hFs' => uChains_below h Fs' hFs') ?_
+  simp [tuplerData]
+
+omit [SetTheory V] in
+/-- A tagged tuple is closed at the frame its index expressions are. -/
+theorem tagTupleAV_belowM {W nP m d : Nat} {Idss : List (List AnnotTerm)} {Es : List AnnotTerm}
+    (h : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
+    (hEs : ∀ E ∈ Es, Term.bvarsBelow (nP + d) E.erase) :
+    Term.bvarsBelow (nP + d) (tagTupleAV W m d Idss Es).erase := by
+  unfold tagTupleAV
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+  · rw [AnnotTerm.erase_liftN]
+    exact VExprAux.bvarsBelow_liftN d _ _ _ (tagTuplerAV_belowM h)
+  · intro a ha
+    obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+    exact hEs E hE
+
 omit [SetTheory V] in
 /-- **The member's leaf is closed**: its body is the auxiliary family
 (closed at the parameters) applied to the auxiliary tupler at the
@@ -75,7 +114,7 @@ theorem mutualTyAVI_below {W w nP nIdx t : Nat} {pps : List (Nat × Nat × Annot
       obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
       rw [List.mem_singleton] at hE
       subst hE
-      refine tagTupleAV_below hIds ?_
+      refine tagTupleAV_belowM hIds ?_
       intro E hE
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hE
       rw [List.mem_range] at hj
@@ -227,7 +266,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
     refine ⟨⟨by rw [hsh]; exact hTagρ, by rw [hsh]; exact hFixρ,
       _, hIdsT ψ, hIdsLen, by rw [hsh]; exact hspI⟩, ?_⟩
     have hsp1 : SpineFit (fun j => ρ (j + nIdx)) (auxIds (W ψ) (Idss ψ))
-        [inj t (mkTower (frameIdx nIdx ρ ++ [pt]))] := by
+        [inj t (mkTower (ConLeche.Semantics.frameIdx nIdx ρ ++ [pt]))] := by
       refine ⟨?_, trivial⟩
       rw [(tagTyAV_facts hTagρ).1]
       exact tagTuple_mem hTagρ (hIdsT ψ) hspI

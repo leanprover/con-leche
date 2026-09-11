@@ -477,4 +477,134 @@ theorem motDispAV_validV {D mOff : Nat} {σ : Nat → V} (hfr : shiftE D 0 σ = 
 
 end DispValid
 
+/-! ## The public and auxiliary minor spaces agree -/
+
+section MinorEq
+
+variable {ℓ W w k n J nF : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {EissO Eiss' : List (List (List AnnotTerm))} {FssR Fss₀ Ess' : List (List AnnotTerm)}
+  {mems : Nat → Nat} {tgts : Nat → Nat → Nat} {Ms : List V} {dispV : V}
+  {Es Fs : List AnnotTerm}
+
+/-- **The dispatch's computation law**, at a member and a fitting index
+spine: `disp ⟨inj m' ı⃗⟩ x = M_{m'} ı⃗ x`. -/
+theorem dispLaw_of {mOff : Nat} {σ : Nat → V}
+    (hdisp : ∀ (i x : V), i ∈ˢ tagSet W ρp Idss →
+      x ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess' i →
+      ∃ (m' : Nat) (y : V), m' < k ∧ i = inj m' y ∧
+        SetTheory.app (SetTheory.app dispV i) x
+          = SetTheory.app (((List.range (Idss.getD m' []).length).map fun l => projS l y).foldl
+              SetTheory.app (σ (mOff + k - 1 - m'))) x)
+    (hMs : ∀ m', m' < k → σ (mOff + k - 1 - m') = Ms.getD m' pt)
+    (hT : TagOk W ρp Idss)
+    (m' : Nat) (hm' : m' < k) {Ids : List AnnotTerm} (hIds : Idss[m']? = some Ids)
+    {is : List V} (hfit : SpineFit ρp Ids is) (x : V)
+    (hx : x ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess' (inj m' (mkTower (is ++ [pt])))) :
+    SetTheory.app (SetTheory.app dispV (inj m' (mkTower (is ++ [pt])))) x
+      = SetTheory.app (is.foldl SetTheory.app (Ms.getD m' pt)) x := by
+  have hg : Idss.getD m' [] = Ids := by rw [List.getD_eq_getElem?_getD, hIds]; rfl
+  obtain ⟨m'', y, hm'', heq, hval⟩ := hdisp _ x (tagTuple_mem hT hIds hfit) hx
+  obtain ⟨rfl, rfl⟩ := inj_inj heq
+  rw [hval, hMs m' hm', hg]
+  congr 2
+  have hlen : is.length = Ids.length := hfit.length_eq
+  have : ((List.range is.length).map fun l => projS l (mkTower (is ++ [pt]))) = is := by
+    apply List.ext_getElem
+    · simp
+    · intro i h1 h2
+      simp only [List.getElem_map, List.getElem_range]
+      have hi : i < is.length := by simpa using h1
+      rw [projS_mkTower i (is ++ [pt]) (by simp; omega), List.getElem_append_left hi]
+  rw [← hlen, this]
+
+/-- **The public minor `J` and the auxiliary minor `J` read the same
+set**: the dispatch's computation law at the conclusion and at every
+inductive hypothesis. -/
+theorem minor_space_eq (hT : TagOk W ρp Idss)
+    (hnF : Fs.length = nF) (har : (FssR.getD J []).length = nF)
+    (hEiss' : Eiss'.getD J [] = (List.range nF).map fun i =>
+      [tagTupleAV W (tgts J i) (i + ((tlss.getD J []).getD i []).length) Idss
+        ((EissO.getD J []).getD i [])])
+    (hlaw : ∀ (m' : Nat), m' < k → ∀ Ids, Idss[m']? = some Ids → ∀ is : List V,
+      SpineFit ρp Ids is → ∀ x : V,
+      x ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess' (inj m' (mkTower (is ++ [pt]))) →
+      SetTheory.app (SetTheory.app dispV (inj m' (mkTower (is ++ [pt])))) x
+        = SetTheory.app (is.foldl SetTheory.app (Ms.getD m' pt)) x)
+    (hmemsJ : mems J < k) (htgtsJ : ∀ i, tgts J i < k)
+    {IdsC : List AnnotTerm} (hIdsC : Idss[mems J]? = some IdsC)
+    (hIdsT : ∀ i, ∃ Ids, Idss[tgts J i]? = some Ids)
+    (hctor : ∀ fs : List V, SpineFit ρp Fs fs →
+      (∀ E ∈ Es, WellDenoted V (consList fs ρp) E) ∧
+      SpineFit ρp IdsC (idxValsAt ρp Es fs) ∧
+      ctorValI w J fs ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+        (inj (mems J) (mkTower (idxValsAt ρp Es fs ++ [pt]))))
+    (hslot : ∀ i ∈ recIdx (rss.getD J []) nF, ∀ fs : List V, SpineFit ρp Fs fs →
+      ∀ as : List V, SpineFit (consList (fs.take i) ρp)
+        (((tlss.getD J []).getD i []).map (·.2.2)) as →
+      (∀ E ∈ (EissO.getD J []).getD i [],
+        WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
+      (∀ Ids, Idss[tgts J i]? = some Ids → SpineFit ρp Ids
+        (((EissO.getD J []).getD i []).map
+          (interp V (consList as (consList (fs.take i) ρp))))) ∧
+      as.foldl SetTheory.app (fs.getD i pt) ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+        (inj (tgts J i) (mkTower ((((EissO.getD J []).getD i []).map
+          (interp V (consList as (consList (fs.take i) ρp)))) ++ [pt])))) :
+    minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp (Ms.getD (mems J) pt) Es J fs)
+        (ihDomsIM ℓ ρp (fun i => Ms.getD (tgts J i) pt) rss tlss EissO
+          (fun j' => (FssR.getD j' []).length) J fs)) Fs ρp []
+      = minorSpI ℓ (fun fs => ihSpL ℓ
+          (concI w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs)
+          (ihDomsI ℓ ρp dispV rss tlss Eiss' (fun j' => (FssR.getD j' []).length) J fs))
+        Fs ρp [] := by
+  refine minorSpI_congr_body fun fs hfs => ?_
+  rw [List.nil_append]
+  have hlenfs : fs.length = nF := by rw [hfs.length_eq, hnF]
+  obtain ⟨hEok, hEfit, hfib⟩ := hctor fs hfs
+  -- the conclusions agree
+  have hconc : concI w ρp (Ms.getD (mems J) pt) Es J fs
+      = concI w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs := by
+    have hsh : shiftE nF 0 (consList fs ρp) = ρp := by
+      rw [← hlenfs]; exact shiftE_consList fs ρp
+    have htup := tagTupleAV_facts hT hIdsC (d := nF) (τ := consList fs ρp) hsh hEok hEfit
+    unfold concI idxValsAt
+    rw [List.map_singleton, htup.1, List.foldl_cons, List.foldl_nil]
+    exact (hlaw (mems J) hmemsJ IdsC hIdsC _ hEfit _ hfib).symm
+  -- the inductive hypotheses agree
+  have hdoms : ihDomsIM ℓ ρp (fun i => Ms.getD (tgts J i) pt) rss tlss EissO
+        (fun j' => (FssR.getD j' []).length) J fs
+      = ihDomsI ℓ ρp dispV rss tlss Eiss' (fun j' => (FssR.getD j' []).length) J fs := by
+    unfold ihDomsIM ihDomsI
+    simp only [har]
+    refine List.map_congr_left fun i hi => ?_
+    have hiF : i < nF := (mem_recIdx.mp hi).1
+    have hEi : (Eiss'.getD J []).getD i []
+        = [tagTupleAV W (tgts J i) (i + ((tlss.getD J []).getD i []).length) Idss
+            ((EissO.getD J []).getD i [])] := by
+      rw [hEiss', List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hiF]
+      rfl
+    rw [hEi]
+    refine piTele_congr_body fun as hfit => ?_
+    rw [List.nil_append]
+    have hspAs : SpineFit (consList (fs.take i) ρp)
+        (((tlss.getD J []).getD i []).map (·.2.2)) as := fitsS_teleOfFields.mp hfit
+    obtain ⟨hEok', hEfit', hfib'⟩ := hslot i hi fs hfs as hspAs
+    obtain ⟨IdsT, hIdsT'⟩ := hIdsT i
+    have hlenAs : as.length = (((tlss.getD J []).getD i []).map (·.2.2)).length := hspAs.length_eq
+    have hlenTake : (fs.take i).length = i := by rw [List.length_take]; omega
+    have hshi : shiftE i 0 (consList (fs.take i) ρp) = ρp := by
+      simpa [hlenTake] using shiftE_consList (fs.take i) ρp
+    have hsh : shiftE (i + ((tlss.getD J []).getD i []).length) 0
+        (consList as (consList (fs.take i) ρp)) = ρp := by
+      rw [show i + ((tlss.getD J []).getD i []).length
+          = as.length + i from by rw [hlenAs, List.length_map]; omega,
+        shiftE_consList_add, hshi]
+    have htup := tagTupleAV_facts hT hIdsT' (d := i + ((tlss.getD J []).getD i []).length)
+      (τ := consList as (consList (fs.take i) ρp)) hsh hEok' (hEfit' IdsT hIdsT')
+    rw [List.map_singleton, htup.1, List.foldl_cons, List.foldl_nil]
+    exact (hlaw (tgts J i) (htgtsJ i) IdsT hIdsT' _ (hEfit' IdsT hIdsT') _ hfib').symm
+  rw [hconc, hdoms]
+
+end MinorEq
+
 end ConLeche.Model

@@ -330,3 +330,160 @@ theorem mutualCtorReadsM_of {m : EnvModel V env} {env₀ : Env}
         hD.recEntry ψ i' hk hlt]
       rfl
     · exact hD.reflEntry ψ i' hk hlt
+
+/-! ## The stored recursor type's data -/
+
+/-- Member `mm`'s generated recursor type's binder data at the block. -/
+@[expose] def mutualRdsAV {env : Env} (m : EnvModel V env) (k nP : Nat) (ℓ : Level)
+    (Lof : Nat → (Name → Nat) → AnnotTerm) (nIdxOf : Nat → Nat)
+    (ppsOf ipsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (cds : (Name → Nat) → List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat)
+    (mm : Nat) (ψ : Name → Nat) : List (Nat × Nat × AnnotTerm) :=
+  mutualRecDataAV m ψ ((List.range k).map fun t => Lof t ψ) nP ((List.range k).map nIdxOf) ℓ
+    (ppsOf 0 ψ) ((List.range k).map fun t => ipsOf t ψ) (cds ψ) mots tgts mm
+
+/-- **Member `mm`'s generated recursor type's reading, peeled**
+(`SumRecData` at `k` motives): the same six clauses, at the `k`-motive
+length `nP + k + n + nIdx + 1` and the `k`-motive core
+`mutualConcAV k n nIdx mm`.  At `k = 1` the two shapes agree
+(`recConcAV_eq_mutualConcAV`); for `k > 1` they do not, so this is its
+own record. -/
+structure MutualRecData {env : Env} (m : EnvModel V env) (cvR : ConstantVal)
+    (nP k n nIdx mm : Nat) (elimL : Level)
+    (rds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) : Prop where
+  read : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR.type
+    = some (mkPisAV (rds ψ) (mutualConcAV k n nIdx mm))
+  len : ∀ ψ : Name → Nat, (rds ψ).length = nP + k + n + nIdx + 1
+  bits : ∀ (ψ : Name → Nat) (d : Nat × Nat × AnnotTerm), d ∈ rds ψ →
+    (elimL.eval ψ = 0 ↔ d.2.1 = 0)
+  okTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    WellDenotedV V ρ (mkPisAV (rds ψ) (mutualConcAV k n nIdx mm))
+  below : ∀ ψ : Name → Nat, DomsBelow 0 (rds ψ)
+  params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvR.levelParams, ψ₁ p = ψ₂ p) →
+    rds ψ₁ = rds ψ₂
+
+/-- The data crosses a cons whose slot does not mention the stored
+recursor (`SumRecData.cross`). -/
+theorem MutualRecData.cross {m : EnvModel V env} {cvR : ConstantVal}
+    {nP k n nIdx mm : Nat} {elimL : Level}
+    {rds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (h : MutualRecData m cvR nP k n nIdx mm elimL rds)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
+    (hfresh : env.find? c₀.name = none) (hat : ConsCrossAt c₀ cvR.type)
+    (hcb : ConstsBound env cvR.type)
+    (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith m.acval c₀.name A) :
+    MutualRecData m₂ cvR nP k n nIdx mm elimL rds where
+  read ψ := by
+    rw [hac]
+    exact denoteMeta_cons_mono hfresh hat ψ 0 hcb (h.read ψ)
+  len := h.len
+  bits := h.bits
+  okTy := h.okTy
+  below := h.below
+  params := h.params
+
+set_option maxHeartbeats 1600000 in
+/-- **Member `mm`'s recursor data**, read off the generated type, and
+its universe: the kernel's sort inference at the pre-recursor
+environment, through the claims' sort row. -/
+theorem mutualRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {b : MutualBlock} {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {mm : Nat} {streamRec : Option ConstantVal} {cvRa : ConstantVal}
+    (hRec : ConLeche.checkMutualRecTy (ConLeche.fueledOps μ F) env b formers4 ctors4 mm streamRec
+      = .ok cvRa)
+    {Tname : Nat → Name} {nIdxOf : Nat → Nat} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {Lof : Nat → (Name → Nat) → AnnotTerm}
+    {ppsOf ipsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {cds : (Name → Nat) → List CtorDatumR}
+    (hformers : ∀ ψ : Name → Nat, FormerReadsM mp.base2 ψ b.lps b.nP (fun t => Lof t ψ) nIdxOf
+      (fun t => ppsOf t ψ) (fun t => ipsOf t ψ) formers4)
+    (hctors : ∀ ψ : Name → Nat,
+      MutualCtorReadsM mp.base2 ψ b.lps b.nP Tname nIdxOf mots tgts ctors4 (cds ψ))
+    (hmots : ∀ J, J < ctors4.length → mots J < formers4.length)
+    (hfT : ∀ q : Nat, ∃ ci : ConstantInfo,
+      env.find? (Tname q) = some ci ∧ ci.toConstantVal.levelParams = b.lps)
+    (hmm : mm < formers4.length) :
+    MutualRecData mp.base2 cvRa b.nP formers4.length ctors4.length (nIdxOf mm) mm b.elimLevel
+        (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof nIdxOf ppsOf ipsOf cds mots
+          tgts mm) ∧
+      ∃ u : Level, ∀ (ψ : Name → Nat) (ρ : Nat → V),
+        interp V ρ (mkPisAV (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof nIdxOf
+            ppsOf ipsOf cds mots tgts mm ψ)
+          (mutualConcAV formers4.length ctors4.length (nIdxOf mm) mm)) ∈ˢ
+          (univ (u.eval ψ) : V) := by
+  obtain ⟨recTy, sty, u, hgen, htp, -, hbt, hRf, hsty, hens, -, rfl⟩ :=
+    ConLeche.checkMutualRecTy_shape hRec
+  have h0lt : 0 < formers4.length := by omega
+  -- the reading
+  have hread : ∀ ψ : Name → Nat, denoteMeta mp.base2.acval env ψ 0 recTy
+      = some (mkPisAV (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof nIdxOf ppsOf
+          ipsOf cds mots tgts mm ψ)
+        (mutualConcAV formers4.length ctors4.length (nIdxOf mm) mm)) := fun ψ =>
+    denoteMeta_mutualRecTy (hformers ψ) (hctors ψ) hmots hfT hgen
+  -- the parameter and index blocks' lengths
+  have hp : ∀ ψ : Name → Nat, (ppsOf 0 ψ).length = b.nP := by
+    intro ψ
+    obtain ⟨ppsAll, w, -, hlenP, hpps, -⟩ := ((hformers ψ) 0 h0lt).read
+    rw [show ppsOf 0 ψ = (fun t => ppsOf t ψ) 0 from rfl, hpps, List.length_take, hlenP]
+    omega
+  have hi : ∀ ψ : Name → Nat, (ipsOf mm ψ).length = nIdxOf mm := by
+    intro ψ
+    obtain ⟨ppsAll, w, -, hlenP, -, hips⟩ := ((hformers ψ) mm hmm).read
+    rw [show ipsOf mm ψ = (fun t => ipsOf t ψ) mm from rfl, hips, List.length_drop, hlenP,
+      ((hformers ψ) mm hmm).idxCount]
+    omega
+  have hlenC : ∀ ψ : Name → Nat, (cds ψ).length = ctors4.length :=
+    fun ψ => (hctors ψ).length_eq
+  have hlen : ∀ ψ : Name → Nat,
+      (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof nIdxOf ppsOf ipsOf cds mots
+        tgts mm ψ).length
+        = b.nP + formers4.length + ctors4.length + nIdxOf mm + 1 := by
+    intro ψ
+    unfold mutualRdsAV
+    rw [mutualRecDataAV_length (hp ψ), List.length_map, List.length_range, hlenC ψ,
+      getD_range_map _ _ _ hmm [], hi ψ]
+  have hw : Expr.WScoped 0 recTy := Expr.WScoped.of_not_hasFvar hRf
+  have hL : Expr.LeavesBounded recTy := Expr.LeavesBounded.of_not_hasFvar hRf
+  have hnil : recTy.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hRf
+  refine ⟨⟨hread, hlen, ?_, ?_, ?_, ?_⟩, u, fun ψ ρ => ?_⟩
+  · intro ψ d hd
+    unfold mutualRdsAV at hd
+    rw [mem_mutualRecDataAV hd, pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound,
+      beq_iff_eq]
+  · intro ψ ρ
+    have hc := claimsAt_of hμ mp ψ F
+    obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hsty hw hbt hL (CtxOk.nil hnil) (hread ψ)
+    exact hokT ρ (Sat_nil V ρ)
+  · intro ψ
+    have hst := stripPisAV_mkPisAV (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof
+      nIdxOf ppsOf ipsOf cds mots tgts mm ψ)
+      (mutualConcAV formers4.length ctors4.length (nIdxOf mm) mm)
+    exact (stripPisAV_below hst (bvarsBelow_of_reading hw hbt (hread ψ))).1
+  · intro ψ₁ ψ₂ hφ
+    have h2 := hread ψ₂
+    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 recTy
+        = some (mkPisAV (mutualRdsAV mp.base2 formers4.length b.nP b.elimLevel Lof nIdxOf ppsOf
+            ipsOf cds mots tgts mm ψ₁)
+          (mutualConcAV formers4.length ctors4.length (nIdxOf mm) mm)) := by
+      rw [← denoteMeta_params_ext mp.base2 hφ 0 recTy htp]
+      exact hread ψ₁
+    exact (mkPisAV_inj (by rw [hlen ψ₁, hlen ψ₂]) (Option.some.inj (h1.symm.trans h2))).1
+  · have hc := claimsAt_of hμ mp ψ F
+    exact (hc.sortRow hsty hens hw hbt hL (CtxOk.nil hnil) (hread ψ) ρ (Sat_nil V ρ)).2
+
+/-- **The data's parameter prefix is member `mm`'s own**, under the
+cross-member parameter identification (`mutualCrossChecks`' `isDefEq`,
+semantically): `mutualRecTy` takes the parameter Πs from former `0`,
+so the reading names former `0`'s data; a later stage that works at
+member `mm`'s own telescope moves them across with this. -/
+theorem mutualRdsAV_take {env : Env} {m : EnvModel V env} {k nP : Nat} {ℓ : Level}
+    {Lof : Nat → (Name → Nat) → AnnotTerm} {nIdxOf : Nat → Nat}
+    {ppsOf ipsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {cds : (Name → Nat) → List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {mm : Nat} {ψ : Name → Nat} (hp : (ppsOf 0 ψ).length = nP) :
+    (mutualRdsAV m k nP ℓ Lof nIdxOf ppsOf ipsOf cds mots tgts mm ψ).take nP
+      = rebit (pwBit ψ (Level.zeronessOf ℓ)) (ppsOf 0 ψ) :=
+  mutualRecDataAV_take hp
+
+end ConLeche.Model
