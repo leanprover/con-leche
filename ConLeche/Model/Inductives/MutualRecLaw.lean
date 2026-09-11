@@ -211,6 +211,21 @@ theorem interp_mutualRuleCoreAV {ℓ b nP k n nF j : Nat} (hbz : ℓ = 0 ↔ b =
     (fun bs => interp_closed (V := V) (hRcl (tgts i)) _ ρ) (tls.getD i []) (Eis.getD i [])
   rw [h, lamTower_bit_agree hbz.symm]
 
+omit [SetTheory V] in
+/-- The block frame sits `k + n + nIdx + 1` binders below the
+parameter frame. -/
+theorem shiftE_blockFrame {n nIdx k : Nat} {as₁ Ms ms is : List V} {t : V} {ρ : Nat → V}
+    (hlenK : Ms.length = k) (hlenM : ms.length = n) (hlenI : is.length = nIdx) :
+    shiftE (k + n + nIdx + 1) 0 (consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ) = consList as₁ ρ := by
+  have hσ : consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ
+      = consList (Ms ++ ms ++ is ++ [t]) (consList as₁ ρ) := by
+    simp only [List.append_assoc]
+    rw [consList_append]
+  have hlen : (Ms ++ ms ++ is ++ [t]).length = k + n + nIdx + 1 := by
+    simp only [List.length_append, List.length_singleton, hlenK, hlenM, hlenI]
+  rw [hσ, ← hlen]
+  exact shiftE_consList _ _
+
 /-! ## The member recursor's leaf, folded -/
 
 set_option maxHeartbeats 1600000 in
@@ -396,5 +411,164 @@ theorem motVals_blockFrame {n nIdx k : Nat} {as₁ Ms ms is : List V} {t : V} {�
       consList_apply_add, consList_getD_lt Ms _ (k - 1 - m') (by omega),
       show Ms.length - 1 - (k - 1 - m') = m' from by omega,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+
+/-! ## The member recursor's rule law -/
+
+set_option maxHeartbeats 12800000 in
+/-- **The member recursor's iota at the readings** (the mutual twin of
+`fixRecLawCore`'s graph-regime step).  At a spine fitting member
+`mm`'s STORED binder data whose major is constructor `j`'s value, the
+member's recursor is the rule's core — minor `j` at the fields and at
+the inductive hypotheses, each firing the recursor leaf of the member
+its field targets.
+
+The proof is the fixpoint route's, once: the member leaf FOLDS to the
+auxiliary recursor at the parameters, the motive dispatch, the minors,
+the tagged tuple and the major (`interp_mutualRecAVI_fold`), whose iota
+is `nativeRecAVI_iota`; the mutual core's hypotheses fold the same way
+(`interp_mutualRuleCoreAV` then `interp_mutualRecAVI_fold` again), and
+the dispatch inside a hypothesis is the recursor's own
+(`interp_motDispAV_congr` at `motVals_blockFrame`).
+
+Every spine-fit premise is the member leaf's TYPING
+(`Model/Inductives/MutualRecTyping.lean`); the law takes them. -/
+theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s b : Nat}
+    {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' EissRaw : List (List (List AnnotTerm))} {FssR Fss₀ Ess' : List (List AnnotTerm)}
+    {mems : Nat → Nat} {tgts : Nat → Nat → Nat} {cds : List CtorDatumR} {Rof : Nat → AnnotTerm}
+    {j nF mm : Nat} {ρ : Nat → V} {as₁ Ms ms is as₂ : List V} {t dispV : V}
+    (hbz : ℓ = 0 ↔ b = 0) (hℓ : ℓ ≠ 0) (hw : w ≠ 0)
+    (hmm : mm < Ls.length) (hj : j < cds.length) (hlenFss : FssR.length = cds.length)
+    (hlenP : as₁.length = nP) (hlenK : Ms.length = Ls.length)
+    (hlenM : ms.length = cds.length) (hlenI : is.length = nIdxs.getD mm 0)
+    (hlenF : as₂.length = nF) (hFsj : (FssR.getD j []).length = nF)
+    (hRof : ∀ q, q < Ls.length → Rof q
+      = mutualRecAVI m ψ ℓ W w nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀ Ess'
+          mems tgts cds q)
+    (hokR : ∀ q, q < Ls.length → ∀ σ : Nat → V, WellDenoted V σ (Rof q))
+    (hclR : ∀ q, Term.bvarsBelow 0 (Rof q).erase)
+    (hclA : Term.bvarsBelow 0
+      (auxRecAV m ψ ℓ W w nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds).erase)
+    (hT : TagOk W (consList as₁ ρ) Idss)
+    {Ids : List AnnotTerm} (hIdss : Idss[mm]? = some Ids)
+    (hidxFit : SpineFit (consList as₁ ρ) Ids is)
+    (hspPub : SpineFit ρ
+      ((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm).map (·.2.2))
+      (as₁ ++ Ms ++ ms ++ is ++ [t]))
+    (hdisp : interp V (consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ)
+        (motDispAV ℓ W w (Ls.length + cds.length + nIdxs.getD mm 0 + 1)
+          (cds.length + nIdxs.getD mm 0 + 1) Ls.length Idss rss tlss Eiss' Fss₀ Ess') = dispV)
+    (hpre : FixPre V ℓ w W nP FssR Ess' Fss₀ (auxIds W Idss) rss tlss Eiss'
+      (auxRecDataAV m ψ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds) s)
+    (hspAux : SpineFit ρ
+      ((auxRecDataAV m ψ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds).map (·.2.2))
+      (as₁ ++ [dispV] ++ ms ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]))
+    (hmajV : t = inj j (mkTower (as₂ ++ [pt])))
+    (hEtag : ∀ i ∈ recIdx (rss.getD j []) nF,
+      (Eiss'.getD j []).getD i []
+        = [tagTupleAV W (tgts j i) (i + ((tlss.getD j []).getD i []).length) Idss
+            ((EissRaw.getD j []).getD i [])])
+    (htgt : ∀ i ∈ recIdx (rss.getD j []) nF, tgts j i < Ls.length)
+    (hih : ∀ i ∈ recIdx (rss.getD j []) nF, ∀ bs : List V,
+      SpineFit (consList (as₂.take i) (consList as₁ ρ))
+        (((tlss.getD j []).getD i []).map (·.2.2)) bs →
+      (∃ Ids' : List AnnotTerm, Idss[tgts j i]? = some Ids' ∧
+        SpineFit (consList as₁ ρ) Ids'
+          (((EissRaw.getD j []).getD i []).map
+            (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ)))))) ∧
+      (∀ E ∈ (EissRaw.getD j []).getD i [],
+        WellDenoted V (consList bs (consList (as₂.take i) (consList as₁ ρ))) E) ∧
+      (((EissRaw.getD j []).getD i []).length = nIdxs.getD (tgts j i) 0) ∧
+      SpineFit ρ
+        ((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts (tgts j i)).map (·.2.2))
+        (as₁ ++ Ms ++ ms ++
+          (((EissRaw.getD j []).getD i []).map
+            (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ))))) ++
+          [(Semantics.frameIdx ((tlss.getD j []).getD i []).length
+              (consList bs (consList (as₂.take i) (consList as₁ ρ)))).foldl
+            SetTheory.app (as₂.getD i pt)])) :
+    (as₁ ++ Ms ++ ms ++ is ++ [t]).foldl SetTheory.app (interp V ρ (Rof mm))
+      = interp V (consList as₂ (consList ms (consList Ms (consList as₁ ρ))))
+          (mutualRuleCoreAV b Rof (tgts j) nP Ls.length cds.length nF j
+            (recIdx (rss.getD j []) nF) (tlss.getD j []) (EissRaw.getD j [])) := by
+  have hk : 0 < Ls.length := by omega
+  have hlenmsF : ms.length = FssR.length := by rw [hlenM, hlenFss]
+  -- the left-hand side: the member leaf folds to the auxiliary recursor
+  rw [hRof mm hmm, interp_mutualRecAVI_fold hlenP hlenK hlenM hlenI
+      (by rw [← hRof mm hmm]; exact hokR mm hmm ρ) hspPub hT hIdss hidxFit hclA, hdisp]
+  -- the auxiliary recursor's iota
+  unfold auxRecAV
+  rw [nativeRecAVI_iota hpre hw hℓ ρ hspAux (by rw [hlenFss]; exact hj)
+    (show as₂.length = (FssR.getD j []).length from by rw [hlenF, hFsj]) hmajV]
+  -- the K-frame's accessors
+  have hfrK : consList (as₁ ++ [dispV] ++ ms ++ [inj mm (mkTower (is ++ [pt]))]) ρ
+      = consList [inj mm (mkTower (is ++ [pt]))] (consList ms (cons dispV (consList as₁ ρ))) :=
+    consList_kframe as₁ dispV ms [inj mm (mkTower (is ++ [pt]))] ρ
+  have hIdsLen : (auxIds W Idss).length = 1 := rfl
+  rw [hfrK, hIdsLen,
+    kframe_frP (his := show [inj mm (mkTower (is ++ [pt]))].length = 1 from rfl) hlenmsF,
+    kframe_frMs (his := show [inj mm (mkTower (is ++ [pt]))].length = 1 from rfl) hlenmsF
+      (by rw [hlenFss]; exact hj),
+    ← hfrK,
+    frKSpine_of nP FssR.length 1
+      (show (as₁ ++ [dispV] ++ ms).length = nP + 1 + FssR.length from by
+        simp only [List.length_append, List.length_singleton, hlenP, hlenmsF])
+      (show [inj mm (mkTower (is ++ [pt]))].length = 1 from rfl) ρ,
+    hFsj]
+  -- the right-hand side: the rule's core
+  rw [interp_mutualRuleCoreAV (ℓ := ℓ) hbz hlenP hlenK hk hlenM hlenF hj hclR]
+  -- the minors agree; match the inductive hypotheses
+  congr 2
+  apply List.map_congr_left
+  intro i hi
+  obtain ⟨hik, -⟩ := mem_recIdx.mp hi
+  refine lamTower_congr_leaves fun bs hbs => ?_
+  obtain ⟨⟨Ids', hIds', hfit'⟩, hEok', hEn', hsp'⟩ := hih i hi bs hbs
+  have hrawlen : (((EissRaw.getD j []).getD i []).map
+      (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ))))).length
+      = nIdxs.getD (tgts j i) 0 := by rw [List.length_map]; exact hEn'
+  -- the mutual hypothesis folds to the auxiliary recursor as well
+  rw [hRof (tgts j i) (htgt i hi),
+    interp_mutualRecAVI_fold hlenP hlenK hlenM hrawlen
+      (by rw [← hRof (tgts j i) (htgt i hi)]; exact hokR (tgts j i) (htgt i hi) ρ) hsp' hT hIds'
+      hfit' hclA]
+  -- the dispatch inside the hypothesis is the recursor's own
+  rw [interp_motDispAV_congr (ρp := consList as₁ ρ)
+      (shiftE_blockFrame (as₁ := as₁) (Ms := Ms) (ms := ms)
+        (is := ((EissRaw.getD j []).getD i []).map
+          (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ)))))
+        (t := (Semantics.frameIdx ((tlss.getD j []).getD i []).length
+          (consList bs (consList (as₂.take i) (consList as₁ ρ)))).foldl
+          SetTheory.app (as₂.getD i pt)) (ρ := ρ) hlenK hlenM hrawlen)
+      (shiftE_blockFrame (as₁ := as₁) (Ms := Ms) (ms := ms) (is := is) (t := t) (ρ := ρ)
+        hlenK hlenM hlenI)
+      (by
+        rw [motVals_blockFrame (as₁ := as₁) (Ms := Ms) (ms := ms)
+            (is := ((EissRaw.getD j []).getD i []).map
+              (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ)))))
+            (t := (Semantics.frameIdx ((tlss.getD j []).getD i []).length
+              (consList bs (consList (as₂.take i) (consList as₁ ρ)))).foldl
+              SetTheory.app (as₂.getD i pt)) (ρ := ρ) hlenK hlenM hrawlen,
+          motVals_blockFrame (as₁ := as₁) (Ms := Ms) (ms := ms) (is := is) (t := t) (ρ := ρ)
+            hlenK hlenM hlenI]),
+    hdisp, hEtag i hi]
+  -- the tagged index expression's value
+  have htagi := tagTupleAV_facts (W := W) (ρp := consList as₁ ρ) hT hIds'
+    (d := i + ((tlss.getD j []).getD i []).length)
+    (τ := consList bs (consList (as₂.take i) (consList as₁ ρ)))
+    (by
+      have hlenbs : bs.length = ((tlss.getD j []).getD i []).length := by
+        rw [hbs.length_eq, List.length_map]
+      have hlentk : (as₂.take i).length = i := by rw [List.length_take]; omega
+      rw [← consList_append,
+        show i + ((tlss.getD j []).getD i []).length = (as₂.take i ++ bs).length from by
+          rw [List.length_append, hlentk, hlenbs]]
+      exact shiftE_consList _ _)
+    hEok' hfit'
+  rw [List.map_cons, List.map_nil, htagi.1]
+  rfl
 
 end ConLeche.Model
