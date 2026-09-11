@@ -189,7 +189,7 @@ theorem noProjAt_structProjBodies {T T' : Name} {i nP nF : Nat} {cty : Expr}
     {bodies : Array Expr} (hne : T' ≠ T)
     (h : ConLeche.structProjBodies T' nP nF cty = some bodies)
     (hcty : Expr.NoProjAt T i cty) :
-    ∀ k, Expr.NoProjAt T i (bodies.toList.getD k default) := by
+    ∀ k, Expr.NoProjAt T i (bodies.getD k default) := by
   intro k
   unfold ConLeche.structProjBodies at h
   split at h
@@ -202,14 +202,15 @@ theorem noProjAt_structProjBodies {T T' : Name} {i nP nF : Nat} {cty : Expr}
           (fun a ha => by
             obtain ⟨j, -, rfl⟩ := List.mem_map.mp ha
             simp) hr hcty)
-    have htl : (List.toArray l).toList = l := rfl
-    rw [htl]
-    rcases Nat.lt_or_ge k l.length with hk | hk
-    · refine hall _ ?_
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some]
+    have hsz : (List.toArray l).size = l.length := rfl
+    rw [Array.getD]
+    split
+    · next hk =>
+      rw [hsz] at hk
+      refine hall _ ?_
+      show l[k]'hk ∈ l
       exact List.getElem_mem hk
-    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hk, Option.getD_none]
-      exact noProjAt_default
+    · exact noProjAt_default
   · exact nomatch h
 
 /-! ## The member's carrier and its fibre -/
@@ -398,7 +399,8 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
           SpineFit ρ ((((ds ψ).drop nP).map (·.2.2)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    Nonempty (EnvModelM V μ envOut) := by
+    ∃ mp' : EnvModelM V μ envOut,
+      mp'.base2.acval = acvalWith mp.base2.acval (projTableName T) (fun _ => .sort 0) := by
   have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := ConLeche.checkStructProjTable_inv hTbl
   let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, resSort,
@@ -554,8 +556,9 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
       ∀ (φ : Name → Nat) (i : Nat), i < tbl.numFields →
         TowerEntryLaw m₂ φ tbl.structName i (tbl.entry i) by
-    obtain ⟨mp', -⟩ := declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
-    exact ⟨mp'⟩
+    obtain ⟨mp', hac'⟩ :=
+      declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
+    exact ⟨mp', hac'⟩
   -- the fields' laws
   intro m₂ hac φ i hi
   replace hi : i < nF := hi
@@ -695,5 +698,274 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
       show x = (ts ++ (List.range nF).map fun j => projS (j + 1) x).foldl SetTheory.app _
       exact fixEntryEtaCoreT (hCDlen _) (hFD.len _) (hiff _) (hFsJ _) (hokU _) (hfold _)
         (fun ρ' hρ' => hfibAt _ ρ' hρ') ts x hlents hsp hmem
+
+/-! ## The fold over the members -/
+
+/-- The block-wide data the members' leaves and the block's chains are
+spelled from — everything the table stage reads that does not depend on
+the member. -/
+structure TableBlockData where
+  /-- the block's level parameters -/
+  lps : List Name
+  /-- the parameter count -/
+  nP : Nat
+  /-- the block's `Prop`-ness bit -/
+  isProp : Bool
+  /-- the tag's sort -/
+  W : (Name → Nat) → Nat
+  /-- the members' index telescopes -/
+  Idss : (Name → Nat) → List (List AnnotTerm)
+  /-- the constructors' REAL field chains -/
+  FssR : (Name → Nat) → List (List AnnotTerm)
+  /-- the constructors' tagged index expressions -/
+  Ess' : (Name → Nat) → List (List AnnotTerm)
+  /-- the constructors' X-chains -/
+  Fss₀ : (Name → Nat) → List (List AnnotTerm)
+  /-- the recursive-slot bits -/
+  rss : List (List Bool)
+  /-- the recursive slots' telescopes -/
+  tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))
+  /-- the recursive slots' tagged index expressions -/
+  Eiss' : (Name → Nat) → List (List (List AnnotTerm))
+
+/-- **One member's table data**, at the environment and carrier its
+table is consed on: the block's `NoProjEnv` invariant at the member,
+the member's own lookup, and — when the member is structure-like, so
+that the kernel conses its table — everything `stageMutualTable` asks
+of its own constructor.  Every member of the block carries it, because
+a later member's table cons happens at an environment the earlier
+conses have already grown (`MutualTableOk.cross`). -/
+@[expose] def MutualTableOk {env : Env} (m : EnvModel V env) (d : TableBlockData)
+    (capsOf : Nat → IndCaps) (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (f : MutualFormerA) (mIdx : Nat) : Prop :=
+  (∀ j, NoProjEnv env f.cvTa.name j) ∧
+  env.find? f.cvTa.name = some (.indInfo f.cvTa (capsOf mIdx)) ∧
+  ∀ (J : Nat) (c : ConLeche.MutualCtor), b.ownCtors mIdx = [(J, c)] → f.nIdx = 0 →
+    ∃ (cvCa : ConstantVal) (pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (Es : (Name → Nat) → List AnnotTerm) (lvls : (Name → Nat) → List Nat),
+      cvCa = (ctorsA.getD J default).1 ∧ cvCa.name = c.cv.name ∧
+      ((capsOf mIdx).eta = true → (Level.isEquiv f.s .zero == some true) = false ∧
+        (capsOf mIdx).etaCtor = cvCa.name ∧ (capsOf mIdx).etaParams = d.nP ∧
+        (capsOf mIdx).etaFields = c.nF) ∧
+      f.cvTa.levelParams = d.lps ∧
+      env.find? cvCa.name = some (.ctorInfo cvCa d.nP c.nF) ∧
+      cvCa.levelParams = d.lps ∧
+      (cvCa.type.stripPis (d.nP + c.nF)).isSome = true ∧
+      d.isProp = (Level.isEquiv f.s .zero == some true) ∧
+      f.cvTa.name.isProjFnShape = false ∧ cvCa.name.isProjFnShape = false ∧
+      ConLeche.reservedBasisNames.contains f.cvTa.name = false ∧
+      ConLeche.reservedBasisNames.contains (f.cvTa.name.str "rec") = false ∧
+      ConLeche.reservedBasisNames.contains cvCa.name = false ∧
+      FormerData m f.cvTa d.nP f.s pps lvls ∧
+      (∀ ψ, denoteMeta m.acval env ψ 0 cvCa.type
+        = some (mkPisAV (ds ψ) (ctorBodyAVI m f.cvTa.name d.nP c.nF ψ (Es ψ)))) ∧
+      (∀ ψ, (ds ψ).length = d.nP + c.nF) ∧
+      (∀ ψ, DomsBelow 0 (ds ψ)) ∧
+      (∀ k, k < c.nF → d.isProp = false →
+        Level.leq ((sortss.getD J []).getD k .zero) f.s = some true) ∧
+      (∀ ψ, m.acval f.cvTa.name ψ
+        = mutualTyAVI (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
+            (d.Fss₀ ψ) (d.Ess' ψ) mIdx) ∧
+      (∀ ψ, m.acval cvCa.name ψ
+        = sumMkAV (f.s.eval ψ) J (ds ψ) (((ds ψ).drop d.nP).map (·.2.2)) (uChains (d.FssR ψ))) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
+        SpineFit ρ ((pps ψ).map (·.2.2)) ts →
+        ts.foldl SetTheory.app (interp V ρ
+            (mutualTyAVI (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
+              (d.Fss₀ ψ) (d.Ess' ψ) mIdx))
+          = mutualCarrierAt (f.s.eval ψ) mIdx (d.FssR ψ) (d.Ess' ψ) (consList ts ρ)) ∧
+      (∀ ψ, (d.FssR ψ)[J]? = some (((ds ψ).drop d.nP).map (·.2.2))) ∧
+      (∀ (ψ : Name → Nat) (ρp : Nat → V),
+        Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρp →
+        ∀ j, j ≠ J → ∀ Fs' Es'' : List AnnotTerm,
+          (d.FssR ψ)[j]? = some Fs' → (d.Ess' ψ)[j]? = some Es'' →
+          ∀ fs : List V, SpineFit ρp Fs' fs →
+            ∃ (m' : Nat) (a : V), m' ≠ mIdx ∧
+              interp V (consList fs ρp) (Es''.getD 0 default) = inj m' a) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρ →
+          SumFieldsOkB (f.s.eval ψ) ρ (d.FssR ψ)) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V ((pps ψ).map (·.2.2)).reverse ρ ↔
+          Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρ) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρ →
+          FieldsOkB (f.s.eval ψ) ρ (((ds ψ).drop d.nP).map (·.2.2)) ∧
+          FieldsValid ρ (((ds ψ).drop d.nP).map (·.2.2))) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρ →
+          d.isProp = false →
+            FieldsBound (f.s.eval ψ) ρ (((ds ψ).drop d.nP).map (·.2.2))) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((ds ψ).take d.nP).map (·.2.2)).reverse ρ →
+          ∀ j, j < c.nF → ∀ as : List V,
+            SpineFit ρ ((((ds ψ).drop d.nP).map (·.2.2)).take j) as →
+            interp V (consList as ρ) ((((ds ψ).drop d.nP).map (·.2.2)).getD j default)
+              ∈ˢ (univ (((sortss.getD J []).getD j .zero).eval ψ) : V))
+
+/-- **A member's table data crosses another member's table cons.**
+The head is a table of a DIFFERENT structure, so nothing it stores
+mentions this member's slots: its type is a sort, and its bodies are
+that structure's constructor telescope with only its OWN projections
+inserted (`noProjAt_structProjBodies`). -/
+theorem MutualTableOk.cross {m : EnvModel V env} {d : TableBlockData} {capsOf : Nat → IndCaps}
+    {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    {f : MutualFormerA} {mIdx : Nat}
+    (h : MutualTableOk m d capsOf b ctorsA sortss f mIdx)
+    {tbl : ProjTable} {cty : Expr} {nF' : Nat}
+    (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
+    (hbodies : ConLeche.structProjBodies tbl.structName d.nP nF' cty = some tbl.bodies)
+    (hcty : ∃ ci ∈ env.consts, ci.toConstantVal.type = cty)
+    (hnpT : ∀ i, NoProjEnv env tbl.structName i)
+    (hne : tbl.structName ≠ f.cvTa.name)
+    (m₂ : EnvModel V ⟨.projInfo tbl :: env.consts⟩)
+    (hac : m₂.acval = acvalWith m.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0)) :
+    MutualTableOk m₂ d capsOf b ctorsA sortss f mIdx := by
+  obtain ⟨hnp, hfT, hrest⟩ := h
+  -- the head's pieces mention no member's slots
+  have hheadT : ∀ (T : Name) (i : Nat), (∀ j, NoProjEnv env T j) → T ≠ tbl.structName →
+      NoProjHead (.projInfo tbl) T i := by
+    intro T i hnpT' hneT
+    refine ⟨?_, (fun _ _ _ hh => nomatch hh), (fun _ _ _ _ hh => nomatch hh), ?_⟩
+    · show Expr.NoProjAt T i (.sort (.succ .zero))
+      exact Expr.noProjAt_sort
+    · intro tbl₂ heq k _
+      obtain rfl := ConstantInfo.projInfo.inj heq
+      obtain ⟨ci, hci, rfl⟩ := hcty
+      exact noProjAt_structProjBodies (fun hh => hneT hh.symm) hbodies ((hnpT' i).type ci hci) k
+  have hnp₂ : ∀ j, NoProjEnv (⟨.projInfo tbl :: env.consts⟩ : Env) f.cvTa.name j :=
+    fun j => (hnp j).cons (hheadT f.cvTa.name j hnp (fun hh => hne hh.symm))
+  have hfT₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? f.cvTa.name
+      = some (.indInfo f.cvTa (capsOf mIdx)) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
+  have hneT : f.cvTa.name ≠ (ConstantInfo.projInfo tbl).name := by
+    intro hh; rw [hh, hfresh] at hfT; exact nomatch hfT
+  have hacT : ∀ ψ, m₂.acval f.cvTa.name ψ = m.acval f.cvTa.name ψ := by
+    intro ψ; rw [hac, acvalWith_ne hneT]
+  refine ⟨hnp₂, hfT₂, ?_⟩
+  intro J c hown hnIdx
+  obtain ⟨cvCa, pps, ds, Es, lvls, hCeq, hCname, hcaps, hlpsT, hfC, hlpsC, hstripC, hProp,
+    hTshape, hCshape, hresT, hresR, hresC, hFD, hCDread, hCDlen, hCDbelow, hleq, hleafT,
+    hleafC, hfold, hFsJ, hother, hFssOk, hiff, hfields, hboundP, hsortsF⟩ := hrest J c hown hnIdx
+  have hneC : cvCa.name ≠ (ConstantInfo.projInfo tbl).name := by
+    intro hh; rw [hh, hfresh] at hfC; exact nomatch hfC
+  have hacC : ∀ ψ, m₂.acval cvCa.name ψ = m.acval cvCa.name ψ := by
+    intro ψ; rw [hac, acvalWith_ne hneC]
+  have hcrossT : ConsCrossAt (.projInfo tbl) f.cvTa.type := by
+    intro t2 he' j
+    cases he'
+    exact (hnpT j).type _ (ConLeche.Semantics.Env.find?_mem hfT)
+  have hcrossC : ConsCrossAt (.projInfo tbl) cvCa.type := by
+    intro t2 he' j
+    cases he'
+    exact (hnpT j).type _ (ConLeche.Semantics.Env.find?_mem hfC)
+  have hcbT : ConstsBound env f.cvTa.type :=
+    constsBound_of_constsResolve _ (m.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
+  have hcbC : ConstsBound env cvCa.type :=
+    constsBound_of_constsResolve _ (m.wf _ (ConLeche.Semantics.Env.find?_mem hfC)).2.2.1
+  refine ⟨cvCa, pps, ds, Es, lvls, hCeq, hCname, hcaps, hlpsT,
+    ConLeche.Env.find?_cons_of_fresh hfresh hfC, hlpsC, hstripC, hProp, hTshape, hCshape,
+    hresT, hresR, hresC, hFD.cross hfresh hcrossT hcbT m₂ hac, ?_, hCDlen, hCDbelow, hleq,
+    fun ψ => by rw [hacT, hleafT], fun ψ => by rw [hacC, hleafC], hfold, hFsJ, hother, hFssOk,
+    hiff, hfields, hboundP, hsortsF⟩
+  intro ψ
+  have hbody : ctorBodyAVI m₂ f.cvTa.name d.nP c.nF ψ (Es ψ)
+      = ctorBodyAVI m f.cvTa.name d.nP c.nF ψ (Es ψ) := by
+    unfold ctorBodyAVI; rw [hacT]
+  rw [hbody, hac]
+  exact denoteMeta_cons_mono hfresh hcrossC ψ 0 hcbC (hCDread ψ)
+
+set_option maxHeartbeats 1600000 in
+/-- **The table stage over the members** (task #278 M2.5e): each member
+either conses nothing or conses its projection table
+(`mutualMemberTable_inv`).  The carrier survives every cons
+(`stageMutualTable`), the leaves off the table names are untouched, and
+`EtaFamiliesClosed` travels because a table head is not an inductive. -/
+theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
+    {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hlps : b.lps = d.lps) (hnP : b.nP = d.nP) :
+    ∀ (l : List (MutualFormerA × Nat)) {env : Env} (mp : EnvModelM V μ env) {env' : Env},
+      ConLeche.EtaFamiliesClosed env →
+      ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
+      (l.map (·.1.cvTa.name)).Nodup →
+      (∀ p ∈ l, MutualTableOk mp.base2 d capsOf b ctorsA sortss p.1 p.2) →
+      ∃ mp' : EnvModelM V μ env',
+        (∀ n : Name, (∀ p ∈ l, n ≠ projTableName p.1.cvTa.name) →
+          mp'.base2.acval n = mp.base2.acval n) ∧
+        ConLeche.EtaFamiliesClosed env' := by
+  intro l
+  induction l with
+  | nil =>
+    intro env mp env' hE h _ _
+    obtain rfl := ConLeche.mutualTables_nil_inv h
+    exact ⟨mp, fun _ _ => rfl, hE⟩
+  | cons p rest ih =>
+    intro env mp env' hE h hnd hmem
+    obtain ⟨f, mIdx⟩ := p
+    obtain ⟨envI, hI, hrestRun⟩ := ConLeche.mutualTables_inv h
+    rw [List.map_cons, List.nodup_cons] at hnd
+    rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
+    · -- the member conses nothing
+      obtain ⟨mp', hoff, hE'⟩ :=
+        ih mp hE hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
+      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hE'⟩
+    · -- the member conses its table
+      obtain ⟨hnp, hfT, hrest⟩ := hmem (f, mIdx) List.mem_cons_self
+      obtain ⟨cvCa, pps, ds, Es, lvls, hCeq, hCname, hcaps, hlpsT, hfC, hlpsC, hstripC, hProp,
+        hTshape, hCshape, hresT, hresR, hresC, hFD, hCDread, hCDlen, hCDbelow, hleq, hleafT,
+        hleafC, hfold, hFsJ, hother, hFssOk, hiff, hfields, hboundP, hsortsF⟩ :=
+        hrest J c hown hnIdx
+      rw [← hCeq, ← hCname, hlps, hnP] at htbl
+      obtain ⟨bodies, hbodies, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      obtain ⟨mpI, hacI⟩ := stageMutualTable mp htbl hfT hcaps hlpsT hfC hlpsC hstripC hProp
+        hTshape hCshape hresT hresR hresC hnp hFD hCDread hCDlen hCDbelow hleq hleafT hleafC
+        hfold hFsJ hother hFssOk hiff hfields hboundP hsortsF
+      have hE' : ConLeche.EtaFamiliesClosed
+          (⟨.projInfo ⟨f.cvTa.name, d.lps, d.nP, cvCa.name, c.nF, f.s, bodies,
+            ConLeche.structProjGuards cvCa.type d.nP c.nF (sortss.getD J []), 1⟩
+            :: env.consts⟩ : Env) :=
+        ConLeche.EtaFamiliesClosed.cons_nonind hE hfreshTbl
+          (fun _ _ hh => nomatch hh)
+      have hmemI : ∀ q ∈ rest, MutualTableOk mpI.base2 d capsOf b ctorsA sortss q.1 q.2 := by
+        intro q hq
+        refine (hmem q (List.mem_cons_of_mem _ hq)).cross (nF' := c.nF) (cty := cvCa.type)
+          (tbl := ⟨f.cvTa.name, d.lps, d.nP, cvCa.name, c.nF, f.s, bodies,
+            ConLeche.structProjGuards cvCa.type d.nP c.nF (sortss.getD J []), 1⟩)
+          hfreshTbl hbodies ⟨.ctorInfo cvCa d.nP c.nF,
+            ConLeche.Semantics.Env.find?_mem hfC, rfl⟩ hnp ?_ mpI.base2 hacI
+        intro hh
+        refine hnd.1 ?_
+        show f.cvTa.name ∈ rest.map (·.1.cvTa.name)
+        rw [show f.cvTa.name = q.1.cvTa.name from hh]
+        exact List.mem_map_of_mem hq
+      obtain ⟨mp', hoff, hE''⟩ := ih mpI hE' hrestRun hnd.2 hmemI
+      refine ⟨mp', fun n hn => ?_, hE''⟩
+      rw [hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hacI,
+        acvalWith_ne (hn (f, mIdx) List.mem_cons_self)]
+
+/-- **The table stage** (task #278 M2.5e): the run's final environment
+carries an `EnvModelM` whose carrier agrees with the recursor store's
+off the block's table names, and `EtaFamiliesClosed` survives. -/
+theorem stageMutualTables {d : TableBlockData} {capsOf : Nat → IndCaps}
+    {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    {fms : List MutualFormerA} {env env' : Env} (mp : EnvModelM V μ env)
+    (hlps : b.lps = d.lps) (hnP : b.nP = d.nP)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (hrun : ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss fms.zipIdx env = .ok env')
+    (hnd : (fms.map (·.cvTa.name)).Nodup)
+    (hmem : ∀ p ∈ fms.zipIdx, MutualTableOk mp.base2 d capsOf b ctorsA sortss p.1 p.2) :
+    ∃ mp' : EnvModelM V μ env',
+      (∀ n : Name, (∀ f ∈ fms, n ≠ projTableName f.cvTa.name) →
+        mp'.base2.acval n = mp.base2.acval n) ∧
+      ConLeche.EtaFamiliesClosed env' := by
+  have hnd' : ((fms.zipIdx).map (·.1.cvTa.name)).Nodup := by
+    rw [show fms.zipIdx.map (·.1.cvTa.name) = fms.map (·.cvTa.name) from by
+      rw [show (fun x : MutualFormerA × Nat => x.1.cvTa.name)
+        = (fun f : MutualFormerA => f.cvTa.name) ∘ Prod.fst from rfl, ← List.map_map,
+        List.zipIdx_map_fst]]
+    exact hnd
+  obtain ⟨mp', hoff, hE'⟩ := stageMutualTablesGo hlps hnP fms.zipIdx mp hE hrun hnd' hmem
+  refine ⟨mp', fun n hn => hoff n fun q hq => hn q.1 ?_, hE'⟩
+  have hget : fms[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
+  exact List.mem_of_getElem? hget
 
 end ConLeche.Model
