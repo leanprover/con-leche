@@ -3,6 +3,7 @@ module
 import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Model.Swap
+import ConLeche.Model.IndRepSwap
 import ConLeche.Model.IndMembers
 public import ConLeche.Model.Capstone
 public section
@@ -251,8 +252,42 @@ theorem indRecs (hμ : μ.verifiedChecks = true)
   obtain ⟨hwf₃, hctors₃, hbp₃, hproj₃⟩ :=
     swapEnvFacts mS.base2.wf mS.base2.rec_ctors mS.base2.basis_pinned
       mS.base2.proj_ok hswR hnresR hentR hentFR
+  -- the representation clause at the swapped store (task #280): the
+  -- swapped recursors are the block's, whose leaves are their models'
+  obtain ⟨-, -, -, hentBN⟩ :=
+    indRecsFoldFactsRun (fun cv _ _ _ => blockNames.contains cv.name = true)
+      (fun _cvA _mI _rP _rules _rules' hbnA _hselfA _hiot _ _ => hbnA)
+      recs (SwapShList.of_eq env₂.consts)
+      (SwapNResS.of_eq env₂)
+      (fun n ci hf =>
+        Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
+      (provisionRecsRunS_mono recs hprov) heqf
+      (fun c hc => Or.inl (provisionRecsRunS_mem recs hprov c hc))
+      (fun n cv mI rP rules hf =>
+        Or.inl (provisionRecsRunS_mono recs hprov n _ hf))
+      hbn hprov hfold
+  have hreps : ∀ m₃ : EnvModel V env₃, m₃.acval = mS.base2.acval → IndReps m₃ := by
+    intro m₃ hac
+    refine IndReps.swap hcg hac mS.ind_reps ?_
+    intro n cvR mI rP rules hf₃
+    rcases swapSh_find?_corr hswR n with heq | ⟨cv', mI', rP', rules', h₀, h₃, -⟩
+    · exact Or.inl (by rw [← heq]; exact hf₃)
+    · rw [hf₃] at h₃
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj h₃)
+      cases rules with
+      | nil => exact Or.inl h₀
+      | cons rl rest =>
+        rcases hentBN n cvR mI rP (rl :: rest) hf₃ with hself | hall
+        · exact Or.inl hself
+        · have hbnN : blockNames.contains cvR.name = true := hall rl List.mem_cons_self
+          have hname : cvR.name = n := Env.find?_name hf₃
+          rw [hname] at hbnN
+          obtain ⟨cvm, mval, hmcvm, hfm, -⟩ := hIS n hbnN _ h₀
+          refine Or.inr ⟨?_, fun ψ => ?_⟩
+          · rw [← hcg.isSomeEq, hfm]; rfl
+          · rw [hac]; exact hIAS n hbnN _ h₀ ψ
   obtain ⟨mp₃, hacc, hcval₃⟩ :=
-    EnvModelM.swapP mS hswR hwf₃ hctors₃ hbp₃ hproj₃ hrecP
+    EnvModelM.swapP mS hswR hwf₃ hctors₃ hbp₃ hproj₃ hrecP hreps
   refine ⟨mp₃, ?_, by rw [hacc]; exact blockAcvalInstalled_swap hcg hIAS⟩
   -- the block invariant survives the swap (`indRecsCoreR`'s own
   -- argument, at the P carrier's valuation)

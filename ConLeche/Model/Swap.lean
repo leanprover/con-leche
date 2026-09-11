@@ -196,7 +196,10 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (hbp₃ : BasisPinnedTT env₃ mp.base2.cvalE)
     (hproj₃ : ProjOkT env₃)
     (hrecP : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval →
-      ∀ φ : Name → Nat, RecRules m₃ φ) :
+      ∀ φ : Name → Nat, RecRules m₃ φ)
+    -- the representation clause at the swapped store (task #280): the
+    -- caller transports it, since the swapped recursors are its own
+    (hreps : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval → IndReps m₃) :
     ∃ mp₃ : EnvModelM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
       mp₃.base2.cvalE = mp.base2.cvalE := by
   have hcg : ConLeche.SwapCongr env₀ env₃ := ConLeche.SwapShList.congr hsw
@@ -249,7 +252,8 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             caps_ok := ?_
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
-            tower_ok := ?_ },
+            tower_ok := ?_
+            ind_reps := hreps _ rfl },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

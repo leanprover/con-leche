@@ -1,8 +1,9 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.SumData
 import ConLeche.Model.Inductives.StructBodyFrames
-public import ConLeche.Verify.Inductives.FixWF
+import ConLeche.Verify.Inductives.FixWF
 public section
 
 /-!
@@ -38,37 +39,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The opened-form guard, positionally -/
 
-/-- `nativeOpenedOk`, read positionally. -/
-structure FixOpened (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx nF : Nat)
-    (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr) : Prop where
-  residRes : ∀ e ∈ xrest.getAppArgs.drop nP, e.constsResolve env₀ = true
-  ord : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .ordinary →
-    x.fvarTypeD.constsResolve env₀ = true
-  recF : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
-    x.fvarTypeD.getAppFn = Expr.const T (lps.map .param) ∧
-    x.fvarTypeD.getAppArgs.take nP = fvsP ∧
-    x.fvarTypeD.getAppArgs.length = nP + nIdx ∧
-    (∀ e ∈ x.fvarTypeD.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
-    (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
-    xrest.mentionsFvar (nP + i) = false
-  /-- a REFLEXIVE field (task #202): its own telescope opened at
-  variables at the field's depth, the domains resolving before the
-  block, the body the family at the parameter variables and index
-  expressions resolving before the block; the variable a leaf of no
-  later domain nor of the residual -/
-  reflF : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive →
-    ∃ afvs body,
-      openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) = some (afvs, body) ∧
-      afvs.length ≠ 0 ∧
-      (∀ a ∈ afvs, a.fvarTypeD.constsResolve env₀ = true) ∧
-      body.getAppFn = Expr.const T (lps.map .param) ∧
-      body.getAppArgs.take nP = fvsP ∧
-      body.getAppArgs.length = nP + nIdx ∧
-      (∀ e ∈ body.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
-      (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
-      xrest.mentionsFvar (nP + i) = false
-  kinds : ∀ i, i < nF → ks.getD i .ordinary = .ordinary ∨ ks.getD i .ordinary = .recursive ∨
-    ks.getD i .ordinary = .reflexive
 
 theorem fixOpened_of {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat} {cty : Expr}
     {nF : Nat} {ks : List RecFieldKind}
@@ -177,73 +147,6 @@ theorem stripPisAV_denoteMeta_bits {acval : Name → (Name → Nat) → AnnotTer
     | .proj _ _ _, hop => nomatch hop
     | .lit _, hop => nomatch hop
 
-/-- **A recursive constructor's data** at a carrier storing the former
-(see the module docstring). -/
-structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name)
-    (lps : List Name) (cvC : ConstantVal) (nP nF nIdx : Nat) (resSort : Level)
-    (isProp large : Bool) (idxArgs : List Expr)
-    (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (Es : (Name → Nat) → List AnnotTerm)
-    (srcs : List (Option Nat)) (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr)
-    (Eiss : (Name → Nat) → List (List AnnotTerm))
-    (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) : Prop
-    extends CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs where
-  opened : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest
-  opens : ∃ crest, openPisAtFvars nP cvC.type 0 = some (fvsP, crest) ∧
-    openPisAtFvars nF crest nP = some (xFvs, xrest)
-  ksLen : ks.length = nF
-  xLen : xFvs.length = nF
-  pLen : fvsP.length = nP
-  xIdx : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty
-  pIdx : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty
-  idxEq : idxArgs = xrest.getAppArgs.drop nP
-  domRead : ∀ ψ i x, xFvs[i]? = some x →
-    denoteMeta m.acval env ψ (nP + i) x.fvarTypeD = some ((ds ψ).getD (nP + i) default).2.2
-  eissLen : ∀ ψ, (Eiss ψ).length = nF
-  eisRead : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
-    DenoteMetaSpine m.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLen : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF → ((Eiss ψ).getD i []).length = nIdx
-  recEntry : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
-    ((ds ψ).getD (nP + i) default).2.2
-      = AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
-  eissParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → Eiss ψ₁ = Eiss ψ₂
-  /-- an index expression is read under the field's telescope (empty at
-  a finitary field) -/
-  eissBelow : ∀ ψ i, ∀ E ∈ (Eiss ψ).getD i [],
-    Term.bvarsBelow (nP + i + ((tss ψ).getD i []).length) E.erase
-  ordNone : ∀ ψ i, ks.getD i .ordinary ≠ .recursive → ks.getD i .ordinary ≠ .reflexive →
-    (Eiss ψ).getD i [] = []
-  /-- the reflexive fields' telescopes (task #202): one list per field,
-  empty at a non-reflexive one -/
-  tssLen : ∀ ψ, (tss ψ).length = nF
-  tssNone : ∀ ψ i, ks.getD i .ordinary ≠ .reflexive → (tss ψ).getD i [] = []
-  /-- the telescope's codomain bits are at the family's regime -/
-  tssBits : ∀ ψ i, ∀ d ∈ (tss ψ).getD i [], (d.2.1 = 0 ↔ resSort.eval ψ = 0)
-  /-- the telescope entries are readings' Π-entries: domain bit `0`,
-  codomain bit at most `1` -/
-  tssPiBits : ∀ ψ i, ∀ d ∈ (tss ψ).getD i [], d.1 = 0 ∧ d.2.1 ≤ 1
-  tssBelow : ∀ ψ i, DomsBelow (nP + i) ((tss ψ).getD i [])
-  tssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → tss ψ₁ = tss ψ₂
-  /-- a reflexive field's telescope, opened at the field's depth: its
-  domains read to the telescope's entries, its body's index
-  expressions read to the field's readings under the telescope -/
-  reflOpen : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive →
-    ∃ afvs body,
-      openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
-      ((tss ψ).getD i []).length = (x.fvarTypeD.piBinders).1.length ∧
-      (∀ k a, afvs[k]? = some a →
-        denoteMeta m.acval env ψ (nP + i + k) a.fvarTypeD
-          = some (((tss ψ).getD i []).getD k default).2.2) ∧
-      DenoteMetaSpine m.acval env ψ (nP + i + ((tss ψ).getD i []).length)
-        (body.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLenRefl : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF → ((Eiss ψ).getD i []).length = nIdx
-  /-- a reflexive field's entry: the Π-tower over its telescope of the
-  former's leaf at the parameter variables (under the telescope) and
-  the readings -/
-  reflEntry : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
-    ((ds ψ).getD (nP + i) default).2.2
-      = mkPisAV ((tss ψ).getD i [])
-          (AnnotTerm.mkAppN (m.acval T ψ)
-            (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
 
 end ConLeche.Model
 

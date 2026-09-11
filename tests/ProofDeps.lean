@@ -110,11 +110,13 @@ partial def conlecheDeps (env : Environment) (todo : List Name)
 /-- The pinned roots: the MAIN THEOREM first, then the letters it
 is a corollary of and the assembly under those.
 
-* `main_False` — **the statement the project exists to make**
+* `main_model` — **the statement the project exists to make**
   (`ConLeche/MainTheorem.lean`): what the fold `checkDecls` accepts at
-  the shipped `--verified` configuration, named outright, holds no
-  constant of type `False`.  It is pinned as a root because it is what
-  a reader checks first.
+  the shipped `--verified` configuration, named outright, has a model
+  in every set theory (`Nonempty (Model V env)`, `ConLeche/Denotes.lean`).
+  It is pinned as a root because it is what a reader checks first.
+* `main_False` — **the headline theorem**, derived from it: that
+  environment holds no constant of type `False`.
 * `False_cached` / `Empty_cached` — **the fold's letters**: the checker,
   running a validating mode over the direct-parse cached core, never
   accepts a stream in which some stored constant has type `False`
@@ -130,7 +132,8 @@ is a corollary of and the assembly under those.
 * `False_pure` / `Empty_pure` — the pure fueled checker the graded tower is stated
   about. -/
 private def roots : List (String × Name) :=
-  [("main_False", `ConLeche.no_proof_of_False),
+  [("main_model", `ConLeche.model_exists),
+   ("main_False", `ConLeche.no_proof_of_False),
    ("False_cached", `ConLeche.Cached.no_proof_of_False_cached),
    ("Empty_cached", `ConLeche.Cached.no_proof_of_Empty_cached),
    ("sound_cached", `ConLeche.Cached.checkDecls_sound),

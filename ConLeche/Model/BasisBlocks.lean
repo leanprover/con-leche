@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Levels
+import ConLeche.Model.BasisRep
 public import ConLeche.Semantics.BasisRules
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not
@@ -525,6 +526,296 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     obtain rfl := (Option.some.inj h).symm
     exact bval_mem_type V .punitUnit [ψ uN] ρ
 
+/-! ## The `PUnit` block's representation (task #280)
+
+The pin's own value is the least fixed point of the constant functor
+with fibre `unitSet` and the point as injection — the representation
+clause's entry for `PUnit`, supplied at `PUnit.rec`'s cons. -/
+
+section PUnitRep
+open ConLeche.SetTheory.Tower
+open ConLeche (RecFieldKind IndCaps RecRule)
+
+/-- **The `PUnit` block's representation datum**: no parameters, no
+indices, one field-free constructor, the constant functor with fibre
+`unitSet` and the point as injection. -/
+@[expose] noncomputable def punitRepData (env₀ : Env) : IndRepData V where
+  nP := 0
+  nIdx := 0
+  resSort := .param uN
+  isProp := (Level.isEquiv (.param uN) .zero == some true)
+  large := true
+  env₀ := env₀
+  ctorsA := [(punitUnitA.toConstantVal, 0)]
+  idxF := fun _ => []
+  dsF := fun _ _ => []
+  esF := fun _ _ => []
+  srcsF := fun _ => []
+  ksF := fun _ => []
+  fvsPF := fun _ => []
+  xFvsF := fun _ => []
+  xrestF := fun _ => .const punitName [.param uN]
+  eissF := fun _ _ => []
+  tssF := fun _ _ => []
+  pps := fun _ => []
+  u := fun _ => 0
+  Φ := fun ψ _ => lamR (Nat.max 0 (ψ uN + 1)) (lfpFamSpace V (ψ uN) unitSet)
+    fun _ => lamR (ψ uN + 1) (unitSet : V) fun _ => unitSet
+  inj := fun _ _ _ => pt
+
+section
+
+variable {env₀ : Env}
+
+/-- The datum's index-tuple set is the unit set (no indices). -/
+theorem punitRepData_idx (ψ : Name → Nat) (ρp : Nat → V) :
+    (punitRepData (V := V) env₀).idx ψ ρp = unitSet := rfl
+
+/-- The constant functor's fibre. -/
+theorem punitRepData_fibre_eq (ψ : Name → Nat) (ρp : Nat → V) {X : V}
+    (hX : X ∈ˢ famSpace (ψ uN) (unitSet : V)) {t : V} (ht : t ∈ˢ (unitSet : V)) :
+    app (app ((punitRepData (V := V) env₀).Φ ψ ρp) X) t = unitSet := by
+  show app (app (lamR (Nat.max 0 (ψ uN + 1)) (lfpFamSpace V (ψ uN) unitSet)
+      (fun _ => lamR (ψ uN + 1) (unitSet : V) fun _ => unitSet)) X) t = _
+  rw [app_lamR_pos (max_succ_ne_zero 0 (ψ uN)) (by rw [lfpFamSpace_eq]; exact hX),
+    app_lamR_pos (Nat.succ_ne_zero (ψ uN)) ht]
+
+/-- The constant family `i ↦ unitSet` is closed under the functor. -/
+theorem punitRepData_closed (ψ : Name → Nat) (ρp : Nat → V) :
+    IsClosedFam (ψ uN) (unitSet : V) ((punitRepData (V := V) env₀).Φ ψ ρp)
+      (graph (fun _ => unitSet) unitSet) := by
+  refine ⟨graph_mem_famSpace fun _ _ => unitSet_mem_univ _, fun i hi x hx => ?_⟩
+  rw [punitRepData_fibre_eq (env₀ := env₀) ψ ρp
+    (graph_mem_famSpace fun _ _ => unitSet_mem_univ _) hi] at hx
+  rw [app_graph hi]
+  exact hx
+
+theorem punitRepData_mono (ψ : Name → Nat) (ρp : Nat → V) :
+    MonoFam (ψ uN) (unitSet : V) ((punitRepData (V := V) env₀).Φ ψ ρp) := by
+  intro X Y hX hY _ i hi
+  rw [punitRepData_fibre_eq (env₀ := env₀) ψ ρp hX hi,
+    punitRepData_fibre_eq (env₀ := env₀) ψ ρp hY hi]
+  exact Subset.refl _
+
+theorem punitRepData_maps (ψ : Name → Nat) (ρp : Nat → V) :
+    MapsFam (ψ uN) (unitSet : V) ((punitRepData (V := V) env₀).Φ ψ ρp) := by
+  intro X hX
+  show app (lamR (Nat.max 0 (ψ uN + 1)) (lfpFamSpace V (ψ uN) unitSet)
+      (fun _ => lamR (ψ uN + 1) (unitSet : V) fun _ => unitSet)) X ∈ˢ _
+  rw [app_lamR_pos (max_succ_ne_zero 0 (ψ uN)) (by rw [lfpFamSpace_eq]; exact hX)]
+  rw [← lfpFamSpace_eq]
+  exact lamR_mem fun _ _ => unitSet_mem_univ _
+
+/-- **The least fixed point of the constant functor is the constant
+family** — the `PUnit` leaf. -/
+theorem punitRepData_lfp (ψ : Name → Nat) (ρp : Nat → V) :
+    app (lfpFamSet ((punitRepData (V := V) env₀).w ψ) ((punitRepData (V := V) env₀).idx ψ ρp)
+      ((punitRepData (V := V) env₀).Φ ψ ρp)) pt = unitSet := by
+  show app (lfpFamSet (ψ uN) (unitSet : V) ((punitRepData (V := V) env₀).Φ ψ ρp)) pt = unitSet
+  have hcl : ∃ L, IsClosedFam (ψ uN) (unitSet : V) ((punitRepData (V := V) env₀).Φ ψ ρp) L :=
+    ⟨_, punitRepData_closed ψ ρp⟩
+  refine Subset.antisymm (fun x hx => ?_) (fun x hx => ?_)
+  · have := lfpFamSet_le (punitRepData_closed (env₀ := env₀) ψ ρp) pt pt_mem_unitSet x hx
+    rwa [app_graph (pt_mem_unitSet (V := V))] at this
+  · refine lfpFamSet_closed hcl (punitRepData_mono ψ ρp) pt pt_mem_unitSet x ?_
+    rw [punitRepData_fibre_eq (env₀ := env₀) ψ ρp
+      (by rw [← lfpFamSpace_eq]; exact lfpFamSet_mem_space V _ _ _) pt_mem_unitSet]
+    exact hx
+
+end
+
+/-- **The pinned `PUnit` block is represented** — the obligation
+`declStep_preserves_of_basis_rec_cons` owes at the `PUnit.rec` cons. -/
+theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
+    (hP : env.find? punitName = some punitA)
+    (hU : env.find? punitUnitName = some punitUnitA)
+    (hfresh : env.find? punitRecA.name = none) :
+    ∀ m₂ : EnvModel V ⟨punitRecA :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval punitRecA.name
+        (fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) →
+      IndRepsHead env punitRecA m₂ := by
+  intro m₂ hac cvR mI rP rules hc T hT
+  injection hc with h1 h2 h3 h4
+  subst h1 h2 h3 h4
+  have hT' : T = punitName := by
+    have h := hT
+    simp only at h
+    exact (Name.str.inj h).1.symm
+  subst hT'
+  -- the two pinned leaves at the extension
+  have hPleaf : ∀ ψ : Name → Nat, m₂.acval punitName ψ = AnnotTerm.const .punit [ψ uN] := by
+    intro ψ
+    rw [hac, acvalWith_ne (by decide)]
+    exact acval_basis_pinned (m := mp.base2) hP (by decide)
+      (by simp +decide [ConLeche.Verify.pinnedStructT])
+  have hUleaf : ∀ ψ : Name → Nat,
+      m₂.acval punitUnitName ψ = AnnotTerm.const .punitUnit [ψ uN] := by
+    intro ψ
+    rw [hac, acvalWith_ne (by decide)]
+    exact acval_basis_pinned (m := mp.base2) hU (by decide)
+      (by simp +decide [ConLeche.Verify.pinnedStructT])
+  have hPread : ∀ (ψ : Name → Nat) (d : Nat),
+      denoteMeta m₂.acval ⟨punitRecA :: env.consts⟩ ψ d
+        (Expr.const punitName [Level.param uN])
+        = some (AnnotTerm.const .punit [ψ uN]) := by
+    intro ψ d
+    rw [hac]
+    exact (denoteMeta_punitRec_leaves (m := mp.base2)
+      (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU).1 d (.param uN)
+  refine Or.inl ⟨_, _, punitRepData ⟨punitRecA :: env.consts⟩,
+    ConLeche.Env.find?_cons_of_fresh hfresh hP, ?_⟩
+  refine {
+    strip := ⟨[], rfl⟩
+    isProp := rfl
+    mI := rfl
+    rP := rfl
+    rules := rfl
+    former := ?_
+    ctors := ?_
+    idxRes := fun _ _ _ _ h => nomatch h
+    uParams := fun _ _ _ => rfl
+    paramsIff := fun _ _ _ _ _ => Iff.rfl
+    chains := ?_
+    functor := fun ψ ρp _ => ⟨?_, punitRepData_mono ψ ρp, punitRepData_maps ψ ρp,
+      ⟨_, punitRepData_closed ψ ρp⟩⟩
+    fibre := ?_
+    leaf := ?_
+    ctor := ?_
+    mkZero := fun _ _ _ _ => rfl
+    mkInj := ?_ }
+  · -- the former's data
+    refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_,
+      (fun _ => trivial), fun ψ₁ ψ₂ h => ⟨rfl, h uN List.mem_cons_self⟩⟩
+    · show denoteMeta m₂.acval ⟨punitRecA :: env.consts⟩ ψ 0 (Expr.sort (Level.param uN))
+        = some (AnnotTerm.sort (ψ uN))
+      rw [denoteMeta_sort]
+      rfl
+    · show WellDenotedV V ρ (AnnotTerm.sort (ψ uN))
+      exact ⟨by rw [WellDenoted_sort]; trivial, by rw [AnnotValid_sort]; trivial⟩
+  · -- the constructor's data
+    intro j cA hj
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (punitUnitA.toConstantVal, 0) := (Option.some.inj hj).symm
+      refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hU, rfl, ?_⟩
+      refine {
+        resid := ⟨[], [], rfl, rfl⟩
+        read := fun ψ => ?_
+        len := fun _ => rfl
+        lenE := fun _ => rfl
+        idxLen := rfl
+        idxRead := fun _ => .nil
+        bits := fun _ _ h => nomatch h
+        okTy := fun ψ ρ => ?_
+        below := fun _ => trivial
+        belowE := fun _ _ h => nomatch h
+        params := fun _ _ _ => ⟨rfl, rfl⟩
+        srcLen := rfl
+        srcBnd := fun _ h => nomatch h
+        srcIdx := fun _ _ h => nomatch h
+        srcProp := fun _ _ _ _ _ => trivial
+        opened := ⟨(fun _ h => nomatch h), (fun _ _ h => nomatch h),
+          (fun _ _ h => nomatch h), (fun _ _ h => nomatch h),
+          fun _ h => absurd h (Nat.not_lt_zero _)⟩
+        opens := ⟨_, rfl, rfl⟩
+        ksLen := rfl
+        xLen := rfl
+        pLen := rfl
+        xIdx := fun _ _ h => nomatch h
+        pIdx := fun _ _ h => nomatch h
+        idxEq := rfl
+        domRead := fun _ _ _ h => nomatch h
+        eissLen := fun _ => rfl
+        eisRead := fun _ _ _ h => nomatch h
+        eisLen := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        recEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        eissParams := fun _ _ _ => rfl
+        eissBelow := fun _ _ _ h => nomatch h
+        ordNone := fun _ _ _ _ => rfl
+        tssLen := fun _ => rfl
+        tssNone := fun _ _ _ => rfl
+        tssBits := fun _ _ _ h => nomatch h
+        tssPiBits := fun _ _ _ h => nomatch h
+        tssBelow := fun _ _ => trivial
+        tssParams := fun _ _ _ => rfl
+        reflOpen := fun _ _ _ h => nomatch h
+        eisLenRefl := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        reflEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _) }
+      · show denoteMeta m₂.acval ⟨punitRecA :: env.consts⟩ ψ 0
+            (Expr.const punitName [Level.param uN]) = _
+        rw [hPread ψ 0]
+        show some (AnnotTerm.const .punit [ψ uN])
+          = some (AnnotTerm.mkAppN (m₂.acval punitName ψ) [])
+        rw [hPleaf ψ]
+        rfl
+      · show WellDenotedV V ρ (AnnotTerm.mkAppN (m₂.acval punitName ψ) [])
+        rw [show AnnotTerm.mkAppN (m₂.acval punitName ψ) [] = m₂.acval punitName ψ from rfl,
+          hPleaf ψ]
+        exact ⟨by rw [WellDenoted_const]; trivial, by rw [AnnotValid_const]; trivial⟩
+  · -- the chains
+    intro ψ ρp _
+    refine ⟨⟨trivial, trivial⟩, ?_, ?_⟩
+    · intro X _ t _
+      show SumFieldsOkB _ _ [[idxEqAV ([] : List (AnnotTerm × AnnotTerm))]]
+      intro Fs hFs
+      rcases List.mem_cons.mp hFs with rfl | h
+      · exact ⟨idxEqAV_wellDenoted (fun _ h => nomatch h),
+          (fun _ => idxEqAV_mem_univ [] _ _), fun _ _ => trivial⟩
+      · exact nomatch h
+    · intro _ _ _ _ j hj
+      have hj0 : j = 0 := by
+        have : j < 1 := hj
+        omega
+      subst hj0
+      exact trivial
+  · -- the functor's membership
+    show (lamR (Nat.max 0 (ψ uN + 1)) (lfpFamSpace V (ψ uN) unitSet)
+        fun _ => lamR (ψ uN + 1) (unitSet : V) fun _ => unitSet)
+      ∈ˢ lfpFamFunSpace V 0 (ψ uN) (unitSet : V)
+    unfold lfpFamFunSpace
+    refine lamR_mem fun X _ => ?_
+    unfold lfpFamSpace
+    exact lamR_mem fun _ _ => unitSet_mem_univ _
+  · -- the fibre
+    intro ψ ρp _ X hX t ht x
+    rw [punitRepData_fibre_eq ψ ρp hX ht]
+    constructor
+    · intro hx
+      exact ⟨0, [], Nat.zero_lt_one, ⟨rfl, trivial, fun _ h => nomatch h⟩, mem_unitSet hx⟩
+    · rintro ⟨j, fs, -, -, rfl⟩
+      exact pt_mem_unitSet
+  · -- the leaf
+    intro ψ ρ as is hsp₁ hsp₂
+    obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq
+    obtain rfl : is = [] := List.length_eq_zero_iff.mp hsp₂.length_eq
+    show interp V ρ (m₂.acval punitName ψ)
+      = app (lfpFamSet ((punitRepData (V := V) ⟨punitRecA :: env.consts⟩).w ψ)
+          ((punitRepData (V := V) ⟨punitRecA :: env.consts⟩).idx ψ (consList [] ρ))
+          ((punitRepData (V := V) ⟨punitRecA :: env.consts⟩).Φ ψ (consList [] ρ))) pt
+    rw [hPleaf ψ, punitRepData_lfp]
+    rfl
+  · -- the constructors
+    intro j cA hj ψ ρ as fs hsp₁ hsp₂
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (punitUnitA.toConstantVal, 0) := (Option.some.inj hj).symm
+      obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hsp₂.length_eq
+      show interp V ρ (m₂.acval punitUnitName ψ) = pt
+      rw [hUleaf ψ]
+      rfl
+  · -- the injections are injective
+    intro ψ _ j fs j' fs' hj hj' hlen hlen' _
+    match j, hj with
+    | 0, _ =>
+      match j', hj' with
+      | 0, _ =>
+        obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen
+        obtain rfl : fs' = [] := List.length_eq_zero_iff.mp hlen'
+        exact ⟨rfl, rfl⟩
+
+end PUnitRep
+
 /-- **`PUnit.rec`, installed at the P tier** — the lane's first
 recursor cons: six rows collapse, the seventh is `punitRecLaw`. -/
 theorem extendPUnitRec (mp : EnvModelM V μ env)
@@ -537,6 +828,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     denoteMeta_punitRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := indRepsHead_punitRec mp hP hU hfresh)
     (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1840,6 +2132,602 @@ theorem natRecSuccLaw {m : EnvModel V env}
       (hxsA M (by simp)) (hxsA z (by simp)) (hxsA s (by simp))
       (hysA n (by simp))
 
+/-! ## The `Nat` block's representation (task #280): ω is the least fixed point of `X ↦ {∅} ∪ {n ∪ {n} | n ∈ X}` -/
+
+section NatRep
+open ConLeche.SetTheory.Tower
+open ConLeche (RecFieldKind IndCaps RecRule)
+
+/-! ## The container functor of `ω` -/
+
+/-- `A ↦ {0} ∪ {n+1 | n ∈ A}`: the functor whose least fixed point is
+`ω` (the von Neumann successor's image, adjoined to the singleton of
+the empty set). -/
+noncomputable def natStepV (A : V) : V := binUnion (sing natzero) (image natsucc A)
+
+theorem mem_natStepV {A x : V} :
+    x ∈ˢ natStepV A ↔ x = natzero ∨ ∃ n, n ∈ˢ A ∧ x = natsucc n := by
+  unfold natStepV
+  rw [mem_binUnion, mem_sing, mem_image]
+
+theorem natStepV_mono {A B : V} (h : A ⊆ˢ B) : natStepV A ⊆ˢ natStepV B := by
+  intro x hx
+  rw [mem_natStepV] at hx ⊢
+  rcases hx with hx | ⟨n, hn, hx⟩
+  · exact Or.inl hx
+  · exact Or.inr ⟨n, h n hn, hx⟩
+
+theorem natzero_eq_empty : (natzero : V) = empty := natzero_eq_vnat
+
+/-- The functor keeps `ω`: it is an inductive set. -/
+theorem natStepV_omega_subset : natStepV (omega : V) ⊆ˢ omega := by
+  intro x hx
+  rcases mem_natStepV.mp hx with rfl | ⟨n, hn, rfl⟩
+  · rw [natzero_eq_empty]; exact empty_mem_omega
+  · exact natsucc_mem hn
+
+/-- The functor stays inside `univ 1` (replacement and pairing in the
+first universe). -/
+theorem natStepV_mem_univ_one {A : V} (hA : A ∈ˢ (univ 1 : V)) :
+    natStepV A ∈ˢ (univ 1 : V) := by
+  have hU : IsTGUniverse (Mem (V := V)) (univ 1) := univ_isTGUniverse (by decide)
+  have hy : (univChain 1 : V) ∈ˢ univ 1 := univChain_one_mem_univ_succ 0
+  refine hU.binUnion_mem hy (hU.sing_mem hy ?_) (hU.image_mem hA fun x hx => ?_)
+  · rw [natzero_eq_empty]; exact empty_mem_univ 1
+  · have hx' : x ∈ˢ (univ 1 : V) := hU.transitive hA hx
+    rw [natsucc_eq_vsucc]
+    exact hU.binUnion_mem hy hx' (hU.sing_mem hy hx')
+
+/-- **The von Neumann successor is injective** — regularity: `n` and
+`m` would otherwise form a membership 2-cycle. -/
+theorem vsucc_inj {n m : V} (h : vsucc n = vsucc m) : n = m := by
+  have h1 : n ∈ˢ vsucc m := by rw [← h]; exact self_mem_vsucc n
+  have h2 : m ∈ˢ vsucc n := by rw [h]; exact self_mem_vsucc m
+  rcases mem_vsucc.mp h1 with h1 | h1
+  · rcases mem_vsucc.mp h2 with h2 | h2
+    · exact absurd (no_two_cycle h1 h2) not_false
+    · exact h2.symm
+  · exact h1
+
+theorem natsucc_inj {n m : V} (h : natsucc n = natsucc m) : n = m := by
+  rw [natsucc_eq_vsucc, natsucc_eq_vsucc] at h
+  exact vsucc_inj h
+
+theorem natzero_ne_natsucc (n : V) : (natzero : V) ≠ natsucc n := by
+  rw [natzero_eq_empty, natsucc_eq_vsucc]
+  exact fun h => vsucc_ne_empty n h.symm
+
+/-! ## The datum -/
+
+/-- **The `Nat` block's representation datum**: no parameters, no
+indices, two constructors — the field-free `Nat.zero` and the
+one-recursive-field `Nat.succ` — the functor `natStepV` on families
+over the one-point index set, and the pin's own injections. -/
+@[expose] noncomputable def natRepData (env₀ : Env) : IndRepData V where
+  nP := 0
+  nIdx := 0
+  resSort := .succ .zero
+  isProp := (Level.isEquiv (.succ .zero) .zero == some true)
+  large := true
+  env₀ := env₀
+  ctorsA := [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)]
+  idxF := fun _ => []
+  dsF := fun j ψ => match j with
+    | 1 => [(0, pwBit ψ .never, .const .nat [])]
+    | _ => []
+  esF := fun _ _ => []
+  srcsF := fun j => match j with
+    | 1 => [none]
+    | _ => []
+  ksF := fun j => match j with
+    | 1 => [.recursive]
+    | _ => []
+  fvsPF := fun _ => []
+  xFvsF := fun j => match j with
+    | 1 => [.fvar 0 (.const natName [])]
+    | _ => []
+  xrestF := fun _ => .const natName []
+  eissF := fun j _ => match j with
+    | 1 => [[]]
+    | _ => []
+  tssF := fun j _ => match j with
+    | 1 => [[]]
+    | _ => []
+  pps := fun _ => []
+  u := fun _ => 0
+  Φ := fun _ _ => lamR (Nat.max 0 2) (lfpFamSpace V 1 unitSet)
+    fun X => lamR 2 (unitSet : V) fun _ => natStepV (app X pt)
+  inj := fun _ j fs => if j = 0 then natzero else natsucc (fs.getD 0 pt)
+
+section
+
+variable {env₀ : Env}
+
+/-- The datum's index-tuple set is the unit set (no indices). -/
+theorem natRepData_idx (ψ : Name → Nat) (ρp : Nat → V) :
+    (natRepData (V := V) env₀).idx ψ ρp = unitSet := rfl
+
+/-- The functor's fibre: one step of the von Neumann construction. -/
+theorem natRepData_fibre_eq (ψ : Name → Nat) (ρp : Nat → V) {X : V}
+    (hX : X ∈ˢ famSpace 1 (unitSet : V)) {t : V} (ht : t ∈ˢ (unitSet : V)) :
+    app (app ((natRepData (V := V) env₀).Φ ψ ρp) X) t = natStepV (app X pt) := by
+  show app (app (lamR (Nat.max 0 2) (lfpFamSpace V 1 unitSet)
+      (fun X => lamR 2 (unitSet : V) fun _ => natStepV (app X pt))) X) t = _
+  rw [app_lamR_pos (max_succ_ne_zero 0 1) (by rw [lfpFamSpace_eq]; exact hX),
+    app_lamR_pos (by decide : (2 : Nat) ≠ 0) ht]
+
+theorem natRepData_mono (ψ : Name → Nat) (ρp : Nat → V) :
+    MonoFam 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp) := by
+  intro X Y hX hY hle i hi
+  rw [natRepData_fibre_eq (env₀ := env₀) ψ ρp hX hi,
+    natRepData_fibre_eq (env₀ := env₀) ψ ρp hY hi]
+  exact natStepV_mono (hle pt pt_mem_unitSet)
+
+theorem natRepData_maps (ψ : Name → Nat) (ρp : Nat → V) :
+    MapsFam 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp) := by
+  intro X hX
+  show app (lamR (Nat.max 0 2) (lfpFamSpace V 1 unitSet)
+      (fun X => lamR 2 (unitSet : V) fun _ => natStepV (app X pt))) X ∈ˢ _
+  rw [app_lamR_pos (max_succ_ne_zero 0 1) (by rw [lfpFamSpace_eq]; exact hX),
+    ← lfpFamSpace_eq]
+  exact lamR_mem fun _ _ => natStepV_mem_univ_one (famSpace_app hX pt_mem_unitSet)
+
+/-- `ω` is closed under the functor — the closed member the fixed
+point is separated from. -/
+theorem natRepData_closed (ψ : Name → Nat) (ρp : Nat → V) :
+    IsClosedFam 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp)
+      (graph (fun _ => omega) unitSet) := by
+  have hmem : graph (fun _ => (omega : V)) unitSet ∈ˢ famSpace 1 (unitSet : V) :=
+    graph_mem_famSpace fun _ _ => omega_mem_univ_succ 0
+  refine ⟨hmem, fun i hi x hx => ?_⟩
+  rw [natRepData_fibre_eq (env₀ := env₀) ψ ρp hmem hi,
+    app_graph (pt_mem_unitSet (V := V))] at hx
+  rw [app_graph hi]
+  exact natStepV_omega_subset x hx
+
+/-- **`ω` is the least fixed point of `natStepV`** — the `Nat` leaf.
+`⊆` is leastness against the constant family `ω`; `⊇` is
+`omega_subset_inductive`, the fibre being inductive because the fixed
+point is closed. -/
+theorem natRepData_lfp (ψ : Name → Nat) (ρp : Nat → V) :
+    app (lfpFamSet 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp)) pt = (omega : V) := by
+  have hcl : ∃ L, IsClosedFam 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp) L :=
+    ⟨_, natRepData_closed ψ ρp⟩
+  have hlfp : lfpFamSet 1 (unitSet : V) ((natRepData (V := V) env₀).Φ ψ ρp)
+      ∈ˢ famSpace 1 (unitSet : V) := lfpFamSet_mem 1 _ _
+  refine Subset.antisymm (fun x hx => ?_) ?_
+  · have := lfpFamSet_le (natRepData_closed (env₀ := env₀) ψ ρp) pt pt_mem_unitSet x hx
+    rwa [app_graph (pt_mem_unitSet (V := V))] at this
+  · refine omega_subset_inductive ⟨?_, fun n hn => ?_⟩
+    · refine lfpFamSet_closed hcl (natRepData_mono ψ ρp) pt pt_mem_unitSet empty ?_
+      rw [natRepData_fibre_eq (env₀ := env₀) ψ ρp hlfp (pt_mem_unitSet (V := V))]
+      exact mem_natStepV.mpr (Or.inl natzero_eq_empty.symm)
+    · refine lfpFamSet_closed hcl (natRepData_mono ψ ρp) pt pt_mem_unitSet _ ?_
+      rw [natRepData_fibre_eq (env₀ := env₀) ψ ρp hlfp (pt_mem_unitSet (V := V))]
+      exact mem_natStepV.mpr (Or.inr ⟨n, hn, (natsucc_eq_vsucc n).symm⟩)
+
+/-- The `Nat.succ` slot of the X-chain reads the family at the point. -/
+theorem natRepData_slot_interp {ρp : Nat → V} (X t : V) :
+    interp V (cons t (cons X ρp)) (slotXI 0 [] [] [] 0) = app X pt := by
+  have h := slotXI_interp (V := V) (w := 1) (u := 0) (Ids := []) (X := X) ⟨trivial, trivial⟩
+    ([] : List V) t (SlotFit.of_fin (u := 0) (w := 1) (Eis := []) (ρp := ρp)
+      (fun _ h => nomatch h) trivial)
+  rw [slotSet_nil, tupW_zero] at h
+  exact h
+
+end
+
+/-! ## The block -/
+
+/-- **The pinned `Nat` block is represented** — the obligation
+`declStep_preserves_of_basis_rec_cons` owes at the `Nat.rec` cons. -/
+theorem indRepsHead_natRec (mp : EnvModelM V μ env)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hfresh : env.find? natRecA.name = none) :
+    ∀ m₂ : EnvModel V ⟨natRecA :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval natRecA.name
+        (fun ψ => AnnotTerm.const .natRec [ψ uN]) →
+      IndRepsHead env natRecA m₂ := by
+  intro m₂ hac cvR mI rP rules hc T hT
+  injection hc with h1 h2 h3 h4
+  subst h1 h2 h3 h4
+  have hT' : T = natName := by
+    have h := hT
+    simp only at h
+    exact (Name.str.inj h).1.symm
+  subst hT'
+  -- the three pinned leaves at the extension
+  have hNleaf : ∀ ψ : Name → Nat, m₂.acval natName ψ = AnnotTerm.const .nat [] := by
+    intro ψ
+    rw [hac, acvalWith_ne (by decide)]
+    exact acval_basis_pinned (m := mp.base2) hN (by decide)
+      (by simp +decide [ConLeche.Verify.pinnedStructT])
+  have hZleaf : ∀ ψ : Name → Nat, m₂.acval natZeroName ψ = AnnotTerm.const .natZero [] := by
+    intro ψ
+    rw [hac, acvalWith_ne (by decide)]
+    exact acval_basis_pinned (m := mp.base2) hZ (by decide)
+      (by simp +decide [ConLeche.Verify.pinnedStructT])
+  have hSleaf : ∀ ψ : Name → Nat, m₂.acval natSuccName ψ = AnnotTerm.const .natSucc [] := by
+    intro ψ
+    rw [hac, acvalWith_ne (by decide)]
+    exact acval_basis_pinned (m := mp.base2) hS (by decide)
+      (by simp +decide [ConLeche.Verify.pinnedStructT])
+  -- the readings of the three stored types at the extension
+  have hNread : ∀ (ψ : Name → Nat) (d : Nat),
+      denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ d (Expr.const natName [])
+        = some (AnnotTerm.const .nat []) := by
+    intro ψ d
+    rw [hac]
+    exact (denoteMeta_natRec_leaves (m := mp.base2)
+      (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS).1 d
+  have hSread : ∀ ψ : Name → Nat,
+      denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ 0 natSuccA.toConstantVal.type
+        = some (.pi 0 (pwBit ψ .never) (.const .nat []) (.const .nat [])) := by
+    intro ψ
+    rw [hac]
+    exact denoteMeta_natSuccTy (m := mp.base2)
+      (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ (by decide) hN
+  have hds : ∀ ψ₁ ψ₂ : Name → Nat,
+      (natRepData (V := V) ⟨natRecA :: env.consts⟩).dsF 1 ψ₁
+        = (natRepData (V := V) ⟨natRecA :: env.consts⟩).dsF 1 ψ₂ := by
+    intro ψ₁ ψ₂
+    show [((0 : Nat), pwBit ψ₁ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
+      = [((0 : Nat), pwBit ψ₂ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
+    rw [pwBit_never, pwBit_never]
+  refine Or.inl ⟨_, _, natRepData ⟨natRecA :: env.consts⟩,
+    ConLeche.Env.find?_cons_of_fresh hfresh hN, ?_⟩
+  refine {
+    strip := ⟨[], rfl⟩
+    isProp := rfl
+    mI := rfl
+    rP := rfl
+    rules := rfl
+    former := ?_
+    ctors := ?_
+    idxRes := fun _ _ _ _ h => nomatch h
+    uParams := fun _ _ _ => rfl
+    paramsIff := fun _ _ _ _ _ => Iff.rfl
+    chains := ?_
+    functor := fun ψ ρp _ => ⟨?_, natRepData_mono ψ ρp, natRepData_maps ψ ρp,
+      ⟨_, natRepData_closed ψ ρp⟩⟩
+    fibre := ?_
+    leaf := ?_
+    ctor := ?_
+    mkZero := fun _ h => absurd h (Nat.succ_ne_zero 0)
+    mkInj := ?_ }
+  · -- the former's data
+    refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_,
+      (fun _ => trivial), fun _ _ _ => ⟨rfl, rfl⟩⟩
+    · show denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ 0 (Expr.sort (.succ .zero)) = _
+      rw [denoteMeta_sort]
+      rfl
+    · show WellDenotedV V ρ (AnnotTerm.sort 1)
+      exact ⟨by rw [WellDenoted_sort]; trivial, by rw [AnnotValid_sort]; trivial⟩
+  · -- the constructors' data
+    intro j cA hj
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (natZeroA.toConstantVal, 0) := (Option.some.inj hj).symm
+      refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hZ, rfl, ?_⟩
+      refine {
+        resid := ⟨[], [], rfl, rfl⟩
+        read := fun ψ => ?_
+        len := fun _ => rfl
+        lenE := fun _ => rfl
+        idxLen := rfl
+        idxRead := fun _ => .nil
+        bits := fun _ _ h => nomatch h
+        okTy := fun ψ ρ => ?_
+        below := fun _ => trivial
+        belowE := fun _ _ h => nomatch h
+        params := fun _ _ _ => ⟨rfl, rfl⟩
+        srcLen := rfl
+        srcBnd := fun _ h => nomatch h
+        srcIdx := fun _ _ h => nomatch h
+        srcProp := fun _ _ h => absurd h (Nat.succ_ne_zero 0)
+        opened := ⟨(fun _ h => nomatch h), (fun _ _ h => nomatch h),
+          (fun _ _ h => nomatch h), (fun _ _ h => nomatch h),
+          fun _ h => absurd h (Nat.not_lt_zero _)⟩
+        opens := ⟨_, rfl, rfl⟩
+        ksLen := rfl
+        xLen := rfl
+        pLen := rfl
+        xIdx := fun _ _ h => nomatch h
+        pIdx := fun _ _ h => nomatch h
+        idxEq := rfl
+        domRead := fun _ _ _ h => nomatch h
+        eissLen := fun _ => rfl
+        eisRead := fun _ _ _ h => nomatch h
+        eisLen := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        recEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        eissParams := fun _ _ _ => rfl
+        eissBelow := fun _ _ _ h => nomatch h
+        ordNone := fun _ _ _ _ => rfl
+        tssLen := fun _ => rfl
+        tssNone := fun _ _ _ => rfl
+        tssBits := fun _ _ _ h => nomatch h
+        tssPiBits := fun _ _ _ h => nomatch h
+        tssBelow := fun _ _ => trivial
+        tssParams := fun _ _ _ => rfl
+        reflOpen := fun _ _ _ h => nomatch h
+        eisLenRefl := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        reflEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _) }
+      · show denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ 0 (Expr.const natName []) = _
+        rw [hNread ψ 0]
+        show some (AnnotTerm.const .nat [])
+          = some (AnnotTerm.mkAppN (m₂.acval natName ψ) [])
+        rw [hNleaf ψ]
+        rfl
+      · show WellDenotedV V ρ (AnnotTerm.mkAppN (m₂.acval natName ψ) [])
+        rw [show AnnotTerm.mkAppN (m₂.acval natName ψ) [] = m₂.acval natName ψ from rfl,
+          hNleaf ψ]
+        exact ⟨by rw [WellDenoted_const]; trivial, by rw [AnnotValid_const]; trivial⟩
+    | 1, hj =>
+      obtain rfl : cA = (natSuccA.toConstantVal, 1) := (Option.some.inj hj).symm
+      refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hS, rfl, ?_⟩
+      refine {
+        resid := ⟨_, [], rfl, rfl⟩
+        read := fun ψ => ?_
+        len := fun _ => rfl
+        lenE := fun _ => rfl
+        idxLen := rfl
+        idxRead := fun _ => .nil
+        bits := fun ψ d hd => ?_
+        okTy := fun ψ ρ => ?_
+        below := fun _ => ⟨trivial, trivial⟩
+        belowE := fun _ _ h => nomatch h
+        params := fun ψ₁ ψ₂ _ => ⟨hds ψ₁ ψ₂, rfl⟩
+        srcLen := rfl
+        srcBnd := fun s hs l hl => ?_
+        srcIdx := fun j l h => ?_
+        srcProp := fun _ _ h => absurd h (Nat.succ_ne_zero 0)
+        opened := ⟨(fun _ h => nomatch h), ?_, ?_, ?_, ?_⟩
+        opens := ⟨_, rfl, rfl⟩
+        ksLen := rfl
+        xLen := rfl
+        pLen := rfl
+        xIdx := fun k x hx => ?_
+        pIdx := fun _ _ h => nomatch h
+        idxEq := rfl
+        domRead := fun ψ i x hx => ?_
+        eissLen := fun _ => rfl
+        eisRead := fun ψ i x hx hk => ?_
+        eisLen := fun _ i hk hi => ?_
+        recEntry := fun ψ i hk hi => ?_
+        eissParams := fun _ _ _ => rfl
+        eissBelow := fun _ i E hE => ?_
+        ordNone := fun _ i h1 h2 => ?_
+        tssLen := fun _ => rfl
+        tssNone := fun _ i _ => ?_
+        tssBits := fun _ i d hd => ?_
+        tssPiBits := fun _ i d hd => ?_
+        tssBelow := fun _ i => ?_
+        tssParams := fun _ _ _ => rfl
+        reflOpen := fun _ i x hx hk => ?_
+        eisLenRefl := fun _ i hk hi => ?_
+        reflEntry := fun _ i hk hi => ?_ }
+      · -- read
+        show denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ 0 natSuccA.toConstantVal.type = _
+        rw [hSread ψ]
+        show some (AnnotTerm.pi 0 (pwBit ψ .never) (.const .nat []) (.const .nat []))
+          = some (AnnotTerm.pi 0 (pwBit ψ .never) (.const .nat [])
+              (AnnotTerm.mkAppN (m₂.acval natName ψ) []))
+        rw [hNleaf ψ]
+        rfl
+      · -- bits
+        rcases List.mem_cons.mp hd with rfl | h
+        · show (1 : Nat) = 0 ↔ pwBit ψ ConLeche.PropWhen.never = 0
+          rw [pwBit_never]
+        · exact nomatch h
+      · -- okTy
+        show WellDenotedV V ρ (AnnotTerm.pi 0 (pwBit ψ .never) (.const .nat [])
+          (AnnotTerm.mkAppN (m₂.acval natName ψ) []))
+        rw [show AnnotTerm.mkAppN (m₂.acval natName ψ) [] = m₂.acval natName ψ from rfl,
+          hNleaf ψ]
+        exact (bitAgree_wellDenotedV (bitAgree_natSuccA ψ) ρ).mpr
+          (WellDenotedV_bconst_type V .natSucc [] ρ)
+      · -- srcBnd
+        rcases List.mem_cons.mp hs with rfl | h
+        · exact nomatch hl
+        · exact nomatch h
+      · -- srcIdx
+        match j, h with
+        | 0, h => exact nomatch h
+      · -- ord
+        intro i x hx h
+        match i, hx with
+        | 0, _ => exact nomatch h
+        | k + 1, hx => exact nomatch hx
+      · -- recF
+        intro i x hx _
+        match i, hx with
+        | 0, hx =>
+          obtain rfl : x = Expr.fvar 0 (.const natName []) := (Option.some.inj hx).symm
+          refine ⟨rfl, rfl, rfl, (fun _ h => nomatch h), (fun _ h => nomatch h), ?_⟩
+          show Expr.mentionsFvar 0 (Expr.const natName []) = false
+          simp [Expr.mentionsFvar, Expr.fvarLeaves]
+        | k + 1, hx => exact nomatch hx
+      · -- reflF
+        intro i x hx h
+        match i, hx with
+        | 0, _ => exact nomatch h
+        | k + 1, hx => exact nomatch hx
+      · -- kinds
+        intro i hi
+        match i, hi with
+        | 0, _ => exact Or.inr (Or.inl rfl)
+      · -- xIdx
+        match k, hx with
+        | 0, hx => exact ⟨_, (Option.some.inj hx).symm⟩
+        | l + 1, hx => exact nomatch hx
+      · -- domRead
+        match i, hx with
+        | 0, hx =>
+          obtain rfl : x = Expr.fvar 0 (.const natName []) := (Option.some.inj hx).symm
+          exact hNread ψ 0
+        | k + 1, hx => exact nomatch hx
+      · -- eisRead
+        match i, hx with
+        | 0, hx =>
+          obtain rfl : x = Expr.fvar 0 (.const natName []) := (Option.some.inj hx).symm
+          exact .nil
+        | k + 1, hx => exact nomatch hx
+      · -- eisLen
+        match i, hi with
+        | 0, _ => rfl
+      · -- recEntry
+        match i, hi with
+        | 0, _ =>
+          show AnnotTerm.const .nat [] = AnnotTerm.mkAppN (m₂.acval natName ψ) []
+          rw [hNleaf ψ]
+          rfl
+      · -- eissBelow
+        match i, hE with
+        | 0, hE => exact nomatch hE
+        | k + 1, hE => exact nomatch hE
+      · -- ordNone
+        match i, h1 with
+        | 0, h1 => exact absurd rfl h1
+        | k + 1, _ => rfl
+      · -- tssNone
+        match i with
+        | 0 => rfl
+        | k + 1 => rfl
+      · -- tssBits
+        match i, hd with
+        | 0, hd => exact nomatch hd
+        | k + 1, hd => exact nomatch hd
+      · -- tssPiBits
+        match i, hd with
+        | 0, hd => exact nomatch hd
+        | k + 1, hd => exact nomatch hd
+      · -- tssBelow
+        match i with
+        | 0 => exact trivial
+        | k + 1 => exact trivial
+      · -- reflOpen
+        match i, hx with
+        | 0, _ => exact nomatch hk
+        | k + 1, hx => exact nomatch hx
+      · -- eisLenRefl
+        match i, hi with
+        | 0, _ => exact nomatch hk
+      · -- reflEntry
+        match i, hi with
+        | 0, _ => exact nomatch hk
+  · -- the chains
+    intro ψ ρp _
+    have hI : IdxOk 0 ρp ([] : List AnnotTerm) := ⟨trivial, trivial⟩
+    have hfitS : SlotFit (V := V) 0 1 ρp [] [] [] ([] : List V) :=
+      SlotFit.of_fin (fun _ h => nomatch h) trivial
+    have hEq : ∀ ρ : Nat → V,
+        FieldsOkB 1 ρ [idxEqAV ([] : List (AnnotTerm × AnnotTerm))] :=
+      fun ρ => ⟨idxEqAV_wellDenoted (fun _ h => nomatch h),
+        (fun _ => idxEqAV_mem_univ [] _ _), fun _ _ => trivial⟩
+    refine ⟨hI, ?_, ?_⟩
+    · intro X hX t _
+      have hslotW := slotXI_wellDenoted (V := V) (w := 1) (u := 0) (Ids := []) hI hX
+        ([] : List V) t hfitS
+      have hslotI := natRepData_slot_interp (ρp := ρp) X t
+      show SumFieldsOkB 1 (cons t (cons X ρp))
+        [[idxEqAV ([] : List (AnnotTerm × AnnotTerm))],
+         [slotXI 0 [] [] [] 0, idxEqAV ([] : List (AnnotTerm × AnnotTerm))]]
+      intro Fs hFs
+      rcases List.mem_cons.mp hFs with rfl | h
+      · exact hEq _
+      · rcases List.mem_cons.mp h with rfl | h'
+        · refine ⟨hslotW.1, fun _ => ?_, fun a _ => hEq _⟩
+          rw [hslotI]
+          have := hslotW.2 (by decide)
+          rw [slotSet_nil, tupW_zero] at this
+          exact this
+        · exact nomatch h'
+    · intro _ _ _ _ j hj
+      match j, hj with
+      | 0, _ => exact trivial
+      | 1, _ => exact ⟨fun _ => hfitS, fun _ _ => trivial⟩
+  · -- the functor's membership
+    show lamR (Nat.max 0 2) (lfpFamSpace V 1 unitSet)
+        (fun X => lamR 2 (unitSet : V) fun _ => natStepV (app X pt))
+      ∈ˢ piR (Nat.max 0 2) (lfpFamSpace V 1 (unitSet : V))
+        fun _ => lfpFamSpace V 1 (unitSet : V)
+    refine lamR_mem fun X hX => ?_
+    show lamR 2 (unitSet : V) (fun _ => natStepV (app X pt))
+      ∈ˢ piR 2 (unitSet : V) fun _ => univ 1
+    exact lamR_mem fun _ _ => natStepV_mem_univ_one
+      (famSpace_app (by rwa [lfpFamSpace_eq] at hX) pt_mem_unitSet)
+  · -- the fibre
+    intro ψ ρp _ X hX t ht x
+    rw [natRepData_fibre_eq ψ ρp hX ht, mem_natStepV]
+    constructor
+    · rintro (rfl | ⟨n, hn, rfl⟩)
+      · exact ⟨0, [], by show (0 : Nat) < 2; decide,
+          ⟨rfl, trivial, fun _ h => nomatch h⟩, rfl⟩
+      · refine ⟨1, [n], by show (1 : Nat) < 2; decide,
+          ⟨rfl, ⟨?_, trivial⟩, fun _ h => nomatch h⟩, rfl⟩
+        show n ∈ˢ interp V (cons t (cons X ρp)) (slotXI 0 [] [] [] 0)
+        rw [natRepData_slot_interp]
+        exact hn
+    · rintro ⟨j, fs, hj, hfit, rfl⟩
+      match j, hj with
+      | 0, _ =>
+        obtain rfl : fs = [] := List.length_eq_zero_iff.mp hfit.1
+        exact Or.inl rfl
+      | 1, _ =>
+        match fs, hfit with
+        | [n], hfit =>
+          refine Or.inr ⟨n, ?_, rfl⟩
+          have h2 : n ∈ˢ interp V (cons t (cons X ρp)) (slotXI 0 [] [] [] 0) := hfit.2.1.1
+          rwa [natRepData_slot_interp] at h2
+  · -- the leaf
+    intro ψ ρ as is hsp₁ hsp₂
+    obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq
+    obtain rfl : is = [] := List.length_eq_zero_iff.mp hsp₂.length_eq
+    show interp V ρ (m₂.acval natName ψ)
+      = app (lfpFamSet 1 (unitSet : V)
+          ((natRepData (V := V) ⟨natRecA :: env.consts⟩).Φ ψ ρ)) pt
+    rw [hNleaf ψ, natRepData_lfp]
+    rfl
+  · -- the constructors
+    intro j cA hj ψ ρ as fs hsp₁ hsp₂
+    obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (natZeroA.toConstantVal, 0) := (Option.some.inj hj).symm
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hsp₂.length_eq
+      show interp V ρ (m₂.acval natZeroName ψ) = natzero
+      rw [hZleaf ψ]
+      rfl
+    | 1, hj =>
+      obtain rfl : cA = (natSuccA.toConstantVal, 1) := (Option.some.inj hj).symm
+      match fs, hsp₂ with
+      | [n], hsp₂ =>
+        show app (interp V ρ (m₂.acval natSuccName ψ)) n = natsucc n
+        rw [hSleaf ψ]
+        exact natSuccV_app V hsp₂.1
+  · -- the injections are injective
+    intro ψ _ j fs j' fs' hj hj' hlen hlen' heq
+    match j, hj, j', hj' with
+    | 0, _, 0, _ =>
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen
+      obtain rfl : fs' = [] := List.length_eq_zero_iff.mp hlen'
+      exact ⟨rfl, rfl⟩
+    | 0, _, 1, _ =>
+      match fs', hlen' with
+      | [n], _ => exact absurd heq (natzero_ne_natsucc n)
+    | 1, _, 0, _ =>
+      match fs, hlen with
+      | [n], _ => exact absurd heq.symm (natzero_ne_natsucc n)
+    | 1, _, 1, _ =>
+      match fs, hlen, fs', hlen' with
+      | [n], _, [n'], _ =>
+        obtain rfl : n = n' := natsucc_inj heq
+        exact ⟨rfl, rfl⟩
+
+end NatRep
+
 /-- **`Nat.rec`, installed at the P tier.** -/
 theorem extendNatRec (mp : EnvModelM V μ env)
     (hN : env.find? natName = some natA)
@@ -1852,6 +2740,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
     denoteMeta_natRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := indRepsHead_natRec mp hN hZ hS hfresh)
     (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

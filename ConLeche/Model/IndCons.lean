@@ -139,10 +139,15 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
       ∀ φ : Name → Nat, RecRules m₂ φ)
     -- the head is not a projection table (task #175 W4c: those get
     -- their own kit, `DeclStructP`)
-    (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
+    -- the representation clause's head obligation (task #280): a
+    -- recursor claims its block; every other head owes nothing
+    (hreps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → IndRepsHead env c₀ m₂ := by
+      exact fun m₂ _ => IndRepsHead.ofNtc m₂ (fun _ _ _ _ h => nomatch h)) :
     ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) (hreps := hreps) hfresh hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition
@@ -208,6 +213,9 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)
   refine declStep_preserves_of_ind_cons mp hfresh hnres ?_ ?_ hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     hcaps ?_ ?_
+    (hreps := fun m₂ _ => IndRepsHead.ofNtc m₂ (by
+      rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
+        intro _ _ _ _ h <;> exact nomatch h))
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
@@ -250,13 +258,17 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRules m₂ φ) :
+      ∀ φ : Name → Nat, RecRules m₂ φ)
+    -- the representation clause's head obligation (task #280): the
+    -- recursor claims its block's representation, or is modeled
+    (hreps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → IndRepsHead env c₀ m₂) :
     ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
   exact declStep_preserves_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
-    hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
+    hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h) hreps
 
 end ConLeche.Model
