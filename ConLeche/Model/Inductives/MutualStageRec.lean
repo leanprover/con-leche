@@ -783,4 +783,130 @@ theorem swapFacts_of_shList {env₀ env₃ : Env} {cval : TConstVal}
 end Swap
 
 
+/-! ## The store: the swap -/
+
+set_option maxHeartbeats 1600000 in
+/-- **The recursors' store stage**: the carrier at the provisioned
+environment crosses to the environment holding the SAME `k` recursors
+WITH their rules (`storeMutualRecs`), by `EnvModelM.swapP`.
+
+`EnvWF` at the store is `mutual_recs_wf`'s (a rule is scoped at the
+provision, and the store finds every name the provision finds); the
+other three syntactic facts are transported (`swapFacts_of_shList`),
+the representation clause is the caller's (task #280), and the rule
+rows are the prefix's own — transported by `RecRuleLaw.swapP` — plus
+the block's, which `mutualRecRuleLaw` supplies. -/
+theorem stageMutualRecsStore (p : MutualRecParts)
+    {b : MutualBlock} {fms : List MutualFormerA} {cvRas : List ConstantVal}
+    {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {F : Nat}
+    (henv₂ : ConLeche.EnvWF env₂)
+    (hrectys : ConLeche.checkMutualRecTys (ConLeche.fueledOps μ F) env₂ b formers4 ctors4
+      streamRecs b.k = .ok cvRas)
+    (hrules : ConLeche.checkMutualAllRules (m := ConLeche.CheckM)
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂) b formers4 ctors4 streamRecs b.k
+      = .ok rulesOf)
+    (mpP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂))
+    (hk : cvRas.length = p.k)
+    (hfresh : ∀ t, t < p.k → env₂.find? (cvRas.getD t default).name = none)
+    (hnres : ∀ t, t < p.k →
+      ConLeche.reservedBasisNames.contains (cvRas.getD t default).name = false)
+    -- every stored rule's constructor is stored at the constructors'
+    -- environment (the block's own constructors, consed there)
+    (hctorStored : ∀ t, t < p.k → ∀ r ∈ ConLeche.mutualRules env₂.find?
+        (cvRas.getD t default).name b.nP (b.rulePrefix + (fms.getD t default).nIdx)
+        b.rulePrefix (cvRas.getD t default).type (rulesOf.getD t []),
+      ∃ cvj cnP cnF, env₂.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    -- the block's own rule rows at the FINAL carrier (`mutualRecRuleLaw`)
+    (hlaws : ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+      m₃.acval = mpP.base2.acval → ∀ (φ : Name → Nat) (t : Nat), t < p.k →
+      ∀ rl ∈ ConLeche.mutualRules env₂.find? (cvRas.getD t default).name b.nP
+          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix
+          (cvRas.getD t default).type (rulesOf.getD t []),
+        RecRule.fire rl ≠ .inert →
+        RecRuleLaw m₃ φ (cvRas.getD t default).name (cvRas.getD t default)
+          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix rl)
+    -- the representation clause at the store (task #280)
+    (hreps : ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+      m₃.acval = mpP.base2.acval → IndReps m₃) :
+    ∃ mp₃ : EnvModelM V μ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+      mp₃.base2.acval = mpP.base2.acval ∧ mp₃.base2.cvalE = mpP.base2.cvalE := by
+  -- the block's entries
+  have hzip : ∀ x ∈ cvRas.zipIdx, x.2 < p.k ∧ x.1 = cvRas.getD x.2 default := by
+    intro x hx
+    have hget : cvRas[x.2]? = some x.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hx)
+    exact ⟨by rw [← hk]; exact (List.getElem?_eq_some_iff.mp hget).1,
+      by rw [List.getD_eq_getElem?_getD, hget]; rfl⟩
+  -- the swap
+  have hsw : ConLeche.SwapShList (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).consts
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂).consts :=
+    swapShList_provision_store _ (ConLeche.SwapShList.of_eq env₂.consts)
+  have hnresS : SwapNResS (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂)
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂) :=
+    swapNResS_provision_store _
+      (fun x hx => by rw [(hzip x hx).2]; exact hnres x.2 (hzip x hx).1)
+      (SwapNResS.of_eq env₂)
+  have hcg := ConLeche.SwapShList.congr hsw
+  -- the constructors' environment sits inside the provision
+  have hmono : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find? n = some c := by
+    intro n c h
+    rw [provisionMutualRecs_find?_of_ne ?ne]
+    · exact h
+    case ne =>
+      intro x hx hn
+      have := hfresh x.2 (hzip x hx).1
+      rw [← (hzip x hx).2, ← hn, h] at this
+      exact nomatch this
+  have hkeep₂ : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) → env₂.find? n = some ci →
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find? n = some ci :=
+    fun n ci _ h => hmono n ci h
+  -- the store's own rules: their constructors and their rescue bits
+  have hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂).find? n
+        = some (.recInfo cv mI rP rules) →
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find? n
+        = some (.recInfo cv mI rP rules) ∨
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF, (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find?
+          (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf
+          (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find? r.ctor = true) ∧
+        (r.eta = true → ConLeche.recRuleEtaOf
+          (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂).find? n r.ctor = true) := by
+    intro n cv mI rP rules hf
+    rcases storeMutualRecs_find?_inv hf with h₂ | ⟨x, hx, hc, hn⟩
+    · exact Or.inl (hmono _ _ h₂)
+    right
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
+    obtain ⟨hxk, hxv⟩ := hzip x hx
+    intro r hr
+    rw [hxv] at hr
+    obtain ⟨hkb, heb⟩ := ConLeche.mutualRules_bits hr
+    obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorStored x.2 hxk r hr
+    refine ⟨⟨cvj, cnP, cnF, hmono _ _ hfc⟩, fun hb => ?_, fun hb => ?_⟩
+    · exact recRuleKOf_mono hkeep₂ (by rw [← hkb]; exact hb)
+    · rw [← hn, hxv]
+      exact recRuleEtaOf_mono hkeep₂ (by rw [← heb]; exact hb)
+  obtain ⟨hctors₃, hbp₃, hproj₃⟩ :=
+    swapFacts_of_shList hsw hnresS mpP.base2.rec_ctors mpP.base2.basis_pinnedL
+      mpP.base2.proj_ok hnew
+  -- the rule rows at the swapped carrier
+  have hrecP : ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+      m₃.acval = mpP.base2.acval → ∀ φ : Name → Nat, RecRules m₃ φ := by
+    intro m₃ hac φ n cv mI rP rules hf rl hrl hfire
+    rcases storeMutualRecs_find?_inv hf with h₂ | ⟨x, hx, hc, hn⟩
+    · exact RecRuleLaw.swapP hcg hac
+        (mpP.rec_rules φ n cv mI rP rules (hmono _ _ h₂) rl hrl hfire)
+    · obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
+      obtain ⟨hxk, hxv⟩ := hzip x hx
+      rw [← hn, hxv]
+      rw [hxv] at hrl
+      exact hlaws m₃ hac φ x.2 hxk rl hrl hfire
+  exact EnvModelM.swapP mpP hsw (ConLeche.mutual_recs_wf henv₂ hrectys hrules) hctors₃ hbp₃
+    hproj₃ hrecP hreps
+
+
 end ConLeche.Model
