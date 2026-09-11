@@ -42,18 +42,25 @@ value onto `ρ`, with no renaming and no instantiation.
 
 The two clauses that carry the type theory:
 
-* **Binders read their regime off the checker's own annotation.**  The
-  checker records on every `∀`/`λ` node *when* the body is a
-  proposition, as a datum `pw : PropWhen` ("iff all of these universe
-  parameters are `0`", `ConLeche/Kernel/PropWhen.lean`); `regime φ pw` is
-  `0` exactly when that holds at `φ`.  A `∀` in regime `0` denotes a
-  truth value (`piR 0`, the proposition "every `x ∈ A` has a `y ∈ B x`"),
-  and a `λ` in regime `0` denotes the one canonical proof (`lamR 0`);
-  above `0` they denote the set of dependent function graphs and the
-  literal graph (`piR`/`lamR`, `ConLeche/SetModel/Ops.lean`).  So
-  propositions are subsets of a one-element set: proof irrelevance and
+* **Binders read their regime off the checker's own annotation, and
+  the annotation must be right.**  The checker records on every
+  `∀`/`λ` node *when* the body is a proposition, as a datum
+  `pw : PropWhen` ("iff all of these universe parameters are `0`",
+  `ConLeche/Kernel/PropWhen.lean`); `regime φ pw` is `0` exactly when
+  that holds at `φ`.  A `∀` in regime `0` denotes a truth value
+  (`piR 0`, the proposition "every `x ∈ A` has a `y ∈ B x`"), and a `λ`
+  in regime `0` denotes the one canonical proof (`lamR 0`); above `0`
+  they denote the set of dependent function graphs and the literal
+  graph (`piR`/`lamR`, `ConLeche/SetModel/Ops.lean`).  So propositions
+  are subsets of a one-element set: proof irrelevance and
   impredicativity are built into the reading, and no typing is
-  consulted.
+  consulted.  A binder may be read in regime `0` only if its body
+  really is a proposition there — its fibres are truth values (`univ 0`
+  is the set of truth values), or, at a `λ`, its values are the proof
+  point — so a term whose annotation is wrong has no denotation, and
+  `Model.mem` below, by demanding one for every stored type, certifies
+  every such annotation the checker stored.  The bodies are read on
+  the domain only: `piR`/`lamR` look at nothing else.
 * **Projections read a pair chain.**  A structure value is a
   right-nested pair chain; `field i p` is its `i`-th component
   (`sfst ∘ ssnd^i`).  When the environment holds a projection table
@@ -146,16 +153,20 @@ inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ :
       (hf : Denotes cval env φ ρ f F) (ha : Denotes cval env φ ρ a X) :
       Denotes cval env φ ρ (.app f a) (app F X)
   /-- a `λ` denotes the graph of its body over its domain, or the
-  canonical proof in regime `0` -/
+  canonical proof in regime `0` — which it may be read in only if the
+  body really denotes a proof (`pt`) on the domain -/
   | lam {ρ : BVarIdx → V} {ty body : Expr} {m : BinderMeta} {A : V} {F : V → V}
       (hA : Denotes cval env φ ρ ty A)
-      (hF : ∀ x, Denotes cval env φ (push x ρ) body (F x)) :
+      (hF : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (F x))
+      (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → F x = pt) :
       Denotes cval env φ ρ (.lam ty body m) (lamR (regime φ m.pw) A F)
   /-- a `∀` denotes the set of dependent function graphs over its
-  domain, or a truth value in regime `0` -/
+  domain, or a truth value in regime `0` — which it may be read in only
+  if the body really denotes a truth value on the domain -/
   | pi {ρ : BVarIdx → V} {ty body : Expr} {m : BinderMeta} {A : V} {B : V → V}
       (hA : Denotes cval env φ ρ ty A)
-      (hB : ∀ x, Denotes cval env φ (push x ρ) body (B x)) :
+      (hB : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (B x))
+      (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) :
       Denotes cval env φ ρ (.forallE ty body m) (piR (regime φ m.pw) A B)
   /-- a projection at a stored table reads the field's position in the
   pair chain -/

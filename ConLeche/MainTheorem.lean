@@ -64,20 +64,16 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
   | app _ _ ihf iha =>
     cases hw with
     | app hf' ha' => rw [ihf hf', iha ha']
-  | lam _ _ ihA ihF =>
+  | lam _ _ _ ihA ihF =>
     cases hw with
-    | lam hA' hF' =>
-      rw [ihA hA']
-      congr 1
-      funext x
-      exact ihF x (hF' x)
-  | pi _ _ ihA ihB =>
+    | lam hA' hF' _ =>
+      obtain rfl := ihA hA'
+      exact ConLeche.SetModel.lamR_congr fun x hx => ihF x hx (hF' x hx)
+  | pi _ _ _ ihA ihB =>
     cases hw with
-    | pi hA' hB' =>
-      rw [ihA hA']
-      congr 1
-      funext x
-      exact ihB x (hB' x)
+    | pi hA' hB' _ =>
+      obtain rfl := ihA hA'
+      exact ConLeche.SetModel.piR_congr fun x hx => ihB x hx (hB' x hx)
   | proj_table ht _ ih =>
     cases hw with
     | proj_table ht' he' => rw [ht] at ht'; cases ht'; rw [ih he']
