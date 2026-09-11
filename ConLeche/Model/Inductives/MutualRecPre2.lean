@@ -1440,4 +1440,391 @@ theorem minorTag_facts {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
       have h := (hbodyFacts fs (hspTr fs hsp)).2
       rwa [if_neg h0] at h
 
+/-! ## Assembly: the binder data's entries, along the walk -/
+
+/-- The binder data's entries along every fitting walk: graded, valid,
+and (in the graph regime) in the recursor's sort. -/
+def EntriesOk (V : Type w) [SetTheory V] (s : Nat) :
+    (Nat → V) → List (Nat × Nat × AnnotTerm) → Prop
+  | _, [] => True
+  | ρ, d :: ds => WellDenotedV V ρ d.2.2 ∧ (s ≠ 0 → interp V ρ d.2.2 ∈ˢ (univ s : V)) ∧
+      ∀ a, a ∈ˢ interp V ρ d.2.2 → EntriesOk V s (cons a ρ) ds
+
+theorem entriesOk_append {s : Nat} :
+    ∀ {ds₁ ds₂ : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}, EntriesOk V s ρ ds₁ →
+      (∀ as : List V, SpineFit ρ (ds₁.map (·.2.2)) as → EntriesOk V s (consList as ρ) ds₂) →
+      EntriesOk V s ρ (ds₁ ++ ds₂)
+  | [], _, _, _, h => by simpa using h [] trivial
+  | d :: ds₁, ds₂, ρ, h, h₂ => by
+    refine ⟨h.1, h.2.1, fun a ha => entriesOk_append (h.2.2 a ha) fun as hsp => ?_⟩
+    have h' := h₂ (a :: as) ⟨ha, hsp⟩
+    rwa [consList_cons] at h'
+
+theorem EntriesOk.fieldsOkB {s : Nat} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}, EntriesOk V s ρ ds →
+      FieldsOkB s ρ (ds.map (·.2.2))
+  | [], _, _ => trivial
+  | _ :: _, _, h => ⟨h.1.1, h.2.1, fun a ha => EntriesOk.fieldsOkB (h.2.2 a ha)⟩
+
+theorem EntriesOk.fieldsValid {s : Nat} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}, EntriesOk V s ρ ds →
+      FieldsValid ρ (ds.map (·.2.2))
+  | [], _, _ => trivial
+  | _ :: _, _, h => ⟨h.1.2, fun a ha => EntriesOk.fieldsValid (h.2.2 a ha)⟩
+
+/-- An entry's facts at a fitting prefix spine. -/
+theorem entriesOk_at {s : Nat} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}, EntriesOk V s ρ ds →
+      ∀ (k : Nat) (d : Nat × Nat × AnnotTerm), ds[k]? = some d →
+        ∀ as : List V, SpineFit ρ ((ds.map (·.2.2)).take k) as →
+          WellDenotedV V (consList as ρ) d.2.2 ∧
+            (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ (univ s : V))
+  | [], _, _, _, _, hk, _, _ => nomatch hk
+  | d' :: ds, ρ, h, 0, d, hk, as, hsp => by
+    obtain rfl := Option.some.inj hk
+    match as, hsp with
+    | [], _ => exact ⟨h.1, h.2.1⟩
+    | _ :: _, hsp => exact hsp.elim
+  | d' :: ds, ρ, h, k + 1, d, hk, as, hsp => by
+    match as, hsp with
+    | [], hsp => exact hsp.elim
+    | a :: as, hsp =>
+      have h' := entriesOk_at (h.2.2 a hsp.1) k d (by simpa using hk) as hsp.2
+      rwa [← consList_cons] at h'
+
+/-- The entries' facts in `okΓ`'s prefix form. -/
+theorem prefix_of_entriesOk {s : Nat} {rds : List (Nat × Nat × AnnotTerm)}
+    (h : ∀ ρb : Nat → V, EntriesOk V s ρb rds) :
+    ∀ (k : Nat) (d : Nat × Nat × AnnotTerm), rds[k]? = some d → ∀ σ : Nat → V,
+      Sat V (((rds.take k).map (·.2.2)).reverse) σ →
+      WellDenotedV V σ d.2.2 ∧ (s ≠ 0 → interp V σ d.2.2 ∈ˢ (univ s : V)) := by
+  intro k d hk σ hσ
+  have hkl : k < rds.length := (List.getElem?_eq_some_iff.mp hk).1
+  have hL : (((rds.take k).map (·.2.2))).length = k := by
+    rw [List.length_map, List.length_take]; omega
+  have hsp := spineFit_of_sat (Ds := (rds.take k).map (·.2.2)) (Δ₀ := []) (ρ := σ)
+    (by rw [List.append_nil]; exact hσ)
+  rw [hL] at hsp
+  have hcl := consList_range_reverse k σ
+  have h' := entriesOk_at (h (fun i => σ (i + k))) k d hk ((List.range k).reverse.map σ)
+    (by rw [← List.map_take]; exact hsp)
+  rwa [hcl] at h'
+
+/-- The minor block's entries, from the per-datum facts. -/
+theorem entriesOk_fixMinorsData {m : EnvModel V env} {ψ : Name → Nat} {s nP b : Nat} {M : V}
+    {ρp : Nat → V} :
+    ∀ (cds : List CtorDatumR) (o off : Nat) (ms : List V), ms.length = off →
+      (∀ (i : Nat) (cd : CtorDatumR), cds[i]? = some cd → ∀ ms' : List V, ms'.length = off + i →
+        WellDenotedV V (consList ms' (cons M ρp))
+          (minorAVAtR m cd.1 ψ nP cd.2.1 b (o + i) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+            cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) ∧
+        (s ≠ 0 → interp V (consList ms' (cons M ρp))
+          (minorAVAtR m cd.1 ψ nP cd.2.1 b (o + i) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+            cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) ∈ˢ (univ s : V))) →
+      EntriesOk V s (consList ms (cons M ρp)) (fixMinorsData m ψ nP b cds o)
+  | [], _, _, _, _, _ => trivial
+  | (C, nF, ds, Es, ris, Eiss, tls) :: cs, o, off, ms, hms, h => by
+    obtain ⟨hok, huniv⟩ := h 0 _ rfl ms (by omega)
+    refine ⟨hok, huniv, fun a _ => ?_⟩
+    rw [consList_snoc']
+    refine entriesOk_fixMinorsData cs (o + 1) (off + 1) (ms ++ [a]) (by simp [hms]) ?_
+    intro i cd hcd ms' hlen
+    have h' := h (i + 1) cd (by simpa using hcd) ms' (by omega)
+    rwa [show o + (i + 1) = o + 1 + i from by omega] at h'
+
+/-! ## Assembly: the recursor's sort -/
+
+/-- **The auxiliary recursor's sort**: zero at a `Prop` elimination,
+and otherwise the join of the parameters' levels, the tag's, the
+block's and the elimination level's successor. -/
+@[expose] def auxRecSort (p W w ℓ : Nat) : Nat :=
+  if ℓ = 0 then 0 else Nat.max (Nat.max p W) (Nat.max w (ℓ + 1))
+
+theorem auxRecSort_zero_iff (p W w ℓ : Nat) : auxRecSort p W w ℓ = 0 ↔ ℓ = 0 := by
+  unfold auxRecSort
+  by_cases h0 : ℓ = 0
+  · rw [if_pos h0]; exact ⟨fun _ => h0, fun _ => rfl⟩
+  · rw [if_neg h0]
+    refine ⟨fun h => absurd h ?_, fun h => absurd h h0⟩
+    exact max_ne_zero_right (u := Nat.max p W) (max_ne_zero_right (u := w) (Nat.succ_ne_zero ℓ))
+
+theorem auxRecSort_ge (p W w ℓ : Nat) (h0 : ℓ ≠ 0) :
+    p ≤ auxRecSort p W w ℓ ∧ W ≤ auxRecSort p W w ℓ ∧ w ≤ auxRecSort p W w ℓ ∧
+      ℓ + 1 ≤ auxRecSort p W w ℓ := by
+  unfold auxRecSort
+  rw [if_neg h0]
+  exact ⟨Nat.le_trans (Nat.le_max_left p W) (Nat.le_max_left _ _),
+    Nat.le_trans (Nat.le_max_right p W) (Nat.le_max_left _ _),
+    Nat.le_trans (Nat.le_max_left w (ℓ + 1)) (Nat.le_max_right _ _),
+    Nat.le_trans (Nat.le_max_right w (ℓ + 1)) (Nat.le_max_right _ _)⟩
+
+/-! ## Assembly: the block's facts at a parameter valuation -/
+
+/-- **What the mutual data give at one parameter frame**: the tag and
+the chains, the auxiliary former's typing, and the minors' grading
+(which `minorTag_facts` discharges from the constructors' data). -/
+structure AuxFrameOk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
+    (ℓ W wB b nP : Nat) (pps : List (Nat × Nat × AnnotTerm)) (Idss : List (List AnnotTerm))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss' : List (List (List AnnotTerm))) (Fss₀ Ess' : List (List AnnotTerm))
+    (cds : List CtorDatumR) (ρp : Nat → V) : Prop where
+  tag : TagOk W ρp Idss
+  tagValid : SumFieldsValid ρp Idss
+  chains : FixChainsOkI W wB ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess'
+  xchains : XChainsOk W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
+  former : LeafTyping (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') wB
+    (pps ++ tagIps W Idss) (fun k => ρp (k + nP))
+  minors : ∀ (j : Nat) (cd : CtorDatumR), cds[j]? = some cd →
+    ∀ M : V, M ∈ˢ auxMotSp ℓ W wB ρp Idss rss tlss Eiss' Fss₀ Ess' →
+    ∀ ms : List V, ms.length = j →
+      WellDenotedV V (consList ms (cons M ρp))
+        (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+          cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) ∧
+      interp V (consList ms (cons M ρp))
+        (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+          cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) ∈ˢ (univ (if ℓ = 0 then 0 else Nat.max wB ℓ) : V)
+
+/-- **The auxiliary binder data's entries, along every walk**: each
+domain is graded, valid, and (in the graph regime) in the recursor's
+sort. -/
+theorem auxRecData_entriesOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
+    {ℓ W wB b nP s : Nat} (hℓ : elimL.eval ψ = ℓ)
+    (hb : pwBit ψ (Level.zeronessOf elimL) = b)
+    (hs0 : s = 0 ↔ ℓ = 0) (hsW : ℓ ≠ 0 → W ≤ s) (hsw : ℓ ≠ 0 → wB ≤ s) (hsℓ : ℓ ≠ 0 → ℓ + 1 ≤ s)
+    {pps : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)} {cds : List CtorDatumR}
+    (hclL : Term.bvarsBelow 0 (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess').erase)
+    (hpps : ∀ ρb : Nat → V, EntriesOk V s ρb (rebit b pps))
+    (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp) :
+    ∀ ρb : Nat → V,
+      EntriesOk V s ρb
+        (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+          (tagIps W Idss) cds) := by
+  intro ρb
+  unfold fixRecDataAVL
+  rw [hb]
+  refine entriesOk_append (entriesOk_append (entriesOk_append
+    (entriesOk_append (hpps ρb) ?_) ?_) ?_) ?_
+  · -- the motive
+    intro ps hsp
+    rw [rebit_map_dom] at hsp
+    have hsatP : Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρb) hsp
+      rwa [List.append_nil] at h
+    have hF := hfrm _ hsatP
+    obtain ⟨hmok, hmu⟩ := auxMotive_facts hℓ hlenP hsatP hF.tag hF.tagValid hF.xchains hF.chains
+      hclL hF.former
+    refine ⟨hmok, fun hsne => ?_, fun _ _ => trivial⟩
+    have h0 : ℓ ≠ 0 := fun h => hsne (hs0.mpr h)
+    refine univ_mono ?_ _ hmu
+    have h1 := hsW h0
+    have h2 := hsw h0
+    have h3 := hsℓ h0
+    have h4 : Nat.max wB (ℓ + 1) ≤ s := Nat.max_le.mpr ⟨h2, h3⟩
+    exact Nat.max_le.mpr ⟨h1, h4⟩
+  · -- the minors
+    intro as hsp
+    rw [List.map_append] at hsp
+    obtain ⟨ps, mM, rfl, hspP, hspM⟩ := spineFit_append_inv hsp
+    rw [rebit_map_dom] at hspP
+    obtain ⟨M, rfl, hM⟩ := spineFit_singleton (by simpa using hspM)
+    have hsatP : Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρb) hspP
+      rwa [List.append_nil] at h
+    have hF := hfrm _ hsatP
+    have hMsp : M ∈ˢ auxMotSp ℓ W wB (consList ps ρb) Idss rss tlss Eiss' Fss₀ Ess' := by
+      rw [auxMotive_interp hℓ hlenP hsatP hF.tag hF.xchains hclL] at hM
+      exact hM
+    have hframe : consList (ps ++ [M]) ρb = cons M (consList ps ρb) := by
+      rw [consList_append, consList_cons, consList_nil]
+    rw [hframe]
+    refine entriesOk_fixMinorsData cds 1 0 [] rfl fun i cd hcd ms' hlen => ?_
+    obtain ⟨hok, hu⟩ := hF.minors i cd hcd M hMsp ms' (by omega)
+    refine ⟨hok, fun hsne => ?_⟩
+    have h0 : ℓ ≠ 0 := fun h => hsne (hs0.mpr h)
+    rw [if_neg h0] at hu
+    exact univ_mono (Nat.max_le.mpr ⟨hsw h0, Nat.le_trans (Nat.le_succ ℓ) (hsℓ h0)⟩) _ hu
+  · -- the tag binder
+    intro as hsp
+    rw [List.map_append, List.map_append] at hsp
+    obtain ⟨as₁, ms, rfl, hsp₁, hspM⟩ := spineFit_append_inv hsp
+    obtain ⟨ps, mM, rfl, hspP, hspMot⟩ := spineFit_append_inv hsp₁
+    rw [rebit_map_dom] at hspP
+    obtain ⟨M, rfl, -⟩ := spineFit_singleton (by simpa using hspMot)
+    have hsatP : Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρb) hspP
+      rwa [List.append_nil] at h
+    have hF := hfrm _ hsatP
+    have hlenMs : ms.length = cds.length := by
+      rw [hspM.length_eq, List.length_map, fixMinorsData_length]
+    have hframe : consList (ps ++ [M] ++ ms) ρb = consList ms (cons M (consList ps ρb)) := by
+      rw [consList_append, consList_append, consList_cons, consList_nil]
+    rw [hframe]
+    have hsh : shiftE (cds.length + 1) 0 (consList ms (cons M (consList ps ρb)))
+        = consList ps ρb := by
+      rw [← hlenMs]; exact shiftE_minors rfl
+    obtain ⟨hok, hu⟩ := auxIdxBinder_facts (d := cds.length + 1) hsh hF.tag hF.tagValid
+    refine ⟨hok, fun hsne => ?_, fun _ _ => trivial⟩
+    have h0 : ℓ ≠ 0 := fun h => hsne (hs0.mpr h)
+    exact univ_mono (hsW h0) _ hu
+  · -- the major
+    intro as hsp
+    rw [List.map_append, List.map_append, List.map_append] at hsp
+    obtain ⟨as₂, is, rfl, hsp₂, hspI⟩ := spineFit_append_inv hsp
+    obtain ⟨as₁, ms, rfl, hsp₁, hspM⟩ := spineFit_append_inv hsp₂
+    obtain ⟨ps, mM, rfl, hspP, hspMot⟩ := spineFit_append_inv hsp₁
+    rw [rebit_map_dom] at hspP
+    obtain ⟨M, rfl, -⟩ := spineFit_singleton (by simpa using hspMot)
+    have hsatP : Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
+      have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρb) hspP
+      rwa [List.append_nil] at h
+    have hF := hfrm _ hsatP
+    have hlenMs : ms.length = cds.length := by
+      rw [hspM.length_eq, List.length_map, fixMinorsData_length]
+    have hframe : consList (ps ++ [M] ++ ms) ρb = consList ms (cons M (consList ps ρb)) := by
+      rw [consList_append, consList_append, consList_cons, consList_nil]
+    rw [hframe] at hspI
+    have hframe4 : consList (ps ++ [M] ++ ms ++ is) ρb
+        = consList is (consList ms (cons M (consList ps ρb))) := by
+      rw [consList_append, consList_append, consList_append, consList_cons, consList_nil]
+    rw [hframe4]
+    rw [rebit_map_dom, spineFit_liftDoms_iff] at hspI
+    have hsh : shiftE (cds.length + 1) 0 (consList ms (cons M (consList ps ρb)))
+        = consList ps ρb := by
+      rw [← hlenMs]; exact shiftE_minors rfl
+    rw [hsh, tagIps_doms] at hspI
+    obtain ⟨hok, hu⟩ := auxMajor_facts hlenP hsatP hF.tag hF.xchains hF.chains hclL hF.former
+      hlenMs hspI
+    refine ⟨hok, fun hsne => ?_, fun _ _ => trivial⟩
+    have h0 : ℓ ≠ 0 := fun h => hsne (hs0.mpr h)
+    exact univ_mono (hsw h0) _ hu
+
+/-! ## Assembly: the recursor's conclusion -/
+
+/-- **The recursor's conclusion at a full fitting spine**: the motive
+at the tag index, applied to the major — graded, valid, and in the
+elimination level's universe. -/
+theorem auxConc_facts {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
+    {ℓ W wB b nP n : Nat} (hℓ : elimL.eval ψ = ℓ)
+    (hb : pwBit ψ (Level.zeronessOf elimL) = b)
+    {pps : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP)
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Fss Ess' : List (List AnnotTerm)} {cds : List CtorDatumR} (hn : cds.length = n)
+    (hclL : Term.bvarsBelow 0 (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess').erase)
+    (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp)
+    (hminorRead : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
+        interp V (consList ms (cons M ρp))
+            (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+              cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+              (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
+            (Fss.getD j []) ρp [])
+    (ρb : Nat → V) (as' : List V)
+    (hsp : SpineFit ρb
+      ((fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+        (tagIps W Idss) cds).map (·.2.2)) as') :
+    WellDenotedV V (consList as' ρb) (recConcAV n 1) ∧
+      interp V (consList as' ρb) (recConcAV n 1) ∈ˢ (univ ℓ : V) := by
+  have hdoms : ((fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL
+        pps (tagIps W Idss) cds).map (·.2.2))
+      = (((pps.map (·.2.2) ++
+            [motiveAVIL (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') ψ nP 1 elimL
+              (tagIps W Idss)]) ++
+          (fixMinorsData m ψ nP b cds 1).map (·.2.2)) ++
+          (liftDoms (cds.length + 1) 0 (tagIps W Idss)).map (·.2.2)) ++
+        [majorAVAtL (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 cds.length] := by
+    unfold fixRecDataAVL
+    rw [hb]
+    simp only [List.map_append, List.map_cons, List.map_nil, rebit_map_dom]
+  rw [hdoms] at hsp
+  obtain ⟨as, ts, rfl, hsp', hspT⟩ := spineFit_append_inv hsp
+  obtain ⟨t, rfl, ht⟩ := spineFit_singleton hspT
+  obtain ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, -, hfit⟩ :=
+    fixSpine_splitL (L := auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') (elimL := elimL)
+      (b := b) (ℓ := ℓ) (w := wB) (Fss := Fss) (Ess := Ess') (rss := rss) (tlss := tlss)
+      (Eiss := Eiss') hlenP (show (tagIps W Idss).length = 1 from rfl) rfl hminorRead ρb as hsp'
+  have hF := hfrm _ hρp
+  have hMsp : M ∈ˢ auxMotSp ℓ W wB (consList ps ρb) Idss rss tlss Eiss' Fss₀ Ess' := by
+    rw [auxMotive_interp hℓ hlenP hρp hF.tag hF.xchains hclL] at hM
+    exact hM
+  rw [tagIps_doms] at hfit
+  obtain ⟨i, rfl, hi⟩ := spineFit_singleton (D := tagTyAV W Idss) hfit
+  rw [(tagTyAV_facts hF.tag).1] at hi
+  -- the frames
+  have hkf : consList (ps ++ [M] ++ ms ++ [i]) ρb
+      = consList [i] (consList ms (cons M (consList ps ρb))) := by
+    rw [consList_append, consList_append, consList_append, consList_cons, consList_nil]
+    rfl
+  have hmaj : t ∈ˢ auxFib W wB (consList ps ρb) Idss rss tlss Eiss' Fss₀ Ess' i := by
+    rw [hkf] at ht
+    rw [interp_majorAVAtL (ips := tagIps W Idss) (nIdx := 1) hlenP
+      (show (tagIps W Idss).length = 1 from rfl) hρp (by rw [tagIps_doms]; exact hF.xchains)
+      (auxFormer_hleafT (nP := nP) hclL (consList ps ρb)) hlenMs
+      (by rw [tagIps_doms]; exact hfit)] at ht
+    rw [tagIps_doms] at ht
+    exact ht
+  -- the conclusion's frame
+  have hfrτ : consList (ps ++ [M] ++ ms ++ [i] ++ [t]) ρb
+      = cons t (consList [i] (consList ms (cons M (consList ps ρb)))) := by
+    rw [consList_append, hkf, consList_cons, consList_nil]
+  rw [hfrτ]
+  obtain ⟨hchain2, huniv⟩ := auxMot_chain hMsp hi hmaj
+  have hchain1 : AppChainOk M [i] := by
+    intro k hk
+    simp only [List.length_cons, List.length_nil] at hk
+    match k with
+    | 0 =>
+      exact ⟨ℓ + 1, tagSet W (consList ps ρb) Idss,
+        fun x => piR (ℓ + 1) (auxFib W wB (consList ps ρb) Idss rss tlss Eiss' Fss₀ Ess' x)
+          fun _ => (univ ℓ : V),
+        hMsp, hi, fun h0 => absurd h0 (Nat.succ_ne_zero ℓ)⟩
+    | _ + 1 => omega
+  have hfrS : RecFrameS 1 (consList [i] (consList ms (cons M (consList ps ρb))))
+      (cons t (consList [i] (consList ms (cons M (consList ps ρb))))) := by
+    show shiftE 1 0 _ = _
+    rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+  have hvars : (idxVarsAV 1 1).map
+      (interp V (cons t (consList [i] (consList ms (cons M (consList ps ρb)))))) = [i] := by
+    rw [map_idxVarsAV_interp hfrS, frameIdx_consList (nIdx := 1) rfl]
+  have hMv : interp V (cons t (consList [i] (consList ms (cons M (consList ps ρb)))))
+      (.bvar (1 + 1 + n)) = M := by
+    rw [interp_bvar, show 1 + 1 + n = (n + ([i] : List V).length) + 1 from by simp; omega, cons_succ,
+      consList_apply_add, show n = 0 + ms.length from by omega, consList_apply_add]
+    rfl
+  have hinner := mkAppN_wellDenoted_of_chain (args := idxVarsAV 1 1) (f := (.bvar (1 + 1 + n)))
+    (σ := cons t (consList [i] (consList ms (cons M (consList ps ρb))))) trivial
+    (fun a ha => by
+      obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha
+      exact trivial)
+    (by rw [hvars, hMv]; exact hchain1)
+  have hinnerV : interp V (cons t (consList [i] (consList ms (cons M (consList ps ρb)))))
+      (AnnotTerm.mkAppN (.bvar (1 + 1 + n)) (idxVarsAV 1 1)) = SetTheory.app M i := by
+    rw [hinner.2, hvars, hMv]
+    rfl
+  refine ⟨⟨?_, ?_⟩, ?_⟩
+  · show WellDenoted V _ (.app (AnnotTerm.mkAppN (.bvar (1 + 1 + n)) (idxVarsAV 1 1)) (.bvar 0))
+    rw [WellDenoted_app]
+    refine ⟨hinner.1, trivial, ℓ + 1,
+      auxFib W wB (consList ps ρb) Idss rss tlss Eiss' Fss₀ Ess' i, fun _ => (univ ℓ : V), ?_,
+      by rw [interp_bvar]; exact hmaj, fun h0 => absurd h0 (Nat.succ_ne_zero ℓ)⟩
+    rw [hinnerV]
+    exact app_mem_piR_pos (Nat.succ_ne_zero ℓ) hMsp hi
+  · show AnnotValid V _ (.app (AnnotTerm.mkAppN (.bvar (1 + 1 + n)) (idxVarsAV 1 1)) (.bvar 0))
+    rw [AnnotValid_app]
+    refine ⟨AnnotValid_mkAppN trivial fun a ha => ?_, trivial⟩
+    obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha
+    exact trivial
+  · rw [recConcAV_at (n := n) (nIdx := 1) [i] rfl t]
+    have hMn : consList ms (cons M (consList ps ρb)) n = M := by
+      rw [show n = 0 + ms.length from by omega, consList_apply_add]
+      rfl
+    rw [hMn]
+    simpa using huniv
+
 end ConLeche.Model
