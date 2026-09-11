@@ -783,7 +783,7 @@ expressions** reads, under `as` field values at the parameter frame,
 to the AUXILIARY family at the 1-tuple of the member's tagged index
 tuple (`fixLeafApp` at a member of a mutual block, through
 `mutualTyAVI_fold`). -/
-theorem mutualLeafApp {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)}
+theorem mutualLeafAppC {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)}
     {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss Ess' : List (List AnnotTerm)} {ρp : Nat → V}
@@ -899,7 +899,7 @@ set_option maxHeartbeats 3200000 in
 /-- **The real chain against the X-source chain** at one mutual
 constructor: at a recursive slot the REAL entry is the target
 member's leaf applied, which folds to the AUXILIARY family at the
-1-tuple of the tagged index tuple (`mutualLeafApp`) — the slot's
+1-tuple of the tagged index tuple (`mutualLeafAppC`) — the slot's
 value at the family.  At an ordinary slot the two chains are the same
 term by construction (the X-source chain is the real one shadowed). -/
 theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
@@ -1007,7 +1007,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         rw [hD.eisLen ψ i hk hi, hnIdxT]
       obtain ⟨hEok, hfit⟩ := leafSpineFit hlenT (mp.base2.cval_closedL _ ψ) hLtower hlenA hEl
         hokReal
-      have hfold := mutualLeafApp hlenT hIdsT hTag hokFix hρpT hA (as := as)
+      have hfold := mutualLeafAppC hlenT hIdsT hTag hokFix hρpT hA (as := as)
         (Eis := (Eiss ψ).getD i []) hfit
       rw [hlenA] at hfold
       rw [hfold, List.map_singleton, (tagTupleAV_facts hTag hIdsT hfrA hEok hfit).1]
@@ -1029,7 +1029,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
       rw [Nat.add_assoc] at hokB
       obtain ⟨hEok, hfit⟩ := leafSpineFit hlenT (mp.base2.cval_closedL _ ψ) hLtower hlenAB hEl
         hokB
-      have hfold := mutualLeafApp hlenT hIdsT hTag hokFix hρpT hA (as := as ++ bs)
+      have hfold := mutualLeafAppC hlenT hIdsT hTag hokFix hρpT hA (as := as ++ bs)
         (Eis := (Eiss ψ).getD i []) hfit
       rw [hlenAB, ← Nat.add_assoc] at hfold
       have hfrB : shiftE (i + ((tss ψ).getD i []).length) 0 (consList (as ++ bs) ρp) = ρp := by
@@ -1096,7 +1096,7 @@ theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (Lis
 /-- **The constructor's residual folds to the auxiliary family's
 fibre** at the TAGGED index tuple: its own member's leaf applied at
 the parameter variables and its index expressions is the auxiliary
-family at the 1-tuple `⟨inj mem ⟨e⃗⟩⟩` (`mutualLeafApp`), which is the
+family at the 1-tuple `⟨inj mem ⟨e⃗⟩⟩` (`mutualLeafAppC`), which is the
 restricted tagged union there (`fixFamI_app_eq_sum` at the 1-tuple
 spine). -/
 theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTerm)}
@@ -1129,7 +1129,7 @@ theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTe
     exact tagTuple_mem hTag hIdsM hfit
   have hsp1 : SpineFit ρ (auxIds W Idss)
       [inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt]))] := ⟨hmem, trivial⟩
-  have hfold := mutualLeafApp hlenM hIdsM hTag hX.hok hρ hA (as := bs) (Eis := Es) hfit
+  have hfold := mutualLeafAppC hlenM hIdsM hTag hX.hok hρ hA (as := bs) (Eis := Es) hfit
   rw [hlenbs] at hfold
   rw [hfold]
   have hsum := fixFamI_app_eq_sum hX hreal hsp1
