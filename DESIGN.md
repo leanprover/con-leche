@@ -68982,10 +68982,12 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   := if ℓ = 0 then 0 else max (max p W) (max w (ℓ+1))`, **`auxFixPre_of`**
   (via `fixPre_ofL`; `hsingle`/`hprop` vacuous from `w = 0 → ℓ = 0`) and
   **`auxRecLeafFacts`** (via `fixRecLeafFacts`).  Recorded gap: the
-  constructor leaf's APPLICATION grading is a hypothesis (`hctorOk`) —
-  `appChainOk_of_mkPisAV` wants uniform bits and a constructor's binder
-  data mixes regimes (a `Prop` field's bit is `0`); a mixed-regime chain
-  lemma (bits monotone, zero once zero) would close it.
+  constructor leaf's APPLICATION grading is a hypothesis (`hctorOk`).
+  FALSE ALARM (M2.5f, §8.10): `appChainOk_of_mkPisAV'`'s uniform-bit
+  premise is about the CODOMAIN bits `d.2.1`, which `CtorDataI.bits`
+  fixes at every binder (a Π-type's sort is the `imax` with the result
+  sort); only the DOMAIN bits `d.1` mix regimes and no lemma reads
+  them.  `hctorOk` is discharged from the constructor data directly.
 * **The member leaf** (`MutualRecLeaf.lean`, `955df5d3`): `auxRecAV` (the
   fixpoint leaf at `auxRecDataAV`), `mutualRecBodyAV` (the auxiliary
   recursor at `p⃗`, `motDispAV ℓ W w D (n + nIdx + 1) k …`, the minors,
@@ -69303,6 +69305,21 @@ entries with `IndRep.swap` (`mutualIndReps_of`).
   chains while the chains are read at the formers' carrier — the
   circularity is broken by consing the members with their readings
   before the chain facts are established.
+
+#### 8.11 Two assembly-time repairs to landed stages (2026-09-11)
+
+* `MutualLeafHyp.hcd`'s parameter conjunct asked a SYNTACTIC identity
+  between a constructor's parameter-binder reading and member 0's
+  telescope; the checker (and official's `check_constructor`) relate
+  them only by `isDefEq`, so a constructor spelling a parameter domain
+  merely defeq to the former's refuted it.  It is now the `Sat`-iff of
+  the two frames (`MutualRecTyping.lean`), which `paramFrames` provides;
+  `hleafM` needed no change (an `interp` equality, proved by a λ-tower
+  congruence over the domains, `mkLamsAV_congr_doms`).
+* `EntriesOk`/`AuxSlotTagged`/`SlotTagOk` (`MutualRecPre2.lean`) are
+  `@[expose]`d: `declMutual` is their first INTRODUCTION site and a plain
+  `def`'s body is hidden from other modules (CLAUDE.md's rule — expose
+  what another file unfolds).
 
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
