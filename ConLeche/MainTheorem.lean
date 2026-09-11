@@ -1,12 +1,16 @@
 module
 
 public import ConLeche.Verify.Cached.MainC
+public import ConLeche.Denotes
 public section
 
 /-!
-# The main theorem
+# The main theorem, and the headline theorem it implies
 
-What the checker accepts contains no constant of type `False`.
+What the checker accepts has a model; hence it contains no constant of
+type `False`.  The statements, with a plain-words account of every
+name in them, are in `ConLeche/Challenge.lean`; the reading of terms
+and the notion of model in `ConLeche/Denotes.lean`.
 
 * `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
   fold: it installs every parsed declaration — a definition, theorem
@@ -32,15 +36,80 @@ The axioms used are exactly `propext`, `Classical.choice` and
 
 namespace ConLeche
 
+open SetTheory
 open ConLeche.Cached (DeclC checkDecls)
 
-/-- **The main theorem**: if `checkDecls`, in the verified mode, accepts
-the declarations `ds` with the environment `env`, then `env` contains
-no constant of type `False`. -/
+universe w
+
+/-- **The main theorem.**  Every environment the checker accepts has a
+model in every set theory. -/
+theorem model_exists (V : Type w) [SetTheory V]
+    (ds : List DeclC) (env : Env)
+    (accepted : checkDecls .verified ds = .ok env) :
+    Nonempty (Model V env) :=
+  sorry
+
+/-- A term has at most one denotation. -/
+theorem Denotes_functional {V : Type w} [SetTheory V]
+    {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+    {ρ : Nat → V} {e : Expr} {v w : V}
+    (hv : Denotes cval env φ ρ e v) (hw : Denotes cval env φ ρ e w) :
+    v = w := by
+  induction hv generalizing w with
+  | bvar => cases hw; rfl
+  | sort => cases hw; rfl
+  | const hf _ =>
+    cases hw with
+    | const hf' _ => rw [hf] at hf'; cases hf'; rfl
+  | app _ _ ihf iha =>
+    cases hw with
+    | app hf' ha' => rw [ihf hf', iha ha']
+  | lam _ _ ihA ihF =>
+    cases hw with
+    | lam hA' hF' =>
+      rw [ihA hA']
+      congr 1
+      funext x
+      exact ihF x (hF' x)
+  | pi _ _ ihA ihB =>
+    cases hw with
+    | pi hA' hB' =>
+      rw [ihA hA']
+      congr 1
+      funext x
+      exact ihB x (hB' x)
+  | proj_table ht _ ih =>
+    cases hw with
+    | proj_table ht' he' => rw [ht] at ht'; cases ht'; rw [ih he']
+    | proj_fst ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_snd ht' _ => rw [ht] at ht'; exact nomatch ht'
+  | proj_fst ht _ ih =>
+    cases hw with
+    | proj_table ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_fst _ he' => rw [ih he']
+  | proj_snd ht _ ih =>
+    cases hw with
+    | proj_table ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_snd _ he' => rw [ih he']
+  | natLit _ ih =>
+    cases hw with
+    | natLit h' => exact ih h'
+  | strLit _ ih =>
+    cases hw with
+    | strLit h' => exact ih h'
+
+/-- **The headline theorem.**  An accepted stream never yields a
+constant of type `False`: its type would denote the empty set, and
+`Model.mem` puts the constant inside it. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
-    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
-  fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_cached V rfl accepted c hc hty
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+  rintro ⟨c, hc, hty⟩
+  obtain ⟨m⟩ := model_exists V ds env accepted
+  obtain ⟨T, hT, hmem⟩ := m.mem c hc (fun _ => 0) (fun _ => empty)
+  rw [hty] at hT
+  rw [m.false_empty _ _ _ hT] at hmem
+  exact not_mem_empty _ hmem
 
 end ConLeche
