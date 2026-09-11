@@ -96,6 +96,91 @@ and until it lands this is `declMutual`'s one hypothesis. -/
       ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
         m₃.acval = acv → IndReps m₃)
 
+/-! ## Kit: the λ-tower congruence over its domains
+
+The block's members are consed with their OWN parameter telescopes,
+while the generated recursor type takes its parameter Πs from member
+`0`; the checker identifies the two only by `isDefEq`
+(`mutualCrossChecks`' `mutualDomsOk`), so the leaves are identified
+semantically — a λ-tower congruence over `mkLamsAV` under the
+pointwise `interp` equality of the domains (`mkLamsC` re-bits every
+binder, so only the domains matter). -/
+
+/-- Two λ-towers' binder data agree hereditarily: equal bits, and
+domains that interpret alike at every frame the tower reaches. -/
+@[expose] def LamDomsAgree (V : Type w) [SetTheory V] (ρ : Nat → V) :
+    List (Nat × AnnotTerm) → List (Nat × AnnotTerm) → Prop
+  | [], [] => True
+  | d :: ds, d' :: ds' => d.1 = d'.1 ∧ interp V ρ d.2 = interp V ρ d'.2 ∧
+      ∀ x, x ∈ˢ interp V ρ d.2 → LamDomsAgree V (cons x ρ) ds ds'
+  | _, _ => False
+
+/-- **The λ-tower congruence**: two towers whose leading binder data
+agree and whose trailing data and body are shared interpret alike. -/
+theorem mkLamsAV_congr_doms {rest : List (Nat × AnnotTerm)} {b : AnnotTerm} :
+    ∀ {ds ds' : List (Nat × AnnotTerm)} {ρ : Nat → V},
+      LamDomsAgree V ρ ds ds' →
+      interp V ρ (mkLamsAV (ds ++ rest) b) = interp V ρ (mkLamsAV (ds' ++ rest) b) := by
+  intro ds
+  induction ds with
+  | nil =>
+    intro ds' ρ h
+    match ds' with
+    | [] => rfl
+    | _ :: _ => exact h.elim
+  | cons d ds ih =>
+    intro ds' ρ h
+    match ds' with
+    | [] => exact h.elim
+    | d' :: ds' =>
+      obtain ⟨hbit, hdom, hrest⟩ := h
+      show (lamR d.1 (interp V ρ d.2) fun x => interp V (cons x ρ) (mkLamsAV (ds ++ rest) b))
+        = (lamR d'.1 (interp V ρ d'.2) fun x => interp V (cons x ρ) (mkLamsAV (ds' ++ rest) b))
+      rw [hbit, hdom]
+      exact lamR_congr fun x hx => ih (hrest x (by rw [hdom]; exact hx))
+
+/-- The agreement, from the binder-by-binder rows `paramFrames`
+yields: the two telescopes have the same length and their `i`-th
+entries interpret alike under every spine fitting the earlier ones. -/
+theorem lamDomsAgree_of_rows {mb : Nat} :
+    ∀ {L L' : List AnnotTerm} {ρ : Nat → V},
+      L.length = L'.length →
+      (∀ i, i < L.length → ∀ as : List V, SpineFit ρ (L.take i) as →
+        interp V (consList as ρ) (L.getD i default)
+          = interp V (consList as ρ) (L'.getD i default)) →
+      LamDomsAgree V ρ (L.map fun A => (mb, A)) (L'.map fun A => (mb, A)) := by
+  intro L
+  induction L with
+  | nil =>
+    intro L' ρ hlen _
+    match L' with
+    | [] => trivial
+    | _ :: _ => simp at hlen
+  | cons A L ih =>
+    intro L' ρ hlen hrow
+    match L' with
+    | [] => simp at hlen
+    | A' :: L' =>
+      refine ⟨rfl, ?_, fun x hx => ?_⟩
+      · exact hrow 0 (by simp) [] trivial
+      · refine ih (by simpa using hlen) ?_
+        intro i hi as hsp
+        exact hrow (i + 1) (by simp only [List.length_cons]; omega) (x :: as) ⟨hx, hsp⟩
+
+/-- A reversed context's tail is the reverse of the telescope's head. -/
+theorem reverse_drop_eq {L : List AnnotTerm} {n i : Nat}
+    (hlen : L.length = n) (hi : i ≤ n) :
+    L.reverse.drop (n - i) = (L.take i).reverse := by
+  rw [List.drop_reverse, hlen, show n - (n - i) = i from by omega]
+
+/-- A reversed context's `i`-th entry from the top is the telescope's
+`i`-th from the bottom. -/
+theorem reverse_getD_eq {L : List AnnotTerm} {n i : Nat}
+    (hlen : L.length = n) (hi : i < n) :
+    L.reverse.getD (n - 1 - i) default = L.getD i default := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+    List.getElem?_reverse (by omega), hlen, show n - 1 - (n - 1 - i) = i from by omega]
+
 /-! ## Kit: the formers' conses and their checks, positionally -/
 
 /-- A lookup past the formers' conses of other names. -/
@@ -1417,6 +1502,34 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     have h := (hpf p.toBlock.nP (Nat.le_refl _)).1 ρ
     rw [Nat.add_zero, Nat.sub_self, List.drop_zero, List.drop_zero] at h
     exact h
+  -- **the parameter DOMAINS**, pointwise (`paramFrames`' second
+  -- component): member `t`'s `i`-th parameter binder and member `0`'s
+  -- interpret alike under every frame satisfying the earlier ones —
+  -- what identifies the two members' leaves (`hleafM`)
+  have hdomM : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      ∀ (ψ : Name → Nat) (i : Nat), i < p.toBlock.nP → ∀ ρ : Nat → V,
+        Sat V (((((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).take i).reverse) ρ →
+        interp V ρ ((((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).getD i default)
+          = interp V ρ ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).getD i default) := by
+    intro t f hft ψ i hi ρ hρ
+    obtain ⟨tq, hopT, hdoms⟩ := hopened₀ t f hft
+    have hpins := ConLeche.mutualDomsOk_inv hdoms
+    have hT := hOpenedAt 0 f₀ hf0 ψ tq₀.1 tq₀.2 (by cases tq₀; exact htq0)
+    have hC := hOpenedAt t f hft ψ tq.1 tq.2 (by cases tq; exact hopT)
+    have hpf := paramFrames (nF := 0) (claimsAt_of hμ mp₀ ψ F) hT hC (fun j hj => by
+      obtain ⟨a, b, ha, hb, hdeq⟩ := hpins j hj
+      rw [List.getElem?_map] at hb
+      obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp hb
+      exact ⟨a, b', ha, hb', hdeq⟩)
+    have hlenT : ((((ppsF t ψ).take p.toBlock.nP).map (·.2.2))).length = p.toBlock.nP := by
+      rw [List.length_map, List.length_take, (hFD₁ t f hft).len ψ]; omega
+    have hlen0 : ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2))).length = p.toBlock.nP := by
+      rw [List.length_map, List.length_take, (hFD₁ 0 f₀ hf0).len ψ]; omega
+    have h := (hpf i (Nat.le_of_lt hi)).2 hi ρ (by
+      rw [Nat.add_zero, reverse_drop_eq hlenT (Nat.le_of_lt hi)]
+      exact hρ)
+    rw [Nat.add_zero, reverse_getD_eq hlenT hi, reverse_getD_eq hlen0 hi] at h
+    exact h
   -- **the block's index telescopes and the tag's universe**: the tag
   -- is the tagged union of the members' index towers, and its universe
   -- is the join of the binders' own (`FormerData`'s `lvls`)
@@ -2387,9 +2500,55 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       -- member `q`'s stored leaf is the block's leaf at the BLOCK's
       -- parameter telescope: a λ-tower congruence over `mkLamsAV`
       -- under the pointwise `interp` equality of the two parameter
-      -- domains (`paramFrames`' second component, which `hframeM`
-      -- currently drops)
-      sorry
+      -- domains (`hdomM`, `paramFrames`' second component)
+      intro q hq ρp _hρ σ
+      have hqf := hfmGet q hq
+      -- the leaf as it is STORED: member `q`'s OWN parameter telescope
+      have hLq : (prts.Ls ψ).getD q default
+          = mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF q ψ) (fms.getD q default).nIdx
+              (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ) q := by
+        rw [show (prts.Ls ψ).getD q default = prts.Lof q ψ from getD_range_map _ _ _ hq _]
+        show mp₂.base2.acval (fms.getD q default).cvTa.name ψ = _
+        rw [hag₂ _ (fun cA hcA hh => by
+            have hs := hfindF q _ hqf
+            rw [hh, hfreshC cA hcA] at hs
+            exact nomatch hs)]
+        exact congrFun (hleaf₁ q _ hqf) ψ
+      have hips : (prts.ipss ψ).getD q [] = (ppsF q ψ).drop p.toBlock.nP :=
+        getD_range_map _ _ _ hq _
+      have hnIq : prts.nIdxs.getD q 0 = (fms.getD q default).nIdx := getD_range_map _ _ _ hq _
+      rw [hLq, hips, hnIq]
+      -- the leaf is closed, so the two frames agree
+      rw [interp_closed V
+        (mutualTyAVI_below ((hFD₂ q _ hqf).below ψ) ((hFD₂ q _ hqf).len ψ)
+          (hIdsBelow ψ) (hchainBelow ψ)) σ (fun j => ρp (j + p.toBlock.nP))]
+      -- the two telescopes differ only in their parameter block
+      rw [mutualTyAVI_eq_mkLamsC, mutualTyAVI_eq_mkLamsC]
+      show interp V _ (mkLamsAV (((ppsF q ψ)).map fun d => (f₀.s.eval ψ + 1, d.2.2)) _)
+        = interp V _ (mkLamsAV ((((ppsF 0 ψ).take p.toBlock.nP
+            ++ (ppsF q ψ).drop p.toBlock.nP)).map fun d => (f₀.s.eval ψ + 1, d.2.2)) _)
+      rw [show ((ppsF q ψ)).map (fun d => (f₀.s.eval ψ + 1, d.2.2))
+            = ((ppsF q ψ).take p.toBlock.nP).map (fun d => (f₀.s.eval ψ + 1, d.2.2))
+              ++ ((ppsF q ψ).drop p.toBlock.nP).map (fun d => (f₀.s.eval ψ + 1, d.2.2)) from by
+          rw [← List.map_append, List.take_append_drop],
+        List.map_append]
+      refine mkLamsAV_congr_doms (V := V) (rest := (((ppsF q ψ).drop p.toBlock.nP).map
+        fun d => (f₀.s.eval ψ + 1, d.2.2))) ?_
+      rw [show ((ppsF q ψ).take p.toBlock.nP).map (fun d => (f₀.s.eval ψ + 1, d.2.2))
+          = (((ppsF q ψ).take p.toBlock.nP).map (·.2.2)).map
+            (fun A => (f₀.s.eval ψ + 1, A)) from by rw [List.map_map]; rfl,
+        show ((ppsF 0 ψ).take p.toBlock.nP).map (fun d => (f₀.s.eval ψ + 1, d.2.2))
+          = (((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).map
+            (fun A => (f₀.s.eval ψ + 1, A)) from by rw [List.map_map]; rfl]
+      refine lamDomsAgree_of_rows ?_ ?_
+      · rw [List.length_map, List.length_map, List.length_take, List.length_take,
+          (hFD₂ q _ hqf).len ψ, (hFD₂ 0 f₀ hf0).len ψ]
+        omega
+      · intro i hi as hsp
+        rw [List.length_map, List.length_take, (hFD₂ q _ hqf).len ψ] at hi
+        refine hdomM q _ hqf ψ i (by omega) _ ?_
+        have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V _) hsp
+        rwa [List.append_nil] at h
     case hcd =>
       -- **BLOCKED** at the second conjunct — see the note at the end
       -- of this proof
