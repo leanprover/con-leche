@@ -1827,4 +1827,199 @@ theorem auxConc_facts {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     rw [hMn]
     simpa using huniv
 
+/-! ## Assembly: the premise and the leaf's facts -/
+
+/-- The recursor's binder data begin with the parameters. -/
+theorem fixRecDataAVL_take_nP {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm}
+    {nP nIdx : Nat} {elimL : Level} {pps ips : List (Nat × Nat × AnnotTerm)}
+    {cds : List CtorDatumR} (hlenP : pps.length = nP) :
+    ((fixRecDataAVL m ψ L nP nIdx elimL pps ips cds).take nP).map (·.2.2) = pps.map (·.2.2) := by
+  unfold fixRecDataAVL
+  rw [List.take_append_of_le_length (by simp [hlenP]),
+    List.take_append_of_le_length (by simp [hlenP]),
+    List.take_append_of_le_length (by simp [hlenP]),
+    List.take_append_of_le_length (by simp [hlenP]),
+    List.take_of_length_le (by simp [hlenP]), rebit_map_dom]
+
+/-- `okΓ`'s peeled form from the per-entry facts at the prefixes. -/
+theorem okΓ_of_prefix {rds : List (Nat × Nat × AnnotTerm)} {N : Nat} (hlen : rds.length = N)
+    {P : (Nat → V) → AnnotTerm → Prop}
+    (h : ∀ (k : Nat) (d : Nat × Nat × AnnotTerm), rds[k]? = some d → ∀ σ : Nat → V,
+      Sat V (((rds.take k).map (·.2.2)).reverse) σ → P σ d.2.2) :
+    ∀ i, i < N → ∀ ρ : Nat → V,
+      Sat V ((((rds.map (·.2.2)).reverse)).drop (N - i)) ρ →
+      P ρ ((((rds.map (·.2.2)).reverse)).getD (N - 1 - i) default) := by
+  intro i hi ρ hρ
+  obtain ⟨d, hd⟩ : ∃ d, rds[i]? = some d := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  rw [getD_reverse_of_peel hlen hi hd]
+  refine h i d hd ρ ?_
+  rwa [drop_reverse_map hlen (Nat.le_of_lt hi)] at hρ
+
+section Premise
+
+variable {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level} {ℓ W wB b nP n s : Nat}
+  {pps : List (Nat × Nat × AnnotTerm)} {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+  {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+  {Fss₀ Fss Ess' : List (List AnnotTerm)} {cds : List CtorDatumR}
+
+/-- **The auxiliary recursor's premise**, entirely semantically: the
+fixpoint route's `fixPre_ofL` at the auxiliary former's leaf, the tag
+index and the tagged constructor data. -/
+theorem auxFixPre_of (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeronessOf elimL) = b)
+    (hbz : ℓ = 0 ↔ b = 0) (hw0 : wB = 0 → ℓ = 0)
+    (hs0 : s = 0 ↔ ℓ = 0) (hsW : ℓ ≠ 0 → W ≤ s) (hsw : ℓ ≠ 0 → wB ≤ s) (hsℓ : ℓ ≠ 0 → ℓ + 1 ≤ s)
+    (hlenP : pps.length = nP) (hn : cds.length = n)
+    (hlenFs : Fss.length = n) (hlenEs : Ess'.length = n)
+    (hEs : ∀ j, j < n → (Ess'.getD j []).length = 1)
+    (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
+      ((Eiss'.getD j []).getD i []).length = 1)
+    (hIdss : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
+    (hslotTag : AuxSlotTagged W nP Idss tlss Eiss')
+    (hTbelow : ∀ j i, DomsBelow (nP + i) ((tlss.getD j []).getD i []))
+    (hbelow : DomsBelow 0
+      (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+        (tagIps W Idss) cds))
+    (hclL : Term.bvarsBelow 0 (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess').erase)
+    (hpps : ∀ ρb : Nat → V, EntriesOk V s ρb (rebit b pps))
+    (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp)
+    (hchains : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      XChainsOk W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
+      ChainsRealI (fixFamI W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
+        W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Fss Ess' ∧
+      (∀ j, j < n → FieldsOkB wB ρp (Fss.getD j []) ∧
+        ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
+          (∀ E ∈ Ess'.getD j [], WellDenoted V (consList bs ρp) E) ∧
+          SpineFit ρp ((tagIps W Idss).map (·.2.2)) (idxValsAt ρp (Ess'.getD j []) bs)))
+    (hminorRead : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
+        interp V (consList ms (cons M ρp))
+            (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+              cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+              (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
+            (Fss.getD j []) ρp []) :
+    FixPre V ℓ wB W nP Fss Ess' Fss₀ ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+      (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+        (tagIps W Idss) cds) s := by
+  have hentries := auxRecData_entriesOk hℓ hb hs0 hsW hsw hsℓ hlenP hclL hpps hfrm
+  have hlenR : (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL
+      pps (tagIps W Idss) cds).length = nP + n + 1 + 2 := by
+    rw [fixRecDataAVL_length hlenP (show (tagIps W Idss).length = 1 from rfl), hn]
+  have hconc : ∀ (ρb : Nat → V) (as' : List V),
+      SpineFit ρb ((fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1
+        elimL pps (tagIps W Idss) cds).map (·.2.2)) as' →
+      WellDenotedV V (consList as' ρb) (recConcAV n 1) ∧
+        interp V (consList as' ρb) (recConcAV n 1) ∈ˢ (univ ℓ : V) := fun ρb as' hsp => by
+    exact auxConc_facts (Fss := Fss) hℓ hb hlenP hn hclL hfrm hminorRead ρb as' hsp
+  refine fixPre_ofL hℓ hb hbz hs0 hlenP (show (tagIps W Idss).length = 1 from rfl) hn hlenFs hlenEs
+    hEs hEisLen (auxEbelow_of hIdss hslotTag) (fun h0 hne => absurd (hw0 h0) hne)
+    (fun h0 hne => absurd (hw0 h0) hne) hTbelow hbelow ?_ ?_ ?_ ?_
+  · exact okΓ_of_prefix hlenR (P := fun σ e => WellDenoted V σ e)
+      (fun k d hk σ hσ => ((prefix_of_entriesOk hentries) k d hk σ hσ).1.1)
+  · intro ρ
+    exact WellDenoted_mkPisAV_of (w := s) (EntriesOk.fieldsOkB (hentries ρ))
+      fun as hsp => ((hconc ρ as hsp).1).1
+  · intro ρ
+    by_cases h0 : ℓ = 0
+    · rw [hs0.mpr h0, univ_zero]
+      refine interp_mkPisAV_mem_univZero (fun d hd => by rw [mem_fixRecDataAVL hd, hb]; exact hbz.mp h0)
+        fun hnil => ?_
+      exfalso
+      rw [hnil] at hlenR
+      simp at hlenR
+    · refine interp_mkPisAV_mem_univ (t := s) (fun h => h0 (hs0.mp h))
+        (fun d hd => by
+          rw [mem_fixRecDataAVL hd, hb]
+          exact fun h => h0 (hbz.mpr h))
+        (EntriesOk.fieldsOkB (hentries ρ)) fun as hsp => ?_
+      exact univ_mono (Nat.le_trans (Nat.le_succ ℓ) (hsℓ h0)) _ (hconc ρ as hsp).2
+  · intro ρp hρp
+    exact ⟨(hchains ρp hρp).1, (hchains ρp hρp).2.1, (hchains ρp hρp).2.2,
+      auxFormer_hleafT (nP := nP) hclL ρp, hminorRead ρp hρp⟩
+
+/-- **The auxiliary recursor leaf's facts**: `WellDenotedV` at every
+frame, and membership in its type's reading. -/
+theorem auxRecLeafFacts (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeronessOf elimL) = b)
+    (hbz : ℓ = 0 ↔ b = 0) (hw0 : wB = 0 → ℓ = 0)
+    (hs0 : s = 0 ↔ ℓ = 0) (hsW : ℓ ≠ 0 → W ≤ s) (hsw : ℓ ≠ 0 → wB ≤ s) (hsℓ : ℓ ≠ 0 → ℓ + 1 ≤ s)
+    (hlenP : pps.length = nP) (hn : cds.length = n)
+    (hlenFs : Fss.length = n) (hlenEs : Ess'.length = n)
+    (hEs : ∀ j, j < n → (Ess'.getD j []).length = 1)
+    (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
+      ((Eiss'.getD j []).getD i []).length = 1)
+    (hIdss : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
+    (hslotTag : AuxSlotTagged W nP Idss tlss Eiss')
+    (hTbelow : ∀ j i, DomsBelow (nP + i) ((tlss.getD j []).getD i []))
+    (hbelow : DomsBelow 0
+      (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+        (tagIps W Idss) cds))
+    (hclL : Term.bvarsBelow 0 (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess').erase)
+    (hpps : ∀ ρb : Nat → V, EntriesOk V s ρb (rebit b pps))
+    (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp)
+    (hchains : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      XChainsOk W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
+      ChainsRealI (fixFamI W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
+        W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Fss Ess' ∧
+      (∀ j, j < n → FieldsOkB wB ρp (Fss.getD j []) ∧
+        ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
+          (∀ E ∈ Ess'.getD j [], WellDenoted V (consList bs ρp) E) ∧
+          SpineFit ρp ((tagIps W Idss).map (·.2.2)) (idxValsAt ρp (Ess'.getD j []) bs)))
+    (hminorRead : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
+        interp V (consList ms (cons M ρp))
+            (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+              cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+              (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
+            (Fss.getD j []) ρp [])
+    (hvFss : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+      SumFieldsValid ρp Fss ∧
+      (∀ j, j < n → ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
+        ∀ E ∈ Ess'.getD j [], AnnotValid V (consList bs ρp) E) ∧
+      (∀ j, j < n → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
+        ∀ fs : List V, SpineFit ρp (Fss.getD j []) fs →
+        FieldsValid (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp)
+          (((tlss.getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ (Eiss'.getD j []).getD i [], AnnotValid V (consList bs (consList (fs.take i) ρp)) E)) :
+    ∀ ρ : Nat → V,
+      WellDenotedV V ρ (nativeRecAVI ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+        (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+          (tagIps W Idss) cds) s) ∧
+      interp V ρ (nativeRecAVI ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+        (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+          (tagIps W Idss) cds) s)
+        ∈ˢ interp V ρ (mkPisAV
+          (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
+            (tagIps W Idss) cds) (recConcAV n 1)) := by
+  have hpre := auxFixPre_of hℓ hb hbz hw0 hs0 hsW hsw hsℓ hlenP hn hlenFs hlenEs hEs hEisLen hIdss
+    hslotTag hTbelow hbelow hclL hpps hfrm hchains hminorRead
+  have hentries := auxRecData_entriesOk hℓ hb hs0 hsW hsw hsℓ hlenP hclL hpps hfrm
+  have hlenR : (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL
+      pps (tagIps W Idss) cds).length = nP + n + 1 + 2 := by
+    rw [fixRecDataAVL_length hlenP (show (tagIps W Idss).length = 1 from rfl), hn]
+  have hconc : ∀ (ρb : Nat → V) (as' : List V),
+      SpineFit ρb ((fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1
+        elimL pps (tagIps W Idss) cds).map (·.2.2)) as' →
+      WellDenotedV V (consList as' ρb) (recConcAV n 1) ∧
+        interp V (consList as' ρb) (recConcAV n 1) ∈ˢ (univ ℓ : V) := fun ρb as' hsp => by
+    exact auxConc_facts (Fss := Fss) hℓ hb hlenP hn hclL hfrm hminorRead ρb as' hsp
+  refine fixRecLeafFacts hpre hlenFs (show ((tagIps W Idss).map (·.2.2)).length = 1 from rfl)
+    (okΓ_of_prefix hlenR (P := fun σ e => WellDenotedV V σ e)
+      (fun k d hk σ hσ => ((prefix_of_entriesOk hentries) k d hk σ hσ).1)) ?_ ?_
+  · intro ρ
+    refine AnnotValid_mkPisAV_of (w := ℓ)
+      (fun d hd => by rw [mem_fixRecDataAVL hd, hb]; exact hbz.symm)
+      (EntriesOk.fieldsValid (hentries ρ)) (fun as hsp => ((hconc ρ as hsp).1).2) ?_
+    intro h0 as hsp
+    have h := (hconc ρ as hsp).2
+    rwa [h0, univ_zero] at h
+  · intro ρp hρp
+    rw [fixRecDataAVL_take_nP hlenP] at hρp
+    exact ⟨(hvFss ρp hρp).1, (hvFss ρp hρp).2.1, (hvFss ρp hρp).2.2⟩
+
+end Premise
+
 end ConLeche.Model
