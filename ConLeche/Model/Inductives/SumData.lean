@@ -373,28 +373,34 @@ theorem CtorDataI.Es_eq {env : Env} {acval : Name → (Name → Nat) → AnnotTe
   rw [hac₂] at hsp₂
   exact DenoteMetaSpine.unique (DenoteMetaSpine.acvalWith_congr hfresh hres hsp₁) hsp₂
 
-/-- The constructor's data, from its stage run at the environment
-holding the former. -/
-theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+/-- **The constructor's data, from its stage run's SHAPE** — the
+pieces `checkSumCtor_shape` returns.  The mutual route's stage
+(`checkMutualCtor`, task #278) returns the same tuple, so its data is
+this theorem at those pieces (`ConLeche/Model/Inductives/MutualData.lean`). -/
+theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {bs : List (Expr × ConLeche.BinderMeta)}
-    {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {caps : IndCaps}
+    {bs : List (Expr × ConLeche.BinderMeta)} {sorts : List Level} {ty' : Expr}
+    {fvsP : List Expr} {crest : Expr} {xFvs idxArgs : List Expr}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env
+      { cvC with type := ty' } = .ok cvCa)
+    (hresid : ∃ cbs es, cvCa.type.stripPis (nP + nF)
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es)) ∧
+      es.length = nIdx)
+    (hopC : openPisAtFvars nP cvCa.type 0 = some (fvsP, crest))
+    (hopX : openPisAtFvars nF crest nP
+      = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)))
+    (hlenI : idxArgs.length = nIdx)
+    (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps μ F) env isProp large resSort
+      nP xFvs idxArgs nF = .ok sorts)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort)) :
-    ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    ∃ (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (Es : (Name → Nat) → List AnnotTerm) (srcs : List (Option Nat)),
-      (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
-      (∃ (fvsP : List Expr) (crest : Expr) (xFvs : List Expr) (xrest : Expr),
-        openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
-        openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
-        idxArgs = xrest.getAppArgs.drop nP) ∧
+      idxArgs
+          = (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)).getAppArgs.drop nP ∧
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
-  obtain ⟨⟨_, hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopC, -, -, hopX, hlenI,
-    -, hres, hsorts⟩ := ConLeche.checkSumCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', -, hst,
     hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
@@ -486,9 +492,9 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
   -- the sources
   obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
   have hspec : ∀ ψ, _ := fun ψ => Classical.choose_spec (Classical.choose_spec (hper ψ))
-  refine ⟨idxArgs, fun ψ => Classical.choose (hper ψ),
+  refine ⟨fun ψ => Classical.choose (hper ψ),
     fun ψ => Classical.choose (Classical.choose_spec (hper ψ)),
-    srcsOf xFvs idxArgs sorts nF, hres, ⟨fvsP, crest, xFvs, _, hopC, hopX, ?_⟩, ?_⟩
+    srcsOf xFvs idxArgs sorts nF, ?_, ?_⟩
   · rw [Expr.getAppArgs_mkAppN, show (Expr.const T (lps.map .param)).getAppArgs = [] from rfl,
       List.nil_append, List.drop_left' hlenP]
   refine ⟨hresid, fun ψ => (hspec ψ).1, fun ψ => (hspec ψ).2.1, fun ψ => (hspec ψ).2.2.1,
@@ -596,6 +602,32 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
             exact nomatch hsj'
     rw [hu0] at hmem
     exact hmem
+
+/-- The constructor's data, from its stage run at the environment
+holding the former. -/
+theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    {sorts : List Level}
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hlpsT : cvTa.levelParams = lps)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort)) :
+    ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (Es : (Name → Nat) → List AnnotTerm) (srcs : List (Option Nat)),
+      (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
+      (∃ (fvsP : List Expr) (crest : Expr) (xFvs : List Expr) (xrest : Expr),
+        openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
+        openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
+        idxArgs = xrest.getAppArgs.drop nP) ∧
+      CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
+  obtain ⟨⟨_, hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopC, -, -, hopX, hlenI,
+    -, hres, hsorts⟩ := ConLeche.checkSumCtor_shape hCtor
+  obtain ⟨ds, Es, srcs, hidxEq, hCD⟩ :=
+    ctorDataI_ofShape hμ mp hccv hresid hopC hopX hlenI hsorts hfT hlpsT hstripT
+  exact ⟨idxArgs, ds, Es, srcs, hres, ⟨fvsP, crest, xFvs, _, hopC, hopX, hidxEq⟩, hCD⟩
 
 /-! ## The constructor's frames -/
 
