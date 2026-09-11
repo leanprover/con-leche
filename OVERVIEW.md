@@ -350,7 +350,7 @@ former's leaf, applied to parameters and indices, is a fibre of the
 least fixed point of a container functor spelled from the block's
 stored constructor types, and its constructors' leaves are that fixed
 point's injections
-([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L289-L298)).
+([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L362-L371)).
 Nothing of the representation is stored: it is a fact the proof keeps
 about the block, discharged by the install that built the block's
 leaves — definitionally for the fixpoint route, by one lemma for each

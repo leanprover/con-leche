@@ -69003,9 +69003,43 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   container's own index spine); the member view it needs for a mutual
   member's recursor (`k` motives, `mI = nP + k + n + nIdx_m`, member
   `m`'s own rules, `tup ψ m ı⃗ = tupW W [inj m ⟨ı⃗⟩]`, a per-field target
-  table) is proposed to the coordinator (report of 2026-09-11); until
-  ruled, `declMutual` takes `IndRepsHead` at the recursor conses as a
-  hypothesis.
+  table) is proposed to the coordinator (report of 2026-09-11) and
+  RULED — it is **M2.6 part 1**, below; `declMutual` still takes
+  `IndRepsHead` at the recursor conses as a hypothesis until part 2
+  discharges it.
+* **M2.6 part 1 — the clause's MEMBER VIEW** (2026-09-11): `IndRepData`
+  gained the block's member table (`k`, `nIdxs`, `memberNames`, the
+  per-constructor `mems` and per-field `tgts`), the per-member
+  telescopes `ppsM`/`lvlsM` (the block-wide `pps`/`lvls` are gone;
+  `params` reads member `0`'s prefix), the CONTAINER's index telescope
+  `IdsC` (the derived `Ids` reader is gone — `IdsM mm` is a member's
+  own) and the index-tuple map `tup ψ mm ı⃗`.  `IndRep … d mm` is
+  stated at a member: `strip`/`former` at `nP + nIdxAt mm` over
+  `ppsM mm`, `mI = nP + k + |ctorsA| + nIdxAt mm`, `rP = nP + k +
+  |ctorsA|`, `rules` the member's own (`memberCtors mm`, the `zipIdx`
+  filter on `mems`), `ctors` over the WHOLE block at the constructor's
+  own member (`memberName (mems j)`) with the per-field target table,
+  `leaf` from `IdsM mm` to `tup ψ mm`, and three new fields: `member`
+  (`memberName mm = T`), `memsFound` (a constructor's own member and
+  every field's target are stored inductives — what licenses
+  `IndRep.cross`, since the readings now mention names other than `T`)
+  and `tupMem` (the member's spine lands in the container's index set,
+  what `IndRep.leaf_mono` used `tupW_mem` for).  `FixOpened`,
+  `FixCtorDataI` and `FixCtorFactsAt` (`BlockData.lean`) grew the
+  trailing `(tgtOf : Nat → Name := fun _ => T)` and
+  `(nIdxOf : Nat → Nat := fun _ => nIdx)` as OPTIONAL parameters, so
+  every existing single-family site is unchanged and a mutual
+  constructor's data is the same structure at `tgtOf i = member
+  (tgts j i)`; `MutualCtorDataI` was left as it stands (its kinds are
+  `List (RecFieldKind × Nat)`, so it is not literally `FixCtorDataI`
+  at `kindsOf ks` — the two agree up to `kindAt ks i =
+  (kindsOf ks).getD i .ordinary` and the equivalence belongs with the
+  stage that needs it).  The native discharge is `k := 1`,
+  `nIdxs := [nIdx]`, `memberNames := [T]`, `mems`/`tgts` constantly
+  `0`, `tup := fun ψ _ is => tupW (u ψ) is`, `mm := 0`, and
+  `indRep_of_stage` gained one hypothesis (the former is stored, for
+  `memsFound`); the four pinned data (zero-constructor, `PUnit`,
+  `Nat`, `Eq`) are the same instance.
 
 #### 8.5 The stages, the leaf's typing, and the kernel's former regime (2026-09-11)
 
