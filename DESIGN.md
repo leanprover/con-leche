@@ -68598,3 +68598,120 @@ proof technique, ~12–18 sessions, R2 by the nested lane's bijection)
 or 6.5 (generalisation, ~15–30 sessions, R2 on the nose).  Under
 either, M1's kernel is reworked first (6.1) — one session — and the
 scaffold code is deleted.
+
+**6.7 Option (c) — the translation stays as CODE, the identification is
+ONE generic theorem** (maintainer: "prove that the reduction to indexed
+non-mutual works, so that we do not have to do it").
+
+*What runs.*  M1's scaffold install, minus its second half: the tag
+family and the auxiliary family built as `Expr`s and installed through
+`checkNative` in a scaffolding environment (`declNative` gives their
+model), the stream's recursors compared with the generated k-motive
+ones (`mutualRecTy`/`mutualRulesOk`, at the environment holding the
+block's formers and constructors), the original block stored in
+official's shapes.  GONE: the definitions (`mutualDefine*`, the
+values) and the per-rule `isDefEq` certification.  Survives verbatim:
+`MutualParts.lean`, `MutualKit.lean`, `mutualShapeOk`,
+`mutualFormers`, `mutualCrossChecks`, the eliminator check,
+`mutualTagUniv`, `mutualScaffoldFresh`, `mutualTagBlock`,
+`mutualAuxBlock`, `mutualStore`/`mutualRules`, the tables, the F-twins
+and datF lemmas of those.
+
+*What is stored.*  The original block only; the scaffold environment
+is DISCARDED (its constants are never referable — no name clash
+deviation, no extra constants visible to later declarations).  The
+model tier defines the block's leaves as READINGS at the scaffold's
+model — `T_m ↦ denoteMeta (λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗))`, `C ↦ denoteMeta
+(λ p⃗ f⃗, aux.J p⃗ f⃗)`, `T_m.rec ↦ denoteMeta (λ …, aux.rec p⃗ Mot S⃗
+(tag.m p⃗ ı⃗) t)` — and transports them by the cross-environment
+congruence (`denoteMeta` reads the environment only for a constant's
+level-parameter count; one induction).  Keeping the auxiliary family
+stored under reserved names would spare that lemma (one session) at
+the price of a stored artifact and a reject on a later stream
+declaration of the fresh name — corpus-vacuous but a deviation; not
+worth it.
+
+*The generic theorem* (`Model/Inductives/DeclMutual.lean`, over the
+Semantics tier's run relation `DeclMutualRun`): for every block
+`mutualParts?` recognises whose install run succeeded, with
+`mp_s : EnvModelM env_scaffold` from `declNative` twice, the leaves
+above make `EnvModelM (block ++ env₀)`.  Its content, per clause:
+(i) `mem_type` of `T_m`/`C` — the λ-tower reading inhabits the Π-tower
+reading, from the aux's and the tag constructors' `mem_type` (abstract)
+and ONE new compositionality lemma: the reading of the block's
+constructor type at the block's leaves equals the reading of its
+`specFam` image at the scaffold (the constant replacement
+`T_{m'} p⃗ e⃗ ↦ aux p⃗ (tag.m' p⃗ e⃗)` commutes with `denoteMeta` up to β —
+the nested lane's restore lemma (M1) in the other direction);
+(ii) `mem_type` of `T_m.rec` — the k-motive Π-tower reading of the
+generated type against the aux recursor type's reading under
+`Mot := MotAV M⃗`, the public minor's `ih : M_{m'} e⃗ f` matching the aux
+minor's `Mot (tag.m' p⃗ e⃗) f` by the TAG's stored rule law (abstract;
+this is what `checkDefnVal` established syntactically per block), the
+field domains by (i)'s lemma; (iii) `rec_rules` — the public rule's
+law from the aux's stored `RecRuleLaw` for rule `J` (abstract) plus β
+of `T_{m'}.rec`'s leaf in the inductive hypotheses and the `Mot`
+computation; (iv) `caps_ok` vacuous at `{}`; (v) `tower_ok` at the
+structure-like members' tables — NOT derivable from the abstract laws
+(the entry laws need `T_m p⃗ = sumSet …`), so either the tables move to
+M4 with the leaf exposure from `declNative`, or the exposure is done
+here (1–2 sessions; R1 needs it too).
+
+*How it differs from (a′) in proof content.*  The maintainer's reading
+is right: the aux and tag families' model objects (the sum, the
+`nativeTyAVI` instance, the closed member, the fixed point, the
+fibre-collapse) are `declNative`'s, so (a′)'s items 1, 2 and 5 shrink to
+the compositionality lemma and the abstract-law plumbing; the k-motive
+recursor frame (ii) is the same frame arithmetic as (a′)'s item 3, only
+against an abstract Π-reading instead of `FixPre`, and (iii) is
+transport through an abstract rule law instead of `body_iota` —
+somewhat simpler, same shape.  Estimate: kernel rework 0.5, (i) 1–2,
+(ii) 4–6, (iii) 2–3, transport 1, exposure for R1/tables 1–2,
+assembly/twins/bridge 2–3 (Opus), deletion/gates 1: **≈ 10–14 Fable +
+3–4 Opus sessions**, risk in (ii) as in (a′).
+
+*What (c) does NOT give — the maintainer's (iii).*  "The auxiliary
+install succeeding ⇔ the original passing official's checks, so
+nothing per block can fail beyond the shape check": the soundness
+direction (aux positive/universe-bounded ⇒ the block is) is not needed
+and not stated; the COMPLETENESS direction ("`checkNative` accepts the
+translated block whenever official accepts the original") is a
+statement of the form "the checker accepts X", of which this
+architecture has none and by design proves none (every claim is in the
+accepting direction; OVERVIEW §4) — the nested lane's §4.2 made the
+same point.  So under (c) the translation is still RUN-TIME CODE THAT
+CAN FAIL ON A VALID BLOCK, and its coverage is empirical (fixtures,
+the Mathlib cone): today's syntactic `specFam` fails exactly the
+member-under-a-redex class (`Id' (T_m p⃗)`), closable by
+`replaceConst`+`normPosDom` but never provably closed.  That is the
+same objection the maintainer raised against the scaffold, now
+confined to the translation rather than to per-block certification.
+Under (a′) and (b) no translation runs: the only run-time checks are
+official's own, and the theorem covers every block the recogniser
+takes.
+
+*R1–R4 under (c).*  R1 only with the exposure lemma (otherwise the
+leaves are abstract readings of generated code, not a stated fixed
+point); R2 as (a′) (block-position tags, the nested lane's bijection);
+R3 through `checkNative`'s kits; R4 as M1 (the block-record entry).
+
+**6.8 Side by side.**
+
+| | (a′) reduction as proof technique | (b) generalised installer | (c) translation as code + generic theorem |
+|---|---|---|---|
+| run-time code beyond official's checks | none | none | the translation (`specFam`, the scaffold `checkNative` runs) — can fail on a valid block, coverage empirical |
+| the theorem | shape check passes ⇒ modelled, for every recognised block | same | same, PROVIDED the translation succeeds |
+| stored | the block, official's shapes | same | same (scaffold discarded) |
+| M1 code kept | recogniser, generators, comparison, formers, tables, store; NEW member-aware constructor stage | same | all of M1's kernel minus definitions/certification |
+| model objects | tag/aux as `nativeTyAVI` at `[tagAV]` (Semantics tier instantiated) | k-family tower, rewritten | `declNative`'s (abstract), + exposure for R1/tables |
+| the new proof | readings (1–2), stages (2–3), k-motive frame (5–8), rule laws (2–3), tables (1), assembly (2–3), gates (1) | ~25k lines restated | compositionality (1–2), k-motive frame (4–6), rule transport (2–3), congruence (1), exposure (1–2), assembly (2–3), gates (1) |
+| sessions | 12–18 Fable + 3–5 Opus | 15–30 Fable | 10–14 Fable + 3–4 Opus |
+| risk | k-motive frame | diffuse | k-motive frame + the translation's coverage |
+| R1 | stated directly | on the nose | needs the exposure lemma |
+| R2 | block tags; nested works up to retag | on the nose | as (a′) |
+| R3, R4 | yes | yes | yes |
+| end state | one route + a mutual assembly beside it | ONE route (k = 1 = today) | the scaffold survives as kernel code |
+
+My recommendation: (a′).  (c) saves two to four sessions and keeps
+exactly the run-time translation the maintainer objected to; (b) is
+the cleanest end state at roughly double the cost.
