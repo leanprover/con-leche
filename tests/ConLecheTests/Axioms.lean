@@ -54,7 +54,7 @@ different things and neither implies the other.
 | theorem | what it says |
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
-| `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` |
+| `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_proof_of_False` | **THE MAIN COROLLARY**: hence it holds no constant of type `False` |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
@@ -79,14 +79,16 @@ without it.
 
 namespace ConLecheTests.Axioms
 
-/-! ## The main theorem and the main corollary (`ConLeche/MainTheorem.lean`)
+/-! ## The main theorem and the main corollary (`ConLeche/MainTheorem.lean`),
+and the relation they are stated over (`ConLeche/Denotes.lean`)
 
 The statements the project exists to make (task #277): every accepted
-environment has a model (`model_exists`, over the relation `Denotes`
-of `ConLeche/Denotes.lean`, whose functionality is pinned beside it),
+environment has a model (`model_exists`, over the relation `Denotes`),
 and hence — the main corollary, derived from it in three lines —
-holds no constant of type `False`.  Everything below them is what
-they are corollaries of. -/
+holds no constant of type `False`.  `Denotes_functional`, which says
+the relation is a partial function, is proved with the relation
+itself (task #284) and is pinned here beside them.  Everything below
+them is what they are corollaries of. -/
 
 /--
 info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]

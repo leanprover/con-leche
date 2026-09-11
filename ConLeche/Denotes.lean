@@ -80,9 +80,9 @@ form denotes — the checker's own `natLitToConstructor`
 (`n + 1` ↦ `Nat.succ (lit n)`) and `strLitToConstructor`
 (`String.ofList [Char.ofNat (lit c₁), …]`).
 
-`Denotes_functional` (`ConLeche/Challenge.lean`) states that a term has
-at most one denotation, so `∃ T, Denotes … T ∧ …` below is a statement
-about *the* denotation.
+`Denotes_functional`, proved just below the relation, states that a
+term has at most one denotation, so `∃ T, Denotes … T ∧ …` below is a
+statement about *the* denotation.
 
 ## The set theory
 
@@ -188,6 +188,55 @@ inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ :
   | strLit {ρ : BVarIdx → V} {s : String} {X : V}
       (h : Denotes cval env φ ρ (strLitToConstructor s) X) :
       Denotes cval env φ ρ (.lit (.strVal s)) X
+
+/-- **A term has at most one denotation.**  Every rule of `Denotes` is
+determined by the term's syntax form — the two `proj` rules that could
+overlap are separated by whether the environment holds a projection
+table — so the relation is a partial function, and `∃ T, Denotes … T ∧ …`
+in `Model.mem` below is a statement about *the* denotation. -/
+theorem Denotes_functional {V : Type w} [SetTheory V]
+    {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    {ρ : BVarIdx → V} {e : Expr} {v w : V}
+    (hv : Denotes cval env φ ρ e v) (hw : Denotes cval env φ ρ e w) :
+    v = w := by
+  induction hv generalizing w with
+  | bvar => cases hw; rfl
+  | sort => cases hw; rfl
+  | const hf _ =>
+    cases hw with
+    | const hf' _ => rw [hf] at hf'; cases hf'; rfl
+  | app _ _ ihf iha =>
+    cases hw with
+    | app hf' ha' => rw [ihf hf', iha ha']
+  | lam _ _ _ ihA ihF =>
+    cases hw with
+    | lam hA' hF' _ =>
+      obtain rfl := ihA hA'
+      exact ConLeche.SetModel.lamR_congr fun x hx => ihF x hx (hF' x hx)
+  | pi _ _ _ ihA ihB =>
+    cases hw with
+    | pi hA' hB' _ =>
+      obtain rfl := ihA hA'
+      exact ConLeche.SetModel.piR_congr fun x hx => ihB x hx (hB' x hx)
+  | proj_table ht _ ih =>
+    cases hw with
+    | proj_table ht' he' => rw [ht] at ht'; cases ht'; rw [ih he']
+    | proj_fst ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_snd ht' _ => rw [ht] at ht'; exact nomatch ht'
+  | proj_fst ht _ ih =>
+    cases hw with
+    | proj_table ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_fst _ he' => rw [ih he']
+  | proj_snd ht _ ih =>
+    cases hw with
+    | proj_table ht' _ => rw [ht] at ht'; exact nomatch ht'
+    | proj_snd _ he' => rw [ih he']
+  | natLit _ ih =>
+    cases hw with
+    | natLit h' => exact ih h'
+  | strLit _ ih =>
+    cases hw with
+    | strLit h' => exact ih h'
 
 /-- **A model of the environment `env` in the set theory `V`**: one
 assignment `cval` of a set to every constant at every level

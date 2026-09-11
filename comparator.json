@@ -1,7 +1,7 @@
 {
   "challenge_module": "ConLeche.Challenge",
   "solution_module": "ConLeche.MainTheorem",
-  "theorem_names": ["ConLeche.model_exists", "ConLeche.Denotes_functional", "ConLeche.no_proof_of_False"],
+  "theorem_names": ["ConLeche.model_exists", "ConLeche.no_proof_of_False"],
   "definition_names": [],
   "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
   "enable_nanoda": true

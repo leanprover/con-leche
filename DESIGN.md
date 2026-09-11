@@ -68855,3 +68855,87 @@ solution", **"Your solution is okay!"** (exit 0).
 No checker code changed, so the binary is master's.  README is
 human-written: the one-sentence change to its delta/iota paragraph is
 proposed in the task report, not applied.
+
+---
+
+## TASK #284 — `Denotes_functional` MOVES TO THE RELATION IT IS ABOUT (2026-09-11, `agent/funct-284`)
+
+The maintainer, reading `ConLeche/MainTheorem.lean`: *"Why is
+`theorem Denotes_functional` in `MainTheorem.lean`?  Nothing in this
+file talks about `Denotes`."*  Correct — the file's two other
+declarations are about `checkDecls`, and functionality is a fact about
+the relation alone: no hypothesis about the checker, no import from
+the proof tiers.  It now lives in `ConLeche/Denotes.lean`, immediately
+after the `Denotes` inductive and before `structure Model`, with a
+docstring saying what it buys — `∃ T, Denotes … T ∧ …` in `Model.mem`
+is a statement about *the* denotation.  The proof moved verbatim
+(derivation induction, `piR_congr`/`lamR_congr` at the binder rules,
+`SetModel.Ops` was already a `public import` of the file); no new
+import, so `Denotes.lean` remains what the challenge half rests on:
+`Kernel.Core`, `Verify.Level`, `SetModel.Ops`, `SetTheory.Derive.Sigma`
+and nothing from `Model/*`.
+
+**It leaves the Comparator pair.**  The challenge
+(`ConLeche/Challenge.lean`) states what the project advertises and
+holds the `sorry`s; a lemma about the statement's own relation is not
+one of those, and keeping it there meant carrying a third `sorry`
+whose "solution" was a forty-line induction nobody compares.
+`comparator.json`'s `theorem_names` is now the two headline names
+(`ConLeche.model_exists`, `ConLeche.no_proof_of_False`), the challenge
+module states those two, and its docstring points at `Denotes.lean`
+for functionality instead.  `MainTheorem.lean` holds exactly the main
+theorem and the main corollary.
+
+**The axiom pin keeps the theorem** (`tests/ConLecheTests/Axioms.lean`,
+still eighteen theorems at `[propext, Classical.choice, Quot.sound]`):
+the theorem still exists, and `#print axioms` does not care which file
+it sits in — only the section heading and the table row were
+re-pointed at its new home.  `tests/ProofDeps.lean`'s roots never
+named it and `formalization.yaml`'s `main_results` never did either,
+so neither moved.
+
+### Gates
+
+Every run in this worktree: `lake build` 544 jobs warning-free; `lake
+test` green (axioms 18 theorems at the three axioms); `tests/challenge.sh`
+OK — the challenge builds with exactly its **two** `sorry` warnings and
+both statements are token-identical to the solution's; `tests/layering.sh`
+280/190/3/1 with 0 base→lane and 0 impl→theory (`Challenge.lean` is
+still classified base and still imports nothing from the lanes);
+`tests/proofdeps.sh` **3 819 rows / 11 roots / 0 doors, byte-for-byte
+as pinned** — the move changes no root's module closure, because no
+root's proof term reaches `Denotes_functional` and `ConLeche.Denotes`
+was already in `main_model`'s closure through `Model`;
+`tests/no-local-paths.sh` OK; `tests/shake.sh` 457 proposals all
+allowlisted, pub-imports 940/1279 none demotable.
+
+`tests/overview-links.sh`: four citations re-anchored and each citing
+paragraph re-read.  Three moved without changing text (`model_exists`
+and `no_proof_of_False` in `MainTheorem.lean`, `Model` in
+`Denotes.lean` — the relation's own anchor did not move, the insertion
+is below it).  The fourth is a **stale citation the move exposed**:
+§1's "the axiom pin … checks with `#print axioms` guards" pointed at
+two prose lines of the pin module's section docstring, which this
+task's edit rewrote.  Prose lines are the wrong anchor for that
+sentence, so it now cites the `#guard_msgs in #print axioms
+ConLeche.model_exists` block itself — the thing the sentence claims
+exists.  77 links / 49 files.
+
+**Comparator, run for real** (the #183 recipe, `_tmp/comparator-tool`
+at `v4.34.0-rc2`, `enable_nanoda` dropped from the local config
+because `nanoda_bin` needs `cargo`): challenge 65 jobs with exactly
+its **two** `sorry` warnings, solution 440 jobs, both theorems
+exported from both modules, "Lean default kernel accepts the
+solution", **"Your solution is okay!"** (exit 0).
+
+One recipe note for the next lane: the checkout at
+`_tmp/lean4export` is the v4.29 one and its built binary reads our
+oleans as `incompatible header`.  `lean4export` has to be built at the
+**project's** toolchain tag, and since worktrees are ephemeral the
+build has to be redone per lane: clone that checkout, `git checkout
+v4.33.0`, `lake build`, and point `COMPARATOR_LEAN4EXPORT` at the
+result.  A mismatched binary fails inside the sandbox as an opaque
+`could not execute external process 'lean'`, which is not the
+diagnosis it looks like.
+
+No checker code changed, so the binary is master's.
