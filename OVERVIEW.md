@@ -117,7 +117,7 @@ Definitional equalities need no clause: a definition's unfolding or an
 iota rule, stated as a theorem proved by `rfl`, is a stored constant
 whose type is a true equation.
 
-The headline theorem,
+The main corollary,
 [`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L102-L105),
 follows in three lines — a constant of type `False` would be a member
 of the empty set:
@@ -687,7 +687,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main and headline theorems, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

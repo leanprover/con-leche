@@ -48,8 +48,8 @@
    411    pure p.2.1.env
 
 == tests/ConLecheTests/Axioms.lean#L87-L88
-    87  and hence — the headline, derived from it in three lines — holds no
-    88  constant of type `False`.  Everything below them is what they are
+    87  and hence — the main corollary, derived from it in three lines —
+    88  holds no constant of type `False`.  Everything below them is what
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)

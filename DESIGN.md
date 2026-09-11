@@ -68702,3 +68702,33 @@ allowlisted, pindump fresh, axioms 18 theorems, tutorial 90/92, e2e
 `--jobs=1`/`--jobs=4` sweeps as at the default.  Comparator re-run on
 the final tree: "Your solution is okay!".  No checker code changed, so
 the binary is master's.
+
+## TASK #282 — THE TERM IS "MAIN COROLLARY", NOT "HEADLINE THEOREM" (2026-09-11, `agent/rename-282`)
+
+A naming change only, at the maintainer's call ("a bit less
+idiosyncratic"): `no_proof_of_False` is presented as **the main
+corollary** of the main theorem `model_exists`, everywhere a human or a
+docstring names it.  No statement, no theorem name and no proof moves —
+`tests/challenge.sh` compares `#check` output, which carries no
+docstring, so statement identity is untouched by construction.
+
+Changed: the two docstrings in `ConLeche/Challenge.lean` (the module
+header's display quote and `no_proof_of_False`), the module header and
+the `no_proof_of_False` docstring in `ConLeche/MainTheorem.lean`,
+OVERVIEW §1 and the §11 module table row, the four naming sites in
+`tests/ConLecheTests/Axioms.lean` (prose, the pin table's
+`no_proof_of_False` row, the section heading, the section prose) and the
+`main_False` root's line in `tests/ProofDeps.lean`.  The link gate was
+regenerated: OVERVIEW's own anchors did not move, but the cited
+`Axioms.lean#L87-L88` is one of the reworded lines.
+
+Deliberately left alone: `README.md` (human-written); this file's
+historical task records, which keep the word they were written with;
+`.github/workflows/ci.yml`'s first line, a verbatim quotation of the
+external review ("until then the headline is unverifiable"), and
+`Axioms.lean`'s two uses of "the headline of this project" for the
+three-axiom claim — neither names the theorem.  `formalization.yaml`
+already read "`ConLeche.no_proof_of_False` is its corollary" and needed
+nothing.  The unrelated "headline count/number" of export records
+(`Main.lean`, `ConLeche/Frontend/ExportC.lean`) and
+`Model/IndProjCaps.lean`'s "the headline is" stay as they are.

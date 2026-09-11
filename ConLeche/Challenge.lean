@@ -18,7 +18,7 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > under which every constant — every theorem included — is a member
 > of its type, and `False` is empty.
 >
-> **Headline theorem.**  Hence that environment contains no constant
+> **Main corollary.**  Hence that environment contains no constant
 > whose type is `False`.
 
 The second is a corollary of the first: `False` denotes the empty set,
@@ -74,7 +74,7 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
     v = w :=
   sorry
 
-/-- **The headline theorem.**  An accepted stream never yields a
+/-- **The main corollary.**  An accepted stream never yields a
 constant of type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
