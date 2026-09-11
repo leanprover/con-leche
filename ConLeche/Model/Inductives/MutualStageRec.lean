@@ -909,4 +909,91 @@ theorem stageMutualRecsStore (p : MutualRecParts)
     hproj₃ hrecP hreps
 
 
+/-! ## The stage -/
+
+set_option maxHeartbeats 1600000 in
+/-- **The mutual block's recursor stage**: the `k` member recursors
+consed into the model with their rules.  The provision
+(`stageMutualRecsProvision`) and the store (`stageMutualRecsStore`)
+run back to back; at the end member `t`'s recursor carries the leaf
+`mutualRecAVI … t` and every other constant keeps the value the
+constructors' stage gave it. -/
+theorem stageMutualRecs (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env₀}
+    (hyp : p.LeafHyp V m₀)
+    {b : MutualBlock} {fms : List MutualFormerA} {cvRas : List ConstantVal}
+    {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {F : Nat}
+    (mp₂ : EnvModelM V μ env₂)
+    (hrectys : ConLeche.checkMutualRecTys (ConLeche.fueledOps μ F) env₂ b formers4 ctors4
+      streamRecs b.k = .ok cvRas)
+    (hrules : ConLeche.checkMutualAllRules (m := ConLeche.CheckM)
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂) b formers4 ctors4 streamRecs b.k
+      = .ok rulesOf)
+    (hk : cvRas.length = p.k)
+    (hnd : (cvRas.map (·.name)).Nodup)
+    (hfresh : ∀ t, t < p.k → env₂.find? (cvRas.getD t default).name = none)
+    (hres : ∀ t, t < p.k → (cvRas.getD t default).type.constsResolve env₂ = true)
+    (hE : ConLeche.EtaFamiliesClosed env₂)
+    (hRDs : ∀ t, t < p.k → MutualRecData mp₂.base2 (cvRas.getD t default) p.nP p.k p.n
+      (p.nIdxOf t) t p.elimL (p.rds m₀ t))
+    (hAcl : ∀ t, t < p.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (p.leaf m₀ t ψ).erase)
+    (hAparams : ∀ t, t < p.k → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ q ∈ (cvRas.getD t default).levelParams, ψ₁ q = ψ₂ q) →
+      p.leaf m₀ t ψ₁ = p.leaf m₀ t ψ₂)
+    (hnres : ∀ t, t < p.k →
+      ConLeche.reservedBasisNames.contains (cvRas.getD t default).name = false)
+    (hpshape : ∀ t, t < p.k → (cvRas.getD t default).name.isProjFnShape = false)
+    (htyWF : ∀ t, t < p.k → (cvRas.getD t default).type.hasFvar = false ∧
+      (cvRas.getD t default).type.allLevelParamsDefined
+        (cvRas.getD t default).levelParams = true ∧
+      (cvRas.getD t default).type.looseBVarsBounded 0 = true)
+    (hrepsP : ∀ (env' : Env) (mp' : EnvModelM V μ env') (t : Nat), t < p.k →
+      env'.find? (cvRas.getD t default).name = none →
+      ∀ m₂ : EnvModel V ⟨.recInfo (cvRas.getD t default)
+          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix [] :: env'.consts⟩,
+        m₂.acval = acvalWith mp'.base2.acval (cvRas.getD t default).name (p.leaf m₀ t) →
+        IndRepsHead env' (.recInfo (cvRas.getD t default)
+          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix []) m₂)
+    (hctorStored : ∀ t, t < p.k → ∀ r ∈ ConLeche.mutualRules env₂.find?
+        (cvRas.getD t default).name b.nP (b.rulePrefix + (fms.getD t default).nIdx)
+        b.rulePrefix (cvRas.getD t default).type (rulesOf.getD t []),
+      ∃ cvj cnP cnF, env₂.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    -- the block's rule rows at the FINAL carrier (`mutualRecRuleLaw`),
+    -- at any carrier whose leaves are the block's
+    (hlaws : ∀ (acv : Name → (Name → Nat) → AnnotTerm),
+      (∀ t, t < p.k → ∀ ψ : Name → Nat, acv (cvRas.getD t default).name ψ = p.leaf m₀ t ψ) →
+      (∀ n : Name, (∀ t, t < p.k → n ≠ (cvRas.getD t default).name) →
+        acv n = mp₂.base2.acval n) →
+      ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+        m₃.acval = acv → ∀ (φ : Name → Nat) (t : Nat), t < p.k →
+        ∀ rl ∈ ConLeche.mutualRules env₂.find? (cvRas.getD t default).name b.nP
+            (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix
+            (cvRas.getD t default).type (rulesOf.getD t []),
+          RecRule.fire rl ≠ .inert →
+          RecRuleLaw m₃ φ (cvRas.getD t default).name (cvRas.getD t default)
+            (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix rl)
+    -- the representation clause at the store (task #280)
+    (hrepsS : ∀ (acv : Name → (Name → Nat) → AnnotTerm),
+      (∀ t, t < p.k → ∀ ψ : Name → Nat, acv (cvRas.getD t default).name ψ = p.leaf m₀ t ψ) →
+      (∀ n : Name, (∀ t, t < p.k → n ≠ (cvRas.getD t default).name) →
+        acv n = mp₂.base2.acval n) →
+      ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+        m₃.acval = acv → IndReps m₃) :
+    ∃ mp₄ : EnvModelM V μ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
+      (∀ t, t < p.k → ∀ ψ : Name → Nat,
+        mp₄.base2.acval (cvRas.getD t default).name ψ = p.leaf m₀ t ψ) ∧
+      (∀ n : Name, (∀ t, t < p.k → n ≠ (cvRas.getD t default).name) →
+        mp₄.base2.acval n = mp₂.base2.acval n) := by
+  obtain ⟨mpP, -, -, -, hleafP, hagP⟩ :=
+    stageMutualRecsProvision p hyp mp₂ hk hAcl hAparams hnres hpshape htyWF hrepsP hnd hfresh
+      hres hE hRDs
+  obtain ⟨mp₄, hacc, -⟩ :=
+    stageMutualRecsStore p mp₂.base2.wf hrectys hrules mpP hk hfresh hnres hctorStored
+      (fun m₃ hac => hlaws mpP.base2.acval hleafP hagP m₃ hac)
+      (fun m₃ hac => hrepsS mpP.base2.acval hleafP hagP m₃ hac)
+  exact ⟨mp₄, fun t ht ψ => by rw [hacc]; exact hleafP t ht ψ,
+    fun n hn => by rw [hacc]; exact hagP n hn⟩
+
+
 end ConLeche.Model
