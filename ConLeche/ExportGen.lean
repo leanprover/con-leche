@@ -171,48 +171,40 @@ def genExpr : GenM Unit := do
 
 /-! ## Declarations -/
 
+def safetySafe : String := "\"safe\""
+
 def genAxiom : GenM Unit := do
   emit <| obj [("axiom", obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)),
-    ("type", n (← anyExpr)), ("isUnsafe", jbool (← flag))])]
+    ("type", n (← anyExpr)), ("isUnsafe", "false")])]
 
 def genDef : GenM Unit := do
   let hints ← match ← choose 3 with
     | 0 => do pure (obj [("regular", n (← smallNat))])
     | 1 => pure "\"abbrev\""
     | _ => pure "\"opaque\""
-  let safety ← match ← choose 3 with
-    | 0 => pure "\"safe\""
-    | 1 => pure "\"unsafe\""
-    | _ => pure "\"partial\""
   emit <| obj [("def", obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)),
-    ("type", n (← anyExpr)), ("value", n (← anyExpr)), ("hints", hints), ("safety", safety),
+    ("type", n (← anyExpr)), ("value", n (← anyExpr)), ("hints", hints), ("safety", safetySafe),
     ("all", arr (← list anyName))])]
 
 def genOpaque : GenM Unit := do
   emit <| obj [("opaque", obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)),
-    ("type", n (← anyExpr)), ("value", n (← anyExpr)), ("isUnsafe", jbool (← flag)),
+    ("type", n (← anyExpr)), ("value", n (← anyExpr)), ("isUnsafe", "false"),
     ("all", arr (← list anyName))])]
 
 def genTheorem : GenM Unit := do
   emit <| obj [("thm", obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)),
     ("type", n (← anyExpr)), ("value", n (← anyExpr)), ("all", arr (← list anyName))])]
 
-def quotKinds : Array String := #["\"type\"", "\"ctor\"", "\"lift\"", "\"ind\""]
-
-def genQuot : GenM Unit := do
-  emit <| obj [("quot", obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)),
-    ("type", n (← anyExpr)), ("kind", quotKinds[← choose 4]!)])]
-
 def genInductiveVal : GenM String := do
   return obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)), ("type", n (← anyExpr)),
     ("numParams", n (← smallNat)), ("numIndices", n (← smallNat)), ("all", arr (← list anyName)),
     ("ctors", arr (← list anyName)), ("numNested", n (← smallNat)), ("isRec", jbool (← flag)),
-    ("isUnsafe", jbool (← flag)), ("isReflexive", jbool (← flag))]
+    ("isUnsafe", "false"), ("isReflexive", jbool (← flag))]
 
 def genCtorVal : GenM String := do
   return obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)), ("type", n (← anyExpr)),
     ("induct", n (← anyName)), ("cidx", n (← smallNat)), ("numParams", n (← smallNat)),
-    ("numFields", n (← smallNat)), ("isUnsafe", jbool (← flag))]
+    ("numFields", n (← smallNat)), ("isUnsafe", "false")]
 
 def genRule : GenM String := do
   return obj [("ctor", n (← anyName)), ("nfields", n (← smallNat)), ("rhs", n (← anyExpr))]
@@ -224,7 +216,7 @@ def genRecVal : GenM String := do
   return obj [("name", n (← anyName)), ("levelParams", arr (← list anyName)), ("type", n (← anyExpr)),
     ("all", arr (← list anyName)), ("numParams", n (← smallNat)), ("numIndices", n (← smallNat)),
     ("numMotives", n (← smallNat)), ("numMinors", n (← smallNat)), ("rules", arrS rules),
-    ("k", jbool (← flag)), ("isUnsafe", jbool (← flag))]
+    ("k", jbool (← flag)), ("isUnsafe", "false")]
 
 def genInductive : GenM Unit := do
   let mut types := #[]
@@ -246,7 +238,7 @@ def genLine : GenM Unit := do
   | 12 => genDef
   | 13 => genTheorem
   | 14 => genOpaque
-  | _ => if (← flag) then genInductive else genQuot
+  | _ => genInductive
 
 def metaLine : String :=
   obj [("meta", obj [

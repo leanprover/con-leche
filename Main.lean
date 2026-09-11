@@ -53,10 +53,10 @@ no preprocessor detection, no spawn, no pipe. -/
 def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
     IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  IO.FS.withTempFile fun handle path => do
-    handle.putStr (ExportGen.generateString (← IO.FS.readBinFile file))
-    handle.flush
-    Frontend.parseExportStreamD path prelude inModel census
+  let string := ExportGen.generateString (← IO.FS.readBinFile file)
+  let ref ← IO.mkRef { data := string.toByteArray }
+  let stream := IO.FS.Stream.ofBuffer ref
+  Frontend.parseExportStreamD stream prelude inModel census
 
 /-- `declPName` for the direct-parse `DeclC` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)

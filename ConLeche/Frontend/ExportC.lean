@@ -843,7 +843,7 @@ carried into the next one, and `st` is threaded as a plain argument so
 that the parse tables stay uniquely referenced across steps (task #78:
 a handler that closes over the state holds it at RC 2 and every insert
 inside copies it). -/
-partial def parseExportHandleD (h : IO.FS.Handle)
+partial def parseExportHandleD (h : IO.FS.Stream)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
@@ -866,10 +866,10 @@ partial def parseExportHandleD (h : IO.FS.Handle)
   loop (.init prelude inModel census) ByteArray.empty 0
 
 /-- Streaming direct parse of a file. -/
-def parseExportStreamD (path : System.FilePath)
+def parseExportStreamD (stream : IO.FS.Stream)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) prelude inModel census chunk
+  parseExportHandleD stream prelude inModel census chunk
 
 end ConLeche.Frontend
