@@ -512,7 +512,7 @@ theorem stageMutualCtorsGo
     have htgtNe : ∀ J cAJ, ctorsA[J]? = some cAJ → ∀ i, i < cAJ.2 →
         (kindAt (ksF J) i = .recursive ∨ kindAt (ksF J) i = .reflexive) →
         mutualNameOf members (tgtAt (ksF J) i) ≠ cA.1.name :=
-      fun J cAJ hJ i hi hk => hnameNe _ ((hfound J cAJ hJ).2 i hi hk)
+      fun J cAJ hJ i hi hkind => hnameNe _ ((hfound J cAJ hJ).2 i hi hkind)
     -- the stage
     have hfoldC : ∀ (ψ : Name → Nat) (ρ : Nat → V),
         Sat V (((ppsOf (mots k) ψ).take nP).map (·.2.2)).reverse ρ →
