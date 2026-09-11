@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Model.IndRep
-public import ConLeche.Model.Install
+public import ConLeche.Model.Annot.ConsMono
 import ConLeche.Model.Inductives.StructBits
+import ConLeche.Semantics.EnvFacts
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.FixRec
 import ConLeche.Verify.ProjSlots
@@ -337,27 +338,8 @@ theorem ModeledLeaf.cross {m : EnvModel V env} {n : Name} (h : ModeledLeaf m n)
   rw [hac, acvalWith_ne (ne_of_stored hfresh hfm), acvalWith_ne (ne_of_stored hfresh hfn)]
   exact hleaf ψ
 
-/-- **The head's obligation for the clause** at a fresh cons: a fresh
-inductive has no recursor stored yet, and a fresh recursor of a stored
-inductive claims the block's representation (or its modeled leaf) at
-the extension. -/
-@[expose] def IndRepsHead (env : Env) (c₀ : ConstantInfo)
-    (m₂ : EnvModel V ⟨c₀ :: env.consts⟩) : Prop :=
-  (∀ cvT caps, c₀ = .indInfo cvT caps → env.find? (cvT.name.str "rec") = none) ∧
-  (∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
-    ∀ T cvT caps, cvR.name = T.str "rec" → env.find? T = some (.indInfo cvT caps) →
-      (∃ d : IndRepData V, IndRep m₂ T cvT cvR mI rP rules d) ∨ ModeledLeaf m₂ (T.str "rec"))
-
-/-- A head of a kind no block member has owes nothing. -/
-theorem IndRepsHead.ofNtc {c₀ : ConstantInfo} (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
-    (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
-    (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules) :
-    IndRepsHead env c₀ m₂ :=
-  ⟨fun cv caps h => absurd h (hnotind cv caps),
-   fun cv mI rP rules h => absurd h (hnotrec cv mI rP rules)⟩
-
 /-- **The clause at a fresh cons**: the prefix's representations cross,
-and the head supplies its own. -/
+and a fresh recursor supplies its own (`IndRepsHead`). -/
 theorem IndReps.cons {m : EnvModel V env} (h : IndReps m)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none) (hcross : ConsCrossEnv env c₀)
@@ -365,25 +347,18 @@ theorem IndReps.cons {m : EnvModel V env} (h : IndReps m)
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
     (hhead : IndRepsHead env c₀ m₂) :
     IndReps m₂ := by
-  intro T cvT caps cvR mI rP rules hfT hfR
-  rw [ConLeche.Env.find?_cons] at hfT hfR
-  by_cases hT : c₀.name = T
-  · have hne : c₀.name ≠ T.str "rec" := by rw [hT]; exact (Name.str_ne T "rec").symm
-    rw [if_pos hT] at hfT
-    rw [if_neg hne] at hfR
-    have hc₀ : c₀ = .indInfo cvT caps := Option.some.inj hfT
-    have h1 := hhead.1 cvT caps hc₀
-    have hname : cvT.name = T := by rw [← hT, hc₀]; rfl
-    rw [hname, hfR] at h1
-    exact nomatch h1
-  · rw [if_neg hT] at hfT
-    by_cases hR : c₀.name = T.str "rec"
-    · rw [if_pos hR] at hfR
-      obtain rfl := Option.some.inj hfR
-      exact hhead.2 cvR mI rP rules rfl T cvT caps hR hfT
-    · rw [if_neg hR] at hfR
-      rcases h T cvT caps cvR mI rP rules hfT hfR with ⟨d, hd⟩ | hmod
-      · exact Or.inl ⟨d, hd.cross hfresh hcross hfT m₂ hac⟩
-      · exact Or.inr (hmod.cross hfresh hfR m₂ hac)
+  intro n cvR mI rP rules hfR T hn
+  rw [ConLeche.Env.find?_cons] at hfR
+  by_cases hR : c₀.name = n
+  · rw [if_pos hR] at hfR
+    have hc₀ : c₀ = .recInfo cvR mI rP rules := Option.some.inj hfR
+    have hname : cvR.name = n := by rw [← hR, hc₀]; rfl
+    rw [← hname] at hn ⊢
+    exact hhead cvR mI rP rules hc₀ T hn
+  · rw [if_neg hR] at hfR
+    rcases h n cvR mI rP rules hfR T hn with ⟨cvT, caps, d, hfT, hd⟩ | hmod
+    · exact Or.inl ⟨cvT, caps, d, ConLeche.Env.find?_cons_of_fresh hfresh hfT,
+        hd.cross hfresh hcross hfT m₂ hac⟩
+    · exact Or.inr (hmod.cross hfresh hfR m₂ hac)
 
 end ConLeche.Model

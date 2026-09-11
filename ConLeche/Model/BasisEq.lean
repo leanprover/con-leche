@@ -1176,7 +1176,8 @@ theorem extendEqRec (mp : EnvModelM V μ env)
   have hz : ∀ ψ : Name → Nat,
       pwBit ψ (ConLeche.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ u1N
-  refine declStep_preserves_of_basis_rec_cons mp (A := eqRecValAV) hfresh
+  refine declStep_preserves_of_basis_rec_cons mp (hreps := fun m₂ hac => sorry) -- TODO(#280): the pinned block's representation
+    (A := eqRecValAV) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))

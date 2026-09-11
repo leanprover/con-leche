@@ -161,6 +161,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
     denoteMeta_falseRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    (hreps := fun m₂ hac => sorry) -- TODO(#280): the pinned block's representation
     (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

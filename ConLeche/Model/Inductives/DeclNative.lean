@@ -1044,6 +1044,23 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [hFssD ψ j cA hjA] at hsp
       have hf := (hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)
       exact ((hf.2.2 bs hsp).1 E hE).2
+  -- the leaf's chains against the real readings, off the recursive
+  -- positions (task #280): the dummy and the real former's readings
+  -- agree at every ordinary field
+  have hagreeZ : ∀ ψ, AgreeOffRecs rss (Fss₀ ψ) (Fss ψ) := by
+    intro ψ
+    refine ⟨by rw [hlenFss₀, hlenFss], fun j hj => ?_⟩
+    rw [hlenFss₀] at hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    rw [hFss₀D ψ j cA hjA, hFssD ψ j cA hjA, hrss j hj]
+    have hlenD := (hcf j cA hjA).len ψ
+    have hlenD₀ := (hcf₀ j cA hjA).len ψ
+    refine ⟨by simp [hlenD, hlenD₀], fun l hl hr => ?_⟩
+    have hl' : l < cA.2 := by simpa [hlenD₀] using hl
+    rw [Nat.zero_add, rsOf_getD (by rw [hksLen j cA hjA]; exact hl')] at hr
+    simp only [decide_eq_false_iff_not, not_or] at hr
+    rw [drop_map_getD hlenD₀ hl', drop_map_getD hlenD hl']
+    exact ((hident j cA hjA).2.2.2.2 ψ l hl' hr.1 hr.2).symm
   obtain ⟨sAV, mp₃, hac₃⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
     (fun m₂ _ hFD' hleaf' hagC => hcapsLaws m₂ hfreshFam hFD'
       (fun ψ => by rw [hleaf' ψ]; exact hleafT_C ψ)
@@ -1053,6 +1070,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h)
+    hProp hagreeZ
   -- the projection table at a structure-like block (task #210 Parts A, B)
   exact declNativeTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
     (by rw [← hTname₀]; exact hpshapeT)

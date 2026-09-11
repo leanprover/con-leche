@@ -537,6 +537,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     denoteMeta_punitRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := fun m₂ hac => sorry) -- TODO(#280): the pinned block's representation
     (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1852,6 +1853,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
     denoteMeta_natRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := fun m₂ hac => sorry) -- TODO(#280): the pinned block's representation
     (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

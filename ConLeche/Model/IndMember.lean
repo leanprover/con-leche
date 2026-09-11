@@ -208,8 +208,23 @@ theorem indMember (mp : EnvModelM V μ env) {c₀ : ConstantInfo}
       (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro _ h <;> exact nomatch h)
       ψ 0 cvA.type hcb h
+  -- the representation clause (task #280): a modeled recursor's leaf
+  -- is its model's, and the model is stored
+  have hreps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name
+        (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
+      IndRepsHead env c₀ m₂ := by
+    intro m₂ hac cvR mI' rP' rules' hc T _
+    have hcvR : cvR = cvA := by
+      rw [hc] at hcvA; exact hcvA
+    subst hcvR
+    refine Or.inr ⟨?_, fun ψ => ?_⟩
+    · rw [ConLeche.Env.find?_cons_of_fresh hfresh' hmE]; rfl
+    · rw [hac, acvalWith_ne (by rw [hname]; exact Name.str_ne _ _),
+        show c₀.name = cvR.name from hname, acvalWith_self]
   have hgoal := declStep_preserves_of_ind_cons mp (c₀ := c₀)
     (A := fun ψ => mp.base2.acval (cvA.name.str "_model") ψ)
+    (hreps := hreps)
     hfresh' hnres'
     (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
           intro _ _ _ h <;> exact nomatch h)

@@ -44,7 +44,7 @@ variable {u : Nat} {Ids : List AnnotTerm} {rs : List Bool} {tls : List (List (Na
   {Eis : List (List AnnotTerm)}
 
 /-- Two chains agreeing off the recursive positions from `i` on. -/
-def AgreeOffRec (rs : List Bool) (i : Nat) (Fs Fs' : List AnnotTerm) : Prop :=
+@[expose] def AgreeOffRec (rs : List Bool) (i : Nat) (Fs Fs' : List AnnotTerm) : Prop :=
   Fs.length = Fs'.length ∧
   ∀ l, l < Fs.length → rs.getD (i + l) false = false → Fs.getD l default = Fs'.getD l default
 
@@ -89,7 +89,7 @@ theorem chainXI_congr {nIdx : Nat} {Es : List AnnotTerm} {Fs Fs' : List AnnotTer
   rw [chainXIGo_congr Fs Fs' 0 h, h.1]
 
 /-- Two chain lists agreeing off the recursive positions. -/
-def AgreeOffRecs (rss : List (List Bool)) (Fss Fss' : List (List AnnotTerm)) : Prop :=
+@[expose] def AgreeOffRecs (rss : List (List Bool)) (Fss Fss' : List (List AnnotTerm)) : Prop :=
   Fss.length = Fss'.length ∧
   ∀ j, j < Fss.length → AgreeOffRec (rss.getD j []) 0 (Fss.getD j []) (Fss'.getD j [])
 

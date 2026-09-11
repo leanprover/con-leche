@@ -252,7 +252,13 @@ theorem projCons {env' : Env} (mp : EnvModelM V μ env')
     exact hnew m₂ (by rw [hac, hname, hA]) φ rl hrl hfire
   -- the P cons
   obtain ⟨mp', hmp'⟩ :=
-    declStep_preserves_of_ind_rec_cons mp (c₀ := c₀) (A := A) hfresh hnres
+    declStep_preserves_of_ind_rec_cons mp (c₀ := c₀) (A := A)
+      (hreps := fun _ _ cvR _ _ _ hc T' hT => by
+        rw [hc₀] at hc
+        injection hc with h1
+        rw [← h1] at hT
+        exact nomatch hT)
+      hfresh hnres
       ⟨⟨projFnName T i, lps, pty⟩, nP, nP, rules, hc₀⟩
       (ConsHead.ofFresh hwf
         (fun ψ => by rw [hAdef]; exact mp.base2.cval_closedL _ ψ)

@@ -49,8 +49,8 @@ recursor `T.rec`:
   injection, so that a later identification of a copy with the
   container needs no transport.
 
-`IndReps` is the clause over the whole store, keyed on the pair
-(`T` stored as `indInfo`, `T.rec` stored as `recInfo`): a block's
+`IndReps` is the clause over the whole store, keyed on the stored
+RECURSOR `T.rec` (which then names its stored former `T`): a block's
 representation is claimed once its recursor is stored, which is the
 last constant of every inductive install.  `Quot` is stored as an
 inductive record for the checker's uniformity but has no `Quot.rec`,
@@ -262,16 +262,38 @@ keyed on, whatever block it came with), deleted with the route. -/
   (env.find? (T.str "_model")).isSome = true ∧
   ∀ ψ : Name → Nat, m.acval (T.str "_model") ψ = m.acval T ψ
 
-/-- **The representation clause**: every stored inductive whose recursor
-is stored has a representation, or is a modeled block. -/
+/-- **The representation clause**: every stored recursor `T.rec` is the
+recursor of a stored inductive `T` that has a representation — or is a
+modeled block's.  Keyed on the RECURSOR, the last constant of every
+inductive install, so that a fresh type former owes nothing and a
+fresh recursor claims its block. -/
 @[expose] def IndReps (m : EnvModel V env) : Prop :=
-  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps) (cvR : ConstantVal) (mI rP : Nat)
-    (rules : List RecRule),
-    env.find? T = some (.indInfo cvT caps) →
-    env.find? (T.str "rec") = some (.recInfo cvR mI rP rules) →
+  ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env.find? n = some (.recInfo cvR mI rP rules) →
+    ∀ T : Name, n = T.str "rec" →
+    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
+      env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d) ∨
     -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
     -- deleted with that route (tasks #278 mutual, #279 nested); until it
     -- is gone no consumer may extract `IndRep` for an arbitrary block
-    (∃ d : IndRepData V, IndRep m T cvT cvR mI rP rules d) ∨ ModeledLeaf m (T.str "rec")
+    ModeledLeaf m n
+
+/-- **The head's obligation for the clause** at a fresh cons: a fresh
+recursor `T.rec` claims its block's representation, or is modeled;
+every other head owes nothing (`IndRepsHead.ofNtc`). -/
+@[expose] def IndRepsHead (env : Env) (c₀ : ConstantInfo)
+    (m₂ : EnvModel V ⟨c₀ :: env.consts⟩) : Prop :=
+  ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    ∀ T : Name, cvR.name = T.str "rec" →
+    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
+      Env.find? ⟨c₀ :: env.consts⟩ T = some (.indInfo cvT caps) ∧
+      IndRep m₂ T cvT cvR mI rP rules d) ∨
+    ModeledLeaf m₂ cvR.name
+
+/-- A head that is no recursor owes nothing. -/
+theorem IndRepsHead.ofNtc {c₀ : ConstantInfo} (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
+    (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules) :
+    IndRepsHead env c₀ m₂ :=
+  fun cv mI rP rules h => absurd h (hnotrec cv mI rP rules)
 
 end ConLeche.Model
