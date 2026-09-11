@@ -68419,3 +68419,182 @@ block's structure-like members (official grants them; corpus-vacuous;
 M4 with the fibre exposure); (iii) projection tables only at
 index-free structure-like members (official's `infer_proj` allows
 indices; the fixpoint route has the same restriction).
+
+### 6. Maintainer's rejection of the scaffold, and the design of the reduction as a PROOF TECHNIQUE (2026-09-11, design only)
+
+Maintainer: *"We'd still be doing translation validation, i.e. have
+run-time code that could fail, rather than a theorem that every mutual
+inductive that passes the shape check is ok."*  Ruled: no scaffold, no
+definition checks on synthetic terms, no per-block `isDefEq`
+certification of rules.  The kernel install of a mutual block does
+exactly what the fixpoint route does — official's checks, recursor
+generation per `mk_rec_infos`, comparison with the stream's records,
+store — and the MODEL tier proves the stored block modelled.  M2 as
+planned is STOPPED; §4's scaffold pieces are to be deleted when the
+ruling lands.  The plan below is the one priced at 10–20 sessions in
+§2, made concrete.
+
+**6.1 What of M1 survives.**  All of `MutualParts.lean` (recogniser,
+`MutualParts`, the k-motive generators `mutualRecTy`/`mutualRecRhs`,
+`mutualRulesOk`/`mutualRulePrefixOk`, `mutualRecPinOk`) and, of
+`MutualInstall.lean`, the shape stage (`mutualShapeOk`), the formers at
+official's telescope (`mutualFormers`), the cross-member checks
+(`mutualCrossChecks`/`mutualDomsOk`), the eliminator check, the
+projection tables (`mutualMemberTable`/`mutualTables`) and the store
+(`mutualStore`/`mutualRules`, `paramsBlind := true` as on the fixpoint
+route — the law will hold at any fitting spines).  GONE: the scaffold
+(`MutualScaffold*`, `mutualTagBlock`, `mutualAuxBlock`,
+`mutualScaffoldFresh`), the definitions (`mutualDefine*`,
+`mutual{Former,Ctor,Rec}Value`), the certification
+(`mutualCertifyRule`), the residual decline (`mutualResidualOk`), the
+scoping pre-check, `MutualKit.specFam` from the kernel (the nested rung
+keeps the kit).  NEW in the kernel: the constructor stage —
+`checkSumCtor` with official's positivity across members:
+`normPosDom` over the member list (a domain mentioning ANY member is
+whnf'd, as `check_positivity` does), the residual pinned at the
+constructor's own member (`is_valid_ind_app` at that member), the
+kinds classified member-aware (`mutualCtorKinds`: recursive/reflexive
+with the TARGET member, negative, unsupported = nested), the opened
+guard `mutualOpenedOk` (a recursive field's variable free of later
+domains and the residual, per member), the field universe bound at
+the block's sort; the recursor stage — the k generated types compared
+by `isDefEq`, the rules generated, scope-checked at the environment
+holding the k rule-less recursors (as `checkNativeRules` does), the
+stream's rule bodies compared structurally.  No run-time step can fail
+on a block official accepts, fuel aside.  The datF lemmas of the
+surviving stages stay; those of the deleted ones go.
+
+**6.2 The model-tier objects (never `Expr`s).**  For a mutual block
+with members `T_m` (index telescopes `Ids_m`, read at the parameter
+frame as the fixpoint route reads `Ids`), constructors `J` of member
+`m_J` with field chains `Fs_J`, result index expressions `Es_J`,
+recursive slots `(i ↦ target m'_i, index expressions `Eis`, reflexive
+telescope `tls`)`:
+
+* the **tag family** at the parameter frame: the tagged sum of the
+  members' index towers, `tagSet := sumSet W (sumFibre W ρp
+  [Ids_1 ++ [idxEqAV []], …, Ids_k ++ [idxEqAV []]])` (the sum leaf of
+  `SumLeaf.lean`, still in the tree), spelled `tagAV` with elements
+  `inj m (mkTower (ı⃗ ++ [pt]))`; `W := max 1 (the index sorts)` is a
+  model-tier choice (nothing is stored);
+* the **auxiliary family** is LITERALLY an instance of the single
+  route's leaf: `nativeTyAVI u w pps [tagAV] rss tlss Eiss' Fss Ess'`
+  with `Ess'_J := [injAV m_J (tupler_{m_J} Es_J)]` and
+  `Eiss'_{J,i} := [injAV m'_i (tupler_{m'_i} Eis)]` — one index whose
+  domain is the tag, every tuple a 1-tuple around a tagged tuple.  So
+  `fixFamI`, `fixFunVI`, `chainsXI` and every law of `FixLeafI`/
+  `FixFamI` (monotone, the container closed member `FixWitness`, the
+  fixed point, `fixFamI_app_eq_sum`), the constructor leaf
+  (`fixMkAV`: `λ p⃗ f⃗, inj J (mkTower (f⃗ ++ [pt]))` at the GLOBAL
+  position `J` — R2 as today), the recursor leaf `nativeRecAVI` with
+  its `FixPre` facts (`rStar_fixed`, `body_iota`, `nativeRecAVI_mem`)
+  are INSTANTIATED, not generalised;
+* the **members' leaves**: `T_m := mkLamsAV (p⃗ ++ Ids_m) (fixBody
+  applied to ⟨injAV m (tupler_m ı⃗)⟩)`; the **recursors' leaves**:
+  `T_m.rec := λ p⃗ M⃗ S⃗ ı⃗ t, nativeRecAVI … (MotAV M⃗) S⃗ ⟨injAV m ⟨ı⃗⟩⟩ t`
+  with `MotAV M⃗ := λ (i : tag) (x : aux i), caseTag i (λ ı⃗, M_1 ı⃗ x) …
+  (λ ı⃗, M_k ı⃗ x)` — the sum route's case split (`SumRecCase.lean`:
+  `minorSpI`, the `frM`/`frMs` frames) at the tag's k "constructors",
+  whose computation law `MotAV M⃗ (inj m' ⟨e⃗⟩) x = M_{m'} e⃗ x` is
+  `SumRecCase`'s iota.
+
+**6.3 What is instantiated vs generalised (the theorems).**
+INSTANTIATED (Semantics tier, 12.9k lines, untouched): everything
+above.  GENERALISED / NEW (Model tier):
+
+1. *The readings* (`FixData`, `FixCtorReads`, `FixCtorCross`,
+   `FixOpened`): a recursive field's domain `T_{m'} p⃗ e⃗` reads to
+   member `m'`'s leaf applied, which β-reduces to the aux fibre at
+   `⟨inj m' ⟨e⃗⟩⟩`; the `recEntry`/`chainRealI_of` identification
+   ("the real recursive slot = the family at the slot's tuple") takes
+   the tuple spelling `injAV m' ∘ tupler_{m'}` instead of `tupler` —
+   the lemma is restated with the target member as a parameter; the
+   openings, gradings, shadow context (`FixShadow`, `FixNoBVar`,
+   `FixTeleBound`, `FixChainFacts`) are about the field chains, not
+   the slot's target, and go through with the member-aware kernel
+   guard.  1–2 sessions.
+2. *The former and constructor stages* (`stageFixFormer`,
+   `ctorsLoopGen`, `FixIntro`, `FixAssemblyKit`): k formers consed
+   with leaves that are all fibres of the SAME aux leaf; the loop over
+   constructors at the environment holding all k formers; the
+   constructor's typing at its own member's tuple.  Mostly re-plumbing
+   of the assembly kit.  2–3 sessions.
+3. *The k-motive recursor frame* — THE NEW PIECE, replacing the
+   single-motive frame modules (`FixRecRead` 2.4k, `FixRecReadDefs`,
+   `FixRecFrames`, `FixRecKFrame`, `FixRecPre`, `FixRecLeaf`,
+   `FixStageRec` 1.2k — ~5.5k lines) by their mutual analogues: the
+   reading of the stored `T_m.rec` type (k motives, n minors in
+   member-then-constructor order, `ı⃗_m`, the major) into AnnotTerms
+   and its identification with the aux recursor type's reading under
+   `Mot := MotAV M⃗` — a Π-tower congruence where each public minor's
+   `ih : M_{m'} e⃗_i f_i` matches the aux minor's `Mot ⟨inj m' e⃗_i⟩ f_i`
+   by the case split's computation law and the field domains match by
+   item 1; the motive-space fit (each `M_m` fitting its public motive
+   type ⇒ `MotAV M⃗` fits the aux motive space).  This is where the
+   sessions and the risk are: the frame arithmetic with per-member
+   index counts and the dispatch reading through the case split.
+   5–8 sessions.
+4. *The rule laws* (`FixRuleOk` 731, `FixRuleData`, `FixRuleKit`,
+   `FixRecLaw` 527): `RecRuleLaw` for rule `J` of `T_m.rec` from the
+   aux's `body_iota`/`rStar_fixed` (the fixed point unfolds at
+   `inj J (…)` to minor `J` at the fields and the recursive calls)
+   plus β of `T_{m'}.rec`'s leaf inside the inductive hypotheses and
+   the `MotAV` computation — the k-motive rule frame reading (the
+   sibling of item 3) and one transport.  2–3 sessions.
+5. *Tables and caps* (`FixStageTable`, `FixEntryLaw`): the fibre at
+   `⟨inj m ⟨⟩⟩` is a sum over n chains of which only member m's fits
+   (the others' index equations fail: `inj` is injective on tags) —
+   one collapse lemma, then the typing and iota entry cores at tag `J`
+   instead of `0`; caps `{}` (η/unit-like at recursion-free mutual
+   structure-likes stay M4).  1 session.
+6. *Assembly, Verify twins, cached bridge* (`declMutual`,
+   `DeclMutualRun`, `MutualWF`/`MutualInv`, `checkMutualS_run`,
+   `checkMutualS_skels`, the fold's arm in `Sound.lean`/`Fold.lean`):
+   Opus-grindable once the statements exist.  2–3 sessions (mostly
+   Opus).
+7. *Deletion and gates*: the scaffold code, `dead-census`, OVERVIEW §5,
+   arena/init-full/Mathlib.  1 session.
+
+**Total ≈ 12–18 Fable sessions (+3–5 Opus), risk concentrated in item
+3.**  Against the scaffold's 4–6: what is bought is exactly the
+maintainer's theorem — `mutualParts?` recognises the block and the
+official checks pass ⇒ the stored block is modelled with the generated
+recursors, with no run-time step that can fail on a valid block.
+
+**6.4 R1–R4 under it.**  R1: the members' leaves ARE fibres of one
+`lfpFam` over the tagged index set (`nativeTyAVI` at `[tagAV]`), the
+closed member from `FixWitness` — stated by `declMutual` directly
+(the leaves are defined that way; no exposure lemma needed).  R2: the
+tags are block positions, as on the fixpoint route; the nested lane
+works up to the retagging bijection (my recommendation stands).  R3:
+reflexive slots (`tlss`) and indexed members (`Ids_m` in the tag's
+towers) are instantiated.  R4: the kernel entry is the block record
+(`MutualBlock`) with the generated recursors compared as a separate
+step.  Nice-to-have (leaf as the substituted functor of the block's
+own constructor types): the aux functor is spelled from the rewritten
+chains (`Eiss'`/`Ess'` with `injAV`); the substituted-functor form is
+a β lemma, not definitional.
+
+**6.5 Option (b), generalising the installer, for comparison.**  The
+kernel is the same as 6.1 (the recogniser and generators already take
+lists).  The model: `InductiveShape`/`NativeParts` and every
+`Semantics/Tower/Fix*I` module restated for k families — a functor on
+k-tuples of families over `I_1 … I_k` (or, equivalently, one family
+over `Σ_m I_m` whose fibre at `(m, ı⃗)` is the sum over member m's OWN
+constructors — `inj c` with `c` local, R2 on the nose), the case split
+refined by the member, `FixCaseI`/`FixRecCoreI`/`FixRecI` with k
+motives natively (no `MotAV` dispatch: the recursor's motive is the
+k-tuple), and the Model tier's readings (`FixRecRead` and the rest of
+item 3) generalised rather than paralleled.  R1–R4 all on the nose;
+the single route becomes the k = 1 instance and the current `Fix*`
+modules are deleted as special cases — the cleanest end state.  Cost:
+~25k lines of proof restated, 15–30 Fable sessions; the risk is
+diffuse (every module) rather than concentrated; nothing of it is
+usable before the whole tower is through, whereas 6.3 lands item by
+item on the existing single route.
+
+**6.6 What is asked of the maintainer.**  Choose 6.3 (reduction as a
+proof technique, ~12–18 sessions, R2 by the nested lane's bijection)
+or 6.5 (generalisation, ~15–30 sessions, R2 on the nose).  Under
+either, M1's kernel is reworked first (6.1) — one session — and the
+scaffold code is deleted.
