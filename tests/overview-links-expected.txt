@@ -11,44 +11,44 @@
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L47-L50
-    47  theorem model_exists (V : Type w) [SetTheory V]
-    48      (ds : List DeclC) (env : Env)
-    49      (accepted : checkDecls .verified ds = .ok env) :
-    50      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L49-L52
+    49  theorem model_exists (V : Type w) [SetTheory V]
+    50      (ds : List DeclC) (env : Env)
+    51      (accepted : checkDecls .verified ds = .ok env) :
+    52      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
    135      (BVarIdx → V) → Expr → V → Prop
 
-== ConLeche/Denotes.lean#L221-L241
-   221  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   222    /-- the set a constant denotes, per level assignment -/
-   223    cval : Name → (LevelParam → Nat) → V
-   224    /-- every stored constant is a member of what its type denotes, at
-   225    every level assignment (and every variable environment — the type
-   226    is closed) -/
-   227    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   228      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   229    /-- whatever the built-in `False` denotes is the empty set -/
-   230    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   231      Denotes cval env φ ρ (.const falseName []) F → F = empty
-   232    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-   233    of the universe the level `u` names, and two of its members `a` and
-   234    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-   235    membership premises are the graph's domains — `Eq`'s denotation is a
-   236    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-   237    over `A` again, and a graph read off its domain says nothing -/
-   238    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-   239      Denotes cval env φ ρ (.const eqName [u]) E →
-   240      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-   241      app (app (app E A) a) b = eqv a b
+== ConLeche/Denotes.lean#L270-L290
+   270  structure Model (V : Type w) [SetTheory V] (env : Env) where
+   271    /-- the set a constant denotes, per level assignment -/
+   272    cval : Name → (LevelParam → Nat) → V
+   273    /-- every stored constant is a member of what its type denotes, at
+   274    every level assignment (and every variable environment — the type
+   275    is closed) -/
+   276    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+   277      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+   278    /-- whatever the built-in `False` denotes is the empty set -/
+   279    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+   280      Denotes cval env φ ρ (.const falseName []) F → F = empty
+   281    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+   282    of the universe the level `u` names, and two of its members `a` and
+   283    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+   284    membership premises are the graph's domains — `Eq`'s denotation is a
+   285    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+   286    over `A` again, and a graph read off its domain says nothing -/
+   287    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+   288      Denotes cval env φ ρ (.const eqName [u]) E →
+   289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+   290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L102-L105
-   102  theorem no_proof_of_False (V : Type w) [SetTheory V]
-   103      (ds : List DeclC) (env : Env)
-   104      (accepted : checkDecls .verified ds = .ok env) :
-   105      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+== ConLeche/MainTheorem.lean#L59-L62
+    59  theorem no_proof_of_False (V : Type w) [SetTheory V]
+    60      (ds : List DeclC) (env : Env)
+    61      (accepted : checkDecls .verified ds = .ok env) :
+    62      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
 
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
@@ -57,9 +57,12 @@
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L87-L88
-    87  and hence — the main corollary, derived from it in three lines —
-    88  holds no constant of type `False`.  Everything below them is what
+== tests/ConLecheTests/Axioms.lean#L93-L97
+    93  /--
+    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    95  -/
+    96  #guard_msgs in
+    97  #print axioms ConLeche.model_exists
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)
