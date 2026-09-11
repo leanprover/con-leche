@@ -69544,6 +69544,84 @@ proof.
   `fixBodyAVI_validV`; `MutualStageFormer.lean`'s version can be
   restated over it when that file is next touched.
 
+#### 8.10 M2.5f: `hcd` repaired, `MutualFrameOkM` proved; BLOCKED on three unexposed `def`s (2026-09-11)
+
+`MutualLeafHyp.hcd`'s syntactic parameter conjunct (§8.9) is REPAIRED:
+it is now the `Sat`-iff
+
+    ∀ ρp, Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) ρp ↔
+          Sat V ((pps.map (·.2.2)).reverse) ρp
+
+— which is all `MutualRecTyping`'s `hsatC` and `MutualRuleFires`'
+`hlenqs`/`hsatC` ever used (the length now comes from `hcd`'s own
+`hlenDs` plus `List.length_take`).  `MutualLeafHyp.hleafM` needed no
+weakening: the members' leaves are identified by a λ-tower congruence
+(`LamDomsAgree`/`mkLamsAV_congr_doms`/`lamDomsAgree_of_rows` in
+`DeclMutual.lean`) under `paramFrames`' SECOND component, which
+`hframeM` dropped and `hdomM` now exposes; the towers themselves are
+closed (`mutualTyAVI_below`, so `interp_closed` moves frames).
+
+`declMutual` now proves all of `MutualRecParts.LeafHyp` but the
+auxiliary recursor's own two facts: `hcd`, `hleafM`, `hclL`, `hclR`
+(`nativeRecAVI_below` at `auxRecDataAV_below`, hoisted as `hclRG`) and
+**`MutualFrameOkM.ctor`/`.slot`**.  Two notes on the last two:
+
+* `ctor`'s index facts are `mutualCtorFrames`' per-constructor frames
+  (`hframesJ`); its value in the fibre is `fixFamI_app_eq_sum` at the
+  ONE tagged tuple followed by `restricted_member_intro` at the
+  constructor's restricted chain (`mutualCtorMkPre`'s base step,
+  inlined) with `inj_mem`/`pt_mem_sumSet_zero` for the two regimes.
+* `slot`'s RAW index facts come off the REAL entry, not the tagged one:
+  the tagged `SlotFit` cannot be inverted (a tag element does not
+  expose its components' fits), so the route is the constructor's own
+  field chain graded hereditarily (`fieldsOkB_getD` at `hframesJ`),
+  `recEntry`'s application or `reflEntry`'s Π-tower (peeled by
+  `WellDenoted_mkPisAV_inv`), then `leafSpineFit`.  The fibre
+  membership is `chainRealI_at` + `spineFit_getD_mem'` +
+  `slotSet_fold_mem`, with `tagTupleAV_facts` identifying the tag.
+
+**THE BLOCKER (module system, not a statement).**  `haux`
+(`auxRecLeafFacts`) and `hauxConc` (`auxConc_facts`) cannot be
+discharged from `DeclMutual.lean` because three of their premises name
+`MutualRecPre2.lean`'s
+
+    def EntriesOk (~L1447), def AuxSlotTagged (~L418), def SlotTagOk (~L990)
+
+which are plain `def`s in a `public section` — bodies private to that
+module — with ELIMINATION-ONLY API beside them (`entriesOk_append`
+needs an `EntriesOk` to start; `EntriesOk.fieldsOkB`/`.fieldsValid`/
+`entriesOk_at`/`prefix_of_entriesOk` consume one; `auxEbelow_of`
+consumes `AuxSlotTagged`, `ihPisTag_facts` consumes `SlotTagOk`).  All
+three are PREMISES the stage must supply — `auxRecLeafFacts`/
+`auxFixPre_of` take `hpps : ∀ ρb, EntriesOk V s ρb (rebit b pps)` and
+`hslotTag : AuxSlotTagged W nP Idss tlss Eiss'`, and `minorTag_facts`
+(the only producer of `AuxFrameOk.minors`, which both leaf theorems
+take through `hfrm`) takes `hslots : … → SlotTagOk …`.  `declMutual` is
+their first consumer, so the missing exposure surfaces only now.  The
+fix belongs in `MutualRecPre2.lean`: `@[expose]` on the three, or three
+introduction lemmas beside them — the honest shape for the first is
+
+    entriesOk_of_rows : (∀ k d, ds[k]? = some d → ∀ as,
+        SpineFit ρ ((ds.map (·.2.2)).take k) as →
+        WellDenotedV V (consList as ρ) d.2.2 ∧
+          (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ univ s)) →
+      EntriesOk V s ρ ds
+
+and the other two are the obvious `⟨…⟩` intros.
+
+**A recorded gap that is NOT one.**  §8.4's "the constructor leaf's
+APPLICATION grading needs a mixed-regime chain lemma" is a false alarm:
+`minorTag_facts`' `hctorOk` goes through `appChainOk_of_mkPisAV'`
+(`FixRecCoreI.lean`), whose uniform-bit premise is about the CODOMAIN
+bits `d.2.1`, and those are uniform at a constructor's type —
+`CtorDataI.bits` says `resSort.eval ψ = 0 ↔ d.2.1 = 0` at EVERY binder
+(a Π-type's sort is the `imax` with the constructor's result sort).
+Only the DOMAIN bits `d.1` mix regimes, and no lemma reads them.  With
+the exposure fixed, `hpps` is `FormerData.lvls` + `hWge` +
+`auxRecSort_ge`, `hslotTag` is `mutEiss'_getD`, and `AuxFrameOk` is the
+`hframes` case's four facts + `auxFormer_hleafT` + `minorTag_facts` at
+the `ctor`/`slot` already proved.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent

@@ -37,15 +37,20 @@ cross-member parameter identification (`paramFrames` at
 member's index telescope can be graded at another member's parameter
 frame, and the tag is the union of all of them.
 
-**What the tail still owes** (the `sorry`): `stageMutualRecs` and
-`stageMutualTables`.  For the first, the pieces in order are the
-members' and constructors' readings at the constructors' carrier
-(`formerReadsM_of`, `mutualCtorReadsM_of`, `mutualRecData_of`), the
-`MutualRecParts` bundle, its `LeafHyp` (`MutualFrameOkM` at every
-parameter frame, `auxFixPre_of` and `auxRecLeafFacts` for the
-auxiliary recursor, and the stored type's typing), `mutualRuleOk` and
-`denoteMeta_mutualRecRhs` for the rules, and `mutualRecRuleLaw` with
-`ruleFires_of`.  For the second, `MutualTableOk` at every member.
+**What the tail still owes** (the `sorry`): the auxiliary recursor's
+two facts (`MutualLeafHyp`'s `haux`/`hauxConc`) — BLOCKED on
+`MutualRecPre2.lean`'s `EntriesOk`/`AuxSlotTagged`/`SlotTagOk` being
+unexposed `def`s with elimination-only API (the note at the end of
+`declMutual` spells it out) — and, after them, `stageMutualRecs`
+(`mutualRuleOk` and `denoteMeta_mutualRecRhs` for the rules, then
+`mutualRecRuleLaw` with `ruleFires_of`) and `stageMutualTables`
+(`MutualTableOk` at every member).
+
+Everything before them is in: the members' and constructors' readings
+at the constructors' carrier (`formerReadsM_of`, `mutualCtorReadsM_of`,
+`mutualRecData_of`), the `MutualRecParts` bundle, and all of its
+`LeafHyp` but those two — `MutualFrameOkM` at every parameter frame
+included.
 -/
 
 namespace ConLeche.Model
@@ -2960,45 +2965,70 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (hIdsBelow ψ) (hchainBelow ψ)
     case hclR => exact hclRG ψ
     case haux =>
-      -- `auxRecLeafFacts` (`MutualRecPre2.lean`); its `AuxFrameOk.minors`
-      -- goes through `minorTag_facts`, whose `hctorOk` is DESIGN §8.4's
-      -- recorded gap (the mixed-regime chain lemma)
+      -- **BLOCKED** — `auxRecLeafFacts`' `hpps`/`hslotTag` and, through
+      -- `minorTag_facts`, its `hslots`, are `MutualRecPre2.lean`'s
+      -- `EntriesOk`/`AuxSlotTagged`/`SlotTagOk`: plain (non-`@[expose]`)
+      -- `def`s with ELIMINATION-ONLY API, so the stage cannot build
+      -- them.  See the note at the end of this proof.
       sorry
     case hauxConc =>
-      -- `auxConc_facts`' universe component
+      -- **BLOCKED** the same way: `auxConc_facts`' `hfrm` is
+      -- `AuxFrameOk`, whose `minors` field only `minorTag_facts`
+      -- produces, and that asks for `SlotTagOk`.
       sorry
     case hstore =>
       intro ρ
       have hnq : prts.nIdxs.getD t 0 = prts.nIdxOf t := getD_range_map _ _ _ ht _
       rw [hnq]
       exact (hRDs t ht).okTy ψ ρ
-  -- **WIP (M2.5f)**: the members' readings and the block's
-  -- `MutualRecParts` are in (`hRDs'` is `stageMutualRecs`' `hRDs` at
-  -- the bundle, by `rfl`); the recursor stage (`stageMutualRecs`) and
-  -- the table stage (`stageMutualTables`) are what is left.
+  -- **WIP (M2.5f)**: `MutualRecParts` and all of its `LeafHyp` but the
+  -- auxiliary recursor's own two facts (`haux`, `hauxConc`) are in;
+  -- the recursor stage (`stageMutualRecs`) and the table stage
+  -- (`stageMutualTables`) are what is left after them.
   --
-  -- **BLOCKED at `MutualRecParts.LeafHyp`** (`MutualRecTyping.lean`'s
-  -- `MutualLeafHyp`, field `hcd`, second conjunct):
+  -- **BLOCKED at `haux`/`hauxConc` — a MODULE-SYSTEM blocker, not a
+  -- statement one.**  `MutualRecPre2.lean`'s
   --
-  --   `(cd.2.2.1.take nP).map (·.2.2) = pps.map (·.2.2)`
+  --   `def EntriesOk` (~L1447), `def AuxSlotTagged` (~L418),
+  --   `def SlotTagOk` (~L990)
   --
-  -- asks for a SYNTACTIC identity of constructor `J`'s parameter
-  -- binder READING with the block's, and neither side is free here:
-  -- `cd.2.2.1` is pinned to `dsF J ψ` by `CtorReadRT.read` (and again
-  -- by `hcd`'s own `hleafC`, whose `sumMkAV wB J cd.2.2.1 …` is what
-  -- `stageMutualCtors` stored), while `pps = prts.ppsOf 0 ψ` is pinned
-  -- to member `0`'s telescope reading by `FormerReadM.read` through
-  -- `mutualRdsAV`'s `ppsOf 0 ψ` — the generated recursor type takes
-  -- its parameter Πs from former `0`.  The checker relates the two
-  -- only SEMANTICALLY: `checkMutualCtor` compares them with
-  -- `checkStructDomsAt`'s `isDefEq` and `mutualCrossChecks` compares
-  -- the members' with `mutualDomsOk`'s, which is what `paramFrames`
-  -- turns into `hframesJ`/`hframeM` (a `Sat`-iff plus a pointwise
-  -- `interp` equality).  Both consumers of the conjunct
-  -- (`MutualRecTyping.lean`'s `hsatC` and `MutualRuleFires.lean`'s
-  -- `hlenqs`/`hsatC`) only ever transfer `Sat` across it, so the
-  -- honest repair is to weaken the conjunct to that iff — a change to
-  -- `MutualRecTyping.lean`, which is another lane's file.
+  -- are plain `def`s in a `public section` — their bodies are private
+  -- to that module — and the API beside them is elimination-only
+  -- (`entriesOk_append` needs an `EntriesOk` to start,
+  -- `EntriesOk.fieldsOkB`/`.fieldsValid`/`entriesOk_at`/
+  -- `prefix_of_entriesOk` all consume one; `AuxSlotTagged` is consumed
+  -- by `auxEbelow_of`, `SlotTagOk` by `ihPisTag_facts`).  All three are
+  -- PREMISES this stage has to supply:
+  --
+  --   `auxRecLeafFacts`/`auxFixPre_of`: `hpps : ∀ ρb, EntriesOk V s ρb
+  --     (rebit b pps)` and `hslotTag : AuxSlotTagged W nP Idss tlss Eiss'`;
+  --   `minorTag_facts` (the only producer of `AuxFrameOk.minors`, which
+  --     both `auxRecLeafFacts` and `auxConc_facts` take through `hfrm`):
+  --     `hslots : … → SlotTagOk W wB i ρp fs Idss rss tlss Eiss' Fss₀ Ess' …`.
+  --
+  -- `declMutual` is their FIRST consumer — nothing outside
+  -- `MutualRecPre2.lean` has ever built one — so the missing exposure
+  -- only shows up now.  The fix is in that file (another lane's): mark
+  -- the three `def`s `@[expose]`, or add the three introduction lemmas
+  -- beside them (the honest shapes are
+  -- `entriesOk_of_rows : (∀ k d, ds[k]? = some d → ∀ as, SpineFit ρ
+  --    ((ds.map (·.2.2)).take k) as → WellDenotedV V (consList as ρ) d.2.2
+  --    ∧ (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ univ s)) → EntriesOk V s ρ ds`,
+  -- and the two obvious `⟨…⟩` intros for `AuxSlotTagged`/`SlotTagOk`).
+  --
+  -- With them the rest of `haux` is ordinary work this stage already
+  -- has the pieces for: `hpps` from `FormerData.lvls` + `hWge` +
+  -- `auxRecSort_ge`; `hslotTag` from `mutEiss'_getD`; `AuxFrameOk`'s
+  -- `tag`/`tagValid`/`chains`/`xchains` from `hIdxAll`/`hChainFull`/
+  -- `hXAll` (the `hframes` case above), `former` from
+  -- `auxFormer_hleafT (hclL)`, `minors` from `minorTag_facts` at
+  -- `MutualFrameOkM.ctor`/`.slot` (proved above) — and DESIGN §8.4's
+  -- recorded "mixed-regime chain lemma" gap is NOT one:
+  -- `minorTag_facts`' `hctorOk` goes through `appChainOk_of_mkPisAV'`,
+  -- whose uniform-bit premise is exactly `CtorDataI.bits`
+  -- (`resSort.eval ψ = 0 ↔ d.2.1 = 0` at EVERY binder — a Π-type's
+  -- codomain sort is the `imax` with the constructor's result sort, so
+  -- the CODOMAIN bits are uniform even though the DOMAIN bits mix).
   sorry
 
 end ConLeche.Model
