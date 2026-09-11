@@ -413,7 +413,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     {ksF : Nat → List (RecFieldKind × Nat)} {fvsPF xFvsF : Nat → List Expr}
     {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
     {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    {Tname : Nat → Name} {nIdxOf mots : Nat → Nat} {resSortOf : Nat → Level}
+    {Tname : Nat → Name} {nIdxOf mots nFs : Nat → Nat} {resSortOf : Nat → Level}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {lvlsOf : Nat → (Name → Nat) → List Nat}
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
