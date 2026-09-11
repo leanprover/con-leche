@@ -1305,6 +1305,24 @@ theorem storeMutualRecs_extend {b : MutualBlock} {fms : List MutualFormerA}
         fun h => hG.2 ((litGuardsMono_cons hfresh).2 h)⟩
     · exact hP sn i (ConLeche.Verify.findProj?_cons_of_base_none hntc sn i h)
 
+/-- **A reading crosses the group store**: the `k` recursor heads are
+fresh at the constructors' carrier and the store's carrier agrees with
+it on every name found there, so a prefix reading is reproduced
+verbatim (`denoteMeta_acval_congr` then `denoteMeta_envExtend_mono`). -/
+theorem denoteMeta_toStore {b : MutualBlock} {fms : List MutualFormerA}
+    {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env}
+    {acval acv : Name → (Name → Nat) → AnnotTerm} {l : List (ConstantVal × Nat)}
+    (hfr : ∀ x ∈ l, env₂.find? x.1.name = none) (hndl : (l.map (·.1.name)).Nodup)
+    (hag : ∀ n, (env₂.find? n).isSome = true → acval n = acv n)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env₂ e)
+    {ea : AnnotTerm} (h : denoteMeta acval env₂ ψ d e = some ea) :
+    denoteMeta acv (ConLeche.storeMutualRecs env₂ b fms rulesOf l env₂) ψ d e = some ea := by
+  obtain ⟨hF, hG, hP⟩ := storeMutualRecs_extend (b := b) (fms := fms) (rulesOf := rulesOf)
+    (env₂ := env₂) hfr hndl
+  refine denoteMeta_envExtend_mono hF hG hP d e hcb ?_
+  rw [← denoteMeta_acval_congr hag d e]
+  exact h
+
 /-! ## The assembly -/
 
 set_option maxHeartbeats 25600000 in
