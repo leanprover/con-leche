@@ -68741,3 +68741,69 @@ of §5 kept; arena 138/138; route census unchanged; `tests/inmodel.sh`
 OK; the Mathlib mutual cone 369/369 in both modes, all 10 blocks
 `mutual`.  The Verify tier's datF lemmas for the deleted stages are
 replaced by the new stages' (Opus).
+
+### 8. M2 under (a′): the architecture, as the first module fixes it (2026-09-11)
+
+**Semantics tier — the objects are INSTANCES** (`Semantics/Tower/MutualLeafI.lean`,
+landed): the tag type `tagTyAV W Idss := sumBodyAV W (uChains Idss)`
+(the sum leaf's tagged union of the members' index towers, elements
+`inj m (mkTower (ı⃗ ++ [pt]))`); member `m`'s tag tupler
+`tagTuplerAV W m Idss := sumMkAV W m (tuplerData W Ids_m) Ids_m (uChains Idss)`
+(the sum route's constructor leaf at the tag — `λ ı⃗_m, inj m ⟨ı⃗_m⟩`)
+with `tagTupleAV W m d Idss Es` its lifted application to index
+expressions scoped `d` binders below the parameters; the auxiliary
+family `auxBodyAV := fixBodyAVI W w [tagTyAV] 1 rss tlss Eiss' Fss Ess'`
+— the fixpoint route's family at ONE index, the tag — with `mutualEss`
+/`mutualEiss` replacing every constructor's and recursive slot's index
+expressions by its tagged tuple; member `m`'s leaf
+`mutualTyAVI W w pps nIdx Idss … m := λ p⃗ ı⃗_m, auxBodyAV ⟨tagTupleAV W m nIdx Idss ı⃗_m⟩`
+(the 1-tuple through the auxiliary tupler).  Its three laws
+(`mutualTyAVI_mem/_wellDenoted/_fold` under `ParamsOkMI`) come from
+`fixBodyAVI_facts`, `famSpace_app`, `tuplerAV_fold` and the sum
+constructor leaf's `sumMkAV_mem/_fold` — nothing of `FixLeafI`/
+`FixFamI` restated.  The constructor leaf is the fixpoint route's
+`sumMkAV w J ds Fs (uChains Fss)` at the constructor's GLOBAL position
+`J` (R2: block-position tags); its typing is `FixIntro`'s argument at
+`Ids = [tagTyAV]` with the single equation `tagTuple(e⃗_J(f⃗)) = t`
+(`fixFamI_app_eq_sum` at the 1-tuple spine, `restricted_member_intro`).
+
+**The recursor (next).**  The auxiliary recursor is `nativeRecAVI ℓ w
+nP Fss Ess' [tagTyAV] rds_aux …` — the fixpoint route's leaf — whose
+laws (`nativeRecAVI_mem`, `body_iota`, `rStar_fixed`) take
+`FixPre … rds_aux s`.  `rds_aux` is SPELLED from the mutual data by
+the fixpoint route's own spellings generalised over the former's and
+constructors' leaves: `motiveAVI`/`majorAVAt`/`minorAVAtR`/
+`fixRecDataAV` read the leaves through `m.acval T ψ`; the primed
+twins take a closed leaf term (`auxBodyAV`, `sumMkAV …`) and the
+originals are their instances (an `_eq` lemma each, no existing proof
+touched).  `FixPre` for `rds_aux` is proved semantically from the
+pieces — the motive `Π (t : tag) (x : aux t), Sort ℓ`, the minors'
+field data (the readings of the STORED constructor types, whose
+recursive domains read to member leaves, i.e. auxiliary fibres), the
+ih domains `Mot ⟨inj m' e⃗⟩ f`, the tag index and the major — where
+the fixpoint route has `fixPre_of` derive it from the checker's typing
+of the stored generated type; `fixPre_of`'s shape is the template.
+`MotAV M⃗ := λ (i : tag) (x : aux i), caseTag i (λ ı⃗, M_1 ı⃗ x) … (λ ı⃗, M_k ı⃗ x)`
+is the sum route's case split (`SumRecCase.lean`: `caseAVAt`/the
+`Nat.rec` tower at the tag's `k` "constructors") with the computation
+law `MotAV M⃗ ⟨inj m' ⟨e⃗⟩⟩ x = M_{m'} e⃗ x` its iota, and the typing
+`MotAV M⃗ ∈ Π (t : tag) (x : aux t), Sort ℓ` from each `M_m`'s.  Member
+`m`'s recursor leaf is
+`mutualRecAVI m := λ p⃗ M⃗ S⃗ ı⃗_m t, nativeRecAVI … p⃗ (MotAV M⃗) S⃗ ⟨inj m ⟨ı⃗⟩⟩ t`,
+typed by the Π-tower congruence "public minor `J`'s reading = the
+auxiliary minor `J`'s reading at `Mot := MotAV M⃗`" (the `ih` at
+`M_{m'} e⃗ f` matching `Mot ⟨inj m' e⃗⟩ f` by the computation law) and
+`nativeRecAVI_mem`; its rule law from `body_iota` and β of
+`T_{m'}.rec`'s leaf inside the inductive hypotheses.
+
+**Model tier (after).**  `MutualData` (the readings of the stored
+formers, constructors and recursors into the spellings above:
+`FixCtorReads` with the recursive entry at the TARGET member's leaf —
+the member leaf applied, β-reduced to the auxiliary fibre;
+`mutualRecTy` reads to `mutualRecDataAV` — the k-motive twin of
+`fixRecDataAV`), the stages (`stageMutualFormers`: k conses with
+`mutualTyAVI` leaves; the constructor loop; `stageMutualRecs`;
+tables), `declMutual` (exposing every member's leaf: R1/#280's (L)),
+the fold's arm, the cached bridge (`checkMutualS_run`/`_skels`, Opus,
+in progress) and the run relation/inversions (`DeclMutualRun`, Opus,
+in progress).
