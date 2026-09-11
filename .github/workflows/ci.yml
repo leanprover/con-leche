@@ -12,7 +12,7 @@
 #                    six `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
-#   tests/arena.sh   the standard battery, which is itself eight gates
+#   tests/arena.sh   the standard battery, which is itself nine gates
 #                    plus four suites:
 #                      * tests/layering.sh       import fence
 #                      * tests/proofdeps.sh      proof-term module pin
@@ -33,6 +33,18 @@
 #                                                tests/shake-allowlist.txt,
 #                                                and `public import`
 #                                                demotability (task #235)
+#                      * tests/challenge.sh      the Comparator pair
+#                                                (task #281): the
+#                                                challenge module builds
+#                                                with its sorry warnings
+#                                                and nothing else, and
+#                                                every comparator.json
+#                                                name has a
+#                                                token-identical
+#                                                statement in challenge
+#                                                and solution — nothing
+#                                                else in the battery
+#                                                builds that module
 #                      * the axiom pin (as the `axioms:` line)
 #                      * the vendored arena tutorial snapshot
 #                        (tests/arena/lean-arena-tests.tar.gz — pinned

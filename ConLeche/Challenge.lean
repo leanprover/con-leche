@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Installed
 public import ConLeche.Kernel.Basis.Names
 public import ConLeche.SetTheory.Core
 public section

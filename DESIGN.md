@@ -68081,3 +68081,54 @@ task.
 line-anchored from OVERVIEW, README links it without an anchor.  Docs,
 data and one renderer's prose only: no `.lean` changed, so the binary
 measured is master's.
+
+## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
+
+**The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
+Comparator pair (task #183's record above) — did not build on master.
+`lake build ConLeche.Challenge` failed with *"Unknown constant
+`ConLeche.Cached.checkDecls`"*: the module imported
+`ConLeche.Cached.ParsedC`, and `checkDecls` left that module at task
+#257 (`59400685`, 2026-09-09, "checkDecls is the two-phase fold"), which
+moved it to `ConLeche/Cached/Installed.lean`.  The fix is the one import
+line, `public import ConLeche.Cached.Installed`; the statement, the
+docstring and `comparator.json` are unchanged.
+
+**Why nobody noticed for two days.**  Everything that made the module a
+TCB dead end also made it invisible: it is not in `defaultTargets`, so
+`lake build` never builds it; nothing in the tree imports it, so no
+other target pulls it in; `lake test`, the layering, proofdeps,
+trust-surface, shake and link gates all read it (or its *source*) without
+ever elaborating it.  The module's only reader was Comparator, run by
+hand — and Comparator only compares statements it can build, so the
+failure mode is a submission that reports a build error rather than a
+mismatch.
+
+**The gate** — `tests/challenge.sh`, in `tests/arena.sh` next to
+`tests/no-local-paths.sh`, and listed in the CI workflow's gate header
+(the battery is nine gates now).  Two checks, seconds on a built tree:
+
+1. `lake build <challenge_module>` succeeds and its only diagnostics are
+   “declaration uses `sorry`” warnings.  Lake *replays* a cached
+   module's log, so the warning appears on a warm tree too and the check
+   is not vacuous there.
+2. every name in `comparator.json`'s `theorem_names` (and
+   `definition_names`, empty today) gets a `#check @name` under
+   `pp.universes`/`pp.explicit`/`pp.proofs` from a probe file importing
+   the challenge module and from one importing the solution module, and
+   the two outputs are diffed — the method #183's record used by hand,
+   and what Comparator itself compares.  The module names and the name
+   list are read out of `comparator.json`, so the registry file stays
+   the single source of truth.
+
+Both directions were tested before landing: with the stale import
+restored the gate fails at step 1; with a binder renamed in the
+challenge's statement it fails at step 2 with the diff.
+
+What the gate deliberately leaves alone: the challenge's *import
+closure* (no `Verify/*`, no `Model/*`) is `tests/layering.sh`'s
+base-purity clause, which classifies `ConLeche/Challenge.lean` as base,
+and the `sorry` itself stays a one-token entry in
+`tests/trust-surface.sh`'s allowlist.  `lakefile.toml`'s comment on the
+`ConLecheChallenge` library now says that this gate is the one thing
+that builds it.
