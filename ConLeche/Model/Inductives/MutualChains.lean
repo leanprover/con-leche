@@ -1144,7 +1144,7 @@ theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTe
 /-- **The constructor leaf's premise** (`MkPreS`) at a mutual block:
 `ctorWalksGen`'s parameter walk with the ONE tagged index expression —
 the fibre fold is `mutualCtorFold`. -/
-theorem mutualCtorMkPre {m : EnvModel V env} {nP nF J w : Nat}
+theorem mutualCtorMkPre {nP nF J w : Nat}
     {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
     {Fss Ess' : List (List AnnotTerm)} {Es' : List AnnotTerm}
     (hlenDs : ds.length = nP + nF)
