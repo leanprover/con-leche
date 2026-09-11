@@ -68504,3 +68504,113 @@ estimate drops** by the `defn_reads` bridge (§6 item 4): `mem` needs
 the bridge on stored TYPES only, and `ConstWF`'s type clauses supply
 the closedness — 2 sessions rather than 2–3.  `Model` stays the name
 unless the maintainer says otherwise (§2.5).
+
+### 10. Readability aliases, and the EVALUATION of a semantic premise on the Prop regime (2026-09-11, stage 1 continues)
+
+**Aliases (landed, `5e26facb`).**  `abbrev LevelParam := Name`,
+`abbrev BVarIdx := Nat` in `Denotes.lean`, used throughout the
+statement (`cval : Name → (LevelParam → Nat) → V`, `φ : LevelParam →
+Nat`, `ρ : BVarIdx → V`, `push`, the `bvar` rule).  `abbrev`, not
+`def`: reducible, so a `φ : LevelParam → Nat` is accepted where the
+checker's `PropWhen.holds`/`Level.eval` want `Name → Nat` with no
+unfolding, and stage 2's `regime = pwBit` / `push = cons` stay `rfl`;
+a `def` would need `unfold` at every such site and could block
+instance resolution.  The alias names still print in the statements,
+which stay byte-identical across the two modules.
+
+**The proposal (maintainer): cover the annotation pass.**  `Denotes`
+reads stored, annotated types, and the annotation enters only at
+`regime φ m.pw`; make regime `0` carry the SEMANTIC premise "the body
+really denotes a truth value", so a binder annotated as a proposition
+denotes only if the annotation is right, and `mem` — which demands a
+derivation of every stored type at every `φ` — certifies every Prop
+annotation in every stored type.  Assessed, NOT implemented:
+
+**(a) Rule shapes.**  Two changes, the second forced by the first:
+
+    | pi  (hA : Denotes ρ ty A)
+         (hB : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (B x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) :
+         Denotes ρ (.forallE ty body m) (piR (regime φ m.pw) A B)
+    | lam (hA : Denotes ρ ty A)
+         (hF : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (F x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → F x = pt) :
+         Denotes ρ (.lam ty body m) (lamR (regime φ m.pw) A F)
+
+* The body derivations must be asked **only on the domain** (`x ∈ˢ A`),
+  not for every `x : V` as now: the invariant's sort facts are
+  hereditary over the domain only (`AnnotValid`'s pi clause quantifies
+  `∀ x, x ∈ˢ interp A → …`), so a derivation of the body at junk
+  `x ∉ A` could not discharge an inner binder's premise.  This is the
+  more natural rule anyway (`piR`/`lamR` read `B`/`F` only on `A`).
+* `lam` needs it too, symmetrically: a λ's `pw` says "the body is a
+  proof", and the reading `lamR 0 = pt` ignores the body; the true
+  fact is that the body denotes `pt` on the domain (the body's type is
+  a truth value, so its only inhabitant is `pt`).  Only λs inside
+  stored TYPES are covered by `mem` (values are not read), but the rule
+  should not distinguish.
+* There is no domain annotation to certify: `BinderMeta` carries only
+  `pw` (the body's prop-ness); `denoteMeta`'s `.pi 0 v` first slot is
+  a dummy.
+
+**(b) Reading unchanged, functionality survives.**  The premises are
+hypotheses only; the conclusion's value is the same `piR`/`lamR`.  A
+wrong annotation removes a derivation, never changes a value.
+`Denotes_functional`'s binder cases change from `funext` to
+`piR_congr`/`lamR_congr` (agreement on the domain suffices, both in
+`SetModel/Ops.lean`) — same length.
+
+**(c) Discharge in stage 2 and cost.**  `EnvModelM.type_wellDenotedV`
+gives, for every stored type's reading `ta` and every `ρ`,
+`WellDenotedV V ρ ta = WellDenoted V ρ ta ∧ AnnotValid V ρ ta`
+(`Model/Claims.lean`); `AnnotValid`'s pi clause IS the `pi` premise
+(`v = 0 → ∀ x ∈ˢ ⟦A⟧, ⟦B⟧ₓ ∈ˢ univZero`, `Model/Annot/Valid.lean`), and
+`WellDenoted`'s lam clause gives the `lam` premise (`∃ B, (∀ x ∈ A,
+⟦b⟧ₓ ∈ B x) ∧ (v = 0 → ∀ x ∈ A, B x ∈ univZero)`, hence
+`⟦b⟧ₓ = pt` by `eq_pt_of_mem_univZero`).  So the bridge
+`Denotes_of_denoteMeta` takes one extra hypothesis `WellDenotedV V ρ
+ta`, threads it hereditarily (both predicates are structural over the
+domain — which is why the rules must restrict to the domain), and the
+two binder cases each gain ~5 lines; `Model.ofEnvModelM` passes
+`type_wellDenotedV`.  Added cost: ~30 lines, no new invariant, no
+model change.  (Note `regime`'s `0` is `pwBit`'s `0`, so the numerals
+line up by `rfl`.)
+
+**(d) The other direction — a real proposition annotated as a type —
+needs nothing, CONFIRMED against `piR`/`lamR`.**  Inhabitation of
+`piR v A B` is regime-independent: at `v = 0` it is `truthVal (∀ x ∈
+A, ∃ y ∈ B x)`, inhabited iff that holds (`of_mem_truthVal`,
+`pt_mem_truthVal`); at `v ≠ 0` it is `piSet A B`, the total
+single-valued graphs over `A` into the fibres (`mem_piSet`) —
+inhabited iff every fibre is (a member is total, so each fibre has a
+value; conversely choose `F x ∈ B x` classically and `graph F A ∈ˢ
+piSet A B` by `graph_mem_piSet`).  By induction down the binders a
+stored theorem `t : ∀ x₁ … xₙ, Q` has `cval t φ ∈ˢ ⟦type⟧` iff every
+leaf `⟦Q⟧` is inhabited on the domains, whichever regime each binder
+was read in; a leaf that is a truth value is then `{pt}`, i.e. true.
+The impredicative case is no exception: `∀ p : Prop, p → p` read at
+regime `1` is `piSet (univ 0) (fun p => …)` — a legitimate set
+(`piSet` is built from `power`/`sep`, no size condition), inhabited iff
+each `p → p` is.  A domain that is a proposition is fine too
+(`piR v ∅ B = {∅}` or `{pt}`: vacuous truth in both regimes).  So a
+theorem's truth does not depend on that direction, as the maintainer
+argued; only the `Prop → really Prop` direction matters for
+`false_empty`-style consistency reading, and that is the premise.
+
+**Why not annotation-free (regime decided semantically both ways)?**
+Because the checker's notion of proposition is not "fibres ⊆ {pt}":
+`PUnit : Type` denotes `unitSet = {pt}`, so `A → PUnit` has truth-value
+fibres yet is a TYPE to the checker — its inhabitants are graphs, its
+λs are graphs, and the invariant's λ-values follow the annotated
+regime (`lamR v` with `v` the annotation, `WellDenoted`'s lam clause).
+A value-inspecting regime is exactly the domain-relative collapse
+`piC`/`lamC` that task #151 removed: it changes the reading (empty
+domains, `pt ∈ piC A (fun _ => univ 0)`) and produced the #100
+countermodel.  The semantic PREMISE strengthens the statement without
+touching the reading; a semantic DECISION would change the reading
+and re-open the tier.
+
+**Recommendation.**  Adopt (a)–(c): the statement gains "every Prop
+annotation in every stored type is right" at ~30 lines of proof, the
+rules become the natural domain-restricted ones, and nothing else
+moves.  The maintainer decides; not implemented in stage 1.
