@@ -230,24 +230,32 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
 
-/-- `mutualFormers` through the index with the driver's flush at every
-member: each member's former is checked at the index holding the
-earlier ones, and the memo invariant is re-established there (the
-`provisionRecsS` arrangement).  The pure comparand is `mutualFormers`
-unchanged. -/
-def mutualFormersS (nP : Nat) : List (ConstantVal × Nat) → FEnv →
-    CheckCM (FEnv × List MutualFormerA)
-  | [], fe => pure (fe, [])
-  | (cv, nIdx) :: rest, fe => do
-    flushC
+/-- `mutualFormerChecks` through the index: EVERY member's former is
+checked at the block's starting index, so the whole stage runs at ONE
+environment and needs no flush of its own (`mutualFormersS` flushes
+once before it).  The pure comparand is `mutualFormerChecks`. -/
+def mutualFormerChecksS (fe : FEnv) (nP : Nat) : List (ConstantVal × Nat) →
+    CheckCM (List MutualFormerA)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
     let cvTa₀ ← checkConstantValF (sharedOpsC mode fe) fe cv
     let (cvTa, s) ← checkSumTeleF (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let (fe', fs) ← mutualFormersS nP rest (fe.push (.indInfo cvTa {}))
-    pure (fe', ⟨cvTa, nIdx, s⟩ :: fs)
+    let fs ← mutualFormerChecksS fe nP rest
+    pure (⟨cvTa, nIdx, s⟩ :: fs)
+
+/-- `mutualFormers` through the index: ONE flush entering the stage
+(the driver's environment changed before it), the checks at that one
+index, the conses afterwards — no operation runs between an
+environment change and a flush. -/
+def mutualFormersS (nP : Nat) (formers : List (ConstantVal × Nat)) (fe : FEnv) :
+    CheckCM (FEnv × List MutualFormerA) := do
+  flushC
+  let fms ← mutualFormerChecksS mode fe nP formers
+  pure (consMutualFormersF fms fe, fms)
 
 /-- `checkMutualCore` through the index (task #278): the stages at the
 index's environment, one flush per environment transition. -/

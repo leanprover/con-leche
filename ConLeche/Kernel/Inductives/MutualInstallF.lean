@@ -19,19 +19,31 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- `mutualFormers` through the index. -/
-def mutualFormersF (ops : FEnv → CheckerOps m) (nP : Nat) :
-    List (ConstantVal × Nat) → FEnv → m (FEnv × List MutualFormerA)
-  | [], fe => pure (fe, [])
-  | (cv, nIdx) :: rest, fe => do
+/-- `mutualFormerChecks` through the index: every former checked at
+the pre-block index. -/
+def mutualFormerChecksF (ops : FEnv → CheckerOps m) (fe : FEnv) (nP : Nat) :
+    List (ConstantVal × Nat) → m (List MutualFormerA)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
     let cvTa₀ ← checkConstantValF (ops fe) fe cv
     let (cvTa, s) ← checkSumTeleF (ops fe) fe cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let (fe', fs) ← mutualFormersF ops nP rest (fe.push (.indInfo cvTa {}))
-    pure (fe', ⟨cvTa, nIdx, s⟩ :: fs)
+    let fs ← mutualFormerChecksF ops fe nP rest
+    pure (⟨cvTa, nIdx, s⟩ :: fs)
+
+/-- `consMutualFormers` through the index. -/
+def consMutualFormersF : List MutualFormerA → FEnv → FEnv
+  | [], fe => fe
+  | f :: fs, fe => consMutualFormersF fs (fe.push (.indInfo f.cvTa {}))
+
+/-- `mutualFormers` through the index. -/
+def mutualFormersF (ops : FEnv → CheckerOps m) (nP : Nat)
+    (formers : List (ConstantVal × Nat)) (fe : FEnv) : m (FEnv × List MutualFormerA) := do
+  let fms ← mutualFormerChecksF ops fe nP formers
+  pure (consMutualFormersF fms fe, fms)
 
 /-- `normCtorValM` through the index. -/
 def normCtorValMF (ops : CheckerOps m) (fe : FEnv) (memberNames : List Name) (nP nF : Nat)
