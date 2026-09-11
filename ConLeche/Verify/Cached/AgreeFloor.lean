@@ -1315,19 +1315,23 @@ private theorem foldl_zipIdx_congr {α β γ : Type} [Inhabited α] [Inhabited �
         simpa only [List.getD_cons_succ] using hs
 
 /-- The formers' stage: one `.ind` per member, at the declared name,
-and the checked formers carry the declared names and index counts. -/
-theorem mutualFormersF_skels (ops : FEnv → CheckerOps CheckCM) (nP : Nat) :
+and the checked formers carry the declared names and index counts.
+The fold flushes at every member (the next member's operations run at
+the extended index). -/
+theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat) :
     ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
-      Yields (mutualFormersF ops nP fs fe)
+      Yields (mutualFormersS mode nP fs fe)
         (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
           r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
   | [], fe, sk, h => by
-      unfold mutualFormersF
+      unfold mutualFormersS
       exact Yields.pure ⟨h, rfl⟩
   | (cv, nIdx) :: fs, fe, sk, h => by
-      unfold mutualFormersF
-      refine Yields.bind' (checkConstantValF_name (ops fe) fe cv) fun cvTa₀ hn₀ => ?_
-      refine Yields.bind' (checkSumTeleF_name (ops fe) fe cv (nP + nIdx) cvTa₀) fun r hn => ?_
+      unfold mutualFormersS
+      ybind
+      refine Yields.bind' (checkConstantValF_name (sharedOpsC mode fe) fe cv) fun cvTa₀ hn₀ => ?_
+      refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
+        fun r hn => ?_
       obtain ⟨cvTa, s⟩ := r
       have hn' : cvTa.name = cv.name := by
         rcases hn with h1 | h1
@@ -1339,7 +1343,7 @@ theorem mutualFormersF_skels (ops : FEnv → CheckerOps CheckCM) (nP : Nat) :
       case isFalse => exact Yields.ofThrowBind
       case isTrue =>
       refine Yields.bind'
-        (mutualFormersF_skels ops nP fs (h.push (.indInfo cvTa {}))) fun q hq => ?_
+        (mutualFormersS_skels mode nP fs (h.push (.indInfo cvTa {}))) fun q hq => ?_
       obtain ⟨fe', fms⟩ := q
       obtain ⟨hq₁, hq₂⟩ := hq
       refine Yields.pure ⟨?_, ?_⟩
@@ -1554,9 +1558,7 @@ theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List Install
   unfold checkMutualCoreS mutualBlockSkels
   simp only []
   ybind
-  ybind
-  refine Yields.bind' (mutualFormersF_skels (fun fe => sharedOpsC mode fe) b.nP b.formers h)
-    fun r hr => ?_
+  refine Yields.bind' (mutualFormersS_skels mode b.nP b.formers h) fun r hr => ?_
   obtain ⟨fe₁, fms⟩ := r
   obtain ⟨h₁, hfms⟩ := hr
   simp only [] at h₁ hfms ⊢

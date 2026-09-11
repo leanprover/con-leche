@@ -668,17 +668,19 @@ theorem mutualShapeOk_nodup (b : MutualBlock) :
 
 /-- The formers' fold is a fresh chain: each member is checked at the
 index it is pushed onto. -/
-theorem mutualFormersF_push (ops : FEnv → CheckerOps CheckCM) (nP : Nat) :
+theorem mutualFormersS_push (mode : CheckMode) (nP : Nat) :
     ∀ (fs : List (ConstantVal × Nat)) {env : Env} {fe : FEnv}, PushChain env fe →
-      Yields (mutualFormersF ops nP fs fe) (fun r => PushChain env r.1)
+      Yields (mutualFormersS mode nP fs fe) (fun r => PushChain env r.1)
   | [], _, _, h => by
-      unfold mutualFormersF
+      unfold mutualFormersS
       exact Yields.pure h
   | (cv, nIdx) :: fs, env, fe, h => by
-      unfold mutualFormersF
-      refine Yields.bind' (checkConstantValF_fresh (ops fe) fe cv) fun cvTa₀ h₀ => ?_
+      unfold mutualFormersS
+      ybind
+      refine Yields.bind' (checkConstantValF_fresh (sharedOpsC mode fe) fe cv) fun cvTa₀ h₀ => ?_
       obtain ⟨hn₀, hfr⟩ := h₀
-      refine Yields.bind' (checkSumTeleF_name (ops fe) fe cv (nP + nIdx) cvTa₀) fun r hn => ?_
+      refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
+        fun r hn => ?_
       obtain ⟨cvTa, s⟩ := r
       have hn' : cvTa.name = cv.name := by
         rcases hn with h1 | h1
@@ -689,7 +691,7 @@ theorem mutualFormersF_push (ops : FEnv → CheckerOps CheckCM) (nP : Nat) :
       split
       case isFalse => exact Yields.ofThrowBind
       case isTrue =>
-      refine Yields.bind' (mutualFormersF_push ops nP fs (env := env)
+      refine Yields.bind' (mutualFormersS_push mode nP fs (env := env)
         (h.push (ci := .indInfo cvTa {})
           (by show fe.find? cvTa.name = none; rw [hn']; exact hfr))) fun q hq => ?_
       obtain ⟨fe', fms⟩ := q
@@ -854,9 +856,7 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   unfold checkMutualCoreS
   simp only []
   refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_
-  ybind
-  refine Yields.bind' (mutualFormersF_push (fun fe => sharedOpsC mode fe) b.nP b.formers h)
-    fun r h₁ => ?_
+  refine Yields.bind' (mutualFormersS_push mode b.nP b.formers h) fun r h₁ => ?_
   obtain ⟨fe₁, fms⟩ := r
   simp only [] at h₁ ⊢
   ybind
