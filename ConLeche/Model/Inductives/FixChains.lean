@@ -1,7 +1,8 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixShadow
-public import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixFamI
 public section
 
 /-!
@@ -36,8 +37,6 @@ variable {V : Type w'} [SetTheory V]
 
 /-! ## Kit -/
 
-/-- The recursive positions as the functor's Bool list. -/
-@[expose] def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
 
 omit [SetTheory V] in
 theorem rsOf_getD {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :

@@ -161,6 +161,21 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
     denoteMeta_falseRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    (hreps := fun m₂ hac cvR mI rP rules hc T hT => by
+      injection hc with h1 h2 h3 h4
+      subst h1 h2 h3 h4
+      have hT' : T = falseName := by
+        have h := hT
+        simp only at h
+        exact (Name.str.inj h).1.symm
+      subst hT'
+      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ .zero,
+        ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
+      refine indRep_zeroCtor (cvT := ⟨falseName, [], .sort .zero⟩) m₂ .zero rfl rfl
+        (fun _ _ _ => rfl) fun ψ ρ => ?_
+      rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
+        (c := .empty) (us := [0]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
+      rfl)
     (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

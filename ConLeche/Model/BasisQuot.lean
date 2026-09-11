@@ -769,6 +769,10 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
     denoteMeta_quotIndA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) ψ hQ hM
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := fun _ _ cvR _ _ _ hc T hT => by
+      injection hc with h1
+      rw [← h1] at hT
+      simp at hT)
     (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -2235,6 +2239,10 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
       pwBit ψ (ConLeche.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ vN
   refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+    (hreps := fun _ _ cvR _ _ _ hc T hT => by
+      injection hc with h1
+      rw [← h1] at hT
+      simp at hT)
     (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

@@ -1,7 +1,9 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRuleData
 public import ConLeche.Model.Inductives.FixRuleOk
+public import ConLeche.Model.Inductives.FixRep
 import ConLeche.Model.Inductives.FixRecLeaf
 import ConLeche.Semantics.Tower.FixWire
 public section
@@ -33,23 +35,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The semantic data of a block -/
 
-/-- The constructors' field lists. -/
-@[expose] def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AnnotTerm) :=
-  cds.map fun cd => (cd.2.2.1.drop nP).map (·.2.2)
-
-/-- The constructors' index readings. -/
-@[expose] def essOfR (cds : List CtorDatumR) : List (List AnnotTerm) := cds.map fun cd => cd.2.2.2.1
-
-/-- The constructors' per-field index expressions. -/
-@[expose] def eissOfR (cds : List CtorDatumR) : List (List (List AnnotTerm)) := cds.map fun cd => cd.2.2.2.2.2.1
-
-/-- The per-constructor telescopes (task #202). -/
-@[expose] def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
-  cds.map fun cd => cd.2.2.2.2.2.2
-
-/-- The recursive flags of the first `n` constructors. -/
-@[expose] def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
-  (List.range n).map fun j => rsOf (ksF j)
 
 omit [SetTheory V] in
 theorem fssOfR_getElem? (nP : Nat) (cds : List CtorDatumR) (j : Nat) :
@@ -669,7 +654,13 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValid V (consList bs ρp) E))
-    (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2) :
+    (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2)
+    -- the representation clause's inputs (task #280): the `Prop` bit and
+    -- the leaf's chains against the real readings, off the recursive
+    -- positions
+    (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
+    (hagree : ∀ ψ, AgreeOffRecs (rssOfK ksF ctorsA.length) (fssZ ψ)
+      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))) :
     ∃ (sAV : (Name → Nat) → Nat)
       (mp' : EnvModelM V μ ⟨.recInfo cvRa mI rP (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩),
@@ -1095,6 +1086,34 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     show cvRa.name.isProjFnShape = false
     rw [hRname]; exact hpshape
   refine ⟨sAV, ?_⟩
+  -- the representation clause (task #280): the recursor claims its block
+  have hreps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → IndRepsHead env c₀ m₂ := by
+    intro m₂ hac cvR' mI' rP' rules' hc T hT
+    have hc' : ConstantInfo.recInfo cvRa mI rP
+        (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
+        = .recInfo cvR' mI' rP' rules' := hc
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc'
+    have hT' : T = p.cvT.name := by
+      have hpin := (ConLeche.checkNativeRec_pins hRec).1
+      rw [hRname, hpin] at hT
+      exact (Name.str.inj hT).1.symm
+    subst hT'
+    refine Or.inl ⟨cvTa, caps,
+      fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll uAV,
+      ConLeche.Env.find?_cons_of_fresh hfresh hfT, ?_⟩
+    have hlenR : rhss.length = ctorsA.length := by
+      have := (ConLeche.checkNativeRec_facts hRec).2.2.2.1
+      rw [this, ConLeche.nativeCtors4, List.length_zipWith, hlenK, Nat.min_self]
+    have hcrossE : ConsCrossEnv env c₀ := ConsCrossEnv.ofNtc (fun tbl h => by
+      have h' : ConstantInfo.recInfo cvRa mI rP
+          (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
+          = .projInfo tbl := h
+      exact nomatch h')
+    exact (indRep_of_stage mp.base2 hmI hrP hlenR hstripT hProp hlpsT hFD hcf hidxRes _hUparams
+      hleafT hagree hleafC hiff
+      (fun ψ ρp hρ => ⟨(hframes ψ ρp hρ).1, fun j hj => ((hframes ψ ρp hρ).2.2.1 j hj).1⟩)).cross
+      (c₀ := c₀) hfresh hcrossE hfT m₂ hac
   refine declStep_preserves_of_ind_rec_cons mp (c₀ := c₀) (A := A) hfresh hnresC ⟨_, _, _, _, rfl⟩
     (ConsHead.ofFresh hwf (fun ψ => hAcl ψ) hnresC
       (fun _ h => nomatch h)
@@ -1106,7 +1125,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         exact ⟨⟨cA.1, p.nP, cA.2, hf⟩, fun hb => hb, fun hb => hb⟩))
     (fun ψ k => AnnotTerm.liftN_eq_self _ (Term.bvarsBelow.mono (Nat.zero_le k) (hAcl ψ)) 1)
     hAparams (fun ψ ρ => (hleafF ψ ρ).1.1) (fun ψ ρ => (hleafF ψ ρ).1.2) (fun ψ => ⟨_, hreadR ψ⟩)
-    ?_ ?_ ?_ ?_
+    ?_ ?_ ?_ ?_ hreps
   · intro ψ ta hta ρ
     obtain rfl := Option.some.inj ((hreadR ψ).symm.trans hta)
     exact hRD.okTy ψ ρ

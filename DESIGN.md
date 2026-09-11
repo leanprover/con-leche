@@ -68946,3 +68946,1645 @@ branch `inductives` (worktree `.claude/worktrees/inductives`, from
 INTO `inductives`, never into master.  `master` keeps being merged
 into this branch for unrelated changes; when #280 lands on
 `inductives`, `inductives` is merged here to pick up the clause.
+## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
+
+**The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
+should propose how to handle nested inductives. I see a few options:
+(A) tracking positivity information on all installed inductives, an
+invariant that the type as a functor is monotone (so that we can
+include it in the construction), build from that; (B) proving,
+syntactically, that the current modelling translation will always work
+(so can be skipped); (C) implementing something like
+[Lamiaux–Forster–Sozeau–Tabareau, PLDI 2026]."*  Standard: the user
+ruling of 2026-09-07 — universal coverage, no shortcuts, no restriction
+beyond the official kernel's.  Context: task #278 is making MUTUAL
+blocks native on the fixpoint route; the aim is to drop the modelled
+lanes completely.
+
+**Sources read.**  The paper in full: *Nested Inductive Types:
+Justified and Usable Nested Inductive Types in Lean and Rocq*, HAL
+`hal-05366368v2` (30 pp., the authors' preprint; the ACM page was not
+needed) and its Zenodo artifact `10.5281/zenodo.19072804`
+(`generating_eliminators-submission.zip`: a MetaRocq formalisation —
+`Positivity_condition.v`, `Nested_to_mutual.v`, `typing.v`,
+`RoseTree.v` — and a Rocq plugin; **no Lean code**).  Official's
+`src/kernel/inductive.cpp` at v4.33.0 (the local checkout) and at
+v4.34.0-rc2 (the arena's reference; one addition, §2.3).  The project:
+OVERVIEW §4/§5, DESIGN #188/#200/#207/#210/#227, `Frontend/InModel/*`,
+`Kernel/Inductives/*`, `SetModel/Container.lean`,
+`SetTheory/Derive/LfpFam.lean`, `Semantics/Tower/FixLeafI.lean`,
+`Model/Annot/EnvModel.lean`, `Verify/EnvWF.lean` (the `ConstWF`
+nested-rule clause).  Probes: 31 blocks elaborated against the official
+kernel (`_tmp/nested-279/probes/shapes{,2,3}.lean`, Lean 4.33.0), the
+arena's two nested tests through official v4.33.0 and through the
+master binary, and a census script that SIMULATES official's
+elimination (`_tmp/nested-279/nested_census.py`).
+
+### 0. The one-paragraph answer
+
+Nested blocks should go through **official's own nested→mutual
+elimination, mirrored in the kernel, feeding task #278's native mutual
+installer** — option (C)'s *mechanism* with official's *criterion*, not
+the paper's — and the model tier should prove the thing the paper says
+type theory cannot give definitionally: that the auxiliary copy of a
+container at its pins **is, as a set, the container's own denotation at
+those pins** (Bekić's lemma for least fixed points, plus
+compositionality of the interpretation).  The only new stored fact is
+the one option (A) asks for, in a cheaper shape: not "the functor is
+monotone" but **"every stored inductive's leaf is the least fixed point
+of the functor spelled from its stored constructor types"** — a clause
+of the existing `EnvModel` (three construction sites in the whole
+tree), from which monotonicity and container-ness follow.  Option (B)
+is a completeness statement about the checker and does not exist in
+this architecture; done semantically it *is* the model theorem above,
+and then the generated declarations are not needed at all.  The
+recommendation is (C′) below; it sequences directly after #278, needs
+four things from #278 named in §5.6, deletes the modeller, the modeled
+route and its tier (≈ 3.6 k lines of checker/frontend, ≥ 7.7 k lines of
+verification), closes today's two coverage gaps (nesting under a
+binder, the docketed index-domain frame bug), and reaches exactly
+official's accept set including the v4.34.0-rc2 addition.
+
+### 1. Where nested blocks stand today
+
+* **Route.**  The recogniser (`ExportC`, since #219) sends a block with
+  several type formers or several recursors to the in-process modeller
+  (`Frontend/InModel/{Kit,Mutual,Nested}.lean`, 2 388 lines, `Nested`
+  1 319): it READS the kernel's nested→mutual reduction off the
+  exported recursor family (motives = members and mimics, minors =
+  their constructors, `ih` binders = which fields recurse where),
+  builds a tag enumeration and one auxiliary indexed family, and emits
+  pack/unpack isomorphisms per mimic with `Eq.rec` transports, the
+  `_model` slots, the `iota_j` theorems and `proj_i` artifacts — 30
+  generated records for `Lean.Syntax`, 2 168 for Mathlib's 51
+  mutual/nested blocks.  Every record is checked by the fold as a
+  declaration; the block then installs through the modeled route
+  (`Kernel/Inductives/Modeled.lean`, 837 lines), whose mimic recursor
+  rules are stored `.nested lvls pins` (`RecRuleFire`, `Env.lean`) and
+  certified by `nestedRuleShape`; `ConstWF` already carries the
+  syntactic clause for such rules (`Verify/EnvWF.lean`, the `∀ lvls
+  pins, fire = .nested …` conjunct); the model tier's laws for them are
+  `Model/IndNestedParam`, `IndBottomNested`, `IotaRuleNested` (2 540
+  lines), stated over the `_model` renaming.
+* **Declines today** (`Nested.lean`'s header): a nested occurrence
+  under a binder (`(Nat → List T) → T` — official ACCEPTS, probe P1;
+  `(Nat → Array T) → T` accepted with a pointwise `ih`, probe P31); a
+  container that is itself nested/mutual or whose mimics form a cycle
+  (B4 — closed for Mathlib's cone: 51/51 model); a reflexive member; a
+  `Prop` block with a large eliminator (VACUOUS: official gives a
+  nested `Prop` block the small eliminator only, §2.2); a container
+  field a later field depends on; an index sort no ceiling bounds.
+* **The docketed wrong verdict** (#227 §4): a nested block whose index
+  DOMAIN mentions a parameter (`NB (α) (a₀ : α) : α → Type` nesting
+  through `List`) is REJECTED by a frame bug in the generated
+  `_impl.rec`, where official accepts (probe P7 confirms).
+* **What the native route does at a nested field**:
+  `classifyFixKinds` throws `.notImplemented "direct rec: a nested
+  occurrence of the block (not modeled here)"` — a positive decline the
+  recogniser never reaches, because it routes on the record's shape.
+
+### 2. What the official kernel does (`inductive.cpp`)
+
+#### 2.1 `elim_nested_inductive_fn` — the algorithm, exactly
+
+Runs BEFORE `add_inductive_fn`, on the raw declaration.  Parameters
+`p⃗` are read off the first type's telescope (`d_nparams` Π binders;
+"incorrect number of parameters" otherwise).  A worklist over
+`m_new_types` (initially the block's types, growing with copies); for
+each type, for each constructor: strip the `nparams` leading Π binders
+(they are re-created per constructor to keep binder infos), then
+`replace_all_nested` on the rest — a TOP-DOWN `replace`: at every
+subterm first `replace_if_nested`, and only when it declines descend
+(`app`: function then argument; binders: domain then body; `let`:
+type, value, body; `mdata`, `proj`).  `is_nested_inductive_app e` holds
+iff `e` is an application whose head is a constant that is a STORED
+INDUCTIVE (`info->is_inductive()` — a definition unfolding to a
+container is NOT nested: probe P21 `MyList T` rejects with "non valid
+occurrence"), with at least `nparams(I)` arguments, some parameter
+argument mentioning a `m_new_types` constant (syntactic `find`; copies'
+names count, so `List (List T)` inside a copy is found again); if a
+parameter argument then has a loose bound variable the block is
+REJECTED ("nested inductive datatypes parameters cannot contain local
+variables" — probes P8/P9/P11: `Vector T n` with `n` a field, and even
+`Vector T 3`, because `Vector`'s `size_toArray : toArray.size = n`
+field nests `Eq` at a pin mentioning the local `toArray`).  The pin
+`I Ds` is canonicalised by abstracting the constructor's parameter
+fvars and re-instantiating the block's (`replace_params`), and looked
+up by STRUCTURAL equality in `m_nested_aux` (dedup; official's `==`
+ignores binder names, as our `Expr` does since #205).  On a miss, the
+WHOLE `all` group of `I` is copied: for each `J` in the group a fresh
+name `<block>._nested.<J>_<k>` (`mk_unique_name` against the
+environment; `k` a running counter), type `Π p⃗, J's type[params :=
+Ds]` at `I`'s level instantiation, constructors `Π p⃗, ctor[params :=
+Ds]` (names `J.c` re-prefixed to the copy); the copy's own nested
+occurrences are handled when the worklist reaches it.  The occurrence
+is replaced by `auxI p⃗ is` (the block's parameters, then the original
+INDEX arguments — `Vec T 3` becomes `Vec_aux p⃗ 3`, probe P25: the mimic
+is `Vec T` at ALL indices, motive `(a : Nat) → Vec T a → Sort`).
+Result: the auxiliary mutual declaration (`types ++ copies`, every
+constructor rewritten so that NO container application with a
+block-mentioning pin remains — pins survive only in `m_aux2nested`, for
+restoration), and `nnested = |m_aux2nested|`.
+
+`add_inductive_fn` then checks the auxiliary block as an ordinary
+mutual block — types checked in the PRE-block environment (so a pin
+that puts the block into a copy's type former fails "unknown
+constant": nesting through `Eq (T) x y` is impossible), "mutually
+inductive types must live in the same universe" (a `Type` block
+nesting through a `Prop` container rejects: probe P18 `Nonempty T`),
+positivity WITH whnf on the copied fields (dynamic: the copy of
+`DepB (b) (A) := cst : (if b then A else A → Bool) → DepB b A` at
+`b := false` is named in the error, probe P28; at `b := true` it
+reduces to `T` and passes — the paper's `depends_on_b`, §2.3 of the
+paper), universe bounds, index-occurrence, `elim_only_at_universe_zero`
+(`m_ind_types.size() > 1 ⇒ Prop` : **a nested `Prop` block always
+gets the small eliminator**, probes P13/P14, even with one
+constructor), `init_K_target` (never K).  Then the RESTORE
+(`restore_nested`): every `auxJ p⃗ is` back to `J Ds is`, every
+`auxJ.c p⃗` back to `J.c Ds`, in the constructor types, the recursor
+types and the rule right-hand sides; the block's types re-added with
+`all` = the ORIGINAL names and `nnested`; the recursors of the block's
+types under their own names, the copies' recursors as
+`<first type>.rec_1, rec_2, …` in `all` order (`mk_aux_rec_name_map`);
+rule constructor names restored (`List.cons`), `nfields`,
+`nparams/nindices/nmotives/nminors` the auxiliary block's.  Then two
+checks the copies would otherwise let escape: **every pin `I Ds` is
+type-checked in the new environment at the block's parameter context**
+(PR #14577, v4.32.2 — the arena's `nested-unused-param`: an ill-typed
+unused pin, disguised by a hash collision, yields `False`; official
+v4.33.0 rejects "invalid projection", master's modeller also rejects,
+at a generated record), and the restored constructor types, recursor
+types and rule right-hand sides are re-checked (PR #14621, "not
+necessary … added to catch bugs").  Input naming the `_nested` prefix
+is rejected up front (PR #14616, `check_no_nested_aux`).
+
+#### 2.2 Shapes official accepts and rejects (probe table, Lean 4.33.0)
+
+| # | shape | official |
+|---|---|---|
+| P1 | `mk : (Nat → List T) → T` — nesting under a binder in the field | accept |
+| P31 | `mk : (Nat → Array T) → T` — reflexive nested field, `ih : ∀ n, motive_2 (a n)` | accept |
+| P2/P22 | λ-pin `DMap Nat (fun _ => PT)`, `Tag (fun _ => List T)` | accept |
+| P26 | λ-pin with a USED variable `DMap Nat (fun k => Vec T k)`: minor keeps the redex `(v : (fun k => Vec T k) k)`, `ih : motive_3 k v` | accept |
+| P3 | chain `Array (List T)` (two copies, depth 2) | accept |
+| P4 | through a NESTED container (`TaggedText`-like) | accept |
+| P5 | through a MUTUAL container (`Ev`/`Od`, both copied) | accept |
+| P10 | through a REFLEXIVE container (`Str α := (Nat → Str α) → α → Str α`) | accept |
+| P25/P24 | through an INDEXED container at a closed index; mutual+nested+indexed members | accept |
+| P6/P13/P14 | `Prop` block through `And`; ≥ 1 constructors | accept, SMALL eliminator only |
+| P7 | index domain mentioning a parameter (`NB α a₀ : α → Type`, the docketed bug) | accept |
+| P20 | `{l : List T // True}` (Subtype, constant predicate) | accept |
+| P30 | universe-polymorphic block through `List` | accept |
+| P8/P11 | pin mentions a FIELD (`Vector T n`, `S T` with `v : Vector α n`) | reject: local variables |
+| P9 | `Vector T 3` (the `Eq` pin inside `Vector` mentions the local `toArray`) | reject: local variables |
+| P18 | `Type` block through a `Prop` container (`Nonempty T`) | reject: same universe |
+| P19 | `{l : List T // l.length > 0}` (`List.length l` at the copy's type) | reject: type mismatch |
+| P21 | `MyList T` with `def MyList := List` | reject: non valid occurrence |
+| P23 | `(List T → Nat) → T` | reject: non positive |
+| P28 | dynamic: `DepB false T` (copy's field whnf's to `T → Bool`) | reject: non positive, in the COPY |
+| arena `nested-unused-param` | ill-typed unused pin | reject (v4.33.0: invalid projection) |
+| arena `nested-nonuniform-param` | `E.mk : (w : W) → L (E ⟨false⟩) → E w` | v4.33.0 ACCEPTS (14 decls); v4.34.0-rc2 REJECTS (§2.3) |
+
+#### 2.3 The v4.34.0-rc2 addition: `check_uniform_ind_occs`
+
+The only nested-relevant difference between v4.33.0 and the arena's
+reference v4.34.0-rc2 (the tails of the two files diff in one line):
+`environment::add_inductive` first runs `check_uniform_ind_occs`, a
+syntactic walk over every constructor type: EVERY occurrence of a block
+name — inside pins, inside indices, anywhere — must be applied to
+exactly the block's parameters as the bound variables at the right
+offsets and to the block's universe parameters ("invalid occurrence of
+datatype … it must be applied to the parameters and universe levels of
+the mutual declaration"); over-applied occurrences are descended into
+so their indices are checked too.  This is what turns the arena's
+`nested-nonuniform-param` (outcome `either`) into a reject; the master
+binary accepts it (18 generated records).  Mirroring it is one walk
+(`recFamOk`'s shape, on every occurrence rather than every field).
+
+#### 2.4 What the paper adds to this picture
+
+*Criterion.*  A nested occurrence may nest only on **strictly positive
+parameters** of the container — parameters of arity `∀ X₀…Xₙ, Type`
+that occur strictly positively in the container's constructors, read
+off a syntactic **view** (`arg_is_cst / arg_is_ind / arg_is_sup /
+arg_is_nested`, §3.2); recursive occurrences may not appear in the
+domains of the binders under which nesting happens nor in indices;
+instantiations may be `fun llargs => arg` — nesting UNDER BINDERS
+INSIDE THE PIN with the binder used (`All (fun a => typing a
+return_type)`, where `return_type` is an earlier FIELD).  The mutual
+encoding (§3.1) strengthens the arguments before the nested one into
+indices of the copy (`↑args_g`) so that such pins are well-scoped, and
+positivity preservation is proved in MetaRocq (`pos_nested_to_mutual`).
+*Relation to official* — INCOMPARABLE: the paper accepts `All (fun a
+=> typing a return_type)` which official rejects (loose bound variable
+in a pin, P8's class); official accepts dynamic nesting
+(`DepB true T`, whnf on the copy) which the paper rejects on purpose
+("cannot decide positivity for future nestings purely syntactically").
+*Eliminators.*  Sparse parametricity: a predicate only for strictly
+positive parameters, the local fundamental lemma (Thm 4.1) proved by
+`fix`/`match`; the eliminator of the nested type is then a
+CONSERVATIVE extension of the usual one (same shape as for non-nested
+types: `rose_tree`'s `Pnode : ∀ l, list_ε (rose_tree A) P l → P (node
+l)`), and it is DEFINED from the mutual encoding's eliminator with
+transports along `All ≅ All_mut` — "the encoding of the nested
+eliminator verifies the computation rules only propositionally, or
+definitionally on closed terms" (App. E), "absolute certainty remains
+unattainable" for the encoding of eliminators.  *Implementation*: a
+MetaRocq plugin; two pull requests merged into Rocq 9.2 (eliminator
+generation given sparse parametricity; automatic sparse parametricity);
+for Lean, "an implementation plan" and a community library generating
+induction principles via sparse parametricity — elaborator level,
+nothing kernel-side, nothing exported.  *What it means here*: the
+paper's justification IS the mutual encoding, i.e. official's
+mechanism; its criterion is a different accept set and cannot be
+adopted (universal coverage); its eliminator shape is not the kernel's
+(`T.rec` with `motive_2 : List T → Sort` is what the stream carries and
+what must be reproduced); and its central difficulty — the eliminator
+of the encoding relates to the nested one only up to transport — is
+exactly what a SET model dissolves: `List_aux` and `List T` are the
+same set (§5.3), so the restored recursor is the auxiliary recursor
+with a respelled type, and the ι rules fire on the real `List.cons` by
+the existing `.nested` mechanism, no transport anywhere.
+
+### 3. The corpus
+
+`nested_census.py` parses a raw stream, simulates §2.1 (worklist,
+structural dedup, whole-group copies, the local-variable rule) and
+reports per block the copies with their pin shapes and creation depth.
+**Validation: the simulated mimic count equals the record's `numNested`
+on all 42 blocks (init-full 1, Mathlib 41), 0 mismatches.**
+
+* **init-full**: one nested block, `Lean.Syntax` (through `Array`, then
+  `List`: `numNested = 2`, depth 2), `Type`, large eliminator.
+* **Mathlib** (6 644 blocks; 38 nested + 3 mutual+nested; the 10 pure
+  mutual blocks are #278's): all 41 are `Type`-valued with a large
+  eliminator, all index-free (the two indexed blocks of the
+  mutual/nested census are pure mutual), no nesting under a binder, no
+  reflexive nested field, no later field depending on a nested one.
+  **132 copies of 22 containers**: `List` 43, `Array` 37, `Prod` 5,
+  `Option` 5, `Task` 4, `Lean.Widget.TaggedText` 4,
+  `Lean.Language.SnapshotTask` 3, `Std.TreeMap.Raw` /
+  `Std.DTreeMap.Raw` / `Std.DTreeMap.Internal.Impl` 2 each,
+  `Lean.Widget.StrictOrLazy` 2, its `Lean.Server.Test.Runner.Client`
+  twin 2, and one each of `PersistentHashMap.Entry`,
+  `PersistentArray`, `PersistentArrayNode`, `Doc.ListItem`,
+  `Doc.DescItem`, `Lsp.DocumentSymbolAux`, `Server.ServerTask`,
+  `Except`, `Elab.Term.Do.Alt`, `Elab.Term.Do.AltExpr`.  Of the 132
+  copies: 71 of non-recursive containers, 60 of structure-likes, **5 of
+  containers that are themselves nested** (`TaggedText` ×4 — the
+  `MsgEmbed` family — and `PersistentArrayNode` under `InfoTree`), 0
+  of mutual, reflexive or indexed containers.  **Pins**: 75 are the
+  block itself (`T p⃗`), 55 are a container application with the block
+  inside (chains: `Array (List T)`, `Option (SnapshotTask T)`, …), 4
+  are λ-pins (`Std.DTreeMap.Raw`'s `fun _ => …` value family under
+  `PrefixTreeNode`/`Json`), 10 are other closed terms (the `Ord`
+  comparison parameter of `TreeMap.Raw`, `Except`'s error type).
+  **Depth** (longest creation chain): 1 → 7 blocks, 2 → 16, 3 → 14, 4
+  → 4 (`InfoTree` 6 copies; `Cutsat.EqCnstr` 9 copies over a 12-member
+  mutual block; `Doc.Block` 8).  The three mutual+nested blocks:
+  `LCNF.Alt` (4 members, `Array`/`List`), `IR.Alt` (2, the same),
+  `Cutsat.EqCnstr` (12, `Array`/`Option`/`List`/`Prod`).
+* **Beyond the corpus, accepted by official** (§2.2): nesting under a
+  binder and reflexive nested fields (P1/P31), λ-pins with a used
+  variable (P26), indexed containers (P25/P24), reflexive containers
+  (P10), mutual containers (P5), `Prop` blocks through `And` (P6),
+  parameter-mentioning index domains (P7), dynamic nesting (P27/P28),
+  universe-polymorphic blocks (P30).  The design must take all of
+  them; §5.7 says how each is taken.
+
+### 4. The options
+
+#### 4.1 Option A — a stored monotone-functor fact, containers composed
+
+*What it is, in our terms.*  Each installed inductive `I` would carry a
+model-tier fact that its carrier, as a function of its parameters, is
+the least fixed point of a MEMBER CONTAINER functor (the `Container.lean`
+presentation: shapes, positions, targets), hence monotone in its
+strictly positive parameters.  A new block's family functor would then
+include a nested field `List (T p⃗)` as the container `⟦List⟧` composed
+with the family variable, `container_closed_exists` would be extended
+to composition (containers are closed under composition and under
+fixed points — Abbott–Altenkirch–Ghani 2004, the paper's reference
+[1]), `lfpFamSet` of the composed functor would be the carrier, and the
+recursor's recursion theorem (`RecGraph`) would need the composed
+positions: the recursion on a `List T` field descends through the
+list's own positions.  The datum: NOT an `IndCaps` bit (a `Bool` says
+nothing the proof can use) — a `Prop` about the leaf, i.e. a clause of
+`EnvModel` (three construction sites: `EnvModel.empty`, the cons in
+`Model/Install.lean`, `Model/Swap.lean`), or a `ConstWF` conjunct
+(syntactic, V-free — but container-ness is a semantic property of the
+leaf, so it cannot live there).  *What it cannot do as stated*: the
+stream's recursors are official's MUTUAL-ENCODING recursors — `T.rec`
+with a motive per mimic (`motive_2 : List T → Sort u`), `T.rec_1` a
+recursor ON `List T` whose rules fire on `List.nil`/`List.cons` — so
+the recursor generator, the rule generator and the recursion theorem
+must produce and justify the mutual shape anyway; a "nested functor"
+model would have to derive `T.rec_1` (a function on `⟦List⟧ T*` defined
+by recursion over lists whose elements recurse through `T.rec`) from
+the composed fixed point: a NEW recursion theorem for composed
+containers, on top of the existing `RecGraph` one.  *Verdict*: the
+STORED FACT is right and is adopted below in a cheaper form (§5.4); the
+CONSTRUCTION duplicates what #278's mutual model already gives.  Cost
+if pursued as stated: the mutual route's kernel work (recursor
+generation for the mimic shape) plus 3–4 Fable sessions of new
+container/recursion theory.  Not recommended.
+
+#### 4.2 Option B — a once-and-for-all syntactic proof of the modeller
+
+*What "correct" would have to say.*  Either (B1) "for every block
+official accepts, the fold ACCEPTS the modeller's generated records"
+— a COMPLETENESS statement about `checkDecls` ("the checker accepts
+X"), of which this architecture has none and by design proves none
+(OVERVIEW §4: every claim is in the accepting direction; there is no
+typing judgement to derive acceptance from; #257 found even
+one-pass↔two-phase acceptance unprovable because acceptance depends on
+memo state); or (B2) "the translation's equations HOLD IN THE MODEL":
+the model of the auxiliary family, the pack/unpack maps and the
+`iota_j` equations are true set-theoretic statements — which is a
+theorem about the modeller's OUTPUT, provable only by unfolding what
+the output denotes, i.e. exactly the carrier equality and the fired
+rule laws of §5.3.  (B2) done makes the generated records unnecessary
+(their semantic content is the theorem), and then the modeller and the
+modeled route are dead weight: the checking cost is "skipped" by
+deleting what was checked.  (B1) is not available.  *What it removes*:
+under (B1), only the per-block checking cost (the modeller, the
+modeled route, the `_model` handling and the recogniser's refusal all
+stay — the opposite of the aim); under (B2), everything, but (B2) IS
+option C′'s model tier stated over the wrong syntax (the modeller's
+transports instead of the kernel's restore).  *Verdict*: no; the
+maintainer's read "so can be skipped" is right about the outcome and
+(B2) is the route to it, minus the modeller.
+
+#### 4.3 Option C — the paper
+
+*What it is* (§2.4): a validity criterion (strictly positive
+parameters, syntactic view), the nested→mutual encoding with indices
+for the arguments a pin depends on, a MetaRocq proof that the encoding
+is positive, sparse parametricity and eliminators of the usual shape,
+implemented for Rocq 9.2; for Lean a plan and an elaborator-level
+induction-principle library.  *Conformance*: the criterion is neither
+weaker nor stronger than official's — it accepts pins with local
+variables that official rejects and rejects the dynamic (whnf)
+nesting official accepts — so adopting it breaks universal coverage in
+both directions; its eliminators are not the stream's.  *What of it
+composes with #278*: the MECHANISM.  A kernel-side translation whose
+output goes to the native mutual installer, with the stream's
+recursors compared against the translated block's restored recursors,
+is exactly official's `elim_nested_inductive_fn` + `add_inductive_fn` +
+`restore_nested`, and the round trip is exact by construction: the
+restored recursors ARE what official stores, and official's own replay
+compares the exported record against its regenerated one.  The
+paper's honest limit — computation rules only propositional — is a
+limit of TYPE-THEORETIC justification; in the set model it is an
+equality (§5.3).  *Verdict*: take the mechanism with official's
+criterion; that is C′.
+
+#### 4.4 Option C′ — official's elimination, natively, with Bekić in the model (RECOMMENDED)
+
+Kernel: mirror §2.1–2.3 on `ConLeche.Expr`; run #278's native mutual
+install on the auxiliary block in a scratch environment; restore; store
+only the restored constants; post-checks.  Model: #278's simultaneous
+least fixed point + a projection lemma for least fixed points (Bekić)
++ the leaf clause of `EnvModel` + compositionality of `interp` under
+the restore; the ι laws of the mimic rules from #278's mutual rule laws
+through the same equality.  Everything else — capabilities of
+structure-like nested blocks, `.below`/`brecOn` consumers, the
+`.nested` fire mode — is already in place or falls out.  §5.
+
+### 5. C′ in detail
+
+#### 5.1 Kernel (`Kernel/Inductives/NestedElim.lean`, new; `NativeInstall.lean`; the recogniser)
+
+1. **Dispatch.**  The recogniser (`ExportC`) stops refusing multi-former
+   and multi-recursor blocks (that is #278's part) and the block goes
+   to ONE entry `checkNative`, which first runs `check_uniform_ind_occs`
+   (§2.3, one syntactic walk — a REJECT), then `elimNested env block`.
+   `numNested` is computed as official does; the record's declared
+   value is compared and a mismatch REJECTS (the #228 precedent for
+   declared counts: official ignores the field, a lie is not an
+   accept-changing datum but it is a false record).
+2. **`elimNested`** returns the auxiliary block (types ++ copies,
+   constructors rewritten), the pin table `aux2nested : List (Name ×
+   Expr)` (pins in the parameter context) and the copy-naming in
+   creation order.  It is a pure function on `Env × block` — the same
+   worklist, the same top-down `replace` order (`app` fn-then-arg,
+   binders domain-then-body; the order fixes the `rec_k` numbering and
+   must be the kernel's — the corpus's 41 blocks with `numNested` up to
+   9 and the fixtures are the evidence), structural dedup after
+   lowering the pin to the parameter context, whole-`all`-group copies
+   at the container's level instantiation, the local-variable rule as
+   a REJECT with official's message, `_nested`-prefix input as a
+   REJECT, parameter binders that are not Π as a REJECT ("ill-formed").
+   Copy names `T._nested.J_k` are fresh by construction because the
+   prefix is reserved.
+3. **The auxiliary block** goes to #278's `checkMutual` at the
+   pre-block environment.  It is an ordinary mutual block — recursive
+   fields (`List_aux p⃗` in `T`'s constructor and in its own),
+   reflexive fields where the copy has them (P10) or the block has
+   them (P31: `(Nat → Array_aux p⃗) → T`), indexed members (P25:
+   `Vec_aux : Π p⃗, Nat → Type`), `Prop` members with `Type` members
+   rejected by #278's same-sort check (P18), positivity with
+   `normPosDom`'s whnf on the copies (P27/P28), the sort ceiling of
+   #227, `elim_only_at_universe_zero` at `types > 1` (P13/P14), no K.
+   Its recursors are generated with #278's generator (`ih` order and
+   naming the kernel's) and the STREAM's recursor records are
+   compared after the restore (step 5).
+4. **Restore.**  `restoreNested aux2nested recNames e`: `auxJ p⃗ is ↦
+   J Ds is` (pins re-abstracted over the block's parameters and
+   instantiated at the actual leading arguments — official's
+   `instantiate_rev(abstract(nested, params), As)`), `auxJ.c p⃗ ↦ J.c
+   Ds`, `auxJ.rec ↦ T₁.rec_k`.  Applied to the constructor types, the
+   recursor types, the rule right-hand sides; the block's types
+   re-stored with `all` = the original names and the computed
+   `numNested`; the copies' recursors stored as `T₁.rec_k`, the rules'
+   constructor names restored (`List.cons`), everything else the
+   auxiliary block's.  A mimic rule's `fire` is `.nested lvls pins`,
+   computed exactly as `nestedRuleShape` does today MINUS its
+   `_model.iota_j` lookup (the pins are read off the restored recursor
+   type's major-premise domain; the `ConstWF` nested clause is
+   unchanged and holds by construction).  Under-applied or
+   over-applied auxiliary constants during the restore are REJECTS
+   ("not applied to all parameters").
+5. **Post-checks in the restored environment.**  (a) every pin `I Ds`
+   is type-checked at the block's parameter context (#14577 — the
+   check the PROOF needs too, §5.3 (M1)); (b) the restored constructor
+   types, recursor types and rule right-hand sides are re-inferred
+   (#14621; cheap, and it is where `constsResolve` of the restored
+   terms is established for `ConstWF`); (c) the stream's `k + numNested`
+   recursor records are compared with the restored generated ones as
+   the fixpoint route compares today (`nativeRulesOk`, one `isDefEq`
+   per recursor type) — a record that is not the generated one
+   REJECTS; a missing or extra record REJECTS.
+6. **What is stored.**  Only the restored constants: the block's
+   formers, constructors, recursors and the `T₁.rec_k`.  The auxiliary
+   environment is scratch.  The stream never names a copy (step 2
+   rejects the prefix), so later declarations see exactly official's
+   environment.
+7. **Capabilities.**  `is_structure_like` reads the RESTORED `all`
+   (one type, one constructor, no indices): a nested structure
+   (`NTree`, Mathlib's 60 structure-like copies are containers, not
+   blocks) gets projections, η, unit-likeness and K exactly under the
+   fixpoint route's conditions on the restored block — `nativeCaps` on
+   the restored record; the model side is §5.5.
+
+#### 5.2 Verify and Semantics
+
+Twins of `elimNested`/`restoreNested` over `FEnv`, the cached bridge,
+and WF: the restored terms are closed, level-defined, resolving (post-
+check (b)), bounded; the `.nested` rules satisfy the EXISTING `ConstWF`
+nested clause (`rP ≤ mI`, pins bounded by the prefix, the major domain
+applies the container to the lifted pins and the index variables) —
+no new `ConstWF` conjunct.  `Semantics/Inductives/DeclNested.lean`: the
+run relation = `elimNested` (pure) ∧ #278's `DeclMutualRun` on the
+auxiliary block ∧ `restoreNested` (pure) ∧ the post-check runs.
+
+#### 5.3 Model — the theorems
+
+Notation: `T⃗` the block's real members, `A⃗ = (A_1 … A_n)` the copies
+(`A_j` a copy of container `J_j` at pins `Ds_j`), `Φ` the auxiliary
+group's functor on families over `Σ_(m ∈ T⃗ ++ A⃗) I_m` (from #278),
+`(T⃗*, A⃗*) = lfp Φ`.
+
+* **(M0, from #278)** `declMutual` gives `EnvModel env_aux` with every
+  member's leaf `λ p⃗ ı⃗, π_m (lfpFam … Φ) ⟨ı⃗⟩` and the constructors'
+  leaves the tagged towers `inj c (mkTower fs)` with `c` the
+  constructor's index WITHIN ITS OWN TYPE; the recursors fixed points
+  of their unfoldings; the rule laws.
+* **(T2, `SetTheory/Derive/LfpFam.lean`) Bekić projection.**  For a
+  monotone `Φ` on families over `I = I_S ⊔ I_C` with a closed member:
+  `lfp Φ |_S = lfp (Y ↦ Φ(lfp Φ |_C, Y) |_S)` — the `S`-restriction of
+  the simultaneous least fixed point is the least fixed point of the
+  `S`-section with the complement fixed at ITS restriction.  Proof:
+  the restriction is a pre-fixed point of the section (it is a fixed
+  point of `Φ`), so `μ ≤ lfp Φ |_S`; and `(lfp Φ |_C, μ)` is a
+  pre-fixed point of `Φ` (monotonicity of the `C`-components in the
+  `S`-components, `μ ≤ lfp Φ |_S`), so `lfp Φ ≤ (lfp Φ |_C, μ)` and
+  `lfp Φ |_S ≤ μ`.  Pure set theory over `lfpFamSet_le/_fixed/_eq`
+  and restriction/extension of graphs between `famSpace w I` and
+  `famSpace w I_S`; ~300–500 lines.  Its nested-fixpoint corollary
+  `lfp Φ |_C = lfp (X ↦ Φ(X, lfp (Y ↦ Φ(X, Y)|_S))|_C)` is what (M2)
+  uses.
+* **(L, the leaf clause of `EnvModel`)** — the ONE new stored fact.
+  For every stored inductive `I` with `all`-group `G`: the leaf of each
+  member is the member's projection of the least fixed point of the
+  **substituted group functor** `Φ^r_G`, the tower functor spelled from
+  the members' STORED (restored) constructor types with every member
+  occurrence `I_m p⃗` replaced by the family variable (`λ ı⃗, X_m ⟨ı⃗⟩`)
+  and every other constant — in particular a nested container `J Ds` —
+  read by the ambient valuation; `Φ^r_G` is monotone in `X` and has a
+  closed member.  Stated as `∀ ψ ρ, interp ρ (acval I ψ) = interp ρ
+  (substLeaf env I ψ)` with `substLeaf` a pure function of the stored
+  constructor types (the fixpoint leaf's spelling of `FixLeafI.lean`
+  §"the family", with `chainXI`'s recursive slots obtained by
+  substitution+β instead of direct spelling — the two interpretations
+  agree by β).  Holds: at a fixpoint-route block by the leaf's
+  definition (`fixFunVI` IS `Φ^r` there: no nested field); at a #278
+  mutual block by (M0) (no nested field); at the pinned basis blocks —
+  `Nat`, `Bool`, `PUnit`, `Empty`, `False`, `Quot` (not an inductive),
+  `Eq` (unnestable, §2.1) can never be containers because
+  `is_nested_inductive_app` needs a parameter mentioning the block,
+  and **`And` is the one pinned block with parameters**: its pin must
+  equal the constant functor's fixed point (the squash of the product)
+  — one lemma, or un-pin `And` now that the fixpoint route gives
+  Prop structure-likes their η (the #258 reason for the pin); at a
+  nested block by (M2).  Preservation: `EnvModel` has three
+  construction sites; a cons of a non-inductive constant leaves every
+  inductive's leaf and stored constructors untouched (`findPreserved
+  _cons`), so the clause is inherited generically.  From (L) follow:
+  monotonicity of `Φ^r_I` in its parameters (least fixed points are
+  monotone in the functor) — option A's fact, DERIVED; and the
+  container presentation (`FixWitness`'s shape with nested field
+  domains read at the family) — the closed-member witness for the
+  nested block's `Φ^r`.
+* **(M2, the carrier equality)** For every copy `A_j` of `J_j` at pins
+  `Ds_j`, and every family `X` for the real members:
+  `M*_j(X) = ⟦J_j⟧ (⟦Ds_j⟧[T⃗ := X])`, where `M*(X) = lfp (A⃗ ↦ Φ(X, A⃗))`
+  is the copies' simultaneous least fixed point at fixed real members.
+  Proof by well-founded induction over the copies' field-dependency
+  graph (copy `j` depends on `j'` if `A_j`'s rewritten constructor
+  fields mention `A_{j'}`; cycles arise exactly inside the copy of a
+  NESTED container's own closure — `TaggedText@T → Array@(TaggedText
+  T) → List@(TaggedText T) → TaggedText@T` — and inside the copy of a
+  MUTUAL container's group): for a strongly connected component `S`
+  with every copy outside `S` already known equal to its pins'
+  denotation, (T2) gives `M*|_S = lfp` of the `S`-section; the
+  `S`-section's constructor fields are the copies' rewritten fields
+  read at (`X`, the outer copies' values) = by the induction
+  hypothesis and the restore lemma (M1) the RESTORED fields' readings
+  = the container's stored fields at `params := ⟦Ds_j⟧` with the
+  container's group members as the section's variables; so the
+  `S`-section IS `Φ^r_{G(J_j)}(⟦Ds_j⟧)` — the container's own
+  substituted group functor at the pins — and (L) for `J_j` closes it.
+  A nested container's closure inside `S` is handled by the same
+  argument one level down (the copies of `Array`/`List` inside
+  `TaggedText@T`'s component are the `Array`/`List` copies of
+  `TaggedText`'s own (L)-functor, which reads `⟦Array⟧ (X_TT)`), i.e.
+  the induction is on the size of `S` after fixing its root copies.
+  The pins are closed with respect to fields (official's local-variable
+  rule) so `⟦Ds_j⟧[T⃗ := X]` is a function of `X` alone — this is where
+  the rule is USED by the proof, not just mirrored.
+* **(M1, the restore lemma)** `interp ρ (restoreNested e) = interp ρ'
+  e` where `ρ'` values `A_j` at `⟦J_j Ds_j⟧` — compositionality of
+  `interp` under the constant replacement, plus: the restored TYPE is
+  `WellDenoted` because `J Ds` is an application of a stored constant
+  to arguments in its domain — the pins' typing, which is post-check
+  (a) (#14577).  Then `acval_wellDenoted` for every restored constant
+  transfers from (M0): the VALUE (set) of `T.rec` is the auxiliary
+  recursor's; only its type is respelled, and (M2) makes the respelled
+  type denote the same set.  The block's own leaf clause (L) is (M2)'s
+  nested-fixpoint corollary: `T⃗* = lfp (X ↦ Φ(X, M*(X))|_T⃗)` and
+  `Φ(X, M*(X))|_T⃗ = Φ^r_T⃗(X)` by (M2)+(M1).
+* **(M3, rule laws)** A real member's rule is `.plain` and its law is
+  #278's.  A mimic rule `T₁.rec_k … (J.c Ds x⃗) ↦ rhs` is `.nested lvls
+  pins`; its `RecRuleLaw` at every fitting spine follows from the
+  auxiliary rule's law (M0) because `⟦J.c Ds x⃗⟧ = inj c (mkTower x⃗) =
+  ⟦auxJ.c p⃗ x⃗⟧` (the same element encoding, §5.6 R2) and (M2); the
+  fire's pin comparison (`.nested` compares the constructor's levels
+  and parameters with the stored pins) is exactly what restricts the
+  law to the pins.  This REPLACES `IndNestedParam`/`IndBottomNested`/
+  `IotaRuleNested` (2 540 lines over the `_model` renaming) by one
+  transport of the mutual law.
+* **(M4, capabilities at a nested structure-like)** From (L) the
+  restored carrier is a fixed point of a tagged-tower functor whose
+  field domains are read at the carrier (`T* = Σ_c tower_c(fields at
+  T*)`, the `fixFamI_app_eq_sum` shape), which is the premise the
+  `Struct*` capability kits consume; a nested field is an ordinary
+  domain of that unfolding (`⟦List⟧ T*`).  Risk: the kits may assume
+  the domain is INDEPENDENT of the family (the X-chain's "ordinary"
+  slot); if so they are generalised to "read at the carrier" — the
+  same generalisation the `.below` auxiliaries never needed because
+  they are separate blocks.
+
+#### 5.4 The stored fact, against the standing ruling
+
+"A NEW invariant threaded through everything is too expensive;
+extending EXISTING invariants with stored facts is wanted."  (L) is a
+field of the EXISTING `EnvModel` (3 construction sites; the cons
+lemma inherits it for every non-inductive declaration by
+`findPreserved_cons`, and every inductive install proves it for its
+own block — single: definitional, mutual: (M0), nested: (M2), basis:
+pinned lemmas).  `ConstWF` gains nothing (its nested-rule clause is
+reused).  `IndCaps` gains nothing (`numNested` is stored on the
+inductive record as official stores it).  No datum is computed at use
+sites: nesting through `List` reads `List`'s (L) at the model tier
+only.
+
+#### 5.5 Consumers unaffected
+
+`T.below`/`T.brecOn`/`T.rec_1` uses in the stream see exactly official's
+constants with official's types and rules; a `.nested` rule fires on
+`List.cons (T) x xs` as it does today for the modelled block
+(`nested_rec`, `nested_pin_names`, `indexed_nested_aux` fixtures pin
+the fire; `Lean.Syntax`'s cone in init-full accepts 620 declarations
+through it today).  The projection rewrite (`Frontend/ProjRec.lean`)
+that reads the field sort off `_model.proj_i.iota` becomes dead:
+nested structure-likes get first-class projection tables from
+`nativeCaps` on the restored block (§5.1.7), as every other structure
+does since #210 Part A.
+
+#### 5.6 What #278 must provide (to be passed to that lane NOW)
+
+* **R1** The mutual model is ONE simultaneous least fixed point of a
+  monotone functor on families over `Σ_m I_m` (tagged index tuples),
+  with a closed member from the container witness, exposed as a
+  theorem in the form (M0) — not a tag-enumeration-plus-single-family
+  encoding whose members are definitions.
+* **R2** A member's elements are `inj c (mkTower fs)` with `c` the
+  constructor's index WITHIN ITS OWN TYPE and the field tower the
+  fixpoint route's — so that a copy's constructor value equals the
+  container's constructor value at the pins on the nose.
+* **R3** Reflexive members (function-space fields into any member,
+  #202's kits) and indexed members (#188/#218) — the copies inherit
+  the container's shape (P10, P25) and the block may have reflexive
+  nested fields (P31).
+* **R4** The recursor generator produces the auxiliary block's
+  `k + n` recursors in `all` order with official's `ih` placement, and
+  the entry takes a block record whose members are NOT looked up in
+  the stream (the copies exist only in the scratch environment).
+* Nice to have: the mutual leaf spelled as the substituted functor
+  (§5.3 (L)) directly, so (L) at a mutual block is definitional as at
+  a single block.
+
+#### 5.7 Conformance (accept set of C′ against official v4.34.0-rc2)
+
+| item | C′ |
+|---|---|
+| nesting through any stored inductive: `List`/`Array`/`Option`/`Prod`/`Except`/`Task`/user structures, chains, λ-pins (P2/P22/P26), nested containers (P4), mutual containers (P5), reflexive containers (P10), indexed containers (P25) | accept — the copies are ordinary mutual members |
+| nesting under a binder (P1) and reflexive nested fields (P31) — today's DECLINE | accept (R3) |
+| index domain mentioning a parameter (P7) — today's wrong REJECT | accept (no frame: no generated `_impl.rec`) |
+| nested `Prop` block through `And` (P6/P13/P14) | accept, small eliminator (types > 1) |
+| `Type` block through a `Prop` container (P18) | reject (same-universe check on the copies) |
+| pins with local variables (P8/P9/P11) | reject, official's message |
+| pin mentioning the block non-uniformly (arena `nested-nonuniform-param`; v4.33.0 accepts, rc2 rejects) | reject — `check_uniform_ind_occs` mirrored (today: accept) |
+| ill-typed unused pin (arena `nested-unused-param`) | reject — post-check (a) (today: reject at a generated record) |
+| dynamic nesting (P27/P28) | as official: the copy's field is whnf'd by `normPosDom` |
+| definition unfolding to a container (P21), negative (P23), Subtype at a mentioning predicate (P19) | reject, as official (detection is syntactic; typing of the copy) |
+| `_nested`-prefixed input | reject |
+| declared `numNested` ≠ computed | reject (official: ignored; #228's precedent) |
+| stream recursor records not the generated `k + numNested` | reject |
+
+No decline remains in the class: every block official accepts is
+taken, every block official rejects is rejected, and the one
+divergence today (`nested-nonuniform-param`, outcome `either`) closes
+onto the arena's reference.
+
+### 6. Cost, risk, what becomes deletable
+
+| piece | tier | who | sessions |
+|---|---|---|---|
+| `check_uniform_ind_occs`, `elimNested`, `restoreNested`, post-checks, `.nested` fire off the restored major, recogniser/dispatch, fixtures for every probe shape (P1–P31 as e2e), the two arena tests as fixtures | Kernel + Frontend | Opus | 2–3 |
+| twins, WF, cached bridge, `DeclNestedRun` | Verify + Semantics | Opus | 1–2 |
+| (T2) Bekić projection + nested-fixpoint corollary | SetTheory | Fable | 1 |
+| (L) the leaf clause: `substLeaf`, the field, preservation at every install, the `And` lemma (or un-pinning) | Model | Fable | 1–2 |
+| (M2)+(M1): the carrier equality by SCC induction, the restore lemma, well-denotedness transfer | Model | Fable | 2–3 |
+| (M3) mimic rule laws; (M4) capabilities at nested structure-likes | Model | Fable | 1–2 |
+| deletions + gates (arena, init-full, the Mathlib mutual/nested cone via `scripts/slice-cone.py`, `tests/inmodel.sh` retired, OVERVIEW §5 rewritten) | all | Opus | 1–2 |
+
+Total ≈ 5–8 Fable + 4–7 Opus sessions after #278.  **Risks**, in
+order: (i) (M2)'s induction — the SCC structure and the identification
+of an `S`-section with the container's `Φ^r` at the pins; the pure
+version (T2) is easy, the syntactic bookkeeping (which copy is whose)
+is the work; (ii) the interface with #278 (R1–R4) — if #278 lands a
+model shape other than (M0), (M2) is restated but not lost; (iii)
+(M4)'s kit generalisation; (iv) the `rec_k` numbering — the replace
+order must be the kernel's, checked on 41 corpus blocks with 132
+copies.  **Deletable**: `Frontend/InModel/{Kit,Mutual,Nested}.lean`
+(2 388), `Kernel/Inductives/Modeled.lean` (837), `Frontend/ProjRec.lean`
+(372) and the `InModelDump`/`ExportWrite` dump tooling, the `_model`
+handling in `ExportC` (`constTypes.contains (T._model)`,
+`noteProjIota`/`projLevels`), `CON_LECHE_INMODEL*`, `tests/inmodel.sh`;
+the modeled route's tier — the import-closure of `Model/DeclInd`
+minus the native route's: 17 modules, 7 689 lines certain
+(`IndBottomNested/Plain/Proj`, `IndNestedParam`, `IotaRuleNested/Plain`,
+`ProjInstall/ProjCons/ProjRename`, `Swap`, `DeclInd`, `IndRecs`,
+`IndPinRow`, `IndOpenerGrade`, `Semantics/{ProjFnFacts,IndRecsCore}`,
+`Verify/Denote/EnvExt`), plus whatever of `Verify/Extend/*` (4 021),
+`Semantics/IndBlockRun` (895) and the `_model`-renaming kits
+(`IndRename`, `BlockInstalledTT`) `scripts/dead-census.py` then finds
+unreferenced — the `.nested` FIRE machinery in `Core`/`Env`/`ConstWF`
+stays (it is the native route's too).  The recogniser's nested refusal
+goes with the route.
+
+### 7. Recommendation and sequencing
+
+**C′.**  The argument in one line each: it is official's algorithm, so
+the accept set is official's by construction and stays so as official
+moves (v4.34.0-rc2's addition is one walk); it rides on #278 rather
+than beside it (the mutual model is the nested model; the paper's
+"justified by the mutual encoding" is literally the proof); the set
+model gives the equality the paper can only transport along; the only
+new invariant is the stored fact option A wanted, in a shape that
+costs three construction sites; and everything the modeller and the
+modeled route are becomes deletable, which is the stated aim.
+
+**Sequence.**  (0) Now: send R1–R4 to lane #278.  (1) After #278
+lands: the kernel/verify/semantics half on `agent/nested-279` (Opus;
+mirrors, twins, fixtures — including the 31 probe shapes and the two
+arena tests as e2e fixtures with official's verdicts) gated with the
+modeller STILL in place behind the recogniser for the blocks the new
+route declines (a transitional decline, never an accept).  (2) In
+parallel: (T2) and (L) (Fable; (L) is landable on its own — it is
+true of every route today and is a strengthening of `EnvModel` with a
+one-session bill).  (3) (M2)/(M1)/(M3)/(M4) and the assembly
+`declNested` (Fable), the fold arm, gates: init-full (1 block),
+the Mathlib mutual/nested cone (51 blocks, 4 961 declarations,
+`_tmp/mathlib-scoping/mathlib-full.ndjson` through
+`scripts/slice-cone.py`), the arena suite.  (4) Deletions (Opus),
+OVERVIEW §5 rewritten to two cases (pinned basis blocks, the fixpoint
+route), PERF regenerated.  Nothing here changes the main theorem's
+statement.
+
+**What the maintainer decides:** the option; whether the declared
+`numNested` mismatch is a reject (mirroring #228) or ignored
+(mirroring official); whether `And` is un-pinned or given its lemma.
+
+## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
+
+**The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
+Comparator pair (task #183's record above) — did not build on master.
+`lake build ConLeche.Challenge` failed with *"Unknown constant
+`ConLeche.Cached.checkDecls`"*: the module imported
+`ConLeche.Cached.ParsedC`, and `checkDecls` left that module at task
+#257 (`59400685`, 2026-09-09, "checkDecls is the two-phase fold"), which
+moved it to `ConLeche/Cached/Installed.lean`.  The fix is the one import
+line, `public import ConLeche.Cached.Installed`; the statement, the
+docstring and `comparator.json` are unchanged.
+
+**Why nobody noticed for two days.**  Everything that made the module a
+TCB dead end also made it invisible: it is not in `defaultTargets`, so
+`lake build` never builds it; nothing in the tree imports it, so no
+other target pulls it in; `lake test`, the layering, proofdeps,
+trust-surface, shake and link gates all read it (or its *source*) without
+ever elaborating it.  The module's only reader was Comparator, run by
+hand — and Comparator only compares statements it can build, so the
+failure mode is a submission that reports a build error rather than a
+mismatch.
+
+**The gate** — `tests/challenge.sh`, in `tests/arena.sh` next to
+`tests/no-local-paths.sh`, and listed in the CI workflow's gate header
+(the battery is nine gates now).  Two checks, seconds on a built tree:
+
+1. `lake build <challenge_module>` succeeds and its only diagnostics are
+   “declaration uses `sorry`” warnings.  Lake *replays* a cached
+   module's log, so the warning appears on a warm tree too and the check
+   is not vacuous there.
+2. every name in `comparator.json`'s `theorem_names` (and
+   `definition_names`, empty today) gets a `#check @name` under
+   `pp.universes`/`pp.explicit`/`pp.proofs` from a probe file importing
+   the challenge module and from one importing the solution module, and
+   the two outputs are diffed — the method #183's record used by hand,
+   and what Comparator itself compares.  The module names and the name
+   list are read out of `comparator.json`, so the registry file stays
+   the single source of truth.
+
+Both directions were tested before landing: with the stale import
+restored the gate fails at step 1; with a binder renamed in the
+challenge's statement it fails at step 2 with the diff.
+
+What the gate deliberately leaves alone: the challenge's *import
+closure* (no `Verify/*`, no `Model/*`) is `tests/layering.sh`'s
+base-purity clause, which classifies `ConLeche/Challenge.lean` as base,
+and the `sorry` itself stays a one-token entry in
+`tests/trust-surface.sh`'s allowlist.  `lakefile.toml`'s comment on the
+`ConLecheChallenge` library now says that this gate is the one thing
+that builds it.
+
+## TASK #277 — THE MAIN THEOREM IS MODEL EXISTENCE: `Denotes`, `Model`, `model_exists` (2026-09-11, `agent/model-277`) — STAGE 1, design and statement
+
+The maintainer's request (2026-09-11, with Sebastian Ullrich and
+Yannick Forster): phrase the REAL main theorem — every accepted
+environment has a model — over a self-standing, easy-to-analyse
+"modelled" relation on terms and environments; simplify and polish
+the relation; make it THE MAIN THEOREM and `no_proof_of_False` the
+HEADLINE derived from it; make the statement the Comparator
+challenge.  Stage 1 (this record) is the design and the statement
+with the main theorem's proof `sorry` ON THE BRANCH ONLY; stage 2 is
+the proof, the renames, the docs and the gates.
+
+### 1. What `origin/push-uovylpvtrsqs` (ee550a91, 2026-09-06) suggested
+
+Sebastian's branch added, pre-rename, `Setlec/Semantics/Sem.lean`
+(an inductive `Sem cval env φ d ρ e v` on `Expr`: thirteen rules —
+`sort`, `fvar` by LEVEL through a depth `d` (`ρ (d - 1 - idx)`),
+`const` through `env.find?` and `Level.substFn`, `pi`/`lam` opening
+the body with a fresh `fvar d` and the regime read off the binder's
+`PropWhen` at `φ`, `app`, `letE`, `projTower`/`projFst`/`projSnd`,
+`natLit`/`strLit` through the constructor forms), `SetP/SemP.lean`
+(`Sem_of_denoteP`: wherever the two-stage reading `denoteP` reads,
+`interp2` of the reading is a `Sem` denotation at the interpreted
+leaves — `denoteP.induct`, fifteen cases; `Sem_functional`;
+`EnvS2PM.model_exists` off the P carrier) and `ChallengeModel.lean`
+(the comparator challenge stating `model_exists`: `∃ cval`, every
+stored definition AND theorem denotes its body, every stored constant
+is a member of its type).  The idea is taken and REBUILT FROM SCRATCH
+against master (the maintainer: "distill the idea and then rebuild
+from scratch"); nothing is cherry-picked.
+
+**What changed since 2026-09-06 and bears on it:**
+
+* the rename (#222): `ConLeche`, `Cached.checkDecls`, `Model/*`,
+  `interp`, `AnnotTerm`, `denoteMeta` for `Setlec`,
+  `checkDeclsSPCachedD`, `SetP/*`, `interp2`, `AVExpr`, `denoteP`;
+* `letE` is GONE from the term language (#241): no stored type or
+  definition value carries a `let` (the annotation pass returns the
+  ζ-reduct, #217), every kernel `.letE` arm is a positive error, the
+  denotations return `none` — so the relation needs NO `letE` rule
+  (Sebastian's had one);
+* theorems are opaque to reduction and their values are checked in
+  phase B (#258): the invariant keeps NO equation between a theorem's
+  value and its leaf (`AcvalDefnInst` is definitions-only), the stored
+  theorem value is the RAW record (no fvar/bvar facts in `ConstWF`) —
+  so "every stored theorem denotes its body" is NOT available and is
+  not claimed (§2.3 says why it is not wanted either);
+* the pinned `And` (#258) is a prelude member installed through the
+  native route WITH a projection table — nothing special for the
+  relation, it is a `proj_table` case like every other structure;
+* the projection offset (#210 Part A, `ProjTable.off`): every stored
+  table's field `i` sits at position `i + off` of the model's pair
+  chain (`off = 1` at every table master installs: the tagged tower
+  of the fixpoint route, the tag in front) — Sebastian's `projTower`
+  read `projV i`, which is now wrong by the offset;
+* `checkDecls` IS the two-phase fold (#257) and the driver returns
+  its environment with the proof (#253): the statement's hypothesis
+  is `checkDecls .verified ds = .ok env`, as before, and
+  `Cached.checkDecls_sound` hands the proof an `EnvModelM`;
+* `Expr.fvar` lost its name (`fvar idx type`), the binders their name
+  (`lam type body m`).
+
+### 2. The statement, as landed on the branch (three files)
+
+**`ConLeche/Denotes.lean`** (new, shared by challenge and solution;
+imports `Kernel.Core`, `Kernel.Basis.Names`, `Verify.Level`,
+`SetModel.Ops`, `SetTheory.Derive.Sigma`; NOTHING from Model/Semantics):
+
+* `push x ρ` (2 lines), `regime φ pw := if pw.holds φ then 0 else 1`
+  (1 line, definitionally `Model.Annot.Bit.pwBit`), `field i p :=
+  sfst (ssnd^i p)` (2 lines, definitionally the tuple tier's `projS`);
+* `Denotes cval env φ ρ e v`, eleven rules: `bvar`, `sort`, `const`,
+  `app`, `lam`, `pi`, `proj_table`, `proj_fst`, `proj_snd`, `natLit`,
+  `strLit`;
+* `structure Model (V) [SetTheory V] (env : Env)` with fields `cval`,
+  `mem`, `false_empty` (a `defn` field — every stored definition
+  denotes its body — was in the first cut and DROPPED by the
+  maintainer's ruling, §9).
+
+**`ConLeche/Challenge.lean`** (rewritten): the docstring and the three
+statements with `sorry` — `model_exists : … → Nonempty (Model V env)`,
+`Denotes_functional`, `no_proof_of_False`.  **`ConLeche/MainTheorem.lean`**
+(rewritten): the same three, `Denotes_functional` PROVED (derivation
+induction, `funext` at the binder rules, 40 lines), `no_proof_of_False`
+DERIVED from `model_exists` in three lines (`m.mem` at the constant,
+`m.false_empty` at its type's derivation, `not_mem_empty`),
+`model_exists` `sorry` — stage 1 only.  `comparator.json` lists the
+three.  Token identity across the two modules verified by the #183
+method (`#check` under `pp.universes`+`pp.explicit`, diffed:
+byte-identical, 1 565 bytes).
+
+#### 2.1 The de Bruijn form (the maintainer's suggestion, adopted)
+
+The relation is on the checker's `Expr` over de Bruijn indices:
+`bvar i` denotes `ρ i`, a binder's body is read under `push x ρ` with
+NO instantiation and NO fresh `fvar`, and `fvar` has NO rule.  This is
+right for stored constants because every stored type and definition
+value is CLOSED — `ConstWF` (`Verify/EnvWF.lean`) records
+`hasFvar = false` and `looseBVarsBounded 0` for both — so a stored
+term's reading never meets an `fvar`, and a term with one is not a
+stored term.  Sebastian's `d`/`fvar`-by-level form mirrors the
+denotation's opening discipline (`body.instantiate1 (.fvar d ty)`),
+which made his bridge structural; the price of the de Bruijn form is
+ONE closing lemma in the proof (§6), and the gain is a relation a
+reader can check against the usual semantics of a λ-calculus without
+knowing the checker's locally-nameless convention.
+
+#### 2.2 `cval`, and the `Model` structure (Yannick's concern)
+
+`cval : Name → (Name → Nat) → V` is ONE assignment of a set to every
+constant at every level assignment, quantified ONCE for the whole
+environment; `defn` forces it on every definition (a definition
+denotes its body), `mem` puts every stored constant inside its type's
+denotation.  The existential is inherent — the interpretation of the
+constants IS the model — so the polish is to NAME its parts: a
+`structure Model V env` whose fields carry the docstrings, and the
+theorem `Nonempty (Model V env)`.  A `structure … : Prop` with the
+data field `cval` is REJECTED by Lean ("failed to generate projection
+… field must be a proof"), so it is a `Type`-valued structure under
+`Nonempty` rather than a Prop-structure; the alternative (an
+`inductive HasModel … : Prop` with one constructor) loses the
+per-field docstrings and was not taken.
+
+**`false_empty`.**  Without it `Model` is not a consistency statement:
+`mem` at `False : Prop` only says `⟦False⟧ ∈ univ 0`, i.e. `False`
+denotes SOME truth value, and `cval False φ = {pt}` would satisfy
+every other field with a proof of `False` stored.  The field says
+`Denotes cval env φ ρ (.const falseName []) F → F = ∅` — stated of
+WHATEVER the stored `False` denotes, so it is vacuous on an
+environment that stores nothing (`checkDecls .verified [] = .ok
+Env.empty` is an accept, and a `Model` of the empty environment must
+exist).  This is the one place a built-in constant appears in the
+statement, and it is honest: `False` is the checker's pin, not the
+stream's.  The headline theorem needs exactly this field and nothing
+else about pins.  (The alternative — deriving `⟦False⟧ = ∅` from
+`False.rec`'s stored type inside the challenge — needs a second
+checker fact "`False.rec` is stored with the pinned type, PropWhen
+data included" and forty lines of `piR` reasoning; rejected.)
+
+#### 2.3 Theorems do NOT "denote their body", and should not
+
+Under #258 a theorem's stored value is a discarded realizability
+witness: phase B annotates and checks it against the statement, the
+leaf is that annotated reading's interpretation, and the invariant
+records only `mem_type`.  Restoring Sebastian's "every theorem denotes
+its body" would mean re-adding `ConstWF`'s theorem-value clause and a
+`thm_reads` field through the fold's transports (#258 deleted ~20
+sites) for a claim with NO semantic content: `⟦P⟧` is a truth value, a
+proof denotes `pt`, and `mem` — `cval t φ ∈ˢ ⟦P⟧`, i.e. `⟦P⟧ = {pt}`,
+i.e. `P` is TRUE in the model — is the whole content of a theorem.
+Definitions are different: `defn` is what makes `cval Nat.add` be
+addition.  Opaques store as `axiomInfo` (value discarded) and are
+covered by `mem`.
+
+#### 2.4 Two files, not one — the Comparator constraint
+
+Comparator compares the statements' declaration closures across two
+SEPARATE modules; the challenge carries `sorry`, so the solution
+cannot import it, and the relation must be defined ONCE in a
+sorry-free module both import (duplicating its text in both modules
+would make the closures match only while the two copies stay
+byte-identical — a gate, not a design).  So: `Denotes.lean` (the
+meaning), `Challenge.lean` (the three statements, one import away).
+The #183 hygiene note "the challenge imports nothing from Verify" is
+relaxed by exactly one module, `Verify/Level.lean` (`Level.eval`,
+`Level.substFn` and their soundness lemmas; imports only
+`Kernel.Level`) — the meaning of a universe level belongs to the
+statement, and restating the two definitions would only add an
+`= Verify.Level.eval` obligation; `tests/layering.sh` classifies both
+new files as base and passes (279/189/3/1, 0/0).
+
+#### 2.5 Naming
+
+The relation is `Denotes` ("`e` denotes `v`"), not `Sem`; the
+structure is `Model`.  **Flag for the maintainer**: `ConLeche.Model`
+is ALSO the proof tier's namespace (`namespace ConLeche.Model` in
+every `ConLeche/Model/*` file, `open ConLeche.Model` in the capstones).
+Lean allows a declaration and a namespace of one name; today no
+`ConLeche.Model.{mk,rec,cval,defn,mem,false_empty}` exists in the tier
+(grepped), so nothing clashes, and inside `namespace ConLeche.Model`
+the identifier `Model` resolves to the structure.  Alternatives if the
+coincidence is unwanted: `HasModel` (as a Type structure), `ModelOf`.
+
+### 3. `.proj`: why three rules, and what one rule would need
+
+The model has THREE representations of "a structure value":
+
+1. the **pinned pair** `PSigma'` (`Kernel/Basis`): a flat Kuratowski
+   pair, field 0 = `sfst`, field 1 = `ssnd` (`Term.fst`/`snd` ARE its
+   formers since #225; `Term.projPair?` decodes the node index and is
+   the `i < 2` guard); it has no projection table
+   (`findProj? = none`: reserved names never install through the
+   native route), and `.proj PSigma' i e` nodes come from the
+   in-process modeller's generated records;
+2. every **natively installed structure-like** block (`checkNativeTable`,
+   `NativeInstall.lean`): the TAGGED unit-terminated tower
+   `inj 0 (mkTower (fs ++ [pt]))` = `⟨tag, ⟨f₀, ⟨f₁, … ⟨pt, unit⟩⟩⟩⟩`,
+   field `i` at `projS (i + 1)`, recorded as `ProjTable.off = 1`;
+3. (retired at #210 Part C) the bare tower at `off = 0`.
+
+So `denoteMeta` reads `projAV (i + entry.off)` at an entry and
+`projPair? i` otherwise, and the relation has `proj_table`
+(`field (i + entry.off) P`), `proj_fst`, `proj_snd`.  ONE rule
+`proj T i e ↦ field (i + k) P` for a fixed `k` would need (a) the
+pinned pair modelled as a 2-field tower `⟨a, ⟨b, unit⟩⟩` (so that
+field 1 is `sfst (ssnd p)`, not `ssnd p`) — touching the Sigma tier
+(`sigmaSet`, 21 files), `WellDenoted`'s `fst`/`snd` clauses, the
+`Term`/`AnnotTerm` formers and every `BasisOk` row of `PSigma'` —
+and (b) the tag after the fields or a tag-free carrier for the native
+route (the tag is read by `sfst` at every constructor of a sum, so it
+is in front by design; `TaggedSum` + the `Native*` stage kits, 8
+files).  A rule that folds the lookup into a reading function
+(`projSet env T i : V → V`, three lines) is one rule in FORM only.
+**Recommendation**: keep the three rules; they state the model as it
+is.  Small optional cleanup for a later task: `off` is `1` at every
+table master installs (the literal in `checkNativeTable`; the field
+exists for the deleted bare-tower route), so `ProjTable.off` /
+`ProjEntry.off` could be retired and the reading become
+`field (i + 1)` (27 sites) — a model detail either way, and the entry
+form keeps the relation honest to the data.
+
+### 4. The renames (stage 2 plan)
+
+* Theorems: `model_exists` is THE MAIN THEOREM; `no_proof_of_False`
+  keeps its name and becomes THE HEADLINE THEOREM, derived in
+  `MainTheorem.lean` (done on the branch).  `Cached.no_proof_of_False_cached`
+  and the letters stay as they are (they are the proof's, not the
+  reader's).
+* `MainTheorem.lean`: the solution module (done).
+* `OVERVIEW.md` §1 "What is proved": lead with `model_exists`
+  (present tense, no task numbers), the headline as its corollary; §4
+  "The proof idea" gains one sentence on `Denotes` vs `denoteMeta`;
+  §11 module map gains `ConLeche/Denotes.lean`; re-anchor the links
+  (`tests/overview-links.sh --update`, re-reading each moved anchor).
+* `README.md` (HUMAN-WRITTEN — a diff is proposed in the stage-1
+  report, not applied): the "main theorem" block shows `model_exists`
+  with `Model`'s three fields in words, then `no_proof_of_False` as
+  the corollary.
+* `_tmp/lean-kernel-arena/tests/con-leche.yaml` (`con-leche` branch):
+  `export-decls` gains `ConLeche.model_exists`; the description names
+  the two theorems.
+* `tests/ConLecheTests/Axioms.lean`: pin `ConLeche.model_exists` and
+  `ConLeche.Denotes_functional` beside `no_proof_of_False`;
+  `tests/ProofDeps.lean`: a `main_model` root; `formalization.yaml`:
+  `main_results` gains `model_exists`, the scope paragraph says
+  "has a model" first.
+* A gate that BUILDS `ConLeche.Challenge` (§7): `lake build
+  ConLeche.Challenge` in `tests/arena.sh` and CI, expecting exactly
+  the three `declaration uses 'sorry'` diagnostics; plus the
+  token-identity diff as a script (`tests/challenge-identity.sh`).
+
+### 5. Can the theorem be about `ds` instead of `env`?
+
+`ds : List DeclC` is the FOLD'S INPUT, not the file: the frontend has
+already (a) dropped tolerated-axiom records (`sorryAx`) and every
+record downstream of them, the driver declining the run at the end
+(`Main.lean`), (b) prepended the built-in prelude (the six pinned
+basis kinds as `basisDecl`s plus `Bool` and `And` as ordinary
+`indDecl`s), (c) rewritten `ProjRec` values, (d) inserted the
+in-process modeller's generated `_model` records ahead of a nested or
+mutual block, (e) reordered constructors, (f) dropped a stream's own
+identical copy of a prelude block (`pushDecl`'s dedupe; a different
+copy declines the stream) and folded the four `#QUOT` records into one
+`basisDecl`.  So a `ds`-statement is about the same object the
+`env`-statement is about, one step earlier, and the lemma it would
+rest on — "every constant a `DeclC` of `ds` declares is in
+`env.consts` with the same type and value" — is FALSE as stated: the
+stored type is `annotate (declared type)` (binder `pw` data differ),
+`opaqueDecl` stores an `axiomInfo` without its value, `thmDecl` stores
+the raw value, `basisDecl k` declares nothing and installs the pin's
+constants, `indDecl` stores regenerated recursor types and extra
+constants (the projection table, `projFnName T i`) no record names,
+and an `axiomDecl sorryAx` in `ds` is ACCEPTED by the fold and installs
+NOTHING (`ParsedC.lean`; the frontend never produces one, but the
+fold's domain is all of `List DeclC`) — the maintainer's guess is
+right, and it is only one of six reasons.  A true `ds`-statement would
+read "for every `defnDecl`/`thmDecl`/`axiomDecl` of `ds` there is a
+stored constant of that name whose type is the annotation of the
+declared type, and so is modelled" — it needs a name-tracking lemma
+along `InstallRun` that does not exist (only `PushChain`'s
+monotonicity does), a definition of "annotation of" in the statement,
+and it adds nothing a reader wants: what the checker vouches for is
+what it STORED, and the export's own declarations are stored under
+their own names whenever they are not dropped or declined.
+**Recommendation**: state the theorem about `env`, as it is, and say
+in the docstring what `ds` is.
+
+### 6. Stage-2 plan and estimate
+
+The proof (`ConLeche/Model/Denotes.lean`, a Model-tier file; imports
+`Denotes`, `Model/Annot/EnvModelM`, `Model/Annot/Bit`, `Verify/EnvGuards`):
+
+1. `cvalOf acval n ψ := interp V (fun _ => empty) (acval n ψ)`;
+   `interp_closed` (`Semantics/Kit.lean`, from `cval_closedL`) makes it
+   ρ-independent.
+2. **The closing lemma.**  `closeN d e k` replaces `fvar idx` (`idx <
+   d`) by `bvar (k + (d - 1 - idx))`, bumping `k` under binders;
+   `closeN (d+1) (body.instantiate1 (fvar d ty) k) k = closeN d body
+   (k+1)` under `looseBVarsBounded (k+1) body` and `fvarsBelow d body`
+   (`Verify/Shift.lean`), and `closeN d e 0 = e` when `hasFvar e =
+   false`.  ~60 lines, structural induction; `looseBVarsBounded_instantiate1`
+   (`Verify/Abstract.lean`) supplies the side condition's transport.
+3. **The bridge.**  `Denotes_of_denoteMeta : denoteMeta acval env φ d
+   e = some ta → fvarsBelow d e → looseBVarsBounded 0 e → ∀ ρ,
+   Denotes (cvalOf acval) env φ ρ (closeN d e 0) (interp V ρ ta)`, by
+   `denoteMeta.induct` (fifteen cases as Sebastian's): `regime = pwBit`
+   by `rfl`, `push = cons` by `funext`, `field = projS` by induction
+   with `projAV_interp`, `projPair?` at 0/1 by `interp_fst`/`interp_snd`,
+   the literal cases by induction on the numeral / the character list
+   through `natLitSupported_inv`/`strLitSupported_inv` (Sebastian's
+   `Sem_const_nil`/`Sem_const_one` helpers, rebuilt: ~120 lines).
+   ~250 lines.
+4. **The model.**  `Model.ofEnvModelM : EnvModelM V μ env → Model V env`:
+   `mem` from `type_reads` + `mem_type` (bridge at `d = 0`, `closeN 0
+   type 0 = type` by `ConstWF`'s `hasFvar`, `interp_closed`); no
+   `defn_reads` bridge (§9); `false_empty` by inverting the `const`
+   rule, `EnvModel.cvalE_pinned` at `falseName` (`.const .empty [0]`,
+   `erase_eq_const`), `bval V .empty [0] = empty`.  ~60 lines.  Then
+   `model_exists` is `Cached.checkDecls_sound` + this.
+5. Renames, docs, gates (§4), Comparator run (`_tmp/comparator-tool`
+   is built; `_tmp/lean4export` at v4.33.0; `landrun` on PATH — the
+   #183 recipe), the arena battery.
+
+Estimate: 2–3 sessions (one for 2–3, Opus-grindable from this spec;
+one for 4 + the letters; one for 5).  No model change, no invariant
+change, no checker change.
+
+### 7. Finding: `ConLeche/Challenge.lean` did not build on master
+
+Since #257 moved `checkDecls` to `ConLeche/Cached/Installed.lean` the
+challenge module's `import ConLeche.Cached.ParsedC` no longer reached
+it: `lake build ConLeche.Challenge` failed with "Unknown constant
+`ConLeche.Cached.checkDecls`".  No gate builds the module (by design
+it is off `defaultTargets`, and the arena, CI and `lake test` never
+name it), so the Comparator pair was silently broken.  Fixed on the
+branch; stage 2 adds the build to the battery (§4).
+
+### 8. Stage-1 gates
+
+`lake build ConLeche.Denotes ConLeche.MainTheorem ConLeche.Challenge`:
+439 jobs, `Denotes` warning-free, `Challenge` exactly its three
+`sorry` diagnostics, `MainTheorem` one (`model_exists`, stage 1);
+`tests/layering.sh` 279/189/3/1, 0 base→lane, 0 impl→theory; the
+three statements byte-identical across the modules.
+
+### 9. AMENDMENT — the maintainer's ruling on the fields (2026-09-11, still stage 1)
+
+The maintainer, on the first cut: *"Why do we have more-than-just-type
+for `.defn` but not for inductives?  Seems inconsistent.  I wonder if
+we should just have the types for the main theorem (and argue that
+users hopefully believe that they can turn any definitional equality
+into a propositional one if they worry)."*  Ruling: **DROP `defn`**.
+`Model V env` is exactly `cval`, `mem`, `false_empty` — one
+assignment of a set to every constant under which every stored
+constant is a member of its type's denotation, `False` being empty;
+that is what makes every theorem true.  Definitional equalities (a
+definition's unfolding, an inductive's iota rules, η) are not part of
+the statement because any such equality a reader cares about can be
+stated as a theorem proved by `rfl`, the checker accepts it, and `mem`
+makes it true in the model — `Eq` is pinned to set equality, so the
+two sides denote the same set.  §2.3's argument about theorems now
+applies to definitions too, and the asymmetry it left (definitions
+had an equation, inductives did not) is gone.  Docstrings of `Model`,
+`Challenge.lean` and `Denotes.lean`'s header rewritten around that
+reading; `Denotes_functional` and the headline derivation unchanged;
+the three statements re-verified byte-identical across the two
+modules (1 565 bytes); `tests/layering.sh` unchanged.  **The stage-2
+estimate drops** by the `defn_reads` bridge (§6 item 4): `mem` needs
+the bridge on stored TYPES only, and `ConstWF`'s type clauses supply
+the closedness — 2 sessions rather than 2–3.  `Model` stays the name
+unless the maintainer says otherwise (§2.5).
+
+### 10. Readability aliases, and the EVALUATION of a semantic premise on the Prop regime (2026-09-11, stage 1 continues)
+
+**Aliases (landed, `5e26facb`).**  `abbrev LevelParam := Name`,
+`abbrev BVarIdx := Nat` in `Denotes.lean`, used throughout the
+statement (`cval : Name → (LevelParam → Nat) → V`, `φ : LevelParam →
+Nat`, `ρ : BVarIdx → V`, `push`, the `bvar` rule).  `abbrev`, not
+`def`: reducible, so a `φ : LevelParam → Nat` is accepted where the
+checker's `PropWhen.holds`/`Level.eval` want `Name → Nat` with no
+unfolding, and stage 2's `regime = pwBit` / `push = cons` stay `rfl`;
+a `def` would need `unfold` at every such site and could block
+instance resolution.  The alias names still print in the statements,
+which stay byte-identical across the two modules.
+
+**The proposal (maintainer): cover the annotation pass.**  `Denotes`
+reads stored, annotated types, and the annotation enters only at
+`regime φ m.pw`; make regime `0` carry the SEMANTIC premise "the body
+really denotes a truth value", so a binder annotated as a proposition
+denotes only if the annotation is right, and `mem` — which demands a
+derivation of every stored type at every `φ` — certifies every Prop
+annotation in every stored type.  Assessed, NOT implemented:
+
+**(a) Rule shapes.**  Two changes, the second forced by the first:
+
+    | pi  (hA : Denotes ρ ty A)
+         (hB : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (B x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) :
+         Denotes ρ (.forallE ty body m) (piR (regime φ m.pw) A B)
+    | lam (hA : Denotes ρ ty A)
+         (hF : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (F x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → F x = pt) :
+         Denotes ρ (.lam ty body m) (lamR (regime φ m.pw) A F)
+
+* The body derivations must be asked **only on the domain** (`x ∈ˢ A`),
+  not for every `x : V` as now: the invariant's sort facts are
+  hereditary over the domain only (`AnnotValid`'s pi clause quantifies
+  `∀ x, x ∈ˢ interp A → …`), so a derivation of the body at junk
+  `x ∉ A` could not discharge an inner binder's premise.  This is the
+  more natural rule anyway (`piR`/`lamR` read `B`/`F` only on `A`).
+* `lam` needs it too, symmetrically: a λ's `pw` says "the body is a
+  proof", and the reading `lamR 0 = pt` ignores the body; the true
+  fact is that the body denotes `pt` on the domain (the body's type is
+  a truth value, so its only inhabitant is `pt`).  Only λs inside
+  stored TYPES are covered by `mem` (values are not read), but the rule
+  should not distinguish.
+* There is no domain annotation to certify: `BinderMeta` carries only
+  `pw` (the body's prop-ness); `denoteMeta`'s `.pi 0 v` first slot is
+  a dummy.
+
+**(b) Reading unchanged, functionality survives.**  The premises are
+hypotheses only; the conclusion's value is the same `piR`/`lamR`.  A
+wrong annotation removes a derivation, never changes a value.
+`Denotes_functional`'s binder cases change from `funext` to
+`piR_congr`/`lamR_congr` (agreement on the domain suffices, both in
+`SetModel/Ops.lean`) — same length.
+
+**(c) Discharge in stage 2 and cost.**  `EnvModelM.type_wellDenotedV`
+gives, for every stored type's reading `ta` and every `ρ`,
+`WellDenotedV V ρ ta = WellDenoted V ρ ta ∧ AnnotValid V ρ ta`
+(`Model/Claims.lean`); `AnnotValid`'s pi clause IS the `pi` premise
+(`v = 0 → ∀ x ∈ˢ ⟦A⟧, ⟦B⟧ₓ ∈ˢ univZero`, `Model/Annot/Valid.lean`), and
+`WellDenoted`'s lam clause gives the `lam` premise (`∃ B, (∀ x ∈ A,
+⟦b⟧ₓ ∈ B x) ∧ (v = 0 → ∀ x ∈ A, B x ∈ univZero)`, hence
+`⟦b⟧ₓ = pt` by `eq_pt_of_mem_univZero`).  So the bridge
+`Denotes_of_denoteMeta` takes one extra hypothesis `WellDenotedV V ρ
+ta`, threads it hereditarily (both predicates are structural over the
+domain — which is why the rules must restrict to the domain), and the
+two binder cases each gain ~5 lines; `Model.ofEnvModelM` passes
+`type_wellDenotedV`.  Added cost: ~30 lines, no new invariant, no
+model change.  (Note `regime`'s `0` is `pwBit`'s `0`, so the numerals
+line up by `rfl`.)
+
+**(d) The other direction — a real proposition annotated as a type —
+needs nothing, CONFIRMED against `piR`/`lamR`.**  Inhabitation of
+`piR v A B` is regime-independent: at `v = 0` it is `truthVal (∀ x ∈
+A, ∃ y ∈ B x)`, inhabited iff that holds (`of_mem_truthVal`,
+`pt_mem_truthVal`); at `v ≠ 0` it is `piSet A B`, the total
+single-valued graphs over `A` into the fibres (`mem_piSet`) —
+inhabited iff every fibre is (a member is total, so each fibre has a
+value; conversely choose `F x ∈ B x` classically and `graph F A ∈ˢ
+piSet A B` by `graph_mem_piSet`).  By induction down the binders a
+stored theorem `t : ∀ x₁ … xₙ, Q` has `cval t φ ∈ˢ ⟦type⟧` iff every
+leaf `⟦Q⟧` is inhabited on the domains, whichever regime each binder
+was read in; a leaf that is a truth value is then `{pt}`, i.e. true.
+The impredicative case is no exception: `∀ p : Prop, p → p` read at
+regime `1` is `piSet (univ 0) (fun p => …)` — a legitimate set
+(`piSet` is built from `power`/`sep`, no size condition), inhabited iff
+each `p → p` is.  A domain that is a proposition is fine too
+(`piR v ∅ B = {∅}` or `{pt}`: vacuous truth in both regimes).  So a
+theorem's truth does not depend on that direction, as the maintainer
+argued; only the `Prop → really Prop` direction matters for
+`false_empty`-style consistency reading, and that is the premise.
+
+**Why not annotation-free (regime decided semantically both ways)?**
+Because the checker's notion of proposition is not "fibres ⊆ {pt}":
+`PUnit : Type` denotes `unitSet = {pt}`, so `A → PUnit` has truth-value
+fibres yet is a TYPE to the checker — its inhabitants are graphs, its
+λs are graphs, and the invariant's λ-values follow the annotated
+regime (`lamR v` with `v` the annotation, `WellDenoted`'s lam clause).
+A value-inspecting regime is exactly the domain-relative collapse
+`piC`/`lamC` that task #151 removed: it changes the reading (empty
+domains, `pt ∈ piC A (fun _ => univ 0)`) and produced the #100
+countermodel.  The semantic PREMISE strengthens the statement without
+touching the reading; a semantic DECISION would change the reading
+and re-open the tier.
+
+**Recommendation.**  Adopt (a)–(c): the statement gains "every Prop
+annotation in every stored type is right" at ~30 lines of proof, the
+rules become the natural domain-restricted ones, and nothing else
+moves.  The maintainer decides; not implemented in stage 1.
+
+### 11. STAGE 2 — the proof, the promotion, the gates (2026-09-11)
+
+**The premise adopted** (the maintainer: "ok, that seems like a good
+start"): `pi`/`lam` read their bodies on the domain and carry `hP`;
+`Denotes_functional` re-proved with `piR_congr`/`lamR_congr` (one
+`obtain rfl` and one congruence per binder case).  Task #281 had
+landed `tests/challenge.sh` — the same rot §7 found, gated — and a
+one-line import fix in `Challenge.lean`; the gate is kept, the file is
+this task's.  (The branch was first merged with a master that was then
+rewritten by the maintainer — the nested-inductives design record was
+withdrawn — and REBUILT as thirteen linear cherry-picks on the new
+master `2cf6e025`; the earlier commit ids quoted in §9–§10 name the
+pre-rebase commits, whose content is unchanged.)
+
+**The proof**, two files, 467 lines, no invariant or checker change:
+
+* `ConLeche/Verify/Close.lean` (60 lines): `Expr.closeN d e k` — the
+  free variables below `d` as de Bruijn indices at cursor `k` —
+  `closeN_of_hasFvar` and `closeN_instantiate1` (closing commutes with
+  opening one binder, under `looseBVarsBounded (k+1)` and
+  `fvarsBelow d`).  Both by structural induction, first attempt.
+* `ConLeche/Model/Denotes.lean` (407 lines, Opus from the stage-1
+  spec): `cvalOf acval n ψ := interp V (fun _ => ∅) (acval n ψ)`
+  (ρ-free by `interp_closed`); `push_eq_cons`, `field_eq_projS`,
+  `regime_eq_pwBit` (`rfl`); the literal spines rebuilt from the
+  pre-rename template (`Denotes_const_nil`/`_one`, `Denotes_charList`;
+  `strLitSupported_inv` now has 32 components, the template's 26-slot
+  pattern no longer lines up); the bridge `Denotes_of_denoteMeta` by
+  `denoteMeta.induct` (fifteen cases), the reading's grading
+  `WellDenotedV V ρ ta` threaded hereditarily over the domain — the
+  `pi` premise is `AnnotValid_pi`'s third conjunct at `univ_zero`, the
+  `lam` premise `WellDenoted_lam`'s fibre package through
+  `eq_pt_of_mem_univZero`, the binder cases go through
+  `closeN_instantiate1` at cursor `0` and `push_eq_cons`, the proj cases
+  through `projAV_interp`/`field_eq_projS` and a three-way split of the
+  index at `projPair?`; `Model.ofEnvModelM` (`mem` from
+  `type_reads`/`type_wellDenotedV`/`mem_type` at depth `0` with
+  `closeN_of_hasFvar` on `ConstWF`'s fvar clause; `false_empty` by a
+  `suffices` generalising the assignment, `EnvModel.cvalE_pinned` at
+  `falseName`, `erase_eq_const`, `bval .empty = ∅`).  Two notes for the
+  next reader: `looseBVarsBounded_instantiate1` lives in `ConLeche`, not
+  `ConLeche.Expr` (its `Verify/Shift.lean` neighbours do); the
+  `fvarsBelow`/`looseBVarsBounded` premises split by `have … := h`
+  (defeq through the exposed matches), not by `simp only`, which
+  descends.  `model_exists` is `Cached.checkDecls_sound` plus this.
+
+**The promotion.**  `MainTheorem.lean` is the solution module (main
+theorem, functionality, headline — the headline derived in three
+lines); `tests/ConLecheTests/Axioms.lean` pins `model_exists` and
+`Denotes_functional` (eighteen theorems, the same three axioms);
+`tests/ProofDeps.lean` gains the root `main_model` (expectation
+regenerated: 3 819 rows across 11 roots, 0 doors; `main_False` gains
+exactly `ConLeche.Denotes`, `ConLeche.Model.Denotes`,
+`ConLeche.Verify.Close`); `formalization.yaml` leads with
+`model_exists`; OVERVIEW §1 restated (main theorem, `Denotes`/`Model`,
+the headline as corollary), §2 step 5 and §4 anchor
+`Model.ofEnvModelM`/`Denotes_of_denoteMeta`, §11 lists the two
+statement modules, §12 the challenge gate; links regenerated (77
+links, 49 files) after re-reading the six moved anchors; the CI
+header's stale "six guards" count goes.  README and the arena
+`con-leche.yaml` are proposed in the report, not applied (the one is
+human-written, the other another repository).
+
+**Comparator, run for real** (the #183 recipe; the v4.33.0
+`lean4export` is the nested build `_tmp/lean4export/lean4export`, the
+outer clone is at v4.29.1 — restored after a wrong checkout):
+challenge 65 jobs with exactly its three `sorry` warnings (48 before:
+`Denotes`, `Verify/Level`, `SetModel/Ops`, `SetTheory/Derive/Sigma`
+joined the trusted closure), solution 440 jobs, the three theorems
+exported from both, "Lean default kernel accepts the solution", "Your
+solution is okay!".
+
+**Gates** (the tree at the READY commit; every run in this worktree
+under `env -i`): `lake build` 544 jobs warning-free; `lake test` green
+(the eighteen pins at the three axioms); `tests/arena.sh` green after
+one round trip — the shake gate asked for four import edits on the new
+files (two removals of transitively supplied imports, two `public`
+demotions that then became removals), applied, and the link gate then
+caught the resulting line shift, re-anchored — layering 280/190/3/1
+with 0/0, proofdeps 3 819 rows / 11 roots / 0 doors, trust surface 14
+escapes in 5 allowlisted files, overview-links 77 links / 49 files,
+challenge OK (three statements identical), shake 457 proposals all
+allowlisted, pindump fresh, axioms 18 theorems, tutorial 90/92, e2e
+195/195, annot 15/15, trusted sweep with its 3 recorded divergences,
+`--jobs=1`/`--jobs=4` sweeps as at the default.  Comparator re-run on
+the final tree: "Your solution is okay!".  No checker code changed, so
+the binary is master's.
+
+## TASK #280 — THE REPRESENTATION CLAUSE: every stored inductive is the least fixed point of a container functor (2026-09-11, `agent/clause-280`, lands on `inductives`)
+
+**The decision (maintainer, 2026-09-11).**  The route to native nested
+inductives and to uniform projections is: #278 makes mutual blocks
+native with the reduction in the model tier; THIS task adds one
+conjunct to the existing environment-model invariant — proof modules
+only, no checker change, nothing stored at run time — saying that every
+stored inductive "has a representation as a fixed point of a container
+functor" spelled from the constructor types the checker stored, its
+type former's leaf the fixed point and its constructors' leaves the
+fixed point's injections; #279 then installs a nested block as the
+mutual installer on official's nested→mutual elimination and identifies
+each copy with the real container at the new carrier by Bekić's lemma —
+the map action and Bekić being THEOREMS over the representation, never
+stored.  The maintainer's words: "we don't need to store it, just keep
+a proof around that it exists".
+
+**Rulings received during the task (orchestrator, within the decision):**
+(1) the functor and the injections of the representation are ABSTRACT
+sets, not the tagged towers — so that ω with the von Neumann successor
+is the least fixed point of `X ↦ {∅} ∪ {n ∪ {n} | n ∈ X}` on the nose;
+no syntactic leaf-equality field.  (2) The transitional disjunct for
+the modeled route's blocks is accepted; no ghost list; it is deleted
+with the route by #278/#279 and no consumer may extract `IndRep` for
+an arbitrary block until it is gone.  (3) The function-valued map
+action (`List.map`) exists only on strictly positive parameters — the
+paper's criterion, not official's — and the nested design's
+identification is an equality of sets (Bekić + the leaf clause), so
+the toolkit is: least fixed points monotone/congruent in the functor,
+the map action as an INCLUSION, Bekić in pure set theory; plus ONE
+addition — the initiality/retagging principle (stated below, priced,
+not proved: > 1 session).  (4, maintainer) the inductives work stays
+off master: the landing target is the integration branch `inductives`.
+
+### 1. The clause, exactly (`ConLeche/Model/IndRep.lean`)
+
+`EnvModelM` (`Model/Annot/EnvModelM.lean`) gains the field
+`ind_reps : IndReps base2`, keyed on the stored RECURSOR (the last
+constant every inductive install stores, so a fresh former owes nothing
+and a fresh recursor claims its block):
+
+```
+IndReps m := ∀ n cvR mI rP rules, env.find? n = some (.recInfo cvR mI rP rules) →
+  ∀ T, n = T.str "rec" →
+  (∃ cvT caps d, env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d)
+  ∨ ModeledLeaf m n            -- TRANSITIONAL, deleted by #278/#279
+```
+
+`IndRepData V` (the datum, existential): the fixpoint route's spelling
+of the block — `nP nIdx resSort isProp large`, the pre-block
+environment `env₀` (a ghost witness: the ordinary field domains resolve
+in it, hence mention neither the former nor a constructor), `ctorsA`,
+the per-constructor readings `idxF dsF esF srcsF ksF fvsPF xFvsF xrestF
+eissF tssF` (`FixCtorDataI`'s data), the former's telescope `pps`, the
+index-tuple sort `u` — and two ABSTRACT semantic pieces: the functor
+`Φ : ψ → frame → V` and the injections `inj : ψ → Nat → List V → V`.
+Derived: `w ψ = resSort.eval ψ`, `params/Ids` (the telescope split at
+`nP`), `cds/rss/tlss/Eiss/Fss/Ess` (the lists the X-chains are spelled
+from), `idx ψ ρp = idxSet (u ψ) ρp (Ids ψ)`, and `ChainFit ψ ρp X t j fs`
+(the spine has constructor `j`'s field count, fits its X-chain
+`chainXIGo …` at the frame `(ρp, X, t)`, and the constructor's index
+expressions at it equal the tuple `t`'s components — `fixStepI_elim`'s
+shape).
+
+`IndRep m T cvT cvR mI rP rules d`: `strip` (the stored type is the
+telescope over `nP + nIdx` binders ending in `Sort resSort`), `isProp`,
+`mI = nP+1+|ctorsA|+nIdx`, `rP = nP+1+|ctorsA|`, `rules.map ctor =
+ctorsA.map name`; `former : FormerData m cvT …` and `ctors : ∀ j cA,
+FixCtorFactsAt m env₀ T … j cA` (every constructor stored, its type read
+as the datum says — THIS is "spelled from the stored constructor
+types"); `idxRes`, `uParams`, `paramsIff`; `chains : ChainsOk …`
+(`XChainsOk` minus its closure witness); `functor` (`Φ ψ ρp ∈
+lfpFamFunSpace`, `MonoFam`, `MapsFam`, a closed member); **`fibre`**
+(`x ∈ app (app Φ X) t ↔ ∃ j fs, j < |ctorsA| ∧ ChainFit … j fs ∧ x = inj ψ
+j fs` — the container functor); **`leaf`** (form (L)/(M0), the fold:
+`(as ++ is).foldl app ⟦T⟧ = app (lfpFamSet (w ψ) (idx ψ (consList as ρ))
+(Φ ψ (consList as ρ))) (tupW (u ψ) is)` for fitting parameter and index
+spines); **`ctor`** (`(as ++ fs).foldl app ⟦c_j⟧ = inj ψ j fs`);
+`mkZero` (a `Prop` block's injections are the point), `mkInj`
+(injective across constructors and spines of the constructors' lengths
+at a `Type` block).
+
+`ModeledLeaf m n := (env.find? (n.str "_model")).isSome ∧ ∀ ψ, acval
+(n._model) ψ = acval n ψ` — exactly what the modeled route establishes
+for every block member (`BlockAcvalInstalled`, `BlockInstalledTT`),
+keyed on the recursor so that a modeled recursor stored for a foreign
+former (a crafted stream) is covered too.
+
+**Why the recursor key.**  The stored records of a modeled block are
+syntactically indistinguishable from a native one's (`indInfo cv caps`
+carries no `all`/`numNested`; a modeled zero-constructor member's
+recursor even has a single-motive-looking record), so a syntactic guard
+("single-motive recursor") is unsound for zero-rule recursors; the
+disjunct is the honest transitional form.  Keying on `T.rec` also makes
+`Quot` claim nothing: it is stored as an inductive record for the
+checker's uniformity but has no `Quot.rec`; in official it is a
+`quotInfo`, not an inductive, `is_nested_inductive_app` never fires on
+it, and no block nests through it.
+
+**`IndRepsHead`** (the head obligation at a cons): a fresh recursor
+`T.rec` claims its block (left disjunct, the former looked up at the
+extension) or is modeled; every other head owes nothing
+(`IndRepsHead.ofNtc`).  It is an `autoParam` on the P step and the
+basis/ind wrappers (`by exact fun m₂ _ => IndRepsHead.ofNtc m₂ (fun _ _ _ _
+h => nomatch h)`), so every non-recursor call site — the harvests, the
+formers, the constructors, the tables — was untouched; only recursor
+heads supply it.
+
+### 2. The discharge, site by site
+
+* **Native (`indRep_of_stage`, `Model/Inductives/FixRep.lean`):** from
+  `stageFixRec`'s block facts (the former's data, `FixCtorFactsAt` per
+  constructor, the leaf `nativeTyAVI …`, the constructor leaves
+  `sumMkAV …`, the chains graded) with `Φ := fixFunVI …` and `inj := injW
+  w j (mkTower (fs ++ [pt]))` (the tagged towers).  Two kits: the X-chains
+  ignore the entries at recursive positions (the slot is spelled
+  instead), so every chain notion is congruent along an agreement off
+  those positions (`AgreeOffRec(s)`, `chainsXI_congr`, `xChainsOk_congr`)
+  — which identifies the functor spelled from the DUMMY former's readings
+  (the leaf's `fssZ`) with the one spelled from the real readings (the
+  datum's `Fss`; `declNative` supplies the agreement `hagreeZ` from its
+  `hident`); and `fixStepI_iff`, the fibre's membership in both regimes.
+  `stageFixRec` supplies the head obligation itself (two new hypotheses,
+  `hProp` and `hagree`, from `declNative`); the recursor's name pin
+  (`checkNativeRec_pins`) gives `T`.
+* **Pinned basis blocks (`Model/BasisRep*.lean`)**, one lemma each at the
+  recursor's cons: `Empty`/`False` by `indRep_zeroCtor` (the empty family
+  is the least fixed point of the functor with no chains,
+  `lfpFamSet_app_eq_empty`); `PUnit` (the constant functor `unitSet`,
+  injection `pt`, both regimes); `Nat` (ω = lfp of `X ↦ {∅} ∪ {n ∪ {n} | n ∈
+  X}`, injections `natzero`/`natsucc`; injectivity of the von Neumann
+  successor from regularity); `Eq` (parameters `α a`, index `b`, the
+  `Prop` regime: the fibre at the tuple `⟨b⟩` is `{pt}` iff `b = a`, and
+  the least fixed point of a constant functor is its value).  `Bool`
+  and `And` are prelude blocks through `checkNative` — the native
+  discharge.  `Quot.lift`/`Quot.ind` are recursor heads whose names are
+  not `X.rec`: discharged by `Name.str.injEq`.
+* **Non-inductive constants:** `IndReps.cons` (`Model/IndRepCons.lean`)
+  transports every prefix entry across any fresh cons — a
+  representation reads the environment only through `denoteMeta` and
+  stored lookups (`IndRep.cross`: readings by `denoteMeta_cons_mono`,
+  leaves by `acvalWith_ne`, the semantic laws mention no carrier).  A
+  TABLE head (`projInfo`) is the one head whose slots a reading could
+  mention; `FixCtorDataI.cross` of the fixpoint route takes
+  slot-freeness for EVERY expression, which only a non-table head has,
+  so `crossAt` takes it for the constructor's type alone and derives it
+  for the opened pieces (`Expr.NoProjAt.openPisAtFvars`).
+* **Modeled route:** the member cons (`indMember`, `Model/IndMember.lean`)
+  supplies `ModeledLeaf` for a rule-less recursor from `hmE` (the model
+  stored) and the leaf definition; the rule-list swap (`EnvModelM.swapP`
+  gains `hreps`; `IndReps.swap`, `Model/IndRepSwap.lean`) transports
+  unchanged recursors and asks the caller for the changed ones —
+  `indRecs` gets them as block members from a second run of
+  `indRecsFoldFactsRun` with the membership predicate as `RF`.
+* **Projection functions** (`projFnName T i` = `(T.str "proj").num i`,
+  never `X.str "rec"`): constructor disjointness.
+* **The empty environment:** vacuous.
+
+**Relocations (no statement changed).**  `FormerData`, `CtorDataI`,
+`FieldsBoundSrc`, `ctorBodyAVI`, `paramBvars(At)`, `FixOpened`,
+`FixCtorDataI`, `CtorDatumR`, `fixCtorDataList`, `FixCtorFactsAt`,
+`fssOfR/essOfR/eissOfR/tlssOfR/rssOfK`, `rsOf`, `constsBound_getAppArgs`,
+`openPisAtFvars_constsBound` moved verbatim into
+`Model/Inductives/BlockData.lean` (the clause must sit below
+`EnvModelM`); `findPreserved_cons`, `denoteMeta_cons_fresh(_mono)`,
+`denoteMeta_cons_mono`, `basisPinnedTT_consFresh` moved verbatim from
+`Model/Install.lean` into `Model/Annot/ConsMono.lean` (the transport
+must sit below the step).  The donor modules re-export.
+
+### 3. The toolkit (theorems over the representation, nothing stored)
+
+* `lfpFamSet_mono_functor`, `lfpFamSet_congr_functor`
+  (`SetTheory/Derive/Bekic.lean`): least pre-fixed families are monotone
+  and congruent in the functor.
+* **The map action, as an inclusion** (`IndRep.leaf_mono`,
+  `Model/IndRepToolkit.lean`): when the representing functor at one
+  parameter spine lies below the functor at another (over the same
+  index set), the represented family does, at every index.  A parameter
+  occurring positively in the chains yields the premise; one occurring
+  negatively (`α → Nat`) does not, and no map exists for it — the
+  function-valued map action is the paper's strictly-positive criterion,
+  not official's, and §5.3–5.5 of the nested design never use it.
+* **Bekić** (`bekic_restr`, `bekic_nested`): for a monotone `Φ` with a
+  closed member on families over `binUnion S C` (`famRestr`/`famJoin`,
+  the sections `famSec`/`famNested` as graphs on the family space),
+  `μ|_S = lfp (X ↦ Φ(X ⊔ μ|_C)|_S)` and, given closed members for the
+  sections at every `C`-family and `S ∩ C = ∅`, `μ|_C = lfp (Y ↦ Φ(lfp(X ↦
+  Φ(X ⊔ Y)|_S) ⊔ Y)|_C)`.  Both proofs are the design's: the restriction
+  is a fixed point of the section, so the section's lfp is below it; the
+  join of that lfp with the complement's restriction is `Φ`-closed, so
+  `μ` is below the join.  What #279 consumes for (M2): a copy's
+  `S`-section at the real members' component is the container's own
+  functor at the pins (their (M1) + the clause's `fibre`), so
+  `bekic_restr` and the clause's `leaf` identify the copy with the
+  container.
+
+### 4. The initiality/retagging principle — STATED, priced, not proved
+
+The ruling's addition: since #278 keeps block-position tags, #279 must
+relate two representations of the same container structure whose
+injections differ by a tag renaming (the copy tagged by aux-block
+position, the real container tagged locally).  The statement, over
+`IndRep` data at a level assignment and parameter frame, with `μ := lfpFamSet
+(d.w ψ) (d.idx ψ ρp) (d.Φ ψ ρp)`:
+
+* **Initiality.**  For a target family `B` over the index set and a step
+  `st : Nat → List V → V → V` (constructor, fields, the function on the
+  recursive positions to their results), there is exactly one `f` with
+  `f ∈ Π_{t ∈ idx} (app μ t → app B t)` and, for every `t`, `j`, `fs` with
+  `ChainFit ψ ρp μ t j fs`, `f t (d.inj ψ j fs) = st j fs (fun p ∈ posSet …
+  => f (posTgt … p) (spine fold of fs at p))` — `recGraph_exists_unique`
+  (`SetModel/RecGraph.lean`) at the container presentation of `d`
+  (positions `posSet`, targets `posTgt` of `Model/Inductives/FixWitness.lean`,
+  re-derived for an abstract `inj` from `fibre` + `mkInj`), the
+  well-founded relation being "recursive component of".
+* **Retagging.**  For `d₁ d₂` with the same `u`, `Ids`, `w`, `rss`, `tlss`,
+  `Eiss`, `Fss`, `Ess` (hence the same `ChainFit`) and a bijection `σ` on
+  `Fin |ctorsA|` with `d₂.inj ψ (σ j)` playing `d₁.inj ψ j`'s role, there
+  is a bijection `φ_t : app μ₁ t ≃ app μ₂ t` (natural in `t`) with `φ_t
+  (d₁.inj ψ j fs) = d₂.inj ψ (σ j) (fs with each recursive slot
+  transported along φ)` — `φ` by initiality into `μ₂`, its inverse by
+  initiality into `μ₁`, the two composites the identity by uniqueness.
+
+Price: the container presentation of an abstract `IndRep` (FixWitness's
+800 lines are for the tagged builder; the abstract one needs the
+shapes/positions read off `fibre`/`mkInj` and the currying of the
+reflexive slots), the recursion theorem's instance and the two
+uniqueness arguments — 2–3 Fable sessions.  Stopped here per the
+ruling; #279 states (M2) as an equality of SETS through Bekić and the
+clause and needs the retagging only where #278's tags differ from the
+container's local ones (R2), which is the place to spend it.
+
+### 5. What #278 and #279 consume
+
+* #278 (`declMutual`): discharges `IndRepsHead` at each member recursor's
+  cons with an `IndRep` whose `Φ := fixFunVI` at `Ids := [tagAV]`, tuple
+  `tupW u [inj m ⟨ı⃗⟩]`, `inj` at the block position — the fold form takes
+  it as it stands; `FixCtorFactsAt` is single-member (`recEntry` names
+  the block's one former) and is generalised there to a member table.
+  Then the modeled disjunct is deleted for mutual blocks.
+* #279: reads a container `J`'s representation through `IndReps` at
+  `J.rec` — `fibre` and `leaf` for (M2), `ctor` for (M3), `chains` for the
+  gradings — applies `bekic_restr` to the aux block's functor (the
+  section at the real members' component IS `Φ_J(⟦Ds⟧)` by `fibre` and
+  their (M1)), and deletes the modeled disjunct with the route.
+
+### 6. Gates and status
+
+Merged master (#277 model existence, #281 challenge gate) before the
+gates.  `lake build` and `lake test` warning-free; the axiom pin
+unchanged (18 theorems at the three standard axioms); the
+proof-dependency pin regenerated: the seven new modules
+(`Model/Annot/ConsMono`, `Model/IndRep`, `Model/IndRepCons`,
+`Model/IndRepSwap`, `Model/BasisRep`, `Model/Inductives/BlockData`,
+`Model/Inductives/FixRep`) enter every capstone's closure because the
+invariant carries the clause — the justification IS the task; no other
+door.  The import gate reconciled (`tests/shake.sh`): five imports
+removed by the noise-floor criterion, 21 allowlisted with their
+compensating additions (the relocated modules re-land in their donors'
+cones), 26 `public import`s demoted, four re-promoted as paired
+re-exports (the plan's known per-edge imprecision), four stale
+allowlist lines dropped; `pub-imports: 957 of 1330 edges public, none
+demotable`.  No checker file touched (`Kernel/*`, `Cached/*`,
+`Frontend/*`, `Main.lean` untouched), so no verdict changes:
+`tests/arena.sh` green (arena 90/92 as recorded, e2e 195/195, the
+trusted and worker-pool sweeps as recorded).  OVERVIEW §4 cites the
+clause; `tests/overview-links.sh --update` run after re-reading the
+paragraph.  READY on `agent/clause-280`; lands on `inductives`.
+

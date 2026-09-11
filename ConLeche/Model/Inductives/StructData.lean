@@ -1,9 +1,10 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructLaws
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Verify.InstLevels
-public import ConLeche.Semantics.Tower.TowerWire
+import ConLeche.Semantics.Tower.TowerWire
 public section
 
 /-!
@@ -181,33 +182,6 @@ theorem teleLevels_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
 
 /-! ## The former's data -/
 
-/-- **The type former's reading, peeled**: at every assignment the
-stored type reads as the Π-tower over the parameter data ending in
-the result sort, with nonzero codomain bits, graded, bounded, each
-parameter domain in its own universe (`lvls`), and depending only on
-the block's level parameters. -/
-structure FormerData {env : Env} (m : EnvModel V env) (cvT : ConstantVal)
-    (nP : Nat) (resSort : Level)
-    (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (lvls : (Name → Nat) → List Nat) : Prop where
-  read : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvT.type
-    = some (mkPisAV (pps ψ) (.sort (resSort.eval ψ)))
-  len : ∀ ψ : Name → Nat, (pps ψ).length = nP
-  bits : ∀ (ψ : Name → Nat) (d : Nat × Nat × AnnotTerm), d ∈ pps ψ → d.2.1 ≠ 0
-  okTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-    WellDenotedV V ρ (mkPisAV (pps ψ) (.sort (resSort.eval ψ)))
-  below : ∀ ψ : Name → Nat, DomsBelow 0 (pps ψ)
-  params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
-    pps ψ₁ = pps ψ₂ ∧ resSort.eval ψ₁ = resSort.eval ψ₂
-  /-- one universe per parameter binder -/
-  lvlsLen : ∀ ψ : Name → Nat, (lvls ψ).length = nP
-  /-- each parameter domain's reading lies in its binder's universe,
-  at a frame satisfying the earlier domains (innermost first) -/
-  lvl : ∀ (ψ : Name → Nat) (i : Nat), i < nP → ∀ ρ : Nat → V,
-    Sat V ((((pps ψ).take i).map (·.2.2)).reverse) ρ →
-    interp V ρ (((pps ψ).getD i default).2.2) ∈ˢ (univ ((lvls ψ).getD i 0) : V)
-  lvlsParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
-    lvls ψ₁ = lvls ψ₂
 
 /-- The former's data, from its `checkConstantVal` run at the
 pre-block environment and the annotated telescope shape. -/

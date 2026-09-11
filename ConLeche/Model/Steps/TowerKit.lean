@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Model.Steps.Stuck
 
 public section
 

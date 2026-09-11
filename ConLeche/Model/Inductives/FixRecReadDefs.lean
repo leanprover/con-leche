@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Semantics.Tower.FixRecI
@@ -93,13 +94,6 @@ motive. -/
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
   minorAVAtRM 0 (fun _ => 0) m C ψ nP nF b o ds Es recIdx tls Eiss
 
-/-- A recursive constructor datum: name, field count, field data,
-index readings, recursive positions, per-field index-expression
-readings, per-field telescopes (empty at a finitary field; task
-#202). -/
-abbrev CtorDatumR :=
-  Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotTerm × List Nat × List (List AnnotTerm) ×
-    List (List (Nat × Nat × AnnotTerm))
 
 /-- The minor entries, one per constructor datum, from offset `o`; the
 datum at position `J` names the motive `mots J` (its own member) and

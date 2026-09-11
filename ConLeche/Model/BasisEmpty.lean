@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.BasisStep
+public import ConLeche.Model.BasisRep
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
@@ -232,6 +233,21 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
     denoteMeta_emptyRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    (hreps := fun m₂ hac cvR mI rP rules hc T hT => by
+      injection hc with h1 h2 h3 h4
+      subst h1 h2 h3 h4
+      have hT' : T = emptyName := by
+        have h := hT
+        simp only at h
+        exact (Name.str.inj h).1.symm
+      subst hT'
+      refine Or.inl ⟨⟨emptyName, [], .sort (.succ .zero)⟩, {}, zeroCtorData ⟨emptyRecA :: env.consts⟩ (.succ .zero),
+        ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
+      refine indRep_zeroCtor (cvT := ⟨emptyName, [], .sort (.succ .zero)⟩) m₂ (.succ .zero) rfl rfl
+        (fun _ _ _ => rfl) fun ψ ρ => ?_
+      rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
+        (c := .empty) (us := [1]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
+      rfl)
     (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

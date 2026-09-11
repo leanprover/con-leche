@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructStageCtor
 public import ConLeche.Model.IndProjKit
 public section
@@ -157,12 +158,6 @@ theorem spineFit_congr_below :
 
 /-! ## The family spine above the parameters -/
 
-/-- The parameter variables as seen from depth `D` (`D ≥ nP`). -/
-@[expose] def paramBvarsAt (nP D : Nat) : List AnnotTerm :=
-  (List.range nP).map fun k => .bvar (D - 1 - k)
-
-theorem paramBvars_eq_paramBvarsAt (nP nF : Nat) :
-    paramBvars nP nF = paramBvarsAt nP (nP + nF) := rfl
 
 /-- A same-index `fvar` spine reads to the parameter variables. -/
 theorem denoteMetaSpine_fvars {acval : Name → (Name → Nat) → AnnotTerm} (D : Nat) :

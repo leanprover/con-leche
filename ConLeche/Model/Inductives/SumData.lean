@@ -1,9 +1,10 @@
 module
 
+import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Inductives.StructCtorFrames
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Model.Inductives.SumRecRead
-public import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Verify.Inductives.SumInv
 public section
 
 /-!
@@ -212,14 +213,6 @@ theorem srcsOf_getElem? (xFvs idxArgs : List Expr) (sorts : List Level) (nF j : 
           else firstIdx (xFvs.getD j default) idxArgs) := by
   simp [srcsOf, hj]
 
-/-- The fields not sourced by an index are propositions: each such
-field's domain is a truth value, hereditarily. -/
-@[expose] def FieldsBoundSrc (ρ : Nat → V) : List AnnotTerm → List (Option Nat) → Prop
-  | [], _ => True
-  | _ :: _, [] => True
-  | F :: Fs, s :: ss => (s = none → interp V ρ F ∈ˢ (univ 0 : V)) ∧
-      ∀ a, a ∈ˢ interp V ρ F → FieldsBoundSrc (cons a ρ) Fs ss
-
 /-- `fieldsBound_of_frame` at the sourced fields. -/
 theorem fieldsBoundSrc_of_frame {Γ : List AnnotTerm} {k nP nF : Nat} {srcs : List (Option Nat)}
     (hk : k = nP + nF) (hΓ : Γ.length = k)
@@ -267,49 +260,6 @@ theorem fieldsBoundSrc_of_frame {Γ : List AnnotTerm} {k nP nF : Nat} {srcs : Li
 
 /-! ## The constructor's data -/
 
-/-- The family at the parameter variables and the index readings,
-read at the constructor's full frame. -/
-@[expose] def ctorBodyAVI {env : Env} (m : EnvModel V env) (T : Name) (nP nF : Nat)
-    (ψ : Name → Nat) (Es : List AnnotTerm) : AnnotTerm :=
-  AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)
-
-/-- **A constructor's data at an indexed family**: its stored type
-reads to the Π-tower over `ds ψ` ending in the family at the
-parameters and the index readings `Es ψ`; the index readings read the
-residual's index expressions `idxArgs` at the constructor's frame; the
-sources `srcs` name, per field, the index it literally is, and at a
-large-eliminating `Prop` family the other fields are
-propositional. -/
-structure CtorDataI {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name)
-    (cvC : ConstantVal) (nP nF nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (idxArgs : List Expr)
-    (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (Es : (Name → Nat) → List AnnotTerm)
-    (srcs : List (Option Nat)) : Prop where
-  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
-    cvC.type.stripPis (nP + nF)
-      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es)) ∧
-    es.length = nIdx
-  read : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvC.type
-    = some (mkPisAV (ds ψ) (ctorBodyAVI m T nP nF ψ (Es ψ)))
-  len : ∀ ψ : Name → Nat, (ds ψ).length = nP + nF
-  lenE : ∀ ψ : Name → Nat, (Es ψ).length = nIdx
-  idxLen : idxArgs.length = nIdx
-  idxRead : ∀ ψ : Name → Nat, DenoteMetaSpine m.acval env ψ (nP + nF) idxArgs (Es ψ)
-  bits : ∀ (ψ : Name → Nat) (d : Nat × Nat × AnnotTerm), d ∈ ds ψ →
-    (resSort.eval ψ = 0 ↔ d.2.1 = 0)
-  okTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-    WellDenotedV V ρ (mkPisAV (ds ψ) (ctorBodyAVI m T nP nF ψ (Es ψ)))
-  below : ∀ ψ : Name → Nat, DomsBelow 0 (ds ψ)
-  belowE : ∀ ψ : Name → Nat, ∀ E ∈ Es ψ, Term.bvarsBelow (nP + nF) E.erase
-  params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) →
-    ds ψ₁ = ds ψ₂ ∧ Es ψ₁ = Es ψ₂
-  srcLen : srcs.length = nF
-  srcBnd : ∀ s ∈ srcs, ∀ l, s = some l → l < nIdx
-  srcIdx : ∀ j l, srcs[j]? = some (some l) → ∀ ψ : Name → Nat,
-    (Es ψ)[l]? = some (AnnotTerm.bvar (nF - 1 - j))
-  srcProp : large = true → ∀ ψ : Name → Nat, resSort.eval ψ = 0 → ∀ ρ : Nat → V,
-    Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
-    FieldsBoundSrc ρ (((ds ψ).drop nP).map (·.2.2)) srcs
 
 /-- The data crosses a cons whose head is neither the former nor
 mentioned. -/

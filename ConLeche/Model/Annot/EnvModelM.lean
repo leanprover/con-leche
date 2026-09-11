@@ -10,6 +10,7 @@ import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Verify.ProjTele
+public import ConLeche.Model.IndRep
 
 public section
 
@@ -840,6 +841,15 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   install and by nothing else, so the supplier is the direct install
   step.  Consumed by the `.proj` rows' tower branches) -/
   tower_ok : ∀ φ : Name → Nat, TowerOk base2 φ
+  /-- every stored recursor's block has a representation as the least
+  fixed point of a container functor spelled from its stored
+  constructor types (task #280, `ConLeche/Model/IndRep.lean`; an
+  *environment law* for the same reason `rec_rules` is: a block's
+  leaves are fixed by its install and by nothing else, so the supplier
+  is the inductive install — or, transitionally, the modeled route's
+  leaf fact).  Consumed by nothing in the checker's proofs; it is what
+  the nested route (task #279) reads of a container -/
+  ind_reps : IndReps base2
 
 namespace EnvModelM
 
@@ -971,6 +981,9 @@ binder. -/
   tower_ok := fun _ T i entry hf => by
     have : Env.empty.findProj? T i = none := rfl
     rw [this] at hf
+    exact nomatch hf
+  ind_reps := fun n _ _ _ _ hf => by
+    rw [show Env.empty.find? n = none from rfl] at hf
     exact nomatch hf
 
 end ConLeche.Model

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndCross
-public import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.BridgeWfImp
 
 public section
 

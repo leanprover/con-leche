@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.WellDenoted
 public import ConLeche.Semantics.Sat
-public import ConLeche.Semantics.Univ
+import ConLeche.Semantics.Univ
 public import ConLeche.Semantics.BasisOk
 
 @[expose] public section
