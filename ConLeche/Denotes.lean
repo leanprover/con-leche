@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Core
-public import ConLeche.Kernel.Basis.Names
 public import ConLeche.Verify.Level
 public import ConLeche.SetModel.Ops
 public import ConLeche.SetTheory.Derive.Sigma

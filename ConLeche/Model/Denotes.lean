@@ -3,8 +3,6 @@ module
 public import ConLeche.Denotes
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Verify.Close
-import ConLeche.Model.Claims
-import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Denote.VClosed
 import ConLeche.SetModel.TupleTower
 import ConLeche.Semantics.Tower.TowerLeaf
