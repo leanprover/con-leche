@@ -95,16 +95,16 @@ theorem fixRuleDataAV_map_dom {m : EnvModel V env} {T : Name} {ψ : Name → Nat
       = ((fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).take (nP + 1 + cds.length)).map (·.2.2) ++
         (liftDoms (cds.length + 1) 0 (ds.drop nP)).map (·.2.2) := by
   have hlenX : (rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL (m.acval T ψ) ψ nP nIdx ℓ ips)] ++
       fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1).length = nP + 1 + cds.length := by
     simp only [List.length_append, rebit_length, hlenP, List.length_singleton, fixMinorsData_length]
   generalize hX : rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL (m.acval T ψ) ψ nP nIdx ℓ ips)] ++
       fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1 = X at hlenX
   have hlenXD : (X ++ rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips)).length
       = nP + 1 + cds.length + nIdx := by
     rw [List.length_append, hlenX, rebit_length, liftDoms_length, hlenI]
-  unfold fixRuleDataAV fixRecDataAV
+  unfold fixRuleDataAV fixRecDataAV fixRecDataAVL motiveAVI
   rw [hX, List.take_append_of_le_length (by omega :
       nP + 1 + cds.length ≤ (X ++ rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips)).length),
     List.take_append_of_le_length (by omega : nP + 1 + cds.length ≤ X.length),
@@ -156,7 +156,7 @@ theorem fixRecDataAV_take_nP {m : EnvModel V env} {T : Name} {ψ : Name → Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     (hlenP : pps.length = nP) :
     ((fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).take nP).map (·.2.2) = pps.map (·.2.2) := by
-  unfold fixRecDataAV
+  unfold fixRecDataAV fixRecDataAVL
   rw [List.take_append_of_le_length (by simp [hlenP]),
     List.take_append_of_le_length (by simp [hlenP]),
     List.take_append_of_le_length (by simp [hlenP]),

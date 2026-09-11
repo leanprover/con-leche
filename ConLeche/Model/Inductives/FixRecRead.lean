@@ -1913,7 +1913,7 @@ theorem denoteMeta_structRecTyR {m : EnvModel V env} {ψ : Name → Nat} {T : Na
   -- assembly
   subst hpw
   rw [← hlenC]
-  unfold fixRecDataAV majorAVAt
+  unfold fixRecDataAV fixRecDataAVL majorAVAt majorAVAtL
   rw [mkPisAV_append, mkPisAV_append, mkPisAV_append, mkPisAV_append, hlenC]
   rfl
 

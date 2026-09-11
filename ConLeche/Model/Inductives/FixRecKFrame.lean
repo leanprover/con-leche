@@ -167,21 +167,22 @@ theorem interp_minorAVAtR {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
 
 /-! ## The family at an index spine -/
 
-/-- **The family at an index spine, from the leaf**: at any frame over
-the parameter frame, the carrier applied to the parameter variables
-and an index spine is the family's fibre at the spine's tuple. -/
-theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx w u : Nat}
+/-- **The family at an index spine, from an explicit leaf** (task
+#278): at any frame over the parameter frame, the leaf applied to the
+parameter variables and an index spine is the family's fibre at the
+spine's tuple. -/
+theorem fixFamAt_ofL {L : AnnotTerm} {nP nIdx w u : Nat}
     {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
     (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
-    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
+    (hleafT : ∀ σ : Nat → V, interp V σ L
       = interp V (fun k => ρp (k + nP))
           (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
     {as : List V} (hlenAs : as.length = nIdx) (as₀ : List V)
     (hspAs : SpineFit ρp (ips.map (·.2.2)) as) :
     interp V (consList as (consList as₀ ρp))
-        (AnnotTerm.mkAppN (m.acval T ψ)
+        (AnnotTerm.mkAppN L
           (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
       = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u as) := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
@@ -195,7 +196,7 @@ theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx
     exact hsatP
   have hX' : XChainsOk u w ρp (((pps ++ ips).drop nP).map (·.2.2)) rss tlss Eiss Fss₀ Ess := by
     rw [hdropAll]; exact hX
-  have hleafT' : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
+  have hleafT' : ∀ σ : Nat → V, interp V σ L
       = interp V (fun k => ρp (k + nP))
           (nativeTyAVI u w (pps ++ ips) (((pps ++ ips).drop nP).map (·.2.2)) rss tlss Eiss Fss₀ Ess) := by
     rw [hdropAll]; exact hleafT
@@ -211,8 +212,46 @@ theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx
   rw [show as₀.length + nIdx = (as₀ ++ as).length from by simp [hlenAs]]
   exact h
 
-/-- **The major's domain at a K-frame** reads to the carrier's fibre at
-the frame's index tuple. -/
+/-- The family at an index spine at a **stored** former. -/
+theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx w u : Nat}
+    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
+    {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
+    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
+      = interp V (fun k => ρp (k + nP))
+          (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
+    {as : List V} (hlenAs : as.length = nIdx) (as₀ : List V)
+    (hspAs : SpineFit ρp (ips.map (·.2.2)) as) :
+    interp V (consList as (consList as₀ ρp))
+        (AnnotTerm.mkAppN (m.acval T ψ)
+          (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u as) :=
+  fixFamAt_ofL hlenP hlenI hsatP hX hleafT hlenAs as₀ hspAs
+
+/-- **The major's domain at a K-frame, at an explicit leaf** (task
+#278) reads to the carrier's fibre at the frame's index tuple. -/
+theorem interp_majorAVAtL {L : AnnotTerm} {nP nIdx n w u : Nat}
+    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
+    {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
+    (hleafT : ∀ σ : Nat → V, interp V σ L
+      = interp V (fun k => ρp (k + nP))
+          (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
+    {M : V} {ms : List V} (hlenM : ms.length = n) {is : List V}
+    (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
+    interp V (consList is (consList ms (cons M ρp))) (majorAVAtL L nP nIdx n)
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) := by
+  have hlenIs : is.length = nIdx := by rw [hfit.length_eq, List.length_map, hlenI]
+  unfold majorAVAtL
+  have h := fixFamAt_ofL hlenP hlenI hsatP hX hleafT hlenIs (M :: ms) hfit
+  rw [consList_cons, show (M :: ms).length + nIdx = 1 + n + nIdx from by
+    rw [List.length_cons, hlenM]; omega] at h
+  rw [show nP + 1 + n + nIdx = nP + (1 + n + nIdx) from by omega]
+  exact h
+
+/-- The major's domain at a K-frame, at a **stored** former. -/
 theorem interp_majorAVAt {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx n w u : Nat}
     {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
@@ -224,14 +263,8 @@ theorem interp_majorAVAt {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP
     {M : V} {ms : List V} (hlenM : ms.length = n) {is : List V}
     (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
     interp V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) := by
-  have hlenIs : is.length = nIdx := by rw [hfit.length_eq, List.length_map, hlenI]
-  unfold majorAVAt
-  have h := fixFamAt_of hlenP hlenI hsatP hX hleafT hlenIs (M :: ms) hfit
-  rw [consList_cons, show (M :: ms).length + nIdx = 1 + n + nIdx from by
-    rw [List.length_cons, hlenM]; omega] at h
-  rw [show nP + 1 + n + nIdx = nP + (1 + n + nIdx) from by omega]
-  exact h
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) :=
+  interp_majorAVAtL hlenP hlenI hsatP hX hleafT hlenM hfit
 
 /-- A nested product at a zero elimination level is a truth value. -/
 theorem piTele_zero_mem_univZero {B : List V → V} :
@@ -249,7 +282,7 @@ theorem piTele_zero_mem_univZero {B : List V → V} :
 the motive in its reading, the minors in their ih-extended readings and
 a fitting index tuple, `FixKI₀` holds and the major's domain reads to
 the carrier's fibre at the tuple. -/
-theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
+theorem fixKFrame_ofL {ψ : Name → Nat} {L : AnnotTerm} {elimL : Level}
     {nP nIdx n ℓ w u : Nat} (hℓ : elimL.eval ψ = ℓ)
     {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {Fss₀ Fss Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
@@ -265,10 +298,10 @@ theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL 
       ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
         (∀ E ∈ Ess.getD j [], WellDenoted V (consList bs ρp) E) ∧
         SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs))
-    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
+    (hleafT : ∀ σ : Nat → V, interp V σ L
       = interp V (fun k => ρp (k + nP))
           (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
-    {M : V} (hM : M ∈ˢ interp V ρp (motiveAVI m T ψ nP nIdx elimL ips))
+    {M : V} (hM : M ∈ˢ interp V ρp (motiveAVIL L ψ nP nIdx elimL ips))
     {ms : List V} (hlenM : ms.length = n)
     (hms : ∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
       (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
@@ -281,7 +314,7 @@ theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL 
         interp V (consList fs ρp) ((Fss.getD j []).getD i default) ∈ˢ (univZero : V))
     {is : List V} (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
     FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss₀ (ips.map (·.2.2)) rss tlss Eiss ∧
-    interp V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
+    interp V (consList is (consList ms (cons M ρp))) (majorAVAtL L nP nIdx n)
       = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
   have hlenIs : is.length = nIdx := by rw [hfit.length_eq, hlenIds]
@@ -304,7 +337,7 @@ theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL 
           (tupW u is'))
         fun _ => (univ ℓ : V)) [] := by
     have hMv := hM
-    unfold motiveAVI at hMv
+    unfold motiveAVIL at hMv
     rw [interp_mkPisAV_piTele (v := ℓ + 1) (gds := rebit (pwBit ψ PropWhen.never) ips)
       (fun d hd => by
         rw [mem_rebit hd]
@@ -319,7 +352,7 @@ theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL 
     rw [rebit_map_dom] at hsp
     have hlenAs : as.length = nIdx := by rw [hsp.length_eq, hlenIds]
     rw [interp_pi, hℓ, List.nil_append]
-    have h := fixFamAt_of hlenP hlenI hsatP hX hleafT hlenAs [] hsp
+    have h := fixFamAt_ofL hlenP hlenI hsatP hX hleafT hlenAs [] hsp
     rw [consList_nil, List.length_nil, Nat.zero_add] at h
     rw [h, ← hfamL, piR_congr_bit (v' := ℓ + 1)
       ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ), fun h => absurd h (Nat.succ_ne_zero _)⟩]
@@ -413,6 +446,44 @@ theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL 
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [hlenFs]; omega)] at hj
         exact absurd hj (Nat.not_lt_zero _)
       · exact hprop hw0 hℓ0 0 hpos
-  · exact interp_majorAVAt hlenP hlenI hsatP hX hleafT hlenM hfit
+  · exact interp_majorAVAtL hlenP hlenI hsatP hX hleafT hlenM hfit
+
+/-- The K-frame package at a **stored** former. -/
+theorem fixKFrame_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
+    {nP nIdx n ℓ w u : Nat} (hℓ : elimL.eval ψ = ℓ)
+    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
+    {Fss₀ Fss Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    (hlenFs : Fss.length = n) (hlenEs : Ess.length = n)
+    (hEs : ∀ j, j < n → (Ess.getD j []).length = nIdx)
+    (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
+      ((Eiss.getD j []).getD i []).length = nIdx)
+    {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) u w ρp
+      (ips.map (·.2.2)) rss tlss Eiss Fss₀ Fss Ess)
+    (hfields : ∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
+      ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
+        (∀ E ∈ Ess.getD j [], WellDenoted V (consList bs ρp) E) ∧
+        SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs))
+    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
+      = interp V (fun k => ρp (k + nP))
+          (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
+    {M : V} (hM : M ∈ˢ interp V ρp (motiveAVI m T ψ nP nIdx elimL ips))
+    {ms : List V} (hlenM : ms.length = n)
+    (hms : ∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
+      (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
+        (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
+      (Fss.getD j []) ρp [])
+    (hsingle : w = 0 → ℓ ≠ 0 → n ≤ 1)
+    (hprop : w = 0 → ℓ ≠ 0 → ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
+      srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →
+      ∀ fs : List V, SpineFit ρp ((Fss.getD j []).take i) fs →
+        interp V (consList fs ρp) ((Fss.getD j []).getD i default) ∈ˢ (univZero : V))
+    {is : List V} (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
+    FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss₀ (ips.map (·.2.2)) rss tlss Eiss ∧
+    interp V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) :=
+  fixKFrame_ofL hℓ hlenP hlenI hlenFs hlenEs hEs hEisLen hsatP hX hreal hfields hleafT hM hlenM
+    hms hsingle hprop hfit
 
 end ConLeche.Model

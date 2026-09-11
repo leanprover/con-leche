@@ -111,23 +111,34 @@ theorem fixMinorsData_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : 
     funext cd
     rw [show o + 1 + j = o + (j + 1) from by omega]
 
-/-- **The generated recursive recursor type's binder data**: parameters,
-motive, minors (with the ih binders), the index telescope lifted under
-the motive and the minors, major. -/
-@[expose] def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+/-- **The generated recursive recursor type's binder data** at an
+**explicit type-former leaf** `L` (task #278): parameters, motive,
+minors (with the ih binders), the index telescope lifted under the
+motive and the minors, major.  Only the former's two occurrences (the
+motive's and the major's domains) are generic; the minors keep the
+constructors' stored leaves. -/
+@[expose] def fixRecDataAVL {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (L : AnnotTerm)
     (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
     (cds : List CtorDatumR) : List (Nat × Nat × AnnotTerm) :=
   rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-    [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+    [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL L ψ nP nIdx ℓ ips)] ++
     fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1 ++
     rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips) ++
-    [(0, pwBit ψ (Level.zeronessOf ℓ), majorAVAt m T ψ nP nIdx cds.length)]
+    [(0, pwBit ψ (Level.zeronessOf ℓ), majorAVAtL L nP nIdx cds.length)]
 
-theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+/-- The generated recursor type's binder data at a **stored** former:
+`fixRecDataAVL` at the constant's leaf. -/
+@[expose] def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+    (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
+    (cds : List CtorDatumR) : List (Nat × Nat × AnnotTerm) :=
+  fixRecDataAVL m ψ (m.acval T ψ) nP nIdx ℓ pps ips cds
+
+theorem mem_fixRecDataAVL {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm} {nP nIdx : Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     {d : Nat × Nat × AnnotTerm}
-    (hd : d ∈ fixRecDataAV m T ψ nP nIdx ℓ pps ips cds) : d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
-  simp only [fixRecDataAV, List.mem_append, List.mem_singleton] at hd
+    (hd : d ∈ fixRecDataAVL m ψ L nP nIdx ℓ pps ips cds) :
+    d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
+  simp only [fixRecDataAVL, List.mem_append, List.mem_singleton] at hd
   rcases hd with (((h | rfl) | h) | h) | rfl
   · exact mem_rebit h
   · rfl
@@ -135,13 +146,25 @@ theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP
   · exact mem_rebit h
   · rfl
 
+theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+    {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    {d : Nat × Nat × AnnotTerm}
+    (hd : d ∈ fixRecDataAV m T ψ nP nIdx ℓ pps ips cds) : d.2.1 = pwBit ψ (Level.zeronessOf ℓ) :=
+  mem_fixRecDataAVL hd
+
+theorem fixRecDataAVL_length {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm} {nP nIdx : Nat}
+    {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    (hp : pps.length = nP) (hi : ips.length = nIdx) :
+    (fixRecDataAVL m ψ L nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 := by
+  simp only [fixRecDataAVL, List.length_append, rebit_length, hp, hi, List.length_singleton,
+    fixMinorsData_length, liftDoms_length]
+  omega
+
 theorem fixRecDataAV_length {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     (hp : pps.length = nP) (hi : ips.length = nIdx) :
-    (fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 := by
-  simp only [fixRecDataAV, List.length_append, rebit_length, hp, hi, List.length_singleton,
-    fixMinorsData_length, liftDoms_length]
-  omega
+    (fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 :=
+  fixRecDataAVL_length hp hi
 
 /-! ## The rules -/
 
