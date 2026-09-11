@@ -69007,6 +69007,61 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   ruled, `declMutual` takes `IndRepsHead` at the recursor conses as a
   hypothesis.
 
+#### 8.5 The stages, the leaf's typing, and the kernel's former regime (2026-09-11)
+
+* **M2.5a** (`MutualRecData.lean`): `formerReadsM_of`, `mutualCtorReadsM_of`,
+  `mutualRecData_of` — the stored member recursor type's reading package
+  `MutualRecData` (`SumRecData`'s six clauses at the k-motive shape;
+  `SumRecData` itself does NOT fit — its `len`/`read` are the one-motive
+  arithmetic, the two agree only at `k = 1`).  It also REPAIRED M2.2b's
+  `MutualCtorRead.base`, which had demanded the fixpoint route's
+  `CtorReadR` at the constructor's OWN member — false for a genuinely
+  mutual constructor (`A.mk : B → A` would need `acval B = acval A`);
+  now `CtorReadRT` with per-field targets, `fieldReadAt_of` generalised
+  in place to `fieldReadAt_ofE` over the entry's leaf.
+* **M2.5b** (`MutualStageFormer.lean`): `mutualLeafWalks`,
+  `stageMutualFormer`, `stageMutualFormers` over the carrier-free
+  `MemberChainsOk` bundle; `mutualTyAVI_below`, `auxBodyAV_validV`,
+  `mutualTyAVI_wellDenotedV`.  The members' EMPTY capability record
+  needs no `CapsLawsAt` hypothesis (its `eta`/`unitlike` are `false`).
+* **M2.5c** (`MutualStageCtor.lean`): `stageMutualCtor`/`stageMutualCtors`
+  over `consMutualCtors`, `MutualCtorDataI.cross` (with the target-member
+  guard), `ctorUnderValid`, and the invariants `CtorMembersFound`
+  (the block's formers are stored — what licenses the cross),
+  `MutualPendingAt`/`MutualConsedAt`.  FINDING (reused at the recursor
+  cons): a NON-`indInfo` cons needs no capability lemma at all —
+  `capsOk_cons_native` at `T := the consed name` has its block-family
+  branch refuted by `Env.find?_cons_self`, so the stage takes
+  `EtaFamiliesClosed env` and returns it by `EtaFamiliesClosed.cons_nonind`.
+  One block sort: the members' result levels are per-member spellings, so
+  the stage carries `w : (Name → Nat) → Nat` with `(resSortOf J).eval ψ = w ψ`.
+* **M2.3d** (`MutualRecTyping.lean`, `079388aa`): `mutualRecLeafFacts` —
+  member `mm`'s recursor leaf is `WellDenotedV` and inhabits its stored
+  type's reading; the public minor space equals the auxiliary one at the
+  dispatch (`minor_space_eq`, via the dispatch's computation law and
+  `piTele_congr_body`), the body folds through `appChainOk_of_mkPisAV'`
+  at `auxRecLeafFacts` (hence the auxiliary leaf's closedness `hclR`).
+  Two interface notes: `motDispAV_facts` carries an unused
+  `x ∈ˢ auxFib …` premise (it costs the stage two hypotheses), and it has
+  no `AnnotValid` companion — the dispatch's bit validity is built in the
+  typing file and should move to `MutualDisp.lean` when it is tidied.
+* **KERNEL FINDING (M1 fix, from M2.5b).**  `mutualFormers` checked each
+  former's type in the environment ALREADY carrying the earlier members;
+  official's `check_inductive_types` checks EVERY former's type in the
+  original environment and declares them afterwards.  So a former type
+  mentioning an earlier member was an ACCEPT-SUPERSET here.  The stage is
+  restructured to official's regime — `mutualFormerChecks` (all checks at
+  the pre-block environment) + `consMutualFormers` (the `k` conses,
+  block order), `mutualFormers`'s signature unchanged — with the F- and
+  cached twins, `mutualFormers_inv`, `envWF_mutualFormers`, the datF and
+  cached bridges and `stageMutualFormers` repaired.  It is also what the
+  model tier needs: every member's cons requires the WHOLE block's chain
+  facts (the tag is the union of all members' index telescopes), so all
+  `k` formers' data must be read at one carrier.
+* Name hygiene: `MutualChains`' `tagTupleAV_validV` → `tagTupleAV_validVC`
+  (`0cb2536b`) — it clashed with `MutualRecPre2`'s, and `declMutual`
+  imports both cones.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
