@@ -69703,13 +69703,24 @@ container's local ones (R2), which is the place to spend it.
 
 ### 6. Gates and status
 
-Build and `lake test` warning-free; the axiom pin unchanged; the
+Merged master (#277 model existence, #281 challenge gate) before the
+gates.  `lake build` and `lake test` warning-free; the axiom pin
+unchanged (18 theorems at the three standard axioms); the
 proof-dependency pin regenerated: the seven new modules
 (`Model/Annot/ConsMono`, `Model/IndRep`, `Model/IndRepCons`,
 `Model/IndRepSwap`, `Model/BasisRep`, `Model/Inductives/BlockData`,
 `Model/Inductives/FixRep`) enter every capstone's closure because the
 invariant carries the clause — the justification IS the task; no other
-door.  No checker file touched (`Kernel/*`, `Cached/*`, `Frontend/*`,
-`Main.lean` untouched), so no verdict changes; `tests/arena.sh` as
-recorded.
+door.  The import gate reconciled (`tests/shake.sh`): five imports
+removed by the noise-floor criterion, 21 allowlisted with their
+compensating additions (the relocated modules re-land in their donors'
+cones), 26 `public import`s demoted, four re-promoted as paired
+re-exports (the plan's known per-edge imprecision), four stale
+allowlist lines dropped; `pub-imports: 957 of 1330 edges public, none
+demotable`.  No checker file touched (`Kernel/*`, `Cached/*`,
+`Frontend/*`, `Main.lean` untouched), so no verdict changes:
+`tests/arena.sh` green (arena 90/92 as recorded, e2e 195/195, the
+trusted and worker-pool sweeps as recorded).  OVERVIEW §4 cites the
+clause; `tests/overview-links.sh --update` run after re-reading the
+paragraph.  READY on `agent/clause-280`; lands on `inductives`.
 
