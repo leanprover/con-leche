@@ -2550,9 +2550,42 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V _) hsp
         rwa [List.append_nil] at h
     case hcd =>
-      -- **BLOCKED** at the second conjunct — see the note at the end
-      -- of this proof
-      sorry
+      intro J cd hJd
+      have hJd' := hJd
+      rw [show prts.cds ψ
+          = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0 from rfl,
+        fixCtorDataList_getElem?] at hJd'
+      obtain ⟨cA, hcA, rfl⟩ := Option.map_eq_some_iff.mp hJd'
+      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA).1
+      have hnFJ : nFs J = cA.2 := by
+        show (ctorsA.getD J default).2 = cA.2
+        rw [List.getD_eq_getElem?_getD, hcA]; rfl
+      simp only [Nat.zero_add]
+      refine ⟨(hCD₁ J cA hcA).len ψ, ?_, hleafC₂ J cA hcA ψ,
+        mp₂.base2.cval_closedL cA.1.name ψ, ?_, ?_, ?_, ?_, ?_⟩
+      · exact fun ρ => ((hframesJ J hJl).1 ψ ρ).symm.trans
+          (hframeM (memF J) _ (hfmGet _ (hmotLt J hJl)) ψ ρ)
+      · show (mutFss p.toBlock.nP ctorsA.length dsF ψ)[J]? = _
+        show ((List.range ctorsA.length).map _)[J]? = _
+        rw [List.getElem?_map, List.getElem?_range hJl]
+        rfl
+      · show ConLeche.recIdxOf (kindsOf (ksF J))
+          = recIdx ((mutRss ctorsA.length ksF).getD J []) cA.2
+        rw [mutRss_getD hJl, ← (hksJ J cA hcA).1, ← kindsOf_length, recIdx_rsOf]
+      · show tssF J ψ = (mutTlss ctorsA.length tssF₀ ψ).getD J []
+        rw [mutTlss_getD hJl]
+        exact ((hident J cA hcA).2.2.2.2.2.2.1 ψ).symm
+      · show eissF J ψ = (mutEiss0 ctorsA.length eissF ψ).getD J []
+        rw [mutEiss0_getD hJl]
+      · show (mutEiss' (Wf ψ) (Idssf ψ) ksF nFs tssF₀ eissF₀ ψ).getD J []
+          = (List.range cA.2).map fun i =>
+            [tagTupleAV (Wf ψ) (tgtAt (ksF J) i)
+              (i + (((mutTlss ctorsA.length tssF₀ ψ).getD J []).getD i []).length) (Idssf ψ)
+              (((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i [])]
+        rw [mutEiss'_getDJ hJl
+            (by rw [(hident J cA hcA).2.2.2.2.2.1 ψ, (hCD₁ J cA hcA).eissLen ψ, hnFJ]),
+          mutTlss_getD hJl, mutEiss0_getD hJl, hnFJ,
+          (hident J cA hcA).2.2.2.2.2.1 ψ]
     case hframes =>
       intro ρp hρ
       have hρ0 : Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp := hρ
