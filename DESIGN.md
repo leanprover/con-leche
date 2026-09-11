@@ -69304,6 +69304,70 @@ leaf's λ-data IS the reading's data by `rfl`; `leaf`/`rds`/`conc`/
   `auxFixPre_of`'s `FixPre`).  Everything else `declMutual` owes is in
   the lane's report.
 
+#### 8.7 M2.6 part 2: the mutual discharge of the #280 clause, and TWO obstacles (2026-09-11)
+
+`Model/Inductives/MutualRep.lean`.  `mutualRepData` is the block's
+`IndRepData`: the constructors' readings as they are STORED (at the
+members' leaves, with the per-field target member), the member table
+(`k`, `memberNames = Tname`, `nIdxs = nIdxOf`, `mems = mots`,
+`tgts = tgtAt ∘ ksF`), and — the CONTAINER — the auxiliary family over
+the tag: `IdsC = auxIds W Idss` (so `nIdx = 1`), `u = W`,
+`tup ψ m ı⃗ = tupW W [inj m ⟨ı⃗⟩]` (`auxTup`), `Φ = fixFunVI` at the
+TAGGED chain data (`rss`, `tlss`, `Eiss'`, `Fss₀`, `Ess'`) and
+`inj ψ J fs = injW w J ⟨fs⟩`.  `resSort` is member `mm`'s own spelling
+(`IndRep.strip` compares it syntactically), the constructors' agreeing
+by value.  `mutualIndRep_of` proves every field of `IndRep` but two,
+from the stages' facts — the leaf from `mutualTyAVI_fold` (the aux
+tuple IS the datum's `tup ψ mm ı⃗`), `functor` from `fixFunVI_mem/_mono/_maps/
+_closed_exists` at the block's `XChainsOk`, `ctor` from `sumMkAV_fold`
+at the global `J`, `ctors` from `MutualCtorFactsAt` through the new
+`MutualCtorDataI.toFixCtorDataI` (the kinds read through `kindAt` at
+EVERY position, `kindsOf_getD_all`; the target member's name and index
+count; the result sort transferred by value, `CtorDataI.congrSort`),
+`memsFound` from the members' stored formers, `mkInj` from `inj_inj`
+and `mkTower_inj`.  `mutualIndRepsHead_of` and `mutualIndReps_of` are
+the two stage obligations; the latter is the GROUP STORE's, because
+`IndReps.swap` does not serve (its escape for an entry the swap CHANGED
+is `ModeledLeaf` alone, and a natively stored group's `k` recursors are
+exactly those).
+
+**OBSTACLE 1 — `IndRepData` cannot spell a mutual block's chains.**
+The datum has ONE pair of per-constructor index readings, `esF` and
+`eissF`, and uses it twice: `IndRep.ctors` reads the constructors'
+STORED types through them (`FixCtorFactsAt`, so `esF j ψ` is
+constructor `j`'s index spine at ITS member's leaf, of length
+`nIdxAt (mems j)`, and `eissF j ψ` field `i`'s at its TARGET member's,
+of length `nIdxAt (tgts j i)`), while the DERIVED `Ess`/`Eiss` — what
+`IndRep.chains` and `IndRep.fibre` are stated over — are the
+container's, which at a mutual block are the TAGGED singletons
+`[⟨inj m ⟨e⃗⟩⟩]` over the one-element telescope `auxIds`.  They coincide
+only at `k = 1`.  So `chains` and `fibre` are NOT satisfiable by any
+choice of the datum's fields at `k > 1` (the X-chain's recursive slot
+would apply the container's tupler to a member's own index spine), and
+`mutualIndRep_of` takes them as explicitly flagged hypotheses.  THE
+REPAIR (the clause author's, `Model/IndRep.lean`): one pair of fields
+for the CONTAINER's index readings — `EssC`/`EissC` beside
+`esF`/`eissF`, with `Ess`/`Eiss` derived from them and the
+single-family instance `EssC := esF`, `EissC := eissF`, so `fixRepData`
+and the four pinned data are unchanged.  Nothing else in the clause
+needs to move: `Fss` may stay the REAL chains (the X-chains ignore the
+recursive entries, `AgreeOffRecs`) and `tlss`/`rss` are shared.
+
+**OBSTACLE 2 — a rule-less recursor cannot claim its block** (the
+`rules = []` question).  `IndRep.rules` pins the stored rules to the
+member's own constructors, so at `rules = []` it forces
+`memberCtors mm = []` (`indRep_rules_nil`).  The install conses its `k`
+recursors RULE-LESS first (`provisionMutualRecs`: a rule mentions the
+sibling recursors), so `stageMutualRecProvision`'s `hreps` obligation
+— and hence `EnvModelM.ind_reps` at the provisioned environment — is
+FALSE for every member with a constructor; the native route never met
+this because it conses its recursor WITH its rules.  The claim must be
+deferred to the store: the clause has to exempt a rule-less recursor
+entry (`IndReps`/`IndRepsHead` reading `rules ≠ []`, or a third
+disjunct "provisional"), and only `mutualIndReps_of` at
+`storeMutualRecs` then owes anything.  `mutualIndRepsHead_of` is stated
+for a general `rules` so that it serves the store's cons unchanged.
+
 #### 8.6 M2.5d″ landed: the block's ι law closes (2026-09-11)
 
 `ruleFires_of` proves `MutualRecParts.RuleFires` outright; M2.5d′'s two
