@@ -1044,6 +1044,53 @@ theorem formerIdxOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP nId
 /-! ## The assembly -/
 
 set_option maxHeartbeats 25600000 in
+/-- A bounded binder list stays bounded when truncated. -/
+theorem domsBelow_take : ∀ {ds : List (Nat × Nat × AnnotTerm)} {k n : Nat},
+    DomsBelow k ds → DomsBelow k (ds.take n)
+  | [], _, _, _ => by rw [List.take_nil]; trivial
+  | _ :: _, _, 0, _ => trivial
+  | _ :: ds, _, n + 1, h => ⟨h.1, domsBelow_take (ds := ds) (n := n) h.2⟩
+
+/-! ## Kit: the auxiliary family's body is valid at the BARE parameter
+frame
+
+`auxBodyAV_validV` (`MutualStageFormer.lean`) asks for an index spine
+`SpineFit ρp (auxIds W Idss) [z]`, which it uses only for the frame
+shift of `fixBody_validV`'s application arm; the fixpoint body's own
+validity needs the index data and the chains alone.  The recursor's
+frame theorem (`MutualFrameOkM.auxValid`) wants it at the parameter
+frame, where NO tag element is available — the block's tag can be
+empty (a member with an uninhabited index domain) — so the spine-free
+form is the one the stage needs. -/
+theorem fixBodyAVI_validV {u w nIdx : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
+    (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids)
+    (hchains : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
+      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)) :
+    AnnotValid V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
+  unfold fixBodyAVI
+  refine mkAppN_validV (by simp) ?_
+  intro a ha
+  simp only [List.mem_cons] at ha
+  rcases ha with rfl | rfl | h
+  · exact towerBodyAV_validV hIV
+  · unfold fixFunAVI
+    rw [AnnotValid_lam]
+    refine ⟨?_, fun X hX => ?_⟩
+    · unfold famTyAV
+      rw [AnnotValid_pi]
+      exact ⟨towerBodyAV_validV hIV, fun _ _ => trivial, fun h => absurd h (Nat.succ_ne_zero _)⟩
+    · rw [(famTyAV_facts hI).1] at hX
+      rw [AnnotValid_lam]
+      have hsh1 : shiftE 1 0 (cons X ρp) = ρp := by
+        rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+      refine ⟨?_, fun t ht => ?_⟩
+      · rw [AnnotValid_liftN, hsh1]; exact towerBodyAV_validV hIV
+      · rw [interp_liftN, hsh1, (idxTyAV_facts hI).1] at ht
+        exact sumBodyAV_validV (hchains X hX t ht)
+  · exact nomatch h
+
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
@@ -1777,12 +1824,19 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (Fss0f ψ) (Essf ψ) t, ?_⟩
     rw [hsEq t f hft ψ, hleaf₁ t f hft]
     exact mutualTyAVI_eq_mkLamsC _ _ _ _ _ _ _ _ _ _ _
-  have hReal : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+  have hChainFull : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ∀ (ψ : Name → Nat) (ρp : Nat → V),
         Sat V (((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp →
+        FixChainsOkI (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) 1 rssf (tlssf ψ)
+          (Eissf ψ) (Fss0f ψ) (Essf ψ) ∧
         ChainsRealI (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf
-          (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ) (Essf ψ) := by
+          (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ) (Essf ψ) ∧
+        (∀ X, X ∈ˢ lfpFamSpace V (f₀.s.eval ψ) (idxSet (Wf ψ) ρp (auxIds (Wf ψ) (Idssf ψ))) →
+          ∀ τ, τ ∈ˢ idxSet (Wf ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) →
+            SumFieldsValid (cons τ (cons X ρp))
+              (chainsXI (Wf ψ) (auxIds (Wf ψ) (Idssf ψ)) 1 rssf (tlssf ψ) (Eissf ψ)
+                (Fss0f ψ) (Essf ψ))) := by
     intro t f hft ψ ρp hρ
     obtain ⟨hTagJ, hVJ⟩ := hIdxAll t f hft ψ ρp hρ
     have hFs₀ : ∀ J : Nat, J < ctorsA.length → ((Fss0f ψ).getD J []).length = nFs J := by
@@ -1803,7 +1857,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (fun J hJ => mutRss_getD hJ) hFs₀ hFsR hEsL
       (fun J hJ => (hChainJ t f hft ψ ρp hρ J hJ).1)
       (fun J hJ => (hChainJ t f hft ψ ρp hρ J hJ).2)
-      ?_).2.2.1
+      ?_).2
     intro J hJ
     have hJg := hcAGet J hJ
     have hmt : memF J < fms.length := hmotLt J hJ
@@ -1857,6 +1911,13 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
                 (Fss0f ψ) (Essf ψ) (tgtAt (ksF J) i) := by
           rw [hleaf₁ _ _ htG]
         rw [hnm, h1, hsEq _ _ hmtG ψ, hlen]
+  have hReal : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
+        Sat V (((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp →
+        ChainsRealI (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+            (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf
+          (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ) (Essf ψ) :=
+    fun t f hft ψ ρp hρ => (hChainFull t f hft ψ ρp hρ).2.1
   -- the constructors' frames at the member leaves
   have hframesJ : ∀ (J : Nat), J < ctorsA.length →
       (∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -2242,10 +2303,175 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (show t < formers4.length by rw [hlen4F]; exact ht)).1
     rw [hlen4F, hlen4C] at h
     exact h
-  -- **WIP (M2.5f)**: the formers' and the constructors' stages are in;
-  -- the recursor stage (`stageMutualRecs`) and the table stage
-  -- (`stageMutualTables`) are what is left.  This `sorry` is the lane's
-  -- only one and must be gone before the lane is READY.
+  -- **the recursor stage's data** (`MutualRecParts`): the chain lists
+  -- are the block's CONCRETE spellings, so the datum's derived lists
+  -- and the stage's agree by `rfl`
+  let prts : MutualRecParts :=
+    { ℓ := fun ψ => p.toBlock.elimLevel.eval ψ
+      W := Wf
+      wB := fun ψ => f₀.s.eval ψ
+      s := fun ψ => auxRecSort (Wf ψ) (Wf ψ) (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ)
+      bb := fun ψ => pwBit ψ (Level.zeronessOf p.toBlock.elimLevel)
+      k := fms.length
+      n := ctorsA.length
+      nP := p.toBlock.nP
+      elimL := p.toBlock.elimLevel
+      Lof := fun t ψ => mp₂.base2.acval (fms.getD t default).cvTa.name ψ
+      nIdxOf := fun t => (fms.getD t default).nIdx
+      ppsOf := fun t ψ => (ppsF t ψ).take p.toBlock.nP
+      ipsOf := fun t ψ => (ppsF t ψ).drop p.toBlock.nP
+      Idss := Idssf
+      FssR := FssRf
+      Fss₀ := Fss0f
+      Ess' := Essf
+      rss := rssf
+      tlss := tlssf
+      EissO := fun ψ => mutEiss0 ctorsA.length eissF ψ
+      Eiss' := Eissf
+      mems := memF
+      tgts := fun J => tgtAt (ksF J)
+      cds := fun ψ => fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0 }
+  have hRDs' : ∀ t : Nat, t < prts.k →
+      MutualRecData mp₂.base2 (cvRas.getD t default) prts.nP prts.k prts.n (prts.nIdxOf t) t
+        prts.elimL (prts.rds mp₂.base2 t) := hRDs
+  -- **the member leaf's typing hypotheses** (`MutualLeafHyp`)
+  have hyp : prts.LeafHyp V mp₂.base2 := by
+    intro t ht ψ
+    refine
+      { hℓ := rfl
+        hb := rfl
+        hbz := (pwBit_zeronessOf ψ _).symm
+        hlenP := ?hlenP
+        hk := hIdssLen ψ
+        hLs := by simp [MutualRecParts.Ls]
+        hnIdxs := by simp [MutualRecParts.nIdxs]
+        hipss := by simp [MutualRecParts.ipss]
+        hn := ?hn
+        hmm := ht
+        hmems := ?hmems
+        htgts := ?htgts
+        hIdss := ?hIdss
+        hleafM := ?hleafM
+        hcd := ?hcd
+        hframes := ?hframes
+        hclL := ?hclL
+        hclR := ?hclR
+        haux := ?haux
+        hauxConc := ?hauxConc
+        hstore := ?hstore }
+    case hlenP =>
+      show (List.take p.toBlock.nP (ppsF 0 ψ)).length = p.toBlock.nP
+      rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]
+      omega
+    case hn => exact fixCtorDataList_length _ _ _ _ _ _ _ _
+    case hmems => exact fun J hJ => hmotLt J hJ
+    case htgts =>
+      intro J i
+      by_cases hJ : J < ctorsA.length
+      · exact (hksJ J _ (hcAGet J hJ)).2.2 i
+      · have hk : (kinds.getD J [] : List (RecFieldKind × Nat)) = [] := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [← hlenAK]; omega)]
+          rfl
+        have h0 : tgtAt (kinds.getD J []) i = 0 := by rw [hk]; simp [tgtAt]
+        show tgtAt (kinds.getD J []) i < fms.length
+        rw [h0]
+        exact hk0
+    case hIdss =>
+      intro q hq
+      have hnq : prts.nIdxs.getD q 0 = prts.nIdxOf q := getD_range_map _ _ _ hq _
+      have hgq : (prts.ipss ψ).getD q [] = prts.ipsOf q ψ := getD_range_map _ _ _ hq _
+      refine ⟨((ppsF q ψ).drop p.toBlock.nP).map (·.2.2), hIdssGet ψ q hq, ?_, by rw [hgq]⟩
+      rw [List.length_map, List.length_drop, (hFD₂ q _ (hfmGet q hq)).len ψ, hnq]
+      exact Nat.add_sub_cancel_left _ _
+    case hleafM =>
+      -- member `q`'s stored leaf is the block's leaf at the BLOCK's
+      -- parameter telescope: a λ-tower congruence over `mkLamsAV`
+      -- under the pointwise `interp` equality of the two parameter
+      -- domains (`paramFrames`' second component, which `hframeM`
+      -- currently drops)
+      sorry
+    case hcd =>
+      -- **BLOCKED** at the second conjunct — see the note at the end
+      -- of this proof
+      sorry
+    case hframes =>
+      intro ρp hρ
+      have hρ0 : Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp := hρ
+      obtain ⟨hTag, hV⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ0
+      obtain ⟨hFix, hRealρ, hXV⟩ := hChainFull 0 f₀ hf0 ψ ρp hρ0
+      obtain ⟨hX, -⟩ := hXAll 0 f₀ hf0 ψ ρp hρ0
+      -- the constructors' own parameter frames
+      have hρJ : ∀ J : Nat, J < ctorsA.length →
+          Sat V (((dsF J ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp := by
+        intro J hJ
+        exact ((hframesJ J hJ).1 ψ ρp).mp
+          (hframeAll 0 (memF J) f₀ _ hf0 (hfmGet _ (hmotLt J hJ)) ψ ρp hρ0)
+      refine ⟨hTag, hV, hFix, hX,
+        fixBodyAVI_validV (auxIds_idxOk hTag) (auxIds_fieldsValid hV) hXV, ?_, ?_, ?_⟩
+      · -- `fieldsB`: the REAL field chains are graded at any constructor's frame
+        by_cases hne : 0 < ctorsA.length
+        · exact (hFssOkP 0 _ (hcAGet 0 hne) ψ ρp (hρJ 0 hne)).1
+        · have h0 : ctorsA.length = 0 := by omega
+          show SumFieldsOkB _ ρp (mutFss p.toBlock.nP ctorsA.length dsF ψ)
+          rw [h0]
+          intro Fs hFs
+          simp only [mutFss, List.range_zero, List.map_nil] at hFs
+          exact nomatch hFs
+      · -- `ctor`: the constructor's index expressions at a field spine,
+        -- and its value in the auxiliary fibre at its own tag
+        -- (`mutualCtorFold` + `fixFamI_app_eq_sum` at the 1-tuple
+        -- spine, `sumMkAV_fold`/`restricted_member_intro`)
+        sorry
+      · -- `slot`: the same at a recursive slot's telescope spine and
+        -- its TARGET member's tag (`ChainFacts.gr`'s `SlotFit`)
+        sorry
+    case hclL =>
+      exact auxFormerAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ))
+        (by rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega)
+        (hIdsBelow ψ) (hchainBelow ψ)
+    case hclR =>
+      -- the auxiliary recursor's leaf is closed
+      sorry
+    case haux =>
+      -- `auxRecLeafFacts` (`MutualRecPre2.lean`); its `AuxFrameOk.minors`
+      -- goes through `minorTag_facts`, whose `hctorOk` is DESIGN §8.4's
+      -- recorded gap (the mixed-regime chain lemma)
+      sorry
+    case hauxConc =>
+      -- `auxConc_facts`' universe component
+      sorry
+    case hstore =>
+      intro ρ
+      have hnq : prts.nIdxs.getD t 0 = prts.nIdxOf t := getD_range_map _ _ _ ht _
+      rw [hnq]
+      exact (hRDs t ht).okTy ψ ρ
+  -- **WIP (M2.5f)**: the members' readings and the block's
+  -- `MutualRecParts` are in (`hRDs'` is `stageMutualRecs`' `hRDs` at
+  -- the bundle, by `rfl`); the recursor stage (`stageMutualRecs`) and
+  -- the table stage (`stageMutualTables`) are what is left.
+  --
+  -- **BLOCKED at `MutualRecParts.LeafHyp`** (`MutualRecTyping.lean`'s
+  -- `MutualLeafHyp`, field `hcd`, second conjunct):
+  --
+  --   `(cd.2.2.1.take nP).map (·.2.2) = pps.map (·.2.2)`
+  --
+  -- asks for a SYNTACTIC identity of constructor `J`'s parameter
+  -- binder READING with the block's, and neither side is free here:
+  -- `cd.2.2.1` is pinned to `dsF J ψ` by `CtorReadRT.read` (and again
+  -- by `hcd`'s own `hleafC`, whose `sumMkAV wB J cd.2.2.1 …` is what
+  -- `stageMutualCtors` stored), while `pps = prts.ppsOf 0 ψ` is pinned
+  -- to member `0`'s telescope reading by `FormerReadM.read` through
+  -- `mutualRdsAV`'s `ppsOf 0 ψ` — the generated recursor type takes
+  -- its parameter Πs from former `0`.  The checker relates the two
+  -- only SEMANTICALLY: `checkMutualCtor` compares them with
+  -- `checkStructDomsAt`'s `isDefEq` and `mutualCrossChecks` compares
+  -- the members' with `mutualDomsOk`'s, which is what `paramFrames`
+  -- turns into `hframesJ`/`hframeM` (a `Sat`-iff plus a pointwise
+  -- `interp` equality).  Both consumers of the conjunct
+  -- (`MutualRecTyping.lean`'s `hsatC` and `MutualRuleFires.lean`'s
+  -- `hlenqs`/`hsatC`) only ever transfer `Sat` across it, so the
+  -- honest repair is to weaken the conjunct to that iff — a change to
+  -- `MutualRecTyping.lean`, which is another lane's file.
   sorry
 
 end ConLeche.Model
