@@ -68938,6 +68938,75 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   (mine), the rules (M2.2c: `mutualRecRhs`'s reading, the k-motive
   `RecRuleLaw` from `nativeRecAVI_iota` + the dispatch's law), M2.5.
 
+#### 8.4 M2.2b, M2.3b, M2.3c, M2.4 landed; the leaf; the `inductives` merge (2026-09-11)
+
+* **M2.2b** (`1669d731`): `ihDomAVM`/`ihPisAVM`/`minorAVAtRM`/
+  `fixMinorsDataM` over motive offsets (native = offset `0`, definitional
+  instances); `mutualRecDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts mm`
+  (`k` motives `motivesDataGo`, minors at `k + J`, member `mm`'s index
+  data lifted `k + n`, `majorAVAtK`), `mutualConcAV k n nIdx mm`;
+  `denoteMeta_mutualRecTy` reads the generated member recursor type
+  (`FormerReadsM`/`MutualCtorReadsM` premises); `interp_minorAVAtRM` at a
+  k-motive frame with the per-field motive `ihDomsIM` (`Semantics/Tower/
+  FixRecCoreI.lean`).  Recorded mismatches, all bridged: `majorAVAtL`'s
+  `1 + n` → `majorAVAtK`; the conclusion head `1 + nIdx + n + k - 1 - mm`
+  (= the kernel's `nIdx + n + k - mm` since `mm < k`); `mutualRecTy`
+  takes the parameter Πs from former `0` and the indices from member
+  `mm` (the stage feeds `mutualCrossChecks`); `mutualIhPis` iterates
+  `(i, m')` pairs — bridged by `c.recFields = recIdx.map (i, moti i)`.
+* **M2.4** (`MutualData`/`MutualShadow`/`MutualChains`, `Semantics/Tower/
+  MutualLeafFacts`): `MutualCtorDataI` (= `FixCtorDataI` with the target
+  member in `recEntry`/`reflEntry`/`eisLen`), `mutualCtorData_of` from
+  `checkMutualCtor`'s run, `ctorDataI_ofShape` (`SumData` split at the
+  run's shape), the frame theorems at a mutual constructor,
+  `mutualChainFacts_of : XChainsOk ∧ FixChainsOkI ∧ ChainsRealI (auxFamI)
+  ∧ validity`, `mutualCtorMkPre : MkPreS …`.  DECISION: the X-chains are
+  `shadowFs nP ks nF Fss` (the real chain with `Sort 0` at the recursive
+  slots — `chainXI`'s `xEntry` ignores the source entry, so no member is
+  mentioned and `ChainsRealI`'s ordinary clause is `rfl`); this replaces
+  the native route's two-stage dummy-former reading.  Left to the stage:
+  the cross-member parameter identification (`mutualCrossChecks`'
+  `isDefEq`, semantically) and `TagOk W` from the members' `idxOk_of` +
+  `IdxOk.mono`.
+* **M2.3c** (`1badef70`): `FormerData … pps lvls` with `lvlsLen`/`lvl`/
+  `lvlsParams` (`piLevels_of_infer`, `teleLevels_walk`); the levels are
+  evaluated at the assignment restricted to the block's parameters
+  (no `Verify` lemma says inferred sorts mention only the declared
+  parameters) — `lvlsParams` is then definitional.
+* **M2.3b** (`MutualRecPre2.lean`, 2 025 lines): closedness
+  (`tagTupleAV_below`, `minorAVAtRM_below`, `auxRecDataAV_below`,
+  `AuxSlotTagged`/`auxEbelow_of`), grading + universes of every
+  auxiliary binder domain (`auxMotive_facts`, `auxIdxBinder_facts`,
+  `auxMajor_facts`, **`minorTag_facts`** under `SlotTagOk`), `EntriesOk`
+  (the binder data's hereditary walk), `AuxFrameOk`, `auxRecSort p W w ℓ
+  := if ℓ = 0 then 0 else max (max p W) (max w (ℓ+1))`, **`auxFixPre_of`**
+  (via `fixPre_ofL`; `hsingle`/`hprop` vacuous from `w = 0 → ℓ = 0`) and
+  **`auxRecLeafFacts`** (via `fixRecLeafFacts`).  Recorded gap: the
+  constructor leaf's APPLICATION grading is a hypothesis (`hctorOk`) —
+  `appChainOk_of_mkPisAV` wants uniform bits and a constructor's binder
+  data mixes regimes (a `Prop` field's bit is `0`); a mixed-regime chain
+  lemma (bits monotone, zero once zero) would close it.
+* **The member leaf** (`MutualRecLeaf.lean`, `955df5d3`): `auxRecAV` (the
+  fixpoint leaf at `auxRecDataAV`), `mutualRecBodyAV` (the auxiliary
+  recursor at `p⃗`, `motDispAV ℓ W w D (n + nIdx + 1) k …`, the minors,
+  `tagTupleAV W mm D Idss (idxVarsAV nIdx 1)`, the major; `D = k + n +
+  nIdx + 1`), `mutualRecAVI := mkLamsC b (mutualRecDataAV …) body`.
+  In flight: M2.3d (its typing, `MutualRecTyping.lean`), M2.2c (the rules:
+  `mutualRuleCoreAV`/`mutualRuleDataAV`, `denoteMeta_mutualRecRhs`,
+  `mutualRecLawCore`, `mutualRuleOk`).
+* **`inductives` merged** (`ee8293e2`, #280 + master 1db09497): the
+  clause `EnvModelM.ind_reps : IndReps`, `IndRep`/`IndRepData`,
+  `BlockData.lean` (now carrying `FormerData … lvls`; `IndRepData.lvls`,
+  the `PUnit`/`Nat`/`Eq`/zero-constructor data extended).  The clause as
+  landed is single-family (`mI = nP + 1 + n + nIdx`, own-constructor
+  rules only at native, one former in `FixCtorFactsAt`, the leaf at the
+  container's own index spine); the member view it needs for a mutual
+  member's recursor (`k` motives, `mI = nP + k + n + nIdx_m`, member
+  `m`'s own rules, `tup ψ m ı⃗ = tupW W [inj m ⟨ı⃗⟩]`, a per-field target
+  table) is proposed to the coordinator (report of 2026-09-11); until
+  ruled, `declMutual` takes `IndRepsHead` at the recursor conses as a
+  hypothesis.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
