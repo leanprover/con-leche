@@ -71,7 +71,8 @@ theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps μ F) env true false resSort nP
       (tfvs.drop nP) [] nIdx = .ok isorts)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     IdxOk (idxUniv ψ isorts) ρp (((ppsAll ψ).drop nP).map (·.2.2)) := by
@@ -180,7 +181,8 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}

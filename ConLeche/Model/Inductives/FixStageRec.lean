@@ -199,7 +199,8 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
@@ -591,10 +592,11 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     -- the block's own capability laws at the cons (task #210 Part A),
     -- at any carrier agreeing with this one off the recursor's name
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsAll : (Name → Nat) → List Nat}
     (hTlaws : ∀ m₂ : EnvModel V ⟨.recInfo cvRa mI rP
         (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
       (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
-      FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ) →
       (∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
         ∀ ψ, m₂.acval cA.1.name ψ = mp.base2.acval cA.1.name ψ) →
@@ -604,7 +606,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     (helim : p.large = true → p.elim ∈ p.cvR.levelParams)
     (hRlps' : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams)
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}

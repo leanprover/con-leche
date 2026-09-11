@@ -85,7 +85,8 @@ theorem idxValid_of (mp : EnvModelM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars (nP + nIdx) cvTa.type 0 = some (tfvs, trest))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     FieldsValid ρp (((ppsAll ψ).drop nP).map (·.2.2)) := by
@@ -116,7 +117,8 @@ theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}

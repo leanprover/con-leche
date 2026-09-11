@@ -146,7 +146,8 @@ theorem fixRuleData_of (mp : EnvModelM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
