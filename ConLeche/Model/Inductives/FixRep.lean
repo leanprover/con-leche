@@ -352,7 +352,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff
-    chains := hX
+    chains := fun ψ ρp hρ => xChainsOk_toChainsOk (hX ψ ρp hρ)
     functor := fun ψ ρp hρ => ⟨fixFunVI_mem (hX ψ ρp hρ).hok, fixFunVI_mono (hX ψ ρp hρ),
       fixFunVI_maps (hX ψ ρp hρ), fixFunVI_closed_exists (hX ψ ρp hρ)⟩
     fibre := ?_

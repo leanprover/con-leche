@@ -183,6 +183,25 @@ fibre (`fixStepI_elim`). -/
 
 end IndRepData
 
+/-- **The chains' grading** at a parameter frame: the index telescope
+graded, the X-chains graded at every family and tuple, the recursive
+slots fitting there — `XChainsOk` without its closure witness (the
+closed member of the representing functor is `IndRep.functor`'s). -/
+structure ChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss Ess : List (List AnnotTerm)) : Prop where
+  hI : IdxOk u ρp Ids
+  hok : FixChainsOkI u w ρp Ids Ids.length rss tlss Eiss Fss Ess
+  hfit : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
+    ∀ j, j < Fss.length →
+      SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j [])
+
+theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
+    (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) : ChainsOk u w ρp Ids rss tlss Eiss Fss Ess :=
+  ⟨h.hI, h.hok, h.hfit⟩
+
 /-- **The representation of a stored inductive `T`** with recursor
 `T.rec = .recInfo cvR mI rP rules`, at the datum `d` (see the module
 docstring). -/
@@ -217,7 +236,7 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF j ψ).take d.nP).map (·.2.2)).reverse ρ
   /-- at every parameter frame the X-chains are graded -/
   chains : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    XChainsOk (d.u ψ) (d.w ψ) ρp (d.Ids ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ)
+    ChainsOk (d.u ψ) (d.w ψ) ρp (d.Ids ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ)
   /-- `Φ` is a monotone functor on the family space over the index-tuple
   set, mapping it into itself, with a closed member -/
   functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
