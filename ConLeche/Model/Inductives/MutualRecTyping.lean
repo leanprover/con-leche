@@ -1545,6 +1545,40 @@ theorem mutualRecAVI_congrψ {m : EnvModel V env} {ψ₁ ψ₂ : Name → Nat} {
   unfold mutualRecAVI
   rw [mutualRecDataAV_congrψ hb hev hac, auxRecAV_congrψ hb hev hac]
 
+
+/-! ### The same, at two CARRIERS
+
+`mutualRuleDataAV` reads the carrier only through the constructors'
+leaves (`minorAVAtRM`'s `m.acval C ψ`), so a rule's binder data is the
+same at any two carriers agreeing there — which is how the block's
+rule rows cross the group store. -/
+
+/-- The minor premise's domain reads the carrier only through its
+constructor's leaf. -/
+theorem minorAVAtRM_congrm {env' : Env} {m : EnvModel V env} {m' : EnvModel V env'}
+    {ψ : Name → Nat} {mot : Nat} {moti : Nat → Nat} {C : Name} {nP nF b o : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm} {ri : List Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)}
+    (h : m.acval C ψ = m'.acval C ψ) :
+    minorAVAtRM mot moti m C ψ nP nF b o ds Es ri tls Eiss
+      = minorAVAtRM mot moti m' C ψ nP nF b o ds Es ri tls Eiss := by
+  unfold minorAVAtRM
+  rw [h]
+
+/-- The minor entries, likewise. -/
+theorem fixMinorsDataM_congrm {env' : Env} {m : EnvModel V env} {m' : EnvModel V env'}
+    {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      (∀ cd ∈ cds, m.acval cd.1 ψ = m'.acval cd.1 ψ) →
+      fixMinorsDataM mots tgts m ψ nP b cds o = fixMinorsDataM mots tgts m' ψ nP b cds o
+  | _, _, [], _, _ => rfl
+  | mots, tgts, cd :: cs, o, h => by
+    obtain ⟨C, nF, ds, Es, ri, Eiss, tls⟩ := cd
+    rw [fixMinorsDataM, fixMinorsDataM,
+      minorAVAtRM_congrm (m := m) (m' := m') (h _ List.mem_cons_self),
+      fixMinorsDataM_congrm (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)
+        (fun cd' hcd' => h cd' (List.mem_cons_of_mem _ hcd'))]
+
 end Congr
 
 end ConLeche.Model
