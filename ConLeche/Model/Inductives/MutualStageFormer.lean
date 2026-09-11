@@ -303,4 +303,260 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
       0 (Nat.zero_le _) ρ (by rw [hΓnil]; exact Sat_nil V ρ)
     simpa using hw
 
+/-! ## The member's cons -/
+
+/-- **The P step at one member's cons**: `stageFixFormer` with the
+member's fibre leaf `mutualTyAVI` and the block's EMPTY capability
+record (K never fires on a mutual block; η and unit-likeness at a
+recursion-free block's structure-like members are a later task), so
+the block's own capability laws are vacuous. -/
+theorem stageMutualFormer (mp : EnvModelM V μ env)
+    (hE₀ : ConLeche.EtaFamiliesClosed env)
+    {F : Nat} {cvT cvTa : ConstantVal} {nP nIdx t : Nat} {resSort : Level}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort pps lvls)
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
+    {Fss₀ Ess' : (Name → Nat) → List (List AnnotTerm)}
+    (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) →
+      W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
+        Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
+    (hbelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ)
+      (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
+    (hC : MemberChainsOk V nP t resSort W Idss rss tlss Eiss' Fss₀ Ess' pps) :
+    ∃ mp' : EnvModelM V μ ⟨.indInfo cvTa {} :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
+        (fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ)
+          (Fss₀ ψ) (Ess' ψ) t) := by
+  obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  have hname : cvTa.name = cvT.name := by rw [hty]
+  have hfresh : env.find? cvTa.name = none := by rw [hname]; exact hfind
+  have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
+  have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
+  have hicw : ConLeche.IndCapsWF (.indInfo cvTa {}) :=
+    ConLeche.IndCapsWF.of_caps (fun hu => absurd hu (by decide)) (fun he => absurd he (by decide))
+  have hwfI : ConLeche.EnvWF ⟨.indInfo cvTa {} :: env.consts⟩ :=
+    ConLeche.envWF_cons_ind mp.base2.wf hccv hicw
+  let A : (Name → Nat) → AnnotTerm := fun ψ =>
+    mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+      (Ess' ψ) t
+  have hAbelow : ∀ ψ, Term.bvarsBelow 0 (A ψ).erase := fun ψ =>
+    mutualTyAVI_below (hFD.below ψ) (hFD.len ψ) (hIdsBelow ψ) (hbelow ψ)
+  have hwalks := mutualLeafWalks hFD hC
+  have hreadI : ∀ ψ : Name → Nat,
+      denoteMeta (acvalWith mp.base2.acval cvTa.name A)
+        ⟨.indInfo cvTa {} :: env.consts⟩ ψ 0 cvTa.type
+        = some (mkPisAV (pps ψ) (.sort (resSort.eval ψ))) := fun ψ =>
+    denoteMeta_cons_mono (c₀ := .indInfo cvTa {}) hfresh
+      (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)
+  have hnresI : ConLeche.reservedBasisNames.contains
+      (ConstantInfo.indInfo cvTa {}).name = false := by
+    show ConLeche.reservedBasisNames.contains cvTa.name = false
+    rw [hname]; exact hnres
+  have hpshapeI : (ConstantInfo.indInfo cvTa {}).name.isProjFnShape = false := by
+    show cvTa.name.isProjFnShape = false
+    rw [hname]; exact hpshape
+  refine declStep_preserves_of_ind_member_cons mp (c₀ := .indInfo cvTa {})
+    (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
+    (ConsHead.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ h => nomatch h))
+    (fun ψ k => AnnotTerm.liftN_eq_self _
+      (Term.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  · intro ψ₁ ψ₂ hφ
+    obtain ⟨hp, hw⟩ := hFD.params ψ₁ ψ₂ hφ
+    obtain ⟨hu, hIdss, htlss, hEiss, hFss, hEss⟩ := hParams ψ₁ ψ₂ hφ
+    show mutualTyAVI _ _ _ _ _ _ _ _ _ _ _ = mutualTyAVI _ _ _ _ _ _ _ _ _ _ _
+    rw [hp, hw, hu, hIdss, htlss, hEiss, hFss, hEss]
+  · exact fun ψ ρ => mutualTyAVI_wellDenoted (hwalks ψ ρ).1
+  · exact fun ψ ρ => (mutualTyAVI_wellDenotedV (hwalks ψ ρ).1 (hwalks ψ ρ).2).2
+  · exact fun ψ => ⟨_, hreadI ψ⟩
+  · intro ψ ta hta ρ
+    obtain rfl := Option.some.inj ((hreadI ψ).symm.trans hta)
+    exact hFD.okTy ψ ρ
+  · intro ψ ta hta ρ
+    obtain rfl := Option.some.inj ((hreadI ψ).symm.trans hta)
+    exact mutualTyAVI_mem (hwalks ψ ρ).1
+  · intro m₂ hac
+    refine capsOk_cons_native mp (c₀ := .indInfo cvTa {})
+      (A := A) (T := cvTa.name) hfresh
+      (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeI
+      (Or.inl ⟨cvTa, {}, rfl, rfl⟩)
+      (fun T' cvT' caps' hf _ hres hcape => hE₀ T' cvT' caps' hf hcape hres)
+      m₂ hac ?_
+    intro cvT' caps' hf _
+    have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa {}) env
+    obtain ⟨rfl, rfl⟩ :=
+      ConstantInfo.indInfo.inj (Option.some.inj (hself.symm.trans hf))
+    exact ⟨fun he _ => absurd he (by decide), fun hu => absurd hu (by decide)⟩
+
+/-! ## The formers' loop -/
+
+/-- Every member the formers' loop checks is fresh at the loop's own
+starting environment (the freshness guard of its `checkConstantVal`,
+pulled below the earlier members' conses). -/
+theorem mutualFormers_member_fresh {F nP : Nat} :
+    ∀ {l : List (ConstantVal × Nat)} {env' env₁ : Env} {fs : List MutualFormerA},
+      ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP l env'
+        = .ok (env₁, fs) →
+      ∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f → env'.find? f.cvTa.name = none
+  | [], env', env₁, fs, h, i, f, hf => by
+    obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_nil_inv h
+    simp at hf
+  | (cv, nIdx) :: rest, env', env₁, fs, h, i, f, hf => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs', hccv₀, htele, -, hrest, rfl⟩ :=
+      ConLeche.mutualFormers_inv h
+    have hccv : ∃ cv', ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env' cv' = .ok cvTa := by
+      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hccv₀⟩
+      · exact ⟨{ cv with type := ty }, hccv⟩
+    obtain ⟨cv', hccv'⟩ := hccv
+    obtain ⟨hfind, -, -, -, -, -, type', -, -, -, -, -, -, -, hty⟩ :=
+      ConLeche.checkConstantVal_inv hccv'
+    have hname : cvTa.name = cv'.name := by rw [hty]
+    cases i with
+    | zero =>
+      obtain rfl : f = ⟨cvTa, nIdx, s⟩ := Option.some.inj hf.symm
+      show env'.find? cvTa.name = none
+      rw [hname]; exact hfind
+    | succ i =>
+      have hf' : fs'[i]? = some f := by simpa using hf
+      have hnone := mutualFormers_member_fresh hrest i f hf'
+      rw [ConLeche.Env.find?_cons] at hnone
+      split at hnone
+      · exact nomatch hnone
+      · exact hnone
+
+/-- **The formers' loop, folded** (the induction over the remaining
+members; `idxs i` is the block position of the loop's `i`-th member). -/
+theorem stageMutualFormersGo {F nP : Nat} {resSort : Level} {lps : List Name}
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
+    {Fss₀ Ess' : (Name → Nat) → List (List AnnotTerm)}
+    {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsF : Nat → (Name → Nat) → List Nat}
+    (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+      W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
+        Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
+    (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
+      (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain) :
+    ∀ (l : List (ConstantVal × Nat)) (idxs : Nat → Nat) (env' env₁ : Env)
+      (fs : List MutualFormerA) (mp' : EnvModelM V μ env'),
+      ConLeche.EtaFamiliesClosed env' →
+      ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP l env'
+        = .ok (env₁, fs) →
+      (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
+        ConstsBound env' f.cvTa.type ∧
+        f.cvTa.levelParams = lps ∧
+        FormerData mp'.base2 f.cvTa (nP + f.nIdx) resSort (ppsF (idxs i)) (lvlsF (idxs i)) ∧
+        MemberChainsOk V nP (idxs i) resSort W Idss rss tlss Eiss' Fss₀ Ess' (ppsF (idxs i))) →
+      ∃ mp₁ : EnvModelM V μ env₁,
+        (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
+          mp₁.base2.acval f.cvTa.name
+            = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF (idxs i) ψ) f.nIdx (Idss ψ) rss
+                (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) (idxs i)) ∧
+        (∀ n : Name,
+          (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f → n ≠ f.cvTa.name) →
+          mp₁.base2.acval n = mp'.base2.acval n) := by
+  intro l
+  induction l with
+  | nil =>
+    intro idxs env' env₁ fs mp' _ hrun _
+    obtain ⟨rfl, rfl⟩ := ConLeche.mutualFormers_nil_inv hrun
+    exact ⟨mp', fun i f hf => by simp at hf, fun _ _ => rfl⟩
+  | cons hd rest ih =>
+    obtain ⟨cv, nIdx⟩ := hd
+    intro idxs env' env₁ fs mp' hE hrun hmem
+    obtain ⟨cvTa₀, cvTa, s, bs, fs', hccv₀, htele, -, hrest, rfl⟩ :=
+      ConLeche.mutualFormers_inv hrun
+    have hccv : ∃ cv', ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env' cv' = .ok cvTa := by
+      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hccv₀⟩
+      · exact ⟨{ cv with type := ty }, hccv⟩
+    obtain ⟨cv', hccv'⟩ := hccv
+    obtain ⟨hcb₀, hlps₀, hFD₀, hC₀⟩ := hmem 0 ⟨cvTa, nIdx, s⟩ rfl
+    have hfresh : env'.find? cvTa.name = none :=
+      mutualFormers_member_fresh hrun 0 ⟨cvTa, nIdx, s⟩ rfl
+    obtain ⟨mpI, hacI⟩ := stageMutualFormer mp' hE hccv' hFD₀
+      (fun ψ₁ ψ₂ hφ => hParams ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ)) hIdsBelow hchainBelow hC₀
+    have hE' : ConLeche.EtaFamiliesClosed ⟨.indInfo cvTa {} :: env'.consts⟩ :=
+      ConLeche.EtaFamiliesClosed.cons_nonind hE hfresh (fun cv'' caps heq he => by
+        obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
+        exact absurd he (by decide))
+    -- the later members' data cross the cons
+    obtain ⟨mp₁, hpos, hoff⟩ := ih (fun i => idxs (i + 1)) _ _ fs' mpI hE' hrest (by
+      intro i f hf
+      obtain ⟨hcb, hlps, hFD, hC⟩ := hmem (i + 1) f (by simpa using hf)
+      exact ⟨ConstsBound.cons _ hcb, hlps,
+        hFD.cross (c₀ := .indInfo cvTa {}) hfresh
+          (ConsCrossAt.ofNtc fun _ h => nomatch h) hcb mpI.base2 hacI, hC⟩)
+    -- member 0's name differs from every later member's
+    have hne₀ : ∀ (i : Nat) (f : MutualFormerA), fs'[i]? = some f → cvTa.name ≠ f.cvTa.name := by
+      intro i f hf hh
+      have hnone := mutualFormers_member_fresh hrest i f hf
+      rw [← hh] at hnone
+      have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa {}) env'
+      exact nomatch (hself.symm.trans hnone)
+    refine ⟨mp₁, ?_, ?_⟩
+    · intro i f hf
+      cases i with
+      | zero =>
+        obtain rfl : f = ⟨cvTa, nIdx, s⟩ := Option.some.inj hf.symm
+        show mp₁.base2.acval cvTa.name = _
+        rw [hoff cvTa.name hne₀, hacI, acvalWith_self]
+      | succ i =>
+        have hf' : fs'[i]? = some f := by simpa using hf
+        exact hpos i f hf'
+    · intro n hn
+      rw [hoff n (fun i f hf => hn (i + 1) f (by simpa using hf)), hacI,
+        acvalWith_ne (hn 0 ⟨cvTa, nIdx, s⟩ rfl)]
+
+/-- **The formers' stage of the mutual install**: the block's `k`
+members consed, member `t`'s leaf the fibre `mutualTyAVI … t` of the
+one auxiliary family.  The members' binder data (`ppsF`, `lvlsF`) and
+the block's chain data are given; the chain facts are stated per
+member, at that member's parameter frame, about the annotated data
+alone — the cross-member parameter identification
+(`mutualCrossChecks`) is therefore not consumed here and stays with
+the caller.  The conclusion is the positional leaf equation plus the
+agreement off the block. -/
+theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
+    {Fss₀ Ess' : (Name → Nat) → List (List AnnotTerm)}
+    {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsF : Nat → (Name → Nat) → List Nat}
+    (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+      W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
+        Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
+    (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
+      (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
+    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
+    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
+      = .ok (env₁, fms))
+    (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      ConstsBound env f.cvTa.type ∧
+      f.cvTa.levelParams = lps ∧
+      FormerData mp.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) (lvlsF t) ∧
+      MemberChainsOk V nP t resSort W Idss rss tlss Eiss' Fss₀ Ess' (ppsF t)) :
+    ∃ mp₁ : EnvModelM V μ env₁,
+      (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+        mp₁.base2.acval f.cvTa.name
+          = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx (Idss ψ) rss (tlss ψ)
+              (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t) ∧
+      (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → n ≠ f.cvTa.name) →
+        mp₁.base2.acval n = mp.base2.acval n) :=
+  stageMutualFormersGo hParams hIdsBelow hchainBelow formers (fun i => i) env env₁ fms mp hE
+    hrun hmem
+
 end ConLeche.Model
