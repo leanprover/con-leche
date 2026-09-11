@@ -68614,3 +68614,71 @@ and re-open the tier.
 annotation in every stored type is right" at ~30 lines of proof, the
 rules become the natural domain-restricted ones, and nothing else
 moves.  The maintainer decides; not implemented in stage 1.
+
+### 11. STAGE 2 — the proof, the promotion, the gates (2026-09-11)
+
+**The premise adopted** (`684bba8a`, the maintainer: "ok, that seems
+like a good start"): `pi`/`lam` read their bodies on the domain and
+carry `hP`; `Denotes_functional` re-proved with `piR_congr`/`lamR_congr`
+(one `obtain rfl` and one congruence per binder case).  Master merged
+(`0de392ec`): task #281 had landed `tests/challenge.sh` — the same rot
+§7 found, gated — and a one-line import fix in `Challenge.lean`; the
+gate is kept, the file is this task's.
+
+**The proof**, two files, 467 lines, no invariant or checker change:
+
+* `ConLeche/Verify/Close.lean` (60 lines): `Expr.closeN d e k` — the
+  free variables below `d` as de Bruijn indices at cursor `k` —
+  `closeN_of_hasFvar` and `closeN_instantiate1` (closing commutes with
+  opening one binder, under `looseBVarsBounded (k+1)` and
+  `fvarsBelow d`).  Both by structural induction, first attempt.
+* `ConLeche/Model/Denotes.lean` (407 lines, Opus from the stage-1
+  spec): `cvalOf acval n ψ := interp V (fun _ => ∅) (acval n ψ)`
+  (ρ-free by `interp_closed`); `push_eq_cons`, `field_eq_projS`,
+  `regime_eq_pwBit` (`rfl`); the literal spines rebuilt from the
+  pre-rename template (`Denotes_const_nil`/`_one`, `Denotes_charList`;
+  `strLitSupported_inv` now has 32 components, the template's 26-slot
+  pattern no longer lines up); the bridge `Denotes_of_denoteMeta` by
+  `denoteMeta.induct` (fifteen cases), the reading's grading
+  `WellDenotedV V ρ ta` threaded hereditarily over the domain — the
+  `pi` premise is `AnnotValid_pi`'s third conjunct at `univ_zero`, the
+  `lam` premise `WellDenoted_lam`'s fibre package through
+  `eq_pt_of_mem_univZero`, the binder cases go through
+  `closeN_instantiate1` at cursor `0` and `push_eq_cons`, the proj cases
+  through `projAV_interp`/`field_eq_projS` and a three-way split of the
+  index at `projPair?`; `Model.ofEnvModelM` (`mem` from
+  `type_reads`/`type_wellDenotedV`/`mem_type` at depth `0` with
+  `closeN_of_hasFvar` on `ConstWF`'s fvar clause; `false_empty` by a
+  `suffices` generalising the assignment, `EnvModel.cvalE_pinned` at
+  `falseName`, `erase_eq_const`, `bval .empty = ∅`).  Two notes for the
+  next reader: `looseBVarsBounded_instantiate1` lives in `ConLeche`, not
+  `ConLeche.Expr` (its `Verify/Shift.lean` neighbours do); the
+  `fvarsBelow`/`looseBVarsBounded` premises split by `have … := h`
+  (defeq through the exposed matches), not by `simp only`, which
+  descends.  `model_exists` is `Cached.checkDecls_sound` plus this.
+
+**The promotion.**  `MainTheorem.lean` is the solution module (main
+theorem, functionality, headline — the headline derived in three
+lines); `tests/ConLecheTests/Axioms.lean` pins `model_exists` and
+`Denotes_functional` (eighteen theorems, the same three axioms);
+`tests/ProofDeps.lean` gains the root `main_model` (expectation
+regenerated: 3 819 rows across 11 roots, 0 doors; `main_False` gains
+exactly `ConLeche.Denotes`, `ConLeche.Model.Denotes`,
+`ConLeche.Verify.Close`); `formalization.yaml` leads with
+`model_exists`; OVERVIEW §1 restated (main theorem, `Denotes`/`Model`,
+the headline as corollary), §2 step 5 and §4 anchor
+`Model.ofEnvModelM`/`Denotes_of_denoteMeta`, §11 lists the two
+statement modules, §12 the challenge gate; links regenerated (77
+links, 49 files) after re-reading the six moved anchors; the CI
+header's stale "six guards" count goes.  README and the arena
+`con-leche.yaml` are proposed in the report, not applied (the one is
+human-written, the other another repository).
+
+**Comparator, run for real** (the #183 recipe; the v4.33.0
+`lean4export` is the nested build `_tmp/lean4export/lean4export`, the
+outer clone is at v4.29.1 — restored after a wrong checkout):
+challenge 65 jobs with exactly its three `sorry` warnings (48 before:
+`Denotes`, `Verify/Level`, `SetModel/Ops`, `SetTheory/Derive/Sigma`
+joined the trusted closure), solution 440 jobs, the three theorems
+exported from both, "Lean default kernel accepts the solution", "Your
+solution is okay!".
