@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
+import ConLeche.Model.Denotes
 public section
 
 /-!
@@ -46,8 +47,9 @@ model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
-    Nonempty (Model V env) :=
-  sorry
+    Nonempty (Model V env) := by
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
+  exact ⟨Model.Model.ofEnvModelM m⟩
 
 /-- A term has at most one denotation. -/
 theorem Denotes_functional {V : Type w} [SetTheory V]
