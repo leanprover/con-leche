@@ -571,4 +571,81 @@ theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s
   rw [List.map_cons, List.map_nil, htagi.1]
   rfl
 
+set_option maxHeartbeats 3200000 in
+/-- **The member recursor's rule law at the readings** — the mutual
+twin of `fixRecLawCore`.  At term spines whose readings are the block
+`(p⃗, M⃗, S⃗)`, member `mm`'s index values and constructor `j`'s value,
+member `mm`'s recursor is rule `j`'s right-hand side at the block and
+the constructor's fields; and that right-hand side, applied, is graded.
+
+The `ℓ ≠ 0` content is `mutualRecIotaCore`'s and is taken here as
+`hiota`; at `ℓ = 0` both sides are the point, every binder of both
+λ-towers carrying the bit `0`. -/
+theorem mutualRecLawCore {ℓ b k n nF j mm nP : Nat}
+    {Rof : Nat → AnnotTerm} {tgtsJ : Nat → Nat} {recIdxJ : List Nat}
+    {tlsJ : List (List (Nat × Nat × AnnotTerm))} {EissJ : List (List AnnotTerm)}
+    {lds : List (Nat × AnnotTerm)} {Ra : AnnotTerm} {ρ : Nat → V}
+    {as₁ Ms ms is as₂ : List V} {t : V} {xs ys : List AnnotTerm} {ctor : AnnotTerm}
+    (hbz : ℓ = 0 ↔ b = 0) (hk : 0 < k)
+    (hRa : Ra = mkLamsAV lds (mutualRuleCoreAV b Rof tgtsJ nP k n nF j recIdxJ tlsJ EissJ))
+    (hldsBits : ∀ d ∈ lds, d.1 = b) (hldsLen : lds.length = nP + k + n + nF)
+    (hlenP : as₁.length = nP) (hlenK : Ms.length = k) (hlenM : ms.length = n)
+    (hxv : xs.map (interp V ρ) = as₁ ++ Ms ++ ms ++ is)
+    (hyv : (ys.drop nP).map (interp V ρ) = as₂)
+    (hctor : interp V ρ ctor = t)
+    (hokRa : ∀ σ : Nat → V, WellDenotedV V σ Ra)
+    (hfitRa : SpineFit ρ (lds.map (·.2))
+      ((xs.take (nP + k + n) ++ ys.drop nP).map (interp V ρ)))
+    (hRmmPt : ℓ = 0 → interp V ρ (Rof mm) = pt)
+    (hiota : ℓ ≠ 0 →
+      (as₁ ++ Ms ++ ms ++ is ++ [t]).foldl SetTheory.app (interp V ρ (Rof mm))
+        = interp V (consList as₂ (consList ms (consList Ms (consList as₁ ρ))))
+            (mutualRuleCoreAV b Rof tgtsJ nP k n nF j recIdxJ tlsJ EissJ)) :
+    interp V ρ (AnnotTerm.mkAppN (Rof mm) (xs ++ [ctor]))
+        = interp V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + k + n) ++ ys.drop nP)) ∧
+      ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ c ∈ ys, WellDenotedV V ρ c) →
+        WellDenotedV V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + k + n) ++ ys.drop nP))) := by
+  -- at `ℓ = 0` the rule reads as the point (every binder bit is `0`)
+  have hRaPt : ℓ = 0 → interp V ρ Ra = pt := by
+    intro hℓ0
+    have hb0 : b = 0 := hbz.mp hℓ0
+    cases hlds : lds with
+    | nil =>
+      rw [hlds, List.length_nil] at hldsLen
+      omega
+    | cons d rest =>
+      have hd : d.1 = 0 := by
+        rw [← hb0]
+        exact hldsBits d (by rw [hlds]; exact List.mem_cons_self)
+      rw [hRa, hlds, mkLamsAV, interp_lam, hd, lamR_zero]
+  -- the right-hand side's frame
+  have hxtake : (xs.take (nP + k + n)).map (interp V ρ) = as₁ ++ Ms ++ ms := by
+    rw [List.map_take, hxv,
+      show nP + k + n = (as₁ ++ Ms ++ ms).length from by
+        simp only [List.length_append, hlenP, hlenK, hlenM],
+      List.append_assoc, List.take_left, ← List.append_assoc]
+  have hframeRa : consList ((xs.take (nP + k + n) ++ ys.drop nP).map (interp V ρ)) ρ
+      = consList as₂ (consList ms (consList Ms (consList as₁ ρ))) := by
+    rw [List.map_append, hxtake, hyv]
+    simp only [consList_append]
+  refine ⟨?_, ?_⟩
+  · rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app),
+      List.map_append, List.map_cons, List.map_nil, hxv, hctor]
+    by_cases hℓ0 : ℓ = 0
+    · rw [hRmmPt hℓ0, foldl_app_pt_sum, interp_mkAppN,
+        ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hRaPt hℓ0, foldl_app_pt_sum]
+    · rw [hiota hℓ0, interp_mkAppN,
+        ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hRa,
+        mkLamsAV_fold_graded (by rw [← hRa]; exact (hokRa ρ).1) hfitRa, hframeRa]
+  · intro hxs_ok hys_ok
+    have hargs : ∀ a ∈ xs.take (nP + k + n) ++ ys.drop nP, WellDenotedV V ρ a := by
+      intro a ha
+      rcases List.mem_append.mp ha with h | h
+      · exact hxs_ok a (List.mem_of_mem_take h)
+      · exact hys_ok a (List.mem_of_mem_drop h)
+    by_cases hℓ0 : ℓ = 0
+    · exact mkAppN_wellDenotedV_of_pt (hokRa ρ) (hRaPt hℓ0) hargs
+    · exact mkAppN_wellDenotedV_of_lam (hokRa ρ) hargs (by rw [← hRa]; exact (hokRa ρ).1)
+        (Or.inr (by rw [hRa])) hfitRa
+
 end ConLeche.Model
