@@ -407,4 +407,209 @@ theorem stageMutualRecsProvision (p : MutualRecParts) {env₀ : Env} {m₀ : Env
     exact hag n fun x hx => by rw [(hzip x hx).2]; exact hn x.2 (hzip x hx).1
 
 
+/-! ## The rule's spelling and its term-level law -/
+
+namespace MutualRecParts
+
+variable (p : MutualRecParts)
+
+/-- **Rule `J`'s right-hand side**, as the model reads it: the λ-tower
+over the rule's binder data (`mutualRuleDataAV`) with the `k`-motive
+rule core (`mutualRuleCoreAV`), the inductive hypotheses firing the
+member leaves. -/
+@[expose] def ruleAV {env₀ : Env} (m₀ : EnvModel V env₀) (J : Nat) (cd : CtorDatumR)
+    (ψ : Name → Nat) : AnnotTerm :=
+  mkLamsAV (mutualRuleDataAV m₀ ψ (p.Ls ψ) p.nP p.nIdxs p.elimL (p.ppsOf 0 ψ) (p.ipss ψ)
+      (p.cds ψ) p.mems p.tgts cd.2.2.1)
+    (mutualRuleCoreAV (p.bb ψ) (fun q => p.leaf m₀ q ψ) (p.tgts J) p.nP p.k p.n cd.2.1 J
+      cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+
+/-- **The term-level ι law of rule `J` at member `t`** — the mutual
+twin of `fixRecLawCore`'s conclusion, at its interface: at term spines
+whose readings fit member `t`'s stored binder data with constructor
+`J`'s value as the major, the member's leaf applied is the rule's
+right-hand side applied, and that application is graded.
+
+`mutualRecLawCore` (`Model/Inductives/MutualRecLaw.lean`) is the law
+this names, and `mutualRecIotaCore` its `ℓ ≠ 0` half; the two are
+stated at a SPLIT block frame `(p⃗, M⃗, S⃗, ı⃗, t)`, so discharging this
+means splitting the spine — `fixRecLawCore` does that for the fixpoint
+route inside itself, the mutual route's twin of that step is not
+written yet, and until it is this is the stage's one open premise. -/
+def RuleFires (V : Type w) [SetTheory V] {env₀ : Env} (m₀ : EnvModel V env₀)
+    (t J mI rP : Nat) (cdF : (Name → Nat) → CtorDatumR) : Prop :=
+  ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs ys : List AnnotTerm),
+    xs.length = mI → ys.length = p.nP + (cdF ψ).2.1 →
+    SpineFit ρ ((p.rds m₀ t ψ).map (·.2.2))
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+        (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]).map (interp V ρ)) →
+    SpineFit ρ ((cdF ψ).2.2.1.map (·.2.2)) (ys.map (interp V ρ)) →
+    (∀ i, i < p.nIdxOf t →
+      interp V (consList (ys.map (interp V ρ)) ρ) ((cdF ψ).2.2.2.1.getD i default)
+        = interp V ρ (xs.getD (rP + i) default)) →
+    interp V ρ (AnnotTerm.mkAppN (p.leaf m₀ t ψ)
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+          (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]))
+      = interp V ρ (AnnotTerm.mkAppN (p.ruleAV m₀ J (cdF ψ) ψ)
+          (xs.take rP ++ ys.drop p.nP)) ∧
+    ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ c ∈ ys, WellDenotedV V ρ c) →
+      WellDenotedV V ρ (AnnotTerm.mkAppN (p.ruleAV m₀ J (cdF ψ) ψ)
+        (xs.take rP ++ ys.drop p.nP)))
+
+end MutualRecParts
+
+set_option maxHeartbeats 6400000 in
+/-- **The mutual recursor rule's law**, at the environment holding the
+whole group (`fixRecRuleLaw` at `k` motives).  The rule's right-hand
+side reads to `ruleAV` (`denoteMeta_mutualRecRhs`, taken as `hread`:
+every sibling recursor is stored there), its binders are graded
+(`mutualRuleOk`, taken as `hRuleOk`), the parameter comparison is
+VACUOUS (`paramsBlind := true`) and the `.nested` clauses are vacuous
+(the fire is `.plain`); what is left is the ι equation, whose spine
+premises — the recursor's fit, the constructor's fit and the index pin
+— are extracted here and handed to `RuleFires`. -/
+theorem mutualRecRuleLaw (p : MutualRecParts) {env₀ envE : Env} {m₀ : EnvModel V env₀}
+    (m : EnvModel V envE)
+    {lps : List Name} {cvRa cvC : ConstantVal} {C Tname : Name} {nF t J mI rP : Nat}
+    {cdF : (Name → Nat) → CtorDatumR} {rhs : Expr} {kb eb : Bool} {rl : RecRule}
+    (hmI : mI = p.nP + p.k + p.n + p.nIdxOf t) (hrP : rP = p.nP + p.k + p.n)
+    (hrule : rl = ⟨C, nF, p.nP, .plain, rhs, kb, eb, true⟩)
+    -- the datum is the block's `J`-th (the caller's instantiation; the
+    -- law itself reads `cdF` and `p.cds` separately)
+    (_hcdJ : ∀ ψ : Name → Nat, (p.cds ψ)[J]? = some (cdF ψ))
+    (hclen : ∀ ψ : Name → Nat, (cdF ψ).2.2.1.length = p.nP + nF)
+    (hcdNF : ∀ ψ : Name → Nat, (cdF ψ).2.1 = nF)
+    (hclenE : ∀ ψ : Name → Nat, (cdF ψ).2.2.2.1.length = p.nIdxOf t)
+    (hlpsC : cvC.levelParams = lps)
+    (hfC : envE.find? C = some (.ctorInfo cvC p.nP nF))
+    (hleafR : ∀ ψ : Name → Nat, m.acval cvRa.name ψ = p.leaf m₀ t ψ)
+    (hleafC : ∀ ψ : Name → Nat, m.acval C ψ = sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+      (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ)))
+    (hdataParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+      cdF ψ₁ = cdF ψ₂ ∧ p.FssR ψ₁ = p.FssR ψ₂ ∧ p.wB ψ₁ = p.wB ψ₂)
+    (hRD : MutualRecData m cvRa p.nP p.k p.n (p.nIdxOf t) t p.elimL (p.rds m₀ t))
+    (hCread : ∀ ψ : Name → Nat, denoteMeta m.acval envE ψ 0 cvC.type
+      = some (mkPisAV (cdF ψ).2.2.1 (ctorBodyAVI m Tname p.nP nF ψ (cdF ψ).2.2.2.1)))
+    (hread : ∀ ψ : Name → Nat, denoteMeta m.acval envE ψ 0 rhs = some (p.ruleAV m₀ J (cdF ψ) ψ))
+    (hRuleOk : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (p.ruleAV m₀ J (cdF ψ) ψ))
+    (hfires : p.RuleFires V m₀ t J mI rP cdF)
+    (φ : Name → Nat) :
+    RecRuleLaw m φ cvRa.name cvRa mI rP rl := by
+  subst hrule
+  subst hmI
+  subst hrP
+  refine ⟨by omega, fun us hus => ?_⟩
+  dsimp only
+  have hinstR : ∀ (d : Nat) (e : Expr),
+      denoteMeta m.acval envE φ d (e.instantiateLevelParams cvRa.levelParams us)
+        = denoteMeta m.acval envE (Level.substFn φ cvRa.levelParams us) d e :=
+    fun d e => denoteMeta_instLevels (acvalParamsAt_of_core m) φ d e
+  generalize hψR : Level.substFn φ cvRa.levelParams us = ψR at hinstR ⊢
+  refine ⟨_, by rw [hinstR, hread ψR], hRuleOk ψR, fun _ _ h => absurd h (by simp), ?_⟩
+  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ _ _ hidx hTVa
+    hTVja hfitR hfitC
+  -- the constructor found is the block's
+  obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfcj))
+  -- the level assignments agree on the block's parameters
+  have hagree : ∀ q ∈ lps, Level.substFn φ cvC.levelParams usj q = ψR q := by
+    have h := hψ
+    simp only [ConLeche.recFireComparands] at h
+    rw [hlpsC] at h
+    rw [hlpsC, ← hψR]
+    exact substFn_agree_of_comparand h
+  generalize hψC : Level.substFn φ cvC.levelParams usj = ψC at hagree hTVja hfitC hfitR ⊢
+  obtain ⟨hcdEq, hFssEq, hwEq⟩ := hdataParams ψC ψR hagree
+  -- the recursor type's reading
+  have hTVa' : TVa = mkPisAV (p.rds m₀ t ψR) (p.conc t) := by
+    have h := hTVa
+    rw [hinstR] at h
+    exact Option.some.inj (h.symm.trans (hRD.read ψR))
+  -- the constructor type's reading
+  have hTVja' : TVja = mkPisAV (cdF ψR).2.2.1
+      (ctorBodyAVI m Tname p.nP nF ψC (cdF ψR).2.2.2.1) := by
+    have h := hTVja
+    rw [denoteMeta_instLevels (acvalParamsAt_of_core m) φ 0 cvC.type, hψC] at h
+    have h2 := Option.some.inj (h.symm.trans (hCread ψC))
+    rw [h2, hcdEq]
+  -- the constructor's leaf at this assignment
+  have hleafC₂ : m.acval C ψC = sumMkAV (p.wB ψR) J (cdF ψR).2.2.1
+      (((cdF ψR).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψR)) := by
+    rw [hleafC ψC, hcdEq, hwEq, hFssEq]
+  -- the recursor's spine fit
+  have hspR : SpineFit ρ ((p.rds m₀ t ψR).map (·.2.2))
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψR) J (cdF ψR).2.2.1
+        (((cdF ψR).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψR))) ys]).map
+        (interp V ρ)) := by
+    have hst := stripPisAV_mkPisAV (p.rds m₀ t ψR) (p.conc t)
+    rw [hRD.len ψR] at hst
+    have htele := piTeleAV_of_stripPisAV hst
+    have hfit := hfitR
+    rw [hTVa'] at hfit
+    try simp only [RecRule.ctor] at hfit
+    rw [hleafC₂] at hfit
+    have hchain := teleFitPA_to_chain (p.nP + p.k + p.n + p.nIdxOf t + 1) htele
+      (by simp [hxl]) hfit
+    refine spineFit_of_chain (by simp [hxl, hRD.len ψR]) ?_
+    intro q hq
+    have := hchain q (by simpa [hRD.len ψR] using hq)
+    simpa [hRD.len ψR] using this
+  -- the constructor's spine fit
+  have hstC := stripPisAV_mkPisAV (cdF ψR).2.2.1
+    (ctorBodyAVI m Tname p.nP nF ψC (cdF ψR).2.2.2.1)
+  rw [hclen ψR] at hstC
+  have hteleC := piTeleAV_of_stripPisAV hstC
+  have hspC : SpineFit ρ ((cdF ψR).2.2.1.map (·.2.2)) (ys.map (interp V ρ)) := by
+    have hfit := hfitC
+    rw [hTVja'] at hfit
+    have hchain := teleFitPA_to_chain (p.nP + nF) hteleC (by simpa [hcdNF ψC] using hyl) hfit
+    refine spineFit_of_chain (by simp [hyl, hclen ψR]) ?_
+    intro q hq
+    have := hchain q (by simpa [hclen ψR] using hq)
+    simpa [hclen ψR] using this
+  -- the index pin
+  have hpin : ∀ i, i < p.nIdxOf t →
+      interp V (consList (ys.map (interp V ρ)) ρ) ((cdF ψR).2.2.2.1.getD i default)
+        = interp V ρ (xs.getD (p.nP + p.k + p.n + i) default) := by
+    intro i hi
+    obtain ⟨Ha, cargsa, hrestEq, hcarLen, hcarInterp⟩ := hidx
+    rcases hcarLen with hcase | hcarLen
+    · omega
+    have hrest : restC = ConLeche.Model.AnnotTerm.instSeq ys (p.nP + nF - 1)
+        (ctorBodyAVI m Tname p.nP nF ψC (cdF ψR).2.2.2.1) := by
+      have hfit := hfitC
+      rw [hTVja'] at hfit
+      exact teleFitPA_rest_eq (p.nP + nF) hteleC (by simpa [hcdNF ψC] using hyl) hfit
+    have hrest2 : AnnotTerm.mkAppN Ha cargsa
+        = AnnotTerm.mkAppN (ConLeche.Model.AnnotTerm.instSeq ys (p.nP + nF - 1)
+            (m.acval Tname ψC))
+            ((paramBvars p.nP nF ++ (cdF ψR).2.2.2.1).map
+              (ConLeche.Model.AnnotTerm.instSeq ys (p.nP + nF - 1))) := by
+      rw [← hrestEq, hrest]
+      unfold ctorBodyAVI
+      rw [instSeqAV_mkAppN]
+    obtain ⟨-, hcargs⟩ := AnnotTerm.mkAppN_inj hrest2
+      (by simp [hcarLen, paramBvars, hclenE ψR])
+    have hcel : cargsa.getD (p.nP + i) default
+        = ConLeche.Model.AnnotTerm.instSeq ys (p.nP + nF - 1)
+            ((cdF ψR).2.2.2.1.getD i default) := by
+      have h1 := congrArg (fun l => l[p.nP + i]?) hcargs
+      simp only [List.getElem?_map, List.getElem?_append_right
+        (show (paramBvars p.nP nF).length ≤ p.nP + i by simp [paramBvars]),
+        show (paramBvars p.nP nF).length = p.nP by simp [paramBvars],
+        Nat.add_sub_cancel_left] at h1
+      rw [List.getD_eq_getElem?_getD, h1, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by rw [hclenE ψR]; omega), Option.map_some, Option.getD_some,
+        Option.getD_some]
+    have hcar := hcarInterp i (by omega)
+    rw [hcel, show p.nP + nF - 1 = ys.length - 1 from by rw [hyl], interp_instSeq] at hcar
+    rw [← hcar]
+    unfold chain
+    rw [consN_eq_consList]
+  -- the law
+  have hlaw := hfires ψR ρ xs ys hxl (by rw [hyl, hcdNF ψR]) hspR hspC hpin
+  try simp only [RecRule.ctor, RecRule.ctorParams] at hlaw ⊢
+  rw [hleafR ψR, hleafC₂]
+  exact hlaw
+
+
 end ConLeche.Model
