@@ -1037,4 +1037,58 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
       rw [hfold, List.map_singleton, (tagTupleAV_facts hTag hIdsT hfrB hEok hfit).1]
       rfl
 
+/-! ## The block's chains -/
+
+/-- The auxiliary family's index telescope is bit-valid when the
+members' are. -/
+theorem auxIds_fieldsValid {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+    (hV : ∀ Ids ∈ Idss, FieldsValid ρp Ids) : FieldsValid ρp (auxIds W Idss) :=
+  ⟨sumBodyAV_validV (uChains_validV fun Ids hIds => hV Ids hIds), fun _ _ => trivial⟩
+
+/-- **The auxiliary family's chains, for the whole block**: the
+functor's premise, the fixed point's chain grading, the real chains
+against the X-source ones, and the chains' validity — `xChainsOk_of`
+at the tag, from the per-constructor facts (`mutualChainFacts_at`,
+`mutualChainValidFacts_at`, `mutualChainReal_at`). -/
+theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+    {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Fss Ess' : List (List AnnotTerm)}
+    (hTag : TagOk W ρp Idss) (hV : ∀ Ids ∈ Idss, FieldsValid ρp Ids)
+    (hlen₀ : Fss₀.length = n) (hlenR : Fss.length = n) (hlenE : Ess'.length = n)
+    (hrss : ∀ J, J < n → rss.getD J [] = rsOf (kindsOf (ksF J)))
+    (hFs₀ : ∀ J, J < n → (Fss₀.getD J []).length = nFs J)
+    (hFsR : ∀ J, J < n → (Fss.getD J []).length = nFs J)
+    (hEsJ : ∀ J, J < n → (Ess'.getD J []).length = 1)
+    (hC : ∀ J, J < n → ChainFacts W w nP (nFs J) ρp (auxIds W Idss) (kindsOf (ksF J))
+      (tlss.getD J []) (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
+    (hCV : ∀ J, J < n → ChainValidFacts nP (nFs J) ρp (kindsOf (ksF J)) (tlss.getD J [])
+      (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
+    (hreal : ∀ J, J < n → ChainRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp
+      (auxIds W Idss) (rss.getD J []) (tlss.getD J []) (Eiss'.getD J []) 0 []
+      (Fss₀.getD J []) (Fss.getD J [])) :
+    XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess' ∧
+    FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess' ∧
+    ChainsRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp (auxIds W Idss) rss tlss
+      Eiss' Fss₀ Fss Ess' ∧
+    (∀ X, X ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)) →
+      ∀ t, t ∈ˢ idxSet W ρp (auxIds W Idss) →
+        SumFieldsValid (cons t (cons X ρp))
+          (chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess')) := by
+  obtain ⟨hX, hvalid⟩ := xChainsOk_of (n := n) (ksF := fun J => kindsOf (ksF J))
+    (auxIds_idxOk hTag) (auxIds_fieldsValid hV) hlen₀ hrss
+    (fun J hJ => by rw [hFs₀ J hJ]; exact hC J hJ)
+    (fun J hJ => by rw [hFs₀ J hJ]; exact hCV J hJ)
+  refine ⟨hX, hX.hok, ⟨by rw [hlen₀, hlenR], by rw [hlenE, hlenR], ?_, ?_, ?_⟩, hvalid⟩
+  · intro J hJ
+    rw [hlenR] at hJ
+    rw [hEsJ J hJ]
+    rfl
+  · intro J hJ
+    rw [hlenR] at hJ
+    rw [hFs₀ J hJ, hFsR J hJ]
+  · intro J hJ
+    rw [hlenR] at hJ
+    exact hreal J hJ
+
 end ConLeche.Model
