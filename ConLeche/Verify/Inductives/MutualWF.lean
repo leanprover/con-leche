@@ -98,27 +98,55 @@ theorem find?_isSome_cons_mono {c c' : ConstantInfo} {env env' : Env}
 
 /-! ## Stage 1: the formers -/
 
-/-- The formers' loop keeps the environment well-formed: every member
-is a checked constant consed with the block's (empty) capability
-record. -/
-theorem envWF_mutualFormers {nP F : Nat} :
-    ∀ {l : List (ConstantVal × Nat)} {env env' : Env} {fms : List MutualFormerA},
+/-- The type-slot `ConstWF` facts of every checked former, AT THE
+PRE-BLOCK ENVIRONMENT (where the whole stage runs). -/
+theorem mutualFormerChecks_typeWF {nP F : Nat} {l : List (ConstantVal × Nat)} {env : Env}
+    {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP l = .ok fms) :
+    ∀ f ∈ fms, f.cvTa.type.hasFvar = false ∧
+      f.cvTa.type.allLevelParamsDefined f.cvTa.levelParams = true ∧
+      f.cvTa.type.constsResolve env = true ∧
+      f.cvTa.type.looseBVarsBounded 0 = true := by
+  intro f hf
+  obtain ⟨cv', hccv'⟩ := mutualFormerChecks_checked h f hf
+  exact checkConstantVal_typeWF hccv'
+
+/-- The formers' conses keep well-formedness: every member's type
+resolves at the pre-block environment, and resolution is monotone
+along the conses (the members' names need not be compared — `EnvWF` is
+about the constants' own data). -/
+theorem envWF_consMutualFormers :
+    ∀ {fms : List MutualFormerA} {env : Env},
       EnvWF env →
-      mutualFormers (fueledOps mode F) nP l env = .ok (env', fms) →
-      EnvWF env'
-  | [], env, env', fms, henv, h => by
-    obtain ⟨rfl, -⟩ := mutualFormers_nil_inv h
-    exact henv
-  | (cv, nIdx) :: rest, env, env', fms, henv, h => by
-    obtain ⟨cvTa₀, cvTa, s, bs, fs, hccv₀, htele, -, hrest, -⟩ := mutualFormers_inv h
-    have hccv : ∃ cv', checkConstantVal (fueledOps mode F) env cv' = .ok cvTa := by
-      rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, hccv₀⟩
-      · exact ⟨{ cv with type := ty }, hccv⟩
-    obtain ⟨cv', hccv'⟩ := hccv
-    exact envWF_mutualFormers (envWF_cons_ind henv hccv'
-      (IndCapsWF.of_caps (fun hu => absurd hu (by decide))
-        (fun he => absurd he (by decide)))) hrest
+      (∀ f ∈ fms, f.cvTa.type.hasFvar = false ∧
+        f.cvTa.type.allLevelParamsDefined f.cvTa.levelParams = true ∧
+        f.cvTa.type.constsResolve env = true ∧
+        f.cvTa.type.looseBVarsBounded 0 = true) →
+      EnvWF (consMutualFormers fms env)
+  | [], _, henv, _ => henv
+  | f :: fs, env, henv, hall => by
+    simp only [consMutualFormers]
+    obtain ⟨htf, htp, htr, htb⟩ := hall f List.mem_cons_self
+    refine envWF_consMutualFormers ?_ ?_
+    · exact EnvWF.cons henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
+        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+        (by intro tbl hh; exact ConstantInfo.noConfusion hh)
+        (IndCapsWF.of_caps (fun hu => absurd hu (by decide))
+          (fun he => absurd he (by decide))))
+    · intro f' hf'
+      obtain ⟨h1, h2, h3, h4⟩ := hall f' (List.mem_cons_of_mem _ hf')
+      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
+
+/-- The formers' stage keeps the environment well-formed: every member
+is a checked constant, consed with the block's (empty) capability
+record. -/
+theorem envWF_mutualFormers {nP F : Nat} {l : List (ConstantVal × Nat)}
+    {env env' : Env} {fms : List MutualFormerA}
+    (henv : EnvWF env)
+    (h : mutualFormers (fueledOps mode F) nP l env = .ok (env', fms)) :
+    EnvWF env' := by
+  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv h
+  exact envWF_consMutualFormers henv (mutualFormerChecks_typeWF hchecks)
 
 /-! ## Stage 3: the constructors -/
 
