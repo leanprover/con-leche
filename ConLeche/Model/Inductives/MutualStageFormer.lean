@@ -48,7 +48,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 `tagTuplerAV_below`/`tagTupleAV_below` are proved in
 `Model/Inductives/MutualRecPre2.lean` too, but that module and
-`MutualChains.lean` both declare `tagTupleAV_validV` and so cannot be
+`MutualChains.lean` both declare `tagTupleAV_validVC` and so cannot be
 imported together; until that duplicate is resolved the two closedness
 lemmas are restated here under their own names. -/
 
@@ -280,7 +280,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
       · intro a ha
         rw [List.mem_singleton] at ha
         subst ha
-        refine tagTupleAV_validV hVρ (hIdsT ψ) hsh ?_
+        refine tagTupleAV_validVC hVρ (hIdsT ψ) hsh ?_
         intro E hE
         obtain ⟨k, -, rfl⟩ := List.mem_map.mp hE
         trivial

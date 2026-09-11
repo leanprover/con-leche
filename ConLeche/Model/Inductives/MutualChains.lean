@@ -644,7 +644,7 @@ theorem mutualChainFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
 the sum route's constructor leaf at the tag, valid because the
 members' index telescopes are (`sumInj_validV_at_fields`) — lifted to
 the frame, and its arguments are the index expressions. -/
-theorem tagTupleAV_validV {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+theorem tagTupleAV_validVC {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
     (hV : ∀ Ids ∈ Idss, FieldsValid ρp Ids) {m : Nat} {Ids : List AnnotTerm}
     (hm : Idss[m]? = some Ids) {d : Nat} {τ : Nat → V} (hfr : shiftE d 0 τ = ρp)
     {Es : List AnnotTerm} (hEv : ∀ E ∈ Es, AnnotValid V τ E) :
@@ -756,7 +756,7 @@ theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModel
         rw [List.length_append, hlenA, hlenB]
       rw [← hl]
       exact shiftE_consList _ ρp
-    exact tagTupleAV_validV hV hIdsT hfr (huntag.2 bs hbs)
+    exact tagTupleAV_validVC hV hIdsT hfr (huntag.2 bs hbs)
   · intro as' hsp' E hE
     rw [shadowFs_shadowFs] at hsp'
     rw [List.mem_singleton] at hE
@@ -774,7 +774,7 @@ theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModel
     obtain ⟨-, hargs⟩ := AnnotValid.mkAppN_inv hokR.2
     have hfr : shiftE nF 0 (consList as' ρp) = ρp := by
       rw [← hlenA]; exact shiftE_consList _ ρp
-    exact tagTupleAV_validV hV hmem hfr fun E' hE' => hargs E' (List.mem_append_right _ hE')
+    exact tagTupleAV_validVC hV hmem hfr fun E' hE' => hargs E' (List.mem_append_right _ hE')
 
 /-! ## The member leaf at a spine, and the real chains -/
 
