@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Steps.Tiers
 public import ConLeche.Model.IndRepCons
 public import ConLeche.Model.Annot.BitExtend
-public import ConLeche.Model.Annot.BitConsCross
+import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.ConstsBound
 public import ConLeche.Verify.Extend.Sibs
 

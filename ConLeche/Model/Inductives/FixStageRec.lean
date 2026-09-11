@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRuleData
 public import ConLeche.Model.Inductives.FixRuleOk
 public import ConLeche.Model.Inductives.FixRep

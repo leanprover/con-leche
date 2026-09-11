@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.SetTheory.Derive.LfpFam
-public import ConLeche.SetTheory.Derive.Pair
 @[expose] public section
 
 /-!

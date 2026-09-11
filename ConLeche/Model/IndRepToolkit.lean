@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndRep
-public import ConLeche.SetTheory.Derive.Bekic
+import ConLeche.SetTheory.Derive.Bekic
 import ConLeche.Model.Inductives.StructTele
 public section
 

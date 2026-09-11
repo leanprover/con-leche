@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.SumData
 import ConLeche.Model.Inductives.StructBodyFrames
-public import ConLeche.Verify.Inductives.FixWF
+import ConLeche.Verify.Inductives.FixWF
 public section
 
 /-!

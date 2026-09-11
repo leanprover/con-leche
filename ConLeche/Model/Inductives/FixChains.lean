@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixShadow
-public import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixFamI
 public section
 
 /-!

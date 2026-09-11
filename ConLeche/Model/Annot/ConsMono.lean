@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.Annot.BitExtend
+import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.BitConsCross
-public import ConLeche.Semantics.ConstsBound
-public import ConLeche.Verify.Extend.Sibs
+import ConLeche.Semantics.ConstsBound
 
 public section
 

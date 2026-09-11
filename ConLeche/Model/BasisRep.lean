@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.IndRep
-public import ConLeche.Model.BasisCons
 public section
 
 /-!

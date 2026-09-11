@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public section
 

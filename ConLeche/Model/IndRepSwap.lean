@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.IndRepCons
+import ConLeche.Model.IndRepCons
 public import ConLeche.Model.Swap
 public section
 

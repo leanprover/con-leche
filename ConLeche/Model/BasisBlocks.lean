@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Levels
-public import ConLeche.Model.BasisRep
+import ConLeche.Model.BasisRep
 public import ConLeche.Semantics.BasisRules
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not

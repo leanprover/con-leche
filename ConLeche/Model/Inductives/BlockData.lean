@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Model.Annot.EnvModel
+import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Steps.Stuck
 public import ConLeche.Semantics.Tower.TowerWire
-public import ConLeche.Semantics.Sat
+import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.ConstsBound
-public import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Kernel.Inductives.NativeInstall
 public import ConLeche.Verify.Inductives.FixWF
 public section
 
