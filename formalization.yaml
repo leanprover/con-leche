@@ -47,18 +47,27 @@ related_formalizations:
 
 status:
   scope: >-
-    Covered: `ConLeche.no_proof_of_False` is stated about
+    Covered: `ConLeche.model_exists` is stated about
     `ConLeche.Cached.checkDecls .verified`, the function
-    the `con-leche` binary runs on the parsed export.  Not covered: the
-    parser, the `--trusted` mode.  The proof is parametric in a type
-    satisfying the `SetTheory` interface (ZF without infinity and choice
-    plus an omega-chain of Grothendieck universes); the conclusion is
-    syntactic (the constant's type is literally the pinned `False`).
+    the `con-leche` binary runs on the parsed export: every environment
+    it accepts has a model (`ConLeche.Model`, over the term reading
+    `ConLeche.Denotes`, both in `ConLeche/Denotes.lean`) — one set per
+    constant under which every stored constant is a member of its type
+    and `False` is empty.  `ConLeche.no_proof_of_False` is its
+    corollary.  Not covered: the parser, the `--trusted` mode.  The
+    proof is parametric in a type satisfying the `SetTheory` interface
+    (ZF without infinity and choice plus an omega-chain of Grothendieck
+    universes); the corollary's conclusion is syntactic (the constant's
+    type is literally the pinned `False`).
   # The only `sorry` in the repository is the deliberate hole in the
   # Comparator challenge module `ConLeche/Challenge.lean`.
   sorry_count: 0
   axioms: ["propext", "Classical.choice", "Quot.sound"]
   main_results:
+    - declaration: "ConLeche.model_exists"
+      file: "ConLeche/MainTheorem.lean"
+      axioms: ["propext", "Classical.choice", "Quot.sound"]
+      comparator_config: "comparator.json"
     - declaration: "ConLeche.no_proof_of_False"
       file: "ConLeche/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]

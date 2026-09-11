@@ -68132,3 +68132,573 @@ and the `sorry` itself stays a one-token entry in
 `tests/trust-surface.sh`'s allowlist.  `lakefile.toml`'s comment on the
 `ConLecheChallenge` library now says that this gate is the one thing
 that builds it.
+
+## TASK #277 — THE MAIN THEOREM IS MODEL EXISTENCE: `Denotes`, `Model`, `model_exists` (2026-09-11, `agent/model-277`) — STAGE 1, design and statement
+
+The maintainer's request (2026-09-11, with Sebastian Ullrich and
+Yannick Forster): phrase the REAL main theorem — every accepted
+environment has a model — over a self-standing, easy-to-analyse
+"modelled" relation on terms and environments; simplify and polish
+the relation; make it THE MAIN THEOREM and `no_proof_of_False` the
+HEADLINE derived from it; make the statement the Comparator
+challenge.  Stage 1 (this record) is the design and the statement
+with the main theorem's proof `sorry` ON THE BRANCH ONLY; stage 2 is
+the proof, the renames, the docs and the gates.
+
+### 1. What `origin/push-uovylpvtrsqs` (ee550a91, 2026-09-06) suggested
+
+Sebastian's branch added, pre-rename, `Setlec/Semantics/Sem.lean`
+(an inductive `Sem cval env φ d ρ e v` on `Expr`: thirteen rules —
+`sort`, `fvar` by LEVEL through a depth `d` (`ρ (d - 1 - idx)`),
+`const` through `env.find?` and `Level.substFn`, `pi`/`lam` opening
+the body with a fresh `fvar d` and the regime read off the binder's
+`PropWhen` at `φ`, `app`, `letE`, `projTower`/`projFst`/`projSnd`,
+`natLit`/`strLit` through the constructor forms), `SetP/SemP.lean`
+(`Sem_of_denoteP`: wherever the two-stage reading `denoteP` reads,
+`interp2` of the reading is a `Sem` denotation at the interpreted
+leaves — `denoteP.induct`, fifteen cases; `Sem_functional`;
+`EnvS2PM.model_exists` off the P carrier) and `ChallengeModel.lean`
+(the comparator challenge stating `model_exists`: `∃ cval`, every
+stored definition AND theorem denotes its body, every stored constant
+is a member of its type).  The idea is taken and REBUILT FROM SCRATCH
+against master (the maintainer: "distill the idea and then rebuild
+from scratch"); nothing is cherry-picked.
+
+**What changed since 2026-09-06 and bears on it:**
+
+* the rename (#222): `ConLeche`, `Cached.checkDecls`, `Model/*`,
+  `interp`, `AnnotTerm`, `denoteMeta` for `Setlec`,
+  `checkDeclsSPCachedD`, `SetP/*`, `interp2`, `AVExpr`, `denoteP`;
+* `letE` is GONE from the term language (#241): no stored type or
+  definition value carries a `let` (the annotation pass returns the
+  ζ-reduct, #217), every kernel `.letE` arm is a positive error, the
+  denotations return `none` — so the relation needs NO `letE` rule
+  (Sebastian's had one);
+* theorems are opaque to reduction and their values are checked in
+  phase B (#258): the invariant keeps NO equation between a theorem's
+  value and its leaf (`AcvalDefnInst` is definitions-only), the stored
+  theorem value is the RAW record (no fvar/bvar facts in `ConstWF`) —
+  so "every stored theorem denotes its body" is NOT available and is
+  not claimed (§2.3 says why it is not wanted either);
+* the pinned `And` (#258) is a prelude member installed through the
+  native route WITH a projection table — nothing special for the
+  relation, it is a `proj_table` case like every other structure;
+* the projection offset (#210 Part A, `ProjTable.off`): every stored
+  table's field `i` sits at position `i + off` of the model's pair
+  chain (`off = 1` at every table master installs: the tagged tower
+  of the fixpoint route, the tag in front) — Sebastian's `projTower`
+  read `projV i`, which is now wrong by the offset;
+* `checkDecls` IS the two-phase fold (#257) and the driver returns
+  its environment with the proof (#253): the statement's hypothesis
+  is `checkDecls .verified ds = .ok env`, as before, and
+  `Cached.checkDecls_sound` hands the proof an `EnvModelM`;
+* `Expr.fvar` lost its name (`fvar idx type`), the binders their name
+  (`lam type body m`).
+
+### 2. The statement, as landed on the branch (three files)
+
+**`ConLeche/Denotes.lean`** (new, shared by challenge and solution;
+imports `Kernel.Core`, `Kernel.Basis.Names`, `Verify.Level`,
+`SetModel.Ops`, `SetTheory.Derive.Sigma`; NOTHING from Model/Semantics):
+
+* `push x ρ` (2 lines), `regime φ pw := if pw.holds φ then 0 else 1`
+  (1 line, definitionally `Model.Annot.Bit.pwBit`), `field i p :=
+  sfst (ssnd^i p)` (2 lines, definitionally the tuple tier's `projS`);
+* `Denotes cval env φ ρ e v`, eleven rules: `bvar`, `sort`, `const`,
+  `app`, `lam`, `pi`, `proj_table`, `proj_fst`, `proj_snd`, `natLit`,
+  `strLit`;
+* `structure Model (V) [SetTheory V] (env : Env)` with fields `cval`,
+  `mem`, `false_empty` (a `defn` field — every stored definition
+  denotes its body — was in the first cut and DROPPED by the
+  maintainer's ruling, §9).
+
+**`ConLeche/Challenge.lean`** (rewritten): the docstring and the three
+statements with `sorry` — `model_exists : … → Nonempty (Model V env)`,
+`Denotes_functional`, `no_proof_of_False`.  **`ConLeche/MainTheorem.lean`**
+(rewritten): the same three, `Denotes_functional` PROVED (derivation
+induction, `funext` at the binder rules, 40 lines), `no_proof_of_False`
+DERIVED from `model_exists` in three lines (`m.mem` at the constant,
+`m.false_empty` at its type's derivation, `not_mem_empty`),
+`model_exists` `sorry` — stage 1 only.  `comparator.json` lists the
+three.  Token identity across the two modules verified by the #183
+method (`#check` under `pp.universes`+`pp.explicit`, diffed:
+byte-identical, 1 565 bytes).
+
+#### 2.1 The de Bruijn form (the maintainer's suggestion, adopted)
+
+The relation is on the checker's `Expr` over de Bruijn indices:
+`bvar i` denotes `ρ i`, a binder's body is read under `push x ρ` with
+NO instantiation and NO fresh `fvar`, and `fvar` has NO rule.  This is
+right for stored constants because every stored type and definition
+value is CLOSED — `ConstWF` (`Verify/EnvWF.lean`) records
+`hasFvar = false` and `looseBVarsBounded 0` for both — so a stored
+term's reading never meets an `fvar`, and a term with one is not a
+stored term.  Sebastian's `d`/`fvar`-by-level form mirrors the
+denotation's opening discipline (`body.instantiate1 (.fvar d ty)`),
+which made his bridge structural; the price of the de Bruijn form is
+ONE closing lemma in the proof (§6), and the gain is a relation a
+reader can check against the usual semantics of a λ-calculus without
+knowing the checker's locally-nameless convention.
+
+#### 2.2 `cval`, and the `Model` structure (Yannick's concern)
+
+`cval : Name → (Name → Nat) → V` is ONE assignment of a set to every
+constant at every level assignment, quantified ONCE for the whole
+environment; `defn` forces it on every definition (a definition
+denotes its body), `mem` puts every stored constant inside its type's
+denotation.  The existential is inherent — the interpretation of the
+constants IS the model — so the polish is to NAME its parts: a
+`structure Model V env` whose fields carry the docstrings, and the
+theorem `Nonempty (Model V env)`.  A `structure … : Prop` with the
+data field `cval` is REJECTED by Lean ("failed to generate projection
+… field must be a proof"), so it is a `Type`-valued structure under
+`Nonempty` rather than a Prop-structure; the alternative (an
+`inductive HasModel … : Prop` with one constructor) loses the
+per-field docstrings and was not taken.
+
+**`false_empty`.**  Without it `Model` is not a consistency statement:
+`mem` at `False : Prop` only says `⟦False⟧ ∈ univ 0`, i.e. `False`
+denotes SOME truth value, and `cval False φ = {pt}` would satisfy
+every other field with a proof of `False` stored.  The field says
+`Denotes cval env φ ρ (.const falseName []) F → F = ∅` — stated of
+WHATEVER the stored `False` denotes, so it is vacuous on an
+environment that stores nothing (`checkDecls .verified [] = .ok
+Env.empty` is an accept, and a `Model` of the empty environment must
+exist).  This is the one place a built-in constant appears in the
+statement, and it is honest: `False` is the checker's pin, not the
+stream's.  The headline theorem needs exactly this field and nothing
+else about pins.  (The alternative — deriving `⟦False⟧ = ∅` from
+`False.rec`'s stored type inside the challenge — needs a second
+checker fact "`False.rec` is stored with the pinned type, PropWhen
+data included" and forty lines of `piR` reasoning; rejected.)
+
+#### 2.3 Theorems do NOT "denote their body", and should not
+
+Under #258 a theorem's stored value is a discarded realizability
+witness: phase B annotates and checks it against the statement, the
+leaf is that annotated reading's interpretation, and the invariant
+records only `mem_type`.  Restoring Sebastian's "every theorem denotes
+its body" would mean re-adding `ConstWF`'s theorem-value clause and a
+`thm_reads` field through the fold's transports (#258 deleted ~20
+sites) for a claim with NO semantic content: `⟦P⟧` is a truth value, a
+proof denotes `pt`, and `mem` — `cval t φ ∈ˢ ⟦P⟧`, i.e. `⟦P⟧ = {pt}`,
+i.e. `P` is TRUE in the model — is the whole content of a theorem.
+Definitions are different: `defn` is what makes `cval Nat.add` be
+addition.  Opaques store as `axiomInfo` (value discarded) and are
+covered by `mem`.
+
+#### 2.4 Two files, not one — the Comparator constraint
+
+Comparator compares the statements' declaration closures across two
+SEPARATE modules; the challenge carries `sorry`, so the solution
+cannot import it, and the relation must be defined ONCE in a
+sorry-free module both import (duplicating its text in both modules
+would make the closures match only while the two copies stay
+byte-identical — a gate, not a design).  So: `Denotes.lean` (the
+meaning), `Challenge.lean` (the three statements, one import away).
+The #183 hygiene note "the challenge imports nothing from Verify" is
+relaxed by exactly one module, `Verify/Level.lean` (`Level.eval`,
+`Level.substFn` and their soundness lemmas; imports only
+`Kernel.Level`) — the meaning of a universe level belongs to the
+statement, and restating the two definitions would only add an
+`= Verify.Level.eval` obligation; `tests/layering.sh` classifies both
+new files as base and passes (279/189/3/1, 0/0).
+
+#### 2.5 Naming
+
+The relation is `Denotes` ("`e` denotes `v`"), not `Sem`; the
+structure is `Model`.  **Flag for the maintainer**: `ConLeche.Model`
+is ALSO the proof tier's namespace (`namespace ConLeche.Model` in
+every `ConLeche/Model/*` file, `open ConLeche.Model` in the capstones).
+Lean allows a declaration and a namespace of one name; today no
+`ConLeche.Model.{mk,rec,cval,defn,mem,false_empty}` exists in the tier
+(grepped), so nothing clashes, and inside `namespace ConLeche.Model`
+the identifier `Model` resolves to the structure.  Alternatives if the
+coincidence is unwanted: `HasModel` (as a Type structure), `ModelOf`.
+
+### 3. `.proj`: why three rules, and what one rule would need
+
+The model has THREE representations of "a structure value":
+
+1. the **pinned pair** `PSigma'` (`Kernel/Basis`): a flat Kuratowski
+   pair, field 0 = `sfst`, field 1 = `ssnd` (`Term.fst`/`snd` ARE its
+   formers since #225; `Term.projPair?` decodes the node index and is
+   the `i < 2` guard); it has no projection table
+   (`findProj? = none`: reserved names never install through the
+   native route), and `.proj PSigma' i e` nodes come from the
+   in-process modeller's generated records;
+2. every **natively installed structure-like** block (`checkNativeTable`,
+   `NativeInstall.lean`): the TAGGED unit-terminated tower
+   `inj 0 (mkTower (fs ++ [pt]))` = `⟨tag, ⟨f₀, ⟨f₁, … ⟨pt, unit⟩⟩⟩⟩`,
+   field `i` at `projS (i + 1)`, recorded as `ProjTable.off = 1`;
+3. (retired at #210 Part C) the bare tower at `off = 0`.
+
+So `denoteMeta` reads `projAV (i + entry.off)` at an entry and
+`projPair? i` otherwise, and the relation has `proj_table`
+(`field (i + entry.off) P`), `proj_fst`, `proj_snd`.  ONE rule
+`proj T i e ↦ field (i + k) P` for a fixed `k` would need (a) the
+pinned pair modelled as a 2-field tower `⟨a, ⟨b, unit⟩⟩` (so that
+field 1 is `sfst (ssnd p)`, not `ssnd p`) — touching the Sigma tier
+(`sigmaSet`, 21 files), `WellDenoted`'s `fst`/`snd` clauses, the
+`Term`/`AnnotTerm` formers and every `BasisOk` row of `PSigma'` —
+and (b) the tag after the fields or a tag-free carrier for the native
+route (the tag is read by `sfst` at every constructor of a sum, so it
+is in front by design; `TaggedSum` + the `Native*` stage kits, 8
+files).  A rule that folds the lookup into a reading function
+(`projSet env T i : V → V`, three lines) is one rule in FORM only.
+**Recommendation**: keep the three rules; they state the model as it
+is.  Small optional cleanup for a later task: `off` is `1` at every
+table master installs (the literal in `checkNativeTable`; the field
+exists for the deleted bare-tower route), so `ProjTable.off` /
+`ProjEntry.off` could be retired and the reading become
+`field (i + 1)` (27 sites) — a model detail either way, and the entry
+form keeps the relation honest to the data.
+
+### 4. The renames (stage 2 plan)
+
+* Theorems: `model_exists` is THE MAIN THEOREM; `no_proof_of_False`
+  keeps its name and becomes THE HEADLINE THEOREM, derived in
+  `MainTheorem.lean` (done on the branch).  `Cached.no_proof_of_False_cached`
+  and the letters stay as they are (they are the proof's, not the
+  reader's).
+* `MainTheorem.lean`: the solution module (done).
+* `OVERVIEW.md` §1 "What is proved": lead with `model_exists`
+  (present tense, no task numbers), the headline as its corollary; §4
+  "The proof idea" gains one sentence on `Denotes` vs `denoteMeta`;
+  §11 module map gains `ConLeche/Denotes.lean`; re-anchor the links
+  (`tests/overview-links.sh --update`, re-reading each moved anchor).
+* `README.md` (HUMAN-WRITTEN — a diff is proposed in the stage-1
+  report, not applied): the "main theorem" block shows `model_exists`
+  with `Model`'s three fields in words, then `no_proof_of_False` as
+  the corollary.
+* `_tmp/lean-kernel-arena/tests/con-leche.yaml` (`con-leche` branch):
+  `export-decls` gains `ConLeche.model_exists`; the description names
+  the two theorems.
+* `tests/ConLecheTests/Axioms.lean`: pin `ConLeche.model_exists` and
+  `ConLeche.Denotes_functional` beside `no_proof_of_False`;
+  `tests/ProofDeps.lean`: a `main_model` root; `formalization.yaml`:
+  `main_results` gains `model_exists`, the scope paragraph says
+  "has a model" first.
+* A gate that BUILDS `ConLeche.Challenge` (§7): `lake build
+  ConLeche.Challenge` in `tests/arena.sh` and CI, expecting exactly
+  the three `declaration uses 'sorry'` diagnostics; plus the
+  token-identity diff as a script (`tests/challenge-identity.sh`).
+
+### 5. Can the theorem be about `ds` instead of `env`?
+
+`ds : List DeclC` is the FOLD'S INPUT, not the file: the frontend has
+already (a) dropped tolerated-axiom records (`sorryAx`) and every
+record downstream of them, the driver declining the run at the end
+(`Main.lean`), (b) prepended the built-in prelude (the six pinned
+basis kinds as `basisDecl`s plus `Bool` and `And` as ordinary
+`indDecl`s), (c) rewritten `ProjRec` values, (d) inserted the
+in-process modeller's generated `_model` records ahead of a nested or
+mutual block, (e) reordered constructors, (f) dropped a stream's own
+identical copy of a prelude block (`pushDecl`'s dedupe; a different
+copy declines the stream) and folded the four `#QUOT` records into one
+`basisDecl`.  So a `ds`-statement is about the same object the
+`env`-statement is about, one step earlier, and the lemma it would
+rest on — "every constant a `DeclC` of `ds` declares is in
+`env.consts` with the same type and value" — is FALSE as stated: the
+stored type is `annotate (declared type)` (binder `pw` data differ),
+`opaqueDecl` stores an `axiomInfo` without its value, `thmDecl` stores
+the raw value, `basisDecl k` declares nothing and installs the pin's
+constants, `indDecl` stores regenerated recursor types and extra
+constants (the projection table, `projFnName T i`) no record names,
+and an `axiomDecl sorryAx` in `ds` is ACCEPTED by the fold and installs
+NOTHING (`ParsedC.lean`; the frontend never produces one, but the
+fold's domain is all of `List DeclC`) — the maintainer's guess is
+right, and it is only one of six reasons.  A true `ds`-statement would
+read "for every `defnDecl`/`thmDecl`/`axiomDecl` of `ds` there is a
+stored constant of that name whose type is the annotation of the
+declared type, and so is modelled" — it needs a name-tracking lemma
+along `InstallRun` that does not exist (only `PushChain`'s
+monotonicity does), a definition of "annotation of" in the statement,
+and it adds nothing a reader wants: what the checker vouches for is
+what it STORED, and the export's own declarations are stored under
+their own names whenever they are not dropped or declined.
+**Recommendation**: state the theorem about `env`, as it is, and say
+in the docstring what `ds` is.
+
+### 6. Stage-2 plan and estimate
+
+The proof (`ConLeche/Model/Denotes.lean`, a Model-tier file; imports
+`Denotes`, `Model/Annot/EnvModelM`, `Model/Annot/Bit`, `Verify/EnvGuards`):
+
+1. `cvalOf acval n ψ := interp V (fun _ => empty) (acval n ψ)`;
+   `interp_closed` (`Semantics/Kit.lean`, from `cval_closedL`) makes it
+   ρ-independent.
+2. **The closing lemma.**  `closeN d e k` replaces `fvar idx` (`idx <
+   d`) by `bvar (k + (d - 1 - idx))`, bumping `k` under binders;
+   `closeN (d+1) (body.instantiate1 (fvar d ty) k) k = closeN d body
+   (k+1)` under `looseBVarsBounded (k+1) body` and `fvarsBelow d body`
+   (`Verify/Shift.lean`), and `closeN d e 0 = e` when `hasFvar e =
+   false`.  ~60 lines, structural induction; `looseBVarsBounded_instantiate1`
+   (`Verify/Abstract.lean`) supplies the side condition's transport.
+3. **The bridge.**  `Denotes_of_denoteMeta : denoteMeta acval env φ d
+   e = some ta → fvarsBelow d e → looseBVarsBounded 0 e → ∀ ρ,
+   Denotes (cvalOf acval) env φ ρ (closeN d e 0) (interp V ρ ta)`, by
+   `denoteMeta.induct` (fifteen cases as Sebastian's): `regime = pwBit`
+   by `rfl`, `push = cons` by `funext`, `field = projS` by induction
+   with `projAV_interp`, `projPair?` at 0/1 by `interp_fst`/`interp_snd`,
+   the literal cases by induction on the numeral / the character list
+   through `natLitSupported_inv`/`strLitSupported_inv` (Sebastian's
+   `Sem_const_nil`/`Sem_const_one` helpers, rebuilt: ~120 lines).
+   ~250 lines.
+4. **The model.**  `Model.ofEnvModelM : EnvModelM V μ env → Model V env`:
+   `mem` from `type_reads` + `mem_type` (bridge at `d = 0`, `closeN 0
+   type 0 = type` by `ConstWF`'s `hasFvar`, `interp_closed`); no
+   `defn_reads` bridge (§9); `false_empty` by inverting the `const`
+   rule, `EnvModel.cvalE_pinned` at `falseName` (`.const .empty [0]`,
+   `erase_eq_const`), `bval V .empty [0] = empty`.  ~60 lines.  Then
+   `model_exists` is `Cached.checkDecls_sound` + this.
+5. Renames, docs, gates (§4), Comparator run (`_tmp/comparator-tool`
+   is built; `_tmp/lean4export` at v4.33.0; `landrun` on PATH — the
+   #183 recipe), the arena battery.
+
+Estimate: 2–3 sessions (one for 2–3, Opus-grindable from this spec;
+one for 4 + the letters; one for 5).  No model change, no invariant
+change, no checker change.
+
+### 7. Finding: `ConLeche/Challenge.lean` did not build on master
+
+Since #257 moved `checkDecls` to `ConLeche/Cached/Installed.lean` the
+challenge module's `import ConLeche.Cached.ParsedC` no longer reached
+it: `lake build ConLeche.Challenge` failed with "Unknown constant
+`ConLeche.Cached.checkDecls`".  No gate builds the module (by design
+it is off `defaultTargets`, and the arena, CI and `lake test` never
+name it), so the Comparator pair was silently broken.  Fixed on the
+branch; stage 2 adds the build to the battery (§4).
+
+### 8. Stage-1 gates
+
+`lake build ConLeche.Denotes ConLeche.MainTheorem ConLeche.Challenge`:
+439 jobs, `Denotes` warning-free, `Challenge` exactly its three
+`sorry` diagnostics, `MainTheorem` one (`model_exists`, stage 1);
+`tests/layering.sh` 279/189/3/1, 0 base→lane, 0 impl→theory; the
+three statements byte-identical across the modules.
+
+### 9. AMENDMENT — the maintainer's ruling on the fields (2026-09-11, still stage 1)
+
+The maintainer, on the first cut: *"Why do we have more-than-just-type
+for `.defn` but not for inductives?  Seems inconsistent.  I wonder if
+we should just have the types for the main theorem (and argue that
+users hopefully believe that they can turn any definitional equality
+into a propositional one if they worry)."*  Ruling: **DROP `defn`**.
+`Model V env` is exactly `cval`, `mem`, `false_empty` — one
+assignment of a set to every constant under which every stored
+constant is a member of its type's denotation, `False` being empty;
+that is what makes every theorem true.  Definitional equalities (a
+definition's unfolding, an inductive's iota rules, η) are not part of
+the statement because any such equality a reader cares about can be
+stated as a theorem proved by `rfl`, the checker accepts it, and `mem`
+makes it true in the model — `Eq` is pinned to set equality, so the
+two sides denote the same set.  §2.3's argument about theorems now
+applies to definitions too, and the asymmetry it left (definitions
+had an equation, inductives did not) is gone.  Docstrings of `Model`,
+`Challenge.lean` and `Denotes.lean`'s header rewritten around that
+reading; `Denotes_functional` and the headline derivation unchanged;
+the three statements re-verified byte-identical across the two
+modules (1 565 bytes); `tests/layering.sh` unchanged.  **The stage-2
+estimate drops** by the `defn_reads` bridge (§6 item 4): `mem` needs
+the bridge on stored TYPES only, and `ConstWF`'s type clauses supply
+the closedness — 2 sessions rather than 2–3.  `Model` stays the name
+unless the maintainer says otherwise (§2.5).
+
+### 10. Readability aliases, and the EVALUATION of a semantic premise on the Prop regime (2026-09-11, stage 1 continues)
+
+**Aliases (landed, `5e26facb`).**  `abbrev LevelParam := Name`,
+`abbrev BVarIdx := Nat` in `Denotes.lean`, used throughout the
+statement (`cval : Name → (LevelParam → Nat) → V`, `φ : LevelParam →
+Nat`, `ρ : BVarIdx → V`, `push`, the `bvar` rule).  `abbrev`, not
+`def`: reducible, so a `φ : LevelParam → Nat` is accepted where the
+checker's `PropWhen.holds`/`Level.eval` want `Name → Nat` with no
+unfolding, and stage 2's `regime = pwBit` / `push = cons` stay `rfl`;
+a `def` would need `unfold` at every such site and could block
+instance resolution.  The alias names still print in the statements,
+which stay byte-identical across the two modules.
+
+**The proposal (maintainer): cover the annotation pass.**  `Denotes`
+reads stored, annotated types, and the annotation enters only at
+`regime φ m.pw`; make regime `0` carry the SEMANTIC premise "the body
+really denotes a truth value", so a binder annotated as a proposition
+denotes only if the annotation is right, and `mem` — which demands a
+derivation of every stored type at every `φ` — certifies every Prop
+annotation in every stored type.  Assessed, NOT implemented:
+
+**(a) Rule shapes.**  Two changes, the second forced by the first:
+
+    | pi  (hA : Denotes ρ ty A)
+         (hB : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (B x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) :
+         Denotes ρ (.forallE ty body m) (piR (regime φ m.pw) A B)
+    | lam (hA : Denotes ρ ty A)
+         (hF : ∀ x, x ∈ˢ A → Denotes (push x ρ) body (F x))
+         (hP : regime φ m.pw = 0 → ∀ x, x ∈ˢ A → F x = pt) :
+         Denotes ρ (.lam ty body m) (lamR (regime φ m.pw) A F)
+
+* The body derivations must be asked **only on the domain** (`x ∈ˢ A`),
+  not for every `x : V` as now: the invariant's sort facts are
+  hereditary over the domain only (`AnnotValid`'s pi clause quantifies
+  `∀ x, x ∈ˢ interp A → …`), so a derivation of the body at junk
+  `x ∉ A` could not discharge an inner binder's premise.  This is the
+  more natural rule anyway (`piR`/`lamR` read `B`/`F` only on `A`).
+* `lam` needs it too, symmetrically: a λ's `pw` says "the body is a
+  proof", and the reading `lamR 0 = pt` ignores the body; the true
+  fact is that the body denotes `pt` on the domain (the body's type is
+  a truth value, so its only inhabitant is `pt`).  Only λs inside
+  stored TYPES are covered by `mem` (values are not read), but the rule
+  should not distinguish.
+* There is no domain annotation to certify: `BinderMeta` carries only
+  `pw` (the body's prop-ness); `denoteMeta`'s `.pi 0 v` first slot is
+  a dummy.
+
+**(b) Reading unchanged, functionality survives.**  The premises are
+hypotheses only; the conclusion's value is the same `piR`/`lamR`.  A
+wrong annotation removes a derivation, never changes a value.
+`Denotes_functional`'s binder cases change from `funext` to
+`piR_congr`/`lamR_congr` (agreement on the domain suffices, both in
+`SetModel/Ops.lean`) — same length.
+
+**(c) Discharge in stage 2 and cost.**  `EnvModelM.type_wellDenotedV`
+gives, for every stored type's reading `ta` and every `ρ`,
+`WellDenotedV V ρ ta = WellDenoted V ρ ta ∧ AnnotValid V ρ ta`
+(`Model/Claims.lean`); `AnnotValid`'s pi clause IS the `pi` premise
+(`v = 0 → ∀ x ∈ˢ ⟦A⟧, ⟦B⟧ₓ ∈ˢ univZero`, `Model/Annot/Valid.lean`), and
+`WellDenoted`'s lam clause gives the `lam` premise (`∃ B, (∀ x ∈ A,
+⟦b⟧ₓ ∈ B x) ∧ (v = 0 → ∀ x ∈ A, B x ∈ univZero)`, hence
+`⟦b⟧ₓ = pt` by `eq_pt_of_mem_univZero`).  So the bridge
+`Denotes_of_denoteMeta` takes one extra hypothesis `WellDenotedV V ρ
+ta`, threads it hereditarily (both predicates are structural over the
+domain — which is why the rules must restrict to the domain), and the
+two binder cases each gain ~5 lines; `Model.ofEnvModelM` passes
+`type_wellDenotedV`.  Added cost: ~30 lines, no new invariant, no
+model change.  (Note `regime`'s `0` is `pwBit`'s `0`, so the numerals
+line up by `rfl`.)
+
+**(d) The other direction — a real proposition annotated as a type —
+needs nothing, CONFIRMED against `piR`/`lamR`.**  Inhabitation of
+`piR v A B` is regime-independent: at `v = 0` it is `truthVal (∀ x ∈
+A, ∃ y ∈ B x)`, inhabited iff that holds (`of_mem_truthVal`,
+`pt_mem_truthVal`); at `v ≠ 0` it is `piSet A B`, the total
+single-valued graphs over `A` into the fibres (`mem_piSet`) —
+inhabited iff every fibre is (a member is total, so each fibre has a
+value; conversely choose `F x ∈ B x` classically and `graph F A ∈ˢ
+piSet A B` by `graph_mem_piSet`).  By induction down the binders a
+stored theorem `t : ∀ x₁ … xₙ, Q` has `cval t φ ∈ˢ ⟦type⟧` iff every
+leaf `⟦Q⟧` is inhabited on the domains, whichever regime each binder
+was read in; a leaf that is a truth value is then `{pt}`, i.e. true.
+The impredicative case is no exception: `∀ p : Prop, p → p` read at
+regime `1` is `piSet (univ 0) (fun p => …)` — a legitimate set
+(`piSet` is built from `power`/`sep`, no size condition), inhabited iff
+each `p → p` is.  A domain that is a proposition is fine too
+(`piR v ∅ B = {∅}` or `{pt}`: vacuous truth in both regimes).  So a
+theorem's truth does not depend on that direction, as the maintainer
+argued; only the `Prop → really Prop` direction matters for
+`false_empty`-style consistency reading, and that is the premise.
+
+**Why not annotation-free (regime decided semantically both ways)?**
+Because the checker's notion of proposition is not "fibres ⊆ {pt}":
+`PUnit : Type` denotes `unitSet = {pt}`, so `A → PUnit` has truth-value
+fibres yet is a TYPE to the checker — its inhabitants are graphs, its
+λs are graphs, and the invariant's λ-values follow the annotated
+regime (`lamR v` with `v` the annotation, `WellDenoted`'s lam clause).
+A value-inspecting regime is exactly the domain-relative collapse
+`piC`/`lamC` that task #151 removed: it changes the reading (empty
+domains, `pt ∈ piC A (fun _ => univ 0)`) and produced the #100
+countermodel.  The semantic PREMISE strengthens the statement without
+touching the reading; a semantic DECISION would change the reading
+and re-open the tier.
+
+**Recommendation.**  Adopt (a)–(c): the statement gains "every Prop
+annotation in every stored type is right" at ~30 lines of proof, the
+rules become the natural domain-restricted ones, and nothing else
+moves.  The maintainer decides; not implemented in stage 1.
+
+### 11. STAGE 2 — the proof, the promotion, the gates (2026-09-11)
+
+**The premise adopted** (the maintainer: "ok, that seems like a good
+start"): `pi`/`lam` read their bodies on the domain and carry `hP`;
+`Denotes_functional` re-proved with `piR_congr`/`lamR_congr` (one
+`obtain rfl` and one congruence per binder case).  Task #281 had
+landed `tests/challenge.sh` — the same rot §7 found, gated — and a
+one-line import fix in `Challenge.lean`; the gate is kept, the file is
+this task's.  (The branch was first merged with a master that was then
+rewritten by the maintainer — the nested-inductives design record was
+withdrawn — and REBUILT as thirteen linear cherry-picks on the new
+master `2cf6e025`; the earlier commit ids quoted in §9–§10 name the
+pre-rebase commits, whose content is unchanged.)
+
+**The proof**, two files, 467 lines, no invariant or checker change:
+
+* `ConLeche/Verify/Close.lean` (60 lines): `Expr.closeN d e k` — the
+  free variables below `d` as de Bruijn indices at cursor `k` —
+  `closeN_of_hasFvar` and `closeN_instantiate1` (closing commutes with
+  opening one binder, under `looseBVarsBounded (k+1)` and
+  `fvarsBelow d`).  Both by structural induction, first attempt.
+* `ConLeche/Model/Denotes.lean` (407 lines, Opus from the stage-1
+  spec): `cvalOf acval n ψ := interp V (fun _ => ∅) (acval n ψ)`
+  (ρ-free by `interp_closed`); `push_eq_cons`, `field_eq_projS`,
+  `regime_eq_pwBit` (`rfl`); the literal spines rebuilt from the
+  pre-rename template (`Denotes_const_nil`/`_one`, `Denotes_charList`;
+  `strLitSupported_inv` now has 32 components, the template's 26-slot
+  pattern no longer lines up); the bridge `Denotes_of_denoteMeta` by
+  `denoteMeta.induct` (fifteen cases), the reading's grading
+  `WellDenotedV V ρ ta` threaded hereditarily over the domain — the
+  `pi` premise is `AnnotValid_pi`'s third conjunct at `univ_zero`, the
+  `lam` premise `WellDenoted_lam`'s fibre package through
+  `eq_pt_of_mem_univZero`, the binder cases go through
+  `closeN_instantiate1` at cursor `0` and `push_eq_cons`, the proj cases
+  through `projAV_interp`/`field_eq_projS` and a three-way split of the
+  index at `projPair?`; `Model.ofEnvModelM` (`mem` from
+  `type_reads`/`type_wellDenotedV`/`mem_type` at depth `0` with
+  `closeN_of_hasFvar` on `ConstWF`'s fvar clause; `false_empty` by a
+  `suffices` generalising the assignment, `EnvModel.cvalE_pinned` at
+  `falseName`, `erase_eq_const`, `bval .empty = ∅`).  Two notes for the
+  next reader: `looseBVarsBounded_instantiate1` lives in `ConLeche`, not
+  `ConLeche.Expr` (its `Verify/Shift.lean` neighbours do); the
+  `fvarsBelow`/`looseBVarsBounded` premises split by `have … := h`
+  (defeq through the exposed matches), not by `simp only`, which
+  descends.  `model_exists` is `Cached.checkDecls_sound` plus this.
+
+**The promotion.**  `MainTheorem.lean` is the solution module (main
+theorem, functionality, headline — the headline derived in three
+lines); `tests/ConLecheTests/Axioms.lean` pins `model_exists` and
+`Denotes_functional` (eighteen theorems, the same three axioms);
+`tests/ProofDeps.lean` gains the root `main_model` (expectation
+regenerated: 3 819 rows across 11 roots, 0 doors; `main_False` gains
+exactly `ConLeche.Denotes`, `ConLeche.Model.Denotes`,
+`ConLeche.Verify.Close`); `formalization.yaml` leads with
+`model_exists`; OVERVIEW §1 restated (main theorem, `Denotes`/`Model`,
+the headline as corollary), §2 step 5 and §4 anchor
+`Model.ofEnvModelM`/`Denotes_of_denoteMeta`, §11 lists the two
+statement modules, §12 the challenge gate; links regenerated (77
+links, 49 files) after re-reading the six moved anchors; the CI
+header's stale "six guards" count goes.  README and the arena
+`con-leche.yaml` are proposed in the report, not applied (the one is
+human-written, the other another repository).
+
+**Comparator, run for real** (the #183 recipe; the v4.33.0
+`lean4export` is the nested build `_tmp/lean4export/lean4export`, the
+outer clone is at v4.29.1 — restored after a wrong checkout):
+challenge 65 jobs with exactly its three `sorry` warnings (48 before:
+`Denotes`, `Verify/Level`, `SetModel/Ops`, `SetTheory/Derive/Sigma`
+joined the trusted closure), solution 440 jobs, the three theorems
+exported from both, "Lean default kernel accepts the solution", "Your
+solution is okay!".
+
+**Gates** (the tree at the READY commit; every run in this worktree
+under `env -i`): `lake build` 544 jobs warning-free; `lake test` green
+(the eighteen pins at the three axioms); `tests/arena.sh` green after
+one round trip — the shake gate asked for four import edits on the new
+files (two removals of transitively supplied imports, two `public`
+demotions that then became removals), applied, and the link gate then
+caught the resulting line shift, re-anchored — layering 280/190/3/1
+with 0/0, proofdeps 3 819 rows / 11 roots / 0 doors, trust surface 14
+escapes in 5 allowlisted files, overview-links 77 links / 49 files,
+challenge OK (three statements identical), shake 457 proposals all
+allowlisted, pindump fresh, axioms 18 theorems, tutorial 90/92, e2e
+195/195, annot 15/15, trusted sweep with its 3 recorded divergences,
+`--jobs=1`/`--jobs=4` sweeps as at the default.  Comparator re-run on
+the final tree: "Your solution is okay!".  No checker code changed, so
+the binary is master's.
