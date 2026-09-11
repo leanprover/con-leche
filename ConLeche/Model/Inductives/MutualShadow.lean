@@ -50,7 +50,7 @@ theorem mutualShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
     {sorts : List Level}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
@@ -140,7 +140,7 @@ theorem mutualShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
       refine ⟨hrow.1, fun _ _ hw => ?_⟩
       by_cases hnp : isProp = true
       · exfalso
-        have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hProp hnp)) ψ
+        have h0 := hProp hnp ψ
         exact hw (by simpa [Level.eval] using h0)
       · have hle := Level.leq_sound (hleq (by simpa using hnp)) ψ
         exact univ_mono hle _ hrow.2
@@ -167,7 +167,7 @@ theorem mutualTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     {sorts : List Level}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
@@ -246,7 +246,7 @@ theorem mutualTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     cases hp : isProp
     · rfl
     · exfalso
-      have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hProp hp)) ψ
+      have h0 := hProp hp ψ
       exact hw (by simpa [Level.eval] using h0)
   have hle := Level.leq_sound (hleq hnp) ψ
   -- the field's sort is nonzero: the telescope's bits are at the
@@ -298,7 +298,7 @@ theorem mutualCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
@@ -443,7 +443,7 @@ theorem mutualCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
       obtain ⟨u, -, hleq, hmem⟩ := hrow j hj
       by_cases hnp : isProp = true
       · exfalso
-        have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hProp hnp)) ψ
+        have h0 := hProp hnp ψ
         exact hw (by simpa [Level.eval] using h0)
       · have hle := Level.leq_sound (hleq (by simpa using hnp)) ψ
         exact univ_mono hle _ (hmem ρ hρ)

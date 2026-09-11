@@ -369,7 +369,7 @@ theorem mutualChainFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
@@ -670,7 +670,7 @@ theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModel
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
@@ -910,7 +910,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
       resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
