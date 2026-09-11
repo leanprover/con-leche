@@ -68081,3 +68081,755 @@ task.
 line-anchored from OVERVIEW, README links it without an anchor.  Docs,
 data and one renderer's prose only: no `.lean` changed, so the binary
 measured is master's.
+
+## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
+
+**The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
+should propose how to handle nested inductives. I see a few options:
+(A) tracking positivity information on all installed inductives, an
+invariant that the type as a functor is monotone (so that we can
+include it in the construction), build from that; (B) proving,
+syntactically, that the current modelling translation will always work
+(so can be skipped); (C) implementing something like
+[Lamiaux–Forster–Sozeau–Tabareau, PLDI 2026]."*  Standard: the user
+ruling of 2026-09-07 — universal coverage, no shortcuts, no restriction
+beyond the official kernel's.  Context: task #278 is making MUTUAL
+blocks native on the fixpoint route; the aim is to drop the modelled
+lanes completely.
+
+**Sources read.**  The paper in full: *Nested Inductive Types:
+Justified and Usable Nested Inductive Types in Lean and Rocq*, HAL
+`hal-05366368v2` (30 pp., the authors' preprint; the ACM page was not
+needed) and its Zenodo artifact `10.5281/zenodo.19072804`
+(`generating_eliminators-submission.zip`: a MetaRocq formalisation —
+`Positivity_condition.v`, `Nested_to_mutual.v`, `typing.v`,
+`RoseTree.v` — and a Rocq plugin; **no Lean code**).  Official's
+`src/kernel/inductive.cpp` at v4.33.0 (the local checkout) and at
+v4.34.0-rc2 (the arena's reference; one addition, §2.3).  The project:
+OVERVIEW §4/§5, DESIGN #188/#200/#207/#210/#227, `Frontend/InModel/*`,
+`Kernel/Inductives/*`, `SetModel/Container.lean`,
+`SetTheory/Derive/LfpFam.lean`, `Semantics/Tower/FixLeafI.lean`,
+`Model/Annot/EnvModel.lean`, `Verify/EnvWF.lean` (the `ConstWF`
+nested-rule clause).  Probes: 31 blocks elaborated against the official
+kernel (`_tmp/nested-279/probes/shapes{,2,3}.lean`, Lean 4.33.0), the
+arena's two nested tests through official v4.33.0 and through the
+master binary, and a census script that SIMULATES official's
+elimination (`_tmp/nested-279/nested_census.py`).
+
+### 0. The one-paragraph answer
+
+Nested blocks should go through **official's own nested→mutual
+elimination, mirrored in the kernel, feeding task #278's native mutual
+installer** — option (C)'s *mechanism* with official's *criterion*, not
+the paper's — and the model tier should prove the thing the paper says
+type theory cannot give definitionally: that the auxiliary copy of a
+container at its pins **is, as a set, the container's own denotation at
+those pins** (Bekić's lemma for least fixed points, plus
+compositionality of the interpretation).  The only new stored fact is
+the one option (A) asks for, in a cheaper shape: not "the functor is
+monotone" but **"every stored inductive's leaf is the least fixed point
+of the functor spelled from its stored constructor types"** — a clause
+of the existing `EnvModel` (three construction sites in the whole
+tree), from which monotonicity and container-ness follow.  Option (B)
+is a completeness statement about the checker and does not exist in
+this architecture; done semantically it *is* the model theorem above,
+and then the generated declarations are not needed at all.  The
+recommendation is (C′) below; it sequences directly after #278, needs
+four things from #278 named in §5.6, deletes the modeller, the modeled
+route and its tier (≈ 3.6 k lines of checker/frontend, ≥ 7.7 k lines of
+verification), closes today's two coverage gaps (nesting under a
+binder, the docketed index-domain frame bug), and reaches exactly
+official's accept set including the v4.34.0-rc2 addition.
+
+### 1. Where nested blocks stand today
+
+* **Route.**  The recogniser (`ExportC`, since #219) sends a block with
+  several type formers or several recursors to the in-process modeller
+  (`Frontend/InModel/{Kit,Mutual,Nested}.lean`, 2 388 lines, `Nested`
+  1 319): it READS the kernel's nested→mutual reduction off the
+  exported recursor family (motives = members and mimics, minors =
+  their constructors, `ih` binders = which fields recurse where),
+  builds a tag enumeration and one auxiliary indexed family, and emits
+  pack/unpack isomorphisms per mimic with `Eq.rec` transports, the
+  `_model` slots, the `iota_j` theorems and `proj_i` artifacts — 30
+  generated records for `Lean.Syntax`, 2 168 for Mathlib's 51
+  mutual/nested blocks.  Every record is checked by the fold as a
+  declaration; the block then installs through the modeled route
+  (`Kernel/Inductives/Modeled.lean`, 837 lines), whose mimic recursor
+  rules are stored `.nested lvls pins` (`RecRuleFire`, `Env.lean`) and
+  certified by `nestedRuleShape`; `ConstWF` already carries the
+  syntactic clause for such rules (`Verify/EnvWF.lean`, the `∀ lvls
+  pins, fire = .nested …` conjunct); the model tier's laws for them are
+  `Model/IndNestedParam`, `IndBottomNested`, `IotaRuleNested` (2 540
+  lines), stated over the `_model` renaming.
+* **Declines today** (`Nested.lean`'s header): a nested occurrence
+  under a binder (`(Nat → List T) → T` — official ACCEPTS, probe P1;
+  `(Nat → Array T) → T` accepted with a pointwise `ih`, probe P31); a
+  container that is itself nested/mutual or whose mimics form a cycle
+  (B4 — closed for Mathlib's cone: 51/51 model); a reflexive member; a
+  `Prop` block with a large eliminator (VACUOUS: official gives a
+  nested `Prop` block the small eliminator only, §2.2); a container
+  field a later field depends on; an index sort no ceiling bounds.
+* **The docketed wrong verdict** (#227 §4): a nested block whose index
+  DOMAIN mentions a parameter (`NB (α) (a₀ : α) : α → Type` nesting
+  through `List`) is REJECTED by a frame bug in the generated
+  `_impl.rec`, where official accepts (probe P7 confirms).
+* **What the native route does at a nested field**:
+  `classifyFixKinds` throws `.notImplemented "direct rec: a nested
+  occurrence of the block (not modeled here)"` — a positive decline the
+  recogniser never reaches, because it routes on the record's shape.
+
+### 2. What the official kernel does (`inductive.cpp`)
+
+#### 2.1 `elim_nested_inductive_fn` — the algorithm, exactly
+
+Runs BEFORE `add_inductive_fn`, on the raw declaration.  Parameters
+`p⃗` are read off the first type's telescope (`d_nparams` Π binders;
+"incorrect number of parameters" otherwise).  A worklist over
+`m_new_types` (initially the block's types, growing with copies); for
+each type, for each constructor: strip the `nparams` leading Π binders
+(they are re-created per constructor to keep binder infos), then
+`replace_all_nested` on the rest — a TOP-DOWN `replace`: at every
+subterm first `replace_if_nested`, and only when it declines descend
+(`app`: function then argument; binders: domain then body; `let`:
+type, value, body; `mdata`, `proj`).  `is_nested_inductive_app e` holds
+iff `e` is an application whose head is a constant that is a STORED
+INDUCTIVE (`info->is_inductive()` — a definition unfolding to a
+container is NOT nested: probe P21 `MyList T` rejects with "non valid
+occurrence"), with at least `nparams(I)` arguments, some parameter
+argument mentioning a `m_new_types` constant (syntactic `find`; copies'
+names count, so `List (List T)` inside a copy is found again); if a
+parameter argument then has a loose bound variable the block is
+REJECTED ("nested inductive datatypes parameters cannot contain local
+variables" — probes P8/P9/P11: `Vector T n` with `n` a field, and even
+`Vector T 3`, because `Vector`'s `size_toArray : toArray.size = n`
+field nests `Eq` at a pin mentioning the local `toArray`).  The pin
+`I Ds` is canonicalised by abstracting the constructor's parameter
+fvars and re-instantiating the block's (`replace_params`), and looked
+up by STRUCTURAL equality in `m_nested_aux` (dedup; official's `==`
+ignores binder names, as our `Expr` does since #205).  On a miss, the
+WHOLE `all` group of `I` is copied: for each `J` in the group a fresh
+name `<block>._nested.<J>_<k>` (`mk_unique_name` against the
+environment; `k` a running counter), type `Π p⃗, J's type[params :=
+Ds]` at `I`'s level instantiation, constructors `Π p⃗, ctor[params :=
+Ds]` (names `J.c` re-prefixed to the copy); the copy's own nested
+occurrences are handled when the worklist reaches it.  The occurrence
+is replaced by `auxI p⃗ is` (the block's parameters, then the original
+INDEX arguments — `Vec T 3` becomes `Vec_aux p⃗ 3`, probe P25: the mimic
+is `Vec T` at ALL indices, motive `(a : Nat) → Vec T a → Sort`).
+Result: the auxiliary mutual declaration (`types ++ copies`, every
+constructor rewritten so that NO container application with a
+block-mentioning pin remains — pins survive only in `m_aux2nested`, for
+restoration), and `nnested = |m_aux2nested|`.
+
+`add_inductive_fn` then checks the auxiliary block as an ordinary
+mutual block — types checked in the PRE-block environment (so a pin
+that puts the block into a copy's type former fails "unknown
+constant": nesting through `Eq (T) x y` is impossible), "mutually
+inductive types must live in the same universe" (a `Type` block
+nesting through a `Prop` container rejects: probe P18 `Nonempty T`),
+positivity WITH whnf on the copied fields (dynamic: the copy of
+`DepB (b) (A) := cst : (if b then A else A → Bool) → DepB b A` at
+`b := false` is named in the error, probe P28; at `b := true` it
+reduces to `T` and passes — the paper's `depends_on_b`, §2.3 of the
+paper), universe bounds, index-occurrence, `elim_only_at_universe_zero`
+(`m_ind_types.size() > 1 ⇒ Prop` : **a nested `Prop` block always
+gets the small eliminator**, probes P13/P14, even with one
+constructor), `init_K_target` (never K).  Then the RESTORE
+(`restore_nested`): every `auxJ p⃗ is` back to `J Ds is`, every
+`auxJ.c p⃗` back to `J.c Ds`, in the constructor types, the recursor
+types and the rule right-hand sides; the block's types re-added with
+`all` = the ORIGINAL names and `nnested`; the recursors of the block's
+types under their own names, the copies' recursors as
+`<first type>.rec_1, rec_2, …` in `all` order (`mk_aux_rec_name_map`);
+rule constructor names restored (`List.cons`), `nfields`,
+`nparams/nindices/nmotives/nminors` the auxiliary block's.  Then two
+checks the copies would otherwise let escape: **every pin `I Ds` is
+type-checked in the new environment at the block's parameter context**
+(PR #14577, v4.32.2 — the arena's `nested-unused-param`: an ill-typed
+unused pin, disguised by a hash collision, yields `False`; official
+v4.33.0 rejects "invalid projection", master's modeller also rejects,
+at a generated record), and the restored constructor types, recursor
+types and rule right-hand sides are re-checked (PR #14621, "not
+necessary … added to catch bugs").  Input naming the `_nested` prefix
+is rejected up front (PR #14616, `check_no_nested_aux`).
+
+#### 2.2 Shapes official accepts and rejects (probe table, Lean 4.33.0)
+
+| # | shape | official |
+|---|---|---|
+| P1 | `mk : (Nat → List T) → T` — nesting under a binder in the field | accept |
+| P31 | `mk : (Nat → Array T) → T` — reflexive nested field, `ih : ∀ n, motive_2 (a n)` | accept |
+| P2/P22 | λ-pin `DMap Nat (fun _ => PT)`, `Tag (fun _ => List T)` | accept |
+| P26 | λ-pin with a USED variable `DMap Nat (fun k => Vec T k)`: minor keeps the redex `(v : (fun k => Vec T k) k)`, `ih : motive_3 k v` | accept |
+| P3 | chain `Array (List T)` (two copies, depth 2) | accept |
+| P4 | through a NESTED container (`TaggedText`-like) | accept |
+| P5 | through a MUTUAL container (`Ev`/`Od`, both copied) | accept |
+| P10 | through a REFLEXIVE container (`Str α := (Nat → Str α) → α → Str α`) | accept |
+| P25/P24 | through an INDEXED container at a closed index; mutual+nested+indexed members | accept |
+| P6/P13/P14 | `Prop` block through `And`; ≥ 1 constructors | accept, SMALL eliminator only |
+| P7 | index domain mentioning a parameter (`NB α a₀ : α → Type`, the docketed bug) | accept |
+| P20 | `{l : List T // True}` (Subtype, constant predicate) | accept |
+| P30 | universe-polymorphic block through `List` | accept |
+| P8/P11 | pin mentions a FIELD (`Vector T n`, `S T` with `v : Vector α n`) | reject: local variables |
+| P9 | `Vector T 3` (the `Eq` pin inside `Vector` mentions the local `toArray`) | reject: local variables |
+| P18 | `Type` block through a `Prop` container (`Nonempty T`) | reject: same universe |
+| P19 | `{l : List T // l.length > 0}` (`List.length l` at the copy's type) | reject: type mismatch |
+| P21 | `MyList T` with `def MyList := List` | reject: non valid occurrence |
+| P23 | `(List T → Nat) → T` | reject: non positive |
+| P28 | dynamic: `DepB false T` (copy's field whnf's to `T → Bool`) | reject: non positive, in the COPY |
+| arena `nested-unused-param` | ill-typed unused pin | reject (v4.33.0: invalid projection) |
+| arena `nested-nonuniform-param` | `E.mk : (w : W) → L (E ⟨false⟩) → E w` | v4.33.0 ACCEPTS (14 decls); v4.34.0-rc2 REJECTS (§2.3) |
+
+#### 2.3 The v4.34.0-rc2 addition: `check_uniform_ind_occs`
+
+The only nested-relevant difference between v4.33.0 and the arena's
+reference v4.34.0-rc2 (the tails of the two files diff in one line):
+`environment::add_inductive` first runs `check_uniform_ind_occs`, a
+syntactic walk over every constructor type: EVERY occurrence of a block
+name — inside pins, inside indices, anywhere — must be applied to
+exactly the block's parameters as the bound variables at the right
+offsets and to the block's universe parameters ("invalid occurrence of
+datatype … it must be applied to the parameters and universe levels of
+the mutual declaration"); over-applied occurrences are descended into
+so their indices are checked too.  This is what turns the arena's
+`nested-nonuniform-param` (outcome `either`) into a reject; the master
+binary accepts it (18 generated records).  Mirroring it is one walk
+(`recFamOk`'s shape, on every occurrence rather than every field).
+
+#### 2.4 What the paper adds to this picture
+
+*Criterion.*  A nested occurrence may nest only on **strictly positive
+parameters** of the container — parameters of arity `∀ X₀…Xₙ, Type`
+that occur strictly positively in the container's constructors, read
+off a syntactic **view** (`arg_is_cst / arg_is_ind / arg_is_sup /
+arg_is_nested`, §3.2); recursive occurrences may not appear in the
+domains of the binders under which nesting happens nor in indices;
+instantiations may be `fun llargs => arg` — nesting UNDER BINDERS
+INSIDE THE PIN with the binder used (`All (fun a => typing a
+return_type)`, where `return_type` is an earlier FIELD).  The mutual
+encoding (§3.1) strengthens the arguments before the nested one into
+indices of the copy (`↑args_g`) so that such pins are well-scoped, and
+positivity preservation is proved in MetaRocq (`pos_nested_to_mutual`).
+*Relation to official* — INCOMPARABLE: the paper accepts `All (fun a
+=> typing a return_type)` which official rejects (loose bound variable
+in a pin, P8's class); official accepts dynamic nesting
+(`DepB true T`, whnf on the copy) which the paper rejects on purpose
+("cannot decide positivity for future nestings purely syntactically").
+*Eliminators.*  Sparse parametricity: a predicate only for strictly
+positive parameters, the local fundamental lemma (Thm 4.1) proved by
+`fix`/`match`; the eliminator of the nested type is then a
+CONSERVATIVE extension of the usual one (same shape as for non-nested
+types: `rose_tree`'s `Pnode : ∀ l, list_ε (rose_tree A) P l → P (node
+l)`), and it is DEFINED from the mutual encoding's eliminator with
+transports along `All ≅ All_mut` — "the encoding of the nested
+eliminator verifies the computation rules only propositionally, or
+definitionally on closed terms" (App. E), "absolute certainty remains
+unattainable" for the encoding of eliminators.  *Implementation*: a
+MetaRocq plugin; two pull requests merged into Rocq 9.2 (eliminator
+generation given sparse parametricity; automatic sparse parametricity);
+for Lean, "an implementation plan" and a community library generating
+induction principles via sparse parametricity — elaborator level,
+nothing kernel-side, nothing exported.  *What it means here*: the
+paper's justification IS the mutual encoding, i.e. official's
+mechanism; its criterion is a different accept set and cannot be
+adopted (universal coverage); its eliminator shape is not the kernel's
+(`T.rec` with `motive_2 : List T → Sort` is what the stream carries and
+what must be reproduced); and its central difficulty — the eliminator
+of the encoding relates to the nested one only up to transport — is
+exactly what a SET model dissolves: `List_aux` and `List T` are the
+same set (§5.3), so the restored recursor is the auxiliary recursor
+with a respelled type, and the ι rules fire on the real `List.cons` by
+the existing `.nested` mechanism, no transport anywhere.
+
+### 3. The corpus
+
+`nested_census.py` parses a raw stream, simulates §2.1 (worklist,
+structural dedup, whole-group copies, the local-variable rule) and
+reports per block the copies with their pin shapes and creation depth.
+**Validation: the simulated mimic count equals the record's `numNested`
+on all 42 blocks (init-full 1, Mathlib 41), 0 mismatches.**
+
+* **init-full**: one nested block, `Lean.Syntax` (through `Array`, then
+  `List`: `numNested = 2`, depth 2), `Type`, large eliminator.
+* **Mathlib** (6 644 blocks; 38 nested + 3 mutual+nested; the 10 pure
+  mutual blocks are #278's): all 41 are `Type`-valued with a large
+  eliminator, all index-free (the two indexed blocks of the
+  mutual/nested census are pure mutual), no nesting under a binder, no
+  reflexive nested field, no later field depending on a nested one.
+  **132 copies of 22 containers**: `List` 43, `Array` 37, `Prod` 5,
+  `Option` 5, `Task` 4, `Lean.Widget.TaggedText` 4,
+  `Lean.Language.SnapshotTask` 3, `Std.TreeMap.Raw` /
+  `Std.DTreeMap.Raw` / `Std.DTreeMap.Internal.Impl` 2 each,
+  `Lean.Widget.StrictOrLazy` 2, its `Lean.Server.Test.Runner.Client`
+  twin 2, and one each of `PersistentHashMap.Entry`,
+  `PersistentArray`, `PersistentArrayNode`, `Doc.ListItem`,
+  `Doc.DescItem`, `Lsp.DocumentSymbolAux`, `Server.ServerTask`,
+  `Except`, `Elab.Term.Do.Alt`, `Elab.Term.Do.AltExpr`.  Of the 132
+  copies: 71 of non-recursive containers, 60 of structure-likes, **5 of
+  containers that are themselves nested** (`TaggedText` ×4 — the
+  `MsgEmbed` family — and `PersistentArrayNode` under `InfoTree`), 0
+  of mutual, reflexive or indexed containers.  **Pins**: 75 are the
+  block itself (`T p⃗`), 55 are a container application with the block
+  inside (chains: `Array (List T)`, `Option (SnapshotTask T)`, …), 4
+  are λ-pins (`Std.DTreeMap.Raw`'s `fun _ => …` value family under
+  `PrefixTreeNode`/`Json`), 10 are other closed terms (the `Ord`
+  comparison parameter of `TreeMap.Raw`, `Except`'s error type).
+  **Depth** (longest creation chain): 1 → 7 blocks, 2 → 16, 3 → 14, 4
+  → 4 (`InfoTree` 6 copies; `Cutsat.EqCnstr` 9 copies over a 12-member
+  mutual block; `Doc.Block` 8).  The three mutual+nested blocks:
+  `LCNF.Alt` (4 members, `Array`/`List`), `IR.Alt` (2, the same),
+  `Cutsat.EqCnstr` (12, `Array`/`Option`/`List`/`Prod`).
+* **Beyond the corpus, accepted by official** (§2.2): nesting under a
+  binder and reflexive nested fields (P1/P31), λ-pins with a used
+  variable (P26), indexed containers (P25/P24), reflexive containers
+  (P10), mutual containers (P5), `Prop` blocks through `And` (P6),
+  parameter-mentioning index domains (P7), dynamic nesting (P27/P28),
+  universe-polymorphic blocks (P30).  The design must take all of
+  them; §5.7 says how each is taken.
+
+### 4. The options
+
+#### 4.1 Option A — a stored monotone-functor fact, containers composed
+
+*What it is, in our terms.*  Each installed inductive `I` would carry a
+model-tier fact that its carrier, as a function of its parameters, is
+the least fixed point of a MEMBER CONTAINER functor (the `Container.lean`
+presentation: shapes, positions, targets), hence monotone in its
+strictly positive parameters.  A new block's family functor would then
+include a nested field `List (T p⃗)` as the container `⟦List⟧` composed
+with the family variable, `container_closed_exists` would be extended
+to composition (containers are closed under composition and under
+fixed points — Abbott–Altenkirch–Ghani 2004, the paper's reference
+[1]), `lfpFamSet` of the composed functor would be the carrier, and the
+recursor's recursion theorem (`RecGraph`) would need the composed
+positions: the recursion on a `List T` field descends through the
+list's own positions.  The datum: NOT an `IndCaps` bit (a `Bool` says
+nothing the proof can use) — a `Prop` about the leaf, i.e. a clause of
+`EnvModel` (three construction sites: `EnvModel.empty`, the cons in
+`Model/Install.lean`, `Model/Swap.lean`), or a `ConstWF` conjunct
+(syntactic, V-free — but container-ness is a semantic property of the
+leaf, so it cannot live there).  *What it cannot do as stated*: the
+stream's recursors are official's MUTUAL-ENCODING recursors — `T.rec`
+with a motive per mimic (`motive_2 : List T → Sort u`), `T.rec_1` a
+recursor ON `List T` whose rules fire on `List.nil`/`List.cons` — so
+the recursor generator, the rule generator and the recursion theorem
+must produce and justify the mutual shape anyway; a "nested functor"
+model would have to derive `T.rec_1` (a function on `⟦List⟧ T*` defined
+by recursion over lists whose elements recurse through `T.rec`) from
+the composed fixed point: a NEW recursion theorem for composed
+containers, on top of the existing `RecGraph` one.  *Verdict*: the
+STORED FACT is right and is adopted below in a cheaper form (§5.4); the
+CONSTRUCTION duplicates what #278's mutual model already gives.  Cost
+if pursued as stated: the mutual route's kernel work (recursor
+generation for the mimic shape) plus 3–4 Fable sessions of new
+container/recursion theory.  Not recommended.
+
+#### 4.2 Option B — a once-and-for-all syntactic proof of the modeller
+
+*What "correct" would have to say.*  Either (B1) "for every block
+official accepts, the fold ACCEPTS the modeller's generated records"
+— a COMPLETENESS statement about `checkDecls` ("the checker accepts
+X"), of which this architecture has none and by design proves none
+(OVERVIEW §4: every claim is in the accepting direction; there is no
+typing judgement to derive acceptance from; #257 found even
+one-pass↔two-phase acceptance unprovable because acceptance depends on
+memo state); or (B2) "the translation's equations HOLD IN THE MODEL":
+the model of the auxiliary family, the pack/unpack maps and the
+`iota_j` equations are true set-theoretic statements — which is a
+theorem about the modeller's OUTPUT, provable only by unfolding what
+the output denotes, i.e. exactly the carrier equality and the fired
+rule laws of §5.3.  (B2) done makes the generated records unnecessary
+(their semantic content is the theorem), and then the modeller and the
+modeled route are dead weight: the checking cost is "skipped" by
+deleting what was checked.  (B1) is not available.  *What it removes*:
+under (B1), only the per-block checking cost (the modeller, the
+modeled route, the `_model` handling and the recogniser's refusal all
+stay — the opposite of the aim); under (B2), everything, but (B2) IS
+option C′'s model tier stated over the wrong syntax (the modeller's
+transports instead of the kernel's restore).  *Verdict*: no; the
+maintainer's read "so can be skipped" is right about the outcome and
+(B2) is the route to it, minus the modeller.
+
+#### 4.3 Option C — the paper
+
+*What it is* (§2.4): a validity criterion (strictly positive
+parameters, syntactic view), the nested→mutual encoding with indices
+for the arguments a pin depends on, a MetaRocq proof that the encoding
+is positive, sparse parametricity and eliminators of the usual shape,
+implemented for Rocq 9.2; for Lean a plan and an elaborator-level
+induction-principle library.  *Conformance*: the criterion is neither
+weaker nor stronger than official's — it accepts pins with local
+variables that official rejects and rejects the dynamic (whnf)
+nesting official accepts — so adopting it breaks universal coverage in
+both directions; its eliminators are not the stream's.  *What of it
+composes with #278*: the MECHANISM.  A kernel-side translation whose
+output goes to the native mutual installer, with the stream's
+recursors compared against the translated block's restored recursors,
+is exactly official's `elim_nested_inductive_fn` + `add_inductive_fn` +
+`restore_nested`, and the round trip is exact by construction: the
+restored recursors ARE what official stores, and official's own replay
+compares the exported record against its regenerated one.  The
+paper's honest limit — computation rules only propositional — is a
+limit of TYPE-THEORETIC justification; in the set model it is an
+equality (§5.3).  *Verdict*: take the mechanism with official's
+criterion; that is C′.
+
+#### 4.4 Option C′ — official's elimination, natively, with Bekić in the model (RECOMMENDED)
+
+Kernel: mirror §2.1–2.3 on `ConLeche.Expr`; run #278's native mutual
+install on the auxiliary block in a scratch environment; restore; store
+only the restored constants; post-checks.  Model: #278's simultaneous
+least fixed point + a projection lemma for least fixed points (Bekić)
++ the leaf clause of `EnvModel` + compositionality of `interp` under
+the restore; the ι laws of the mimic rules from #278's mutual rule laws
+through the same equality.  Everything else — capabilities of
+structure-like nested blocks, `.below`/`brecOn` consumers, the
+`.nested` fire mode — is already in place or falls out.  §5.
+
+### 5. C′ in detail
+
+#### 5.1 Kernel (`Kernel/Inductives/NestedElim.lean`, new; `NativeInstall.lean`; the recogniser)
+
+1. **Dispatch.**  The recogniser (`ExportC`) stops refusing multi-former
+   and multi-recursor blocks (that is #278's part) and the block goes
+   to ONE entry `checkNative`, which first runs `check_uniform_ind_occs`
+   (§2.3, one syntactic walk — a REJECT), then `elimNested env block`.
+   `numNested` is computed as official does; the record's declared
+   value is compared and a mismatch REJECTS (the #228 precedent for
+   declared counts: official ignores the field, a lie is not an
+   accept-changing datum but it is a false record).
+2. **`elimNested`** returns the auxiliary block (types ++ copies,
+   constructors rewritten), the pin table `aux2nested : List (Name ×
+   Expr)` (pins in the parameter context) and the copy-naming in
+   creation order.  It is a pure function on `Env × block` — the same
+   worklist, the same top-down `replace` order (`app` fn-then-arg,
+   binders domain-then-body; the order fixes the `rec_k` numbering and
+   must be the kernel's — the corpus's 41 blocks with `numNested` up to
+   9 and the fixtures are the evidence), structural dedup after
+   lowering the pin to the parameter context, whole-`all`-group copies
+   at the container's level instantiation, the local-variable rule as
+   a REJECT with official's message, `_nested`-prefix input as a
+   REJECT, parameter binders that are not Π as a REJECT ("ill-formed").
+   Copy names `T._nested.J_k` are fresh by construction because the
+   prefix is reserved.
+3. **The auxiliary block** goes to #278's `checkMutual` at the
+   pre-block environment.  It is an ordinary mutual block — recursive
+   fields (`List_aux p⃗` in `T`'s constructor and in its own),
+   reflexive fields where the copy has them (P10) or the block has
+   them (P31: `(Nat → Array_aux p⃗) → T`), indexed members (P25:
+   `Vec_aux : Π p⃗, Nat → Type`), `Prop` members with `Type` members
+   rejected by #278's same-sort check (P18), positivity with
+   `normPosDom`'s whnf on the copies (P27/P28), the sort ceiling of
+   #227, `elim_only_at_universe_zero` at `types > 1` (P13/P14), no K.
+   Its recursors are generated with #278's generator (`ih` order and
+   naming the kernel's) and the STREAM's recursor records are
+   compared after the restore (step 5).
+4. **Restore.**  `restoreNested aux2nested recNames e`: `auxJ p⃗ is ↦
+   J Ds is` (pins re-abstracted over the block's parameters and
+   instantiated at the actual leading arguments — official's
+   `instantiate_rev(abstract(nested, params), As)`), `auxJ.c p⃗ ↦ J.c
+   Ds`, `auxJ.rec ↦ T₁.rec_k`.  Applied to the constructor types, the
+   recursor types, the rule right-hand sides; the block's types
+   re-stored with `all` = the original names and the computed
+   `numNested`; the copies' recursors stored as `T₁.rec_k`, the rules'
+   constructor names restored (`List.cons`), everything else the
+   auxiliary block's.  A mimic rule's `fire` is `.nested lvls pins`,
+   computed exactly as `nestedRuleShape` does today MINUS its
+   `_model.iota_j` lookup (the pins are read off the restored recursor
+   type's major-premise domain; the `ConstWF` nested clause is
+   unchanged and holds by construction).  Under-applied or
+   over-applied auxiliary constants during the restore are REJECTS
+   ("not applied to all parameters").
+5. **Post-checks in the restored environment.**  (a) every pin `I Ds`
+   is type-checked at the block's parameter context (#14577 — the
+   check the PROOF needs too, §5.3 (M1)); (b) the restored constructor
+   types, recursor types and rule right-hand sides are re-inferred
+   (#14621; cheap, and it is where `constsResolve` of the restored
+   terms is established for `ConstWF`); (c) the stream's `k + numNested`
+   recursor records are compared with the restored generated ones as
+   the fixpoint route compares today (`nativeRulesOk`, one `isDefEq`
+   per recursor type) — a record that is not the generated one
+   REJECTS; a missing or extra record REJECTS.
+6. **What is stored.**  Only the restored constants: the block's
+   formers, constructors, recursors and the `T₁.rec_k`.  The auxiliary
+   environment is scratch.  The stream never names a copy (step 2
+   rejects the prefix), so later declarations see exactly official's
+   environment.
+7. **Capabilities.**  `is_structure_like` reads the RESTORED `all`
+   (one type, one constructor, no indices): a nested structure
+   (`NTree`, Mathlib's 60 structure-like copies are containers, not
+   blocks) gets projections, η, unit-likeness and K exactly under the
+   fixpoint route's conditions on the restored block — `nativeCaps` on
+   the restored record; the model side is §5.5.
+
+#### 5.2 Verify and Semantics
+
+Twins of `elimNested`/`restoreNested` over `FEnv`, the cached bridge,
+and WF: the restored terms are closed, level-defined, resolving (post-
+check (b)), bounded; the `.nested` rules satisfy the EXISTING `ConstWF`
+nested clause (`rP ≤ mI`, pins bounded by the prefix, the major domain
+applies the container to the lifted pins and the index variables) —
+no new `ConstWF` conjunct.  `Semantics/Inductives/DeclNested.lean`: the
+run relation = `elimNested` (pure) ∧ #278's `DeclMutualRun` on the
+auxiliary block ∧ `restoreNested` (pure) ∧ the post-check runs.
+
+#### 5.3 Model — the theorems
+
+Notation: `T⃗` the block's real members, `A⃗ = (A_1 … A_n)` the copies
+(`A_j` a copy of container `J_j` at pins `Ds_j`), `Φ` the auxiliary
+group's functor on families over `Σ_(m ∈ T⃗ ++ A⃗) I_m` (from #278),
+`(T⃗*, A⃗*) = lfp Φ`.
+
+* **(M0, from #278)** `declMutual` gives `EnvModel env_aux` with every
+  member's leaf `λ p⃗ ı⃗, π_m (lfpFam … Φ) ⟨ı⃗⟩` and the constructors'
+  leaves the tagged towers `inj c (mkTower fs)` with `c` the
+  constructor's index WITHIN ITS OWN TYPE; the recursors fixed points
+  of their unfoldings; the rule laws.
+* **(T2, `SetTheory/Derive/LfpFam.lean`) Bekić projection.**  For a
+  monotone `Φ` on families over `I = I_S ⊔ I_C` with a closed member:
+  `lfp Φ |_S = lfp (Y ↦ Φ(lfp Φ |_C, Y) |_S)` — the `S`-restriction of
+  the simultaneous least fixed point is the least fixed point of the
+  `S`-section with the complement fixed at ITS restriction.  Proof:
+  the restriction is a pre-fixed point of the section (it is a fixed
+  point of `Φ`), so `μ ≤ lfp Φ |_S`; and `(lfp Φ |_C, μ)` is a
+  pre-fixed point of `Φ` (monotonicity of the `C`-components in the
+  `S`-components, `μ ≤ lfp Φ |_S`), so `lfp Φ ≤ (lfp Φ |_C, μ)` and
+  `lfp Φ |_S ≤ μ`.  Pure set theory over `lfpFamSet_le/_fixed/_eq`
+  and restriction/extension of graphs between `famSpace w I` and
+  `famSpace w I_S`; ~300–500 lines.  Its nested-fixpoint corollary
+  `lfp Φ |_C = lfp (X ↦ Φ(X, lfp (Y ↦ Φ(X, Y)|_S))|_C)` is what (M2)
+  uses.
+* **(L, the leaf clause of `EnvModel`)** — the ONE new stored fact.
+  For every stored inductive `I` with `all`-group `G`: the leaf of each
+  member is the member's projection of the least fixed point of the
+  **substituted group functor** `Φ^r_G`, the tower functor spelled from
+  the members' STORED (restored) constructor types with every member
+  occurrence `I_m p⃗` replaced by the family variable (`λ ı⃗, X_m ⟨ı⃗⟩`)
+  and every other constant — in particular a nested container `J Ds` —
+  read by the ambient valuation; `Φ^r_G` is monotone in `X` and has a
+  closed member.  Stated as `∀ ψ ρ, interp ρ (acval I ψ) = interp ρ
+  (substLeaf env I ψ)` with `substLeaf` a pure function of the stored
+  constructor types (the fixpoint leaf's spelling of `FixLeafI.lean`
+  §"the family", with `chainXI`'s recursive slots obtained by
+  substitution+β instead of direct spelling — the two interpretations
+  agree by β).  Holds: at a fixpoint-route block by the leaf's
+  definition (`fixFunVI` IS `Φ^r` there: no nested field); at a #278
+  mutual block by (M0) (no nested field); at the pinned basis blocks —
+  `Nat`, `Bool`, `PUnit`, `Empty`, `False`, `Quot` (not an inductive),
+  `Eq` (unnestable, §2.1) can never be containers because
+  `is_nested_inductive_app` needs a parameter mentioning the block,
+  and **`And` is the one pinned block with parameters**: its pin must
+  equal the constant functor's fixed point (the squash of the product)
+  — one lemma, or un-pin `And` now that the fixpoint route gives
+  Prop structure-likes their η (the #258 reason for the pin); at a
+  nested block by (M2).  Preservation: `EnvModel` has three
+  construction sites; a cons of a non-inductive constant leaves every
+  inductive's leaf and stored constructors untouched (`findPreserved
+  _cons`), so the clause is inherited generically.  From (L) follow:
+  monotonicity of `Φ^r_I` in its parameters (least fixed points are
+  monotone in the functor) — option A's fact, DERIVED; and the
+  container presentation (`FixWitness`'s shape with nested field
+  domains read at the family) — the closed-member witness for the
+  nested block's `Φ^r`.
+* **(M2, the carrier equality)** For every copy `A_j` of `J_j` at pins
+  `Ds_j`, and every family `X` for the real members:
+  `M*_j(X) = ⟦J_j⟧ (⟦Ds_j⟧[T⃗ := X])`, where `M*(X) = lfp (A⃗ ↦ Φ(X, A⃗))`
+  is the copies' simultaneous least fixed point at fixed real members.
+  Proof by well-founded induction over the copies' field-dependency
+  graph (copy `j` depends on `j'` if `A_j`'s rewritten constructor
+  fields mention `A_{j'}`; cycles arise exactly inside the copy of a
+  NESTED container's own closure — `TaggedText@T → Array@(TaggedText
+  T) → List@(TaggedText T) → TaggedText@T` — and inside the copy of a
+  MUTUAL container's group): for a strongly connected component `S`
+  with every copy outside `S` already known equal to its pins'
+  denotation, (T2) gives `M*|_S = lfp` of the `S`-section; the
+  `S`-section's constructor fields are the copies' rewritten fields
+  read at (`X`, the outer copies' values) = by the induction
+  hypothesis and the restore lemma (M1) the RESTORED fields' readings
+  = the container's stored fields at `params := ⟦Ds_j⟧` with the
+  container's group members as the section's variables; so the
+  `S`-section IS `Φ^r_{G(J_j)}(⟦Ds_j⟧)` — the container's own
+  substituted group functor at the pins — and (L) for `J_j` closes it.
+  A nested container's closure inside `S` is handled by the same
+  argument one level down (the copies of `Array`/`List` inside
+  `TaggedText@T`'s component are the `Array`/`List` copies of
+  `TaggedText`'s own (L)-functor, which reads `⟦Array⟧ (X_TT)`), i.e.
+  the induction is on the size of `S` after fixing its root copies.
+  The pins are closed with respect to fields (official's local-variable
+  rule) so `⟦Ds_j⟧[T⃗ := X]` is a function of `X` alone — this is where
+  the rule is USED by the proof, not just mirrored.
+* **(M1, the restore lemma)** `interp ρ (restoreNested e) = interp ρ'
+  e` where `ρ'` values `A_j` at `⟦J_j Ds_j⟧` — compositionality of
+  `interp` under the constant replacement, plus: the restored TYPE is
+  `WellDenoted` because `J Ds` is an application of a stored constant
+  to arguments in its domain — the pins' typing, which is post-check
+  (a) (#14577).  Then `acval_wellDenoted` for every restored constant
+  transfers from (M0): the VALUE (set) of `T.rec` is the auxiliary
+  recursor's; only its type is respelled, and (M2) makes the respelled
+  type denote the same set.  The block's own leaf clause (L) is (M2)'s
+  nested-fixpoint corollary: `T⃗* = lfp (X ↦ Φ(X, M*(X))|_T⃗)` and
+  `Φ(X, M*(X))|_T⃗ = Φ^r_T⃗(X)` by (M2)+(M1).
+* **(M3, rule laws)** A real member's rule is `.plain` and its law is
+  #278's.  A mimic rule `T₁.rec_k … (J.c Ds x⃗) ↦ rhs` is `.nested lvls
+  pins`; its `RecRuleLaw` at every fitting spine follows from the
+  auxiliary rule's law (M0) because `⟦J.c Ds x⃗⟧ = inj c (mkTower x⃗) =
+  ⟦auxJ.c p⃗ x⃗⟧` (the same element encoding, §5.6 R2) and (M2); the
+  fire's pin comparison (`.nested` compares the constructor's levels
+  and parameters with the stored pins) is exactly what restricts the
+  law to the pins.  This REPLACES `IndNestedParam`/`IndBottomNested`/
+  `IotaRuleNested` (2 540 lines over the `_model` renaming) by one
+  transport of the mutual law.
+* **(M4, capabilities at a nested structure-like)** From (L) the
+  restored carrier is a fixed point of a tagged-tower functor whose
+  field domains are read at the carrier (`T* = Σ_c tower_c(fields at
+  T*)`, the `fixFamI_app_eq_sum` shape), which is the premise the
+  `Struct*` capability kits consume; a nested field is an ordinary
+  domain of that unfolding (`⟦List⟧ T*`).  Risk: the kits may assume
+  the domain is INDEPENDENT of the family (the X-chain's "ordinary"
+  slot); if so they are generalised to "read at the carrier" — the
+  same generalisation the `.below` auxiliaries never needed because
+  they are separate blocks.
+
+#### 5.4 The stored fact, against the standing ruling
+
+"A NEW invariant threaded through everything is too expensive;
+extending EXISTING invariants with stored facts is wanted."  (L) is a
+field of the EXISTING `EnvModel` (3 construction sites; the cons
+lemma inherits it for every non-inductive declaration by
+`findPreserved_cons`, and every inductive install proves it for its
+own block — single: definitional, mutual: (M0), nested: (M2), basis:
+pinned lemmas).  `ConstWF` gains nothing (its nested-rule clause is
+reused).  `IndCaps` gains nothing (`numNested` is stored on the
+inductive record as official stores it).  No datum is computed at use
+sites: nesting through `List` reads `List`'s (L) at the model tier
+only.
+
+#### 5.5 Consumers unaffected
+
+`T.below`/`T.brecOn`/`T.rec_1` uses in the stream see exactly official's
+constants with official's types and rules; a `.nested` rule fires on
+`List.cons (T) x xs` as it does today for the modelled block
+(`nested_rec`, `nested_pin_names`, `indexed_nested_aux` fixtures pin
+the fire; `Lean.Syntax`'s cone in init-full accepts 620 declarations
+through it today).  The projection rewrite (`Frontend/ProjRec.lean`)
+that reads the field sort off `_model.proj_i.iota` becomes dead:
+nested structure-likes get first-class projection tables from
+`nativeCaps` on the restored block (§5.1.7), as every other structure
+does since #210 Part A.
+
+#### 5.6 What #278 must provide (to be passed to that lane NOW)
+
+* **R1** The mutual model is ONE simultaneous least fixed point of a
+  monotone functor on families over `Σ_m I_m` (tagged index tuples),
+  with a closed member from the container witness, exposed as a
+  theorem in the form (M0) — not a tag-enumeration-plus-single-family
+  encoding whose members are definitions.
+* **R2** A member's elements are `inj c (mkTower fs)` with `c` the
+  constructor's index WITHIN ITS OWN TYPE and the field tower the
+  fixpoint route's — so that a copy's constructor value equals the
+  container's constructor value at the pins on the nose.
+* **R3** Reflexive members (function-space fields into any member,
+  #202's kits) and indexed members (#188/#218) — the copies inherit
+  the container's shape (P10, P25) and the block may have reflexive
+  nested fields (P31).
+* **R4** The recursor generator produces the auxiliary block's
+  `k + n` recursors in `all` order with official's `ih` placement, and
+  the entry takes a block record whose members are NOT looked up in
+  the stream (the copies exist only in the scratch environment).
+* Nice to have: the mutual leaf spelled as the substituted functor
+  (§5.3 (L)) directly, so (L) at a mutual block is definitional as at
+  a single block.
+
+#### 5.7 Conformance (accept set of C′ against official v4.34.0-rc2)
+
+| item | C′ |
+|---|---|
+| nesting through any stored inductive: `List`/`Array`/`Option`/`Prod`/`Except`/`Task`/user structures, chains, λ-pins (P2/P22/P26), nested containers (P4), mutual containers (P5), reflexive containers (P10), indexed containers (P25) | accept — the copies are ordinary mutual members |
+| nesting under a binder (P1) and reflexive nested fields (P31) — today's DECLINE | accept (R3) |
+| index domain mentioning a parameter (P7) — today's wrong REJECT | accept (no frame: no generated `_impl.rec`) |
+| nested `Prop` block through `And` (P6/P13/P14) | accept, small eliminator (types > 1) |
+| `Type` block through a `Prop` container (P18) | reject (same-universe check on the copies) |
+| pins with local variables (P8/P9/P11) | reject, official's message |
+| pin mentioning the block non-uniformly (arena `nested-nonuniform-param`; v4.33.0 accepts, rc2 rejects) | reject — `check_uniform_ind_occs` mirrored (today: accept) |
+| ill-typed unused pin (arena `nested-unused-param`) | reject — post-check (a) (today: reject at a generated record) |
+| dynamic nesting (P27/P28) | as official: the copy's field is whnf'd by `normPosDom` |
+| definition unfolding to a container (P21), negative (P23), Subtype at a mentioning predicate (P19) | reject, as official (detection is syntactic; typing of the copy) |
+| `_nested`-prefixed input | reject |
+| declared `numNested` ≠ computed | reject (official: ignored; #228's precedent) |
+| stream recursor records not the generated `k + numNested` | reject |
+
+No decline remains in the class: every block official accepts is
+taken, every block official rejects is rejected, and the one
+divergence today (`nested-nonuniform-param`, outcome `either`) closes
+onto the arena's reference.
+
+### 6. Cost, risk, what becomes deletable
+
+| piece | tier | who | sessions |
+|---|---|---|---|
+| `check_uniform_ind_occs`, `elimNested`, `restoreNested`, post-checks, `.nested` fire off the restored major, recogniser/dispatch, fixtures for every probe shape (P1–P31 as e2e), the two arena tests as fixtures | Kernel + Frontend | Opus | 2–3 |
+| twins, WF, cached bridge, `DeclNestedRun` | Verify + Semantics | Opus | 1–2 |
+| (T2) Bekić projection + nested-fixpoint corollary | SetTheory | Fable | 1 |
+| (L) the leaf clause: `substLeaf`, the field, preservation at every install, the `And` lemma (or un-pinning) | Model | Fable | 1–2 |
+| (M2)+(M1): the carrier equality by SCC induction, the restore lemma, well-denotedness transfer | Model | Fable | 2–3 |
+| (M3) mimic rule laws; (M4) capabilities at nested structure-likes | Model | Fable | 1–2 |
+| deletions + gates (arena, init-full, the Mathlib mutual/nested cone via `scripts/slice-cone.py`, `tests/inmodel.sh` retired, OVERVIEW §5 rewritten) | all | Opus | 1–2 |
+
+Total ≈ 5–8 Fable + 4–7 Opus sessions after #278.  **Risks**, in
+order: (i) (M2)'s induction — the SCC structure and the identification
+of an `S`-section with the container's `Φ^r` at the pins; the pure
+version (T2) is easy, the syntactic bookkeeping (which copy is whose)
+is the work; (ii) the interface with #278 (R1–R4) — if #278 lands a
+model shape other than (M0), (M2) is restated but not lost; (iii)
+(M4)'s kit generalisation; (iv) the `rec_k` numbering — the replace
+order must be the kernel's, checked on 41 corpus blocks with 132
+copies.  **Deletable**: `Frontend/InModel/{Kit,Mutual,Nested}.lean`
+(2 388), `Kernel/Inductives/Modeled.lean` (837), `Frontend/ProjRec.lean`
+(372) and the `InModelDump`/`ExportWrite` dump tooling, the `_model`
+handling in `ExportC` (`constTypes.contains (T._model)`,
+`noteProjIota`/`projLevels`), `CON_LECHE_INMODEL*`, `tests/inmodel.sh`;
+the modeled route's tier — the import-closure of `Model/DeclInd`
+minus the native route's: 17 modules, 7 689 lines certain
+(`IndBottomNested/Plain/Proj`, `IndNestedParam`, `IotaRuleNested/Plain`,
+`ProjInstall/ProjCons/ProjRename`, `Swap`, `DeclInd`, `IndRecs`,
+`IndPinRow`, `IndOpenerGrade`, `Semantics/{ProjFnFacts,IndRecsCore}`,
+`Verify/Denote/EnvExt`), plus whatever of `Verify/Extend/*` (4 021),
+`Semantics/IndBlockRun` (895) and the `_model`-renaming kits
+(`IndRename`, `BlockInstalledTT`) `scripts/dead-census.py` then finds
+unreferenced — the `.nested` FIRE machinery in `Core`/`Env`/`ConstWF`
+stays (it is the native route's too).  The recogniser's nested refusal
+goes with the route.
+
+### 7. Recommendation and sequencing
+
+**C′.**  The argument in one line each: it is official's algorithm, so
+the accept set is official's by construction and stays so as official
+moves (v4.34.0-rc2's addition is one walk); it rides on #278 rather
+than beside it (the mutual model is the nested model; the paper's
+"justified by the mutual encoding" is literally the proof); the set
+model gives the equality the paper can only transport along; the only
+new invariant is the stored fact option A wanted, in a shape that
+costs three construction sites; and everything the modeller and the
+modeled route are becomes deletable, which is the stated aim.
+
+**Sequence.**  (0) Now: send R1–R4 to lane #278.  (1) After #278
+lands: the kernel/verify/semantics half on `agent/nested-279` (Opus;
+mirrors, twins, fixtures — including the 31 probe shapes and the two
+arena tests as e2e fixtures with official's verdicts) gated with the
+modeller STILL in place behind the recogniser for the blocks the new
+route declines (a transitional decline, never an accept).  (2) In
+parallel: (T2) and (L) (Fable; (L) is landable on its own — it is
+true of every route today and is a strengthening of `EnvModel` with a
+one-session bill).  (3) (M2)/(M1)/(M3)/(M4) and the assembly
+`declNested` (Fable), the fold arm, gates: init-full (1 block),
+the Mathlib mutual/nested cone (51 blocks, 4 961 declarations,
+`_tmp/mathlib-scoping/mathlib-full.ndjson` through
+`scripts/slice-cone.py`), the arena suite.  (4) Deletions (Opus),
+OVERVIEW §5 rewritten to two cases (pinned basis blocks, the fixpoint
+route), PERF regenerated.  Nothing here changes the main theorem's
+statement.
+
+**What the maintainer decides:** the option; whether the declared
+`numNested` mismatch is a reject (mirroring #228) or ignored
+(mirroring official); whether `And` is un-pinned or given its lemma.
