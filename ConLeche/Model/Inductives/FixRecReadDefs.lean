@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Semantics.Tower.FixRecI
@@ -67,13 +68,6 @@ lifted above the ih binders. -/
           [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])).liftN
         recIdx.length 0))
 
-/-- A recursive constructor datum: name, field count, field data,
-index readings, recursive positions, per-field index-expression
-readings, per-field telescopes (empty at a finitary field; task
-#202). -/
-abbrev CtorDatumR :=
-  Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotTerm × List Nat × List (List AnnotTerm) ×
-    List (List (Nat × Nat × AnnotTerm))
 
 /-- The minor entries, one per constructor datum, from offset `o`. -/
 @[expose] def fixMinorsData {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :

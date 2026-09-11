@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructStageFormer
 public section
 
@@ -59,10 +60,6 @@ theorem denoteMetaSpine_indexed {acval : Name → (Name → Nat) → AnnotTerm} 
         obtain ⟨ty', hy'⟩ := h (j + 1) y (by simpa using hy)
         exact ⟨ty', by rw [hy']; congr 1; omega⟩
 
-/-- The parameter-variable spine of the constructor's opened body, in
-the reading's spelling. -/
-@[expose] def paramBvars (nP nF : Nat) : List AnnotTerm :=
-  (List.range nP).map fun k => AnnotTerm.bvar (nP + nF - 1 - k)
 
 omit [SetTheory V] in
 theorem consList_range_reverse :

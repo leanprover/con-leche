@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public section
 
@@ -67,17 +68,6 @@ theorem Expr.getAppArgs_instSeq_fvars :
 
 /-! ## The constructor data, per block -/
 
-/-- The recursive constructor data of a list of constructors, from
-constructor `j` on. -/
-@[expose] def fixCtorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (ksF : Nat → List RecFieldKind)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (ψ : Name → Nat) :
-    List (ConstantVal × Nat) → Nat → List CtorDatumR
-  | [], _ => []
-  | c :: cs, j =>
-    (c.1.name, c.2, dsF j ψ, esF j ψ, ConLeche.recIdxOf (ksF j), eissF j ψ, tssF j ψ) ::
-      fixCtorDataList dsF esF ksF eissF tssF ψ cs (j + 1)
 
 omit [SetTheory V] in
 theorem fixCtorDataList_length (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
@@ -109,19 +99,6 @@ theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × 
     funext c
     rw [show j + 1 + i = j + (i + 1) from by omega]
 
-/-- The per-constructor facts of a recursive block at a position. -/
-@[expose] def FixCtorFactsAt {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name) (lps : List Name)
-    (nP nIdx : Nat) (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
-    (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
-    (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (j : Nat) (cA : ConstantVal × Nat) : Prop :=
-  env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2) ∧
-  cA.1.levelParams = lps ∧
-  FixCtorDataI m env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j)
-    (srcsF j) (ksF j) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) (tssF j)
 
 omit [SetTheory V] in
 /-- The recursive positions (finitary or reflexive) are bounded by the

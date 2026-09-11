@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRuleData
 public import ConLeche.Model.Inductives.FixRuleOk
 import ConLeche.Model.Inductives.FixRecLeaf
@@ -33,23 +34,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The semantic data of a block -/
 
-/-- The constructors' field lists. -/
-@[expose] def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AnnotTerm) :=
-  cds.map fun cd => (cd.2.2.1.drop nP).map (·.2.2)
-
-/-- The constructors' index readings. -/
-@[expose] def essOfR (cds : List CtorDatumR) : List (List AnnotTerm) := cds.map fun cd => cd.2.2.2.1
-
-/-- The constructors' per-field index expressions. -/
-@[expose] def eissOfR (cds : List CtorDatumR) : List (List (List AnnotTerm)) := cds.map fun cd => cd.2.2.2.2.2.1
-
-/-- The per-constructor telescopes (task #202). -/
-@[expose] def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
-  cds.map fun cd => cd.2.2.2.2.2.2
-
-/-- The recursive flags of the first `n` constructors. -/
-@[expose] def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
-  (List.range n).map fun j => rsOf (ksF j)
 
 omit [SetTheory V] in
 theorem fssOfR_getElem? (nP : Nat) (cds : List CtorDatumR) (j : Nat) :
