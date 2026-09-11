@@ -638,4 +638,142 @@ theorem mutualChainFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
       rw [← hlenA]; exact shiftE_consList _ ρp
     exact (tagTupleAV_facts hTag hmem hfr hEok hfit).2
 
+/-! ## The tagged tuples' bit validity -/
+
+/-- **A tagged tuple is bit-valid**: its head is the member's tupler —
+the sum route's constructor leaf at the tag, valid because the
+members' index telescopes are (`sumInj_validV_at_fields`) — lifted to
+the frame, and its arguments are the index expressions. -/
+theorem tagTupleAV_validV {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+    (hV : ∀ Ids ∈ Idss, FieldsValid ρp Ids) {m : Nat} {Ids : List AnnotTerm}
+    (hm : Idss[m]? = some Ids) {d : Nat} {τ : Nat → V} (hfr : shiftE d 0 τ = ρp)
+    {Es : List AnnotTerm} (hEv : ∀ E ∈ Es, AnnotValid V τ E) :
+    AnnotValid V τ (tagTupleAV W m d Idss Es) := by
+  refine mkAppN_validV ?_ hEv
+  rw [AnnotValid_liftN, hfr]
+  have hg : Idss.getD m [] = Ids := by rw [List.getD_eq_getElem?_getD, hm]; rfl
+  have hVall : SumFieldsValid ρp Idss := fun Ids' hIds' => hV Ids' hIds'
+  unfold tagTuplerAV
+  rw [hg]
+  refine mkLamsC_validV (underTowerValid_of_fields (hV Ids (List.mem_of_getElem? hm))
+    fun bs hsp => ?_)
+  exact sumInj_validV_at_fields (uChains_validV hVall) (hV Ids (List.mem_of_getElem? hm)) hsp
+
+set_option maxHeartbeats 1600000 in
+/-- **The walk's validity inputs at one mutual constructor**
+(`fixChainValidFacts_of` at the auxiliary family). -/
+theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {members : List (Name × Nat × Nat)} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nF nIdx mem : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {sorts : List Level} {ks : List (RecFieldKind × Nat)}
+    (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
+      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
+    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)}
+    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : MutualCtorDataI mp.base2 env₀ members T lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    {W : Nat} {Idss : List (List AnnotTerm)} (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp)
+    (hV : ∀ Ids ∈ Idss, FieldsValid ρp Ids)
+    (hmem : Idss[mem]? = some (((ppsAll ψ).drop nP).map (·.2.2)))
+    (hTgtM : ∀ i, i < nF → (kindAt ks i = .recursive ∨ kindAt ks i = .reflexive) →
+      ∃ IdsT, Idss[tgtAt ks i]? = some IdsT) :
+    ChainValidFacts nP nF ρp (kindsOf ks) (tss ψ)
+      (shadowFs nP (kindsOf ks) nF (((ds ψ).drop nP).map (·.2.2)))
+      ((List.range nF).map fun i =>
+        [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
+      [tagTupleAV W mem nF Idss (Es ψ)] := by
+  have hlenDs := hD.len ψ
+  have hiff := (mutualCtorFrames hμ mp hCtor hfT hProp hFD hD.toCtorDataI hleafT).1 ψ ρp
+  have hρp' : Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρp := hiff.mp hρp
+  obtain ⟨hkey, hkeyR⟩ := mutualShadowGrading hμ mp hCtor hProp hD ψ
+  have hEissGet : ∀ i, i < nF →
+      ((List.range nF).map fun i =>
+        [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss
+          ((Eiss ψ).getD i [])]).getD i []
+        = [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss
+            ((Eiss ψ).getD i [])] := by
+    intro i hi
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
+    rfl
+  have hne_refl : ∀ i, kindAt ks i = .recursive → kindAt ks i ≠ .reflexive := by
+    intro i hk h
+    rw [hk] at h
+    cases h
+  refine ⟨?_, ?_⟩
+  · intro i hi as' hsp'
+    rw [shadowFs_shadowFs] at hsp'
+    have hlenA : as'.length = i := by
+      rw [hsp'.length_eq, List.length_take, shadowFs_length]; omega
+    have hsat : Sat V ((shadowCtx nP (kindsOf ks) (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop
+        (nP + nF - (nP + i))) (consList as' ρp) := by
+      rw [shadowCtx_drop_fields hlenDs (Nat.le_of_lt hi)]
+      exact sat_of_spineFit hρp' hsp'
+    obtain ⟨hokP, -⟩ := hkey (nP + i) (by omega) _ hsat
+    rw [reverse_getD_field hlenDs hi] at hokP
+    rw [shadowFs_getD hi]
+    refine ⟨?_, fun hr => ?_⟩
+    · split
+      · trivial
+      · exact hokP.2
+    obtain ⟨IdsT, hIdsT⟩ := hTgtM i hi ((recAt_kindsOf hD.ksLen hi).mp hr)
+    -- the untagged validity, then the tag
+    have huntag : FieldsValid (consList as' ρp) (((tss ψ).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList as' ρp) (((tss ψ).getD i []).map (·.2.2)) bs →
+          ∀ E ∈ (Eiss ψ).getD i [], AnnotValid V (consList (as' ++ bs) ρp) E := by
+      rcases (recAt_kindsOf hD.ksLen hi).mp hr with hk | hk
+      · rw [hD.tssNone ψ i (hne_refl i hk)]
+        have hentry := hD.recEntry ψ i hk hi
+        rw [drop_map_getD hlenDs hi, hentry] at hokP
+        obtain ⟨-, hargs⟩ := AnnotValid.mkAppN_inv hokP.2
+        refine ⟨trivial, fun bs hbs E hE => ?_⟩
+        cases bs with
+        | nil => simpa using hargs E (List.mem_append_right _ hE)
+        | cons b bs => exact hbs.elim
+      · have hentry := hD.reflEntry ψ i hk hi
+        rw [drop_map_getD hlenDs hi, hentry] at hokP
+        obtain ⟨hTV, hB⟩ := AnnotValid_mkPisAV_inv hokP.2
+        refine ⟨hTV, fun bs hbs E hE => ?_⟩
+        have hb := hB bs hbs
+        rw [← consList_append] at hb
+        obtain ⟨-, hargs⟩ := AnnotValid.mkAppN_inv hb
+        exact hargs E (List.mem_append_right _ hE)
+    refine ⟨huntag.1, fun bs hbs E hE => ?_⟩
+    rw [hEissGet i hi, List.mem_singleton] at hE
+    subst hE
+    have hlenB : bs.length = ((tss ψ).getD i []).length := by
+      rw [hbs.length_eq, List.length_map]
+    have hfr : shiftE (i + ((tss ψ).getD i []).length) 0 (consList (as' ++ bs) ρp) = ρp := by
+      have hl : (as' ++ bs).length = i + ((tss ψ).getD i []).length := by
+        rw [List.length_append, hlenA, hlenB]
+      rw [← hl]
+      exact shiftE_consList _ ρp
+    exact tagTupleAV_validV hV hIdsT hfr (huntag.2 bs hbs)
+  · intro as' hsp' E hE
+    rw [shadowFs_shadowFs] at hsp'
+    rw [List.mem_singleton] at hE
+    subst hE
+    have hlenA : as'.length = nF := by rw [hsp'.length_eq, shadowFs_length]
+    have hsat : Sat V (shadowCtx nP (kindsOf ks) (nP + nF) (((ds ψ).map (·.2.2)).reverse))
+        (consList as' ρp) := by
+      have hh := shadowCtx_drop_fields (ks := kindsOf ks) hlenDs (Nat.le_refl nF)
+      rw [Nat.sub_self, List.drop_zero,
+        List.take_of_length_le (by rw [shadowFs_length]; exact Nat.le_refl _)] at hh
+      rw [hh]
+      exact sat_of_spineFit hρp' hsp'
+    have hokR := hkeyR _ hsat
+    unfold ctorBodyAVI at hokR
+    obtain ⟨-, hargs⟩ := AnnotValid.mkAppN_inv hokR.2
+    have hfr : shiftE nF 0 (consList as' ρp) = ρp := by
+      rw [← hlenA]; exact shiftE_consList _ ρp
+    exact tagTupleAV_validV hV hmem hfr fun E' hE' => hargs E' (List.mem_append_right _ hE')
+
 end ConLeche.Model
