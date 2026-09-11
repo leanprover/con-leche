@@ -42,7 +42,7 @@ namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
@@ -775,5 +775,266 @@ theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModel
     have hfr : shiftE nF 0 (consList as' ρp) = ρp := by
       rw [← hlenA]; exact shiftE_consList _ ρp
     exact tagTupleAV_validV hV hmem hfr fun E' hE' => hargs E' (List.mem_append_right _ hE')
+
+/-! ## The member leaf at a spine, and the real chains -/
+
+/-- **Member `m''`'s leaf at the parameter variables and index
+expressions** reads, under `as` field values at the parameter frame,
+to the AUXILIARY family at the 1-tuple of the member's tagged index
+tuple (`fixLeafApp` at a member of a mutual block, through
+`mutualTyAVI_fold`). -/
+theorem mutualLeafApp {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)}
+    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss Ess' : List (List AnnotTerm)} {ρp : Nat → V}
+    (hlenT : ppsT.length = nP + ((ppsT.drop nP).map (·.2.2)).length)
+    (hIdsT : Idss[m'']? = some ((ppsT.drop nP).map (·.2.2)))
+    (hTag : TagOk W ρp Idss)
+    (hok : FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss Ess')
+    (hρp : Sat V ((ppsT.take nP).map (·.2.2)).reverse ρp)
+    {A : AnnotTerm}
+    (hA : ∀ σ : Nat → V, interp V σ A
+      = interp V (fun j => ρp (j + nP))
+          (mutualTyAVI W w ppsT ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess'
+            m''))
+    {as : List V} {Eis : List AnnotTerm}
+    (hsp : SpineFit ρp ((ppsT.drop nP).map (·.2.2)) (Eis.map (interp V (consList as ρp)))) :
+    interp V (consList as ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
+      = SetTheory.app (auxFamI W w ρp Idss rss tlss Eiss' Fss Ess')
+          (auxTup W (inj m'' (mkTower (Eis.map (interp V (consList as ρp)) ++ [pt])))) := by
+  have hlenI : (Eis.map (interp V (consList as ρp))).length
+      = ((ppsT.drop nP).map (·.2.2)).length := hsp.length_eq
+  have hps : (paramBvarsAt nP (nP + as.length)).map (interp V (consList as ρp))
+      = (List.range nP).reverse.map ρp :=
+    map_paramBvarsAt_interp fun j => consList_apply_add as ρp j
+  rw [interp_mkAppN, ← List.foldl_map (f := interp V (consList as ρp)) (g := SetTheory.app),
+    List.map_append, hps, hA]
+  have hlenP : ((ppsT.take nP).map (·.2.2)).length = nP := by
+    rw [List.length_map, List.length_take]; omega
+  have hspP := spineFit_of_sat (Δ₀ := []) (Ds := (ppsT.take nP).map (·.2.2))
+    (by rw [List.append_nil]; exact hρp)
+  rw [hlenP] at hspP
+  have hρ0 : consList ((List.range nP).reverse.map ρp) (fun j => ρp (j + nP)) = ρp :=
+    consList_range_reverse nP ρp
+  have hspAll : SpineFit (fun j => ρp (j + nP)) (ppsT.map (·.2.2))
+      ((List.range nP).reverse.map ρp ++ Eis.map (interp V (consList as ρp))) := by
+    rw [← List.take_append_drop nP ppsT, List.map_append]
+    refine hspP.append ?_
+    rw [hρ0]
+    exact hsp
+  have hframe : consList ((List.range nP).reverse.map ρp ++ Eis.map (interp V (consList as ρp)))
+      (fun j => ρp (j + nP)) = consList (Eis.map (interp V (consList as ρp))) ρp := by
+    rw [consList_append, hρ0]
+  have hsh : shiftE ((ppsT.drop nP).map (·.2.2)).length 0
+      (consList (Eis.map (interp V (consList as ρp))) ρp) = ρp := by
+    rw [← hlenI]; exact shiftE_consList _ ρp
+  have hfr : ConLeche.Semantics.frameIdx ((ppsT.drop nP).map (·.2.2)).length
+      (consList (Eis.map (interp V (consList as ρp))) ρp)
+      = Eis.map (interp V (consList as ρp)) := by
+    rw [← hlenI]; exact frameIdx_consList' _ ρp
+  have hbase : MutualBaseI W w (consList ((List.range nP).reverse.map ρp ++
+      Eis.map (interp V (consList as ρp))) (fun j => ρp (j + nP)))
+      ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess' m'' := by
+    rw [hframe]
+    refine ⟨by rw [hsh]; exact hTag, by rw [hsh]; exact hok,
+      (ppsT.drop nP).map (·.2.2), hIdsT, rfl, ?_⟩
+    rw [hsh, hfr]
+    exact hsp
+  rw [mutualTyAVI_fold hspAll hbase, hframe, hsh, hfr]
+
+/-- **The REAL chain's entries mention no recursive slot below them**
+either: a field's opened domain is a leaf of no earlier recursive
+variable, whatever its head constant is. -/
+theorem mutualRealChainNb (mp : EnvModelM V μ env)
+    {members : List (Name × Nat × Nat)} {T : Name} {lps : List Name} {nP nF nIdx : Nat}
+    {resSort : Level} {isProp large : Bool} {cvCa : ConstantVal} {env₀ : Env}
+    {ks : List (RecFieldKind × Nat)} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcf : cvCa.type.hasFvar = false) (hcb : cvCa.type.looseBVarsBounded 0 = true)
+    (hD : MutualCtorDataI mp.base2 env₀ members T lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (ψ : Name → Nat) :
+    ∀ i, i < nF → NoBVar (exclP (fun q => recAt nP (kindsOf ks) q ∧ q < nP + i) (nP + i))
+      ((((ds ψ).drop nP).map (·.2.2)).getD i default) := by
+  obtain ⟨crest, hopP, hopX⟩ := hD.opens
+  have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
+    openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
+  have hO : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
+      (((ds ψ).map (·.2.2)).reverse) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ)) :=
+    opened_of_peel hopAll hcf hcb (hD.read ψ) (hD.len ψ) (hD.okTy ψ)
+  have hlenDs := hD.len ψ
+  have hrecGet : ∀ i, recAt nP (kindsOf ks) (nP + i) → i < nF → ∃ x, xFvs[i]? = some x ∧
+      (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) := by
+    intro i hr hi
+    have hx : xFvs[i]? = some (xFvs[i]'(by rw [hD.xLen]; exact hi)) :=
+      List.getElem?_eq_getElem _
+    rcases (recAt_kindsOf hD.ksLen hi).mp hr with hk | hk
+    · obtain ⟨-, -, -, -, hlater, -⟩ := hD.opened.recF i _ hx hk
+      exact ⟨_, hx, hlater⟩
+    · obtain ⟨-, -, -, -, -, -, -, -, -, hlater, -⟩ := hD.opened.reflF i _ hx hk
+      exact ⟨_, hx, hlater⟩
+  intro i hi
+  have hx : xFvs[i]? = some (xFvs[i]'(by rw [hD.xLen]; exact hi)) := List.getElem?_eq_getElem _
+  have hxA : (fvsP ++ xFvs)[nP + i]? = some (xFvs[i]'(by rw [hD.xLen]; exact hi)) := by
+    rw [List.getElem?_append_right (by rw [hD.pLen]; omega), hD.pLen, Nat.add_sub_cancel_left]
+    exact hx
+  obtain ⟨-, hws, -, -, -⟩ := hO.var (nP + i) _ hxA
+  rw [drop_map_getD hlenDs hi]
+  refine noBVar_of_leaf_free mp.base2 (nP + i) _ hws (fun _ h => h.2) ?_
+    (hD.domRead ψ i _ hx)
+  intro l hl ⟨hr, hlt⟩
+  have hge := hr.1
+  obtain ⟨x', hx', hlater⟩ := hrecGet (l.1 - nP)
+    (by rw [show nP + (l.1 - nP) = l.1 from by omega]; exact hr) (by omega)
+  have hmem' : (xFvs[i]'(by rw [hD.xLen]; exact hi)) ∈ xFvs.drop (l.1 - nP + 1) := by
+    refine List.mem_of_getElem? (i := i - (l.1 - nP + 1)) ?_
+    rw [List.getElem?_drop, show l.1 - nP + 1 + (i - (l.1 - nP + 1)) = i from by omega]
+    exact hx
+  exact mentionsFvar_false (hlater _ hmem') l hl (by omega)
+
+set_option maxHeartbeats 3200000 in
+/-- **The real chain against the X-source chain** at one mutual
+constructor: at a recursive slot the REAL entry is the target
+member's leaf applied, which folds to the AUXILIARY family at the
+1-tuple of the tagged index tuple (`mutualLeafApp`) — the slot's
+value at the family.  At an ordinary slot the two chains are the same
+term by construction (the X-source chain is the real one shadowed). -/
+theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {members : List (Name × Nat × Nat)} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {sorts : List Level} {ks : List (RecFieldKind × Nat)}
+    (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
+      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
+    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)}
+    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : MutualCtorDataI mp.base2 env₀ members T lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    {W mem : Nat} {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)} (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp)
+    (hTag : TagOk W ρp Idss)
+    (hC : ChainFacts W (resSort.eval ψ) nP nF ρp (auxIds W Idss) (kindsOf ks) (tss ψ)
+      (shadowFs nP (kindsOf ks) nF (((ds ψ).drop nP).map (·.2.2)))
+      ((List.range nF).map fun i =>
+        [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
+      [tagTupleAV W mem nF Idss (Es ψ)])
+    (hAM : ∀ i, i < nF → (kindAt ks i = .recursive ∨ kindAt ks i = .reflexive) →
+      ∃ ppsT : List (Nat × Nat × AnnotTerm),
+        ((ppsT.drop nP).map (·.2.2)).length = mutualNIdxOf members (tgtAt ks i) ∧
+        ppsT.length = nP + ((ppsT.drop nP).map (·.2.2)).length ∧
+        Idss[tgtAt ks i]? = some ((ppsT.drop nP).map (·.2.2)) ∧
+        Sat V ((ppsT.take nP).map (·.2.2)).reverse ρp ∧
+        mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ
+          = mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
+              rss tlss Eiss' Fss₀ Ess' (tgtAt ks i))
+    (hokFix : FixChainsOkI W (resSort.eval ψ) ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess') :
+    ChainRealI (auxFamI W (resSort.eval ψ) ρp Idss rss tlss Eiss' Fss₀ Ess') W (resSort.eval ψ)
+      ρp (auxIds W Idss) (rsOf (kindsOf ks)) (tss ψ)
+      ((List.range nF).map fun i =>
+        [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
+      0 [] (shadowFs nP (kindsOf ks) nF (((ds ψ).drop nP).map (·.2.2)))
+      (((ds ψ).drop nP).map (·.2.2)) := by
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctor_typeWF hCtor
+  have hlenDs := hD.len ψ
+  have hlenFs : ((((ds ψ).drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hiff := (mutualCtorFrames hμ mp hCtor hfT hProp hFD hD.toCtorDataI hleafT).1 ψ ρp
+  have hρp' : Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρp := hiff.mp hρp
+  obtain ⟨hkey, -⟩ := mutualShadowGrading hμ mp hCtor hProp hD ψ
+  have hnbReal := mutualRealChainNb mp hcf hcb hD ψ
+  have hEissGet : ∀ i, i < nF →
+      ((List.range nF).map fun i =>
+        [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss
+          ((Eiss ψ).getD i [])]).getD i []
+        = [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss
+            ((Eiss ψ).getD i [])] := by
+    intro i hi
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
+    rfl
+  have hne_refl : ∀ i, kindAt ks i = .recursive → kindAt ks i ≠ .reflexive := by
+    intro i hk h
+    rw [hk] at h
+    cases h
+  refine chainRealI_of (auxIds_idxOk hTag) hC hlenFs hnbReal ?_ ?_
+  · -- an ordinary entry: the two chains agree there by construction
+    intro i hi hnr
+    rw [shadowFs_getD hi, if_neg hnr]
+  · -- a recursive entry: the slot's value at the auxiliary family
+    intro i hi hr as as' hlenA hrel hsp'
+    rw [shadowFs_shadowFs] at hsp'
+    rw [hEissGet i hi]
+    obtain ⟨ppsT, hnIdxT, hlenT, hIdsT, hρpT, hAT⟩ := hAM i hi ((recAt_kindsOf hD.ksLen hi).mp hr)
+    have hA : ∀ σ : Nat → V, interp V σ (mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ)
+        = interp V (fun j => ρp (j + nP))
+            (mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
+              rss tlss Eiss' Fss₀ Ess' (tgtAt ks i)) := by
+      intro σ
+      rw [← hAT]
+      exact interp_closed (V := V) (mp.base2.cval_closedL _ ψ) σ _
+    have hLtower : ∃ B, mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ
+        = mkLamsC (resSort.eval ψ + 1) ppsT B := ⟨_, by rw [hAT]; rfl⟩
+    -- the entry's grading at the shadow frame, carried to the real one
+    have hsat : Sat V ((shadowCtx nP (kindsOf ks) (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop
+        (nP + nF - (nP + i))) (consList as' ρp) := by
+      rw [shadowCtx_drop_fields hlenDs (Nat.le_of_lt hi)]
+      exact sat_of_spineFit hρp' hsp'
+    obtain ⟨hokP, -⟩ := hkey (nP + i) (by omega) _ hsat
+    rw [reverse_getD_field hlenDs hi] at hokP
+    have hag := agreeOff_shadow hrel ρp
+    rw [hlenA] at hag
+    have hokReal : WellDenoted V (consList as ρp) ((((ds ψ).drop nP).map (·.2.2)).getD i default) :=
+      (WellDenoted_congr_noBVar _ (hnbReal i hi) hag).mpr hokP.1
+    have hfrA : shiftE i 0 (consList as ρp) = ρp := by
+      rw [← hlenA]; exact shiftE_consList _ ρp
+    rcases (recAt_kindsOf hD.ksLen hi).mp hr with hk | hk
+    · -- a finitary field: the family at the tagged tuple of the readings
+      have hnone := hD.tssNone ψ i (hne_refl i hk)
+      rw [hnone, slotSet_nil]
+      simp only [List.length_nil, Nat.add_zero]
+      rw [drop_map_getD hlenDs hi, hD.recEntry ψ i hk hi] at hokReal ⊢
+      have hEl : ((Eiss ψ).getD i []).length = ((ppsT.drop nP).map (·.2.2)).length := by
+        rw [hD.eisLen ψ i hk hi, hnIdxT]
+      obtain ⟨hEok, hfit⟩ := leafSpineFit hlenT (mp.base2.cval_closedL _ ψ) hLtower hlenA hEl
+        hokReal
+      have hfold := mutualLeafApp hlenT hIdsT hTag hokFix hρpT hA (as := as)
+        (Eis := (Eiss ψ).getD i []) hfit
+      rw [hlenA] at hfold
+      rw [hfold, List.map_singleton, (tagTupleAV_facts hTag hIdsT hfrA hEok hfit).1]
+      rfl
+    · -- a reflexive field: the nested product of the family over the telescope
+      rw [drop_map_getD hlenDs hi, hD.reflEntry ψ i hk hi] at hokReal ⊢
+      have hEl : ((Eiss ψ).getD i []).length = ((ppsT.drop nP).map (·.2.2)).length := by
+        rw [hD.eisLenRefl ψ i hk hi, hnIdxT]
+      unfold slotSet
+      refine ConLeche.Semantics.interp_mkPisAV_piTele (v := resSort.eval ψ) (acc := [])
+        (fun d hd => hD.tssBits ψ i d hd) ?_
+      intro bs hsp
+      rw [List.nil_append, ← consList_append]
+      obtain ⟨hF, hBody⟩ := WellDenoted_mkPisAV_inv hokReal
+      have hokB := hBody bs hsp
+      rw [← consList_append] at hokB
+      have hlenAB : (as ++ bs).length = i + ((tss ψ).getD i []).length := by
+        rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
+      rw [Nat.add_assoc] at hokB
+      obtain ⟨hEok, hfit⟩ := leafSpineFit hlenT (mp.base2.cval_closedL _ ψ) hLtower hlenAB hEl
+        hokB
+      have hfold := mutualLeafApp hlenT hIdsT hTag hokFix hρpT hA (as := as ++ bs)
+        (Eis := (Eiss ψ).getD i []) hfit
+      rw [hlenAB, ← Nat.add_assoc] at hfold
+      have hfrB : shiftE (i + ((tss ψ).getD i []).length) 0 (consList (as ++ bs) ρp) = ρp := by
+        rw [← hlenAB]; exact shiftE_consList _ ρp
+      rw [hfold, List.map_singleton, (tagTupleAV_facts hTag hIdsT hfrB hEok hfit).1]
+      rfl
 
 end ConLeche.Model
