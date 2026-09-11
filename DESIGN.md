@@ -69062,6 +69062,50 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   (`0cb2536b`) — it clashed with `MutualRecPre2`'s, and `declMutual`
   imports both cones.
 
+#### 8.4 M2.2c landed: the rules and the rule law (2026-09-11)
+
+* **The spellings** (`Model/Inductives/FixRecReadDefs.lean`):
+  `recPrefixBvarsMK nP k n nF m` (the `k`-motive spine: parameters at
+  `nP + nF + n + k + m`, motive `t` at `nF + n + k - 1 - t + m`, minor
+  `l` at `nF + n - 1 - l + m`), `ihAppAVK R nP k n nF i tl Eis` (the ih
+  application with the TARGET member's recursor leaf `R`, extras
+  `n + k`) and `mutualRuleCoreAV b Rof tgts nP k n nF j recIdx tls
+  Eiss`.  The fixpoint route's `recPrefixBvarsM`/`ihAppAV`/
+  `fixRuleCoreAV` are their `k = 1` instances **by `rfl`**
+  (`recPrefixBvarsM_eq_MK`, `ihAppAV_eq_K`, `fixRuleCoreAV_eq_mutual`).
+* **The readings**: `denoteMeta_ihApp` and `denoteMeta_ruleCoreR` were
+  generalised IN PLACE (`Model/Inductives/FixRecRead.lean`) to
+  `denoteMeta_mutualIhApp` and `denoteMeta_mutualRuleBody` — the kernel
+  generators `mutualIhApp`/`mutualRuleBody` at `k` motives — the
+  originals their `K = 1` instances, no existing statement changed.
+  `Model/Inductives/MutualRuleRead.lean` adds `mutualRuleDataAV` (rule
+  `J`'s binder data: parameters, `k` motives, `n` minors, constructor
+  `J`'s field data lifted `k + n` under), the λ-twins
+  `denoteMeta_mutualMotivesLams`/`denoteMeta_mutualMinorsLams` and
+  `denoteMeta_mutualRecRhs`.
+* **The law** (`Model/Inductives/MutualRecLaw.lean`):
+  `map_recPrefixBvarsMK_interp`, `ihAppAVK_args_interp`,
+  `interp_ihAppAVK` and `interp_mutualRuleCoreAV` (the `k`-motive twins
+  of the fixpoint route's; `lamTower_ihTeleAtGo` and
+  `interp_ihIdxAtMK` do the telescope work unchanged);
+  `interp_mutualRecAVI_fold` — **the bridge**: member `mm`'s leaf at a
+  fitting spine IS the auxiliary recursor at `(p⃗, disp, S⃗, ⟨inj mm ı⃗⟩,
+  t)`; `interp_motDispAV_eq`/`_congr` and `motVals_blockFrame` — the
+  dispatch's value depends on the frame only through the parameter
+  frame and the motive slots, so the dispatch inside a rule's
+  inductive hypothesis is the recursor's own even though the two
+  frames sit at different depths (the members' index counts differ);
+  `mutualRecIotaCore` (the `ℓ ≠ 0` iota, from `nativeRecAVI_iota` at
+  the auxiliary data) and `mutualRecLawCore` (the term-level law, both
+  regimes; `ℓ = 0` is the point on both sides).  Every spine-fit
+  premise is the member leaf's TYPING (M2.3's `MutualRecTyping.lean`)
+  and is taken as a hypothesis.
+* **NOT landed**: `mutualRuleOk` (the rule's `WellDenotedV`, the twin
+  of `fixRuleOk`).  It needs the `k`-motive twin of `ihAppAV_facts` —
+  the ih application's membership in its ih domain, whose motive is the
+  TARGET member's — which is its own piece, not a generalisation of the
+  fixpoint route's proof.
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
