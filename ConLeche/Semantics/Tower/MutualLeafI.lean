@@ -172,22 +172,22 @@ values, and it is graded, when the values fit member `m`'s index
 telescope. -/
 theorem tagTupleAV_facts {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
     (h : TagOk W ρp Idss) {m : Nat} {Ids : List AnnotTerm} (hm : Idss[m]? = some Ids)
-    (as : List V) {Es : List AnnotTerm}
-    (hEok : ∀ E ∈ Es, WellDenoted V (consList as ρp) E)
-    (hsp : SpineFit ρp Ids (Es.map (interp V (consList as ρp)))) :
-    interp V (consList as ρp) (tagTupleAV W m as.length Idss Es)
-        = inj m (mkTower (Es.map (interp V (consList as ρp)) ++ [pt])) ∧
-      WellDenoted V (consList as ρp) (tagTupleAV W m as.length Idss Es) := by
+    {d : Nat} {τ : Nat → V} (hfr : shiftE d 0 τ = ρp) {Es : List AnnotTerm}
+    (hEok : ∀ E ∈ Es, WellDenoted V τ E)
+    (hsp : SpineFit ρp Ids (Es.map (interp V τ))) :
+    interp V τ (tagTupleAV W m d Idss Es)
+        = inj m (mkTower (Es.map (interp V τ) ++ [pt])) ∧
+      WellDenoted V τ (tagTupleAV W m d Idss Es) := by
   have hg : Idss.getD m [] = Ids := by
     rw [List.getD_eq_getElem?_getD, hm]; rfl
-  have hfv : interp V (consList as ρp) ((tagTuplerAV W m Idss).liftN as.length 0)
+  have hfv : interp V τ ((tagTuplerAV W m Idss).liftN d 0)
       = interp V ρp (tagTuplerAV W m Idss) := by
-    rw [interp_liftN, shiftE_consList]
-  have hfok : WellDenoted V (consList as ρp) ((tagTuplerAV W m Idss).liftN as.length 0) := by
-    rw [WellDenoted_liftN, shiftE_consList]; exact (tagTuplerAV_facts h hm).2
+    rw [interp_liftN, hfr]
+  have hfok : WellDenoted V τ ((tagTuplerAV W m Idss).liftN d 0) := by
+    rw [WellDenoted_liftN, hfr]; exact (tagTuplerAV_facts h hm).2
   have hIds : Ids = (tuplerData W Ids).map (·.2.2) := (tuplerData_doms W Ids).symm
-  have hchain : AppChainOk (interp V (consList as ρp) ((tagTuplerAV W m Idss).liftN as.length 0))
-      (Es.map (interp V (consList as ρp))) := by
+  have hchain : AppChainOk (interp V τ ((tagTuplerAV W m Idss).liftN d 0))
+      (Es.map (interp V τ)) := by
     rw [hfv]
     have hmem := (tagTuplerAV_facts h hm).1
     unfold tagTuplerAV at hmem ⊢
@@ -320,9 +320,9 @@ theorem mutualLeafBody_facts {W w : Nat} {ρ : Nat → V} {nIdx : Nat} {Idss : L
     intro E hE
     obtain ⟨k, -, rfl⟩ := List.mem_map.mp hE
     trivial
-  have htag := tagTupleAV_facts hT hm (frameIdx nIdx ρ) (Es := teleVarsAV nIdx)
-    (by rw [← hρ]; exact hvok) (by rw [← hρ, hvars]; exact hsp)
-  rw [hlenF, ← hρ, hvars] at htag
+  have htag := tagTupleAV_facts hT hm (d := nIdx) (τ := ρ) rfl (Es := teleVarsAV nIdx)
+    hvok (by rw [hvars]; exact hsp)
+  rw [hvars] at htag
   -- the 1-tuple: the auxiliary tupler applied to the tagged tuple
   have hbody := fixBodyAVI_facts hI hok
   have hfv : interp V ρ ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
