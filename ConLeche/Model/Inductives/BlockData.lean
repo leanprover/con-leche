@@ -134,16 +134,22 @@ structure CtorDataI {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name
 /-- The recursive positions as the functor's Bool list. -/
 @[expose] def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
 
-/-- `nativeOpenedOk`, read positionally. -/
+/-- `nativeOpenedOk`, read positionally.
+
+A recursive or reflexive field's domain is the leaf of the member it
+TARGETS (`tgtOf`, whose index count is `nIdxOf`); at a single-family
+block every field targets the block's own former, which is the
+parameters' default (task #278 M2.6: the member view). -/
 structure FixOpened (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx nF : Nat)
-    (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr) : Prop where
+    (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr)
+    (tgtOf : Nat → Name := fun _ => T) (nIdxOf : Nat → Nat := fun _ => nIdx) : Prop where
   residRes : ∀ e ∈ xrest.getAppArgs.drop nP, e.constsResolve env₀ = true
   ord : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .ordinary →
     x.fvarTypeD.constsResolve env₀ = true
   recF : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
-    x.fvarTypeD.getAppFn = Expr.const T (lps.map .param) ∧
+    x.fvarTypeD.getAppFn = Expr.const (tgtOf i) (lps.map .param) ∧
     x.fvarTypeD.getAppArgs.take nP = fvsP ∧
-    x.fvarTypeD.getAppArgs.length = nP + nIdx ∧
+    x.fvarTypeD.getAppArgs.length = nP + nIdxOf i ∧
     (∀ e ∈ x.fvarTypeD.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
     (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
     xrest.mentionsFvar (nP + i) = false
@@ -157,9 +163,9 @@ structure FixOpened (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx nF : Na
       openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) = some (afvs, body) ∧
       afvs.length ≠ 0 ∧
       (∀ a ∈ afvs, a.fvarTypeD.constsResolve env₀ = true) ∧
-      body.getAppFn = Expr.const T (lps.map .param) ∧
+      body.getAppFn = Expr.const (tgtOf i) (lps.map .param) ∧
       body.getAppArgs.take nP = fvsP ∧
-      body.getAppArgs.length = nP + nIdx ∧
+      body.getAppArgs.length = nP + nIdxOf i ∧
       (∀ e ∈ body.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
       (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
       xrest.mentionsFvar (nP + i) = false
@@ -174,9 +180,10 @@ structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name
     (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (Es : (Name → Nat) → List AnnotTerm)
     (srcs : List (Option Nat)) (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr)
     (Eiss : (Name → Nat) → List (List AnnotTerm))
-    (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) : Prop
+    (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (tgtOf : Nat → Name := fun _ => T) (nIdxOf : Nat → Nat := fun _ => nIdx) : Prop
     extends CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs where
-  opened : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest
+  opened : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest tgtOf nIdxOf
   opens : ∃ crest, openPisAtFvars nP cvC.type 0 = some (fvsP, crest) ∧
     openPisAtFvars nF crest nP = some (xFvs, xrest)
   ksLen : ks.length = nF
@@ -190,10 +197,13 @@ structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name
   eissLen : ∀ ψ, (Eiss ψ).length = nF
   eisRead : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
     DenoteMetaSpine m.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLen : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF → ((Eiss ψ).getD i []).length = nIdx
+  eisLen : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
+    ((Eiss ψ).getD i []).length = nIdxOf i
+  /-- a recursive field's entry: the TARGET member's leaf at the
+  parameter variables and the field's index readings -/
   recEntry : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
-      = AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
+      = AnnotTerm.mkAppN (m.acval (tgtOf i) ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
   eissParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → Eiss ψ₁ = Eiss ψ₂
   /-- an index expression is read under the field's telescope (empty at
   a finitary field) -/
@@ -224,14 +234,15 @@ structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name
           = some (((tss ψ).getD i []).getD k default).2.2) ∧
       DenoteMetaSpine m.acval env ψ (nP + i + ((tss ψ).getD i []).length)
         (body.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLenRefl : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF → ((Eiss ψ).getD i []).length = nIdx
+  eisLenRefl : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
+    ((Eiss ψ).getD i []).length = nIdxOf i
   /-- a reflexive field's entry: the Π-tower over its telescope of the
-  former's leaf at the parameter variables (under the telescope) and
-  the readings -/
+  TARGET member's leaf at the parameter variables (under the
+  telescope) and the readings -/
   reflEntry : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
       = mkPisAV ((tss ψ).getD i [])
-          (AnnotTerm.mkAppN (m.acval T ψ)
+          (AnnotTerm.mkAppN (m.acval (tgtOf i) ψ)
             (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
 
 /-- A recursive constructor datum: name, field count, field data,
@@ -262,11 +273,12 @@ constructor `j` on. -/
     (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
     (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (j : Nat) (cA : ConstantVal × Nat) : Prop :=
+    (j : Nat) (cA : ConstantVal × Nat)
+    (tgtOf : Nat → Name := fun _ => T) (nIdxOf : Nat → Nat := fun _ => nIdx) : Prop :=
   env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2) ∧
   cA.1.levelParams = lps ∧
   FixCtorDataI m env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j)
-    (srcsF j) (ksF j) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) (tssF j)
+    (srcsF j) (ksF j) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) (tssF j) tgtOf nIdxOf
 
 /-- The constructors' field lists. -/
 @[expose] def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AnnotTerm) :=
