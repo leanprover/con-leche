@@ -68682,3 +68682,19 @@ challenge 65 jobs with exactly its three `sorry` warnings (48 before:
 joined the trusted closure), solution 440 jobs, the three theorems
 exported from both, "Lean default kernel accepts the solution", "Your
 solution is okay!".
+
+**Gates** (the tree at the READY commit; every run in this worktree
+under `env -i`): `lake build` 544 jobs warning-free; `lake test` green
+(the eighteen pins at the three axioms); `tests/arena.sh` green after
+one round trip — the shake gate asked for four import edits on the new
+files (two removals of transitively supplied imports, two `public`
+demotions that then became removals), applied, and the link gate then
+caught the resulting line shift, re-anchored — layering 280/190/3/1
+with 0/0, proofdeps 3 819 rows / 11 roots / 0 doors, trust surface 14
+escapes in 5 allowlisted files, overview-links 77 links / 49 files,
+challenge OK (three statements identical), shake 457 proposals all
+allowlisted, pindump fresh, axioms 18 theorems, tutorial 90/92, e2e
+195/195, annot 15/15, trusted sweep with its 3 recorded divergences,
+`--jobs=1`/`--jobs=4` sweeps as at the default.  Comparator re-run on
+the final tree: "Your solution is okay!".  No checker code changed, so
+the binary is master's.
