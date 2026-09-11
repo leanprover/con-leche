@@ -60,10 +60,11 @@ it, and no block nests through it.
 
 **Transitional exemption.**  A block installed by the modeled route
 (`Kernel/Inductives/Modeled.lean`: today's mutual and nested blocks)
-has no representation here; what the route establishes is that the
-block's leaves are its stored `_model`'s (`ModeledLeaf`), and the
-clause is the disjunction.  The right disjunct is deleted with the
-route (tasks #278, #279).
+has no representation here; what the route establishes is that every
+member's leaf — the recursor's in particular — is its stored
+`_model`'s (`ModeledLeaf`), and the clause is the disjunction.  The
+right disjunct is deleted with the route (tasks #278, #279); until
+then no consumer may extract `IndRep` for an arbitrary block.
 -/
 
 namespace ConLeche.Model
@@ -252,9 +253,11 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
     fs.length = ((d.Fss ψ).getD j []).length → fs'.length = ((d.Fss ψ).getD j' []).length →
     d.inj ψ j fs = d.inj ψ j' fs' → j = j' ∧ fs = fs'
 
-/-- **A modeled block's leaf is its stored model's** — what the
-modeled route establishes (`BlockAcvalInstalled`); the transitional
-exemption of `IndReps`, deleted with the route. -/
+/-- **A modeled constant's leaf is its stored model's** — what the
+modeled route establishes for every block member
+(`BlockAcvalInstalled`, `BlockInstalledTT`); the transitional exemption
+of `IndReps`, keyed on the block's RECURSOR (the constant the clause is
+keyed on, whatever block it came with), deleted with the route. -/
 @[expose] def ModeledLeaf (m : EnvModel V env) (T : Name) : Prop :=
   (env.find? (T.str "_model")).isSome = true ∧
   ∀ ψ : Name → Nat, m.acval (T.str "_model") ψ = m.acval T ψ
@@ -266,6 +269,9 @@ is stored has a representation, or is a modeled block. -/
     (rules : List RecRule),
     env.find? T = some (.indInfo cvT caps) →
     env.find? (T.str "rec") = some (.recInfo cvR mI rP rules) →
-    (∃ d : IndRepData V, IndRep m T cvT cvR mI rP rules d) ∨ ModeledLeaf m T
+    -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
+    -- deleted with that route (tasks #278 mutual, #279 nested); until it
+    -- is gone no consumer may extract `IndRep` for an arbitrary block
+    (∃ d : IndRepData V, IndRep m T cvT cvR mI rP rules d) ∨ ModeledLeaf m (T.str "rec")
 
 end ConLeche.Model
