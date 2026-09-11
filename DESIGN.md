@@ -68081,3 +68081,204 @@ task.
 line-anchored from OVERVIEW, README links it without an anchor.  Docs,
 data and one renderer's prose only: no `.lean` changed, so the binary
 measured is master's.
+
+## TASK #278 — MUTUAL BLOCKS NATIVE: the reduction to the fixpoint route, inside the install (2026-09-11, `agent/mutual-278`)
+
+**The request (maintainer, 2026-09-11).**  "I have a sense that our
+story for projections will be easier once we have dropped the modelled
+lanes completely.  Have one Fable agent work on direct modelling of
+mutual inductives (what do you choose, a reduction to the existing
+installer, or generalizing that to handle mutual as well?)"  The
+standard: universal coverage, no shortcuts, a checker no more
+restrictive than official.  Nested blocks stay on the modeller
+(`InModel/Nested.lean`, task #279's lane) and `Kernel/Inductives/Modeled.lean`
+stays alive for them.
+
+### 1. What official does with a mutual block (`kernel/inductive.cpp`, read at `_tmp/lean4-src`)
+
+* `check_inductive_types`: one `nparams` for the block; every former's
+  telescope is walked by `whnf`, the parameter domains compared with
+  `is_def_eq` against the first former's, the result sorts with
+  `is_equivalent`; one level-parameter list for the whole block.
+* Positivity (`check_positivity`/`is_rec_argument`): a field is
+  recursive when its `whnf`'d domain, under its own Π binders, is
+  `is_valid_ind_app` at ANY member of the block (the member's own
+  index count, the block's parameters, no member in an index
+  argument); a member in a Π domain is non-positive (reject).
+* `is_rec()` is BLOCK-WIDE and SYNTACTIC: `find` for any member
+  constant in any constructor's declared binder domains, across all
+  members.  `is_non_rec_structure` (η, unit-likeness) is "one
+  constructor, no index, `!is_rec`" — so a member of a block with any
+  recursion anywhere never gets η, while every member of a mutual
+  block WITHOUT recursion does (official grants it; we record that
+  case as a corpus-vacuous restriction until M4 below).
+* `elim_only_at_universe_zero`: a mutual block whose sort is not
+  provably nonzero eliminates into `Prop` only — the small eliminator,
+  no subsingleton case.  `init_K_target`: `m_ind_types.size() == 1`,
+  so K never fires on a mutual block.
+* `infer_proj` (`type_checker.cpp:239`): one constructor,
+  `nparams + nindices` arguments — no `is_rec`, no "single type"
+  condition — so `.proj` on a mutual structure-like member is typed by
+  official.  This is the projection story the maintainer means.
+* `mk_rec_infos`/`mk_rec_rules`/`declare_recursors`: `k` motives
+  `motive_1 … motive_k : Π ı⃗_m (t : T_m p⃗ ı⃗_m), Sort ℓ`; the minors of
+  ALL constructors in member order then constructor order, each with
+  `ih : Π x⃗, motive_{m'} e⃗ (f x⃗)` at the member the field targets;
+  `T_m.rec : Π p⃗ motive⃗ minor⃗ ı⃗_m (t : T_m p⃗ ı⃗_m), motive_m ı⃗_m t`; its
+  rules are member `m`'s constructors only, at the GLOBAL minor index,
+  `λ p⃗ motive⃗ minor⃗ f⃗, minor_J f⃗ (λ x⃗, T_{m'}.rec p⃗ motive⃗ minor⃗ e⃗_i (f_i x⃗))…`;
+  the level parameters are `u :: lps` (fresh `u`) at the large
+  eliminator, `lps` at the small; `numMotives = k`, `numMinors = n`.
+
+### 2. The choice: (a) reduction — and WHERE the reduction lives
+
+The two options are not symmetric in the proof tier.  The fixpoint
+route's semantic tower (`Semantics/Tower/Fix*I.lean`, 12.9 k lines)
+and its model tier (`Model/Inductives/Fix*.lean`, ~20 k lines) are
+written for ONE former, ONE motive, ONE index telescope: the recursor's
+frame arithmetic (`FixRecKFrame`, `FixRecRead`, `FixStageRec`,
+`FixRuleOk`, …) hard-wires "the motive at position `nP`, the `n`
+minors, `nIdx` indices, the major".  Option (b) — `n` family functors
+and a simultaneous fixed point — restates all of that with `k`
+motives, per-member index counts and minors drawn from several
+members: 25 k+ lines of proof touched, 15–30 Fable sessions, for a
+construction that is anyway ISOMORPHIC to one least fixed point over the
+tagged index set (a simultaneous fixed point of `k` families over
+`I_1 … I_k` is one fixed point over `Σ_m I_m`).  So the model of a
+mutual block is one `lfpFam` over `Σ_m ⟦ı⃗_m⟧` either way, and the only
+real question is how the block's constants are identified with that
+family's fibres.
+
+**Decision: the reduction is performed INSIDE `checkMutual`, by the
+checker itself, in a scaffolding environment that is discarded.**  The
+kernel builds — over `Expr`, as `InModel/Mutual.lean` already does —
+the tag family `tag : Π p⃗, Sort W` (one constructor per member
+carrying that member's index telescope) and the auxiliary family
+`aux : Π p⃗ (t : tag p⃗), Sort u` (every member occurrence
+`T_{m'} p⃗ e⃗` rewritten to `aux p⃗ (tag.m' p⃗ e⃗)`), installs BOTH through
+`checkNative` at fresh scaffold names, then installs the block's own
+constants AS DEFINITIONS under their own names and the stream's own
+types — `T_m := λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`, `C := λ p⃗ f⃗, aux.m.C p⃗ f⃗`,
+`T_m.rec := λ p⃗ M⃗ S⃗ ı⃗ t, aux.rec p⃗ Mot S⃗ (tag.m p⃗ ı⃗) t` with `Mot`
+dispatching on the tag by `tag.rec` — through the ordinary definition
+check (`checkDecl`'s `.defnDecl` arm, so `harvestDefn` is the proof),
+and certifies each generated rule by one `isDefEq` of its two sides at
+that environment (β/δ/ι through the definitions).  What is STORED is
+`env₀ ++ [T_m : indInfo] ++ [C : ctorInfo] ++ [T_m.rec : recInfo]` in
+official's shapes with official's caps; the scaffold constants and the
+definitions are not in the stored environment.  No `_model` name, no
+renaming (`checkMemberVal`'s `eqUpToNames` pin is gone: the definitions
+carry the public names, so the public types are checked directly), no
+`Modeled.lean` on this path.
+
+Why this is "direct modelling" and not the modelled lane moved: the
+members' MODEL VALUES are the fixpoint route's fibres — `T_m`'s leaf is
+the reading of `λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)` at a model where `aux`'s leaf
+is `nativeTyAVI …`, i.e. `T_m p⃗ ı⃗` denotes `sumSet w (sumFibre …)` at
+the tagged tuple — which is what a first-class `.proj` table and η need
+(`fixEntry*Core` at the fibre; a modeled type can never get them,
+`proj-unification-limits`).  The identification of the block's
+constants with those fibres is done by the checker's own reduction
+(β/δ/ι + `isDefEq`), verified by `DefEqClaim`/`InferClaim`, instead of
+by hand-written model-tier proofs about `k`-motive frames.  That is the
+whole saving: the semantic content is identical to a hand-built
+reduction; the proof effort is the modeled route's existing pipeline
+re-fronted, not a new tier.
+
+**Why not the pure semantic reduction** (the orchestrator's reading of
+(a): the leaves defined through the fix leaf at the tagged index type
+and every law derived by hand from `Semantics/Tower/Fix*I`).  It needs
+a new model-tier assembly for the mutual shapes — the readings of `k`
+recursor types with `k` motives and a dispatching motive, the `n`
+minors' denotations identified with the aux family's minors pointwise,
+the rule laws through the fixed point's unfolding — none of which
+reuses `FixRecRead`'s frame arithmetic.  Estimated 10–20 Fable
+sessions against 4–6 for the scaffold, for the same theorem.
+
+**Invariant impact — none new.**  `EnvModelM` is unchanged: the block's
+constants enter by the existing per-constant cons steps
+(`declStep_preserves_of_ind_member_cons` / `_rec_cons`), each supplied
+with its leaf, type reading, grading and membership.  Those facts are
+derived at the scaffold's model and TRANSPORTED: `denoteMeta` consults
+`env.find?` only for a constant's level-parameter count, so the reading
+of a term mentioning only constants present in both environments with
+the same `levelParams` is the same in both — one congruence lemma by
+induction on `denoteMeta`.  `IndCaps`: official's for a mutual member
+(η/unit-like at a structure-like member of a block with no recursion
+anywhere, never K); `RecRule` bits: `fire := .plain` when the generated
+recursor's major is the family at its index variables (always),
+`paramsBlind := false` (the law is a total λ-equality over ONE
+parameter spine, as the modeled route's), `k := false`, `eta` at M4.
+`ConstWF`: the stored types were checked at the scaffold, so a
+pre-check pins that no public type mentions anything but `env₀` and the
+block's names (so they resolve in the stored environment too; needed
+by the proof, and a stream could not know the scaffold names anyway).
+
+**Conformance.**  Every official check runs on the stream's own
+records: the parameter telescopes (`whnfTelescope`, `checkStructDomsAt`
+against the first former), sorts (`Level.isEquiv`), level parameters,
+positivity across members (`checkNative` on the aux family — the
+rewritten aux constructor is positive iff the member's is), the
+elimination restriction (mutual + not provably nonzero ⇒ small; a
+large recursor record is a REJECT, official's "Invalid recursor" —
+today the modeller DECLINES it), the recursor's name/level
+parameters/argument sums/rules against the generated ones (`mk_rec_infos`
+ported, compared as the fixpoint route compares: the type by one
+`isDefEq`, the rule bodies structurally), no K, η/unit-like as
+official.  The tag's universe is read with the checker (`inferType`
+of each index domain at the opened telescope) — closing the modeller's
+"cannot infer the sort of index j" residual (#200/#218/#227).
+**Restrictions beyond official, recorded as findings**: (i) M1 keeps
+the modeller's syntactic residual "a member occurrence under a redex"
+(`Id' (T_m p⃗)` in a field) as a positive decline — the aux family's
+constructors are built by syntactic rewriting; the fix is
+`replaceConst` + an unpinned scaffold recursor (the redex reduces away
+in `normPosDom`), corpus-vacuous (Mathlib 51/51 modelled); (ii) until
+M4, members carry caps `{}`: no η/unit-like at a structure-like member
+of a recursion-free mutual block, no `.proj` table — corpus-vacuous
+for η, and `.proj` on a mutual member is today's state.
+
+**Findings about the fixpoint route noticed on the way (not this
+task's):** official's `is_rec` is the SYNTACTIC block-wide `find`;
+`nativeCaps` reads it off the CLASSIFIED kinds (after `normPosDom`), so a
+one-constructor block whose only member occurrence is under a redex
+that reduces away is `is_rec` for official (no η) and not for us (η) —
+an accept-superset on η, corpus-vacuous.  And `checkNative` accepts a
+SMALL eliminator record on a block whose generated recursor is large
+(`large` is read off the record's level parameters; official's replay
+rejects the mismatch) — a harmless accept-superset (a weaker recursor).
+
+### 3. Milestones
+
+* **M1 — the kernel.**  `Kernel/Inductives/MutualParts.lean`
+  (recogniser: `k ≥ 2` formers, `k` recursors named `T_m.rec`, ctors
+  by member; a block with more recursors than formers is nested and
+  stays the modeller's) and `MutualInstall.lean` (`checkMutual`: the
+  official checks, the generator ported from `InModel/Mutual.lean`
+  into the kernel, two `checkNative` runs on the scaffold, the
+  definitions, the rule certifications, the generated public recursor
+  compared with the stream's, the stored block), `MutualInstallF.lean`
+  and the cached twin, `checkDecl`'s dispatch (`mutualParts?` before
+  `checkModeled`), `InModel.wants` narrowed to nested.  Fixtures: every
+  mutual e2e stream, the arena, the Mathlib mutual cones sliced with
+  `scripts/slice-cone.py`; verdicts = official.
+* **M2 — the proof.**  `Semantics/Inductives/DeclMutual.lean` (the run
+  relation, inverted from `checkMutual`), `Verify/Inductives/Mutual*.lean`
+  (`EnvWF` of the stored block), `Model/Inductives/DeclMutual.lean`
+  (`declMutual`: `declNative` twice, `harvestDefn` per definition, the
+  cross-environment congruence, the cons steps, the rule laws from
+  `DefEqClaim` through `indBottomPlain` re-fronted at `f = id` —
+  `hthm` is consumed once, at its line 180).  The fold's inductive arm
+  gains the mutual case.
+* **M3 — the deletion and the gates.**  `InModel/Mutual.lean` gone
+  (the generator lives in the kernel; `Kit.lean` keeps what nested
+  needs), `scripts/dead-census.py` sweep, DESIGN/OVERVIEW; build,
+  `lake test`, `tests/arena.sh`, axiom pin, proofdeps, overview-links,
+  init-full, Mathlib verified.  READY.
+* **M4 — the projection story (own task after landing).**  Expose
+  `aux`'s leaf from `declNative` (the assembly knows it; the theorem
+  returns `Nonempty`), then the projection TABLE at a structure-like
+  member (`checkStructProjTable`, offset 1, the entry laws at the
+  fibre `tag.m` — the sum over all `n` restricted chains collapses to
+  the member's own constructor's tower at that tag) and η/unit-like as
+  official.
