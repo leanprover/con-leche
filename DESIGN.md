@@ -69597,34 +69597,55 @@ auxiliary recursor's own two facts: `hcd`, `hleafM`, `hclL`, `hclR`
   membership is `chainRealI_at` + `spineFit_getD_mem'` +
   `slotSet_fold_mem`, with `tagTupleAV_facts` identifying the tag.
 
-**THE BLOCKER (module system, not a statement).**  `haux`
-(`auxRecLeafFacts`) and `hauxConc` (`auxConc_facts`) cannot be
-discharged from `DeclMutual.lean` because three of their premises name
-`MutualRecPre2.lean`'s
-
-    def EntriesOk (~L1447), def AuxSlotTagged (~L418), def SlotTagOk (~L990)
-
-which are plain `def`s in a `public section` — bodies private to that
-module — with ELIMINATION-ONLY API beside them (`entriesOk_append`
-needs an `EntriesOk` to start; `EntriesOk.fieldsOkB`/`.fieldsValid`/
+**THE EXPOSURE GAP, met and closed.**  `haux`/`hauxConc` first hit a
+module-system wall: `MutualRecPre2.lean`'s `EntriesOk` (~L1447),
+`AuxSlotTagged` (~L418) and `SlotTagOk` (~L990) were plain `def`s in a
+`public section` — bodies private to that module — with
+ELIMINATION-ONLY API beside them (`entriesOk_append` needs an
+`EntriesOk` to start; `EntriesOk.fieldsOkB`/`.fieldsValid`/
 `entriesOk_at`/`prefix_of_entriesOk` consume one; `auxEbelow_of`
-consumes `AuxSlotTagged`, `ihPisTag_facts` consumes `SlotTagOk`).  All
-three are PREMISES the stage must supply — `auxRecLeafFacts`/
-`auxFixPre_of` take `hpps : ∀ ρb, EntriesOk V s ρb (rebit b pps)` and
-`hslotTag : AuxSlotTagged W nP Idss tlss Eiss'`, and `minorTag_facts`
-(the only producer of `AuxFrameOk.minors`, which both leaf theorems
-take through `hfrm`) takes `hslots : … → SlotTagOk …`.  `declMutual` is
-their first consumer, so the missing exposure surfaces only now.  The
-fix belongs in `MutualRecPre2.lean`: `@[expose]` on the three, or three
-introduction lemmas beside them — the honest shape for the first is
+consumes `AuxSlotTagged`, `ihPisTag_facts` consumes `SlotTagOk`), while
+all three are PREMISES this stage must SUPPLY (`auxRecLeafFacts`/
+`auxFixPre_of`'s `hpps`/`hslotTag`, and `minorTag_facts`' `hslots` —
+that being the only producer of `AuxFrameOk.minors`, which
+`auxConc_facts` takes too).  `declMutual` is their first consumer, so
+the gap surfaced only here; it is closed by `@[expose]` on the three
+(`70514515`).  The lesson for the tier: a `def` a LATER file must
+introduce, not just eliminate, needs `@[expose]` or an intro lemma —
+elimination-only API reads as complete until the first producer shows up.
 
-    entriesOk_of_rows : (∀ k d, ds[k]? = some d → ∀ as,
-        SpineFit ρ ((ds.map (·.2.2)).take k) as →
-        WellDenotedV V (consList as ρ) d.2.2 ∧
-          (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ univ s)) →
-      EntriesOk V s ρ ds
+**`LeafHyp` IS COMPLETE.**  With the exposure fixed the auxiliary
+recursor's own facts go through, all in `DeclMutual.lean`:
+`hLeafTG` (the auxiliary former's `LeafTyping` — `ParamsOkXI` and
+`UnderTowerValid` over the parameter-and-TAG telescope, by the new
+`paramsOkXI_append`/`underTowerValid_append`, at EVERY frame since the
+leaf is closed); `hSlotTagG` (`SlotTagOk`: `chainRealI_at`'s own
+`SlotFit` for the telescope's grading, the REAL entry's `AnnotValid`
+for its validity and the raw index expressions', `slotSet_chainOk` for
+`AppChainOk`); `hCtorOkG` (the constructor leaf's application grading);
+`hfrmG` (`AuxFrameOk`, `minors` by `minorTag_facts`); `hchainsG`,
+`hminorReadG`, `hvFssG`, `hppsG` (`formerParamsOk` at `FormerData.lvls`,
+`hWge`, `auxRecSort_ge`), `hslotTagG`, `hTbelowG`, `hEisLenG`, `hw0G`
+(the mutual regime, from `b.large = f₀.s.isNeverZero` through
+`isNeverZero_eq_isNever` and `pwBit_ne_zero_of_isNever`).
+`auxRecLeafFacts` and `auxConc_facts` then apply directly.
 
-and the other two are the obvious `⟨…⟩` intros.
+**What is left** (the file's ONE `sorry`): `stageMutualRecs` and
+`stageMutualTables`.  `stageMutualRecs`' own premises are mostly in
+hand (`hyp`, `hRDs`, `hIds`, `hchains`); the work is its `hlaws` —
+`mutualRecRuleLaw` per rule, whose `hCread`/`hread`/`hleafC`/`hRD` must
+hold AT THE STORE's carrier, so the readings have to cross the `k`
+provision conses (`MutualRecData.cross` exists; `FormerReadsM`/
+`MutualCtorReadsM`/`MutualCtorDataI` need the same lemma) and then the
+group swap, which changes only the stored rule lists and so leaves
+`denoteMeta` alone — plus `mutualRuleOk`'s ~25 premises and
+`denoteMeta_mutualRecRhs`'s, and `ruleFires_of` (whose `hAcl` is
+`MutualRecParts.leaf_below`, `hregime` is `hw0G`, and `hpre` is
+`auxFixPre_of` at the same premises `auxRecLeafFacts` just took).
+`stageMutualTables` is `MutualTableOk` per member off
+`mutualMemberTable_inv`.  `MutualRepsOk` is still the one named
+premise; its two components (`mutualIndRepsHead_of`/`mutualIndReps_of`)
+are consumed by those stages and cannot be wired before them.
 
 **A recorded gap that is NOT one.**  §8.4's "the constructor leaf's
 APPLICATION grading needs a mixed-regime chain lemma" is a false alarm:
