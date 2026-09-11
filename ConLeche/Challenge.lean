@@ -68,8 +68,8 @@ theorem model_exists (V : Type w) [SetTheory V]
 
 /-- A term has at most one denotation. -/
 theorem Denotes_functional {V : Type w} [SetTheory V]
-    {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
-    {ρ : Nat → V} {e : Expr} {v w : V}
+    {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    {ρ : BVarIdx → V} {e : Expr} {v w : V}
     (hv : Denotes cval env φ ρ e v) (hw : Denotes cval env φ ρ e w) :
     v = w :=
   sorry
