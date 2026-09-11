@@ -1171,7 +1171,10 @@ theorem stageMutualRecs (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V e
     (hE : ConLeche.EtaFamiliesClosed env₂)
     (hRDs : ∀ t, t < p.k → MutualRecData mp₂.base2 (cvRas.getD t default) p.nP p.k p.n
       (p.nIdxOf t) t p.elimL (p.rds m₀ t))
-    (hAcl : ∀ t, t < p.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (p.leaf m₀ t ψ).erase)
+    (hIds : ∀ ψ : Name → Nat, ∀ Ids ∈ p.Idss ψ, FieldsBelow p.nP Ids)
+    (hchains : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (p.W ψ) (auxIds (p.W ψ) (p.Idss ψ)) 1 p.rss
+        (p.tlss ψ) (p.Eiss' ψ) (p.Fss₀ ψ) (p.Ess' ψ),
+      FieldsBelow (p.nP + 2) chain)
     (hAparams : ∀ t, t < p.k → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ (cvRas.getD t default).levelParams, ψ₁ q = ψ₂ q) →
       p.leaf m₀ t ψ₁ = p.leaf m₀ t ψ₂)
@@ -1219,6 +1222,9 @@ theorem stageMutualRecs (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V e
         mp₄.base2.acval (cvRas.getD t default).name ψ = p.leaf m₀ t ψ) ∧
       (∀ n : Name, (∀ t, t < p.k → n ≠ (cvRas.getD t default).name) →
         mp₄.base2.acval n = mp₂.base2.acval n) := by
+  have hAcl : ∀ t, t < p.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (p.leaf m₀ t ψ).erase :=
+    fun t ht ψ => p.leaf_below hyp ht ψ ((hRDs t ht).below ψ) ((hRDs t ht).len ψ) (hIds ψ)
+      (hchains ψ)
   obtain ⟨mpP, -, -, -, hleafP, hagP⟩ :=
     stageMutualRecsProvision p hyp mp₂ hk hAcl hAparams hnres hpshape htyWF hrepsP hnd hfresh
       hres hE hRDs
