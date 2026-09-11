@@ -540,16 +540,97 @@ theorem denoteMeta_mutualMotivesPis {m : EnvModel V env} {ψ : Name → Nat} {lp
 
 /-! ## The minor premises, read -/
 
+/-- **The per-constructor reading premise with PER-FIELD TARGETS**:
+`CtorReadR` (`FixRecReadDefs.lean`) at a block whose recursive fields
+need not target the constructor's own member.  The constructor's own
+residual is still its own member `T`'s (`resid`, `read`, `lenE`);
+what moves to the field's target is the field's entry (`recEntry` —
+the TARGET's leaf `Tt i`), the number of index readings it carries
+(`eisLen`) and its domain's argument count (`fieldArity`), each at the
+target's index count `nIt i`.  The fixpoint route is the constant
+instance `Tt := fun _ => T`, `nIt := fun _ => nIdx` (`CtorReadR.toT`). -/
+structure CtorReadRT {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (T : Name)
+    (Tt : Nat → Name) (lps : List Name) (nP nIdx : Nat) (nIt : Nat → Nat)
+    (c : Name × Nat × Expr × List Nat) (cd : CtorDatumR) : Prop where
+  name : cd.1 = c.1
+  nF : cd.2.1 = c.2.1
+  find : ∃ ci : ConstantInfo, env.find? c.1 = some ci ∧ ci.toConstantVal.levelParams = lps
+  hasFvar : c.2.2.1.hasFvar = false
+  bounded : c.2.2.1.looseBVarsBounded 0 = true
+  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
+    c.2.2.1.stripPis (nP + c.2.1)
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt c.2.1 nP ++ es)) ∧
+    es.length = nIdx
+  read : denoteMeta m.acval env ψ 0 c.2.2.1
+    = some (mkPisAV cd.2.2.1 (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP c.2.1 ++ cd.2.2.2.1)))
+  len : cd.2.2.1.length = nP + c.2.1
+  lenE : cd.2.2.2.1.length = nIdx
+  recIdx : cd.2.2.2.2.1 = c.2.2.2
+  recIdxBnd : ∀ i ∈ c.2.2.2, i < c.2.1
+  /-- the recursive positions are strictly increasing (`recIdxOf`) -/
+  recIdxSorted : c.2.2.2.Pairwise (· < ·)
+  eissLen : cd.2.2.2.2.2.1.length = c.2.1
+  /-- a recursive field carries the TARGET member's index readings -/
+  eisLen : ∀ i ∈ c.2.2.2, (cd.2.2.2.2.2.1.getD i []).length = nIt i
+  tlsLen : cd.2.2.2.2.2.2.length = c.2.1
+  /-- a recursive field's telescope has as many binders as the raw
+  type's (`structFieldTeleOf`; none at a finitary field) -/
+  teleLen : ∀ i ∈ c.2.2.2,
+    (ConLeche.structFieldTeleOf c.2.2.1 nP c.2.1 i).length = (cd.2.2.2.2.2.2.getD i []).length
+  /-- a recursive field's domain, at the field's own depth `nP + i`
+  with the parameters and the earlier fields as variables (an opening
+  of the constructor's telescope), reads to its entry -/
+  fieldRead : ∀ i ∈ c.2.2.2, ∀ (fvs : List Expr) (o : Expr),
+    openPisAtFvars (nP + c.2.1) c.2.2.1 0 = some (fvs, o) →
+    ∀ x, fvs[nP + i]? = some x →
+      denoteMeta m.acval env ψ (nP + i) x.fvarTypeD = some (cd.2.2.1.getD (nP + i) default).2.2
+  /-- a recursive field's domain, under its own telescope, is an
+  application of `nP + nIt i` arguments — the parameters and the TARGET
+  member's index expressions -/
+  fieldArity : ∀ i ∈ c.2.2.2, ∀ (cbs : List (Expr × BinderMeta)) (body : Expr),
+    c.2.2.1.stripPis (nP + c.2.1) = some (cbs, body) →
+    (((cbs.getD (nP + i) default).1.piBinders).2.getAppArgs).length = nP + nIt i
+  /-- a recursive field's entry: the Π-tower over its telescope of the
+  TARGET member's leaf at the parameter variables and the field's index
+  readings -/
+  recEntry : ∀ i ∈ c.2.2.2,
+    (cd.2.2.1.getD (nP + i) default).2.2
+      = mkPisAV (cd.2.2.2.2.2.2.getD i [])
+          (AnnotTerm.mkAppN (m.acval (Tt i) ψ)
+            (paramBvarsAt nP (nP + i + (cd.2.2.2.2.2.2.getD i []).length) ++
+              cd.2.2.2.2.2.1.getD i []))
+
+/-- The fixpoint route's premise is the constant instance. -/
+theorem CtorReadR.toT {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {c : Name × Nat × Expr × List Nat} {cd : CtorDatumR}
+    (h : CtorReadR m ψ T lps nP nIdx c cd) :
+    CtorReadRT m ψ T (fun _ => T) lps nP nIdx (fun _ => nIdx) c cd := { h with }
+
+/-- A recursive field's readings, off the target-aware premise
+(`fieldReadAt_ofE` at the field's TARGET leaf and index count). -/
+theorem fieldReadAtT_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {Tt : Nat → Name}
+    {lps : List Name} {nP nIdx : Nat} {nIt : Nat → Nat} {c : Name × Nat × Expr × List Nat}
+    {cd : CtorDatumR}
+    (hc : CtorReadRT m ψ T Tt lps nP nIdx nIt c cd) {i : Nat} (hi : i ∈ c.2.2.2)
+    {fvs0 : List Expr} {crest : Expr}
+    (hop0 : openPisAtFvars (nP + c.2.1) c.2.2.1 0 = some (fvs0, crest)) :
+    FieldReadAt m ψ nP c.2.1 i c.2.2.1 fvs0 (cd.2.2.2.2.2.2.getD i [])
+      (cd.2.2.2.2.2.1.getD i []) :=
+  fieldReadAt_ofE hc.hasFvar
+    (by obtain ⟨cbs, es, hst, -⟩ := hc.resid; exact ⟨cbs, _, hst⟩)
+    (hc.recIdxBnd i hi) (hc.fieldRead i hi) (hc.teleLen i hi) (hc.fieldArity i hi)
+    (hc.eisLen i hi) (hc.recEntry i hi) hop0
+
 /-- **What the readings need of one constructor of a mutual block**:
-the fixpoint route's premise at its own member's former, plus its
+the target-aware premise at its own member's former, plus its
 member (`mot`) and its recursive fields' target members (`moti`). -/
 structure MutualCtorRead {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (lps : List Name)
     (nP : Nat) (Tname : Nat → Name) (nIdxOf : Nat → Nat) (mot : Nat) (moti : Nat → Nat)
     (c : ConLeche.MutualCtor4) (cd : CtorDatumR) : Prop where
   member : c.member = mot
   fields : c.recFields = cd.2.2.2.2.1.map fun i => (i, moti i)
-  base : CtorReadR m ψ (Tname mot) lps nP (nIdxOf mot)
-    (c.name, c.nF, c.cty, cd.2.2.2.2.1) cd
+  base : CtorReadRT m ψ (Tname mot) (fun i => Tname (moti i)) lps nP (nIdxOf mot)
+    (fun i => nIdxOf (moti i)) (c.name, c.nF, c.cty, cd.2.2.2.2.1) cd
 
 /-- The constructors' reading premises, positionally. -/
 @[expose] def MutualCtorReadsM {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
@@ -637,7 +718,7 @@ theorem denoteMeta_mutualMinorsPis {m : EnvModel V env} {ψ : Name → Nat} {lps
       denoteMeta_forallE,
       denoteMeta_minorAtRM hfTc hlpsTc hfC hlpsC hmty' hc.base.hasFvar hc.base.bounded
         hc.base.resid hc.base.read hc.base.len hc.base.lenE hc.base.recIdxBnd
-        (fun i hi fvs rest hop => fieldReadAt_of hc.base hi hop) hlenT hidxT hspW ho
+        (fun i hi fvs rest hop => fieldReadAtT_of hc.base hi hop) hlenT hidxT hspW ho
         (hmots 0 (by simp)) hidxE]
     generalize hmk : Expr.fvar (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty) = mkfv
