@@ -1131,6 +1131,68 @@ theorem formerIdxOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP nId
   rw [fieldsFrom_eq_drop (hFD.len ψ)] at hok hbd hvd
   exact ⟨⟨hok, hbd⟩, hvd⟩
 
+/-- **`EntriesOk` from the binder-by-binder rows**: every entry
+graded, valid and — in the graph regime — in the sort `s`, at every
+spine fitting the earlier binders. -/
+theorem entriesOk_of_rows {s : Nat} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
+      (∀ (k : Nat) (d : Nat × Nat × AnnotTerm), ds[k]? = some d →
+        ∀ as : List V, SpineFit ρ ((ds.map (·.2.2)).take k) as →
+          WellDenotedV V (consList as ρ) d.2.2 ∧
+            (s ≠ 0 → interp V (consList as ρ) d.2.2 ∈ˢ (univ s : V))) →
+      EntriesOk V s ρ ds
+  | [], _, _ => trivial
+  | d :: ds, ρ, h => by
+    obtain ⟨hok, hu⟩ := h 0 d rfl [] trivial
+    refine ⟨hok, hu, fun a ha => entriesOk_of_rows fun k d' hk as hsp => ?_⟩
+    have h' := h (k + 1) d' (by simpa using hk) (a :: as) ⟨ha, hsp⟩
+    rwa [consList_cons] at h'
+
+/-- **The parameter binders as the auxiliary recursor's entries**: the
+former's Π-tower grades them hereditarily and `FormerData.lvls` puts
+each in its own universe, which the recursor's sort dominates. -/
+theorem formerParamsOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx : Nat}
+    {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData m cvT (nP + nIdx) resSort pps lvls)
+    {s b : Nat} {ψ : Name → Nat} (hu : ∀ i, i < nP → (lvls ψ).getD i 0 ≤ s)
+    (ρb : Nat → V) : EntriesOk V s ρb (rebit b ((pps ψ).take nP)) := by
+  have hlen : (pps ψ).length = nP + nIdx := hFD.len ψ
+  have hlenT : ((pps ψ).take nP).length = nP := by rw [List.length_take]; omega
+  obtain ⟨hokB, -⟩ := WellDenoted_mkPisAV_inv (hFD.okTy ψ ρb).1
+  obtain ⟨hvB, -⟩ := AnnotValid_mkPisAV_inv (hFD.okTy ψ ρb).2
+  refine entriesOk_of_rows fun k d hk as hsp => ?_
+  have hkl : k < nP := by
+    have h := (List.getElem?_eq_some_iff.mp hk).1
+    rw [rebit_length, hlenT] at h
+    exact h
+  have hdk : d.2.2 = ((pps ψ).map (·.2.2)).getD k default := by
+    have h1 : (rebit b ((pps ψ).take nP))[k]? = some d := hk
+    rw [rebit, List.getElem?_map, List.getElem?_take_of_lt hkl,
+      List.getElem?_eq_getElem (show k < (pps ψ).length by omega)] at h1
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem (show k < (pps ψ).length by omega), ← Option.some.inj h1]
+    rfl
+  have hsp' : SpineFit ρb (((pps ψ).map (·.2.2)).take k) as := by
+    have h1 : SpineFit ρb (((rebit b ((pps ψ).take nP)).map (·.2.2)).take k) as := hsp
+    rwa [rebit_map_dom, ← List.map_take, List.take_take,
+      Nat.min_eq_left (Nat.le_of_lt hkl), List.map_take] at h1
+  have hsat : Sat V ((((pps ψ).take k).map (·.2.2)).reverse) (consList as ρb) := by
+    have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρb)
+      (show SpineFit ρb ((((pps ψ).take k).map (·.2.2))) as by rwa [List.map_take])
+    rwa [List.append_nil] at h
+  have hentry : ((pps ψ).map (·.2.2)).getD k default = ((pps ψ).getD k default).2.2 := by
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem (show k < (pps ψ).length by omega)]
+    rfl
+  refine ⟨⟨?_, ?_⟩, fun _ => ?_⟩
+  · rw [hdk]
+    exact fieldsOkB_getD hokB (by rw [List.length_map]; omega) hsp'
+  · rw [hdk]
+    exact fieldsValid_getD hvB (by rw [List.length_map]; omega) hsp'
+  · rw [hdk, hentry]
+    exact univ_mono (hu k hkl) _ (hFD.lvl ψ k (by omega) (consList as ρb) hsat)
+
 /-! ## The assembly -/
 
 set_option maxHeartbeats 25600000 in
@@ -2468,6 +2530,251 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           exact h.1
         tssBelow := (hCD₁ J cA hcA).tssBelow ψ
         eissBelow := (hCD₁ J cA hcA).eissBelow ψ }
+  -- **the block's data at one parameter frame** (`MutualFrameOkM`)
+  have hFrameOkG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
+      MutualFrameOkM V mp₂.base2 (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP (Idssf ψ) rssf (tlssf ψ)
+        (mutEiss0 ctorsA.length eissF ψ) (Eissf ψ) (FssRf ψ) (Fss0f ψ) (Essf ψ) memF
+        (fun J => tgtAt (ksF J))
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0) ρp := by
+    intro ψ
+    have hdec := hdecG ψ
+    intro ρp hρ
+    have hρ0 : Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp := hρ
+    obtain ⟨hTag, hV⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ0
+    obtain ⟨hFix, hRealρ, hXV⟩ := hChainFull 0 f₀ hf0 ψ ρp hρ0
+    obtain ⟨hX, -⟩ := hXAll 0 f₀ hf0 ψ ρp hρ0
+    -- the constructors' own parameter frames
+    have hρJ : ∀ J : Nat, J < ctorsA.length →
+        Sat V (((dsF J ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp := by
+      intro J hJ
+      exact ((hframesJ J hJ).1 ψ ρp).mp
+        (hframeAll 0 (memF J) f₀ _ hf0 (hfmGet _ (hmotLt J hJ)) ψ ρp hρ0)
+    refine ⟨hTag, hV, hFix, hX,
+      fixBodyAVI_validV (auxIds_idxOk hTag) (auxIds_fieldsValid hV) hXV, ?_, ?_, ?_⟩
+    · -- `fieldsB`: the REAL field chains are graded at any constructor's frame
+      by_cases hne : 0 < ctorsA.length
+      · exact (hFssOkP 0 _ (hcAGet 0 hne) ψ ρp (hρJ 0 hne)).1
+      · have h0 : ctorsA.length = 0 := by omega
+        show SumFieldsOkB _ ρp (mutFss p.toBlock.nP ctorsA.length dsF ψ)
+        rw [h0]
+        intro Fs hFs
+        simp only [mutFss, List.range_zero, List.map_nil] at hFs
+        exact nomatch hFs
+    · -- `ctor`: the constructor's index expressions at a field spine,
+      -- and its value in the auxiliary fibre at its own tag
+      -- (`fixFamI_app_eq_sum` at the 1-tuple spine, then
+      -- `restricted_member_intro` at the constructor's restricted chain)
+      intro J cd hJd fs hfs
+      obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
+      have hfrJ := (hframesJ J hJl).2 ψ ρp (hρJ J hJl)
+      obtain ⟨hEok, hfit⟩ := hfrJ.2.2.2 fs hfs
+      have hIdsM := hIdssGet ψ (memF J) (hmotLt J hJl)
+      refine ⟨fun E hE => (hEok E hE).1, ?_, ?_⟩
+      · intro Ids hIds
+        obtain rfl : Ids = ((ppsF (memF J) ψ).drop p.toBlock.nP).map (·.2.2) :=
+          Option.some.inj (hIds.symm.trans hIdsM)
+        exact hfit
+      · have hlenbs : fs.length = cA.2 := by
+          rw [hfs.length_eq, List.length_map, List.length_drop, (hCD₁ J cA hcA).len ψ,
+            Nat.add_sub_cancel_left]
+        have hfrs : shiftE cA.2 0 (consList fs ρp) = ρp := by
+          rw [← hlenbs]; exact shiftE_consList _ _
+        obtain ⟨hval, -⟩ := tagTupleAV_facts hTag hIdsM hfrs (fun E hE => (hEok E hE).1) hfit
+        have hsp1 : SpineFit ρp (auxIds (Wf ψ) (Idssf ψ))
+            [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] := by
+          refine ⟨?_, trivial⟩
+          rw [(tagTyAV_facts hTag).1]
+          exact tagTuple_mem hTag hIdsM hfit
+        have hsum := fixFamI_app_eq_sum hX hRealρ hsp1
+        rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl] at hsum
+        have hchain : (rChains 1 1 (FssRf ψ) (Essf ψ))[J]?
+            = some (rChain 1 1 (((dsF J ψ).drop p.toBlock.nP).map (·.2.2))
+                [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)]) := by
+          rw [rChains_getElem?, hFssG ψ J hJl, hEssG J cA hcA ψ]
+        have hlenI : ([inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] : List V).length
+            = 1 := rfl
+        have hshift : shiftE 1 0
+            (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp) = ρp := by
+          rw [← hlenI]; exact shiftE_consList _ _
+        have hmemF : (if f₀.s.eval ψ = 0 then (pt : V) else mkTower (fs ++ [pt]))
+            ∈ˢ sumFibre (f₀.s.eval ψ)
+                (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp)
+                (rChains 1 1 (FssRf ψ) (Essf ψ)) J := by
+          rw [sumFibre_of_getElem? hchain]
+          refine restricted_member_intro ?_ ?_
+          · rw [spineFit_liftFields, hshift]
+            exact hfs
+          · rw [EqAll_idxEqsAt (by simp) hfs.length_eq, hshift, frameIdx_consList hlenI]
+            show idxValsAt ρp [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] fs = _
+            rw [idxValsAt, List.map_singleton, hval]
+            rfl
+        show ctorValI (f₀.s.eval ψ) J fs ∈ˢ _
+        unfold auxFib auxTup auxFamI
+        rw [hsum]
+        unfold ctorValI
+        rcases Nat.eq_zero_or_pos (f₀.s.eval ψ) with hw | hw
+        · rw [hw] at hmemF ⊢
+          rw [if_pos rfl] at hmemF ⊢
+          exact pt_mem_sumSet_zero hmemF
+        · have hw' : f₀.s.eval ψ ≠ 0 := Nat.pos_iff_ne_zero.mp hw
+          rw [if_neg hw'] at hmemF ⊢
+          exact inj_mem hw' hmemF
+    · -- `slot`: the same at a recursive slot's telescope spine and
+      -- its TARGET member's tag.  The RAW index facts come off the
+      -- real entry (`recEntry`/`reflEntry` + `leafSpineFit`), the
+      -- fibre membership off the real chain (`chainRealI_at`,
+      -- `slotSet_fold_mem`).
+      intro J cd hJd i hi fs hfs as hbs
+      obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
+      have hlenDs := (hCD₁ J cA hcA).len ψ
+      have hksLen : (kindsOf (ksF J)).length = cA.2 := by
+        rw [kindsOf_length]; exact (hksJ J cA hcA).1
+      have hmemI := mem_recIdx.mp hi
+      have hilt : i < cA.2 := hmemI.1
+      have hrb : (rsOf (kindsOf (ksF J))).getD i false = true := by
+        rw [← mutRss_getD (n := ctorsA.length) (ksF := ksF) hJl]
+        exact hmemI.2
+      have hkind : kindAt (ksF J) i = .recursive ∨ kindAt (ksF J) i = .reflexive := by
+        have h := (rsOf_getD_iff (by rw [hksLen]; exact hilt)).mp hrb
+        rwa [kindsOf_getD (by rw [(hksJ J cA hcA).1]; exact hilt)] at h
+      have htgt : tgtAt (ksF J) i < fms.length := (hksJ J cA hcA).2.2 i
+      have htG := hfmGet _ htgt
+      have hIdsT := hIdssGet ψ (tgtAt (ksF J) i) htgt
+      have hlenF : (((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).length = cA.2 := by
+        rw [List.length_map, List.length_drop, hlenDs, Nat.add_sub_cancel_left]
+      have hlenfs : fs.length = cA.2 := by rw [hfs.length_eq, hlenF]
+      have hlenTake : (fs.take i).length = i := by rw [List.length_take, hlenfs]; omega
+      have htlsJ : ((tlssf ψ).getD J []).getD i [] = (tssF J ψ).getD i [] := by
+        show ((mutTlss ctorsA.length tssF₀ ψ).getD J []).getD i [] = _
+        rw [mutTlss_getD hJl, (hident J cA hcA).2.2.2.2.2.2.1 ψ]
+      have hbs' : SpineFit (consList (fs.take i) ρp)
+          (((tssF J ψ).getD i []).map (·.2.2)) as := by
+        rw [← htlsJ]; exact hbs
+      have hlenAs : as.length = ((tssF J ψ).getD i []).length := by
+        rw [hbs'.length_eq, List.length_map]
+      have hfrJ := (hframesJ J hJl).2 ψ ρp (hρJ J hJl)
+      have hokEntry : WellDenoted V (consList (fs.take i) ρp)
+          ((((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).getD i default) :=
+        fieldsOkB_getD hfrJ.1 (by rw [hlenF]; exact hilt)
+          (spineFit_take_prefix hfs (by rw [hlenF]; omega))
+      rw [drop_map_getD hlenDs hilt] at hokEntry
+      -- the target member's leaf
+      have hlenT : (ppsF (tgtAt (ksF J) i) ψ).length
+          = p.toBlock.nP
+            + (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length := by
+        rw [List.length_map, List.length_drop, (hFD₂ _ _ htG).len ψ]; omega
+      have hLtower : ∃ B, mp₁.base2.acval
+          (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ
+          = mkLamsC (f₀.s.eval ψ + 1) (ppsF (tgtAt (ksF J) i) ψ) B := by
+        rw [(hmemT _ _ htG).1]
+        obtain ⟨B, hB⟩ := hleafT₁ _ _ htG ψ
+        exact ⟨B, by rw [hB, hsEq _ _ htG ψ]⟩
+      have hclT : Term.bvarsBelow 0
+          (mp₁.base2.acval (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ).erase :=
+        mp₁.base2.cval_closedL _ ψ
+      have hnIdxT : (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length
+          = mutualNIdxOf p.toBlock.members3 (tgtAt (ksF J) i) := by
+        rw [List.length_map, List.length_drop, (hFD₂ _ _ htG).len ψ, (hmemT _ _ htG).2]
+        omega
+      -- **the RAW index facts** at the slot's telescope spine
+      have hraw : (∀ E ∈ (eissF J ψ).getD i [],
+            WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
+          SpineFit ρp (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2))
+            (((eissF J ψ).getD i []).map
+              (interp V (consList as (consList (fs.take i) ρp)))) := by
+        have hEl : ((eissF J ψ).getD i []).length
+            = (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length := by
+          rw [hnIdxT]
+          rcases hkind with hk | hk
+          · exact (hCD₁ J cA hcA).eisLen ψ i hk hilt
+          · exact (hCD₁ J cA hcA).eisLenRefl ψ i hk hilt
+        rcases hkind with hk | hk
+        · -- a finitary recursive field: the telescope is empty
+          have hnone : (tssF J ψ).getD i [] = []
+            := (hCD₁ J cA hcA).tssNone ψ i (by rw [hk]; exact fun h => nomatch h)
+          obtain rfl : as = [] := by
+            rw [hnone] at hlenAs
+            exact List.eq_nil_of_length_eq_zero hlenAs
+          rw [(hCD₁ J cA hcA).recEntry ψ i hk hilt] at hokEntry
+          exact leafSpineFit hlenT hclT hLtower hlenTake hEl hokEntry
+        · -- a reflexive field: peel the telescope's Π-tower
+          rw [(hCD₁ J cA hcA).reflEntry ψ i hk hilt] at hokEntry
+          obtain ⟨-, hBody⟩ := WellDenoted_mkPisAV_inv hokEntry
+          have hok := hBody as hbs'
+          rw [← consList_append] at hok
+          have hlenSA : (fs.take i ++ as).length = i + ((tssF J ψ).getD i []).length := by
+            rw [List.length_append, hlenTake, hlenAs]
+          have hok' : WellDenoted V (consList (fs.take i ++ as) ρp)
+              (AnnotTerm.mkAppN
+                (mp₁.base2.acval (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ)
+                (paramBvarsAt p.toBlock.nP
+                    (p.toBlock.nP + (i + ((tssF J ψ).getD i []).length))
+                  ++ (eissF J ψ).getD i [])) := by
+            rw [show p.toBlock.nP + (i + ((tssF J ψ).getD i []).length)
+              = p.toBlock.nP + i + ((tssF J ψ).getD i []).length from by omega]
+            exact hok
+          have h := leafSpineFit hlenT hclT hLtower hlenSA hEl hok'
+          rw [consList_append] at h
+          exact h
+      -- the block's chain lists at `J`
+      have hFssJ : (FssRf ψ).getD J [] = ((dsF J ψ).drop p.toBlock.nP).map (·.2.2) :=
+        mutFss_getD hJl
+      have hnFJ : nFs J = cA.2 := by
+        show (ctorsA.getD J default).2 = cA.2
+        rw [List.getD_eq_getElem?_getD, hcA]; rfl
+      have hlenEis0 : (eissF₀ J ψ).length = nFs J := by
+        rw [(hident J cA hcA).2.2.2.2.2.1 ψ, (hCD₁ J cA hcA).eissLen ψ, hnFJ]
+      have hEisJ : ((Eissf ψ).getD J []).getD i []
+          = [tagTupleAV (Wf ψ) (tgtAt (ksF J) i) (i + ((tssF J ψ).getD i []).length)
+              (Idssf ψ) ((eissF J ψ).getD i [])] := by
+        rw [mutEiss'_getD hJl (by rw [hnFJ]; exact hilt) hlenEis0,
+          (hident J cA hcA).2.2.2.2.2.2.1 ψ, (hident J cA hcA).2.2.2.2.2.1 ψ]
+      -- the real chain's slot
+      have hJF : J < (FssRf ψ).length := by rw [mutFss_length]; exact hJl
+      have hcR := hRealρ.2.2.2.2 J hJF
+      have hcw := chainRealI_at ((Fss0f ψ).getD J []) ((FssRf ψ).getD J []) 0 [] fs rfl hcR
+        (by rw [hFssJ]; exact hfs) i (by rw [hFssJ, hlenF]; exact hilt)
+        (by rw [Nat.zero_add]; exact hmemI.2)
+      rw [Nat.zero_add, List.nil_append] at hcw
+      obtain ⟨-, heqF⟩ := hcw
+      have hfield : fs.getD i pt ∈ˢ slotSet (f₀.s.eval ψ) (Wf ψ)
+          (consList (fs.take i) ρp) (((tlssf ψ).getD J []).getD i [])
+          (((Eissf ψ).getD J []).getD i [])
+          (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+            (Fss0f ψ) (Essf ψ)) := by
+        have h := FixKI.spineFit_getD_mem' (by rw [hFssJ]; exact hfs)
+          (show i < ((FssRf ψ).getD J []).length by rw [hFssJ, hlenF]; exact hilt)
+        rwa [heqF] at h
+      have hfamU : ∀ t : V, SetTheory.app
+          (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+            (Fss0f ψ) (Essf ψ)) t ∈ˢ (univ (f₀.s.eval ψ) : V) := by
+        intro t'
+        exact famApp_mem_univ (fixFamI_mem _ _ _ _ _ _ _ _ _) t'
+      have hfold := slotSet_fold_mem hfamU hfield (by rw [htlsJ]; exact hbs')
+      rw [hEisJ] at hfold
+      have hfrT : shiftE (i + ((tssF J ψ).getD i []).length) 0
+          (consList as (consList (fs.take i) ρp)) = ρp := by
+        rw [← consList_append, show i + ((tssF J ψ).getD i []).length = (fs.take i ++ as).length
+            from by rw [List.length_append, hlenTake, hlenAs]]
+        exact shiftE_consList _ _
+      obtain ⟨hvalT, -⟩ := tagTupleAV_facts hTag hIdsT hfrT hraw.1 hraw.2
+      rw [List.map_singleton, hvalT] at hfold
+      refine ⟨?_, ?_, ?_⟩
+      · show ∀ E ∈ ((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i [], _
+        rw [mutEiss0_getD hJl]
+        exact hraw.1
+      · intro Ids hIds
+        obtain rfl : Ids = ((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2) :=
+          Option.some.inj (hIds.symm.trans hIdsT)
+        show SpineFit ρp _ ((((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i []).map _)
+        rw [mutEiss0_getD hJl]
+        exact hraw.2
+      · show as.foldl SetTheory.app (fs.getD i pt) ∈ˢ _
+        rw [show ((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i []
+            = (eissF J ψ).getD i [] from by rw [mutEiss0_getD hJl]]
+        unfold auxFib auxTup
+        exact hfold
   -- **the auxiliary recursor's leaf is closed** (`nativeRecAVI_below`
   -- at `auxRecDataAV_below`)
   have hclRG : ∀ ψ : Name → Nat, Term.bvarsBelow 0
@@ -2722,243 +3029,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
             (by rw [(hident J cA hcA).2.2.2.2.2.1 ψ, (hCD₁ J cA hcA).eissLen ψ, hnFJ]),
           mutTlss_getD hJl, mutEiss0_getD hJl, hnFJ,
           (hident J cA hcA).2.2.2.2.2.1 ψ]
-    case hframes =>
-      intro ρp hρ
-      have hρ0 : Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp := hρ
-      obtain ⟨hTag, hV⟩ := hIdxAll 0 f₀ hf0 ψ ρp hρ0
-      obtain ⟨hFix, hRealρ, hXV⟩ := hChainFull 0 f₀ hf0 ψ ρp hρ0
-      obtain ⟨hX, -⟩ := hXAll 0 f₀ hf0 ψ ρp hρ0
-      -- the constructors' own parameter frames
-      have hρJ : ∀ J : Nat, J < ctorsA.length →
-          Sat V (((dsF J ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp := by
-        intro J hJ
-        exact ((hframesJ J hJ).1 ψ ρp).mp
-          (hframeAll 0 (memF J) f₀ _ hf0 (hfmGet _ (hmotLt J hJ)) ψ ρp hρ0)
-      refine ⟨hTag, hV, hFix, hX,
-        fixBodyAVI_validV (auxIds_idxOk hTag) (auxIds_fieldsValid hV) hXV, ?_, ?_, ?_⟩
-      · -- `fieldsB`: the REAL field chains are graded at any constructor's frame
-        by_cases hne : 0 < ctorsA.length
-        · exact (hFssOkP 0 _ (hcAGet 0 hne) ψ ρp (hρJ 0 hne)).1
-        · have h0 : ctorsA.length = 0 := by omega
-          show SumFieldsOkB _ ρp (mutFss p.toBlock.nP ctorsA.length dsF ψ)
-          rw [h0]
-          intro Fs hFs
-          simp only [mutFss, List.range_zero, List.map_nil] at hFs
-          exact nomatch hFs
-      · -- `ctor`: the constructor's index expressions at a field spine,
-        -- and its value in the auxiliary fibre at its own tag
-        -- (`fixFamI_app_eq_sum` at the 1-tuple spine, then
-        -- `restricted_member_intro` at the constructor's restricted chain)
-        intro J cd hJd fs hfs
-        obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
-        have hfrJ := (hframesJ J hJl).2 ψ ρp (hρJ J hJl)
-        obtain ⟨hEok, hfit⟩ := hfrJ.2.2.2 fs hfs
-        have hIdsM := hIdssGet ψ (memF J) (hmotLt J hJl)
-        refine ⟨fun E hE => (hEok E hE).1, ?_, ?_⟩
-        · intro Ids hIds
-          obtain rfl : Ids = ((ppsF (memF J) ψ).drop p.toBlock.nP).map (·.2.2) :=
-            Option.some.inj (hIds.symm.trans hIdsM)
-          exact hfit
-        · have hlenbs : fs.length = cA.2 := by
-            rw [hfs.length_eq, List.length_map, List.length_drop, (hCD₁ J cA hcA).len ψ,
-              Nat.add_sub_cancel_left]
-          have hfrs : shiftE cA.2 0 (consList fs ρp) = ρp := by
-            rw [← hlenbs]; exact shiftE_consList _ _
-          obtain ⟨hval, -⟩ := tagTupleAV_facts hTag hIdsM hfrs (fun E hE => (hEok E hE).1) hfit
-          have hsp1 : SpineFit ρp (auxIds (Wf ψ) (Idssf ψ))
-              [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] := by
-            refine ⟨?_, trivial⟩
-            rw [(tagTyAV_facts hTag).1]
-            exact tagTuple_mem hTag hIdsM hfit
-          have hsum := fixFamI_app_eq_sum hX hRealρ hsp1
-          rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl] at hsum
-          have hchain : (rChains 1 1 (FssRf ψ) (Essf ψ))[J]?
-              = some (rChain 1 1 (((dsF J ψ).drop p.toBlock.nP).map (·.2.2))
-                  [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)]) := by
-            rw [rChains_getElem?, hFssG ψ J hJl, hEssG J cA hcA ψ]
-          have hlenI : ([inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] : List V).length
-              = 1 := rfl
-          have hshift : shiftE 1 0
-              (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp) = ρp := by
-            rw [← hlenI]; exact shiftE_consList _ _
-          have hmemF : (if f₀.s.eval ψ = 0 then (pt : V) else mkTower (fs ++ [pt]))
-              ∈ˢ sumFibre (f₀.s.eval ψ)
-                  (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp)
-                  (rChains 1 1 (FssRf ψ) (Essf ψ)) J := by
-            rw [sumFibre_of_getElem? hchain]
-            refine restricted_member_intro ?_ ?_
-            · rw [spineFit_liftFields, hshift]
-              exact hfs
-            · rw [EqAll_idxEqsAt (by simp) hfs.length_eq, hshift, frameIdx_consList hlenI]
-              show idxValsAt ρp [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] fs = _
-              rw [idxValsAt, List.map_singleton, hval]
-              rfl
-          show ctorValI (f₀.s.eval ψ) J fs ∈ˢ _
-          unfold auxFib auxTup auxFamI
-          rw [hsum]
-          unfold ctorValI
-          rcases Nat.eq_zero_or_pos (f₀.s.eval ψ) with hw | hw
-          · rw [hw] at hmemF ⊢
-            rw [if_pos rfl] at hmemF ⊢
-            exact pt_mem_sumSet_zero hmemF
-          · have hw' : f₀.s.eval ψ ≠ 0 := Nat.pos_iff_ne_zero.mp hw
-            rw [if_neg hw'] at hmemF ⊢
-            exact inj_mem hw' hmemF
-      · -- `slot`: the same at a recursive slot's telescope spine and
-        -- its TARGET member's tag.  The RAW index facts come off the
-        -- real entry (`recEntry`/`reflEntry` + `leafSpineFit`), the
-        -- fibre membership off the real chain (`chainRealI_at`,
-        -- `slotSet_fold_mem`).
-        intro J cd hJd i hi fs hfs as hbs
-        obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
-        have hlenDs := (hCD₁ J cA hcA).len ψ
-        have hksLen : (kindsOf (ksF J)).length = cA.2 := by
-          rw [kindsOf_length]; exact (hksJ J cA hcA).1
-        have hmemI := mem_recIdx.mp hi
-        have hilt : i < cA.2 := hmemI.1
-        have hrb : (rsOf (kindsOf (ksF J))).getD i false = true := by
-          rw [← mutRss_getD (n := ctorsA.length) (ksF := ksF) hJl]
-          exact hmemI.2
-        have hkind : kindAt (ksF J) i = .recursive ∨ kindAt (ksF J) i = .reflexive := by
-          have h := (rsOf_getD_iff (by rw [hksLen]; exact hilt)).mp hrb
-          rwa [kindsOf_getD (by rw [(hksJ J cA hcA).1]; exact hilt)] at h
-        have htgt : tgtAt (ksF J) i < fms.length := (hksJ J cA hcA).2.2 i
-        have htG := hfmGet _ htgt
-        have hIdsT := hIdssGet ψ (tgtAt (ksF J) i) htgt
-        have hlenF : (((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).length = cA.2 := by
-          rw [List.length_map, List.length_drop, hlenDs, Nat.add_sub_cancel_left]
-        have hlenfs : fs.length = cA.2 := by rw [hfs.length_eq, hlenF]
-        have hlenTake : (fs.take i).length = i := by rw [List.length_take, hlenfs]; omega
-        have htlsJ : ((tlssf ψ).getD J []).getD i [] = (tssF J ψ).getD i [] := by
-          show ((mutTlss ctorsA.length tssF₀ ψ).getD J []).getD i [] = _
-          rw [mutTlss_getD hJl, (hident J cA hcA).2.2.2.2.2.2.1 ψ]
-        have hbs' : SpineFit (consList (fs.take i) ρp)
-            (((tssF J ψ).getD i []).map (·.2.2)) as := by
-          rw [← htlsJ]; exact hbs
-        have hlenAs : as.length = ((tssF J ψ).getD i []).length := by
-          rw [hbs'.length_eq, List.length_map]
-        have hfrJ := (hframesJ J hJl).2 ψ ρp (hρJ J hJl)
-        have hokEntry : WellDenoted V (consList (fs.take i) ρp)
-            ((((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).getD i default) :=
-          fieldsOkB_getD hfrJ.1 (by rw [hlenF]; exact hilt)
-            (spineFit_take_prefix hfs (by rw [hlenF]; omega))
-        rw [drop_map_getD hlenDs hilt] at hokEntry
-        -- the target member's leaf
-        have hlenT : (ppsF (tgtAt (ksF J) i) ψ).length
-            = p.toBlock.nP
-              + (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length := by
-          rw [List.length_map, List.length_drop, (hFD₂ _ _ htG).len ψ]; omega
-        have hLtower : ∃ B, mp₁.base2.acval
-            (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ
-            = mkLamsC (f₀.s.eval ψ + 1) (ppsF (tgtAt (ksF J) i) ψ) B := by
-          rw [(hmemT _ _ htG).1]
-          obtain ⟨B, hB⟩ := hleafT₁ _ _ htG ψ
-          exact ⟨B, by rw [hB, hsEq _ _ htG ψ]⟩
-        have hclT : Term.bvarsBelow 0
-            (mp₁.base2.acval (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ).erase :=
-          mp₁.base2.cval_closedL _ ψ
-        have hnIdxT : (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length
-            = mutualNIdxOf p.toBlock.members3 (tgtAt (ksF J) i) := by
-          rw [List.length_map, List.length_drop, (hFD₂ _ _ htG).len ψ, (hmemT _ _ htG).2]
-          omega
-        -- **the RAW index facts** at the slot's telescope spine
-        have hraw : (∀ E ∈ (eissF J ψ).getD i [],
-              WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
-            SpineFit ρp (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2))
-              (((eissF J ψ).getD i []).map
-                (interp V (consList as (consList (fs.take i) ρp)))) := by
-          have hEl : ((eissF J ψ).getD i []).length
-              = (((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2)).length := by
-            rw [hnIdxT]
-            rcases hkind with hk | hk
-            · exact (hCD₁ J cA hcA).eisLen ψ i hk hilt
-            · exact (hCD₁ J cA hcA).eisLenRefl ψ i hk hilt
-          rcases hkind with hk | hk
-          · -- a finitary recursive field: the telescope is empty
-            have hnone : (tssF J ψ).getD i [] = []
-              := (hCD₁ J cA hcA).tssNone ψ i (by rw [hk]; exact fun h => nomatch h)
-            obtain rfl : as = [] := by
-              rw [hnone] at hlenAs
-              exact List.eq_nil_of_length_eq_zero hlenAs
-            rw [(hCD₁ J cA hcA).recEntry ψ i hk hilt] at hokEntry
-            exact leafSpineFit hlenT hclT hLtower hlenTake hEl hokEntry
-          · -- a reflexive field: peel the telescope's Π-tower
-            rw [(hCD₁ J cA hcA).reflEntry ψ i hk hilt] at hokEntry
-            obtain ⟨-, hBody⟩ := WellDenoted_mkPisAV_inv hokEntry
-            have hok := hBody as hbs'
-            rw [← consList_append] at hok
-            have hlenSA : (fs.take i ++ as).length = i + ((tssF J ψ).getD i []).length := by
-              rw [List.length_append, hlenTake, hlenAs]
-            have hok' : WellDenoted V (consList (fs.take i ++ as) ρp)
-                (AnnotTerm.mkAppN
-                  (mp₁.base2.acval (mutualNameOf p.toBlock.members3 (tgtAt (ksF J) i)) ψ)
-                  (paramBvarsAt p.toBlock.nP
-                      (p.toBlock.nP + (i + ((tssF J ψ).getD i []).length))
-                    ++ (eissF J ψ).getD i [])) := by
-              rw [show p.toBlock.nP + (i + ((tssF J ψ).getD i []).length)
-                = p.toBlock.nP + i + ((tssF J ψ).getD i []).length from by omega]
-              exact hok
-            have h := leafSpineFit hlenT hclT hLtower hlenSA hEl hok'
-            rw [consList_append] at h
-            exact h
-        -- the block's chain lists at `J`
-        have hFssJ : (FssRf ψ).getD J [] = ((dsF J ψ).drop p.toBlock.nP).map (·.2.2) :=
-          mutFss_getD hJl
-        have hnFJ : nFs J = cA.2 := by
-          show (ctorsA.getD J default).2 = cA.2
-          rw [List.getD_eq_getElem?_getD, hcA]; rfl
-        have hlenEis0 : (eissF₀ J ψ).length = nFs J := by
-          rw [(hident J cA hcA).2.2.2.2.2.1 ψ, (hCD₁ J cA hcA).eissLen ψ, hnFJ]
-        have hEisJ : ((Eissf ψ).getD J []).getD i []
-            = [tagTupleAV (Wf ψ) (tgtAt (ksF J) i) (i + ((tssF J ψ).getD i []).length)
-                (Idssf ψ) ((eissF J ψ).getD i [])] := by
-          rw [mutEiss'_getD hJl (by rw [hnFJ]; exact hilt) hlenEis0,
-            (hident J cA hcA).2.2.2.2.2.2.1 ψ, (hident J cA hcA).2.2.2.2.2.1 ψ]
-        -- the real chain's slot
-        have hJF : J < (FssRf ψ).length := by rw [mutFss_length]; exact hJl
-        have hcR := hRealρ.2.2.2.2 J hJF
-        have hcw := chainRealI_at ((Fss0f ψ).getD J []) ((FssRf ψ).getD J []) 0 [] fs rfl hcR
-          (by rw [hFssJ]; exact hfs) i (by rw [hFssJ, hlenF]; exact hilt)
-          (by rw [Nat.zero_add]; exact hmemI.2)
-        rw [Nat.zero_add, List.nil_append] at hcw
-        obtain ⟨-, heqF⟩ := hcw
-        have hfield : fs.getD i pt ∈ˢ slotSet (f₀.s.eval ψ) (Wf ψ)
-            (consList (fs.take i) ρp) (((tlssf ψ).getD J []).getD i [])
-            (((Eissf ψ).getD J []).getD i [])
-            (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
-              (Fss0f ψ) (Essf ψ)) := by
-          have h := FixKI.spineFit_getD_mem' (by rw [hFssJ]; exact hfs)
-            (show i < ((FssRf ψ).getD J []).length by rw [hFssJ, hlenF]; exact hilt)
-          rwa [heqF] at h
-        have hfamU : ∀ t : V, SetTheory.app
-            (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
-              (Fss0f ψ) (Essf ψ)) t ∈ˢ (univ (f₀.s.eval ψ) : V) := by
-          intro t'
-          exact famApp_mem_univ (fixFamI_mem _ _ _ _ _ _ _ _ _) t'
-        have hfold := slotSet_fold_mem hfamU hfield (by rw [htlsJ]; exact hbs')
-        rw [hEisJ] at hfold
-        have hfrT : shiftE (i + ((tssF J ψ).getD i []).length) 0
-            (consList as (consList (fs.take i) ρp)) = ρp := by
-          rw [← consList_append, show i + ((tssF J ψ).getD i []).length = (fs.take i ++ as).length
-              from by rw [List.length_append, hlenTake, hlenAs]]
-          exact shiftE_consList _ _
-        obtain ⟨hvalT, -⟩ := tagTupleAV_facts hTag hIdsT hfrT hraw.1 hraw.2
-        rw [List.map_singleton, hvalT] at hfold
-        refine ⟨?_, ?_, ?_⟩
-        · show ∀ E ∈ ((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i [], _
-          rw [mutEiss0_getD hJl]
-          exact hraw.1
-        · intro Ids hIds
-          obtain rfl : Ids = ((ppsF (tgtAt (ksF J) i) ψ).drop p.toBlock.nP).map (·.2.2) :=
-            Option.some.inj (hIds.symm.trans hIdsT)
-          show SpineFit ρp _ ((((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i []).map _)
-          rw [mutEiss0_getD hJl]
-          exact hraw.2
-        · show as.foldl SetTheory.app (fs.getD i pt) ∈ˢ _
-          rw [show ((mutEiss0 ctorsA.length eissF ψ).getD J []).getD i []
-              = (eissF J ψ).getD i [] from by rw [mutEiss0_getD hJl]]
-          unfold auxFib auxTup
-          exact hfold
+    case hframes => exact hFrameOkG ψ
     case hclL =>
       exact auxFormerAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ))
         (by rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega)
