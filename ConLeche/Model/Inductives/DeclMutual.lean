@@ -2426,6 +2426,132 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (show t < formers4.length by rw [hlen4F]; exact ht)).1
     rw [hlen4F, hlen4C] at h
     exact h
+  -- the constructors' data, decoded positionally
+  have hdecG : ∀ (ψ : Name → Nat) (J : Nat) (cd : CtorDatumR),
+      (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[J]? = some cd →
+      ∃ cA, ctorsA[J]? = some cA ∧ J < ctorsA.length ∧
+        cd = (cA.1.name, cA.2, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)),
+          eissF J ψ, tssF J ψ) := by
+    intro ψ J cd hJd
+    rw [fixCtorDataList_getElem?] at hJd
+    obtain ⟨cA, hcA, hEq⟩ := Option.map_eq_some_iff.mp hJd
+    refine ⟨cA, hcA, (List.getElem?_eq_some_iff.mp hcA).1, ?_⟩
+    rw [← hEq]
+    simp only [Nat.zero_add]
+  -- the REAL field chains are closed at the parameters
+  have hFssBelowG : ∀ (ψ : Name → Nat), ∀ Fs ∈ FssRf ψ, FieldsBelow p.toBlock.nP Fs := by
+    intro ψ Fs hFs
+    obtain ⟨J, hJ, rfl⟩ := List.mem_map.mp (show Fs ∈ (List.range ctorsA.length).map
+      (fun J => ((dsF J ψ).drop p.toBlock.nP).map (·.2.2)) from hFs)
+    have hh := (DomsBelow.drop p.toBlock.nP
+      ((hCD₁ J _ (hcAGet J (List.mem_range.mp hJ))).below ψ)).fields
+    rwa [Nat.zero_add] at hh
+  -- each constructor datum's closedness facts
+  have hRawCtor : ∀ (ψ : Name → Nat) (J : Nat) (cd : CtorDatumR),
+      (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[J]? = some cd →
+      RawCtorBelow p.toBlock.nP mp₂.base2 ψ cd := by
+    intro ψ J cd hJd
+    obtain ⟨cA, hcA, hJl, rfl⟩ := hdecG ψ J cd hJd
+    exact
+      { leaf := mp₂.base2.cval_closedL cA.1.name ψ
+        doms := (hCD₁ J cA hcA).below ψ
+        len := (hCD₁ J cA hcA).len ψ
+        esBelow := (hCD₁ J cA hcA).belowE ψ
+        recIdxBnd := fun i hi => by
+          have h := mem_recIdxOf.mp hi
+          rw [kindsOf_length, (hksJ J cA hcA).1] at h
+          exact h.1
+        tssBelow := (hCD₁ J cA hcA).tssBelow ψ
+        eissBelow := (hCD₁ J cA hcA).eissBelow ψ }
+  -- **the auxiliary recursor's leaf is closed** (`nativeRecAVI_below`
+  -- at `auxRecDataAV_below`)
+  have hclRG : ∀ ψ : Name → Nat, Term.bvarsBelow 0
+      (auxRecAV mp₂.base2 ψ (p.toBlock.elimLevel.eval ψ) (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
+        (auxRecSort (Wf ψ) (Wf ψ) (f₀.s.eval ψ) (p.toBlock.elimLevel.eval ψ))
+        p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        (FssRf ψ) (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)).erase := by
+    intro ψ
+    have hlenP0 : ((ppsF 0 ψ).take p.toBlock.nP).length = p.toBlock.nP := by
+      rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega
+    have hlenFssR : (FssRf ψ).length = ctorsA.length := mutFss_length
+    have hEssB : ∀ j, j < (FssRf ψ).length →
+        ((Essf ψ).getD j []).length = 1 ∧
+        ∀ E ∈ (Essf ψ).getD j [],
+          Term.bvarsBelow (p.toBlock.nP + ((FssRf ψ).getD j []).length) E.erase := by
+      intro j hj
+      rw [hlenFssR] at hj
+      rw [mutEss'_getD hj, mutFss_getD hj]
+      refine ⟨rfl, fun E hE => ?_⟩
+      rw [List.mem_singleton] at hE
+      subst hE
+      rw [show (((dsF j ψ).drop p.toBlock.nP).map (·.2.2)).length = nFs j from by
+        rw [List.length_map, List.length_drop, (hCD₁ j _ (hcAGet j hj)).len ψ]
+        show p.toBlock.nP + nFs j - p.toBlock.nP = nFs j
+        omega]
+      exact tagTupleAV_belowM (nP := p.toBlock.nP) (W := Wf ψ) (m := memF j) (d := nFs j)
+        (hIdsBelow ψ) (fun E hE => (hCD₀ j _ (hcAGet j hj)).belowE ψ E hE)
+    show Term.bvarsBelow 0 (nativeRecAVI _ _ _ (FssRf ψ) (Essf ψ) (auxIds (Wf ψ) (Idssf ψ))
+      rssf (tlssf ψ) (Eissf ψ) (auxRecDataAV mp₂.base2 ψ (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
+        p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)) _).erase
+    refine nativeRecAVI_below 0
+      (auxRecDataAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ)) hlenP0
+        (hIdsBelow ψ) (hchainBelow ψ) (hRawCtor ψ))
+      ?_ rfl ?_ (hFssBelowG ψ) ?_ ?_
+    · unfold auxRecDataAV
+      rw [fixRecDataAVL_length hlenP0 (show (tagIps (Wf ψ) (Idssf ψ)).length = 1 from rfl),
+        auxCtorData_length, fixCtorDataList_length, hlenFssR,
+        show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl]
+      omega
+    · intro Fs' hFs'
+      rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl, hlenFssR] at hFs'
+      have hb := rChains_below (d := 1 + ctorsA.length + 1) (nIdx := 1) (K := p.toBlock.nP)
+        (by omega) (hFssBelowG ψ) hEssB Fs' hFs'
+      rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl, hlenFssR]
+      exact fieldsBelow_mono (by omega) hb
+    · -- the slots' telescopes
+      intro j i
+      by_cases hj : j < ctorsA.length
+      · show DomsBelow _ (((mutTlss ctorsA.length tssF₀ ψ).getD j []).getD i [])
+        rw [mutTlss_getD hj]
+        exact (hCD₀ j _ (hcAGet j hj)).tssBelow ψ i
+      · show DomsBelow _ (((mutTlss ctorsA.length tssF₀ ψ).getD j []).getD i [])
+        rw [show (mutTlss ctorsA.length tssF₀ ψ).getD j [] = [] from by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simp [mutTlss]; omega)]
+          rfl]
+        exact trivial
+    · -- the slots' index expressions
+      intro j i E hE
+      have hE' : E ∈ ((mutEiss' (Wf ψ) (Idssf ψ) ksF nFs tssF₀ eissF₀ ψ).getD j []).getD i [] := hE
+      show Term.bvarsBelow
+        (p.toBlock.nP + i + (((mutTlss ctorsA.length tssF₀ ψ).getD j []).getD i []).length) E.erase
+      by_cases hj : j < ctorsA.length
+      · have hEL : (eissF₀ j ψ).length = nFs j := (hCD₀ j _ (hcAGet j hj)).eissLen ψ
+        rw [mutTlss_getD hj]
+        by_cases hi : i < nFs j
+        · rw [mutEiss'_getD hj hi hEL, List.mem_singleton] at hE'
+          subst hE'
+          have hb := tagTupleAV_belowM (nP := p.toBlock.nP) (W := Wf ψ)
+            (m := tgtAt (ksF j) i)
+            (d := i + ((tssF₀ j ψ).getD i []).length) (hIdsBelow ψ) (fun E hE => by
+              have hh := (hCD₀ j _ (hcAGet j hj)).eissBelow ψ i E hE
+              rwa [show p.toBlock.nP + i + ((tssF₀ j ψ).getD i []).length
+                = p.toBlock.nP + (i + ((tssF₀ j ψ).getD i []).length) from by omega] at hh)
+          rwa [show p.toBlock.nP + (i + ((tssF₀ j ψ).getD i []).length)
+            = p.toBlock.nP + i + ((tssF₀ j ψ).getD i []).length from by omega] at hb
+        · rw [mutEiss'_getDJ hj hEL, List.getD_eq_getElem?_getD, List.getElem?_map,
+            List.getElem?_eq_none (by simpa using Nat.le_of_not_lt hi)] at hE'
+          exact nomatch hE'
+      · rw [show (mutEiss' (Wf ψ) (Idssf ψ) ksF nFs tssF₀ eissF₀ ψ).getD j [] = [] from by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by
+            show (mutEiss' (Wf ψ) (Idssf ψ) ksF nFs tssF₀ eissF₀ ψ).length ≤ j
+            unfold mutEiss' mutualEiss
+            simp only [List.length_map, List.length_range, mutEiss0_length]
+            omega)]
+          rfl] at hE'
+        exact nomatch hE'
   -- **the recursor stage's data** (`MutualRecParts`): the chain lists
   -- are the block's CONCRETE spellings, so the datum's derived lists
   -- and the stage's agree by `rfl`
@@ -2460,18 +2586,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- **the member leaf's typing hypotheses** (`MutualLeafHyp`)
   have hyp : prts.LeafHyp V mp₂.base2 := by
     intro t ht ψ
-    -- the constructors' data, decoded positionally
-    have hdec : ∀ (J : Nat) (cd : CtorDatumR),
-        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[J]? = some cd →
-        ∃ cA, ctorsA[J]? = some cA ∧ J < ctorsA.length ∧
-          cd = (cA.1.name, cA.2, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)),
-            eissF J ψ, tssF J ψ) := by
-      intro J cd hJd
-      rw [fixCtorDataList_getElem?] at hJd
-      obtain ⟨cA, hcA, hEq⟩ := Option.map_eq_some_iff.mp hJd
-      refine ⟨cA, hcA, (List.getElem?_eq_some_iff.mp hcA).1, ?_⟩
-      rw [← hEq]
-      simp only [Nat.zero_add]
+    have hdec := hdecG ψ
     refine
       { hℓ := rfl
         hb := rfl
@@ -2843,9 +2958,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact auxFormerAV_below (domsBelow_take ((hFD₂ 0 f₀ hf0).below ψ))
         (by rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega)
         (hIdsBelow ψ) (hchainBelow ψ)
-    case hclR =>
-      -- the auxiliary recursor's leaf is closed
-      sorry
+    case hclR => exact hclRG ψ
     case haux =>
       -- `auxRecLeafFacts` (`MutualRecPre2.lean`); its `AuxFrameOk.minors`
       -- goes through `minorTag_facts`, whose `hctorOk` is DESIGN §8.4's
