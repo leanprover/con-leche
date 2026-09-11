@@ -68833,3 +68833,262 @@ statement.
 **What the maintainer decides:** the option; whether the declared
 `numNested` mismatch is a reject (mirroring #228) or ignored
 (mirroring official); whether `And` is un-pinned or given its lemma.
+
+## TASK #280 — THE REPRESENTATION CLAUSE: every stored inductive is the least fixed point of a container functor (2026-09-11, `agent/clause-280`, lands on `inductives`)
+
+**The decision (maintainer, 2026-09-11).**  The route to native nested
+inductives and to uniform projections is: #278 makes mutual blocks
+native with the reduction in the model tier; THIS task adds one
+conjunct to the existing environment-model invariant — proof modules
+only, no checker change, nothing stored at run time — saying that every
+stored inductive "has a representation as a fixed point of a container
+functor" spelled from the constructor types the checker stored, its
+type former's leaf the fixed point and its constructors' leaves the
+fixed point's injections; #279 then installs a nested block as the
+mutual installer on official's nested→mutual elimination and identifies
+each copy with the real container at the new carrier by Bekić's lemma —
+the map action and Bekić being THEOREMS over the representation, never
+stored.  The maintainer's words: "we don't need to store it, just keep
+a proof around that it exists".
+
+**Rulings received during the task (orchestrator, within the decision):**
+(1) the functor and the injections of the representation are ABSTRACT
+sets, not the tagged towers — so that ω with the von Neumann successor
+is the least fixed point of `X ↦ {∅} ∪ {n ∪ {n} | n ∈ X}` on the nose;
+no syntactic leaf-equality field.  (2) The transitional disjunct for
+the modeled route's blocks is accepted; no ghost list; it is deleted
+with the route by #278/#279 and no consumer may extract `IndRep` for
+an arbitrary block until it is gone.  (3) The function-valued map
+action (`List.map`) exists only on strictly positive parameters — the
+paper's criterion, not official's — and the nested design's
+identification is an equality of sets (Bekić + the leaf clause), so
+the toolkit is: least fixed points monotone/congruent in the functor,
+the map action as an INCLUSION, Bekić in pure set theory; plus ONE
+addition — the initiality/retagging principle (stated below, priced,
+not proved: > 1 session).  (4, maintainer) the inductives work stays
+off master: the landing target is the integration branch `inductives`.
+
+### 1. The clause, exactly (`ConLeche/Model/IndRep.lean`)
+
+`EnvModelM` (`Model/Annot/EnvModelM.lean`) gains the field
+`ind_reps : IndReps base2`, keyed on the stored RECURSOR (the last
+constant every inductive install stores, so a fresh former owes nothing
+and a fresh recursor claims its block):
+
+```
+IndReps m := ∀ n cvR mI rP rules, env.find? n = some (.recInfo cvR mI rP rules) →
+  ∀ T, n = T.str "rec" →
+  (∃ cvT caps d, env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d)
+  ∨ ModeledLeaf m n            -- TRANSITIONAL, deleted by #278/#279
+```
+
+`IndRepData V` (the datum, existential): the fixpoint route's spelling
+of the block — `nP nIdx resSort isProp large`, the pre-block
+environment `env₀` (a ghost witness: the ordinary field domains resolve
+in it, hence mention neither the former nor a constructor), `ctorsA`,
+the per-constructor readings `idxF dsF esF srcsF ksF fvsPF xFvsF xrestF
+eissF tssF` (`FixCtorDataI`'s data), the former's telescope `pps`, the
+index-tuple sort `u` — and two ABSTRACT semantic pieces: the functor
+`Φ : ψ → frame → V` and the injections `inj : ψ → Nat → List V → V`.
+Derived: `w ψ = resSort.eval ψ`, `params/Ids` (the telescope split at
+`nP`), `cds/rss/tlss/Eiss/Fss/Ess` (the lists the X-chains are spelled
+from), `idx ψ ρp = idxSet (u ψ) ρp (Ids ψ)`, and `ChainFit ψ ρp X t j fs`
+(the spine has constructor `j`'s field count, fits its X-chain
+`chainXIGo …` at the frame `(ρp, X, t)`, and the constructor's index
+expressions at it equal the tuple `t`'s components — `fixStepI_elim`'s
+shape).
+
+`IndRep m T cvT cvR mI rP rules d`: `strip` (the stored type is the
+telescope over `nP + nIdx` binders ending in `Sort resSort`), `isProp`,
+`mI = nP+1+|ctorsA|+nIdx`, `rP = nP+1+|ctorsA|`, `rules.map ctor =
+ctorsA.map name`; `former : FormerData m cvT …` and `ctors : ∀ j cA,
+FixCtorFactsAt m env₀ T … j cA` (every constructor stored, its type read
+as the datum says — THIS is "spelled from the stored constructor
+types"); `idxRes`, `uParams`, `paramsIff`; `chains : ChainsOk …`
+(`XChainsOk` minus its closure witness); `functor` (`Φ ψ ρp ∈
+lfpFamFunSpace`, `MonoFam`, `MapsFam`, a closed member); **`fibre`**
+(`x ∈ app (app Φ X) t ↔ ∃ j fs, j < |ctorsA| ∧ ChainFit … j fs ∧ x = inj ψ
+j fs` — the container functor); **`leaf`** (form (L)/(M0), the fold:
+`(as ++ is).foldl app ⟦T⟧ = app (lfpFamSet (w ψ) (idx ψ (consList as ρ))
+(Φ ψ (consList as ρ))) (tupW (u ψ) is)` for fitting parameter and index
+spines); **`ctor`** (`(as ++ fs).foldl app ⟦c_j⟧ = inj ψ j fs`);
+`mkZero` (a `Prop` block's injections are the point), `mkInj`
+(injective across constructors and spines of the constructors' lengths
+at a `Type` block).
+
+`ModeledLeaf m n := (env.find? (n.str "_model")).isSome ∧ ∀ ψ, acval
+(n._model) ψ = acval n ψ` — exactly what the modeled route establishes
+for every block member (`BlockAcvalInstalled`, `BlockInstalledTT`),
+keyed on the recursor so that a modeled recursor stored for a foreign
+former (a crafted stream) is covered too.
+
+**Why the recursor key.**  The stored records of a modeled block are
+syntactically indistinguishable from a native one's (`indInfo cv caps`
+carries no `all`/`numNested`; a modeled zero-constructor member's
+recursor even has a single-motive-looking record), so a syntactic guard
+("single-motive recursor") is unsound for zero-rule recursors; the
+disjunct is the honest transitional form.  Keying on `T.rec` also makes
+`Quot` claim nothing: it is stored as an inductive record for the
+checker's uniformity but has no `Quot.rec`; in official it is a
+`quotInfo`, not an inductive, `is_nested_inductive_app` never fires on
+it, and no block nests through it.
+
+**`IndRepsHead`** (the head obligation at a cons): a fresh recursor
+`T.rec` claims its block (left disjunct, the former looked up at the
+extension) or is modeled; every other head owes nothing
+(`IndRepsHead.ofNtc`).  It is an `autoParam` on the P step and the
+basis/ind wrappers (`by exact fun m₂ _ => IndRepsHead.ofNtc m₂ (fun _ _ _ _
+h => nomatch h)`), so every non-recursor call site — the harvests, the
+formers, the constructors, the tables — was untouched; only recursor
+heads supply it.
+
+### 2. The discharge, site by site
+
+* **Native (`indRep_of_stage`, `Model/Inductives/FixRep.lean`):** from
+  `stageFixRec`'s block facts (the former's data, `FixCtorFactsAt` per
+  constructor, the leaf `nativeTyAVI …`, the constructor leaves
+  `sumMkAV …`, the chains graded) with `Φ := fixFunVI …` and `inj := injW
+  w j (mkTower (fs ++ [pt]))` (the tagged towers).  Two kits: the X-chains
+  ignore the entries at recursive positions (the slot is spelled
+  instead), so every chain notion is congruent along an agreement off
+  those positions (`AgreeOffRec(s)`, `chainsXI_congr`, `xChainsOk_congr`)
+  — which identifies the functor spelled from the DUMMY former's readings
+  (the leaf's `fssZ`) with the one spelled from the real readings (the
+  datum's `Fss`; `declNative` supplies the agreement `hagreeZ` from its
+  `hident`); and `fixStepI_iff`, the fibre's membership in both regimes.
+  `stageFixRec` supplies the head obligation itself (two new hypotheses,
+  `hProp` and `hagree`, from `declNative`); the recursor's name pin
+  (`checkNativeRec_pins`) gives `T`.
+* **Pinned basis blocks (`Model/BasisRep*.lean`)**, one lemma each at the
+  recursor's cons: `Empty`/`False` by `indRep_zeroCtor` (the empty family
+  is the least fixed point of the functor with no chains,
+  `lfpFamSet_app_eq_empty`); `PUnit` (the constant functor `unitSet`,
+  injection `pt`, both regimes); `Nat` (ω = lfp of `X ↦ {∅} ∪ {n ∪ {n} | n ∈
+  X}`, injections `natzero`/`natsucc`; injectivity of the von Neumann
+  successor from regularity); `Eq` (parameters `α a`, index `b`, the
+  `Prop` regime: the fibre at the tuple `⟨b⟩` is `{pt}` iff `b = a`, and
+  the least fixed point of a constant functor is its value).  `Bool`
+  and `And` are prelude blocks through `checkNative` — the native
+  discharge.  `Quot.lift`/`Quot.ind` are recursor heads whose names are
+  not `X.rec`: discharged by `Name.str.injEq`.
+* **Non-inductive constants:** `IndReps.cons` (`Model/IndRepCons.lean`)
+  transports every prefix entry across any fresh cons — a
+  representation reads the environment only through `denoteMeta` and
+  stored lookups (`IndRep.cross`: readings by `denoteMeta_cons_mono`,
+  leaves by `acvalWith_ne`, the semantic laws mention no carrier).  A
+  TABLE head (`projInfo`) is the one head whose slots a reading could
+  mention; `FixCtorDataI.cross` of the fixpoint route takes
+  slot-freeness for EVERY expression, which only a non-table head has,
+  so `crossAt` takes it for the constructor's type alone and derives it
+  for the opened pieces (`Expr.NoProjAt.openPisAtFvars`).
+* **Modeled route:** the member cons (`indMember`, `Model/IndMember.lean`)
+  supplies `ModeledLeaf` for a rule-less recursor from `hmE` (the model
+  stored) and the leaf definition; the rule-list swap (`EnvModelM.swapP`
+  gains `hreps`; `IndReps.swap`, `Model/IndRepSwap.lean`) transports
+  unchanged recursors and asks the caller for the changed ones —
+  `indRecs` gets them as block members from a second run of
+  `indRecsFoldFactsRun` with the membership predicate as `RF`.
+* **Projection functions** (`projFnName T i` = `(T.str "proj").num i`,
+  never `X.str "rec"`): constructor disjointness.
+* **The empty environment:** vacuous.
+
+**Relocations (no statement changed).**  `FormerData`, `CtorDataI`,
+`FieldsBoundSrc`, `ctorBodyAVI`, `paramBvars(At)`, `FixOpened`,
+`FixCtorDataI`, `CtorDatumR`, `fixCtorDataList`, `FixCtorFactsAt`,
+`fssOfR/essOfR/eissOfR/tlssOfR/rssOfK`, `rsOf`, `constsBound_getAppArgs`,
+`openPisAtFvars_constsBound` moved verbatim into
+`Model/Inductives/BlockData.lean` (the clause must sit below
+`EnvModelM`); `findPreserved_cons`, `denoteMeta_cons_fresh(_mono)`,
+`denoteMeta_cons_mono`, `basisPinnedTT_consFresh` moved verbatim from
+`Model/Install.lean` into `Model/Annot/ConsMono.lean` (the transport
+must sit below the step).  The donor modules re-export.
+
+### 3. The toolkit (theorems over the representation, nothing stored)
+
+* `lfpFamSet_mono_functor`, `lfpFamSet_congr_functor`
+  (`SetTheory/Derive/Bekic.lean`): least pre-fixed families are monotone
+  and congruent in the functor.
+* **The map action, as an inclusion** (`IndRep.leaf_mono`,
+  `Model/IndRepToolkit.lean`): when the representing functor at one
+  parameter spine lies below the functor at another (over the same
+  index set), the represented family does, at every index.  A parameter
+  occurring positively in the chains yields the premise; one occurring
+  negatively (`α → Nat`) does not, and no map exists for it — the
+  function-valued map action is the paper's strictly-positive criterion,
+  not official's, and §5.3–5.5 of the nested design never use it.
+* **Bekić** (`bekic_restr`, `bekic_nested`): for a monotone `Φ` with a
+  closed member on families over `binUnion S C` (`famRestr`/`famJoin`,
+  the sections `famSec`/`famNested` as graphs on the family space),
+  `μ|_S = lfp (X ↦ Φ(X ⊔ μ|_C)|_S)` and, given closed members for the
+  sections at every `C`-family and `S ∩ C = ∅`, `μ|_C = lfp (Y ↦ Φ(lfp(X ↦
+  Φ(X ⊔ Y)|_S) ⊔ Y)|_C)`.  Both proofs are the design's: the restriction
+  is a fixed point of the section, so the section's lfp is below it; the
+  join of that lfp with the complement's restriction is `Φ`-closed, so
+  `μ` is below the join.  What #279 consumes for (M2): a copy's
+  `S`-section at the real members' component is the container's own
+  functor at the pins (their (M1) + the clause's `fibre`), so
+  `bekic_restr` and the clause's `leaf` identify the copy with the
+  container.
+
+### 4. The initiality/retagging principle — STATED, priced, not proved
+
+The ruling's addition: since #278 keeps block-position tags, #279 must
+relate two representations of the same container structure whose
+injections differ by a tag renaming (the copy tagged by aux-block
+position, the real container tagged locally).  The statement, over
+`IndRep` data at a level assignment and parameter frame, with `μ := lfpFamSet
+(d.w ψ) (d.idx ψ ρp) (d.Φ ψ ρp)`:
+
+* **Initiality.**  For a target family `B` over the index set and a step
+  `st : Nat → List V → V → V` (constructor, fields, the function on the
+  recursive positions to their results), there is exactly one `f` with
+  `f ∈ Π_{t ∈ idx} (app μ t → app B t)` and, for every `t`, `j`, `fs` with
+  `ChainFit ψ ρp μ t j fs`, `f t (d.inj ψ j fs) = st j fs (fun p ∈ posSet …
+  => f (posTgt … p) (spine fold of fs at p))` — `recGraph_exists_unique`
+  (`SetModel/RecGraph.lean`) at the container presentation of `d`
+  (positions `posSet`, targets `posTgt` of `Model/Inductives/FixWitness.lean`,
+  re-derived for an abstract `inj` from `fibre` + `mkInj`), the
+  well-founded relation being "recursive component of".
+* **Retagging.**  For `d₁ d₂` with the same `u`, `Ids`, `w`, `rss`, `tlss`,
+  `Eiss`, `Fss`, `Ess` (hence the same `ChainFit`) and a bijection `σ` on
+  `Fin |ctorsA|` with `d₂.inj ψ (σ j)` playing `d₁.inj ψ j`'s role, there
+  is a bijection `φ_t : app μ₁ t ≃ app μ₂ t` (natural in `t`) with `φ_t
+  (d₁.inj ψ j fs) = d₂.inj ψ (σ j) (fs with each recursive slot
+  transported along φ)` — `φ` by initiality into `μ₂`, its inverse by
+  initiality into `μ₁`, the two composites the identity by uniqueness.
+
+Price: the container presentation of an abstract `IndRep` (FixWitness's
+800 lines are for the tagged builder; the abstract one needs the
+shapes/positions read off `fibre`/`mkInj` and the currying of the
+reflexive slots), the recursion theorem's instance and the two
+uniqueness arguments — 2–3 Fable sessions.  Stopped here per the
+ruling; #279 states (M2) as an equality of SETS through Bekić and the
+clause and needs the retagging only where #278's tags differ from the
+container's local ones (R2), which is the place to spend it.
+
+### 5. What #278 and #279 consume
+
+* #278 (`declMutual`): discharges `IndRepsHead` at each member recursor's
+  cons with an `IndRep` whose `Φ := fixFunVI` at `Ids := [tagAV]`, tuple
+  `tupW u [inj m ⟨ı⃗⟩]`, `inj` at the block position — the fold form takes
+  it as it stands; `FixCtorFactsAt` is single-member (`recEntry` names
+  the block's one former) and is generalised there to a member table.
+  Then the modeled disjunct is deleted for mutual blocks.
+* #279: reads a container `J`'s representation through `IndReps` at
+  `J.rec` — `fibre` and `leaf` for (M2), `ctor` for (M3), `chains` for the
+  gradings — applies `bekic_restr` to the aux block's functor (the
+  section at the real members' component IS `Φ_J(⟦Ds⟧)` by `fibre` and
+  their (M1)), and deletes the modeled disjunct with the route.
+
+### 6. Gates and status
+
+Build and `lake test` warning-free; the axiom pin unchanged; the
+proof-dependency pin regenerated: the seven new modules
+(`Model/Annot/ConsMono`, `Model/IndRep`, `Model/IndRepCons`,
+`Model/IndRepSwap`, `Model/BasisRep`, `Model/Inductives/BlockData`,
+`Model/Inductives/FixRep`) enter every capstone's closure because the
+invariant carries the clause — the justification IS the task; no other
+door.  No checker file touched (`Kernel/*`, `Cached/*`, `Frontend/*`,
+`Main.lean` untouched), so no verdict changes; `tests/arena.sh` as
+recorded.
+

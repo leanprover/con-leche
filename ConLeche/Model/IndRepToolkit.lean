@@ -33,10 +33,10 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- A fitting parameter spine satisfies the parameter telescope. -/
-theorem IndRepData.sat_of_spineFit (d : IndRepData V) {ψ : Name → Nat} {ρ : Nat → V}
+theorem IndRepData.satOfSpine (d : IndRepData V) {ψ : Name → Nat} {ρ : Nat → V}
     {as : List V} (hsp : SpineFit ρ (d.params ψ) as) :
     Sat V (d.params ψ).reverse (consList as ρ) := by
-  have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp
+  have := ConLeche.Model.sat_of_spineFit (Sat_nil V ρ) hsp
   simpa using this
 
 /-- **The map action on the parameters, as an inclusion**: when the
@@ -58,7 +58,7 @@ theorem IndRep.leaf_mono {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
     (as ++ is).foldl app (interp V ρ (m.acval T ψ))
       ⊆ˢ (as' ++ is).foldl app (interp V ρ (m.acval T ψ)) := by
   rw [h.leaf ψ ρ as is hsp hi, h.leaf ψ ρ as' is hsp' hi']
-  obtain ⟨-, hmono', -, hcl'⟩ := h.functor ψ (consList as' ρ) (d.sat_of_spineFit hsp')
+  obtain ⟨-, hmono', -, hcl'⟩ := h.functor ψ (consList as' ρ) (d.satOfSpine hsp')
   have ht : tupW (d.u ψ) is ∈ˢ d.idx ψ (consList as ρ) := tupW_mem hi
   have key := lfpFamSet_mono_functor (I := d.idx ψ (consList as ρ)) hle (by rw [hidx]; exact hmono')
     (by rw [hidx]; exact hcl') _ ht

@@ -316,7 +316,17 @@ the other reduction steps
 ([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L303-L361)).
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
-([structure `EnvModel` in `ConLeche/Model/Annot/EnvModel.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Annot/EnvModel.lean#L64-L100)).
+([structure `EnvModel` in `ConLeche/Model/Annot/EnvModel.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Annot/EnvModel.lean#L64-L100)),
+and for every stored inductive block a *representation*: its type
+former's leaf, applied to parameters and indices, is a fibre of the
+least fixed point of a container functor spelled from the block's
+stored constructor types, and its constructors' leaves are that fixed
+point's injections
+([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L289-L298)).
+Nothing of the representation is stored: it is a fact the proof keeps
+about the block, discharged by the install that built the block's
+leaves — definitionally for the fixpoint route, by one lemma for each
+pinned basis block.
 
 **The claims.** Each kernel function gets one claim, in the accepting
 direction only

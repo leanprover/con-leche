@@ -1159,6 +1159,461 @@ theorem eqRecTy_wellDenotedV {b : Nat} (ψ : Name → Nat)
     (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
     (fun hb _ _ => by rw [interp_pi, hb]; exact piR_zero_mem_univZero)
 
+/-! ## The `Eq` block's representation (task #280): the constant functor whose fibre at the index `b` is the truth value of `a = b` -/
+
+section EqRep
+open ConLeche.SetTheory.Tower
+open ConLeche (RecFieldKind IndCaps RecRule)
+
+/-! ## The block's spelled pieces -/
+
+/-- The first parameter variable of `Eq.refl`'s opened type. -/
+@[expose] def eqFvAlpha : Expr := .fvar 0 (.sort (.param uN))
+
+/-- The second parameter variable of `Eq.refl`'s opened type — and, as
+the residual's only index argument, the block's index expression. -/
+@[expose] def eqFvA : Expr := .fvar 1 eqFvAlpha
+
+/-- The index telescope of `Eq`, at the parameter frame: the domain
+`α`, which is the outer parameter variable. -/
+@[expose] def eqIds : List AnnotTerm := [.bvar 1]
+
+/-- `Eq.refl`'s index reading: the parameter `a`, at the
+constructor's frame. -/
+@[expose] def eqEs : List AnnotTerm := [.bvar 0]
+
+/-- A bound variable is bounded at any strictly greater depth — the
+readings' `DomsBelow`/`belowE` obligations, all of them numerals. -/
+theorem bvarsBelow_bvarAV {k i : Nat} (h : i < k) :
+    Term.bvarsBelow k (AnnotTerm.bvar i).erase := h
+
+/-- **The `Eq` block's representation datum**: two parameters, one
+index at sort `u`, one field-free constructor whose index expression
+is the second parameter, and the fixpoint route's own functor. -/
+@[expose] noncomputable def eqRepData (env₀ : Env) : IndRepData V where
+  nP := 2
+  nIdx := 1
+  resSort := .zero
+  isProp := (Level.isEquiv .zero .zero == some true)
+  large := true
+  env₀ := env₀
+  ctorsA := [(eqReflA.toConstantVal, 0)]
+  idxF := fun _ => [eqFvA]
+  dsF := fun _ ψ => [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)]
+  esF := fun _ _ => eqEs
+  srcsF := fun _ => []
+  ksF := fun _ => []
+  fvsPF := fun _ => [eqFvAlpha, eqFvA]
+  xFvsF := fun _ => []
+  xrestF := fun _ => .app (.app (.app (.const eqName [.param uN]) eqFvAlpha) eqFvA) eqFvA
+  eissF := fun _ _ => []
+  tssF := fun _ _ => []
+  pps := fun ψ => [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)]
+  u := fun ψ => ψ uN
+  Φ := fun ψ ρp => fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
+  inj := fun _ _ _ => pt
+
+section
+
+variable {env₀ : Env}
+
+/-- The datum's parameter-and-index telescope, reduced. -/
+theorem eqRepData_pps (ψ : Name → Nat) :
+    (eqRepData (V := V) env₀).pps ψ
+      = [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)] := rfl
+
+/-- `Eq.refl`'s binder data, reduced. -/
+theorem eqRepData_dsF (j : Nat) (ψ : Name → Nat) :
+    (eqRepData (V := V) env₀).dsF j ψ = [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)] := rfl
+
+/-! ## The parameter frame -/
+
+/-- A satisfying parameter frame gives the two parameters' memberships
+(`α : Sort u` and `a : α`). -/
+theorem eqRepData_frame {ψ : Name → Nat} {ρp : Nat → V}
+    (hρ : Sat V ((eqRepData (V := V) env₀).params ψ).reverse ρp) :
+    ρp 1 ∈ˢ (univ (ψ uN) : V) ∧ ρp 0 ∈ˢ ρp 1 := by
+  have h1 := hρ 1 (.sort (ψ uN)) rfl
+  have h0 := hρ 0 (.bvar 0) rfl
+  rw [interp_sort] at h1
+  rw [interp_bvar] at h0
+  exact ⟨h1, h0⟩
+
+/-- The index telescope is graded at a parameter frame. -/
+theorem eqRepData_idxOk {ψ : Name → Nat} {ρp : Nat → V}
+    (hA : ρp 1 ∈ˢ (univ (ψ uN) : V)) : IdxOk (ψ uN) ρp eqIds := by
+  have hi : interp V ρp (AnnotTerm.bvar 1) = ρp 1 := interp_bvar V ρp 1
+  exact ⟨⟨trivial, fun _ => by rw [hi]; exact hA, fun _ _ => trivial⟩,
+    ⟨by rw [hi]; exact hA, fun _ _ => trivial⟩⟩
+
+/-! ## The chains
+
+One constructor, no fields: its X-chain is the single index equation
+`a = ⟨t⟩₀`, and the recursive slots' fit is vacuous. -/
+
+/-- **The X-chains are graded at every family and tuple** — the one
+chain is the index equation, whose two sides read off the frame. -/
+theorem eqRepData_chainsOk {ψ : Name → Nat} {ρp : Nat → V}
+    (hI : IdxOk (ψ uN) ρp eqIds) :
+    XChainsOk (ψ uN) 0 ρp eqIds [[]] [[]] [[]] [[]] [eqEs] := by
+  have hok : FixChainsOkI (ψ uN) 0 ρp eqIds eqIds.length [[]] [[]] [[]] [[]] [eqEs] := by
+    intro X _ t ht Fs hFs
+    rcases List.mem_cons.mp hFs with rfl | h
+    · refine FieldsOkB_append_idxEq (Fs := []) trivial fun bs hsp => ?_
+      obtain rfl : bs = [] := List.length_eq_zero_iff.mp hsp.length_eq
+      refine eqsXI_wellDenoted (Ids := eqIds) hI ht rfl (fun E hE' => ?_) rfl
+      rcases List.mem_cons.mp hE' with rfl | hE'
+      · exact trivial
+      · exact nomatch hE'
+    · exact nomatch h
+  refine ⟨hI, hok, fun _ _ _ _ j hj => ?_, fixFunVI_closed_zero hok⟩
+  obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+  exact trivial
+
+/-! ## The functor's fibre
+
+The chain has no fields, so the fibre at `(X, t)` is `{pt}` when the
+index equation holds there and `∅` otherwise — independently of `X`,
+which is what makes the least fixed point the functor's own value. -/
+
+/-- **The fibre's membership**, spelled at the block's data. -/
+theorem eqRepData_step_iff {ψ : Name → Nat} {ρp : Nat → V} {X t x : V} :
+    x ∈ˢ fixStepI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs] X t ↔
+      x = pt ∧ EqAll (cons t (cons X ρp)) (eqsXI 1 0 eqEs) := by
+  constructor
+  · intro hx
+    obtain ⟨rfl, j, fs, hj, hlen, -, hall⟩ := fixStepI_zero_elim (Ids := eqIds) hx
+    obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+    obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen
+    exact ⟨rfl, hall⟩
+  · rintro ⟨rfl, hall⟩
+    show (pt : V) ∈ˢ sumSet 0 (sumFibre 0 (cons t (cons X ρp))
+      (chainsXI (ψ uN) eqIds 1 [[]] [[]] [[]] [[]] [eqEs]))
+    refine pt_mem_sumSet_zero (i := 0) (a := pt) ?_
+    rw [sumFibre_of_getElem? (Fs := [idxEqAV (eqsXI 1 0 eqEs)]) rfl]
+    exact pt_mem_tower_teleOfFields
+      (spineFit_append_idxEq (Fs := []).mpr ⟨[], rfl, trivial, hall⟩)
+
+/-- The index equation at a tuple: it holds exactly when the
+constructor's index expression — the parameter `a` — is the tuple's
+sole component. -/
+theorem eqRepData_eqAll_iff {ψ : Name → Nat} {ρp : Nat → V}
+    (hI : IdxOk (ψ uN) ρp eqIds) {X b : V} (hb : b ∈ˢ ρp 1) :
+    EqAll (cons (tupW (ψ uN) [b]) (cons X ρp)) (eqsXI 1 0 eqEs) ↔ ρp 0 = b := by
+  have hsp : SpineFit ρp eqIds [b] := ⟨by rw [interp_bvar]; exact hb, trivial⟩
+  have h := EqAll_eqsXI (V := V) (u := ψ uN) (ρp := ρp) (Ids := eqIds) hI (X := X) (is := [b]) hsp
+    (bs := []) (nF := 0) rfl (Es := eqEs)
+  rw [show consList ([] : List V) (cons (tupW (ψ uN) [b]) (cons X ρp))
+    = cons (tupW (ψ uN) [b]) (cons X ρp) from rfl,
+    show eqIds.length = 1 from rfl] at h
+  rw [h]
+  constructor
+  · intro hh
+    have := hh 0 Nat.zero_lt_one
+    rwa [show (eqEs.getD 0 default : AnnotTerm) = .bvar 0 from rfl, interp_bvar] at this
+  · intro hh l hl
+    obtain rfl : l = 0 := Nat.lt_one_iff.mp hl
+    rw [show (eqEs.getD 0 default : AnnotTerm) = .bvar 0 from rfl, interp_bvar]
+    exact hh
+
+/-- **The least fixed point is the truth value of the index
+equation** — the `Eq` leaf. -/
+theorem eqRepData_lfp {ψ : Name → Nat} {ρp : Nat → V}
+    (hA : ρp 1 ∈ˢ (univ (ψ uN) : V)) {b : V} (hb : b ∈ˢ ρp 1) :
+    app (lfpFamSet 0 (idxSet (ψ uN) ρp eqIds)
+      (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
+      = eqv (ρp 0) b := by
+  have hI : IdxOk (ψ uN) ρp eqIds := eqRepData_idxOk hA
+  have hX := eqRepData_chainsOk (V := V) hI
+  have hsp : SpineFit ρp eqIds [b] := ⟨by rw [interp_bvar]; exact hb, trivial⟩
+  have ht : tupW (ψ uN) [b] ∈ˢ idxSet (ψ uN) ρp eqIds := tupW_mem hsp
+  have hfix := fixFamI_app_eq (V := V) (Ids := eqIds) hX ht
+  have hgoal : app (lfpFamSet 0 (idxSet (ψ uN) ρp eqIds)
+        (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
+      = fixStepI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
+          (fixFamI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) (tupW (ψ uN) [b]) := hfix.symm
+  rw [hgoal]
+  refine Eq.symm (Subset.antisymm (fun x hx => ?_) (fun x hx => ?_))
+  · have hxpt : x = pt := eq_pt_of_mem_univZero (eqv_mem_univZero _ _) hx
+    have hab : ρp 0 = b := eq_of_mem_eqv hx
+    subst hxpt
+    exact eqRepData_step_iff.mpr ⟨rfl, (eqRepData_eqAll_iff hI hb).mpr hab⟩
+  · obtain ⟨rfl, hall⟩ := eqRepData_step_iff.mp hx
+    rw [(eqRepData_eqAll_iff hI hb).mp hall]
+    exact pt_mem_eqv_self b
+
+end
+
+/-! ## The two type readings -/
+
+/-- **`Eq`'s type reading** at any environment: the block's type
+mentions no constant, so the reading is the Π-tower of the datum's
+parameter-and-index data over `Prop`. -/
+theorem denoteMeta_eqA_typeR {acval : Name → (Name → Nat) → AnnotTerm} {env' : Env}
+    (ψ : Name → Nat) :
+    denoteMeta acval env' ψ 0 eqA.toConstantVal.type
+      = some (.pi 0 1 (.sort (ψ uN)) (.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))) := by
+  simp [eqA, ConstantInfo.toConstantVal, denoteMeta_forallE, denoteMeta_sort,
+    denoteMeta_fvar, Expr.instantiate1, pwBit_never, Level.eval, uN]
+
+/-- **`Eq.refl`'s type reading** at the `Eq.rec` extension: two
+squash-regime parameter binders over the `Eq` spine at the tower. -/
+theorem denoteMeta_eqReflA_typeR {m : EnvModel V env} {A : (Name → Nat) → AnnotTerm}
+    (ψ : Name → Nat) (hE : env.find? eqName = some eqA)
+    (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValAV ψ) :
+    denoteMeta (acvalWith m.acval eqRecA.name A) ⟨eqRecA :: env.consts⟩ ψ 0
+        eqReflA.toConstantVal.type
+      = some (.pi 0 0 (.sort (ψ uN)) (.pi 0 0 (.bvar 0)
+          (.app (.app (.app (eqValAV ψ) (.bvar 1)) (.bvar 0)) (.bvar 0)))) := by
+  have hEc : ∀ d : Nat,
+      denoteMeta (acvalWith m.acval eqRecA.name A) ⟨eqRecA :: env.consts⟩ ψ d
+        (.const eqName [.param uN]) = some (eqValAV ψ) := by
+    intro d
+    rw [denoteMeta_eqLeaf (m := m) (A := A) ψ (Level.param uN) (by decide) hE d,
+      show ([Level.param uN] : List Level) = List.map Level.param [uN] from rfl,
+      Level.substFn_param_self ψ [uN], hEv]
+  rw [show eqReflA.toConstantVal.type
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE (.bvar 0)
+            (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
+              (.bvar 0)) (.bvar 0))
+            { pw := .ifAllZero [] })
+          { pw := .ifAllZero [] } from rfl]
+  simp [denoteMeta_forallE, denoteMeta_sort, denoteMeta_app, denoteMeta_fvar,
+    Expr.instantiate1, pwBit_ifAllZero_nil, hEc, Level.eval]
+
+/-- **`Eq.refl`'s type reading is graded** — two `Prop`-valued binders
+over the `Eq` spine, whose grading is the tower's own. -/
+theorem eqReflTyR_wellDenotedV (ψ : Name → Nat) (ρ : Nat → V) :
+    WellDenotedV V ρ (.pi 0 0 (.sort (ψ uN)) (.pi 0 0 (.bvar 0)
+      (.app (.app (.app (eqValAV ψ) (.bvar 1)) (.bvar 0)) (.bvar 0)))) := by
+  have hstep : ∀ Aset x : V, Aset ∈ˢ (univ (ψ uN) : V) → x ∈ˢ Aset →
+      WellDenotedV V (cons x (cons Aset ρ))
+          (.app (.app (.app (eqValAV ψ) (.bvar 1)) (.bvar 0)) (.bvar 0)) ∧
+        interp V (cons x (cons Aset ρ))
+          (.app (.app (.app (eqValAV ψ) (.bvar 1)) (.bvar 0)) (.bvar 0)) ∈ˢ (univZero : V) := by
+    intro Aset x hA hx
+    have hAi : interp V (cons x (cons Aset ρ)) (AnnotTerm.bvar 1) = Aset := by
+      rw [interp_bvar]; rfl
+    have hxi : interp V (cons x (cons Aset ρ)) (AnnotTerm.bvar 0) = x := by
+      rw [interp_bvar]; rfl
+    exact eqValAV_app₃_okP ψ _ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
+      (by rw [hAi]; exact hA) (by rw [hAi, hxi]; exact hx) (by rw [hAi, hxi]; exact hx)
+  refine (WellDenotedV_pi_zero (Aa := .sort (ψ uN)) ⟨trivial, trivial⟩ ?_ ?_).1
+  all_goals (
+    intro Aset hAset
+    rw [interp_sort] at hAset
+    have hlev := WellDenotedV_pi_zero (Aa := AnnotTerm.bvar 0) (ρ := cons Aset ρ)
+      ⟨trivial, trivial⟩
+      (fun x hx => (hstep Aset x hAset (by rwa [interp_bvar] at hx)).1)
+      (fun x hx => (hstep Aset x hAset (by rwa [interp_bvar] at hx)).2))
+  case _ => exact hlev.1
+  case _ => exact hlev.2
+
+/-! ## The representation -/
+
+/-- **The pinned `Eq` block is represented** — the obligation
+`declStep_preserves_of_basis_rec_cons` owes at the `Eq.rec` cons. -/
+theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValAV ψ)
+    (hRv : ∀ ψ : Name → Nat, mp.base2.acval eqReflName ψ = eqReflValAV ψ)
+    (hfresh : env.find? eqRecA.name = none) :
+    ∀ m₂ : EnvModel V ⟨eqRecA :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval eqRecA.name eqRecValAV →
+      IndRepsHead env eqRecA m₂ := by
+  intro m₂ hac cvR mI rP rules hc T hT
+  injection hc with h1 h2 h3 h4
+  subst h1 h2 h3 h4
+  have hT' : T = eqName := by
+    have h := hT
+    simp only at h
+    exact (Name.str.inj h).1.symm
+  subst hT'
+  have hEleaf : ∀ ψ : Name → Nat, m₂.acval eqName ψ = eqValAV ψ := by
+    intro ψ; rw [hac, acvalWith_ne (by decide)]; exact hEv ψ
+  have hRleaf : ∀ ψ : Name → Nat, m₂.acval eqReflName ψ = eqReflValAV ψ := by
+    intro ψ; rw [hac, acvalWith_ne (by decide)]; exact hRv ψ
+  have hread : ∀ ψ : Name → Nat,
+      denoteMeta m₂.acval ⟨eqRecA :: env.consts⟩ ψ 0 eqReflA.toConstantVal.type
+        = some (.pi 0 0 (.sort (ψ uN)) (.pi 0 0 (.bvar 0)
+            (.app (.app (.app (eqValAV ψ) (.bvar 1)) (.bvar 0)) (.bvar 0)))) := by
+    intro ψ
+    rw [hac]
+    exact denoteMeta_eqReflA_typeR (m := mp.base2) (A := eqRecValAV) ψ hE hEv
+  refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩,
+    ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
+  refine {
+    strip := ⟨_, rfl⟩
+    isProp := rfl
+    mI := rfl
+    rP := rfl
+    rules := rfl
+    former := ?_
+    ctors := ?_
+    idxRes := ?_
+    uParams := fun _ _ h => h uN List.mem_cons_self
+    paramsIff := fun _ _ _ _ _ => Iff.rfl
+    chains := ?_
+    functor := ?_
+    fibre := ?_
+    leaf := ?_
+    ctor := ?_
+    mkZero := fun _ _ _ _ => rfl
+    mkInj := fun _ hz => absurd rfl hz }
+  · -- the former's data
+    refine ⟨fun ψ => denoteMeta_eqA_typeR ψ, (fun _ => rfl), ?_, fun ψ ρ => ?_,
+      (fun _ => ⟨trivial, (by apply bvarsBelow_bvarAV; omega),
+        (by apply bvarsBelow_bvarAV; omega), trivial⟩),
+      fun ψ₁ ψ₂ h => ⟨by rw [eqRepData_pps, eqRepData_pps, h uN List.mem_cons_self], rfl⟩⟩
+    · intro ψ d hd
+      rcases List.mem_cons.mp hd with rfl | hd
+      · exact Nat.one_ne_zero
+      rcases List.mem_cons.mp hd with rfl | hd
+      · exact Nat.one_ne_zero
+      rcases List.mem_cons.mp hd with rfl | hd
+      · exact Nat.one_ne_zero
+      · exact nomatch hd
+    · show WellDenotedV V ρ (.pi 0 1 (.sort (ψ uN)) (.pi 0 1 (.bvar 0)
+        (.pi 0 1 (.bvar 1) (.sort 0))))
+      exact ⟨⟨trivial, fun _ _ => ⟨trivial, fun _ _ => ⟨trivial, fun _ _ => trivial⟩⟩⟩,
+        ⟨trivial, fun _ _ => ⟨trivial, fun _ _ => ⟨trivial, fun _ _ => trivial,
+            fun h => absurd h Nat.one_ne_zero⟩,
+          fun h => absurd h Nat.one_ne_zero⟩,
+        fun h => absurd h Nat.one_ne_zero⟩⟩
+  · -- the constructor's data
+    intro j cA hj
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (eqReflA.toConstantVal, 0) := (Option.some.inj hj).symm
+      refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hR, rfl, ?_⟩
+      refine {
+        resid := ⟨_, [.bvar 0], rfl, rfl⟩
+        read := fun ψ => ?_
+        len := fun _ => rfl
+        lenE := fun _ => rfl
+        idxLen := rfl
+        idxRead := fun _ => .cons (denoteMeta_fvar _ _ _ _) .nil
+        bits := fun _ d hd => ?_
+        okTy := fun ψ ρ => ?_
+        below := fun _ => ⟨trivial, (by apply bvarsBelow_bvarAV; omega), trivial⟩
+        belowE := fun _ E hE' => ?_
+        params := fun ψ₁ ψ₂ h =>
+          ⟨by rw [eqRepData_dsF, eqRepData_dsF, h uN List.mem_cons_self], rfl⟩
+        srcLen := rfl
+        srcBnd := fun _ h => nomatch h
+        srcIdx := fun _ _ h => nomatch h
+        srcProp := fun _ _ _ _ _ => trivial
+        opened := ⟨?_, (fun _ _ h => nomatch h), (fun _ _ h => nomatch h),
+          (fun _ _ h => nomatch h), fun _ h => absurd h (Nat.not_lt_zero _)⟩
+        opens := ⟨_, rfl, rfl⟩
+        ksLen := rfl
+        xLen := rfl
+        pLen := rfl
+        xIdx := fun _ _ h => nomatch h
+        pIdx := fun k x hk => ?_
+        idxEq := rfl
+        domRead := fun _ _ _ h => nomatch h
+        eissLen := fun _ => rfl
+        eisRead := fun _ _ _ h => nomatch h
+        eisLen := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        recEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        eissParams := fun _ _ _ => rfl
+        eissBelow := fun _ _ _ h => nomatch h
+        ordNone := fun _ _ _ _ => rfl
+        tssLen := fun _ => rfl
+        tssNone := fun _ _ _ => rfl
+        tssBits := fun _ _ _ h => nomatch h
+        tssPiBits := fun _ _ _ h => nomatch h
+        tssBelow := fun _ _ => trivial
+        tssParams := fun _ _ _ => rfl
+        reflOpen := fun _ _ _ h => nomatch h
+        eisLenRefl := fun _ _ _ h => absurd h (Nat.not_lt_zero _)
+        reflEntry := fun _ _ _ h => absurd h (Nat.not_lt_zero _) }
+      · -- the reading
+        rw [hread ψ]
+        show some _ = some (mkPisAV [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)]
+          (AnnotTerm.mkAppN (m₂.acval eqName ψ) (paramBvars 2 0 ++ eqEs)))
+        rw [hEleaf ψ]
+        rfl
+      · rcases List.mem_cons.mp hd with rfl | hd
+        · exact ⟨fun _ => rfl, fun _ => rfl⟩
+        rcases List.mem_cons.mp hd with rfl | hd
+        · exact ⟨fun _ => rfl, fun _ => rfl⟩
+        · exact nomatch hd
+      · -- the reading is graded
+        show WellDenotedV V ρ (mkPisAV [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)]
+          (AnnotTerm.mkAppN (m₂.acval eqName ψ) (paramBvars 2 0 ++ eqEs)))
+        rw [hEleaf ψ]
+        exact eqReflTyR_wellDenotedV ψ ρ
+      · rcases List.mem_cons.mp hE' with rfl | hE'
+        · show (0 : Nat) < 2 + 0
+          omega
+        · exact nomatch hE'
+      · intro e he
+        rcases List.mem_cons.mp he with rfl | he
+        · rfl
+        · exact nomatch he
+      · match k, hk with
+        | 0, hk => exact ⟨_, (Option.some.inj hk).symm⟩
+        | 1, hk => exact ⟨_, (Option.some.inj hk).symm⟩
+  · -- the residual's index arguments resolve
+    intro j cA hj e he
+    rcases List.mem_cons.mp he with rfl | he
+    · rfl
+    · exact nomatch he
+  · -- the chains
+    intro ψ ρp hρ
+    exact xChainsOk_toChainsOk (eqRepData_chainsOk (eqRepData_idxOk (eqRepData_frame hρ).1))
+  · -- the functor
+    intro ψ ρp hρ
+    have hX := eqRepData_chainsOk (V := V) (eqRepData_idxOk (eqRepData_frame hρ).1)
+    exact ⟨fixFunVI_mem hX.hok, fixFunVI_mono hX, fixFunVI_maps hX, fixFunVI_closed_exists hX⟩
+  · -- the fibre
+    intro ψ ρp hρ X hX t ht x
+    have hI := eqRepData_idxOk (V := V) (eqRepData_frame hρ).1
+    have hXs : X ∈ˢ lfpFamSpace V 0 (idxSet (ψ uN) ρp eqIds) := by
+      rw [lfpFamSpace_eq]; exact hX
+    have ht' : t ∈ˢ idxSet (ψ uN) ρp eqIds := ht
+    show x ∈ˢ app (app (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) X) t ↔ _
+    rw [fixFunVI_app hXs, famFI_app ht', eqRepData_step_iff]
+    constructor
+    · rintro ⟨rfl, hall⟩
+      exact ⟨0, [], Nat.zero_lt_one, ⟨rfl, trivial, hall⟩, rfl⟩
+    · rintro ⟨j, fs, hj, ⟨hlen, -, hall⟩, rfl⟩
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen
+      exact ⟨rfl, hall⟩
+  · -- the leaf
+    intro ψ ρ as is hsp₁ hsp₂
+    match as, hsp₁ with
+    | [A, a], hsp₁ =>
+      match is, hsp₂ with
+      | [b], hsp₂ =>
+        have hA : A ∈ˢ (univ (ψ uN) : V) := by
+          have := hsp₁.1; rwa [interp_sort] at this
+        have ha : a ∈ˢ A := by
+          have := hsp₁.2.1; rwa [interp_bvar] at this
+        have hb : b ∈ˢ A := by
+          have := hsp₂.1; rwa [interp_bvar] at this
+        show ([A, a] ++ [b]).foldl app (interp V ρ (m₂.acval eqName ψ)) = _
+        rw [hEleaf ψ]
+        show app (app (app (interp V ρ (eqValAV ψ)) A) a) b = _
+        rw [eqValAV_app₃ ψ ρ A a b hA ha hb]
+        exact (eqRepData_lfp (ρp := consList [A, a] ρ) hA hb).symm
+  · -- the constructor's value
+    intro j cA hj ψ ρ as fs hsp₁ hsp₂
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (eqReflA.toConstantVal, 0) := (Option.some.inj hj).symm
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hsp₂.length_eq
+      show (as ++ []).foldl app (interp V ρ (m₂.acval eqReflName ψ)) = pt
+      rw [hRleaf ψ, eqReflValAV_interp]
+      exact foldl_app_pt' _
+
+end EqRep
+
 /-- **`Eq.rec`, installed at the P tier.** -/
 theorem extendEqRec (mp : EnvModelM V μ env)
     (hE : env.find? eqName = some eqA)
@@ -1176,7 +1631,8 @@ theorem extendEqRec (mp : EnvModelM V μ env)
   have hz : ∀ ψ : Name → Nat,
       pwBit ψ (ConLeche.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ u1N
-  refine declStep_preserves_of_basis_rec_cons mp (hreps := fun m₂ hac => sorry) -- TODO(#280): the pinned block's representation
+  refine declStep_preserves_of_basis_rec_cons mp
+    (hreps := indRepsHead_eqRec mp hE hR hEv hRv hfresh)
     (A := eqRecValAV) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

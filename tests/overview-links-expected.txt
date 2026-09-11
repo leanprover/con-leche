@@ -467,6 +467,18 @@
     99  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
    100  function the carrier already owns, so no model content is
 
+== ConLeche/Model/IndRep.lean#L289-L298
+   289  @[expose] def IndReps (m : EnvModel V env) : Prop :=
+   290    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+   291      env.find? n = some (.recInfo cvR mI rP rules) →
+   292      ∀ T : Name, n = T.str "rec" →
+   293      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
+   294        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d) ∨
+   295      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
+   296      -- deleted with that route (tasks #278 mutual, #279 nested); until it
+   297      -- is gone no consumer may extract `IndRep` for an arbitrary block
+   298      ModeledLeaf m n
+
 == ConLeche/Model/Claims.lean#L92-L160
     92  @[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     93      (φ : Name → Nat) (fuel : Nat) : Prop :=
