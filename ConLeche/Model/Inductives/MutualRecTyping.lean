@@ -607,4 +607,562 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
 
 end MinorEq
 
+/-! ## The hypotheses -/
+
+/-- **What the mutual data give at one parameter frame** for the member
+recursor leaf: the tag and the auxiliary family's chains, the
+constructors' index readings (their fits, their gradings, and the
+values they name in the auxiliary fibre — the dispatch's law is applied
+at exactly those). -/
+structure MutualFrameOkM (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V env)
+    (W wB nP : Nat) (Idss : List (List AnnotTerm)) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (EissO Eiss' : List (List (List AnnotTerm))) (FssR Fss₀ Ess' : List (List AnnotTerm))
+    (mems : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (ρp : Nat → V) :
+    Prop where
+  tag : TagOk W ρp Idss
+  tagValid : SumFieldsValid ρp Idss
+  chains : FixChainsOkI W wB ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess'
+  xchains : XChainsOk W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
+  auxValid : AnnotValid V ρp (auxBodyAV W wB Idss rss tlss Eiss' Fss₀ Ess')
+  fieldsB : SumFieldsOkB wB ρp FssR
+  /-- the constructor's index expressions: graded, fitting its member's
+  telescope, and its value in the auxiliary fibre there -/
+  ctor : ∀ (J : Nat) (cd : CtorDatumR), cds[J]? = some cd →
+    ∀ fs : List V, SpineFit ρp ((cd.2.2.1.drop nP).map (·.2.2)) fs →
+      (∀ E ∈ cd.2.2.2.1, WellDenoted V (consList fs ρp) E) ∧
+      (∀ Ids, Idss[mems J]? = some Ids → SpineFit ρp Ids (idxValsAt ρp cd.2.2.2.1 fs)) ∧
+      ctorValI wB J fs ∈ˢ auxFib W wB ρp Idss rss tlss Eiss' Fss₀ Ess'
+        (inj (mems J) (mkTower (idxValsAt ρp cd.2.2.2.1 fs ++ [pt])))
+  /-- a recursive slot's index expressions: the same, at the target member -/
+  slot : ∀ (J : Nat) (cd : CtorDatumR), cds[J]? = some cd →
+    ∀ i ∈ recIdx (rss.getD J []) cd.2.1, ∀ fs : List V,
+      SpineFit ρp ((cd.2.2.1.drop nP).map (·.2.2)) fs →
+      ∀ as : List V, SpineFit (consList (fs.take i) ρp)
+        (((tlss.getD J []).getD i []).map (·.2.2)) as →
+      (∀ E ∈ (EissO.getD J []).getD i [],
+        WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
+      (∀ Ids, Idss[tgts J i]? = some Ids → SpineFit ρp Ids
+        (((EissO.getD J []).getD i []).map
+          (interp V (consList as (consList (fs.take i) ρp))))) ∧
+      as.foldl SetTheory.app (fs.getD i pt) ∈ˢ auxFib W wB ρp Idss rss tlss Eiss' Fss₀ Ess'
+        (inj (tgts J i) (mkTower ((((EissO.getD J []).getD i []).map
+          (interp V (consList as (consList (fs.take i) ρp)))) ++ [pt])))
+
+/-- **The member recursor leaf's hypotheses**: the regime facts and the
+counts, the members' leaves and index data, the constructors' data, the
+auxiliary leaf's own facts (`auxRecLeafFacts`'s conclusion) and the
+STORED type's typing. -/
+structure MutualLeafHyp (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V env)
+    (ψ : Name → Nat) (elimL : Level) (ℓ W wB nP s b k n : Nat)
+    (Ls : List AnnotTerm) (nIdxs : List Nat) (pps : List (Nat × Nat × AnnotTerm))
+    (ipss : List (List (Nat × Nat × AnnotTerm))) (Idss : List (List AnnotTerm))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (EissO Eiss' : List (List (List AnnotTerm))) (FssR Fss₀ Ess' : List (List AnnotTerm))
+    (mems : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (mm : Nat) : Prop where
+  hℓ : elimL.eval ψ = ℓ
+  hb : pwBit ψ (Level.zeronessOf elimL) = b
+  hbz : ℓ = 0 ↔ b = 0
+  hlenP : pps.length = nP
+  hk : Idss.length = k
+  hLs : Ls.length = k
+  hnIdxs : nIdxs.length = k
+  hipss : ipss.length = k
+  hn : cds.length = n
+  hmm : mm < k
+  hmems : ∀ J, J < n → mems J < k
+  htgts : ∀ J i, tgts J i < k
+  /-- member `t`'s index telescope is its reading's index data -/
+  hIdss : ∀ t, t < k → ∃ Ids, Idss[t]? = some Ids ∧ Ids.length = nIdxs.getD t 0 ∧
+    (ipss.getD t []).map (·.2.2) = Ids
+  /-- member `t`'s leaf is the mutual leaf at the parameter frame -/
+  hleafM : ∀ t, t < k → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+    ∀ σ : Nat → V, interp V σ (Ls.getD t default)
+      = interp V (fun j => ρp (j + nP))
+          (mutualTyAVI W wB (pps ++ ipss.getD t []) (nIdxs.getD t 0) Idss rss tlss Eiss'
+            Fss₀ Ess' t)
+  /-- the constructors' data, positionally -/
+  hcd : ∀ J cd, cds[J]? = some cd →
+    cd.2.2.1.length = nP + cd.2.1 ∧
+    (cd.2.2.1.take nP).map (·.2.2) = pps.map (·.2.2) ∧
+    m.acval cd.1 ψ = sumMkAV wB J cd.2.2.1 ((cd.2.2.1.drop nP).map (·.2.2)) (uChains FssR) ∧
+    Term.bvarsBelow 0 (m.acval cd.1 ψ).erase ∧
+    FssR[J]? = some ((cd.2.2.1.drop nP).map (·.2.2)) ∧
+    cd.2.2.2.2.1 = recIdx (rss.getD J []) cd.2.1 ∧
+    cd.2.2.2.2.2.2 = tlss.getD J [] ∧
+    cd.2.2.2.2.2.1 = EissO.getD J [] ∧
+    Eiss'.getD J [] = (List.range cd.2.1).map fun i =>
+      [tagTupleAV W (tgts J i) (i + ((tlss.getD J []).getD i []).length) Idss
+        ((EissO.getD J []).getD i [])]
+  hframes : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
+    MutualFrameOkM V m W wB nP Idss rss tlss EissO Eiss' FssR Fss₀ Ess' mems tgts cds ρp
+  /-- the auxiliary former's leaf is closed -/
+  hclL : Term.bvarsBelow 0 (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess').erase
+  /-- the auxiliary recursor's leaf is closed -/
+  hclR : Term.bvarsBelow 0
+    (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds).erase
+  /-- `auxRecLeafFacts`'s conclusion -/
+  haux : ∀ ρ : Nat → V,
+    WellDenotedV V ρ
+      (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds) ∧
+    interp V ρ
+        (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds)
+      ∈ˢ interp V ρ (mkPisAV
+          (auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds)
+          (recConcAV n 1))
+  /-- `auxConc_facts`'s universe component -/
+  hauxConc : ∀ (ρ : Nat → V) (as : List V),
+    SpineFit ρ ((auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess'
+      mems tgts cds).map (·.2.2)) as →
+    interp V (consList as ρ) (recConcAV n 1) ∈ˢ (univ ℓ : V)
+  /-- the STORED recursor type's typing (the checker's) -/
+  hstore : ∀ ρ : Nat → V, WellDenotedV V ρ
+    (mkPisAV (mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm)
+      (mutualConcAV k n (nIdxs.getD mm 0) mm))
+
+/-! ## The leaf's facts -/
+
+section Facts
+
+variable {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level} {ℓ W wB nP s b k n : Nat}
+  {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
+  {ipss : List (List (Nat × Nat × AnnotTerm))} {Idss : List (List AnnotTerm)}
+  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {EissO Eiss' : List (List (List AnnotTerm))} {FssR Fss₀ Ess' : List (List AnnotTerm)}
+  {mems : Nat → Nat} {tgts : Nat → Nat → Nat} {cds : List CtorDatumR} {mm : Nat}
+
+/-- The public binder data's domains, split. -/
+theorem mutualRecDataAV_doms
+    (hb : pwBit ψ (Level.zeronessOf elimL) = b) (hLs : Ls.length = k) (hn : cds.length = n) :
+    (mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm).map (·.2.2)
+      = (((pps.map (·.2.2) ++
+          (motivesDataGo (fun t => Ls.getD t default) (fun t => nIdxs.getD t 0)
+            (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) ++
+          (fixMinorsDataM mems tgts m ψ nP b cds k).map (·.2.2)) ++
+          (liftDoms (k + n) 0 (ipss.getD mm [])).map (·.2.2)) ++
+        [majorAVAtK (Ls.getD mm default) nP (nIdxs.getD mm 0) k n] := by
+  unfold mutualRecDataAV
+  rw [hb, hLs, hn]
+  simp only [List.map_append, List.map_cons, List.map_nil, rebit_map_dom]
+
+/-- The auxiliary binder data's domains, split. -/
+theorem auxRecDataAV_doms
+    (hb : pwBit ψ (Level.zeronessOf elimL) = b) (hn : cds.length = n) :
+    (auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds).map (·.2.2)
+      = (((pps.map (·.2.2) ++
+          [motiveAVIL (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') ψ nP 1 elimL
+            (tagIps W Idss)]) ++
+          (fixMinorsData m ψ nP b (auxCtorData W Idss mems tgts cds) 1).map (·.2.2)) ++
+          (liftDoms (n + 1) 0 (tagIps W Idss)).map (·.2.2)) ++
+        [majorAVAtL (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 n] := by
+  unfold auxRecDataAV fixRecDataAVL
+  rw [hb, auxCtorData_length, hn]
+  simp only [List.map_append, List.map_cons, List.map_nil, rebit_map_dom]
+
+/-- The public minor entries, positionally. -/
+theorem pubMinor_getD {b : Nat} (J : Nat) (cd : CtorDatumR) (hcd : cds[J]? = some cd) :
+    ((fixMinorsDataM mems tgts m ψ nP b cds k).map (·.2.2)).getD J default
+      = minorAVAtRM (mems J) (tgts J) m cd.1 ψ nP cd.2.1 b (k + J) cd.2.2.1 cd.2.2.2.1
+          cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1 := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, fixMinorsDataM_getElem?, hcd]
+  rfl
+
+/-- The auxiliary minor entries, positionally. -/
+theorem auxMinor_getD {b : Nat} (J : Nat) (cd : CtorDatumR) (hcd : cds[J]? = some cd) :
+    ((fixMinorsData m ψ nP b (auxCtorData W Idss mems tgts cds) 1).map (·.2.2)).getD J default
+      = minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + J) cd.2.2.1
+          [tagTupleAV W (mems J) cd.2.1 Idss cd.2.2.2.1] cd.2.2.2.2.1 cd.2.2.2.2.2.2
+          ((List.range cd.2.1).map fun i =>
+            [tagTupleAV W (tgts J i) (i + (cd.2.2.2.2.2.2.getD i []).length) Idss
+              (cd.2.2.2.2.2.1.getD i [])]) := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, fixMinorsData_getElem?,
+    auxCtorData_getElem?, hcd]
+  rfl
+
+
+/-- **The member recursor's body**, at a frame satisfying the stored
+type's binder data: graded, valid, in the conclusion's reading, and (at
+a `Prop` elimination) the conclusion is a truth value. -/
+theorem mutualRecBody_facts
+    (hyp : MutualLeafHyp V m ψ elimL ℓ W wB nP s b k n Ls nIdxs pps ipss Idss rss tlss
+      EissO Eiss' FssR Fss₀ Ess' mems tgts cds mm)
+    (ρ : Nat → V) (as : List V)
+    (hsp : SpineFit ρ
+      ((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm).map (·.2.2)) as) :
+    WellDenotedV V (consList as ρ)
+        (mutualRecBodyAV ℓ W wB nP k n (nIdxs.getD mm 0) mm Idss rss tlss Eiss' Fss₀ Ess'
+          (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds)) ∧
+      interp V (consList as ρ)
+          (mutualRecBodyAV ℓ W wB nP k n (nIdxs.getD mm 0) mm Idss rss tlss Eiss' Fss₀ Ess'
+            (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds))
+        ∈ˢ interp V (consList as ρ) (mutualConcAV k n (nIdxs.getD mm 0) mm) ∧
+      (b = 0 → interp V (consList as ρ) (mutualConcAV k n (nIdxs.getD mm 0) mm)
+        ∈ˢ (univZero : V)) := by
+  classical
+  have hmmk : mm < k := hyp.hmm
+  obtain ⟨IdsM, hIdsMM, hlenIdsMM, hipdMM⟩ := hyp.hIdss mm hmmk
+  -- the spine, split
+  rw [mutualRecDataAV_doms hyp.hb hyp.hLs hyp.hn] at hsp
+  obtain ⟨as₃, ts, rfl, hsp₃, hspT⟩ := spineFit_append_inv hsp
+  obtain ⟨t, rfl, ht⟩ := spineFit_singleton hspT
+  obtain ⟨as₂, is, rfl, hsp₂, hspI⟩ := spineFit_append_inv hsp₃
+  obtain ⟨as₁, Ss, rfl, hsp₁, hspS⟩ := spineFit_append_inv hsp₂
+  obtain ⟨ps, Ms, rfl, hspP, hspM⟩ := spineFit_append_inv hsp₁
+  -- the frames
+  have hlenPs : ps.length = nP := by rw [hspP.length_eq, List.length_map, hyp.hlenP]
+  have hlenMs : Ms.length = k := by
+    rw [hspM.length_eq, List.length_map, motivesDataGo_length]
+  have hlenSs : Ss.length = n := by
+    rw [hspS.length_eq, List.length_map, fixMinorsDataM_length, hyp.hn]
+  have hlenIs : is.length = nIdxs.getD mm 0 := by
+    rw [hspI.length_eq, List.length_map, liftDoms_length, ← hlenIdsMM, ← hipdMM, List.length_map]
+  have hfr1 : consList (ps ++ Ms) ρ = consList Ms (consList ps ρ) := consList_append _ _ _
+  have hfr2 : consList (ps ++ Ms ++ Ss) ρ = consList Ss (consList Ms (consList ps ρ)) := by
+    rw [consList_append, hfr1]
+  have hfr3 : consList (ps ++ Ms ++ Ss ++ is) ρ
+      = consList is (consList Ss (consList Ms (consList ps ρ))) := by
+    rw [consList_append, hfr2]
+  have hfr4 : consList (ps ++ Ms ++ Ss ++ is ++ [t]) ρ
+      = cons t (consList is (consList Ss (consList Ms (consList ps ρ)))) := by
+    rw [consList_append, hfr3, consList_cons, consList_nil]
+  rw [hfr1] at hspS
+  rw [hfr2] at hspI
+  rw [hfr3] at ht
+  rw [hfr4]
+  -- the parameter frame
+  have hsatP : Sat V ((pps.map (·.2.2)).reverse) (consList ps ρ) := by
+    have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hspP
+    rwa [List.append_nil] at h
+  have hF := hyp.hframes _ hsatP
+  -- the motives
+  have hmot : ∀ t', t' < k →
+      Ms.getD t' pt ∈ˢ memberMotSp ℓ W wB (consList ps ρ) Idss rss tlss Eiss' Fss₀ Ess' t' := by
+    intro t' ht'
+    obtain ⟨Ids', hIds', hlenIds', hipd'⟩ := hyp.hIdss t' ht'
+    have hlenTake : (Ms.take t').length = t' := by rw [List.length_take]; omega
+    have hmem := FixKI.spineFit_getD_mem' hspM (l := t')
+      (by rw [List.length_map, motivesDataGo_length]; omega)
+    have hentry : ((motivesDataGo (fun t => Ls.getD t default) (fun t => nIdxs.getD t 0)
+        (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)).getD t' default
+        = (motiveAVIL (Ls.getD t' default) ψ nP (nIdxs.getD t' 0) elimL
+            (ipss.getD t' [])).liftN (0 + t') 0 := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+        motivesDataGo_getElem? _ _ _ ψ nP elimL b k 0 t' ht']
+      rfl
+    have hsh : shiftE t' 0 (consList (Ms.take t') (consList ps ρ)) = consList ps ρ := by
+      simpa [hlenTake] using shiftE_consList (Ms.take t') (consList ps ρ)
+    rw [hentry, interp_liftN, Nat.zero_add, hsh,
+      interp_memberMotive hyp.hℓ hyp.hlenP hipd' hlenIds' hsatP hF.tag hF.chains hIds'
+        (fun σ' => hyp.hleafM t' ht' _ hsatP σ')] at hmem
+    exact hmem
+  -- the frame's slots
+  have hσmot : ∀ (q t' : Nat), t' < k → q = nIdxs.getD mm 0 + n + (k - 1 - t') + 1 →
+      cons t (consList is (consList Ss (consList Ms (consList ps ρ)))) q = Ms.getD t' pt := by
+    intro q t' ht' hq
+    subst hq
+    rw [cons_succ,
+      show nIdxs.getD mm 0 + n + (k - 1 - t') = (n + (k - 1 - t')) + is.length from by
+        rw [hlenIs]; omega,
+      consList_apply_add,
+      show n + (k - 1 - t') = (k - 1 - t') + Ss.length from by rw [hlenSs]; omega,
+      consList_apply_add, consList_apply_lt' Ms (consList ps ρ) (by omega),
+      show Ms.length - 1 - (k - 1 - t') = t' from by omega]
+  have hσminor : ∀ i, i < n →
+      cons t (consList is (consList Ss (consList Ms (consList ps ρ))))
+        (nIdxs.getD mm 0 + 1 + n - 1 - i) = Ss.getD i pt := by
+    intro i hi
+    rw [show nIdxs.getD mm 0 + 1 + n - 1 - i = (n - 1 - i + is.length) + 1 from by
+        rw [hlenIs]; omega,
+      cons_succ, consList_apply_add, consList_apply_lt' Ss _ (by omega),
+      show Ss.length - 1 - (n - 1 - i) = i from by omega]
+  have hσeq : cons t (consList is (consList Ss (consList Ms (consList ps ρ))))
+      = consList (Ms ++ Ss ++ is ++ [t]) (consList ps ρ) := by
+    rw [consList_append, consList_append, consList_append, consList_cons, consList_nil]
+  have hσshift : shiftE (k + n + nIdxs.getD mm 0 + 1) 0
+      (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))) = consList ps ρ := by
+    rw [hσeq, show k + n + nIdxs.getD mm 0 + 1 = (Ms ++ Ss ++ is ++ [t]).length from by
+      simp [hlenMs, hlenSs, hlenIs]; omega]
+    exact shiftE_consList _ _
+  have hfr1' : RecFrameS 1 (consList is (consList Ss (consList Ms (consList ps ρ))))
+      (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))) := by
+    show shiftE 1 0 _ = _
+    rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+  -- the index variables and the tagged tuple
+  have hshY : shiftE (k + n) 0 (consList Ss (consList Ms (consList ps ρ))) = consList ps ρ := by
+    rw [← consList_append, show k + n = (Ms ++ Ss).length from by simp [hlenMs, hlenSs]]
+    exact shiftE_consList _ _
+  rw [spineFit_liftDoms_iff, hshY, hipdMM] at hspI
+  have hidxvars : (idxVarsAV (nIdxs.getD mm 0) 1).map
+      (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))) = is := by
+    rw [map_idxVarsAV_interp hfr1', frameIdx_consList hlenIs]
+  have htagvals := tagTupleAV_facts hF.tag hIdsMM (d := k + n + nIdxs.getD mm 0 + 1)
+    (τ := cons t (consList is (consList Ss (consList Ms (consList ps ρ))))) hσshift
+    (Es := idxVarsAV (nIdxs.getD mm 0) 1)
+    (fun E hE => by obtain ⟨l, -, rfl⟩ := List.mem_map.mp hE; trivial)
+    (by rw [hidxvars]; exact hspI)
+  rw [hidxvars] at htagvals
+  -- the major
+  have hmaj : interp V (consList is (consList Ss (consList Ms (consList ps ρ))))
+        (majorAVAtK (Ls.getD mm default) nP (nIdxs.getD mm 0) k n)
+      = auxFib W wB (consList ps ρ) Idss rss tlss Eiss' Fss₀ Ess'
+          (inj mm (mkTower (is ++ [pt]))) :=
+    interp_majorAVAtK hyp.hlenP hipdMM hlenIdsMM hsatP hF.tag hF.chains hIdsMM
+      (fun σ' => hyp.hleafM mm hyp.hmm _ hsatP σ') hlenMs hlenSs hspI
+  rw [hmaj] at ht
+  -- the dispatch
+  have hdispHyp : MotDispHyp ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k
+      (consList ps ρ) (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      Idss rss tlss Eiss' Fss₀ Ess' :=
+    ⟨hσshift, hF.tag, hF.chains, hyp.hk, fun t' ht' => by
+      rw [hσmot _ t' ht' (by omega)]; exact hmot t' ht'⟩
+  obtain ⟨hlaw0, hdispMem, hdispOk⟩ := motDispAV_facts hdispHyp
+  have hlaw : ∀ (t' : Nat), t' < k → ∀ Ids', Idss[t']? = some Ids' → ∀ is' : List V,
+      SpineFit (consList ps ρ) Ids' is' → ∀ x : V,
+      x ∈ˢ auxFib W wB (consList ps ρ) Idss rss tlss Eiss' Fss₀ Ess'
+        (inj t' (mkTower (is' ++ [pt]))) →
+      SetTheory.app (SetTheory.app
+          (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+            (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+              rss tlss Eiss' Fss₀ Ess')) (inj t' (mkTower (is' ++ [pt])))) x
+        = SetTheory.app (is'.foldl SetTheory.app (Ms.getD t' pt)) x :=
+    fun t' ht' Ids' hIds' is' hfit x hx =>
+      dispLaw_of hlaw0 (fun t'' ht'' => hσmot _ t'' ht'' (by omega)) hF.tag t' ht' hIds' hfit x hx
+  -- the minors: the public and auxiliary spaces agree
+  have hspSaux : SpineFit
+      (cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+        (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+          rss tlss Eiss' Fss₀ Ess')) (consList ps ρ))
+      ((fixMinorsData m ψ nP b (auxCtorData W Idss mems tgts cds) 1).map (·.2.2)) Ss := by
+    refine spineFit_transfer ?_ ?_ hspS
+    · rw [List.length_map, List.length_map, fixMinorsDataM_length, fixMinorsData_length,
+        auxCtorData_length]
+    · intro us J hus hJ
+      rw [List.length_map, fixMinorsDataM_length, hyp.hn] at hJ
+      obtain ⟨cd, hcd⟩ : ∃ cd, cds[J]? = some cd :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hyp.hn]; omega)⟩
+      obtain ⟨hlenDs, htakeP, hleafC, hclC, hFsj, hrecIdx, htls, hEissO, hEiss'⟩ :=
+        hyp.hcd J cd hcd
+      have hsatC : Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) (consList ps ρ) := by
+        rw [htakeP]; exact hsatP
+      have hnF : ((cd.2.2.1.drop nP).map (·.2.2)).length = cd.2.1 := by
+        rw [List.length_map, List.length_drop, hlenDs]; omega
+      have har : (FssR.getD J []).length = cd.2.1 := by
+        rw [List.getD_eq_getElem?_getD, hFsj, Option.getD_some, hnF]
+      obtain ⟨IdsC, hIdsC, -, -⟩ := hyp.hIdss (mems J) (hyp.hmems J hJ)
+      rw [pubMinor_getD J cd hcd, auxMinor_getD J cd hcd, hrecIdx, htls, hEissO, ← hEiss',
+        interp_minorAVAtRM (Ms := Ms) (ℓ := ℓ) (Fss := FssR) (rss := rss) (tlss := tlss)
+          (Eiss := EissO) hyp.hbz hlenMs hus (hyp.hmems J hJ) hlenDs
+          (fun i _ => hyp.htgts J i) hleafC hclC hFsj hF.fieldsB hsatC,
+        interp_minorAVAtR (ℓ := ℓ) (Fss := FssR) (rss := rss) (tlss := tlss) (Eiss := Eiss')
+          hyp.hbz hus hlenDs hleafC hclC hFsj hF.fieldsB hsatC]
+      exact minor_space_eq hF.tag hnF har hEiss' hlaw (hyp.hmems J hJ) (fun i => hyp.htgts J i)
+        hIdsC (fun i => by obtain ⟨I, hI, -, -⟩ := hyp.hIdss (tgts J i) (hyp.htgts J i); exact ⟨I, hI⟩)
+        (fun fs hfs => ⟨(hF.ctor J cd hcd fs hfs).1,
+          (hF.ctor J cd hcd fs hfs).2.1 IdsC hIdsC, (hF.ctor J cd hcd fs hfs).2.2⟩)
+        (fun i hi fs hfs bs hbs => hF.slot J cd hcd i hi fs hfs bs hbs)
+  -- the auxiliary spine
+  have hlenPmap : (pps.map (·.2.2)).length = nP := by rw [List.length_map, hyp.hlenP]
+  have hspP0 : SpineFit (fun j => consList ps ρ (j + nP)) (pps.map (·.2.2))
+      ((List.range nP).reverse.map (consList ps ρ)) := by
+    have h := spineFit_of_sat (Ds := pps.map (·.2.2)) (Δ₀ := []) (ρ := consList ps ρ)
+      (by rw [List.append_nil]; exact hsatP)
+    rwa [hlenPmap] at h
+  have hcl0 : consList ((List.range nP).reverse.map (consList ps ρ)) (fun j => consList ps ρ (j + nP)) = consList ps ρ :=
+    consList_range_reverse nP _
+  have htagMem : inj mm (mkTower (is ++ [pt])) ∈ˢ interp V (consList ps ρ) (tagTyAV W Idss) := by
+    rw [(tagTyAV_facts hF.tag).1]
+    exact tagTuple_mem hF.tag hIdsMM hspI
+  have hfitA : SpineFit (fun j => consList ps ρ (j + nP)) ((auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds).map (·.2.2)) ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+      ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]) := by
+    rw [auxRecDataAV_doms hyp.hb hyp.hn]
+    refine SpineFit.append (SpineFit.append (SpineFit.append (SpineFit.append hspP0 ?_) ?_) ?_) ?_
+    · rw [hcl0]
+      refine ⟨?_, trivial⟩
+      rw [auxMotive_interp hyp.hℓ hyp.hlenP hsatP hF.tag hF.xchains hyp.hclL]
+      exact hdispMem
+    · rw [show consList ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))]) (fun j => consList ps ρ (j + nP))
+          = cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) (consList ps ρ) from by rw [consList_append, hcl0]; rfl]
+      exact hspSaux
+    · rw [show consList ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss) (fun j => consList ps ρ (j + nP))
+          = consList Ss (cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) (consList ps ρ)) from by
+        rw [consList_append, consList_append, hcl0]; rfl]
+      rw [spineFit_liftDoms_iff, shiftE_minors hlenSs, tagIps_doms]
+      exact ⟨htagMem, trivial⟩
+    · rw [show consList ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+            ++ [inj mm (mkTower (is ++ [pt]))]) (fun j => consList ps ρ (j + nP))
+          = consList [inj mm (mkTower (is ++ [pt]))] (consList Ss (cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) (consList ps ρ)))
+          from by rw [consList_append, consList_append, consList_append, hcl0]; rfl]
+      refine ⟨?_, trivial⟩
+      rw [interp_majorAVAtL (ips := tagIps W Idss) (nIdx := 1) hyp.hlenP rfl hsatP
+        (by rw [tagIps_doms]; exact hF.xchains)
+        (auxFormer_hleafT (nP := nP) hyp.hclL (consList ps ρ)) hlenSs
+        (by rw [tagIps_doms]; exact ⟨htagMem, trivial⟩), tagIps_doms]
+      exact ht
+  -- the arguments' values
+  have hargsP : (paramBvarsAt nP (nP + (k + n + nIdxs.getD mm 0 + 1))).map (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))))
+      = (List.range nP).reverse.map (consList ps ρ) :=
+    map_paramBvarsAt_interp fun j => by
+      rw [Nat.add_comm]; exact RecFrameS.apply hσshift j
+  have hargsS : ((List.range n).map fun J =>
+        AnnotTerm.bvar (nIdxs.getD mm 0 + 1 + n - 1 - J)).map (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))) = Ss := by
+    rw [List.map_map]
+    apply List.ext_getElem
+    · simp [hlenSs]
+    · intro i h1 h2
+      have hi : i < n := by simpa using h1
+      simp only [List.getElem_map, List.getElem_range, Function.comp_def, interp_bvar]
+      rw [hσminor i hi, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+  have hargvals : ((paramBvarsAt nP (nP + (k + n + nIdxs.getD mm 0 + 1)) ++
+        [motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+          rss tlss Eiss' Fss₀ Ess'] ++
+        ((List.range n).map fun J => AnnotTerm.bvar (nIdxs.getD mm 0 + 1 + n - 1 - J)) ++
+        [tagTupleAV W mm (k + n + nIdxs.getD mm 0 + 1) Idss (idxVarsAV (nIdxs.getD mm 0) 1)] ++
+        [AnnotTerm.bvar 0]).map (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))))) = ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+      ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]) := by
+    simp only [List.map_append, List.map_cons, List.map_nil]
+    rw [hargsP, hargsS, htagvals.1, interp_bvar, cons_zero]
+  have hleafeq : interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))) ((auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds).liftN (k + n + nIdxs.getD mm 0 + 1) 0)
+      = interp V (fun j => consList ps ρ (j + nP)) (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds) := by
+    rw [interp_liftN, hσshift]
+    exact interp_closed (V := V) hyp.hclR _ _
+  have hzA : ∀ d ∈ (auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds), (ℓ = 0 ↔ d.2.1 = 0) := fun d hd => by
+    rw [mem_fixRecDataAVL hd, hyp.hb]; exact hyp.hbz
+  have hconc0 : ℓ = 0 → ∀ as', SpineFit (fun j => consList ps ρ (j + nP)) ((auxRecDataAV m ψ W wB nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds).map (·.2.2)) as' →
+      interp V (consList as' (fun j => consList ps ρ (j + nP))) (recConcAV n 1) ∈ˢ (univZero : V) := by
+    intro h0 as' hsp'
+    have h := hyp.hauxConc _ as' hsp'
+    rwa [h0, univ_zero] at h
+  have hmemA := mkPisAV_fold_mem (m := ℓ) hzA hconc0 (hyp.haux (fun j => consList ps ρ (j + nP))).2 hfitA
+  have hfrAll : consList ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+      ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]) (fun j => consList ps ρ (j + nP))
+      = cons t (consList [inj mm (mkTower (is ++ [pt]))]
+          (consList Ss (cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) (consList ps ρ)))) := by
+    rw [consList_append, consList_append, consList_append, consList_append, hcl0]
+    rfl
+  have hconcA : interp V (consList ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+      ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]) (fun j => consList ps ρ (j + nP))) (recConcAV n 1)
+      = SetTheory.app (is.foldl SetTheory.app (Ms.getD mm pt)) t := by
+    rw [hfrAll, recConcAV_at (n := n) (nIdx := 1) [inj mm (mkTower (is ++ [pt]))] rfl t,
+      show consList Ss (cons (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) (consList ps ρ)) n = (interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess')) from by
+        rw [show n = 0 + Ss.length from by omega, consList_apply_add]; rfl,
+      List.foldl_cons, List.foldl_nil]
+    exact hlaw mm hmmk IdsM hIdsMM is hspI t ht
+  have hconcPub : interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ))))) (mutualConcAV k n (nIdxs.getD mm 0) mm)
+      = SetTheory.app (is.foldl SetTheory.app (Ms.getD mm pt)) t := by
+    unfold mutualConcAV
+    rw [interp_app, interp_mkAppN_foldl, hidxvars, interp_bvar, interp_bvar, cons_zero,
+      hσmot _ mm hmmk (by omega)]
+  rw [hconcPub]
+  rw [hconcA] at hmemA
+  refine ⟨⟨?_, ?_⟩, ?_, fun h0 => ?_⟩
+  · unfold mutualRecBodyAV
+    refine (mkAppN_wellDenoted_of_chain ?_ ?_ ?_).1
+    · rw [WellDenoted_liftN, hσshift]; exact (hyp.haux _).1.1
+    · intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · rcases List.mem_append.mp ha with ha | ha
+        · rcases List.mem_append.mp ha with ha | ha
+          · rcases List.mem_append.mp ha with ha | ha
+            · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+            · rw [List.mem_singleton] at ha; subst ha; exact hdispOk
+          · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+        · rw [List.mem_singleton] at ha; subst ha; exact htagvals.2
+      · rw [List.mem_singleton] at ha; subst ha; trivial
+    · rw [hargvals, hleafeq]
+      exact appChainOk_of_mkPisAV' (m := ℓ) hzA hconc0 (hyp.haux (fun j => consList ps ρ (j + nP))).2 hfitA
+  · unfold mutualRecBodyAV
+    refine AnnotValid_mkAppN ?_ ?_
+    · rw [AnnotValid_liftN, hσshift]; exact (hyp.haux _).1.2
+    · intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · rcases List.mem_append.mp ha with ha | ha
+        · rcases List.mem_append.mp ha with ha | ha
+          · rcases List.mem_append.mp ha with ha | ha
+            · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+            · rw [List.mem_singleton] at ha; subst ha
+              exact motDispAV_validV hσshift hF.tag hyp.hk hF.tagValid hF.auxValid
+          · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+        · rw [List.mem_singleton] at ha; subst ha
+          exact tagTupleAV_validV hF.tagValid hIdsMM hσshift
+            (fun E hE => by obtain ⟨l, -, rfl⟩ := List.mem_map.mp hE; trivial)
+      · rw [List.mem_singleton] at ha; subst ha; trivial
+  · unfold mutualRecBodyAV
+    rw [interp_mkAppN_foldl, hargvals, hleafeq]
+    exact hmemA
+  · have h := hyp.hauxConc (fun j => consList ps ρ (j + nP)) ((List.range nP).reverse.map (consList ps ρ) ++ [(interp V (cons t (consList is (consList Ss (consList Ms (consList ps ρ)))))
+      (motDispAV ℓ W wB (k + n + nIdxs.getD mm 0 + 1) (n + nIdxs.getD mm 0 + 1) k Idss
+        rss tlss Eiss' Fss₀ Ess'))] ++ Ss
+      ++ [inj mm (mkTower (is ++ [pt]))] ++ [t]) hfitA
+    rw [hconcA, hyp.hbz.mpr h0, univ_zero] at h
+    exact h
+
+/-- **The member recursor leaf's facts**: member `mm`'s recursor leaf is
+`WellDenotedV` at every frame and inhabits the reading of its STORED
+type. -/
+theorem mutualRecLeafFacts
+    (hyp : MutualLeafHyp V m ψ elimL ℓ W wB nP s b k n Ls nIdxs pps ipss Idss rss tlss
+      EissO Eiss' FssR Fss₀ Ess' mems tgts cds mm) (ρ : Nat → V) :
+    WellDenotedV V ρ
+        (mutualRecAVI m ψ ℓ W wB nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀
+          Ess' mems tgts cds mm) ∧
+      interp V ρ
+          (mutualRecAVI m ψ ℓ W wB nP s b elimL Ls nIdxs pps ipss Idss rss tlss Eiss' FssR Fss₀
+            Ess' mems tgts cds mm)
+        ∈ˢ interp V ρ
+            (mkPisAV (mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm)
+              (mutualConcAV k n (nIdxs.getD mm 0) mm)) := by
+  have hbits : ∀ d ∈ mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm,
+      (b = 0 ↔ d.2.1 = 0) := by
+    intro d hd
+    rw [mem_mutualRecDataAV hd, hyp.hb]
+  have hunder : ∀ ρ' : Nat → V, UnderTowerOk b ρ'
+      (mutualRecBodyAV ℓ W wB nP k n (nIdxs.getD mm 0) mm Idss rss tlss Eiss' Fss₀ Ess'
+        (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds))
+      (mutualConcAV k n (nIdxs.getD mm 0) mm)
+      (mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm) := by
+    intro ρ'
+    refine underTowerOk_of_walk
+      (domsWalk_of_fieldsOkB (WellDenoted_mkPisAV_inv (hyp.hstore ρ').1).1) fun as hsp => ?_
+    obtain ⟨⟨hok, -⟩, hmem, h0⟩ := mutualRecBody_facts hyp ρ' as hsp
+    exact ⟨hok, hmem, h0⟩
+  have hvalid : ∀ ρ' : Nat → V, UnderTowerValid ρ'
+      (mutualRecBodyAV ℓ W wB nP k n (nIdxs.getD mm 0) mm Idss rss tlss Eiss' Fss₀ Ess'
+        (auxRecAV m ψ ℓ W wB nP s elimL pps Idss rss tlss Eiss' FssR Fss₀ Ess' mems tgts cds))
+      (mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm) := by
+    intro ρ'
+    refine underTowerValid_of_fieldsValid (AnnotValid_mkPisAV_inv (hyp.hstore ρ').2).1
+      fun as hsp => (mutualRecBody_facts hyp ρ' as hsp).1.2
+  show WellDenotedV V ρ (mkLamsC b _ _) ∧ interp V ρ (mkLamsC b _ _) ∈ˢ _
+  rw [hyp.hLs, hyp.hn]
+  exact ⟨⟨mkLamsC_wellDenoted hbits (hunder ρ), mkLamsC_validV (hvalid ρ)⟩,
+    mkLamsC_mem hbits (hunder ρ)⟩
+
+end Facts
+
 end ConLeche.Model
