@@ -34,9 +34,9 @@ stated in `ConLeche/Challenge.lean` (with `sorry`) and proved in
 There is one rule per syntax form and no rule at all for a free
 variable (`fvar`), a `let` or a term that does not resolve, so such a
 term denotes nothing.  That is the right reading for stored constants:
-the checker stores every type and every definition value as a **closed**
-term — bound variables are de Bruijn indices under their binders, there
-is no `fvar`, and its annotation pass has replaced every `let` by its
+the checker stores every constant's type as a **closed** term — bound
+variables are de Bruijn indices under their binders, there is no
+`fvar`, and its annotation pass has replaced every `let` by its
 reduct — and the relation reads a binder's body by pushing the bound
 value onto `ρ`, with no renaming and no instantiation.
 
@@ -175,31 +175,34 @@ inductive Denotes (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name 
 /-- **A model of the environment `env` in the set theory `V`**: one
 assignment `cval` of a set to every constant at every level
 assignment — fixed once, for the whole environment — under which every
-stored definition denotes its body, every stored constant is a member
-of its type, and the built-in `False` is the empty set.
+stored constant is a member of what its type denotes, and the built-in
+`False` is the empty set.
 
 The interpretation of the constants *is* the model: there is nothing
 else to choose (`Sort`, `∀`, `λ`, application and projection are read
-by fixed set operations), and `defn` forces `cval` on every definition.
-`mem` is what makes every stored theorem true — a theorem `t : P` is a
-constant whose type `P` denotes a truth value, and `cval t φ ∈ˢ ⟦P⟧`
-says that truth value is `{pt}` — and `false_empty` is what makes
-truth mean something: a proof of `False` would be a member of `∅`.
-`False` is built in (the checker installs it from its own pin and
-rejects a stream that declares `False` or `False.rec` otherwise), so
-the last field is a fact about the checker's `False`, not a hypothesis
-about the input; it is stated of whatever the stored `False` denotes,
-so it says nothing when nothing is stored. -/
+by fixed set operations).  `mem` is what makes every stored theorem
+true — a theorem `t : P` is a constant whose type `P` denotes a truth
+value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}` — and
+`false_empty` is what makes truth mean something: a proof of `False`
+would be a member of `∅`.  `False` is built in (the checker installs it
+from its own pin and rejects a stream that declares `False` or
+`False.rec` otherwise), so the last field is a fact about the checker's
+`False`, not a hypothesis about the input; it is stated of whatever the
+stored `False` denotes, so it says nothing when nothing is stored.
+
+The model says nothing about *definitional* equalities — a
+definition's unfolding, an inductive type's iota rules, η — because it
+does not have to: any such equality a reader cares about can be stated
+as a theorem and proved by `rfl`, the checker accepts it, and `mem`
+then makes it true in the model — `Eq` is built in and denotes set
+equality, so the two sides denote the same set.  Types are the whole
+statement; values are the checker's business. -/
 structure Model (V : Type w) [SetTheory V] (env : Env) where
   /-- the set a constant denotes, per level assignment -/
   cval : Name → (Name → Nat) → V
-  /-- every stored definition denotes its body, at every level
-  assignment (and every variable environment — the body is closed) -/
-  defn : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
-    ConstantInfo.defnInfo cv value hint ∈ env.consts →
-    ∀ (φ : Name → Nat) (ρ : Nat → V),
-      Denotes cval env φ ρ value (cval cv.name φ)
-  /-- every stored constant is a member of what its type denotes -/
+  /-- every stored constant is a member of what its type denotes, at
+  every level assignment (and every variable environment — the type
+  is closed) -/
   mem : ∀ c ∈ env.consts, ∀ (φ : Name → Nat) (ρ : Nat → V),
     ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
   /-- whatever the built-in `False` denotes is the empty set -/

@@ -15,8 +15,8 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 
 > **Main theorem.**  If the checker accepts a stream, the environment
 > it built has a model in every set theory `V`: one set per constant
-> under which every definition denotes its body and every constant —
-> every theorem included — is a member of its type.
+> under which every constant — every theorem included — is a member
+> of its type, and `False` is empty.
 >
 > **Headline theorem.**  Hence that environment contains no constant
 > whose type is `False`.
@@ -24,7 +24,9 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 The second is a corollary of the first: `False` denotes the empty set,
 which has no members.  An accepted stream is therefore not a proof of
 a contradiction, and more: every statement it proves is true in the
-model.
+model.  Definitional equalities are not part of the statement — a
+reader who cares that a definition unfolds as declared states that as
+a theorem proved by `rfl`, and the main theorem makes it true.
 
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its

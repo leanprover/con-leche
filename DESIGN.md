@@ -68208,7 +68208,9 @@ imports `Kernel.Core`, `Kernel.Basis.Names`, `Verify.Level`,
   `app`, `lam`, `pi`, `proj_table`, `proj_fst`, `proj_snd`, `natLit`,
   `strLit`;
 * `structure Model (V) [SetTheory V] (env : Env)` with fields `cval`,
-  `defn`, `mem`, `false_empty`.
+  `mem`, `false_empty` (a `defn` field — every stored definition
+  denotes its body — was in the first cut and DROPPED by the
+  maintainer's ruling, §9).
 
 **`ConLeche/Challenge.lean`** (rewritten): the docstring and the three
 statements with `sorry` — `model_exists : … → Nonempty (Model V env)`,
@@ -68444,9 +68446,9 @@ The proof (`ConLeche/Model/Denotes.lean`, a Model-tier file; imports
    `Sem_const_nil`/`Sem_const_one` helpers, rebuilt: ~120 lines).
    ~250 lines.
 4. **The model.**  `Model.ofEnvModelM : EnvModelM V μ env → Model V env`:
-   `defn` from `defn_reads` (bridge at `d = 0`, `closeN 0 value 0 =
-   value` by `ConstWF`'s `hasFvar`, `interp_closed`); `mem` from
-   `type_reads` + `mem_type`; `false_empty` by inverting the `const`
+   `mem` from `type_reads` + `mem_type` (bridge at `d = 0`, `closeN 0
+   type 0 = type` by `ConstWF`'s `hasFvar`, `interp_closed`); no
+   `defn_reads` bridge (§9); `false_empty` by inverting the `const`
    rule, `EnvModel.cvalE_pinned` at `falseName` (`.const .empty [0]`,
    `erase_eq_const`), `bval V .empty [0] = empty`.  ~60 lines.  Then
    `model_exists` is `Cached.checkDecls_sound` + this.
@@ -68475,3 +68477,30 @@ branch; stage 2 adds the build to the battery (§4).
 `sorry` diagnostics, `MainTheorem` one (`model_exists`, stage 1);
 `tests/layering.sh` 279/189/3/1, 0 base→lane, 0 impl→theory; the
 three statements byte-identical across the modules.
+
+### 9. AMENDMENT — the maintainer's ruling on the fields (2026-09-11, still stage 1)
+
+The maintainer, on the first cut: *"Why do we have more-than-just-type
+for `.defn` but not for inductives?  Seems inconsistent.  I wonder if
+we should just have the types for the main theorem (and argue that
+users hopefully believe that they can turn any definitional equality
+into a propositional one if they worry)."*  Ruling: **DROP `defn`**.
+`Model V env` is exactly `cval`, `mem`, `false_empty` — one
+assignment of a set to every constant under which every stored
+constant is a member of its type's denotation, `False` being empty;
+that is what makes every theorem true.  Definitional equalities (a
+definition's unfolding, an inductive's iota rules, η) are not part of
+the statement because any such equality a reader cares about can be
+stated as a theorem proved by `rfl`, the checker accepts it, and `mem`
+makes it true in the model — `Eq` is pinned to set equality, so the
+two sides denote the same set.  §2.3's argument about theorems now
+applies to definitions too, and the asymmetry it left (definitions
+had an equation, inductives did not) is gone.  Docstrings of `Model`,
+`Challenge.lean` and `Denotes.lean`'s header rewritten around that
+reading; `Denotes_functional` and the headline derivation unchanged;
+the three statements re-verified byte-identical across the two
+modules (1 565 bytes); `tests/layering.sh` unchanged.  **The stage-2
+estimate drops** by the `defn_reads` bridge (§6 item 4): `mem` needs
+the bridge on stored TYPES only, and `ConstWF`'s type clauses supply
+the closedness — 2 sessions rather than 2–3.  `Model` stays the name
+unless the maintainer says otherwise (§2.5).
