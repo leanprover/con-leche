@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeInstall
+public import ConLeche.Kernel.Inductives.MutualInstall
 
 @[expose] public section
 
@@ -538,7 +538,15 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- `checkModeled`.
       match nativeParts? nP block with
       | some p => checkNative ops env p
-      | none => checkModeled mode ops env block
+      | none =>
+        -- a MUTUAL block — several type formers, one recursor each —
+        -- is the mutual route's (task #278: the reduction to the
+        -- fixpoint route inside `checkMutual`); a block with more
+        -- recursors than formers is nested and stays the modeled
+        -- path's
+        match mutualParts? nP block with
+        | some q => checkMutual ops env q
+        | none => checkModeled mode ops env block
     else throw (.invalid "number of parameters mismatch")
 
 /-- Check a list of declarations in order, starting from the empty

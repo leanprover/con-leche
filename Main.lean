@@ -136,6 +136,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
       | .indDecl block nP =>
         let route :=
           if (ConLeche.nativeParts? nP block).isSome then "fix"
+          else if (ConLeche.mutualParts? nP block).isSome then "mutual"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"
@@ -527,7 +528,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.
     -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
-    -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
+    -- route <block> <fix|mutual|inmodel|modeled|basis>` line per inductive block,
     -- on the progress lane (so a traced run is as unverified as a
     -- heartbeat run, and says so).
     let trace := (← IO.getEnv "CON_LECHE_ROUTE_TRACE").isSome

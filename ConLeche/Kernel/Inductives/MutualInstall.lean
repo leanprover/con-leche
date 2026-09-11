@@ -50,9 +50,12 @@ is discarded:
    applied right-hand side (β/δ/ι through the definitions);
 6. **the stored block**: the formers as inductives, the constructors,
    the recursors with the generated rules — official's shapes, with
-   official's capabilities (none: K never fires on a mutual block,
-   η/unit-likeness are the projection story's, M4).  The scaffold and
-   the definitions are not stored.
+   official's capabilities (none yet: K never fires on a mutual block,
+   η/unit-likeness at a recursion-free block's structure-like members
+   are M4's) — and the projection TABLE of every structure-like
+   member (one constructor, no index: official's `infer_proj`
+   condition), at the tagged tower's offset as on the fixpoint route.
+   The scaffold and the definitions are not stored.
 
 Every official check runs on the stream's records, and every check is
 one the type checker makes on a term this install generated, so the
@@ -137,7 +140,8 @@ def mutualTagBlock (sc : MutualScaffold) (lps : List Name) (nP : Nat) (W : Level
   let rules ← (List.range k).mapM fun mIdx => do
     let rhs ← structRecRhsR sc.tag lps elimTag true nP 0 tagTy tagCtors sc.tagRec
       (.param elimTag :: lps.map .param) mIdx
-    pure (RecRule.mk (sc.tagCtor mIdx) (fms.getD mIdx default).nIdx 0 .inert rhs false false false)
+    pure (RecRule.mk (sc.tagCtor mIdx) (fms.getD mIdx default).nIdx 0 .inert rhs.resetMeta
+      false false false)
   pure ([ConstantInfo.indInfo ⟨sc.tag, lps, tagTy⟩ {}] ++
     tagCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
     [ConstantInfo.recInfo ⟨sc.tagRec, elimTag :: lps, tagRecTy⟩ (nP + 1 + k) (nP + 1 + k) rules])
@@ -167,7 +171,8 @@ def mutualAuxBlock (sc : MutualScaffold) (lps : List Name) (nP : Nat) (u : Level
   let rules ← (List.range n).mapM fun J => do
     let rhs ← structRecRhsR sc.aux lps elim large nP 1 auxTy auxCtors sc.auxRec
       (rlps.map .param) J
-    pure (RecRule.mk (sc.auxCtor J) (ctors.getD J default).nF 0 .inert rhs false false false)
+    pure (RecRule.mk (sc.auxCtor J) (ctors.getD J default).nF 0 .inert rhs.resetMeta
+      false false false)
   pure ([ConstantInfo.indInfo ⟨sc.aux, lps, auxTy⟩ {}] ++
     auxCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
     [ConstantInfo.recInfo ⟨sc.auxRec, rlps, auxRecTy⟩ (nP + 1 + n + 1) (nP + 1 + n) rules])
@@ -331,80 +336,302 @@ def mutualDefine (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (value : Ex
     (MutualKit.hintFor (MutualKit.heightOf env.find?) value)
   pure (env', cvA)
 
-/-- Check and install a **mutual block** (see the module docstring). -/
-def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
-  let k := p.k
-  let n := p.n
-  let nP := p.nP
-  let lps := p.lps
-  -- 0. the block's shape: official's rejects
-  unless p.blockNames.Nodup do
+/-- **The block record the core takes** (task #279's R4): the formers
+with their index counts, the constructors, the parameter count, the
+level parameters and the eliminator's level-parameter shape — nothing
+of the stream's recursor records, which are compared separately
+(`checkMutual`); a caller with an auxiliary block of its own (the
+nested elimination's copies, which exist in no stream) installs it
+through `checkMutualCore` and reads the generated recursors off the
+returned environment. -/
+structure MutualBlock where
+  /-- the formers in block order, each with its index count -/
+  formers : List (ConstantVal × Nat)
+  /-- the constructors in block order, member by member -/
+  ctors : List MutualCtor
+  nP : Nat
+  lps : List Name
+  large : Bool
+  elim : Name
+  deriving Repr, Inhabited
+
+/-- The block record of a recognised mutual block. -/
+def MutualParts.toBlock (p : MutualParts) : MutualBlock :=
+  ⟨p.members.map (fun mb => (mb.cv, mb.nIdx)), p.ctors, p.nP, p.lps, p.large, p.elim⟩
+
+def MutualBlock.k (b : MutualBlock) : Nat := b.formers.length
+def MutualBlock.n (b : MutualBlock) : Nat := b.ctors.length
+def MutualBlock.rulePrefix (b : MutualBlock) : Nat := b.nP + b.k + b.n
+def MutualBlock.elimLevel (b : MutualBlock) : Level := structElimLevel b.elim b.large
+def MutualBlock.rlps (b : MutualBlock) : List Name :=
+  if b.large then b.elim :: b.lps else b.lps
+def MutualBlock.memberNames (b : MutualBlock) : List Name := b.formers.map (·.1.name)
+/-- The recursor name of member `m`: `T_m.rec`, official's `mk_rec_name`. -/
+def MutualBlock.recName (b : MutualBlock) (mIdx : Nat) : Name :=
+  (b.formers.getD mIdx default).1.name.str "rec"
+def MutualBlock.blockNames (b : MutualBlock) : List Name :=
+  b.memberNames ++ b.ctors.map (·.cv.name) ++ (List.range b.k).map b.recName
+/-- The constructors of member `m`, with their global indices. -/
+def MutualBlock.ownCtors (b : MutualBlock) (mIdx : Nat) : List (Nat × MutualCtor) :=
+  (b.ctors.zipIdx.map fun (c, J) => (J, c)).filter fun (_, c) => c.member == mIdx
+/-- The members as the rewrite reads them: `(T_m, m, nIdx_m)`. -/
+def MutualBlock.members3 (b : MutualBlock) : List (Name × Nat × Nat) :=
+  b.formers.zipIdx.map fun ((cv, nIdx), mIdx) => (cv.name, mIdx, nIdx)
+def MutualBlock.nIdxOf (b : MutualBlock) (mIdx : Nat) : Nat := (b.formers.getD mIdx default).2
+
+/-- Stage 0: the block's shape, official's rejects — distinct names,
+one level-parameter list, every constructor returning a member, the
+constructors grouped by member in member order. -/
+def mutualShapeOk (b : MutualBlock) : m Unit := do
+  unless b.blockNames.Nodup do
     throw (.invalid "mutual: duplicate declaration in the block")
-  unless p.members.all (fun mb => mb.cv.levelParams == lps) &&
-      p.ctors.all (fun c => c.cv.levelParams == lps) do
+  unless b.formers.all (fun f => f.1.levelParams == b.lps) &&
+      b.ctors.all (fun c => c.cv.levelParams == b.lps) do
     throw (.invalid "mutual: the block's members do not share its level parameters")
-  unless p.ctors.all (fun c => c.member < k) do
+  unless b.ctors.all (fun c => c.member < b.k) do
     throw (.invalid "mutual: invalid constructor return type")
-  unless mutualCtorsGrouped p.ctors do
+  unless mutualCtorsGrouped b.ctors do
     throw (.invalid "mutual: a constructor returns a member other than the one it is \
       listed under")
-  -- 1. the formers, at official's telescope
-  let fms ← p.members.mapM fun mb => do
-    let cvTa₀ ← checkConstantVal ops env mb.cv
-    let (cvTa, s) ← checkSumTele ops env mb.cv (nP + mb.nIdx) cvTa₀
-    pure (⟨cvTa, mb.nIdx, s⟩ : MutualFormerA)
-  let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
-  -- 2. official's cross-member checks: the parameter domains, the sorts
-  let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
-  for f in fms do
+
+/-- Stage 1: the formers at official's telescope (`checkSumTele`). -/
+def mutualFormers (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List (ConstantVal × Nat) → m (List MutualFormerA)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
+    let cvTa₀ ← checkConstantVal ops env cv
+    let (cvTa, s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
+    let fs ← mutualFormers ops env nP rest
+    pure (⟨cvTa, nIdx, s⟩ :: fs)
+
+/-- Stage 2: official's cross-member checks (`check_inductive_types`):
+every former's result sort equivalent to the first's, its parameter
+domains definitionally the first's. -/
+def mutualCrossChecks (ops : CheckerOps m) (env : Env) (nP : Nat) (f₀ : MutualFormerA)
+    (doms₀ : List Expr) : List MutualFormerA → m Unit
+  | [] => pure ()
+  | f :: rest => do
     unless ← liftFueled "level comparison" (Level.isEquiv f.s f₀.s) do
       throw (.invalid "mutual: mutually inductive types must live in the same universe")
     let tq ← unwrapOr (openPisAtFvars nP f.cvTa.type 0) (.internal "mutual: former telescope")
-    mutualDomsOk ops env tq.1 (tq₀.1.map Expr.fvarTypeD) nP
-  -- 3. the eliminator (official's `elim_only_at_universe_zero` at a
-  -- mutual block) and the recursor records' pins
-  unless p.large == f₀.s.isNeverZero do
-    throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
-  unless p.recPinned do
-    throw (.invalid "mutual: a recursor record is not the generated recursor")
-  -- 4. the constructors' and recursors' types mention nothing beyond the
-  -- environment and the block itself (they are checked at the scaffold
-  -- below, which holds more)
-  let envN : Env := ⟨(p.members.map fun mb => ConstantInfo.indInfo mb.cv {}) ++ env.consts⟩
-  for c in p.ctors do
-    unless c.cv.type.constsResolve envN do
-      throw (.invalid s!"unknown constant in type of {c.cv.name}")
-  let envR : Env :=
-    ⟨(p.members.map fun mb => ConstantInfo.recInfo mb.cvR mb.mI mb.rP []) ++ envN.consts⟩
-  for mb in p.members do
-    unless mb.cvR.type.constsResolve envR do
-      throw (.invalid s!"unknown constant in type of {mb.cvR.name}")
-    for r in mb.rules do
-      unless r.rhs.constsResolve envR do
-        throw (.invalid s!"unknown constant in a rule of {mb.cvR.name}")
-  -- 5. the residual: a member mentioned other than as a plain member
-  -- application (nested, or under a redex the syntactic rewrite cannot
-  -- see through) is a positive decline
-  let memberNames := p.memberNames
-  let members : List (Name × Nat × Nat) :=
-    p.members.zipIdx.map fun (mb, mIdx) => (mb.cv.name, mIdx, mb.nIdx)
-  let nIdxOf : Nat → Nat := fun mIdx => (p.members.getD mIdx default).nIdx
-  -- the scaffold names, fresh in the environment
-  let sc ← unwrapOr (mutualScaffoldFresh env.find? f₀.cvTa.name k n (env.consts.length + 2) 0)
-    (.internal "mutual: no fresh scaffold name")
-  for c in p.ctors do
-    unless (c.cv.type.stripPis (nP + c.nF)).isSome do
+    mutualDomsOk ops env tq.1 doms₀ nP
+    mutualCrossChecks ops env nP f₀ doms₀ rest
+
+/-- Stage 4: the constructors' declared types (and, when the stream's
+recursor records are compared, those records' types and rules)
+mention nothing beyond the environment and the block itself — they
+are checked at the scaffold below, which holds more.  `envF` is the
+environment with the block's formers as dummy inductives (a
+constructor's type mentions the formers), `envN` with its constructors
+too (a recursor's type mentions them), `envR` with its recursors (a
+rule mentions the recursors). -/
+def mutualScopeOk (env : Env) (b : MutualBlock)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) : Bool :=
+  let envF : Env := ⟨(b.formers.map fun f => ConstantInfo.indInfo f.1 {}) ++ env.consts⟩
+  let envN : Env :=
+    ⟨(b.ctors.map fun c => ConstantInfo.ctorInfo c.cv b.nP c.nF) ++ envF.consts⟩
+  b.ctors.all (fun c => c.cv.type.constsResolve envF) &&
+  (match streamRecs with
+   | none => true
+   | some rs =>
+     let envR : Env :=
+       ⟨(rs.map fun (cvR, _) => ConstantInfo.recInfo cvR 0 0 []) ++ envN.consts⟩
+     rs.all fun (cvR, rules) =>
+       cvR.type.constsResolve envR && rules.all fun r => r.rhs.constsResolve envR)
+
+/-- Stage 5: the residual — a constructor telescope that is not one,
+or a member mentioned other than as a plain member application
+(nested, or under a redex the syntactic rewrite cannot see through) —
+is a positive decline. -/
+def mutualResidualOk (sc : MutualScaffold) (b : MutualBlock) : List MutualCtor → m Unit
+  | [] => pure ()
+  | c :: rest => do
+    unless (c.cv.type.stripPis (b.nP + c.nF)).isSome do
       throw (.notImplemented s!"mutual: constructor telescope of {c.cv.name}")
-    if MutualKit.mentionsAny memberNames
-        (MutualKit.specFam sc.aux sc.tagCtor lps nP members c.cv.type) then
+    if MutualKit.mentionsAny b.memberNames
+        (MutualKit.specFam sc.aux sc.tagCtor b.lps b.nP b.members3 c.cv.type) then
       throw (.notImplemented s!"mutual: a field of {c.cv.name} mentions the block other than \
         as a plain member application (nested, or under a redex)")
-  -- 6. the tag's universe: above every index domain's sort
-  let mut W : Level := .succ .zero
-  for f in fms do
+    mutualResidualOk sc b rest
+
+/-- Stage 6: the tag's universe, above every member's index domains'
+sorts. -/
+def mutualTagUniv (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List MutualFormerA → Level → m Level
+  | [], W => pure W
+  | f :: rest, W => do
     let (tfvs, _) ← unwrapOr (openPisAtFvars (nP + f.nIdx) f.cvTa.type 0)
       (.internal "mutual: former telescope")
-    W ← mutualIdxSorts ops env nP tfvs f.nIdx W
+    let W' ← mutualIdxSorts ops env nP tfvs f.nIdx W
+    mutualTagUniv ops env nP rest W'
+
+/-- Stage 8a: the formers as definitions at the scaffold. -/
+def mutualDefineFormers (ops : CheckerOps m) (sc : MutualScaffold) (lps : List Name) (nP : Nat) :
+    List (MutualFormerA × Nat) → Env → m Env
+  | [], env => pure env
+  | (f, mIdx) :: rest, env => do
+    let value ← unwrapOr (mutualFormerValue sc lps nP mIdx f) (.internal "mutual: former value")
+    let (env', _) ← mutualDefine ops env ⟨f.cvTa.name, lps, f.cvTa.type⟩ value
+    mutualDefineFormers ops sc lps nP rest env'
+
+/-- Stage 8b: the constructors as definitions at the scaffold; returns
+the annotated constructors. -/
+def mutualDefineCtors (ops : CheckerOps m) (sc : MutualScaffold) (lps : List Name) (nP : Nat) :
+    List (MutualCtor × Nat) → Env → m (Env × List ConstantVal)
+  | [], env => pure (env, [])
+  | (c, J) :: rest, env => do
+    let value ← unwrapOr (mutualCtorValue sc lps nP J c) (.internal "mutual: constructor value")
+    let (env', cvCa) ← mutualDefine ops env c.cv value
+    let (env'', rest') ← mutualDefineCtors ops sc lps nP rest env'
+    pure (env'', cvCa :: rest')
+
+/-- Stage 8c: member `m`'s recursor — its type generated, the
+stream's compared with it when given, its value defined at the
+scaffold; returns the annotated generated type. -/
+def mutualDefineRec (ops : CheckerOps m) (sc : MutualScaffold) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (u : Level) (mIdx nIdx : Nat)
+    (streamRec : Option ConstantVal) (env : Env) : m (Env × Expr) := do
+  let recTy ← unwrapOr (mutualRecTy b.lps b.elim b.large b.nP formers4 ctors4 mIdx)
+    (.internal "mutual: recursor type")
+  let cvRa ← checkConstantVal ops env ⟨b.recName mIdx, b.rlps, recTy⟩
+  if let some cvR := streamRec then
+    let cvRi ← checkConstantVal ops env cvR
+    unless ← ops.isDefEq env 0 cvRi.type cvRa.type do
+      throw (.invalid s!"mutual: the type of {cvR.name} is not the generated one")
+  let value ← unwrapOr
+    (mutualRecValue sc b.lps (b.rlps.map Level.param) u b.elimLevel b.nP b.k b.n mIdx nIdx
+      cvRa.type)
+    (.internal "mutual: recursor value")
+  let env' ← checkDefnVal ops env cvRa value
+    (MutualKit.hintFor (MutualKit.heightOf env.find?) value)
+  pure (env', cvRa.type)
+
+/-- Stage 8c over the members. -/
+def mutualDefineRecs (ops : CheckerOps m) (sc : MutualScaffold) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (u : Level)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    List (MutualFormerA × Nat) → Env → m (Env × List Expr)
+  | [], env => pure (env, [])
+  | (f, mIdx) :: rest, env => do
+    let (env', recTy) ← mutualDefineRec ops sc b formers4 ctors4 u mIdx f.nIdx
+      (streamRecs.bind fun rs => (rs[mIdx]?).map (·.1)) env
+    let (env'', tys) ← mutualDefineRecs ops sc b formers4 ctors4 u streamRecs rest env'
+    pure (env'', recTy :: tys)
+
+/-- Stage 9: member `m`'s rules — generated, compared with the
+stream's when given, certified at the scaffold. -/
+def mutualMemberRules (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (ctorsA : List ConstantVal)
+    (recTy : Expr) (mIdx : Nat) (streamRec : Option (ConstantVal × List RecRule)) :
+    m (List (MutualCtor × Expr)) := do
+  let recOf : Nat → Name := b.recName
+  let rlvls := b.rlps.map Level.param
+  let own := b.ownCtors mIdx
+  if let some (cvR, rules) := streamRec then
+    unless mutualRulesOk recOf rlvls b.nP b.k b.n ctors4 (own.map (·.1)) (rules.map (·.rhs))
+        cvR.type do
+      throw (.invalid s!"mutual: the rules of {cvR.name} are not the generated ones")
+  own.mapM fun (J, c) => do
+    let rhs ← unwrapOr (mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4 recOf rlvls J)
+      (.internal "mutual: recursor rule")
+    let cvCa := ctorsA.getD J default
+    mutualCertifyRule ops env (recOf mIdx) rlvls recTy c.cv.name b.lps cvCa.type b.nP b.k b.n
+      c.nF rhs
+    pure (c, rhs)
+
+/-- Stage 9 over the members. -/
+def mutualAllRules (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (ctorsA : List ConstantVal)
+    (recTys : List Expr) (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    Nat → m (List (List (MutualCtor × Expr)))
+  | 0 => pure []
+  | mIdx' + 1 => do
+    let earlier ← mutualAllRules ops env b formers4 ctors4 ctorsA recTys streamRecs mIdx'
+    let rules ← mutualMemberRules ops env b formers4 ctors4 ctorsA (recTys.getD mIdx' default)
+      mIdx' (streamRecs.bind (·[mIdx']?))
+    pure (earlier ++ [rules])
+
+/-- Stage 10: the stored block — the formers as inductives with
+official's capabilities (none), the constructors, the recursors with
+the generated rules as a group. -/
+def mutualStore (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
+    (ctorsA : List ConstantVal) (recTys : List Expr)
+    (rulesOf : List (List (MutualCtor × Expr))) : Env :=
+  let envF₁ : Env := fms.foldl (fun e f => ⟨ConstantInfo.indInfo f.cvTa {} :: e.consts⟩) env
+  let envF₂ : Env := (b.ctors.zip ctorsA).foldl
+    (fun e (c, cvCa) => ⟨ConstantInfo.ctorInfo cvCa b.nP c.nF :: e.consts⟩) envF₁
+  (fms.zipIdx).foldl
+    (fun e (f, mIdx) =>
+      let recTy := recTys.getD mIdx default
+      let rP := b.rulePrefix
+      let mI := rP + f.nIdx
+      ⟨ConstantInfo.recInfo ⟨b.recName mIdx, b.rlps, recTy⟩ mI rP
+        (mutualRules envF₂.find? (b.recName mIdx) b.nP mI rP recTy (rulesOf.getD mIdx []))
+        :: e.consts⟩)
+    envF₂
+
+/-- Stage 11 (the projection story, task #278 M1): **the projection
+table** at a STRUCTURE-LIKE member — one constructor, no index —
+official's `infer_proj` condition (`type_checker.cpp`: one constructor,
+`nparams + nindices` arguments, no `is_rec`, no single-type
+condition), the fixpoint route's table at the tagged tower's offset
+`1` (`checkNativeTable`); the guard levels are official's join over the
+fields' sorts, read at the stored environment off the annotated
+constructor's opened telescope (`checkStructFieldSortsI` with no
+bound).  Nothing at any other member. -/
+def mutualMemberTable (ops : CheckerOps m) (b : MutualBlock) (f : MutualFormerA)
+    (ctorsA : List ConstantVal) (mIdx : Nat) (env : Env) : m Env :=
+  match b.ownCtors mIdx with
+  | [(J, c)] =>
+    if f.nIdx == 0 then do
+      let cvCa := ctorsA.getD J default
+      let (_, crest) ← unwrapOr (openPisAtFvars b.nP cvCa.type 0)
+        (.internal "mutual: constructor telescope")
+      let (xFvs, _) ← unwrapOr (openPisAtFvars c.nF crest b.nP)
+        (.internal "mutual: constructor field telescope")
+      let sorts ← checkStructFieldSortsI ops env true false f.s b.nP xFvs [] c.nF
+      checkStructProjTable f.cvTa.name c.cv.name b.lps b.nP c.nF f.s
+        (structProjGuards cvCa.type b.nP c.nF sorts) 1 cvCa env
+    else pure env
+  | _ => pure env
+
+/-- Stage 11 over the members. -/
+def mutualTables (ops : CheckerOps m) (b : MutualBlock) (ctorsA : List ConstantVal) :
+    List (MutualFormerA × Nat) → Env → m Env
+  | [], env => pure env
+  | (f, mIdx) :: rest, env => do
+    let env' ← mutualMemberTable ops b f ctorsA mIdx env
+    mutualTables ops b ctorsA rest env'
+
+/-- **Check and install a mutual block from its block record** (see
+the module docstring); `streamRecs` are the stream's recursor records
+in member order, compared with the generated recursors when given. -/
+def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) : m Env := do
+  let k := b.k
+  let n := b.n
+  let nP := b.nP
+  let lps := b.lps
+  mutualShapeOk b
+  -- 1. the formers, at official's telescope
+  let fms ← mutualFormers ops env nP b.formers
+  let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
+  -- 2. official's cross-member checks
+  let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
+  mutualCrossChecks ops env nP f₀ (tq₀.1.map Expr.fvarTypeD) fms
+  -- 3. the eliminator (official's `elim_only_at_universe_zero` at a
+  -- mutual block)
+  unless b.large == f₀.s.isNeverZero do
+    throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
+  -- 4. scoping of the block's own records
+  unless mutualScopeOk env b streamRecs do
+    throw (.invalid "mutual: a record of the block mentions an unknown constant")
+  -- 5. the scaffold names, and the residual
+  let sc ← unwrapOr (mutualScaffoldFresh env.find? f₀.cvTa.name k n (env.consts.length + 2) 0)
+    (.internal "mutual: no fresh scaffold name")
+  mutualResidualOk sc b b.ctors
+  -- 6. the tag's universe
+  let W ← mutualTagUniv ops env nP fms (.succ .zero)
   -- 7. the scaffold: the tag family, then the auxiliary family, through
   -- the fixpoint route
   let elimTag := MutualKit.freshLevelName lps
@@ -412,72 +639,31 @@ def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
   let pTag ← unwrapOr (nativeParts? nP tagBlock) (.internal "mutual: tag block shape")
   let envT ← checkNative ops env pTag
   let auxBlock ← unwrapOr
-    (mutualAuxBlock sc lps nP f₀.s p.elim p.large f₀ members p.ctors)
+    (mutualAuxBlock sc lps nP f₀.s b.elim b.large f₀ b.members3 b.ctors)
     (.internal "mutual: auxiliary block")
   let pAux ← unwrapOr (nativeParts? nP auxBlock) (.internal "mutual: auxiliary block shape")
   let envA ← checkNative ops envT pAux
   -- 8. the block's constants as definitions at the scaffold
-  let mut envS := envA
-  for (f, mIdx) in fms.zipIdx do
-    let value ← unwrapOr (mutualFormerValue sc lps nP mIdx f) (.internal "mutual: former value")
-    let (envS', _) ← mutualDefine ops envS ⟨f.cvTa.name, lps, f.cvTa.type⟩ value
-    envS := envS'
-  let mut ctorsA : Array ConstantVal := #[]
-  for (c, J) in p.ctors.zipIdx do
-    let value ← unwrapOr (mutualCtorValue sc lps nP J c) (.internal "mutual: constructor value")
-    let (envS', cvCa) ← mutualDefine ops envS c.cv value
-    envS := envS'
-    ctorsA := ctorsA.push cvCa
+  let envS₁ ← mutualDefineFormers ops sc lps nP fms.zipIdx envA
+  let (envS₂, ctorsA) ← mutualDefineCtors ops sc lps nP b.ctors.zipIdx envS₁
   let formers4 : List MutualFormer := fms.map fun f => ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩
-  let ctors4 : List MutualCtor4 := (p.ctors.zip ctorsA.toList).map fun (c, cvCa) =>
+  let ctors4 : List MutualCtor4 := (b.ctors.zip ctorsA).map fun (c, cvCa) =>
     ⟨c.cv.name, c.nF, cvCa.type, c.member,
-      mutualRecFields memberNames nIdxOf lps nP c.nF cvCa.type⟩
-  let rlvls := p.rlps.map Level.param
-  let ℓ := p.elimLevel
-  let recOf : Nat → Name := fun mIdx => (p.members.getD mIdx default).cvR.name
-  let mut recTys : Array Expr := #[]
-  for (mb, mIdx) in p.members.zipIdx do
-    let recTy ← unwrapOr (mutualRecTy lps p.elim p.large nP formers4 ctors4 mIdx)
-      (.internal "mutual: recursor type")
-    -- the stream's recursor is the generated one
-    let cvRi ← checkConstantVal ops envS mb.cvR
-    let cvRa ← checkConstantVal ops envS ⟨mb.cvR.name, p.rlps, recTy⟩
-    unless ← ops.isDefEq envS 0 cvRi.type cvRa.type do
-      throw (.invalid s!"mutual: the type of {mb.cvR.name} is not the generated one")
-    let value ← unwrapOr (mutualRecValue sc lps rlvls f₀.s ℓ nP k n mIdx mb.nIdx cvRa.type)
-      (.internal "mutual: recursor value")
-    let envS' ← checkDefnVal ops envS cvRa value
-      (MutualKit.hintFor (MutualKit.heightOf envS.find?) value)
-    envS := envS'
-    recTys := recTys.push cvRa.type
-  -- 9. the rules: generated, compared with the stream's, certified
-  let mut rulesOf : Array (List (MutualCtor × Expr)) := #[]
-  for (mb, mIdx) in p.members.zipIdx do
-    let own := p.ownCtors mIdx
-    let recTy := recTys.getD mIdx default
-    unless mutualRulesOk recOf rlvls nP k n ctors4 (own.map (·.1)) (mb.rules.map (·.rhs))
-        mb.cvR.type do
-      throw (.invalid s!"mutual: the rules of {mb.cvR.name} are not the generated ones")
-    let mut rules : List (MutualCtor × Expr) := []
-    for (J, c) in own do
-      let rhs ← unwrapOr (mutualRecRhs lps p.elim p.large nP formers4 ctors4 recOf rlvls J)
-        (.internal "mutual: recursor rule")
-      let cvCa := ctorsA.getD J default
-      mutualCertifyRule ops envS mb.cvR.name rlvls recTy c.cv.name lps cvCa.type nP k n c.nF rhs
-      rules := rules ++ [(c, rhs)]
-    rulesOf := rulesOf.push rules
-  -- 10. the stored block: the formers, the constructors, the recursors
-  -- as a group
-  let envF₁ : Env := fms.foldl (fun e f => ⟨ConstantInfo.indInfo f.cvTa {} :: e.consts⟩) env
-  let envF₂ : Env := (p.ctors.zip ctorsA.toList).foldl
-    (fun e (c, cvCa) => ⟨ConstantInfo.ctorInfo cvCa nP c.nF :: e.consts⟩) envF₁
-  let envF₃ : Env := (p.members.zipIdx).foldl
-    (fun e (mb, mIdx) =>
-      let recTy := recTys.getD mIdx default
-      ⟨ConstantInfo.recInfo ⟨mb.cvR.name, p.rlps, recTy⟩ mb.mI mb.rP
-        (mutualRules envF₂.find? mb.cvR.name nP mb.mI mb.rP recTy (rulesOf.getD mIdx []))
-        :: e.consts⟩)
-    envF₂
-  pure envF₃
+      mutualRecFields b.memberNames b.nIdxOf lps nP c.nF cvCa.type⟩
+  let (envS, recTys) ← mutualDefineRecs ops sc b formers4 ctors4 f₀.s streamRecs fms.zipIdx envS₂
+  -- 9. the rules: generated, compared, certified
+  let rulesOf ← mutualAllRules ops envS b formers4 ctors4 ctorsA recTys streamRecs k
+  -- 10. the stored block; 11. the projection tables of its
+  -- structure-like members
+  mutualTables ops b ctorsA fms.zipIdx (mutualStore env b fms ctorsA recTys rulesOf)
+
+/-- Check and install a **recognised mutual block**: the recursor
+records' structural pin (thrown here, as official's replay rejects a
+recursor that is not the generated one), then the core with the
+stream's records compared. -/
+def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
+  unless p.recPinned do
+    throw (.invalid "mutual: a recursor record is not the generated recursor")
+  checkMutualCore ops env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules)))
 
 end ConLeche

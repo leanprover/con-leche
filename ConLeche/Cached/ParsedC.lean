@@ -237,7 +237,12 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       -- one the modeled path's (its model the in-process modeller's).
       match nativeParts? nP block with
       | some p => checkNativeS mode fe p
-      | none => checkIndDeclSF mode fe block
+      | none =>
+        -- a MUTUAL block (several formers, one recursor each) is its
+        -- own route (task #278); everything else the modeled path's
+        match mutualParts? nP block with
+        | some q => checkMutualS mode fe q
+        | none => checkIndDeclSF mode fe block
     else throw (.invalid "number of parameters mismatch")
 
 /-! ## Names and durations for the driver's messages -/
