@@ -69235,6 +69235,36 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   `ihTeleAtR nF (n + k) …`) and the rule data's lift `k + n` (from
   `Ls.length + cds.length`); both orders occur, one `omega` apart.
 
+#### 8.7 The clause's member view, two repairs from the mutual discharge (2026-09-11)
+
+M2.6 part 1 (`IndRep … d (mm : Nat)`, the member table, `IdsC`, `tup`;
+`5ec5f154`) let the discharge start; writing it (`MutualRep.lean`)
+found two statement-level gaps, repaired in `1207c913`:
+
+* **A rule-less recursor cannot claim the clause.**  `IndRep.rules`
+  forced `rules.map (·.ctor) = memberCtors mm`, so at `rules = []` the
+  member had NO constructor — false at every provisioned recursor
+  (`provisionMutualRecs`: the `k` recursors are consed rule-less because
+  a rule mentions its siblings, and `EnvModelM.ind_reps` must hold at
+  that environment).  Now `rules : rules ≠ [] → …`: the provisioned
+  entry claims the FULL representation (leaf, constructors, functor,
+  fibre) with the rule-list shape vacuous; the store's entry claims it
+  with the shape.  The native route never met this (its one recursor is
+  consed with its rules).
+* **One pair of index readings served two purposes.**  `esF`/`eissF`
+  read the constructors' STORED types (`IndRep.ctors`: constructor `j`'s
+  index spine at its OWN member, its slots at their targets) and also
+  spelled the container's chains (`chains`/`fibre` through the derived
+  `Ess`/`Eiss`); at `k > 1` the container's are the tagged singletons
+  `[⟨inj m ⟨e⃗⟩⟩]` over the one-binder tag telescope and no choice fits
+  both.  `IndRepData` now carries `essC`/`eissC` (the container's), with
+  `cdsC` and `tlss`/`Eiss`/`Fss`/`Ess` over them; a single family sets
+  `essC := esF`, `eissC := eissF` and nothing else changes.
+
+Also recorded: `IndReps.swap`'s escape for an entry the swap changed is
+`ModeledLeaf` alone, so a natively stored group re-assembles its `k`
+entries with `IndRep.swap` (`mutualIndReps_of`).
+
 **Landing target (maintainer ruling, 2026-09-11):** the inductives work
 stays off master until complete end to end (mutual native, the #280
 clause, nested native).  This lane lands on the long-lived integration
