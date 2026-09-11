@@ -9,7 +9,7 @@
 #                    the project rule, enforced nowhere else).
 #   lake test        the `ConLecheTests` library: the `#guard`/`example`
 #                    suite AND `tests/ConLecheTests/Axioms.lean`, whose
-#                    six `#print axioms` guards pin the consistency
+#                    `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
 #   tests/arena.sh   the standard battery, which is itself nine gates

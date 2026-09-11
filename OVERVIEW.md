@@ -89,15 +89,40 @@ covered exactly as a run without it, and so is a run on the pool.
 
 ## 1. What is proved
 
-The statement is one theorem about the declaration fold `checkDecls`,
+The statement is two theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
-a parsed export stream, the theorem
-[`no_proof_of_False` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L40-L43):
+a parsed export stream. The main theorem,
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L47-L50):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
-> accepts `ds` with the environment `env`, then `env` stores no
-> constant whose type is `False`.
+> accepts `ds` with the environment `env`, then `env` has a model in
+> `V` — one set per stored constant and universe assignment under which
+> every stored constant is a member of what its type denotes, and
+> whatever the built-in `False` denotes is the empty set.
+
+What a term denotes, and what a model is, are one short module a
+reader can take in at one sitting: the relation
+[`Denotes` in `ConLeche/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L135-L136),
+one rule per syntax form on the checker's own terms — a bound variable
+reads its environment, `Sort u` the universe chain, a constant its
+set, an application the function's graph, a binder the dependent
+product or the truth value of its body depending on the *regime* the
+checker annotated it with, which it may claim only if the body really
+denotes a truth value there — and the structure
+[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L218-L228).
+So every theorem the stream proves is true in the model, and the
+theorem certifies every proposition annotation the checker stored.
+Definitional equalities need no clause: a definition's unfolding or an
+iota rule, stated as a theorem proved by `rfl`, is a stored constant
+whose type is a true equation.
+
+The headline theorem,
+[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L102-L105),
+follows in three lines — a constant of type `False` would be a member
+of the empty set:
+
+> … then `env` stores no constant whose type is `False`.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
@@ -113,12 +138,12 @@ way.
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
-differently is rejected. The theorem uses exactly Lean's three standard
+differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
 [axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L87-L88)
 checks with `#print axioms` guards under `lake test`.
 
-Everything below explains how that theorem is reached.
+Everything below explains how those theorems are reached.
 
 ## 2. From the binary to the theorem
 
@@ -226,6 +251,9 @@ Read from the outside in:
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
+   The main theorem's model is the invariant's own, read through the
+   statement's relation
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L375-L376)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -317,6 +345,18 @@ the other reduction steps
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
 ([structure `EnvModel` in `ConLeche/Model/Annot/EnvModel.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Annot/EnvModel.lean#L64-L100)).
+
+**The statement's reading.** The main theorem is not stated over the
+annotated terms and `interp` but over `Denotes` (§1), a relation on
+the checker's own terms with no annotated intermediate. The two agree
+where the invariant reads: wherever the invariant's reading of a term
+is defined and graded, `interp` of the reading is a `Denotes`-denotation
+of the term, with the invariant's sort facts discharging the regime
+premises of the binder rules
+([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L217-L223)).
+The relation reads a binder's body under the binder with de Bruijn
+indices while the checker opens it with a fresh free variable; a small
+closing operation translates between the two.
 
 **The claims.** Each kernel function gets one claim, in the accepting
 direction only
@@ -644,9 +684,10 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones. |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The theorem, and the challenge statement kept as its own library. |
+| `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main and headline theorems, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
@@ -656,9 +697,11 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 `tests/arena.sh` is the standard battery: the layering fence, the
 proof-term module pin (`tests/proofdeps.sh`, which fails if a new
 module enters a capstone's closure), the compiler-escape scan, the pin
-dump freshness, the arena tutorial tests, the end-to-end and annotation
-fixtures with pinned verdicts, the route census, and the trusted-mode
-sweep. `lake test` builds the test library with the axiom pins. CI runs
+dump freshness, the Comparator pair (`tests/challenge.sh`: the
+challenge module builds with its `sorry` warnings and nothing else,
+and every statement it makes is token-identical to the solution's),
+the arena tutorial tests, the end-to-end and annotation fixtures with
+pinned verdicts, the route census, and the trusted-mode sweep. `lake test` builds the test library with the axiom pins. CI runs
 both.
 
 The links in this document are part of the battery: `tests/overview-links.sh`
