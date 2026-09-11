@@ -44,9 +44,11 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 
 The idea of the consistency proof is that we define a model in set theory, classical and extensional, and show that our checker only accepts Lean terms that have a model in that world.
 
-### The main theorem
+Depending on your background and your level of interest you may want to look at the Main Corollary or the Main Theorem.
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function, when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+### The Main Corollary
+
+At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function, when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -55,11 +57,34 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
   ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
 ```
 
-Of course this is just a corollary of a stronger statement that every environment built by this function has a model in the set theory.
-
 The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker.
 
-The parser is not covered by the verification. The `checkDecls` function is a pure fold over the declarations. It is not what `main` actually calls, though: the real driver lives in IO (e.g. for progress printing) and returns an `env` that is provably what `checkDecls` would compute.
+This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
+
+### The Main Theorem
+
+The theorem `no_proof_of_False` is of course just a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+
+```lean
+theorem model_exists (V : Type w) [SetTheory V]
+  (ds : List DeclC) (env : Env)
+  (accepted : checkDecls .verified ds = .ok env) :
+  Nonempty (Model V env)
+```
+
+This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation `Model V env` (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
+
+Denotation of terms and types is captured by the inductive relation `Denotes` in the same file. It depends on some set-theoretical constructions (e.g. function spaces).
+
+The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
+
+### Not covered by the proof
+
+Things you may want to check manually if you have doubts, because they are not covered by the proof:
+* The parser reading JSON files to `List DeclC`.
+* That `checkDecls` doesn't just drop declarations, or changes their types (see note about ignoring the `sorryAx` axiom found in the Lean standard library).
+* The annotation pass really only adds annotations and zeta-reduces let expressions, but otherwise passes your expressions through as intended. (The annotations themselves are not trusted, but checked, by code covered by the theorem.)
+* That `main` actually calls `checkDecls`. In fact, it doesn't: It calls a driver that lives in IO (e.g. for progress printing and parallel processing) that returns an `env` together with a proof that `checkDecls` would compute the same env.
 
 ### Set theory assumption
 
