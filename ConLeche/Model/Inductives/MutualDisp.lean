@@ -3,6 +3,7 @@ module
 public import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.Model.Inductives.SumRecFrames
 public import ConLeche.Semantics.Tower.FixRecI
+import ConLeche.Model.Inductives.StructFrames
 public section
 
 /-!
@@ -279,6 +280,214 @@ theorem tagMotAV_facts (hT : TagOk W ρp Idss)
       fun h0 => absurd h0 (Nat.succ_ne_zero _)⟩
     rw [(hbody i hi).1]
     exact piR_mem_univ (auxFib_univ hT hok hi) (fun _ _ => univ_mem_univ ℓ)
+
+/-! ### The tag block's K-frame hypotheses -/
+
+/-- The block's motives' values at the frame, in member order. -/
+@[expose] def motVals (σ : Nat → V) (mOff k : Nat) : List V :=
+  (List.range k).map fun m' => σ (mOff + k - 1 - m')
+
+/-- The tag recursor's K-frame: the parameter frame, the tag motive,
+the block's motives as the minors. -/
+@[expose] noncomputable def tagKFrame (ℓ W w mOff k : Nat) (ρp σ : Nat → V) (Idss : List (List AnnotTerm))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) : Nat → V :=
+  consList (motVals σ mOff k) (cons (tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess') ρp)
+
+omit [SetTheory V] in
+theorem motVals_length (σ : Nat → V) (mOff k : Nat) : (motVals σ mOff k).length = k := by
+  simp [motVals]
+
+theorem motVals_getD (σ : Nat → V) (mOff k : Nat) {j : Nat} (hj : j < k) :
+    (motVals σ mOff k).getD j pt = σ (mOff + k - 1 - j) := by
+  unfold motVals
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hj]
+  rfl
+
+/-- Lifting by nothing is the identity on a chain. -/
+theorem liftFields_zero' : ∀ (k : Nat) (Fs : List AnnotTerm), liftFields 0 k Fs = Fs
+  | _, [] => rfl
+  | k, F :: Fs => by
+    rw [liftFields_cons, AnnotTerm.liftN_zero, liftFields_zero' (k + 1) Fs]
+
+/-- The unit-restricted chains are the restricted chains at no index
+and no lift. -/
+theorem rChains_zero_uChains (Idss : List (List AnnotTerm)) (k : Nat) (hk : Idss.length = k) :
+    rChains 0 0 Idss (List.replicate k []) = uChains Idss := by
+  apply List.ext_getElem?
+  intro j
+  rw [rChains_getElem?, uChains_getElem?]
+  cases hj : Idss[j]? with
+  | none =>
+    have : (List.replicate k ([] : List AnnotTerm))[j]? = none := by
+      rw [List.getElem?_eq_none]
+      rw [List.length_replicate, ← hk]
+      exact (List.getElem?_eq_none_iff.mp hj)
+    rw [this]; rfl
+  | some Fs =>
+    have hjl : j < k := by rw [← hk]; exact (List.getElem?_eq_some_iff.mp hj).1
+    rw [List.getElem?_replicate, if_pos hjl]
+    simp only [Option.map_some]
+    unfold rChain idxEqsAt
+    rw [liftFields_zero']
+    rfl
+
+/-- A minor space with an explicit conclusion equals the nested
+product over the same telescope when the two conclusions agree at
+fitting tuples (both bits nonzero). -/
+theorem minorSpI_eq_piTele {ℓ' v : Nat} (hℓ : ℓ' ≠ 0) (hv : v ≠ 0) {c : List V → V} {B : List V → V} :
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V} {acc : List V},
+      (∀ as : List V, SpineFit ρ Fs as → c (acc ++ as) = B (acc ++ as)) →
+      minorSpI ℓ' c Fs ρ acc = piTele v (teleOfFields ρ Fs) B acc
+  | [], ρ, acc, h => by
+    have := h [] trivial
+    simp only [List.append_nil] at this
+    simpa [minorSpI, piTele] using this
+  | F :: Fs, ρ, acc, h => by
+    simp only [minorSpI, teleOfFields_cons, piTele]
+    rw [piR_congr_bit (v := ℓ') (v' := v) (iff_of_false hℓ hv)]
+    apply piR_congr
+    intro a ha
+    refine minorSpI_eq_piTele hℓ hv ?_
+    intro as hsp
+    have := h (a :: as) ⟨ha, hsp⟩
+    rwa [List.append_cons] at this
+
+section Disp
+
+variable (h : MotDispHyp ℓ W w D mOff k ρp σ Idss rss tlss Eiss' Fss Ess')
+include h
+
+omit h in
+/-- The K-frame's parameter frame is `ρp`. -/
+theorem tagKFrame_frP :
+    frP k 0 (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess') = ρp := by
+  unfold tagKFrame
+  have := kframe_frP (V := V) (ρp := ρp) (M := tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess')
+    (ms := motVals σ mOff k) (is := []) (n := k) (nIdx := 0) rfl (motVals_length σ mOff k)
+  simpa using this
+
+omit h in
+/-- The K-frame's motive is the tag motive. -/
+theorem tagKFrame_frM :
+    frM k 0 (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')
+      = tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess' := by
+  unfold tagKFrame
+  have := kframe_frM (V := V) (ρp := ρp) (M := tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess')
+    (ms := motVals σ mOff k) (is := []) (n := k) (nIdx := 0) rfl (motVals_length σ mOff k)
+  simpa using this
+
+omit h in
+/-- The K-frame's minors are the block's motives. -/
+theorem tagKFrame_frMs {j : Nat} (hj : j < k) :
+    frMs k 0 (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess') j = σ (mOff + k - 1 - j) := by
+  unfold tagKFrame
+  have := kframe_frMs (V := V) (ρp := ρp) (M := tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess')
+    (ms := motVals σ mOff k) (is := []) (n := k) (nIdx := 0) rfl (motVals_length σ mOff k) hj
+  rw [← motVals_getD σ mOff k hj]
+  simpa using this
+
+omit h in
+/-- The tag motive at a member's tagged tuple is the fibre's function
+space into `Sort ℓ`. -/
+theorem tagMotV_app {i : V} (hi : i ∈ˢ tagSet W ρp Idss) :
+    SetTheory.app (tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess') i
+      = piR (ℓ + 1) (auxFib W w ρp Idss rss tlss Eiss' Fss Ess' i) fun _ => (univ ℓ : V) := by
+  unfold tagMotV
+  exact app_lamR_pos (Nat.succ_ne_zero _) hi
+
+/-- The tag motive is in `Π (i : tag), Sort ℓ'`. -/
+theorem tagMotV_mem :
+    tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess'
+      ∈ˢ piR (dispLevel w ℓ + 1) (tagSet W ρp Idss) fun _ => (univ (dispLevel w ℓ) : V) := by
+  unfold tagMotV
+  refine lamR_mem fun i hi => ?_
+  exact piR_mem_univ (auxFib_univ h.hT h.hok hi) (fun _ _ => univ_mem_univ ℓ)
+
+/-- **The tag block's recursor hypotheses** at the K-frame: the sum
+route's core (the chains graded, the motive in its space, the frame's
+tuple the empty one, the carrier the tagged union) and the minors —
+the block's motives — in their member spaces read as the tag
+recursor's minor spaces. -/
+theorem tagRecHyp :
+    RecHypI (dispLevel w ℓ) W (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')
+      Idss (List.replicate k []) [] (fun _ => tagSet W ρp Idss) (fun _ _ => []) := by
+  have hfrP := tagKFrame_frP (ℓ := ℓ) (W := W) (w := w) (mOff := mOff) (k := k) (ρp := ρp) (σ := σ)
+    (Idss := Idss) (rss := rss) (tlss := tlss) (Eiss' := Eiss') (Fss := Fss) (Ess' := Ess')
+  have hfrM := tagKFrame_frM (ℓ := ℓ) (W := W) (w := w) (mOff := mOff) (k := k) (ρp := ρp) (σ := σ)
+    (Idss := Idss) (rss := rss) (tlss := tlss) (Eiss' := Eiss') (Fss := Fss) (Ess' := Ess')
+  have hW := h.hT.1
+  have hlenE : (List.replicate k ([] : List AnnotTerm)).length = Idss.length := by
+    rw [List.length_replicate, h.hk]
+  have hEs : ∀ j, j < Idss.length → ((List.replicate k ([] : List AnnotTerm)).getD j []).length = 0 := by
+    intro j hj
+    rw [List.getD_eq_getElem?_getD, List.getElem?_replicate, if_pos (by rw [← h.hk]; exact hj)]
+    rfl
+  refine ⟨⟨?_, hEs, hlenE, ?_, ?_, ?_⟩, ?_, fun h0 => absurd h0 (dispLevel_ne_zero w ℓ)⟩
+  · -- the restricted chains at the K-frame are graded
+    simp only [List.length_nil, Nat.zero_add]
+    rw [h.hk]
+    intro chain hchain
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hchain
+    rw [rChains_getElem?] at hj
+    cases hIj : Idss[j]? with
+    | none => rw [hIj] at hj; exact nomatch hj
+    | some Fs =>
+      have hjl : j < k := by rw [← h.hk]; exact (List.getElem?_eq_some_iff.mp hIj).1
+      rw [hIj, List.getElem?_replicate, if_pos hjl] at hj
+      obtain rfl := Option.some.inj hj
+      have hFs : FieldsOkB W (shiftE (k + 1) 0 (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')) Fs := by
+        have hp : shiftE (k + 1) 0 (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess') = ρp := by
+          unfold frP at hfrP; rw [Nat.zero_add] at hfrP; exact hfrP
+        rw [hp]
+        exact (h.hT.2 Fs (List.mem_of_getElem? hIj)).1
+      exact FieldsOkB_rChain (V := V) (w := W) (d := k + 1) (nIdx := 0) (Fs := Fs)
+        (Es := ([] : List AnnotTerm)) rfl hFs (fun _ _ E hE => nomatch hE)
+  · -- the motive
+    simp only [List.length_nil, teleOfFields_nil, piTele]
+    rw [h.hk, hfrM]
+    exact tagMotV_mem h
+  · -- the frame's (empty) index tuple fits
+    trivial
+  · -- the carrier at the frame is the tagged union of the restricted chains
+    simp only [List.length_nil, Nat.zero_add]
+    rw [h.hk]
+    unfold tagSet
+    congr 1
+    rw [← rChains_zero_uChains Idss k h.hk]
+    refine sumFibre_rChains_congr (w := W) (d := 0) (d' := k + 1) (σ := ρp)
+      (σ' := tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess') hEs hlenE ?_ rfl
+    rw [shiftE_zero_zero]
+    unfold frP at hfrP
+    rw [Nat.zero_add] at hfrP
+    exact hfrP.symm
+  · -- the minors
+    simp only [List.length_nil]
+    rw [h.hk]
+    intro j hjk
+    rw [tagKFrame_frMs hjk, hfrP, hfrM]
+    have hM := h.hM j hjk
+    unfold memberMotSp at hM
+    obtain ⟨Ids, hIds⟩ : ∃ Ids, Idss[j]? = some Ids :=
+      ⟨_, List.getElem?_eq_getElem (by rw [h.hk]; exact hjk)⟩
+    have hg : Idss.getD j [] = Ids := by rw [List.getD_eq_getElem?_getD, hIds]; rfl
+    rw [hg] at hM ⊢
+    rw [minorSpI_eq_piTele (dispLevel_ne_zero w ℓ) (Nat.succ_ne_zero ℓ)
+      (B := fun is => piR (ℓ + 1)
+        (auxFib W w ρp Idss rss tlss Eiss' Fss Ess' (inj j (mkTower (is ++ [pt]))))
+        fun _ => (univ ℓ : V))]
+    · exact hM
+    · intro fs hsp
+      show ihSpL _ (concI W ρp _ ((List.replicate k ([] : List AnnotTerm)).getD j []) j fs) [] = _
+      have hEj : (List.replicate k ([] : List AnnotTerm)).getD j [] = [] := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_replicate, if_pos hjk]; rfl
+      rw [hEj]
+      show concI W ρp _ [] j fs = _
+      unfold concI ctorValI idxValsAt
+      rw [List.map_nil, List.foldl_nil, if_neg hW, List.nil_append]
+      exact tagMotV_app (tagTuple_mem h.hT hIds hsp)
+
+end Disp
 
 end Facts
 
