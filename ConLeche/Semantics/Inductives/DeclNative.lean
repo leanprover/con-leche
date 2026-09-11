@@ -3,6 +3,7 @@ module
 public import ConLeche.Semantics.DeclIndRun
 import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
+public import ConLeche.Semantics.Inductives.DeclMutual
 
 @[expose] public section
 
@@ -206,16 +207,20 @@ theorem declNativeRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 
 /-! ## The run-level dispatch
 
-`checkDeclRun_ofEnvFactsE`'s `Ind` slot: the direct (fixpoint) arm and
-the modeled arm — the kernel's own case split (`nativeParts?`; ONE
-ROUTE, task #210 Part B). -/
+`checkDeclRun_ofEnvFactsE`'s `Ind` slot: the direct (fixpoint) arm,
+the mutual arm and the modeled arm — the kernel's own three-way case
+split (`nativeParts?`, then `mutualParts?`; ONE ROUTE, task #210 Part
+B, and the native mutual install, task #278). -/
 
-/-- The `.indDecl` dispatch at the run level (the recogniser alone
+/-- The `.indDecl` dispatch at the run level (the recognisers alone
 since task #219). -/
 def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.nativeParts? nP block with
   | some p => DeclNativeRun μ F env p env₂
-  | none => DeclIndRun μ F env block env₂
+  | none =>
+    match ConLeche.mutualParts? nP block with
+    | some q => DeclMutualRun μ F env q env₂
+    | none => DeclIndRun μ F env block env₂
 
 end ConLeche.Semantics
