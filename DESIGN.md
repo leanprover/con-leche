@@ -69715,6 +69715,35 @@ the same statement §8.8 already repaired once elsewhere.
   a separate theorem and is unaffected: its block has ONE member, so its
   `isProp` bit and its `resSort` are the same member's).
 
+#### 8.11 A landed-statement repair: `mutualRuleOk`'s `hih` (2026-09-12)
+
+`MutualRuleOk.lean`'s `hih` bound its block spine `as₁ Ms ms` by LENGTH
+alone (`as₁.length = nP`, `Ms.length = k`, `ms.length = n`) and then
+asserted
+
+    SpineFit ρ ((mutualRecDataAV … (tgts j i)).map (·.2.2))
+      (as₁ ++ Ms ++ ms ++ … ++ [ … ])
+
+whose first `nP + k + n` entries ARE the parameter, motive and minor
+domains.  `SpineFit` is membership-based, so that demands arbitrary
+`as₁` to lie in the parameter domains and arbitrary `Ms` in the motive
+spaces: the hypothesis is false, and no caller can supply it.  (Its
+intended producer `mutualIhSpine_of` correctly takes the fits;
+`mutualRecIotaCore`'s own `hih` is sound only because its `hspPub` is
+in scope.)  Same class as `hcd`'s syntactic parameter telescope (§8.9).
+
+REPAIRED here: the three length hypotheses become the one block fit
+
+    SpineFit ρ (((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds
+      mems tgts mm).take (nP + k + n)).map (·.2.2)) ((as₁ ++ Ms) ++ ms)
+
+— spelled over the signature's own data, so no caller needs the
+generalised `X` — and the lengths follow from `.length_eq`.  The single
+use site already has that spine (`hspB`, through `hprefix`), so the
+proof is one `rw`.  `mutualBlock_split` is untouched; nothing outside
+`MutualRuleOk.lean` mentions `mutualRuleOk` except a prose reference in
+`MutualStageRec.lean`.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent

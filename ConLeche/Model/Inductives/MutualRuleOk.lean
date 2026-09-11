@@ -469,8 +469,14 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
           (∀ E ∈ (Eiss.getD j []).getD i [],
             AnnotValid V (consList bs (consList (as₂.take i) ρp)) E) ∧
           AppChainOk (as₂.getD i pt) bs)
-    (hih : ∀ (ρ : Nat → V) (as₁ Ms ms as₂ : List V), as₁.length = nP → Ms.length = k →
-      ms.length = n → SpineFit (consList as₁ ρ) ((ds.drop nP).map (·.2.2)) as₂ →
+    -- **the ih's spine** (task #278 M2.5f): the block prefix must be a
+    -- FITTING spine, not merely one of the right lengths — `SpineFit`
+    -- is membership-based, so lengths alone make the conclusion false
+    -- at garbage parameters or motives
+    (hih : ∀ (ρ : Nat → V) (as₁ Ms ms as₂ : List V),
+      SpineFit ρ (((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm).take
+        (nP + k + n)).map (·.2.2)) ((as₁ ++ Ms) ++ ms) →
+      SpineFit (consList as₁ ρ) ((ds.drop nP).map (·.2.2)) as₂ →
       ∀ i ∈ recIdx (rss.getD j []) nF,
       ∀ bs : List V, SpineFit (consList (as₂.take i) (consList as₁ ρ))
           (((tlss.getD j []).getD i []).map (·.2.2)) bs →
@@ -647,7 +653,8 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
       · intro h0 as' hsp'; exact hRconc0 h0 _ (htgts i hi) ρ as' hsp'
       · intro bs hbs
         obtain ⟨hEok, hEV, hchainF⟩ := hleaves bs hbs
-        exact ⟨hEok, hEV, hchainF, hih ρ as₁ Ms ms as₂ hlen₁ hlenMs hlenm hspD i hi bs hbs⟩
+        exact ⟨hEok, hEV, hchainF,
+          hih ρ as₁ Ms ms as₂ (by rw [hprefix, ← hX]; exact hspB) hspD i hi bs hbs⟩
     -- the ih tower's fold
     have hAs : ihDomsIM ℓ (consList as₁ ρ) (fun i => Ms.getD (tgts j i) pt) rss tlss Eiss
           (fun r => (Fss.getD r []).length) j as₂
