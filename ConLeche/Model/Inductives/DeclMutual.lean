@@ -2122,6 +2122,28 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     · rw [paramBvars_eq_paramBvarsAt]
       exact hf
     · exact hfit
+  -- the chain lists, positionally
+  have hFssG : ∀ (ψ : Name → Nat) (J : Nat), J < ctorsA.length →
+      (FssRf ψ)[J]? = some (((dsF J ψ).drop p.toBlock.nP).map (·.2.2)) := by
+    intro ψ J hJ
+    show ((List.range ctorsA.length).map _)[J]? = _
+    rw [List.getElem?_map, List.getElem?_range hJ]
+    rfl
+  have hEssG : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
+      (Essf ψ)[J]? = some [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] := by
+    intro J cA hJ ψ
+    have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+    have hlen : (Essf ψ).length = ctorsA.length := mutEss'_length
+    have hgd := mutEss'_getD (n := ctorsA.length) (W := Wf ψ) (Idss := Idssf ψ)
+      (memF := memF) (nFs := nFs) (esF := esF₀) (ψ := ψ) hJl
+    rw [List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show J < (Essf ψ).length from by rw [hlen]; exact hJl)] at hgd
+    rw [List.getElem?_eq_getElem (show J < (Essf ψ).length from by rw [hlen]; exact hJl)]
+    have hnF : cA.2 = nFs J := by
+      show cA.2 = (ctorsA.getD J default).2
+      rw [List.getD_eq_getElem?_getD, hJ]; rfl
+    rw [hnF, ← (hident J cA hJ).2.2.2.2.1 ψ]
+    exact congrArg some hgd
   -- the constructors' names, freshness and resolution
   have hnamesC : ctorsA.map (·.1.name) = p.toBlock.ctors.map (·.cv.name) := by
     refine List.ext_getElem? fun J => ?_
@@ -2237,19 +2259,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         show ((List.range ctorsA.length).map _)[J]? = _
         rw [List.getElem?_map, List.getElem?_range hJl]
         rfl)
-      (fun J cA hJ ψ => by
-        have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
-        have hlen : (Essf ψ).length = ctorsA.length := mutEss'_length
-        have hgd := mutEss'_getD (n := ctorsA.length) (W := Wf ψ) (Idss := Idssf ψ)
-          (memF := memF) (nFs := nFs) (esF := esF₀) (ψ := ψ) hJl
-        rw [List.getD_eq_getElem?_getD,
-          List.getElem?_eq_getElem (show J < (Essf ψ).length from by rw [hlen]; exact hJl)] at hgd
-        rw [List.getElem?_eq_getElem (show J < (Essf ψ).length from by rw [hlen]; exact hJl)]
-        have hnF : cA.2 = nFs J := by
-          show cA.2 = (ctorsA.getD J default).2
-          rw [List.getD_eq_getElem?_getD, hJ]; rfl
-        rw [hnF, ← (hident J cA hJ).2.2.2.2.1 ψ]
-        exact congrArg some hgd)
+      hEssG
       (fun ψ₁ ψ₂ hφ => ⟨((hFD 0 f₀ hf0).params ψ₁ ψ₂
           (by rw [hlpsF 0 f₀ hf0]; exact hφ)).2,
         by
@@ -2450,6 +2460,18 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- **the member leaf's typing hypotheses** (`MutualLeafHyp`)
   have hyp : prts.LeafHyp V mp₂.base2 := by
     intro t ht ψ
+    -- the constructors' data, decoded positionally
+    have hdec : ∀ (J : Nat) (cd : CtorDatumR),
+        (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[J]? = some cd →
+        ∃ cA, ctorsA[J]? = some cA ∧ J < ctorsA.length ∧
+          cd = (cA.1.name, cA.2, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)),
+            eissF J ψ, tssF J ψ) := by
+      intro J cd hJd
+      rw [fixCtorDataList_getElem?] at hJd
+      obtain ⟨cA, hcA, hEq⟩ := Option.map_eq_some_iff.mp hJd
+      refine ⟨cA, hcA, (List.getElem?_eq_some_iff.mp hcA).1, ?_⟩
+      rw [← hEq]
+      simp only [Nat.zero_add]
     refine
       { hℓ := rfl
         hb := rfl
@@ -2551,16 +2573,10 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         rwa [List.append_nil] at h
     case hcd =>
       intro J cd hJd
-      have hJd' := hJd
-      rw [show prts.cds ψ
-          = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0 from rfl,
-        fixCtorDataList_getElem?] at hJd'
-      obtain ⟨cA, hcA, rfl⟩ := Option.map_eq_some_iff.mp hJd'
-      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA).1
+      obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
       have hnFJ : nFs J = cA.2 := by
         show (ctorsA.getD J default).2 = cA.2
         rw [List.getD_eq_getElem?_getD, hcA]; rfl
-      simp only [Nat.zero_add]
       refine ⟨(hCD₁ J cA hcA).len ψ, ?_, hleafC₂ J cA hcA ψ,
         mp₂.base2.cval_closedL cA.1.name ψ, ?_, ?_, ?_, ?_, ?_⟩
       · exact fun ρ => ((hframesJ J hJl).1 ψ ρ).symm.trans
@@ -2611,9 +2627,63 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           exact nomatch hFs
       · -- `ctor`: the constructor's index expressions at a field spine,
         -- and its value in the auxiliary fibre at its own tag
-        -- (`mutualCtorFold` + `fixFamI_app_eq_sum` at the 1-tuple
-        -- spine, `sumMkAV_fold`/`restricted_member_intro`)
-        sorry
+        -- (`fixFamI_app_eq_sum` at the 1-tuple spine, then
+        -- `restricted_member_intro` at the constructor's restricted chain)
+        intro J cd hJd fs hfs
+        obtain ⟨cA, hcA, hJl, rfl⟩ := hdec J cd hJd
+        have hfrJ := (hframesJ J hJl).2 ψ ρp (hρJ J hJl)
+        obtain ⟨hEok, hfit⟩ := hfrJ.2.2.2 fs hfs
+        have hIdsM := hIdssGet ψ (memF J) (hmotLt J hJl)
+        refine ⟨fun E hE => (hEok E hE).1, ?_, ?_⟩
+        · intro Ids hIds
+          obtain rfl : Ids = ((ppsF (memF J) ψ).drop p.toBlock.nP).map (·.2.2) :=
+            Option.some.inj (hIds.symm.trans hIdsM)
+          exact hfit
+        · have hlenbs : fs.length = cA.2 := by
+            rw [hfs.length_eq, List.length_map, List.length_drop, (hCD₁ J cA hcA).len ψ,
+              Nat.add_sub_cancel_left]
+          have hfrs : shiftE cA.2 0 (consList fs ρp) = ρp := by
+            rw [← hlenbs]; exact shiftE_consList _ _
+          obtain ⟨hval, -⟩ := tagTupleAV_facts hTag hIdsM hfrs (fun E hE => (hEok E hE).1) hfit
+          have hsp1 : SpineFit ρp (auxIds (Wf ψ) (Idssf ψ))
+              [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] := by
+            refine ⟨?_, trivial⟩
+            rw [(tagTyAV_facts hTag).1]
+            exact tagTuple_mem hTag hIdsM hfit
+          have hsum := fixFamI_app_eq_sum hX hRealρ hsp1
+          rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl] at hsum
+          have hchain : (rChains 1 1 (FssRf ψ) (Essf ψ))[J]?
+              = some (rChain 1 1 (((dsF J ψ).drop p.toBlock.nP).map (·.2.2))
+                  [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)]) := by
+            rw [rChains_getElem?, hFssG ψ J hJl, hEssG J cA hcA ψ]
+          have hlenI : ([inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] : List V).length
+              = 1 := rfl
+          have hshift : shiftE 1 0
+              (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp) = ρp := by
+            rw [← hlenI]; exact shiftE_consList _ _
+          have hmemF : (if f₀.s.eval ψ = 0 then (pt : V) else mkTower (fs ++ [pt]))
+              ∈ˢ sumFibre (f₀.s.eval ψ)
+                  (consList [inj (memF J) (mkTower (idxValsAt ρp (esF J ψ) fs ++ [pt]))] ρp)
+                  (rChains 1 1 (FssRf ψ) (Essf ψ)) J := by
+            rw [sumFibre_of_getElem? hchain]
+            refine restricted_member_intro ?_ ?_
+            · rw [spineFit_liftFields, hshift]
+              exact hfs
+            · rw [EqAll_idxEqsAt (by simp) hfs.length_eq, hshift, frameIdx_consList hlenI]
+              show idxValsAt ρp [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] fs = _
+              rw [idxValsAt, List.map_singleton, hval]
+              rfl
+          show ctorValI (f₀.s.eval ψ) J fs ∈ˢ _
+          unfold auxFib auxTup auxFamI
+          rw [hsum]
+          unfold ctorValI
+          rcases Nat.eq_zero_or_pos (f₀.s.eval ψ) with hw | hw
+          · rw [hw] at hmemF ⊢
+            rw [if_pos rfl] at hmemF ⊢
+            exact pt_mem_sumSet_zero hmemF
+          · have hw' : f₀.s.eval ψ ≠ 0 := Nat.pos_iff_ne_zero.mp hw
+            rw [if_neg hw'] at hmemF ⊢
+            exact inj_mem hw' hmemF
       · -- `slot`: the same at a recursive slot's telescope spine and
         -- its TARGET member's tag (`ChainFacts.gr`'s `SlotFit`)
         sorry
