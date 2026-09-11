@@ -20,39 +20,27 @@ tag's universe `W`, member `m`'s index spine goes to the container's
 tuple by `tup ψ m ı⃗ = ⟨inj m ⟨ı⃗⟩⟩`, the functor is `fixFunVI` at the
 tagged chain data and the injections are the tagged towers.
 
-**TWO OBSTACLES, reported not worked around** (task #278 M2.6 part 2;
-neither is repaired here — `ConLeche/Model/IndRep.lean` is the clause
-author's).
+**The container's index readings.**  The clause's datum carries the
+constructors' index readings TWICE (task #278 M2.6): `esF`/`eissF` as
+the stored types read them — at the MEMBERS' leaves, so constructor
+`J`'s spine has length `nIdxAt (mems J)` and field `i`'s the length of
+its target's — and `essC`/`eissC` as the CONTAINER reads them.  At a
+mutual block the second pair is the TAGGED singletons `mutEssC`/
+`mutEissC` (`[⟨inj m ⟨e⃗⟩⟩]` over the one-binder tag telescope), which
+is what the X-chains and the fibre are spelled from; at a single family
+the two pairs coincide and `fixRepData` sets `essC := esF`,
+`eissC := eissF`.  So the datum's `cdsC` here IS the auxiliary family's
+constructor data (`auxCtorData`, `MutualRecPre.lean`), and the block's
+chain facts (`mutualChainFacts_of`) are the clause's `chains`,
+`functor` and `fibre` — the X-source chains `Fss₀` reaching the datum's
+REAL chains through `AgreeOffRecs` (`hagree`), exactly as on the
+fixpoint route.
 
-1. **`IndRepData` cannot spell a genuinely mutual block's chains.**
-   The datum has ONE pair of per-constructor index readings, `esF` and
-   `eissF`, and uses it for two different things: `IndRep.ctors` reads
-   the constructors' STORED types through them (`FixCtorFactsAt`, so
-   `esF j ψ` is constructor `j`'s own index spine at ITS member's leaf,
-   of length `nIdxAt (mems j)`, and `eissF j ψ` field `i`'s spine at
-   its TARGET member's leaf, of length `nIdxAt (tgts j i)`), while the
-   derived `Ess`/`Eiss` — the ones `IndRep.chains` and `IndRep.fibre`
-   are stated over — are the CONTAINER's, which at a mutual block are
-   the TAGGED singletons `[⟨inj m ⟨e⃗⟩⟩]` over the one-element telescope
-   `IdsC = auxIds`.  The two coincide only at a single family (`k = 1`,
-   the tag dropped).  So `chains` and `fibre` are, at a block with
-   `k > 1`, NOT satisfiable by any choice of the datum's fields:
-   `mutualIndRep_of` takes them as hypotheses, named and flagged.
-   The repair is one pair of fields — the container's index readings
-   `EssC`/`EissC` beside `esF`/`eissF`, with `Ess`/`Eiss` derived from
-   them and the single-family instance `EssC := esF`, `EissC := eissF`
-   (so `fixRepData` and the pinned data are unchanged).  Every other
-   field of `IndRep` is discharged here.
-2. **A rule-less recursor cannot claim its block** (the `rules = []`
-   question): `IndRep.rules` says the stored rules name the member's
-   own constructors, so at `rules = []` it forces `memberCtors mm = []`
-   (`indRep_rules_nil`).  The mutual install conses its `k` recursors
-   RULE-LESS first (`provisionMutualRecs`: a rule mentions the sibling
-   recursors), so the clause — keyed on the RECURSOR — is claimed of
-   entries that have no rules yet, and `stageMutualRecProvision`'s
-   `hreps` obligation is false for every member with a constructor.
-   The claim has to be deferred to the store (`storeMutualRecs`), i.e.
-   the clause must exempt a rule-less recursor entry.
+**The rule-less cons.**  `IndRep.rules` is conditioned on `rules ≠ []`,
+so a recursor PROVISIONED before its rules are checked
+(`provisionMutualRecs`: a rule mentions the sibling recursors) claims
+its block with that clause vacuous; `mutualIndRepsHead_of` serves both
+that cons and the store.
 -/
 
 namespace ConLeche.Model
@@ -247,20 +235,90 @@ theorem mutualRules_ctors {find? : Name → Option ConstantInfo} {recName : Name
     simp only [ConLeche.mutualRules, List.map_cons, ConLeche.recRuleBits_ctor]
     rw [mutualRules_ctors rest]
 
-/-- **A rule-less recursor claims a member with no constructors**: the
-clause's `rules` field pins the stored rules to the member's own
-constructors, so at `rules = []` the member has none.  This is the
-`rules = []` obstacle of the module docstring — the mutual install's
-PROVISIONED recursors carry no rules, so they cannot claim their
-block. -/
-theorem indRep_rules_nil {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-    {d : IndRepData V} {mm : Nat} (h : IndRep m T cvT cvR mI rP [] d mm) :
-    d.memberCtors mm = [] := by
-  have hr := h.rules
-  simp only [List.map_nil] at hr
-  cases hc : d.memberCtors mm with
-  | nil => rfl
-  | cons a l => rw [hc] at hr; exact nomatch hr
+/-! ## The container's index readings -/
+
+/-- **Constructor `J`'s index reading AT THE CONTAINER**: the tagged
+singleton `[⟨inj (mots J) ⟨e⃗_J⟩⟩]`, its own readings scoped `nFs J`
+binders below the parameters (`mutualEss` per constructor). -/
+@[expose] def mutEssC (W : (Name → Nat) → Nat) (Idss : (Name → Nat) → List (List AnnotTerm))
+    (mots nFs : Nat → Nat) (esF : Nat → (Name → Nat) → List AnnotTerm) :
+    Nat → (Name → Nat) → List AnnotTerm :=
+  fun J ψ => [tagTupleAV (W ψ) (mots J) (nFs J) (Idss ψ) (esF J ψ)]
+
+/-- **Constructor `J`'s recursive slots' index readings AT THE
+CONTAINER**: slot `i` targeting member `tgtAt (ksF J) i` under its
+telescope gets the tagged singleton `[⟨inj (tgts i) ⟨e⃗_i⟩⟩]`
+(`mutualEiss` per constructor). -/
+@[expose] def mutEissC (W : (Name → Nat) → Nat) (Idss : (Name → Nat) → List (List AnnotTerm))
+    (ksF : Nat → List (RecFieldKind × Nat)) (nFs : Nat → Nat)
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm)) :
+    Nat → (Name → Nat) → List (List AnnotTerm) :=
+  fun J ψ => (List.range (nFs J)).map fun i =>
+    [tagTupleAV (W ψ) (tgtAt (ksF J) i) (i + ((tssF J ψ).getD i []).length) (Idss ψ)
+      ((eissF J ψ).getD i [])]
+
+omit [SetTheory V] in
+/-- The container's result readings, as the block spells them
+(`mutEss'`). -/
+theorem essOfR_mutEssC {n : Nat} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {ksF' : Nat → List RecFieldKind}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {eissC : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {mots nFs : Nat → Nat} {esF : Nat → (Name → Nat) → List AnnotTerm} {ψ : Name → Nat}
+    {ctorsA : List (ConstantVal × Nat)} (hn : ctorsA.length = n) :
+    essOfR (fixCtorDataList dsF (mutEssC W Idss mots nFs esF) ksF' eissC tssF ψ ctorsA 0)
+      = mutEss' (n := n) (W ψ) (Idss ψ) mots nFs esF ψ := by
+  subst hn
+  refine List.ext_getElem? fun i => ?_
+  by_cases hi : i < ctorsA.length
+  · rw [essOfR, List.getElem?_map, fixCtorDataList_getElem?, List.getElem?_eq_getElem hi,
+      mutEss', mutualEss, List.getElem?_map,
+      List.getElem?_range (show i < (mutEss0 ctorsA.length esF ψ).length from by
+        rw [mutEss0_length]; exact hi),
+      Nat.zero_add]
+    simp only [Option.map_some]
+    rw [mutMems_getD hi, mutNFs_getD hi, mutEss0_getD hi]
+    rfl
+  · rw [essOfR, List.getElem?_map, fixCtorDataList_getElem?, List.getElem?_eq_none (by omega),
+      mutEss', mutualEss, List.getElem?_map,
+      List.getElem?_eq_none (by rw [List.length_range, mutEss0_length]; omega)]
+    rfl
+
+omit [SetTheory V] in
+/-- The container's slot readings, as the block spells them
+(`mutEiss'`). -/
+theorem eissOfR_mutEissC {n : Nat} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {ksF' : Nat → List RecFieldKind} {essC : Nat → (Name → Nat) → List AnnotTerm}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat}
+    {eissF : Nat → (Name → Nat) → List (List AnnotTerm)} {ψ : Name → Nat}
+    {ctorsA : List (ConstantVal × Nat)} (hn : ctorsA.length = n)
+    (hlen : ∀ J, J < n → (eissF J ψ).length = nFs J) :
+    eissOfR (fixCtorDataList dsF essC ksF' (mutEissC W Idss ksF nFs tssF eissF) tssF ψ ctorsA 0)
+      = mutEiss' (n := n) (W ψ) (Idss ψ) ksF nFs tssF eissF ψ := by
+  subst hn
+  refine List.ext_getElem? fun i => ?_
+  by_cases hi : i < ctorsA.length
+  · rw [eissOfR, List.getElem?_map, fixCtorDataList_getElem?, List.getElem?_eq_getElem hi,
+      Nat.zero_add]
+    have hget : (mutEiss' (n := ctorsA.length) (W ψ) (Idss ψ) ksF nFs tssF eissF ψ)[i]?
+        = some ((mutEiss' (n := ctorsA.length) (W ψ) (Idss ψ) ksF nFs tssF eissF ψ).getD i []) := by
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show i < (mutEiss' (n := ctorsA.length) (W ψ) (Idss ψ) ksF nFs
+          tssF eissF ψ).length from by
+          unfold mutEiss' mutualEiss
+          rw [List.length_map, List.length_range, mutEiss0_length]
+          exact hi)]
+      rfl
+    rw [hget, mutEiss'_getDJ hi (hlen i hi)]
+    rfl
+  · rw [eissOfR, List.getElem?_map, fixCtorDataList_getElem?, List.getElem?_eq_none (by omega),
+      mutEiss', mutualEiss, List.getElem?_map,
+      List.getElem?_eq_none (by rw [List.length_range, mutEiss0_length]; omega)]
+    rfl
 
 /-! ## The datum -/
 
@@ -274,6 +332,11 @@ sort is the tag's `W`, member `m`'s index spine becomes the container's
 tuple `⟨inj m ⟨ı⃗⟩⟩`, the functor is the fixpoint route's at the block's
 TAGGED chain data and the injections are the tagged towers.
 
+The CONTAINER's index readings `essC`/`eissC` are the tagged
+singletons (`mutEssC`/`mutEissC`), so the datum's `cdsC` is the
+auxiliary family's constructor data and its derived chains are the
+block's; the stored `esF`/`eissF` stay the members' own.
+
 `resSort` is member `mm`'s OWN spelling of the block's one result level
 (`IndRep.strip` compares it syntactically with the stored type's), so
 the datum is per member; the constructors' own spellings agree with it
@@ -285,14 +348,14 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
     (ksF : Nat → List (RecFieldKind × Nat)) (fvsPF xFvsF : Nat → List Expr)
     (xrestF : Nat → Expr) (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (Tname : Nat → Name) (nIdxOf mots : Nat → Nat)
+    (Tname : Nat → Name) (nIdxOf mots nFs : Nat → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (lvlsOf : Nat → (Name → Nat) → List Nat)
     (W : (Name → Nat) → Nat) (Idss : (Name → Nat) → List (List AnnotTerm))
     (rss : List (List Bool))
     (tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : (Name → Nat) → List (List (List AnnotTerm)))
-    (Fss₀ Ess' : (Name → Nat) → List (List AnnotTerm)) : IndRepData V where
+    (Ess' : (Name → Nat) → List (List AnnotTerm)) : IndRepData V where
   nP := nP
   nIdx := 1
   resSort := resSort
@@ -310,6 +373,8 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
   xrestF := xrestF
   eissF := eissF
   tssF := tssF
+  essC := mutEssC W Idss mots nFs esF
+  eissC := mutEissC W Idss ksF nFs tssF eissF
   k := k
   nIdxs := (List.range k).map nIdxOf
   memberNames := (List.range k).map Tname
@@ -321,8 +386,8 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
   u := W
   tup := fun ψ mm is => tupW (W ψ) [inj mm (mkTower (is ++ [pt]))]
   Φ := fun ψ ρp =>
-    fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
-      (Ess' ψ)
+    fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ) (Eiss' ψ)
+      (mutFss nP ctorsA.length dsF ψ) (Ess' ψ)
   inj := fun ψ J fs => injW (resSort.eval ψ) J (mkTower (fs ++ [pt]))
 
 /-! ## The member's representation -/
@@ -331,11 +396,15 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
 from the facts the block's stages hold at the carrier storing the
 formers, the constructors and the recursors.
 
-**The two flagged hypotheses** `hchains` and `hfibre` are the clause's
-`chains` and `fibre` fields verbatim; at a block with more than one
-member they are NOT dischargeable, because the datum has no room for
-the container's index readings (see the module docstring, obstacle 1).
-Every other field is proved here. -/
+The container's side is the block's own chain facts
+(`mutualChainFacts_of`) at the datum's spellings: `hrssD`/`htlssD`/
+`hEissD`/`hEssD` say that the datum's derived chain lists — read off
+`cdsC`, the constructor data at the TAGGED index readings — are the
+block's, and `hagree` that the X-source chains `Fss₀` agree with the
+real ones off the recursive positions, which is what carries
+`XChainsOk` from the one to the other (`xChainsOk_congr`) and the
+member's leaf from `auxFamI` at `Fss₀` to the datum's functor
+(`fixFamI_congr`). -/
 theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     {members : List (Name × Nat × Nat)} {lps : List Name} {nP k : Nat} {resSort : Level}
     {isProp large : Bool} {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
@@ -365,7 +434,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hProp : isProp = (Level.isEquiv resSort .zero == some true))
     (hmI : mI = nP + k + ctorsA.length + nIdxOf mm)
     (hrP : rP = nP + k + ctorsA.length)
-    (hrules : rules.map (·.ctor)
+    (hrules : rules ≠ [] → rules.map (·.ctor)
       = ((ctorsA.zipIdx.filter fun x => mots x.2 == mm).map (·.1)).map (·.1.name))
     (hFD : FormerData m cvT (nP + nIdxOf mm) resSort (ppsOf mm) (lvlsOf mm))
     (hfound : ∀ t, t < k → ∃ (cv : ConstantVal) (caps : IndCaps),
@@ -404,49 +473,26 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hokB : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp →
       ∀ J, J < ctorsA.length → FieldsOkB (resSort.eval ψ) ρp ((mutFss nP ctorsA.length dsF ψ).getD J []))
-    -- FLAGGED: not dischargeable at `k > 1` (module docstring, obstacle 1)
-    (hchains : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-        fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-        Ess').params ψ).reverse ρp →
-      ChainsOk ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF
-          ksF fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss'
-          Fss₀ Ess').u ψ)
-        (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ))
-        (mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-          fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-          Ess').rss
-        ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-          fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-          Ess').tlss ψ)
-        ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-          fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-          Ess').Eiss ψ)
-        ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-          fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-          Ess').Fss ψ)
-        ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-          fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-          Ess').Ess ψ))
-    (hfibre : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V ((mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-        fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀
-        Ess').params ψ).reverse ρp →
-      ∀ X, X ∈ˢ famSpace (resSort.eval ψ) (idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ))) →
-      ∀ t, t ∈ˢ idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ)) → ∀ x,
-        x ∈ˢ app (app (fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ)
-            (Eiss' ψ) (Fss₀ ψ) (Ess' ψ)) X) t ↔
-          ∃ J fs, J < ctorsA.length ∧
-            (mutualRepData (V := V) env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF
-              fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss'
-              Fss₀ Ess').ChainFit ψ ρp X t J fs ∧
-            x = injW (resSort.eval ψ) J (mkTower (fs ++ [pt]))) :
+    -- the datum's derived chain lists ARE the block's (`cdsC` is the
+    -- auxiliary family's constructor data), and the X-source chains
+    -- agree with the real ones off the recursive positions
+    (hrssD : rssOfK (fun J => kindsOf (ksF J)) ctorsA.length = rss)
+    (htlssD : ∀ ψ : Name → Nat,
+      tlssOfR (fixCtorDataList dsF (mutEssC W Idss mots nFs esF) (fun J => kindsOf (ksF J))
+        (mutEissC W Idss ksF nFs tssF eissF) tssF ψ ctorsA 0) = tlss ψ)
+    (hEissD : ∀ ψ : Name → Nat,
+      eissOfR (fixCtorDataList dsF (mutEssC W Idss mots nFs esF) (fun J => kindsOf (ksF J))
+        (mutEissC W Idss ksF nFs tssF eissF) tssF ψ ctorsA 0) = Eiss' ψ)
+    (hEssD : ∀ ψ : Name → Nat,
+      essOfR (fixCtorDataList dsF (mutEssC W Idss mots nFs esF) (fun J => kindsOf (ksF J))
+        (mutEissC W Idss ksF nFs tssF eissF) tssF ψ ctorsA 0) = Ess' ψ)
+    (hagree : ∀ ψ : Name → Nat, AgreeOffRecs rss (Fss₀ ψ) (mutFss nP ctorsA.length dsF ψ)) :
     IndRep m (Tname mm) cvT cvR mI rP rules
       (mutualRepData env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
-        xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀ Ess') mm := by
+        xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss' Ess') mm := by
   let d : IndRepData V :=
     mutualRepData env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
-      xrestF eissF tssF Tname nIdxOf mots ppsOf lvlsOf W Idss rss tlss Eiss' Fss₀ Ess'
+      xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss' Ess'
   show IndRep m (Tname mm) cvT cvR mI rP rules d mm
   -- the member table, read off the datum
   have hname : ∀ t, t < k → d.memberName t = Tname t := fun t ht =>
@@ -459,6 +505,16 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
       (d.Fss ψ).getD J [] = ((dsF J ψ).drop nP).map (·.2.2) :=
     fun ψ J cA hJ => fssOfR_fixCtorDataList_getD hJ
   have hFssL : ∀ ψ, d.Fss ψ = mutFss nP ctorsA.length dsF ψ := fun ψ => mutFss_eq_fssOfR rfl
+  have hrssL : d.rss = rss := hrssD
+  have htlssL : ∀ ψ, d.tlss ψ = tlss ψ := htlssD
+  have hEissL : ∀ ψ, d.Eiss ψ = Eiss' ψ := hEissD
+  have hEssL : ∀ ψ, d.Ess ψ = Ess' ψ := hEssD
+  -- the functor's premise at the datum's REAL chains
+  have hXr : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp →
+      XChainsOk (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
+        (mutFss nP ctorsA.length dsF ψ) (Ess' ψ) :=
+    fun ψ ρp hρ => xChainsOk_congr (hX ψ ρp hρ) (hagree ψ)
   have hlenIdsM : ∀ ψ, (d.IdsM mm ψ).length = nIdxOf mm := by
     intro ψ
     rw [hIdsM, List.length_map, List.length_drop, hFD.len ψ]
@@ -480,11 +536,11 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff
-    chains := hchains
+    chains := ?_
     functor := fun ψ ρp hρ =>
-      ⟨fixFunVI_mem (hX ψ ρp hρ).hok, fixFunVI_mono (hX ψ ρp hρ), fixFunVI_maps (hX ψ ρp hρ),
-        fixFunVI_closed_exists (hX ψ ρp hρ)⟩
-    fibre := hfibre
+      ⟨fixFunVI_mem (hXr ψ ρp hρ).hok, fixFunVI_mono (hXr ψ ρp hρ), fixFunVI_maps (hXr ψ ρp hρ),
+        fixFunVI_closed_exists (hXr ψ ρp hρ)⟩
+    fibre := ?_
     leaf := ?_
     tupMem := ?_
     ctor := ?_
@@ -511,6 +567,41 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     have hti : d.memberName (d.tgts J i) = Tname (tgtAt (ksF J) i) := hname _ (htgtLt J i)
     rw [hti]
     exact hfound _ (htgtLt J i)
+  · -- the chains, at the datum's own lists
+    intro ψ ρp hρ
+    rw [hrssL, htlssL ψ, hEissL ψ, hEssL ψ, hFssL ψ]
+    exact xChainsOk_toChainsOk (hXr ψ ρp hρ)
+  · -- the container functor's fibre
+    intro ψ ρp hρ X hXm t ht x
+    have hCF : ∀ (J : Nat) (fs : List V), d.ChainFit ψ ρp X t J fs ↔
+        (fs.length = ((mutFss nP ctorsA.length dsF ψ).getD J []).length ∧
+          SpineFit (cons t (cons X ρp))
+            (chainXIGo (W ψ) (auxIds (W ψ) (Idss ψ)) (rss.getD J []) ((tlss ψ).getD J [])
+              ((Eiss' ψ).getD J []) ((mutFss nP ctorsA.length dsF ψ).getD J []) 0) fs ∧
+          EqAll (consList fs (cons t (cons X ρp)))
+            (eqsXI (auxIds (W ψ) (Idss ψ)).length
+              ((mutFss nP ctorsA.length dsF ψ).getD J []).length ((Ess' ψ).getD J []))) := by
+      intro J fs
+      show (_ ∧ _ ∧ _) ↔ _
+      rw [hrssL, htlssL ψ, hEissL ψ, hEssL ψ, hFssL ψ]
+      exact Iff.rfl
+    have hXs : X ∈ˢ lfpFamSpace V (resSort.eval ψ)
+        (idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ))) := by
+      rw [lfpFamSpace_eq]; exact hXm
+    have ht' : t ∈ˢ idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ)) := ht
+    show x ∈ˢ app (app (fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ))
+      (auxIds (W ψ) (Idss ψ)).length rss (tlss ψ) (Eiss' ψ) (mutFss nP ctorsA.length dsF ψ)
+      (Ess' ψ)) X) t ↔ _
+    rw [fixFunVI_app hXs, famFI_app ht', fixStepI_iff]
+    constructor
+    · rintro ⟨J, fs, hJ, hlen, hsp, hall, rfl⟩
+      refine ⟨J, fs, ?_, (hCF J fs).mpr ⟨hlen, hsp, hall⟩, rfl⟩
+      show J < ctorsA.length
+      rw [mutFss_length] at hJ
+      exact hJ
+    · rintro ⟨J, fs, hJ, hfit, rfl⟩
+      obtain ⟨hlen, hsp, hall⟩ := (hCF J fs).mp hfit
+      exact ⟨J, fs, by rw [mutFss_length]; exact hJ, hlen, hsp, hall, rfl⟩
   · -- the leaf
     intro ψ ρ as is hsp₁ hsp₂
     have hsat0 : Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse (consList as ρ) := by
@@ -546,7 +637,10 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     have hfold := mutualTyAVI_fold hspAll hbase
     rw [hshift, hfr] at hfold
     rw [hleafT ψ]
-    exact hfold
+    refine hfold.trans ?_
+    unfold auxFamI auxTup
+    rw [fixFamI_congr (hagree ψ)]
+    rfl
   · -- the member's index spine lands in the container's index set
     intro ψ ρp hρ is hsp
     have hmem : inj mm (mkTower (is ++ [pt])) ∈ˢ interp V ρp (tagTyAV (W ψ) (Idss ψ)) := by
@@ -612,12 +706,11 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
 /-- **A fresh recursor claims its block**: the clause's head obligation
 from the member's representation at the consed carrier.
 
-At the mutual install this is instantiable only at the STORE: the
-install's `provisionMutualRecs` conses the `k` recursors with
-`rules = []`, and `indRep_rules_nil` says a rule-less entry claims a
-member with no constructors — so `stageMutualRecProvision`'s `hreps`
-is false for every member that has one (the module docstring's second
-obstacle). -/
+It serves BOTH conses of the mutual install: the PROVISIONED one
+(`provisionMutualRecs`, `rules = []` — `IndRep.rules` is vacuous
+there, so `mutualIndRep_of` is instantiated with
+`fun h => absurd rfl h`) and the store's (`storeMutualRecs`, the
+member's own rules). -/
 theorem mutualIndRepsHead_of {c₀ : ConstantInfo} {cvR : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} (hc₀ : c₀ = .recInfo cvR mI rP rules)
     {T : Name} (hT : cvR.name = T.str "rec")
