@@ -1265,6 +1265,26 @@ theorem storeMutualRecs_find?_of_ne {b : MutualBlock} {fms : List MutualFormerA}
         (rulesOf.getD mIdx [])))
       (fun hh => hne (cvRa, mIdx) List.mem_cons_self hh.symm)
 
+/-- The store finds each of its own heads. -/
+theorem storeMutualRecs_find?_self {b : MutualBlock} {fms : List MutualFormerA}
+    {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {x : ConstantVal × Nat},
+      x ∈ l → (l.map (·.1.name)).Nodup →
+      (ConLeche.storeMutualRecs env₂ b fms rulesOf l env).find? x.1.name
+        = some (.recInfo x.1 (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix
+            (ConLeche.mutualRules env₂.find? x.1.name b.nP
+              (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix x.1.type
+              (rulesOf.getD x.2 [])))
+  | (cvRa, mIdx) :: rest, env, x, hx, hnd => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · show (ConLeche.storeMutualRecs env₂ b fms rulesOf rest _).find? cvRa.name = _
+      rw [storeMutualRecs_find?_of_ne
+        (fun y hy hh => hnd.1 (by rw [hh]; exact List.mem_map_of_mem hy))]
+      exact ConLeche.Env.find?_cons_self _ _
+    · show (ConLeche.storeMutualRecs env₂ b fms rulesOf rest _).find? x.1.name = _
+      exact storeMutualRecs_find?_self hx' hnd.2
+
 /-- **The store's extension facts**: the `k` heads are fresh at the
 carrier and carry distinct names, so the three inputs of
 `denoteMeta_envExtend_mono` hold. -/
@@ -2696,6 +2716,31 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro t ht
     rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
     rfl
+  -- the generators' constructor records, positionally
+  have hget4C : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+      ctors4[J]? = some (MutualCtor4.mk cA.1.name cA.2 cA.1.type
+        (p.toBlock.ctors.getD J default).member
+        (ConLeche.mutualRecFieldsOf (kinds.getD J []))) := by
+    intro J cA hJ
+    have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+    have hzip : (p.toBlock.ctors.zip ctorsA)[J]?
+        = some (p.toBlock.ctors.getD J default, cA) := by
+      rw [List.zip, List.getElem?_zipWith, hctorGet J hJl, hJ]
+    rw [← hc4, List.getElem?_zipWith, hzip,
+      List.getElem?_eq_getElem (show J < kinds.length by rw [← hlenAK]; exact hJl)]
+    simp only [Option.some.injEq]
+    have hnm : cA.1.name = (p.toBlock.ctors.getD J default).cv.name := by
+      have h1 := congrArg (fun l => l[J]?) hnamesC
+      rw [List.getElem?_map, List.getElem?_map, hJ, hctorGet J hJl] at h1
+      simpa using h1
+    have hnF : cA.2 = (p.toBlock.ctors.getD J default).nF := (hrunC J cA hJ).1
+    rw [← hnm, ← hnF]
+    have hkJ : (kinds.getD J [] : List (RecFieldKind × Nat))
+        = kinds[J]'(show J < kinds.length by omega) := by
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show J < kinds.length by omega)]
+      rfl
+    rw [hkJ]
   -- **the constructors' reading premises**
   have hCReads : ∀ ψ : Name → Nat,
       MutualCtorReadsM mp₂.base2 ψ p.toBlock.lps p.toBlock.nP
@@ -2708,28 +2753,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (large := p.toBlock.large) (resSortOf := fun J => (fms.getD (memF J) default).s)
       (idxF := idxF₁) (srcsF := srcsF) (fvsPF := fvsPF) (xFvsF := xFvsF) (xrestF := xrestF)
       ψ hlen4C ?_ ?_ ?_
-    · intro J cA hJ
-      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
-      have hzip : (p.toBlock.ctors.zip ctorsA)[J]?
-          = some (p.toBlock.ctors.getD J default, cA) := by
-        rw [List.zip, List.getElem?_zipWith, hctorGet J hJl, hJ]
-      rw [← hc4, List.getElem?_zipWith, hzip,
-        List.getElem?_eq_getElem (show J < kinds.length by rw [← hlenAK]; exact hJl)]
-      simp only [Option.some.injEq]
-      have hnm : cA.1.name = (p.toBlock.ctors.getD J default).cv.name := by
-        have h1 := congrArg (fun l => l[J]?) hnamesC
-        rw [List.getElem?_map, List.getElem?_map, hJ, hctorGet J hJl] at h1
-        simpa using h1
-      have hnF : cA.2 = (p.toBlock.ctors.getD J default).nF := (hrunC J cA hJ).1
-      rw [← hnm, ← hnF]
-      show _ = MutualCtor4.mk cA.1.name cA.2 cA.1.type (p.toBlock.ctors.getD J default).member
-        (ConLeche.mutualRecFieldsOf (kinds.getD J []))
-      have hkJ : (kinds.getD J [] : List (RecFieldKind × Nat))
-          = kinds[J]'(show J < kinds.length by omega) := by
-        rw [List.getD_eq_getElem?_getD,
-          List.getElem?_eq_getElem (show J < kinds.length by omega)]
-        rfl
-      rw [hkJ]
+    · exact hget4C
     · intro J i hJ _
       have htl := (hksJ J _ (hcAGet J hJ)).2.2 i
       refine ⟨?_, (hmemT _ _ (hfmGet _ htl)).2.symm⟩
@@ -4513,6 +4537,73 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         okTy := (hRDs t ht).okTy
         below := (hRDs t ht).below
         params := (hRDs t ht).params }
+    obtain ⟨-, hGS, hPS⟩ := storeMutualRecs_extend (b := p.toBlock) (fms := fms)
+      (rulesOf := rulesOf) hfrZ hndZ
+    have hagS : ∀ n : Name, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
+        (ConLeche.consMutualFormers fms env)).find? n).isSome = true →
+        mp₂.base2.acval n = m₃.acval n := by
+      intro n hn; rw [hac]; exact hagAcv n hn
+    have hFPcS : ∀ n : Name,
+        ((ConLeche.consMutualFormers fms env).find? n).isSome = true →
+        ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)).find? n).isSome = true := by
+      intro n hn
+      obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+      rw [hFPc hci]; rfl
+    have hcbF₂ : ∀ (q : Nat) (f : MutualFormerA), fms[q]? = some f →
+        ConstsBound (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)) f.cvTa.type := by
+      intro q f hq
+      obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF q f hq
+      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+      exact constsBound_of_constsResolve _
+        (Expr.constsResolve_le hFPcS (hmono₁ _ (by rw [hty]; exact htr)))
+    have hcbCC : ∀ (J' : Nat) (cA : ConstantVal × Nat), ctorsA[J']? = some cA →
+        ConstsBound (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)) cA.1.type := fun J' cA hJ' =>
+      constsBound_of_constsResolve _ (Expr.constsResolve_le hFPcS (hresC J' cA hJ'))
+    -- the members' names are not the recursors'
+    have hmemNe : ∀ (q : Nat) (f : MutualFormerA), fms[q]? = some f →
+        ∀ r, r < prts.k → f.cvTa.name ≠ (cvRas.getD r default).name := by
+      intro q f hq r hr hh
+      have h1 := hFPc (hfindF q f hq)
+      rw [hh, hfreshR r hr] at h1
+      exact nomatch h1
+    -- **the readings at the store**
+    have hFReadsS : ∀ ψ : Name → Nat, FormerReadsM m₃ ψ p.toBlock.lps p.toBlock.nP
+        (fun q => mp₂.base2.acval (fms.getD q default).cvTa.name ψ)
+        (fun q => (fms.getD q default).nIdx)
+        (fun q => (ppsF q ψ).take p.toBlock.nP) (fun q => (ppsF q ψ).drop p.toBlock.nP)
+        formers4 := by
+      intro ψ q hq
+      have hql : q < fms.length := by rw [← hlen4F]; exact hq
+      refine (hFReads ψ q hq).crossEnv ?_ hFindS hGS hPS hagS
+      show ConstsBound _ (formers4.getD q default).tty
+      rw [hget4F q hql]
+      exact hcbF₂ q _ (hfmGet q hql)
+    have hCReadsS : ∀ ψ : Name → Nat, MutualCtorReadsM m₃ ψ p.toBlock.lps p.toBlock.nP
+        (fun q => (fms.getD q f₀).cvTa.name) (fun q => (fms.getD q default).nIdx) memF
+        (fun J' => tgtAt (ksF J')) ctors4
+        (fixCtorDataList dsF esF (fun J' => kindsOf (ksF J')) eissF tssF ψ ctorsA 0) := by
+      intro ψ
+      refine ⟨(hCReads ψ).1, fun J' hJ' => ?_⟩
+      have hJ'l : J' < ctorsA.length := by rw [← hlen4C]; exact hJ'
+      have hbase := (hCReads ψ).2 J' hJ'
+      refine ⟨hbase.member, hbase.fields, hbase.base.crossEnv ?_ hFindS hGS hPS hagS ?_ ?_⟩
+      · show ConstsBound _ (ctors4.getD J' default).cty
+        rw [show ctors4.getD J' default = MutualCtor4.mk (ctorsA.getD J' default).1.name
+            (ctorsA.getD J' default).2 (ctorsA.getD J' default).1.type
+            (p.toBlock.ctors.getD J' default).member
+            (ConLeche.mutualRecFieldsOf (kinds.getD J' [])) from by
+          rw [List.getD_eq_getElem?_getD, hget4C J' _ (hcAGet J' hJ'l)]; rfl]
+        exact hcbCC J' _ (hcAGet J' hJ'l)
+      · rw [hgetDf₀ _ (hmotLt J' hJ'l)]
+        exact congrFun
+          (hagS _ (by rw [hFPc (hfindF _ _ (hfmGet _ (hmotLt J' hJ'l)))]; rfl)) ψ
+      · intro i _
+        rw [hgetDf₀ _ ((hksJ J' _ (hcAGet J' hJ'l)).2.2 i)]
+        exact congrFun (hagS _ (by
+          rw [hFPc (hfindF _ _ (hfmGet _ ((hksJ J' _ (hcAGet J' hJ'l)).2.2 i)))]; rfl)) ψ
     sorry
   obtain ⟨mp₄, hacc₄, hoff₄⟩ := stageMutualRecs prts hyp mp₂ hrectys hrules hk hnd hfreshR
     hresR hE₂ hRDs' hIdsBelow hchainBelow hAparams hnres hpshape htyWF
