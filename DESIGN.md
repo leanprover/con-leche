@@ -69630,35 +69630,44 @@ for its validity and the raw index expressions', `slotSet_chainOk` for
 `isNeverZero_eq_isNever` and `pwBit_ne_zero_of_isNever`).
 `auxRecLeafFacts` and `auxConc_facts` then apply directly.
 
-**What is left** (the file's ONE `sorry`): `stageMutualRecs` and
-`stageMutualTables`.  `stageMutualRecs`' own premises are mostly in
-hand (`hyp`, `hRDs`, `hIds`, `hchains`); the work is its `hlaws` —
-`mutualRecRuleLaw` per rule, whose `hCread`/`hread`/`hleafC`/`hRD` must
-hold AT THE STORE's carrier, so the readings have to cross the `k`
-provision conses (`MutualRecData.cross` exists; `FormerReadsM`/
-`MutualCtorReadsM`/`MutualCtorDataI` need the same lemma) and then the
-group swap, which changes only the stored rule lists and so leaves
-`denoteMeta` alone — plus `mutualRuleOk`'s ~25 premises and
-`denoteMeta_mutualRecRhs`'s, and `ruleFires_of` (whose `hAcl` is
-`MutualRecParts.leaf_below`, `hregime` is `hw0G`, and `hpre` is
-`auxFixPre_of` at the same premises `auxRecLeafFacts` just took).
-`stageMutualTables` is `MutualTableOk` per member off
-`mutualMemberTable_inv`.  `MutualRepsOk` is still the one named
-premise; its two components (`mutualIndRepsHead_of`/`mutualIndReps_of`)
-are consumed by those stages and cannot be wired before them.
+**The recursor stage, all but its rule rows.**  `stageMutualRecs` is
+applied; every premise but `hlaws` is discharged.  `MutualRepsOk`
+supplies `hrepsP`/`hrepsS` directly (they are its two components, so
+the clause stays the one named premise and `mutualIndRepsHead_of`/
+`mutualIndReps_of` are still consumed by the stage, not by this file).
+The run-level ones come off `checkMutualRecTy_shape` (`hRecShape`:
+`cvRas.getD t default = ⟨b.recName t, b.rlps, recTy⟩` with its four
+scoping bits) and, for freshness/reserved/proj-shape, off the STREAM
+record's own `checkConstantVal`, reached through `mutualRecPinOk_name`
+and `toBlock_recName` (`hCVcheck`); `hnd` is `blockNames.Nodup`'s third
+block.  `hctorStored` goes through the new `mutualRules_getElem?` (a
+stored rule is `recRuleBits` of the generated record at one of the
+member's own constructors) and `checkMutualMemberRules_inv`.
+`hAparams` is the new congruence kit in `MutualRecTyping.lean`
+(`mutualRecAVI_congrψ` and its eight helpers: the leaf reads `ψ` only
+through the elimination level's bit and value and the constructors'
+leaves) fed the block's component equalities, with `rlps ⊇ lps` and the
+eliminator's own parameter for the level's value.
 
-**A recorded gap that is NOT one.**  §8.4's "the constructor leaf's
-APPLICATION grading needs a mixed-regime chain lemma" is a false alarm:
-`minorTag_facts`' `hctorOk` goes through `appChainOk_of_mkPisAV'`
-(`FixRecCoreI.lean`), whose uniform-bit premise is about the CODOMAIN
-bits `d.2.1`, and those are uniform at a constructor's type —
-`CtorDataI.bits` says `resSort.eval ψ = 0 ↔ d.2.1 = 0` at EVERY binder
-(a Π-type's sort is the `imax` with the constructor's result sort).
-Only the DOMAIN bits `d.1` mix regimes, and no lemma reads them.  With
-the exposure fixed, `hpps` is `FormerData.lvls` + `hWge` +
-`auxRecSort_ge`, `hslotTag` is `mutEiss'_getD`, and `AuxFrameOk` is the
-`hframes` case's four facts + `auxFormer_hleafT` + `minorTag_facts` at
-the `ctor`/`slot` already proved.
+**What is left** (the file's ONE `sorry`): `stageMutualRecs`' `hlaws`
+and, after it, `stageMutualTables`.  `hlaws` is `mutualRecRuleLaw` per
+stored rule; its readings live at the STORE's carrier and
+`denoteMeta_toStore` (new, in `DeclMutual.lean`) carries them there —
+`denoteMeta_acval_congr` to swap `mp₂`'s leaves for the store's, then
+`denoteMeta_envExtend_mono` at `storeMutualRecs_extend`'s three facts
+(the `k` heads are fresh, so lookups, literal guards and projection
+tables all survive).  `MutualRecData.cross` does the same for the
+binder data.  What remains under it: `denoteMeta_mutualRecRhs` (its
+`hformers`/`hctors` are `hFReads`/`hCReads` carried over by
+`denoteMeta_toStore`), `mutualRuleOk`'s ~25 premises (most are the
+block facts this file already has — `hframesJ`, `hSlotTagG`,
+`hminorReadG`, `hcd`'s conjuncts, `hyp`'s `hstore`; the genuinely new
+ones are `hih`, through `mutualIhSpine_of`, and the two `ℓ = 0` facts),
+and `ruleFires_of`, whose `hAcl` is `MutualRecParts.leaf_below`,
+`hregime` is `hw0G` and `hpre` is `auxFixPre_of` at exactly the
+premises `auxRecLeafFacts` already consumes.  `stageMutualTables` is
+`MutualTableOk` per member off `mutualMemberTable_inv`, again at the
+store's carrier and so again through `denoteMeta_toStore`.
 
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 

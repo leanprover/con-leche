@@ -37,17 +37,19 @@ cross-member parameter identification (`paramFrames` at
 member's index telescope can be graded at another member's parameter
 frame, and the tag is the union of all of them.
 
-**What the tail still owes** (the `sorry`): `stageMutualRecs`
-(`mutualRuleOk` and `denoteMeta_mutualRecRhs` for the rules, then
-`mutualRecRuleLaw` with `ruleFires_of`) and `stageMutualTables`
-(`MutualTableOk` at every member).
+**What the tail still owes** (the `sorry`): `stageMutualRecs`' rule
+rows (`hlaws` — `mutualRecRuleLaw` per stored rule, and under it
+`denoteMeta_mutualRecRhs`, `mutualRuleOk` and `ruleFires_of`) and
+`stageMutualTables` (`MutualTableOk` at every member).  Both live at
+the group store's carrier, and `denoteMeta_toStore` carries a reading
+there.
 
 Everything before them is in: the members' and constructors' readings
 at the constructors' carrier (`formerReadsM_of`, `mutualCtorReadsM_of`,
-`mutualRecData_of`), the `MutualRecParts` bundle, and all of its
-`LeafHyp` — `MutualFrameOkM` at every parameter frame, the auxiliary
-former's `LeafTyping`, `AuxFrameOk` and the auxiliary recursor's own
-two facts included.
+`mutualRecData_of`), the `MutualRecParts` bundle, all of its `LeafHyp`
+(`MutualFrameOkM` at every parameter frame, the auxiliary former's
+`LeafTyping`, `AuxFrameOk` and the auxiliary recursor's own two facts),
+and every other premise of `stageMutualRecs`.
 -/
 
 namespace ConLeche.Model
