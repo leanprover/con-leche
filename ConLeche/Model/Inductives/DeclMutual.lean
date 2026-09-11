@@ -138,4 +138,164 @@ theorem mutualFormerChecks_pos {F nP : Nat} :
       simp only [List.getElem?_cons_succ] at hf ⊢
       exact hall t f hf
 
+/-- **The cross-member checks, at every member**: the result sort is
+the first former's and the parameter domains are compared there. -/
+theorem mutualCrossChecks_all {F nP : Nat} {env : Env} {f₀ : MutualFormerA}
+    {doms₀ : List Expr} :
+    ∀ {l : List MutualFormerA},
+      ConLeche.mutualCrossChecks (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env nP f₀ doms₀ l
+        = .ok () →
+      ∀ f ∈ l, Level.isEquiv f.s f₀.s = some true ∧
+        ∃ tq : List Expr × Expr, ConLeche.openPisAtFvars nP f.cvTa.type 0 = some tq ∧
+          ConLeche.mutualDomsOk (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env tq.1 doms₀ nP
+            = .ok ()
+  | [], _, f, hf => nomatch hf
+  | g :: gs, h, f, hf => by
+    obtain ⟨heq, tq, htq, hdoms, hrest⟩ := ConLeche.mutualCrossChecks_inv h
+    rcases List.mem_cons.mp hf with rfl | hf'
+    · exact ⟨heq, tq, htq, hdoms⟩
+    · exact mutualCrossChecks_all hrest f hf'
+
+/-- The former's data at a level the result sort evaluates like. -/
+theorem FormerData.congr_sort {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP : Nat}
+    {s s' : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvls : (Name → Nat) → List Nat}
+    (h : FormerData m cvT nP s pps lvls) (hs : ∀ ψ : Name → Nat, s.eval ψ = s'.eval ψ) :
+    FormerData m cvT nP s' pps lvls where
+  read ψ := by rw [← hs ψ]; exact h.read ψ
+  len := h.len
+  bits := h.bits
+  okTy ψ ρ := by rw [← hs ψ]; exact h.okTy ψ ρ
+  below := h.below
+  params ψ₁ ψ₂ hφ := ⟨(h.params ψ₁ ψ₂ hφ).1, by rw [← hs ψ₁, ← hs ψ₂]; exact (h.params ψ₁ ψ₂ hφ).2⟩
+  lvlsLen := h.lvlsLen
+  lvl := h.lvl
+  lvlsParams := h.lvlsParams
+
+/-! ## Kit: the block's member table -/
+
+/-- The members, by position, with an offset. -/
+theorem members3_find?_go :
+    ∀ (l : List (ConstantVal × Nat)) (o t : Nat), o ≤ t → t < o + l.length →
+      ((l.zipIdx o).map fun q => (q.1.1.name, q.2, q.1.2)).find? (fun x => x.2.1 == t)
+        = some ((l.getD (t - o) default).1.name, t, (l.getD (t - o) default).2)
+  | [], o, t, h1, h2 => by simp at h2; omega
+  | a :: l, o, t, h1, h2 => by
+    rw [List.zipIdx_cons, List.map_cons, List.find?_cons]
+    split
+    · next hb =>
+      have hot : o = t := by simpa using hb
+      subst hot
+      simp
+    · next hb =>
+      have hne : ¬ o = t := by simpa using hb
+      have hlt : o + 1 ≤ t := by omega
+      rw [members3_find?_go l (o + 1) t hlt (by simp at h2 ⊢; omega)]
+      have ht : t - o = (t - (o + 1)) + 1 := by omega
+      rw [ht]
+      simp
+
+/-- **The block's member table, positionally**. -/
+theorem members3_find? {b : MutualBlock} {t : Nat} (ht : t < b.k) :
+    b.members3.find? (fun x => x.2.1 == t)
+      = some ((b.formers.getD t default).1.name, t, (b.formers.getD t default).2) := by
+  have h := members3_find?_go b.formers 0 t (Nat.zero_le _)
+    (by simpa [ConLeche.MutualBlock.k] using ht)
+  simp only [Nat.sub_zero] at h
+  simpa [ConLeche.MutualBlock.members3] using h
+
+theorem mutualNameOf_members3 {b : MutualBlock} {t : Nat} (ht : t < b.k) :
+    mutualNameOf b.members3 t = (b.formers.getD t default).1.name := by
+  unfold mutualNameOf
+  rw [members3_find? ht]
+  rfl
+
+theorem mutualNIdxOf_members3 {b : MutualBlock} {t : Nat} (ht : t < b.k) :
+    mutualNIdxOf b.members3 t = (b.formers.getD t default).2 := by
+  unfold mutualNIdxOf
+  rw [members3_find? ht]
+  rfl
+
+/-- Official's positivity walk names a MEMBER of the block, or nothing. -/
+theorem mutualPositivity_tgt (members : List (Name × Nat × Nat)) (lps : List Name) (nP o : Nat) :
+    ∀ (e : Expr) (kk : Nat),
+      (ConLeche.mutualPositivity members lps nP o e kk).2 = 0 ∨
+        ∃ x ∈ members, x.2.1 = (ConLeche.mutualPositivity members lps nP o e kk).2 := by
+  intro e
+  induction e with
+  | forallE d b bm ihd ihb =>
+    intro kk
+    rw [ConLeche.mutualPositivity]
+    split
+    · exact Or.inl rfl
+    · exact ihb (kk + 1)
+  | _ =>
+    intro kk
+    rw [ConLeche.mutualPositivity]
+    · split
+      · exact Or.inl rfl
+      · split <;> try exact Or.inl rfl
+        split <;> try exact Or.inl rfl
+        split <;> try exact Or.inl rfl
+        rename_i _ _ _ _ _ _ _ _ hq _
+        exact Or.inr ⟨_, List.mem_of_find?_eq_some hq, rfl⟩
+    · intro d' b' bm' hh
+      exact Expr.noConfusion hh
+
+/-- **A classified field's target is a MEMBER of the block** (or the
+harmless `0`): the classification's only source of a target is
+official's positivity walk, and that walk reads the member table. -/
+theorem mutualCtorKinds_tgt {members : List (Name × Nat × Nat)} {lps : List Name} {nP : Nat}
+    {c : ConstantVal × Nat} {ks : List (RecFieldKind × Nat)}
+    (h : ConLeche.mutualCtorKinds members lps nP c = some ks) :
+    ∀ i, tgtAt ks i = 0 ∨ ∃ x ∈ members, x.2.1 = tgtAt ks i := by
+  unfold ConLeche.mutualCtorKinds at h
+  split at h
+  · next cbs cbody hst =>
+    split at h
+    · obtain rfl := Option.some.inj h
+      intro i
+      simp only [tgtAt]
+      by_cases hi : i < c.2
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+          List.getElem?_eq_getElem (by simpa using hi)]
+        simp only [List.getElem_range, Option.map_some, Option.getD_some]
+        split
+        · exact Or.inl rfl
+        · rcases hpos : ConLeche.mutualPositivity members lps nP i
+            ((cbs.getD (nP + i) default).1) 0 with ⟨kind, m'⟩
+          have hm := mutualPositivity_tgt members lps nP i ((cbs.getD (nP + i) default).1) 0
+          rw [hpos] at hm
+          cases kind
+          · exact hm
+          · show (if ConLeche.structUsedLater c.1.type nP i = true then
+                  (RecFieldKind.unsupported, 0) else (RecFieldKind.recursive, m')).2 = 0 ∨
+              ∃ x ∈ members, x.2.1 = (if ConLeche.structUsedLater c.1.type nP i = true then
+                  (RecFieldKind.unsupported, 0) else (RecFieldKind.recursive, m')).2
+            split
+            · exact Or.inl rfl
+            · exact hm
+          · show (if ConLeche.structUsedLater c.1.type nP i = true then
+                  (RecFieldKind.unsupported, 0) else (RecFieldKind.reflexive, m')).2 = 0 ∨
+              ∃ x ∈ members, x.2.1 = (if ConLeche.structUsedLater c.1.type nP i = true then
+                  (RecFieldKind.unsupported, 0) else (RecFieldKind.reflexive, m')).2
+            split
+            · exact Or.inl rfl
+            · exact hm
+          · exact hm
+          · exact hm
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simpa using Nat.le_of_not_lt hi)]
+        exact Or.inl rfl
+    · obtain rfl := Option.some.inj h
+      intro i
+      simp only [tgtAt]
+      by_cases hi : i < c.2
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_map,
+          List.getElem?_eq_getElem (by simpa using hi)]
+        exact Or.inl rfl
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_map,
+          List.getElem?_eq_none (by simpa using Nat.le_of_not_lt hi)]
+        exact Or.inl rfl
+  · exact nomatch h
+
 end ConLeche.Model
