@@ -68807,3 +68807,12 @@ tables), `declMutual` (exposing every member's leaf: R1/#280's (L)),
 the fold's arm, the cached bridge (`checkMutualS_run`/`_skels`, Opus,
 in progress) and the run relation/inversions (`DeclMutualRun`, Opus,
 in progress).
+
+**Landing target (maintainer ruling, 2026-09-11):** the inductives work
+stays off master until complete end to end (mutual native, the #280
+clause, nested native).  This lane lands on the long-lived integration
+branch `inductives` (worktree `.claude/worktrees/inductives`, from
+`103c3118`) — at READY and on the grant, `git merge --no-ff agent/mutual-278`
+INTO `inductives`, never into master.  `master` keeps being merged
+into this branch for unrelated changes; when #280 lands on
+`inductives`, `inductives` is merged here to pick up the clause.
