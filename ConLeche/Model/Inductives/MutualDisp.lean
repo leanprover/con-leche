@@ -78,9 +78,9 @@ variable and `m'` earlier minors): `Π ı⃗_{m'}, Mv (inj m' ⟨ı⃗_{m'}⟩)`
 /-- The dispatch's body at depth `2` below the K-frame `(p⃗, Mv, M'⃗)`
 (the binders `i, x`): the case split on the tag applied to the payload
 and to `x`. -/
-@[expose] def dispBodyAV (ℓ W : Nat) (k : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
+@[expose] def dispBodyAV (ℓ W w : Nat) (k : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
   .app
-    (.app (caseRecAVI (dispLevel W ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
+    (.app (caseRecAVI (dispLevel w ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
         (fun j => (Idss.getD j []).length) (fun _ _ => []) k 0 k 2 0 (.fst (.bvar 1)))
       (.snd (.bvar 1)))
     (.bvar 0)
@@ -94,7 +94,7 @@ and to `x`. -/
       (List.range k).map fun m' => (dispLevel w ℓ + 1, tagMinorTyAV ℓ W w m' Idss))
     (.lam (ℓ + 1) ((tagTyAV W Idss).liftN (k + 1) 0)
       (.lam (ℓ + 1) (auxAtAV W w (k + 2) Idss rss tlss Eiss' Fss Ess' (.bvar 0))
-        (dispBodyAV ℓ W k Idss)))
+        (dispBodyAV ℓ W w k Idss)))
 
 /-- **The motive dispatch** at a frame `D` binders below the parameter
 frame whose `k` motives sit at `bvar (mOff + k - 1 - m')`: the tower,
@@ -486,6 +486,148 @@ theorem tagRecHyp :
       unfold concI ctorValI idxValsAt
       rw [List.map_nil, List.foldl_nil, if_neg hW, List.nil_append]
       exact tagMotV_app (tagTuple_mem h.hT hIds hsp)
+
+omit h in
+/-- The nested product over a lifted chain at a deeper frame is the
+product over the chain at the retracted frame (`piTele_liftTele2`'s
+shape for `liftFields`, at any cutoff). -/
+theorem piTele_liftFields {v n : Nat} {B : List V → V} :
+    ∀ (Fs : List AnnotTerm) (k : Nat) (τ : Nat → V) (acc : List V),
+      piTele v (teleOfFields τ (liftFields n k Fs)) B acc
+        = piTele v (teleOfFields (shiftE n k τ) Fs) B acc
+  | [], _, _, _ => rfl
+  | F :: Fs, k, τ, acc => by
+    rw [liftFields_cons]
+    simp only [teleOfFields, piTele]
+    rw [interp_liftN]
+    refine piR_congr fun a _ => ?_
+    rw [piTele_liftFields Fs (k + 1) (cons a τ) (acc ++ [a]), cons_shiftE]
+
+omit h in
+/-- The major's tag node at `bvar 1` is graded (graph regime) through
+the carrier's own `sigmaSet` (`major_fst_wellDenoted` one binder up). -/
+theorem major1_sigma (hW : W ≠ 0) {ρ₀ τ : Nat → V} {Fss' : List (List AnnotTerm)}
+    (hok : SumFieldsOkB W ρ₀ Fss') (ht : τ 1 ∈ˢ sumSet W (sumFibre W ρ₀ Fss')) :
+    ∃ u v A Bf, interp V τ (.bvar 1) ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ (univ u : V) ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V) := by
+  refine ⟨W, W, omega, natFibre (sumFibre W ρ₀ Fss'), ?_, omega_mem_univ_pos hW, ?_⟩
+  · rw [interp_bvar, show Nat.max W W = W from Nat.max_self W]
+    exact ht
+  · intro k hk
+    obtain ⟨i', rfl, hfib⟩ := natFibre_of_mem (sumFibre W ρ₀ Fss') hk
+    rw [hfib]
+    unfold sumFibre
+    cases hi' : Fss'[i']? with
+    | none => exact empty_mem_univ W
+    | some Fs =>
+      exact towerSet_univ_teleOfFields ((hok Fs (List.mem_of_getElem? hi')).toBound hW)
+
+/-- **The dispatch's body** at a tag element `i = inj m ⟨ı⃗⟩` and a
+fibre element `x`, at the frame `(i, x)` below the K-frame: its value
+is `M_m ı⃗ x`, it is in `Sort ℓ`, and it is graded. -/
+theorem dispBody_facts {i x : V} (hi : i ∈ˢ tagSet W ρp Idss)
+    (hx : x ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss Ess' i) :
+    (∃ (m : Nat) (y : V), m < k ∧ i = inj m y ∧
+      interp V (cons x (cons i (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')))
+          (dispBodyAV ℓ W w k Idss)
+        = SetTheory.app (((List.range (Idss.getD m []).length).map fun i => projS i y).foldl
+            SetTheory.app (σ (mOff + k - 1 - m))) x) ∧
+    interp V (cons x (cons i (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')))
+        (dispBodyAV ℓ W w k Idss) ∈ˢ (univ ℓ : V) ∧
+    WellDenoted V (cons x (cons i (tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess')))
+      (dispBodyAV ℓ W w k Idss) := by
+  have hW := h.hT.1
+  have hℓ' := dispLevel_ne_zero w ℓ
+  have hyp := tagRecHyp h
+  have hfrM := tagKFrame_frM (ℓ := ℓ) (W := W) (w := w) (mOff := mOff) (k := k) (ρp := ρp) (σ := σ)
+    (Idss := Idss) (rss := rss) (tlss := tlss) (Eiss' := Eiss') (Fss := Fss) (Ess' := Ess')
+  have hfrMs := fun {j} (hj : j < k) => tagKFrame_frMs (ℓ := ℓ) (W := W) (w := w) (mOff := mOff)
+    (k := k) (ρp := ρp) (σ := σ) (Idss := Idss) (rss := rss) (tlss := tlss) (Eiss' := Eiss')
+    (Fss := Fss) (Ess' := Ess') hj
+  have hok := hyp.toRecHypCore.hok
+  have hfam := hyp.toRecHypCore.hfam
+  generalize hρ₀ : tagKFrame ℓ W w mOff k ρp σ Idss rss tlss Eiss' Fss Ess' = ρ₀
+    at hyp hfrM hfrMs hok hfam ⊢
+  have hk := h.hk
+  subst hk
+  simp only [List.length_nil, Nat.zero_add] at hfam hok
+  -- the carrier at the K-frame
+  have hi' : i ∈ˢ sumSet W (sumFibre W ρ₀ (rChains (Idss.length + 1) 0 Idss
+      (List.replicate Idss.length []))) := by
+    rw [← hfam]; exact hi
+  obtain ⟨m, y, hy, rfl⟩ := sumSet_elim hW hi'
+  have hm : m < Idss.length := by
+    refine Nat.lt_of_not_le fun hge => ?_
+    rw [sumFibre_of_ge (by rw [rChains_length, List.length_replicate]; exact Nat.le_trans (Nat.min_le_left _ _) hge)] at hy
+    exact not_mem_empty y hy
+  -- the frame below the K-frame
+  have hfr : RecFrameS 2 ρ₀ (cons x (cons (inj m y) ρ₀)) := by
+    unfold RecFrameS
+    rw [show (2 : Nat) = 1 + 1 from rfl, shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
+  have hih : ∀ (D' j' : Nat) (σ' : Nat → V), RecFrameS D' ρ₀ σ' → j' < Idss.length →
+      IhArgsOk W ρ₀ σ' Idss (List.replicate Idss.length []) [] (fun _ _ => []) (fun _ _ => [])
+        (fun _ _ => []) D' j' := by
+    intro D' j' σ' _ _ y' _
+    exact ⟨rfl, rfl, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
+  have hcase := caseRec_factsI hW hyp hih Idss.length (D := 2) (j := 0)
+    (σ := cons x (cons (inj m y) ρ₀)) (k := .fst (.bvar 1)) hfr (Nat.zero_add _)
+  simp only [List.length_nil, Nat.zero_add] at hcase
+  -- the tag and the payload at the frame
+  have htag : interp V (cons x (cons (inj m y) ρ₀)) (.fst (.bvar 1)) = vnat m := by
+    rw [interp_fst, interp_bvar, cons_succ, cons_zero, sfst_inj]
+  have hpay : interp V (cons x (cons (inj m y) ρ₀)) (.snd (.bvar 1)) = y := by
+    rw [interp_snd, interp_bvar, cons_succ, cons_zero, ssnd_inj]
+  have hkω : interp V (cons x (cons (inj m y) ρ₀)) (.fst (.bvar 1)) ∈ˢ (omega : V) := by
+    rw [htag]; exact vnat_mem_omega m
+  obtain ⟨hmem, hiota⟩ := hcase.1 hkω
+  rw [htag, motSem_vnat, Nat.zero_add] at hmem
+  have hval := hiota m htag hm
+  -- the motive at the frame's (empty) tuple is the tag motive
+  have hMi : frMi Idss.length 0 ρ₀ = tagMotV ℓ W w ρp Idss rss tlss Eiss' Fss Ess' := by
+    unfold frMi
+    simp only [frameIdx, List.range_zero, List.map_nil, List.foldl_nil]
+    exact hfrM
+  rw [hMi] at hmem
+  -- the case split applied to the payload
+  have hbase : SetTheory.app (interp V (cons x (cons (inj m y) ρ₀))
+        (caseRecAVI (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
+          (fun j => (Idss.getD j []).length) (fun _ _ => []) Idss.length 0 Idss.length 2 0
+          (.fst (.bvar 1)))) y
+      = ((List.range (Idss.getD m []).length).map fun i => projS i y).foldl SetTheory.app
+          (σ (mOff + Idss.length - 1 - m)) := by
+    rw [hval]
+    unfold baseSemI
+    rw [app_lamR_pos hℓ' hy, List.append_nil, hfrMs hm]
+  have hbaseMem : SetTheory.app (interp V (cons x (cons (inj m y) ρ₀))
+        (caseRecAVI (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
+          (fun j => (Idss.getD j []).length) (fun _ _ => []) Idss.length 0 Idss.length 2 0
+          (.fst (.bvar 1)))) y
+      ∈ˢ piR (ℓ + 1) (auxFib W w ρp Idss rss tlss Eiss' Fss Ess' (inj m y)) fun _ => (univ ℓ : V) := by
+    have := app_mem_piR_pos hℓ' hmem hy
+    rw [injW_pos hW] at this
+    rwa [tagMotV_app hi] at this
+  refine ⟨⟨m, y, hm, rfl, ?_⟩, ?_, ?_⟩
+  · unfold dispBodyAV
+    rw [interp_app, interp_app, hpay, hbase, interp_bvar, cons_zero]
+  · unfold dispBodyAV
+    rw [interp_app, interp_app, hpay, interp_bvar, cons_zero]
+    exact app_mem_piR_pos (Nat.succ_ne_zero ℓ) hbaseMem hx
+  · have hok0 : WellDenoted V (cons x (cons (inj m y) ρ₀)) (.fst (.bvar 1)) := by
+      rw [WellDenoted_fst]
+      exact ⟨trivial, major1_sigma hW hok (by rw [cons_succ, cons_zero]; exact hi')⟩
+    have hok1 : WellDenoted V (cons x (cons (inj m y) ρ₀)) (.snd (.bvar 1)) := by
+      rw [WellDenoted_snd]
+      exact ⟨trivial, major1_sigma hW hok (by rw [cons_succ, cons_zero]; exact hi')⟩
+    unfold dispBodyAV
+    rw [WellDenoted_app]
+    refine ⟨?_, trivial, ℓ + 1, auxFib W w ρp Idss rss tlss Eiss' Fss Ess' (inj m y),
+      fun _ => (univ ℓ : V), ?_, ?_, fun h0 => absurd h0 (Nat.succ_ne_zero ℓ)⟩
+    · rw [WellDenoted_app]
+      refine ⟨hcase.2 hok0 (fun _ => hkω), hok1, dispLevel w ℓ, _, _, hmem, ?_,
+        fun h0 => absurd h0 hℓ'⟩
+      rw [hpay]; exact hy
+    · rw [interp_app, hpay]; exact hbaseMem
+    · rw [interp_bvar, cons_zero]; exact hx
 
 end Disp
 
