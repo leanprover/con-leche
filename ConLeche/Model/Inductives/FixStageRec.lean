@@ -1101,7 +1101,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     subst hT'
     refine Or.inl ⟨cvTa, caps,
       fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll uAV,
-      ConLeche.Env.find?_cons_of_fresh hfresh hfT, ?_⟩
+      0, ConLeche.Env.find?_cons_of_fresh hfresh hfT, ?_⟩
     have hlenR : rhss.length = ctorsA.length := by
       have := (ConLeche.checkNativeRec_facts hRec).2.2.2.1
       rw [this, ConLeche.nativeCtors4, List.length_zipWith, hlenK, Nat.min_self]
@@ -1110,7 +1110,8 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
           (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
           = .projInfo tbl := h
       exact nomatch h')
-    exact (indRep_of_stage mp.base2 hmI hrP hlenR hstripT hProp hlpsT hFD hcf hidxRes _hUparams
+    exact (indRep_of_stage mp.base2 hmI hrP hlenR hstripT hProp hlpsT ⟨cvTa, caps, hfT⟩ hFD hcf
+      hidxRes _hUparams
       hleafT hagree hleafC hiff
       (fun ψ ρp hρ => ⟨(hframes ψ ρp hρ).1, fun j hj => ((hframes ψ ρp hρ).2.2.1 j hj).1⟩)).cross
       (c₀ := c₀) hfresh hcrossE hfT m₂ hac

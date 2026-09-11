@@ -29,8 +29,8 @@ pinned block whose elements are not tagged towers (`Nat` as ω, whose
 successor is the von Neumann one) is represented on the nose, not up
 to an isomorphism.
 
-**The clause** (`IndRep`), for a stored inductive `T` with its
-recursor `T.rec`:
+**The clause** (`IndRep`), for a stored inductive `T` — the member
+`mm` of its block — with its recursor `T.rec`:
 
 * the stored types read as the spelling says (`former`, `ctors`), and
   the recursor's rules list the constructors in order (`rules`,
@@ -48,6 +48,19 @@ recursor `T.rec`:
   parameters and fields is `inj j fs` (`ctor`) — the fixed point's own
   injection, so that a later identification of a copy with the
   container needs no transport.
+
+**The member view** (task #278 M2.6).  A block has `k` members
+(`nIdxs`, `memberNames`, the per-constructor member table `mems` and
+the per-field target table `tgts`), and the clause is stated for ONE
+of them: the stored recursor's arithmetic is `mI = nP + k + n +
+nIdx_mm` over the whole block's `n` constructors, its rules are member
+`mm`'s own (`memberCtors`), its former's telescope is member `mm`'s
+(`ppsM mm`), and its leaf sends member `mm`'s own index spine to the
+CONTAINER's index tuple (`tup`, over the container's index telescope
+`IdsC`).  A single family is the instance `k = 1`, `mm = 0`, every
+`mems`/`tgts` entry `0`, `tup = tupW u`, `IdsC` the former's own
+index telescope — which is what the fixpoint route
+(`Model/Inductives/FixRep.lean`) and the pinned blocks supply.
 
 `IndReps` is the clause over the whole store, keyed on the stored
 RECURSOR `T.rec` (which then names its stored former `T`): a block's
@@ -121,12 +134,28 @@ structure IndRepData (V : Type w) where
   eissF : Nat → (Name → Nat) → List (List AnnotTerm)
   /-- per constructor: the reflexive fields' telescopes -/
   tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
-  /-- the former's parameter-and-index telescope reading -/
-  pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)
-  /-- the parameter binders' universe levels (`FormerData.lvls`) -/
-  lvls : (Name → Nat) → List Nat
+  /-- the number of members of the block (`1` at a single family) -/
+  k : Nat
+  /-- per member: its index count (`nIdx` is the CONTAINER's) -/
+  nIdxs : List Nat
+  /-- the members' names, by member position -/
+  memberNames : List Name
+  /-- per constructor: the member it belongs to -/
+  mems : Nat → Nat
+  /-- per constructor and field: the member the field targets -/
+  tgts : Nat → Nat → Nat
+  /-- per member: its parameter-and-index telescope reading -/
+  ppsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)
+  /-- per member: its binders' universe levels (`FormerData.lvls`) -/
+  lvlsM : Nat → (Name → Nat) → List Nat
+  /-- the CONTAINER's index telescope (at a single family the former's
+  own; at a mutual block the block-position tag's) -/
+  IdsC : (Name → Nat) → List AnnotTerm
   /-- the index-tuple sort -/
   u : (Name → Nat) → Nat
+  /-- member `m`'s index spine as a tuple of the CONTAINER's index set
+  (at a single family `tupW u is`) -/
+  tup : (Name → Nat) → Nat → List V → V
   /-- the family functor, at a level assignment and a parameter frame -/
   Φ : (Name → Nat) → (Nat → V) → V
   /-- the constructor injections: constructor `j` at a field spine -/
@@ -139,11 +168,24 @@ variable (d : IndRepData V)
 /-- The result sort's value. -/
 @[expose] def w (ψ : Name → Nat) : Nat := d.resSort.eval ψ
 
-/-- The parameter telescope. -/
-@[expose] def params (ψ : Name → Nat) : List AnnotTerm := ((d.pps ψ).take d.nP).map (·.2.2)
+/-- Member `mm`'s name. -/
+@[expose] def memberName (mm : Nat) : Name := d.memberNames.getD mm .anonymous
 
-/-- The index telescope, at the parameter frame. -/
-@[expose] def Ids (ψ : Name → Nat) : List AnnotTerm := ((d.pps ψ).drop d.nP).map (·.2.2)
+/-- Member `mm`'s index count. -/
+@[expose] def nIdxAt (mm : Nat) : Nat := d.nIdxs.getD mm 0
+
+/-- The parameter telescope (the block's, read off member `0`: the
+members share their parameters). -/
+@[expose] def params (ψ : Name → Nat) : List AnnotTerm := ((d.ppsM 0 ψ).take d.nP).map (·.2.2)
+
+/-- Member `mm`'s own index telescope, at the parameter frame. -/
+@[expose] def IdsM (mm : Nat) (ψ : Name → Nat) : List AnnotTerm :=
+  ((d.ppsM mm ψ).drop d.nP).map (·.2.2)
+
+/-- Member `mm`'s own constructors, in the block's order and paired
+with nothing: the constructors `J` with `mems J = mm`. -/
+@[expose] def memberCtors (mm : Nat) : List (ConstantVal × Nat) :=
+  (d.ctorsA.zipIdx.filter fun x => d.mems x.2 == mm).map (·.1)
 
 /-- The constructor data list. -/
 @[expose] def cds (ψ : Name → Nat) : List CtorDatumR :=
@@ -167,7 +209,7 @@ slot). -/
 @[expose] def Ess (ψ : Name → Nat) : List (List AnnotTerm) := essOfR (d.cds ψ)
 
 /-- The index-tuple set at a parameter frame. -/
-@[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : V := idxSet (d.u ψ) ρp (d.Ids ψ)
+@[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : V := idxSet (d.u ψ) ρp (d.IdsC ψ)
 
 /-- **A field spine fits constructor `j` at the functor frame `(ρp, X, t)`**:
 it has the constructor's field count, it fits the X-chain (an ordinary
@@ -178,12 +220,21 @@ fibre (`fixStepI_elim`). -/
 @[expose] def ChainFit (ψ : Name → Nat) (ρp : Nat → V) (X t : V) (j : Nat) (fs : List V) : Prop :=
   fs.length = ((d.Fss ψ).getD j []).length ∧
   SpineFit (cons t (cons X ρp))
-    (chainXIGo (d.u ψ) (d.Ids ψ) (d.rss.getD j []) ((d.tlss ψ).getD j []) ((d.Eiss ψ).getD j [])
+    (chainXIGo (d.u ψ) (d.IdsC ψ) (d.rss.getD j []) ((d.tlss ψ).getD j []) ((d.Eiss ψ).getD j [])
       ((d.Fss ψ).getD j []) 0) fs ∧
   EqAll (consList fs (cons t (cons X ρp)))
-    (eqsXI (d.Ids ψ).length ((d.Fss ψ).getD j []).length ((d.Ess ψ).getD j []))
+    (eqsXI (d.IdsC ψ).length ((d.Fss ψ).getD j []).length ((d.Ess ψ).getD j []))
 
 end IndRepData
+
+omit [SetTheory V] in
+/-- At a single-family block (every constructor at the same member)
+the member's constructors are all of them. -/
+theorem IndRepData.memberCtors_of_all {d : IndRepData V} {mm : Nat} (h : ∀ j, d.mems j = mm) :
+    d.memberCtors mm = d.ctorsA := by
+  unfold IndRepData.memberCtors
+  rw [List.filter_eq_self.mpr (fun x _ => by rw [h]; exact beq_self_eq_true mm)]
+  exact List.zipIdx_map_fst 0 d.ctorsA
 
 /-- **The chains' grading** at a parameter frame: the index telescope
 graded, the X-chains graded at every family and tuple, the recursive
@@ -204,31 +255,46 @@ theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm
     (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) : ChainsOk u w ρp Ids rss tlss Eiss Fss Ess :=
   ⟨h.hI, h.hok, h.hfit⟩
 
-/-- **The representation of a stored inductive `T`** with recursor
-`T.rec = .recInfo cvR mI rP rules`, at the datum `d` (see the module
-docstring). -/
+/-- **The representation of a stored inductive `T`**, the member `mm`
+of its block, with recursor `T.rec = .recInfo cvR mI rP rules`, at the
+datum `d` (see the module docstring).  A single-family block is the
+instance `k = 1`, `mm = 0`. -/
 structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
-    (rules : List RecRule) (d : IndRepData V) : Prop where
-  /-- the stored type is the telescope over the parameters and indices
-  ending in the result sort -/
-  strip : ∃ bs, cvT.type.stripPis (d.nP + d.nIdx) = some (bs, .sort d.resSort)
+    (rules : List RecRule) (d : IndRepData V) (mm : Nat) : Prop where
+  /-- `T` is member `mm` of the block -/
+  member : d.memberName mm = T
+  /-- the stored type is the telescope over the parameters and the
+  member's own indices, ending in the result sort -/
+  strip : ∃ bs, cvT.type.stripPis (d.nP + d.nIdxAt mm) = some (bs, .sort d.resSort)
   /-- the `Prop` bit is the result sort's -/
   isProp : d.isProp = (Level.isEquiv d.resSort .zero == some true)
-  /-- the recursor's major position: one motive, one minor per
-  constructor, the indices -/
-  mI : mI = d.nP + 1 + d.ctorsA.length + d.nIdx
+  /-- the recursor's major position: one motive per member, one minor
+  per constructor OF THE BLOCK, the member's own indices -/
+  mI : mI = d.nP + d.k + d.ctorsA.length + d.nIdxAt mm
   /-- the recursor's rule prefix -/
-  rP : rP = d.nP + 1 + d.ctorsA.length
-  /-- the recursor's rules are the constructors, in order -/
-  rules : rules.map (·.ctor) = d.ctorsA.map (·.1.name)
-  /-- the former's type reads as the telescope -/
-  former : FormerData m cvT (d.nP + d.nIdx) d.resSort d.pps d.lvls
-  /-- every constructor is stored and its type reads as the datum says
-  (`FixCtorDataI`: the field kinds, the recursive slots, the index
-  readings) -/
+  rP : rP = d.nP + d.k + d.ctorsA.length
+  /-- the recursor's rules are the MEMBER's constructors, in order -/
+  rules : rules.map (·.ctor) = (d.memberCtors mm).map (·.1.name)
+  /-- the former's type reads as the member's telescope -/
+  former : FormerData m cvT (d.nP + d.nIdxAt mm) d.resSort (d.ppsM mm) (d.lvlsM mm)
+  /-- every constructor OF THE BLOCK is stored and its type reads as
+  the datum says (`FixCtorDataI` at the constructor's own member, with
+  the per-field target member: the field kinds, the recursive slots,
+  the index readings) -/
   ctors : ∀ j cA, d.ctorsA[j]? = some cA →
-    FixCtorFactsAt m d.env₀ T cvT.levelParams d.nP d.nIdx d.resSort d.isProp d.large d.idxF d.dsF
+    FixCtorFactsAt m d.env₀ (d.memberName (d.mems j)) cvT.levelParams d.nP (d.nIdxAt (d.mems j))
+      d.resSort d.isProp d.large d.idxF d.dsF
       d.esF d.srcsF d.ksF d.fvsPF d.xFvsF d.xrestF d.eissF d.tssF j cA
+      (fun i => d.memberName (d.tgts j i)) (fun i => d.nIdxAt (d.tgts j i))
+  /-- every constructor's own member and every field's target member
+  is a stored inductive — what licenses the constructors' readings to
+  cross a fresh cons (`IndRep.cross`); at a single family both are the
+  block's own former -/
+  memsFound : ∀ j, j < d.ctorsA.length →
+    (∃ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (d.memberName (d.mems j)) = some (.indInfo cv caps)) ∧
+    ∀ i, ∃ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (d.memberName (d.tgts j i)) = some (.indInfo cv caps)
   /-- the residuals' index arguments resolve -/
   idxRes : ∀ j cA, d.ctorsA[j]? = some cA → ∀ e ∈ d.idxF j, e.constsResolve env = true
   /-- the index-tuple sort reads only the block's level parameters -/
@@ -238,7 +304,7 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF j ψ).take d.nP).map (·.2.2)).reverse ρ
   /-- at every parameter frame the X-chains are graded -/
   chains : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ChainsOk (d.u ψ) (d.w ψ) ρp (d.Ids ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ)
+    ChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ)
   /-- `Φ` is a monotone functor on the family space over the index-tuple
   set, mapping it into itself, with a closed member -/
   functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
@@ -253,12 +319,17 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
     ∀ X, X ∈ˢ famSpace (d.w ψ) (d.idx ψ ρp) → ∀ t, t ∈ˢ d.idx ψ ρp → ∀ x,
       x ∈ˢ app (app (d.Φ ψ ρp) X) t ↔
         ∃ j fs, j < d.ctorsA.length ∧ d.ChainFit ψ ρp X t j fs ∧ x = d.inj ψ j fs
-  /-- **the leaf**: the former at fitting parameters and indices is the
-  least fixed point's fibre at the index tuple -/
+  /-- **the leaf**: the member's former at fitting parameters and its
+  OWN indices is the least fixed point's fibre at the container's index
+  tuple of that spine (`tup`) -/
   leaf : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
-    SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.Ids ψ) is →
+    SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.IdsM mm ψ) is →
     (as ++ is).foldl app (interp V ρ (m.acval T ψ))
-      = app (lfpFamSet (d.w ψ) (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) (tupW (d.u ψ) is)
+      = app (lfpFamSet (d.w ψ) (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) (d.tup ψ mm is)
+  /-- the member's own index spine, as the container's index tuple,
+  lands in the container's index set -/
+  tupMem : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ is, SpineFit ρp (d.IdsM mm ψ) is → d.tup ψ mm is ∈ˢ d.idx ψ ρp
   /-- **the constructors**: constructor `j` at fitting parameters and
   fields is its injection -/
   ctor : ∀ j cA, d.ctorsA[j]? = some cA →
@@ -292,8 +363,8 @@ fresh recursor claims its block. -/
   ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cvR mI rP rules) →
     ∀ T : Name, n = T.str "rec" →
-    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
-      env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d) ∨
+    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+      env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
     -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
     -- deleted with that route (tasks #278 mutual, #279 nested); until it
     -- is gone no consumer may extract `IndRep` for an arbitrary block
@@ -306,9 +377,9 @@ every other head owes nothing (`IndRepsHead.ofNtc`). -/
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩) : Prop :=
   ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
     ∀ T : Name, cvR.name = T.str "rec" →
-    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
+    (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
       Env.find? ⟨c₀ :: env.consts⟩ T = some (.indInfo cvT caps) ∧
-      IndRep m₂ T cvT cvR mI rP rules d) ∨
+      IndRep m₂ T cvT cvR mI rP rules d mm) ∨
     ModeledLeaf m₂ cvR.name
 
 /-- A head that is no recursor owes nothing. -/

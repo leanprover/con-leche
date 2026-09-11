@@ -1208,9 +1208,16 @@ is the second parameter, and the fixpoint route's own functor. -/
   xrestF := fun _ => .app (.app (.app (.const eqName [.param uN]) eqFvAlpha) eqFvA) eqFvA
   eissF := fun _ _ => []
   tssF := fun _ _ => []
-  pps := fun ψ => [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)]
-  lvls := fun ψ => [ψ uN + 1, ψ uN, ψ uN]
+  k := 1
+  nIdxs := [1]
+  memberNames := [eqName]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ ψ => [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)]
+  lvlsM := fun _ ψ => [ψ uN + 1, ψ uN, ψ uN]
+  IdsC := fun _ => eqIds
   u := fun ψ => ψ uN
+  tup := fun ψ _ is => tupW (ψ uN) is
   Φ := fun ψ ρp => fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
   inj := fun _ _ _ => pt
 
@@ -1220,7 +1227,7 @@ variable {env₀ : Env}
 
 /-- The datum's parameter-and-index telescope, reduced. -/
 theorem eqRepData_pps (ψ : Name → Nat) :
-    (eqRepData (V := V) env₀).pps ψ
+    (eqRepData (V := V) env₀).ppsM 0 ψ
       = [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)] := rfl
 
 /-- `Eq.refl`'s binder data, reduced. -/
@@ -1443,9 +1450,10 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     intro ψ
     rw [hac]
     exact denoteMeta_eqReflA_typeR (m := mp.base2) (A := eqRecValAV) ψ hE hEv
-  refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩,
+  refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
   refine {
+    member := rfl
     strip := ⟨_, rfl⟩
     isProp := rfl
     mI := rfl
@@ -1453,6 +1461,8 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     rules := rfl
     former := ?_
     ctors := ?_
+    memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩,
+      fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩⟩
     idxRes := ?_
     uParams := fun _ _ h => h uN List.mem_cons_self
     paramsIff := fun _ _ _ _ _ => Iff.rfl
@@ -1460,6 +1470,9 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     functor := ?_
     fibre := ?_
     leaf := ?_
+    tupMem := fun ψ ρp _ is hi => by
+      show tupW (ψ uN) is ∈ˢ idxSet (ψ uN) ρp eqIds
+      exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
     mkInj := fun _ hz => absurd rfl hz }

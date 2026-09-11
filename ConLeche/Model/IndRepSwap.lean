@@ -75,10 +75,11 @@ theorem FixCtorDataI.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {tgtOf : Nat → Name} {nIdxOf : Nat → Nat}
     (h : FixCtorDataI m₀ envP T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss) :
+      xFvs xrest Eiss tss tgtOf nIdxOf) :
     FixCtorDataI m₃ envP T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss :=
+      xFvs xrest Eiss tss tgtOf nIdxOf :=
   { toCtorDataI := h.toCtorDataI.swap hcg hac
     opened := h.opened
     opens := h.opens
@@ -116,8 +117,10 @@ theorem FixCtorDataI.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀
 theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}
-    (h : IndRep m₀ T cvT cvR mI rP rules d) : IndRep m₃ T cvT cvR mI rP rules d :=
-  { strip := h.strip
+    {mm : Nat}
+    (h : IndRep m₀ T cvT cvR mI rP rules d mm) : IndRep m₃ T cvT cvR mI rP rules d mm :=
+  { member := h.member
+    strip := h.strip
     isProp := h.isProp
     mI := h.mI
     rP := h.rP
@@ -126,6 +129,11 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       exact ⟨hcg.findUp _ _ hfC (fun _ _ _ _ h => nomatch h), hlps, hD.swap hcg hac⟩
+    memsFound := fun j hj => by
+      obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j hj
+      refine ⟨⟨cv, cps, hcg.findUp _ _ hfm (fun _ _ _ _ h => nomatch h)⟩, fun i => ?_⟩
+      obtain ⟨cv', cps', hf'⟩ := htg i
+      exact ⟨cv', cps', hcg.findUp _ _ hf' (fun _ _ _ _ h => nomatch h)⟩
     idxRes := fun j cA hj e he =>
       Expr.constsResolve_of_find (fun n hn => by rw [← hcg.isSomeEq]; exact hn) (h.idxRes j cA hj e he)
     uParams := h.uParams
@@ -134,6 +142,7 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     functor := h.functor
     fibre := h.fibre
     leaf := fun ψ ρ as is h1 h2 => by rw [hac]; exact h.leaf ψ ρ as is h1 h2
+    tupMem := h.tupMem
     ctor := fun j cA hj ψ ρ as fs h1 h2 => by rw [hac]; exact h.ctor j cA hj ψ ρ as fs h1 h2
     mkZero := h.mkZero
     mkInj := h.mkInj }
@@ -154,8 +163,8 @@ theorem IndReps.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     IndReps m₃ := by
   intro n cvR mI rP rules hf₃ T hn
   rcases hmod n cvR mI rP rules hf₃ with hf₀ | hmodn
-  · rcases h n cvR mI rP rules hf₀ T hn with ⟨cvT, caps, d, hfT, hd⟩ | hml
-    · exact Or.inl ⟨cvT, caps, d, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
+  · rcases h n cvR mI rP rules hf₀ T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hml
+    · exact Or.inl ⟨cvT, caps, d, mm, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
         hd.swap hcg hac⟩
     · exact Or.inr (hml.swap hcg hac)
   · exact Or.inr hmodn

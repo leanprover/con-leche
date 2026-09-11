@@ -169,7 +169,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
         simp only at h
         exact (Name.str.inj h).1.symm
       subst hT'
-      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ .zero,
+      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ falseName .zero, 0,
         ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
       refine indRep_zeroCtor (cvT := ⟨falseName, [], .sort .zero⟩) m₂ .zero rfl rfl
         (fun _ _ _ => rfl) fun ψ ρ => ?_

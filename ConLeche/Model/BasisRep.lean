@@ -75,8 +75,9 @@ theorem fixStepI_nil {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss :
 
 /-- The datum of a zero-constructor block: no parameters, no indices,
 the tagged functor with no chains, the point as (never used)
-injection. -/
-@[expose] noncomputable def zeroCtorData (env₀ : Env) (resSort : Level) : IndRepData V where
+injection.  One member, the block's own former `T` (task #278 M2.6). -/
+@[expose] noncomputable def zeroCtorData (env₀ : Env) (T : Name) (resSort : Level) :
+    IndRepData V where
   nP := 0
   nIdx := 0
   resSort := resSort
@@ -94,9 +95,16 @@ injection. -/
   xrestF := fun _ => default
   eissF := fun _ _ => []
   tssF := fun _ _ => []
-  pps := fun _ => []
-  lvls := fun _ => []
+  k := 1
+  nIdxs := [0]
+  memberNames := [T]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ _ => []
+  lvlsM := fun _ _ => []
+  IdsC := fun _ => []
   u := fun _ => 0
+  tup := fun _ _ is => tupW 0 is
   Φ := fun ψ ρp => fixFunVI 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []
   inj := fun _ _ _ => pt
 
@@ -109,20 +117,20 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     (hres : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
       resSort.eval ψ₁ = resSort.eval ψ₂)
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = empty) :
-    IndRep m T cvT cvR 1 1 rules (zeroCtorData env resSort) := by
-  let d : IndRepData V := zeroCtorData env resSort
-  show IndRep m T cvT cvR 1 1 rules d
+    IndRep m T cvT cvR 1 1 rules (zeroCtorData env T resSort) 0 := by
+  let d : IndRepData V := zeroCtorData env T resSort
+  show IndRep m T cvT cvR 1 1 rules d 0
   have hidx : ∀ ρp : Nat → V, d.idx (fun _ => 0) ρp = unitSet := fun _ => rfl
-  have hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V), IdxOk (d.u ψ) ρp (d.Ids ψ) := fun _ _ => ⟨trivial, trivial⟩
+  have hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V), IdxOk (d.u ψ) ρp (d.IdsC ψ) := fun _ _ => ⟨trivial, trivial⟩
   have hX : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      XChainsOk (d.u ψ) (d.w ψ) ρp (d.Ids ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) := by
+      XChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) := by
     intro ψ ρp
     refine ⟨hIdx ψ ρp, (fun X _ t _ Fs hFs => nomatch hFs), (fun _ _ _ _ j hj => nomatch hj), ?_⟩
     refine ⟨graph (fun _ => empty) (idxSet 0 ρp []), graph_mem_famSpace fun _ _ => empty_mem_univ _,
       fun i hi x hx => ?_⟩
     rw [fixFunVI_app (by rw [lfpFamSpace_eq]; exact graph_mem_famSpace fun _ _ => empty_mem_univ _),
       famFI_app hi] at hx
-    have : fixStepI (d.u ψ) (d.w ψ) ρp (d.Ids ψ) (d.Ids ψ).length d.rss (d.tlss ψ) (d.Eiss ψ)
+    have : fixStepI (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) (d.IdsC ψ).length d.rss (d.tlss ψ) (d.Eiss ψ)
         (d.Fss ψ) (d.Ess ψ) (graph (fun _ => empty) (idxSet 0 ρp [])) i = empty :=
       fixStepI_nil (Ids := []) _ _
     rw [this] at hx
@@ -137,6 +145,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     rw [fixFunVI_app hX', famFI_app ht']
     exact fixStepI_nil (Ids := []) X t
   refine {
+    member := rfl
     strip := ⟨[], by rw [hty]; rfl⟩
     isProp := rfl
     mI := rfl
@@ -144,6 +153,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     rules := by rw [hrules]; rfl
     former := ?_
     ctors := fun j cA hj => nomatch hj
+    memsFound := fun j hj => absurd hj (Nat.not_lt_zero j)
     idxRes := fun j cA hj => nomatch hj
     uParams := fun _ _ _ => rfl
     paramsIff := fun j cA hj => nomatch hj
@@ -154,6 +164,9 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
       rw [hfibreE ψ ρp X t hX ht]
       exact ⟨fun h => absurd h (not_mem_empty x), fun ⟨j, _, hj, _⟩ => nomatch hj⟩
     leaf := ?_
+    tupMem := fun _ ρp _ is hi => by
+      show tupW 0 is ∈ˢ idxSet 0 ρp ([] : List AnnotTerm)
+      exact tupW_mem hi
     ctor := fun j cA hj => nomatch hj
     mkZero := fun _ _ _ _ => rfl
     mkInj := fun _ _ j _ _ _ hj => nomatch hj }

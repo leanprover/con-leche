@@ -246,9 +246,16 @@ data, the functor `fixFunVI` and the tagged-tower injections. -/
   xrestF := xrestF
   eissF := eissF
   tssF := tssF
-  pps := ppsAll
-  lvls := lvlsAll
+  k := 1
+  nIdxs := [p.nIdx]
+  memberNames := [p.cvT.name]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ => ppsAll
+  lvlsM := fun _ => lvlsAll
+  IdsC := fun ψ => ((ppsAll ψ).drop p.nP).map (·.2.2)
   u := uAV
+  tup := fun ψ _ is => tupW (uAV ψ) is
   Φ := fun ψ ρp =>
     fixFunVI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
       (((ppsAll ψ).drop p.nP).map (·.2.2)).length (rssOfK ksF ctorsA.length)
@@ -270,6 +277,8 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
+    (hfT : ∃ (cv : ConstantVal) (caps : IndCaps),
+      env.find? p.cvT.name = some (.indInfo cv caps))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -308,12 +317,14 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
           ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [])) :
     IndRep m p.cvT.name cvTa cvRa mI rP
       (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
-      (fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll uAV) := by
+      (fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll
+        uAV) 0 := by
   -- the pieces, named
   let d : IndRepData V :=
     fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll uAV
-  show IndRep m p.cvT.name cvTa cvRa mI rP _ d
-  have hIds : ∀ ψ, d.Ids ψ = ((ppsAll ψ).drop p.nP).map (·.2.2) := fun _ => rfl
+  show IndRep m p.cvT.name cvTa cvRa mI rP _ d 0
+  have hIds : ∀ ψ, d.IdsC ψ = ((ppsAll ψ).drop p.nP).map (·.2.2) := fun _ => rfl
+  have hIdsM : ∀ ψ, d.IdsM 0 ψ = d.IdsC ψ := fun _ => rfl
   have hparams : ∀ ψ, d.params ψ = ((ppsAll ψ).take p.nP).map (·.2.2) := fun _ => rfl
   have hFss : ∀ ψ, d.Fss ψ = fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) :=
     fun _ => rfl
@@ -337,20 +348,24 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     rfl
   -- the chains at the datum's readings
   have hX : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      XChainsOk (d.u ψ) (d.w ψ) ρp (d.Ids ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) :=
+      XChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) :=
     fun ψ ρp hρ => xChainsOk_congr (hframes ψ ρp hρ).1 (hagree ψ)
   have hlenP : ∀ ψ, (d.params ψ).length = p.nP := by
     intro ψ
     rw [hparams, List.length_map, List.length_take, hFD.len ψ]
     exact Nat.min_eq_left (Nat.le_add_right _ _)
   refine {
+    member := rfl
     strip := ⟨bsT, hstripT⟩
     isProp := hProp
     mI := hmI
     rP := hrP
-    rules := sumRules_map_ctor hlenR
+    rules := by
+      rw [IndRepData.memberCtors_of_all (d := d) (mm := 0) (fun _ => rfl)]
+      exact sumRules_map_ctor hlenR
     former := hFD
     ctors := fun j cA hj => by rw [hlpsT]; exact hcf j cA hj
+    memsFound := fun j hj => ⟨hfT, fun _ => hfT⟩
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff
@@ -359,6 +374,9 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
       fixFunVI_maps (hX ψ ρp hρ), fixFunVI_closed_exists (hX ψ ρp hρ)⟩
     fibre := ?_
     leaf := ?_
+    tupMem := fun ψ ρp _ is hi => by
+      show tupW (uAV ψ) is ∈ˢ idxSet (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+      exact tupW_mem hi
     ctor := ?_
     mkZero := fun ψ hz j fs => by
       show injW (p.resSort.eval ψ) j _ = pt
@@ -386,22 +404,22 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
       rw [hlenFss ψ]; exact hj
   · -- the leaf
     intro ψ ρ as is hsp₁ hsp₂
-    have hislen : is.length = (d.Ids ψ).length := hsp₂.length_eq
+    have hislen : is.length = (d.IdsC ψ).length := hsp₂.length_eq
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := by
       have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp₁
       simpa using this
     have hspAll : SpineFit ρ ((ppsAll ψ).map (·.2.2)) (as ++ is) := by
-      have : (ppsAll ψ).map (·.2.2) = d.params ψ ++ d.Ids ψ := by
+      have : (ppsAll ψ).map (·.2.2) = d.params ψ ++ d.IdsC ψ := by
         rw [hparams, hIds, ← List.map_append, List.take_append_drop]
       rw [this]
       exact hsp₁.append hsp₂
     have hframe : consList (as ++ is) ρ = consList is (consList as ρ) := consList_append _ _ _
-    have hshift : shiftE (d.Ids ψ).length 0 (consList (as ++ is) ρ) = consList as ρ := by
+    have hshift : shiftE (d.IdsC ψ).length 0 (consList (as ++ is) ρ) = consList as ρ := by
       rw [hframe, ← hislen]; exact shiftE_consList _ _
-    have hfr : ConLeche.Semantics.frameIdx (d.Ids ψ).length (consList (as ++ is) ρ) = is := by
+    have hfr : ConLeche.Semantics.frameIdx (d.IdsC ψ).length (consList (as ++ is) ρ) = is := by
       rw [hframe, ← hislen]; exact frameIdx_consList' _ _
     have hXZ := (hframes ψ (consList as ρ) hsat).1
-    have hbase : FixBaseI (uAV ψ) (p.resSort.eval ψ) (consList (as ++ is) ρ) (d.Ids ψ) d.rss
+    have hbase : FixBaseI (uAV ψ) (p.resSort.eval ψ) (consList (as ++ is) ρ) (d.IdsC ψ) d.rss
         (d.tlss ψ) (d.Eiss ψ) (fssZ ψ) (d.Ess ψ) := by
       refine ⟨?_, ?_, ?_⟩
       · rw [hshift]; exact hXZ.hI

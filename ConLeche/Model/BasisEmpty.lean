@@ -241,7 +241,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
         simp only at h
         exact (Name.str.inj h).1.symm
       subst hT'
-      refine Or.inl ⟨⟨emptyName, [], .sort (.succ .zero)⟩, {}, zeroCtorData ⟨emptyRecA :: env.consts⟩ (.succ .zero),
+      refine Or.inl ⟨⟨emptyName, [], .sort (.succ .zero)⟩, {}, zeroCtorData ⟨emptyRecA :: env.consts⟩ emptyName (.succ .zero), 0,
         ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
       refine indRep_zeroCtor (cvT := ⟨emptyName, [], .sort (.succ .zero)⟩) m₂ (.succ .zero) rfl rfl
         (fun _ _ _ => rfl) fun ψ ρ => ?_

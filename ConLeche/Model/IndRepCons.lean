@@ -148,15 +148,17 @@ theorem FixCtorDataI.crossAt {m : EnvModel V env} {env₀ : Env} {T : Name} {lps
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {tgtOf : Nat → Name} {nIdxOf : Nat → Nat}
     (h : FixCtorDataI m env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss)
+      xFvs xrest Eiss tss tgtOf nIdxOf)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name)
+    (hTgt : ∀ i, tgtOf i ≠ c₀.name)
     (hat : ConsCrossAt c₀ cvC.type) (hcb : ConstsBound env cvC.type)
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     FixCtorDataI m₂ env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss := by
+      xFvs xrest Eiss tss tgtOf nIdxOf := by
   -- the opened variables' types are bounded and slot-free
   obtain ⟨crest, hopP, hopX⟩ := h.opens
   have hopAll : ConLeche.openPisAtFvars (nP + nF) cvC.type 0 = some (fvsP ++ xFvs, xrest) :=
@@ -217,7 +219,7 @@ theorem FixCtorDataI.crossAt {m : EnvModel V env} {env₀ : Env} {T : Name} {lps
         (h.eisRead ψ i x hx hk)
     eisLen := h.eisLen
     recEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne hT]
+      rw [hac, acvalWith_ne (hTgt i)]
       exact h.recEntry ψ i hk hi
     eissParams := h.eissParams
     eissBelow := h.eissBelow
@@ -248,7 +250,7 @@ theorem FixCtorDataI.crossAt {m : EnvModel V env} {env₀ : Env} {T : Name} {lps
           (fun a ha => constsBound_getAppArgs _ hbody a (List.mem_of_mem_drop ha)) hsp
     eisLenRefl := h.eisLenRefl
     reflEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne hT]
+      rw [hac, acvalWith_ne (hTgt i)]
       exact h.reflEntry ψ i hk hi }
 
 /-! ## The representation across a fresh cons -/
@@ -287,19 +289,20 @@ constructors are stored, so the head is none of them; the stored types
 are unchanged and their readings cross (`crossAt`), the leaves are the
 prefix's (`acvalWith_ne`), and the semantic laws mention no carrier. -/
 theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-    {rules : List RecRule} {d : IndRepData V} (h : IndRep m T cvT cvR mI rP rules d)
+    {rules : List RecRule} {d : IndRepData V} {mm : Nat} (h : IndRep m T cvT cvR mI rP rules d mm)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none) (hcross : ConsCrossEnv env c₀)
     {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvT caps))
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    IndRep m₂ T cvT cvR mI rP rules d := by
+    IndRep m₂ T cvT cvR mI rP rules d mm := by
   have hbound := envWF_constsBound m.wf
   have hTne : T ≠ c₀.name := ne_of_stored hfresh hfT
   have hcbT : ConstsBound env cvT.type :=
     (hbound _ (ConLeche.Semantics.Env.find?_mem hfT)).1
   have hleafT : m₂.acval T = m.acval T := by rw [hac, acvalWith_ne hTne]
   exact {
+    member := h.member
     strip := h.strip
     isProp := h.isProp
     mI := h.mI
@@ -308,9 +311,17 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     former := h.former.crossAt hfresh (hcross.typeOf hfT) hcbT m₂ hac
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
+      obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j (List.getElem?_eq_some_iff.mp hj).1
       refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hfC, hlps, ?_⟩
-      exact hD.crossAt hfresh hTne (hcross.typeOf hfC)
+      refine hD.crossAt hfresh (ne_of_stored hfresh hfm) (fun i => ?_) (hcross.typeOf hfC)
         (hbound _ (ConLeche.Semantics.Env.find?_mem hfC)).1 m₂ hac
+      obtain ⟨cv', cps', hf'⟩ := htg i
+      exact ne_of_stored hfresh hf'
+    memsFound := fun j hj => by
+      obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j hj
+      refine ⟨⟨cv, cps, ConLeche.Env.find?_cons_of_fresh hfresh hfm⟩, fun i => ?_⟩
+      obtain ⟨cv', cps', hf'⟩ := htg i
+      exact ⟨cv', cps', ConLeche.Env.find?_cons_of_fresh hfresh hf'⟩
     idxRes := fun j cA hj e he => Expr.constsResolve_mono (h.idxRes j cA hj e he)
     uParams := h.uParams
     paramsIff := h.paramsIff
@@ -318,6 +329,7 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     functor := h.functor
     fibre := h.fibre
     leaf := fun ψ ρ as is h1 h2 => by rw [hleafT]; exact h.leaf ψ ρ as is h1 h2
+    tupMem := h.tupMem
     ctor := fun j cA hj ψ ρ as fs h1 h2 => by
       obtain ⟨hfC, -, -⟩ := h.ctors j cA hj
       rw [hac, acvalWith_ne (ne_of_stored hfresh hfC)]
@@ -359,8 +371,8 @@ theorem IndReps.cons {m : EnvModel V env} (h : IndReps m)
     rw [← hname] at hn ⊢
     exact hhead cvR mI rP rules hc₀ T hn
   · rw [if_neg hR] at hfR
-    rcases h n cvR mI rP rules hfR T hn with ⟨cvT, caps, d, hfT, hd⟩ | hmod
-    · exact Or.inl ⟨cvT, caps, d, ConLeche.Env.find?_cons_of_fresh hfresh hfT,
+    rcases h n cvR mI rP rules hfR T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hmod
+    · exact Or.inl ⟨cvT, caps, d, mm, ConLeche.Env.find?_cons_of_fresh hfresh hfT,
         hd.cross hfresh hcross hfT m₂ hac⟩
     · exact Or.inr (hmod.cross hfresh hfR m₂ hac)
 

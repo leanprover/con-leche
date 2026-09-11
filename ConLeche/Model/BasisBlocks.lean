@@ -557,9 +557,16 @@ indices, one field-free constructor, the constant functor with fibre
   xrestF := fun _ => .const punitName [.param uN]
   eissF := fun _ _ => []
   tssF := fun _ _ => []
-  pps := fun _ => []
-  lvls := fun _ => []
+  k := 1
+  nIdxs := [0]
+  memberNames := [punitName]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ _ => []
+  lvlsM := fun _ _ => []
+  IdsC := fun _ => []
   u := fun _ => 0
+  tup := fun _ _ is => tupW 0 is
   Φ := fun ψ _ => lamR (Nat.max 0 (ψ uN + 1)) (lfpFamSpace V (ψ uN) unitSet)
     fun _ => lamR (ψ uN + 1) (unitSet : V) fun _ => unitSet
   inj := fun _ _ _ => pt
@@ -663,9 +670,10 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     rw [hac]
     exact (denoteMeta_punitRec_leaves (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU).1 d (.param uN)
-  refine Or.inl ⟨_, _, punitRepData ⟨punitRecA :: env.consts⟩,
+  refine Or.inl ⟨_, _, punitRepData ⟨punitRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hP, ?_⟩
   refine {
+    member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
     mI := rfl
@@ -673,6 +681,8 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     rules := rfl
     former := ?_
     ctors := ?_
+    memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩,
+      fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩⟩
     idxRes := fun _ _ _ _ h => nomatch h
     uParams := fun _ _ _ => rfl
     paramsIff := fun _ _ _ _ _ => Iff.rfl
@@ -681,6 +691,9 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
       ⟨_, punitRepData_closed ψ ρp⟩⟩
     fibre := ?_
     leaf := ?_
+    tupMem := fun _ ρp _ is hi => by
+      show tupW 0 is ∈ˢ idxSet 0 ρp ([] : List AnnotTerm)
+      exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
     mkInj := ?_ }
@@ -2235,9 +2248,16 @@ over the one-point index set, and the pin's own injections. -/
   tssF := fun j _ => match j with
     | 1 => [[]]
     | _ => []
-  pps := fun _ => []
-  lvls := fun _ => []
+  k := 1
+  nIdxs := [0]
+  memberNames := [natName]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ _ => []
+  lvlsM := fun _ _ => []
+  IdsC := fun _ => []
   u := fun _ => 0
+  tup := fun _ _ is => tupW 0 is
   Φ := fun _ _ => lamR (Nat.max 0 2) (lfpFamSpace V 1 unitSet)
     fun X => lamR 2 (unitSet : V) fun _ => natStepV (app X pt)
   inj := fun _ j fs => if j = 0 then natzero else natsucc (fs.getD 0 pt)
@@ -2379,9 +2399,10 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     show [((0 : Nat), pwBit ψ₁ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
       = [((0 : Nat), pwBit ψ₂ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
     rw [pwBit_never, pwBit_never]
-  refine Or.inl ⟨_, _, natRepData ⟨natRecA :: env.consts⟩,
+  refine Or.inl ⟨_, _, natRepData ⟨natRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hN, ?_⟩
   refine {
+    member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
     mI := rfl
@@ -2389,6 +2410,8 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     rules := rfl
     former := ?_
     ctors := ?_
+    memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩,
+      fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩⟩
     idxRes := fun _ _ _ _ h => nomatch h
     uParams := fun _ _ _ => rfl
     paramsIff := fun _ _ _ _ _ => Iff.rfl
@@ -2397,6 +2420,9 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
       ⟨_, natRepData_closed ψ ρp⟩⟩
     fibre := ?_
     leaf := ?_
+    tupMem := fun _ ρp _ is hi => by
+      show tupW 0 is ∈ˢ idxSet 0 ρp ([] : List AnnotTerm)
+      exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ h => absurd h (Nat.succ_ne_zero 0)
     mkInj := ?_ }
