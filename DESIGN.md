@@ -69669,6 +69669,52 @@ premises `auxRecLeafFacts` already consumes.  `stageMutualTables` is
 `MutualTableOk` per member off `mutualMemberTable_inv`, again at the
 store's carrier and so again through `denoteMeta_toStore`.
 
+#### 8.12 M2.5f: the table stage's `isProp` conjunct is §8.8's `hProp` again (2026-09-11)
+
+`stageMutualTables` is blocked by a STATEMENT, not a proof, and it is
+the same statement §8.8 already repaired once elsewhere.
+
+* **The hypothesis.**  `MutualTableOk` (`Model/Inductives/MutualStageTable.lean`
+  ~L754) asks, at EVERY member, `d.isProp = (Level.isEquiv f.s .zero == some true)`
+  — and `stageMutualTable`'s own `hProp` (~L341) is the same equation at
+  `resSort := f.s`.  `d : TableBlockData` is BLOCK-wide (`stageMutualTables`
+  takes one `d` for all `k` members; only `capsOf` is per member), while
+  `f.s` is member `mIdx`'s OWN result-sort SPELLING.  The checker computes
+  its one `isProp` from the FIRST member (`checkMutualCore`:
+  `isProp := Level.isEquiv f₀.s .zero == some true`, and
+  `checkMutualCtors` is run with it) and relates the members' sorts only
+  by `mutualCrossChecks`' `Level.isEquiv f.s f₀.s = some true`.  The tree
+  has `Level.isEquiv_sound` and nothing else — no completeness, no
+  transitivity — so a block whose second member spells its sort merely
+  DEFEQ to the first's (`Sort u` beside `Sort (max u u)`) refutes the
+  conjunct.  Structure-like members are not rare in mutual blocks: a
+  two-member block each of whose members has one constructor and no index
+  has two of them.
+* **The two consumers, and what each really needs.**
+  `hbound` (~L419–428) uses only `isProp = true → ∀ ψ, resSort.eval ψ = 0`
+  — semantic, and supported here (`isEquiv_sound` on the block's bit, then
+  `hsEq`).  `hO5` (~L452–459) uses the OTHER direction,
+  `(Level.isEquiv resSort .zero == some true) = false → isProp = false`,
+  to switch the guard-zeroness requirement off at a `Prop`-valued
+  structure; that direction is the unsupported one, and it is not a
+  presentation detail: with `isProp = true` the kernel's
+  `checkStructFieldSortsI` SKIPS the `leq u s` check entirely (small
+  eliminator — and the mutual regime forces it, `b.large = f₀.s.isNeverZero`),
+  so `hleq` has no content there and `hO5`'s conclusion is not merely
+  unproved but false.  A syntactically undetected `Prop` member would
+  therefore be asked for a fact its own check never established.
+* **The semantic form.**  `hProp` should become
+  `isProp = true → ∀ ψ : Name → Nat, resSort.eval ψ = 0`
+  (§8.8's shape verbatim), and `hO5` should be HOISTED out of
+  `stageMutualTable` as a premise with a SEMANTIC guard — its `hne` read
+  as "the member's sort is not identically zero" rather than "`isEquiv`
+  did not see that it is".  `declMutual` then discharges it exactly where
+  it has content: `isProp = false` gives `hleq`, and `isProp = true`
+  makes the guard false by `isEquiv_sound` + `mutualCrossChecks`.  Six
+  call sites, no outside callers (the fixpoint route's `stageFixTable` is
+  a separate theorem and is unaffected: its block has ONE member, so its
+  `isProp` bit and its `resSort` are the same member's).
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
