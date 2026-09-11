@@ -69247,19 +69247,28 @@ leaf's λ-data IS the reading's data by `rfl`; `leaf`/`rds`/`conc`/
   only the two bounds the former stage's `mutualTyAVI_below` takes.
   **These belong in `MutualDisp.lean` when it is tidied**, beside the
   dispatch's bit validity.
-* **THE ONE OPEN PREMISE**: `MutualRecParts.RuleFires` — the term-level
-  ι law at `fixRecLawCore`'s interface (the recursor's spine fit, the
-  constructor's spine fit, the index pin).  `mutualRecLawCore` and
-  `mutualRecIotaCore` are the law it names, but they are stated at a
-  SPLIT block frame `(p⃗, M⃗, S⃗, ı⃗, t)`, and what splits the flat spine
-  on the fixpoint route is `fixRecLawCore`'s own interior — `kframe_split`
-  at the `FixPre`, `sumSet_elim`/`towerSet_elim_teleOfFields` for the
-  major's fields at the RECURSOR's parameters (the rule's λ-tower binds
-  those, not the constructor's — this is what `paramsBlind` costs), and
-  the squash regime.  The mutual twin of that step is unwritten; it is
-  the next piece of M2.5, not a generalisation of the fixpoint route's
-  proof.  Hypotheses left for `declMutual` are listed in the lane's
-  report.
+* **M2.5d′ — `MutualRuleFires.lean`**: `ruleFires_of` proves
+  `MutualRecParts.RuleFires` from the landed laws.  The recursor's FLAT
+  spine fit is cut along `mutualRecDataAV_doms` into the block frame
+  `(p⃗, M⃗, S⃗, ı⃗, t)` (four `spineFit_append_inv`s — the binder blocks
+  are spelled out, so no `kframe_split`/`block_split` is needed); the
+  `ℓ = 0` regime is done by hand (both towers' bits are `0`, both sides
+  fold to `pt`); the `ℓ ≠ 0` regime goes through `mutualRecLawCore`,
+  whose `hfitRa` is rebuilt from the split (the rule's λ-tower binds
+  the RECURSOR's parameters — the `paramsBlind` price — so the fields
+  are refitted there through `spineFit_liftDoms` at the block shift).
+  **Two premises remain**, both at the split frame and both the
+  fixpoint route's own steps: `hfitB`, the constructor's fields
+  refitted at the recursor's parameter values (`fixRecLawCore`'s
+  graph-regime inversion — the major lies in the major domain's
+  reading, which is the auxiliary fibre at `inj t ⟨ı⃗⟩`; `sumSet_elim`
+  + `towerSet_elim_teleOfFields` at `rChains 1 1 FssR Ess'`, then
+  `inj_inj` and `mkTower` injectivity), and `hiota`,
+  `mutualRecIotaCore`'s conclusion (its `hspAux`/`hih`/`hpre` are the
+  member leaf's typing at the rule's frame — the spine
+  `mutualRecBody_facts` builds internally and does not export, plus
+  `auxFixPre_of`'s `FixPre`).  Everything else `declMutual` owes is in
+  the lane's report.
 
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
