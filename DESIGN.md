@@ -69486,6 +69486,64 @@ premises are gone.
   directly; that file is another lane's, so the wide form stands for
   now.
 
+#### 8.9 M2.5f BLOCKED: `MutualLeafHyp` assumes ONE syntactic parameter telescope (2026-09-11)
+
+`declMutual`'s tail assembles `MutualRecParts` and its `LeafHyp`; the
+`LeafHyp` cannot be built, and the obstacle is a statement, not a
+proof.
+
+* **The hypothesis.**  `MutualLeafHyp.hcd` (`MutualRecTyping.lean`
+  ~L707) asks, for every constructor datum `cd`,
+  `(cd.2.2.1.take nP).map (·.2.2) = pps.map (·.2.2)` — a SYNTACTIC
+  identity of constructor `J`'s parameter binder READING with the
+  block's one `pps`.  Both sides are pinned and neither is the stage's
+  to choose: `cd.2.2.1` is the reading of the constructor's OWN stored
+  type (`CtorReadRT.read`, and again `hcd`'s own `hleafC`, whose
+  `sumMkAV wB J cd.2.2.1 …` is exactly what `stageMutualCtors` stored —
+  `MutualConsedAt`), while `pps = ppsOf 0 ψ` is member `0`'s telescope
+  reading (`FormerReadM.read`, through `mutualRdsAV`'s `ppsOf 0 ψ`: the
+  generated recursor type takes its parameter Πs from former `0`).  The
+  checker relates the two only SEMANTICALLY — `checkMutualCtor` compares
+  a constructor's parameter domains with its member's by
+  `checkStructDomsAt`'s `isDefEq`, and `mutualCrossChecks` compares the
+  members' by `mutualDomsOk`'s — which is what `paramFrames` turns into
+  `hframesJ`/`hframeM`: a `Sat`-iff plus a pointwise `interp` equality.
+  So a block whose constructor writes a parameter domain merely DEFEQ to
+  the former's (official accepts: `is_def_eq` in `check_constructor`)
+  refutes the conjunct.  The fixpoint route never met this — `FixPre`
+  and `fixRecLeafFacts` are stated entirely over the recursor type's own
+  `rds` and the constructors' FIELD chains (`Fss` is `ds.drop nP`), and
+  `declNative` does the parameter transfer semantically.
+* **The repair.**  Both consumers only transfer `Sat` across it —
+  `MutualRecTyping.lean` ~L954 (`rw [htakeP]; exact hsatP`) and
+  `MutualRuleFires.lean` L233/L240 (a length and the reverse
+  transfer) — so the conjunct should become the iff
+  `∀ ρp, Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) ρp ↔
+   Sat V ((pps.map (·.2.2)).reverse) ρp`
+  (the length it also supplies is already `hcd`'s `hlenDs` plus
+  `List.length_take`).  `MutualLeafHyp.hleafM` has the same flavour but
+  is NOT blocked: it is an `interp` equality, so a λ-tower congruence
+  over `mkLamsAV` under `paramFrames`' pointwise domain equality serves
+  (`mkLamsC` re-bits every binder, so only the domains matter);
+  `hframeM` currently drops `paramFrames`' second component and must
+  expose it.
+* **Landed anyway** (`cbec7fcc`, `agent/mutual-278`): `Tname`'s
+  totality (the `getD`-default must be a MEMBER — `mutualRecData_of`'s
+  `hfT` is unbounded and `default`'s name is `Name.anonymous`), the
+  members' `mutualRecData_of` off `checkMutualRecTys_inv`, the
+  `MutualRecParts` bundle at the block's concrete chain lists (so
+  `stageMutualRecs`' `hRDs` is that reading by `rfl`), `hChainFull`
+  exposing the block's `FixChainsOkI`, and the `LeafHyp` skeleton with
+  the counts, `hIdss`, `hclL`, `hstore` and six of `MutualFrameOkM`'s
+  eight fields discharged.
+* **New finding (fixed here).**  `auxBodyAV_validV`'s index-spine
+  premise is not available at the parameter frame: the block's tag can
+  be EMPTY (a member with an uninhabited index domain), while
+  `MutualFrameOkM.auxValid` is asked there.  The spine is used only for
+  a frame shift, so `DeclMutual.lean` carries the spine-free
+  `fixBodyAVI_validV`; `MutualStageFormer.lean`'s version can be
+  restated over it when that file is next touched.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
