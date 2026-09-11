@@ -305,6 +305,51 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
 
 /-! ## The member's cons -/
 
+/-- **What one member's cons needs of its constant check, AT THE
+CARRIER IT IS CONSED ONTO.**  The mutual stage checks EVERY former at
+the pre-block environment (official's `check_inductive_types` runs
+before `declare_inductive_types`), so these facts are established
+there once and travel forward across the earlier members' conses
+(`MemberConsOk.cons`) instead of being re-derived at each of them. -/
+structure MemberConsOk (env : Env) (cvTa : ConstantVal) : Prop where
+  /-- the member's name is fresh here -/
+  fresh : env.find? cvTa.name = none
+  /-- … and is neither a reserved basis name … -/
+  nres : ConLeche.reservedBasisNames.contains cvTa.name = false
+  /-- … nor a projection name -/
+  pshape : cvTa.name.isProjFnShape = false
+  /-- the checked type is closed, … -/
+  noFvar : cvTa.type.hasFvar = false
+  /-- … level-defined, … -/
+  lpsOk : cvTa.type.allLevelParamsDefined cvTa.levelParams = true
+  /-- … resolving here … -/
+  resolve : cvTa.type.constsResolve env = true
+  /-- … and bounded -/
+  bounded : cvTa.type.looseBVarsBounded 0 = true
+
+/-- The constant check establishes it. -/
+theorem MemberConsOk.ofCheck {F : Nat} {cvT cvTa : ConstantVal}
+    (h : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa) :
+    MemberConsOk env cvTa := by
+  obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
+    ConLeche.checkConstantVal_inv h
+  have hname : cvTa.name = cvT.name := by rw [hty]
+  obtain ⟨htf, htp, htr, htb⟩ := ConLeche.checkConstantVal_typeWF h
+  exact ⟨by rw [hname]; exact hfind, by rw [hname]; exact hnres,
+    by rw [hname]; exact hpshape, htf, htp, htr, htb⟩
+
+/-- … and it travels across a cons of a DIFFERENT name (freshness by
+the name, resolution by monotonicity). -/
+theorem MemberConsOk.cons {c₀ : ConstantInfo} {cvTa : ConstantVal}
+    (hne : c₀.name ≠ cvTa.name) (h : MemberConsOk env cvTa) :
+    MemberConsOk ⟨c₀ :: env.consts⟩ cvTa := by
+  refine ⟨?_, h.nres, h.pshape, h.noFvar, h.lpsOk,
+    Expr.constsResolve_mono h.resolve, h.bounded⟩
+  rw [ConLeche.Env.find?_cons]
+  split
+  · next hb => exact absurd hb hne
+  · exact h.fresh
+
 /-- **The P step at one member's cons**: `stageFixFormer` with the
 member's fibre leaf `mutualTyAVI` and the block's EMPTY capability
 record (K never fires on a mutual block; η and unit-likeness at a
@@ -312,8 +357,8 @@ recursion-free block's structure-like members are a later task), so
 the block's own capability laws are vacuous. -/
 theorem stageMutualFormer (mp : EnvModelM V μ env)
     (hE₀ : ConLeche.EtaFamiliesClosed env)
-    {F : Nat} {cvT cvTa : ConstantVal} {nP nIdx t : Nat} {resSort : Level}
-    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    {cvTa : ConstantVal} {nP nIdx t : Nat} {resSort : Level}
+    (hok : MemberConsOk env cvTa)
     {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvls : (Name → Nat) → List Nat}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort pps lvls)
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
@@ -331,16 +376,15 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ)
           (Fss₀ ψ) (Ess' ψ) t) := by
-  obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  have hname : cvTa.name = cvT.name := by rw [hty]
-  have hfresh : env.find? cvTa.name = none := by rw [hname]; exact hfind
-  have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
-  have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
+  have hfresh : env.find? cvTa.name = none := hok.fresh
+  have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ hok.resolve
   have hicw : ConLeche.IndCapsWF (.indInfo cvTa {}) :=
     ConLeche.IndCapsWF.of_caps (fun hu => absurd hu (by decide)) (fun he => absurd he (by decide))
   have hwfI : ConLeche.EnvWF ⟨.indInfo cvTa {} :: env.consts⟩ :=
-    ConLeche.envWF_cons_ind mp.base2.wf hccv hicw
+    ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF hok.noFvar hok.lpsOk
+      (Expr.constsResolve_mono hok.resolve) hok.bounded
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+      (by intro tbl hh; exact ConstantInfo.noConfusion hh) hicw)
   let A : (Name → Nat) → AnnotTerm := fun ψ =>
     mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
       (Ess' ψ) t
@@ -354,12 +398,8 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
     denoteMeta_cons_mono (c₀ := .indInfo cvTa {}) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)
   have hnresI : ConLeche.reservedBasisNames.contains
-      (ConstantInfo.indInfo cvTa {}).name = false := by
-    show ConLeche.reservedBasisNames.contains cvTa.name = false
-    rw [hname]; exact hnres
-  have hpshapeI : (ConstantInfo.indInfo cvTa {}).name.isProjFnShape = false := by
-    show cvTa.name.isProjFnShape = false
-    rw [hname]; exact hpshape
+      (ConstantInfo.indInfo cvTa {}).name = false := hok.nres
+  have hpshapeI : (ConstantInfo.indInfo cvTa {}).name.isProjFnShape = false := hok.pshape
   refine declStep_preserves_of_ind_member_cons mp (c₀ := .indInfo cvTa {})
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHead.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
@@ -397,44 +437,12 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
 
 /-! ## The formers' loop -/
 
-/-- Every member the formers' loop checks is fresh at the loop's own
-starting environment (the freshness guard of its `checkConstantVal`,
-pulled below the earlier members' conses). -/
-theorem mutualFormers_member_fresh {F nP : Nat} :
-    ∀ {l : List (ConstantVal × Nat)} {env' env₁ : Env} {fs : List MutualFormerA},
-      ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP l env'
-        = .ok (env₁, fs) →
-      ∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f → env'.find? f.cvTa.name = none
-  | [], env', env₁, fs, h, i, f, hf => by
-    obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_nil_inv h
-    simp at hf
-  | (cv, nIdx) :: rest, env', env₁, fs, h, i, f, hf => by
-    obtain ⟨cvTa₀, cvTa, s, bs, fs', hccv₀, htele, -, hrest, rfl⟩ :=
-      ConLeche.mutualFormers_inv h
-    have hccv : ∃ cv', ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env' cv' = .ok cvTa := by
-      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, hccv₀⟩
-      · exact ⟨{ cv with type := ty }, hccv⟩
-    obtain ⟨cv', hccv'⟩ := hccv
-    obtain ⟨hfind, -, -, -, -, -, type', -, -, -, -, -, -, -, hty⟩ :=
-      ConLeche.checkConstantVal_inv hccv'
-    have hname : cvTa.name = cv'.name := by rw [hty]
-    cases i with
-    | zero =>
-      obtain rfl : f = ⟨cvTa, nIdx, s⟩ := Option.some.inj hf.symm
-      show env'.find? cvTa.name = none
-      rw [hname]; exact hfind
-    | succ i =>
-      have hf' : fs'[i]? = some f := by simpa using hf
-      have hnone := mutualFormers_member_fresh hrest i f hf'
-      rw [ConLeche.Env.find?_cons] at hnone
-      split at hnone
-      · exact nomatch hnone
-      · exact hnone
-
 /-- **The formers' loop, folded** (the induction over the remaining
-members; `idxs i` is the block position of the loop's `i`-th member). -/
-theorem stageMutualFormersGo {F nP : Nat} {resSort : Level} {lps : List Name}
+members; `idxs i` is the block position of the loop's `i`-th member).
+The loop is over the CHECKED formers, not the declared ones: every one
+of them was checked at the pre-block environment, and the induction
+carries that forward across the earlier members' conses. -/
+theorem stageMutualFormersGo {nP : Nat} {resSort : Level} {lps : List Name}
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
@@ -447,17 +455,16 @@ theorem stageMutualFormersGo {F nP : Nat} {resSort : Level} {lps : List Name}
     (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
     (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
       (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain) :
-    ∀ (l : List (ConstantVal × Nat)) (idxs : Nat → Nat) (env' env₁ : Env)
-      (fs : List MutualFormerA) (mp' : EnvModelM V μ env'),
+    ∀ (fs : List MutualFormerA) (idxs : Nat → Nat) (env' : Env)
+      (mp' : EnvModelM V μ env'),
       ConLeche.EtaFamiliesClosed env' →
-      ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP l env'
-        = .ok (env₁, fs) →
+      (∀ f ∈ fs, MemberConsOk env' f.cvTa) →
+      (fs.map (fun f => f.cvTa.name)).Nodup →
       (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
-        ConstsBound env' f.cvTa.type ∧
         f.cvTa.levelParams = lps ∧
         FormerData mp'.base2 f.cvTa (nP + f.nIdx) resSort (ppsF (idxs i)) (lvlsF (idxs i)) ∧
         MemberChainsOk V nP (idxs i) resSort W Idss rss tlss Eiss' Fss₀ Ess' (ppsF (idxs i))) →
-      ∃ mp₁ : EnvModelM V μ env₁,
+      ∃ mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fs env'),
         (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
           mp₁.base2.acval f.cvTa.name
             = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF (idxs i) ψ) f.nIdx (Idss ψ) rss
@@ -465,45 +472,45 @@ theorem stageMutualFormersGo {F nP : Nat} {resSort : Level} {lps : List Name}
         (∀ n : Name,
           (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f → n ≠ f.cvTa.name) →
           mp₁.base2.acval n = mp'.base2.acval n) := by
-  intro l
-  induction l with
+  intro fs
+  induction fs with
   | nil =>
-    intro idxs env' env₁ fs mp' _ hrun _
-    obtain ⟨rfl, rfl⟩ := ConLeche.mutualFormers_nil_inv hrun
+    intro idxs env' mp' _ _ _ _
     exact ⟨mp', fun i f hf => by simp at hf, fun _ _ => rfl⟩
-  | cons hd rest ih =>
-    obtain ⟨cv, nIdx⟩ := hd
-    intro idxs env' env₁ fs mp' hE hrun hmem
-    obtain ⟨cvTa₀, cvTa, s, bs, fs', hccv₀, htele, -, hrest, rfl⟩ :=
-      ConLeche.mutualFormers_inv hrun
-    have hccv : ∃ cv', ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env' cv' = .ok cvTa := by
-      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, hccv₀⟩
-      · exact ⟨{ cv with type := ty }, hccv⟩
-    obtain ⟨cv', hccv'⟩ := hccv
-    obtain ⟨hcb₀, hlps₀, hFD₀, hC₀⟩ := hmem 0 ⟨cvTa, nIdx, s⟩ rfl
-    have hfresh : env'.find? cvTa.name = none :=
-      mutualFormers_member_fresh hrun 0 ⟨cvTa, nIdx, s⟩ rfl
-    obtain ⟨mpI, hacI⟩ := stageMutualFormer mp' hE hccv' hFD₀
+  | cons f₁ rest ih =>
+    intro idxs env' mp' hE hcons hnd hmem
+    obtain ⟨cvTa, nIdx, s⟩ := f₁
+    obtain ⟨hlps₀, hFD₀, hC₀⟩ := hmem 0 ⟨cvTa, nIdx, s⟩ rfl
+    have hok₀ : MemberConsOk env' cvTa := hcons ⟨cvTa, nIdx, s⟩ List.mem_cons_self
+    have hfresh : env'.find? cvTa.name = none := hok₀.fresh
+    have hcb₀ : ConstsBound env' cvTa.type :=
+      constsBound_of_constsResolve _ hok₀.resolve
+    -- member 0's name differs from every later member's (the block's
+    -- shape guard, `b.blockNames.Nodup`)
+    rw [List.map_cons, List.nodup_cons] at hnd
+    have hne₀ : ∀ (i : Nat) (f : MutualFormerA), rest[i]? = some f → cvTa.name ≠ f.cvTa.name := by
+      intro i f hf hh
+      exact hnd.1 (hh ▸ List.mem_map_of_mem (List.mem_of_getElem? hf))
+    obtain ⟨mpI, hacI⟩ := stageMutualFormer mp' hE hok₀ hFD₀
       (fun ψ₁ ψ₂ hφ => hParams ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ)) hIdsBelow hchainBelow hC₀
     have hE' : ConLeche.EtaFamiliesClosed ⟨.indInfo cvTa {} :: env'.consts⟩ :=
       ConLeche.EtaFamiliesClosed.cons_nonind hE hfresh (fun cv'' caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
         exact absurd he (by decide))
     -- the later members' data cross the cons
-    obtain ⟨mp₁, hpos, hoff⟩ := ih (fun i => idxs (i + 1)) _ _ fs' mpI hE' hrest (by
+    obtain ⟨mp₁, hpos, hoff⟩ := ih (fun i => idxs (i + 1)) _ mpI hE' (by
+      intro f hf
+      refine (hcons f (List.mem_cons_of_mem _ hf)).cons (c₀ := .indInfo cvTa {}) ?_
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem hf
+      exact hne₀ i f hi) hnd.2 (by
       intro i f hf
-      obtain ⟨hcb, hlps, hFD, hC⟩ := hmem (i + 1) f (by simpa using hf)
-      exact ⟨ConstsBound.cons _ hcb, hlps,
+      obtain ⟨hlps, hFD, hC⟩ := hmem (i + 1) f (by simpa using hf)
+      have hcb : ConstsBound env' f.cvTa.type :=
+        constsBound_of_constsResolve _ (hcons f (List.mem_cons_of_mem _
+          (List.mem_of_getElem? hf))).resolve
+      exact ⟨hlps,
         hFD.cross (c₀ := .indInfo cvTa {}) hfresh
           (ConsCrossAt.ofNtc fun _ h => nomatch h) hcb mpI.base2 hacI, hC⟩)
-    -- member 0's name differs from every later member's
-    have hne₀ : ∀ (i : Nat) (f : MutualFormerA), fs'[i]? = some f → cvTa.name ≠ f.cvTa.name := by
-      intro i f hf hh
-      have hnone := mutualFormers_member_fresh hrest i f hf
-      rw [← hh] at hnone
-      have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa {}) env'
-      exact nomatch (hself.symm.trans hnone)
     refine ⟨mp₁, ?_, ?_⟩
     · intro i f hf
       cases i with
@@ -512,7 +519,7 @@ theorem stageMutualFormersGo {F nP : Nat} {resSort : Level} {lps : List Name}
         show mp₁.base2.acval cvTa.name = _
         rw [hoff cvTa.name hne₀, hacI, acvalWith_self]
       | succ i =>
-        have hf' : fs'[i]? = some f := by simpa using hf
+        have hf' : rest[i]? = some f := by simpa using hf
         exact hpos i f hf'
     · intro n hn
       rw [hoff n (fun i f hf => hn (i + 1) f (by simpa using hf)), hacI,
@@ -525,8 +532,13 @@ the block's chain data are given; the chain facts are stated per
 member, at that member's parameter frame, about the annotated data
 alone — the cross-member parameter identification
 (`mutualCrossChecks`) is therefore not consumed here and stays with
-the caller.  The conclusion is the positional leaf equation plus the
-agreement off the block. -/
+the caller.  Since the stage checks every former at the PRE-BLOCK
+environment, the per-member hypotheses are stated at `mp`/`env`
+outright (`ConstsBound` is no longer among them: it is the constant
+check's own `constsResolve`), and the members' distinctness — the
+block's shape guard `b.blockNames.Nodup` — is what carries each
+member's freshness across the earlier members' conses.  The conclusion
+is the positional leaf equation plus the agreement off the block. -/
 theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
@@ -544,8 +556,8 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
       = .ok (env₁, fms))
+    (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
-      ConstsBound env f.cvTa.type ∧
       f.cvTa.levelParams = lps ∧
       FormerData mp.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) (lvlsF t) ∧
       MemberChainsOk V nP t resSort W Idss rss tlss Eiss' Fss₀ Ess' (ppsF t)) :
@@ -555,8 +567,10 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
           = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx (Idss ψ) rss (tlss ψ)
               (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t) ∧
       (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → n ≠ f.cvTa.name) →
-        mp₁.base2.acval n = mp.base2.acval n) :=
-  stageMutualFormersGo hParams hIdsBelow hchainBelow formers (fun i => i) env env₁ fms mp hE
-    hrun hmem
+        mp₁.base2.acval n = mp.base2.acval n) := by
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
+  exact stageMutualFormersGo hParams hIdsBelow hchainBelow fms (fun i => i) env mp hE
+    (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
+    hnd hmem
 
 end ConLeche.Model

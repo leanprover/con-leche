@@ -69058,6 +69058,43 @@ product `Π ı⃗_m, (I_m ı⃗ → Sort ℓ)` (`piTele_congr_fit`).  Also
   model tier needs: every member's cons requires the WHOLE block's chain
   facts (the tag is the union of all members' index telescopes), so all
   `k` formers' data must be read at one carrier.
+  **LANDED.**  `mutualFormerChecks ops env nP formers` (the per-member
+  body of the old step, all at `env`), `consMutualFormers fms env` (the
+  conses, block order, first member deepest, capability record `{}`) and
+  `mutualFormers ops nP formers env = do let fms ← …; pure (cons…, fms)`;
+  the F-twin (`mutualFormerChecksF`/`consMutualFormersF`) and the cached
+  twin, where the per-member `flushC` becomes ONE flush entering the
+  stage (the checks now run at a single environment, so nothing runs
+  between an environment change and a flush).  `mutualFormers_inv` is
+  now the SPLIT — `mutualFormerChecks … env = .ok fms ∧ env₁ =
+  consMutualFormers fms env` — with `mutualFormerChecks_nil_inv`,
+  `mutualFormerChecks_inv` (the cons step, all at `env`) and
+  `mutualFormerChecks_checked` (every checked former is SOME constant's
+  `checkConstantVal` at `env`) beside it; that last one is what the WF,
+  freshness and model steps read.
+  TWO FINDINGS ABOUT THE `Nodup` HYPOTHESIS.  (i) `envWF_mutualFormers`
+  and `mutualFormers_freshExt` do NOT need it: `EnvWF` is about the
+  constants' own data (resolution is monotone along the conses) and
+  `FreshEtaExt` asks freshness at the BASE environment, which is exactly
+  what each member's check gives — both now go through
+  `envWF_consMutualFormers`/`consMutualFormers_freshExt`, the
+  constructors' conses' pattern.  (ii) It IS needed where a fact must
+  hold at the INTERMEDIATE carrier: `mutualFormersS_push` (each
+  `PushChain.push` wants the name fresh at the index it is pushed onto —
+  supplied by `nodup_members_of_blockNames` off `mutualShapeOk`) and
+  `stageMutualFormers` (each member's cons wants freshness at the
+  earlier members' carrier), which takes a new
+  `(fms.map (·.cvTa.name)).Nodup`.
+  `stageMutualFormer`'s `checkConstantVal` hypothesis is replaced by
+  `MemberConsOk env cvTa` — freshness, the two reserved-name guards and
+  the four type-slot facts — with `MemberConsOk.ofCheck` (from the
+  check) and `MemberConsOk.cons` (across a cons of a different name);
+  that is the whole reason the stage can be run `k` times off checks
+  performed at one environment.  `stageMutualFormers` loses its
+  `ConstsBound env f.cvTa.type` per-member hypothesis (it is the
+  constant check's own `constsResolve`) and `stageMutualFormersGo` now
+  inducts over the CHECKED formers, not the declared ones, so
+  `mutualFormers_member_fresh` is gone.
 * Name hygiene: `MutualChains`' `tagTupleAV_validV` → `tagTupleAV_validVC`
   (`0cb2536b`) — it clashed with `MutualRecPre2`'s, and `declMutual`
   imports both cones.
