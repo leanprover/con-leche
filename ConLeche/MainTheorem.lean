@@ -26,8 +26,8 @@ and the notion of model in `ConLeche/Denotes.lean`.
 * `DeclC` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted; `.verified` is the
   default mode.
-* `False` is built in: the checker installs it from its own pin, and a
-  stream that declares `False` or `False.rec` differently is rejected.
+* `False` and `Eq` are built in: the checker installs them from its own
+  pins, and a stream that declares them differently is rejected.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 

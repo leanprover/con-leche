@@ -93,7 +93,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT emptyA.name ψ
           = some (Term.const .empty [1]) from rfl] at hp
@@ -237,7 +237,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT emptyRecA.name ψ
           = some (Term.const .emptyRec [1, ψ uN]) from rfl] at hp

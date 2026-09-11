@@ -98,8 +98,9 @@ a parsed export stream. The main theorem,
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
 > accepts `ds` with the environment `env`, then `env` has a model in
 > `V` — one set per stored constant and universe assignment under which
-> every stored constant is a member of what its type denotes, and
-> whatever the built-in `False` denotes is the empty set.
+> every stored constant is a member of what its type denotes, whatever
+> the built-in `False` denotes is the empty set, and whatever the
+> built-in `Eq` denotes is set equality.
 
 What a term denotes, and what a model is, are one short module a
 reader can take in at one sitting: the relation
@@ -110,12 +111,16 @@ set, an application the function's graph, a binder the dependent
 product or the truth value of its body depending on the *regime* the
 checker annotated it with, which it may claim only if the body really
 denotes a truth value there — and the structure
-[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L217-L227).
+[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L221-L241).
 So every theorem the stream proves is true in the model, and the
 theorem certifies every proposition annotation the checker stored.
-Definitional equalities need no clause: a definition's unfolding or an
-iota rule, stated as a theorem proved by `rfl`, is a stored constant
-whose type is a true equation.
+Definitional equalities need no clause of their own, because the field
+`eq_equality` covers them all: a definition's unfolding or an iota
+rule, stated as a theorem proved by `rfl`, is a stored constant whose
+type is `a = b`, `mem` puts that constant inside what the type
+denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
+and a truth value with a member is `{pt}`. So the two sides of every
+accepted equation denote the same set.
 
 The main corollary,
 [`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L102-L105),
@@ -253,7 +258,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L373-L374)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L379-L380)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -353,7 +358,7 @@ where the invariant reads: wherever the invariant's reading of a term
 is defined and graded, `interp` of the reading is a `Denotes`-denotation
 of the term, with the invariant's sort facts discharging the regime
 premises of the binder rules
-([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L215-L221)).
+([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L221-L227)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
 closing operation translates between the two.

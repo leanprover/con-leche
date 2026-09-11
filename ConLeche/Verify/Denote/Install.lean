@@ -880,7 +880,7 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
     (hi : Installs env cval cval' c₀)
     (hhead : reservedBasisNames.contains c₀.name = true →
-      (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
+      c₀ = pinnedInfo c₀.name ∧
       ∀ (ψ : Name → Nat) (t : Term),
         pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
