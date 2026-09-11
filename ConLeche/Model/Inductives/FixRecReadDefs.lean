@@ -251,6 +251,65 @@ elimination bit `b`, task #202 A2). -/
     (fieldBvars nF ++ recIdx.map fun i =>
       ihAppAV R nP n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
 
+/-! ### The `k`-motive spellings (task #278)
+
+A mutual block's recursors have `k` motives where the fixpoint route
+has one; the spellings below are the fixpoint route's with that count
+generic, and the fixpoint route's are their `k = 1` instances
+(definitionally, `*_eq_*` below). -/
+
+/-- The recursor's leading spine `p⃗ M⃗ S⃗` of a `k`-motive block, read
+under `m` more binders (`ConLeche.mutualRecPrefixAt nP k n nF m`'s
+reading): the parameters sit `nF + n + k + m` binders above the fields,
+motive `t` at `bvar (nF + n + k - 1 - t + m)` and minor `l` at
+`bvar (nF + n - 1 - l + m)`. -/
+@[expose] def recPrefixBvarsMK (nP k n nF m : Nat) : List AnnotTerm :=
+  paramBvarsAt nP (nP + nF + n + k + m) ++
+    ((List.range k).map fun t => AnnotTerm.bvar (nF + n + k - 1 - t + m)) ++
+    ((List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m))
+
+omit [SetTheory V] in
+/-- The fixpoint route's spine is the `k`-motive one at `k = 1`. -/
+theorem recPrefixBvarsM_eq_MK (nP n nF m : Nat) :
+    recPrefixBvarsM nP n nF m = recPrefixBvarsMK nP 1 n nF m := rfl
+
+/-- The ih application in a `k`-motive rule for recursive field `i`,
+with the TARGET member's recursor leaf `R`: under the field's
+telescope, `R` at the block's variables, the field's index readings
+(the `n + k` extras between the parameters and the fields) and the
+field applied to the telescope's variables. -/
+@[expose] def ihAppAVK (R : AnnotTerm) (nP k n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (Eis : List AnnotTerm) : AnnotTerm :=
+  mkLamsAV ((ihTeleAtR nF (n + k) i 0 tl).map fun d => (d.2.1, d.2.2))
+    (AnnotTerm.mkAppN R (recPrefixBvarsMK nP k n nF tl.length ++
+      Eis.map (ihIdxAtM nF (n + k) i 0 tl.length) ++
+      [AnnotTerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
+
+omit [SetTheory V] in
+/-- The fixpoint route's ih application is the `k`-motive one at
+`k = 1`. -/
+theorem ihAppAV_eq_K (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (Eis : List AnnotTerm) : ihAppAV R nP n nF i tl Eis = ihAppAVK R nP 1 n nF i tl Eis := rfl
+
+/-- **Rule `j`'s core at a mutual block**: minor `j` (its GLOBAL index)
+at the field variables and the ih applications, the ih of recursive
+field `i` firing the recursor of the member `tgts i` the field targets
+(`Rof t` is member `t`'s recursor leaf). -/
+@[expose] def mutualRuleCoreAV (b : Nat) (Rof : Nat → AnnotTerm) (tgts : Nat → Nat)
+    (nP k n nF j : Nat) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
+  AnnotTerm.mkAppN (.bvar (nF + n - 1 - j))
+    (fieldBvars nF ++ recIdx.map fun i =>
+      ihAppAVK (Rof (tgts i)) nP k n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
+
+omit [SetTheory V] in
+/-- The fixpoint route's rule core is the mutual one at one motive and
+the single member. -/
+theorem fixRuleCoreAV_eq_mutual (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    fixRuleCoreAV b R nP nF n j recIdx tls Eiss
+      = mutualRuleCoreAV b (fun _ => R) (fun _ => 0) nP 1 n nF j recIdx tls Eiss := rfl
+
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data
 lifted `n + 1` under. -/
