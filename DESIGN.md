@@ -69209,6 +69209,58 @@ branch `inductives` (worktree `.claude/worktrees/inductives`, from
 INTO `inductives`, never into master.  `master` keeps being merged
 into this branch for unrelated changes; when #280 lands on
 `inductives`, `inductives` is merged here to pick up the clause.
+#### 8.6 M2.5d landed: the recursor stage (2026-09-11)
+
+`Model/Inductives/MutualStageRec.lean`.  `MutualRecParts` bundles the
+ψ-indexed data the member leaf (`mutualRecAVI`), the stored recursor
+type's reading (`mutualRdsAV`) and `MutualLeafHyp` share, so that the
+leaf's λ-data IS the reading's data by `rfl`; `leaf`/`rds`/`conc`/
+`LeafHyp`/`leaf_facts` are its interface.
+
+* **Provision** — `stageMutualRecProvision` (ONE rule-less cons through
+  `declStep_preserves_of_ind_rec_cons`; `hrec` = `recRules_cons_fresh`,
+  and the capability obligation is vacuous by the M2.5c finding: the
+  cons stores a RECURSOR at the name it is taken at) and the loop
+  `stageMutualRecsProvisionGo`/`stageMutualRecsProvision` over
+  `provisionMutualRecs`, threading every member's reading across each
+  cons (`MutualRecData.cross`) — member `t`'s leaf mentions no sibling
+  recursor, so its typing is available at every step.
+* **Store** — `stageMutualRecsStore`: `EnvModelM.swapP` between the
+  provision and `storeMutualRecs`.  The syntactic half is proved here:
+  `swapShList_provision_store`, `swapNResS_provision_store`,
+  `storeMutualRecs_find?_inv`, `provisionMutualRecs_find?_of_ne`/
+  `_self` and `swapFacts_of_shList` (`swapEnvFacts`'s three non-`EnvWF`
+  clauses with the `RuleFacts` premise replaced by the store's own rule
+  data — `mutualRules_bits` plus the rules' constructors); `EnvWF` at
+  the store is `mutual_recs_wf`'s.  `stageMutualRecs` runs the two back
+  to back.
+* **The rule law** — `mutualRecRuleLaw` is `fixRecRuleLaw` at `k`
+  motives: the level plumbing, the fire comparands' agreement, the two
+  readings, the constructor leaf at the rule's assignment, the spine
+  extraction and the index pin; `paramsBlind := true` makes the
+  parameter comparison vacuous and the fire is `.plain`, so the
+  `.nested` clauses are too.
+* **The leaf is closed** — `leaf_below`, off `mutualRecBodyAV_below`;
+  the dispatch's closedness is proved here for want of a home
+  (`motDispAV_below`, `dispTowerAV_below` through `dispDs_below`/
+  `tagMinorTyAV_below`/`caseRecAVI_below`, `tagMotAV_below`), and takes
+  only the two bounds the former stage's `mutualTyAVI_below` takes.
+  **These belong in `MutualDisp.lean` when it is tidied**, beside the
+  dispatch's bit validity.
+* **THE ONE OPEN PREMISE**: `MutualRecParts.RuleFires` — the term-level
+  ι law at `fixRecLawCore`'s interface (the recursor's spine fit, the
+  constructor's spine fit, the index pin).  `mutualRecLawCore` and
+  `mutualRecIotaCore` are the law it names, but they are stated at a
+  SPLIT block frame `(p⃗, M⃗, S⃗, ı⃗, t)`, and what splits the flat spine
+  on the fixpoint route is `fixRecLawCore`'s own interior — `kframe_split`
+  at the `FixPre`, `sumSet_elim`/`towerSet_elim_teleOfFields` for the
+  major's fields at the RECURSOR's parameters (the rule's λ-tower binds
+  those, not the constructor's — this is what `paramsBlind` costs), and
+  the squash regime.  The mutual twin of that step is unwritten; it is
+  the next piece of M2.5, not a generalisation of the fixpoint route's
+  proof.  Hypotheses left for `declMutual` are listed in the lane's
+  report.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
