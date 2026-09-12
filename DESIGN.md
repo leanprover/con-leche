@@ -70868,10 +70868,19 @@ has:
   the five copies of containers that are THEMSELVES nested
   (`Lean.Widget.TaggedText` ×4 and `PersistentArrayNode` under
   `InfoTree`), which the group reading takes without a special case.
-* **The e2e fixtures** that already carried nested blocks: all ten
-  blocks of `inmodel_nested`, `nested_rec`, `nested_struct_proj`,
-  `ind_proj_mutual_nested`, `nested_pin_names`, `indexed_nested_aux` →
-  ACCEPT.
+  **This closes §6's risk (iv), the `rec_k` numbering**: post-check (c)
+  compares every recursor record BY NAME with the generated one, so 41
+  accepts mean the replace order — and hence the mimics' creation order
+  — is official's on every one of them, `Cutsat.EqCnstr`'s twelve
+  members and nine mimics included.
+* **The e2e fixtures** that already carried nested blocks: all SEVEN
+  blocks of `inmodel_nested` (`Tree` through `List`, `TV` through the
+  indexed `Vec`, `Op` through `Option` and `Prod`, `W` through a
+  structure, `PT` at a DEPENDENT pin, the nested structure `NTree`, and
+  the mutual-and-nested `A`/`B`), plus `nested_rec`,
+  `nested_struct_proj`, `ind_proj_mutual_nested`, `nested_pin_names` and
+  `indexed_nested_aux` → ACCEPT.  The first four are in the shadow gate;
+  the last two are gzipped fixtures and were measured by hand.
 * **Three shapes the in-process modeller DECLINES and the native route
   ACCEPTS** (they are `tests/e2e/nested_p{01,10,31}.ndjson`, run with
   the modeller off so that the block reaches the install loop at all):
