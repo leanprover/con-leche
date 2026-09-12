@@ -38,7 +38,7 @@ namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps RecRule
   CheckMode)
@@ -568,5 +568,115 @@ theorem interp_tgIhDomAV {b nP nF o i l : Nat} {ρ : Nat → V} {ps Ms ms : List
         = (ps ++ (Ms ++ (ms ++ (fs ++ (ihs ++ as))))).length from by
           simp [hps, hfs, hihs, hlen]; omega,
       shiftE_consList]
+
+/-- The ih binders in target form: `ihDataAVM` with each hypothesis
+domain in target form. -/
+@[expose] def ihDataTg (Tg : Nat → AnnotTerm) (moti : Nat → Nat) (nP nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    List Nat → Nat → List (Nat × Nat × AnnotTerm)
+  | [], _ => []
+  | i :: is, l =>
+    (0, b, tgIhDomAV Tg (moti i) nP nF o i l (rebit b (tls.getD i [])) (Eiss.getD i [])) ::
+      ihDataTg Tg moti nP nF o b tls Eiss is (l + 1)
+
+/-- A minor's binder data in target form: the fields, then the ih
+binders in target form. -/
+@[expose] def minorDataTg (Tg : Nat → AnnotTerm) (moti : Nat → Nat) (nP nF b o : Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    List (Nat × Nat × AnnotTerm) :=
+  rebit b (liftDoms o 0 (ds.drop nP)) ++ ihDataTg Tg moti nP nF o b tls Eiss recIdx 0
+
+/-- Nested products over one telescope agree when their bodies agree
+at fitting tuples (`piTele_congr_body`, restated here). -/
+theorem piTele_congr_body' {v : Nat} {B B' : List V → V} :
+    ∀ {n : Nat} {T : TeleS V n} {acc : List V},
+      (∀ as, FitsS T as → B (acc ++ as) = B' (acc ++ as)) →
+      piTele v T B acc = piTele v T B' acc
+  | _, .nil, acc, h => by
+    have := h [] trivial
+    simpa [piTele] using this
+  | _, .cons A T, acc, h => by
+    simp only [piTele]
+    refine piR_congr fun a ha => ?_
+    refine piTele_congr_body' fun as hfit => ?_
+    have := h (a :: as) ⟨ha, hfit⟩
+    rwa [List.append_cons] at this
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- The motive spine of the choice. -/
+@[expose] def motChoiceAVs (m : EnvModel V env) (ψ : Name → Nat) (ps : List AnnotTerm)
+    (Tg : Nat → AnnotTerm) : List AnnotTerm :=
+  (List.range d.k).map (d.motChoiceAV m ψ ps Tg)
+
+theorem motChoiceAVs_length (m : EnvModel V env) (ψ : Name → Nat) (ps : List AnnotTerm)
+    (Tg : Nat → AnnotTerm) : (d.motChoiceAVs m ψ ps Tg).length = d.k := by
+  simp [motChoiceAVs]
+
+theorem motChoiceAVs_getD (m : EnvModel V env) (ψ : Name → Nat) (ps : List AnnotTerm)
+    (Tg : Nat → AnnotTerm) (ρ : Nat → V) {t : Nat} (ht : t < d.k) :
+    ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)).getD t pt
+      = interp V ρ (d.motChoiceAV m ψ ps Tg t) := by
+  simp [motChoiceAVs, List.getD_eq_getElem?_getD, List.getElem?_range ht]
+
+/-- **The tower's ih domain at the choice's motives reads as the
+target-form ih domain**: the motive's β at the field's index values
+and the field along the telescope, pointwise under the nested product.
+`hfield` is the field's own typing — its value along the telescope
+lands in its member's family at the index readings, which fit the
+member's index telescope. -/
+theorem interp_ihDom_choice (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {ρ : Nat → V} (hps : ps.length = d.nP) {tgt : Nat} (htgt : tgt < d.k)
+    (hips : ((d.ipss ψ).getD tgt []).length = d.nIdxs.getD tgt 0)
+    {ms : List V} {o nF i l : Nat} (hms : ms.length + d.k = o) {fs ihs : List V}
+    (hfs : fs.length = nF) (hihs : ihs.length = l) (hi : i < nF)
+    (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm)
+    (hfield : ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))
+        (tl.map (·.2.2)) as →
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+          ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD tgt [])).map (·.2.2))
+          (Eis.map (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))) ∧
+        as.foldl SetTheory.app (fs.getD i pt)
+          ∈ˢ interp V (consList
+              (Eis.map (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))))
+              (consList (ps.map (interp V ρ)) ρ))
+            (famAppAV ((d.Ls m ψ).getD tgt default) (d.pinsOf ψ tgt) d.nP
+              (d.nP + d.nIdxs.getD tgt 0) (d.nIdxs.getD tgt 0))) :
+    interp V (consList ihs (consList fs (consList ms
+        (consList ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)) (consList (ps.map (interp V ρ)) ρ)))))
+        (ihDomAVM tgt nF o i l (rebit (d.bb ψ) tl) Eis)
+      = interp V (consList ihs (consList fs (consList ms
+          (consList ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)) (consList (ps.map (interp V ρ)) ρ)))))
+          (tgIhDomAV Tg tgt d.nP nF o i l (rebit (d.bb ψ) tl) Eis) := by
+  have hMs : ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)).length = d.k := by
+    simp [motChoiceAVs]
+  have hk : 0 < ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)).length := by rw [hMs]; omega
+  have hms' : ms.length + ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)).length = o := by
+    rw [hMs]; exact hms
+  have hpsv : (ps.map (interp V ρ)).length = d.nP := by rw [List.length_map, hps]
+  rw [interp_ihDomAVM (ℓ := d.bb ψ) hms' (by rw [hMs]; exact htgt) hfs hihs hi
+      (fun x hx => by rw [mem_rebit hx]) Eis,
+    interp_tgIhDomAV (b := d.bb ψ) hpsv hms' hk hfs hihs hi (fun x hx => by rw [mem_rebit hx])
+      Tg tgt Eis, rebit_map_dom]
+  refine piTele_congr_body' fun as hfit => ?_
+  rw [List.nil_append]
+  obtain ⟨hE, hx⟩ := hfield as (fitsS_teleOfFields.mp hfit)
+  rw [d.motChoiceAVs_getD m ψ ps Tg ρ htgt]
+  have hsplit : (d.motDataAV m ψ tgt).map (·.2.2)
+      = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD tgt [])).map (·.2.2) ++
+        [famAppAV ((d.Ls m ψ).getD tgt default) (d.pinsOf ψ tgt) d.nP (d.nP + d.nIdxs.getD tgt 0)
+          (d.nIdxs.getD tgt 0)] := by
+    simp [motDataAV]
+  have := d.motChoiceAV_fold m (Tg := Tg) hps hips (is := Eis.map (interp V (consList as
+      (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))))
+    (x := as.foldl SetTheory.app (fs.getD i pt))
+    (by rw [hsplit]; exact SpineFit.append hE ⟨hx, trivial⟩)
+  rw [List.foldl_append, List.foldl_cons, List.foldl_nil] at this
+  exact this
+
+end IndRepData
 
 end ConLeche.Model
