@@ -114,17 +114,63 @@ theorem FixCtorDataI.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀
     reflEntry := fun ψ i hk hi => by rw [hac]; exact h.reflEntry ψ i hk hi }
 
 /-- **A representation crosses the rule-list swap.** -/
+/-- **The rules' readings across the swap**, for a recursor the swap
+LEFT ALONE: the prefix's readings cross (`denoteMeta_swap`) and the
+spellings do not move (`m₃.acval = m₀.acval`). -/
+theorem IndRep.rulesRead_swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
+    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}
+    {mm : Nat} (h : IndRep m₀ T cvT cvR mI rP rules d mm)
+    (hf₀ : env₀.find? cvR.name = some (.recInfo cvR mI rP rules)) :
+    d.nP ≠ 0 → rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
+    (∀ t, t < d.k → (env₃.find? (d.recNames t)).isSome = true) ∧
+    ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
+      ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
+        ∀ ψ : Name → Nat, denoteMeta m₃.acval env₃ ψ 0 rl.rhs = some (d.ruleAV m₃ ψ j cA.2) := by
+  intro hnP hne _
+  obtain ⟨hrecs, hrules⟩ := h.rulesRead hnP hne hf₀
+  refine ⟨fun t ht => by rw [← hcg.isSomeEq]; exact hrecs t ht, fun j cA hj hmm => ?_⟩
+  obtain ⟨rl, hrl, hctor, hread⟩ := hrules j cA hj hmm
+  refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
+  rw [hac, ← denoteMeta_swap hcg, hread ψ]
+  congr 1
+  exact d.ruleAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
+    (h.tgtsRLt j)
+
 theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}
     {mm : Nat}
-    (h : IndRep m₀ T cvT cvR mI rP rules d mm) : IndRep m₃ T cvT cvR mI rP rules d mm :=
+    (h : IndRep m₀ T cvT cvR mI rP rules d mm)
+    -- the rules' readings at the target (task #279 M-A′): the caller's —
+    -- `IndRep.rulesRead_swap` for a recursor the swap left alone, the
+    -- install's own readings for one it changed
+    (hrr : d.nP ≠ 0 → rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
+      (∀ t, t < d.k → (env₃.find? (d.recNames t)).isSome = true) ∧
+      ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
+        ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
+          ∀ ψ : Name → Nat, denoteMeta m₃.acval env₃ ψ 0 rl.rhs = some (d.ruleAV m₃ ψ j cA.2)) :
+    IndRep m₃ T cvT cvR mI rP rules d mm :=
   { member := h.member
     strip := h.strip
     isProp := h.isProp
+    rulesRead := hrr
     mI := h.mI
     rP := h.rP
     rules := h.rules
+    kRealLe := h.kRealLe
+    memReal := h.memReal
+    recName := h.recName
+    tgtsRLt := h.tgtsRLt
+    membersFound := fun t ht => by
+      obtain ⟨cv, caps, hf⟩ := h.membersFound t ht
+      exact ⟨cv, caps, hcg.findUp _ _ hf (fun _ _ _ _ h => nomatch h)⟩
+    ctorsCFound := fun cC hcC => by rw [← hcg.isSomeEq]; exact h.ctorsCFound cC hcC
+    pinsReal := h.pinsReal
+    recRead := fun hnP ψ => by
+      rw [hac, ← denoteMeta_swap hcg, h.recRead hnP ψ]
+      congr 2
+      exact d.recDataAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
     former := h.former.swap hcg hac
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
@@ -165,7 +211,8 @@ theorem IndReps.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
   rcases hmod n cvR mI rP rules hf₃ with hf₀ | hmodn
   · rcases h n cvR mI rP rules hf₀ T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hml
     · exact Or.inl ⟨cvT, caps, d, mm, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
-        hd.swap hcg hac⟩
+        hd.swap hcg hac (hd.rulesRead_swap hcg hac (by
+          rw [show cvR.name = n from ConLeche.Semantics.Env.find?_name hf₀]; exact hf₀))⟩
     · exact Or.inr (hml.swap hcg hac)
   · exact Or.inr hmodn
 

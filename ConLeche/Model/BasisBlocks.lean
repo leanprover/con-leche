@@ -545,6 +545,7 @@ indices, one field-free constructor, the constant functor with fibre
   resSort := .param uN
   isProp := (Level.isEquiv (.param uN) .zero == some true)
   large := true
+  elim := .anonymous
   env₀ := env₀
   ctorsA := [(punitUnitA.toConstantVal, 0)]
   idxF := fun _ => []
@@ -678,9 +679,20 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
+    rulesRead := fun h => absurd rfl h
     mI := rfl
     rP := rfl
     rules := fun _ => rfl
+    kRealLe := Nat.le_refl _
+    memReal := Nat.zero_lt_one
+    recName := rfl
+    tgtsRLt := fun _ _ => Nat.zero_lt_one
+    membersFound := fun t ht => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩
+    ctorsCFound := fun _ h => nomatch h
+    pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
+    recRead := fun h => absurd rfl h
     former := ?_
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩,
@@ -2226,6 +2238,7 @@ over the one-point index set, and the pin's own injections. -/
   resSort := .succ .zero
   isProp := (Level.isEquiv (.succ .zero) .zero == some true)
   large := true
+  elim := .anonymous
   env₀ := env₀
   ctorsA := [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)]
   idxF := fun _ => []
@@ -2411,9 +2424,20 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
+    rulesRead := fun h => absurd rfl h
     mI := rfl
     rP := rfl
     rules := fun _ => rfl
+    kRealLe := Nat.le_refl _
+    memReal := Nat.zero_lt_one
+    recName := rfl
+    tgtsRLt := fun _ _ => Nat.zero_lt_one
+    membersFound := fun t ht => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩
+    ctorsCFound := fun _ h => nomatch h
+    pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
+    recRead := fun h => absurd rfl h
     former := ?_
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩,

@@ -83,6 +83,7 @@ injection.  One member, the block's own former `T` (task #278 M2.6). -/
   resSort := resSort
   isProp := (Level.isEquiv resSort .zero == some true)
   large := true
+  elim := .anonymous
   env₀ := env₀
   ctorsA := []
   idxF := fun _ => []
@@ -116,6 +117,8 @@ denotes the empty set. -/
 theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     {rules : List RecRule} (resSort : Level)
     (hty : cvT.type = .sort resSort) (hrules : rules = [])
+    (hRname : cvR.name = T.str "rec")
+    (hfT : ∃ (cv : ConstantVal) (caps : IndCaps), env.find? T = some (.indInfo cv caps))
     (hres : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
       resSort.eval ψ₁ = resSort.eval ψ₂)
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = empty) :
@@ -150,9 +153,20 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     member := rfl
     strip := ⟨[], by rw [hty]; rfl⟩
     isProp := rfl
+    rulesRead := fun h => absurd rfl h
     mI := rfl
     rP := rfl
     rules := fun _ => by rw [hrules]; rfl
+    kRealLe := Nat.le_refl _
+    memReal := Nat.zero_lt_one
+    recName := hRname.symm
+    tgtsRLt := fun _ _ => Nat.zero_lt_one
+    membersFound := fun t ht => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact hfT
+    ctorsCFound := fun _ h => nomatch h
+    pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
+    recRead := fun h => absurd rfl h
     former := ?_
     ctors := fun j cA hj => nomatch hj
     memsFound := fun j hj => absurd hj (Nat.not_lt_zero j)

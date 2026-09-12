@@ -331,6 +331,36 @@ fibre (`fixStepI_elim`). -/
   EqAll (consList fs (cons t (cons X ρp)))
     (eqsXI (d.IdsC ψ).length ((d.Fss ψ).getD j []).length ((d.Ess ψ).getD j []))
 
+/-- The recursor tower's spelling depends on the model only through the
+members' and the constructors' leaves. -/
+theorem recDataAV_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {mm : Nat}
+    (hL : ∀ t, t < d.k → m₁.acval (d.memberName t) ψ = m₂.acval (d.memberName t) ψ)
+    (hC : ∀ cd ∈ d.cdsR ψ, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
+    d.recDataAV m₁ ψ mm = d.recDataAV m₂ ψ mm := by
+  have hLs : d.Ls m₁ ψ = d.Ls m₂ ψ := by
+    unfold IndRepData.Ls
+    exact List.map_congr_left fun t ht => hL t (List.mem_range.mp ht)
+  unfold IndRepData.recDataAV
+  rw [hLs, recDataAVP_congr hC]
+
+/-- A rule's spelling depends on the model only through the members',
+the constructors' and the recursors' leaves. -/
+theorem ruleAV_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {j nF : Nat}
+    (hL : ∀ t, t < d.k → m₁.acval (d.memberName t) ψ = m₂.acval (d.memberName t) ψ)
+    (hC : ∀ cd ∈ d.cdsR ψ, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ)
+    (hR : ∀ t, t < d.k → m₁.acval (d.recNames t) ψ = m₂.acval (d.recNames t) ψ)
+    (htgt : ∀ i, d.tgtsR j i < d.k) :
+    d.ruleAV m₁ ψ j nF = d.ruleAV m₂ ψ j nF := by
+  have hLs : d.Ls m₁ ψ = d.Ls m₂ ψ := by
+    unfold IndRepData.Ls
+    exact List.map_congr_left fun t ht => hL t (List.mem_range.mp ht)
+  unfold IndRepData.ruleAV
+  rw [hLs, ruleDataAVP_congr hC,
+    mutualRuleCoreAV_congr_Rof (Rof' := fun t => m₂.acval (d.recNames t) ψ)
+      (fun i _ => hR _ (htgt i))]
+
 end IndRepData
 
 omit [SetTheory V] in
@@ -380,7 +410,8 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   constructors has a rule whose right-hand side reads to the λ-tower
   over the rule's binder data with the `k`-motive core, the inductive
   hypotheses firing the target members' recursor leaves (`recNames`) -/
-  rulesRead : d.nP ≠ 0 → (env.find? cvR.name).isSome = true →
+  rulesRead : d.nP ≠ 0 → rules ≠ [] → env.find? cvR.name = some (.recInfo cvR mI rP rules) →
+    (∀ t, t < d.k → (env.find? (d.recNames t)).isSome = true) ∧
     ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
       ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
         ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)
@@ -400,6 +431,13 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   memReal : mm < d.kReal
   /-- the member's recursor is the stored one -/
   recName : d.recNames mm = cvR.name
+  /-- every field's target in the recursor's view is a member -/
+  tgtsRLt : ∀ j i, d.tgtsR j i < d.k
+  /-- every member of the recursor's block is a stored inductive -/
+  membersFound : ∀ t, t < d.k →
+    ∃ (cv : ConstantVal) (caps : IndCaps), env.find? (d.memberName t) = some (.indInfo cv caps)
+  /-- the copies' constructors are stored constants -/
+  ctorsCFound : ∀ cC ∈ d.ctorsC, (env.find? cC.1.name).isSome = true
   /-- a real member's pins are the parameter variables and its
   container is the block -/
   pinsReal : ∀ t, t < d.kReal →

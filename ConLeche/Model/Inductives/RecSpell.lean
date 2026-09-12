@@ -5,6 +5,7 @@ public import ConLeche.Model.Annot.Bit
 public import ConLeche.Semantics.Tower.IhSpell
 public import ConLeche.Semantics.Tower.FixLeafI
 public import ConLeche.Semantics.Tower.SumRecCase
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
@@ -813,5 +814,109 @@ theorem mem_ruleDataAVP {m : EnvModel V env} {ψ : Name → Nat} {Ls : List Anno
   · exact mem_motivesDataGoP h
   · exact mem_fixMinorsDataMP h
   · exact mem_rebit h
+
+/-! ## The fixpoint route's spellings as the `k = 1` instances -/
+
+omit [SetTheory V] in
+theorem recPrefixBvarsMK_one (nP n nF m : Nat) :
+    recPrefixBvarsMK nP 1 n nF m = recPrefixBvarsM nP n nF m := by
+  unfold recPrefixBvarsMK recPrefixBvarsM
+  simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil,
+    show nF + n + 1 - 1 - 0 + m = nF + n + m from by omega]
+
+omit [SetTheory V] in
+theorem ihAppAVK_one (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (Eis : List AnnotTerm) : ihAppAVK R nP 1 n nF i tl Eis = ihAppAV R nP n nF i tl Eis := by
+  unfold ihAppAVK ihAppAV
+  rw [recPrefixBvarsMK_one]
+
+omit [SetTheory V] in
+theorem mutualRuleCoreAV_congr_Rof {b : Nat} {Rof Rof' : Nat → AnnotTerm} {tgts : Nat → Nat}
+    {nP k n nF j : Nat} {recIdx : List Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)}
+    (h : ∀ i ∈ recIdx, Rof (tgts i) = Rof' (tgts i)) :
+    mutualRuleCoreAV b Rof tgts nP k n nF j recIdx tls Eiss
+      = mutualRuleCoreAV b Rof' tgts nP k n nF j recIdx tls Eiss := by
+  unfold mutualRuleCoreAV
+  congr 2
+  exact List.map_congr_left fun i hi => by rw [h i hi]
+
+omit [SetTheory V] in
+theorem mutualRuleCoreAV_one (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    mutualRuleCoreAV b (fun _ => R) (fun _ => 0) nP 1 n nF j recIdx tls Eiss
+      = fixRuleCoreAV b R nP nF n j recIdx tls Eiss := by
+  unfold mutualRuleCoreAV fixRuleCoreAV
+  simp only [ihAppAVK_one]
+
+omit [SetTheory V] in
+theorem mutualConcAV_one (n nIdx : Nat) : mutualConcAV 1 n nIdx 0 = recConcAV n nIdx := by
+  unfold mutualConcAV recConcAV motAppAV
+  rw [show 1 + nIdx + n + 1 - 1 - 0 = 1 + nIdx + n from by omega]
+
+theorem mutualRecDataAV_one {m : EnvModel V env} {ψ : Name → Nat} (L : AnnotTerm) (nP nIdx : Nat)
+    (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm)) (cds : List CtorDatumR) :
+    mutualRecDataAV m ψ [L] nP [nIdx] ℓ pps [ips] cds (fun _ => 0) (fun _ _ => 0) 0
+      = fixRecDataAVL m ψ L nP nIdx ℓ pps ips cds := by
+  unfold mutualRecDataAV fixRecDataAVL fixMinorsData majorAVAtK majorAVAtL
+  simp only [List.length_singleton, List.getD_cons_zero, motivesDataGo, AnnotTerm.liftN_zero,
+    Nat.add_comm 1 cds.length]
+
+theorem mutualRuleDataAV_one {m : EnvModel V env} {ψ : Name → Nat} (T : Name) (nP nIdx : Nat)
+    (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm)) (cds : List CtorDatumR)
+    (ds : List (Nat × Nat × AnnotTerm)) :
+    mutualRuleDataAV m ψ [m.acval T ψ] nP [nIdx] ℓ pps [ips] cds (fun _ => 0) (fun _ _ => 0) ds
+      = fixRuleDataAV m T ψ nP nIdx ℓ pps ips cds ds := by
+  unfold mutualRuleDataAV fixRuleDataAV fixMinorsData motiveAVI
+  simp only [List.length_singleton, List.getD_cons_zero, motivesDataGo, AnnotTerm.liftN_zero,
+    Nat.add_comm 1 cds.length]
+
+/-! ## Insensitivity of the pinned spellings to the valuation -/
+
+theorem minorAVAtRMP_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {mot : Nat} {moti : Nat → Nat} {C : Name} {pinsC : List AnnotTerm}
+    {nP nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    {recIdx : List Nat} {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hC : m₁.acval C ψ = m₂.acval C ψ) :
+    minorAVAtRMP mot moti m₁ C pinsC ψ nP nF b o ds Es recIdx tls Eiss
+      = minorAVAtRMP mot moti m₂ C pinsC ψ nP nF b o ds Es recIdx tls Eiss := by
+  unfold minorAVAtRMP famAppAV
+  rw [hC]
+
+theorem fixMinorsDataMP_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (pinsOf : Nat → List AnnotTerm)
+      (cds : List CtorDatumR) (o : Nat),
+      (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
+      fixMinorsDataMP mots tgts pinsOf m₁ ψ nP b cds o
+        = fixMinorsDataMP mots tgts pinsOf m₂ ψ nP b cds o
+  | _, _, _, [], _, _ => rfl
+  | mots, tgts, pinsOf, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
+    simp only [fixMinorsDataMP]
+    rw [minorAVAtRMP_congr (h _ List.mem_cons_self),
+      fixMinorsDataMP_congr (fun J => mots (J + 1)) (fun J => tgts (J + 1))
+        (fun J => pinsOf (J + 1)) cs (o + 1) fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
+
+theorem recDataAVP_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {Ls : List AnnotTerm} {pinsOf : Nat → List AnnotTerm} {nP : Nat}
+    {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} {mm : Nat}
+    (hC : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
+    recDataAVP m₁ ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts mm
+      = recDataAVP m₂ ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts mm := by
+  unfold recDataAVP
+  rw [fixMinorsDataMP_congr _ _ _ cds _ hC]
+
+theorem ruleDataAVP_congr {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ψ : Name → Nat} {Ls : List AnnotTerm} {pinsOf : Nat → List AnnotTerm} {nP : Nat}
+    {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    (hC : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
+    ruleDataAVP m₁ ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts ds
+      = ruleDataAVP m₂ ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts ds := by
+  unfold ruleDataAVP
+  rw [fixMinorsDataMP_congr _ _ _ cds _ hC]
 
 end ConLeche.Model

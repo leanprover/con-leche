@@ -265,6 +265,25 @@ constructor `j` on. -/
     (c.1.name, c.2, dsF j ψ, esF j ψ, ConLeche.recIdxOf (ksF j), eissF j ψ, tssF j ψ) ::
       fixCtorDataList dsF esF ksF eissF tssF ψ cs (j + 1)
 
+omit [SetTheory V] in
+theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (ksF : Nat → List RecFieldKind)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (ψ : Name → Nat) :
+    ∀ (cs : List (ConstantVal × Nat)) (j i : Nat),
+      (fixCtorDataList dsF esF ksF eissF tssF ψ cs j)[i]?
+        = (cs[i]?).map fun c =>
+            (c.1.name, c.2, dsF (j + i) ψ, esF (j + i) ψ, ConLeche.recIdxOf (ksF (j + i)),
+              eissF (j + i) ψ, tssF (j + i) ψ)
+  | [], _, _ => rfl
+  | c :: cs, j, 0 => by simp [fixCtorDataList]
+  | c :: cs, j, i + 1 => by
+    simp only [fixCtorDataList, List.getElem?_cons_succ]
+    rw [fixCtorDataList_getElem? dsF esF ksF eissF tssF ψ cs (j + 1) i]
+    congr 2
+    funext c
+    rw [show j + 1 + i = j + (i + 1) from by omega]
+
 /-- The per-constructor facts of a recursive block at a position. -/
 @[expose] def FixCtorFactsAt {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)

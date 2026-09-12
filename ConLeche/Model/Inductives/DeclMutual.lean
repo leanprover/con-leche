@@ -1469,15 +1469,6 @@ theorem mutualRuleDataAV_congrm {env' : Env} {m : EnvModel V env} {m' : EnvModel
 
 /-- **A rule's core at two leaf tables**: only the recursive slots'
 TARGET recursors are read. -/
-theorem mutualRuleCoreAV_congr_Rof {b : Nat} {Rof Rof' : Nat → AnnotTerm} {tgts : Nat → Nat}
-    {nP k n nF j : Nat} {recIdx : List Nat}
-    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)}
-    (h : ∀ i ∈ recIdx, Rof (tgts i) = Rof' (tgts i)) :
-    mutualRuleCoreAV b Rof tgts nP k n nF j recIdx tls Eiss
-      = mutualRuleCoreAV b Rof' tgts nP k n nF j recIdx tls Eiss := by
-  unfold mutualRuleCoreAV
-  congr 2
-  exact List.map_congr_left fun i hi => by rw [h i hi]
 
 /-- **A member's reading crosses an environment extension**: its type
 resolves at the smaller environment and its own leaf does not move. -/

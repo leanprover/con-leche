@@ -4,6 +4,7 @@ public import ConLeche.Model.IndRep
 import ConLeche.Model.Inductives.FixRuleData
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Verify.Inductives.FixWF
+public import ConLeche.Model.Inductives.FixRecData
 public section
 
 /-!
@@ -234,6 +235,7 @@ data, the functor `fixFunVI` and the tagged-tower injections. -/
   resSort := p.resSort
   isProp := p.isProp
   large := p.large
+  elim := p.elim
   env₀ := env₀
   ctorsA := ctorsA
   idxF := idxF
@@ -267,6 +269,144 @@ data, the functor `fixFunVI` and the tagged-tower injections. -/
       (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
   inj := fun ψ j fs => injW (p.resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
+section FixRepDataReduced
+
+variable {p : NativeParts} {env₀ : Env} {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
+  {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {esF : Nat → (Name → Nat) → List AnnotTerm}
+  {srcsF : Nat → List (Option Nat)} {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr}
+  {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+  {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+  {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
+  {uAV : (Name → Nat) → Nat}
+
+/-! The fixpoint datum's recursor-view pieces, reduced (each by `rfl`:
+the datum has one member, no copies, and the defaults). -/
+
+theorem fixRepData_Ls (m : EnvModel V env) (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).Ls m ψ = [m.acval p.cvT.name ψ] := rfl
+
+theorem fixRepData_pinsOf (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).pinsOf ψ = fun _ => paramBvarsAt p.nP p.nP := rfl
+
+theorem fixRepData_ipss (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).ipss ψ = [(ppsAll ψ).drop p.nP] := rfl
+
+theorem fixRepData_cdsR (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).cdsR ψ = fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0 := by
+  unfold IndRepData.cdsR IndRepData.ctorsAll
+  simp only [fixRepData, List.append_nil]
+
+theorem fixRepData_nP :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).nP = p.nP := rfl
+
+theorem fixRepData_k :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).k = 1 := rfl
+
+theorem fixRepData_nIdxs :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).nIdxs = [p.nIdx] := rfl
+
+theorem fixRepData_mems :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).mems = fun _ => 0 := rfl
+
+theorem fixRepData_tgtsR :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).tgtsR = fun _ _ => 0 := rfl
+
+theorem fixRepData_ppsM (t : Nat) (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).ppsM t ψ = ppsAll ψ := rfl
+
+theorem fixRepData_dsF (j : Nat) (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).dsF j ψ = dsF j ψ := rfl
+
+theorem fixRepData_ksR (j : Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).ksR j = ksF j := rfl
+
+theorem fixRepData_tssR (j : Nat) (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).tssR j ψ = tssF j ψ := rfl
+
+theorem fixRepData_eissR (j : Nat) (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).eissR j ψ = eissF j ψ := rfl
+
+theorem fixRepData_recNames (t : Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).recNames t = ([p.cvT.name].getD t .anonymous).str "rec" := rfl
+
+theorem fixRepData_nAll :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).nAll = ctorsA.length := rfl
+
+theorem fixRepData_elimL :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).elimL = ConLeche.structElimLevel p.elim p.large := rfl
+
+theorem fixRepData_bb (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+      lvlsAll uAV).bb ψ = pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) := rfl
+
+end FixRepDataReduced
+
+/-- **The fixpoint datum's recursor tower is the generated reading** —
+the `k = 1` instance of the pinned spelling at the parameter variables
+(`recDataAVP_params`, `mutualRecDataAV_one`). -/
+theorem fixRepData_recDataAV {p : NativeParts} (m : EnvModel V env) {env₀ : Env}
+    {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
+    {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+    {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+    {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
+    {uAV : (Name → Nat) → Nat} (ψ : Name → Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+        lvlsAll uAV).recDataAV m ψ 0
+      = fixRdsAV m p ppsAll dsF esF ksF eissF tssF ctorsA ψ := by
+  unfold IndRepData.recDataAV fixRdsAV fixRecDataAV
+  rw [fixRepData_Ls, fixRepData_pinsOf, fixRepData_ipss, fixRepData_cdsR, fixRepData_elimL,
+    fixRepData_nP, fixRepData_nIdxs, fixRepData_mems, fixRepData_tgtsR, fixRepData_ppsM,
+    recDataAVP_params]
+  exact mutualRecDataAV_one _ _ _ _ _ _ _
+
+/-- **The fixpoint datum's rule spelling is the generated rule
+reading** — the `k = 1` instance at the parameter variables, the one
+recursor leaf `T.rec`'s. -/
+theorem fixRepData_ruleAV {p : NativeParts} (m : EnvModel V env) {env₀ : Env}
+    {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
+    {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+    {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+    {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
+    {uAV : (Name → Nat) → Nat} (ψ : Name → Nat) (j nF : Nat) :
+    (fixRepData (V := V) p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+        lvlsAll uAV).ruleAV m ψ j nF
+      = mkLamsAV (fixRuleDataAV m p.cvT.name ψ p.nP p.nIdx (ConLeche.structElimLevel p.elim p.large)
+          ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
+          (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
+        (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+          (m.acval (p.cvT.name.str "rec") ψ) p.nP nF ctorsA.length j
+          (ConLeche.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ)) := by
+  unfold IndRepData.ruleAV
+  rw [fixRepData_Ls, fixRepData_pinsOf, fixRepData_ipss, fixRepData_cdsR, fixRepData_elimL,
+    fixRepData_bb, fixRepData_nAll, fixRepData_nP, fixRepData_k, fixRepData_nIdxs, fixRepData_mems,
+    fixRepData_tgtsR, fixRepData_ppsM, fixRepData_dsF, fixRepData_ksR, fixRepData_tssR,
+    fixRepData_eissR, ruleDataAVP_params, mutualRuleDataAV_one,
+    mutualRuleCoreAV_congr_Rof (Rof' := fun _ => m.acval (p.cvT.name.str "rec") ψ)
+      (fun _ _ => rfl), mutualRuleCoreAV_one]
+
 set_option maxHeartbeats 3200000 in
 /-- **A natively installed block is represented**, from the recursor
 stage's block facts (`stageFixRec`'s hypotheses at the carrier storing
@@ -275,6 +415,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {mI rP : Nat}
     (hmI : mI = p.nP + 1 + ctorsA.length + p.nIdx) (hrP : rP = p.nP + 1 + ctorsA.length)
     (hlenR : rhss.length = ctorsA.length)
+    (hRname : cvRa.name = p.cvT.name.str "rec") (hnotR : env.find? cvRa.name = none)
     {bsT : List (Expr × ConLeche.BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
@@ -316,7 +457,11 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       ∀ j, j < ctorsA.length →
         FieldsOkB (p.resSort.eval ψ) ρp
-          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [])) :
+          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []))
+    -- the recursor's type reading (task #279 M-A′)
+    (hRread : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvRa.type
+      = some (mkPisAV (fixRdsAV m p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
+          (recConcAV ctorsA.length p.nIdx))) :
     IndRep m p.cvT.name cvTa cvRa mI rP
       (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
       (fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll
@@ -360,11 +505,24 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     member := rfl
     strip := ⟨bsT, hstripT⟩
     isProp := hProp
+    rulesRead := fun _ _ h => by rw [hnotR] at h; exact nomatch h
     mI := hmI
     rP := hrP
     rules := fun _ => by
       rw [IndRepData.memberCtors_of_all (d := d) (mm := 0) (fun _ => rfl)]
       exact sumRules_map_ctor hlenR
+    kRealLe := Nat.le_refl _
+    memReal := Nat.zero_lt_one
+    recName := hRname.symm
+    tgtsRLt := fun _ _ => Nat.zero_lt_one
+    membersFound := fun t ht => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact hfT
+    ctorsCFound := fun _ h => nomatch h
+    pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
+    recRead := fun _ ψ => by
+      rw [hRread ψ, fixRepData_recDataAV, show d.k = 1 from rfl, show d.nAll = ctorsA.length from rfl,
+        show d.nIdxAt 0 = p.nIdx from rfl, mutualConcAV_one]
     former := hFD
     ctors := fun j cA hj => by rw [hlpsT]; exact hcf j cA hj
     memsFound := fun j hj => ⟨hfT, fun _ => hfT⟩
