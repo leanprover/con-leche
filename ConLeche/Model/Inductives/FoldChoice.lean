@@ -342,6 +342,231 @@ theorem motChoiceAV_mem (m : EnvModel V env) {ψ : Name → Nat} {ps : List Anno
     rw [hleaf, interp_sort]
     simpa using this
 
+/-- **The motive value's β**: applied to index values and a major
+fitting the motive's binders, the motive value is the target at the
+index values (the major is ignored). -/
+theorem motChoiceAV_fold (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {t : Nat} {ρ : Nat → V} (hps : ps.length = d.nP)
+    (hips : ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0) {is : List V} {x : V}
+    (hfit : SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV m ψ t).map (·.2.2))
+      (is ++ [x])) :
+    (is ++ [x]).foldl SetTheory.app (interp V ρ (d.motChoiceAV m ψ ps Tg t))
+      = is.foldl SetTheory.app (interp V ρ (Tg t)) := by
+  have hb : pwBit ψ ConLeche.PropWhen.never ≠ 0 := by rw [pwBit_never_eq]; exact Nat.one_ne_zero
+  unfold motChoiceAV
+  rw [← hps, interp_instSeq_consList, hps]
+  generalize hσ : consList (ps.map (interp V ρ)) ρ = σ at hfit ⊢
+  have hlenAs : (is ++ [x]).length = d.nIdxs.getD t 0 + 1 := by
+    have := SpineFit.length_eq hfit
+    rw [this, List.length_map]
+    unfold motDataAV
+    rw [List.length_append, rebit_length, List.length_singleton, hips]
+  have hlenI : is.length = d.nIdxs.getD t 0 := by
+    simp at hlenAs; exact hlenAs
+  have hfit' : SpineFit σ (((d.motDataAV m ψ t).map fun x => (x.2.1, x.2.2)).map (·.2)) (is ++ [x]) := by
+    rw [List.map_map]; exact hfit
+  rw [mkLamsAV_fold (fun x hx => by
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+      show y.2.1 ≠ 0
+      rw [d.mem_motDataAV hy]; exact hb) hfit']
+  have hleaf : consList (is ++ [x]) σ = cons x (consList is σ) := by
+    rw [consList_append, consList_cons, consList_nil]
+  have hshift1 : shiftE 1 0 (consList (is ++ [x]) σ) = consList is σ := by
+    rw [hleaf]; funext i; simp [shiftE]
+  have hshiftTg : shiftE (d.nP + d.nIdxs.getD t 0 + 1) 0 (consList (is ++ [x]) σ) = ρ := by
+    rw [← hσ, ← consList_append,
+      show d.nP + d.nIdxs.getD t 0 + 1 = (ps.map (interp V ρ) ++ (is ++ [x])).length from by
+        simp [hps, hlenI]; omega,
+      shiftE_consList]
+  rw [interp_mkAppN_map, map_idxVarsAV_interp (ρ₀ := consList is σ) hshift1, ← hlenI,
+    frameIdx_consList', interp_liftN, hlenI, hshiftTg]
+
 end IndRepData
+
+/-! ## The minor's binder data -/
+
+/-- The ih binders of a minor, as binder data (`ihPisAVM` is the
+Π-tower over them). -/
+@[expose] def ihDataAVM (moti : Nat → Nat) (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
+    (Eiss : List (List AnnotTerm)) : List Nat → Nat → List (Nat × Nat × AnnotTerm)
+  | [], _ => []
+  | i :: is, l =>
+    (0, b, ihDomAVM (moti i) nF o i l (rebit b (tls.getD i [])) (Eiss.getD i [])) ::
+      ihDataAVM moti nF o b tls Eiss is (l + 1)
+
+omit [SetTheory V] in
+theorem ihPisAVM_eq_mkPisAV (moti : Nat → Nat) (nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    ∀ (is : List Nat) (l : Nat) (body : AnnotTerm),
+      ihPisAVM moti nF o b tls Eiss is l body = mkPisAV (ihDataAVM moti nF o b tls Eiss is l) body
+  | [], _, _ => rfl
+  | i :: is, l, body => by
+    simp only [ihPisAVM, ihDataAVM, mkPisAV, ihPisAVM_eq_mkPisAV moti nF o b tls Eiss is (l + 1) body]
+
+omit [SetTheory V] in
+theorem ihDataAVM_length (moti : Nat → Nat) (nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    ∀ (is : List Nat) (l : Nat), (ihDataAVM moti nF o b tls Eiss is l).length = is.length
+  | [], _ => rfl
+  | i :: is, l => by simp [ihDataAVM, ihDataAVM_length moti nF o b tls Eiss is (l + 1)]
+
+omit [SetTheory V] in
+theorem mem_ihDataAVM {moti : Nat → Nat} {nF o b : Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eiss : List (List AnnotTerm)} :
+    ∀ {is : List Nat} {l : Nat} {x : Nat × Nat × AnnotTerm},
+      x ∈ ihDataAVM moti nF o b tls Eiss is l → x.2.1 = b
+  | [], _, _, h => nomatch h
+  | i :: is, l, x, h => by
+    simp only [ihDataAVM, List.mem_cons] at h
+    rcases h with rfl | h
+    · rfl
+    · exact mem_ihDataAVM h
+
+omit [SetTheory V] in
+/-- The ih binders, positionally: ih `n` is over recursive field
+`is[n]` at ih position `l + n`. -/
+theorem ihDataAVM_getElem? (moti : Nat → Nat) (nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    ∀ (is : List Nat) (l n : Nat),
+      (ihDataAVM moti nF o b tls Eiss is l)[n]?
+        = (is[n]?).map fun i =>
+            (0, b, ihDomAVM (moti i) nF o i (l + n) (rebit b (tls.getD i [])) (Eiss.getD i []))
+  | [], _, _ => rfl
+  | i :: is, l, 0 => by simp [ihDataAVM]
+  | i :: is, l, n + 1 => by
+    simp only [ihDataAVM, List.getElem?_cons_succ]
+    rw [ihDataAVM_getElem? moti nF o b tls Eiss is (l + 1) n]
+    congr 2
+    funext i'
+    rw [show l + 1 + n = l + (n + 1) from by omega]
+
+/-- A minor's binder data: the fields lifted under the `o` earlier
+binders, then the ih binders. -/
+@[expose] def minorDataAV (moti : Nat → Nat) (nP nF b o : Nat) (ds : List (Nat × Nat × AnnotTerm))
+    (recIdx : List Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    List (Nat × Nat × AnnotTerm) :=
+  rebit b (liftDoms o 0 (ds.drop nP)) ++ ihDataAVM moti nF o b tls Eiss recIdx 0
+
+/-- A minor's conclusion: the constructor's member's motive at the
+index readings and the constructor at the fields, under the ih
+binders. -/
+@[expose] def minorConcAV (mot : Nat) (m : EnvModel V env) (C : Name) (pinsC : List AnnotTerm)
+    (ψ : Name → Nat) (nP nF o : Nat) (Es : List AnnotTerm) (nIh : Nat) : AnnotTerm :=
+  (AnnotTerm.mkAppN (.bvar (nF + o - 1 - mot))
+    ((Es.map fun E => E.liftN o nF) ++
+      [famAppAV (m.acval C ψ) pinsC nP (nP + o + nF) nF])).liftN nIh 0
+
+/-- The tower's minor domain is the Π-tower over the minor's binder
+data ending in its conclusion. -/
+theorem minorAVAtRMP_eq {mot : Nat} {moti : Nat → Nat} {m : EnvModel V env} {C : Name}
+    {pinsC : List AnnotTerm} {ψ : Name → Nat} {nP nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {Es : List AnnotTerm} {recIdx : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eiss : List (List AnnotTerm)} :
+    minorAVAtRMP mot moti m C pinsC ψ nP nF b o ds Es recIdx tls Eiss
+      = mkPisAV (minorDataAV moti nP nF b o ds recIdx tls Eiss)
+          (minorConcAV mot m C pinsC ψ nP nF o Es recIdx.length) := by
+  unfold minorAVAtRMP minorDataAV minorConcAV
+  rw [mkPisAV_append, ihPisAVM_eq_mkPisAV]
+
+theorem mem_minorDataAV {moti : Nat → Nat} {nP nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {recIdx : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)}
+    {x : Nat × Nat × AnnotTerm} (hx : x ∈ minorDataAV moti nP nF b o ds recIdx tls Eiss) :
+    x.2.1 = b := by
+  simp only [minorDataAV, List.mem_append] at hx
+  rcases hx with h | h
+  · exact mem_rebit h
+  · exact mem_ihDataAVM h
+
+/-- The minor entries at pins, positionally. -/
+theorem fixMinorsDataMP_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (pinsOf : Nat → List AnnotTerm)
+      (cds : List CtorDatumR) (o j : Nat),
+      (fixMinorsDataMP mots tgts pinsOf m ψ nP b cds o)[j]?
+        = (cds[j]?).map fun cd => (0, b, minorAVAtRMP (mots j) (tgts j) m cd.1 (pinsOf j) ψ nP
+            cd.2.1 b (o + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+  | _, _, _, [], _, _ => rfl
+  | mots, tgts, pinsOf, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, 0 => by
+    simp [fixMinorsDataMP]
+  | mots, tgts, pinsOf, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, j + 1 => by
+    simp only [fixMinorsDataMP, List.getElem?_cons_succ]
+    rw [fixMinorsDataMP_getElem? (fun J => mots (J + 1)) (fun J => tgts (J + 1))
+      (fun J => pinsOf (J + 1)) cs (o + 1) j]
+    congr 2
+    funext cd
+    rw [show o + 1 + j = o + (j + 1) from by omega]
+
+omit [SetTheory V] in
+/-- The motive entries at pins, positionally. -/
+theorem motivesDataGoP_getElem? (Lof : Nat → AnnotTerm) (pinsOf : Nat → List AnnotTerm)
+    (nIdxOf : Nat → Nat) (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat)
+    (ℓ : Level) (b : Nat) :
+    ∀ (k i t : Nat), t < k →
+      (motivesDataGoP Lof pinsOf nIdxOf ipsOf ψ nP ℓ b k i)[t]?
+        = some (0, b, (motiveAVP (Lof t) (pinsOf t) ψ nP (nIdxOf t) ℓ (ipsOf t)).liftN (i + t) 0)
+  | 0, _, _, h => absurd h (Nat.not_lt_zero _)
+  | k + 1, i, 0, _ => by simp [motivesDataGoP]
+  | k + 1, i, t + 1, h => by
+    simp only [motivesDataGoP, List.getElem?_cons_succ]
+    rw [motivesDataGoP_getElem? (fun t => Lof (t + 1)) (fun t => pinsOf (t + 1))
+      (fun t => nIdxOf (t + 1)) (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1) t (by omega),
+      show i + 1 + t = i + (t + 1) from by omega]
+
+/-! ## The ih domain in target form -/
+
+/-- **The ih domain of recursive field `i` in TARGET form**: the Π-tower
+over the field's telescope (moved to the ih frame) of the target of
+the field's member at the field's index readings — what a hypothesis
+value is when the motive is `λ ı⃗ x, Tg ı⃗`. -/
+@[expose] def tgIhDomAV (Tg : Nat → AnnotTerm) (tgt nP nF o i l : Nat)
+    (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
+  mkPisAV (ihTeleAtR nF o i l tl)
+    (AnnotTerm.mkAppN ((Tg tgt).liftN (nP + o + nF + l + tl.length) 0)
+      (Eis.map (ihIdxAtM nF o i l tl.length)))
+
+/-- The target-form ih domain reads, at the ih frame, to the nested
+product over the field's telescope at the field's own frame of the
+target at the field's index values. -/
+theorem interp_tgIhDomAV {b nP nF o i l : Nat} {ρ : Nat → V} {ps Ms ms : List V}
+    (hps : ps.length = nP) (hms : ms.length + Ms.length = o) (hk : 0 < Ms.length)
+    {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l) (hi : i < nF)
+    {tl : List (Nat × Nat × AnnotTerm)} (hbits : ∀ d ∈ tl, (d.2.1 = 0 ↔ b = 0))
+    (Tg : Nat → AnnotTerm) (tgt : Nat) (Eis : List AnnotTerm) :
+    interp V (consList ihs (consList fs (consList ms (consList Ms (consList ps ρ)))))
+        (tgIhDomAV Tg tgt nP nF o i l tl Eis)
+      = piTele b (teleOfFields (consList (fs.take i) (consList ps ρ)) (tl.map (·.2.2)))
+          (fun as => (Eis.map (interp V (consList as (consList (fs.take i) (consList ps ρ))))).foldl
+            SetTheory.app (interp V ρ (Tg tgt))) [] := by
+  unfold tgIhDomAV
+  rw [ConLeche.Semantics.interp_mkPisAV_piTele (v := b) (acc := [])
+    (B := fun as => (Eis.map (interp V (consList as (consList (fs.take i) (consList ps ρ))))).foldl
+      SetTheory.app (interp V ρ (Tg tgt)))]
+  · have hT := piTele_ihTeleAtGoK (v := b) (ρp := consList ps ρ)
+      (B := fun as => (Eis.map (interp V (consList as (consList (fs.take i) (consList ps ρ))))).foldl
+        SetTheory.app (interp V ρ (Tg tgt))) hms hk hfs hihs (Nat.le_of_lt hi) tl [] []
+    simp only [List.length_nil, consList] at hT
+    exact hT
+  · intro d hd
+    obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
+    rw [he]; exact hbits d' hd'
+  · intro as hsp
+    have hlen : as.length = tl.length := by
+      rw [hsp.length_eq, List.length_map, ihTeleAtR_length]
+    rw [List.nil_append, interp_mkAppN_map, List.map_map]
+    have hE : Eis.map (interp V (consList as (consList ihs (consList fs (consList ms
+        (consList Ms (consList ps ρ)))))) ∘ ihIdxAtM nF o i l tl.length)
+        = Eis.map (interp V (consList as (consList (fs.take i) (consList ps ρ)))) := by
+      apply List.map_congr_left
+      intro E _
+      simp only [Function.comp_def]
+      rw [← hlen]
+      exact interp_ihIdxAtMK hms hk hfs hihs (Nat.le_of_lt hi) as E
+    rw [hE, interp_liftN]
+    congr 1
+    rw [← consList_append, ← consList_append, ← consList_append, ← consList_append,
+      ← consList_append,
+      show nP + o + nF + l + tl.length
+        = (ps ++ (Ms ++ (ms ++ (fs ++ (ihs ++ as))))).length from by
+          simp [hps, hfs, hihs, hlen]; omega,
+      shiftE_consList]
 
 end ConLeche.Model
