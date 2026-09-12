@@ -144,16 +144,16 @@ members.
 
 "Installed under its own name, with the annotation of its declared
 type" is a claim in its own right, and it is proved in general:
-[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L767-L772)
+[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L772-L777)
 says that whenever `checkDecls` accepts `ds`, every record of `ds` that
 declares a constant — a definition, a theorem, an opaque, or an axiom
 whose name is not the tolerated `sorryAx`
-([`DeclC.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L617-L623))
+([`DeclC.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L622-L628))
 — leaves a constant of that very name in the returned environment, with
 the record's own level parameters and with the *annotation* of the
 record's own type: the same term with every `let` inlined and the
 binder data rewritten, and nothing else touched at all
-([`AnnotOf` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L121-L122)).
+([`AnnotOf` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L126-L127)).
 A `basisDecl` record declares nothing of its own — it names one of the
 checker's pinned basis blocks, and what is installed is the pins'.
 
@@ -183,7 +183,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L96-L100)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L97-L101)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.

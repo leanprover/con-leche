@@ -50,26 +50,26 @@
     69      (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     70      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L767-L772
-   767  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   768      {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
-   769      {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
-   770      ∃ c, env.find? cv.name = some c ∧
-   771        c.toConstantVal.levelParams = cv.levelParams ∧
-   772        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Verify/Cached/StreamConsts.lean#L772-L777
+   772  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   773      {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+   774      {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+   775      ∃ c, env.find? cv.name = some c ∧
+   776        c.toConstantVal.levelParams = cv.levelParams ∧
+   777        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L617-L623
-   617  @[expose] def DeclC.Declares : DeclC → ConstantVal → Prop
-   618    | .defnDecl cv _ _, cv' => cv' = cv
-   619    | .thmDecl cv _, cv' => cv' = cv
-   620    | .opaqueDecl cv _, cv' => cv' = cv
-   621    | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
-   622    | .basisDecl _, _ => False
-   623    | .indDecl _ _, _ => False
+== ConLeche/Verify/Cached/StreamConsts.lean#L622-L628
+   622  @[expose] def DeclC.Declares : DeclC → ConstantVal → Prop
+   623    | .defnDecl cv _ _, cv' => cv' = cv
+   624    | .thmDecl cv _, cv' => cv' = cv
+   625    | .opaqueDecl cv _, cv' => cv' = cv
+   626    | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
+   627    | .basisDecl _, _ => False
+   628    | .indDecl _ _, _ => False
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L121-L122
-   121  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
-   122    stored.resetMeta = declared.zeta.resetMeta
+== ConLeche/Verify/Cached/StreamConsts.lean#L126-L127
+   126  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
+   127    stored.resetMeta = declared.zeta.resetMeta
 
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
@@ -78,12 +78,12 @@
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L96-L100
-    96  /--
-    97  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    98  -/
-    99  #guard_msgs in
-   100  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L97-L101
+    97  /--
+    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    99  -/
+   100  #guard_msgs in
+   101  #print axioms ConLeche.model_exists
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)

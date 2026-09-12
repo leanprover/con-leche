@@ -1,8 +1,13 @@
 module
 
-public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.Subst
-public import ConLeche.Verify.Cached.InstalledC
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Subst
+public import ConLeche.Cached.Installed
+public import ConLeche.Model.Fold
+public import ConLeche.Verify.Cached.BridgeC
+import ConLeche.Verify.EnvBound
+import ConLeche.Verify.Cached.InstalledC
+import ConLeche.Semantics.Bridge.Sound
 
 public section
 

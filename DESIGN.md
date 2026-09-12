@@ -69273,3 +69273,265 @@ corollary instead of the environment one.
 **README.md is the maintainer's** and was not touched; its "### The
 Main Corollary" section still shows the removed statement, and the
 replacement text is in this task's report.
+
+## TASK #289 — WHAT `checkDecls` STORES OF WHAT IT READS (2026-09-12, `agent/streamrel-289`)
+
+The maintainer's request: *"somewhere I want a strong statement on how
+`checkDecls`'s output relates to the input: Every constant in `ds`
+except `sorryAx` appears in `env`, with types related by a relation that
+ignores annotations and zeta-reduces let.  Not a theorem to go into
+MainTheorem, but maybe the proof can mention it, and of course the
+OVERVIEW should point to it."*  Landed as
+`ConLeche/Verify/Cached/StreamConsts.lean`.
+
+### 1. The relation
+
+```lean
+@[expose] def Expr.zeta : Expr → Expr
+  | .app f a        => .app (zeta f) (zeta a)
+  | .lam ty b m     => .lam (zeta ty) (zeta b) m
+  | .forallE ty b m => .forallE (zeta ty) (zeta b) m
+  | .letE _ v b     => (zeta b).instantiate1Lift (zeta v) 0
+  | .proj s i e     => .proj s i (zeta e)
+  | .fvar i ty      => .fvar i ty
+  | e               => e
+
+@[expose] def AnnotOf (declared stored : Expr) : Prop :=
+  stored.resetMeta = declared.zeta.resetMeta
+```
+
+Two decisions in there.
+
+* **The erasure is `Expr.resetMeta`, which already existed** (the
+  recursor replay's, `Kernel/ExprOps.lean`): "every binder's datum reset
+  to the parse placeholder".  No new definition was needed, because
+  `BinderMeta.pw` on `lam`/`forallE` is the WHOLE of what a node carries
+  beyond its shape — task #205 dropped the binder name, the `BinderInfo`
+  and the `fvar` display name precisely so that structural `=` IS
+  α-equivalence.  So "ignores annotations" has one honest reading and
+  `resetMeta` is it.  (`resetMeta` descends into `fvar` type
+  annotations; `zeta` does not, because the annotation pass does not
+  either — its `.fvar` clause is `pure e`.  On the terms the theorem is
+  about the difference is invisible: a declared type is `hasFvar =
+  false`.)
+* **`zeta` substitutes with `instantiate1Lift`, not `instantiate1`.**
+  The checker's own `instantiate1` does no lifting, which is correct for
+  it because the pass opens every binder with an `fvar` before
+  descending and so only ever inlines a bvar-CLOSED `let` value.  A pure
+  function on de Bruijn terms has no such luxury: it meets a `let` under
+  binders whose value mentions them.  With `instantiate1Lift` the
+  commutation lemma is unconditional apart from the substituted term
+  being closed, and it is exactly `instantiate1Lift_instantiate1`
+  (`Verify/Subst.lean`), which was already there.
+
+`annotateCore_annotOf` is the theorem: a successful *pure* annotation
+run over a bvar-closed, `d`-scoped term returns a term `AnnotOf`-related
+to it.  Induction on the knot's fuel; `Verify/Abstract.lean`'s five
+`annotateCore_*_inv` inversions do the unfolding.  The binder clauses
+are the only real work: the pass opens with `fvar d ty'`, annotates,
+and closes with `abstract1`, so the proof needs (a) `zeta` commuting
+with a closed substitution, (b) `resetMeta` commuting with both
+`instantiate1` and `abstract1`, and (c) the open-then-close roundtrip
+`instantiate1_abstract1_self` — the mirror of the existing
+`abstract1_instantiate1`, and the one roundtrip direction that was
+missing.
+
+**One inversion had to be re-proved.** `annotateCore_proj_inv` discards
+the `T = sn` check (task #271's "the node names another structure"),
+because its consumers — `WScoped`, `looseBVarsBounded`, `LeafEquiv` —
+are blind to the name.  `AnnotOf` is not: the stored node's structure
+name has to be the declared one.  `annotateCore_proj_name` is the same
+walk keeping that conjunct; adding it to the existing lemma would have
+broken every `obtain ⟨…⟩` on it.
+
+### 2. The theorem
+
+```lean
+theorem checkDecls_consts (V : Type w) [SetTheory V]
+    {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    ∃ c, env.find? cv.name = some c ∧
+      c.toConstantVal.levelParams = cv.levelParams ∧
+      AnnotOf cv.type c.toConstantVal.type
+```
+
+`DeclC.Declares` is the record-kind side: a definition, a theorem and an
+opaque declare their header; an axiom declares its header **unless
+`toleratedAxiomNames.contains cv.name`** — the exception is written
+exactly as `checkDeclC`'s own arm has it (`ParsedC.lean`: the tolerated
+branch is `pure fe`, no push, no `recordCConst`, no pending check), and
+`toleratedAxiomNames` is exactly `[sorryAx]`; `basisDecl` and `indDecl`
+declare nothing.
+
+`find?` rather than `∈ env.consts`: the returned environment's names are
+unique — `PushChain`'s third conjunct, already computed by
+`installRun_trace` from `NodupNames Env.empty` — so membership upgrades
+to a lookup for free (`find?_of_mem_nodup`, the one list lemma that was
+missing).
+
+### 3. Against task #277 §5's six reasons
+
+§5 rejected a `ds`-statement whose lemma would be *"every constant a
+`DeclC` of `ds` declares is in `env.consts` with the same type and
+value"*, as FALSE, and listed why.  This statement is the TRUE version;
+here is each reason and what became of it.
+
+1. **the frontend drops tolerated-axiom records and everything
+   downstream** — not this statement's business: `ds` is the fold's
+   input, and the *fold* accepts an `axiomDecl sorryAx` and stores
+   nothing.  That is `DeclC.Declares`'s one side condition.
+2. **the built-in prelude is prepended** — harmless: the statement is
+   one-directional (every declared constant is stored), never "and
+   nothing else is".
+3. **the `ProjRec` rewrite** and 4. **the in-process modeller's `_model`
+   records** — likewise: extra records, extra stored constants.
+5. **constructors are reordered** and 6. **a stream's own copy of a
+   prelude block is dropped** — both concern `indDecl` blocks, which are
+   outside the claim for a stronger reason (§4).
+   Plus the three §5 listed after the six: `annotate` (that is the whole
+   point — `AnnotOf`, not `=`), `opaqueDecl`'s discarded value (the
+   statement is about TYPES only), and `indDecl`'s regenerated recursors
+   (§4).
+
+§5's recommendation — "state the theorem about `env`, as it is" — stands
+for the MAIN theorem; this is an addition, it is not in
+`MainTheorem.lean`, and `OVERVIEW.md` points at it from the corollary
+paragraph.
+
+### 4. The `indDecl` caveat — three of them, not one
+
+The brief expected the recursor to be the exception a reader should hear
+about.  It is one of three, and the other two are the more interesting
+finding:
+
+* **the recursor** — `checkNativeRec` (`Kernel/Inductives/NativeInstall.lean`)
+  checks the stream's record with `checkConstantVal`, builds the
+  GENERATED type `structRecTyR`, compares the two with `ops.isDefEq` and
+  then stores the generated one, discarding the stream's.  Official's
+  replay does the same.  So the true relation for a recursor is "the
+  accepting run's `isDefEq`", not `AnnotOf`.
+* **the type former**, on the native route — `checkSumTele`
+  (`Kernel/Inductives/SumInstall.lean`): if the declared type is not
+  ALREADY a syntactic Π-telescope of `nP + nIdx` binders ending in a
+  sort, the checker whnf's the telescope, closes it and runs
+  `checkConstantVal` on THAT from scratch.  The stored type is then the
+  annotation of the reduct.
+* **a constructor**, on the native route — `normCtorVal` (same file):
+  the field domains are normalised by official's positivity walk and,
+  when that changed anything, `checkConstantVal` runs again on the
+  rebuilt type.
+
+So `AnnotOf (declared type) (stored type)` is REFUTABLE for inductive
+members on the native route, not merely unproved, and a cheap weakening
+does not exist: the honest claim is a defeq one.  A separate
+complication is that a constructor is annotated at the environment
+holding the type former, not at the pre-block environment, so even the
+shape `∃ F, annotateCore μ env F 0 cv.type = .ok …` is wrong at `env`.
+
+The MODELED route does store the annotation of the declared type for
+formers and constructors (`checkMemberVal` is plain `checkConstantVal`),
+and `Semantics.MemberValRun` already carries the equation; what is
+missing there is the `find?`-at-the-end plumbing through the member,
+recursor and projection folds — a route-conditional claim, which is not
+a statement worth having.  **Docketed, not attempted.**
+
+### 5. Why the model (and `V`) is in the statement
+
+The proof has to relate what the CACHED pass returned to what the pure
+`annotateCore` returns — the cached entry point is memoised, and the
+memo's contents are only pinned by `CSOK.annotC` ("every entry is backed
+by a pure run").  The cached→pure simulation needs `EnvWF` of the
+environment the record is installed at, and in this tree `EnvWF` is
+bundled into `Semantics.EnvFacts`, which comes from the model: there is
+NO route to `EnvWF` along the run that does not thread `EnvModelOk V μ`.
+Hence `(V : Type w) [SetTheory V]`, exactly as `no_False_theorem_accepted`
+carries it and for the same underlying reason.
+
+This is also why **`checkDecls_thmDecl_const` (#286) was NOT made a
+corollary of this theorem**, although `AnnotOf` on a bare constant is
+equality.  Its statement has no `V`, the tree instantiates `SetTheory`
+nowhere, so deriving it here would mean adding a `V` parameter to it —
+changing the statement the brief said to keep.  The two proofs stay
+side by side, and that is the right outcome: #286's is cheap precisely
+because a bare constant needs no annotation specification and the step's
+own `flushC` empties the memo, so it reads the cached pass directly with
+no model in sight.  The general statement cannot.
+
+### 6. `annotStepC_model`: `installRun_model`'s cons case, extracted
+
+The walk needs `installRun_model`'s five hypotheses and its per-step
+model reasoning.  Rather than duplicate 130 lines, the cons case is now
+a lemma of its own in `Verify/Cached/InstalledC.lean`, with ONE conjunct
+added to what it concludes:
+
+```lean
+EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
+  ∃ d F, DeclCRel pd d ∧ checkDecl μ (fueledOps μ F) fe.env d = .ok fe₁.env
+```
+
+The third conjunct is the interesting one: phase A's step at a record —
+including the separable value declarations, whose check phase A only
+*records* — IS a pure `checkDecl` run at some fuel.  Both halves of the
+old proof already produced it (`checkDeclStepC_run` on the ordinary
+path, `hsplit` on the value path) and threw it away.  With it, the
+per-record reasoning happens entirely at the pure checker's own run
+relation: `Semantics.checkDeclRun_ofEnvFactsE` (which, despite the name,
+needs no `EnvFacts`) hands out `DeclRun`, whose `ConstantValRun` carries
+`annotateCore μ env F 0 cv.type = .ok type'` together with the two
+guards `annotateCore_annotOf` wants (`looseBVarsBounded 0`,
+`hasFvar = false`).  `checkDecl_declares` is then four near-identical
+cases and `installRun_model` itself is five lines.
+
+### 7. What was hard
+
+* **Nothing about the annotation pass.**  The expectation was that the
+  binder telescope loops (`annotatePisC`/`annotateLamsC`) would be the
+  wall.  They never appeared: the statement is about the PURE
+  `annotateCore`, which is the chained one-binder-at-a-time spec, and
+  `Verify/Abstract.lean` already had every inversion and both scoping
+  preservations.  The cached loops are reached only through the existing
+  simulation, which the walk consumes as a black box.
+* **The de Bruijn algebra was the wall, and it was already built.**
+  `instantiate1Lift_instantiate1` is *the* lemma the `letE` case of
+  `zeta_instantiate1` needs, stated with exactly the right closedness
+  side condition; without it the naive `zeta` over `instantiate1` is not
+  merely unproved but wrong (substituting an open value under a binder
+  captures).
+* **`installRun_model`'s hypotheses do not survive a prefix split.**
+  The first plan was to split the run at the record, apply
+  `installRun_model` to the prefix for `EnvWF`, and leave the existing
+  theorem alone.  It fails on hypothesis (5): the pending-check
+  hypothesis is stated at the run's FINAL index (`checkPending μ q.2.1
+  pc {}`), and at an intermediate index it is a different statement —
+  the same `restrictTo` of a smaller `FEnv`.  Hence the extraction.
+* **`obtain rfl` eats the wrong variable.**  `DeclCRel`'s cases give
+  `hty : RelC cv.type tyE` and the record gives `hcv : cv' = cv`;
+  substituting the second first deletes the variable the first mentions.
+  Order matters.
+
+### 8. Gates
+
+`lake build` warning-free; `lake test` warning-free (the axiom pin gains
+a row — `ConLeche.Cached.checkDecls_consts` at
+`[propext, Classical.choice, Quot.sound]` — and four `#guard`s pin
+`Expr.zeta`'s two halves); `tests/arena.sh` exit 0.  `tests/shake.sh`
+needed two edits: of the new module's eight imports only three are
+`public` — shake demotes `InstalledC` (the module that declares
+`annotStepC_model`!) in favour of re-exporting `Cached.Installed`,
+`Model.Fold` and `Verify/Cached/BridgeC`, which is what the public
+statements actually name, and `pub-import-plan` demotes `Verify/Abstract`,
+`Verify/Subst` and `Verify/EnvBound` on top of that — and the allowlist line for `InstalledC`'s own
+`public import … PushChain` is DELETED — `annotStepC_model`'s statement
+names `PushChain`, so that import is a genuine re-export now and shake
+no longer proposes removing it.  `tests/overview-links.sh --update`
+after re-reading the citing paragraphs (the two `InstalledC.lean`
+anchors moved with the step lemma; the axiom-pin anchor moved with the
+new pin).  `tests/proofdeps.sh` needed NO regeneration: the new module
+is in no capstone's closure — `checkDecls_thmDecl_const` was not made a
+corollary of it (§5) — and `annotStepC_model` sits in a module the
+walks already reached.
+
+Merged with master (tasks #288 and #291, which relabelled the
+corollaries and dropped `no_proof_of_False`) before landing; no
+conflicts, and the OVERVIEW paragraph reads correctly after #291's
+rewrite of the paragraph it follows.
