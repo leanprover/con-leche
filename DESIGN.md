@@ -71052,7 +71052,7 @@ did not move):
 | `lake test` | exit 0, warning-free |
 | `tests/nested-shadow.sh` | **22/22 as expected** |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | see the merge record |
+| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **213/213** (195 + the 18 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
 | Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
