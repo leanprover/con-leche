@@ -1112,23 +1112,34 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       exact nomatch h')
     have hpin : cvRa.name = p.cvT.name.str "rec" :=
       hRname.trans (ConLeche.checkNativeRec_pins hRec).1
-    refine (indRep_of_stage mp.base2 hmI hrP hlenR hpin hfresh hstripT hProp hlpsT ⟨cvTa, caps, hfT⟩
-      hFD hcf hidxRes _hUparams
-      hleafT hagree hleafC hiff
+    have hrep := indRep_of_stage mp.base2 hmI hrP hlenR hpin hfresh hstripT hProp hlpsT
+      ⟨cvTa, caps, hfT⟩ hFD hcf hidxRes _hUparams hleafT hagree hleafC hiff
       (fun ψ ρp hρ => ⟨(hframes ψ ρp hρ).1, fun j hj => ((hframes ψ ρp hρ).2.2.1 j hj).1⟩)
-      hRD.read).cross
-      (c₀ := c₀) hfresh hcrossE hfT m₂ hac (hcross _) hcbR ?_
-    -- the rules' readings at the head (task #279 M-A′): the block's own
-    -- rules, read by `fixRuleData_of`
-    intro _ _ _
-    refine ⟨fun t ht => ?_, fun j cA hj _ => ?_⟩
-    · obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
-      show (Env.find? ⟨c₀ :: env.consts⟩ (p.cvT.name.str "rec")).isSome = true
+      hRD.read
+    refine hrep.cross (c₀ := c₀) hfresh hcrossE hfT m₂ hac (hcross _) hcbR ?_
+    -- the recursor's readings at the head (task #279 M-A′/M-B′): the
+    -- one member's recursor is the head itself, its type's reading the
+    -- stage's carried across, its rules the block's own read by
+    -- `fixRuleData_of`
+    intro hnP _ _ t ht
+    obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+    have hfind : Env.find? ⟨c₀ :: env.consts⟩ (p.cvT.name.str "rec") = some c₀ := by
       rw [← hpin, ConLeche.Env.find?_cons, if_pos (show c₀.name = cvRa.name from rfl)]
+    refine ⟨cvRa, mI, rP, _, hfind, ?_, hmI, hrP, fun ψ => ?_, ?_, fun j cA hj _ => ?_⟩
+    · rw [(ConLeche.checkNativeRec_facts hRec).2.1, ConLeche.checkNativeRec_lps hRec, hlpsT]
       rfl
-    · obtain ⟨rhs, hrhs, -, -, -, hread⟩ :=
-        fixRuleData_of mp hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hfresh hTR m₂ hac hj
-      obtain ⟨rl, hrl, hctor, hrhsE⟩ := ConLeche.sumRules_getElem?_fwd hj hrhs
+    · rw [hrep.recDataAV_cons (c₀ := c₀) hfresh m₂ hac, hac]
+      exact denoteMeta_cons_mono hfresh (hcross _) ψ 0 hcbR (hrep.recRead hnP ψ)
+    · rw [IndRepData.memberCtorsAll_of_all
+        (d := fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
+          lvlsAll uAV) (mm := 0) (fun _ => rfl) rfl]
+      exact sumRules_map_ctor hlenR
+    · have hj' : ctorsA[j]? = some cA := by
+        have : (ctorsA ++ [])[j]? = some cA := hj
+        rwa [List.append_nil] at this
+      obtain ⟨rhs, hrhs, -, -, -, hread⟩ :=
+        fixRuleData_of mp hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hfresh hTR m₂ hac hj'
+      obtain ⟨rl, hrl, hctor, hrhsE⟩ := ConLeche.sumRules_getElem?_fwd hj' hrhs
       refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
       rw [hrhsE, hread ψ, fixRepData_ruleAV,
         show m₂.acval (p.cvT.name.str "rec") ψ = A ψ from by

@@ -4,6 +4,7 @@ import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Model.Swap
 import ConLeche.Model.IndRepSwap
+public import ConLeche.Model.IndRepExt
 import ConLeche.Model.IndMembers
 public import ConLeche.Model.Capstone
 public section
@@ -150,6 +151,35 @@ theorem blockAcvalInstalled_swap {blockNames : List Name}
   · exact h n hbn ci₀ hf₀ ψ
 
 set_option maxHeartbeats 1600000 in
+
+/-- **The install fold extends its accumulator** (task #279 M-B′): each
+step conses one checked recursor, fresh at the accumulator and no
+table, so the fold's output is an `EnvExt` of its start. -/
+theorem indRecsFoldRun_envExt {μ : CheckMode} {F : Nat} {blockNames : List Name}
+    {envBase envSelf : Env} :
+    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule)) {acc out : Env},
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf acc checked out →
+      (∀ c ∈ checked, acc.find? c.1.name = none) → (checked.map (·.1.name)).Nodup →
+      EnvExt acc out := by
+  intro checked
+  induction checked with
+  | nil =>
+    intro acc out h _ _
+    obtain rfl : out = acc := h
+    exact EnvExt.refl _
+  | cons c rest ih =>
+    intro acc out h hfresh hnd
+    obtain ⟨rules', -, hfold'⟩ := h
+    have hfc : acc.find? c.1.name = none := hfresh c List.mem_cons_self
+    refine (EnvExt.cons (c₀ := .recInfo c.1 c.2.1 c.2.2.1 rules') hfc
+      (fun _ h => nomatch h)).trans
+      (ih hfold' (fun c' hc' => ?_) (List.nodup_cons.mp hnd).2)
+    rw [Env.find?_cons, if_neg ?_]
+    · exact hfresh c' (List.mem_cons_of_mem _ hc')
+    · intro heq
+      exact (List.nodup_cons.mp hnd).1
+        (List.mem_map.mpr ⟨c', hc', (show c'.1.name = c.1.name from heq.symm)⟩)
+
 /-- **The recursor-group phase, P tier**: provision, fire, swap.
 The v1 carrier at the group's output is a premise — the install runs
 `indRecsS` for it anyway, and taking it here keeps `EnvWF`,
@@ -174,7 +204,7 @@ theorem indRecs (hμ : μ.verifiedChecks = true)
     hprov, hfold⟩
   · exact ⟨mp, hI, hIA⟩
   -- the provisioning, at both tiers
-  obtain ⟨mS, hIS, hIAS, hECS, hBPS⟩ :=
+  obtain ⟨mS, hIS, hIAS, hECS, hBPS, hagS⟩ :=
     provisionRecsPM hetaP hunitP recs mp hbn hprov hI hIA hEC hBP
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
@@ -268,17 +298,40 @@ theorem indRecs (hμ : μ.verifiedChecks = true)
       hbn hprov hfold
   have hreps : ∀ m₃ : EnvModel V env₃, m₃.acval = mS.base2.acval → IndReps m₃ := by
     intro m₃ hac
-    refine IndReps.swap hcg hac mS.ind_reps ?_
-    intro n cvR mI rP rules hf₃
+    -- the block's environment extends into the store (task #279 M-B′):
+    -- the prefix's clauses cross as an extension of the PRE-provision
+    -- environment, where the block's recursors are fresh; the block's
+    -- own are provisioned rule-less and then swapped — modeled leaves
+    have hxExt : EnvExt env₂ env₃ :=
+      indRecsFoldRun_envExt checked hfold (provisionRecsRun_checkedFresh recs hprov)
+        (provisionRecsRun_checkedNodup recs hprov)
+    have hagExt : ∀ n : Name, (env₂.find? n).isSome = true →
+        mp.base2.acval n = m₃.acval n := by
+      intro n hn; rw [hac, hagS n hn]
+    refine IndReps.ext hxExt hagExt mp.ind_reps fun n cvR mI rP rules hf₃ hf₂ T hn => ?_
+    -- an entry the provisioned environment holds under the same record:
+    -- provisioned, hence rule-less, and its clause crosses the swap
+    have hsame : envSelf.find? n = some (.recInfo cvR mI rP rules) →
+        (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+          env₃.find? T = some (.indInfo cvT caps) ∧ IndRep m₃ T cvT cvR mI rP rules d mm) ∨
+        ModeledLeaf m₃ n := by
+      intro hfS
+      obtain ⟨cv', mI', rP', hprovE⟩ := provisionRecsRun_find?_new recs hprov n _ hfS hf₂
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hprovE
+      rcases mS.ind_reps n cvR mI rP [] hfS T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hml
+      · exact Or.inl ⟨cvT, caps, d, mm, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
+          hd.swap hcg hac (fun _ hne _ => absurd rfl hne)⟩
+      · exact Or.inr (hml.swap hcg hac)
     rcases swapSh_find?_corr hswR n with heq | ⟨cv', mI', rP', rules', h₀, h₃, -⟩
-    · exact Or.inl (by rw [← heq]; exact hf₃)
+    · exact hsame (by rw [← heq]; exact hf₃)
     · rw [hf₃] at h₃
       obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj h₃)
       cases rules with
-      | nil => exact Or.inl h₀
+      | nil => exact hsame h₀
       | cons rl rest =>
         rcases hentBN n cvR mI rP (rl :: rest) hf₃ with hself | hall
-        · exact Or.inl hself
+        · rw [h₀] at hself
+          exact nomatch (ConstantInfo.recInfo.inj (Option.some.inj hself)).2.2.2
         · have hbnN : blockNames.contains cvR.name = true := hall rl List.mem_cons_self
           have hname : cvR.name = n := Env.find?_name hf₃
           rw [hname] at hbnN

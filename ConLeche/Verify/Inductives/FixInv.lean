@@ -129,6 +129,41 @@ theorem checkNativeRec_pins {env : Env} {p : NativeParts}
       rw [hlp]
       exact hq
 
+
+/-- The recursor's level parameters are the generated ones
+(`nativeRecLpsOk`): the elimination level first when the eliminator is
+large, then the block's (task #279 M-B′: the representation clause
+records them). -/
+theorem checkNativeRec_lps {env : Env} {p : NativeParts}
+    {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {r : ConstantVal × List Expr} {F : Nat}
+    (h : checkNativeRec (fueledOps mode F) env p cvTa ctorsA = .ok r) :
+    p.cvR.levelParams = (if p.large then p.elim :: p.cvT.levelParams else p.cvT.levelParams) := by
+  unfold checkNativeRec at h
+  by_cases hn : (p.cvR.name == p.cvT.name.str "rec") = true
+  case neg =>
+    exfalso
+    rw [if_neg hn] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  rw [if_pos hn] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hlp : nativeRecLpsOk p.toInductiveShape = true
+  case neg =>
+    exfalso
+    rw [if_neg hlp] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  unfold nativeRecLpsOk at hlp
+  by_cases hL : p.large = true
+  · rw [if_pos hL] at hlp
+    rw [if_pos hL]
+    exact beq_iff_eq.mp hlp
+  · rw [if_neg hL] at hlp
+    rw [if_neg hL]
+    exact beq_iff_eq.mp hlp
 /-- The recursor stage's shape. -/
 theorem checkNativeRec_shape {env : Env} {p : NativeParts}
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {F : Nat}

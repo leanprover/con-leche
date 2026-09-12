@@ -7,14 +7,18 @@ public section
 /-!
 # The representation clause across the rule-list swap (task #280)
 
-The modeled route stores its recursors rule-less first and swaps the
+The mutual route stores its recursors rule-less first and swaps the
 checked rule lists in afterwards (`EnvModelM.swapP`).  A representation
-reads the environment only through `denoteMeta` and non-recursor
-lookups, so it crosses the swap (`IndRep.swap`); a modeled leaf fact
-likewise (`ModeledLeaf.swap`).  The clause crosses when every recursor
-the swap changed is accounted for by the caller (`IndReps.swap`): the
-modeled route's own recursors are its block's members, whose modeled
-leaf fact it holds.
+of the block BEING STORED reads the environment only through
+`denoteMeta` and non-recursor lookups, so it crosses the swap
+(`IndRep.swap`) once the caller supplies every member's recursor at the
+target (`RecReadAt`, the install's own readings); a modeled leaf fact
+likewise (`ModeledLeaf.swap`).  A PREFIX block's representation does
+not cross the swap: since task #279 M-B′ the clause names every sibling
+recursor's entry, and at the provisioned environment a sibling cannot
+be told apart from a provisioned recursor of the new block — prefix
+clauses cross the store as an extension of the constructors'
+environment instead (`IndReps.ext`, `Model/IndRepExt.lean`).
 -/
 
 namespace ConLeche.Model
@@ -113,43 +117,19 @@ theorem FixCtorDataI.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀
     eisLenRefl := h.eisLenRefl
     reflEntry := fun ψ i hk hi => by rw [hac]; exact h.reflEntry ψ i hk hi }
 
-/-- **The rules' readings across the swap**, for a recursor the swap
-LEFT ALONE: the prefix's readings cross (`denoteMeta_swap`) and the
-spellings do not move (`m₃.acval = m₀.acval`). -/
-theorem IndRep.rulesRead_swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
-    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
-    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}
-    {mm : Nat} (h : IndRep m₀ T cvT cvR mI rP rules d mm)
-    (hf₀ : env₀.find? cvR.name = some (.recInfo cvR mI rP rules)) :
-    d.nP ≠ 0 → rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
-    (∀ t, t < d.k → (env₃.find? (d.recNames t)).isSome = true) ∧
-    ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
-      ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
-        ∀ ψ : Name → Nat, denoteMeta m₃.acval env₃ ψ 0 rl.rhs = some (d.ruleAV m₃ ψ j cA.2) := by
-  intro hnP hne _
-  obtain ⟨hrecs, hrules⟩ := h.rulesRead hnP hne hf₀
-  refine ⟨fun t ht => by rw [← hcg.isSomeEq]; exact hrecs t ht, fun j cA hj hmm => ?_⟩
-  obtain ⟨rl, hrl, hctor, hread⟩ := hrules j cA hj hmm
-  refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
-  rw [hac, ← denoteMeta_swap hcg, hread ψ]
-  congr 1
-  exact d.ruleAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
-    (h.tgtsRLt j)
-
 /-- **A representation crosses the rule-list swap.** -/
 theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}
     {mm : Nat}
     (h : IndRep m₀ T cvT cvR mI rP rules d mm)
-    -- the rules' readings at the target (task #279 M-A′): the caller's —
-    -- `IndRep.rulesRead_swap` for a recursor the swap left alone, the
-    -- install's own readings for one it changed
+    -- every member's recursor at the target (task #279 M-A′/M-B′): the
+    -- install's own readings — the swap is only ever applied to a
+    -- recursor of the block being stored, whose siblings the swap
+    -- changed too (a prefix block's clause crosses the store as an
+    -- EXTENSION of the constructors' environment instead, `IndRep.ext`)
     (hrr : d.nP ≠ 0 → rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
-      (∀ t, t < d.k → (env₃.find? (d.recNames t)).isSome = true) ∧
-      ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
-        ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
-          ∀ ψ : Name → Nat, denoteMeta m₃.acval env₃ ψ 0 rl.rhs = some (d.ruleAV m₃ ψ j cA.2)) :
+      ∀ t, t < d.k → RecReadAt m₃ d cvT.levelParams t) :
     IndRep m₃ T cvT cvR mI rP rules d mm :=
   { member := h.member
     strip := h.strip
@@ -197,23 +177,5 @@ theorem ModeledLeaf.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ 
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
     {n : Name} (h : ModeledLeaf m₀ n) : ModeledLeaf m₃ n :=
   ⟨by rw [← hcg.isSomeEq]; exact h.1, fun ψ => by rw [hac]; exact h.2 ψ⟩
-
-/-- **The clause across the swap**: every recursor the swap left alone
-keeps its prefix entry; every recursor it changed is the caller's. -/
-theorem IndReps.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
-    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
-    (h : IndReps m₀)
-    (hmod : ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      env₃.find? n = some (.recInfo cvR mI rP rules) →
-      env₀.find? n = some (.recInfo cvR mI rP rules) ∨ ModeledLeaf m₃ n) :
-    IndReps m₃ := by
-  intro n cvR mI rP rules hf₃ T hn
-  rcases hmod n cvR mI rP rules hf₃ with hf₀ | hmodn
-  · rcases h n cvR mI rP rules hf₀ T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hml
-    · exact Or.inl ⟨cvT, caps, d, mm, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
-        hd.swap hcg hac (hd.rulesRead_swap hcg hac (by
-          rw [show cvR.name = n from ConLeche.Semantics.Env.find?_name hf₀]; exact hf₀))⟩
-    · exact Or.inr (hml.swap hcg hac)
-  · exact Or.inr hmodn
 
 end ConLeche.Model

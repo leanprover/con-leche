@@ -507,6 +507,7 @@ theorem indMembersRun_indNew {μ : CheckMode} {F : Nat}
 
 /-! ## The group phase's keep-fact -/
 
+
 /-- Every provisioned member's checked name is fresh in the group's
 base environment, run half. -/
 theorem provisionRecsRun_checkedFresh {μ : CheckMode} {F : Nat}
@@ -532,6 +533,60 @@ theorem provisionRecsRun_checkedFresh {μ : CheckMode} {F : Nat}
       split at hnone
       · exact nomatch hnone
       · exact hnone
+
+/-- The checked recursors' names are pairwise distinct: each is checked
+fresh at the environment holding the earlier ones. -/
+theorem provisionRecsRun_checkedNodup {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
+      (checked.map (·.1.name)).Nodup := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc envSelf checked h
+    obtain ⟨-, rfl⟩ := h
+    exact List.nodup_nil
+  | cons ci rest ih =>
+    intro envAcc envSelf checked h
+    obtain ⟨cvA, mI, rP, rules, rest', -, -, hrec, rfl⟩ := h
+    refine List.nodup_cons.mpr ⟨fun hmem => ?_, ih hrec⟩
+    obtain ⟨c, hc, hname⟩ := List.mem_map.mp hmem
+    have hf := provisionRecsRun_checkedFresh rest hrec c hc
+    rw [hname, Env.find?_cons,
+      if_pos (show (ConstantInfo.recInfo cvA mI rP []).name
+        = (fun x : ConstantVal × Nat × Nat × List RecRule => x.1.name) (cvA, mI, rP, rules)
+        from rfl)] at hf
+    exact nomatch hf
+
+/-- An entry of the provisioned environment that the base does not hold
+is a provisioned, rule-less recursor. -/
+theorem provisionRecsRun_find?_new {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
+      ∀ (n : Name) (ci : ConstantInfo), envSelf.find? n = some ci → envAcc.find? n = none →
+        ∃ cv mI rP, ci = .recInfo cv mI rP [] := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc envSelf checked h n ci hf hnone
+    obtain ⟨rfl, -⟩ := h
+    rw [hf] at hnone
+    exact nomatch hnone
+  | cons ci₀ rest ih =>
+    intro envAcc envSelf checked h n ci hf hnone
+    obtain ⟨cvA, mI, rP, rules, rest', -, -, hrec, -⟩ := h
+    by_cases hn : cvA.name = n
+    · have hf' := provisionRecsRunS_mono rest hrec n (.recInfo cvA mI rP [])
+        (by rw [Env.find?_cons, if_pos (show (ConstantInfo.recInfo cvA mI rP []).name = n from hn)])
+      rw [hf'] at hf
+      exact ⟨cvA, mI, rP, (Option.some.inj hf).symm⟩
+    · exact ih hrec n ci hf (by
+        rw [Env.find?_cons, if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP []).name = n from hn)]
+        exact hnone)
 
 /-- The install fold leaves alone every name it does not cons, run
 half. -/

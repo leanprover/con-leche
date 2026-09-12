@@ -56,8 +56,12 @@ later block has on a stored container's elements is the container's
 RECURSOR (values are `AnnotTerm` leaves; the datum's `Φ`/`inj` are
 abstract sets), so the clause also records, at a block with
 parameters, that the stored recursor's type reads to the generated
-`k`-motive tower (`recRead`) and that each rule's right-hand side reads
-to the generated core (`rulesRead`) — both over the datum's constructor
+`k`-motive tower (`recRead`) and that EVERY member's recursor, once the
+block's recursors are stored, is stored and reads as the datum says of
+it — its type as the tower at that member, its rules as the member's
+constructors with their generated cores (`rulesRead`, `RecReadAt`; the
+nested route's fold from a container's recursor needs the whole family
+read off one datum) — all over the datum's constructor
 data, in the RECURSOR's view of the block: the real members followed
 by the block's own COPY members (a nested block's copies of containers
 at pins, `kReal ≤ t < k`), every member's family spelled at its pins
@@ -292,6 +296,17 @@ with nothing: the constructors `J` with `mems J = mm`. -/
 @[expose] def memberCtors (mm : Nat) : List (ConstantVal × Nat) :=
   (d.ctorsA.zipIdx.filter fun x => d.mems x.2 == mm).map (·.1)
 
+/-- Member `mm`'s constructors among ALL of the recursor's block (the
+real ones and the copies'), in the recursor's minor order (task #279
+M-B′): the constructors `J` of `ctorsAll` with `mems J = mm`. -/
+@[expose] def memberCtorsAll (mm : Nat) : List (ConstantVal × Nat) :=
+  (d.ctorsAll.zipIdx.filter fun x => d.mems x.2 == mm).map (·.1)
+
+/-- The recursors' level parameters over the block's `lps`: the
+elimination level first when the eliminator is large
+(`MutualParts.rlps`, `nativeRecLpsOk`). -/
+@[expose] def rlps (lps : List Name) : List Name := if d.large then d.elim :: lps else lps
+
 /-- The constructor data list at the CONTAINER's index readings (the
 chains, `IndRep.chains`/`fibre`). -/
 @[expose] def cdsC (ψ : Name → Nat) : List CtorDatumR :=
@@ -372,6 +387,15 @@ theorem IndRepData.memberCtors_of_all {d : IndRepData V} {mm : Nat} (h : ∀ j, 
   rw [List.filter_eq_self.mpr (fun x _ => by rw [h]; exact beq_self_eq_true mm)]
   exact List.zipIdx_map_fst 0 d.ctorsA
 
+omit [SetTheory V] in
+/-- At a single-family block without copies, the member's constructors
+among all of the recursor's block are all of them. -/
+theorem IndRepData.memberCtorsAll_of_all {d : IndRepData V} {mm : Nat} (h : ∀ j, d.mems j = mm)
+    (hC : d.ctorsC = []) : d.memberCtorsAll mm = d.ctorsA := by
+  unfold IndRepData.memberCtorsAll IndRepData.ctorsAll
+  rw [hC, List.append_nil, List.filter_eq_self.mpr (fun x _ => by rw [h]; exact beq_self_eq_true mm)]
+  exact List.zipIdx_map_fst 0 d.ctorsA
+
 /-- **The chains' grading** at a parameter frame: the index telescope
 graded, the X-chains graded at every family and tuple, the recursive
 slots fitting there — `XChainsOk` without its closure witness (the
@@ -391,6 +415,25 @@ theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm
     (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) : ChainsOk u w ρp Ids rss tlss Eiss Fss Ess :=
   ⟨h.hI, h.hok, h.hfit⟩
 
+/-- **Member `t`'s recursor, read** (task #279 M-B′): the recursor
+`recNames t` is stored with the block's level parameters and
+arithmetic, its type reads as the `k`-motive tower at member `t`, its
+rules list member `t`'s constructors of the recursor's block in order,
+and each such constructor's rule reads as the generated core (the
+inductive hypotheses firing the target members' recursor leaves). -/
+@[expose] def RecReadAt (m : EnvModel V env) (d : IndRepData V) (lps : List Name) (t : Nat) :
+    Prop :=
+  ∃ (cvR' : ConstantVal) (mI' rP' : Nat) (rules' : List RecRule),
+    env.find? (d.recNames t) = some (.recInfo cvR' mI' rP' rules') ∧
+    cvR'.levelParams = d.rlps lps ∧
+    mI' = d.nP + d.k + d.nAll + d.nIdxAt t ∧ rP' = d.nP + d.k + d.nAll ∧
+    (∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR'.type
+      = some (mkPisAV (d.recDataAV m ψ t) (mutualConcAV d.k d.nAll (d.nIdxAt t) t))) ∧
+    rules'.map (·.ctor) = (d.memberCtorsAll t).map (·.1.name) ∧
+    ∀ j cA, d.ctorsAll[j]? = some cA → d.mems j = t →
+      ∃ rl : RecRule, rl ∈ rules' ∧ rl.ctor = cA.1.name ∧
+        ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)
+
 /-- **The representation of a stored inductive `T`**, the member `mm`
 of its block, with recursor `T.rec = .recInfo cvR mI rP rules`, at the
 datum `d` (see the module docstring).  A single-family block is the
@@ -404,17 +447,17 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   strip : ∃ bs, cvT.type.stripPis (d.nP + d.nIdxAt mm) = some (bs, .sort d.resSort)
   /-- the `Prop` bit is the result sort's -/
   isProp : d.isProp = (Level.isEquiv d.resSort .zero == some true)
-  /-- **the rules read as the generated cores** (task #279 M-A′; stated
-  before the `mI`/`rP`/`rules` fields, whose names shadow the
-  parameters): once the recursor is stored, each of member `mm`'s
-  constructors has a rule whose right-hand side reads to the λ-tower
-  over the rule's binder data with the `k`-motive core, the inductive
-  hypotheses firing the target members' recursor leaves (`recNames`) -/
+  /-- **every member's recursor reads as the generated tower and cores**
+  (task #279 M-A′/M-B′; stated before the `mI`/`rP`/`rules` fields,
+  whose names shadow the parameters): once THIS recursor is stored
+  with its rules — the block's group store, where every member's
+  recursor is stored — each member `t`'s recursor is stored and reads
+  as the datum says of it (`RecReadAt`).  A later block nesting through
+  a container reads the whole family off ONE datum here: the fold it
+  spells from `J.rec` needs the sibling recursors' towers and rules,
+  which no other member's clause could be made to agree with. -/
   rulesRead : d.nP ≠ 0 → rules ≠ [] → env.find? cvR.name = some (.recInfo cvR mI rP rules) →
-    (∀ t, t < d.k → (env.find? (d.recNames t)).isSome = true) ∧
-    ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
-      ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
-        ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)
+    ∀ t, t < d.k → RecReadAt m d cvT.levelParams t
   /-- the recursor's major position: one motive per member, one minor
   per constructor OF THE BLOCK, the member's own indices -/
   mI : mI = d.nP + d.k + d.nAll + d.nIdxAt mm

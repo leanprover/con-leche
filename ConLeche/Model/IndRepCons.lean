@@ -329,9 +329,11 @@ theorem IndRep.recDataAV_cons {m : EnvModel V env} {T : Name} {cvT cvR : Constan
   · rw [hac, acvalWith_ne (hC ψ cd hcd)]
 
 /-- **The rules' readings at a fresh cons**, for a STORED recursor: the
-prefix's readings cross (`denoteMeta_cons_mono` at the rule's
-right-hand side, `ConsCrossEnv.ruleRhs`), and the spellings do not
-move. -/
+prefix's readings cross (`denoteMeta_cons_mono` at every member's
+recursor type and rule right-hand side, `ConsCrossEnv.typeOf`/
+`ConsCrossEnv.ruleRhs`), the entries are the prefix's
+(`Env.find?_cons_of_fresh` — the head is none of the block's recursors,
+which are stored), and the spellings do not move. -/
 theorem IndRep.rulesRead_cons {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
     {mI rP : Nat} {rules : List RecRule} {d : IndRepData V} {mm : Nat}
     (h : IndRep m T cvT cvR mI rP rules d mm)
@@ -342,31 +344,26 @@ theorem IndRep.rulesRead_cons {m : EnvModel V env} {T : Name} {cvT cvR : Constan
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     d.nP ≠ 0 → rules ≠ [] →
     Env.find? ⟨c₀ :: env.consts⟩ cvR.name = some (.recInfo cvR mI rP rules) →
-    (∀ t, t < d.k → (Env.find? ⟨c₀ :: env.consts⟩ (d.recNames t)).isSome = true) ∧
-    ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
-      ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
-        ∀ ψ : Name → Nat,
-          denoteMeta m₂.acval ⟨c₀ :: env.consts⟩ ψ 0 rl.rhs = some (d.ruleAV m₂ ψ j cA.2) := by
-  intro hnP hne _
-  obtain ⟨hrecs, hrules⟩ := h.rulesRead hnP hne hfR
+    ∀ t, t < d.k → RecReadAt m₂ d cvT.levelParams t := by
+  intro hnP hne _ t ht
+  have hbound := envWF_constsBound m.wf
   have hrecNe : ∀ t, t < d.k → d.recNames t ≠ c₀.name := by
     intro t ht
-    have hs := hrecs t ht
-    cases hf : env.find? (d.recNames t) with
-    | none => rw [hf] at hs; exact nomatch hs
-    | some ci => exact ne_of_stored hfresh hf
-  refine ⟨fun t ht => ?_, fun j cA hj hmm => ?_⟩
-  · have hs := hrecs t ht
-    cases hf : env.find? (d.recNames t) with
-    | none => rw [hf] at hs; exact nomatch hs
-    | some ci => rw [ConLeche.Env.find?_cons_of_fresh hfresh hf]; rfl
-  · obtain ⟨rl, hrl, hctor, hread⟩ := hrules j cA hj hmm
+    obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hnP hne hfR t ht
+    exact ne_of_stored hfresh hf'
+  obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules⟩ :=
+    h.rulesRead hnP hne hfR t ht
+  have hmemR' := ConLeche.Semantics.Env.find?_mem hf'
+  refine ⟨cvR', mI', rP', rules', ConLeche.Env.find?_cons_of_fresh hfresh hf', hlps, hmI', hrP',
+    fun ψ => ?_, hmap, fun j cA hj hmm => ?_⟩
+  · rw [hac, h.recDataAV_cons hfresh m₂ hac]
+    exact denoteMeta_cons_mono hfresh (hcross.typeOf hf') ψ 0 (hbound _ hmemR').1 (hread ψ)
+  · obtain ⟨rl, hrl, hctor, hread'⟩ := hrules j cA hj hmm
     refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
-    have hmemR := ConLeche.Semantics.Env.find?_mem hfR
-    obtain ⟨-, -, -, -, -, hwfR, -⟩ := m.wf _ hmemR
-    obtain ⟨-, -, hres, -⟩ := hwfR cvR mI rP rules rfl rl hrl
-    rw [hac, denoteMeta_cons_mono hfresh (hcross.ruleRhs hmemR hrl) ψ 0
-      (constsBound_of_constsResolve _ hres) (hread ψ)]
+    obtain ⟨-, -, -, -, -, hwfR, -⟩ := m.wf _ hmemR'
+    obtain ⟨-, -, hres, -⟩ := hwfR cvR' mI' rP' rules' rfl rl hrl
+    rw [hac, denoteMeta_cons_mono hfresh (hcross.ruleRhs hmemR' hrl) ψ 0
+      (constsBound_of_constsResolve _ hres) (hread' ψ)]
     congr 1
     obtain ⟨hL, hC⟩ := h.names_ne hfresh
     refine d.ruleAV_congr (fun t ht => ?_) (fun cd hcd => ?_) (fun t ht => ?_) (h.tgtsRLt j)
@@ -392,11 +389,7 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     -- install's own readings when the head IS the recursor
     (hrr : d.nP ≠ 0 → rules ≠ [] →
       Env.find? ⟨c₀ :: env.consts⟩ cvR.name = some (.recInfo cvR mI rP rules) →
-      (∀ t, t < d.k → (Env.find? ⟨c₀ :: env.consts⟩ (d.recNames t)).isSome = true) ∧
-      ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
-        ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
-          ∀ ψ : Name → Nat,
-            denoteMeta m₂.acval ⟨c₀ :: env.consts⟩ ψ 0 rl.rhs = some (d.ruleAV m₂ ψ j cA.2)) :
+      ∀ t, t < d.k → RecReadAt m₂ d cvT.levelParams t) :
     IndRep m₂ T cvT cvR mI rP rules d mm := by
   have hbound := envWF_constsBound m.wf
   have hTne : T ≠ c₀.name := ne_of_stored hfresh hfT

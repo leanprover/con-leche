@@ -343,26 +343,43 @@ theorem provisionRecsPM (hetaP : MemberEtaLaw V)
         BlockInstalledTT blockNames envSelf mS.base2.cvalE ∧
         BlockAcvalInstalled blockNames envSelf mS.base2.acval ∧
         ConLeche.EtaFamiliesClosedO blockNames envSelf ∧
-        ConLeche.BlockEtaPinned μ blockNames envSelf := by
+        ConLeche.BlockEtaPinned μ blockNames envSelf ∧
+        -- the carrier does not move on the names already stored (task
+        -- #279 M-B′: the representation clause crosses the block's
+        -- store as an extension of THIS environment)
+        ∀ n : Name, (envAcc.find? n).isSome = true → mS.base2.acval n = mp.base2.acval n := by
   intro recs
   induction recs with
   | nil =>
     intro envAcc mp envSelf checked hbn h hI hIA hEC hBP
     obtain ⟨rfl, -⟩ := h
-    exact ⟨mp, hI, hIA, hEC, hBP⟩
+    exact ⟨mp, hI, hIA, hEC, hBP, fun _ _ => rfl⟩
   | cons ci rest ih =>
     intro envAcc mp envSelf checked hbn h hI hIA hEC hBP
     obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hrec, -⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    obtain ⟨hfind, -⟩ := hcv
     have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
-    obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
+    obtain ⟨mp₁, -, hac₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
       memberInstallPM hetaP hunitP mp hmv hI hIA
         (by rw [hnameA]; exact hbn ci List.mem_cons_self)
         (fun _ heq => ConstantInfo.noConfusion heq)
         hEC hBP rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
         (fun _ _ heq => ConstantInfo.noConfusion heq)
-    exact ih mp₁
+    obtain ⟨mS, hIS, hIAS, hECS, hBPS, hagS⟩ := ih mp₁
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
       hrec hI₁ hIA₁ hEC₁ hBP₁
+    refine ⟨mS, hIS, hIAS, hECS, hBPS, fun n hn => ?_⟩
+    have hne : n ≠ cvA.name := by
+      intro hh
+      rw [hh, hnameA] at hn
+      rw [Option.isNone_iff_eq_none] at hfind
+      rw [hfind] at hn
+      exact nomatch hn
+    rw [hagS n (by
+        show (Env.find? ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ n).isSome = true
+        rw [ConLeche.Env.find?_cons, if_neg (fun h => hne h.symm)]
+        exact hn),
+      hac₁, acvalWith_ne hne]
 
 end ConLeche.Model

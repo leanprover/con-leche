@@ -6,6 +6,7 @@ public import ConLeche.Model.Inductives.MutualRecData
 import ConLeche.Model.Inductives.MutualStageRec
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Model.IndRepSwap
+public import ConLeche.Model.IndRepExt
 public section
 
 /-!
@@ -769,24 +770,21 @@ theorem mutualIndRepsHead_of {c₀ : ConstantInfo} {cvR : ConstantVal} {mI rP : 
 /-! ## The clause at the group store -/
 
 /-- **The clause at the recursors' group store**: every recursor the
-store finds is the constructors' environment's — its representation is
-the provisioned carrier's, transported across the rule-list swap
-(`IndRep.swap`) — or one of the block's `k`, whose representation the
-caller supplies (`mutualIndRep_of`).
+store finds is the constructors' environment's — its representation
+crosses the store as an EXTENSION of that environment (`IndReps.ext`:
+the block's recursors are fresh there and the carrier agrees on its
+names) — or one of the block's `k`, whose representation the caller
+supplies (`mutualIndRep_of` at the provisioned carrier, then
+`IndRep.swap` with the store's own readings).
 
-This is `stageMutualRecsStore`'s `hreps` obligation; `IndReps.swap`
-does NOT serve, because its escape for an entry the swap CHANGED is
-`ModeledLeaf` alone, and a natively stored group's `k` recursors are
-exactly the changed entries. -/
+This is `stageMutualRecsStore`'s `hreps` obligation. -/
 theorem mutualIndReps_of {env₂ : Env} {b : MutualBlock} {fms : List MutualFormerA}
     {rulesOf : List (List (MutualCtor × Expr))} {cvRas : List ConstantVal}
-    {envP : Env} {mP : EnvModel V envP}
+    {m₂ : EnvModel V env₂}
     {m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂)}
-    (hcg : ConLeche.SwapCongr envP
-      (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂))
-    (hac : m₃.acval = mP.acval)
-    (hprefix : IndReps mP)
-    (hin : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c → envP.find? n = some c)
+    (hx : EnvExt env₂ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂))
+    (hag : ∀ n : Name, (env₂.find? n).isSome = true → m₂.acval n = m₃.acval n)
+    (hprefix : IndReps m₂)
     (hblock : ∀ x ∈ cvRas.zipIdx, ∀ T : Name, x.1.name = T.str "rec" →
       ∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
         (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂).find? T
@@ -796,18 +794,11 @@ theorem mutualIndReps_of {env₂ : Env} {b : MutualBlock} {fms : List MutualForm
             (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix x.1.type
             (rulesOf.getD x.2 [])) d mm) :
     IndReps m₃ := by
-  intro n cvR mI rP rules hf T hn
-  rcases storeMutualRecs_find?_inv hf with h₂ | ⟨x, hx, hc, hname⟩
-  · -- the constructors' environment's own recursor: the prefix's entry
-    rcases hprefix n cvR mI rP rules (hin _ _ h₂) T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hmod
-    · exact Or.inl ⟨cvT, caps, d, mm,
-        hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
-        hd.swap hcg hac (hd.rulesRead_swap hcg hac (by
-          rw [show cvR.name = n from ConLeche.Semantics.Env.find?_name h₂]; exact hin _ _ h₂))⟩
-    · exact Or.inr (hmod.swap hcg hac)
-  · -- one of the block's `k`
-    obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
-    obtain ⟨cvT, caps, d, mm, hfT, hd⟩ := hblock x hx T (by rw [hname]; exact hn)
+  refine IndReps.ext hx hag hprefix fun n cvR mI rP rules hf hf₂ T hn => ?_
+  rcases storeMutualRecs_find?_inv hf with h₂ | ⟨x, hx', hc, hname⟩
+  · rw [hf₂] at h₂; exact nomatch h₂
+  · obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
+    obtain ⟨cvT, caps, d, mm, hfT, hd⟩ := hblock x hx' T (by rw [hname]; exact hn)
     exact Or.inl ⟨cvT, caps, d, mm, hfT, hd⟩
 
 end ConLeche.Model

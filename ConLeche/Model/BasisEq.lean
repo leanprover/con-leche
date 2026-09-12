@@ -1453,6 +1453,29 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     intro ψ
     rw [hac]
     exact denoteMeta_eqReflA_typeR (m := mp.base2) (A := eqRecValAV) ψ hE hEv
+  -- the recursor's type reading (task #279 M-A′), used by `recRead` and
+  -- by the member's `RecReadAt`
+  have hrecRead : ∀ ψ : Name → Nat,
+      denoteMeta m₂.acval ⟨eqRecA :: env.consts⟩ ψ 0 eqRecA.toConstantVal.type
+        = some (mkPisAV ((eqRepData (V := V) ⟨eqRecA :: env.consts⟩).recDataAV m₂ ψ 0)
+            (mutualConcAV (eqRepData (V := V) ⟨eqRecA :: env.consts⟩).k
+              (eqRepData (V := V) ⟨eqRecA :: env.consts⟩).nAll
+              ((eqRepData (V := V) ⟨eqRecA :: env.consts⟩).nIdxAt 0) 0)) := by
+    intro ψ
+    rw [hac]
+    refine (denoteMeta_eqRecA_type (m := mp.base2) ψ hE hR hEv hRv).trans ?_
+    congr 1
+    show eqRecTy (pwBit ψ (.ifAllZero [u1N])) ψ
+      = mkPisAV (recDataAVP m₂ ψ [m₂.acval eqName ψ] (fun _ => paramBvarsAt 2 2) 2 [1]
+          (.param u1N) [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0)] [[(0, 1, .bvar 1)]]
+          [(eqReflName, 0, [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)], eqEs, [], [], [])]
+          (fun _ => 0) (fun _ _ => 0) 0)
+        (mutualConcAV 1 1 1 0)
+    rw [recDataAVP_params, mutualRecDataAV_one, hEleaf ψ, mutualConcAV_one]
+    unfold fixRecDataAVL fixMinorsData fixMinorsDataM minorAVAtRM
+    rw [hRleaf ψ]
+    simp only [List.length_nil, AnnotTerm.liftN_zero]
+    rfl
   refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
   refine {
@@ -1490,12 +1513,16 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
     mkInj := fun _ hz => absurd rfl hz }
-  · -- the rules' readings (task #279 M-A′): `Eq.rec`'s one rule
-    intro _ _ _
-    refine ⟨fun t ht => ?_, fun j cA hj hmm => ?_⟩
-    · obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
-      show (Env.find? ⟨eqRecA :: env.consts⟩ eqRecA.name).isSome = true
-      rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
+  · -- the recursor's readings (task #279 M-A′/M-B′): `Eq.rec`, the one
+    -- member, with its one rule
+    intro _ _ _ t ht
+    obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+    refine ⟨eqRecA.toConstantVal, 5, 4, [eqRecRule], ?_, rfl, rfl, rfl, hrecRead, rfl,
+      fun j cA hj hmm => ?_⟩
+    · show Env.find? ⟨eqRecA :: env.consts⟩ eqRecA.name
+        = some (.recInfo eqRecA.toConstantVal 5 4 [eqRecRule])
+      rw [ConLeche.Env.find?_cons, if_pos rfl]
+      rfl
     · match j, hj with
       | 0, hj =>
         obtain rfl : cA = (eqReflA.toConstantVal, 0) := (Option.some.inj hj).symm
@@ -1518,20 +1545,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
         rfl
   · -- the recursor's type reading (task #279 M-A′)
     intro _ ψ
-    rw [hac]
-    refine (denoteMeta_eqRecA_type (m := mp.base2) ψ hE hR hEv hRv).trans ?_
-    congr 1
-    show eqRecTy (pwBit ψ (.ifAllZero [u1N])) ψ
-      = mkPisAV (recDataAVP m₂ ψ [m₂.acval eqName ψ] (fun _ => paramBvarsAt 2 2) 2 [1]
-          (.param u1N) [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0)] [[(0, 1, .bvar 1)]]
-          [(eqReflName, 0, [(0, 0, .sort (ψ uN)), (0, 0, .bvar 0)], eqEs, [], [], [])]
-          (fun _ => 0) (fun _ _ => 0) 0)
-        (mutualConcAV 1 1 1 0)
-    rw [recDataAVP_params, mutualRecDataAV_one, hEleaf ψ, mutualConcAV_one]
-    unfold fixRecDataAVL fixMinorsData fixMinorsDataM minorAVAtRM
-    rw [hRleaf ψ]
-    simp only [List.length_nil, AnnotTerm.liftN_zero]
-    rfl
+    exact hrecRead ψ
   · -- the former's data
     refine ⟨fun ψ => denoteMeta_eqA_typeR ψ, (fun _ => rfl), ?_, fun ψ ρ => ?_,
       (fun _ => ⟨trivial, (by apply bvarsBelow_bvarAV; omega),

@@ -71516,6 +71516,85 @@ session's gate builds them explicitly
 (`lake build ConLeche.Model.Inductives.DeclNested`) on top of the full
 `lake build`.
 
+#### M.12 M-B′ step 2a LANDED: the clause reads EVERY member's recursor, and prefix clauses cross a store as an EXTENSION (2026-09-12, session 2)
+
+**The finding that forced it** (found while sizing the fold spellings,
+§M.10 step 3).  `ψ_A` for a copy `A` of container `J` is `⟦J.rec⟧` at
+constant motives and rebuild minors — and `J.rec`'s type has one motive
+per member of `J`'s family and one minor per constructor OF THE FAMILY,
+its rules fire the SIBLING recursors `C_t.rec` in the inductive
+hypotheses, and the kernel's copy of sibling `C_t` (`containerInfo?`)
+takes its constructors from `C_t.rec`'s stored RULES.  So spelling and
+typing `ψ_A` needs, from ONE datum: every sibling recursor's entry, its
+type as the `k`-motive tower at that member, and its rules as exactly
+the datum's constructors of that member.  As landed in M-A′,
+`recRead`/`rulesRead` spoke of the represented member `mm` alone, and
+no two members' clauses can be made to agree (their data are separate
+existentials; leaves of different constants can coincide, so nothing
+identifies one datum's sibling with another's).  Using the sibling's
+own clause instead (`d_{C_t}`) does not help either: its minors for
+`J`'s constructors are again unaligned with `d_J`'s, and a mutual
+container group needs one simultaneous fold.
+
+**What landed.**
+
+* `Model/IndRep.lean`: `IndRepData.memberCtorsAll` (member `t`'s
+  constructors among `ctorsAll`, the copies' included), `rlps` (the
+  recursors' level parameters over the block's, `MutualParts.rlps`'s
+  shape), and **`RecReadAt m d lps t`**: `recNames t` is stored as
+  `.recInfo cvR' mI' rP' rules'` with `cvR'.levelParams = d.rlps lps`,
+  the block's `mI'`/`rP'` arithmetic at member `t`, its type reading
+  the tower at `t`, `rules'.map ctor = (memberCtorsAll t).map name`,
+  and each such constructor's rule reading `ruleAV`.  `rulesRead` is
+  now `nP ≠ 0 → rules ≠ [] → find? cvR.name = … → ∀ t < k, RecReadAt m
+  d cvT.levelParams t` — guarded, as before, by THIS recursor's rules
+  (the mutual route's group store stores every member's recursor in
+  one step, so at that point every sibling is stored; at a provisioned
+  recursor the guard is false).
+* Discharges: native (`FixStageRec`, the head cons: the one member is
+  the head; `Verify/Inductives/FixInv.lean` gains `checkNativeRec_lps`,
+  `nativeRecLpsOk` read as the exact list), `Eq` (`BasisEq`, `Eq.rec`'s
+  literal `5 4 [eqRecRule]`), mutual (`DeclMutual`'s store site: for
+  every `t`, the entry from `storeMutualRecs_find?_self`, the level
+  parameters from `hRecShape`, the type reading from the provisioned
+  carrier's clause across the swap, the rules from `hrulesShape`, the
+  readings from `hreadStore` — the M-A′ proof generalised from `x.2`
+  to `t`); `nP = 0` sites unchanged.
+* **The transport finding.**  A prefix block's clause can no longer be
+  carried across a store as a rule-list SWAP of the provisioned
+  environment: at that environment a sibling recursor of a prefix block
+  is a rule-less `recInfo` exactly like a provisioned recursor of the
+  block being stored, `SwapCongr` says nothing about recursor entries,
+  and a datum whose sibling IS the provisioned one satisfies the clause
+  before the swap and not after — the swap lemma is false as a theorem
+  over the abstract clause.  The store is structurally `k` fresh conses
+  on the CONSTRUCTORS' environment (`storeMutualRecs … env₂`, the
+  modeled route's `IndRecsFoldRun` likewise), where the block's
+  recursors are fresh and every entry a prefix clause names is stored;
+  so the transport is an extension: `Model/IndRepExt.lean` — `EnvExt`
+  (`FindPreserved` + `LitGuardsMono` + no new tables, with `refl`/
+  `trans`/`cons`), `denoteMeta_ext` (`denoteMeta_envExtend_mono` after
+  `denoteMeta_acval_congr`), the `.ext` transports of
+  `DenoteMetaSpine`/`FormerData`/`CtorDataI`/`FixCtorDataI` (the
+  `.crossAt` derivations of the opened subterms' `ConstsBound`),
+  `IndRep.ext`, `ModeledLeaf.ext`, `IndReps.ext`.  `IndRepSwap.lean`
+  keeps `IndRep.swap` for the block's OWN recursors (its `hrr` now
+  supplies `RecReadAt` for every member — the install's readings) and
+  loses `rulesRead_swap`/`IndReps.swap`.  Callers: `mutualIndReps_of`
+  (from the constructors' model `mp₂`, `storeMutualRecs_extend`) and the
+  modeled route's `indRecs` (from the pre-provision model `mp`:
+  `provisionRecsPM` gains the conclusion that the carrier does not move
+  on the base's names; `provisionRecsRun_checkedNodup`/`_find?_new` in
+  `Semantics/IndBlockRun.lean`; `indRecsFoldRun_envExt`).
+* Cost: no checker change; the proof tier only.
+
+**Docket.**  The all-zero-constructor container group (every member's
+recursor rule-less, so no datum's clause is live) — the nested lane
+must show each such copy empty from `mem_type` at empty motives
+(a rule-less recursor's tower is inhabited only if its leaf is empty);
+recorded for M-C′.  The `_tmp/nested-279m/t2.lean` probe of session 1
+is obsolete.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
