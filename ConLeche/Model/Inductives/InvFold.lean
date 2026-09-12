@@ -464,6 +464,122 @@ theorem annotValid_mkPisAV_body {T : AnnotTerm} :
     rw [consList_cons]
     exact annotValid_mkPisAV_body (h.2.1 a hsp.1) as hsp.2
 
+/-! ## Positions, lifts, and Π-towers over the excluded slots -/
+
+omit [SetTheory V] in
+/-- A member of a list sits at its `idxOf`. -/
+theorem getElem?_idxOf_of_mem {l : List Nat} {a : Nat} (h : a ∈ l) : l[l.idxOf a]? = some a := by
+  rw [List.getElem?_eq_getElem (List.idxOf_lt_length_of_mem h)]; simp
+
+omit [SetTheory V] in
+theorem rebit_getElem? (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) (k : Nat) :
+    (rebit b ds)[k]? = (ds[k]?).map fun dd => (dd.1, b, dd.2.2) := by
+  simp [rebit]
+
+omit [SetTheory V] in
+/-- A Π-tower mentions no excluded slot below its depth when its
+binder domains (at their depths) and its body (under all binders) do
+not. -/
+theorem NoBVar_mkPisAV_exclP {Q : Nat → Prop} :
+    ∀ (ds : List (Nat × Nat × AnnotTerm)) {D : Nat} {body : AnnotTerm}, (∀ q, Q q → q < D) →
+      (∀ k dd, ds[k]? = some dd → NoBVar (exclP Q (D + k)) dd.2.2) →
+      NoBVar (exclP Q (D + ds.length)) body →
+      NoBVar (exclP Q D) (mkPisAV ds body)
+  | [], D, body, _, _, hb => by simp only [mkPisAV, List.length_nil, Nat.add_zero] at hb ⊢; exact hb
+  | dd :: ds, D, body, hQ, hds, hb => by
+    refine ⟨by simpa using hds 0 dd rfl, ?_⟩
+    have ih := NoBVar_mkPisAV_exclP ds (D := D + 1) (body := body)
+      (fun q hq => by have := hQ q hq; omega)
+      (fun k dd' hk => by
+        have := hds (k + 1) dd' (by simpa using hk)
+        rwa [show D + (k + 1) = D + 1 + k from by omega] at this)
+      (by rwa [show D + (dd :: ds).length = D + 1 + ds.length from by simp; omega] at hb)
+    exact NoBVar_congr (fun i => (shiftP_exclP Q D hQ i).symm) _ ih
+
+omit [SetTheory V] in
+theorem ihDataTg_length (Tg : Nat → AnnotTerm) (moti : Nat → Nat) (nP nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    ∀ (is : List Nat) (l : Nat), (ihDataTg Tg moti nP nF o b tls Eiss is l).length = is.length
+  | [], _ => rfl
+  | _ :: is, l => by simp [ihDataTg, ihDataTg_length Tg moti nP nF o b tls Eiss is (l + 1)]
+
+omit [SetTheory V] in
+/-- The target-form ih binders, positionally. -/
+theorem ihDataTg_getElem? (Tg : Nat → AnnotTerm) (moti : Nat → Nat) (nP nF o b : Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+    ∀ (is : List Nat) (l n : Nat),
+      (ihDataTg Tg moti nP nF o b tls Eiss is l)[n]?
+        = (is[n]?).map fun i =>
+            (0, b, tgIhDomAV Tg (moti i) nP nF o i (l + n) (rebit b (tls.getD i [])) (Eiss.getD i []))
+  | [], _, _ => rfl
+  | i :: is, l, 0 => by simp [ihDataTg]
+  | i :: is, l, n + 1 => by
+    simp only [ihDataTg, List.getElem?_cons_succ]
+    rw [ihDataTg_getElem? Tg moti nP nF o b tls Eiss is (l + 1) n]
+    congr 2
+    funext i'
+    rw [show l + 1 + n = l + (n + 1) from by omega]
+
+/-- The transport at a prefix of the fields, the lengths explicit. -/
+theorem interp_congr_shadowRel_at {nP : Nat} {ks : List RecFieldKind} {fs vs : List V}
+    (h : ShadowRel nP ks fs vs) (σ : Nat → V) {n : Nat} (hn : n ≤ fs.length) {E : AnnotTerm}
+    (hnb : NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + n) (nP + n)) E) :
+    interp V (consList (fs.take n) σ) E = interp V (consList (vs.take n) σ) E := by
+  have hlen : (fs.take n).length = n := by rw [List.length_take]; omega
+  have := interp_congr_shadowRel (h.take n) σ [] (E := E) (by rw [hlen, List.length_nil, Nat.add_zero]; exact hnb)
+  simpa using this
+
+/-! ## The mixed spine -/
+
+/-- **The mixed variable spine** at a minor's leaf frame (the fields
+then the hypotheses, innermost last): field `i` as its inductive
+hypothesis (position `recIdx.idxOf i` among the `recIdx.length`
+hypotheses) where `useIh i`, the field variable otherwise. -/
+@[expose] def mixedVarsAV (recIdx : List Nat) (useIh : Nat → Bool) (nF : Nat) : List AnnotTerm :=
+  (List.range nF).map fun i =>
+    if useIh i then AnnotTerm.bvar (recIdx.length - 1 - recIdx.idxOf i)
+    else AnnotTerm.bvar (nF + recIdx.length - 1 - i)
+
+/-- The mixed values: the hypothesis value where `useIh`, the field
+value otherwise. -/
+noncomputable def mixedVals (recIdx : List Nat) (useIh : Nat → Bool) (fs ihs : List V) : List V :=
+  (List.range fs.length).map fun i => if useIh i then ihs.getD (recIdx.idxOf i) pt else fs.getD i pt
+
+theorem mixedVals_length (recIdx : List Nat) (useIh : Nat → Bool) (fs ihs : List V) :
+    (mixedVals recIdx useIh fs ihs).length = fs.length := by simp [mixedVals]
+
+theorem mixedVals_getD (recIdx : List Nat) (useIh : Nat → Bool) (fs ihs : List V) {i : Nat}
+    (hi : i < fs.length) :
+    (mixedVals recIdx useIh fs ihs).getD i pt
+      = if useIh i then ihs.getD (recIdx.idxOf i) pt else fs.getD i pt := by
+  simp [mixedVals, List.getD_eq_getElem?_getD, List.getElem?_range hi]
+
+/-- **The mixed variable spine reads to the mixed values** at the
+minor's leaf frame. -/
+theorem interp_mixedVarsAV {recIdx : List Nat} {useIh : Nat → Bool} (huse : ∀ i, useIh i = true → i ∈ recIdx)
+    {fs ihs : List V} (hihs : ihs.length = recIdx.length) (σ : Nat → V) :
+    (mixedVarsAV recIdx useIh fs.length).map (interp V (consList (fs ++ ihs) σ))
+      = mixedVals recIdx useIh fs ihs := by
+  apply List.ext_getElem
+  · simp [mixedVarsAV, mixedVals]
+  · intro i h1 h2
+    have hi : i < fs.length := by simpa [mixedVarsAV] using h1
+    simp only [mixedVarsAV, mixedVals, List.getElem_map, List.getElem_range]
+    split
+    · next hu =>
+      have hmem := huse i hu
+      have hlt := List.idxOf_lt_length_of_mem hmem
+      rw [interp_bvar, consList_apply_lt' _ _ (by rw [List.length_append, hihs]; omega),
+        List.length_append, hihs, List.getD_eq_getElem?_getD,
+        show fs.length + recIdx.length - 1 - (recIdx.length - 1 - recIdx.idxOf i)
+          = fs.length + recIdx.idxOf i from by omega,
+        List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,
+        ← List.getD_eq_getElem?_getD]
+    · rw [interp_bvar, consList_apply_lt' _ _ (by rw [List.length_append, hihs]; omega),
+        List.length_append, hihs, List.getD_eq_getElem?_getD,
+        show fs.length + recIdx.length - 1 - (fs.length + recIdx.length - 1 - i) = i from by omega,
+        List.getElem?_append_left hi, ← List.getD_eq_getElem?_getD]
+
 namespace IndRepData
 
 variable (d : IndRepData V)
@@ -965,6 +1081,288 @@ theorem targetOk_real {μ : CheckMode} (mp : EnvModelM V μ env) {ψ : Name → 
         (fun h => absurd h Nat.one_ne_zero) (hmemL ρ) hfitAll
       rw [interp_sort] at this
       exact this
+
+/-! ## The choice's bodies -/
+
+/-- **The body of constructor `J`**: the head (the container's
+constructor at the pins for a copy's constructor, the member's own at
+the parameter variables for a real one — at the parameter frame,
+lifted over the motives, the earlier minors, the fields and the
+hypotheses) at the mixed variable spine. -/
+@[expose] def invBodyAV (head : Nat → AnnotTerm) (useIh : Nat → Nat → Bool) (J : Nat) : AnnotTerm :=
+  AnnotTerm.mkAppN
+    ((head J).liftN
+      (d.k + J + (d.ctorsAll.getD J default).2 + (ConLeche.recIdxOf (d.ksR J)).length) 0)
+    (mixedVarsAV (ConLeche.recIdxOf (d.ksR J)) (useIh J) (d.ctorsAll.getD J default).2)
+
+end IndRepData
+
+/-- **Field `i`'s domain in TARGET form** (at the parameter frame, under
+the earlier fields): where `useIh`, the target of the field's member
+at the field's index readings under the field's telescope (rebit to
+the elimination bit, as the tower's ih binders) — the domain of the
+inductive hypothesis; the field's own domain otherwise. -/
+@[expose] def tgFieldAV (Tg : Nat → AnnotTerm) (useIh : Nat → Bool) (nP b : Nat) (tgt : Nat → Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Eiss : List (List AnnotTerm))
+    (tls : List (List (Nat × Nat × AnnotTerm))) (i : Nat) : AnnotTerm :=
+  if useIh i then
+    mkPisAV (rebit b (tls.getD i []))
+      (AnnotTerm.mkAppN ((Tg (tgt i)).liftN (nP + i + (tls.getD i []).length) 0) (Eiss.getD i []))
+  else (ds.getD (nP + i) default).2.2
+
+/-- The target-form field domains. -/
+@[expose] def tgFieldsAV (Tg : Nat → AnnotTerm) (useIh : Nat → Bool) (nP b : Nat) (tgt : Nat → Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Eiss : List (List AnnotTerm))
+    (tls : List (List (Nat × Nat × AnnotTerm))) (nF : Nat) : List AnnotTerm :=
+  (List.range nF).map (tgFieldAV Tg useIh nP b tgt ds Eiss tls)
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **The constructor at the pins** — the ONE hypothesis the body's fact
+needs, in the aux datum's vocabulary: at the parameter frame, the
+head inhabits a graded Π-tower over `nF` binders whose binders accept
+every spine fitting the target-form field domains, and whose body at
+such a spine is the member's target at the constructor's index
+readings.  For a real member's constructor it is the constructor's
+own reading (`ctorAtPins_real`); for a copy's it is the container
+constructor's at the pins. -/
+@[expose] def CtorAtPins (ψ : Name → Nat) (ρ : Nat → V) (ps : List AnnotTerm) (Tg : Nat → AnnotTerm)
+    (useIh : Nat → Bool) (J : Nat) (head : AnnotTerm) (nF : Nat) (ds : List (Nat × Nat × AnnotTerm))
+    (Es : List AnnotTerm) (Eiss : List (List AnnotTerm))
+    (tls : List (List (Nat × Nat × AnnotTerm))) : Prop :=
+  ∃ (dsC : List (Nat × Nat × AnnotTerm)) (bodyC : AnnotTerm),
+    dsC.length = nF ∧
+    WellDenotedV V (consList (ps.map (interp V ρ)) ρ) (mkPisAV dsC bodyC) ∧
+    WellDenotedV V (consList (ps.map (interp V ρ)) ρ) head ∧
+    interp V (consList (ps.map (interp V ρ)) ρ) head
+      ∈ˢ interp V (consList (ps.map (interp V ρ)) ρ) (mkPisAV dsC bodyC) ∧
+    ∀ vs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+        (tgFieldsAV Tg useIh d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF) vs →
+      SpineFit (consList (ps.map (interp V ρ)) ρ) (dsC.map (·.2.2)) vs ∧
+      interp V (consList vs (consList (ps.map (interp V ρ)) ρ)) bodyC
+        = (Es.map (interp V (consList vs (consList (ps.map (interp V ρ)) ρ)))).foldl
+            SetTheory.app (interp V ρ (Tg (d.mems J)))
+
+set_option maxHeartbeats 3200000 in
+/-- **The body's fact** (the kit's `hleaf`) from `CtorAtPins`: at a
+spine of fields and target-form hypotheses, the mixed values fit the
+target-form field domains — each read at the MIXED prefix, the same
+as at the fields' by the bridge (`interp_congr_shadowRel_at` at the
+datum's `NoBVar` facts) — so the head at the mixed spine is graded
+(`wellDenotedV_mkAppN_of_spineFit` at the tower lifted to the leaf
+frame) and lands in the member's target at the constructor's index
+readings (read at the fields, by the bridge again). -/
+theorem invBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List AnnotTerm}
+    (hps : ps.length = d.nP) (hMs : Ms.length = d.k) (hk : 0 < d.k) {J : Nat}
+    (hprior : prior.length = J) {Tg : Nat → AnnotTerm} {head : Nat → AnnotTerm}
+    {useIh : Nat → Nat → Bool} {C : Name} {nF : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {Es : List AnnotTerm} {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
+    {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hcd : (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls))
+    (hds : ds.length = d.nP + nF)
+    (hnb : ∀ i, i < nF → NoBVar (exclP (fun q => recAt d.nP (d.ksR J) q ∧ q < d.nP + i) (d.nP + i))
+      ((ds.getD (d.nP + i) default).2.2))
+    (hnbT : ∀ i, i < nF → ∀ k dd, (tls.getD i [])[k]? = some dd →
+      NoBVar (exclP (fun q => recAt d.nP (d.ksR J) q ∧ q < d.nP + i) (d.nP + i + k)) dd.2.2)
+    (hnbE : ∀ i, i < nF → ∀ E ∈ Eiss.getD i [],
+      NoBVar (exclP (fun q => recAt d.nP (d.ksR J) q ∧ q < d.nP + i) (d.nP + i + (tls.getD i []).length)) E)
+    (hnbEs : ∀ E ∈ Es, NoBVar (exclP (fun q => recAt d.nP (d.ksR J) q ∧ q < d.nP + nF) (d.nP + nF)) E)
+    (huse : ∀ i, useIh J i = true → i ∈ recIdx)
+    (hCAP : d.CtorAtPins ψ ρ ps Tg (useIh J) J (head J) nF ds Es Eiss tls)
+    (hzero : d.bb ψ = 0 → ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+        SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) :
+    ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+      SpineFit (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ)
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) →
+      WellDenotedV V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
+        (d.invBodyAV head useIh J) ∧
+      interp V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
+          (d.invBodyAV head useIh J)
+        ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+            SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
+      (d.bb ψ = 0 →
+        (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+          SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) := by
+  intro fs ihs hfs hihs hfit
+  -- the constructor's shape from the datum list
+  have hcd' := hcd
+  unfold cdsR at hcd'
+  rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd'
+  obtain ⟨cA, hcA, hcAeq⟩ := Option.map_eq_some_iff.mp hcd'
+  simp only [Prod.mk.injEq] at hcAeq
+  obtain ⟨-, hnFc, -, -, hrec, -, -⟩ := hcAeq
+  have hnFget : (d.ctorsAll.getD J default).2 = nF := by
+    rw [List.getD_eq_getElem?_getD, hcA]; exact hnFc
+  -- the frames
+  have hpsLen : (ps.map (interp V ρ)).length = d.nP := by simp [hps]
+  have hσ' : consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ
+      = consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+          (consList (ps.map (interp V ρ)) ρ)) := by
+    rw [List.map_append, List.map_append, consList_append, consList_append]
+  have hshiftO : shiftE (d.k + J) 0 (consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+      (consList (ps.map (interp V ρ)) ρ))) = consList (ps.map (interp V ρ)) ρ := by
+    rw [← consList_append, show d.k + J = (Ms.map (interp V ρ) ++ prior.map (interp V ρ)).length from by
+        rw [List.length_append, List.length_map, List.length_map, hMs, hprior]]
+    exact shiftE_consList _ _
+  -- the fit, split into the fields and the hypotheses
+  rw [hσ'] at hfit
+  unfold minorDataTg at hfit
+  rw [List.map_append] at hfit
+  obtain ⟨fs', ihs', heq, hfitF, hfitI⟩ := spineFit_append_inv hfit
+  have hlenF' : fs'.length = nF := by
+    rw [hfitF.length_eq, List.length_map, rebit_length, liftDoms_length, List.length_drop, hds]
+    omega
+  obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hlenF', hfs])
+  -- the fields fit their domains at the parameter frame
+  have hfsFit : SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs := by
+    rw [rebit_map_dom, spineFit_liftDoms, hshiftO] at hfitF
+    exact hfitF
+  -- a hypothesis lands in the target-form domain of its field, read at
+  -- the fields' prefix
+  have hb : ∀ dd ∈ rebit (d.bb ψ) (tls.getD 0 []), True := fun _ _ => trivial
+  have hih : ∀ l i, recIdx[l]? = some i → i < nF →
+      ihs.getD l pt ∈ˢ interp V (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))
+        (mkPisAV (rebit (d.bb ψ) (tls.getD i []))
+          (AnnotTerm.mkAppN ((Tg (d.tgtsR J i)).liftN (d.nP + i + (tls.getD i []).length) 0)
+            (Eiss.getD i []))) := by
+    intro l i hl hi
+    have hlLt : l < recIdx.length := (List.getElem?_eq_some_iff.mp hl).1
+    have hmemI := spineFit_getElem? hfitI l (ihs.getD l pt)
+      (tgIhDomAV Tg (d.tgtsR J i) d.nP nF (d.k + J) i l (rebit (d.bb ψ) (tls.getD i []))
+        (Eiss.getD i []))
+      (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl)
+      (by simp only [List.getElem?_map, ihDataTg_getElem?, hl, Option.map_some, Nat.zero_add])
+    have hbits : ∀ dd ∈ rebit (d.bb ψ) (tls.getD i []), (dd.2.1 = 0 ↔ d.bb ψ = 0) :=
+      fun dd hd => by rw [mem_rebit hd]
+    rw [interp_tgIhDomAV (ps := ps.map (interp V ρ)) (Ms := Ms.map (interp V ρ))
+      (ms := prior.map (interp V ρ)) hpsLen (by rw [List.length_map, List.length_map, hprior, hMs]; omega)
+      (by rw [List.length_map, hMs]; exact hk) hfs (by rw [List.length_take]; omega) hi hbits] at hmemI
+    rw [ConLeche.Semantics.interp_mkPisAV_piTele (v := d.bb ψ) (acc := [])
+      (B := fun as => ((Eiss.getD i []).map
+        (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))).foldl
+          SetTheory.app (interp V ρ (Tg (d.tgtsR J i)))) hbits]
+    · exact hmemI
+    · intro as hsp
+      have hasLen : as.length = (tls.getD i []).length := by
+        rw [hsp.length_eq, List.length_map, rebit_length]
+      rw [List.nil_append, interp_mkAppN_map, interp_liftN, ← consList_append, ← consList_append,
+        show d.nP + i + (tls.getD i []).length
+          = (ps.map (interp V ρ) ++ (fs.take i ++ as)).length from by
+            rw [List.length_append, List.length_append, hpsLen, List.length_take, hasLen]; omega,
+        shiftE_consList, consList_append, consList_append]
+  -- the mixed values
+  obtain ⟨vs, hvs⟩ : ∃ vs, vs = mixedVals recIdx (useIh J) fs ihs := ⟨_, rfl⟩
+  have hvsLen : vs.length = nF := by rw [hvs, mixedVals_length, hfs]
+  have hvsGet : ∀ i, i < nF → vs.getD i pt
+      = if useIh J i then ihs.getD (recIdx.idxOf i) pt else fs.getD i pt := by
+    intro i hi
+    rw [hvs, mixedVals_getD _ _ _ _ (by rw [hfs]; exact hi)]
+  have hrecAt : ∀ i, useIh J i = true → recAt d.nP (d.ksR J) (d.nP + i) := by
+    intro i hu
+    have := mem_recIdxOf.mp (by rw [hrec]; exact huse i hu)
+    exact ⟨Nat.le_add_right _ _, by rw [Nat.add_sub_cancel_left]; exact this.2⟩
+  have hSR : ShadowRel d.nP (d.ksR J) fs vs := by
+    refine ⟨by rw [hvsLen, hfs], fun l hl hr => ?_⟩
+    rw [hvsGet l (by omega), if_neg]
+    intro hu
+    exact hr (hrecAt l hu)
+  -- the mixed values fit the target-form domains
+  have hvsFit : SpineFit (consList (ps.map (interp V ρ)) ρ)
+      (tgFieldsAV Tg (useIh J) d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF) vs := by
+    refine spineFit_of_getElem? (by rw [hvsLen]; simp [tgFieldsAV]) ?_
+    intro n v F hv hF
+    have hn : n < nF := by
+      have := (List.getElem?_eq_some_iff.mp hv).1
+      rw [hvsLen] at this; exact this
+    have hFeq : F = tgFieldAV Tg (useIh J) d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls n := by
+      unfold tgFieldsAV at hF
+      rw [List.getElem?_map, List.getElem?_range hn] at hF
+      exact (Option.some.inj hF).symm
+    have hveq : v = vs.getD n pt := by
+      rw [List.getD_eq_getElem?_getD, hv]; rfl
+    subst hFeq
+    rw [hveq, hvsGet n hn]
+    have hQ : ∀ q, (recAt d.nP (d.ksR J) q ∧ q < d.nP + n) → q < d.nP + n := fun _ h => h.2
+    unfold tgFieldAV
+    split
+    · next hu =>
+      have hmem := huse n hu
+      have hl : recIdx[recIdx.idxOf n]? = some n := getElem?_idxOf_of_mem hmem
+      have hm := hih (recIdx.idxOf n) n hl hn
+      rw [interp_congr_shadowRel_at hSR _ (by rw [hfs]; exact Nat.le_of_lt hn)] at hm
+      · exact hm
+      · refine NoBVar_mkPisAV_exclP _ hQ ?_ ?_
+        · intro k dd hk
+          rw [rebit_getElem?] at hk
+          obtain ⟨dd', hk', rfl⟩ := Option.map_eq_some_iff.mp hk
+          exact hnbT n hn k dd' hk'
+        · rw [rebit_length]
+          refine NoBVar_mkAppN (NoBVar_liftN _ fun i hi => ⟨Nat.zero_le _, ?_⟩) _ (hnbE n hn)
+          obtain ⟨q, -, hq, rfl⟩ := hi
+          omega
+    · have hlt : d.nP + n < ds.length := by rw [hds]; omega
+      have hm := spineFit_getElem? hfsFit n (fs.getD n pt) ((ds.getD (d.nP + n) default).2.2)
+        (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega : n < fs.length)]; rfl)
+        (by rw [List.getElem?_map, List.getElem?_drop, List.getElem?_eq_getElem hlt,
+          Option.map_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl)
+      rw [interp_congr_shadowRel_at hSR _ (by rw [hfs]; exact Nat.le_of_lt hn) (hnb n hn)] at hm
+      exact hm
+  -- the constructor at the pins
+  obtain ⟨dsC, bodyC, hdsC, hTC, hheadWD, hheadMem, hvsC⟩ := hCAP
+  obtain ⟨hvsFitC, hbodyC⟩ := hvsC vs hvsFit
+  -- the index readings at the mixed values are those at the fields
+  have hEsEq : Es.map (interp V (consList vs (consList (ps.map (interp V ρ)) ρ)))
+      = Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ))) := by
+    apply List.map_congr_left
+    intro E hE
+    have := interp_congr_shadowRel hSR (consList (ps.map (interp V ρ)) ρ) [] (E := E)
+      (by rw [hfs, List.length_nil, Nat.add_zero]; exact hnbEs E hE)
+    simpa using this.symm
+  -- the body at the leaf frame
+  have hσb : consList (fs ++ ihs) (consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+        (consList (ps.map (interp V ρ)) ρ)))
+      = consList (Ms.map (interp V ρ) ++ prior.map (interp V ρ) ++ fs ++ ihs)
+          (consList (ps.map (interp V ρ)) ρ) := by
+    rw [consList_append, consList_append, consList_append, consList_append]
+  have hshiftB : shiftE (d.k + J + nF + recIdx.length) 0
+      (consList (fs ++ ihs) (consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+        (consList (ps.map (interp V ρ)) ρ)))) = consList (ps.map (interp V ρ)) ρ := by
+    rw [hσb, show d.k + J + nF + recIdx.length
+        = (Ms.map (interp V ρ) ++ prior.map (interp V ρ) ++ fs ++ ihs).length from by
+          simp [hMs, hprior, hfs, hihs]; omega]
+    exact shiftE_consList _ _
+  rw [hσ']
+  unfold invBodyAV
+  rw [hnFget, hrec]
+  have hvars : (mixedVarsAV recIdx (useIh J) nF).map
+      (interp V (consList (fs ++ ihs) (consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+        (consList (ps.map (interp V ρ)) ρ))))) = vs := by
+    rw [← hfs, interp_mixedVarsAV huse hihs, hvs]
+  have hmain := wellDenotedV_mkAppN_of_spineFit
+    (σ := consList (fs ++ ihs) (consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+      (consList (ps.map (interp V ρ)) ρ))))
+    (ds := liftDoms (d.k + J + nF + recIdx.length) 0 dsC)
+    (C := bodyC.liftN (d.k + J + nF + recIdx.length) (0 + dsC.length))
+    (f := (head J).liftN (d.k + J + nF + recIdx.length) 0)
+    (as := mixedVarsAV recIdx (useIh J) nF)
+    (by rw [← liftN_mkPisAV, WellDenotedV_liftN, hshiftB]; exact hTC)
+    (by rw [WellDenotedV_liftN, hshiftB]; exact hheadWD)
+    (fun a ha => by
+      obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+      split <;> exact ⟨by simp, by simp⟩)
+    (by rw [← liftN_mkPisAV, interp_liftN, interp_liftN, hshiftB]; exact hheadMem)
+    (by rw [spineFit_liftDoms, hshiftB, hvars]; exact hvsFitC)
+  refine ⟨hmain.1, ?_, fun h0 => hzero h0 fs hfsFit⟩
+  have h2 := hmain.2
+  have hlen0 : 0 + dsC.length = vs.length := by rw [Nat.zero_add, hdsC, hvsLen]
+  rw [hvars, interp_liftN, hlen0, shiftE_consList_len, hshiftB, hbodyC, hEsEq] at h2
+  exact h2
 
 end IndRepData
 
