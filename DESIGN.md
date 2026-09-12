@@ -72839,6 +72839,128 @@ folded over the argument list, plus an `interp`-level transfer for the
 same peel plus the walk congruences of (c)); then ψ (blocked on
 finding 1) and M-C′.
 
+#### M.21 M-B′ step 3e: the readings at EVERY parameter count; `pinRead_of` at K.3; the bit finding behind the copies' records (2026-09-12, session 9)
+
+**What the session set out to do** (brief, in order): (1) drop the
+`nP ≠ 0` premise from `IndRep.rulesRead`/`recRead` — a BLOCKER, not a
+docket item: `Lean.Syntax` has no parameters; (2) the `denoteMeta`-of-
+`instPis` peel and then `CopyIdxRead`/`CopyCtorRead` from the run,
+closing ψ⁻¹ end to end for the scratch block; K.3 (`pinsClosed`) to be
+merged when it landed, `pinRead_of`'s guards swapped for the conjunct.
+(1) landed in full (commit `6af95091`); K.3 landed on `inductives`
+(`7dc4f24f`) mid-session, was merged, and `pinRead_of` takes the
+conjunct (`1c6d44b1`); (2) uncovered a fact about the ANNOTATION that
+makes the copies' records underivable from the run as recorded — the
+finding below — and landed the pieces that hold under every resolution.
+
+**(a) `nP = 0`** (`6af95091`).  The premise is GONE from both clauses,
+with no exemption restated in any form.  Why none was needed: the
+native (`FixRep`) and mutual (`MutualRep`) sites never used it (`fun _
+ψ => …`), `Eq` discharged it, the transports (`cons`/`swap`/`ext`)
+passed it through, and the four pinned basis blocks — the only sites
+that said `absurd rfl h` — do NOT lack the readings: `Nat.rec`,
+`PUnit.rec`, `Empty.rec`, `False.rec` read as the generated towers at
+their data (`denoteMeta_natRecA_type`, `denoteMeta_punitRecA_type`,
+`denoteMeta_emptyRecA_type`, `denoteMeta_falseRecA_type`; the Nat/PUnit
+rule readings `natZeroRa`/`natSuccRa`/`denoteMeta_punitRec_rhs`), by
+the `Eq` site's own pattern (`show … recDataAVP …; rw
+[recDataAVP_params, mutualRecDataAV_one, hleaf]; unfold …; rfl`) once
+the data name the pinned recursor's ELIMINATION LEVEL (`natRepData.elim
+:= uN`, `punitRepData.elim := u1N` — `.anonymous` mis-bits the tower;
+`zeroCtorData` gains an `elim` argument and `indRep_zeroCtor` the
+one-motive type-reading hypothesis, discharged at `Empty`/`False` from
+the existing readings).  The stored pinned rules fire `.plain` at
+`ctorParams = 0` (the raw builder's `.inert` is only the splice
+placeholder), which is exactly `RecReadAt`'s mode conjunct.  Two sites
+the grep missed were caught by the build (`IndRecs.lean`'s swap of a
+provisioned entry, `DeclMutual.lean`'s provisioned-cons `hrr`).  Lean
+gotchas: `acvalWith_self` is stated UNAPPLIED (`congrFun … ψ`); a
+two-constructor `fixMinorsDataM` needs `simp only [fixMinorsDataM,
+minorAVAtRM]` (one `unfold` step leaves the tail folded and the
+`rw [hleaf]` of the second constructor finds nothing).
+Consumers lose the hypothesis: `containerInfo?_eq/_inv`,
+`invSetup_of_member(_nested)`, `invSetup_of_blockReps(_nested)`.  **The
+route's fold spelling now covers a parameterless nested block.**
+
+**(b) K.3 merged, `pinRead_of` at `pinsClosed`** (`1c6d44b1`).
+`declNestedRun_auxModel` re-destructures (one more conjunct before the
+`envAux` run); `nestedPinsOk_inv` splits the guard K.3 put inside
+`nestedPinsOk` (its failure branch is a throw — an OFF-GRAPH module the
+kernel lane's build could not see break).  `pinsClosed_inv` reads the
+conjunct per pin, and **`instantiateList_openers_scoped`**
+(`Verify/Inductives/NestedFacts.lean`) turns "the abstracted pin is
+fvar-free with its loose bvars inside the telescope" into the three
+facts the reading consumes at the openers (`Opened.var`: `fvar i ty_i`,
+`ty_i` scoped at `i`, bvar-closed, leaves among the openers):
+`WScoped nP`, bvar-closed, every leaf an opener — `instSpine_WScoped`/
+`instSpine_closed`/`fvarLeaves_instSpine` at `nP ≥ 1`
+(`instSpine_eq_instantiateList` needs `nP = t + 1`), and trivially at
+`nP = 0`, where there are no openers and the pin is its own reading.
+`pinRead_of` takes the conjunct and `fvsA.length = nP` in place of the
+three guards; the section docstring says so.
+
+**FINDING (the copies' records): the copies' stored types are the
+container's instantiated at the pin only UP TO BINDER BITS, and the
+bits are not recoverable from the run.**  Sizing (2) turned up three
+facts.  (i) The peel EXISTS: `denoteMeta_instPisAt_peel`
+(`Model/Steps/TowerKit.lean`; `instPisAt`, and `instPisAt_of_stripPis`
+bridges `instPis`) — §M.20's "does not exist" was wrong.  (ii)
+`annotateBody` keeps a binder's `pw` when it is WRITTEN and recomputes
+it otherwise (`if !pwWritten mb.pw then annotPwPi … else pure mb.pw`),
+but `pwWritten pw = !pw.isNever` and the frontend's placeholder is
+`⟨.never⟩` — so a `.never` bit (every Type-valued codomain: every
+former binder, every constructor binder of a Type-valued block, every
+Π INSIDE a domain into a Type) is indistinguishable from a placeholder
+and is RECOMPUTED by the aux install's annotation of the copy's types
+(`mutualFormerChecks` → `checkConstantVal`; `checkMutualCtor` →
+`checkConstantVal` + `normCtorValM`).  The recomputation is
+`annotPwPi`: `typeSortPW` (a head reader) or `ensureSort ∘ inferIO` —
+the zeroness of an INFERRED sort at the aux environment.  (iii) The
+model cannot pin those bits semantically: `AnnotValid` at `.pi u v A B`
+says only `v = 0 → …∈ univZero` (one direction — the direction
+soundness needs), and `piR 0` (a truth value) differs from `piR 1` (a
+function set) on a Prop-valued codomain, so two GRADED readings of
+`ErasedEq` terms may differ in `interp` exactly where their bits differ
+in zeroness.  Hence: the copy's stored former/constructor types are
+`ErasedEq` to the container's stored types at the level instantiation,
+peeled at the pin (`mkCopy_inv`, `elimCtors_getElem?`, the walk
+congruences of §M.20(c)), but the bit agreement `CopyIdxRead`/
+`CopyCtorRead` need (`SpineFit` is membership in `interp` of the
+domains) would need the annotation to commute with level and term
+instantiation of a well-typed term — an inference-substitution theorem
+the tree does not have and this lane should not write.
+
+**Resolutions, priced.**  (A) **Kernel request 4** (recommended, the
+K.2/K.3 pattern — the model needs X, the cheapest sound certificate is
+a check): after the aux install, compare each copy's STORED former with
+`closeTelescope pbsA 0 (instPis (JtyA.instantiateLevelParams J.lps
+lvls) argsA)` — `JtyA` the container's stored (annotated) former,
+`argsA` the pin's components ANNOTATED at the stored first former's
+openers `fvsA` (what `nestedPinsOk` computes), `pbsA` the stored first
+former's parameter binders — by `==`; and each copy constructor with
+the same expression through `replaceAllNested` and the same
+`normCtorValM`, the parameter binders' bits compared at
+`zeronessOf (resSortJ.instantiateLevelParams J.lps lvls)` (a copy
+constructor's parameter bits are its result sort's zeroness, not the
+former's `.never`).  With the equation in the run relation, the model
+READS the right-hand side (the peel, `openPisAtFvars_closeTelescope`
+below) and no annotation lemma is needed at all; it narrows only where
+the aux install's recomputed bits differ from the container's stored
+ones at `lvls`, which the same inference never does on an honest
+stream — but it MUST be measured (the 41-block Mathlib cone; the
+redex-pin fixture `inmodel_nested`/`PT`, where `normCtorValM` rewrites
+a field, is the case to watch).  (B) A hypothesis: state the
+alignment equation as the syntactic layer's premise and derive the
+records from it (what this session does, below) — closes nothing at
+the run.  (C) The inference-commutation theorem — sessions of Verify
+work on `inferTypeCore`/`whnf` under `instantiate1`/
+`instantiateLevelParams`, not this lane's.  **The decision is the
+maintainer's**; (A) is asked for.
+
+**Gates** (per session, landing gates NOT run): `lake build` 593
+jobs, warning-free; `lake test` clean; the eight off-graph modules
+build warning-free; `tests/no-local-paths.sh` OK.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
