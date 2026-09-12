@@ -2238,7 +2238,6 @@ False_checked :: ConLeche.Kernel.Inductives.SumParts
 False_checked :: ConLeche.Kernel.Level
 False_checked :: ConLeche.Kernel.Name
 False_checked :: ConLeche.Kernel.NatOpPinSet
-False_checked :: ConLeche.Kernel.NatOpPins
 False_checked :: ConLeche.Kernel.PropRead
 False_checked :: ConLeche.Kernel.PropWhen
 False_checked :: ConLeche.Kernel.StdAxioms
@@ -2662,7 +2661,6 @@ fullyChecked_sound :: ConLeche.Kernel.Inductives.SumParts
 fullyChecked_sound :: ConLeche.Kernel.Level
 fullyChecked_sound :: ConLeche.Kernel.Name
 fullyChecked_sound :: ConLeche.Kernel.NatOpPinSet
-fullyChecked_sound :: ConLeche.Kernel.NatOpPins
 fullyChecked_sound :: ConLeche.Kernel.PropRead
 fullyChecked_sound :: ConLeche.Kernel.PropWhen
 fullyChecked_sound :: ConLeche.Kernel.StdAxioms
@@ -3074,7 +3072,6 @@ False_pure :: ConLeche.Kernel.Inductives.SumParts
 False_pure :: ConLeche.Kernel.Level
 False_pure :: ConLeche.Kernel.Name
 False_pure :: ConLeche.Kernel.NatOpPinSet
-False_pure :: ConLeche.Kernel.NatOpPins
 False_pure :: ConLeche.Kernel.PropRead
 False_pure :: ConLeche.Kernel.PropWhen
 False_pure :: ConLeche.Kernel.StdAxioms
@@ -3456,7 +3453,6 @@ Empty_pure :: ConLeche.Kernel.Inductives.SumParts
 Empty_pure :: ConLeche.Kernel.Level
 Empty_pure :: ConLeche.Kernel.Name
 Empty_pure :: ConLeche.Kernel.NatOpPinSet
-Empty_pure :: ConLeche.Kernel.NatOpPins
 Empty_pure :: ConLeche.Kernel.PropRead
 Empty_pure :: ConLeche.Kernel.PropWhen
 Empty_pure :: ConLeche.Kernel.StdAxioms

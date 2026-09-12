@@ -48,6 +48,7 @@ open ConLeche
 open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-! ## The declaration relation
 
@@ -389,8 +390,8 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     {pd : DeclC} {d : Declaration} (hrel : DeclCRel pd d)
     (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclC mode (mkFEnv env) pd)
-      (checkDecl mode (fueledOpsM mode) env d) := by
+      (checkDeclC mode pins (mkFEnv env) pd)
+      (checkDecl mode (fueledOpsM mode) pins env d) := by
   cases hrel with
   | indDecl => exact absurd rfl (hnotind _ _)
   | @basisDecl kind =>
@@ -610,9 +611,9 @@ followed by `checkDeclC`. -/
 theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env) {pd : DeclC}
     {d : Declaration} {s₀ : CState} (hres : CSOKF s₀)
     (hrel : DeclCRel pd d) {fe' : FEnv} {s' : CState}
-    (h : checkDeclStepC mode (mkFEnv env) pd s₀ = .ok (fe', s')) :
+    (h : checkDeclStepC mode pins (mkFEnv env) pd s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
+    ∃ F, checkDecl mode (fueledOps mode F) pins env d = .ok fe'.env := by
   unfold checkDeclStepC at h
   obtain ⟨u, s₁, hflush, h⟩ := bindC_ok h
   rw [flushC_run] at hflush
@@ -621,7 +622,7 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
   have hcsok : CSOK mode env s₀.flushed := flushC_csok hres
   have main : (∀ block nP, pd ≠ .indDecl block nP) →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
-      ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
+      ∃ F, checkDecl mode (fueledOps mode F) pins env d = .ok fe'.env := by
     intro hind
     obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
       (checkDeclC_sim hμ henv hcsok hrel hind) fe' s' h

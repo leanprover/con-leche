@@ -32,6 +32,8 @@ namespace ConLeche.Cached
 
 open ConLeche
 
+variable {pins : List NatOpPinSet}
+
 /-! ## Fresh chains -/
 
 /-- `fe'` extends `env` by a chain of pushes, each of a name fresh at the
@@ -588,7 +590,7 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : DeclC) :
-    Yields (checkDeclC mode fe pd) (fun fe' => PushChain env fe') := by
+    Yields (checkDeclC mode pins fe pd) (fun fe' => PushChain env fe') := by
   unfold checkDeclC
   cases pd with
   | defnDecl cv value hint =>
@@ -667,7 +669,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : DeclC) :
-    Yields (checkDeclStepC mode fe pd) (fun fe' => PushChain env fe') := by
+    Yields (checkDeclStepC mode pins fe pd) (fun fe' => PushChain env fe') := by
   unfold checkDeclStepC
   ybind
   exact checkDeclC_push mode h pd
@@ -676,9 +678,9 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 by at most the one it may push. -/
 theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pend : Array PendingCheck) (pd : DeclC) :
-    Yields (annotStepC mode i fe pend pd)
+    Yields (annotStepC mode pins i fe pend pd)
       (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := by
-  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
+  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode pins fe pd', pend) :
       CheckCM (FEnv × Array PendingCheck))
       (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) :=
     fun pd' => Yields.bind' (checkDeclStepC_push mode h pd') fun fe' h' =>
@@ -722,7 +724,7 @@ fresh names, and the pending records extend the start's. -/
 theorem installRun_trace (mode : CheckMode) {ds : List DeclC} {env : Env}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (h : InstallRun mode ds p s q s') (hp : PushChain env p.2.1) :
+    (h : InstallRun mode pins ds p s q s') (hp : PushChain env p.2.1) :
     PushChain env q.2.1 ∧ ∃ new, q.2.2.toList = p.2.2.toList ++ new := by
   induction h with
   | nil p s => exact ⟨hp, [], by simp⟩

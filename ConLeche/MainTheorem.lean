@@ -44,14 +44,51 @@ open ConLeche.Cached (DeclC checkDecls)
 
 universe w
 
+/-! ## At an arbitrary `Nat.div`/`Nat.mod` pin list
+
+The fold's third argument is the list of pin variants its
+`Nat.div`/`Nat.mod` install gate tries (task #285); the shipped
+`checkDecls .verified ds` is the fold at `natOpPinSets`, the variants
+this toolchain committed.  Nothing in the consistency argument reads
+that list — the model's certificate conversion is over an arbitrary
+variant, because what it consumes is the certificates' verdict in the
+accepted environment and not where the variant came from — so both
+theorems hold at **every** list, and the two shipped statements are
+their instances at `natOpPinSets`.  The generalised forms are what a
+downstream refinement proof about a differently pinned checker is
+stated against. -/
+
+/-- **The main theorem, at an arbitrary pin list.**  `model_exists` is
+this at `natOpPinSets`. -/
+theorem model_exists_with (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (ds : List DeclC) (env : Env)
+    (accepted : checkDecls .verified ds pins = .ok env) :
+    Nonempty (Model V env) := by
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
+  exact ⟨Model.Model.ofEnvModelM m⟩
+
+/-- **The main corollary, at an arbitrary pin list.**
+`no_proof_of_False` is this at `natOpPinSets`. -/
+theorem no_proof_of_False_with (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (ds : List DeclC) (env : Env)
+    (accepted : checkDecls .verified ds pins = .ok env) :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+  rintro ⟨c, hc, hty⟩
+  obtain ⟨m⟩ := model_exists_with V pins ds env accepted
+  obtain ⟨T, hT, hmem⟩ := m.mem c hc (fun _ => 0) (fun _ => empty)
+  rw [hty] at hT
+  rw [m.false_empty _ _ _ hT] at hmem
+  exact not_mem_empty _ hmem
+
+/-! ## The two shipped statements -/
+
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
-    Nonempty (Model V env) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
-  exact ⟨Model.Model.ofEnvModelM m⟩
+    Nonempty (Model V env) :=
+  model_exists_with V natOpPinSets ds env accepted
 
 /-- **The main corollary.**  An accepted stream never yields a
 constant of type `False`: its type would denote the empty set, and
@@ -59,12 +96,7 @@ constant of type `False`: its type would denote the empty set, and
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
-    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
-  rintro ⟨c, hc, hty⟩
-  obtain ⟨m⟩ := model_exists V ds env accepted
-  obtain ⟨T, hT, hmem⟩ := m.mem c hc (fun _ => 0) (fun _ => empty)
-  rw [hty] at hT
-  rw [m.false_empty _ _ _ hT] at hmem
-  exact not_mem_empty _ hmem
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
+  no_proof_of_False_with V natOpPinSets ds env accepted
 
 end ConLeche

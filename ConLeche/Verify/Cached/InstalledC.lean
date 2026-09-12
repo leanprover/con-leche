@@ -53,6 +53,7 @@ open ConLeche ConLeche.Semantics ConLeche.Model
 
 universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-- Every parsed declaration relates to one: with one expression type
 the witness is the record itself. -/
@@ -312,7 +313,7 @@ value — is what the theorem's model step consumes. -/
 theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (hrun : InstallRun μ ds p s q s') :
+    (hrun : InstallRun μ pins ds p s q s') :
     p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
@@ -332,7 +333,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : DeclC),
-        (checkDeclStepC μ fe pd' >>= fun fe' => pure (fe', pend)) s = .ok ((fe₁, pend₁), s₁) →
+        (checkDeclStepC μ pins fe pd' >>= fun fe' => pure (fe', pend)) s =
+          .ok ((fe₁, pend₁), s₁) →
         EnvModelOk V μ q.2.1.env := by
       intro pd' hst
       obtain ⟨fe₁', s₁', hstepC', hp⟩ := bindC_ok hst
@@ -355,7 +357,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         Expr.WScoped 0 cvA.type →
         (kind ≠ .thm → Expr.WScoped 0 jv) →
         (∀ F, checkValueGroup (fueledOps μ F) fe.env ⟨kind, cvA, jv⟩ = .ok () →
-          ∃ F', checkDecl μ (fueledOps μ F') fe.env d = .ok ⟨mk cvA jv :: fe.env.consts⟩) →
+          ∃ F', checkDecl μ (fueledOps μ F') pins fe.env d = .ok ⟨mk cvA jv :: fe.env.consts⟩) →
         EnvModelOk V μ q.2.1.env := by
       intro kind mk d cvA jv hres₁ hfe₁' hpend₁' hwty hwv hsplit
       subst hfe₁' hpend₁'
@@ -459,7 +461,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
 is a hypothesis because the walk threads the model for the
 well-formedness it needs; the conclusion is the model itself. -/
 theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} (fc : FullyChecked μ ds) :
+    {ds : List DeclC} (fc : FullyChecked μ pins ds) :
     Nonempty (EnvModelM V μ fc.env) := by
   obtain ⟨n, s, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
@@ -473,7 +475,7 @@ a validating mode, holds no constant of type `False`.  The main theorem
 `checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-    (fc : FullyChecked μ ds) :
+    (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := fullyChecked_sound V hμ fc
@@ -482,7 +484,7 @@ theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
 /-- The same letter about the pinned `Empty`. -/
 theorem no_proof_of_Empty_checked (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-    (fc : FullyChecked μ ds) :
+    (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := fullyChecked_sound V hμ fc

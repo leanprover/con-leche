@@ -156,8 +156,11 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
   pure (fe.push (.axiomInfo cvA))
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
-branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+branch; inductive and basis blocks reuse the `Expr`-level drivers).
+`pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
+tries (task #285), threaded from the fold. -/
+def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : DeclC) :
+    CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
@@ -180,7 +183,7 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
         | _ => throw (.internal
             s!"structural Nat operation not stored ({cvA.name})")
       if natDivModNames.contains cvA.name then
-        checkDivModPinF (sharedOpsC mode fe) fe fe2 cvA.name
+        checkDivModPinF (sharedOpsC mode fe) pins fe fe2 cvA.name
       pure fe2
     else
       checkDefnValC mode fe cvA jty value hint
@@ -257,8 +260,9 @@ def declCLabel : DeclC → String
   | .basisDecl k => s!"basis block {repr k}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+def checkDeclStepC (pins : List NatOpPinSet) (fe : FEnv) (pd : DeclC) :
+    CheckCM FEnv := do
   flushC
-  checkDeclC mode fe pd
+  checkDeclC mode pins fe pd
 
 end ConLeche.Cached

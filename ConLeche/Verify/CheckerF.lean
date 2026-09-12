@@ -32,6 +32,7 @@ theorem mkFEnv_find?_fun (env : Env) :
 theorem mkFEnv_env (env : Env) : (mkFEnv env).env = env := rfl
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 theorem mkFEnv_findCV? (env : Env) (n : Name) :
     (mkFEnv env).findCV? n = env.findCV? n := by
@@ -354,8 +355,8 @@ theorem checkDivModPinLoopF_eq (ops : CheckerOps m) (env : Env) (c : Name)
 
 theorem checkDivModPinF_eq (ops : CheckerOps m) (env env2 : Env)
     (c : Name) :
-    checkDivModPinF ops (mkFEnv env) (mkFEnv env2) c
-      = checkDivModPin ops env env2 c := by
+    checkDivModPinF ops pins (mkFEnv env) (mkFEnv env2) c
+      = checkDivModPin ops pins env env2 c := by
   simp only [checkDivModPinF, checkDivModPin, mkFEnv_find?,
     divModEnvGuardF_eq, checkDivModPinLoopF_eq] <;> rfl
 

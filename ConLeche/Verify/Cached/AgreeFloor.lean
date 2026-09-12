@@ -64,6 +64,8 @@ namespace ConLeche.Cached
 
 open ConLeche
 
+variable {pins : List NatOpPinSet}
+
 /-! ## The kit: final-value reasoning for `CheckCM`
 
 `CheckCM = StateT CState (Except CheckError)`.  The floor reads only
@@ -1213,7 +1215,7 @@ theorem tolerated_ne_std {n : Name}
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
-    Yields (checkDeclC mode fe pd)
+    Yields (checkDeclC mode pins fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclC declCSkels
   cases pd with
@@ -1291,7 +1293,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
-    Yields (checkDeclStepC mode fe pd)
+    Yields (checkDeclStepC mode pins fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclStepC
   ybind
@@ -1327,8 +1329,9 @@ kinds push the one constant the fold's value checkers push, everything
 else runs `checkDeclStepC`. -/
 theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : DeclC) :
-    Yields (annotStepC mode i fe pend pd) (fun r => SkelIs r.1 (declCSkels pd sk)) := by
-  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
+    Yields (annotStepC mode pins i fe pend pd)
+      (fun r => SkelIs r.1 (declCSkels pd sk)) := by
+  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode pins fe pd', pend) :
       CheckCM (FEnv × Array PendingCheck)) (fun r => SkelIs r.1 (declCSkels pd' sk)) :=
     fun pd' => Yields.bind' (checkDeclStepC_skels mode h pd') fun fe' h' => Yields.pure h'
   unfold annotStepC
@@ -1368,7 +1371,8 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
 theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (h : InstallRun mode ds p s q s') {sk : List InstallSkel} (hp : SkelIs p.2.1 sk) :
+    (h : InstallRun mode pins ds p s q s') {sk : List InstallSkel}
+    (hp : SkelIs p.2.1 sk) :
     SkelIs q.2.1 (ds.foldl (fun sk pd => declCSkels pd sk) sk) := by
   induction h generalizing sk with
   | nil p s => exact hp

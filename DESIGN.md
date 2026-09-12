@@ -68939,3 +68939,147 @@ result.  A mismatched binary fails inside the sandbox as an opaque
 diagnosis it looks like.
 
 No checker code changed, so the binary is master's.
+
+---
+
+## TASK #285 — THE PIN LIST IS A PARAMETER OF THE FOLD (2026-09-12, `pins-param`, for con-ron)
+
+Asked for by the con-ron lane (the Rust port of this checker and its
+Aeneas refinement proof, `vendor/con-leche` there is this tree): a
+refinement proof of the ported checker wants to be **stated for any
+`Nat.div`/`Nat.mod` pin list**, not only for the variants this
+toolchain committed.  It could not be: `natOpPinSets` was hard-wired
+at the two install gates (`checkDivModPin`, `checkDivModPinF`) and
+therefore at every statement above them.
+
+What the tree looked like: the constant appeared in exactly two places
+in the proof tiers — `DivModPinRun`'s `∃ ps ∈ natOpPinSets`
+(`ConLeche/Semantics/DeclRun.lean`) and `checkDivModPin_inv`'s
+conclusion (`ConLeche/Verify/DivModInv.lean`) — while the model's
+certificate conversion `divMod_install`
+(`ConLeche/Model/DivModCert.lean`) was **already** over an arbitrary
+`ps : NatOpPinSet`.  That asymmetry is the whole of the task: the
+model never needed the list, so nothing had to be generalised, only
+threaded.
+
+**The parameter and where it sits.**  `pins : List NatOpPinSet` is now
+an argument of `checkDivModPin{,F}`, `checkDecl`, `checkDeclsPure`,
+`checkDeclC`, `checkDeclStepC`, `annotStepC`, `annotDeclStep` and
+`checkDecls`, and of the types stated over those steps — `InstallRun`,
+`InstalledEnv`, `FullyChecked`.  The position is uniform: **right after
+the "how to check" arguments**, i.e. after `ops` where there is one and
+after `mode` in the cached driver, so `checkDecl mode ops pins env d`
+and `annotDeclStep mode pins p pd`.  Everything that the installed
+environment already determines takes it **implicitly** —
+`GroupChecked`, `checkRecord`, `RecordResult`, `collectChecks`,
+`groupChecked_*`, `fullyChecked_checkDecls`, `checkDecls_fullyChecked`,
+`fullyChecked_sound`, the three `MainC` letters — which is why
+`Main.lean`'s pool, its `collectChecks` call and every downstream
+`obtain` are untouched.
+
+**`checkDecls` keeps its spelling**, because the headline statements
+must not move: the parameter is its **last** and it **defaults** to
+`natOpPinSets` (`pins : List NatOpPinSet := natOpPinSets`).  So
+`checkDecls mode ds` still elaborates to the shipped fold,
+`ConLeche.model_exists` and `ConLeche.no_proof_of_False` are unchanged
+token for token, and `tests/challenge.sh` still reports the two
+statements identical to `ConLeche/Challenge.lean`'s.  A statement that
+wants the general fold writes the argument: `checkDecls mode ds pins`.
+
+**The two generalised theorems** (`ConLeche/MainTheorem.lean`, beside
+the shipped pair and *before* it, since the shipped pair is derived):
+
+* `ConLeche.model_exists_with (V) [SetTheory V] (pins) (ds) (env) : checkDecls .verified ds pins = .ok env → Nonempty (Model V env)`
+* `ConLeche.no_proof_of_False_with (V) [SetTheory V] (pins) (ds) (env) : checkDecls .verified ds pins = .ok env → ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []`
+
+and `model_exists := model_exists_with V natOpPinSets ds env accepted`,
+`no_proof_of_False := no_proof_of_False_with V natOpPinSets ds env accepted`
+— each one line.  The three `MainC` letters (`checkDecls_sound`,
+`no_proof_of_{False,Empty}_cached`) are generalised **in place**, with
+`pins` implicit, so the shipped instances are their own instances and
+no wrapper was added there.
+
+**The one change that is not threading**: `DivModPinRun` says
+`∃ ps : NatOpPinSet` where it said `∃ ps ∈ natOpPinSets`.  Threading
+`pins` into it would have carried the parameter through `DeclDefnRun`,
+`DeclRun`, `Bridge/Sound`, `DeclEta`, `Model/Fold` and `Model/Harvest`
+for a hypothesis **nobody reads**: what `divMod_install` consumes is
+the certificates' verdict *in the accepted environment*, never where
+the matched variant came from.  Dropping the membership is therefore
+both smaller and *more general* — the run record is now what an install
+at ANY list establishes — and it costs two edits: `divModPinRun_of`
+discards the `hmem` that `checkDivModPin_inv` still hands it (the
+inversion keeps `∃ ps ∈ pins`, which is the honest statement of a
+loop over `pins`), and `harvestDefn`'s pattern loses one `-`.  The
+model tier is otherwise **untouched**: `Model/Fold` and
+`Model/Capstone` only gained the threaded argument in their
+`checkDeclsPure` statements.
+
+`Main.lean` keeps calling the shipped fold: its driver types name
+`ConLeche.natOpPinSets` outright (`InstalledEnv mode
+ConLeche.natOpPinSets ds`, `annotDeclStep mode ConLeche.natOpPinSets
+p pd`), and `fullyChecked_checkDecls mode fc` hands back exactly the
+`checkDecls mode ds = .ok env` the driver's subtype asks for, because
+the default argument elaborates to the same term.
+
+No import changed anywhere (`shake` proposes *adding* a
+`public import ConLeche.Kernel.NatOpPins` to `ConLeche/Cached/Installed.lean`
+now that `checkDecls`' default value names the list; the public view
+already carries it transitively, the challenge library builds against
+it, and `add` proposals are not this gate's business).  33 files,
++646/−332 — of which the Lean and test sources are 28 files,
++338/−183, and the rest is this section, `OVERVIEW.md` and the three
+regenerated/edited expectation files.
+
+### Gates
+
+Every run in the `pins-param` worktree.  `lake build` **544 jobs
+warning-free**, 2 min 19 s wall from a `lake clean` on this machine
+(18 min CPU); `lake test` green;
+`tests/layering.sh` 280/190/3/1 with 0 base→lane and 0 impl→theory;
+`tests/challenge.sh` **OK — `ConLeche.model_exists` and
+`ConLeche.no_proof_of_False` token-identical to the challenge half**,
+which is the gate this task was designed around; `tests/pindump.sh`
+three pinners reproduce their committed JSON byte-for-byte;
+`tests/trust-surface.sh` 13 escapes in 5 allowlisted files (484
+scanned), 0 outside; `tests/no-local-paths.sh` OK; `tests/inmodel.sh`
+OK; axioms pinned (18 theorems at `[propext, Classical.choice,
+Quot.sound]`); arena tutorial 90/92, e2e 195/195, annot 15/15, retired
+flags 8/8, mode flags 20/20, prelude counts 3/3, progress lane 17/17,
+worker pool 15/15, DAG-tower 14/14.
+
+`tests/proofdeps.sh` **shrank by four rows and was regenerated**:
+`ConLeche.Kernel.NatOpPins` LEFT the closures of `False_pure`,
+`Empty_pure`, `False_checked` and `fullyChecked_sound`.  That is the
+change stated as a measurement — those four proofs no longer reach the
+committed variant list at all, because neither the fold they are about
+nor the run record they consume names it.  The main theorem's own
+closures (`main_False`, `main_model`) still reach it, and must: the
+shipped statement is the fold *at* `natOpPinSets`.  3 815 rows across
+11 roots, 0 doors.
+
+`tests/overview-links.sh` re-anchored (77 links / 49 files).  Twenty-two
+citations moved and one changed text; every citing paragraph was
+re-read.  The prose held everywhere — the tour describes what the fold
+does, not its arity — and two paragraphs were *added* to keep it
+honest: §1 now says `checkDecls`' third argument is the pin list with
+`natOpPinSets` as its default and points at the two `_with` theorems,
+and the `Nat.div`/`Nat.mod` bullet says the model side reads none of it.
+
+**`tests/shake.sh` could not be run end-to-end in this sandbox** and
+was replicated by hand.  Its half (a) captures `lake shake`'s output
+(135 018 bytes here) into a shell variable, after which every
+`fork`/`exec` in that shell fails with `Argument list too long` — an
+environment limit, reproducible with nothing but that one capture and
+independent of this change.  Running the gate's own python check on
+`lake shake`'s saved output: **456 proposals, 0 new**, and **one
+allowlist line no longer proposed**, which is deleted here —
+`ConLeche/Semantics.lean` / `public import ConLeche.Verify.Inductives.SumWF`,
+whose own recorded reason was "a transitive-minimization move, not an
+unused import", i.e. exactly the kind of artefact that moves when one
+constant leaves one statement.  456 proposals / 456 allowlisted / 0
+stale after the deletion.  Half (b) run directly: `pub-imports: 940 of
+1279 in-tree edges public, none demotable`.
+
+Comparator was not re-run: `tests/challenge.sh` is the in-tree half of
+it and the two statements are unchanged.

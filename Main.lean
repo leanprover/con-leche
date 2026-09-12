@@ -104,10 +104,13 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (rest : List ConLeche.Cached.DeclC) →
     (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
     (s : ConLeche.Cached.CState) →
-    (∃ done, done ++ rest = ds ∧ ConLeche.Cached.InstallRun mode done p₀ s₀ p s) →
+    (∃ done, done ++ rest = ds ∧
+      ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets done p₀ s₀ p s) →
       IO (Except (ConLeche.CheckError × Nat)
         (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck)
-          (s' : ConLeche.Cached.CState), PLift (ConLeche.Cached.InstallRun mode ds p₀ s₀ p' s')))
+          (s' : ConLeche.Cached.CState),
+          PLift (ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets
+            ds p₀ s₀ p' s')))
   | [], p, s, hrun =>
     return .ok ⟨p, s, ⟨by
       obtain ⟨done, hds, hr⟩ := hrun
@@ -149,7 +152,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
         err.flush
       | _ => pure ()
-    match h : ConLeche.Cached.annotDeclStep mode p pd s with
+    match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s with
     | .ok (p₁, s₁) =>
       installLoop mode err stride total t0 trace inModelled ds p₀ s₀ rest p₁ s₁ (by
         obtain ⟨done, hds, hr⟩ := hrun
@@ -164,7 +167,8 @@ pool it is monotone whichever worker finished, and the line is printed
 after the check rather than before it: a check that is running is not
 on any line, the gap between two lines is where it sits. -/
 def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) {mode : ConLeche.CheckMode}
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Cached.DeclC}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
     (n k : Nat) (hk : k < e.pend.size) : IO Unit := do
   if stride > 0 && n % stride == 0 then
     let now ← IO.monoMsNow
@@ -190,7 +194,8 @@ scattered through it — allocating phase B out of that scatter costs a
 factor of two in wall time at Mathlib scale for the same instructions.
 With `--progress`, one line per `stride` completed checks. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    {ds : List ConLeche.Cached.DeclC}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
       IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i)))
   | k, acc =>
@@ -258,7 +263,8 @@ index; on the heartbeat lane the completed-count is bumped.  A record
 at or above the limit is skipped — it is above a known failure and the
 walk will never ask for it. -/
 def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Cached.DeclC}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
     (limit done : IO.Ref Nat) (k : Nat) (hk : k < e.pend.size)
     (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) :
     IO (Array (Nat × ConLeche.Cached.RecordResult mode e)) := do
@@ -278,7 +284,8 @@ repeat until the counter is past the records.  The fuel is exact:
 every claim advances the counter by exactly one, so `pend.size + 1`
 claims see it past the end whatever the other workers do. -/
 def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Cached.DeclC}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
     (next limit done : IO.Ref Nat) :
     (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
       IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
@@ -292,7 +299,7 @@ def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Na
 
 /-- The workers' arrays merged by record index into one table. -/
 def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Cached.DeclC}
-    {e : ConLeche.Cached.InstalledEnv mode ds}
+    {e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds}
     (tab : Array (Option (ConLeche.Cached.RecordResult mode e))) :
     List (Array (Nat × ConLeche.Cached.RecordResult mode e)) →
       Array (Option (ConLeche.Cached.RecordResult mode e))
@@ -305,8 +312,10 @@ results and walks the table in record order.  A worker that failed as
 an `IO` action (not a check failing — the pool's own machinery) is an
 internal error, exit 3, never a verdict on the input. -/
 def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
-    IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
+    {ds : List ConLeche.Cached.DeclC}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds) :
+    IO (Except (ConLeche.CheckError × Nat)
+      (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
   let m := e.pend.size
   let workers := max 1 (min jobs m)
   let next ← IO.mkRef 0
@@ -363,7 +372,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       check not reached t={secs (now - t0)}s"
     return .error e
   | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
-    let e : ConLeche.Cached.InstalledEnv mode ds := ⟨fe, pend, ⟨n, s, r⟩⟩
+    let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds := ⟨fe, pend, ⟨n, s, r⟩⟩
     let tCheck ← IO.monoMsNow
     heartbeat s!"install done: {total}/{total} declarations installed, \
       {pend.size} checks pending t={secs (tCheck - t0)}s \
@@ -445,7 +454,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       heartbeat s!"check done: {pend.size}/{pend.size} t={secs (now - t0)}s \
         (check {secs (now - tCheck)}s)"
       heartbeat summary
-      let fc : ConLeche.Cached.FullyChecked mode ds := ⟨e, hall⟩
+      let fc : ConLeche.Cached.FullyChecked mode ConLeche.natOpPinSets ds := ⟨e, hall⟩
       return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`

@@ -13,8 +13,9 @@ operation (`Nat.div`, `Nat.mod`, …) that toolchain's pinned defining
 expression and certificate proof blobs, as constants
 `nat…DeclPin_v<i> : Expr` / `nat…CertProofs_v<i> : List Expr`.  The
 variants are listed in `natOpPinSets` in the order below, which is the
-order the install gate tries them in (`checkDivModPinLoop`,
-`ConLeche/Kernel/Checker.lean`): the first whose guards pass, whose pin
+order the install gate tries them in when it is handed this list — the
+fold's pin-list parameter, task #285, whose default this is
+(`checkDivModPinLoop`, `ConLeche/Kernel/Checker.lean`): the first whose guards pass, whose pin
 is definitionally equal to the stream's stored value and whose
 certificates check enables the operation's fast path.  The
 hand-pinned certificate *statements* the proofs are checked against
