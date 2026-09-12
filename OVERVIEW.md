@@ -1,10 +1,12 @@
 # ConLeche: an overview of the proof
 
 > **This document was written by an AI agent** (Claude, working with
-> the maintainer), in contrast to `README.md`, which is human-written.
-> It is a guided tour of the verification, from the binary that runs to
-> the set-theoretic assumption it rests on, with links into the source
-> on `master`.
+> the maintainer), in contrast to [`README.md`](./README.md), which is
+> human-written and states the main theorem and its corollary in the
+> maintainer's own words, with its own links into the source.
+> This one is a guided tour of the verification, from the binary that
+> runs to the set-theoretic assumption it rests on, with links into the
+> source on `master`.
 
 ## 0. Using the checker
 
