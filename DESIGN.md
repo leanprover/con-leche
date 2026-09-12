@@ -70404,7 +70404,51 @@ doors).  The axiom pin table, `trust-surface.sh`'s challenge note,
 statement first with the stream-level one as the step it rests on, and
 §2's driver item cites `chunkStep`.  README is the maintainer's and was
 not edited; the replacement text for its "### The Main Corollary"
-section is in the READY report.
+section follows (the "Not covered by the proof" bullet "The parser
+reading JSON files to `List DeclC`" should go with it; the
+annotation-pass and driver bullets stand):
+
+> At the end of `ConLeche/MainTheorem.lean` we prove that a file that
+> declares a theorem of type `False` is never accepted.  "Declares a
+> theorem of type `False`" is a string template over the export format
+> (`ConLeche/Accepts.lean`): four lines — a name entry for `False`, an
+> expression entry for the constant `False`, a name entry for the
+> theorem's own name, and the theorem record whose type is that
+> expression — with anything at all before, between and after them:
+>
+> ```lean
+> def hasProofOfFalse (file : String) : Prop :=
+>   ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+>     file =
+>       before ++ "\n" ++
+>       s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+>       between₁ ++ "\n" ++
+>       s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+>       between₂ ++ "\n" ++
+>       s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+>       between₃ ++ "\n" ++
+>       s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+>       after
+> ```
+>
+> `pipelineAccepts file` is the binary's accept path as pure content:
+> the built-in prelude parses, the file parses, and `checkDecls` in
+> `--verified` mode accepts the parsed list prepared with the prelude.
+> The theorem:
+>
+> ```lean
+> theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+>     (h : hasProofOfFalse s) : ¬ pipelineAccepts s
+> ```
+>
+> The meaning of `False` is hard-coded, so no tricks involving odd
+> definitions for `False` will confuse the checker.  Inside the proof,
+> the same statement is established first about the parsed stream (a
+> list of declarations one of whose records declares a theorem of type
+> `False` is never accepted, `ConLeche/Verify/Cached/StreamThm.lean`)
+> and before that about the environment (an accepted environment holds
+> no constant of type `False`); the file-level statement adds the
+> parser and the preparation step on top of those.
 
 **Gates on the merged tree** (commit after the merge): `lake build` and
 `lake test` warning-free; `env -i … bash tests/arena.sh` exit 0 —
