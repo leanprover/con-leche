@@ -1358,3 +1358,15 @@
 # `either`.  This checker accepts it today; the native nested route
 # mirrors the rc2 check and rejects it (see the shadow gate).
 0 nested_nonuniform_param.ndjson
+# nested_aux_clash: `tests/e2e/nested_p03.ndjson` (the chain probe
+# `P3.mk : Array (List P3) → P3`) with one ordinary definition NAMED
+# `_nested.List_2.cons` inserted before the block — the name the second
+# copy's `cons` constructor is about to get.  FORGED
+# (`scripts/mk_nested_aux_clash.py`): no exporter can produce it,
+# because official mints `_nested.List_2` for the copy and then
+# `declare_inductive_types`' `check_name` throws "already declared" on
+# the constructor, so the declaration never reaches an export.
+# Official REJECTS; this checker ACCEPTS today, on the modelled route,
+# which does not look at the name.  The native nested route rejects it
+# at `copiesFresh` (see the shadow gate).
+0 nested_aux_clash.ndjson

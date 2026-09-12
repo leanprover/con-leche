@@ -71043,16 +71043,71 @@ carry the capability record the AUXILIARY install stored, which
   auxiliary environment does not create), and closing it means touching
   the accept path, which this lane may not do.
 
+#### K.1 `copiesFresh`, and official's `mk_unique_name` (2026-09-12, the model lane's interim finding)
+
+**The finding** (model lane): `checkMutualCore … none` on the scratch
+block does not check that the copies' GENERATED names are fresh.
+Official's `check_no_nested_aux` rejects `_nested`-named INPUT and our
+front guard rejects a block whose declared types MENTION such a
+constant, but nothing looked at the names the elimination MINTS — so a
+crafted stream could declare `_nested.List_2.cons`, and the scratch
+environment's cons would SHADOW it.
+
+**What landed.**  Two pieces, because the finding's premise ("`_nested`
+input is already rejected") holds for MENTIONS and not for a
+declaration's own NAME — `def _nested.Foo := 3` is accepted by this
+checker and by official alike.
+
+* **`mkUniqueName`** (`NestedElim.lean`) is now official's
+  `mk_unique_name` proper: the shared counter is advanced until the
+  candidate is free in the PRE-BLOCK environment.  Official skips a
+  taken name rather than failing, so without this the route would
+  REJECT a stream official ACCEPTS — a narrowing, and the standing rule
+  is no restriction beyond official's.  The fuel is the loop's
+  termination measure; exhausting it leaves the last candidate, which
+  the next check then refuses.
+* **`copiesFresh env k st`** (`NestedElim.lean`), a `.invalid` at
+  `checkNested` right after the elimination, threaded through
+  `checkNested_inv` and `DeclNestedRun` as an explicit conjunct: every
+  name the elimination mints — `nestedCopyNames`: each copy's TYPE, its
+  RECURSOR `<copy>.rec`, and its CONSTRUCTORS — is free in the
+  pre-block environment.  It is official's check too: the copies'
+  constructors and recursors enter the environment through
+  `declare_inductive_types`, whose `check_name` throws "already
+  declared" on a collision.  With `mkUniqueName` in front of it the
+  TYPE names can never fire; what it catches is a constructor or a
+  recursor name, exactly where official throws.
+
+**The fixture.**  A stream DOES reach the check, but no exporter can
+produce one: official mints `_nested.List_2` for the copy (the type
+name is free — only the constructor name is taken) and then throws
+"already declared" on the constructor, so the declaration never enters
+an environment and never reaches an export.  The stream is therefore
+FORGED, as the arena forges its own two nested tests —
+`scripts/mk_nested_aux_clash.py` takes `tests/e2e/nested_p03.ndjson`
+(the chain probe, whose three copies are `_nested.Array_1`,
+`_nested.List_2` and `_nested.List_3`) and inserts one ordinary
+definition named `_nested.List_2.cons` before the block.
+`tests/e2e/nested_aux_clash.ndjson`: official REJECTS, this checker
+ACCEPTS today on the modelled route (which does not look at the name),
+and the native route REJECTS at `copiesFresh`.  The fixture also pins
+the NAME COMPUTATION, since it has to predict `_nested.List_2.cons`
+exactly; no separate unit test was added for that reason.  The shadow
+gate is 23/23.
+
+**Not done, as instructed**: the dispatch wiring, which waits for
+`declNested`'s signature.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
-did not move):
+did not move; re-run after K.1 on `inductives` = `2e2fc245`):
 
 | gate | result |
 |---|---|
 | `lake build` | exit 0, warning-free |
 | `lake test` | exit 0, warning-free |
-| `tests/nested-shadow.sh` | **22/22 as expected** |
+| `tests/nested-shadow.sh` | **23/23 as expected** (22 before K.1) |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **213/213** (195 + the 18 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
+| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **214/214** (195 + the 19 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
 | Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
