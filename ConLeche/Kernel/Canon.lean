@@ -98,17 +98,17 @@ def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
 
 /-! ### Comparing canonical forms in lockstep (task #226)
 
-Three places ask "is this parsed record the same declaration as that
-pinned one, up to level-parameter names?" — the `Quot.sound` axiom and
-the quotient records against the `quot` basis pin, a block against one
-of the five basis pins, and any record under a built-in prelude name
-against the prelude's copy (`ExportC.lean`, `Declaration.sameCanon`).  Each
-used to build `ConstantInfo.canon` of BOTH sides and compare the
-results.  That is `O(tree)` on the stream side, because `canonExpr`
-rebuilds every node: `tests/e2e/tower_axiom.ndjson`,
-`tower_quot.ndjson` and `tower_prelude.ndjson` — a depth-60 shared
-tower (`2^60` nodes unshared) under `Quot.sound`, under `Quot` and
-under `Bool` — exhaust memory on it.
+Two places ask "is this record the same declaration as that pinned
+one, up to level-parameter names?" — the `Quot.sound` axiom record and
+the four quotient records against the `quot` basis pin, and a block
+against one of the five basis pins.  Both are `checkDecl`'s since task
+#293 (`basisPinHit`, `quotPinHit`, `ConLeche/Kernel/Basis.lean`); a
+third, the built-in prelude's dedupe, went with that task.  Each used
+to build `ConstantInfo.canon` of BOTH sides and compare the results.
+That is `O(tree)` on the stream side, because `canonExpr` rebuilds
+every node: `tests/e2e/tower_axiom.ndjson` and `tower_quot.ndjson` — a
+depth-60 shared tower (`2^60` nodes unshared) under `Quot.sound` and
+under `Quot` — exhaust memory on it.
 
 The `canonEq*` functions below are the SPECIFICATIONS, spelled exactly
 that way; the `*Fast` twins beside them descend both terms **together**
