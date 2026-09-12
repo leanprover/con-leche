@@ -69952,6 +69952,127 @@ imports the latter two privately, so they are not re-exported);
 `Model/Fold.lean` takes `Model/Inductives/DeclMutual` (plain).
 
 
+### 9. M3 and the landing record (2026-09-12, `agent/mutual-278`, READY — lands on `inductives`)
+
+**What lands.**  A mutual block is installed by the fixpoint route's
+own shape (`checkMutual`, §7) and modelled by instantiating the
+single-family fixpoint theorems at the tagged sum of the members'
+index towers (`declMutual`, §8): `Model/Inductives/DeclMutual.lean`
+is `sorry`-free and premise-free — the #280 representation clause is
+discharged for every member inside it (§8.16), so the fold's
+`.indDecl` arm splits three ways (`nativeParts?`, `mutualParts?`,
+the modeled path) with nothing new assumed.  The branch adds 92 source
+files' worth of change against `inductives` (+29.5k/−1.5k lines under
+`ConLeche/`), the modeller's mutual rung is gone
+(`Frontend/InModel/Mutual.lean` at M1; its `Kit.lean` helpers
+`overFirstParams`/`specFam` at M3), and OVERVIEW §5 now reads four
+cases (pinned basis, fixpoint route, mutual, nested).
+
+**M3, the deletion and the gates.**  The census (`scripts/dead-census.py`)
+cut 52 declarations this branch had left dead — 45 across 22 files in
+its first rounds (the kernel's `mutualFormersF` line, `MutualParts`'s
+unread projections, the K-frame lemmas the leaf-generic L-twins
+replaced, `IndRepData.cds` once `cdsC` took over), then `MutualWF.lean`'s
+aggregation chain (`checkMutual_wf` down to `consMutualCtors_find?_none`:
+the cached bridge and the recursor stage consume `mutual_recs_wf`
+directly, the aggregate had no reader) and `Kit.lean`'s two mutual
+helpers; live count 22 744 before and after.  The import gate: 23
+`public import`s demoted (4 restored — each a re-export two or three
+parents carry, individually but not jointly demotable, recorded in
+`pub-import-plan.py`'s `FALLBACK`), 37 shake proposals run through
+#223's criterion (2 clean and deleted, 35 allowlisted with their
+compensating additions), one implied import deleted (`Fold.lean`'s
+`Semantics.IndBlockFacts`, now under `DeclMutual`).
+
+**Findings, for the maintainer.**
+
+1. **`Level.isEquiv · .zero` is COMPLETE** — the theorem the tree
+   lacked.  `Level.simplify` decides the zero level
+   (`simplify_eq_zero_of_eval`, structural induction, no fuel), hence
+   `isEquiv_zero_of_eval` and `isPropBit_congr` (two levels with equal
+   evaluations give the same `isProp` bit).  Two lanes' "hProp
+   asymmetry" alarms (§8.8's third bullet, §8.12) were the SAME false
+   alarm: the syntactic `isProp` conjuncts at every member are true as
+   landed, `MutualStageTable.lean` is untouched, and the weakening of
+   #280's `IndRep.isProp` to a semantic clause that one lane prepared
+   was withdrawn unmerged.  §8.8's semantic `hProp` in
+   `MutualShadow`/`MutualChains` stays (sound, and what the consumers
+   use).  The kit sits at the top of `DeclMutual.lean`; its home is
+   `Verify/Level.lean`, and with it the fixpoint route's own syntactic
+   `hProp` premises become derivable — docketed, not done here.
+2. **Landed statements that were FALSE, repaired at the assembly** (each
+   is its own DESIGN entry): `MutualLeafHyp.hcd`'s syntactic parameter
+   identity → a `Sat`-iff (§8.9; the checker and official compare by
+   `isDefEq`); `mutualRuleOk`'s `hih` bound its parameter/motive/minor
+   tuples by LENGTH and concluded a membership-based `SpineFit`
+   (§8.15), and its `hzeroC`/`hzeroD` quantified over arbitrary motives
+   (§8.11) — all three now take the spine fits `mutualBlock_split`
+   already had; `MutualRepsOk`'s provisioning-side obligation was
+   stated at an arbitrary carrier with only freshness (§8.16) — the
+   loop now threads a caller-chosen invariant.  Two alarms were FALSE:
+   the mixed-regime chain lemma (§8.4 → §8.13: the uniform-bit premise
+   is about codomain bits, which `CtorDataI.bits` gives) and finding 1.
+3. **Kernel regime, as built** (§5, §7, §8.5, §8.8): the formers are
+   checked at the PRE-BLOCK environment (official's
+   `check_inductive_types` order; a former mentioning an earlier
+   member rejects, as official); `checkMutual` runs no index-telescope
+   sort check of its own, so the model's `TagOk` comes from the
+   parameter binders' universes (`FormerData.lvls`) rather than from an
+   `idxOk` premise; the recursors' freshness and reserved-name guards
+   come from the stream record's `checkConstantVal`, not from a check
+   of the generated name.  Restrictions beyond official, all
+   corpus-vacuous: caps `{}` on members (no η/unit-likeness at a
+   recursion-free mutual block's structure-like members — M4, needs
+   the fibre exposed from `declNative`); projection tables only at
+   index-free structure-like members (the fixpoint route's own
+   restriction).
+4. **`IndReps` keeps its transitional disjunct** (`ModeledLeaf`) —
+   nested blocks are still the modeller's until #279; `IndReps.swap`
+   does not serve a native group store (§8.8: a third disjunct "the
+   caller supplies `IndRep` there" would let both routes share one
+   lemma; `mutualIndReps_of` re-assembles per entry instead).
+5. **Docket** (none blocks landing): `motDispAV_facts`' unused
+   `x ∈ auxFib` premise; `mutualRecData_of`'s `hfT` bound; the
+   dispatch closedness/validity lemmas belong in `MutualDisp.lean`;
+   `Frontend/InModel/Block.lean`'s `IndCtorRec.nP`/`IndTypeRec.isRec`
+   are unread projections (a record-shape decision for #279); the
+   census's pre-existing dead set this branch did not touch
+   (`Verify/Cached/AgreeFloor` 111 — #221's "not corollaries" ruling —,
+   `Verify/Denote/Install` 30, `Verify/BridgeDecl` 12, and singletons
+   in `BasisBlocks`/`BasisEmpty`/`BasisQuot`/`ConsMono`/`IndRepToolkit`/
+   `CheckerBase`/`FixRecCoreI`).
+
+**Gates** (final tree, one run each):
+
+| Gate | Result |
+| --- | --- |
+| `lake build` | `Build completed successfully (584 jobs)`, no warnings |
+| `lake test` | `ConLecheTests` built (501 jobs), no warnings |
+| axiom pin | 18 theorems at `[propext, Classical.choice, Quot.sound]` (`tests/ConLecheTests/Axioms.lean`, reported by `tests/arena.sh`) |
+| Mathlib, `--verified --jobs=8`, 32 GB address-space cap | exit 0, 654 499 declarations accepted; checker's own phase line: parse 28.4 s, install 160.2 s, check 142.9 s, 8 workers |
+| init-full, `--verified` | exit 0, 53 088 declarations accepted; 1 block modelled in-process — `Lean.Syntax`, which is nested, not mutual |
+| `tests/arena.sh` | EXIT=0 |
+| — arena tutorial | 90/92 good tests accepted |
+| — e2e / annot suite | 195/195 and 15/15 as expected |
+| — trusted, `--jobs=1`, `--jobs=4` sweeps | 138 arena + 195 e2e + 15 annot each (trusted: 3 recorded divergences) |
+| — DAG-tower gate | 14/14 as expected |
+| — route census (arena corpus) | 90 streams, 765 blocks — 225 fix, 0 mutual, 0 inmodel, 540 basis, 0 modeled; `inmodel: OK` |
+| — proofdeps | 4138 module rows as pinned across 11 roots; doors: 0 |
+| — challenge | OK — builds with `sorry` only; statements identical for `ConLeche.model_exists`, `ConLeche.no_proof_of_False` |
+| — shake / pub-imports | 507 removals proposed, all 507 allowlisted; 1006 of 1432 in-tree edges public, none demotable (10 dot-notation fallbacks) |
+| — overview-links | 83 links, 54 files, OK |
+| — no-local-paths | OK |
+| — layering | base 289 / model 218 / caps 3 / umbrella 1 modules; 0 base→lane edges, 0 impl→theory |
+| — trust surface / pindump | 13 escapes in 5 allowlisted files (521 scanned), 0 outside the allowlist; 3 pinners reproduced, 0 skipped |
+| dead-code census (`scripts/dead-census.py`) | live 22 744, dead 14 861 (generated 13 062, attributed 214, hard 103, soft 1482); 12 modules with no live declaration |
+
+**Landing.**  Merged `master` at `3e004805` (#282–#284; master's
+pin-shape change to `basisPinnedTT_consFresh` landed in
+`Model/Annot/ConsMono.lean`, where this branch keeps the fresh-cons
+transfer lemmas).  On the grant:
+`git -C .claude/worktrees/inductives merge --no-ff agent/mutual-278`
+— never into `master`.
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
