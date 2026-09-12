@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Verify.Cached.PushChain
-public import ConLeche.Verify.Cached.BridgeCS4
+public import ConLeche.Cached.Installed
+import ConLeche.Verify.Cached.PushChain
+import ConLeche.Verify.Cached.BridgeCS4
 
 public section
 

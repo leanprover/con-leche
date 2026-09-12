@@ -11,11 +11,11 @@
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L49-L52
-    49  theorem model_exists (V : Type w) [SetTheory V]
-    50      (ds : List DeclC) (env : Env)
-    51      (accepted : checkDecls .verified ds = .ok env) :
-    52      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L50-L53
+    50  theorem model_exists (V : Type w) [SetTheory V]
+    51      (ds : List DeclC) (env : Env)
+    52      (accepted : checkDecls .verified ds = .ok env) :
+    53      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,11 +44,17 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L59-L62
-    59  theorem no_proof_of_False (V : Type w) [SetTheory V]
-    60      (ds : List DeclC) (env : Env)
-    61      (accepted : checkDecls .verified ds = .ok env) :
-    62      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+== ConLeche/MainTheorem.lean#L60-L63
+    60  theorem no_proof_of_False (V : Type w) [SetTheory V]
+    61      (ds : List DeclC) (env : Env)
+    62      (accepted : checkDecls .verified ds = .ok env) :
+    63      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+
+== ConLeche/MainTheorem.lean#L75-L78
+    75  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    76      (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
+    77      (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    78      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
@@ -57,12 +63,12 @@
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L93-L97
-    93  /--
-    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    95  -/
-    96  #guard_msgs in
-    97  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L98-L102
+    98  /--
+    99  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   100  -/
+   101  #guard_msgs in
+   102  #print axioms ConLeche.model_exists
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)
