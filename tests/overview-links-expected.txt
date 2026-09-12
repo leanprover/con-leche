@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L736
-   736  def usage : String := String.intercalate "\n" [
+== Main.lean#L743
+   743  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -127,8 +127,8 @@
 == ConLeche/Frontend/ExportC.lean#L857
    857  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L100
-   100  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L107
+   107  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
@@ -139,11 +139,11 @@
    337  def checkRecord {ds : List Declaration} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L168
-   168  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L175
+   175  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L283
-   283  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L290
+   290  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List Declaration} (e : InstalledEnv mode ds)
@@ -151,11 +151,11 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L321-L324
-   321  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   322      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   323      IO (Except (ConLeche.CheckError × Nat)
-   324        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L328-L331
+   328  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   329      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   330      IO (Except (ConLeche.CheckError × Nat)
+   331        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L498-L499
    498  theorem fullyChecked_checkDecls {ds : Array Declaration} (fc : FullyChecked mode ds.toList) :
