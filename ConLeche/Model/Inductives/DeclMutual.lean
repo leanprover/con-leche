@@ -5694,7 +5694,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (mI := p.toBlock.rulePrefix + (fms.getD t default).nIdx) (rP := p.toBlock.rulePrefix)
       (rules := rules) (bsT := bsT)
       ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
-      ?hFD ?hfound ?hlpsM ?hnodupM ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
+      ?hFD ?hfound ?hlpsM ?hnodupM ?hFDall ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
       ?hleafT ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
       (hrecName t ht) (hfreshR t ht) (fun ψ => (hRDs' t ht).read ψ)
     case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
@@ -5723,6 +5723,11 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
             List.getElem?_eq_none_iff.mpr (by omega)]
           rfl]
       exact hndF
+    case hFDall =>
+      intro t' ht' cv caps hf
+      rw [hFPc (hfindF t' _ (hfmGet t' ht'))] at hf
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact FormerData.congr_sort (hFD₃ t' _ (hfmGet t' ht')) (fun ψ => (hsEqAll t ψ ht).symm)
     case hcf => exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).1
     case hidxRes =>
       exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).2.1

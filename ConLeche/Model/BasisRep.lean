@@ -149,6 +149,13 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     show app (app (fixFunVI 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []) X) t = empty
     rw [fixFunVI_app hX', famFI_app ht']
     exact fixStepI_nil (Ids := []) X t
+  have hFDb : FormerData m cvT (d.nP + d.nIdxAt 0) resSort (d.ppsM 0) (d.lvlsM 0) := by
+    refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_, (fun _ => trivial),
+      (fun ψ₁ ψ₂ h => ⟨rfl, hres ψ₁ ψ₂ h⟩), (fun _ => rfl),
+      (fun _ i hi => absurd hi (Nat.not_lt_zero i)), (fun _ _ _ => rfl)⟩
+    · rw [hty, denoteMeta_sort]; rfl
+    · show WellDenotedV V ρ (AnnotTerm.sort (resSort.eval ψ))
+      exact ⟨by rw [WellDenoted_sort]; trivial, by rw [AnnotValid_sort]; trivial⟩
   refine {
     member := rfl
     strip := ⟨[], by rw [hty]; rfl⟩
@@ -172,7 +179,12 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h
-    former := ?_
+    former := hFDb
+    formersRead := fun t ht cv caps hf => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      rw [show d.memberName 0 = T from rfl, hfT.choose_spec] at hf
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact hFDb
     ctors := fun j cA hj => nomatch hj
     memsFound := fun j hj => absurd hj (Nat.not_lt_zero j)
     idxRes := fun j cA hj => nomatch hj
@@ -191,13 +203,6 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     ctor := fun j cA hj => nomatch hj
     mkZero := fun _ _ _ _ => rfl
     mkInj := fun _ _ j _ _ _ hj => nomatch hj }
-  · -- the former's data
-    refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_, (fun _ => trivial),
-      (fun ψ₁ ψ₂ h => ⟨rfl, hres ψ₁ ψ₂ h⟩), (fun _ => rfl),
-      (fun _ i hi => absurd hi (Nat.not_lt_zero i)), (fun _ _ _ => rfl)⟩
-    · rw [hty, denoteMeta_sort]; rfl
-    · show WellDenotedV V ρ (AnnotTerm.sort (resSort.eval ψ))
-      exact ⟨by rw [WellDenoted_sort]; trivial, by rw [AnnotValid_sort]; trivial⟩
   · -- the leaf
     intro ψ ρ as is hsp₁ hsp₂
     obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq

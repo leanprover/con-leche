@@ -527,6 +527,11 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
       rw [hRread ψ, fixRepData_recDataAV, show d.k = 1 from rfl, show d.nAll = ctorsA.length from rfl,
         show d.nIdxAt 0 = p.nIdx from rfl, mutualConcAV_one]
     former := hFD
+    formersRead := fun t ht cv caps hf => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      rw [show d.memberName 0 = p.cvT.name from rfl, hfT.choose_spec] at hf
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact hFD
     ctors := fun j cA hj => by rw [hlpsT]; exact hcf j cA hj
     memsFound := fun j hj => ⟨⟨_, _, hfT.choose_spec⟩, fun _ => ⟨_, _, hfT.choose_spec⟩⟩
     idxRes := hidxRes

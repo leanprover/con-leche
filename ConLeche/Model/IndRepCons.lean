@@ -426,6 +426,12 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
       rw [hac, denoteMeta_cons_mono hfresh hatR ψ 0 hcbR (h.recRead hnP ψ),
         h.recDataAV_cons hfresh m₂ hac]
     former := h.former.crossAt hfresh (hcross.typeOf hfT) hcbT m₂ hac
+    formersRead := fun t ht cv caps hf => by
+      obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)
+      have hne : d.memberName t ≠ c₀.name := ne_of_stored hfresh hf0
+      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hne hh.symm)] at hf
+      exact (h.formersRead t ht cv caps hf).crossAt hfresh (hcross.typeOf hf)
+        (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 m₂ hac
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j (List.getElem?_eq_some_iff.mp hj).1

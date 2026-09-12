@@ -493,6 +493,24 @@ theorem memberNodup_one {d : IndRepData V} (hk : d.kReal = 1) :
   rw [hk, List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil]
   exact List.nodup_cons.mpr ⟨List.not_mem_nil, List.nodup_nil⟩
 
+/-- **`formersRead` at a one-member block** (task #279 M-B′ step 3b):
+`kReal = 1`, so the only real member is `0 = mm`, whose stored former
+is `cvT` and whose data is `former`.  Native, `Eq` and the pinned
+blocks discharge `formersRead` by this. -/
+theorem IndRep.formersRead_one {env : Env} {m : EnvModel V env} {T : Name} {cvT : ConstantVal}
+    {d : IndRepData V} (hk : d.kReal = 1) (hmem0 : d.memberName 0 = T)
+    {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvT caps))
+    (hFD : FormerData m cvT (d.nP + d.nIdxAt 0) d.resSort (d.ppsM 0) (d.lvlsM 0)) :
+    ∀ t, t < d.kReal → ∀ (cv : ConstantVal) (caps' : IndCaps),
+      env.find? (d.memberName t) = some (.indInfo cv caps') →
+      FormerData m cv (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) (d.lvlsM t) := by
+  intro t ht cv caps' hf
+  rw [hk] at ht
+  obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+  rw [hmem0, hfT] at hf
+  obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+  exact hFD
+
 /-- **The representation of a stored inductive `T`**, the member `mm`
 of its block, with recursor `T.rec = .recInfo cvR mI rP rules`, at the
 datum `d` (see the module docstring).  A single-family block is the
@@ -568,6 +586,16 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
       = some (mkPisAV (d.recDataAV m ψ mm) (mutualConcAV d.k d.nAll (d.nIdxAt mm) mm))
   /-- the former's type reads as the member's telescope -/
   former : FormerData m cvT (d.nP + d.nIdxAt mm) d.resSort (d.ppsM mm) (d.lvlsM mm)
+  /-- **every real member's former reads as its own telescope** (task
+  #279 M-B′ step 3b, ruling (1)): the fold `ψ` a later block spells
+  from `J.rec` types its motive `t` at the SIBLING former's index
+  telescope `ppsM t`, whose reading `former` records at `mm` alone; a
+  mutual block already proves this per member, native/`Eq` are `k = 1`
+  so it is `former` at member `0`.  The result sort is the block's one
+  `resSort` (mutual types share their universe). -/
+  formersRead : ∀ t, t < d.kReal → ∀ (cv : ConstantVal) (caps : IndCaps),
+    env.find? (d.memberName t) = some (.indInfo cv caps) →
+    FormerData m cv (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) (d.lvlsM t)
   /-- every constructor OF THE BLOCK is stored and its type reads as
   the datum says (`FixCtorDataI` at the constructor's own member, with
   the per-field target member: the field kinds, the recursive slots,

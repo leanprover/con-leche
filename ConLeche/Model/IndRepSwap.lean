@@ -160,6 +160,11 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
       congr 2
       exact d.recDataAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
     former := h.former.swap hcg hac
+    formersRead := fun t ht cv caps hf => by
+      obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)
+      rw [hcg.findUp _ _ hf0 (fun _ _ _ _ hh => nomatch hh)] at hf
+      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact (h.formersRead t ht cv0 caps0 hf0).swap hcg hac
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       exact ⟨hcg.findUp _ _ hfC (fun _ _ _ _ h => nomatch h), hlps, hD.swap hcg hac⟩

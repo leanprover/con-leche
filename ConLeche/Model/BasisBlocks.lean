@@ -697,7 +697,9 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h
-    former := ?_
+    former := ?fd
+    formersRead := IndRep.formersRead_one rfl rfl
+      (ConLeche.Env.find?_cons_of_fresh hfresh hP) ?fd
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩⟩
@@ -2446,7 +2448,9 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h
-    former := ?_
+    former := ?fd
+    formersRead := IndRep.formersRead_one rfl rfl
+      (ConLeche.Env.find?_cons_of_fresh hfresh hN) ?fd
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩⟩

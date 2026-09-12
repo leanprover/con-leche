@@ -327,6 +327,12 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
       rw [h.recDataAV_ext hag]
       exact denoteMeta_ext hx hag ψ 0 hcbR (h.recRead hnP ψ)
     former := h.former.ext hx hag hcbT
+    formersRead := fun t ht cv caps hf => by
+      obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)
+      rw [hx.find hf0] at hf
+      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact (h.formersRead t ht cv0 caps0 hf0).ext hx hag
+        (envWF_constsBound m₂.wf _ (ConLeche.Semantics.Env.find?_mem hf0)).1
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j (List.getElem?_eq_some_iff.mp hj).1

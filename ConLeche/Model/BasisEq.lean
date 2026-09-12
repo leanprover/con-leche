@@ -1500,7 +1500,9 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := ?_
-    former := ?_
+    former := ?fd
+    formersRead := IndRep.formersRead_one rfl rfl
+      (ConLeche.Env.find?_cons_of_fresh hfresh hE) ?fd
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩⟩

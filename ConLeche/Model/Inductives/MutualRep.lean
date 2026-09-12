@@ -440,6 +440,11 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hlpsM : ∀ t, t < k → ∀ (cv : ConstantVal) (caps : IndCaps),
       env.find? (Tname t) = some (.indInfo cv caps) → cv.levelParams = lps)
     (hnodupM : ((List.range k).map Tname).Nodup)
+    -- every member's former reads as its own telescope (task #279
+    -- M-B′ step 3b, ruling (1)): `mutualIndRep_of`'s per-member datum
+    (hFDall : ∀ t, t < k → ∀ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (Tname t) = some (.indInfo cv caps) →
+      FormerData m cv (nP + nIdxOf t) resSort (ppsOf t) (lvlsOf t))
     -- the constructors, at their own members and with their fields' targets
     (hcf : ∀ J cA, ctorsA[J]? = some cA →
       MutualCtorFactsAt m env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
@@ -585,6 +590,10 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
         show d.k = k from rfl, show d.nAll = ctorsA.length from rfl, hnIdxAt mm hmm,
         recDataAVP_params]
     former := by rw [hnIdxAt mm hmm]; exact hFD
+    formersRead := fun t ht cv caps hf => by
+      rw [hname t ht] at hf
+      rw [hnIdxAt t ht]
+      exact hFDall t ht cv caps hf
     ctors := ?_
     memsFound := ?_
     idxRes := hidxRes
