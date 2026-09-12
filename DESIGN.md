@@ -72036,11 +72036,16 @@ motives, the earlier minors, the fields and the hypotheses):
   (`wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom`).
 
 With `RecFold.lean` this types the fold at the choice (`recFold_mem` at
-`choice_prefix_fit`) and fires it (`recFold_iota_core`); the last
-corollary — the fired minor value β-reduced to `bodies J` at the fields
-and the target-fold hypotheses — is the next line to write (`mkLamsAV_fold`
-at the minor λ-tower, the hypotheses' fits from the target folds'
-typing).  **Two design points fixed by the kit.**  (i) The body takes
+`choice_prefix_fit`) and fires it: **`choice_fold_iota`** — the fold of
+member `mems J`'s recursor at the choice's spine, at real constructor
+`J`'s index readings and at `C p⃗ f⃗`, IS `bodies J` at the fields and
+the TARGET-FOLD hypotheses (each recursive field's hypothesis the
+λ-tower over its telescope of its member's fold at the SAME spine,
+`lamTower_mem_piTele` + `interp_mutualConcAV_frame` for their fits;
+`mkLamsAV_fold` at the fired minor's λ-tower).  So a consumer that
+picks `Tg`/`bodies` and discharges the kit's per-constructor facts gets
+the fold typed and computing; nothing about ψ/ψ⁻¹ is left in the kit.
+**Two design points fixed by the kit.**  (i) The body takes
 the hypotheses in TARGET form and the fields as they are, so no field
 domain is ever read at a frame holding a hypothesis where a field was —
 the "later domains do not mention recursive field variables" fact
