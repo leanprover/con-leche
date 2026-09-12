@@ -1,9 +1,6 @@
 module
 
-public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Verify.Inductives.NestedInv
-import ConLeche.Verify.EnvGuards
-import ConLeche.Verify.Extend.Inversions
 
 @[expose] public section
 

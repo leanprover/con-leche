@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedElim
+public import ConLeche.Kernel.Inductives.MutualInstall
 
 @[expose] public section
 

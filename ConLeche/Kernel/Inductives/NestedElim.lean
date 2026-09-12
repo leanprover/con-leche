@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedParts
-public import ConLeche.Kernel.Inductives.MutualInstall
+public import ConLeche.Kernel.Inductives.SumInstall
 
 @[expose] public section
 
