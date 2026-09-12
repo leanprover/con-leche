@@ -20,9 +20,9 @@ can check without knowing what an `Env` is.  Those two theorems are
 all this file holds.  The corollary's statement is the binary's accept
 path itself: the three pure functions the driver's phases compute,
 chained — the built-in prelude parses, the chunks parse, the verified
-fold accepts the parsed list prepared with the prelude — never return
-an environment.  The steps between are imported: the parser reads such
-chunks into a list holding a theorem record of type `False`
+fold accepts the parsed records prepared with the prelude — and that
+chain does not succeed.  The steps between are imported: the parser reads
+such chunks into records holding a theorem record of type `False`
 (`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
 parsed record (`Frontend.mem_preparePrelude`), and a stream holding
 such a record is never accepted (`no_False_theorem_accepted`: the
@@ -46,13 +46,16 @@ denotation — in `ConLeche/Denotes.lean`.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks` the streaming parse of the chunks the file
   handle hands out (the driver's read loop, minus the reads), and
-  `Frontend.preparePrelude` the preparation of the parsed list for the
-  fold.  The three live in different `Except` error types; the chain
-  forgets the reasons (`Except.toOption`), which are the driver's
-  diagnostics and no part of the statement.
-* `Declaration` is a parsed declaration; `Env` is the environment the checker
-  builds; `env.consts` are the constants it accepted; `.verified` is the
-  default mode.
+  `Frontend.preparePrelude` the preparation of the parsed records for
+  the fold.  The three fail in ONE error type — the checker's own
+  `CheckError` with the position of the failure (the input's line
+  number for the first two, the fold position for the fold) — so the
+  chain is a plain `Except` `do` block with no conversion in it, and
+  the conclusion is that it does not succeed.
+* `Declaration` is a parsed declaration, and the records travel as an
+  `Array` of them — what the parse returns and what the fold folds;
+  `Env` is the environment the checker builds; `env.consts` are the
+  constants it accepted; `.verified` is the default mode.
 * `hasProofOfFalse` (`ConLeche/Accepts.lean`) is the template of a
   file that declares a theorem of type `False`, over the chunks' bytes.
 * `False` and `Eq` are built in: the checker installs them from its own
@@ -74,25 +77,27 @@ universe w
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List Declaration) (env : Env)
+    (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
+open Frontend in
 /-- **The main corollary.**  Chunks that declare a theorem of type
 `False` are never accepted: the parse reads the template's four lines
 into a theorem record of type `False`, the preparation keeps the
 record, and a stream holding it is never accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
     (h : hasProofOfFalse chunks) :
-    ∀ env, (do
-      let pre ← Frontend.builtinPreludeE.toOption
-      let r ← (Frontend.parseChunks chunks).toOption
-      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env := by
-  intro env hacc
-  simp only [bind, Option.bind_eq_some_iff, Except.toOption_eq_some_iff] at hacc
-  obtain ⟨pre, -, r, hparse, hcheck⟩ := hacc
+    (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds).isOk = false := by
+  refine Except.isOk_eq_false fun env hacc => ?_
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 

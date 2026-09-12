@@ -403,8 +403,18 @@ def checkPendingList (fe : FEnv) : List PendingCheck → Except (CheckError × N
     | .error e => .error (e, pc.pos)
 
 /-- **The declaration fold**: install every record (phase A), check
-every recorded declaration (phase B), return the environment. -/
-def checkDecls (mode : CheckMode) (ds : List Declaration) :
+every recorded declaration (phase B), return the environment.
+
+The records are the ARRAY the frontend produces and the driver holds
+(`Frontend.preparePrelude`) — phase A is `Array.foldlM` over it, phase
+B a walk over the array of records phase A recorded, and nothing on
+the run path builds a list of millions of declarations.  The PROOFS
+below read the same fold as `ds.toList.foldlM` (`Array.foldlM_toList`),
+which is where `InstallRun` and every lemma above it live; the
+`× Nat` of the error is the failure's POSITION — here the record's
+position in the fold, in the frontend's half of the same error type
+the input's LINE number (`ConLeche/Frontend/Export.lean`). -/
+def checkDecls (mode : CheckMode) (ds : Array Declaration) :
     Except (CheckError × Nat) Env := do
   let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
   checkPendingList mode p.2.1 p.2.2.toList
@@ -485,20 +495,22 @@ theorem FullyChecked.records {ds : List Declaration} (fc : FullyChecked mode ds)
 /-- **The fold returns a fully checked environment's environment**: what
 the driver's loops assembled, `checkDecls` computes — the proof the
 driver returns beside its environment. -/
-theorem fullyChecked_checkDecls {ds : List Declaration} (fc : FullyChecked mode ds) :
+theorem fullyChecked_checkDecls {ds : Array Declaration} (fc : FullyChecked mode ds.toList) :
     checkDecls mode ds = .ok fc.env := by
   obtain ⟨n, s, r⟩ := fc.1.run
   unfold checkDecls
-  rw [r.foldlM]
+  rw [← Array.foldlM_toList, r.foldlM]
   show (checkPendingList mode fc.1.fe fc.1.pend.toList >>= fun _ => pure fc.1.fe.env) = _
   rw [checkPendingList_ok mode fc.1.fe fc.1.pend.toList fc.records]
   rfl
 
 /-- **Every accept of the fold is a fully checked environment.** -/
-theorem checkDecls_fullyChecked {ds : List Declaration} {env : Env}
-    (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
+theorem checkDecls_fullyChecked {ds : Array Declaration} {env : Env}
+    (h : checkDecls mode ds = .ok env) :
+    ∃ fc : FullyChecked mode ds.toList, fc.env = env := by
   unfold checkDecls at h
-  cases hrun : (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {} with
+  rw [← Array.foldlM_toList] at h
+  cases hrun : (ds.toList.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {} with
   | error e => rw [hrun] at h; exact nomatch h
   | ok r =>
     obtain ⟨⟨n, fe, pend⟩, s⟩ := r
@@ -509,7 +521,8 @@ theorem checkDecls_fullyChecked {ds : List Declaration} {env : Env}
     | ok u =>
       rw [hchk] at h
       obtain rfl : fe.env = env := Except.ok.inj h
-      let e : InstalledEnv mode ds := ⟨fe, pend, n, s, InstallRun.of_foldlM mode ds _ _ hrun⟩
+      let e : InstalledEnv mode ds.toList :=
+        ⟨fe, pend, n, s, InstallRun.of_foldlM mode ds.toList _ _ hrun⟩
       refine ⟨⟨e, fun i => ?_⟩, rfl⟩
       unfold GroupChecked
       cases hi : pend[i]? with

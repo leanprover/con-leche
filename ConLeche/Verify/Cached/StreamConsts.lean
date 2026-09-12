@@ -777,7 +777,7 @@ the same term with every `let` inlined and the binder data rewritten
 (`AnnotOf`).  `basisDecl` records declare nothing, and an `indDecl`
 block's members are outside the claim (see the module docstring). -/
 theorem checkDecls_consts (V : Type w) [SetTheory V]
-    {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
     {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c, env.find? cv.name = some c ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
@@ -789,7 +789,7 @@ theorem checkDecls_consts (V : Type w) [SetTheory V]
   obtain ⟨c, hc, h1, h2, h3⟩ :=
     installRun_declares (V := V) rfl run rfl
       ⟨⟨EnvModelM.empty V _⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
-      hnd fc.records pd hmem cv hcv
+      hnd fc.records pd (Array.mem_toList_iff.mpr hmem) cv hcv
   exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩
 
 end Cached

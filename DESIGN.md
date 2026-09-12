@@ -70663,3 +70663,206 @@ gate on the two names, shake and pub-imports clean, overview-links
 regenerated after re-reading the citing paragraphs, no-local-paths,
 trust-surface, e2e/arena unchanged — recorded in the READY report with
 the row count.
+
+## TASK #295 — ONE ERROR TYPE FOR THE ACCEPT PATH, AND ARRAYS ON THE RUN PATH (2026-09-12, `agent/errtype-295`)
+
+Two maintainer rulings, one task.
+
+### 1. The rulings, verbatim
+
+1. *"Still not happy with `no_False_declaration`.  The `toOption` is
+   too noisy.  How different are the error types?  Also, the
+   quantifier to prove that it is `.err` is noisy.  Better write
+   `… matches .error _` (or `!….isOk`)."*  The `isOk` form is the one
+   that landed (§2 says why).  Answer to the question in
+   the middle: **not different at all.**  `FrontendError`'s
+   `parseError`/`unsupported`/`invalid` and `CheckError`'s
+   `internal`/`notImplemented`/`invalid` were the same three verdict
+   classes under two names — the driver already mapped both onto the
+   same three exit codes (3/2/1).  So `FrontendError` is DELETED and
+   the frontend reports the checker's `CheckError`.
+2. *"Use a pure `let` for the result of `preparePrelude`, for better
+   readability, and throw in an `open Frontend in` around the
+   theorem."*
+3. *"I don't buy it.  Why convert a 1M array to a list for no good
+   reason?  Surely the array lemmas in the library suffice for a
+   fold!"* — on a first draft of this task that would have made
+   `ParseResultD.decls` a `List`.  The run path carries **arrays**
+   instead, from the parse through `preparePrelude` into `checkDecls`;
+   the proofs keep their list shape behind `ds.toList`.
+
+### 2. The statement, as landed
+
+```lean
+open Frontend in
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (h : hasProofOfFalse chunks) :
+    (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds).isOk = false := by
+  refine Except.isOk_eq_false fun env hacc => ?_
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+```
+
+with the one lemma the first step needs
+(`ConLeche/Verify/ExceptBind.lean`, replacing `Except.toOption_eq_some_iff`,
+which nothing else used):
+
+```lean
+theorem Except.isOk_eq_false {ε α : Type} {x : Except ε α} (h : ∀ a, x ≠ .ok a) :
+    x.isOk = false
+```
+
+**Why the `isOk` spelling and not `matches`.**  Both were written and
+both elaborate; the maintainer offered either.  `x matches .error _`
+is a `Bool`, and in statement position the `Bool → Prop` coercion makes
+it `(match x with | .error _ => true | _ => false) = true` — **with a
+matcher generated for the declaration**, `no_False_declaration.match_1`.
+That matcher is then part of the advertised statement (it shows up in
+the challenge gate's `#check @…` output, where both halves happen to
+generate the same name, so the comparison passes), and it blocks the
+tidy proof: a general lemma `(x matches .error _) ↔ ∀ a, x ≠ .ok a`
+carries its OWN matcher, and `apply`/`refine`/`simp` cannot unify the
+two through a metavariable scrutinee — the error prints the two sides
+identically and still fails.  The `matches` proof therefore has to
+`split` on the goal's own matcher and then recover the positive fact
+from what `split` hands the catch-all branch (`∀ e, chain ≠ .error e`)
+through a second lemma: four lines of scaffolding for a statement
+respelling.  `.isOk = false` needs none of it — it is already a `Prop`
+(no coercion, hence no `= true` either), the proof is one `refine`
+through one lemma, and the elaborated statement is
+`Except.isOk (…) = false`.  The maintainer's literal alternative
+`!(…).isOk` proves in exactly the same length but reintroduces the
+`= true`.  Ruling (the maintainer, relayed): take the `isOk` form — a
+`split`/`next` dance over a generated matcher is exactly what this
+file's style rule forbids.
+
+The pure `let` prints as `have ds := …` in the elaborated statement —
+`ds` is used once and nothing depends on its value.
+
+### 3. One error type
+
+`ConLeche/Frontend/Export.lean` keeps `RecordVerdict` (the parse's own
+declined/invalid datum) and maps it to `CheckError`
+(`.declined → .notImplemented`, `.invalid → .invalid`); the caller
+pairs it with the line.  Every frontend `Except FrontendError α`
+became `Except (CheckError × Nat) α`, with `parseError line msg →
+(.internal msg, line)`.  The `Nat` is the failure's POSITION, read in
+the step's own unit — the input LINE number in the frontend, the
+record's position in the list the fold folds — which is documented on
+`CheckError` itself (`ConLeche/Kernel/Core.lean`), on `checkDecls`, and
+in `Export.lean`'s header.  `Export.lean` gained one import
+(`ConLeche.Kernel.Core`); the layering is unchanged (the frontend may
+read the kernel, never the other way).
+
+**The driver's messages and exit codes are byte-identical**: the three
+match arms became `(.notImplemented what, _)` / `(.invalid what, _)` /
+`(.internal msg, line)` and print exactly what they printed before, so
+e2e and arena verdicts are unchanged (and the `sizeError` guard, which
+has no line to name, carries 0).
+
+### 4. Arrays on the run path
+
+`ParseResultD.decls` was already an `Array`; what was converted was
+everything after it.  Now:
+
+* `prepareD`/`preparePrelude : PreludeIx → Array Declaration → Array
+  Declaration`.  `pickSpec` (the list recursion) stays as the SPEC;
+  the implementation `pick` is `findIdx` + `getElem?` +
+  `eraseIdxIfInBounds` — one scan and one erase per prelude record,
+  where the old `pickGo` rebuilt the whole stream as a list for each
+  of the twelve.  `frontOf` pushes the front onto an array
+  accumulator.  The bridge is `pickSpec_eq` (the list pick by index)
+  and `pick_toList`/`frontOf_toList`; `frontSpec_perm`,
+  `pickSpec_perm` and the hoist's permutation lemma are untouched.
+  `preparePrelude_perm` now reads
+  `(preparePrelude pre ds).toList.Perm (ds.toList ++ extra)` and
+  `mem_preparePrelude` is array membership on both sides.
+* `checkDecls (mode) (ds : Array Declaration)` is `Array.foldlM` over
+  the records.  **No second definition and no separate transport
+  lemma were needed**: `InstallRun` and the eighteen files above it
+  stay list-shaped, and the ONLY two theorems that unfold the fold —
+  `fullyChecked_checkDecls` and `checkDecls_fullyChecked` — open with
+  `rw [← Array.foldlM_toList]` and go on exactly as before, over
+  `ds.toList`.  That rewrite IS the transport, in the two places that
+  can see it.
+* The statements over the run-time input take arrays and read the
+  proofs' lists inside: `model_exists`, `no_False_theorem_accepted`,
+  `checkDecls_consts`, `checkDecls_sound`,
+  `no_proof_of_{False,Empty}_cached`, `checkDecls_skels` (whose
+  conclusion is `streamSkels ds.toList`) and the four
+  `trusted_agrees_*`.  Membership hypotheses are array membership,
+  converted at the one use with `Array.mem_toList_iff`.
+* `Main.lean`'s `installLoop` iterates the array BY INDEX, carrying
+  `InstallRun mode (ds.toList.take i)`; the step's obligation is
+  `List.take_add_one` plus `Array.getElem?_eq_getElem`, and the exit is
+  `List.take_of_length_le`.  It stays a tail call (well-founded
+  recursion compiles to the plain recursive function), and the driver
+  no longer materialises `decls.toList` — about 15 MB of cons cells at
+  Mathlib scale, plus the walk that built them.
+
+### 5. What did NOT change
+
+`PreludeIx.decls` stays an `Array` (twelve records, `toList`ed once
+inside `prepareD` so that `frontSpec` keeps its list shape).
+`comparator.json` (the two names), the challenge twin (token-identical,
+`open Frontend in` and the `let` included), the arena and e2e verdicts,
+`Main.lean`'s diagnostics, `tests/trust-surface.sh`, the pin gates.
+
+### 6. Gates
+
+`lake build` and `lake test` warning-free; `env -i … tests/arena.sh`
+exit 0 — e2e and arena verdicts unchanged, proofdeps regenerated (the
+module graph did not move, but `Verify/ExceptBind` swapped a lemma),
+challenge, shake and pub-imports, overview-links regenerated after
+re-reading every citing paragraph (the `CheckError` docstring shifted
+`Kernel/Core.lean`'s anchors by 15), no-local-paths, trust-surface.
+One init-full instruction comparison against the master binary at
+041634af (`--verified --jobs=1`, `perf stat -e instructions:u`,
+interleaved old/new/old/new): 538.044 G → 538.106 G, **+0.012 %**,
+both runs accepting the same 53 093 declarations.  Unchanged, as
+expected of a rename: the driver no longer materialises the fold's
+input as a list (one walk and ~15 MB of cons cells saved at Mathlib
+scale), and the prepare step's twelve picks now scan an array twice
+each (`findIdx`, then the erase) where they used to rebuild the whole
+stream as a list once each.  The two cancel to nothing measurable, and
+no published PERF.md number moves.
+
+### 7. The README's replacement text
+
+`README.md` is the maintainer's.  Its "### The Main Corollary" and
+"### The Main Theorem" sections still show the pre-#290 statements
+(`no_proof_of_False`, `List DeclC`); the text task #294 offered stands
+except for the two code blocks, which now read:
+
+> ```lean
+> open Frontend in
+> theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+>     (h : hasProofOfFalse chunks) :
+>     (do
+>       let pre ← builtinPreludeE
+>       let r ← parseChunks chunks
+>       let ds := preparePrelude pre r.decls
+>       checkDecls .verified ds).isOk = false
+> ```
+>
+> The three steps fail in one error type — the checker's own
+> `CheckError` with the position of the failure, which is the input's
+> line number in the parser's half and the record's position in the
+> fold's — so the chain is one plain `do` block and the conclusion is
+> simply that it does not succeed.  The records travel as an `Array`,
+> which is what the parse returns and what the fold folds.
+
+and, in "### The Main Theorem":
+
+> ```lean
+> theorem model_exists (V : Type w) [SetTheory V]
+>   (ds : Array Declaration) (env : Env)
+>   (accepted : checkDecls .verified ds = .ok env) :
+>   Nonempty (Model V env)
+> ```

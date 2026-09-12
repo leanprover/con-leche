@@ -342,7 +342,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDecls .verified ds.toList).toBool
+    (ConLeche.Cached.checkDecls .verified ds).toBool
   | .error _ => false
 
 /-! ## Frontend: `sorryAx` is the fold's
@@ -394,7 +394,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- name it mentions is `sorryAx`.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    match ConLeche.Cached.checkDecls .verified r.decls.toList with
+    match ConLeche.Cached.checkDecls .verified r.decls with
     | .error (.notImplemented _, _) => true
     | _ => false
   | .error _ => false
@@ -403,7 +403,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- prefix up to the first use folds clean.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    (ConLeche.Cached.checkDecls .verified (r.decls.toList.take 1)).toBool
+    (ConLeche.Cached.checkDecls .verified (r.decls.take 1)).toBool
   | .error _ => false
 
 

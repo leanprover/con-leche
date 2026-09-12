@@ -26,7 +26,7 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 The corollary's statement is the binary's accept path: the three pure
 functions the driver's phases compute, chained.  The built-in prelude
 parses (`Frontend.builtinPreludeE`); the chunks parse
-(`Frontend.parseChunks`); the verified fold accepts the parsed list
+(`Frontend.parseChunks`); the verified fold accepts the parsed records
 prepared with the prelude (`checkDecls .verified` over
 `Frontend.preparePrelude`).  The driver (`Main.lean`) runs the same
 three steps with IO between them — the streaming read loop, the
@@ -35,10 +35,9 @@ from an accept of the fold.
 
 The corollary follows from the theorem in four steps, from the chunks
 inwards.  Chunks that declare such a theorem are read by the parser
-into a list of declaration records holding a theorem record of that
-type — the parser resolves the file's index tables line by line, an
+into declaration records holding a theorem record of that type — the parser resolves the file's index tables line by line, an
 index bound once is never rebound, and the chunk boundaries are
-invisible to it; the preparation the binary runs on the parsed list
+invisible to it; the preparation the binary runs on the parsed records
 before the fold (the built-in prelude in front, the ground of the
 pinned `Nat` operations hoisted ahead of them) keeps every parsed
 record; a record declaring such a theorem is installed under its own
@@ -56,7 +55,7 @@ equation of the two sides' denotations.
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
-* `ds : List Declaration` is the parsed stream, `Env` the environment the
+* `ds : Array Declaration` is the parsed stream, `Env` the environment the
   checker builds, `env.consts` the constants it accepted; `.ok env`
   says the checker accepted `ds` and this is what it accepted.
 * `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
@@ -81,11 +80,13 @@ equation of the two sides' denotations.
   binary.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks chunks` the parse of the chunks, and
-  `Frontend.preparePrelude pre` the preparation of a parsed list for
-  the fold.  Each returns an `Except` with its own error type;
-  `.toOption` forgets the reason, which is the driver's diagnostic
-  and no part of the statement, and the chain is a `do` block in
-  `Option`.
+  `Frontend.preparePrelude pre` the preparation of the parsed records
+  for the fold.  All three fail in the same error type — the checker's
+  `CheckError` paired with the position of the failure, which is the
+  input's line number in the frontend's half and the fold position in
+  the fold's — so the chain is one `Except` `do` block, and
+  `.isOk = false` says it does not succeed — it never yields an
+  environment.
 * `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
@@ -106,19 +107,21 @@ universe w
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List Declaration) (env : Env)
+    (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) :=
   sorry
 
+open Frontend in
 /-- **The main corollary.**  Chunks that declare a theorem of type
 `False` are never accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
     (h : hasProofOfFalse chunks) :
-    ∀ env, (do
-      let pre ← Frontend.builtinPreludeE.toOption
-      let r ← (Frontend.parseChunks chunks).toOption
-      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env :=
+    (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds).isOk = false :=
   sorry
 
 end ConLeche

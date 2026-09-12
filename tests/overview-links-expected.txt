@@ -5,17 +5,17 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L729
-   729  def usage : String := String.intercalate "\n" [
+== Main.lean#L743
+   743  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L75-L78
-    75  model in every set theory. -/
-    76  theorem model_exists (V : Type w) [SetTheory V]
-    77      (ds : List Declaration) (env : Env)
-    78      (accepted : checkDecls .verified ds = .ok env) :
+== ConLeche/MainTheorem.lean#L78-L81
+    78  model in every set theory. -/
+    79  theorem model_exists (V : Type w) [SetTheory V]
+    80      (ds : Array Declaration) (env : Env)
+    81      (accepted : checkDecls .verified ds = .ok env) :
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,31 +44,32 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L86-L91
-    86  record, and a stream holding it is never accepted. -/
-    87  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    88      (h : hasProofOfFalse chunks) :
-    89      ∀ env, (do
-    90        let pre ← Frontend.builtinPreludeE.toOption
-    91        let r ← (Frontend.parseChunks chunks).toOption
+== ConLeche/MainTheorem.lean#L91-L97
+    91  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    92      (h : hasProofOfFalse chunks) :
+    93      (do
+    94        let pre ← builtinPreludeE
+    95        let r ← parseChunks chunks
+    96        let ds := preparePrelude pre r.decls
+    97        checkDecls .verified ds).isOk = false := by
 
-== ConLeche/Accepts.lean#L53-L64
-    53  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
-    54    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
-    55      Frontend.concatBytes chunks =
-    56        before ++ "\n".toUTF8 ++
-    57        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
-    58        between₁ ++ "\n".toUTF8 ++
-    59        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
-    60        between₂ ++ "\n".toUTF8 ++
-    61        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
-    62        between₃ ++ "\n".toUTF8 ++
-    63        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
-    64        after
+== ConLeche/Accepts.lean#L54-L65
+    54  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
+    55    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
+    56      Frontend.concatBytes chunks =
+    57        before ++ "\n".toUTF8 ++
+    58        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
+    59        between₁ ++ "\n".toUTF8 ++
+    60        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
+    61        between₂ ++ "\n".toUTF8 ++
+    62        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
+    63        between₃ ++ "\n".toUTF8 ++
+    64        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
+    65        after
 
 == ConLeche/Verify/Cached/StreamThm.lean#L205-L208
    205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-   206      (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+   206      (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
    207      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
    208      ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
 
@@ -78,12 +79,12 @@
 == ConLeche/Verify/Frontend/FileFalse.lean#L125
    125  theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
 
-== ConLeche/Verify/Frontend/Prepare.lean#L151
-   151  theorem mem_preparePrelude {pre : PreludeIx} {ds : List Declaration}
+== ConLeche/Verify/Frontend/Prepare.lean#L174
+   174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
 == ConLeche/Verify/Cached/StreamConsts.lean#L779-L784
    779  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   780      {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+   780      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
    781      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
    782      ∃ c, env.find? cv.name = some c ∧
    783        c.toConstantVal.levelParams = cv.levelParams ∧
@@ -103,12 +104,12 @@
    127  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
    128    stored.resetMeta = declared.zeta.resetMeta
 
-== ConLeche/Cached/Installed.lean#L407-L411
-   407  def checkDecls (mode : CheckMode) (ds : List Declaration) :
-   408      Except (CheckError × Nat) Env := do
-   409    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
-   410    checkPendingList mode p.2.1 p.2.2.toList
-   411    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L417-L421
+   417  def checkDecls (mode : CheckMode) (ds : Array Declaration) :
+   418      Except (CheckError × Nat) Env := do
+   419    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
+   420    checkPendingList mode p.2.1 p.2.2.toList
+   421    pure p.2.1.env
 
 == tests/ConLecheTests/Axioms.lean#L102-L106
    102  /--
@@ -117,17 +118,17 @@
    105  #guard_msgs in
    106  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L935
-   935  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L934
+   934  def parseExportStreamD (path : System.FilePath)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L858
-   858  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L857
+   857  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L100
-   100  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L107
+   107  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
@@ -138,11 +139,11 @@
    337  def checkRecord {ds : List Declaration} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L163
-   163  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L175
+   175  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L278
-   278  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L290
+   290  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List Declaration} (e : InstalledEnv mode ds)
@@ -150,15 +151,15 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L316-L319
-   316  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   317      (noMark : Bool) (ds : List ConLeche.Declaration) :
-   318      IO (Except (ConLeche.CheckError × Nat)
-   319        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L328-L331
+   328  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   329      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   330      IO (Except (ConLeche.CheckError × Nat)
+   331        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
-== ConLeche/Cached/Installed.lean#L488-L489
-   488  theorem fullyChecked_checkDecls {ds : List Declaration} (fc : FullyChecked mode ds) :
-   489      checkDecls mode ds = .ok fc.env := by
+== ConLeche/Cached/Installed.lean#L498-L499
+   498  theorem fullyChecked_checkDecls {ds : Array Declaration} (fc : FullyChecked mode ds.toList) :
+   499      checkDecls mode ds = .ok fc.env := by
 
 == ConLeche/Cached/Installed.lean#L223-L227
    223  structure InstalledEnv (ds : List Declaration) where
@@ -181,9 +182,9 @@
    261    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
    262    | none => True
 
-== ConLeche/Cached/Installed.lean#L498-L499
-   498  theorem checkDecls_fullyChecked {ds : List Declaration} {env : Env}
-   499      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
+== ConLeche/Cached/Installed.lean#L508-L509
+   508  theorem checkDecls_fullyChecked {ds : Array Declaration} {env : Env}
+   509      (h : checkDecls mode ds = .ok env) :
 
 == ConLeche/Verify/Cached/InstalledC.lean#L455-L462
    455  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
@@ -207,7 +208,7 @@
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     66      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    67      {ds : List Declaration} {env' : Env}
+    67      {ds : Array Declaration} {env' : Env}
     68      (h : checkDecls μ ds = .ok env') :
     69      ∀ c ∈ env'.consts,
     70        c.toConstantVal.type = .const falseName [] → False := by
@@ -215,7 +216,7 @@
 
 == ConLeche/Verify/Cached/MainC.lean#L43-L48
     43  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-    44      {ds : List Declaration} {env' : Env}
+    44      {ds : Array Declaration} {env' : Env}
     45      (h : checkDecls μ ds = .ok env') :
     46      Nonempty (EnvModelM V μ env') := by
     47    obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
@@ -250,17 +251,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2893-L2902
-  2893        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2894        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2895        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2896        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2897        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2898    | fuel + 1 =>
-  2899      wrap
-  2900        { whnfCore := fun d e =>
-  2901            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2902          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2908-L2917
+  2908        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2909        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2910        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2911        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2912        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2913    | fuel + 1 =>
+  2914      wrap
+  2915        { whnfCore := fun d e =>
+  2916            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2917          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L307-L314
    307  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -296,11 +297,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L2050
-  2050  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L2065
+  2065  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2773
-  2773        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+== ConLeche/Kernel/Core.lean#L2788
+  2788        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -350,9 +351,9 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1429-L1431
-  1429  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
+  1429  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
   1430      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1431      envSkels env = streamSkels ds := by
+  1431      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -746,36 +747,36 @@
     53  task #227).  (Members' parameter telescopes and sorts are not
     54  compared: task #218, `Mutual.lean`'s header.)
 
-== ConLeche/Kernel/Core.lean#L567-L575
-   567  /-- The certified structural-`Nat` operations.  Six of them
-   568  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   569  here without one — it has no fast path (official's `reduce_nat` folds
-   570  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   571  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   572  must be certified for `sub`'s literal fold to be sound. -/
-   573  def natOpNames : List Name :=
-   574    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   575     natBeqName, natBleName]
+== ConLeche/Kernel/Core.lean#L582-L590
+   582  /-- The certified structural-`Nat` operations.  Six of them
+   583  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   584  here without one — it has no fast path (official's `reduce_nat` folds
+   585  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   586  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   587  must be certified for `sub`'s literal fold to be sound. -/
+   588  def natOpNames : List Name :=
+   589    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   590     natBeqName, natBleName]
 
-== ConLeche/Kernel/Core.lean#L499-L516
-   499  /-! ## Structural-Nat literal acceleration
-   500  
-   501  The official kernel accelerates the structural `Nat` operations on
-   502  literals (GMP-backed there).  Here the fast path is *certified*: an
-   503  operation participates only when its defining recurrence equations
-   504  hold by definitional equality — checked once, at install: `checkDecl`
-   505  positively rejects a nonstandard definition under one of these names,
-   506  so *presence in the store is the certificate* (no runtime flag, no
-   507  re-checking; a reduction-time re-check would in fact livelock — the
-   508  certification's own `pred zero` equation re-enters the fast path).
-   509  
-   510  The certification runs in the environment *before* the operation is
-   511  stored, on the equations with the operation's self-references replaced
-   512  by its (annotated) definition value (`Expr.substConst0`): running it
-   513  after insertion would let the operation's own just-enabled fast path
-   514  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   515  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   516  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/Core.lean#L514-L531
+   514  /-! ## Structural-Nat literal acceleration
+   515  
+   516  The official kernel accelerates the structural `Nat` operations on
+   517  literals (GMP-backed there).  Here the fast path is *certified*: an
+   518  operation participates only when its defining recurrence equations
+   519  hold by definitional equality — checked once, at install: `checkDecl`
+   520  positively rejects a nonstandard definition under one of these names,
+   521  so *presence in the store is the certificate* (no runtime flag, no
+   522  re-checking; a reduction-time re-check would in fact livelock — the
+   523  certification's own `pred zero` equation re-enters the fast path).
+   524  
+   525  The certification runs in the environment *before* the operation is
+   526  stored, on the equations with the operation's self-references replaced
+   527  by its (annotated) definition value (`Expr.substConst0`): running it
+   528  after insertion would let the operation's own just-enabled fast path
+   529  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   530  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   531  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L110-L117
    110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -790,23 +791,23 @@
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
 
-== ConLeche/Kernel/Core.lean#L577-L592
-   577  /-- The WF-recursive operations with a *pinned-declaration* certified
-   578  fast path: at install, `checkDecl` compares the stream's definition
-   579  against a vendored pin of the toolchain's own (helper-unfolded)
-   580  definition by definitional equality, and then checks the pinned
-   581  `Nat.ble`-guarded characterization certificates
-   582  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   583  installing them.  Presence in the store is therefore again the
-   584  capability: a stored operation under one of these names has passed pin
-   585  and certificates, or the install declined.  (The name is historic:
-   586  the family started with `Nat.div`/`Nat.mod` and now covers every
-   587  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   588  `Nat.log2` left the list when its fast path did, official folding no
-   589  unary operation but `Nat.succ`.) -/
-   590  def natDivModNames : List Name :=
-   591    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   592     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/Core.lean#L592-L607
+   592  /-- The WF-recursive operations with a *pinned-declaration* certified
+   593  fast path: at install, `checkDecl` compares the stream's definition
+   594  against a vendored pin of the toolchain's own (helper-unfolded)
+   595  definition by definitional equality, and then checks the pinned
+   596  `Nat.ble`-guarded characterization certificates
+   597  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   598  installing them.  Presence in the store is therefore again the
+   599  capability: a stored operation under one of these names has passed pin
+   600  and certificates, or the install declined.  (The name is historic:
+   601  the family started with `Nat.div`/`Nat.mod` and now covers every
+   602  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   603  `Nat.log2` left the list when its fast path did, official folding no
+   604  unary operation but `Nat.succ`.) -/
+   605  def natDivModNames : List Name :=
+   606    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   607     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -843,14 +844,15 @@
 == ConLeche/Model/DivModCert.lean#L2023
   2023  theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
 
-== ConLeche/Frontend/Prepare.lean#L156-L162
-   156  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   157  the prelude's declarations first (the stream's own copies where it has
-   158  them), the rest of the stream after them, every pinned `Nat`
-   159  operation's stream-certified ground ahead of it.  Total, pure, and the
-   160  fold's input. -/
-   161  def preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration :=
-   162    (prepareD pre ds).decls.toList
+== ConLeche/Frontend/Prepare.lean#L165-L172
+   165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
+   166  the prelude's declarations first (the stream's own copies where it has
+   167  them), the rest of the stream after them, every pinned `Nat`
+   168  operation's stream-certified ground ahead of it.  Total, pure, and the
+   169  fold's input — an array in and an array out, the shape the parse
+   170  returns and the fold consumes. -/
+   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   172    (prepareD pre ds).decls
 
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!
@@ -872,13 +874,13 @@
     24  
     25  They cannot go into the prelude: the structural operations are
 
-== ConLeche/Verify/Frontend/Prepare.lean#L136-L141
-   136  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
-   137  input plus additional declarations, but nothing missing"* — and the
-   138  additional declarations are the built-in prelude's own records. -/
-   139  theorem preparePrelude_perm (pre : PreludeIx) (ds : List Declaration) :
-   140      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-   141        (preparePrelude pre ds).Perm (ds ++ extra) := by
+== ConLeche/Verify/Frontend/Prepare.lean#L157-L162
+   157  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
+   158  input plus additional declarations, but nothing missing"* — and the
+   159  additional declarations are the built-in prelude's own records. -/
+   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+   162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
 == ConLeche/SetTheory/Core.lean#L95-L156
     95  /-- A model of set theory of exactly the strength the checker needs:

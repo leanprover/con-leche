@@ -765,13 +765,13 @@ def ParseResultD.ofState (st : StateD) : ParseResultD :=
 /-- Scan and apply the LAST line of a stream — the one no newline
 ends.  A syntactic failure is reported at its offset in the line. -/
 def applyFinalLine (st : StateD) (b : @& ByteArray) (i : USize)
-    (lineNo : Nat) : Except FrontendError StateD :=
+    (lineNo : Nat) : Except (CheckError × Nat) StateD :=
   match scanLineSpec b i with
-  | .err e => .error (.parseError lineNo (ScanErr.render ⟨e.offset - i.toNat, e.what⟩))
+  | .err e => .error (.internal (ScanErr.render ⟨e.offset - i.toNat, e.what⟩), lineNo)
   | .ok r _ =>
     match applyLine st r with
-    | .error msg => .error (.parseError lineNo msg)
-    | .ok (.inr v) => .error v.toError
+    | .error msg => .error (.internal msg, lineNo)
+    | .ok (.inr v) => .error (v.toError, lineNo)
     | .ok (.inl st) => .ok st
 
 /-- Every COMPLETE line of the chunk from `i`, applied in order: the
@@ -785,13 +785,12 @@ count is the termination measure.  The reader is `scanLineSpec`, the
 naive reference; what runs is `scanLineFwd`, by the kernel-checked
 equality the compiler substitutes (`ConLeche/Frontend/Scan/Equiv.lean`). -/
 def feedChunk (st : StateD) (b : @& ByteArray) (i : USize) (lineNo : Nat) :
-    Except FrontendError (StateD × Nat × USize) :=
+    Except (CheckError × Nat) (StateD × Nat × USize) :=
   if _h : i < b.usize then
     match scanLineSpec b i with
     | .err e =>
       if newlineFrom b i then
-        .error (.parseError (lineNo + 1)
-          (ScanErr.render ⟨e.offset - i.toNat, e.what⟩))
+        .error (.internal (ScanErr.render ⟨e.offset - i.toNat, e.what⟩), lineNo + 1)
       else .ok (st, lineNo, i)
     | .ok r j =>
       -- `0` is the recogniser's "the buffer ended before a newline
@@ -801,11 +800,11 @@ def feedChunk (st : StateD) (b : @& ByteArray) (i : USize) (lineNo : Nat) :
       if j == 0 then .ok (st, lineNo, i)
       else
         match applyLine st r with
-        | .error msg => .error (.parseError (lineNo + 1) msg)
-        | .ok (.inr v) => .error v.toError
+        | .error msg => .error (.internal msg, lineNo + 1)
+        | .ok (.inr v) => .error (v.toError, lineNo + 1)
         | .ok (.inl st) =>
           if _hj : i < j then feedChunk st b j (lineNo + 1)
-          else .error (.parseError (lineNo + 1) "the line scanner made no progress")
+          else .error (.internal "the line scanner made no progress", lineNo + 1)
   else .ok (st, lineNo, i)
 termination_by b.size - i.toNat
 decreasing_by
@@ -822,15 +821,15 @@ real input comes near, and the guard is what lets the file theorem
 (`ConLeche/Verify/Frontend/Lines.lean`, `parseExportD_eq_parseLines`)
 stand without a size hypothesis: an accepted parse is a parse of a
 buffer the word addresses. -/
-def sizeError : FrontendError :=
-  .unsupported s!"an input of {USize.size} bytes or more"
+def sizeError : CheckError × Nat :=
+  (.notImplemented s!"an input of {USize.size} bytes or more", 0)
 
 /-- **Wholesale direct parse of a byte buffer**: the whole input fed
 at once, then the last line.  The specification the streaming parse is
 proved equal to (`parseChunks_ok_parseBytes`,
 `ConLeche/Verify/Frontend/Chunks.lean`). -/
 def parseBytes (b : ByteArray) (inModel : Bool := true) (census : Bool := false) :
-    Except FrontendError ParseResultD := do
+    Except (CheckError × Nat) ParseResultD := do
   if b.size ≥ USize.size then throw sizeError
   let (st, lineNo, tail) ← feedChunk (.init inModel census) b 0 0
   if tail < b.usize then
@@ -843,7 +842,7 @@ def parseBytes (b : ByteArray) (inModel : Bool := true) (census : Bool := false)
 and small inputs): `parseBytes` of its UTF-8. -/
 def parseExportD (contents : String)
     (inModel : Bool := true) (census : Bool := false) :
-    Except FrontendError ParseResultD :=
+    Except (CheckError × Nat) ParseResultD :=
   parseBytes contents.toUTF8 inModel census
 
 /-- **One chunk of the stream, applied** (task #290): the carried
@@ -856,7 +855,7 @@ step folded over a list of chunks — is exactly what the binary
 computes and can be compared with the wholesale parse
 (`parseChunks_eq_parseExportD`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
 def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
-    Except FrontendError (StateD × ByteArray × Nat × Nat) :=
+    Except (CheckError × Nat) (StateD × ByteArray × Nat × Nat) :=
   if total + buf0.size ≥ USize.size then .error sizeError
   else
     let buf := if carry.isEmpty then buf0 else carry ++ buf0
@@ -867,7 +866,7 @@ def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : Byt
 
 /-- The end of the stream: the carried tail, if any, is its last line. -/
 def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
-    Except FrontendError ParseResultD :=
+    Except (CheckError × Nat) ParseResultD :=
   if carry.isEmpty then .ok (.ofState st)
   else
     match applyFinalLine st carry 0 (lineNo + 1) with
@@ -890,11 +889,11 @@ chunks is the parse of their concatenation, however it was cut
 The loop's end-of-input decision — an empty READ is the end of the
 file — is the loop's own, not the step's. -/
 def parseChunks (chunks : List ByteArray) (inModel : Bool := true) (census : Bool := false) :
-    Except FrontendError ParseResultD :=
+    Except (CheckError × Nat) ParseResultD :=
   go (.init inModel census) .empty 0 0 chunks
 where
   go (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
-      List ByteArray → Except FrontendError ParseResultD
+      List ByteArray → Except (CheckError × Nat) ParseResultD
     | [] => chunkFinish st carry lineNo
     | c :: cs =>
       match chunkStep st carry lineNo total c with
@@ -919,9 +918,9 @@ stopping at the first empty read — the handle's end of file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
-    IO (Except FrontendError ParseResultD) := do
+    IO (Except (CheckError × Nat) ParseResultD) := do
   let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
-      IO (Except FrontendError ParseResultD) := do
+      IO (Except (CheckError × Nat) ParseResultD) := do
     let buf0 ← h.read chunk
     if buf0.isEmpty then
       return chunkFinish st carry lineNo
@@ -935,7 +934,7 @@ partial def parseExportHandleD (h : IO.FS.Handle)
 def parseExportStreamD (path : System.FilePath)
     (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
-    IO (Except FrontendError ParseResultD) := do
+    IO (Except (CheckError × Nat) ParseResultD) := do
   parseExportHandleD (← IO.FS.Handle.mk path .read) inModel census chunk
 
 end ConLeche.Frontend

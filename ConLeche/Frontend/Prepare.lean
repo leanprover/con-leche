@@ -19,7 +19,7 @@ a simple spec: it is a permutation of the input plus additional
 declarations, but nothing missing."*
 
 So the decoder (`ConLeche/Frontend/ExportC.lean`) emits the file's
-records and nothing else, this module PREPARES the list the fold runs
+records and nothing else, this module PREPARES the stream the fold runs
 over, and every verdict is the fold's.  `preparePrelude` is total and
 pure — it has no error channel, nothing it does can fail, and **no
 record of the stream is dropped, rewritten or retagged**:
@@ -56,9 +56,13 @@ Both steps only REORDER, and the second one is the reason the first can
 be one too.  The spec is therefore as simple as the maintainer asked
 for, and it is what `ConLeche/Verify/Frontend/Prepare.lean` proves:
 
-    ∃ extra, (∀ d ∈ extra, d ∈ prelude) ∧ (preparePrelude ds).Perm (ds ++ extra)
+    ∃ extra, (∀ d ∈ extra, d ∈ prelude) ∧
+      (preparePrelude ds).toList.Perm (ds.toList ++ extra)
 
 with the pass-through corollary `pd ∈ ds → pd ∈ preparePrelude ds`.
+(The records travel as an `Array` — what the parse returns and what
+the fold folds; `toList` appears in the PROOFS, where it costs
+nothing.)
 
 **What is NOT here.**  Recognising a block as one of the five pinned
 basis blocks, and a quotient record as the pinned package's, is the
@@ -92,38 +96,43 @@ def preludeKey (d : Declaration) : Name := (d.names.head?).getD .anonymous
 
 A prelude declaration the stream declares itself is MOVED, not
 duplicated: the stream's record is what the fold checks, and it must
-appear exactly once.  `pick` is the removal, as a specification (a
-plain list recursion) and as the implementation (the same fold with an
-array accumulator — a stream is millions of records long, and a list
-recursion that is not tail-recursive is a stack frame per record).
+appear exactly once.  `pickSpec` is the specification (a plain list
+recursion); `pick` is the implementation, on the ARRAY the parse
+returns — the first record declaring the name, read by index, and the
+array with that index erased.  A stream is millions of records long,
+so nothing here rebuilds it as a list: `Array.eraseIdxIfInBounds` is
+`List.eraseIdx`'s twin, and the out-of-range case — `findIdx` returns
+the size when no record declares the name — is exactly "the stream
+does not declare it, nothing is erased".
 -/
+
+/-- The name-test a record is picked by. -/
+def declares (n : Name) (d : Declaration) : Bool := d.names.contains n
 
 /-- The first record declaring `n`, and the list without it. -/
 def pickSpec (n : Name) : List Declaration → Option Declaration × List Declaration
   | [] => (none, [])
   | d :: ds =>
-    if d.names.contains n then (some d, ds)
+    if declares n d then (some d, ds)
     else
       let (m, ds') := pickSpec n ds
       (m, d :: ds')
 
-/-- `pickSpec`, tail-recursively. -/
-def pickGo (n : Name) (acc : Array Declaration) :
-    List Declaration → Option Declaration × List Declaration
-  | [] => (none, acc.toList)
-  | d :: ds =>
-    if d.names.contains n then (some d, acc.toList ++ ds)
-    else pickGo n (acc.push d) ds
+/-- `pickSpec` on the parse's array. -/
+def pick (n : Name) (ds : Array Declaration) : Option Declaration × Array Declaration :=
+  let i := ds.findIdx (declares n)
+  (ds[i]?, ds.eraseIdxIfInBounds i)
 
-/-- The front of the prepared list — the prelude's declarations, each
+/-- The front of the prepared stream — the prelude's declarations, each
 one the stream's own copy where the stream has one — and the rest of
-the stream, in the stream's order. -/
-def frontOf : List Declaration → List Declaration → List Declaration × List Declaration
-  | [], ds => ([], ds)
+the stream, in the stream's order.  The front is pushed onto an
+accumulator, the rest is the stream with the picked records erased. -/
+def frontOf (acc : Array Declaration) :
+    List Declaration → Array Declaration → Array Declaration × Array Declaration
+  | [], ds => (acc, ds)
   | p :: ps, ds =>
-    let (m, ds') := pickGo (preludeKey p) #[] ds
-    let (f, rest) := frontOf ps ds'
-    ((m.getD p) :: f, rest)
+    let (m, ds') := pick (preludeKey p) ds
+    frontOf (acc.push (m.getD p)) ps ds'
 
 /-- `frontOf` over `pickSpec`: the specification the lemmas are stated
 over. -/
@@ -134,9 +143,9 @@ def frontSpec : List Declaration → List Declaration → List Declaration × Li
     let (f, rest) := frontSpec ps ds'
     ((m.getD p) :: f, rest)
 
-/-! ## The prepared list -/
+/-! ## The prepared stream -/
 
-/-- The prepared list and the driver's receipts. -/
+/-- The prepared stream and the driver's receipts. -/
 structure Prepared where
   /-- the prelude's declarations, then the rest of the stream -/
   decls : Array Declaration
@@ -148,17 +157,18 @@ structure Prepared where
   hoisted : Array Name := #[]
 
 /-- **`preparePrelude`, with its receipts.** -/
-def prepareD (pre : PreludeIx) (ds : List Declaration) : Prepared :=
-  let (front, rest) := frontOf pre.decls.toList ds
-  let (decls, hoisted) := hoistNatOpGround (front ++ rest).toArray
-  ⟨decls, decls.size - ds.length, hoisted⟩
+def prepareD (pre : PreludeIx) (ds : Array Declaration) : Prepared :=
+  let (front, rest) := frontOf #[] pre.decls.toList ds
+  let (decls, hoisted) := hoistNatOpGround (front ++ rest)
+  ⟨decls, decls.size - ds.size, hoisted⟩
 
 /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
 the prelude's declarations first (the stream's own copies where it has
 them), the rest of the stream after them, every pinned `Nat`
 operation's stream-certified ground ahead of it.  Total, pure, and the
-fold's input. -/
-def preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration :=
-  (prepareD pre ds).decls.toList
+fold's input — an array in and an array out, the shape the parse
+returns and the fold consumes. -/
+def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+  (prepareD pre ds).decls
 
 end ConLeche.Frontend

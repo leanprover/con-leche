@@ -1426,9 +1426,9 @@ theorem installRun_skels (mode : CheckMode) {ds : List Declaration}
 
 /-- **The skeleton spec, at every mode.**  This is the floor's whole
 content since the twin's retirement: one fold, one proof. -/
-theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
+theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
     {env : Env} (h : checkDecls mode ds = .ok env) :
-    envSkels env = streamSkels ds := by
+    envSkels env = streamSkels ds.toList := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
   obtain ⟨n, s, r⟩ := fc.1.run
   exact (installRun_skels mode r skelIs_empty).2
@@ -1439,7 +1439,7 @@ two modes — in particular the trusted (`.trusted`) and the verified
 two installed environments carry the same install skeletons.  Stated
 for any two modes: the old two-driver statement is the instance
 `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
-theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List Declaration}
+theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : Array Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1447,7 +1447,7 @@ theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List Declaration}
   (checkDecls_skels hN).trans (checkDecls_skels hP).symm
 
 /-- The census's sentence: the accepted declaration **names** agree. -/
-theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List Declaration}
+theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : Array Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1456,7 +1456,7 @@ theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List Declaration}
   simpa [envSkels, List.map_map, Function.comp_def] using h
 
 /-- … and so do the accepted declaration **counts**. -/
-theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List Declaration}
+theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : Array Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1466,7 +1466,7 @@ theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List Declaration}
 
 /-- The shipped pair, spelled out: `--trusted` and `--verified` agree on
 the install skeletons whenever both accept. -/
-theorem trusted_agrees_skels_shipped {ds : List Declaration} {envP envT : Env}
+theorem trusted_agrees_skels_shipped {ds : Array Declaration} {envP envT : Env}
     (hP : checkDecls .verified ds = .ok envP)
     (hT : checkDecls .trusted ds = .ok envT) :
     envSkels envT = envSkels envP :=

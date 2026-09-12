@@ -42,7 +42,7 @@ stream that declares the toolchain's `Bool` is checked on its own
 `Bool` record.  The records install by exactly the routes a stream's
 records install by, the pinned blocks among them recognised by the fold
 (`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
-quantifies over the prepared list; the frontend sits below it, like the
+quantifies over the prepared records; the frontend sits below it, like the
 projection rewrite of `ConLeche/Frontend/ProjRec.lean`.
 
 `builtinPrelude` is a 0-ary definition, so the embedded text is parsed
@@ -64,7 +64,7 @@ def builtinPreludeText : String :=
 /-- The parsed, indexed prelude: `Except` because a committed file can
 in principle be corrupted, and a prelude that does not parse must be a
 loud error rather than a silently empty prelude. -/
-def builtinPreludeE : Except FrontendError PreludeIx :=
+def builtinPreludeE : Except (CheckError × Nat) PreludeIx :=
   (fun r => ⟨r.decls⟩) <$> parseExportD builtinPreludeText
 
 end ConLeche.Frontend

@@ -178,14 +178,14 @@ theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
 /-- **The main corollary's ingredient at the stream**: an accepted stream
 that declares a theorem of a bare constant type leaves a constant of
 that type in the environment. -/
-theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : List Declaration} {env : Env}
+theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : Array Declaration} {env : Env}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
     (h : checkDecls mode ds = .ok env) :
     ∃ c ∈ env.consts, c.toConstantVal.type = .const n ls := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
   obtain ⟨_, _, run⟩ := fc.1.run
-  exact installRun_thmDecl_const hty hmem run rfl
+  exact installRun_thmDecl_const hty (Array.mem_toList_iff.mpr hmem) run rfl
 
 end ConLeche.Cached
 
@@ -203,7 +203,7 @@ set, which the constant would have to be a member of
 (`no_proof_of_False_cached`).  The main corollary
 (`no_False_declaration`, `ConLeche/MainTheorem.lean`) rests on this. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-    (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+    (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
     (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
   intro env accepted
