@@ -19,6 +19,19 @@ the structure-like members, and official's two remaining post-checks —
 the pins typed at the parameter context (leanprover/lean4#14577) and
 the stream's recursor records against the restored generated ones.
 
+**`pinsClosed`** is the pins' SCOPE, the pair of Bool tests `ConstWF`
+demands of a nested RULE's stored pins: abstracted over the block's
+parameters, every pin is free of free variables and has its loose bound
+variables within the parameter telescope.  Nothing else certifies it —
+`annotateBody` certifies only that each `.fvar` it REACHES carries an
+index below the depth, it never descends into an fvar's type annotation
+and never compares it with the opener's, and it passes `.bvar`
+through — and a pin's components appear in no other term the route
+checks.  It narrows only where official rejects too: the elimination's
+local-variable rule already refuses a pin holding a field variable, the
+stream's own terms carry no free variable, and `abstractRange`
+introduces a loose bound variable only at an abstracted parameter.
+
 **`pinsOkAux`** is one of the two conjuncts the model lane asked for:
 post-check (a) is run a SECOND time, at the SCRATCH environment
 `envAux` where the auxiliary block is installed, because both fold
@@ -104,6 +117,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- `pinsOkAux`: the pins typed at the SCRATCH environment
     (stored.take p.k).head? = some a₀ ∧
     openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+    -- `pinsClosed`: every pin, abstracted over the parameters, is
+    -- fvar-free with its loose bvars inside the telescope
+    pinsClosed p.nP st.pins = true ∧
     nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP fvsA.1 st.pins = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
