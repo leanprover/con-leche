@@ -3,6 +3,8 @@ module
 public import ConLeche.Verify.PropRead
 public import ConLeche.Verify.PropWhen
 public import ConLeche.Verify.EnvWF
+public import ConLeche.Verify.Abstract
+public import ConLeche.Verify.Subst
 
 public section
 
@@ -302,5 +304,126 @@ theorem EnvWF.storedLevelParamsDefined {env : Env} (henv : EnvWF env) :
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams
         = true :=
   fun _ _ h => (henv _ (List.mem_of_find?_eq_some h)).2.1
+
+/-! ## The open/close roundtrip, the other way round -/
+
+/-- Opening a binder body and closing it again is the identity: the
+body's own free variables are below `d` (so none is captured) and its
+loose bound variables are within the binder (so none is shifted).  The
+mirror of `abstract1_instantiate1`. -/
+theorem Expr.instantiate1_abstract1 {d : Nat} {ty : Expr} :
+    ∀ (e : Expr) (k : Nat), WScoped d e → e.looseBVarsBounded (k + 1) = true →
+      (e.instantiate1 (.fvar d ty) k).abstract1 d k = e := by
+  intro e
+  induction e <;> intro k hw hb <;>
+    simp_all [WScoped, Expr.looseBVarsBounded, Expr.abstract1, Expr.instantiate1]
+  case bvar i =>
+    have h1 : ¬ (i > k) := by omega
+    by_cases h2 : i = k
+    · simp [h2, Expr.abstract1]
+    · simp [h1, h2, Expr.abstract1]
+  case fvar idx ty' ih =>
+    have : ¬ (idx = d) := by omega
+    simp [this]
+
+/-! ## The annotation pass's binder clause, with its datum -/
+
+/-- The datum `annotPwPi` writes when the head reader answers. -/
+theorem annotPwPi_of_reader {env : Env} {r : CoreFns CheckM} {d : Nat}
+    {body' : Expr} {pw : PropWhen}
+    (h : typeSortPW env.find? body' = some pw) :
+    annotPwPi r env d body' = .ok pw := by
+  unfold annotPwPi
+  rw [h]; rfl
+
+/-- The datum `annotPwLam` writes when the head reader answers. -/
+theorem annotPwLam_of_reader {env : Env} {r : CoreFns CheckM} {d : Nat}
+    {body' : Expr} {pw : PropWhen}
+    (h : proofPW env.find? body' = some pw) :
+    annotPwLam r env d body' = .ok pw := by
+  unfold annotPwLam
+  rw [h]; rfl
+
+/-- Inversion for `annotate` on ∀-binders **with the datum**: a written
+input datum is kept, a placeholder one is `annotPwPi`'s.
+(`annotateCore_forallE_inv` takes the datum existentially; the copies'
+alignment is precisely a claim about it.) -/
+theorem annotateCore_forallE_inv_pw {env : Env} {fuel d : Nat}
+    {ty body e' : Expr} {m : BinderMeta}
+    (h : annotateCore mode env (fuel + 1) d (.forallE ty body m) = .ok e') :
+    ∃ ty' body', annotateCore mode env fuel d ty = .ok ty' ∧
+      annotateCore mode env fuel (d + 1)
+        (body.instantiate1 (.fvar d ty')) = .ok body' ∧
+      ((pwWritten m.pw = true ∧ e' = .forallE ty' (body'.abstract1 d) ⟨m.pw⟩) ∨
+        (pwWritten m.pw = false ∧ ∃ pw,
+          annotPwPi (pureFns mode env fuel) env (d + 1) body' = .ok pw ∧
+          e' = .forallE ty' (body'.abstract1 d) ⟨pw⟩)) := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, Bind.bind, Except.bind] at h
+  simp only [annotate_def] at h
+  cases hty : annotateCore mode env fuel d ty with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok ty' =>
+  rw [hty] at h; dsimp only at h
+  cases hbody : annotateCore mode env fuel (d + 1)
+      (body.instantiate1 (.fvar d ty')) with
+  | error e => rw [hbody] at h; exact nomatch h
+  | ok body' =>
+  rw [hbody] at h; dsimp only at h
+  refine ⟨ty', body', rfl, hbody, ?_⟩
+  revert h
+  split
+  · next hc =>
+    cases hpw : annotPwPi (pureFns mode env fuel) env (d + 1) body' with
+    | error e => intro h; exact nomatch h
+    | ok pw =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr ⟨by simpa using hc, pw, rfl, h.symm⟩
+  · next hc =>
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    refine Or.inl ⟨?_, h.symm⟩
+    simpa using hc
+
+/-- Inversion for `annotate` on λ-binders **with the datum** (the ∀
+twin). -/
+theorem annotateCore_lam_inv_pw {env : Env} {fuel d : Nat}
+    {ty body e' : Expr} {m : BinderMeta}
+    (h : annotateCore mode env (fuel + 1) d (.lam ty body m) = .ok e') :
+    ∃ ty' body', annotateCore mode env fuel d ty = .ok ty' ∧
+      annotateCore mode env fuel (d + 1)
+        (body.instantiate1 (.fvar d ty')) = .ok body' ∧
+      ((pwWritten m.pw = true ∧ e' = .lam ty' (body'.abstract1 d) ⟨m.pw⟩) ∨
+        (pwWritten m.pw = false ∧ ∃ pw,
+          annotPwLam (pureFns mode env fuel) env (d + 1) body' = .ok pw ∧
+          e' = .lam ty' (body'.abstract1 d) ⟨pw⟩)) := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, Bind.bind, Except.bind] at h
+  simp only [annotate_def] at h
+  cases hty : annotateCore mode env fuel d ty with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok ty' =>
+  rw [hty] at h; dsimp only at h
+  cases hbody : annotateCore mode env fuel (d + 1)
+      (body.instantiate1 (.fvar d ty')) with
+  | error e => rw [hbody] at h; exact nomatch h
+  | ok body' =>
+  rw [hbody] at h; dsimp only at h
+  refine ⟨ty', body', rfl, hbody, ?_⟩
+  revert h
+  split
+  · next hc =>
+    cases hpw : annotPwLam (pureFns mode env fuel) env (d + 1) body' with
+    | error e => intro h; exact nomatch h
+    | ok pw =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr ⟨by simpa using hc, pw, rfl, h.symm⟩
+  · next hc =>
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    refine Or.inl ⟨?_, h.symm⟩
+    simpa using hc
 
 end ConLeche
