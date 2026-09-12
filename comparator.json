@@ -2,7 +2,7 @@
   "challenge_module": "ConLeche.Challenge",
   "solution_module": "ConLeche.MainTheorem",
   "theorem_names": ["ConLeche.model_exists", "ConLeche.no_proof_of_False",
-                    "ConLeche.no_False_theorem_accepted"],
+                    "ConLeche.no_False_theorem_accepted", "ConLeche.no_False_declaration"],
   "definition_names": [],
   "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
   "enable_nanoda": true

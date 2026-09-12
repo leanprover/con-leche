@@ -1027,6 +1027,12 @@ def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
     | .error e => .error e
     | .ok st => .ok (.ofState st)
 
+/-- The bytes of a list of chunks, in order: what the chunks a handle
+hands out add up to (task #290). -/
+def concatBytes : List ByteArray → ByteArray
+  | [] => .empty
+  | c :: cs => c ++ concatBytes cs
+
 /-- **The streaming parse, purely** (task #290): `chunkStep` folded
 over the chunks a handle hands out, ending at the first empty chunk
 (`IO.FS.Handle.read` returns one at end of file) or when the list runs

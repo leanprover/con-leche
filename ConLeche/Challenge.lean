@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 public import ConLeche.Denotes
+public import ConLeche.Accepts
 public section
 
 /-!
@@ -58,9 +59,19 @@ equation of the two sides' denotations.
   rejected, so the conclusion needs no hypothesis about the input
   beyond its acceptance.
 
-The statements are about the checking function, not the process:
-reading and parsing the bytes is outside them, as is the `--trusted`
-mode.  See README.md.
+* `hasProofOfFalse file` (`ConLeche/Accepts.lean`) says the FILE — the
+  text handed to the binary — declares a theorem of type `False`: four
+  lines in the exporter's own shapes, with anything before, between
+  and after them.  `pipelineAccepts file` is the binary's accept path
+  as pure content: the built-in prelude parses, the file parses with
+  it, nothing was skipped, and `checkDecls` accepts the parsed list.
+  The corollary at the file, `no_False_declaration`, needs the file to
+  fit in the address space (`utf8ByteSize < USize.size`): the parser's
+  positions are machine words.
+
+The first two statements are about the checking function, not the
+process; the third reaches the file, and `--trusted` mode is outside
+all of them.  See README.md.
 -/
 
 namespace ConLeche
@@ -92,6 +103,12 @@ theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
     (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     ∀ env, checkDecls .verified ds ≠ .ok env :=
+  sorry
+
+/-- **The main corollary, at the file.**  A file that declares a
+theorem of type `False` is never accepted. -/
+theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    (h : hasProofOfFalse s) (hsz : s.utf8ByteSize < USize.size) : ¬ pipelineAccepts s :=
   sorry
 
 end ConLeche

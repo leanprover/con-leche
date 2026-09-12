@@ -57,6 +57,7 @@ different things and neither implies the other.
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_proof_of_False` | **THE MAIN COROLLARY**: hence it holds no constant of type `False` |
 | `ConLeche.no_False_theorem_accepted` | the same corollary at the STREAM: a stream declaring a theorem of type `False` is never accepted |
+| `ConLeche.no_False_declaration` | the same corollary at the FILE: a file that matches the `hasProofOfFalse` template is never accepted (with its streaming twin `no_False_declaration_streaming`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
 | `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
@@ -118,6 +119,18 @@ info: 'ConLeche.no_False_theorem_accepted' depends on axioms: [propext, Classica
 -/
 #guard_msgs in
 #print axioms ConLeche.no_False_theorem_accepted
+
+/--
+info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.no_False_declaration
+
+/--
+info: 'ConLeche.no_False_declaration_streaming' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.no_False_declaration_streaming
 
 /-! ## The fold's letters (`ConLeche/Verify/Cached/MainC.lean`) -/
 

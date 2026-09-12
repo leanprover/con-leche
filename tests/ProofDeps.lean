@@ -137,6 +137,7 @@ private def roots : List (String × Name) :=
   [("main_model", `ConLeche.model_exists),
    ("main_False", `ConLeche.no_proof_of_False),
    ("main_stream_False", `ConLeche.no_False_theorem_accepted),
+   ("main_file_False", `ConLeche.no_False_declaration),
    ("False_cached", `ConLeche.Cached.no_proof_of_False_cached),
    ("Empty_cached", `ConLeche.Cached.no_proof_of_Empty_cached),
    ("sound_cached", `ConLeche.Cached.checkDecls_sound),

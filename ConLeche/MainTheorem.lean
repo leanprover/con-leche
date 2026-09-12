@@ -2,8 +2,11 @@ module
 
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
+public import ConLeche.Accepts
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
+import ConLeche.Verify.Frontend.FileFalse
+import ConLeche.Verify.Frontend.Chunks
 public section
 
 /-!
@@ -81,5 +84,28 @@ theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
   intro env accepted
   exact no_proof_of_False V ds env accepted
     (Cached.checkDecls_thmDecl_const hty hmem accepted)
+
+/-- **The main corollary, at the file.**  A file that declares a
+theorem of type `False` is never accepted: the parse reads the
+template's four lines into a `thmDecl` of type `False` — or skips a
+record and declines — and the corollary at the stream forbids the
+record. -/
+theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    (h : hasProofOfFalse s) (hsz : s.utf8ByteSize < USize.size) : ¬ pipelineAccepts s := by
+  rintro ⟨prelude, r, env, hpre, hparse, hskips, hcheck⟩
+  rcases Frontend.parseExportD_hasProofOfFalse h hsz (Frontend.builtinPrelude_byName hpre) hparse
+    with hskip | ⟨cv, vl, hty, hmem⟩
+  · exact hskip (Array.isEmpty_iff.mp hskips)
+  · exact no_False_theorem_accepted V _ cv vl hmem hty env hcheck
+
+/-- The same, for the chunks the binary reads: the streaming parse is
+the wholesale parse of their concatenation. -/
+theorem no_False_declaration_streaming (V : Type w) [SetTheory V] (s : String)
+    (chunks : List ByteArray) (h : hasProofOfFalse s)
+    (hcs : s.toUTF8 = Frontend.concatBytes chunks) (hne : ∀ c ∈ chunks, c.isEmpty = false)
+    (hsz : s.utf8ByteSize < USize.size) : ¬ streamingAccepts chunks := by
+  rintro ⟨prelude, r, env, hpre, hparse, hskips, hcheck⟩
+  rw [Frontend.parseChunks_eq_parseExportD prelude true false s chunks hcs hne hsz] at hparse
+  exact no_False_declaration V s h hsz ⟨prelude, r, env, hpre, hparse, hskips, hcheck⟩
 
 end ConLeche

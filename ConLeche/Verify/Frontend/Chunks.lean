@@ -29,11 +29,6 @@ that it computes the wholesale parse of the concatenation:
 
 namespace ConLeche.Frontend
 
-/-- The bytes of a list of chunks, in order. -/
-def concatBytes : List ByteArray → ByteArray
-  | [] => .empty
-  | c :: cs => c ++ concatBytes cs
-
 theorem newlineFrom_iff (b : ByteArray) (i : USize) : newlineFrom b i = true ↔ 10 ∈ tailAt b i := by
   fun_induction newlineFrom b i with
   | case1 i h ih =>

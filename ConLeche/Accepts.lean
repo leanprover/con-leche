@@ -33,8 +33,8 @@ stream to the FILE the binary was handed:
   not — and the indices `i`, `j`, `k`, `v` and the theorem's name are
   arbitrary too.
 
-The statement `no_False_in_file` then reads: a file that matches the
-template is never accepted.
+The statement `no_False_declaration` (`ConLeche/Challenge.lean`) then
+reads: a file that matches the template is never accepted.
 -/
 
 namespace ConLeche
@@ -85,6 +85,17 @@ def pipelineAccepts (file : String) : Prop :=
   ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
     Frontend.builtinPreludeE = .ok prelude ∧
     Frontend.parseExportD file prelude (inModel := true) (census := false) = .ok r ∧
+    r.taintSkipped.isEmpty = true ∧
+    checkDecls .verified r.decls.toList = .ok env
+
+/-- **The binary accepts the chunks it read.**  `pipelineAccepts` with
+the parse the binary actually runs: `parseChunks`, the streaming
+reader's loop over the chunks the file handle hands out
+(`parseExportHandleD` is this loop with the reads interleaved). -/
+def streamingAccepts (chunks : List ByteArray) : Prop :=
+  ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok prelude ∧
+    Frontend.parseChunks prelude (inModel := true) (census := false) chunks = .ok r ∧
     r.taintSkipped.isEmpty = true ∧
     checkDecls .verified r.decls.toList = .ok env
 

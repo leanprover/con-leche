@@ -33,31 +33,31 @@ theorem lit_append (a b : String) : lit (a ++ b) = lit a ++ lit b := by
     Array.toList_append]
 
 -- the literal pieces of the three templates, as bytes
-theorem lit_in : lit (toString "{\"in\":") = [123, 34, 105, 110, 34, 58] := by
+theorem tpl_in : lit (toString "{\"in\":") = [123, 34, 105, 110, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_strFalse : lit (toString ",\"str\":{\"pre\":0,\"str\":\"False\"}}") =
+theorem tpl_strFalse : lit (toString ",\"str\":{\"pre\":0,\"str\":\"False\"}}") =
     [44, 34, 115, 116, 114, 34, 58, 123, 34, 112, 114, 101, 34, 58, 48, 44, 34, 115, 116, 114,
      34, 58, 34, 70, 97, 108, 115, 101, 34, 125, 125] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_ie : lit (toString "{\"ie\":") = [123, 34, 105, 101, 34, 58] := by
+theorem tpl_ie : lit (toString "{\"ie\":") = [123, 34, 105, 101, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_constName : lit (toString ",\"const\":{\"name\":") =
+theorem tpl_constName : lit (toString ",\"const\":{\"name\":") =
     [44, 34, 99, 111, 110, 115, 116, 34, 58, 123, 34, 110, 97, 109, 101, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_usNil : lit (toString ",\"us\":[]}}") = [44, 34, 117, 115, 34, 58, 91, 93, 125, 125] := by
+theorem tpl_usNil : lit (toString ",\"us\":[]}}") = [44, 34, 117, 115, 34, 58, 91, 93, 125, 125] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_thmAll : lit (toString "{\"thm\":{\"all\":[") =
+theorem tpl_thmAll : lit (toString "{\"thm\":{\"all\":[") =
     [123, 34, 116, 104, 109, 34, 58, 123, 34, 97, 108, 108, 34, 58, 91] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_lpsName : lit (toString "],\"levelParams\":[],\"name\":") =
+theorem tpl_lpsName : lit (toString "],\"levelParams\":[],\"name\":") =
     [93, 44, 34, 108, 101, 118, 101, 108, 80, 97, 114, 97, 109, 115, 34, 58, 91, 93, 44, 34, 110,
      97, 109, 101, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_type : lit (toString ",\"type\":") = [44, 34, 116, 121, 112, 101, 34, 58] := by
+theorem tpl_type : lit (toString ",\"type\":") = [44, 34, 116, 121, 112, 101, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_value : lit (toString ",\"value\":") = [44, 34, 118, 97, 108, 117, 101, 34, 58] := by
+theorem tpl_value : lit (toString ",\"value\":") = [44, 34, 118, 97, 108, 117, 101, 34, 58] := by
   rw [lit_eq_toByteArray]; decide
-theorem lit_close : lit (toString "}}") = [125, 125] := by
+theorem tpl_close : lit (toString "}}") = [125, 125] := by
   rw [lit_eq_toByteArray]; decide
 
 /-! ## The leaves -/
@@ -213,7 +213,7 @@ theorem naiveLine_nameFalse (i : Nat) (x : List UInt8) :
     naiveLine (lit s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ 10 :: x) =
       .ok (.name i (.str 0 "False"), some x) x := by
   have hd := repr_isDec i
-  rw [lit_append, lit_append, lit_in, lit_strFalse]
+  rw [lit_append, lit_append, tpl_in, tpl_strFalse]
   generalize lit (toString i) = d at hd ⊢
   simp only [List.cons_append, List.nil_append, List.append_assoc]
   have hval := naiveValue_isDec hd
@@ -247,7 +247,7 @@ theorem naiveLine_constFalse (j i : Nat) (x : List UInt8) :
       .ok (.expr j (.const i []), some x) x := by
   have hdj := repr_isDec j
   have hdi := repr_isDec i
-  rw [lit_append, lit_append, lit_append, lit_append, lit_ie, lit_constName, lit_usNil]
+  rw [lit_append, lit_append, lit_append, lit_append, tpl_ie, tpl_constName, tpl_usNil]
   generalize lit (toString j) = dj at hdj ⊢
   generalize lit (toString i) = di at hdi ⊢
   simp only [List.cons_append, List.nil_append, List.append_assoc]
@@ -303,7 +303,7 @@ theorem naiveLine_thm (k j v : Nat) (x : List UInt8) :
   have hdj := repr_isDec j
   have hdv := repr_isDec v
   rw [lit_append, lit_append, lit_append, lit_append, lit_append, lit_append, lit_append,
-    lit_append, lit_thmAll, lit_lpsName, lit_type, lit_value, lit_close]
+    lit_append, tpl_thmAll, tpl_lpsName, tpl_type, tpl_value, tpl_close]
   generalize lit (toString k) = dk at hdk ⊢
   generalize lit (toString j) = dj at hdj ⊢
   generalize lit (toString v) = dv at hdv ⊢
