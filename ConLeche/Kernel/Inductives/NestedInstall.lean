@@ -322,6 +322,14 @@ def restoreCtors (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List N
     let rest' ← restoreCtors ops env R lps rest
     pure ((cvA, nP, nF) :: rest')
 
+/-- The formers' conses (`consMutualFormers`' shape at the restored
+block): the type and the capability record the AUXILIARY install
+stored, official's unchanged re-add (our inductive records carry no
+`all`, which is the only field official fixes). -/
+def consNestedFormers : List AuxStored → Env → Env
+  | [], env => env
+  | a :: rest, env => consNestedFormers rest ⟨.indInfo a.cvTa a.caps :: env.consts⟩
+
 /-- The constructors' conses (`consMutualCtors`' shape). -/
 def consNestedCtors : List (ConstantVal × Nat × Nat) → Env → Env
   | [], env => env
@@ -512,8 +520,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
-  let env₁ : Env := ⟨(members.map fun a => ConstantInfo.indInfo a.cvTa a.caps).reverse
-    ++ env.consts⟩
+  let env₁ := consNestedFormers members env
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁
