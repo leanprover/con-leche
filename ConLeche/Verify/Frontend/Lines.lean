@@ -32,8 +32,10 @@ namespace ConLeche.Frontend
 input, `applyLine` on its record, the rest again; the last line is the
 one without a newline.  Error messages are those of `feedChunk` and
 `applyFinalLine`: the line number and, for a syntactic failure, the
-byte offset into the line. -/
-def parseLines (st : StateD) (l : List UInt8) (lineNo : Nat) : Except FrontendError StateD :=
+byte offset into the line.  Exposed: `ConLeche/Verify/Frontend/Chunks.lean`
+unfolds it. -/
+@[expose] def parseLines (st : StateD) (l : List UInt8) (lineNo : Nat) :
+    Except FrontendError StateD :=
   match naiveLine l with
   | .err e rest =>
     .error (.parseError (lineNo + 1) (ScanErr.render ⟨l.length - rest.length, e⟩))
