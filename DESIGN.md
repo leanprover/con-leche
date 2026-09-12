@@ -69548,3 +69548,205 @@ Merged with master (tasks #288 and #291, which relabelled the
 corollaries and dropped `no_proof_of_False`) before landing; no
 conflicts, and the OVERVIEW paragraph reads correctly after #291's
 rewrite of the paragraph it follows.
+
+## TASK #285 — ONE `Expr`, ONE `Declaration` (2026-09-12, `agent/onetype-285`)
+
+**The user's directive, verbatim:** *"That's worth a cleanup now.  Only
+one Expr and Decl type."*
+
+Two names died and nothing else changed: `checkDecls` accepts the same
+53 088 declarations of `init-full` at the same instruction count, the
+arena/e2e/annot verdicts are master's, and every capstone is the same
+statement with one type name substituted.
+
+### 1. `ExprC` — the abbreviation, the namespace, the module
+
+`abbrev ExprC := ConLeche.Expr` was task #172 B3a's residue: the type
+had been unified two hundred commits ago and only the *name* survived,
+as a namespace whose members were reached by dot notation on an
+`ExprC`-typed value.  Task #198's census kept it deliberately (*"it is
+the namespace that separates the memoized executed operations from the
+pure specs"*) and named the trap it created: **dot notation resolves
+through the DECLARED field type**, so `cv.type.hasFvar` silently
+changed meaning the day `ConstantValC` became `ConstantVal`.
+
+The abbreviation, the namespace and the `ExprC.lean` module are gone.
+Every operation now lives in `ConLeche.Expr` beside the spec it is
+proved equal to, and `ConLeche/Cached/ExprC.lean` is
+`ConLeche/Cached/ExprNodes.lean` (`git mv`): what is left in it is the
+nine node constructors (`mkApp`, `mkLam`, …) and the module header that
+holds the tree's ONE-ROW TRUST CENSUS.
+
+**The naming rule, and it is the whole rule:** a moved declaration
+keeps its name when the name is free in `ConLeche.Expr`, and takes a
+`C` suffix when it is not — the `C` OVERVIEW §10 already documents,
+*cached*, now on the function and never on a type.  A renamed function
+takes its `Go`/`Acc`/`B` helpers and their `_spec` lemmas with it, so a
+family is spelled one way.  Twenty-one names carry it:
+
+    abstract1C  abstract1GoC  abstractRangeC  abstractRangeGoC
+    allLevelParamsDefinedC   allLevelParamsDefinedGoC
+    fvarLeavesC  fvarLeavesGoC  getAppArgsC  getAppArgsAccC
+    instSpineC  instSpineChainC  instantiate1C  instantiate1GoC
+    instantiate1LiftC  instantiate1LiftBC  instantiate1LiftGoC
+    instantiateListC  instantiateListGoC  wscopedBC  wscopedBGoC
+
+### 2. The pair decisions, one row each
+
+The brief's question for every name that collided: are the two the same
+function?  Six pairs were, and the cached half is deleted.
+
+| pair | decision | why |
+|---|---|---|
+| `hasFvar` | **deleted**, use `Expr.hasFvar` | the cached one was `e.fvarB != 0`; the kernel's `Expr.hasFvarFast` is that expression *character for character* and is substituted for `Expr.hasFvar` by `@[csimp] hasFvar_eq_hasFvarFast`.  Same compiled code, one name. |
+| `looseBVarsBounded` | **deleted**, use `Expr.looseBVarsBounded` | same story at `Expr.looseBVarsBoundedFast = decide (e.bvarB ≤ k)`, `@[csimp]`. |
+| `getAppFn` | **deleted** | the two definitions are identical (`\| .app f _ => getAppFn f \| e => e`); no memo, no cutoff, nothing to distinguish. |
+| `mkAppN` | **deleted** | identical, modulo `mkApp f a` being `.app f a` by `rfl` at an `@[inline]`. |
+| `mkBVar` | **deleted**, use `Expr.mkBvar` | it *was* `Expr.mkBvar`.  Two names differing only in one letter's case, in one namespace, is the worst of both. |
+| `bvarB_eq`, `fvarB_eq` | **deleted** | `Verify/Cached/Erase.lean`'s were `:= Expr.bvarB_eq e` — re-exports of the kernel lemmas under the same short name. |
+
+Everything else in the collision set is a **genuinely different
+implementation** and keeps both members: the cached walks carry a
+`bvarB`/`fvarB`/`hasLP` cutoff at every node, a memo table, or an
+accumulator, and that is precisely what `Verify/Cached/OpsC.lean` and
+`GuardsC.lean` prove agrees with the spec.  `getAppArgsC` is the
+clearest: linear, against a spec that appends `[a]` at every spine step.
+
+**What the deletions cost in proofs.**  `getAppFn_spec`,
+`looseBVarsBounded_spec` and `mkAppN_spec` became `x = x` and are
+deleted with their subjects; their 34 consumers lost a `rw` each.  The
+recurring shape was
+
+    have hfn := ExprC.getAppFn_spec i
+    generalize hg : ExprC.getAppFn i = g at hfn ⊢
+    cases g with | const nm us => … hfn.symm …
+
+and it collapses to `generalize hg : Expr.getAppFn i = g` — after
+`cases g`, `hg` IS the fact the spec lemma used to carry.  In the
+branches the `generalize` reached (no `rw [hspec]` between), the
+following `rw [show Expr.getAppFn j = … from hg]` became a no-op and is
+gone: 102 such lines across `DiscC2`/`DiscC3`/`DiscC4`/`DiscC6`.
+
+### 3. `DeclC` — constructor for constructor the kernel's `Declaration`
+
+`ConLeche.Cached.DeclC` and `ConLeche.Declaration` had the same six
+constructors with the same fields.  The parser produces `Declaration`
+now, `checkDecls` consumes it, and `Main.lean`, `Challenge.lean`,
+`MainTheorem.lean` and every `Verify/*` and `Model/*` statement follow
+— **the statements change only in the type name** (`tests/challenge.sh`
+compares the two modules token for token and is green).
+
+`DeclCRel` (`Verify/Cached/BridgeC.lean`) related the two per
+constructor through `RelC`, which task #198 had already reduced to
+equality.  It and `DeclCRel_total` are deleted: `checkDeclC_sim` and
+`checkDeclStepC_run` take one record and `cases pd` where they cased on
+the relation, and the per-branch `RelC` premises the sub-lemmas
+consumed are `rfl` at the call sites.  `annotStepC_model` (task #289,
+merged here) loses the `∃ d, DeclCRel pd d ∧ …` conjunct of its
+conclusion for `checkDecl … pd`, and `checkDecl_declares`
+(`StreamConsts.lean`) cases on the record.
+
+Two declarations died with the rename and are recorded here rather than
+quietly dropped:
+
+* `instance : Inhabited DeclC` (`Frontend/NatOpGround.lean`) — a
+  **duplicate**: `Declaration` already `deriving`s `Inhabited`;
+* `Expr.LeafEquiv.hasFvar_eq` (`Verify/Abstract.lean`) — a hard
+  candidate of `scripts/dead-census.py` **after** the change and not
+  before: its last consumer was a `simp_all [Expr.hasFvar]` in
+  `leafGuard_spec`, which now reads the field equation directly.  The
+  census is 100 → 101 hard and 1421 → 1415 soft candidates across the
+  change; the one arrival is this lemma, the departures are #291's.
+
+### 4. Findings
+
+**(1) A rename whose target already exists cannot be checked by the
+compiler — so make the compiler check it first.**  Every cached
+operation had a same-named, same-typed `ConLeche.Expr` twin, so a
+missed call site would not fail to build: it would silently run the
+*pure* walk where the memoized one ran.  The instrument was one
+throwaway build with `@[deprecated "PROBE285"]` on all 48 cached
+operations: 446 warnings, each an exact `file:line:col` of a reference
+the elaborator had resolved to the cached name — dot notation included
+(6 of them; the other 440 were already spelled out, which is task
+#198's trap having taught the tier).  The rewrite was then driven off
+those coordinates and not off grep.  **When two names are
+interchangeable to the type checker, ask the elaborator which one each
+site meant.**
+
+**(2) Lean's deprecation warnings are suppressed inside deprecated
+declarations**, so the probe saw nothing of the two defining modules —
+which is right, and worth knowing before trusting the count.
+
+**(3) Auto-generated names are not in the probe's answer either.**
+`instantiate1Go.eq_def` and its nine siblings are referenced by name in
+`OpsC`/`GuardsC` and are not constants the `deprecated` attribute
+covers; 110 of them needed their own pass.  Same class as task #222's
+`toDirectSumParts`.
+
+**(4) A functional-induction principle can change shape when a
+REDUCIBLE abbreviation leaves a signature.**  `whnfAppI`'s body is
+untouched; only `k : ExprC → CheckCM ExprC` became
+`k : Expr → CheckCM Expr`, and `whnfAppI_betaPeelI_congr`'s fourth
+bullet went from two induction hypotheses to one (the unused `_ih'`).
+The proof is unchanged otherwise and the principle is generated and
+kernel-checked either way, so nothing is owed — but it is a reminder
+that `abbrev` is not invisible to the equation compiler.
+
+**(5) The import gate found the consequences the type system could
+not.**  Cutting `DeclC` cut the frontend's last edge to the cached
+checker, and `lake shake` proposed seven removals.  Five are clean
+under task #223's criterion and are applied (`ExprNodes` needs
+`Kernel.Expr` and not `Kernel.ExprOps`; `Erase` needs no node
+constructors; three `Frontend/*` modules no longer need
+`Cached.ParsedC`); three are compensated relocations and go on
+`tests/shake-allowlist.txt` with the compensation as their reason
+(`StreamConsts`'s edge to `BridgeC` is the third: task #289's module
+reached `DeclCRel` through it).  The
+build then asked for two things no analysis had: `ExportC` names the
+node constructors and now imports `Cached.ExprNodes` directly, and two
+bare `open ConLeche.Cached`s (`NatOpGround`, `tests/ConLecheTests/ScanTests`)
+had to go because the namespace was no longer in their closure — task
+#223 §6's first blind class, seen twice in one batch.
+
+**(6) `pub-import-plan`'s fixpoint is order-dependent, and a graph edit
+can hand it a new candidate.**  `ConLeche/Kernel/BasisA.lean`'s
+`public import ConLeche.Kernel.BasisGen` became demotable only after
+this task moved the edges around it; demoting it makes
+`Kernel/TrustAxioms.lean` fail to PARSE (`unexpected token '#'`),
+because `BasisGen` declares the `#annotate_basis` command and a command
+elaborator is registered, not named.  It joins the script's `FALLBACK`
+set as its seventh entry, with that reason.
+
+### Gates
+
+| gate | result |
+|---|---|
+| `lake build` | 546 jobs, warning-free |
+| `lake test` | 468 jobs, warning-free |
+| `tests/arena.sh` (`env -i`) | exit 0 |
+| layering | base 282 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory |
+| proofdeps | 3 816 rows across 11 roots, doors 0 — **regenerated**: the 10 `Cached.ExprC` rows are `Cached.ExprNodes` rows (the module was renamed) and 4 rows DEPARTED, the two `*_pure` capstones' reach into `Cached.ExprC` and `Verify.Cached.Erase`, which the six deleted pairs took with them |
+| trust surface | 13 escapes in 5 allowlisted files (486 scanned), 0 outside |
+| shake | 459 removals proposed, all allowlisted; pub-imports 947 of 1 293 public, none demotable (7 fallbacks) |
+| overview-links | 80 links, 50 files, OK (three anchors repointed, each re-read: the cited text is byte-identical and only the line numbers moved) |
+| challenge | statements identical for `model_exists`, `no_False_theorem_accepted` |
+| arena / e2e / annot / prelude / progress / DAG tower | 90/92, 195/195, 15/15, 3/3, 15/15, 14/14 — master's numbers |
+| trusted + `--jobs=1` + `--jobs=4` sweeps | as at the default worker count |
+
+`init-full`, `--verified --jobs=1`, `perf stat -e instructions:u`, same
+machine, same stream, 53 088 accepted and exit 0 in both cells:
+
+| | instructions:u |
+|---|---|
+| master `885f0793` | 538.449 G |
+| this branch | 538.520 G |
+| Δ | **+0.013 %** |
+
+(measured twice — against master `5ffc1180` before the three merges it
+was 538.464 G vs 538.506 G, **+0.008 %**)
+
+Which is what a rename should look like.  The six deleted pairs were
+deleted *because* the two members compile to the same code — a
+`@[csimp]` twin for `hasFvar`/`looseBVarsBounded`, an identical body for
+`getAppFn`/`mkAppN`/`mkBVar` — so no call site changed what it runs.

@@ -144,11 +144,11 @@ members.
 
 "Installed under its own name, with the annotation of its declared
 type" is a claim in its own right, and it is proved in general:
-[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L772-L777)
+[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L768-L773)
 says that whenever `checkDecls` accepts `ds`, every record of `ds` that
 declares a constant — a definition, a theorem, an opaque, or an axiom
 whose name is not the tolerated `sorryAx`
-([`DeclC.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L622-L628))
+([`Declaration.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L622-L628))
 — leaves a constant of that very name in the returned environment, with
 the record's own level parameters and with the *annotation* of the
 record's own type: the same term with every `let` inlined and the
@@ -266,14 +266,14 @@ Read from the outside in:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the install
    run
-   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L468-L475)),
+   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L453-L460)),
    and a record's check at the prefix view is covered by the
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L543-L544)).
    The walk carries the model to the final environment
-   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L496-L498)),
+   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L481-L483)),
    and the fold's letter
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L65-L71))
    is that model read through `checkDecls_fullyChecked`
@@ -677,10 +677,10 @@ to know is short:
 
 | marker | reading |
 |---|---|
-| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
+| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | indexed (`nativeRecAVI`-style readings that carry an index) |
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
-| `D` | the direct-parse record type `DeclC` and the functions over it |
+| `D` | the direct parse and the functions over its output (`parseExportD`, `trusted_agrees_skels_D`) |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
 | `WF` | well-formedness (`EnvWF`, `StructWF`) |
 | `_pure` / `_cached` / `_checked` | the capstones over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |

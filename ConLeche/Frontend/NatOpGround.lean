@@ -1,7 +1,7 @@
 module
 
 public import Std.Data.HashSet.Basic
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Kernel.Core
 
 @[expose] public section
 
@@ -49,22 +49,19 @@ and nothing else there.
 
 namespace ConLeche.Frontend
 
-open ConLeche ConLeche.Cached
-
-/-- For the array indexing below (`ds[i]!`); never observed. -/
-instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
+open ConLeche
 
 /-- The names a parsed declaration declares (the prelude index and the
 hoist's name index; basis blocks are indexed by kind instead). -/
-def _root_.ConLeche.Cached.DeclC.names : DeclC → List Name
+def _root_.ConLeche.Declaration.names : Declaration → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .indDecl block _ => block.map (·.name)
   | .basisDecl _ => []
 
-/-- The constants an `ExprC` DAG references, each node visited once
-(`Std.HashSet ExprC`: pointer-first equality, computed hash). -/
-def usedConstsGo (seen : Std.HashSet ExprC) (acc : Array Name) (e : ExprC) :
-    Std.HashSet ExprC × Array Name :=
+/-- The constants an `Expr` DAG references, each node visited once
+(`Std.HashSet Expr`: pointer-first equality, computed hash). -/
+def usedConstsGo (seen : Std.HashSet Expr) (acc : Array Name) (e : Expr) :
+    Std.HashSet Expr × Array Name :=
   if seen.contains e then (seen, acc) else
   let seen := seen.insert e
   match e with
@@ -89,13 +86,13 @@ def usedConstsGo (seen : Std.HashSet ExprC) (acc : Array Name) (e : ExprC) :
 /-- The constants a parsed record references (types, values, recursor
 rule right-hand sides; a basis block references nothing the stream
 declares). -/
-def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
+def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
   | .axiomDecl cv => (usedConstsGo {} #[] cv.type).2
   | .defnDecl cv v _ | .thmDecl cv v | .opaqueDecl cv v =>
     let (seen, acc) := usedConstsGo {} #[] cv.type
     (usedConstsGo seen acc v).2
   | .indDecl block _ =>
-    (block.foldl (init := (({} : Std.HashSet ExprC), (#[] : Array Name)))
+    (block.foldl (init := (({} : Std.HashSet Expr), (#[] : Array Name)))
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type
         match ci with
@@ -107,7 +104,7 @@ def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
 /-- The pinned `Nat` operation records whose ground the pass serves:
 the pin-certified WF operations and the structural ones (whose
 `natOpDeps` are in their own closures already — kept uniform). -/
-def isNatOpRecord : DeclC → Option Name
+def isNatOpRecord : Declaration → Option Name
   | .defnDecl cv .. =>
     if natDivModNames.contains cv.name || natOpNames.contains cv.name then some cv.name
     else none
@@ -116,7 +113,7 @@ def isNatOpRecord : DeclC → Option Name
 /-- **The hoist.**  Returns the reordered records and the names of the
 records moved (empty, and the array untouched, when no operation's
 ground is declared after it). -/
-def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name := Id.run do
+def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}

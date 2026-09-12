@@ -31,14 +31,14 @@ open ConLeche
 /-- `Expr.instPisAtLift` at the memoised substitution. -/
 def instPisAtLiftC : List Expr → Expr → Option Expr
   | [], e => some e
-  | a :: as, .forallE _ body _ => instPisAtLiftC as (ExprC.instantiate1Lift body a)
+  | a :: as, .forallE _ body _ => instPisAtLiftC as (Expr.instantiate1LiftC body a)
   | _ :: _, _ => none
 
 /-- `structProjBodiesGo` at the memoised substitution. -/
 def structProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
   | 0, _, _ => some []
   | k + 1, i, .forallE fdom body _ =>
-    (structProjBodiesGoC T k (i + 1) (ExprC.instantiate1Lift body (structProjArgP T i))).map
+    (structProjBodiesGoC T k (i + 1) (Expr.instantiate1LiftC body (structProjArgP T i))).map
       (fdom :: ·)
   | _ + 1, _, _ => none
 
@@ -66,7 +66,7 @@ on `init-prelude` / `app-lam`, which is where that batch's win came
 from. -/
 
 /-- Shared-state unary entry point: run the cached knot. -/
-def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
+def opE (fe : FEnv) (pick : CoreFnsI → Nat → Expr → CheckCM Expr)
     (d : Nat) (e : Expr) : CheckCM Expr := do
   pick (coreKnotI mode fe checkFuel) d e
 

@@ -29,7 +29,7 @@ original's.
 namespace ConLeche.Cached
 
 open ConLeche
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 open Expr
 
 variable {mode : CheckMode}

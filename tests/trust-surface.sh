@@ -82,7 +82,7 @@
 #       bound / …) and `Level.hashData` — the user's standing ruling,
 #       *"Adopt computed_fields.  It's a compiler feature, we trust the
 #       compiler"* (2026-09-04); the census that argues it is
-#       `ConLeche/Cached/ExprC.lean`'s header.  Same escape class
+#       `ConLeche/Cached/ExprNodes.lean`'s header.  Same escape class
 #       `Lean.Expr` itself lives on.  The expression equality is NOT an
 #       escape: `Expr.beq` goes through `@[csimp]` + `withPtrEq` /
 #       `withPtrAddr` with the memoised descent PROVED equal to

@@ -115,7 +115,7 @@ theorem ruleRhsAtM_congr (hfe : fe₁.find? = fe₂.find?) :
 
 /-- `constsResolveFCGo` reads `fe` only through `find?`. -/
 theorem constsResolveFCGo_congr (hfe : fe₁.find? = fe₂.find?) :
-    ∀ (e : ExprC) (memo : Std.HashMap ExprC Bool),
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool),
       constsResolveFCGo fe₁ memo e = constsResolveFCGo fe₂ memo e := by
   intro e
   induction e with
@@ -336,7 +336,7 @@ theorem projCertAtI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 /-- The bulk-beta spine loop and its peel loop read `fe` only through
 `find?` (one mutual functional induction for the pair). -/
 theorem whnfAppI_betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
-    (depth : Nat) (k : ExprC → CheckCM ExprC) :
+    (depth : Nat) (k : Expr → CheckCM Expr) :
     (∀ v args, whnfAppI mode r fe₁ depth k v args
         = whnfAppI mode r fe₂ depth k v args) ∧
       (∀ t acc args, betaPeelI mode r fe₁ depth k t acc args
@@ -352,7 +352,7 @@ theorem whnfAppI_betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI
     rw [whnfAppI.eq_def, whnfAppI.eq_def]; simp only [h, ih]
   · intro a rest ty body mb h ih
     rw [whnfAppI.eq_def, whnfAppI.eq_def]; simp only [h, ih]
-  · intro v a rest hnl ih _ih'
+  · intro v a rest hnl ih
     rw [whnfAppI.eq_def, whnfAppI.eq_def]
     cases v with
     | lam ty body mb => exact (hnl _ _ _ rfl).elim
@@ -370,13 +370,13 @@ theorem whnfAppI_betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI
 
 /-- `whnfAppI` reads `fe` only through `find?`. -/
 theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
-    (depth : Nat) (k : ExprC → CheckCM ExprC) :
+    (depth : Nat) (k : Expr → CheckCM Expr) :
     whnfAppI mode r fe₁ depth k = whnfAppI mode r fe₂ depth k := by
   funext v args; exact (whnfAppI_betaPeelI_congr hfe r depth k).1 v args
 
 /-- `betaPeelI` reads `fe` only through `find?`. -/
 theorem betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
-    (depth : Nat) (k : ExprC → CheckCM ExprC) :
+    (depth : Nat) (k : Expr → CheckCM Expr) :
     betaPeelI mode r fe₁ depth k = betaPeelI mode r fe₂ depth k := by
   funext t acc args; exact (whnfAppI_betaPeelI_congr hfe r depth k).2 t acc args
 

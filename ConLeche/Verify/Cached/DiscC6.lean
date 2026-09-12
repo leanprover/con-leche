@@ -10,7 +10,7 @@ public section
 Port of `ConLeche/Verify/DiscI6.lean` under the recipe (DESIGN.md,
 task #163): the simulation walks for `isPropTypeI` and `annotateBodyI`
 (`ConLeche/Cached/CoreC.lean`), whose bodies are character-identical to
-their `ConLeche/Kernel/CoreI.lean` originals up to `EIdx → ExprC` /
+their `ConLeche/Kernel/CoreI.lean` originals up to `EIdx → Expr` /
 `CheckIM → CheckCM` (plus the two recorded `peelFuelM` deviation lines
 in `annotateBodyI`'s binder clauses).  Task #175 wiring W5: the
 projection elimination fallbacks (`projFieldDomI`,
@@ -28,7 +28,7 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche.Cached
 
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -44,7 +44,7 @@ variable {env : Env} {f : Nat}
 
 /-- Port of `annotateBodyI_sim`. -/
 theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
@@ -262,13 +262,11 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     refine SimC.pureB ?_
     obtain rfl := hted
     have hted : RelC te te := rfl
-    have htargs : RelCL (ExprC.getAppArgs te) (Expr.getAppArgs te) :=
-      ExprC.getAppArgs_spec te
-    have hfn := ExprC.getAppFn_spec te
-    generalize hgn : ExprC.getAppFn te = g at hfn ⊢
+    have htargs : RelCL (Expr.getAppArgsC te) (Expr.getAppArgs te) :=
+      Expr.getAppArgsC_spec te
+    generalize hgn : Expr.getAppFn te = g
     cases g with
     | const T us =>
-      rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
       refine SimC.bind_left (pureEq_eff hs₃ T)
         (fun s₃T Tw hs₃T hTw => ?_)
@@ -298,37 +296,22 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         · rw [if_neg hlen, if_neg hlen]
           exact SimC.throw
     | bvar k =>
-      rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
       exact SimC.throw
     | sort u =>
-      rw [show (Expr.getAppFn te) = Expr.sort u from hfn.symm]
       exact SimC.throw
     | lit l =>
-      rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
       exact SimC.throw
     | fvar idx t' =>
-      rw [show (Expr.getAppFn te) = Expr.fvar idx t'
-        from hfn.symm]
       exact SimC.throw
     | app f₂ a₂ =>
-      rw [show (Expr.getAppFn te) = Expr.app (f₂) (a₂)
-        from hfn.symm]
       exact SimC.throw
     | lam t' b' m' =>
-      rw [show (Expr.getAppFn te) = Expr.lam t' b' m'
-        from hfn.symm]
       exact SimC.throw
     | forallE t' b' m' =>
-      rw [show (Expr.getAppFn te)
-        = Expr.forallE t' b' m' from hfn.symm]
       exact SimC.throw
     | letE t' v' b' =>
-      rw [show (Expr.getAppFn te)
-        = Expr.letE t' v' b' from hfn.symm]
       exact SimC.throw
     | proj s' j' e'' =>
-      rw [show (Expr.getAppFn te) = Expr.proj s' j' e''
-        from hfn.symm]
       exact SimC.throw
 
 end Walks3

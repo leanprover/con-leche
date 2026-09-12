@@ -18,7 +18,7 @@ indices**, with nothing resolved and no representation in sight.  The
 byte recogniser (`ConLeche/Frontend/Scan/Fast.lean`) produces these;
 the semantic layer (`applyLine` in `ConLeche/Frontend/ExportC.lean`)
 consumes them and does what it always did — resolve the indices,
-build the `ExprC`/`Name`/`Level` nodes through the smart
+build the `Expr`/`Name`/`Level` nodes through the smart
 constructors, run the taint policy, the prelude dedupe, the
 projection rewrite and the in-process modeller.
 

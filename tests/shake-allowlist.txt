@@ -37,7 +37,7 @@
 # TO REGENERATE a line: run the criterion on that one module, compare with the
 # `--only ConLeche.NoSuchModule` floor, and either delete the import or add the
 # line here with what the run asked for in exchange.
-ConLeche/Cached/ExprC.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
+ConLeche/Cached/ExprNodes.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Cached/ExprOpsC.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Cached/ExprOpsC.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/Cached/OpsC.lean
 ConLeche/Frontend/ProjRec.lean	public import Std.Data.HashSet	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Frontend/ProjRec.lean	import ConLeche.Kernel.Level	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
@@ -493,3 +493,6 @@ ConLeche/Verify/StdAxiomPin.lean	public import ConLeche.Verify.OfReducePin	# com
 ConLeche/Kernel/CheckerSplit.lean	public import ConLeche.Kernel.Checker	# compensated: +public import ConLeche.Kernel.CheckerBase in ConLeche/Kernel/CheckerSplit.lean; +public import ConLeche.Kernel.Checker in ConLeche/Verify/CheckerSplit.lean (task #257: checkDeclInstall, the file's only checkDecl caller, is deleted)
 ConLeche/Verify/Cached/MainC.lean	public import ConLeche.Verify.Cached.InstalledC	# compensated: +import ConLeche.Verify.Cached.InstalledC, +public import ConLeche.Cached.Installed, +public import ConLeche.Model.Annot.EnvModelM, +import ConLeche.Model.Capstone in ConLeche/Verify/Cached/MainC.lean (task #257)
 ConLeche/MainTheorem.lean	public import ConLeche.Verify.Cached.MainC	# compensated: +import ConLeche.Verify.Cached.MainC, +public import ConLeche.Cached.Installed, +public import ConLeche.SetTheory.Core in ConLeche/MainTheorem.lean (task #257)
+ConLeche/Verify/Inductives/StructBody.lean	import ConLeche.Verify.Cached.Erase	# compensated: the --only run relocates StructResid/ProjTele and adds InstSpine, EnvWF, Subst, StructParts, ProjSlots
+ConLeche/Verify/Cached/InstalledC.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for the same edge back as a plain `import` plus Cached.Installed, SimC and EnvBound
+ConLeche/Verify/Cached/StreamConsts.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for `public import ConLeche.Verify.Cached.SimC` and `public import ConLeche.Verify.EnvBound` in exchange

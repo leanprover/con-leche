@@ -1185,7 +1185,7 @@
 2 tower_quot.ndjson
 # tower_prelude: an inductive block named `Bool` with a tower in its
 # constructor field -> differs from the built-in prelude's `Bool`
-# (`DeclC.sameCanon` through `canonEqList`).
+# (`Declaration.sameCanon` through `canonEqList`).
 2 tower_prelude.ndjson
 # tower_axiom_pin: `propext` with a tower type, over a standardly-shaped
 # stored `Iff` family (the only shape that reaches the pin comparison at

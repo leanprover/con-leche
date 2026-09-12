@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
 public import ConLeche.Frontend.NatOpGround
+public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the
 strength of `scanLineSpec_eq_scanLineFwd` (`@[csimp]`).  `Scan.Fast`
@@ -12,14 +13,14 @@ public import ConLeche.Frontend.Scan.Equiv
 @[expose] public section
 
 /-!
-# Direct-to-`ExprC` export parsing (task #171)
+# Direct-to-`Expr` export parsing (task #171)
 
 The user order: the cached pipeline parses the ndjson export
-**directly into `ExprC`** — no parse arena, no `ofStore` conversion,
+**directly into `Expr`** — no parse arena, no `ofStore` conversion,
 no interned detour.  The export's `ie`-indices *are* the sharing: the
 format already externalizes exactly the DAG structure the arena
 reconstructs, so the parse keeps a stream-index-keyed table of
-`ExprC` values and a table hit is a shared node by reference.
+`Expr` values and a table hit is a shared node by reference.
 Sharing is preserved structurally; the derived fields are computed
 once per node by the smart constructors, which is also what makes
 every parsed term well-formed **by construction** — the entry obligation
@@ -70,7 +71,6 @@ constant motives need it).
 namespace ConLeche.Frontend
 
 open ConLeche
-open ConLeche.Cached (ExprC DeclC)
 
 
 /-! ## The built-in prelude (task #191)
@@ -94,7 +94,7 @@ dropped as the prelude's duplicate. -/
 /-- The constant a definition-like record would store, for the canon
 comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
 constructor test, not here). -/
-def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
+def _root_.ConLeche.Declaration.asInfo? : Declaration → Option ConstantInfo
   | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
   | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
   | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
@@ -103,7 +103,7 @@ def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
 
 /-- Two parsed records are the same declaration: same kind, and equal
 up to the basis-matching canonical form (`ConstantInfo.canon`). -/
-def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
+def _root_.ConLeche.Declaration.sameCanon : Declaration → Declaration → Bool
   | .basisDecl k, .basisDecl k' => k == k'
   | .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'
   | .opaqueDecl .., .defnDecl .. => false
@@ -117,11 +117,11 @@ def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
 definition-like and inductive records by every name they declare, and
 the basis blocks by kind. -/
 structure PreludeIx where
-  decls : Array DeclC := #[]
-  byName : Std.HashMap Name DeclC := {}
+  decls : Array Declaration := #[]
+  byName : Std.HashMap Name Declaration := {}
   basis : List BasisKind := []
 
-def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
+def PreludeIx.ofDecls (ds : Array Declaration) : PreludeIx :=
   ds.foldl (init := {}) fun ix d =>
     match d with
     | .basisDecl k => { ix with decls := ix.decls.push d, basis := k :: ix.basis }
@@ -131,15 +131,15 @@ def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
 /-! ## The direct parse state -/
 
 /-- The direct parse state: stream-index-keyed tables of *values*
-(names and levels as trees, expressions as `ExprC` — a table hit is a
-shared node by reference), the parsed declarations as `DeclC`, and
+(names and levels as trees, expressions as `Expr` — a table hit is a
+shared node by reference), the parsed declarations as `Declaration`, and
 the taint bookkeeping, unchanged (both are keyed by stream indices, so
 they are representation-independent). -/
 structure StateD where
   names : IdTable Name := IdTable.singleton .anonymous
   levels : IdTable Level := IdTable.singleton .zero
-  exprs : IdTable ExprC := {}
-  decls : Array DeclC := #[]
+  exprs : IdTable Expr := {}
+  decls : Array Declaration := #[]
   tainted : Std.HashMap Nat Name := {}
   taintedNames : Std.HashMap Name Name := {}
   taintSkipped : Array (Name × Name) := #[]
@@ -159,7 +159,7 @@ structure StateD where
   /-- the declared types of every declaration pushed so far (the
   prelude's included), by name: the in-process modeller's sort inferer
   reads them (task #200) -/
-  constTypes : Std.HashMap Name (List Name × ExprC) := {}
+  constTypes : Std.HashMap Name (List Name × Expr) := {}
   /-- the definitional heights of the definitions pushed so far (the
   hints of the generated definitions are computed from them, task #200) -/
   heights : Std.HashMap Name Nat := {}
@@ -183,7 +183,7 @@ structure StateD where
   /-- for the debug dump (`CON_LECHE_INMODEL_DUMP`): per modelled block, its
   ordinal among the stream's `inductive` records and the generated
   records -/
-  inModelGen : Array (Nat × Array DeclC) := #[]
+  inModelGen : Array (Nat × Array Declaration) := #[]
   /-- the number of `inductive` records seen so far -/
   indCount : Nat := 0
   /-- the parsed inductive blocks, by member type name (the in-process
@@ -202,8 +202,8 @@ structure StateD where
   preludeDropped : Nat := 0
 /-- Record a pushed declaration's constants in the declaration table
 (`constTypes`, `heights`; task #200). -/
-def noteDecl (st : StateD) (d : DeclC) : StateD :=
-  let cvs : List (Name × List Name × ExprC × Option Nat) := match d with
+def noteDecl (st : StateD) (d : Declaration) : StateD :=
+  let cvs : List (Name × List Name × Expr × Option Nat) := match d with
     | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
     | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
     | .thmDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
@@ -222,8 +222,8 @@ def noteDecl (st : StateD) (d : DeclC) : StateD :=
 /-- **The prelude dedupe** (task #191), at every declaration push: a
 basis block the prelude holds is dropped by kind; a record under a
 prelude name is dropped when it is the same declaration
-(`DeclC.sameCanon`) and declines the stream when it differs. -/
-def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
+(`Declaration.sameCanon`) and declines the stream when it differs. -/
+def pushDecl (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
   match d with
   | .basisDecl k =>
     if st.prelude.basis.contains k then
@@ -248,7 +248,7 @@ def StateD.level (st : StateD) (i : Nat) : M Level :=
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-def StateD.expr (st : StateD) (i : Nat) : M ExprC :=
+def StateD.expr (st : StateD) (i : Nat) : M Expr :=
   match st.exprs.get? i with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
@@ -263,7 +263,7 @@ basis-pin match) or a memoized DAG walk (`Expr.renameConsts`,
 the adversarial DAG-tower fixtures in `tests/e2e` are the standing
 gate in its place — a limit told a user "no", a fixture tells *us*
 which walker regressed. -/
-def getDeclD (st : StateD) (i : Nat) : M ExprC := do
+def getDeclD (st : StateD) (i : Nat) : M Expr := do
   if st.tainted[i]?.isSome then
     throw taintSentinel
   st.expr i
@@ -303,7 +303,7 @@ def exprRecChildren : ExprRec → List Nat
   | .proj _ _ st => [st]
   | _ => []
 
-/-- An expression-table entry: build the `ExprC` node from the
+/-- An expression-table entry: build the `Expr` node from the
 children's table values (the derived fields are the compiler's, task
 #172 B3a), with the taint bookkeeping unchanged.
 
@@ -315,26 +315,26 @@ present and well-formed (the recogniser reads it), it is just not
 resolved. -/
 def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
   let (e, taintConst) ← match r with
-    | .bvar k => pure (ExprC.mkBVar k, none)
-    | .sort u => do pure (ExprC.mkSort (← st.level u), none)
+    | .bvar k => pure (Expr.mkBvar k, none)
+    | .sort u => do pure (Expr.mkSort (← st.level u), none)
     | .const n us => do
       let nm ← st.name n
       let ls ← us.mapM st.level
       let taintC : Option Name ←
         if st.taintedNames.isEmpty then pure none
         else do pure st.taintedNames[nm]?
-      pure (ExprC.mkConst nm ls, taintC)
-    | .app f a => do pure (ExprC.mkApp (← st.expr f) (← st.expr a), none)
+      pure (Expr.mkConst nm ls, taintC)
+    | .app f a => do pure (Expr.mkApp (← st.expr f) (← st.expr a), none)
     | .lam ty bd pw => do
-      pure (ExprC.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+      pure (Expr.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
     | .forallE ty bd pw => do
-      pure (ExprC.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+      pure (Expr.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
     | .letE ty vl bd => do
-      pure (ExprC.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd), none)
+      pure (Expr.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd), none)
     | .proj tn ix s => do
-      pure (ExprC.mkProj (← st.name tn) ix (← st.expr s), none)
-    | .natVal n => pure (ExprC.mkLit (.natVal n), none)
-    | .strVal s => pure (ExprC.mkLit (.strVal s), none)
+      pure (Expr.mkProj (← st.name tn) ix (← st.expr s), none)
+    | .natVal n => pure (Expr.mkLit (.natVal n), none)
+    | .strVal s => pure (Expr.mkLit (.strVal s), none)
   -- the child scan runs only once a tolerated axiom has put something
   -- in the table: an entry can be tainted only below one
   let taint : Option Name :=
@@ -351,7 +351,7 @@ def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
 
 /-! ## Declaration records -/
 
-/-- A declaration's common data; the type stays `ExprC`. -/
+/-- A declaration's common data; the type stays `Expr`. -/
 def parseCVD (st : StateD) (cv : CVRec) : M ConstantVal := do
   let name ← st.name cv.name
   let ty ← getDeclD st cv.type
@@ -364,8 +364,8 @@ def parseCVD (st : StateD) (cv : CVRec) : M ConstantVal := do
 self` for a recorded owner `T`, the field's sort is on record from the
 artifact, `PUnit` is available, and the definition's level parameters
 are the block's.  `none` = leave the record as parsed. -/
-def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
-    Option ExprC := do
+def projRewriteD (st : StateD) (cv : ConstantVal) (vl : Expr) :
+    Option Expr := do
   let .proj T i (.bvar 0) := lamBody vl | none
   let o ← st.projOwners[T]?
   guard st.punitSeen
@@ -392,7 +392,7 @@ def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
 `pushDecl`, plus the projection-iota registration (the ONLY place it
 runs since task #219 — a stream record is an ordinary declaration
 whatever it is called). -/
-def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
+def pushGenD (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
   match d with
   | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
   | _ => pushDecl st d
@@ -401,7 +401,7 @@ def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
 (task #219): a declaration of the FOLD, never a record of the file, so
 the driver's headline count subtracts it and a failure at it is
 reported with the block it models. -/
-def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
+def noteGen (st : StateD) (d : Declaration) (T0 : Name) : StateD :=
   let m := st.genOwner
   let st := { st with genOwner := {} }
   { st with genRecords := st.genRecords + 1,
@@ -447,7 +447,7 @@ def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
   pure ⟨types, ctors, recs⟩
 
 /-- The record's own semantics: the declaration kinds, producing
-`DeclC` records.  Every branch, guard and error string is the one the
+`Declaration` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
 def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) := do
@@ -841,11 +841,11 @@ def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
 
 /-! ## The line feed and the drivers -/
 
-/-- The direct parse result: declarations over `ExprC` and the taint
+/-- The direct parse result: declarations over `Expr` and the taint
 skips.  No arena. -/
 structure ParseResultD where
   /-- the built-in prelude's records first, then the stream's (task #191) -/
-  decls : Array DeclC
+  decls : Array Declaration
   taintSkipped : Array (Name × Name)
   /-- projection functions rewritten to recursor form (2026-09-06) -/
   projRewrites : Array Name := #[]
@@ -871,7 +871,7 @@ structure ParseResultD where
   /-- the in-process modeller's generated records per block, keyed by
   the block's ordinal among the stream's `inductive` records (for the
   debug dump only) -/
-  inModelGen : Array (Nat × Array DeclC) := #[]
+  inModelGen : Array (Nat × Array Declaration) := #[]
   /-- the census's declines (block, reason) -/
   inModelDeclined : Array (Name × String) := #[]
 

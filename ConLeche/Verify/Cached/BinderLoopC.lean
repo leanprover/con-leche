@@ -61,7 +61,7 @@ set_option maxHeartbeats 1000000
 namespace ConLeche.Cached
 
 open ConLeche
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -69,7 +69,7 @@ variable {env : Env} {f : Nat}
 
 /-- Erasure-only result relation for the loop walks (the port of
 `RelD`: the state-free residue of the denotation leg). -/
-abbrev RelDC : ExprC → Expr → Prop := RelC
+abbrev RelDC : Expr → Expr → Prop := RelC
 
 /-- Pushing on the accumulator array conses on its reversed read
 (task #97: the loops keep the opened fvars innermost-**last**; the
@@ -116,7 +116,7 @@ def RelAStk (d : Nat) :
 
 theorem inferLamsOutC_sim {d : Nat} :
     ∀ {stk : List InferLamEntry} {stkx : List InferLamEntryX} {j : Nat}
-      {cur : ExprC} {curx : Expr} {prevPw : PropWhen} {s₀ : CState},
+      {cur : Expr} {curx : Expr} {prevPw : PropWhen} {s₀ : CState},
       CSOK mode env s₀ → RelILStk stk stkx → RelC cur curx →
       SimC mode env s₀ RelDC (inferLamsOutI mode d stk j cur prevPw)
         (inferLamsOut (m := FueledM) mode d stkx j curx prevPw) := by
@@ -166,7 +166,7 @@ theorem inferLamsOutC_sim {d : Nat} :
       exact ihOut hs₄ hrest hQnode'
 
 theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
-    {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
+    {t : Expr} {tx : Expr} {k : Nat} {fvs : Array Expr} {ws : List Expr}
     {stk : List InferLamEntry} {stkx : List InferLamEntryX} {s₀ : CState}
     (hs : CSOK mode env s₀) (ht : RelC t tx)
     (hfvs : RelCL fvs.toList.reverse ws) (hstk : RelILStk stk stkx)
@@ -262,8 +262,8 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     all_goals exact SimC.throw
 
 theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
-    ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
-      {fvs : Array ExprC} {ws : List Expr}
+    ∀ (fuel : Nat) {t : Expr} {tx : Expr} {k : Nat}
+      {fvs : Array Expr} {ws : List Expr}
       {stk : List InferLamEntry} {stkx : List InferLamEntryX}
       {s₀ : CState},
       CSOK mode env s₀ → RelC t tx →
@@ -403,7 +403,7 @@ theorem inferPisOutC_sim :
       exact ih (stkx := rx) (lv := .imax u v) hs₁ hrest rfl rfl
 
 theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
-    {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
+    {t : Expr} {tx : Expr} {k : Nat} {fvs : Array Expr} {ws : List Expr}
     {stk : List (Level × PropWhen)} {stkx : List (Level × PropWhen)}
     {s₀ : CState}
     (hs : CSOK mode env s₀) (ht : RelC t tx)
@@ -434,8 +434,8 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   all_goals exact SimC.throw
 
 theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
-    ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
-      {fvs : Array ExprC} {ws : List Expr}
+    ∀ (fuel : Nat) {t : Expr} {tx : Expr} {k : Nat}
+      {fvs : Array Expr} {ws : List Expr}
       {stk : List (Level × PropWhen)} {stkx : List (Level × PropWhen)}
       {s₀ : CState},
       CSOK mode env s₀ → RelC t tx →
@@ -593,7 +593,7 @@ theorem inferLamTail_atF {env : Env} (d : Nat)
 stage 6: the tail is a pure rebuild — the λ-annotation re-check died
 with the stored annotations). -/
 theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d fuel : Nat} {b t fv : ExprC} {bodyx tyx : Expr}
+    {d fuel : Nat} {b t fv : Expr} {bodyx tyx : Expr}
     {mbpw : PropWhen} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hbody : RelC b bodyx)
@@ -788,7 +788,7 @@ private theorem inferPiTail_atF {env : Env} (d : Nat)
 /-- The ∀-inference loop against `inferBody`'s own ∀-tail (task #100
 stage 6: the codomain sort is inferred, not read off an annotation). -/
 theorem inferPisC_tail_sim (ih : SSimC mode env f)
-    {d fuel : Nat} {b fv : ExprC} {bodyx tyx : Expr}
+    {d fuel : Nat} {b fv : Expr} {bodyx tyx : Expr}
     {u : Level} {lu : Level} {pw : PropWhen} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hbody : RelC b bodyx)
@@ -888,13 +888,13 @@ theorem annotBinderMetaI_eq (pw? : Option PropWhen) (mb : BinderMeta) :
   cases pw? <;> rfl
 
 theorem annotateBindersOutC_sim
-    {mk : ExprC → ExprC → BinderMeta → ExprC}
+    {mk : Expr → Expr → BinderMeta → Expr}
     {mkX : Expr → Expr → BinderMeta → Expr}
-    (hmk : ∀ (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
+    (hmk : ∀ (ty : Expr) (tyx : Expr) (b : Expr) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
         mk ty b mi = mkX tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
-      {j : Nat} {pw? : Option PropWhen} {cur : ExprC} {curx : Expr}
+      {j : Nat} {pw? : Option PropWhen} {cur : Expr} {curx : Expr}
       {s₀ : CState},
       CSOK mode env s₀ → RelAStk d stk stkx j → RelC cur curx →
       SimC mode env s₀ RelDC (annotateBindersOutI mk d pw? stk j cur)
@@ -953,7 +953,7 @@ annotated body's head first — a ∀ body hands on its own datum (the
 chain rule) — and only otherwise pay the one inference the telescope's
 collapse needs. -/
 theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
-    {body' : ExprC} {body'x : Expr} {s₀ : CState}
+    {body' : Expr} {body'x : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hl : RelC body' body'x)
     (hw : Expr.WScoped d body'x) :
     SimC mode env s₀ (fun (v : PropWhen) (vx : PropWhen) => v = vx)
@@ -977,7 +977,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
 
 /-- The λ twin of `annotPwPiC_sim`. -/
 theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
-    {body' : ExprC} {body'x : Expr} {s₀ : CState}
+    {body' : Expr} {body'x : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hl : RelC body' body'x)
     (hw : Expr.WScoped d body'x) :
     SimC mode env s₀ (fun (v : PropWhen) (vx : PropWhen) => v = vx)
@@ -1004,7 +1004,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
 
 /-- The write the telescope loops use (ungated, both modes). -/
 theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}
-    {leaf' : ExprC} {leafx : Expr} {s₀ : CState}
+    {leaf' : Expr} {leafx : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hl : RelC leaf' leafx)
     (hw : Expr.WScoped (d + k) leafx) :
     SimC mode env s₀
@@ -1021,7 +1021,7 @@ theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}
 
 /-- The λ twin of `annotatePisPwC_sim`. -/
 theorem annotateLamsPwC_sim (ih : SSimC mode env f) {d k : Nat}
-    {leaf' : ExprC} {leafx : Expr} {s₀ : CState}
+    {leaf' : Expr} {leafx : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hl : RelC leaf' leafx)
     (hw : Expr.WScoped (d + k) leafx) :
     SimC mode env s₀
@@ -1035,7 +1035,7 @@ theorem annotateLamsPwC_sim (ih : SSimC mode env f) {d k : Nat}
   exact SimC.pure hs₁ rfl
 
 theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
-    {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
+    {t : Expr} {tx : Expr} {k : Nat} {fvs : Array Expr} {ws : List Expr}
     {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
     {s₀ : CState}
     (hs : CSOK mode env s₀) (ht : RelC t tx)
@@ -1062,8 +1062,8 @@ theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     rw [hty, hb]
 
 theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
-    ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
-      {fvs : Array ExprC} {ws : List Expr}
+    ∀ (fuel : Nat) {t : Expr} {tx : Expr} {k : Nat}
+      {fvs : Array Expr} {ws : List Expr}
       {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {s₀ : CState},
       CSOK mode env s₀ → RelC t tx →
@@ -1136,7 +1136,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
 /-! ## The λ-annotation loop walks -/
 
 theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
-    {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
+    {t : Expr} {tx : Expr} {k : Nat} {fvs : Array Expr} {ws : List Expr}
     {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
     {s₀ : CState}
     (hs : CSOK mode env s₀) (ht : RelC t tx)
@@ -1163,8 +1163,8 @@ theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     rw [hty, hb]
 
 theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
-    ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
-      {fvs : Array ExprC} {ws : List Expr}
+    ∀ (fuel : Nat) {t : Expr} {tx : Expr} {k : Nat}
+      {fvs : Array Expr} {ws : List Expr}
       {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {s₀ : CState},
       CSOK mode env s₀ → RelC t tx →
@@ -1270,7 +1270,7 @@ private theorem annPiTail_atF {env : Env} (d : Nat)
 /-- The ∀-annotation loop against `annotateBody`'s own ∀-tail (pure
 post-erasure: the pass computes nothing at binders). -/
 theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
-    {b ty' fv : ExprC} {bodyx tyx' : Expr}
+    {b ty' fv : Expr} {bodyx tyx' : Expr}
     {mi mx : BinderMeta} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hbm : mi = mx)
@@ -1374,7 +1374,7 @@ private theorem annLamTail_atF {env : Env} (d : Nat)
 
 /-- The λ-annotation loop against `annotateBody`'s own λ-tail. -/
 theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
-    {b ty' fv : ExprC} {bodyx tyx' : Expr}
+    {b ty' fv : Expr} {bodyx tyx' : Expr}
     {mi mx : BinderMeta} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hbm : mi = mx)

@@ -33,7 +33,7 @@ records and the byte scanner), and the `Lean.Json` DOM this file used
 to read records out of is gone from the checking path.
 
 **The parse proper is `ConLeche/Frontend/ExportC.lean`** (task #171): it
-reads the stream *directly* to `ExprC` — no arena, no conversion
+reads the stream *directly* to `Expr` — no arena, no conversion
 detour.  Until task #172 this file also held a second parse into an
 interned arena (`State`, `parseExport`, `parseExportStream`,
 producing `DeclP` over a `WFStore`); that went with the interned
@@ -130,7 +130,7 @@ Three places ask "is this parsed record the same declaration as that
 pinned one, up to level-parameter names?" — the `Quot.sound` axiom and
 the quotient records against the `quot` basis pin, a block against one
 of the five basis pins, and any record under a built-in prelude name
-against the prelude's copy (`ExportC.lean`, `DeclC.sameCanon`).  Each
+against the prelude's copy (`ExportC.lean`, `Declaration.sameCanon`).  Each
 used to build `ConstantInfo.canon` of BOTH sides and compare the
 results.  That is `O(tree)` on the stream side, because `canonExpr`
 rebuilds every node: `tests/e2e/tower_axiom.ndjson`,

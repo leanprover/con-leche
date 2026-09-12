@@ -8,7 +8,7 @@ public import ConLeche.Cached.CheckerC
 # The parsed-declaration driver on the cached representation
 
 One `CState` for the whole stream, the environment-dependent caches
-flushed per declaration, declarations consumed as `DeclC` records
+flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
@@ -43,37 +43,19 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-! ## Parsed declarations over `ExprC` -/
-
-/-- A parsed declaration over `ExprC` (task #198: its constant-value
-records *are* `ConLeche.ConstantVal` — the separate `ConstantValC`, whose
-only difference was an `ExprC`-typed `type` field, went with the
-interning-era distinction between the two expression types.  Note the
-one consequence: `cv.type` is now `Expr`-typed, so dot notation on it
-finds `ConLeche.Expr`'s members and NOT the cached namespace's — the two
-`hasFvar`s differ (`O(1)` field read vs a walk), which is why the guard
-below names `ExprC.hasFvar` outright.) -/
-inductive DeclC where
-  | axiomDecl (val : ConstantVal)
-  | defnDecl (val : ConstantVal) (value : ExprC) (hint : ReducibilityHint)
-  | thmDecl (val : ConstantVal) (value : ExprC)
-  | opaqueDecl (val : ConstantVal) (value : ExprC)
-  | basisDecl (kind : BasisKind)
-  | indDecl (block : List ConstantInfo) (numParams : Nat)
-
 /-! ## The parsed-declaration checker -/
 
 variable (mode : CheckMode)
 
 /-- Parsed `ensureSort` (no per-call conversion). -/
-def opSIxC (fe : FEnv) (d : Nat) (i : ExprC) : CheckCM Level :=
+def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
   ensureSortI (coreKnotI mode fe checkFuel) d i
 
-/-- `checkConstantVal` on a converted declaration: the checks of
-`checkConstantValF` with the syntactic passes memoized on the `ExprC`
-DAG and the operations on `ExprC` values. -/
+/-- `checkConstantVal` on a parsed declaration: the checks of
+`checkConstantValF` with the syntactic passes memoized on the `Expr`
+DAG and the cached operations on its nodes. -/
 def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
-    CheckCM (ConstantVal × ExprC) := do
+    CheckCM (ConstantVal × Expr) := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
@@ -82,12 +64,12 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
     throw (.invalid s!"reserved projection name {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless ExprC.looseBVarsBounded 0 cv.type do
+  unless Expr.looseBVarsBounded 0 cv.type do
     throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if ExprC.hasFvar cv.type then
+  if Expr.hasFvar cv.type then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
   let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
-  unless ExprC.allLevelParamsDefined cv.levelParams jty do
+  unless Expr.allLevelParamsDefinedC cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
     throw (.invalid s!"unknown constant in type of {cv.name}")
@@ -96,15 +78,15 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
   let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
-/-- `checkDefnValP` over `ExprC`. -/
-def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) (hint : ReducibilityHint) : CheckCM FEnv := do
-  unless ExprC.looseBVarsBounded 0 value do
+/-- `checkDefnValP` over `Expr`. -/
+def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
@@ -115,19 +97,19 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` over `ExprC`. -/
-def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) : CheckCM FEnv := do
+/-- `checkThmValP` over `Expr`. -/
+def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) : CheckCM FEnv := do
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let ul ← opSIxC mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ExprC.looseBVarsBounded 0 value do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
@@ -138,15 +120,15 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
   -- stored by statement: the record's own value, unread (opaque)
   pure (fe.push (.thmInfo cvA value))
 
-/-- `checkOpaqueValP` over `ExprC`. -/
-def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) : CheckCM FEnv := do
-  unless ExprC.looseBVarsBounded 0 value do
+/-- `checkOpaqueValP` over `Expr`. -/
+def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) : CheckCM FEnv := do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
@@ -158,7 +140,7 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
@@ -249,7 +231,7 @@ def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
 /-- A parsed declaration's display label (`Main.declCName`, shared with
 the driver's progress callback so the two can never drift). -/
-def declCLabel : DeclC → String
+def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
@@ -258,7 +240,7 @@ def declCLabel : DeclC → String
   | .basisDecl k => s!"basis block {repr k}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+def checkDeclStepC (fe : FEnv) (pd : Declaration) : CheckCM FEnv := do
   flushC
   checkDeclC mode fe pd
 

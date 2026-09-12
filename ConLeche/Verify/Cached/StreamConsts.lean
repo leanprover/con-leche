@@ -39,7 +39,7 @@ written datum — a bare constant, say — the relation is equality.
 
 ## Which records are covered, and which are not
 
-`DeclC.Declares` says which constant a record declares.  Definitions,
+`Declaration.Declares` says which constant a record declares.  Definitions,
 theorems and opaques declare their header; an axiom declares its header
 unless its name is *tolerated* (`toleratedAxiomNames`, exactly
 `sorryAx`), in which case the record is checked for well-formedness and
@@ -619,7 +619,7 @@ kind of record claims a name and a type for:
   native route may annotate a *whnf'd* type former telescope or a
   positivity-normalised constructor type rather than the declared one,
   so no `AnnotOf` claim is true of them. -/
-@[expose] def DeclC.Declares : DeclC → ConstantVal → Prop
+@[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
   | .defnDecl cv _ _, cv' => cv' = cv
   | .thmDecl cv _, cv' => cv' = cv
   | .opaqueDecl cv _, cv' => cv' = cv
@@ -661,16 +661,15 @@ record kind that declares a constant stores it under its own name, with
 its own level parameters, and with the *annotation* of the declared
 type — `AnnotOf`. -/
 theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
-    {pd : DeclC} {d : Declaration} (hd : DeclCRel pd d)
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂)
-    {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    {pd : Declaration}
+    (h : checkDecl μ (fueledOps μ F) env pd = .ok env₂)
+    {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c ∈ env₂.consts, c.name = cv.name ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
       AnnotOf cv.type c.toConstantVal.type := by
   have hrun := ConLeche.Semantics.checkDeclRun_ofEnvFactsE h
-  cases hd with
-  | @defnDecl cv₀ tyE value ve hint hty hv =>
-    obtain rfl : tyE = cv₀.type := hty.symm
+  cases pd with
+  | defnDecl cv₀ value hint =>
     obtain rfl : cv = cv₀ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclDefnRun] at hrun
     obtain ⟨type', value', hcvr, -, henv₂, -, -⟩ := hrun
@@ -679,18 +678,16 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
-  | @thmDecl cv₀ tyE value ve hty hv =>
-    obtain rfl : tyE = cv₀.type := hty.symm
+  | thmDecl cv₀ value =>
     obtain rfl : cv = cv₀ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclThmRun] at hrun
     obtain ⟨type', value', hcvr, -, -, henv₂⟩ := hrun
     obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
-    refine ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ve, ?_, rfl, rfl, ?_⟩
+    refine ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value, ?_, rfl, rfl, ?_⟩
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
-  | @opaqueDecl cv₀ tyE value ve hty hv =>
-    obtain rfl : tyE = cv₀.type := hty.symm
+  | opaqueDecl cv₀ value =>
     obtain rfl : cv = cv₀ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclOpaqueRun] at hrun
     obtain ⟨type', value', hcvr, -, henv₂, -⟩ := hrun
@@ -699,8 +696,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
-  | @axiomDecl cv₀ tyE hty =>
-    obtain rfl : tyE = cv₀.type := hty.symm
+  | axiomDecl cv₀ =>
     obtain ⟨rfl, htol⟩ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclAxiomRun] at hrun
     obtain ⟨type', hcvr, hdisj⟩ := hrun
@@ -716,8 +712,8 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
-  | basisDecl => exact hcv.elim
-  | indDecl => exact hcv.elim
+  | basisDecl kind => exact hcv.elim
+  | indDecl block nP => exact hcv.elim
 
 /-! ## The walk -/
 
@@ -729,14 +725,14 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 carries the model, every record's declared constant is stored — with its
 name, its level parameters and the annotation of its type — and is still
 there at the end.  The hypotheses are `installRun_model`'s. -/
-theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (hrun : InstallRun μ ds p s q s') :
     p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
-    ∀ pd ∈ ds, ∀ cv : ConstantVal, DeclC.Declares pd cv →
+    ∀ pd ∈ ds, ∀ cv : ConstantVal, Declaration.Declares pd cv →
       ∃ c ∈ q.2.1.env.consts, c.name = cv.name ∧
         c.toConstantVal.levelParams = cv.levelParams ∧
         AnnotOf cv.type c.toConstantVal.type := by
@@ -751,10 +747,10 @@ theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
-    obtain ⟨hm₁, hres₁, dd, F, hdrel, hF⟩ :=
+    obtain ⟨hm₁, hres₁, F, hF⟩ :=
       annotStepC_model (V := V) hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
     rcases List.mem_cons.mp hmem with rfl | hmem'
-    · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hdrel hF hcv
+    · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hF hcv
       obtain ⟨new, hnew⟩ := hchainF.2.1
       exact ⟨c, by rw [hnew]; exact List.mem_append_right _ hc, h1, h2, h3⟩
     · exact ih hfe₁ hm₁ hres₁ hnd hB pd' hmem' cv hcv
@@ -770,8 +766,8 @@ the same term with every `let` inlined and the binder data rewritten
 (`AnnotOf`).  `basisDecl` records declare nothing, and an `indDecl`
 block's members are outside the claim (see the module docstring). -/
 theorem checkDecls_consts (V : Type w) [SetTheory V]
-    {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
-    {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c, env.find? cv.name = some c ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
       AnnotOf cv.type c.toConstantVal.type := by

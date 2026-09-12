@@ -255,7 +255,7 @@ def mk_thm():
 def mk_prelude():
     """A record under a BUILT-IN PRELUDE name that differs from the
     prelude's — an inductive block named `Bool` whose constructor field
-    type is the tower.  The prelude dedupe (`DeclC.sameCanon`) must
+    type is the tower.  The prelude dedupe (`Declaration.sameCanon`) must
     reach its DECLINE without walking the tower."""
     s = Stream(); n, e, lU, _ = base(s, tyname="Bool")
     block(s, n, e, lU, n["T"], n["T.mk"], n["T.rec"])

@@ -43,7 +43,7 @@ The driver-level walks composing these along `checkDeclSF` are in
 namespace ConLeche.Cached
 
 open ConLeche
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -62,9 +62,9 @@ variable {env : Env} {s₀ : CState}
 
 /-- Generic unary shared-runner simulation: convert in, run the
 simulated knot entry, convert back. -/
-theorem opE_sim {pick : CoreFnsI → Nat → ExprC → CheckCM ExprC}
+theorem opE_sim {pick : CoreFnsI → Nat → Expr → CheckCM Expr}
     {pf : FueledM Expr} {d : Nat} {e : Expr}
-    (hsim : ∀ {s₁ : CState} {i : ExprC}, CSOK mode env s₁ →
+    (hsim : ∀ {s₁ : CState} {i : Expr}, CSOK mode env s₁ →
       RelC i e →
       SimC mode env s₁ (RelEC d)
         (pick (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)

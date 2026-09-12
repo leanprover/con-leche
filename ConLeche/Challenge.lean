@@ -37,7 +37,7 @@ sides' denotations.
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
-* `ds : List DeclC` is the parsed stream, `Env` the environment the
+* `ds : List Declaration` is the parsed stream, `Env` the environment the
   checker builds, `env.consts` the constants it accepted; `.ok env`
   says the checker accepted `ds` and this is what it accepted.
 * `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
@@ -49,7 +49,7 @@ sides' denotations.
   so of *the* denotation.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
-* `DeclC.thmDecl cv v ∈ ds` says the stream declares a theorem with
+* `Declaration.thmDecl cv v ∈ ds` says the stream declares a theorem with
   header `cv` and value `v`; the main corollary asks only that, and
   that the header's declared type is `False`.  It says the extra thing
   the step at the environment leaves open — that such a record is not
@@ -70,14 +70,14 @@ mode.  See README.md.
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (DeclC ExprC checkDecls)
+open ConLeche.Cached (checkDecls)
 
 universe w
 
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
+    (ds : List Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) :=
   sorry
@@ -85,8 +85,8 @@ theorem model_exists (V : Type w) [SetTheory V]
 /-- **The main corollary.**  A stream that declares a theorem of type
 `False` is never accepted. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-    (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
-    (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+    (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     ∀ env, checkDecls .verified ds ≠ .ok env :=
   sorry
 

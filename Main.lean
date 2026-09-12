@@ -58,11 +58,11 @@ def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
   Frontend.parseExportStreamD file prelude inModel census
 
-/-- `declPName` for the direct-parse `DeclC` records (task #171).  The
+/-- `declPName` for the direct-parse `Declaration` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
-def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
+def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
 /-- **Phase A's loop — the driver's install pass, carrying its own
 accepting run.**  Each record is installed by
@@ -99,9 +99,9 @@ and drops taint-skipped records, so the two drift apart by a
 stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
-    (ds : List ConLeche.Cached.DeclC)
+    (ds : List ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
-    (rest : List ConLeche.Cached.DeclC) →
+    (rest : List ConLeche.Declaration) →
     (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
     (s : ConLeche.Cached.CState) →
     (∃ done, done ++ rest = ds ∧ ConLeche.Cached.InstallRun mode done p₀ s₀ p s) →
@@ -135,7 +135,7 @@ pool it is monotone whichever worker finished, and the line is printed
 after the check rather than before it: a check that is running is not
 on any line, the gap between two lines is where it sits. -/
 def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) {mode : ConLeche.CheckMode}
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (n k : Nat) (hk : k < e.pend.size) : IO Unit := do
   if stride > 0 && n % stride == 0 then
     let now ← IO.monoMsNow
@@ -161,7 +161,7 @@ scattered through it — allocating phase B out of that scatter costs a
 factor of two in wall time at Mathlib scale for the same instructions.
 With `--progress`, one line per `stride` completed checks. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
       IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i)))
   | k, acc =>
@@ -229,7 +229,7 @@ index; on the heartbeat lane the completed-count is bumped.  A record
 at or above the limit is skipped — it is above a known failure and the
 walk will never ask for it. -/
 def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (limit done : IO.Ref Nat) (k : Nat) (hk : k < e.pend.size)
     (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) :
     IO (Array (Nat × ConLeche.Cached.RecordResult mode e)) := do
@@ -249,7 +249,7 @@ repeat until the counter is past the records.  The fuel is exact:
 every claim advances the counter by exactly one, so `pend.size + 1`
 claims see it past the end whatever the other workers do. -/
 def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (next limit done : IO.Ref Nat) :
     (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
       IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
@@ -262,7 +262,7 @@ def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Na
     else pure acc
 
 /-- The workers' arrays merged by record index into one table. -/
-def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Cached.DeclC}
+def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Declaration}
     {e : ConLeche.Cached.InstalledEnv mode ds}
     (tab : Array (Option (ConLeche.Cached.RecordResult mode e))) :
     List (Array (Nat × ConLeche.Cached.RecordResult mode e)) →
@@ -276,7 +276,7 @@ results and walks the table in record order.  A worker that failed as
 an `IO` action (not a check failing — the pool's own machinery) is an
 internal error, exit 3, never a verdict on the input. -/
 def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds) :
     IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
   let m := e.pend.size
   let workers := max 1 (min jobs m)
@@ -314,7 +314,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : List ConLeche.Cached.DeclC) :
+    (noMark : Bool) (ds : List ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -469,7 +469,7 @@ consumed here as configuration.
 and every driver over it retired with the arena (task #172), the R
 core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
-(2026-09-06), so the stream is parsed directly to `ExprC`
+(2026-09-06), so the stream is parsed directly to `Expr`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
