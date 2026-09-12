@@ -70095,8 +70095,10 @@ front — which is the whole point of the new shape, measured.
 | gate | result |
 |---|---|
 | `lake build` / `lake test` | warning-free |
-| layering | 0 base→lane, 0 impl→theory edges (`ConLeche.Verify.Frontend.Prepare` is the first theory module that imports `ConLeche/Frontend/*`, which is the allowed direction; it is rooted in `ConLecheCaps`) |
-| proofdeps | 3 904 rows, regenerated (§4) |
-| shake + pub-imports | `Frontend/Export.lean`'s last import went with the canon move; one allowlist line deleted (`Semantics/Bridge/DeclRun`'s `public import` demoted to a plain one) |
-| overview-links | 82 links, 52 files; the prose on the prelude, the basis blocks and §9's frontend rewritten to the new fact |
-| challenge / trust surface / no-local-paths / pindump | OK |
+| layering | base 285 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory (`ConLeche.Verify.Frontend.Prepare` is the first theory module that imports `ConLeche/Frontend/*` — the allowed direction; it is rooted in `ConLecheCaps`) |
+| proofdeps | **3 904 rows, 0 doors** — regenerated for the eight modules §4 explains |
+| shake + pub-imports | 457 removals, all allowlisted (one allowlist line deleted: `Semantics/Bridge/DeclRun`'s `public import` is a plain one now); 949 of 1295 edges public, none demotable |
+| overview-links | 82 links, 52 files; every moved anchor re-read, the prelude/basis/frontend prose rewritten |
+| trust surface / no-local-paths / challenge / pindump | OK (13 escapes in 5 allowlisted files; 3 pinners reproduce byte-for-byte) |
+| arena / e2e / annot / prelude counts / progress / pool / DAG tower | 90/92, **195/195**, 15/15, 3/3, 15/15, 15/15, **14/14** |
+| trusted and `--jobs` sweeps | unchanged |
