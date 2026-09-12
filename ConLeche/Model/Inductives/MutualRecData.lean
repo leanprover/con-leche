@@ -472,18 +472,4 @@ theorem mutualRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
   · have hc := claimsAt_of hμ mp ψ F
     exact (hc.sortRow hsty hens hw hbt hL (CtxOk.nil hnil) (hread ψ) ρ (Sat_nil V ρ)).2
 
-/-- **The data's parameter prefix is member `mm`'s own**, under the
-cross-member parameter identification (`mutualCrossChecks`' `isDefEq`,
-semantically): `mutualRecTy` takes the parameter Πs from former `0`,
-so the reading names former `0`'s data; a later stage that works at
-member `mm`'s own telescope moves them across with this. -/
-theorem mutualRdsAV_take {env : Env} {m : EnvModel V env} {k nP : Nat} {ℓ : Level}
-    {Lof : Nat → (Name → Nat) → AnnotTerm} {nIdxOf : Nat → Nat}
-    {ppsOf ipsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {cds : (Name → Nat) → List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
-    {mm : Nat} {ψ : Name → Nat} (hp : (ppsOf 0 ψ).length = nP) :
-    (mutualRdsAV m k nP ℓ Lof nIdxOf ppsOf ipsOf cds mots tgts mm ψ).take nP
-      = rebit (pwBit ψ (Level.zeronessOf ℓ)) (ppsOf 0 ψ) :=
-  mutualRecDataAV_take hp
-
 end ConLeche.Model

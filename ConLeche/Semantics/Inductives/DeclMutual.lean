@@ -163,13 +163,6 @@ theorem FreshEtaExt.trans {env env₁ env₂ : Env}
     · exact hi₂ c hc'
     · exact hi₁ c hc'
 
-/-- One fresh cons in front of a fresh extension. -/
-theorem FreshEtaExt.consChain {env envOut : Env} {c : ConstantInfo}
-    (hfresh : env.find? c.name = none)
-    (hnd : ∀ cv caps, c = .indInfo cv caps → caps.eta = false)
-    (hrest : FreshEtaExt ⟨c :: env.consts⟩ envOut) : FreshEtaExt env envOut :=
-  (FreshEtaExt.cons hfresh hnd).trans hrest
-
 /-- **Closure of the η families travels along a fresh extension**: a
 family found in the extension is an old one (the new constants are
 never η-capable formers), and its constructor is still found where the

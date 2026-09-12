@@ -206,34 +206,6 @@ theorem fixSpine_splitL {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm}
     rw [spineFit_liftDoms_iff, shiftE_minors hlenMs] at hspI
     exact hspI
 
-/-- The K-frame split at a **stored** former. -/
-theorem fixSpine_split {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
-    {nP nIdx n ℓ w b : Nat}
-    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {cds : List CtorDatumR} (hn : cds.length = n)
-    {Fss Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
-    (hminor : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
-      ∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
-        interp V (consList ms (cons M ρp))
-            (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2.2
-              cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
-              (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
-            (Fss.getD j []) ρp [])
-    (ρb : Nat → V) (as : List V)
-    (hsp : SpineFit ρb (((pps.map (·.2.2) ++ [motiveAVI m T ψ nP nIdx elimL ips]) ++
-        (fixMinorsData m ψ nP b cds 1).map (·.2.2)) ++ (liftDoms (n + 1) 0 ips).map (·.2.2)) as) :
-    ∃ (ps : List V) (M : V) (ms is : List V),
-      as = ((ps ++ [M]) ++ ms) ++ is ∧ ps.length = nP ∧ ms.length = n ∧ is.length = nIdx ∧
-      Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) ∧
-      M ∈ˢ interp V (consList ps ρb) (motiveAVI m T ψ nP nIdx elimL ips) ∧
-      (∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
-        (fun fs => ihSpL ℓ (concI w (consList ps ρb) M (Ess.getD j []) j fs)
-          (ihDomsI ℓ (consList ps ρb) M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
-        (Fss.getD j []) (consList ps ρb) []) ∧
-      SpineFit (consList ps ρb) (ips.map (·.2.2)) is :=
-  fixSpine_splitL hlenP hlenI hn hminor ρb as hsp
-
 /-! ## The premise -/
 
 set_option maxHeartbeats 3200000 in

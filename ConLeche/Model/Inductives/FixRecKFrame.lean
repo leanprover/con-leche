@@ -269,23 +269,6 @@ theorem fixFamAt_ofL {L : AnnotTerm} {nP nIdx w u : Nat}
   rw [show as₀.length + nIdx = (as₀ ++ as).length from by simp [hlenAs]]
   exact h
 
-/-- The family at an index spine at a **stored** former. -/
-theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx w u : Nat}
-    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
-    {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
-    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
-    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
-      = interp V (fun k => ρp (k + nP))
-          (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
-    {as : List V} (hlenAs : as.length = nIdx) (as₀ : List V)
-    (hspAs : SpineFit ρp (ips.map (·.2.2)) as) :
-    interp V (consList as (consList as₀ ρp))
-        (AnnotTerm.mkAppN (m.acval T ψ)
-          (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u as) :=
-  fixFamAt_ofL hlenP hlenI hsatP hX hleafT hlenAs as₀ hspAs
-
 /-- **The major's domain at a K-frame, at an explicit leaf** (task
 #278) reads to the carrier's fibre at the frame's index tuple. -/
 theorem interp_majorAVAtL {L : AnnotTerm} {nP nIdx n w u : Nat}
@@ -307,21 +290,6 @@ theorem interp_majorAVAtL {L : AnnotTerm} {nP nIdx n w u : Nat}
     rw [List.length_cons, hlenM]; omega] at h
   rw [show nP + 1 + n + nIdx = nP + (1 + n + nIdx) from by omega]
   exact h
-
-/-- The major's domain at a K-frame, at a **stored** former. -/
-theorem interp_majorAVAt {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx n w u : Nat}
-    {pps ips : List (Nat × Nat × AnnotTerm)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {Fss₀ Ess : List (List AnnotTerm)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
-    {ρp : Nat → V} (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
-    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
-    (hleafT : ∀ σ : Nat → V, interp V σ (m.acval T ψ)
-      = interp V (fun k => ρp (k + nP))
-          (nativeTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess))
-    {M : V} {ms : List V} (hlenM : ms.length = n) {is : List V}
-    (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
-    interp V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u is) :=
-  interp_majorAVAtL hlenP hlenI hsatP hX hleafT hlenM hfit
 
 /-- A nested product at a zero elimination level is a truth value. -/
 theorem piTele_zero_mem_univZero {B : List V → V} :

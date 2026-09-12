@@ -271,21 +271,6 @@ its grading; `WellDenotedV` also asks for bit validity, and the pieces
 are the sum route's own `*_validV` lemmas along the dispatch's
 spelling. -/
 
-/-- A λ-tower's body is valid at every fitting spine (`mkLamsC_validV`,
-inverted). -/
-theorem mkLamsC_validV_inv {mb : Nat} {b : AnnotTerm} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {as : List V},
-      AnnotValid V ρ (mkLamsC mb ds b) → SpineFit ρ (ds.map (·.2.2)) as →
-      AnnotValid V (consList as ρ) b
-  | [], _, [], h, _ => h
-  | [], _, _ :: _, _, hsp => hsp.elim
-  | _ :: _, _, [], _, hsp => hsp.elim
-  | d :: ds, ρ, a :: as, h, hsp => by
-    have h' : AnnotValid V ρ (.lam mb d.2.2 (mkLamsC mb ds b)) := h
-    rw [AnnotValid_lam] at h'
-    rw [consList_cons]
-    exact mkLamsC_validV_inv (h'.2 a hsp.1) hsp.2
-
 section DispValid
 
 variable {ℓ W w k : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} {Mv : V} {ms : List V}

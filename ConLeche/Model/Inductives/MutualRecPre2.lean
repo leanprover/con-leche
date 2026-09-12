@@ -341,22 +341,6 @@ theorem auxCtorDatum_minor_below {m : EnvModel V env} {ψ : Name → Nat} {W nP 
       exact h.eissBelow i E hE'
     · exact nomatch hE
 
-/-- The tagged datum's components, by definition. -/
-theorem auxCtorDatum_parts (W : Nat) (Idss : List (List AnnotTerm)) (mem : Nat)
-    (tgts : Nat → Nat) (cd : CtorDatumR) :
-    (auxCtorDatum W Idss mem tgts cd).1 = cd.1 ∧
-      (auxCtorDatum W Idss mem tgts cd).2.1 = cd.2.1 ∧
-      (auxCtorDatum W Idss mem tgts cd).2.2.1 = cd.2.2.1 ∧
-      (auxCtorDatum W Idss mem tgts cd).2.2.2.1 = [tagTupleAV W mem cd.2.1 Idss cd.2.2.2.1] ∧
-      (auxCtorDatum W Idss mem tgts cd).2.2.2.2.1 = cd.2.2.2.2.1 ∧
-      (auxCtorDatum W Idss mem tgts cd).2.2.2.2.2.1 =
-        ((List.range cd.2.1).map fun i =>
-          [tagTupleAV W (tgts i) (i + (cd.2.2.2.2.2.2.getD i []).length) Idss
-            (cd.2.2.2.2.2.1.getD i [])]) ∧
-      (auxCtorDatum W Idss mem tgts cd).2.2.2.2.2.2 = cd.2.2.2.2.2.2 :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-
-
 /-! ## Closedness: the auxiliary binder data -/
 
 /-- **The auxiliary recursor's binder data is closed.** -/
@@ -472,37 +456,6 @@ theorem piTele_mem_univ_max {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0) {B : List 
         have := hB (a :: as) ⟨ha, hsp⟩
         rwa [List.append_assoc, List.singleton_append]
     rwa [if_neg (max_ne_zero_right (u := u) hv), max_max_self u v] at this
-
-/-- The minor space over a graded field chain lands in the join of the
-chain's universe and its conclusion's. -/
-theorem minorSpI_mem_univ_max {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0) {c : List V → V} :
-    ∀ (Fs : List AnnotTerm) {ρf : Nat → V} {acc : List V},
-      FieldsOkB u ρf Fs →
-      (∀ as, SpineFit ρf Fs as → c (acc ++ as) ∈ˢ (univ (Nat.max u v) : V)) →
-      minorSpI v c Fs ρf acc ∈ˢ (univ (Nat.max u v) : V)
-  | [], _, _, _, hc => by simpa [minorSpI] using hc [] trivial
-  | F :: Fs, ρf, acc, hF, hc => by
-    obtain ⟨-, hbnd, hrest⟩ := hF
-    show piR v (interp V ρf F) (fun a => minorSpI v c Fs (cons a ρf) (acc ++ [a]))
-      ∈ˢ (univ (Nat.max u v) : V)
-    rw [piR_congr_bit (zero_iff_max (u := u) hv)]
-    have := piR_mem_univ (u := u) (v := Nat.max u v) (hbnd hu) fun a ha =>
-      minorSpI_mem_univ_max hu hv Fs (acc := acc ++ [a]) (hrest a ha) fun as hsp => by
-        have := hc (a :: as) ⟨ha, hsp⟩
-        rwa [List.append_assoc, List.singleton_append]
-    rwa [if_neg (max_ne_zero_right (u := u) hv), max_max_self u v] at this
-
-/-- The ih tower over domains and a conclusion in one universe stays
-there. -/
-theorem ihSpL_mem_univ {t v : Nat} (ht : t ≠ 0) (hv : v ≠ 0) {C : V} (hC : C ∈ˢ (univ t : V)) :
-    ∀ As : List V, (∀ A ∈ As, A ∈ˢ (univ t : V)) → ihSpL v C As ∈ˢ (univ t : V)
-  | [], _ => hC
-  | A :: As, hAs => by
-    show piR v A (fun _ => ihSpL v C As) ∈ˢ (univ t : V)
-    rw [piR_congr_bit (show v = 0 ↔ t = 0 by omega)]
-    have := piR_mem_univ (u := t) (v := t) (hAs A List.mem_cons_self)
-      fun _ _ => ihSpL_mem_univ ht hv hC As fun A' hA' => hAs A' (List.mem_cons_of_mem _ hA')
-    rwa [if_neg ht, show Nat.max t t = t from Nat.max_self t] at this
 
 /-- **A Π-tower over graph-regime binders lands in the universe** its
 domains and its body do. -/

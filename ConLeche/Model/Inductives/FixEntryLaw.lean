@@ -157,16 +157,6 @@ theorem wellDenoted_proj1_inj {w J : Nat} (hw : w ≠ 0) {ρ' ρ : Nat → V} {F
     · rw [if_neg hj]
       exact empty_mem_univ w
 
-/-- `.snd` of a member of the tagged union is graded: the union is a
-Σ over the numerals whose fibres are bounded towers. -/
-theorem wellDenoted_proj1_sum {w : Nat} (hw : w ≠ 0) {ρ' ρ : Nat → V} {Fs : List AnnotTerm}
-    {e : AnnotTerm} (hb : FieldsBound w ρ' (Fs ++ [idxEqAV []]))
-    (hok : WellDenoted V ρ e)
-    (hval : interp V ρ e ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
-    WellDenoted V ρ (.snd e) := by
-  obtain ⟨fs, heq, -, hmem⟩ := fixFibre_elim hw hval
-  exact wellDenoted_proj1_inj hw hb hok heq hmem
-
 /-- `.snd` of the point is graded (the squash regime). -/
 theorem wellDenoted_proj1_pt {ρ : Nat → V} {e : AnnotTerm} (hok : WellDenoted V ρ e)
     (hpt : interp V ρ e = (pt : V)) : WellDenoted V ρ (.snd e) := by

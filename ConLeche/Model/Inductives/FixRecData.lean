@@ -77,14 +77,6 @@ theorem minorAVAtRM_congr {mot : Nat} {moti : Nat → Nat} {C : Name} {nF b o : 
   unfold minorAVAtRM
   rw [hC]
 
-theorem minorAVAtR_congr {C : Name} {nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
-    {Es : List AnnotTerm} {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
-    {tls : List (List (Nat × Nat × AnnotTerm))}
-    (hC : m₁.acval C ψ = m₂.acval C ψ) :
-    minorAVAtR m₁ C ψ nP nF b o ds Es recIdx tls Eiss
-      = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx tls Eiss :=
-  minorAVAtRM_congr hC
-
 theorem fixMinorsDataM_congr {b : Nat} :
     ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
       (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →

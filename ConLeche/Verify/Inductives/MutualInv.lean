@@ -170,14 +170,6 @@ theorem mutualFormers_inv {nP F : Nat} {formers : List (ConstantVal × Nat)}
   obtain ⟨rfl, rfl⟩ := h
   exact ⟨hchecks, rfl⟩
 
-/-- The formers' stage at the empty block: nothing consed. -/
-theorem mutualFormers_nil_inv {nP F : Nat} {env env' : Env} {fms : List MutualFormerA}
-    (h : mutualFormers (fueledOps mode F) nP [] env = .ok (env', fms)) :
-    env' = env ∧ fms = [] := by
-  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv h
-  obtain rfl := mutualFormerChecks_nil_inv hchecks
-  exact ⟨rfl, rfl⟩
-
 /-! ## Stage 2: the cross-member checks -/
 
 /-- Official's parameter-domain comparison, inverted: every position
@@ -247,90 +239,6 @@ theorem mutualCrossChecks_inv {env : Env} {nP F : Nat} {f₀ f : MutualFormerA}
   | ok w' => cases w'; rfl
 
 /-! ## Stage 3: the constructors -/
-
-/-- **Official's positivity walk as a normalisation**, inverted: the
-domain mentions no member (and is returned as it is), or it was
-`whnf`'d and either returned, or walked under one Π binder whose
-domain mentions no member. -/
-theorem normPosDomM_inv {env : Env} {memberNames : List Name} {F : Nat} :
-    ∀ {d fuel : Nat} {e e' : Expr},
-      normPosDomM (fueledOps mode F) env memberNames d fuel e = .ok e' →
-      (mentionsMember memberNames e = false ∧ e' = e) ∨
-      ∃ w, ConLeche.whnf mode env F d e = .ok w ∧
-        (e' = w ∨
-          ∃ (dom body : Expr) (bm : BinderMeta) (body' : Expr) (fuel' : Nat),
-            fuel = fuel' + 1 ∧ w = .forallE dom body bm ∧
-            mentionsMember memberNames dom = false ∧
-            normPosDomM (fueledOps mode F) env memberNames (d + 1) fuel'
-              (body.instantiate1 (.fvar d dom)) = .ok body' ∧
-            e' = .forallE dom (body'.abstract1 d) bm) := by
-  intro d fuel
-  cases fuel with
-  | zero => intro e e' h; simp only [normPosDomM] at h; close_throw
-  | succ fuel =>
-    intro e e' h
-    unfold normPosDomM at h
-    by_cases hm : mentionsMember memberNames e = true
-    case neg =>
-      rw [if_pos (by simpa using hm)] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl ⟨by simpa using hm, h.symm⟩
-    rw [if_neg (by simpa using hm)] at h
-    try simp only [bind, Except.bind] at h
-    obtain ⟨w, hw, h⟩ := exceptBind_ok h
-    have hw' : ConLeche.whnf mode env F d e = .ok w := hw
-    by_cases hmw : mentionsMember memberNames w = true
-    case neg =>
-      rw [if_pos (by simpa using hmw)] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inr ⟨w, hw', Or.inl h.symm⟩
-    rw [if_neg (by simpa using hmw)] at h
-    refine Or.inr ⟨w, hw', ?_⟩
-    cases w
-    case forallE dom body bm =>
-      simp only at h
-      by_cases hd : mentionsMember memberNames dom = true
-      · rw [if_pos hd] at h; close_throw
-      rw [if_neg hd] at h
-      try simp only [bind, Except.bind] at h
-      obtain ⟨body', hbody, h⟩ := exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inr ⟨dom, body, bm, body', fuel, rfl, rfl, by simpa using hd, hbody, h.symm⟩
-    all_goals
-      (simp only [pure, Except.pure, Except.ok.injEq] at h
-       exact Or.inl h.symm)
-
-/-- `normFieldDoms` at a mutual block, at the end of the telescope. -/
-theorem normFieldDomsM_zero_inv {env : Env} {memberNames : List Name} {F i : Nat} {e : Expr}
-    {bs : List (Expr × BinderMeta)} {r : Expr}
-    (h : normFieldDomsM (fueledOps mode F) env memberNames i 0 e = .ok (bs, r)) :
-    bs = [] ∧ r = e := by
-  simp only [normFieldDomsM, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  exact ⟨h.1.symm, h.2.symm⟩
-
-/-- `normFieldDoms` at a mutual block, one field at a time. -/
-theorem normFieldDomsM_inv {env : Env} {memberNames : List Name} {F i n : Nat} {e : Expr}
-    {bs : List (Expr × BinderMeta)} {r : Expr}
-    (h : normFieldDomsM (fueledOps mode F) env memberNames i (n + 1) e = .ok (bs, r)) :
-    ∃ (dom body : Expr) (bm : BinderMeta) (dom' : Expr) (bs' : List (Expr × BinderMeta)),
-      e = .forallE dom body bm ∧
-      normPosDomM (fueledOps mode F) env memberNames i 1024 dom = .ok dom' ∧
-      normFieldDomsM (fueledOps mode F) env memberNames (i + 1) n
-        (body.instantiate1 (.fvar i dom)) = .ok (bs', r) ∧
-      bs = (dom', bm) :: bs' := by
-  cases e
-  case forallE dom body bm =>
-    rw [normFieldDomsM] at h
-    obtain ⟨dom', hdom, h⟩ := exceptBind_ok h
-    obtain ⟨q, hq, h⟩ := exceptBind_ok h
-    obtain ⟨bs', r'⟩ := q
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨dom, body, bm, dom', bs', rfl, hdom, hq, rfl⟩
-  all_goals rw [normFieldDomsM] at h
-  all_goals first
-    | close_throw
-    | (intro _ _ _ hx; exact Expr.noConfusion hx)
 
 /-- The normalisation stage stores either the constructor as checked
 or a from-scratch check of the rebuilt constant — in both cases some

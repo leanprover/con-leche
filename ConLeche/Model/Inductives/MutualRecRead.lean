@@ -44,10 +44,6 @@ parameters and the index variables (`majorAVAtL` with `k` motives). -/
 @[expose] def majorAVAtK (L : AnnotTerm) (nP nIdx k n : Nat) : AnnotTerm :=
   AnnotTerm.mkAppN L (paramBvarsAt nP (nP + k + n + nIdx) ++ fieldBvars nIdx)
 
-omit [SetTheory V] in
-theorem majorAVAtL_eq_majorAVAtK (L : AnnotTerm) (nP nIdx n : Nat) :
-    majorAVAtL L nP nIdx n = majorAVAtK L nP nIdx 1 n := rfl
-
 /-- **The motive entries** of a mutual block, from offset `i`: motive
 `t` is the fixpoint route's motive at member `t`'s leaf, index count
 and index data, lifted `i + t` under — it sits that many binders below
@@ -139,9 +135,6 @@ motives). -/
 @[expose] def mutualConcAV (k n nIdx mm : Nat) : AnnotTerm :=
   .app (AnnotTerm.mkAppN (.bvar (1 + nIdx + n + k - 1 - mm)) (idxVarsAV nIdx 1)) (.bvar 0)
 
-omit [SetTheory V] in
-theorem recConcAV_eq_mutualConcAV (n nIdx : Nat) : recConcAV n nIdx = mutualConcAV 1 n nIdx 0 := rfl
-
 theorem mem_mutualRecDataAV {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
     {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
@@ -164,16 +157,6 @@ theorem mutualRecDataAV_length {m : EnvModel V env} {ψ : Name → Nat} {Ls : Li
       = nP + Ls.length + cds.length + (ipss.getD mm []).length + 1 := by
   simp only [mutualRecDataAV, List.length_append, rebit_length, hp, List.length_singleton,
     fixMinorsDataM_length, liftDoms_length, motivesDataGo_length]
-
-theorem mutualRecDataAV_take {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
-    {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
-    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
-    {tgts : Nat → Nat → Nat} {mm : Nat} (hp : pps.length = nP) :
-    (mutualRecDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts mm).take nP
-      = rebit (pwBit ψ (Level.zeronessOf ℓ)) pps := by
-  simp only [mutualRecDataAV, List.append_assoc]
-  rw [List.take_append_of_le_length (by rw [rebit_length, hp]; omega),
-    List.take_of_length_le (by rw [rebit_length, hp]; omega)]
 
 /-! ## The motive entry, lifted -/
 
@@ -599,12 +582,6 @@ structure CtorReadRT {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (T : N
           (AnnotTerm.mkAppN (m.acval (Tt i) ψ)
             (paramBvarsAt nP (nP + i + (cd.2.2.2.2.2.2.getD i []).length) ++
               cd.2.2.2.2.2.1.getD i []))
-
-/-- The fixpoint route's premise is the constant instance. -/
-theorem CtorReadR.toT {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {lps : List Name}
-    {nP nIdx : Nat} {c : Name × Nat × Expr × List Nat} {cd : CtorDatumR}
-    (h : CtorReadR m ψ T lps nP nIdx c cd) :
-    CtorReadRT m ψ T (fun _ => T) lps nP nIdx (fun _ => nIdx) c cd := { h with }
 
 /-- A recursive field's readings, off the target-aware premise
 (`fieldReadAt_ofE` at the field's TARGET leaf and index count). -/

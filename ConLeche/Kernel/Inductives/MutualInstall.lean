@@ -106,7 +106,6 @@ def MutualBlock.ownCtors (b : MutualBlock) (mIdx : Nat) : List (Nat × MutualCto
 /-- The members as the classification reads them: `(T_m, m, nIdx_m)`. -/
 def MutualBlock.members3 (b : MutualBlock) : List (Name × Nat × Nat) :=
   b.formers.zipIdx.map fun ((cv, nIdx), mIdx) => (cv.name, mIdx, nIdx)
-def MutualBlock.nIdxOf (b : MutualBlock) (mIdx : Nat) : Nat := (b.formers.getD mIdx default).2
 
 /-- A former after its stage: the annotated, telescope-shaped constant,
 its index count and its result sort. -/

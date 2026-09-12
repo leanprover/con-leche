@@ -215,11 +215,6 @@ theorem mutTlss_eq_tlssOfR {n : Nat}
       List.getElem?_eq_none (by simpa using Nat.le_of_not_lt hi)]
     rfl
 
-omit [SetTheory V] in
-/-- The datum's recursive positions are the block's (`mutRss`). -/
-theorem rssOfK_kindsOf {n : Nat} {ksF : Nat → List (RecFieldKind × Nat)} :
-    rssOfK (fun J => kindsOf (ksF J)) n = mutRss n ksF := rfl
-
 /-! ## The stored rules name the member's constructors -/
 
 omit [SetTheory V] in

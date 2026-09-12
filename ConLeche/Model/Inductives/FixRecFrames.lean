@@ -251,24 +251,4 @@ theorem interp_ihPisAVM {ℓ b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) {moti : Nat
     intro ihs' hl
     exact hbody ihs' (by rw [hl, List.length_cons]; omega)
 
-/-- **The ih binders read to the ih tower** over the ih domains, the
-body under them reading to the conclusion. -/
-theorem interp_ihPisAV {ℓ b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat → V} {M : V}
-    {ms : List V} (hms : ms.length + 1 = o) {fs : List V} (hfs : fs.length = nF)
-    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)} {C : V}
-    (is : List Nat) (l : Nat) (ihs : List V) (body : AnnotTerm)
-    (hihs : ihs.length = l) (hlt : ∀ i ∈ is, i < nF)
-    (hbody : ∀ ihs' : List V, ihs'.length = l + is.length →
-        interp V (consList ihs' (consList fs (consList ms (cons M ρp)))) body = C) :
-      interp V (consList ihs (consList fs (consList ms (cons M ρp))))
-          (ihPisAV nF o b tls Eiss is l body)
-        = ihSpL ℓ C (is.map fun i =>
-            piTele ℓ (teleOfFields (consList (fs.take i) ρp) ((tls.getD i []).map (·.2.2)))
-              (fun as => SetTheory.app
-                (((Eiss.getD i []).map (interp V (consList as (consList (fs.take i) ρp)))).foldl
-                  SetTheory.app M)
-                (as.foldl SetTheory.app (fs.getD i pt))) []) :=
-  interp_ihPisAVM (Ms := [M]) (moti := fun _ => 0) hbz hms hfs is l ihs body hihs hlt
-    (fun _ _ => by simp) hbody
-
 end ConLeche.Model

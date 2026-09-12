@@ -652,11 +652,6 @@ section Swap
 variable {b : MutualBlock} {fms : List MutualFormerA}
   {rulesOf : List (List (MutualCtor × Expr))} {env₂ : Env}
 
-/-- The head the provision conses for entry `(cvRa, mIdx)`. -/
-@[expose] def provHead (b : MutualBlock) (fms : List MutualFormerA)
-    (x : ConstantVal × Nat) : ConstantInfo :=
-  .recInfo x.1 (b.rulePrefix + (fms.getD x.2 default).nIdx) b.rulePrefix []
-
 /-- The head the store conses for entry `(cvRa, mIdx)`. -/
 @[expose] def storeHead (env₂ : Env) (b : MutualBlock) (fms : List MutualFormerA)
     (rulesOf : List (List (MutualCtor × Expr))) (x : ConstantVal × Nat) : ConstantInfo :=
@@ -739,21 +734,6 @@ theorem provisionMutualRecs_find?_of_ne :
     rw [provisionMutualRecs_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx)),
       ConLeche.Env.find?_cons,
       if_neg (fun hh => hne (cvRa, mIdx) List.mem_cons_self hh.symm)]
-
-/-- The provision finds each of its own heads. -/
-theorem provisionMutualRecs_find?_self :
-    ∀ {l : List (ConstantVal × Nat)} {env : Env} {x : ConstantVal × Nat},
-      x ∈ l → (l.map (·.1.name)).Nodup →
-      (ConLeche.provisionMutualRecs b fms l env).find? x.1.name = some (provHead b fms x)
-  | (cvRa, mIdx) :: rest, env, x, hx, hnd => by
-    simp only [ConLeche.provisionMutualRecs]
-    have hndc : (∀ (y : ConstantVal) (q : Nat), (y, q) ∈ rest → ¬ y.name = cvRa.name) ∧
-        (rest.map (·.1.name)).Nodup := by simpa using hnd
-    rcases List.mem_cons.mp hx with rfl | hx'
-    · rw [provisionMutualRecs_find?_of_ne
-        (fun y hy hh => hndc.1 y.1 y.2 (by simpa using hy) hh.symm)]
-      exact ConLeche.Env.find?_cons_self (provHead b fms (cvRa, mIdx)) env
-    · exact provisionMutualRecs_find?_self hx' hndc.2
 
 /-- **The three remaining syntactic environment facts survive the
 swap** (`swapEnvFacts`'s non-`EnvWF` half, with the `RuleFacts`

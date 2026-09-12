@@ -100,16 +100,9 @@ def MutualParts.k (p : MutualParts) : Nat := p.members.length
 def MutualParts.n (p : MutualParts) : Nat := p.ctors.length
 /-- The recursors' rule prefix: parameters, `k` motives, `n` minors. -/
 def MutualParts.rulePrefix (p : MutualParts) : Nat := p.nP + p.k + p.n
-/-- The elimination level. -/
-def MutualParts.elimLevel (p : MutualParts) : Level := structElimLevel p.elim p.large
 /-- The recursors' level parameters. -/
 def MutualParts.rlps (p : MutualParts) : List Name :=
   if p.large then p.elim :: p.lps else p.lps
-/-- The member names. -/
-def MutualParts.memberNames (p : MutualParts) : List Name := p.members.map (·.cv.name)
-/-- The block's names: formers, constructors, recursors. -/
-def MutualParts.blockNames (p : MutualParts) : List Name :=
-  p.memberNames ++ p.ctors.map (·.cv.name) ++ p.members.map (·.cvR.name)
 /-- The constructors of member `m`, with their global indices. -/
 def MutualParts.ownCtors (p : MutualParts) (m : Nat) : List (Nat × MutualCtor) :=
   (p.ctors.zipIdx.map fun (c, J) => (J, c)).filter fun (_, c) => c.member == m

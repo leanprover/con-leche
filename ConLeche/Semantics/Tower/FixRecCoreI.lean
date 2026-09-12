@@ -384,13 +384,6 @@ noncomputable def ihDomsIM (ℓ : Nat) (ρp : Nat → V) (Mot : Nat → V) (rss 
           SetTheory.app (Mot i))
         (as.foldl SetTheory.app (fs.getD i pt))) []
 
-/-- The fixpoint route's single motive is the constant per-field
-motive. -/
-theorem ihDomsI_eq_ihDomsIM (ℓ : Nat) (ρp : Nat → V) (M : V) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
-    (ar : Nat → Nat) (j : Nat) (fs : List V) :
-    ihDomsI ℓ ρp M rss tlss Eiss ar j fs = ihDomsIM ℓ ρp (fun _ => M) rss tlss Eiss ar j fs := rfl
-
 /-- The ih values at a payload: under the field's telescope (a λ-tower
 at the elimination level `ℓ`), the function at the spine and the field
 applied to the telescope's values. -/

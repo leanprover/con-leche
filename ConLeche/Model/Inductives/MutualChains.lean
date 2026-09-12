@@ -112,11 +112,6 @@ theorem mutFss_getD {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotT
   simp [mutFss, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hJ]
 
 omit [SetTheory V] in
-theorem mutFss0_length {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat} {ψ : Name → Nat} :
-    (mutFss0 nP n dsF ksF nFs ψ).length = n := by simp [mutFss0]
-
-omit [SetTheory V] in
 theorem mutFss0_getD {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat} {ψ : Name → Nat} {J : Nat}
     (hJ : J < n) :
@@ -235,15 +230,6 @@ theorem mutEiss'_getD {W : Nat} {Idss : List (List AnnotTerm)}
   rw [mutEiss'_getDJ hJ hlen, List.getD_eq_getElem?_getD, List.getElem?_map,
     List.getElem?_range hi]
   rfl
-
-omit [SetTheory V] in
-theorem mutEiss'_lengthJ {W : Nat} {Idss : List (List AnnotTerm)}
-    {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat}
-    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    {eissF : Nat → (Name → Nat) → List (List AnnotTerm)} {ψ : Name → Nat} {J : Nat}
-    (hJ : J < n) (hlen : (eissF J ψ).length = nFs J) :
-    ((mutEiss' (n := n) W Idss ksF nFs tssF eissF ψ).getD J []).length = nFs J := by
-  rw [mutEiss'_getDJ hJ hlen, List.length_map, List.length_range]
 
 /-! ## Kit: the shadow chain, application spines, tagged slots -/
 

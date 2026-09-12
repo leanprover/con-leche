@@ -1670,28 +1670,6 @@ theorem findProj?_none_consMutualFormers {T : Name} {i : Nat} :
     exact findProj?_none_consMutualFormers
       (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
 
-/-- An empty projection slot survives the constructors' conses. -/
-theorem findProj?_none_consMutualCtors {T : Name} {i nP : Nat} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env₀ : Env}, env₀.findProj? T i = none →
-      (ConLeche.consMutualCtors nP ctorsA env₀).findProj? T i = none
-  | [], _, h => h
-  | _ :: _, _, h => by
-    simp only [ConLeche.consMutualCtors]
-    exact findProj?_none_consMutualCtors
-      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
-
-/-- An empty projection slot survives the recursors' group store. -/
-theorem findProj?_none_storeMutualRecs {T : Name} {i : Nat} {envR : Env}
-    {b : ConLeche.MutualBlock} {fms : List MutualFormerA}
-    {rulesOf : List (List (ConLeche.MutualCtor × Expr))} :
-    ∀ {l : List (ConstantVal × Nat)} {env₀ : Env}, env₀.findProj? T i = none →
-      (ConLeche.storeMutualRecs envR b fms rulesOf l env₀).findProj? T i = none
-  | [], _, h => h
-  | _ :: _, _, h => by
-    simp only [ConLeche.storeMutualRecs]
-    exact findProj?_none_storeMutualRecs
-      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
-
 /-- `NoProjEnv` across the members' conses. -/
 theorem noProjEnv_consMutualFormers {T : Name} {i : Nat} :
     ∀ {fms : List MutualFormerA} {env₀ : Env}, NoProjEnv env₀ T i →

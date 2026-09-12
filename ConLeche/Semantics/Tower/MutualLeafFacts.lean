@@ -78,28 +78,4 @@ theorem NoBVar_liftN_zero {P : Nat → Prop} {d : Nat} (hP : ∀ i, P i → i < 
 
 /-! ## The gradings are monotone in the universe -/
 
-/-- A graded telescope that is BOUNDED is graded at any larger sort
-(at `w = 0` the grading alone asks for no bound, so the bound is what
-carries). -/
-theorem FieldsOkB.mono_of_bound {w w' : Nat} (hw : w ≤ w') :
-    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsOkB w ρ Fs → FieldsBound w ρ Fs →
-      FieldsOkB w' ρ Fs
-  | [], _, _, _ => trivial
-  | _ :: Fs, _, h, hb =>
-    ⟨h.1, fun _ => univ_mono hw _ hb.1,
-     fun a ha => FieldsOkB.mono_of_bound hw (Fs := Fs) (h.2.2 a ha) (hb.2 a ha)⟩
-
-theorem FieldsBound.mono {w w' : Nat} (hw : w ≤ w') :
-    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsBound w ρ Fs → FieldsBound w' ρ Fs
-  | [], _, _ => trivial
-  | _ :: Fs, _, h =>
-    ⟨univ_mono hw _ h.1, fun a ha => FieldsBound.mono hw (Fs := Fs) (h.2 a ha)⟩
-
-/-- **The index telescope's grading is monotone in the tuple's sort**:
-member `m`'s telescope, graded at its own index sort, is graded at the
-tag's join. -/
-theorem IdxOk.mono {u u' : Nat} (hu : u ≤ u') {ρp : Nat → V} {Ids : List AnnotTerm}
-    (h : IdxOk u ρp Ids) : IdxOk u' ρp Ids :=
-  ⟨FieldsOkB.mono_of_bound hu h.1 h.2, FieldsBound.mono hu h.2⟩
-
 end ConLeche.Semantics
