@@ -71342,6 +71342,21 @@ nested blocks, init-full's one or any probe has one.
    — a second relation, and unnecessary, since the obligation is
    cheaper to discharge directly at the mint.
 
+**Discharging `SortAgree`, and a probe not run.**  `SortAgree find? A D`
+is itself read by the same reader on both sides, never by inference:
+where the container's parameter domain `A` is a `Sort`, its side is
+`residualPW (some A)` and the component's is `typeSortPW find? D`, and
+at a Type-valued parameter — the common case — both are `.never`, so
+the equation is discharged by a "never" lemma on each side; a
+Prop-valued parameter makes both sides an `ifAllZero` datum, still
+syntactic.  What has NOT been done is an EMPIRICAL confirmation of the
+alignment equation: the cheap probe is §M.21(A)'s `==` comparison run
+as a shadow-only diagnostic over the 41-block Mathlib nested cone and
+`inmodel_nested`, and it is not here because it is a change to the
+checker's lane, which this proof-only lane may not make.  No
+counterexample turned up in reasoning about the equation, and the
+theorem says why there cannot be one on the reader's branch.
+
 **Hypotheses the model lane owes from the run** (nothing new is asked
 of the kernel): `EnvWF env` at the pre-block environment, for
 `EnvWF.storedLevelParamsDefined`; `pinsOkAux`/`pinsClosed` (K.2/K.3) for
