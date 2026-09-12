@@ -96,12 +96,15 @@ theorem foldlM_installBasisDecl_invR :
       exact ⟨Option.isNone_iff_eq_none.mpr hfresh,
         foldlM_installBasisDecl_invR l h⟩
 
-/-- **`basisDecl`, bridged.** -/
-theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {kind : BasisKind}
-    (h : checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂) :
+/-- **The pinned-block install, bridged.**  Stated over
+`checkBasisDecl` and not over `checkDecl`'s `.basisDecl` arm, because
+since task #293 three arms share that body: the fold's own
+`basisDecl` kind, a stream block `basisPinHit` recognises, and the
+first quotient record `quotPinHit` recognises. -/
+theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
+    (h : checkBasisDecl (m := CheckM) env kind = .ok env₂) :
     DeclBasisRun env kind env₂ := by
-  simp only [checkDecl, Bind.bind, Except.bind] at h
+  simp only [checkBasisDecl, Bind.bind, Except.bind] at h
   by_cases hk : kind = .quotK
   · subst hk
     by_cases hEq : env.find? eqName = some eqA
@@ -110,5 +113,11 @@ theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     · simp [hEq] at h
   · simp only [if_neg hk] at h
     exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
+
+/-- **`basisDecl`, bridged.** -/
+theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
+    {kind : BasisKind}
+    (h : checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂) :
+    DeclBasisRun env kind env₂ := declBasisRunOf h
 
 end ConLeche.Semantics

@@ -16,11 +16,16 @@ representation:
                   three `Quot.mk`/`Quot.lift`/`Quot.ind` entries it erases
                   before replay.  Hence
                       official = plain + types + ctors + recs - 3.
-  * `fold`      — con-leche's fold positions = accepted declaration records:
-                  the four `quot` records fold to one `basisDecl` (-3),
-                  the `Quot.sound` axiom record is part of that basis
-                  block (-1), and records using a tolerated axiom are
-                  skipped at parse (`sorryAx` and friends).
+  * `fold`      — con-leche's accepted declaration records.  Since task
+                  #293 that is `records` itself: the decoder emits the
+                  file's records and nothing else, so the four `quot`
+                  lines and the `Quot.sound` axiom record are five
+                  records of the file and count as five (they install
+                  ONE pinned block between them, which is a property of
+                  the fold, not of the file).  The column is kept
+                  because the adjustment used to be real: until #293 the
+                  parse folded the quotient records into one
+                  `basisDecl` (-3) and swallowed `Quot.sound` (-1).
 
 and the BLOCK census: every inductive record con-leche installs itself
 (`native`: a direct route, or a `_model` family generated in process),
@@ -115,7 +120,7 @@ def census(path):
         "path": path,
         "records": records,
         "official": plain + types + ctors + recs - 3,
-        "fold": records - (quot - 1 if quot else 0) - quot_axioms - tolerated,
+        "fold": records,
         "quot": quot,
         "quot_axioms": quot_axioms,
         "tolerated": tolerated,

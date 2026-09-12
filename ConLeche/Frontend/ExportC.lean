@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
-public import ConLeche.Frontend.NatOpGround
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the
@@ -33,100 +32,46 @@ chunk, and hands every complete line to the byte recogniser of
 `ConLeche/Frontend/Scan/Fast.lean`, which decodes it into a syntax
 record (`LineRec`) still in stream indices.  `applyLine` below is the
 semantic half: it resolves the indices against the tables, builds the
-nodes through the smart constructors, and runs the
-prelude dedupe, the projection rewrite and the in-process modeller.
-There is one grammar in the tree and no `Lean.Json` on the checking
-path.
+nodes through the smart constructors, and runs the projection rewrite
+and the in-process modeller.  There is one grammar in the tree and no
+`Lean.Json` on the checking path.
 
-The pin-matching consumers (basis and quotient blocks) read the parsed
-slot itself; the tree-size budget that used to bound them was retired
-at task #215 (`ConLeche/Frontend/Export.lean`).
+**THE DECODER EMITS THE FILE'S RECORDS AND NOTHING ELSE** (task
+#293).  Every inductive block parses to an `indDecl` — `Nat` and `Eq`
+like any other — and every `#QUOT` record to a `quotDecl` carrying the
+constant the file declares at the kind it declares it at.  No basis
+recognition, no reserved-name logic, no prelude, no dedupe and no
+reordering happen here: the checker's own prelude is prepended, the
+pinned shapes are recognised and the pinned `Nat` operations' ground is
+hoisted by `preparePrelude` (`ConLeche/Frontend/Prepare.lean`), between
+this parse and the fold, and every VERDICT — a basis redefinition, a
+quotient mismatch, a stream copy of a prelude record that differs — is
+the fold's.
 
-**Three pure transformations of the parsed list happen here, below
-the verified fold** — the fold sees their result as an ordinary list
-of records, and the main theorem quantifies over that list:
+**Two non-decoding steps are left here**, and both die with the
+in-process modeller (task #279):
 
-* **the built-in prelude (task #191, `ConLeche/Frontend/Prelude.lean`)**:
-  every parse is handed the checker's own prelude (the six pinned
-  basis blocks and `Bool`), prepends its records, and drops a later
-  stream copy of one of them when it is the same declaration
-  (declining the run when it differs) — `pushDecl` below;
-* **the ground hoist (task #191, `ConLeche/Frontend/NatOpGround.lean`)**:
-  a pinned `Nat` operation's stream-certified structural ground is
-  moved ahead of it when the stream declares it later;
 * **the projection-function rewrite (2026-09-06,
   `ConLeche/Frontend/ProjRec.lean`)**, the one surface rewrite this
   parse performs on a definition record: a projection function
 `fun p⃗ self => .proj T i self` of a structure-like owner the direct
 install does not serve is replaced, before it reaches the checker, by
-the recursor application the module documents.  Three bookkeeping
+the recursor application the module documents.  Two bookkeeping
 tables feed it — the owners of every parsed inductive block
-(`projOwners`), the field sorts read off the `T._model.proj_i.iota`
+(`projOwners`) and the field sorts read off the `T._model.proj_i.iota`
 artifacts the in-process modeller GENERATES (`projLevels`; task #219:
 the generated records are the only source, and the scan runs on them
-alone), and whether the `PUnit` basis block has been seen (the
-constant motives need it).
+alone).  The `PUnit` block the constant motives need is the prelude's,
+installed first in every fold, so the parse no longer tracks whether
+the stream has declared one;
+* **the in-process modeller** (task #200): a mutual or nested block's
+  `_model` family is generated here and pushed ahead of the block.
 -/
 
 namespace ConLeche.Frontend
 
 open ConLeche
 
-
-/-! ## The built-in prelude (task #191)
-
-The checker's own little prelude — the pinned basis blocks and the
-`Bool` block, the order-sensitive ground of the pin-certified `Nat`
-operations (`ConLeche/PinGen/Prelude.lean`) — is a parsed stream of its
-own (`ConLeche/Frontend/Prelude.lean`) that every parse PREPENDS to its
-result, so the fold installs it first, unconditionally.  A later
-stream record under a prelude name is compared with the prelude's
-copy up to the basis-matching canonical form (`ConstantInfo.canon`:
-binder names, binder infos and level-parameter names erased): the
-same declaration is DROPPED (it is already installed), a different
-one DECLINES the stream (exit 2, naming the declaration — the user's
-word; note the contrast with the pinned basis blocks, whose
-mismatching redefinitions keep REJECTING through the reserved-name
-check, as before).  Basis blocks are matched by kind: the stream's
-`Nat` record parses to `basisDecl .natK` exactly as before and is
-dropped as the prelude's duplicate. -/
-
-/-- The constant a definition-like record would store, for the canon
-comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
-constructor test, not here). -/
-def _root_.ConLeche.Declaration.asInfo? : Declaration → Option ConstantInfo
-  | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
-  | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
-  | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
-  | .opaqueDecl cv v => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v .opaque)
-  | _ => none
-
-/-- Two parsed records are the same declaration: same kind, and equal
-up to the basis-matching canonical form (`ConstantInfo.canon`). -/
-def _root_.ConLeche.Declaration.sameCanon : Declaration → Declaration → Bool
-  | .basisDecl k, .basisDecl k' => k == k'
-  | .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'
-  | .opaqueDecl .., .defnDecl .. => false
-  | .defnDecl .., .opaqueDecl .. => false
-  | a, b =>
-    match a.asInfo?, b.asInfo? with
-    | some x, some y => ConstantInfo.canonEq x y
-    | _, _ => false
-
-/-- The built-in prelude, indexed: its records in order, the
-definition-like and inductive records by every name they declare, and
-the basis blocks by kind. -/
-structure PreludeIx where
-  decls : Array Declaration := #[]
-  byName : Std.HashMap Name Declaration := {}
-  basis : List BasisKind := []
-
-def PreludeIx.ofDecls (ds : Array Declaration) : PreludeIx :=
-  ds.foldl (init := {}) fun ix d =>
-    match d with
-    | .basisDecl k => { ix with decls := ix.decls.push d, basis := k :: ix.basis }
-    | _ => { ix with decls := ix.decls.push d,
-                     byName := d.names.foldl (fun m n => m.insert n d) ix.byName }
 
 /-! ## The direct parse state -/
 
@@ -145,16 +90,11 @@ structure StateD where
   /-- field sorts, by artifact iota name `T._model.proj_i.iota` (the
   in-process modeller's own, and only those; task #219) -/
   projLevels : Std.HashMap Name Level := {}
-  /-- the `PUnit` basis block has been parsed -/
-  punitSeen : Bool := false
   /-- projection functions rewritten so far (names, for the driver's
   trace) -/
   projRewrites : Array Name := #[]
-  /-- the built-in prelude this parse dedupes against (task #191) -/
-  prelude : PreludeIx := {}
-  /-- the declared types of every declaration pushed so far (the
-  prelude's included), by name: the in-process modeller's sort inferer
-  reads them (task #200) -/
+  /-- the declared types of every declaration pushed so far, by name:
+  the in-process modeller's sort inferer reads them (task #200) -/
   constTypes : Std.HashMap Name (List Name × Expr) := {}
   /-- the definitional heights of the definitions pushed so far (the
   hints of the generated definitions are computed from them, task #200) -/
@@ -192,10 +132,6 @@ structure StateD where
   inModelCensus : Bool := false
   /-- the census's declines: block name and reason -/
   inModelDeclined : Array (Name × String) := #[]
-  /-- stream records dropped as identical copies of prelude records:
-  they count as accepted stream declarations (they ARE installed, from
-  the prelude), so the driver's record count adds them back -/
-  preludeDropped : Nat := 0
 /-- Record a pushed declaration's constants in the declaration table
 (`constTypes`, `heights`; task #200). -/
 def noteDecl (st : StateD) (d : Declaration) : StateD :=
@@ -206,6 +142,7 @@ def noteDecl (st : StateD) (d : Declaration) : StateD :=
     | .opaqueDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
     | .basisDecl k => k.decls.map fun ci =>
       (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
+    | .quotDecl _ cv => [(cv.name, cv.levelParams, cv.type, none)]
     | .indDecl block _ => block.map fun ci =>
       (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
   let ct := st.constTypes
@@ -215,24 +152,14 @@ def noteDecl (st : StateD) (d : Declaration) : StateD :=
     (ct.insert n (lps, ty), match h with | some h => hs.insert n h | none => hs)) (ct, hs)
   { st with constTypes := ct, heights := hs }
 
-/-- **The prelude dedupe** (task #191), at every declaration push: a
-basis block the prelude holds is dropped by kind; a record under a
-prelude name is dropped when it is the same declaration
-(`Declaration.sameCanon`) and declines the stream when it differs. -/
-def pushDecl (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
-  match d with
-  | .basisDecl k =>
-    if st.prelude.basis.contains k then
-      .inl { st with preludeDropped := st.preludeDropped + 1 }
-    else .inl (noteDecl { st with decls := st.decls.push d } d)
-  | _ =>
-    match d.names.findSome? (fun n => (st.prelude.byName[n]?).map (n, ·)) with
-    | none => .inl (noteDecl { st with decls := st.decls.push d } d)
-    | some (n, p) =>
-      if d.sameCanon p then
-        .inl { st with preludeDropped := st.preludeDropped + 1 }
-      else .inr (.declined <| s!"declaration {n} differs from the checker's built-in " ++
-        s!"prelude (the toolchain's own {n}, installed first)")
+/-- **One parsed record, appended** (task #293): the decoder keeps the
+file's records in the file's order.  What used to sit here was the
+prelude dedupe — a basis block the prelude held dropped by kind, a
+record under a prelude name dropped when identical and DECLINING the
+stream when different — and it is `preparePrelude`'s and the fold's
+now (`ConLeche/Frontend/Prepare.lean`). -/
+def pushDecl (st : StateD) (d : Declaration) : StateD :=
+  noteDecl { st with decls := st.decls.push d } d
 
 def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names.get? i with
@@ -336,7 +263,6 @@ def projRewriteD (st : StateD) (cv : ConstantVal) (vl : Expr) :
     Option Expr := do
   let .proj T i (.bvar 0) := lamBody vl | none
   let o ← st.projOwners[T]?
-  guard st.punitSeen
   guard (cv.levelParams == o.lps)
   let l ← st.projLevels[projIotaName T i]?
   projRecValue o l cv.type vl i
@@ -360,7 +286,7 @@ def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
 `pushDecl`, plus the projection-iota registration (the ONLY place it
 runs since task #219 — a stream record is an ordinary declaration
 whatever it is called). -/
-def pushGenD (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
+def pushGenD (st : StateD) (d : Declaration) : StateD :=
   match d with
   | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
   | _ => pushDecl st d
@@ -424,13 +350,11 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
     let cvp ← parseCVD st cvr
     if isUnsafe then
       return .inr (.declined "unsafe axiom")
-    if cvp.name = quotSoundName then
-      if ConstantInfo.canonEq (.axiomInfo cvp)
-          (quotBasis.getD 4 (.axiomInfo default)) then
-        return .inl st
-      else
-        return .inr (.declined "quotient soundness axiom mismatch")
-    return pushDecl st (.axiomDecl cvp)
+    -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
+    -- forwarded like any other, and the fold compares it with the
+    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm) — the
+    -- decline on a mismatch was the parser's and is not any more.
+    return .inl (pushDecl st (.axiomDecl cvp))
   | .defn cvr value hints safety =>
     let cvp ← parseCVD st cvr
     match safety with
@@ -445,10 +369,10 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
       -- recursor application, at the field sort the artifact names
       match projRewriteD st cvp vl with
       | some vl' =>
-        return (pushDecl st (.defnDecl cvp vl' h)).map
-          (fun st => { st with projRewrites := st.projRewrites.push cvp.name }) id
+        let st := pushDecl st (.defnDecl cvp vl' h)
+        return .inl { st with projRewrites := st.projRewrites.push cvp.name }
       | none =>
-        return pushDecl st (.defnDecl cvp vl h)
+        return .inl (pushDecl st (.defnDecl cvp vl h))
     | s => return .inr (.declined s!"definition with safety '{s}'")
   | .thm cvr value =>
     let cvp ← parseCVD st cvr
@@ -458,35 +382,32 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
     -- rewrite applies (2026-09-06)
     match projRewriteD st cvp vl with
     | some vl' =>
-      return (pushDecl st (.thmDecl cvp vl')).map
-        (fun st => { st with projRewrites := st.projRewrites.push cvp.name }) id
+      let st := pushDecl st (.thmDecl cvp vl')
+      return .inl { st with projRewrites := st.projRewrites.push cvp.name }
     | none =>
-      return pushDecl st (.thmDecl cvp vl)
+      return .inl (pushDecl st (.thmDecl cvp vl))
   | .opaq cvr value isUnsafe =>
     let cvp ← parseCVD st cvr
     if isUnsafe then
       return .inr (.declined "unsafe opaque declaration")
     let vl ← getDeclD st value
-    return pushDecl st (.opaqueDecl cvp vl)
+    return .inl (pushDecl st (.opaqueDecl cvp vl))
   | .quot cvr kind =>
+    -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
+    -- the quotient package as four records, and the decoder emits four
+    -- — the constant as the file declares it, at the kind the file
+    -- declares it at.  The comparison with the pinned block
+    -- (`preparePrelude`, which retags a matching record to
+    -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
+    -- `.quotDecl` arm) are not the parser's any more.
     let cv ← parseCVD st cvr
-    let slot ← match kind with
-      | "type" => pure 0
-      | "ctor" => pure 1
-      | "lift" => pure 2
-      | "ind" => pure 3
+    let qk ← match kind with
+      | "type" => pure QuotKind.type
+      | "ctor" => pure QuotKind.ctor
+      | "lift" => pure QuotKind.lift
+      | "ind" => pure QuotKind.ind
       | k => throw s!"unknown quotient kind '{k}'"
-    let pin := (BasisKind.quotK.decls.getD slot (.axiomInfo default))
-    -- the two records are compared at `toConstantVal`, which
-    -- `ConstantInfo.canon_toConstantVal` identifies with
-    -- `ConstantVal.canon` of each side
-    if ConstantVal.canonEq cv pin.toConstantVal then
-      if slot = 0 then
-        return pushDecl st (.basisDecl .quotK)
-      else
-        return .inl st
-    else
-      return .inr (.declined "quotient declaration mismatch")
+    return .inl (pushDecl st (.quotDecl qk cv))
   | .ind tys cts rcs =>
     let st := { st with indCount := st.indCount + 1 }
     -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
@@ -647,71 +568,52 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
     -- data: index/constructor counts, recursion flag, motive/minor
     -- counts)
     let st ← registerProjOwners st tys cts rcs block
-    -- TASK #215 — the basis-pin NAME pre-filter.
-    -- `ConstantInfo.canon` rebuilds the WHOLE block as an unshared tree
-    -- (`Frontend.canonExpr`, unmemoized) just to compare it against five
-    -- pins: on a heavily DAG-shared block that was the frontend's single
-    -- largest cost, and the first row of task #213's retired budget audit
-    -- (`ModularCurve.JZeroGoodReductionSpecialization_alt` is a
-    -- 5 038-entry DAG that rebuilds as 78 394 796 nodes).
-    -- `canon` renames only *level parameters* — it leaves every constant
-    -- name alone — so a block can match a pin only when its members'
-    -- names are the pin's, member for member.  Selecting the candidate
-    -- by name first is a handful of `Name` comparisons, and no canonical
-    -- form is built at all for any block that is not one of the five.
-    -- Same verdict on every input; only the work changes.
-    let blockNames := block.map (·.name)
-    let pinHit : Option BasisKind :=
-      ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
-          k.decls.map (·.name) == blockNames).filter fun k =>
-        canonEqList block k.decls
-    if let some k := pinHit then
-      if k == BasisKind.punitK then
-        return pushDecl { st with punitSeen := true } (.basisDecl k)
-      else
-        return pushDecl st (.basisDecl k)
+    -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
+    -- that used to stand here — a name pre-filter (task #215) and then
+    -- `canonEqList` against the five pinned blocks — is
+    -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
+    -- retags a matching block to its `basisDecl` kind before the fold
+    -- sees it.  A block under a pinned name that does NOT match keeps
+    -- its `indDecl` form and is rejected by the fold's reserved-name
+    -- check, exactly as before.
+    --
+    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
+    -- since task #207, and since task #219 the only one there IS —
+    -- a stream `_model` record is an ordinary declaration and is
+    -- never consulted): a mutual or nested block gets its `_model`
+    -- family generated here and pushed ahead of it; the block then
+    -- installs through the modeled route.  A generator decline is
+    -- the run's decline, naming the class (the residual: infinitary
+    -- nesting, a `Prop` block with a large eliminator).
+    let T0 := (block.head?.map (·.name)).getD .anonymous
+    let b ← blockRecOf st tys cts rcs
+    let st :=
+      let m := st.indBlocks
+      let st := { st with indBlocks := {} }
+      { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+    if st.inModel && InModel.wants b then
+      let ctx : InModel.Ctx :=
+        ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+      match InModel.generate ctx b with
+      | .error why =>
+        if st.inModelCensus then
+          return .inl (pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+            (.indDecl block nPd))
+        else
+          return .inr (.declined s!"in-process model of {T0}: {why}")
+      | .ok gen =>
+        let mut st1 := st
+        for d in gen do
+          -- a generated record is a declaration of the FOLD and not
+          -- a record of the file (task #219): booked here, so the
+          -- verdict line reports the file's own count
+          st1 := noteGen (pushGenD st1 d) d T0
+        st1 := { st1 with
+          inModelled := st1.inModelled.push T0,
+          inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+        return .inl (pushDecl st1 (.indDecl block nPd))
     else
-      -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
-      -- since task #207, and since task #219 the only one there IS —
-      -- a stream `_model` record is an ordinary declaration and is
-      -- never consulted): a mutual or nested block gets its `_model`
-      -- family generated here and pushed ahead of it; the block then
-      -- installs through the modeled route.  A generator decline is
-      -- the run's decline, naming the class (the residual: infinitary
-      -- nesting, a `Prop` block with a large eliminator).
-      let T0 := (block.head?.map (·.name)).getD .anonymous
-      let b ← blockRecOf st tys cts rcs
-      let st :=
-        let m := st.indBlocks
-        let st := { st with indBlocks := {} }
-        { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-      if st.inModel && InModel.wants b then
-        let ctx : InModel.Ctx :=
-          ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
-        match InModel.generate ctx b with
-        | .error why =>
-          if st.inModelCensus then
-            return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-              (.indDecl block nPd)
-          else
-            return .inr (.declined s!"in-process model of {T0}: {why}")
-        | .ok gen =>
-          let mut st1 := st
-          for d in gen do
-            let before := st1.decls.size
-            match pushGenD st1 d with
-            | .inl st' =>
-              -- a generated record is a declaration of the FOLD and not
-              -- a record of the file (task #219): booked here, so the
-              -- verdict line reports the file's own count
-              st1 := if st'.decls.size > before then noteGen st' d T0 else st'
-            | r => return r
-          st1 := { st1 with
-            inModelled := st1.inModelled.push T0,
-            inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-          return pushDecl st1 (.indDecl block nPd)
-      else
-        return pushDecl st (.indDecl block nPd)
+      return .inl (pushDecl st (.indDecl block nPd))
 where
   /-- Record the structure-like owners of a parsed block that the
   projection rewrite serves (`projRecOwners`). -/
@@ -752,9 +654,8 @@ def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
 state.  This is what the `Lean.Json`-based `processLineD` was, with
 the DOM key lookups replaced by the fields of the syntax record the
 byte recogniser produced (`ConLeche/Frontend/Scan/Fast.lean`, task
-#256); the index resolution, the smart constructors, the prelude
-dedupe, the projection rewrite and the in-process modeller are
-unchanged. -/
+#256); the index resolution, the smart constructors, the projection
+rewrite and the in-process modeller are unchanged. -/
 def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
@@ -769,20 +670,12 @@ def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
 /-- The direct parse result: the declarations over `Expr`, and the
 parse's receipts.  No arena. -/
 structure ParseResultD where
-  /-- the built-in prelude's records first, then the stream's (task #191) -/
+  /-- the FILE's declaration records, in the file's order, plus the
+  records the in-process modeller generated (task #293: the prelude,
+  the dedupe and the ground hoist are `preparePrelude`'s) -/
   decls : Array Declaration
   /-- projection functions rewritten to recursor form (2026-09-06) -/
   projRewrites : Array Name := #[]
-  /-- how many of `decls` are the prelude's, and how many stream
-  records were dropped as identical copies of prelude records: the
-  stream's accepted-record count is
-  `decls.size - preludeCount + preludeDropped` (task #191) -/
-  preludeCount : Nat := 0
-  preludeDropped : Nat := 0
-  /-- the records moved ahead of a pinned `Nat` operation they ground
-  (`ConLeche/Frontend/NatOpGround.lean`, task #191; names, for the
-  driver's receipt) -/
-  hoisted : Array Name := #[]
   /-- the blocks modelled in-process (task #200), in stream order -/
   inModelled : Array Name := #[]
   /-- how many of `decls` the in-process modeller generated, and which
@@ -799,22 +692,14 @@ structure ParseResultD where
   /-- the census's declines (block, reason) -/
   inModelDeclined : Array (Name × String) := #[]
 
-/-- The initial parse state over a prelude: `PUnit` counts as seen for
-the projection rewrite when the prelude installs it; the prelude's
-constants seed the declaration table (task #200). -/
-def StateD.init (prelude : PreludeIx) (inModel : Bool)
-    (census : Bool := false) : StateD :=
-  prelude.decls.foldl noteDecl
-    { prelude, punitSeen := prelude.basis.contains .punitK, inModel,
-      inModelCensus := census }
+/-- The initial parse state (task #293: there is no prelude here any
+more — the parse starts from the file's first record). -/
+def StateD.init (inModel : Bool) (census : Bool := false) : StateD :=
+  { inModel, inModelCensus := census }
 
-/-- The result: the prelude's records, then the stream's with every
-pinned operation's stream-certified ground hoisted ahead of it
-(`hoistNatOpGround`). -/
+/-- The result: the file's records, in the file's order. -/
 def ParseResultD.ofState (st : StateD) : ParseResultD :=
-  let (decls, hoisted) := hoistNatOpGround st.decls
-  ⟨st.prelude.decls ++ decls, st.projRewrites,
-   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled,
+  ⟨st.decls, st.projRewrites, st.inModelled,
    st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
 
 /-- Scan and apply the LAST line of a stream — the one no newline
@@ -869,15 +754,12 @@ decreasing_by
 /-- How many bytes the streaming driver asks for at a time. -/
 def chunkSize : USize := 4 * 1024 * 1024
 
-/-- Wholesale direct parse (tests and small inputs).  `prelude` is the
-built-in prelude the result is prepended with and deduped against
-(task #191; empty for the prelude's own parse). -/
+/-- Wholesale direct parse (tests and small inputs). -/
 def parseExportD (contents : String)
-    (prelude : PreludeIx := {}) (inModel : Bool := true)
-    (census : Bool := false) :
+    (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
   let b := contents.toUTF8
-  let (st, lineNo, tail) ← feedChunk (.init prelude inModel census) b 0 0
+  let (st, lineNo, tail) ← feedChunk (.init inModel census) b 0 0
   if tail < b.usize then
     let st ← applyFinalLine st b tail (lineNo + 1)
     return .ofState st
@@ -898,7 +780,7 @@ that the parse tables stay uniquely referenced across steps (task #78:
 a handler that closes over the state holds it at RC 2 and every insert
 inside copies it). -/
 partial def parseExportHandleD (h : IO.FS.Handle)
-    (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (st : StateD) (carry : ByteArray) (lineNo : Nat) :
@@ -917,13 +799,13 @@ partial def parseExportHandleD (h : IO.FS.Handle)
       | .error e => return .error e
       | .ok (st, lineNo, tail) =>
         loop st (buf.extract tail.toNat buf.size) lineNo
-  loop (.init prelude inModel census) ByteArray.empty 0
+  loop (.init inModel census) ByteArray.empty 0
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
-    (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) prelude inModel census chunk
+  parseExportHandleD (← IO.FS.Handle.mk path .read) inModel census chunk
 
 end ConLeche.Frontend

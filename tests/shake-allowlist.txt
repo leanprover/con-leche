@@ -317,7 +317,6 @@ ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.SumWF	# the --o
 ConLeche/Semantics/Bridge/Decl.lean	public import ConLeche.Verify.Extend.Inversions	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/Decl.lean	import ConLeche.Verify.IotaWalkInv	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/DeclIndRun.lean	public import ConLeche.Verify.Extend.Proj	# compensated: +import ConLeche.Verify.Extend.Proj in ConLeche/Semantics/Bridge/DeclIndRun.lean; +public import ConLeche.Verify.Extend.Iota in ConLeche/Semantics/Bridge/DeclIndRun.lean
-ConLeche/Semantics/Bridge/DeclRun.lean	public import ConLeche.Semantics.Bridge.Decl	# compensated: +import ConLeche.Semantics.Bridge.Decl in ConLeche/Semantics/Bridge/DeclRun.lean
 ConLeche/Semantics/Bridge/Sound.lean	public import ConLeche.Semantics.Bridge.DeclRun	# compensated: +import ConLeche.Semantics.Bridge.DeclRun in ConLeche/Semantics/Bridge/Sound.lean
 ConLeche/Semantics/Decl.lean	public import ConLeche.Verify.Leaves	# compensated: +import ConLeche.Verify.Abstract in ConLeche/Semantics/DeclRun.lean
 ConLeche/Semantics/DefEqList.lean	public import ConLeche.Verify.InferLemmas	# compensated: +import ConLeche.Verify.InferLemmas in ConLeche/Semantics/DefEqList.lean; +public import ConLeche.Verify.Knot in ConLeche/Semantics/DefEqList.lean

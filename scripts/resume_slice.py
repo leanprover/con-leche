@@ -37,10 +37,10 @@ valid `con-leche` stream:
   modeller now, and a stream `_model` record is an ordinary
   declaration, so there is no companion rule.)  The pinned basis
   blocks (`Eq`, `Nat`, `PUnit`, `Empty`), every `quot`
-  record and every `axiom` record are kept unconditionally -- `PUnit`
-  gates the projection rewrite (`punitSeen`), the quotient basis needs
-  the pinned `Eq`, and an axiom record is where a non-standard axiom's
-  positive decline happens;
+  record and every `axiom` record are kept unconditionally -- the
+  quotient block needs the pinned `Eq`, `PUnit` is what the projection
+  rewrite's constant motives are built over, and an axiom record is
+  where a non-standard axiom's positive decline happens;
 * every name (`in`) and level (`il`) record and the `meta` header are
   kept verbatim -- they are a few percent of the stream, so no name or
   level closure is needed;

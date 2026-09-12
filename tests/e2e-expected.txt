@@ -957,19 +957,28 @@
 #                 Nat.sub: the hoist's own case.  Pre-#191: 2.
 #   prelude_bool_redefined: natop_order with `Bool : Type 1`
 #                 (scripts/mk_prelude_bool_bad.py) — a valid inductive
-#                 the official kernel accepts, but not the toolchain's
-#                 `Bool` the prelude installed first: DECLINE (exit 2,
-#                 the message names `Bool`).  Contrast the pinned basis
-#                 blocks (`Empty`/`False` above): a mismatching
-#                 redefinition of THOSE keeps REJECTING (reserved name).
-#   A stream re-declaring `Bool` identically (natop_order itself, and
-#   every fixture above that exports it) accepts with the stream copy
-#   dropped; tests/arena.sh's prelude section checks the record count
-#   is unchanged by the drop.
+#                 the official kernel accepts, but not the `Bool` the
+#                 rest of the stream was exported against: REJECT (exit
+#                 1) at `Nat.ble`, whose value applies `Bool.true` where
+#                 a `Type 0` is wanted.  **It was 2 until task #293**,
+#                 when the checker still prepended its own `Bool` and
+#                 DECLINED a stream copy that differed from it; the
+#                 prelude is now the stream's OWN record wherever the
+#                 stream has one, so there is no comparison to fail and
+#                 the block is checked like any other — which is what
+#                 the official kernel does with it too.  The pinned
+#                 basis blocks (`Empty`/`False` above) are the contrast:
+#                 a mismatching redefinition of THOSE still REJECTS at
+#                 the reserved-name check, and a matching one installs
+#                 the pin.
+#   A stream re-declaring `Bool` (natop_order itself, and every fixture
+#   above that exports it) is checked on its own record, moved to the
+#   front; tests/arena.sh's prelude section checks the verdict's record
+#   count is the file's either way.
 0 natop_order.ndjson
 0 natop_before_eq.ndjson
 0 natop_before_ble.ndjson
-2 prelude_bool_redefined.ndjson
+1 prelude_bool_redefined.ndjson
 
 # ====================================================================
 # THE INDUCTIVE-AUDIT FIXTURES (task #208; audit task #206, report
@@ -1182,9 +1191,14 @@
 # quotient pin (`ConstantVal.canonEq`).
 2 tower_quot.ndjson
 # tower_prelude: an inductive block named `Bool` with a tower in its
-# constructor field -> differs from the built-in prelude's `Bool`
-# (`Declaration.sameCanon` through `canonEqList`).
-2 tower_prelude.ndjson
+# constructor field.  Until task #293 this DECLINED, at the prelude
+# dedupe's `Declaration.sameCanon` — the point being that the comparison
+# stopped at the first disagreement instead of unfolding the tower.
+# There is no such comparison any more (the prelude is the stream's own
+# record where the stream has one), so the block INSTALLS, through the
+# ordinary route, and the fixture still gates what it was built to gate:
+# a walker that unfolded the tower would never finish.
+0 tower_prelude.ndjson
 # tower_axiom_pin: `propext` with a tower type, over a standardly-shaped
 # stored `Iff` family (the only shape that reaches the pin comparison at
 # all) -> divergent standard-axiom pin (`ConstantVal.matchesPin` through

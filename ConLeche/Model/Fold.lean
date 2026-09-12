@@ -80,6 +80,9 @@ C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
 nothing). -/
 theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   intro _F _env mp _cv _env₂ hR
+  -- the `Quot.sound` arm (task #293) installs nothing
+  rcases hR with ⟨-, rfl⟩ | hR
+  · exact ⟨mp⟩
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -192,19 +195,30 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     exact harvestOpaque hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
+  | quotDecl k cv =>
+    -- task #293: the quotient package's `type` record installs the
+    -- pinned block; its other records install nothing
+    cases k with
+    | type => exact basisStepPB_of mp hrun
+    | _ => exact (show env₂ = env from hrun) ▸ ⟨mp⟩
   | indDecl block nP =>
-    -- the `.indDecl` dispatch: a RECOGNISED block installs directly
-    -- (ONE ROUTE, task #210), everything else through the modeled path
-    -- — the kernel's own two-way case split (task #219)
-    have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
-    unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-    cases hdf : ConLeche.nativeParts? nP block with
-    | some p =>
-      rw [hdf] at hrun'
-      exact declNative hμ mp hE hdf hrun'
-    | none =>
-      rw [hdf] at hrun'
-      exact indStepPB_of hμ mp hE hrun'
+    -- task #293: a block the fold recognises as one of the five pinned
+    -- ones installs the PIN; everything else takes the `.indDecl`
+    -- dispatch — a RECOGNISED block directly (ONE ROUTE, task #210),
+    -- the rest through the modeled path, the kernel's own two-way case
+    -- split (task #219)
+    simp only [ConLeche.Semantics.DeclRun] at hrun
+    split at hrun
+    · exact basisStepPB_of mp hrun
+    · have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
+      unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
+      cases hdf : ConLeche.nativeParts? nP block with
+      | some p =>
+        rw [hdf] at hrun'
+        exact declNative hμ mp hE hdf hrun'
+      | none =>
+        rw [hdf] at hrun'
+        exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

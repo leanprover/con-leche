@@ -56,8 +56,10 @@ theorem checkDeclRun_ofEnvFactsE
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
     -- clause's own `nativeParts?` dispatch — `declNativeRun_of`
     -- on the direct arm, `declIndRun_of` on the modeled one.
-    (fun {block nP} hh => by
-      rw [checkDecl] at hh
+    (fun {block nP} hpin hh => by
+      -- task #293: the pinned-block recognition came first, and this
+      -- block is not one of the five
+      simp only [checkDecl, hpin] at hh
       rw [DeclIndRunDispatch]
       -- the declared parameter count (task #228): a run that reached
       -- the dispatch passed the guard

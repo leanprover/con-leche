@@ -416,6 +416,18 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
+/-- **Install the pinned (pre-annotated) basis block.**  The three
+records that install one — the fold's own `basisDecl` kind, a stream
+block `basisPinHit` recognises and a quotient record `quotPinHit`
+recognises — share this body, so what is proved of one is proved of
+all three.  The quotient block's types mention the pinned equality
+former. -/
+def checkBasisDecl (env : Env) (kind : BasisKind) : m Env := do
+  if kind = .quotK then
+    unless env.find? eqName = some eqA do
+      throw (.notImplemented "quotient basis requires the pinned Eq basis")
+  kind.declsA.foldlM installBasisDecl env
+
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
@@ -475,7 +487,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     if reduceOpNames.contains cv.name then
       checkReducePin ops env env2 cv.name value
     pure env2
-  | .axiomDecl cv => do
+  | .axiomDecl cv =>
     -- Pinned axioms are *installed*: the two standard axioms
     -- (`propext` via the stored `Iff` recursor and extensionality of
     -- propositions, `Classical.choice` via the stored `Nonempty`
@@ -495,44 +507,67 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- `ConLeche/Kernel/CheckerBase.lean`).  Any other axiom
     -- is a positive decline at its own record; a *pinned name* with a
     -- non-pinned shape likewise (the pin would otherwise shadow).
-    let cvA ← checkConstantVal ops env cv
-    if stdAxiomOk env cvA then
-      pure ⟨.axiomInfo cvA :: env.consts⟩
-    else if cvA.name = trustCompilerName then
-      -- `Lean.trustCompiler : True` is trivially realizable (task
-      -- #95): installed exactly like a checked `opaque` with witness
-      -- value `True.intro` over the pinned `True` family — the pin
-      -- guarantees everything the ordinary opaque check would have
-      -- checked for that value, and the model interprets the constant
-      -- by `True.intro`'s interpretation.
-      if trustCompilerOk env cvA then
+    -- **`Quot.sound` is the pinned quotient BLOCK's own record**
+    -- (task #293): the export writes it as an ordinary axiom record
+    -- beside the four `#QUOT` ones, so it arrives here — compared with
+    -- the pin and installing NOTHING of its own (the pinned block
+    -- installs the axiom together with its three other constants, at
+    -- the first quotient record that matches), and DECLINING when it
+    -- does not match.  The comparison precedes the common checks
+    -- because the name is a reserved basis name: this record IS the
+    -- pinned block's, not a redeclaration of it.  What stood here was
+    -- a parser check (`ConLeche/Frontend/ExportC.lean`), which
+    -- swallowed the record before the fold ever saw it.
+    if cv.name = quotSoundName then
+      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
+        pure env
+      else
+        throw (.notImplemented "quotient soundness axiom mismatch"))
+    else do
+      let cvA ← checkConstantVal ops env cv
+      if stdAxiomOk env cvA then
         pure ⟨.axiomInfo cvA :: env.consts⟩
-      else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cv.name})")
-    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-      -- The pinned `ofReduce*` axioms (task #95): over the pinned
-      -- `Eq` basis, the element inductive and the identity-certified
-      -- reduce opaque, `∀ a b, reduce a = b → a = b` interprets to an
-      -- inhabited proposition (the hypothesis *is* the conclusion).
-      if ofReduceAxOk env cvA then
-        pure ⟨.axiomInfo cvA :: env.consts⟩
-      else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cv.name})")
-    else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if cvA.name = sorryAxName then
-      pure env
-    else
-      throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => do
-    -- Install the pinned (pre-annotated) basis block; the frontend has
-    -- already matched the incoming record against the pinned shapes.
-    -- The quotient block's types mention the pinned equality former.
-    if kind = .quotK then
-      unless env.find? eqName = some eqA do
-        throw (.notImplemented "quotient basis requires the pinned Eq basis")
-    kind.declsA.foldlM installBasisDecl env
+      else if cvA.name = trustCompilerName then
+        -- `Lean.trustCompiler : True` is trivially realizable (task
+        -- #95): installed exactly like a checked `opaque` with witness
+        -- value `True.intro` over the pinned `True` family — the pin
+        -- guarantees everything the ordinary opaque check would have
+        -- checked for that value, and the model interprets the constant
+        -- by `True.intro`'s interpretation.
+        if trustCompilerOk env cvA then
+          pure ⟨.axiomInfo cvA :: env.consts⟩
+        else throw (.notImplemented
+          s!"unsupported Lean.trustCompiler shape ({cv.name})")
+      else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+        -- The pinned `ofReduce*` axioms (task #95): over the pinned
+        -- `Eq` basis, the element inductive and the identity-certified
+        -- reduce opaque, `∀ a b, reduce a = b → a = b` interprets to an
+        -- inhabited proposition (the hypothesis *is* the conclusion).
+        if ofReduceAxOk env cvA then
+          pure ⟨.axiomInfo cvA :: env.consts⟩
+        else throw (.notImplemented
+          s!"unsupported compiler-trust axiom environment ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else if cvA.name = sorryAxName then
+        pure env
+      else
+        throw (.notImplemented s!"non-standard axiom ({cv.name})")
+  | .basisDecl kind => checkBasisDecl env kind
   | .indDecl block nP =>
+    -- **THE PINNED BASIS BLOCKS** (task #293).  A stream's `Nat` block
+    -- arrives as an ordinary `indDecl` — the decoder emits the file's
+    -- records and nothing else — and it is recognised HERE: a block
+    -- whose members are named as one of the five pins' and which
+    -- matches it up to `ConstantInfo.canon` installs the PIN (the
+    -- annotated, model-proved literals `installBasisDecl` puts in the
+    -- environment verbatim).  A block under a pinned name that does not
+    -- match falls through to the ordinary route, where
+    -- `checkConstantVal`'s reserved-name check REJECTS it: a basis
+    -- redefinition is invalid input (task #181's ruling).
+    match basisPinHit block with
+    | some kind => checkBasisDecl env kind
+    | none =>
     -- TASK #228 — THE DECLARED PARAMETER COUNT, first and for both
     -- routes.  Official reads `nparams` off the declaration and checks
     -- the block against it (`check_inductive_types`' telescope loop,
@@ -564,6 +599,22 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       | some p => checkNative ops env p
       | none => checkModeled mode ops env block
     else throw (.invalid "number of parameters mismatch")
+  | .quotDecl k cv =>
+    -- **THE QUOTIENT PACKAGE** (task #293).  The export writes it as
+    -- four records; each one is compared with the pinned block's
+    -- constant at its own kind, and the FIRST that matches installs the
+    -- pinned block whole (the other three then find it installed and
+    -- add nothing — they are the same declaration).  A record that does
+    -- not match is a quotient this checker positively does not support:
+    -- the decline the parser used to issue, now at the record, in the
+    -- fold.
+    if quotPinHit k cv then
+      (match k with
+       | .type => checkBasisDecl env .quotK
+       | _ => pure env)
+    else throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

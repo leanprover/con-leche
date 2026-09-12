@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.Prepare
 
 @[expose] public section
 
@@ -32,21 +33,17 @@ different."*
 
 **How.**  The prelude is a lean4export-format stream, embedded here
 with `include_str` and parsed by the ordinary direct parser
-(`parseExportD`) into `Declaration` records — the basis blocks through the
-same pin match as any stream's, `Bool` as an ordinary inductive block
-the direct sum install serves.  Every stream parse
-(`parseExportStreamD` / `parseExportHandleD`, `Main.lean`) is handed
-`builtinPrelude`, which it PREPENDS to its result and DEDUPES against
-(`pushDecl` in `ConLeche/Frontend/ExportC.lean`): a later stream copy of a
-prelude declaration is dropped when it is the same declaration and
-declines the stream when it differs.  So "in the env initially and
-unconditionally" is "first in every fold": the verified fold
-`checkDecls` sees `prelude ++ stream'` as one list of
-records and installs the prelude by exactly the routes it installs a
-stream's records by — **nothing in the kernel, the cached driver or
-the proofs changed** (the main theorem quantifies over the parsed
-list; the frontend sits below it, like the projection rewrite of
-`ConLeche/Frontend/ProjRec.lean`).
+(`parseExportD`) into `Declaration` records.  `preparePrelude`
+(`ConLeche/Frontend/Prepare.lean`) puts the prelude's declarations at
+the front of every stream it prepares — **the stream's OWN record where
+the stream has one**, and one of these only where it has none — so "in
+the env initially and unconditionally" is "first in every fold", and a
+stream that declares the toolchain's `Bool` is checked on its own
+`Bool` record.  The records install by exactly the routes a stream's
+records install by, the pinned blocks among them recognised by the fold
+(`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
+quantifies over the prepared list; the frontend sits below it, like the
+projection rewrite of `ConLeche/Frontend/ProjRec.lean`.
 
 `builtinPrelude` is a 0-ary definition, so the embedded text is parsed
 once, at process initialisation (a few hundred lines).  A parse
@@ -68,6 +65,6 @@ def builtinPreludeText : String :=
 in principle be corrupted, and a prelude that does not parse must be a
 loud error rather than a silently empty prelude. -/
 def builtinPreludeE : Except FrontendError PreludeIx :=
-  (PreludeIx.ofDecls ·.decls) <$> parseExportD builtinPreludeText
+  (fun r => ⟨r.decls⟩) <$> parseExportD builtinPreludeText
 
 end ConLeche.Frontend

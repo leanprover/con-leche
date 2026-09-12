@@ -440,6 +440,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
           (checkValueGroup_mono (Nat.le_max_right _ _) hC)⟩
     | axiomDecl cv => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | basisDecl kind => unfold annotStepC at hstepC; exact ordinary _ hstepC
+    | quotDecl k cv => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold annotStepC at hstepC; exact ordinary _ hstepC
 
 /-- **The model along the run**: phase A's accepting run from a

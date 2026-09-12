@@ -611,7 +611,12 @@ kind of record claims a name and a type for:
 * an axiom declares its header **unless it is the `sorryAx` axiom
   record**, which installs nothing: it is checked for well-formedness
   and then dropped (there is no set model for it), and any later record
-  that USES the name declines;
+  that USES the name declines — **or the `Quot.sound` axiom record**
+  (task #293), which is the pinned quotient block's own: it is compared
+  with the pin and the BLOCK installs the axiom, at the quotient record
+  that declares the type;
+* a `quotDecl` declares nothing of its own, for the same reason: the
+  pinned quotient block installs all five constants at once;
 * a `basisDecl` declares nothing of its own — it names one of the
   checker's pinned basis blocks, and the constants installed are the
   pins';
@@ -624,9 +629,10 @@ kind of record claims a name and a type for:
   | .defnDecl cv _ _, cv' => cv' = cv
   | .thmDecl cv _, cv' => cv' = cv
   | .opaqueDecl cv _, cv' => cv' = cv
-  | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName
+  | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
   | .basisDecl _, _ => False
   | .indDecl _ _, _ => False
+  | .quotDecl _ _, _ => False
 
 /-! ## A name-unique environment finds what it holds -/
 
@@ -698,8 +704,11 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
   | axiomDecl cv₀ =>
-    obtain ⟨rfl, htol⟩ := hcv
+    obtain ⟨rfl, htol, hqs⟩ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclAxiomRun] at hrun
+    -- the `Quot.sound` arm (task #293) is excluded by `Declares`
+    rcases hrun with ⟨hq, -⟩ | hrun
+    · exact absurd hq hqs
     obtain ⟨type', hcvr, hdisj⟩ := hrun
     obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
     have henv₂ : env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
@@ -714,6 +723,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
   | basisDecl kind => exact hcv.elim
+  | quotDecl k cv₀ => exact hcv.elim
   | indDecl block nP => exact hcv.elim
 
 /-! ## The walk -/

@@ -324,6 +324,7 @@ private def basisModelExport : String := String.intercalate "\n" [
 private def declCName : ConLeche.Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
+  | .quotDecl _ cv => cv.name
   | .basisDecl _ => .anonymous
   | .indDecl b _ => (b.head?.map (·.name)).getD .anonymous
 
@@ -334,12 +335,12 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _⟩ =>
+  | .ok ⟨ds, _, _, _, _, _, _⟩ =>
     (ConLeche.Cached.checkDecls .verified ds.toList).toBool
   | .error _ => false
 

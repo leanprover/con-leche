@@ -253,10 +253,11 @@ def mk_thm():
 
 
 def mk_prelude():
-    """A record under a BUILT-IN PRELUDE name that differs from the
-    prelude's — an inductive block named `Bool` whose constructor field
-    type is the tower.  The prelude dedupe (`Declaration.sameCanon`) must
-    reach its DECLINE without walking the tower."""
+    """An inductive block named `Bool` whose constructor field type is
+    the tower.  Until task #293 the prelude dedupe compared it with the
+    checker's own `Bool` and had to reach its DECLINE without walking
+    the tower; there is no such comparison any more, and the block must
+    now INSTALL without walking it."""
     s = Stream(); n, e, lU, _ = base(s, tyname="Bool")
     block(s, n, e, lU, n["T"], n["T.mk"], n["T.rec"])
     s.write("tests/e2e/tower_prelude.ndjson")
