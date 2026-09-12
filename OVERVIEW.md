@@ -92,7 +92,7 @@ covered exactly as a run without it, and so is a run on the pool.
 The statement is three theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
 a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L52-L55):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L55-L58):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -123,14 +123,14 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L62-L65),
+[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L65-L68),
 follows in three lines — a constant of type `False` would be a member
 of the empty set:
 
 > … then `env` stores no constant whose type is `False`.
 
 The same corollary is stated a second time over the fold's INPUT,
-[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L77-L80):
+[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L80-L83):
 
 > … if any record of `ds` declares a theorem whose declared type is
 > `False`, then `checkDecls` accepts `ds` with no environment at all.
@@ -143,6 +143,35 @@ constant is that constant; and every later step of the fold only ever
 extends the list of stored constants. So the record's own `False` is
 still in the environment the fold returns, where the first corollary
 forbids it.
+
+And a third time over the FILE — the text the binary is handed —
+[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L93-L94):
+
+> … if the file matches `hasProofOfFalse` — a name entry for `False`,
+> an expression entry for the constant `False`, a name entry for the
+> theorem's own name, and a theorem record whose type is that
+> expression, four lines in the exporter's own shapes with anything at
+> all before, between and after them — then the binary's accept path
+> (`pipelineAccepts`: the built-in prelude parses, the file parses with
+> it, no record was skipped, the fold accepts) is not taken.
+
+The predicate is a string template
+([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L61-L72))
+written with Lean's own interpolation, so a reader who has never seen
+the code can check what it says; the one side condition is that the
+file fits in the address space, because the parser's positions are
+machine words. What the proof adds to the corollary at the stream is
+the parser: the byte recogniser never reads past a newline
+(`ConLeche/Verify/Frontend/Local.lean`), so every line of the file is
+read as a line whatever surrounds it; a bound stream index is bound
+once (a rebinding is a parse error), so the entry a template line
+bound is the entry the theorem line reads; the record list only grows;
+and the three template lines scan to exactly the records the fold then
+forbids. The binary reads the file in chunks, and
+`parseChunks_eq_parseExportD` (`ConLeche/Verify/Frontend/Chunks.lean`)
+shows that the chunk boundary is invisible — the statement's twin
+`no_False_declaration_streaming` is about the chunks the handle hands
+out.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
@@ -160,7 +189,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L98-L102)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L99-L103)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -170,10 +199,10 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L999))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L1100))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
-   ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1000)):
+   ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
    the driver calls the reference, and the compiler runs the fast
    recogniser on the strength of that equality; the stream-index
    tables have the same kind of law, and what the parser then makes of
@@ -705,9 +734,10 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
-| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
+| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines). |
+| `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `hasProofOfFalse`, the string template, and `pipelineAccepts`/`streamingAccepts`, the binary's accept path as pure content. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and its two corollaries — one about the environment the fold returns, one about the stream it consumes — and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and its corollaries — about the environment the fold returns, the stream it consumes, and the file the binary reads — and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

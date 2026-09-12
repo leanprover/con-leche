@@ -69164,3 +69164,245 @@ needed after the merge.  The battery has **no route-census gate** any
 more — #287 deleted `tests/route-census.sh` with the
 `CON_LECHE_ROUTE_TRACE` hook it read; the merged run is the one
 recorded above minus that line.
+
+## TASK #290 — THE PARSER ENTERS THE THEOREM (2026-09-12, `agent/parser-290`)
+
+The maintainer's goal, verbatim: *"including the parser in the theorem:
+I agree that verifying the parser at the `List Chunk` level is good.
+For the theorem I want an easy to understand predicate 'this JSON
+input declares a theorem of type False'.  I imagine the prettiest way
+is to express it as a string template using Lean's interpolation
+(you'd have to fix escaping)."*  The corollary at the stream (task
+#286) is about the list of records the fold consumes; this task
+states it a third time, over the FILE, and derives it from the second.
+
+### 1. The statements, as landed
+
+`ConLeche/Accepts.lean` (exposed; the vocabulary of the statement):
+
+```lean
+def hasProofOfFalse (file : String) : Prop :=
+  ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+    file =
+      before ++ "\n" ++
+      s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+      between₁ ++ "\n" ++
+      s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+      between₂ ++ "\n" ++
+      s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+      between₃ ++ "\n" ++
+      s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+      after
+
+def pipelineAccepts (file : String) : Prop :=
+  ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok prelude ∧
+    Frontend.parseExportD file prelude (inModel := true) (census := false) = .ok r ∧
+    r.taintSkipped.isEmpty = true ∧
+    checkDecls .verified r.decls.toList = .ok env
+```
+
+(`streamingAccepts chunks` is the same with `parseChunks` in place of
+`parseExportD`.)  `ConLeche/MainTheorem.lean`, with its `sorry` twin in
+`ConLeche/Challenge.lean` and the fourth name in `comparator.json`:
+
+```lean
+theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    (h : hasProofOfFalse s) (hsz : s.utf8ByteSize < USize.size) : ¬ pipelineAccepts s
+
+theorem no_False_declaration_streaming (V : Type w) [SetTheory V] (s : String)
+    (chunks : List ByteArray) (h : hasProofOfFalse s)
+    (hcs : s.toUTF8 = Frontend.concatBytes chunks) (hne : ∀ c ∈ chunks, c.isEmpty = false)
+    (hsz : s.utf8ByteSize < USize.size) : ¬ streamingAccepts chunks
+```
+
+The proof in `MainTheorem.lean` is four lines: the line-level lemma
+`parseExportD_hasProofOfFalse` gives a `thmDecl` of type `False` in
+`r.decls` (or a taint skip, which the accept path excludes), and
+`no_False_theorem_accepted` forbids it.  The streaming twin is one
+rewrite with `parseChunks_eq_parseExportD`; it is stated in
+`MainTheorem.lean` beside the corollary and is NOT in the comparator
+list (the public pair is `model_exists` + `no_False_declaration`, per
+the maintainer).
+
+**Deviations from the sketch, and why.**
+
+* **The theorem's own name is a separate index `k` with an arbitrary
+  string** (the maintainer's confirmation): `False` as the theorem's
+  name would be rejected for the wrong reason (a duplicate).  The proof
+  never reads that line at all — it is absorbed into the arbitrary part
+  before the theorem record — so `name` may hold anything, including a
+  quote that makes the line malformed; the file then does not parse.
+* **`hsz : s.utf8ByteSize < USize.size`** — "the file fits in the
+  address space".  `feedChunk` walks `USize` positions and `ByteArray.usize`
+  wraps in the logic; on a string of `2^64` bytes the loop stops at
+  the wrapped size and the prelude alone would be accepted.  A runtime
+  check would be dead code; the hypothesis is honest and every real
+  file satisfies it.  It is also what makes `parseChunks` equal to
+  `parseExportD` (both walk machine words).
+* **The taint conjunct** of `pipelineAccepts` and the "or the parser
+  skipped a record" arm of every line-level lemma go with task #292
+  (`sorryAx` handling leaves the parser; the parse result loses its
+  `taintSkipped`).  This branch was written against the current master
+  and is to be merged ONCE after #292 lands; the conjunct and the arm
+  then disappear and `pipelineAccepts` is exactly parse-ok ∧ fold-ok.
+* **A leading part is required** (`before ++ "\n"`): a file whose very
+  first line is the `False` name entry is not matched by the template
+  (lean4export's first line is the `meta` header, so no export is
+  affected).  The template is a sufficient condition, stated as the
+  maintainer sketched it; a variant with an optional first newline was
+  not worth the loss of readability.
+
+### 2. What had to change in the parser — four tightenings and one refactor
+
+Each is a conservative change (it rejects more streams than before, or
+changes nothing observable); every gate passed unchanged (arena 90/92,
+e2e 195/195, annot 15/15, the sweeps).
+
+1. **An index is bound once** (`IdTable.bound`, `StateD.freshName/
+   freshLevel/freshExpr`, `reboundError`).  The tables let a later line
+   overwrite an entry (harmless for the parse, because entries are
+   resolved eagerly), but the theorem needs the entry a template line
+   bound to be the entry the theorem line reads, whatever the arbitrary
+   parts hold.  The test is on a BORROWED state, in three `@[noinline]`
+   helpers: written inline as `if st.exprs.bound i then throw …` at the
+   top of the `do` block, the compiler's reset/reuse pass projected and
+   `inc`'d all 21 fields of the state before the test — +17 %
+   instructions on the parse phase, found by diffing the emitted C.
+   As landed: **+0.39 G on the 17.16 G parse phase of init-full
+   (+2.2 % of parsing), +0.07 % of the whole `--verified --jobs=1` run
+   (538.45 G → 538.84 G)** — the price of the new check.
+2. **A line never spans a newline.**  Two scanners stepped over one:
+   `naiveSkipBraced`/`skipBraced` (the `meta` header) skipped any byte
+   between brackets, so `{"meta":{"x":` + newline + the template's
+   name entry + `}}` swallowed the entry into the header — a
+   counterexample to the sketch; and `naiveStrBody`/`strClose` took
+   `\` + newline as an escape pair (the decoder then refused it, but
+   the consumed bytes had crossed the newline).  Now the header skip
+   stops at a newline and a control byte after a backslash is refused
+   on both sides; the twin proofs (`skipBraced_eq`, `strClose_eq`, the
+   `.induct` proofs) gained a case each.
+3. **The escape decoder is handed the string body, sliced out.**
+   `unescape`'s `\u` lookahead read up to eight bytes past the body
+   (never past the closing quote in effect, but proving that meant a
+   short-circuit analysis of a 60-line `USize` loop).  `scanString`
+   now passes `b.extract (i+1) e` and the naive side `⟨⟨body⟩⟩`, so both
+   run the same function on the same array and `naiveStr`'s verdict is
+   visibly a function of the body.  The twin (`scanString_eq`) got
+   simpler; `unescape_shift` and its five helpers (130 lines) became
+   dead and were deleted.  The allocation is on the escape path only
+   (38 lines of init-full).
+4. **The hoist sorts with `Array.mergeSort`** (`Array.mem_mergeSort` is
+   a theorem; `Array.qsort` has none), and `hoistTargets` is its own
+   function, so `mem_hoistNatOpGround` is a permutation fact and
+   nothing else.  The sort runs only when a target exists — never on a
+   plain export.
+5. **The inductive arm is two named halves.**  `processLineCoreD`'s
+   `.ind` arm was a 150-line `do` block with three `for` loops; `dsimp`
+   on its unfolding exceeded the step budget and `split` did not
+   engage, so its frame lemma was intractable as one term.  It is now
+   `validateIndD` (reads the state on a borrowed parameter, returns
+   the verdict or the ordered constructors and `nPd`) followed by
+   `installIndD` (every state change), whose generated-record loop is
+   the recursive `pushGenList`; `registerProjOwners` is a top-level
+   definition.  Same code, in named pieces; the frame lemma is an
+   induction plus a dozen bind peels.
+
+And **the streaming loop calls a pure step**: `chunkStep`/`chunkFinish`
+are what `parseExportHandleD.loop` does between reads, and
+`parseChunks` is the same fold over a list of chunks.  RC discipline
+unchanged (`st` threaded by value; the buffer extracted as before).
+
+### 3. The proof, module by module (`ConLeche/Verify/Frontend/*`)
+
+* `Digits.lean` — `IsDec d n` (a non-empty digit run, no leading zero
+  unless `0`, valued `n`); `repr_isDec : IsDec (lit (toString n)) n`;
+  `naiveNum_isDec`.  `Init/Data/Repr.lean` is a module that does not
+  expose `Nat.repr`/`toDigits*`, so this is one of the tree's two new
+  `import all` sites (the other is the fixture test).
+* `Local.lean` (1 441 lines) — `LineLocal f`: on `l ++ 10 :: x` with no
+  newline in `l`, the scanner's verdict and stopping point do not
+  depend on `x`, and it stops inside `l` or at the newline.  Proved for
+  every naive scanner by the suffix lemmas' own inductions (the slot
+  tables through `Slot.of_local`, the line loop by one macro per key
+  group), then `naiveLine_local`, and the two consequences the file
+  theorem reads: `naiveLine_some` (a `some rest` line is the input up
+  to its first newline) and `naiveLine_none` (a `none` line holds no
+  newline).
+* `Lines.lean` — `parseLines`, the parse as a fold over the byte list;
+  `parseExportD_eq_parseLines` (under `hsz`, via `scanLineSpec_cases`
+  and a `fun_induction` over `feedChunk`); `parseLines_split` (a parse
+  of `l ++ 10 :: m` reaches `m` as a line start — for ANY `l` — by
+  successful steps, `Reach`) and `parseLines_reach`.
+* `Chunks.lean` — `feedChunk_prefix` (the buffer's complete lines parse
+  as in the longer input and the loop stops where the wholesale parse
+  continues: the full `x`-independence of `naiveLine_local`),
+  `feedChunk_tail_nonl` (the carry holds no newline), `parseChunks_go`,
+  `parseChunks_eq_parseLines`, **`parseChunks_eq_parseExportD`**.
+* `ApplyLine.lean` — `Frame` (a declaration record leaves the tables,
+  the taint tables and the prelude alone and only extends the record
+  list), proved for `pushDecl`, `pushGenList`, `registerProjOwners`,
+  `installIndD`, every arm of `processLineCoreD`, and `applyDeclD`'s
+  three outcomes; `Keeps` (what any successful line keeps: bound
+  names, bound expressions, pushed records, the prelude, non-empty
+  skips) via the entry specs; `applyLine_nameFalse`, `applyLine_constFalse`.
+* `ThmLine.lean` — `applyLine_thmFalse`: the theorem record is pushed
+  with type `False`, or dropped as the same declaration as a prelude
+  record — which is then a `thmDecl` of type `False` itself
+  (`canon_type_const`: the canonical form of a bare constant is the
+  constant; `sameCanon_thm`; `pushDecl_thm`).
+* `FalseLines.lean` — the three template lines scanned, with the
+  indices symbolic decimal runs: `naiveLine_nameFalse`,
+  `naiveLine_constFalse`, `naiveLine_thm`, by stepping the loops
+  (`obj_step`/`line_step`: `rw […eq_def]; simp +decide [leaves, *]`).
+* `Hoist.lean` — `mem_hoistNatOpGround`, `mem_ofState_decls/_prelude`.
+* `FileFalse.lean` — the walk: `parseLines_hasProofOfFalse` (split at
+  `before`, the name line, split at `between₁`, the const line, split
+  at `between₂ ++ name line ++ between₃` as one part, the theorem
+  line, `parseLines_reach` over `after`, `Reach.keeps` throughout) and
+  `parseExportD_hasProofOfFalse` (the initial state's tables and
+  prelude; `PreludeIx.ofDecls_byName`; `builtinPrelude_byName`).
+
+### 4. What was hard
+
+* **The two scanner holes were found by trying to prove the sketch**,
+  not by testing: the meta header's newline was a genuine
+  counterexample to the theorem as sketched on the code as it stood.
+* **The taint machinery was not needed.**  A first version tracked
+  three taint invariants across the file; a tainted type index makes
+  the theorem line fail to apply, which the hypothesis excludes, so
+  the invariants were dropped (and #292 removes the rest).
+* **`first | … | …` does not backtrack past a nested `by`**: a term
+  `exact ⟨…, fun x => by tac⟩` whose inner tactic fails is elaborated
+  with error recovery (`sorry`), so `first` takes it.  The line loop's
+  key dispatch is therefore explicit `case`s, one per key.
+* **Join points.**  `applyDeclD` and `parseLevelEntryD` desugar with
+  `__do_jp` binders; `simp only at h` inlines them, after which the
+  peeling (`exceptBind_ok`, `split at h`) is routine.  On a generic
+  `d : DeclRec`, `split at h` picks the innermost match; `cases d`
+  first.
+* **Hygiene and exposure.**  The step macros are `set_option hygiene
+  false` (they name the proof's own hypotheses); `scanLineSpec` and
+  `parseLines` needed `@[expose]` (a `public section` hides a `def`'s
+  body from the next module); `Nat.repr` needed `import all`;
+  `decide` cannot see through `String.toUTF8` in a module —
+  `lit_eq_toByteArray` first; the template's byte lemmas were renamed
+  `tpl_*` after clashing with the key lemmas `lit_in`, `lit_type`,
+  `lit_value` of `Equiv/Keys.lean` (only visible from a classic probe
+  file, which is what the challenge and proofdeps gates run).
+
+### 5. Gates
+
+`lake build` and `lake test` warning-free (three new axiom pins at
+`[propext, Classical.choice, Quot.sound]`); `tests/challenge.sh` OK —
+four statements token-identical; `tests/proofdeps.sh` REGENERATED for
+the new root `main_file_False` (4 712 rows / 13 roots, 0 doors);
+`tests/overview-links.sh --update` after re-reading the citing
+paragraphs (the three `MainTheorem.lean` anchors moved by the new
+imports, `parseExportStreamD` by the chunk step, the axiom pin by the
+new block; 80 links / 50 files); `tests/arena.sh` all suites as
+expected; the instruction comparison above.  The fixture test
+(`tests/ConLecheTests/FileTests.lean`): a file built from
+`zero_ctor_false_proof.ndjson`'s lines matches the template (the
+string equation decided by the kernel), the parser reads it into a
+`thmDecl` of type `False`, and the fold rejects it.
