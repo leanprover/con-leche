@@ -476,7 +476,22 @@ default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
 fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
-unverified by design. -/
+unverified by design.
+
+**The main corollary's chain is what the three phases below compute**
+(`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
+built-in prelude parses, the chunks parse, `checkDecls .verified`
+accepts the parsed list prepared with the prelude).  The prelude step
+is the same function, `Frontend.builtinPreludeE`.  The parse loop
+(`Frontend.parseExportStreamD`) is `Frontend.parseChunks` of the
+chunks the handle hands out, with the reads interleaved — every step
+is the shared `chunkStep`, and the chunk boundaries are proved
+invisible.  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
+receipts printed below.  `checkDeclsIO` returns its environment with
+the evidence `checkDecls mode ds = .ok env`.  What the driver adds is
+IO — the heartbeat, the parallel check pool, the diagnostics that say
+which step failed and with what exit code — and none of it touches
+the verdict. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     (noMark : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (2026-09-07, `--progress[=<stride>]`):

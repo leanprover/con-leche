@@ -5,17 +5,17 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L714
-   714  def usage : String := String.intercalate "\n" [
+== Main.lean#L729
+   729  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L68-L71
-    68  theorem model_exists (V : Type w) [SetTheory V]
-    69      (ds : List Declaration) (env : Env)
-    70      (accepted : checkDecls .verified ds = .ok env) :
-    71      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L75-L78
+    75  model in every set theory. -/
+    76  theorem model_exists (V : Type w) [SetTheory V]
+    77      (ds : List Declaration) (env : Env)
+    78      (accepted : checkDecls .verified ds = .ok env) :
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,30 +44,27 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L79-L80
-    79  theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
-    80      (h : hasProofOfFalse s) : ¬ pipelineAccepts s := by
+== ConLeche/MainTheorem.lean#L86-L91
+    86  record, and a stream holding it is never accepted. -/
+    87  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    88      (h : hasProofOfFalse chunks) :
+    89      ∀ env, (do
+    90        let pre ← Frontend.builtinPreludeE.toOption
+    91        let r ← (Frontend.parseChunks chunks).toOption
 
-== ConLeche/Accepts.lean#L61-L72
-    61  def hasProofOfFalse (file : String) : Prop :=
-    62    ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
-    63      file =
-    64        before ++ "\n" ++
-    65        s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
-    66        between₁ ++ "\n" ++
-    67        s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
-    68        between₂ ++ "\n" ++
-    69        s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
-    70        between₃ ++ "\n" ++
-    71        s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
-    72        after
-
-== ConLeche/Accepts.lean#L84-L88
-    84  def pipelineAccepts (file : String) : Prop :=
-    85    ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
-    86      Frontend.builtinPreludeE = .ok pre ∧
-    87      Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
-    88      checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
+== ConLeche/Accepts.lean#L53-L64
+    53  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
+    54    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
+    55      Frontend.concatBytes chunks =
+    56        before ++ "\n".toUTF8 ++
+    57        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
+    58        between₁ ++ "\n".toUTF8 ++
+    59        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
+    60        between₂ ++ "\n".toUTF8 ++
+    61        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
+    62        between₃ ++ "\n".toUTF8 ++
+    63        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
+    64        after
 
 == ConLeche/Verify/Cached/StreamThm.lean#L205-L208
    205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -75,14 +72,14 @@
    207      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
    208      ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
 
-== ConLeche/Verify/Frontend/FileFalse.lean#L110
-   110  theorem parseExportD_hasProofOfFalse {s : String} (h : hasProofOfFalse s)
+== ConLeche/Verify/Frontend/Chunks.lean#L352
+   352  theorem parseChunks_ok_parseBytes {inModel census : Bool} {cs : List ByteArray}
+
+== ConLeche/Verify/Frontend/FileFalse.lean#L125
+   125  theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
 
 == ConLeche/Verify/Frontend/Prepare.lean#L151
    151  theorem mem_preparePrelude {pre : PreludeIx} {ds : List Declaration}
-
-== ConLeche/Verify/Frontend/Chunks.lean#L358
-   358  theorem parseChunks_ok_parseExportD {inModel census : Bool}
 
 == ConLeche/Verify/Cached/StreamConsts.lean#L779-L784
    779  theorem checkDecls_consts (V : Type w) [SetTheory V]
@@ -120,14 +117,14 @@
    105  #guard_msgs in
    106  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L923
-   923  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L935
+   935  def parseExportStreamD (path : System.FilePath)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L850
-   850  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L858
+   858  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == Main.lean#L100
    100  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
