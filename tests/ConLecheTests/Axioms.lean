@@ -2,6 +2,7 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Cached.MainC
+public import ConLeche.Verify.Cached.StreamConsts
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
 public section
@@ -118,6 +119,20 @@ info: 'ConLeche.no_False_theorem_accepted' depends on axioms: [propext, Classica
 -/
 #guard_msgs in
 #print axioms ConLeche.no_False_theorem_accepted
+
+/-! ## What the fold stores of what it reads
+(`ConLeche/Verify/Cached/StreamConsts.lean`)
+
+The other direction of the same relation between input and output:
+every record of the stream that declares a constant leaves that
+constant, under its own name and with the annotation of its own
+declared type, in the environment the fold returns. -/
+
+/--
+info: 'ConLeche.Cached.checkDecls_consts' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.checkDecls_consts
 
 /-! ## The fold's letters (`ConLeche/Verify/Cached/MainC.lean`) -/
 

@@ -9,9 +9,81 @@ public section
 /-!
 # What `checkDecls` stores of what it reads
 
-(module docstring to be written)
--/
+The letters of the fold are about the environment `checkDecls` RETURNS.
+This module carries the other direction, for every record kind that
+declares a constant: **the record's own name is in that environment,
+with the record's own level parameters, and with the annotation of the
+record's own type** — `checkDecls_consts`.
 
+## The relation
+
+The annotation pass rewrites a declared type in exactly two ways.  It
+inlines every `let` (its `.letE` clause runs the official `infer_let`
+triple and then recurses on `body.instantiate1 value`, so the term it
+returns is the ζ reduct and the stored term is let-free), and it writes
+each binder's prop-ness datum (`BinderMeta.pw`).  Nothing else about a
+node is annotation: a node carries no display data at all — no binder
+name, no `BinderInfo` — so `pw` is the whole of it.  Hence
+
+    AnnotOf declared stored  :=  stored.resetMeta = declared.zeta.resetMeta
+
+with `Expr.zeta` defined here and `Expr.resetMeta` the checker's own
+binder-datum reset.  `annotateCore_annotOf` is the proof that a
+successful annotation run satisfies it; on a term with no `let` and no
+written datum — a bare constant, say — the relation is equality.
+
+## Which records are covered, and which are not
+
+`DeclC.Declares` says which constant a record declares.  Definitions,
+theorems and opaques declare their header; an axiom declares its header
+unless its name is *tolerated* (`toleratedAxiomNames`, exactly
+`sorryAx`), in which case the record is checked for well-formedness and
+then dropped and nothing is stored.  A `basisDecl` names one of the
+checker's pinned basis blocks and declares nothing of its own.
+
+**An `indDecl` block's members are outside the claim, and the reason is
+not laziness.**  Three of the block's constants are stored as something
+other than the annotation of what the record declares:
+
+* the **recursor**'s stored type is the one the checker GENERATES from
+  the block (`ConLeche/Kernel/Inductives/NativeInstall.lean`); the
+  stream's own record is compared against it by `isDefEq` and then
+  discarded, exactly as official's replay does;
+* the **type former**'s stored type, on the native route, is the
+  annotation of the *whnf'd* telescope whenever the declared type is not
+  already a syntactic Π-telescope ending in a sort
+  (`checkSumTele`, `ConLeche/Kernel/Inductives/SumInstall.lean`);
+* a **constructor**'s stored type, on the native route, is the
+  annotation of its type with the field domains *positivity-normalised*
+  (`normCtorVal`, same file), when that changes anything.
+
+All three are definitional equalities, not annotations, so an `AnnotOf`
+claim about them would be false.  (The modeled route does store the
+annotation of the declared type for formers and constructors, and its
+run relation — `Semantics.MemberValRun` — already carries the equation;
+what is missing there is the `find?`-at-the-end plumbing through the
+member, recursor and projection folds.)
+
+## How it is proved
+
+Relating the CACHED annotate to the pure one needs the cached-tier
+simulation, which needs `EnvWF` of the environment the record is
+installed at, which in this tree comes from the model — hence the
+`SetTheory V` parameter, as on the other stream-side statement.  The
+walk therefore has `installRun_model`'s hypotheses and threads the model
+beside the conclusion; `annotStepC_model`
+(`ConLeche/Verify/Cached/InstalledC.lean`) is the per-step lemma both
+walks share, and its extra conjunct — the step IS a pure `checkDecl` run
+— is what lets the per-record reasoning happen entirely at the pure
+checker's own run relation (`Semantics.DeclRun`).
+
+`ConLeche/Verify/Cached/StreamThm.lean` proves the bare-constant special
+case a second and cheaper way, with no model and no `V`: a bare constant
+needs no annotation specification at all, and the step's own `flushC`
+empties the annotation memo, so the cached pass can be read off
+directly.  That is why the main corollary at the stream
+(`no_False_theorem_accepted`) does not go through this module.
+-/
 set_option linter.unusedSimpArgs false
 
 namespace ConLeche

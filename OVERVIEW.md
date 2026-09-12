@@ -144,6 +144,31 @@ extends the list of stored constants. So the record's own `False` is
 still in the environment the fold returns, where the first corollary
 forbids it.
 
+"Installed under its own name, with the annotation of its declared
+type" is a claim in its own right, and it is proved in general:
+[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L767-L772)
+says that whenever `checkDecls` accepts `ds`, every record of `ds` that
+declares a constant — a definition, a theorem, an opaque, or an axiom
+whose name is not the tolerated `sorryAx`
+([`DeclC.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L617-L623))
+— leaves a constant of that very name in the returned environment, with
+the record's own level parameters and with the *annotation* of the
+record's own type: the same term with every `let` inlined and the
+binder data rewritten, and nothing else touched at all
+([`AnnotOf` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L121-L122)).
+A `basisDecl` record declares nothing of its own — it names one of the
+checker's pinned basis blocks, and what is installed is the pins'.
+
+The members of an inductive block are deliberately outside that claim,
+and the module says why. A recursor's stored type is the one the
+checker *generates* from the block; the stream's own recursor record is
+compared against it by definitional equality and then discarded, which
+is what official's replay does too. On the fixpoint route a type
+former's telescope may be stored reduced to weak head normal form, and
+a constructor's field domains positivity-normalised. Those three are
+definitional equalities, not annotations, so the relation above would
+be false of them.
+
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
 installs every declaration of `ds` first — a definition, theorem or
@@ -243,14 +268,14 @@ Read from the outside in:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the install
    run
-   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L311-L318)),
+   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L468-L475)),
    and a record's check at the prefix view is covered by the
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L543-L544)).
    The walk carries the model to the final environment
-   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L460-L462)),
+   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L496-L498)),
    and the fold's letter
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L65-L71))
    is that model read through `checkDecls_fullyChecked`

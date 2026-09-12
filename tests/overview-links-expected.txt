@@ -56,6 +56,27 @@
     79      (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     80      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
+== ConLeche/Verify/Cached/StreamConsts.lean#L767-L772
+   767  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   768      {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+   769      {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+   770      ∃ c, env.find? cv.name = some c ∧
+   771        c.toConstantVal.levelParams = cv.levelParams ∧
+   772        AnnotOf cv.type c.toConstantVal.type := by
+
+== ConLeche/Verify/Cached/StreamConsts.lean#L617-L623
+   617  @[expose] def DeclC.Declares : DeclC → ConstantVal → Prop
+   618    | .defnDecl cv _ _, cv' => cv' = cv
+   619    | .thmDecl cv _, cv' => cv' = cv
+   620    | .opaqueDecl cv _, cv' => cv' = cv
+   621    | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
+   622    | .basisDecl _, _ => False
+   623    | .indDecl _ _, _ => False
+
+== ConLeche/Verify/Cached/StreamConsts.lean#L121-L122
+   121  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
+   122    stored.resetMeta = declared.zeta.resetMeta
+
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
    408      Except (CheckError × Nat) Env := do
@@ -135,24 +156,24 @@
    498  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
    499      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L311-L318
-   311  value — is what the theorem's model step consumes. -/
-   312  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-   313      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   314      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   315      (hrun : InstallRun μ ds p s q s') :
-   316      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   317      NodupNames q.2.1.env →
-   318      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+== ConLeche/Verify/Cached/InstalledC.lean#L468-L475
+   468  value — is what the theorem's model step consumes. -/
+   469  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+   470      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   471      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   472      (hrun : InstallRun μ ds p s q s') :
+   473      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   474      NodupNames q.2.1.env →
+   475      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
    543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
    544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L460-L462
-   460  well-formedness it needs; the conclusion is the model itself. -/
-   461  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   462      {ds : List DeclC} (fc : FullyChecked μ ds) :
+== ConLeche/Verify/Cached/InstalledC.lean#L496-L498
+   496  well-formedness it needs; the conclusion is the model itself. -/
+   497  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   498      {ds : List DeclC} (fc : FullyChecked μ ds) :
 
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]

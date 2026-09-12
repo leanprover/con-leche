@@ -2,6 +2,7 @@ module
 
 public import ConLeche
 public import ConLeche.Frontend.ExportC
+public import ConLeche.Verify.Cached.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
@@ -12,6 +13,7 @@ the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
 meta import ConLeche.Cached.Installed
+meta import ConLeche.Verify.Cached.StreamConsts
 
 public section
 
@@ -539,5 +541,39 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 -- exactly one check, so the gated arm is not absorbed by the kept one.
 #guard (inferTypeCore .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
+
+/-! ## The ζ reduct, and the relation between a declared and a stored
+type (`ConLeche/Verify/Cached/StreamConsts.lean`)
+
+`AnnotOf declared stored` is `stored.resetMeta = declared.zeta.resetMeta`:
+the annotation pass inlines every `let` and rewrites every binder's
+prop-ness datum, and does nothing else.  The guards below pin the two
+halves of `Expr.zeta` a reader is most likely to get wrong. -/
+
+-- (a) A `let` is its body with the value substituted.
+#guard Expr.zeta (.letE (.sort .zero) (.const `v []) (.bvar 0))
+  == (.const `v [] : Expr)
+
+-- (b) Under a binder, a `let` whose value mentions that binder keeps
+-- mentioning it: the substitution is the capture-avoiding one.  The
+-- body `bvar 0` is the let variable and `bvar 1` the λ's; both end up
+-- at the λ's.
+#guard Expr.zeta
+    (.lam (.sort .zero)
+      (.letE (.sort .zero) (.bvar 0) (.app (.bvar 0) (.bvar 1))) ⟨.never⟩)
+  == (.lam (.sort .zero) (.app (.bvar 0) (.bvar 0)) ⟨.never⟩ : Expr)
+
+-- (c) And the value is LIFTED as it crosses a binder of the body: the
+-- inner λ must not capture the outer λ's variable.
+#guard Expr.zeta
+    (.lam (.sort .zero)
+      (.letE (.sort .zero) (.bvar 0)
+        (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)))) ⟨.never⟩)
+  == (.lam (.sort .zero)
+       (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0))) ⟨.never⟩ : Expr)
+
+-- (d) So `let x := v; x` is declared where `v` is stored.
+example : ConLeche.AnnotOf
+    (.letE (.sort .zero) (.const `v []) (.bvar 0)) (.const `v []) := rfl
 
 end ConLecheTests
