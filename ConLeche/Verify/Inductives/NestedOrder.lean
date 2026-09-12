@@ -162,4 +162,62 @@ theorem ref_mem_take (h : TopoOrder R n order) {i j j' : Nat}
 
 end TopoOrder
 
+/-! ## The fold over the order
+
+`ψ` is one term per copy, each built from the terms of the copies it
+refers to.  Along a topological order that is a LEFT FOLD over the
+list with a table of the terms built so far — no well-founded
+recursion, no measure: `TopoOrder.ref_mem_take` says every reference
+of the copy at position `i` is among the first `i` entries, which are
+already in the table. -/
+
+/-- The table after the order's entries, in order: entry `j` is
+`step tbl j` at the table `tbl` the earlier entries left. -/
+def orderFold {α : Type} (step : (Nat → α) → Nat → α) : List Nat → (Nat → α) → (Nat → α)
+  | [], tbl => tbl
+  | j :: rest, tbl => orderFold step rest (fun j' => if j' = j then step tbl j else tbl j')
+
+/-- **The fold's invariant**: a per-entry property `P` that each step
+establishes for its copy FROM the property at the copies it refers
+to holds of every entry of the folded table.  Stated over a split
+`pre ++ rest` of the order (the entries already folded and those to
+come) for the induction; the caller takes `pre = []`. -/
+theorem orderFold_spec {α : Type} {R : Nat → Nat → Prop} {n : Nat}
+    (step : (Nat → α) → Nat → α) (P : Nat → α → Prop)
+    (hstep : ∀ (tbl : Nat → α) (j : Nat), (∀ j', R j j' → P j' (tbl j')) → P j (step tbl j)) :
+    ∀ {pre rest : List Nat} (tbl : Nat → α), TopoOrder R n (pre ++ rest) →
+      (∀ j ∈ pre, P j (tbl j)) → ∀ j ∈ pre ++ rest, P j (orderFold step rest tbl j) := by
+  intro pre rest
+  induction rest generalizing pre with
+  | nil =>
+    intro tbl _ hpre j hj
+    rw [List.append_nil] at hj
+    exact hpre j hj
+  | cons j₀ rest ih =>
+    intro tbl h hpre
+    have hsplit : pre ++ j₀ :: rest = (pre ++ [j₀]) ++ rest := by simp
+    rw [hsplit] at h ⊢
+    have hj₀ : (pre ++ [j₀] ++ rest)[pre.length]? = some j₀ := by
+      rw [List.getElem?_append_left (by simp), List.getElem?_append_right (Nat.le_refl _)]
+      simp
+    have hnotin : j₀ ∉ pre := by
+      intro hmem
+      have hnd := h.nodup
+      rw [List.append_assoc, List.nodup_append] at hnd
+      exact hnd.2.2 j₀ hmem j₀ (List.mem_append_left rest (List.mem_singleton.mpr rfl)) rfl
+    show ∀ j ∈ pre ++ [j₀] ++ rest, P j (orderFold step rest (fun j' => if j' = j₀ then step tbl j₀ else tbl j') j)
+    refine ih (pre := pre ++ [j₀]) _ h ?_
+    intro j hj
+    rw [List.mem_append, List.mem_singleton] at hj
+    rcases hj with hj | rfl
+    · have hne : j ≠ j₀ := fun heq => hnotin (heq ▸ hj)
+      simp only [hne, if_false]
+      exact hpre j hj
+    · simp only [if_true]
+      refine hstep tbl j fun j' hR => ?_
+      have hmem := h.ref_mem_take hj₀ hR
+      rw [List.take_append_of_le_length (by simp), List.take_left' rfl] at hmem
+      exact hpre j' hmem
+
+
 end ConLeche
