@@ -74,26 +74,32 @@ universe w
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List Declaration) (env : Env)
+    (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
+open Frontend in
 /-- **The main corollary.**  Chunks that declare a theorem of type
 `False` are never accepted: the parse reads the template's four lines
 into a theorem record of type `False`, the preparation keeps the
 record, and a stream holding it is never accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
     (h : hasProofOfFalse chunks) :
-    ∀ env, (do
-      let pre ← Frontend.builtinPreludeE.toOption
-      let r ← (Frontend.parseChunks chunks).toOption
-      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env := by
-  intro env hacc
-  simp only [bind, Option.bind_eq_some_iff, Except.toOption_eq_some_iff] at hacc
-  obtain ⟨pre, -, r, hparse, hcheck⟩ := hacc
-  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
-  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+    (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds) matches .error _ := by
+  split
+  · rfl
+  · next hne =>
+    obtain ⟨env, hacc⟩ := Except.exists_ok hne
+    obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+    obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+    obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+    exact (no_False_theorem_accepted V _ cv vl
+      (Frontend.mem_preparePrelude hmem) hty env hcheck).elim
 
 end ConLeche

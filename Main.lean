@@ -54,7 +54,7 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
 straight from the file.  Since task #207 there is nothing else —
 no preprocessor detection, no spawn, no pipe. -/
 def parseInput (file : String) (inModel : Bool) :
-    IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
+    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
   Frontend.parseExportStreamD file inModel census
 
@@ -99,34 +99,39 @@ into single records and generates the in-process models, so the two
 drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
-    (ds : List ConLeche.Declaration)
+    (ds : Array ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
-    (rest : List ConLeche.Declaration) →
+    (i : Nat) →
     (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
     (s : ConLeche.Cached.CState) →
-    (∃ done, done ++ rest = ds ∧ ConLeche.Cached.InstallRun mode done p₀ s₀ p s) →
+    ConLeche.Cached.InstallRun mode (ds.toList.take i) p₀ s₀ p s →
       IO (Except (ConLeche.CheckError × Nat)
         (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck)
-          (s' : ConLeche.Cached.CState), PLift (ConLeche.Cached.InstallRun mode ds p₀ s₀ p' s')))
-  | [], p, s, hrun =>
-    return .ok ⟨p, s, ⟨by
-      obtain ⟨done, hds, hr⟩ := hrun
-      rw [List.append_nil] at hds
-      exact hds ▸ hr⟩⟩
-  | pd :: rest, p, s, hrun => do
-    if stride > 0 && p.1 % stride == 0 then
-      let now ← IO.monoMsNow
-      err.putStr s!"con-leche: install {p.1}/{total} \
-        {ConLeche.Cached.declCLabel pd} \
-        t={ConLeche.Cached.msSecs (now - t0)}s\n"
-      err.flush
-    match h : ConLeche.Cached.annotDeclStep mode p pd s with
-    | .ok (p₁, s₁) =>
-      installLoop mode err stride total t0 ds p₀ s₀ rest p₁ s₁ (by
-        obtain ⟨done, hds, hr⟩ := hrun
-        exact ⟨done ++ [pd], by rw [List.append_assoc]; exact hds,
-          ConLeche.Cached.InstallRun.snoc mode hr h⟩)
-    | .error e => return .error e
+          (s' : ConLeche.Cached.CState),
+          PLift (ConLeche.Cached.InstallRun mode ds.toList p₀ s₀ p' s')))
+  | i, p, s, hrun => do
+    if hi : i < ds.size then
+      let pd := ds[i]
+      if stride > 0 && p.1 % stride == 0 then
+        let now ← IO.monoMsNow
+        err.putStr s!"con-leche: install {p.1}/{total} \
+          {ConLeche.Cached.declCLabel pd} \
+          t={ConLeche.Cached.msSecs (now - t0)}s\n"
+        err.flush
+      match h : ConLeche.Cached.annotDeclStep mode p pd s with
+      | .ok (p₁, s₁) =>
+        installLoop mode err stride total t0 ds p₀ s₀ (i + 1) p₁ s₁ (by
+          have hlist : ds.toList.take (i + 1) = ds.toList.take i ++ [pd] := by
+            rw [List.take_add_one]
+            simp [pd, Array.getElem?_eq_getElem hi]
+          rw [hlist]
+          exact ConLeche.Cached.InstallRun.snoc mode hrun h)
+      | .error e => return .error e
+    else
+      return .ok ⟨p, s, ⟨by
+        rw [List.take_of_length_le (by simp; omega)] at hrun
+        exact hrun⟩⟩
+  termination_by i => ds.size - i
 
 /-- The check phase's heartbeat: on the `stride`-th completed check
 (`n` completed so far, record `k` the one just completed), one line
@@ -314,7 +319,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : List ConLeche.Declaration) :
+    (noMark : Bool) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -323,8 +328,8 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       err.flush
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   match ← installLoop mode err stride total t0 ds
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ds
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} (.nil _ _) with
   | .error e =>
     let now ← IO.monoMsNow
     heartbeat s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
@@ -333,7 +338,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       check not reached t={secs (now - t0)}s"
     return .error e
   | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
-    let e : ConLeche.Cached.InstalledEnv mode ds := ⟨fe, pend, ⟨n, s, r⟩⟩
+    let e : ConLeche.Cached.InstalledEnv mode ds.toList := ⟨fe, pend, ⟨n, s, r⟩⟩
     let tCheck ← IO.monoMsNow
     heartbeat s!"install done: {total}/{total} declarations installed, \
       {pend.size} checks pending t={secs (tCheck - t0)}s \
@@ -415,7 +420,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       heartbeat s!"check done: {pend.size}/{pend.size} t={secs (now - t0)}s \
         (check {secs (now - tCheck)}s)"
       heartbeat summary
-      let fc : ConLeche.Cached.FullyChecked mode ds := ⟨e, hall⟩
+      let fc : ConLeche.Cached.FullyChecked mode ds.toList := ⟨e, hall⟩
       return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
@@ -519,16 +524,16 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- corrupted build, reported before any input is read.
     let prelude ← match Frontend.builtinPreludeE with
       | .ok p => pure p
-      | .error (.parseError line msg) =>
+      | .error (.internal msg, line) =>
         IO.eprintln s!"con-leche: the built-in prelude does not parse (line \
           {line}: {msg}); regenerate it with `lake exe natop-pins-export` \
           ({modeTag})"
         return 3
-      | .error (.unsupported what) =>
+      | .error (.notImplemented what, _) =>
         IO.eprintln s!"con-leche: the built-in prelude is unsupported ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
-      | .error (.invalid what) =>
+      | .error (.invalid what, _) =>
         IO.eprintln s!"con-leche: the built-in prelude contradicts itself ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
@@ -544,17 +549,17 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- generator's debug gate).
     let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
     match ← parseInput file inModel with
-    | .error (.unsupported what) =>
+    | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
     -- TASK #271 (issues #5 and #7): a stream whose inductive block
     -- contradicts its own declarations in a REDUNDANT field is
     -- rejected at the parse, as official's replay rejects a recursor
     -- or constructor record that is not the generated one.
-    | .error (.invalid what) =>
+    | .error (.invalid what, _) =>
       IO.eprintln s!"con-leche: invalid: {what} ({modeTag})"
       return 1
-    | .error (.parseError line msg) =>
+    | .error (.internal msg, line) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
     | .ok ⟨parsed, projRewrites, inModelled, genRecords, genOwner,
@@ -584,14 +589,14 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           Frontend.dumpInModel file out inModelGen
           IO.eprintln s!"con-leche: in-process models dumped to {out}"
       -- **PREPARE** (task #293, `ConLeche/Frontend/Prepare.lean`): the
-      -- parsed list is the FILE's records (plus the in-process
+      -- parsed array is the FILE's records (plus the in-process
       -- modeller's); what the fold runs over is `preparePrelude` of it —
       -- the built-in prelude's records, then the stream's, recognised,
       -- deduped against the prelude and ground-hoisted.  Fold positions
       -- count from the prelude's first record; the VERDICT's count is
       -- the file's own (`parsed.size - genRecords`), which no step
       -- below changes.
-      let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed.toList
+      let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed
       -- the projection-function rewrite's receipt (2026-09-06,
       -- `ConLeche/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
@@ -654,8 +659,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark
-        decls.toList
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark decls
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record

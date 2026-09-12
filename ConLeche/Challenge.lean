@@ -106,19 +106,21 @@ universe w
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List Declaration) (env : Env)
+    (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) :=
   sorry
 
+open Frontend in
 /-- **The main corollary.**  Chunks that declare a theorem of type
 `False` are never accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
     (h : hasProofOfFalse chunks) :
-    ∀ env, (do
-      let pre ← Frontend.builtinPreludeE.toOption
-      let r ← (Frontend.parseChunks chunks).toOption
-      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env :=
+    (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds) matches .error _ :=
   sorry
 
 end ConLeche

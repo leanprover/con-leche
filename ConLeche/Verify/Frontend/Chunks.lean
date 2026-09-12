@@ -73,7 +73,7 @@ theorem feedChunk_prefix (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat
         rw [hpx, List.append_assoc, List.cons_append, parseLines.eq_def, h₀ (x ++ m)]
         simp only [posAt]
         have := hr'.length_le
-        congr 3
+        congr 4
         simp only [List.length_append, List.length_cons, ScanErr.mk.injEq, and_true]
         omega
     · rw [hs] at he; simp at he

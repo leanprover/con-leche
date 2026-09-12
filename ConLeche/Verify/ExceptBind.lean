@@ -23,9 +23,14 @@ theorem exceptBind_ok {ε α β : Type} {x : Except ε α} {f : α → Except ε
   | error e => exact absurd h (by simp [bind, Except.bind])
   | ok a => exact ⟨a, rfl, h⟩
 
-/-- `Except.toOption` is `some` exactly at `ok`. -/
-theorem Except.toOption_eq_some_iff {ε α : Type} {x : Except ε α} {a : α} :
-    x.toOption = some a ↔ x = .ok a := by
-  cases x <;> simp [Except.toOption]
+/-- An `Except` that is no error is an `ok`.  The main corollary's
+`… matches .error _` splits into the two cases, and this is what the
+second one hands the argument: the environment the chain would have
+returned. -/
+theorem Except.exists_ok {ε α : Type} {x : Except ε α} (h : ∀ e, x ≠ .error e) :
+    ∃ a, x = .ok a := by
+  cases x with
+  | error e => exact absurd rfl (h e)
+  | ok a => exact ⟨a, rfl⟩
 
 end ConLeche

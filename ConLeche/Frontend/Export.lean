@@ -1,5 +1,7 @@
 module
 
+public import ConLeche.Kernel.Core
+
 @[expose] public section
 
 /-!
@@ -19,7 +21,8 @@ index cannot retroactively change anything built earlier.
 **This file is the representation-free half** — the pieces the parse
 proper is written against and would otherwise duplicate:
 
-* `FrontendError` and the error monad `M`.
+* the error monad `M`, and the record verdicts that become the
+  checker's own `CheckError`.
 
 The level-parameter canonicalization the pinned blocks are matched up
 to (`canonLevel`/`canonExpr`/`ConstantInfo.canon` and the lockstep
@@ -40,24 +43,30 @@ interned arena (`State`, `parseExport`, `parseExportStream`,
 producing `DeclP` over a `WFStore`); that went with the interned
 representation.
 
+**The frontend reports the CHECKER's error type** (task #295).  There
+is one error type for the whole accept path — the prelude, the parse
+and the fold all fail in `Except (CheckError × Nat)` — so that the
+three steps chain in one `do` block, which is what the main corollary
+states (`ConLeche/MainTheorem.lean`).  The `Nat` is the failure's
+POSITION, read in the step's own unit: the parse's is the input LINE
+number (0 where no line is meant — the size guard, which refuses the
+input before reading it), the fold's is the record's position in the
+list it folds (`ConLeche.Cached.checkDecls`).  The three verdict
+classes were already the same three under two names, and the driver's
+exit code is `CheckError.exitCode` for both halves.
+
 Declaration kinds the checker cannot represent yet map to
-`FrontendError.unsupported`, which the driver turns into the arena's
+`CheckError.notImplemented`, which the driver turns into the arena's
 "declined" exit code — as opposed to malformed input, which is a hard
-error.  A record that CONTRADICTS ITSELF — an inductive block whose
-redundant fields disagree with the block's own declarations (task
-#271, issues #5 and #7) — maps to `FrontendError.invalid`, the
-arena's "rejected" exit code: the stream is well formed and says
-something false about a declaration official's replay regenerates and
-compares.
+error (`CheckError.internal`).  A record that CONTRADICTS ITSELF — an
+inductive block whose redundant fields disagree with the block's own
+declarations (task #271, issues #5 and #7) — maps to
+`CheckError.invalid`, the arena's "rejected" exit code: the stream is
+well formed and says something false about a declaration official's
+replay regenerates and compares.
 -/
 
 namespace ConLeche.Frontend
-
-inductive FrontendError where
-  | parseError (line : Nat) (msg : String)
-  | unsupported (what : String)
-  /-- The stream contradicts itself: exit 1 (task #271). -/
-  | invalid (what : String)
 
 /-- What a declaration record can carry out of the parse when it does
 not produce a state: a positive DECLINE (a feature the checker does
@@ -69,9 +78,10 @@ inductive RecordVerdict where
   | declined (what : String)
   | invalid (what : String)
 
-/-- The frontend error a record verdict becomes. -/
-def RecordVerdict.toError : RecordVerdict → FrontendError
-  | .declined what => .unsupported what
+/-- The checker error a record verdict becomes; the caller pairs it
+with the line the record was read at. -/
+def RecordVerdict.toError : RecordVerdict → CheckError
+  | .declined what => .notImplemented what
   | .invalid what => .invalid what
 
 /-! ### The tree-size budget, retired at task #215

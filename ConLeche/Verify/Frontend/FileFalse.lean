@@ -121,11 +121,11 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
   exact ⟨cv, vl, hty, K₇.decls _ hmem⟩
 
 /-- **The line-level lemma.**  Chunks that match the template and
-parse, parse to a list holding a theorem record of type `False`. -/
+parse, parse to records holding a theorem record of type `False`. -/
 theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
     {inModel census : Bool} {r : ParseResultD}
     (hp : parseChunks chunks inModel census = .ok r) :
-    ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ r.decls.toList := by
+    ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ r.decls := by
   have hsz := parseChunks_ok_size hp
   rw [parseChunks_eq_parseLines inModel census chunks hsz] at hp
   obtain ⟨before, b₁, b₂, b₃, after, i, j, k, v, name, heq⟩ := h
@@ -152,6 +152,6 @@ theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFal
     have h0 : (StateD.init inModel census).names.get? 0 = some .anonymous := by
       rw [init_names, IdTable.get?_singleton]; rfl
     obtain ⟨cv, vl, hty, hmem⟩ := parseLines_template _ _ _ _ _ i j k v name hpl h0
-    exact ⟨cv, vl, hty, Array.mem_def.mp hmem⟩
+    exact ⟨cv, vl, hty, hmem⟩
 
 end ConLeche.Frontend

@@ -38,29 +38,29 @@ one without a newline.  Error messages are those of `feedChunk` and
 byte offset into the line.  Exposed: `ConLeche/Verify/Frontend/Chunks.lean`
 unfolds it. -/
 @[expose] def parseLines (st : StateD) (l : List UInt8) (lineNo : Nat) :
-    Except FrontendError StateD :=
+    Except (CheckError × Nat) StateD :=
   match naiveLine l with
   | .err e rest =>
-    .error (.parseError (lineNo + 1) (ScanErr.render ⟨l.length - rest.length, e⟩))
+    .error (.internal (ScanErr.render ⟨l.length - rest.length, e⟩), lineNo + 1)
   | .ok (r, none) _ =>
     match applyLine st r with
-    | .error msg => .error (.parseError (lineNo + 1) msg)
-    | .ok (.inr v) => .error v.toError
+    | .error msg => .error (.internal msg, lineNo + 1)
+    | .ok (.inr v) => .error (v.toError, lineNo + 1)
     | .ok (.inl st) => .ok st
   | .ok (r, some rest) _ =>
     match applyLine st r with
-    | .error msg => .error (.parseError (lineNo + 1) msg)
-    | .ok (.inr v) => .error v.toError
+    | .error msg => .error (.internal msg, lineNo + 1)
+    | .ok (.inr v) => .error (v.toError, lineNo + 1)
     | .ok (.inl st) =>
       if _h : rest.length < l.length then parseLines st rest (lineNo + 1)
-      else .error (.parseError (lineNo + 1) "the line scanner made no progress")
+      else .error (.internal "the line scanner made no progress", lineNo + 1)
 termination_by l.length
 
 /-! ## `feedChunk` and `applyFinalLine` compute `parseLines` -/
 
 /-- What `parseBytes` does with a `feedChunk` result. -/
-def finishChunk (b : ByteArray) : Except FrontendError (StateD × Nat × USize) →
-    Except FrontendError StateD
+def finishChunk (b : ByteArray) : Except (CheckError × Nat) (StateD × Nat × USize) →
+    Except (CheckError × Nat) StateD
   | .error e => .error e
   | .ok (st, lineNo, tail) =>
     if tail < b.usize then applyFinalLine st b tail (lineNo + 1) else .ok st
@@ -257,8 +257,8 @@ theorem parseLines_line {st : StateD} {l x : List UInt8} {r : LineRec} {n : Nat}
     (hl : naiveLine (l ++ 10 :: x) = .ok (r, some x) x) :
     parseLines st (l ++ 10 :: x) n =
       match applyLine st r with
-      | .error msg => .error (.parseError (n + 1) msg)
-      | .ok (.inr v) => .error v.toError
+      | .error msg => .error (.internal msg, n + 1)
+      | .ok (.inr v) => .error (v.toError, n + 1)
       | .ok (.inl st) => parseLines st x (n + 1) := by
   rw [parseLines, hl]
   simp only []

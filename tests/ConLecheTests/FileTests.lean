@@ -97,7 +97,7 @@ private def bogusFalse (r : ParseResultD) : Bool :=
 -- … which the fold then rejects (`Prop` is not a proof of `False`)
 #guard
   match parseChunks [falseFile.toUTF8] with
-  | .ok r => match checkDecls .verified (preparePrelude preludeIx r.decls.toList) with
+  | .ok r => match checkDecls .verified (preparePrelude preludeIx r.decls) with
     | .ok _ => false
     | .error _ => true
   | .error _ => false
@@ -109,7 +109,7 @@ private def bogusFalse (r : ParseResultD) : Bool :=
   match parseChunks [("{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
       "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"b\"}}\n").toUTF8] with
   | .ok _ => false
-  | .error (.parseError 2 _) => true
+  | .error (.internal _, 2) => true
   | .error _ => false
 
 end ConLecheTests

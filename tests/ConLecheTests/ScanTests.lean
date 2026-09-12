@@ -126,7 +126,7 @@ the next piece.  At `sz = 3` every line of the fixture is cut several
 times. -/
 
 private partial def chunked (st : StateD) (b : ByteArray) (sz pos : Nat)
-    (carry : ByteArray) (lineNo : Nat) : Except FrontendError StateD :=
+    (carry : ByteArray) (lineNo : Nat) : Except (CheckError × Nat) StateD :=
   if b.size ≤ pos then
     if carry.isEmpty then .ok st else applyFinalLine st carry 0 (lineNo + 1)
   else

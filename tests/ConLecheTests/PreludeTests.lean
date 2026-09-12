@@ -67,7 +67,7 @@ environment: 27 constants (19 basis + `And`, `And.intro`, `And.rec` and
 as the PINS — `checkDecl` recognises them (`basisPinHit`,
 `quotPinHit`), which is the whole of task #293's move. -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
-  match checkDecls mode preludeIx.decls.toList with
+  match checkDecls mode preludeIx.decls with
   | .ok env => some env.consts.length
   | .error _ => none
 
@@ -76,19 +76,19 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
 
 -- `preparePrelude` on a stream that declares NOTHING synthesises the
 -- whole prelude, in the prelude's order, and nothing else
-#guard preparePrelude preludeIx [] == preludeIx.decls.toList
+#guard preparePrelude preludeIx #[] == preludeIx.decls
 
 -- …and on the prelude's own records it synthesises nothing: every
 -- declaration is found in the stream and MOVED, so the result is the
 -- input (already in prelude order)
-#guard preparePrelude preludeIx preludeIx.decls.toList == preludeIx.decls.toList
+#guard preparePrelude preludeIx preludeIx.decls == preludeIx.decls
 
 -- a stream record that is not the prelude's passes through, after the
 -- prelude's declarations
 def probeRec : Declaration :=
   .axiomDecl ⟨.str .anonymous "ConLecheTests.probe", [], .sort .zero⟩
 
-#guard (preparePrelude preludeIx [probeRec]).length == 13
-#guard (preparePrelude preludeIx [probeRec]).getLast? == some probeRec
+#guard (preparePrelude preludeIx #[probeRec]).size == 13
+#guard (preparePrelude preludeIx #[probeRec]).back? == some probeRec
 
 end ConLecheTests

@@ -64,7 +64,7 @@ def builtinPreludeText : String :=
 /-- The parsed, indexed prelude: `Except` because a committed file can
 in principle be corrupted, and a prelude that does not parse must be a
 loud error rather than a silently empty prelude. -/
-def builtinPreludeE : Except FrontendError PreludeIx :=
+def builtinPreludeE : Except (CheckError × Nat) PreludeIx :=
   (fun r => ⟨r.decls⟩) <$> parseExportD builtinPreludeText
 
 end ConLeche.Frontend
