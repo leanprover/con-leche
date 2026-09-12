@@ -495,3 +495,4 @@ ConLeche/Verify/Cached/MainC.lean	public import ConLeche.Verify.Cached.Installed
 ConLeche/MainTheorem.lean	public import ConLeche.Verify.Cached.MainC	# compensated: +import ConLeche.Verify.Cached.MainC, +public import ConLeche.Cached.Installed, +public import ConLeche.SetTheory.Core in ConLeche/MainTheorem.lean (task #257)
 ConLeche/Verify/Inductives/StructBody.lean	import ConLeche.Verify.Cached.Erase	# compensated: the --only run relocates StructResid/ProjTele and adds InstSpine, EnvWF, Subst, StructParts, ProjSlots
 ConLeche/Verify/Cached/InstalledC.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for the same edge back as a plain `import` plus Cached.Installed, SimC and EnvBound
+ConLeche/Verify/Cached/StreamConsts.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for `public import ConLeche.Verify.Cached.SimC` and `public import ConLeche.Verify.EnvBound` in exchange
