@@ -102,6 +102,150 @@ def Expr.mentionsNestedAux : Expr → Bool
     Expr.mentionsNestedAux ty || Expr.mentionsNestedAux v || Expr.mentionsNestedAux b
   | .proj s _ e => Name.hasPrefixOf nestedPrefixName s || Expr.mentionsNestedAux e
 
+/-! ### `mentionsNestedAux`, memoized (the task #215 discipline)
+
+The guard runs over every declared type of the block, and a stream may
+put a DAG-shared tower in one (`tests/e2e/tower_nested.ndjson`), on
+which a tree walk does not finish.  The memoized walk is swapped in by
+`@[csimp]`, as `mentionsConst` above: kernel-checked, no trust point,
+the pure definition stays what every proof consumes. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def NestedAuxMemoInv (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.mentionsNestedAux
+
+theorem NestedAuxMemoInv.empty : NestedAuxMemoInv {} := by
+  intro k r h; simp at h
+
+theorem NestedAuxMemoInv.insert {memo : Std.HashMap Expr Bool}
+    (hm : NestedAuxMemoInv memo) {e : Expr} {r : Bool} (heq : r = e.mentionsNestedAux) :
+    NestedAuxMemoInv (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `mentionsNestedAux`. -/
+def Expr.mentionsNestedAuxGo (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (false, memo)
+  | .sort _ => (false, memo)
+  | .lit _ => (false, memo)
+  | .const n _ => (Name.hasPrefixOf nestedPrefixName n, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => mentionsNestedAuxGo memo ty
+        | .app f a =>
+          let (b₁, memo) := mentionsNestedAuxGo memo f
+          let (b₂, memo) := mentionsNestedAuxGo memo a
+          (b₁ || b₂, memo)
+        | .lam ty body _ =>
+          let (b₁, memo) := mentionsNestedAuxGo memo ty
+          let (b₂, memo) := mentionsNestedAuxGo memo body
+          (b₁ || b₂, memo)
+        | .forallE ty body _ =>
+          let (b₁, memo) := mentionsNestedAuxGo memo ty
+          let (b₂, memo) := mentionsNestedAuxGo memo body
+          (b₁ || b₂, memo)
+        | .letE ty val body =>
+          let (b₁, memo) := mentionsNestedAuxGo memo ty
+          let (b₂, memo) := mentionsNestedAuxGo memo val
+          let (b₃, memo) := mentionsNestedAuxGo memo body
+          (b₁ || b₂ || b₃, memo)
+        | .proj s _ sub =>
+          let (b, memo) := mentionsNestedAuxGo memo sub
+          (Name.hasPrefixOf nestedPrefixName s || b, memo)
+        | e => (e.mentionsNestedAux, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `mentionsNestedAux`.** -/
+theorem Expr.mentionsNestedAuxGo_spec :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), NestedAuxMemoInv memo →
+      (mentionsNestedAuxGo memo e).1 = e.mentionsNestedAux ∧
+        NestedAuxMemoInv (mentionsNestedAuxGo memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsNestedAux, h1], ?_⟩
+      exact h2.insert (by simp [mentionsNestedAux, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsNestedAux, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsNestedAux, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsNestedAux, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsNestedAux, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsNestedAux, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsNestedAux, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [mentionsNestedAux, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [mentionsNestedAux, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [mentionsNestedAuxGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsNestedAux, h1], ?_⟩
+      exact h2.insert (by simp [mentionsNestedAux, h1])
+
+/-- The executed `mentionsNestedAux` (one memoized DAG walk). -/
+def Expr.mentionsNestedAuxFast (e : Expr) : Bool :=
+  (mentionsNestedAuxGo {} e).1
+
+@[csimp] theorem Expr.mentionsNestedAux_eq_mentionsNestedAuxFast :
+    @Expr.mentionsNestedAux = @Expr.mentionsNestedAuxFast := by
+  funext e
+  exact (mentionsNestedAuxGo_spec e {} NestedAuxMemoInv.empty).1.symm
+
 /-! ## The container's block, read off its stored recursor -/
 
 /-- One constructor of a container: its name, its stored type and its
@@ -236,6 +380,13 @@ def uniformOccNode (indNames : List Name) (lvls : List Level) (nP offset : Nat)
 def uniformIndOccsE (indNames : List Name) (lvls : List Level) (nP : Nat) :
     Nat → Expr → Bool
   | offset, e =>
+    -- **The prune** (the task #215 discipline, and a THEOREM about this
+    -- walk rather than a memo): a subterm mentioning no datatype being
+    -- declared has no occurrence to check, so every node under it
+    -- answers `true`.  `mentionsConst` is the memoized walk, so a
+    -- DAG-shared field (`tests/e2e/tower_nested.ndjson`) is dismissed in
+    -- one pass instead of being descended as a tree.
+    if !indNames.any (fun T => e.mentionsConst T) then true else
     match uniformOccNode indNames lvls nP offset e with
     | none => false
     | some true => true

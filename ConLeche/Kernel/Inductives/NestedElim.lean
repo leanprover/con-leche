@@ -194,6 +194,15 @@ declines. -/
 def replaceAllNested (env : Env) (blvls : List Level) (params : List Expr)
     (pbs : List (Expr × BinderMeta)) (st : ElimState) (e : Expr) :
     Except CheckError (Expr × ElimState) :=
+  -- **The prune** (the task #215 discipline, as a THEOREM about this
+  -- walk rather than a memo): `replaceIfNested` fires only where a
+  -- container's PARAMETER argument mentions a type of the growing list,
+  -- so a subterm mentioning none of those names is returned unchanged
+  -- and the state is untouched.  `mentionsConst` is the memoized walk,
+  -- so a DAG-shared field domain (`tests/e2e/tower_nested.ndjson`: a
+  -- depth-60 doubling tower in a constructor's `Eq` field) is dismissed
+  -- in one pass instead of being descended as a tree.
+  if !st.newNames.any (fun T => e.mentionsConst T) then .ok (e, st) else
   match replaceIfNested env blvls params pbs st e with
   | .error err => .error err
   | .ok (some r) => .ok r
