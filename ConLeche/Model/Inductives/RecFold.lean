@@ -574,4 +574,86 @@ theorem interp_ruleCore {m : EnvModel V env} {ψ : Name → Nat} (d : IndRepData
   exact interp_mutualRuleCoreAV (ℓ := d.bb ψ) Iff.rfl hlenP hlenK hk hlenM hlenF hjn
     (fun i _ => m.cval_closedL _ ψ)
 
+/-! ## The fold at a constructor, composed -/
+
+/-- **The fold at a real constructor is the minor at the fields and the
+inductive hypotheses** (`recFold_iota` + `interp_ruleAV_app_pos` +
+`interp_ruleCore`, at a positive elimination bit): the recursor's leaf
+at the parameters `ps`, motives `Ms`, minors `Ns`, the constructor's
+index readings and the constructor at `ps ++ fs` is minor `j` applied
+to the fields' values and, per recursive field `i`, the λ-tower over
+the field's telescope of the TARGET member's recursor leaf at the SAME
+`ps ++ Ms ++ Ns`, the field's index readings and the field along the
+telescope. -/
+theorem recFold_iota_core {μ : CheckMode} (mp : EnvModelM V μ env) {d : IndRepData V}
+    {lps lpsT : List Name} {t : Nat} (hR : RecReadAt mp.base2 d lps t) {j : Nat}
+    {cA : ConstantVal × Nat} (hj : d.ctorsAll[j]? = some cA) (hmem : d.mems j = t)
+    (hreal : j < d.ctorsA.length)
+    (hC : FixCtorFactsAt mp.base2 d.env₀ (d.memberName (d.mems j)) lpsT d.nP (d.nIdxAt (d.mems j))
+      d.resSort d.isProp d.large d.idxF d.dsF d.esF d.srcsF d.ksF d.fvsPF d.xFvsF d.xrestF d.eissF
+      d.tssF j cA (fun i => d.memberName (d.tgts j i)) (fun i => d.nIdxAt (d.tgts j i)))
+    (ψ : Name → Nat) (hb : d.bb ψ ≠ 0) (hk : 0 < d.k) (hks : (d.ksR j).length = cA.2)
+    {ρ : Nat → V} {ps Ms Ns fs : List AnnotTerm}
+    (hlenP : ps.length = d.nP) (hlenK : Ms.length = d.k) (hlenM : Ns.length = d.nAll)
+    (hfitPre : SpineFit ρ ((d.recPrefixAV mp.base2 ψ).map (·.2.2))
+      ((ps ++ Ms ++ Ns).map (interp V ρ)))
+    (hfitR : SpineFit ρ ((d.recDataAV mp.base2 ψ t).map (·.2.2))
+      ((ps ++ Ms ++ Ns ++ d.ctorIdxAt ψ j (ps ++ fs) ++
+        [AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (ps ++ fs)]).map (interp V ρ)))
+    (hfitC : SpineFit ρ ((d.dsF j ψ).map (·.2.2)) ((ps ++ fs).map (interp V ρ))) :
+    interp V ρ (AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ)
+        (ps ++ Ms ++ Ns ++ d.ctorIdxAt ψ j (ps ++ fs) ++
+          [AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (ps ++ fs)]))
+      = (fs.map (interp V ρ) ++ (ConLeche.recIdxOf (d.ksR j)).map fun i =>
+          lamTower (d.bb ψ) (consList ((fs.map (interp V ρ)).take i) (consList (ps.map (interp V ρ)) ρ))
+            ((d.tssR j ψ).getD i []) fun σ' =>
+              (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ) ++
+                ((d.eissR j ψ).getD i []).map (interp V σ') ++
+                [(Semantics.frameIdx (((d.tssR j ψ).getD i []).length) σ').foldl
+                  SetTheory.app ((fs.map (interp V ρ)).getD i pt)]).foldl
+                SetTheory.app (interp V ρ (mp.base2.acval (d.recNames (d.tgtsR j i)) ψ))).foldl
+          SetTheory.app ((Ns.map (interp V ρ)).getD j pt) := by
+  have hpre : (ps ++ Ms ++ Ns).length = d.nP + d.k + d.nAll := by
+    simp only [List.length_append, hlenP, hlenK, hlenM]
+  have htake : (ps ++ Ms ++ Ns).take d.nP = ps := by
+    rw [List.append_assoc, List.take_left' hlenP]
+  -- ι
+  have h1 := recFold_iota mp hR hj hmem hreal hC ψ (pre := ps ++ Ms ++ Ns) (fs := fs) hpre
+    (by rw [htake]; exact hfitR) (by rw [htake]; exact hfitC)
+  rw [htake] at h1
+  rw [h1]
+  -- the fields' fit at the parameter frame
+  have hfitF : SpineFit (consList (((ps ++ Ms ++ Ns).map (interp V ρ)).take d.nP) ρ)
+      (((d.dsF j ψ).drop d.nP).map (·.2.2)) (fs.map (interp V ρ)) := by
+    have hsplit : (d.dsF j ψ).map (·.2.2)
+        = ((d.dsF j ψ).take d.nP).map (·.2.2) ++ ((d.dsF j ψ).drop d.nP).map (·.2.2) := by
+      rw [← List.map_append, List.take_append_drop]
+    rw [hsplit, List.map_append] at hfitC
+    obtain ⟨as₁, as₂, heq, h₁, h₂⟩ := spineFit_append_inv hfitC
+    have hl₁ : as₁.length = (ps.map (interp V ρ)).length := by
+      rw [SpineFit.length_eq h₁, List.length_map, List.length_take, List.length_map, hlenP,
+        hC.2.2.len ψ]
+      omega
+    obtain ⟨rfl, rfl⟩ := List.append_inj heq.symm hl₁
+    rw [← List.map_take, htake]
+    exact h₂
+  -- β
+  have hpv : ((ps ++ Ms ++ Ns).map (interp V ρ)).length = d.nP + d.k + d.nAll := by
+    rw [List.length_map]; exact hpre
+  have hfitRule := ruleData_spineFit d hfitPre hpv hfitF
+  rw [← List.map_append] at hfitRule
+  rw [interp_ruleAV_app_pos d hb hfitRule]
+  -- the core at the fired frame
+  rw [List.map_append, List.map_append, List.map_append, consList_append, consList_append,
+    consList_append]
+  have hfs : fs.length = cA.2 := by
+    have := SpineFit.length_eq hfitC
+    simp only [List.length_map, List.length_append, hC.2.2.len ψ, hlenP] at this
+    omega
+  have hjn : j < d.nAll := by
+    unfold IndRepData.nAll
+    omega
+  exact interp_ruleCore d (by simp [hlenP]) (by simp [hlenK]) hk (by simp [hlenM])
+    (by simp [hfs]) hjn hks
+
 end ConLeche.Model
