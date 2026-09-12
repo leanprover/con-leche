@@ -46,12 +46,12 @@
 
 == ConLeche/MainTheorem.lean#L91-L97
     91  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    92      (h : hasProofOfFalse chunks) :
-    93      (do
-    94        let pre ← builtinPreludeE
-    95        let r ← parseChunks chunks
-    96        let ds := preparePrelude pre r.decls
-    97        checkDecls .verified ds).isOk = false := by
+    92      (accepted : (do
+    93        let pre ← builtinPreludeE
+    94        let r ← parseChunks chunks
+    95        let ds := preparePrelude pre r.decls
+    96        checkDecls .verified ds).isOk) :
+    97      ¬ hasProofOfFalse chunks := by
 
 == ConLeche/Accepts.lean#L54-L65
     54  def hasProofOfFalse (chunks : List ByteArray) : Prop :=

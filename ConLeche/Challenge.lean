@@ -21,9 +21,9 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > of its type, `False` is empty, and `Eq` is set equality.
 >
 > **Main corollary.**  Hence a file — the chunks the binary reads —
-> that declares a theorem of type `False` is never accepted at all.
+> that the checker accepts declares no theorem of type `False`.
 
-The corollary's statement is the binary's accept path: the three pure
+The corollary's hypothesis is the binary's accept path: the three pure
 functions the driver's phases compute, chained.  The built-in prelude
 parses (`Frontend.builtinPreludeE`); the chunks parse
 (`Frontend.parseChunks`); the verified fold accepts the parsed records
@@ -84,9 +84,9 @@ equation of the two sides' denotations.
   for the fold.  All three fail in the same error type — the checker's
   `CheckError` paired with the position of the failure, which is the
   input's line number in the frontend's half and the fold position in
-  the fold's — so the chain is one `Except` `do` block, and
-  `.isOk = false` says it does not succeed — it never yields an
-  environment.
+  the fold's — so the chain is one `Except` `do` block, and its
+  `.isOk` — the corollary's one hypothesis — says it succeeds: the
+  binary accepted the file.
 * `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
@@ -113,15 +113,15 @@ theorem model_exists (V : Type w) [SetTheory V]
   sorry
 
 open Frontend in
-/-- **The main corollary.**  Chunks that declare a theorem of type
-`False` are never accepted. -/
+/-- **The main corollary.**  Accepted chunks declare no theorem of type
+`False`. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    (h : hasProofOfFalse chunks) :
-    (do
+    (accepted : (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds).isOk = false :=
+      checkDecls .verified ds).isOk) :
+    ¬ hasProofOfFalse chunks :=
   sorry
 
 end ConLeche

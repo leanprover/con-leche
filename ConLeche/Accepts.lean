@@ -23,9 +23,9 @@ three functions of the binary's accept path (`builtinPreludeE`,
   `v` and the theorem's name are arbitrary too.
 
 The main corollary `no_False_declaration` (`ConLeche/Challenge.lean`)
-then reads: for chunks that match the template, the chain of the three
-functions — one `Except` `do` block, the three steps failing in one
-error type — does not succeed.
+then reads: if the chain of the three functions succeeds — one `Except`
+`do` block, the three steps failing in one error type — the chunks do
+NOT match the template.
 -/
 
 namespace ConLeche
