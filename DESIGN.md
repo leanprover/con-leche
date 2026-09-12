@@ -69210,3 +69210,66 @@ battery and no checker run: no checker code changed.
 **README.md is the maintainer's** and was not touched; its "### The
 Main Corollary" section still shows the environment statement, and the
 replacement text is in this task's report.
+
+## TASK #291 — THE ENVIRONMENT STATEMENT IS DROPPED (2026-09-12, `agent/dropenv-291`)
+
+The maintainer's ruling on the three advertised theorems: *"The old one
+is no more useful than the new one, so should be dropped."*
+`ConLeche.no_proof_of_False` — the corollary at the environment task
+#288 relabelled — is **removed as a public statement**.  Two statements
+remain, in both halves of the Comparator pair and in
+`comparator.json`'s `theorem_names`: `model_exists` (the main theorem)
+and `no_False_theorem_accepted` (the main corollary).
+
+**Where the content went.**  Nothing is lost: the environment argument
+is now the first half of the main corollary's own proof.  A second
+ruling settled the form — *"MainTheorem should be elegant, pretty,
+concise.  Simple proofs (few clear steps) here are fine, large ones
+should be imported"*, then *"merging the proof steps … into ONE proof
+inside MainTheorem.lean is fine"* — so there is no private lemma and no
+new Verify module: `no_False_theorem_accepted` is six tactic lines that
+name the two imported facts (`Cached.checkDecls_thmDecl_const` for the
+stream side, `model_exists` for the model side) and then read the
+constant's type through `Model.mem` / `Model.false_empty`.  The
+docstring says the same in words, so a reader still sees that the
+corollary goes through "an accepted environment holds no constant of
+type `False`".
+
+**The statement was never the only place that fact is proved.**  The
+Verify tier keeps its own letters under their own names —
+`no_proof_of_False_cached` (`Verify/Cached/MainC.lean`, every
+validating mode), `no_proof_of_False_checked`
+(`Verify/Cached/InstalledC.lean`) and `no_proof_of_False_pure`
+(`Model/Fold.lean`) — and they stay pinned and stay proof-dep roots.
+Only the capstone name disappeared, so every citation of a `_cached` /
+`_checked` / `_pure` letter was left alone; the citations reworded are
+the ones that named the capstone.
+
+**What moved** (outside this document): `ConLeche/MainTheorem.lean`
+(statement deleted, proofs merged, module header "the main theorem and
+the main corollary"); `ConLeche/Challenge.lean` (statement deleted, the
+prose that called the middle step "the corollary at the environment"
+now calls it a step, and the bullet that explained the removed
+statement's `c.toConstantVal.type` explains the corollary's own
+`cv.type` instead); `comparator.json` (two names);
+`tests/ConLecheTests/Axioms.lean` (nineteen pinned theorems → eighteen,
+one `#print axioms` block gone, eleven of them proof-dep roots);
+`tests/ProofDeps.lean` (the root `main_False` gone: **11 roots**, and
+`tests/proofdeps-expected.txt` regenerated — 4249 rows → 3820, exactly
+the `main_False` block, no other row changed);
+`tests/trust-surface.sh`, `tests/e2e-expected.txt`, `OVERVIEW.md` §1
+(the main corollary presented directly, its environment step in words)
+and its module map, `tests/overview-links-expected.txt` (`--update`
+after re-reading the three citing paragraphs: 77 links / 49 files, one
+link fewer), `formalization.yaml` and `scripts/arena/con-leche.yaml`
+(the exported second theorem is `ConLeche.no_False_theorem_accepted`),
+`scripts/dead-census.py`'s capstone list, and the prose citations in
+`ConLeche/Cached/Installed.lean`, `ConLeche/Cached/ParsedC.lean`,
+`ConLeche/Verify/Cached/MainC.lean`,
+`ConLeche/Verify/Cached/InstalledC.lean` and `Main.lean` — including
+the `--verified` paragraph of `--help`, which now states the main
+corollary instead of the environment one.
+
+**README.md is the maintainer's** and was not touched; its "### The
+Main Corollary" section still shows the removed statement, and the
+replacement text is in this task's report.

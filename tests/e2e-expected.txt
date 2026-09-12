@@ -388,9 +388,9 @@
 #                          installs from its own pin
 #                          (`ConLeche/Kernel/Basis/False.lean`).
 #   zero_ctor_false_proof: the stream plus `bogus : False := Prop` (an
-#                          ill-typed value): REJECT.  The capstone
-#                          `no_proof_of_False` says no accepted stream
-#                          can store such a constant; this is the
+#                          ill-typed value): REJECT.  The main
+#                          corollary `no_False_theorem_accepted` says
+#                          such a stream is never accepted; this is the
 #                          checker refusing one.
 #   zero_ctor_bad_rec:     `Nada.rec`'s type replaced by `Type` — a
 #                          recognised zero-constructor block whose

@@ -30,9 +30,9 @@
 # subject.  A gate whose targets do not exist measures nothing.
 #
 # WHAT IT MEASURES NOW: a FROZEN MODULE-LEVEL DEPENDENCY PIN.  For each
-# of the twelve pinned roots — the MAIN THEOREM and its two corollaries
-# (`ConLeche/MainTheorem.lean`), one about the environment the fold
-# returns and one about the stream it consumes, and the capstone letters
+# of the eleven pinned roots — the MAIN THEOREM and the MAIN COROLLARY
+# (`ConLeche/MainTheorem.lean`), the latter about the stream the fold
+# consumes, and the capstone letters
 # and assembly lemmas under them — `tests/ProofDeps.lean` prints the
 # exact set of `ConLeche.*` modules its type and proof term reach at the
 # constant level, sorted; `tests/proofdeps-expected.txt` is the frozen

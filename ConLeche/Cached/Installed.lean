@@ -9,8 +9,8 @@ public import ConLeche.Kernel.CheckerSplit
 # The declaration fold: install first, check afterwards
 
 `checkDecls mode ds` is the verified implementation: the pure fold the
-consistency theorem is stated about (`ConLeche.no_proof_of_False`,
-`ConLeche/MainTheorem.lean`), and the algorithm the binary's driver
+main theorem and the main corollary are stated about
+(`ConLeche/MainTheorem.lean`), and the algorithm the binary's driver
 (`Main.lean`) runs — the driver's loops are this fold's two phases with
 a heartbeat between the steps, and the driver returns its environment
 together with the proof that `checkDecls` returns it
