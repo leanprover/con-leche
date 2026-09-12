@@ -386,7 +386,31 @@ def storeNestedRecs : List (ConstantVal × Nat × Nat × List RecRule) → Env �
 generated one — the name and the level parameters, the type by one
 `isDefEq`, the rules structurally (official's replay,
 `checkPostponedRecursors`). -/
-def nestedRecOk (ops : CheckerOps m) (env : Env) (streamRec : ConstantVal × List RecRule)
+def nestedRulesOk (nP k n : Nat) (recTy : Expr) (own : List (Nat × Nat))
+    (srules grules : List RecRule) : Bool :=
+  srules.length == grules.length && srules.length == own.length &&
+  (List.range own.length).all fun j =>
+    match srules[j]?, grules[j]?, own[j]? with
+    | some a, some g, some (J, nF) =>
+      a.ctor == g.ctor && a.nfields == g.nfields && a.nfields == nF &&
+        mutualRulePrefixOk recTy nP k n J nF a.rhs &&
+        (match a.rhs.stripLams (nP + k + n + nF), g.rhs.stripLams (nP + k + n + nF) with
+         | some (_, ab), some (_, gb) => Expr.resetMeta ab == Expr.resetMeta gb
+         | _, _ => false)
+    | _, _, _ => false
+
+/-- **Post-check (c)**: one stream recursor record against the restored
+generated one — the name and the level parameters, the type by one
+`isDefEq`, the rules structurally (official's replay,
+`checkPostponedRecursors`).  As at the mutual route, the rule bodies
+are compared under the `λ` prefix and the PREFIX is checked against the
+stream's OWN recursor type (`mutualRulePrefixOk`): the copies' field
+domains are stored NORMALISED (official's positivity walk `whnf`s them
+too, but official keeps the declared spelling in the rule's binders), so
+a redex pin — `DMap α (fun _ => PT α)`, whose copied field is
+`(fun _ => PT α) k` — differs there and nowhere else. -/
+def nestedRecOk (ops : CheckerOps m) (env : Env) (nP k n : Nat)
+    (streamRec : ConstantVal × List RecRule) (own : List (Nat × Nat))
     (cvRa : ConstantVal) (rules : List RecRule) : m Unit := do
   let (cvR, srules) := streamRec
   unless cvR.name == cvRa.name && cvR.levelParams == cvRa.levelParams do
@@ -394,22 +418,17 @@ def nestedRecOk (ops : CheckerOps m) (env : Env) (streamRec : ConstantVal × Lis
   let cvRi ← checkConstantVal ops env cvR
   unless ← ops.isDefEq env 0 cvRi.type cvRa.type do
     throw (.invalid s!"nested: the type of {cvR.name} is not the generated one")
-  unless srules.length == rules.length &&
-      (List.range rules.length).all (fun j =>
-        match srules[j]?, rules[j]? with
-        | some a, some g =>
-          a.ctor == g.ctor && a.nfields == g.nfields &&
-            Expr.resetMeta a.rhs == Expr.resetMeta g.rhs
-        | _, _ => false) do
+  unless nestedRulesOk nP k n cvRi.type own srules rules do
     throw (.invalid s!"nested: the rules of {cvR.name} are not the generated ones")
 
 /-- Post-check (c) over a list of records. -/
-def nestedRecsOk (ops : CheckerOps m) (env : Env) :
-    List ((ConstantVal × List RecRule) × ConstantVal × List RecRule) → m Unit
+def nestedRecsOk (ops : CheckerOps m) (env : Env) (nP k n : Nat) :
+    List ((ConstantVal × List RecRule) × List (Nat × Nat) × ConstantVal × List RecRule) →
+      m Unit
   | [] => pure ()
-  | (sr, cvRa, rules) :: rest => do
-    nestedRecOk ops env sr cvRa rules
-    nestedRecsOk ops env rest
+  | (sr, own, cvRa, rules) :: rest => do
+    nestedRecOk ops env nP k n sr own cvRa rules
+    nestedRecsOk ops env nP k n rest
 
 /-- **Post-check (a)** (leanprover/lean4#14577): every pin `I Ds` is
 type-checked at the block's parameter context in the RESTORED
@@ -421,9 +440,11 @@ def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) (fvsA : List Expr) 
   | [] => pure ()
   | q :: rest => do
     let pinA := Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse
+    -- official's `tc.check(nested, lparams)`: the pin is TYPE-CHECKED,
+    -- not required to be a sort — a pin of an indexed container
+    -- (`Vec (T α)`) is a function into one
     let e ← ops.annotate env nP pinA
-    let ty ← ops.inferType env nP e
-    let _u ← ops.ensureSort env nP ty
+    let _ty ← ops.inferType env nP e
     nestedPinsOk ops env nP fvsA rest
 
 /-- The projection table of a restored structure-like member: the
@@ -497,9 +518,9 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let envR := provisionNestedRecs provisions env₂
   -- 6. the rules, restored and re-checked (post-check (b))
   let rulesM ← (cvRms.zip members).mapM fun (cvRa, a) =>
-    restoreRules ops envR R p.lps cvRa.name false cvRa.type a.mI a.rP a.rules
+    restoreRules ops envR R cvRa.levelParams cvRa.name false cvRa.type a.mI a.rP a.rules
   let rulesN ← (cvRns.zip mimics).mapM fun (cvRa, a) =>
-    restoreRules ops envR R p.lps cvRa.name true cvRa.type a.mI a.rP a.rules
+    restoreRules ops envR R cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules
   let env₃ := storeNestedRecs
     ((cvRms.zip (members.zip rulesM)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
       ++ (cvRns.zip (mimics.zip rulesN)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))) env₂
@@ -515,9 +536,16 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 9. POST-CHECK (c): the stream's records against the generated ones
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")
-  nestedRecsOk ops env₄
-    ((p.memberRecs.zip (cvRms.zip rulesM)).map (fun (sr, cv, rs) => (sr, cv, rs))
-      ++ (p.mimicRecs.zip (cvRns.zip rulesN)).map (fun (sr, cv, rs) => (sr, cv, rs)))
+  -- the stream's records are checked at the environment BEFORE the
+  -- recursors are stored, as the mutual route checks its own
+  -- (`checkMutualRecTy`): the record is compared, never added
+  let ownOf : Nat → List (Nat × Nat) := fun mIdx =>
+    (b.ownCtors mIdx).map fun (J, c) => (J, c.nF)
+  let mRows := ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.map
+    (fun (((sr, cv), rs), mIdx) => (sr, ownOf mIdx, cv, rs))
+  let nRows := ((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
+    (fun (((sr, cv), rs), j) => (sr, ownOf (p.k + j), cv, rs))
+  nestedRecsOk ops env₂ p.nP b.k b.n (mRows ++ nRows)
   pure env₄
 
 end ConLeche
