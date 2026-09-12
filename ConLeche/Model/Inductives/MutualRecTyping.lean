@@ -565,7 +565,7 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
       ∀ as : List V, SpineFit (consList (fs.take i) ρp)
         (((tlss.getD J []).getD i []).map (·.2.2)) as →
       (∀ E ∈ (EissO.getD J []).getD i [],
-        WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
+        WellDenotedV V (consList as (consList (fs.take i) ρp)) E) ∧
       (∀ Ids, Idss[tgts J i]? = some Ids → SpineFit ρp Ids
         (((EissO.getD J []).getD i []).map
           (interp V (consList as (consList (fs.take i) ρp))))) ∧
@@ -622,7 +622,8 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
           = as.length + i from by rw [hlenAs, List.length_map]; omega,
         shiftE_consList_add, hshi]
     have htup := tagTupleAV_facts hT hIdsT' (d := i + ((tlss.getD J []).getD i []).length)
-      (τ := consList as (consList (fs.take i) ρp)) hsh hEok' (hEfit' IdsT hIdsT')
+      (τ := consList as (consList (fs.take i) ρp)) hsh (fun E hE => (hEok' E hE).1)
+      (hEfit' IdsT hIdsT')
     rw [List.map_singleton, htup.1, List.foldl_cons, List.foldl_nil]
     exact (hlaw (tgts J i) (htgtsJ i) IdsT hIdsT' _ (hEfit' IdsT hIdsT') _ hfib').symm
   rw [hconc, hdoms]
@@ -663,7 +664,7 @@ structure MutualFrameOkM (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V 
       ∀ as : List V, SpineFit (consList (fs.take i) ρp)
         (((tlss.getD J []).getD i []).map (·.2.2)) as →
       (∀ E ∈ (EissO.getD J []).getD i [],
-        WellDenoted V (consList as (consList (fs.take i) ρp)) E) ∧
+        WellDenotedV V (consList as (consList (fs.take i) ρp)) E) ∧
       (∀ Ids, Idss[tgts J i]? = some Ids → SpineFit ρp Ids
         (((EissO.getD J []).getD i []).map
           (interp V (consList as (consList (fs.take i) ρp))))) ∧
@@ -1066,7 +1067,10 @@ theorem mutualIhSpine_of
     have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hspP
     rwa [List.append_nil] at h
   have hF := hyp.hframes _ hsatP
-  obtain ⟨hEok, hEfit, hfib⟩ := hF.slot J cd hcd i hi as₂ hfitF bs hbs
+  obtain ⟨hEokV, hEfit, hfib⟩ := hF.slot J cd hcd i hi as₂ hfitF bs hbs
+  have hEok : ∀ E ∈ (EissO.getD J []).getD i [],
+      WellDenoted V (consList bs (consList (as₂.take i) (consList ps ρ))) E :=
+    fun E hE => (hEokV E hE).1
   obtain ⟨Ids', hIds', hlenIds', hipd'⟩ := hyp.hIdss (tgts J i) (hyp.htgts J i)
   have hfit' := hEfit Ids' hIds'
   have hlenEis : ((EissO.getD J []).getD i []).length = nIdxs.getD (tgts J i) 0 := by

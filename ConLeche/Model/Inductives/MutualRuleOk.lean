@@ -370,6 +370,11 @@ theorem mutualBlock_split {m : EnvModel V env} {ψ : Name → Nat} {elimL : Leve
     ∃ (ps Ms ms : List V),
       as = (ps ++ Ms) ++ ms ∧ ps.length = nP ∧ Ms.length = k ∧ ms.length = n ∧
       Sat V ((pps.map (·.2.2)).reverse) (consList ps ρb) ∧
+      -- the MOTIVE block's own fit (task #278 M2.5f): the `k` motives
+      -- are not arbitrary sets of the right number — `hzeroC`/`hzeroD`
+      -- read their spaces
+      SpineFit (consList ps ρb)
+        ((motivesDataGo Lof nIdxOf ipsOf ψ nP elimL b k 0).map (·.2.2)) Ms ∧
       (∀ q, q < n → ms.getD q pt ∈ˢ minorSpI ℓ
         (fun fs => ihSpL ℓ
           (concI wB (consList ps ρb) (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
@@ -390,7 +395,7 @@ theorem mutualBlock_split {m : EnvModel V env} {ψ : Name → Nat} {elimL : Leve
     rwa [List.append_nil] at this
   have hframe : consList (ps ++ Ms) ρb = consList Ms (consList ps ρb) := consList_append _ _ _
   rw [hframe] at hspM
-  refine ⟨ps, Ms, ms, rfl, hlenPs, hlenMs, hlenms, hρp, ?_⟩
+  refine ⟨ps, Ms, ms, rfl, hlenPs, hlenMs, hlenms, hρp, hspMot, ?_⟩
   intro q hq
   obtain ⟨cd, hcd⟩ : ∃ cd, cds[q]? = some cd := ⟨_, List.getElem?_eq_getElem (by omega)⟩
   have hmem := FixKI.spineFit_getD_mem' hspM (l := q) (by rw [List.length_map, hlenMD]; exact hq)
@@ -474,6 +479,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     -- is membership-based, so lengths alone make the conclusion false
     -- at garbage parameters or motives
     (hih : ∀ (ρ : Nat → V) (as₁ Ms ms as₂ : List V),
+      as₁.length = nP → Ms.length = k →
       SpineFit ρ (((mutualRecDataAV m ψ Ls nP nIdxs elimL pps ipss cds mems tgts mm).take
         (nP + k + n)).map (·.2.2)) ((as₁ ++ Ms) ++ ms) →
       SpineFit (consList as₁ ρ) ((ds.drop nP).map (·.2.2)) as₂ →
@@ -486,11 +492,18 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
             ((Eiss.getD j []).getD i []).map
               (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ)))) ++
             [bs.foldl SetTheory.app (as₂.getD i pt)]))
+    -- **the `Prop` regime's two universe facts** (task #278 M2.5f): at
+    -- a MOTIVE SPINE, not at arbitrary sets of the right number — the
+    -- motives' spaces are what puts the conclusion and the ih domains
+    -- in the truth values (`piTele_app_univZero`)
     (hzeroC : ℓ = 0 → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
-      ∀ Ms : List V, Ms.length = k → ∀ acc : List V,
-        concI wB ρp (Ms.getD (mems j) pt) Es j acc ∈ˢ (univZero : V))
+      ∀ Ms : List V, SpineFit ρp ((motivesDataGo (fun t => Ls.getD t default)
+          (fun t => nIdxs.getD t 0) (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) Ms →
+        ∀ acc : List V, concI wB ρp (Ms.getD (mems j) pt) Es j acc ∈ˢ (univZero : V))
     (hzeroD : ℓ = 0 → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
-      ∀ Ms : List V, Ms.length = k → ∀ (as₂ : List V) (A : V),
+      ∀ Ms : List V, SpineFit ρp ((motivesDataGo (fun t => Ls.getD t default)
+          (fun t => nIdxs.getD t 0) (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) Ms →
+        ∀ (as₂ : List V) (A : V),
         A ∈ ihDomsIM ℓ ρp (fun i => Ms.getD (tgts j i) pt) rss tlss Eiss
           (fun r => (Fss.getD r []).length) j as₂ → A ∈ˢ (univZero : V)) :
     ∀ ρ : Nat → V, WellDenotedV V ρ
@@ -583,7 +596,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     rw [List.map_append] at hsp
     obtain ⟨block, as₂, rfl, hspB, hspD⟩ := spineFit_append_inv hsp
     rw [← hX] at hspB
-    obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, hms⟩ :=
+    obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, hspMot, hms⟩ :=
       mutualBlock_split hlenP hn hminor ρ _ hspB
     have hframe : consList ((as₁ ++ Ms) ++ ms) ρ = consList ms (consList Ms (consList as₁ ρ)) := by
       rw [consList_append, consList_append]
@@ -608,7 +621,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
       intro h0 acc
       refine ihSpL_zero_univZero h0 ?_ _
       rw [hEsD]
-      exact hzeroC h0 _ hρp Ms hlenMs acc
+      exact hzeroC h0 _ hρp Ms hspMot acc
     have hchainM := minorSpI_appChainOk hc0 hmj (by rw [hFsD]; exact hspD)
     have hfoldM := minorSpI_fold hc0 hmj (by rw [hFsD]; exact hspD)
     rw [List.nil_append] at hfoldM
@@ -654,7 +667,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
       · intro bs hbs
         obtain ⟨hEok, hEV, hchainF⟩ := hleaves bs hbs
         exact ⟨hEok, hEV, hchainF,
-          hih ρ as₁ Ms ms as₂ (by rw [hprefix, ← hX]; exact hspB) hspD i hi bs hbs⟩
+          hih ρ as₁ Ms ms as₂ hlen₁ hlenMs (by rw [hprefix, ← hX]; exact hspB) hspD i hi bs hbs⟩
     -- the ih tower's fold
     have hAs : ihDomsIM ℓ (consList as₁ ρ) (fun i => Ms.getD (tgts j i) pt) rss tlss Eiss
           (fun r => (Fss.getD r []).length) j as₂
@@ -677,7 +690,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
           ((Eiss.getD j []).getD i []))
       (f := AnnotTerm.mkAppN (.bvar (nF + n - 1 - j)) (fieldBvars nF))
       (σ := consList as₂ (consList ms (consList Ms (consList as₁ ρ))))
-      (fun h0 => by rw [hEsD]; exact hzeroC h0 _ hρp Ms hlenMs as₂)
+      (fun h0 => by rw [hEsD]; exact hzeroC h0 _ hρp Ms hspMot as₂)
       hokF (by rw [hvF]; exact hfoldM)
       (by rw [hAs, List.length_map, List.length_map])
       (by
@@ -696,13 +709,13 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
           rw [List.getD_eq_getElem?_getD, List.getElem?_map, hx]; rfl
         rw [hAs, hgd1 _ _ _ hi, hgd2 _ _ _ hi]
         exact ⟨(hihF i hmem).1, (hihF i hmem).2.2⟩)
-      (fun h0 A hA => hzeroD h0 _ hρp Ms hlenMs as₂ A hA)
+      (fun h0 A hA => hzeroD h0 _ hρp Ms hspMot as₂ A hA)
     rw [← AnnotTerm.mkAppN_append] at hsp_ih
     refine ⟨hsp_ih.1, ?_, ?_, ?_⟩
     · rw [hTv, ← hEsD]; exact hsp_ih.2
     · intro hb0
       rw [hTv]
-      exact hzeroC (hbz.mpr hb0) _ hρp Ms hlenMs as₂
+      exact hzeroC (hbz.mpr hb0) _ hρp Ms hspMot as₂
     · unfold mutualRuleCoreAV
       refine mkAppN_validV trivial fun a ha => ?_
       rcases List.mem_append.mp ha with ha | ha
@@ -715,7 +728,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     refine domsWalk_append hwalkX ?_
     intro as hsp
     rw [← hX] at hsp
-    obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, -⟩ :=
+    obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, -, -⟩ :=
       mutualBlock_split hlenP hn hminor ρ _ hsp
     rw [← hD]
     refine domsWalk_rebit b (domsWalk_liftDoms (w := wB) _ 0 _ ?_)
@@ -760,7 +773,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
       rw [List.map_append] at hsp
       obtain ⟨block, as₂, rfl, hspB, hspD⟩ := spineFit_append_inv hsp
       rw [← hX] at hspB
-      obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, -⟩ :=
+      obtain ⟨as₁, Ms, ms, rfl, hlen₁, hlenMs, hlenm, hρp, -, -⟩ :=
         mutualBlock_split hlenP hn hminor ρ _ hspB
       have hframe : consList ((as₁ ++ Ms) ++ ms) ρ
           = consList ms (consList Ms (consList as₁ ρ)) := by
