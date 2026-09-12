@@ -1,6 +1,6 @@
 main_model :: ConLeche.Cached.CheckerC
 main_model :: ConLeche.Cached.CoreC
-main_model :: ConLeche.Cached.ExprC
+main_model :: ConLeche.Cached.ExprNodes
 main_model :: ConLeche.Cached.ExprOpsC
 main_model :: ConLeche.Cached.Installed
 main_model :: ConLeche.Cached.ParsedC
@@ -429,7 +429,7 @@ main_model :: ConLeche.Verify.StrLitExpr
 main_model :: ConLeche.Verify.Subst
 main_stream_False :: ConLeche.Cached.CheckerC
 main_stream_False :: ConLeche.Cached.CoreC
-main_stream_False :: ConLeche.Cached.ExprC
+main_stream_False :: ConLeche.Cached.ExprNodes
 main_stream_False :: ConLeche.Cached.ExprOpsC
 main_stream_False :: ConLeche.Cached.Installed
 main_stream_False :: ConLeche.Cached.ParsedC
@@ -859,7 +859,7 @@ main_stream_False :: ConLeche.Verify.StrLitExpr
 main_stream_False :: ConLeche.Verify.Subst
 False_cached :: ConLeche.Cached.CheckerC
 False_cached :: ConLeche.Cached.CoreC
-False_cached :: ConLeche.Cached.ExprC
+False_cached :: ConLeche.Cached.ExprNodes
 False_cached :: ConLeche.Cached.ExprOpsC
 False_cached :: ConLeche.Cached.Installed
 False_cached :: ConLeche.Cached.ParsedC
@@ -1284,7 +1284,7 @@ False_cached :: ConLeche.Verify.StrLitExpr
 False_cached :: ConLeche.Verify.Subst
 Empty_cached :: ConLeche.Cached.CheckerC
 Empty_cached :: ConLeche.Cached.CoreC
-Empty_cached :: ConLeche.Cached.ExprC
+Empty_cached :: ConLeche.Cached.ExprNodes
 Empty_cached :: ConLeche.Cached.ExprOpsC
 Empty_cached :: ConLeche.Cached.Installed
 Empty_cached :: ConLeche.Cached.ParsedC
@@ -1709,7 +1709,7 @@ Empty_cached :: ConLeche.Verify.StrLitExpr
 Empty_cached :: ConLeche.Verify.Subst
 sound_cached :: ConLeche.Cached.CheckerC
 sound_cached :: ConLeche.Cached.CoreC
-sound_cached :: ConLeche.Cached.ExprC
+sound_cached :: ConLeche.Cached.ExprNodes
 sound_cached :: ConLeche.Cached.ExprOpsC
 sound_cached :: ConLeche.Cached.Installed
 sound_cached :: ConLeche.Cached.ParsedC
@@ -2134,7 +2134,7 @@ sound_cached :: ConLeche.Verify.StrLitExpr
 sound_cached :: ConLeche.Verify.Subst
 fold_checked :: ConLeche.Cached.CheckerC
 fold_checked :: ConLeche.Cached.CoreC
-fold_checked :: ConLeche.Cached.ExprC
+fold_checked :: ConLeche.Cached.ExprNodes
 fold_checked :: ConLeche.Cached.ExprOpsC
 fold_checked :: ConLeche.Cached.Installed
 fold_checked :: ConLeche.Cached.ParsedC
@@ -2171,7 +2171,7 @@ fold_checked :: ConLeche.Kernel.TrustAxioms
 fold_checked :: ConLeche.Kernel.TrustPins
 checked_fold :: ConLeche.Cached.CheckerC
 checked_fold :: ConLeche.Cached.CoreC
-checked_fold :: ConLeche.Cached.ExprC
+checked_fold :: ConLeche.Cached.ExprNodes
 checked_fold :: ConLeche.Cached.ExprOpsC
 checked_fold :: ConLeche.Cached.Installed
 checked_fold :: ConLeche.Cached.ParsedC
@@ -2208,7 +2208,7 @@ checked_fold :: ConLeche.Kernel.TrustAxioms
 checked_fold :: ConLeche.Kernel.TrustPins
 False_checked :: ConLeche.Cached.CheckerC
 False_checked :: ConLeche.Cached.CoreC
-False_checked :: ConLeche.Cached.ExprC
+False_checked :: ConLeche.Cached.ExprNodes
 False_checked :: ConLeche.Cached.ExprOpsC
 False_checked :: ConLeche.Cached.Installed
 False_checked :: ConLeche.Cached.ParsedC
@@ -2632,7 +2632,7 @@ False_checked :: ConLeche.Verify.StrLitExpr
 False_checked :: ConLeche.Verify.Subst
 fullyChecked_sound :: ConLeche.Cached.CheckerC
 fullyChecked_sound :: ConLeche.Cached.CoreC
-fullyChecked_sound :: ConLeche.Cached.ExprC
+fullyChecked_sound :: ConLeche.Cached.ExprNodes
 fullyChecked_sound :: ConLeche.Cached.ExprOpsC
 fullyChecked_sound :: ConLeche.Cached.Installed
 fullyChecked_sound :: ConLeche.Cached.ParsedC
@@ -3054,7 +3054,6 @@ fullyChecked_sound :: ConLeche.Verify.Shift
 fullyChecked_sound :: ConLeche.Verify.StdAxiomPin
 fullyChecked_sound :: ConLeche.Verify.StrLitExpr
 fullyChecked_sound :: ConLeche.Verify.Subst
-False_pure :: ConLeche.Cached.ExprC
 False_pure :: ConLeche.Kernel.Basis.Builder
 False_pure :: ConLeche.Kernel.Basis.Names
 False_pure :: ConLeche.Kernel.BasisA
@@ -3366,7 +3365,6 @@ False_pure :: ConLeche.Verify.BetaGate
 False_pure :: ConLeche.Verify.BinderLoop
 False_pure :: ConLeche.Verify.BridgeDecl
 False_pure :: ConLeche.Verify.BridgeWfImp
-False_pure :: ConLeche.Verify.Cached.Erase
 False_pure :: ConLeche.Verify.CheckerF
 False_pure :: ConLeche.Verify.Deep
 False_pure :: ConLeche.Verify.Denote
@@ -3436,7 +3434,6 @@ False_pure :: ConLeche.Verify.Shift
 False_pure :: ConLeche.Verify.StdAxiomPin
 False_pure :: ConLeche.Verify.StrLitExpr
 False_pure :: ConLeche.Verify.Subst
-Empty_pure :: ConLeche.Cached.ExprC
 Empty_pure :: ConLeche.Kernel.Basis.Builder
 Empty_pure :: ConLeche.Kernel.Basis.Names
 Empty_pure :: ConLeche.Kernel.BasisA
@@ -3748,7 +3745,6 @@ Empty_pure :: ConLeche.Verify.BetaGate
 Empty_pure :: ConLeche.Verify.BinderLoop
 Empty_pure :: ConLeche.Verify.BridgeDecl
 Empty_pure :: ConLeche.Verify.BridgeWfImp
-Empty_pure :: ConLeche.Verify.Cached.Erase
 Empty_pure :: ConLeche.Verify.CheckerF
 Empty_pure :: ConLeche.Verify.Deep
 Empty_pure :: ConLeche.Verify.Denote

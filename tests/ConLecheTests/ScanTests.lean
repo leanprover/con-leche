@@ -41,7 +41,7 @@ which no end-to-end fixture would isolate:
 
 namespace ConLecheTests
 
-open ConLeche ConLeche.Cached ConLeche.Frontend
+open ConLeche ConLeche.Frontend
 
 /-! ## One line, many spellings -/
 
