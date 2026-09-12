@@ -69744,6 +69744,75 @@ proof is one `rw`.  `mutualBlock_split` is untouched; nothing outside
 `MutualRuleOk.lean` mentions `mutualRuleOk` except a prose reference in
 `MutualStageRec.lean`.
 
+REPAIRED here too, same file, same flavour: `mutualRuleOk`'s
+`hzeroC`/`hzeroD` bound the `k` motives by LENGTH alone
+(`∀ Ms : List V, Ms.length = k`) and then asked, in the `Prop` regime,
+that the minor's conclusion and the ih domains be truth values.  At
+motives that are arbitrary sets of the right number those are junk
+applications and no caller can put them in `univZero`; what makes them
+truth values is the motives' own SPACES (`piTele_app_univZero` through
+`memberMotSp_eq`, which is exactly why the fixpoint route's
+`conc_univZero` reads its K-frame's motive).  The length premise
+becomes the motive block's own fit
+
+    SpineFit ρp ((motivesDataGo (fun t => Ls.getD t default)
+      (fun t => nIdxs.getD t 0) (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) Ms
+
+(the length follows from `.length_eq`), and `mutualBlock_split` — which
+had that fit in hand and dropped it — now returns it, so the four use
+sites pass `hspMot`.  `hih` regains the two block LENGTHS beside its
+fit (`as₁.length = nP`, `Ms.length = k`): a fit of a CONCATENATION does
+not say where the concatenation was cut, so without them the caller
+cannot split the spine the conclusion is stated over.  `MutualFrameOkM.slot`'s
+index expressions become `WellDenotedV` (graded AND bit-valid) — the
+rule's telescope premise reads both halves and the constructor
+reading's own field entry gives both.
+
+#### 8.13 M2.5f: what M2.5f landed, and the one conjunct it could not reach (2026-09-12)
+
+`declMutual` is complete except for ONE conjunct, and that conjunct is
+§8.12's — independently re-derived here before being accepted as a
+blocker (the checker's `isProp` comes from `f₀` at `checkMutualCore`,
+`checkStructProjTable` is handed the MEMBER's `f.s`, and
+`mutualCrossChecks` relates the two only by `Level.isEquiv f.s f₀.s`,
+whose only theorem in the tree is `isEquiv_sound`).
+
+What the tail landed, in the file's own order:
+
+* `hleafM` and the `hcd` iff (§8.9's repair) consumed at both sites;
+* `mutualRuleOk_of` (`DeclMutual.lean`): `mutualRuleOk`'s ~29 premises
+  off `MutualLeafHyp` at EVERY member — the minors' spaces
+  (`interp_minorAVAtRM`), the chains and the index readings
+  (`MutualFrameOkM`), the ih spines (`mutualIhSpine_of` at the split of
+  the block prefix, with `frameIdx_consList'` for the slot's own spine)
+  and the `Prop` regime (`piTele_app_univZero` at `memberMotSp_eq`).
+  Only the leaf table's four facts are left to the caller, and they are
+  `leaf_below`/`leaf_facts` on a table made TOTAL below `k`
+  (`fun q => leaf (if q < k then q else 0)`) and transported back with
+  `mutualRuleCoreAV_congr_Rof` — the same trick the `recOf` table needs
+  at `denoteMeta_mutualRecRhs`, whose `recOf` must be stored at every
+  index while `MutualBlock.recName` is junk past `k`;
+* `declMutual`'s `hlawsG`: the rule's right-hand side reads to `ruleAV`
+  at the group store (`denoteMeta_mutualRecRhs` with
+  `denoteMeta_toStore`, `mutualRuleDataAV_congrm`,
+  `mutualRuleCoreAV_congr_Rof`), is graded (`mutualRuleOk_of`), fires
+  (`ruleFires_of` at `auxFixPre_of`'s premise, `hw0G`'s regime and
+  `leaf_below`), and `mutualRecRuleLaw` closes the member's
+  `RecRuleLaw`;
+* `stageMutualRecs` applied, with `MutualRepsOk`'s two components
+  passed verbatim (the clause is still the single named premise: the
+  rule-less provision's `IndRepsHead` and the group store's `IndReps`
+  are `hreps …`.1 and `.2`, unchanged since M2.5e);
+* the `.proj` bookkeeping and `stageMutualTables` (this session's
+  commit message lists the pieces).
+
+The FALSE ALARM of §8.4 stays retired: no mixed-regime chain lemma was
+needed or written — `minorTag_facts`' `hctorOk` goes through
+`appChainOk_of_mkPisAV'`, whose uniform-bit premise is about CODOMAIN
+bits, and `CtorDataI.bits` gives exactly those at every binder; only
+domain bits mix, and no lemma reads them.
+
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
