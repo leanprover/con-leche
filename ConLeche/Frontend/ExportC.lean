@@ -825,18 +825,26 @@ buffer the word addresses. -/
 def sizeError : FrontendError :=
   .unsupported s!"an input of {USize.size} bytes or more"
 
-/-- Wholesale direct parse (tests and small inputs). -/
-def parseExportD (contents : String)
-    (inModel : Bool := true) (census : Bool := false) :
+/-- **Wholesale direct parse of a byte buffer**: the whole input fed
+at once, then the last line.  The specification the streaming parse is
+proved equal to (`parseChunks_ok_parseBytes`,
+`ConLeche/Verify/Frontend/Chunks.lean`). -/
+def parseBytes (b : ByteArray) (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
-  if contents.utf8ByteSize ≥ USize.size then throw sizeError
-  let b := contents.toUTF8
+  if b.size ≥ USize.size then throw sizeError
   let (st, lineNo, tail) ← feedChunk (.init inModel census) b 0 0
   if tail < b.usize then
     let st ← applyFinalLine st b tail (lineNo + 1)
     return .ofState st
   else
     return .ofState st
+
+/-- Wholesale direct parse of a string (the built-in prelude, tests
+and small inputs): `parseBytes` of its UTF-8. -/
+def parseExportD (contents : String)
+    (inModel : Bool := true) (census : Bool := false) :
+    Except FrontendError ParseResultD :=
+  parseBytes contents.toUTF8 inModel census
 
 /-- **One chunk of the stream, applied** (task #290): the carried
 incomplete tail is put in front of the new bytes, every complete line
@@ -873,22 +881,25 @@ def concatBytes : List ByteArray → ByteArray
   | c :: cs => c ++ concatBytes cs
 
 /-- **The streaming parse, purely** (task #290): `chunkStep` folded
-over the chunks a handle hands out, ending at the first empty chunk
-(`IO.FS.Handle.read` returns one at end of file) or when the list runs
-out — which is what `parseExportHandleD` does, minus the reads. -/
-def parseChunks (inModel : Bool := true) (census : Bool := false)
-    (chunks : List ByteArray) : Except FrontendError ParseResultD :=
+over a list of chunks, `chunkFinish` at its end — what
+`parseExportHandleD` does with the chunks its handle hands out, minus
+the reads.  The list is folded whole (task #294): an empty chunk
+contributes nothing and the fold goes on, so the parse of a list of
+chunks is the parse of their concatenation, however it was cut
+(`parseChunks_ok_parseBytes`, `ConLeche/Verify/Frontend/Chunks.lean`).
+The loop's end-of-input decision — an empty READ is the end of the
+file — is the loop's own, not the step's. -/
+def parseChunks (chunks : List ByteArray) (inModel : Bool := true) (census : Bool := false) :
+    Except FrontendError ParseResultD :=
   go (.init inModel census) .empty 0 0 chunks
 where
   go (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
       List ByteArray → Except FrontendError ParseResultD
     | [] => chunkFinish st carry lineNo
     | c :: cs =>
-      if c.isEmpty then chunkFinish st carry lineNo
-      else
-        match chunkStep st carry lineNo total c with
-        | .error e => .error e
-        | .ok (st, carry, lineNo, total) => go st carry lineNo total cs
+      match chunkStep st carry lineNo total c with
+      | .error e => .error e
+      | .ok (st, carry, lineNo, total) => go st carry lineNo total cs
 
 /-- Streaming direct parse off an open handle.
 
@@ -903,7 +914,8 @@ carried into the next one, and `st` is threaded as a plain argument so
 that the parse tables stay uniquely referenced across steps (task #78:
 a handler that closes over the state holds it at RC 2 and every insert
 inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
-the loop is `parseChunks.go` with the reads interleaved (task #290). -/
+the loop is `parseChunks.go` with the reads interleaved (task #290),
+stopping at the first empty read — the handle's end of file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :

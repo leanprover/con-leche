@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Accepts
 public import ConLeche.Verify.Frontend.Lines
+import ConLeche.Verify.Frontend.Chunks
 public import ConLeche.Verify.Frontend.ApplyLine
 import ConLeche.Verify.Frontend.ThmLine
 import ConLeche.Verify.Frontend.FalseLines
@@ -10,21 +11,26 @@ import ConLeche.Frontend.Scan.Equiv.Kit
 public section
 
 /-!
-# From the file to the parsed record (task #290)
+# From the chunks to the parsed record (task #290, #294)
 
-The line-level lemma: a file that matches `hasProofOfFalse`
-(`ConLeche/Accepts.lean`) and parses, parses to a list holding a
+The line-level lemma: chunks that match `hasProofOfFalse`
+(`ConLeche/Accepts.lean`) and parse, parse to a list holding a
 `thmDecl` of type `False`.
 
-The walk is the template's, line by line.  `parseLines_split` carries
-the state across each arbitrary part to the next template line as a
-line start; `Reach.keeps` says what those steps keep (bound entries,
-pushed records); the three line lemmas of
+The walk is the template's, line by line, over the byte list of the
+chunks' concatenation (`parseLines_template`).  `parseLines_split`
+carries the state across each arbitrary part to the next template
+line as a line start; `Reach.keeps` says what those steps keep (bound
+entries, pushed records); the three line lemmas of
 `ConLeche/Verify/Frontend/FalseLines.lean` say what each template line
 scans to; `applyLine_nameFalse`, `applyLine_constFalse` and
 `applyLine_thmFalse` say what the state does with it.  The name entry
 for the theorem's own name is not read at all: it is absorbed into the
 part before the theorem line, which may be anything.
+`parseChunks_hasProofOfFalse` then puts the chunks' bytes into that
+shape: the streaming parse is the line fold of the concatenation
+(`parseChunks_eq_parseLines`), and the template's `ByteArray`
+concatenation is the list concatenation of the parts and lines.
 -/
 
 namespace ConLeche.Frontend
@@ -45,21 +51,30 @@ theorem init_names (inModel census : Bool) :
 
 theorem lit_nl : lit "\n" = [10] := by rw [lit_eq_toByteArray]; decide
 
+/-- The bytes of a string's UTF-8 are its literal's. -/
+theorem toUTF8_toList (s : String) : s.toUTF8.data.toList = lit s := by
+  rw [String.toUTF8_eq_toByteArray, lit_eq_toByteArray]
+
 /-! ## The walk -/
 
-/-- **The line-level lemma over the line fold.** -/
-theorem parseLines_hasProofOfFalse {s : String} (h : hasProofOfFalse s) {st st' : StateD}
-    {n : Nat} (hp : parseLines st (lit s) n = .ok st')
+/-- **The line-level lemma over the line fold**: the template's shape
+as a byte list — five arbitrary parts, the four lines, each ended by
+its newline. -/
+theorem parseLines_template {st st' : StateD} {n : Nat}
+    (before b₁ b₂ b₃ after : List UInt8) (i j k v : Nat) (name : String)
+    (hp : parseLines st (before ++ 10 ::
+      (lit s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ 10 ::
+      (b₁ ++ 10 ::
+      (lit s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ 10 ::
+      (b₂ ++ 10 ::
+      (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ 10 ::
+      (b₃ ++ 10 ::
+      (lit s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}"
+        ++ 10 :: after)))))))) n = .ok st')
     (h0 : st.names.get? 0 = some .anonymous) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ st'.decls := by
-  obtain ⟨before, b₁, b₂, b₃, after, i, j, k, v, name, rfl⟩ := h
-  -- the bytes: the parts and the four lines, each ended by its newline
-  rw [lit_append, lit_append, lit_append, lit_append, lit_append, lit_append, lit_append,
-    lit_append, lit_append, lit_append, lit_append, lit_append, lit_append, lit_append,
-    lit_append, lit_append, lit_nl] at hp
-  simp only [List.append_assoc, List.cons_append, List.nil_append] at hp
   -- the part before
-  obtain ⟨st₁, n₁, r₁, hp⟩ := parseLines_split (lit before).length (lit before)
+  obtain ⟨st₁, n₁, r₁, hp⟩ := parseLines_split before.length before
     (Nat.le_refl _) st st' _ n hp
   have K₁ := r₁.keeps
   -- the name entry for `False`
@@ -70,7 +85,7 @@ theorem parseLines_hasProofOfFalse {s : String} (h : hasProofOfFalse s) {st st' 
   rename_i st₂ h₂
   have hi : st₂.names.get? i = some falseName := applyLine_nameFalse h₂ (K₁.names 0 _ h0)
   -- the part between
-  obtain ⟨st₃, n₃, r₃, hp⟩ := parseLines_split (lit b₁).length (lit b₁)
+  obtain ⟨st₃, n₃, r₃, hp⟩ := parseLines_split b₁.length b₁
     (Nat.le_refl _) st₂ st' _ _ hp
   have K₃ := r₃.keeps
   -- the expression entry for the constant `False`
@@ -82,14 +97,14 @@ theorem parseLines_hasProofOfFalse {s : String} (h : hasProofOfFalse s) {st st' 
   have hj : st₄.exprs.get? j = some (Expr.mkConst falseName []) :=
     applyLine_constFalse h₄ (K₃.names i _ hi)
   -- the two parts and the theorem's name entry between, as one part
-  have hshape : lit b₂ ++ 10 :: (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++
-      10 :: (lit b₃ ++ 10 ::
+  have hshape : b₂ ++ 10 :: (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++
+      10 :: (b₃ ++ 10 ::
         (lit s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}"
-          ++ 10 :: lit after))) =
-      (lit b₂ ++ 10 :: (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++
-        10 :: lit b₃)) ++ 10 ::
+          ++ 10 :: after))) =
+      (b₂ ++ 10 :: (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++
+        10 :: b₃)) ++ 10 ::
         (lit s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}"
-          ++ 10 :: lit after) := by
+          ++ 10 :: after) := by
     simp only [List.append_assoc, List.cons_append]
   rw [hshape] at hp
   obtain ⟨st₅, n₅, r₅, hp⟩ := parseLines_split _ _ (Nat.le_refl _) st₄ st' _ _ hp
@@ -105,14 +120,30 @@ theorem parseLines_hasProofOfFalse {s : String} (h : hasProofOfFalse s) {st st' 
   have K₇ := (parseLines_reach _ _ (Nat.le_refl _) _ _ _ hp).keeps
   exact ⟨cv, vl, hty, K₇.decls _ hmem⟩
 
-/-- **The line-level lemma.**  A file that matches the template and
-parses, parses to a list holding a theorem record of type `False`. -/
-theorem parseExportD_hasProofOfFalse {s : String} (h : hasProofOfFalse s)
+/-- **The line-level lemma.**  Chunks that match the template and
+parse, parse to a list holding a theorem record of type `False`. -/
+theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
     {inModel census : Bool} {r : ParseResultD}
-    (hp : parseExportD s inModel census = .ok r) :
+    (hp : parseChunks chunks inModel census = .ok r) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ r.decls.toList := by
-  rw [parseExportD_eq_parseLines s inModel census (parseExportD_ok_size hp)] at hp
-  cases hpl : parseLines (.init inModel census) (lit s) 0 with
+  have hsz := parseChunks_ok_size hp
+  rw [parseChunks_eq_parseLines inModel census chunks hsz] at hp
+  obtain ⟨before, b₁, b₂, b₃, after, i, j, k, v, name, heq⟩ := h
+  -- the bytes: the parts and the four lines, each ended by its newline
+  have hb : bytes (concatBytes chunks) = before.data.toList ++ 10 ::
+      (lit s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ 10 ::
+      (b₁.data.toList ++ 10 ::
+      (lit s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ 10 ::
+      (b₂.data.toList ++ 10 ::
+      (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ 10 ::
+      (b₃.data.toList ++ 10 ::
+      (lit s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}"
+        ++ 10 :: after.data.toList))))))) := by
+    rw [bytes_eq_of_size_lt hsz, heq]
+    simp only [ByteArray.data_append, Array.toList_append, List.append_assoc, toUTF8_toList,
+      lit_nl, List.cons_append, List.nil_append]
+  rw [hb] at hp
+  cases hpl : parseLines (.init inModel census) _ 0 with
   | error e => rw [hpl] at hp; simp [Except.map] at hp
   | ok st' =>
     rw [hpl] at hp
@@ -120,7 +151,7 @@ theorem parseExportD_hasProofOfFalse {s : String} (h : hasProofOfFalse s)
     subst hp
     have h0 : (StateD.init inModel census).names.get? 0 = some .anonymous := by
       rw [init_names, IdTable.get?_singleton]; rfl
-    obtain ⟨cv, vl, hty, hmem⟩ := parseLines_hasProofOfFalse h hpl h0
+    obtain ⟨cv, vl, hty, hmem⟩ := parseLines_template _ _ _ _ _ i j k v name hpl h0
     exact ⟨cv, vl, hty, Array.mem_def.mp hmem⟩
 
 end ConLeche.Frontend

@@ -19,21 +19,32 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > under which every constant — every theorem included — is a member
 > of its type, `False` is empty, and `Eq` is set equality.
 >
-> **Main corollary.**  Hence a file — the text handed to the binary —
+> **Main corollary.**  Hence a file — the chunks the binary reads —
 > that declares a theorem of type `False` is never accepted at all.
 
-The corollary follows from the theorem in four steps, from the file
-inwards.  A file that declares such a theorem is read by the parser
+The corollary's statement is the binary's accept path: the three pure
+functions the driver's phases compute, chained.  The built-in prelude
+parses (`Frontend.builtinPreludeE`); the chunks parse
+(`Frontend.parseChunks`); the verified fold accepts the parsed list
+prepared with the prelude (`checkDecls .verified` over
+`Frontend.preparePrelude`).  The driver (`Main.lean`) runs the same
+three steps with IO between them — the streaming read loop, the
+heartbeat, the parallel check pool — and prints its success line only
+from an accept of the fold.
+
+The corollary follows from the theorem in four steps, from the chunks
+inwards.  Chunks that declare such a theorem are read by the parser
 into a list of declaration records holding a theorem record of that
-type — the parser resolves the file's index tables line by line, and
-an index bound once is never rebound; the preparation the binary runs
-on the parsed list before the fold (the built-in prelude in front, the
-ground of the pinned `Nat` operations hoisted ahead of them) keeps
-every parsed record; a record declaring such a theorem is installed
-under its own name with its declared type and is never dropped, so it
-would leave a constant of type `False` behind; and `False` denotes the
-empty set, which has no members, so an accepted environment holds no
-such constant.  An accepted file is therefore not a proof of a
+type — the parser resolves the file's index tables line by line, an
+index bound once is never rebound, and the chunk boundaries are
+invisible to it; the preparation the binary runs on the parsed list
+before the fold (the built-in prelude in front, the ground of the
+pinned `Nat` operations hoisted ahead of them) keeps every parsed
+record; a record declaring such a theorem is installed under its own
+name with its declared type and is never dropped, so it would leave a
+constant of type `False` behind; and `False` denotes the empty set,
+which has no members, so an accepted environment holds no such
+constant.  An accepted file is therefore not a proof of a
 contradiction, and more: every statement it proves is true in the
 model.  Definitional equalities need no clause of their own — a reader
 who cares that a definition unfolds as declared states that as a
@@ -56,19 +67,24 @@ equation of the two sides' denotations.
   so of *the* denotation.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
-* `hasProofOfFalse file` (`ConLeche/Accepts.lean`) says the file
-  declares a theorem of type `False`: four lines in the exporter's own
-  shapes — a name entry `False`, an expression entry for the constant
-  `False`, a name entry for the theorem's own name, and the theorem
-  record whose type is that expression — with anything at all before,
-  between and after them.  It is the statement a reader can check
-  without knowing what an `Env`, or even a declaration record, is: it
-  speaks only of the text handed to the binary.
-* `pipelineAccepts file` (`ConLeche/Accepts.lean`) is the binary's
-  accept path as pure content: the built-in prelude parses, the file
-  parses, and `checkDecls` accepts the parsed list prepared with the
-  prelude.  The driver prints its success line from these three facts
-  and from nothing else.
+* `chunks : List ByteArray` are the pieces the binary's read loop is
+  handed — any cut of the file, empty pieces included.
+  `hasProofOfFalse chunks` (`ConLeche/Accepts.lean`) says their
+  concatenation declares a theorem of type `False`: four lines in the
+  exporter's own shapes — a name entry `False`, an expression entry
+  for the constant `False`, a name entry for the theorem's own name,
+  and the theorem record whose type is that expression — with any
+  bytes at all before, between and after them.  It is the statement a
+  reader can check without knowing what an `Env`, or even a
+  declaration record, is: it speaks only of the bytes handed to the
+  binary.
+* `Frontend.builtinPreludeE` is the parsed built-in prelude,
+  `Frontend.parseChunks chunks` the parse of the chunks, and
+  `Frontend.preparePrelude pre` the preparation of a parsed list for
+  the fold.  Each returns an `Except` with its own error type;
+  `.toOption` forgets the reason, which is the driver's diagnostic
+  and no part of the statement, and the chain is a `do` block in
+  `Option`.
 * `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
@@ -94,10 +110,14 @@ theorem model_exists (V : Type w) [SetTheory V]
     Nonempty (Model V env) :=
   sorry
 
-/-- **The main corollary.**  A file that declares a theorem of type
-`False` is never accepted. -/
-theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
-    (h : hasProofOfFalse s) : ¬ pipelineAccepts s :=
+/-- **The main corollary.**  Chunks that declare a theorem of type
+`False` are never accepted. -/
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (h : hasProofOfFalse chunks) :
+    ∀ env, (do
+      let pre ← Frontend.builtinPreludeE.toOption
+      let r ← (Frontend.parseChunks chunks).toOption
+      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env :=
   sorry
 
 end ConLeche

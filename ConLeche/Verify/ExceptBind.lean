@@ -23,4 +23,9 @@ theorem exceptBind_ok {ε α β : Type} {x : Except ε α} {f : α → Except ε
   | error e => exact absurd h (by simp [bind, Except.bind])
   | ok a => exact ⟨a, rfl, h⟩
 
+/-- `Except.toOption` is `some` exactly at `ok`. -/
+theorem Except.toOption_eq_some_iff {ε α : Type} {x : Except ε α} {a : α} :
+    x.toOption = some a ↔ x = .ok a := by
+  cases x <;> simp [Except.toOption]
+
 end ConLeche
