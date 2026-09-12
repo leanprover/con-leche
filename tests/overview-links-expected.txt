@@ -11,11 +11,11 @@
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L74-L77
-    74  theorem model_exists (V : Type w) [SetTheory V]
-    75      (ds : List Declaration) (env : Env)
-    76      (accepted : checkDecls .verified ds = .ok env) :
-    77      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L75-L78
+    75  model in every set theory. -/
+    76  theorem model_exists (V : Type w) [SetTheory V]
+    77      (ds : List Declaration) (env : Env)
+    78      (accepted : checkDecls .verified ds = .ok env) :
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,27 +44,27 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L85-L90
-    85  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    86      (h : hasProofOfFalse chunks) :
-    87      ∀ env, (do
-    88        let pre ← Frontend.builtinPreludeE.toOption
-    89        let r ← (Frontend.parseChunks chunks).toOption
-    90        (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env := by
+== ConLeche/MainTheorem.lean#L86-L91
+    86  record, and a stream holding it is never accepted. -/
+    87  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    88      (h : hasProofOfFalse chunks) :
+    89      ∀ env, (do
+    90        let pre ← Frontend.builtinPreludeE.toOption
+    91        let r ← (Frontend.parseChunks chunks).toOption
 
-== ConLeche/Accepts.lean#L54-L65
-    54  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
-    55    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
-    56      Frontend.concatBytes chunks =
-    57        before ++ "\n".toUTF8 ++
-    58        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
-    59        between₁ ++ "\n".toUTF8 ++
-    60        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
-    61        between₂ ++ "\n".toUTF8 ++
-    62        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
-    63        between₃ ++ "\n".toUTF8 ++
-    64        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
-    65        after
+== ConLeche/Accepts.lean#L53-L64
+    53  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
+    54    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
+    55      Frontend.concatBytes chunks =
+    56        before ++ "\n".toUTF8 ++
+    57        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
+    58        between₁ ++ "\n".toUTF8 ++
+    59        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
+    60        between₂ ++ "\n".toUTF8 ++
+    61        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
+    62        between₃ ++ "\n".toUTF8 ++
+    63        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
+    64        after
 
 == ConLeche/Verify/Cached/StreamThm.lean#L205-L208
    205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]

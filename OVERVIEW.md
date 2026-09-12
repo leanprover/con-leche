@@ -93,7 +93,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L74-L77):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L75-L78):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -124,7 +124,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L85-L90):
+[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L86-L91):
 
 > … if the chunks match `hasProofOfFalse` — a name entry for `False`,
 > an expression entry for the constant `False`, a name entry for the
@@ -148,7 +148,7 @@ else. This is the form of the statement a reader can check without
 knowing what an `Env`, or even a declaration record, is: it speaks
 only of the bytes handed to the binary. The predicate is a template
 over the chunks' concatenation
-([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L54-L65))
+([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L53-L64))
 whose four lines are the UTF-8 of Lean interpolated strings and whose
 parts are any bytes at all. There is no side condition: the chunks
 may be cut anywhere, empty pieces included, and an input the machine

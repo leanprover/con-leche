@@ -3,6 +3,8 @@ module
 import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
+public import ConLeche.Frontend.Prelude
+public import ConLeche.Cached.Installed
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
