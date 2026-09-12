@@ -34,7 +34,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axiom in the input stream.
 
-  For practicality reasons, it silently *ignores* the other axiom declarations from the standard library, including `sorryAx`, but will complain if they are used.
+  For practicality reasons, it silently *ignores* the the `sorryAx` axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using `--jobs`.

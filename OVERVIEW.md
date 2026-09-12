@@ -26,7 +26,7 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L738)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L714)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -89,10 +89,11 @@ covered exactly as a run without it, and so is a run on the pool.
 
 ## 1. What is proved
 
-The statement is three theorems about the declaration fold `checkDecls`,
-the function whose result the `con-leche` binary's driver returns for
-a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L55-L58):
+The statement is two theorems: one about the declaration fold
+`checkDecls`, the function whose result the `con-leche` binary's
+driver returns for a parsed export stream, and one about the file the
+binary is handed. The main theorem,
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L68-L71):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -123,55 +124,89 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L65-L68),
-follows in three lines — a constant of type `False` would be a member
-of the empty set:
-
-> … then `env` stores no constant whose type is `False`.
-
-The same corollary is stated a second time over the fold's INPUT,
-[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L80-L83):
-
-> … if any record of `ds` declares a theorem whose declared type is
-> `False`, then `checkDecls` accepts `ds` with no environment at all.
-
-It says the extra thing a reader of the first corollary may wonder
-about — that the offending record is not quietly dropped on the way
-in. A theorem record is installed by statement, under its own name,
-with the annotation of its declared type; the annotation of a bare
-constant is that constant; and every later step of the fold only ever
-extends the list of stored constants. So the record's own `False` is
-still in the environment the fold returns, where the first corollary
-forbids it.
-
-And a third time over the FILE — the text the binary is handed —
-[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L93-L94):
+[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L79-L80):
 
 > … if the file matches `hasProofOfFalse` — a name entry for `False`,
 > an expression entry for the constant `False`, a name entry for the
 > theorem's own name, and a theorem record whose type is that
 > expression, four lines in the exporter's own shapes with anything at
 > all before, between and after them — then the binary's accept path
-> (`pipelineAccepts`: the built-in prelude parses, the file parses with
-> it, no record was skipped, the fold accepts) is not taken.
+> (`pipelineAccepts`: the built-in prelude parses, the file parses,
+> the fold accepts the parsed list prepared with the prelude) is not
+> taken.
 
-The predicate is a string template
-([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L61-L72))
-written with Lean's own interpolation, so a reader who has never seen
-the code can check what it says; the one side condition is that the
-file fits in the address space, because the parser's positions are
-machine words. What the proof adds to the corollary at the stream is
-the parser: the byte recogniser never reads past a newline
+This is the form of the statement a reader can check without knowing
+what an `Env`, or even a declaration record, is: it speaks only of the
+text handed to the binary. The predicate is a string template
+([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L62-L73))
+written with Lean's own interpolation, and the accept path
+([`pipelineAccepts` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L85-L89))
+is the driver's, stripped of its IO. There is no side condition: an
+input the machine word cannot address is refused by the parser before
+any of it is read, so an accepted parse is one of a file that fits.
+
+The corollary rests on a statement at the stream — the fold's input —
+proved beside the fold
+([`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamThm.lean#L204-L207)):
+
+> … if any record of `ds` declares a theorem whose declared type is
+> `False`, then `checkDecls` accepts `ds` with no environment at all.
+
+That follows from the theorem in a handful of lines, through the
+environment in between. A theorem record is installed by statement,
+under its own name, with the annotation of its declared type; the
+annotation of a bare constant is that constant; and every later step
+of the fold only ever extends the list of stored constants — so an
+accepted stream that declared such a theorem would leave a constant of
+type `False` among the constants of the environment the fold returns.
+It cannot: the model the theorem provides puts every stored constant
+inside what its type denotes, and what the built-in `False` denotes is
+the empty set, which has no members.
+
+What the corollary adds to that is the parser and the preparation. The
+byte recogniser never reads past a newline
 (`ConLeche/Verify/Frontend/Local.lean`), so every line of the file is
-read as a line whatever surrounds it; a bound stream index is bound
-once (a rebinding is a parse error), so the entry a template line
-bound is the entry the theorem line reads; the record list only grows;
-and the three template lines scan to exactly the records the fold then
-forbids. The binary reads the file in chunks, and
-`parseChunks_eq_parseExportD` (`ConLeche/Verify/Frontend/Chunks.lean`)
+read as a line whatever surrounds it; a stream index is bound once (a
+rebinding is a parse error), so the entry a template line bound is the
+entry the theorem line reads; the record list only grows; and the
+template's lines scan to exactly the records the fold then forbids
+([`parseExportD_hasProofOfFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L110)).
+The preparation puts the built-in prelude's records first and hoists
+the ground of the pinned `Nat` operations; it is a permutation of the
+parsed records plus the prelude's, so the record is still there
+([`mem_preparePrelude` in `ConLeche/Verify/Frontend/Prepare.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L151)).
+The binary reads the file in chunks, and
+[`parseChunks_ok_parseExportD` in `ConLeche/Verify/Frontend/Chunks.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/Chunks.lean#L358)
 shows that the chunk boundary is invisible — the statement's twin
 `no_False_declaration_streaming` is about the chunks the handle hands
-out.
+out, and the streaming reader's running byte count is the same guard
+the wholesale parse applies up front.
+
+"Installed under its own name, with the annotation of its declared
+type" is a claim in its own right, and it is proved in general:
+[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L779-L784)
+says that whenever `checkDecls` accepts `ds`, every record of `ds` that
+declares a constant — a definition, a theorem, an opaque, or an axiom
+that is neither `sorryAx`, the axiom record that installs nothing, nor
+`Quot.sound`, which the pinned quotient block installs
+([`Declaration.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L628-L635))
+— leaves a constant of that very name in the returned environment, with
+the record's own level parameters and with the *annotation* of the
+record's own type: the same term with every `let` inlined and the
+binder data rewritten, and nothing else touched at all
+([`AnnotOf` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L127-L128)).
+A `basisDecl` record declares nothing of its own — it names one of the
+checker's pinned basis blocks, and what is installed is the pins'.
+
+The members of an inductive block are deliberately outside that claim,
+and the module says why. A recursor's stored type is the one the
+checker *generates* from the block; the stream's own recursor record is
+compared against it by definitional equality and then discarded, which
+is what official's replay does too. On the fixpoint route a type
+former's telescope may be stored reduced to weak head normal form, and
+a constructor's field domains positivity-normalised. Those three are
+definitional equalities, not annotations, so the relation above would
+be false of them.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
@@ -189,7 +224,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L99-L103)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L97-L101)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -199,15 +234,18 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L1100))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L923))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
    the driver calls the reference, and the compiler runs the fast
-   recogniser on the strength of that equality; the stream-index
-   tables have the same kind of law, and what the parser then makes of
-   a record — index resolution, the smart constructors, the modeller —
-   is shared code, tested differentially rather than proved. The install loop
+   recogniser on the strength of that equality. The streaming loop is
+   a pure step over each chunk
+   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L850))
+   with the reads interleaved, and what the parser makes of a record
+   — index resolution, the smart constructors, the modeller — is the
+   semantic layer the main corollary's line lemmas are about; the
+   modeller's output is tested differentially rather than proved. The install loop
    ([function `installLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L100))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L136-L138)):
@@ -272,14 +310,14 @@ Read from the outside in:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the install
    run
-   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L311-L318)),
+   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L455-L462)),
    and a record's check at the prefix view is covered by the
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L543-L544)).
    The walk carries the model to the final environment
-   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L460-L462)),
+   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L483-L485)),
    and the fold's letter
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L65-L71))
    is that model read through `checkDecls_fullyChecked`
@@ -290,13 +328,13 @@ Read from the outside in:
    parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TypeChecker.lean#L28-L54));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2871-L2880)).
+   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2893-L2902)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L294-L301)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L307-L314)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L161)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L164)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
@@ -326,7 +364,7 @@ official one: `whnfCore` does β/ι/projection/quotient reduction,
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2028)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2050)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
 reduction as the environment's capability flags permit; one
@@ -337,7 +375,7 @@ differ from a textbook presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
-  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2751))
+  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2773))
   records at every binder the sort of its codomain as a "Prop-when"
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
@@ -352,7 +390,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1429-L1431)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -440,23 +478,27 @@ operations of §6.
 
 Inductive blocks are not trusted from the stream. Three cases:
 
-* **Pinned basis blocks.** `Eq`, `Nat`, `PUnit`, `Empty`, `False`,
-  `Quot` (with its soundness axiom), `Bool` and `And` are installed
-  from built-in pins
-  ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Basis/False.lean#L52))
-  as a prelude prepended to every stream
-  ([the built-in prelude in `ConLeche/Frontend/Prelude.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prelude.lean#L7-L22));
-  a stream record under one of those names is dropped if identical and
-  declined if different. Their denotations are fixed sets, which is why
-  the main theorem can name `False` without a hypothesis about how the
-  stream declared it.
+* **Pinned basis blocks.** `Eq`, `Nat`, `PUnit`, `Empty`, `False` and
+  `Quot` (with its soundness axiom) are installed from built-in pins
+  ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Basis/False.lean#L52)).
+  The fold recognises them: a block whose members carry the pin's
+  names and agree with it up to level-parameter renaming installs the
+  PIN
+  ([the recogniser `basisPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Basis.lean#L68-L70)),
+  and a block under one of those names that does not agree is rejected
+  at the reserved-name check. Their denotations are fixed sets, which
+  is why the main theorem can name `False` without a hypothesis about
+  how the stream declared it. `Bool` and `And` are not pinned: they are
+  installed from the stream's own records, and the checker carries a
+  copy of the toolchain's only to supply a stream that declares
+  neither.
 * **The fixpoint route** takes every other single, non-nested block:
   any number of parameters, indices, constructors and fields, recursive
   and reflexive fields, `Prop` or `Type`. The recogniser reads the
   block's shape — its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L581-L588)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L624-L631)),
   its index count off what is left of the type former's telescope, as
   official reads them, and
   nothing of the stream's recursor record, which official never reads as
@@ -526,14 +568,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L545-L553)):
+  [the list `natOpNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L567-L575)):
   when a definition under one of these names arrives, the install
   certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L477-L494),
+  ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L499-L516),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L110-L117)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -543,7 +585,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/NatEqs.lean#L1100)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L555-L570))
+  [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L577-L592))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -561,12 +603,17 @@ instead of trusting the operation's name.
   [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/DivModCert.lean#L2023).
 * **Order independence.** The certificates are spelled over the
   structural operations and the basis blocks, which an export may emit
-  in any order. The built-in prelude supplies the basis blocks, and a
-  parse-time pass moves a pinned operation's dependency closure ahead
-  of it when the stream has it later
-  ([the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
-  Both are pure transformations of the parsed list below the verified
-  fold.
+  in any order. One pure pass between the parse and the fold puts every
+  declaration the checker's prelude names at the front of the list —
+  the stream's own record where the stream has one — and moves a pinned
+  operation's dependency closure ahead of it when the stream has it
+  later
+  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prepare.lean#L156-L162),
+  [the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
+  Both are reorderings of the parsed list below the verified fold, and
+  that is a theorem about them: the prepared list is a permutation of
+  the file's records plus prelude records the file did not declare
+  ([theorem `preparePrelude_perm` in `ConLeche/Verify/Frontend/Prepare.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L136-L141)).
 
 ## 7. The set-theory assumption
 
@@ -610,15 +657,17 @@ proof cannot remove.
 A stream may use exactly the standard axioms `propext` and
 `Classical.choice`, after their types and the shapes of the inductives
 they quantify over are pinned to the toolchain's
-([the pinned standard axioms in `ConLeche/Kernel/StdAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/StdAxioms.lean#L39-L51));
+([the pinned standard axioms in `ConLeche/Kernel/StdAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/StdAxioms.lean#L38-L42));
 both are true in the model, `propext` by extensionality of
 propositions and `Classical.choice` by global choice. `Quot.sound` is
 part of the pinned `Quot` block. Any other axiom declaration is a
 positive decline at its own record, with one tolerated exception:
-`sorryAx` is dropped rather than declined, and every declaration that
-uses it is skipped and taints the run, so a stream with a `sorry` in
-it declines at the end rather than at the first library file that
-happens to mention the axiom.
+`sorryAx`. An export declares that axiom whenever the module it came
+from mentions `sorry`, whether or not anything uses it, so its record
+is checked for well-formedness and then installs nothing — there is no
+set model for it and there cannot be one. A stream that merely
+declares it is therefore accepted; a stream that *uses* it declines, at
+the record that uses it.
 
 The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.reduceNat` and the axioms `Lean.ofReduceBool` and
@@ -629,7 +678,7 @@ function, and the two axioms are accepted only after the install
 certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model
-([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L10-L36)).
+([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L10-L38)).
 Proofs by `native_decide` and `bv_decide` are declined: each such
 proof adds an axiom of its own to the environment, recording the
 result the native evaluator computed, and that axiom is not a pinned
@@ -642,14 +691,18 @@ declare it.)
 ## 9. What the theorem does not cover
 
 * The frontend. The theorem is about the list of declarations the
-  fold receives, not about the export file. Between the two sit pure
-  transformations of the parsed stream: the prelude is prepended and
-  duplicates dropped, a pinned Nat operation's dependencies are moved
-  ahead of it, a projection function is rewritten to its recursor form
-  (`ConLeche/Frontend/ProjRec.lean`), and the models of mutual and
-  nested blocks are generated — here and nowhere else; the input is
-  never read for one, and the generated records are counted as what
-  they are, declarations of the fold rather than records of the file.
+  fold receives, not about the export file. The decoder emits the
+  file's records and nothing else; between it and the fold sit pure
+  transformations of that list. Two are reorderings, and a theorem says
+  so (`preparePrelude`, §6): the declarations the prelude names are
+  moved to the front, the prelude's own copy filling in only what the
+  file does not declare, and a pinned Nat operation's dependencies are
+  moved ahead of it. Two are not: a projection function is rewritten to
+  its recursor form (`ConLeche/Frontend/ProjRec.lean`), and the models
+  of mutual and nested blocks are generated — here and nowhere else;
+  the input is never read for one, and the generated records are
+  counted as what they are, declarations of the fold rather than
+  records of the file.
   Two guarantees have to be kept apart
   here. What §5 and §6 establish is that everything the frontend
   *generates* is checked: a model's declarations and a Nat operation's
@@ -683,10 +736,10 @@ to know is short:
 
 | marker | reading |
 |---|---|
-| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
+| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | indexed (`nativeRecAVI`-style readings that carry an index) |
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
-| `D` | the direct-parse record type `DeclC` and the functions over it |
+| `D` | the direct parse and the functions over its output (`parseExportD`, `trusted_agrees_skels_D`) |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
 | `WF` | well-formedness (`EnvWF`, `StructWF`) |
 | `_pure` / `_cached` / `_checked` | the capstones over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |
@@ -727,7 +780,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Native*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`); the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the Nat-op ground reordering of `NatOpGround.lean`); the projection-function rewrite; the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
@@ -737,7 +790,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `hasProofOfFalse`, the string template, and `pipelineAccepts`/`streamingAccepts`, the binary's accept path as pure content. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and its corollaries — about the environment the fold returns, the stream it consumes, and the file the binary reads — and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the file the binary reads — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

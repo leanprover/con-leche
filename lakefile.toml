@@ -114,9 +114,15 @@ roots = ["ConLeche.Model"]
 # simulation, and the consistency corollaries for `--core=cached-parsed`.
 # `Verify/Cached/MainC.lean` carries the shipped driver's capstone; it
 # was the two-lane assembly until the SetR removal left one lane.
+# `ConLeche.Verify.Frontend.Prepare` (task #293) is rooted here and not
+# under `ConLecheBase`: it is a proof ABOUT a frontend function — what
+# `preparePrelude` does to the file's records — and the capstone lib is
+# where the statements that compose with the main theorem's input live.
+# It is the one theory module that imports `ConLeche.Frontend.*`.
 [[lean_lib]]
 name = "ConLecheCaps"
-roots = ["ConLeche.Verify.Cached", "ConLeche.MainTheorem"]
+roots = ["ConLeche.Verify.Cached", "ConLeche.MainTheorem",
+         "ConLeche.Verify.Frontend.Prepare"]
 
 # THE PALOMAR CHALLENGE MODULE (task #183).  `ConLeche/Challenge.lean` is
 # the small readable statement of `ConLeche.no_proof_of_False` with

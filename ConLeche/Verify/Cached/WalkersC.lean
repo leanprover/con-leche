@@ -12,7 +12,7 @@ memoised projection-body builder the cached driver hands the direct
 installers (`StructWalkers`, `ConLeche/Kernel/Inductives/StructInstallF.lean`) —
 is equal to the specification record `StructWalkers.plain`: the gate by
 `constsResolveFC_spec` (task #171), the builder by
-`instantiate1Lift_spec` (`OpsC.lean`) through the two loops.  Every
+`instantiate1LiftC_spec` (`OpsC.lean`) through the two loops.  Every
 bridge lemma about the driver rewrites by `structWalkersC_eq_plain`
 once and then reads the plain installer.
 -/
@@ -34,7 +34,7 @@ theorem instPisAtLiftC_eq : ∀ (as : List Expr) (e : Expr),
   | _ :: _, .lit _ => rfl
   | _ :: _, .proj .. => rfl
   | a :: as, .forallE _ body _ => by
-    simp only [instPisAtLiftC, Expr.instPisAtLift, ExprC.instantiate1Lift_spec]
+    simp only [instPisAtLiftC, Expr.instPisAtLift, Expr.instantiate1LiftC_spec]
     exact instPisAtLiftC_eq as _
 
 theorem structProjBodiesGoC_eq (T : Name) : ∀ (k i : Nat) (r : Expr),
@@ -50,7 +50,7 @@ theorem structProjBodiesGoC_eq (T : Name) : ∀ (k i : Nat) (r : Expr),
   | _ + 1, _, .lit _ => rfl
   | _ + 1, _, .proj .. => rfl
   | k + 1, i, .forallE fdom body _ => by
-    simp only [structProjBodiesGoC, structProjBodiesGo, ExprC.instantiate1Lift_spec]
+    simp only [structProjBodiesGoC, structProjBodiesGo, Expr.instantiate1LiftC_spec]
     rw [structProjBodiesGoC_eq T k (i + 1)]
 
 theorem structProjBodiesC_eq (T : Name) (nP nF : Nat) (cty : Expr) :

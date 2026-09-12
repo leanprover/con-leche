@@ -63,6 +63,14 @@ FALLBACK = {
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
     ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
+    # task #285: `BasisGen` declares the `#annotate_basis` COMMAND, and
+    # `TrustAxioms` invokes it through `BasisA`'s re-export.  A command
+    # elaborator is registered, not named, so no census row attributes it —
+    # demoting the line makes `TrustAxioms` fail to parse (`unexpected
+    # token '#'`), which is task #235's third blind class seen from the
+    # other side.  (The fixpoint is order-dependent: this edge became a
+    # demotion candidate only when #285 changed the graph around it.)
+    ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
     # task #290: every statement of `Verify/Frontend/Local.lean` is over
     # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
     # (the private `import Scan.Equiv` covers the constants), but a private

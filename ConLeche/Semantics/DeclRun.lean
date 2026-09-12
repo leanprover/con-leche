@@ -197,6 +197,12 @@ def DeclOpaqueRun (μ : CheckMode) (F : Nat) (env : Env)
 stored-data guards and is carried verbatim. -/
 def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (env₂ : Env) : Prop :=
+  -- **`Quot.sound`** (task #293): the pinned quotient block's own
+  -- record, compared with the pin BEFORE the common checks (its name is
+  -- a reserved basis name) and installing nothing of its own — the
+  -- block installs it.  No `ConstantValRun`: the record's type is not
+  -- annotated, exactly as the parser's comparison did not annotate it.
+  (cv.name = quotSoundName ∧ env₂ = env) ∨
   ∃ type',
     ConstantValRun μ F env cv type' ∧
     (let cvA : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
@@ -211,7 +217,7 @@ def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
         cvA.name ≠ trustCompilerName ∧
         cvA.name ≠ ofReduceNatName ∧ cvA.name ≠ ofReduceBoolName ∧
         cvA.name ≠ propextName ∧ cvA.name ≠ choiceName ∧
-        toleratedAxiomNames.contains cvA.name = true ∧
+        cvA.name = sorryAxName ∧
         env₂ = env))
 
 /-! ## The assembly -/
@@ -231,7 +237,18 @@ def DeclRun (μ : CheckMode) (F : Nat)
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun μ F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun μ F env cv env₂
   | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
-  | .indDecl block nP, env₂ => Ind block nP env₂
+  -- **The pinned blocks are recognised in the FOLD** (task #293): a
+  -- stream block that IS one of the five pins installs the pin, and the
+  -- quotient package's `type` record installs the sixth (its other
+  -- records are members of the block that one installs).
+  | .indDecl block nP, env₂ =>
+    match basisPinHit block with
+    | some kind => DeclBasisRun env kind env₂
+    | none => Ind block nP env₂
+  | .quotDecl k _, env₂ =>
+    match k with
+    | .type => DeclBasisRun env .quotK env₂
+    | _ => env₂ = env
 
 /-! ## The projections, retired (2026-09-05)
 

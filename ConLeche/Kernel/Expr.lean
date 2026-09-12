@@ -339,7 +339,7 @@ The *storage* is the compiler's: `Lean/Elab/ComputedFields.lean:33` —
 *"This file implements the computed fields feature by simulating it
 via `implemented_by`."*  That is a named trust escape; it is
 enumerated, with the user ruling that adopted it, in the trust census
-in `ConLeche/Cached/ExprC.lean`'s module docstring. -/
+in `ConLeche/Cached/ExprNodes.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
   | fvar (idx : Nat) (type : Expr)
@@ -1005,7 +1005,7 @@ representation-transparent (`mkBvar_eq`, `@[simp]`), so pattern
 matching stays on `.bvar` and no statement anywhere changes.
 
 **Where it is used.**  Every *runtime* `bvar` construction goes through
-it, and the routing is one line: `ConLeche.Cached.ExprC.mkBVar` is the
+it, and the routing is one line: `ConLeche.Expr.mkBVar` is the
 cached tier's only `bvar` builder, so the substitution and abstraction
 walks and the frontend's parser are all covered at once.  The
 remaining `.bvar` literals in the tree are either the pure *spec*

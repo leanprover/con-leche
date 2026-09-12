@@ -51,7 +51,7 @@ Two facts close the remaining branches without core reasoning:
   (`structPartsF?`) reads the index only through name lookups
   (`structNonRecF_skel`), so it runs on the skeleton too;
 * at `.axiomDecl` the push-or-not decision is a function of the header
-  name alone — `toleratedAxiomNames = [sorryAx]` installs nothing in
+  name alone — the `sorryAx` record installs nothing in
   both drivers, and `stdAxiomOkF` is `false` off `propext`/`choice`, so
   every other accepted axiom installs exactly one `.axiomInfo`.
 
@@ -471,15 +471,29 @@ def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) 
   | none => indDeclSkelsModeled block sk
 
 /-- The skeletons one declaration installs. -/
-def declCSkels : DeclC → List InstallSkel → List InstallSkel
+def declCSkels : Declaration → List InstallSkel → List InstallSkel
   | .defnDecl cv _ _, sk => .defn cv.name :: sk
   | .thmDecl cv _, sk => .thm cv.name :: sk
   | .opaqueDecl cv _, sk => .ax cv.name :: sk
   | .axiomDecl cv, sk =>
-    if toleratedAxiomNames.contains cv.name then sk else .ax cv.name :: sk
+    -- task #293: `Quot.sound` is the pinned quotient block's own
+    -- record and installs nothing of its own, like `sorryAx`
+    if cv.name = sorryAxName ∨ cv.name = quotSoundName then sk
+    else .ax cv.name :: sk
   | .basisDecl kind, sk =>
     kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
-  | .indDecl block nP, sk => indDeclSkels nP block sk
+  -- task #293: the quotient package's `type` record installs the
+  -- pinned block; its other records are members of that block
+  | .quotDecl k _, sk =>
+    match k with
+    | .type => BasisKind.quotK.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
+    | _ => sk
+  | .indDecl block nP, sk =>
+    -- task #293: a block the fold recognises as a pinned one installs
+    -- the pin
+    match basisPinHit block with
+    | some kind => kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
+    | none => indDeclSkels nP block sk
 
 /-! ## The shared install stages
 
@@ -567,7 +581,7 @@ theorem annotConstantValC_fresh (mode : CheckMode) (fe : FEnv)
   all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
 theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
-    (value : ExprC) (record : Bool) :
+    (value : Expr) (record : Bool) :
     Yields (annotValueC mode fe cv value record)
       (fun r => r.1.name = cv.name ∧ fe.find? cv.name = none) := by
   unfold annotValueC
@@ -579,7 +593,7 @@ theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
 
 theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) (hint : ReducibilityHint) :
+    (jty value : Expr) (hint : ReducibilityHint) :
     Yields (checkDefnValC mode fe cvA jty value hint)
       (fun fe' => SkelIs fe' (.defn cvA.name :: sk)) := by
   unfold checkDefnValC
@@ -588,7 +602,7 @@ theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
 
 theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkThmValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.thm cvA.name :: sk)) := by
   unfold checkThmValC
@@ -597,7 +611,7 @@ theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
 
 theorem checkOpaqueValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkOpaqueValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.ax cvA.name :: sk)) := by
   unfold checkOpaqueValC
@@ -1182,37 +1196,53 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
 
 /-! ### The tolerated-axiom branch
 
-`toleratedAxiomNames` is exactly `[sorryAx]`, and none of the pinned
-axiom guards can fire on it — so at `.axiomDecl` the *push-or-not*
-decision is a function of the header name alone, in both drivers. -/
-
-theorem tolerated_eq {n : Name} (ht : toleratedAxiomNames.contains n = true) :
-    n = Name.anonymous.str "sorryAx" := by
-  simpa [toleratedAxiomNames] using ht
+`sorryAx` is the one axiom the checker tolerates as a declaration, and
+none of the pinned axiom guards can fire on it — so at `.axiomDecl` the
+*push-or-not* decision is a function of the header name alone, in both
+drivers. -/
 
 theorem tolerated_not_std (fe : FEnv) (cvA : ConstantVal)
-    (ht : toleratedAxiomNames.contains cvA.name = true) :
+    (ht : cvA.name = sorryAxName) :
     stdAxiomOkF fe cvA = false := by
-  rw [stdAxiomOkF, if_neg, if_neg] <;> rw [tolerated_eq ht] <;> decide
+  rw [stdAxiomOkF, if_neg, if_neg] <;> rw [ht] <;> decide
 
 theorem tolerated_ne_trust {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) : n ≠ trustCompilerName := by
-  rw [tolerated_eq ht]; decide
+    (ht : n = sorryAxName) : n ≠ trustCompilerName := by
+  rw [ht]; decide
 
 theorem tolerated_ne_ofReduce {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) :
+    (ht : n = sorryAxName) :
     ¬(n = ofReduceNatName ∨ n = ofReduceBoolName) := by
-  rw [tolerated_eq ht]; decide
+  rw [ht]; decide
 
 theorem tolerated_ne_std {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) :
+    (ht : n = sorryAxName) :
     ¬(n = propextName ∨ n = choiceName) := by
-  rw [tolerated_eq ht]; decide
+  rw [ht]; decide
 
 /-! ### The cached certified declaration clause -/
 
+/-- The pinned-block install's skeleton reading, shared by the three
+arms that install one (task #293). -/
+theorem checkBasisDeclC_skels {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (kind : BasisKind) :
+    Yields (checkBasisDeclC fe kind)
+      (fun fe' => SkelIs fe'
+        (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
+  have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
+      Yields (kind.declsA.foldlM installBasisDeclF fe')
+        (fun x => SkelIs x
+          (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
+    fun fe' sk' h' =>
+      Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
+        (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
+        kind.declsA fe' sk' h'
+  unfold checkBasisDeclC
+  yields
+  all_goals exact hfold fe sk h
+
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclC mode fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclC declCSkels
@@ -1251,46 +1281,62 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     · exact key
   | axiomDecl cv =>
     simp only []
-    refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
-    obtain ⟨cvA, jty⟩ := p
+    -- task #293: `Quot.sound` is compared with the pin and installs
+    -- nothing of its own
+    by_cases hqs : cv.name = quotSoundName
+    · rw [if_pos hqs, if_pos (Or.inr hqs)]
+      split
+      · exact Yields.pure h
+      · exact Yields.ofThrow
+    · rw [if_neg hqs]
+      refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
+      obtain ⟨cvA, jty⟩ := p
+      simp only []
+      rw [← hp]
+      by_cases ht : cvA.name = sorryAxName
+      · rw [if_pos (Or.inl ht),
+          if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
+          if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
+          if_neg (tolerated_ne_std ht), if_pos ht]
+        exact Yields.pure h
+      · have hne : ¬(cvA.name = sorryAxName ∨ cvA.name = quotSoundName) := by
+          rintro (h' | h')
+          · exact ht h'
+          · exact hqs (hp ▸ h')
+        rw [if_neg hne]
+        yields
+        all_goals first
+          | (apply Yields.pure; exact h.push _)
+          | exact absurd (by assumption) ht
+  | basisDecl kind => exact checkBasisDeclC_skels h kind
+  | quotDecl k cv =>
+    -- task #293: the `type` record installs the pinned block, the
+    -- other members install nothing, a mismatch throws
     simp only []
-    rw [← hp]
-    by_cases ht : toleratedAxiomNames.contains cvA.name = true
-    · rw [if_pos ht,
-        if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
-        if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
-        if_neg (tolerated_ne_std ht), if_pos ht]
-      exact Yields.pure h
-    · rw [if_neg ht]
-      yields
-      all_goals first
-        | (apply Yields.pure; exact h.push _)
-        | exact absurd (by assumption) ht
-  | basisDecl kind =>
-    have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
-        Yields (kind.declsA.foldlM installBasisDeclF fe')
-          (fun x => SkelIs x
-            (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
-      fun fe' sk' h' =>
-        Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
-          (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
-          kind.declsA fe' sk' h'
-    simp only []
-    yields
-    all_goals exact hfold fe sk h
+    cases k <;>
+      (split
+       · first
+         | exact checkBasisDeclC_skels h .quotK
+         | exact Yields.pure h
+       · exact Yields.ofThrow)
   | indDecl block nP =>
     simp only []
-    -- the declared parameter count (task #228): its `throw` installs
-    -- nothing, so the skeleton reading is the dispatch's as before
+    -- task #293: a block the fold recognises as a pinned one installs
+    -- the pin; the declared parameter count (task #228) below it is a
+    -- guard whose `throw` installs nothing
     split
-    · unfold indDeclSkels
-      cases nativeParts? nP block with
-      | none => exact checkIndDeclSF_skels mode h block
-      | some p => exact checkNativeS_skels mode h p
-    · exact Yields.ofThrow
+    next kind hk => rw [hk]; exact checkBasisDeclC_skels h kind
+    next hk =>
+      rw [hk]
+      split
+      · unfold indDeclSkels
+        cases nativeParts? nP block with
+        | none => exact checkIndDeclSF_skels mode h block
+        | some p => exact checkNativeS_skels mode h p
+      · exact Yields.ofThrow
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclStepC mode fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclStepC
@@ -1317,7 +1363,7 @@ theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
 
 /-- The declaration-stream specification: the skeletons a stream
 installs, newest first. -/
-def streamSkels (ds : List DeclC) : List InstallSkel :=
+def streamSkels (ds : List Declaration) : List InstallSkel :=
   ds.foldl (fun sk pd => declCSkels pd sk) []
 
 /-! ### The direct-parse entry points (task #171's route) -/
@@ -1326,7 +1372,7 @@ def streamSkels (ds : List DeclC) : List InstallSkel :=
 kinds push the one constant the fold's value checkers push, everything
 else runs `checkDeclStepC`. -/
 theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : Declaration) :
     Yields (annotStepC mode i fe pend pd) (fun r => SkelIs r.1 (declCSkels pd sk)) := by
   have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
       CheckCM (FEnv × Array PendingCheck)) (fun r => SkelIs r.1 (declCSkels pd' sk)) :=
@@ -1362,10 +1408,11 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
       rw [← hr.1]; exact h.push _
   | axiomDecl cv => exact hord _
   | basisDecl kind => exact hord _
+  | quotDecl k cv => exact hord _
   | indDecl block nP => exact hord _
 
 /-- Phase A's accepting run installs the stream's skeletons. -/
-theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
+theorem installRun_skels (mode : CheckMode) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (h : InstallRun mode ds p s q s') {sk : List InstallSkel} (hp : SkelIs p.2.1 sk) :
@@ -1379,7 +1426,7 @@ theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
 
 /-- **The skeleton spec, at every mode.**  This is the floor's whole
 content since the twin's retirement: one fold, one proof. -/
-theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
     {env : Env} (h : checkDecls mode ds = .ok env) :
     envSkels env = streamSkels ds := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
@@ -1392,7 +1439,7 @@ two modes — in particular the trusted (`.trusted`) and the verified
 two installed environments carry the same install skeletons.  Stated
 for any two modes: the old two-driver statement is the instance
 `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
-theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1400,7 +1447,7 @@ theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List DeclC}
   (checkDecls_skels hN).trans (checkDecls_skels hP).symm
 
 /-- The census's sentence: the accepted declaration **names** agree. -/
-theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1409,7 +1456,7 @@ theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List DeclC}
   simpa [envSkels, List.map_map, Function.comp_def] using h
 
 /-- … and so do the accepted declaration **counts**. -/
-theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1419,7 +1466,7 @@ theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List DeclC}
 
 /-- The shipped pair, spelled out: `--trusted` and `--verified` agree on
 the install skeletons whenever both accept. -/
-theorem trusted_agrees_skels_shipped {ds : List DeclC} {envP envT : Env}
+theorem trusted_agrees_skels_shipped {ds : List Declaration} {envP envT : Env}
     (hP : checkDecls .verified ds = .ok envP)
     (hT : checkDecls .trusted ds = .ok envT) :
     envSkels envT = envSkels envP :=

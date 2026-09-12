@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Semantics.Bridge.Decl
 import ConLeche.Verify.ReducePinInv
 import ConLeche.Verify.DivModInv
 
@@ -210,6 +210,18 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomRun μ F env cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
+  -- **`Quot.sound`** (task #293): compared with the pin before the
+  -- common checks, installing nothing.
+  by_cases hqs : cv.name = quotSoundName
+  · rw [if_pos hqs] at h
+    by_cases hpin : ConstantInfo.canonEq (.axiomInfo cv)
+        (quotBasis.getD 4 (.axiomInfo default)) = true
+    · rw [if_pos hpin] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl ⟨hqs, h.symm⟩
+    · rw [if_neg hpin] at h; exact nomatch h
+  rw [if_neg hqs] at h
+  refine Or.inr ?_
   cases hccv : checkConstantVal (fueledOps μ F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cvA =>
@@ -246,7 +258,7 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   · rw [if_pos hpc] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   rw [if_neg hpc] at h
-  by_cases htol : toleratedAxiomNames.contains cv.name = true
+  by_cases htol : cv.name = sorryAxName
   · rw [if_pos htol] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     refine Or.inr (Or.inr (Or.inr ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,
@@ -493,6 +505,7 @@ supplies `declIndRR` (today's, until S11b) has exactly **one** door.
 theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat},
+      basisPinHit block = none →
       checkDecl μ (fueledOps μ F) env (.indDecl block nP) = .ok env₂ →
       Ind block nP env₂)
     {d : Declaration}
@@ -504,6 +517,28 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
   | basisDecl kind => exact declBasisRun h
-  | indDecl block nP => exact hind h
+  | quotDecl k cv =>
+    -- task #293: the `type` record installs the pinned block, the other
+    -- members install nothing
+    simp only [checkDecl] at h
+    cases k <;> simp only [DeclRun] <;> split at h
+    case type.isTrue => exact declBasisRunOf h
+    case type.isFalse => exact nomatch h
+    all_goals first
+      | (simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm)
+      | exact nomatch h
+  | indDecl block nP =>
+    -- task #293: a block the fold recognises as a pinned one installs
+    -- the pin; everything else is the caller's `Ind`
+    show (match basisPinHit block with
+      | some kind => DeclBasisRun env kind env₂
+      | none => Ind block nP env₂)
+    have h' := h
+    simp only [checkDecl] at h'
+    cases hpin : basisPinHit block with
+    | some kind =>
+      rw [hpin] at h'
+      exact declBasisRunOf h'
+    | none => exact hind hpin h
 
 end ConLeche.Semantics

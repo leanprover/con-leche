@@ -25,7 +25,10 @@ that it computes the wholesale parse of the concatenation:
   invariant that makes the last chunk's `chunkFinish` the wholesale
   parse's final line.
 * `parseChunks_eq_parseExportD`: the two parses agree, for every
-  chunking of a file that fits in the address space.
+  chunking of a file that fits in the address space — and, by the
+  streaming guard's running byte count, a result of `parseChunks` is
+  about such a file (`parseChunks_ok_size`), so
+  `parseChunks_ok_parseExportD` carries no size hypothesis.
 -/
 
 namespace ConLeche.Frontend
@@ -201,23 +204,25 @@ theorem bytes_extract_tail {b : ByteArray} (t : USize) (h : b.size < USize.size)
 /-! ## The loop -/
 
 /-- The chunked loop, from any carry without a newline, is the line fold
-of the carry followed by the chunks. -/
+of the carry followed by the chunks — for a running byte count the
+carry fits in and that the chunks keep below the machine word. -/
 theorem parseChunks_go :
-    ∀ (cs : List ByteArray) (st : StateD) (carry : ByteArray) (lineNo : Nat),
-    (∀ c ∈ cs, c.isEmpty = false) → 10 ∉ bytes carry →
-    carry.size + (concatBytes cs).size < USize.size →
-    parseChunks.go st carry lineNo cs =
+    ∀ (cs : List ByteArray) (st : StateD) (carry : ByteArray) (lineNo total : Nat),
+    (∀ c ∈ cs, c.isEmpty = false) → 10 ∉ bytes carry → carry.size ≤ total →
+    total + (concatBytes cs).size < USize.size →
+    parseChunks.go st carry lineNo total cs =
       (parseLines st (bytes carry ++ bytes (concatBytes cs)) lineNo).map ParseResultD.ofState := by
   intro cs
   induction cs with
   | nil =>
-    intro st carry lineNo _ hnl hsz
+    intro st carry lineNo total _ hnl hct hsz
     simp only [parseChunks.go, chunkFinish, concatBytes, bytes_empty, List.append_nil]
     split
     · rename_i he
       rw [bytes_of_isEmpty he, parseLines, naiveLine_nil]
       rfl
-    · have hcs : carry.size < USize.size := by simpa [concatBytes] using hsz
+    · have hcs : carry.size < USize.size := by
+        simp only [concatBytes, ByteArray.size_empty] at hsz; omega
       have hi : (0 : USize).toNat ≤ (bytes carry).length := by simp
       rw [← tailAt_zero]
       rcases scanLineSpec_cases carry 0 hi with ⟨t, rest, hnv, hs⟩ | ⟨r, rest, hnv, hs⟩ |
@@ -235,9 +240,13 @@ theorem parseChunks_go :
         rw [tailAt_zero] at hpx
         exact hnl (hpx ▸ List.mem_append.mpr (.inr (List.mem_cons_self ..)))
   | cons c cs ih =>
-    intro st carry lineNo hne hnl hsz
+    intro st carry lineNo total hne hnl hct hsz
     have hc : c.isEmpty = false := hne c (List.mem_cons_self ..)
     simp only [parseChunks.go, hc, Bool.false_eq_true, ↓reduceIte, chunkStep]
+    -- the guard passes: the count stays below the word
+    have hguard : ¬ (total + c.size ≥ USize.size) := by
+      simp only [ByteArray.size_append, concatBytes] at hsz; omega
+    rw [if_neg hguard]
     -- the buffer is `carry ++ c` either way
     have hbuf : (if carry.isEmpty = true then c else carry ++ c) = carry ++ c := by
       split
@@ -256,37 +265,104 @@ theorem parseChunks_go :
     | ok p =>
       obtain ⟨st', lineNo', tail⟩ := p
       simp only
-      rw [ih st' (( carry ++ c).extract tail.toNat (carry ++ c).size) lineNo'
+      have hex := ByteArray.size_extract (a := carry ++ c) (b := tail.toNat) (e := (carry ++ c).size)
+      rw [ih st' (( carry ++ c).extract tail.toNat (carry ++ c).size) lineNo' (total + c.size)
         (fun c' hc' => hne c' (List.mem_cons_of_mem _ hc'))
         (by rw [bytes_extract_tail tail hsz']; exact feedChunk_tail_nonl hf)
-        (by
-          have := ByteArray.size_extract (a := carry ++ c) (b := tail.toNat) (e := (carry ++ c).size)
-          simp only [ByteArray.size_append, concatBytes] at hsz this ⊢; omega),
+        (by simp only [ByteArray.size_append] at hex ⊢; omega)
+        (by simp only [ByteArray.size_append, concatBytes] at hsz ⊢; omega),
         bytes_extract_tail tail hsz']
 
 /-- **The chunk boundary is invisible.**  The streaming parse of any
 chunking of a byte string that fits in the address space is the line
 fold of the whole. -/
-theorem parseChunks_eq_parseLines (prelude : PreludeIx) (inModel census : Bool)
+theorem parseChunks_eq_parseLines (inModel census : Bool)
     (cs : List ByteArray) (hne : ∀ c ∈ cs, c.isEmpty = false)
     (hsz : (concatBytes cs).size < USize.size) :
-    parseChunks prelude inModel census cs =
-      (parseLines (.init prelude inModel census) (bytes (concatBytes cs)) 0).map
+    parseChunks inModel census cs =
+      (parseLines (.init inModel census) (bytes (concatBytes cs)) 0).map
         ParseResultD.ofState := by
   unfold parseChunks
-  rw [parseChunks_go cs _ ByteArray.empty 0 hne
-    (by rw [bytes_empty]; exact List.not_mem_nil) (by simpa using hsz), bytes_empty,
+  rw [parseChunks_go cs _ ByteArray.empty 0 0 hne
+    (by rw [bytes_empty]; exact List.not_mem_nil) (by simp) (by simpa using hsz), bytes_empty,
     List.nil_append]
 
-/-- The streaming parse of a file's chunks is `parseExportD` of the file. -/
-theorem parseChunks_eq_parseExportD (prelude : PreludeIx) (inModel census : Bool)
+/-- The streaming parse of a file's chunks is `parseExportD` of the
+file, whenever the file fits in the address space. -/
+theorem parseChunks_eq_parseExportD (inModel census : Bool)
     (contents : String) (cs : List ByteArray) (hcs : contents.toUTF8 = concatBytes cs)
     (hne : ∀ c ∈ cs, c.isEmpty = false) (hsz : contents.utf8ByteSize < USize.size) :
-    parseChunks prelude inModel census cs = parseExportD contents prelude inModel census := by
+    parseChunks inModel census cs = parseExportD contents inModel census := by
   have hsz' : (concatBytes cs).size < USize.size := by
     rw [← hcs, String.toUTF8_eq_toByteArray, String.size_toByteArray]; exact hsz
-  rw [parseChunks_eq_parseLines prelude inModel census cs hne hsz',
-    parseExportD_eq_parseLines contents prelude inModel census hsz, lit, hcs,
+  rw [parseChunks_eq_parseLines inModel census cs hne hsz',
+    parseExportD_eq_parseLines contents inModel census hsz, lit, hcs,
     bytes_eq_of_size_lt hsz']
+
+/-! ## The streaming guard -/
+
+/-- One step's count: a result means the guard passed, and the count
+grew by the chunk. -/
+theorem chunkStep_ok_total {st st' : StateD} {carry carry' : ByteArray} {lineNo lineNo' : Nat}
+    {total total' : Nat} {c : ByteArray}
+    (h : chunkStep st carry lineNo total c = .ok (st', carry', lineNo', total')) :
+    total + c.size < USize.size ∧ total' = total + c.size := by
+  unfold chunkStep at h
+  split at h
+  · cases h
+  · rename_i hguard
+    -- the buffer, with or without a carry; then the feed
+    split at h
+    all_goals
+      dsimp only at h
+      split at h
+      · cases h
+      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, -, -, rfl⟩ := h
+        exact ⟨Nat.lt_of_not_le hguard, rfl⟩
+
+/-- The loop's running count: a result means every chunk kept the
+count below the machine word. -/
+theorem parseChunks_go_ok_size :
+    ∀ (cs : List ByteArray) (st : StateD) (carry : ByteArray) (lineNo total : Nat)
+      {r : ParseResultD}, (∀ c ∈ cs, c.isEmpty = false) → total < USize.size →
+    parseChunks.go st carry lineNo total cs = .ok r →
+    total + (concatBytes cs).size < USize.size := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro st carry lineNo total r _ ht _
+    simp only [concatBytes, ByteArray.size_empty]; omega
+  | cons c cs ih =>
+    intro st carry lineNo total r hne ht h
+    have hc : c.isEmpty = false := hne c (List.mem_cons_self ..)
+    simp only [parseChunks.go, hc, Bool.false_eq_true, ↓reduceIte] at h
+    split at h
+    · cases h
+    · rename_i st' carry' lineNo' total' hstep
+      obtain ⟨hlt, rfl⟩ := chunkStep_ok_total hstep
+      have := ih _ _ _ _ (fun c' hc' => hne c' (List.mem_cons_of_mem _ hc')) hlt h
+      simp only [concatBytes, ByteArray.size_append]; omega
+
+/-- **The streaming guard**: a result of the streaming parse is a
+result about chunks that fit in the address space. -/
+theorem parseChunks_ok_size {inModel census : Bool} {cs : List ByteArray}
+    (hne : ∀ c ∈ cs, c.isEmpty = false) {r : ParseResultD}
+    (h : parseChunks inModel census cs = .ok r) : (concatBytes cs).size < USize.size := by
+  unfold parseChunks at h
+  simpa using parseChunks_go_ok_size cs _ ByteArray.empty 0 0 hne USize.size_pos h
+
+/-- **The chunk boundary is invisible, without a size hypothesis**: a
+result of the streaming parse of a file's chunks is the result of
+`parseExportD` on the file. -/
+theorem parseChunks_ok_parseExportD {inModel census : Bool}
+    {contents : String} {cs : List ByteArray} (hcs : contents.toUTF8 = concatBytes cs)
+    (hne : ∀ c ∈ cs, c.isEmpty = false) {r : ParseResultD}
+    (h : parseChunks inModel census cs = .ok r) : parseExportD contents inModel census = .ok r := by
+  have hsz : contents.utf8ByteSize < USize.size := by
+    rw [← String.size_toByteArray, ← String.toUTF8_eq_toByteArray, hcs]
+    exact parseChunks_ok_size hne h
+  rw [← parseChunks_eq_parseExportD inModel census contents cs hcs hne hsz]
+  exact h
 
 end ConLeche.Frontend

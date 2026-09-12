@@ -8,7 +8,7 @@ public import ConLeche.Cached.CheckerC
 # The parsed-declaration driver on the cached representation
 
 One `CState` for the whole stream, the environment-dependent caches
-flushed per declaration, declarations consumed as `DeclC` records
+flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
@@ -26,8 +26,9 @@ the steps and returns its environment together with the proof that
 `.trusted` alike (the twin driver `checkDeclsT` /
 `ConLeche/Cached/ParsedT.lean` retired 2026-09-06; the trusted lane is
 the same fold at the other mode, and nothing else): acceptance at
-`.verified` is covered by `no_proof_of_False` (`ConLeche/MainTheorem.lean`),
-and the two modes agree on the install skeletons whenever both accept
+`.verified` is covered by the main corollary
+`no_False_theorem_accepted` (`ConLeche/MainTheorem.lean`), and the two
+modes agree on the install skeletons whenever both accept
 (`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185; from
@@ -42,37 +43,19 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-! ## Parsed declarations over `ExprC` -/
-
-/-- A parsed declaration over `ExprC` (task #198: its constant-value
-records *are* `ConLeche.ConstantVal` — the separate `ConstantValC`, whose
-only difference was an `ExprC`-typed `type` field, went with the
-interning-era distinction between the two expression types.  Note the
-one consequence: `cv.type` is now `Expr`-typed, so dot notation on it
-finds `ConLeche.Expr`'s members and NOT the cached namespace's — the two
-`hasFvar`s differ (`O(1)` field read vs a walk), which is why the guard
-below names `ExprC.hasFvar` outright.) -/
-inductive DeclC where
-  | axiomDecl (val : ConstantVal)
-  | defnDecl (val : ConstantVal) (value : ExprC) (hint : ReducibilityHint)
-  | thmDecl (val : ConstantVal) (value : ExprC)
-  | opaqueDecl (val : ConstantVal) (value : ExprC)
-  | basisDecl (kind : BasisKind)
-  | indDecl (block : List ConstantInfo) (numParams : Nat)
-
 /-! ## The parsed-declaration checker -/
 
 variable (mode : CheckMode)
 
 /-- Parsed `ensureSort` (no per-call conversion). -/
-def opSIxC (fe : FEnv) (d : Nat) (i : ExprC) : CheckCM Level :=
+def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
   ensureSortI (coreKnotI mode fe checkFuel) d i
 
-/-- `checkConstantVal` on a converted declaration: the checks of
-`checkConstantValF` with the syntactic passes memoized on the `ExprC`
-DAG and the operations on `ExprC` values. -/
+/-- `checkConstantVal` on a parsed declaration: the checks of
+`checkConstantValF` with the syntactic passes memoized on the `Expr`
+DAG and the cached operations on its nodes. -/
 def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
-    CheckCM (ConstantVal × ExprC) := do
+    CheckCM (ConstantVal × Expr) := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
@@ -81,32 +64,32 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
     throw (.invalid s!"reserved projection name {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless ExprC.looseBVarsBounded 0 cv.type do
+  unless Expr.looseBVarsBounded 0 cv.type do
     throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if ExprC.hasFvar cv.type then
+  if Expr.hasFvar cv.type then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
   let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
-  unless ExprC.allLevelParamsDefined cv.levelParams jty do
+  unless Expr.allLevelParamsDefinedC cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" jty)
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let _u ← opSIxC mode fe 0 jsty
   let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
-/-- `checkDefnValP` over `ExprC`. -/
-def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) (hint : ReducibilityHint) : CheckCM FEnv := do
-  unless ExprC.looseBVarsBounded 0 value do
+/-- `checkDefnValP` over `Expr`. -/
+def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
@@ -114,22 +97,22 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` over `ExprC`. -/
-def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) : CheckCM FEnv := do
+/-- `checkThmValP` over `Expr`. -/
+def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) : CheckCM FEnv := do
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let ul ← opSIxC mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ExprC.looseBVarsBounded 0 value do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
@@ -137,27 +120,35 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
   -- stored by statement: the record's own value, unread (opaque)
   pure (fe.push (.thmInfo cvA value))
 
-/-- `checkOpaqueValP` over `ExprC`. -/
-def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) : CheckCM FEnv := do
-  unless ExprC.looseBVarsBounded 0 value do
+/-- `checkOpaqueValP` over `Expr`. -/
+def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) : CheckCM FEnv := do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   pure (fe.push (.axiomInfo cvA))
 
+/-- `checkBasisDecl`'s cached twin: the body the three records that
+install a pinned basis block share (task #293). -/
+def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
+  if kind = .quotK then
+    unless fe.find? eqName = some eqA do
+      throw (.notImplemented "quotient basis requires the pinned Eq basis")
+  kind.declsA.foldlM installBasisDeclF fe
+
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
@@ -200,35 +191,47 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       pure fe2
     else
       checkOpaqueValC mode fe cvA jty value
-  | .axiomDecl cv => do
-    let (cvA, jty) ← checkConstantValC mode fe cv
-    if stdAxiomOkF fe cvA then do
-      recordCConst cvA.name cvA.type jty none
-      pure (fe.push (.axiomInfo cvA))
-    else if cvA.name = trustCompilerName then
-      if trustCompilerOkF fe cvA then do
+  | .axiomDecl cv =>
+    -- `checkDecl`'s twin (task #293): `Quot.sound` is the pinned
+    -- quotient block's own record — compared with the pin, installing
+    -- nothing, declining on a mismatch.
+    if cv.name = quotSoundName then
+      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
+        pure fe
+      else
+        throw (.notImplemented "quotient soundness axiom mismatch"))
+    else do
+      let (cvA, jty) ← checkConstantValC mode fe cv
+      if stdAxiomOkF fe cvA then do
         recordCConst cvA.name cvA.type jty none
         pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cv.name})")
-    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-      if ofReduceAxOkF fe cvA then do
-        recordCConst cvA.name cvA.type jty none
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cv.name})")
-    else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if toleratedAxiomNames.contains cvA.name then
-      pure fe
-    else
-      throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => do
-    if kind = .quotK then
-      unless fe.find? eqName = some eqA do
-        throw (.notImplemented "quotient basis requires the pinned Eq basis")
-    kind.declsA.foldlM installBasisDeclF fe
+      else if cvA.name = trustCompilerName then
+        if trustCompilerOkF fe cvA then do
+          recordCConst cvA.name cvA.type jty none
+          pure (fe.push (.axiomInfo cvA))
+        else throw (.notImplemented
+          s!"unsupported Lean.trustCompiler shape ({cv.name})")
+      else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+        if ofReduceAxOkF fe cvA then do
+          recordCConst cvA.name cvA.type jty none
+          pure (fe.push (.axiomInfo cvA))
+        else throw (.notImplemented
+          s!"unsupported compiler-trust axiom environment ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else if cvA.name = sorryAxName then
+        pure fe
+      else
+        throw (.notImplemented s!"non-standard axiom ({cv.name})")
+  | .basisDecl kind => checkBasisDeclC fe kind
   | .indDecl block nP =>
+    -- **THE PINNED BASIS BLOCKS** (`checkDecl`'s twin, task #293): the
+    -- stream's own `Nat` block, recognised here and installed as the
+    -- pin; a block under a pinned name that does not match falls
+    -- through and the reserved-name check rejects it.
+    match basisPinHit block with
+    | some kind => checkBasisDeclC fe kind
+    | none =>
     -- TASK #228: the stream's DECLARED parameter count, checked before
     -- the dispatch and for both routes (`checkDecl`'s twin).
     if indParamsOk nP block then
@@ -239,6 +242,17 @@ def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       | some p => checkNativeS mode fe p
       | none => checkIndDeclSF mode fe block
     else throw (.invalid "number of parameters mismatch")
+  | .quotDecl k cv =>
+    -- `checkDecl`'s twin (task #293): the `type` record installs the
+    -- pinned block whole, the other members install nothing, and a
+    -- record that does not match its pin is a positive decline.
+    if quotPinHit k cv then
+      (match k with
+       | .type => checkBasisDeclC fe .quotK
+       | _ => pure fe)
+    else throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -248,16 +262,17 @@ def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
 /-- A parsed declaration's display label (`Main.declCName`, shared with
 the driver's progress callback so the two can never drift). -/
-def declCLabel : DeclC → String
+def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
   | .axiomDecl cv => s!"axiom {cv.name}"
   | .indDecl b _ => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
   | .basisDecl k => s!"basis block {repr k}"
+  | .quotDecl _ cv => s!"quot {cv.name}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+def checkDeclStepC (fe : FEnv) (pd : Declaration) : CheckCM FEnv := do
   flushC
   checkDeclC mode fe pd
 

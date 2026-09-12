@@ -2,6 +2,7 @@ module
 
 public import ConLeche
 public import ConLeche.Frontend.ExportC
+public import ConLeche.Verify.Cached.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
@@ -13,6 +14,7 @@ the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
 meta import ConLeche.Cached.Installed
+meta import ConLeche.Verify.Cached.StreamConsts
 
 public section
 
@@ -318,11 +320,12 @@ private def basisModelExport : String := String.intercalate "\n" [
   "{\"def\":{\"name\":2,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}",
   "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}"]
 
-/-- The declared name of a directly-parsed record (`DeclC` carries no
+/-- The declared name of a directly-parsed record (`Declaration` carries no
 `name` projection: its constructors differ in arity). -/
-private def declCName : ConLeche.Cached.DeclC → Name
+private def declCName : ConLeche.Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
+  | .quotDecl _ cv => cv.name
   | .basisDecl _ => .anonymous
   | .indDecl b _ => (b.head?.map (·.name)).getD .anonymous
 
@@ -333,34 +336,35 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
+  | .ok ⟨ds, _, _, _, _, _, _⟩ =>
     (ConLeche.Cached.checkDecls .verified ds.toList).toBool
   | .error _ => false
 
-/-! ## Frontend: taint skip-and-continue
+/-! ## Frontend: `sorryAx` is the fold's
 
-Uses of a tolerated axiom are never accepted, but no longer stop the
-stream (user directive 2026-08-24): the tainted declaration is skipped
-— absent from the parsed declarations, so it can never be checked or
-installed — its name is tainted so transitive users skip too, and the
-rest of the stream is parsed and checked as usual.  The driver turns a
-nonempty `taintSkipped` into the final decline. -/
+The parser forwards every declaration record, the `sorryAx` axiom
+record included (task #292, user ruling: *"it should not be the parser
+that drops sorryAx"*).  The fold checks that record's type, installs
+NOTHING for it — there is no set model for it — and DECLINES at the
+first record that uses the name.  What stood here before was a
+read-only taint pre-scan that dropped the axiom record and every
+declaration reaching it, transitively, and turned a non-empty skip list
+into a decline at the END of the run. -/
 
-private def sorryAxName : Name := Name.anonymous |>.str "sorryAx"
 private def usesAxName : Name := Name.anonymous |>.str "usesAx"
 private def usesUseName : Name := Name.anonymous |>.str "usesUse"
 private def afterName : Name := Name.anonymous |>.str "after"
 
-/-- `axiom sorryAx : ∀ (p : Prop), p` (tolerated record, dropped
-unchecked), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a use:
-skipped), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a transitive
-use: skipped), `def after : Type := Prop` (checkable, kept). -/
-private def taintSkipExport : String := String.intercalate "\n" [
+/-- `axiom sorryAx : ∀ (p : Prop), p` (tolerated record: checked,
+installs nothing), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a
+use: declines), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a
+transitive use), `def after : Type := Prop`. -/
+private def sorryAxExport : String := String.intercalate "\n" [
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"sorryAx\"}}",
   "{\"in\":2,\"str\":{\"pre\":0,\"str\":\"p\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"usesAx\"}}",
@@ -378,25 +382,30 @@ private def taintSkipExport : String := String.intercalate "\n" [
   "{\"ie\":6,\"sort\":1}",
   "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":6,\"value\":1,\"safety\":\"safe\"}}"]
 
--- The tolerated axiom record and both uses are gone from the parsed
--- declarations; the later checkable declaration survives …
-#guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, sk, _, _, _, _, _, _, _, _, _⟩ =>
-    ds.map declCName == #[afterName] &&
-    sk == #[(usesAxName, sorryAxName), (usesUseName, sorryAxName)]
+-- EVERY record reaches the fold now — the axiom's, both uses', and
+-- the independent definition's.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    r.decls.map declCName == #[sorryAxName, usesAxName, usesUseName, afterName]
   | .error _ => false
 
--- … and the shipped driver accepts what remains (nothing tainted can
--- reach install: it is absent from the declarations).
-#guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDecls .verified ds.toList).toBool
+-- The fold DECLINES, at the use: the axiom record installs nothing, so
+-- `usesAx`'s value mentions a constant no environment holds, and the
+-- name it mentions is `sorryAx`.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    match ConLeche.Cached.checkDecls .verified r.decls.toList with
+    | .error (.notImplemented _, _) => true
+    | _ => false
   | .error _ => false
 
--- A stream without tolerated-axiom uses records no skips.
-#guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨_, sk, _, _, _, _, _, _, _, _, _⟩ => sk.isEmpty
+-- The axiom record ALONE is accepted (it installs nothing): the
+-- prefix up to the first use folds clean.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    (ConLeche.Cached.checkDecls .verified (r.decls.toList.take 1)).toBool
   | .error _ => false
+
 
 /-! ## Level algebra -/
 
@@ -540,5 +549,39 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 -- exactly one check, so the gated arm is not absorbed by the kept one.
 #guard (inferTypeCore .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
+
+/-! ## The ζ reduct, and the relation between a declared and a stored
+type (`ConLeche/Verify/Cached/StreamConsts.lean`)
+
+`AnnotOf declared stored` is `stored.resetMeta = declared.zeta.resetMeta`:
+the annotation pass inlines every `let` and rewrites every binder's
+prop-ness datum, and does nothing else.  The guards below pin the two
+halves of `Expr.zeta` a reader is most likely to get wrong. -/
+
+-- (a) A `let` is its body with the value substituted.
+#guard Expr.zeta (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0))
+  == (.const (Name.anonymous.str "v") [] : Expr)
+
+-- (b) Under a binder, a `let` whose value mentions that binder keeps
+-- mentioning it: the substitution is the capture-avoiding one.  The
+-- body `bvar 0` is the let variable and `bvar 1` the λ's; both end up
+-- at the λ's.
+#guard Expr.zeta
+    (.lam (.sort .zero)
+      (.letE (.sort .zero) (.bvar 0) (.app (.bvar 0) (.bvar 1))) ⟨.never⟩)
+  == (.lam (.sort .zero) (.app (.bvar 0) (.bvar 0)) ⟨.never⟩ : Expr)
+
+-- (c) And the value is LIFTED as it crosses a binder of the body: the
+-- inner λ must not capture the outer λ's variable.
+#guard Expr.zeta
+    (.lam (.sort .zero)
+      (.letE (.sort .zero) (.bvar 0)
+        (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)) ⟨.never⟩)) ⟨.never⟩)
+  == (.lam (.sort .zero)
+       (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)) ⟨.never⟩) ⟨.never⟩ : Expr)
+
+-- (d) So `let x := v; x` is declared where `v` is stored.
+example : ConLeche.AnnotOf
+    (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0)) (.const (Name.anonymous.str "v") []) := rfl
 
 end ConLecheTests

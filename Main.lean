@@ -53,16 +53,16 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
 /-- The whole input side of a run: the parsed declarations, read
 straight from the file.  Since task #207 there is nothing else —
 no preprocessor detection, no spawn, no pipe. -/
-def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
+def parseInput (file : String) (inModel : Bool) :
     IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  Frontend.parseExportStreamD file prelude inModel census
+  Frontend.parseExportStreamD file inModel census
 
-/-- `declPName` for the direct-parse `DeclC` records (task #171).  The
+/-- `declPName` for the direct-parse `Declaration` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
-def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
+def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
 /-- **Phase A's loop — the driver's install pass, carrying its own
 accepting run.**  Each record is installed by
@@ -95,13 +95,13 @@ back, one frame per declaration.
 so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
 line the declaration it died in.  The index is the FOLD position, not
 the stream's record index: the parse folds the basis and `quot` blocks
-and drops taint-skipped records, so the two drift apart by a
-stream-dependent amount.  Calibrate by NAME. -/
+into single records and generates the in-process models, so the two
+drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
-    (ds : List ConLeche.Cached.DeclC)
+    (ds : List ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
-    (rest : List ConLeche.Cached.DeclC) →
+    (rest : List ConLeche.Declaration) →
     (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
     (s : ConLeche.Cached.CState) →
     (∃ done, done ++ rest = ds ∧ ConLeche.Cached.InstallRun mode done p₀ s₀ p s) →
@@ -135,7 +135,7 @@ pool it is monotone whichever worker finished, and the line is printed
 after the check rather than before it: a check that is running is not
 on any line, the gap between two lines is where it sits. -/
 def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) {mode : ConLeche.CheckMode}
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (n k : Nat) (hk : k < e.pend.size) : IO Unit := do
   if stride > 0 && n % stride == 0 then
     let now ← IO.monoMsNow
@@ -161,7 +161,7 @@ scattered through it — allocating phase B out of that scatter costs a
 factor of two in wall time at Mathlib scale for the same instructions.
 With `--progress`, one line per `stride` completed checks. -/
 def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds) :
     (k : Nat) → (∀ j, j < k → ConLeche.Cached.GroupChecked mode e j) →
       IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i)))
   | k, acc =>
@@ -229,7 +229,7 @@ index; on the heartbeat lane the completed-count is bumped.  A record
 at or above the limit is skipped — it is above a known failure and the
 walk will never ask for it. -/
 def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (limit done : IO.Ref Nat) (k : Nat) (hk : k < e.pend.size)
     (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) :
     IO (Array (Nat × ConLeche.Cached.RecordResult mode e)) := do
@@ -249,7 +249,7 @@ repeat until the counter is past the records.  The fuel is exact:
 every claim advances the counter by exactly one, so `pend.size + 1`
 claims see it past the end whatever the other workers do. -/
 def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds)
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds)
     (next limit done : IO.Ref Nat) :
     (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
       IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
@@ -262,7 +262,7 @@ def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Na
     else pure acc
 
 /-- The workers' arrays merged by record index into one table. -/
-def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Cached.DeclC}
+def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Declaration}
     {e : ConLeche.Cached.InstalledEnv mode ds}
     (tab : Array (Option (ConLeche.Cached.RecordResult mode e))) :
     List (Array (Nat × ConLeche.Cached.RecordResult mode e)) →
@@ -276,7 +276,7 @@ results and walks the table in record order.  A worker that failed as
 an `IO` action (not a check failing — the pool's own machinery) is an
 internal error, exit 3, never a verdict on the input. -/
 def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
-    {ds : List ConLeche.Cached.DeclC} (e : ConLeche.Cached.InstalledEnv mode ds) :
+    {ds : List ConLeche.Declaration} (e : ConLeche.Cached.InstalledEnv mode ds) :
     IO (Except (ConLeche.CheckError × Nat) (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
   let m := e.pend.size
   let workers := max 1 (min jobs m)
@@ -303,7 +303,7 @@ one dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and
 what comes out
 is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
-theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
+theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
 steps; the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
@@ -314,7 +314,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : List ConLeche.Cached.DeclC) :
+    (noMark : Bool) (ds : List ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -469,12 +469,12 @@ consumed here as configuration.
 and every driver over it retired with the arena (task #172), the R
 core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
-(2026-09-06), so the stream is parsed directly to `ExprC`
+(2026-09-06), so the stream is parsed directly to `Expr`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
-fold the main theorem `ConLeche.no_proof_of_False`
+fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
@@ -495,11 +495,12 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       | .verified => "--verified"
       | .trusted => "--trusted"
     -- THE BUILT-IN PRELUDE (task #191, `ConLeche/Frontend/Prelude.lean`):
-    -- the pinned basis blocks and `Bool`, parsed from the committed
-    -- `pins/<toolchain>.prelude.ndjson` and PREPENDED to every parsed
-    -- stream, so the fold installs them first and unconditionally; a
-    -- stream's own copy of one is dropped when identical and declines
-    -- the run when different.  A prelude that does not parse is a
+    -- the pinned basis blocks, `Bool` and `And`, parsed from the
+    -- committed `pins/<toolchain>.prelude.ndjson`.  `preparePrelude`
+    -- (task #293) PREPENDS them to the parsed stream, so the fold
+    -- installs them first and unconditionally; a stream's own copy of
+    -- one is dropped there when identical, and the fold declines the
+    -- run when it differs.  A prelude that does not parse is a
     -- corrupted build, reported before any input is read.
     let prelude ← match Frontend.builtinPreludeE with
       | .ok p => pure p
@@ -527,7 +528,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- writes the raw input with the generated records spliced in (the
     -- generator's debug gate).
     let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
-    match ← parseInput file prelude inModel with
+    match ← parseInput file inModel with
     | .error (.unsupported what) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -541,8 +542,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
-    | .ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-           preludeDropped, hoisted, inModelled, genRecords, genOwner,
+    | .ok ⟨parsed, projRewrites, inModelled, genRecords, genOwner,
            inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
@@ -568,11 +568,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen
           IO.eprintln s!"con-leche: in-process models dumped to {out}"
-      -- `decls` = the prelude's `preludeCount` records, then the
-      -- stream's (minus `preludeDropped` identical copies of prelude
-      -- records); fold positions count from the prelude's first record,
-      -- and the stream's accepted-record count is
-      -- `decls.size - preludeCount + preludeDropped`
+      -- **PREPARE** (task #293, `ConLeche/Frontend/Prepare.lean`): the
+      -- parsed list is the FILE's records (plus the in-process
+      -- modeller's); what the fold runs over is `preparePrelude` of it —
+      -- the built-in prelude's records, then the stream's, recognised,
+      -- deduped against the prelude and ground-hoisted.  Fold positions
+      -- count from the prelude's first record; the VERDICT's count is
+      -- the file's own (`parsed.size - genRecords`), which no step
+      -- below changes.
+      let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed.toList
       -- the projection-function rewrite's receipt (2026-09-06,
       -- `ConLeche/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
@@ -590,19 +594,6 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         IO.eprintln s!"con-leche: {hoisted.size} declarations hoisted ahead of \
           the pinned Nat operations they ground: \
           {String.intercalate ", " (hoisted.toList.map toString)}"
-      -- Taint-skip verdict (user directive 2026-08-24): declarations
-      -- using tolerated axioms were *skipped* during parsing (they
-      -- are absent from `decls`, so nothing tainted can be checked
-      -- or installed) and the rest of the stream was checked; a
-      -- clean run over a stream with skips is still a decline —
-      -- uses of tolerated axioms are never accepted.
-      -- On a stream that also FAILED, the skips are reported beside
-      -- the failure and the failure's own exit code stands.  (The
-      -- accepting case is the arm below: it never prints "accepted".)
-      let taintNote : IO Unit := do
-        unless taintSkipped.isEmpty do
-          IO.eprintln s!"con-leche: declined: \
-            {Frontend.taintSummary taintSkipped} ({modeTag})"
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
@@ -613,26 +604,28 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- index and carries every check — and what comes out is the
       -- environment with the proof that `ConLeche.Cached.checkDecls`
       -- returns it, the fold the main theorem
-      -- `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`) is
+      -- `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`) is
       -- about.  The success line below is printed from that value and
       -- from nothing else.  Printing between the steps (`--progress`)
       -- changes nothing about the proof, so there is no second loop.
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
-      -- NOT the stream's declaration-record index.  The parse folds
-      -- the four `quot` records into one `basisDecl` and drops a few
-      -- others, a taint-skipping stream loses more, and — since task
-      -- #200 — the in-process modeller ADDS records the file does not
-      -- contain, so the fold can run AHEAD of the file's index.
-      -- Measured on raw `init-full`: 53 093 declaration records in the
-      -- file against 53 118 fold positions, the +25 being
-      -- `Lean.Syntax`'s generated model family (30 records) less the
-      -- 5 folded and skipped ones.  Since task #219 the generated
-      -- records are subtracted from the VERDICT's count (they are
-      -- declarations of the fold, never records of the file) and a
-      -- generated record that fails is named with its block; the fold
-      -- POSITION still counts them.  The declaration NAME on the line
-      -- is the portable handle.
+      -- NOT the file's declaration-record index.  The prepared list
+      -- begins with the built-in prelude's records, drops the stream's
+      -- identical copies of them, and — since task #200 — carries the
+      -- records the in-process modeller ADDS, which the file does not
+      -- contain.
+      -- Measured on raw `init-full` (task #293): 53 093 declaration
+      -- records in the file against 53 123 fold positions, the +30
+      -- being `Lean.Syntax`'s generated model family — and nothing
+      -- else, because that stream declares every prelude declaration
+      -- itself, so the preparation synthesised NONE of them and only
+      -- moved the stream's own records to the front.
+      -- Since task #219 the generated records are subtracted
+      -- from the VERDICT's count (they are declarations of the fold,
+      -- never records of the file) and a generated record that fails is
+      -- named with its block; the fold POSITION still counts them.  The
+      -- declaration NAME on the line is the portable handle.
       -- The heartbeat's first line (`--progress`): the parse is done,
       -- and the fold is about to start on this many records.  The
       -- install and check phases print their own lines
@@ -640,9 +633,9 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: parse done: {decls.size} fold records — \
-          {decls.size - preludeCount} declarations after the {preludeCount} \
-          built-in prelude records ({preludeDropped} stream copies of prelude \
-          records dropped) t={ConLeche.Cached.msSecs (tParse - t0)}s \
+          the file's {parsed.size} ({genRecords} of them generated in-process), \
+          {synthesised} built-in prelude records synthesised \
+          t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
@@ -650,21 +643,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         decls.toList
       match verdict with
       | .ok _ =>
-        -- A DECLINED stream never says "accepted" (2026-09-07).  The
-        -- taint-skip verdict (user directive 2026-08-24) is a
-        -- decline: declarations using tolerated axioms were skipped
-        -- at parse, so nothing tainted was checked or installed, and
-        -- a clean run over the rest is still not an acceptance of
-        -- the stream.  It used to print the accept line and *then*
-        -- the decline, which reads as an accept in a log and in
-        -- anything that greps for one.
-        -- **The headline number is the STREAM's declaration-record
-        -- count** (task #191 arithmetic, task #187 unit): the records
-        -- the fold consumed minus the built-in prelude's, plus the
-        -- stream records dropped as identical copies of prelude
-        -- records (they ARE installed — from the prelude).  So a
+        -- **The headline number is the FILE's declaration-record
+        -- count** (task #187 unit; task #293 arithmetic): the records
+        -- the PARSE produced, which are the file's own, less the
+        -- records the in-process modeller generated.  Nothing the
+        -- prepare step does — prepending the prelude, dropping a
+        -- stream copy of one of its records, hoisting — moves it: a
         -- stream re-declaring `Bool` identically reports the same
-        -- count as before the prelude existed.
+        -- count as before the prelude existed, and a stream's five
+        -- quotient records count as the five records they are.
         --
         -- What it replaced was `env.consts.length`, the number of
         -- environment CONSTANTS — an inductive block's type former,
@@ -688,17 +675,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- ... and minus the records the in-process modeller generated
         -- (task #219): they are checked as declarations, but they are
         -- not in the file, and the headline number is the FILE's.
-        let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
-        if taintSkipped.isEmpty then
-          IO.println s!"con-leche: accepted {streamRecords} \
-            declarations ({modeTag})"
-          return 0
-        else
-          IO.eprintln s!"con-leche: declined ({streamRecords} \
-            declarations checked, {taintSkipped.size} skipped for \
-            tolerated axioms) ({modeTag}): \
-            {Frontend.taintDetail taintSkipped}"
-          return 2
+        let streamRecords := parsed.size - genRecords
+        IO.println s!"con-leche: accepted {streamRecords} \
+          declarations ({modeTag})"
+        return 0
       | .error (e, i) =>
         -- **No second pass** (2026-09-07): the fold's error carries
         -- the failing declaration's FOLD POSITION, so the message is
@@ -708,14 +688,11 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- accepted prefix, and a lie waiting to happen if the two
         -- runs ever disagreed.
         --
-        -- `i` is the FOLD position.  The stream's
-        -- declaration-record index is NOT a fixed offset from it —
-        -- measured, 2026-09-07: the parse folds the four `quot`
-        -- records into one `basisDecl` and drops a few others, so
-        -- `init-full` runs at offset 0 for most of the stream and
-        -- ends 5 short (54 351 declaration records, 54 346 fold
-        -- positions), while the Mathlib stream was measured at +4.
-        -- The declaration NAME is the
+        -- `i` is the FOLD position.  The file's declaration-record
+        -- index is NOT a fixed offset from it: the prepared list
+        -- starts with the prelude's records, drops the stream's
+        -- identical copies of them and carries the modeller's
+        -- generated ones (see above).  The declaration NAME is the
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
         let loc := if h : i < decls.size then
@@ -731,7 +708,6 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         let now ← IO.monoMsNow
         IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \
           t={ConLeche.Cached.msSecs (now - t0)}s"
-        taintNote
         return e.exitCode
 
 
@@ -746,11 +722,10 @@ def usage : String := String.intercalate "\n" [
   "                    provably non-Prop binders, and the io-graded",
   "                    knot skips the per-argument application",
   "                    certificate under the same licence; every other",
-  "                    certificate family runs.  The theorem: if the",
-  "                    declaration fold accepts a stream in this mode",
-  "                    (checkDecls .verified ds = .ok env), the",
-  "                    environment env holds no constant whose type is",
-  "                    False (ConLeche.no_proof_of_False,",
+  "                    certificate family runs.  The theorem: a file",
+  "                    that declares a theorem of type False is never",
+  "                    accepted in this mode",
+  "                    (ConLeche.no_False_declaration,",
   "                    ConLeche/MainTheorem.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
@@ -860,7 +835,7 @@ def usage : String := String.intercalate "\n" [
   "                    declaration -- in one thread or on the pool --",
   "                    and returns its environment with the proof that",
   "                    checkDecls (the function the main theorem",
-  "                    ConLeche.no_proof_of_False is about) returns it;",
+  "                    ConLeche.model_exists is about) returns it;",
   "                    what it prints in between does not touch that",
   "                    type, so a run with the flag is covered exactly",
   "                    as a run without it, and so is a run on the pool.",
@@ -901,12 +876,13 @@ def usage : String := String.intercalate "\n" [
   "                    tests/inmodel.sh).",
   "",
 
-  "THE VERDICT LINE'S COUNT (task #187).  It counts the STREAM's",
-  "accepted declaration RECORDS: one per def/theorem/opaque/axiom/",
-  "inductive record the stream declared and the fold consumed.  The",
-  "built-in prelude's own records are not counted, and a stream record",
-  "dropped as an identical copy of a prelude record is (it is installed,",
-  "from the prelude).  That count is a property of the INPUT.  The",
+  "THE VERDICT LINE'S COUNT (task #187).  It counts the FILE's accepted",
+  "declaration RECORDS: one per def/theorem/opaque/axiom/inductive/quot",
+  "record the file declares.  The built-in prelude's own records are not",
+  "counted, and neither are the records the in-process modeller",
+  "generates; a stream record dropped as an identical copy of a prelude",
+  "record IS counted (it is installed, from the prelude).  That count is",
+  "a property of the INPUT.  The",
   "number of environment CONSTANTS is not: an inductive record installs",
   "several constants (type former, constructors, recursor, projection",
   "table), so it moves when the representation moves.  NB the official",
@@ -916,22 +892,34 @@ def usage : String := String.intercalate "\n" [
   "derives every one of these numbers from a stream.",
   "",
 
+  "THE sorryAx AXIOM.  An export declares sorryAx whenever the module",
+  "it came from mentions sorry, whether or not anything uses it, so a",
+  "stream that merely DECLARES it is accepted: the record is checked",
+  "for well-formedness and installs NOTHING (there is no set model for",
+  "it).  Any USE of the name -- in a declaration's type or value, or in",
+  "an inductive member's -- DECLINES the run (exit 2) at the record",
+  "that uses it, naming the slot.  The fold owns that decision: the",
+  "parse forwards every record, sorryAx's included.  Every other",
+  "non-pinned axiom declines at its own record.",
+  "",
+
   "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",
   "unconditionally, the checker's own little prelude — the six pinned",
   "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
-  "Bool block (pins/<toolchain>.prelude.ndjson, embedded at build time;",
-  "ConLeche/Frontend/Prelude.lean) — so the pin-certified Nat operations",
-  "find their ground whatever order the export chose.  A stream's own",
-  "copy of a prelude declaration is dropped when it is the same",
-  "declaration and DECLINES the run (exit 2, naming it) when it differs;",
-  "a mismatching basis block still REJECTS (reserved name), as before.",
-  "A pinned operation's stream-certified structural ground (Nat.ble,",
-  "Nat.sub, Nat.mul — spelled into the certificate statements, not",
-  "reachable from the operation's own value) is HOISTED ahead of the",
-  "operation when the stream declares it later (ConLeche/Frontend/",
-  "NatOpGround.lean): a dependency-closed reorder of the parsed list,",
-  "reported on stderr.  Both are pure transformations of the parsed",
-  "list below the verified fold; the main theorem is about the fold",
+  "Bool and And blocks (pins/<toolchain>.prelude.ndjson, embedded at",
+  "build time; ConLeche/Frontend/Prelude.lean) — so the pin-certified",
+  "Nat operations find their ground whatever order the export chose.  A",
+  "stream's own copy of a prelude declaration is dropped when it is the",
+  "same declaration, and the fold DECLINES the run (exit 2, naming it)",
+  "when it differs; a mismatching basis block still REJECTS (reserved",
+  "name), as before.  A pinned operation's stream-certified structural",
+  "ground (Nat.ble, Nat.sub, Nat.mul — spelled into the certificate",
+  "statements, not reachable from the operation's own value) is HOISTED",
+  "ahead of the operation when the stream declares it later",
+  "(ConLeche/Frontend/NatOpGround.lean): a dependency-closed reorder.",
+  "All of this is preparePrelude (ConLeche/Frontend/Prepare.lean), one",
+  "pure total function from the file's records to the fold's input; the",
+  "parse itself only decodes, and the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
   "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",
@@ -952,7 +940,7 @@ def usage : String := String.intercalate "\n" [
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which returns its",
   "environment together with the proof that the fold checkDecls — the",
-  "function the main theorem ConLeche.no_proof_of_False",
+  "function the main theorem ConLeche.model_exists",
   "(ConLeche/MainTheorem.lean) is stated on — returns it.",
   "",
   "RETIRED FLAGS.  --set-model, --set-model=p, --set-model=r,",

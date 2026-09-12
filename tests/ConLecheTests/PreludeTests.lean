@@ -11,17 +11,22 @@ meta import ConLeche.Cached.Installed
 public section
 
 /-!
-# The built-in prelude (task #191): what it holds, and that the fold
-accepts it
+# The built-in prelude (task #191) and `preparePrelude` (task #293):
+what the prelude holds, that the fold accepts it, and what preparing a
+stream does to it
 
 `ConLeche/Frontend/Prelude.lean` embeds `pins/<toolchain>.prelude.ndjson`
-and parses it at process initialisation; every stream is checked as
-`prelude ++ stream'`.  These guards pin the prelude's content — the six
-pinned basis blocks and the `Bool` block, seven fold records — and run
-the verified fold over the prelude alone at both modes: the prelude is
-itself an accepted stream, so prepending it can never be what fails a
-run.  (The dedupe against a later stream copy is exercised end to end
-by the `prelude_*` e2e fixtures, `tests/e2e-expected.txt`.)
+and parses it at process initialisation; `preparePrelude`
+(`ConLeche/Frontend/Prepare.lean`) puts those declarations at the front
+of every stream it prepares — **the stream's own record where the
+stream has one**, one of these where it has none.  These guards pin the
+prelude's content — the five pinned inductive basis blocks, the four
+quotient records with the soundness axiom, `And` and `Bool`: twelve
+records — and run the verified fold over the prelude alone at both
+modes: the prelude is itself an accepted stream, so prepending it can
+never be what fails a run.  (The pinned-block RECOGNITION is the fold's
+since task #293, and the `prelude_*` e2e fixtures exercise it end to
+end, `tests/e2e-expected.txt`.)
 -/
 
 namespace ConLecheTests
@@ -38,32 +43,29 @@ def preludeIx : PreludeIx :=
 -- the prelude parses
 #guard builtinPreludeE.toOption.isSome
 
--- eight records: the six basis blocks (the four `quot` records and
--- `Quot.sound` fold into one), the `And` inductive block (pinned by
+-- twelve records, in the committed file's order: the five pinned
+-- inductive basis blocks, the four `#QUOT` records, the `Quot.sound`
+-- axiom record, and the `And` and `Bool` blocks (`And` is pinned by
 -- design: the one propositional structure the stuck-major rescue
--- serves, `ConLeche/PinGen/Prelude.lean`'s `pinnedPreludeMembers`) and
--- the `Bool` inductive block
-#guard preludeIx.decls.size == 8
-#guard preludeIx.basis.length == 6
-#guard [BasisKind.eqK, .natK, .punitK, .emptyK, .falseK, .quotK].all
-  (preludeIx.basis.contains ·)
-#guard preludeIx.byName.contains andName
-#guard preludeIx.byName.contains andIntroName
-#guard preludeIx.byName.contains (andName.str "rec")
-#guard preludeIx.byName.contains (Name.str .anonymous "Bool")
-#guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "rec")
-#guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "true")
-#guard preludeIx.byName.contains ((Name.str .anonymous "Bool").str "false")
-#guard preludeIx.byName.size == 7
--- no basis name is in the by-name index: a stream's mismatching basis
--- redefinition keeps REJECTING through the reserved-name check
-#guard !(preludeIx.byName.contains natName)
-#guard !(preludeIx.byName.contains eqName)
+-- serves, `ConLeche/PinGen/Prelude.lean`'s `pinnedPreludeMembers`)
+#guard preludeIx.decls.size == 12
+#guard preludeIx.decls.toList.map (fun d => (d.names.head?).getD .anonymous) ==
+  [eqName, natName, punitName, emptyName, falseName,
+   quotName, quotMkName, quotLiftName, quotIndName, quotSoundName,
+   andName, boolName]
+-- and the kinds: five inductive blocks, four quotient records, one
+-- axiom record, two more inductive blocks — no `basisDecl`, which no
+-- frontend function produces since task #293
+#guard preludeIx.decls.toList.map (fun d => match d with
+  | .indDecl .. => 0 | .quotDecl .. => 1 | .axiomDecl _ => 2 | _ => 3) ==
+  [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0]
 
 /-- The fold accepts the prelude alone, at both modes, from the empty
 environment: 27 constants (19 basis + `And`, `And.intro`, `And.rec` and
 `And`'s projection table + `Bool`, `Bool.false`, `Bool.true`,
-`Bool.rec`). -/
+`Bool.rec`).  The five pinned blocks and the quotient package install
+as the PINS — `checkDecl` recognises them (`basisPinHit`,
+`quotPinHit`), which is the whole of task #293's move. -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
   match checkDecls mode preludeIx.decls.toList with
   | .ok env => some env.consts.length
@@ -72,11 +74,21 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
 #guard preludeEnvSize .verified == some 27
 #guard preludeEnvSize .trusted == some 27
 
--- the dedupe: the prelude's own text, parsed AGAINST the prelude,
--- drops every record (all identical) — the result is the prelude and
--- nothing more
-#guard match parseExportD builtinPreludeText preludeIx with
-  | .ok r => r.decls.size == 8 && r.preludeCount == 8 && r.preludeDropped == 8
-  | .error _ => false
+-- `preparePrelude` on a stream that declares NOTHING synthesises the
+-- whole prelude, in the prelude's order, and nothing else
+#guard preparePrelude preludeIx [] == preludeIx.decls.toList
+
+-- …and on the prelude's own records it synthesises nothing: every
+-- declaration is found in the stream and MOVED, so the result is the
+-- input (already in prelude order)
+#guard preparePrelude preludeIx preludeIx.decls.toList == preludeIx.decls.toList
+
+-- a stream record that is not the prelude's passes through, after the
+-- prelude's declarations
+def probeRec : Declaration :=
+  .axiomDecl ⟨.str .anonymous "ConLecheTests.probe", [], .sort .zero⟩
+
+#guard (preparePrelude preludeIx [probeRec]).length == 13
+#guard (preparePrelude preludeIx [probeRec]).getLast? == some probeRec
 
 end ConLecheTests

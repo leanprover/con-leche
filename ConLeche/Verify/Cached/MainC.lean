@@ -9,7 +9,7 @@ public section
 `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration fold
 the binary runs — install every record, then check every recorded
 declaration — and the subject of the main theorem
-(`ConLeche.no_proof_of_False`, `ConLeche/MainTheorem.lean`).  Its letters
+(`ConLeche.model_exists`, `ConLeche/MainTheorem.lean`).  Its letters
 are the letters on the fully checked environment the driver assembles
 (`ConLeche/Verify/Cached/InstalledC.lean`) read through
 `checkDecls_fullyChecked`: an accept of the fold IS a fully checked
@@ -41,7 +41,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **Acceptance**: what the fold accepts carries the model. -/
 theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} {env' : Env}
+    {ds : List Declaration} {env' : Env}
     (h : checkDecls μ ds = .ok env') :
     Nonempty (EnvModelM V μ env') := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
@@ -52,7 +52,7 @@ validating mode, never accepts a stream in which some stored constant
 has type `Empty`.  Hypotheses are input-level only. -/
 theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} {env' : Env}
+    {ds : List Declaration} {env' : Env}
     (h : checkDecls μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
@@ -61,10 +61,10 @@ theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
 
 /-- **The fold's letter about `False`** (task #181): the same letter at
 the pinned `False` block — no hypothesis about how the stream declared
-`False`.  The main theorem is this at `.verified`. -/
+`False`.  The step the main corollary rests on is this at `.verified`. -/
 theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} {env' : Env}
+    {ds : List Declaration} {env' : Env}
     (h : checkDecls μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by

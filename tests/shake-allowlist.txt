@@ -37,7 +37,7 @@
 # TO REGENERATE a line: run the criterion on that one module, compare with the
 # `--only ConLeche.NoSuchModule` floor, and either delete the import or add the
 # line here with what the run asked for in exchange.
-ConLeche/Cached/ExprC.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
+ConLeche/Cached/ExprNodes.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Cached/ExprOpsC.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Cached/ExprOpsC.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/Cached/OpsC.lean
 ConLeche/Frontend/ProjRec.lean	public import Std.Data.HashSet	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Frontend/ProjRec.lean	import ConLeche.Kernel.Level	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
@@ -48,7 +48,6 @@ ConLeche/Kernel/BasisA.lean	public import ConLeche.Kernel.BasisGen	# compensated
 ConLeche/Kernel/BasisGen.lean	public meta import Lean	# compensated: +meta import Lean.Elab.Eval in ConLeche/Kernel/BasisGen.lean; +public meta import Lean.Elab.Command in ConLeche/Kernel/BasisGen.lean (+1 more)
 ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.StdAxioms	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
 ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.NatOpPins	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
-ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.Inductives.StructParts	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
 ConLeche/Kernel/Core.lean	public import ConLeche.Kernel.Basis	# compensated: +public import ConLeche.Kernel.Basis.Names in ConLeche/Kernel/Core.lean
 ConLeche/Kernel/CoreGated.lean	public import ConLeche.Kernel.TypeChecker	# compensated: +public import ConLeche.Kernel.Core in ConLeche/Kernel/CoreGated.lean
 ConLeche/Kernel/CoreIO.lean	public import ConLeche.Kernel.TypeChecker	# compensated: +public import ConLeche.Kernel.Core in ConLeche/Kernel/CoreIO.lean; +public import ConLeche.Kernel.TypeChecker in ConLeche/Verify/Knot.lean
@@ -318,7 +317,6 @@ ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.SumWF	# the --o
 ConLeche/Semantics/Bridge/Decl.lean	public import ConLeche.Verify.Extend.Inversions	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/Decl.lean	import ConLeche.Verify.IotaWalkInv	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/DeclIndRun.lean	public import ConLeche.Verify.Extend.Proj	# compensated: +import ConLeche.Verify.Extend.Proj in ConLeche/Semantics/Bridge/DeclIndRun.lean; +public import ConLeche.Verify.Extend.Iota in ConLeche/Semantics/Bridge/DeclIndRun.lean
-ConLeche/Semantics/Bridge/DeclRun.lean	public import ConLeche.Semantics.Bridge.Decl	# compensated: +import ConLeche.Semantics.Bridge.Decl in ConLeche/Semantics/Bridge/DeclRun.lean
 ConLeche/Semantics/Bridge/Sound.lean	public import ConLeche.Semantics.Bridge.DeclRun	# compensated: +import ConLeche.Semantics.Bridge.DeclRun in ConLeche/Semantics/Bridge/Sound.lean
 ConLeche/Semantics/Decl.lean	public import ConLeche.Verify.Leaves	# compensated: +import ConLeche.Verify.Abstract in ConLeche/Semantics/DeclRun.lean
 ConLeche/Semantics/DefEqList.lean	public import ConLeche.Verify.InferLemmas	# compensated: +import ConLeche.Verify.InferLemmas in ConLeche/Semantics/DefEqList.lean; +public import ConLeche.Verify.Knot in ConLeche/Semantics/DefEqList.lean
@@ -491,5 +489,8 @@ ConLeche/Verify/ReducePinInv.lean	public import ConLeche.Verify.NatOpFrag	# comp
 ConLeche/Verify/StdAxiomPin.lean	import ConLeche.Kernel.Checker	# compensated: +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomPin.lean; +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomReduce.lean (+2 more)
 ConLeche/Verify/StdAxiomPin.lean	public import ConLeche.Verify.OfReducePin	# compensated: +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomPin.lean; +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomReduce.lean (+2 more)
 ConLeche/Kernel/CheckerSplit.lean	public import ConLeche.Kernel.Checker	# compensated: +public import ConLeche.Kernel.CheckerBase in ConLeche/Kernel/CheckerSplit.lean; +public import ConLeche.Kernel.Checker in ConLeche/Verify/CheckerSplit.lean (task #257: checkDeclInstall, the file's only checkDecl caller, is deleted)
-ConLeche/Verify/Cached/InstalledC.lean	public import ConLeche.Verify.Cached.PushChain	# compensated: +import ConLeche.Verify.Cached.PushChain, +public import ConLeche.Cached.Installed, +public import ConLeche.Verify.EnvBound and seven plain imports in ConLeche/Verify/Cached/InstalledC.lean (task #257)
 ConLeche/Verify/Cached/MainC.lean	public import ConLeche.Verify.Cached.InstalledC	# compensated: +import ConLeche.Verify.Cached.InstalledC, +public import ConLeche.Cached.Installed, +public import ConLeche.Model.Annot.EnvModelM, +import ConLeche.Model.Capstone in ConLeche/Verify/Cached/MainC.lean (task #257)
+ConLeche/MainTheorem.lean	public import ConLeche.Verify.Cached.MainC	# compensated: +import ConLeche.Verify.Cached.MainC, +public import ConLeche.Cached.Installed, +public import ConLeche.SetTheory.Core in ConLeche/MainTheorem.lean (task #257)
+ConLeche/Verify/Inductives/StructBody.lean	import ConLeche.Verify.Cached.Erase	# compensated: the --only run relocates StructResid/ProjTele and adds InstSpine, EnvWF, Subst, StructParts, ProjSlots
+ConLeche/Verify/Cached/InstalledC.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for the same edge back as a plain `import` plus Cached.Installed, SimC and EnvBound
+ConLeche/Verify/Cached/StreamConsts.lean	public import ConLeche.Verify.Cached.BridgeC	# compensated: the --only run asks for `public import ConLeche.Verify.Cached.SimC` and `public import ConLeche.Verify.EnvBound` in exchange

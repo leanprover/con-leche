@@ -105,9 +105,10 @@ Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation
 ## Notes
 
 * **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells.  **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes — **1.14× verified, 1.06× trusted**; the smaller `init-full` stream sits at 1.33× / 1.29×.  The count difference is the official binary's counting (see below), not a verdict difference.
-* **The verdict line counts declaration RECORDS**, the STREAM's count
-  `decls.size - preludeCount + preludeDropped` (so a stream that
-  re-declares a prelude block identically reports what it declared),
+* **The verdict line counts declaration RECORDS**, the FILE's own count
+  `decls.size - genRecords` (the file's own records: the built-in
+  prelude adds none, since the stream's own record is what is used
+  wherever it has one),
   not the number of environment CONSTANTS, which would count an
   inductive block's type former, its constructors, its recursor and
   its projection table separately — a property of con-leche's

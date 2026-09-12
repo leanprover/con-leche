@@ -32,7 +32,7 @@ set_option linter.unusedSimpArgs false
 namespace ConLeche.Cached
 
 open ConLeche
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -49,7 +49,7 @@ section Inserts
 variable {env : Env}
 
 theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC}
+    {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnfCore mode env F d i = .ok j) :
     CSOK mode env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
@@ -67,7 +67,7 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
     exact hs.whnfCoreC k v hl
 
 theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC}
+    {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnf mode env F d i = .ok j) :
     CSOK mode env { s with whnfC := s.whnfC.insert i j } := by
@@ -85,7 +85,7 @@ theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
     exact hs.whnfC k v hl
 
 theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC}
+    {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       inferTypeCore mode env F d i = .ok j) :
     CSOK mode env { s with inferC := s.inferC.insert i j } := by
@@ -106,7 +106,7 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
 /-- Insert into the io memo (task #172 B4): the entry is backed by an
 io-slot run — the weaker clause. -/
 theorem CSOK.insertInferIOC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC}
+    {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       inferTypeIO mode env F d i = .ok j) :
     CSOK mode env { s with inferIOC := s.inferIOC.insert i j } := by
@@ -125,7 +125,7 @@ theorem CSOK.insertInferIOC {s : CState} (hs : CSOK mode env s)
     exact hs.inferIOC k v hl
 
 theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC}
+    {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       annotateCore mode env F d i = .ok j) :
     CSOK mode env { s with annotC := s.annotC.insert i j } := by
@@ -144,7 +144,7 @@ theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
     exact hs.annotC k v hl
 
 theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
-    {i j : ExprC} {r : Bool}
+    {i j : Expr} {r : Bool}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       (Expr.wscopedB d j) = true →
       isDefEqCore mode env F d i j = .ok r) :
@@ -154,7 +154,7 @@ theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
   intro a b r' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((i, j) : ExprC × ExprC) == (a, b)
+  by_cases hk : ((i, j) : Expr × Expr) == (a, b)
   · rw [if_pos hk] at hl
     obtain ⟨hia, hjb⟩ := pairKey_inv hk
     have hjb' : j = b := beq_sound hjb
@@ -173,12 +173,12 @@ section Wrappers
 variable {env : Env} {f : Nat}
 
 theorem memoEI_whnfCore_sim (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
         (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (whnfCoreBody mode (fueledFns mode env) env d e))
-    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i)
       ((fueledFns mode env).whnfCore d e) := by
@@ -228,12 +228,12 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
 
 theorem memoEI_whnf_sim (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
         (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (whnfBody (fueledFns mode env) env d e))
-    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnf d i)
       ((fueledFns mode env).whnf d e) := by
@@ -281,12 +281,12 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
 
 theorem memoEI_infer_sim (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
         (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (inferBody mode (fueledFns mode env) env d e))
-    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).infer d i)
       ((fueledFns mode env).infer d e) := by
@@ -339,13 +339,13 @@ the slot is the io body under its own memo (`CState.inferIOC`); a hit
 consumes the io clause, a miss runs the io body walk and re-inserts in
 depth-universal form through `inferTypeIO_depth_inv`. -/
 theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
         (inferBodyIOI mode
           (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i)
         (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d e))
-    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) (f + 1)).inferIO d i)
@@ -406,12 +406,12 @@ theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
 
 theorem memoEI_annotate_sim (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
         (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (annotateBody (fueledFns mode env) env d e))
-    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).annotate d i)
       ((fueledFns mode env).annotate d e) := by
@@ -461,13 +461,13 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
 
 theorem memoBI_defeq_sim (henv : EnvWF env)
-    (hbody : ∀ {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr},
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i j : Expr} {a b : Expr},
       CSOK mode env s₀ → RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
         (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
         (defeqBody mode (fueledFns mode env) env d a b))
-    {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr}
+    {s₀ : CState} {d : Nat} {i j : Expr} {a b : Expr}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC ((coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j)
@@ -484,7 +484,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
   simp only [memoBI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
     Except.bind] at hr
-  cases hl : s₀.defeqC[((i, j) : ExprC × ExprC)]? with
+  cases hl : s₀.defeqC[((i, j) : Expr × Expr)]? with
   | some r =>
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr

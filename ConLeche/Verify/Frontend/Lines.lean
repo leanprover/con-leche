@@ -16,7 +16,10 @@ function of the byte LIST alone: `parseLines`, the recogniser applied
 line by line with `applyLine` after each, and `parseExportD_eq_parseLines`
 says the two agree whenever the input fits in the machine's address
 space (`USize` positions are machine words; the hypothesis is what
-makes them the list positions).
+makes them the list positions) — and `parseExportD`'s size guard makes
+every parse that returns a result one that does
+(`parseExportD_ok_size`), so no theorem downstream carries the
+hypothesis.
 
 `parseLines` is then read through the newline structure of its input:
 `parseLines_split` says a parse of `l ++ 10 :: m` reaches `m` as a line
@@ -184,26 +187,46 @@ theorem feedChunk_spec (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat) 
     rw [tailAt_of_not_lt h, parseLines, naiveLine_nil]
     rfl
 
+/-- **The size guard**: an input of `USize.size` bytes or more is
+refused before any of it is read. -/
+theorem parseExportD_size (contents : String) (inModel census : Bool)
+    (hsz : USize.size ≤ contents.utf8ByteSize) :
+    parseExportD contents inModel census = .error sizeError := by
+  unfold parseExportD
+  rw [if_pos hsz]
+  rfl
+
+/-- An accepted parse read a buffer the machine word addresses: the
+guard is what stands where a size hypothesis would. -/
+theorem parseExportD_ok_size {contents : String} {inModel census : Bool} {r : ParseResultD}
+    (h : parseExportD contents inModel census = .ok r) : contents.utf8ByteSize < USize.size := by
+  rcases Nat.lt_or_ge contents.utf8ByteSize USize.size with hlt | hge
+  · exact hlt
+  · rw [parseExportD_size contents inModel census hge] at h
+    cases h
+
 /-- **The wholesale parse is the line fold**, whenever the input fits
-in the address space. -/
-theorem parseExportD_eq_parseLines (contents : String) (prelude : PreludeIx) (inModel census : Bool)
+in the address space — which, by the guard, every parse that returns a
+result does (`parseExportD_ok_size`). -/
+theorem parseExportD_eq_parseLines (contents : String) (inModel census : Bool)
     (hsz : contents.utf8ByteSize < USize.size) :
-    parseExportD contents prelude inModel census =
-      (parseLines (.init prelude inModel census) (lit contents) 0).map ParseResultD.ofState := by
+    parseExportD contents inModel census =
+      (parseLines (.init inModel census) (lit contents) 0).map ParseResultD.ofState := by
   have hsz' : contents.toUTF8.size < USize.size := by
     rw [String.toUTF8_eq_toByteArray, String.size_toByteArray]; exact hsz
-  have key := feedChunk_spec (.init prelude inModel census) contents.toUTF8 0 0
+  have key := feedChunk_spec (.init inModel census) contents.toUTF8 0 0
   have ht0 : tailAt contents.toUTF8 0 = lit contents := by
     simp only [tailAt, bytes_eq_of_size_lt hsz', USize.toNat_zero, List.drop_zero, lit]
   rw [ht0] at key
   rw [← key]
   unfold parseExportD
-  dsimp only
-  cases feedChunk (.init prelude inModel census) contents.toUTF8 0 0 with
+  rw [if_neg (Nat.not_le.mpr hsz)]
+  simp only [bind, Except.bind, pure, Except.pure]
+  cases feedChunk (.init inModel census) contents.toUTF8 0 0 with
   | error e => rfl
   | ok p =>
     obtain ⟨st, lineNo, tail⟩ := p
-    simp only [finishChunk, bind, Except.bind, pure, Except.pure]
+    simp only [finishChunk]
     split
     · cases applyFinalLine st contents.toUTF8 tail (lineNo + 1) <;> rfl
     · rfl

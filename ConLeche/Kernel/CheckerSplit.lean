@@ -81,7 +81,7 @@ def installConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) :
   unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless type.constsResolve env do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" type)
   pure { cv with type := type }
 
 /-- The value half of `check{Defn,Thm,Opaque}Val` minus its inference:
@@ -96,7 +96,7 @@ def installValue (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
+    throw (unresolvedConstsError s!"value of {cv.name}" value)
   pure value
 
 /-- **The check half of a value declaration**, at the environment the

@@ -65,7 +65,6 @@ domain (`Nat`) installs, and the same domain in a MUTUAL block installs.
 namespace ConLeche.Frontend.InModel
 
 open ConLeche
-open ConLeche.Cached (DeclC)
 
 /-- A member of the auxiliary family: a real member of the block or a
 mimic (a nested occurrence `I As`, the container at its pins). -/
@@ -401,7 +400,7 @@ where
 /-- The generic in-process rung: mutual, nested, both.  (The mutual rung
 of `Mutual.lean` is the special case without mimics; it stays as the
 B1/B2 landing.) -/
-def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
+def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := do
   let t0 :: _ := b.types | throw "empty block"
   let T := t0.cv.name
   let lps := t0.cv.levelParams
@@ -555,13 +554,13 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let rn : Expr → Expr := Expr.renameConsts rnF
   let tag := tagName T
   let aux := auxName T
-  let mut out : Array DeclC := #[]
+  let mut out : Array Declaration := #[]
   let mut heights : List (Name × Nat) := []
   let hOf : List (Name × Nat) → Name → Nat := fun hs x =>
     match hs.find? (·.1 == x) with
     | some (_, h) => h
     | none => ctx.heights x
-  let push := fun (o : Array DeclC) (hs : List (Name × Nat)) (nm : Name) (l : List Name)
+  let push := fun (o : Array Declaration) (hs : List (Name × Nat)) (nm : Name) (l : List Name)
       (ty v : Expr) =>
     let h := hintFor (hOf hs) v
     (o.push (.defnDecl ⟨nm, l, ty⟩ v h), (nm, hintHeight h) :: hs)

@@ -65,7 +65,7 @@ private def preludeIx : PreludeIx :=
 
 -- the parser reads the file into a theorem record of type `False` …
 #guard
-  match parseExportD falseFile preludeIx with
+  match parseExportD falseFile with
   | .ok r => r.decls.any fun
     | .thmDecl cv _ => cv.name == .str .anonymous "bogus" && cv.type == .const falseName []
     | _ => false
@@ -73,10 +73,20 @@ private def preludeIx : PreludeIx :=
 
 -- … which the fold then rejects (`Prop` is not a proof of `False`)
 #guard
-  match parseExportD falseFile preludeIx with
-  | .ok r => match checkDecls .verified r.decls.toList with
+  match parseExportD falseFile with
+  | .ok r => match checkDecls .verified (preparePrelude preludeIx r.decls.toList) with
     | .ok _ => false
     | .error _ => true
+  | .error _ => false
+
+-- a rebound index is a parse error (the property the file theorem
+-- reads off the tables: an entry bound once is the entry every later
+-- line reads)
+#guard
+  match parseExportD ("{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
+      "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"b\"}}\n") with
+  | .ok _ => false
+  | .error (.parseError 2 _) => true
   | .error _ => false
 
 end ConLecheTests

@@ -424,14 +424,14 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
-# THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191).  Every run now
-# installs the six basis blocks and `Bool` first; a stream's own copies
-# are dropped as duplicates.  The verdict line must still count the
-# STREAM's declaration records — dropped copies included, since they
-# are installed (from the prelude) and the official checker counts them
-# — so the number is unchanged by the prelude's existence and equal
-# across reorderings of the same records: natop_order.ndjson has 35
-# declaration records (4 of them prelude duplicates: Nat, PUnit, Bool,
+# THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is
+# task #293's).  Every run installs the prelude's declarations first —
+# the stream's OWN record wherever the stream has one, a synthesised
+# copy where it has none.  The verdict line counts the FILE's
+# declaration records, which no step of the preparation moves: the
+# number is unchanged by the prelude's existence and equal across
+# reorderings of the same records.  natop_order.ndjson has 35
+# declaration records (4 of them the prelude's own: Nat, PUnit, Bool,
 # Eq), and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
 # 35 records in other orders.
 prelude_ok=0
@@ -672,8 +672,8 @@ tower_run tower_axiom 2 \
   "a tower in Quot.sound's type declines without walking it"
 tower_run tower_quot 2 \
   "a tower in a quotient record's type declines without walking it"
-tower_run tower_prelude 2 \
-  "a tower in a prelude-named block declines without walking it"
+tower_run tower_prelude 0 \
+  "a tower in a Bool-named block installs without walking it"
 tower_run tower_axiom_pin 2 \
   "a tower in propext's type declines without walking it"
 tower_run tower_axiom_nonstd 2 \

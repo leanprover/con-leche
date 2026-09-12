@@ -256,11 +256,16 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user rulings, 2026-08-22/24, revised for task #95): the
-*tolerated whitelist* (`toleratedAxiomNames`) is exactly `sorryAx` — a
-tolerated `axiom` record is dropped by the frontend without parsing
-its type at all; nothing is installed and the name is tainted
-(`Frontend.State.taintedNames`).  The `Init` **compiler-trust family
+Refinement (user rulings, 2026-08-22/24, revised for task #95, and
+again for task #292): the one axiom tolerated as a *declaration* is
+`sorryAx` (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).  Its
+record is FORWARDED to the fold like any other: the type is checked
+and the record installs **nothing** — there is no set model for it —
+so a stream that merely declares the axiom is accepted, and any USE of
+the name DECLINES at the record that uses it.  The fold owns that
+decision (`unknownConstError` in `ConLeche/Kernel/Core.lean`,
+`unresolvedConstsError` in `ConLeche/Kernel/CheckerBase.lean`); the
+parser has no taint machinery at all.  The `Init` **compiler-trust family
 is installed** instead (task #95, user design 2026-08-24):
 `Lean.trustCompiler : True` is trivially realizable and installs like
 a checked `opaque` realized by `True.intro` over the pinned `True`
@@ -69165,6 +69170,938 @@ more — #287 deleted `tests/route-census.sh` with the
 `CON_LECHE_ROUTE_TRACE` hook it read; the merged run is the one
 recorded above minus that line.
 
+## TASK #288 — `no_False_theorem_accepted` IS *THE* MAIN COROLLARY (2026-09-12, `agent/maincor-288`)
+
+The maintainer's ruling on the statement task #286 added: *"I want that
+to be **the** main corollary."*  Nothing in any statement changes —
+this is a relabelling of the three theorems, in the docstrings, the
+module headers, `OVERVIEW.md`, the axiom pin's table and the proof-dep
+roots:
+
+| theorem | label before | label now |
+|---|---|---|
+| `model_exists` | **The main theorem.** | **The main theorem.** (unchanged) |
+| `no_proof_of_False` | **The main corollary.** | **The corollary at the environment.** |
+| `no_False_theorem_accepted` | **The main corollary, at the stream.** | **The main corollary.** |
+
+**Why.**  `no_proof_of_False` quantifies over the environment the fold
+RETURNS, so reading it presupposes knowing what an `Env` is and
+trusting that the fold put into it what the stream declared.
+`no_False_theorem_accepted` speaks only of the list of declarations
+handed to the checker: *a stream one of whose records declares a
+theorem of type `False` is never accepted*.  That is the sentence a
+reader can check against their own idea of what the checker is for,
+which is what a main corollary is for.  The environment statement
+keeps its place as the step the main corollary rests on — it is where
+the model argument lands — and stays a pinned, advertised theorem
+(`comparator.json` keeps all three names, in the same order).
+
+**Order.**  The three theorems stay in proof order in both modules
+(main theorem → corollary at the environment → main corollary); the
+prose in `ConLeche/Challenge.lean` now states the theorem and the main
+corollary in the opening quote and explains the environment statement
+as the first of the two steps between them.  `OVERVIEW.md` §1 reads
+the same way, and its module-map row for the pair names all three.
+
+**Gates** (docs only — the docstrings live in the modules): `lake
+build` warning-free, `lake test` warning-free, `tests/challenge.sh` OK
+(the three statements are still token-identical: only docstrings
+moved), `tests/overview-links.sh --update` after re-reading the four
+citing paragraphs — the `MainTheorem.lean` and `Axioms.lean` anchors
+shifted by the reworded docstrings and the reworded pin section, the
+cited text is unchanged — and `tests/no-local-paths.sh`.  No arena
+battery and no checker run: no checker code changed.
+
+**README.md is the maintainer's** and was not touched; its "### The
+Main Corollary" section still shows the environment statement, and the
+replacement text is in this task's report.
+
+## TASK #291 — THE ENVIRONMENT STATEMENT IS DROPPED (2026-09-12, `agent/dropenv-291`)
+
+The maintainer's ruling on the three advertised theorems: *"The old one
+is no more useful than the new one, so should be dropped."*
+`ConLeche.no_proof_of_False` — the corollary at the environment task
+#288 relabelled — is **removed as a public statement**.  Two statements
+remain, in both halves of the Comparator pair and in
+`comparator.json`'s `theorem_names`: `model_exists` (the main theorem)
+and `no_False_theorem_accepted` (the main corollary).
+
+**Where the content went.**  Nothing is lost: the environment argument
+is now the first half of the main corollary's own proof.  A second
+ruling settled the form — *"MainTheorem should be elegant, pretty,
+concise.  Simple proofs (few clear steps) here are fine, large ones
+should be imported"*, then *"merging the proof steps … into ONE proof
+inside MainTheorem.lean is fine"* — so there is no private lemma and no
+new Verify module: `no_False_theorem_accepted` is six tactic lines that
+name the two imported facts (`Cached.checkDecls_thmDecl_const` for the
+stream side, `model_exists` for the model side) and then read the
+constant's type through `Model.mem` / `Model.false_empty`.  The
+docstring says the same in words, so a reader still sees that the
+corollary goes through "an accepted environment holds no constant of
+type `False`".
+
+**The statement was never the only place that fact is proved.**  The
+Verify tier keeps its own letters under their own names —
+`no_proof_of_False_cached` (`Verify/Cached/MainC.lean`, every
+validating mode), `no_proof_of_False_checked`
+(`Verify/Cached/InstalledC.lean`) and `no_proof_of_False_pure`
+(`Model/Fold.lean`) — and they stay pinned and stay proof-dep roots.
+Only the capstone name disappeared, so every citation of a `_cached` /
+`_checked` / `_pure` letter was left alone; the citations reworded are
+the ones that named the capstone.
+
+**What moved** (outside this document): `ConLeche/MainTheorem.lean`
+(statement deleted, proofs merged, module header "the main theorem and
+the main corollary"); `ConLeche/Challenge.lean` (statement deleted, the
+prose that called the middle step "the corollary at the environment"
+now calls it a step, and the bullet that explained the removed
+statement's `c.toConstantVal.type` explains the corollary's own
+`cv.type` instead); `comparator.json` (two names);
+`tests/ConLecheTests/Axioms.lean` (nineteen pinned theorems → eighteen,
+one `#print axioms` block gone, eleven of them proof-dep roots);
+`tests/ProofDeps.lean` (the root `main_False` gone: **11 roots**, and
+`tests/proofdeps-expected.txt` regenerated — 4249 rows → 3820, exactly
+the `main_False` block, no other row changed);
+`tests/trust-surface.sh`, `tests/e2e-expected.txt`, `OVERVIEW.md` §1
+(the main corollary presented directly, its environment step in words)
+and its module map, `tests/overview-links-expected.txt` (`--update`
+after re-reading the three citing paragraphs: 77 links / 49 files, one
+link fewer), `formalization.yaml` and `scripts/arena/con-leche.yaml`
+(the exported second theorem is `ConLeche.no_False_theorem_accepted`),
+`scripts/dead-census.py`'s capstone list, and the prose citations in
+`ConLeche/Cached/Installed.lean`, `ConLeche/Cached/ParsedC.lean`,
+`ConLeche/Verify/Cached/MainC.lean`,
+`ConLeche/Verify/Cached/InstalledC.lean` and `Main.lean` — including
+the `--verified` paragraph of `--help`, which now states the main
+corollary instead of the environment one.
+
+**README.md is the maintainer's** and was not touched; its "### The
+Main Corollary" section still shows the removed statement, and the
+replacement text is in this task's report.
+
+## TASK #289 — WHAT `checkDecls` STORES OF WHAT IT READS (2026-09-12, `agent/streamrel-289`)
+
+The maintainer's request: *"somewhere I want a strong statement on how
+`checkDecls`'s output relates to the input: Every constant in `ds`
+except `sorryAx` appears in `env`, with types related by a relation that
+ignores annotations and zeta-reduces let.  Not a theorem to go into
+MainTheorem, but maybe the proof can mention it, and of course the
+OVERVIEW should point to it."*  Landed as
+`ConLeche/Verify/Cached/StreamConsts.lean`.
+
+### 1. The relation
+
+```lean
+@[expose] def Expr.zeta : Expr → Expr
+  | .app f a        => .app (zeta f) (zeta a)
+  | .lam ty b m     => .lam (zeta ty) (zeta b) m
+  | .forallE ty b m => .forallE (zeta ty) (zeta b) m
+  | .letE _ v b     => (zeta b).instantiate1Lift (zeta v) 0
+  | .proj s i e     => .proj s i (zeta e)
+  | .fvar i ty      => .fvar i ty
+  | e               => e
+
+@[expose] def AnnotOf (declared stored : Expr) : Prop :=
+  stored.resetMeta = declared.zeta.resetMeta
+```
+
+Two decisions in there.
+
+* **The erasure is `Expr.resetMeta`, which already existed** (the
+  recursor replay's, `Kernel/ExprOps.lean`): "every binder's datum reset
+  to the parse placeholder".  No new definition was needed, because
+  `BinderMeta.pw` on `lam`/`forallE` is the WHOLE of what a node carries
+  beyond its shape — task #205 dropped the binder name, the `BinderInfo`
+  and the `fvar` display name precisely so that structural `=` IS
+  α-equivalence.  So "ignores annotations" has one honest reading and
+  `resetMeta` is it.  (`resetMeta` descends into `fvar` type
+  annotations; `zeta` does not, because the annotation pass does not
+  either — its `.fvar` clause is `pure e`.  On the terms the theorem is
+  about the difference is invisible: a declared type is `hasFvar =
+  false`.)
+* **`zeta` substitutes with `instantiate1Lift`, not `instantiate1`.**
+  The checker's own `instantiate1` does no lifting, which is correct for
+  it because the pass opens every binder with an `fvar` before
+  descending and so only ever inlines a bvar-CLOSED `let` value.  A pure
+  function on de Bruijn terms has no such luxury: it meets a `let` under
+  binders whose value mentions them.  With `instantiate1Lift` the
+  commutation lemma is unconditional apart from the substituted term
+  being closed, and it is exactly `instantiate1Lift_instantiate1`
+  (`Verify/Subst.lean`), which was already there.
+
+`annotateCore_annotOf` is the theorem: a successful *pure* annotation
+run over a bvar-closed, `d`-scoped term returns a term `AnnotOf`-related
+to it.  Induction on the knot's fuel; `Verify/Abstract.lean`'s five
+`annotateCore_*_inv` inversions do the unfolding.  The binder clauses
+are the only real work: the pass opens with `fvar d ty'`, annotates,
+and closes with `abstract1`, so the proof needs (a) `zeta` commuting
+with a closed substitution, (b) `resetMeta` commuting with both
+`instantiate1` and `abstract1`, and (c) the open-then-close roundtrip
+`instantiate1_abstract1_self` — the mirror of the existing
+`abstract1_instantiate1`, and the one roundtrip direction that was
+missing.
+
+**One inversion had to be re-proved.** `annotateCore_proj_inv` discards
+the `T = sn` check (task #271's "the node names another structure"),
+because its consumers — `WScoped`, `looseBVarsBounded`, `LeafEquiv` —
+are blind to the name.  `AnnotOf` is not: the stored node's structure
+name has to be the declared one.  `annotateCore_proj_name` is the same
+walk keeping that conjunct; adding it to the existing lemma would have
+broken every `obtain ⟨…⟩` on it.
+
+### 2. The theorem
+
+```lean
+theorem checkDecls_consts (V : Type w) [SetTheory V]
+    {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    ∃ c, env.find? cv.name = some c ∧
+      c.toConstantVal.levelParams = cv.levelParams ∧
+      AnnotOf cv.type c.toConstantVal.type
+```
+
+`DeclC.Declares` is the record-kind side: a definition, a theorem and an
+opaque declare their header; an axiom declares its header **unless
+`toleratedAxiomNames.contains cv.name`** — the exception is written
+exactly as `checkDeclC`'s own arm has it (`ParsedC.lean`: the tolerated
+branch is `pure fe`, no push, no `recordCConst`, no pending check), and
+`toleratedAxiomNames` is exactly `[sorryAx]`; `basisDecl` and `indDecl`
+declare nothing.  (Task #292 replaced the singleton list by the name:
+the conjunct now reads `cv.name ≠ sorryAxName`, same set, same proof.)
+
+**The definition VALUE was left out, and it is one conjunct away.**
+`DeclDefnRun` carries `ValueFrontRun`, whose first three conjuncts are
+`value.looseBVarsBounded 0`, `value.hasFvar = false` and
+`annotateCore μ env F 0 value = .ok value'` — exactly what
+`annotateCore_annotOf` consumes — and the stored constant is
+`.defnInfo ⟨…⟩ value' hint`.  So `AnnotOf value value'` is free at the
+per-record lemma.  It is NOT free at the walk, which is specialised to
+"a constant of this name": stating it too means generalising
+`installRun_declares` over the per-record conclusion (a predicate
+`Q : DeclC → Env → Prop` with a monotonicity hypothesis — the walk's
+body does not change) and adding a second capstone.  The maintainer
+asked for types; this is the note that says what the other half costs.
+
+`find?` rather than `∈ env.consts`: the returned environment's names are
+unique — `PushChain`'s third conjunct, already computed by
+`installRun_trace` from `NodupNames Env.empty` — so membership upgrades
+to a lookup for free (`find?_of_mem_nodup`, the one list lemma that was
+missing).
+
+### 3. Against task #277 §5's six reasons
+
+§5 rejected a `ds`-statement whose lemma would be *"every constant a
+`DeclC` of `ds` declares is in `env.consts` with the same type and
+value"*, as FALSE, and listed why.  This statement is the TRUE version;
+here is each reason and what became of it.
+
+1. **the frontend drops tolerated-axiom records and everything
+   downstream** — not this statement's business: `ds` is the fold's
+   input, and the *fold* accepts an `axiomDecl sorryAx` and stores
+   nothing.  That is `DeclC.Declares`'s one side condition.
+2. **the built-in prelude is prepended** — harmless: the statement is
+   one-directional (every declared constant is stored), never "and
+   nothing else is".
+3. **the `ProjRec` rewrite** and 4. **the in-process modeller's `_model`
+   records** — likewise: extra records, extra stored constants.
+5. **constructors are reordered** and 6. **a stream's own copy of a
+   prelude block is dropped** — both concern `indDecl` blocks, which are
+   outside the claim for a stronger reason (§4).
+   Plus the three §5 listed after the six: `annotate` (that is the whole
+   point — `AnnotOf`, not `=`), `opaqueDecl`'s discarded value (the
+   statement is about TYPES only), and `indDecl`'s regenerated recursors
+   (§4).
+
+§5's recommendation — "state the theorem about `env`, as it is" — stands
+for the MAIN theorem; this is an addition, it is not in
+`MainTheorem.lean`, and `OVERVIEW.md` points at it from the corollary
+paragraph.
+
+### 4. The `indDecl` caveat — three of them, not one
+
+The brief expected the recursor to be the exception a reader should hear
+about.  It is one of three, and the other two are the more interesting
+finding:
+
+* **the recursor** — `checkNativeRec` (`Kernel/Inductives/NativeInstall.lean`)
+  checks the stream's record with `checkConstantVal`, builds the
+  GENERATED type `structRecTyR`, compares the two with `ops.isDefEq` and
+  then stores the generated one, discarding the stream's.  Official's
+  replay does the same.  So the true relation for a recursor is "the
+  accepting run's `isDefEq`", not `AnnotOf`.
+* **the type former**, on the native route — `checkSumTele`
+  (`Kernel/Inductives/SumInstall.lean`): if the declared type is not
+  ALREADY a syntactic Π-telescope of `nP + nIdx` binders ending in a
+  sort, the checker whnf's the telescope, closes it and runs
+  `checkConstantVal` on THAT from scratch.  The stored type is then the
+  annotation of the reduct.
+* **a constructor**, on the native route — `normCtorVal` (same file):
+  the field domains are normalised by official's positivity walk and,
+  when that changed anything, `checkConstantVal` runs again on the
+  rebuilt type.
+
+So `AnnotOf (declared type) (stored type)` is REFUTABLE for inductive
+members on the native route, not merely unproved, and a cheap weakening
+does not exist: the honest claim is a defeq one.  A separate
+complication is that a constructor is annotated at the environment
+holding the type former, not at the pre-block environment, so even the
+shape `∃ F, annotateCore μ env F 0 cv.type = .ok …` is wrong at `env`.
+
+The MODELED route does store the annotation of the declared type for
+formers and constructors (`checkMemberVal` is plain `checkConstantVal`),
+and `Semantics.MemberValRun` already carries the equation; what is
+missing there is the `find?`-at-the-end plumbing through the member,
+recursor and projection folds — a route-conditional claim, which is not
+a statement worth having.  **Docketed, not attempted.**
+
+### 5. Why the model (and `V`) is in the statement
+
+The proof has to relate what the CACHED pass returned to what the pure
+`annotateCore` returns — the cached entry point is memoised, and the
+memo's contents are only pinned by `CSOK.annotC` ("every entry is backed
+by a pure run").  The cached→pure simulation needs `EnvWF` of the
+environment the record is installed at, and in this tree `EnvWF` is
+bundled into `Semantics.EnvFacts`, which comes from the model: there is
+NO route to `EnvWF` along the run that does not thread `EnvModelOk V μ`.
+Hence `(V : Type w) [SetTheory V]`, exactly as `no_False_theorem_accepted`
+carries it and for the same underlying reason.
+
+This is also why **`checkDecls_thmDecl_const` (#286) was NOT made a
+corollary of this theorem**, although `AnnotOf` on a bare constant is
+equality.  Its statement has no `V`, the tree instantiates `SetTheory`
+nowhere, so deriving it here would mean adding a `V` parameter to it —
+changing the statement the brief said to keep.  The two proofs stay
+side by side, and that is the right outcome: #286's is cheap precisely
+because a bare constant needs no annotation specification and the step's
+own `flushC` empties the memo, so it reads the cached pass directly with
+no model in sight.  The general statement cannot.
+
+### 6. `annotStepC_model`: `installRun_model`'s cons case, extracted
+
+The walk needs `installRun_model`'s five hypotheses and its per-step
+model reasoning.  Rather than duplicate 130 lines, the cons case is now
+a lemma of its own in `Verify/Cached/InstalledC.lean`, with ONE conjunct
+added to what it concludes:
+
+```lean
+EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
+  ∃ d F, DeclCRel pd d ∧ checkDecl μ (fueledOps μ F) fe.env d = .ok fe₁.env
+```
+
+The third conjunct is the interesting one: phase A's step at a record —
+including the separable value declarations, whose check phase A only
+*records* — IS a pure `checkDecl` run at some fuel.  Both halves of the
+old proof already produced it (`checkDeclStepC_run` on the ordinary
+path, `hsplit` on the value path) and threw it away.  With it, the
+per-record reasoning happens entirely at the pure checker's own run
+relation: `Semantics.checkDeclRun_ofEnvFactsE` (which, despite the name,
+needs no `EnvFacts`) hands out `DeclRun`, whose `ConstantValRun` carries
+`annotateCore μ env F 0 cv.type = .ok type'` together with the two
+guards `annotateCore_annotOf` wants (`looseBVarsBounded 0`,
+`hasFvar = false`).  `checkDecl_declares` is then four near-identical
+cases and `installRun_model` itself is five lines.
+
+### 7. What was hard
+
+* **Nothing about the annotation pass.**  The expectation was that the
+  binder telescope loops (`annotatePisC`/`annotateLamsC`) would be the
+  wall.  They never appeared: the statement is about the PURE
+  `annotateCore`, which is the chained one-binder-at-a-time spec, and
+  `Verify/Abstract.lean` already had every inversion and both scoping
+  preservations.  The cached loops are reached only through the existing
+  simulation, which the walk consumes as a black box.
+* **The de Bruijn algebra was the wall, and it was already built.**
+  `instantiate1Lift_instantiate1` is *the* lemma the `letE` case of
+  `zeta_instantiate1` needs, stated with exactly the right closedness
+  side condition; without it the naive `zeta` over `instantiate1` is not
+  merely unproved but wrong (substituting an open value under a binder
+  captures).
+* **`installRun_model`'s hypotheses do not survive a prefix split.**
+  The first plan was to split the run at the record, apply
+  `installRun_model` to the prefix for `EnvWF`, and leave the existing
+  theorem alone.  It fails on hypothesis (5): the pending-check
+  hypothesis is stated at the run's FINAL index (`checkPending μ q.2.1
+  pc {}`), and at an intermediate index it is a different statement —
+  the same `restrictTo` of a smaller `FEnv`.  Hence the extraction.
+* **`obtain rfl` eats the wrong variable.**  `DeclCRel`'s cases give
+  `hty : RelC cv.type tyE` and the record gives `hcv : cv' = cv`;
+  substituting the second first deletes the variable the first mentions.
+  Order matters.
+
+### 8. Gates
+
+`lake build` warning-free; `lake test` warning-free (the axiom pin gains
+a row — `ConLeche.Cached.checkDecls_consts` at
+`[propext, Classical.choice, Quot.sound]` — and four `#guard`s pin
+`Expr.zeta`'s two halves); `tests/arena.sh` exit 0.  `tests/shake.sh`
+needed two edits: of the new module's eight imports only three are
+`public` — shake demotes `InstalledC` (the module that declares
+`annotStepC_model`!) in favour of re-exporting `Cached.Installed`,
+`Model.Fold` and `Verify/Cached/BridgeC`, which is what the public
+statements actually name, and `pub-import-plan` demotes `Verify/Abstract`,
+`Verify/Subst` and `Verify/EnvBound` on top of that — and the allowlist line for `InstalledC`'s own
+`public import … PushChain` is DELETED — `annotStepC_model`'s statement
+names `PushChain`, so that import is a genuine re-export now and shake
+no longer proposes removing it.  `tests/overview-links.sh --update`
+after re-reading the citing paragraphs (the two `InstalledC.lean`
+anchors moved with the step lemma; the axiom-pin anchor moved with the
+new pin).  `tests/proofdeps.sh` needed NO regeneration (3 820 rows / 11 roots,
+0 doors — #291's numbers): the new module is in no capstone's closure — `checkDecls_thmDecl_const` was not made a
+corollary of it (§5) — and `annotStepC_model` sits in a module the
+walks already reached.
+
+Merged with master (tasks #288 and #291, which relabelled the
+corollaries and dropped `no_proof_of_False`) before landing; no
+conflicts, and the OVERVIEW paragraph reads correctly after #291's
+rewrite of the paragraph it follows.
+
+## TASK #285 — ONE `Expr`, ONE `Declaration` (2026-09-12, `agent/onetype-285`)
+
+**The user's directive, verbatim:** *"That's worth a cleanup now.  Only
+one Expr and Decl type."*
+
+Two names died and nothing else changed: `checkDecls` accepts the same
+53 088 declarations of `init-full` at the same instruction count, the
+arena/e2e/annot verdicts are master's, and every capstone is the same
+statement with one type name substituted.
+
+### 1. `ExprC` — the abbreviation, the namespace, the module
+
+`abbrev ExprC := ConLeche.Expr` was task #172 B3a's residue: the type
+had been unified two hundred commits ago and only the *name* survived,
+as a namespace whose members were reached by dot notation on an
+`ExprC`-typed value.  Task #198's census kept it deliberately (*"it is
+the namespace that separates the memoized executed operations from the
+pure specs"*) and named the trap it created: **dot notation resolves
+through the DECLARED field type**, so `cv.type.hasFvar` silently
+changed meaning the day `ConstantValC` became `ConstantVal`.
+
+The abbreviation, the namespace and the `ExprC.lean` module are gone.
+Every operation now lives in `ConLeche.Expr` beside the spec it is
+proved equal to, and `ConLeche/Cached/ExprC.lean` is
+`ConLeche/Cached/ExprNodes.lean` (`git mv`): what is left in it is the
+nine node constructors (`mkApp`, `mkLam`, …) and the module header that
+holds the tree's ONE-ROW TRUST CENSUS.
+
+**The naming rule, and it is the whole rule:** a moved declaration
+keeps its name when the name is free in `ConLeche.Expr`, and takes a
+`C` suffix when it is not — the `C` OVERVIEW §10 already documents,
+*cached*, now on the function and never on a type.  A renamed function
+takes its `Go`/`Acc`/`B` helpers and their `_spec` lemmas with it, so a
+family is spelled one way.  Twenty-one names carry it:
+
+    abstract1C  abstract1GoC  abstractRangeC  abstractRangeGoC
+    allLevelParamsDefinedC   allLevelParamsDefinedGoC
+    fvarLeavesC  fvarLeavesGoC  getAppArgsC  getAppArgsAccC
+    instSpineC  instSpineChainC  instantiate1C  instantiate1GoC
+    instantiate1LiftC  instantiate1LiftBC  instantiate1LiftGoC
+    instantiateListC  instantiateListGoC  wscopedBC  wscopedBGoC
+
+### 2. The pair decisions, one row each
+
+The brief's question for every name that collided: are the two the same
+function?  Six pairs were, and the cached half is deleted.
+
+| pair | decision | why |
+|---|---|---|
+| `hasFvar` | **deleted**, use `Expr.hasFvar` | the cached one was `e.fvarB != 0`; the kernel's `Expr.hasFvarFast` is that expression *character for character* and is substituted for `Expr.hasFvar` by `@[csimp] hasFvar_eq_hasFvarFast`.  Same compiled code, one name. |
+| `looseBVarsBounded` | **deleted**, use `Expr.looseBVarsBounded` | same story at `Expr.looseBVarsBoundedFast = decide (e.bvarB ≤ k)`, `@[csimp]`. |
+| `getAppFn` | **deleted** | the two definitions are identical (`\| .app f _ => getAppFn f \| e => e`); no memo, no cutoff, nothing to distinguish. |
+| `mkAppN` | **deleted** | identical, modulo `mkApp f a` being `.app f a` by `rfl` at an `@[inline]`. |
+| `mkBVar` | **deleted**, use `Expr.mkBvar` | it *was* `Expr.mkBvar`.  Two names differing only in one letter's case, in one namespace, is the worst of both. |
+| `bvarB_eq`, `fvarB_eq` | **deleted** | `Verify/Cached/Erase.lean`'s were `:= Expr.bvarB_eq e` — re-exports of the kernel lemmas under the same short name. |
+
+Everything else in the collision set is a **genuinely different
+implementation** and keeps both members: the cached walks carry a
+`bvarB`/`fvarB`/`hasLP` cutoff at every node, a memo table, or an
+accumulator, and that is precisely what `Verify/Cached/OpsC.lean` and
+`GuardsC.lean` prove agrees with the spec.  `getAppArgsC` is the
+clearest: linear, against a spec that appends `[a]` at every spine step.
+
+**What the deletions cost in proofs.**  `getAppFn_spec`,
+`looseBVarsBounded_spec` and `mkAppN_spec` became `x = x` and are
+deleted with their subjects; their 34 consumers lost a `rw` each.  The
+recurring shape was
+
+    have hfn := ExprC.getAppFn_spec i
+    generalize hg : ExprC.getAppFn i = g at hfn ⊢
+    cases g with | const nm us => … hfn.symm …
+
+and it collapses to `generalize hg : Expr.getAppFn i = g` — after
+`cases g`, `hg` IS the fact the spec lemma used to carry.  In the
+branches the `generalize` reached (no `rw [hspec]` between), the
+following `rw [show Expr.getAppFn j = … from hg]` became a no-op and is
+gone: 102 such lines across `DiscC2`/`DiscC3`/`DiscC4`/`DiscC6`.
+
+### 3. `DeclC` — constructor for constructor the kernel's `Declaration`
+
+`ConLeche.Cached.DeclC` and `ConLeche.Declaration` had the same six
+constructors with the same fields.  The parser produces `Declaration`
+now, `checkDecls` consumes it, and `Main.lean`, `Challenge.lean`,
+`MainTheorem.lean` and every `Verify/*` and `Model/*` statement follow
+— **the statements change only in the type name** (`tests/challenge.sh`
+compares the two modules token for token and is green).
+
+`DeclCRel` (`Verify/Cached/BridgeC.lean`) related the two per
+constructor through `RelC`, which task #198 had already reduced to
+equality.  It and `DeclCRel_total` are deleted: `checkDeclC_sim` and
+`checkDeclStepC_run` take one record and `cases pd` where they cased on
+the relation, and the per-branch `RelC` premises the sub-lemmas
+consumed are `rfl` at the call sites.  `annotStepC_model` (task #289,
+merged here) loses the `∃ d, DeclCRel pd d ∧ …` conjunct of its
+conclusion for `checkDecl … pd`, and `checkDecl_declares`
+(`StreamConsts.lean`) cases on the record.
+
+Two declarations died with the rename and are recorded here rather than
+quietly dropped:
+
+* `instance : Inhabited DeclC` (`Frontend/NatOpGround.lean`) — a
+  **duplicate**: `Declaration` already `deriving`s `Inhabited`;
+* `Expr.LeafEquiv.hasFvar_eq` (`Verify/Abstract.lean`) — a hard
+  candidate of `scripts/dead-census.py` **after** the change and not
+  before: its last consumer was a `simp_all [Expr.hasFvar]` in
+  `leafGuard_spec`, which now reads the field equation directly.  The
+  census is 100 → 101 hard and 1421 → 1415 soft candidates across the
+  change; the one arrival is this lemma, the departures are #291's.
+
+### 4. Findings
+
+**(1) A rename whose target already exists cannot be checked by the
+compiler — so make the compiler check it first.**  Every cached
+operation had a same-named, same-typed `ConLeche.Expr` twin, so a
+missed call site would not fail to build: it would silently run the
+*pure* walk where the memoized one ran.  The instrument was one
+throwaway build with `@[deprecated "PROBE285"]` on all 48 cached
+operations: 446 warnings, each an exact `file:line:col` of a reference
+the elaborator had resolved to the cached name — dot notation included
+(6 of them; the other 440 were already spelled out, which is task
+#198's trap having taught the tier).  The rewrite was then driven off
+those coordinates and not off grep.  **When two names are
+interchangeable to the type checker, ask the elaborator which one each
+site meant.**
+
+**(2) Lean's deprecation warnings are suppressed inside deprecated
+declarations**, so the probe saw nothing of the two defining modules —
+which is right, and worth knowing before trusting the count.
+
+**(3) Auto-generated names are not in the probe's answer either.**
+`instantiate1Go.eq_def` and its nine siblings are referenced by name in
+`OpsC`/`GuardsC` and are not constants the `deprecated` attribute
+covers; 110 of them needed their own pass.  Same class as task #222's
+`toDirectSumParts`.
+
+**(4) A functional-induction principle can change shape when a
+REDUCIBLE abbreviation leaves a signature.**  `whnfAppI`'s body is
+untouched; only `k : ExprC → CheckCM ExprC` became
+`k : Expr → CheckCM Expr`, and `whnfAppI_betaPeelI_congr`'s fourth
+bullet went from two induction hypotheses to one (the unused `_ih'`).
+The proof is unchanged otherwise and the principle is generated and
+kernel-checked either way, so nothing is owed — but it is a reminder
+that `abbrev` is not invisible to the equation compiler.
+
+**(5) The import gate found the consequences the type system could
+not.**  Cutting `DeclC` cut the frontend's last edge to the cached
+checker, and `lake shake` proposed seven removals.  Five are clean
+under task #223's criterion and are applied (`ExprNodes` needs
+`Kernel.Expr` and not `Kernel.ExprOps`; `Erase` needs no node
+constructors; three `Frontend/*` modules no longer need
+`Cached.ParsedC`); three are compensated relocations and go on
+`tests/shake-allowlist.txt` with the compensation as their reason
+(`StreamConsts`'s edge to `BridgeC` is the third: task #289's module
+reached `DeclCRel` through it).  The
+build then asked for two things no analysis had: `ExportC` names the
+node constructors and now imports `Cached.ExprNodes` directly, and two
+bare `open ConLeche.Cached`s (`NatOpGround`, `tests/ConLecheTests/ScanTests`)
+had to go because the namespace was no longer in their closure — task
+#223 §6's first blind class, seen twice in one batch.
+
+**(6) `pub-import-plan`'s fixpoint is order-dependent, and a graph edit
+can hand it a new candidate.**  `ConLeche/Kernel/BasisA.lean`'s
+`public import ConLeche.Kernel.BasisGen` became demotable only after
+this task moved the edges around it; demoting it makes
+`Kernel/TrustAxioms.lean` fail to PARSE (`unexpected token '#'`),
+because `BasisGen` declares the `#annotate_basis` command and a command
+elaborator is registered, not named.  It joins the script's `FALLBACK`
+set as its seventh entry, with that reason.
+
+### Gates
+
+| gate | result |
+|---|---|
+| `lake build` | 546 jobs, warning-free |
+| `lake test` | 468 jobs, warning-free |
+| `tests/arena.sh` (`env -i`) | exit 0 |
+| layering | base 282 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory |
+| proofdeps | 3 816 rows across 11 roots, doors 0 — **regenerated**: the 10 `Cached.ExprC` rows are `Cached.ExprNodes` rows (the module was renamed) and 4 rows DEPARTED, the two `*_pure` capstones' reach into `Cached.ExprC` and `Verify.Cached.Erase`, which the six deleted pairs took with them |
+| trust surface | 13 escapes in 5 allowlisted files (486 scanned), 0 outside |
+| shake | 459 removals proposed, all allowlisted; pub-imports 947 of 1 293 public, none demotable (7 fallbacks) |
+| overview-links | 80 links, 50 files, OK (three anchors repointed, each re-read: the cited text is byte-identical and only the line numbers moved) |
+| challenge | statements identical for `model_exists`, `no_False_theorem_accepted` |
+| arena / e2e / annot / prelude / progress / DAG tower | 90/92, 195/195, 15/15, 3/3, 15/15, 14/14 — master's numbers |
+| trusted + `--jobs=1` + `--jobs=4` sweeps | as at the default worker count |
+
+`init-full`, `--verified --jobs=1`, `perf stat -e instructions:u`, same
+machine, same stream, 53 088 accepted and exit 0 in both cells:
+
+| | instructions:u |
+|---|---|
+| master `885f0793` | 538.449 G |
+| this branch | 538.520 G |
+| Δ | **+0.013 %** |
+
+(measured twice — against master `5ffc1180` before the three merges it
+was 538.464 G vs 538.506 G, **+0.008 %**)
+
+Which is what a rename should look like.  The six deleted pairs were
+deleted *because* the two members compile to the same code — a
+`@[csimp]` twin for `hasFvar`/`looseBVarsBounded`, an identical body for
+`getAppFn`/`mkAppN`/`mkBVar` — so no call site changed what it runs.
+
+## TASK #292 — `sorryAx` IS THE FOLD'S: the record installs nothing, a use declines; the parser's taint pre-scan is gone (2026-09-12, `agent/sorryax-292`)
+
+**The ruling** (maintainer, verbatim): *"It should not be the parser
+that drops sorryAx … move it to checkDecls and have it decline
+`.const n` where n is sorryAx.  No need to have a singleton list while
+it is exactly one."*
+
+What stood before this task is the 2026-08-24 taint skip-and-continue
+design recorded above: the frontend pre-scanned every declaration
+record, dropped the `sorryAx` axiom record **without even parsing its
+type**, tainted its name, propagated the taint through the expression
+table and the name map, skipped every declaration that reached a
+tainted entry, and handed the driver a `taintSkipped` list that turned
+a clean run into exit 2 **at the end of the stream**.  The verdict was
+right; the position was not, and a semantic decision — which axioms
+this checker supports — lived in the parser, outside the fold the main
+theorem is about.
+
+### 1. What the fold does now
+
+* The `sorryAx` axiom record is FORWARDED like any other.  `checkDecl`
+  (and `checkDeclC`) runs `checkConstantVal` on it — the type is
+  well-formedness-checked, as every header is — and then the arm is
+  `pure env` / `pure fe`: **nothing is installed**.  That is not
+  laziness: an export declares `sorryAx` whenever the module it came
+  from mentions `sorry`, whether or not anything uses it (init-full
+  does), and there is no set model for `∀ (α : Sort u), Bool → α` and
+  cannot be one.  So a stream that merely DECLARES the axiom is
+  accepted, and a stream that USES it declines **at the record that
+  uses it**.
+* `toleratedAxiomNames : List Name` is gone; `sorryAxName : Name`
+  (`ConLeche/Kernel/Basis/Names.lean`) replaces it at every site.
+
+### 2. THE CHOKE POINT, and why it takes two throws
+
+The obvious answer — "the guard that keeps unresolved constants out of
+stored terms" — is only half of it.  `Expr.constsResolve` (and its
+indexed and cached twins) runs at every front door for stream data: a
+declaration's type (`checkConstantVal`), a value
+(`check{Defn,Thm,Opaque}Val`), a recursor rule's right-hand side.  But
+it runs **after** the annotation pass, and annotation *infers the sort
+of every binder domain*.  A `sorryAx` in a domain therefore reaches
+inference before the guard ever looks, and inference's own `.const`
+arm threw `.invalid "unknown constant …"` — a REJECT where the ruling
+wants a decline.  Both places are the choke point, and both are one
+pure function:
+
+* `unknownConstError (n : Name) : CheckError`
+  (`ConLeche/Kernel/Core.lean`, beside `CheckError`) — the `.const`
+  arm of `inferBody`, `inferBodyIO` and the cached `CoreC` twin call
+  it where they matched `none` on the environment lookup;
+* `unresolvedConstsError (where_ : String) (e : Expr) : CheckError`
+  (`ConLeche/Kernel/CheckerBase.lean`) — every `unless … constsResolve
+  … do throw` branch calls it.  It asks `e.mentionsConst sorryAxName`,
+  which is the same walk `constsResolve` just ran (the `.proj` struct
+  name included) and is memoized by `@[csimp]`
+  (`Kernel/Inductives/StructParts.lean`), so a DAG-shared term does
+  not unfold on the failing path.
+
+Both return `.notImplemented` on `sorryAx` and the **byte-identical
+old `.invalid` message** on anything else, so no other verdict moved.
+After `constsResolve` passes, inference cannot meet an unresolved
+constant at all — that is what the guard is for — so the two together
+are exhaustive: every `.const sorryAx` in a type, a value, a rule RHS
+or an inductive member's type is caught by one of them.  (A
+`.proj sorryAx i e` node, which is not a `.const` node, is caught too:
+`mentionsConst` reads the struct name, and no environment ever holds
+`sorryAx`.)
+
+**Why the proofs did not move.**  The change is `throw <one error>` →
+`throw <another error>` at branches that already existed.  `SimC` is
+success-only (`SimC.throw` holds for every error value), the agreement
+floor and `PushChain` are accept-only, and the `DeclRun` records carry
+guards, not messages.  The whole diff in `Verify/*` and `Semantics/*`
+is `toleratedAxiomNames.contains X = true` → `X = sorryAxName`
+(a `by_cases` hypothesis, four helper lemmas in `AgreeFloor` whose
+`tolerated_eq` became the hypothesis itself and was deleted), plus
+`Declaration.Declares`' exception, now `cv.name ≠ sorryAxName`.
+The build went through on the first try.
+
+### 3. What was deleted
+
+`ConLeche/Frontend/Export.lean`: `taintSentinel`, `taintDetail`,
+`taintSummary` (and with them the file's `StdAxioms` import — its
+public signatures now take `Name`/`Expr` through a promoted
+`public import ConLeche.Kernel.Env`).
+`ConLeche/Frontend/ExportC.lean`: `declRecordScanD`, `exprRecChildren`,
+the `tainted`/`taintedNames`/`taintSkipped` fields of `StateD`,
+`getDeclD`'s sentinel check, the taint half of `parseExprEntryD`, the
+taint half of `applyDeclD` (which is now `processLineCoreD` alone) and
+`ParseResultD.taintSkipped`.
+`Main.lean`: the decline-at-the-end, `taintNote`, and the two-armed
+success print — an accepted run now always prints the accept line.
+`--help` gained a paragraph stating the rule.
+
+### 4. Verdict changes
+
+| fixture | before | after |
+|---|---|---|
+| `sorry_unused` | 0 | 0 (the record is now *checked*, and counted: 15 declarations, not 14) |
+| `sorry_use` | 2 at the end | 2 **at the use**: `use of the sorryAx axiom in value of usesSorry` |
+| `tolerated_axiom_unused` | 0 | 0 (2 declarations, not 1) |
+| `tolerated_axiom_use` | 2 at the end | 2 at the use (via the inference choke: the value's λ-domain is inferred first) |
+| `taint_skip_continue` → `sorry_use_midstream` | 2 | 2 — but the later records are never reached |
+| `taint_skip_bad_later` → `sorry_use_before_invalid` | **1** | **2** — the fold stops at the use, so the invalid record after it is never checked |
+
+The two renamed fixtures are the "decline at the use" pins and their
+old names no longer described them.  Nothing else moved: arena 90/92,
+e2e 195/195, the trusted and `--jobs` sweeps unchanged.  No arena
+stream uses `sorryAx` (`good/init-prelude.ndjson` declares it and
+never references it — checked by scanning the expression table for a
+`const` node at its name index); Mathlib has none either, which is
+what its exit 0 meant under the old design.
+
+### 5. Gates
+
+| gate | result |
+|---|---|
+| `lake build` / `lake test` | warning-free |
+| layering | base 282 / model 190 / caps 3 / umbrella 1, 0 cross edges |
+| proofdeps | 3816 rows **as pinned** — the proof cone's module graph did not move |
+| shake + pub-imports | 458 removals all allowlisted (one line deleted: `CheckerBase`'s `StructParts` import is now USED, by `unresolvedConstsError`); 947 of 1292 edges public, none demotable |
+| overview-links | 80 links, 50 files — nine anchors repointed, each new target re-read |
+| challenge / trust surface / no-local-paths | OK |
+| arena / e2e / annot / prelude / progress / DAG tower | 90/92, 195/195, 15/15, 3/3, 15/15, 14/14 |
+
+### 6. `init-full`
+
+One run per binary, `--verified --jobs=1`, `ulimit -v 16000000`,
+`perf stat -e instructions:u`, same machine, same stream:
+
+| | accepted | instructions:u |
+|---|---|---|
+| master `e4487c23` | 53 088 | 538.501 G |
+| this branch | **53 089** | **537.844 G** |
+| Δ | **+1** | **−0.122 %** |
+
+Both exit 0.  The extra declaration is the `sorryAx` axiom record
+itself: the old parser dropped it before the fold ever saw it, and it
+is now checked (and installs nothing), so the headline count — which
+counts the FILE's declaration records — gains the one record the file
+always had.  The fold-position count moves with it, 53 118 → 53 119,
+and `Main.lean`'s comment on reading a `--progress` index says so.
+
+The instructions went DOWN although one more record is checked: the
+taint pre-scan ran `declRecordScanD` over **every** declaration record
+of the stream (resolving its declared names and collecting its
+expression indices) and the expression-table walk carried a taint
+check per entry.  Nothing fires on a stream with no `sorryAx` use, and
+all of it is gone.
+
+## TASK #293 — THE PARSER DECODES; `preparePrelude` PREPARES; THE FOLD DECIDES (2026-09-12, `agent/prepare-293`)
+
+**The ruling** (maintainer, verbatim): *"Why does the parser deal with
+basis things?  That's clearly a layering violation; it's the fold that
+may or may not want to treat them specially. … We can also move this
+functionality into a *new* function, 'preparePrelude' or so, to keep
+concerns separate.  (Ideally that's `List Declaration` to
+`List Declaration`?)"* — and, mid-task, on the shape of that function:
+*"If that `preparePrelude` reorders anyways, then it can just as well
+reorder any existing prelude declaration, and only synthesize any that
+are missing.  This way, we get a simple spec: it is a permutation of
+the input plus additional declarations, but nothing missing."*
+
+What stood before is task #191's design: the parse was handed the
+checker's prelude, PREPENDED its records to every stream, matched every
+inductive block against the five basis pins and every `#QUOT` record
+(and the `Quot.sound` axiom record) against the quotient pin, dropped a
+stream record that duplicated a prelude one, DECLINED the run when it
+differed, and reordered the result for the pinned `Nat` operations'
+ground.  Five of those six are verdicts or semantic recognition, and
+they lived in the decoder.
+
+### 1. The three places, after
+
+* **`ConLeche/Frontend/ExportC.lean` — the decoder emits the file's
+  records and nothing else.**  Every inductive block parses to
+  `indDecl`, `Nat` and `Eq` like any other; every `#QUOT` record parses
+  to the new `Declaration.quotDecl kind cv` — the constant the file
+  declares at the kind it declares it at, official's own record shape;
+  `Quot.sound` parses to the ordinary `axiomDecl` it is.  `punitSeen`,
+  the prelude index, the dedupe, the pin match and the hoist are gone
+  from `StateD` and from `ParseResultD`, which now carries the records,
+  the projection rewrites and the modeller's receipts.
+  `parseExportD`'s final signature:
+
+      parseExportD (contents : String) (inModel : Bool := true)
+        (census : Bool := false) : Except FrontendError ParseResultD
+
+  (and `parseExportStreamD`/`parseExportHandleD` the same, minus the
+  `prelude` parameter).  **Two non-decoding steps are left**, both of
+  which die with task #279: the projection-function rewrite
+  (`ProjRec.lean`) and the in-process modeller's record insertion.
+
+* **`ConLeche/Frontend/Prepare.lean` — `preparePrelude`, new.**  Total,
+  pure, no error channel, and it never rewrites a record:
+
+      preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration
+
+  It (i) moves the stream's OWN copy of each prelude declaration to the
+  front, in the prelude's (dependency-correct) order, synthesising from
+  `pins/<toolchain>.prelude.ndjson` only the ones the stream does not
+  declare, and (ii) applies the ground hoist.  `prepareD` is the same
+  function with the driver's receipts (`synthesised`, `hoisted`).  The
+  prelude index is now records only — the by-name and by-kind tables
+  the dedupe needed are gone with it.
+
+* **`ConLeche/Kernel/Checker.lean` (and its cached twin) — the fold
+  recognises and decides.**  `checkDecl`'s `.indDecl` arm asks
+  `basisPinHit` (`ConLeche/Kernel/Basis.lean`: task #215's name
+  pre-filter, then `canonEqList` against the pin) and installs the PIN
+  on a hit; a block under a pinned name that does NOT match falls
+  through to the ordinary route and `checkConstantVal`'s reserved-name
+  check REJECTS it, exactly as before (task #181's ruling: a basis
+  redefinition is invalid input).  The `.quotDecl` arm asks
+  `quotPinHit`: the `type` record installs the pinned block whole, the
+  other three install nothing (they are members of the block that one
+  installs), and a record that does not match DECLINES — "quotient
+  declaration mismatch", the parser's own message.  The `.axiomDecl`
+  arm gained the `Quot.sound` case ahead of the common checks (its name
+  is a reserved basis name: this record IS the pinned block's, not a
+  redeclaration of it), with the same two outcomes.
+
+  `checkBasisDecl` (and `checkBasisDeclC`) is the pinned-block install,
+  factored out so that the three arms that install one share a body and
+  every lemma about it is proved once (`declBasisRunOf`,
+  `checkBasisDecl_datF`, `checkBasisDeclC_{skels,push,sim}`).
+
+### 2. `Declaration`, and the one constructor that did not go
+
+`Declaration` gained `quotDecl` and `QuotKind` (`type`/`ctor`/`lift`/
+`ind`, plus `sound` for the axiom record's slot in the pinned block).
+`basisDecl` **stays**, and this is the task's one deviation from the
+letter of the ruling, taken under the licence it came with ("you may
+keep an INTERNAL kind-dispatch inside the fold's arm"): no frontend
+function can produce one — not the decoder, not `preparePrelude` — and
+`checkDecl`'s `.indDecl` and `.quotDecl` arms are its only producers,
+through `checkBasisDecl`.  What removing the constructor outright would
+buy is a `Declaration` with official's exact shape; what it costs is
+re-proving the basis install's dozen lemmas *inside* the `indDecl`
+case in ~10 proof files, with no change to what is proved.  The
+constructor's docstring says what it is: the fold's own record for
+"install the pinned block".
+
+### 3. The lemmas (`ConLeche/Verify/Frontend/Prepare.lean`)
+
+    theorem preparePrelude_perm (pre : PreludeIx) (ds : List Declaration) :
+        ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+          (preparePrelude pre ds).Perm (ds ++ extra)
+
+    theorem mem_preparePrelude {pre : PreludeIx} {ds : List Declaration}
+        {pd : Declaration} (h : pd ∈ ds) : pd ∈ preparePrelude pre ds
+
+the maintainer's spec and its pass-through corollary — **every record
+of the file is in the prepared list, unchanged and exactly once**, and
+what else is there is a prelude record the file did not declare.  Task
+#290's parser-level statement composes with the second.
+
+Two implementation decisions the proof forced, both worth keeping:
+
+* the two list passes are written as a tail-recursive implementation
+  (`pickGo`, `keepGo`-style) and a plain recursive **specification**
+  (`pickSpec`), proved equal (`pickGo_eq`) — a stream is millions of
+  records long, and a list recursion that is not tail-recursive is a
+  stack frame per record;
+* the hoist's final sort is `List.mergeSort`, not `Array.qsort`: core
+  proves `mergeSort_perm` and proves nothing about `qsort`, and the
+  keys are pairwise distinct so the order is the same one `qsort`
+  produced (`applyHoist`, `ConLeche/Frontend/NatOpGround.lean`; the
+  hoist is also split into `hoistTargets` and `applyHoist` so that the
+  permutation proof does not have to walk the `Id.run do` that computes
+  the targets).
+
+### 4. Where the canonical form went, and what that did to the proof cone
+
+`canonLevel`/`canonExpr`/`ConstantInfo.canon` and the lockstep
+`canonEq*` twins moved from `ConLeche/Frontend/Export.lean` to
+**`ConLeche/Kernel/Canon.lean`**, unchanged: the fold does the matching
+now, and the kernel may not import the frontend.  (`Export.lean` is
+left with `FrontendError`, `RecordVerdict` and `M`, and imports
+nothing.)
+
+`tests/proofdeps.sh` therefore reports **eight new modules in every
+capstone's proof-term closure** — `ConLeche.Kernel.Basis`, its five
+`Basis.*` pin modules, `ConLeche.Kernel.Basis.Quot` and
+`ConLeche.Kernel.Canon` — and the pin was regenerated (3 816 → 3 904
+rows).  That is not a door to justify away: it is the ruling, measured.
+Recognising a stream's `Nat` block as the pinned one is now part of
+what `checkDecls` does, so the raw pins and the canonical form are part
+of what the main theorem's proof term reads.
+
+### 5. Verdict changes (two, both the spec's own)
+
+| fixture | before | after | why |
+|---|---|---|---|
+| `prelude_bool_redefined` | 2 | **1** | `natop_order` with `Bool : Type 1`.  There is no prelude copy to differ from any more — the stream's own `Bool` IS the prelude's record — so the block installs and `Nat.ble`, exported against the real `Bool`, fails to typecheck: a REJECT, which is also what the official kernel does with that stream. |
+| `tower_prelude` | 2 | **0** | an inductive block named `Bool` with a depth-60 tower in a constructor field.  It declined at the dedupe's `sameCanon`; with the dedupe gone it installs.  The fixture still gates what it was built to gate — a walker that unfolded the tower would never finish — so the DAG-tower row keeps it at the new code. |
+
+Nothing else moved: arena 90/92, e2e 193/195 → **195/195** with the two
+expectations updated, annot 15/15, prelude counts 3/3, progress 15/15,
+worker pool 15/15, DAG tower 14/14, the trusted sweep unchanged.
+
+**The verdict line's count is the FILE's record count now**
+(`parsed.size - genRecords`), and it does not need the prelude
+arithmetic any more: nothing the preparation does changes it.  On raw
+`init-full` that is 53 093 — the number `Main.lean`'s own comment
+already called "the declaration records in the file" — against 53 089
+before: the four quotient records the parser used to fold into one
+`basisDecl`, and the `Quot.sound` record it used to swallow, are five
+records of the file and count as five.  Same stream, same verdict, a
+count that is now the file's own.
+
+### 6. `init-full`
+
+One run per binary, `--verified --jobs=1`, `ulimit -v 16000000`,
+`perf stat -e instructions:u`, same machine, same stream:
+
+| | accepted | instructions:u |
+|---|---|---|
+| master `08a04a98` | 53 089 | 537.858 G |
+| this branch | **53 093** | **537.659 G** |
+| Δ | **+4** (§5) | **−0.037 %** |
+
+Both exit 0.  The instruction delta is noise, which is what this change
+should look like: the same work happens, in another place — the pin
+match that ran in the parse runs in the fold, over the same records.
+
+The fold-position count is **53 123**: the file's 53 093 records plus
+the modeller's 30 generated ones, and *nothing else*.  `init-full`
+declares every prelude declaration itself, so the preparation
+synthesised none of them and only moved the stream's own records to the
+front — which is the whole point of the new shape, measured.
+
+### 7. Gates
+
+| gate | result |
+|---|---|
+| `lake build` / `lake test` | warning-free |
+| layering | base 285 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory (`ConLeche.Verify.Frontend.Prepare` is the first theory module that imports `ConLeche/Frontend/*` — the allowed direction; it is rooted in `ConLecheCaps`) |
+| proofdeps | **3 904 rows, 0 doors** — regenerated for the eight modules §4 explains |
+| shake + pub-imports | 457 removals, all allowlisted (one allowlist line deleted: `Semantics/Bridge/DeclRun`'s `public import` is a plain one now); 949 of 1295 edges public, none demotable |
+| overview-links | 82 links, 52 files; every moved anchor re-read, the prelude/basis/frontend prose rewritten |
+| trust surface / no-local-paths / challenge / pindump | OK (13 escapes in 5 allowlisted files; 3 pinners reproduce byte-for-byte) |
+| arena / e2e / annot / prelude counts / progress / pool / DAG tower | 90/92, **195/195**, 15/15, 3/3, 15/15, 15/15, **14/14** |
+| trusted and `--jobs` sweeps | unchanged |
 ## TASK #290 — THE PARSER ENTERS THE THEOREM (2026-09-12, `agent/parser-290`)
 
 The maintainer's goal, verbatim: *"including the parser in the theorem:
@@ -69176,7 +70113,7 @@ is to express it as a string template using Lean's interpolation
 #286) is about the list of records the fold consumes; this task
 states it a third time, over the FILE, and derives it from the second.
 
-### 1. The statements, as landed
+### 1. The statements, as landed (after the merge with master 62b38eef, §6)
 
 `ConLeche/Accepts.lean` (exposed; the vocabulary of the statement):
 
@@ -69195,35 +70132,62 @@ def hasProofOfFalse (file : String) : Prop :=
       after
 
 def pipelineAccepts (file : String) : Prop :=
-  ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
-    Frontend.builtinPreludeE = .ok prelude ∧
-    Frontend.parseExportD file prelude (inModel := true) (census := false) = .ok r ∧
-    r.taintSkipped.isEmpty = true ∧
-    checkDecls .verified r.decls.toList = .ok env
+  ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok pre ∧
+    Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
+    checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
 ```
 
-(`streamingAccepts chunks` is the same with `parseChunks` in place of
-`parseExportD`.)  `ConLeche/MainTheorem.lean`, with its `sorry` twin in
-`ConLeche/Challenge.lean` and the fourth name in `comparator.json`:
+`pipelineAccepts` is `checkMain`'s accept path (`Main.lean`) read off
+the driver: the prelude parses, the file parses, `prepareD`'s
+`.decls` — which IS `preparePrelude` — goes into `checkDeclsIO`, whose
+result carries `checkDecls … = .ok env`.  (`streamingAccepts chunks`
+is the same with `parseChunks` in place of `parseExportD`.)
+`ConLeche/MainTheorem.lean`, with its `sorry` twin in
+`ConLeche/Challenge.lean`; `comparator.json` lists exactly
+`model_exists` and `no_False_declaration`:
 
 ```lean
+/-- **The main corollary.** … -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
-    (h : hasProofOfFalse s) (hsz : s.utf8ByteSize < USize.size) : ¬ pipelineAccepts s
+    (h : hasProofOfFalse s) : ¬ pipelineAccepts s := by
+  rintro ⟨pre, r, env, -, hparse, hcheck⟩
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseExportD_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 
 theorem no_False_declaration_streaming (V : Type w) [SetTheory V] (s : String)
     (chunks : List ByteArray) (h : hasProofOfFalse s)
-    (hcs : s.toUTF8 = Frontend.concatBytes chunks) (hne : ∀ c ∈ chunks, c.isEmpty = false)
-    (hsz : s.utf8ByteSize < USize.size) : ¬ streamingAccepts chunks
+    (hcs : s.toUTF8 = Frontend.concatBytes chunks) (hne : ∀ c ∈ chunks, c.isEmpty = false) :
+    ¬ streamingAccepts chunks
 ```
 
-The proof in `MainTheorem.lean` is four lines: the line-level lemma
-`parseExportD_hasProofOfFalse` gives a `thmDecl` of type `False` in
-`r.decls` (or a taint skip, which the accept path excludes), and
-`no_False_theorem_accepted` forbids it.  The streaming twin is one
-rewrite with `parseChunks_eq_parseExportD`; it is stated in
-`MainTheorem.lean` beside the corollary and is NOT in the comparator
-list (the public pair is `model_exists` + `no_False_declaration`, per
-the maintainer).
+Three imported steps: the line-level lemma
+`parseExportD_hasProofOfFalse` (`Verify/Frontend/FileFalse.lean`)
+gives a `thmDecl` of type `False` in `r.decls`; `mem_preparePrelude`
+(`Verify/Frontend/Prepare.lean`, task #293's permutation fact) keeps
+it in the prepared list; `no_False_theorem_accepted` — now in
+`Verify/Cached/StreamThm.lean` beside `checkDecls_thmDecl_const`, with
+its name, statement and docstring — forbids it.  The streaming twin is
+`parseChunks_ok_parseExportD` and is stated in `MainTheorem.lean`
+beside the corollary, NOT in the comparator list.
+
+**No size hypothesis** (the maintainer's ruling at the merge): `feedChunk`
+walks `USize` positions and `ByteArray.usize` wraps in the logic, so
+a first version carried `hsz : s.utf8ByteSize < USize.size`.  Instead
+the parser now GUARDS: `parseExportD` returns `sizeError`
+(`.unsupported`) when `contents.utf8ByteSize ≥ USize.size`, before
+`feedChunk`; `chunkStep` carries a running byte count `total` and fails
+the same way when `total + buf0.size ≥ USize.size`, and
+`parseExportHandleD.loop`/`parseChunks.go` thread it.  The lemmas:
+`parseExportD_ok_size` (a result means the input fits),
+`parseChunks_ok_size` (a result of the streaming parse means the chunks
+fit) and `parseChunks_ok_parseExportD` (a result of the streaming parse
+IS the wholesale parse's) carry no hypothesis; the equalities
+`parseExportD_eq_parseLines` and `parseChunks_eq_parseExportD` keep
+theirs, because on an oversized input the two parses fail differently
+(the wholesale one up front, the streaming one at the chunk that
+crosses the word — after any earlier parse error).  One `Nat`
+comparison per chunk; the wholesale check is O(1) (`utf8ByteSize`).
 
 **Deviations from the sketch, and why.**
 
@@ -69233,19 +70197,6 @@ the maintainer).
   never reads that line at all — it is absorbed into the arbitrary part
   before the theorem record — so `name` may hold anything, including a
   quote that makes the line malformed; the file then does not parse.
-* **`hsz : s.utf8ByteSize < USize.size`** — "the file fits in the
-  address space".  `feedChunk` walks `USize` positions and `ByteArray.usize`
-  wraps in the logic; on a string of `2^64` bytes the loop stops at
-  the wrapped size and the prelude alone would be accepted.  A runtime
-  check would be dead code; the hypothesis is honest and every real
-  file satisfies it.  It is also what makes `parseChunks` equal to
-  `parseExportD` (both walk machine words).
-* **The taint conjunct** of `pipelineAccepts` and the "or the parser
-  skipped a record" arm of every line-level lemma go with task #292
-  (`sorryAx` handling leaves the parser; the parse result loses its
-  `taintSkipped`).  This branch was written against the current master
-  and is to be merged ONCE after #292 lands; the conjunct and the arm
-  then disappear and `pipelineAccepts` is exactly parse-ok ∧ fold-ok.
 * **A leading part is required** (`before ++ "\n"`): a file whose very
   first line is the `False` name entry is not matched by the template
   (lean4export's first line is the `meta` header, so no export is
@@ -69292,11 +70243,12 @@ e2e 195/195, annot 15/15, the sweeps).
    simpler; `unescape_shift` and its five helpers (130 lines) became
    dead and were deleted.  The allocation is on the escape path only
    (38 lines of init-full).
-4. **The hoist sorts with `Array.mergeSort`** (`Array.mem_mergeSort` is
-   a theorem; `Array.qsort` has none), and `hoistTargets` is its own
-   function, so `mem_hoistNatOpGround` is a permutation fact and
-   nothing else.  The sort runs only when a target exists — never on a
-   plain export.
+4. *(Dropped at the merge.)*  A first version replaced the ground
+   hoist's `Array.qsort` by `Array.mergeSort` for a membership lemma;
+   task #293's `preparePrelude_perm` (`Verify/Frontend/Prepare.lean`)
+   proves the permutation of master's own `hoistNatOpGround`, so
+   `NatOpGround.lean` is master's and `mem_preparePrelude` is the fact
+   the corollary reads.
 5. **The inductive arm is two named halves.**  `processLineCoreD`'s
    `.ind` arm was a 150-line `do` block with three `for` loops; `dsimp`
    on its unfolding exceeded the step budget and `split` did not
@@ -69331,37 +70283,43 @@ unchanged (`st` threaded by value; the buffer extracted as before).
   newline).
 * `Lines.lean` — `parseLines`, the parse as a fold over the byte list;
   `parseExportD_eq_parseLines` (under `hsz`, via `scanLineSpec_cases`
-  and a `fun_induction` over `feedChunk`); `parseLines_split` (a parse
+  and a `fun_induction` over `feedChunk`), `parseExportD_size` and
+  `parseExportD_ok_size` (the guard); `parseLines_split` (a parse
   of `l ++ 10 :: m` reaches `m` as a line start — for ANY `l` — by
   successful steps, `Reach`) and `parseLines_reach`.
 * `Chunks.lean` — `feedChunk_prefix` (the buffer's complete lines parse
   as in the longer input and the loop stops where the wholesale parse
   continues: the full `x`-independence of `naiveLine_local`),
-  `feedChunk_tail_nonl` (the carry holds no newline), `parseChunks_go`,
-  `parseChunks_eq_parseLines`, **`parseChunks_eq_parseExportD`**.
-* `ApplyLine.lean` — `Frame` (a declaration record leaves the tables,
-  the taint tables and the prelude alone and only extends the record
-  list), proved for `pushDecl`, `pushGenList`, `registerProjOwners`,
-  `installIndD`, every arm of `processLineCoreD`, and `applyDeclD`'s
-  three outcomes; `Keeps` (what any successful line keeps: bound
-  names, bound expressions, pushed records, the prelude, non-empty
-  skips) via the entry specs; `applyLine_nameFalse`, `applyLine_constFalse`.
+  `feedChunk_tail_nonl` (the carry holds no newline), `parseChunks_go`
+  (with the running count as an invariant: `carry.size ≤ total`),
+  `parseChunks_eq_parseLines`, **`parseChunks_eq_parseExportD`**; the
+  guard's `chunkStep_ok_total`, `parseChunks_ok_size` and
+  **`parseChunks_ok_parseExportD`** (no size hypothesis).
+* `ApplyLine.lean` — `Frame` (a declaration record leaves the three
+  index tables alone and only extends the record list), proved for
+  `pushDecl`, `pushGenList`, `registerProjOwners`, `installIndD`,
+  every arm of `processLineCoreD` (the `.quot` arm's kind dispatch is
+  a join point: `simp only at h`, then one `split`), and `applyDeclD`
+  (= `processLineCoreD` since #292); `Keeps` (what any successful line
+  keeps: bound names, bound expressions, pushed records) via the entry
+  specs; `applyLine_nameFalse`, `applyLine_constFalse`.
 * `ThmLine.lean` — `applyLine_thmFalse`: the theorem record is pushed
-  with type `False`, or dropped as the same declaration as a prelude
-  record — which is then a `thmDecl` of type `False` itself
-  (`canon_type_const`: the canonical form of a bare constant is the
-  constant; `sameCanon_thm`; `pushDecl_thm`).
+  with type `False` (`pushDecl_mem`).  The first version also handled
+  the prelude dedupe (`canon_type_const`, `sameCanon_thm`,
+  `pushDecl_thm`: a record dropped as a prelude copy is a `thmDecl` of
+  type `False` itself); since #293 the parser keeps every record, so
+  those lemmas went.
 * `FalseLines.lean` — the three template lines scanned, with the
   indices symbolic decimal runs: `naiveLine_nameFalse`,
   `naiveLine_constFalse`, `naiveLine_thm`, by stepping the loops
   (`obj_step`/`line_step`: `rw […eq_def]; simp +decide [leaves, *]`).
-* `Hoist.lean` — `mem_hoistNatOpGround`, `mem_ofState_decls/_prelude`.
 * `FileFalse.lean` — the walk: `parseLines_hasProofOfFalse` (split at
   `before`, the name line, split at `between₁`, the const line, split
   at `between₂ ++ name line ++ between₃` as one part, the theorem
   line, `parseLines_reach` over `after`, `Reach.keeps` throughout) and
-  `parseExportD_hasProofOfFalse` (the initial state's tables and
-  prelude; `PreludeIx.ofDecls_byName`; `builtinPrelude_byName`).
+  `parseExportD_hasProofOfFalse` (the initial state's name table, the
+  guard's `parseExportD_ok_size`).  (`Hoist.lean` — a membership fact
+  about the ground hoist — went with the merge; see §2 item 4.)
 
 ### 4. What was hard
 

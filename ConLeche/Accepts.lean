@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Prelude
+public import ConLeche.Frontend.Prepare
 public import ConLeche.Cached.Installed
 
 @[expose] public section
@@ -16,13 +17,13 @@ stream to the FILE the binary was handed:
 
 * `pipelineAccepts file` — the driver's accept path (`checkMain` in
   `Main.lean`), stripped of its IO: the built-in prelude parses, the
-  file's content parses with that prelude prepended and the in-process
-  modeller on (the driver's defaults — the only switches are debug
-  environment variables), no declaration was skipped for using a
-  tolerated axiom, and the verified fold accepts the parsed list.  The
-  driver prints its success line from exactly these four facts and
-  from nothing else; the one thing it does differently is that it
-  reads the file in chunks, which `parseChunks_eq_parseExportD`
+  file's content parses with the in-process modeller on (the driver's
+  defaults — the only switches are debug environment variables), and
+  the verified fold accepts the parsed list prepared with the prelude
+  (`preparePrelude`, `ConLeche/Frontend/Prepare.lean`).  The driver
+  prints its success line from exactly these three facts and from
+  nothing else; the one thing it does differently is that it reads the
+  file in chunks, which `parseChunks_ok_parseExportD`
   (`ConLeche/Verify/Frontend/Chunks.lean`) shows makes no difference.
 * `hasProofOfFalse file` — the file declares a theorem of type `False`,
   said as a string template in the exporter's own line shapes: a name
@@ -73,30 +74,28 @@ def hasProofOfFalse (file : String) : Prop :=
 
 /-- **The binary accepts the file's content.**  The pure content of
 `checkMain`'s accept path (`Main.lean`): the built-in prelude parses to
-`prelude`; the file parses, with the prelude prepended and deduped
-against and the in-process modeller on (`inModel := true`, the
-driver's default; `census := false`, the driver's default — the census
-switch stops before the fold and never accepts); no record was skipped
-for using a tolerated axiom (`taintSkipped` empty — a run with skips is
-a decline); and the verified fold `checkDecls` accepts the parsed list
-of declarations.  The driver prints its success line from these four
-facts and from nothing else. -/
+`pre`; the file parses, with the in-process modeller on
+(`inModel := true`, the driver's default; `census := false`, the
+driver's default — the census switch stops before the fold and never
+accepts); and the verified fold `checkDecls` accepts the parsed
+declarations prepared with the prelude — `preparePrelude` puts the
+prelude's records first and hoists the ground of the pinned `Nat`
+operations, and the parsed records are all still there.  The driver
+prints its success line from these three facts and from nothing else. -/
 def pipelineAccepts (file : String) : Prop :=
-  ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
-    Frontend.builtinPreludeE = .ok prelude ∧
-    Frontend.parseExportD file prelude (inModel := true) (census := false) = .ok r ∧
-    r.taintSkipped.isEmpty = true ∧
-    checkDecls .verified r.decls.toList = .ok env
+  ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok pre ∧
+    Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
+    checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
 
 /-- **The binary accepts the chunks it read.**  `pipelineAccepts` with
 the parse the binary actually runs: `parseChunks`, the streaming
 reader's loop over the chunks the file handle hands out
 (`parseExportHandleD` is this loop with the reads interleaved). -/
 def streamingAccepts (chunks : List ByteArray) : Prop :=
-  ∃ (prelude : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
-    Frontend.builtinPreludeE = .ok prelude ∧
-    Frontend.parseChunks prelude (inModel := true) (census := false) chunks = .ok r ∧
-    r.taintSkipped.isEmpty = true ∧
-    checkDecls .verified r.decls.toList = .ok env
+  ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok pre ∧
+    Frontend.parseChunks (inModel := true) (census := false) chunks = .ok r ∧
+    checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
 
 end ConLeche
