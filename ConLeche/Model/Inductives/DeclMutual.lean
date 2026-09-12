@@ -13,6 +13,7 @@ import ConLeche.Model.Inductives.MutualRep
 import ConLeche.Model.IndRepCons
 import ConLeche.Model.IndRepSwap
 import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Inductives.ContainerWalk
 public section
 
 /-!
@@ -4617,22 +4618,24 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- **the recursors' shape**, off `checkMutualRecTy`'s run
   have hRecShape : ∀ t, t < prts.k → ∃ recTy : Expr,
       cvRas.getD t default = ⟨p.toBlock.recName t, p.toBlock.rlps, recTy⟩ ∧
+      ConLeche.mutualRecTy p.toBlock.lps p.toBlock.elim p.toBlock.large p.toBlock.nP formers4 ctors4 t
+        = some recTy ∧
       recTy.allLevelParamsDefined p.toBlock.rlps = true ∧
       recTy.constsResolve (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) = true ∧
       recTy.looseBVarsBounded 0 = true ∧ recTy.hasFvar = false := by
     intro t ht
     obtain ⟨cvRa, hget, hrun⟩ := hallRec t (by rw [hkF]; exact ht)
-    obtain ⟨recTy, sty, u, -, hlp, hres, hbv, hfv, -, -, -, rfl⟩ :=
+    obtain ⟨recTy, sty, u, hgen, hlp, hres, hbv, hfv, -, -, -, rfl⟩ :=
       ConLeche.checkMutualRecTy_shape hrun
-    refine ⟨recTy, ?_, hlp, hres, hbv, hfv⟩
+    refine ⟨recTy, ?_, hgen, hlp, hres, hbv, hfv⟩
     rw [List.getD_eq_getElem?_getD, hget]; rfl
   -- **the recursors' names** (task #279 M-B′): the hypotheses, at the
   -- generated names, lifted past the formers' and constructors' conses
   -- by the block names' distinctness
   have hrecNameG : ∀ t, t < prts.k → (cvRas.getD t default).name = p.toBlock.recName t := by
     intro t ht
-    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
     rw [hcv]
   have hfreshR : ∀ t, t < prts.k →
       (ConLeche.consMutualCtors p.toBlock.nP ctorsA
@@ -4669,7 +4672,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       refine List.ext_getElem? fun t => ?_
       rw [List.getElem?_map, List.getElem?_map]
       by_cases ht : t < prts.k
-      · obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
+      · obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
         rw [List.getElem?_range ht,
           List.getElem?_eq_getElem (show t < cvRas.length by rw [hk]; exact ht)]
         have : cvRas[t] = cvRas.getD t default := by
@@ -4689,13 +4692,13 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) = true := by
     intro t ht
-    obtain ⟨recTy, hcv, -, hres, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, hres, -, -⟩ := hRecShape t ht
     rw [hcv]; exact hres
   have hAparams : ∀ t, t < prts.k → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ (cvRas.getD t default).levelParams, ψ₁ q = ψ₂ q) →
       prts.leaf mp₂.base2 t ψ₁ = prts.leaf mp₂.base2 t ψ₂ := by
     intro t ht ψ₁ ψ₂ hφR
-    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
     rw [hcv] at hφR
     have hφRl : ∀ q ∈ p.toBlock.rlps, ψ₁ q = ψ₂ q := hφR
     have hφ : ∀ q ∈ p.toBlock.lps, ψ₁ q = ψ₂ q := by
@@ -4809,7 +4812,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (cvRas.getD t default).levelParams = true ∧
       (cvRas.getD t default).type.looseBVarsBounded 0 = true := by
     intro t ht
-    obtain ⟨recTy, hcv, hlp, -, hbv, hfv⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, hlp, -, hbv, hfv⟩ := hRecShape t ht
     rw [hcv]
     exact ⟨hfv, hlp, hbv⟩
   -- **the block's rule rows at the group store** (`mutualRecRuleLaw`)
@@ -5052,7 +5055,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     -- asks for its `recOf` at EVERY index)
     have hrecName : ∀ q, q < prts.k → (cvRas.getD q default).name = p.toBlock.recName q := by
       intro q hq
-      obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape q hq
+      obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape q hq
       rw [hcv]
     have hfRS : ∀ q : Nat, ∃ ci : ConstantInfo,
         (ConLeche.storeMutualRecs
@@ -5070,7 +5073,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
               (ConLeche.consMutualFormers fms env))).find? (p.toBlock.recName r) = some ci ∧
           ci.toConstantVal.levelParams = p.toBlock.rlps := by
         intro r hr
-        obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape r hr
+        obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape r hr
         have hmem : (cvRas.getD r default, r) ∈ cvRas.zipIdx :=
           List.mk_mem_zipIdx_iff_getElem?.mpr (by
             rw [List.getD_eq_getElem?_getD,
@@ -5363,7 +5366,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     -- asks for its `recOf` at EVERY index)
     have hrecName : ∀ q, q < prts.k → (cvRas.getD q default).name = p.toBlock.recName q := by
       intro q hq
-      obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape q hq
+      obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape q hq
       rw [hcv]
     have hfRS : ∀ q : Nat, ∃ ci : ConstantInfo,
         (ConLeche.storeMutualRecs
@@ -5381,7 +5384,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
               (ConLeche.consMutualFormers fms env))).find? (p.toBlock.recName r) = some ci ∧
           ci.toConstantVal.levelParams = p.toBlock.rlps := by
         intro r hr
-        obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape r hr
+        obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape r hr
         have hmem : (cvRas.getD r default, r) ∈ cvRas.zipIdx :=
           List.mk_mem_zipIdx_iff_getElem?.mpr (by
             rw [List.getD_eq_getElem?_getD,
@@ -5649,7 +5652,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hrecName : ∀ t : Nat, t < fms.length →
       (cvRas.getD t default).name = (fms.getD t default).cvTa.name.str "rec" := by
     intro t ht
-    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
     rw [hcv]
     show (p.toBlock.formers.getD t default).1.name.str "rec" = _
     rw [← mutualNameOf_members3 (b := p.toBlock) (t := t) (by rw [hkF]; exact ht),
@@ -5691,7 +5694,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (mI := p.toBlock.rulePrefix + (fms.getD t default).nIdx) (rP := p.toBlock.rulePrefix)
       (rules := rules) (bsT := bsT)
       ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
-      ?hFD ?hfound ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
+      ?hFD ?hfound ?hlpsM ?hnodupM ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
       ?hleafT ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
       (hrecName t ht) (hfreshR t ht) (fun ψ => (hRDs' t ht).read ψ)
     case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
@@ -5702,6 +5705,24 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     case hFD =>
       exact FormerData.congr_sort (hFD₃ t _ hft) (fun ψ => (hsEqAll t ψ ht).symm)
     case hfound => exact fun q hq => ⟨_, _, hFPc (hfindF q _ (hfmGet q hq))⟩
+    case hlpsM =>
+      intro q hq cv caps hf
+      rw [hFPc (hfindF q _ (hfmGet q hq))] at hf
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact hlpsF q _ (hfmGet q hq)
+    case hnodupM =>
+      rw [show (List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)
+          = fms.map (·.cvTa.name) from List.ext_getElem? fun q => by
+        rw [List.getElem?_map, List.getElem?_map]
+        by_cases hq : q < fms.length
+        · rw [List.getElem?_range hq, List.getElem?_eq_getElem hq]
+          simp only [Option.map_some, Option.some.injEq]
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq]
+          rfl
+        · rw [List.getElem?_eq_none_iff.mpr (by simp only [List.length_range]; omega),
+            List.getElem?_eq_none_iff.mpr (by omega)]
+          rfl]
+      exact hndF
     case hcf => exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).1
     case hidxRes =>
       exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).2.1
@@ -6115,9 +6136,9 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         show ((ctorsA ++ []).zipIdx.filter fun (y : (ConstantVal × Nat) × Nat) => memF y.2 == t).map
           (fun (z : (ConstantVal × Nat) × Nat) => z.1) = _
         rw [List.append_nil]
-      obtain ⟨recTy, hcvT, -, -, -, -⟩ := hRecShape t htk
+      obtain ⟨recTy, hcvT, hgenT, -, -, -, -⟩ := hRecShape t htk
       refine ⟨cvRas.getD t default, _, _, _, by rw [show (dOf x.2).recNames t = (cvRas.getD t default).name from hrnT t htk]; exact hstoredS t htk,
-        ?_, ?_, ?_, fun ψ => ?_, by rw [hmcAll]; exact hrulesShape t htk, fun J cA hJ hmem => ?_⟩
+        ?_, ?_, ?_, fun ψ => ?_, by rw [hmcAll]; exact hrulesShape t htk, fun J cA hJ hmem => ?_, ?_⟩
       · -- the level parameters
         rw [hcvT]
         show p.toBlock.rlps = (if p.toBlock.large then p.toBlock.elim :: (fms.getD x.2 default).cvTa.levelParams
@@ -6272,7 +6293,49 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length _ htgt]
         show m₃.acval (((dOf x.2).memberNames.getD (prts.tgts J i) .anonymous).str "rec") ψ = _
         rw [hrn]
-        exact hleafS _ htgt ψ)
+        exact hleafS _ htgt ψ
+      · -- the motive walk (task #279 M-B′ step 3a): the stored recursor
+        -- type is the generator's, whose walk is the formers' names in
+        -- any environment storing them
+        have hne4 : ctors4 ≠ [] := by
+          intro h4
+          have hA : ctorsA = [] := List.eq_nil_of_length_eq_zero (by rw [← hlen4C, h4]; rfl)
+          apply hne
+          have h := hrulesShape x.2 hxk
+          rw [hA] at h ⊢
+          simpa using h
+        obtain ⟨bs, body, hs, hwalk⟩ := ConLeche.mutualRecTy_containerMembers hgenT hne4
+        refine ⟨bs, body, by rw [hcvT]; exact hs, fun env' hst => ?_⟩
+        have hmemD : ∀ q, q < fms.length →
+            (dOf x.2).memberName q = (fms.getD q default).cvTa.name := by
+          intro q hq
+          show ((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD q
+            .anonymous = _
+          exact getD_range_map _ _ q hq _
+        show containerMembersGo env' p.toBlock.nP (p.toBlock.rulePrefix + 1) 0 body
+          = (List.range fms.length).map (dOf x.2).memberName
+        rw [hwalk env' _ (by rw [hlen4F, hrPG₀]; omega) fun f hf => ?_]
+        · refine List.ext_getElem? fun q => ?_
+          rw [List.getElem?_map, List.getElem?_map]
+          by_cases hq : q < fms.length
+          · have hq4 : q < formers4.length := by rw [hlen4F]; exact hq
+            rw [List.getElem?_range hq, List.getElem?_eq_getElem hq4]
+            simp only [Option.map_some, Option.some.injEq]
+            have hn : (formers4.getD q default).name = (fms.getD q default).cvTa.name := by
+              rw [hget4F q hq]
+            rw [hmemD q hq, ← hn, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq4]
+            rfl
+          · rw [List.getElem?_eq_none_iff.mpr (by rw [hlen4F]; omega),
+              List.getElem?_eq_none_iff.mpr (by simp only [List.length_range]; omega)]
+            rfl
+        · obtain ⟨q, hq⟩ := List.getElem?_of_mem hf
+          have hql : q < fms.length := by
+            rw [← hlen4F]; exact (List.getElem?_eq_some_iff.mp hq).1
+          obtain ⟨cv, caps, hfind⟩ := hst q hql
+          refine ⟨cv, caps, ?_⟩
+          rw [show f = formers4.getD q default from by rw [List.getD_eq_getElem?_getD, hq]; rfl,
+            hget4F q hql, ← hmemD q hql]
+          exact hfind)
   -- the carrier does not move at the group store, off the recursors
   have hagS4 : ∀ n : Name, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
       (ConLeche.consMutualFormers fms env)).find? n).isSome = true →

@@ -420,8 +420,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    (hfT : ∃ (cv : ConstantVal) (caps : IndCaps),
-      env.find? p.cvT.name = some (.indInfo cv caps))
+    (hfT : ∃ caps : IndCaps, env.find? p.cvT.name = some (.indInfo cvTa caps))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {lvlsAll : (Name → Nat) → List Nat}
     (hFD : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -517,7 +516,10 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     tgtsRLt := fun _ _ => Nat.zero_lt_one
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
-      exact hfT
+      exact ⟨_, _, hfT.choose_spec⟩
+    membersLps := membersLps_one rfl hfT.choose_spec
+    memberNodup := memberNodup_one rfl
+    memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun _ ψ => by
@@ -525,7 +527,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
         show d.nIdxAt 0 = p.nIdx from rfl, mutualConcAV_one]
     former := hFD
     ctors := fun j cA hj => by rw [hlpsT]; exact hcf j cA hj
-    memsFound := fun j hj => ⟨hfT, fun _ => hfT⟩
+    memsFound := fun j hj => ⟨⟨_, _, hfT.choose_spec⟩, fun _ => ⟨_, _, hfT.choose_spec⟩⟩
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff

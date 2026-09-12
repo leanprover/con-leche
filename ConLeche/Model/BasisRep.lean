@@ -118,7 +118,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     {rules : List RecRule} (resSort : Level)
     (hty : cvT.type = .sort resSort) (hrules : rules = [])
     (hRname : cvR.name = T.str "rec")
-    (hfT : ∃ (cv : ConstantVal) (caps : IndCaps), env.find? T = some (.indInfo cv caps))
+    (hfT : ∃ caps : IndCaps, env.find? T = some (.indInfo cvT caps))
     (hres : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
       resSort.eval ψ₁ = resSort.eval ψ₂)
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = empty) :
@@ -163,7 +163,11 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     tgtsRLt := fun _ _ => Nat.zero_lt_one
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
-      exact hfT
+      obtain ⟨caps, hf⟩ := hfT
+      exact ⟨_, _, hf⟩
+    membersLps := membersLps_one rfl hfT.choose_spec
+    memberNodup := memberNodup_one rfl
+    memsReal := fun j hj => absurd hj (Nat.not_lt_zero j)
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h

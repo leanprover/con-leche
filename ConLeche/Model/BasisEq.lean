@@ -1493,6 +1493,9 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
       exact ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩
+    membersLps := membersLps_one rfl (ConLeche.Env.find?_cons_of_fresh hfresh hE)
+    memberNodup := memberNodup_one rfl
+    memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := ?_
@@ -1518,7 +1521,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     intro _ _ _ t ht
     obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
     refine ⟨eqRecA.toConstantVal, 5, 4, [eqRecRule], ?_, rfl, rfl, rfl, hrecRead, rfl,
-      fun j cA hj hmm => ?_⟩
+      fun j cA hj hmm => ?_, ?_⟩
     · show Env.find? ⟨eqRecA :: env.consts⟩ eqRecA.name
         = some (.recInfo eqRecA.toConstantVal 5 4 [eqRecRule])
       rw [ConLeche.Env.find?_cons, if_pos rfl]
@@ -1543,6 +1546,19 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
         rw [hEleaf ψ, hRleaf ψ]
         simp only [List.length_nil, AnnotTerm.liftN_zero]
         rfl
+    · -- the motive walk (task #279 M-B′ step 3a): `Eq.rec`'s one motive
+      -- is recognised wherever `Eq` is stored, and its minor stops the
+      -- walk syntactically
+      refine ⟨_, _, rfl, fun env' hst => ?_⟩
+      obtain ⟨cv, caps, hf⟩ := hst 0 Nat.zero_lt_one
+      have hf' : env'.find? eqName = some (.indInfo cv caps) := hf
+      show (match (if (match env'.find? eqName with
+            | some (.indInfo _ _) => true
+            | _ => false) = true then some eqName else none) with
+        | some C => C :: containerMembersGo env' 2 4 1 _
+        | none => []) = [eqName]
+      rw [hf']
+      rfl
   · -- the recursor's type reading (task #279 M-A′)
     intro _ ψ
     exact hrecRead ψ

@@ -287,7 +287,7 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
     strip := h.strip
     isProp := h.isProp
     rulesRead := fun hnP hne _ t ht => by
-      obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules⟩ :=
+      obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules, hwalk⟩ :=
         h.rulesRead hnP hne hfR t ht
       have hrecS : ∀ t, t < d.k → (env₂.find? (d.recNames t)).isSome = true := by
         intro t ht
@@ -295,7 +295,7 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
         rw [hf']; rfl
       have hmemR' := ConLeche.Semantics.Env.find?_mem hf'
       refine ⟨cvR', mI', rP', rules', hx.find hf', hlps, hmI', hrP', fun ψ => ?_, hmap,
-        fun j cA hj hmm => ?_⟩
+        fun j cA hj hmm => ?_, hwalk⟩
       · rw [h.recDataAV_ext hag]
         exact denoteMeta_ext hx hag ψ 0 (hbound _ hmemR').1 (hread ψ)
       · obtain ⟨rl, hrl, hctor, hread'⟩ := hrules j cA hj hmm
@@ -317,6 +317,9 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht
       exact ⟨cv, caps, hx.find hf⟩
+    membersLps := membersLps_of_find (fun _ _ hf => hx.find hf) h.membersFound h.membersLps
+    memberNodup := h.memberNodup
+    memsReal := h.memsReal
     ctorsCFound := fun cC hcC => hx.isSome (h.ctorsCFound cC hcC)
     pinsReal := h.pinsReal
     recRead := fun hnP ψ => by

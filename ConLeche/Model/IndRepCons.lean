@@ -351,11 +351,11 @@ theorem IndRep.rulesRead_cons {m : EnvModel V env} {T : Name} {cvT cvR : Constan
     intro t ht
     obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hnP hne hfR t ht
     exact ne_of_stored hfresh hf'
-  obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules⟩ :=
+  obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules, hwalk⟩ :=
     h.rulesRead hnP hne hfR t ht
   have hmemR' := ConLeche.Semantics.Env.find?_mem hf'
   refine ⟨cvR', mI', rP', rules', ConLeche.Env.find?_cons_of_fresh hfresh hf', hlps, hmI', hrP',
-    fun ψ => ?_, hmap, fun j cA hj hmm => ?_⟩
+    fun ψ => ?_, hmap, fun j cA hj hmm => ?_, hwalk⟩
   · rw [hac, h.recDataAV_cons hfresh m₂ hac]
     exact denoteMeta_cons_mono hfresh (hcross.typeOf hf') ψ 0 (hbound _ hmemR').1 (hread ψ)
   · obtain ⟨rl, hrl, hctor, hread'⟩ := hrules j cA hj hmm
@@ -411,6 +411,10 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht
       exact ⟨cv, caps, ConLeche.Env.find?_cons_of_fresh hfresh hf⟩
+    membersLps := membersLps_of_find (fun _ _ hf => ConLeche.Env.find?_cons_of_fresh hfresh hf)
+      h.membersFound h.membersLps
+    memberNodup := h.memberNodup
+    memsReal := h.memsReal
     ctorsCFound := fun cC hcC => by
       have hs := h.ctorsCFound cC hcC
       cases hf : env.find? cC.1.name with

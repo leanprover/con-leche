@@ -6,6 +6,7 @@ public import ConLeche.Model.Inductives.FixRuleOk
 public import ConLeche.Model.Inductives.FixRep
 import ConLeche.Model.Inductives.FixRecLeaf
 import ConLeche.Semantics.Tower.FixWire
+import ConLeche.Verify.Inductives.ContainerWalk
 public section
 
 /-!
@@ -1113,7 +1114,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     have hpin : cvRa.name = p.cvT.name.str "rec" :=
       hRname.trans (ConLeche.checkNativeRec_pins hRec).1
     have hrep := indRep_of_stage mp.base2 hmI hrP hlenR hpin hfresh hstripT hProp hlpsT
-      ⟨cvTa, caps, hfT⟩ hFD hcf hidxRes _hUparams hleafT hagree hleafC hiff
+      ⟨caps, hfT⟩ hFD hcf hidxRes _hUparams hleafT hagree hleafC hiff
       (fun ψ ρp hρ => ⟨(hframes ψ ρp hρ).1, fun j hj => ((hframes ψ ρp hρ).2.2.1 j hj).1⟩)
       hRD.read
     refine hrep.cross (c₀ := c₀) hfresh hcrossE hfT m₂ hac (hcross _) hcbR ?_
@@ -1121,11 +1122,11 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     -- one member's recursor is the head itself, its type's reading the
     -- stage's carried across, its rules the block's own read by
     -- `fixRuleData_of`
-    intro hnP _ _ t ht
+    intro hnP hne _ t ht
     obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
     have hfind : Env.find? ⟨c₀ :: env.consts⟩ (p.cvT.name.str "rec") = some c₀ := by
       rw [← hpin, ConLeche.Env.find?_cons, if_pos (show c₀.name = cvRa.name from rfl)]
-    refine ⟨cvRa, mI, rP, _, hfind, ?_, hmI, hrP, fun ψ => ?_, ?_, fun j cA hj _ => ?_⟩
+    refine ⟨cvRa, mI, rP, _, hfind, ?_, hmI, hrP, fun ψ => ?_, ?_, fun j cA hj _ => ?_, ?_⟩
     · rw [(ConLeche.checkNativeRec_facts hRec).2.1, ConLeche.checkNativeRec_lps hRec, hlpsT]
       rfl
     · rw [hrep.recDataAV_cons (c₀ := c₀) hfresh m₂ hac, hac]
@@ -1144,6 +1145,28 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       rw [hrhsE, hread ψ, fixRepData_ruleAV,
         show m₂.acval (p.cvT.name.str "rec") ψ = A ψ from by
           rw [← hpin, hac]; exact congrFun acvalWith_self ψ]
+    · -- the motive walk (task #279 M-B′ step 3a): the stored type is the
+      -- generator's, whose one motive is `T`'s and whose first minor
+      -- stops the walk
+      obtain ⟨-, recTy, -, -, -, hgen, -, -, -, -, -, -, -, -, hcvRa⟩ :=
+        ConLeche.checkNativeRec_shape hRec
+      have hne4 : ConLeche.nativeCtors4 ctorsA p.kinds ≠ [] := by
+        intro h4
+        have hA : ctorsA = [] := by
+          have hl : (ConLeche.nativeCtors4 ctorsA p.kinds).length = ctorsA.length := by
+            rw [ConLeche.nativeCtors4, List.length_zipWith, hlenK, Nat.min_self]
+          rw [h4] at hl
+          exact List.eq_nil_of_length_eq_zero hl.symm
+        apply hne
+        have h := sumRules_map_ctor (find? := env.find?) (recName := cvRa.name) (nP := p.nP)
+          (mI := mI) (rP := rP) (recTy := cvRa.type) hlenR
+        rw [hA] at h ⊢
+        simpa using h
+      obtain ⟨bs, body, hs, hwalk⟩ := ConLeche.structRecTyR_containerMembers hgen hne4
+      refine ⟨bs, body, by rw [show cvRa.type = recTy from by rw [hcvRa]]; exact hs,
+        fun env' hst => ?_⟩
+      show containerMembersGo env' p.nP (rP + 1) 0 body = [p.cvT.name]
+      exact hwalk env' _ (by rw [hrP]; omega) (hst 0 Nat.zero_lt_one)
   refine declStep_preserves_of_ind_rec_cons mp (c₀ := c₀) (A := A) hfresh hnresC ⟨_, _, _, _, rfl⟩
     (ConsHead.ofFresh hwf (fun ψ => hAcl ψ) hnresC
       (fun _ h => nomatch h)

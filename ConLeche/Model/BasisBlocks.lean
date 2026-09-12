@@ -690,6 +690,9 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
       exact ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩
+    membersLps := membersLps_one rfl (ConLeche.Env.find?_cons_of_fresh hfresh hP)
+    memberNodup := memberNodup_one rfl
+    memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h
@@ -2435,6 +2438,9 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
       exact ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩
+    membersLps := membersLps_one rfl (ConLeche.Env.find?_cons_of_fresh hfresh hN)
+    memberNodup := memberNodup_one rfl
+    memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun h => absurd rfl h

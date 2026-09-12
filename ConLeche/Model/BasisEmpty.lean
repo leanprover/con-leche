@@ -244,7 +244,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
       refine Or.inl ⟨⟨emptyName, [], .sort (.succ .zero)⟩, {}, zeroCtorData ⟨emptyRecA :: env.consts⟩ emptyName (.succ .zero), 0,
         ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
       refine indRep_zeroCtor (cvT := ⟨emptyName, [], .sort (.succ .zero)⟩) m₂ (.succ .zero) rfl rfl
-        hT ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩ (fun _ _ _ => rfl) fun ψ ρ => ?_
+        hT ⟨_, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩ (fun _ _ _ => rfl) fun ψ ρ => ?_
       rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
         (c := .empty) (us := [1]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
       rfl)

@@ -145,6 +145,13 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht
       exact ⟨cv, caps, hcg.findUp _ _ hf (fun _ _ _ _ h => nomatch h)⟩
+    membersLps := fun t ht cv caps hf => by
+      obtain ⟨cv', caps', hf'⟩ := h.membersFound t ht
+      rw [hcg.findUp _ _ hf' (fun _ _ _ _ h => nomatch h)] at hf
+      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+      exact h.membersLps t ht _ _ hf'
+    memberNodup := h.memberNodup
+    memsReal := h.memsReal
     ctorsCFound := fun cC hcC => by rw [← hcg.isSomeEq]; exact h.ctorsCFound cC hcC
     pinsReal := h.pinsReal
     recRead := fun hnP ψ => by

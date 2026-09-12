@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.RecSpell
 public import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Kernel.Inductives.StructParts
+public import ConLeche.Kernel.Inductives.NestedParts
 public section
 
 /-!
@@ -420,7 +421,14 @@ theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm
 arithmetic, its type reads as the `k`-motive tower at member `t`, its
 rules list member `t`'s constructors of the recursor's block in order,
 and each such constructor's rule reads as the generated core (the
-inductive hypotheses firing the target members' recursor leaves). -/
+inductive hypotheses firing the target members' recursor leaves); and
+**the motive walk** (task #279 M-B′ step 3a): the recursor type's
+body below the parameters, walked by the kernel's `containerMembersGo`
+in ANY environment storing the real members, yields the real members'
+names in order — the syntactic fact `containerInfo?` reads a
+container's group off, stated over every environment because the
+walk stops at the first minor premise for a reason that does not
+depend on the environment (`Verify/Inductives/ContainerWalk.lean`). -/
 @[expose] def RecReadAt (m : EnvModel V env) (d : IndRepData V) (lps : List Name) (t : Nat) :
     Prop :=
   ∃ (cvR' : ConstantVal) (mI' rP' : Nat) (rules' : List RecRule),
@@ -430,9 +438,52 @@ inductive hypotheses firing the target members' recursor leaves). -/
     (∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR'.type
       = some (mkPisAV (d.recDataAV m ψ t) (mutualConcAV d.k d.nAll (d.nIdxAt t) t))) ∧
     rules'.map (·.ctor) = (d.memberCtorsAll t).map (·.1.name) ∧
-    ∀ j cA, d.ctorsAll[j]? = some cA → d.mems j = t →
+    (∀ j cA, d.ctorsAll[j]? = some cA → d.mems j = t →
       ∃ rl : RecRule, rl ∈ rules' ∧ rl.ctor = cA.1.name ∧
-        ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)
+        ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)) ∧
+    ∃ (bs : List (Expr × BinderMeta)) (body : Expr), cvR'.type.stripPis d.nP = some (bs, body) ∧
+      ∀ env' : Env,
+        (∀ t', t' < d.kReal → ∃ (cv : ConstantVal) (caps : IndCaps),
+          env'.find? (d.memberName t') = some (.indInfo cv caps)) →
+        containerMembersGo env' d.nP (rP' + 1) 0 body = (List.range d.kReal).map d.memberName
+
+omit [SetTheory V] in
+/-- The members' level-parameter clause transports along any
+lookup-preserving map (task #279 M-B′ step 3a). -/
+theorem membersLps_of_find {env env' : Env} {d : IndRepData V} {cvT : ConstantVal}
+    (hF : ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci → env'.find? n = some ci)
+    (hfound : ∀ t, t < d.k → ∃ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (d.memberName t) = some (.indInfo cv caps))
+    (hlps : ∀ t, t < d.k → ∀ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (d.memberName t) = some (.indInfo cv caps) → cv.levelParams = cvT.levelParams) :
+    ∀ t, t < d.k → ∀ (cv : ConstantVal) (caps : IndCaps),
+      env'.find? (d.memberName t) = some (.indInfo cv caps) → cv.levelParams = cvT.levelParams := by
+  intro t ht cv caps hf
+  obtain ⟨cv', caps', hf'⟩ := hfound t ht
+  rw [hF _ _ hf'] at hf
+  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
+  exact hlps t ht _ _ hf'
+
+omit [SetTheory V] in
+/-- At a one-member block whose stored former is the clause's, the
+level-parameter clause is immediate. -/
+theorem membersLps_one {env : Env} {d : IndRepData V} {cvT : ConstantVal} (hk : d.k = 1)
+    {caps₀ : IndCaps} (hf : env.find? (d.memberName 0) = some (.indInfo cvT caps₀)) :
+    ∀ t, t < d.k → ∀ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (d.memberName t) = some (.indInfo cv caps) → cv.levelParams = cvT.levelParams := by
+  intro t ht cv caps hf'
+  rw [hk] at ht
+  obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf')
+  rfl
+
+omit [SetTheory V] in
+/-- A one-member block's real-member names are distinct. -/
+theorem memberNodup_one {d : IndRepData V} (hk : d.kReal = 1) :
+    ((List.range d.kReal).map d.memberName).Nodup := by
+  rw [hk, List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil]
+  exact List.nodup_cons.mpr ⟨List.not_mem_nil, List.nodup_nil⟩
 
 /-- **The representation of a stored inductive `T`**, the member `mm`
 of its block, with recursor `T.rec = .recInfo cvR mI rP rules`, at the
@@ -479,6 +530,17 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   /-- every member of the recursor's block is a stored inductive -/
   membersFound : ∀ t, t < d.k →
     ∃ (cv : ConstantVal) (caps : IndCaps), env.find? (d.memberName t) = some (.indInfo cv caps)
+  /-- every stored member carries the block's level parameters (task
+  #279 M-B′ step 3a: `containerInfo?` compares them) -/
+  membersLps : ∀ t, t < d.k → ∀ (cv : ConstantVal) (caps : IndCaps),
+    env.find? (d.memberName t) = some (.indInfo cv caps) → cv.levelParams = cvT.levelParams
+  /-- the real members' names are distinct (task #279 M-B′ step 3a:
+  `containerInfo?` requires the group `Nodup`) -/
+  memberNodup : ((List.range d.kReal).map d.memberName).Nodup
+  /-- a constructor of the recursor's block belongs to a real member
+  exactly when it is a real one (task #279 M-B′ step 3a: a real
+  member's rules are among `ctorsA`) -/
+  memsReal : ∀ j, j < d.nAll → (d.mems j < d.kReal ↔ j < d.ctorsA.length)
   /-- the copies' constructors are stored constants -/
   ctorsCFound : ∀ cC ∈ d.ctorsC, (env.find? cC.1.name).isSome = true
   /-- a real member's pins are the parameter variables and its

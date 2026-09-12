@@ -435,6 +435,11 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hFD : FormerData m cvT (nP + nIdxOf mm) resSort (ppsOf mm) (lvlsOf mm))
     (hfound : ∀ t, t < k → ∃ (cv : ConstantVal) (caps : IndCaps),
       env.find? (Tname t) = some (.indInfo cv caps))
+    -- the members' stored level parameters and distinct names (task
+    -- #279 M-B′ step 3a: `containerInfo?` compares and requires them)
+    (hlpsM : ∀ t, t < k → ∀ (cv : ConstantVal) (caps : IndCaps),
+      env.find? (Tname t) = some (.indInfo cv caps) → cv.levelParams = lps)
+    (hnodupM : ((List.range k).map Tname).Nodup)
     -- the constructors, at their own members and with their fields' targets
     (hcf : ∀ J cA, ctorsA[J]? = some cA →
       MutualCtorFactsAt m env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
@@ -556,6 +561,15 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     recName := by rw [show d.recNames mm = (d.memberName mm).str "rec" from rfl, hname mm hmm]; exact hRname.symm
     tgtsRLt := htgtLt
     membersFound := fun t ht => by rw [hname t ht]; exact hfound t ht
+    membersLps := fun t ht cv caps hf => by
+      rw [hname t ht] at hf
+      rw [hlpsT]
+      exact hlpsM t ht cv caps hf
+    memberNodup := by
+      show ((List.range k).map d.memberName).Nodup
+      rw [List.map_congr_left fun t ht => hname t (List.mem_range.mp ht)]
+      exact hnodupM
+    memsReal := fun j hj => ⟨fun _ => hj, fun hj' => hmots j hj'⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
     recRead := fun _ ψ => by
