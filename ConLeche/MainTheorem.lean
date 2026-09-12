@@ -21,8 +21,8 @@ all this file holds.  The corollary's statement is the binary's accept
 path itself: the three pure functions the driver's phases compute,
 chained — the built-in prelude parses, the chunks parse, the verified
 fold accepts the parsed records prepared with the prelude — and that
-chain is an error.  The steps between are imported: the parser reads such
-chunks into a list holding a theorem record of type `False`
+chain is an error.  The steps between are imported: the parser reads
+such chunks into records holding a theorem record of type `False`
 (`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
 parsed record (`Frontend.mem_preparePrelude`), and a stream holding
 such a record is never accepted (`no_False_theorem_accepted`: the
@@ -52,10 +52,10 @@ denotation — in `ConLeche/Denotes.lean`.
   number for the first two, the fold position for the fold) — so the
   chain is a plain `Except` `do` block with no conversion in it, and
   the conclusion is that it is an error.
-* `Declaration` is a parsed declaration and the records travel as an
-  `Array` of them, what the parse returns and the fold folds; `Env` is
-  the environment the checker builds; `env.consts` are the constants it accepted; `.verified` is the
-  default mode.
+* `Declaration` is a parsed declaration, and the records travel as an
+  `Array` of them — what the parse returns and what the fold folds;
+  `Env` is the environment the checker builds; `env.consts` are the
+  constants it accepted; `.verified` is the default mode.
 * `hasProofOfFalse` (`ConLeche/Accepts.lean`) is the template of a
   file that declares a theorem of type `False`, over the chunks' bytes.
 * `False` and `Eq` are built in: the checker installs them from its own
