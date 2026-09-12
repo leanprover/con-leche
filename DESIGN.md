@@ -70470,3 +70470,146 @@ measured before the merge.**  Against the master binary rebuilt at
 the rebinding test's borrowed `bound` lookups on every table entry
 (§2 item 1; the guard is one comparison per 4 MiB chunk).  Verdicts
 identical (exit 0, the same success line).
+
+## TASK #294 — ONE MAIN COROLLARY, OVER THE CHUNKS, WITH THE ACCEPT CHAIN INLINED (2026-09-12, `agent/parser-294`)
+
+The maintainer's refinement of #290, four rulings.
+
+### 1. The rulings, as landed
+
+1. **One main corollary, about chunks** — *"We currently have two
+   main corollaries.  We should have only one, and the better one is
+   surely the one about chunks."*  The `String` theorem,
+   `no_False_declaration_streaming`, `pipelineAccepts` and
+   `streamingAccepts` are gone.  The public pair is `model_exists` +
+   `no_False_declaration (chunks : List ByteArray)`.
+2. **The accept path inlined in the statement, as a `do` chain of the
+   three functions** — *"pipelineAccepts and streamingAccepts are
+   small enough that it would be better if the main corollary just
+   inlines it, and names the three functions that are queued here.
+   This can use `do` notation to chain them prettily!"*  A first draft
+   of the brief asked for a `pipeline` definition the driver would
+   call; the maintainer withdrew it: the driver interleaves the three
+   steps with IO (the streaming read loop, the heartbeats, the
+   parallel check pool, the evidence-carrying subtypes), and a reader
+   eyeballs `main` against the theorem.  So `Main.lean` is untouched
+   except for `checkMain`'s docstring, which says what each phase
+   computes.
+3. **`hasProofOfFalse` over bytes** — *"Instead of binding s and
+   chunks, why not have only chunks, phrase `hasProofOfFalse` over
+   `ByteArray` (using `toUtf8` inside it)."*
+4. **The `c.isEmpty = false` hypothesis goes.**  It existed because
+   `parseChunks` mirrored the IO loop, where an empty READ means end
+   of file, so an empty chunk mid-list truncated the pure fold.
+
+```lean
+def hasProofOfFalse (chunks : List ByteArray) : Prop :=
+  ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
+    Frontend.concatBytes chunks =
+      before ++ "\n".toUTF8 ++
+      (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
+      between₁ ++ "\n".toUTF8 ++
+      (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
+      between₂ ++ "\n".toUTF8 ++
+      (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
+      between₃ ++ "\n".toUTF8 ++
+      (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
+      after
+
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (h : hasProofOfFalse chunks) :
+    ∀ env, (do
+      let pre ← Frontend.builtinPreludeE.toOption
+      let r ← (Frontend.parseChunks chunks).toOption
+      (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env := by
+  intro env hacc
+  simp only [bind, Option.bind_eq_some_iff, Except.toOption_eq_some_iff] at hacc
+  obtain ⟨pre, -, r, hparse, hcheck⟩ := hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+```
+
+### 2. The error-type choice
+
+The three steps live in three `Except` error types — `FrontendError`
+(the prelude and the parse) and `CheckError × Nat` (the fold) — and no
+shared type exists: `FrontendError` has no `ToString`, and folding it
+into `CheckError` would lose the line number or invent an instance
+outside the statement.  The brief allowed unification "only inside the
+statement", so the chain forgets the reasons: each step is
+`.toOption`, the `do` block is in `Option`, and the conclusion is
+`≠ some env` — "the chain never yields an environment".  The reasons
+are the driver's diagnostics (which step failed, the exit code
+1/2/3), and the driver is untouched.  The proof needs one lemma,
+`Except.toOption_eq_some_iff` (`ConLeche/Verify/ExceptBind.lean`),
+beside `exceptBind_ok`; `Option.bind_eq_some_iff` is core's.
+`parseChunks`'s parameters were reordered (`chunks` first, the two
+switches after it as defaults) so that the chain reads
+`Frontend.parseChunks chunks` — the driver's defaults, `inModel :=
+true` and `census := false`, appear nowhere.
+
+### 3. The bytes-level template and the walk
+
+The template is over `Frontend.concatBytes chunks`: the four lines are
+`(s!"…").toUTF8`, the newlines `"\n".toUTF8`, the five parts
+arbitrary `ByteArray`s (bytes that are no UTF-8 at all fail to parse,
+which is a non-accept like any other).  The walk
+(`ConLeche/Verify/Frontend/FileFalse.lean`) is now stated over the
+byte LIST shape — `parseLines_template`, with the five parts as
+arbitrary `List UInt8` and the four lines as `lit s!"…"` — and
+`parseChunks_hasProofOfFalse` puts the chunks into that shape:
+`parseChunks_eq_parseLines` (under the size bound `parseChunks_ok_size`
+provides), `bytes_eq_of_size_lt`, then `ByteArray.data_append` /
+`Array.toList_append` / `toUTF8_toList : s.toUTF8.data.toList = lit s`
+/ `lit_nl` flatten the `++`s into the list shape.  The fixture test
+(`tests/ConLecheTests/FileTests.lean`) proves
+`hasProofOfFalse [falseFile.toUTF8]` by folding the byte appends back
+into ONE string's `toByteArray` (`← String.toByteArray_append`, a
+`rfl`-lemma) and deciding the string equation, as before; `decide` on
+the `ByteArray` equation itself gets stuck at `Array`'s decidable
+equality on `copySlice`, so that route is not available.
+
+### 4. The empty-chunk semantics
+
+`parseChunks.go` now folds the WHOLE list: `| c :: cs => match
+chunkStep … c with …`, no `isEmpty` test.  An empty chunk's step feeds
+`carry ++ ∅ = carry`, which holds no newline, so `feedChunk` stops at
+0 and hands the carry back unchanged (the running count grows by 0);
+the fold goes on.  Hence `parseChunks cs = parseBytes (concatBytes cs)`
+for every list — empty pieces anywhere — under the size bound
+(`parseChunks_eq_parseBytes`), and `parseChunks_ok_parseBytes` without
+any hypothesis.  `parseBytes (b : ByteArray)` is the wholesale parse
+with the size guard on the buffer's size; `parseExportD (s : String)`
+is `parseBytes s.toUTF8` and serves the prelude and the tests.  The IO
+loop `parseExportHandleD.loop` is byte-for-byte unchanged: it still
+takes an empty READ for the end of the file, calls the same
+`chunkStep`, and finishes with the same `chunkFinish` — the
+end-of-input decision is the loop's, not the step's.  **The binary's
+run path is therefore unchanged** (only the pure `parseChunks` and
+the wholesale parse used by the prelude's 267-line text moved), and no
+instruction measurement was taken; the fixture test pins the new
+semantics (`[b.extract 0 70, ∅, b.extract 70 71, b.extract 71 b.size,
+∅]` parses to the same one record as `[b]`).
+
+### 5. Everything that named the old statements
+
+`comparator.json` unchanged (the two names); `Challenge.lean`'s
+`sorry` twin token-identical; `tests/ConLecheTests/Axioms.lean` loses
+the streaming pin; `tests/ProofDeps.lean`'s roots unchanged by name
+(`main_file_False` now reaches `Verify/Frontend/Chunks.lean`'s guard
+lemmas, regenerated); `tests/trust-surface.sh`, `scripts/arena/
+con-leche.yaml`, `Main.lean --help` unchanged by name;
+`formalization.yaml`'s scope, OVERVIEW §1's corollary paragraphs (the
+chain, the byte template, the chunk independence as a step — no task
+numbers) and `checkMain`'s docstring rewritten.  README is the
+maintainer's and was not edited; the replacement text for its
+"### The Main Corollary" section is in the READY report.
+
+### 6. Gates
+
+`lake build` and `lake test` warning-free; `env -i … bash
+tests/arena.sh` exit 0 — proofdeps regenerated (12 roots), challenge
+gate on the two names, shake and pub-imports clean, overview-links
+regenerated after re-reading the citing paragraphs, no-local-paths,
+trust-surface, e2e/arena unchanged — recorded in the READY report with
+the row count.

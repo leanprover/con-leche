@@ -851,6 +851,7 @@ main_file_False :: ConLeche.Verify.Extend.Recs
 main_file_False :: ConLeche.Verify.Extend.Sibs
 main_file_False :: ConLeche.Verify.FastOps
 main_file_False :: ConLeche.Verify.Frontend.ApplyLine
+main_file_False :: ConLeche.Verify.Frontend.Chunks
 main_file_False :: ConLeche.Verify.Frontend.Digits
 main_file_False :: ConLeche.Verify.Frontend.FalseLines
 main_file_False :: ConLeche.Verify.Frontend.FileFalse
