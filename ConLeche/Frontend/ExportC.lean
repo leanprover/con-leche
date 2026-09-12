@@ -478,6 +478,273 @@ def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
            rules := rules : InModel.IndRecRec }
   pure ⟨types, ctors, recs⟩
 
+/-- Record the structure-like owners of a parsed block that the
+projection rewrite serves (`projRecOwners`). -/
+def registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
+  let types ← tys.mapM fun t => do
+    let cv ← parseCVD st t.cv
+    pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
+      ← t.ctors.mapM st.name, t.isRec)
+  let ctors ← cts.mapM fun c => do
+    let cv ← parseCVD st c.cv
+    pure (cv.name, c.numFields, cv.type)
+  let recs ← rcs.mapM fun r => do
+    let cv ← parseCVD st r.cv
+    pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
+  match projRecOwners block types ctors recs with
+  | [] => pure st
+  | owners =>
+    let m := st.projOwners
+    let st := { st with projOwners := {} }
+    pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
+
+/-- Push the records the in-process modeller generated (task #200),
+each booked as a declaration of the fold and not a record of the file
+(task #219) when the push kept it; the first verdict stops the
+sequence.  (The loop of the install half, as a function: the file
+theorem's frame lemma is an induction on it, task #290.) -/
+def pushGenList (st : StateD) : List DeclC → Name → StateD ⊕ RecordVerdict
+  | [], _ => .inl st
+  | d :: ds, T0 =>
+    let before := st.decls.size
+    match pushGenD st d with
+    | .inl st' => pushGenList (if st'.decls.size > before then noteGen st' d T0 else st') ds T0
+    | r => r
+
+/-- **An inductive record, validated** (tasks #217, #228, #271): the
+half of the record's processing that reads the state and changes
+nothing — the verdict, or the block's constructors in the block's own
+order with the declared parameter count.  Split from `installIndD`
+below at task #290 so that a proof about what the parse does to its
+state need not look here at all. -/
+def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List IndCtorRec × Nat)) := do
+  -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
+  -- not an error.  The official kernel admits unsafe blocks (it skips
+  -- positivity for them); we support no unsafe declaration at all, and
+  -- unsafe axioms/opaques/definitions already decline positively.
+  if tys.any (·.isUnsafe) then
+    return .inl (.declined "unsafe inductive declaration")
+  -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
+  -- hands `add_inductive` the `numParams` of ONE inductive record of
+  -- the block (`Declaration.inductDecl lparams nparams types`,
+  -- `Lean4Checker/Replay.lean`) and checks every former and every
+  -- constructor against it; which record that is, is the name order
+  -- of the replay's walk.  So the count is well defined for the
+  -- block exactly when its type records AGREE on it — as every
+  -- record a real export writes does, `add_inductive` storing one
+  -- `m_nparams` in every member's `InductiveVal`.  A block whose
+  -- records disagree has no declared count this checker could hold
+  -- official to, and is positively declined here rather than checked
+  -- against a count official might not have chosen.
+  let nPs := tys.map (·.numParams)
+  let nPd := nPs.head?.getD 0
+  unless nPs.all (· == nPd) do
+    return .inl (.declined "inductive block whose type records disagree on numParams")
+  -- TASK #271 (issues #5 and #7) — THE BLOCK'S REDUNDANT FIELDS.
+  -- Official's replay hands `add_inductive` the type formers, the
+  -- constructors and the parameter count; the kernel then GENERATES
+  -- the constructors and the recursors, and the replay compares each
+  -- exported CONSTRUCTOR and RECURSOR record with the generated one
+  -- structurally (`checkPostponedConstructors`,
+  -- `checkPostponedRecursors`, `Lean4Checker/Replay.lean`) — a
+  -- mismatch is "Invalid constructor" / "Invalid recursor", a
+  -- REJECT.  An exported INDUCTIVE record is never compared with the
+  -- generated `InductiveVal`, so its `numIndices`, `numNested`,
+  -- `isRec`, `isReflexive` and `all` are not input official reads and
+  -- are not checked here either (the `numParams` half official DOES
+  -- read is task #228's, just above).  What is read of a type record
+  -- is its `ctors` list: it groups the constructor records into the
+  -- block, and it IS the block's constructor order (issue #5 — the
+  -- `cidx` field is the redundant copy, not the other way round).
+  -- These are consistency checks between the stream's own fields, so
+  -- they live here, in the parse, and their verdict is `.invalid`:
+  -- the fold never sees such a block.
+  let tyNames ← tys.mapM fun t => st.name t.cv.name
+  let tyTypes ← tys.mapM fun t => getDeclD st t.cv.type
+  let listed ← tys.mapM fun t => t.ctors.mapM st.name
+  let ctorNames ← cts.mapM fun c => st.name c.cv.name
+  let flat := listed.flatten
+  unless flat.Nodup do
+    return .inl (.invalid "duplicate constructor name in an inductive type's ctors")
+  unless flat.length == cts.length do
+    return .inl (.invalid s!"the inductive block lists {flat.length} constructors \
+      and carries {cts.length} constructor records")
+  let ctorIx : Std.HashMap Name Nat :=
+    (ctorNames.foldl (fun (mi : Std.HashMap Name Nat × Nat) n =>
+      (mi.1.insert n mi.2, mi.2 + 1)) ({}, 0)).1
+  let ctsA := cts.toArray
+  -- the constructors IN THE BLOCK'S OWN ORDER, `types[].ctors` in
+  -- type order (issue #5): a record array in another order is the
+  -- same block, and the recursor generated from it is the same one
+  let mut ordered : Array IndCtorRec := #[]
+  for tn in tyNames.zip listed do
+    let (T, ns) := tn
+    let mut j := 0
+    for n in ns do
+      let some k := ctorIx[n]? | return .inl (.invalid s!"No such constructor {n}")
+      let some c := ctsA[k]? | return .inl (.invalid s!"No such constructor {n}")
+      if let some ci := c.cidx then
+        unless ci == j do
+          return .inl (.invalid s!"constructor {n} declares cidx {ci}; it is \
+            constructor {j} of {T}")
+      if let some iw := c.induct then
+        let iwn ← st.name iw
+        unless iwn == T do
+          return .inl (.invalid s!"constructor {n} declares induct {iwn}; it is \
+            a constructor of {T}")
+      -- `numFields`: official counts the constructor's own Π binders
+      -- without reducing (`check_constructors` walks `is_pi`) and
+      -- stores the count past the parameters, so a record that
+      -- declares another number is not the generated constructor.
+      -- Before this, a count too LARGE declined at the field
+      -- telescope (arena `ctor-num-fields`) and a count too small was
+      -- caught later, by the constructor's result type, if at all.
+      let cty ← getDeclD st c.cv.type
+      unless nPd + c.numFields == indPiTeleLen cty do
+        return .inl (.invalid s!"constructor {n} declares {c.numFields} fields at \
+          {nPd} parameters; its type has {indPiTeleLen cty} binders")
+      ordered := ordered.push c
+      j := j + 1
+  let cts := ordered.toList
+  -- The recursor records: the counts and the K flag the GENERATED
+  -- recursor carries.  `numParams + numMotives + numMinors` and the
+  -- major-premise index are compared with the block at the install
+  -- (`nativeRecPinOk`), which leaves a compensating pair of lies
+  -- open; the individual counts are here.
+  --
+  -- NOT at a NESTED block.  The kernel specialises a nested block
+  -- into a mutual one with a mimic type per nested occurrence, and
+  -- the recursors it generates — `T.rec`, `T.rec_1`, … — are the
+  -- SPECIALISED block's: their motives and minor premises count the
+  -- mimics too, so the declared block's own type and constructor
+  -- counts are not what they carry (measured: `ind_nest_inf`'s
+  -- `InfNest.rec` declares two motives at one declared type).
+  -- `numNested` is a field of the type record, which official never
+  -- compares; reading it here only ever WEAKENS these checks, never
+  -- rejects on it.
+  let nested := tys.any (·.numNested != 0)
+  let nTypes := tys.length
+  let nCtors := cts.length
+  -- official's `is_K_target`: the block is a `Prop`, has ONE type
+  -- with ONE constructor, and that constructor takes only the
+  -- parameters.  At a former whose declared type is not a syntactic
+  -- Π-telescope ending in a sort (task #195) the sort cannot be read
+  -- here and the flag is left to the install.
+  let kExpected? : Option Bool :=
+    match tyTypes, listed, cts with
+    | [ty], [[_]], [c] =>
+      match ty.piResult with
+      | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
+      | _ => none
+    | _, _, _ => some false
+  for r in (if nested then [] else rcs) do
+    let rn ← st.name r.cv.name
+    unless r.numParams == nPd do
+      return .inl (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
+        the block declares {nPd}")
+    unless r.numMotives == nTypes do
+      return .inl (.invalid s!"recursor {rn} declares {r.numMotives} motives; \
+        the block has {nTypes} inductive types")
+    unless r.numMinors == nCtors do
+      return .inl (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
+        the block has {nCtors} constructors")
+    if let some kE := kExpected? then
+      unless r.k == kE do
+        return .inl (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
+          recursor of this block is{if kE then "" else " not"} K-like")
+    -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
+    -- once the parameters are peeled; unreadable at a former declared
+    -- at a definition, and then not checked
+    if let .str T "rec" := rn then
+      for tt in tyNames.zip tyTypes do
+        if tt.1 == T then
+          if let some n := tt.2.piSortTeleLen? then
+            unless nPd + r.numIndices == n do
+              return .inl (.invalid s!"recursor {rn} declares {r.numIndices} indices; \
+                {T} has {n - nPd} at {nPd} parameters")
+  return .inr (cts, nPd)
+
+/-- **An inductive record, installed**: the block's constants, the
+projection-owner table, the basis-pin match, the in-process modeller,
+the push.  Every change to the state a validated inductive record
+makes is here. -/
+def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) (nPd : Nat) : M (StateD ⊕ RecordVerdict) := do
+  let types ← tys.mapM fun t => do
+    pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
+  let ctors ← cts.mapM fun c => do
+    pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
+  let recs ← rcs.mapM fun r => do
+    let rules ← r.rules.mapM (parseRuleD st)
+    pure (ConstantInfo.recInfo (← parseCVD st r.cv)
+      (r.numParams + r.numMotives + r.numMinors + r.numIndices)
+      (r.numParams + r.numMotives + r.numMinors) rules)
+  let block := types ++ ctors ++ recs
+  -- the projection rewrite's owner table (the export's own shape
+  -- data: index/constructor counts, recursion flag, motive/minor
+  -- counts)
+  let st ← registerProjOwners st tys cts rcs block
+  -- TASK #215 — the basis-pin NAME pre-filter.
+  -- `ConstantInfo.canon` rebuilds the WHOLE block as an unshared tree
+  -- (`Frontend.canonExpr`, unmemoized) just to compare it against five
+  -- pins: on a heavily DAG-shared block that was the frontend's single
+  -- largest cost, and the first row of task #213's retired budget audit
+  -- (`ModularCurve.JZeroGoodReductionSpecialization_alt` is a
+  -- 5 038-entry DAG that rebuilds as 78 394 796 nodes).
+  -- `canon` renames only *level parameters* — it leaves every constant
+  -- name alone — so a block can match a pin only when its members'
+  -- names are the pin's, member for member.  Selecting the candidate
+  -- by name first is a handful of `Name` comparisons, and no canonical
+  -- form is built at all for any block that is not one of the five.
+  -- Same verdict on every input; only the work changes.
+  let blockNames := block.map (·.name)
+  let pinHit : Option BasisKind :=
+    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
+        k.decls.map (·.name) == blockNames).filter fun k =>
+      canonEqList block k.decls
+  if let some k := pinHit then
+    if k == BasisKind.punitK then
+      return pushDecl { st with punitSeen := true } (.basisDecl k)
+    else
+      return pushDecl st (.basisDecl k)
+  else
+    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
+    -- since task #207, and since task #219 the only one there IS —
+    -- a stream `_model` record is an ordinary declaration and is
+    -- never consulted): a mutual or nested block gets its `_model`
+    -- family generated here and pushed ahead of it; the block then
+    -- installs through the modeled route.  A generator decline is
+    -- the run's decline, naming the class (the residual: infinitary
+    -- nesting, a `Prop` block with a large eliminator).
+    let T0 := (block.head?.map (·.name)).getD .anonymous
+    let b ← blockRecOf st tys cts rcs
+    let st :=
+      let m := st.indBlocks
+      let st := { st with indBlocks := {} }
+      { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+    if st.inModel && InModel.wants b then
+      let ctx : InModel.Ctx :=
+        ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+      match InModel.generate ctx b with
+      | .error why =>
+        if st.inModelCensus then
+          return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+            (.indDecl block nPd)
+        else
+          return .inr (.declined s!"in-process model of {T0}: {why}")
+      | .ok gen =>
+        match pushGenList st gen T0 with
+        | .inr r => return .inr r
+        | .inl st1 =>
+          let st1 := { st1 with
+            inModelled := st1.inModelled.push T0,
+            inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+          return pushDecl st1 (.indDecl block nPd)
+    else
+      return pushDecl st (.indDecl block nPd)
+
 /-- The record's own semantics: the declaration kinds, producing
 `DeclC` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
@@ -553,250 +820,9 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
       return .inr (.declined "quotient declaration mismatch")
   | .ind tys cts rcs =>
     let st := { st with indCount := st.indCount + 1 }
-    -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
-    -- not an error.  The official kernel admits unsafe blocks (it skips
-    -- positivity for them); we support no unsafe declaration at all, and
-    -- unsafe axioms/opaques/definitions already decline positively.
-    if tys.any (·.isUnsafe) then
-      return .inr (.declined "unsafe inductive declaration")
-    -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
-    -- hands `add_inductive` the `numParams` of ONE inductive record of
-    -- the block (`Declaration.inductDecl lparams nparams types`,
-    -- `Lean4Checker/Replay.lean`) and checks every former and every
-    -- constructor against it; which record that is, is the name order
-    -- of the replay's walk.  So the count is well defined for the
-    -- block exactly when its type records AGREE on it — as every
-    -- record a real export writes does, `add_inductive` storing one
-    -- `m_nparams` in every member's `InductiveVal`.  A block whose
-    -- records disagree has no declared count this checker could hold
-    -- official to, and is positively declined here rather than checked
-    -- against a count official might not have chosen.
-    let nPs := tys.map (·.numParams)
-    let nPd := nPs.head?.getD 0
-    unless nPs.all (· == nPd) do
-      return .inr (.declined "inductive block whose type records disagree on numParams")
-    -- TASK #271 (issues #5 and #7) — THE BLOCK'S REDUNDANT FIELDS.
-    -- Official's replay hands `add_inductive` the type formers, the
-    -- constructors and the parameter count; the kernel then GENERATES
-    -- the constructors and the recursors, and the replay compares each
-    -- exported CONSTRUCTOR and RECURSOR record with the generated one
-    -- structurally (`checkPostponedConstructors`,
-    -- `checkPostponedRecursors`, `Lean4Checker/Replay.lean`) — a
-    -- mismatch is "Invalid constructor" / "Invalid recursor", a
-    -- REJECT.  An exported INDUCTIVE record is never compared with the
-    -- generated `InductiveVal`, so its `numIndices`, `numNested`,
-    -- `isRec`, `isReflexive` and `all` are not input official reads and
-    -- are not checked here either (the `numParams` half official DOES
-    -- read is task #228's, just above).  What is read of a type record
-    -- is its `ctors` list: it groups the constructor records into the
-    -- block, and it IS the block's constructor order (issue #5 — the
-    -- `cidx` field is the redundant copy, not the other way round).
-    -- These are consistency checks between the stream's own fields, so
-    -- they live here, in the parse, and their verdict is `.invalid`:
-    -- the fold never sees such a block.
-    let tyNames ← tys.mapM fun t => st.name t.cv.name
-    let tyTypes ← tys.mapM fun t => getDeclD st t.cv.type
-    let listed ← tys.mapM fun t => t.ctors.mapM st.name
-    let ctorNames ← cts.mapM fun c => st.name c.cv.name
-    let flat := listed.flatten
-    unless flat.Nodup do
-      return .inr (.invalid "duplicate constructor name in an inductive type's ctors")
-    unless flat.length == cts.length do
-      return .inr (.invalid s!"the inductive block lists {flat.length} constructors \
-        and carries {cts.length} constructor records")
-    let ctorIx : Std.HashMap Name Nat :=
-      (ctorNames.foldl (fun (mi : Std.HashMap Name Nat × Nat) n =>
-        (mi.1.insert n mi.2, mi.2 + 1)) ({}, 0)).1
-    let ctsA := cts.toArray
-    -- the constructors IN THE BLOCK'S OWN ORDER, `types[].ctors` in
-    -- type order (issue #5): a record array in another order is the
-    -- same block, and the recursor generated from it is the same one
-    let mut ordered : Array IndCtorRec := #[]
-    for tn in tyNames.zip listed do
-      let (T, ns) := tn
-      let mut j := 0
-      for n in ns do
-        let some k := ctorIx[n]? | return .inr (.invalid s!"No such constructor {n}")
-        let some c := ctsA[k]? | return .inr (.invalid s!"No such constructor {n}")
-        if let some ci := c.cidx then
-          unless ci == j do
-            return .inr (.invalid s!"constructor {n} declares cidx {ci}; it is \
-              constructor {j} of {T}")
-        if let some iw := c.induct then
-          let iwn ← st.name iw
-          unless iwn == T do
-            return .inr (.invalid s!"constructor {n} declares induct {iwn}; it is \
-              a constructor of {T}")
-        -- `numFields`: official counts the constructor's own Π binders
-        -- without reducing (`check_constructors` walks `is_pi`) and
-        -- stores the count past the parameters, so a record that
-        -- declares another number is not the generated constructor.
-        -- Before this, a count too LARGE declined at the field
-        -- telescope (arena `ctor-num-fields`) and a count too small was
-        -- caught later, by the constructor's result type, if at all.
-        let cty ← getDeclD st c.cv.type
-        unless nPd + c.numFields == indPiTeleLen cty do
-          return .inr (.invalid s!"constructor {n} declares {c.numFields} fields at \
-            {nPd} parameters; its type has {indPiTeleLen cty} binders")
-        ordered := ordered.push c
-        j := j + 1
-    let cts := ordered.toList
-    -- The recursor records: the counts and the K flag the GENERATED
-    -- recursor carries.  `numParams + numMotives + numMinors` and the
-    -- major-premise index are compared with the block at the install
-    -- (`nativeRecPinOk`), which leaves a compensating pair of lies
-    -- open; the individual counts are here.
-    --
-    -- NOT at a NESTED block.  The kernel specialises a nested block
-    -- into a mutual one with a mimic type per nested occurrence, and
-    -- the recursors it generates — `T.rec`, `T.rec_1`, … — are the
-    -- SPECIALISED block's: their motives and minor premises count the
-    -- mimics too, so the declared block's own type and constructor
-    -- counts are not what they carry (measured: `ind_nest_inf`'s
-    -- `InfNest.rec` declares two motives at one declared type).
-    -- `numNested` is a field of the type record, which official never
-    -- compares; reading it here only ever WEAKENS these checks, never
-    -- rejects on it.
-    let nested := tys.any (·.numNested != 0)
-    let nTypes := tys.length
-    let nCtors := cts.length
-    -- official's `is_K_target`: the block is a `Prop`, has ONE type
-    -- with ONE constructor, and that constructor takes only the
-    -- parameters.  At a former whose declared type is not a syntactic
-    -- Π-telescope ending in a sort (task #195) the sort cannot be read
-    -- here and the flag is left to the install.
-    let kExpected? : Option Bool :=
-      match tyTypes, listed, cts with
-      | [ty], [[_]], [c] =>
-        match ty.piResult with
-        | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
-        | _ => none
-      | _, _, _ => some false
-    for r in (if nested then [] else rcs) do
-      let rn ← st.name r.cv.name
-      unless r.numParams == nPd do
-        return .inr (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
-          the block declares {nPd}")
-      unless r.numMotives == nTypes do
-        return .inr (.invalid s!"recursor {rn} declares {r.numMotives} motives; \
-          the block has {nTypes} inductive types")
-      unless r.numMinors == nCtors do
-        return .inr (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
-          the block has {nCtors} constructors")
-      if let some kE := kExpected? then
-        unless r.k == kE do
-          return .inr (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
-            recursor of this block is{if kE then "" else " not"} K-like")
-      -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
-      -- once the parameters are peeled; unreadable at a former declared
-      -- at a definition, and then not checked
-      if let .str T "rec" := rn then
-        for tt in tyNames.zip tyTypes do
-          if tt.1 == T then
-            if let some n := tt.2.piSortTeleLen? then
-              unless nPd + r.numIndices == n do
-                return .inr (.invalid s!"recursor {rn} declares {r.numIndices} indices; \
-                  {T} has {n - nPd} at {nPd} parameters")
-    let types ← tys.mapM fun t => do
-      pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
-    let ctors ← cts.mapM fun c => do
-      pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
-    let recs ← rcs.mapM fun r => do
-      let rules ← r.rules.mapM (parseRuleD st)
-      pure (ConstantInfo.recInfo (← parseCVD st r.cv)
-        (r.numParams + r.numMotives + r.numMinors + r.numIndices)
-        (r.numParams + r.numMotives + r.numMinors) rules)
-    let block := types ++ ctors ++ recs
-    -- the projection rewrite's owner table (the export's own shape
-    -- data: index/constructor counts, recursion flag, motive/minor
-    -- counts)
-    let st ← registerProjOwners st tys cts rcs block
-    -- TASK #215 — the basis-pin NAME pre-filter.
-    -- `ConstantInfo.canon` rebuilds the WHOLE block as an unshared tree
-    -- (`Frontend.canonExpr`, unmemoized) just to compare it against five
-    -- pins: on a heavily DAG-shared block that was the frontend's single
-    -- largest cost, and the first row of task #213's retired budget audit
-    -- (`ModularCurve.JZeroGoodReductionSpecialization_alt` is a
-    -- 5 038-entry DAG that rebuilds as 78 394 796 nodes).
-    -- `canon` renames only *level parameters* — it leaves every constant
-    -- name alone — so a block can match a pin only when its members'
-    -- names are the pin's, member for member.  Selecting the candidate
-    -- by name first is a handful of `Name` comparisons, and no canonical
-    -- form is built at all for any block that is not one of the five.
-    -- Same verdict on every input; only the work changes.
-    let blockNames := block.map (·.name)
-    let pinHit : Option BasisKind :=
-      ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
-          k.decls.map (·.name) == blockNames).filter fun k =>
-        canonEqList block k.decls
-    if let some k := pinHit then
-      if k == BasisKind.punitK then
-        return pushDecl { st with punitSeen := true } (.basisDecl k)
-      else
-        return pushDecl st (.basisDecl k)
-    else
-      -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
-      -- since task #207, and since task #219 the only one there IS —
-      -- a stream `_model` record is an ordinary declaration and is
-      -- never consulted): a mutual or nested block gets its `_model`
-      -- family generated here and pushed ahead of it; the block then
-      -- installs through the modeled route.  A generator decline is
-      -- the run's decline, naming the class (the residual: infinitary
-      -- nesting, a `Prop` block with a large eliminator).
-      let T0 := (block.head?.map (·.name)).getD .anonymous
-      let b ← blockRecOf st tys cts rcs
-      let st :=
-        let m := st.indBlocks
-        let st := { st with indBlocks := {} }
-        { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-      if st.inModel && InModel.wants b then
-        let ctx : InModel.Ctx :=
-          ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
-        match InModel.generate ctx b with
-        | .error why =>
-          if st.inModelCensus then
-            return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-              (.indDecl block nPd)
-          else
-            return .inr (.declined s!"in-process model of {T0}: {why}")
-        | .ok gen =>
-          let mut st1 := st
-          for d in gen do
-            let before := st1.decls.size
-            match pushGenD st1 d with
-            | .inl st' =>
-              -- a generated record is a declaration of the FOLD and not
-              -- a record of the file (task #219): booked here, so the
-              -- verdict line reports the file's own count
-              st1 := if st'.decls.size > before then noteGen st' d T0 else st'
-            | r => return r
-          st1 := { st1 with
-            inModelled := st1.inModelled.push T0,
-            inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-          return pushDecl st1 (.indDecl block nPd)
-      else
-        return pushDecl st (.indDecl block nPd)
-where
-  /-- Record the structure-like owners of a parsed block that the
-  projection rewrite serves (`projRecOwners`). -/
-  registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
-      (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
-    let types ← tys.mapM fun t => do
-      let cv ← parseCVD st t.cv
-      pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
-        ← t.ctors.mapM st.name, t.isRec)
-    let ctors ← cts.mapM fun c => do
-      let cv ← parseCVD st c.cv
-      pure (cv.name, c.numFields, cv.type)
-    let recs ← rcs.mapM fun r => do
-      let cv ← parseCVD st r.cv
-      pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
-    match projRecOwners block types ctors recs with
-    | [] => pure st
-    | owners =>
-      let m := st.projOwners
-      let st := { st with projOwners := {} }
-      pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
+    match ← validateIndD st tys cts rcs with
+    | .inl v => pure (.inr v)
+    | .inr (cts, nPd) => installIndD st tys cts rcs nPd
 
 /-- The read-only pre-scan for the taint policy: the names a
 declaration record declares, and the expression indices it reads. -/
