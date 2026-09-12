@@ -126,20 +126,20 @@ accepted equation denote the same set.
 The main corollary,
 [`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L91-L97):
 
-> … if the chunks match `hasProofOfFalse` — a name entry for `False`,
-> an expression entry for the constant `False`, a name entry for the
-> theorem's own name, and a theorem record whose type is that
-> expression, four lines in the exporter's own shapes with any bytes at
-> all before, between and after them — then the chain "the built-in
-> prelude parses; the chunks parse; `checkDecls` accepts the parsed
-> records prepared with the prelude" does not succeed.
+> … if the chain "the built-in prelude parses; the chunks parse;
+> `checkDecls` accepts the parsed records prepared with the prelude"
+> succeeds, then the chunks do not match `hasProofOfFalse` — a name
+> entry for `False`, an expression entry for the constant `False`, a
+> name entry for the theorem's own name, and a theorem record whose
+> type is that expression, four lines in the exporter's own shapes with
+> any bytes at all before, between and after them.
 
-The statement's chain is the binary's accept path: the three pure
+The statement's hypothesis is the binary's accept path: the three pure
 functions the driver's phases compute — `Frontend.builtinPreludeE`,
 `Frontend.parseChunks chunks`, `checkDecls .verified` over
-`Frontend.preparePrelude` — written as one `do` block whose conclusion
-is `.isOk = false`: the chain does not succeed. There is one conversion
-nowhere in it: the
+`Frontend.preparePrelude` — written as one `do` block whose `.isOk`
+says it succeeds, and what it accepts declares no theorem of type
+`False`. There is one conversion nowhere in it: the
 three steps fail in the same type, the checker's own `CheckError`
 paired with the position of the failure, which is the input's line
 number in the frontend's half and the record's position in the fold's.

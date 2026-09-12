@@ -14,14 +14,14 @@ public section
 /-!
 # The main theorem and the main corollary
 
-What the checker accepts has a model; hence chunks that declare a
-theorem of type `False` are not accepted at all — the form a reader
-can check without knowing what an `Env` is.  Those two theorems are
-all this file holds.  The corollary's statement is the binary's accept
-path itself: the three pure functions the driver's phases compute,
-chained — the built-in prelude parses, the chunks parse, the verified
-fold accepts the parsed records prepared with the prelude — and that
-chain does not succeed.  The steps between are imported: the parser reads
+What the checker accepts has a model; hence chunks the binary accepts
+do not declare a theorem of type `False` — the form a reader can check
+without knowing what an `Env` is.  Those two theorems are all this file
+holds.  The corollary's hypothesis is the binary's accept path itself:
+the three pure functions the driver's phases compute, chained — the
+built-in prelude parses, the chunks parse, the verified fold accepts
+the parsed records prepared with the prelude — and what that chain
+accepts declares no such theorem.  The steps between are imported: the parser reads
 such chunks into records holding a theorem record of type `False`
 (`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
 parsed record (`Frontend.mem_preparePrelude`), and a stream holding
@@ -51,7 +51,7 @@ denotation — in `ConLeche/Denotes.lean`.
   `CheckError` with the position of the failure (the input's line
   number for the first two, the fold position for the fold) — so the
   chain is a plain `Except` `do` block with no conversion in it, and
-  the conclusion is that it does not succeed.
+  the hypothesis is simply that it succeeds.
 * `Declaration` is a parsed declaration, and the records travel as an
   `Array` of them — what the parse returns and what the fold folds;
   `Env` is the environment the checker builds; `env.consts` are the
@@ -84,18 +84,19 @@ theorem model_exists (V : Type w) [SetTheory V]
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
-/-- **The main corollary.**  Chunks that declare a theorem of type
-`False` are never accepted: the parse reads the template's four lines
-into a theorem record of type `False`, the preparation keeps the
+/-- **The main corollary.**  Accepted chunks declare no theorem of type
+`False`: were the template's four lines there, the parse would read them
+into a theorem record of type `False`, the preparation would keep the
 record, and a stream holding it is never accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    (h : hasProofOfFalse chunks) :
-    (do
+    (accepted : (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds).isOk = false := by
-  refine Except.isOk_eq_false fun env hacc => ?_
+      checkDecls .verified ds).isOk) :
+    ¬ hasProofOfFalse chunks := by
+  intro h
+  obtain ⟨env, hacc⟩ := Except.exists_ok_of_isOk accepted
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse

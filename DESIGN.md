@@ -70866,3 +70866,108 @@ and, in "### The Main Theorem":
 >   (accepted : checkDecls .verified ds = .ok env) :
 >   Nonempty (Model V env)
 > ```
+
+## TASK #296 — THE MAIN COROLLARY, CONTRAPOSED (2026-09-12, `agent/contra-296`)
+
+### 1. The ruling, verbatim
+
+*"the `isOk = false` is not nice.  How about you move the isOk to the
+assumption and conclude `¬hasProofOfFalse`"*
+
+### 2. The statement, as landed
+
+```lean
+open Frontend in
+/-- **The main corollary.**  Accepted chunks declare no theorem of type
+`False`: were the template's four lines there, the parse would read them
+into a theorem record of type `False`, the preparation would keep the
+record, and a stream holding it is never accepted. -/
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (accepted : (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds).isOk) :
+    ¬ hasProofOfFalse chunks := by
+  intro h
+  obtain ⟨env, hacc⟩ := Except.exists_ok_of_isOk accepted
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+```
+
+The hypothesis name is `accepted`, as in `model_exists`.  `(…).isOk` in
+hypothesis position is the `Bool → Prop` coercion, so the ELABORATED
+statement — what the challenge gate compares and what a reader sees —
+carries the `= true` the previous spelling's `= false` did:
+
+```
+(do … ConLeche.Cached.checkDecls ConLeche.CheckMode.verified ds).isOk = true →
+  ¬ConLeche.hasProofOfFalse chunks
+```
+
+`= true` was therefore NOT written out in the source: the coercion
+prints it anyway, and the maintainer's spelling is the shorter one.
+Task #295's reason for the `isOk` form over `matches` is unaffected —
+there is still no generated matcher in the statement.
+
+`ConLeche/Verify/ExceptBind.lean` swapped its one-line helper the same
+way the statement turned around: `Except.isOk_eq_false` (∀-premise,
+conclusion `.isOk = false`) is DELETED and replaced by
+
+```lean
+theorem Except.exists_ok_of_isOk {ε α : Type} {x : Except ε α} (h : x.isOk) :
+    ∃ a, x = .ok a
+```
+
+which is what turns the new hypothesis into the environment the rest of
+the proof peels.  `exceptBind_ok` is untouched, and nothing else used
+either lemma.  (`Except.isOk` is an `abbrev` for `Except.toBool`, so the
+error branch closes with `simp [Except.toBool]`, not `rfl`.)
+
+### 3. What else moved
+
+Only prose: the `MainTheorem.lean` and `Challenge.lean` headers and the
+two docstrings (token-identical statements, `tests/challenge.sh`),
+`ConLeche/Accepts.lean`'s closing paragraph, OVERVIEW §1's citing
+paragraph (re-read before `overview-links.sh --update`; the corollary's
+anchor grew by one line), and the `tests/ConLecheTests/Axioms.lean`
+table row.  `Main.lean`'s two mentions and its `--verified` help text
+say "a file that declares a theorem of type `False` is never accepted",
+which is the same claim in words and is left alone — the help text is
+compared byte-for-byte by the e2e gate.
+
+### 4. Gates
+
+`lake build` and `lake test` warning-free, challenge (statements
+identical), overview-links, no-local-paths, proofdeps (unchanged: the
+pin records the MODULES the proof term reaches, and the swapped helper
+lives in the module the old one did).  No arena battery and no checker
+run: no executable code changed — `MainTheorem.lean`, `Challenge.lean`
+and `ExceptBind.lean` are statements and proofs only.
+
+### 5. The README's replacement text
+
+`README.md` is the maintainer's.  In "### The Main Corollary" the code
+block now reads
+
+> ```lean
+> open Frontend in
+> theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+>     (accepted : (do
+>       let pre ← builtinPreludeE
+>       let r ← parseChunks chunks
+>       let ds := preparePrelude pre r.decls
+>       checkDecls .verified ds).isOk) :
+>     ¬ hasProofOfFalse chunks
+> ```
+>
+> The hypothesis is the binary's accept path — the built-in prelude
+> parses, the chunks parse, the verified fold accepts the parsed records
+> prepared with the prelude, all three failing in one error type, so the
+> chain is a plain `do` block and `.isOk` says it succeeded — and the
+> conclusion is that the bytes the binary read hold no theorem of type
+> `False`.
+
+("### The Main Theorem" is unchanged from task #295 §7.)
