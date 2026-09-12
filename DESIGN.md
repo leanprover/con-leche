@@ -71151,9 +71151,50 @@ pins are small.
 The shadow gate is unchanged at 23/23: nothing in the corpus or the
 fixtures narrows.
 
+#### K.3 `pinsClosed`: the pins' SCOPE is checked, because nothing else checks it (2026-09-12, DESIGN §M.20 finding 1)
+
+**The finding** (model lane): the pins' scope is certified by nothing.
+`annotateBody` certifies only that each `.fvar` it REACHES carries an
+index below the depth; it never descends into an fvar's TYPE
+ANNOTATION, never compares that annotation with the opener's, and
+passes `.bvar` through untouched.  And a pin's components appear in no
+other term the route checks — they are dropped from the auxiliary
+declaration, which is the whole reason post-check (a) exists.
+
+**What landed.**  In `nestedPinsOk`, two Bool tests on each ABSTRACTED
+pin `Expr.abstractRange q.pin 0 nP 0` — `hasFvar = false` and
+`looseBVarsBounded nP` — thrown as `.invalid`; and the same pair as one
+pass over the whole list, `pinsClosed nP pins`, checked once in
+`checkNested` and recorded as an explicit conjunct of
+`checkNested_inv` and `DeclNestedRun`, so the model tier gets the fact
+for EVERY pin without inverting the loop.  **The precedent is
+`ConstWF`**, which demands exactly this pair of a nested RULE's stored
+pins (`Verify/EnvWF.lean`); a nested route that generates such rules
+should not be weaker about the pins they are read from.
+
+**It narrows only where official rejects too.**  A pin is `J Ds` with
+`Ds` read out of a constructor body opened at the block's parameters and
+at NOTHING else (`Expr.instPis cty params`), and the stream's own terms
+carry no free variable at all (`checkConstantVal`); so the only free
+variables a pin can hold are `0 … nP-1`, which the abstraction removes.
+A pin that held a FIELD variable was already refused by `nestedOccOk` —
+official's "nested inductive datatypes parameters cannot contain local
+variables".  Loose bound variables likewise: a pin has none in the
+opened context (`nestedOccOk`'s `looseBVarsBounded 0`) and
+`abstractRange` introduces one only at an abstracted parameter, at a
+depth-bumped index below `nP`.  A pin failing either test is a term no
+kernel run produces, and official's own `type_checker`, meeting the
+same term at its `tc.check(nested, lparams)`, refuses it as well.
+
+**Confirmed, not argued**: the shadow gate is 23/23 and the Mathlib
+nested cone is unchanged at 41/41 accept — nothing in the corpus or the
+fixtures narrows.  Cost on the cone: **298.869 G vs 298.867 G
+instructions:u, +0.0019 G = +0.0006 %** (one more `abstractRange` walk
+over 132 small pins), i.e. free beside K.2's own +0.048 %.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
-did not move; re-run after K.1 on `inductives` = `2e2fc245`, and again
-after K.2 on `inductives` = `3640f02e`):
+did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
+on `3640f02e`, and again after K.3 on `40ad5bc2`):
 
 | gate | result |
 |---|---|
