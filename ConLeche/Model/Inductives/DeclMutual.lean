@@ -38,16 +38,15 @@ cross-member parameter identification (`paramFrames` at
 member's index telescope can be graded at another member's parameter
 frame, and the tag is the union of all of them.
 
-**What the tail still owes** (the ONE `sorry`, DESIGN §8.12): the
-table stage's `MutualTableOk` asks each member for
-`d.isProp = (Level.isEquiv f.s .zero == some true)` — a BLOCK-wide bit
-against the MEMBER's own result-sort spelling — and the checker only
-relates the members' sorts semantically (`mutualCrossChecks`'
-`Level.isEquiv f.s f₀.s = some true`, and `Level.isEquiv` has a
-soundness lemma and no completeness).  Every other conjunct of the
-stage is discharged here; the repair belongs to
-`Model/Inductives/MutualStageTable.lean`, which is not this lane's
-file.
+**The stage is fully applied**: every conjunct the four stages ask is
+discharged here, `stageMutualTables` included.  The last one to fall
+was the table stage's block-wide `Prop`-ness bit against the MEMBER's
+own result-sort spelling (`d.isProp = (Level.isEquiv f.s .zero == some
+true)`), which the checker relates only semantically
+(`mutualCrossChecks`' `Level.isEquiv f.s f₀.s = some true`); it needs
+no transitivity of `Level.isEquiv`, because at `.zero` that test is
+COMPLETE — `simplify` decides the zero level (`isPropBit_congr` and
+the kit above it).
 
 -/
 
@@ -63,6 +62,80 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-! ## Kit: `Level.isEquiv · .zero` is COMPLETE
+
+The block's `isProp` bit is `Level.isEquiv f₀.s .zero == some true` at
+the FIRST member, while `checkStructProjTable` — and `MutualTableOk`
+after it — reads each member's OWN result-sort spelling; the checker
+relates the two only semantically (`mutualCrossChecks`' `Level.isEquiv
+f.s f₀.s = some true`).  Bridging them syntactically looks like
+transitivity of `Level.isEquiv`, which the tree does not have — but at
+the level `.zero` it needs none: `simplify` DECIDES the zero level, so
+`isEquiv · .zero` is complete, and the bit is a function of the
+member's sort's MEANING.  (The two lemmas are about `Level` alone and
+belong in `Verify/Level.lean`; they live here until a lane owns that
+file.) -/
+
+/-- **`simplify` decides the zero level**: a level that evaluates to
+`0` under every assignment simplifies to `.zero`.  Structural: a
+`param` is nonzero at `fun _ => 1` and a `succ` everywhere; a
+simplified `max`'s two sides must both vanish, and a simplified
+`imax`'s right side must (else the `imax` takes the `max`, which is at
+least its right side). -/
+theorem simplify_eq_zero_of_eval : ∀ {a : Level},
+    (∀ ψ : Name → Nat, Level.eval ψ a = 0) → Level.simplify a = Level.zero := by
+  intro a
+  induction a with
+  | zero => intro _; rfl
+  | param n => intro h; have := h (fun _ => 1); simp [Level.eval] at this
+  | succ l _ => intro h; have := h (fun _ => 0); simp [Level.eval] at this
+  | max l r ihl ihr =>
+    intro h
+    have hl : ∀ ψ : Name → Nat, Level.eval ψ l = 0 := by
+      intro ψ; have := h ψ; simp only [Level.eval] at this; omega
+    have hr : ∀ ψ : Name → Nat, Level.eval ψ r = 0 := by
+      intro ψ; have := h ψ; simp only [Level.eval] at this; omega
+    show Level.combining (Level.simplify l) (Level.simplify r) = Level.zero
+    rw [ihl hl, ihr hr]
+    rfl
+  | imax l r _ ihr =>
+    intro h
+    have hr : ∀ ψ : Name → Nat, Level.eval ψ r = 0 := by
+      intro ψ
+      by_cases hz : Level.eval ψ r = 0
+      · exact hz
+      · have := h ψ
+        simp only [Level.eval, if_neg hz] at this
+        omega
+    simp only [Level.simplify, ihr hr]
+    split <;> rfl
+
+/-- **The completeness `Level.isEquiv_sound` is missing, at `.zero`**:
+a level that vanishes under every assignment IS `isEquiv`-equal to
+`.zero` — the second disjunct of `isEquiv` (`simplify l = simplify r`,
+`isEquiv_eq_withoutPtr`) fires, no `leq` involved. -/
+theorem isEquiv_zero_of_eval {a : Level}
+    (h : ∀ ψ : Name → Nat, Level.eval ψ a = 0) :
+    Level.isEquiv a Level.zero = some true := by
+  rw [Level.isEquiv_eq_withoutPtr,
+    if_pos (show Level.simplify a = Level.simplify Level.zero from simplify_eq_zero_of_eval h)]
+  rfl
+
+/-- The block's `Prop`-ness bit is a function of the member's sort's
+MEANING: two levels with the same evaluation everywhere give the same
+bit (completeness one way, `isEquiv_sound` the other). -/
+theorem isPropBit_congr {a b : Level} (hab : ∀ ψ : Name → Nat, Level.eval ψ a = Level.eval ψ b) :
+    (Level.isEquiv a Level.zero == some true) = (Level.isEquiv b Level.zero == some true) := by
+  have hcomp : ∀ u : Level, (∀ ψ : Name → Nat, Level.eval ψ u = 0) →
+      (Level.isEquiv u Level.zero == some true) = true := fun u hu => by
+    rw [isEquiv_zero_of_eval hu]; rfl
+  have hsound : ∀ u : Level, (Level.isEquiv u Level.zero == some true) = true →
+      ∀ ψ : Name → Nat, Level.eval ψ u = 0 := fun u hu ψ =>
+    Level.isEquiv_sound (beq_iff_eq.mp hu) ψ
+  exact Bool.eq_iff_iff.mpr
+    ⟨fun ha => hcomp b (fun ψ => by rw [← hab ψ]; exact hsound _ ha ψ),
+     fun hb => hcomp a (fun ψ => by rw [hab ψ]; exact hsound _ hb ψ)⟩
 
 /-! ## The representation clause's obligations -/
 
@@ -5489,20 +5562,13 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       obtain ⟨cbs, es, hstrip, -⟩ := (hCD₁ J _ hcA).resid
       rw [← hnF, hstrip]
       rfl
-    · -- **THE ONE OPEN CONJUNCT** (DESIGN §8.12), a landed STATEMENT, not
-      -- a proof: `MutualTableOk` asks, at every member, that the
-      -- BLOCK-wide `d.isProp` equal `(Level.isEquiv f.s .zero == some true)`
-      -- — the member's OWN result-sort SPELLING.  The checker computes its
-      -- one `isProp` from the FIRST member (`checkMutualCore`) and relates
-      -- the members' sorts only by `mutualCrossChecks`' semantic
-      -- `Level.isEquiv f.s f₀.s = some true`; the tree has
-      -- `Level.isEquiv_sound` and nothing else (no completeness, no
-      -- transitivity), so a second member spelling its sort merely DEFEQ
-      -- to the first's refutes the conjunct.  `MutualStageTable.lean` is
-      -- not this lane's file: §8.12 states the repair (`hProp` semantic,
-      -- `hO5` hoisted with a semantic guard); everything else this stage
-      -- asks is proved above.
-      sorry
+    · -- the BLOCK's `isProp` bit (member `0`'s spelling) IS this
+      -- member's own: the members' sorts agree semantically
+      -- (`mutualCrossChecks`, `hsq`) and `isEquiv · .zero` is complete
+      -- (`isPropBit_congr`)
+      show (Level.isEquiv f₀.s Level.zero == some true)
+        = (Level.isEquiv q.1.s Level.zero == some true)
+      exact isPropBit_congr (fun ψ => (hsq ψ).symm)
     · -- the member's name is not a projection function's
       obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF q.2 q.1 hget
       obtain ⟨-, -, hsh, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
