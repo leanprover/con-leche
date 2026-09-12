@@ -71232,10 +71232,16 @@ Counts before / after: **88 links, 56 files, 1 document** →
 Link-only edits: the link *text* is the existing text, character for
 character, and no other character of the file changed.  Targets are
 `https://github.com/leanprover/con-leche/blob/master/<path>#L<a>-L<b>`
-(the current repository slug; `OVERVIEW.md`'s 88 links still spell the
-pre-rename `leanprover/lech` and resolve through GitHub's redirect —
-normalising them is a pure URL change that the gate would not even
-notice, and is left to its own pass).
+— **the canonical form for every new code link in this repository**.
+`OVERVIEW.md`'s 88 links spelled the pre-rename `leanprover/lech` and
+resolved only through GitHub's rename redirect; they are normalised to
+`leanprover/con-leche` here (maintainer: "the redirect is not something
+to rely on").  It is a pure URL change: the gate records path and lines
+only, matches owner/repo loosely on purpose, and the expectation is
+byte-identical across it.  The tree holds no other `leanprover/lech`
+URL; the two remaining mentions in this document are HISTORY — a quoted
+`lech: declined:` verdict line and task #216's own statement of the
+link form — and stay as written.
 
 | README § | linked text | target |
 |---|---|---|
@@ -71310,8 +71316,20 @@ maintainer's.
 
 | gate | result |
 |---|---|
-| `tests/overview-links.sh` | 103 links, 57 files, 2 documents, OK (one `--update` after every anchor was read) |
+| `tests/overview-links.sh` | 103 links, 57 files, 2 documents, OK (one `--update` after every anchor was read; OK again, expectation byte-identical, after the slug normalisation and after merging master's `ed604845`) |
 | failure paths, exercised by hand | a broken relative target is named as a structural error; a citation change in a README-only anchor names `README.md` alone |
 | `tests/arena.sh` (`env -i`, no ulimit) | exit 0 |
 | `tests/no-local-paths.sh` | OK |
 | `lake build` | warning-free, 560 jobs (a cold build: the worktree was fresh and `tests/arena.sh` needs the binary and the oleans — no `.lean` file changed) |
+
+### 5. Master moved under the branch
+
+`ed604845` ("README: Mutli-version NatOps") reworded the last sentence
+of README's "### Nat operations" while this branch was open.  The merge
+is clean and the paragraph carries none of this task's links; the
+maintainer's text stands character for character, and the diff of
+`README.md` against `ed604845` is link markup and nothing else.  The
+reworded sentence names no code, so nothing was re-linked and nothing
+dropped.  `README.md` is a CITING document: its own line numbers appear
+nowhere in the expectation, so an edit to it moves no citation — the
+gate confirms that, not the reasoning.
