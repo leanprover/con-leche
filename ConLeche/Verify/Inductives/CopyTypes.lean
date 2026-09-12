@@ -31,31 +31,43 @@ the pin *on the nose, data included*; up to data it has them already.
 (`ConLeche/Kernel/PropRead.lean`) and only falls back to inference when
 the reader declines.  The reader is a *syntactic* function of the head
 symbol, the arity and the binder data — so on the reader's branch the
-recomputation commutes with instantiation for elementary reasons, and
-this module proves exactly that:
+recomputation commutes with instantiation for elementary reasons.
+
+**What is proved here.**
 
 * `SortAgree find? A v` — "`v` reads, for the head reader, like a
   variable declared of type `A`": at every arity, the datum the reader
   computes from `v`'s head is the one it computes from `A`'s telescope.
-  This is the hypothesis a *pin component* has to meet, and it is what
-  the pin's typing (`pinsOkAux`) says in reader terms.
+  This is the hypothesis a *pin component* has to meet.
 * `typeSortPW_instantiate1_congr` — the reader cannot tell an opened
   binder from a `SortAgree` value: substituting one for the other
   leaves every reading unchanged.
 * `typeSortPW_instantiateLevelParams` — the reader commutes with level
-  instantiation through `substPW`, which is the datum's own
-  substitution (`Level.zeronessOf_subst`, `Level.substPW_comp`).
+  instantiation through `substPW`, the datum's own substitution
+  (`Level.zeronessOf_subst`, `Level.substPW_comp`), under `EnvWF`'s
+  bound on stored types' level parameters.
+* `AnnotStable find? d e` — the pass's fixed points: at every binder
+  either the datum is a real input annotation, which the pass keeps by
+  construction, or it is the reader's answer on the opened body.
+* `AnnotRel R e e'` — two terms differing only at `R`-related,
+  bvar-closed leaves ("the raw pin component and its annotation").
+* **`annotateCore_of_annotRel`** — THE THEOREM: annotating `e` returns
+  `e'`, *binder data included*, whenever the leaves annotate to their
+  partners and `e'` is `AnnotStable`, `WScoped` and bvar-closed.  With
+  `R = ⊥` it is `annotateCore_eq_self`: the pass is the identity on its
+  own fixed points.
+* `typeSortPW_sort`, `typeSortPW_forallE`, `typeSortPW_mkAppN_const`
+  and the two transports `typeSortPW_at_pin` / `typeSortPW_at_levels`:
+  what a copy's binder obligations are discharged by.
 
-Both are one *equation* per reading, with no inference, no reduction and
-no environment invariant beyond the stored types' level-parameter
-bound (`EnvWF`).
-
-**What is NOT here** — and is the task's honest frontier: the
-inference fallback.  Where the reader declines (a `.proj`- or
-redex-headed codomain), the datum is `Level.zeronessOf` of an INFERRED
-sort, and its stability under instantiation is the general
-inference-substitution theorem the tree does not have.  DESIGN's
-`#### K.4` states it.
+**What is NOT here** — the task's honest frontier.  Where the reader
+DECLINES (a `.proj`- or redex-headed codomain), the datum is
+`Level.zeronessOf` of an INFERRED sort, and its stability under
+instantiation is the general inference-substitution theorem the tree
+does not have; and the *telescope* bookkeeping that turns these node
+facts into the copy's whole stored type (`instPis`, `closeTelescope`,
+`normCtorValM`) is the model lane's next step.  DESIGN's `#### K.4`
+states both.
 -/
 
 namespace ConLeche
@@ -434,11 +446,22 @@ construction (`pwWritten`) — or exactly the head reader's answer on the
 opened body, which is what `annotPwPi`/`annotPwLam` write when the
 reader answers.
 
-The datum is required to be the READER's answer even where the input
-datum is a real annotation the pass would keep (`pwWritten`): a written
-datum is not preserved by level instantiation — `substPW` can collapse
-`ifAllZero [u]` to `.never` at `u := 1`, after which the pass recomputes
-— so the reader's answer is the only form that transports.
+**The obligation is only at a `.never` binder.**  A real input
+annotation (`pwWritten`, i.e. anything but `.never`) the pass KEEPS by
+construction, so such a binder owes nothing; and a minted copy inherits
+its data from the container's stored type, so at those binders the
+copy's datum IS the container's on the nose.  What is left is exactly
+the `.never` binders — every Type-valued codomain — and there the
+obligation is that the reader answers `.never` again, which is the
+reader's most robust case (a `Sort` codomain, a `∀` codomain whose own
+datum is `.never`, or a constant-headed one whose stored result sort is
+never zero).
+
+Note that the predicate is stated of the term the pass is to REPRODUCE,
+not of the term it starts from: a written datum is not preserved by
+level instantiation — `substPW` collapses `ifAllZero [u]` to `.never` at
+`u := 1` — so the `.never` binders of the INSTANTIATED type are the ones
+that must be discharged, and they are more than the container's own.
 
 `.letE` and `.proj` have no clause, and that is not an oversight: the
 pass rewrites a `let` to its ζ reduct and re-spells a projection's
@@ -456,12 +479,14 @@ inductive AnnotStable (find? : Name → Option ConstantInfo) : Nat → Expr → 
   | forallE {d ty body m} :
       AnnotStable find? d ty →
       AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
-      typeSortPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      (pwWritten m.pw = true ∨
+        typeSortPW find? (body.instantiate1 (.fvar d ty)) = some m.pw) →
       AnnotStable find? d (.forallE ty body m)
   | lam {d ty body m} :
       AnnotStable find? d ty →
       AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
-      proofPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      (pwWritten m.pw = true ∨
+        proofPW find? (body.instantiate1 (.fvar d ty)) = some m.pw) →
       AnnotStable find? d (.lam ty body m)
 
 /-! ## `AnnotRel`: the same term up to annotated leaves -/
@@ -640,11 +665,13 @@ theorem annotateCore_of_annotRel {env : Env} {R : Expr → Expr → Prop}
             (looseBVarsBounded_instantiate1 b' 0 hb.2) hb1
         have hround : (b'.instantiate1 (.fvar d ty')).abstract1 d = b' :=
           Expr.instantiate1_abstract1 b' 0 hw.2 hb.2
-        rcases hcase with ⟨-, rfl⟩ | ⟨-, pw, hpwEq, rfl⟩
+        rcases hcase with ⟨-, rfl⟩ | ⟨hnw, pw, hpwEq, rfl⟩
         · rw [hround]
-        · have hval : pw = m.pw :=
-            Except.ok.inj (hpwEq.symm.trans (annotPwPi_of_reader hpw))
-          rw [hround, hval]
+        · rcases hpw with hwr | hrd
+          · rw [hwr] at hnw; exact nomatch hnw
+          · have hval : pw = m.pw :=
+              Except.ok.inj (hpwEq.symm.trans (annotPwPi_of_reader hrd))
+            rw [hround, hval]
     | lam m hrty hrb =>
       rename_i ty₀ ty' b₀ b'
       obtain ⟨tyA, bodyA, hty1, hb1, hcase⟩ := annotateCore_lam_inv_pw h
@@ -659,11 +686,13 @@ theorem annotateCore_of_annotRel {env : Env} {R : Expr → Expr → Prop}
             (looseBVarsBounded_instantiate1 b' 0 hb.2) hb1
         have hround : (b'.instantiate1 (.fvar d ty')).abstract1 d = b' :=
           Expr.instantiate1_abstract1 b' 0 hw.2 hb.2
-        rcases hcase with ⟨-, rfl⟩ | ⟨-, pw, hpwEq, rfl⟩
+        rcases hcase with ⟨-, rfl⟩ | ⟨hnw, pw, hpwEq, rfl⟩
         · rw [hround]
-        · have hval : pw = m.pw :=
-            Except.ok.inj (hpwEq.symm.trans (annotPwLam_of_reader hpw))
-          rw [hround, hval]
+        · rcases hpw with hwr | hrd
+          · rw [hwr] at hnw; exact nomatch hnw
+          · have hval : pw = m.pw :=
+              Except.ok.inj (hpwEq.symm.trans (annotPwLam_of_reader hrd))
+            rw [hround, hval]
     | letE _ _ _ => exact nomatch hst
     | proj s i _ => exact nomatch hst
 
@@ -675,5 +704,98 @@ theorem annotateCore_eq_self {env : Env} {F : Nat} {e : Expr} {d : Nat} {r : Exp
   annotateCore_of_annotRel (R := fun _ _ => False)
     (fun _ _ hf => nomatch hf) (fun _ _ hf => nomatch hf) F e e d r
     (AnnotRel.refl _ e) hst hw hb h
+
+/-! ## Discharging the `.never` obligation
+
+The three shapes a copy's binder codomain has.  A former's codomain is
+a `Sort`; a telescope's inner node is a `∀` and reuses its neighbour's
+datum (the chain read); a constructor's codomain is the container
+applied to the pin and the indices, and the reader answers from the
+container's STORED result sort.  All three are `rfl` or one `mkAppN`
+walk — no inference, which is the point. -/
+
+@[simp] theorem typeSortPW_sort (find? : Name → Option ConstantInfo) (u : Level) :
+    typeSortPW find? (.sort u) = some .never := rfl
+
+@[simp] theorem typeSortPW_forallE (find? : Name → Option ConstantInfo)
+    (ty b : Expr) (m : BinderMeta) :
+    typeSortPW find? (.forallE ty b m) = some m.pw := rfl
+
+theorem Expr.getAppFn_mkAppN (f : Expr) :
+    ∀ (args : List Expr), (Expr.mkAppN f args).getAppFn = f.getAppFn := by
+  intro args
+  induction args generalizing f with
+  | nil => rfl
+  | cons a as ih => exact ih (.app f a)
+
+theorem Expr.numArgs_mkAppN (f : Expr) :
+    ∀ (args : List Expr), (Expr.mkAppN f args).numArgs = f.numArgs + args.length := by
+  intro args
+  induction args generalizing f with
+  | nil => rfl
+  | cons a as ih =>
+    show (Expr.mkAppN (.app f a) as).numArgs = _
+    rw [ih (.app f a)]
+    show f.numArgs + 1 + as.length = _
+    simp only [List.length_cons]
+    omega
+
+/-- **A constructor's codomain reads off the container's stored result
+sort.**  `I` applied to `args` inhabits `Sort u` with `u` the residual
+of `I`'s stored type after `args.length` never-data binders — which is
+what a former's telescope has (`∀ p⃗ ı⃗, Sort u` carries `.never` at
+every binder). -/
+theorem typeSortPW_mkAppN_const (find? : Name → Option ConstantInfo)
+    {I : Name} {us : List Level} {ci : ConstantInfo} {u : Level}
+    {args : List Expr} (hne : args ≠ [])
+    (hf : find? I = some ci) (hnt : ci.isTowerEntry = false)
+    (hlen : us.length = ci.toConstantVal.levelParams.length)
+    (hpeel : ci.toConstantVal.type.peelNeverPis args.length = some (.sort u)) :
+    typeSortPW find? (Expr.mkAppN (.const I us) args)
+      = some (Level.substPW ci.toConstantVal.levelParams us (Level.zeronessOf u)) := by
+  have hshape : ∀ (g : Expr) (a : Expr) (as : List Expr),
+      typeSortPW find? (Expr.mkAppN g (a :: as))
+        = headTypePW find? (Expr.mkAppN g (a :: as)).getAppFn
+            (Expr.mkAppN g (a :: as)).numArgs := by
+    intro g a as
+    clear hpeel
+    induction as generalizing g a with
+    | nil => rfl
+    | cons b bs ih => exact ih (.app g a) b
+  cases args with
+  | nil => exact absurd rfl hne
+  | cons a as =>
+    rw [hshape (.const I us) a as, Expr.getAppFn_mkAppN, Expr.numArgs_mkAppN]
+    show headTypePW find? (Expr.const I us) (0 + (a :: as).length) = _
+    rw [Nat.zero_add, headTypePW_const, hf]
+    simp only [hnt, Bool.false_eq_true, if_false, hlen, if_true, hpeel, residualPW,
+      Option.map_some]
+
+/-! ## The two transports of the datum obligation
+
+`AnnotStable`'s obligation at a binder is a reading of the OPENED body.
+The elimination changes that body twice — the container's parameters
+become the pin's components, and the container's level parameters
+become the occurrence's levels — and these are the two lemmas that move
+the obligation across, with no inference on either side. -/
+
+/-- The container's reading, at the pin: substituting a `SortAgree`
+component for the opened parameter leaves the datum alone. -/
+theorem typeSortPW_at_pin (find? : Name → Option ConstantInfo)
+    {A v b : Expr} (idx k : Nat) {pw : PropWhen} (hsa : SortAgree find? A v)
+    (h : typeSortPW find? (b.instantiate1 (.fvar idx A) k) = some pw) :
+    typeSortPW find? (b.instantiate1 v k) = some pw :=
+  (typeSortPW_instantiate1_congr find? idx hsa b k).trans h
+
+/-- The container's reading, at the occurrence's levels: the datum
+travels by its own substitution. -/
+theorem typeSortPW_at_levels (find? : Name → Option ConstantInfo)
+    {ks : List Name} {vs : List Level}
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {b : Expr} {pw : PropWhen} (h : typeSortPW find? b = some pw) :
+    typeSortPW find? (b.instantiateLevelParams ks vs)
+      = some (Level.substPW ks vs pw) :=
+  typeSortPW_instantiateLevelParams find? hdef h
 
 end ConLeche
