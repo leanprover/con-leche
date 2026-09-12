@@ -10,7 +10,7 @@ public section
 ConLeche is a proof checker for Lean's export format: hand it the stream
 of declarations `lean4export` writes for a Lean development and it
 re-checks every one of them from scratch.  This module states the
-two theorems the project exists to prove and leaves them `sorry`; the
+theorems the project exists to prove and leaves them `sorry`; the
 proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 
 > **Main theorem.**  If the checker accepts a stream, the environment
@@ -19,7 +19,9 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > of its type, `False` is empty, and `Eq` is set equality.
 >
 > **Main corollary.**  Hence that environment contains no constant
-> whose type is `False`.
+> whose type is `False` — and hence, at the stream, a list of
+> declarations one of whose records declares a theorem of type `False`
+> is never accepted at all.
 
 The second is a corollary of the first: `False` denotes the empty set,
 which has no members.  An accepted stream is therefore not a proof of
@@ -45,6 +47,11 @@ equation of the two sides' denotations.
   so of *the* denotation.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
+* `DeclC.thmDecl cv v ∈ ds` says the stream declares a theorem with
+  header `cv` and value `v`; the stream-side corollary asks only that,
+  and that the header's declared type is `False`.  It says the extra
+  thing the first corollary leaves open — that such a record is not
+  quietly dropped, aliased or re-typed as it is installed.
 * `c.toConstantVal.type = .const falseName []` says `c` is a proof of
   `False`.  `False` is built in: the checker installs it from its own
   pin, and a stream that declares `False` or `False.rec` differently is

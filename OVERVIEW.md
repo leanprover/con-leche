@@ -92,7 +92,7 @@ covered exactly as a run without it, and so is a run on the pool.
 The statement is three theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
 a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L50-L53):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L52-L55):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -123,14 +123,14 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L60-L63),
+[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L62-L65),
 follows in three lines — a constant of type `False` would be a member
 of the empty set:
 
 > … then `env` stores no constant whose type is `False`.
 
 The same corollary is stated a second time over the fold's INPUT,
-[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L75-L78):
+[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L77-L80):
 
 > … if any record of `ds` declares a theorem whose declared type is
 > `False`, then `checkDecls` accepts `ds` with no environment at all.

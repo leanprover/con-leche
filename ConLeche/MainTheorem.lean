@@ -7,10 +7,12 @@ import ConLeche.Verify.Cached.StreamThm
 public section
 
 /-!
-# The main theorem, and the main corollary it implies
+# The main theorem, and the two corollaries it implies
 
 What the checker accepts has a model; hence it contains no constant of
-type `False`.  Those two theorems are all this file holds.  The
+type `False` — and hence a stream that declares a theorem of type
+`False` is not accepted at all.  Those three theorems are all this
+file holds.  The
 statements, with a plain-words account of every name in them, are in
 `ConLeche/Challenge.lean`; the reading of terms and the notion of
 model — and `Denotes_functional`, which says a term has at most one
