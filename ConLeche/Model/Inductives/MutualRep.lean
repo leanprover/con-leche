@@ -461,6 +461,11 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hiffM : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρ ↔
         Sat V (((ppsOf mm ψ).take nP).map (·.2.2)).reverse ρ)
+    -- every member's own parameter telescope is the block's (task #279
+    -- M-B′ step 3c, `IndRep.paramsIffM`)
+    (hiffAll : ∀ t, t < k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((ppsOf t ψ).take nP).map (·.2.2)).reverse ρ)
     -- the container: the tag, the chains, the members' index telescopes
     (hTag : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp → TagOk (W ψ) ρp (Idss ψ))
@@ -473,6 +478,10 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hleafT : ∀ ψ : Name → Nat, m.acval (Tname mm) ψ
       = mutualTyAVI (W ψ) (resSort.eval ψ) (ppsOf mm ψ) (nIdxOf mm) (Idss ψ) rss (tlss ψ)
           (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) mm)
+    -- every member's leaf is a constant-bit λ-tower over its own data
+    -- (task #279 M-B′ step 3c, `IndRep.leafShape`)
+    (hleafAll : ∀ t, t < k → ∀ ψ : Name → Nat,
+      ∃ B, m.acval (Tname t) ψ = mkLamsC (resSort.eval ψ + 1) (ppsOf t ψ) B)
     (hleafC : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat, m.acval cA.1.name ψ
       = sumMkAV (resSort.eval ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2))
           (uChains (mutFss nP ctorsA.length dsF ψ)))
@@ -594,11 +603,13 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
       rw [hname t ht] at hf
       rw [hnIdxAt t ht]
       exact hFDall t ht cv caps hf
+    leafShape := fun t ht ψ => by rw [hname t ht]; exact hleafAll t ht ψ
     ctors := ?_
     memsFound := ?_
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff
+    paramsIffM := fun t ht ψ ρ => hiffAll t ht ψ ρ
     chains := ?_
     functor := fun ψ ρp hρ =>
       ⟨fixFunVI_mem (hXr ψ ρp hρ).hok, fixFunVI_mono (hXr ψ ρp hρ), fixFunVI_maps (hXr ψ ρp hρ),

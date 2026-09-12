@@ -185,11 +185,17 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
       rw [show d.memberName 0 = T from rfl, hfT.choose_spec] at hf
       obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
       exact hFDb
+    leafShape := fun t ht ψ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, rfl⟩
     ctors := fun j cA hj => nomatch hj
     memsFound := fun j hj => absurd hj (Nat.not_lt_zero j)
     idxRes := fun j cA hj => nomatch hj
     uParams := fun _ _ _ => rfl
     paramsIff := fun j cA hj => nomatch hj
+    paramsIffM := fun t ht _ _ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact Iff.rfl
     chains := fun ψ ρp _ => xChainsOk_toChainsOk (hX ψ ρp)
     functor := fun ψ ρp _ => ⟨fixFunVI_mem (hX ψ ρp).hok, fixFunVI_mono (hX ψ ρp),
       fixFunVI_maps (hX ψ ρp), fixFunVI_closed_exists (hX ψ ρp)⟩

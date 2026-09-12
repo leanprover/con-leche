@@ -5694,8 +5694,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (mI := p.toBlock.rulePrefix + (fms.getD t default).nIdx) (rP := p.toBlock.rulePrefix)
       (rules := rules) (bsT := bsT)
       ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
-      ?hFD ?hfound ?hlpsM ?hnodupM ?hFDall ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
-      ?hleafT ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
+      ?hFD ?hfound ?hlpsM ?hnodupM ?hFDall ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM
+      ?hiffAll ?hTag ?hX ?hIdss ?hleafT ?hleafAll ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
       (hrecName t ht) (hfreshR t ht) (fun ψ => (hRDs' t ht).read ψ)
     case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
     case hnIdxs => exact fun q hq => (hmemT q _ (hfmGet q hq)).2.symm
@@ -5745,6 +5745,9 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         ((hframesJ J hJl).1 ψ ρ)
     case hiffM =>
       exact fun ψ ρ => ⟨hframeAll 0 t f₀ _ hf0 hft ψ ρ, hframeAll t 0 _ f₀ hft hf0 ψ ρ⟩
+    case hiffAll =>
+      exact fun t' ht' ψ ρ => ⟨hframeAll 0 t' f₀ _ hf0 (hfmGet t' ht') ψ ρ,
+        hframeAll t' 0 _ f₀ (hfmGet t' ht') hf0 ψ ρ⟩
     case hTag => exact fun ψ ρp hρ => (hIdxAll 0 f₀ hf0 ψ ρp hρ).1
     case hX =>
       intro ψ ρp hρ
@@ -5755,6 +5758,12 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       intro ψ
       rw [hsEqAll t ψ ht, hagM t _ hft]
       exact congrFun (hleaf₁ t _ hft) ψ
+    case hleafAll =>
+      intro t' ht' ψ
+      have hft' := hfmGet t' ht'
+      obtain ⟨B, hB⟩ := hleafT₁ t' _ hft' ψ
+      refine ⟨B, ?_⟩
+      rw [hsEqAll t ψ ht, hagM t' _ hft', hB, hsEqAll t' ψ ht']
     case hleafC =>
       intro J cA hJ ψ
       rw [hsEqAll t ψ ht]

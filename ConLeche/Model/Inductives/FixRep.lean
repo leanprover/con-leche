@@ -532,11 +532,17 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
       rw [show d.memberName 0 = p.cvT.name from rfl, hfT.choose_spec] at hf
       obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
       exact hFD
+    leafShape := fun t ht ψ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, hleafT ψ⟩
     ctors := fun j cA hj => by rw [hlpsT]; exact hcf j cA hj
     memsFound := fun j hj => ⟨⟨_, _, hfT.choose_spec⟩, fun _ => ⟨_, _, hfT.choose_spec⟩⟩
     idxRes := hidxRes
     uParams := fun ψ₁ ψ₂ hq => hUparams ψ₁ ψ₂ (fun q hq' => hq q (by rw [hlpsT]; exact hq'))
     paramsIff := hiff
+    paramsIffM := fun t ht ψ ρ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact Iff.rfl
     chains := fun ψ ρp hρ => xChainsOk_toChainsOk (hX ψ ρp hρ)
     functor := fun ψ ρp hρ => ⟨fixFunVI_mem (hX ψ ρp hρ).hok, fixFunVI_mono (hX ψ ρp hρ),
       fixFunVI_maps (hX ψ ρp hρ), fixFunVI_closed_exists (hX ψ ρp hρ)⟩

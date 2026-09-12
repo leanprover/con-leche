@@ -596,6 +596,17 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   formersRead : ∀ t, t < d.kReal → ∀ (cv : ConstantVal) (caps : IndCaps),
     env.find? (d.memberName t) = some (.indInfo cv caps) →
     FormerData m cv (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) (d.lvlsM t)
+  /-- **every real member's leaf is the constant-bit λ-tower over its
+  own parameter and index data** (task #279 M-B′ step 3c, DESIGN §M.18
+  finding A): the fits a fold consumer needs — a constructor's index
+  readings fitting its member's index telescope — come ONLY from the
+  leaf's λ-shape (`spineFit_of_wellDenoted_lams`: a graded application
+  of a λ-tower forces its arguments into the tower's binders); grading
+  alone gives no fit.  Both routes have it at install (`hleafT`), the
+  pinned blocks literally, `nP = nIdx = 0` trivially (`mkLamsC _ [] B
+  = B`). -/
+  leafShape : ∀ t, t < d.kReal → ∀ ψ : Name → Nat,
+    ∃ B, m.acval (d.memberName t) ψ = mkLamsC (d.w ψ + 1) (d.ppsM t ψ) B
   /-- every constructor OF THE BLOCK is stored and its type reads as
   the datum says (`FixCtorDataI` at the constructor's own member, with
   the per-field target member: the field kinds, the recursive slots,
@@ -621,6 +632,15 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   /-- a constructor's parameter telescope is the former's, as a frame -/
   paramsIff : ∀ j cA, d.ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF j ψ).take d.nP).map (·.2.2)).reverse ρ
+  /-- **the parameters fit every real member's OWN parameter
+  telescope** (task #279 M-B′ step 3c, DESIGN §M.18 finding B):
+  `params` is member `0`'s; a fold consumer types a sibling member's
+  leaf against ITS tower (`formersRead`), so it needs the block's
+  parameter frame to be that member's too — the mutual install has it
+  (`mutualCrossChecks`, `hframeM`) and `k = 1` sites have it by
+  `Iff.rfl`. -/
+  paramsIffM : ∀ t, t < d.kReal → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ
   /-- at every parameter frame the X-chains are graded -/
   chains : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ)

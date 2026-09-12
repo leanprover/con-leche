@@ -165,6 +165,7 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
       rw [hcg.findUp _ _ hf0 (fun _ _ _ _ hh => nomatch hh)] at hf
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
       exact (h.formersRead t ht cv0 caps0 hf0).swap hcg hac
+    leafShape := fun t ht ψ => by rw [hac]; exact h.leafShape t ht ψ
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       exact ⟨hcg.findUp _ _ hfC (fun _ _ _ _ h => nomatch h), hlps, hD.swap hcg hac⟩
@@ -177,6 +178,7 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
       Expr.constsResolve_of_find (fun n hn => by rw [← hcg.isSomeEq]; exact hn) (h.idxRes j cA hj e he)
     uParams := h.uParams
     paramsIff := h.paramsIff
+    paramsIffM := h.paramsIffM
     chains := h.chains
     functor := h.functor
     fibre := h.fibre

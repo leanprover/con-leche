@@ -333,6 +333,10 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
       exact (h.formersRead t ht cv0 caps0 hf0).ext hx hag
         (envWF_constsBound m₂.wf _ (ConLeche.Semantics.Env.find?_mem hf0)).1
+    leafShape := fun t ht ψ => by
+      obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)
+      rw [← hag _ (by rw [hf0]; rfl)]
+      exact h.leafShape t ht ψ
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j (List.getElem?_eq_some_iff.mp hj).1
@@ -350,6 +354,7 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
       Expr.constsResolve_of_find (fun n hn => hx.isSome hn) (h.idxRes j cA hj e he)
     uParams := h.uParams
     paramsIff := h.paramsIff
+    paramsIffM := h.paramsIffM
     chains := h.chains
     functor := h.functor
     fibre := h.fibre

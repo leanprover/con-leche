@@ -432,6 +432,10 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
       rw [ConLeche.Env.find?_cons, if_neg (fun hh => hne hh.symm)] at hf
       exact (h.formersRead t ht cv caps hf).crossAt hfresh (hcross.typeOf hf)
         (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 m₂ hac
+    leafShape := fun t ht ψ => by
+      obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)
+      rw [hac, acvalWith_ne (ne_of_stored hfresh hf0)]
+      exact h.leafShape t ht ψ
     ctors := fun j cA hj => by
       obtain ⟨hfC, hlps, hD⟩ := h.ctors j cA hj
       obtain ⟨⟨cv, cps, hfm⟩, htg⟩ := h.memsFound j (List.getElem?_eq_some_iff.mp hj).1
@@ -448,6 +452,7 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     idxRes := fun j cA hj e he => Expr.constsResolve_mono (h.idxRes j cA hj e he)
     uParams := h.uParams
     paramsIff := h.paramsIff
+    paramsIffM := h.paramsIffM
     chains := h.chains
     functor := h.functor
     fibre := h.fibre

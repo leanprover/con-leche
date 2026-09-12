@@ -700,12 +700,18 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     former := ?fd
     formersRead := IndRep.formersRead_one rfl rfl
       (ConLeche.Env.find?_cons_of_fresh hfresh hP) ?fd
+    leafShape := fun t ht ψ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, rfl⟩
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hP⟩⟩
     idxRes := fun _ _ _ _ h => nomatch h
     uParams := fun _ _ _ => rfl
     paramsIff := fun _ _ _ _ _ => Iff.rfl
+    paramsIffM := fun t ht _ _ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact Iff.rfl
     chains := ?_
     functor := fun ψ ρp _ => ⟨?_, punitRepData_mono ψ ρp, punitRepData_maps ψ ρp,
       ⟨_, punitRepData_closed ψ ρp⟩⟩
@@ -2451,12 +2457,18 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     former := ?fd
     formersRead := IndRep.formersRead_one rfl rfl
       (ConLeche.Env.find?_cons_of_fresh hfresh hN) ?fd
+    leafShape := fun t ht ψ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨_, rfl⟩
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hN⟩⟩
     idxRes := fun _ _ _ _ h => nomatch h
     uParams := fun _ _ _ => rfl
     paramsIff := fun _ _ _ _ _ => Iff.rfl
+    paramsIffM := fun t ht _ _ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact Iff.rfl
     chains := ?_
     functor := fun ψ ρp _ => ⟨?_, natRepData_mono ψ ρp, natRepData_maps ψ ρp,
       ⟨_, natRepData_closed ψ ρp⟩⟩

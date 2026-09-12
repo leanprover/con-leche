@@ -1503,12 +1503,18 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     former := ?fd
     formersRead := IndRep.formersRead_one rfl rfl
       (ConLeche.Env.find?_cons_of_fresh hfresh hE) ?fd
+    leafShape := fun t ht ψ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact ⟨.eqE (.bvar 1) (.bvar 0), hEleaf ψ⟩
     ctors := ?_
     memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩,
       fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩⟩
     idxRes := ?_
     uParams := fun _ _ h => h uN List.mem_cons_self
     paramsIff := fun _ _ _ _ _ => Iff.rfl
+    paramsIffM := fun t ht _ _ => by
+      obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+      exact Iff.rfl
     chains := ?_
     functor := ?_
     fibre := ?_
