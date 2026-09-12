@@ -71850,6 +71850,92 @@ so either `IndRep` gains a per-member `FormerData` (mutual has it for
 every member; native/`Eq` are `k = 1`) or the identification is read
 off `J.rec`'s well-typedness.  Decide at the start of 3b.
 
+#### M.16 M-B′ step 3b (partial): the two datum prerequisites of the fold spellings LANDED (2026-09-12, session 4)
+
+**What the session set out to do** (brief): spell `ψ_j`/`ψ⁻¹_m` as
+`AnnotTerm`s over the datum and the kernel pin table, typing from
+`recRead`/`RecReadAt` + `mem_type`, ι from `rulesRead` + `rec_rules`.
+Two facts the spellings' typing and ι consume were MISSING from the
+datum; both landed, gate-clean, before the spellings themselves.  The
+spellings (and `ψ⁻¹`, M-C′) did not land this session — they are a
+larger effort than one session (the mutual route's own recursor typing
+is `MutualRecTyping`/`MutualRecLaw`, thousands of lines; spelling `ψ`
+and re-deriving its typing/ι is of that order) and are left for the
+next, with the plan below unchanged.
+
+**Prerequisite (i): the rule's FIRING MODE, on `RecReadAt`.**  ι fires
+through `rec_rules`, whose `RecRuleLaw` speaks only of a rule whose
+`fire` mode it knows (`.plain` gives the parameter-comparison clause;
+`.nested` the pin clause; `.inert` fires nothing).  `RecReadAt` said
+nothing about a real constructor's rule mode, so a consumer computing
+`ψ`'s ι could not know which `RecRuleLaw` branch applies.  Added to
+`RecReadAt`'s per-constructor conjunct: for `j < d.ctorsA.length` (a
+REAL constructor), `rl.fire = .plain ∧ rl.ctorParams = d.nP ∧
+rl.nfields = cA.2`.  The generators set the mode by
+`Expr.recRulePlain recTy mI rP nP`; the new
+`Verify/Inductives/ContainerWalk.lean` theorems
+`structRecTyR_recRulePlain` / `mutualRecTy_recRulePlain` prove that
+check `true` of both generated recursor types (the major premise's
+domain applies the family to the recursor's own first `nP` telescope
+variables — through the stripped motive/minor telescopes,
+`*_stripPis`, and `structFamI_getAppArgs_take`).  Discharges: native
+(`sumRules_getElem?_fwd` now carries the mode, `if_pos hplain`),
+mutual (`mutualRules_getElem?` likewise, `mutualRecTy_recRulePlain`),
+`Eq` (the literal `.plain`); the transports pass it on unchanged.
+
+**Prerequisite (ii), RULING (1): the SIBLING FORMERS' index
+telescopes, as a per-member `FormerData` field.**  `ψ_A`'s motive `t`
+is `λ ı⃗ x, ⟦A_{c(t)}⟧ p⃗ ı⃗`, and typing it against `recRead`'s tower
+needs the sibling former `C_t`'s index telescope `ppsM t` graded (its
+domains inhabit their binders' universes) and its type's reading —
+`FormerData` at `ppsM t`/`lvlsM t`, which the clause recorded at `mm`
+alone (`former`).  **Decision (reported): the field route, as ruled.**
+Reading the grading off `J.rec`'s own well-typedness
+(`type_wellDenotedV` + `WellDenoted_mkPisAV_inv`) would give the
+per-binder grading but NOT the sibling former type's `read` (the copy's
+restored former is `instPis` of the sibling's STORED type,
+`mkCopy_inv`, whose reading M-D′ needs), and recovering `read` means
+inverting `mem_type` — not honest and clearly harder; the field route
+is a datum extension of the same kind as `RecReadAt`, so it is not
+"clearly more expensive."  `IndRep` gains
+
+    formersRead : ∀ t, t < d.kReal → ∀ cv caps,
+      env.find? (d.memberName t) = some (.indInfo cv caps) →
+      FormerData m cv (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) (d.lvlsM t)
+
+(the found `cv` is the stored sibling former; the result sort is the
+block's one `resSort` — mutual types share their universe).
+Discharges: native / `Eq` / pinned `PUnit`/`Nat` at `kReal = 1` by the
+new `IndRep.formersRead_one` (member `0 = mm`, found former is `cvT`,
+data is `former`); mutual threads a new hypothesis `hFDall` through
+`mutualIndRep_of`, supplied at `DeclMutual`'s call site from `hFD₃`
+(the per-member `FormerData` the mutual proof already had) with
+`FormerData.congr_sort` to the represented member's sort.  Transports:
+`IndRep.cross`/`.swap`/`.ext` carry it via
+`FormerData.crossAt`/`.swap`/`.ext` (the found sibling former crosses
+the same as the represented one).
+
+**Findings for the maintainer.**  None beyond ruling (1)'s decision
+above.  No stored datum is missing for the spellings beyond these two;
+no kernel-side fact was found missing for `DeclNestedRun` this session
+(the copy↔family alignment `containerInfo?_eq` (§M.15) plus these two
+facts are what the spellings read).  The KERNEL OVERSHOOT finding
+(§M.15) remains docketed for the kernel lane's wiring step, unchanged.
+
+**Docket for the spellings (step 3b proper, next session), unchanged
+from §M.14 except the two prerequisites are now in hand.**  Define
+`ψ_A` as `AnnotTerm.mkAppN ⟦J.rec.{ℓ :: lvls}⟧ (Ds ++ motives ++
+minors)` over the restored model, motive `t := λ ı⃗ x, ⟦aux_{c(t)}⟧ p⃗
+ı⃗` (the copy↔family map `c(t)` from `elimNested_copy`'s pin ledger),
+minors rebuilt with per-field transport by `d_aux.ksF`; typing by
+`mkPisAV_fold_mem` at `mem_type`/`recRead`'s tower with the motive
+domains graded by `formersRead` and the whole tower's `type_wellDenotedV`;
+ι by `rec_rules` (`RecRuleLaw`, the `.plain` branch that (i) unlocks)
+at each `d_J.ctorsAll` constructor.  Then `ψ⁻¹_m` from the aux
+recursor `⟦R_m⟧` (`d_aux`'s `RecReadAt`) at one common motive/minor
+choice, and M-C′ (R1/R2, coherence).  Still docketed: the
+all-zero-constructor container group; the duplicate pins.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
