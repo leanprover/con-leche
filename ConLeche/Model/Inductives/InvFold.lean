@@ -1364,6 +1364,134 @@ theorem invBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List An
   rw [hvars, interp_liftN, hlen0, shiftE_consList_len, hshiftB, hbodyC, hEsEq] at h2
   exact h2
 
+/-! ## The target's β, and a real constructor at the pins -/
+
+/-- **The target's β**: applied along fitting index values, the target
+is the family at the pins at those values (`mkLamsAV_fold` under
+`instSeq`). -/
+theorem invTg_fold (ψ : Name → Nat) {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {pinsT : Nat → List AnnotTerm} {t : Nat} {is : List V}
+    (hfit : SpineFit (consList (ps.map (interp V ρ)) ρ)
+      ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])).map (·.2.2)) is) :
+    is.foldl SetTheory.app (interp V ρ (d.invTgAV ψ ps L pinsT t))
+      = interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+          (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)) := by
+  have hb : pwBit ψ ConLeche.PropWhen.never ≠ 0 := by rw [pwBit_never_eq]; exact Nat.one_ne_zero
+  unfold invTgAV
+  rw [interp_instSeq_consList]
+  refine mkLamsAV_fold (fun x hx => ?_) ?_
+  · obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+    show y.2.1 ≠ 0
+    rw [mem_rebit hy]; exact hb
+  · rw [List.map_map]; exact hfit
+
+omit [SetTheory V] in
+/-- Without hypotheses in use, the target-form field domains are the
+constructor's own. -/
+theorem tgFieldsAV_false (Tg : Nat → AnnotTerm) (nP b : Nat) (tgt : Nat → Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Eiss : List (List AnnotTerm))
+    (tls : List (List (Nat × Nat × AnnotTerm))) {nF : Nat} (hds : ds.length = nP + nF) :
+    tgFieldsAV Tg (fun _ => false) nP b tgt ds Eiss tls nF = (ds.drop nP).map (·.2.2) := by
+  apply List.ext_getElem
+  · simp [tgFieldsAV, hds]
+  · intro i h1 h2
+    have hi : i < nF := by simpa [tgFieldsAV] using h1
+    simp only [tgFieldsAV, tgFieldAV, List.getElem_map, List.getElem_range, Bool.false_eq_true,
+      if_false, List.getElem_drop, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show nP + i < ds.length by omega), Option.getD_some]
+
+set_option maxHeartbeats 1600000 in
+/-- **A real member's constructor at the pins**: its `CtorAtPins` at the
+identity choice — head the constructor at the parameter variables, no
+hypotheses in use — from the constructor's own reading
+(`FixCtorFactsAt`, `mem_type`): the tower below the parameters
+(`hfitP` through `paramsIff`), the head graded and in it by the tower
+lifted to the parameter frame, and the body at the fields the target
+(`invTgAV` at the member's own leaf) at the index readings, whose fit
+is `hEsFit` (`CtorFieldFacts`'s). -/
+theorem ctorAtPins_real {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name}
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} (hps : ps.length = d.nP)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    {J : Nat} {cA : ConstantVal × Nat}
+    (hC : FixCtorFactsAt mp.base2 d.env₀ (d.memberName (d.mems J)) lpsT d.nP (d.nIdxAt (d.mems J))
+      d.resSort d.isProp d.large d.idxF d.dsF d.esF d.srcsF d.ksF d.fvsPF d.xFvsF d.xrestF d.eissF
+      d.tssF J cA (fun i => d.memberName (d.tgts J i)) (fun i => d.nIdxAt (d.tgts J i)))
+    (hpIff : ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.dsF J ψ).take d.nP).map (·.2.2)).reverse ρ')
+    (hEsFit : ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) (((d.dsF J ψ).drop d.nP).map (·.2.2)) fs →
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+        ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2))
+        ((d.esF J ψ).map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))))
+    {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))} :
+    d.CtorAtPins ψ ρ ps
+      (d.invTgAV ψ ps (fun t => mp.base2.acval (d.memberName t) ψ) (fun _ => paramBvarsAt d.nP d.nP))
+      (fun _ => false) J (AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP))
+      cA.2 (d.dsF J ψ) (d.esF J ψ) Eiss tls := by
+  obtain ⟨hfind, -, hD⟩ := hC
+  have hpsLen : (ps.map (interp V ρ)).length = d.nP := by simp [hps]
+  have hlenDs := hD.len ψ
+  have hclosedC : Term.bvarsBelow 0 (mp.base2.acval cA.1.name ψ).erase := mp.base2.cval_closedL _ ψ
+  have hclosedT : Term.bvarsBelow 0 (mp.base2.acval (d.memberName (d.mems J)) ψ).erase :=
+    mp.base2.cval_closedL _ ψ
+  have hfitP : SpineFit ρ (((d.dsF J ψ).take d.nP).map (·.2.2)) (ps.map (interp V ρ)) :=
+    spineFit_of_paramsIff hpsLen (by simp [hlenDs]) hparams hpIff
+  have hsplitT : mkPisAV (d.dsF J ψ) (ctorBodyAVI mp.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ))
+      = mkPisAV ((d.dsF J ψ).take d.nP)
+          (mkPisAV ((d.dsF J ψ).drop d.nP)
+            (ctorBodyAVI mp.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ))) := by
+    rw [← mkPisAV_append, List.take_append_drop]
+  have hshift : shiftE d.nP 0 (consList (ps.map (interp V ρ)) ρ) = ρ := by
+    rw [← hpsLen]; exact shiftE_consList _ _
+  have hcmem : interp V ρ (mp.base2.acval cA.1.name ψ)
+      ∈ˢ interp V ρ (mkPisAV (d.dsF J ψ)
+          (ctorBodyAVI mp.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ))) :=
+    mp.mem_type _ (Env.find?_mem hfind) ψ _ (hD.read ψ) ρ
+  -- the head, at the parameter frame: the tower lifted there
+  have hhead := wellDenotedV_mkAppN_of_spineFit (σ := consList (ps.map (interp V ρ)) ρ)
+    (ds := liftDoms d.nP 0 ((d.dsF J ψ).take d.nP))
+    (C := (mkPisAV ((d.dsF J ψ).drop d.nP)
+      (ctorBodyAVI mp.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ))).liftN d.nP
+        (0 + ((d.dsF J ψ).take d.nP).length))
+    (f := mp.base2.acval cA.1.name ψ) (as := paramBvarsAt d.nP d.nP)
+    (by rw [← liftN_mkPisAV, ← hsplitT, WellDenotedV_liftN, hshift]; exact hD.okTy ψ ρ)
+    ⟨mp.base2.acval_wellDenoted _ ψ _, mp.acval_validV _ ψ _⟩
+    (fun a ha => by
+      obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
+      exact ⟨by simp, by simp⟩)
+    (by rw [← liftN_mkPisAV, ← hsplitT, interp_liftN, hshift, interp_closed (V := V) hclosedC _ ρ]
+        exact hcmem)
+    (by rw [spineFit_liftDoms, hshift, interp_paramBvarsAt_self hpsLen]; exact hfitP)
+  have htakeLen : 0 + ((d.dsF J ψ).take d.nP).length = (ps.map (interp V ρ)).length := by
+    rw [Nat.zero_add, List.length_take, hlenDs, hpsLen]; omega
+  rw [interp_paramBvarsAt_self hpsLen, interp_liftN, htakeLen, shiftE_consList_len, hshift] at hhead
+  refine ⟨(d.dsF J ψ).drop d.nP,
+    ctorBodyAVI mp.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ),
+    by rw [List.length_drop, hlenDs]; omega, ?_, hhead.1, hhead.2, ?_⟩
+  · have h := hD.okTy ψ ρ
+    rw [hsplitT] at h
+    exact ⟨wellDenoted_mkPisAV_body h.1 _ hfitP, annotValid_mkPisAV_body h.2 _ hfitP⟩
+  · intro vs hvs
+    rw [tgFieldsAV_false _ _ _ _ _ _ _ hlenDs] at hvs
+    refine ⟨hvs, ?_⟩
+    have hvsLen : vs.length = cA.2 := by
+      rw [hvs.length_eq, List.length_map, List.length_drop, hlenDs]; omega
+    have hEl : (d.esF J ψ).length = d.nIdxAt (d.mems J) := hD.lenE ψ
+    have hnI : d.nIdxs.getD (d.mems J) 0 = d.nIdxAt (d.mems J) := rfl
+    have hfam := interp_famAppAV_params hclosedT (nIdx := d.nIdxAt (d.mems J)) hpsLen
+      (is := (d.esF J ψ).map (interp V (consList vs (consList (ps.map (interp V ρ)) ρ))))
+      (by rw [List.length_map]; exact hEl) ρ
+    rw [d.invTg_fold ψ (hEsFit vs hvs), hnI, hfam]
+    show interp V (consList vs (consList (ps.map (interp V ρ)) ρ))
+      (AnnotTerm.mkAppN (mp.base2.acval (d.memberName (d.mems J)) ψ)
+        (paramBvarsAt d.nP (d.nP + cA.2) ++ d.esF J ψ)) = _
+    rw [interp_mkAppN_map, List.map_append,
+      map_paramBvarsAt_interp (ρp := consList (ps.map (interp V ρ)) ρ)
+        (fun j => by
+          have h := consList_apply_add vs (consList (ps.map (interp V ρ)) ρ) j
+          rw [hvsLen] at h; exact h),
+      range_reverse_map_consList' hpsLen, interp_closed (V := V) hclosedT _ ρ]
+
 end IndRepData
 
 end ConLeche.Model
