@@ -71454,6 +71454,68 @@ p⃗ ı`, rebuild minors) and `ψ⁻¹_m` (the aux `⟦R_m⟧` at one motive/min
 choice), as `AnnotTerm`s over the datum; their typing from `recRead` +
 `mem_type`, their ι from `rulesRead` + `rec_rules`.
 
+#### M.11 M-B′ step 1 LANDED: the auxiliary block's model (2026-09-12, session 2)
+
+**Statement.**  `Model/Inductives/DeclNested.lean`: `nestedAuxModel` —
+from a nested run's pieces (`elimNested … = .ok st`, `copiesFresh env
+p.k st`, `auxBlock p st = some b`, `checkMutualCore … env b none = .ok
+envAux`, the read-back, and the REAL members' `restoreRecTys`), the
+scratch environment carries the P invariant: `Nonempty (EnvModelM V μ
+envAux)`; `declNestedRun_auxModel` is the same off `DeclNestedRun`.
+
+**Proof idea.**  `declMutualCore` (§M.10) at `auxParts b` — a
+`MutualParts` dressing of the block record with dummy recursor fields,
+`auxParts_toBlock : (auxParts b).toBlock = b` — with its three
+recursor-name hypotheses discharged from the run: a REAL member's
+`T.rec` went through `checkConstantVal` at the restored constructors'
+environment (`restoreRecTys_inv`; the listed name at position `t` is
+`T.rec` by `elimNested_name_lt` — the block's own names lead the aux
+block), carried back through `consNestedCtors`/`consNestedFormers`
+(`*_find?_none`); a COPY's `A.rec` is free by `copiesFresh_inv`, and
+unreserved because `A` itself was checked by `mutualFormers`
+(`mutualFormerChecks_pos` + `checkConstantVal_inv`) and the reserved
+list closes under `.rec` (`reserved_of_str_rec`: a reserved `T.rec` has
+a reserved `T` — the five reserved recursors are the reserved formers'),
+and `(_ .str "rec").isProjFnShape = false` by computation.
+
+**The kernel facts, in `Verify/Inductives/NestedFacts.lean`.**  The
+elimination's NAME LEDGER: `ElimGrows st st'` (the state grows by
+pins, and the new types' names are the new pins' `aux` names) is
+preserved by `mkCopies` (`mkCopy_name`), `replaceIfNested`,
+`replaceAllNested` (induction on the expression, the prune and the
+node step split open), `elimCtors` and `elimLoop` (the `set` at the
+worklist head keeps the name, `List.getElem?_set`); hence
+`elimNested_names : st.types.map name = types.map name ++ st.pins.map
+aux`, with `elimNested_length`, `elimNested_name_lt` (a member's name
+at its position) and `elimNested_name_copy` (copy `j`'s name is pin
+`j`'s `aux`).  `auxBlock_inv`/`auxBlock_k`/`auxBlock_recName`,
+`auxStoredAll_inv` (positional read-back), `restoreRecTys_inv`,
+`copiesFresh_inv`, the two cons `find?_none`s.
+
+**What was awkward.**  (i) `exact nomatch h` inside `first | … | …`
+is NOT a failure on a non-absurd `h`: `nomatch` logs "Missing cases"
+with error recovery and the alternative counts as taken — use
+`contradiction`, which fails honestly.  (ii) A `match` on a variable
+scrutinee that the source wrote as `let some x := … | throw` splits in
+SOURCE order (the `some` branch first), while a `← bind` splits
+`.error` first; `repeat' (first | contradiction | split at h)` is
+order-blind.  (iii) An `obtain ⟨-, rfl⟩ := h` on `h : none = some _`
+CLOSES the goal (rcases finds the constructor clash), so the finishing
+tactic after it sees no goal.  (iv) A tactic macro's `rfl` pattern is
+hygienic — `obtain rfl := …` inside a `macro_rules` binds a hypothesis
+NAMED `rfl✝` instead of substituting; the per-case scripts are written
+out.  (v) `exact (ih₁ h₁).trans (ih₂ h₂)` against a goal `ElimGrows st
+(x, st₂).2` unifies `?r.2` with the PAIR structurally and then rejects
+`h₂`; a `show ElimGrows st st₂` first, or `have`-fixing the
+intermediate types, is the fix.
+
+**Not in the build graph yet.**  Like the kernel lane's
+`Semantics/Inductives/DeclNested.lean` and `Verify/Inductives/NestedInv.lean`,
+the two new modules are imported by nothing until the wiring; the
+session's gate builds them explicitly
+(`lake build ConLeche.Model.Inductives.DeclNested`) on top of the full
+`lake build`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
