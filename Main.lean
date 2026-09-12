@@ -71,8 +71,13 @@ annotated and pushed with its check recorded, everything else is checked
 in full.  The loop carries the chain of accepting steps
 (`ConLeche.Cached.InstallRun`) of the records it has consumed — a
 proposition, so nothing at run time — and returns it with the result:
-what this loop returns IS an `InstalledEnv mode ds`
+what this loop returns IS an `InstalledEnv mode ds.toList`
 (`ConLeche/Cached/Installed.lean`), phase A of the fold `checkDecls`.
+The records are the ARRAY the prepare step produced and the driver
+holds to the end anyway (a rejection names its declaration by indexing
+it), so the loop walks it BY INDEX — nothing converts a million
+records into a list — while the run it carries is over
+`ds.toList.take i`, the shape every lemma above it is stated in.
 Whatever it prints between steps is irrelevant to that type, which is
 why ONE loop serves the plain run and the `--progress` heartbeat
 alike.
@@ -88,7 +93,9 @@ recursive call, so the C carries no `lean_inc` of either before the
 step, and the cost per declaration is flat.  The run is carried in the
 SNOC direction (`InstallRun.snoc`) precisely so that the call stays a
 tail call: a cons-direction proof would wrap the result on the way
-back, one frame per declaration.
+back, one frame per declaration.  (The index measure makes this a
+well-founded recursion; the compiler's recursive function is the same
+tail call, and the measure is erased.)
 
 **Stride 1 is the localisation lane.**  With `--progress` (bare, or
 `--progress=1`) every declaration is announced before it is installed,
