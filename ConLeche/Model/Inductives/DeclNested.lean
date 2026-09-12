@@ -218,7 +218,7 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
         = .ok envAux ∧
       Nonempty (EnvModelM V μ envAux) := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim, -, hfresh, hb, hcore, hstored, -, hrm, -⟩ := h
+    helim, -, hfresh, hb, hcore, hstored, -, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore, nestedAuxModel hμ mp hE helim hfresh hb hcore hstored hrm⟩
 
 end ConLeche.Model
