@@ -69152,3 +69152,15 @@ the one this task added); `tests/overview-links.sh --update` (78 links
 line and the new pin block, the cited text is unchanged;
 `tests/arena.sh` exit 0.  No checker code changed: the binary is
 master's.
+
+**Merged with task #287** (the environment-variable hooks) before
+landing.  One conflict, in this document — two records appended at the
+same place, ordered #287 then #286 — and none in code: #287 touched
+`Main.lean`, the frontend and the gate scripts, this task the
+statement, the proof and the pins.  `OVERVIEW.md` and
+`tests/overview-links-expected.txt` merged clean (the two sides cite
+different files) and every anchor still resolves, so no `--update` was
+needed after the merge.  The battery has **no route-census gate** any
+more — #287 deleted `tests/route-census.sh` with the
+`CON_LECHE_ROUTE_TRACE` hook it read; the merged run is the one
+recorded above minus that line.
