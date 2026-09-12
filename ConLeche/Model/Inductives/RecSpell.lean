@@ -564,4 +564,254 @@ theorem mutualRuleDataAV_length {m : EnvModel V env} {ψ : Name → Nat} {Ls : L
     fixMinorsDataM_length, liftDoms_length, motivesDataGo_length, List.length_drop, hd]
   omega
 
+/-! ## The pinned spellings (task #279 M-A′)
+
+A stored recursor's block may have COPY members — a nested block's
+`numNested` copies of containers at pins — whose family is not "the
+member's leaf at the parameter variables" but the container's leaf at
+the pins.  The spellings below take, per member, the pins at the
+parameter frame (`pins`, at depth `nP`: an entry mentions only
+`bvar j < nP`) in place of the parameter variables, and are the
+originals at `pins = paramBvarsAt nP nP` (`*_params`). -/
+
+/-- The family of a member at depth `D ≥ nP` below the parameters: its
+leaf `L` at its pins lifted `D - nP`, then `nIdx` index variables. -/
+@[expose] def famAppAV (L : AnnotTerm) (pins : List AnnotTerm) (nP D nIdx : Nat) : AnnotTerm :=
+  AnnotTerm.mkAppN L (pins.map (·.liftN (D - nP) 0) ++ fieldBvars nIdx)
+
+omit [SetTheory V] in
+/-- The parameter variables at the parameter frame, lifted to depth `D`. -/
+theorem map_liftN_paramBvarsAt (nP D : Nat) (h : nP ≤ D) :
+    (paramBvarsAt nP nP).map (·.liftN (D - nP) 0) = paramBvarsAt nP D := by
+  simp only [paramBvarsAt, List.map_map]
+  refine List.map_congr_left fun k hk => ?_
+  have hk' : k < nP := List.mem_range.mp hk
+  simp only [Function.comp_def, AnnotTerm.liftN_bvar, Nat.not_lt_zero, if_false]
+  congr 1
+  omega
+
+omit [SetTheory V] in
+theorem famAppAV_params (L : AnnotTerm) (nP D nIdx : Nat) (h : nP ≤ D) :
+    famAppAV L (paramBvarsAt nP nP) nP D nIdx
+      = AnnotTerm.mkAppN L (paramBvarsAt nP D ++ fieldBvars nIdx) := by
+  unfold famAppAV
+  rw [map_liftN_paramBvarsAt nP D h]
+
+/-- `motiveAVIL` at pins. -/
+@[expose] def motiveAVP (L : AnnotTerm) (pins : List AnnotTerm) (ψ : Name → Nat) (nP nIdx : Nat)
+    (ℓ : Level) (ips : List (Nat × Nat × AnnotTerm)) : AnnotTerm :=
+  mkPisAV (rebit (pwBit ψ PropWhen.never) ips)
+    (.pi 0 (pwBit ψ PropWhen.never) (famAppAV L pins nP (nP + nIdx) nIdx) (.sort (ℓ.eval ψ)))
+
+omit [SetTheory V] in
+theorem motiveAVP_params (L : AnnotTerm) (ψ : Name → Nat) (nP nIdx : Nat) (ℓ : Level)
+    (ips : List (Nat × Nat × AnnotTerm)) :
+    motiveAVP L (paramBvarsAt nP nP) ψ nP nIdx ℓ ips = motiveAVIL L ψ nP nIdx ℓ ips := by
+  unfold motiveAVP motiveAVIL
+  rw [famAppAV_params _ _ _ _ (Nat.le_add_right _ _)]
+
+/-- `majorAVAtK` at pins. -/
+@[expose] def majorAVP (L : AnnotTerm) (pins : List AnnotTerm) (nP nIdx k n : Nat) : AnnotTerm :=
+  famAppAV L pins nP (nP + k + n + nIdx) nIdx
+
+omit [SetTheory V] in
+theorem majorAVP_params (L : AnnotTerm) (nP nIdx k n : Nat) :
+    majorAVP L (paramBvarsAt nP nP) nP nIdx k n = majorAVAtK L nP nIdx k n := by
+  unfold majorAVP majorAVAtK
+  exact famAppAV_params _ _ _ _ (by omega)
+
+/-- `motivesDataGo` at pins (`pinsOf t` member `t`'s). -/
+@[expose] def motivesDataGoP (Lof : Nat → AnnotTerm) (pinsOf : Nat → List AnnotTerm)
+    (nIdxOf : Nat → Nat) (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat)
+    (ℓ : Level) (b : Nat) : Nat → Nat → List (Nat × Nat × AnnotTerm)
+  | 0, _ => []
+  | k + 1, i =>
+    (0, b, (motiveAVP (Lof 0) (pinsOf 0) ψ nP (nIdxOf 0) ℓ (ipsOf 0)).liftN i 0) ::
+      motivesDataGoP (fun t => Lof (t + 1)) (fun t => pinsOf (t + 1)) (fun t => nIdxOf (t + 1))
+        (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1)
+
+omit [SetTheory V] in
+theorem motivesDataGoP_params (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
+    (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat) (ℓ : Level) (b : Nat) :
+    ∀ (k i : Nat), motivesDataGoP Lof (fun _ => paramBvarsAt nP nP) nIdxOf ipsOf ψ nP ℓ b k i
+      = motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ b k i
+  | 0, _ => rfl
+  | k + 1, i => by
+    simp only [motivesDataGoP, motivesDataGo, motiveAVP_params]
+    rw [motivesDataGoP_params (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1))
+      (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1)]
+
+omit [SetTheory V] in
+theorem motivesDataGoP_length (Lof : Nat → AnnotTerm) (pinsOf : Nat → List AnnotTerm)
+    (nIdxOf : Nat → Nat) (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat)
+    (ℓ : Level) (b : Nat) :
+    ∀ (k i : Nat), (motivesDataGoP Lof pinsOf nIdxOf ipsOf ψ nP ℓ b k i).length = k
+  | 0, _ => rfl
+  | k + 1, i => by
+    simp [motivesDataGoP, motivesDataGoP_length (fun t => Lof (t + 1)) (fun t => pinsOf (t + 1))
+      (fun t => nIdxOf (t + 1)) (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1)]
+
+omit [SetTheory V] in
+theorem mem_motivesDataGoP {Lof : Nat → AnnotTerm} {pinsOf : Nat → List AnnotTerm}
+    {nIdxOf : Nat → Nat} {ipsOf : Nat → List (Nat × Nat × AnnotTerm)} {ψ : Name → Nat} {nP : Nat}
+    {ℓ : Level} {b : Nat} :
+    ∀ {k i : Nat} {d : Nat × Nat × AnnotTerm},
+      d ∈ motivesDataGoP Lof pinsOf nIdxOf ipsOf ψ nP ℓ b k i → d.2.1 = b
+  | 0, _, _, h => nomatch h
+  | k + 1, i, d, h => by
+    simp only [motivesDataGoP, List.mem_cons] at h
+    rcases h with rfl | h
+    · rfl
+    · exact mem_motivesDataGoP h
+
+/-- `minorAVAtRM` with the constructor's member at its pins `pinsC`. -/
+@[expose] def minorAVAtRMP {env : Env} (mot : Nat) (moti : Nat → Nat) (m : EnvModel V env) (C : Name)
+    (pinsC : List AnnotTerm) (ψ : Name → Nat) (nP nF b o : Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
+  mkPisAV (rebit b (liftDoms o 0 (ds.drop nP)))
+    (ihPisAVM moti nF o b tls Eiss recIdx 0
+      ((AnnotTerm.mkAppN (.bvar (nF + o - 1 - mot))
+        ((Es.map fun E => E.liftN o nF) ++
+          [famAppAV (m.acval C ψ) pinsC nP (nP + o + nF) nF])).liftN recIdx.length 0))
+
+theorem minorAVAtRMP_params {m : EnvModel V env} {mot : Nat} {moti : Nat → Nat} {C : Name}
+    {ψ : Name → Nat} {nP nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    {recIdx : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)} :
+    minorAVAtRMP mot moti m C (paramBvarsAt nP nP) ψ nP nF b o ds Es recIdx tls Eiss
+      = minorAVAtRM mot moti m C ψ nP nF b o ds Es recIdx tls Eiss := by
+  unfold minorAVAtRMP minorAVAtRM
+  rw [famAppAV_params _ _ _ _ (by omega)]
+
+/-- `fixMinorsDataM` at pins (`pinsOf J` constructor `J`'s member's). -/
+@[expose] def fixMinorsDataMP {env : Env} (mots : Nat → Nat) (tgts : Nat → Nat → Nat)
+    (pinsOf : Nat → List AnnotTerm) (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :
+    List CtorDatumR → Nat → List (Nat × Nat × AnnotTerm)
+  | [], _ => []
+  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o =>
+    (0, b, minorAVAtRMP (mots 0) (tgts 0) m C (pinsOf 0) ψ nP nF b o ds Es recIdx tls Eiss) ::
+      fixMinorsDataMP (fun J => mots (J + 1)) (fun J => tgts (J + 1)) (fun J => pinsOf (J + 1))
+        m ψ nP b cs (o + 1)
+
+theorem fixMinorsDataMP_params {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      fixMinorsDataMP mots tgts (fun _ => paramBvarsAt nP nP) m ψ nP b cds o
+        = fixMinorsDataM mots tgts m ψ nP b cds o
+  | _, _, [], _ => rfl
+  | mots, tgts, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o => by
+    simp only [fixMinorsDataMP, fixMinorsDataM, minorAVAtRMP_params]
+    rw [fixMinorsDataMP_params (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)]
+
+theorem fixMinorsDataMP_length {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (pinsOf : Nat → List AnnotTerm)
+      (cds : List CtorDatumR) (o : Nat),
+      (fixMinorsDataMP mots tgts pinsOf m ψ nP b cds o).length = cds.length
+  | _, _, _, [], _ => rfl
+  | mots, tgts, pinsOf, (_, _, _, _, _, _, _) :: cs, o => by
+    simp [fixMinorsDataMP, fixMinorsDataMP_length (fun J => mots (J + 1)) (fun J => tgts (J + 1))
+      (fun J => pinsOf (J + 1)) cs (o + 1)]
+
+theorem mem_fixMinorsDataMP {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {pinsOf : Nat → List AnnotTerm}
+      {cds : List CtorDatumR} {o : Nat} {d : Nat × Nat × AnnotTerm},
+      d ∈ fixMinorsDataMP mots tgts pinsOf m ψ nP b cds o → d.2.1 = b
+  | _, _, _, [], _, _, h => nomatch h
+  | _, _, _, (_, _, _, _, _, _, _) :: cs, o, d, h => by
+    simp only [fixMinorsDataMP, List.mem_cons] at h
+    rcases h with rfl | h
+    · rfl
+    · exact mem_fixMinorsDataMP h
+
+/-- **`mutualRecDataAV` at pins**: the `k`-motive recursor type's binder
+data with every member's family spelled at that member's pins. -/
+@[expose] def recDataAVP {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
+    (Ls : List AnnotTerm) (pinsOf : Nat → List AnnotTerm) (nP : Nat) (nIdxs : List Nat) (ℓ : Level)
+    (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
+    (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (mm : Nat) :
+    List (Nat × Nat × AnnotTerm) :=
+  rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
+    motivesDataGoP (fun t => Ls.getD t default) pinsOf (fun t => nIdxs.getD t 0)
+      (fun t => ipss.getD t []) ψ nP ℓ (pwBit ψ (Level.zeronessOf ℓ)) Ls.length 0 ++
+    fixMinorsDataMP mots tgts (fun J => pinsOf (mots J)) m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds
+      Ls.length ++
+    rebit (pwBit ψ (Level.zeronessOf ℓ))
+      (liftDoms (Ls.length + cds.length) 0 (ipss.getD mm [])) ++
+    [(0, pwBit ψ (Level.zeronessOf ℓ),
+      majorAVP (Ls.getD mm default) (pinsOf mm) nP (nIdxs.getD mm 0) Ls.length cds.length)]
+
+theorem recDataAVP_params {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm} {nP : Nat}
+    {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} {mm : Nat} :
+    recDataAVP m ψ Ls (fun _ => paramBvarsAt nP nP) nP nIdxs ℓ pps ipss cds mots tgts mm
+      = mutualRecDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts mm := by
+  unfold recDataAVP mutualRecDataAV
+  rw [motivesDataGoP_params, majorAVP_params]
+  simp only [fixMinorsDataMP_params]
+
+theorem mem_recDataAVP {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
+    {pinsOf : Nat → List AnnotTerm} {nP : Nat} {nIdxs : List Nat} {ℓ : Level}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {mm : Nat}
+    {d : Nat × Nat × AnnotTerm}
+    (hd : d ∈ recDataAVP m ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts mm) :
+    d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
+  simp only [recDataAVP, List.mem_append, List.mem_singleton] at hd
+  rcases hd with (((h | h) | h) | h) | rfl
+  · exact mem_rebit h
+  · exact mem_motivesDataGoP h
+  · exact mem_fixMinorsDataMP h
+  · exact mem_rebit h
+  · rfl
+
+theorem recDataAVP_length {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
+    {pinsOf : Nat → List AnnotTerm} {nP : Nat} {nIdxs : List Nat} {ℓ : Level}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {mm : Nat}
+    (hp : pps.length = nP) :
+    (recDataAVP m ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts mm).length
+      = nP + Ls.length + cds.length + (ipss.getD mm []).length + 1 := by
+  simp only [recDataAVP, List.length_append, rebit_length, hp, List.length_singleton,
+    fixMinorsDataMP_length, liftDoms_length, motivesDataGoP_length]
+
+/-- **`mutualRuleDataAV` at pins.** -/
+@[expose] def ruleDataAVP {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
+    (Ls : List AnnotTerm) (pinsOf : Nat → List AnnotTerm) (nP : Nat) (nIdxs : List Nat) (ℓ : Level)
+    (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
+    (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × AnnotTerm) :=
+  (rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
+    motivesDataGoP (fun t => Ls.getD t default) pinsOf (fun t => nIdxs.getD t 0)
+      (fun t => ipss.getD t []) ψ nP ℓ (pwBit ψ (Level.zeronessOf ℓ)) Ls.length 0 ++
+    fixMinorsDataMP mots tgts (fun J => pinsOf (mots J)) m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds
+      Ls.length ++
+    rebit (pwBit ψ (Level.zeronessOf ℓ))
+      (liftDoms (Ls.length + cds.length) 0 (ds.drop nP))).map
+    fun d : Nat × Nat × AnnotTerm => (d.2.1, d.2.2)
+
+theorem ruleDataAVP_params {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm} {nP : Nat}
+    {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} {ds : List (Nat × Nat × AnnotTerm)} :
+    ruleDataAVP m ψ Ls (fun _ => paramBvarsAt nP nP) nP nIdxs ℓ pps ipss cds mots tgts ds
+      = mutualRuleDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts ds := by
+  unfold ruleDataAVP mutualRuleDataAV
+  rw [motivesDataGoP_params]
+  simp only [fixMinorsDataMP_params]
+
+theorem mem_ruleDataAVP {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
+    {pinsOf : Nat → List AnnotTerm} {nP : Nat} {nIdxs : List Nat} {ℓ : Level}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × AnnotTerm}
+    (hd : d ∈ ruleDataAVP m ψ Ls pinsOf nP nIdxs ℓ pps ipss cds mots tgts ds) :
+    d.1 = pwBit ψ (Level.zeronessOf ℓ) := by
+  obtain ⟨d', hd', rfl⟩ := List.mem_map.mp hd
+  simp only [List.mem_append] at hd'
+  rcases hd' with ((h | h) | h) | h
+  · exact mem_rebit h
+  · exact mem_motivesDataGoP h
+  · exact mem_fixMinorsDataMP h
+  · exact mem_rebit h
+
 end ConLeche.Model

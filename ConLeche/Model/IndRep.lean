@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.BlockData
+public import ConLeche.Model.Inductives.RecSpell
 public import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Kernel.Inductives.StructParts
 public section
 
 /-!
@@ -48,6 +50,24 @@ to an isomorphism.
   parameters and fields is `inj j fs` (`ctor`) — the fixed point's own
   injection, so that a later identification of a copy with the
   container needs no transport.
+
+**The recursor's shape** (task #279 M-A′).  The only spellable handle a
+later block has on a stored container's elements is the container's
+RECURSOR (values are `AnnotTerm` leaves; the datum's `Φ`/`inj` are
+abstract sets), so the clause also records, at a block with
+parameters, that the stored recursor's type reads to the generated
+`k`-motive tower (`recRead`) and that each rule's right-hand side reads
+to the generated core (`rulesRead`) — both over the datum's constructor
+data, in the RECURSOR's view of the block: the real members followed
+by the block's own COPY members (a nested block's copies of containers
+at pins, `kReal ≤ t < k`), every member's family spelled at its pins
+(`pinsAV`; a real member's are the parameter variables), the copies'
+constructors after the real ones (`ctorsC`), and the field kinds with
+their targets among all members (`ksR`, `tgtsR`, `eissR`, `tssR`).  The
+FAMILY view below — the chains, the functor, the fibre, the leaf, the
+constructors — is over the real members and their constructors alone;
+at a block without copies the two views coincide and every field is
+its default.
 
 **The member view** (task #278 M2.6).  A block has `k` members
 (`nIdxs`, `memberNames`, the per-constructor member table `mems` and
@@ -108,6 +128,9 @@ structure IndRepData (V : Type w) where
   isProp : Bool
   /-- the eliminator is large -/
   large : Bool
+  /-- the elimination level parameter's name (`.anonymous` at a small
+  eliminator) -/
+  elim : Name
   /-- the pre-block environment (a ghost witness: the ordinary field
   domains resolve in it, so they mention neither the former nor a
   constructor) -/
@@ -168,6 +191,35 @@ structure IndRepData (V : Type w) where
   Φ : (Name → Nat) → (Nat → V) → V
   /-- the constructor injections: constructor `j` at a field spine -/
   inj : (Name → Nat) → Nat → List V → V
+  /-- the number of REAL members (stored formers): members `≥ kReal`
+  are copies (task #279) -/
+  kReal : Nat := k
+  /-- the copies' constructors, in the recursor's minor order after
+  the real ones: name, level parameters, the container constructor's
+  type INSTANTIATED at the pins under the block's parameter binders,
+  and the field count -/
+  ctorsC : List (ConstantVal × Nat) := []
+  /-- per member: its pins' readings at the parameter frame (a real
+  member's: the parameter variables) -/
+  pinsAV : Nat → (Name → Nat) → List AnnotTerm := fun _ _ => paramBvarsAt nP nP
+  /-- per member: its container's parameter count (a real member's:
+  the block's) -/
+  nPM : Nat → Nat := fun _ => nP
+  /-- per member: its recursor's name (`T_t.rec`; a copy's is
+  `T₁.rec_k`) -/
+  recNames : Nat → Name := fun t => (memberNames.getD t .anonymous).str "rec"
+  /-- per constructor (real and copy): the field kinds in the RECURSOR's
+  view — a field into a copy is recursive or reflexive there -/
+  ksR : Nat → List RecFieldKind := ksF
+  /-- per constructor and field: the target member in the recursor's
+  view -/
+  tgtsR : Nat → Nat → Nat := tgts
+  /-- per constructor: the recursive fields' index readings in the
+  recursor's view -/
+  eissR : Nat → (Name → Nat) → List (List AnnotTerm) := eissF
+  /-- per constructor: the reflexive fields' telescopes in the
+  recursor's view -/
+  tssR : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)) := tssF
 
 namespace IndRepData
 
@@ -175,6 +227,51 @@ variable (d : IndRepData V)
 
 /-- The result sort's value. -/
 @[expose] def w (ψ : Name → Nat) : Nat := d.resSort.eval ψ
+
+/-- The elimination level. -/
+@[expose] def elimL : Level := ConLeche.structElimLevel d.elim d.large
+
+/-- The elimination level's bit. -/
+@[expose] def bb (ψ : Name → Nat) : Nat := pwBit ψ (Level.zeronessOf d.elimL)
+
+/-- All constructors of the recursor's block: the real ones, then the
+copies'. -/
+@[expose] def ctorsAll : List (ConstantVal × Nat) := d.ctorsA ++ d.ctorsC
+
+/-- The number of constructors of the recursor's block. -/
+@[expose] def nAll : Nat := d.ctorsA.length + d.ctorsC.length
+
+/-- The members' leaves at a model, by member position. -/
+@[expose] def Ls (m : EnvModel V env) (ψ : Name → Nat) : List AnnotTerm :=
+  (List.range d.k).map fun t => m.acval (d.memberNames.getD t .anonymous) ψ
+
+/-- The members' index binder data. -/
+@[expose] def ipss (ψ : Name → Nat) : List (List (Nat × Nat × AnnotTerm)) :=
+  (List.range d.k).map fun t => (d.ppsM t ψ).drop d.nP
+
+/-- The constructor data in the recursor's view (all constructors, the
+recursor's kinds and index readings). -/
+@[expose] def cdsR (ψ : Name → Nat) : List CtorDatumR :=
+  fixCtorDataList d.dsF d.esF d.ksR d.eissR d.tssR ψ d.ctorsAll 0
+
+/-- The members' pins at an assignment. -/
+@[expose] def pinsOf (ψ : Name → Nat) : Nat → List AnnotTerm := fun t => d.pinsAV t ψ
+
+/-- **Member `mm`'s recursor type's binder data**: the `k`-motive tower
+at the members' pins (`recDataAVP`). -/
+@[expose] def recDataAV (m : EnvModel V env) (ψ : Name → Nat) (mm : Nat) :
+    List (Nat × Nat × AnnotTerm) :=
+  recDataAVP m ψ (d.Ls m ψ) (d.pinsOf ψ) d.nP d.nIdxs d.elimL ((d.ppsM 0 ψ).take d.nP) (d.ipss ψ)
+    (d.cdsR ψ) d.mems d.tgtsR mm
+
+/-- **Constructor `j`'s rule, as its recursor reads it**: the λ-tower
+over the rule's binder data with the `k`-motive core, the inductive
+hypotheses firing the target members' recursor leaves. -/
+@[expose] def ruleAV (m : EnvModel V env) (ψ : Name → Nat) (j nF : Nat) : AnnotTerm :=
+  mkLamsAV (ruleDataAVP m ψ (d.Ls m ψ) (d.pinsOf ψ) d.nP d.nIdxs d.elimL ((d.ppsM 0 ψ).take d.nP)
+      (d.ipss ψ) (d.cdsR ψ) d.mems d.tgtsR (d.dsF j ψ))
+    (mutualRuleCoreAV (d.bb ψ) (fun t => m.acval (d.recNames t) ψ) (d.tgtsR j) d.nP d.k d.nAll nF j
+      (ConLeche.recIdxOf (d.ksR j)) (d.tssR j ψ) (d.eissR j ψ))
 
 /-- Member `mm`'s name. -/
 @[expose] def memberName (mm : Nat) : Name := d.memberNames.getD mm .anonymous
@@ -277,16 +374,44 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   strip : ∃ bs, cvT.type.stripPis (d.nP + d.nIdxAt mm) = some (bs, .sort d.resSort)
   /-- the `Prop` bit is the result sort's -/
   isProp : d.isProp = (Level.isEquiv d.resSort .zero == some true)
+  /-- **the rules read as the generated cores** (task #279 M-A′; stated
+  before the `mI`/`rP`/`rules` fields, whose names shadow the
+  parameters): once the recursor is stored, each of member `mm`'s
+  constructors has a rule whose right-hand side reads to the λ-tower
+  over the rule's binder data with the `k`-motive core, the inductive
+  hypotheses firing the target members' recursor leaves (`recNames`) -/
+  rulesRead : d.nP ≠ 0 → (env.find? cvR.name).isSome = true →
+    ∀ j cA, d.ctorsA[j]? = some cA → d.mems j = mm →
+      ∃ rl : RecRule, rl ∈ rules ∧ rl.ctor = cA.1.name ∧
+        ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)
   /-- the recursor's major position: one motive per member, one minor
   per constructor OF THE BLOCK, the member's own indices -/
-  mI : mI = d.nP + d.k + d.ctorsA.length + d.nIdxAt mm
+  mI : mI = d.nP + d.k + d.nAll + d.nIdxAt mm
   /-- the recursor's rule prefix -/
-  rP : rP = d.nP + d.k + d.ctorsA.length
+  rP : rP = d.nP + d.k + d.nAll
   /-- the recursor's rules, when it carries any, are the MEMBER's
   constructors in order (a rule-less entry — a mutual block's recursor
   PROVISIONED before its rules are checked, task #278 — claims the
   representation with this clause vacuous) -/
   rules : rules ≠ [] → rules.map (·.ctor) = (d.memberCtors mm).map (·.1.name)
+  /-- the copies come after the real members -/
+  kRealLe : d.kReal ≤ d.k
+  /-- the represented member is a real one -/
+  memReal : mm < d.kReal
+  /-- the member's recursor is the stored one -/
+  recName : d.recNames mm = cvR.name
+  /-- a real member's pins are the parameter variables and its
+  container is the block -/
+  pinsReal : ∀ t, t < d.kReal →
+    (∀ ψ : Name → Nat, d.pinsAV t ψ = paramBvarsAt d.nP d.nP) ∧ d.nPM t = d.nP
+  /-- **the recursor's type reads as the generated tower** (task #279
+  M-A′): at a block with parameters — the only ones a later block can
+  nest through — the stored recursor type reads to the Π-tower over the
+  `k`-motive binder data at the members' pins with the core
+  `motive_mm ı⃗ t` -/
+  recRead : d.nP ≠ 0 → ∀ ψ : Name → Nat,
+    denoteMeta m.acval env ψ 0 cvR.type
+      = some (mkPisAV (d.recDataAV m ψ mm) (mutualConcAV d.k d.nAll (d.nIdxAt mm) mm))
   /-- the former's type reads as the member's telescope -/
   former : FormerData m cvT (d.nP + d.nIdxAt mm) d.resSort (d.ppsM mm) (d.lvlsM mm)
   /-- every constructor OF THE BLOCK is stored and its type reads as
