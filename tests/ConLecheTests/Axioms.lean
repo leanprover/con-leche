@@ -3,6 +3,7 @@ module
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Verify.Cached.StreamConsts
+public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
 public section
@@ -56,7 +57,8 @@ different things and neither implies the other.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.no_False_theorem_accepted` | **THE MAIN COROLLARY**: a stream declaring a theorem of type `False` is never accepted |
+| `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: a file that matches the `hasProofOfFalse` template — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type — is never accepted by the binary's parse-prepare-check path (`pipelineAccepts`); its streaming twin `no_False_declaration_streaming` says the same over the chunked parse |
+| `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: a list of declarations one of whose records declares a theorem of type `False` is never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
 | `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
@@ -85,14 +87,17 @@ and the relation they are stated over (`ConLeche/Denotes.lean`)
 
 The statements the project exists to make (task #277): every accepted
 environment has a model (`model_exists`, over the relation `Denotes`),
-and hence — derived from it in a handful of lines — no stream one of
-whose records declares a theorem of type `False` is accepted at all
-(`no_False_theorem_accepted`, tasks #286/#288/#291), which is THE MAIN
+and hence no FILE that declares a theorem of type `False` is accepted
+at all (`no_False_declaration`, task #290), which is THE MAIN
 COROLLARY: the statement a reader can check without knowing what an
-`Env` is.  `Denotes_functional`, which says the relation is a partial
-function, is proved with the relation itself (task #284) and is pinned
-here beside them.  Everything below them is what they are corollaries
-of. -/
+`Env`, or even a declaration record, is.  The step it rests on at the
+stream — no list of declarations one of whose records declares a
+theorem of type `False` is accepted (`no_False_theorem_accepted`,
+tasks #286/#288/#291, now in `ConLeche/Verify/Cached/StreamThm.lean`)
+— and the streaming twin of the corollary are pinned beside it.
+`Denotes_functional`, which says the relation is a partial function,
+is proved with the relation itself (task #284) and is pinned here too.
+Everything below them is what they are corollaries of. -/
 
 /--
 info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -111,6 +116,18 @@ info: 'ConLeche.no_False_theorem_accepted' depends on axioms: [propext, Classica
 -/
 #guard_msgs in
 #print axioms ConLeche.no_False_theorem_accepted
+
+/--
+info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.no_False_declaration
+
+/--
+info: 'ConLeche.no_False_declaration_streaming' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.no_False_declaration_streaming
 
 /-! ## What the fold stores of what it reads
 (`ConLeche/Verify/Cached/StreamConsts.lean`)

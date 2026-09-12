@@ -115,9 +115,12 @@ is a corollary of and the assembly under those.
   the shipped `--verified` configuration, named outright, has a model
   in every set theory (`Nonempty (Model V env)`, `ConLeche/Denotes.lean`).
   It is pinned as a root because it is what a reader checks first.
-* `main_stream_False` — **the main corollary**, derived from it at the
-  fold's INPUT: a stream that declares a theorem of type `False`
-  is never accepted.
+* `main_file_False` — **the main corollary**, derived from it at the
+  FILE the binary reads: a file that declares a theorem of type
+  `False` is never accepted (`ConLeche/MainTheorem.lean`).
+* `stream_False` — the step it rests on, at the fold's INPUT: a stream
+  that declares a theorem of type `False` is never accepted
+  (`ConLeche/Verify/Cached/StreamThm.lean`).
 * `False_cached` / `Empty_cached` — **the fold's letters**: the checker,
   running a validating mode over the direct-parse cached core, never
   accepts a stream in which some stored constant has type `False`
@@ -134,7 +137,8 @@ is a corollary of and the assembly under those.
   about. -/
 private def roots : List (String × Name) :=
   [("main_model", `ConLeche.model_exists),
-   ("main_stream_False", `ConLeche.no_False_theorem_accepted),
+   ("main_file_False", `ConLeche.no_False_declaration),
+   ("stream_False", `ConLeche.no_False_theorem_accepted),
    ("False_cached", `ConLeche.Cached.no_proof_of_False_cached),
    ("Empty_cached", `ConLeche.Cached.no_proof_of_Empty_cached),
    ("sound_cached", `ConLeche.Cached.checkDecls_sound),

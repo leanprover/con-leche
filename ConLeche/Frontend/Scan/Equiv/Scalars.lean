@@ -350,13 +350,20 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
     rw [tailAt_of_lt h, naiveStrBody.eq_def]
     simp only [hc', ↓reduceIte, List.length_nil, Nat.add_zero]
     exact USize.ofNat_toNat.symm
-  | case2 j h c hc hb h2 ih =>
+  | case2 j h c hc hb h2 hd =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
+    have hd' : b.uget (j + 1) (usizeInBounds b (j + 1) h2) < 32 := hd
+    rw [tailAt_of_lt h, tailAt_of_lt h2, naiveStrBody.eq_def]
+    simp only [hc', hb', hd', ↓reduceIte, Bool.false_eq_true]
+  | case3 j h c hc hb h2 hd ih =>
+    have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
+    have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
+    have hd' : ¬ b.uget (j + 1) (usizeInBounds b (j + 1) h2) < 32 := hd
     have hstep := usizeStep b j h
     have hstep2 := usizeStep b (j + 1) h2
     rw [tailAt_of_lt h, tailAt_of_lt h2, naiveStrBody.eq_def]
-    simp only [hc', hb', ↓reduceIte, Bool.false_eq_true]
+    simp only [hc', hb', hd', ↓reduceIte, Bool.false_eq_true]
     cases hs : naiveStrBody (tailAt b (j + 1 + 1)) with
     | none => rw [ih, hs]; simp only [Option.map_none]
     | some p =>
@@ -365,18 +372,18 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
       simp only [Option.map_some, List.length_cons]
       congr 1
       omega
-  | case3 j h c hc hb h2 =>
+  | case4 j h c hc hb h2 =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
     rw [tailAt_of_lt h, tailAt_of_not_lt h2, naiveStrBody.eq_def]
     simp only [hc', hb', ↓reduceIte, Bool.false_eq_true]
-  | case4 j h c hc hb hlt =>
+  | case5 j h c hc hb hlt =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : ¬ (b.uget j (usizeInBounds b j h) == 92) = true := hb
     have hlt' : b.uget j (usizeInBounds b j h) < 32 := hlt
     rw [tailAt_of_lt h, naiveStrBody.eq_def]
     simp only [hc', hb', hlt', ↓reduceIte, Bool.false_eq_true]
-  | case5 j h c hc hb hlt ih =>
+  | case6 j h c hc hb hlt ih =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : ¬ (b.uget j (usizeInBounds b j h) == 92) = true := hb
     have hlt' : ¬ b.uget j (usizeInBounds b j h) < 32 := hlt
@@ -391,7 +398,7 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
       simp only [Option.map_some, List.length_cons]
       congr 1
       omega
-  | case6 j h =>
+  | case7 j h =>
     rw [tailAt_of_not_lt h, naiveStrBody.eq_def]
 
 theorem hasEscape_eq (b : ByteArray) (j e : USize) :
@@ -512,436 +519,6 @@ theorem step_of_hexVal {b : ByteArray} {p : USize} {v : UInt32}
   have hlt := lt_usize_of_byteAt_ne_zero (hexVal_ne_zero h)
   exact ⟨USize.lt_iff_toNat_lt.mp hlt, usizeStep b p hlt⟩
 
-/-- Four hexadecimal digits read: the four positions are in range and
-none of the steps wraps. -/
-theorem hex4_range {b : ByteArray} {p : USize} {v : UInt32} (h : hex4 b p = some v) :
-    p.toNat + 3 < b.usize.toNat ∧ (p + 1).toNat = p.toNat + 1 ∧
-      (p + 1 + 1).toNat = p.toNat + 2 ∧ (p + 1 + 1 + 1).toNat = p.toNat + 3 := by
-  unfold hex4 at h
-  cases h1 : hexVal (byteAt b p) with
-  | none => rw [h1] at h; simp at h
-  | some a =>
-    obtain ⟨q1, s1⟩ := step_of_hexVal h1
-    cases h2 : hexVal (byteAt b (p + 1)) with
-    | none => rw [h1, h2] at h; simp at h
-    | some a2 =>
-      obtain ⟨q2, s2⟩ := step_of_hexVal h2
-      cases h3 : hexVal (byteAt b (p + 1 + 1)) with
-      | none => rw [h1, h2, h3] at h; simp at h
-      | some a3 =>
-        obtain ⟨q3, s3⟩ := step_of_hexVal h3
-        cases h4 : hexVal (byteAt b (p + 1 + 1 + 1)) with
-        | none => rw [h1, h2, h3, h4] at h; simp at h
-        | some a4 =>
-          obtain ⟨q4, _⟩ := step_of_hexVal h4
-          exact ⟨by omega, s1, by omega, by omega⟩
-
-theorem hex3_range {b : ByteArray} {p : USize} {v : UInt32} (h : hex3 b p = some v) :
-    p.toNat + 2 < b.usize.toNat ∧ (p + 1).toNat = p.toNat + 1 ∧
-      (p + 1 + 1).toNat = p.toNat + 2 := by
-  unfold hex3 at h
-  cases h1 : hexVal (byteAt b p) with
-  | none => rw [h1] at h; simp at h
-  | some a =>
-    obtain ⟨q1, s1⟩ := step_of_hexVal h1
-    cases h2 : hexVal (byteAt b (p + 1)) with
-    | none => rw [h1, h2] at h; simp at h
-    | some a2 =>
-      obtain ⟨q2, s2⟩ := step_of_hexVal h2
-      cases h3 : hexVal (byteAt b (p + 1 + 1)) with
-      | none => rw [h1, h2, h3] at h; simp at h
-      | some a3 =>
-        obtain ⟨q3, _⟩ := step_of_hexVal h3
-        exact ⟨by omega, s1, by omega⟩
-
-theorem hex4_shift (b : ByteArray) (i p : USize) (hip : i.toNat ≤ p.toNat) :
-    hex4 (⟨⟨tailAt b i⟩⟩ : ByteArray) (p - i) = hex4 b p := by
-  unfold hex4
-  rw [byteAt_shift b i p hip]
-  cases h1 : hexVal (byteAt b p) with
-  | none => simp
-  | some a =>
-    obtain ⟨q1, s1⟩ := step_of_hexVal h1
-    rw [← usize_sub_add p i, byteAt_shift b i (p + 1) (by omega)]
-    cases h2 : hexVal (byteAt b (p + 1)) with
-    | none => simp
-    | some a2 =>
-      obtain ⟨q2, s2⟩ := step_of_hexVal h2
-      rw [← usize_sub_add (p + 1) i, byteAt_shift b i (p + 1 + 1) (by omega)]
-      cases h3 : hexVal (byteAt b (p + 1 + 1)) with
-      | none => simp
-      | some a3 =>
-        obtain ⟨q3, s3⟩ := step_of_hexVal h3
-        rw [← usize_sub_add (p + 1 + 1) i, byteAt_shift b i (p + 1 + 1 + 1) (by omega)]
-
-theorem hex3_shift (b : ByteArray) (i p : USize) (hip : i.toNat ≤ p.toNat) :
-    hex3 (⟨⟨tailAt b i⟩⟩ : ByteArray) (p - i) = hex3 b p := by
-  unfold hex3
-  rw [byteAt_shift b i p hip]
-  cases h1 : hexVal (byteAt b p) with
-  | none => simp
-  | some a =>
-    obtain ⟨q1, s1⟩ := step_of_hexVal h1
-    rw [← usize_sub_add p i, byteAt_shift b i (p + 1) (by omega)]
-    cases h2 : hexVal (byteAt b (p + 1)) with
-    | none => simp
-    | some a2 =>
-      obtain ⟨q2, s2⟩ := step_of_hexVal h2
-      rw [← usize_sub_add (p + 1) i, byteAt_shift b i (p + 1 + 1) (by omega)]
-
-/-- The surrogate-continuation lookahead, and the three hexadecimal
-digits behind it, shift together. -/
-theorem cont_hex3_shift (b : ByteArray) (i p : USize) (hip : i.toNat ≤ p.toNat) :
-    (if (byteAt (⟨⟨tailAt b i⟩⟩ : ByteArray) (p - i) == 92 &&
-          byteAt (⟨⟨tailAt b i⟩⟩ : ByteArray) ((p + 1) - i) == 117 &&
-          (byteAt (⟨⟨tailAt b i⟩⟩ : ByteArray) ((p + 1 + 1) - i) == 100 ||
-            byteAt (⟨⟨tailAt b i⟩⟩ : ByteArray) ((p + 1 + 1) - i) == 68))
-        then hex3 (⟨⟨tailAt b i⟩⟩ : ByteArray) ((p + 1 + 1 + 1) - i) else none)
-      = (if (byteAt b p == 92 && byteAt b (p + 1) == 117 &&
-              (byteAt b (p + 1 + 1) == 100 || byteAt b (p + 1 + 1) == 68))
-        then hex3 b (p + 1 + 1 + 1) else none) := by
-  rw [byteAt_shift b i p hip]
-  by_cases h1 : (byteAt b p == 92) = true
-  · have hs1 : (p + 1).toNat = p.toNat + 1 ∧ p.toNat < b.usize.toNat := by
-      have hne : byteAt b p ≠ 0 := by
-        have : byteAt b p = 92 := by simpa using h1
-        rw [this]; decide
-      have hlt := lt_usize_of_byteAt_ne_zero hne
-      exact ⟨usizeStep b p hlt, USize.lt_iff_toNat_lt.mp hlt⟩
-    rw [byteAt_shift b i (p + 1) (by omega)]
-    by_cases h2 : (byteAt b (p + 1) == 117) = true
-    · have hs2 : (p + 1 + 1).toNat = (p + 1).toNat + 1 := by
-        have hne : byteAt b (p + 1) ≠ 0 := by
-          have : byteAt b (p + 1) = 117 := by simpa using h2
-          rw [this]; decide
-        exact usizeStep b (p + 1) (lt_usize_of_byteAt_ne_zero hne)
-      rw [byteAt_shift b i (p + 1 + 1) (by omega)]
-      by_cases h3 : (byteAt b (p + 1 + 1) == 100 || byteAt b (p + 1 + 1) == 68) = true
-      · have hs3 : (p + 1 + 1 + 1).toNat = (p + 1 + 1).toNat + 1 := by
-          have hne : byteAt b (p + 1 + 1) ≠ 0 := by
-            rcases Bool.or_eq_true_iff.mp h3 with hx | hx
-            · have : byteAt b (p + 1 + 1) = 100 := by simpa using hx
-              rw [this]; decide
-            · have : byteAt b (p + 1 + 1) = 68 := by simpa using hx
-              rw [this]; decide
-          exact usizeStep b (p + 1 + 1) (lt_usize_of_byteAt_ne_zero hne)
-        rw [if_pos (by simp [h1, h2, h3]), if_pos (by simp [h1, h2, h3]),
-            hex3_shift b i (p + 1 + 1 + 1) (by omega)]
-      · simp [h3]
-    · simp [h2]
-  · simp [h1]
-
-/-- The position six bytes past a `\uXXXX` escape does not wrap. -/
-theorem j6_facts {b : ByteArray} {j : USize} {v : UInt32} (h : j < b.usize)
-    (hd : byteAt b (j + 1) = 117) (h4 : hex4 b (j + 1 + 1) = some v) :
-    (j + 1 + 1 + 1 + 1 + 1 + 1).toNat = j.toNat + 6 ∧ j.toNat + 5 < b.usize.toNat := by
-  have hjs := usizeStep b j h
-  have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-  have hjs2 := usizeStep b (j + 1) hlt1
-  have hbl := USize.toNat_lt_size b.usize
-  obtain ⟨q, s1, s2, s3⟩ := hex4_range h4
-  have hs6 : (j + 1 + 1 + 1 + 1 + 1 + 1).toNat = (j + 1 + 1 + 1 + 1 + 1).toNat + 1 :=
-    usize_step_of_lt (by omega)
-  exact ⟨by omega, by omega⟩
-
-/-- Twelve bytes past a surrogate pair: the step does not wrap. -/
-theorem j12_facts {b : ByteArray} {p : USize} {v2 : UInt32}
-    (hm : (if (byteAt b p == 92 && byteAt b (p + 1) == 117 &&
-              (byteAt b (p + 1 + 1) == 100 || byteAt b (p + 1 + 1) == 68))
-           then hex3 b (p + 1 + 1 + 1) else none) = some v2) :
-    (p + 1 + 1 + 1 + 1 + 1 + 1).toNat = p.toNat + 6 := by
-  split at hm
-  · rename_i hcont
-    simp only [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq] at hcont
-    obtain ⟨⟨h92, h117⟩, h100⟩ := hcont
-    have s1 := usizeStep b p (lt_usize_of_byteAt_ne_zero (by rw [h92]; decide))
-    have s2 := usizeStep b (p + 1) (lt_usize_of_byteAt_ne_zero (by rw [h117]; decide))
-    have s3 := usizeStep b (p + 1 + 1) (lt_usize_of_byteAt_ne_zero (by
-      rcases h100 with hx | hx <;> rw [hx] <;> decide))
-    obtain ⟨q, t1, t2⟩ := hex3_range hm
-    have hbl := USize.toNat_lt_size b.usize
-    have s6 : (p + 1 + 1 + 1 + 1 + 1 + 1).toNat = (p + 1 + 1 + 1 + 1 + 1).toNat + 1 :=
-      usize_step_of_lt (by omega)
-    omega
-  · simp at hm
-
-/-- The escape decoder reads only bytes at or after `j ≥ i`, so it
-computes the same on the tail from `i` with the positions shifted. -/
-theorem unescape_shift (b : ByteArray) (i j e : USize) (acc : ByteArray)
-    (hij : i.toNat ≤ j.toNat) (hie : i.toNat ≤ e.toNat) :
-    unescape b j e acc = unescape ⟨⟨tailAt b i⟩⟩ (j - i) (e - i) acc := by
-  revert hij
-  fun_induction unescape b j e acc with
-  | case1 j acc h hje cb hc hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hD : (j - i) < (j + 1) - i := (lt_shift i j (j + 1) hij hjq).mpr hjj
-    simp only [cb, uget_eq_byteAt h] at hc ih ⊢
-    rw [ih hjq]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc,
-      ← usize_sub_add j i, dif_pos hD, ↓reduceIte]
-  | case2 j acc h hje cb hc hjj =>
-    intro hij
-    have hjs := usizeStep b j h
-    exact absurd (USize.lt_iff_toNat_lt.mpr (by omega)) hjj
-  | case17 j acc h hje =>
-    intro hij
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB : ¬ ((j - i) < (e - i)) := fun hx => hje ((lt_shift i j e hij hie).mp hx)
-    conv => rhs; rw [unescape.eq_def]
-    simp only [dif_pos hA, if_neg hB]
-  | case18 j acc h =>
-    intro hij
-    have hA : ¬ ((j - i) < (⟨⟨tailAt b i⟩⟩ : ByteArray).usize) :=
-      fun hx => h ((lt_usize_shift b i j hij).mp hx)
-    conv => rhs; rw [unescape.eq_def]
-    simp only [dif_neg hA]
-  | case3 j acc h hje cb hc d simple v2 hs j' hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    have hjj2 : j.toNat < (j + 1 + 1).toNat := USize.lt_iff_toNat_lt.mp hjj
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    have hD : (j - i) < (j + 1 + 1) - i := (lt_shift i j (j + 1 + 1) hij hq2).mpr hjj
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [j'] at ih ⊢
-    rw [ih hq2]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add j i, byteAt_shift b i (j + 1) hjq,
-      hs, ← usize_sub_add (j + 1) i, dif_pos hD]
-  | case4 j acc h hje cb hc d simple v2 hs j' hjj =>
-    intro hij
-    exfalso
-    have hjs := usizeStep b j h
-    have hib : j.toNat < b.usize.toNat := USize.lt_iff_toNat_lt.mp h
-    have hbl := USize.toNat_lt_size b.usize
-    have hj1l := USize.toNat_lt_size (j + 1)
-    have hjj' : ¬ j.toNat < (j + 1 + 1).toNat := fun hx => hjj (USize.lt_iff_toNat_lt.mpr hx)
-    by_cases hcase : j.toNat + 2 < USize.size
-    · have h2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usize_step_of_lt (by omega)
-      omega
-    · have hnlt : ¬ (j + 1) < b.usize := by rw [USize.lt_iff_toNat_lt, hjs]; omega
-      have hd0 : byteAt b (j + 1) = 0 := by unfold byteAt; rw [dif_neg hnlt]
-      simp [simple, d, hd0] at hs
-  | case5 j acc h hje cb hc d simple hs hd117 =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add j i, byteAt_shift b i (j + 1) hjq,
-      hs, hd117]
-  | case6 j acc h hje cb hc d simple hs hd117 h4 =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add j i, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, ← usize_sub_add (j + 1) i, hex4_shift b i (j + 1 + 1) hq2, h4]
-  | case7 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hq6 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    have hD : (j - i) < (j + 1 + 1 + 1 + 1 + 1 + 1) - i :=
-      (lt_shift i j (j + 1 + 1 + 1 + 1 + 1 + 1) hij hq6).mpr hjj
-    simp only [j6] at ih ⊢
-    rw [ih hq6]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, hex4_shift b i (j + 1 + 1) hq2, h4, hcond, dif_pos hD]
-  | case8 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hjj =>
-    intro hij
-    exfalso
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hlt6 : j < (j + 1 + 1 + 1 + 1 + 1 + 1) := USize.lt_iff_toNat_lt.mpr (by omega)
-    exact hjj hlt6
-  | case9 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hq6 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    have hD : (j - i) < (j + 1 + 1 + 1 + 1 + 1 + 1) - i :=
-      (lt_shift i j (j + 1 + 1 + 1 + 1 + 1 + 1) hij hq6).mpr hjj
-    simp only [j6] at ih ⊢
-    rw [ih hq6]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, hex4_shift b i (j + 1 + 1) hq2, h4, hcond, hdc, dif_pos hD]
-  | case10 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc hjj =>
-    intro hij
-    exfalso
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hlt6 : j < (j + 1 + 1 + 1 + 1 + 1 + 1) := USize.lt_iff_toNat_lt.mpr (by omega)
-    exact hjj hlt6
-  | case11 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont v2 hm hv2 hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hq6 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    have hD : (j - i) < (j + 1 + 1 + 1 + 1 + 1 + 1) - i :=
-      (lt_shift i j (j + 1 + 1 + 1 + 1 + 1 + 1) hij hq6).mpr hjj
-    simp only [cont, j6, dite_eq_ite] at hm
-    simp only [j6] at ih ⊢
-    rw [ih hq6]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, hex4_shift b i (j + 1 + 1) hq2, h4, hcond, hdc,
-      cont_hex3_shift b i (j + 1 + 1 + 1 + 1 + 1 + 1) hq6, hm, hv2, dif_pos hD]
-  | case12 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont v2 hm hv2 hjj =>
-    intro hij
-    exfalso
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hlt6 : j < (j + 1 + 1 + 1 + 1 + 1 + 1) := USize.lt_iff_toNat_lt.mpr (by omega)
-    exact hjj hlt6
-  | case13 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont v2 hm hv2 j12 cv hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hq6 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    simp only [cont, j6, dite_eq_ite] at hm
-    simp only [j12, j6] at hjj ih ⊢
-    have hjj2 : j.toNat < (j + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1).toNat :=
-      USize.lt_iff_toNat_lt.mp hjj
-    have hq12 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    have hD12 : (j - i) < (j + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1) - i :=
-      (lt_shift i j _ hij hq12).mpr hjj
-    rw [ih hq12]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, hex4_shift b i (j + 1 + 1) hq2, h4, hcond, hdc,
-      cont_hex3_shift b i (j + 1 + 1 + 1 + 1 + 1 + 1) hq6, hm, hv2, dif_pos hD12, cv]
-  | case14 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont v2 hm hv2 j12 hjj =>
-    intro hij
-    exfalso
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    simp only [cont, j6, dite_eq_ite] at hm
-    have h12 := j12_facts hm
-    simp only [j12, j6] at hjj
-    exact hjj (USize.lt_iff_toNat_lt.mpr (by omega))
-  | case15 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont hm hjj ih =>
-    intro hij
-    have hjs := usizeStep b j h
-    have hA := (lt_usize_shift b i j hij).mpr h
-    have hB := (lt_shift i j e hij hie).mpr hje
-    have hjq : i.toNat ≤ (j + 1).toNat := by omega
-    have hc2 : (byteAt b j != 92) = false := by
-      simp only [cb, uget_eq_byteAt h] at hc; simpa using hc
-    simp only [simple, d, dite_eq_ite] at hs
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    have hd2 : (byteAt b (j + 1) != 117) = false := by simp [hd]
-    have hlt1 : (j + 1) < b.usize := lt_usize_of_byteAt_ne_zero (by rw [hd]; decide)
-    have hjs2 : (j + 1 + 1).toNat = (j + 1).toNat + 1 := usizeStep b (j + 1) hlt1
-    have hq2 : i.toNat ≤ (j + 1 + 1).toNat := by omega
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hq6 : i.toNat ≤ (j + 1 + 1 + 1 + 1 + 1 + 1).toNat := by omega
-    have hD : (j - i) < (j + 1 + 1 + 1 + 1 + 1 + 1) - i :=
-      (lt_shift i j (j + 1 + 1 + 1 + 1 + 1 + 1) hij hq6).mpr hjj
-    simp only [cont, j6, dite_eq_ite] at hm
-    simp only [j6] at ih ⊢
-    rw [ih hq6]
-    conv => rhs; rw [unescape.eq_def]
-    simp only [uget_eq_byteAt hA, byteAt_shift b i j hij, dif_pos hA, if_pos hB, hc2,
-      Bool.false_eq_true, ↓reduceIte, ← usize_sub_add, byteAt_shift b i (j + 1) hjq,
-      hs, hd2, hex4_shift b i (j + 1 + 1) hq2, h4, hcond, hdc,
-      cont_hex3_shift b i (j + 1 + 1 + 1 + 1 + 1 + 1) hq6, hm, dif_pos hD]
-  | case16 j acc h hje cb hc d simple hs hd117 v h4 j6 hcond hdc cont hm hjj =>
-    intro hij
-    exfalso
-    simp only [d] at hd117
-    have hd : byteAt b (j + 1) = 117 := by simpa using hd117
-    obtain ⟨hj6, hj6b⟩ := j6_facts h hd h4
-    have hlt6 : j < (j + 1 + 1 + 1 + 1 + 1 + 1) := USize.lt_iff_toNat_lt.mpr (by omega)
-    exact hjj hlt6
-
 /-- The naive body is the input up to (and excluding) its closing quote. -/
 theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (body, r)) :
     l = body ++ 34 :: r := by
@@ -954,9 +531,10 @@ theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (
     rw [← h.1, ← h.2, hc34]
     rfl
   | case3 c hc hb => simp [naiveStrBody, hc, hb] at h
-  | case4 c hc hb d l' ih =>
+  | case4 c hc hb d l' hd => simp [naiveStrBody, hc, hb, hd] at h
+  | case5 c hc hb d l' hd ih =>
     rw [naiveStrBody.eq_def] at h
-    simp only [hc, hb, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hb, hd, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with
     | none => simp [hs] at h
     | some p =>
@@ -965,8 +543,8 @@ theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (
       rw [← h.1, ← h.2]
       simp only [List.cons_append]
       rw [← ih hs]
-  | case5 c l' hc hb hlt => rw [naiveStrBody.eq_def] at h; simp [hc, hb, hlt] at h
-  | case6 c l' hc hb hlt ih =>
+  | case6 c l' hc hb hlt => rw [naiveStrBody.eq_def] at h; simp [hc, hb, hlt] at h
+  | case7 c l' hc hb hlt ih =>
     rw [naiveStrBody.eq_def] at h
     simp only [hc, hb, hlt, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with
@@ -984,7 +562,7 @@ theorem naiveStr_cons (l l' : List UInt8) (h : l = 34 :: l') :
         | none => .err .expectedString l
         | some (body, rest) =>
           if body.contains 92 then
-            match unescape ⟨⟨l⟩⟩ 1 (1 + body.length).toUSize .empty with
+            match unescape ⟨⟨body⟩⟩ 0 (⟨⟨body⟩⟩ : ByteArray).usize .empty with
             | some s => .ok s rest
             | none => .err .badEscape l
           else
@@ -1047,20 +625,6 @@ theorem scanString_eq (b : ByteArray) (i : USize) :
           rw [hasEscape_eq, htake]
         have hex : b.extract (i + 1).toNat (strClose b (i + 1)).toNat = ⟨⟨body⟩⟩ := by
           rw [extract_eq b (i + 1) _ (by omega) (by simp only [length_bytes]; omega), htake]
-        have hsub1 : (i + 1) - i = 1 := by
-          apply USize.toNat_inj.mp
-          rw [USize.toNat_sub_of_le _ _ (USize.le_iff_toNat_le.mpr (by omega))]
-          have h1 : (1 : USize).toNat = 1 := by simp
-          omega
-        have hsub2 : (strClose b (i + 1)) - i = (1 + body.length).toUSize := by
-          apply USize.toNat_inj.mp
-          rw [USize.toNat_sub_of_le _ _ (USize.le_iff_toNat_le.mpr (by omega)), hEnat,
-            toNat_toUSize (by omega)]
-          omega
-        have hunesc : unescape b (i + 1) (strClose b (i + 1)) ByteArray.empty
-            = unescape ⟨⟨tailAt b i⟩⟩ 1 (1 + body.length).toUSize ByteArray.empty := by
-          rw [unescape_shift b i (i + 1) (strClose b (i + 1)) ByteArray.empty (by omega)
-            (by omega), hsub1, hsub2]
         have hcat : tailAt b i = 34 :: (body ++ 34 :: rest) := by rw [hT, happ]
         have hdrop : rest = (tailAt b i).drop (body.length + 2) := by
           rw [hcat]
@@ -1074,10 +638,10 @@ theorem scanString_eq (b : ByteArray) (i : USize) :
           apply USize.toNat_inj.mp
           rw [toUSize_toNat_add i _ (by omega), toNat_toUSize (by omega), hEstep, hEnat]
           omega
-        simp only [hEne0, Bool.false_eq_true, ↓reduceIte, hesc, hex, hunesc]
+        simp only [hEne0, Bool.false_eq_true, ↓reduceIte, hesc, hex]
         by_cases hcon : body.contains 92 = true
         · simp only [hcon, ↓reduceIte]
-          cases hu : unescape (⟨⟨tailAt b i⟩⟩ : ByteArray) 1 (1 + body.length).toUSize
+          cases hu : unescape (⟨⟨body⟩⟩ : ByteArray) 0 (⟨⟨body⟩⟩ : ByteArray).usize
               ByteArray.empty with
           | none => exact (liftRes_err_self b i .badEscape).symm
           | some s => simp only [liftRes, hpos]

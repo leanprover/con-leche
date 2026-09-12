@@ -71,6 +71,12 @@ FALLBACK = {
     # other side.  (The fixpoint is order-dependent: this edge became a
     # demotion candidate only when #285 changed the graph around it.)
     ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
+    # task #290: every statement of `Verify/Frontend/Local.lean` is over
+    # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
+    # (the private `import Scan.Equiv` covers the constants), but a private
+    # import is invisible to a public statement — the build says
+    # `unknown identifier NRes`.
+    ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

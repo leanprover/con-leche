@@ -269,9 +269,10 @@ theorem naiveStrBody_rest_suffix {l body r : List UInt8}
     simp only [hc, ↓reduceIte, Option.some.injEq, Prod.mk.injEq] at h
     rw [← h.2]; exact List.suffix_cons _ _
   | case3 c hc hb => simp [naiveStrBody, hc, hb] at h
-  | case4 c hc hb d l' ih =>
+  | case4 c hc hb d l' hd => simp [naiveStrBody, hc, hb, hd] at h
+  | case5 c hc hb d l' hd ih =>
     rw [naiveStrBody.eq_def] at h
-    simp only [hc, hb, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hb, hd, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with
     | none => simp [hs] at h
     | some p =>
@@ -279,10 +280,10 @@ theorem naiveStrBody_rest_suffix {l body r : List UInt8}
       simp only [hs, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
       rw [← h.2]
       exact (ih hs).trans ((List.suffix_cons d l').trans (List.suffix_cons c (d :: l')))
-  | case5 c l' hc hb hlt =>
+  | case6 c l' hc hb hlt =>
     rw [naiveStrBody.eq_def] at h
     simp [hc, hb, hlt] at h
-  | case6 c l' hc hb hlt ih =>
+  | case7 c l' hc hb hlt ih =>
     rw [naiveStrBody.eq_def] at h
     simp only [hc, hb, hlt, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with

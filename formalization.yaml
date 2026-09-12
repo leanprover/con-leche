@@ -53,14 +53,20 @@ status:
     it accepts has a model (`ConLeche.Model`, over the term reading
     `ConLeche.Denotes`, both in `ConLeche/Denotes.lean`) — one set per
     constant under which every stored constant is a member of its type
-    and `False` is empty.  `ConLeche.no_False_theorem_accepted` is its
-    main corollary: a stream one of whose records declares a theorem of
-    type `False` is never accepted.  Not covered: the parser, the
-    `--trusted` mode.  The proof is parametric in a type satisfying the
-    `SetTheory` interface (ZF without infinity and choice plus an
-    omega-chain of Grothendieck universes); the corollary's hypothesis
-    is syntactic (the record's declared type is literally the pinned
-    `False`).
+    and `False` is empty.  `ConLeche.no_False_declaration` is its
+    main corollary, stated about the FILE the binary reads: a file
+    that declares a theorem of type `False` — four lines of the export
+    format, with anything before, between and after them — is never
+    accepted by the binary's parse-prepare-check path
+    (`ConLeche.pipelineAccepts`).  The parser is covered by that
+    corollary (the byte reader is proved equal to a naive reference,
+    and the parse is proved to read the template's lines into the
+    record); not covered: the `--trusted` mode.  The proof is
+    parametric in a type satisfying the `SetTheory` interface (ZF
+    without infinity and choice plus an omega-chain of Grothendieck
+    universes); the corollary's hypothesis is syntactic (the file's
+    text matches the template, whose type line is literally the
+    pinned `False`).
   # The only `sorry` in the repository is the deliberate hole in the
   # Comparator challenge module `ConLeche/Challenge.lean`.
   sorry_count: 0
@@ -70,7 +76,7 @@ status:
       file: "ConLeche/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]
       comparator_config: "comparator.json"
-    - declaration: "ConLeche.no_False_theorem_accepted"
+    - declaration: "ConLeche.no_False_declaration"
       file: "ConLeche/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]
       comparator_config: "comparator.json"

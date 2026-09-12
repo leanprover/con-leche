@@ -70102,3 +70102,371 @@ front — which is the whole point of the new shape, measured.
 | trust surface / no-local-paths / challenge / pindump | OK (13 escapes in 5 allowlisted files; 3 pinners reproduce byte-for-byte) |
 | arena / e2e / annot / prelude counts / progress / pool / DAG tower | 90/92, **195/195**, 15/15, 3/3, 15/15, 15/15, **14/14** |
 | trusted and `--jobs` sweeps | unchanged |
+## TASK #290 — THE PARSER ENTERS THE THEOREM (2026-09-12, `agent/parser-290`)
+
+The maintainer's goal, verbatim: *"including the parser in the theorem:
+I agree that verifying the parser at the `List Chunk` level is good.
+For the theorem I want an easy to understand predicate 'this JSON
+input declares a theorem of type False'.  I imagine the prettiest way
+is to express it as a string template using Lean's interpolation
+(you'd have to fix escaping)."*  The corollary at the stream (task
+#286) is about the list of records the fold consumes; this task
+states it a third time, over the FILE, and derives it from the second.
+
+### 1. The statements, as landed (after the merge with master 62b38eef, §6)
+
+`ConLeche/Accepts.lean` (exposed; the vocabulary of the statement):
+
+```lean
+def hasProofOfFalse (file : String) : Prop :=
+  ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+    file =
+      before ++ "\n" ++
+      s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+      between₁ ++ "\n" ++
+      s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+      between₂ ++ "\n" ++
+      s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+      between₃ ++ "\n" ++
+      s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+      after
+
+def pipelineAccepts (file : String) : Prop :=
+  ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    Frontend.builtinPreludeE = .ok pre ∧
+    Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
+    checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
+```
+
+`pipelineAccepts` is `checkMain`'s accept path (`Main.lean`) read off
+the driver: the prelude parses, the file parses, `prepareD`'s
+`.decls` — which IS `preparePrelude` — goes into `checkDeclsIO`, whose
+result carries `checkDecls … = .ok env`.  (`streamingAccepts chunks`
+is the same with `parseChunks` in place of `parseExportD`.)
+`ConLeche/MainTheorem.lean`, with its `sorry` twin in
+`ConLeche/Challenge.lean`; `comparator.json` lists exactly
+`model_exists` and `no_False_declaration`:
+
+```lean
+/-- **The main corollary.** … -/
+theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    (h : hasProofOfFalse s) : ¬ pipelineAccepts s := by
+  rintro ⟨pre, r, env, -, hparse, hcheck⟩
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseExportD_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+
+theorem no_False_declaration_streaming (V : Type w) [SetTheory V] (s : String)
+    (chunks : List ByteArray) (h : hasProofOfFalse s)
+    (hcs : s.toUTF8 = Frontend.concatBytes chunks) (hne : ∀ c ∈ chunks, c.isEmpty = false) :
+    ¬ streamingAccepts chunks
+```
+
+Three imported steps: the line-level lemma
+`parseExportD_hasProofOfFalse` (`Verify/Frontend/FileFalse.lean`)
+gives a `thmDecl` of type `False` in `r.decls`; `mem_preparePrelude`
+(`Verify/Frontend/Prepare.lean`, task #293's permutation fact) keeps
+it in the prepared list; `no_False_theorem_accepted` — now in
+`Verify/Cached/StreamThm.lean` beside `checkDecls_thmDecl_const`, with
+its name, statement and docstring — forbids it.  The streaming twin is
+`parseChunks_ok_parseExportD` and is stated in `MainTheorem.lean`
+beside the corollary, NOT in the comparator list.
+
+**No size hypothesis** (the maintainer's ruling at the merge): `feedChunk`
+walks `USize` positions and `ByteArray.usize` wraps in the logic, so
+a first version carried `hsz : s.utf8ByteSize < USize.size`.  Instead
+the parser now GUARDS: `parseExportD` returns `sizeError`
+(`.unsupported`) when `contents.utf8ByteSize ≥ USize.size`, before
+`feedChunk`; `chunkStep` carries a running byte count `total` and fails
+the same way when `total + buf0.size ≥ USize.size`, and
+`parseExportHandleD.loop`/`parseChunks.go` thread it.  The lemmas:
+`parseExportD_ok_size` (a result means the input fits),
+`parseChunks_ok_size` (a result of the streaming parse means the chunks
+fit) and `parseChunks_ok_parseExportD` (a result of the streaming parse
+IS the wholesale parse's) carry no hypothesis; the equalities
+`parseExportD_eq_parseLines` and `parseChunks_eq_parseExportD` keep
+theirs, because on an oversized input the two parses fail differently
+(the wholesale one up front, the streaming one at the chunk that
+crosses the word — after any earlier parse error).  One `Nat`
+comparison per chunk; the wholesale check is O(1) (`utf8ByteSize`).
+
+**Deviations from the sketch, and why.**
+
+* **The theorem's own name is a separate index `k` with an arbitrary
+  string** (the maintainer's confirmation): `False` as the theorem's
+  name would be rejected for the wrong reason (a duplicate).  The proof
+  never reads that line at all — it is absorbed into the arbitrary part
+  before the theorem record — so `name` may hold anything, including a
+  quote that makes the line malformed; the file then does not parse.
+* **A leading part is required** (`before ++ "\n"`): a file whose very
+  first line is the `False` name entry is not matched by the template
+  (lean4export's first line is the `meta` header, so no export is
+  affected).  The template is a sufficient condition, stated as the
+  maintainer sketched it; a variant with an optional first newline was
+  not worth the loss of readability.
+
+### 2. What had to change in the parser — four tightenings and one refactor
+
+Each is a conservative change (it rejects more streams than before, or
+changes nothing observable); every gate passed unchanged (arena 90/92,
+e2e 195/195, annot 15/15, the sweeps).
+
+1. **An index is bound once** (`IdTable.bound`, `StateD.freshName/
+   freshLevel/freshExpr`, `reboundError`).  The tables let a later line
+   overwrite an entry (harmless for the parse, because entries are
+   resolved eagerly), but the theorem needs the entry a template line
+   bound to be the entry the theorem line reads, whatever the arbitrary
+   parts hold.  The test is on a BORROWED state, in three `@[noinline]`
+   helpers: written inline as `if st.exprs.bound i then throw …` at the
+   top of the `do` block, the compiler's reset/reuse pass projected and
+   `inc`'d all 21 fields of the state before the test — +17 %
+   instructions on the parse phase, found by diffing the emitted C.
+   As landed: **+0.39 G on the 17.16 G parse phase of init-full
+   (+2.2 % of parsing), +0.07 % of the whole `--verified --jobs=1` run
+   (538.45 G → 538.84 G)** — the price of the new check.
+2. **A line never spans a newline.**  Two scanners stepped over one:
+   `naiveSkipBraced`/`skipBraced` (the `meta` header) skipped any byte
+   between brackets, so `{"meta":{"x":` + newline + the template's
+   name entry + `}}` swallowed the entry into the header — a
+   counterexample to the sketch; and `naiveStrBody`/`strClose` took
+   `\` + newline as an escape pair (the decoder then refused it, but
+   the consumed bytes had crossed the newline).  Now the header skip
+   stops at a newline and a control byte after a backslash is refused
+   on both sides; the twin proofs (`skipBraced_eq`, `strClose_eq`, the
+   `.induct` proofs) gained a case each.
+3. **The escape decoder is handed the string body, sliced out.**
+   `unescape`'s `\u` lookahead read up to eight bytes past the body
+   (never past the closing quote in effect, but proving that meant a
+   short-circuit analysis of a 60-line `USize` loop).  `scanString`
+   now passes `b.extract (i+1) e` and the naive side `⟨⟨body⟩⟩`, so both
+   run the same function on the same array and `naiveStr`'s verdict is
+   visibly a function of the body.  The twin (`scanString_eq`) got
+   simpler; `unescape_shift` and its five helpers (130 lines) became
+   dead and were deleted.  The allocation is on the escape path only
+   (38 lines of init-full).
+4. *(Dropped at the merge.)*  A first version replaced the ground
+   hoist's `Array.qsort` by `Array.mergeSort` for a membership lemma;
+   task #293's `preparePrelude_perm` (`Verify/Frontend/Prepare.lean`)
+   proves the permutation of master's own `hoistNatOpGround`, so
+   `NatOpGround.lean` is master's and `mem_preparePrelude` is the fact
+   the corollary reads.
+5. **The inductive arm is two named halves.**  `processLineCoreD`'s
+   `.ind` arm was a 150-line `do` block with three `for` loops; `dsimp`
+   on its unfolding exceeded the step budget and `split` did not
+   engage, so its frame lemma was intractable as one term.  It is now
+   `validateIndD` (reads the state on a borrowed parameter, returns
+   the verdict or the ordered constructors and `nPd`) followed by
+   `installIndD` (every state change), whose generated-record loop is
+   the recursive `pushGenList`; `registerProjOwners` is a top-level
+   definition.  Same code, in named pieces; the frame lemma is an
+   induction plus a dozen bind peels.
+
+And **the streaming loop calls a pure step**: `chunkStep`/`chunkFinish`
+are what `parseExportHandleD.loop` does between reads, and
+`parseChunks` is the same fold over a list of chunks.  RC discipline
+unchanged (`st` threaded by value; the buffer extracted as before).
+
+### 3. The proof, module by module (`ConLeche/Verify/Frontend/*`)
+
+* `Digits.lean` — `IsDec d n` (a non-empty digit run, no leading zero
+  unless `0`, valued `n`); `repr_isDec : IsDec (lit (toString n)) n`;
+  `naiveNum_isDec`.  `Init/Data/Repr.lean` is a module that does not
+  expose `Nat.repr`/`toDigits*`, so this is one of the tree's two new
+  `import all` sites (the other is the fixture test).
+* `Local.lean` (1 441 lines) — `LineLocal f`: on `l ++ 10 :: x` with no
+  newline in `l`, the scanner's verdict and stopping point do not
+  depend on `x`, and it stops inside `l` or at the newline.  Proved for
+  every naive scanner by the suffix lemmas' own inductions (the slot
+  tables through `Slot.of_local`, the line loop by one macro per key
+  group), then `naiveLine_local`, and the two consequences the file
+  theorem reads: `naiveLine_some` (a `some rest` line is the input up
+  to its first newline) and `naiveLine_none` (a `none` line holds no
+  newline).
+* `Lines.lean` — `parseLines`, the parse as a fold over the byte list;
+  `parseExportD_eq_parseLines` (under `hsz`, via `scanLineSpec_cases`
+  and a `fun_induction` over `feedChunk`), `parseExportD_size` and
+  `parseExportD_ok_size` (the guard); `parseLines_split` (a parse
+  of `l ++ 10 :: m` reaches `m` as a line start — for ANY `l` — by
+  successful steps, `Reach`) and `parseLines_reach`.
+* `Chunks.lean` — `feedChunk_prefix` (the buffer's complete lines parse
+  as in the longer input and the loop stops where the wholesale parse
+  continues: the full `x`-independence of `naiveLine_local`),
+  `feedChunk_tail_nonl` (the carry holds no newline), `parseChunks_go`
+  (with the running count as an invariant: `carry.size ≤ total`),
+  `parseChunks_eq_parseLines`, **`parseChunks_eq_parseExportD`**; the
+  guard's `chunkStep_ok_total`, `parseChunks_ok_size` and
+  **`parseChunks_ok_parseExportD`** (no size hypothesis).
+* `ApplyLine.lean` — `Frame` (a declaration record leaves the three
+  index tables alone and only extends the record list), proved for
+  `pushDecl`, `pushGenList`, `registerProjOwners`, `installIndD`,
+  every arm of `processLineCoreD` (the `.quot` arm's kind dispatch is
+  a join point: `simp only at h`, then one `split`), and `applyDeclD`
+  (= `processLineCoreD` since #292); `Keeps` (what any successful line
+  keeps: bound names, bound expressions, pushed records) via the entry
+  specs; `applyLine_nameFalse`, `applyLine_constFalse`.
+* `ThmLine.lean` — `applyLine_thmFalse`: the theorem record is pushed
+  with type `False` (`pushDecl_mem`).  The first version also handled
+  the prelude dedupe (`canon_type_const`, `sameCanon_thm`,
+  `pushDecl_thm`: a record dropped as a prelude copy is a `thmDecl` of
+  type `False` itself); since #293 the parser keeps every record, so
+  those lemmas went.
+* `FalseLines.lean` — the three template lines scanned, with the
+  indices symbolic decimal runs: `naiveLine_nameFalse`,
+  `naiveLine_constFalse`, `naiveLine_thm`, by stepping the loops
+  (`obj_step`/`line_step`: `rw […eq_def]; simp +decide [leaves, *]`).
+* `FileFalse.lean` — the walk: `parseLines_hasProofOfFalse` (split at
+  `before`, the name line, split at `between₁`, the const line, split
+  at `between₂ ++ name line ++ between₃` as one part, the theorem
+  line, `parseLines_reach` over `after`, `Reach.keeps` throughout) and
+  `parseExportD_hasProofOfFalse` (the initial state's name table, the
+  guard's `parseExportD_ok_size`).  (`Hoist.lean` — a membership fact
+  about the ground hoist — went with the merge; see §2 item 4.)
+
+### 4. What was hard
+
+* **The two scanner holes were found by trying to prove the sketch**,
+  not by testing: the meta header's newline was a genuine
+  counterexample to the theorem as sketched on the code as it stood.
+* **The taint machinery was not needed.**  A first version tracked
+  three taint invariants across the file; a tainted type index makes
+  the theorem line fail to apply, which the hypothesis excludes, so
+  the invariants were dropped (and #292 removes the rest).
+* **`first | … | …` does not backtrack past a nested `by`**: a term
+  `exact ⟨…, fun x => by tac⟩` whose inner tactic fails is elaborated
+  with error recovery (`sorry`), so `first` takes it.  The line loop's
+  key dispatch is therefore explicit `case`s, one per key.
+* **Join points.**  `applyDeclD` and `parseLevelEntryD` desugar with
+  `__do_jp` binders; `simp only at h` inlines them, after which the
+  peeling (`exceptBind_ok`, `split at h`) is routine.  On a generic
+  `d : DeclRec`, `split at h` picks the innermost match; `cases d`
+  first.
+* **Hygiene and exposure.**  The step macros are `set_option hygiene
+  false` (they name the proof's own hypotheses); `scanLineSpec` and
+  `parseLines` needed `@[expose]` (a `public section` hides a `def`'s
+  body from the next module); `Nat.repr` needed `import all`;
+  `decide` cannot see through `String.toUTF8` in a module —
+  `lit_eq_toByteArray` first; the template's byte lemmas were renamed
+  `tpl_*` after clashing with the key lemmas `lit_in`, `lit_type`,
+  `lit_value` of `Equiv/Keys.lean` (only visible from a classic probe
+  file, which is what the challenge and proofdeps gates run).
+
+### 5. Gates
+
+`lake build` and `lake test` warning-free (three new axiom pins at
+`[propext, Classical.choice, Quot.sound]`); `tests/challenge.sh` OK —
+four statements token-identical; `tests/proofdeps.sh` REGENERATED for
+the new root `main_file_False` (4 712 rows / 13 roots, 0 doors);
+`tests/overview-links.sh --update` after re-reading the citing
+paragraphs (the three `MainTheorem.lean` anchors moved by the new
+imports, `parseExportStreamD` by the chunk step, the axiom pin by the
+new block; 80 links / 50 files); `tests/arena.sh` all suites as
+expected; the instruction comparison above.  The fixture test
+(`tests/ConLecheTests/FileTests.lean`): a file built from
+`zero_ctor_false_proof.ndjson`'s lines matches the template (the
+string equation decided by the kernel), the parser reads it into a
+`thmDecl` of type `False`, and the fold rejects it.
+
+### 6. The merge with master 62b38eef, and the promotion (2026-09-12)
+
+Master moved under the branch four times while it was proved: #285
+(`DeclC`/`ExprC` → `Declaration`/`Expr`), #291 (the environment
+statement dropped), #292 (`sorryAx` is the fold's — the parser's taint
+pre-scan, `taintSkipped`, `applyDeclD`'s three outcomes all gone) and
+#293 (the parser takes no prelude; `preparePrelude` sits between parser
+and fold; the basis-pin match and the prelude dedupe left the parser).
+Merged ONCE, as instructed, with master's `ExportC.lean` and
+`NatOpGround.lean` taken as the base and the branch's edits re-applied
+on master's text: the rebinding checks; the validate/install split of
+the inductive arm — which on master has no pin match any more, so
+`installIndD_frame` lost a `split`; `pushGenList` as a plain fold
+(`pushGenD` returns a state now); `chunkStep`/`chunkFinish`/
+`concatBytes`/`parseChunks` with the loop calling them.  What went:
+`Verify/Frontend/Hoist.lean`, the prelude-dedupe lemmas of
+`ThmLine.lean`, every taint field of `Frame`/`Keeps`, `applyDeclD_cases`
+(now `applyDeclD_frame := processLineCoreD_frame`), the prelude lemmas
+of `FileFalse.lean`.  What came: `mem_preparePrelude` as the step
+between the parse and the stream lemma, the `.quotDecl` arm, and the
+size guard (§1).
+
+**The promotion** (the maintainer's ruling): the public pair is
+`model_exists` + `no_False_declaration` — `Challenge.lean`,
+`MainTheorem.lean` and `comparator.json` state exactly those two, with
+`no_False_declaration_streaming` beside the corollary in
+`MainTheorem.lean` only.  `no_False_theorem_accepted` kept its name,
+statement and docstring and moved to `Verify/Cached/StreamThm.lean`
+next to `checkDecls_thmDecl_const`, proved from
+`no_proof_of_False_cached` (so its closure no longer reaches
+`Denotes`/`Model.Denotes` — a module LEAVING, recorded in the
+regenerated proofdeps expectation).  Proofdeps roots: `main_file_False`
+is the headline, `stream_False` the step (12 roots, 4 362 rows, 0
+doors).  The axiom pin table, `trust-surface.sh`'s challenge note,
+`formalization.yaml`, the arena yaml and `--help` name
+`ConLeche.no_False_declaration`; OVERVIEW §1 presents the file-level
+statement first with the stream-level one as the step it rests on, and
+§2's driver item cites `chunkStep`.  README is the maintainer's and was
+not edited; the replacement text for its "### The Main Corollary"
+section follows (the "Not covered by the proof" bullet "The parser
+reading JSON files to `List DeclC`" should go with it; the
+annotation-pass and driver bullets stand):
+
+> At the end of `ConLeche/MainTheorem.lean` we prove that a file that
+> declares a theorem of type `False` is never accepted.  "Declares a
+> theorem of type `False`" is a string template over the export format
+> (`ConLeche/Accepts.lean`): four lines — a name entry for `False`, an
+> expression entry for the constant `False`, a name entry for the
+> theorem's own name, and the theorem record whose type is that
+> expression — with anything at all before, between and after them:
+>
+> ```lean
+> def hasProofOfFalse (file : String) : Prop :=
+>   ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+>     file =
+>       before ++ "\n" ++
+>       s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+>       between₁ ++ "\n" ++
+>       s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+>       between₂ ++ "\n" ++
+>       s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+>       between₃ ++ "\n" ++
+>       s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+>       after
+> ```
+>
+> `pipelineAccepts file` is the binary's accept path as pure content:
+> the built-in prelude parses, the file parses, and `checkDecls` in
+> `--verified` mode accepts the parsed list prepared with the prelude.
+> The theorem:
+>
+> ```lean
+> theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+>     (h : hasProofOfFalse s) : ¬ pipelineAccepts s
+> ```
+>
+> The meaning of `False` is hard-coded, so no tricks involving odd
+> definitions for `False` will confuse the checker.  Inside the proof,
+> the same statement is established first about the parsed stream (a
+> list of declarations one of whose records declares a theorem of type
+> `False` is never accepted, `ConLeche/Verify/Cached/StreamThm.lean`)
+> and before that about the environment (an accepted environment holds
+> no constant of type `False`); the file-level statement adds the
+> parser and the preparation step on top of those.
+
+**Gates on the merged tree** (commit after the merge): `lake build` and
+`lake test` warning-free; `env -i … bash tests/arena.sh` exit 0 —
+proofdeps 4 362 rows across 12 roots, 0 doors; challenge OK on the two
+names; shake 456 removals all allowlisted, pub-imports none demotable
+(the promotion needed three import fixes: MainTheorem's stale
+allowlist line for a now-private `MainC`, Accepts' redundant `Prepare`
+line, StreamThm taking `MainC` privately with `SetTheory.Core` public
+for its statement); overview-links 89 links / 56 files after
+re-reading the citing paragraphs; no-local-paths, trust-surface OK;
+arena tutorial 90/92, e2e 195/195, annot 15/15 and the sweeps as
+expected.
+
+**The size guard's cost is nil and the rebinding test's is as
+measured before the merge.**  Against the master binary rebuilt at
+62b38eef, raw init-full, `--verified --jobs=1`, `ulimit -v 16000000`:
+537.655 G → 538.051 G instructions (+0.074 %); the parse phase alone
+(`CON_LECHE_INMODEL_CENSUS=1`, exit 2): 16.441 G → 16.824 G (+2.33 %),
+the rebinding test's borrowed `bound` lookups on every table entry
+(§2 item 1; the guard is one comparison per 4 MiB chunk).  Verdicts
+identical (exit 0, the same success line).

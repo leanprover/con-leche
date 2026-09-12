@@ -11,11 +11,11 @@
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L53-L56
-    53  theorem model_exists (V : Type w) [SetTheory V]
-    54      (ds : List Declaration) (env : Env)
-    55      (accepted : checkDecls .verified ds = .ok env) :
-    56      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L68-L71
+    68  theorem model_exists (V : Type w) [SetTheory V]
+    69      (ds : List Declaration) (env : Env)
+    70      (accepted : checkDecls .verified ds = .ok env) :
+    71      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,11 +44,45 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L67-L70
-    67  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-    68      (ds : List Declaration) (cv : ConstantVal) (v : Expr)
-    69      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-    70      ∀ env, checkDecls .verified ds ≠ .ok env := by
+== ConLeche/MainTheorem.lean#L79-L80
+    79  theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    80      (h : hasProofOfFalse s) : ¬ pipelineAccepts s := by
+
+== ConLeche/Accepts.lean#L61-L72
+    61  def hasProofOfFalse (file : String) : Prop :=
+    62    ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+    63      file =
+    64        before ++ "\n" ++
+    65        s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+    66        between₁ ++ "\n" ++
+    67        s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+    68        between₂ ++ "\n" ++
+    69        s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+    70        between₃ ++ "\n" ++
+    71        s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+    72        after
+
+== ConLeche/Accepts.lean#L84-L88
+    84  def pipelineAccepts (file : String) : Prop :=
+    85    ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    86      Frontend.builtinPreludeE = .ok pre ∧
+    87      Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
+    88      checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
+
+== ConLeche/Verify/Cached/StreamThm.lean#L205-L208
+   205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+   206      (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+   207      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+   208      ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
+
+== ConLeche/Verify/Frontend/FileFalse.lean#L110
+   110  theorem parseExportD_hasProofOfFalse {s : String} (h : hasProofOfFalse s)
+
+== ConLeche/Verify/Frontend/Prepare.lean#L151
+   151  theorem mem_preparePrelude {pre : PreludeIx} {ds : List Declaration}
+
+== ConLeche/Verify/Frontend/Chunks.lean#L358
+   358  theorem parseChunks_ok_parseExportD {inModel census : Bool}
 
 == ConLeche/Verify/Cached/StreamConsts.lean#L779-L784
    779  theorem checkDecls_consts (V : Type w) [SetTheory V]
@@ -79,18 +113,21 @@
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L97-L101
-    97  /--
-    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    99  -/
-   100  #guard_msgs in
-   101  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L102-L106
+   102  /--
+   103  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   104  -/
+   105  #guard_msgs in
+   106  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L805
-   805  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L923
+   923  def parseExportStreamD (path : System.FilePath)
 
-== ConLeche/Frontend/Scan/Equiv.lean#L1000
-  1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
+== ConLeche/Frontend/Scan/Equiv.lean#L1002
+  1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
+
+== ConLeche/Frontend/ExportC.lean#L850
+   850  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == Main.lean#L100
    100  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)

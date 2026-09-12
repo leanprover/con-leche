@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 public import ConLeche.Denotes
+public import ConLeche.Accepts
 public section
 
 /-!
@@ -18,21 +19,27 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > under which every constant — every theorem included — is a member
 > of its type, `False` is empty, and `Eq` is set equality.
 >
-> **Main corollary.**  Hence a list of declarations one of whose
-> records declares a theorem of type `False` is never accepted at all.
+> **Main corollary.**  Hence a file — the text handed to the binary —
+> that declares a theorem of type `False` is never accepted at all.
 
-The corollary follows from the theorem in two steps.  `False` denotes
-the empty set, which has no members, so an accepted environment holds
-no constant whose type is `False`; and a record declaring such a
-theorem is installed under its own name with its declared type and is
-never dropped, so it would leave exactly such a constant behind.  An
-accepted stream is therefore not a proof of a contradiction, and more:
-every statement it proves is true in the model.  Definitional
-equalities need no clause of their own — a reader who cares that a
-definition unfolds as declared states that as a theorem proved by
-`rfl`, and `Model`'s `eq_equality` field, which says the built-in `Eq`
-denotes set equality, turns that theorem into the equation of the two
-sides' denotations.
+The corollary follows from the theorem in four steps, from the file
+inwards.  A file that declares such a theorem is read by the parser
+into a list of declaration records holding a theorem record of that
+type — the parser resolves the file's index tables line by line, and
+an index bound once is never rebound; the preparation the binary runs
+on the parsed list before the fold (the built-in prelude in front, the
+ground of the pinned `Nat` operations hoisted ahead of them) keeps
+every parsed record; a record declaring such a theorem is installed
+under its own name with its declared type and is never dropped, so it
+would leave a constant of type `False` behind; and `False` denotes the
+empty set, which has no members, so an accepted environment holds no
+such constant.  An accepted file is therefore not a proof of a
+contradiction, and more: every statement it proves is true in the
+model.  Definitional equalities need no clause of their own — a reader
+who cares that a definition unfolds as declared states that as a
+theorem proved by `rfl`, and `Model`'s `eq_equality` field, which says
+the built-in `Eq` denotes set equality, turns that theorem into the
+equation of the two sides' denotations.
 
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
@@ -49,22 +56,27 @@ sides' denotations.
   so of *the* denotation.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
-* `Declaration.thmDecl cv v ∈ ds` says the stream declares a theorem with
-  header `cv` and value `v`; the main corollary asks only that, and
-  that the header's declared type is `False`.  It says the extra thing
-  the step at the environment leaves open — that such a record is not
-  quietly dropped, aliased or re-typed as it is installed — and it is
-  the statement a reader can check without knowing what an `Env` is:
-  it speaks only of the declarations handed to the checker.
-* `cv.type = .const falseName []` says the declared type is `False`.
-  `False` is built in: the checker installs it from its own pin, and a
+* `hasProofOfFalse file` (`ConLeche/Accepts.lean`) says the file
+  declares a theorem of type `False`: four lines in the exporter's own
+  shapes — a name entry `False`, an expression entry for the constant
+  `False`, a name entry for the theorem's own name, and the theorem
+  record whose type is that expression — with anything at all before,
+  between and after them.  It is the statement a reader can check
+  without knowing what an `Env`, or even a declaration record, is: it
+  speaks only of the text handed to the binary.
+* `pipelineAccepts file` (`ConLeche/Accepts.lean`) is the binary's
+  accept path as pure content: the built-in prelude parses, the file
+  parses, and `checkDecls` accepts the parsed list prepared with the
+  prelude.  The driver prints its success line from these three facts
+  and from nothing else.
+* `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
-  acceptance.
+  acceptance — not even that the file fits in memory: the parser
+  refuses an input the machine word cannot address before reading it.
 
-The statements are about the checking function, not the process:
-reading and parsing the bytes is outside them, as is the `--trusted`
-mode.  See README.md.
+Both statements are about the checking function and the parse, not
+the process, and `--trusted` mode is outside both.  See README.md.
 -/
 
 namespace ConLeche
@@ -82,12 +94,10 @@ theorem model_exists (V : Type w) [SetTheory V]
     Nonempty (Model V env) :=
   sorry
 
-/-- **The main corollary.**  A stream that declares a theorem of type
+/-- **The main corollary.**  A file that declares a theorem of type
 `False` is never accepted. -/
-theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-    (ds : List Declaration) (cv : ConstantVal) (v : Expr)
-    (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-    ∀ env, checkDecls .verified ds ≠ .ok env :=
+theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
+    (h : hasProofOfFalse s) : ¬ pipelineAccepts s :=
   sorry
 
 end ConLeche

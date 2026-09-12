@@ -193,19 +193,52 @@ def parsePwD (st : StateD) : PwRec → M PropWhen
   | .never => pure .never
   | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM st.name))
 
+/-! ## The rebinding test (task #290)
+
+Every table entry is bound once: a line that binds an index a
+previous line already bound is a parse error.  Before this the tables
+let a later line overwrite an entry all the same (the entries are
+resolved eagerly, so nothing already built could change).  What the
+rule buys is the one property a theorem about the FILE needs of the
+tables: the entry a line bound is the entry every later line reads,
+whatever else the file holds
+(`ConLeche/Verify/Frontend/ApplyLine.lean`). -/
+
+/-- The rebinding error, named once. -/
+def reboundError (what : String) (i : Nat) : String :=
+  s!"{what} index {i} is already bound"
+
+/-- The three tests, on a BORROWED state.  Written as separate
+functions rather than inline so that the state is not deconstructed
+before the test: an owned `st.exprs.bound i` at the top of a `do`
+block made the compiler project and `inc` every field of the state
+first (the reset/reuse pass moved the deconstruction ahead of the
+test), which was a 17 % instruction increase on the parse phase;
+against a borrowed parameter the state stays whole until the update
+that consumes it, exactly as before. -/
+@[noinline] def StateD.freshName (st : @& StateD) (i : Nat) : M Unit :=
+  if st.names.bound i then throw (reboundError "name" i) else pure ()
+@[noinline] def StateD.freshLevel (st : @& StateD) (i : Nat) : M Unit :=
+  if st.levels.bound i then throw (reboundError "level" i) else pure ()
+@[noinline] def StateD.freshExpr (st : @& StateD) (i : Nat) : M Unit :=
+  if st.exprs.bound i then throw (reboundError "expression" i) else pure ()
+
 /-! ## Table entries -/
 
 /-- A name-table entry: the name value is built directly. -/
 def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
   | .str pre s => do
     let p ← st.name pre
+    st.freshName i
     pure { st with names := st.names.insert i (Name.str p s) }
   | .num pre n => do
     let p ← st.name pre
+    st.freshName i
     pure { st with names := st.names.insert i (Name.num p n) }
 
 /-- A level-table entry. -/
 def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
+  st.freshLevel i
   let l ← match r with
     | .succ u => do pure (Level.succ (← st.level u))
     | .max a b => do pure (Level.max (← st.level a) (← st.level b))
@@ -224,6 +257,7 @@ beside the `.default` annotation of task #142), so `==` is
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
 def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
+  st.freshExpr i
   let e ← match r with
     | .bvar k => pure (Expr.mkBvar k)
     | .sort u => do pure (Expr.mkSort (← st.level u))
@@ -340,6 +374,254 @@ def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
            rules := rules : InModel.IndRecRec }
   pure ⟨types, ctors, recs⟩
 
+/-- Record the structure-like owners of a parsed block that the
+projection rewrite serves (`projRecOwners`). -/
+def registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
+  let types ← tys.mapM fun t => do
+    let cv ← parseCVD st t.cv
+    pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
+      ← t.ctors.mapM st.name, t.isRec)
+  let ctors ← cts.mapM fun c => do
+    let cv ← parseCVD st c.cv
+    pure (cv.name, c.numFields, cv.type)
+  let recs ← rcs.mapM fun r => do
+    let cv ← parseCVD st r.cv
+    pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
+  match projRecOwners block types ctors recs with
+  | [] => pure st
+  | owners =>
+    let m := st.projOwners
+    let st := { st with projOwners := {} }
+    pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
+
+/-- Push the records the in-process modeller generated (task #200),
+each booked as a declaration of the fold and not a record of the file
+(task #219).  (The loop of the install half, as a function: the file
+theorem's frame lemma is an induction on it, task #290.) -/
+def pushGenList (st : StateD) : List Declaration → Name → StateD
+  | [], _ => st
+  | d :: ds, T0 => pushGenList (noteGen (pushGenD st d) d T0) ds T0
+
+/-- **An inductive record, validated** (tasks #217, #228, #271): the
+half of the record's processing that reads the state and changes
+nothing — the verdict, or the block's constructors in the block's own
+order with the declared parameter count.  Split from `installIndD`
+below at task #290 so that a proof about what the parse does to its
+state need not look here at all. -/
+def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List IndCtorRec × Nat)) := do
+  -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
+  -- not an error.  The official kernel admits unsafe blocks (it skips
+  -- positivity for them); we support no unsafe declaration at all, and
+  -- unsafe axioms/opaques/definitions already decline positively.
+  if tys.any (·.isUnsafe) then
+    return .inl (.declined "unsafe inductive declaration")
+  -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
+  -- hands `add_inductive` the `numParams` of ONE inductive record of
+  -- the block (`Declaration.inductDecl lparams nparams types`,
+  -- `Lean4Checker/Replay.lean`) and checks every former and every
+  -- constructor against it; which record that is, is the name order
+  -- of the replay's walk.  So the count is well defined for the
+  -- block exactly when its type records AGREE on it — as every
+  -- record a real export writes does, `add_inductive` storing one
+  -- `m_nparams` in every member's `InductiveVal`.  A block whose
+  -- records disagree has no declared count this checker could hold
+  -- official to, and is positively declined here rather than checked
+  -- against a count official might not have chosen.
+  let nPs := tys.map (·.numParams)
+  let nPd := nPs.head?.getD 0
+  unless nPs.all (· == nPd) do
+    return .inl (.declined "inductive block whose type records disagree on numParams")
+  -- TASK #271 (issues #5 and #7) — THE BLOCK'S REDUNDANT FIELDS.
+  -- Official's replay hands `add_inductive` the type formers, the
+  -- constructors and the parameter count; the kernel then GENERATES
+  -- the constructors and the recursors, and the replay compares each
+  -- exported CONSTRUCTOR and RECURSOR record with the generated one
+  -- structurally (`checkPostponedConstructors`,
+  -- `checkPostponedRecursors`, `Lean4Checker/Replay.lean`) — a
+  -- mismatch is "Invalid constructor" / "Invalid recursor", a
+  -- REJECT.  An exported INDUCTIVE record is never compared with the
+  -- generated `InductiveVal`, so its `numIndices`, `numNested`,
+  -- `isRec`, `isReflexive` and `all` are not input official reads and
+  -- are not checked here either (the `numParams` half official DOES
+  -- read is task #228's, just above).  What is read of a type record
+  -- is its `ctors` list: it groups the constructor records into the
+  -- block, and it IS the block's constructor order (issue #5 — the
+  -- `cidx` field is the redundant copy, not the other way round).
+  -- These are consistency checks between the stream's own fields, so
+  -- they live here, in the parse, and their verdict is `.invalid`:
+  -- the fold never sees such a block.
+  let tyNames ← tys.mapM fun t => st.name t.cv.name
+  let tyTypes ← tys.mapM fun t => getDeclD st t.cv.type
+  let listed ← tys.mapM fun t => t.ctors.mapM st.name
+  let ctorNames ← cts.mapM fun c => st.name c.cv.name
+  let flat := listed.flatten
+  unless flat.Nodup do
+    return .inl (.invalid "duplicate constructor name in an inductive type's ctors")
+  unless flat.length == cts.length do
+    return .inl (.invalid s!"the inductive block lists {flat.length} constructors \
+      and carries {cts.length} constructor records")
+  let ctorIx : Std.HashMap Name Nat :=
+    (ctorNames.foldl (fun (mi : Std.HashMap Name Nat × Nat) n =>
+      (mi.1.insert n mi.2, mi.2 + 1)) ({}, 0)).1
+  let ctsA := cts.toArray
+  -- the constructors IN THE BLOCK'S OWN ORDER, `types[].ctors` in
+  -- type order (issue #5): a record array in another order is the
+  -- same block, and the recursor generated from it is the same one
+  let mut ordered : Array IndCtorRec := #[]
+  for tn in tyNames.zip listed do
+    let (T, ns) := tn
+    let mut j := 0
+    for n in ns do
+      let some k := ctorIx[n]? | return .inl (.invalid s!"No such constructor {n}")
+      let some c := ctsA[k]? | return .inl (.invalid s!"No such constructor {n}")
+      if let some ci := c.cidx then
+        unless ci == j do
+          return .inl (.invalid s!"constructor {n} declares cidx {ci}; it is \
+            constructor {j} of {T}")
+      if let some iw := c.induct then
+        let iwn ← st.name iw
+        unless iwn == T do
+          return .inl (.invalid s!"constructor {n} declares induct {iwn}; it is \
+            a constructor of {T}")
+      -- `numFields`: official counts the constructor's own Π binders
+      -- without reducing (`check_constructors` walks `is_pi`) and
+      -- stores the count past the parameters, so a record that
+      -- declares another number is not the generated constructor.
+      -- Before this, a count too LARGE declined at the field
+      -- telescope (arena `ctor-num-fields`) and a count too small was
+      -- caught later, by the constructor's result type, if at all.
+      let cty ← getDeclD st c.cv.type
+      unless nPd + c.numFields == indPiTeleLen cty do
+        return .inl (.invalid s!"constructor {n} declares {c.numFields} fields at \
+          {nPd} parameters; its type has {indPiTeleLen cty} binders")
+      ordered := ordered.push c
+      j := j + 1
+  let cts := ordered.toList
+  -- The recursor records: the counts and the K flag the GENERATED
+  -- recursor carries.  `numParams + numMotives + numMinors` and the
+  -- major-premise index are compared with the block at the install
+  -- (`nativeRecPinOk`), which leaves a compensating pair of lies
+  -- open; the individual counts are here.
+  --
+  -- NOT at a NESTED block.  The kernel specialises a nested block
+  -- into a mutual one with a mimic type per nested occurrence, and
+  -- the recursors it generates — `T.rec`, `T.rec_1`, … — are the
+  -- SPECIALISED block's: their motives and minor premises count the
+  -- mimics too, so the declared block's own type and constructor
+  -- counts are not what they carry (measured: `ind_nest_inf`'s
+  -- `InfNest.rec` declares two motives at one declared type).
+  -- `numNested` is a field of the type record, which official never
+  -- compares; reading it here only ever WEAKENS these checks, never
+  -- rejects on it.
+  let nested := tys.any (·.numNested != 0)
+  let nTypes := tys.length
+  let nCtors := cts.length
+  -- official's `is_K_target`: the block is a `Prop`, has ONE type
+  -- with ONE constructor, and that constructor takes only the
+  -- parameters.  At a former whose declared type is not a syntactic
+  -- Π-telescope ending in a sort (task #195) the sort cannot be read
+  -- here and the flag is left to the install.
+  let kExpected? : Option Bool :=
+    match tyTypes, listed, cts with
+    | [ty], [[_]], [c] =>
+      match ty.piResult with
+      | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
+      | _ => none
+    | _, _, _ => some false
+  for r in (if nested then [] else rcs) do
+    let rn ← st.name r.cv.name
+    unless r.numParams == nPd do
+      return .inl (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
+        the block declares {nPd}")
+    unless r.numMotives == nTypes do
+      return .inl (.invalid s!"recursor {rn} declares {r.numMotives} motives; \
+        the block has {nTypes} inductive types")
+    unless r.numMinors == nCtors do
+      return .inl (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
+        the block has {nCtors} constructors")
+    if let some kE := kExpected? then
+      unless r.k == kE do
+        return .inl (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
+          recursor of this block is{if kE then "" else " not"} K-like")
+    -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
+    -- once the parameters are peeled; unreadable at a former declared
+    -- at a definition, and then not checked
+    if let .str T "rec" := rn then
+      for tt in tyNames.zip tyTypes do
+        if tt.1 == T then
+          if let some n := tt.2.piSortTeleLen? then
+            unless nPd + r.numIndices == n do
+              return .inl (.invalid s!"recursor {rn} declares {r.numIndices} indices; \
+                {T} has {n - nPd} at {nPd} parameters")
+  return .inr (cts, nPd)
+
+/-- **An inductive record, installed**: the block's constants, the
+projection-owner table, the basis-pin match, the in-process modeller,
+the push.  Every change to the state a validated inductive record
+makes is here. -/
+def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) (nPd : Nat) : M (StateD ⊕ RecordVerdict) := do
+  let types ← tys.mapM fun t => do
+    pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
+  let ctors ← cts.mapM fun c => do
+    pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
+  let recs ← rcs.mapM fun r => do
+    let rules ← r.rules.mapM (parseRuleD st)
+    pure (ConstantInfo.recInfo (← parseCVD st r.cv)
+      (r.numParams + r.numMotives + r.numMinors + r.numIndices)
+      (r.numParams + r.numMotives + r.numMinors) rules)
+  let block := types ++ ctors ++ recs
+  -- the projection rewrite's owner table (the export's own shape
+  -- data: index/constructor counts, recursion flag, motive/minor
+  -- counts)
+  let st ← registerProjOwners st tys cts rcs block
+  -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
+  -- that used to stand here — a name pre-filter (task #215) and then
+  -- `canonEqList` against the five pinned blocks — is
+  -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
+  -- retags a matching block to its `basisDecl` kind before the fold
+  -- sees it.  A block under a pinned name that does NOT match keeps
+  -- its `indDecl` form and is rejected by the fold's reserved-name
+  -- check, exactly as before.
+  --
+  -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
+  -- since task #207, and since task #219 the only one there IS —
+  -- a stream `_model` record is an ordinary declaration and is
+  -- never consulted): a mutual or nested block gets its `_model`
+  -- family generated here and pushed ahead of it; the block then
+  -- installs through the modeled route.  A generator decline is
+  -- the run's decline, naming the class (the residual: infinitary
+  -- nesting, a `Prop` block with a large eliminator).
+  let T0 := (block.head?.map (·.name)).getD .anonymous
+  let b ← blockRecOf st tys cts rcs
+  let st :=
+    let m := st.indBlocks
+    let st := { st with indBlocks := {} }
+    { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+  if st.inModel && InModel.wants b then
+    let ctx : InModel.Ctx :=
+      ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+    match InModel.generate ctx b with
+    | .error why =>
+      if st.inModelCensus then
+        return .inl (pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+          (.indDecl block nPd))
+      else
+        return .inr (.declined s!"in-process model of {T0}: {why}")
+    | .ok gen =>
+      -- a generated record is a declaration of the FOLD and not
+      -- a record of the file (task #219): booked here, so the
+      -- verdict line reports the file's own count
+      let st1 := pushGenList st gen T0
+      let st1 := { st1 with
+        inModelled := st1.inModelled.push T0,
+        inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+      return .inl (pushDecl st1 (.indDecl block nPd))
+  else
+    return .inl (pushDecl st (.indDecl block nPd))
+
 /-- The record's own semantics: the declaration kinds, producing
 `Declaration` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
@@ -410,231 +692,9 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
     return .inl (pushDecl st (.quotDecl qk cv))
   | .ind tys cts rcs =>
     let st := { st with indCount := st.indCount + 1 }
-    -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
-    -- not an error.  The official kernel admits unsafe blocks (it skips
-    -- positivity for them); we support no unsafe declaration at all, and
-    -- unsafe axioms/opaques/definitions already decline positively.
-    if tys.any (·.isUnsafe) then
-      return .inr (.declined "unsafe inductive declaration")
-    -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
-    -- hands `add_inductive` the `numParams` of ONE inductive record of
-    -- the block (`Declaration.inductDecl lparams nparams types`,
-    -- `Lean4Checker/Replay.lean`) and checks every former and every
-    -- constructor against it; which record that is, is the name order
-    -- of the replay's walk.  So the count is well defined for the
-    -- block exactly when its type records AGREE on it — as every
-    -- record a real export writes does, `add_inductive` storing one
-    -- `m_nparams` in every member's `InductiveVal`.  A block whose
-    -- records disagree has no declared count this checker could hold
-    -- official to, and is positively declined here rather than checked
-    -- against a count official might not have chosen.
-    let nPs := tys.map (·.numParams)
-    let nPd := nPs.head?.getD 0
-    unless nPs.all (· == nPd) do
-      return .inr (.declined "inductive block whose type records disagree on numParams")
-    -- TASK #271 (issues #5 and #7) — THE BLOCK'S REDUNDANT FIELDS.
-    -- Official's replay hands `add_inductive` the type formers, the
-    -- constructors and the parameter count; the kernel then GENERATES
-    -- the constructors and the recursors, and the replay compares each
-    -- exported CONSTRUCTOR and RECURSOR record with the generated one
-    -- structurally (`checkPostponedConstructors`,
-    -- `checkPostponedRecursors`, `Lean4Checker/Replay.lean`) — a
-    -- mismatch is "Invalid constructor" / "Invalid recursor", a
-    -- REJECT.  An exported INDUCTIVE record is never compared with the
-    -- generated `InductiveVal`, so its `numIndices`, `numNested`,
-    -- `isRec`, `isReflexive` and `all` are not input official reads and
-    -- are not checked here either (the `numParams` half official DOES
-    -- read is task #228's, just above).  What is read of a type record
-    -- is its `ctors` list: it groups the constructor records into the
-    -- block, and it IS the block's constructor order (issue #5 — the
-    -- `cidx` field is the redundant copy, not the other way round).
-    -- These are consistency checks between the stream's own fields, so
-    -- they live here, in the parse, and their verdict is `.invalid`:
-    -- the fold never sees such a block.
-    let tyNames ← tys.mapM fun t => st.name t.cv.name
-    let tyTypes ← tys.mapM fun t => getDeclD st t.cv.type
-    let listed ← tys.mapM fun t => t.ctors.mapM st.name
-    let ctorNames ← cts.mapM fun c => st.name c.cv.name
-    let flat := listed.flatten
-    unless flat.Nodup do
-      return .inr (.invalid "duplicate constructor name in an inductive type's ctors")
-    unless flat.length == cts.length do
-      return .inr (.invalid s!"the inductive block lists {flat.length} constructors \
-        and carries {cts.length} constructor records")
-    let ctorIx : Std.HashMap Name Nat :=
-      (ctorNames.foldl (fun (mi : Std.HashMap Name Nat × Nat) n =>
-        (mi.1.insert n mi.2, mi.2 + 1)) ({}, 0)).1
-    let ctsA := cts.toArray
-    -- the constructors IN THE BLOCK'S OWN ORDER, `types[].ctors` in
-    -- type order (issue #5): a record array in another order is the
-    -- same block, and the recursor generated from it is the same one
-    let mut ordered : Array IndCtorRec := #[]
-    for tn in tyNames.zip listed do
-      let (T, ns) := tn
-      let mut j := 0
-      for n in ns do
-        let some k := ctorIx[n]? | return .inr (.invalid s!"No such constructor {n}")
-        let some c := ctsA[k]? | return .inr (.invalid s!"No such constructor {n}")
-        if let some ci := c.cidx then
-          unless ci == j do
-            return .inr (.invalid s!"constructor {n} declares cidx {ci}; it is \
-              constructor {j} of {T}")
-        if let some iw := c.induct then
-          let iwn ← st.name iw
-          unless iwn == T do
-            return .inr (.invalid s!"constructor {n} declares induct {iwn}; it is \
-              a constructor of {T}")
-        -- `numFields`: official counts the constructor's own Π binders
-        -- without reducing (`check_constructors` walks `is_pi`) and
-        -- stores the count past the parameters, so a record that
-        -- declares another number is not the generated constructor.
-        -- Before this, a count too LARGE declined at the field
-        -- telescope (arena `ctor-num-fields`) and a count too small was
-        -- caught later, by the constructor's result type, if at all.
-        let cty ← getDeclD st c.cv.type
-        unless nPd + c.numFields == indPiTeleLen cty do
-          return .inr (.invalid s!"constructor {n} declares {c.numFields} fields at \
-            {nPd} parameters; its type has {indPiTeleLen cty} binders")
-        ordered := ordered.push c
-        j := j + 1
-    let cts := ordered.toList
-    -- The recursor records: the counts and the K flag the GENERATED
-    -- recursor carries.  `numParams + numMotives + numMinors` and the
-    -- major-premise index are compared with the block at the install
-    -- (`nativeRecPinOk`), which leaves a compensating pair of lies
-    -- open; the individual counts are here.
-    --
-    -- NOT at a NESTED block.  The kernel specialises a nested block
-    -- into a mutual one with a mimic type per nested occurrence, and
-    -- the recursors it generates — `T.rec`, `T.rec_1`, … — are the
-    -- SPECIALISED block's: their motives and minor premises count the
-    -- mimics too, so the declared block's own type and constructor
-    -- counts are not what they carry (measured: `ind_nest_inf`'s
-    -- `InfNest.rec` declares two motives at one declared type).
-    -- `numNested` is a field of the type record, which official never
-    -- compares; reading it here only ever WEAKENS these checks, never
-    -- rejects on it.
-    let nested := tys.any (·.numNested != 0)
-    let nTypes := tys.length
-    let nCtors := cts.length
-    -- official's `is_K_target`: the block is a `Prop`, has ONE type
-    -- with ONE constructor, and that constructor takes only the
-    -- parameters.  At a former whose declared type is not a syntactic
-    -- Π-telescope ending in a sort (task #195) the sort cannot be read
-    -- here and the flag is left to the install.
-    let kExpected? : Option Bool :=
-      match tyTypes, listed, cts with
-      | [ty], [[_]], [c] =>
-        match ty.piResult with
-        | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
-        | _ => none
-      | _, _, _ => some false
-    for r in (if nested then [] else rcs) do
-      let rn ← st.name r.cv.name
-      unless r.numParams == nPd do
-        return .inr (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
-          the block declares {nPd}")
-      unless r.numMotives == nTypes do
-        return .inr (.invalid s!"recursor {rn} declares {r.numMotives} motives; \
-          the block has {nTypes} inductive types")
-      unless r.numMinors == nCtors do
-        return .inr (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
-          the block has {nCtors} constructors")
-      if let some kE := kExpected? then
-        unless r.k == kE do
-          return .inr (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
-            recursor of this block is{if kE then "" else " not"} K-like")
-      -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
-      -- once the parameters are peeled; unreadable at a former declared
-      -- at a definition, and then not checked
-      if let .str T "rec" := rn then
-        for tt in tyNames.zip tyTypes do
-          if tt.1 == T then
-            if let some n := tt.2.piSortTeleLen? then
-              unless nPd + r.numIndices == n do
-                return .inr (.invalid s!"recursor {rn} declares {r.numIndices} indices; \
-                  {T} has {n - nPd} at {nPd} parameters")
-    let types ← tys.mapM fun t => do
-      pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
-    let ctors ← cts.mapM fun c => do
-      pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
-    let recs ← rcs.mapM fun r => do
-      let rules ← r.rules.mapM (parseRuleD st)
-      pure (ConstantInfo.recInfo (← parseCVD st r.cv)
-        (r.numParams + r.numMotives + r.numMinors + r.numIndices)
-        (r.numParams + r.numMotives + r.numMinors) rules)
-    let block := types ++ ctors ++ recs
-    -- the projection rewrite's owner table (the export's own shape
-    -- data: index/constructor counts, recursion flag, motive/minor
-    -- counts)
-    let st ← registerProjOwners st tys cts rcs block
-    -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
-    -- that used to stand here — a name pre-filter (task #215) and then
-    -- `canonEqList` against the five pinned blocks — is
-    -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
-    -- retags a matching block to its `basisDecl` kind before the fold
-    -- sees it.  A block under a pinned name that does NOT match keeps
-    -- its `indDecl` form and is rejected by the fold's reserved-name
-    -- check, exactly as before.
-    --
-    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
-    -- since task #207, and since task #219 the only one there IS —
-    -- a stream `_model` record is an ordinary declaration and is
-    -- never consulted): a mutual or nested block gets its `_model`
-    -- family generated here and pushed ahead of it; the block then
-    -- installs through the modeled route.  A generator decline is
-    -- the run's decline, naming the class (the residual: infinitary
-    -- nesting, a `Prop` block with a large eliminator).
-    let T0 := (block.head?.map (·.name)).getD .anonymous
-    let b ← blockRecOf st tys cts rcs
-    let st :=
-      let m := st.indBlocks
-      let st := { st with indBlocks := {} }
-      { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-    if st.inModel && InModel.wants b then
-      let ctx : InModel.Ctx :=
-        ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
-      match InModel.generate ctx b with
-      | .error why =>
-        if st.inModelCensus then
-          return .inl (pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-            (.indDecl block nPd))
-        else
-          return .inr (.declined s!"in-process model of {T0}: {why}")
-      | .ok gen =>
-        let mut st1 := st
-        for d in gen do
-          -- a generated record is a declaration of the FOLD and not
-          -- a record of the file (task #219): booked here, so the
-          -- verdict line reports the file's own count
-          st1 := noteGen (pushGenD st1 d) d T0
-        st1 := { st1 with
-          inModelled := st1.inModelled.push T0,
-          inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-        return .inl (pushDecl st1 (.indDecl block nPd))
-    else
-      return .inl (pushDecl st (.indDecl block nPd))
-where
-  /-- Record the structure-like owners of a parsed block that the
-  projection rewrite serves (`projRecOwners`). -/
-  registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
-      (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
-    let types ← tys.mapM fun t => do
-      let cv ← parseCVD st t.cv
-      pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
-        ← t.ctors.mapM st.name, t.isRec)
-    let ctors ← cts.mapM fun c => do
-      let cv ← parseCVD st c.cv
-      pure (cv.name, c.numFields, cv.type)
-    let recs ← rcs.mapM fun r => do
-      let cv ← parseCVD st r.cv
-      pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
-    match projRecOwners block types ctors recs with
-    | [] => pure st
-    | owners =>
-      let m := st.projOwners
-      let st := { st with projOwners := {} }
-      pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
+    match ← validateIndD st tys cts rcs with
+    | .inl v => pure (.inr v)
+    | .inr (cts, nPd) => installIndD st tys cts rcs nPd
 
 /-- A declaration record.  **`sorryAx` is the FOLD's** (user ruling):
 the parse forwards every declaration record, the `sorryAx` axiom record
@@ -754,10 +814,22 @@ decreasing_by
 /-- How many bytes the streaming driver asks for at a time. -/
 def chunkSize : USize := 4 * 1024 * 1024
 
+/-- **The size guard** (task #290).  The byte reader addresses its
+buffer by machine word, so an input of `USize.size` bytes or more is
+refused before any of it is read — the wholesale parse at its length,
+the streaming parse when the bytes read so far would reach it.  No
+real input comes near, and the guard is what lets the file theorem
+(`ConLeche/Verify/Frontend/Lines.lean`, `parseExportD_eq_parseLines`)
+stand without a size hypothesis: an accepted parse is a parse of a
+buffer the word addresses. -/
+def sizeError : FrontendError :=
+  .unsupported s!"an input of {USize.size} bytes or more"
+
 /-- Wholesale direct parse (tests and small inputs). -/
 def parseExportD (contents : String)
     (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
+  if contents.utf8ByteSize ≥ USize.size then throw sizeError
   let b := contents.toUTF8
   let (st, lineNo, tail) ← feedChunk (.init inModel census) b 0 0
   if tail < b.usize then
@@ -765,6 +837,58 @@ def parseExportD (contents : String)
     return .ofState st
   else
     return .ofState st
+
+/-- **One chunk of the stream, applied** (task #290): the carried
+incomplete tail is put in front of the new bytes, every complete line
+of the buffer is fed, and the new incomplete tail is cut off for the
+next chunk; `total` counts the bytes read before this chunk, for the
+size guard.  This is the step the streaming reader takes
+(`parseExportHandleD`), pure, so that `parseChunks` below — the same
+step folded over a list of chunks — is exactly what the binary
+computes and can be compared with the wholesale parse
+(`parseChunks_eq_parseExportD`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
+def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+    Except FrontendError (StateD × ByteArray × Nat × Nat) :=
+  if total + buf0.size ≥ USize.size then .error sizeError
+  else
+    let buf := if carry.isEmpty then buf0 else carry ++ buf0
+    match feedChunk st buf 0 lineNo with
+    | .error e => .error e
+    | .ok (st, lineNo, tail) =>
+      .ok (st, buf.extract tail.toNat buf.size, lineNo, total + buf0.size)
+
+/-- The end of the stream: the carried tail, if any, is its last line. -/
+def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
+    Except FrontendError ParseResultD :=
+  if carry.isEmpty then .ok (.ofState st)
+  else
+    match applyFinalLine st carry 0 (lineNo + 1) with
+    | .error e => .error e
+    | .ok st => .ok (.ofState st)
+
+/-- The bytes of a list of chunks, in order: what the chunks a handle
+hands out add up to (task #290). -/
+def concatBytes : List ByteArray → ByteArray
+  | [] => .empty
+  | c :: cs => c ++ concatBytes cs
+
+/-- **The streaming parse, purely** (task #290): `chunkStep` folded
+over the chunks a handle hands out, ending at the first empty chunk
+(`IO.FS.Handle.read` returns one at end of file) or when the list runs
+out — which is what `parseExportHandleD` does, minus the reads. -/
+def parseChunks (inModel : Bool := true) (census : Bool := false)
+    (chunks : List ByteArray) : Except FrontendError ParseResultD :=
+  go (.init inModel census) .empty 0 0 chunks
+where
+  go (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
+      List ByteArray → Except FrontendError ParseResultD
+    | [] => chunkFinish st carry lineNo
+    | c :: cs =>
+      if c.isEmpty then chunkFinish st carry lineNo
+      else
+        match chunkStep st carry lineNo total c with
+        | .error e => .error e
+        | .ok (st, carry, lineNo, total) => go st carry lineNo total cs
 
 /-- Streaming direct parse off an open handle.
 
@@ -778,28 +902,22 @@ The unconsumed tail of a chunk — at most one incomplete line — is
 carried into the next one, and `st` is threaded as a plain argument so
 that the parse tables stay uniquely referenced across steps (task #78:
 a handler that closes over the state holds it at RC 2 and every insert
-inside copies it). -/
+inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
+the loop is `parseChunks.go` with the reads interleaved (task #290). -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
     IO (Except FrontendError ParseResultD) := do
-  let rec loop (st : StateD) (carry : ByteArray) (lineNo : Nat) :
+  let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
       IO (Except FrontendError ParseResultD) := do
     let buf0 ← h.read chunk
     if buf0.isEmpty then
-      if carry.isEmpty then
-        return .ok (.ofState st)
-      else
-        match applyFinalLine st carry 0 (lineNo + 1) with
-        | .error e => return .error e
-        | .ok st => return .ok (.ofState st)
+      return chunkFinish st carry lineNo
     else
-      let buf := if carry.isEmpty then buf0 else carry ++ buf0
-      match feedChunk st buf 0 lineNo with
+      match chunkStep st carry lineNo total buf0 with
       | .error e => return .error e
-      | .ok (st, lineNo, tail) =>
-        loop st (buf.extract tail.toNat buf.size) lineNo
-  loop (.init inModel census) ByteArray.empty 0
+      | .ok (st, carry, lineNo, total) => loop st carry lineNo total
+  loop (.init inModel census) ByteArray.empty 0 0
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)

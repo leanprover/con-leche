@@ -1,8 +1,8 @@
 description: |
   **con-leche** — a Lean 4 kernel checker written in Lean 4 and *verified* against
   a set-theoretic model: the shipped `--verified` configuration is the one the
-  consistency capstone (`ConLeche.no_False_theorem_accepted`) is stated about, so an
-  accepted stream comes with a machine-checked argument that the checked
+  consistency capstone (`ConLeche.no_False_declaration`) is stated about, so an
+  accepted file comes with a machine-checked argument that the checked
   declarations have a model, and in particular that no `False` was proved.
 
   The binary ingests raw `lean4export` NDJSON: there is no preprocessor, no

@@ -43,8 +43,10 @@ namespace ConLeche.Frontend
 and the position after its newline, or `0` when the buffer ended
 before a newline did (the fast recogniser's encoding of an incomplete
 tail), or the tag at the offending byte.  The driver calls this; the
-compiler runs `scanLineFwd`. -/
-def scanLineSpec (b : ByteArray) (i : USize) : ScanRes LineRec :=
+compiler runs `scanLineFwd`.  Exposed: it is the reader `feedChunk`
+runs, and the proof that the parse is a fold over the lines
+(`ConLeche/Verify/Frontend/Lines.lean`) unfolds it. -/
+@[expose] def scanLineSpec (b : ByteArray) (i : USize) : ScanRes LineRec :=
   match naiveLine (tailAt b i) with
   | .ok (r, some _) rest => .ok r (posAt i.toNat (tailAt b i) rest).toUSize
   | .ok (r, none) _ => .ok r 0

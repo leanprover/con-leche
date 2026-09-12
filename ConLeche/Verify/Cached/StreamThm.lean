@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Cached.Installed
+public import ConLeche.SetTheory.Core
+import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.BridgeCS4
 
@@ -186,3 +188,26 @@ theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : List Declaration} {env
   exact installRun_thmDecl_const hty hmem run rfl
 
 end ConLeche.Cached
+
+namespace ConLeche
+
+universe w
+
+/-- **The main corollary, at the stream.**  A stream that declares a
+theorem of type `False` is never accepted.  Two steps: the record is
+installed under its own name with its declared type and that constant
+survives the run (`checkDecls_thmDecl_const`), so an accepted
+environment would hold a constant of type `False` — and it cannot,
+because in the model of the main theorem that type denotes the empty
+set, which the constant would have to be a member of
+(`no_proof_of_False_cached`).  The main corollary
+(`no_False_declaration`, `ConLeche/MainTheorem.lean`) rests on this. -/
+theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+    (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
+  intro env accepted
+  obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
+  exact Cached.no_proof_of_False_cached V rfl accepted c hc hcty
+
+end ConLeche
