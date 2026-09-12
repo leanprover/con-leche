@@ -633,7 +633,12 @@ def scanString (b : @& ByteArray) (i : USize) : ScanRes String :=
     let e := strClose b (i + 1)
     if e == 0 then .err ⟨i.toNat, .expectedString⟩
     else if hasEscape b (i + 1) e then
-      match unescape b (i + 1) e ByteArray.empty with
+      -- the decoder is handed the BODY, sliced out (task #290): its
+      -- `\u` lookahead then reads nothing outside the string, so the
+      -- verdict on a line is the line's alone, whatever follows it —
+      -- and the naive side decodes the very same array
+      let body := b.extract (i + 1).toNat e.toNat
+      match unescape body 0 body.usize ByteArray.empty with
       | some s => .ok s (e + 1)
       | none => .err ⟨i.toNat, .badEscape⟩
     else

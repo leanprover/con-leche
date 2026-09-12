@@ -127,8 +127,9 @@ def naiveStrBody : List UInt8 → Option (List UInt8 × List UInt8)
 
 /-- A JSON string.  A body without a backslash is the UTF-8 of the
 value; one with a backslash goes through the shared escape decoder on
-the same bytes — from the opening quote, so that its lookahead reads
-what the fast side's read. -/
+the body alone — the same array the fast side slices out, so the
+value is a function of the body and of nothing after the string
+(task #290). -/
 def naiveStr (l : List UInt8) : NRes String :=
   match l with
   | 34 :: l' =>
@@ -136,7 +137,7 @@ def naiveStr (l : List UInt8) : NRes String :=
     | none => .err .expectedString l
     | some (body, rest) =>
       if body.contains 92 then
-        match unescape ⟨⟨l⟩⟩ 1 (1 + body.length).toUSize .empty with
+        match unescape ⟨⟨body⟩⟩ 0 (⟨⟨body⟩⟩ : ByteArray).usize .empty with
         | some s => .ok s rest
         | none => .err .badEscape l
       else

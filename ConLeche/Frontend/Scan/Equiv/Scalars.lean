@@ -992,7 +992,7 @@ theorem naiveStr_cons (l l' : List UInt8) (h : l = 34 :: l') :
         | none => .err .expectedString l
         | some (body, rest) =>
           if body.contains 92 then
-            match unescape ⟨⟨l⟩⟩ 1 (1 + body.length).toUSize .empty with
+            match unescape ⟨⟨body⟩⟩ 0 (⟨⟨body⟩⟩ : ByteArray).usize .empty with
             | some s => .ok s rest
             | none => .err .badEscape l
           else
@@ -1055,20 +1055,6 @@ theorem scanString_eq (b : ByteArray) (i : USize) :
           rw [hasEscape_eq, htake]
         have hex : b.extract (i + 1).toNat (strClose b (i + 1)).toNat = ⟨⟨body⟩⟩ := by
           rw [extract_eq b (i + 1) _ (by omega) (by simp only [length_bytes]; omega), htake]
-        have hsub1 : (i + 1) - i = 1 := by
-          apply USize.toNat_inj.mp
-          rw [USize.toNat_sub_of_le _ _ (USize.le_iff_toNat_le.mpr (by omega))]
-          have h1 : (1 : USize).toNat = 1 := by simp
-          omega
-        have hsub2 : (strClose b (i + 1)) - i = (1 + body.length).toUSize := by
-          apply USize.toNat_inj.mp
-          rw [USize.toNat_sub_of_le _ _ (USize.le_iff_toNat_le.mpr (by omega)), hEnat,
-            toNat_toUSize (by omega)]
-          omega
-        have hunesc : unescape b (i + 1) (strClose b (i + 1)) ByteArray.empty
-            = unescape ⟨⟨tailAt b i⟩⟩ 1 (1 + body.length).toUSize ByteArray.empty := by
-          rw [unescape_shift b i (i + 1) (strClose b (i + 1)) ByteArray.empty (by omega)
-            (by omega), hsub1, hsub2]
         have hcat : tailAt b i = 34 :: (body ++ 34 :: rest) := by rw [hT, happ]
         have hdrop : rest = (tailAt b i).drop (body.length + 2) := by
           rw [hcat]
@@ -1082,10 +1068,10 @@ theorem scanString_eq (b : ByteArray) (i : USize) :
           apply USize.toNat_inj.mp
           rw [toUSize_toNat_add i _ (by omega), toNat_toUSize (by omega), hEstep, hEnat]
           omega
-        simp only [hEne0, Bool.false_eq_true, ↓reduceIte, hesc, hex, hunesc]
+        simp only [hEne0, Bool.false_eq_true, ↓reduceIte, hesc, hex]
         by_cases hcon : body.contains 92 = true
         · simp only [hcon, ↓reduceIte]
-          cases hu : unescape (⟨⟨tailAt b i⟩⟩ : ByteArray) 1 (1 + body.length).toUSize
+          cases hu : unescape (⟨⟨body⟩⟩ : ByteArray) 0 (⟨⟨body⟩⟩ : ByteArray).usize
               ByteArray.empty with
           | none => exact (liftRes_err_self b i .badEscape).symm
           | some s => simp only [liftRes, hpos]
