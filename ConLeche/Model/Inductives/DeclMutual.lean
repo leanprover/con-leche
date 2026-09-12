@@ -6864,7 +6864,10 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     obtain ⟨caps, hfT, hfR, hrep⟩ := hreps₅ t ht'
     rw [hdOf t ht'] at hrep
     refine ⟨(fms.getD t default).s, (fms.getD t default).cvTa, cvRas.getD t default, caps, _, _, _,
-      by rw [hmemName t ht']; exact hfT, hfR, fun hne hr => hne ?_, by rw [hmemName t ht']; exact hrep⟩
+      by rw [hmemName t ht']; exact hfT, hfR, fun hne hr => hne ?_,
+      fun ψ => by rw [hsEqAll t ψ ht', show (dOf 0).resSort = (fms.getD 0 default).s from rfl,
+        hsEqAll 0 ψ hk0],
+      by rw [hmemName t ht']; exact hrep⟩
     have h := hrulesShape t ht'
     rw [hr, List.map_nil] at h
     show (ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1) = []

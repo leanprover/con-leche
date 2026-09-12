@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.InvFold
+public import ConLeche.Model.Inductives.MutualRep
 public section
 
 /-!
@@ -357,5 +358,350 @@ theorem ctorAtPins_copy {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTer
   exact ⟨hfit, h.body vs hfit⟩
 
 end IndRepData
+
+/-! ## The choice, member by member
+
+`TargetOk` and (at a constructor whose fields all use their own
+domains) `CtorAtPins` read the choice POINTWISE — at the member's own
+target alone — so the identity discharges of `InvFold`
+(`targetOk_real`, `ctorAtPins_real`) apply verbatim at a real member
+of a block whose OTHER members are pinned elsewhere.
+-/
+
+/-- The target-form field domains do not mention the choice when no
+field uses its hypothesis. -/
+theorem tgFieldsAV_congr_noIh {Tg Tg' : Nat → AnnotTerm} {useIh : Nat → Bool}
+    (hu : ∀ i, useIh i = false) (nP b : Nat) (tgt : Nat → Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Eiss : List (List AnnotTerm))
+    (tls : List (List (Nat × Nat × AnnotTerm))) (nF : Nat) :
+    tgFieldsAV Tg useIh nP b tgt ds Eiss tls nF = tgFieldsAV Tg' useIh nP b tgt ds Eiss tls nF := by
+  refine List.map_congr_left fun i _ => ?_
+  unfold tgFieldAV
+  rw [hu i]
+  rfl
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **`TargetOk` is pointwise in the choice**: member `t`'s fact
+mentions `L t` and `pinsT t` and nothing else. -/
+theorem TargetOk.congr {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm}
+    {L L' : Nat → AnnotTerm} {pinsT pinsT' : Nat → List AnnotTerm} {t : Nat}
+    (hL : L t = L' t) (hp : pinsT t = pinsT' t) (h : d.TargetOk ψ ρ ps L pinsT t) :
+    d.TargetOk ψ ρ ps L' pinsT' t := by
+  unfold IndRepData.TargetOk at h ⊢
+  rw [← hL, ← hp]
+  exact h
+
+omit [SetTheory V] in
+/-- **A member's target is pointwise in the choice**. -/
+theorem invTgAV_congr {ψ : Name → Nat} {ps : List AnnotTerm} {L L' : Nat → AnnotTerm}
+    {pinsT pinsT' : Nat → List AnnotTerm} {t : Nat} (hL : L t = L' t) (hp : pinsT t = pinsT' t) :
+    d.invTgAV ψ ps L pinsT t = d.invTgAV ψ ps L' pinsT' t := by
+  unfold IndRepData.invTgAV
+  rw [hL, hp]
+
+/-- **`CtorAtPins` is pointwise in the choice at a constructor that
+uses no hypothesis**: the field domains are the constructor's own
+(`tgFieldsAV_congr_noIh`) and the body's target is the constructor's
+OWN member's. -/
+theorem CtorAtPins.congr_tg {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm}
+    {Tg Tg' : Nat → AnnotTerm} {useIh : Nat → Bool} {J : Nat} {head : AnnotTerm} {nF : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm} {Eiss : List (List AnnotTerm)}
+    {tls : List (List (Nat × Nat × AnnotTerm))} (hu : ∀ i, useIh i = false)
+    (hTg : Tg (d.mems J) = Tg' (d.mems J))
+    (h : d.CtorAtPins ψ ρ ps Tg useIh J head nF ds Es Eiss tls) :
+    d.CtorAtPins ψ ρ ps Tg' useIh J head nF ds Es Eiss tls := by
+  obtain ⟨dsC, bodyC, hlen, htw, hhd, hmem, hall⟩ := h
+  refine ⟨dsC, bodyC, hlen, htw, hhd, hmem, fun vs hvs => ?_⟩
+  rw [← hTg]
+  refine hall vs ?_
+  rwa [tgFieldsAV_congr_noIh hu d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF (Tg := Tg) (Tg' := Tg')]
+
+end IndRepData
+
+/-! ## The scratch block's `InvSetup`
+
+The block's representations (`MutualBlockReps`, the widened conclusion
+of `declMutualCore`) supply every datum-side field of the ψ⁻¹ setup:
+ONE member with constructors carries, through `rulesRead`, the whole
+family's `RecReadAt`, and its `formersRead`/`leafShape`/`ctors`/
+`paramsIff` clauses are already quantified over the block.  The datum
+the setup is stated at is the block's datum re-sorted to that member's
+own spelling of the sort (`MutualBlockReps`' existential; every field
+the fold reads is unchanged by the re-sorting, so the consumer's
+hypotheses are stated at `d` itself).
+-/
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **The block's formers, as the fold reads them**: length, bits, the
+tower graded (`FormerData`) and the leaf in it (`mem_type`). -/
+theorem formerFacts_of_indRep {μ : CheckMode} {mp : EnvModelM V μ env} {T : Name}
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (hrep : IndRep mp.base2 T cvT cvR mI rP rules d t₀) (hkR : d.kReal = d.k)
+    (ψ : Name → Nat) {t : Nat} (ht : t < d.k) : d.FormerFacts mp.base2 ψ t := by
+  obtain ⟨cv, capsT, hf⟩ := hrep.membersFound t ht
+  have hFD := hrep.formersRead t (by rw [hkR]; exact ht) cv capsT hf
+  refine ⟨hFD.len ψ, fun dd hd => hFD.bits ψ dd hd, fun ρ => ?_, fun ρ => hFD.okTy ψ ρ⟩
+  have hname : cv.name = d.memberName t := Env.find?_name hf
+  have h := mp.mem_type _ (Env.find?_mem hf) ψ _ (hFD.read ψ) ρ
+  rw [show (ConstantInfo.indInfo cv capsT).name = cv.name from rfl, hname] at h
+  exact h
+
+/-- **The ψ⁻¹ setup from ONE member's representation**: a member whose
+recursor is stored with rules carries, through `rulesRead`, every
+member's `RecReadAt`, and its `formersRead`/`leafShape`/`ctors`/
+`paramsIff` clauses are already quantified over the block; the rest of
+`InvSetup`'s datum-side fields are the block's shape conjuncts.  The
+premises are the two the datum's recursor clauses carry: the block has
+parameters (`recRead`/`rulesRead` are recorded at `nP ≠ 0`) and this
+member's recursor has rules. -/
+theorem invSetup_of_member {μ : CheckMode} {mp : EnvModelM V μ env} (hnP : d.nP ≠ 0)
+    (hctorsC : d.ctorsC = []) (hkR : d.kReal = d.k)
+    (hpinsAV : ∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP)
+    (hview : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
+      d.tssR J = d.tssF J)
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (ht₀ : t₀ < d.k) (hrules : rules ≠ [])
+    (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules))
+    (hrep : IndRep mp.base2 T cvT cvR mI rP rules d t₀)
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool}
+    (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hTg : ∀ t, t < d.k → d.TargetOk ψ ρ ps L pinsT t)
+    (hCAP : ∀ J cA, d.ctorsA[J]? = some cA →
+      d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+        (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
+    (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
+    d.InvSetup mp cvT.levelParams cvT.levelParams ψ ρ ps L pinsT head useIh := by
+  have hk : 0 < d.k := Nat.lt_of_le_of_lt (Nat.zero_le _) ht₀
+  have hFF : ∀ t, t < d.k → d.FormerFacts mp.base2 ψ t :=
+    fun t ht => d.formerFacts_of_indRep hrep hkR ψ ht
+  have hnAll : d.nAll = d.ctorsA.length := by
+    show d.ctorsA.length + d.ctorsC.length = _
+    rw [hctorsC]
+    rfl
+  refine
+    { hR := fun t ht => hrep.rulesRead hnP hrules hfR t ht, hps := hps, hpsWD := hpsWD,
+      hparams := hparams, hpps := ?_, hipsLen := ?_, hk := hk, hctorsC := hctorsC,
+      hpins := fun t => hpinsAV t ψ, hview := hview,
+      hLS := fun t ht => hrep.leafShape t (by rw [hkR]; exact ht) ψ, hFF := hFF,
+      hctors := fun J cA hJ => hrep.ctors J cA hJ, hpIff := fun J cA hJ => hrep.paramsIff J cA hJ ψ,
+      hmems := ?_, htgts := ?_, hTg := hTg, hCAP := hCAP, huse := huse }
+  · rw [List.length_take, (hFF 0 hk).1]
+    omega
+  · intro t ht
+    have hg : (d.ipss ψ).getD t [] = (d.ppsM t ψ).drop d.nP := by
+      show ((List.range d.k).map (fun t => (d.ppsM t ψ).drop d.nP)).getD t [] = _
+      exact getD_range_map _ _ _ ht _
+    rw [hg, List.length_drop, (hFF t ht).1]
+    show d.nP + d.nIdxAt t - d.nP = d.nIdxAt t
+    omega
+  · intro J hJ
+    have h := (hrep.memsReal J (by rw [hnAll]; exact hJ)).mpr hJ
+    rw [hkR] at h
+    exact h
+  · intro J i
+    have h := hrep.tgtsRLt J i
+    rw [show d.tgtsR J = d.tgts J from (hview J).2.1] at h
+    exact h
+
+/-! ### The real members' half of the choice
+
+A member of the scratch block that is NOT a copy keeps its own leaf at
+the parameter variables (ψ⁻¹ is the identity there), so its target and
+its constructors' facts are `InvFold`'s identity discharges read
+through the pointwise congruences. -/
+
+/-- **A real member's target at the mixed choice** (`targetOk_real`
+through `TargetOk.congr`). -/
+theorem targetOk_choice_real {μ : CheckMode} {mp : EnvModelM V μ env} {T : Name}
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (hrep : IndRep mp.base2 T cvT cvR mI rP rules d t₀) (hkR : d.kReal = d.k)
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} (hps : ps.length = d.nP)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hlev : d.elimL.eval ψ = d.w ψ) {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
+    {t : Nat} (ht : t < d.k) (hL : L t = mp.base2.acval (d.memberName t) ψ)
+    (hp : pinsT t = paramBvarsAt d.nP d.nP) : d.TargetOk ψ ρ ps L pinsT t :=
+  IndRepData.TargetOk.congr d hL.symm hp.symm
+    (d.targetOk_real mp hps ht (d.formerFacts_of_indRep hrep hkR ψ ht)
+      (hrep.paramsIffM t (by rw [hkR]; exact ht) ψ) hparams hlev)
+
+/-- **A real constructor's `CtorAtPins` at the mixed choice**: its
+minor uses the FIELDS (no hypothesis), so the target-form domains are
+its own and the only target it mentions is its own member's
+(`ctorAtPins_real` through `CtorAtPins.congr_tg`). -/
+theorem ctorAtPins_choice_real {μ : CheckMode} {mp : EnvModelM V μ env} {T : Name}
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (hrep : IndRep mp.base2 T cvT cvR mI rP rules d t₀) (hkR : d.kReal = d.k)
+    (hctorsC : d.ctorsC = [])
+    (hpinsAV : ∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP)
+    (hview : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
+      d.tssR J = d.tssF J)
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} (hps : ps.length = d.nP)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm}
+    {useIh : Nat → Nat → Bool} {J : Nat} {cA : ConstantVal × Nat}
+    (hJ : d.ctorsA[J]? = some cA)
+    (hhead : head J = AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP))
+    (hu : ∀ i, useIh J i = false)
+    (hL : L (d.mems J) = mp.base2.acval (d.memberName (d.mems J)) ψ)
+    (hp : pinsT (d.mems J) = paramBvarsAt d.nP d.nP) :
+    d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+      (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ) := by
+  have hJA : J < d.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hnAll : d.nAll = d.ctorsA.length := by
+    show d.ctorsA.length + d.ctorsC.length = _
+    rw [hctorsC]
+    rfl
+  have hmemJ : d.mems J < d.k := by
+    have h := (hrep.memsReal J (by rw [hnAll]; exact hJA)).mpr hJA
+    rw [hkR] at h
+    exact h
+  have htgtR : ∀ i, d.tgtsR J i = d.tgts J i := fun i => by rw [(hview J).2.1]
+  have hC := hrep.ctors J cA hJ
+  have hpIff := hrep.paramsIff J cA hJ ψ
+  have cff := d.ctorFieldFacts_of mp hps (fun t => hpinsAV t ψ)
+    (fun t ht => hrep.leafShape t (by rw [hkR]; exact ht) ψ)
+    (fun t ht => d.formerFacts_of_indRep hrep hkR ψ ht) hparams hC hpIff hmemJ
+    (fun i => by have := hrep.tgtsRLt J i; rw [htgtR i] at this; exact this) htgtR
+  have h := d.ctorAtPins_real mp hps hparams hC hpIff (fun fs hfs => (cff.2 fs hfs).1)
+    (Eiss := d.eissR J ψ) (tls := d.tssR J ψ)
+  rw [hhead, show useIh J = fun _ => false from funext hu]
+  exact IndRepData.CtorAtPins.congr_tg d (fun _ => rfl) (d.invTgAV_congr hL.symm hp.symm) h
+
+/-- **The ψ⁻¹ setup of a NESTED scratch block**, from one member's
+representation: the members below `kR` are the block's own (ψ⁻¹ is the
+identity there and their facts are discharged here); the members from
+`kR` on are the copies, whose target and constructors the caller
+supplies — `targetOk_copy`/`ctorAtPins_copy` at the three records. -/
+theorem invSetup_of_member_nested {μ : CheckMode} {mp : EnvModelM V μ env} (hnP : d.nP ≠ 0)
+    (hctorsC : d.ctorsC = []) (hkR : d.kReal = d.k)
+    (hpinsAV : ∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP)
+    (hview : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
+      d.tssR J = d.tssF J)
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (ht₀ : t₀ < d.k) (hrules : rules ≠ [])
+    (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules))
+    (hrep : IndRep mp.base2 T cvT cvR mI rP rules d t₀)
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {kR : Nat}
+    (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hlev : d.elimL.eval ψ = d.w ψ)
+    (hreal : ∀ t, t < kR → t < d.k →
+      L t = mp.base2.acval (d.memberName t) ψ ∧ pinsT t = paramBvarsAt d.nP d.nP)
+    (hrealC : ∀ J cA, d.ctorsA[J]? = some cA → d.mems J < kR →
+      head J = AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP) ∧
+        ∀ i, useIh J i = false)
+    (hTgC : ∀ t, kR ≤ t → t < d.k → d.TargetOk ψ ρ ps L pinsT t)
+    (hCAPC : ∀ J cA, d.ctorsA[J]? = some cA → kR ≤ d.mems J →
+      d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+        (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
+    (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
+    d.InvSetup mp cvT.levelParams cvT.levelParams ψ ρ ps L pinsT head useIh := by
+  refine d.invSetup_of_member hnP hctorsC hkR hpinsAV hview ht₀ hrules hfR hrep hps hpsWD hparams
+    ?_ ?_ huse
+  · intro t ht
+    rcases Nat.lt_or_ge t kR with hlt | hge
+    · obtain ⟨hL, hp⟩ := hreal t hlt ht
+      exact d.targetOk_choice_real hrep hkR hps hparams hlev ht hL hp
+    · exact hTgC t hge ht
+  · intro J cA hJ
+    rcases Nat.lt_or_ge (d.mems J) kR with hlt | hge
+    · obtain ⟨hhead, hu⟩ := hrealC J cA hJ hlt
+      obtain ⟨hL, hp⟩ := hreal (d.mems J) hlt (by
+        have hJA : J < d.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+        have hnAll : d.nAll = d.ctorsA.length := by
+          show d.ctorsA.length + d.ctorsC.length = _
+          rw [hctorsC]
+          rfl
+        have h := (hrep.memsReal J (by rw [hnAll]; exact hJA)).mpr hJA
+        rw [hkR] at h
+        exact h)
+      exact d.ctorAtPins_choice_real hrep hkR hctorsC hpinsAV hview hps hparams hJ hhead hu hL hp
+    · exact hCAPC J cA hJ hge
+
+end IndRepData
+
+/-- **The ψ⁻¹ setup of a mutual block**, from its representations
+(`invSetup_of_member` at the member the block's existential supplies):
+the datum is the block's re-sorted to that member's own spelling of the
+sort, and every field the fold reads is unchanged by the re-sorting, so
+the consumer's hypotheses are stated at `d` itself. -/
+theorem invSetup_of_blockReps {μ : CheckMode} {mp : EnvModelM V μ env} {b : ConLeche.MutualBlock}
+    {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d) (hnP : d.nP ≠ 0)
+    {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool}
+    (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hTg : ∀ t, t < d.k → d.TargetOk ψ ρ ps L pinsT t)
+    (hCAP : ∀ J cA, d.ctorsA[J]? = some cA →
+      d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+        (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
+    (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
+    ∃ (s : Level) (lps lpsT : List Name),
+      (∀ ψ' : Name → Nat, s.eval ψ' = d.resSort.eval ψ') ∧
+      ({d with resSort := s} : IndRepData V).InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh := by
+  obtain ⟨hctorsC, hkb, hkRb, -, hpinsAV, hview, -, hall⟩ := hreps
+  obtain ⟨s, cvT, cvR, capsT, mI, rP, rules, -, hfR, hrul, hsv, hrep⟩ := hall t₀ ht₀
+  have hkR : ({d with resSort := s} : IndRepData V).kReal
+      = ({d with resSort := s} : IndRepData V).k := by
+    show d.kReal = d.k
+    rw [hkb, hkRb]
+  refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, ?_⟩
+  exact IndRepData.invSetup_of_member ({d with resSort := s} : IndRepData V) hnP hctorsC hkR
+    (fun t ψ' => hpinsAV t ψ') hview
+    (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep hps hpsWD hparams hTg hCAP huse
+
+
+/-- **The ψ⁻¹ setup of a nested block's SCRATCH block**, from its
+representations: the block's own members (below `kR`) at the identity,
+the copies (from `kR` on) at their containers' leaves — the caller's
+`targetOk_copy`/`ctorAtPins_copy` at the three records of this module.
+The elimination universe is read at the block's own sort spelling; the
+member's is the same value (`MutualBlockReps`). -/
+theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
+    {b : ConLeche.MutualBlock} {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d)
+    (hnP : d.nP ≠ 0) {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {kR : Nat}
+    (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
+    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hlev : d.elimL.eval ψ = d.w ψ)
+    (hreal : ∀ t, t < kR → t < d.k →
+      L t = mp.base2.acval (d.memberName t) ψ ∧ pinsT t = paramBvarsAt d.nP d.nP)
+    (hrealC : ∀ J cA, d.ctorsA[J]? = some cA → d.mems J < kR →
+      head J = AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP) ∧
+        ∀ i, useIh J i = false)
+    (hTgC : ∀ t, kR ≤ t → t < d.k → d.TargetOk ψ ρ ps L pinsT t)
+    (hCAPC : ∀ J cA, d.ctorsA[J]? = some cA → kR ≤ d.mems J →
+      d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+        (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
+    (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
+    ∃ (s : Level) (lps lpsT : List Name),
+      (∀ ψ' : Name → Nat, s.eval ψ' = d.resSort.eval ψ') ∧
+      ({d with resSort := s} : IndRepData V).InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh := by
+  obtain ⟨hctorsC, hkb, hkRb, -, hpinsAV, hview, -, hall⟩ := hreps
+  obtain ⟨s, cvT, cvR, capsT, mI, rP, rules, -, hfR, hrul, hsv, hrep⟩ := hall t₀ ht₀
+  have hkR : ({d with resSort := s} : IndRepData V).kReal
+      = ({d with resSort := s} : IndRepData V).k := by
+    show d.kReal = d.k
+    rw [hkb, hkRb]
+  have hlev' : ({d with resSort := s} : IndRepData V).elimL.eval ψ
+      = ({d with resSort := s} : IndRepData V).w ψ := by
+    show d.elimL.eval ψ = s.eval ψ
+    rw [hsv ψ]
+    exact hlev
+  refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, ?_⟩
+  exact IndRepData.invSetup_of_member_nested ({d with resSort := s} : IndRepData V) hnP hctorsC hkR
+    (fun t ψ' => hpinsAV t ψ') hview (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep
+    hps hpsWD hparams hlev' hreal hrealC hTgC hCAPC huse
 
 end ConLeche.Model

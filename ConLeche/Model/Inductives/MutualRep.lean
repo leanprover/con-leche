@@ -423,9 +423,11 @@ parameter variables, the recursor view the family view, the block's
 member count and parameter count, the block's member names — and, per
 member `t`, its stored former and its stored recursor with its rules,
 and its representation at the datum re-sorted to the member's OWN
-spelling of the block's sort (`mutualRepData_congr_sort`).  A member
-with constructors has rules (a fold consumer reads every member's
-recursor off ONE such member's `rulesRead`). -/
+spelling of the block's sort (`mutualRepData_congr_sort`) — the two
+spellings agree by VALUE, which is what a consumer reading several
+members at one datum needs.  A member with constructors has rules (a
+fold consumer reads every member's recursor off ONE such member's
+`rulesRead`). -/
 @[expose] def MutualBlockReps {env : Env} (m : EnvModel V env) (b : MutualBlock) (d : IndRepData V) :
     Prop :=
   d.ctorsC = [] ∧ d.k = b.k ∧ d.kReal = b.k ∧ d.nP = b.nP ∧
@@ -437,6 +439,7 @@ recursor off ONE such member's `rulesRead`). -/
     env.find? (d.memberName t) = some (.indInfo cvT caps) ∧
     env.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
     (d.memberCtors t ≠ [] → rules ≠ []) ∧
+    (∀ ψ : Name → Nat, s.eval ψ = d.resSort.eval ψ) ∧
     IndRep m (d.memberName t) cvT cvR mI rP rules { d with resSort := s } t
 
 /-! ## The member's representation -/
