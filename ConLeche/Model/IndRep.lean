@@ -195,13 +195,8 @@ with nothing: the constructors `J` with `mems J = mm`. -/
 @[expose] def memberCtors (mm : Nat) : List (ConstantVal × Nat) :=
   (d.ctorsA.zipIdx.filter fun x => d.mems x.2 == mm).map (·.1)
 
-/-- The constructor data list, at the STORED readings (`IndRep.ctors`). -/
-@[expose] def cds (ψ : Name → Nat) : List CtorDatumR :=
-  fixCtorDataList d.dsF d.esF d.ksF d.eissF d.tssF ψ d.ctorsA 0
-
 /-- The constructor data list at the CONTAINER's index readings (the
-chains, `IndRep.chains`/`fibre`); the same list as `cds` at a single
-family. -/
+chains, `IndRep.chains`/`fibre`). -/
 @[expose] def cdsC (ψ : Name → Nat) : List CtorDatumR :=
   fixCtorDataList d.dsF d.essC d.ksF d.eissC d.tssF ψ d.ctorsA 0
 
