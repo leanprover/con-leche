@@ -71348,6 +71348,46 @@ name-injectivity is proved twice through `List.pairwise_iff_getElem`
   (EnvModelM V μ envOut)` from `DeclNestedRun μ F env p envOut` plus the
   freshness hypothesis above.
 
+#### M.10 M-B′ step 0 LANDED: `declMutualCore` (2026-09-12)
+
+`Semantics/Inductives/DeclMutual.lean`: `DeclMutualCoreRun μ F env b
+streamRecs env₂` — `checkMutualCore_inv`'s chain as a relation over a
+`MutualBlock` and an optional stream record list (`declMutualCoreRun_of`);
+`DeclMutualRun μ F env p env₂ := p.recPinned = true ∧ DeclMutualCoreRun
+μ F env p.toBlock (some …) env₂` (statement-equivalent to the old
+form; `declMutualRun_of` and `declMutualRun_etaClosed` adapted).
+`Model/Inductives/DeclMutual.lean`: the model theorem is now
+`declMutualCore (h : DeclMutualCoreRun μ F env p.toBlock streamRecs env₂)
+(hfreshRec) (hnresRec) (hpshapeRec)` — the three recursor-name facts
+(`∀ t < k, env.find? (p.toBlock.recName t) = none`, not reserved, not
+`isProjFnShape`) as hypotheses, lifted past the formers' and
+constructors' conses by the block names' distinctness
+(`consMutualCtors_find?_of_ne`, `hNodup`'s `blockNames`); `declMutual`
+is the wrapper that reads them off the stream records' `checkConstantVal`
+(`consMutualFormers_find?_none`/`consMutualCtors_find?_none` carry
+freshness back to the pre-block environment).  The theorem keeps its
+`p : MutualParts` (its text is over `p.toBlock`); the nested lane builds
+a `MutualParts` whose `toBlock` is the auxiliary block (propositionally,
+`List.map_map` + pair eta) and rewrites its core run along it.
+
+**M-B′ next** (the plan, so the next session starts cold): (1) `declNested`'s
+skeleton: from `DeclNestedRun`, `checkMutualCore … b none = .ok envAux`
+→ `declMutualCoreRun_of` → `declMutualCore` at the aux `MutualParts`,
+with the name facts from the kernel lane's forthcoming run-relation
+field (copies) and from the restored `restoreRecTys`' `checkConstantVal`
+(real members); result: `mpAux : EnvModelM V μ envAux` with its
+`ind_reps` (the aux datum: `fibre`/`leaf`/`ctor`/`mkInj` and, via M-A′,
+`recRead`/`rulesRead` for every aux member's recursor).  (2) The
+copy ↔ container-family map `c(i)` as an Expr computation over
+`st.pins` (the kernel's dedup table), and the syntactic fact from the
+run relation that copy `j`'s constructor `l`'s field types are
+`replaceAllNested` of the container's at the pin — the one lemma about
+`elimNested` the proof cannot avoid.  (3) The fold spellings `ψ_j` (the
+container's `⟦J.rec⟧` at `pinsAV`, constant motives `λ ı x, ⟦A_{c(i)}⟧
+p⃗ ı`, rebuild minors) and `ψ⁻¹_m` (the aux `⟦R_m⟧` at one motive/minor
+choice), as `AnnotTerm`s over the datum; their typing from `recRead` +
+`mem_type`, their ι from `rulesRead` + `rec_rules`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

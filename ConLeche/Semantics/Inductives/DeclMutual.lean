@@ -34,25 +34,18 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo RecRule
 
 /-! ## The run relation -/
 
-/-- **The mutual declaration, as checked**: the stage runs of
-`checkMutual`.  `env` is the pre-block environment; `b` is the block
-record the recogniser hands the install and `streamRecs` the stream's
-recursor records in member order, compared with the generated ones at
-the two recursor stages. -/
-def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
-    (p : MutualParts) (env₂ : Env) : Prop :=
-  -- the recursor records' structural pin (thrown at the install: an
-  -- exported recursor that is not the generated one is official's
-  -- reject)
-  p.recPinned = true ∧
-  ∃ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule)))
-    (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
+/-- **The mutual install's CORE run** (task #279 M-B′): the stage runs
+of `checkMutualCore` at a block `b` and an optional stream record list
+— `checkMutualCore_inv`'s chain, as a relation.  The stream-facing
+`DeclMutualRun` is this at the recogniser's block with its records;
+the nested route's auxiliary block is this at `none`. -/
+def DeclMutualCoreRun (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) (env₂ : Env) : Prop :=
+  ∃ (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
     (tq₀ : List Expr × Expr) (ctorsA : List (ConstantVal × Nat))
     (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
     (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
     (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
-    b = p.toBlock ∧
-    streamRecs = some (p.members.map fun mb => (mb.cvR, mb.rules)) ∧
     -- stage 0: the block's shape, official's rejects
     b.blockNames.Nodup ∧
     (b.formers.all (fun f => f.1.levelParams == b.lps) &&
@@ -89,17 +82,33 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
       (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
         cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)) = .ok env₂
 
+
+/-- **The mutual declaration, as checked**: the stream's recursor
+records are pinned (thrown at the install: an exported recursor that is
+not the generated one is official's reject) and the core ran at the
+recogniser's block with the records. -/
+def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
+    (p : MutualParts) (env₂ : Env) : Prop :=
+  p.recPinned = true ∧
+  DeclMutualCoreRun μ F env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules))) env₂
+
+/-- A successful core install is a core run. -/
+theorem declMutualCoreRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {b : MutualBlock}
+    {streamRecs : Option (List (ConstantVal × List RecRule))}
+    (h : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b streamRecs
+      = .ok env₂) :
+    DeclMutualCoreRun μ F env b streamRecs env₂ := by
+  obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, rest⟩ := ConLeche.checkMutualCore_inv h
+  exact ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, h0, h1, h2,
+    h3, rest⟩
+
 /-- The bridge inversion: a successful mutual install is a run. -/
 theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : MutualParts}
     (h : ConLeche.checkMutual (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok env₂) :
     DeclMutualRun μ F env p env₂ := by
   obtain ⟨hpin, hcore⟩ := ConLeche.checkMutual_inv h
-  obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds, hfo, hgd, hrectys,
-    hrules, htbl⟩ := ConLeche.checkMutualCore_inv hcore
-  exact ⟨hpin, p.toBlock, _, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors,
-    hkinds, hfo, hgd, hrectys, hrules, htbl⟩
+  exact ⟨hpin, declMutualCoreRun_of hcore⟩
 
 /-! ## The η half: a fresh extension by non-formers -/
 
@@ -404,9 +413,8 @@ theorem declMutualRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : MutualParts} (hpinOk : ConLeche.mutualRecPinOk p = true)
     (hE : EtaFamiliesClosed env)
     (h : DeclMutualRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, rfl, rfl, -, -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys,
-    -, htbl⟩ := h
+  obtain ⟨-, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
+    cvRas, rulesOf, -, -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys, -, htbl⟩ := h
   have hx1 : FreshEtaExt env env₁ := mutualFormers_freshExt hformers
   have hx2 : FreshEtaExt env₁ (ConLeche.consMutualCtors p.toBlock.nP ctorsA env₁) :=
     consMutualCtors_freshExt (nP := p.toBlock.nP) (checkMutualCtors_fresh hctors)

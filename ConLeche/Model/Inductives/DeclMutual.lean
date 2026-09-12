@@ -326,6 +326,41 @@ theorem consMutualFormers_find?_self :
         ⟨.indInfo g.cvTa {} :: env.consts⟩).find? f.cvTa.name = _
       exact consMutualFormers_find?_self hf' hnd.2
 
+/-- A lookup past the constructors' conses of other names. -/
+theorem consMutualCtors_find?_of_ne {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {n : Name},
+      (∀ c ∈ ctorsA, c.1.name ≠ n) →
+      (ConLeche.consMutualCtors nP ctorsA env).find? n = env.find? n
+  | [], _, _, _ => rfl
+  | c :: cs, env, n, hne => by
+    show (ConLeche.consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩).find? n = _
+    rw [consMutualCtors_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx))]
+    exact find?_cons_of_name_ne (c := .ctorInfo c.1 nP c.2) (hne c List.mem_cons_self)
+
+/-- A name the formers' conses do not find, the base does not find. -/
+theorem consMutualFormers_find?_none :
+    ∀ {fms : List MutualFormerA} {env : Env} {n : Name},
+      (ConLeche.consMutualFormers fms env).find? n = none → env.find? n = none
+  | [], _, _, h => h
+  | g :: gs, env, n, h => by
+    have h' := consMutualFormers_find?_none (fms := gs) h
+    rw [ConLeche.Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- A name the constructors' conses do not find, the base does not find. -/
+theorem consMutualCtors_find?_none {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {n : Name},
+      (ConLeche.consMutualCtors nP ctorsA env).find? n = none → env.find? n = none
+  | [], _, _, h => h
+  | c :: cs, env, n, h => by
+    have h' := consMutualCtors_find?_none (nP := nP) (ctorsA := cs) h
+    rw [ConLeche.Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
 /-- **The formers' checks, positionally**: the `t`-th checked former is
 the `t`-th declared one's constant check at the PRE-BLOCK environment
 (its name and level parameters the declared constant's), and its
@@ -1951,17 +1986,22 @@ theorem fixBodyAVI_validV {u w nIdx : Nat} {ρp : Nat → V} {Ids : List AnnotTe
 
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
-theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.mutualParts? nPd block = some p)
-    (h : ConLeche.Semantics.DeclMutualRun μ F env p env₂) :
+theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {p : MutualParts} {streamRecs : Option (List (ConstantVal × List RecRule))}
+    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (h : ConLeche.Semantics.DeclMutualCoreRun μ F env p.toBlock streamRecs env₂)
+    -- the recursors' names (task #279 M-B′): fresh before the block,
+    -- not reserved, not a projection function's — the stream-facing
+    -- `declMutual` reads them off the stream records' own checks, the
+    -- nested route's auxiliary block off its own run relation
+    (hfreshRec : ∀ t, t < p.toBlock.k → env.find? (p.toBlock.recName t) = none)
+    (hnresRec : ∀ t, t < p.toBlock.k →
+      ConLeche.reservedBasisNames.contains (p.toBlock.recName t) = false)
+    (hpshapeRec : ∀ t, t < p.toBlock.k → (p.toBlock.recName t).isProjFnShape = false) :
     Nonempty (EnvModelM V μ env₂) := by
-  obtain ⟨hpin, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, rfl, rfl, hNodup, hlpsAll, hmemLt, hgrouped, hformers, hf0, htq0, hcross,
-    hlarge, hctors, hkinds, hfo, hgd, hrectys, hrules, htbl⟩ := h
-  -- the recogniser settled the pin; the install threw on it
-  have hpinOk : ConLeche.mutualRecPinOk p = true := by
-    rw [← ConLeche.mutualParts?_recPinned hdp]; exact hpin
+  obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, hNodup,
+    hlpsAll, hmemLt, hgrouped, hformers, hf0, htq0, hcross, hlarge, hctors, hkinds, hfo,
+    hgd, hrectys, hrules, htbl⟩ := h
   -- stage 1, split: the checks at the PRE-BLOCK environment, the conses after
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
   obtain ⟨hlenFms, hposF⟩ := mutualFormerChecks_pos hchecks
@@ -4580,74 +4620,56 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       recTy.allLevelParamsDefined p.toBlock.rlps = true ∧
       recTy.constsResolve (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) = true ∧
-      recTy.looseBVarsBounded 0 = true ∧ recTy.hasFvar = false ∧
-      ∀ cvR, (p.members[t]?).map (·.cvR) = some cvR → ∃ cvRi,
-        ConLeche.checkConstantVal (ConLeche.fueledOps μ F)
-          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
-            (ConLeche.consMutualFormers fms env)) cvR = .ok cvRi := by
+      recTy.looseBVarsBounded 0 = true ∧ recTy.hasFvar = false := by
     intro t ht
     obtain ⟨cvRa, hget, hrun⟩ := hallRec t (by rw [hkF]; exact ht)
-    obtain ⟨recTy, sty, u, -, hlp, hres, hbv, hfv, -, -, hstream, rfl⟩ :=
+    obtain ⟨recTy, sty, u, -, hlp, hres, hbv, hfv, -, -, -, rfl⟩ :=
       ConLeche.checkMutualRecTy_shape hrun
-    refine ⟨recTy, ?_, hlp, hres, hbv, hfv, fun cvR hcv => ?_⟩
-    · rw [List.getD_eq_getElem?_getD, hget]; rfl
-    · refine (hstream cvR ?_).imp fun cvRi h => h.1
-      show Option.bind (some (p.members.map fun mb => (mb.cvR, mb.rules)))
-        (fun rs => (rs[t]?).map (·.1)) = some cvR
-      show ((p.members.map fun mb => (mb.cvR, mb.rules))[t]?).map (·.1) = some cvR
-      rw [List.getElem?_map]
-      cases hm : p.members[t]? with
-      | none => rw [hm] at hcv; exact nomatch hcv
-      | some mb =>
-        rw [hm] at hcv
-        simp only [Option.map_some] at hcv ⊢
-        exact hcv
-  -- **the recursors' own constant checks**, off the stream's records
-  have hmembersLen : p.members.length = prts.k := by
-    show p.members.length = fms.length
-    rw [← hkF]
-    show _ = (p.members.map fun mb => (mb.cv, mb.nIdx)).length
-    rw [List.length_map]
-  have hCVcheck : ∀ t, t < prts.k → ∃ mb : ConLeche.MutualMember, p.members[t]? = some mb ∧
-      (cvRas.getD t default).name = mb.cvR.name ∧
-      ∃ cvRi, ConLeche.checkConstantVal (ConLeche.fueledOps μ F)
-        (ConLeche.consMutualCtors p.toBlock.nP ctorsA
-          (ConLeche.consMutualFormers fms env)) mb.cvR = .ok cvRi := by
+    refine ⟨recTy, ?_, hlp, hres, hbv, hfv⟩
+    rw [List.getD_eq_getElem?_getD, hget]; rfl
+  -- **the recursors' names** (task #279 M-B′): the hypotheses, at the
+  -- generated names, lifted past the formers' and constructors' conses
+  -- by the block names' distinctness
+  have hrecNameG : ∀ t, t < prts.k → (cvRas.getD t default).name = p.toBlock.recName t := by
     intro t ht
-    obtain ⟨recTy, hcv, -, -, -, -, hstream⟩ := hRecShape t ht
-    obtain ⟨mb, hmb⟩ : ∃ mb, p.members[t]? = some mb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hmembersLen]; exact ht)⟩
-    refine ⟨mb, hmb, ?_, hstream mb.cvR (by rw [hmb]; rfl)⟩
+    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
     rw [hcv]
-    show p.toBlock.recName t = mb.cvR.name
-    rw [ConLeche.MutualParts.toBlock_recName hmb,
-      ConLeche.mutualRecPinOk_name hpinOk (by rw [show p.k = prts.k from hmembersLen]; exact ht)
-        hmb]
   have hfreshR : ∀ t, t < prts.k →
       (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)).find? (cvRas.getD t default).name = none := by
     intro t ht
-    obtain ⟨mb, -, hname, cvRi, hcvi⟩ := hCVcheck t ht
-    rw [hname]
-    exact (ConLeche.checkConstantVal_inv hcvi).1
+    have htk : t < p.toBlock.k := by rw [hkF]; exact ht
+    have hrecMem : p.toBlock.recName t ∈ (List.range p.toBlock.k).map p.toBlock.recName :=
+      List.mem_map_of_mem (List.mem_range.mpr htk)
+    have hNd := hNodup
+    unfold ConLeche.MutualBlock.blockNames at hNd
+    obtain ⟨-, -, hdisj⟩ := List.nodup_append.mp hNd
+    rw [hrecNameG t ht, consMutualCtors_find?_of_ne, consMutualFormers_find?_of_ne]
+    · exact hfreshRec t htk
+    · intro g hg hh
+      refine hdisj _ (List.mem_append.mpr (Or.inl ?_)) _ hrecMem rfl
+      rw [← hnamesF, ← hh]
+      exact List.mem_map_of_mem hg
+    · intro c hc hh
+      refine hdisj _ (List.mem_append.mpr (Or.inr ?_)) _ hrecMem rfl
+      rw [← hnamesC, ← hh]
+      exact List.mem_map_of_mem hc
   have hnres : ∀ t, t < prts.k →
       ConLeche.reservedBasisNames.contains (cvRas.getD t default).name = false := by
     intro t ht
-    obtain ⟨mb, -, hname, cvRi, hcvi⟩ := hCVcheck t ht
-    rw [hname]
-    exact (ConLeche.checkConstantVal_inv hcvi).2.1
+    rw [hrecNameG t ht]
+    exact hnresRec t (by rw [hkF]; exact ht)
   have hpshape : ∀ t, t < prts.k →
       (cvRas.getD t default).name.isProjFnShape = false := by
     intro t ht
-    obtain ⟨mb, -, hname, cvRi, hcvi⟩ := hCVcheck t ht
-    rw [hname]
-    exact (ConLeche.checkConstantVal_inv hcvi).2.2.1
+    rw [hrecNameG t ht]
+    exact hpshapeRec t (by rw [hkF]; exact ht)
   have hnd : (cvRas.map (·.name)).Nodup := by
     have hmapEq : cvRas.map (·.name) = (List.range prts.k).map p.toBlock.recName := by
       refine List.ext_getElem? fun t => ?_
       rw [List.getElem?_map, List.getElem?_map]
       by_cases ht : t < prts.k
-      · obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+      · obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
         rw [List.getElem?_range ht,
           List.getElem?_eq_getElem (show t < cvRas.length by rw [hk]; exact ht)]
         have : cvRas[t] = cvRas.getD t default := by
@@ -4667,13 +4689,13 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) = true := by
     intro t ht
-    obtain ⟨recTy, hcv, -, hres, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, hres, -, -⟩ := hRecShape t ht
     rw [hcv]; exact hres
   have hAparams : ∀ t, t < prts.k → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ (cvRas.getD t default).levelParams, ψ₁ q = ψ₂ q) →
       prts.leaf mp₂.base2 t ψ₁ = prts.leaf mp₂.base2 t ψ₂ := by
     intro t ht ψ₁ ψ₂ hφR
-    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
     rw [hcv] at hφR
     have hφRl : ∀ q ∈ p.toBlock.rlps, ψ₁ q = ψ₂ q := hφR
     have hφ : ∀ q ∈ p.toBlock.lps, ψ₁ q = ψ₂ q := by
@@ -4787,7 +4809,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (cvRas.getD t default).levelParams = true ∧
       (cvRas.getD t default).type.looseBVarsBounded 0 = true := by
     intro t ht
-    obtain ⟨recTy, hcv, hlp, -, hbv, hfv, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, hlp, -, hbv, hfv⟩ := hRecShape t ht
     rw [hcv]
     exact ⟨hfv, hlp, hbv⟩
   -- **the block's rule rows at the group store** (`mutualRecRuleLaw`)
@@ -5030,7 +5052,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     -- asks for its `recOf` at EVERY index)
     have hrecName : ∀ q, q < prts.k → (cvRas.getD q default).name = p.toBlock.recName q := by
       intro q hq
-      obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape q hq
+      obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape q hq
       rw [hcv]
     have hfRS : ∀ q : Nat, ∃ ci : ConstantInfo,
         (ConLeche.storeMutualRecs
@@ -5048,7 +5070,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
               (ConLeche.consMutualFormers fms env))).find? (p.toBlock.recName r) = some ci ∧
           ci.toConstantVal.levelParams = p.toBlock.rlps := by
         intro r hr
-        obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape r hr
+        obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape r hr
         have hmem : (cvRas.getD r default, r) ∈ cvRas.zipIdx :=
           List.mk_mem_zipIdx_iff_getElem?.mpr (by
             rw [List.getD_eq_getElem?_getD,
@@ -5341,7 +5363,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     -- asks for its `recOf` at EVERY index)
     have hrecName : ∀ q, q < prts.k → (cvRas.getD q default).name = p.toBlock.recName q := by
       intro q hq
-      obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape q hq
+      obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape q hq
       rw [hcv]
     have hfRS : ∀ q : Nat, ∃ ci : ConstantInfo,
         (ConLeche.storeMutualRecs
@@ -5359,7 +5381,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
               (ConLeche.consMutualFormers fms env))).find? (p.toBlock.recName r) = some ci ∧
           ci.toConstantVal.levelParams = p.toBlock.rlps := by
         intro r hr
-        obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape r hr
+        obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape r hr
         have hmem : (cvRas.getD r default, r) ∈ cvRas.zipIdx :=
           List.mk_mem_zipIdx_iff_getElem?.mpr (by
             rw [List.getD_eq_getElem?_getD,
@@ -5627,7 +5649,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hrecName : ∀ t : Nat, t < fms.length →
       (cvRas.getD t default).name = (fms.getD t default).cvTa.name.str "rec" := by
     intro t ht
-    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+    obtain ⟨recTy, hcv, -, -, -, -⟩ := hRecShape t ht
     rw [hcv]
     show (p.toBlock.formers.getD t default).1.name.str "rec" = _
     rw [← mutualNameOf_members3 (b := p.toBlock) (t := t) (by rw [hkF]; exact ht),
@@ -6313,7 +6335,15 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     refine EtaFamiliesClosed.ofFreshExt hE
       ((mutualFormers_freshExt hformers).trans
         ((consMutualCtors_freshExt (nP := p.toBlock.nP) (checkMutualCtors_fresh hctors)).trans
-          (storeMutualRecs_freshExt (checkMutualRecTys_fresh hpinOk hrectys))))
+          (storeMutualRecs_freshExt fun q hq => by
+            have hget : cvRas[q.2]? = some q.1 :=
+              List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
+            have hqk : q.2 < prts.k := by
+              have := (List.getElem?_eq_some_iff.mp hget).1
+              rw [hk] at this; exact this
+            rw [show q.1 = cvRas.getD q.2 default from by
+              rw [List.getD_eq_getElem?_getD, hget]; rfl]
+            exact hfreshR q.2 hqk)))
   let dBlk : TableBlockData :=
     { lps := p.toBlock.lps
       nP := p.toBlock.nP
@@ -6433,22 +6463,12 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         ConLeche.checkConstantVal_inv hccv
       rw [hty]; exact hres
     · -- the member's RECURSOR name is not reserved
-      obtain ⟨mb, hmb, hnameR, -⟩ := hCVcheck q.2 hlt
       have hnr := hnres q.2 hlt
-      rw [hnameR, ConLeche.mutualRecPinOk_name hpinOk
-        (by rw [show p.k = prts.k from hmembersLen]; exact hlt) hmb] at hnr
-      have hnameM : q.1.cvTa.name = mb.cv.name := by
-        have h1 := congrArg (fun l => l[q.2]?) hnamesF
-        rw [List.getElem?_map, hget] at h1
-        have h2 : p.toBlock.memberNames[q.2]? = some mb.cv.name := by
-          show (p.toBlock.formers.map (·.1.name))[q.2]? = _
-          rw [List.getElem?_map]
-          show ((p.members.map fun mb' => (mb'.cv, mb'.nIdx))[q.2]?).map (·.1.name) = _
-          rw [List.getElem?_map, hmb]
-          rfl
-        rw [h2] at h1
-        simpa using h1
-      rw [hnameM]
+      rw [hrecNameG q.2 hlt] at hnr
+      rw [show q.1.cvTa.name.str "rec" = p.toBlock.recName q.2 from by
+        show _ = (p.toBlock.formers.getD q.2 default).1.name.str "rec"
+        rw [← mutualNameOf_members3 (b := p.toBlock) (t := q.2) (by rw [hkF]; exact hlt),
+          (hmemT q.2 _ hget).1]]
       exact hnr
     · -- the constructor's name is not reserved
       obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrunJ
@@ -6623,5 +6643,53 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   obtain ⟨mp₅, -, -⟩ := stageMutualTables (d := dBlk) (capsOf := fun _ => {}) mp₄ rfl rfl hE₃
     htbl hndF hmemTbl
   exact ⟨mp₅⟩
+
+/-- **The mutual arm of the fold** (the stream-facing entry): the run
+relation's pin and stream checks supply `declMutualCore`'s recursor
+name facts — each stream record `T.rec` is checked by
+`checkConstantVal` at the constructors' environment, hence fresh
+before the block, not reserved, not a projection function's. -/
+theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.mutualParts? nPd block = some p)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p env₂) :
+    Nonempty (EnvModelM V μ env₂) := by
+  obtain ⟨hpin, hrun⟩ := h
+  have hpinOk : ConLeche.mutualRecPinOk p = true := by
+    rw [← ConLeche.mutualParts?_recPinned hdp]; exact hpin
+  have hfacts : ∀ t, t < p.toBlock.k →
+      env.find? (p.toBlock.recName t) = none ∧
+      ConLeche.reservedBasisNames.contains (p.toBlock.recName t) = false ∧
+      (p.toBlock.recName t).isProjFnShape = false := by
+    obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf,
+      -, -, -, -, hformers, -, -, -, -, -, -, -, -, hrectys, -, -⟩ := hrun
+    obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
+    intro t ht
+    obtain ⟨-, hallRec⟩ := ConLeche.checkMutualRecTys_inv hrectys
+    obtain ⟨cvRa, hget, hrun'⟩ := hallRec t ht
+    obtain ⟨recTy, sty, u, -, -, -, -, -, -, -, hstream, rfl⟩ :=
+      ConLeche.checkMutualRecTy_shape hrun'
+    have htm : t < p.members.length := by
+      have : p.toBlock.k = p.members.length := by
+        show (p.members.map fun mb => (mb.cv, mb.nIdx)).length = _
+        rw [List.length_map]
+      rw [← this]; exact ht
+    obtain ⟨mb, hmb⟩ : ∃ mb, p.members[t]? = some mb := ⟨_, List.getElem?_eq_getElem htm⟩
+    obtain ⟨cvRi, hcvi, -⟩ := hstream mb.cvR (by
+      show Option.bind (some (p.members.map fun mb => (mb.cvR, mb.rules)))
+        (fun rs => (rs[t]?).map (·.1)) = some mb.cvR
+      show ((p.members.map fun mb => (mb.cvR, mb.rules))[t]?).map (·.1) = some mb.cvR
+      rw [List.getElem?_map, hmb]
+      rfl)
+    obtain ⟨hfind, hres, hsh, -⟩ := ConLeche.checkConstantVal_inv hcvi
+    have hname : mb.cvR.name = p.toBlock.recName t := by
+      rw [ConLeche.MutualParts.toBlock_recName hmb,
+        ConLeche.mutualRecPinOk_name hpinOk (by
+          show t < p.members.length
+          exact htm) hmb]
+    rw [← hname]
+    exact ⟨consMutualFormers_find?_none (consMutualCtors_find?_none hfind), hres, hsh⟩
+  exact declMutualCore hμ mp hE hrun (fun t ht => (hfacts t ht).1) (fun t ht => (hfacts t ht).2.1)
+    (fun t ht => (hfacts t ht).2.2)
 
 end ConLeche.Model
