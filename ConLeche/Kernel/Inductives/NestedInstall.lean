@@ -36,7 +36,9 @@ in official's order):
   context in the RESTORED environment (leanprover/lean4#14577 — the
   parametric arguments do not appear in the auxiliary declaration, so
   they would otherwise escape type checking; the arena's
-  `nested-unused-param`);
+  `nested-unused-param`), and — `pinsOkAux`, for the model tier — at the
+  SCRATCH environment as well, where the two fold spellings need the
+  pins to fit the container's parameter telescope;
 * **(b)** the restored constructor types, recursor types and rule
   right-hand sides are re-checked (leanprover/lean4#14621 — "not
   necessary … added to catch bugs"; here it is also where the stored
@@ -529,6 +531,24 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let R := restoreTbl p st
   let members := stored.take p.k
   let mimics := stored.drop p.k
+  let a₀ ← unwrapOr members.head? (.internal "nested: no member")
+  let (fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
+    (.internal "nested: the block's parameter telescope")
+  -- POST-CHECK (a) AT THE SCRATCH ENVIRONMENT (`pinsOkAux`, the model
+  -- lane's request): the same pins, type-checked where the AUXILIARY
+  -- block is installed.  It is ADDED, never substituted for the run at
+  -- the restored environment, so the accept set can only narrow.  The
+  -- two runs agree on everything a pin can MENTION: a pin is a
+  -- sub-term of a constructor's field domain, and `checkMutualCtor`
+  -- resolves those at the environment holding the pre-block constants
+  -- and the block's FORMERS (never its constructors), which `envAux`
+  -- and the restored environment hold identically — the formers are
+  -- the very `indInfo`s the auxiliary install stored, and the restore
+  -- re-adds them unchanged.  The one thing the restore respells that a
+  -- pin could reach is a projection TABLE's bodies, through a
+  -- `.proj T i` node; running BOTH is what makes that case checked
+  -- rather than assumed.
+  nestedPinsOk ops envAux p.nP fvsA st.pins
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
@@ -557,10 +577,9 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let env₄ ← nestedTables (m := m)
     ((members.zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
       ((p.formers.getD mIdx default).1.name, a.tbl, cs)) env₃
-  -- 8. POST-CHECK (a): the pins, typed at the parameter context
-  let a₀ ← unwrapOr members.head? (.internal "nested: no member")
-  let (fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
-    (.internal "nested: the block's parameter telescope")
+  -- 8. POST-CHECK (a): the pins, typed at the parameter context of the
+  -- RESTORED environment (the variables and the telescope are the ones
+  -- `pinsOkAux` already used, above)
   nestedPinsOk ops env₄ p.nP fvsA st.pins
   -- 9. POST-CHECK (c): the stream's records against the generated ones
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
