@@ -68939,3 +68939,82 @@ result.  A mismatched binary fails inside the sandbox as an opaque
 diagnosis it looks like.
 
 No checker code changed, so the binary is master's.
+
+## TASK #287 — THE ENVIRONMENT-VARIABLE HOOKS: what went, what stays until the modeller goes (2026-09-12, `agent/envvars-287`)
+
+**The end state the maintainer ruled: the checker binary reads no
+environment variable at all; everything is a command-line flag or
+gone.**  This task removes everything that can go today.  What is left
+is the in-process modeller's four debug switches, and they are not a
+separate decision: they die with the modeller (task #279).
+
+### Per variable
+
+| variable | verdict |
+|---|---|
+| `CON_LECHE_NO_PROOF_CERTS` | **REMOVED.**  The retired-switch tombstone in `checkMain` (the read, the message, the `return 3`) and the "MODE FAIL" test in `tests/arena.sh` that asserted it errors.  The `--yolo` FLAG tombstone stays — a flag spelling is what a stale command line carries. |
+| `CON_LECHE_INFER_ONLY` | **REMOVED**, the same way; `--infer-only` stays a hard-error flag. |
+| `CON_LECHE_PROGRESS` | **already gone at #229** — but `tests/arena.sh` still asserted that it is *ignored*, and a test that a retired variable is ignored is itself a tombstone.  Both checks removed; the `--progress` flag's own twelve checks are untouched. |
+| `CON_LECHE_ROUTE_TRACE` | **REMOVED, end to end** — see below. |
+| `CON_LECHE_VERBOSE` | **REMOVED**: the read and the `verboseCounts` line beside the verdict.  The constant count it printed is derivable from the stream by `scripts/stream-census.py`, which is what the help text and PERF.md now say.  `env` in the driver's accepting arm became unused and is now `_`; the accept is still the `.ok` of `checkDecls`, which is what the success line is printed from. |
+| `CON_LECHE_TRACE_DECLS` | **GHOST** (no read anywhere): a code comment in `Main.lean` cited it for a measured +4 index offset on the Mathlib stream.  Sentence rewritten to state the measurement without the dead name. |
+| `CON_LECHE_TREE_BUDGET` | **GHOST** (retired with the budget at #215): named in `ConLeche/Frontend/Export.lean`'s retirement docstring (now "its override") and in `scripts/mk_budget_fixtures.py`, the generator of two fixtures the budget left behind — **script deleted**.  Nothing in `tests/` or `scripts/` called it; the two fixtures stay (`tests/e2e-expected.txt` rows `budget_model`, `budget_block`), and `budget_block.ndjson`'s own `meta.exporter` line still names the generator as its provenance — that is data inside a pinned fixture, not a live reference. |
+| `CON_LECHE_INMODEL`, `CON_LECHE_INMODEL_CENSUS`, `CON_LECHE_INMODEL_DUMP`, `CON_LECHE_PROJREC_TRACE` | **STAY until #279.**  The in-process modeller's debug switches, `tests/inmodel.sh` their gate; they go with the modeller. |
+| `CON_LECHE_MODE`, `CON_LECHE_BIN`, `CON_LECHE_ARENA_*`, `CON_LECHE_VLIMIT*`, `CON_LECHE_TIMEOUT`, `CON_LECHE_TMPDIR`, `CON_LECHE_OFFICIAL_KERNEL` | **NOT THE BINARY'S.**  `scripts/arena/*` and `scripts/perf-tables.sh` read these; the checker never has.  Out of scope. |
+
+### The route census is gone with its instrument
+
+Maintainer's call: *"Let's just get rid of this gate, we have fewer
+routes now anyways."*  Since task #210 Part C there is one native
+route, so the census counted `fix`, `basis` and the modeller's
+`inmodel`, and its failure meanings (`modeled`, "no install route")
+are both plain declines the arena expectations already pin — a good
+fixture that loses its route stops accepting, and `tests/arena.sh`
+says so on the fixture's own row.
+
+Removed: `tests/route-census.sh`; the gate call and its comment block
+in `tests/arena.sh`; the `--help` entry; and the trace's whole
+implementation in `Main.lean` — the `trace` read, the `if trace then`
+block in `installLoop` that re-ran `nativeParts?` to name a route, and
+the `trace : Bool` / `inModelled : Array Name` parameters that carried
+it through `installLoop` and `checkDeclsIO`.  `inModelled` itself
+stays where it is computed (`Frontend.ExportC`): the driver's stderr
+receipt and the in-model census still print it.  **The census had no
+pinned data file** — its stream list is read out of
+`tests/arena-expected.txt`'s accepting `good/` rows, so nothing else
+was deleted with it.  `tests/arena.sh` is now nine gates, which is
+what `.github/workflows/ci.yml`'s header already said.
+
+`OVERVIEW.md` §12's gate list and §1's "the heartbeat and the route
+trace are printed between the steps" lost the census and the trace
+(no task numbers there, per the docs rule).  DESIGN.md's historical
+records keep theirs: this section is the dated note that the gate is
+gone.
+
+### The checker checks exactly what it checked
+
+Nothing on any checking path moved.  The trace ran `nativeParts?` a
+second time, for printing only, *beside* the dispatch rather than in
+it; deleting it removes a recogniser call from the install loop and
+nothing else.  `checkDecls` and the fold are untouched, and so is
+`Kernel/*` / `Cached/*` — the two dropped parameters are the DRIVER's
+(`Main.lean`), not the checker's, so no init-full comparison is owed
+and none was run.
+
+### Gates
+
+| gate | result |
+|---|---|
+| `lake build` | 544 jobs, **warning-free**, exit 0 |
+| `lake test` | green, warning-free |
+| `tests/arena.sh` (full, `env -i`) | see the run below |
+| `tests/overview-links.sh` | four Main.lean anchors re-anchored (`usage` L791→L738, `checkLoop` L192→L163, `checkPool` L307→L278, `checkDeclsIO` L345-L349→L316-L319, one line shorter for the dropped parameters); each citing paragraph re-read and still true; 77 links / 49 files OK |
+| `PERF.md` | regenerated with `scripts/perf-tables.sh --render` from the tracked `perf-data/` record after editing the one sentence in `scripts/perf-tables-render.py`; the diff is exactly that sentence |
+
+Evidence the end state is reached for this task's half:
+`grep -rn 'IO.getEnv' Main.lean ConLeche` shows **five sites of four
+names, all the modeller's** (`CON_LECHE_INMODEL`,
+`CON_LECHE_INMODEL_CENSUS` twice — once in `parseInput`, once in the
+census report — `CON_LECHE_INMODEL_DUMP`, `CON_LECHE_PROJREC_TRACE`),
+and no removed name is cited anywhere outside DESIGN.md's historical
+records.
