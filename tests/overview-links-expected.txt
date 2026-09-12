@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L711
-   711  def usage : String := String.intercalate "\n" [
+== Main.lean#L714
+   714  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -50,22 +50,23 @@
     69      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     70      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L769-L774
-   769  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   770      {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
-   771      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   772      ∃ c, env.find? cv.name = some c ∧
-   773        c.toConstantVal.levelParams = cv.levelParams ∧
-   774        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Verify/Cached/StreamConsts.lean#L779-L784
+   779  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   780      {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+   781      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   782      ∃ c, env.find? cv.name = some c ∧
+   783        c.toConstantVal.levelParams = cv.levelParams ∧
+   784        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L623-L629
-   623  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
-   624    | .defnDecl cv _ _, cv' => cv' = cv
-   625    | .thmDecl cv _, cv' => cv' = cv
-   626    | .opaqueDecl cv _, cv' => cv' = cv
-   627    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName
-   628    | .basisDecl _, _ => False
-   629    | .indDecl _ _, _ => False
+== ConLeche/Verify/Cached/StreamConsts.lean#L628-L635
+   628  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
+   629    | .defnDecl cv _ _, cv' => cv' = cv
+   630    | .thmDecl cv _, cv' => cv' = cv
+   631    | .opaqueDecl cv _, cv' => cv' = cv
+   632    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
+   633    | .basisDecl _, _ => False
+   634    | .indDecl _ _, _ => False
+   635    | .quotDecl _ _, _ => False
 
 == ConLeche/Verify/Cached/StreamConsts.lean#L127-L128
    127  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
@@ -85,8 +86,8 @@
    100  #guard_msgs in
    101  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L923
-   923  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L805
+   805  def parseExportStreamD (path : System.FilePath)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1000
   1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -150,24 +151,24 @@
    498  theorem checkDecls_fullyChecked {ds : List Declaration} {env : Env}
    499      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L453-L460
-   453  value — is what the theorem's model step consumes. -/
-   454  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
-   455      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   456      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   457      (hrun : InstallRun μ ds p s q s') :
-   458      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   459      NodupNames q.2.1.env →
-   460      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+== ConLeche/Verify/Cached/InstalledC.lean#L455-L462
+   455  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+   456      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   457      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   458      (hrun : InstallRun μ ds p s q s') :
+   459      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   460      NodupNames q.2.1.env →
+   461      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+   462      EnvModelOk V μ q.2.1.env := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
    543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
    544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L481-L483
-   481  well-formedness it needs; the conclusion is the model itself. -/
-   482  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   483      {ds : List Declaration} (fc : FullyChecked μ ds) :
+== ConLeche/Verify/Cached/InstalledC.lean#L483-L485
+   483  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   484      {ds : List Declaration} (fc : FullyChecked μ ds) :
+   485      Nonempty (EnvModelM V μ fc.env) := by
 
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
@@ -227,18 +228,18 @@
   2901            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2902          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L294-L301
-   294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   295      {ds : List Declaration} {env' : Env}
-   296      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
-   297      ∀ c ∈ env'.consts,
-   298        c.toConstantVal.type = .const falseName [] → False := by
-   299    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   300    exact fun c hc hty => no_constant_of_False mp c hc hty
-   301  
+== ConLeche/Model/Fold.lean#L307-L314
+   307  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   308      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   309      {ds : List Declaration} {env' : Env}
+   310      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
+   311      ∀ c ∈ env'.consts,
+   312        c.toConstantVal.type = .const falseName [] → False := by
+   313    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   314    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L161
-   161  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+== ConLeche/Model/Fold.lean#L164
+   164  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -314,10 +315,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1379-L1381
-  1379  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
-  1380      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1381      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1429-L1431
+  1429  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
+  1430      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1431      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -636,33 +637,20 @@
 == ConLeche/Kernel/Basis/False.lean#L52
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== ConLeche/Frontend/Prelude.lean#L7-L22
-     7  /-!
-     8  # The built-in prelude (task #191)
-     9  
-    10  **What it is.**  The checker's own little prelude: the six pinned
-    11  basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`, `False`, `Quot` with its
-    12  soundness axiom), the `Bool` block — every declaration the
-    13  pin-certified `Nat` operations' install needs that is neither in the
-    14  operation's own dependency closure nor a stream-certified operation
-    15  itself — and the `And` block, pinned by design: the one propositional
-    16  structure whose recursor the stuck-major rescue serves
-    17  (`majorToCtor`'s `And` branch, `ConLeche/Kernel/Core.lean`, keyed on
-    18  the name), so the name must denote the toolchain's `And` in every
-    19  fold.  `ConLeche/PinGen/Prelude.lean` computes the set mechanically
-    20  (`pinnedPreludeMembers` adds `And`); the committed file is
-    21  `pins/<toolchain>.prelude.ndjson`, regenerated with
-    22  `lake exe natop-pins-export` and gated by `tests/pindump.sh`.
+== ConLeche/Kernel/Basis.lean#L68-L70
+    68  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
+    69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
+    70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Env.lean#L581-L588
-   581  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   582    block.all fun ci => match ci with
-   583      | .indInfo cvT _ =>
-   584        match cvT.type.piSortTeleLen? with
-   585        | some n => decide (nP ≤ n)
-   586        | none => true
-   587      | .ctorInfo _ nPc _ => nPc == nP
-   588      | _ => true
+== ConLeche/Kernel/Env.lean#L624-L631
+   624  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   625    block.all fun ci => match ci with
+   626      | .indInfo cvT _ =>
+   627        match cvT.type.piSortTeleLen? with
+   628        | some n => decide (nP ≤ n)
+   629        | none => true
+   630      | .ctorInfo _ nPc _ => nPc == nP
+   631      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
@@ -821,6 +809,15 @@
 == ConLeche/Model/DivModCert.lean#L2023
   2023  theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
 
+== ConLeche/Frontend/Prepare.lean#L146-L152
+   146  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
+   147  the prelude's declarations first (the stream's own copies where it has
+   148  them), the rest of the stream after them, every pinned `Nat`
+   149  operation's stream-certified ground ahead of it.  Total, pure, and the
+   150  fold's input. -/
+   151  def preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration :=
+   152    (prepareD pre ds).decls.toList
+
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!
      9  # Hoisting a pinned `Nat` operation's stream-certified ground (task #191)
@@ -840,6 +837,14 @@
     23  `Nat.ble`/`Nat.sub`/`Bool`) declined at the install.
     24  
     25  They cannot go into the prelude: the structural operations are
+
+== ConLeche/Verify/Frontend/Prepare.lean#L136-L141
+   136  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
+   137  input plus additional declarations, but nothing missing"* — and the
+   138  additional declarations are the built-in prelude's own records. -/
+   139  theorem preparePrelude_perm (pre : PreludeIx) (ds : List Declaration) :
+   140      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+   141        (preparePrelude pre ds).Perm (ds ++ extra) := by
 
 == ConLeche/SetTheory/Core.lean#L95-L156
     95  /-- A model of set theory of exactly the strength the checker needs:

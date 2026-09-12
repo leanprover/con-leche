@@ -69907,3 +69907,196 @@ of the stream (resolving its declared names and collecting its
 expression indices) and the expression-table walk carried a taint
 check per entry.  Nothing fires on a stream with no `sorryAx` use, and
 all of it is gone.
+
+## TASK #293 — THE PARSER DECODES; `preparePrelude` PREPARES; THE FOLD DECIDES (2026-09-12, `agent/prepare-293`)
+
+**The ruling** (maintainer, verbatim): *"Why does the parser deal with
+basis things?  That's clearly a layering violation; it's the fold that
+may or may not want to treat them specially. … We can also move this
+functionality into a *new* function, 'preparePrelude' or so, to keep
+concerns separate.  (Ideally that's `List Declaration` to
+`List Declaration`?)"* — and, mid-task, on the shape of that function:
+*"If that `preparePrelude` reorders anyways, then it can just as well
+reorder any existing prelude declaration, and only synthesize any that
+are missing.  This way, we get a simple spec: it is a permutation of
+the input plus additional declarations, but nothing missing."*
+
+What stood before is task #191's design: the parse was handed the
+checker's prelude, PREPENDED its records to every stream, matched every
+inductive block against the five basis pins and every `#QUOT` record
+(and the `Quot.sound` axiom record) against the quotient pin, dropped a
+stream record that duplicated a prelude one, DECLINED the run when it
+differed, and reordered the result for the pinned `Nat` operations'
+ground.  Five of those six are verdicts or semantic recognition, and
+they lived in the decoder.
+
+### 1. The three places, after
+
+* **`ConLeche/Frontend/ExportC.lean` — the decoder emits the file's
+  records and nothing else.**  Every inductive block parses to
+  `indDecl`, `Nat` and `Eq` like any other; every `#QUOT` record parses
+  to the new `Declaration.quotDecl kind cv` — the constant the file
+  declares at the kind it declares it at, official's own record shape;
+  `Quot.sound` parses to the ordinary `axiomDecl` it is.  `punitSeen`,
+  the prelude index, the dedupe, the pin match and the hoist are gone
+  from `StateD` and from `ParseResultD`, which now carries the records,
+  the projection rewrites and the modeller's receipts.
+  `parseExportD`'s final signature:
+
+      parseExportD (contents : String) (inModel : Bool := true)
+        (census : Bool := false) : Except FrontendError ParseResultD
+
+  (and `parseExportStreamD`/`parseExportHandleD` the same, minus the
+  `prelude` parameter).  **Two non-decoding steps are left**, both of
+  which die with task #279: the projection-function rewrite
+  (`ProjRec.lean`) and the in-process modeller's record insertion.
+
+* **`ConLeche/Frontend/Prepare.lean` — `preparePrelude`, new.**  Total,
+  pure, no error channel, and it never rewrites a record:
+
+      preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration
+
+  It (i) moves the stream's OWN copy of each prelude declaration to the
+  front, in the prelude's (dependency-correct) order, synthesising from
+  `pins/<toolchain>.prelude.ndjson` only the ones the stream does not
+  declare, and (ii) applies the ground hoist.  `prepareD` is the same
+  function with the driver's receipts (`synthesised`, `hoisted`).  The
+  prelude index is now records only — the by-name and by-kind tables
+  the dedupe needed are gone with it.
+
+* **`ConLeche/Kernel/Checker.lean` (and its cached twin) — the fold
+  recognises and decides.**  `checkDecl`'s `.indDecl` arm asks
+  `basisPinHit` (`ConLeche/Kernel/Basis.lean`: task #215's name
+  pre-filter, then `canonEqList` against the pin) and installs the PIN
+  on a hit; a block under a pinned name that does NOT match falls
+  through to the ordinary route and `checkConstantVal`'s reserved-name
+  check REJECTS it, exactly as before (task #181's ruling: a basis
+  redefinition is invalid input).  The `.quotDecl` arm asks
+  `quotPinHit`: the `type` record installs the pinned block whole, the
+  other three install nothing (they are members of the block that one
+  installs), and a record that does not match DECLINES — "quotient
+  declaration mismatch", the parser's own message.  The `.axiomDecl`
+  arm gained the `Quot.sound` case ahead of the common checks (its name
+  is a reserved basis name: this record IS the pinned block's, not a
+  redeclaration of it), with the same two outcomes.
+
+  `checkBasisDecl` (and `checkBasisDeclC`) is the pinned-block install,
+  factored out so that the three arms that install one share a body and
+  every lemma about it is proved once (`declBasisRunOf`,
+  `checkBasisDecl_datF`, `checkBasisDeclC_{skels,push,sim}`).
+
+### 2. `Declaration`, and the one constructor that did not go
+
+`Declaration` gained `quotDecl` and `QuotKind` (`type`/`ctor`/`lift`/
+`ind`, plus `sound` for the axiom record's slot in the pinned block).
+`basisDecl` **stays**, and this is the task's one deviation from the
+letter of the ruling, taken under the licence it came with ("you may
+keep an INTERNAL kind-dispatch inside the fold's arm"): no frontend
+function can produce one — not the decoder, not `preparePrelude` — and
+`checkDecl`'s `.indDecl` and `.quotDecl` arms are its only producers,
+through `checkBasisDecl`.  What removing the constructor outright would
+buy is a `Declaration` with official's exact shape; what it costs is
+re-proving the basis install's dozen lemmas *inside* the `indDecl`
+case in ~10 proof files, with no change to what is proved.  The
+constructor's docstring says what it is: the fold's own record for
+"install the pinned block".
+
+### 3. The lemmas (`ConLeche/Verify/Frontend/Prepare.lean`)
+
+    theorem preparePrelude_perm (pre : PreludeIx) (ds : List Declaration) :
+        ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+          (preparePrelude pre ds).Perm (ds ++ extra)
+
+    theorem mem_preparePrelude {pre : PreludeIx} {ds : List Declaration}
+        {pd : Declaration} (h : pd ∈ ds) : pd ∈ preparePrelude pre ds
+
+the maintainer's spec and its pass-through corollary — **every record
+of the file is in the prepared list, unchanged and exactly once**, and
+what else is there is a prelude record the file did not declare.  Task
+#290's parser-level statement composes with the second.
+
+Two implementation decisions the proof forced, both worth keeping:
+
+* the two list passes are written as a tail-recursive implementation
+  (`pickGo`, `keepGo`-style) and a plain recursive **specification**
+  (`pickSpec`), proved equal (`pickGo_eq`) — a stream is millions of
+  records long, and a list recursion that is not tail-recursive is a
+  stack frame per record;
+* the hoist's final sort is `List.mergeSort`, not `Array.qsort`: core
+  proves `mergeSort_perm` and proves nothing about `qsort`, and the
+  keys are pairwise distinct so the order is the same one `qsort`
+  produced (`applyHoist`, `ConLeche/Frontend/NatOpGround.lean`; the
+  hoist is also split into `hoistTargets` and `applyHoist` so that the
+  permutation proof does not have to walk the `Id.run do` that computes
+  the targets).
+
+### 4. Where the canonical form went, and what that did to the proof cone
+
+`canonLevel`/`canonExpr`/`ConstantInfo.canon` and the lockstep
+`canonEq*` twins moved from `ConLeche/Frontend/Export.lean` to
+**`ConLeche/Kernel/Canon.lean`**, unchanged: the fold does the matching
+now, and the kernel may not import the frontend.  (`Export.lean` is
+left with `FrontendError`, `RecordVerdict` and `M`, and imports
+nothing.)
+
+`tests/proofdeps.sh` therefore reports **eight new modules in every
+capstone's proof-term closure** — `ConLeche.Kernel.Basis`, its five
+`Basis.*` pin modules, `ConLeche.Kernel.Basis.Quot` and
+`ConLeche.Kernel.Canon` — and the pin was regenerated (3 816 → 3 904
+rows).  That is not a door to justify away: it is the ruling, measured.
+Recognising a stream's `Nat` block as the pinned one is now part of
+what `checkDecls` does, so the raw pins and the canonical form are part
+of what the main theorem's proof term reads.
+
+### 5. Verdict changes (two, both the spec's own)
+
+| fixture | before | after | why |
+|---|---|---|---|
+| `prelude_bool_redefined` | 2 | **1** | `natop_order` with `Bool : Type 1`.  There is no prelude copy to differ from any more — the stream's own `Bool` IS the prelude's record — so the block installs and `Nat.ble`, exported against the real `Bool`, fails to typecheck: a REJECT, which is also what the official kernel does with that stream. |
+| `tower_prelude` | 2 | **0** | an inductive block named `Bool` with a depth-60 tower in a constructor field.  It declined at the dedupe's `sameCanon`; with the dedupe gone it installs.  The fixture still gates what it was built to gate — a walker that unfolded the tower would never finish — so the DAG-tower row keeps it at the new code. |
+
+Nothing else moved: arena 90/92, e2e 193/195 → **195/195** with the two
+expectations updated, annot 15/15, prelude counts 3/3, progress 15/15,
+worker pool 15/15, DAG tower 14/14, the trusted sweep unchanged.
+
+**The verdict line's count is the FILE's record count now**
+(`parsed.size - genRecords`), and it does not need the prelude
+arithmetic any more: nothing the preparation does changes it.  On raw
+`init-full` that is 53 093 — the number `Main.lean`'s own comment
+already called "the declaration records in the file" — against 53 089
+before: the four quotient records the parser used to fold into one
+`basisDecl`, and the `Quot.sound` record it used to swallow, are five
+records of the file and count as five.  Same stream, same verdict, a
+count that is now the file's own.
+
+### 6. `init-full`
+
+One run per binary, `--verified --jobs=1`, `ulimit -v 16000000`,
+`perf stat -e instructions:u`, same machine, same stream:
+
+| | accepted | instructions:u |
+|---|---|---|
+| master `08a04a98` | 53 089 | 537.858 G |
+| this branch | **53 093** | **537.659 G** |
+| Δ | **+4** (§5) | **−0.037 %** |
+
+Both exit 0.  The instruction delta is noise, which is what this change
+should look like: the same work happens, in another place — the pin
+match that ran in the parse runs in the fold, over the same records.
+
+The fold-position count is **53 123**: the file's 53 093 records plus
+the modeller's 30 generated ones, and *nothing else*.  `init-full`
+declares every prelude declaration itself, so the preparation
+synthesised none of them and only moved the stream's own records to the
+front — which is the whole point of the new shape, measured.
+
+### 7. Gates
+
+| gate | result |
+|---|---|
+| `lake build` / `lake test` | warning-free |
+| layering | 0 base→lane, 0 impl→theory edges (`ConLeche.Verify.Frontend.Prepare` is the first theory module that imports `ConLeche/Frontend/*`, which is the allowed direction; it is rooted in `ConLecheCaps`) |
+| proofdeps | 3 904 rows, regenerated (§4) |
+| shake + pub-imports | `Frontend/Export.lean`'s last import went with the canon move; one allowlist line deleted (`Semantics/Bridge/DeclRun`'s `public import` demoted to a plain one) |
+| overview-links | 82 links, 52 files; the prose on the prelude, the basis blocks and §9's frontend rewritten to the new fact |
+| challenge / trust surface / no-local-paths / pindump | OK |

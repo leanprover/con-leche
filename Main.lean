@@ -616,12 +616,12 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- records the in-process modeller ADDS, which the file does not
       -- contain.
       -- Measured on raw `init-full` (task #293): 53 093 declaration
-      -- records in the file against 53 128 fold positions — the
-      -- prelude's 9 records and `Lean.Syntax`'s generated model family
-      -- (30 records), less the 4 stream records dropped as identical
-      -- copies of prelude records (`Nat`, `Eq`, `PUnit` and the four
-      -- `#QUOT` records, which are one `basisDecl .quotK` between
-      -- them).  Since task #219 the generated records are subtracted
+      -- records in the file against 53 123 fold positions, the +30
+      -- being `Lean.Syntax`'s generated model family — and nothing
+      -- else, because that stream declares every prelude declaration
+      -- itself, so the preparation synthesised NONE of them and only
+      -- moved the stream's own records to the front.
+      -- Since task #219 the generated records are subtracted
       -- from the VERDICT's count (they are declarations of the fold,
       -- never records of the file) and a generated record that fails is
       -- named with its block; the fold POSITION still counts them.  The
