@@ -1,0 +1,40 @@
+# tests/nested-shadow.sh's expectations (task #279).  One row per run:
+#
+#     <fixture>  <CON_LECHE_INMODEL>  <block=verdict,…>
+#
+# The verdict is the WORD only (`accept`, `reject`, `decline`, `error`)
+# — the message is not part of the gate.  A row with `INMODEL=0` is one
+# the in-process modeller declines at PARSE time, so the fold is never
+# entered and the shadow only runs with the modeller off; those rows are
+# exactly the coverage the native route adds over the modelled one.
+#
+# --- the probe shapes (official ACCEPTS every one, Lean v4.33.0) ------
+tests/e2e/nested_p01.ndjson 0 P1=accept,
+tests/e2e/nested_p02.ndjson 1 P2=accept,
+tests/e2e/nested_p03.ndjson 1 P3=accept,
+tests/e2e/nested_p04.ndjson 1 P4C=accept,P4=accept,
+tests/e2e/nested_p05.ndjson 1 P5=accept,
+tests/e2e/nested_p06.ndjson 1 P6=accept,
+tests/e2e/nested_p07.ndjson 1 P7=accept,
+tests/e2e/nested_p10.ndjson 0 P10=accept,
+tests/e2e/nested_p13.ndjson 1 P13=accept,
+tests/e2e/nested_p20.ndjson 1 P20=accept,
+tests/e2e/nested_p22.ndjson 1 P22=accept,
+tests/e2e/nested_p24.ndjson 1 P24A=accept,
+tests/e2e/nested_p25.ndjson 1 P25=accept,
+tests/e2e/nested_p26.ndjson 1 P26=accept,
+tests/e2e/nested_p30.ndjson 1 P30=accept,
+tests/e2e/nested_p31.ndjson 0 P31=accept,
+# --- the arena's two nested tests ------------------------------------
+# Official REJECTS both at the arena's reference (v4.34.0-rc2); the
+# native route rejects both — `nested_unused_param` at post-check (a)
+# (the ill-typed pin, leanprover/lean4#14577) and
+# `nested_nonuniform_param` at `check_uniform_ind_occs` (the rc2
+# addition, which this checker's modelled route does not have).
+tests/e2e/nested_unused_param.ndjson 0 E=reject,
+tests/e2e/nested_nonuniform_param.ndjson 1 E=reject,
+# --- the fixtures that already carry nested blocks --------------------
+tests/e2e/nested_rec.ndjson 1 Tree=accept,
+tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
+tests/e2e/ind_proj_mutual_nested.ndjson 1 NT=accept,
+tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=accept,InModelNested.Op=accept,InModelNested.W=accept,InModelNested.PT=accept,InModelNested.NTree=accept,InModelNested.A=accept,

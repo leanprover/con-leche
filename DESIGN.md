@@ -70825,6 +70825,238 @@ statement.
 `numNested` mismatch is a reject (mirroring #228) or ignored
 (mirroring official); whether `And` is un-pinned or given its lemma.
 
+### K. THE KERNEL/VERIFY/SEMANTICS HALF, LANDED IN SHADOW (2026-09-12, `agent/nested-279k`, on `inductives`)
+
+**What landed.**  Option C′'s §5.1/§5.2 in full, as five new modules
+and one driver hook, with the route OFF the fold's dispatch:
+
+| module | lines | what |
+|---|---|---|
+| `Kernel/Inductives/NestedParts.lean` | 515 | the reserved `_nested` prefix and official's `Name` arithmetic; `Expr.mentionsNestedAux` (`check_no_nested_aux`) with its memoized twin; **`containerInfo?`**, the container's block read off its stored recursor; `uniformIndOccsOk` (`check_uniform_ind_occs`); `NestedParts`/`nestedParts?` |
+| `Kernel/Inductives/NestedElim.lean` | 304 | `elim_nested_inductive_fn`: the worklist, the top-down replace, the structural pin dedup, whole-`all`-group copies, the local-variable reject |
+| `Kernel/Inductives/NestedInstall.lean` | 568 | `restore_nested`, `nestedFireShape`, `auxBlock`/`restoreTbl`, the read-back, the restored constructors / recursor types / rules / tables, the three post-checks, **`checkNested`** |
+| `Verify/Inductives/NestedInv.lean` | 200 | `checkNested_inv` — the whole chain read off the monad, `MutualInv.lean`'s shape walk |
+| `Semantics/Inductives/DeclNested.lean` | 152 | **`DeclNestedRun`** and `declNestedRun_of` — the interface the model lane consumes |
+| `Main.lean` | +43 | `CON_LECHE_NESTED_SHADOW=1`: `checkNested` run BESIDE the install, on the very same pre-block environment, its verdict printed |
+
+plus 16 probe-shape e2e fixtures with their sources, the arena's two
+nested tests as e2e fixtures, and `tests/nested-shadow.sh` +
+`tests/nested-shadow-expected.txt` (22 rows) in `tests/arena.sh`.
+
+**THE SHADOW DECISION, and why.**  The standing rule is that nothing
+may widen the ACCEPT set without a model theorem behind it, and the
+fold's `.indDecl` arm accepts a nested block only through the modelled
+route until `declNested` exists.  So the dispatch is UNTOUCHED — a
+nested block still reaches `checkModeled` — and `checkNested` runs as a
+diagnostic beside the install, on the route trace's lane
+(`CON_LECHE_NESTED_SHADOW`, as unverified as `CON_LECHE_ROUTE_TRACE`)
+and with its verdict discarded.  The checker's diff against `inductives`
+touches no file on the accept path: five new modules, and in `Main.lean`
+one branch that is dead without the variable.  That is why no full
+Mathlib run was needed, and why the shadow's evidence is a comparison
+rather than a verdict.
+
+**THE RESULTS THE SHADOW RECORDS.**  On every nested block the project
+has:
+
+* **init-full**: `Lean.Syntax` → ACCEPT; the run accepts 53 088
+  declarations, unchanged.
+* **The Mathlib nested cone** — all 41 nested blocks of the census cut
+  from `_tmp/mathlib-scoping/mathlib-full.ndjson` with
+  `scripts/slice-cone.py` (134 MB, 4 926 declarations): **41 of 41
+  ACCEPT**, the cone accepts 4 923 declarations, exit 0.  That includes
+  the five copies of containers that are THEMSELVES nested
+  (`Lean.Widget.TaggedText` ×4 and `PersistentArrayNode` under
+  `InfoTree`), which the group reading takes without a special case.
+  **This closes §6's risk (iv), the `rec_k` numbering**: post-check (c)
+  compares every recursor record BY NAME with the generated one, so 41
+  accepts mean the replace order — and hence the mimics' creation order
+  — is official's on every one of them, `Cutsat.EqCnstr`'s twelve
+  members and nine mimics included.
+* **The e2e fixtures** that already carried nested blocks: all SEVEN
+  blocks of `inmodel_nested` (`Tree` through `List`, `TV` through the
+  indexed `Vec`, `Op` through `Option` and `Prod`, `W` through a
+  structure, `PT` at a DEPENDENT pin, the nested structure `NTree`, and
+  the mutual-and-nested `A`/`B`), plus `nested_rec`,
+  `nested_struct_proj`, `ind_proj_mutual_nested`, `nested_pin_names` and
+  `indexed_nested_aux` → ACCEPT.  The first four are in the shadow gate;
+  the last two are gzipped fixtures and were measured by hand.
+* **Three shapes the in-process modeller DECLINES and the native route
+  ACCEPTS** (they are `tests/e2e/nested_p{01,10,31}.ndjson`, run with
+  the modeller off so that the block reaches the install loop at all):
+  nesting under a binder `(Nat → List T) → T`, a reflexive container
+  `Str α := (Nat → Str α) → α → Str α`, and a reflexive nested field
+  `(Nat → Array T) → T`.  §5.7's first two coverage rows, measured.
+* **One WRONG VERDICT the native route fixes**: `nested_p07`, a block
+  whose index DOMAIN mentions a parameter.  Official ACCEPTS; this
+  checker REJECTS today, in the frame bug of the generated `_impl.rec`
+  that task #227 §4 docketed; the native route ACCEPTS (there is no
+  generated recursor and no frame).  The fixture is committed with
+  today's verdict `1` and the shadow row `P7=accept`, so the day the
+  route is wired the two move together.
+* **Both arena nested tests REJECT on the native route**, each for
+  official's own reason: `nested-unused-param` at **post-check (a)**
+  ("invalid projection: the node names another structure" — the
+  ill-typed pin that does not appear in the auxiliary declaration,
+  leanprover/lean4#14576/#14577), where the modelled route rejects at a
+  generated record; and `nested-nonuniform-param` at
+  **`check_uniform_ind_occs`**, which is official v4.34.0-rc2's verdict
+  and which this checker ACCEPTS today (v4.33.0's, arena outcome
+  `either`).  §5.7's last two rows, measured.
+
+**OFFICIAL'S VERDICTS, MEASURED NOT GUESSED** (`elan run
+leanprover/lean4:v4.33.0 lean` on each probe, sources under
+`tests/e2e/src/nested_p*.lean` and `_tmp/nested-279k/probes/`):
+
+| probe | official v4.33.0 |
+|---|---|
+| P1, P2, P3, P4, P5, P6, P7, P10, P13, P20, P22, P24, P25, P26, P30, P31 | accept |
+| P8 `Vector T n` | reject — "invalid nested inductive datatype 'Vector', nested inductive datatypes parameters cannot contain local variables." |
+| P9 `Vector T 3` | reject — the same, at `'Eq'` |
+| P18 `Nonempty T` | reject — "mutually inductive types must live in the same universe" |
+| P19 `{l : List T // l.length > 0}` | reject — "application type mismatch, List.length l" |
+| P21 `def MyList := List` | reject — "arg #1 of 'P21.mk' contains a non valid occurrence of the datatypes being declared" |
+| P23 `(List T → Nat) → T` | reject — "arg #1 of 'P23.mk' has a non positive occurrence" |
+| P28 `DepB false T` | reject — "arg #1 of `'_nested.P28B_1.cst'` has a non positive occurrence", IN THE COPY |
+| P27 `DepB true T` | NOT a kernel verdict: the ELABORATOR diverges (maxRecDepth, then a `isDefEq` heartbeat timeout) before the declaration reaches the kernel, at v4.33.0, in both the `ite` and the `cond` spelling |
+
+**Seven of these have no fixture, and cannot.**  P8, P9, P18, P19, P21,
+P23 and P28 are rejected by the kernel, so the declaration never enters
+an environment and `lean4export` has nothing to export: a stream for
+them exists only if one is FORGED with `debug.skipKernelTC`, which is
+what the arena does for its own two nested tests (and those two are
+committed here).  The route's conformance on that class rests on where
+the rejects come from, which the design already says: P18/P19/P21/P23
+and P28 are all `checkMutualCore`'s on the AUXILIARY block — the same
+universe check, the copy's typing, the positivity walk with
+`normPosDom`'s `whnf` — and P8/P9 are `nestedOccOk`'s loose-bound-variable
+reject with official's message.
+
+**THE ONE ARCHITECTURAL GAP, and what it costs.**  Official reads a
+container's parameter count and `all`-group straight off its
+`inductive_val`; **our `Env` stores neither** — an inductive is
+`indInfo cv caps`, with no `nparams`, no `all` and no constructor list.
+`containerInfo? env I` therefore RECOVERS both from the stored
+recursor: the parameter count from a constructor record (`ctorInfo`'s
+`numParams`), or at a zero-constructor container from the former's
+telescope minus `mI - rP`; and the group from the **motive binders of
+`I.rec`** — a block with `k` members and `n` mimics carries `k + n`
+motives in `all` order, and the first `k` are exactly those whose major
+premise is a member applied to the block's parameters and its own index
+variables (a mimic's major is the container at the PINS, and a pin
+mentions a member, so it is never the bare parameter spine).  `Quot` is
+excluded explicitly: official stores it as a `quotInfo`, not an
+inductive, so `is_nested_inductive_app` never fires on it and an
+occurrence of the block inside a `Quot` parameter is official's
+non-positive occurrence.  Where the recovery fails at an application
+that COULD be a nested occurrence, the block is DECLINED — never
+treated as non-nested, which would be an accept the recovery does not
+license.  **Measured cost: zero.**  All 41 Mathlib blocks, init-full's
+one, and every probe shape go through it, self-nested containers
+included.  The clean fix is to store `all` (and `numNested`) on the
+inductive record; `indInfo` has 532 occurrences in the tree, so it is
+its own task and it is not this one.
+
+**THE `numNested` DECISION** (the maintainer asked to decide this).
+The brief's default was "declared `numNested` ≠ computed REJECTS".  The
+declared value is a field of the stream's TYPE record and it does not
+reach the fold: `Declaration.indDecl` carries `(block : List
+ConstantInfo) (numParams : Nat)`, and `ConstantInfo.indInfo` has no
+`numNested` slot — `Frontend/ExportC.lean` reads the field only to
+DISABLE the recursor-record checks at a nested block and then drops it.
+Threading it through would change `Declaration`, which has 93
+occurrences across the Verify, Semantics and Model tiers.  **What
+landed instead is strictly stronger in effect**: the route compares the
+computed mimic count with the number of recursor records the stream
+carries past its type formers (`p.numNested = |mimicRecs|`, an
+`.invalid`), and post-check (c) then compares every one of those
+`k + numNested` records with the restored generated one — name, level
+parameters, type by one `isDefEq`, rules structurally — so a block
+whose recursor records do not match the elimination is rejected, and
+a block whose type record LIES about `numNested` while its recursor
+records are right is accepted, exactly as official accepts it (official
+ignores the field).  **If the maintainer wants the declared integer
+itself gated**, the cheap place is `Frontend/ExportC.lean`'s task #271
+block — one line, `tys.all (·.numNested == rcs.length - tys.length)`
+guarded by `rcs.length > tys.length` — and it is NOT here because it
+would move verdicts on the ACCEPT path, which this lane may not do.
+
+**THE FOUR WALKERS, and a finding.**  `tests/e2e/tower_nested.ndjson`
+puts a depth-60 doubling tower (2^60 nodes unshared, ~190 as a DAG) in
+a constructor field, and every walk this route adds is a tree walk.
+Two shapes of the task #215 discipline answer it.
+`mentionsNestedAux` gets the memoized twin and its `@[csimp]`, as
+`mentionsConst` has.  The three REPLACE walks get a PRUNE instead,
+which is a theorem about them and not a memo: `replaceIfNested` fires
+only where a container's parameter argument mentions a type of the
+growing list, `restoreNode` only on the aux names, and `uniformOccNode`
+only on a datatype being declared — so a subterm mentioning none of
+those names IS its own answer, and one memoized `mentionsConst` call
+dismisses the whole tower.  **The finding**: `tower_nested` still
+exhausts memory in shadow, and the probe puts it inside
+`checkMutualCore` BEFORE the restore is reached — the shadow harness
+runs the PURE uncached core (`fueledOps`) where the driver runs the
+cached one (`checkMutualCoreS`).  It is the harness, not the route; the
+fixture is out of the shadow gate with that reason on it, and it comes
+back when the `FEnv` twins and the cached mirror land with the
+dispatch.
+
+**What is OWED at wiring time** (and is deliberately not here, because
+without the dispatch it would be dead code the import gate would then
+have to carry): the `FEnv` twins `Nested*F.lean`, the cached mirror
+`checkNestedS`, the `_datF` fuel bridge, the `…F_eq`/`…S_run`/`…S_skels`
+chain, the fourth arm at each of the eight dispatch sites, and
+`declNestedRun_etaClosed` — whose content is that the restored formers
+carry the capability record the AUXILIARY install stored, which
+`consMutualFormers` sets to `{}`, so the lemma is a fact about
+`checkMutualCore`'s output environment rather than about this route.
+
+**Details worth recording.**
+
+* `nestedFireShape` is `nestedRuleShape` (`Kernel/Inductives/Modeled.lean`)
+  MINUS its `_model.iota_j` lookup, exactly as §5.1.4 asks; a mimic's
+  rule is therefore `.nested lvls pins` and satisfies the EXISTING
+  `ConstWF` nested-rule clause — no new conjunct.  A member's own rule
+  is `.plain` with `paramsBlind := true`, the fixpoint/mutual
+  convention, because it IS the auxiliary block's rule respelled.
+* The rules are compared with the stream's as the MUTUAL route compares
+  its own — bodies under the `λ` prefix, the prefix against the
+  stream's OWN recursor type (`mutualRulePrefixOk`).  A full structural
+  comparison is too strict: our copies' field domains are stored
+  NORMALISED (official's positivity walk `whnf`s them too, but official
+  keeps the declared spelling in the rule's binders), so a redex pin —
+  `DMap α (fun _ => PT α)`, whose copied field is `(fun _ => PT α) k` —
+  differs there and nowhere else.  `tests/e2e/inmodel_nested`'s `PT` is
+  the case that found it.
+* Post-check (a) TYPE-CHECKS the pin; it does not require a sort.  An
+  indexed container's pin (`Vec (T α)`) is a function into one, which
+  is what `inmodel_nested`'s `TV` found.
+* A restored rule scopes at the RECURSOR's level parameters, not the
+  block's: the elimination level is not among the block's.
+* The stream's recursor records are compared at the environment BEFORE
+  the recursors are stored, as `checkMutualRecTy` compares its own —
+  the record is compared, never added.
+* `check_no_nested_aux` runs on this route only.  Official runs it on
+  EVERY inductive block; a non-nested block naming a `_nested` constant
+  is a pre-existing narrowness of this checker (it would be caught by
+  `constsResolve` at the pre-block environment in every case the
+  auxiliary environment does not create), and closing it means touching
+  the accept path, which this lane may not do.
+
+**Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
+did not move):
+
+| gate | result |
+|---|---|
+| `lake build` | exit 0, warning-free |
+| `lake test` | exit 0, warning-free |
+| `tests/nested-shadow.sh` | **22/22 as expected** |
+| `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
+| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **213/213** (195 + the 18 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
+| init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
+| Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
+| Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the

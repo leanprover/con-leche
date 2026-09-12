@@ -1312,3 +1312,49 @@
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
 1 proj_typename_bad.ndjson
+# --- TASK #279: the nested probe shapes, with OFFICIAL's verdicts -----
+# `tests/e2e/src/nested_p*.lean` are the design's probe shapes P1–P31,
+# exported RAW; every one of them is ACCEPTED by the official kernel
+# (measured at Lean v4.33.0, `elan run leanprover/lean4:v4.33.0 lean`).
+# The expectations below are what THIS checker does today, on the
+# MODELLED route, which is still the dispatch's for a nested block: the
+# native nested route (task #279) runs beside the install in shadow and
+# its verdict is gated separately (`tests/nested-shadow.sh`).  Three of
+# these rows are the coverage the native route adds (p01, p10, p31 —
+# the in-process modeller declines them, the native route accepts) and
+# one is a wrong verdict the native route fixes (p07).
+2 nested_p01.ndjson
+0 nested_p02.ndjson
+0 nested_p03.ndjson
+0 nested_p04.ndjson
+0 nested_p05.ndjson
+0 nested_p06.ndjson
+# nested_p07: the index DOMAIN mentions a parameter.  Official ACCEPTS;
+# this checker REJECTS, in the frame bug of the generated `_impl.rec`
+# that task #227 §4 docketed.  The native nested route accepts it (no
+# generated recursor, no frame): see the shadow gate.
+1 nested_p07.ndjson
+2 nested_p10.ndjson
+0 nested_p13.ndjson
+0 nested_p20.ndjson
+0 nested_p22.ndjson
+0 nested_p24.ndjson
+0 nested_p25.ndjson
+0 nested_p26.ndjson
+0 nested_p30.ndjson
+2 nested_p31.ndjson
+# The two arena nested tests as e2e fixtures.  Their streams are the
+# arena's own (built with `debug.skipKernelTC`, so that a declaration
+# the kernel rejects still reaches the export); their recipes are
+# `tests/nested-nonuniform-param.lean` and
+# `tests/nested-unused-param.lean` of the lean-kernel-arena.
+# nested_unused_param: an ill-typed pin that does not appear in the
+# auxiliary declaration (leanprover/lean4#14576, fixed in #14577).
+# Official REJECTS.  So does this checker, at a generated record.
+1 nested_unused_param.ndjson
+# nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
+# Official v4.33.0 ACCEPTS, v4.34.0-rc2 (the arena's reference) REJECTS
+# with `check_uniform_ind_occs`; the arena's expected outcome is
+# `either`.  This checker accepts it today; the native nested route
+# mirrors the rc2 check and rejects it (see the shadow gate).
+0 nested_nonuniform_param.ndjson
