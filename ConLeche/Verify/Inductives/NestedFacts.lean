@@ -849,4 +849,127 @@ theorem instantiateList_openers_scoped {nP : Nat} {fvs : List Expr} {qa : Expr}
         · exact ha
         · exact hlv l hla
 
+/-! ## Application spines, scoped -/
+
+/-- The arguments of a scoped spine are scoped. -/
+theorem WScoped_mkAppN_args {d : Nat} :
+    ∀ {args : List Expr} {f : Expr}, Expr.WScoped d (Expr.mkAppN f args) →
+      Expr.WScoped d f ∧ ∀ a ∈ args, Expr.WScoped d a
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: args, f, h => by
+    obtain ⟨hfa, hall⟩ := WScoped_mkAppN_args (args := args) (f := .app f a) h
+    rw [Expr.WScoped] at hfa
+    exact ⟨hfa.1, fun b hb => by
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact hfa.2
+      · exact hall b hb⟩
+
+/-- The arguments of a bvar-bounded spine are bvar-bounded. -/
+theorem looseBVarsBounded_mkAppN_args {k : Nat} :
+    ∀ {args : List Expr} {f : Expr}, (Expr.mkAppN f args).looseBVarsBounded k = true →
+      f.looseBVarsBounded k = true ∧ ∀ a ∈ args, a.looseBVarsBounded k = true
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: args, f, h => by
+    obtain ⟨hfa, hall⟩ := looseBVarsBounded_mkAppN_args (args := args) (f := .app f a) h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hfa
+    exact ⟨hfa.1, fun b hb => by
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact hfa.2
+      · exact hall b hb⟩
+
+/-! ## Closing a telescope and opening it again (task #279, session 9)
+
+`closeTelescope bs i body` (`Kernel/Inductives/SumInstall.lean`) rebuilds
+a `∀`-telescope from opener-form domains — domain `j` mentions the
+openers `fvar (i + j')`, `j' < j` — by abstracting the deeper openers
+first; `openPisAtFvars` at depth `i` re-creates exactly those openers.
+The round trip is the identity on a body whose leaves at the openers'
+indices carry the openers' annotations (`fvarConsistent`) and which is
+bvar-closed, and the same of every domain with respect to the earlier
+ones — the shape request 4 of DESIGN §M.21 would certify for a copy's
+stored types, read back into the OPENED form the model consumes. -/
+
+/-- The openers `closeTelescope`'s telescope re-opens at. -/
+def telescopeOpeners : List (Expr × BinderMeta) → Nat → List Expr
+  | [], _ => []
+  | (dom, _) :: bs, i => Expr.fvar i dom :: telescopeOpeners bs (i + 1)
+
+theorem telescopeOpeners_length :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat), (telescopeOpeners bs i).length = bs.length
+  | [], _ => rfl
+  | (_, _) :: bs, i => by simp [telescopeOpeners, telescopeOpeners_length bs (i + 1)]
+
+theorem telescopeOpeners_getElem? :
+    ∀ (bs : List (Expr × BinderMeta)) (i j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+      (telescopeOpeners bs i)[j]? = some (Expr.fvar (i + j) b.1)
+  | [], _, j, _, h => nomatch h
+  | (dom, bm) :: bs, i, 0, b, h => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h
+    rfl
+  | (_, _) :: bs, i, j + 1, b, h => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [telescopeOpeners, List.getElem?_cons_succ]
+    rw [telescopeOpeners_getElem? bs (i + 1) j b h, Nat.add_assoc, Nat.add_comm 1 j]
+
+/-- A closed telescope over bvar-closed domains and body is bvar-closed. -/
+theorem closeTelescope_looseBVarsBounded :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      (∀ b ∈ bs, b.1.looseBVarsBounded 0 = true) → body.looseBVarsBounded 0 = true →
+      (closeTelescope bs i body).looseBVarsBounded 0 = true
+  | [], _, _, _, hb => hb
+  | (dom, bm) :: bs, i, body, hbs, hb => by
+    simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨hbs _ List.mem_cons_self,
+      looseBVarsBounded_abstract1 _ 0 (closeTelescope_looseBVarsBounded bs (i + 1) body
+        (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb)⟩
+
+/-- Annotation consistency at an index below the telescope's openers
+passes through the closing. -/
+theorem fvarConsistent_closeTelescope {d : Nat} {ty : Expr} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr), d < i →
+      Expr.fvarConsistent d ty body → (∀ b ∈ bs, Expr.fvarConsistent d ty b.1) →
+      Expr.fvarConsistent d ty (closeTelescope bs i body)
+  | [], _, _, _, hb, _ => hb
+  | (dom, bm) :: bs, i, body, hdi, hb, hbs => by
+    simp only [closeTelescope, Expr.fvarConsistent]
+    exact ⟨hbs _ List.mem_cons_self,
+      fvarConsistent_abstract1 (Nat.ne_of_lt hdi) _ 0
+        (fvarConsistent_closeTelescope bs (i + 1) body (Nat.lt_succ_of_lt hdi) hb
+          (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')))⟩
+
+/-- **The round trip**: re-opening a closed telescope at its depth
+yields its openers and its body. -/
+theorem openPisAtFvars_closeTelescope :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      (∀ b ∈ bs, b.1.looseBVarsBounded 0 = true) → body.looseBVarsBounded 0 = true →
+      (∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        Expr.fvarConsistent (i + j) b.1 body ∧
+        ∀ (j' : Nat) (b' : Expr × BinderMeta), j < j' → bs[j']? = some b' →
+          Expr.fvarConsistent (i + j) b.1 b'.1) →
+      openPisAtFvars bs.length (closeTelescope bs i body) i = some (telescopeOpeners bs i, body)
+  | [], _, _, _, _, _ => rfl
+  | (dom, bm) :: bs, i, body, hbs, hb, hcons => by
+    have h0 := hcons 0 (dom, bm) rfl
+    rw [Nat.add_zero] at h0
+    -- the inner telescope is consistently annotated at `i` and bvar-closed
+    have hX : Expr.fvarConsistent i dom (closeTelescope bs (i + 1) body) :=
+      fvarConsistent_closeTelescope bs (i + 1) body (Nat.lt_succ_self i) h0.1 fun b hb' => by
+        obtain ⟨j', hj'⟩ := List.getElem_of_mem hb'
+        exact h0.2 (j' + 1) b (Nat.succ_pos j')
+          (by rw [List.getElem?_cons_succ, List.getElem?_eq_getElem hj'.1, hj'.2])
+    have hbX : (closeTelescope bs (i + 1) body).looseBVarsBounded 0 = true :=
+      closeTelescope_looseBVarsBounded bs (i + 1) body
+        (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb
+    have hrt : ((closeTelescope bs (i + 1) body).abstract1 i 0).instantiate1 (.fvar i dom) 0
+        = closeTelescope bs (i + 1) body :=
+      abstract1_instantiate1 _ 0 hX hbX
+    simp only [List.length_cons, closeTelescope, openPisAtFvars, telescopeOpeners]
+    rw [hrt, openPisAtFvars_closeTelescope bs (i + 1) body
+      (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb (fun j b hj => ?_)]
+    · have h := hcons (j + 1) b (by rw [List.getElem?_cons_succ]; exact hj)
+      rw [show i + (j + 1) = i + 1 + j from by omega] at h
+      exact ⟨h.1, fun j' b' hlt hj' =>
+        h.2 (j' + 1) b' (Nat.succ_lt_succ hlt) (by rw [List.getElem?_cons_succ]; exact hj')⟩
+
 end ConLeche

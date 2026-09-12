@@ -495,7 +495,12 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
       (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0).looseBVarsBounded d.nP
         = true)
     (hlenF : fvsA.length = d.nP) :
-    ∃ DsA : List AnnotTerm, DsA.length = Ds.length ∧
+    ∃ (argsA : List ConLeche.Expr) (DsA : List AnnotTerm),
+      ConLeche.annotateCore μ env F d.nP pinA = .ok (Expr.mkAppN (.const Jn lvls) argsA) ∧
+      argsA.length = Ds.length ∧
+      (∀ a ∈ argsA, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true) ∧
+      DenoteMetaSpine mp.base2.acval env ψ d.nP argsA DsA ∧
+      DsA.length = Ds.length ∧
       d.PinRead ψ (mp.base2.acval Jn
         (ConLeche.Level.substFn ψ ci.toConstantVal.levelParams lvls)) DsA Ds.length := by
   -- the pin's three syntactic guards, from its scope at the openers
@@ -541,7 +546,10 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
     have h := hopened.ctx (Nat.le_refl d.nP) hwsE hleafE
     rwa [Nat.sub_self, List.drop_zero] at h
   obtain ⟨-, -, hok, -, -⟩ := (claimsAt_of hμ mp ψ F).inferRow hinf hwsE hbE hLE hC heA
-  exact ⟨DsA, by rw [hlenD, hlenA, List.length_map], ⟨by rw [hlenD, hlenA, List.length_map], hok⟩⟩
+  have hargsA : ∀ a ∈ args', Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true := fun a ha =>
+    ⟨(ConLeche.WScoped_mkAppN_args hwsE).2 a ha, (ConLeche.looseBVarsBounded_mkAppN_args hbE).2 a ha⟩
+  exact ⟨args', DsA, by rw [hspine]; exact hann, by rw [hlenA, List.length_map], hargsA, hsp,
+    by rw [hlenD, hlenA, List.length_map], ⟨by rw [hlenD, hlenA, List.length_map], hok⟩⟩
 
 end IndRepData
 
