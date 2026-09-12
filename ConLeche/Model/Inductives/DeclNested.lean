@@ -29,10 +29,12 @@ free by the kernel's `copiesFresh` conjunct, unreserved because its
 FORMER's name — which `mutualFormers` checked — is unreserved and the
 reserved list closes under `.rec` (`reserved_of_str_rec`), and never
 projection-shaped under `.str "rec"`.  The result is the model
-`mpAux : EnvModelM V μ envAux` whose `ind_reps` hold the auxiliary
-datum of every member and copy — `fibre`/`leaf`/`ctor`/`mkInj`, and
-through M-A′ the recursors' `recRead`/`rulesRead` — which the later
-stages read.
+`mpAux : EnvModelM V μ envAux` together with the block's
+representations at it (`MutualBlockReps`, task #279 M-B′ step 3c (c):
+ONE datum for the scratch block — every member and copy real, the
+pins the parameter variables — and each member's `IndRep` at it, with
+`fibre`/`leaf`/`ctor`/`mkInj` and, through M-A′, the recursors'
+`recRead`/`rulesRead`), which the later stages read.
 
 The stages that follow (DESIGN §M.10): the copy ↔ container-family map
 over `st.pins` with the one `elimNested` lemma (a copy's constructor
@@ -123,7 +125,7 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         (ConLeche.restoreTbl p st) p.lps
         ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
         (stored.take p.k) = .ok cvRms) :
-    Nonempty (EnvModelM V μ envAux) := by
+    ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
   have hrun : DeclMutualCoreRun μ F env b none envAux := declMutualCoreRun_of hcore
   -- the block's shape
   have hk : b.k = st.types.length := ConLeche.auxBlock_k hb
@@ -202,10 +204,12 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         exact nomatch this
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
-  exact declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)
+  obtain ⟨mpAux, d, hreps⟩ := declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.2)
+  rw [hq] at hreps
+  exact ⟨mpAux, d, hreps⟩
 
 /-- **The auxiliary model of a nested run**: the scratch environment the
 run's `checkMutualCore` produced carries the P invariant. -/
@@ -216,7 +220,7 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ConLeche.auxBlock p st = some b ∧
       ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
         = .ok envAux ∧
-      Nonempty (EnvModelM V μ envAux) := by
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
     helim, -, hfresh, hb, hcore, hstored, -, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore, nestedAuxModel hμ mp hE helim hfresh hb hcore hstored hrm⟩

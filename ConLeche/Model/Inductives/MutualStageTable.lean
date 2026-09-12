@@ -882,32 +882,41 @@ either conses nothing or conses its projection table
 `EtaFamiliesClosed` travels because a table head is not an inductive. -/
 theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
     {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hlps : b.lps = d.lps) (hnP : b.nP = d.nP) :
+    (hlps : b.lps = d.lps) (hnP : b.nP = d.nP)
+    -- a caller's invariant preserved by every table cons (task #279
+    -- M-B′ step 3c (c): the block's representations cross the tables)
+    (Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
+    (hInv : ∀ {env' : Env} (m : EnvModel V env') (tbl : ConLeche.ProjTable),
+      env'.find? (ConstantInfo.projInfo tbl).name = none →
+      ConsCrossEnv env' (.projInfo tbl) → Inv m →
+      ∀ m₂ : EnvModel V ⟨.projInfo tbl :: env'.consts⟩,
+        m₂.acval = acvalWith m.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) → Inv m₂) :
     ∀ (l : List (MutualFormerA × Nat)) {env : Env} (mp : EnvModelM V μ env) {env' : Env},
       ConLeche.EtaFamiliesClosed env →
       ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
       (l.map (·.1.cvTa.name)).Nodup →
       (∀ p ∈ l, MutualTableOk mp.base2 d capsOf b ctorsA sortss p.1 p.2) →
+      Inv mp.base2 →
       ∃ mp' : EnvModelM V μ env',
         (∀ n : Name, (∀ p ∈ l, n ≠ projTableName p.1.cvTa.name) →
           mp'.base2.acval n = mp.base2.acval n) ∧
-        ConLeche.EtaFamiliesClosed env' := by
+        ConLeche.EtaFamiliesClosed env' ∧ Inv mp'.base2 := by
   intro l
   induction l with
   | nil =>
-    intro env mp env' hE h _ _
+    intro env mp env' hE h _ _ hinv
     obtain rfl := ConLeche.mutualTables_nil_inv h
-    exact ⟨mp, fun _ _ => rfl, hE⟩
+    exact ⟨mp, fun _ _ => rfl, hE, hinv⟩
   | cons p rest ih =>
-    intro env mp env' hE h hnd hmem
+    intro env mp env' hE h hnd hmem hinv
     obtain ⟨f, mIdx⟩ := p
     obtain ⟨envI, hI, hrestRun⟩ := ConLeche.mutualTables_inv h
     rw [List.map_cons, List.nodup_cons] at hnd
     rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
     · -- the member conses nothing
-      obtain ⟨mp', hoff, hE'⟩ :=
-        ih mp hE hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
-      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hE'⟩
+      obtain ⟨mp', hoff, hE', hinv'⟩ :=
+        ih mp hE hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq)) hinv
+      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hE', hinv'⟩
     · -- the member conses its table
       obtain ⟨hnp, hfT, hrest⟩ := hmem (f, mIdx) List.mem_cons_self
       obtain ⟨cvCa, pps, ds, Es, lvls, hCeq, hCname, hcaps, hlpsT, hfC, hlpsC, hstripC, hProp,
@@ -937,8 +946,14 @@ theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
         show f.cvTa.name ∈ rest.map (·.1.cvTa.name)
         rw [show f.cvTa.name = q.1.cvTa.name from hh]
         exact List.mem_map_of_mem hq
-      obtain ⟨mp', hoff, hE''⟩ := ih mpI hE' hrestRun hnd.2 hmemI
-      refine ⟨mp', fun n hn => ?_, hE''⟩
+      have hinvI : Inv mpI.base2 :=
+        hInv mp.base2 ⟨f.cvTa.name, d.lps, d.nP, cvCa.name, c.nF, f.s, bodies,
+            ConLeche.structProjGuards cvCa.type d.nP c.nF (sortss.getD J []), 1⟩
+          hfreshTbl (fun tbl' heq i => by
+            obtain rfl := ConstantInfo.projInfo.inj heq
+            exact hnp i) hinv mpI.base2 hacI
+      obtain ⟨mp', hoff, hE'', hinv'⟩ := ih mpI hE' hrestRun hnd.2 hmemI hinvI
+      refine ⟨mp', fun n hn => ?_, hE'', hinv'⟩
       rw [hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hacI,
         acvalWith_ne (hn (f, mIdx) List.mem_cons_self)]
 
@@ -952,19 +967,27 @@ theorem stageMutualTables {d : TableBlockData} {capsOf : Nat → IndCaps}
     (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss fms.zipIdx env = .ok env')
     (hnd : (fms.map (·.cvTa.name)).Nodup)
-    (hmem : ∀ p ∈ fms.zipIdx, MutualTableOk mp.base2 d capsOf b ctorsA sortss p.1 p.2) :
+    (hmem : ∀ p ∈ fms.zipIdx, MutualTableOk mp.base2 d capsOf b ctorsA sortss p.1 p.2)
+    (Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
+    (hInv : ∀ {env' : Env} (m : EnvModel V env') (tbl : ConLeche.ProjTable),
+      env'.find? (ConstantInfo.projInfo tbl).name = none →
+      ConsCrossEnv env' (.projInfo tbl) → Inv m →
+      ∀ m₂ : EnvModel V ⟨.projInfo tbl :: env'.consts⟩,
+        m₂.acval = acvalWith m.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) → Inv m₂)
+    (hinv : Inv mp.base2) :
     ∃ mp' : EnvModelM V μ env',
       (∀ n : Name, (∀ f ∈ fms, n ≠ projTableName f.cvTa.name) →
         mp'.base2.acval n = mp.base2.acval n) ∧
-      ConLeche.EtaFamiliesClosed env' := by
+      ConLeche.EtaFamiliesClosed env' ∧ Inv mp'.base2 := by
   have hnd' : ((fms.zipIdx).map (·.1.cvTa.name)).Nodup := by
     rw [show fms.zipIdx.map (·.1.cvTa.name) = fms.map (·.cvTa.name) from by
       rw [show (fun x : MutualFormerA × Nat => x.1.cvTa.name)
         = (fun f : MutualFormerA => f.cvTa.name) ∘ Prod.fst from rfl, ← List.map_map,
         List.zipIdx_map_fst]]
     exact hnd
-  obtain ⟨mp', hoff, hE'⟩ := stageMutualTablesGo hlps hnP fms.zipIdx mp hE hrun hnd' hmem
-  refine ⟨mp', fun n hn => hoff n fun q hq => hn q.1 ?_, hE'⟩
+  obtain ⟨mp', hoff, hE', hinv'⟩ :=
+    stageMutualTablesGo hlps hnP Inv hInv fms.zipIdx mp hE hrun hnd' hmem hinv
+  refine ⟨mp', fun n hn => hoff n fun q hq => hn q.1 ?_, hE', hinv'⟩
   have hget : fms[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
   exact List.mem_of_getElem? hget
 

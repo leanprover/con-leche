@@ -72437,6 +72437,175 @@ of `replaceAllNested` on the field shapes the aux positivity leaves
 (§M.14); (c) the widening (4); then ψ (blocked on finding 1) and
 M-C′.
 
+#### M.19 M-B′ step 3c, continued: findings A/B as clauses; the copies' discharges (semantic layer); `declMutualCore` widened (2026-09-12, session 7)
+
+**What the session set out to do** (brief, in order): (a) findings A/B
+of §M.18 as `IndRep` clauses; (b) the copies' `TargetOk` from
+`pinsOkAux` and `CtorAtPins` from the ledger + `replaceAllNested`
+compositionality; (c) the widening of `declMutualCore`'s conclusion;
+(d) if time allowed, R1 generic and finding 3's clause.  (a) and (c)
+landed in full; (b) landed as its SEMANTIC layer — the two discharges
+are theorems over three records that package what the run supplies —
+with the syntactic layer (the records from the run relation) sized and
+left for the next session; (d) did not start.
+
+**(a) `IndRep.leafShape` and `IndRep.paramsIffM`** (commit
+`2c6a49bf`).  The literal λ-shape was chosen over the semantic
+consequence, because EVERY site has it literally: native (`hleafT` is
+`nativeTyAVI`, which IS `mkLamsC (w+1) pps _`, by `rfl`); mutual
+(`mutualIndRep_of` gains `hleafAll`/`hiffAll`, discharged at the
+`declMutualCore` call from the stage's `hleafT₁` and `hframeAll` — the
+facts §M.18 said the mutual proof "has and drops"); `Eq` (`eqValAV` is
+literally `mkLamsC 1 [(0,1,Sort u),(0,1,#0),(0,1,#1)] (eqE #1 #0)` —
+`⟨.eqE (.bvar 1) (.bvar 0), hEleaf ψ⟩`); PUnit/Nat/zero-constructor
+(`nP = nIdx = 0`: `mkLamsC _ [] B = B`, so `⟨_, rfl⟩`); the three
+transports pass both on (`acvalWith_ne`/`hac`/`hag` at the member's
+name for the leaf; `paramsIffM` verbatim).  `InvFold`'s hypotheses
+`hLS`/`hpIffM` are now dischargeable from the datum; the module is
+unchanged.
+
+**(b) `Model/Inductives/CopyPins.lean`** (off-graph; commit `4302ce9d`).
+Three records, each the semantic content of a run fact:
+
+* `PinRead d ψ L DsA nPJ` — the pin's annotated components `DsA` (readings
+  at the aux block's parameter frame), `DsA.length = nPJ`, and the
+  container's leaf `L` applied to them graded at every frame
+  satisfying the aux parameter context.  It is what `pinsOkAux` says
+  through the certified annotation (§K.2).
+* `CopyIdxRead d ψ t dJ ψ' mmJ DsA` — the copy's sort is the
+  container's at the level instantiation, and an index spine fits the
+  copy's index telescope iff it fits the container's at the pin's
+  values.  It is `mkCopy`'s `instPis` read through
+  `denoteMeta_instPisAt_peel`.
+* `CopyCtorRead d ψ ρ ps L pinsT useIh Ja head nF dsC bodyC` — the
+  container constructor's residual tower at the pin (`dsC`/`bodyC`,
+  `nF` binders) is graded, the head inhabits it, each binder reads as
+  the copy constructor's field in TARGET FORM under every fitting
+  prefix, and the body at fitting fields is the copy's target at the
+  index readings.
+
+and the two discharges: `pinFit_of_leafShape` (the components fit the
+container's parameter telescope — `spineFit_of_wellDenoted_lams` at
+the container's `leafShape`, which is why finding A had to land
+first); **`targetOk_copy`** — `TargetOk` at a copy member from the
+copy's own `FormerFacts`/`paramsIffM` (it IS a real member of the
+scratch block; the first half is `targetOk_real`'s) and, at every
+fitting index spine, the container's leaf at the pin's values and the
+indices graded (`wellDenotedV_mkAppN_of_spineFit` at the container's
+tower lifted to the index frame) and in the container's sort
+(`mkPisAV_fold_mem` at the pin's fit ++ the indices' fit through
+`CopyIdxRead`), which is the copy's sort and the elimination universe;
+`spineFit_congr_pointwise` (two telescopes whose entries read alike
+under every fitting prefix accept the same spines — `SpineFit`'s
+prefix frames are `consList ws σ`); **`ctorAtPins_copy`** — `CtorAtPins`
+from `CopyCtorRead` by the pointwise reading.  With these,
+`InvSetup`'s `hTg`/`hCAP` are dischargeable for copies too, given the
+container's `IndRep` at `envAux` and the records.
+
+**The syntactic layer, sized (next session).**  Deriving the records
+from `DeclNestedRun`:
+
+* `PinRead`: `Opened` for the stored former `a₀` at `envAux`
+  (`opened_of` from the aux datum's `former`), the pin's expression
+  `instantiateList (abstractRange q.pin 0 nP 0) fvsA.reverse` scoped at
+  `nP` over `fvsA`, `annotateCore_app_inv` for the annotated shape,
+  `ClaimsAt.inferRow` (`claimsAt_of` at `mpAux`) for the grading, and
+  `denoteMeta_const` for the level instantiation `ψ' := Level.substFn
+  ψ J.lps lvls`.  **Finding (no kernel change needed):** the pins'
+  scoping — every free variable of a pin component has index `< nP` —
+  is NOT an elimination invariant to be proved over `elimLoop` (its
+  base case would need the STREAM's constructor types closed, which
+  the nested route never checks and official does not either): it is
+  certified by the pin check itself, because `annotateBody` rejects a
+  free variable of index `≥ depth`, and `abstractRange … 0 nP 0`
+  abstracts by INDEX alone, so every surviving free variable is one of
+  `fvsA`.  The one corner — a stray `fvar depth` under a λ inside a
+  pin is captured by the binder's own opening — is consistent between
+  the pin check and the copy's install, which open the same term the
+  same way.
+* `CopyIdxRead`/`CopyCtorRead`: `elimNested_copy`/`mkCopy_inv` (the
+  copy's type and constructors are `instPis` of the container's at the
+  level instantiation, closed over `pbs`), `elimCtors_getElem?` (each
+  copy constructor's residual rewritten by `replaceAllNested` at a
+  state between the run's pins), a CONGRUENCE lemma for
+  `replaceAllNested` through a Π-telescope (at a `.forallE` it is
+  always the node with the domain and the body rewritten, whether or
+  not the node mentions a new name), and the shape lemma at a field:
+  on an ACCEPTED aux block a field mentioning a new name is
+  aux-recursive with the occurrence at the HEAD — the telescope's
+  domains and the index arguments mention none (official's
+  `is_valid_ind_app`, our positivity without `whnf`) — so the rewrite
+  replaces exactly `J' Ds' ı⃗ ↦ A' p⃗ ı⃗` at the head and the pin
+  ledger names `A'`'s pin `J' Ds'`; then `denoteMeta_instLevels` +
+  `denoteMeta_instPisAt_peel` read the container's tower at the pin,
+  and `invTg_fold` reads the target form as `⟦J'⟧ DsA' ı⃗*`.  The
+  central lemma of this layer is the RAW-vs-ANNOTATED reading
+  correspondence: the pin components and the copy's types are
+  annotated INDEPENDENTLY (the pin check at `nP`, the copy's install
+  at `0` under `pbs`), and `mkCopy` relates the RAW terms
+  (`annotateCore_forallE_eq`/`_lam_eq` in `Verify/BinderLoop` are the
+  pieces).  Mechanical and well-specified — an Opus lane.
+* The container's `IndRep` at `envAux` comes from `mpAux.ind_reps` at
+  `J.rec` — through the transitional `ModeledLeaf` disjunct, which no
+  consumer may refute yet (§M.18 finding 4's other half); until the
+  modelled route is deleted it is a HYPOTHESIS of the assembly
+  (`hJ : IndRep mpAux.base2 J …`), stated once.
+
+**(c) The widening.**  `MutualBlockReps m b d` (`MutualRep.lean`): ONE
+datum `d` for the block — `ctorsC = []`, `k = kReal = b.k`, `nP = b.nP`,
+the pins the parameter variables, the recursor view the family view,
+the member names the block's — and per member `t` its stored former
+and recursor with rules (`memberCtors t ≠ [] → rules ≠ []`) and
+`IndRep m (memberName t) … { d with resSort := s_t } t` — the datum
+re-sorted to the member's OWN spelling: the mutual construction's `dOf
+t` differ only there (the sort's VALUE enters `Φ`/`inj`, and the
+spellings agree by value, `mutualRepData_congr_sort`).  Plumbing:
+`stageMutualRecs` gains a caller-chosen `Out` discharged from the
+provisioned invariant at the store (`stageMutualRecsStore` already
+hands back `mp₄.acval = mpP.acval`); `stageMutualTablesGo`/
+`stageMutualTables` gain an invariant `Inv` preserved across each
+table cons (`hInv`: fresh head, `ConsCrossEnv` from `MutualTableOk`'s
+`NoProjEnv`, `acvalWith` at the table's name); in `declMutualCore` the
+`hrepsS` block is restructured around a per-member `hblockT` (the
+IndRep at the store, previously built only inside `mutualIndReps_of`'s
+`hblock`), the members cross the tables exactly as `IndReps.cons`
+crosses every stored representation (`IndRep.cross` +
+`rulesRead_cons`), and the conclusion is `∃ mp d, MutualBlockReps
+mp.base2 p.toBlock d`.  `declMutual` (`Nonempty`) is the wrapper;
+`nestedAuxModel`/`declNestedRun_auxModel` conclude the same for the
+scratch block, so the aux datum `InvSetup` consumes is now in hand
+(`hR` for every member from ANY member with rules; `hctors`, `hpIff`,
+`hLS`, `hFF` from the same member's clauses; the shape conjuncts
+literally).
+
+**Findings for the maintainer.**  None new that need a decision;
+finding 1 (ψ's order) remains the one open ruling.  Two design facts
+worth recording: the pins' scoping needs no kernel conjunct (above);
+and the copies' discharges split cleanly into a semantic layer (this
+session, over the container's representation) and a syntactic layer
+(next, Opus-suitable).
+
+**Gates** (per session, landing gates NOT run): `lake build` warning-
+free; `lake test` clean; the eight off-graph modules (`DeclNested`,
+`NestedFacts`, `NestedLedger`, `ContainerRead`, `RecFold`,
+`FoldChoice`, `InvFold`, `CopyPins`) build; `tests/no-local-paths.sh`
+OK.  `scripts/pub-import-plan.py --check`/`tests/shake.sh` are landing
+gates (one new `public import`: `DeclMutual` re-exports `MutualRep` for
+`MutualBlockReps` in its statement).  Lean gotchas: `obtain` consumes
+its hypothesis (copy it first when a projection is used again); a `rw`
+chain that closes by `rfl` leaves no goal for the tactic after it; a
+`rw` with a lemma matching both sides rewrites the first match — pin
+the instance or `simp only` both sides; a public statement mentioning a
+def needs that module `public import`ed (the "imported privately"
+note); named arguments `(Out := …)`/`(Inv := …)` keep long stage
+calls readable.
+
+**Next** (in order): the syntactic layer (above) → the assembly of
+`InvSetup` from `MutualBlockReps` + the records (ψ⁻¹ closed end to end
+for the scratch block, under the container's `IndRep` hypothesis) →
+ψ (blocked on finding 1) → M-C′ (R1 generic over the kit at a `Prop`
+choice; finding 3's recursor-view clause with M-D′'s datum).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

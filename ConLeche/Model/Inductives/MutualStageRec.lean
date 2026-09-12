@@ -1233,15 +1233,19 @@ theorem stageMutualRecs (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V e
     -- the representation clause at the store (task #280): the block's
     -- `k` representations at the PROVISIONED carrier (`Inv`) are what
     -- the store's clause is assembled from
+    -- and whatever else the caller reads off the store's carrier (task
+    -- #279 M-B′ step 3c (c): the block's own representations)
+    (Out : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂) → Prop)
     (hrepsS : ∀ mpP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂),
       Inv mpP.base2 →
       ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
-        m₃.acval = mpP.base2.acval → IndReps m₃) :
+        m₃.acval = mpP.base2.acval → IndReps m₃ ∧ Out m₃) :
     ∃ mp₄ : EnvModelM V μ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
       (∀ t, t < p.k → ∀ ψ : Name → Nat,
         mp₄.base2.acval (cvRas.getD t default).name ψ = p.leaf m₀ t ψ) ∧
       (∀ n : Name, (∀ t, t < p.k → n ≠ (cvRas.getD t default).name) →
-        mp₄.base2.acval n = mp₂.base2.acval n) := by
+        mp₄.base2.acval n = mp₂.base2.acval n) ∧
+      Out mp₄.base2 := by
   have hAcl : ∀ t, t < p.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (p.leaf m₀ t ψ).erase :=
     fun t ht ψ => p.leaf_below hyp ht ψ ((hRDs t ht).below ψ) ((hRDs t ht).len ψ) (hIds ψ)
       (hchains ψ)
@@ -1251,9 +1255,9 @@ theorem stageMutualRecs (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V e
   obtain ⟨mp₄, hacc, -⟩ :=
     stageMutualRecsStore p mp₂.base2.wf hrectys hrules mpP hk hfresh hnres hctorStored
       (fun m₃ hac => hlaws mpP.base2.acval hleafP hagP m₃ hac)
-      (fun m₃ hac => hrepsS mpP hinvP m₃ hac)
+      (fun m₃ hac => (hrepsS mpP hinvP m₃ hac).1)
   exact ⟨mp₄, fun t ht ψ => by rw [hacc]; exact hleafP t ht ψ,
-    fun n hn => by rw [hacc]; exact hagP n hn⟩
+    fun n hn => by rw [hacc]; exact hagP n hn, (hrepsS mpP hinvP mp₄.base2 hacc).2⟩
 
 
 end ConLeche.Model

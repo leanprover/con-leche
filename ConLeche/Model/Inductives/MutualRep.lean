@@ -386,6 +386,59 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
       (mutFss nP ctorsA.length dsF ψ) (Ess' ψ)
   inj := fun ψ J fs => injW (resSort.eval ψ) J (mkTower (fs ++ [pt]))
 
+/-- **The datum at another spelling of the same sort** (task #279 M-B′
+step 3c (c)): two members' data differ only in `resSort` — the sort's
+VALUE enters `Φ` and `inj`, and the members' spellings agree by value
+(`mutualCrossChecks`). -/
+theorem mutualRepData_congr_sort {env₀ : Env} {nP k : Nat} {resSort resSort' : Level}
+    (h : ∀ ψ : Name → Nat, resSort.eval ψ = resSort'.eval ψ)
+    {isProp large : Bool} {elim : Name} {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
+    {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+    {ksF : Nat → List (RecFieldKind × Nat)} {fvsPF xFvsF : Nat → List Expr}
+    {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {Tname : Nat → Name} {nIdxOf mots nFs : Nat → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsOf : Nat → (Name → Nat) → List Nat}
+    {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {rss : List (List Bool)}
+    {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
+    {Ess' : (Name → Nat) → List (List AnnotTerm)} :
+    mutualRepData (V := V) env₀ nP k resSort isProp large elim ctorsA idxF dsF esF srcsF ksF fvsPF
+        xFvsF xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss' Ess'
+      = { mutualRepData (V := V) env₀ nP k resSort' isProp large elim ctorsA idxF dsF esF srcsF ksF
+            fvsPF xFvsF xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss'
+            Ess' with resSort := resSort } := by
+  unfold mutualRepData
+  congr 1
+  · funext ψ ρp; rw [h ψ]
+  · funext ψ J fs; rw [h ψ]
+
+/-- **The block's representations at a model** (task #279 M-B′ step
+3c (c), the widening of `declMutualCore`'s conclusion): ONE datum `d`
+for the block — a plain mutual datum: no copy members, the pins the
+parameter variables, the recursor view the family view, the block's
+member count and parameter count, the block's member names — and, per
+member `t`, its stored former and its stored recursor with its rules,
+and its representation at the datum re-sorted to the member's OWN
+spelling of the block's sort (`mutualRepData_congr_sort`).  A member
+with constructors has rules (a fold consumer reads every member's
+recursor off ONE such member's `rulesRead`). -/
+@[expose] def MutualBlockReps {env : Env} (m : EnvModel V env) (b : MutualBlock) (d : IndRepData V) :
+    Prop :=
+  d.ctorsC = [] ∧ d.k = b.k ∧ d.kReal = b.k ∧ d.nP = b.nP ∧
+  (∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP) ∧
+  (∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧ d.tssR J = d.tssF J) ∧
+  (∀ t, t < b.k → d.memberName t = b.memberNames.getD t .anonymous) ∧
+  ∀ t, t < b.k → ∃ (s : Level) (cvT cvR : ConstantVal) (caps : IndCaps) (mI rP : Nat)
+      (rules : List RecRule),
+    env.find? (d.memberName t) = some (.indInfo cvT caps) ∧
+    env.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
+    (d.memberCtors t ≠ [] → rules ≠ []) ∧
+    IndRep m (d.memberName t) cvT cvR mI rP rules { d with resSort := s } t
+
 /-! ## The member's representation -/
 
 /-- **A member of a natively installed mutual block is represented**,
