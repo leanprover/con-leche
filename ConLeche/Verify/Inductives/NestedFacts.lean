@@ -588,6 +588,108 @@ theorem annotateCore_const_inv {env : Env} {F d : Nat} {n : Name} {us : List Lev
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     exact h.symm
 
+/-! ## The replace walk, through a binder
+
+At a `.forallE` node `replaceIfNested` never fires (it answers `none`
+on everything but an application), so the walk either PRUNES the node
+— and then it prunes both children, since `mentionsConst` is
+structural — or descends into the domain and then the body.  Either
+way the result is the node with the two children rewritten in that
+order, which is the congruence a field's telescope is read through.
+-/
+
+/-- The pruned walk is the identity. -/
+theorem replaceAllNested_prune {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {st : ElimState} {e : Expr}
+    (h : st.newNames.any (fun T => e.mentionsConst T) = false) :
+    replaceAllNested env blvls params pbs st e = .ok (e, st) := by
+  unfold replaceAllNested
+  rw [h]
+  rfl
+
+/-- **The walk is a congruence at a Π** (and at a λ): the domain first,
+then the body, at the state the domain left. -/
+theorem replaceAllNested_forallE {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {st st' : ElimState} {ty b r : Expr}
+    {bm : BinderMeta}
+    (h : replaceAllNested env blvls params pbs st (.forallE ty b bm) = .ok (r, st')) :
+    ∃ (ty' b' : Expr) (st₁ : ElimState),
+      replaceAllNested env blvls params pbs st ty = .ok (ty', st₁) ∧
+        replaceAllNested env blvls params pbs st₁ b = .ok (b', st') ∧
+        r = .forallE ty' b' bm := by
+  rw [replaceAllNested] at h
+  split at h
+  · next hpr =>
+    -- the node is pruned, and so is each child
+    simp only [Bool.not_eq_true', List.any_eq_false] at hpr
+    have hty : st.newNames.any (fun T => ty.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.1]
+    have hb : st.newNames.any (fun T => b.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.2]
+    simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨ty, b, st, replaceAllNested_prune hty, replaceAllNested_prune hb, rfl⟩
+  · -- `replaceIfNested` answers `none` at a non-application
+    rw [show replaceIfNested env blvls params pbs st (.forallE ty b bm) = .ok none from rfl] at h
+    dsimp only at h
+    split at h
+    · exact nomatch h
+    · next ty' st₁ hty =>
+      split at h
+      · exact nomatch h
+      · next b' st₂ hb =>
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨ty', b', st₁, hty, hb, rfl⟩
+
+/-- The same congruence at a `λ`. -/
+theorem replaceAllNested_lam {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {st st' : ElimState} {ty b r : Expr}
+    {bm : BinderMeta}
+    (h : replaceAllNested env blvls params pbs st (.lam ty b bm) = .ok (r, st')) :
+    ∃ (ty' b' : Expr) (st₁ : ElimState),
+      replaceAllNested env blvls params pbs st ty = .ok (ty', st₁) ∧
+        replaceAllNested env blvls params pbs st₁ b = .ok (b', st') ∧
+        r = .lam ty' b' bm := by
+  rw [replaceAllNested] at h
+  split at h
+  · next hpr =>
+    simp only [Bool.not_eq_true', List.any_eq_false] at hpr
+    have hty : st.newNames.any (fun T => ty.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.1]
+    have hb : st.newNames.any (fun T => b.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.2]
+    simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨ty, b, st, replaceAllNested_prune hty, replaceAllNested_prune hb, rfl⟩
+  · rw [show replaceIfNested env blvls params pbs st (.lam ty b bm) = .ok none from rfl] at h
+    dsimp only at h
+    split at h
+    · exact nomatch h
+    · next ty' st₁ hty =>
+      split at h
+      · exact nomatch h
+      · next b' st₂ hb =>
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨ty', b', st₁, hty, hb, rfl⟩
+
 /-! ## The pins' check -/
 
 /-- **The pins' check, read off** (post-check (a) at either

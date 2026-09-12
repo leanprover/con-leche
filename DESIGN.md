@@ -72764,11 +72764,39 @@ the un-updated one; `instantiateList` is well-founded, so
 rather than `rfl`; `rw [h] at hann hws hb hleaf` beats `h ▸ hann` when
 four hypotheses share the rewritten subject.
 
+**(c) The replace walk, as a congruence** (commit below) — the
+groundwork `CopyCtorRead` needs that does NOT depend on the peel
+below.  `replaceIfNested` answers `none` on everything but an
+application, so at a `.forallE` (and at a `.lam`) the walk either
+PRUNES the node — and then it prunes both children, `mentionsConst`
+being structural — or descends into the domain and then the body: in
+both cases the result is the node with the children rewritten in that
+order (`replaceAllNested_forallE`/`_lam`, over
+`replaceAllNested_prune`, `Verify/Inductives/NestedFacts.lean`).  At an
+application (`replaceAllNested_app`, `NestedLedger.lean`) it is either
+the fired answer — the top-down discipline — or the head and the
+argument in turn.  And a fired answer is read off by
+`replaceIfNested_some`: the node is `I` applied to `args` with
+`containerInfo? env I = some ci` and `ci.nP ≤ args.length`, the answer
+is `A p⃗ ı⃗` (the copy at the BLOCK's parameters and the occurrence's
+index arguments `args.drop ci.nP`), and the resulting state holds a pin
+whose `aux` is that copy and whose `pin` is `I` at `args.take ci.nP` —
+`mkCopies_got` (the aux name `mkCopies` returns is the one minted for
+`I` itself) for the minting branch, `List.find?` for the hit.  The pin
+record's `container` field is NOT recoverable at a find?-hit (the
+lookup compares the `pin` field alone), so the conclusion is stated as
+`∃ q ∈ st'.pins, q.aux = … ∧ q.pin = …`; the ledger supplies the
+container facts separately.
+
 **Next** (in order): the kernel request above (then `PinRead` closes);
 `CopyIdxRead` (the copy's former is `mkCopy`'s `instPis` of the
-container's — needs a `denoteMeta`-of-`instPis` peel, which does not
-exist yet) and `CopyCtorRead` (the same plus the `replaceAllNested`
-congruence); then ψ (blocked on finding 1) and M-C′.
+container's — needs a `denoteMeta`-of-`instPis` peel, which does NOT
+exist: `denoteMeta` reads a `.forallE` by opening at a fresh fvar, so
+the peel is `denoteMeta_substFvarAt` (`Model/Annot/BitInst.lean`)
+folded over the argument list, plus an `interp`-level transfer for the
+`SpineFit` half — a session's work on its own) and `CopyCtorRead` (the
+same peel plus the walk congruences of (c)); then ψ (blocked on
+finding 1) and M-C′.
 
 #### M.7 Sequence on this branch
 

@@ -581,6 +581,159 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
     · contradiction
   · contradiction
 
+/-! ## The replace walk, at a nested occurrence
+
+Where `replaceIfNested` FIRES, the walk is its answer (the top-down
+discipline), and that answer is the copy's carrier at the block's
+parameters and the occurrence's index arguments — with the copy's
+name recorded in a pin whose `pin` is the occurrence's head applied to
+its PARAMETER arguments.  This is the ledger's side of a field's
+rewrite. -/
+
+/-- The container's own copy is pinned: the aux name `mkCopies`
+returns is the one minted for `I` itself, and its pin is `I` at the
+pin arguments. -/
+theorem mkCopies_got {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : List Level}
+    {Ds : List Expr} {I : Name} :
+    ∀ {members : List ContainerMember} {st st' : ElimState} {aux : Name},
+      mkCopies env pbs lvls Ds I members st = .ok (st', some aux) →
+      (⟨aux, I, Expr.mkAppN (.const I lvls) Ds⟩ : NestedPin) ∈ st'.pins
+  | [], st, st', aux, h => by
+    simp only [mkCopies, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    exact nomatch h.2
+  | J :: rest, st, st', aux, h => by
+    simp only [mkCopies, bind, Except.bind] at h
+    split at h
+    · exact nomatch h
+    · next copy hcopy =>
+      split at h
+      · exact nomatch h
+      · next q hq =>
+        obtain ⟨stq, gotq⟩ := q
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, hgot⟩ := h
+        split at hgot
+        · next hJI =>
+          obtain rfl : J.name = I := beq_iff_eq.mp hJI
+          obtain rfl := (Option.some.inj hgot).symm
+          obtain ⟨copies, -, -, hpin, -⟩ := mkCopies_spec hq
+          rw [hpin]
+          refine List.mem_append_left _ ?_
+          simp
+        · obtain rfl := hgot
+          exact mkCopies_got hq
+
+/-- **A fired replacement, read off**: the node is a container's
+application, and the walk's answer is the copy at the block's
+parameters and the occurrence's index arguments, with the copy's pin in
+the resulting state. -/
+theorem replaceIfNested_some {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {st st' : ElimState} {e r : Expr}
+    (h : replaceIfNested env blvls params pbs st e = .ok (some (r, st'))) :
+    ∃ (I : Name) (lvls : List Level) (ci : ContainerInfo) (aux : Name),
+      containerInfo? env I = some ci ∧ ci.nP ≤ e.getAppArgs.length ∧
+      e = Expr.mkAppN (.const I lvls) e.getAppArgs ∧
+      r = Expr.mkAppN (Expr.mkAppN (.const aux blvls) params) (e.getAppArgs.drop ci.nP) ∧
+      ∃ q ∈ st'.pins, q.aux = aux ∧
+        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) := by
+  unfold replaceIfNested at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · -- `e` is an application
+    split at h
+    · -- its head is a constant
+      next I lvls hfn =>
+      split at h
+      · -- a stored inductive
+        split at h
+        · exact nomatch h
+        · split at h
+          · split at h
+            · exact nomatch h
+            · exact nomatch h
+          · next ci hci =>
+            split at h
+            · exact nomatch h
+            · next hnP =>
+              split at h
+              · exact nomatch h
+              · next nested hocc =>
+                split at h
+                · exact nomatch h
+                · split at h
+                  · -- the pin is already in the table
+                    next q hq =>
+                    simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                      Prod.mk.injEq] at h
+                    obtain ⟨rfl, rfl⟩ := h
+                    have hfind := List.find?_some hq
+                    rw [beq_iff_eq] at hfind
+                    refine ⟨I, lvls, ci, q.aux, hci, by omega, ?_, rfl,
+                      q, List.mem_of_find?_eq_some hq, rfl, hfind⟩
+                    rw [← hfn]; exact (Expr.mkAppN_getApp _).symm
+                  · -- the group is minted here
+                    split at h
+                    · exact nomatch h
+                    · next p hmk =>
+                      obtain ⟨stq, gotq⟩ := p
+                      split at h
+                      · exact nomatch h
+                      · next auxI hgot =>
+                        simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                          Prod.mk.injEq] at h
+                        obtain ⟨rfl, rfl⟩ := h
+                        obtain rfl := hgot
+                        refine ⟨I, lvls, ci, auxI, hci, by omega, ?_, rfl,
+                          _, mkCopies_got hmk, rfl, rfl⟩
+                        rw [← hfn]; exact (Expr.mkAppN_getApp _).symm
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **The walk at an application**: either the replacement fired at the
+node — and then the walk IS its answer (the top-down discipline) — or
+the head and the argument were walked in turn. -/
+theorem replaceAllNested_app {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {st st' : ElimState} {f a r : Expr}
+    (h : replaceAllNested env blvls params pbs st (.app f a) = .ok (r, st')) :
+    replaceIfNested env blvls params pbs st (.app f a) = .ok (some (r, st')) ∨
+      ∃ (f' a' : Expr) (st₁ : ElimState),
+        replaceAllNested env blvls params pbs st f = .ok (f', st₁) ∧
+          replaceAllNested env blvls params pbs st₁ a = .ok (a', st') ∧ r = .app f' a' := by
+  rw [replaceAllNested] at h
+  split at h
+  · next hpr =>
+    simp only [Bool.not_eq_true', List.any_eq_false] at hpr
+    have hf : st.newNames.any (fun T => f.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.1]
+    have ha : st.newNames.any (fun T => a.mentionsConst T) = false := by
+      rw [List.any_eq_false]
+      intro T hT
+      have := hpr T hT
+      simp only [Expr.mentionsConst, Bool.or_eq_true, not_or, Bool.not_eq_true] at this
+      simp [this.2]
+    simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact Or.inr ⟨f, a, st, replaceAllNested_prune hf, replaceAllNested_prune ha, rfl⟩
+  · split at h
+    · exact nomatch h
+    · next p hp =>
+      obtain rfl := Except.ok.inj h
+      exact Or.inl hp
+    · split at h
+      · exact nomatch h
+      · next f' st₁ hf =>
+        split at h
+        · exact nomatch h
+        · next a' st₂ ha =>
+          simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          exact Or.inr ⟨f', a', st₁, hf, ha, rfl⟩
+
 /-! ## The copy's record, and the rewritten constructors -/
 
 /-- A successful `mapM` in `Except`, positionally, with its length. -/
