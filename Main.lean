@@ -612,9 +612,11 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- records the file does not contain, so the fold can run AHEAD
       -- of the file's index.
       -- Measured on raw `init-full`: 53 093 declaration records in the
-      -- file against 53 118 fold positions, the +25 being
+      -- file against 53 119 fold positions, the +26 being
       -- `Lean.Syntax`'s generated model family (30 records) less the
-      -- 5 folded and skipped ones.  Since task #219 the generated
+      -- 4 records the parse folds away.  (It was +25 until task #292:
+      -- the `sorryAx` axiom record is no longer dropped at parse — the
+      -- fold owns it now, and installs nothing for it.)  Since task #219 the generated
       -- records are subtracted from the VERDICT's count (they are
       -- declarations of the fold, never records of the file) and a
       -- generated record that fails is named with its block; the fold
