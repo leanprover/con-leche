@@ -5,40 +5,50 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L791
-   791  def usage : String := String.intercalate "\n" [
+== Main.lean#L792
+   792  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L47-L50
-    47  theorem model_exists (V : Type w) [SetTheory V]
-    48      (ds : List DeclC) (env : Env)
-    49      (accepted : checkDecls .verified ds = .ok env) :
-    50      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L49-L52
+    49  theorem model_exists (V : Type w) [SetTheory V]
+    50      (ds : List DeclC) (env : Env)
+    51      (accepted : checkDecls .verified ds = .ok env) :
+    52      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
    135      (BVarIdx → V) → Expr → V → Prop
 
-== ConLeche/Denotes.lean#L217-L227
-   217  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   218    /-- the set a constant denotes, per level assignment -/
-   219    cval : Name → (LevelParam → Nat) → V
-   220    /-- every stored constant is a member of what its type denotes, at
-   221    every level assignment (and every variable environment — the type
-   222    is closed) -/
-   223    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   224      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   225    /-- whatever the built-in `False` denotes is the empty set -/
-   226    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   227      Denotes cval env φ ρ (.const falseName []) F → F = empty
+== ConLeche/Denotes.lean#L270-L290
+   270  structure Model (V : Type w) [SetTheory V] (env : Env) where
+   271    /-- the set a constant denotes, per level assignment -/
+   272    cval : Name → (LevelParam → Nat) → V
+   273    /-- every stored constant is a member of what its type denotes, at
+   274    every level assignment (and every variable environment — the type
+   275    is closed) -/
+   276    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+   277      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+   278    /-- whatever the built-in `False` denotes is the empty set -/
+   279    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+   280      Denotes cval env φ ρ (.const falseName []) F → F = empty
+   281    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+   282    of the universe the level `u` names, and two of its members `a` and
+   283    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+   284    membership premises are the graph's domains — `Eq`'s denotation is a
+   285    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+   286    over `A` again, and a graph read off its domain says nothing -/
+   287    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+   288      Denotes cval env φ ρ (.const eqName [u]) E →
+   289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+   290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L102-L105
-   102  theorem no_proof_of_False (V : Type w) [SetTheory V]
-   103      (ds : List DeclC) (env : Env)
-   104      (accepted : checkDecls .verified ds = .ok env) :
-   105      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+== ConLeche/MainTheorem.lean#L59-L62
+    59  theorem no_proof_of_False (V : Type w) [SetTheory V]
+    60      (ds : List DeclC) (env : Env)
+    61      (accepted : checkDecls .verified ds = .ok env) :
+    62      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
 
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
@@ -47,9 +57,12 @@
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L87-L88
-    87  and hence — the headline, derived from it in three lines — holds no
-    88  constant of type `False`.  Everything below them is what they are
+== tests/ConLecheTests/Axioms.lean#L93-L97
+    93  /--
+    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    95  -/
+    96  #guard_msgs in
+    97  #print axioms ConLeche.model_exists
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)
@@ -69,11 +82,11 @@
    337  def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L192
-   192  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L193
+   193  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L307
-   307  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L308
+   308  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
@@ -81,12 +94,12 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L345-L349
-   345  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   346      (trace : Bool) (noMark : Bool)
-   347      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
-   348      IO (Except (ConLeche.CheckError × Nat)
-   349        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L346-L350
+   346  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   347      (trace : Bool) (noMark : Bool)
+   348      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
+   349      IO (Except (ConLeche.CheckError × Nat)
+   350        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
    488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
@@ -194,15 +207,15 @@
   2879            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2880          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L294-L301
-   294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   295      {ds : List Declaration} {env' : Env}
-   296      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
-   297      ∀ c ∈ env'.consts,
-   298        c.toConstantVal.type = .const falseName [] → False := by
-   299    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   300    exact fun c hc hty => no_constant_of_False mp c hc hty
-   301  
+== ConLeche/Model/Fold.lean#L301-L308
+   301      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   302      {ds : List Declaration} {env' : Env}
+   303      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
+   304      ∀ c ∈ env'.consts,
+   305        c.toConstantVal.type = .const falseName [] → False := by
+   306    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   307    exact fun c hc hty => no_constant_of_False mp c hc hty
+   308  
 
 == ConLeche/Model/Fold.lean#L161
    161  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -216,9 +229,9 @@
    156      c hc hty
    157  
 
-== ConLeche/Model/Denotes.lean#L373-L374
-   373  noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
-   374      (m : EnvModelM V μ env) : ConLeche.Model V env where
+== ConLeche/Model/Denotes.lean#L379-L380
+   379  noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
+   380      (m : EnvModelM V μ env) : ConLeche.Model V env where
 
 == tests/layering.sh#L1-L3
      1  #!/usr/bin/env bash
@@ -281,10 +294,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384
-  1382  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
-  1383      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1384      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1883-L1885
+  1883  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+  1884      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1885      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -494,26 +507,26 @@
     99  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
    100  function the carrier already owns, so no model content is
 
-== ConLeche/Model/IndRep.lean#L289-L298
-   289  @[expose] def IndReps (m : EnvModel V env) : Prop :=
-   290    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-   291      env.find? n = some (.recInfo cvR mI rP rules) →
-   292      ∀ T : Name, n = T.str "rec" →
-   293      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V),
-   294        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d) ∨
-   295      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
-   296      -- deleted with that route (tasks #278 mutual, #279 nested); until it
-   297      -- is gone no consumer may extract `IndRep` for an arbitrary block
-   298      ModeledLeaf m n
+== ConLeche/Model/IndRep.lean#L374-L383
+   374  @[expose] def IndReps (m : EnvModel V env) : Prop :=
+   375    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+   376      env.find? n = some (.recInfo cvR mI rP rules) →
+   377      ∀ T : Name, n = T.str "rec" →
+   378      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+   379        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
+   380      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
+   381      -- deleted with that route (tasks #278 mutual, #279 nested); until it
+   382      -- is gone no consumer may extract `IndRep` for an arbitrary block
+   383      ModeledLeaf m n
 
-== ConLeche/Model/Denotes.lean#L215-L221
-   215  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
-   216      (hcl : ∀ n ψ, Term.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat} :
-   217      ∀ (d : Nat) (e : Expr) {ta : AnnotTerm},
-   218        denoteMeta acval env φ d e = some ta →
-   219        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
-   220        ∀ ρ : Nat → V, WellDenotedV V ρ ta →
-   221          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
+== ConLeche/Model/Denotes.lean#L221-L227
+   221  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
+   222      (hcl : ∀ n ψ, Term.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat} :
+   223      ∀ (d : Nat) (e : Expr) {ta : AnnotTerm},
+   224        denoteMeta acval env φ d e = some ta →
+   225        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
+   226        ∀ ρ : Nat → V, WellDenotedV V ρ ta →
+   227          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
 
 == ConLeche/Model/Claims.lean#L92-L160
     92  @[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
@@ -668,6 +681,45 @@
 == ConLeche/Model/Inductives/DeclNative.lean#L63
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
+== ConLeche/Kernel/Inductives/MutualParts.lean#L178
+   178  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
+
+== ConLeche/Kernel/Checker.lean#L547-L549
+   547          match mutualParts? nP block with
+   548          | some q => checkMutual ops env q
+   549          | none => checkModeled mode ops env block
+
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L619
+   619  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
+
+== ConLeche/Semantics/Tower/MutualLeafI.lean#L54-L76
+    54  def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV W (uChains Idss)
+    55  
+    56  /-- The tag set at the parameter frame. -/
+    57  noncomputable def tagSet (W : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm)) : V :=
+    58    sumSet W (sumFibre W ρp (uChains Idss))
+    59  
+    60  /-- Member `m`'s tag tupler: `λ ı⃗_m, inj m ⟨ı⃗_m⟩` (the sum route's
+    61  constructor leaf at the tag family, over member `m`'s index telescope
+    62  alone). -/
+    63  def tagTuplerAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
+    64    sumMkAV W m (tuplerData W (Idss.getD m [])) (Idss.getD m []) (uChains Idss)
+    65  
+    66  /-- The tag tupler's type: `Π ı⃗_m, tag`. -/
+    67  def tagTuplerTyAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
+    68    mkPisAV (tuplerData W (Idss.getD m [])) ((tagTyAV W Idss).liftN (Idss.getD m []).length 0)
+    69  
+    70  /-- A tagged tuple at index expressions scoped `d` binders below the
+    71  parameter frame: member `m`'s tupler, lifted, applied to them. -/
+    72  def tagTupleAV (W m d : Nat) (Idss : List (List AnnotTerm)) (Es : List AnnotTerm) : AnnotTerm :=
+    73    AnnotTerm.mkAppN ((tagTuplerAV W m Idss).liftN d 0) Es
+    74  
+    75  /-- The auxiliary family's index telescope: the tag, and nothing else. -/
+    76  def auxIds (W : Nat) (Idss : List (List AnnotTerm)) : List AnnotTerm := [tagTyAV W Idss]
+
+== ConLeche/Model/Inductives/DeclMutual.lean#L1966
+  1966  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     69      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -687,11 +739,11 @@
      8  # The in-process modeller's kit (task #200)
      9  
     10  Shared pieces of the in-process construction of `_model` families for
-    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
-    12  
-    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    14    generators' streams are diffable — none of these names is special to
-    15    the checker: only the public `_model` slots are consumed, and only
+    11  nested inductive blocks (`ConLeche/Frontend/InModel/*`; mutual blocks
+    12  are the kernel's own, `ConLeche/Kernel/Inductives/Mutual*.lean`):
+    13  
+    14  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    15    generators' streams are diffable — none of these names is special to
 
 == ConLeche/Frontend/InModel/Nested.lean#L47-L54
     47  Declines (the residual): a field mentioning the block other than as a
@@ -734,15 +786,15 @@
    493  `beq zero zero ≡ true`) vacuously — accepting definitions that
    494  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L110-L117
-   110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   111      List (Expr × Expr) → m Bool
-   112    | [] => pure true
-   113    | eq :: rest => do
-   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   115        certifyNatEqs ops env rest
-   116      else pure false
-   117  
+== ConLeche/Kernel/Checker.lean#L90-L97
+    90  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+    91      List (Expr × Expr) → m Bool
+    92    | [] => pure true
+    93    | eq :: rest => do
+    94      if ← ops.isDefEq env 2 eq.1 eq.2 then
+    95        certifyNatEqs ops env rest
+    96      else pure false
+    97  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}

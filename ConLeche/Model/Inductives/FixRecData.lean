@@ -47,12 +47,13 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 theorem fixRdsAV_length {m : EnvModel V env} {p : NativeParts}
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsAll : (Name → Nat) → List Nat}
     {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {ksF : Nat → List RecFieldKind}
     {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
     {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
     {ctorsA : List (ConstantVal × Nat)}
-    {cvTa : ConstantVal} (hFD : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    {cvTa : ConstantVal} (hFD : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     (ψ : Name → Nat) :
     (fixRdsAV m p ppsAll dsF esF ksF eissF tssF ctorsA ψ).length = p.nP + ctorsA.length + p.nIdx + 2 := by
   unfold fixRdsAV
@@ -66,23 +67,31 @@ section Congr
 variable {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂} {ψ : Name → Nat}
   {T : Name} {nP nIdx : Nat}
 
-theorem minorAVAtR_congr {C : Name} {nF b o : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+theorem minorAVAtRM_congr {mot : Nat} {moti : Nat → Nat} {C : Name} {nF b o : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)}
     {Es : List AnnotTerm} {recIdx : List Nat} {Eiss : List (List AnnotTerm)}
     {tls : List (List (Nat × Nat × AnnotTerm))}
     (hC : m₁.acval C ψ = m₂.acval C ψ) :
-    minorAVAtR m₁ C ψ nP nF b o ds Es recIdx tls Eiss
-      = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx tls Eiss := by
-  unfold minorAVAtR
+    minorAVAtRM mot moti m₁ C ψ nP nF b o ds Es recIdx tls Eiss
+      = minorAVAtRM mot moti m₂ C ψ nP nF b o ds Es recIdx tls Eiss := by
+  unfold minorAVAtRM
   rw [hC]
 
-theorem fixMinorsData_congr {b : Nat} :
-    ∀ (cds : List CtorDatumR) (o : Nat), (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
-      fixMinorsData m₁ ψ nP b cds o = fixMinorsData m₂ ψ nP b cds o
-  | [], _, _ => rfl
-  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
-    simp only [fixMinorsData]
-    rw [minorAVAtR_congr (h _ List.mem_cons_self),
-      fixMinorsData_congr cs (o + 1) fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
+theorem fixMinorsDataM_congr {b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
+      fixMinorsDataM mots tgts m₁ ψ nP b cds o = fixMinorsDataM mots tgts m₂ ψ nP b cds o
+  | _, _, [], _, _ => rfl
+  | mots, tgts, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
+    simp only [fixMinorsDataM]
+    rw [minorAVAtRM_congr (h _ List.mem_cons_self),
+      fixMinorsDataM_congr (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)
+        fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
+
+theorem fixMinorsData_congr {b : Nat} (cds : List CtorDatumR) (o : Nat)
+    (h : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
+    fixMinorsData m₁ ψ nP b cds o = fixMinorsData m₂ ψ nP b cds o :=
+  fixMinorsDataM_congr _ _ cds o h
 
 theorem fixRuleDataAV_congr {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     {ds : List (Nat × Nat × AnnotTerm)}
@@ -108,7 +117,8 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}

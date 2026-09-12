@@ -42,7 +42,8 @@ theorem frameIdx_eq_reverse_map (n : Nat) (σ : Nat → V) :
 former's data and the base facts at the parameter frame. -/
 theorem fixLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx : Nat}
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData m cvT (nP + nIdx) resSort pps)
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData m cvT (nP + nIdx) resSort pps lvls)
     {u : (Name → Nat) → Nat} {rss : List (List Bool)}
     {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss : (Name → Nat) → List (List (List AnnotTerm))} {Fss Ess : (Name → Nat) → List (List AnnotTerm)}
@@ -142,7 +143,8 @@ theorem stageFixFormer (mp : EnvModelM V μ env)
     (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
     (hname₀ : cvT.name = p.cvT.name)
     {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps)
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps lvls)
     (u : (Name → Nat) → Nat) (rss : List (List Bool))
     (tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss : (Name → Nat) → List (List (List AnnotTerm))) (Fss Ess : (Name → Nat) → List (List AnnotTerm))

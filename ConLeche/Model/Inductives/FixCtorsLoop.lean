@@ -39,6 +39,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsAll : (Name → Nat) → List Nat}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) →
@@ -68,7 +69,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     (leafT : (Name → Nat) → AnnotTerm)
     (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (cA : ConstantVal × Nat),
       ctorsA[k]? = some cA → Inv m' →
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       (∀ ψ, m'.acval cA.1.name ψ
         = sumMkAV (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP).map (·.2.2))
@@ -87,7 +88,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
       ConLeche.EtaFamiliesClosedExcept env p.cvT.name →
       env.find? p.cvT.name = some (.indInfo cvTa caps) →
-      FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
       ConsedAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
         idxF dsF esF srcsF ctorsA k →
@@ -98,7 +99,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         ConLeche.EtaFamiliesClosedExcept (ConLeche.consSumCtors p.nP rest env) p.cvT.name ∧
         (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
           = some (.indInfo cvTa caps) ∧
-        FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
+        FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll ∧
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
           idxF dsF esF srcsF ctorsA ctorsA.length ∧
@@ -165,7 +166,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       hE.cons hfresh (fun _ _ heq => nomatch heq)
     have hfT' : (⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ : Env).find? p.cvT.name
         = some (.indInfo cvTa caps) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
-    have hFD' : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
+    have hFD' : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll :=
       hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh (hcross _) hcbT mpC.base2 hacC
     have hleafT' : ∀ ψ, mpC.base2.acval p.cvT.name ψ = leafT ψ := by
       intro ψ

@@ -3,11 +3,11 @@ module
 public import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.DeclStruct
-import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
+import ConLeche.Model.Inductives.DeclMutual
 import ConLeche.Model.BasisFalse
 public section
 
@@ -193,9 +193,10 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block nP =>
-    -- the `.indDecl` dispatch: a RECOGNISED block installs directly
-    -- (ONE ROUTE, task #210), everything else through the modeled path
-    -- — the kernel's own two-way case split (task #219)
+    -- the `.indDecl` dispatch: a RECOGNISED single family installs on
+    -- the fixpoint route (ONE ROUTE, task #210), a recognised MUTUAL
+    -- block natively beside it (task #278), everything else through
+    -- the modeled path — the kernel's own three-way case split
     have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
     cases hdf : ConLeche.nativeParts? nP block with
@@ -204,7 +205,13 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
       exact declNative hμ mp hE hdf hrun'
     | none =>
       rw [hdf] at hrun'
-      exact indStepPB_of hμ mp hE hrun'
+      cases hdm : ConLeche.mutualParts? nP block with
+      | some q =>
+        rw [hdm] at hrun'
+        exact declMutual hμ mp hE hdm hrun'
+      | none =>
+        rw [hdm] at hrun'
+        exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

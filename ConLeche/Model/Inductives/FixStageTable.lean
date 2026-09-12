@@ -165,7 +165,8 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     (hresC : ConLeche.reservedBasisNames.contains cvCa.name = false)
     (hnp : ∀ j, NoProjEnv env p.cvT.name j)
     {pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps lvls)
     (hCDread : ∀ ψ, denoteMeta mp.base2.acval env ψ 0 cvCa.type
       = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 p.cvT.name p.nP nF ψ (Es ψ))))
     (hCDlen : ∀ ψ, (ds ψ).length = p.nP + nF)
@@ -363,7 +364,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     rw [hac]
     show acvalWith mp.base2.acval (projTableName p.cvT.name) _ cvCa.name ψ = _
     rw [acvalWith_ne hneC]
-  have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
+  have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps lvls :=
     hFD.cross (c₀ := .projInfo tbl) hfresh hcrossT hcbT m₂ hac
   -- the constructor type's reading at the extension
   have hCDread₂ : ∀ ψ, denoteMeta m₂.acval ⟨.projInfo tbl :: env.consts⟩ ψ 0 cvCa.type
@@ -522,6 +523,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: envC.consts⟩)
     {sAV : (Name → Nat) → Nat} {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsAll : (Name → Nat) → List Nat}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
@@ -554,7 +556,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hTfresh : env.find? p.cvT.name = none)
     (htrT : cvTa.type.constsResolve env = true)
-    (hFD_C : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    (hFD_C : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     (hcf_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       FixCtorFactsAt mpC.base2 env p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
         p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF j cA)
@@ -732,7 +734,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         (mpC.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT_C)).2.2.1
       have hcbC_C : ConstsBound envC cA.1.type := constsBound_of_constsResolve _
         (mpC.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC_C)).2.2.1
-      have hFD₃ : FormerData mp₃.base2 cvTa p.nP p.resSort ppsAll := by
+      have hFD₃ : FormerData mp₃.base2 cvTa p.nP p.resSort ppsAll lvlsAll := by
         have := hFD_C.cross (c₀ := .recInfo cvRa p.majorIdx p.rulePrefix
           (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss))
           hRfresh (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT_C mp₃.base2 hac₃

@@ -38,90 +38,150 @@ variable {V : Type w} [SetTheory V] {env : Env}
 /-- The ih binder's domain for recursive field `i` at ih position `l`:
 under the field's telescope, the motive at the field's index readings
 and the field applied to the telescope's variables (a finitary field:
-the motive at the readings and the field). -/
-@[expose] def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
+the motive at the readings and the field).  The motive named is the
+one `mot` binders ABOVE the innermost motive (task #278: in a mutual
+block the ih of a field targeting member `mot` names member `mot`'s
+motive; the fixpoint route's single motive is `mot = 0`). -/
+@[expose] def ihDomAVM (mot nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
+    AnnotTerm :=
   mkPisAV (ihTeleAtR nF o i l tl)
-    (AnnotTerm.mkAppN (.bvar (nF + o - 1 + l + tl.length))
+    (AnnotTerm.mkAppN (.bvar (nF + o - 1 + l + tl.length - mot))
       (Eis.map (ihIdxAtM nF o i l tl.length) ++
         [AnnotTerm.mkAppN (.bvar (nF - 1 - i + l + tl.length)) (teleVarsAV tl.length)]))
 
+/-- The ih binder's domain at the fixpoint route's single motive. -/
+@[expose] def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
+    AnnotTerm :=
+  ihDomAVM 0 nF o i l tl Eis
+
 /-- The ih binders' Π-tower over the recursive positions (the moved
-telescopes re-bit to the elimination bit `b`, task #202 A2). -/
-@[expose] def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+telescopes re-bit to the elimination bit `b`, task #202 A2), field `i`
+naming the motive `moti i` binders above the innermost one. -/
+@[expose] def ihPisAVM (moti : Nat → Nat) (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
+    (Eiss : List (List AnnotTerm)) :
     List Nat → Nat → AnnotTerm → AnnotTerm
   | [], _, body => body
   | i :: is, l, body =>
-    .pi 0 b (ihDomAV nF o i l (rebit b (tls.getD i [])) (Eiss.getD i []))
-      (ihPisAV nF o b tls Eiss is (l + 1) body)
+    .pi 0 b (ihDomAVM (moti i) nF o i l (rebit b (tls.getD i [])) (Eiss.getD i []))
+      (ihPisAVM moti nF o b tls Eiss is (l + 1) body)
 
 /-- The minor premise's domain reading at a recursive block: the
 constructor's field data lifted `o` under (bits reset to `b`), the ih
 binders, the motive at the constructor's index readings and spine
-lifted above the ih binders. -/
-@[expose] def minorAVAtR {env : Env} (m : EnvModel V env) (C : Name) (ψ : Name → Nat) (nP nF b o : Nat)
+lifted above the ih binders.  The conclusion names the motive `mot`
+binders above the innermost one (the constructor's own member) and ih
+`i` the motive `moti i` (the field's target member). -/
+@[expose] def minorAVAtRM {env : Env} (mot : Nat) (moti : Nat → Nat) (m : EnvModel V env) (C : Name)
+    (ψ : Name → Nat) (nP nF b o : Nat)
     (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit b (liftDoms o 0 (ds.drop nP)))
-    (ihPisAV nF o b tls Eiss recIdx 0
-      ((AnnotTerm.mkAppN (.bvar (nF + o - 1))
+    (ihPisAVM moti nF o b tls Eiss recIdx 0
+      ((AnnotTerm.mkAppN (.bvar (nF + o - 1 - mot))
         ((Es.map fun E => E.liftN o nF) ++
           [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])).liftN
         recIdx.length 0))
 
+/-- The minor premise's domain reading at the fixpoint route's single
+motive. -/
+@[expose] def minorAVAtR {env : Env} (m : EnvModel V env) (C : Name) (ψ : Name → Nat) (nP nF b o : Nat)
+    (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
+  minorAVAtRM 0 (fun _ => 0) m C ψ nP nF b o ds Es recIdx tls Eiss
 
-/-- The minor entries, one per constructor datum, from offset `o`. -/
-@[expose] def fixMinorsData {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :
+
+/-- The minor entries, one per constructor datum, from offset `o`; the
+datum at position `J` names the motive `mots J` (its own member) and
+its ih `i` the motive `tgts J i` (the field's target member). -/
+@[expose] def fixMinorsDataM {env : Env} (mots : Nat → Nat) (tgts : Nat → Nat → Nat)
+    (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :
     List CtorDatumR → Nat → List (Nat × Nat × AnnotTerm)
   | [], _ => []
   | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o =>
-    (0, b, minorAVAtR m C ψ nP nF b o ds Es recIdx tls Eiss) :: fixMinorsData m ψ nP b cs (o + 1)
+    (0, b, minorAVAtRM (mots 0) (tgts 0) m C ψ nP nF b o ds Es recIdx tls Eiss) ::
+      fixMinorsDataM (fun J => mots (J + 1)) (fun J => tgts (J + 1)) m ψ nP b cs (o + 1)
 
-theorem fixMinorsData_length {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
-    ∀ (cds : List CtorDatumR) (o : Nat), (fixMinorsData m ψ nP b cds o).length = cds.length
-  | [], _ => rfl
-  | (_, _, _, _, _, _, _) :: cs, o => by simp [fixMinorsData, fixMinorsData_length cs (o + 1)]
+/-- The minor entries at the fixpoint route's single motive. -/
+@[expose] def fixMinorsData {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat)
+    (cds : List CtorDatumR) (o : Nat) : List (Nat × Nat × AnnotTerm) :=
+  fixMinorsDataM (fun _ => 0) (fun _ _ => 0) m ψ nP b cds o
 
-theorem mem_fixMinorsData {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
-    ∀ {cds : List CtorDatumR} {o : Nat} {d : Nat × Nat × AnnotTerm},
-      d ∈ fixMinorsData m ψ nP b cds o → d.2.1 = b
-  | [], _, _, h => nomatch h
-  | (_, _, _, _, _, _, _) :: cs, o, d, h => by
-    simp only [fixMinorsData, List.mem_cons] at h
+theorem fixMinorsDataM_length {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o : Nat),
+      (fixMinorsDataM mots tgts m ψ nP b cds o).length = cds.length
+  | _, _, [], _ => rfl
+  | mots, tgts, (_, _, _, _, _, _, _) :: cs, o => by
+    simp [fixMinorsDataM, fixMinorsDataM_length (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1)]
+
+theorem fixMinorsData_length {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat}
+    (cds : List CtorDatumR) (o : Nat) : (fixMinorsData m ψ nP b cds o).length = cds.length :=
+  fixMinorsDataM_length _ _ cds o
+
+theorem mem_fixMinorsDataM {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {cds : List CtorDatumR} {o : Nat}
+      {d : Nat × Nat × AnnotTerm},
+      d ∈ fixMinorsDataM mots tgts m ψ nP b cds o → d.2.1 = b
+  | _, _, [], _, _, h => nomatch h
+  | _, _, (_, _, _, _, _, _, _) :: cs, o, d, h => by
+    simp only [fixMinorsDataM, List.mem_cons] at h
     rcases h with rfl | h
     · rfl
-    · exact mem_fixMinorsData h
+    · exact mem_fixMinorsDataM h
 
-theorem fixMinorsData_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
-    ∀ (cds : List CtorDatumR) (o j : Nat),
-      (fixMinorsData m ψ nP b cds o)[j]?
-        = (cds[j]?).map fun cd => (0, b, minorAVAtR m cd.1 ψ nP cd.2.1 b (o + j) cd.2.2.1 cd.2.2.2.1
-            cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-  | [], _, _ => rfl
-  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, 0 => by simp [fixMinorsData]
-  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, j + 1 => by
-    simp only [fixMinorsData, List.getElem?_cons_succ]
-    rw [fixMinorsData_getElem? cs (o + 1) j]
+theorem mem_fixMinorsData {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat}
+    {cds : List CtorDatumR} {o : Nat} {d : Nat × Nat × AnnotTerm}
+    (hd : d ∈ fixMinorsData m ψ nP b cds o) : d.2.1 = b :=
+  mem_fixMinorsDataM hd
+
+theorem fixMinorsDataM_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat} :
+    ∀ (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (cds : List CtorDatumR) (o j : Nat),
+      (fixMinorsDataM mots tgts m ψ nP b cds o)[j]?
+        = (cds[j]?).map fun cd => (0, b, minorAVAtRM (mots j) (tgts j) m cd.1 ψ nP cd.2.1 b (o + j)
+            cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
+  | _, _, [], _, _ => rfl
+  | mots, tgts, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, 0 => by simp [fixMinorsDataM]
+  | mots, tgts, (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, j + 1 => by
+    simp only [fixMinorsDataM, List.getElem?_cons_succ]
+    rw [fixMinorsDataM_getElem? (fun J => mots (J + 1)) (fun J => tgts (J + 1)) cs (o + 1) j]
     congr 2
     funext cd
     rw [show o + 1 + j = o + (j + 1) from by omega]
 
-/-- **The generated recursive recursor type's binder data**: parameters,
-motive, minors (with the ih binders), the index telescope lifted under
-the motive and the minors, major. -/
-@[expose] def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+theorem fixMinorsData_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : Nat}
+    (cds : List CtorDatumR) (o j : Nat) :
+      (fixMinorsData m ψ nP b cds o)[j]?
+        = (cds[j]?).map fun cd => (0, b, minorAVAtR m cd.1 ψ nP cd.2.1 b (o + j) cd.2.2.1 cd.2.2.2.1
+            cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) :=
+  fixMinorsDataM_getElem? _ _ cds o j
+
+/-- **The generated recursive recursor type's binder data** at an
+**explicit type-former leaf** `L` (task #278): parameters, motive,
+minors (with the ih binders), the index telescope lifted under the
+motive and the minors, major.  Only the former's two occurrences (the
+motive's and the major's domains) are generic; the minors keep the
+constructors' stored leaves. -/
+@[expose] def fixRecDataAVL {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (L : AnnotTerm)
     (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
     (cds : List CtorDatumR) : List (Nat × Nat × AnnotTerm) :=
   rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-    [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+    [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL L ψ nP nIdx ℓ ips)] ++
     fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1 ++
     rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips) ++
-    [(0, pwBit ψ (Level.zeronessOf ℓ), majorAVAt m T ψ nP nIdx cds.length)]
+    [(0, pwBit ψ (Level.zeronessOf ℓ), majorAVAtL L nP nIdx cds.length)]
 
-theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+/-- The generated recursor type's binder data at a **stored** former:
+`fixRecDataAVL` at the constant's leaf. -/
+@[expose] def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+    (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
+    (cds : List CtorDatumR) : List (Nat × Nat × AnnotTerm) :=
+  fixRecDataAVL m ψ (m.acval T ψ) nP nIdx ℓ pps ips cds
+
+theorem mem_fixRecDataAVL {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm} {nP nIdx : Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     {d : Nat × Nat × AnnotTerm}
-    (hd : d ∈ fixRecDataAV m T ψ nP nIdx ℓ pps ips cds) : d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
-  simp only [fixRecDataAV, List.mem_append, List.mem_singleton] at hd
+    (hd : d ∈ fixRecDataAVL m ψ L nP nIdx ℓ pps ips cds) :
+    d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
+  simp only [fixRecDataAVL, List.mem_append, List.mem_singleton] at hd
   rcases hd with (((h | rfl) | h) | h) | rfl
   · exact mem_rebit h
   · rfl
@@ -129,22 +189,27 @@ theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP
   · exact mem_rebit h
   · rfl
 
-theorem fixRecDataAV_length {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+theorem mem_fixRecDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+    {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    {d : Nat × Nat × AnnotTerm}
+    (hd : d ∈ fixRecDataAV m T ψ nP nIdx ℓ pps ips cds) : d.2.1 = pwBit ψ (Level.zeronessOf ℓ) :=
+  mem_fixRecDataAVL hd
+
+theorem fixRecDataAVL_length {m : EnvModel V env} {ψ : Name → Nat} {L : AnnotTerm} {nP nIdx : Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     (hp : pps.length = nP) (hi : ips.length = nIdx) :
-    (fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 := by
-  simp only [fixRecDataAV, List.length_append, rebit_length, hp, hi, List.length_singleton,
+    (fixRecDataAVL m ψ L nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 := by
+  simp only [fixRecDataAVL, List.length_append, rebit_length, hp, hi, List.length_singleton,
     fixMinorsData_length, liftDoms_length]
   omega
 
-/-! ## The rules -/
+theorem fixRecDataAV_length {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+    {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    (hp : pps.length = nP) (hi : ips.length = nIdx) :
+    (fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).length = nP + cds.length + nIdx + 2 :=
+  fixRecDataAVL_length hp hi
 
-/-- The recursor's leading spine `p⃗ motive m⃗` read under the `nF`
-fields of a rule (`structRecPrefixAt nP n nF 0`'s reading: the
-parameters sit `nF + n + 1` binders above the fields). -/
-@[expose] def recPrefixBvars (nP n nF : Nat) : List AnnotTerm :=
-  paramBvarsAt nP (nP + nF + n + 1) ++ [.bvar (nF + n)] ++
-    (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l)
+/-! ## The rules -/
 
 /-- The recursor's leading spine under `m` more binders
 (`structRecPrefixAt nP n nF m`'s reading). -/
@@ -173,6 +238,46 @@ elimination bit `b`, task #202 A2). -/
   AnnotTerm.mkAppN (.bvar (nF + n - 1 - j))
     (fieldBvars nF ++ recIdx.map fun i =>
       ihAppAV R nP n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
+
+/-! ### The `k`-motive spellings (task #278)
+
+A mutual block's recursors have `k` motives where the fixpoint route
+has one; the spellings below are the fixpoint route's with that count
+generic, and the fixpoint route's are their `k = 1` instances
+(definitionally, `*_eq_*` below). -/
+
+/-- The recursor's leading spine `p⃗ M⃗ S⃗` of a `k`-motive block, read
+under `m` more binders (`ConLeche.mutualRecPrefixAt nP k n nF m`'s
+reading): the parameters sit `nF + n + k + m` binders above the fields,
+motive `t` at `bvar (nF + n + k - 1 - t + m)` and minor `l` at
+`bvar (nF + n - 1 - l + m)`. -/
+@[expose] def recPrefixBvarsMK (nP k n nF m : Nat) : List AnnotTerm :=
+  paramBvarsAt nP (nP + nF + n + k + m) ++
+    ((List.range k).map fun t => AnnotTerm.bvar (nF + n + k - 1 - t + m)) ++
+    ((List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m))
+
+/-- The ih application in a `k`-motive rule for recursive field `i`,
+with the TARGET member's recursor leaf `R`: under the field's
+telescope, `R` at the block's variables, the field's index readings
+(the `n + k` extras between the parameters and the fields) and the
+field applied to the telescope's variables. -/
+@[expose] def ihAppAVK (R : AnnotTerm) (nP k n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (Eis : List AnnotTerm) : AnnotTerm :=
+  mkLamsAV ((ihTeleAtR nF (n + k) i 0 tl).map fun d => (d.2.1, d.2.2))
+    (AnnotTerm.mkAppN R (recPrefixBvarsMK nP k n nF tl.length ++
+      Eis.map (ihIdxAtM nF (n + k) i 0 tl.length) ++
+      [AnnotTerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
+
+/-- **Rule `j`'s core at a mutual block**: minor `j` (its GLOBAL index)
+at the field variables and the ih applications, the ih of recursive
+field `i` firing the recursor of the member `tgts i` the field targets
+(`Rof t` is member `t`'s recursor leaf). -/
+@[expose] def mutualRuleCoreAV (b : Nat) (Rof : Nat → AnnotTerm) (tgts : Nat → Nat)
+    (nP k n nF j : Nat) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
+  AnnotTerm.mkAppN (.bvar (nF + n - 1 - j))
+    (fieldBvars nF ++ recIdx.map fun i =>
+      ihAppAVK (Rof (tgts i)) nP k n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
 
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data

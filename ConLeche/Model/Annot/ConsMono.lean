@@ -117,7 +117,7 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hhead : ConLeche.reservedBasisNames.contains c₀.name = true →
-      (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
+      c₀ = pinnedInfo c₀.name ∧
       ∀ (ψ : Name → Nat) (t : Term),
         pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by

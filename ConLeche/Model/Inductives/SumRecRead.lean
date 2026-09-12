@@ -155,21 +155,34 @@ theorem DenoteMetaSpine.unique {acval : Name → (Name → Nat) → AnnotTerm} {
 
 /-! ## The entries -/
 
-/-- The motive's domain reading `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` at the
-parameters' frame, over the former's index data `ips`. -/
-@[expose] def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx : Nat)
+/-- The motive's domain reading `∀ ı⃗ (t : L p⃗ ı⃗), Sort ℓ` at the
+parameters' frame, over the former's index data `ips`, spelled at an
+**explicit type-former leaf** `L` (task #278: the mutual block's
+former is not a stored constant's leaf). -/
+@[expose] def motiveAVIL (L : AnnotTerm) (ψ : Name → Nat) (nP nIdx : Nat)
     (ℓ : Level) (ips : List (Nat × Nat × AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit (pwBit ψ PropWhen.never) ips)
     (.pi 0 (pwBit ψ PropWhen.never)
-      (AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
+      (AnnotTerm.mkAppN L (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
       (.sort (ℓ.eval ψ)))
 
 /-- The major premise's domain reading under the motive, `n` minors
-and the index variables: the family at the parameters and the index
-variables. -/
+and the index variables, at an explicit former leaf `L`: the family at
+the parameters and the index variables. -/
+@[expose] def majorAVAtL (L : AnnotTerm) (nP nIdx n : Nat) : AnnotTerm :=
+  AnnotTerm.mkAppN L (paramBvarsAt nP (nP + 1 + n + nIdx) ++ fieldBvars nIdx)
+
+/-- The motive's domain reading at a **stored** former: `motiveAVIL` at
+the constant's leaf. -/
+@[expose] def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx : Nat)
+    (ℓ : Level) (ips : List (Nat × Nat × AnnotTerm)) : AnnotTerm :=
+  motiveAVIL (m.acval T ψ) ψ nP nIdx ℓ ips
+
+/-- The major premise's domain reading at a **stored** former:
+`majorAVAtL` at the constant's leaf. -/
 @[expose] def majorAVAt {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx n : Nat) :
     AnnotTerm :=
-  AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + 1 + n + nIdx) ++ fieldBvars nIdx)
+  majorAVAtL (m.acval T ψ) nP nIdx n
 
 /-- A constructor datum: name, field count, field data, index readings. -/
 abbrev CtorDatum := Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotTerm

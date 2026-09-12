@@ -67,7 +67,7 @@ theorem extendFalse (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT falseA.name ψ
           = some (Term.const .empty [0]) from rfl] at hp
@@ -169,7 +169,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
         simp only at h
         exact (Name.str.inj h).1.symm
       subst hT'
-      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ .zero,
+      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ falseName .zero, 0,
         ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
       refine indRep_zeroCtor (cvT := ⟨falseName, [], .sort .zero⟩) m₂ .zero rfl rfl
         (fun _ _ _ => rfl) fun ψ ρ => ?_
@@ -181,7 +181,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    (ConsHead.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+    (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT falseRecA.name ψ
           = some (Term.const .emptyRec [0, ψ uN]) from rfl] at hp

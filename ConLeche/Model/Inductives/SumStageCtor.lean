@@ -53,9 +53,10 @@ the parameters and `UnderTowerValid` along the whole frame. -/
 theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC : ConstantVal}
     {nP nF nIdx j : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {lvlsAll : (Name → Nat) → List Nat}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AnnotTerm)}
-    (_hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
+    (_hFD : FormerData m cvT (nP + nIdx) resSort ppsAll lvlsAll)
     (hCD : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
@@ -189,6 +190,7 @@ theorem stageCtorGen {T : Name}
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
+    {lvlsAll : (Name → Nat) → List Nat}
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AnnotTerm)}
@@ -200,7 +202,7 @@ theorem stageCtorGen {T : Name}
       (∀ ψ, m₂.acval cvCa.name ψ
         = sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))) →
       CapsLawsAt m₂ T cvTa caps)
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →

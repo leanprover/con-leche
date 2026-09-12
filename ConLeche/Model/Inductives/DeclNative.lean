@@ -127,7 +127,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hTname : cvTa.name = p.cvT.name := by rw [htyT]; exact hTname₀
   have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]; exact hTlps₀
   have hTtype : cvTa.type = typeT := by rw [htyT]
-  obtain ⟨ppsAll, hFD⟩ := formerData_of hμ mp hccvT hstripT
+  obtain ⟨ppsAll, lvlsAll, hFD⟩ := formerData_of hμ mp hccvT hstripT
   have hTfresh : env.find? cvTa.name = none := by rw [hTname, ← hTname₀]; exact hfindT
   have hTfresh' : env.find? p.cvT.name = none := by rw [← hTname₀]; exact hfindT
   have hcbT : ConstsBound env cvTa.type :=
@@ -300,7 +300,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- the laws at the dummy former's leaf (the family is empty)
   have hcapsLaws₀ : ∀ {env' : Env} (m' : EnvModel V env'),
       (∀ c, p.ctors = [c] → env'.find? c.1.name = none) →
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = sumTyAV (p.resSort.eval ψ) (ppsAll ψ) []) →
       CapsLawsAt m' p.cvT.name cvTa (ConLeche.nativeCaps p) :=
     fun m' hfrC hFD' hleaf => ⟨hetaFresh m' hfrC, fun hu _ =>
@@ -327,7 +327,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (hFD.cross (c₀ := .indInfo cvTa (ConLeche.nativeCaps p)) hTfresh
           (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT m₂ hac)
         (fun ψ => by rw [hac, ← hTname]; exact congrFun acvalWith_self ψ))
-  have hFD_I₀ : FormerData mpI₀.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
+  have hFD_I₀ : FormerData mpI₀.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll :=
     hFD.cross (c₀ := .indInfo cvTa (ConLeche.nativeCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI₀.base2 hacI₀
   have hleafT₀ : ∀ ψ, ∃ B, mpI₀.base2.acval p.cvT.name ψ
@@ -470,7 +470,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [hFss0, hEss0]
     exact chainsRealI_zero
   have hunitFix : ∀ {env' : Env} (m' : EnvModel V env'),
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       (ConLeche.nativeCaps p).unitlike = true →
       ∀ φ', UnitLaw m' φ' p.cvT.name cvTa (ConLeche.nativeCaps p) := by
@@ -486,7 +486,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- the laws at a carrier storing the former and not the constructor
   have hcapsLawsF : ∀ {env' : Env} (m' : EnvModel V env'),
       (∀ c, p.ctors = [c] → env'.find? c.1.name = none) →
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       CapsLawsAt m' p.cvT.name cvTa (ConLeche.nativeCaps p) :=
     fun m' hfrC hFD' hleaf => ⟨hetaFresh m' hfrC, hunitFix m' hFD' hleaf⟩
@@ -570,7 +570,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro ψ
     have := mpI.base2.cval_closedL p.cvT.name ψ
     rwa [hleafT_I ψ] at this
-  have hFD_I : FormerData mpI.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
+  have hFD_I : FormerData mpI.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll :=
     hFD.cross (c₀ := .indInfo cvTa (ConLeche.nativeCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI.base2 hacI
   -- the constructors' data at the real former, identified with the
@@ -806,7 +806,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hcapsLaws : ∀ {env' : Env} (m' : EnvModel V env'),
       ((ConLeche.nativeCaps p).unitlike = false → (ConLeche.nativeCaps p).eta = true →
         env'.find? (projFnName p.cvT.name 0) = none) →
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       (∀ cA, ctorsA = [cA] → ∀ ψ, m'.acval cA.1.name ψ
         = sumMkAV (p.resSort.eval ψ) 0 (dsF 0 ψ) (((dsF 0 ψ).drop p.nP).map (·.2.2))

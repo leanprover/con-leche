@@ -32,7 +32,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 data and the chains' grading at the parameter frame. -/
 theorem formerWalksS {m : EnvModel V env} {cvT : ConstantVal} {nP : Nat}
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData m cvT nP resSort pps)
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData m cvT nP resSort pps lvls)
     {Fss : (Name → Nat) → List (List AnnotTerm)}
     (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V ((pps ψ).map (·.2.2)).reverse ρ →
@@ -83,7 +84,8 @@ theorem stageSumFormer (mp : EnvModelM V μ env)
     (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
     (hname₀ : cvT.name = p.cvT.name)
     {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps)
+    {lvls : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps lvls)
     (Fss : (Name → Nat) → List (List AnnotTerm))
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) → Fss ψ₁ = Fss ψ₂)

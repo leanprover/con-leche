@@ -22,6 +22,8 @@
 #
 #   * fix                  the direct route (ONE ROUTE, task #210: the
 #                          structure and sum routes are gone since Part C)
+#   * mutual               a mutual block, reduced to the fixpoint route
+#                          inside its install (task #278)
 #   * inmodel              a `_model` family generated in-process
 #                          (task #200) — the checker's own too
 #   * basis                a pinned basis block, matched by the parse
@@ -79,7 +81,7 @@ WORK=$(mktemp -d "$TMPDIR/route-census.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 
 fail=0; nstreams=0; nblocks=0
-nfix=0; ninmodel=0; nbasis=0; nmodeled=0
+nfix=0; nmutual=0; ninmodel=0; nbasis=0; nmodeled=0
 for s in "${streams[@]}"; do
   nstreams=$((nstreams+1))
   # `--jobs=4` under the cap: a worker thread reserves ~1 GiB of
@@ -101,6 +103,7 @@ for s in "${streams[@]}"; do
     nblocks=$((nblocks+1))
     case "$route" in
       fix) nfix=$((nfix+1));;
+      mutual) nmutual=$((nmutual+1));;
       inmodel) ninmodel=$((ninmodel+1));;
       basis) nbasis=$((nbasis+1));;
       modeled) nmodeled=$((nmodeled+1)); fail=1
@@ -111,6 +114,6 @@ for s in "${streams[@]}"; do
 done
 
 echo "route census: $nstreams streams, $nblocks blocks — \
-$nfix fix, $ninmodel inmodel, $nbasis basis, $nmodeled modeled"
+$nfix fix, $nmutual mutual, $ninmodel inmodel, $nbasis basis, $nmodeled modeled"
 [ "$fail" = 0 ] || { echo "ROUTE CENSUS FAIL — a block the checker does not install itself"; exit 1; }
 exit 0

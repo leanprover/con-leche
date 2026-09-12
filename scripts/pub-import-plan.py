@@ -63,6 +63,23 @@ FALLBACK = {
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
     ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
+    # task #278: `MutualRecPre` imports BOTH `FixRecKFrame` and `FixRecPre`,
+    # and each is demotable ON ITS OWN — the other still carries
+    # `FixRecReadDefs` publicly.  Demoting both leaves no public path and
+    # `fixRecDataAVL` stops resolving in a public statement (the compiler
+    # names the line).  `FixRecKFrame` is the demoted one; this edge stays.
+    ('ConLeche.Model.Inductives.MutualRecPre','ConLeche.Model.Inductives.FixRecPre'),
+    # task #278, the same class: `MutualStageFormer`'s three mutual/fixpoint
+    # parents each carry `SetTheory` and `Semantics.Tower.MutualLeafI`
+    # publicly, so each is demotable ON ITS OWN; demoting all three leaves the
+    # file's public statements with no `SetTheory` and no `MutualLeafI`.
+    # `MutualRecPre` is the demoted one; these two stay.
+    ('ConLeche.Model.Inductives.MutualStageFormer','ConLeche.Model.Inductives.FixStageFormer'),
+    ('ConLeche.Model.Inductives.MutualStageFormer','ConLeche.Model.Inductives.MutualChains'),
+    # task #278: `MutualRep`'s public statements name `MutualCtorFactsAt`
+    # (MutualRecData); the model reads `IndRep`'s and `MutualStageRec`'s
+    # closures as carrying it and the compiler wants this one by name.
+    ('ConLeche.Model.Inductives.MutualRep','ConLeche.Model.Inductives.MutualRecData'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -223,7 +223,7 @@ theorem extendEq (mp : EnvModelM V μ env)
     (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqValAV_erase ψ]; exact eqValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqA.name ψ
           = none from rfl] at hp
@@ -268,7 +268,7 @@ theorem extendEqRefl (mp : EnvModelM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqReflValAV_erase ψ]; exact eqReflValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqReflA.name ψ
           = none from rfl] at hp
@@ -1207,9 +1207,19 @@ is the second parameter, and the fixpoint route's own functor. -/
   xFvsF := fun _ => []
   xrestF := fun _ => .app (.app (.app (.const eqName [.param uN]) eqFvAlpha) eqFvA) eqFvA
   eissF := fun _ _ => []
+  essC := fun _ _ => eqEs
+  eissC := fun _ _ => []
   tssF := fun _ _ => []
-  pps := fun ψ => [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)]
+  k := 1
+  nIdxs := [1]
+  memberNames := [eqName]
+  mems := fun _ => 0
+  tgts := fun _ _ => 0
+  ppsM := fun _ ψ => [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)]
+  lvlsM := fun _ ψ => [ψ uN + 1, ψ uN, ψ uN]
+  IdsC := fun _ => eqIds
   u := fun ψ => ψ uN
+  tup := fun ψ _ is => tupW (ψ uN) is
   Φ := fun ψ ρp => fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
   inj := fun _ _ _ => pt
 
@@ -1219,7 +1229,7 @@ variable {env₀ : Env}
 
 /-- The datum's parameter-and-index telescope, reduced. -/
 theorem eqRepData_pps (ψ : Name → Nat) :
-    (eqRepData (V := V) env₀).pps ψ
+    (eqRepData (V := V) env₀).ppsM 0 ψ
       = [(0, 1, .sort (ψ uN)), (0, 1, .bvar 0), (0, 1, .bvar 1)] := rfl
 
 /-- `Eq.refl`'s binder data, reduced. -/
@@ -1442,16 +1452,19 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     intro ψ
     rw [hac]
     exact denoteMeta_eqReflA_typeR (m := mp.base2) (A := eqRecValAV) ψ hE hEv
-  refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩,
+  refine Or.inl ⟨_, _, eqRepData ⟨eqRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
   refine {
+    member := rfl
     strip := ⟨_, rfl⟩
     isProp := rfl
     mI := rfl
     rP := rfl
-    rules := rfl
+    rules := fun _ => rfl
     former := ?_
     ctors := ?_
+    memsFound := fun _ _ => ⟨⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩,
+      fun _ => ⟨_, _, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩⟩
     idxRes := ?_
     uParams := fun _ _ h => h uN List.mem_cons_self
     paramsIff := fun _ _ _ _ _ => Iff.rfl
@@ -1459,6 +1472,9 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     functor := ?_
     fibre := ?_
     leaf := ?_
+    tupMem := fun ψ ρp _ is hi => by
+      show tupW (ψ uN) is ∈ˢ idxSet (ψ uN) ρp eqIds
+      exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
     mkInj := fun _ hz => absurd rfl hz }
@@ -1466,7 +1482,10 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     refine ⟨fun ψ => denoteMeta_eqA_typeR ψ, (fun _ => rfl), ?_, fun ψ ρ => ?_,
       (fun _ => ⟨trivial, (by apply bvarsBelow_bvarAV; omega),
         (by apply bvarsBelow_bvarAV; omega), trivial⟩),
-      fun ψ₁ ψ₂ h => ⟨by rw [eqRepData_pps, eqRepData_pps, h uN List.mem_cons_self], rfl⟩⟩
+      (fun ψ₁ ψ₂ h => ⟨by rw [eqRepData_pps, eqRepData_pps, h uN List.mem_cons_self], rfl⟩),
+      (fun _ => rfl), ?_, fun ψ₁ ψ₂ h => by
+        show [ψ₁ uN + 1, ψ₁ uN, ψ₁ uN] = [ψ₂ uN + 1, ψ₂ uN, ψ₂ uN]
+        rw [h uN List.mem_cons_self]⟩
     · intro ψ d hd
       rcases List.mem_cons.mp hd with rfl | hd
       · exact Nat.one_ne_zero
@@ -1482,6 +1501,18 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
             fun h => absurd h Nat.one_ne_zero⟩,
           fun h => absurd h Nat.one_ne_zero⟩,
         fun h => absurd h Nat.one_ne_zero⟩⟩
+    · -- the parameter binders' universes
+      intro ψ i hi ρ hs
+      match i, hi with
+      | 0, _ =>
+        show (univ (ψ uN) : V) ∈ˢ univ (ψ uN + 1)
+        exact univ_mem_univ _
+      | 1, _ =>
+        show ρ 0 ∈ˢ (univ (ψ uN) : V)
+        exact hs 0 _ rfl
+      | 2, _ =>
+        show ρ 1 ∈ˢ (univ (ψ uN) : V)
+        exact hs 1 _ rfl
   · -- the constructor's data
     intro j cA hj
     match j, hj with
@@ -1639,7 +1670,7 @@ theorem extendEqRec (mp : EnvModelM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by rw [eqRecValAV_erase ψ]; exact eqRecValT_closed ψ)
-      (fun _ => rfl)
+      rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqRecA.name ψ
           = none from rfl] at hp

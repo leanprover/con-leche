@@ -439,7 +439,7 @@ theorem fixRuleOk {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : L
   have hrdsE : rds = (rebit b pps ++ [(0, b, motiveAVI m T ψ nP nIdx elimL ips)] ++
       fixMinorsData m ψ nP b cds 1) ++ rebit b (liftDoms (n + 1) 0 ips) ++
       [(0, b, majorAVAt m T ψ nP nIdx n)] := by
-    rw [← hrds, fixRecDataAV, hb, hn]
+    rw [← hrds, fixRecDataAV, fixRecDataAVL, motiveAVI, majorAVAt, hb, hn]
   have hlenR : rds.length = nP + n + nIdx + 2 := by
     rw [← hrds, fixRecDataAV_length hlenP hlenI, hn]
   generalize hX : rebit b pps ++ [(0, b, motiveAVI m T ψ nP nIdx elimL ips)] ++

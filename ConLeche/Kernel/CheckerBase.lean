@@ -96,6 +96,26 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }
 
+/-- Check a `def` declaration's value against its checked constant.
+The reducibility hint is stored untouched: it steers only the lazy
+delta unfolding order in `isDefEq`, never a verdict, so nothing about
+it needs checking. -/
+def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) (hint : ReducibilityHint) : m Env := do
+  unless value.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in value of {cv.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cv.name}")
+  let value ← ops.annotate env 0 value
+  unless value.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+  unless value.constsResolve env do
+    throw (.invalid s!"unknown constant in value of {cv.name}")
+  let vtype ← ops.inferType env 0 value
+  unless ← ops.isDefEq env 0 vtype cv.type do
+    throw (.invalid s!"type mismatch in definition {cv.name}")
+  pure ⟨.defnInfo cv value hint :: env.consts⟩
+
 /-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
 right side viewed through `g` (identity, lifting, or renaming). -/
 def domsMatchAux (g : Nat → Expr → Expr)

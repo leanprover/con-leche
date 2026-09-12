@@ -183,6 +183,73 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
     | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
+/-- **The Π-prefix's domains' sorts, listed**: along an opening of an
+inferred type, every binder's domain infers a sort of its own — one
+per binder, in order — and at a nonzero whole sort each is at most it
+(`imax` is then `max`).  The two contents are one walk: the list is
+fixed once, the bound read off the nesting. -/
+theorem piLevels_of_infer {env : Env} :
+    ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr}
+      {opened : Expr},
+      openPisAtFvars n e d = some (fvs, opened) →
+      inferTypeCore mode env F d e = .ok t →
+      ensureSortCore mode env F d t = .ok v₀ →
+      ∃ us : List Level, us.length = n ∧
+        ∀ (k : Nat) (a : Expr), fvs[k]? = some a →
+          ∃ (F' : Nat) (t' : Expr),
+            inferTypeCore mode env F' (d + k) a.fvarTypeD = .ok t' ∧
+            ensureSortCore mode env F' (d + k) t' = .ok (us.getD k .zero) ∧
+            ∀ φ, Level.eval φ v₀ ≠ 0 →
+              Level.eval φ (us.getD k .zero) ≤ Level.eval φ v₀
+  | 0, F, d, e, t, v₀, fvs, opened, hop, _, _ => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact ⟨[], rfl, fun k a hk => nomatch hk⟩
+  | n + 1, F, d, e, t, v₀, fvs, opened, hop, h, hens => by
+    match e, hop, h with
+    | .forallE dom body mb, hop, h =>
+      match F, h with
+      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
+      | F + 1, h =>
+        obtain ⟨tty, u, bt, v, hdom, hwh, hbt, hensb, -, rfl⟩ :=
+          ConLeche.inferTypeCore_forall_inv h
+        have hv₀ : v₀ = .imax u v := ensureSortCore_sort_eq hens
+        subst hv₀
+        simp only [openPisAtFvars] at hop
+        split at hop
+        · next fvs' e' hop' =>
+          simp only [Option.some.injEq, Prod.mk.injEq] at hop
+          obtain ⟨rfl, rfl⟩ := hop
+          obtain ⟨us, hlen, hus⟩ := piLevels_of_infer n hop' hbt hensb
+          refine ⟨u :: us, by simp [hlen], ?_⟩
+          intro k a hk
+          cases k with
+          | zero =>
+            simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
+            subst hk
+            refine ⟨F, tty, by simpa [Expr.fvarTypeD] using hdom, ?_, fun φ hne => ?_⟩
+            · rw [Nat.add_zero, ConLeche.ensureSortCore_eq, hwh]; rfl
+            · have hv : Level.eval φ v ≠ 0 := fun h0 =>
+                hne ((eval_imax_eq_zero_iff φ u v).mpr h0)
+              simp only [List.getD_cons_zero, Level.eval, if_neg hv]
+              exact Nat.le_max_left _ _
+          | succ k =>
+            simp only [List.getElem?_cons_succ] at hk
+            obtain ⟨F', t', h1, h2, h3⟩ := hus k a hk
+            rw [show d + (k + 1) = d + 1 + k from by omega]
+            refine ⟨F', t', h1, ?_, fun φ hne => ?_⟩
+            · simpa using h2
+            · have hv : Level.eval φ v ≠ 0 := fun h0 =>
+                hne ((eval_imax_eq_zero_iff φ u v).mpr h0)
+              have hle := h3 φ hv
+              simp only [List.getD_cons_succ, Level.eval, if_neg hv]
+              exact Nat.le_trans (by simpa using hle) (Nat.le_max_right _ _)
+        · exact nomatch hop
+    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
+    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
+    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
+      simp [openPisAtFvars] at hop
+
 /-! ## The bits, read -/
 
 /-- The reading's Π-peel carries the syntactic bits: `denoteMeta` opens

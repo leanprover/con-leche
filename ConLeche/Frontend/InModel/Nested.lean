@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.InModel.Mutual
+public import ConLeche.Frontend.InModel.Block
 
 @[expose] public section
 

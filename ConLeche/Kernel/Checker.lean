@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeInstall
+public import ConLeche.Kernel.Inductives.MutualInstall
 
 @[expose] public section
 
@@ -28,26 +28,6 @@ def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do
   unless (env.find? ci.name).isNone do
     throw (.invalid s!"duplicate declaration {ci.name}")
   pure (⟨ci :: env.consts⟩ : Env)
-
-/-- Check a `def` declaration's value against its checked constant.
-The reducibility hint is stored untouched: it steers only the lazy
-delta unfolding order in `isDefEq`, never a verdict, so nothing about
-it needs checking. -/
-def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
-    (value : Expr) (hint : ReducibilityHint) : m Env := do
-  unless value.looseBVarsBounded 0 do
-    throw (.invalid s!"loose bound variable in value of {cv.name}")
-  if value.hasFvar then
-    throw (.invalid s!"unexpected free variable in value of {cv.name}")
-  let value ← ops.annotate env 0 value
-  unless value.allLevelParamsDefined cv.levelParams do
-    throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-  unless value.constsResolve env do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
-  let vtype ← ops.inferType env 0 value
-  unless ← ops.isDefEq env 0 vtype cv.type do
-    throw (.invalid s!"type mismatch in definition {cv.name}")
-  pure ⟨.defnInfo cv value hint :: env.consts⟩
 
 /-- Check a `theorem` declaration's value against its checked constant
 (whose type must additionally be a proposition).  **A theorem is
@@ -558,7 +538,15 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- `checkModeled`.
       match nativeParts? nP block with
       | some p => checkNative ops env p
-      | none => checkModeled mode ops env block
+      | none =>
+        -- a MUTUAL block — several type formers, one recursor each —
+        -- is the mutual route's (task #278: the reduction to the
+        -- fixpoint route inside `checkMutual`); a block with more
+        -- recursors than formers is nested and stays the modeled
+        -- path's
+        match mutualParts? nP block with
+        | some q => checkMutual ops env q
+        | none => checkModeled mode ops env block
     else throw (.invalid "number of parameters mismatch")
 
 /-- Check a list of declarations in order, starting from the empty

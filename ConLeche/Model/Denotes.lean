@@ -31,7 +31,13 @@ this module builds one from the graded invariant `EnvModelM`
   `mem_type` at depth `0` (a stored type has no `fvar`, so it is its
   own closure); `false_empty` from the pinned `False` leaf
   (`EnvModel.cvalE_pinned`: the leaf is `.const .empty [0]`, whose
-  interpretation is the empty set).
+  interpretation is the empty set); `eq_equality` from the invariant's
+  `eq_law` field, whose value clause is exactly the three-fold
+  application the statement asks about.  `eq_law` is premised on the
+  *pinned* `Eq` being stored, and the `Denotes` hypothesis supplies
+  only that *something* is stored at `eqName`; the two are joined by
+  `basis_pinnedL`'s declaration clause, which since task #283 holds of
+  a stored reserved name whatever its kind.
 -/
 
 namespace ConLeche.Model
@@ -401,5 +407,21 @@ noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
       m.base2.cvalE_pinned (n := falseName) (by decide) (by rw [hf]; rfl) ψ hpd
     rw [cvalOf, erase_eq_const he, interp_const]
     rfl
+  eq_equality := by
+    intro u φ ρ E A a b h hA ha hb
+    cases h with
+    | const hf hlen =>
+      have hpin := (m.base2.basis_pinned _ _ hf (by decide)).1
+      rw [show ConLeche.pinnedInfo ConLeche.eqName = ConLeche.eqA from rfl]
+        at hpin
+      subst hpin
+      rw [show (ConLeche.eqA : ConstantInfo).toConstantVal.levelParams
+        = [ConLeche.uN] from rfl]
+      have hψ : Level.substFn φ [ConLeche.uN] [u] ConLeche.uN = Level.eval φ u := by
+        simp [Level.substFn]
+      have hlaw := (m.eq_law hf (Level.substFn φ [ConLeche.uN] [u])).1 ρ A a b
+        (by rw [hψ]; exact hA) ha hb
+      rw [interp_cvalOf m.base2.cval_closedL] at hlaw
+      exact hlaw
 
 end ConLeche.Model

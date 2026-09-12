@@ -80,16 +80,16 @@ theorem fixRuleDataAV_map_dom {m : EnvModel V env} {T : Name} {ψ : Name → Nat
       = ((fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).take (nP + 1 + cds.length)).map (·.2.2) ++
         (liftDoms (cds.length + 1) 0 (ds.drop nP)).map (·.2.2) := by
   have hlenX : (rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL (m.acval T ψ) ψ nP nIdx ℓ ips)] ++
       fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1).length = nP + 1 + cds.length := by
     simp only [List.length_append, rebit_length, hlenP, List.length_singleton, fixMinorsData_length]
   generalize hX : rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVI m T ψ nP nIdx ℓ ips)] ++
+      [(0, pwBit ψ (Level.zeronessOf ℓ), motiveAVIL (m.acval T ψ) ψ nP nIdx ℓ ips)] ++
       fixMinorsData m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds 1 = X at hlenX
   have hlenXD : (X ++ rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips)).length
       = nP + 1 + cds.length + nIdx := by
     rw [List.length_append, hlenX, rebit_length, liftDoms_length, hlenI]
-  unfold fixRuleDataAV fixRecDataAV
+  unfold fixRuleDataAV fixRecDataAV fixRecDataAVL motiveAVI
   rw [hX, List.take_append_of_le_length (by omega :
       nP + 1 + cds.length ≤ (X ++ rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 ips)).length),
     List.take_append_of_le_length (by omega : nP + 1 + cds.length ≤ X.length),
@@ -141,7 +141,7 @@ theorem fixRecDataAV_take_nP {m : EnvModel V env} {T : Name} {ψ : Name → Nat}
     {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
     (hlenP : pps.length = nP) :
     ((fixRecDataAV m T ψ nP nIdx ℓ pps ips cds).take nP).map (·.2.2) = pps.map (·.2.2) := by
-  unfold fixRecDataAV
+  unfold fixRecDataAV fixRecDataAVL
   rw [List.take_append_of_le_length (by simp [hlenP]),
     List.take_append_of_le_length (by simp [hlenP]),
     List.take_append_of_le_length (by simp [hlenP]),
@@ -184,7 +184,8 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    {lvlsAll : (Name → Nat) → List Nat}
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
@@ -576,10 +577,11 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     -- the block's own capability laws at the cons (task #210 Part A),
     -- at any carrier agreeing with this one off the recursor's name
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {lvlsAll : (Name → Nat) → List Nat}
     (hTlaws : ∀ m₂ : EnvModel V ⟨.recInfo cvRa mI rP
         (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
       (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
-      FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ) →
       (∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
         ∀ ψ, m₂.acval cA.1.name ψ = mp.base2.acval cA.1.name ψ) →
@@ -589,7 +591,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     (helim : p.large = true → p.elim ∈ p.cvR.levelParams)
     (hRlps' : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams)
-    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
@@ -1098,8 +1100,8 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       exact (Name.str.inj hT).1.symm
     subst hT'
     refine Or.inl ⟨cvTa, caps,
-      fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll uAV,
-      ConLeche.Env.find?_cons_of_fresh hfresh hfT, ?_⟩
+      fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll lvlsAll uAV,
+      0, ConLeche.Env.find?_cons_of_fresh hfresh hfT, ?_⟩
     have hlenR : rhss.length = ctorsA.length := by
       have := (ConLeche.checkNativeRec_facts hRec).2.2.2.1
       rw [this, ConLeche.nativeCtors4, List.length_zipWith, hlenK, Nat.min_self]
@@ -1108,7 +1110,8 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
           (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
           = .projInfo tbl := h
       exact nomatch h')
-    exact (indRep_of_stage mp.base2 hmI hrP hlenR hstripT hProp hlpsT hFD hcf hidxRes _hUparams
+    exact (indRep_of_stage mp.base2 hmI hrP hlenR hstripT hProp hlpsT ⟨cvTa, caps, hfT⟩ hFD hcf
+      hidxRes _hUparams
       hleafT hagree hleafC hiff
       (fun ψ ρp hρ => ⟨(hframes ψ ρp hρ).1, fun j hj => ((hframes ψ ρp hρ).2.2.1 j hj).1⟩)).cross
       (c₀ := c₀) hfresh hcrossE hfT m₂ hac

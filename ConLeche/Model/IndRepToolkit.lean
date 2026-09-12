@@ -46,20 +46,21 @@ at every index.  A parameter occurring only in the chains' ordinary
 domains and only positively there yields the premise; a parameter
 occurring negatively (`α → Nat`) does not, and no map exists for it. -/
 theorem IndRep.leaf_mono {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-    {rules : List RecRule} {d : IndRepData V} (h : IndRep m T cvT cvR mI rP rules d)
+    {rules : List RecRule} {d : IndRepData V} {mm : Nat} (h : IndRep m T cvT cvR mI rP rules d mm)
     {ψ : Name → Nat} {ρ : Nat → V} {as as' : List V}
     (hsp : SpineFit ρ (d.params ψ) as) (hsp' : SpineFit ρ (d.params ψ) as')
     (hidx : d.idx ψ (consList as ρ) = d.idx ψ (consList as' ρ))
     (hle : ∀ X, X ∈ˢ famSpace (d.w ψ) (d.idx ψ (consList as ρ)) →
       FamLe (d.idx ψ (consList as ρ)) (app (d.Φ ψ (consList as ρ)) X)
         (app (d.Φ ψ (consList as' ρ)) X))
-    {is : List V} (hi : SpineFit (consList as ρ) (d.Ids ψ) is)
-    (hi' : SpineFit (consList as' ρ) (d.Ids ψ) is) :
+    {is : List V} (hi : SpineFit (consList as ρ) (d.IdsM mm ψ) is)
+    (hi' : SpineFit (consList as' ρ) (d.IdsM mm ψ) is) :
     (as ++ is).foldl app (interp V ρ (m.acval T ψ))
       ⊆ˢ (as' ++ is).foldl app (interp V ρ (m.acval T ψ)) := by
   rw [h.leaf ψ ρ as is hsp hi, h.leaf ψ ρ as' is hsp' hi']
   obtain ⟨-, hmono', -, hcl'⟩ := h.functor ψ (consList as' ρ) (d.satOfSpine hsp')
-  have ht : tupW (d.u ψ) is ∈ˢ d.idx ψ (consList as ρ) := tupW_mem hi
+  have ht : d.tup ψ mm is ∈ˢ d.idx ψ (consList as ρ) :=
+    h.tupMem ψ (consList as ρ) (d.satOfSpine hsp) is hi
   have key := lfpFamSet_mono_functor (I := d.idx ψ (consList as ρ)) hle (by rw [hidx]; exact hmono')
     (by rw [hidx]; exact hcl') _ ht
   rw [hidx] at key ⊢
