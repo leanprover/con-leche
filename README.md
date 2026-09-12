@@ -48,22 +48,25 @@ Depending on your background and your level of interest you may want to look at 
 
 ### The Main Corollary
 
-At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDecls` function, when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
 
 ```lean
-theorem no_proof_of_False (V : Type w) [SetTheory V]
-  (ds : List DeclC) (env : Env)
-  (accepted : checkDecls .verified ds = .ok env) :
-  ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (h : jsonWithTheoremFalse chunks) :
+    ∃ e, (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds) = .error e
 ```
 
-The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker.
+The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
-This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
+The program's actual `main` function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
 
 ### The Main Theorem
 
-The theorem `no_proof_of_False` is of course just a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem `no_False_declaration` is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
@@ -78,13 +81,11 @@ Denotation of terms and types is captured by the inductive relation `Denotes` in
 
 The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
 
-### Not covered by the proof
+This theorem only talks about `checkDecls` and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
 
-Things you may want to check manually if you have doubts, because they are not covered by the proof:
-* The parser reading JSON files to `List DeclC`.
-* That `checkDecls` doesn't just drop declarations, or changes their types (see note about ignoring the `sorryAx` axiom found in the Lean standard library).
-* The annotation pass really only adds annotations and zeta-reduces let expressions, but otherwise passes your expressions through as intended. (The annotations themselves are not trusted, but checked, by code covered by the theorem.)
-* That `main` actually calls `checkDecls`. In fact, it doesn't: It calls a driver that lives in IO (e.g. for progress printing and parallel processing) that returns an `env` together with a proof that `checkDecls` would compute the same env.
+* The parser is faithful.
+* `preparePrelude` only reorders declarations and adds missing prelude declarations, but does not drop any (see `theorem Frontend.preparePrelude_perm`).
+* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see `theorem checkDecls_consts`).
 
 ### Set theory assumption
 
