@@ -125,21 +125,38 @@ def mkCopy (pbs : List (Expr × BinderMeta)) (lvls : List Level)
     pure (Name.replacePrefix J.name auxName c.name, closeTelescope pbs 0 cI, c.nFields)
   pure ⟨auxName, closeTelescope pbs 0 tyI, cs⟩
 
+/-- **Official's `mk_unique_name`**: `base` with the running counter
+appended, the counter advanced until the name is free in the PRE-BLOCK
+environment.  The counter is shared by the whole elimination, so the
+copies are pairwise distinct whatever the environment holds.  A stream
+CAN put a `_nested`-prefixed constant in the environment — the
+reserved-prefix guard rejects a block whose declared types MENTION one,
+not a declaration NAMED one — and official skips such a name rather
+than failing, so this loop is what keeps the accept set official's.
+The fuel is the loop's termination measure; exhausting it leaves the
+last candidate, which `copiesFresh` then rejects. -/
+def mkUniqueName (env : Env) (base : Name) : Nat → Nat → Name × Nat
+  | 0, idx => (Name.appendIndexAfter base idx, idx + 1)
+  | fuel + 1, idx =>
+    let r := Name.appendIndexAfter base idx
+    if (env.find? r).isNone then (r, idx + 1)
+    else mkUniqueName env base fuel (idx + 1)
+
 /-- The copies of a container's whole `all`-group, in block order, with
 the pin of the member `I` the occurrence names returned. -/
-def mkCopies (pbs : List (Expr × BinderMeta)) (lvls : List Level) (Ds : List Expr)
-    (I : Name) : List ContainerMember → ElimState →
+def mkCopies (env : Env) (pbs : List (Expr × BinderMeta)) (lvls : List Level)
+    (Ds : List Expr) (I : Name) : List ContainerMember → ElimState →
     Except CheckError (ElimState × Option Name)
   | [], st => pure (st, none)
   | J :: rest, st => do
-    let auxName := Name.appendIndexAfter
-      (Name.appendName nestedPrefixName J.name) st.nextIdx
+    let (auxName, nextIdx) :=
+      mkUniqueName env (Name.appendName nestedPrefixName J.name) 1024 st.nextIdx
     let copy ← mkCopy pbs lvls Ds auxName J
     let st' : ElimState :=
       { types := st.types ++ [copy]
         pins := st.pins ++ [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds⟩]
-        nextIdx := st.nextIdx + 1 }
-    let (st'', got) ← mkCopies pbs lvls Ds I rest st'
+        nextIdx := nextIdx }
+    let (st'', got) ← mkCopies env pbs lvls Ds I rest st'
     pure (st'', if J.name == I then some auxName else got)
 
 /-- Official's `replace_if_nested`: `I Ds is ↦ Iaux p⃗ is`, minting the
@@ -176,7 +193,7 @@ def replaceIfNested (env : Env) (blvls : List Level) (params : List Expr)
             | some q =>
               pure (some (Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params) idxs, st))
             | none => do
-              let (st', got) ← mkCopies pbs lvls Ds I ci.members st
+              let (st', got) ← mkCopies env pbs lvls Ds I ci.members st
               match got with
               | none =>
                 .error (.internal "nested: the container is not a member of its own group")
@@ -285,6 +302,32 @@ def elimLoop (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr) :
 needs more mimics than this is beyond any stream the corpus contains,
 and exhausting the fuel is a positive decline. -/
 def nestedElimFuel : Nat := 4096
+
+/-- **Every name the elimination MINTS**: each copy's type, its
+recursor and its constructors.  The copies' types and constructors are
+consed into the SCRATCH environment by the mutual installer, which does
+not check freshness, and the copies' recursors are generated there
+too — so this is the list `copiesFresh` asks about. -/
+def nestedCopyNames (k : Nat) (st : ElimState) : List Name :=
+  (st.types.drop k).flatMap fun t =>
+    t.name :: t.name.str "rec" :: t.ctors.map (·.1)
+
+/-- **The minted names are free in the PRE-BLOCK environment.**  A
+`false` is a REJECT, and it is official's: the copies' types and
+constructors go into the environment through `declare_inductive_types`,
+whose `check_name` throws "already declared" on a collision, and their
+recursors through the same door.  The copies' TYPE names cannot collide
+at all — `mkUniqueName` is official's `mk_unique_name` and skips a
+taken one — so what can fire here is a constructor or a recursor name,
+which official refuses in exactly the same way.  Without the check a
+crafted stream could declare `_nested.List_1.cons` and then a block
+nesting through `List`, and the scratch environment's cons would
+SHADOW it: nothing else in the route looks at the generated names, the
+reserved-prefix guard rejects a block whose declared types MENTION a
+`_nested` constant but not a declaration NAMED one, and the restore
+never puts a copy's name back. -/
+def copiesFresh (env : Env) (k : Nat) (st : ElimState) : Bool :=
+  (nestedCopyNames k st).all fun n => (env.find? n).isNone
 
 /-- **The nested elimination** (official's `elim_nested_inductive_fn`):
 the auxiliary mutual declaration's types — the block's, with rewritten

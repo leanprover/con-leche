@@ -67,6 +67,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
             (p.ctors.filter (fun c => c.member == mIdx)).map
               fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st ∧
       st.pins.length = p.numNested ∧
+      -- every MINTED name is free in the pre-block environment
+      copiesFresh env p.k st = true ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none = .ok envAux ∧
@@ -156,6 +158,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcnt] at h; close_throw
   rw [if_pos hcnt] at h
   try simp only [bind, Except.bind] at h
+  by_cases hfresh : copiesFresh env p.k st = true
+  case neg => rw [if_neg hfresh] at h; close_throw
+  rw [if_pos hfresh] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
   try simp only at h
@@ -194,7 +200,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim', beq_iff_eq.mp hcnt, hb', haux, hst', hctors, hrm, hrn, hrlm, hrln, htbl,
+    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', hctors, hrm, hrn, hrlm, hrln, htbl,
     ha₀', hfv', by cases u₀; exact hpins, hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche

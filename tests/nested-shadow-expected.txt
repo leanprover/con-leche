@@ -38,3 +38,8 @@ tests/e2e/nested_rec.ndjson 1 Tree=accept,
 tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
 tests/e2e/ind_proj_mutual_nested.ndjson 1 NT=accept,
 tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=accept,InModelNested.Op=accept,InModelNested.W=accept,InModelNested.PT=accept,InModelNested.NTree=accept,InModelNested.A=accept,
+# --- the auxiliary-name clash (`scripts/mk_nested_aux_clash.py`) ------
+# A definition named `_nested.List_2.cons` stands where the second
+# copy's constructor is about to be minted.  Official rejects the block
+# ("already declared"); `copiesFresh` is the route's reject.
+tests/e2e/nested_aux_clash.ndjson 1 P3=reject,
