@@ -41,7 +41,7 @@ report the door if it ever did.
 
 **The nineteen pinned theorems.**  The main theorem first — that is
 the statement a reader comes for — with the functionality of the
-relation it is stated over and the main corollary derived from it,
+relation it is stated over and the corollaries derived from it,
 then the letters on the fold it is stated about, the two transfer theorems between an accept of the fold
 and the driver's fully checked environment, the letters on that
 environment and the model it carries, the pure fueled checker's
@@ -55,8 +55,8 @@ different things and neither implies the other.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.no_proof_of_False` | **THE MAIN COROLLARY**: hence it holds no constant of type `False` |
-| `ConLeche.no_False_theorem_accepted` | the same corollary at the STREAM: a stream declaring a theorem of type `False` is never accepted |
+| `ConLeche.no_proof_of_False` | **THE COROLLARY AT THE ENVIRONMENT**: hence it holds no constant of type `False` |
+| `ConLeche.no_False_theorem_accepted` | **THE MAIN COROLLARY**, the same statement at the STREAM: a stream declaring a theorem of type `False` is never accepted |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
 | `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
@@ -85,15 +85,17 @@ and the relation they are stated over (`ConLeche/Denotes.lean`)
 
 The statements the project exists to make (task #277): every accepted
 environment has a model (`model_exists`, over the relation `Denotes`),
-and hence — the main corollary, derived from it in three lines —
-holds no constant of type `False`.  `Denotes_functional`, which says
-the relation is a partial function, is proved with the relation
-itself (task #284) and is pinned here beside them.  The corollary is
-pinned twice: once about the environment the fold returns, and once —
-`no_False_theorem_accepted`, task #286 — about the fold's INPUT, where
-it says that a stream declaring a theorem of type `False` is never
-accepted at all.  Everything below them is what they are corollaries
-of. -/
+and hence — derived from it in three lines — holds no constant of type
+`False`.  `Denotes_functional`, which says the relation is a partial
+function, is proved with the relation itself (task #284) and is pinned
+here beside them.  The consequence about `False` is pinned twice: once
+about the environment the fold returns (`no_proof_of_False`, the
+corollary at the environment), and once — `no_False_theorem_accepted`,
+task #286 — about the fold's INPUT, where it says that a stream
+declaring a theorem of type `False` is never accepted at all.  That
+last one is THE MAIN COROLLARY (task #288): it is the statement a
+reader can check without knowing what an `Env` is.  Everything below
+them is what they are corollaries of. -/
 
 /--
 info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]

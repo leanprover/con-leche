@@ -35,8 +35,9 @@ Three ingredients, one per step of the walk:
 
 `checkDecls_thmDecl_const` is the three composed: the returned
 environment holds a constant of the record's declared type.  Nothing
-here is about `False` in particular; the main corollary at the stream
-(`ConLeche/MainTheorem.lean`) instantiates it at `falseName`.
+here is about `False` in particular; the main corollary
+(`no_False_theorem_accepted`, `ConLeche/MainTheorem.lean`) instantiates
+it at `falseName`.
 -/
 
 namespace ConLeche.Cached
@@ -172,7 +173,7 @@ theorem installRun_thmDecl_const {mode : CheckMode} {ds : List DeclC}
       exact List.mem_append_right _ (hconsts ▸ List.mem_cons_self)
     · exact ih hmem' hchain.canon
 
-/-- **The main corollary's stream-side ingredient**: an accepted stream
+/-- **The main corollary's ingredient at the stream**: an accepted stream
 that declares a theorem of a bare constant type leaves a constant of
 that type in the environment. -/
 theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : List DeclC} {env : Env}
