@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.InvFold
 public import ConLeche.Model.Inductives.MutualRep
+public import ConLeche.Verify.Inductives.NestedFacts
 public section
 
 /-!
@@ -418,6 +419,117 @@ theorem CtorAtPins.congr_tg {ψ : Name → Nat} {ρ : Nat → V} {ps : List Anno
   rw [← hTg]
   refine hall vs ?_
   rwa [tgFieldsAV_congr_noIh hu d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF (Tg := Tg) (Tg' := Tg')]
+
+end IndRepData
+
+/-! ## The pin, read off the check (the syntactic layer)
+
+`pinsOkAux` (DESIGN §K.2) annotates each pin at the aux block's
+parameter depth in the SCRATCH environment and infers a type for it.
+What the model needs of it — the pin's components read at the
+parameter frame, graded there (`PinRead`) — is that run through
+`acceptedReads_of` and `ClaimsAt.inferRow`, at the parameter context
+the block's first member's former opens (`Opened`).
+
+**The guards the check does not compute** (DESIGN §M.20, the kernel
+request): `acceptedReads_of` and `Opened.ctx` need the annotated pin to
+be `WScoped nP` HEREDITARILY, `looseBVarsBounded 0`, and to have its
+fvar leaves among the openers.  `annotateBody` certifies only that each
+`.fvar` its traversal REACHES has index `< depth` — it does not descend
+into an fvar's type annotation, it does not compare the annotation with
+the opener's, and it passes a `.bvar` through unchecked.  The pin's
+components appear in NO other checked term (that is why post-check (a)
+exists at all), so nothing else certifies them either.  They are taken
+as hypotheses here.
+-/
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **The block's parameter context, opened**: the first member's
+former opened at the block's parameter count yields exactly the
+datum's parameter telescope (`PiTeleAV.unique` against the reading's
+own peel). -/
+theorem opened_params {μ : CheckMode} {mp : EnvModelM V μ env} (ψ : Name → Nat)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (d.memberName 0) = some (.indInfo cvT caps))
+    (hFD : FormerData mp.base2 cvT (d.nP + d.nIdxAt 0) d.resSort (d.ppsM 0) (d.lvlsM 0))
+    {fvsA : List ConLeche.Expr} {oA : ConLeche.Expr}
+    (hop : ConLeche.openPisAtFvars d.nP cvT.type 0 = some (fvsA, oA)) :
+    ∃ R : AnnotTerm, Opened mp.base2 ψ d.nP cvT.type fvsA oA (d.params ψ).reverse R := by
+  have hwf := mp.base2.wf _ (Env.find?_mem hf)
+  obtain ⟨Γ, R, htele, hopened⟩ :=
+    opened_of (V := V) hop hwf.1 hwf.2.2.2.1 (hFD.read ψ) (fun ρ => hFD.okTy ψ ρ)
+  have hle : d.nP ≤ (d.ppsM 0 ψ).length := by rw [hFD.len ψ]; omega
+  have htele' : PiTeleAV d.nP (mkPisAV (d.ppsM 0 ψ) (.sort (d.resSort.eval ψ)))
+      ((((d.ppsM 0 ψ).take d.nP).map (·.2.2)).reverse)
+      (mkPisAV ((d.ppsM 0 ψ).drop d.nP) (.sort (d.resSort.eval ψ))) :=
+    piTeleAV_of_stripPisAV (stripPisAV_mkPisAV_take d.nP (d.ppsM 0 ψ) _ hle)
+  obtain ⟨rfl, -⟩ := PiTeleAV.unique htele htele'
+  exact ⟨R, hopened⟩
+
+/-- **The pin, read** (the syntactic layer): from the pin's check at the
+scratch environment — the annotation and the inference of
+`nestedPinsOk` — and the pin's syntactic guards (see the section
+docstring), the container's leaf at the pin's annotated components is
+graded at every frame satisfying the block's parameter context, and
+there is one component per pin argument. -/
+theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvModelM V μ env}
+    {F : Nat} {ψ : Name → Nat}
+    {cvT : ConstantVal} {fvsA : List ConLeche.Expr} {oA : ConLeche.Expr} {R : AnnotTerm}
+    (hopened : Opened mp.base2 ψ d.nP cvT.type fvsA oA (d.params ψ).reverse R)
+    {Jn : Name} {lvls : List ConLeche.Level} {Ds : List ConLeche.Expr} {ci : ConstantInfo}
+    (hfJ : env.find? Jn = some ci)
+    (hlvls : lvls.length = ci.toConstantVal.levelParams.length)
+    {pinA e ty : ConLeche.Expr}
+    (hpinA : pinA = Expr.instantiateList
+      (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0) fvsA.reverse)
+    (hann : ConLeche.annotateCore μ env F d.nP pinA = .ok e)
+    (hinf : ConLeche.inferTypeCore μ env F d.nP e = .ok ty)
+    -- the guards the pin check does not compute (the kernel request)
+    (hws : Expr.WScoped d.nP pinA) (hb : pinA.looseBVarsBounded 0 = true)
+    (hleaf : ∀ l ∈ pinA.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsA) :
+    ∃ DsA : List AnnotTerm, DsA.length = Ds.length ∧
+      d.PinRead ψ (mp.base2.acval Jn
+        (ConLeche.Level.substFn ψ ci.toConstantVal.levelParams lvls)) DsA Ds.length := by
+  -- the annotated pin is a spine at the same constant
+  have hconst : Expr.instantiateList ((Expr.const Jn lvls).abstractRange 0 d.nP 0) fvsA.reverse
+      = .const Jn lvls := by
+    rw [show (Expr.const Jn lvls).abstractRange 0 d.nP 0 = .const Jn lvls from rfl,
+      Expr.instantiateList]
+  have hspine : pinA = Expr.mkAppN (.const Jn lvls)
+      (Ds.map fun D => Expr.instantiateList (D.abstractRange 0 d.nP 0) fvsA.reverse) := by
+    rw [hpinA, ConLeche.abstractRange_mkAppN, ConLeche.instantiateList_mkAppN, List.map_map,
+      hconst]
+    rfl
+  rw [hspine] at hann hws hb hleaf
+  obtain ⟨f', args', hlenA, rfl, F', hf'⟩ := ConLeche.annotateCore_mkAppN_inv hann
+  obtain rfl := ConLeche.annotateCore_const_inv hf'
+  -- the annotated pin's guards, and its reading
+  have hwsE : Expr.WScoped d.nP (Expr.mkAppN (.const Jn lvls) args') :=
+    ConLeche.annotateCore_WScoped F _ hann hws
+  have hbE : (Expr.mkAppN (.const Jn lvls) args').looseBVarsBounded 0 = true :=
+    ConLeche.annotateCore_looseBVars F _ hann hb
+  have hleafE : ∀ l ∈ (Expr.mkAppN (.const Jn lvls) args').fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsA := by
+    intro l hl
+    exact hleaf l (ConLeche.annotateCore_leaves_sub F _ hann hws hb l hl)
+  have hLE : Expr.LeavesBounded (Expr.mkAppN (.const Jn lvls) args') := by
+    intro l hl
+    exact (hopened.var _ _ (List.getElem?_of_mem (hleafE l hl)).choose_spec).2.2.1
+  obtain ⟨eA, heA⟩ := acceptedReads_of (V := V) mp.base2 ψ hinf hwsE hbE hLE
+  -- the reading is the leaf at the components' readings
+  obtain ⟨fa, DsA, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv heA
+  have hlenD : DsA.length = args'.length := (DenoteMetaSpine.length hsp).symm
+  rw [denoteMeta_const hfJ hlvls] at hfa
+  obtain rfl := Option.some.inj hfa
+  -- graded at the parameter frame
+  have hC : CtxOk mp.base2 ψ d.nP (d.params ψ).reverse (Expr.mkAppN (.const Jn lvls) args') := by
+    have h := hopened.ctx (Nat.le_refl d.nP) hwsE hleafE
+    rwa [Nat.sub_self, List.drop_zero] at h
+  obtain ⟨-, -, hok, -, -⟩ := (claimsAt_of hμ mp ψ F).inferRow hinf hwsE hbE hLE hC heA
+  exact ⟨DsA, by rw [hlenD, hlenA, List.length_map], ⟨by rw [hlenD, hlenA, List.length_map], hok⟩⟩
 
 end IndRepData
 

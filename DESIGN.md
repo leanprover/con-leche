@@ -72606,6 +72606,170 @@ for the scratch block, under the container's `IndRep` hypothesis) →
 ψ (blocked on finding 1) → M-C′ (R1 generic over the kit at a `Prop`
 choice; finding 3's recursor-view clause with M-D′'s datum).
 
+#### M.20 M-B′ step 3d: the syntactic layer — the scratch block's `InvSetup` assembled, the pin read, and the guard the pin check does not compute (2026-09-12, session 8)
+
+**What the session set out to do** (brief, in order): the SYNTACTIC
+layer of §M.19 — (1) `PinRead` from `pinsOkAux`, (2) `CopyIdxRead` and
+(3) `CopyCtorRead` from the ledger and `replaceAllNested`
+compositionality — and then the ASSEMBLY of `InvSetup` from
+`MutualBlockReps` + the three records.  The assembly landed in full and
+is the session's main result; (1) landed up to three syntactic guards
+that NO check computes (the finding below, a kernel request); (2) and
+(3) did not start.
+
+**(a) The assembly** (commit `5b3ca63d`).  `MutualBlockReps` gains one
+conjunct inside its per-member existential: `∀ ψ, s.eval ψ =
+d.resSort.eval ψ`, the member's own sort spelling agreeing BY VALUE
+with the block datum's.  The mutual construction has it (`hsEqAll`,
+`DeclMutual.lean` ~5631 — the very fact `mutualRepData_congr_sort` is
+applied at) and the widening dropped it; a consumer reading SEVERAL
+members at ONE datum needs it, and the one place it bites is the
+elimination universe (`targetOk_real`'s `hlev`).  On top of it, in
+`Model/Inductives/CopyPins.lean`:
+
+* `IndRepData.formerFacts_of_indRep` — `FormerFacts` for every member
+  of the block, from `formersRead` + `membersFound` + `mem_type`;
+* **`invSetup_of_member`** — every datum-side field of `InvSetup` from
+  ONE member's `IndRep` whose recursor is stored with rules: `hR` is
+  `rulesRead` (which reads the WHOLE family), `hLS`/`hFF`/`hctors`/
+  `hpIff` are that member's already-block-wide clauses, `hpps`/
+  `hipsLen` are the formers' lengths, `hmems` is `memsReal` at
+  `ctorsC = []`, `htgts` is `tgtsRLt` through the recursor view, and
+  the rest are the block's shape conjuncts;
+* the choice's POINTWISE congruences — `TargetOk.congr` and
+  `invTgAV_congr` (a member's target mentions `L t`/`pinsT t` alone),
+  and `CtorAtPins.congr_tg` with `tgFieldsAV_congr_noIh`: a
+  constructor whose minor uses the FIELDS (`useIh = false`) has its own
+  domains as target-form domains and mentions the choice only at its
+  OWN member.  That is what makes `InvFold`'s identity discharges
+  usable at a block whose other members are pinned elsewhere:
+  `targetOk_choice_real` and `ctorAtPins_choice_real` (the latter
+  discharging `ctorAtPins_real`'s `hEsFit` from `ctorFieldFacts_of`);
+* **`invSetup_of_member_nested` / `invSetup_of_blockReps_nested`** —
+  the scratch block's setup at a real/copy split `kR`: members below
+  `kR` (the block's own, where ψ⁻¹ is the identity) are discharged
+  here; the copies' `TargetOk`/`CtorAtPins` are the caller's, i.e.
+  `targetOk_copy`/`ctorAtPins_copy` at the three records.
+  `invSetup_of_blockReps` is the plain-mutual wrapper.
+
+The datum the setup is stated at is the block's re-sorted to that
+member's sort (`{d with resSort := s}`); every field the fold reads is
+unchanged by the re-sorting BY `rfl` (the structure update is a
+constructor application, so the projections reduce), so the consumer's
+hypotheses are stated at `d` itself and only `hlev` needs the new
+conjunct.
+
+**(b) `PinRead`, up to the guards** (commit below).  In
+`Verify/Inductives/NestedFacts.lean`: `nestedPinsOk_inv` (each pin's
+annotate and infer runs), and the three spine lemmas the pin's shape
+needs — `abstractRange_mkAppN`, `instantiateList_mkAppN` (both walks
+are structural on `.app`; `instantiateList` is well-founded, so its
+`.app` equation is a `rw`, not `rfl`), `annotateCore_mkAppN_inv` (the
+annotation of a spine is a spine, each argument annotated at whatever
+fuel the walk had left — the fuel is existential and irrelevant) and
+`annotateCore_const_inv`.  In `CopyPins.lean`: `IndRepData.opened_params`
+(the block's parameter context: the first member's former opened at
+`nP` IS the datum's parameter telescope — `opened_of` at the former's
+reading, then `PiTeleAV.unique` against `stripPisAV_mkPisAV_take`), and
+**`pinRead_of`** — from the annotate and infer runs at `envAux`, the
+pin `J.{lvls} Ds` reads as `⟦J⟧` at the level instantiation
+`Level.substFn ψ J.levelParams lvls` (`denoteMeta_const`, exactly the
+spelling §M.19 predicted) applied to one component per argument
+(`denoteMeta_mkAppN_inv` + `DenoteMetaSpine`), graded at every frame
+satisfying the block's parameter context (`ClaimsAt.inferRow` at the
+`Opened` record's `CtxOk`).
+
+**FINDING (kernel request 3, blocks the last mile of `PinRead`) — the
+pin check does not certify the pin's syntactic guards, and §M.19's
+"no further fact is needed" is FALSE.**  `acceptedReads_of` (the
+reading exists) and `Opened.ctx` (the reading is graded at the
+parameter context) need three things of the pin term `pinA :=
+instantiateList (abstractRange q.pin 0 nP 0) fvsA.reverse`:
+`Expr.WScoped nP pinA`, `pinA.looseBVarsBounded 0 = true`, and every
+fvar leaf of `pinA` being one of the openers `fvsA`.  What
+`annotateBody` actually certifies is ONLY that each `.fvar` its
+traversal reaches has index `< depth`:
+
+* it does not descend into an fvar's TYPE annotation, while `WScoped`
+  is hereditary (`WScoped d (.fvar i ty) = i < d ∧ WScoped i ty`);
+* it does not compare the annotation with the opener's, so a crafted
+  `fvar 0 Bogus` inside a pin passes and the pin the check TYPES is
+  not the pin at the parameter context (the check becomes meaningless,
+  and `CtxOk` — rightly — fails);
+* `.bvar` passes through unchecked (`annotateBody`'s first clause), so
+  a pin carrying a loose bvar is not rejected there; only
+  `inferType`'s `.bvar` arm throws, and "infer succeeded" is not a
+  usable certificate of `looseBVarsBounded` (it would take an
+  induction over inference's own binder openings).
+
+And nothing else certifies them: a pin's components appear in NO other
+checked term — that is exactly why post-check (a) exists
+(leanprover/lean4#14577) — the elimination REPLACES `J Ds ı⃗` by
+`A p⃗ ı⃗`, so `Ds` never reaches `checkMutualCore`.  An elimination-side
+invariant is not available either (§M.19's own argument: it would need
+the STREAM's constructor types closed, which the nested route never
+checks).
+
+**The request, precisely.**  In `nestedPinsOk`, on the ABSTRACTED pin
+`qa := Expr.abstractRange q.pin 0 nP 0` (a term the check already
+builds), add the two Bool tests
+
+    qa.hasFvar = false ∧ qa.looseBVarsBounded nP = true
+
+and record them as a conjunct of `checkNested_inv`/`DeclNestedRun`
+(alongside `pinsOkAux`).  With them and the `Opened` record of the aux
+block's parameter telescope, all three guards follow for the
+instantiated `pinA`: the surviving fvars are exactly the openers
+(whose annotations are hereditarily scoped, `Opened.var`), and the
+bound drops to `0` because the substituted openers are bvar-closed.
+Cost: two computed flags per pin.  Verdict: NARROWING only, and only
+on streams official rejects too — official type-checks the pin in the
+block's parameter context, where a loose bvar or a stray fvar has no
+type.  Precedent: `ConstWF` ALREADY demands exactly this pair of a
+nested RULE's stored pins (`pin.hasFvar = false`,
+`pin.looseBVarsBounded rP`, validated at install by `nestedRuleShape`,
+`Verify/EnvWF.lean` ~172); the elimination's pins are the same kind of
+datum and deserve the same guard.  `pinRead_of` takes the three guards
+as hypotheses meanwhile, so the conjunct's arrival closes the
+sub-step with one `have`.
+
+**Also found (not a blocker, for the record).**  `InvSetup` needs
+`d.nP ≠ 0`, because `IndRep` records `recRead`/`rulesRead` only there
+(M-A′, "nP = 0 exempt").  A nested block with NO parameters
+(`inductive T | mk : List T → T`) therefore has no fold spelling
+today; the exemption was harmless while only the pinned basis blocks
+had `nP = 0`.  `invSetup_of_member` states it as a hypothesis;
+closing it is a datum question (extend the two clauses to `nP = 0`),
+docketed, not scheduled.
+
+**What was false and repaired.**  §M.19's sizing claimed the pins'
+free-variable scope "needs no further fact" because `annotateBody`
+rejects an out-of-scope fvar — true for the non-hereditary index bound
+and false for everything else the model consumes (above).  The
+session's other correction is the `MutualBlockReps` sort conjunct: the
+widening of §M.19 (c) dropped a fact its consumers need, and the
+per-member existential is where it belongs.
+
+**Gates** (per session, landing gates NOT run): `lake build` 593 jobs,
+warning-free; `lake test` clean; the eight off-graph modules build
+warning-free; `tests/no-local-paths.sh` OK.  `scripts/pub-import-plan.py
+--check` / `tests/shake.sh` / arena / init-full are landing gates (two
+new `public import`s: `CopyPins` re-exports `MutualRep` and
+`Verify.Inductives.NestedFacts`).  Lean gotchas: a structure UPDATE
+`{d with resSort := s}` reduces its projections by `rfl` but not by
+`simp`, so transfers are `Iff.rfl`/`rfl` lemmas and the datum must be
+passed EXPLICITLY to a lemma whose other arguments would unify it with
+the un-updated one; `instantiateList` is well-founded, so
+`instantiateList (.app f a) vs d` needs `rw [Expr.instantiateList]`
+rather than `rfl`; `rw [h] at hann hws hb hleaf` beats `h ▸ hann` when
+four hypotheses share the rewritten subject.
+
+**Next** (in order): the kernel request above (then `PinRead` closes);
+`CopyIdxRead` (the copy's former is `mkCopy`'s `instPis` of the
+container's — needs a `denoteMeta`-of-`instPis` peel, which does not
+exist yet) and `CopyCtorRead` (the same plus the `replaceAllNested`
+congruence); then ψ (blocked on finding 1) and M-C′.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

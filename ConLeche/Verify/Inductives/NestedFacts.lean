@@ -527,6 +527,90 @@ theorem restoreRecTys_inv {F : Nat} {env : Env} {R : RestoreTbl} {lps : List Nam
       rw [List.drop_drop] at h2
       simpa [Nat.add_comm] using h2
 
+/-! ## Application spines
+
+The pin is an application spine (`mkAppN (.const J lvls) Ds`), and the
+check abstracts and instantiates it and then ANNOTATES it; all three
+walks are structural on `.app`, so the spine survives them. -/
+
+/-- Bulk abstraction is structural on a spine. -/
+theorem abstractRange_mkAppN (d k c : Nat) :
+    ∀ (args : List Expr) (f : Expr),
+      (Expr.mkAppN f args).abstractRange d k c
+        = Expr.mkAppN (f.abstractRange d k c) (args.map (·.abstractRange d k c))
+  | [], _ => rfl
+  | a :: args, f => by
+    show (Expr.mkAppN (.app f a) args).abstractRange d k c = _
+    rw [abstractRange_mkAppN d k c args (.app f a)]
+    rfl
+
+/-- Bulk instantiation is structural on a spine. -/
+theorem instantiateList_mkAppN (vs : List Expr) (d : Nat) :
+    ∀ (args : List Expr) (f : Expr),
+      Expr.instantiateList (Expr.mkAppN f args) vs d
+        = Expr.mkAppN (Expr.instantiateList f vs d) (args.map (Expr.instantiateList · vs d))
+  | [], _ => rfl
+  | a :: args, f => by
+    show Expr.instantiateList (Expr.mkAppN (.app f a) args) vs d = _
+    rw [instantiateList_mkAppN vs d args (.app f a),
+      show Expr.instantiateList (.app f a) vs d
+        = .app (Expr.instantiateList f vs d) (Expr.instantiateList a vs d) from by
+          rw [Expr.instantiateList]]
+    rfl
+
+/-- **Annotation keeps a spine a spine**: the head and one argument per
+argument, each the annotation of its own (at whatever fuel the walk had
+left). -/
+theorem annotateCore_mkAppN_inv {env : Env} {d : Nat} :
+    ∀ {args : List Expr} {F : Nat} {f e' : Expr},
+      annotateCore mode env F d (Expr.mkAppN f args) = .ok e' →
+      ∃ (f' : Expr) (args' : List Expr), args'.length = args.length ∧
+        e' = Expr.mkAppN f' args' ∧ ∃ F', annotateCore mode env F' d f = .ok f'
+  | [], F, f, e', h => ⟨e', [], rfl, rfl, F, h⟩
+  | a :: args, F, f, e', h => by
+    have h' : annotateCore mode env F d (Expr.mkAppN (.app f a) args) = .ok e' := h
+    obtain ⟨g', args', hlen, rfl, F', hg⟩ := annotateCore_mkAppN_inv h'
+    cases F' with
+    | zero => rw [annotateCore_zero] at hg; exact absurd hg (by simp [throw, throwThe,
+        MonadExceptOf.throw])
+    | succ F' =>
+      obtain ⟨f'', a'', hf, -, rfl⟩ := annotateCore_app_inv hg
+      exact ⟨f'', a'' :: args', by simp [hlen], rfl, F', hf⟩
+
+/-- A constant annotates to itself. -/
+theorem annotateCore_const_inv {env : Env} {F d : Nat} {n : Name} {us : List Level} {e' : Expr}
+    (h : annotateCore mode env F d (.const n us) = .ok e') : e' = .const n us := by
+  cases F with
+  | zero => rw [annotateCore_zero] at h; exact absurd h (by simp [throw, throwThe,
+      MonadExceptOf.throw])
+  | succ F =>
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h.symm
+
+/-! ## The pins' check -/
+
+/-- **The pins' check, read off** (post-check (a) at either
+environment, `pinsOkAux` at the scratch one): every pin's components
+are abstracted over the block's parameter range and instantiated at
+the opened parameter variables, and the resulting term is ANNOTATED at
+the parameter depth and given a type there. -/
+theorem nestedPinsOk_inv {F : Nat} {env : Env} {nP : Nat} {fvsA : List Expr} :
+    ∀ {pins : List NestedPin},
+      nestedPinsOk (m := CheckM) (fueledOps mode F) env nP fvsA pins = .ok () →
+      ∀ q ∈ pins, ∃ (e ty : Expr),
+        annotateCore mode env F nP
+            (Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse) = .ok e ∧
+          inferTypeCore mode env F nP e = .ok ty
+  | [], _, q, hq => nomatch hq
+  | q₀ :: rest, h, q, hq => by
+    simp only [nestedPinsOk, bind, Except.bind] at h
+    obtain ⟨e, he, h⟩ := exceptBind_ok h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hq with rfl | hq
+    · exact ⟨e, ty, he, hty⟩
+    · exact nestedPinsOk_inv h q hq
+
 /-! ## The minted names, and the conses -/
 
 /-- **The minted names are free**: every copy's type, its recursor and
