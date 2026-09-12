@@ -73,6 +73,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none = .ok envAux ∧
       auxStoredAll envAux b b.k = some stored ∧
+      -- `pinsOkAux`: the pins typed at the SCRATCH environment
+      (stored.take p.k).head? = some a₀ ∧
+      openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+      nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP fvsA.1 st.pins = .ok () ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -121,9 +125,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
                 (fun (cv, a, rs) => (cv, a.mI, a.rP, rs)))
             (consNestedCtors ctorsR.flatten
               (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
-      -- POST-CHECK (a): the pins, typed at the parameter context
-      (stored.take p.k).head? = some a₀ ∧
-      openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+      -- POST-CHECK (a): the same pins at the RESTORED environment
       nestedPinsOk (m := CheckM) (fueledOps mode F) envOut p.nP fvsA.1 st.pins = .ok () ∧
       -- POST-CHECK (c): the stream's records against the generated ones
       (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
@@ -170,6 +172,14 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   obtain ⟨stored, hst, h⟩ := exceptBind_ok h
   have hst' := unwrapOr_ok hst
   try simp only at h
+  obtain ⟨a₀, ha₀, h⟩ := exceptBind_ok h
+  have ha₀' := unwrapOr_ok ha₀
+  try simp only at h
+  obtain ⟨fvsA, hfv, h⟩ := exceptBind_ok h
+  have hfv' := unwrapOr_ok hfv
+  try simp only at h
+  obtain ⟨uA, hpinsAux, h⟩ := exceptBind_ok h
+  try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨cvRms, hrm, h⟩ := exceptBind_ok h
@@ -181,12 +191,6 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   obtain ⟨rulesN, hrln, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨env₄, htbl, h⟩ := exceptBind_ok h
-  try simp only at h
-  obtain ⟨a₀, ha₀, h⟩ := exceptBind_ok h
-  have ha₀' := unwrapOr_ok ha₀
-  try simp only at h
-  obtain ⟨fvsA, hfv, h⟩ := exceptBind_ok h
-  have hfv' := unwrapOr_ok hfv
   try simp only at h
   obtain ⟨u₀, hpins, h⟩ := exceptBind_ok h
   try simp only at h
@@ -200,7 +204,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', hctors, hrm, hrn, hrlm, hrln, htbl,
-    ha₀', hfv', by cases u₀; exact hpins, hlen, by cases u₁; exact hrecs⟩
+    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', ha₀', hfv',
+    (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche
