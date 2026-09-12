@@ -70406,6 +70406,18 @@ statement first with the stream-level one as the step it rests on, and
 not edited; the replacement text for its "### The Main Corollary"
 section is in the READY report.
 
+**Gates on the merged tree** (commit after the merge): `lake build` and
+`lake test` warning-free; `env -i … bash tests/arena.sh` exit 0 —
+proofdeps 4 362 rows across 12 roots, 0 doors; challenge OK on the two
+names; shake 456 removals all allowlisted, pub-imports none demotable
+(the promotion needed three import fixes: MainTheorem's stale
+allowlist line for a now-private `MainC`, Accepts' redundant `Prepare`
+line, StreamThm taking `MainC` privately with `SetTheory.Core` public
+for its statement); overview-links 89 links / 56 files after
+re-reading the citing paragraphs; no-local-paths, trust-surface OK;
+arena tutorial 90/92, e2e 195/195, annot 15/15 and the sweeps as
+expected.
+
 **The size guard's cost is nil and the rebinding test's is as
 measured before the merge.**  Against the master binary rebuilt at
 62b38eef, raw init-full, `--verified --jobs=1`, `ulimit -v 16000000`:

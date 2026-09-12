@@ -138,16 +138,16 @@ The main corollary,
 This is the form of the statement a reader can check without knowing
 what an `Env`, or even a declaration record, is: it speaks only of the
 text handed to the binary. The predicate is a string template
-([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L62-L73))
+([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L61-L72))
 written with Lean's own interpolation, and the accept path
-([`pipelineAccepts` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L85-L89))
+([`pipelineAccepts` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L84-L88))
 is the driver's, stripped of its IO. There is no side condition: an
 input the machine word cannot address is refused by the parser before
 any of it is read, so an accepted parse is one of a file that fits.
 
 The corollary rests on a statement at the stream — the fold's input —
 proved beside the fold
-([`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamThm.lean#L204-L207)):
+([`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamThm.lean#L205-L208)):
 
 > … if any record of `ds` declares a theorem whose declared type is
 > `False`, then `checkDecls` accepts `ds` with no environment at all.

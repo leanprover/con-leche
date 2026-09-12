@@ -48,32 +48,32 @@
     79  theorem no_False_declaration (V : Type w) [SetTheory V] (s : String)
     80      (h : hasProofOfFalse s) : ¬ pipelineAccepts s := by
 
-== ConLeche/Accepts.lean#L62-L73
-    62  def hasProofOfFalse (file : String) : Prop :=
-    63    ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
-    64      file =
-    65        before ++ "\n" ++
-    66        s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
-    67        between₁ ++ "\n" ++
-    68        s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
-    69        between₂ ++ "\n" ++
-    70        s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
-    71        between₃ ++ "\n" ++
-    72        s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
-    73        after
+== ConLeche/Accepts.lean#L61-L72
+    61  def hasProofOfFalse (file : String) : Prop :=
+    62    ∃ (before between₁ between₂ between₃ after : String) (i j k v : Nat) (name : String),
+    63      file =
+    64        before ++ "\n" ++
+    65        s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+    66        between₁ ++ "\n" ++
+    67        s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+    68        between₂ ++ "\n" ++
+    69        s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+    70        between₃ ++ "\n" ++
+    71        s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++ "\n" ++
+    72        after
 
-== ConLeche/Accepts.lean#L85-L89
-    85  def pipelineAccepts (file : String) : Prop :=
-    86    ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
-    87      Frontend.builtinPreludeE = .ok pre ∧
-    88      Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
-    89      checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
+== ConLeche/Accepts.lean#L84-L88
+    84  def pipelineAccepts (file : String) : Prop :=
+    85    ∃ (pre : Frontend.PreludeIx) (r : Frontend.ParseResultD) (env : Env),
+    86      Frontend.builtinPreludeE = .ok pre ∧
+    87      Frontend.parseExportD file (inModel := true) (census := false) = .ok r ∧
+    88      checkDecls .verified (Frontend.preparePrelude pre r.decls.toList) = .ok env
 
-== ConLeche/Verify/Cached/StreamThm.lean#L204-L207
-   204  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-   205      (ds : List Declaration) (cv : ConstantVal) (v : Expr)
-   206      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-   207      ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
+== ConLeche/Verify/Cached/StreamThm.lean#L205-L208
+   205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+   206      (ds : List Declaration) (cv : ConstantVal) (v : Expr)
+   207      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+   208      ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
 
 == ConLeche/Verify/Frontend/FileFalse.lean#L110
    110  theorem parseExportD_hasProofOfFalse {s : String} (h : hasProofOfFalse s)
