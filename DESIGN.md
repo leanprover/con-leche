@@ -69363,6 +69363,19 @@ branch is `pure fe`, no push, no `recordCConst`, no pending check), and
 `toleratedAxiomNames` is exactly `[sorryAx]`; `basisDecl` and `indDecl`
 declare nothing.
 
+**The definition VALUE was left out, and it is one conjunct away.**
+`DeclDefnRun` carries `ValueFrontRun`, whose first three conjuncts are
+`value.looseBVarsBounded 0`, `value.hasFvar = false` and
+`annotateCore μ env F 0 value = .ok value'` — exactly what
+`annotateCore_annotOf` consumes — and the stored constant is
+`.defnInfo ⟨…⟩ value' hint`.  So `AnnotOf value value'` is free at the
+per-record lemma.  It is NOT free at the walk, which is specialised to
+"a constant of this name": stating it too means generalising
+`installRun_declares` over the per-record conclusion (a predicate
+`Q : DeclC → Env → Prop` with a monotonicity hypothesis — the walk's
+body does not change) and adding a second capstone.  The maintainer
+asked for types; this is the note that says what the other half costs.
+
 `find?` rather than `∈ env.consts`: the returned environment's names are
 unique — `PushChain`'s third conjunct, already computed by
 `installRun_trace` from `NodupNames Env.empty` — so membership upgrades
@@ -69526,8 +69539,8 @@ names `PushChain`, so that import is a genuine re-export now and shake
 no longer proposes removing it.  `tests/overview-links.sh --update`
 after re-reading the citing paragraphs (the two `InstalledC.lean`
 anchors moved with the step lemma; the axiom-pin anchor moved with the
-new pin).  `tests/proofdeps.sh` needed NO regeneration: the new module
-is in no capstone's closure — `checkDecls_thmDecl_const` was not made a
+new pin).  `tests/proofdeps.sh` needed NO regeneration (3 820 rows / 11 roots,
+0 doors — #291's numbers): the new module is in no capstone's closure — `checkDecls_thmDecl_const` was not made a
 corollary of it (§5) — and `annotStepC_model` sits in a module the
 walks already reached.
 
