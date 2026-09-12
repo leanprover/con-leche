@@ -53,12 +53,14 @@ status:
     it accepts has a model (`ConLeche.Model`, over the term reading
     `ConLeche.Denotes`, both in `ConLeche/Denotes.lean`) — one set per
     constant under which every stored constant is a member of its type
-    and `False` is empty.  `ConLeche.no_proof_of_False` is its
-    corollary.  Not covered: the parser, the `--trusted` mode.  The
-    proof is parametric in a type satisfying the `SetTheory` interface
-    (ZF without infinity and choice plus an omega-chain of Grothendieck
-    universes); the corollary's conclusion is syntactic (the constant's
-    type is literally the pinned `False`).
+    and `False` is empty.  `ConLeche.no_False_theorem_accepted` is its
+    main corollary: a stream one of whose records declares a theorem of
+    type `False` is never accepted.  Not covered: the parser, the
+    `--trusted` mode.  The proof is parametric in a type satisfying the
+    `SetTheory` interface (ZF without infinity and choice plus an
+    omega-chain of Grothendieck universes); the corollary's hypothesis
+    is syntactic (the record's declared type is literally the pinned
+    `False`).
   # The only `sorry` in the repository is the deliberate hole in the
   # Comparator challenge module `ConLeche/Challenge.lean`.
   sorry_count: 0
@@ -68,7 +70,7 @@ status:
       file: "ConLeche/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]
       comparator_config: "comparator.json"
-    - declaration: "ConLeche.no_proof_of_False"
+    - declaration: "ConLeche.no_False_theorem_accepted"
       file: "ConLeche/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]
       comparator_config: "comparator.json"
