@@ -19,7 +19,7 @@ spliced records use table indices above the input's maximum.
 
 namespace ConLeche.Frontend
 
-open ConLeche.Cached (DeclC)
+open ConLeche (Declaration)
 
 /-- The number after a fixed key in a record line (`"ie":N`,
 `{"in":N`, …), `0` when absent. -/
@@ -43,7 +43,7 @@ partial def maxIndex (file : String) : IO Nat := do
   loop 0
 
 /-- Write the spliced stream. -/
-partial def dumpInModel (file out : String) (gen : Array (Nat × Array DeclC)) : IO Unit := do
+partial def dumpInModel (file out : String) (gen : Array (Nat × Array Declaration)) : IO Unit := do
   let base ← maxIndex file
   let h ← IO.FS.Handle.mk file .read
   let o ← IO.FS.Handle.mk out .write

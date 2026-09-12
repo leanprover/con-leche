@@ -35,10 +35,10 @@ tier flag (`hoff`) anywhere — plus the representation differences the
   `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
   `recordIConst_eff` took `denoteT` facts at a flag-off state.
 
-`DeclC` carries `Expr` where `DeclP` carries `EIdx`, so the premise
-`denoteDeclP s₀.store pd = some d` becomes the state-free per-
-constructor erasure relation `DeclCRel` below.  Everything else — the
-guard order, the branch structure, the pure comparand of every
+`Declaration` is now one type for both tiers (task #285), so the
+interned premise `denoteDeclP s₀.store pd = some d` has no counterpart
+at all: the two drivers are given the same record.  Everything else —
+the guard order, the branch structure, the pure comparand of every
 statement — is byte-identical to the interned original's.
 -/
 
@@ -49,37 +49,13 @@ open ConLeche.Expr
 
 variable {mode : CheckMode}
 
-/-! ## The declaration relation
+/-! ## The declaration
 
-The parsed-index layer's premise is `denoteDeclP s₀.store pd = some d`.
-`DeclC` holds `Expr` objects rather than arena indices, so the cached
-premise is the state-free per-constructor erasure relation: `RelC`
-(`RelC`, now equality) on every `Expr` slot, equality on the rest.  The
-`Declaration` is *indexed* by the constructor exactly as `denoteDeclP`
-builds it, so `cases` on the relation reproduces the interned walks'
-destructuring of `hden`. -/
-inductive DeclCRel : DeclC → Declaration → Prop where
-  | axiomDecl {cv : ConstantVal} {tyE : Expr} (hty : RelC cv.type tyE) :
-      DeclCRel (.axiomDecl cv)
-        (.axiomDecl ⟨cv.name, cv.levelParams, tyE⟩)
-  | defnDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
-      {hint : ReducibilityHint}
-      (hty : RelC cv.type tyE) (hv : RelC value ve) :
-      DeclCRel (.defnDecl cv value hint)
-        (.defnDecl ⟨cv.name, cv.levelParams, tyE⟩ ve hint)
-  | thmDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
-      (hty : RelC cv.type tyE) (hv : RelC value ve) :
-      DeclCRel (.thmDecl cv value)
-        (.thmDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
-  | opaqueDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
-      (hty : RelC cv.type tyE) (hv : RelC value ve) :
-      DeclCRel (.opaqueDecl cv value)
-        (.opaqueDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
-  | basisDecl {kind : BasisKind} :
-      DeclCRel (.basisDecl kind) (.basisDecl kind)
-  | indDecl {block : List ConstantInfo} {nP : Nat} :
-      DeclCRel (.indDecl block nP) (.indDecl block nP)
-
+The parsed-index layer's premise was `denoteDeclP s₀.store pd = some d`
+and the cached tier's a per-constructor erasure relation `DeclCRel`.
+With one declaration type (task #285) there is nothing to relate: the
+cached driver and the pure checker are given the SAME record, and the
+per-branch `RelC` premises the relation carried are `rfl`. -/
 section WalksP
 
 variable {env : Env} {s₀ : CState}
@@ -382,14 +358,14 @@ on the related declaration.  (There is no bracket in the cached driver
 — `checkDeclC` *is* the plain path — so this is the mirror of
 `checkDeclSPPlain_sim`.) -/
 theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs : CSOK mode env s₀)
-    {pd : DeclC} {d : Declaration} (hrel : DeclCRel pd d)
+    {pd : Declaration}
     (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
       (checkDeclC mode (mkFEnv env) pd)
-      (checkDecl mode (fueledOpsM mode) env d) := by
-  cases hrel with
-  | indDecl => exact absurd rfl (hnotind _ _)
-  | @basisDecl kind =>
+      (checkDecl mode (fueledOpsM mode) env pd) := by
+  cases pd with
+  | indDecl block nP => exact absurd rfl (hnotind _ _)
+  | basisDecl kind =>
     show SimC mode env s₀ _ (do
         if kind = .quotK then
           unless (mkFEnv env).find? eqName = some eqA do
@@ -420,10 +396,10 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
         (fun s₁ e e' hs₁ hP => ?_)
       obtain rfl : e = e' := hP
       exact SimC.pure hs₁ ⟨rfl, rfl⟩
-  | axiomDecl hty =>
+  | axiomDecl cv =>
     unfold checkDeclC checkDecl
     dsimp only
-    refine SimC.bind (checkConstantValC_sim hμ henv hs hty)
+    refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hname, hwty, hjty⟩ := hP
@@ -468,20 +444,20 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
               exact SimC.pure hs₁ ⟨rfl, rfl⟩
             · simp only [if_neg h3]
               exact SimC.throw
-  | thmDecl hty hv =>
+  | thmDecl cv value =>
     unfold checkDeclC checkDecl
     dsimp only
-    refine SimC.bind (checkConstantValC_sim hμ henv hs hty)
+    refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     exact SimC.mono (fun v w h => h)
-      (checkThmValC_sim hμ henv hwty hjty hv hs₁)
-  | opaqueDecl hty hv =>
+      (checkThmValC_sim hμ henv hwty hjty rfl hs₁)
+  | opaqueDecl cv value =>
     unfold checkDeclC checkDecl
     dsimp only
-    refine SimC.bind (checkConstantValC_sim hμ henv hs hty)
+    refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hname, hwty, hjty⟩ := hP
@@ -492,7 +468,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     case neg =>
       simp only [if_neg hred]
       rw [← bind_pure (checkOpaqueValC mode (mkFEnv env) _ jty _)]
-      refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty hv hs₁)
+      refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty rfl hs₁)
         (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
       obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
       subst henvEq
@@ -500,20 +476,20 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       simp only [mkFEnv_env]
       exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
     simp only [if_pos hred]
-    refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty hv hs₁)
+    refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty rfl hs₁)
       (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
     obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
     subst henvEq
     rw [hmk]
     simp only [mkFEnv_env]
-    rw [hv, checkReducePinF_eq]
+    rw [checkReducePinF_eq]
     refine SimC.bind (checkReducePinS_sim hμ henv hvf hs₂)
       (fun s₄ u u' hs₄ hP₄ => ?_)
     exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
-  | defnDecl hty hv =>
+  | defnDecl cv value hint =>
     unfold checkDeclC checkDecl
     dsimp only
-    refine SimC.bind (checkConstantValC_sim hμ henv hs hty)
+    refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hname, hwty, hjty⟩ := hP
@@ -526,13 +502,13 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
         simpa [not_or] using hb
       simp only [if_neg hb, if_neg h1, if_neg h4]
       rw [← bind_pure (checkDefnValC mode (mkFEnv env) _ jty _ _)]
-      refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty hv hs₁)
+      refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty rfl hs₁)
         (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
       obtain ⟨henvEq, hmk, -⟩ := hP₂
       subst henvEq
       exact SimC.pure hs₂ ⟨rfl, hmk⟩
     simp only [if_pos hb]
-    refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty hv hs₁)
+    refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty rfl hs₁)
       (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
     obtain ⟨henvEq, hmk, hv'fD⟩ := hP₂
     subst henvEq
@@ -599,16 +575,15 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       | projInfo _ => exact SimC.throw_bind
 
 /-- One step of the converted-declaration fold: a successful run from a
-residue state is reproduced by the pure fueled checker on the related
+residue state is reproduced by the pure fueled checker on the same
 declaration, and the residue threads to the next step.  The cached
 driver has no bracket and no index-range check, so the step is `flushC`
 followed by `checkDeclC`. -/
-theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env) {pd : DeclC}
-    {d : Declaration} {s₀ : CState} (hres : CSOKF s₀)
-    (hrel : DeclCRel pd d) {fe' : FEnv} {s' : CState}
+theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env) {pd : Declaration}
+    {s₀ : CState} (hres : CSOKF s₀) {fe' : FEnv} {s' : CState}
     (h : checkDeclStepC mode (mkFEnv env) pd s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
+    ∃ F, checkDecl mode (fueledOps mode F) env pd = .ok fe'.env := by
   unfold checkDeclStepC at h
   obtain ⟨u, s₁, hflush, h⟩ := bindC_ok h
   rw [flushC_run] at hflush
@@ -617,15 +592,15 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
   have hcsok : CSOK mode env s₀.flushed := flushC_csok hres
   have main : (∀ block nP, pd ≠ .indDecl block nP) →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
-      ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
+      ∃ F, checkDecl mode (fueledOps mode F) env pd = .ok fe'.env := by
     intro hind
     obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
-      (checkDeclC_sim hμ henv hcsok hrel hind) fe' s' h
+      (checkDeclC_sim hμ henv hcsok hind) fe' s' h
     refine ⟨hs'.residue, hmk, F, ?_⟩
     rw [← checkDecl_datF, henvEq]
     exact hF
-  cases hrel with
-  | @indDecl block nP =>
+  cases pd with
+  | indDecl block nP =>
     -- the declared parameter count (task #228): a `false` throws on
     -- both sides, so only the passing branch reaches the bridge
     have hd : (if indParamsOk nP block = true then
@@ -641,11 +616,11 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
       exact ⟨hres', hfe, F, hF⟩
     · rw [if_neg hok] at hd
       exact nomatch hd
-  | defnDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
-  | thmDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
-  | opaqueDecl hty hv => exact main (fun _ _ h => DeclC.noConfusion h)
-  | axiomDecl hty => exact main (fun _ _ h => DeclC.noConfusion h)
-  | basisDecl => exact main (fun _ _ h => DeclC.noConfusion h)
+  | defnDecl cv value hint => exact main (fun _ _ h => Declaration.noConfusion h)
+  | thmDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
+  | opaqueDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
+  | axiomDecl cv => exact main (fun _ _ h => Declaration.noConfusion h)
+  | basisDecl kind => exact main (fun _ _ h => Declaration.noConfusion h)
 
 end WalksP
 

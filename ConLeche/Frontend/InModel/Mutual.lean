@@ -62,7 +62,6 @@ checked code.
 namespace ConLeche.Frontend.InModel
 
 open ConLeche
-open ConLeche.Cached (DeclC)
 
 /-- One inductive type of a parsed block, with the export's shape data. -/
 structure IndTypeRec where
@@ -162,7 +161,7 @@ def need (what : String) : Option α → Except String α
 /-- **The mutual rung** (B1 index-free, B2 indexed).  The records, in stream order:
 the tag block, the auxiliary block, the member/constructor/recursor
 models, the iota theorems, the projection artifacts. -/
-def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
+def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := do
   let t0 :: _ := b.types | throw "empty block"
   let T := t0.cv.name
   let lps := t0.cv.levelParams
@@ -242,7 +241,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let tag := tagName T
   let aux := auxName T
   let ps0 := varsAt 0 nP
-  let mut out : Array DeclC := #[]
+  let mut out : Array Declaration := #[]
   let mut heights : List (Name × Nat) := []
   let hOf : List (Name × Nat) → Name → Nat := fun hs x =>
     match hs.find? (·.1 == x) with

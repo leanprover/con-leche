@@ -25,7 +25,6 @@ its dense one, so a splice never collides with the input's entries.
 namespace ConLeche.Frontend
 
 open ConLeche
-open ConLeche.Cached (DeclC)
 
 /-- The writer's interning state and its output lines. -/
 structure ExportWriter where
@@ -154,7 +153,7 @@ shape data derived from the stored constants (`numIndices` off the
 recursor's `majorIdx - rulePrefix`, `numParams` off a constructor,
 `isRec` syntactically); only the modeller's own generated blocks are
 ever written, so `numNested = 0`, `isReflexive = false`, one motive. -/
-def decl (w : ExportWriter) : DeclC → ExportWriter
+def decl (w : ExportWriter) : Declaration → ExportWriter
   | .defnDecl cv v h =>
     let (ni, w) := w.name cv.name; let (ls, w) := w.nameIds cv.levelParams
     let (ti, w) := w.expr cv.type; let (vi, w) := w.expr v

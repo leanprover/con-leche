@@ -471,7 +471,7 @@ def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) 
   | none => indDeclSkelsModeled block sk
 
 /-- The skeletons one declaration installs. -/
-def declCSkels : DeclC → List InstallSkel → List InstallSkel
+def declCSkels : Declaration → List InstallSkel → List InstallSkel
   | .defnDecl cv _ _, sk => .defn cv.name :: sk
   | .thmDecl cv _, sk => .thm cv.name :: sk
   | .opaqueDecl cv _, sk => .ax cv.name :: sk
@@ -1212,7 +1212,7 @@ theorem tolerated_ne_std {n : Name}
 /-! ### The cached certified declaration clause -/
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclC mode fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclC declCSkels
@@ -1290,7 +1290,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     · exact Yields.ofThrow
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclStepC mode fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
   unfold checkDeclStepC
@@ -1317,7 +1317,7 @@ theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
 
 /-- The declaration-stream specification: the skeletons a stream
 installs, newest first. -/
-def streamSkels (ds : List DeclC) : List InstallSkel :=
+def streamSkels (ds : List Declaration) : List InstallSkel :=
   ds.foldl (fun sk pd => declCSkels pd sk) []
 
 /-! ### The direct-parse entry points (task #171's route) -/
@@ -1326,7 +1326,7 @@ def streamSkels (ds : List DeclC) : List InstallSkel :=
 kinds push the one constant the fold's value checkers push, everything
 else runs `checkDeclStepC`. -/
 theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : DeclC) :
+    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : Declaration) :
     Yields (annotStepC mode i fe pend pd) (fun r => SkelIs r.1 (declCSkels pd sk)) := by
   have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
       CheckCM (FEnv × Array PendingCheck)) (fun r => SkelIs r.1 (declCSkels pd' sk)) :=
@@ -1365,7 +1365,7 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
   | indDecl block nP => exact hord _
 
 /-- Phase A's accepting run installs the stream's skeletons. -/
-theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
+theorem installRun_skels (mode : CheckMode) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (h : InstallRun mode ds p s q s') {sk : List InstallSkel} (hp : SkelIs p.2.1 sk) :
@@ -1379,7 +1379,7 @@ theorem installRun_skels (mode : CheckMode) {ds : List DeclC}
 
 /-- **The skeleton spec, at every mode.**  This is the floor's whole
 content since the twin's retirement: one fold, one proof. -/
-theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
+theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
     {env : Env} (h : checkDecls mode ds = .ok env) :
     envSkels env = streamSkels ds := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
@@ -1392,7 +1392,7 @@ two modes — in particular the trusted (`.trusted`) and the verified
 two installed environments carry the same install skeletons.  Stated
 for any two modes: the old two-driver statement is the instance
 `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
-theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1400,7 +1400,7 @@ theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List DeclC}
   (checkDecls_skels hN).trans (checkDecls_skels hP).symm
 
 /-- The census's sentence: the accepted declaration **names** agree. -/
-theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1409,7 +1409,7 @@ theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List DeclC}
   simpa [envSkels, List.map_map, Function.comp_def] using h
 
 /-- … and so do the accepted declaration **counts**. -/
-theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List Declaration}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1419,7 +1419,7 @@ theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List DeclC}
 
 /-- The shipped pair, spelled out: `--trusted` and `--verified` agree on
 the install skeletons whenever both accept. -/
-theorem trusted_agrees_skels_shipped {ds : List DeclC} {envP envT : Env}
+theorem trusted_agrees_skels_shipped {ds : List Declaration} {envP envT : Env}
     (hP : checkDecls .verified ds = .ok envP)
     (hT : checkDecls .trusted ds = .ok envT) :
     envSkels envT = envSkels envP :=

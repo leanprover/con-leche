@@ -33,7 +33,7 @@ equation of the two sides' denotations.
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
-* `ds : List DeclC` is the parsed stream, `Env` the environment the
+* `ds : List Declaration` is the parsed stream, `Env` the environment the
   checker builds, `env.consts` the constants it accepted; `.ok env`
   says the checker accepted `ds` and this is what it accepted.
 * `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
@@ -59,14 +59,14 @@ mode.  See README.md.
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (DeclC checkDecls)
+open ConLeche.Cached (checkDecls)
 
 universe w
 
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
+    (ds : List Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) :=
   sorry
@@ -74,7 +74,7 @@ theorem model_exists (V : Type w) [SetTheory V]
 /-- **The main corollary.**  An accepted stream never yields a
 constant of type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
+    (ds : List Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry

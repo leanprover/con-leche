@@ -149,7 +149,7 @@ fields are functions of the node, so a node *is* its own erasure.
 
 `WFc` outlived them by one batch, as the predicate of the `WDeclC`
 subtype six direct-parse capstone letters were stated over.  With those
-letters restated over `List DeclC` (ratified; a strengthening — the
+letters restated over `List Declaration` (ratified; a strengthening — the
 dropped hypothesis was provable of everything), the whole tier goes:
 `WFc`, `WFc_all`, `WFc.mk*`, `WExprC` and the `mk*W` constructors,
 `DeclCWFc`/`WDeclC`, `ofExpr`/`ofExprSpec`.  What the invariant used to

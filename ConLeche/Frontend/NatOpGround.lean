@@ -51,12 +51,9 @@ namespace ConLeche.Frontend
 
 open ConLeche ConLeche.Cached
 
-/-- For the array indexing below (`ds[i]!`); never observed. -/
-instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
-
 /-- The names a parsed declaration declares (the prelude index and the
 hoist's name index; basis blocks are indexed by kind instead). -/
-def _root_.ConLeche.Cached.DeclC.names : DeclC → List Name
+def _root_.ConLeche.Declaration.names : Declaration → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .indDecl block _ => block.map (·.name)
   | .basisDecl _ => []
@@ -89,7 +86,7 @@ def usedConstsGo (seen : Std.HashSet Expr) (acc : Array Name) (e : Expr) :
 /-- The constants a parsed record references (types, values, recursor
 rule right-hand sides; a basis block references nothing the stream
 declares). -/
-def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
+def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
   | .axiomDecl cv => (usedConstsGo {} #[] cv.type).2
   | .defnDecl cv v _ | .thmDecl cv v | .opaqueDecl cv v =>
     let (seen, acc) := usedConstsGo {} #[] cv.type
@@ -107,7 +104,7 @@ def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
 /-- The pinned `Nat` operation records whose ground the pass serves:
 the pin-certified WF operations and the structural ones (whose
 `natOpDeps` are in their own closures already — kept uniform). -/
-def isNatOpRecord : DeclC → Option Name
+def isNatOpRecord : Declaration → Option Name
   | .defnDecl cv .. =>
     if natDivModNames.contains cv.name || natOpNames.contains cv.name then some cv.name
     else none
@@ -116,7 +113,7 @@ def isNatOpRecord : DeclC → Option Name
 /-- **The hoist.**  Returns the reordered records and the names of the
 records moved (empty, and the array untouched, when no operation's
 ground is declared after it). -/
-def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name := Id.run do
+def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}

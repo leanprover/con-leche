@@ -8,7 +8,7 @@ public import ConLeche.Cached.CheckerC
 # The parsed-declaration driver on the cached representation
 
 One `CState` for the whole stream, the environment-dependent caches
-flushed per declaration, declarations consumed as `DeclC` records
+flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
@@ -41,24 +41,6 @@ all take the same mode.
 namespace ConLeche.Cached
 
 open ConLeche
-
-/-! ## Parsed declarations over `Expr` -/
-
-/-- A parsed declaration over `Expr` (task #198: its constant-value
-records *are* `ConLeche.ConstantVal` — the separate `ConstantValC`, whose
-only difference was an `Expr`-typed `type` field, went with the
-interning-era distinction between the two expression types.  Note the
-one consequence: `cv.type` is now `Expr`-typed, so dot notation on it
-finds `ConLeche.Expr`'s members and NOT the cached namespace's — the two
-`hasFvar`s differ (`O(1)` field read vs a walk), which is why the guard
-below names `Expr.hasFvar` outright.) -/
-inductive DeclC where
-  | axiomDecl (val : ConstantVal)
-  | defnDecl (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-  | thmDecl (val : ConstantVal) (value : Expr)
-  | opaqueDecl (val : ConstantVal) (value : Expr)
-  | basisDecl (kind : BasisKind)
-  | indDecl (block : List ConstantInfo) (numParams : Nat)
 
 /-! ## The parsed-declaration checker -/
 
@@ -157,7 +139,7 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
@@ -248,7 +230,7 @@ def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
 /-- A parsed declaration's display label (`Main.declCName`, shared with
 the driver's progress callback so the two can never drift). -/
-def declCLabel : DeclC → String
+def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
@@ -257,7 +239,7 @@ def declCLabel : DeclC → String
   | .basisDecl k => s!"basis block {repr k}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+def checkDeclStepC (fe : FEnv) (pd : Declaration) : CheckCM FEnv := do
   flushC
   checkDeclC mode fe pd
 

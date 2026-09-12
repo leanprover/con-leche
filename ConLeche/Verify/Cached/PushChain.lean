@@ -587,7 +587,7 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (pd : DeclC) :
+    (h : PushChain env fe) (pd : Declaration) :
     Yields (checkDeclC mode fe pd) (fun fe' => PushChain env fe') := by
   unfold checkDeclC
   cases pd with
@@ -666,7 +666,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · exact Yields.ofThrow
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (pd : DeclC) :
+    (h : PushChain env fe) (pd : Declaration) :
     Yields (checkDeclStepC mode fe pd) (fun fe' => PushChain env fe') := by
   unfold checkDeclStepC
   ybind
@@ -675,7 +675,7 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 /-- Phase A's step body: a fresh chain, and the pending records grow
 by at most the one it may push. -/
 theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (pend : Array PendingCheck) (pd : DeclC) :
+    (h : PushChain env fe) (pend : Array PendingCheck) (pd : Declaration) :
     Yields (annotStepC mode i fe pend pd)
       (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := by
   have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode fe pd', pend) :
@@ -719,7 +719,7 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
 /-- **Phase A is a fresh chain**: from a canonical index, an accepting
 run returns a canonical index whose constants extend the start by
 fresh names, and the pending records extend the start's. -/
-theorem installRun_trace (mode : CheckMode) {ds : List DeclC} {env : Env}
+theorem installRun_trace (mode : CheckMode) {ds : List Declaration} {env : Env}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (h : InstallRun mode ds p s q s') (hp : PushChain env p.2.1) :

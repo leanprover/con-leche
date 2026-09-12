@@ -54,16 +54,6 @@ open ConLeche ConLeche.Semantics ConLeche.Model
 universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- Every parsed declaration relates to one: with one expression type
-the witness is the record itself. -/
-theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
-  | .axiomDecl _ => ⟨_, .axiomDecl rfl⟩
-  | .defnDecl _ _ _ => ⟨_, .defnDecl rfl rfl⟩
-  | .thmDecl _ _ => ⟨_, .thmDecl rfl rfl⟩
-  | .opaqueDecl _ _ => ⟨_, .opaqueDecl rfl rfl⟩
-  | .basisDecl _ => ⟨_, .basisDecl⟩
-  | .indDecl _ _ => ⟨_, .indDecl⟩
-
 /-! ## The two-phase driver: phase A's install halves -/
 
 /-- Phase A's header install simulates the pure install half: from an
@@ -307,7 +297,7 @@ core takes; the records' checks are consumed at the positions that
 produced them.)  A theorem's record holds its RAW value: phase A
 installed the header alone, and phase B's check — which annotates the
 value — is what the theorem's model step consumes. -/
-theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (hrun : InstallRun μ ds p s q s') :
@@ -329,7 +319,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     obtain ⟨⟨mp⟩, hE⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
-    have ordinary : ∀ (pd' : DeclC),
+    have ordinary : ∀ (pd' : Declaration),
         (checkDeclStepC μ fe pd' >>= fun fe' => pure (fe', pend)) s = .ok ((fe₁, pend₁), s₁) →
         EnvModelOk V μ q.2.1.env := by
       intro pd' hst
@@ -337,9 +327,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       obtain ⟨hv, rfl⟩ := pureC_ok hp
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
-      obtain ⟨d, hd⟩ := DeclCRel_total pd'
       rw [hfe] at hstepC'
-      obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hd hstepC'
+      obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hstepC'
       exact ih hfe₁
         (declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
         hres₁ hnd hB
@@ -457,7 +446,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
 is a hypothesis because the walk threads the model for the
 well-formedness it needs; the conclusion is the model itself. -/
 theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} (fc : FullyChecked μ ds) :
+    {ds : List Declaration} (fc : FullyChecked μ ds) :
     Nonempty (EnvModelM V μ fc.env) := by
   obtain ⟨n, s, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
@@ -470,7 +459,7 @@ a validating mode, holds no constant of type `False`.  The main theorem
 (`ConLeche.no_proof_of_False`, about `checkDecls`) is this under
 `checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     (fc : FullyChecked μ ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const falseName [] → False := by
@@ -479,7 +468,7 @@ theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
 
 /-- The same letter about the pinned `Empty`. -/
 theorem no_proof_of_Empty_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     (fc : FullyChecked μ ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const emptyName [] → False := by

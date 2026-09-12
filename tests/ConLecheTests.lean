@@ -317,9 +317,9 @@ private def basisModelExport : String := String.intercalate "\n" [
   "{\"def\":{\"name\":2,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}",
   "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}"]
 
-/-- The declared name of a directly-parsed record (`DeclC` carries no
+/-- The declared name of a directly-parsed record (`Declaration` carries no
 `name` projection: its constructors differ in arity). -/
-private def declCName : ConLeche.Cached.DeclC → Name
+private def declCName : ConLeche.Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
   | .basisDecl _ => .anonymous

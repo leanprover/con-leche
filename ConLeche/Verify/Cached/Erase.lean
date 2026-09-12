@@ -37,7 +37,7 @@ apparatus, `MemoErase`/`toExprGo_spec`/`toExpr_eq` (there is no
 readback).  847 lines to this.
 
 **Task #172 B3b**: `WFc` itself is gone — the six direct-parse capstone
-letters it survived for are restated over `List DeclC` — so the
+letters it survived for are restated over `List Declaration` — so the
 lemmas below take no invariant argument, the six `WFc.*_inv`
 inversions are deleted (a node's children need no certificate), and
 what is left is exactly three field equations and their two cutoff

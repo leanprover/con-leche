@@ -32,7 +32,7 @@ different."*
 
 **How.**  The prelude is a lean4export-format stream, embedded here
 with `include_str` and parsed by the ordinary direct parser
-(`parseExportD`) into `DeclC` records — the basis blocks through the
+(`parseExportD`) into `Declaration` records — the basis blocks through the
 same pin match as any stream's, `Bool` as an ordinary inductive block
 the direct sum install serves.  Every stream parse
 (`parseExportStreamD` / `parseExportHandleD`, `Main.lean`) is handed

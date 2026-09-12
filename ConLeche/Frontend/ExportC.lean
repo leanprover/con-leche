@@ -70,7 +70,6 @@ constant motives need it).
 namespace ConLeche.Frontend
 
 open ConLeche
-open ConLeche.Cached (DeclC)
 
 
 /-! ## The built-in prelude (task #191)
@@ -94,7 +93,7 @@ dropped as the prelude's duplicate. -/
 /-- The constant a definition-like record would store, for the canon
 comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
 constructor test, not here). -/
-def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
+def _root_.ConLeche.Declaration.asInfo? : Declaration → Option ConstantInfo
   | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
   | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
   | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
@@ -103,7 +102,7 @@ def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
 
 /-- Two parsed records are the same declaration: same kind, and equal
 up to the basis-matching canonical form (`ConstantInfo.canon`). -/
-def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
+def _root_.ConLeche.Declaration.sameCanon : Declaration → Declaration → Bool
   | .basisDecl k, .basisDecl k' => k == k'
   | .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'
   | .opaqueDecl .., .defnDecl .. => false
@@ -117,11 +116,11 @@ def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
 definition-like and inductive records by every name they declare, and
 the basis blocks by kind. -/
 structure PreludeIx where
-  decls : Array DeclC := #[]
-  byName : Std.HashMap Name DeclC := {}
+  decls : Array Declaration := #[]
+  byName : Std.HashMap Name Declaration := {}
   basis : List BasisKind := []
 
-def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
+def PreludeIx.ofDecls (ds : Array Declaration) : PreludeIx :=
   ds.foldl (init := {}) fun ix d =>
     match d with
     | .basisDecl k => { ix with decls := ix.decls.push d, basis := k :: ix.basis }
@@ -132,14 +131,14 @@ def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
 
 /-- The direct parse state: stream-index-keyed tables of *values*
 (names and levels as trees, expressions as `Expr` — a table hit is a
-shared node by reference), the parsed declarations as `DeclC`, and
+shared node by reference), the parsed declarations as `Declaration`, and
 the taint bookkeeping, unchanged (both are keyed by stream indices, so
 they are representation-independent). -/
 structure StateD where
   names : IdTable Name := IdTable.singleton .anonymous
   levels : IdTable Level := IdTable.singleton .zero
   exprs : IdTable Expr := {}
-  decls : Array DeclC := #[]
+  decls : Array Declaration := #[]
   tainted : Std.HashMap Nat Name := {}
   taintedNames : Std.HashMap Name Name := {}
   taintSkipped : Array (Name × Name) := #[]
@@ -183,7 +182,7 @@ structure StateD where
   /-- for the debug dump (`CON_LECHE_INMODEL_DUMP`): per modelled block, its
   ordinal among the stream's `inductive` records and the generated
   records -/
-  inModelGen : Array (Nat × Array DeclC) := #[]
+  inModelGen : Array (Nat × Array Declaration) := #[]
   /-- the number of `inductive` records seen so far -/
   indCount : Nat := 0
   /-- the parsed inductive blocks, by member type name (the in-process
@@ -202,7 +201,7 @@ structure StateD where
   preludeDropped : Nat := 0
 /-- Record a pushed declaration's constants in the declaration table
 (`constTypes`, `heights`; task #200). -/
-def noteDecl (st : StateD) (d : DeclC) : StateD :=
+def noteDecl (st : StateD) (d : Declaration) : StateD :=
   let cvs : List (Name × List Name × Expr × Option Nat) := match d with
     | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
     | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
@@ -222,8 +221,8 @@ def noteDecl (st : StateD) (d : DeclC) : StateD :=
 /-- **The prelude dedupe** (task #191), at every declaration push: a
 basis block the prelude holds is dropped by kind; a record under a
 prelude name is dropped when it is the same declaration
-(`DeclC.sameCanon`) and declines the stream when it differs. -/
-def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
+(`Declaration.sameCanon`) and declines the stream when it differs. -/
+def pushDecl (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
   match d with
   | .basisDecl k =>
     if st.prelude.basis.contains k then
@@ -392,7 +391,7 @@ def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
 `pushDecl`, plus the projection-iota registration (the ONLY place it
 runs since task #219 — a stream record is an ordinary declaration
 whatever it is called). -/
-def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
+def pushGenD (st : StateD) (d : Declaration) : StateD ⊕ RecordVerdict :=
   match d with
   | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
   | _ => pushDecl st d
@@ -401,7 +400,7 @@ def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ RecordVerdict :=
 (task #219): a declaration of the FOLD, never a record of the file, so
 the driver's headline count subtracts it and a failure at it is
 reported with the block it models. -/
-def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
+def noteGen (st : StateD) (d : Declaration) (T0 : Name) : StateD :=
   let m := st.genOwner
   let st := { st with genOwner := {} }
   { st with genRecords := st.genRecords + 1,
@@ -447,7 +446,7 @@ def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
   pure ⟨types, ctors, recs⟩
 
 /-- The record's own semantics: the declaration kinds, producing
-`DeclC` records.  Every branch, guard and error string is the one the
+`Declaration` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
 def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) := do
@@ -845,7 +844,7 @@ def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
 skips.  No arena. -/
 structure ParseResultD where
   /-- the built-in prelude's records first, then the stream's (task #191) -/
-  decls : Array DeclC
+  decls : Array Declaration
   taintSkipped : Array (Name × Name)
   /-- projection functions rewritten to recursor form (2026-09-06) -/
   projRewrites : Array Name := #[]
@@ -871,7 +870,7 @@ structure ParseResultD where
   /-- the in-process modeller's generated records per block, keyed by
   the block's ordinal among the stream's `inductive` records (for the
   debug dump only) -/
-  inModelGen : Array (Nat × Array DeclC) := #[]
+  inModelGen : Array (Nat × Array Declaration) := #[]
   /-- the census's declines (block, reason) -/
   inModelDeclined : Array (Name × String) := #[]
 

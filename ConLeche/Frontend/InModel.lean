@@ -30,7 +30,6 @@ Rungs: `genMutual` (B1: index-free mutual; B2 adds indices), nested
 namespace ConLeche.Frontend.InModel
 
 open ConLeche
-open ConLeche.Cached (DeclC)
 
 /-- Is the block one this modeller is for: mutual (several types) or
 nested (`numNested > 0`)? -/
@@ -39,7 +38,7 @@ def wants (b : BlockRec) : Bool :=
 
 /-- Generate the model records of a block, in stream order, or the
 reason the block is declined. -/
-def generate (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) :=
+def generate (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) :=
   if b.types.any (·.numNested > 0) then
     genNested ctx b
   else

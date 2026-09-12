@@ -25,7 +25,7 @@ denotation — in `ConLeche/Denotes.lean`.
   with the proof that `checkDecls` returns it
   (`Cached.fullyChecked_checkDecls`), so the success line is printed
   from an accept of `checkDecls` and from nothing else.
-* `DeclC` is a parsed declaration; `Env` is the environment the checker
+* `Declaration` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted; `.verified` is the
   default mode.
 * `False` and `Eq` are built in: the checker installs them from its own
@@ -40,14 +40,14 @@ The axioms used are exactly `propext`, `Classical.choice` and
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (DeclC checkDecls)
+open ConLeche.Cached (checkDecls)
 
 universe w
 
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
+    (ds : List Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
@@ -57,7 +57,7 @@ theorem model_exists (V : Type w) [SetTheory V]
 constant of type `False`: its type would denote the empty set, and
 `Model.mem` puts the constant inside it. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
+    (ds : List Declaration) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
   rintro ⟨c, hc, hty⟩
