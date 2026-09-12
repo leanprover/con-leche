@@ -707,11 +707,14 @@ theorem nestedPinsOk_inv {F : Nat} {env : Env} {nP : Nat} {fvsA : List Expr} :
   | [], _, q, hq => nomatch hq
   | q₀ :: rest, h, q, hq => by
     simp only [nestedPinsOk, bind, Except.bind] at h
-    obtain ⟨e, he, h⟩ := exceptBind_ok h
-    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
-    rcases List.mem_cons.mp hq with rfl | hq
-    · exact ⟨e, ty, he, hty⟩
-    · exact nestedPinsOk_inv h q hq
+    -- the scope guard (K.3): its failure branch is a throw
+    split at h
+    · obtain ⟨e, he, h⟩ := exceptBind_ok h
+      obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+      rcases List.mem_cons.mp hq with rfl | hq
+      · exact ⟨e, ty, he, hty⟩
+      · exact nestedPinsOk_inv h q hq
+    · exact nomatch h
 
 /-! ## The minted names, and the conses -/
 
@@ -774,5 +777,76 @@ theorem reserved_of_str_rec {T : Name}
 
 /-- A name under `.str "rec"` is not a projection function's. -/
 theorem isProjFnShape_str_rec (T : Name) : (T.str "rec").isProjFnShape = false := rfl
+
+/-! ## The pins' scope (task #279 K.3 → M.21)
+
+`pinsClosed` records, of every pin ABSTRACTED over the block's
+parameters, the pair `ConstWF` demands of a nested rule's stored pins:
+no free variable, and the loose bound variables within the parameter
+telescope.  Instantiated at the openers of the stored former — `fvar i
+ty_i` with `ty_i` scoped at `i` over the earlier openers, as `Opened`
+records them — the pin is scoped at `nP`, bvar-closed, and every leaf
+it has is an opener: the three facts the reading of the pin consumes
+(`pinRead_of`, `Model/Inductives/CopyPins.lean`). -/
+
+/-- `pinsClosed`, per pin. -/
+theorem pinsClosed_inv {nP : Nat} {pins : List NestedPin} (h : pinsClosed nP pins = true) :
+    ∀ q ∈ pins, (Expr.abstractRange q.pin 0 nP 0).hasFvar = false ∧
+      (Expr.abstractRange q.pin 0 nP 0).looseBVarsBounded nP = true := by
+  intro q hq
+  unfold pinsClosed at h
+  rw [List.all_eq_true] at h
+  have := h q hq
+  simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at this
+  exact this
+
+/-- **A closed term at the openers is scoped**: a term free of free
+variables whose loose bound variables lie within `nP` binders,
+instantiated at `nP` openers `fvar i ty_i` (each annotated by a term
+scoped at `i`, bvar-closed, with leaves among the openers), is scoped
+at `nP`, bvar-closed, and has its leaves among the openers.  At
+`nP = 0` there are no openers and the term is its own reading. -/
+theorem instantiateList_openers_scoped {nP : Nat} {fvs : List Expr} {qa : Expr}
+    (hlen : fvs.length = nP) (hfv : qa.hasFvar = false) (hb : qa.looseBVarsBounded nP = true)
+    (hvar : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      (∃ ty, x = Expr.fvar i ty) ∧ Expr.WScoped i (Expr.fvarTypeD x) ∧
+      (Expr.fvarTypeD x).looseBVarsBounded 0 = true ∧
+      ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
+    Expr.WScoped nP (Expr.instantiateList qa fvs.reverse) ∧
+    (Expr.instantiateList qa fvs.reverse).looseBVarsBounded 0 = true ∧
+    ∀ l ∈ (Expr.instantiateList qa fvs.reverse).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+  -- each opener, as a term
+  have hmem : ∀ x ∈ fvs, ∃ i ty, x = Expr.fvar i ty ∧ i < nP ∧ Expr.WScoped i ty ∧
+      ty.looseBVarsBounded 0 = true ∧ ∀ l ∈ ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+    intro x hx
+    obtain ⟨i, hi, hxi⟩ := List.getElem_of_mem hx
+    obtain ⟨⟨ty, rfl⟩, hws, hb0, hlv⟩ := hvar i x (by rw [List.getElem?_eq_getElem hi, hxi])
+    exact ⟨i, ty, rfl, hlen ▸ hi, hws, hb0, hlv⟩
+  have hnil : ∀ l ∈ qa.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+    intro l hl
+    rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv] at hl
+    exact nomatch hl
+  cases nP with
+  | zero =>
+    obtain rfl : fvs = [] := List.eq_nil_of_length_eq_zero hlen
+    rw [List.reverse_nil, Expr.instantiateList_nil]
+    exact ⟨Expr.WScoped.of_not_hasFvar hfv, hb, hnil⟩
+  | succ t =>
+    rw [← Expr.instSpine_eq_instantiateList fvs t qa hlen]
+    refine ⟨instSpine_WScoped t (Expr.WScoped.of_not_hasFvar hfv) fun a ha => ?_, ?_, ?_⟩
+    · obtain ⟨i, ty, rfl, hi, hws, -, -⟩ := hmem a ha
+      rw [Expr.WScoped]
+      exact ⟨hi, hws⟩
+    · have h := instSpine_closed (args := fvs) (e := qa)
+        (fun a ha => by obtain ⟨i, ty, rfl, -⟩ := hmem a ha; rfl) (by rw [hlen]; exact hb)
+      rwa [hlen, Nat.add_sub_cancel] at h
+    · intro l hl
+      rcases fvarLeaves_instSpine t hl with hl' | ⟨a, ha, hla⟩
+      · exact hnil l hl'
+      · obtain ⟨i, ty, rfl, -, -, -, hlv⟩ := hmem a ha
+        simp only [Expr.fvarLeaves, List.mem_cons] at hla
+        rcases hla with rfl | hla
+        · exact ha
+        · exact hlv l hla
 
 end ConLeche

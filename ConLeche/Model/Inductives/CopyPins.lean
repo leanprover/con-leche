@@ -431,16 +431,18 @@ parameter frame, graded there (`PinRead`) — is that run through
 `acceptedReads_of` and `ClaimsAt.inferRow`, at the parameter context
 the block's first member's former opens (`Opened`).
 
-**The guards the check does not compute** (DESIGN §M.20, the kernel
-request): `acceptedReads_of` and `Opened.ctx` need the annotated pin to
-be `WScoped nP` HEREDITARILY, `looseBVarsBounded 0`, and to have its
-fvar leaves among the openers.  `annotateBody` certifies only that each
-`.fvar` its traversal REACHES has index `< depth` — it does not descend
-into an fvar's type annotation, it does not compare the annotation with
-the opener's, and it passes a `.bvar` through unchecked.  The pin's
-components appear in NO other checked term (that is why post-check (a)
-exists at all), so nothing else certifies them either.  They are taken
-as hypotheses here.
+**The pin's scope** (DESIGN §M.20's kernel request, landed as K.3
+`pinsClosed`): `acceptedReads_of` and `Opened.ctx` need the annotated
+pin to be `WScoped nP` HEREDITARILY, `looseBVarsBounded 0`, and to have
+its fvar leaves among the openers.  `annotateBody` certifies only that
+each `.fvar` its traversal REACHES has index `< depth` — it does not
+descend into an fvar's type annotation, it does not compare the
+annotation with the opener's, and it passes a `.bvar` through
+unchecked — and the pin's components appear in NO other checked term.
+The run records instead that the pin ABSTRACTED over the parameters is
+fvar-free with its loose bvars inside the telescope (`pinsClosed`), and
+`instantiateList_openers_scoped` (`Verify/Inductives/NestedFacts.lean`)
+turns that into the three facts at the openers.
 -/
 
 namespace IndRepData
@@ -487,12 +489,22 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
       (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0) fvsA.reverse)
     (hann : ConLeche.annotateCore μ env F d.nP pinA = .ok e)
     (hinf : ConLeche.inferTypeCore μ env F d.nP e = .ok ty)
-    -- the guards the pin check does not compute (the kernel request)
-    (hws : Expr.WScoped d.nP pinA) (hb : pinA.looseBVarsBounded 0 = true)
-    (hleaf : ∀ l ∈ pinA.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsA) :
+    -- the pin's scope (`pinsClosed`, K.3): abstracted over the parameters
+    -- it is fvar-free with its loose bvars inside the telescope
+    (hclosed : (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0).hasFvar = false ∧
+      (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0).looseBVarsBounded d.nP
+        = true)
+    (hlenF : fvsA.length = d.nP) :
     ∃ DsA : List AnnotTerm, DsA.length = Ds.length ∧
       d.PinRead ψ (mp.base2.acval Jn
         (ConLeche.Level.substFn ψ ci.toConstantVal.levelParams lvls)) DsA Ds.length := by
+  -- the pin's three syntactic guards, from its scope at the openers
+  obtain ⟨hws, hb, hleaf⟩ : Expr.WScoped d.nP pinA ∧ pinA.looseBVarsBounded 0 = true ∧
+      ∀ l ∈ pinA.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsA := by
+    rw [hpinA]
+    exact ConLeche.instantiateList_openers_scoped hlenF hclosed.1 hclosed.2 fun i x hx =>
+      let h := hopened.var i x hx
+      ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.2⟩
   -- the annotated pin is a spine at the same constant
   have hconst : Expr.instantiateList ((Expr.const Jn lvls).abstractRange 0 d.nP 0) fvsA.reverse
       = .const Jn lvls := by
