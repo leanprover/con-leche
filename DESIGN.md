@@ -69007,7 +69007,8 @@ and none was run.
 |---|---|
 | `lake build` | 544 jobs, **warning-free**, exit 0 |
 | `lake test` | green, warning-free |
-| `tests/arena.sh` (full, `env -i`) | see the run below |
+| `tests/arena.sh` (full, `env -i`, no `ulimit`) | **exit 0.**  layering 280/190/3/1, 0 base→lane, 0 impl→theory; proofdeps **3 819 rows / 11 roots / 0 doors, byte-for-byte as pinned** (the module graph did not move — no pin regenerated); pindump 3 pinners reproduced; trust surface 13 escapes in 5 allowlisted files (484 scanned), 0 outside; no-local-paths OK; challenge OK; shake 457 proposals all allowlisted; inmodel OK; axioms 18 theorems at the three; arena tutorial **90/92**; e2e **195/195**; annot **15/15**; retired flags **8/8**; prelude counts 3/3; worker pool 15/15; DAG-tower 14/14; trusted sweep 138+195+15 with the three recorded divergences; `--jobs=1` and `--jobs=4` sweeps as at the default |
+| the two counts that MOVED | **mode flags 20/20 → 18/18** (the two retired-env-var assertions) and **progress lane 17/17 → 15/15** (the two `CON_LECHE_PROGRESS`-is-ignored assertions).  Those four are the removals themselves; every other number is master's. |
 | `tests/overview-links.sh` | four Main.lean anchors re-anchored (`usage` L791→L738, `checkLoop` L192→L163, `checkPool` L307→L278, `checkDeclsIO` L345-L349→L316-L319, one line shorter for the dropped parameters); each citing paragraph re-read and still true; 77 links / 49 files OK |
 | `PERF.md` | regenerated with `scripts/perf-tables.sh --render` from the tracked `perf-data/` record after editing the one sentence in `scripts/perf-tables-render.py`; the diff is exactly that sentence |
 
