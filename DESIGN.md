@@ -71207,6 +71207,176 @@ on `3640f02e`, and again after K.3 on `40ad5bc2`):
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
 | Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
 
+#### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
+
+**The question, and the maintainer's ruling.**  The elimination MINTS a
+copy `A` of a container member `J` at a pin `J Ds` by instantiating:
+`mkCopy` (`Kernel/Inductives/NestedElim.lean`) takes `J`'s STORED —
+hence already annotated — former type, instantiates its level
+parameters at the occurrence's `lvls`, applies it to the pin's
+components `Ds` (`Expr.instPis`) and closes the result over the current
+constructor's parameter binders (`closeTelescope pbs 0`); the copy's
+constructors are `J`'s the same way, through `elimCtors`,
+`replaceAllNested` and the auxiliary block's own `normCtorValM`.  The
+auxiliary block is then installed by `checkMutualCore`, which
+RE-ANNOTATES those types.  The model lane (§M.21) needs the copies'
+STORED types to be the container's at the pin **on the nose, binder
+data included**; up to the data (`ErasedEq`) it has them.  §M.21 priced
+three resolutions — (A) a kernel `==` check, (B) a hypothesis, (C) a
+theorem — and the maintainer took (C): *"that theorem sounds like a very
+useful property of the system to establish anyways"*.  **No kernel
+change was made, and none is owed: no counterexample to the equation
+turned up.**
+
+**The statement, as landed** (`ConLeche/Verify/Inductives/CopyTypes.lean`):
+
+```lean
+theorem annotateCore_of_annotRel {env : Env} {R : Expr → Expr → Prop}
+    (hRok : ∀ a b, R a b → ∀ (f d' : Nat) (x : Expr),
+      annotateCore mode env f d' a = .ok x → x = b)
+    (hRc : ∀ a b, R a b → a.looseBVarsBounded 0 = true ∧ b.looseBVarsBounded 0 = true) :
+    ∀ (F : Nat) (e e' : Expr) (d : Nat) (r : Expr),
+      AnnotRel R e e' → AnnotStable env.find? d e' →
+      WScoped d e' → e'.looseBVarsBounded 0 = true →
+      annotateCore mode env F d e = .ok r → r = e'
+```
+
+Read with `R` = "a raw pin component ↦ its annotation" (what
+`nestedPinsOk` computes, the model lane's `argsA`): **the auxiliary
+install's annotation of a minted copy returns the container's stored
+type at the ANNOTATED pin, binder data and all** — which is exactly the
+equation §M.21(A) asked the kernel to check.  With `R = ⊥` it is
+`annotateCore_eq_self`: *the annotation pass is the identity on its own
+fixed points*, the idempotence the whole alignment rests on and the
+"useful property" in its cleanest form.
+
+**Why it is true, and where the content is.**  A binder's datum is
+recomputed only where the input datum is the placeholder `.never`
+(`pwWritten pw = !pw.isNever`); a written datum the pass KEEPS, and a
+minted copy inherits its written data from the container's stored type,
+so at those binders the copy's datum is the container's for free.  What
+is left is the `.never` binders — every Type-valued codomain — and
+there the recomputation is `annotPwPi`, which asks the **head-symbol
+reader** `typeSortPW` (`Kernel/PropRead.lean`) BEFORE it ever reaches
+inference.  The reader is a syntactic function of the head symbol, the
+arity and the binder data, so on its branch the recomputation commutes
+with the elimination's two instantiations for elementary reasons:
+
+* `SortAgree find? A v` — "`v` reads, for the head reader, like a
+  variable declared of type `A`", one equation per arity — and
+  `typeSortPW_instantiate1_congr`: **the reader cannot tell an opened
+  binder from a `SortAgree` value**.  This is the term half: a pin
+  component put where the container's parameter stood changes no
+  reading.
+* `typeSortPW_instantiateLevelParams`: **the reader commutes with level
+  instantiation through `substPW`**, the datum's own substitution —
+  `Level.zeronessOf_subst` at an `fvar` head, `Level.substPW_comp` at a
+  constant head (where the STORED type is not instantiated, only the
+  use-site levels are), under `EnvWF`'s bound on stored types' level
+  parameters (`EnvWF.storedLevelParamsDefined`).
+
+`AnnotStable find? d e` packages the per-binder obligation (written, or
+the reader's answer on the opened body) and `AnnotRel R e e'` the
+"same term up to annotated leaves" relation; the theorem is one
+induction on the fuel over the annotation pass's own clauses, with the
+open/close roundtrip `Expr.instantiate1_abstract1` (the mirror of
+`abstract1_instantiate1`, which the tree had and this direction lacked)
+and two new inversions that expose the DATUM the binder clause writes
+(`annotateCore_forallE_inv_pw`, `annotateCore_lam_inv_pw` — the
+existing `annotateCore_forallE_inv` takes it existentially, and the
+copies' alignment is precisely a claim about it).
+
+**What was false, and repaired.**  §M.21's reading of the finding — "the
+bits are not recoverable" — is right about the MODEL (`AnnotValid` is
+one-directional, and `piR 0 ≠ piR 1`), and it silently suggested that
+the syntax was equally out of reach.  It is not: the pass's datum is
+the READER's answer wherever the reader answers, and the reader is
+elementary.  A second correction is internal to this task: the first
+cut required the datum to be the reader's answer at EVERY binder,
+written ones included, because a written datum does not survive level
+instantiation (`substPW` collapses `ifAllZero [u]` to `.never` at
+`u := 1`, after which the pass recomputes).  That is true but the wrong
+place to pay for it: the predicate is stated of the term the pass is to
+REPRODUCE — the instantiated one — so its `.never` binders are already
+the post-substitution ones, and the disjunction is back.
+
+**The restriction, stated once.**  `AnnotStable` has no `.letE` and no
+`.proj` clause, and that is not an oversight: the pass returns a `let`'s
+ζ reduct and re-spells a projection's display name at the type's head,
+so neither is a fixed point in general.  Stored types are ζ-free by
+construction (#241); a `.proj` inside a container's stored type is the
+one shape this theorem does not cover, and none of the 41 Mathlib
+nested blocks, init-full's one or any probe has one.
+
+**What remains** (the frontier, both named in the module docstring):
+
+1. **The inference fallback.**  Where the reader DECLINES — a `.proj`-
+   or redex-headed codomain, an `isTowerEntry` head — the datum is
+   `Level.zeronessOf` of an INFERRED sort, and its stability under
+   instantiation is the general inference-substitution theorem ("the
+   inferred type of a term with a well-typed closed substitution
+   applied is the substituted inferred type, up to defeq").  That
+   theorem is NOT within reach as stated: it needs a substitution lemma
+   for `whnf` and for the `defeq` ALGORITHM, i.e. transitivity of an
+   algorithmic conversion — a metatheory project, not a session.  The
+   reader branch is what makes the copies' alignment provable without
+   it, and the one fixture that exercises a redex pin
+   (`tests/e2e/inmodel_nested`'s `PT`, `DMap α (fun _ => PT α)`) is the
+   shape to watch: the redex sits in a FIELD DOMAIN, not in a binder
+   codomain, so the reader is not consulted there — but that is an
+   observation about today's corpus, not a theorem.
+2. **The telescope bookkeeping.**  Turning the per-node facts into the
+   copy's whole stored type — `instPis` peeling the container's
+   parameter telescope, `closeTelescope` re-adding the block's, the
+   constructor route through `replaceAllNested` and `normCtorValM`,
+   and the parameter binders' data at
+   `zeronessOf (resSortJ.instantiateLevelParams J.lps lvls)` — is the
+   model lane's next step, and it is where `typeSortPW_at_pin`,
+   `typeSortPW_at_levels`, `typeSortPW_sort`, `typeSortPW_forallE` and
+   `typeSortPW_mkAppN_const` are consumed.  A transport of
+   `AnnotStable` ACROSS the substitution (rather than a discharge at
+   the instantiated term) was tried and abandoned on purpose: the
+   binder clause opens at `.fvar d ty`, and under a substitution the
+   two sides' opener ANNOTATIONS differ, so the transport needs a
+   structural relation whose `fvar` congruence relates the annotations
+   — a second relation, and unnecessary, since the obligation is
+   cheaper to discharge directly at the mint.
+
+**Discharging `SortAgree`, and a probe not run.**  `SortAgree find? A D`
+is itself read by the same reader on both sides, never by inference:
+where the container's parameter domain `A` is a `Sort`, its side is
+`residualPW (some A)` and the component's is `typeSortPW find? D`, and
+at a Type-valued parameter — the common case — both are `.never`, so
+the equation is discharged by a "never" lemma on each side; a
+Prop-valued parameter makes both sides an `ifAllZero` datum, still
+syntactic.  What has NOT been done is an EMPIRICAL confirmation of the
+alignment equation: the cheap probe is §M.21(A)'s `==` comparison run
+as a shadow-only diagnostic over the 41-block Mathlib nested cone and
+`inmodel_nested`, and it is not here because it is a change to the
+checker's lane, which this proof-only lane may not make.  No
+counterexample turned up in reasoning about the equation, and the
+theorem says why there cannot be one on the reader's branch.
+
+**Hypotheses the model lane owes from the run** (nothing new is asked
+of the kernel): `EnvWF env` at the pre-block environment, for
+`EnvWF.storedLevelParamsDefined`; `pinsOkAux`/`pinsClosed` (K.2/K.3) for
+the pin components' scope and typing, from which `SortAgree` at each
+component is read; the aux install's own `annotateCore … = .ok stored`
+for the copy's type (`DeclNestedRun`'s `auxStoredAll` chain); and
+`ConstWF` at the container for its stored type's closedness.
+
+**Where it lives, and the gates.**  `ConLeche/Verify/Inductives/CopyTypes.lean`
+imports `Verify.PropRead`, `Verify.PropWhen`, `Verify.EnvWF`,
+`Verify.Abstract` and `Verify.Subst` — nothing from the nested kernel
+modules, so it is importable by anything; it is OFF the build graph
+(nothing imports it yet, as for `Verify/Inductives/NestedInv.lean` and
+the model lane's modules) and is built explicitly,
+`lake build ConLeche.Verify.Inductives.CopyTypes`.  Gates run:
+`lake build` and `lake test` warning-free, the module built explicitly,
+`tests/no-local-paths.sh` and `tests/layering.sh` OK.  Landing gates
+(arena, proofdeps/shake, init-full) are not owed by a proof-only lane
+that adds one off-graph module.
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
