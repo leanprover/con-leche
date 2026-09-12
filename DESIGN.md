@@ -69848,6 +69848,110 @@ bits, and `CtorDataI.bits` gives exactly those at every binder; only
 domain bits mix, and no lemma reads them.
 
 
+#### 8.16 M2.7: the #280 clause discharged — `declMutual` stands alone (2026-09-12)
+
+`declMutual` has NO named premise left:
+
+```lean
+theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.mutualParts? nPd block = some p)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p env₂) :
+    Nonempty (EnvModelM V μ env₂)
+```
+
+`MutualRepsOk` is DELETED, and `Model/Fold.lean`'s `.indDecl` arm now
+splits three ways exactly as `DeclIndRunDispatch` does — `nativeParts?`,
+then `mutualParts?`, then the modeled path.  **This is the first fully
+green `lake build` and `lake test` on `agent/mutual-278`** (both exit
+0, warning-free; the only `sorry`s in the tree are `Challenge.lean`'s
+three, which are the project's by design).
+
+**What the clause needed.**  `MutualRepsOk`'s two components were
+`stageMutualRecsProvision`'s `hreps` (a rule-less recursor's cons
+claims `IndRepsHead`) and `stageMutualRecsStore`'s `hreps` (the group
+store keeps `IndReps`).  Only the second is dischargeable as it stood.
+The first is quantified over an ARBITRARY intermediate carrier `env'`
+of the provisioning loop with only `env'.find? (cvRa t).name = none`,
+while `mutualIndRep_of` needs the block's facts AT that carrier — the
+formers' `FormerData`, the constructors' `MutualCtorFactsAt`, the two
+leaves, the index arguments' `constsResolve`.
+
+**The witness is an INVARIANT, not `find?` monotonicity.**  The
+obvious repair — thread `FindPreserved`/`LitGuardsMono`/`findProj?`
+preservation from the constructors' carrier plus an `acval` agreement
+— is real but expensive: `FormerData.crossEnv` is the only `crossEnv`
+in the tree, and the constructors' side would need a new one for
+`MutualCtorDataI`, eight reading fields (`read`, `idxRead`, `okTy`,
+`domRead`, `eisRead`, `recEntry`, `reflOpen`, `reflEntry`) over
+`denoteMeta_envExtend_mono` + `denoteMeta_acval_congr`.  It is not
+needed: **`IndRep.cross` (`Model/IndRepCons.lean:291`) already crosses
+a FINISHED representation over one fresh cons.**  So the provisioning
+loop threads a predicate on carriers that the CALLER chooses — the
+shape `stageMutualCtors` has used since M2.2b — with one step
+obligation:
+
+```lean
+(Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
+(hInv : ∀ {env' : Env} (m' : EnvModel V env') (t : Nat), t < p.k →
+  env'.find? (cvRaOf t).name = none → Inv m' →
+  ∀ m₂ : EnvModel V ⟨.recInfo (cvRaOf t) … [] :: env'.consts⟩,
+    m₂.acval = acvalWith m'.acval (cvRaOf t).name (p.leaf m₀ t) → Inv m₂)
+```
+
+and `hreps` gains `Inv mp'.base2`.  `declMutual` instantiates `Inv` at
+"every member's former is stored, and for every rule list naming that
+member's constructors in block order the member has an `IndRep` at the
+datum `mutualRepData`"; `hInv` is `IndRep.cross` at the rule-less
+recursor cons, and the provisioned head obligation is
+`mutualIndRepsHead_of` at `rules = []` (where `IndRep.rules` is
+vacuous).
+
+**`stageMutualRecsStore`'s obligation had to move too.**  It was
+stated over an abstract `acv`; `mutualIndReps_of` needs an actual
+`EnvModel` at the PROVISIONED environment (for the prefix's `IndReps`
+and for `IndRep.swap` across the rule-list swap), so `stageMutualRecs`
+now hands `hrepsS` the provisioned carrier `mpP` together with
+`Inv mpP.base2`, and `declMutual` assembles `IndReps` from
+`mpP.ind_reps`, `swapShList_provision_store`'s `SwapCongr` and the
+block's own `k` entries.
+
+**The block's representations, once.**  `hIndRepBase` applies
+`mutualIndRep_of` at the constructors' carrier `mp₂`; every premise is
+a stage fact already in `declMutual`'s context.  Three things it
+needed that were not:
+
+* the datum's `resSort` is the member's OWN spelling (`IndRep.strip`
+  compares it syntactically with the stored type's), while every block
+  fact is at `f₀.s` — `hsEqAll` transports by value, and the `isProp`
+  bit is §8.12's `isPropBit_congr`;
+* the datum's derived chain lists are the block's only after the
+  CHAIN-FREE first pass's readings are identified with the real ones:
+  `tlssf`/`Essf`/`Eissf` are spelled from `tssF₀`/`esF₀`/`eissF₀`, so
+  `htlssD`/`hEssD`/`hEissD` go through `hident` as well as
+  `mutTlss_eq_tlssOfR`/`essOfR_mutEssC`/`eissOfR_mutEissC`;
+* `hagree` (the X-SOURCE chains agree with the real ones off the
+  recursive slots) is the new kit lemma `agreeOffRec_shadowFs` over
+  `hFssShadow` — `shadowFs` replaces exactly the recursive and
+  reflexive domains, which is what `AgreeOffRec` reads.
+
+**The stored rules name the member's own constructors, in order**
+(`IndRep.rules` at `IndRepData.memberCtors`).  `mutualRules_ctors`
+turns the stored `RecRule`s into `(rulesOf.getD t []).map (·.1.cv.name)`,
+`checkMutualMemberRules_inv`'s positional rows turn that into
+`(b.ownCtors t).map (·.2.cv.name)`, and the new kit lemma
+`zipIdx_filter_map_eq` moves from the recognised `MutualCtor`s — whose
+`member` field the checker filters on — to `ctorsA`'s global indices,
+which is what the model's `mots` reads.  The two lists are
+index-aligned (`hlenA`, `hnamesC`), so the filtered name lists
+coincide.
+
+New imports: `DeclMutual.lean` takes `Model/Inductives/MutualRep`,
+`Model/IndRepCons` and `Model/IndRepSwap` (all plain — `MutualRep`
+imports the latter two privately, so they are not re-exported);
+`Model/Fold.lean` takes `Model/Inductives/DeclMutual` (plain).
+
+
 ## TASK #279 — NESTED INDUCTIVES ON A NATIVE ROUTE: three options priced, and the design (2026-09-11, `agent/nested-279`, DESIGN ONLY — nothing implemented, nothing landed)
 
 **The brief (maintainer, 2026-09-11, verbatim):** *"Another Fable agent
