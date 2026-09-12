@@ -300,40 +300,39 @@ theorem restrictTo_find?_of_extends {feFinal : FEnv} {env : Env}
 /-! ## The model along the run -/
 
 set_option maxHeartbeats 2000000 in
-/-- **The model along the run**: phase A's accepting run from a
-canonical index whose environment carries the model, with every record
-of the final index checked from a fresh memo state, carries the model
-to the final environment.  (The model at each position supplies the
-well-formedness of the environment every bridge from the executable
-core takes; the records' checks are consumed at the positions that
-produced them.)  A theorem's record holds its RAW value: phase A
-installed the header alone, and phase B's check — which annotates the
-value — is what the theorem's model step consumes. -/
-theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
-    {p : Nat × FEnv × Array PendingCheck} {s : CState}
-    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (hrun : InstallRun μ ds p s q s') :
-    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-    NodupNames q.2.1.env →
-    (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
-    EnvModelOk V μ q.2.1.env := by
-  induction hrun with
-  | nil p s => exact fun _ hm _ _ _ => hm
-  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
-    intro hfe hm hresA hnd hB
-    obtain ⟨i, fe, pend⟩ := p
-    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
-    simp only at hfe hstepC
-    obtain ⟨hpush₁, -⟩ :=
-      annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
-    have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
-    obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
+/-- **One step of the run, with the model**: the cons case of
+`installRun_model`, as a lemma of its own — phase A's step at a record,
+from a canonical index whose environment carries the model, leaves the
+model on the environment it produces, keeps the memo residue, and *is*
+a pure `checkDecl` run at some fuel.  The last conjunct is what a walk
+that wants to know WHAT was installed reads
+(`ConLeche/Verify/Cached/StreamConsts.lean`); `installRun_model` itself
+uses only the first two.
+
+The hypotheses about the run's final index (`q`) are the ones a
+separable value declaration needs: phase A installs its header and
+records the value group, and the group's own check — run at the FINAL
+environment, from a fresh memo state — is what the model step consumes. -/
+theorem annotStepC_model (hμ : μ.verifiedChecks = true)
+    {i : Nat} {fe fe₁ : FEnv} {pend pend₁ : Array PendingCheck} {pd : DeclC}
+    {s s₁ : CState} {q : Nat × FEnv × Array PendingCheck} {new₁ : List PendingCheck}
+    (hfe : fe = mkFEnv fe.env) (hfe₁ : fe₁ = mkFEnv fe₁.env)
+    (hm : EnvModelOk V μ fe.env) (hresA : CSOKF s)
+    (hstepC : annotStepC μ i fe pend pd s = .ok ((fe₁, pend₁), s₁))
+    (hchainF : PushChain fe₁.env q.2.1)
+    (hpend₁ : q.2.2.toList = pend₁.toList ++ new₁)
+    (hnd : NodupNames q.2.1.env)
+    (hB : ∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) :
+    EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
+      ∃ d F, DeclCRel pd d ∧ checkDecl μ (fueledOps μ F) fe.env d = .ok fe₁.env := by
     obtain ⟨⟨mp⟩, hE⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : DeclC),
         (checkDeclStepC μ fe pd' >>= fun fe' => pure (fe', pend)) s = .ok ((fe₁, pend₁), s₁) →
-        EnvModelOk V μ q.2.1.env := by
+        EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
+          ∃ d F, DeclCRel pd' d ∧
+            checkDecl μ (fueledOps μ F) fe.env d = .ok fe₁.env := by
       intro pd' hst
       obtain ⟨fe₁', s₁', hstepC', hp⟩ := bindC_ok hst
       obtain ⟨hv, rfl⟩ := pureC_ok hp
@@ -342,13 +341,13 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       obtain ⟨d, hd⟩ := DeclCRel_total pd'
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hd hstepC'
-      exact ih hfe₁
-        (declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
-        hres₁ hnd hB
+      exact ⟨declStep_preserves hμ mp hE
+          (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF), hres₁, d, F, hd, hF⟩
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
     have value : ∀ (kind : ValueKind) (mk : ConstantVal → ExprC → ConstantInfo)
         (d : Declaration) (cvA : ConstantVal) (jv : ExprC),
+        DeclCRel pd d →
         CSOKF s₁ →
         fe₁ = fe.push (mk cvA jv) →
         pend₁ = pend.push ⟨⟨kind, cvA, jv⟩, i, fe.visibleBelow⟩ →
@@ -356,8 +355,10 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         (kind ≠ .thm → Expr.WScoped 0 jv) →
         (∀ F, checkValueGroup (fueledOps μ F) fe.env ⟨kind, cvA, jv⟩ = .ok () →
           ∃ F', checkDecl μ (fueledOps μ F') fe.env d = .ok ⟨mk cvA jv :: fe.env.consts⟩) →
-        EnvModelOk V μ q.2.1.env := by
-      intro kind mk d cvA jv hres₁ hfe₁' hpend₁' hwty hwv hsplit
+        EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
+          ∃ d' F, DeclCRel pd d' ∧
+            checkDecl μ (fueledOps μ F) fe.env d' = .ok fe₁.env := by
+      intro kind mk d cvA jv hdrel hres₁ hfe₁' hpend₁' hwty hwv hsplit
       subst hfe₁' hpend₁'
       -- the record's check, from a fresh memo state
       have hmem : (⟨⟨kind, cvA, jv⟩, i, fe.visibleBelow⟩ : PendingCheck) ∈ q.2.2.toList := by
@@ -377,7 +378,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       obtain ⟨F', hF⟩ := hsplit F₂ hC
       have hm₁ : EnvModelOk V μ (fe.push (mk cvA jv)).env :=
         declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF)
-      exact ih hfe₁ hm₁ hres₁ hnd hB
+      exact ⟨hm₁, hres₁, d, F', hdrel, hF⟩
     cases pd with
     | defnDecl cv val hint =>
       unfold annotStepC at hstepC
@@ -393,7 +394,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         rw [hfe] at hval
         obtain ⟨hres₁, hcvA, hwty, hwv, F₁, hI, hV⟩ := annotValueC_run hμ henv hresA hval
         refine value .defn (fun cvA jv => .defnInfo cvA jv hint)
-          (.defnDecl cv val hint) cvA jv hres₁ rfl rfl (by rw [hcvA]; exact hwty)
+          (.defnDecl cv val hint) cvA jv (DeclCRel.defnDecl rfl rfl)
+          hres₁ rfl rfl (by rw [hcvA]; exact hwty)
           (fun _ => hwv) ?_
         intro F hC
         have hnat' : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = false :=
@@ -423,6 +425,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
       refine value .thm (fun cvA v => .thmInfo cvA v) (.thmDecl cv val) cvA val
+        (DeclCRel.thmDecl rfl rfl)
         hs₃.residue rfl rfl (by rw [hcvA]; exact hwty) (fun h => absurd rfl h) ?_
       intro F hC
       exact ⟨max F₁ F, checkDecl_of_split_thm rfl
@@ -442,7 +445,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         rw [hfe] at hval
         obtain ⟨hres₁, hcvA, hwty, hwv, F₁, hI, hV⟩ := annotValueC_run hμ henv hresA hval
         refine value .opaque (fun cvA _ => .axiomInfo cvA) (.opaqueDecl cv val)
-          cvA jv hres₁ rfl rfl (by rw [hcvA]; exact hwty) (fun _ => hwv) ?_
+          cvA jv (DeclCRel.opaqueDecl rfl rfl)
+          hres₁ rfl rfl (by rw [hcvA]; exact hwty) (fun _ => hwv) ?_
         intro F hC
         have hred' : reduceOpNames.contains cv.name = false := Bool.not_eq_true _ ▸ hred
         exact ⟨max F₁ F, checkDecl_of_split_opaque hred' rfl
@@ -452,6 +456,38 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     | axiomDecl cv => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | basisDecl kind => unfold annotStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold annotStepC at hstepC; exact ordinary _ hstepC
+
+/-- **The model along the run**: phase A's accepting run from a
+canonical index whose environment carries the model, with every record
+of the final index checked from a fresh memo state, carries the model
+to the final environment.  (The model at each position supplies the
+well-formedness of the environment every bridge from the executable
+core takes; the records' checks are consumed at the positions that
+produced them.)  A theorem's record holds its RAW value: phase A
+installed the header alone, and phase B's check — which annotates the
+value — is what the theorem's model step consumes. -/
+theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+    {p : Nat × FEnv × Array PendingCheck} {s : CState}
+    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+    (hrun : InstallRun μ ds p s q s') :
+    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+    NodupNames q.2.1.env →
+    (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+    EnvModelOk V μ q.2.1.env := by
+  induction hrun with
+  | nil p s => exact fun _ hm _ _ _ => hm
+  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
+    intro hfe hm hresA hnd hB
+    obtain ⟨i, fe, pend⟩ := p
+    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+    simp only at hfe hstepC
+    obtain ⟨hpush₁, -⟩ :=
+      annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
+    have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
+    obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
+    obtain ⟨hm₁, hres₁, -⟩ :=
+      annotStepC_model hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
+    exact ih hfe₁ hm₁ hres₁ hnd hB
 
 /-! ## The letters on the fully checked environment -/
 
