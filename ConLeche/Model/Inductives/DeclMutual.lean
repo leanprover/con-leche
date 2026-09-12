@@ -9,6 +9,9 @@ public import ConLeche.Model.Inductives.MutualRuleRead
 public import ConLeche.Model.Inductives.MutualRecPre2
 public import ConLeche.Semantics.Inductives.DeclMutual
 import ConLeche.Model.Inductives.MutualRuleFires
+import ConLeche.Model.Inductives.MutualRep
+import ConLeche.Model.IndRepCons
+import ConLeche.Model.IndRepSwap
 import ConLeche.Verify.Inductives.MutualInv
 public section
 
@@ -39,7 +42,15 @@ member's index telescope can be graded at another member's parameter
 frame, and the tag is the union of all of them.
 
 **The stage is fully applied**: every conjunct the four stages ask is
-discharged here, `stageMutualTables` included.  The last one to fall
+discharged here, `stageMutualTables` included — the representation
+clause (task #280) among them, so `declMutual` has no named premise.
+The block's `k` representations (`mutualIndRep_of`, `MutualRep.lean`)
+are built ONCE at the constructors' carrier and ride the recursor
+stage as its caller-chosen invariant (`IndRep.cross` at each rule-less
+cons); the provisioned cons's head obligation is
+`mutualIndRepsHead_of` at `rules = []`, the group store's is
+`mutualIndReps_of` at the real rules, whose shape — the member's own
+constructors in block order — is `hrulesShape`.  The last one to fall
 was the table stage's block-wide `Prop`-ness bit against the MEMBER's
 own result-sort spelling (`d.isProp = (Level.isEquiv f.s .zero == some
 true)`), which the checker relates only semantically
@@ -137,40 +148,66 @@ theorem isPropBit_congr {a b : Level} (hab : ∀ ψ : Name → Nat, Level.eval �
     ⟨fun ha => hcomp b (fun ψ => by rw [← hab ψ]; exact hsound _ ha ψ),
      fun hb => hcomp a (fun ψ => by rw [hab ψ]; exact hsound _ hb ψ)⟩
 
-/-! ## The representation clause's obligations -/
+/-! ## Kit: the shadow chain agrees with the real one off the recursive slots
 
-/-- **The #280 representation-clause obligations the mutual recursor
-stage leaves open** — exactly `stageMutualRecsProvision`'s `hreps` (a
-rule-less recursor cons claims its block's representation) and
-`stageMutualRecsStore`'s `hreps` (the group store keeps the clause
-across the swap), stated about the block's data alone.
+`shadowFs` replaces exactly the recursive and reflexive domains by
+`Sort 0`, which is what `AgreeOffRecs` — the fixpoint route's bridge
+from the X-SOURCE chains to the REAL ones (`mutualIndRep_of`'s
+`hagree`) — asks about. -/
 
-The clause as `inductives` carries it (`IndRep`) is SINGLE-FAMILY —
-its major index is `nP + 1 + n + nIdx`, one motive — so a mutual
-member's recursor cannot satisfy it; the member view (`k` motives,
-member `m`'s own rules, the leaf at the tagged tuple) is its own task,
-and until it lands this is `declMutual`'s one hypothesis. -/
-@[expose] def MutualRepsOk (V : Type w) [SetTheory V] (μ : CheckMode) (b : MutualBlock) : Prop :=
-  ∀ (fms : List MutualFormerA) (cvRas : List ConstantVal)
-    (rulesOf : List (List (MutualCtor × Expr))) (env₂ : Env) (mp₂ : EnvModelM V μ env₂)
-    (prts : MutualRecParts) (env₀ : Env) (m₀ : EnvModel V env₀),
-    prts.LeafHyp V m₀ → cvRas.length = prts.k → prts.nP = b.nP → prts.n = b.n →
-    -- (i) the provision: member `t`'s recursor, consed RULE-LESS
-    (∀ (env' : Env) (mp' : EnvModelM V μ env') (t : Nat), t < prts.k →
-      env'.find? (cvRas.getD t default).name = none →
-      ∀ m₂ : EnvModel V ⟨.recInfo (cvRas.getD t default)
-          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix [] :: env'.consts⟩,
-        m₂.acval = acvalWith mp'.base2.acval (cvRas.getD t default).name (prts.leaf m₀ t) →
-        IndRepsHead env' (.recInfo (cvRas.getD t default)
-          (b.rulePrefix + (fms.getD t default).nIdx) b.rulePrefix []) m₂) ∧
-    -- (ii) the swap: the `k` recursors stored as a group
-    (∀ (acv : Name → (Name → Nat) → AnnotTerm),
-      (∀ t, t < prts.k → ∀ ψ : Name → Nat,
-        acv (cvRas.getD t default).name ψ = prts.leaf m₀ t ψ) →
-      (∀ n : Name, (∀ t, t < prts.k → n ≠ (cvRas.getD t default).name) →
-        acv n = mp₂.base2.acval n) →
-      ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
-        m₃.acval = acv → IndReps m₃)
+omit [SetTheory V] in
+/-- **The X-source chain is the real one off the recursive slots.** -/
+theorem agreeOffRec_shadowFs {nP nF : Nat} {ks : List ConLeche.RecFieldKind}
+    {Fs : List AnnotTerm} (hks : ks.length = nF) (hlen : Fs.length = nF) :
+    AgreeOffRec (rsOf ks) 0 (shadowFs nP ks nF Fs) Fs := by
+  refine ⟨by rw [shadowFs_length, hlen], fun l hl hr => ?_⟩
+  rw [shadowFs_length] at hl
+  rw [Nat.zero_add, rsOf_getD (by rw [hks]; exact hl)] at hr
+  simp only [decide_eq_false_iff_not, not_or] at hr
+  rw [List.getD_eq_getElem?_getD, shadowFs_getElem? hl]
+  simp only [Option.getD_some]
+  rw [if_neg (fun h => ?_)]
+  have h2 := h.2
+  rw [Nat.add_sub_cancel_left] at h2
+  rcases h2 with h' | h'
+  · exact hr.1 h'
+  · exact hr.2 h'
+
+/-! ## Kit: two index-aligned lists, filtered and mapped alike
+
+The stored rules name the member's own constructors in block order
+(`IndRep.rules` at `IndRepData.memberCtors`), and the block carries
+those constructors TWICE — as the recognised `MutualCtor`s (whose
+`member` field the checker filters on) and as the checked
+`ConstantVal`s of `ctorsA` (whose global index the model's `mots`
+reads).  The two lists are index-aligned, so the filtered name lists
+coincide. -/
+
+omit [SetTheory V] in
+/-- **Index-aligned filters agree**: two lists of the same length whose
+entries agree, at every position, on the bit the filter reads and the
+name the map takes give the same list. -/
+theorem zipIdx_filter_map_eq {α β : Type} {pA : α × Nat → Bool} {pB : β × Nat → Bool}
+    {fA : α × Nat → Name} {fB : β × Nat → Name} :
+    ∀ (as : List α) (bs : List β) (k : Nat), as.length = bs.length →
+      (∀ (i : Nat) (a : α) (b : β), as[i]? = some a → bs[i]? = some b →
+        pA (a, k + i) = pB (b, k + i) ∧ fA (a, k + i) = fB (b, k + i)) →
+      ((as.zipIdx k).filter pA).map fA = ((bs.zipIdx k).filter pB).map fB
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, _, hlen, _ => by simp at hlen
+  | _ :: _, [], _, hlen, _ => by simp at hlen
+  | a :: as, b :: bs, k, hlen, h => by
+    have h0 := h 0 a b rfl rfl
+    rw [Nat.add_zero] at h0
+    have hrest : ((as.zipIdx (k + 1)).filter pA).map fA
+        = ((bs.zipIdx (k + 1)).filter pB).map fB := by
+      refine zipIdx_filter_map_eq as bs (k + 1) (by simpa using hlen) fun i a' b' ha hb => ?_
+      have := h (i + 1) a' b' (by simpa using ha) (by simpa using hb)
+      rwa [show k + (i + 1) = k + 1 + i from by omega] at this
+    rw [List.zipIdx_cons, List.zipIdx_cons, List.filter_cons, List.filter_cons, h0.1]
+    cases hp : pB (b, k) with
+    | false => simpa using hrest
+    | true => simp [h0.2, hrest]
 
 /-! ## Kit: the λ-tower congruence over its domains
 
@@ -1951,8 +1988,8 @@ set_option maxHeartbeats 25600000 in
 theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p : MutualParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.mutualParts? nPd block = some p)
-    (h : ConLeche.Semantics.DeclMutualRun μ F env p env₂)
-    (hreps : MutualRepsOk V μ p.toBlock) : Nonempty (EnvModelM V μ env₂) := by
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p env₂) :
+    Nonempty (EnvModelM V μ env₂) := by
   obtain ⟨hpin, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, hNodup, hlpsAll, hmemLt, hgrouped, hformers, hf0, htq0, hcross,
     hlarge, hctors, hkinds, hfo, hgd, hrectys, hrules, htbl⟩ := h
@@ -5312,10 +5349,264 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         rw [List.getD_eq_getElem?_getD, hcdJ ψ]; rfl] at hcr
       exact hcr
 
+  -- **the block's representation** (task #280): member `t`'s `IndRep`
+  -- at the constructors' carrier, from `mutualIndRep_of`.  Everything
+  -- it asks is a stage fact at `mp₂`; the datum's `resSort` is the
+  -- member's OWN spelling (`IndRep.strip` compares it syntactically
+  -- with the stored type's), so the block's facts — all at `f₀.s` —
+  -- are transported by value (`hsEqAll`).
+  have hrPG₀ : p.toBlock.rulePrefix = p.toBlock.nP + fms.length + ctorsA.length := by
+    show p.toBlock.nP + p.toBlock.k + p.toBlock.n = _
+    rw [hkF, hlenA]
+    rfl
+  have hsEqAll : ∀ (q : Nat) (ψ : Name → Nat), q < fms.length →
+      (fms.getD q default).s.eval ψ = f₀.s.eval ψ :=
+    fun q ψ hq => hsEq q _ (hfmGet q hq) ψ
+  have htgtLtG : ∀ J i : Nat, tgtAt (ksF J) i < fms.length :=
+    fun J i => (hyp 0 hk0 (fun _ => 0)).htgts J i
+  have hmemFlt : ∀ J : Nat, memF J < fms.length := by
+    intro J
+    by_cases hJ : J < ctorsA.length
+    · exact hmotLt J hJ
+    · show (p.toBlock.ctors.getD J default).member < fms.length
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_none (show p.toBlock.ctors.length ≤ J from by rw [← hlenA]; omega)]
+      exact hk0
+  have hagM : ∀ (q : Nat) (f : MutualFormerA), fms[q]? = some f →
+      mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name := by
+    intro q f hfq
+    refine hag₂ _ fun cA hcA hh => ?_
+    have h1 := hfindF q f hfq
+    rw [hh, hfreshC cA hcA] at h1
+    simp at h1
+  let dOf : Nat → IndRepData V := fun t =>
+    mutualRepData (V := V) (ConLeche.consMutualFormers fms env) p.toBlock.nP fms.length
+      (fms.getD t default).s (Level.isEquiv f₀.s Level.zero == some true) p.toBlock.large
+      ctorsA idxF₁ dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
+      (fun q => (fms.getD q default).cvTa.name) (fun q => (fms.getD q default).nIdx) memF nFs
+      ppsF lvlsF Wf Idssf rssf tlssf Eissf Essf
+  have hIndRepBase : ∀ t : Nat, t < fms.length →
+      ∀ rules : List RecRule,
+        (rules ≠ [] → rules.map (·.ctor)
+          = ((ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1)).map (·.1.name)) →
+        IndRep mp₂.base2 (fms.getD t default).cvTa.name (fms.getD t default).cvTa
+          (cvRas.getD t default) (p.toBlock.rulePrefix + (fms.getD t default).nIdx)
+          p.toBlock.rulePrefix rules (dOf t) t := by
+    intro t ht rules hrulesT
+    have hft := hfmGet t ht
+    obtain ⟨bsT, hstripT⟩ := hstripF t _ hft
+    have hsortJ : ∀ (J : Nat) (ψ : Name → Nat),
+        (fms.getD t default).s.eval ψ = (fms.getD (memF J) default).s.eval ψ := by
+      intro J ψ
+      rw [hsEqAll t ψ ht, hsEqAll (memF J) ψ (hmemFlt J)]
+    refine mutualIndRep_of (V := V) (m := mp₂.base2)
+      (env₀ := ConLeche.consMutualFormers fms env) (members := p.toBlock.members3)
+      (lps := p.toBlock.lps) (nP := p.toBlock.nP) (k := fms.length)
+      (resSort := (fms.getD t default).s)
+      (isProp := Level.isEquiv f₀.s Level.zero == some true) (large := p.toBlock.large)
+      (ctorsA := ctorsA) (idxF := idxF₁) (dsF := dsF) (esF := esF) (srcsF := srcsF)
+      (ksF := ksF) (fvsPF := fvsPF) (xFvsF := xFvsF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (Tname := fun q => (fms.getD q default).cvTa.name)
+      (nIdxOf := fun q => (fms.getD q default).nIdx) (mots := memF) (nFs := nFs)
+      (resSortOf := fun J => (fms.getD (memF J) default).s)
+      (ppsOf := ppsF) (lvlsOf := lvlsF) (W := Wf) (Idss := Idssf) (rss := rssf)
+      (tlss := tlssf) (Eiss' := Eissf) (Fss₀ := Fss0f) (Ess' := Essf) (mm := t)
+      (cvT := (fms.getD t default).cvTa) (cvR := cvRas.getD t default)
+      (mI := p.toBlock.rulePrefix + (fms.getD t default).nIdx) (rP := p.toBlock.rulePrefix)
+      (rules := rules) (bsT := bsT)
+      ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
+      ?hFD ?hfound ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
+      ?hleafT ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
+    case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
+    case hnIdxs => exact fun q hq => (hmemT q _ (hfmGet q hq)).2.symm
+    case hProp => exact isPropBit_congr (fun ψ => (hsEqAll t ψ ht).symm)
+    case hmI => rw [hrPG₀]
+    case hrP => exact hrPG₀
+    case hFD =>
+      exact FormerData.congr_sort (hFD₃ t _ hft) (fun ψ => (hsEqAll t ψ ht).symm)
+    case hfound => exact fun q hq => ⟨_, _, hFPc (hfindF q _ (hfmGet q hq))⟩
+    case hcf => exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).1
+    case hidxRes =>
+      exact fun J cA hJ => (hcons₂ J cA (List.getElem?_eq_some_iff.mp hJ).1 hJ).2.1
+    case hUparams => exact fun ψ₁ ψ₂ hφ => (hParams ψ₁ ψ₂ hφ).1
+    case hpps0 =>
+      intro ψ
+      rw [(hFD₃ 0 f₀ hf0).len ψ]
+      omega
+    case hiff =>
+      intro J cA hJ ψ ρ
+      have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+      exact Iff.trans
+        ⟨hframeAll 0 (memF J) f₀ _ hf0 (hfmGet _ (hmotLt J hJl)) ψ ρ,
+         hframeAll (memF J) 0 _ f₀ (hfmGet _ (hmotLt J hJl)) hf0 ψ ρ⟩
+        ((hframesJ J hJl).1 ψ ρ)
+    case hiffM =>
+      exact fun ψ ρ => ⟨hframeAll 0 t f₀ _ hf0 hft ψ ρ, hframeAll t 0 _ f₀ hft hf0 ψ ρ⟩
+    case hTag => exact fun ψ ρp hρ => (hIdxAll 0 f₀ hf0 ψ ρp hρ).1
+    case hX =>
+      intro ψ ρp hρ
+      rw [hsEqAll t ψ ht]
+      exact (hXAll 0 f₀ hf0 ψ ρp hρ).1
+    case hIdss => exact fun ψ => hIdssGet ψ t ht
+    case hleafT =>
+      intro ψ
+      rw [hsEqAll t ψ ht, hagM t _ hft]
+      exact congrFun (hleaf₁ t _ hft) ψ
+    case hleafC =>
+      intro J cA hJ ψ
+      rw [hsEqAll t ψ ht]
+      exact hleafC₂ J cA hJ ψ
+    case hokB =>
+      intro ψ ρp hρ J hJ
+      have hsatD : Sat V (((dsF J ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp :=
+        ((hframesJ J hJ).1 ψ ρp).mp
+          (hframeAll 0 (memF J) f₀ _ hf0 (hfmGet _ (hmotLt J hJ)) ψ ρp hρ)
+      have hall := (hFssOkP J _ (hcAGet J hJ) ψ ρp hsatD).1
+      rw [hsEqAll t ψ ht]
+      refine hall _ ?_
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show J < (FssRf ψ).length from by
+          rw [show (FssRf ψ).length = ctorsA.length from mutFss_length]; exact hJ)]
+      exact List.getElem_mem _
+    case htlssD =>
+      intro ψ
+      rw [mutTlss_eq_tlssOfR rfl]
+      show mutTlss ctorsA.length tssF ψ = mutTlss ctorsA.length tssF₀ ψ
+      unfold mutTlss
+      exact List.map_congr_left fun J hJ => by
+        rw [(hident J _ (hcAGet J (List.mem_range.mp hJ))).2.2.2.2.2.2.1 ψ]
+    case hEissD =>
+      intro ψ
+      rw [eissOfR_mutEissC rfl (fun J hJ => (hCD₁ J _ (hcAGet J hJ)).eissLen ψ)]
+      show mutEiss' (n := ctorsA.length) (Wf ψ) (Idssf ψ) ksF nFs tssF eissF ψ
+        = mutEiss' (n := ctorsA.length) (Wf ψ) (Idssf ψ) ksF nFs tssF₀ eissF₀ ψ
+      unfold mutEiss'
+      have h1 : mutTlss ctorsA.length tssF ψ = mutTlss ctorsA.length tssF₀ ψ := by
+        unfold mutTlss
+        exact List.map_congr_left fun J hJ => by
+          rw [(hident J _ (hcAGet J (List.mem_range.mp hJ))).2.2.2.2.2.2.1 ψ]
+      have h2 : mutEiss0 ctorsA.length eissF ψ = mutEiss0 ctorsA.length eissF₀ ψ := by
+        unfold mutEiss0
+        exact List.map_congr_left fun J hJ => by
+          rw [(hident J _ (hcAGet J (List.mem_range.mp hJ))).2.2.2.2.2.1 ψ]
+      rw [h1, h2]
+    case hEssD =>
+      intro ψ
+      rw [essOfR_mutEssC rfl]
+      show mutEss' (n := ctorsA.length) (Wf ψ) (Idssf ψ) memF nFs esF ψ
+        = mutEss' (n := ctorsA.length) (Wf ψ) (Idssf ψ) memF nFs esF₀ ψ
+      unfold mutEss'
+      have h1 : mutEss0 ctorsA.length esF ψ = mutEss0 ctorsA.length esF₀ ψ := by
+        unfold mutEss0
+        exact List.map_congr_left fun J hJ => by
+          rw [(hident J _ (hcAGet J (List.mem_range.mp hJ))).2.2.2.2.1 ψ]
+      rw [h1]
+    case hagree =>
+      intro ψ
+      refine ⟨by
+        show (mutFss0 p.toBlock.nP ctorsA.length dsF₀ ksF nFs ψ).length
+          = (mutFss p.toBlock.nP ctorsA.length dsF ψ).length
+        simp [mutFss0, mutFss], fun J hJ => ?_⟩
+      rw [show (mutFss0 p.toBlock.nP ctorsA.length dsF₀ ksF nFs ψ).length = ctorsA.length from by
+        simp [mutFss0]] at hJ
+      rw [← hFssShadow ψ J hJ, mutFss_getD hJ, mutRss_getD hJ]
+      refine agreeOffRec_shadowFs (by rw [kindsOf_length]; exact (hksJ J _ (hcAGet J hJ)).1) ?_
+      show (((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).length = (ctorsA.getD J default).2
+      rw [List.length_map, List.length_drop, (hCD₁ J _ (hcAGet J hJ)).len ψ]
+      omega
+  -- **the recursor's name** is the member's, with `rec` appended
+  have hrecName : ∀ t : Nat, t < fms.length →
+      (cvRas.getD t default).name = (fms.getD t default).cvTa.name.str "rec" := by
+    intro t ht
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+    rw [hcv]
+    show (p.toBlock.formers.getD t default).1.name.str "rec" = _
+    rw [← mutualNameOf_members3 (b := p.toBlock) (t := t) (by rw [hkF]; exact ht),
+      (hmemT t _ (hfmGet t ht)).1]
+  -- **the member's own constructors**, as the block's two spellings
+  have hownNames : ∀ t : Nat,
+      (p.toBlock.ownCtors t).map (fun z => z.2.cv.name)
+        = ((ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1)).map (·.1.name) := by
+    intro t
+    have hL : (p.toBlock.ownCtors t).map (fun z => z.2.cv.name)
+        = ((p.toBlock.ctors.zipIdx.filter fun x => x.1.member == t)).map (fun x => x.1.cv.name) := by
+      simp [ConLeche.MutualBlock.ownCtors, List.filter_map, List.map_map, Function.comp_def]
+    have hR : ((ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1)).map (·.1.name)
+        = (ctorsA.zipIdx.filter fun x => memF x.2 == t).map (fun x => x.1.1.name) := by
+      rw [List.map_map]; rfl
+    rw [hL, hR]
+    refine (zipIdx_filter_map_eq (pA := fun x => memF x.2 == t)
+      (pB := fun x => x.1.member == t) (fA := fun x => x.1.1.name) (fB := fun x => x.1.cv.name)
+      ctorsA p.toBlock.ctors 0 hlenA fun i a b ha hb => ?_).symm
+    have hb' : p.toBlock.ctors.getD i default = b := by
+      rw [List.getD_eq_getElem?_getD, hb]; rfl
+    have hnm : a.1.name = b.cv.name := by
+      have h := congrArg (fun l : List Name => l[i]?) hnamesC
+      simp only [List.getElem?_map, ha, hb] at h
+      simpa using h
+    refine ⟨?_, hnm⟩
+    show (memF (0 + i) == t) = (b.member == t)
+    rw [Nat.zero_add, show memF i = b.member from by
+      show (p.toBlock.ctors.getD i default).member = _
+      rw [hb']]
+  -- **the stored rules name the member's own constructors, in order**
+  have hrulesShape : ∀ t : Nat, t < fms.length →
+      (ConLeche.mutualRules (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)).find? (cvRas.getD t default).name p.toBlock.nP
+          (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix
+          (cvRas.getD t default).type (rulesOf.getD t [])).map (·.ctor)
+        = ((ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1)).map (·.1.name) := by
+    intro t ht
+    rw [mutualRules_ctors, ← hownNames t]
+    obtain ⟨hlenU, hallU⟩ := ConLeche.checkMutualAllRules_inv hrules
+    obtain ⟨rulesT, hrget, hrun⟩ := hallU t (by rw [hkF]; exact ht)
+    have hrD : rulesOf.getD t [] = rulesT := by
+      rw [List.getD_eq_getElem?_getD, hrget]; rfl
+    rw [hrD]
+    obtain ⟨-, hlenR, hallR⟩ := ConLeche.checkMutualMemberRules_inv hrun
+    refine List.ext_getElem? fun i => ?_
+    rw [List.getElem?_map, List.getElem?_map]
+    by_cases hi : i < (p.toBlock.ownCtors t).length
+    · obtain ⟨J, c, rhs, hown, hget, -, -, -, -, -⟩ := hallR i hi
+      rw [hown, hget]
+      rfl
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+      rfl
   obtain ⟨mp₄, hacc₄, hoff₄⟩ := stageMutualRecs prts hyp mp₂ hrectys hrules hk hnd hfreshR
     hresR hE₂ hRDs' hIdsBelow hchainBelow hAparams hnres hpshape htyWF
-    (hreps fms cvRas rulesOf _ mp₂ prts _ mp₂.base2 hyp hk rfl hnCtors).1
-    (by
+    (Inv := fun {env'} m' => ∀ q : Nat, q < fms.length →
+      (∃ caps : IndCaps, env'.find? (fms.getD q default).cvTa.name
+        = some (.indInfo (fms.getD q default).cvTa caps)) ∧
+      ∀ rules : List RecRule,
+        (rules ≠ [] → rules.map (·.ctor)
+          = ((ctorsA.zipIdx.filter fun x => memF x.2 == q).map (·.1)).map (·.1.name)) →
+        IndRep m' (fms.getD q default).cvTa.name (fms.getD q default).cvTa
+          (cvRas.getD q default) (p.toBlock.rulePrefix + (fms.getD q default).nIdx)
+          p.toBlock.rulePrefix rules (dOf q) q)
+    (hInv := by
+      -- the block's representations cross a fresh recursor's cons
+      intro env' m' t ht hfresh hinv m₂ hac q hq
+      obtain ⟨caps, hfq⟩ := (hinv q hq).1
+      exact ⟨⟨caps, ConLeche.Env.find?_cons_of_fresh hfresh hfq⟩, fun rules hrl =>
+        ((hinv q hq).2 rules hrl).cross
+          (c₀ := .recInfo (cvRas.getD t default)
+            (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix [])
+          (A := prts.leaf mp₂.base2 t) hfresh
+          (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac⟩)
+    (hinv₂ := fun q hq =>
+      ⟨⟨{}, hFPc (hfindF q _ (hfmGet q hq))⟩, fun rules hrl => hIndRepBase q hq rules hrl⟩)
+    (hrepsP := by
+      -- the PROVISIONED cons: a rule-less recursor claims its block
+      intro env' mp' t ht hfresh hinv m₂ hac
+      obtain ⟨caps, hfq⟩ := (hinv t ht).1
+      exact mutualIndRepsHead_of rfl (hrecName t ht)
+        (ConLeche.Env.find?_cons_of_fresh hfresh hfq)
+        (((hinv t ht).2 [] (fun h => absurd rfl h)).cross
+          (c₀ := .recInfo (cvRas.getD t default)
+            (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix [])
+          (A := prts.leaf mp₂.base2 t) hfresh
+          (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac))
+    (hctorStored := by
       -- **`hctorStored`**: a stored rule's constructor is one of the
       -- member's own, hence a constructor of the block, hence stored
       intro t ht r hr
@@ -5358,8 +5649,62 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       show _ = _
       rw [ConLeche.recRuleBits_ctor, ← hJ'.2]
       exact (hcons₂ J' _ hJl' hJ'.1).1.1)
-    hlawsG
-    (hreps fms cvRas rulesOf _ mp₂ prts _ mp₂.base2 hyp hk rfl hnCtors).2
+    (hlaws := hlawsG)
+    (hrepsS := by
+      -- **the group store's clause** (`mutualIndReps_of`): the prefix's
+      -- entries cross the rule-list swap, the block's `k` are its own
+      intro mpP hinvP m₃ hac
+      have hzipk : ∀ x ∈ cvRas.zipIdx, x.2 < fms.length ∧ x.1 = cvRas.getD x.2 default := by
+        intro x hx
+        have hget : cvRas[x.2]? = some x.1 :=
+          List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hx)
+        refine ⟨?_, by rw [List.getD_eq_getElem?_getD, hget]; rfl⟩
+        have h2 := (List.getElem?_eq_some_iff.mp hget).1
+        rw [hk] at h2
+        exact h2
+      have hcg : ConLeche.SwapCongr
+          (ConLeche.provisionMutualRecs p.toBlock fms cvRas.zipIdx
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env)))
+          (ConLeche.storeMutualRecs
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env))
+            p.toBlock fms rulesOf cvRas.zipIdx
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env))) :=
+        ConLeche.SwapShList.congr (swapShList_provision_store _ (ConLeche.SwapShList.of_eq _))
+      have hmono : ∀ (n : Name) (c : ConstantInfo),
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env)).find? n = some c →
+          (ConLeche.provisionMutualRecs p.toBlock fms cvRas.zipIdx
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env))).find? n = some c := by
+        intro n c h
+        rw [provisionMutualRecs_find?_of_ne ?ne]
+        · exact h
+        case ne =>
+          intro x hx hn
+          have hf := hfreshR x.2 (hzipk x hx).1
+          rw [← (hzipk x hx).2, ← hn, h] at hf
+          exact nomatch hf
+      refine mutualIndReps_of hcg hac mpP.ind_reps hmono fun x hx T hT => ?_
+      obtain ⟨hxk, hxv⟩ := hzipk x hx
+      have hTeq : T = (fms.getD x.2 default).cvTa.name := by
+        have h1 : T.str "rec" = (fms.getD x.2 default).cvTa.name.str "rec" := by
+          rw [← hT, hxv, hrecName x.2 hxk]
+        exact (Name.str.inj h1).1
+      subst hTeq
+      obtain ⟨caps, hfq⟩ := (hinvP x.2 hxk).1
+      refine ⟨(fms.getD x.2 default).cvTa, caps, dOf x.2, x.2,
+        hcg.findUp _ _ hfq (fun _ _ _ _ h => nomatch h), ?_⟩
+      have hrep := (hinvP x.2 hxk).2
+        (ConLeche.mutualRules (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env)).find? (cvRas.getD x.2 default).name
+          p.toBlock.nP (p.toBlock.rulePrefix + (fms.getD x.2 default).nIdx) p.toBlock.rulePrefix
+          (cvRas.getD x.2 default).type (rulesOf.getD x.2 []))
+        (fun _ => hrulesShape x.2 hxk)
+      rw [hxv]
+      exact hrep.swap hcg hac)
   -- the carrier does not move at the group store, off the recursors
   have hagS4 : ∀ n : Name, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
       (ConLeche.consMutualFormers fms env)).find? n).isSome = true →
