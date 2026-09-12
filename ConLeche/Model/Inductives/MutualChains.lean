@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualShadow
-public import ConLeche.Model.Inductives.FixRealChains
+import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Model.Inductives.FixAssemblyKit
 public import ConLeche.Semantics.Tower.MutualLeafFacts
 public section

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.MutualInv
-public import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumWF
 
 public section
 

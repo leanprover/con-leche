@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstallF
-public import ConLeche.Kernel.Inductives.MutualInstall
+import ConLeche.Kernel.Inductives.MutualInstall
 
 @[expose] public section
 

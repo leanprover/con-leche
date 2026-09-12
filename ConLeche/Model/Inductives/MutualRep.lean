@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.IndRep
+import ConLeche.Model.IndRep
 public import ConLeche.Model.Inductives.MutualChains
 public import ConLeche.Model.Inductives.MutualRecData
-public import ConLeche.Model.Inductives.MutualStageRec
+import ConLeche.Model.Inductives.MutualStageRec
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Model.IndRepCons
 import ConLeche.Model.IndRepSwap

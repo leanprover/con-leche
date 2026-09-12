@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualRecPre
-public import ConLeche.Model.Inductives.FixRecLeaf
+import ConLeche.Model.Inductives.FixRecLeaf
 import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Inductives.FixIntro
 import ConLeche.Model.Inductives.FixRecLaw

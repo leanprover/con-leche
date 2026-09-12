@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.MutualChains
-public import ConLeche.Model.Inductives.MutualRecPre
+import ConLeche.Model.Inductives.MutualRecPre
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
 public section

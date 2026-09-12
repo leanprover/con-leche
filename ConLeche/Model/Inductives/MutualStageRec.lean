@@ -3,8 +3,8 @@ module
 public import ConLeche.Model.Inductives.MutualRecTyping
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecLaw
-public import ConLeche.Model.Inductives.StructCaps
-public import ConLeche.Model.Swap
+import ConLeche.Model.Inductives.StructCaps
+import ConLeche.Model.Swap
 import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.IndCons
 import ConLeche.Model.RecRulesCons

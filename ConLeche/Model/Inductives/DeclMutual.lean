@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Model.Inductives.MutualStageFormer
-public import ConLeche.Model.Inductives.MutualStageCtor
+import ConLeche.Model.Inductives.MutualStageCtor
 public import ConLeche.Model.Inductives.MutualStageRec
-public import ConLeche.Model.Inductives.MutualStageTable
-public import ConLeche.Model.Inductives.MutualRuleOk
-public import ConLeche.Model.Inductives.MutualRuleRead
-public import ConLeche.Model.Inductives.MutualRecPre2
+import ConLeche.Model.Inductives.MutualStageTable
+import ConLeche.Model.Inductives.MutualRuleOk
+import ConLeche.Model.Inductives.MutualRuleRead
+import ConLeche.Model.Inductives.MutualRecPre2
 public import ConLeche.Semantics.Inductives.DeclMutual
 import ConLeche.Model.Inductives.MutualRuleFires
 import ConLeche.Model.Inductives.MutualRep

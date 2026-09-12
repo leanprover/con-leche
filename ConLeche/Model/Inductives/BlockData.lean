@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Steps.Stuck
 public import ConLeche.Semantics.Tower.TowerWire
-public import ConLeche.Semantics.Sat
+import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.ConstsBound
 import ConLeche.Kernel.Inductives.NativeInstall
 public import ConLeche.Verify.Inductives.FixWF

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualDisp
-public import ConLeche.Model.Inductives.FixRecKFrame
+import ConLeche.Model.Inductives.FixRecKFrame
 public import ConLeche.Model.Inductives.FixRecPre
 import ConLeche.Model.Inductives.FixLeafOk
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the

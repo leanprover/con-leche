@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Verify.Inductives.FixRec
-public import ConLeche.Kernel.Inductives.MutualParts
+import ConLeche.Kernel.Inductives.MutualParts
 public section
 
 /-!

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualData
-public import ConLeche.Model.Inductives.FixRecData
+import ConLeche.Model.Inductives.FixRecData
 import ConLeche.Verify.Inductives.MutualInv
 public section
 

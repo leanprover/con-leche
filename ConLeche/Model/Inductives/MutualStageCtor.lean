@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.MutualChains
 public import ConLeche.Model.Inductives.MutualRecData
-public import ConLeche.Model.Inductives.FixCtorsLoop
+import ConLeche.Model.Inductives.FixCtorsLoop
 import ConLeche.Verify.Inductives.MutualWF
 public section
 
