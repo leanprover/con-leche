@@ -70825,6 +70825,199 @@ statement.
 `numNested` mismatch is a reject (mirroring #228) or ignored
 (mirroring official); whether `And` is un-pinned or given its lemma.
 
+### M. The model lane (`agent/nested-279m`, 2026-09-12) — M-A REPLACED: the retagging is a pair of RECURSOR-DEFINED folds, and the clause must carry the recursor's shape
+
+**Early report (the brief asked for it).**  Milestone M-A as specified —
+initiality of `lfpFamSet` at an abstract `IndRep`'s container
+presentation and a set-level retagging bijection `φ_t` from it — is
+not usable by this lane, and (M2) "the carrier equality as SETS" is
+false as stated.  What replaces them, and the ONE extension of the
+existing datum it needs, follow.  Nothing here changes the kernel
+lane's interface (`_tmp/nested-279k/INTERFACE.md` is consumed as it
+stands); nothing needs a new invariant.
+
+#### M.1 The constraint the design missed: leaves are `AnnotTerm`s
+
+`EnvModel.acval : Name → (Name → Nat) → AnnotTerm` — every stored
+constant's value is a CLOSED annotated term over the basis alphabet
+`BConst` (the pinned blocks, `lfpFam`, `choice`, `propext`, …),
+interpreted by `interp`; there is no constructor injecting a set.  So
+every value the nested arm assigns to a restored constant must be
+SPELLED, and a set obtained from `recGraph_exists_unique`/`recSel` (§4
+of #280) cannot be.  And the datum's `Φ`/`inj` are abstract sets by
+ruling (1) of #280, so nothing about a stored container's elements is
+spellable FROM THE DATUM either.  The only spellable handle on a
+stored container `J`'s structure is its stored recursor `J.rec` — a
+constant with a leaf, typed by `mem_type`, computing by `rec_rules`.
+(The kernel reads the same handle: `containerInfo?` recovers a
+container's `all` group from `J.rec`'s motive binders.)
+
+#### M.2 Why values must be transported at all (the domain mismatch)
+
+The restored `T.mk : Π p⃗, List (T p⃗) → T p⃗` reads its field at
+`app ⟦List⟧ T*` — `List`'s AMBIENT leaf applied — while #278's
+constructor value is a λ over the copy's carrier `A* = μ ⟨inj 1 ⟨⟩⟩`,
+whose elements are `inj (J₀+j) ⟨fs, pt⟩` with `J₀` the copy's
+block-position offset; `List`'s own elements are `inj j ⟨fs, pt⟩`.
+Different sets, so the aux value does not inhabit the restored type;
+the same holds of `T.rec` (its copy motives) and of `T.rec_k` (its
+major).  The identification is therefore a BIJECTION ψ between the
+container at the pins and the copy, and the restored values are the
+aux values conjugated by ψ — which is what #278 §4's "R2 CONFLICT"
+priced as "bookkeeping on the nested side"; the bookkeeping is real
+and it is M.3–M.5.  The maintainer's ruling ("identified as SETS via
+Bekić, up to the retagging bijection") is honoured as: the
+identification IS the retagging bijection; Bekić is not needed for it
+(M.6).
+
+#### M.3 The design that works: ψ from the container's recursor, ψ⁻¹ from the copy's
+
+For every aux copy `A` of container `J` at pins `Ds` (the kernel's
+`NestedPin`):
+
+* `ψ_A : ⟦J Ds⟧ → A*` is `⟦J.rec⟧` at the pins with CONSTANT motives —
+  motive `i` of `J.rec` (one per member of `J`'s recursor family:
+  `J`'s `all` group and `J`'s own `numNested` copies) is `λ ı⃗ x, A_i*`,
+  the carrier of the aux copy `A_i` the kernel's replace sends that
+  family member to — and REBUILD minors: constructor `c` of family
+  member `i` at fields `gs` and ih's `ihs` maps to
+  `A_i.c_aux p⃗ (gs with every field that targets a family member
+  replaced by its ih, every field whose STORED aux kind is
+  recursive/reflexive into a copy `A'` outside the family transported
+  by `ψ_{A'}` pointwise, every ordinary field kept)`.  The last case is
+  well-founded: such a field's type is a component of `Ds`, so
+  `pin(A')` is a proper subterm of `pin(A)`.
+* `ψ⁻¹_m : A_m* → ⟦J_m Ds_m⟧` for EVERY aux member `m` (real members
+  included, at the identity) is the aux recursor `R_m` at ONE common
+  choice: constant motives `λ ı⃗ a, ⟦J_m Ds_m⟧ ı⃗` (a real member's:
+  its own carrier), rebuild minors with the RESTORED constructors
+  (`J_m.c Ds_m` at the ih's).  Sharing one choice makes every
+  `ψ⁻¹`'s ih coherent by construction.
+
+The field-wise transport is licensed by what the kernel stores: the
+aux block's constructor types are the NORMALISED ones (`NativePass.
+ctorsA`), so a stored ordinary field resolves in the pre-block
+environment (`FixOpened.ord`) — it mentions no copy — and every field
+mentioning a copy is syntactically `A p⃗ e⃗` or `Π a⃗, A p⃗ e⃗`
+(`recF`/`reflF`), unmentioned by later domains and by the residual.
+So no transport ever has to look inside a field's type.
+
+**Round trips.**  (R1) `ψ ∘ ψ⁻¹ = id` on every `A*`: ONE induction on
+the aux block (its recursors at `Prop` motives — the induction
+principle is `mem_type` at a `Prop` motive, free), with the motive at
+copy `A'` generalised over every fold component landing at `A'`
+(`ψ_{A'}` itself and the components `ψ_{A,i}` of other roots' folds
+with `A_i = A'`).  (R2) `ψ⁻¹ ∘ ψ = id` on every `⟦J Ds⟧`: well-founded
+induction on the pin's size, each step one induction over `J`'s
+recursor family (`J.rec` at `Prop` motives, all family members at
+once) — the fields inside the family are the ih's, the fields into a
+smaller pin are the outer induction's hypothesis, ordinary fields are
+identities.  Coherence of the several fold components landing at one
+copy (`ψ_{A,i} = ψ_{A_i}`) is a corollary — both are inverses of the
+same `ψ⁻¹_{A_i}` — so NO structural theorem about official's
+elimination (which copies form a strongly connected component, which
+root's family covers it) is needed, and none is stated.
+
+#### M.4 The restored leaves and the laws
+
+`T` (a real member): the aux leaf, unchanged — `T* = μ ⟨inj m ⟨ı⃗⟩⟩`.
+`T.c := λ p⃗ fs, T.c_aux p⃗ (ψ* fs)` (ψ at the fields into copies,
+pointwise under a reflexive telescope).  `T.rec := λ p⃗ M⃗ m⃗ ı⃗ x, R_T
+p⃗ M⃗' m⃗' ı⃗ x` with `M'_A := λ ı⃗ a, M_A ı⃗ (ψ⁻¹_A a)` at a copy motive
+(a real member's motive unchanged) and `m'_c := λ fs ihs, m_c (ψ⁻¹* fs)
+ihs` (the ih's are the SAME sets: `M'_A (ψ* g) = M_A (ψ⁻¹ (ψ* g)) =
+M_A g` by (R2)).  `T₁.rec_k := λ p⃗ M⃗ m⃗ ı⃗ l, R_A p⃗ M⃗' m⃗' ı⃗ (ψ_A l)`.
+Typing: by transport through the Π-towers (the readings of the
+restored types are the aux readings with `⟦A⟧ ↦ ⟦J Ds⟧` — the (M1)
+compositionality of `interp` under `restoreNested`, which the kernel
+lane's interface guarantees is a constant replacement).  Rule laws: a
+member's `.plain` rule from the aux law and (R2); a mimic's `.nested`
+rule on `J.c Ds x⃗` from `ψ_A`'s own ι (`J.rec`'s rule, `.plain` or
+`.nested`, fired at the pins), the aux law and (R2).  `T`'s
+representation (`IndReps`, honest): `Φ'` = the aux `T`-chains with the
+copy-targeting fields DEMOTED to ordinary domains read at the ambient
+container leaves, `inj' c fs := inj c (ψ* fs)`; `leaf` (`T* = lfp Φ'`)
+by the aux induction principle; `fibre`/`ctor`/`mkInj` from the aux
+datum's and ψ bijective.  The `∨ ModeledLeaf` disjunct then has no
+user.
+
+#### M.5 The extra datum (the brief's question), and why it is forced
+
+To APPLY `J.rec` at set-level motives and minors, and to COMPUTE with
+its rules, the consumer must know the SHAPE of `J.rec`'s stored type
+reading and of each rule's right-hand-side reading.  The environment
+invariant records neither (`ConstWF` pins only a nested rule's major
+domain; `RecRuleLaw` gives the readings existentially; the stored
+recursor type is the generator's output — `cvRa := ⟨_, _, recTy⟩` at
+every native route — but no clause says so).  So `IndRep` gains, for
+a block with parameters (`nP ≠ 0`; a parameterless block is never a
+container, `is_nested_inductive_app` needs a parameter mentioning the
+block):
+
+* `recRead`: `∀ ψ, denoteMeta m.acval env ψ 0 cvR.type = some
+  (mkPisAV (recTowerAV …) (mutualConcAV …))` — the `k`-motive tower
+  `mutualRecDataAV` (task #278's spelling, the fixpoint route's at
+  `k = 1`), generalised so that member `t`'s family application is
+  `mkAppN ⟦memberNames t⟧ (pins t ++ ı⃗)` — a real member's pins are
+  the parameter variables, a COPY member's are its pin's readings;
+* `rulesRead`: rule `j`'s right-hand side reads as `mkLamsAV
+  (mutualRuleDataAV …) (mutualRuleCoreAV … (fun t => ⟦recNames t⟧)
+  …)` — `recNames t` the recursor of member `t` (`T_t.rec`, or
+  `T₁.rec_k` at a copy).
+
+For that the datum's MEMBER VIEW is the RECURSOR's block: the real
+members followed by the block's own copies (`kReal ≤ k`; a copy
+member carries its container's name, level instantiation and pins
+(`pinsE`, Exprs under the parameter binders; `pinsAV`, their readings)
+and its constructors are the container's instantiated at the pins —
+`ctorsA` entries with the INSTANTIATED type, linked to the stored
+container constructor by a clause), `mems`/`tgts` over all members —
+exactly the mutual datum of the aux block, restored.  The FAMILY view
+(`chains`, `functor`, `fibre`, `leaf`, `ctor`, `mkInj`, `tupMem`) stays
+over the real members and their `nCtorsReal` constructors (the
+copy-targeting fields demoted in `rss`; `Fss` already holds every
+field's domain reading).  At a non-nested block `kReal = k`,
+`nCtorsReal = |ctorsA|`, pins = parameter variables, and every
+existing clause is unchanged.  Discharges: native from
+`denoteMeta_structRecTyR`/`fixRuleData_of` (the readings the stages
+already hold); mutual from `denoteMeta_mutualRecTy`/
+`denoteMeta_mutualRecRhs`; `Eq` (`nP = 2`, pinned) from its pinned
+type as `BasisEq` reads `Eq.refl`'s; `Nat`/`PUnit`/`Empty`/`False`
+exempt at `nP = 0`; nested by construction (the restored readings).
+The spellings move below `IndRep` (a relocation module; the donors
+re-export — the #280 precedent).
+
+What #279 does NOT consume of a container's clause: `fibre`, `leaf`,
+`ctor`, `mkInj`, `leaf_mono`, Bekić.  They remain true, stored and
+harmless; the nested lane reads a container through its recursor
+only.  Recorded so the maintainer can weigh whether #280's semantic
+half should stay as is (it is what makes the AUX block's own
+representation, and hence `T`'s, discharge — that half IS used).
+
+#### M.6 What became false or unnecessary
+
+* (M2)'s "`M*_j(X) = ⟦J_j⟧(⟦Ds_j⟧[T⃗ := X])` as sets" — false (tags);
+  its role is taken by ψ.  Bekić (`bekic_restr`/`bekic_nested`) is not
+  used: the aux block's induction principle and the container's
+  replace it, and the SCC/root structure they would have needed is
+  avoided by (R1)/(R2).
+* #280 §4's initiality principle — not needed; `recGraph` is never
+  instantiated for an abstract `inj`.
+* (L)'s "nested fields read at the family variable" — #280's clause
+  reads them at the ambient valuation, and that is the right reading
+  for `T`'s representation (M.4).
+
+#### M.7 Sequence on this branch
+
+M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
+the four discharges, `IndRepCons`/`IndRepSwap` transport) → M-B′ (the
+fold spellings `ψ`/`ψ⁻¹` generic over the datum and the kernel's pin
+table: typing from `recRead`, ι from `rulesRead` + `rec_rules`) →
+M-C′ ((R1), (R2), coherence) → M-D′ (the restored leaves, typing, rule
+laws, `T`'s representation, capabilities) → M-E (assembly, the fold
+arm, deletions, gates).  Estimate: M-A′ 1–2 sessions, M-B′ 2, M-C′
+1–2, M-D′ 2–3, M-E 1–2 (Opus for the deletions).
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
