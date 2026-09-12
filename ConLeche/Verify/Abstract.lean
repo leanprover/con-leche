@@ -525,47 +525,5 @@ theorem Expr.LeafEquiv.refl : ∀ (e : Expr), Expr.LeafEquiv e e := by
   intro e
   induction e <;> simp_all [Expr.LeafEquiv]
 
-/-- Leaf-equivalent terms have the same free-variable content. -/
-theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ e₂ →
-    e₁.hasFvar = e₂.hasFvar := by
-  intro e₁
-  induction e₁ with
-  | fvar idx ty _ =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-  | app f a ihf iha =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case app f' a' => rw [ihf f' hle.1, iha a' hle.2]
-  | lam ty body m ihty ihbody =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case lam ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
-  | forallE ty body m ihty ihbody =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case forallE ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
-  | letE ty val body ihty ihval ihbody =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case letE ty' val' body' =>
-      rw [ihty ty' hle.1, ihval val' hle.2.1, ihbody body' hle.2.2]
-  | proj s i e ih =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case proj s' i' e' => exact ih e' hle
-  | bvar i =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-  | sort u =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-  | const n us =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-  | lit l =>
-    intro e₂ hle
-    cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-
 
 end ConLeche
