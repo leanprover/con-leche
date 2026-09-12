@@ -71936,6 +71936,192 @@ recursor `⟦R_m⟧` (`d_aux`'s `RecReadAt`) at one common motive/minor
 choice, and M-C′ (R1/R2, coherence).  Still docketed: the
 all-zero-constructor container group; the duplicate pins.
 
+#### M.17 M-B′ step 3b (continued): the fold KIT landed; the cross-copy recursion is NOT well-founded by pin size; two kernel-side facts are missing (2026-09-12, session 5)
+
+**What the session set out to do** (brief): spell `ψ_A` and `ψ⁻¹_m`
+as `AnnotTerm`s over the datum, type them by `mkPisAV_fold_mem` and
+`rec_rules`.  Sizing `ψ_A`'s minors against the elimination found that
+the recursion the design assumes (§M.3, §M.14: "well-founded on the
+pin's size") is FALSE as stated, and that the typing of BOTH folds
+consumes a fact only the kernel can supply at the right environment.
+Both are reported below with the exact conjuncts asked for.  What
+landed is the part that is independent of both: the generic fold kit
+over `RecReadAt`, which `ψ_A` and every `ψ⁻¹_m` instantiate.
+
+**What landed: `Model/Inductives/RecFold.lean`** (off-graph like the
+other nested modules; built explicitly).  For a datum `d` with
+`RecReadAt m d lps t` at an `EnvModelM`, a level assignment `ψ` and a
+frame `ρ`, over spines of readings (`AnnotTerm`s at `ρ`) whose fit
+(`SpineFit`) is the consumer's hypothesis:
+
+* `RecReadAt.leaf_mem` — the recursor's leaf inhabits the tower's
+  reading (`mem_type` at the clause's type reading; no level
+  instantiation is needed at the `AnnotTerm` level, `ψ` is picked);
+* `IndRepData.recPrefixAV`/`recPostAV` and `recDataAV_split` — the
+  tower split into the segment every member shares (parameters, `k`
+  motives, minors) and the member's trailer (its index telescope
+  lifted under the motives and the minors, its major);
+  `recFold_mem` — the leaf along a spine fitting the prefix lands in
+  the trailer tower at the extended frame; `recFold_app_mem` — a
+  member of the trailer along the indices and a major lands in the
+  conclusion `motive_t ı⃗ x` (the zero-bit side condition is the
+  consumer's, who knows its motives' codomain);
+* `RecReadAt.plain_rule` — the stored rule of a REAL constructor with
+  its `.plain` mode and its right-hand side reading `ruleAV`;
+  `recFold_iota` — **`rec_rules` consumed at the identity level
+  instantiation** (`us := lps.map .param`, `Level.substFn` collapses to
+  `ψ` by `substFn_map_param`; the constructor's comparands are
+  `recFireComparands`'s own list, whose `substFn` is again `ψ`
+  by `substFn_map_of_eval`): the leaf at the prefix, the constructor's
+  index readings instantiated at the constructor spine
+  (`IndRepData.ctorIdxAt`, so that `IotaIndexPin` is `rfl` after
+  `instSeq_mkAppN_annot`) and `C p⃗ f⃗` equals the right-hand side at the
+  prefix and the fields.  The telescope fits `RecRuleLaw` wants
+  (`TeleFitPA`) come from `SpineFit` by `teleFitPA_of_spineFit`
+  (`teleFitPA_of_tower` at `piTeleAV_mkPisAV` with `spineFit_getElem?`);
+* `ruleData_spineFit` (the rule's binder data fit from the prefix's fit
+  and the fields' fit at the parameter frame — the fields' binders are
+  lifted under the motives and the minors, `spineFit_liftDoms` +
+  `shiftE_consList`), `interp_ruleAV_app_pos` (β at a positive bit,
+  `mkLamsAV_fold`), `interp_ruleAV_app_zero` (at the zero bit the
+  right-hand side and every application of it is the point);
+* `interp_ruleCore` — the core at the fired frame is
+  `interp_mutualRuleCoreAV` at the datum: the minor at the fields and,
+  per recursive field, the λ-tower over its telescope of the TARGET
+  member's recursor leaf at the SAME parameters, motives and minors,
+  the field's index readings and the field — the shape that makes a
+  fold at one motive/minor choice compositional across the members;
+* `recFold_iota_core` — the three composed: the fold at a real
+  constructor IS the minor at the fields and those hypotheses.
+
+The kit is not nested-specific; the mutual route's own recursor laws
+(`MutualRecLaw`) are the CHECKER-side proofs of the same shapes, and the
+kit re-uses their frame arithmetic verbatim.
+
+**FINDING 1 — `ψ_A`'s cross-copy recursion is not well-founded by pin
+size; the honest order is a theorem about the elimination, and the
+cheap source is a kernel conjunct.**  `ψ_A` (container `J` at pins
+`Ds`) rebuilds with `A.c_aux` and must transport every field whose AUX
+kind is recursive into a copy `A'` but whose kind in `J`'s recursor view
+is ORDINARY: such a field is `F[α]` with `F` mentioning no member of
+`J`'s family, and after instantiation `F[Ds]` contains a nested
+occurrence `J' G[Ds]`.  §M.3 claimed `pin(A')` is then a component of
+`Ds`.  That is only case (ii) — `J'` a node INSIDE a `Ds` component
+(`F = α`, `Ds = [List (T p)]`).  Case (i) — `J'` a node of `F` itself —
+gives `pin(A') = J' G[Ds]` with `G` a context from `F`: `J α := mk :
+Foo α → J α` at `Ds = [T p]` sends `A` (pin `J (T p)`) to `A'` (pin
+`Foo (T p)`), the same size; `J α := mk : Foo (Bar α) → J α` to a
+LARGER pin.  Pin size is not a measure, and neither is the head's
+environment position alone (case (ii) may jump to any constant inside
+`Ds`), nor their lexicographic products in either order.  The relation
+IS acyclic — the elimination does not `whnf` (a definition unfolding to
+a container is official's "non valid occurrence", P21), so pins are
+syntactic subterms of instantiated container constructor types, and the
+measure that works is the multiset, over the pin's occurrences of block
+members, of the root-to-member PATHS taken as multisets of environment
+positions (case (i) replaces the path's head `J` by nodes of `F`, all
+declared before `J`; case (ii) drops a prefix) under the multiset
+extension of the multiset order — a nested Dershowitz–Manna measure.
+Proving that over `replaceAllNested`/`elimCtors` is a self-contained
+combinatorial development (the multiset order's well-foundedness from
+scratch — no Mathlib here — plus the syntactic lemma), ≈ one to two
+sessions, and the datum offers no shortcut: `env₀` is a ghost witness
+with no order, and the sets' ∈-rank is useless at `Prop` (every
+element is `pt`) and unavailable through the abstract `inj` anyway.
+The `Prop` case also shows the order is UNAVOIDABLE: surjectivity of
+`ψ⁻¹` there is exactly Bekić's nontrivial direction, provable only by
+closure along an order of the copies.
+
+*The kernel conjunct that replaces the theorem.*  Let `R` be the
+relation on copies: `(A, A') ∈ R` iff some constructor field of `A` is
+aux-recursive into the copy `A'`, `A'` is NOT in `A`'s mint group, and
+NO pin of `A`'s mint group is a subterm of `pin(A')`.  The last clause
+excludes exactly the references through `J`'s own MIMICS (a mimic's
+pin is `J' G'` with a group member at the parameter spine inside `G'`,
+so it contains a group pin; a `J`-ordinary field's `F[Ds]` cannot
+contain `J Ds` — `F` mentions no member and `Ds` cannot contain itself)
+and keeps every `J`-ordinary reference.  Then: **ask the kernel lane
+to compute `R` from the elimination's result and either (a) check it
+acyclic (a `.notImplemented` decline if not — it never fires on an
+honest stream, by the measure above, which the checker need not prove)
+or (b) emit a topological order `order : List Nat` (a permutation of
+the copy indices) with `∀ (A, A') ∈ R, order.idxOf A' < order.idxOf A`,
+and record it in `DeclNestedRun`**.  With (b) `ψ` is defined by
+recursion on the position in `order`; with (a) the model derives the
+same by well-founded recursion on the finite acyclic `R` (`Acc` from
+acyclicity on a finite type — a small lemma).  Both need the kernel's
+`R` to be provably a SUPERSET of the model's "J-ordinary" references,
+which is the subterm argument above at the datum: a `ksR`-ordinary
+field's reading resolves in `env₀(J)` (FixOpened.ord), so its target
+copy is not in the group and the group's pins are not inside it.  The
+model lane recommends (b) (no `Acc` on a finite relation needed).  The
+copy↔family map `c(t)` for `J`'s mimic motives stays what §M.14 said —
+the aux target of the corresponding field, read off `d_aux.tgts` —
+which is also why FINDING 3 is needed.
+
+**FINDING 2 — the pins' typing is consumed at `envAux`, and post-check
+(a) runs at `envOut`.**  Typing `ψ_A` (motive `t := λ ı⃗ x, ⟦aux_{c(t)}⟧ p⃗
+ı⃗` against the tower's motive binder `∀ ı⃗ (x : ⟦C_t⟧ Ds ı⃗), Sort ℓ`)
+and `ψ⁻¹_m` (motive `λ ı⃗ a, ⟦J_m Ds_m⟧ ı⃗`, which must land in `Sort ℓ`)
+both need `⟦Ds⟧` to FIT `J`'s parameter telescope — `mkPisAV_fold_mem`
+on `J.rec`'s tower and on `J`'s former, `SpineFit` at the parameter
+binders.  Nothing in the auxiliary block's own checking gives it (the
+copy's former is `J`'s type instantiated: an unused, ill-typed pin
+component leaves no trace there — that is why official added
+post-check (a), leanprover/lean4#14577), and the checker's only
+certificate is `nestedPinsOk ops envOut …` — at the FINAL environment,
+whose model is what the folds are being built for.  The pin mentions
+only constants of `env` and the block's formers, all present in
+`envAux` with the same types, so the same check at `envAux` has the
+same verdict on every stream and yields, through `mpAux`
+(`nestedAuxModel`) and the certified-annotation soundness, exactly the
+`SpineFit` the folds need.  **Ask the kernel lane to run `nestedPinsOk
+ops envAux p.nP fvsA st.pins` as well (or instead: the two are
+verdict-equivalent; keeping both costs one extra check of the pins) and
+record `nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP fvsA.1
+st.pins = .ok ()` in `DeclNestedRun`** (`fvsA` as now: the stored
+former `a₀`'s parameter variables — `stored.take p.k`'s head, the same
+record at `envAux` and `envOut`).  Until then the spelling lemmas take
+the pins' `SpineFit` as a hypothesis.
+
+**FINDING 3 — a self-nested container's MIMIC fields have no
+syntactic clause in the datum (M-D′'s producer must add one; the
+consumer's statement is fixed now).**  For a container `J` that is
+itself nested (the five Mathlib blocks through `TaggedText`/
+`PersistentArrayNode`), `J.rec`'s family has mimic motives `t ≥
+kReal`, and a field of `J`'s constructor targeting one is
+`ksR`-recursive/`ksF`-ordinary.  `IndRep.ctors` (`FixCtorFactsAt`) ties
+the FAMILY view's kinds to syntax and readings (`recEntry`: a
+`ksF`-recursive field reads as the target's leaf at the parameters and
+`eissF`); NOTHING ties `ksR`/`tgtsR`/`eissR`/`tssR` at a
+`ksF`-ordinary field to the field's reading.  `ψ_A`'s minor typing
+needs, for every field `i` of `J`'s constructor `j` with `ksR j i =
+recursive t`, `t ≥ kReal`: the field's domain reads as `famAppAV
+⟦J_t⟧ (pinsAV t) … (eissR j i)` (under `tssR` at a reflexive field) —
+the recursor-view twin of `recEntry`, at the copy member's pins.  At a
+non-nested block it is vacuous (`tgtsR = tgts < kReal`); the nested
+route's own datum for `T` (M-D′) is the only producer.  The clause is
+stated when M-D′ builds that datum; until then the folds through a
+self-nested container are typed only under that fact as a hypothesis.
+
+**A design note for M-C′, decided while sizing `ψ⁻¹`.**  `ψ⁻¹_m` needs
+NO recursion at all: every aux-recursive field gets its inductive
+hypothesis, whether `J` saw the field as recursive or ordinary (the
+aux recursor has an ih binder for every aux-recursive field, and the
+minor for a copy's constructor uses all of them).  For a REAL member's
+constructor the minor uses the FIELDS, not the hypotheses — `T.c_aux p⃗
+f⃗` at the aux fields — so that `ψ⁻¹_T = id` on `T*` by one aux
+induction (the hypotheses' values are in the container sets, which
+`T.c_aux` does not accept).  So `ψ⁻¹` is spellable and typable today
+under FINDING 2's hypothesis, and its ι is `recFold_iota_core` at the
+aux datum.  The order question is `ψ`'s alone.
+
+**Docket** (unchanged otherwise): the all-zero-constructor container
+group; the duplicate pins; the `(d.ksR j).length = nF` and
+`0 < d.k` facts the kit takes as hypotheses (true of every datum, not
+recorded as clauses — `IndRep` could gain them, or the consumers derive
+them from `memReal`/`ksLen`).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
