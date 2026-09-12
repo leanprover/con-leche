@@ -70603,7 +70603,57 @@ con-leche.yaml`, `Main.lean --help` unchanged by name;
 chain, the byte template, the chunk independence as a step — no task
 numbers) and `checkMain`'s docstring rewritten.  README is the
 maintainer's and was not edited; the replacement text for its
-"### The Main Corollary" section is in the READY report.
+"### The Main Corollary" section follows (the "Not covered by the
+proof" bullet about the parser should go with it; the annotation-pass
+and driver bullets stand):
+
+> At the end of `ConLeche/MainTheorem.lean` we prove that a file that
+> declares a theorem of type `False` is never accepted.  The file is
+> the list of chunks the binary reads, and "declares a theorem of type
+> `False`" is a template over their bytes (`ConLeche/Accepts.lean`):
+> four lines of the export format — a name entry for `False`, an
+> expression entry for the constant `False`, a name entry for the
+> theorem's own name, and the theorem record whose type is that
+> expression — with any bytes at all before, between and after them:
+>
+> ```lean
+> def hasProofOfFalse (chunks : List ByteArray) : Prop :=
+>   ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
+>     Frontend.concatBytes chunks =
+>       before ++ "\n".toUTF8 ++
+>       (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
+>       between₁ ++ "\n".toUTF8 ++
+>       (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
+>       between₂ ++ "\n".toUTF8 ++
+>       (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
+>       between₃ ++ "\n".toUTF8 ++
+>       (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
+>       after
+> ```
+>
+> The theorem's statement is the binary's accept path itself — the
+> built-in prelude parses, the chunks parse, `checkDecls` in
+> `--verified` mode accepts the parsed list prepared with the prelude
+> — chained, and it never returns an environment:
+>
+> ```lean
+> theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+>     (h : hasProofOfFalse chunks) :
+>     ∀ env, (do
+>       let pre ← Frontend.builtinPreludeE.toOption
+>       let r ← (Frontend.parseChunks chunks).toOption
+>       (checkDecls .verified (Frontend.preparePrelude pre r.decls.toList)).toOption) ≠ some env
+> ```
+>
+> `main` runs the same three steps with IO between them (the streaming
+> read loop, the progress heartbeat, the parallel check pool) and
+> prints its success line only from an accept of the fold.  The
+> meaning of `False` is hard-coded, so no tricks involving odd
+> definitions for `False` will confuse the checker; the chunks may be
+> cut anywhere.  Inside the proof, the same statement is established
+> first about the parsed stream (`ConLeche/Verify/Cached/StreamThm.lean`)
+> and before that about the environment; the file-level statement adds
+> the parser and the preparation on top of those.
 
 ### 6. Gates
 
