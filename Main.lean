@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
@@ -98,7 +99,7 @@ the stream's record index: the parse folds the basis and `quot` blocks
 and drops taint-skipped records, so the two drift apart by a
 stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name)
+    (stride total t0 : Nat) (trace : Bool) (shadow : Bool) (inModelled : Array Name)
     (ds : List ConLeche.Cached.DeclC)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
     (rest : List ConLeche.Cached.DeclC) →
@@ -150,9 +151,36 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
         err.flush
       | _ => pure ()
+    -- **THE NESTED SHADOW** (`CON_LECHE_NESTED_SHADOW`, task #279), on
+    -- the route trace's lane and as unverified as it is: at a block the
+    -- NESTED recogniser takes, the native nested route runs BESIDE the
+    -- install, on the very same pre-block environment, and its verdict
+    -- is printed.  Nothing of it reaches the fold — the block is
+    -- installed by the dispatch as before, which for a nested block is
+    -- still the modelled route — so the accept set is untouched and the
+    -- gate (`tests/nested-shadow.sh`) is free to compare the two
+    -- verdicts declaration by declaration.  It goes when the model
+    -- tier's `declNested` lands and the dispatch takes the route.
+    if shadow then
+      match pd with
+      | .indDecl block nP =>
+        match ConLeche.nestedParts? nP block with
+        | some q =>
+          let nm := (block.head?.map (·.name)).getD .anonymous
+          let verdict : String :=
+            match ConLeche.checkNested (m := ConLeche.CheckM)
+                (ConLeche.fueledOps mode ConLeche.checkFuel) p.2.1.env q with
+            | .ok _ => "accept"
+            | .error (.invalid msg) => s!"reject {msg}"
+            | .error (.notImplemented what) => s!"decline {what}"
+            | .error (.internal msg) => s!"error {msg}"
+          err.putStr s!"con-leche: nested-shadow {nm} {verdict}\n"
+          err.flush
+        | none => pure ()
+      | _ => pure ()
     match h : ConLeche.Cached.annotDeclStep mode p pd s with
     | .ok (p₁, s₁) =>
-      installLoop mode err stride total t0 trace inModelled ds p₀ s₀ rest p₁ s₁ (by
+      installLoop mode err stride total t0 trace shadow inModelled ds p₀ s₀ rest p₁ s₁ (by
         obtain ⟨done, hds, hr⟩ := hrun
         exact ⟨done ++ [pd], by rw [List.append_assoc]; exact hds,
           ConLeche.Cached.InstallRun.snoc mode hr h⟩)
@@ -344,7 +372,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (trace : Bool) (noMark : Bool)
+    (trace : Bool) (shadow : Bool) (noMark : Bool)
     (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
@@ -353,7 +381,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       err.putStr s!"con-leche: {line}\n"
       err.flush
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
-  match ← installLoop mode err stride total t0 trace inModelled ds
+  match ← installLoop mode err stride total t0 trace shadow inModelled ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
   | .error e =>
@@ -532,6 +560,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- on the progress lane (so a traced run is as unverified as a
     -- heartbeat run, and says so).
     let trace := (← IO.getEnv "CON_LECHE_ROUTE_TRACE").isSome
+    -- THE NESTED SHADOW (task #279, `CON_LECHE_NESTED_SHADOW`): the
+    -- native nested route run beside the install and reported, never
+    -- installed; see `installLoop`.
+    let shadow := (← IO.getEnv "CON_LECHE_NESTED_SHADOW").isSome
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -692,7 +724,8 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace noMark inModelled
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace shadow noMark
+        inModelled
         decls.toList
       match verdict with
       | .ok ⟨env, _⟩ =>
