@@ -71595,6 +71595,68 @@ must show each such copy empty from `mem_type` at empty motives
 recorded for M-C′.  The `_tmp/nested-279m/t2.lean` probe of session 1
 is obsolete.
 
+#### M.13 M-B′ step 2b LANDED: the elimination's PIN LEDGER — every copy's origin (2026-09-12, session 2)
+
+**Statement** (`Verify/Inductives/NestedLedger.lean`, `elimNested_copy`).
+For a successful `elimNested env nP lps types = .ok st` and a pin index
+`j < st.pins.length`: the block's parameters are the first type's,
+opened at the free variables (`openPisAtFvars nP t₀.type 0 = some
+(params, _)`), and there are a stored inductive `I` with
+`containerInfo? env I = some ci`, a member position `i` with
+`ci.members[i]? = some J`, a group base `j₀` with `j = j₀ + i`, one level
+instantiation `lvls` and one pin list `Ds`, such that the WHOLE group
+sits at `st.pins[j₀ + i']` (container `J'.name`, pin `J'.{lvls} Ds`) in
+member order; pin `j` is `⟨aux, J.name, J.{lvls} Ds⟩`; the copy was
+minted as `mkCopy pbs lvls Ds aux J = .ok copy` and its final type entry
+is `st.types[types.length + j] = { copy with ctors := cs' }` with
+`elimCtors env (lps.map Level.param) nP params copy.ctors st₁ = .ok
+(cs', st₂)` at states whose pin lists are PREFIXES of `st.pins`.  With
+it: `mkCopy_inv` (the copy's type and constructors are the container
+member's at the level instantiation, `instPis` at the pins under
+`closeTelescope pbs 0`, names re-prefixed; `lvls.length = J.lps.length`)
+and `elimCtors_getElem?` (constructor `l` of the run: `stripPis nP`,
+`instPis` at the parameters, `replaceAllNested` at intermediate states
+with prefix pin lists, `closeTelescope` back).
+
+**Proof idea.**  Every state change of the elimination is a MINT — one
+`mkCopies` on a `containerInfo?` group (`MintStep`, a chain; the
+replace walks and `elimCtors` produce one: `replaceIfNested_mint`,
+`replaceAllNested_mint`, `elimCtors_mint`, the `_grows` proofs of
+`NestedFacts` retargeted); `mkCopies_spec` says what one mint does
+(one type and one pin per member, appended, `zipWith`).  The ledger
+`ElimLedger` — types are the block's `k` followed by one per pin, and
+every pin has an origin `PinOriginAt … qhead j` whose constructor state
+is RAW (`qhead ≤ k + j`) or PROCESSED (`k + j < qhead`, with the
+`elimCtors` witness) — is preserved by mints (`ledger_mint`,
+`ledger_mintStep`: old origins are monotone under appends,
+`PinOriginAt.mono`; new pins are raw at the group's base, and since the
+worklist head is below the type count they are unprocessed) and by the
+worklist's in-place `set` (`elimLoop_ledger`: the entry at `qhead` is
+raw at the incoming state, which is exactly the state its `elimCtors`
+ran from; every other entry is untouched; at the loop's exit `qhead`
+is past the end and every entry is processed).  The initial state has
+no pins.
+
+**Findings.**  (i) The pin table may hold the SAME pin twice: a group
+mint pushes every member of `I`'s group without checking the members
+already pinned, exactly as official's `m_nested_aux` does, so a member
+shared by two `containerInfo?` groups gets two copies; the replace
+always targets the FIRST (`st.pins.find?`), so the second copy's
+constructors reference the first copy's carrier and the second is a
+mimic whose fields are the first's — the ledger records both origins
+and `ψ` will treat the second like any non-root copy (its fold is the
+container's with motives at the first copy's carriers, its own
+constructor rebuilding at the end).  Honest environments never produce
+this (official's `all` groups are consistent), and the model must not
+depend on that.  (ii) `subst` on `h : a = b` eliminates `b` — three
+`obtain rfl` had to be oriented to keep the variable the goal names.
+
+**Docket.**  The consumer-facing corollaries for step 3 — a copy's
+constructor `l` in terms of the container's stored constructor
+(`mkCopy_inv` + `elimCtors_getElem?` composed through `instPis` of
+`closeTelescope` at the block's variables, the opened-telescope
+round trip) — are stated when the spelling needs them, next session.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
