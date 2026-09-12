@@ -71657,6 +71657,71 @@ constructor `l` in terms of the container's stored constructor
 `closeTelescope` at the block's variables, the opened-telescope
 round trip) — are stated when the spelling needs them, next session.
 
+#### M.14 M-B′ step 3, the plan (2026-09-12, end of session 2 — the next session starts here)
+
+**Inputs now in hand.**  For a copy `A` (pin `j`, `elimNested_copy`):
+its container member `J` at level instantiation `lvls` and pins `Ds`
+(under the block's parameter variables), the whole group's pins at
+`j₀ …`, the copy's constructors as the container's instantiated then
+rewritten (`mkCopy_inv`, `elimCtors_getElem?`).  For the container:
+`IndReps` at `J.rec` gives a datum `d_J`; ONCE some member's recursor
+in the group carries rules, `rulesRead` gives `RecReadAt` for EVERY
+member `t` of `d_J` (§M.12): the sibling's stored recursor `recNames
+t`, its level parameters `d_J.rlps lps`, its tower and its rules.  For
+the auxiliary block: `nestedAuxModel` (§M.11) gives `mpAux` with the
+aux datum `d_aux` for every aux member.
+
+**The alignment lemma to state first** (step 3a, kernel-facing, in
+`NestedLedger`/`NestedFacts`): the kernel copy of family member `t`
+(`ci.members[t]`, its `ctors` read off `C_t.rec`'s stored rules by
+`containerInfo?`) is `d_J`'s member `t`: `containerInfo?_inv` — the
+group names `ci.members.map name` are the maximal real-member prefix
+of `J.rec`'s motive binders (`containerMembersGo`), and each member's
+`ctors` are its recursor's rule constructors with their stored types.
+Against `RecReadAt`'s `rules'.map ctor = memberCtorsAll t` this
+identifies `ci.members[t].ctors[l]` with `d_J.ctorsAll` at the `l`-th
+constructor of member `t` BY NAME (then `d_J.ctors` gives the stored
+type's reading).  The motive-binder walk against `recRead`'s tower is
+the one syntactic-vs-semantic bridge: the tower's motive `t` reads
+`Π ı⃗ (x : ⟦C_t⟧ p⃗ ı⃗), Sort`; `containerMotiveMember?` accepts a binder
+iff its major is syntactically `C p⃗ ı⃗` with `C` stored — so the
+lemma needed is "`denoteMeta` of a binder reading as
+`mkAppN (acval C) (params ++ idx)` came from a syntactic `C' …` with
+`acval C' = acval C`", which is NOT invertible; the honest route is to
+read the group off `d_J.memberNames` directly and prove
+`containerMembersGo … = d_J.memberNames.take kReal`, which needs the
+syntactic shape of `J.rec`'s type — available from `RecReadAt` only up
+to reading.  DECISION FOR THE NEXT SESSION: state the alignment as a
+HYPOTHESIS of the spelling lemmas (`ci.members.map name =
+(List.range d.kReal).map d.memberName` and per-member constructor-name
+lists), and discharge it later from the kernel side by strengthening
+`containerInfo?` to read names the datum also records (`recNames`,
+`memberNames`, the rule constructors) — OR by having the datum record
+the syntactic motive-binder heads (a defaulted field: the fixpoint and
+mutual routes know them as `T`'s name).  Report to the maintainer
+before choosing.
+
+**The spellings (step 3b).**  `ψ_A` as an `AnnotTerm` over `mpRes`
+(the restored model, whose leaves for `J` and the copies are the aux
+carriers): `mkAppN ⟦J.rec.{ℓ :: lvls}⟧ (Ds ++ motives ++ minors)` with
+motive `t := λ ı⃗ x, ⟦aux_{c(t)}⟧ p⃗ ı⃗` and minor `c := λ fields ihs,
+⟦aux_{c(t)}.c⟧ p⃗ (fields transported)`; the transport per field is
+decided by the AUX field kind (`d_aux.ksF`: ordinary → the field;
+recursive into aux member `m` → the ih when `m` is in the family, else
+`ψ_{A_m}` of the field; reflexive likewise pointwise).  Typing: the
+tower from `RecReadAt` at `t = J`'s position, instantiated at `lvls`
+and `Ds` (the readings of the pins at the parameter frame: the
+kernel's post-check (a) types them); `mem_type` of `J.rec` then puts
+`⟦ψ_A⟧` in the instantiated tower, whose motive/minor domains are the
+transported field readings — needing `elimCtors_getElem?` composed
+with `mkCopy_inv` to say the aux field domains ARE the container's at
+the pins with the replace applied, and a `denoteMeta`-compositionality
+lemma for `replaceAllNested` restricted to the field shapes the aux
+positivity check leaves (head-replaced `C' Ds' idx` ↦ `aux' p⃗ idx`,
+untouched, or under a Π-telescope).  `ψ⁻¹_m` from the aux recursor
+`⟦R_m⟧` (`d_aux`'s `RecReadAt`) at motives `λ ı⃗ a, ⟦J_m Ds_m⟧ ı⃗` and
+minors rebuilding with the restored constructors.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
