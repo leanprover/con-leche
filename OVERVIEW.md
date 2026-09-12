@@ -92,14 +92,15 @@ covered exactly as a run without it, and so is a run on the pool.
 The statement is two theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
 a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L47-L50):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L49-L52):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
 > accepts `ds` with the environment `env`, then `env` has a model in
 > `V` — one set per stored constant and universe assignment under which
-> every stored constant is a member of what its type denotes, and
-> whatever the built-in `False` denotes is the empty set.
+> every stored constant is a member of what its type denotes, whatever
+> the built-in `False` denotes is the empty set, and whatever the
+> built-in `Eq` denotes is set equality.
 
 What a term denotes, and what a model is, are one short module a
 reader can take in at one sitting: the relation
@@ -110,15 +111,19 @@ set, an application the function's graph, a binder the dependent
 product or the truth value of its body depending on the *regime* the
 checker annotated it with, which it may claim only if the body really
 denotes a truth value there — and the structure
-[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L217-L227).
+[`Model` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Denotes.lean#L270-L290).
 So every theorem the stream proves is true in the model, and the
 theorem certifies every proposition annotation the checker stored.
-Definitional equalities need no clause: a definition's unfolding or an
-iota rule, stated as a theorem proved by `rfl`, is a stored constant
-whose type is a true equation.
+Definitional equalities need no clause of their own, because the field
+`eq_equality` covers them all: a definition's unfolding or an iota
+rule, stated as a theorem proved by `rfl`, is a stored constant whose
+type is `a = b`, `mem` puts that constant inside what the type
+denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
+and a truth value with a member is `{pt}`. So the two sides of every
+accepted equation denote the same set.
 
-The headline theorem,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L102-L105),
+The main corollary,
+[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L59-L62),
 follows in three lines — a constant of type `False` would be a member
 of the empty set:
 
@@ -140,7 +145,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L87-L88)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L93-L97)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -253,7 +258,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L373-L374)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L379-L380)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -363,7 +368,7 @@ where the invariant reads: wherever the invariant's reading of a term
 is defined and graded, `interp` of the reading is a `Denotes`-denotation
 of the term, with the invariant's sort facts discharging the regime
 premises of the binder rules
-([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L215-L221)).
+([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Denotes.lean#L221-L227)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
 closing operation translates between the two.
@@ -697,7 +702,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main and headline theorems, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

@@ -83,12 +83,22 @@ accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
 `c` as `PUnit` — which is what the unit-like eta law is stated at — is
 exactly reading the four other reserved recursors' pinned shapes and
 finding that none of them is single-rule, zero-field and index-free.
-Without the clause the branch is unprovable; with it, it is a `decide`. -/
+Without the clause the branch is unprovable; with it, it is a `decide`.
+
+**The declaration clause is unconditional** (task #283).  It used to be
+premised on `ConstantInfo.isBasis ci`, which every establishment site
+discharged by ignoring it (`ConsHead.ofBasis` is applied at a head that
+*is* `pinnedInfo` of its own name, so the clause is `rfl` there, and a
+non-reserved cons makes the whole conjunction vacuous).  The premise
+therefore bought nothing and cost the only fact a *statement* can want
+from the table: that a stored reserved name holds the pin whatever its
+kind — which is what lets `Model.eq_equality` (`ConLeche/Denotes.lean`)
+speak about the stored `Eq` without hypothesising its declaration. -/
 @[expose] def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),
     env.find? n = some ci →
     reservedBasisNames.contains n = true →
-    (ConstantInfo.isBasis ci = true → ci = pinnedInfo n) ∧
+    ci = pinnedInfo n ∧
     ∀ (t : Term) (ψ : Name → Nat), pinnedStructT n ψ = some t →
       cval n ψ = t
 
