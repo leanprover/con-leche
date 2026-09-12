@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Subst
+public import ConLeche.Verify.Cached.InstalledC
 
 public section
 
@@ -517,5 +518,196 @@ theorem annotateCore_annotOf {env : Env} :
           (looseBVarsBounded_resetMeta _ 1 (looseBVarsBounded_zeta b 1 hb.2))
       simp only [zeta, resetMeta, h1, hbody2]
 
+
+/-! ## What a record of the stream declares -/
+
+namespace Cached
+
+open ConLeche ConLeche.Semantics ConLeche.Model
+
+/-- **What a record of the fold's input declares.**  `checkDecls`'s
+input is a list of parsed records, and this says which constant each
+kind of record claims a name and a type for:
+
+* a definition, a theorem and an opaque declare their header;
+* an axiom declares its header **unless its name is tolerated**
+  (`toleratedAxiomNames`, exactly `sorryAx`): that record is checked for
+  well-formedness and then *dropped*, and every later record that
+  mentions the name is declined;
+* a `basisDecl` declares nothing of its own — it names one of the
+  checker's pinned basis blocks, and the constants installed are the
+  pins';
+* an `indDecl` block's members are NOT covered here.  See the module
+  docstring: the recursor's stored type is the generated one, and the
+  native route may annotate a *whnf'd* type former telescope or a
+  positivity-normalised constructor type rather than the declared one,
+  so no `AnnotOf` claim is true of them. -/
+@[expose] def DeclC.Declares : DeclC → ConstantVal → Prop
+  | .defnDecl cv _ _, cv' => cv' = cv
+  | .thmDecl cv _, cv' => cv' = cv
+  | .opaqueDecl cv _, cv' => cv' = cv
+  | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
+  | .basisDecl _, _ => False
+  | .indDecl _ _, _ => False
+
+/-! ## A name-unique environment finds what it holds -/
+
+theorem find?_name_of_mem : ∀ {cs : List ConstantInfo}, (cs.map (·.name)).Nodup →
+    ∀ {c : ConstantInfo}, c ∈ cs → cs.find? (·.name == c.name) = some c := by
+  intro cs
+  induction cs with
+  | nil => intro _ c hc; exact absurd hc List.not_mem_nil
+  | cons a t ih =>
+    intro hnd c hc
+    rw [List.map_cons, List.nodup_cons] at hnd
+    rw [List.find?_cons]
+    by_cases hb : (a.name == c.name) = true
+    · simp only [hb]
+      rcases List.mem_cons.mp hc with rfl | hc'
+      · rfl
+      · exact absurd (by rw [eq_of_beq hb]; exact List.mem_map.mpr ⟨c, hc', rfl⟩) hnd.1
+    · rw [Bool.not_eq_true] at hb
+      simp only [hb]
+      rcases List.mem_cons.mp hc with rfl | hc'
+      · simp at hb
+      · exact ih hnd.2 hc'
+
+/-- A name-unique environment finds every constant it holds. -/
+theorem find?_of_mem_nodup {env : Env} (hnd : NodupNames env) {c : ConstantInfo}
+    (hc : c ∈ env.consts) : env.find? c.name = some c :=
+  find?_name_of_mem hnd hc
+
+/-! ## One declaration's install, at the pure checker -/
+
+/-- **What one accepted declaration stores of what it declares.**  Every
+record kind that declares a constant stores it under its own name, with
+its own level parameters, and with the *annotation* of the declared
+type — `AnnotOf`. -/
+theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
+    {pd : DeclC} {d : Declaration} (hd : DeclCRel pd d)
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂)
+    {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    ∃ c ∈ env₂.consts, c.name = cv.name ∧
+      c.toConstantVal.levelParams = cv.levelParams ∧
+      AnnotOf cv.type c.toConstantVal.type := by
+  have hrun := ConLeche.Semantics.checkDeclRun_ofEnvFactsE h
+  cases hd with
+  | @defnDecl cv₀ tyE value ve hint hty hv =>
+    obtain rfl : tyE = cv₀.type := hty.symm
+    obtain rfl : cv = cv₀ := hcv
+    simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclDefnRun] at hrun
+    obtain ⟨type', value', hcvr, -, henv₂, -, -⟩ := hrun
+    obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
+    refine ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint, ?_, rfl, rfl, ?_⟩
+    · rw [henv₂]; exact List.mem_cons_self
+    · exact annotateCore_annotOf F hann hb
+        ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
+  | @thmDecl cv₀ tyE value ve hty hv =>
+    obtain rfl : tyE = cv₀.type := hty.symm
+    obtain rfl : cv = cv₀ := hcv
+    simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclThmRun] at hrun
+    obtain ⟨type', value', hcvr, -, -, henv₂⟩ := hrun
+    obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
+    refine ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ve, ?_, rfl, rfl, ?_⟩
+    · rw [henv₂]; exact List.mem_cons_self
+    · exact annotateCore_annotOf F hann hb
+        ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
+  | @opaqueDecl cv₀ tyE value ve hty hv =>
+    obtain rfl : tyE = cv₀.type := hty.symm
+    obtain rfl : cv = cv₀ := hcv
+    simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclOpaqueRun] at hrun
+    obtain ⟨type', value', hcvr, -, henv₂, -⟩ := hrun
+    obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
+    refine ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
+    · rw [henv₂]; exact List.mem_cons_self
+    · exact annotateCore_annotOf F hann hb
+        ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
+  | @axiomDecl cv₀ tyE hty =>
+    obtain rfl : tyE = cv₀.type := hty.symm
+    obtain ⟨rfl, htol⟩ := hcv
+    simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclAxiomRun] at hrun
+    obtain ⟨type', hcvr, hdisj⟩ := hrun
+    obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
+    have henv₂ : env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
+      rcases hdisj with ⟨-, he⟩ | ⟨-, -, he⟩ | ⟨-, -, he⟩ |
+        ⟨-, -, -, -, -, -, htol', -⟩
+      · exact he
+      · exact he
+      · exact he
+      · exact absurd (htol ▸ htol') (by simp)
+    refine ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
+    · rw [henv₂]; exact List.mem_cons_self
+    · exact annotateCore_annotOf F hann hb
+        ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)
+  | basisDecl => exact hcv.elim
+  | indDecl => exact hcv.elim
+
+/-! ## The walk -/
+
+universe w
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-- **The walk**: along an accepting phase-A run whose start environment
+carries the model, every record's declared constant is stored — with its
+name, its level parameters and the annotation of its type — and is still
+there at the end.  The hypotheses are `installRun_model`'s. -/
+theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List DeclC}
+    {p : Nat × FEnv × Array PendingCheck} {s : CState}
+    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+    (hrun : InstallRun μ ds p s q s') :
+    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+    NodupNames q.2.1.env →
+    (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+    ∀ pd ∈ ds, ∀ cv : ConstantVal, DeclC.Declares pd cv →
+      ∃ c ∈ q.2.1.env.consts, c.name = cv.name ∧
+        c.toConstantVal.levelParams = cv.levelParams ∧
+        AnnotOf cv.type c.toConstantVal.type := by
+  induction hrun with
+  | nil p s => exact fun _ _ _ _ _ pd hmem => absurd hmem List.not_mem_nil
+  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
+    intro hfe hm hresA hnd hB pd' hmem cv hcv
+    obtain ⟨i, fe, pend⟩ := p
+    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+    simp only at hfe hstepC
+    obtain ⟨hpush₁, -⟩ :=
+      annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
+    have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
+    obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
+    obtain ⟨hm₁, hres₁, dd, F, hdrel, hF⟩ :=
+      annotStepC_model (V := V) hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
+    rcases List.mem_cons.mp hmem with rfl | hmem'
+    · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hdrel hF hcv
+      obtain ⟨new, hnew⟩ := hchainF.2.1
+      exact ⟨c, by rw [hnew]; exact List.mem_append_right _ hc, h1, h2, h3⟩
+    · exact ih hfe₁ hm₁ hres₁ hnd hB pd' hmem' cv hcv
+
+/-! ## The theorem -/
+
+/-- **What `checkDecls` stores of what it reads.**  Every record of the
+fold's input that declares a constant — a definition, a theorem, an
+opaque, or an axiom whose name is not tolerated — leaves in the returned
+environment a constant of that very name, with the record's own level
+parameters, whose stored type is the *annotation* of the declared one:
+the same term with every `let` inlined and the binder data rewritten
+(`AnnotOf`).  `basisDecl` records declare nothing, and an `indDecl`
+block's members are outside the claim (see the module docstring). -/
+theorem checkDecls_consts (V : Type w) [SetTheory V]
+    {ds : List DeclC} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {pd : DeclC} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : DeclC.Declares pd cv) :
+    ∃ c, env.find? cv.name = some c ∧
+      c.toConstantVal.levelParams = cv.levelParams ∧
+      AnnotOf cv.type c.toConstantVal.type := by
+  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked _ accepted
+  obtain ⟨n, st, run⟩ := fc.1.run
+  have hchain := installRun_trace _ run (PushChain.refl Env.empty)
+  have hnd : NodupNames fc.1.fe.env := hchain.1.2.2 List.nodup_nil
+  obtain ⟨c, hc, h1, h2, h3⟩ :=
+    installRun_declares (V := V) rfl run rfl
+      ⟨⟨EnvModelM.empty V _⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
+      hnd fc.records pd hmem cv hcv
+  exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩
+
+end Cached
 
 end ConLeche
