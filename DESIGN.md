@@ -69715,7 +69715,38 @@ the same statement §8.8 already repaired once elsewhere.
   a separate theorem and is unaffected: its block has ONE member, so its
   `isProp` bit and its `resSort` are the same member's).
 
-#### 8.11 A landed-statement repair: `mutualRuleOk`'s `hih` (2026-09-12)
+**LANDED (2026-09-12), and NO repair was needed: the missing theorem is
+completeness, and at `.zero` it is three lines.**  The analysis above is
+right that the conjunct needs more than `isEquiv_sound`, and wrong that
+what it needs is transitivity.  `Level.isEquiv l .zero` decides through
+its SECOND disjunct — `simplify l = simplify .zero` — and `simplify`
+DECIDES the zero level:
+
+    simplify_eq_zero_of_eval : (∀ ψ, Level.eval ψ a = 0) → Level.simplify a = .zero
+
+by structural induction on `a` (a `param` is nonzero at `fun _ => 1` and
+a `succ` at every assignment; a `max` evaluates to `0` only if both sides
+do, an `imax` only if its right side does — else it IS the `max`, which
+is at least that side).  So `isEquiv · .zero` is COMPLETE
+(`isEquiv_zero_of_eval`), the bit is a function of the sort's MEANING
+(`isPropBit_congr`: two levels with equal evaluations give the same bit,
+completeness one way and `isEquiv_sound` the other), and the landed
+conjunct `d.isProp = (Level.isEquiv f.s .zero == some true)` follows from
+`mutualCrossChecks`' `hsq` alone.  `MutualStageTable.lean` is UNCHANGED:
+`hProp` stays syntactic, and `hO5`'s in-place proof stays — its `hne`
+does give `isProp = false`, now for a reason (completeness), which is
+also why the `hO5` hoist above must NOT be done blindly: `TowerO5`
+(`Model/Annot/EnvModelM.lean`) states its guard SYNTACTICALLY, so a
+premise guarded by `isProp = false` cannot fill that slot, and a
+semantically guarded one cannot either (`¬ ∀ ψ, resSort.eval ψ = 0` does
+not follow from `hne`, and does not refute the conclusion's own `∀ ψ`).
+The three lemmas are about `Level` alone and belong in
+`Verify/Level.lean`; they sit in `DeclMutual.lean` until a lane owns that
+file.  §8.8's `hProp` (`MutualShadow`/`MutualChains`) and §8.14's
+`IndRep.isProp` are semantic for the same underlying fact and are just as
+sound; nothing needs to be un-done.
+
+#### 8.15 A landed-statement repair: `mutualRuleOk`'s `hih` (2026-09-12)
 
 `MutualRuleOk.lean`'s `hih` bound its block spine `as₁ Ms ms` by LENGTH
 alone (`as₁.length = nP`, `Ms.length = k`, `ms.length = n`) and then
@@ -69775,7 +69806,11 @@ reading's own field entry gives both.
 blocker (the checker's `isProp` comes from `f₀` at `checkMutualCore`,
 `checkStructProjTable` is handed the MEMBER's `f.s`, and
 `mutualCrossChecks` relates the two only by `Level.isEquiv f.s f₀.s`,
-whose only theorem in the tree is `isEquiv_sound`).
+whose only theorem in the tree is `isEquiv_sound`).  **CLOSED the same
+day** — see §8.12's LANDED record: the missing theorem was not
+transitivity but COMPLETENESS at `.zero`, and `simplify` supplies it in
+three lines, so `declMutual` is complete with no `sorry` and
+`MutualStageTable.lean` unchanged.
 
 What the tail landed, in the file's own order:
 
