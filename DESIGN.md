@@ -71307,6 +71307,47 @@ literals' defaulted projections (`(fixRepData …).pinsOf ψ`) do not
 name-injectivity is proved twice through `List.pairwise_iff_getElem`
 (no `Nodup.getElem_inj_iff` in core).
 
+#### M.9 M-B′'s entry conditions, found while closing M-A′ (2026-09-12)
+
+* **`declMutual` is stated over `DeclMutualRun` and USES the stream pin**
+  (`hpinOk : mutualRecPinOk p`) three times: for the recursor names
+  (`hCVcheck`/`hfreshR`: `T.rec` fresh and named by the stream's own
+  `checkConstantVal`), for the η-closure extension
+  (`checkMutualRecTys_fresh`) and for the reserved-name guard.  The
+  nested lane's auxiliary block runs `checkMutualCore … b none` (no
+  stream records), so the aux model needs a `declMutualCore` — the same
+  theorem over `checkMutualCore_inv`'s chain with the three name facts
+  as HYPOTHESES (`∀ t < b.k, env.find? (b.recName t) = none`, not
+  reserved, not `isProjFnShape`).  Mechanical (the uses are localised),
+  but it is the first thing M-B′ does.
+* **Where do those name facts come from for the auxiliary block?**  For
+  a real member `T`, from the restored environment's `restoreRecTys`
+  (its `checkConstantVal` at `env₂ ⊇ env` proves `T.rec` fresh).  For a
+  COPY `T._nested.J_k`, its recursor and constructors are stored in the
+  scratch environment WITHOUT a freshness check (#278 finding 3: the
+  generated names are not checked; `checkMutualCore … none` compares
+  nothing), so a stream that had earlier declared a constant named
+  `T._nested.J_k.rec` would make the scratch store carry two entries
+  under one name — a model of that environment cannot be built.
+  Official's `check_no_nested_aux` rejects such NAMES on input; our
+  front guard (`mentionsNestedAux` on the block's types) does not, and
+  `elimNested`'s counter is not checked against the environment.
+  Question for the kernel lane: is every declaration whose name carries
+  the `_nested` prefix rejected (then "no stored constant is
+  `_nested`-named" is an invariant the model can state), or should
+  `checkNested` check the copies' generated names against the
+  environment as official's `mk_unique_name` does?  Until settled,
+  `declNested` will take the freshness as a hypothesis discharged from
+  whichever the kernel provides.
+* **The wiring question** (coordinator, 2026-09-12): when `declNested`
+  exists, the FEnv twins, `checkNestedS`, the `_datF`/`…F_eq`/`…S_run`/
+  `…S_skels` chain, the fourth arm at the eight dispatch sites and
+  `declNestedRun_etaClosed` are owed.  The model lane's preference: the
+  kernel lane does that wiring (it is their machinery), against
+  `declNested`'s signature as soon as it is committed — `Nonempty
+  (EnvModelM V μ envOut)` from `DeclNestedRun μ F env p envOut` plus the
+  freshness hypothesis above.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
