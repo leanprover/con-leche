@@ -74,8 +74,8 @@ proposition, so nothing at run time — and returns it with the result:
 what this loop returns IS an `InstalledEnv mode ds`
 (`ConLeche/Cached/Installed.lean`), phase A of the fold `checkDecls`.
 Whatever it prints between steps is irrelevant to that type, which is
-why ONE loop serves the plain run, the `--progress` heartbeat and the
-route trace alike.
+why ONE loop serves the plain run and the `--progress` heartbeat
+alike.
 
 **Written tail-recursively, threading `p` and `s` LINEARLY** (task
 #182's finding, `agent/fenv-linear`): a `for … in ds` loop with
@@ -98,7 +98,7 @@ the stream's record index: the parse folds the basis and `quot` blocks
 and drops taint-skipped records, so the two drift apart by a
 stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name)
+    (stride total t0 : Nat)
     (ds : List ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
     (rest : List ConLeche.Declaration) →
@@ -120,38 +120,9 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
         {ConLeche.Cached.declCLabel pd} \
         t={ConLeche.Cached.msSecs (now - t0)}s\n"
       err.flush
-    -- THE ROUTE TRACE (`CON_LECHE_ROUTE_TRACE`, task #193): one line per
-    -- inductive block naming the install route the checker is about
-    -- to take — the recognisers run here on the same environment the
-    -- step sees, so the line is exactly the dispatch of
-    -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  It is the
-    -- route census's instrument (`tests/route-census.sh`): every block
-    -- must read `fix`, `inmodel` or `basis` — a `modeled` line means
-    -- the block is on NO route (the recogniser refused it and the
-    -- in-process modeller did not model it), so the install declines.
-    -- Since task #219 a `_model` record in the stream is an ordinary
-    -- declaration and cannot route a block.
-    if trace then
-      match pd with
-      | .indDecl block nP =>
-        let route :=
-          if (ConLeche.nativeParts? nP block).isSome then "fix"
-          else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
-            then "inmodel"
-          else "modeled"
-        err.putStr s!"con-leche: route \
-          {(block.head?.map (·.name)).getD .anonymous} {route}\n"
-        err.flush
-      | .basisDecl k =>
-        -- a pinned basis block: matched by the parse before any
-        -- recogniser runs, installed from the pin
-        err.putStr s!"con-leche: route \
-          {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
-        err.flush
-      | _ => pure ()
     match h : ConLeche.Cached.annotDeclStep mode p pd s with
     | .ok (p₁, s₁) =>
-      installLoop mode err stride total t0 trace inModelled ds p₀ s₀ rest p₁ s₁ (by
+      installLoop mode err stride total t0 ds p₀ s₀ rest p₁ s₁ (by
         obtain ⟨done, hds, hr⟩ := hrun
         exact ⟨done ++ [pd], by rw [List.append_assoc]; exact hds,
           ConLeche.Cached.InstallRun.snoc mode hr h⟩)
@@ -333,8 +304,8 @@ what comes out
 is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
-loops are the fold's two phases with the heartbeat and the route trace
-printed between the steps; the fully checked environment they assemble
+loops are the fold's two phases with the heartbeat printed between the
+steps; the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
 the success line `checkMain` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
@@ -343,8 +314,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (trace : Bool) (noMark : Bool)
-    (inModelled : Array Name) (ds : List ConLeche.Declaration) :
+    (noMark : Bool) (ds : List ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -352,7 +322,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       err.putStr s!"con-leche: {line}\n"
       err.flush
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
-  match ← installLoop mode err stride total t0 trace inModelled ds
+  match ← installLoop mode err stride total t0 ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} ⟨[], rfl, .nil _ _⟩ with
   | .error e =>
@@ -509,28 +479,14 @@ fold the main theorem `ConLeche.no_proof_of_False`
 unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     (noMark : Bool) : IO UInt32 := do
-    -- The retired environment variables (tasks #76/#134) are hard
-    -- errors, not silently ignored: a verdict's provenance must be
-    -- readable off the invocation (task #147).
-    if (← IO.getEnv "CON_LECHE_NO_PROOF_CERTS") == some "1" then
-      IO.eprintln "con-leche: CON_LECHE_NO_PROOF_CERTS is retired; the \
-        cert-skipping measurement lane is the --trusted mode \
-        (checking-mode front door included — see DESIGN.md, task #147)"
-      return 3
-    if (← IO.getEnv "CON_LECHE_INFER_ONLY") == some "1" then
-      IO.eprintln "con-leche: CON_LECHE_INFER_ONLY is retired; the infer-only \
-        internal discipline is part of the --trusted mode, and the \
-        certified mode is --verified, the default \
-        (see DESIGN.md, task #147)"
-      return 3
     -- The opt-in progress heartbeat (2026-09-07, `--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
-    -- handed down as configuration.
-    -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
-    -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
-    -- on the progress lane (so a traced run is as unverified as a
-    -- heartbeat run, and says so).
-    let trace := (← IO.getEnv "CON_LECHE_ROUTE_TRACE").isSome
+    -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
+    -- VERDICT IS A COMMAND-LINE FLAG (task #287), so a verdict's
+    -- provenance is readable off the invocation and off nothing else.
+    -- The only environment variables the binary still reads are the
+    -- in-process modeller's four debug switches below, and they go
+    -- with the modeller.
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -659,9 +615,8 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- returns it, the fold the main theorem
       -- `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`) is
       -- about.  The success line below is printed from that value and
-      -- from nothing else.  Printing between the steps (`--progress`,
-      -- the route trace) changes nothing about the proof, so there is
-      -- no second loop.
+      -- from nothing else.  Printing between the steps (`--progress`)
+      -- changes nothing about the proof, so there is no second loop.
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the stream's declaration-record index.  The parse folds
@@ -691,10 +646,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs trace noMark inModelled
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark
         decls.toList
       match verdict with
-      | .ok ⟨env, _⟩ =>
+      | .ok _ =>
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
         -- taint-skip verdict (user directive 2026-08-24) is a
         -- decline: declarations using tolerated axioms were skipped
@@ -727,30 +682,22 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- `Quot.mk`/`.lift`/`.ind` entries it erases).  That is a
         -- third unit — also a function of the file, just a larger one.
         -- `scripts/stream-census.py` derives BOTH numbers from a
-        -- stream and is checked against both checkers' actual output.
-        -- The environment-constant count stays on stderr under
-        -- `CON_LECHE_VERBOSE=1`.
+        -- stream and is checked against both checkers' actual output,
+        -- which is where a run's constant count is read off now (task
+        -- #287 retired the stderr line that printed it).
         -- ... and minus the records the in-process modeller generated
         -- (task #219): they are checked as declarations, but they are
         -- not in the file, and the headline number is the FILE's.
         let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
-        let verboseCounts : IO Unit := do
-          if (← IO.getEnv "CON_LECHE_VERBOSE").isSome then
-            IO.eprintln s!"con-leche: environment: {env.consts.length} constants \
-              from {decls.size} fold records ({preludeCount} built-in \
-              prelude records, {preludeDropped} stream copies of them \
-              dropped)"
         if taintSkipped.isEmpty then
           IO.println s!"con-leche: accepted {streamRecords} \
             declarations ({modeTag})"
-          verboseCounts
           return 0
         else
           IO.eprintln s!"con-leche: declined ({streamRecords} \
             declarations checked, {taintSkipped.size} skipped for \
             tolerated axioms) ({modeTag}): \
             {Frontend.taintDetail taintSkipped}"
-          verboseCounts
           return 2
       | .error (e, i) =>
         -- **No second pass** (2026-09-07): the fold's error carries
@@ -767,8 +714,8 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- records into one `basisDecl` and drops a few others, so
         -- `init-full` runs at offset 0 for most of the stream and
         -- ends 5 short (54 351 declaration records, 54 346 fold
-        -- positions), while the `CON_LECHE_TRACE_DECLS` lane measured
-        -- +4 on the Mathlib stream.  The declaration NAME is the
+        -- positions), while the Mathlib stream was measured at +4.
+        -- The declaration NAME is the
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
         let loc := if h : i < decls.size then
@@ -920,21 +867,6 @@ def usage : String := String.intercalate "\n" [
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
-  "  CON_LECHE_ROUTE_TRACE=1",
-  "                    the install-route audit (task #193): one",
-  "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
-  "                    line",
-  "                    on STDERR per inductive block, naming the route",
-  "                    the checker takes for it (the fixed-point route",
-  "                    (task #188/#210), the in-process model (task",
-  "                    #200), a pinned basis block, or 'modeled' — a",
-  "                    block on NO route, which declines).",
-  "                    tests/route-census.sh pins the per-route counts",
-  "                    over every good fixture: no block may read",
-  "                    'modeled'.",
-  "                    Printed by the install phase of the one",
-  "                    driver, beside the --progress heartbeat.",
-  "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
   "                    default every mutual or nested inductive block",
   "                    gets a model generated at parse time",
@@ -945,8 +877,7 @@ def usage : String := String.intercalate "\n" [
   "                    than records of the file, so the verdict line",
   "                    reports the file's own count (task #219).  A",
   "                    generator decline is the run's decline, naming",
-  "                    the class.  The route trace reads `inmodel` for",
-  "                    such a block.  DEBUG SWITCH ONLY: the in-process",
+  "                    the class.  DEBUG SWITCH ONLY: the in-process",
   "                    modeller is the checker's only model source --",
   "                    a stream record named `T._model` is an ordinary",
   "                    declaration and routes nothing (task #219) -- so",
@@ -969,26 +900,20 @@ def usage : String := String.intercalate "\n" [
   "                    (lean4export format; the generator's debug gate,",
   "                    tests/inmodel.sh).",
   "",
-  "  CON_LECHE_VERBOSE=1    add one stderr line beside the verdict giving the",
-  "                    ENVIRONMENT-CONSTANT count and the fold's record",
-  "                    count.  The verdict line counts the STREAM's",
-  "                    accepted declaration RECORDS: one per",
-  "                    def/theorem/opaque/axiom/inductive record the",
-  "                    stream declared and the fold consumed.  The",
-  "                    built-in prelude's own records are not counted,",
-  "                    and a stream record dropped as an identical copy",
-  "                    of a prelude record is (it is installed, from the",
-  "                    prelude).  That count is a property of the INPUT.",
-  "                    The constant count is not: an inductive record",
-  "                    installs several constants (type former,",
-  "                    constructors, recursor, projection table), so it",
-  "                    moves when the representation moves.  NB the",
-  "                    official kernel's 'Accepted N declarations' is a",
-  "                    THIRD unit — its parsed constMap, where an",
-  "                    inductive record counts as its members — also a",
-  "                    function of the file, just a larger one;",
-  "                    scripts/stream-census.py derives both from a",
-  "                    stream.",
+
+  "THE VERDICT LINE'S COUNT (task #187).  It counts the STREAM's",
+  "accepted declaration RECORDS: one per def/theorem/opaque/axiom/",
+  "inductive record the stream declared and the fold consumed.  The",
+  "built-in prelude's own records are not counted, and a stream record",
+  "dropped as an identical copy of a prelude record is (it is installed,",
+  "from the prelude).  That count is a property of the INPUT.  The",
+  "number of environment CONSTANTS is not: an inductive record installs",
+  "several constants (type former, constructors, recursor, projection",
+  "table), so it moves when the representation moves.  NB the official",
+  "kernel's 'Accepted N declarations' is a THIRD unit — its parsed",
+  "constMap, where an inductive record counts as its members — also a",
+  "function of the file, just a larger one; scripts/stream-census.py",
+  "derives every one of these numbers from a stream.",
   "",
 
   "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",

@@ -5,17 +5,17 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L791
-   791  def usage : String := String.intercalate "\n" [
+== Main.lean#L738
+   738  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L49-L52
-    49  theorem model_exists (V : Type w) [SetTheory V]
-    50      (ds : List Declaration) (env : Env)
-    51      (accepted : checkDecls .verified ds = .ok env) :
-    52      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L54-L57
+    54  theorem model_exists (V : Type w) [SetTheory V]
+    55      (ds : List DeclC) (env : Env)
+    56      (accepted : checkDecls .verified ds = .ok env) :
+    57      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,25 +44,31 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L59-L62
-    59  theorem no_proof_of_False (V : Type w) [SetTheory V]
-    60      (ds : List Declaration) (env : Env)
-    61      (accepted : checkDecls .verified ds = .ok env) :
-    62      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+== ConLeche/MainTheorem.lean#L64-L67
+    64  theorem no_proof_of_False (V : Type w) [SetTheory V]
+    65      (ds : List DeclC) (env : Env)
+    66      (accepted : checkDecls .verified ds = .ok env) :
+    67      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
+
+== ConLeche/MainTheorem.lean#L79-L82
+    79  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    80      (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
+    81      (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    82      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
 == ConLeche/Cached/Installed.lean#L407-L411
-   407  def checkDecls (mode : CheckMode) (ds : List Declaration) :
+   407  def checkDecls (mode : CheckMode) (ds : List DeclC) :
    408      Except (CheckError × Nat) Env := do
    409    let (p, _) ← (ds.foldlM (annotDeclStep mode) (0, mkFEnv Env.empty, #[])) {}
    410    checkPendingList mode p.2.1 p.2.2.toList
    411    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L93-L97
-    93  /--
-    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    95  -/
-    96  #guard_msgs in
-    97  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L100-L104
+   100  /--
+   101  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   102  -/
+   103  #guard_msgs in
+   104  #print axioms ConLeche.model_exists
 
 == ConLeche/Frontend/ExportC.lean#L999
    999  def parseExportStreamD (path : System.FilePath)
@@ -75,64 +81,63 @@
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
-   137      Declaration → CheckCM (FEnv × Array PendingCheck)
+   137      DeclC → CheckCM (FEnv × Array PendingCheck)
    138    | .defnDecl cv value hint =>
 
 == ConLeche/Cached/Installed.lean#L337-L338
-   337  def checkRecord {ds : List Declaration} (e : InstalledEnv mode ds) (k : Nat)
+   337  def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L192
-   192  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L163
+   163  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L307
-   307  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L278
+   278  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
-   367  def collectChecks {ds : List Declaration} (e : InstalledEnv mode ds)
+   367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
    368      (tab : Array (Option (RecordResult mode e))) :
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L345-L349
-   345  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   346      (trace : Bool) (noMark : Bool)
-   347      (inModelled : Array Name) (ds : List ConLeche.Declaration) :
-   348      IO (Except (ConLeche.CheckError × Nat)
-   349        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L316-L319
+   316  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   317      (noMark : Bool) (ds : List ConLeche.Cached.DeclC) :
+   318      IO (Except (ConLeche.CheckError × Nat)
+   319        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
-   488  theorem fullyChecked_checkDecls {ds : List Declaration} (fc : FullyChecked mode ds) :
+   488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :
    489      checkDecls mode ds = .ok fc.env := by
 
 == ConLeche/Cached/Installed.lean#L223-L227
-   223  structure InstalledEnv (ds : List Declaration) where
+   223  structure InstalledEnv (ds : List DeclC) where
    224    fe : FEnv
    225    pend : Array PendingCheck
    226    run : ∃ (n : Nat) (s : CState),
    227      InstallRun mode ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
 
 == ConLeche/Cached/Installed.lean#L186-L191
-   186  inductive InstallRun : List Declaration → (Nat × FEnv × Array PendingCheck) → CState →
+   186  inductive InstallRun : List DeclC → (Nat × FEnv × Array PendingCheck) → CState →
    187      (Nat × FEnv × Array PendingCheck) → CState → Prop where
    188    | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) : InstallRun [] p s p s
-   189    | cons {pd : Declaration} {ds : List Declaration} {p p₁ p' : Nat × FEnv × Array PendingCheck}
+   189    | cons {pd : DeclC} {ds : List DeclC} {p p₁ p' : Nat × FEnv × Array PendingCheck}
    190        {s s₁ s' : CState} (h : annotDeclStep mode p pd s = .ok (p₁, s₁))
    191        (rest : InstallRun ds p₁ s₁ p' s') : InstallRun (pd :: ds) p s p' s'
 
 == ConLeche/Cached/Installed.lean#L259-L262
-   259  def GroupChecked {ds : List Declaration} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
+   259  def GroupChecked {ds : List DeclC} (e : InstalledEnv mode ds) (i : Nat) : Prop :=
    260    match e.pend[i]? with
    261    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
    262    | none => True
 
 == ConLeche/Cached/Installed.lean#L498-L499
-   498  theorem checkDecls_fullyChecked {ds : List Declaration} {env : Env}
+   498  theorem checkDecls_fullyChecked {ds : List DeclC} {env : Env}
    499      (h : checkDecls mode ds = .ok env) : ∃ fc : FullyChecked mode ds, fc.env = env := by
 
 == ConLeche/Verify/Cached/InstalledC.lean#L311-L318
    311  value — is what the theorem's model step consumes. -/
-   312  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+   312  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
    313      {p : Nat × FEnv × Array PendingCheck} {s : CState}
    314      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
    315      (hrun : InstallRun μ ds p s q s') :
@@ -147,12 +152,12 @@
 == ConLeche/Verify/Cached/InstalledC.lean#L460-L462
    460  well-formedness it needs; the conclusion is the model itself. -/
    461  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   462      {ds : List Declaration} (fc : FullyChecked μ ds) :
+   462      {ds : List DeclC} (fc : FullyChecked μ ds) :
 
 == ConLeche/Verify/Cached/MainC.lean#L65-L71
     65  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     66      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    67      {ds : List Declaration} {env' : Env}
+    67      {ds : List DeclC} {env' : Env}
     68      (h : checkDecls μ ds = .ok env') :
     69      ∀ c ∈ env'.consts,
     70        c.toConstantVal.type = .const falseName [] → False := by
@@ -160,7 +165,7 @@
 
 == ConLeche/Verify/Cached/MainC.lean#L43-L48
     43  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-    44      {ds : List Declaration} {env' : Env}
+    44      {ds : List DeclC} {env' : Env}
     45      (h : checkDecls μ ds = .ok env') :
     46      Nonempty (EnvModelM V μ env') := by
     47    obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
@@ -295,7 +300,7 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384
-  1382  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
+  1382  theorem checkDecls_skels {mode : CheckMode} {ds : List DeclC}
   1383      {env : Env} (h : checkDecls mode ds = .ok env) :
   1384      envSkels env = streamSkels ds := by
 

@@ -715,8 +715,9 @@
 0 psigma_rec_eta.ndjson
 
 # The class-B yolo escape, exercised (2026-08-27 fuzz campaign,
-# finding F1).  Under CON_LECHE_NO_PROOF_CERTS=1 `inferSpineT` drops the
-# whole per-argument `infer` — not just the argument/domain `defeq` —
+# finding F1).  In the retired yolo measurement lane `inferSpineT`
+# dropped the whole per-argument `infer` — not just the argument/domain
+# `defeq` —
 # so *any* defect living only inside an application ARGUMENT escapes
 # the measurement stack.  These three hand-built streams are the
 # certified stack's side of that: each must give the verdict on this

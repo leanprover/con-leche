@@ -375,7 +375,7 @@ def taintSentinel : String := "\x00uses-skipped-axiom"
 /-! ### The tree-size budget, retired at task #215
 
 The frontend used to cap a declaration's *unshared tree size*
-(`declTreeSizeBudget = 2^25`, `CON_LECHE_TREE_BUDGET`, `sizeSentinel`,
+(`declTreeSizeBudget = 2^25`, its override, `sizeSentinel`,
 `budgetedName`, the per-entry `sizes` counter).  It existed because
 four record kinds were read by **unmemoized** tree walks, and a
 heavily DAG-shared declaration would have unfolded them into billions

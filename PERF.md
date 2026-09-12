@@ -111,8 +111,8 @@ Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation
   not the number of environment CONSTANTS, which would count an
   inductive block's type former, its constructors, its recursor and
   its projection table separately — a property of con-leche's
-  representation.  `CON_LECHE_VERBOSE=1` prints the constant count,
-  on stderr, beside it.
+  representation.  `scripts/stream-census.py` derives both numbers
+  from the stream.
 * **The official number is not a record count either.**  Its
   `Main.lean` prints `constMap.size`: one entry per exported
   constant, so an inductive record contributes its type formers, its

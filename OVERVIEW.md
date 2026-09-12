@@ -26,7 +26,7 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L791)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L738)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a
@@ -89,10 +89,10 @@ covered exactly as a run without it, and so is a run on the pool.
 
 ## 1. What is proved
 
-The statement is two theorems about the declaration fold `checkDecls`,
+The statement is three theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
 a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L49-L52):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L54-L57):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -122,12 +122,29 @@ denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
 and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
-The main corollary,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L59-L62),
+The corollary at the environment,
+[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L64-L67),
 follows in three lines — a constant of type `False` would be a member
 of the empty set:
 
 > … then `env` stores no constant whose type is `False`.
+
+The main corollary is that statement moved to the fold's INPUT,
+[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L79-L82):
+
+> … if any record of `ds` declares a theorem whose declared type is
+> `False`, then `checkDecls` accepts `ds` with no environment at all.
+
+This is the form of the statement a reader can check without knowing
+what an `Env` is: it speaks only of the declarations handed to the
+checker. It rests on the environment statement, and says the extra
+thing a reader of that one may wonder about — that the offending
+record is not quietly dropped on the way in. A theorem record is
+installed by statement, under its own name, with the annotation of its
+declared type; the annotation of a bare constant is that constant; and
+every later step of the fold only ever extends the list of stored
+constants. So the record's own `False` is still in the environment the
+fold returns, where the environment statement forbids it.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L407-L411))
@@ -145,7 +162,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L93-L97)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L100-L104)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -187,10 +204,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L192))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L163))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L307))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L278))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
@@ -200,9 +217,9 @@ Read from the outside in:
    fully checked environment; which thread computed a check is
    irrelevant to what it proves, and so is whether the mark happened:
    it is the identity on the value, its result is discarded, and the
-   environment the driver goes on to use is the one it already had. The heartbeat and the route trace are
-   printed between the steps and touch neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L345-L349))
+   environment the driver goes on to use is the one it already had. The heartbeat is
+   printed between the steps and touches neither type. The driver
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L316-L319))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/Installed.lean#L488-L489)).
@@ -692,7 +709,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary, and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem, the corollary at the environment the fold returns, and the main corollary about the stream it consumes — and the challenge module stating all three with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
@@ -706,7 +723,7 @@ dump freshness, the Comparator pair (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),
 the arena tutorial tests, the end-to-end and annotation fixtures with
-pinned verdicts, the route census, and the trusted-mode sweep. `lake test` builds the test library with the axiom pins. CI runs
+pinned verdicts, and the trusted-mode sweep. `lake test` builds the test library with the axiom pins. CI runs
 both.
 
 The links in this document are part of the battery: `tests/overview-links.sh`

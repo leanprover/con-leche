@@ -68939,3 +68939,274 @@ result.  A mismatched binary fails inside the sandbox as an opaque
 diagnosis it looks like.
 
 No checker code changed, so the binary is master's.
+
+## TASK #287 — THE ENVIRONMENT-VARIABLE HOOKS: what went, what stays until the modeller goes (2026-09-12, `agent/envvars-287`)
+
+**The end state the maintainer ruled: the checker binary reads no
+environment variable at all; everything is a command-line flag or
+gone.**  This task removes everything that can go today.  What is left
+is the in-process modeller's four debug switches, and they are not a
+separate decision: they die with the modeller (task #279).
+
+### Per variable
+
+| variable | verdict |
+|---|---|
+| `CON_LECHE_NO_PROOF_CERTS` | **REMOVED.**  The retired-switch tombstone in `checkMain` (the read, the message, the `return 3`) and the "MODE FAIL" test in `tests/arena.sh` that asserted it errors.  The `--yolo` FLAG tombstone stays — a flag spelling is what a stale command line carries. |
+| `CON_LECHE_INFER_ONLY` | **REMOVED**, the same way; `--infer-only` stays a hard-error flag. |
+| `CON_LECHE_PROGRESS` | **already gone at #229** — but `tests/arena.sh` still asserted that it is *ignored*, and a test that a retired variable is ignored is itself a tombstone.  Both checks removed; the `--progress` flag's own twelve checks are untouched. |
+| `CON_LECHE_ROUTE_TRACE` | **REMOVED, end to end** — see below. |
+| `CON_LECHE_VERBOSE` | **REMOVED**: the read and the `verboseCounts` line beside the verdict.  The constant count it printed is derivable from the stream by `scripts/stream-census.py`, which is what the help text and PERF.md now say.  `env` in the driver's accepting arm became unused and is now `_`; the accept is still the `.ok` of `checkDecls`, which is what the success line is printed from. |
+| `CON_LECHE_TRACE_DECLS` | **GHOST** (no read anywhere): a code comment in `Main.lean` cited it for a measured +4 index offset on the Mathlib stream.  Sentence rewritten to state the measurement without the dead name. |
+| `CON_LECHE_TREE_BUDGET` | **GHOST** (retired with the budget at #215): named in `ConLeche/Frontend/Export.lean`'s retirement docstring (now "its override") and in `scripts/mk_budget_fixtures.py`, the generator of two fixtures the budget left behind — **script deleted**.  Nothing in `tests/` or `scripts/` called it; the two fixtures stay (`tests/e2e-expected.txt` rows `budget_model`, `budget_block`), and `budget_block.ndjson`'s own `meta.exporter` line still names the generator as its provenance — that is data inside a pinned fixture, not a live reference. |
+| `CON_LECHE_INMODEL`, `CON_LECHE_INMODEL_CENSUS`, `CON_LECHE_INMODEL_DUMP`, `CON_LECHE_PROJREC_TRACE` | **STAY until #279.**  The in-process modeller's debug switches, `tests/inmodel.sh` their gate; they go with the modeller. |
+| `CON_LECHE_MODE`, `CON_LECHE_BIN`, `CON_LECHE_ARENA_*`, `CON_LECHE_VLIMIT*`, `CON_LECHE_TIMEOUT`, `CON_LECHE_TMPDIR`, `CON_LECHE_OFFICIAL_KERNEL` | **NOT THE BINARY'S.**  `scripts/arena/*` and `scripts/perf-tables.sh` read these; the checker never has.  Out of scope. |
+
+### The route census is gone with its instrument
+
+Maintainer's call: *"Let's just get rid of this gate, we have fewer
+routes now anyways."*  Since task #210 Part C there is one native
+route, so the census counted `fix`, `basis` and the modeller's
+`inmodel`, and its failure meanings (`modeled`, "no install route")
+are both plain declines the arena expectations already pin — a good
+fixture that loses its route stops accepting, and `tests/arena.sh`
+says so on the fixture's own row.
+
+Removed: `tests/route-census.sh`; the gate call and its comment block
+in `tests/arena.sh`; the `--help` entry; and the trace's whole
+implementation in `Main.lean` — the `trace` read, the `if trace then`
+block in `installLoop` that re-ran `nativeParts?` to name a route, and
+the `trace : Bool` / `inModelled : Array Name` parameters that carried
+it through `installLoop` and `checkDeclsIO`.  `inModelled` itself
+stays where it is computed (`Frontend.ExportC`): the driver's stderr
+receipt and the in-model census still print it.  **The census had no
+pinned data file** — its stream list is read out of
+`tests/arena-expected.txt`'s accepting `good/` rows, so nothing else
+was deleted with it.  `tests/arena.sh` is now nine gates, which is
+what `.github/workflows/ci.yml`'s header already said.
+
+`OVERVIEW.md` §12's gate list and §1's "the heartbeat and the route
+trace are printed between the steps" lost the census and the trace
+(no task numbers there, per the docs rule).  DESIGN.md's historical
+records keep theirs: this section is the dated note that the gate is
+gone.
+
+### The checker checks exactly what it checked
+
+Nothing on any checking path moved.  The trace ran `nativeParts?` a
+second time, for printing only, *beside* the dispatch rather than in
+it; deleting it removes a recogniser call from the install loop and
+nothing else.  `checkDecls` and the fold are untouched, and so is
+`Kernel/*` / `Cached/*` — the two dropped parameters are the DRIVER's
+(`Main.lean`), not the checker's, so no init-full comparison is owed
+and none was run.
+
+### Gates
+
+| gate | result |
+|---|---|
+| `lake build` | 544 jobs, **warning-free**, exit 0 |
+| `lake test` | green, warning-free |
+| `tests/arena.sh` (full, `env -i`, no `ulimit`) | **exit 0.**  layering 280/190/3/1, 0 base→lane, 0 impl→theory; proofdeps **3 819 rows / 11 roots / 0 doors, byte-for-byte as pinned** (the module graph did not move — no pin regenerated); pindump 3 pinners reproduced; trust surface 13 escapes in 5 allowlisted files (484 scanned), 0 outside; no-local-paths OK; challenge OK; shake 457 proposals all allowlisted; inmodel OK; axioms 18 theorems at the three; arena tutorial **90/92**; e2e **195/195**; annot **15/15**; retired flags **8/8**; prelude counts 3/3; worker pool 15/15; DAG-tower 14/14; trusted sweep 138+195+15 with the three recorded divergences; `--jobs=1` and `--jobs=4` sweeps as at the default |
+| the two counts that MOVED | **mode flags 20/20 → 18/18** (the two retired-env-var assertions) and **progress lane 17/17 → 15/15** (the two `CON_LECHE_PROGRESS`-is-ignored assertions).  Those four are the removals themselves; every other number is master's. |
+| `tests/overview-links.sh` | four Main.lean anchors re-anchored (`usage` L791→L738, `checkLoop` L192→L163, `checkPool` L307→L278, `checkDeclsIO` L345-L349→L316-L319, one line shorter for the dropped parameters); each citing paragraph re-read and still true; 77 links / 49 files OK |
+| `PERF.md` | regenerated with `scripts/perf-tables.sh --render` from the tracked `perf-data/` record after editing the one sentence in `scripts/perf-tables-render.py`; the diff is exactly that sentence |
+
+Evidence the end state is reached for this task's half:
+`grep -rn 'IO.getEnv' Main.lean ConLeche` shows **five sites of four
+names, all the modeller's** (`CON_LECHE_INMODEL`,
+`CON_LECHE_INMODEL_CENSUS` twice — once in `parseInput`, once in the
+census report — `CON_LECHE_INMODEL_DUMP`, `CON_LECHE_PROJREC_TRACE`),
+and no removed name is cited anywhere outside DESIGN.md's historical
+records.
+
+## TASK #286 — THE MAIN COROLLARY AT THE STREAM (2026-09-12, `agent/falsethm-286`)
+
+The maintainer's request: *"proving the main corollary to assume that
+`False` exists in `ds` … the annotation does not drop theorems and
+preserves `False`."*  `no_proof_of_False` is about the environment the
+fold RETURNS; a reader who has not read `annotStepC` cannot tell from it
+whether a record declaring `False` could be dropped, aliased or
+re-typed on the way in.  This task states the corollary a second time,
+over the fold's INPUT, and derives it from the first.  Statement as
+landed (`ConLeche/MainTheorem.lean`, `sorry` twin in
+`ConLeche/Challenge.lean`, third entry in `comparator.json`'s
+`theorem_names`):
+
+```lean
+/-- **The main corollary, at the stream.**  A stream that declares a
+theorem of type `False` is never accepted. -/
+theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
+    (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    ∀ env, checkDecls .verified ds ≠ .ok env
+```
+
+`V` and `[SetTheory V]` are there for the same reason the other two
+have them: the tree instantiates the interface nowhere (the bridge
+does), so a statement that does not quantify over `V` could not be
+proved from `model_exists`.  The theorem is universally quantified
+over `ds`, and `hmem` is `∈` on the record list — nothing about
+positions, nothing about the rest of the stream.
+
+**This is not §5 of the task #277 record coming back.**  That section
+rejected a `ds`-statement that would have to say what the fold STORES
+for every record kind (six reasons: dropped tolerated-axiom records,
+the built-in prelude, the `ProjRec` rewrite, the in-process modeller's
+`_model` records, the constructor reorder, the prelude dedupe — plus
+`annotate`, `opaqueDecl`'s discarded value, `indDecl`'s regenerated
+recursors).  This statement makes no such claim: it is a NEGATIVE
+statement about ONE record kind, and it is *derived* from the
+env-statement rather than replacing it.  §5's recommendation — "state
+the theorem about `env`, as it is" — stands; this is an addition.
+
+### 1. The three ingredients, as used
+
+All three are in the new `ConLeche/Verify/Cached/StreamThm.lean`
+(imports `Verify.Cached.PushChain` and `Verify.Cached.BridgeCS4`, both
+already in the capstones' closure), and `MainTheorem.lean` imports it
+privately; its top lemma is
+`checkDecls_thmDecl_const`, stated for an arbitrary bare constant type
+`.const n ls`, not for `False`:
+
+1. **The annotation of a bare constant is the constant.**
+   `annotateBodyI`'s `.const` arm is `pure e`, so
+   `annotateBodyI_const` is `rfl`.  The entry point is memoised
+   (`memoEI (·.annotC)`), so the returned type is the MEMO'S on a hit
+   — and the hit branch had to be excluded.  It is, without any memo
+   invariant: `annotStepC`'s `thmDecl` arm begins with `flushC`, and
+   `CState.flushed` sets `annotC := {}`, so the call runs at a state
+   whose annotation memo is EMPTY.  `annotate_const_of_miss` takes the
+   miss as a hypothesis (`s₀.annotC[e]? = none`) and
+   `flushed_annotC_none` discharges it.  `CSOK`/`CSOKF` are not
+   needed and are not used.
+2. **A theorem record is never dropped.**
+   `annotConstantValC_const` walks the header install's eight guards
+   with `bindC_ok`/`pureC_ok`/`throwC_bind_ok` (the recipe of
+   `annotConstantValC_run`, `Verify/Cached/InstalledC.lean`, without
+   its `CSOK`/`EnvWF` premises) and concludes
+   `cvA = ⟨cv.name, cv.levelParams, .const n ls⟩`;
+   `annotStepC_thm_consts` then reads the arm's `pure` off:
+   `fe'.env.consts = .thmInfo cvA value :: fe.env.consts`.
+3. **Pushed constants persist.**  `installRun_thmDecl_const` inducts
+   on `InstallRun`.  At the step that consumes the record, ingredient 2
+   puts the constant on the list; `installRun_trace` (PushChain) on the
+   REST gives `q.2.1.env.consts = new ++ fe₁.env.consts`, so it is
+   still there at the end of phase A.  The induction carries the one
+   side condition `PushChain` needs — the index is canonical
+   (`p.2.1 = mkFEnv p.2.1.env`) — forward through `annotStepC_push`.
+   Phase B pushes nothing, so `checkDecls_fullyChecked` +
+   `InstalledEnv.run` closes it.
+
+The corollary is then two lines: the constant of type `.const falseName
+[]` that `checkDecls_thmDecl_const` produces is exactly what
+`no_proof_of_False` forbids.
+
+### 2. What was harder than expected, and what was not
+
+* **The memo was the whole risk, and `flushC` retired it.**  The brief
+  expected the lemma to go through the cached tier's memo-table
+  invariant (`CSOK.annotC`: every entry is backed by a pure run at some
+  fuel).  That route exists but is expensive — `CSOK` at the right
+  environment is only available inside `installRun_model`'s walk, which
+  is a Model-tier induction carrying `EnvWF` and the graded model.
+  The per-declaration flush makes it unnecessary: the annotation memo
+  is provably empty at the exact call site.  The new module therefore
+  sits at the `Verify` tier with no model reasoning in it at all, and
+  the new root's proof-term closure is `main_model`'s **plus exactly
+  one module** (`ConLeche.Verify.Cached.StreamThm`) — 430 rows against
+  429.
+* **The `f + 1` shape of the knot.**  `coreKnotI` matches on `0` /
+  `fuel + 1`, and the call site passes the literal `checkFuel`
+  (`= 100000`).  `annotate_const_of_miss` is stated at `f + 1` and
+  instantiated at `f := checkFuel - 1` with
+  `show checkFuel - 1 + 1 = checkFuel from rfl` — the kernel's literal
+  arithmetic, no `Nat.succ_pred` gymnastics.
+* **`Yields` does not fit.**  `Verify/Cached/AgreeFloor.lean`'s clause
+  walker is the natural tool for "every value this action returns
+  satisfies `P`", and the guard chain of `annotConstantValC` is exactly
+  what it was built for — but `Yields` quantifies over ALL start states
+  and this proof's whole content is a fact about ONE (the flushed one).
+  Hence the hypothesis-style walk instead, in the shape
+  `annotConstantValC_run` already uses.
+* **`flushC`'s inversion.**  `flushC s₀ = .ok ((), s₀.flushed)` is
+  `rfl`, but `simpa`-ing the resulting `Except`/`Prod` equation into
+  `s₁ = s₀.flushed` fought back; `congrArg Prod.snd (Except.ok.inj …)`
+  followed by `subst` is the short way.
+* **Nothing about `False` is in the lemmas.**  `falseName` appears only
+  in the capstone.  The stream-side fact is about any declared type of
+  the form `.const n ls`, which is what makes it cheap: a type with a
+  binder in it would need the annotation pass's real specification.
+
+### 3. Gates
+
+`lake build` warning-free; `lake test` warning-free (the axiom pin
+gains a nineteenth row: `ConLeche.no_False_theorem_accepted` at
+`[propext, Classical.choice, Quot.sound]`); `tests/challenge.sh` OK —
+the three statements are token-identical across the two modules;
+`tests/proofdeps.sh` REGENERATED for the new root `main_stream_False`
+(4249 rows / 12 roots, 0 doors; the only new module in any closure is
+the one this task added); `tests/overview-links.sh --update` (78 links
+/ 49 files) after re-reading the three citing paragraphs — the
+`MainTheorem.lean` and `Axioms.lean` anchors shifted by the new import
+line and the new pin block, the cited text is unchanged;
+`tests/arena.sh` exit 0.  No checker code changed: the binary is
+master's.
+
+**Merged with task #287** (the environment-variable hooks) before
+landing.  One conflict, in this document — two records appended at the
+same place, ordered #287 then #286 — and none in code: #287 touched
+`Main.lean`, the frontend and the gate scripts, this task the
+statement, the proof and the pins.  `OVERVIEW.md` and
+`tests/overview-links-expected.txt` merged clean (the two sides cite
+different files) and every anchor still resolves, so no `--update` was
+needed after the merge.  The battery has **no route-census gate** any
+more — #287 deleted `tests/route-census.sh` with the
+`CON_LECHE_ROUTE_TRACE` hook it read; the merged run is the one
+recorded above minus that line.
+
+## TASK #288 — `no_False_theorem_accepted` IS *THE* MAIN COROLLARY (2026-09-12, `agent/maincor-288`)
+
+The maintainer's ruling on the statement task #286 added: *"I want that
+to be **the** main corollary."*  Nothing in any statement changes —
+this is a relabelling of the three theorems, in the docstrings, the
+module headers, `OVERVIEW.md`, the axiom pin's table and the proof-dep
+roots:
+
+| theorem | label before | label now |
+|---|---|---|
+| `model_exists` | **The main theorem.** | **The main theorem.** (unchanged) |
+| `no_proof_of_False` | **The main corollary.** | **The corollary at the environment.** |
+| `no_False_theorem_accepted` | **The main corollary, at the stream.** | **The main corollary.** |
+
+**Why.**  `no_proof_of_False` quantifies over the environment the fold
+RETURNS, so reading it presupposes knowing what an `Env` is and
+trusting that the fold put into it what the stream declared.
+`no_False_theorem_accepted` speaks only of the list of declarations
+handed to the checker: *a stream one of whose records declares a
+theorem of type `False` is never accepted*.  That is the sentence a
+reader can check against their own idea of what the checker is for,
+which is what a main corollary is for.  The environment statement
+keeps its place as the step the main corollary rests on — it is where
+the model argument lands — and stays a pinned, advertised theorem
+(`comparator.json` keeps all three names, in the same order).
+
+**Order.**  The three theorems stay in proof order in both modules
+(main theorem → corollary at the environment → main corollary); the
+prose in `ConLeche/Challenge.lean` now states the theorem and the main
+corollary in the opening quote and explains the environment statement
+as the first of the two steps between them.  `OVERVIEW.md` §1 reads
+the same way, and its module-map row for the pair names all three.
+
+**Gates** (docs only — the docstrings live in the modules): `lake
+build` warning-free, `lake test` warning-free, `tests/challenge.sh` OK
+(the three statements are still token-identical: only docstrings
+moved), `tests/overview-links.sh --update` after re-reading the four
+citing paragraphs — the `MainTheorem.lean` and `Axioms.lean` anchors
+shifted by the reworded docstrings and the reworded pin section, the
+cited text is unchanged — and `tests/no-local-paths.sh`.  No arena
+battery and no checker run: no checker code changed.
+
+**README.md is the maintainer's** and was not touched; its "### The
+Main Corollary" section still shows the environment statement, and the
+replacement text is in this task's report.
