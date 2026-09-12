@@ -86,7 +86,7 @@ def unfoldableHeadC (fe : FEnv) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
-/-- `sameConstHeads` on `Expr`. -/
+/-- The cached `sameConstHeads`. -/
 def sameConstHeadsC (a b : Expr) : Bool :=
   match a, b with
   | .app f₁ _ .., .app f₂ _ .. =>
@@ -445,7 +445,7 @@ def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap Expr Bool)
         else (false, memo)
     (r, memo.insert e r)
 
-/-- `Expr.constsResolveF fe` on `Expr` (one memoized DAG walk). -/
+/-- The cached `Expr.constsResolveF fe` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
   (constsResolveFCGo fe {} e).1
 

@@ -6,9 +6,9 @@ public import ConLeche.Kernel.Core
 @[expose] public section
 
 /-!
-# Syntactic operations on `Expr`
+# The cached syntactic operations on `Expr`
 
-The `Expr` counterparts of the arena operations in
+The **executed** counterparts of the arena operations in
 `ConLeche/Kernel/IExpr.lean` — same clauses, same memo discipline, same
 cutoffs; the mechanism differs only in where the derived data lives (a
 field of the node instead of a parallel array indexed by the node's
@@ -250,7 +250,7 @@ def instantiate1LiftGoC (v : Expr) (memo : MemoN) (e : Expr) (d : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
-/-- `Expr.instantiate1Lift` on `Expr`: the cutoff, the budgeted plain
+/-- The cached `Expr.instantiate1Lift`: the cutoff, the budgeted plain
 descent, the memoised one past the budget. -/
 def instantiate1LiftC (e v : Expr) (d : Nat := 0) : Expr :=
   if e.bvarB ≤ d then e else
@@ -258,7 +258,7 @@ def instantiate1LiftC (e v : Expr) (d : Nat := 0) : Expr :=
   | (some r, _) => r
   | (none, _) => (instantiate1LiftGoC v {} e d).1
 
-/-- `Expr.instantiate1` on `Expr` (fresh per-call memo). -/
+/-- The cached `Expr.instantiate1` (fresh per-call memo). -/
 def instantiate1C (e v : Expr) (d : Nat := 0) : Expr :=
   if e.bvarB ≤ d then e else (instantiate1GoC v {} e d).1
 
@@ -345,7 +345,7 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-/-- `Expr.instantiateList` on `Expr` (bulk, one memoized DAG pass). -/
+/-- The cached `Expr.instantiateList` (bulk, one memoized DAG pass). -/
 def instantiateListC (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
   match vs with
   | [] => e
@@ -493,7 +493,7 @@ def abstract1GoC (d : Nat) (memo : MemoN) (e : Expr) (k : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
-/-- `Expr.abstract1` on `Expr`. -/
+/-- The cached `Expr.abstract1`. -/
 def abstract1C (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
   if e.fvarB ≤ d then e else (abstract1GoC d {} e k).1
 
@@ -552,7 +552,7 @@ def abstractRangeGoC (d k : Nat) (memo : MemoN) (e : Expr) (c : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
-/-- `Expr.abstractRange` on `Expr` (`k = 0` is the identity and skips
+/-- The cached `Expr.abstractRange` (`k = 0` is the identity and skips
 the traversal, as in the arena). -/
 def abstractRangeC (e : Expr) (d k : Nat) (c : Nat := 0) : Expr :=
   match k with
@@ -602,11 +602,11 @@ def instLevelParamsGo (ks : List Name) (us : List Level)
         (mkProj s i s', memo)
     (r, memo.insert e r)
 
-/-- `Expr.instantiateLevelParams` on `Expr`. -/
+/-- The cached `Expr.instantiateLevelParams`. -/
 def instLevelParams (ks : List Name) (us : List Level) (e : Expr) : Expr :=
   if !e.hasLP then e else (instLevelParamsGo ks us {} e).1
 
-/-- `ProjEntry.typeAt` on `Expr`: the same two instantiations through
+/-- The cached `ProjEntry.typeAt`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and
 `instantiateListC` (`ProjEntry.typeAtI_eq`, `ConLeche/Verify/Cached/
 OpsC.lean`, is the equation).
@@ -657,7 +657,7 @@ def wscopedBGoC (memo : Std.HashMap (Expr × Nat) Bool) (d : Nat)
       | .proj _ _ sub .. => wscopedBGoC memo d sub
     (r, memo.insert (e, d) r)
 
-/-- `Expr.wscopedB d` on `Expr` (one memoized DAG walk). -/
+/-- The cached `Expr.wscopedB d` (one memoized DAG walk). -/
 def wscopedBC (d : Nat) (e : Expr) : Bool := (wscopedBGoC {} d e).1
 
 /-- Core of `fvarLeavesC` (memoized set accumulation). -/
@@ -736,7 +736,7 @@ def instSpineChainC : List Expr → Nat → Expr → Expr
   | [], _, e => e
   | a :: as, t, e => instSpineChainC as (t - 1) (instantiate1C e a t)
 
-/-- `Expr.instSpine` on `Expr` (bulk when the spine spans the
+/-- The cached `Expr.instSpine` (bulk when the spine spans the
 telescope context, the chain otherwise). -/
 def instSpineC (args : List Expr) (t : Nat) (e : Expr) : Expr :=
   if args.length = t + 1 then instantiateListC e args.reverse 0
@@ -804,7 +804,7 @@ def allLevelParamsDefinedGoC (params : List Name)
       | .proj _ _ sub .. => allLevelParamsDefinedGoC params memo sub
     (r, memo.insert e r)
 
-/-- `Expr.allLevelParamsDefined params` on `Expr` (one memoized DAG
+/-- The cached `Expr.allLevelParamsDefined params` (one memoized DAG
 walk). -/
 def allLevelParamsDefinedC (params : List Name) (e : Expr) : Bool :=
   (allLevelParamsDefinedGoC params {} e).1

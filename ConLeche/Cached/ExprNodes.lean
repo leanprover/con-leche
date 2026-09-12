@@ -7,25 +7,22 @@ public import ConLeche.Kernel.ExprOps
 @[expose] public section
 
 /-!
-# `Expr`: the cached engine's namespace over the one expression type
+# The node constructors, and the trust census of the one expression type
 
-**Task #172 B3a — the type unified.**  `Expr` *was* a second
-expression inductive whose constructors carried four hand-rolled
-derived fields (`h bb fb lp`), maintained by smart constructors and
-related to `ConLeche.Expr` by an erasure.  It is now an **abbreviation
-for `ConLeche.Expr` itself**, which carries those four as Lean
-`@[computed_field]`s (`ConLeche/Kernel/Expr.lean`) — the user's ruling,
-*"Adopt computed_fields.  It's a compiler feature, we trust the
-compiler."*
-
-What survives, and why the name does: the cached engine's *operations*
-(`instantiate1`, `abstractRange`, … — memoized, `Std.HashMap`-backed)
-have the same names as the pure spec functions in `ConLeche.Expr`'s
-namespace, and the verification's whole subject is that the two agree.
-So `ConLeche.Cached.ExprC` remains as a **namespace** for the executed
-operations; dot notation on an `Expr`-typed value finds it first and
-falls through to `ConLeche.Expr` for anything it does not define — which
-is exactly how the four field readers now resolve.
+**Task #172 B3a — the type unified; task #285 — the name gone.**  The
+cached engine once had a second expression inductive, `ExprC`, whose
+constructors carried four hand-rolled derived fields (`h bb fb lp`),
+maintained by smart constructors and related to `ConLeche.Expr` by an
+erasure.  #172 B3a made it an *abbreviation* for `ConLeche.Expr`,
+which carries those four as Lean `@[computed_field]`s
+(`ConLeche/Kernel/Expr.lean`) — the user's ruling, *"Adopt
+computed_fields.  It's a compiler feature, we trust the compiler."* —
+and #285 deleted the abbreviation and its namespace: there is **one**
+expression type and one namespace over it, `ConLeche.Expr`.  The
+executed, memoized operations live there beside the pure specs they
+are proved equal to, under a `C` suffix wherever the spec already owns
+the name (`instantiate1C`, `wscopedBC`, …); this module holds the node
+constructors they build with.
 
 What died with the type: `WFc`'s smart-constructor discipline
 (nothing to maintain — the fields are the compiler's), the erasure's

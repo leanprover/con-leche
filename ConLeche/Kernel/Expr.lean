@@ -339,7 +339,7 @@ The *storage* is the compiler's: `Lean/Elab/ComputedFields.lean:33` —
 *"This file implements the computed fields feature by simulating it
 via `implemented_by`."*  That is a named trust escape; it is
 enumerated, with the user ruling that adopted it, in the trust census
-in `ConLeche/Cached/Expr.lean`'s module docstring. -/
+in `ConLeche/Cached/ExprNodes.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
   | fvar (idx : Nat) (type : Expr)

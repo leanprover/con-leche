@@ -37,7 +37,7 @@
 # TO REGENERATE a line: run the criterion on that one module, compare with the
 # `--only ConLeche.NoSuchModule` floor, and either delete the import or add the
 # line here with what the run asked for in exchange.
-ConLeche/Cached/ExprC.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
+ConLeche/Cached/ExprNodes.lean	public import Std.Data.HashMap	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Cached/ExprOpsC.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Cached/ExprOpsC.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/Cached/OpsC.lean
 ConLeche/Frontend/ProjRec.lean	public import Std.Data.HashSet	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Frontend/ProjRec.lean	import ConLeche.Kernel.Level	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean

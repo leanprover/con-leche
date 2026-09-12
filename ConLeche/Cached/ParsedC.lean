@@ -50,9 +50,9 @@ variable (mode : CheckMode)
 def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
   ensureSortI (coreKnotI mode fe checkFuel) d i
 
-/-- `checkConstantVal` on a converted declaration: the checks of
+/-- `checkConstantVal` on a parsed declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `Expr`
-DAG and the operations on `Expr` values. -/
+DAG and the cached operations on its nodes. -/
 def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
     CheckCM (ConstantVal × Expr) := do
   if (fe.find? cv.name).isSome then

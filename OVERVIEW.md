@@ -639,10 +639,10 @@ to know is short:
 
 | marker | reading |
 |---|---|
-| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
+| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | indexed (`nativeRecAVI`-style readings that carry an index) |
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
-| `D` | the direct-parse record type `Declaration` and the functions over it |
+| `D` | the direct parse and the functions over its output (`parseExportD`, `trusted_agrees_skels_D`) |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
 | `WF` | well-formedness (`EnvWF`, `StructWF`) |
 | `_pure` / `_cached` / `_checked` | the capstones over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |
