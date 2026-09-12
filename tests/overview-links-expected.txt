@@ -207,18 +207,18 @@
   2879            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2880          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L302-L309
-   302      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   303      {ds : List Declaration} {env' : Env}
-   304      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
-   305      ∀ c ∈ env'.consts,
-   306        c.toConstantVal.type = .const falseName [] → False := by
-   307    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   308    exact fun c hc hty => no_constant_of_False mp c hc hty
-   309  
+== ConLeche/Model/Fold.lean#L301-L308
+   301      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   302      {ds : List Declaration} {env' : Env}
+   303      (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
+   304      ∀ c ∈ env'.consts,
+   305        c.toConstantVal.type = .const falseName [] → False := by
+   306    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   307    exact fun c hc hty => no_constant_of_False mp c hc hty
+   308  
 
-== ConLeche/Model/Fold.lean#L162
-   162  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+== ConLeche/Model/Fold.lean#L161
+   161  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -507,17 +507,17 @@
     99  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
    100  function the carrier already owns, so no model content is
 
-== ConLeche/Model/IndRep.lean#L379-L388
-   379  @[expose] def IndReps (m : EnvModel V env) : Prop :=
-   380    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-   381      env.find? n = some (.recInfo cvR mI rP rules) →
-   382      ∀ T : Name, n = T.str "rec" →
-   383      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
-   384        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
-   385      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
-   386      -- deleted with that route (tasks #278 mutual, #279 nested); until it
-   387      -- is gone no consumer may extract `IndRep` for an arbitrary block
-   388      ModeledLeaf m n
+== ConLeche/Model/IndRep.lean#L374-L383
+   374  @[expose] def IndReps (m : EnvModel V env) : Prop :=
+   375    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+   376      env.find? n = some (.recInfo cvR mI rP rules) →
+   377      ∀ T : Name, n = T.str "rec" →
+   378      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+   379        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
+   380      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
+   381      -- deleted with that route (tasks #278 mutual, #279 nested); until it
+   382      -- is gone no consumer may extract `IndRep` for an arbitrary block
+   383      ModeledLeaf m n
 
 == ConLeche/Model/Denotes.lean#L221-L227
    221  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
@@ -681,16 +681,16 @@
 == ConLeche/Model/Inductives/DeclNative.lean#L63
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
-== ConLeche/Kernel/Inductives/MutualParts.lean#L185
-   185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
+== ConLeche/Kernel/Inductives/MutualParts.lean#L178
+   178  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
 
 == ConLeche/Kernel/Checker.lean#L547-L549
    547          match mutualParts? nP block with
    548          | some q => checkMutual ops env q
    549          | none => checkModeled mode ops env block
 
-== ConLeche/Kernel/Inductives/MutualInstall.lean#L620
-   620  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L619
+   619  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
 
 == ConLeche/Semantics/Tower/MutualLeafI.lean#L54-L76
     54  def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV W (uChains Idss)
@@ -717,8 +717,8 @@
     75  /-- The auxiliary family's index telescope: the tag, and nothing else. -/
     76  def auxIds (W : Nat) (Idss : List (List AnnotTerm)) : List AnnotTerm := [tagTyAV W Idss]
 
-== ConLeche/Model/Inductives/DeclMutual.lean#L1988
-  1988  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/DeclMutual.lean#L1966
+  1966  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
@@ -739,11 +739,11 @@
      8  # The in-process modeller's kit (task #200)
      9  
     10  Shared pieces of the in-process construction of `_model` families for
-    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
-    12  
-    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    14    generators' streams are diffable — none of these names is special to
-    15    the checker: only the public `_model` slots are consumed, and only
+    11  nested inductive blocks (`ConLeche/Frontend/InModel/*`; mutual blocks
+    12  are the kernel's own, `ConLeche/Kernel/Inductives/Mutual*.lean`):
+    13  
+    14  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    15    generators' streams are diffable — none of these names is special to
 
 == ConLeche/Frontend/InModel/Nested.lean#L47-L54
     47  Declines (the residual): a field mentioning the block other than as a

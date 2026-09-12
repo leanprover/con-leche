@@ -248,11 +248,11 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2871-L2880)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L302-L309)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L301-L308)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L162)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L161)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
@@ -355,7 +355,7 @@ former's leaf, applied to parameters and indices, is a fibre of the
 least fixed point of a container functor spelled from the block's
 stored constructor types, and its constructors' leaves are that fixed
 point's injections
-([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L379-L388)).
+([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L374-L383)).
 Nothing of the representation is stored: it is a fact the proof keeps
 about the block, discharged by the install that built the block's
 leaves — definitionally for the fixpoint route, by one lemma for each
@@ -459,7 +459,7 @@ Inductive blocks are not trusted from the stream. Four cases:
 * **Mutual blocks** — several type formers, one recursor each — go
   the same way, inside one install: the recogniser splits the block
   by member
-  ([function `mutualParts?` in `ConLeche/Kernel/Inductives/MutualParts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualParts.lean#L185)),
+  ([function `mutualParts?` in `ConLeche/Kernel/Inductives/MutualParts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualParts.lean#L178)),
   and the dispatch tries it after the single-block recogniser and
   before the modeled path
   ([the three-way dispatch in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L547-L549)).
@@ -470,7 +470,7 @@ Inductive blocks are not trusted from the stream. Four cases:
   the universe bound and the elimination restriction for the block —
   generates the `k` recursors with `k` motives and their rules, and
   compares them with the stream's records
-  ([function `checkMutual` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L620)).
+  ([function `checkMutual` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L619)).
   In the model the block is one least fixed point: the members' index
   towers are summed into a tag type, the auxiliary family over that
   one tagged index is the fixpoint route's family functor at the
@@ -480,7 +480,7 @@ Inductive blocks are not trusted from the stream. Four cases:
   a member's recursor is the auxiliary recursor with the `k` motives
   dispatched on the tag. The model-tier theorem for the whole install
   is
-  [theorem `declMutual` in `ConLeche/Model/Inductives/DeclMutual.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclMutual.lean#L1988);
+  [theorem `declMutual` in `ConLeche/Model/Inductives/DeclMutual.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclMutual.lean#L1966);
   it instantiates the single-family fixpoint theorems at the tagged
   sum, so no new model construction is involved.
 * **Nested blocks** — more recursors than formers — are handled by an

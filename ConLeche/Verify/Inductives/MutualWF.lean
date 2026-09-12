@@ -137,31 +137,7 @@ theorem envWF_consMutualFormers :
       obtain ⟨h1, h2, h3, h4⟩ := hall f' (List.mem_cons_of_mem _ hf')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
 
-/-- The formers' stage keeps the environment well-formed: every member
-is a checked constant, consed with the block's (empty) capability
-record. -/
-theorem envWF_mutualFormers {nP F : Nat} {l : List (ConstantVal × Nat)}
-    {env env' : Env} {fms : List MutualFormerA}
-    (henv : EnvWF env)
-    (h : mutualFormers (fueledOps mode F) nP l env = .ok (env', fms)) :
-    EnvWF env' := by
-  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv h
-  exact envWF_consMutualFormers henv (mutualFormerChecks_typeWF hchecks)
-
 /-! ## Stage 3: the constructors -/
-
-/-- A name fresh above the constructors' conses is fresh below them. -/
-theorem consMutualCtors_find?_none {nP : Nat} {n : Name} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
-      (consMutualCtors nP ctorsA env).find? n = none → env.find? n = none
-  | [], _, h => h
-  | c :: cs, env, h => by
-    simp only [consMutualCtors] at h
-    have h' := consMutualCtors_find?_none h
-    rw [Env.find?_cons] at h'
-    split at h'
-    · exact nomatch h'
-    · exact h'
 
 /-- The constructors' conses keep well-formedness: every consed
 constructor's type resolves at the environment it is consed onto
@@ -366,52 +342,5 @@ theorem mutual_recs_wf {env₂ : Env} (henv₂ : EnvWF env₂) {b : MutualBlock}
     exact Expr.constsResolve_le (provisionMutualRecs_store_le (fun _ h => h)) hrres
   · intro lvls pins hf
     exact absurd hf (hfire lvls pins)
-
-/-! ## Stage 5: the projection tables -/
-
-/-- One member's table stage keeps the environment well-formed. -/
-theorem mutualMemberTable_wf {b : MutualBlock} {f : MutualFormerA}
-    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {mIdx : Nat}
-    {env env' : Env} (henv : EnvWF env)
-    (h : mutualMemberTable (m := CheckM) b f ctorsA sortss mIdx env = .ok env') :
-    EnvWF env' := by
-  rcases mutualMemberTable_inv h with rfl | ⟨J, c, -, -, htbl⟩
-  · exact henv
-  · exact direct_table_wf henv htbl
-
-/-- Stage 5 at the run level. -/
-theorem mutualTables_wf {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
-    {sortss : List (List Level)} :
-    ∀ {l : List (MutualFormerA × Nat)} {env env' : Env},
-      EnvWF env →
-      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
-      EnvWF env'
-  | [], env, env', henv, h => by
-    obtain rfl := mutualTables_nil_inv h
-    exact henv
-  | (f, mIdx) :: rest, env, env', henv, h => by
-    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
-    exact mutualTables_wf (mutualMemberTable_wf henv hI) hrest
-
-/-! ## The install -/
-
-/-- **The mutual core keeps the environment well-formed.** -/
-theorem checkMutualCore_wf {env envOut : Env} (henv : EnvWF env) {b : MutualBlock}
-    {streamRecs : Option (List (ConstantVal × List RecRule))} {F : Nat}
-    (h : checkMutualCore (fueledOps mode F) env b streamRecs = .ok envOut) :
-    EnvWF envOut := by
-  obtain ⟨-, -, -, -, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, hformers, -, -, -, -, hctors, -, -, -, hrectys, hrules, htbl⟩ :=
-    checkMutualCore_inv h
-  have henv₁ : EnvWF env₁ := envWF_mutualFormers henv hformers
-  have henv₂ : EnvWF (consMutualCtors b.nP ctorsA env₁) :=
-    envWF_consMutualCtors henv₁ (checkMutualCtors_typeWF hctors)
-  exact mutualTables_wf (mutual_recs_wf henv₂ hrectys hrules) htbl
-
-/-- **The recognised mutual block's install keeps the environment
-well-formed.** -/
-theorem checkMutual_wf {env envOut : Env} (henv : EnvWF env) {p : MutualParts} {F : Nat}
-    (h : checkMutual (fueledOps mode F) env p = .ok envOut) : EnvWF envOut :=
-  checkMutualCore_wf henv (checkMutual_inv h).2
 
 end ConLeche
