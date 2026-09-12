@@ -303,7 +303,7 @@ one dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and
 what comes out
 is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
-theorem `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`).  The
+theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
 steps; the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
@@ -474,7 +474,7 @@ hand-written trusted twin retired into an instantiation
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
-fold the main theorem `ConLeche.no_proof_of_False`
+fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
@@ -613,7 +613,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- index and carries every check — and what comes out is the
       -- environment with the proof that `ConLeche.Cached.checkDecls`
       -- returns it, the fold the main theorem
-      -- `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`) is
+      -- `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`) is
       -- about.  The success line below is printed from that value and
       -- from nothing else.  Printing between the steps (`--progress`)
       -- changes nothing about the proof, so there is no second loop.
@@ -746,11 +746,10 @@ def usage : String := String.intercalate "\n" [
   "                    provably non-Prop binders, and the io-graded",
   "                    knot skips the per-argument application",
   "                    certificate under the same licence; every other",
-  "                    certificate family runs.  The theorem: if the",
-  "                    declaration fold accepts a stream in this mode",
-  "                    (checkDecls .verified ds = .ok env), the",
-  "                    environment env holds no constant whose type is",
-  "                    False (ConLeche.no_proof_of_False,",
+  "                    certificate family runs.  The theorem: a stream",
+  "                    one of whose records declares a theorem of type",
+  "                    False is never accepted in this mode",
+  "                    (ConLeche.no_False_theorem_accepted,",
   "                    ConLeche/MainTheorem.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
@@ -860,7 +859,7 @@ def usage : String := String.intercalate "\n" [
   "                    declaration -- in one thread or on the pool --",
   "                    and returns its environment with the proof that",
   "                    checkDecls (the function the main theorem",
-  "                    ConLeche.no_proof_of_False is about) returns it;",
+  "                    ConLeche.model_exists is about) returns it;",
   "                    what it prints in between does not touch that",
   "                    type, so a run with the flag is covered exactly",
   "                    as a run without it, and so is a run on the pool.",
@@ -952,7 +951,7 @@ def usage : String := String.intercalate "\n" [
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which returns its",
   "environment together with the proof that the fold checkDecls — the",
-  "function the main theorem ConLeche.no_proof_of_False",
+  "function the main theorem ConLeche.model_exists",
   "(ConLeche/MainTheorem.lean) is stated on — returns it.",
   "",
   "RETIRED FLAGS.  --set-model, --set-model=p, --set-model=r,",

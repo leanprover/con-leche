@@ -103,8 +103,7 @@
 #       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
 #       *challenge* half of the Comparator pair (`comparator.json`): the
 #       small readable statements a reader audits — the main theorem
-#       `ConLeche.model_exists`, the corollary at the environment
-#       `ConLeche.no_proof_of_False` and the main corollary
+#       `ConLeche.model_exists` and the main corollary
 #       `ConLeche.no_False_theorem_accepted` — with `sorry` where the
 #       proofs go.  The `sorry` is the whole point of the file —
 #       Comparator's contract is that
