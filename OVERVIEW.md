@@ -147,7 +147,8 @@ type" is a claim in its own right, and it is proved in general:
 [`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L768-L773)
 says that whenever `checkDecls` accepts `ds`, every record of `ds` that
 declares a constant — a definition, a theorem, an opaque, or an axiom
-whose name is not the tolerated `sorryAx`
+whose name is not `sorryAx`, the one axiom record that installs
+nothing
 ([`Declaration.Declares` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L622-L628))
 — leaves a constant of that very name in the returned environment, with
 the record's own level parameters and with the *annotation* of the
@@ -609,10 +610,12 @@ both are true in the model, `propext` by extensionality of
 propositions and `Classical.choice` by global choice. `Quot.sound` is
 part of the pinned `Quot` block. Any other axiom declaration is a
 positive decline at its own record, with one tolerated exception:
-`sorryAx` is dropped rather than declined, and every declaration that
-uses it is skipped and taints the run, so a stream with a `sorry` in
-it declines at the end rather than at the first library file that
-happens to mention the axiom.
+`sorryAx`. An export declares that axiom whenever the module it came
+from mentions `sorry`, whether or not anything uses it, so its record
+is checked for well-formedness and then installs nothing — there is no
+set model for it and there cannot be one. A stream that merely
+declares it is therefore accepted; a stream that *uses* it declines, at
+the record that uses it.
 
 The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.reduceNat` and the axioms `Lean.ofReduceBool` and

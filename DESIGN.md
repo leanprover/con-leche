@@ -256,11 +256,16 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user rulings, 2026-08-22/24, revised for task #95): the
-*tolerated whitelist* (`toleratedAxiomNames`) is exactly `sorryAx` — a
-tolerated `axiom` record is dropped by the frontend without parsing
-its type at all; nothing is installed and the name is tainted
-(`Frontend.State.taintedNames`).  The `Init` **compiler-trust family
+Refinement (user rulings, 2026-08-22/24, revised for task #95, and
+again for task #292): the one axiom tolerated as a *declaration* is
+`sorryAx` (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).  Its
+record is FORWARDED to the fold like any other: the type is checked
+and the record installs **nothing** — there is no set model for it —
+so a stream that merely declares the axiom is accepted, and any USE of
+the name DECLINES at the record that uses it.  The fold owns that
+decision (`unknownConstError` in `ConLeche/Kernel/Core.lean`,
+`unresolvedConstsError` in `ConLeche/Kernel/CheckerBase.lean`); the
+parser has no taint machinery at all.  The `Init` **compiler-trust family
 is installed** instead (task #95, user design 2026-08-24):
 `Lean.trustCompiler : True` is trivially realizable and installs like
 a checked `opaque` realized by `True.intro` over the pinned `True`
@@ -69361,7 +69366,8 @@ opaque declare their header; an axiom declares its header **unless
 exactly as `checkDeclC`'s own arm has it (`ParsedC.lean`: the tolerated
 branch is `pure fe`, no push, no `recordCConst`, no pending check), and
 `toleratedAxiomNames` is exactly `[sorryAx]`; `basisDecl` and `indDecl`
-declare nothing.
+declare nothing.  (Task #292 replaced the singleton list by the name:
+the conjunct now reads `cv.name ≠ sorryAxName`, same set, same proof.)
 
 **The definition VALUE was left out, and it is one conjunct away.**
 `DeclDefnRun` carries `ValueFrontRun`, whose first three conjuncts are

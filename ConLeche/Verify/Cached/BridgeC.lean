@@ -439,7 +439,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
           · simp only [if_pos h2]
             exact SimC.throw
           · simp only [if_neg h2]
-            by_cases h3 : toleratedAxiomNames.contains cvR.name = true
+            by_cases h3 : cvR.name = sorryAxName
             · simp only [if_pos h3]
               exact SimC.pure hs₁ ⟨rfl, rfl⟩
             · simp only [if_neg h3]

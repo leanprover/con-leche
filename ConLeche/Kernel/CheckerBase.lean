@@ -68,6 +68,28 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
 
+/-- **The verdict at a term whose constants do not all resolve.**
+
+Every front door for stream-supplied data — a declaration's type, a
+value, a recursor rule's right-hand side — guards it with
+`Expr.constsResolve` (or its indexed / cached twin) and throws here on
+a `false`.  A term that mentions `sorryAx` DECLINES: that axiom is
+tolerated as a declaration and installs nothing, so a use of it is a
+positively detected unsupported feature, never a malformed stream.
+Anything else is an unknown constant, and rejects with the message
+unchanged.  `where_` names the slot, e.g. `"type of Foo"`.
+
+`Expr.mentionsConst` is the same walk `constsResolve` just ran (the
+`.proj` struct name included) and is memoized by `@[csimp]`
+(`ConLeche/Kernel/Inductives/StructParts.lean`), so a DAG-shared term
+does not unfold here.  The companion `unknownConstError`
+(`ConLeche/Kernel/Core.lean`) decides the same question inside
+inference, which the annotation pass reaches before this guard runs. -/
+def unresolvedConstsError (where_ : String) (e : Expr) : CheckError :=
+  if e.mentionsConst sorryAxName then
+    .notImplemented s!"use of the sorryAx axiom in {where_}"
+  else .invalid s!"unknown constant in {where_}"
+
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- Checks common to all declarations: fresh name, well-formed universe
@@ -91,7 +113,7 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless type.constsResolve env do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" type)
   let stype ← ops.inferType env 0 type
   let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }

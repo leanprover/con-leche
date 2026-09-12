@@ -41,10 +41,11 @@ written datum — a bare constant, say — the relation is equality.
 
 `Declaration.Declares` says which constant a record declares.  Definitions,
 theorems and opaques declare their header; an axiom declares its header
-unless its name is *tolerated* (`toleratedAxiomNames`, exactly
-`sorryAx`), in which case the record is checked for well-formedness and
-then dropped and nothing is stored.  A `basisDecl` names one of the
-checker's pinned basis blocks and declares nothing of its own.
+unless it is the `sorryAx` axiom record, which is checked for
+well-formedness and then installs NOTHING (there is no set model for
+it), so nothing is stored — and any USE of the name declines.  A
+`basisDecl` names one of the checker's pinned basis blocks and declares
+nothing of its own.
 
 **An `indDecl` block's members are outside the claim, and the reason is
 not laziness.**  Three of the block's constants are stored as something
@@ -607,10 +608,10 @@ input is a list of parsed records, and this says which constant each
 kind of record claims a name and a type for:
 
 * a definition, a theorem and an opaque declare their header;
-* an axiom declares its header **unless its name is tolerated**
-  (`toleratedAxiomNames`, exactly `sorryAx`): that record is checked for
-  well-formedness and then *dropped*, and every later record that
-  mentions the name is declined;
+* an axiom declares its header **unless it is the `sorryAx` axiom
+  record**, which installs nothing: it is checked for well-formedness
+  and then dropped (there is no set model for it), and any later record
+  that USES the name declines;
 * a `basisDecl` declares nothing of its own — it names one of the
   checker's pinned basis blocks, and the constants installed are the
   pins';
@@ -623,7 +624,7 @@ kind of record claims a name and a type for:
   | .defnDecl cv _ _, cv' => cv' = cv
   | .thmDecl cv _, cv' => cv' = cv
   | .opaqueDecl cv _, cv' => cv' = cv
-  | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
+  | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName
   | .basisDecl _, _ => False
   | .indDecl _ _, _ => False
 
@@ -707,7 +708,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
       · exact he
       · exact he
       · exact he
-      · exact absurd (htol ▸ htol') (by simp)
+      · exact absurd htol' htol
     refine ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb

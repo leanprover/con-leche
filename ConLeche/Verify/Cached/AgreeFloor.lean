@@ -51,7 +51,7 @@ Two facts close the remaining branches without core reasoning:
   (`structPartsF?`) reads the index only through name lookups
   (`structNonRecF_skel`), so it runs on the skeleton too;
 * at `.axiomDecl` the push-or-not decision is a function of the header
-  name alone — `toleratedAxiomNames = [sorryAx]` installs nothing in
+  name alone — the `sorryAx` record installs nothing in
   both drivers, and `stdAxiomOkF` is `false` off `propext`/`choice`, so
   every other accepted axiom installs exactly one `.axiomInfo`.
 
@@ -476,7 +476,7 @@ def declCSkels : Declaration → List InstallSkel → List InstallSkel
   | .thmDecl cv _, sk => .thm cv.name :: sk
   | .opaqueDecl cv _, sk => .ax cv.name :: sk
   | .axiomDecl cv, sk =>
-    if toleratedAxiomNames.contains cv.name then sk else .ax cv.name :: sk
+    if cv.name = sorryAxName then sk else .ax cv.name :: sk
   | .basisDecl kind, sk =>
     kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
   | .indDecl block nP, sk => indDeclSkels nP block sk
@@ -1182,32 +1182,29 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
 
 /-! ### The tolerated-axiom branch
 
-`toleratedAxiomNames` is exactly `[sorryAx]`, and none of the pinned
-axiom guards can fire on it — so at `.axiomDecl` the *push-or-not*
-decision is a function of the header name alone, in both drivers. -/
-
-theorem tolerated_eq {n : Name} (ht : toleratedAxiomNames.contains n = true) :
-    n = Name.anonymous.str "sorryAx" := by
-  simpa [toleratedAxiomNames] using ht
+`sorryAx` is the one axiom the checker tolerates as a declaration, and
+none of the pinned axiom guards can fire on it — so at `.axiomDecl` the
+*push-or-not* decision is a function of the header name alone, in both
+drivers. -/
 
 theorem tolerated_not_std (fe : FEnv) (cvA : ConstantVal)
-    (ht : toleratedAxiomNames.contains cvA.name = true) :
+    (ht : cvA.name = sorryAxName) :
     stdAxiomOkF fe cvA = false := by
-  rw [stdAxiomOkF, if_neg, if_neg] <;> rw [tolerated_eq ht] <;> decide
+  rw [stdAxiomOkF, if_neg, if_neg] <;> rw [ht] <;> decide
 
 theorem tolerated_ne_trust {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) : n ≠ trustCompilerName := by
-  rw [tolerated_eq ht]; decide
+    (ht : n = sorryAxName) : n ≠ trustCompilerName := by
+  rw [ht]; decide
 
 theorem tolerated_ne_ofReduce {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) :
+    (ht : n = sorryAxName) :
     ¬(n = ofReduceNatName ∨ n = ofReduceBoolName) := by
-  rw [tolerated_eq ht]; decide
+  rw [ht]; decide
 
 theorem tolerated_ne_std {n : Name}
-    (ht : toleratedAxiomNames.contains n = true) :
+    (ht : n = sorryAxName) :
     ¬(n = propextName ∨ n = choiceName) := by
-  rw [tolerated_eq ht]; decide
+  rw [ht]; decide
 
 /-! ### The cached certified declaration clause -/
 
@@ -1255,7 +1252,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     obtain ⟨cvA, jty⟩ := p
     simp only []
     rw [← hp]
-    by_cases ht : toleratedAxiomNames.contains cvA.name = true
+    by_cases ht : cvA.name = sorryAxName
     · rw [if_pos ht,
         if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
         if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),

@@ -31,7 +31,7 @@ line here.  Every twin has the one shape
 What the equality does NOT cover, and where that lives: the escape
 decoder and `String.fromUTF8?` are shared leaves (both sides run the
 same function on the same bytes); the semantic layer `applyLine` —
-index resolution, smart constructors, packed fields, taint, prelude
+index resolution, smart constructors, packed fields, prelude
 dedupe, the modeller — is shared code, differentially tested; the
 stream-index tables have their own laws (`IdTable.get?_insert` and its siblings,
 beside the structure in `ConLeche/Frontend/Scan/Types.lean`).

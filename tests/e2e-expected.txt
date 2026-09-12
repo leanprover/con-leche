@@ -50,31 +50,29 @@
 # with a data field cannot be written with the `structure` command,
 # so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
-# sorryAx handling: an unused sorryAx axiom record is skipped (no set
-# model exists for it) without even parsing its type (tolerated-axiom
-# records are invisible; since the taint skip-and-continue their types
-# are no longer well-formedness-checked either — `Lean.ofReduceNat`'s
-# own type references the tainted `Lean.reduceNat`), a use makes the
-# stream decline.  sorry_unused is hand-patched (an export never
-# contains an unused axiom record).
+# sorryAx handling: the record is FORWARDED to the fold like any axiom
+# record — its type is checked, and it installs nothing (there is no
+# set model for it) — so a stream that merely declares the axiom is
+# accepted, and any USE of the name declines at the record that uses
+# it.  sorry_unused is hand-patched (an export never contains an
+# unused axiom record).
 0 sorry_unused.ndjson
 2 sorry_use.ndjson
-# Tolerated axioms (whitelist, user ruling) are invisible: the axiom
-# record is skipped without stopping the run — an independent theorem
-# after it is still accepted — and any declaration referencing the
-# skipped axiom is itself skipped, with the stream declined as a whole
-# at the end.  Hand-written minimal streams.
+# The same two facts on hand-written minimal streams: the declared-but-
+# unused axiom record is accepted, a use declines, and any other axiom
+# record declines at its own record.
 0 tolerated_axiom_unused.ndjson
 2 tolerated_axiom_use.ndjson
 2 custom_axiom_declined.ndjson
-# Taint skip-and-continue (user directive 2026-08-24): a use of a
-# tolerated axiom mid-stream is *skipped* — never checked or installed
-# — and the rest of the stream is still checked; the final verdict is
-# a decline (2).  The bad_later twin proves the post-skip declarations
-# really are checked: the same stream with an invalid later definition
-# must *reject* (1), not decline.
-2 taint_skip_continue.ndjson
-1 taint_skip_bad_later.ndjson
+# The decline is AT THE USE, not at the end of the run (task #292, user
+# ruling: the fold owns sorryAx; the parser's taint pre-scan is gone).
+# The midstream twin puts a checkable declaration after the use — the
+# fold never reaches it, and the verdict is the use's decline (2).  The
+# before_invalid twin puts an INVALID declaration after the use: the
+# fold still stops at the use, so the verdict is 2 and not the reject
+# (1) the old skip-and-continue design produced.
+2 sorry_use_midstream.ndjson
+2 sorry_use_before_invalid.ndjson
 # The compiler-trust axiom family installs (task #95;
 # scripts/mk_trust_fixture.py, dependency-closure slice of the full
 # Init export): `Lean.trustCompiler` as an opaque realized by

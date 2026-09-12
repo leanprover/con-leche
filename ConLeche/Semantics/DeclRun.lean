@@ -211,7 +211,7 @@ def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
         cvA.name ≠ trustCompilerName ∧
         cvA.name ≠ ofReduceNatName ∧ cvA.name ≠ ofReduceBoolName ∧
         cvA.name ≠ propextName ∧ cvA.name ≠ choiceName ∧
-        toleratedAxiomNames.contains cvA.name = true ∧
+        cvA.name = sorryAxName ∧
         env₂ = env))
 
 /-! ## The assembly -/

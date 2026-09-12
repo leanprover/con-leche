@@ -479,7 +479,7 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
   unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless type.constsResolveF fe do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" type)
   let stype ← ops.inferType fe.env 0 type
   let _u ← ops.ensureSort fe.env 0 stype
   pure { cv with type := type }
@@ -700,7 +700,7 @@ def checkIotaRuleF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless rhsA.allLevelParamsDefined lps do
       throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
     unless rhsA.constsResolveF feSelf do
-      throw (.invalid s!"unknown constant in rule of {cvName}")
+      throw (unresolvedConstsError s!"rule of {cvName}" rhsA)
     unless (rhsA.stripLams (rP + cnF)).isSome do
       throw (.notImplemented s!"rule shape mismatch for {cvName}")
     let _rhsTy ← ops.inferType feSelf.env 0 rhsA
@@ -846,7 +846,7 @@ def checkDefnValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolveF fe do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
+    throw (unresolvedConstsError s!"value of {cv.name}" value)
   let vtype ← ops.inferType fe.env 0 value
   unless ← ops.isDefEq fe.env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")

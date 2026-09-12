@@ -114,4 +114,20 @@ def reservedBasisNames : List Name :=
    falseName, falseName.str "rec",
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]
 
+/-! ## The tolerated axiom
+
+`sorryAx` is the one axiom the checker tolerates as a *declaration*:
+an export declares it whenever the module it came from mentions
+`sorry`, whether or not anything uses it, so a stream that merely
+DECLARES it must not be turned away.  Its record installs nothing —
+there is no set model for `∀ (α : Sort u), Bool → α` and there cannot
+be one — and therefore any USE of it is a positively detected
+unsupported feature: a decline, at the record that uses it
+(`unknownConstError`, `ConLeche/Kernel/Core.lean`).  The name lives
+here, at the bottom of the kernel, because the decline is decided
+where a constant fails to resolve — inside the inference body. -/
+
+/-- The name `sorryAx`. -/
+def sorryAxName : Name := anonymous |>.str "sorryAx"
+
 end ConLeche

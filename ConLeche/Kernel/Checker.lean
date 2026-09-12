@@ -43,7 +43,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
+    throw (unresolvedConstsError s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
@@ -75,7 +75,7 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless jv.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless jv.constsResolve env do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
+    throw (unresolvedConstsError s!"value of {cv.name}" jv)
   let vtype ← ops.inferType env 0 jv
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
@@ -100,7 +100,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (.invalid s!"unknown constant in value of {cv.name}")
+    throw (unresolvedConstsError s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
@@ -484,11 +484,15 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- `True.intro`; `Lean.ofReduceNat`/`Lean.ofReduceBool` over the
     -- pinned identity opaques, trivially true).  All types and the
     -- shapes of the inductives they quantify over are pinned (up to
-    -- the exporter's unstable hygienic binder names).  The tolerated
-    -- whitelist (`toleratedAxiomNames` — exactly `sorryAx`, user
-    -- ruling) is well-formedness-checked but not stored; the run
-    -- continues and the frontend positively declines any later
-    -- declaration that references the skipped axiom.  Any other axiom
+    -- the exporter's unstable hygienic binder names).  `sorryAx` — the
+    -- one axiom the checker tolerates as a DECLARATION (user ruling) —
+    -- is well-formedness-checked but installs NOTHING: an export
+    -- declares it whenever its module mentions `sorry`, whether or not
+    -- anything uses it, so the record is skipped and the run continues,
+    -- and because there is no set model for it any USE of the name
+    -- declines at the record that uses it (`unknownConstError`,
+    -- `ConLeche/Kernel/Core.lean`, and `unresolvedConstsError`,
+    -- `ConLeche/Kernel/CheckerBase.lean`).  Any other axiom
     -- is a positive decline at its own record; a *pinned name* with a
     -- non-pinned shape likewise (the pin would otherwise shadow).
     let cvA ← checkConstantVal ops env cv
@@ -516,7 +520,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
         s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if toleratedAxiomNames.contains cvA.name then
+    else if cvA.name = sorryAxName then
       pure env
     else
       throw (.notImplemented s!"non-standard axiom ({cv.name})")

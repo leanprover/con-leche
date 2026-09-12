@@ -10,8 +10,8 @@ public import ConLeche.Kernel.TrustPins
 /-!
 # The compiler-trust axiom family (task #95)
 
-`Init`'s compiler-trust scaffolding is installed instead of
-taint-skipped:
+`Init`'s compiler-trust scaffolding is installed rather than
+declined:
 
 * `Lean.trustCompiler : True` is trivially realizable — it is
   installed as an *opaque* (stored `thmInfo`, exactly like a checked
@@ -33,7 +33,9 @@ taint-skipped:
   an inhabited proposition (the hypothesis *is* the conclusion), so
   both axioms are true in the set model with the proof point as value.
 
-`sorryAx` remains the only tolerated (skip-taint) axiom.
+`sorryAx` remains the only axiom tolerated as a *declaration*: its
+record installs nothing and any use of it declines
+(`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
 Raw pins below, hand-written through the builder in
 `ConLeche/Kernel/Basis/Builder.lean`; the annotated forms are computed
