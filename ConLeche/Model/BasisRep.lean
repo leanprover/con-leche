@@ -160,6 +160,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     kRealLe := Nat.le_refl _
     memReal := Nat.zero_lt_one
     recName := hRname.symm
+    recNamesReal := fun _ _ => rfl
     tgtsRLt := fun _ _ => Nat.zero_lt_one
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht

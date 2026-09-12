@@ -1489,6 +1489,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     kRealLe := Nat.le_refl _
     memReal := Nat.zero_lt_one
     recName := rfl
+    recNamesReal := fun _ _ => rfl
     tgtsRLt := fun _ _ => Nat.zero_lt_one
     membersFound := fun t ht => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht

@@ -141,6 +141,7 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     kRealLe := h.kRealLe
     memReal := h.memReal
     recName := h.recName
+    recNamesReal := h.recNamesReal
     tgtsRLt := h.tgtsRLt
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht

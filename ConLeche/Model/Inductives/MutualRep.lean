@@ -559,6 +559,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     kRealLe := Nat.le_refl _
     memReal := hmm
     recName := by rw [show d.recNames mm = (d.memberName mm).str "rec" from rfl, hname mm hmm]; exact hRname.symm
+    recNamesReal := fun _ _ => rfl
     tgtsRLt := htgtLt
     membersFound := fun t ht => by rw [hname t ht]; exact hfound t ht
     membersLps := fun t ht cv caps hf => by

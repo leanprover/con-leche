@@ -313,6 +313,7 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
     kRealLe := h.kRealLe
     memReal := h.memReal
     recName := h.recName
+    recNamesReal := h.recNamesReal
     tgtsRLt := h.tgtsRLt
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht

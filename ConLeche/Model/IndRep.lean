@@ -525,6 +525,9 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   memReal : mm < d.kReal
   /-- the member's recursor is the stored one -/
   recName : d.recNames mm = cvR.name
+  /-- a real member's recursor is named `<member>.rec` (task #279 M-B′
+  step 3a: the name `containerInfo?` looks up) -/
+  recNamesReal : ∀ t, t < d.kReal → d.recNames t = (d.memberName t).str "rec"
   /-- every field's target in the recursor's view is a member -/
   tgtsRLt : ∀ j i, d.tgtsR j i < d.k
   /-- every member of the recursor's block is a stored inductive -/

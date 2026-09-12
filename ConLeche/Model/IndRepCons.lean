@@ -407,6 +407,7 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     kRealLe := h.kRealLe
     memReal := h.memReal
     recName := h.recName
+    recNamesReal := h.recNamesReal
     tgtsRLt := h.tgtsRLt
     membersFound := fun t ht => by
       obtain ⟨cv, caps, hf⟩ := h.membersFound t ht
