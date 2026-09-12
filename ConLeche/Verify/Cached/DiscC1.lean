@@ -22,7 +22,7 @@ byte-identical to the interned original's.
 
 namespace ConLeche.Cached
 
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -32,35 +32,35 @@ well-scoped inputs.  Declared here so the per-body walks can
 take it as their induction hypothesis; the knot batch proves it at
 every fuel. -/
 structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
-  whnfCore : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+  whnfCore : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).whnfCore d i)
       ((fueledFns mode env).whnfCore d e)
-  whnf : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+  whnf : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).whnf d i)
       ((fueledFns mode env).whnf d e)
-  infer : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+  infer : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).infer d i)
       ((fueledFns mode env).infer d e)
-  defeq : ∀ {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr},
+  defeq : ∀ {s₀ : CState} {d : Nat} {i j : Expr} {a b : Expr},
     CSOK mode env s₀ → RelC i a → RelC j b →
     Expr.WScoped d a → Expr.WScoped d b →
     SimC mode env s₀ RelVC
       ((coreKnotI mode (mkFEnv env) f).defeq d i j)
       ((fueledFns mode env).defeq d a b)
-  annotate : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+  annotate : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).annotate d i)
       ((fueledFns mode env).annotate d e)
   /-- the io slot (task #172 B4): the memoized knot's `inferIO` entry
   simulates the fueled io-slot family -/
-  inferIO : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+  inferIO : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).inferIO d i)
@@ -82,7 +82,7 @@ variable {env : Env} {f : Nat}
 /-- Port of `defEqListI_sim`: the pairwise definitional-equality
 helper simulates its fueled original on related, well-scoped lists. -/
 theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
-    ∀ {args : List ExprC} {xs : List Expr} {brgs : List ExprC}
+    ∀ {args : List Expr} {xs : List Expr} {brgs : List Expr}
       {ys : List Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelCL args xs → RelCL brgs ys →
       (∀ x ∈ xs, Expr.WScoped d x) → (∀ y ∈ ys, Expr.WScoped d y) →
@@ -129,8 +129,8 @@ theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
 /-- Port of `iotaCertsIAux_sim`: the bulk-accumulating iota-certificate
 loop simulates its fueled original. -/
 theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
-    ∀ {args : List ExprC} {xs : List Expr} {acc : List ExprC}
-      {ws : List Expr} {ty : ExprC} {tyx : Expr} {s₀ : CState},
+    ∀ {args : List Expr} {xs : List Expr} {acc : List Expr}
+      {ws : List Expr} {ty : Expr} {tyx : Expr} {s₀ : CState},
       CSOK mode env s₀ →
       RelC ty tyx → RelCL acc ws →
       Expr.WScoped d (tyx.instantiateList ws) →
@@ -282,7 +282,7 @@ decreasing_by
 
 /-- Port of `iotaCertsI_sim`. -/
 theorem iotaCertsC_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
-    ∀ {args : List ExprC} {xs : List Expr} {ty : ExprC} {tyx : Expr}
+    ∀ {args : List Expr} {xs : List Expr} {ty : Expr} {tyx : Expr}
       {s₀ : CState}, CSOK mode env s₀ →
       RelC ty tyx → Expr.WScoped d tyx →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
@@ -302,7 +302,7 @@ section Walks2
 variable {env : Env} {f : Nat}
 
 /-- Port of `ensureSortI_sim`. -/
-theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ RelVC (ensureSortI (coreKnotI mode (mkFEnv env) f) d i)
@@ -335,7 +335,7 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
 /-- Port of `litToCtorIfNatI_eff`: the cached twin computes the spec's
 `litToCtorIfNat`. -/
 theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
-    {i : ExprC} {e : Expr} (hden : RelC i e) :
+    {i : Expr} {e : Expr} (hden : RelC i e) :
     CEff mode env s₀ (fun r => RelC r (litToCtorIfNat env e))
       (litToCtorIfNatI (mkFEnv env) i) := by
   show CEff mode env s₀ _ (
@@ -384,19 +384,19 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
 /-- Port of `unfoldDefinitionI_eff`: the cached twin computes the
 spec's pure `unfoldDefinition`. -/
 theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
-    {i : ExprC} {e : Expr} (hden : RelC i e) :
+    {i : Expr} {e : Expr} (hden : RelC i e) :
     CEff mode env s₀ (fun o => OptEr o (unfoldDefinition env e))
       (unfoldDefinitionI (mkFEnv env) i) := by
   show CEff mode env s₀ _
     (
-      match (ExprC.getAppFn i) with
+      match (Expr.getAppFn i) with
       | .const n us => do
         let nm ← pure n
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) =>
           if us.length = cv.levelParams.length then do
             let v ← constValAtM (mkFEnv env) n nm us
-            let args ← pure (ExprC.getAppArgs i)
+            let args ← pure (Expr.getAppArgsC i)
             let r ← mkAppNM v args
             pure (some r)
           else pure none
@@ -415,11 +415,10 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
           else none
         | _ => none
       | _ => none) := rfl
-  have hfn := ExprC.getAppFn_spec i
-  generalize hg : ExprC.getAppFn i = g at hfn ⊢
+  generalize hg : Expr.getAppFn i = g
   cases g with
   | const nm us =>
-    have hfn' : (Expr.getAppFn i) = Expr.const nm us := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.const nm us := hg
     rw [hspec, hfn']
     dsimp only
     refine (pureEq_eff hs nm).bind ?_
@@ -437,7 +436,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
           refine CEff.bind (constValAtM_eff hs hfc) ?_
           intro s₁ v hs₁ hQv
           refine CEff.pureB ?_
-          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec _)) ?_
+          refine CEff.bind (mkAppNM_eff hs₁ hQv (Expr.getAppArgsC_spec _)) ?_
           intro s₂ r hs₂ hQr
           exact CEff.pure hs₂ hQr
         · rw [if_neg hlen, if_neg hlen]
@@ -449,43 +448,43 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       | recInfo cv mI rP rules => exact CEff.pure hs trivial
       | projInfo entry => exact CEff.pure hs trivial
   | bvar k =>
-    have hfn' : (Expr.getAppFn i) = Expr.bvar k := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.bvar k := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | sort u =>
-    have hfn' : (Expr.getAppFn i) = Expr.sort u := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.sort u := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | lit l =>
-    have hfn' : (Expr.getAppFn i) = Expr.lit l := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.lit l := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | fvar idx t =>
-    have hfn' : (Expr.getAppFn i) = Expr.fvar idx t := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.fvar idx t := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | app f' a' =>
     have hfn' : (Expr.getAppFn i) = Expr.app f' a' :=
-      hfn.symm
+      hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | lam t b m =>
     have hfn' : (Expr.getAppFn i) = Expr.lam t b m :=
-      hfn.symm
+      hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | forallE t b m =>
     have hfn' : (Expr.getAppFn i)
-        = Expr.forallE t b m := hfn.symm
+        = Expr.forallE t b m := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | letE t v b =>
     have hfn' : (Expr.getAppFn i)
-        = Expr.letE t v b := hfn.symm
+        = Expr.letE t v b := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | proj sn j e' =>
-    have hfn' : (Expr.getAppFn i) = Expr.proj sn j e' := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.proj sn j e' := hg
     rw [hspec, hfn']
     exact CEff.pure hs trivial
 
@@ -505,7 +504,7 @@ theorem SimC.of_eff {s₀ : CState} {β α : Type} {Q : β → Prop}
   exact ⟨hs', a, hPa v' hQ, 0, rfl⟩
 
 /-- Port of `litMajorToCtorI_sim`. -/
-theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
@@ -565,7 +564,7 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
 
 /-- Port of `projLitToCtorI_sim`. -/
-theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
@@ -604,7 +603,7 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   | proj sn jj e' => exact SimC.pure hs ⟨hden, hw⟩
 
 /-- Port of `defeqSpineI_sim`. -/
-theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -613,13 +612,13 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       (defeqSpine (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
     (
-      match (ExprC.getAppFn i) with
+      match (Expr.getAppFn i) with
       | .const nm us =>
         
-        match (ExprC.getAppFn j) with
+        match (Expr.getAppFn j) with
         | .const nm' us' => do
-          let aargs ← pure (ExprC.getAppArgs i)
-          let bargs ← pure (ExprC.getAppArgs j)
+          let aargs ← pure (Expr.getAppArgsC i)
+          let bargs ← pure (Expr.getAppArgsC j)
           if nm = nm' ∧ aargs.length = bargs.length then do
             match ← isEquivListLM us us' with
             | some true =>
@@ -648,26 +647,22 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
           else pure false
         | _ => pure false
       | _ => pure false) := rfl
-  have haargs := ExprC.getAppArgs_spec i
-  have hbargs := ExprC.getAppArgs_spec j
-  have hlena : (ExprC.getAppArgs i).length = (Expr.getAppArgs i).length :=
+  have haargs := Expr.getAppArgsC_spec i
+  have hbargs := Expr.getAppArgsC_spec j
+  have hlena : (Expr.getAppArgsC i).length = (Expr.getAppArgs i).length :=
     RelCL.length haargs
-  have hlenb : (ExprC.getAppArgs j).length = (Expr.getAppArgs j).length :=
+  have hlenb : (Expr.getAppArgsC j).length = (Expr.getAppArgs j).length :=
     RelCL.length hbargs
-  have hfa := ExprC.getAppFn_spec i
-  have hfb := ExprC.getAppFn_spec j
-  generalize hga : ExprC.getAppFn i = ga at hfa ⊢
+  generalize hga : Expr.getAppFn i = ga
   cases ga with
   | const nm us =>
-    have hfa' : (Expr.getAppFn i) = Expr.const nm us := hfa.symm
+    have hfa' : (Expr.getAppFn i) = Expr.const nm us := hga
     rw [hspec, hfa']
     dsimp only
     refine SimC.pureB ?_
-    generalize hgb : ExprC.getAppFn j = gb at hfb ⊢
+    generalize hgb : Expr.getAppFn j = gb
     cases gb with
     | const nm' us' =>
-      have hfb' : (Expr.getAppFn j) = Expr.const nm' us' := hfb.symm
-      rw [hfb']
       dsimp only
       refine SimC.pureB ?_
       refine SimC.pureB ?_
@@ -689,70 +684,55 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       · rw [if_neg hcnd, if_neg hcnd]
         exact SimC.pure hs rfl
     | bvar k =>
-      rw [show (Expr.getAppFn j) = Expr.bvar k from hfb.symm]
       exact SimC.pure hs rfl
     | sort u' =>
-      rw [show (Expr.getAppFn j) = Expr.sort u' from hfb.symm]
       exact SimC.pure hs rfl
     | lit l' =>
-      rw [show (Expr.getAppFn j) = Expr.lit l' from hfb.symm]
       exact SimC.pure hs rfl
     | fvar idx' t' =>
-      rw [show (Expr.getAppFn j) = Expr.fvar idx' t'
-        from hfb.symm]
       exact SimC.pure hs rfl
     | app f₂ a₂ =>
-      rw [show (Expr.getAppFn j) = Expr.app (f₂) (a₂)
-        from hfb.symm]
       exact SimC.pure hs rfl
     | lam t' b' m' =>
-      rw [show (Expr.getAppFn j)
-        = Expr.lam t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
     | forallE t' b' m' =>
-      rw [show (Expr.getAppFn j)
-        = Expr.forallE t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
     | letE t' v' b' =>
-      rw [show (Expr.getAppFn j)
-        = Expr.letE t' v' b' from hfb.symm]
       exact SimC.pure hs rfl
     | proj sn' j' e' =>
-      rw [show (Expr.getAppFn j) = Expr.proj sn' j' e'
-        from hfb.symm]
       exact SimC.pure hs rfl
   | bvar k =>
-    rw [hspec, show (Expr.getAppFn i) = Expr.bvar k from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.bvar k from hga]
     exact SimC.pure hs rfl
   | sort u =>
-    rw [hspec, show (Expr.getAppFn i) = Expr.sort u from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.sort u from hga]
     exact SimC.pure hs rfl
   | lit l =>
-    rw [hspec, show (Expr.getAppFn i) = Expr.lit l from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.lit l from hga]
     exact SimC.pure hs rfl
   | fvar idx t =>
     rw [hspec, show (Expr.getAppFn i) = Expr.fvar idx t
-      from hfa.symm]
+      from hga]
     exact SimC.pure hs rfl
   | app f' a' =>
     rw [hspec, show (Expr.getAppFn i) = Expr.app f' a'
-      from hfa.symm]
+      from hga]
     exact SimC.pure hs rfl
   | lam t b' m =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.lam t b' m from hfa.symm]
+      = Expr.lam t b' m from hga]
     exact SimC.pure hs rfl
   | forallE t b' m =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.forallE t b' m from hfa.symm]
+      = Expr.forallE t b' m from hga]
     exact SimC.pure hs rfl
   | letE t v b' =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.letE t v b' from hfa.symm]
+      = Expr.letE t v b' from hga]
     exact SimC.pure hs rfl
   | proj sn j' e' =>
     rw [hspec, show (Expr.getAppFn i) = Expr.proj sn j' e'
-      from hfa.symm]
+      from hga]
     exact SimC.pure hs rfl
 
 end Walks3
@@ -761,13 +741,13 @@ section Walks4
 
 variable {env : Env} {f : Nat}
 
-private theorem relOC_some_lit {r : ExprC} {n : Nat} {d : Nat}
+private theorem relOC_some_lit {r : Expr} {n : Nat} {d : Nat}
     (h : RelC r (.lit (.natVal n))) :
     RelOC d (some r) (some (.lit (.natVal n))) :=
   ⟨h, by simp [Expr.WScoped]⟩
 
 /-- Port of `reduceNatI_sim`. -/
-theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelOC d)
@@ -943,7 +923,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
 /-- `reduceNatC_sim` under the defeq-side fvar guard (the guard is the
 same `Bool` on both sides after the `hasFvarI` read is peeled, so the
 pruned branch is `pure none` twinned). -/
-theorem reduceNatIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem reduceNatIfC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) (g : Bool) :
     SimC mode env s₀ (RelOC d)

@@ -567,7 +567,7 @@ theorem annotConstantValC_fresh (mode : CheckMode) (fe : FEnv)
   all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
 theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
-    (value : ExprC) (record : Bool) :
+    (value : Expr) (record : Bool) :
     Yields (annotValueC mode fe cv value record)
       (fun r => r.1.name = cv.name ∧ fe.find? cv.name = none) := by
   unfold annotValueC
@@ -579,7 +579,7 @@ theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
 
 theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) (hint : ReducibilityHint) :
+    (jty value : Expr) (hint : ReducibilityHint) :
     Yields (checkDefnValC mode fe cvA jty value hint)
       (fun fe' => SkelIs fe' (.defn cvA.name :: sk)) := by
   unfold checkDefnValC
@@ -588,7 +588,7 @@ theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
 
 theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkThmValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.thm cvA.name :: sk)) := by
   unfold checkThmValC
@@ -597,7 +597,7 @@ theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
 
 theorem checkOpaqueValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkOpaqueValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.ax cvA.name :: sk)) := by
   unfold checkOpaqueValC

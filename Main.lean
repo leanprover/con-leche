@@ -499,7 +499,7 @@ consumed here as configuration.
 and every driver over it retired with the arena (task #172), the R
 core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
-(2026-09-06), so the stream is parsed directly to `ExprC`
+(2026-09-06), so the stream is parsed directly to `Expr`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the

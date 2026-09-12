@@ -2520,7 +2520,7 @@ node that *does* mention a parameter, reached along many paths. -/
 
 /-- The `hasLP` field's level walkers are `Level.hasParam` and its
 list fold (the cached mirrors of these facts, and of `hasLP_eq`
-itself, are in `Cached.ExprC`; the layering keeps the two apart). -/
+itself, are in `Expr`; the layering keeps the two apart). -/
 theorem Expr.levelHasParam_eq : ∀ u : Level, levelHasParam u = u.hasParam := by
   intro u
   induction u <;> simp_all [levelHasParam, Level.hasParam]

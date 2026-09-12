@@ -33,7 +33,7 @@ records and the byte scanner), and the `Lean.Json` DOM this file used
 to read records out of is gone from the checking path.
 
 **The parse proper is `ConLeche/Frontend/ExportC.lean`** (task #171): it
-reads the stream *directly* to `ExprC` — no arena, no conversion
+reads the stream *directly* to `Expr` — no arena, no conversion
 detour.  Until task #172 this file also held a second parse into an
 interned arena (`State`, `parseExport`, `parseExportStream`,
 producing `DeclP` over a `WFStore`); that went with the interned

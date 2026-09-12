@@ -15,7 +15,7 @@ task #163): simulation walks for the cached `whnfAppI`/`betaPeelI`,
 (`ConLeche/Cached/CoreC.lean`) against the same pure fueled comparands
 the interned walks use.  `SimAt → SimC`, denotation hypotheses →
 `RelC`/`RelCL`, no `Ext`, node inversion by `cases` on
-the `ExprC` constructor.  The pure comparand side of every statement is
+the `Expr` constructor.  The pure comparand side of every statement is
 byte-identical to the interned original's.
 
 The one code-shape deviation from the interned original (recorded at
@@ -28,7 +28,7 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche.Cached
 
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -38,18 +38,18 @@ variable {env : Env} {f : Nat}
 
 /-- The spine length the arity pre-check computes is the length of the
 argument list the ι step builds. -/
-private theorem iotaNumArgs_getAppArgsAcc (e : ExprC) :
-    ∀ acc : List ExprC,
-      iotaNumArgs e acc.length = (ExprC.getAppArgsAcc e acc).length := by
+private theorem iotaNumArgs_getAppArgsAcc (e : Expr) :
+    ∀ acc : List Expr,
+      iotaNumArgs e acc.length = (Expr.getAppArgsAccC e acc).length := by
   induction e with
   | app g a ihg _ =>
     intro acc
-    rw [iotaNumArgs, ExprC.getAppArgsAcc, ← ihg (a :: acc)]
+    rw [iotaNumArgs, Expr.getAppArgsAccC, ← ihg (a :: acc)]
     rfl
   | _ => intro acc; rfl
 
-private theorem iotaNumArgs_zero (e : ExprC) :
-    iotaNumArgs e 0 = (ExprC.getAppArgs e).length :=
+private theorem iotaNumArgs_zero (e : Expr) :
+    iotaNumArgs e 0 = (Expr.getAppArgsC e).length :=
   iotaNumArgs_getAppArgsAcc e []
 
 /-- Where the arity pre-check fails, the ι step has nothing to do: its
@@ -57,11 +57,11 @@ own guard returns `none` on exactly the same three grounds (the head is
 not a constant, it is not a stored recursor, or the spine has the wrong
 number of arguments or of levels). -/
 private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
-    {fe : FEnv} {d : Nat} {e : ExprC} (h : iotaArityOk fe e = false) :
+    {fe : FEnv} {d : Nat} {e : Expr} (h : iotaArityOk fe e = false) :
     iotaRecI mi r fe d e = pure none := by
   unfold iotaArityOk at h
   unfold iotaRecI
-  cases hg : ExprC.getAppFn e with
+  cases hg : Expr.getAppFn e with
   | const c us =>
     rw [hg] at h
     dsimp only at h
@@ -82,7 +82,7 @@ private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
 
 /-- The pre-check in the spine loop changes no verdict. -/
 private theorem iotaArityOk_guard {mi : CheckMode} {r : CoreFnsI}
-    {fe : FEnv} {d : Nat} {e : ExprC} :
+    {fe : FEnv} {d : Nat} {e : Expr} :
     (if iotaArityOk fe e then iotaRecI mi r fe d e else pure none)
       = iotaRecI mi r fe d e := by
   by_cases h : iotaArityOk fe e = true
@@ -132,11 +132,11 @@ mutual
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
 theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {kI : ExprC → CheckCM ExprC} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : CState} {i : ExprC} {ex : Expr}, CSOK mode env s →
+    {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : CState} {i : Expr} {ex : Expr}, CSOK mode env s →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s (RelEC d) (kI i) (kM ex)) :
-    ∀ {args : List ExprC} {xs : List Expr} {v : ExprC} {vx : Expr}
+    ∀ {args : List Expr} {xs : List Expr} {v : Expr} {vx : Expr}
       {s₀ : CState}, CSOK mode env s₀ →
       RelC v vx → Expr.WScoped d vx →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
@@ -270,11 +270,11 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
 
 /-- The iota arm of the loop simulates its mirror. -/
 theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {kI : ExprC → CheckCM ExprC} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : CState} {i : ExprC} {ex : Expr}, CSOK mode env s →
+    {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : CState} {i : Expr} {ex : Expr}, CSOK mode env s →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s (RelEC d) (kI i) (kM ex))
-    {v a : ExprC} {vx xa : Expr} {rest : List ExprC} {xs : List Expr}
+    {v a : Expr} {vx xa : Expr} {rest : List Expr} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hv : RelC v vx) (hwv : Expr.WScoped d vx)
     (hax : RelC a xa) (hwxa : Expr.WScoped d xa)
@@ -325,12 +325,12 @@ theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
 
 /-- The peel loop simulates its pure mirror. -/
 theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {kI : ExprC → CheckCM ExprC} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : CState} {i : ExprC} {ex : Expr}, CSOK mode env s →
+    {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : CState} {i : Expr} {ex : Expr}, CSOK mode env s →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s (RelEC d) (kI i) (kM ex)) :
-    ∀ {args : List ExprC} {xs : List Expr} {t : ExprC} {tx : Expr}
-      {acc : List ExprC} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {args : List Expr} {xs : List Expr} {t : Expr} {tx : Expr}
+      {acc : List Expr} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC t tx → RelCL acc ws →
       Expr.WScoped d (tx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
@@ -516,11 +516,11 @@ theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
 end
 
 theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : ExprC → CheckCM ExprC} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : CState} {i : ExprC} {ex : Expr}, CSOK mode env s →
+    {d : Nat} {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : CState} {i : Expr} {ex : Expr}, CSOK mode env s →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s (RelEC d) (kI i) (kM ex))
-    {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
@@ -546,12 +546,12 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     -- runs the argument loop against its mirror.
     refine SimC.pureB ?_
     refine SimC.pureB ?_
-    have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
+    have hhead : RelC (Expr.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
-      ExprC.getAppFn_spec _
-    have hargs : RelCL (ExprC.getAppArgs (Expr.app g' a))
+      rfl
+    have hargs : RelCL (Expr.getAppArgsC (Expr.app g' a))
         ((Expr.app g' a).getAppArgs) :=
-      ExprC.getAppArgs_spec (Expr.app g' a)
+      Expr.getAppArgsC_spec (Expr.app g' a)
     refine SimC.bind (ih.whnfCore hs hhead hw.getAppFn)
       (fun s₁ v vh hs₁ hP => ?_)
     exact whnfAppC_sim hμ ih henv hk hs₁ hP.1 hP.2 hargs hw.getAppArgs
@@ -582,15 +582,13 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     | some entry =>
       dsimp only
       refine SimC.pureB ?_
-      have hfn := ExprC.getAppFn_spec e'
-      generalize hg : ExprC.getAppFn e' = g at hfn ⊢
+      generalize hg : Expr.getAppFn e' = g
       cases g with
       | const c us =>
-        rw [show (Expr.getAppFn e') = Expr.const c us from hfn.symm]
         dsimp only
         refine SimC.pureB ?_
-        have hargs : RelCL (ExprC.getAppArgs e') ((Expr.getAppArgs e')) :=
-          ExprC.getAppArgs_spec e'
+        have hargs : RelCL (Expr.getAppArgsC e') ((Expr.getAppArgs e')) :=
+          Expr.getAppArgsC_spec e'
         refine SimC.bind_left (pureEq_eff hs₁ (c == entry.ctor))
           (fun s₁b bq hs₁ hbq => ?_)
         subst bq
@@ -623,53 +621,38 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
             (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
             (fun pr hQ => ⟨hQ, hwproj⟩)
       | bvar k =>
-        rw [show (Expr.getAppFn e') = Expr.bvar k from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | sort u =>
-        rw [show (Expr.getAppFn e') = Expr.sort u from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lit l =>
-        rw [show (Expr.getAppFn e') = Expr.lit l from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | fvar idx t =>
-        rw [show (Expr.getAppFn e') = Expr.fvar idx t
-          from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | app f₂ a₂ =>
-        rw [show (Expr.getAppFn e') = Expr.app (f₂) (a₂)
-          from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lam t b m =>
-        rw [show (Expr.getAppFn e')
-          = Expr.lam t b m from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | forallE t b m =>
-        rw [show (Expr.getAppFn e')
-          = Expr.forallE t b m from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | letE t v b =>
-        rw [show (Expr.getAppFn e')
-          = Expr.letE t v b from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | proj s' j' e'' =>
-        rw [show (Expr.getAppFn e') = Expr.proj s' j' e''
-          from hfn.symm]
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
@@ -678,7 +661,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
 the shared step budget (task #106). -/
 theorem whnfCoreLoopC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} :
-    ∀ (n : Nat) {i : ExprC} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ (n : Nat) {i : Expr} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
         (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
@@ -693,7 +676,7 @@ theorem whnfCoreLoopC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
 specification body: the loop run is reproduced by `whnfCoreBody` at
 some knot fuel (`whnfCoreLoop_sound_body`). -/
 theorem whnfCoreBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
@@ -722,7 +705,7 @@ records, at the core that ships. -/
 
 /-- The P core's head normalization simulates the specification. -/
 theorem whnfCoreBodyPC_sim (ih : SSimC .verified env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState}
     (hs : CSOK .verified env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC .verified env s₀ (RelEC d)
@@ -751,11 +734,11 @@ private theorem whnfStep_unfold (env : Env) (d : Nat)
 /-- One iteration of the reduction loop simulates its specification
 (task #106; the continuation is abstract, as in the body). -/
 theorem whnfStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : ExprC → CheckCM ExprC} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : CState} {j : ExprC} {ey : Expr}, CSOK mode env s →
+    {d : Nat} {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : CState} {j : Expr} {ey : Expr}, CSOK mode env s →
       RelC j ey → Expr.WScoped d ey →
       SimC mode env s (RelEC d) (kI j) (kM ey))
-    {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (whnfStepI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
@@ -796,7 +779,7 @@ theorem whnfStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
 /-- The reduction loop simulates its specification, by induction on the
 shared step budget (task #106). -/
 theorem whnfLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
-    ∀ (n : Nat) {i : ExprC} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ (n : Nat) {i : Expr} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
         (whnfLoopI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
@@ -808,7 +791,7 @@ theorem whnfLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       (fun h1 h2 h3 => whnfLoopC_sim ih henv n h1 h2 h3) hs hden hw
 
 theorem whnfBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
@@ -823,8 +806,8 @@ variable {env : Env} {f : Nat}
 
 /-- The application-inference spine loop simulates its pure mirror. -/
 theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
-    ∀ {args : List ExprC} {xs : List Expr} {ty : ExprC} {tx : Expr}
-      {acc : Array ExprC} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {args : List Expr} {xs : List Expr} {ty : Expr} {tx : Expr}
+      {acc : Array Expr} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC ty tx →
       RelCL acc.toList.reverse ws →
       Expr.WScoped d (tx.instantiateList ws) →
@@ -1308,8 +1291,8 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | proj s' j' e' => exact SimC.throw
 
 theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
-    ∀ {args : List ExprC} {xs : List Expr} {ty : ExprC} {tx : Expr}
-      {acc : Array ExprC} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {args : List Expr} {xs : List Expr} {ty : Expr} {tx : Expr}
+      {acc : Array Expr} {ws : List Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC ty tx →
       RelCL acc.toList.reverse ws →
       Expr.WScoped d (tx.instantiateList ws) →
@@ -1855,7 +1838,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | proj s' j' e' => exact SimC.throw
 
 theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
@@ -2029,12 +2012,12 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (fun v F hF => inferSpine_sound_body d g' a v F hF)
     refine SimC.pureB ?_
     refine SimC.pureB ?_
-    have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
+    have hhead : RelC (Expr.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
-      ExprC.getAppFn_spec _
-    have hargsSpec : RelCL (ExprC.getAppArgs (Expr.app g' a))
+      rfl
+    have hargsSpec : RelCL (Expr.getAppArgsC (Expr.app g' a))
         ((Expr.app g' a).getAppArgs) :=
-      ExprC.getAppArgs_spec (Expr.app g' a)
+      Expr.getAppArgsC_spec (Expr.app g' a)
     refine SimC.bind (ih.infer hs hhead hw.getAppFn)
       (fun s₁ tf tfx hs₁ hP => ?_)
     refine inferSpineC_sim ih henv hs₁ hP.1
@@ -2057,11 +2040,9 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (fun s₂ te tex hs₂ hP₂ => ?_)
     obtain ⟨rfl, hwte⟩ := hP₂
     refine SimC.pureB ?_
-    have hfn := ExprC.getAppFn_spec te
-    generalize hg : ExprC.getAppFn te = g at hfn ⊢
+    generalize hg : Expr.getAppFn te = g
     cases g with
     | const T us =>
-      rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
       refine SimC.bind_left (pureEq_eff hs₂ T)
         (fun s₂' Tw hs₂ hTw => ?_)
@@ -2072,12 +2053,12 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | some entry =>
         dsimp only
         refine SimC.pureB ?_
-        have htargs : RelCL (ExprC.getAppArgs te) ((Expr.getAppArgs te)) :=
-          ExprC.getAppArgs_spec te
+        have htargs : RelCL (Expr.getAppArgsC te) ((Expr.getAppArgs te)) :=
+          Expr.getAppArgsC_spec te
         rw [htargs.length]
         split
         · -- task #175 S1: the body at the spine and the subject —
-          -- `ExprC = Expr` (the identity world), so the two results
+          -- `Expr = Expr` (the identity world), so the two results
           -- coincide once `RelCL` rewrites the spine
           rename_i hcond
           rw [htargs]
@@ -2114,7 +2095,7 @@ the application arm is the gated spine with
 `inferSpineIO_sound_body`. -/
 theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate = true)
     (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (inferBodyIOI mode
@@ -2300,7 +2281,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         SimC mode env s₆ (RelEC d)
           ((do
             let bAbs ← abstract1M bt d
-            pure (Expr.forallE t bAbs m)) : CheckCM ExprC)
+            pure (Expr.forallE t bAbs m)) : CheckCM Expr)
           ((pure (Expr.forallE t (Expr.abstract1 bt d) m) :
             FueledM Expr)) := by
       intro s₆ hs₆
@@ -2347,12 +2328,12 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       (fun v F hF => inferSpineIO_sound_body hgb d g' a v F hF)
     refine SimC.pureB ?_
     refine SimC.pureB ?_
-    have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
+    have hhead : RelC (Expr.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
-      ExprC.getAppFn_spec _
-    have hargsSpec : RelCL (ExprC.getAppArgs (Expr.app g' a))
+      rfl
+    have hargsSpec : RelCL (Expr.getAppArgsC (Expr.app g' a))
         ((Expr.app g' a).getAppArgs) :=
-      ExprC.getAppArgs_spec (Expr.app g' a)
+      Expr.getAppArgsC_spec (Expr.app g' a)
     refine SimC.bind (ih.inferIO hs hhead hw.getAppFn)
       (fun s₁ tf tfx hs₁ hP => ?_)
     refine inferSpineIOC_sim hμ ih henv hs₁ hP.1
@@ -2375,11 +2356,9 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       (fun s₂ te tex hs₂ hP₂ => ?_)
     obtain ⟨rfl, hwte⟩ := hP₂
     refine SimC.pureB ?_
-    have hfn := ExprC.getAppFn_spec te
-    generalize hg : ExprC.getAppFn te = g at hfn ⊢
+    generalize hg : Expr.getAppFn te = g
     cases g with
     | const T us =>
-      rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
       refine SimC.bind_left (pureEq_eff hs₂ T)
         (fun s₂' Tw hs₂ hTw => ?_)
@@ -2390,8 +2369,8 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       | some entry =>
         dsimp only
         refine SimC.pureB ?_
-        have htargs : RelCL (ExprC.getAppArgs te) ((Expr.getAppArgs te)) :=
-          ExprC.getAppArgs_spec te
+        have htargs : RelCL (Expr.getAppArgsC te) ((Expr.getAppArgs te)) :=
+          Expr.getAppArgsC_spec te
         rw [htargs.length]
         split
         · -- task #175 S1: the body at the spine and the subject, as in

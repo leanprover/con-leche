@@ -157,7 +157,7 @@ theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
 
 theorem checkDefnValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) {cvA : ConstantVal} (hfr : fe.find? cvA.name = none)
-    (jty value : ExprC) (hint : ReducibilityHint) :
+    (jty value : Expr) (hint : ReducibilityHint) :
     Yields (checkDefnValC mode fe cvA jty value hint)
       (fun fe' => PushChain env fe') := by
   unfold checkDefnValC
@@ -166,7 +166,7 @@ theorem checkDefnValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 
 theorem checkThmValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) {cvA : ConstantVal} (hfr : fe.find? cvA.name = none)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkThmValC mode fe cvA jty value)
       (fun fe' => PushChain env fe') := by
   unfold checkThmValC
@@ -175,7 +175,7 @@ theorem checkThmValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 
 theorem checkOpaqueValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) {cvA : ConstantVal} (hfr : fe.find? cvA.name = none)
-    (jty value : ExprC) :
+    (jty value : Expr) :
     Yields (checkOpaqueValC mode fe cvA jty value)
       (fun fe' => PushChain env fe') := by
   unfold checkOpaqueValC

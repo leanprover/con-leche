@@ -18,7 +18,7 @@ One `CEff` lemma per `ConLeche/Cached/StateC.lean` wrapper — the port of
 
 Almost every wrapper of the clone is a `pure`, so almost every lemma
 here is a two-liner consuming the batch-3 commutation spec of the
-underlying `ExprC` operation.  The three that are *not* pure are the
+underlying `Expr` operation.  The three that are *not* pure are the
 persistent memos — the bulk-instantiation cache (`instListM`), the
 level memos (`simplifyLM`/`isNonZeroLM`/`isEquivLM`) and the lazy
 stored-constant caches (`constTyAtM`/`constValAtM`/`ruleRhsAtM`) — and
@@ -31,17 +31,17 @@ erasure, never the fields.
 namespace ConLeche.Cached
 
 open ConLeche
-open ExprC
+open Expr
 
 variable {mode : CheckMode}
 
 /-! ## Key collisions
 
 `Std.HashMap.getElem?_insert` splits on `storedKey == queryKey`; the
-`ExprC` halves of a colliding key have equal erasures
+`Expr` halves of a colliding key have equal erasures
 (`beq_sound`), and the rest is honest equality. -/
 
-private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
+private theorem map_eraseC_of_beq : ∀ {a b : List Expr}, (a == b) = true →
     a = b := by
   intro a
   induction a with
@@ -60,7 +60,7 @@ private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
       rw [ih h'.2, beq_sound h'.1]
 
 /-- The components of a `BEq`-equal `instC` key. -/
-private theorem instKey_inv {a c : ExprC} {vs vs' : List ExprC} {d d' : Nat}
+private theorem instKey_inv {a c : Expr} {vs vs' : List Expr} {d d' : Nat}
     (h : ((a, vs, d) == (c, vs', d')) = true) :
     a = c ∧ vs = vs' ∧ d = d' := by
   obtain ⟨h1, h2⟩ := pairKey_inv h
@@ -137,7 +137,7 @@ variable {s₀ : CState}
 /-- Building one node: the cached core allocates it outright, so the
 effect is the value's own reflexivity (task #198 -- this was
 `internI_eff`, whose `internI` was a `pure` of the built node). -/
-theorem pureC_eff (hs : CSOK mode env s₀) (x : ExprC) :
+theorem pureC_eff (hs : CSOK mode env s₀) (x : Expr) :
     CEff mode env s₀ (fun i => RelC i x) (pure x) :=
   CEff.pure hs (RelC.refl x)
 
@@ -147,15 +147,15 @@ theorem pureBvar_eff (hs : CSOK mode env s₀) (i : Nat) :
     CEff mode env s₀ (fun e => RelC e (Expr.bvar i)) (pure (Expr.mkBvar i)) :=
   CEff.pure hs (Expr.mkBvar_eq i)
 
-theorem inst1M_eff (hs : CSOK mode env s₀) {e v : ExprC} {d : Nat}
+theorem inst1M_eff (hs : CSOK mode env s₀) {e v : Expr} {d : Nat}
     {a w : Expr} (he : RelC e a) (hv : RelC v w) :
     CEff mode env s₀ (fun i => RelC i (a.instantiate1 w d)) (inst1M e v d) := by
   refine CEff.pure hs ?_
   show _ = _
-  rw [instantiate1_spec (d := d), he.erase, hv.erase]
+  rw [instantiate1C_spec (d := d), he.erase, hv.erase]
 
-theorem instListRevM_eff (hs : CSOK mode env s₀) {e : ExprC}
-    {vs : Array ExprC} {d : Nat} {a : Expr} {ws : List Expr}
+theorem instListRevM_eff (hs : CSOK mode env s₀) {e : Expr}
+    {vs : Array Expr} {d : Nat} {a : Expr} {ws : List Expr}
     (he : RelC e a) (hvs : RelCL vs.toList.reverse ws) :
     CEff mode env s₀ (fun i => RelC i (a.instantiateList ws d))
       (instListRevM e vs d) := by
@@ -163,48 +163,48 @@ theorem instListRevM_eff (hs : CSOK mode env s₀) {e : ExprC}
   show _ = _
   rw [instantiateRev_spec (d := d), he.erase, hvs.map]
 
-theorem abstract1M_eff (hs : CSOK mode env s₀) {e : ExprC} {d : Nat}
+theorem abstract1M_eff (hs : CSOK mode env s₀) {e : Expr} {d : Nat}
     {a : Expr} (he : RelC e a) :
     CEff mode env s₀ (fun i => RelC i (a.abstract1 d)) (abstract1M e d) := by
   refine CEff.pure hs ?_
   show _ = _
-  rw [abstract1_spec (d := d) (k := 0), he.erase]
+  rw [abstract1C_spec (d := d) (k := 0), he.erase]
 
-theorem abstractRangeM_eff (hs : CSOK mode env s₀) {e : ExprC} {d k : Nat}
+theorem abstractRangeM_eff (hs : CSOK mode env s₀) {e : Expr} {d k : Nat}
     {a : Expr} (he : RelC e a) :
     CEff mode env s₀ (fun i => RelC i (a.abstractRange d k))
       (abstractRangeM e d k) := by
   refine CEff.pure hs ?_
   show _ = _
-  rw [abstractRange_spec (d := d) (k := k) (c := 0), he.erase]
+  rw [abstractRangeC_spec (d := d) (k := k) (c := 0), he.erase]
 
 /-- The `O(1)` loose-bvar bound field is exact on the invariant, so the
 value it returns bounds the erasure (the port of `bvarBoundM_eff`,
 whose arena leg was `TWF.bvarBoundD_le2`). -/
-theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : ExprC} :
+theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : Expr} :
     CEff mode env s₀ (fun b => (Expr.looseBVarsBounded b e) = true)
       (bvarBoundM e) :=
   CEff.pure hs (bvarB_le (Nat.le_refl _))
 
-theorem mkAppNM_eff (hs : CSOK mode env s₀) {f : ExprC} {args : List ExprC}
+theorem mkAppNM_eff (hs : CSOK mode env s₀) {f : Expr} {args : List Expr}
     {x : Expr} {xs : List Expr}
     (hf : RelC f x) (hargs : RelCL args xs) :
     CEff mode env s₀ (fun i => RelC i (Expr.mkAppN x xs)) (mkAppNM f args) := by
   refine CEff.pure hs ?_
   show _ = _
-  rw [mkAppN_spec args f, hf.erase, hargs.map]
+  rw [hf.erase, hargs.map]
 
-theorem instSpineM_eff (hs : CSOK mode env s₀) {args : List ExprC} {t : Nat}
-    {e : ExprC} {x : Expr} {xs : List Expr}
+theorem instSpineM_eff (hs : CSOK mode env s₀) {args : List Expr} {t : Nat}
+    {e : Expr} {x : Expr} {xs : List Expr}
     (he : RelC e x) (hargs : RelCL args xs) :
     CEff mode env s₀ (fun i => RelC i (Expr.instSpine xs t x))
       (instSpineM args t e) := by
   refine CEff.pure hs ?_
   show _ = _
-  rw [instSpine_spec (t := t), he.erase, hargs.map]
+  rw [instSpineC_spec (t := t), he.erase, hargs.map]
 
-theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
-    {args : List ExprC} {x : Expr} {xs : List Expr}
+theorem piResidualM_eff (hs : CSOK mode env s₀) {e : Expr}
+    {args : List Expr} {x : Expr} {xs : List Expr}
     (he : RelC e x) (hargs : RelCL args xs) :
     CEff mode env s₀ (fun o => OptEr o (ConLeche.piResidual x xs))
       (piResidualM e args) := by
@@ -214,7 +214,7 @@ theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
   exact h
 
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
-    {us : List Level} {e : ExprC} {a : Expr} (he : RelC e a) :
+    {us : List Level} {e : Expr} {a : Expr} (he : RelC e a) :
     CEff mode env s₀
       (fun i => RelC i (a.instantiateLevelParams ks us))
       (instLevelParamsM ks us e) := by
@@ -470,9 +470,9 @@ The colliding-key case is where the erasure-function-of-key discipline
 pays: a `BEq` collision pins the stored key to the query only through
 `instKey_inv`, and that is exactly the datum the clause consumes. -/
 theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
-    {e r : ExprC} {vs : List ExprC} {d : Nat}
-    {mp : Std.HashMap (ExprC × List ExprC × Nat) ExprC}
-    (hmp : ∀ (i : ExprC) (vs' : List ExprC) (d' : Nat) (r' : ExprC),
+    {e r : Expr} {vs : List Expr} {d : Nat}
+    {mp : Std.HashMap (Expr × List Expr × Nat) Expr}
+    (hmp : ∀ (i : Expr) (vs' : List Expr) (d' : Nat) (r' : Expr),
       mp[(i, vs', d')]? = some r' →
         r' = (Expr.instantiateList i vs' d'))
     (hE : r = (Expr.instantiateList e vs d)) :
@@ -482,7 +482,7 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
   intro i' vs' d' r' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((e, vs, d) : ExprC × List ExprC × Nat) == (i', vs', d')
+  by_cases hk : ((e, vs, d) : Expr × List Expr × Nat) == (i', vs', d')
   · rw [if_pos hk] at hl
     cases hl
     obtain ⟨h1, h2, rfl⟩ := instKey_inv hk
@@ -490,7 +490,7 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
   · rw [if_neg hk] at hl
     exact hmp i' vs' d' r' hl
 
-private theorem instListM_run (e : ExprC) (vs : List ExprC) (d : Nat)
+private theorem instListM_run (e : Expr) (vs : List Expr) (d : Nat)
     (s : CState) :
     instListM e vs d s = .ok
       (if e.bvarB ≤ d then (e, s)
@@ -499,14 +499,14 @@ private theorem instListM_run (e : ExprC) (vs : List ExprC) (d : Nat)
          | some r => (r, s)
          | none =>
            let mp := if s.instC.size < instCCapC then s.instC else {}
-           (ExprC.instantiateList e vs d,
+           (Expr.instantiateListC e vs d,
              { s with instC :=
-                 mp.insert (e, vs, d) (ExprC.instantiateList e vs d) })) := rfl
+                 mp.insert (e, vs, d) (Expr.instantiateListC e vs d) })) := rfl
 
 /-- Bulk instantiation through the persistent memo.  A hit is *exact*
 here — the stored key is the query key, not merely an index denoting
 the same term — so the interned proof's determinism step disappears. -/
-theorem instListM_eff (hs : CSOK mode env s₀) {e : ExprC} {vs : List ExprC}
+theorem instListM_eff (hs : CSOK mode env s₀) {e : Expr} {vs : List Expr}
     {d : Nat} {a : Expr} {ws : List Expr}
     (he : RelC e a) (hvs : RelCL vs ws) :
     CEff mode env s₀ (fun i => RelC i (a.instantiateList ws d))
@@ -532,7 +532,7 @@ theorem instListM_eff (hs : CSOK mode env s₀) {e : ExprC} {vs : List ExprC}
       rw [hhit] at h1
       dsimp only at h1
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-      have hE := instantiateList_spec (e := e) (vs := vs) (d := d)
+      have hE := instantiateListC_spec (e := e) (vs := vs) (d := d)
       refine ⟨?_, by show _ = _; rw [hE, he.erase, hvs.map]⟩
       refine hs.insertInstC ?_ hE
       -- the retained table is either the old one or empty, both backed
@@ -570,7 +570,7 @@ theorem CSOK.insertIEnv {s : CState} (hs : CSOK mode env s) {n : Name}
 /-- Inserting a backed entry into `constTyAt` preserves the
 invariant. -/
 theorem CSOK.insertConstTy {s : CState} (hs : CSOK mode env s)
-    {n : Name} {us : List Level} {i : ExprC} {ci : ConstantInfo}
+    {n : Name} {us : List Level} {i : Expr} {ci : ConstantInfo}
     (hfind : env.find? n = some ci)
     (hrel : RelC i (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us)) :
@@ -593,7 +593,7 @@ theorem CSOK.insertConstTy {s : CState} (hs : CSOK mode env s)
 /-- Inserting a backed entry into `constValAt` preserves the
 invariant. -/
 theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
-    {n : Name} {us : List Level} {i : ExprC}
+    {n : Name} {us : List Level} {i : Expr}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hfind : env.find? n = some (.defnInfo cv v hint))
     (hrel : RelC i (v.instantiateLevelParams cv.levelParams us)) :
@@ -616,7 +616,7 @@ theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
 /-- Inserting a backed entry into `ruleRhsAt` preserves the
 invariant. -/
 theorem CSOK.insertRuleRhs {s : CState} (hs : CSOK mode env s)
-    {c j : Name} {us : List Level} {i : ExprC}
+    {c j : Name} {us : List Level} {i : Expr}
     {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl)
@@ -651,7 +651,7 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       | some ent =>
         if Expr.exprPtrBEq ent.tyE x then pure ent.ty
         else pure x
-      | none => pure x : CheckCM ExprC) from rfl] at hr
+      | none => pure x : CheckCM Expr) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
@@ -683,7 +683,7 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       | some ⟨_, _, some (vE, vi)⟩ =>
         if Expr.exprPtrBEq vE x then pure vi
         else pure x
-      | _ => pure x : CheckCM ExprC) from rfl] at hr
+      | _ => pure x : CheckCM Expr) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
@@ -738,7 +738,7 @@ theorem constTyAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
             { s with constTyAt := mp.insert (n, us) i }
           pure i
         | none => throw (.internal "constTyAtM: unknown constant") :
-        CheckCM ExprC) from rfl] at hr
+        CheckCM Expr) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.constTyAt[(n, us)]? with
@@ -801,7 +801,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
             { s with constValAt := mp.insert (n, us) i }
           pure i
         | _ => throw (.internal "constValAtM: not a stored definition") :
-        CheckCM ExprC) from rfl] at hr
+        CheckCM Expr) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.constValAt[(n, us)]? with
@@ -865,7 +865,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
             pure i
           | none => throw (.internal "ruleRhsAtM: no rule for constructor")
         | _ => throw (.internal "ruleRhsAtM: not a stored recursor") :
-        CheckCM ExprC) from rfl] at hr
+        CheckCM Expr) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ruleRhsAt[(c, j, us)]? with
@@ -889,7 +889,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
     -- the raw right-hand side needs no conversion (task #198: what was
     -- a conversion of `rl.rhs` is the value itself)
-    have hraw : RelC (rl.rhs : ExprC) rl.rhs := rfl
+    have hraw : RelC (rl.rhs : Expr) rl.rhs := rfl
     cases hrun₂ : instLevelParamsM cv.levelParams us rl.rhs s₀ with
     | error he => rw [hrun₂] at hr; exact nomatch hr
     | ok pr₂ =>
@@ -903,15 +903,15 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
       exact ⟨hs₂.insertRuleRhs hfind hrl hrel, hrel⟩
 
-private theorem recordCConst_run (n : Name) (tyE : Expr) (ty : ExprC)
-    (val : Option (Expr × ExprC)) (s : CState) :
+private theorem recordCConst_run (n : Name) (tyE : Expr) (ty : Expr)
+    (val : Option (Expr × Expr)) (s : CState) :
     recordCConst n tyE ty val s =
       .ok ((), { s with ienv := s.ienv.insert n ⟨tyE, ty, val⟩ }) := rfl
 
 /-- `recordCConst` as a state-only effect: the recorded conversions
 must be related to the very `Expr` objects they are tagged with. -/
 theorem recordCConst_eff (hs : CSOK mode env s₀) {n : Name} {tyE : Expr}
-    {ty : ExprC} {val : Option (Expr × ExprC)}
+    {ty : Expr} {val : Option (Expr × Expr)}
     (hty : RelC ty tyE)
     (hval : ∀ vE vi, val = some (vE, vi) → RelC vi vE) :
     CEff mode env s₀ (fun _ => True) (recordCConst n tyE ty val) := by

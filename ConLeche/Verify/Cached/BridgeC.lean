@@ -14,18 +14,18 @@ relates a `ParsedC` driver function (`ConLeche/Cached/ParsedC.lean`,
 `checkConstantValC` …) to the generic declaration checker at the fueled
 families, as a `SimC` from any invariant state.
 
-The subjects are the `ExprC`-native twins of the parsed-index drivers.
+The subjects are the `Expr`-native twins of the parsed-index drivers.
 Against `BridgeP` the systematic deletions of the tier carry through —
 no arena, hence no `Ext`, no `denoteT`/`denote` distinction and no
 tier flag (`hoff`) anywhere — plus the representation differences the
-`ExprC` currency forces, all of which are *shrinkages*:
+`Expr` currency forces, all of which are *shrinkages*:
 
-* the DAG-memoized syntactic guards are pure `ExprC` walks —
-  `ExprC.looseBVarsBounded`/`ExprC.hasFvar`/
-  `ExprC.allLevelParamsDefined`/`constsResolveFC` — and their agreement
+* the DAG-memoized syntactic guards are pure `Expr` walks —
+  `Expr.looseBVarsBounded`/`Expr.hasFvar`/
+  `Expr.allLevelParamsDefined`/`constsResolveFC` — and their agreement
   with the `Expr`-side guards is `ConLeche/Verify/Cached/GuardsC.lean`'s
   `*_spec` family, so every store-read peel disappears;
-* the readback `readbackEM j` is the pure `ExprC.toExpr j`
+* the readback `readbackEM j` is the pure `Expr.toExpr j`
   (`toExpr_eq`: the memoized readback *is* the erasure), so every
   `readbackEM_eff` step disappears;
 * `opSIxC` has no level-readback wrapper (levels are already trees),
@@ -35,7 +35,7 @@ tier flag (`hoff`) anywhere — plus the representation differences the
   `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
   `recordIConst_eff` took `denoteT` facts at a flag-off state.
 
-`DeclC` carries `ExprC` where `DeclP` carries `EIdx`, so the premise
+`DeclC` carries `Expr` where `DeclP` carries `EIdx`, so the premise
 `denoteDeclP s₀.store pd = some d` becomes the state-free per-
 constructor erasure relation `DeclCRel` below.  Everything else — the
 guard order, the branch structure, the pure comparand of every
@@ -45,16 +45,16 @@ statement — is byte-identical to the interned original's.
 namespace ConLeche.Cached
 
 open ConLeche
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
 /-! ## The declaration relation
 
 The parsed-index layer's premise is `denoteDeclP s₀.store pd = some d`.
-`DeclC` holds `ExprC` objects rather than arena indices, so the cached
+`DeclC` holds `Expr` objects rather than arena indices, so the cached
 premise is the state-free per-constructor erasure relation: `RelC`
-(`RelC`, now equality) on every `ExprC` slot, equality on the rest.  The
+(`RelC`, now equality) on every `Expr` slot, equality on the rest.  The
 `Declaration` is *indexed* by the constructor exactly as `denoteDeclP`
 builds it, so `cases` on the relation reproduces the interned walks'
 destructuring of `hden`. -/
@@ -62,16 +62,16 @@ inductive DeclCRel : DeclC → Declaration → Prop where
   | axiomDecl {cv : ConstantVal} {tyE : Expr} (hty : RelC cv.type tyE) :
       DeclCRel (.axiomDecl cv)
         (.axiomDecl ⟨cv.name, cv.levelParams, tyE⟩)
-  | defnDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | defnDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
       {hint : ReducibilityHint}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.defnDecl cv value hint)
         (.defnDecl ⟨cv.name, cv.levelParams, tyE⟩ ve hint)
-  | thmDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | thmDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.thmDecl cv value)
         (.thmDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
-  | opaqueDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | opaqueDecl {cv : ConstantVal} {tyE : Expr} {value : Expr} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.opaqueDecl cv value)
         (.opaqueDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
@@ -90,11 +90,11 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
   show x.val F >>= pure = x.val F
   cases x.val F <;> rfl
 
-/-! ## The `ExprC` guards agree with the `Expr` guards -/
+/-! ## The `Expr` guards agree with the `Expr` guards -/
 
-/-- `ExprC.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
+/-- `Expr.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
 `hasFvar_spec'` at the unit store). -/
-theorem hasFvar_spec {e : ExprC} {ex : Expr}
+theorem hasFvar_spec {e : Expr} {ex : Expr}
     (h : e = ex) : e.hasFvar = ex.hasFvar :=
   hasFvar_spec' h
 
@@ -102,7 +102,7 @@ theorem hasFvar_spec {e : ExprC} {ex : Expr}
 
 /-- Parsed `ensureSort` simulates the fueled family.  No level
 readback: the cached currency's levels are already trees. -/
-theorem opSIxC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {i : ExprC} {e : Expr}
+theorem opSIxC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ RelVC (opSIxC mode (mkFEnv env) d i)
       ((fueledOpsM mode).ensureSort env d e) := by
@@ -117,7 +117,7 @@ theorem opSIxC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Na
 
 /-- `checkConstantValC` simulates the generic `checkConstantVal` at the
 fueled families on the erased header: the returned constant is the
-fueled result, its type well-scoped, and the returned `ExprC` is
+fueled result, its type well-scoped, and the returned `Expr` is
 related to it. -/
 theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvp : ConstantVal}
     {tyE : Expr} (hs : CSOK mode env s₀) (hden : RelC cvp.type tyE) :
@@ -146,7 +146,6 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     simp only [if_neg h4]
     exact SimC.throw_bind
   simp only [if_pos h4]
-  rw [ExprC.looseBVarsBounded_spec]
   by_cases h5 : Expr.looseBVarsBounded 0 cvp.type = true
   case neg =>
     simp only [if_neg h5]
@@ -163,7 +162,7 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     (fun s₁ jA w hs₁ hP => ?_)
   obtain ⟨hjA, hwty⟩ := hP
   obtain rfl := hjA
-  rw [ExprC.allLevelParamsDefined_spec]
+  rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h7 : Expr.allLevelParamsDefined cvp.levelParams jA = true
   case neg =>
     simp only [if_neg h7]
@@ -186,7 +185,7 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
 index is `mkFEnv` of the fueled environment, whose head stores the
 annotated (fvar-free) value. -/
 theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
-    {jty : ExprC} {value : ExprC} {ve : Expr} {hint : ReducibilityHint}
+    {jty : Expr} {value : Expr} {ve : Expr} {hint : ReducibilityHint}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env ∧
@@ -196,7 +195,6 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
       (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
   obtain rfl := hdenv
   unfold checkDefnValC checkDefnVal
-  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
@@ -212,7 +210,7 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     (fun s₁ jv w hs₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
   obtain rfl := hjv
-  rw [ExprC.allLevelParamsDefined_spec]
+  rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]
@@ -253,7 +251,7 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 
 /-- `checkThmValC` simulates the generic `checkThmVal`. -/
 theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
-    {jty : ExprC} {value : ExprC} {ve : Expr}
+    {jty : Expr} {value : Expr} {ve : Expr}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
@@ -276,7 +274,6 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   | true =>
   simp only [↓reduceIte]
   obtain rfl := hdenv
-  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
@@ -292,7 +289,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     (fun s₄ jv w hs₄ hP₄ => ?_)
   obtain ⟨hjv, hwv⟩ := hP₄
   obtain rfl := hjv
-  rw [ExprC.allLevelParamsDefined_spec]
+  rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]
@@ -323,7 +320,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
 
 /-- `checkOpaqueValC` simulates the generic `checkOpaqueVal`. -/
 theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
-    {jty : ExprC} {value : ExprC} {ve : Expr}
+    {jty : Expr} {value : Expr} {ve : Expr}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => (v.env = w ∧ v = mkFEnv v.env) ∧
@@ -332,7 +329,6 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
   obtain rfl := hdenv
   unfold checkOpaqueValC checkOpaqueVal
-  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
@@ -348,7 +344,7 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     (fun s₁ jv w hs₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
   obtain rfl := hjv
-  rw [ExprC.allLevelParamsDefined_spec]
+  rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]

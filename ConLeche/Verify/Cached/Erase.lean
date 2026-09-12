@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ExprC
+public import ConLeche.Cached.ExprNodes
 public import ConLeche.Verify.Shift
 
 public section
@@ -9,13 +9,13 @@ public section
 # The cached representation's field facts (task #163; rewritten at #172
 B3a)
 
-This module used to be the *seam floor*: an erasure `eraseC : ExprC →
+This module used to be the *seam floor*: an erasure `eraseC : Expr →
 Expr`, its injectivity on the field invariant `WFc`, field exactness
 conditioned on `WFc`, and a normal-form characterization of a
 hash-checking equality — everything needed to relate a second
 expression type to the spec's one.
 
-**There is no seam.**  `ExprC` is `ConLeche.Expr` and the four derived
+**There is no seam.**  `Expr` is `ConLeche.Expr` and the four derived
 data are its `@[computed_field]`s, so what is left is the three facts
 the cached operations actually consume, each now unconditional:
 
@@ -44,11 +44,7 @@ what is left is exactly three field equations and their two cutoff
 consequences.
 -/
 
-namespace ConLeche.Cached
-
-open ConLeche
-
-namespace ExprC
+namespace ConLeche.Expr
 
 /-! ## Field exactness
 
@@ -79,24 +75,16 @@ function of its key — and the walks preserve it. -/
 
 /-! ### The unconditional field equations -/
 
-/-- The `bvarB` field is `Expr.bvarBound` (proved in the Kernel layer
-since task #210 Part B, where it backs the executed `looseBVarsBounded`). -/
-theorem bvarB_eq (e : ExprC) : e.bvarB = Expr.bvarBound e := Expr.bvarB_eq e
-
 /-- Cutoff consequence: a bound at or below the cursor certifies
 `looseBVarsBounded` (the transposition of `TWF.bvarBoundD_le2`). -/
-theorem bvarB_le {e : ExprC} {d : Nat} (hle : e.bvarB ≤ d) :
+theorem bvarB_le {e : Expr} {d : Nat} (hle : e.bvarB ≤ d) :
     Expr.looseBVarsBounded d e = true :=
   Expr.looseBVarsBounded_iff.mpr (bvarB_eq e ▸ hle)
-
-/-- The `fvarB` field is `Expr.fvarRange` (proved in the Kernel layer
-since task #210 Part B, where it backs the executed `hasFvar`). -/
-theorem fvarB_eq (e : ExprC) : e.fvarB = Expr.fvarRange e := Expr.fvarB_eq e
 
 /-- Cutoff consequence: a range at or below the base certifies
 `Expr.fvarsBelow` — the predicate the abstraction traversals consume
 (`abstractRange_eq_self`); the transposition of `TWF.fvarRangeD_le`. -/
-theorem fvarB_le {e : ExprC} {d : Nat} (hle : e.fvarB ≤ d) :
+theorem fvarB_le {e : Expr} {d : Nat} (hle : e.fvarB ≤ d) :
     Expr.fvarsBelow d e :=
   Expr.fvarsBelow_iff.mpr (fvarB_eq e ▸ hle)
 
@@ -116,7 +104,7 @@ theorem levelsHaveParam_eq : ∀ us : List Level,
   | cons u us ih => simp [levelsHaveParam, List.any_cons, levelHasParam_eq, ih]
 
 /-- The `hasLP` field is `Expr.hasLevelParam`. -/
-theorem hasLP_eq : ∀ e : ExprC, e.hasLP = Expr.hasLevelParam e := by
+theorem hasLP_eq : ∀ e : Expr, e.hasLP = Expr.hasLevelParam e := by
   intro e
   induction e <;>
     simp_all [Expr.hasLevelParam, levelHasParam_eq, levelsHaveParam_eq]
@@ -124,7 +112,7 @@ theorem hasLP_eq : ∀ e : ExprC, e.hasLP = Expr.hasLevelParam e := by
 /-- Invisibility consequence: level instantiation is the identity on a
 node whose flag is off (the `O(1)` shortcut every `instLevelParams`
 traversal takes). -/
-theorem hasLP_false {e : ExprC} {ks : List Name} {us : List Level}
+theorem hasLP_false {e : Expr} {ks : List Name} {us : List Level}
     (h : e.hasLP = false) :
     e.instantiateLevelParams ks us = e :=
   Expr.instantiateLevelParams_eq_self (by rw [← hasLP_eq e, h])
@@ -138,37 +126,35 @@ descent that compared *stored* hashes, which could disagree with the
 term. -/
 
 /-- `beq` in its unfolded form decides equality. -/
-theorem beq_eq {a b : ExprC} (h : Expr.beq a b = true) : a = b :=
+theorem beq_eq {a b : Expr} (h : Expr.beq a b = true) : a = b :=
   of_decide_eq_true h
 
 /-- …and is reflexive there. -/
-@[simp] theorem beq_self (a : ExprC) : Expr.beq a a = true := by
+@[simp] theorem beq_self (a : Expr) : Expr.beq a a = true := by
   simp [Expr.beq]
 
 /-- Soundness of a decided equality — the form the memo proofs
 consume (a memo hit's key is only `BEq`-equal to the query). -/
-theorem beq_sound {a b : ExprC} (h : (a == b) = true) : a = b :=
+theorem beq_sound {a b : Expr} (h : (a == b) = true) : a = b :=
   eq_of_beq h
 
 /-- Equality is an equivalence — the `Std.HashMap` lemmas' first
 premise (an instance, so every memo-preservation proof gets it for
 free). -/
-instance : EquivBEq ExprC where
+instance : EquivBEq Expr where
   symm h := by rw [eq_of_beq h]; exact beq_self_eq_true _
   trans hab hbc := by rw [eq_of_beq hab]; exact hbc
   rfl := beq_self_eq_true _
 
 /-- The `O(1)` `Hashable` instance (the computed field) is lawful for
 it — the `Std.HashMap` lemmas' second premise. -/
-instance : LawfulHashable ExprC where
+instance : LawfulHashable Expr where
   hash_eq _ _ h := by rw [eq_of_beq h]
 
 /-- Decided equality **is** equality.  (Before B3a the `←` direction
 needed `WFc` on both sides — `eraseC_inj` — because distinct field
 blocks could erase alike; B3b deleted the hypotheses with the
 invariant.) -/
-theorem beq_iff {a b : ExprC} : (a == b) = true ↔ a = b := beq_iff_eq
+theorem beq_iff {a b : Expr} : (a == b) = true ↔ a = b := beq_iff_eq
 
-end ExprC
-
-end ConLeche.Cached
+end ConLeche.Expr

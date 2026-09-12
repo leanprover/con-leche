@@ -61,10 +61,10 @@ def _root_.ConLeche.Cached.DeclC.names : DeclC → List Name
   | .indDecl block _ => block.map (·.name)
   | .basisDecl _ => []
 
-/-- The constants an `ExprC` DAG references, each node visited once
-(`Std.HashSet ExprC`: pointer-first equality, computed hash). -/
-def usedConstsGo (seen : Std.HashSet ExprC) (acc : Array Name) (e : ExprC) :
-    Std.HashSet ExprC × Array Name :=
+/-- The constants an `Expr` DAG references, each node visited once
+(`Std.HashSet Expr`: pointer-first equality, computed hash). -/
+def usedConstsGo (seen : Std.HashSet Expr) (acc : Array Name) (e : Expr) :
+    Std.HashSet Expr × Array Name :=
   if seen.contains e then (seen, acc) else
   let seen := seen.insert e
   match e with
@@ -95,7 +95,7 @@ def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
     let (seen, acc) := usedConstsGo {} #[] cv.type
     (usedConstsGo seen acc v).2
   | .indDecl block _ =>
-    (block.foldl (init := (({} : Std.HashSet ExprC), (#[] : Array Name)))
+    (block.foldl (init := (({} : Std.HashSet Expr), (#[] : Array Name)))
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type
         match ci with

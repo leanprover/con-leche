@@ -71,7 +71,7 @@ invariant state at `mkFEnv env`, a successful run returns the header
 with its annotated type, well scoped, and `installConstantVal` succeeds
 on it at some fuel. -/
 theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {cv cvA : ConstantVal} {jty : ExprC} {s₀ s' : CState} (hs : CSOK μ env s₀)
+    {cv cvA : ConstantVal} {jty : Expr} {s₀ s' : CState} (hs : CSOK μ env s₀)
     (h : annotConstantValC μ (mkFEnv env) cv s₀ = .ok ((cvA, jty), s')) :
     CSOK μ env s' ∧ cvA = { cv with type := jty } ∧ Expr.WScoped 0 jty ∧
     ∃ F, installConstantVal (fueledOps μ F) env cv = .ok cvA := by
@@ -89,7 +89,6 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
   by_cases h4 : Name.nodup cv.levelParams = true
   case neg => rw [if_neg h4] at h; exact absurd h throwC_bind_ok
   rw [if_pos h4] at h
-  rw [ExprC.looseBVarsBounded_spec] at h
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
   case neg => rw [if_neg h5] at h; exact absurd h throwC_bind_ok
   rw [if_pos h5] at h
@@ -102,7 +101,7 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
     (ssimC hμ env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)) jA s₁ hann
   obtain rfl := hjA
-  rw [ExprC.allLevelParamsDefined_spec] at h
+  rw [Expr.allLevelParamsDefinedC_spec] at h
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams jA = true
   case neg => rw [if_neg h7] at h; exact absurd h throwC_bind_ok
   rw [if_pos h7] at h
@@ -118,13 +117,12 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
 
 /-- Phase A's value install simulates the pure install half. -/
 theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {cvA : ConstantVal} {jty value jv : ExprC} {record : Bool} {s₀ s' : CState}
+    {cvA : ConstantVal} {jty value jv : Expr} {record : Bool} {s₀ s' : CState}
     (hjty : jty = cvA.type) (hs : CSOK μ env s₀)
     (h : annotValC μ (mkFEnv env) cvA jty value record s₀ = .ok (jv, s')) :
     CSOK μ env s' ∧ Expr.WScoped 0 jv ∧
     ∃ F, installValue (fueledOps μ F) env cvA value = .ok jv := by
   unfold annotValC at h
-  rw [ExprC.looseBVarsBounded_spec] at h
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg => rw [if_neg h1] at h; exact absurd h throwC_bind_ok
   rw [if_pos h1] at h
@@ -137,7 +135,7 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
     (ssimC hμ env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)) jA s₁ hann
   obtain rfl := hjA
-  rw [ExprC.allLevelParamsDefined_spec] at h
+  rw [Expr.allLevelParamsDefinedC_spec] at h
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jA = true
   case neg => rw [if_neg h3] at h; exact absurd h throwC_bind_ok
   rw [if_pos h3] at h
@@ -197,7 +195,7 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
   obtain ⟨hs₃, u', rfl, F₂, hF₂⟩ := opSIxC_sim hμ henv hs₂ rfl hwsty u s₃ hsort
   -- the value's typing, after the theorem test (and a theorem's value
   -- install)
-  have tail : ∀ {s₄ : CState} (jv : ExprC), CSOK μ env s₄ → Expr.WScoped 0 jv →
+  have tail : ∀ {s₄ : CState} (jv : Expr), CSOK μ env s₄ → Expr.WScoped 0 jv →
       ((coreKnotI μ (mkFEnv env) checkFuel).infer 0 jv >>= fun jvt =>
         (coreKnotI μ (mkFEnv env) checkFuel).defeq 0 jvt pc.vg.cvA.type >>= fun b =>
           if b = true then pure () else
@@ -262,7 +260,7 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
 /-- Phase A's value install, run: the two halves at a common fuel, the
 annotated terms well scoped, the residue kept. -/
 theorem annotValueC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {cv cvA : ConstantVal} {value jty jv : ExprC} {record : Bool} {s₀ s' : CState}
+    {cv cvA : ConstantVal} {value jty jv : Expr} {record : Bool} {s₀ s' : CState}
     (hres : CSOKF s₀)
     (h : annotValueC μ (mkFEnv env) cv value record s₀ = .ok ((cvA, jty, jv), s')) :
     CSOKF s' ∧ cvA = { cv with type := jty } ∧ Expr.WScoped 0 jty ∧ Expr.WScoped 0 jv ∧
@@ -347,8 +345,8 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List DeclC}
         hres₁ hnd hB
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
-    have value : ∀ (kind : ValueKind) (mk : ConstantVal → ExprC → ConstantInfo)
-        (d : Declaration) (cvA : ConstantVal) (jv : ExprC),
+    have value : ∀ (kind : ValueKind) (mk : ConstantVal → Expr → ConstantInfo)
+        (d : Declaration) (cvA : ConstantVal) (jv : Expr),
         CSOKF s₁ →
         fe₁ = fe.push (mk cvA jv) →
         pend₁ = pend.push ⟨⟨kind, cvA, jv⟩, i, fe.visibleBelow⟩ →

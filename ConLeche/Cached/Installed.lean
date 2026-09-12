@@ -79,7 +79,7 @@ structure PendingCheck where
 /-- `checkConstantValC` minus its inference: the syntactic guards and
 the annotation of the type — `installConstantVal`'s cached twin. -/
 def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
-    CheckCM (ConstantVal × ExprC) := do
+    CheckCM (ConstantVal × Expr) := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
@@ -88,12 +88,12 @@ def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
     throw (.invalid s!"reserved projection name {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless ExprC.looseBVarsBounded 0 cv.type do
+  unless Expr.looseBVarsBounded 0 cv.type do
     throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if ExprC.hasFvar cv.type then
+  if Expr.hasFvar cv.type then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
   let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
-  unless ExprC.allLevelParamsDefined cv.levelParams jty do
+  unless Expr.allLevelParamsDefinedC cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
     throw (.invalid s!"unknown constant in type of {cv.name}")
@@ -103,14 +103,14 @@ def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
 minus its inference: the guards, the annotation, and the
 converted-constant record (`record` is `false` for an opaque, whose
 value is a discarded witness) — `installValue`'s cached twin. -/
-def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
-    (value : ExprC) (record : Bool) : CheckCM ExprC := do
-  unless ExprC.looseBVarsBounded 0 value do
+def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) (record : Bool) : CheckCM Expr := do
+  unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
@@ -121,8 +121,8 @@ def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 per-declaration flush, then the header's and the value's install halves;
 returns the header with its annotated type, that type, and the
 annotated value. -/
-def annotValueC (fe : FEnv) (cv : ConstantVal) (value : ExprC) (record : Bool) :
-    CheckCM (ConstantVal × ExprC × ExprC) := do
+def annotValueC (fe : FEnv) (cv : ConstantVal) (value : Expr) (record : Bool) :
+    CheckCM (ConstantVal × Expr × Expr) := do
   flushC
   let (cvA, jty) ← annotConstantValC mode fe cv
   let jv ← annotValC mode fe cvA jty value record

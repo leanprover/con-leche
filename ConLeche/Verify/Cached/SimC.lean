@@ -42,16 +42,16 @@ B3a is `eq_of_beq`).
 namespace ConLeche.Cached
 
 open ConLeche
-open ExprC
+open Expr
 
 variable {mode : CheckMode}
 
 /-! ## Lawful keys
 
-The memo tables of `CState` are keyed by `ExprC`, `Level`, `Name` and
-tuples/lists of those.  `Erase.lean` supplies the `ExprC` instances and
-`OpsC.lean` the `ExprC × β` products; everything else is `LawfulBEq`
-(all keys are `DecidableEq`-derived) except *lists of `ExprC`*, which
+The memo tables of `CState` are keyed by `Expr`, `Level`, `Name` and
+tuples/lists of those.  `Erase.lean` supplies the `Expr` instances and
+`OpsC.lean` the `Expr × β` products; everything else is `LawfulBEq`
+(all keys are `DecidableEq`-derived) except *lists of `Expr`*, which
 inherit the component instances the same way products do. -/
 
 section ProdKey
@@ -190,16 +190,16 @@ was `WFc v' ∧ v' = v`, the invariant conjunct went with `WFc`, and one
 type made the second conjunct an equation between the two sides
 themselves.  The name is kept because the whole `DiscC` family is
 written in it, and it still marks *which* side is which. -/
-@[expose] def RelC (v' : ExprC) (v : Expr) : Prop := v' = v
+@[expose] def RelC (v' : Expr) (v : Expr) : Prop := v' = v
 
-theorem RelC.erase {v' : ExprC} {v : Expr} (h : RelC v' v) : v' = v := h
+theorem RelC.erase {v' : Expr} {v : Expr} (h : RelC v' v) : v' = v := h
 
 /-- `RelC` determines the pure value. -/
-theorem RelC.det {v' : ExprC} {a b : Expr} (ha : RelC v' a)
+theorem RelC.det {v' : Expr} {a b : Expr} (ha : RelC v' a)
     (hb : RelC v' b) : a = b := ha.symm.trans hb
 
 /-- `RelC` determines the cached value. -/
-theorem RelC.det' {a b : ExprC} {v : Expr} (ha : RelC a v)
+theorem RelC.det' {a b : Expr} {v : Expr} (ha : RelC a v)
     (hb : RelC b v) : a = b := ha.trans hb.symm
 
 /-- Every expression is related to itself (there is one type). -/
@@ -207,44 +207,44 @@ theorem RelC.refl (x : Expr) : RelC x x := by rfl
 
 /-- The list-level relation: the `DiscC` walks' replacement for the
 arena's `DenL`. -/
-@[expose] def RelCL (l : List ExprC) (xs : List Expr) : Prop := l = xs
+@[expose] def RelCL (l : List Expr) (xs : List Expr) : Prop := l = xs
 
 namespace RelCL
 
 theorem nil : RelCL [] [] := by rfl
 
-theorem cons {x : ExprC} {v : Expr} {l : List ExprC} {xs : List Expr}
+theorem cons {x : Expr} {v : Expr} {l : List Expr} {xs : List Expr}
     (hx : RelC x v) (hl : RelCL l xs) : RelCL (x :: l) (v :: xs) := by
   rw [show x = v from hx, show l = xs from hl]; rfl
 
 /-- The list projection. -/
-theorem map {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
+theorem map {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
     l = xs := h
 
-theorem intro {l : List ExprC} {xs : List Expr}
+theorem intro {l : List Expr} {xs : List Expr}
     (hm : l = xs) : RelCL l xs := hm
 
 theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.symm
 
-theorem cons_inv {x : ExprC} {l : List ExprC} {xs : List Expr}
+theorem cons_inv {x : Expr} {l : List Expr} {xs : List Expr}
     (h : RelCL (x :: l) xs) :
     ∃ v vs, xs = v :: vs ∧ RelC x v ∧ RelCL l vs :=
   ⟨x, l, h.symm, rfl, rfl⟩
 
-theorem length {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
+theorem length {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
     l.length = xs.length := by rw [h]
 
-theorem append {l₁ l₂ : List ExprC} {xs₁ xs₂ : List Expr}
+theorem append {l₁ l₂ : List Expr} {xs₁ xs₂ : List Expr}
     (h₁ : RelCL l₁ xs₁) (h₂ : RelCL l₂ xs₂) :
     RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) := by
   rw [show l₁ = xs₁ from h₁, show l₂ = xs₂ from h₂]; rfl
 
-theorem reverse {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
+theorem reverse {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
     RelCL l.reverse xs.reverse := by
   rw [show l = xs from h]; rfl
 
 /-- `RelCL` determines the pure list. -/
-theorem det {l : List ExprC} {xs ys : List Expr} (hx : RelCL l xs)
+theorem det {l : List Expr} {xs ys : List Expr} (hx : RelCL l xs)
     (hy : RelCL l ys) : xs = ys := hx.symm.trans hy
 
 end RelCL
@@ -306,7 +306,7 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   ienv : ∀ (nm : Name) (ent : CConstE), s.ienv[nm]? = some ent →
     RelC ent.ty ent.tyE ∧
     ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE
-  instC : ∀ (k : ExprC) (vs : List ExprC) (d : Nat) (r : ExprC),
+  instC : ∀ (k : Expr) (vs : List Expr) (d : Nat) (r : Expr),
     s.instC[(k, vs, d)]? = some r →
       r = (Expr.instantiateList k vs d)
 
@@ -377,14 +377,14 @@ fueled counterpart. -/
 /-- The result relation for expression-valued entry points: the cached
 term is related to the fueled value, well scoped at the ambient
 depth. -/
-@[expose] def RelEC (d : Nat) (v' : ExprC) (v : Expr) : Prop :=
+@[expose] def RelEC (d : Nat) (v' : Expr) (v : Expr) : Prop :=
   RelC v' v ∧ Expr.WScoped d v
 
 /-- The result relation for `Bool` and other data results. -/
 @[expose] def RelVC {α : Type} (b a : α) : Prop := b = a
 
 /-- The result relation for optional expression results. -/
-@[expose] def RelOC (d : Nat) : Option ExprC → Option Expr → Prop
+@[expose] def RelOC (d : Nat) : Option Expr → Option Expr → Prop
   | none, none => True
   | some j, some v => RelEC d j v
   | _, _ => False

@@ -9,7 +9,7 @@ public section
 
 The port of `ConLeche/Verify/DiscI2.lean` under the recipe (DESIGN.md,
 task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`, no
-`Ext`, node inversion by `cases` on the `ExprC`
+`Ext`, node inversion by `cases` on the `Expr`
 constructor instead of `denoteNode` unpacking, and the identity
 name/level wrapper effects of `SimCEff.lean` where the interned walks
 carried interning and readback steps.  The pure comparand side of every
@@ -18,7 +18,7 @@ statement is byte-identical to the interned original's.
 
 namespace ConLeche.Cached
 
-open ConLeche.Cached.ExprC
+open ConLeche.Expr
 
 variable {mode : CheckMode}
 
@@ -29,7 +29,7 @@ variable {env : Env} {f : Nat}
 /-- The hoisted `Prop`-branch test (task #168): the fast arm is the
 same pure read on both sides (`mkFEnv_find?_fun`); the slow branch is
 `proofIrrelC_sim`'s `Prop` branch. -/
-theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -136,13 +136,13 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     | proj s i e => exact SimC.pure hs₄ rfl
 
 /-- `Expr.isBoolTrue` transported along the value equation. -/
-theorem isBoolTrue_spec' {e : ExprC} {ex : Expr}
+theorem isBoolTrue_spec' {e : Expr} {ex : Expr}
     (h : e = ex) : Expr.isBoolTrue e = ex.isBoolTrue := by
   rw [h]
 
 /-- The eq-true shortcut (the audit's E2) simulates its specification:
 one `whnf`, then the store read of the head test. -/
-theorem boolTrueShortcutC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem boolTrueShortcutC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {a : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i a) (hw : Expr.WScoped d a) :
     SimC mode env s₀ RelVC
@@ -155,7 +155,7 @@ theorem boolTrueShortcutC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   exact SimC.pure hs₁ rfl
 
 /-- `boolTrueShortcutC_sim` under its guard. -/
-theorem boolTrueShortcutIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+theorem boolTrueShortcutIfC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {a : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i a) (hw : Expr.WScoped d a) (g : Bool) :
     SimC mode env s₀ RelVC
@@ -168,7 +168,7 @@ theorem boolTrueShortcutIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
 
 /-- `propIrrelC_sim` under the once-per-entry gate (the audit's D3):
 the pruned branch is `pure false` twinned. -/
-theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) (g : Bool) :
@@ -182,7 +182,7 @@ theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   · exact propIrrelC_sim ih hs hdena hdenb hwa hwb
 
 /-- Port of `proofIrrelI_sim`. -/
-theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -308,7 +308,7 @@ cached representation stores `BinderMeta`s directly, so `hbm₁` is an
 identity and the spec side reads the very arguments the twin is
 given. -/
 theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat}
-    {ty₁ body₁ b : ExprC} {ty₁x body₁x bx : Expr} {m₁ : BinderMeta}
+    {ty₁ body₁ b : Expr} {ty₁x body₁x bx : Expr} {m₁ : BinderMeta}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hty : RelC ty₁ ty₁x) (hbody : RelC body₁ body₁x) (hb : RelC b bx)
     (hwty : Expr.WScoped d ty₁x) (hwbody : Expr.WScoped d body₁x)
@@ -425,8 +425,8 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat}
 
 /-- Indexed readout of a related list (the `DenL.getD` transposition:
 the erasure is a `List.map`, so the default travels with it). -/
-theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
-    ∀ (n : Nat) {l : List ExprC} {xs : List Expr}, RelCL l xs →
+theorem RelCL.getD {dflt : Expr} {dfltx : Expr} (hd : RelC dflt dfltx) :
+    ∀ (n : Nat) {l : List Expr} {xs : List Expr}, RelCL l xs →
       RelC (l.getD n dflt) (xs.getD n dfltx)
   | _, [], xs, h => by rw [h.nil_inv]; exact hd
   | 0, a :: as, xs, h => by
@@ -440,7 +440,7 @@ theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
 the constructor's stored type — `constTyAtM` reads it, `iotaCertsC_sim`
 walks it). -/
 theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {lic : Bool} {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
+    {lic : Bool} {c : Name} {us : List Level} {args : List Expr} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
@@ -480,7 +480,7 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
 /-- `projCertC_sim` at the mode's gate (`projCertAt`; parity mirrors
 official, 2026-09-06). -/
 theorem projCertAtC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {v lic : Bool} {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
+    {v lic : Bool} {c : Name} {us : List Level} {args : List Expr} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
@@ -493,7 +493,7 @@ theorem projCertAtC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
 
 /-- Port of `structUnitCertI_sim`. -/
 theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
@@ -504,12 +504,12 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
     ((coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun ta =>
       (coreKnotI .verified (mkFEnv env) f).whnf d ta >>= fun wta =>
       
-      match (ExprC.getAppFn wta) with
+      match (Expr.getAppFn wta) with
       | .const T us' =>
         pure T >>= fun Tn =>
         match (mkFEnv env).find? Tn with
         | some (.indInfo cvT caps) =>
-          pure (ExprC.getAppArgs wta) >>= fun targs =>
+          pure (Expr.getAppArgsC wta) >>= fun targs =>
           if caps.unitlike = true ∧
               reservedBasisNames.contains Tn = false ∧
               targs.length = caps.unitParams ∧
@@ -552,14 +552,12 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
   obtain ⟨hwtad, hwwta⟩ := hP₂
   refine SimC.pureB ?_
   obtain rfl := hwtad
-  have hargs := ExprC.getAppArgs_spec wta
-  have hlena : (ExprC.getAppArgs wta).length
+  have hargs := Expr.getAppArgsC_spec wta
+  have hlena : (Expr.getAppArgsC wta).length
       = (Expr.getAppArgs wta).length := RelCL.length hargs
-  have hfn := ExprC.getAppFn_spec wta
-  generalize hg : ExprC.getAppFn wta = g at hfn ⊢
+  generalize hg : Expr.getAppFn wta = g
   cases g with
   | const T us' =>
-    rw [show (Expr.getAppFn wta) = Expr.const T us' from hfn.symm]
     dsimp only
     refine SimC.bind_left (pureEq_eff hs₂ T)
       (fun s₂' Tv hs₂ hTv => ?_)
@@ -604,37 +602,22 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
       | recInfo cv mI rP rules => exact SimC.pure hs₂ rfl
       | projInfo entry => exact SimC.pure hs₂ rfl
   | bvar k =>
-    rw [show (Expr.getAppFn wta) = Expr.bvar k from hfn.symm]
     exact SimC.pure hs₂ rfl
   | sort u =>
-    rw [show (Expr.getAppFn wta) = Expr.sort u from hfn.symm]
     exact SimC.pure hs₂ rfl
   | lit l =>
-    rw [show (Expr.getAppFn wta) = Expr.lit l from hfn.symm]
     exact SimC.pure hs₂ rfl
   | fvar idx t =>
-    rw [show (Expr.getAppFn wta) = Expr.fvar idx t
-      from hfn.symm]
     exact SimC.pure hs₂ rfl
   | app f' a' =>
-    rw [show (Expr.getAppFn wta) = Expr.app f' a'
-      from hfn.symm]
     exact SimC.pure hs₂ rfl
   | lam t b' m =>
-    rw [show (Expr.getAppFn wta) = Expr.lam t b' m
-      from hfn.symm]
     exact SimC.pure hs₂ rfl
   | forallE t b' m =>
-    rw [show (Expr.getAppFn wta) = Expr.forallE t b' m
-      from hfn.symm]
     exact SimC.pure hs₂ rfl
   | letE t v b' =>
-    rw [show (Expr.getAppFn wta)
-      = Expr.letE t v b' from hfn.symm]
     exact SimC.pure hs₂ rfl
   | proj sn j' e' =>
-    rw [show (Expr.getAppFn wta) = Expr.proj sn j' e'
-      from hfn.symm]
     exact SimC.pure hs₂ rfl
 
 end Walks2
@@ -653,7 +636,7 @@ variable {env : Env} {f : Nat}
 denotes the spec's mapped list. -/
 theorem projAppsFnC_eff (T : Name) (us' : List Level) :
     ∀ (l : List Nat) {s₀ : CState}, CSOK mode env s₀ →
-      ∀ {targs : List ExprC} {xs : List Expr} {b : ExprC} {xb : Expr},
+      ∀ {targs : List Expr} {xs : List Expr} {b : Expr} {xb : Expr},
       RelCL targs xs → RelC b xb →
       CEff mode env s₀ (fun rs => RelCL rs
           (l.map fun i => Expr.mkAppN (.const (projFnName T i) us')
@@ -683,7 +666,7 @@ theorem projAppsFnC_eff (T : Name) (us' : List Level) :
 /-- The cached `.proj` spine (the tower spelling, task #175 W4c). -/
 theorem projNodesC_eff (T : Name) :
     ∀ (l : List Nat) {s₀ : CState}, CSOK mode env s₀ →
-      ∀ {b : ExprC} {xb : Expr}, RelC b xb →
+      ∀ {b : Expr} {xb : Expr}, RelC b xb →
       CEff mode env s₀ (fun rs => RelCL rs (l.map fun i => Expr.proj T i xb))
         (projNodesI T b l)
   | [], s₀, hs, b, xb, hb => by
@@ -721,7 +704,7 @@ theorem recSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
 denotes `etaProjs` (task #175 W4c: by entry kind). -/
 theorem projAppsC_eff (T : Name) (us' : List Level) (nF : Nat)
     {s₀ : CState} (hs : CSOK mode env s₀)
-    {targs : List ExprC} {xs : List Expr} {b : ExprC} {xb : Expr}
+    {targs : List Expr} {xs : List Expr} {b : Expr} {xb : Expr}
     (htargs : RelCL targs xs) (hb : RelC b xb) :
     CEff mode env s₀ (fun rs => RelCL rs (etaProjs env T us' xs xb nF))
       (projAppsI (mkFEnv env) T T us' targs b nF) := by
@@ -735,7 +718,7 @@ theorem projAppsC_eff (T : Name) (us' : List Level) (nF : Nat)
 theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} (TI : Name) (T : Name) (us' : List Level) (lpsT : List Name) :
     ∀ (idxs : List Nat) {s₀ : CState}, CSOK mode env s₀ →
-      ∀ {targs : List ExprC} {xs : List Expr} {b : ExprC} {xb : Expr},
+      ∀ {targs : List Expr} {xs : List Expr} {b : Expr} {xb : Expr},
       RelCL targs xs → RelC b xb →
       (∀ x ∈ xs, Expr.WScoped d x) → Expr.WScoped d xb →
       SimC mode env s₀ RelVC
@@ -789,13 +772,13 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | ctorInfo cv nP nF => exact SimC.pure hs rfl
 
 /-- Prefix of a related list. -/
-theorem RelCL.take {l : List ExprC} {xs : List Expr} (h : RelCL l xs)
+theorem RelCL.take {l : List Expr} {xs : List Expr} (h : RelCL l xs)
     (k : Nat) : RelCL (l.take k) (xs.take k) := by
   show _ = _
   rw [show l = xs from h]
 
 /-- Suffix of a related list. -/
-theorem RelCL.drop {l : List ExprC} {xs : List Expr} (h : RelCL l xs)
+theorem RelCL.drop {l : List Expr} {xs : List Expr} (h : RelCL l xs)
     (k : Nat) : RelCL (l.drop k) (xs.drop k) := by
   show _ = _
   rw [show l = xs from h]
@@ -861,7 +844,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
 
 /-- Port of `structEtaCertWithI_sim`. -/
 theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i j w : ExprC} {a b wtb : Expr} {s₀ : CState}
+    {d : Nat} {i j w : Expr} {a b wtb : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b) (hdenw : RelC w wtb)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
@@ -873,20 +856,20 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
   obtain rfl := CheckMode.eq_verified hμ
   show SimC .verified env s₀ RelVC
     (
-      match (ExprC.getAppFn i) with
+      match (Expr.getAppFn i) with
       | .const c us =>
         pure c >>= fun cn =>
         match (mkFEnv env).find? cn with
         | some (.ctorInfo cvc cnP cnF) =>
-          pure (ExprC.getAppArgs i) >>= fun aargs =>
+          pure (Expr.getAppArgsC i) >>= fun aargs =>
           if aargs.length = cnP + cnF then
             
-            match (ExprC.getAppFn w) with
+            match (Expr.getAppFn w) with
             | .const T us' =>
               pure T >>= fun Tn =>
               match (mkFEnv env).find? Tn with
               | some (.indInfo cvT caps) =>
-                pure (ExprC.getAppArgs w) >>= fun targs =>
+                pure (Expr.getAppArgsC w) >>= fun targs =>
                 if caps.eta = true ∧ caps.etaCtor = cn ∧
                     reservedBasisNames.contains Tn = false ∧
                     reservedBasisNames.contains cn = false ∧
@@ -938,20 +921,17 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
   have hdenb : RelC j j := rfl
   rw [structEtaCertWithC_unfold]
   refine SimC.pureB ?_
-  have haargs : RelCL (ExprC.getAppArgs i) (Expr.getAppArgs i) :=
-    ExprC.getAppArgs_spec i
-  have hlena : (ExprC.getAppArgs i).length
+  have haargs : RelCL (Expr.getAppArgsC i) (Expr.getAppArgs i) :=
+    Expr.getAppArgsC_spec i
+  have hlena : (Expr.getAppArgsC i).length
       = (Expr.getAppArgs i).length := RelCL.length haargs
-  have htargs : RelCL (ExprC.getAppArgs w) (Expr.getAppArgs w) :=
-    ExprC.getAppArgs_spec w
-  have hlenw : (ExprC.getAppArgs w).length
+  have htargs : RelCL (Expr.getAppArgsC w) (Expr.getAppArgs w) :=
+    Expr.getAppArgsC_spec w
+  have hlenw : (Expr.getAppArgsC w).length
       = (Expr.getAppArgs w).length := RelCL.length htargs
-  have hfa := ExprC.getAppFn_spec i
-  have hfw := ExprC.getAppFn_spec w
-  generalize hga : ExprC.getAppFn i = ga at hfa ⊢
+  generalize hga : Expr.getAppFn i = ga
   cases ga with
   | const c us =>
-    rw [show (Expr.getAppFn i) = Expr.const c us from hfa.symm]
     dsimp only
     refine SimC.bind_left (pureEq_eff hs c) (fun s₀c cw hs hcw => ?_)
     subst cw
@@ -966,10 +946,9 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
         simp only [hlena]
         split
         · refine SimC.pureB ?_
-          generalize hgw : ExprC.getAppFn w = gw at hfw ⊢
+          generalize hgw : Expr.getAppFn w = gw
           cases gw with
           | const T us' =>
-            rw [show (Expr.getAppFn w) = Expr.const T us' from hfw.symm]
             dsimp only
             refine SimC.bind_left (pureEq_eff hs T)
               (fun s₀T Tw hs hTw => ?_)
@@ -1104,38 +1083,22 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
               | recInfo cv mI rP rules => exact SimC.pure hs rfl
               | projInfo entry => exact SimC.pure hs rfl
           | bvar k =>
-            rw [show (Expr.getAppFn w) = Expr.bvar k from hfw.symm]
             exact SimC.pure hs rfl
           | sort u =>
-            rw [show (Expr.getAppFn w) = Expr.sort u from hfw.symm]
             exact SimC.pure hs rfl
           | lit l =>
-            rw [show (Expr.getAppFn w) = Expr.lit l from hfw.symm]
             exact SimC.pure hs rfl
           | fvar ix t =>
-            rw [show (Expr.getAppFn w) = Expr.fvar ix t
-              from hfw.symm]
             exact SimC.pure hs rfl
           | app f' a' =>
-            rw [show (Expr.getAppFn w) = Expr.app f' a'
-              from hfw.symm]
             exact SimC.pure hs rfl
           | lam t b' m =>
-            rw [show (Expr.getAppFn w)
-              = Expr.lam t b' m from hfw.symm]
             exact SimC.pure hs rfl
           | forallE t b' m =>
-            rw [show (Expr.getAppFn w)
-              = Expr.forallE t b' m from hfw.symm]
             exact SimC.pure hs rfl
           | letE t v b' =>
-            rw [show (Expr.getAppFn w)
-              = Expr.letE t v b'
-              from hfw.symm]
             exact SimC.pure hs rfl
           | proj sn jx e' =>
-            rw [show (Expr.getAppFn w) = Expr.proj sn jx e'
-              from hfw.symm]
             exact SimC.pure hs rfl
         · exact SimC.pure hs rfl
       | axiomInfo cv => exact SimC.pure hs rfl
@@ -1145,40 +1108,27 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
       | recInfo cv mI rP rules => exact SimC.pure hs rfl
       | projInfo entry => exact SimC.pure hs rfl
   | bvar k =>
-    rw [show (Expr.getAppFn i) = Expr.bvar k from hfa.symm]
     exact SimC.pure hs rfl
   | sort u =>
-    rw [show (Expr.getAppFn i) = Expr.sort u from hfa.symm]
     exact SimC.pure hs rfl
   | lit l =>
-    rw [show (Expr.getAppFn i) = Expr.lit l from hfa.symm]
     exact SimC.pure hs rfl
   | fvar ix t =>
-    rw [show (Expr.getAppFn i) = Expr.fvar ix t from hfa.symm]
     exact SimC.pure hs rfl
   | app f' a' =>
-    rw [show (Expr.getAppFn i) = Expr.app f' a'
-      from hfa.symm]
     exact SimC.pure hs rfl
   | lam t b' m =>
-    rw [show (Expr.getAppFn i) = Expr.lam t b' m
-      from hfa.symm]
     exact SimC.pure hs rfl
   | forallE t b' m =>
-    rw [show (Expr.getAppFn i) = Expr.forallE t b' m
-      from hfa.symm]
     exact SimC.pure hs rfl
   | letE t v b' =>
-    rw [show (Expr.getAppFn i)
-      = Expr.letE t v b' from hfa.symm]
     exact SimC.pure hs rfl
   | proj sn jx e' =>
-    rw [show (Expr.getAppFn i) = Expr.proj sn jx e' from hfa.symm]
     exact SimC.pure hs rfl
 
 /-- Port of `structEtaCertI_sim`. -/
 theorem structEtaCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
@@ -1214,7 +1164,7 @@ theorem structEtaCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
 
 /-- Port of `stuckIrrelI_sim`. -/
 theorem stuckIrrelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC

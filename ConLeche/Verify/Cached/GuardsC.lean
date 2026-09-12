@@ -16,11 +16,11 @@ the parse arena and the core:
   `leafGuard`) — the transposition of `leafGuard_spec'`
   (`ConLeche/Verify/IExprOps.lean`);
 * the level-parameter definedness walk
-  (`ExprC.allLevelParamsDefined`) — the transposition of
+  (`Expr.allLevelParamsDefined`) — the transposition of
   `allLevelParamsDefinedI_spec`;
 * the constant-resolution walk (`constsResolveFC`) — the transposition
   of `constsResolveFI_spec`;
-* the arena→`ExprC` conversion (`ofStoreGo`/`ofStore`), the clone's
+* the arena→`Expr` conversion (`ofStoreGo`/`ofStore`), the clone's
   counterpart of `EStore.readbackGo`: on a well-formed parse arena the
   conversion of a denoting index succeeds and yields a term whose
   erasure *is* the denotation.
@@ -44,7 +44,7 @@ Two structural differences from the arena twins are paid for here.
    every gray erasure to be strictly bigger than `e` — which is
    what rules a hit at `e` itself out — and the call's post-condition
    pops `e` off `G` again, because by then `e`'s leaves *are* in
-   the accumulator.  Acyclicity is free here: `ExprC` is an inductive
+   the accumulator.  Acyclicity is free here: `Expr` is an inductive
    *tree*, so the size side-condition is discharged by each
    constructor's own `sizeF` recurrence.
 
@@ -55,30 +55,26 @@ Two structural differences from the arena twins are paid for here.
    same discharge `readbackGo_spec` performs.
 -/
 
-namespace ConLeche.Cached
-
-open ConLeche
-
-namespace ExprC
+namespace ConLeche.Expr
 
 /-! ## Level-parameter definedness
 
-`ExprC.allLevelParamsDefinedGo` is a plain `ExprC`-keyed memoized walk
+`Expr.allLevelParamsDefinedGo` is a plain `Expr`-keyed memoized walk
 with the `hasLP` cutoff; the memo invariant is the
 erasure-function-of-key form, and the cutoff arm is discharged by
 `hasLP_eq _` plus `Expr.allLevelParamsDefined_of_not_hasLevelParam`. -/
 
 /-- The definedness walk's memo invariant. -/
-@[expose] def MemoLPDInv (ps : List Name) (memo : Std.HashMap ExprC Bool) : Prop :=
-  ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
+@[expose] def MemoLPDInv (ps : List Name) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
     r = (Expr.allLevelParamsDefined ps e)
 
 theorem MemoLPDInv.empty {ps : List Name} : MemoLPDInv ps {} := by
   intro e r h
   simp at h
 
-theorem MemoLPDInv.insert {ps : List Name} {memo : Std.HashMap ExprC Bool}
-    (hm : MemoLPDInv ps memo) {e : ExprC} {r : Bool}
+theorem MemoLPDInv.insert {ps : List Name} {memo : Std.HashMap Expr Bool}
+    (hm : MemoLPDInv ps memo) {e : Expr} {r : Bool}
     (heq : r = (Expr.allLevelParamsDefined ps e)) :
     MemoLPDInv ps (memo.insert e r) := by
   intro e' r' hk
@@ -92,17 +88,17 @@ theorem MemoLPDInv.insert {ps : List Name} {memo : Std.HashMap ExprC Bool}
 
 /-- **The definedness walk agrees with `Expr.allLevelParamsDefined` on
 the erasure.** -/
-theorem allLevelParamsDefinedGo_spec {ps : List Name} :
-    ∀ {e : ExprC},
-    ∀ {memo : Std.HashMap ExprC Bool}, MemoLPDInv ps memo →
-      (allLevelParamsDefinedGo ps memo e).1
+theorem allLevelParamsDefinedGoC_spec {ps : List Name} :
+    ∀ {e : Expr},
+    ∀ {memo : Std.HashMap Expr Bool}, MemoLPDInv ps memo →
+      (Expr.allLevelParamsDefinedGoC ps memo e).1
           = (Expr.allLevelParamsDefined ps e) ∧
-        MemoLPDInv ps (allLevelParamsDefinedGo ps memo e).2 := by
+        MemoLPDInv ps (Expr.allLevelParamsDefinedGoC ps memo e).2 := by
   intro e
   induction e with
   | bvar i =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -113,7 +109,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · exact ⟨rfl, hm.insert rfl⟩
   | lit l =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -124,7 +120,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · exact ⟨rfl, hm.insert rfl⟩
   | sort u =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -135,7 +131,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · exact ⟨rfl, hm.insert rfl⟩
   | const n us =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -146,7 +142,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · exact ⟨rfl, hm.insert rfl⟩
   | fvar idx ty iht =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -155,13 +151,13 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : allLevelParamsDefinedGo ps memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         exact ⟨h1, h2.insert h1⟩
   | app f a ihf iha =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -170,13 +166,13 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := ihf hm
-        rcases hp : allLevelParamsDefinedGo ps memo f with ⟨rf, mf⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo f with ⟨rf, mf⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rf with
         | true =>
           obtain ⟨h3, h4⟩ := iha h2
-          rcases hq : allLevelParamsDefinedGo ps mf a with ⟨ra, ma⟩
+          rcases hq : Expr.allLevelParamsDefinedGoC ps mf a with ⟨ra, ma⟩
           rw [hq] at h3 h4
           have hres : ra
               = (Expr.allLevelParamsDefined ps (.app f a)) := by
@@ -192,7 +188,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           exact ⟨hres, h2.insert hres⟩
   | lam ty bd m iht ihb =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -201,13 +197,13 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : allLevelParamsDefinedGo ps memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
         | true =>
           obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : allLevelParamsDefinedGo ps mt bd with ⟨rb, mb⟩
+          rcases hq : Expr.allLevelParamsDefinedGoC ps mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : (rb && m.pw.paramsDefined ps)
               = (Expr.allLevelParamsDefined ps (.lam ty bd m)) := by
@@ -225,7 +221,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           exact ⟨hres, h2.insert hres⟩
   | forallE ty bd m iht ihb =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -234,13 +230,13 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : allLevelParamsDefinedGo ps memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
         | true =>
           obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : allLevelParamsDefinedGo ps mt bd with ⟨rb, mb⟩
+          rcases hq : Expr.allLevelParamsDefinedGoC ps mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : (rb && m.pw.paramsDefined ps)
               = (Expr.allLevelParamsDefined ps (.forallE ty bd m)) := by
@@ -258,7 +254,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           exact ⟨hres, h2.insert hres⟩
   | letE ty val bd iht ihv ihb =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -269,7 +265,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · have herase : (Expr.letE ty val bd)
             = Expr.letE ty val bd := rfl
         obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : allLevelParamsDefinedGo ps memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
@@ -281,7 +277,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           exact ⟨hres, h2.insert hres⟩
         | true =>
           obtain ⟨h3, h4⟩ := ihv h2
-          rcases hq : allLevelParamsDefinedGo ps mt val with ⟨rv, mv⟩
+          rcases hq : Expr.allLevelParamsDefinedGoC ps mt val with ⟨rv, mv⟩
           rw [hq] at h3 h4
           cases rv with
           | false =>
@@ -292,7 +288,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
             exact ⟨hres, h4.insert hres⟩
           | true =>
             obtain ⟨h5, h6⟩ := ihb h4
-            rcases hr : allLevelParamsDefinedGo ps mv bd with ⟨rb, mb⟩
+            rcases hr : Expr.allLevelParamsDefinedGoC ps mv bd with ⟨rb, mb⟩
             rw [hr] at h5 h6
             have hres : rb
                 = (Expr.allLevelParamsDefined ps (.letE ty val bd)) := by
@@ -301,7 +297,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
             exact ⟨hres, h6.insert hres⟩
   | proj s i sub ihe =>
     intro memo hm
-    rw [allLevelParamsDefinedGo.eq_def]
+    rw [Expr.allLevelParamsDefinedGoC.eq_def]
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
@@ -310,16 +306,16 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := ihe hm
-        rcases hp : allLevelParamsDefinedGo ps memo sub with ⟨rs, ms⟩
+        rcases hp : Expr.allLevelParamsDefinedGoC ps memo sub with ⟨rs, ms⟩
         rw [hp] at h1 h2
         simp only [hp]
         exact ⟨h1, h2.insert h1⟩
 
-/-- **`ExprC.allLevelParamsDefined` is `Expr.allLevelParamsDefined` of
+/-- **`Expr.allLevelParamsDefined` is `Expr.allLevelParamsDefined` of
 the erasure.** -/
-theorem allLevelParamsDefined_spec {ps : List Name} {e : ExprC} :
-    ExprC.allLevelParamsDefined ps e = (Expr.allLevelParamsDefined ps e) :=
-  (allLevelParamsDefinedGo_spec MemoLPDInv.empty).1
+theorem allLevelParamsDefinedC_spec {ps : List Name} {e : Expr} :
+    Expr.allLevelParamsDefinedC ps e = (Expr.allLevelParamsDefined ps e) :=
+  (allLevelParamsDefinedGoC_spec MemoLPDInv.empty).1
 
 /-! ## The fabrication leaf guard
 
@@ -377,13 +373,13 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
 
 /-- Erasure of a cached leaf list (the counterpart of the arena's
 `leavesDen`; the annotation component goes through `eraseC`). -/
-@[expose] def leavesEr (xs : List (Nat × ExprC)) : List (Nat × Expr) :=
+@[expose] def leavesEr (xs : List (Nat × Expr)) : List (Nat × Expr) :=
   xs.map fun l => (l.1, l.2)
 
 @[simp] theorem leavesEr_nil : leavesEr [] = [] := rfl
 
-@[simp] theorem leavesEr_cons (idx : Nat) (ty : ExprC)
-    (xs : List (Nat × ExprC)) :
+@[simp] theorem leavesEr_cons (idx : Nat) (ty : Expr)
+    (xs : List (Nat × Expr)) :
     leavesEr ((idx, ty) :: xs) = (idx, (ty : Expr)) :: leavesEr xs := rfl
 
 /-! ### The `seen`-set walk
@@ -396,25 +392,25 @@ predicate `G` on erasures, and the call at `e` requires every gray
 erasure to be strictly bigger than `e` — which is what rules a
 hit at `e` itself out.  Descending pushes `e` into `G`; the
 call's post-condition pops it again, because by then `e`'s leaves *are*
-in the accumulator.  `ExprC` is an inductive tree, so the size
+in the accumulator.  `Expr` is an inductive tree, so the size
 condition is discharged by the constructor's own `sizeF`
 recurrence. -/
 
 /-- The leaf walk's `seen`-set invariant at a gray predicate `G`. -/
-@[expose] def SeenInv (G : Expr → Prop) (acc : List (Nat × ExprC))
-    (seen : Std.HashMap ExprC Unit) : Prop :=
-  ∀ (k : ExprC) (u : Unit), seen[k]? = some u →
+@[expose] def SeenInv (G : Expr → Prop) (acc : List (Nat × Expr))
+    (seen : Std.HashMap Expr Unit) : Prop :=
+  ∀ (k : Expr) (u : Unit), seen[k]? = some u →
     (∀ l ∈ (Expr.fvarLeaves k), l ∈ leavesEr acc) ∨ G k
 
 theorem SeenInv.empty {G : Expr → Prop}
-    {acc : List (Nat × ExprC)} : SeenInv G acc {} := by
+    {acc : List (Nat × Expr)} : SeenInv G acc {} := by
   intro k u h
   simp at h
 
 /-- Weakening: a bigger accumulator and a bigger gray predicate keep
 the invariant. -/
-theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × ExprC)}
-    {seen : Std.HashMap ExprC Unit} (h : SeenInv G acc seen)
+theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × Expr)}
+    {seen : Std.HashMap Expr Unit} (h : SeenInv G acc seen)
     (hacc : ∀ l, l ∈ leavesEr acc → l ∈ leavesEr acc')
     (hG : ∀ y, G y → G' y) : SeenInv G' acc' seen := by
   intro k u hk
@@ -425,8 +421,8 @@ theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × ExprC)}
 /-- Marking the node about to be descended into: it joins the gray
 predicate. -/
 theorem SeenInv.insertGray {G : Expr → Prop}
-    {acc : List (Nat × ExprC)} {seen : Std.HashMap ExprC Unit}
-    (h : SeenInv G acc seen) (e : ExprC) :
+    {acc : List (Nat × Expr)} {seen : Std.HashMap Expr Unit}
+    (h : SeenInv G acc seen) (e : Expr) :
     SeenInv (fun y => G y ∨ y = e) acc (seen.insert e ()) := by
   intro k u hk
   rw [Std.HashMap.getElem?_insert] at hk
@@ -440,8 +436,8 @@ theorem SeenInv.insertGray {G : Expr → Prop}
 /-- …and, once the descent is finished and the node's leaves are in the
 accumulator, it leaves it again. -/
 theorem SeenInv.dropGray {G : Expr → Prop}
-    {acc : List (Nat × ExprC)} {seen : Std.HashMap ExprC Unit}
-    {e : ExprC} (h : SeenInv (fun y => G y ∨ y = e) acc seen)
+    {acc : List (Nat × Expr)} {seen : Std.HashMap Expr Unit}
+    {e : Expr} (h : SeenInv (fun y => G y ∨ y = e) acc seen)
     (he : ∀ l ∈ (Expr.fvarLeaves e), l ∈ leavesEr acc) :
     SeenInv G acc seen := by
   intro k u hk
@@ -455,19 +451,19 @@ theorem SeenInv.dropGray {G : Expr → Prop}
 *set*: the `seen` dedup makes the list itself smaller than
 `Expr.fvarLeaves`), keeps every annotation field-correct, and restores
 the `seen` invariant at the caller's gray predicate. -/
-theorem fvarLeavesGo_spec : ∀ {e : ExprC},
-    ∀ {G : Expr → Prop} {acc : List (Nat × ExprC)}
-      {seen : Std.HashMap ExprC Unit},
+theorem fvarLeavesGoC_spec : ∀ {e : Expr},
+    ∀ {G : Expr → Prop} {acc : List (Nat × Expr)}
+      {seen : Std.HashMap Expr Unit},
       SeenInv G acc seen →
       (∀ y, G y → e.sizeF < y.sizeF) →
-      (∀ l, l ∈ leavesEr (fvarLeavesGo acc seen e).1 ↔
+      (∀ l, l ∈ leavesEr (Expr.fvarLeavesGoC acc seen e).1 ↔
           l ∈ leavesEr acc ∨ l ∈ (Expr.fvarLeaves e)) ∧
-        SeenInv G (fvarLeavesGo acc seen e).1 (fvarLeavesGo acc seen e).2 := by
+        SeenInv G (Expr.fvarLeavesGoC acc seen e).1 (Expr.fvarLeavesGoC acc seen e).2 := by
   intro e
   induction e with
   | bvar i =>
     intro G acc seen hseen hG
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     have hnil : (Expr.fvarLeaves (Expr.bvar i)) = [] :=
       fvarLeaves_bvar i
     split
@@ -479,7 +475,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           (hseen.insertGray _).dropGray (by simp [hnil])⟩
   | sort u =>
     intro G acc seen hseen hG
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     have hnil : (Expr.fvarLeaves (Expr.sort u)) = [] :=
       fvarLeaves_sort u
     split
@@ -491,7 +487,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           (hseen.insertGray _).dropGray (by simp [hnil])⟩
   | const n us =>
     intro G acc seen hseen hG
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     have hnil : (Expr.fvarLeaves (Expr.const n us)) = [] :=
       fvarLeaves_const n us
     split
@@ -503,7 +499,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           (hseen.insertGray _).dropGray (by simp [hnil])⟩
   | lit l =>
     intro G acc seen hseen hG
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     have hnil : (Expr.fvarLeaves (Expr.lit l)) = [] :=
       fvarLeaves_lit l
     split
@@ -520,7 +516,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
     have hlv : (Expr.fvarLeaves (Expr.fvar idx ty))
         = (idx, ty) :: (Expr.fvarLeaves ty) := by
       rw [herase, fvarLeaves_fvar]
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.fvar idx ty)) = [] :=
@@ -546,7 +542,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
             (fun l h => by rw [leavesEr_cons]; exact List.mem_cons_of_mem _ h)
             (fun _ h => h))
           hGty
-        rcases hp : fvarLeavesGo ((idx, ty) :: acc) (seen.insert _ ()) ty
+        rcases hp : Expr.fvarLeavesGoC ((idx, ty) :: acc) (seen.insert _ ()) ty
           with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hmem : ∀ l, l ∈ leavesEr acc1 ↔
@@ -566,7 +562,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
       rw [herase, fvarLeaves_app]
     have hsz : (Expr.app f a).sizeF
         = f.sizeF + a.sizeF + 1 := by rw [herase]; rfl
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.app f a)) = [] :=
@@ -586,7 +582,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h2, h3⟩ := ihf (hseen.insertGray _) hGf
-        rcases hp : fvarLeavesGo acc (seen.insert _ ()) f with ⟨acc1, seen1⟩
+        rcases hp : Expr.fvarLeavesGoC acc (seen.insert _ ()) f with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hGa : ∀ y, (G y ∨ y = (Expr.app f a)) →
             a.sizeF < y.sizeF := by
@@ -595,7 +591,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h5, h6⟩ := iha h3 hGa
-        rcases hq : fvarLeavesGo acc1 seen1 a with ⟨acc2, seen2⟩
+        rcases hq : Expr.fvarLeavesGoC acc1 seen1 a with ⟨acc2, seen2⟩
         rw [hq] at h5 h6
         have hmem : ∀ l, l ∈ leavesEr acc2 ↔
             l ∈ leavesEr acc ∨
@@ -613,7 +609,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
       rw [herase, fvarLeaves_lam]
     have hsz : (Expr.lam ty bd m).sizeF
         = ty.sizeF + bd.sizeF + 1 := by rw [herase]; rfl
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.lam ty bd m)) = [] :=
@@ -633,7 +629,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h2, h3⟩ := iht (hseen.insertGray _) hGt
-        rcases hp : fvarLeavesGo acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
+        rcases hp : Expr.fvarLeavesGoC acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hGb : ∀ y, (G y ∨ y = (Expr.lam ty bd m)) →
             bd.sizeF < y.sizeF := by
@@ -642,7 +638,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h5, h6⟩ := ihb h3 hGb
-        rcases hq : fvarLeavesGo acc1 seen1 bd with ⟨acc2, seen2⟩
+        rcases hq : Expr.fvarLeavesGoC acc1 seen1 bd with ⟨acc2, seen2⟩
         rw [hq] at h5 h6
         have hmem : ∀ l, l ∈ leavesEr acc2 ↔
             l ∈ leavesEr acc ∨
@@ -660,7 +656,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
       rw [herase, fvarLeaves_forallE]
     have hsz : (Expr.forallE ty bd m).sizeF
         = ty.sizeF + bd.sizeF + 1 := by rw [herase]; rfl
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.forallE ty bd m)) = [] :=
@@ -681,7 +677,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h2, h3⟩ := iht (hseen.insertGray _) hGt
-        rcases hp : fvarLeavesGo acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
+        rcases hp : Expr.fvarLeavesGoC acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hGb : ∀ y,
             (G y ∨ y = (Expr.forallE ty bd m)) →
@@ -691,7 +687,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h5, h6⟩ := ihb h3 hGb
-        rcases hq : fvarLeavesGo acc1 seen1 bd with ⟨acc2, seen2⟩
+        rcases hq : Expr.fvarLeavesGoC acc1 seen1 bd with ⟨acc2, seen2⟩
         rw [hq] at h5 h6
         have hmem : ∀ l, l ∈ leavesEr acc2 ↔
             l ∈ leavesEr acc ∨
@@ -711,7 +707,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
     have hsz : (Expr.letE ty val bd).sizeF
         = ty.sizeF + val.sizeF + bd.sizeF + 1 := by
       rw [herase]; rfl
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.letE ty val bd)) = [] :=
@@ -732,7 +728,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h2, h3⟩ := iht (hseen.insertGray _) hGt
-        rcases hp : fvarLeavesGo acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
+        rcases hp : Expr.fvarLeavesGoC acc (seen.insert _ ()) ty with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hGv : ∀ y,
             (G y ∨ y = (Expr.letE ty val bd)) →
@@ -742,7 +738,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h5, h6⟩ := ihv h3 hGv
-        rcases hq : fvarLeavesGo acc1 seen1 val with ⟨acc2, seen2⟩
+        rcases hq : Expr.fvarLeavesGoC acc1 seen1 val with ⟨acc2, seen2⟩
         rw [hq] at h5 h6
         have hGb : ∀ y,
             (G y ∨ y = (Expr.letE ty val bd)) →
@@ -752,7 +748,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h8, h9⟩ := ihb h6 hGb
-        rcases hr : fvarLeavesGo acc2 seen2 bd with ⟨acc3, seen3⟩
+        rcases hr : Expr.fvarLeavesGoC acc2 seen2 bd with ⟨acc3, seen3⟩
         rw [hr] at h8 h9
         have hmem : ∀ l, l ∈ leavesEr acc3 ↔
             l ∈ leavesEr acc ∨
@@ -769,7 +765,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
         = (Expr.fvarLeaves sub) := by rw [herase, fvarLeaves_proj]
     have hsz : (Expr.proj s i sub).sizeF
         = sub.sizeF + 1 := by rw [herase]; rfl
-    rw [fvarLeavesGo.eq_def]
+    rw [Expr.fvarLeavesGoC.eq_def]
     split
     · rename_i hcut
       have : (Expr.fvarLeaves (Expr.proj s i sub)) = [] :=
@@ -789,7 +785,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
           · have := hG y hy; omega
           · rw [hy]; omega
         obtain ⟨h2, h3⟩ := ihe (hseen.insertGray _) hGs
-        rcases hp : fvarLeavesGo acc (seen.insert _ ()) sub with ⟨acc1, seen1⟩
+        rcases hp : Expr.fvarLeavesGoC acc (seen.insert _ ()) sub with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hmem : ∀ l, l ∈ leavesEr acc1 ↔
             l ∈ leavesEr acc ∨
@@ -800,28 +796,28 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
 
 /-! ### The base leaf list
 
-`leafMem` compares annotations with `ExprC`'s `==`, so on a
+`leafMem` compares annotations with `Expr`'s `==`, so on a
 field-correct base list it decides `Expr`-level membership.  What the
 subset walk needs of the base is exactly this pair of facts. -/
 
 /-- A cached base leaf list is a faithful stand-in for an `Expr`-side
 one: field-correct annotations, and the same *set* of erased leaves. -/
-@[expose] def LeafBase (bl : List (Nat × ExprC))
+@[expose] def LeafBase (bl : List (Nat × Expr))
     (B' : List (Nat × Expr)) : Prop :=
   ∀ l, l ∈ leavesEr bl ↔ l ∈ B'
 
 /-- `leafMem` decides membership in the erased list. -/
-theorem leafMem_iff : ∀ {bl : List (Nat × ExprC)},
-    ∀ {idx : Nat} {ty : ExprC},
-      (leafMem bl idx ty = true ↔ (idx, (ty : Expr)) ∈ leavesEr bl) := by
+theorem leafMem_iff : ∀ {bl : List (Nat × Expr)},
+    ∀ {idx : Nat} {ty : Expr},
+      (Expr.leafMem bl idx ty = true ↔ (idx, (ty : Expr)) ∈ leavesEr bl) := by
   intro bl
   induction bl with
-  | nil => intro idx ty; simp [leafMem]
+  | nil => intro idx ty; simp [Expr.leafMem]
   | cons p rest ih =>
     obtain ⟨i, t⟩ := p
     intro idx ty
-    rw [show leafMem ((i, t) :: rest) idx ty
-        = ((i == idx && (t == ty)) || leafMem rest idx ty)
+    rw [show Expr.leafMem ((i, t) :: rest) idx ty
+        = ((i == idx && (t == ty)) || Expr.leafMem rest idx ty)
       from rfl]
     rw [leavesEr_cons, List.mem_cons, Bool.or_eq_true, ih,
       Bool.and_eq_true, beq_iff_eq,
@@ -830,30 +826,30 @@ theorem leafMem_iff : ∀ {bl : List (Nat × ExprC)},
     grind
 
 /-- …hence agrees with the `Expr`-side `contains` on a `LeafBase`. -/
-theorem leafMem_spec {bl : List (Nat × ExprC)}
+theorem leafMem_spec {bl : List (Nat × Expr)}
     {B' : List (Nat × Expr)} (h : LeafBase bl B')
-    {idx : Nat} {ty : ExprC} :
-    leafMem bl idx ty = B'.contains (idx, (ty : Expr)) := by
+    {idx : Nat} {ty : Expr} :
+    Expr.leafMem bl idx ty = B'.contains (idx, (ty : Expr)) := by
   rw [Bool.eq_iff_iff, List.contains_eq_mem, decide_eq_true_iff,
     leafMem_iff, h]
 
 /-- The base list built by the leaf walk *is* a `LeafBase` for the
 erasure's leaves. -/
-theorem fvarLeaves_leafBase {base : ExprC} :
-    LeafBase (fvarLeaves base) (Expr.fvarLeaves base) := by
-  obtain ⟨h2, -⟩ := fvarLeavesGo_spec (e := base)
+theorem fvarLeavesC_leafBase {base : Expr} :
+    LeafBase (Expr.fvarLeavesC base) (Expr.fvarLeaves base) := by
+  obtain ⟨h2, -⟩ := fvarLeavesGoC_spec (e := base)
     (G := fun _ => False) (acc := []) (seen := {})
     SeenInv.empty (by intro y hy; exact hy.elim)
   intro l
-  simp only [ExprC.fvarLeaves, h2]
+  simp only [Expr.fvarLeavesC, h2]
   simp
 
 /-! ### The subset walk -/
 
 /-- The subset walk's memo invariant. -/
 @[expose] def MemoSubInv (B' : List (Nat × Expr))
-    (memo : Std.HashMap ExprC Bool) : Prop :=
-  ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
+    (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
     r = ((Expr.fvarLeaves e).all fun l => B'.contains l)
 
 theorem MemoSubInv.empty {B' : List (Nat × Expr)} :
@@ -862,7 +858,7 @@ theorem MemoSubInv.empty {B' : List (Nat × Expr)} :
   simp at h
 
 theorem MemoSubInv.insert {B' : List (Nat × Expr)}
-    {memo : Std.HashMap ExprC Bool} (hm : MemoSubInv B' memo) {e : ExprC}
+    {memo : Std.HashMap Expr Bool} (hm : MemoSubInv B' memo) {e : Expr}
     {r : Bool}
     (heq : r = ((Expr.fvarLeaves e).all fun l => B'.contains l)) :
     MemoSubInv B' (memo.insert e r) := by
@@ -876,13 +872,13 @@ theorem MemoSubInv.insert {B' : List (Nat × Expr)}
   · exact hm e' r' hk
 
 /-- **The subset walk decides the `Expr`-level leaf-subset boolean.** -/
-theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
+theorem leavesSubGo_spec {bl : List (Nat × Expr)}
     {B' : List (Nat × Expr)} (hbl : LeafBase bl B') :
-    ∀ {e : ExprC},
-    ∀ {memo : Std.HashMap ExprC Bool}, MemoSubInv B' memo →
-      (leavesSubGo bl memo e).1
+    ∀ {e : Expr},
+    ∀ {memo : Std.HashMap Expr Bool}, MemoSubInv B' memo →
+      (Expr.leavesSubGo bl memo e).1
           = ((Expr.fvarLeaves e).all fun l => B'.contains l) ∧
-        MemoSubInv B' (leavesSubGo bl memo e).2 := by
+        MemoSubInv B' (Expr.leavesSubGo bl memo e).2 := by
   intro e
   induction e with
   | bvar i =>
@@ -949,7 +945,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
         split
         · rename_i hlm
           obtain ⟨h1, h2⟩ := iht hm
-          rcases hp : leavesSubGo bl memo ty with ⟨rt, mt⟩
+          rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
           rw [hp] at h1 h2
           have hres : rt
               = ((Expr.fvarLeaves (Expr.fvar idx ty)).all
@@ -977,13 +973,13 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := ihf hm
-        rcases hp : leavesSubGo bl memo f with ⟨rf, mf⟩
+        rcases hp : Expr.leavesSubGo bl memo f with ⟨rf, mf⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rf with
         | true =>
           obtain ⟨h3, h4⟩ := iha h2
-          rcases hq : leavesSubGo bl mf a with ⟨ra, ma⟩
+          rcases hq : Expr.leavesSubGo bl mf a with ⟨ra, ma⟩
           rw [hq] at h3 h4
           have hres : ra
               = ((Expr.fvarLeaves (Expr.app f a)).all
@@ -1009,13 +1005,13 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : leavesSubGo bl memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
         | true =>
           obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : leavesSubGo bl mt bd with ⟨rb, mb⟩
+          rcases hq : Expr.leavesSubGo bl mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : rb
               = ((Expr.fvarLeaves (Expr.lam ty bd m)).all
@@ -1042,13 +1038,13 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : leavesSubGo bl memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
         | true =>
           obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : leavesSubGo bl mt bd with ⟨rb, mb⟩
+          rcases hq : Expr.leavesSubGo bl mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : rb
               = ((Expr.fvarLeaves (Expr.forallE ty bd m)).all
@@ -1075,7 +1071,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
       · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : leavesSubGo bl memo ty with ⟨rt, mt⟩
+        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
         rw [hp] at h1 h2
         simp only [hp]
         cases rt with
@@ -1088,7 +1084,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
           exact ⟨hres, h2.insert hres⟩
         | true =>
           obtain ⟨h3, h4⟩ := ihv h2
-          rcases hq : leavesSubGo bl mt val with ⟨rv, mv⟩
+          rcases hq : Expr.leavesSubGo bl mt val with ⟨rv, mv⟩
           rw [hq] at h3 h4
           cases rv with
           | false =>
@@ -1100,7 +1096,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
             exact ⟨hres, h4.insert hres⟩
           | true =>
             obtain ⟨h5, h6⟩ := ihb h4
-            rcases hr : leavesSubGo bl mv bd with ⟨rb, mb⟩
+            rcases hr : Expr.leavesSubGo bl mv bd with ⟨rb, mb⟩
             rw [hr] at h5 h6
             have hres : rb
                 = ((Expr.fvarLeaves (Expr.letE ty val bd)).all
@@ -1122,7 +1118,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
         exact ⟨hm _ _ hhit, hm⟩
       · dsimp only
         obtain ⟨h1, h2⟩ := ihe hm
-        rcases hp : leavesSubGo bl memo sub with ⟨rs, ms⟩
+        rcases hp : Expr.leavesSubGo bl memo sub with ⟨rs, ms⟩
         rw [hp] at h1 h2
         have hres : rs
             = ((Expr.fvarLeaves (Expr.proj s i sub)).all
@@ -1133,22 +1129,27 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
 /-- **The fabrication leaf guard agrees with the `Expr`-level
 leaf-subset boolean** — `leafGuard_spec'`'s right-hand side, verbatim,
 with the arena denotation replaced by the erasure. -/
-theorem leafGuard_spec {fab base : ExprC} :
-    ExprC.leafGuard fab base
+theorem leafGuard_spec {fab base : Expr} :
+    Expr.leafGuard fab base
       = ((Expr.fvarLeaves fab).all
           fun l => (Expr.fvarLeaves base).contains l) := by
-  unfold leafGuard
+  unfold Expr.leafGuard
   cases hhf : fab.hasFvar with
   | false =>
     have : (Expr.fvarLeaves fab) = [] :=
       fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa [hasFvar] using hhf)))
+        (Expr.fvarsBelow_iff.mpr
+          (Nat.le_of_eq (Expr.hasFvar_eq_false_iff.mp hhf)))
     simp [this]
   | true =>
     simp only [Bool.not_true, Bool.false_or]
-    exact (leavesSubGo_spec (fvarLeaves_leafBase) MemoSubInv.empty).1
+    exact (leavesSubGo_spec (fvarLeavesC_leafBase) MemoSubInv.empty).1
 
-end ExprC
+end ConLeche.Expr
+
+namespace ConLeche.Cached
+
+open ConLeche
 
 /-! ## Guard agreement
 
@@ -1158,10 +1159,10 @@ Each comes in two forms: the plain equation, and (primed) the same
 equation transported along the value equation the simulation
 carries. -/
 
-open ExprC in
+open Expr in
 /-- The `Nat`-literal readout agrees with the spec's `rawNatLit?` on
 the erasure — a top-level match, so no invariant is needed. -/
-theorem rawNatLitC?_spec (e : ExprC) :
+theorem rawNatLitC?_spec (e : Expr) :
     rawNatLitC? e = rawNatLit? e := by
   cases e with
   | lit l => cases l <;> rfl
@@ -1174,18 +1175,18 @@ theorem rawNatLitC?_spec (e : ExprC) :
     | cons u us => rfl
   | _ => rfl
 
-open ExprC in
+open Expr in
 /-- `rawNatLitC?_spec` transported along the value equation the
 simulation carries. -/
-theorem rawNatLitC?_spec' {w : ExprC} {wx : Expr}
+theorem rawNatLitC?_spec' {w : Expr} {wx : Expr}
     (h : w = wx) : rawNatLitC? w = rawNatLit? wx := by
   rw [rawNatLitC?_spec, h]
 
-open ExprC in
+open Expr in
 /-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
 the erasure — again a top-level match on the whnf'd node, so no
 invariant is needed; only the `FEnv` index has to be resolved. -/
-theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
+theorem isUnitLikeTyC_spec {env : Env} (e : Expr) :
     isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env e := by
   cases e with
   | const cn us =>
@@ -1200,28 +1201,27 @@ theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
     rfl
   | _ => rfl
 
-open ExprC in
+open Expr in
 /-- `isUnitLikeTyC_spec` transported along the value equation. -/
-theorem isUnitLikeTyC_spec' {env : Env} {w : ExprC} {wx : Expr}
+theorem isUnitLikeTyC_spec' {env : Env} {w : Expr} {wx : Expr}
     (h : w = wx) :
     isUnitLikeTyC (mkFEnv env) w = isUnitLikeTy env wx := by
   rw [isUnitLikeTyC_spec, h]
 
-open ExprC in
+open Expr in
 /-- The constructor-application guard agrees with the spec's
 `isCtorApp` on the erasure.  Unlike the two above it reads the
-*spine head*, so the node invariant is needed (`getAppFn_spec`). -/
-theorem isCtorAppC_spec {env : Env} {e : ExprC} :
+*spine head*. -/
+theorem isCtorAppC_spec {env : Env} {e : Expr} :
     isCtorAppC (mkFEnv env) e = isCtorApp env e := by
-  have hfn := ExprC.getAppFn_spec e
-  show (match ExprC.getAppFn e with
+  show (match Expr.getAppFn e with
       | .const cn _ =>
         match (mkFEnv env).find? cn with
         | some (.ctorInfo _ _ _) => true
         | _ => false
       | _ => false) = _
-  rw [isCtorApp, ← hfn]
-  cases ExprC.getAppFn e with
+  rw [isCtorApp]
+  cases Expr.getAppFn e with
   | const cn us =>
     show (match (mkFEnv env).find? cn with
         | some (.ctorInfo _ _ _) => true
@@ -1230,21 +1230,21 @@ theorem isCtorAppC_spec {env : Env} {e : ExprC} :
     rfl
   | _ => rfl
 
-open ExprC in
+open Expr in
 /-- `isCtorAppC_spec` transported along the value equation. -/
-theorem isCtorAppC_spec' {env : Env} {e : ExprC} {ex : Expr}
+theorem isCtorAppC_spec' {env : Env} {e : Expr} {ex : Expr}
     (h : e = ex) :
     isCtorAppC (mkFEnv env) e = isCtorApp env ex := by
   rw [isCtorAppC_spec, h]
 
 /-- `Expr.quickPair` transported along the value equations. -/
-theorem quickPair_spec' {a b : ExprC} {ax bx : Expr}
+theorem quickPair_spec' {a b : Expr} {ax bx : Expr}
     (ha : a = ax) (hb : b = bx) : Expr.quickPair a b = Expr.quickPair ax bx := by
   rw [ha, hb]
 
 /-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
-(`ExprC = Expr`; only the environment lookup differs). -/
-theorem etaCtorShapeC_spec' {env : Env} {e : ExprC} {ex : Expr}
+(`Expr = Expr`; only the environment lookup differs). -/
+theorem etaCtorShapeC_spec' {env : Env} {e : Expr} {ex : Expr}
     (h : e = ex) :
     etaCtorShapeC (mkFEnv env) e = etaCtorShape env ex := by
   subst h
@@ -1256,21 +1256,20 @@ theorem etaCtorShapeC_spec' {env : Env} {e : ExprC} {ex : Expr}
        rcases ci with _ | ci <;> try rfl
        cases ci <;> rfl)
 
-open ExprC in
+open Expr in
 /-- The reducibility-hint readout agrees with the spec's `headHint` on
 the erasure — like `isCtorAppC_spec` it reads the *spine head*, so the
-node invariant is needed (`getAppFn_spec`). -/
-theorem headHintC_spec {env : Env} {e : ExprC} :
+node invariant is needed. -/
+theorem headHintC_spec {env : Env} {e : Expr} :
     headHintC (mkFEnv env) e = headHint env e := by
-  have hfn := ExprC.getAppFn_spec e
-  show (match ExprC.getAppFn e with
+  show (match Expr.getAppFn e with
       | .const nm _ =>
         match (mkFEnv env).find? nm with
         | some (.defnInfo _ _ hint) => hint
         | _ => .opaque
       | _ => .opaque) = _
-  rw [headHint, ← hfn]
-  cases ExprC.getAppFn e with
+  rw [headHint]
+  cases Expr.getAppFn e with
   | const nm us =>
     dsimp only
     rw [mkFEnv_find?]
@@ -1279,27 +1278,26 @@ theorem headHintC_spec {env : Env} {e : ExprC} :
     | some ci => cases ci <;> rfl
   | _ => rfl
 
-open ExprC in
+open Expr in
 /-- `headHintC_spec` transported along the value equation. -/
-theorem headHintC_spec' {env : Env} {e : ExprC} {ex : Expr}
+theorem headHintC_spec' {env : Env} {e : Expr} {ex : Expr}
     (h : e = ex) :
     headHintC (mkFEnv env) e = headHint env ex := by
   rw [headHintC_spec, h]
 
-open ExprC in
+open Expr in
 /-- The lazy-delta unfoldability decision agrees with the spec's
 `unfoldableHead` on the erasure (again a spine-head read). -/
-theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
+theorem unfoldableHeadC_spec {env : Env} {e : Expr} :
     unfoldableHeadC (mkFEnv env) e = unfoldableHead env e := by
-  have hfn := ExprC.getAppFn_spec e
-  show (match ExprC.getAppFn e with
+  show (match Expr.getAppFn e with
       | .const nm us =>
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
         | _ => false
       | _ => false) = _
-  rw [unfoldableHead, ← hfn]
-  cases ExprC.getAppFn e with
+  rw [unfoldableHead]
+  cases Expr.getAppFn e with
   | const nm us =>
     dsimp only
     rw [mkFEnv_find?]
@@ -1308,9 +1306,9 @@ theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
     | some ci => cases ci <;> rfl
   | _ => rfl
 
-open ExprC in
+open Expr in
 /-- `unfoldableHeadC_spec` transported along the value equation. -/
-theorem unfoldableHeadC_spec' {env : Env} {e : ExprC} {ex : Expr}
+theorem unfoldableHeadC_spec' {env : Env} {e : Expr} {ex : Expr}
     (h : e = ex) :
     unfoldableHeadC (mkFEnv env) e = unfoldableHead env ex := by
   rw [unfoldableHeadC_spec, h]
@@ -1326,86 +1324,82 @@ theorem andRescueSlotsF_spec {env : Env} {ctor : Name} {nP : Nat}
     funext T i; exact mkFEnv_findProj? env T i
   rw [this]
 
-open ExprC in
+open Expr in
 /-- The same-constant-head short-circuit agrees with the spec's
 `sameConstHeads` on the erasures: both sides must be applications, and
 then the two *function parts'* spine heads are compared. -/
-theorem sameConstHeadsC_spec {a b : ExprC} :
+theorem sameConstHeadsC_spec {a b : Expr} :
     sameConstHeadsC a b = sameConstHeads a b := by
   cases a with
   | app f₁ a₁ =>
     cases b with
     | app f₂ a₂ =>
-      have hfn₁ := ExprC.getAppFn_spec f₁
-      have hfn₂ := ExprC.getAppFn_spec f₂
-      show (match ExprC.getAppFn f₁, ExprC.getAppFn f₂ with
+      show (match Expr.getAppFn f₁, Expr.getAppFn f₂ with
           | .const n₁ _, .const n₂ _ => n₁ == n₂
           | _, _ => false) = _
       rw [show sameConstHeads ((Expr.app f₁ a₁))
               ((Expr.app f₂ a₂))
             = (match (Expr.getAppFn f₁), (Expr.getAppFn f₂) with
               | .const n₁ _, .const n₂ _ => n₁ == n₂
-              | _, _ => false) from rfl, ← hfn₁, ← hfn₂]
-      cases ExprC.getAppFn f₁ <;> cases ExprC.getAppFn f₂ <;> rfl
+              | _, _ => false) from rfl]
     | _ => rfl
   | _ => cases b <;> rfl
 
-open ExprC in
+open Expr in
 /-- `sameConstHeadsC_spec` transported along the value equations. -/
-theorem sameConstHeadsC_spec' {a b : ExprC} {xa xb : Expr}
+theorem sameConstHeadsC_spec' {a b : Expr} {xa xb : Expr}
     (h₁ : a = xa) (h₂ : b = xb) :
     sameConstHeadsC a b = sameConstHeads xa xb := by
   rw [sameConstHeadsC_spec, h₁, h₂]
 
-open ExprC in
+open Expr in
 /-- The `O(1)` eager fvar-range field is exact (`fvarB_eq _`), so its
 non-zeroness is the spec's `Expr.hasFvar`. -/
-theorem hasFvar_spec' {e : ExprC} {ex : Expr}
-    (h : e = ex) : ExprC.hasFvar e = ex.hasFvar := by
-  show (e.fvarB != 0) = _
-  rw [fvarB_eq e, h, Expr.fvarRange_bne_zero]
+theorem hasFvar_spec' {e : Expr} {ex : Expr}
+    (h : e = ex) : Expr.hasFvar e = ex.hasFvar := by
+  rw [h]
 
-open ExprC in
-/-- `ExprC.wscopedB_spec` transported along the value equation. -/
-theorem wscopedB_spec' {d : Nat} {e : ExprC} {ex : Expr}
+open Expr in
+/-- `Expr.wscopedBC_spec` transported along the value equation. -/
+theorem wscopedB_spec' {d : Nat} {e : Expr} {ex : Expr}
     (h : e = ex) :
-    ExprC.wscopedB d e = ex.wscopedB d := by
-  rw [ExprC.wscopedB_spec, h]
+    Expr.wscopedBC d e = ex.wscopedB d := by
+  rw [Expr.wscopedBC_spec, h]
 
-open ExprC in
-/-- `ExprC.looseBVarsBounded_spec` transported along the value equation. -/
-theorem looseBVarsBounded_spec' {k : Nat} {e : ExprC}
+open Expr in
+/-- `Expr.looseBVarsBounded` transported along the value equation. -/
+theorem looseBVarsBounded_spec' {k : Nat} {e : Expr}
     {ex : Expr} (h : e = ex) :
-    ExprC.looseBVarsBounded k e = ex.looseBVarsBounded k := by
-  rw [ExprC.looseBVarsBounded_spec, h]
+    Expr.looseBVarsBounded k e = ex.looseBVarsBounded k := by
+  rw [h]
 
-open ExprC in
-/-- `ExprC.leafGuard_spec` transported along the value equations. -/
-theorem leafGuard_spec' {fab base : ExprC} {fx bx : Expr}
+open Expr in
+/-- `Expr.leafGuard_spec` transported along the value equations. -/
+theorem leafGuard_spec' {fab base : Expr} {fx bx : Expr}
     (h₁ : fab = fx) (h₂ : base = bx) :
-    ExprC.leafGuard fab base
+    Expr.leafGuard fab base
       = (fx.fvarLeaves.all fun l => bx.fvarLeaves.contains l) := by
-  rw [ExprC.leafGuard_spec, h₁, h₂]
+  rw [Expr.leafGuard_spec, h₁, h₂]
 
 /-! ## Constant resolution
 
 `constsResolveFCGo` (`ConLeche/Cached/StateC.lean`) is the cached
-`Expr.constsResolveF`: an `ExprC`-keyed memoized walk with **no**
+`Expr.constsResolveF`: an `Expr`-keyed memoized walk with **no**
 cutoff (the environment index is an ambient parameter of the call, so
 only the node matters). -/
 
-open ExprC in
+open Expr in
 /-- The constant-resolution walk's memo invariant. -/
-@[expose] def MemoCRInv (fe : FEnv) (memo : Std.HashMap ExprC Bool) : Prop :=
-  ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
+@[expose] def MemoCRInv (fe : FEnv) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
     r = Expr.constsResolveF fe e
 
 theorem MemoCRInv.empty {fe : FEnv} : MemoCRInv fe {} := by
   intro e r h
   simp at h
 
-theorem MemoCRInv.insert {fe : FEnv} {memo : Std.HashMap ExprC Bool}
-    (hm : MemoCRInv fe memo) {e : ExprC} {r : Bool}
+theorem MemoCRInv.insert {fe : FEnv} {memo : Std.HashMap Expr Bool}
+    (hm : MemoCRInv fe memo) {e : Expr} {r : Bool}
     (heq : r = Expr.constsResolveF fe e) :
     MemoCRInv fe (memo.insert e r) := by
   intro e' r' hk
@@ -1413,16 +1407,16 @@ theorem MemoCRInv.insert {fe : FEnv} {memo : Std.HashMap ExprC Bool}
   split at hk
   · rename_i hbeq
     cases hk
-    rw [← ExprC.beq_sound hbeq]
+    rw [← Expr.beq_sound hbeq]
     exact heq
   · exact hm e' r' hk
 
-open ExprC in
+open Expr in
 /-- **The constant-resolution walk agrees with `Expr.constsResolveF` on
 the erasure.** -/
 theorem constsResolveFCGo_spec {fe : FEnv} :
-    ∀ {e : ExprC},
-    ∀ {memo : Std.HashMap ExprC Bool}, MemoCRInv fe memo →
+    ∀ {e : Expr},
+    ∀ {memo : Std.HashMap Expr Bool}, MemoCRInv fe memo →
       (constsResolveFCGo fe memo e).1 = Expr.constsResolveF fe e ∧
         MemoCRInv fe (constsResolveFCGo fe memo e).2 := by
   intro e
@@ -1613,9 +1607,9 @@ theorem constsResolveFCGo_spec {fe : FEnv} :
           simp [hfind]
         exact ⟨hres, hm.insert hres⟩
 
-open ExprC in
+open Expr in
 /-- **`constsResolveFC` is `Expr.constsResolveF` of the erasure.** -/
-theorem constsResolveFC_spec {fe : FEnv} {e : ExprC} :
+theorem constsResolveFC_spec {fe : FEnv} {e : Expr} :
     constsResolveFC fe e = Expr.constsResolveF fe e :=
   (constsResolveFCGo_spec MemoCRInv.empty).1
 

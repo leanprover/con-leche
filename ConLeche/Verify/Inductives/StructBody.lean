@@ -451,7 +451,7 @@ theorem Expr.hasLooseBVarB_eq : ∀ (i : Nat) (e : Expr), e.hasLooseBVarB i = e.
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · rfl
   | fvar idx ty _ =>
     rw [Expr.hasLooseBVarB]; split <;> rfl
@@ -462,31 +462,31 @@ theorem Expr.hasLooseBVarB_eq : ∀ (i : Nat) (e : Expr), e.hasLooseBVarB i = e.
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, ihf, iha]
   | lam ty b m iht ihb =>
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, iht, ihb]
   | forallE ty b m iht ihb =>
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, iht, ihb]
   | letE t v b iht ihv ihb =>
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, iht, ihv, ihb]
   | proj s i' e ih =>
     rw [Expr.hasLooseBVarB]
     split
     · rename_i hcut
-      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, ih]
 
 end ConLeche
