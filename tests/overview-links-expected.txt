@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L709
-   709  def usage : String := String.intercalate "\n" [
+== Main.lean#L711
+   711  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32

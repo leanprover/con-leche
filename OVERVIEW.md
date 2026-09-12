@@ -26,7 +26,7 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L709)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L711)).
 A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
 `--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
 `--check-range[=<r>]` — is never a silent alias: it is rejected with a

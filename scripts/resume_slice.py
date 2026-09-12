@@ -67,14 +67,11 @@ stream's.
 
 Two further fidelity notes:
 
-* Tolerated-axiom taint (`sorryAx`).  Taint *propagation* survives the
-  slice -- a kept declaration that used a skipped axiom still reaches
-  the checker with its tainted dependency present, so it is still
-  skipped -- but declarations dropped from the prefix contribute no
-  skips, so the final `declined:` summary of a slice run can be
-  strictly smaller than the full run's, and a full run that declines
-  only because of a *dropped* prefix declaration shows up as an accept
-  on the slice.
+* The `sorryAx` axiom.  Its record installs nothing and any USE of it
+  declines at the record that uses it (task #292), so a full run that
+  declines only because of a *dropped* prefix declaration shows up as
+  an accept on the slice -- the same direction as every other slice
+  effect: a slice can hide a decline, never invent one.
 * String literals.  Reference extraction is regex-based over the raw
   JSON (as in every slicer here), so a `strVal` payload containing text
   like `"type":123` would be read as a reference.  That over-keeps; it
