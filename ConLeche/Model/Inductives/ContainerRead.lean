@@ -26,9 +26,10 @@ instantiated at the pins — the bridge the fold spellings of M-B′ step
 3b stand on.
 
 The premises are the ones under which the datum's readings are live:
-a block with parameters (`nP ≠ 0`), a recursor with rules stored as
-such, and a container that is not `Quot` (which `containerInfo?`
-excludes by name).
+a recursor with rules stored as such, and a container that is not
+`Quot` (which `containerInfo?` excludes by name).  A parameterless
+block is read the same way (task #279 M-B′, session 9): `recRead`/
+`rulesRead` hold at every `nP`.
 -/
 
 namespace ConLeche.Model
@@ -97,7 +98,7 @@ the datum (`memberCtorsAll`) with their stored types and field
 counts. -/
 theorem IndRep.containerInfo?_eq {env : Env} {m : EnvModel V env} {T : Name}
     {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V} {mm : Nat}
-    (h : IndRep m T cvT cvR mI rP rules d mm) (hnP : d.nP ≠ 0) (hne : rules ≠ [])
+    (h : IndRep m T cvT cvR mI rP rules d mm) (hne : rules ≠ [])
     {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvT caps))
     (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules)) (hQ : T ≠ quotName) :
     ∃ members : List ContainerMember,
@@ -108,7 +109,7 @@ theorem IndRep.containerInfo?_eq {env : Env} {m : EnvModel V env} {T : Name}
           env.find? (d.memberName t) = some (.indInfo cv caps') ∧
           cv.levelParams = M.lps ∧ cv.type = M.type) ∧
         M.ctors = (d.memberCtorsAll t).map fun cA => ⟨cA.1.name, cA.1.type, cA.2⟩ := by
-  have hRR := h.rulesRead hnP hne hfR
+  have hRR := h.rulesRead hne hfR
   have hmmk : mm < d.k := Nat.lt_of_lt_of_le h.memReal h.kRealLe
   -- the datum's recursor at `mm` is the stored one; its walk
   obtain ⟨cvR', mI', rP', rules', hf', -, -, -, -, -, -, bs, body, hs, hwalk⟩ := hRR mm hmmk
@@ -251,7 +252,7 @@ stored inductive `T` with a live datum IS the datum's group (the
 `Quot` exclusion is discharged by the success itself). -/
 theorem IndRep.containerInfo?_inv {env : Env} {m : EnvModel V env} {T : Name}
     {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V} {mm : Nat}
-    (h : IndRep m T cvT cvR mI rP rules d mm) (hnP : d.nP ≠ 0) (hne : rules ≠ [])
+    (h : IndRep m T cvT cvR mI rP rules d mm) (hne : rules ≠ [])
     {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvT caps))
     (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules))
     {ci : ContainerInfo} (hci : containerInfo? env T = some ci) :
@@ -267,7 +268,7 @@ theorem IndRep.containerInfo?_inv {env : Env} {m : EnvModel V env} {T : Name}
     unfold containerInfo? at hci
     rw [if_pos (beq_iff_eq.mpr hTq)] at hci
     exact nomatch hci
-  obtain ⟨members, hmem, hlen, hall⟩ := h.containerInfo?_eq hnP hne hfT hfR hQ
+  obtain ⟨members, hmem, hlen, hall⟩ := h.containerInfo?_eq hne hfT hfR hQ
   rw [hmem] at hci
   obtain rfl := Option.some.inj hci
   exact ⟨rfl, hlen, hall⟩

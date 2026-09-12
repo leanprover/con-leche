@@ -545,7 +545,9 @@ indices, one field-free constructor, the constant functor with fibre
   resSort := .param uN
   isProp := (Level.isEquiv (.param uN) .zero == some true)
   large := true
-  elim := .anonymous
+  -- the pinned recursor's elimination level (`PUnit.rec.{u_1, u}`);
+  -- the readings `recRead`/`rulesRead` are bitted at it
+  elim := u1N
   env₀ := env₀
   ctorsA := [(punitUnitA.toConstantVal, 0)]
   idxF := fun _ => []
@@ -673,13 +675,42 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     rw [hac]
     exact (denoteMeta_punitRec_leaves (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU).1 d (.param uN)
+  -- the recursor's own leaf at the extension, and its type reading
+  -- (task #279 M-B′, session 9): the pinned type IS the generated
+  -- tower at the datum, so `recRead` and the member's `RecReadAt` hold
+  -- at `nP = 0` exactly as at any other parameter count
+  have hRleaf : ∀ ψ : Name → Nat,
+      m₂.acval (punitName.str "rec") ψ = AnnotTerm.const .punitRec [ψ uN, ψ u1N] := by
+    intro ψ
+    rw [hac]
+    exact congrFun acvalWith_self ψ
+  have hrecRead : ∀ ψ : Name → Nat,
+      denoteMeta m₂.acval ⟨punitRecA :: env.consts⟩ ψ 0 punitRecA.toConstantVal.type
+        = some (mkPisAV ((punitRepData (V := V) ⟨punitRecA :: env.consts⟩).recDataAV m₂ ψ 0)
+            (mutualConcAV (punitRepData (V := V) ⟨punitRecA :: env.consts⟩).k
+              (punitRepData (V := V) ⟨punitRecA :: env.consts⟩).nAll
+              ((punitRepData (V := V) ⟨punitRecA :: env.consts⟩).nIdxAt 0) 0)) := by
+    intro ψ
+    rw [hac]
+    refine (denoteMeta_punitRecA_type (m := mp.base2)
+      (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU).trans ?_
+    congr 1
+    show _ = mkPisAV (recDataAVP m₂ ψ [m₂.acval punitName ψ] (fun _ => paramBvarsAt 0 0) 0 [0]
+        (.param u1N) [] [[]] [(punitUnitName, 0, [], [], [], [], [])]
+        (fun _ => 0) (fun _ _ => 0) 0)
+      (mutualConcAV 1 1 0 0)
+    rw [recDataAVP_params, mutualRecDataAV_one, hPleaf ψ, mutualConcAV_one]
+    unfold fixRecDataAVL fixMinorsData
+    simp only [fixMinorsDataM, minorAVAtRM]
+    rw [hUleaf ψ]
+    rfl
   refine Or.inl ⟨_, _, punitRepData ⟨punitRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hP, ?_⟩
   refine {
     member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
-    rulesRead := fun h => absurd rfl h
+    rulesRead := ?_
     mI := rfl
     rP := rfl
     rules := fun _ => rfl
@@ -696,7 +727,7 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
-    recRead := fun h => absurd rfl h
+    recRead := hrecRead
     former := ?fd
     formersRead := IndRep.formersRead_one rfl rfl
       (ConLeche.Env.find?_cons_of_fresh hfresh hP) ?fd
@@ -723,6 +754,48 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
     mkInj := ?_ }
+  · -- the recursor's readings (task #279 M-A′/M-B′): `PUnit.rec`, the
+    -- one member, with its one rule
+    intro _ _ t ht
+    obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+    refine ⟨punitRecA.toConstantVal, 2, 2, [punitRecRule], ?_, rfl, rfl, rfl,
+      hrecRead, rfl, fun j cA hj _ => ?_, ?_⟩
+    · show Env.find? ⟨punitRecA :: env.consts⟩ punitRecA.name
+        = some (.recInfo punitRecA.toConstantVal 2 2 [punitRecRule])
+      rw [ConLeche.Env.find?_cons, if_pos rfl]
+      rfl
+    · match j, hj with
+      | 0, hj =>
+        obtain rfl : cA = (punitUnitA.toConstantVal, 0) := (Option.some.inj hj).symm
+        refine ⟨punitRecRule, List.mem_cons_self, rfl, fun _ => ⟨rfl, rfl, rfl⟩, fun ψ => ?_⟩
+        rw [hac]
+        refine (denoteMeta_punitRec_rhs (m := mp.base2)
+          (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU).trans ?_
+        congr 1
+        show _ = mkLamsAV (ruleDataAVP m₂ ψ [m₂.acval punitName ψ] (fun _ => paramBvarsAt 0 0) 0 [0]
+              (.param u1N) [] [[]] [(punitUnitName, 0, [], [], [], [], [])]
+              (fun _ => 0) (fun _ _ => 0) [])
+            (mutualRuleCoreAV (pwBit ψ (Level.zeronessOf (.param u1N)))
+              (fun t => m₂.acval (([punitName].getD t .anonymous).str "rec") ψ) (fun _ => 0)
+              0 1 1 0 0 [] [] [])
+        rw [ruleDataAVP_params, mutualRuleDataAV_one]
+        unfold fixRuleDataAV motiveAVI fixMinorsData mutualRuleCoreAV
+        simp only [fixMinorsDataM, minorAVAtRM]
+        rw [hPleaf ψ, hUleaf ψ]
+        rfl
+    · -- the motive walk (task #279 M-B′ step 3a): `PUnit.rec`'s one
+      -- motive is recognised wherever `PUnit` is stored, and its minor
+      -- stops the walk syntactically
+      refine ⟨_, _, rfl, fun env' hst => ?_⟩
+      obtain ⟨cv, caps, hf⟩ := hst 0 Nat.zero_lt_one
+      have hf' : env'.find? punitName = some (.indInfo cv caps) := hf
+      show (match (if (match env'.find? punitName with
+            | some (.indInfo _ _) => true
+            | _ => false) = true then some punitName else none) with
+        | some C => C :: containerMembersGo env' 0 2 1 _
+        | none => []) = [punitName]
+      rw [hf']
+      rfl
   · -- the former's data
     refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_,
       (fun _ => trivial), (fun ψ₁ ψ₂ h => ⟨rfl, h uN List.mem_cons_self⟩), (fun _ => rfl),
@@ -2250,7 +2323,9 @@ over the one-point index set, and the pin's own injections. -/
   resSort := .succ .zero
   isProp := (Level.isEquiv (.succ .zero) .zero == some true)
   large := true
-  elim := .anonymous
+  -- the pinned recursor's elimination level (`Nat.rec.{u}`); the
+  -- readings `recRead`/`rulesRead` are bitted at it
+  elim := uN
   env₀ := env₀
   ctorsA := [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)]
   idxF := fun _ => []
@@ -2430,13 +2505,44 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     show [((0 : Nat), pwBit ψ₁ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
       = [((0 : Nat), pwBit ψ₂ ConLeche.PropWhen.never, AnnotTerm.const BConst.nat [])]
     rw [pwBit_never, pwBit_never]
+  -- the recursor's own leaf at the extension, and its type reading
+  -- (task #279 M-B′, session 9): the pinned type IS the generated
+  -- tower at the datum, so `recRead` and the member's `RecReadAt` hold
+  -- at `nP = 0` exactly as at any other parameter count
+  have hRleaf : ∀ ψ : Name → Nat,
+      m₂.acval (natName.str "rec") ψ = AnnotTerm.const .natRec [ψ uN] := by
+    intro ψ
+    rw [hac]
+    exact congrFun acvalWith_self ψ
+  have hrecRead : ∀ ψ : Name → Nat,
+      denoteMeta m₂.acval ⟨natRecA :: env.consts⟩ ψ 0 natRecA.toConstantVal.type
+        = some (mkPisAV ((natRepData (V := V) ⟨natRecA :: env.consts⟩).recDataAV m₂ ψ 0)
+            (mutualConcAV (natRepData (V := V) ⟨natRecA :: env.consts⟩).k
+              (natRepData (V := V) ⟨natRecA :: env.consts⟩).nAll
+              ((natRepData (V := V) ⟨natRecA :: env.consts⟩).nIdxAt 0) 0)) := by
+    intro ψ
+    rw [hac]
+    refine (denoteMeta_natRecA_type (m := mp.base2)
+      (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS).trans ?_
+    congr 1
+    show _ = mkPisAV (recDataAVP m₂ ψ [m₂.acval natName ψ] (fun _ => paramBvarsAt 0 0) 0 [0]
+        (.param uN) [] [[]]
+        [(natZeroName, 0, [], [], [], [], []),
+          (natSuccName, 1, [(0, pwBit ψ .never, .const .nat [])], [], [0], [[]], [[]])]
+        (fun _ => 0) (fun _ _ => 0) 0)
+      (mutualConcAV 1 2 0 0)
+    rw [recDataAVP_params, mutualRecDataAV_one, hNleaf ψ, mutualConcAV_one]
+    unfold fixRecDataAVL fixMinorsData
+    simp only [fixMinorsDataM, minorAVAtRM]
+    rw [hZleaf ψ, hSleaf ψ]
+    rfl
   refine Or.inl ⟨_, _, natRepData ⟨natRecA :: env.consts⟩, 0,
     ConLeche.Env.find?_cons_of_fresh hfresh hN, ?_⟩
   refine {
     member := rfl
     strip := ⟨[], rfl⟩
     isProp := rfl
-    rulesRead := fun h => absurd rfl h
+    rulesRead := ?_
     mI := rfl
     rP := rfl
     rules := fun _ => rfl
@@ -2453,7 +2559,7 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
-    recRead := fun h => absurd rfl h
+    recRead := hrecRead
     former := ?fd
     formersRead := IndRep.formersRead_one rfl rfl
       (ConLeche.Env.find?_cons_of_fresh hfresh hN) ?fd
@@ -2480,6 +2586,74 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
     ctor := ?_
     mkZero := fun _ h => absurd h (Nat.succ_ne_zero 0)
     mkInj := ?_ }
+  · -- the recursor's readings (task #279 M-A′/M-B′): `Nat.rec`, the one
+    -- member, with its two rules
+    intro _ _ t ht
+    obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
+    refine ⟨natRecA.toConstantVal, 3, 3, [natRecZeroRule, natRecSuccRule], ?_, rfl, rfl, rfl,
+      hrecRead, rfl, fun j cA hj _ => ?_, ?_⟩
+    · show Env.find? ⟨natRecA :: env.consts⟩ natRecA.name
+        = some (.recInfo natRecA.toConstantVal 3 3 [natRecZeroRule, natRecSuccRule])
+      rw [ConLeche.Env.find?_cons, if_pos rfl]
+      rfl
+    · match j, hj with
+      | 0, hj =>
+        obtain rfl : cA = (natZeroA.toConstantVal, 0) := (Option.some.inj hj).symm
+        refine ⟨natRecZeroRule, List.mem_cons_self, rfl, fun _ => ⟨rfl, rfl, rfl⟩, fun ψ => ?_⟩
+        rw [hac]
+        refine (denoteMeta_natRec_zeroRhs (m := mp.base2)
+          (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS).trans ?_
+        congr 1
+        show natZeroRa ψ
+          = mkLamsAV (ruleDataAVP m₂ ψ [m₂.acval natName ψ] (fun _ => paramBvarsAt 0 0) 0 [0]
+              (.param uN) [] [[]]
+              [(natZeroName, 0, [], [], [], [], []),
+                (natSuccName, 1, [(0, pwBit ψ .never, .const .nat [])], [], [0], [[]], [[]])]
+              (fun _ => 0) (fun _ _ => 0) [])
+            (mutualRuleCoreAV (pwBit ψ (Level.zeronessOf (.param uN)))
+              (fun t => m₂.acval (([natName].getD t .anonymous).str "rec") ψ) (fun _ => 0) 0 1 2 0 0
+              [] [] [])
+        rw [ruleDataAVP_params, mutualRuleDataAV_one]
+        unfold fixRuleDataAV motiveAVI fixMinorsData mutualRuleCoreAV
+        simp only [fixMinorsDataM, minorAVAtRM]
+        rw [hNleaf ψ, hZleaf ψ, hSleaf ψ]
+        rfl
+      | 1, hj =>
+        obtain rfl : cA = (natSuccA.toConstantVal, 1) := (Option.some.inj hj).symm
+        refine ⟨natRecSuccRule, List.mem_cons_of_mem _ List.mem_cons_self, rfl,
+          fun _ => ⟨rfl, rfl, rfl⟩, fun ψ => ?_⟩
+        rw [hac]
+        refine (denoteMeta_natRec_succRhs (m := mp.base2) ψ hN hZ hS).trans ?_
+        congr 1
+        show natSuccRa ψ
+          = mkLamsAV (ruleDataAVP m₂ ψ [m₂.acval natName ψ] (fun _ => paramBvarsAt 0 0) 0 [0]
+              (.param uN) [] [[]]
+              [(natZeroName, 0, [], [], [], [], []),
+                (natSuccName, 1, [(0, pwBit ψ .never, .const .nat [])], [], [0], [[]], [[]])]
+              (fun _ => 0) (fun _ _ => 0) [(0, pwBit ψ .never, .const .nat [])])
+            (mutualRuleCoreAV (pwBit ψ (Level.zeronessOf (.param uN)))
+              (fun t => m₂.acval (([natName].getD t .anonymous).str "rec") ψ) (fun _ => 0) 0 1 2 1 1
+              [0] [[]] [[]])
+        rw [ruleDataAVP_params, mutualRuleDataAV_one]
+        unfold fixRuleDataAV motiveAVI fixMinorsData mutualRuleCoreAV ihAppAVK
+        simp only [fixMinorsDataM, minorAVAtRM]
+        rw [hNleaf ψ, hZleaf ψ, hSleaf ψ]
+        simp only [List.map_cons, List.map_nil, List.getD_cons_zero]
+        rw [hRleaf ψ]
+        rfl
+    · -- the motive walk (task #279 M-B′ step 3a): `Nat.rec`'s one motive
+      -- is recognised wherever `Nat` is stored, and its first minor
+      -- stops the walk syntactically
+      refine ⟨_, _, rfl, fun env' hst => ?_⟩
+      obtain ⟨cv, caps, hf⟩ := hst 0 Nat.zero_lt_one
+      have hf' : env'.find? natName = some (.indInfo cv caps) := hf
+      show (match (if (match env'.find? natName with
+            | some (.indInfo _ _) => true
+            | _ => false) = true then some natName else none) with
+        | some C => C :: containerMembersGo env' 0 3 1 _
+        | none => []) = [natName]
+      rw [hf']
+      rfl
   · -- the former's data
     refine ⟨fun ψ => ?_, (fun _ => rfl), (fun _ _ h => nomatch h), fun ψ ρ => ?_,
       (fun _ => trivial), (fun _ _ _ => ⟨rfl, rfl⟩), (fun _ => rfl),

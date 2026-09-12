@@ -169,13 +169,18 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
         simp only at h
         exact (Name.str.inj h).1.symm
       subst hT'
-      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ falseName .zero, 0,
+      refine Or.inl ⟨⟨falseName, [], .sort .zero⟩, {}, zeroCtorData ⟨falseRecA :: env.consts⟩ falseName .zero uN, 0,
         ConLeche.Env.find?_cons_of_fresh hfresh hE, ?_⟩
-      refine indRep_zeroCtor (cvT := ⟨falseName, [], .sort .zero⟩) m₂ .zero rfl rfl
-        hT ⟨_, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩ (fun _ _ _ => rfl) fun ψ ρ => ?_
-      rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
-        (c := .empty) (us := [0]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
-      rfl)
+      refine indRep_zeroCtor (cvT := ⟨falseName, [], .sort .zero⟩) m₂ .zero uN rfl rfl
+        hT ⟨_, ConLeche.Env.find?_cons_of_fresh hfresh hE⟩ (fun _ _ _ => rfl) (fun ψ ρ => ?_)
+        fun ψ => ?_
+      · rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
+          (c := .empty) (us := [0]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
+        rfl
+      · -- the recursor's type reading, at the block's leaf
+        rw [hac, acvalWith_ne (by decide), acval_basis_pinned (m := mp.base2) hE (by decide)
+          (c := .empty) (us := [0]) (by simp +decide [ConLeche.Verify.pinnedStructT])]
+        exact hty ψ)
     (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

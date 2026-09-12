@@ -342,17 +342,17 @@ theorem IndRep.rulesRead_cons {m : EnvModel V env} {T : Name} {cvT cvR : Constan
     (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules))
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    d.nP ≠ 0 → rules ≠ [] →
+    rules ≠ [] →
     Env.find? ⟨c₀ :: env.consts⟩ cvR.name = some (.recInfo cvR mI rP rules) →
     ∀ t, t < d.k → RecReadAt m₂ d cvT.levelParams t := by
-  intro hnP hne _ t ht
+  intro hne _ t ht
   have hbound := envWF_constsBound m.wf
   have hrecNe : ∀ t, t < d.k → d.recNames t ≠ c₀.name := by
     intro t ht
-    obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hnP hne hfR t ht
+    obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hne hfR t ht
     exact ne_of_stored hfresh hf'
   obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules, hwalk⟩ :=
-    h.rulesRead hnP hne hfR t ht
+    h.rulesRead hne hfR t ht
   have hmemR' := ConLeche.Semantics.Env.find?_mem hf'
   refine ⟨cvR', mI', rP', rules', ConLeche.Env.find?_cons_of_fresh hfresh hf', hlps, hmI', hrP',
     fun ψ => ?_, hmap, fun j cA hj hmm => ?_, hwalk⟩
@@ -387,7 +387,7 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
     -- the rules' readings at the extension (`rulesRead`): the caller's —
     -- `IndRep.rulesRead_cons` for a recursor stored in the prefix, the
     -- install's own readings when the head IS the recursor
-    (hrr : d.nP ≠ 0 → rules ≠ [] →
+    (hrr : rules ≠ [] →
       Env.find? ⟨c₀ :: env.consts⟩ cvR.name = some (.recInfo cvR mI rP rules) →
       ∀ t, t < d.k → RecReadAt m₂ d cvT.levelParams t) :
     IndRep m₂ T cvT cvR mI rP rules d mm := by
@@ -422,8 +422,8 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
       | none => rw [hf] at hs; exact nomatch hs
       | some ci => rw [ConLeche.Env.find?_cons_of_fresh hfresh hf]; rfl
     pinsReal := h.pinsReal
-    recRead := fun hnP ψ => by
-      rw [hac, denoteMeta_cons_mono hfresh hatR ψ 0 hcbR (h.recRead hnP ψ),
+    recRead := fun ψ => by
+      rw [hac, denoteMeta_cons_mono hfresh hatR ψ 0 hcbR (h.recRead ψ),
         h.recDataAV_cons hfresh m₂ hac]
     former := h.former.crossAt hfresh (hcross.typeOf hfT) hcbT m₂ hac
     formersRead := fun t ht cv caps hf => by

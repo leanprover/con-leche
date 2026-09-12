@@ -1122,7 +1122,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     -- one member's recursor is the head itself, its type's reading the
     -- stage's carried across, its rules the block's own read by
     -- `fixRuleData_of`
-    intro hnP hne _ t ht
+    intro hne _ t ht
     obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
     have hfind : Env.find? ⟨c₀ :: env.consts⟩ (p.cvT.name.str "rec") = some c₀ := by
       rw [← hpin, ConLeche.Env.find?_cons, if_pos (show c₀.name = cvRa.name from rfl)]
@@ -1130,7 +1130,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     · rw [(ConLeche.checkNativeRec_facts hRec).2.1, ConLeche.checkNativeRec_lps hRec, hlpsT]
       rfl
     · rw [hrep.recDataAV_cons (c₀ := c₀) hfresh m₂ hac, hac]
-      exact denoteMeta_cons_mono hfresh (hcross _) ψ 0 hcbR (hrep.recRead hnP ψ)
+      exact denoteMeta_cons_mono hfresh (hcross _) ψ 0 hcbR (hrep.recRead ψ)
     · rw [IndRepData.memberCtorsAll_of_all
         (d := fixRepData p env₀ ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ppsAll
           lvlsAll uAV) (mm := 0) (fun _ => rfl) rfl]

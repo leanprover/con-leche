@@ -1527,7 +1527,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     mkInj := fun _ hz => absurd rfl hz }
   · -- the recursor's readings (task #279 M-A′/M-B′): `Eq.rec`, the one
     -- member, with its one rule
-    intro _ _ _ t ht
+    intro _ _ t ht
     obtain rfl : t = 0 := Nat.lt_one_iff.mp ht
     refine ⟨eqRecA.toConstantVal, 5, 4, [eqRecRule], ?_, rfl, rfl, rfl, hrecRead, rfl,
       fun j cA hj hmm => ?_, ?_⟩
@@ -1569,7 +1569,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
       rw [hf']
       rfl
   · -- the recursor's type reading (task #279 M-A′)
-    intro _ ψ
+    intro ψ
     exact hrecRead ψ
   · -- the former's data
     refine ⟨fun ψ => denoteMeta_eqA_typeR ψ, (fun _ => rfl), ?_, fun ψ ρ => ?_,

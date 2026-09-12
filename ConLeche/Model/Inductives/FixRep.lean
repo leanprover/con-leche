@@ -504,7 +504,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     member := rfl
     strip := ⟨bsT, hstripT⟩
     isProp := hProp
-    rulesRead := fun _ _ h => by rw [hnotR] at h; exact nomatch h
+    rulesRead := fun _ h => by rw [hnotR] at h; exact nomatch h
     mI := hmI
     rP := hrP
     rules := fun _ => by
@@ -523,7 +523,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     memsReal := fun j hj => ⟨fun _ => hj, fun _ => Nat.zero_lt_one⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
-    recRead := fun _ ψ => by
+    recRead := fun ψ => by
       rw [hRread ψ, fixRepData_recDataAV, show d.k = 1 from rfl, show d.nAll = ctorsA.length from rfl,
         show d.nIdxAt 0 = p.nIdx from rfl, mutualConcAV_one]
     former := hFD

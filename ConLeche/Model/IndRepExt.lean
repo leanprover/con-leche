@@ -286,12 +286,12 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
     member := h.member
     strip := h.strip
     isProp := h.isProp
-    rulesRead := fun hnP hne _ t ht => by
+    rulesRead := fun hne _ t ht => by
       obtain ⟨cvR', mI', rP', rules', hf', hlps, hmI', hrP', hread, hmap, hrules, hwalk⟩ :=
-        h.rulesRead hnP hne hfR t ht
+        h.rulesRead hne hfR t ht
       have hrecS : ∀ t, t < d.k → (env₂.find? (d.recNames t)).isSome = true := by
         intro t ht
-        obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hnP hne hfR t ht
+        obtain ⟨cvR', mI', rP', rules', hf', -⟩ := h.rulesRead hne hfR t ht
         rw [hf']; rfl
       have hmemR' := ConLeche.Semantics.Env.find?_mem hf'
       refine ⟨cvR', mI', rP', rules', hx.find hf', hlps, hmI', hrP', fun ψ => ?_, hmap,
@@ -323,9 +323,9 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
     memsReal := h.memsReal
     ctorsCFound := fun cC hcC => hx.isSome (h.ctorsCFound cC hcC)
     pinsReal := h.pinsReal
-    recRead := fun hnP ψ => by
+    recRead := fun ψ => by
       rw [h.recDataAV_ext hag]
-      exact denoteMeta_ext hx hag ψ 0 hcbR (h.recRead hnP ψ)
+      exact denoteMeta_ext hx hag ψ 0 hcbR (h.recRead ψ)
     former := h.former.ext hx hag hcbT
     formersRead := fun t ht cv caps hf => by
       obtain ⟨cv0, caps0, hf0⟩ := h.membersFound t (Nat.lt_of_lt_of_le ht h.kRealLe)

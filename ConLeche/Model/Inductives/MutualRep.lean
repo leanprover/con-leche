@@ -622,7 +622,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     member := hname mm hmm
     strip := ⟨bsT, by rw [hnIdxAt mm hmm]; exact hstripT⟩
     isProp := hProp
-    rulesRead := fun _ _ h => by rw [hnotR] at h; exact nomatch h
+    rulesRead := fun _ h => by rw [hnotR] at h; exact nomatch h
     mI := by rw [hnIdxAt mm hmm]; exact hmI
     rP := hrP
     rules := hrules
@@ -643,7 +643,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     memsReal := fun j hj => ⟨fun _ => hj, fun hj' => hmots j hj'⟩
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
-    recRead := fun _ ψ => by
+    recRead := fun ψ => by
       rw [hRread ψ]
       unfold IndRepData.recDataAV
       rw [hLs ψ, hcdsR ψ, show d.pinsOf ψ = fun _ => paramBvarsAt nP nP from rfl,

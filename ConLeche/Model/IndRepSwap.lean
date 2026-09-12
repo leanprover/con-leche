@@ -128,7 +128,7 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     -- recursor of the block being stored, whose siblings the swap
     -- changed too (a prefix block's clause crosses the store as an
     -- EXTENSION of the constructors' environment instead, `IndRep.ext`)
-    (hrr : d.nP ≠ 0 → rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
+    (hrr : rules ≠ [] → env₃.find? cvR.name = some (.recInfo cvR mI rP rules) →
       ∀ t, t < d.k → RecReadAt m₃ d cvT.levelParams t) :
     IndRep m₃ T cvT cvR mI rP rules d mm :=
   { member := h.member
@@ -155,8 +155,8 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     memsReal := h.memsReal
     ctorsCFound := fun cC hcC => by rw [← hcg.isSomeEq]; exact h.ctorsCFound cC hcC
     pinsReal := h.pinsReal
-    recRead := fun hnP ψ => by
-      rw [hac, ← denoteMeta_swap hcg, h.recRead hnP ψ]
+    recRead := fun ψ => by
+      rw [hac, ← denoteMeta_swap hcg, h.recRead ψ]
       congr 2
       exact d.recDataAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
     former := h.former.swap hcg hac

@@ -569,10 +569,9 @@ recursor is stored with rules carries, through `rulesRead`, every
 member's `RecReadAt`, and its `formersRead`/`leafShape`/`ctors`/
 `paramsIff` clauses are already quantified over the block; the rest of
 `InvSetup`'s datum-side fields are the block's shape conjuncts.  The
-premises are the two the datum's recursor clauses carry: the block has
-parameters (`recRead`/`rulesRead` are recorded at `nP ≠ 0`) and this
-member's recursor has rules. -/
-theorem invSetup_of_member {μ : CheckMode} {mp : EnvModelM V μ env} (hnP : d.nP ≠ 0)
+premise is the one the datum's `rulesRead` carries: this member's
+recursor has rules. -/
+theorem invSetup_of_member {μ : CheckMode} {mp : EnvModelM V μ env}
     (hctorsC : d.ctorsC = []) (hkR : d.kReal = d.k)
     (hpinsAV : ∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP)
     (hview : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
@@ -599,7 +598,7 @@ theorem invSetup_of_member {μ : CheckMode} {mp : EnvModelM V μ env} (hnP : d.n
     rw [hctorsC]
     rfl
   refine
-    { hR := fun t ht => hrep.rulesRead hnP hrules hfR t ht, hps := hps, hpsWD := hpsWD,
+    { hR := fun t ht => hrep.rulesRead hrules hfR t ht, hps := hps, hpsWD := hpsWD,
       hparams := hparams, hpps := ?_, hipsLen := ?_, hk := hk, hctorsC := hctorsC,
       hpins := fun t => hpinsAV t ψ, hview := hview,
       hLS := fun t ht => hrep.leafShape t (by rw [hkR]; exact ht) ψ, hFF := hFF,
@@ -692,7 +691,7 @@ representation: the members below `kR` are the block's own (ψ⁻¹ is the
 identity there and their facts are discharged here); the members from
 `kR` on are the copies, whose target and constructors the caller
 supplies — `targetOk_copy`/`ctorAtPins_copy` at the three records. -/
-theorem invSetup_of_member_nested {μ : CheckMode} {mp : EnvModelM V μ env} (hnP : d.nP ≠ 0)
+theorem invSetup_of_member_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     (hctorsC : d.ctorsC = []) (hkR : d.kReal = d.k)
     (hpinsAV : ∀ (t : Nat) (ψ : Name → Nat), d.pinsAV t ψ = paramBvarsAt d.nP d.nP)
     (hview : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
@@ -717,7 +716,7 @@ theorem invSetup_of_member_nested {μ : CheckMode} {mp : EnvModelM V μ env} (hn
         (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
     (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
     d.InvSetup mp cvT.levelParams cvT.levelParams ψ ρ ps L pinsT head useIh := by
-  refine d.invSetup_of_member hnP hctorsC hkR hpinsAV hview ht₀ hrules hfR hrep hps hpsWD hparams
+  refine d.invSetup_of_member hctorsC hkR hpinsAV hview ht₀ hrules hfR hrep hps hpsWD hparams
     ?_ ?_ huse
   · intro t ht
     rcases Nat.lt_or_ge t kR with hlt | hge
@@ -747,7 +746,7 @@ the datum is the block's re-sorted to that member's own spelling of the
 sort, and every field the fold reads is unchanged by the re-sorting, so
 the consumer's hypotheses are stated at `d` itself. -/
 theorem invSetup_of_blockReps {μ : CheckMode} {mp : EnvModelM V μ env} {b : ConLeche.MutualBlock}
-    {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d) (hnP : d.nP ≠ 0)
+    {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d)
     {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
     {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
     {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool}
@@ -768,7 +767,7 @@ theorem invSetup_of_blockReps {μ : CheckMode} {mp : EnvModelM V μ env} {b : Co
     show d.kReal = d.k
     rw [hkb, hkRb]
   refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, ?_⟩
-  exact IndRepData.invSetup_of_member ({d with resSort := s} : IndRepData V) hnP hctorsC hkR
+  exact IndRepData.invSetup_of_member ({d with resSort := s} : IndRepData V) hctorsC hkR
     (fun t ψ' => hpinsAV t ψ') hview
     (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep hps hpsWD hparams hTg hCAP huse
 
@@ -781,7 +780,7 @@ The elimination universe is read at the block's own sort spelling; the
 member's is the same value (`MutualBlockReps`). -/
 theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     {b : ConLeche.MutualBlock} {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d)
-    (hnP : d.nP ≠ 0) {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
+    {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
     {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
     {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {kR : Nat}
     (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
@@ -812,7 +811,7 @@ theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     rw [hsv ψ]
     exact hlev
   refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, ?_⟩
-  exact IndRepData.invSetup_of_member_nested ({d with resSort := s} : IndRepData V) hnP hctorsC hkR
+  exact IndRepData.invSetup_of_member_nested ({d with resSort := s} : IndRepData V) hctorsC hkR
     (fun t ψ' => hpinsAV t ψ') hview (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep
     hps hpsWD hparams hlev' hreal hrealC hTgC hCAPC huse
 

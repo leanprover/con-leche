@@ -75,15 +75,17 @@ theorem fixStepI_nil {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss :
 
 /-- The datum of a zero-constructor block: no parameters, no indices,
 the tagged functor with no chains, the point as (never used)
-injection.  One member, the block's own former `T` (task #278 M2.6). -/
-@[expose] noncomputable def zeroCtorData (env₀ : Env) (T : Name) (resSort : Level) :
+injection.  One member, the block's own former `T` (task #278 M2.6);
+`elim` is the pinned recursor's elimination level parameter, at which
+its type reading is bitted (task #279 M-B′, session 9). -/
+@[expose] noncomputable def zeroCtorData (env₀ : Env) (T : Name) (resSort : Level) (elim : Name) :
     IndRepData V where
   nP := 0
   nIdx := 0
   resSort := resSort
   isProp := (Level.isEquiv resSort .zero == some true)
   large := true
-  elim := .anonymous
+  elim := elim
   env₀ := env₀
   ctorsA := []
   idxF := fun _ => []
@@ -113,17 +115,24 @@ injection.  One member, the block's own former `T` (task #278 M2.6). -/
 
 /-- **A zero-constructor block is represented**: its stored type is
 `Sort resSort`, its recursor has one motive and no rules, and its leaf
-denotes the empty set. -/
+denotes the empty set.  The recursor's type reads as the one-motive
+tower `Π (motive : T → Sort elim) (t : T), motive t` at the block's
+leaf (`hRread`; task #279 M-B′, session 9: the generated tower at the
+datum, so `recRead` holds at `nP = 0` too). -/
 theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
-    {rules : List RecRule} (resSort : Level)
+    {rules : List RecRule} (resSort : Level) (elim : Name)
     (hty : cvT.type = .sort resSort) (hrules : rules = [])
     (hRname : cvR.name = T.str "rec")
     (hfT : ∃ caps : IndCaps, env.find? T = some (.indInfo cvT caps))
     (hres : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
       resSort.eval ψ₁ = resSort.eval ψ₂)
-    (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = empty) :
-    IndRep m T cvT cvR 1 1 rules (zeroCtorData env T resSort) 0 := by
-  let d : IndRepData V := zeroCtorData env T resSort
+    (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = empty)
+    (hRread : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR.type
+      = some (.pi 0 (pwBit ψ (.ifAllZero [elim]))
+          (.pi 0 (pwBit ψ .never) (m.acval T ψ) (.sort (ψ elim)))
+          (.pi 0 (pwBit ψ (.ifAllZero [elim])) (m.acval T ψ) (.app (.bvar 1) (.bvar 0))))) :
+    IndRep m T cvT cvR 1 1 rules (zeroCtorData env T resSort elim) 0 := by
+  let d : IndRepData V := zeroCtorData env T resSort elim
   show IndRep m T cvT cvR 1 1 rules d 0
   have hidx : ∀ ρp : Nat → V, d.idx (fun _ => 0) ρp = unitSet := fun _ => rfl
   have hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V), IdxOk (d.u ψ) ρp (d.IdsC ψ) := fun _ _ => ⟨trivial, trivial⟩
@@ -160,7 +169,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     member := rfl
     strip := ⟨[], by rw [hty]; rfl⟩
     isProp := rfl
-    rulesRead := fun h => absurd rfl h
+    rulesRead := fun hne _ => absurd hrules hne
     mI := rfl
     rP := rfl
     rules := fun _ => by rw [hrules]; rfl
@@ -178,7 +187,13 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     memsReal := fun j hj => absurd hj (Nat.not_lt_zero j)
     ctorsCFound := fun _ h => nomatch h
     pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
-    recRead := fun h => absurd rfl h
+    recRead := fun ψ => by
+      rw [hRread ψ]
+      congr 1
+      show _ = mkPisAV (recDataAVP m ψ [m.acval T ψ] (fun _ => paramBvarsAt 0 0) 0 [0] (.param elim)
+        [] [[]] [] (fun _ => 0) (fun _ _ => 0) 0) (mutualConcAV 1 0 0 0)
+      rw [recDataAVP_params, mutualRecDataAV_one, mutualConcAV_one]
+      rfl
     former := hFDb
     formersRead := fun t ht cv caps hf => by
       obtain rfl : t = 0 := Nat.lt_one_iff.mp ht

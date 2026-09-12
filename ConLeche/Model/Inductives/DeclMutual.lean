@@ -5967,7 +5967,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (ConsCrossAt.ofNtc fun _ h => nomatch h)
         (constsBound_of_constsResolve _ (hbook q hq).1) ?_
       -- a rule-less store has no rules to read
-      intro _ hne hf
+      intro hne hf
       rcases (hbook₂ q hq).2.1 with hnone | hrl₂
       · rw [hnone] at hf; exact nomatch hf
       · rw [hrl₂] at hf
@@ -5991,7 +5991,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           (A := prts.leaf mp₂.base2 t) hfresh
           (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac
           (ConsCrossAt.ofNtc fun _ h => nomatch h)
-          (constsBound_of_constsResolve _ (hbook t ht).1) (fun _ h => absurd rfl h)))
+          (constsBound_of_constsResolve _ (hbook t ht).1) (fun h => absurd rfl h)))
     (hctorStored := by
       -- **`hctorStored`**: a stored rule's constructor is one of the
       -- member's own, hence a constructor of the block, hence stored
@@ -6123,7 +6123,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           (fun _ => hrulesShape x2 hxk)
         refine hrep.swap hcg hac ?_
         -- **every member's recursor at the store** (task #279 M-A′/M-B′)
-        intro hnP hne _ t htk
+        intro hne _ t htk
         have hstoredS : ∀ q, q < prts.k →
             (Env.find? (ConLeche.storeMutualRecs
             (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
@@ -6193,7 +6193,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         · -- the recursor's type reading: the provisioned carrier's, at the
           -- same recursor, across the swap
           have hrepT := (hinvP t htk).2 [] (fun h => absurd rfl h)
-          rw [hac, ← denoteMeta_swap hcg, hrepT.recRead hnP ψ]
+          rw [hac, ← denoteMeta_swap hcg, hrepT.recRead ψ]
           congr 2
           show (dOf x2).recDataAV mpP.base2 ψ t = (dOf x2).recDataAV m₃ ψ t
           exact ((dOf x2).recDataAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])).symm

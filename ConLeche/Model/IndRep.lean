@@ -533,7 +533,7 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   a container reads the whole family off ONE datum here: the fold it
   spells from `J.rec` needs the sibling recursors' towers and rules,
   which no other member's clause could be made to agree with. -/
-  rulesRead : d.nP ≠ 0 → rules ≠ [] → env.find? cvR.name = some (.recInfo cvR mI rP rules) →
+  rulesRead : rules ≠ [] → env.find? cvR.name = some (.recInfo cvR mI rP rules) →
     ∀ t, t < d.k → RecReadAt m d cvT.levelParams t
   /-- the recursor's major position: one motive per member, one minor
   per constructor OF THE BLOCK, the member's own indices -/
@@ -577,11 +577,13 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
   pinsReal : ∀ t, t < d.kReal →
     (∀ ψ : Name → Nat, d.pinsAV t ψ = paramBvarsAt d.nP d.nP) ∧ d.nPM t = d.nP
   /-- **the recursor's type reads as the generated tower** (task #279
-  M-A′): at a block with parameters — the only ones a later block can
-  nest through — the stored recursor type reads to the Π-tower over the
+  M-A′): the stored recursor type reads to the Π-tower over the
   `k`-motive binder data at the members' pins with the core
-  `motive_mm ı⃗ t` -/
-  recRead : d.nP ≠ 0 → ∀ ψ : Name → Nat,
+  `motive_mm ı⃗ t`.  At EVERY parameter count (M-B′, session 9): a
+  parameterless block is nested through as any other (`Lean.Syntax`),
+  and the pinned basis blocks read their hand-written recursors the
+  same way -/
+  recRead : ∀ ψ : Name → Nat,
     denoteMeta m.acval env ψ 0 cvR.type
       = some (mkPisAV (d.recDataAV m ψ mm) (mutualConcAV d.k d.nAll (d.nIdxAt mm) mm))
   /-- the former's type reads as the member's telescope -/

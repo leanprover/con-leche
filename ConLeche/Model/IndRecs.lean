@@ -320,7 +320,7 @@ theorem indRecs (hμ : μ.verifiedChecks = true)
       obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hprovE
       rcases mS.ind_reps n cvR mI rP [] hfS T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hml
       · exact Or.inl ⟨cvT, caps, d, mm, hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
-          hd.swap hcg hac (fun _ hne _ => absurd rfl hne)⟩
+          hd.swap hcg hac (fun hne _ => absurd rfl hne)⟩
       · exact Or.inr (hml.swap hcg hac)
     rcases swapSh_find?_corr hswR n with heq | ⟨cv', mI', rP', rules', h₀, h₃, -⟩
     · exact hsame (by rw [← heq]; exact hf₃)
