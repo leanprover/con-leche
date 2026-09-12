@@ -71722,6 +71722,134 @@ untouched, or under a Π-telescope).  `ψ⁻¹_m` from the aux recursor
 `⟦R_m⟧` (`d_aux`'s `RecReadAt`) at motives `λ ı⃗ a, ⟦J_m Ds_m⟧ ı⃗` and
 minors rebuilding with the restored constructors.
 
+#### M.15 M-B′ step 3a LANDED: the copy ↔ datum ALIGNMENT (2026-09-12, session 3)
+
+**Ruling applied** (coordinator, session 3 brief): the alignment is
+recorded on the DATUM, with defaults, and discharged at the existing
+sites; `containerInfo?` is not changed.  What landed differs from the
+ruling's letter in one respect, for a reason: the datum ALREADY carries
+the names the kernel reads — `memberNames` (the motive order),
+`ctorsAll` with `mems` (the minor order, the names, the stored types,
+the field counts), `recNames` — and every one of them is looked up
+syntactically by existing clauses (`membersFound`, `RecReadAt`'s
+`find?`, `rules'.map ctor = memberCtorsAll`).  A second, "syntactic"
+copy of those names would have had to be proved equal to the first at
+every site and would have carried no fact the first does not.  What
+was MISSING was not names but four syntactic FACTS about them, and
+those are what the datum now records (all with trivial discharges at
+the concrete sites and pass-throughs at the transports):
+
+* **`RecReadAt` gains the MOTIVE WALK** (its last conjunct): the stored
+  recursor type strips its `nP` parameters to a body whose
+  `containerMembersGo` — the kernel's own walk, imported into
+  `Model/IndRep.lean` as a `public import` of `NestedParts` — returns
+  `(List.range kReal).map memberName` **in every environment that
+  stores the real members**.  The quantification over the environment
+  is the point: the walk is a MAXIMAL prefix, so a statement at one
+  environment would not transport (a bigger environment could accept
+  a longer prefix); stated over all of them it transports for free
+  (`IndRep.rulesRead_cons`, `IndRep.ext`, `IndRep.swap` just pass it
+  on), and it is provable because the walk stops at the FIRST MINOR
+  PREMISE, whose domain ends in an application of the motive rather
+  than a sort — a reason no environment can change.  That is also why
+  the clause is guarded exactly as `rulesRead` is: `rules ≠ []` gives
+  `nAll ≥ 1`, hence a minor to stop at (see the kernel finding below).
+* `membersLps`: every stored member's level parameters are the
+  clause's `cvT.levelParams` (`containerInfo?` compares them);
+  `memberNodup`: the real members' names are distinct (it requires
+  `names.Nodup`); `memsReal`: a constructor of the recursor's block
+  belongs to a real member iff it is in `ctorsA` (so a real member's
+  `memberCtorsAll` is read through `IndRep.ctors`' stored
+  `ctorInfo cA.1 nP cA.2`); `recNamesReal`: a real member's
+  `recNames t` is `(memberName t).str "rec"` (the name the kernel looks
+  up — `recNames` is a free field of the datum, and nothing else pinned
+  it for `t ≠ mm`).
+
+**The syntactic half** (`Verify/Inductives/ContainerWalk.lean`, on the
+build graph, imported by the two generator sites): `piBinders` through
+`stripPis`/`replacePisPw`; `containerMotiveMember?_motive` — the
+motive `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` as BOTH generators spell it
+(`structMotiveTyI` is `mutualMotiveTy` at `i = 0`; the family is
+`structFamI T lps nP nIdx i 0`, whose spine is exactly the kernel's
+`bvar (nIdx + i + nP - 1 - j)` / `bvar (nIdx - 1 - l)`) is recognised
+wherever `T` is stored; `mutualMinorTy_stops`/`structMinorTyR_stops` —
+a minor's leading telescope ends in `motive … (C p⃗ f⃗)`, an
+application, so `containerMotiveMember?` is `none` on it in ANY
+environment; `containerMembersGo_mutualMotivesPis` (induction over the
+formers, the fuel and the motive index) and the two top-level
+theorems `mutualRecTy_containerMembers` / `structRecTyR_containerMembers`
+(the type strips to the motives' body; at `ctors ≠ []` the walk is the
+formers' names).  Discharges: native (`FixStageRec`, from
+`checkNativeRec_shape`'s `structRecTyR … = some recTy` and
+`cvRa = ⟨_, _, recTy⟩`; `ctorsA ≠ []` from `rules ≠ []` through
+`sumRules_map_ctor`), mutual (`DeclMutual`: `hRecShape` now KEEPS
+`checkMutualRecTy_shape`'s generator equation, which it used to drop;
+`ctors4 ≠ []` through `hrulesShape`; the formers' names are the
+datum's by `hget4F`), `Eq` (by evaluation on the pinned `Eq.rec`: the
+one env-dependent step is `env'.find? Eq`, exposed by a `show` and
+closed by the hypothesis), `nP = 0` sites (vacuous; the pure clauses
+by `rfl`/`Nat.lt_one_iff`).
+
+**The alignment** (`Model/Inductives/ContainerRead.lean`, off-graph
+like the other nested modules until the wiring; built explicitly):
+`IndRep.containerInfo?_eq` — at a stored `T` with parameters whose
+recursor carries rules (and `T ≠ Quot`), `containerInfo? env T = some
+⟨d.nP, members⟩` with `members.length = kReal` and, for every real
+`t`, `members[t] = ⟨memberName t, cvT.levelParams, (the stored
+former's type), (memberCtorsAll t).map ⟨name, stored type, nFields⟩⟩`;
+`IndRep.containerInfo?_inv` is the consumer's form (off
+`containerInfo? env T = some ci`; the `Quot` exclusion falls out of
+the success).  The proof runs the kernel's `do` block by rewriting:
+the parameter count off the FIRST RULE's constructor record
+(`rules = r :: _`, `r.ctor ∈ memberCtors mm`, `IndRep.ctors`), the
+walk off `RecReadAt mm` at `env` itself (members stored by
+`membersFound`), `contains`/`Nodup` off `member`/`memReal`/
+`memberNodup`, and the members' `mapM` pointwise (`mapM_some_of`,
+`mapM_eq_some_map`): each member's `find?` (`membersFound`), its
+recursor at `(memberName t).str "rec"` (`RecReadAt t` through
+`recNamesReal`), `rPc = rP` (both `nP + k + nAll`), the level
+parameters (`membersLps`), and its constructors' records
+(`rules'.map ctor = memberCtorsAll t`, `memsReal`, `IndRep.ctors`).
+The last step is a `congrArg` at the `mapM` fact rather than a
+rewrite: `simp` normalises the goal's `bind`s under the binder in a
+form the hypothesis matches only up to unfolding.
+
+**KERNEL FINDING, docketed for the kernel lane (no accept-set change
+made).**  `containerMembersGo` can OVERSHOOT on a container with NO
+constructors: with no minor premise after the `k` motives, the walk
+continues into the major premise's index binders, and an index whose
+domain is itself of the motive shape — `∀ ı⃗ (t : C p⃗ ı⃗), Sort` with
+`C` a stored inductive at the block's own parameter spine — is
+accepted as a "member".  `containerInfo?` then requires `C.rec`'s rule
+prefix to equal `T.rec`'s and `C`'s level parameters to equal `T`'s
+and every constructor of `C` to have `T`'s parameter count, so the
+overshoot survives only for a `C` that is itself a zero-constructor
+block with `T`'s `nP` and level parameters; a nested occurrence of
+such a `T` would then be eliminated with a copy of `C` as well, and
+post-check (c) would REJECT the block (one recursor record more than
+the stream carries) where official — which reads `all` off the
+record — accepts.  No exporter produces the shape (a zero-constructor
+container with a sort-valued Π index whose last binder is another
+zero-constructor inductive at the parameter spine), and the model's
+clause is stated only under `rules ≠ []`, where it cannot happen; it
+is recorded because the recovery is the ONE place the kernel reads a
+group off syntax.  The cheap kernel-side closure, if wanted: at a
+zero-constructor `I`, cross-check every accepted member `C ≠ I` by
+walking `C.rec`'s motives too and requiring the same list (a
+consistent group is read identically off every member's recursor;
+an overshoot is not).
+
+**Docket for step 3b** (unchanged from §M.14 otherwise): the
+all-zero-constructor container group; the duplicate pins; and, found
+while stating the alignment, the SIBLING FORMERS' index telescopes —
+`d_J.ipss t` for `t ≠ mm` are what the tower's motive domains read,
+while the copy's former type is `instPis` of the sibling's STORED
+type (`mkCopy_inv`), whose reading `d_J` does not record for `t ≠ mm`
+(`former` is at `mm` only); the fold's typing needs them identified,
+so either `IndRep` gains a per-member `FormerData` (mutual has it for
+every member; native/`Eq` are `k = 1`) or the identification is read
+off `J.rec`'s well-typedness.  Decide at the start of 3b.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
