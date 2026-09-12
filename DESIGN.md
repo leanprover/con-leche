@@ -71370,6 +71370,17 @@ freshness back to the pre-block environment).  The theorem keeps its
 a `MutualParts` whose `toBlock` is the auxiliary block (propositionally,
 `List.map_map` + pair eta) and rewrites its core run along it.
 
+**Kernel lane's answer to §M.9's freshness question (coordinator,
+2026-09-12, landing on `inductives` from `cef59236`):** `copiesFresh env
+k st` — every generated copy's type name, its `<copy>.rec` and its
+constructors satisfy `env.find? n = none` at the pre-block environment
+— is an explicit conjunct of `checkNested_inv` and `DeclNestedRun`
+(`_tmp/nested-279k/INTERFACE.md` step 1a), and `mkUniqueName` follows
+official's `mk_unique_name` (a taken type-name candidate is skipped).
+So `declNested` takes the copies' name facts from the run relation
+itself; nothing is assumed.  Merge `inductives` before writing the
+skeleton.
+
 **M-B′ next** (the plan, so the next session starts cold): (1) `declNested`'s
 skeleton: from `DeclNestedRun`, `checkMutualCore … b none = .ok envAux`
 → `declMutualCoreRun_of` → `declMutualCore` at the aux `MutualParts`,
