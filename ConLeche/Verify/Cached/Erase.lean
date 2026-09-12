@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Cached.ExprNodes
 public import ConLeche.Verify.Shift
 
 public section

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Frontend.InModel.Kit
 public import ConLeche.Frontend.ProjRec
-public import ConLeche.Cached.ParsedC
 
 @[expose] public section
 

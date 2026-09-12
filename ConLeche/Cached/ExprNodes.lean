@@ -1,8 +1,7 @@
 module
 
 public import Std.Data.HashMap
-import ConLeche.Kernel.Expr
-public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Expr
 
 @[expose] public section
 

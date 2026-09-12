@@ -1,7 +1,7 @@
 module
 
 public import Std.Data.HashSet.Basic
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Kernel.Core
 
 @[expose] public section
 
@@ -49,7 +49,7 @@ and nothing else there.
 
 namespace ConLeche.Frontend
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-- The names a parsed declaration declares (the prelude index and the
 hoist's name index; basis blocks are indexed by kind instead). -/
