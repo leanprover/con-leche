@@ -352,6 +352,43 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
 
 /-! ## The converted declaration -/
 
+/-- The pinned-block install simulates its generic twin (task #293:
+three of `checkDeclC`'s arms share this body). -/
+theorem checkBasisDeclC_sim (hs : CSOK mode env s₀) (kind : BasisKind) :
+    SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
+      (checkBasisDeclC (mkFEnv env) kind)
+      (checkBasisDecl (m := FueledM) env kind) := by
+  show SimC mode env s₀ _ (do
+      if kind = .quotK then
+        unless (mkFEnv env).find? eqName = some eqA do
+          throw (.notImplemented
+            "quotient basis requires the pinned Eq basis")
+      kind.declsA.foldlM installBasisDeclF (mkFEnv env) :
+      CheckCM FEnv) _
+  unfold checkBasisDecl
+  dsimp only
+  rw [installBasisFoldF_pushC]
+  simp only [mkFEnv_find?]
+  by_cases hq : kind = .quotK
+  · simp only [if_pos hq]
+    by_cases he : env.find? eqName = some eqA
+    · simp only [if_pos he]
+      rw [← fueledM_bind_pure'
+        (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
+      refine SimC.bind (installBasisFoldS_sim _ env hs)
+        (fun s₁ e e' hs₁ hP => ?_)
+      obtain rfl : e = e' := hP
+      exact SimC.pure hs₁ ⟨rfl, rfl⟩
+    · simp only [if_neg he]
+      exact SimC.throw_bind
+  · simp only [if_neg hq]
+    rw [← fueledM_bind_pure'
+      (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
+    refine SimC.bind (installBasisFoldS_sim _ env hs)
+      (fun s₁ e e' hs₁ hP => ?_)
+    obtain rfl : e = e' := hP
+    exact SimC.pure hs₁ ⟨rfl, rfl⟩
+
 /-- The non-inductive branches of the converted-declaration driver
 `checkDeclC` simulate the generic `checkDecl` at the fueled families
 on the related declaration.  (There is no bracket in the cached driver
@@ -365,40 +402,29 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       (checkDecl mode (fueledOpsM mode) env pd) := by
   cases pd with
   | indDecl block nP => exact absurd rfl (hnotind _ _)
-  | basisDecl kind =>
-    show SimC mode env s₀ _ (do
-        if kind = .quotK then
-          unless (mkFEnv env).find? eqName = some eqA do
-            throw (.notImplemented
-              "quotient basis requires the pinned Eq basis")
-        kind.declsA.foldlM installBasisDeclF (mkFEnv env) :
-        CheckCM FEnv) _
-    unfold checkDecl
+  | basisDecl kind => exact checkBasisDeclC_sim hs kind
+  | quotDecl k cv =>
+    -- task #293: the `type` record installs the pinned block, the other
+    -- members install nothing, and a mismatch throws on both sides
+    unfold checkDeclC checkDecl
     dsimp only
-    rw [installBasisFoldF_pushC]
-    simp only [mkFEnv_find?]
-    by_cases hq : kind = .quotK
-    · simp only [if_pos hq]
-      by_cases he : env.find? eqName = some eqA
-      · simp only [if_pos he]
-        rw [← fueledM_bind_pure'
-          (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
-        refine SimC.bind (installBasisFoldS_sim _ env hs)
-          (fun s₁ e e' hs₁ hP => ?_)
-        obtain rfl : e = e' := hP
-        exact SimC.pure hs₁ ⟨rfl, rfl⟩
-      · simp only [if_neg he]
-        exact SimC.throw_bind
-    · simp only [if_neg hq]
-      rw [← fueledM_bind_pure'
-        (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
-      refine SimC.bind (installBasisFoldS_sim _ env hs)
-        (fun s₁ e e' hs₁ hP => ?_)
-      obtain rfl : e = e' := hP
-      exact SimC.pure hs₁ ⟨rfl, rfl⟩
+    by_cases hp : quotPinHit k cv = true
+    · simp only [if_pos hp]
+      cases k
+      · exact checkBasisDeclC_sim hs .quotK
+      all_goals exact SimC.pure hs ⟨rfl, rfl⟩
+    · simp only [if_neg hp]
+      exact SimC.throw
   | axiomDecl cv =>
     unfold checkDeclC checkDecl
     dsimp only
+    -- task #293: `Quot.sound` is compared with the pin on both sides
+    by_cases hqs : cv.name = quotSoundName
+    · simp only [if_pos hqs]
+      split
+      · exact SimC.pure hs ⟨rfl, rfl⟩
+      · exact SimC.throw
+    simp only [if_neg hqs]
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
@@ -601,26 +627,44 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     exact hF
   cases pd with
   | indDecl block nP =>
-    -- the declared parameter count (task #228): a `false` throws on
+    -- task #293: a block the fold recognises as one of the five pinned
+    -- ones installs the pin, on both sides; the declared parameter
+    -- count (task #228) below it is a guard whose `false` throws on
     -- both sides, so only the passing branch reaches the bridge
-    have hd : (if indParamsOk nP block = true then
-        (match nativeParts? nP block with
-          | some p => checkNativeS mode (mkFEnv env) p
-          | none => checkIndDeclSF mode (mkFEnv env) block)
-        else throw (CheckError.invalid "number of parameters mismatch")) s₀.flushed =
-        .ok (fe', s') := h
-    by_cases hok : indParamsOk nP block = true
-    · rw [if_pos hok] at hd
-      obtain ⟨hres', hfe, F, hF⟩ :=
-        checkModeledOrNativeSF_run hμ henv hok hres.flushed hd
-      exact ⟨hres', hfe, F, hF⟩
-    · rw [if_neg hok] at hd
-      exact nomatch hd
+    have hd : (match basisPinHit block with
+        | some kind => checkBasisDeclC (mkFEnv env) kind
+        | none =>
+          if indParamsOk nP block = true then
+            (match nativeParts? nP block with
+              | some p => checkNativeS mode (mkFEnv env) p
+              | none => checkIndDeclSF mode (mkFEnv env) block)
+          else throw (CheckError.invalid "number of parameters mismatch"))
+        s₀.flushed = .ok (fe', s') := h
+    cases hpin : basisPinHit block with
+    | some kind =>
+      rw [hpin] at hd
+      obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
+        (checkBasisDeclC_sim hcsok kind) fe' s' hd
+      refine ⟨hs'.residue, hmk, F, ?_⟩
+      show checkDecl mode (fueledOps mode F) env (.indDecl block nP) = _
+      simp only [checkDecl, hpin]
+      rw [← checkBasisDecl_datF, henvEq]
+      exact hF
+    | none =>
+      rw [hpin] at hd
+      by_cases hok : indParamsOk nP block = true
+      · rw [if_pos hok] at hd
+        obtain ⟨hres', hfe, F, hF⟩ :=
+          checkModeledOrNativeSF_run hμ henv hpin hok hres.flushed hd
+        exact ⟨hres', hfe, F, hF⟩
+      · rw [if_neg hok] at hd
+        exact nomatch hd
   | defnDecl cv value hint => exact main (fun _ _ h => Declaration.noConfusion h)
   | thmDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
   | opaqueDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
   | axiomDecl cv => exact main (fun _ _ h => Declaration.noConfusion h)
   | basisDecl kind => exact main (fun _ _ h => Declaration.noConfusion h)
+  | quotDecl k cv => exact main (fun _ _ h => Declaration.noConfusion h)
 
 end WalksP
 

@@ -36,10 +36,10 @@ dependency-closed set moved earlier is still a valid stream — every
 record still follows everything it references, and the moved records
 see exactly their own closure (plus the prelude) — so the checker's
 verdict on a valid stream is the official kernel's, whatever order the
-export chose.  Like the prelude and the projection rewrite
-(`ConLeche/Frontend/ProjRec.lean`), this is a pure transformation of the
-parsed list below the verified fold: nothing in the kernel or the
-proofs knows it happened.
+export chose.  Like the prelude prepend it sits beside, this is a pure transformation
+of the parsed list below the verified fold — a step of
+`preparePrelude` (`ConLeche/Frontend/Prepare.lean`), not of the parse:
+nothing in the kernel or the proofs knows it happened.
 
 The pass is a no-op — the array is returned as it is, no sort — on
 every stream whose ground precedes its operations (the toolchain's own
@@ -50,13 +50,6 @@ and nothing else there.
 namespace ConLeche.Frontend
 
 open ConLeche
-
-/-- The names a parsed declaration declares (the prelude index and the
-hoist's name index; basis blocks are indexed by kind instead). -/
-def _root_.ConLeche.Declaration.names : Declaration → List Name
-  | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
-  | .indDecl block _ => block.map (·.name)
-  | .basisDecl _ => []
 
 /-- The constants an `Expr` DAG references, each node visited once
 (`Std.HashSet Expr`: pointer-first equality, computed hash). -/
@@ -99,7 +92,7 @@ def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
         | .recInfo _ _ _ rules =>
           rules.foldl (fun (seen, acc) r => usedConstsGo seen acc r.rhs) (seen, acc)
         | _ => (seen, acc)).2
-  | .basisDecl _ => #[]
+  | .basisDecl _ | .quotDecl .. => #[]
 
 /-- The pinned `Nat` operation records whose ground the pass serves:
 the pin-certified WF operations and the structural ones (whose
@@ -110,10 +103,11 @@ def isNatOpRecord : Declaration → Option Name
     else none
   | _ => none
 
-/-- **The hoist.**  Returns the reordered records and the names of the
-records moved (empty, and the array untouched, when no operation's
-ground is declared after it). -/
-def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name := Id.run do
+/-- **Which records must move, and how far**: the map from a record's
+index to the earliest pinned-operation index it must precede.  Empty —
+and then the hoist is the identity — on every stream whose ground
+precedes its operations. -/
+def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}
@@ -139,12 +133,22 @@ def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name 
         for n in ds[k]!.usedConsts do
           if let some m := idx[n]? then
             if m > i && m != k then stack := stack.push m
-  if target.isEmpty then return (ds, #[])
-  -- the order: a moved record sorts at its target, just ahead of the
-  -- operation record there (key `(t, 0, k)` against the operation's
-  -- `(t, 1, t)`); everything else keeps its position (`(k, 1, k)`).
-  -- Moved records with the same target keep their relative order,
-  -- which is dependency order.
+  return target
+
+/-- **The reorder**: a moved record sorts at its target, just ahead of
+the operation record there (key `(t, 0, k)` against the operation's
+`(t, 1, t)`); everything else keeps its position (`(k, 1, k)`).  Moved
+records with the same target keep their relative order, which is
+dependency order.
+
+The sort is `List.mergeSort` and not `Array.qsort` for one reason: the
+result is a PERMUTATION of the input, and that is a property the
+prepared list's shape lemma states (`mergeSort_perm`,
+`ConLeche/Verify/Frontend/Prepare.lean`).  The keys are pairwise
+distinct (each carries its own index), so the order is the same one
+`qsort` produced. -/
+def applyHoist (ds : Array Declaration) (target : Std.HashMap Nat Nat) :
+    Array Declaration × Array Name :=
   let key : Nat → Nat × Nat × Nat := fun k =>
     match target[k]? with
     | some t => (t, 0, k)
@@ -153,8 +157,15 @@ def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name 
     let (ta, sa, ka) := key a
     let (tb, sb, kb) := key b
     ta < tb || (ta == tb && (sa < sb || (sa == sb && ka < kb)))
-  let order := (Array.range ds.size).qsort lt
+  let order := (List.range ds.size).mergeSort (fun a b => !lt b a)
   let moved := (Array.range ds.size).filter (target.contains ·)
-  return (order.map (ds[·]!), moved.flatMap fun k => (ds[k]!.names).toArray)
+  ((order.map (ds[·]!)).toArray, moved.flatMap fun k => (ds[k]!.names).toArray)
+
+/-- **The hoist.**  Returns the reordered records and the names of the
+records moved (empty, and the array untouched, when no operation's
+ground is declared after it). -/
+def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name :=
+  let target := hoistTargets ds
+  if target.isEmpty then (ds, #[]) else applyHoist ds target
 
 end ConLeche.Frontend

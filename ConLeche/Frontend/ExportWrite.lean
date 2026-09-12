@@ -171,6 +171,9 @@ def decl (w : ExportWriter) : Declaration → ExportWriter
     let (ti, w) := w.expr cv.type
     w.emit s!"\{\"axiom\":\{\"isUnsafe\":false,\"levelParams\":{jlist ls},\"name\":{ni},\"type\":{ti}}}"
   | .basisDecl _ => w
+  -- only the in-process modeller's generated records are ever written,
+  -- and it generates no quotient record
+  | .quotDecl _ _ => w
   | .indDecl block nPd =>
     let types := block.filterMap fun ci => match ci with
       | .indInfo cv _ => some cv | _ => none

@@ -53,10 +53,10 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
 /-- The whole input side of a run: the parsed declarations, read
 straight from the file.  Since task #207 there is nothing else —
 no preprocessor detection, no spawn, no pipe. -/
-def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
+def parseInput (file : String) (inModel : Bool) :
     IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  Frontend.parseExportStreamD file prelude inModel census
+  Frontend.parseExportStreamD file inModel census
 
 /-- `declPName` for the direct-parse `Declaration` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
@@ -495,11 +495,12 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       | .verified => "--verified"
       | .trusted => "--trusted"
     -- THE BUILT-IN PRELUDE (task #191, `ConLeche/Frontend/Prelude.lean`):
-    -- the pinned basis blocks and `Bool`, parsed from the committed
-    -- `pins/<toolchain>.prelude.ndjson` and PREPENDED to every parsed
-    -- stream, so the fold installs them first and unconditionally; a
-    -- stream's own copy of one is dropped when identical and declines
-    -- the run when different.  A prelude that does not parse is a
+    -- the pinned basis blocks, `Bool` and `And`, parsed from the
+    -- committed `pins/<toolchain>.prelude.ndjson`.  `preparePrelude`
+    -- (task #293) PREPENDS them to the parsed stream, so the fold
+    -- installs them first and unconditionally; a stream's own copy of
+    -- one is dropped there when identical, and the fold declines the
+    -- run when it differs.  A prelude that does not parse is a
     -- corrupted build, reported before any input is read.
     let prelude ← match Frontend.builtinPreludeE with
       | .ok p => pure p
@@ -527,7 +528,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- writes the raw input with the generated records spliced in (the
     -- generator's debug gate).
     let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
-    match ← parseInput file prelude inModel with
+    match ← parseInput file inModel with
     | .error (.unsupported what) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -541,8 +542,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
-    | .ok ⟨decls, projRewrites, preludeCount,
-           preludeDropped, hoisted, inModelled, genRecords, genOwner,
+    | .ok ⟨parsed, projRewrites, inModelled, genRecords, genOwner,
            inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
@@ -568,11 +568,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen
           IO.eprintln s!"con-leche: in-process models dumped to {out}"
-      -- `decls` = the prelude's `preludeCount` records, then the
-      -- stream's (minus `preludeDropped` identical copies of prelude
-      -- records); fold positions count from the prelude's first record,
-      -- and the stream's accepted-record count is
-      -- `decls.size - preludeCount + preludeDropped`
+      -- **PREPARE** (task #293, `ConLeche/Frontend/Prepare.lean`): the
+      -- parsed list is the FILE's records (plus the in-process
+      -- modeller's); what the fold runs over is `preparePrelude` of it —
+      -- the built-in prelude's records, then the stream's, recognised,
+      -- deduped against the prelude and ground-hoisted.  Fold positions
+      -- count from the prelude's first record; the VERDICT's count is
+      -- the file's own (`parsed.size - genRecords`), which no step
+      -- below changes.
+      let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed.toList
       -- the projection-function rewrite's receipt (2026-09-06,
       -- `ConLeche/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
@@ -606,22 +610,22 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- changes nothing about the proof, so there is no second loop.
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
-      -- NOT the stream's declaration-record index.  The parse folds
-      -- the four `quot` records into one `basisDecl` and drops a few
-      -- others, and — since task #200 — the in-process modeller ADDS
-      -- records the file does not contain, so the fold can run AHEAD
-      -- of the file's index.
-      -- Measured on raw `init-full`: 53 093 declaration records in the
-      -- file against 53 119 fold positions, the +26 being
-      -- `Lean.Syntax`'s generated model family (30 records) less the
-      -- 4 records the parse folds away.  (It was +25 until task #292:
-      -- the `sorryAx` axiom record is no longer dropped at parse — the
-      -- fold owns it now, and installs nothing for it.)  Since task #219 the generated
-      -- records are subtracted from the VERDICT's count (they are
-      -- declarations of the fold, never records of the file) and a
-      -- generated record that fails is named with its block; the fold
-      -- POSITION still counts them.  The declaration NAME on the line
-      -- is the portable handle.
+      -- NOT the file's declaration-record index.  The prepared list
+      -- begins with the built-in prelude's records, drops the stream's
+      -- identical copies of them, and — since task #200 — carries the
+      -- records the in-process modeller ADDS, which the file does not
+      -- contain.
+      -- Measured on raw `init-full` (task #293): 53 093 declaration
+      -- records in the file against 53 128 fold positions — the
+      -- prelude's 9 records and `Lean.Syntax`'s generated model family
+      -- (30 records), less the 4 stream records dropped as identical
+      -- copies of prelude records (`Nat`, `Eq`, `PUnit` and the four
+      -- `#QUOT` records, which are one `basisDecl .quotK` between
+      -- them).  Since task #219 the generated records are subtracted
+      -- from the VERDICT's count (they are declarations of the fold,
+      -- never records of the file) and a generated record that fails is
+      -- named with its block; the fold POSITION still counts them.  The
+      -- declaration NAME on the line is the portable handle.
       -- The heartbeat's first line (`--progress`): the parse is done,
       -- and the fold is about to start on this many records.  The
       -- install and check phases print their own lines
@@ -629,9 +633,9 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: parse done: {decls.size} fold records — \
-          {decls.size - preludeCount} declarations after the {preludeCount} \
-          built-in prelude records ({preludeDropped} stream copies of prelude \
-          records dropped) t={ConLeche.Cached.msSecs (tParse - t0)}s \
+          the file's {parsed.size} ({genRecords} of them generated in-process), \
+          {synthesised} built-in prelude records synthesised \
+          t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
@@ -639,13 +643,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         decls.toList
       match verdict with
       | .ok _ =>
-        -- **The headline number is the STREAM's declaration-record
-        -- count** (task #191 arithmetic, task #187 unit): the records
-        -- the fold consumed minus the built-in prelude's, plus the
-        -- stream records dropped as identical copies of prelude
-        -- records (they ARE installed — from the prelude).  So a
+        -- **The headline number is the FILE's declaration-record
+        -- count** (task #187 unit; task #293 arithmetic): the records
+        -- the PARSE produced, which are the file's own, less the
+        -- records the in-process modeller generated.  Nothing the
+        -- prepare step does — prepending the prelude, dropping a
+        -- stream copy of one of its records, hoisting — moves it: a
         -- stream re-declaring `Bool` identically reports the same
-        -- count as before the prelude existed.
+        -- count as before the prelude existed, and a stream's five
+        -- quotient records count as the five records they are.
         --
         -- What it replaced was `env.consts.length`, the number of
         -- environment CONSTANTS — an inductive block's type former,
@@ -669,7 +675,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- ... and minus the records the in-process modeller generated
         -- (task #219): they are checked as declarations, but they are
         -- not in the file, and the headline number is the FILE's.
-        let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
+        let streamRecords := parsed.size - genRecords
         IO.println s!"con-leche: accepted {streamRecords} \
           declarations ({modeTag})"
         return 0
@@ -682,14 +688,11 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- accepted prefix, and a lie waiting to happen if the two
         -- runs ever disagreed.
         --
-        -- `i` is the FOLD position.  The stream's
-        -- declaration-record index is NOT a fixed offset from it —
-        -- measured, 2026-09-07: the parse folds the four `quot`
-        -- records into one `basisDecl` and drops a few others, so
-        -- `init-full` runs at offset 0 for most of the stream and
-        -- ends 5 short (54 351 declaration records, 54 346 fold
-        -- positions), while the Mathlib stream was measured at +4.
-        -- The declaration NAME is the
+        -- `i` is the FOLD position.  The file's declaration-record
+        -- index is NOT a fixed offset from it: the prepared list
+        -- starts with the prelude's records, drops the stream's
+        -- identical copies of them and carries the modeller's
+        -- generated ones (see above).  The declaration NAME is the
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
         let loc := if h : i < decls.size then
@@ -873,12 +876,13 @@ def usage : String := String.intercalate "\n" [
   "                    tests/inmodel.sh).",
   "",
 
-  "THE VERDICT LINE'S COUNT (task #187).  It counts the STREAM's",
-  "accepted declaration RECORDS: one per def/theorem/opaque/axiom/",
-  "inductive record the stream declared and the fold consumed.  The",
-  "built-in prelude's own records are not counted, and a stream record",
-  "dropped as an identical copy of a prelude record is (it is installed,",
-  "from the prelude).  That count is a property of the INPUT.  The",
+  "THE VERDICT LINE'S COUNT (task #187).  It counts the FILE's accepted",
+  "declaration RECORDS: one per def/theorem/opaque/axiom/inductive/quot",
+  "record the file declares.  The built-in prelude's own records are not",
+  "counted, and neither are the records the in-process modeller",
+  "generates; a stream record dropped as an identical copy of a prelude",
+  "record IS counted (it is installed, from the prelude).  That count is",
+  "a property of the INPUT.  The",
   "number of environment CONSTANTS is not: an inductive record installs",
   "several constants (type former, constructors, recursor, projection",
   "table), so it moves when the representation moves.  NB the official",
@@ -902,19 +906,20 @@ def usage : String := String.intercalate "\n" [
   "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",
   "unconditionally, the checker's own little prelude — the six pinned",
   "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
-  "Bool block (pins/<toolchain>.prelude.ndjson, embedded at build time;",
-  "ConLeche/Frontend/Prelude.lean) — so the pin-certified Nat operations",
-  "find their ground whatever order the export chose.  A stream's own",
-  "copy of a prelude declaration is dropped when it is the same",
-  "declaration and DECLINES the run (exit 2, naming it) when it differs;",
-  "a mismatching basis block still REJECTS (reserved name), as before.",
-  "A pinned operation's stream-certified structural ground (Nat.ble,",
-  "Nat.sub, Nat.mul — spelled into the certificate statements, not",
-  "reachable from the operation's own value) is HOISTED ahead of the",
-  "operation when the stream declares it later (ConLeche/Frontend/",
-  "NatOpGround.lean): a dependency-closed reorder of the parsed list,",
-  "reported on stderr.  Both are pure transformations of the parsed",
-  "list below the verified fold; the main theorem is about the fold",
+  "Bool and And blocks (pins/<toolchain>.prelude.ndjson, embedded at",
+  "build time; ConLeche/Frontend/Prelude.lean) — so the pin-certified",
+  "Nat operations find their ground whatever order the export chose.  A",
+  "stream's own copy of a prelude declaration is dropped when it is the",
+  "same declaration, and the fold DECLINES the run (exit 2, naming it)",
+  "when it differs; a mismatching basis block still REJECTS (reserved",
+  "name), as before.  A pinned operation's stream-certified structural",
+  "ground (Nat.ble, Nat.sub, Nat.mul — spelled into the certificate",
+  "statements, not reachable from the operation's own value) is HOISTED",
+  "ahead of the operation when the stream declares it later",
+  "(ConLeche/Frontend/NatOpGround.lean): a dependency-closed reorder.",
+  "All of this is preparePrelude (ConLeche/Frontend/Prepare.lean), one",
+  "pure total function from the file's records to the fold's input; the",
+  "parse itself only decodes, and the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
   "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",

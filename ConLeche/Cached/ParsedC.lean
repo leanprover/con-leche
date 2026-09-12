@@ -138,6 +138,14 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   pure (fe.push (.axiomInfo cvA))
 
+/-- `checkBasisDecl`'s cached twin: the body the three records that
+install a pinned basis block share (task #293). -/
+def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
+  if kind = .quotK then
+    unless fe.find? eqName = some eqA do
+      throw (.notImplemented "quotient basis requires the pinned Eq basis")
+  kind.declsA.foldlM installBasisDeclF fe
+
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
 def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
@@ -183,35 +191,47 @@ def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
       pure fe2
     else
       checkOpaqueValC mode fe cvA jty value
-  | .axiomDecl cv => do
-    let (cvA, jty) ← checkConstantValC mode fe cv
-    if stdAxiomOkF fe cvA then do
-      recordCConst cvA.name cvA.type jty none
-      pure (fe.push (.axiomInfo cvA))
-    else if cvA.name = trustCompilerName then
-      if trustCompilerOkF fe cvA then do
+  | .axiomDecl cv =>
+    -- `checkDecl`'s twin (task #293): `Quot.sound` is the pinned
+    -- quotient block's own record — compared with the pin, installing
+    -- nothing, declining on a mismatch.
+    if cv.name = quotSoundName then
+      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
+        pure fe
+      else
+        throw (.notImplemented "quotient soundness axiom mismatch"))
+    else do
+      let (cvA, jty) ← checkConstantValC mode fe cv
+      if stdAxiomOkF fe cvA then do
         recordCConst cvA.name cvA.type jty none
         pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cv.name})")
-    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-      if ofReduceAxOkF fe cvA then do
-        recordCConst cvA.name cvA.type jty none
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cv.name})")
-    else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if cvA.name = sorryAxName then
-      pure fe
-    else
-      throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => do
-    if kind = .quotK then
-      unless fe.find? eqName = some eqA do
-        throw (.notImplemented "quotient basis requires the pinned Eq basis")
-    kind.declsA.foldlM installBasisDeclF fe
+      else if cvA.name = trustCompilerName then
+        if trustCompilerOkF fe cvA then do
+          recordCConst cvA.name cvA.type jty none
+          pure (fe.push (.axiomInfo cvA))
+        else throw (.notImplemented
+          s!"unsupported Lean.trustCompiler shape ({cv.name})")
+      else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+        if ofReduceAxOkF fe cvA then do
+          recordCConst cvA.name cvA.type jty none
+          pure (fe.push (.axiomInfo cvA))
+        else throw (.notImplemented
+          s!"unsupported compiler-trust axiom environment ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else if cvA.name = sorryAxName then
+        pure fe
+      else
+        throw (.notImplemented s!"non-standard axiom ({cv.name})")
+  | .basisDecl kind => checkBasisDeclC fe kind
   | .indDecl block nP =>
+    -- **THE PINNED BASIS BLOCKS** (`checkDecl`'s twin, task #293): the
+    -- stream's own `Nat` block, recognised here and installed as the
+    -- pin; a block under a pinned name that does not match falls
+    -- through and the reserved-name check rejects it.
+    match basisPinHit block with
+    | some kind => checkBasisDeclC fe kind
+    | none =>
     -- TASK #228: the stream's DECLARED parameter count, checked before
     -- the dispatch and for both routes (`checkDecl`'s twin).
     if indParamsOk nP block then
@@ -222,6 +242,17 @@ def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
       | some p => checkNativeS mode fe p
       | none => checkIndDeclSF mode fe block
     else throw (.invalid "number of parameters mismatch")
+  | .quotDecl k cv =>
+    -- `checkDecl`'s twin (task #293): the `type` record installs the
+    -- pinned block whole, the other members install nothing, and a
+    -- record that does not match its pin is a positive decline.
+    if quotPinHit k cv then
+      (match k with
+       | .type => checkBasisDeclC fe .quotK
+       | _ => pure fe)
+    else throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -238,6 +269,7 @@ def declCLabel : Declaration → String
   | .axiomDecl cv => s!"axiom {cv.name}"
   | .indDecl b _ => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
   | .basisDecl k => s!"basis block {repr k}"
+  | .quotDecl _ cv => s!"quot {cv.name}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/
 def checkDeclStepC (fe : FEnv) (pd : Declaration) : CheckCM FEnv := do

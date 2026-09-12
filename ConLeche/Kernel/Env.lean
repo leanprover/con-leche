@@ -495,6 +495,24 @@ inductive ConstantInfo where
   | projInfo (tbl : ProjTable)
   deriving DecidableEq, Repr, Inhabited
 
+/-- **Which of the four quotient constants a `#QUOT` record declares**
+(task #293): the `kind` field of the export record, decoded.  The
+order is the pinned block's (`quotBasis`): `Quot`, `Quot.mk`,
+`Quot.lift`, `Quot.ind`. -/
+inductive QuotKind where
+  | type | ctor | lift | ind
+  /-- `Quot.sound`, which the export writes as an ordinary axiom record
+  beside the four `#QUOT` ones: not a `kind` the decoder ever reads, but
+  a slot of the pinned block, and the kind `preparePrelude` gives that
+  record when it is not the pinned one. -/
+  | sound
+  deriving DecidableEq, Repr, Inhabited
+
+/-- The quotient constant's position in the pinned block
+(`BasisKind.quotK.decls`). -/
+def QuotKind.slot : QuotKind → Nat
+  | .type => 0 | .ctor => 1 | .lift => 2 | .ind => 3 | .sound => 4
+
 /-- A declaration presented to the checker. -/
 inductive Declaration where
   | axiomDecl (val : ConstantVal)
@@ -509,6 +527,15 @@ inductive Declaration where
   official still unfolds theorems until
   https://github.com/leanprover/lean4/pull/14896.) -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
+  /-- **The fold's own record for "install the pinned basis block"**
+  (task #293).  No frontend function produces one: the decoder emits
+  the file's records, `preparePrelude` reorders them, and it is
+  `checkDecl`'s `.indDecl` arm that RECOGNISES a block as one of the
+  five pinned ones (`basisPinHit`, up to `ConstantInfo.canon`) and its
+  `.quotDecl` arm that recognises the quotient package, both of which
+  install through this kind.  It stays a constructor of `Declaration`
+  because the install and every proof about it are written over the
+  kind. -/
   | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
@@ -525,6 +552,21 @@ inductive Declaration where
   count was read OFF the constructors, which agrees on every valid
   stream and cannot see a declaration that lies. -/
   | indDecl (block : List ConstantInfo) (numParams : Nat)
+  /-- **A quotient declaration record, as the file declares it** (task
+  #293).  `lean4export` writes the quotient package as four records —
+  one per constant, each tagged with its `kind` — and the decoder emits
+  one `quotDecl` per record: the constant the file declares and the
+  slot it declares it at, and nothing else.  It mirrors official's
+  `Declaration.quotDecl`, which is likewise the record's own kind and
+  not a basis decision.
+
+  What reaches the FOLD under this constructor is a quotient record
+  that is **not** the pinned package: `preparePrelude`
+  (`ConLeche/Frontend/Prepare.lean`) retags a record matching its pin
+  to `basisDecl .quotK`, so `checkDecl`'s arm here is the mismatch —
+  a positively detected unsupported feature, the decline the parser
+  used to issue. -/
+  | quotDecl (kind : QuotKind) (val : ConstantVal)
   deriving DecidableEq, Repr, Inhabited
 
 namespace Declaration
@@ -532,6 +574,7 @@ namespace Declaration
 /-- The name of a non-basis declaration (basis blocks install several). -/
 def name : Declaration → Name
   | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
+  | .quotDecl _ v => v.name
   | .basisDecl _ | .indDecl _ _ => .anonymous
 
 end Declaration
@@ -620,6 +663,23 @@ def isTowerEntry : ConstantInfo → Bool
 def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo
+
+namespace Declaration
+
+/-- **The names a declaration record declares**: the hoist's name index
+and `preparePrelude`'s lookup of the stream's own copy of a prelude
+declaration read it (`ConLeche/Frontend/{NatOpGround,Prepare}.lean`).
+A quotient record declares the one constant it carries — the other
+three constants of the pinned block are other records' — and a
+`basisDecl`, which no frontend function produces (it is the fold's own
+record for "install the pinned block"), declares the pin's. -/
+def names : Declaration → List Name
+  | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
+  | .quotDecl _ cv => [cv.name]
+  | .indDecl block _ => block.map (·.name)
+  | .basisDecl _ => []
+
+end Declaration
 
 /-- The global environment: the list of constants accepted so far, newest
 first.  Names are unique (the checker rejects duplicates), so the order is
