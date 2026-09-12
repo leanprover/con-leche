@@ -1,7 +1,6 @@
 module
 
-import ConLeche.Kernel.Env
-public import ConLeche.Kernel.StdAxioms
+public import ConLeche.Kernel.Env
 
 @[expose] public section
 
