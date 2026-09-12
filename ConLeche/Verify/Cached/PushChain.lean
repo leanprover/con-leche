@@ -635,7 +635,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     obtain ⟨hp, hfr⟩ := hp
     simp only []
     have hfrA : fe.find? cvA.name = none := by rw [hp]; exact hfr
-    by_cases ht : toleratedAxiomNames.contains cvA.name = true
+    by_cases ht : cvA.name = sorryAxName
     · rw [if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
         if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
         if_neg (tolerated_ne_std ht), if_pos ht]

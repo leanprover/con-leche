@@ -334,34 +334,35 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds, _, _, _, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
+  | .ok ⟨ds, _, _, _, _, _, _, _, _, _⟩ =>
     (ConLeche.Cached.checkDecls .verified ds.toList).toBool
   | .error _ => false
 
-/-! ## Frontend: taint skip-and-continue
+/-! ## Frontend: `sorryAx` is the fold's
 
-Uses of a tolerated axiom are never accepted, but no longer stop the
-stream (user directive 2026-08-24): the tainted declaration is skipped
-— absent from the parsed declarations, so it can never be checked or
-installed — its name is tainted so transitive users skip too, and the
-rest of the stream is parsed and checked as usual.  The driver turns a
-nonempty `taintSkipped` into the final decline. -/
+The parser forwards every declaration record, the `sorryAx` axiom
+record included (task #292, user ruling: *"it should not be the parser
+that drops sorryAx"*).  The fold checks that record's type, installs
+NOTHING for it — there is no set model for it — and DECLINES at the
+first record that uses the name.  What stood here before was a
+read-only taint pre-scan that dropped the axiom record and every
+declaration reaching it, transitively, and turned a non-empty skip list
+into a decline at the END of the run. -/
 
-private def sorryAxName : Name := Name.anonymous |>.str "sorryAx"
 private def usesAxName : Name := Name.anonymous |>.str "usesAx"
 private def usesUseName : Name := Name.anonymous |>.str "usesUse"
 private def afterName : Name := Name.anonymous |>.str "after"
 
-/-- `axiom sorryAx : ∀ (p : Prop), p` (tolerated record, dropped
-unchecked), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a use:
-skipped), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a transitive
-use: skipped), `def after : Type := Prop` (checkable, kept). -/
-private def taintSkipExport : String := String.intercalate "\n" [
+/-- `axiom sorryAx : ∀ (p : Prop), p` (tolerated record: checked,
+installs nothing), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a
+use: declines), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a
+transitive use), `def after : Type := Prop`. -/
+private def sorryAxExport : String := String.intercalate "\n" [
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"sorryAx\"}}",
   "{\"in\":2,\"str\":{\"pre\":0,\"str\":\"p\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"usesAx\"}}",
@@ -379,25 +380,30 @@ private def taintSkipExport : String := String.intercalate "\n" [
   "{\"ie\":6,\"sort\":1}",
   "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":6,\"value\":1,\"safety\":\"safe\"}}"]
 
--- The tolerated axiom record and both uses are gone from the parsed
--- declarations; the later checkable declaration survives …
-#guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, sk, _, _, _, _, _, _, _, _, _⟩ =>
-    ds.map declCName == #[afterName] &&
-    sk == #[(usesAxName, sorryAxName), (usesUseName, sorryAxName)]
+-- EVERY record reaches the fold now — the axiom's, both uses', and
+-- the independent definition's.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    r.decls.map declCName == #[sorryAxName, usesAxName, usesUseName, afterName]
   | .error _ => false
 
--- … and the shipped driver accepts what remains (nothing tainted can
--- reach install: it is absent from the declarations).
-#guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, _, _, _, _, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDecls .verified ds.toList).toBool
+-- The fold DECLINES, at the use: the axiom record installs nothing, so
+-- `usesAx`'s value mentions a constant no environment holds, and the
+-- name it mentions is `sorryAx`.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    match ConLeche.Cached.checkDecls .verified r.decls.toList with
+    | .error (.notImplemented _, _) => true
+    | _ => false
   | .error _ => false
 
--- A stream without tolerated-axiom uses records no skips.
-#guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨_, sk, _, _, _, _, _, _, _, _, _⟩ => sk.isEmpty
+-- The axiom record ALONE is accepted (it installs nothing): the
+-- prefix up to the first use folds clean.
+#guard match Frontend.parseExportD sorryAxExport with
+  | .ok r =>
+    (ConLeche.Cached.checkDecls .verified (r.decls.toList.take 1)).toBool
   | .error _ => false
+
 
 /-! ## Level algebra -/
 

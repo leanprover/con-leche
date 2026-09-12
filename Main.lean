@@ -95,8 +95,8 @@ back, one frame per declaration.
 so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
 line the declaration it died in.  The index is the FOLD position, not
 the stream's record index: the parse folds the basis and `quot` blocks
-and drops taint-skipped records, so the two drift apart by a
-stream-dependent amount.  Calibrate by NAME. -/
+into single records and generates the in-process models, so the two
+drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
     (ds : List ConLeche.Declaration)
@@ -541,7 +541,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
-    | .ok ⟨decls, taintSkipped, projRewrites, preludeCount,
+    | .ok ⟨decls, projRewrites, preludeCount,
            preludeDropped, hoisted, inModelled, genRecords, genOwner,
            inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
@@ -590,19 +590,6 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         IO.eprintln s!"con-leche: {hoisted.size} declarations hoisted ahead of \
           the pinned Nat operations they ground: \
           {String.intercalate ", " (hoisted.toList.map toString)}"
-      -- Taint-skip verdict (user directive 2026-08-24): declarations
-      -- using tolerated axioms were *skipped* during parsing (they
-      -- are absent from `decls`, so nothing tainted can be checked
-      -- or installed) and the rest of the stream was checked; a
-      -- clean run over a stream with skips is still a decline —
-      -- uses of tolerated axioms are never accepted.
-      -- On a stream that also FAILED, the skips are reported beside
-      -- the failure and the failure's own exit code stands.  (The
-      -- accepting case is the arm below: it never prints "accepted".)
-      let taintNote : IO Unit := do
-        unless taintSkipped.isEmpty do
-          IO.eprintln s!"con-leche: declined: \
-            {Frontend.taintSummary taintSkipped} ({modeTag})"
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
@@ -621,13 +608,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the stream's declaration-record index.  The parse folds
       -- the four `quot` records into one `basisDecl` and drops a few
-      -- others, a taint-skipping stream loses more, and — since task
-      -- #200 — the in-process modeller ADDS records the file does not
-      -- contain, so the fold can run AHEAD of the file's index.
+      -- others, and — since task #200 — the in-process modeller ADDS
+      -- records the file does not contain, so the fold can run AHEAD
+      -- of the file's index.
       -- Measured on raw `init-full`: 53 093 declaration records in the
-      -- file against 53 118 fold positions, the +25 being
+      -- file against 53 119 fold positions, the +26 being
       -- `Lean.Syntax`'s generated model family (30 records) less the
-      -- 5 folded and skipped ones.  Since task #219 the generated
+      -- 4 records the parse folds away.  (It was +25 until task #292:
+      -- the `sorryAx` axiom record is no longer dropped at parse — the
+      -- fold owns it now, and installs nothing for it.)  Since task #219 the generated
       -- records are subtracted from the VERDICT's count (they are
       -- declarations of the fold, never records of the file) and a
       -- generated record that fails is named with its block; the fold
@@ -650,14 +639,6 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         decls.toList
       match verdict with
       | .ok _ =>
-        -- A DECLINED stream never says "accepted" (2026-09-07).  The
-        -- taint-skip verdict (user directive 2026-08-24) is a
-        -- decline: declarations using tolerated axioms were skipped
-        -- at parse, so nothing tainted was checked or installed, and
-        -- a clean run over the rest is still not an acceptance of
-        -- the stream.  It used to print the accept line and *then*
-        -- the decline, which reads as an accept in a log and in
-        -- anything that greps for one.
         -- **The headline number is the STREAM's declaration-record
         -- count** (task #191 arithmetic, task #187 unit): the records
         -- the fold consumed minus the built-in prelude's, plus the
@@ -689,16 +670,9 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- (task #219): they are checked as declarations, but they are
         -- not in the file, and the headline number is the FILE's.
         let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
-        if taintSkipped.isEmpty then
-          IO.println s!"con-leche: accepted {streamRecords} \
-            declarations ({modeTag})"
-          return 0
-        else
-          IO.eprintln s!"con-leche: declined ({streamRecords} \
-            declarations checked, {taintSkipped.size} skipped for \
-            tolerated axioms) ({modeTag}): \
-            {Frontend.taintDetail taintSkipped}"
-          return 2
+        IO.println s!"con-leche: accepted {streamRecords} \
+          declarations ({modeTag})"
+        return 0
       | .error (e, i) =>
         -- **No second pass** (2026-09-07): the fold's error carries
         -- the failing declaration's FOLD POSITION, so the message is
@@ -731,7 +705,6 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         let now ← IO.monoMsNow
         IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \
           t={ConLeche.Cached.msSecs (now - t0)}s"
-        taintNote
         return e.exitCode
 
 
@@ -913,6 +886,17 @@ def usage : String := String.intercalate "\n" [
   "constMap, where an inductive record counts as its members — also a",
   "function of the file, just a larger one; scripts/stream-census.py",
   "derives every one of these numbers from a stream.",
+  "",
+
+  "THE sorryAx AXIOM.  An export declares sorryAx whenever the module",
+  "it came from mentions sorry, whether or not anything uses it, so a",
+  "stream that merely DECLARES it is accepted: the record is checked",
+  "for well-formedness and installs NOTHING (there is no set model for",
+  "it).  Any USE of the name -- in a declaration's type or value, or in",
+  "an inductive member's -- DECLINES the run (exit 2) at the record",
+  "that uses it, naming the slot.  The fold owns that decision: the",
+  "parse forwards every record, sorryAx's included.  Every other",
+  "non-pinned axiom declines at its own record.",
   "",
 
   "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",

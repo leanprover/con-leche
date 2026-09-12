@@ -33,7 +33,7 @@ chunk, and hands every complete line to the byte recogniser of
 `ConLeche/Frontend/Scan/Fast.lean`, which decodes it into a syntax
 record (`LineRec`) still in stream indices.  `applyLine` below is the
 semantic half: it resolves the indices against the tables, builds the
-nodes through the smart constructors, and runs the taint policy, the
+nodes through the smart constructors, and runs the
 prelude dedupe, the projection rewrite and the in-process modeller.
 There is one grammar in the tree and no `Lean.Json` on the checking
 path.
@@ -132,17 +132,13 @@ def PreludeIx.ofDecls (ds : Array Declaration) : PreludeIx :=
 
 /-- The direct parse state: stream-index-keyed tables of *values*
 (names and levels as trees, expressions as `Expr` — a table hit is a
-shared node by reference), the parsed declarations as `Declaration`, and
-the taint bookkeeping, unchanged (both are keyed by stream indices, so
-they are representation-independent). -/
+shared node by reference) and the parsed declarations as
+`Declaration`. -/
 structure StateD where
   names : IdTable Name := IdTable.singleton .anonymous
   levels : IdTable Level := IdTable.singleton .zero
   exprs : IdTable Expr := {}
   decls : Array Declaration := #[]
-  tainted : Std.HashMap Nat Name := {}
-  taintedNames : Std.HashMap Name Name := {}
-  taintSkipped : Array (Name × Name) := #[]
   /-- structure-like owners the projection rewrite serves, by type
   name (`ConLeche/Frontend/ProjRec.lean`) -/
   projOwners : Std.HashMap Name ProjRecOwner := {}
@@ -253,8 +249,7 @@ def StateD.expr (st : StateD) (i : Nat) : M Expr :=
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
 
-/-- Declaration-level expression lookup: the taint sentinel, then the
-table read.
+/-- Declaration-level expression lookup: the table read.
 
 The frontend tree-size budget that used to sit here was **retired at
 task #215**: every consumer it bounded is now either name-selected (the
@@ -263,9 +258,7 @@ basis-pin match) or a memoized DAG walk (`Expr.renameConsts`,
 the adversarial DAG-tower fixtures in `tests/e2e` are the standing
 gate in its place — a limit told a user "no", a fixture tells *us*
 which walker regressed. -/
-def getDeclD (st : StateD) (i : Nat) : M Expr := do
-  if st.tainted[i]?.isSome then
-    throw taintSentinel
+def getDeclD (st : StateD) (i : Nat) : M Expr :=
   st.expr i
 
 /-- The `pw` datum over the direct name table. -/
@@ -293,19 +286,9 @@ def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
     | .param n => do pure (Level.param (← st.name n))
   pure { st with levels := st.levels.insert i l }
 
-/-- The child expression-table indices of an entry (for taint
-propagation). -/
-def exprRecChildren : ExprRec → List Nat
-  | .app f a => [f, a]
-  | .lam ty bd _ => [ty, bd]
-  | .forallE ty bd _ => [ty, bd]
-  | .letE ty vl bd => [ty, vl, bd]
-  | .proj _ _ st => [st]
-  | _ => []
-
 /-- An expression-table entry: build the `Expr` node from the
 children's table values (the derived fields are the compiler's, task
-#172 B3a), with the taint bookkeeping unchanged.
+#172 B3a).
 
 Binder names are display data the official kernel's equality and hash
 ignore; ours are `.anonymous` on every parsed binder (task #203,
@@ -314,40 +297,25 @@ beside the `.default` annotation of task #142), so `==` is
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
 def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
-  let (e, taintConst) ← match r with
-    | .bvar k => pure (Expr.mkBvar k, none)
-    | .sort u => do pure (Expr.mkSort (← st.level u), none)
+  let e ← match r with
+    | .bvar k => pure (Expr.mkBvar k)
+    | .sort u => do pure (Expr.mkSort (← st.level u))
     | .const n us => do
       let nm ← st.name n
       let ls ← us.mapM st.level
-      let taintC : Option Name ←
-        if st.taintedNames.isEmpty then pure none
-        else do pure st.taintedNames[nm]?
-      pure (Expr.mkConst nm ls, taintC)
-    | .app f a => do pure (Expr.mkApp (← st.expr f) (← st.expr a), none)
+      pure (Expr.mkConst nm ls)
+    | .app f a => do pure (Expr.mkApp (← st.expr f) (← st.expr a))
     | .lam ty bd pw => do
-      pure (Expr.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+      pure (Expr.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩)
     | .forallE ty bd pw => do
-      pure (Expr.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩, none)
+      pure (Expr.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩)
     | .letE ty vl bd => do
-      pure (Expr.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd), none)
+      pure (Expr.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd))
     | .proj tn ix s => do
-      pure (Expr.mkProj (← st.name tn) ix (← st.expr s), none)
-    | .natVal n => pure (Expr.mkLit (.natVal n), none)
-    | .strVal s => pure (Expr.mkLit (.strVal s), none)
-  -- the child scan runs only once a tolerated axiom has put something
-  -- in the table: an entry can be tainted only below one
-  let taint : Option Name :=
-    taintConst <|>
-      (if st.tainted.isEmpty then none
-       else (exprRecChildren r).findSome? (fun c => st.tainted[c]?))
-  let st := { st with exprs := st.exprs.insert i e }
-  if let some root := taint then
-    let t := st.tainted
-    let st := { st with tainted := {} }
-    pure { st with tainted := t.insert i root }
-  else
-    pure st
+      pure (Expr.mkProj (← st.name tn) ix (← st.expr s))
+    | .natVal n => pure (Expr.mkLit (.natVal n))
+    | .strVal s => pure (Expr.mkLit (.strVal s))
+  pure { st with exprs := st.exprs.insert i e }
 
 /-! ## Declaration records -/
 
@@ -766,70 +734,27 @@ where
       let st := { st with projOwners := {} }
       pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
 
-/-- The read-only pre-scan for the taint policy: the names a
-declaration record declares, and the expression indices it reads. -/
-def declRecordScanD (st : StateD) (d : DeclRec) : M (List Name × List Nat) := do
-  match d with
-  | .ax cv _ => pure ([← st.name cv.name], [cv.type])
-  | .quot cv _ => pure ([← st.name cv.name], [cv.type])
-  | .defn cv v _ _ => pure ([← st.name cv.name], [cv.type, v])
-  | .thm cv v => pure ([← st.name cv.name], [cv.type, v])
-  | .opaq cv v _ => pure ([← st.name cv.name], [cv.type, v])
-  | .ind tys cts rcs =>
-    let mut names := []
-    let mut idxs := []
-    for t in tys do
-      names := (← st.name t.cv.name) :: names
-      idxs := t.cv.type :: idxs
-    for c in cts do
-      names := (← st.name c.cv.name) :: names
-      idxs := c.cv.type :: idxs
-    for r in rcs do
-      names := (← st.name r.cv.name) :: names
-      idxs := r.cv.type :: idxs
-    for r in rcs do
-      for ru in r.rules do
-        idxs := ru.rhs :: idxs
-    return (names.reverse, idxs)
-
-/-- The taint policy at a declaration record. -/
-def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) := do
-  if let .ax cv _ := d then
-    let name ← st.name cv.name
-    if toleratedAxiomNames.contains name then
-      let m := st.taintedNames
-      let st := { st with taintedNames := {} }
-      return .inl { st with taintedNames := m.insert name name }
-  if !st.tainted.isEmpty then
-    let (names, idxs) ← declRecordScanD st d
-    if let some root := idxs.findSome? (fun i => st.tainted[i]?) then
-      let m := st.taintedNames
-      let sk := st.taintSkipped
-      let st := { st with taintedNames := {}, taintSkipped := #[] }
-      let m := names.foldl (fun m n => m.insert n root) m
-      return .inl { st with
-        taintedNames := m,
-        taintSkipped := sk.push (names.headD .anonymous, root) }
-  -- a `match`, not `tryCatch`: a capturing closure would be allocated
-  -- on EVERY line rather than shared as a constant.  (A handler that
-  -- mentions `st` also holds the parse tables at RC 2 across
-  -- `processLineCoreD`, so every insert inside copies them — the
-  -- task-#78 copy-on-write pathology, measured at +48 % on
-  -- `init-core` when the retired size-decline message took the state.)
-  match processLineCoreD st d with
-  | .ok r => pure r
-  | .error e =>
-    if e = taintSentinel then
-      pure (.inr (.declined "declaration uses a skipped (non-pinned) axiom"))
-    else throw e
+/-- A declaration record.  **`sorryAx` is the FOLD's** (user ruling):
+the parse forwards every declaration record, the `sorryAx` axiom record
+included — the fold checks its type, installs nothing for it, and
+declines at the first record that USES the name
+(`ConLeche/Kernel/Checker.lean`'s `.axiomDecl` arm, `unknownConstError`
+and `unresolvedConstsError`).  What used to stand here was a read-only
+taint pre-scan (`declRecordScanD`) that dropped the axiom record
+without even parsing its type and skipped every declaration reaching
+it, transitively, with the driver turning a non-empty skip list into a
+decline at the END of the run.  The verdict was the same; the position
+was not, and the parser owned a semantic decision. -/
+def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
+  processLineCoreD st d
 
 /-- **The semantic layer**: one scanned line applied to the parse
 state.  This is what the `Lean.Json`-based `processLineD` was, with
 the DOM key lookups replaced by the fields of the syntax record the
 byte recogniser produced (`ConLeche/Frontend/Scan/Fast.lean`, task
-#256); the index resolution, the smart constructors, the taint
-policy, the prelude dedupe, the projection rewrite and the in-process
-modeller are unchanged. -/
+#256); the index resolution, the smart constructors, the prelude
+dedupe, the projection rewrite and the in-process modeller are
+unchanged. -/
 def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
@@ -841,12 +766,11 @@ def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
 
 /-! ## The line feed and the drivers -/
 
-/-- The direct parse result: declarations over `Expr` and the taint
-skips.  No arena. -/
+/-- The direct parse result: the declarations over `Expr`, and the
+parse's receipts.  No arena. -/
 structure ParseResultD where
   /-- the built-in prelude's records first, then the stream's (task #191) -/
   decls : Array Declaration
-  taintSkipped : Array (Name × Name)
   /-- projection functions rewritten to recursor form (2026-09-06) -/
   projRewrites : Array Name := #[]
   /-- how many of `decls` are the prelude's, and how many stream
@@ -889,7 +813,7 @@ pinned operation's stream-certified ground hoisted ahead of it
 (`hoistNatOpGround`). -/
 def ParseResultD.ofState (st : StateD) : ParseResultD :=
   let (decls, hoisted) := hoistNatOpGround st.decls
-  ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
+  ⟨st.prelude.decls ++ decls, st.projRewrites,
    st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled,
    st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
 

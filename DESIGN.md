@@ -256,11 +256,16 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user rulings, 2026-08-22/24, revised for task #95): the
-*tolerated whitelist* (`toleratedAxiomNames`) is exactly `sorryAx` — a
-tolerated `axiom` record is dropped by the frontend without parsing
-its type at all; nothing is installed and the name is tainted
-(`Frontend.State.taintedNames`).  The `Init` **compiler-trust family
+Refinement (user rulings, 2026-08-22/24, revised for task #95, and
+again for task #292): the one axiom tolerated as a *declaration* is
+`sorryAx` (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).  Its
+record is FORWARDED to the fold like any other: the type is checked
+and the record installs **nothing** — there is no set model for it —
+so a stream that merely declares the axiom is accepted, and any USE of
+the name DECLINES at the record that uses it.  The fold owns that
+decision (`unknownConstError` in `ConLeche/Kernel/Core.lean`,
+`unresolvedConstsError` in `ConLeche/Kernel/CheckerBase.lean`); the
+parser has no taint machinery at all.  The `Init` **compiler-trust family
 is installed** instead (task #95, user design 2026-08-24):
 `Lean.trustCompiler : True` is trivially realizable and installs like
 a checked `opaque` realized by `True.intro` over the pinned `True`
@@ -69361,7 +69366,8 @@ opaque declare their header; an axiom declares its header **unless
 exactly as `checkDeclC`'s own arm has it (`ParsedC.lean`: the tolerated
 branch is `pure fe`, no push, no `recordCConst`, no pending check), and
 `toleratedAxiomNames` is exactly `[sorryAx]`; `basisDecl` and `indDecl`
-declare nothing.
+declare nothing.  (Task #292 replaced the singleton list by the name:
+the conjunct now reads `cv.name ≠ sorryAxName`, same set, same proof.)
 
 **The definition VALUE was left out, and it is one conjunct away.**
 `DeclDefnRun` carries `ValueFrontRun`, whose first three conjuncts are
@@ -69750,3 +69756,154 @@ Which is what a rename should look like.  The six deleted pairs were
 deleted *because* the two members compile to the same code — a
 `@[csimp]` twin for `hasFvar`/`looseBVarsBounded`, an identical body for
 `getAppFn`/`mkAppN`/`mkBVar` — so no call site changed what it runs.
+
+## TASK #292 — `sorryAx` IS THE FOLD'S: the record installs nothing, a use declines; the parser's taint pre-scan is gone (2026-09-12, `agent/sorryax-292`)
+
+**The ruling** (maintainer, verbatim): *"It should not be the parser
+that drops sorryAx … move it to checkDecls and have it decline
+`.const n` where n is sorryAx.  No need to have a singleton list while
+it is exactly one."*
+
+What stood before this task is the 2026-08-24 taint skip-and-continue
+design recorded above: the frontend pre-scanned every declaration
+record, dropped the `sorryAx` axiom record **without even parsing its
+type**, tainted its name, propagated the taint through the expression
+table and the name map, skipped every declaration that reached a
+tainted entry, and handed the driver a `taintSkipped` list that turned
+a clean run into exit 2 **at the end of the stream**.  The verdict was
+right; the position was not, and a semantic decision — which axioms
+this checker supports — lived in the parser, outside the fold the main
+theorem is about.
+
+### 1. What the fold does now
+
+* The `sorryAx` axiom record is FORWARDED like any other.  `checkDecl`
+  (and `checkDeclC`) runs `checkConstantVal` on it — the type is
+  well-formedness-checked, as every header is — and then the arm is
+  `pure env` / `pure fe`: **nothing is installed**.  That is not
+  laziness: an export declares `sorryAx` whenever the module it came
+  from mentions `sorry`, whether or not anything uses it (init-full
+  does), and there is no set model for `∀ (α : Sort u), Bool → α` and
+  cannot be one.  So a stream that merely DECLARES the axiom is
+  accepted, and a stream that USES it declines **at the record that
+  uses it**.
+* `toleratedAxiomNames : List Name` is gone; `sorryAxName : Name`
+  (`ConLeche/Kernel/Basis/Names.lean`) replaces it at every site.
+
+### 2. THE CHOKE POINT, and why it takes two throws
+
+The obvious answer — "the guard that keeps unresolved constants out of
+stored terms" — is only half of it.  `Expr.constsResolve` (and its
+indexed and cached twins) runs at every front door for stream data: a
+declaration's type (`checkConstantVal`), a value
+(`check{Defn,Thm,Opaque}Val`), a recursor rule's right-hand side.  But
+it runs **after** the annotation pass, and annotation *infers the sort
+of every binder domain*.  A `sorryAx` in a domain therefore reaches
+inference before the guard ever looks, and inference's own `.const`
+arm threw `.invalid "unknown constant …"` — a REJECT where the ruling
+wants a decline.  Both places are the choke point, and both are one
+pure function:
+
+* `unknownConstError (n : Name) : CheckError`
+  (`ConLeche/Kernel/Core.lean`, beside `CheckError`) — the `.const`
+  arm of `inferBody`, `inferBodyIO` and the cached `CoreC` twin call
+  it where they matched `none` on the environment lookup;
+* `unresolvedConstsError (where_ : String) (e : Expr) : CheckError`
+  (`ConLeche/Kernel/CheckerBase.lean`) — every `unless … constsResolve
+  … do throw` branch calls it.  It asks `e.mentionsConst sorryAxName`,
+  which is the same walk `constsResolve` just ran (the `.proj` struct
+  name included) and is memoized by `@[csimp]`
+  (`Kernel/Inductives/StructParts.lean`), so a DAG-shared term does
+  not unfold on the failing path.
+
+Both return `.notImplemented` on `sorryAx` and the **byte-identical
+old `.invalid` message** on anything else, so no other verdict moved.
+After `constsResolve` passes, inference cannot meet an unresolved
+constant at all — that is what the guard is for — so the two together
+are exhaustive: every `.const sorryAx` in a type, a value, a rule RHS
+or an inductive member's type is caught by one of them.  (A
+`.proj sorryAx i e` node, which is not a `.const` node, is caught too:
+`mentionsConst` reads the struct name, and no environment ever holds
+`sorryAx`.)
+
+**Why the proofs did not move.**  The change is `throw <one error>` →
+`throw <another error>` at branches that already existed.  `SimC` is
+success-only (`SimC.throw` holds for every error value), the agreement
+floor and `PushChain` are accept-only, and the `DeclRun` records carry
+guards, not messages.  The whole diff in `Verify/*` and `Semantics/*`
+is `toleratedAxiomNames.contains X = true` → `X = sorryAxName`
+(a `by_cases` hypothesis, four helper lemmas in `AgreeFloor` whose
+`tolerated_eq` became the hypothesis itself and was deleted), plus
+`Declaration.Declares`' exception, now `cv.name ≠ sorryAxName`.
+The build went through on the first try.
+
+### 3. What was deleted
+
+`ConLeche/Frontend/Export.lean`: `taintSentinel`, `taintDetail`,
+`taintSummary` (and with them the file's `StdAxioms` import — its
+public signatures now take `Name`/`Expr` through a promoted
+`public import ConLeche.Kernel.Env`).
+`ConLeche/Frontend/ExportC.lean`: `declRecordScanD`, `exprRecChildren`,
+the `tainted`/`taintedNames`/`taintSkipped` fields of `StateD`,
+`getDeclD`'s sentinel check, the taint half of `parseExprEntryD`, the
+taint half of `applyDeclD` (which is now `processLineCoreD` alone) and
+`ParseResultD.taintSkipped`.
+`Main.lean`: the decline-at-the-end, `taintNote`, and the two-armed
+success print — an accepted run now always prints the accept line.
+`--help` gained a paragraph stating the rule.
+
+### 4. Verdict changes
+
+| fixture | before | after |
+|---|---|---|
+| `sorry_unused` | 0 | 0 (the record is now *checked*, and counted: 15 declarations, not 14) |
+| `sorry_use` | 2 at the end | 2 **at the use**: `use of the sorryAx axiom in value of usesSorry` |
+| `tolerated_axiom_unused` | 0 | 0 (2 declarations, not 1) |
+| `tolerated_axiom_use` | 2 at the end | 2 at the use (via the inference choke: the value's λ-domain is inferred first) |
+| `taint_skip_continue` → `sorry_use_midstream` | 2 | 2 — but the later records are never reached |
+| `taint_skip_bad_later` → `sorry_use_before_invalid` | **1** | **2** — the fold stops at the use, so the invalid record after it is never checked |
+
+The two renamed fixtures are the "decline at the use" pins and their
+old names no longer described them.  Nothing else moved: arena 90/92,
+e2e 195/195, the trusted and `--jobs` sweeps unchanged.  No arena
+stream uses `sorryAx` (`good/init-prelude.ndjson` declares it and
+never references it — checked by scanning the expression table for a
+`const` node at its name index); Mathlib has none either, which is
+what its exit 0 meant under the old design.
+
+### 5. Gates
+
+| gate | result |
+|---|---|
+| `lake build` / `lake test` | warning-free |
+| layering | base 282 / model 190 / caps 3 / umbrella 1, 0 cross edges |
+| proofdeps | 3816 rows **as pinned** — the proof cone's module graph did not move |
+| shake + pub-imports | 458 removals all allowlisted (one line deleted: `CheckerBase`'s `StructParts` import is now USED, by `unresolvedConstsError`); 947 of 1292 edges public, none demotable |
+| overview-links | 80 links, 50 files — nine anchors repointed, each new target re-read |
+| challenge / trust surface / no-local-paths | OK |
+| arena / e2e / annot / prelude / progress / DAG tower | 90/92, 195/195, 15/15, 3/3, 15/15, 14/14 |
+
+### 6. `init-full`
+
+One run per binary, `--verified --jobs=1`, `ulimit -v 16000000`,
+`perf stat -e instructions:u`, same machine, same stream:
+
+| | accepted | instructions:u |
+|---|---|---|
+| master `e4487c23` | 53 088 | 538.501 G |
+| this branch | **53 089** | **537.844 G** |
+| Δ | **+1** | **−0.122 %** |
+
+Both exit 0.  The extra declaration is the `sorryAx` axiom record
+itself: the old parser dropped it before the fold ever saw it, and it
+is now checked (and installs nothing), so the headline count — which
+counts the FILE's declaration records — gains the one record the file
+always had.  The fold-position count moves with it, 53 118 → 53 119,
+and `Main.lean`'s comment on reading a `--progress` index says so.
+
+The instructions went DOWN although one more record is checked: the
+taint pre-scan ran `declRecordScanD` over **every** declaration record
+of the stream (resolving its declared names and collecting its
+expression indices) and the expression-table walk carried a taint
+check per entry.  Nothing fires on a stream with no `sorryAx` use, and
+all of it is gone.

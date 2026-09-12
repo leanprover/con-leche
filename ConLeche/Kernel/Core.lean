@@ -58,6 +58,28 @@ instance : ToString CheckError where
 
 abbrev CheckM := Except CheckError
 
+/-- **The verdict at a constant the environment does not know.**
+
+`sorryAx` is the one axiom the checker tolerates as a *declaration*
+and installs nothing for (`sorryAxName`,
+`ConLeche/Kernel/Basis/Names.lean`): an export declares it whenever
+its module mentions `sorry`, so the record is skipped and the stream
+goes on — but there is no set model for it, so a *use* is a
+positively detected unsupported feature and the run DECLINES, at the
+record that uses it.  Every other unresolved name is a malformed
+stream: a REJECT, with the message unchanged.
+
+This is the choke point, because the guard that keeps unresolved
+constants out of stored terms (`Expr.constsResolve`) runs *after* the
+annotation pass, and annotation infers every binder domain's sort —
+so a `sorryAx` in a domain reaches inference first.  Its companion
+`unresolvedConstsError` (`ConLeche/Kernel/CheckerBase.lean`) decides
+the same question at the guard, for the `sorryAx` occurrences
+inference never reaches. -/
+def unknownConstError (n : Name) : CheckError :=
+  if n = sorryAxName then .notImplemented "use of the sorryAx axiom"
+  else .invalid s!"unknown constant {n}"
+
 /-- The record of mutually recursive core entry points.  `whnfCore`
 computes a head normal form without delta; `whnf` is the full reduction
 loop; `infer` is type inference;
@@ -2055,7 +2077,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       else throw (.invalid "free variable out of scope")
     | .const n us => do
       match env.find? n with
-      | none => throw (.invalid s!"unknown constant {n}")
+      | none => throw (unknownConstError n)
       | some ci =>
         -- a projection table is not a term (task #175 W4c): `.proj`
         -- nodes read it, no constant names it
@@ -2228,7 +2250,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       else throw (.invalid "free variable out of scope")
     | .const n us => do
       match env.find? n with
-      | none => throw (.invalid s!"unknown constant {n}")
+      | none => throw (unknownConstError n)
       | some ci =>
         -- a projection table is not a term (task #175 W4c): `.proj`
         -- nodes read it, no constant names it

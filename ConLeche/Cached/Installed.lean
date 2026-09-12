@@ -96,7 +96,7 @@ def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
   unless Expr.allLevelParamsDefinedC cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" jty)
   pure (⟨cv.name, cv.levelParams, jty⟩, jty)
 
 /-- The value half of `checkDefnValC`/`checkThmValC`/`checkOpaqueValC`
@@ -113,7 +113,7 @@ def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   recordCConst cvA.name cvA.type jty (if record then some (jv, jv) else none)
   pure jv
 

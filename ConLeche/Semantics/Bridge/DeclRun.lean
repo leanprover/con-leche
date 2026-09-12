@@ -246,7 +246,7 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   · rw [if_pos hpc] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   rw [if_neg hpc] at h
-  by_cases htol : toleratedAxiomNames.contains cv.name = true
+  by_cases htol : cv.name = sorryAxName
   · rw [if_pos htol] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     refine Or.inr (Or.inr (Or.inr ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,

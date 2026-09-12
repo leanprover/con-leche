@@ -72,7 +72,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
   unless Expr.allLevelParamsDefinedC cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
-    throw (.invalid s!"unknown constant in type of {cv.name}")
+    throw (unresolvedConstsError s!"type of {cv.name}" jty)
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let _u ← opSIxC mode fe 0 jsty
   let tyE := jty
@@ -89,7 +89,7 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
@@ -112,7 +112,7 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
@@ -131,7 +131,7 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
+    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
   recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
@@ -202,7 +202,7 @@ def checkDeclC (fe : FEnv) (pd : Declaration) : CheckCM FEnv :=
         s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if toleratedAxiomNames.contains cvA.name then
+    else if cvA.name = sorryAxName then
       pure fe
     else
       throw (.notImplemented s!"non-standard axiom ({cv.name})")

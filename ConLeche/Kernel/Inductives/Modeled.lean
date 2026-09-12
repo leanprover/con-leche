@@ -337,7 +337,7 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     unless rhsA.allLevelParamsDefined lps do
       throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
     unless rhsA.constsResolve envSelf do
-      throw (.invalid s!"unknown constant in rule of {cvName}")
+      throw (unresolvedConstsError s!"rule of {cvName}" rhsA)
     -- the rule's rhs must be a λ-telescope over the recursor prefix
     -- and the constructor fields (so it can be applied positionally)
     unless (rhsA.stripLams (rP + cnF)).isSome do

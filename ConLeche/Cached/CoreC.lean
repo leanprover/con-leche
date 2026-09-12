@@ -1302,7 +1302,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
     | .const n us => do
       let nm ← pure n
       match fe.find? nm with
-      | none => throw (.invalid s!"unknown constant {nm}")
+      | none => throw (unknownConstError nm)
       | some ci =>
         unless !ci.isTowerEntry do
           throw (.invalid s!"projection table entry used as a constant {nm}")

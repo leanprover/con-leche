@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L738
-   738  def usage : String := String.intercalate "\n" [
+== Main.lean#L711
+   711  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -50,26 +50,26 @@
     69      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     70      ∀ env, checkDecls .verified ds ≠ .ok env := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L768-L773
-   768  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   769      {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
-   770      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   771      ∃ c, env.find? cv.name = some c ∧
-   772        c.toConstantVal.levelParams = cv.levelParams ∧
-   773        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Verify/Cached/StreamConsts.lean#L769-L774
+   769  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   770      {ds : List Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+   771      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   772      ∃ c, env.find? cv.name = some c ∧
+   773        c.toConstantVal.levelParams = cv.levelParams ∧
+   774        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L622-L628
-   622  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
-   623    | .defnDecl cv _ _, cv' => cv' = cv
-   624    | .thmDecl cv _, cv' => cv' = cv
-   625    | .opaqueDecl cv _, cv' => cv' = cv
-   626    | .axiomDecl cv, cv' => cv' = cv ∧ toleratedAxiomNames.contains cv.name = false
-   627    | .basisDecl _, _ => False
-   628    | .indDecl _ _, _ => False
+== ConLeche/Verify/Cached/StreamConsts.lean#L623-L629
+   623  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
+   624    | .defnDecl cv _ _, cv' => cv' = cv
+   625    | .thmDecl cv _, cv' => cv' = cv
+   626    | .opaqueDecl cv _, cv' => cv' = cv
+   627    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName
+   628    | .basisDecl _, _ => False
+   629    | .indDecl _ _, _ => False
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L126-L127
-   126  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
-   127    stored.resetMeta = declared.zeta.resetMeta
+== ConLeche/Verify/Cached/StreamConsts.lean#L127-L128
+   127  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
+   128    stored.resetMeta = declared.zeta.resetMeta
 
 == ConLeche/Cached/Installed.lean#L407-L411
    407  def checkDecls (mode : CheckMode) (ds : List Declaration) :
@@ -85,8 +85,8 @@
    100  #guard_msgs in
    101  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L999
-   999  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L923
+   923  def parseExportStreamD (path : System.FilePath)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1000
   1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -215,17 +215,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2871-L2880
-  2871        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2872        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2873        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2874        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2875        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2876    | fuel + 1 =>
-  2877      wrap
-  2878        { whnfCore := fun d e =>
-  2879            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2880          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2893-L2902
+  2893        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2894        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2895        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2896        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2897        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2898    | fuel + 1 =>
+  2899      wrap
+  2900        { whnfCore := fun d e =>
+  2901            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2902          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -261,11 +261,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L2028
-  2028  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L2050
+  2050  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2751
-  2751        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+== ConLeche/Kernel/Core.lean#L2773
+  2773        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -314,10 +314,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1382-L1384
-  1382  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
-  1383      {env : Env} (h : checkDecls mode ds = .ok env) :
-  1384      envSkels env = streamSkels ds := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1379-L1381
+  1379  theorem checkDecls_skels {mode : CheckMode} {ds : List Declaration}
+  1380      {env : Env} (h : checkDecls mode ds = .ok env) :
+  1381      envSkels env = streamSkels ds := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -724,36 +724,36 @@
     53  task #227).  (Members' parameter telescopes and sorts are not
     54  compared: task #218, `Mutual.lean`'s header.)
 
-== ConLeche/Kernel/Core.lean#L545-L553
-   545  /-- The certified structural-`Nat` operations.  Six of them
-   546  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   547  here without one — it has no fast path (official's `reduce_nat` folds
-   548  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   549  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   550  must be certified for `sub`'s literal fold to be sound. -/
-   551  def natOpNames : List Name :=
-   552    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   553     natBeqName, natBleName]
+== ConLeche/Kernel/Core.lean#L567-L575
+   567  /-- The certified structural-`Nat` operations.  Six of them
+   568  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   569  here without one — it has no fast path (official's `reduce_nat` folds
+   570  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   571  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   572  must be certified for `sub`'s literal fold to be sound. -/
+   573  def natOpNames : List Name :=
+   574    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   575     natBeqName, natBleName]
 
-== ConLeche/Kernel/Core.lean#L477-L494
-   477  /-! ## Structural-Nat literal acceleration
-   478  
-   479  The official kernel accelerates the structural `Nat` operations on
-   480  literals (GMP-backed there).  Here the fast path is *certified*: an
-   481  operation participates only when its defining recurrence equations
-   482  hold by definitional equality — checked once, at install: `checkDecl`
-   483  positively rejects a nonstandard definition under one of these names,
-   484  so *presence in the store is the certificate* (no runtime flag, no
-   485  re-checking; a reduction-time re-check would in fact livelock — the
-   486  certification's own `pred zero` equation re-enters the fast path).
-   487  
-   488  The certification runs in the environment *before* the operation is
-   489  stored, on the equations with the operation's self-references replaced
-   490  by its (annotated) definition value (`Expr.substConst0`): running it
-   491  after insertion would let the operation's own just-enabled fast path
-   492  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   493  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   494  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/Core.lean#L499-L516
+   499  /-! ## Structural-Nat literal acceleration
+   500  
+   501  The official kernel accelerates the structural `Nat` operations on
+   502  literals (GMP-backed there).  Here the fast path is *certified*: an
+   503  operation participates only when its defining recurrence equations
+   504  hold by definitional equality — checked once, at install: `checkDecl`
+   505  positively rejects a nonstandard definition under one of these names,
+   506  so *presence in the store is the certificate* (no runtime flag, no
+   507  re-checking; a reduction-time re-check would in fact livelock — the
+   508  certification's own `pred zero` equation re-enters the fast path).
+   509  
+   510  The certification runs in the environment *before* the operation is
+   511  stored, on the equations with the operation's self-references replaced
+   512  by its (annotated) definition value (`Expr.substConst0`): running it
+   513  after insertion would let the operation's own just-enabled fast path
+   514  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   515  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   516  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L110-L117
    110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -768,23 +768,23 @@
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
 
-== ConLeche/Kernel/Core.lean#L555-L570
-   555  /-- The WF-recursive operations with a *pinned-declaration* certified
-   556  fast path: at install, `checkDecl` compares the stream's definition
-   557  against a vendored pin of the toolchain's own (helper-unfolded)
-   558  definition by definitional equality, and then checks the pinned
-   559  `Nat.ble`-guarded characterization certificates
-   560  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   561  installing them.  Presence in the store is therefore again the
-   562  capability: a stored operation under one of these names has passed pin
-   563  and certificates, or the install declined.  (The name is historic:
-   564  the family started with `Nat.div`/`Nat.mod` and now covers every
-   565  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   566  `Nat.log2` left the list when its fast path did, official folding no
-   567  unary operation but `Nat.succ`.) -/
-   568  def natDivModNames : List Name :=
-   569    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   570     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/Core.lean#L577-L592
+   577  /-- The WF-recursive operations with a *pinned-declaration* certified
+   578  fast path: at install, `checkDecl` compares the stream's definition
+   579  against a vendored pin of the toolchain's own (helper-unfolded)
+   580  definition by definitional equality, and then checks the pinned
+   581  `Nat.ble`-guarded characterization certificates
+   582  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   583  installing them.  Presence in the store is therefore again the
+   584  capability: a stored operation under one of these names has passed pin
+   585  and certificates, or the install declined.  (The name is historic:
+   586  the family started with `Nat.div`/`Nat.mod` and now covers every
+   587  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   588  `Nat.log2` left the list when its fast path did, official folding no
+   589  unary operation but `Nat.succ`.) -/
+   590  def natDivModNames : List Name :=
+   591    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   592     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -913,27 +913,19 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Kernel/StdAxioms.lean#L39-L51
+== ConLeche/Kernel/StdAxioms.lean#L38-L42
+    38  /-- The name `propext`. -/
     39  def propextName : Name := anonymous |>.str "propext"
     40  
     41  /-- The name `Classical.choice`. -/
     42  def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
-    43  
-    44  /-- The axioms tolerated as *declarations* (dropped by the frontend,
-    45  never installed; any use is skipped and taints the run): exactly
-    46  `sorryAx` (user ruling).  The `Init` compiler-trust family
-    47  (`Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`) is
-    48  *installed* instead (task #95, `ConLeche/Kernel/TrustAxioms.lean`); any
-    49  other non-pinned axiom is a positive decline at its own record. -/
-    50  def toleratedAxiomNames : List Name :=
-    51    [ anonymous |>.str "sorryAx" ]
 
-== ConLeche/Kernel/TrustAxioms.lean#L10-L36
+== ConLeche/Kernel/TrustAxioms.lean#L10-L38
     10  /-!
     11  # The compiler-trust axiom family (task #95)
     12  
-    13  `Init`'s compiler-trust scaffolding is installed instead of
-    14  taint-skipped:
+    13  `Init`'s compiler-trust scaffolding is installed rather than
+    14  declined:
     15  
     16  * `Lean.trustCompiler : True` is trivially realizable — it is
     17    installed as an *opaque* (stored `thmInfo`, exactly like a checked
@@ -955,5 +947,7 @@
     33    an inhabited proposition (the hypothesis *is* the conclusion), so
     34    both axioms are true in the set model with the proof point as value.
     35  
-    36  `sorryAx` remains the only tolerated (skip-taint) axiom.
+    36  `sorryAx` remains the only axiom tolerated as a *declaration*: its
+    37  record installs nothing and any use of it declines
+    38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 

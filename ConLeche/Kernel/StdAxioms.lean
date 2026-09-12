@@ -41,15 +41,6 @@ def propextName : Name := anonymous |>.str "propext"
 /-- The name `Classical.choice`. -/
 def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
 
-/-- The axioms tolerated as *declarations* (dropped by the frontend,
-never installed; any use is skipped and taints the run): exactly
-`sorryAx` (user ruling).  The `Init` compiler-trust family
-(`Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`) is
-*installed* instead (task #95, `ConLeche/Kernel/TrustAxioms.lean`); any
-other non-pinned axiom is a positive decline at its own record. -/
-def toleratedAxiomNames : List Name :=
-  [ anonymous |>.str "sorryAx" ]
-
 /-- The name `Iff`. -/
 def iffName : Name := anonymous |>.str "Iff"
 
