@@ -809,14 +809,14 @@
 == ConLeche/Model/DivModCert.lean#L2023
   2023  theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
 
-== ConLeche/Frontend/Prepare.lean#L146-L152
-   146  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   147  the prelude's declarations first (the stream's own copies where it has
-   148  them), the rest of the stream after them, every pinned `Nat`
-   149  operation's stream-certified ground ahead of it.  Total, pure, and the
-   150  fold's input. -/
-   151  def preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration :=
-   152    (prepareD pre ds).decls.toList
+== ConLeche/Frontend/Prepare.lean#L156-L162
+   156  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
+   157  the prelude's declarations first (the stream's own copies where it has
+   158  them), the rest of the stream after them, every pinned `Nat`
+   159  operation's stream-certified ground ahead of it.  Total, pure, and the
+   160  fold's input. -/
+   161  def preparePrelude (pre : PreludeIx) (ds : List Declaration) : List Declaration :=
+   162    (prepareD pre ds).decls.toList
 
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!

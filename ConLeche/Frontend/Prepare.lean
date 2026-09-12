@@ -42,6 +42,16 @@ record of the stream is dropped, rewritten or retagged**:
    stream declares it later.  A dependency-closed set moved earlier is
    still a valid stream.
 
+**Moving a record earlier can only reject, never accept.**  The
+prelude's declarations depend on nothing but each other (`Quot`'s
+package on the pinned `Eq`, which precedes it), so on any export that
+declares each of them in its own record the move is order-preserving
+where it matters; and where it would not be — a stream that declares
+`Bool` inside a block that references a later definition — the moved
+record meets an unresolved constant and the run REJECTS.  No
+reordering can make the fold accept a record it would otherwise have
+turned away.
+
 Both steps only REORDER, and the second one is the reason the first can
 be one too.  The spec is therefore as simple as the maintainer asked
 for, and it is what `ConLeche/Verify/Frontend/Prepare.lean` proves:

@@ -565,7 +565,7 @@ instead of trusting the operation's name.
   the stream's own record where the stream has one — and moves a pinned
   operation's dependency closure ahead of it when the stream has it
   later
-  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prepare.lean#L146-L152),
+  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/Prepare.lean#L156-L162),
   [the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
   Both are reorderings of the parsed list below the verified fold, and
   that is a theorem about them: the prepared list is a permutation of
