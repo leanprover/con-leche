@@ -3,13 +3,16 @@ module
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 import ConLeche.Model.Denotes
+import ConLeche.Verify.Cached.StreamThm
 public section
 
 /-!
-# The main theorem, and the main corollary it implies
+# The main theorem, and the two corollaries it implies
 
 What the checker accepts has a model; hence it contains no constant of
-type `False`.  Those two theorems are all this file holds.  The
+type `False` — and hence a stream that declares a theorem of type
+`False` is not accepted at all.  Those three theorems are all this
+file holds.  The
 statements, with a plain-words account of every name in them, are in
 `ConLeche/Challenge.lean`; the reading of terms and the notion of
 model — and `Denotes_functional`, which says a term has at most one
@@ -40,7 +43,7 @@ The axioms used are exactly `propext`, `Classical.choice` and
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (DeclC checkDecls)
+open ConLeche.Cached (DeclC ExprC checkDecls)
 
 universe w
 
@@ -66,5 +69,17 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
   rw [hty] at hT
   rw [m.false_empty _ _ _ hT] at hmem
   exact not_mem_empty _ hmem
+
+/-- **The main corollary, at the stream.**  A stream that declares a
+theorem of type `False` is never accepted: the record is installed
+under its own name with its declared type, that constant survives the
+run, and the main corollary forbids it. -/
+theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
+    (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    ∀ env, checkDecls .verified ds ≠ .ok env := by
+  intro env accepted
+  exact no_proof_of_False V ds env accepted
+    (Cached.checkDecls_thmDecl_const hty hmem accepted)
 
 end ConLeche
