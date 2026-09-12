@@ -827,4 +827,247 @@ theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     (fun t ψ' => hpinsAV t ψ') hview (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep
     hps hpsWD hparams hlev' hreal hrealC hTgC hCAPC huse
 
+/-! ## The copies' index telescopes: the container's at the pin (session 9)
+
+`CopyIdxRead` from the ALIGNMENT of the copy's stored former with the
+container's: opened at the aux block's parameter openers, the copy's
+former is `instPis` of the container's stored former (at the level
+instantiation the pin names) at the pin's ANNOTATED components.  That
+equation is what the run must certify (DESIGN §M.21's finding: the aux
+install re-annotates the copy's types, recomputing every `.never` bit,
+and the model cannot pin those bits semantically); under it the copy's
+index telescope reads as the container's peeled at the components
+(`denoteMeta_instPisAt_peel`), and an index spine fits the one iff it
+fits the other at the components' values (`spineFit_instSeqDoms_iff`:
+`instSeq` through a Π-tower is entrywise, and its interpretation under
+`i` binders is the interpretation at the substituted frame).
+-/
+
+omit [SetTheory V] in
+/-- `instE` at the bottom is `cons`. -/
+theorem instE_zero_eq_cons (x : V) (ρ : Nat → V) : instE 0 x ρ = cons x ρ := by
+  funext i
+  cases i with
+  | zero => rfl
+  | succ i => simp [instE, cons]
+
+/-- **An instantiation sequence under binders**: substituting `ws` for
+the variables just below `xs` reads at the frame with `ws`'s values
+pushed under `xs`. -/
+theorem interp_instSeq_under (σ : Nat → V) :
+    ∀ (ws : List AnnotTerm) (xs : List V) (t : Nat) (e : AnnotTerm),
+      (ws ≠ [] → ws.length + xs.length = t + 1) →
+      interp V (consList xs σ) (ConLeche.Model.AnnotTerm.instSeq ws t e)
+        = interp V (consList xs (consList (ws.map (interp V σ)) σ)) e
+  | [], xs, t, e, _ => rfl
+  | w :: ws, xs, t, e, hlen => by
+    have ht : t = ws.length + xs.length := by
+      have := hlen (List.cons_ne_nil w ws)
+      simp only [List.length_cons] at this
+      omega
+    rw [AnnotTerm.instSeq_cons, interp_instSeq_under σ ws xs (t - 1) (e.inst w t)
+      (fun hne => by
+        have hpos : ws.length ≠ 0 := fun h0 => hne (List.eq_nil_of_length_eq_zero h0)
+        omega)]
+    rw [interp_inst]
+    have hfr : consList xs (consList (ws.map (interp V σ)) σ)
+        = consList (ws.map (interp V σ) ++ xs) σ := (consList_append _ _ _).symm
+    have hlenF : (ws.map (interp V σ) ++ xs).length = t := by
+      rw [List.length_append, List.length_map, ht]
+    rw [hfr, ← hlenF, shiftE_consList, ← Nat.add_zero (ws.map (interp V σ) ++ xs).length,
+      instE_consList, instE_zero_eq_cons, List.map_cons, consList_cons, consList_append]
+
+/-- The domains of a Π-tower under an instantiation sequence, entry
+`i` at index `t + i`. -/
+@[expose] def instSeqDoms (ws : List AnnotTerm) : Nat → List (Nat × Nat × AnnotTerm) →
+    List (Nat × Nat × AnnotTerm)
+  | _, [] => []
+  | t, (u, v, A) :: Γ => (u, v, ConLeche.Model.AnnotTerm.instSeq ws t A) :: instSeqDoms ws (t + 1) Γ
+
+omit [SetTheory V] in
+theorem instSeqDoms_length (ws : List AnnotTerm) :
+    ∀ (t : Nat) (Γ : List (Nat × Nat × AnnotTerm)), (instSeqDoms ws t Γ).length = Γ.length
+  | _, [] => rfl
+  | t, (_, _, _) :: Γ => by simp [instSeqDoms, instSeqDoms_length ws (t + 1) Γ]
+
+omit [SetTheory V] in
+/-- `instSeq` through a Π-tower is entrywise, the body at the deepest
+index. -/
+theorem instSeq_mkPisAV (ws : List AnnotTerm) :
+    ∀ (t : Nat) (Γ : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm), ws.length ≤ t + 1 →
+      ConLeche.Model.AnnotTerm.instSeq ws t (mkPisAV Γ B)
+        = mkPisAV (instSeqDoms ws t Γ) (ConLeche.Model.AnnotTerm.instSeq ws (t + Γ.length) B)
+  | _, [], _, _ => rfl
+  | t, (u, v, A) :: Γ, B, hle => by
+    simp only [mkPisAV, instSeqDoms]
+    rw [instSeqAV_pi ws t u v A (mkPisAV Γ B) hle,
+      instSeq_mkPisAV ws (t + 1) Γ B (Nat.le_succ_of_le hle)]
+    simp only [List.length_cons]
+    rw [show t + (Γ.length + 1) = t + 1 + Γ.length from by omega]
+
+omit [SetTheory V] in
+/-- An instantiation sequence leaves a sort alone. -/
+theorem instSeq_sort :
+    ∀ (ws : List AnnotTerm) (t u : Nat), ConLeche.Model.AnnotTerm.instSeq ws t (.sort u) = .sort u
+  | [], _, _ => rfl
+  | _ :: ws, t, u => by rw [AnnotTerm.instSeq_cons]; exact instSeq_sort ws (t - 1) u
+
+/-- **The fit transfer**: a spine fits the instantiated telescope
+under `xs` iff it fits the telescope at the frame with the
+substituted values pushed under `xs`. -/
+theorem spineFit_instSeqDoms_iff {ws : List AnnotTerm} {σ : Nat → V} :
+    ∀ (xs : List V) (t : Nat) (Γ : List (Nat × Nat × AnnotTerm)) (is : List V),
+      (ws ≠ [] → ws.length + xs.length = t + 1) →
+      (SpineFit (consList xs σ) ((instSeqDoms ws t Γ).map (·.2.2)) is ↔
+        SpineFit (consList xs (consList (ws.map (interp V σ)) σ)) (Γ.map (·.2.2)) is)
+  | _, _, [], [], _ => Iff.rfl
+  | _, _, [], _ :: _, _ => Iff.rfl
+  | _, _, (_, _, _) :: _, [], _ => Iff.rfl
+  | xs, t, (u, v, A) :: Γ, a :: is, hlen => by
+    simp only [instSeqDoms, List.map_cons, SpineFit]
+    rw [interp_instSeq_under σ ws xs t A hlen]
+    have hc : ∀ ρ : Nat → V, cons a (consList xs ρ) = consList (xs ++ [a]) ρ := by
+      intro ρ; rw [consList_append]; rfl
+    rw [hc, hc, spineFit_instSeqDoms_iff (xs ++ [a]) (t + 1) Γ is
+      (fun hne => by have := hlen hne; simp only [List.length_append, List.length_singleton]; omega)]
+
+omit [SetTheory V] in
+/-- Two sort-ended Π-towers are equal only entrywise (a sort is not a
+Π, so the lengths agree). -/
+theorem mkPisAV_sort_inj :
+    ∀ {Γ₁ Γ₂ : List (Nat × Nat × AnnotTerm)} {w₁ w₂ : Nat},
+      mkPisAV Γ₁ (.sort w₁) = mkPisAV Γ₂ (.sort w₂) → Γ₁ = Γ₂ ∧ w₁ = w₂
+  | [], [], _, _, h => ⟨rfl, AnnotTerm.sort.inj h⟩
+  | [], _ :: _, _, _, h => nomatch h
+  | _ :: _, [], _, _, h => nomatch h
+  | (u, v, A) :: Γ₁, (u', v', A') :: Γ₂, w₁, w₂, h => by
+    simp only [mkPisAV, AnnotTerm.pi.injEq] at h
+    obtain ⟨rfl, rfl, rfl, h⟩ := h
+    obtain ⟨rfl, rfl⟩ := mkPisAV_sort_inj h
+    exact ⟨rfl, rfl⟩
+
+omit [SetTheory V] in
+/-- `instPis` is the residual of `instPisAt`. -/
+theorem instPisAt_of_instPis :
+    ∀ (args : List ConLeche.Expr) {e rest : ConLeche.Expr}, Expr.instPis e args = some rest →
+      ∃ ds, Expr.instPisAt args e = some (ds, rest)
+  | [], e, rest, h => ⟨[], by simp only [Expr.instPis, Option.some.injEq] at h; rw [h]; rfl⟩
+  | a :: args, e, rest, h => by
+    match e, h with
+    | .forallE dom body bm, h =>
+      simp only [Expr.instPis] at h
+      obtain ⟨ds, hds⟩ := instPisAt_of_instPis args h
+      exact ⟨dom :: ds, by simp [Expr.instPisAt, hds]⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.instPis] at h
+
+/-- **The container's former, peeled at the pin**: at the level
+instantiation the pin names, `instPis` of the stored former at the
+pin's annotated components reads (at the aux parameter depth) as the
+container's index telescope instantiated at the components' readings
+(`denoteMeta_instPisAt_peel`, `peelPis_of_piTeleAV`). -/
+theorem former_peel {μ : CheckMode} (mp : EnvModelM V μ env) {ψ ψ' : Name → Nat}
+    {J : Name} {cvTJ : ConstantVal} {capsJ : IndCaps} (hfJ : env.find? J = some (.indInfo cvTJ capsJ))
+    {dJ : IndRepData V} {mmJ : Nat}
+    (hFDJ : FormerData mp.base2 cvTJ (dJ.nP + dJ.nIdxAt mmJ) dJ.resSort (dJ.ppsM mmJ) (dJ.lvlsM mmJ))
+    {lvls : List Level} (hψ' : ψ' = Level.substFn ψ cvTJ.levelParams lvls)
+    {nP : Nat} {argsA : List ConLeche.Expr} {DsA : List AnnotTerm} (hlenA : argsA.length = dJ.nP)
+    (hargs : ∀ a ∈ argsA, Expr.WScoped nP a ∧ a.looseBVarsBounded 0 = true)
+    (hsp : DenoteMetaSpine mp.base2.acval env ψ nP argsA DsA)
+    {rest : ConLeche.Expr}
+    (hrest : Expr.instPis (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) argsA
+      = some rest) :
+    denoteMeta mp.base2.acval env ψ nP rest
+      = some (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP - 1)
+          (mkPisAV ((dJ.ppsM mmJ ψ').drop dJ.nP) (.sort (dJ.w ψ')))) := by
+  have hwf := mp.base2.wf _ (Env.find?_mem hfJ)
+  have hnf : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).hasFvar = false := by
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
+  have hb : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).looseBVarsBounded 0 = true := by
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
+  -- the reading at depth 0, then at the aux depth
+  have hread0 : denoteMeta mp.base2.acval env ψ 0
+      (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls)
+      = some (mkPisAV (dJ.ppsM mmJ ψ') (.sort (dJ.w ψ'))) := by
+    rw [denoteMeta_instLevels (acvalParamsAt_of_core mp.base2) ψ, ← hψ']
+    exact hFDJ.read ψ'
+  have hreadN : denoteMeta mp.base2.acval env ψ nP
+      (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls)
+      = some (mkPisAV (dJ.ppsM mmJ ψ') (.sort (dJ.w ψ'))) :=
+    denoteMeta_depth_of_closed mp.base2.acval_closed hnf
+      (fun k => denoteMeta_closed mp.base2.acval_erase mp.base2.cval_closed hnf hb hread0 1 k)
+      hread0 nP
+  -- the peel
+  obtain ⟨ds, hpr⟩ := instPisAt_of_instPis argsA hrest
+  obtain ⟨restA, hrestA, hpeel⟩ := denoteMeta_instPisAt_peel mp.base2.acval_closed
+    (acval_inst_self mp.base2) argsA hpr (Expr.WScoped.of_not_hasFvar hnf) hargs hreadN hsp
+  have hlenD : DsA.length = dJ.nP := by rw [← DenoteMetaSpine.length hsp, hlenA]
+  have hle : dJ.nP ≤ (dJ.ppsM mmJ ψ').length := by rw [hFDJ.len ψ']; omega
+  have htele : PiTeleAV dJ.nP (mkPisAV (dJ.ppsM mmJ ψ') (.sort (dJ.w ψ')))
+      ((((dJ.ppsM mmJ ψ').take dJ.nP).map (·.2.2)).reverse)
+      (mkPisAV ((dJ.ppsM mmJ ψ').drop dJ.nP) (.sort (dJ.w ψ'))) :=
+    piTeleAV_of_stripPisAV (stripPisAV_mkPisAV_take dJ.nP (dJ.ppsM mmJ ψ') _ hle)
+  rw [peelPis_of_piTeleAV dJ.nP htele hlenD] at hpeel
+  rw [hrestA, Option.some.inj hpeel]
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **`CopyIdxRead` from the alignment**: the copy's stored former,
+opened at the aux openers, is the container's stored former (at the
+level instantiation) `instPis`'d at the pin's annotated components.
+Then the copy's index telescope reading IS the container's peeled at
+the components (`former_peel` against the copy's own `FormerData`
+through the opening, `mkPisAV_sort_inj`), so the sorts agree and the
+fits transfer (`spineFit_instSeqDoms_iff`).  The alignment is the
+syntactic fact the run must certify (DESIGN §M.21). -/
+theorem copyIdxRead_of_align {μ : CheckMode} (mp : EnvModelM V μ env) {ψ : Name → Nat} {t : Nat}
+    {cvT : ConstantVal}
+    (hFD : FormerData mp.base2 cvT (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) (d.lvlsM t))
+    -- the container's stored former and its data at the level instantiation
+    {J : Name} {cvTJ : ConstantVal} {capsJ : IndCaps} (hfJ : env.find? J = some (.indInfo cvTJ capsJ))
+    {dJ : IndRepData V} {mmJ : Nat}
+    (hFDJ : FormerData mp.base2 cvTJ (dJ.nP + dJ.nIdxAt mmJ) dJ.resSort (dJ.ppsM mmJ) (dJ.lvlsM mmJ))
+    {lvls : List Level} {ψ' : Name → Nat} (hψ' : ψ' = Level.substFn ψ cvTJ.levelParams lvls)
+    -- the pin's annotated components at the aux parameter depth
+    {argsA : List ConLeche.Expr} {DsA : List AnnotTerm} (hlenA : argsA.length = dJ.nP)
+    (hargs : ∀ a ∈ argsA, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true)
+    (hsp : DenoteMetaSpine mp.base2.acval env ψ d.nP argsA DsA)
+    -- THE ALIGNMENT
+    {fvsA : List ConLeche.Expr} {rest : ConLeche.Expr}
+    (hopen : ConLeche.openPisAtFvars d.nP cvT.type 0 = some (fvsA, rest))
+    (hrest : Expr.instPis (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) argsA
+      = some rest) :
+    d.CopyIdxRead ψ t dJ ψ' mmJ DsA := by
+  -- the copy's former, opened: its body reads as its own index telescope
+  obtain ⟨Γ, R, htele, hbody, -⟩ := openPisAtFvars_denotePTele d.nP hopen (hFD.read ψ)
+  have hle : d.nP ≤ (d.ppsM t ψ).length := by rw [hFD.len ψ]; omega
+  have htele' : PiTeleAV d.nP (mkPisAV (d.ppsM t ψ) (.sort (d.w ψ)))
+      ((((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse)
+      (mkPisAV ((d.ppsM t ψ).drop d.nP) (.sort (d.w ψ))) :=
+    piTeleAV_of_stripPisAV (stripPisAV_mkPisAV_take d.nP (d.ppsM t ψ) _ hle)
+  obtain ⟨-, rfl⟩ := PiTeleAV.unique htele htele'
+  rw [Nat.zero_add] at hbody
+  -- … and as the container's peeled at the components
+  have hpeel := former_peel mp hfJ hFDJ hψ' hlenA hargs hsp hrest
+  rw [hbody] at hpeel
+  have hlenD : DsA.length = dJ.nP := by rw [← DenoteMetaSpine.length hsp, hlenA]
+  rw [instSeq_mkPisAV DsA (dJ.nP - 1) _ _ (by omega), instSeq_sort] at hpeel
+  obtain ⟨hΓ, hw⟩ := mkPisAV_sort_inj (Option.some.inj hpeel)
+  refine ⟨hw.symm, fun σ _ is => ?_⟩
+  show SpineFit σ (((d.ppsM t ψ).drop d.nP).map (·.2.2)) is ↔
+    SpineFit (consList (DsA.map (interp V σ)) σ) (((dJ.ppsM mmJ ψ').drop dJ.nP).map (·.2.2)) is
+  rw [hΓ]
+  have h := spineFit_instSeqDoms_iff (ws := DsA) (σ := σ) [] (dJ.nP - 1)
+    ((dJ.ppsM mmJ ψ').drop dJ.nP) is
+    (fun hne => by
+      have hpos : DsA.length ≠ 0 := fun h0 => hne (List.eq_nil_of_length_eq_zero h0)
+      rw [hlenD] at hpos ⊢
+      simp only [List.length_nil, Nat.add_zero]
+      omega)
+  simpa using h
+
+end IndRepData
+
 end ConLeche.Model
