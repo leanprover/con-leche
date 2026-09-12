@@ -486,8 +486,8 @@ unverified by design.
 **The main corollary's chain is what the three phases below compute**
 (`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
 built-in prelude parses, the chunks parse, `checkDecls .verified`
-accepts the parsed list prepared with the prelude).  The prelude step
-is the same function, `Frontend.builtinPreludeE`.  The parse loop
+accepts the parsed records prepared with the prelude).  The prelude
+step is the same function, `Frontend.builtinPreludeE`.  The parse loop
 (`Frontend.parseExportStreamD`) is `Frontend.parseChunks` of the
 chunks the handle hands out, with the reads interleaved — every step
 is the shared `chunkStep`, and the chunk boundaries are proved
@@ -496,7 +496,10 @@ receipts printed below.  `checkDeclsIO` returns its environment with
 the evidence `checkDecls mode ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
 which step failed and with what exit code — and none of it touches
-the verdict. -/
+the verdict.  The three steps fail in ONE error type, the checker's
+`CheckError` with the failure's position (task #295), which is why the
+chain is one `do` block up there and why the exit code below is
+`CheckError.exitCode` whichever step produced it. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     (noMark : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (2026-09-07, `--progress[=<stride>]`):

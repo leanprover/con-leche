@@ -42,7 +42,7 @@ stream that declares the toolchain's `Bool` is checked on its own
 `Bool` record.  The records install by exactly the routes a stream's
 records install by, the pinned blocks among them recognised by the fold
 (`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
-quantifies over the prepared list; the frontend sits below it, like the
+quantifies over the prepared records; the frontend sits below it, like the
 projection rewrite of `ConLeche/Frontend/ProjRec.lean`.
 
 `builtinPrelude` is a 0-ary definition, so the embedded text is parsed

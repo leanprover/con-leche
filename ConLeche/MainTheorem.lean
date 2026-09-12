@@ -20,8 +20,8 @@ can check without knowing what an `Env` is.  Those two theorems are
 all this file holds.  The corollary's statement is the binary's accept
 path itself: the three pure functions the driver's phases compute,
 chained — the built-in prelude parses, the chunks parse, the verified
-fold accepts the parsed list prepared with the prelude — never return
-an environment.  The steps between are imported: the parser reads such
+fold accepts the parsed records prepared with the prelude — and that
+chain is an error.  The steps between are imported: the parser reads such
 chunks into a list holding a theorem record of type `False`
 (`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
 parsed record (`Frontend.mem_preparePrelude`), and a stream holding
@@ -46,12 +46,15 @@ denotation — in `ConLeche/Denotes.lean`.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks` the streaming parse of the chunks the file
   handle hands out (the driver's read loop, minus the reads), and
-  `Frontend.preparePrelude` the preparation of the parsed list for the
-  fold.  The three live in different `Except` error types; the chain
-  forgets the reasons (`Except.toOption`), which are the driver's
-  diagnostics and no part of the statement.
-* `Declaration` is a parsed declaration; `Env` is the environment the checker
-  builds; `env.consts` are the constants it accepted; `.verified` is the
+  `Frontend.preparePrelude` the preparation of the parsed records for
+  the fold.  The three fail in ONE error type — the checker's own
+  `CheckError` with the position of the failure (the input's line
+  number for the first two, the fold position for the fold) — so the
+  chain is a plain `Except` `do` block with no conversion in it, and
+  the conclusion is that it is an error.
+* `Declaration` is a parsed declaration and the records travel as an
+  `Array` of them, what the parse returns and the fold folds; `Env` is
+  the environment the checker builds; `env.consts` are the constants it accepted; `.verified` is the
   default mode.
 * `hasProofOfFalse` (`ConLeche/Accepts.lean`) is the template of a
   file that declares a theorem of type `False`, over the chunks' bytes.

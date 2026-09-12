@@ -16,7 +16,7 @@ a spec simple enough to state in one line, and this is it:
 
     ∃ extra ⊆ prelude, (preparePrelude pre ds).toList.Perm (ds.toList ++ extra)
 
-**every record of the file is in the prepared list, unchanged and
+**every record of the file is in the prepared stream, unchanged and
 exactly once**, and what else is there is a prelude record the file did
 not declare.  The two steps are both reorderings — the stream's own
 prelude declarations are MOVED to the front rather than duplicated, and
@@ -152,7 +152,7 @@ theorem hoistNatOpGround_perm (ds : Array Declaration) :
   · exact List.Perm.refl _
   · exact applyHoist_perm ds _
 
-/-! ## The prepared list -/
+/-! ## The prepared stream -/
 
 /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
 input plus additional declarations, but nothing missing"* — and the
