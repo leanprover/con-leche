@@ -336,7 +336,7 @@ block's; the stored `esF`/`eissF` stay the members' own.
 the datum is per member; the constructors' own spellings agree with it
 by value (`mutualIndRep_of`'s `hsortJ`). -/
 @[expose] noncomputable def mutualRepData (env₀ : Env) (nP k : Nat) (resSort : Level)
-    (isProp large : Bool) (ctorsA : List (ConstantVal × Nat)) (idxF : Nat → List Expr)
+    (isProp large : Bool) (elim : Name) (ctorsA : List (ConstantVal × Nat)) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
     (ksF : Nat → List (RecFieldKind × Nat)) (fvsPF xFvsF : Nat → List Expr)
@@ -355,6 +355,7 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
   resSort := resSort
   isProp := isProp
   large := large
+  elim := elim
   env₀ := env₀
   ctorsA := ctorsA
   idxF := idxF
@@ -401,7 +402,7 @@ member's leaf from `auxFamI` at `Fss₀` to the datum's functor
 (`fixFamI_congr`). -/
 theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     {members : List (Name × Nat × Nat)} {lps : List Name} {nP k : Nat} {resSort : Level}
-    {isProp large : Bool} {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
+    {isProp large : Bool} {elim : Name} {ctorsA : List (ConstantVal × Nat)} {idxF : Nat → List Expr}
     {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List (RecFieldKind × Nat)} {fvsPF xFvsF : Nat → List Expr}
@@ -480,12 +481,23 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hEssD : ∀ ψ : Name → Nat,
       essOfR (fixCtorDataList dsF (mutEssC W Idss mots nFs esF) (fun J => kindsOf (ksF J))
         (mutEissC W Idss ksF nFs tssF eissF) tssF ψ ctorsA 0) = Ess' ψ)
-    (hagree : ∀ ψ : Name → Nat, AgreeOffRecs rss (Fss₀ ψ) (mutFss nP ctorsA.length dsF ψ)) :
+    (hagree : ∀ ψ : Name → Nat, AgreeOffRecs rss (Fss₀ ψ) (mutFss nP ctorsA.length dsF ψ))
+    -- the recursor's shape (task #279 M-A′): its name, its absence from
+    -- the carrier (the constructors' environment: the rules' readings
+    -- are the store's business), and its type's reading
+    (hRname : cvR.name = (Tname mm).str "rec") (hnotR : env.find? cvR.name = none)
+    (hRread : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR.type
+      = some (mkPisAV (mutualRecDataAV m ψ ((List.range k).map fun t => m.acval (Tname t) ψ) nP
+          ((List.range k).map nIdxOf) (ConLeche.structElimLevel elim large) ((ppsOf 0 ψ).take nP)
+          ((List.range k).map fun t => (ppsOf t ψ).drop nP)
+          (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0) mots
+          (fun J i => tgtAt (ksF J) i) mm)
+        (mutualConcAV k ctorsA.length (nIdxOf mm) mm))) :
     IndRep m (Tname mm) cvT cvR mI rP rules
-      (mutualRepData env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
+      (mutualRepData env₀ nP k resSort isProp large elim ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
         xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss' Ess') mm := by
   let d : IndRepData V :=
-    mutualRepData env₀ nP k resSort isProp large ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
+    mutualRepData env₀ nP k resSort isProp large elim ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF
       xrestF eissF tssF Tname nIdxOf mots nFs ppsOf lvlsOf W Idss rss tlss Eiss' Ess'
   show IndRep m (Tname mm) cvT cvR mI rP rules d mm
   -- the member table, read off the datum
@@ -517,13 +529,45 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     intro ψ
     rw [hparams, List.length_map, List.length_take]
     exact Nat.min_eq_left (hpps0 ψ)
+  -- the recursor's shape, reduced (task #279 M-A′)
+  have hLs : ∀ ψ, d.Ls m ψ = (List.range k).map fun t => m.acval (Tname t) ψ := by
+    intro ψ
+    unfold IndRepData.Ls
+    exact List.map_congr_left fun t ht => by
+      rw [show d.memberNames.getD t .anonymous = d.memberName t from rfl,
+        hname t (List.mem_range.mp ht)]
+  have hcdsR : ∀ ψ, d.cdsR ψ
+      = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0 := by
+    intro ψ
+    show fixCtorDataList d.dsF d.esF d.ksR d.eissR d.tssR ψ (ctorsA ++ []) 0 = _
+    rw [List.append_nil]
+    rfl
   refine {
     member := hname mm hmm
     strip := ⟨bsT, by rw [hnIdxAt mm hmm]; exact hstripT⟩
     isProp := hProp
+    rulesRead := fun _ _ h => by rw [hnotR] at h; exact nomatch h
     mI := by rw [hnIdxAt mm hmm]; exact hmI
     rP := hrP
     rules := hrules
+    kRealLe := Nat.le_refl _
+    memReal := hmm
+    recName := by rw [show d.recNames mm = (d.memberName mm).str "rec" from rfl, hname mm hmm]; exact hRname.symm
+    tgtsRLt := htgtLt
+    membersFound := fun t ht => by rw [hname t ht]; exact hfound t ht
+    ctorsCFound := fun _ h => nomatch h
+    pinsReal := fun _ _ => ⟨fun _ => rfl, rfl⟩
+    recRead := fun _ ψ => by
+      rw [hRread ψ]
+      unfold IndRepData.recDataAV
+      rw [hLs ψ, hcdsR ψ, show d.pinsOf ψ = fun _ => paramBvarsAt nP nP from rfl,
+        show d.nP = nP from rfl, show d.nIdxs = (List.range k).map nIdxOf from rfl,
+        show d.elimL = ConLeche.structElimLevel elim large from rfl,
+        show d.ppsM 0 ψ = ppsOf 0 ψ from rfl,
+        show d.ipss ψ = (List.range k).map (fun t => (ppsOf t ψ).drop nP) from rfl,
+        show d.mems = mots from rfl, show d.tgtsR = fun J i => tgtAt (ksF J) i from rfl,
+        show d.k = k from rfl, show d.nAll = ctorsA.length from rfl, hnIdxAt mm hmm,
+        recDataAVP_params]
     former := by rw [hnIdxAt mm hmm]; exact hFD
     ctors := ?_
     memsFound := ?_
@@ -757,7 +801,9 @@ theorem mutualIndReps_of {env₂ : Env} {b : MutualBlock} {fms : List MutualForm
   · -- the constructors' environment's own recursor: the prefix's entry
     rcases hprefix n cvR mI rP rules (hin _ _ h₂) T hn with ⟨cvT, caps, d, mm, hfT, hd⟩ | hmod
     · exact Or.inl ⟨cvT, caps, d, mm,
-        hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h), hd.swap hcg hac⟩
+        hcg.findUp _ _ hfT (fun _ _ _ _ h => nomatch h),
+        hd.swap hcg hac (hd.rulesRead_swap hcg hac (by
+          rw [show cvR.name = n from ConLeche.Semantics.Env.find?_name h₂]; exact hin _ _ h₂))⟩
     · exact Or.inr (hmod.swap hcg hac)
   · -- one of the block's `k`
     obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc

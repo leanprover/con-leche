@@ -113,7 +113,6 @@ theorem FixCtorDataI.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀
     eisLenRefl := h.eisLenRefl
     reflEntry := fun ψ i hk hi => by rw [hac]; exact h.reflEntry ψ i hk hi }
 
-/-- **A representation crosses the rule-list swap.** -/
 /-- **The rules' readings across the swap**, for a recursor the swap
 LEFT ALONE: the prefix's readings cross (`denoteMeta_swap`) and the
 spellings do not move (`m₃.acval = m₀.acval`). -/
@@ -137,6 +136,7 @@ theorem IndRep.rulesRead_swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr en
   exact d.ruleAV_congr (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac]) (fun _ _ => by rw [hac])
     (h.tgtsRLt j)
 
+/-- **A representation crosses the rule-list swap.** -/
 theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : IndRepData V}

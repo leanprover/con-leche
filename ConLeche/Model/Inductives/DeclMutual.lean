@@ -1467,9 +1467,6 @@ theorem mutualRuleDataAV_congrm {env' : Env} {m : EnvModel V env} {m' : EnvModel
   unfold mutualRuleDataAV
   rw [fixMinorsDataM_congrm _ _ cds Ls.length h]
 
-/-- **A rule's core at two leaf tables**: only the recursive slots'
-TARGET recursors are read. -/
-
 /-- **A member's reading crosses an environment extension**: its type
 resolves at the smaller environment and its own leaf does not move. -/
 theorem FormerReadM.crossEnv {env env' : Env} {m : EnvModel V env} {m' : EnvModel V env'}
@@ -4862,6 +4859,284 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (hclLG ψ) (hppsG ψ) (hfrmG ψ) (hchainsG ψ) (hminorReadG ψ)
     rw [tagIps_doms] at h
     exact h
+  -- **the rules' readings at the store** (task #279 M-A′): constructor
+  -- `J`'s right-hand side, read at any carrier whose leaves are the
+  -- block's — `hlawsG`'s reading step, factored for the representation
+  -- clause's `rulesRead` at the group store
+  have hreadStore : ∀ (acv : Name → (Name → Nat) → AnnotTerm),
+      (∀ t, t < prts.k → ∀ ψ : Name → Nat,
+        acv (cvRas.getD t default).name ψ = prts.leaf mp₂.base2 t ψ) →
+      (∀ n : Name, (∀ t, t < prts.k → n ≠ (cvRas.getD t default).name) →
+        acv n = mp₂.base2.acval n) →
+      ∀ m₃ : EnvModel V (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))),
+        m₃.acval = acv → ∀ (t : Nat), t < prts.k →
+        ∀ (J : Nat) (c : MutualCtor) (rhs : Expr), J < ctorsA.length →
+          p.toBlock.ctors[J]? = some c → memF J = t →
+          ConLeche.mutualRecRhs p.toBlock.lps p.toBlock.elim p.toBlock.large p.toBlock.nP
+            formers4 ctors4 p.toBlock.recName (p.toBlock.rlps.map Level.param) J = some rhs →
+          ∀ ψ : Name → Nat,
+            denoteMeta m₃.acval (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))) ψ 0 rhs
+              = some (prts.ruleAV mp₂.base2 J
+                  ((c.cv.name, c.nF, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)),
+                    eissF J ψ, tssF J ψ) : CtorDatumR) ψ) := by
+    intro acv hacvL hacvN m₃ hac t ht J c rhs hJl hxget hmemJ hgen
+    have hcJ : p.toBlock.ctors.getD J default = c := by
+      rw [List.getD_eq_getElem?_getD, hxget]; rfl
+    have hcA := hcAGet J hJl
+    have hnm : (ctorsA.getD J default).1.name = c.cv.name := by
+      have h1 := congrArg (fun l => l[J]?) hnamesC
+      rw [List.getElem?_map, List.getElem?_map, hcA, hxget] at h1
+      simpa using h1
+    have hnF : (ctorsA.getD J default).2 = c.nF := by
+      have h := (hrunC J _ hcA).1
+      rw [h, hcJ]
+    -- the store's transfer
+    have hagAcv : ∀ n, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
+        (ConLeche.consMutualFormers fms env)).find? n).isSome = true →
+        mp₂.base2.acval n = acv n := by
+      intro n hn
+      refine (hacvN n fun q hq hh => ?_).symm
+      rw [hh, hfreshR q hq] at hn
+      exact nomatch hn
+    have hFindS : ∀ {n : Name} {ci : ConstantInfo},
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)).find? n = some ci →
+        (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env))).find? n = some ci :=
+      (storeMutualRecs_extend hfrZ hndZ).1
+    -- the block data at `J`
+    have hlpsCJ : (ctorsA.getD J default).1.levelParams = p.toBlock.lps := hlpsC J _ hcA
+    have hlenDsJ : ∀ ψ : Name → Nat, (dsF J ψ).length = p.toBlock.nP + c.nF := by
+      intro ψ; rw [(hCD₁ J _ hcA).len ψ, hnF]
+    have hlenEsJ : ∀ ψ : Name → Nat, (esF J ψ).length = prts.nIdxOf t := by
+      intro ψ
+      show (esF J ψ).length = (fms.getD t default).nIdx
+      rw [← hmemJ]
+      exact (hCD₁ J _ hcA).lenE ψ
+    have hcdJ : ∀ ψ : Name → Nat, (prts.cds ψ)[J]? = some (c.cv.name, c.nF, dsF J ψ, esF J ψ,
+        ConLeche.recIdxOf (kindsOf (ksF J)), eissF J ψ, tssF J ψ) := by
+      intro ψ
+      show (fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ ctorsA 0)[J]? = _
+      rw [fixCtorDataList_getElem?, hcA]
+      simp only [Option.map_some, Nat.zero_add]
+      rw [hnm, hnF]
+    have hfC : (ConLeche.storeMutualRecs
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+        p.toBlock fms rulesOf cvRas.zipIdx
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env))).find? c.cv.name
+        = some (.ctorInfo (ctorsA.getD J default).1 p.toBlock.nP c.nF) := by
+      rw [← hnm, ← hnF]
+      exact hFindS (hcons₂ J _ hJl hcA).1.1
+    have hdataParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.toBlock.lps, ψ₁ q = ψ₂ q) →
+        ((c.cv.name, c.nF, dsF J ψ₁, esF J ψ₁, ConLeche.recIdxOf (kindsOf (ksF J)),
+            eissF J ψ₁, tssF J ψ₁) : CtorDatumR)
+          = (c.cv.name, c.nF, dsF J ψ₂, esF J ψ₂, ConLeche.recIdxOf (kindsOf (ksF J)),
+            eissF J ψ₂, tssF J ψ₂) ∧
+        prts.FssR ψ₁ = prts.FssR ψ₂ ∧ prts.wB ψ₁ = prts.wB ψ₂ := by
+      intro ψ₁ ψ₂ hφ
+      obtain ⟨-, he, hei, ht'⟩ := hCDparams J hJl ψ₁ ψ₂ hφ
+      have hidJ := hident J _ hcA
+      have hesF : esF J ψ₁ = esF J ψ₂ := by
+        rw [← hidJ.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.1 ψ₂, he]
+      have heissF : eissF J ψ₁ = eissF J ψ₂ := by
+        rw [← hidJ.2.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.2.1 ψ₂, hei]
+      have htssF : tssF J ψ₁ = tssF J ψ₂ := by
+        rw [← hidJ.2.2.2.2.2.2.1 ψ₁, ← hidJ.2.2.2.2.2.2.1 ψ₂, ht']
+      refine ⟨by rw [hCDparams₁ J hJl ψ₁ ψ₂ hφ, hesF, heissF, htssF], ?_, ?_⟩
+      · show mutFss p.toBlock.nP ctorsA.length dsF ψ₁ = mutFss p.toBlock.nP ctorsA.length dsF ψ₂
+        unfold mutFss
+        exact List.map_congr_left fun J' hJ' => by
+          rw [hCDparams₁ J' (List.mem_range.mp hJ') ψ₁ ψ₂ hφ]
+      · exact ((hFD 0 f₀ hf0).params ψ₁ ψ₂ (by rw [hlpsF 0 f₀ hf0]; exact hφ)).2
+    have hcbRec : ConstsBound (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+        (ConLeche.consMutualFormers fms env)) (cvRas.getD t default).type :=
+      constsBound_of_constsResolve _ (hresR t ht)
+    have hRD : MutualRecData m₃ (cvRas.getD t default) prts.nP prts.k prts.n (prts.nIdxOf t) t
+        prts.elimL (prts.rds mp₂.base2 t) :=
+      { read := fun ψ => by
+          rw [hac]
+          exact denoteMeta_toStore hfrZ hndZ hagAcv ψ 0 _ hcbRec ((hRDs t ht).read ψ)
+        len := (hRDs t ht).len
+        bits := (hRDs t ht).bits
+        okTy := (hRDs t ht).okTy
+        below := (hRDs t ht).below
+        params := (hRDs t ht).params }
+    obtain ⟨-, hGS, hPS⟩ := storeMutualRecs_extend (b := p.toBlock) (fms := fms)
+      (rulesOf := rulesOf) hfrZ hndZ
+    have hagS : ∀ n : Name, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
+        (ConLeche.consMutualFormers fms env)).find? n).isSome = true →
+        mp₂.base2.acval n = m₃.acval n := by
+      intro n hn; rw [hac]; exact hagAcv n hn
+    have hFPcS : ∀ n : Name,
+        ((ConLeche.consMutualFormers fms env).find? n).isSome = true →
+        ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
+          (ConLeche.consMutualFormers fms env)).find? n).isSome = true := by
+      intro n hn
+      obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+      rw [hFPc hci]; rfl
+    -- the members' names are not the recursors'
+    have hmemNe : ∀ (q : Nat) (f : MutualFormerA), fms[q]? = some f →
+        ∀ r, r < prts.k → f.cvTa.name ≠ (cvRas.getD r default).name := by
+      intro q f hq r hr hh
+      have h1 := hFPc (hfindF q f hq)
+      rw [hh, hfreshR r hr] at h1
+      exact nomatch h1
+    -- **the readings at the store**
+    have hFReadsS : ∀ ψ : Name → Nat, FormerReadsM m₃ ψ p.toBlock.lps p.toBlock.nP
+        (fun q => mp₂.base2.acval (fms.getD q default).cvTa.name ψ)
+        (fun q => (fms.getD q default).nIdx)
+        (fun q => (ppsF q ψ).take p.toBlock.nP) (fun q => (ppsF q ψ).drop p.toBlock.nP)
+        formers4 := by
+      intro ψ q hq
+      have hql : q < fms.length := by rw [← hlen4F]; exact hq
+      refine (hFReads ψ q hq).crossEnv ?_ hFindS hGS hPS hagS
+      show ConstsBound _ (formers4.getD q default).tty
+      rw [hget4F q hql]
+      exact hcbF₂ q _ (hfmGet q hql)
+    have hCReadsS : ∀ ψ : Name → Nat, MutualCtorReadsM m₃ ψ p.toBlock.lps p.toBlock.nP
+        (fun q => (fms.getD q f₀).cvTa.name) (fun q => (fms.getD q default).nIdx) memF
+        (fun J' => tgtAt (ksF J')) ctors4
+        (fixCtorDataList dsF esF (fun J' => kindsOf (ksF J')) eissF tssF ψ ctorsA 0) := by
+      intro ψ
+      refine ⟨(hCReads ψ).1, fun J' hJ' => ?_⟩
+      have hJ'l : J' < ctorsA.length := by rw [← hlen4C]; exact hJ'
+      have hbase := (hCReads ψ).2 J' hJ'
+      refine ⟨hbase.member, hbase.fields, hbase.base.crossEnv ?_ hFindS hGS hPS hagS ?_ ?_⟩
+      · show ConstsBound _ (ctors4.getD J' default).cty
+        rw [show ctors4.getD J' default = MutualCtor4.mk (ctorsA.getD J' default).1.name
+            (ctorsA.getD J' default).2 (ctorsA.getD J' default).1.type
+            (p.toBlock.ctors.getD J' default).member
+            (ConLeche.mutualRecFieldsOf (kinds.getD J' [])) from by
+          rw [List.getD_eq_getElem?_getD, hget4C J' _ (hcAGet J' hJ'l)]; rfl]
+        exact hcbCC J' _ (hcAGet J' hJ'l)
+      · rw [hgetDf₀ _ (hmotLt J' hJ'l)]
+        exact congrFun
+          (hagS _ (by rw [hFPc (hfindF _ _ (hfmGet _ (hmotLt J' hJ'l)))]; rfl)) ψ
+      · intro i _
+        rw [hgetDf₀ _ ((hksJ J' _ (hcAGet J' hJ'l)).2.2 i)]
+        exact congrFun (hagS _ (by
+          rw [hFPc (hfindF _ _ (hfmGet _ ((hksJ J' _ (hcAGet J' hJ'l)).2.2 i)))]; rfl)) ψ
+    -- **the recursors' table**, total below `k` (`denoteMeta_mutualRecRhs`
+    -- asks for its `recOf` at EVERY index)
+    have hrecName : ∀ q, q < prts.k → (cvRas.getD q default).name = p.toBlock.recName q := by
+      intro q hq
+      obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape q hq
+      rw [hcv]
+    have hfRS : ∀ q : Nat, ∃ ci : ConstantInfo,
+        (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env))).find?
+          (if q < prts.k then p.toBlock.recName q else p.toBlock.recName 0) = some ci ∧
+        ci.toConstantVal.levelParams = p.toBlock.rlps := by
+      have hone : ∀ r, r < prts.k → ∃ ci : ConstantInfo,
+          (ConLeche.storeMutualRecs
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+            p.toBlock fms rulesOf cvRas.zipIdx
+            (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env))).find? (p.toBlock.recName r) = some ci ∧
+          ci.toConstantVal.levelParams = p.toBlock.rlps := by
+        intro r hr
+        obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape r hr
+        have hmem : (cvRas.getD r default, r) ∈ cvRas.zipIdx :=
+          List.mk_mem_zipIdx_iff_getElem?.mpr (by
+            rw [List.getD_eq_getElem?_getD,
+              List.getElem?_eq_getElem (show r < cvRas.length by rw [hk]; exact hr)]
+            rfl)
+        refine ⟨.recInfo (cvRas.getD r default)
+            (p.toBlock.rulePrefix + (fms.getD r default).nIdx) p.toBlock.rulePrefix
+            (ConLeche.mutualRules (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+              (ConLeche.consMutualFormers fms env)).find? (cvRas.getD r default).name
+              p.toBlock.nP (p.toBlock.rulePrefix + (fms.getD r default).nIdx)
+              p.toBlock.rulePrefix (cvRas.getD r default).type (rulesOf.getD r [])), ?_, ?_⟩
+        · rw [← hrecName r hr]
+          exact storeMutualRecs_find?_self hmem hndZ
+        · show (cvRas.getD r default).levelParams = p.toBlock.rlps
+          rw [hcv]
+      intro q
+      by_cases hq : q < prts.k
+      · rw [if_pos hq]; exact hone q hq
+      · rw [if_neg hq]; exact hone 0 hk0
+    have hfTS : ∀ q : Nat, ∃ ci : ConstantInfo,
+        (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env))).find? (fms.getD q f₀).cvTa.name = some ci ∧
+        ci.toConstantVal.levelParams = p.toBlock.lps := by
+      intro q
+      obtain ⟨ci, hci, hlp⟩ := hfTname q
+      exact ⟨ci, hFindS hci, hlp⟩
+    have hgen' : ConLeche.mutualRecRhs p.toBlock.lps p.toBlock.elim p.toBlock.large p.toBlock.nP
+        formers4 ctors4 (fun q => if q < prts.k then p.toBlock.recName q else p.toBlock.recName 0)
+        (p.toBlock.rlps.map Level.param) J = some rhs := by
+      rw [← hgen]
+      refine mutualRecRhs_congr_recOf fun c' hc' im him => ?_
+      obtain ⟨J'', hJ''⟩ := List.getElem?_of_mem hc'
+      have hJ''l : J'' < ctorsA.length := by
+        rw [← hlen4C]
+        exact (List.getElem?_eq_some_iff.mp hJ'').1
+      have hfields := ((hCReads (fun _ => 0)).2 J'' (by rw [hlen4C]; exact hJ''l)).fields
+      rw [show ctors4.getD J'' default = c' from by
+        rw [List.getD_eq_getElem?_getD, hJ'']; rfl] at hfields
+      rw [hfields] at him
+      obtain ⟨i, -, rfl⟩ := List.mem_map.mp him
+      exact if_pos ((hksJ J'' _ (hcAGet J'' hJ''l)).2.2 i)
+    -- the constructors' leaves do not move at the store
+    have hacvCds : ∀ ψ : Name → Nat, ∀ cd ∈ fixCtorDataList dsF esF
+        (fun J' => kindsOf (ksF J')) eissF tssF ψ ctorsA 0,
+        m₃.acval cd.1 ψ = mp₂.base2.acval cd.1 ψ := by
+      intro ψ cd hcd
+      obtain ⟨J', hJ'⟩ := List.getElem?_of_mem hcd
+      rw [fixCtorDataList_getElem?] at hJ'
+      obtain ⟨cA', hcA', hcdEq⟩ := Option.map_eq_some_iff.mp hJ'
+      have hJ'l : J' < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA').1
+      have hname : cd.1 = cA'.1.name := by rw [← hcdEq]
+      have hne : ∀ r, r < prts.k → cA'.1.name ≠ (cvRas.getD r default).name := by
+        intro r hr hh
+        have h1 := (hcons₂ J' cA' hJ'l hcA').1.1
+        rw [hh, hfreshR r hr] at h1
+        exact absurd h1 (by simp)
+      rw [hname, hac, hacvN _ hne]
+    -- **the rule's right-hand side, read at the store**
+    have hread : ∀ ψ : Name → Nat,
+        denoteMeta m₃.acval (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+            (ConLeche.consMutualFormers fms env))) ψ 0 rhs
+        = some (prts.ruleAV mp₂.base2 J
+            ((c.cv.name, c.nF, dsF J ψ, esF J ψ, ConLeche.recIdxOf (kindsOf (ksF J)),
+              eissF J ψ, tssF J ψ) : CtorDatumR) ψ) := by
+      intro ψ
+      have hside : ∀ i ∈ ConLeche.recIdxOf (kindsOf (ksF J)),
+          m₃.acval (if tgtAt (ksF J) i < prts.k then p.toBlock.recName (tgtAt (ksF J) i)
+              else p.toBlock.recName 0) ψ
+            = prts.leaf mp₂.base2 (tgtAt (ksF J) i) ψ := by
+        intro i _
+        have htgtk : tgtAt (ksF J) i < prts.k := (hksJ J _ hcA).2.2 i
+        rw [if_pos htgtk, ← hrecName _ htgtk, hac]
+        exact hacvL _ htgtk ψ
+      rw [denoteMeta_mutualRecRhs (hFReadsS ψ) (hCReadsS ψ) hmots4 hfTS hfRS hgen' (hcdJ ψ),
+        hlen4F, hlen4C, mutualRuleDataAV_congrm (hacvCds ψ),
+        mutualRuleCoreAV_congr_Rof
+          (Rof := fun t => m₃.acval
+            (if t < prts.k then p.toBlock.recName t else p.toBlock.recName 0) ψ)
+          (Rof' := fun q => prts.leaf mp₂.base2 q ψ)
+          (tgts := tgtAt (ksF J)) (recIdx := ConLeche.recIdxOf (kindsOf (ksF J))) hside]
+      rfl
+    exact hread
   have hlawsG : ∀ (acv : Name → (Name → Nat) → AnnotTerm),
       (∀ t, t < prts.k → ∀ ψ : Name → Nat,
         acv (cvRas.getD t default).name ψ = prts.leaf mp₂.base2 t ψ) →
@@ -5348,10 +5623,19 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     have h1 := hfindF q f hfq
     rw [hh, hfreshC cA hcA] at h1
     simp at h1
+  -- **the recursor's name** is the member's, with `rec` appended
+  have hrecName : ∀ t : Nat, t < fms.length →
+      (cvRas.getD t default).name = (fms.getD t default).cvTa.name.str "rec" := by
+    intro t ht
+    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
+    rw [hcv]
+    show (p.toBlock.formers.getD t default).1.name.str "rec" = _
+    rw [← mutualNameOf_members3 (b := p.toBlock) (t := t) (by rw [hkF]; exact ht),
+      (hmemT t _ (hfmGet t ht)).1]
   let dOf : Nat → IndRepData V := fun t =>
     mutualRepData (V := V) (ConLeche.consMutualFormers fms env) p.toBlock.nP fms.length
       (fms.getD t default).s (Level.isEquiv f₀.s Level.zero == some true) p.toBlock.large
-      ctorsA idxF₁ dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
+      p.toBlock.elim ctorsA idxF₁ dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
       (fun q => (fms.getD q default).cvTa.name) (fun q => (fms.getD q default).nIdx) memF nFs
       ppsF lvlsF Wf Idssf rssf tlssf Eissf Essf
   have hIndRepBase : ∀ t : Nat, t < fms.length →
@@ -5373,6 +5657,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (lps := p.toBlock.lps) (nP := p.toBlock.nP) (k := fms.length)
       (resSort := (fms.getD t default).s)
       (isProp := Level.isEquiv f₀.s Level.zero == some true) (large := p.toBlock.large)
+      (elim := p.toBlock.elim)
       (ctorsA := ctorsA) (idxF := idxF₁) (dsF := dsF) (esF := esF) (srcsF := srcsF)
       (ksF := ksF) (fvsPF := fvsPF) (xFvsF := xFvsF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (Tname := fun q => (fms.getD q default).cvTa.name)
@@ -5386,6 +5671,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
       ?hFD ?hfound ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM ?hTag ?hX ?hIdss
       ?hleafT ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
+      (hrecName t ht) (hfreshR t ht) (fun ψ => (hRDs' t ht).read ψ)
     case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
     case hnIdxs => exact fun q hq => (hmemT q _ (hfmGet q hq)).2.symm
     case hProp => exact isPropBit_congr (fun ψ => (hsEqAll t ψ ht).symm)
@@ -5483,15 +5769,6 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       show (((dsF J ψ).drop p.toBlock.nP).map (·.2.2)).length = (ctorsA.getD J default).2
       rw [List.length_map, List.length_drop, (hCD₁ J _ (hcAGet J hJ)).len ψ]
       omega
-  -- **the recursor's name** is the member's, with `rec` appended
-  have hrecName : ∀ t : Nat, t < fms.length →
-      (cvRas.getD t default).name = (fms.getD t default).cvTa.name.str "rec" := by
-    intro t ht
-    obtain ⟨recTy, hcv, -, -, -, -, -⟩ := hRecShape t ht
-    rw [hcv]
-    show (p.toBlock.formers.getD t default).1.name.str "rec" = _
-    rw [← mutualNameOf_members3 (b := p.toBlock) (t := t) (by rw [hkF]; exact ht),
-      (hmemT t _ (hfmGet t ht)).1]
   -- **the member's own constructors**, as the block's two spellings
   have hownNames : ∀ t : Nat,
       (p.toBlock.ownCtors t).map (fun z => z.2.cv.name)
@@ -5543,7 +5820,21 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rfl
   obtain ⟨mp₄, hacc₄, hoff₄⟩ := stageMutualRecs prts hyp mp₂ hrectys hrules hk hnd hfreshR
     hresR hE₂ hRDs' hIdsBelow hchainBelow hAparams hnres hpshape htyWF
-    (Inv := fun {env'} m' => ∀ q : Nat, q < fms.length →
+    (Inv := fun {env'} m' =>
+      -- the provision chain's bookkeeping (task #279 M-A′): the
+      -- recursors' types resolve, every recursor is absent or stored
+      -- rule-less, a stored one carries the block's leaf, and the
+      -- carrier is the constructors' off the recursors
+      (∀ q : Nat, q < fms.length →
+        (cvRas.getD q default).type.constsResolve env' = true ∧
+        (env'.find? (cvRas.getD q default).name = none ∨
+          env'.find? (cvRas.getD q default).name = some (.recInfo (cvRas.getD q default)
+            (p.toBlock.rulePrefix + (fms.getD q default).nIdx) p.toBlock.rulePrefix [])) ∧
+        (env'.find? (cvRas.getD q default).name ≠ none → ∀ ψ : Name → Nat,
+          m'.acval (cvRas.getD q default).name ψ = prts.leaf mp₂.base2 q ψ)) ∧
+      (∀ n : Name, (∀ q, q < fms.length → n ≠ (cvRas.getD q default).name) →
+        m'.acval n = mp₂.base2.acval n) ∧
+      ∀ q : Nat, q < fms.length →
       (∃ caps : IndCaps, env'.find? (fms.getD q default).cvTa.name
         = some (.indInfo (fms.getD q default).cvTa caps)) ∧
       ∀ rules : List RecRule,
@@ -5554,27 +5845,96 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           p.toBlock.rulePrefix rules (dOf q) q)
     (hInv := by
       -- the block's representations cross a fresh recursor's cons
-      intro env' m' t ht hfresh hinv m₂ hac q hq
-      obtain ⟨caps, hfq⟩ := (hinv q hq).1
-      exact ⟨⟨caps, ConLeche.Env.find?_cons_of_fresh hfresh hfq⟩, fun rules hrl =>
-        ((hinv q hq).2 rules hrl).cross
-          (c₀ := .recInfo (cvRas.getD t default)
-            (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix [])
-          (A := prts.leaf mp₂.base2 t) hfresh
-          (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac⟩)
-    (hinv₂ := fun q hq =>
-      ⟨⟨{}, hFPc (hfindF q _ (hfmGet q hq))⟩, fun rules hrl => hIndRepBase q hq rules hrl⟩)
+      intro env' m' t ht hfresh hinv m₂ hac
+      obtain ⟨hbook, hoff, hreps⟩ := hinv
+      -- two recursors with one name are one recursor
+      have hnameInj : ∀ q, q < fms.length →
+          (cvRas.getD q default).name = (cvRas.getD t default).name → q = t := by
+        intro q hq hqt
+        have hq' : q < cvRas.length := by rw [hk]; exact hq
+        have ht' : t < cvRas.length := by rw [hk]; exact ht
+        have hne := List.pairwise_iff_getElem.mp hnd
+        simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq',
+          List.getElem?_eq_getElem ht', Option.getD_some] at hqt
+        refine Classical.byContradiction fun hqt' => ?_
+        rcases Nat.lt_or_gt_of_ne hqt' with h | h
+        · exact hne q t (by simpa using hq') (by simpa using ht') h (by simpa using hqt)
+        · exact hne t q (by simpa using ht') (by simpa using hq') h (by simpa using hqt.symm)
+      -- the new store's shape at every recursor
+      have hbook₂ : ∀ q : Nat, q < fms.length →
+          (cvRas.getD q default).type.constsResolve
+            ⟨.recInfo (cvRas.getD t default)
+              (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix []
+              :: env'.consts⟩ = true ∧
+          (Env.find? ⟨.recInfo (cvRas.getD t default)
+              (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix []
+              :: env'.consts⟩ (cvRas.getD q default).name = none ∨
+            Env.find? ⟨.recInfo (cvRas.getD t default)
+              (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix []
+              :: env'.consts⟩ (cvRas.getD q default).name
+              = some (.recInfo (cvRas.getD q default)
+                (p.toBlock.rulePrefix + (fms.getD q default).nIdx) p.toBlock.rulePrefix [])) ∧
+          (Env.find? ⟨.recInfo (cvRas.getD t default)
+              (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix []
+              :: env'.consts⟩ (cvRas.getD q default).name ≠ none → ∀ ψ : Name → Nat,
+            m₂.acval (cvRas.getD q default).name ψ = prts.leaf mp₂.base2 q ψ) := by
+        intro q hq
+        obtain ⟨hres, hstore, hleaf⟩ := hbook q hq
+        refine ⟨Expr.constsResolve_mono hres, ?_, ?_⟩
+        · by_cases hqt : (cvRas.getD q default).name = (cvRas.getD t default).name
+          · obtain rfl := hnameInj q hq hqt
+            right
+            rw [ConLeche.Env.find?_cons, if_pos (show (ConstantInfo.recInfo (cvRas.getD q default)
+              (p.toBlock.rulePrefix + (fms.getD q default).nIdx) p.toBlock.rulePrefix []).name
+              = (cvRas.getD q default).name from rfl)]
+          · rw [ConLeche.Env.find?_cons, if_neg (fun h => hqt h.symm)]
+            exact hstore
+        · intro hne ψ
+          by_cases hqt : (cvRas.getD q default).name = (cvRas.getD t default).name
+          · obtain rfl := hnameInj q hq hqt
+            rw [hac]
+            exact congrFun acvalWith_self ψ
+          · rw [ConLeche.Env.find?_cons, if_neg (fun h => hqt h.symm)] at hne
+            rw [hac, acvalWith_ne hqt]
+            exact hleaf hne ψ
+      refine ⟨hbook₂, fun n hn => ?_, fun q hq => ?_⟩
+      · rw [hac, acvalWith_ne (hn t ht)]
+        exact hoff n hn
+      obtain ⟨caps, hfq⟩ := (hreps q hq).1
+      refine ⟨⟨caps, ConLeche.Env.find?_cons_of_fresh hfresh hfq⟩, fun rules hrl => ?_⟩
+      refine ((hreps q hq).2 rules hrl).cross
+        (c₀ := .recInfo (cvRas.getD t default)
+          (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix [])
+        (A := prts.leaf mp₂.base2 t) hfresh
+        (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac
+        (ConsCrossAt.ofNtc fun _ h => nomatch h)
+        (constsBound_of_constsResolve _ (hbook q hq).1) ?_
+      -- a rule-less store has no rules to read
+      intro _ hne hf
+      rcases (hbook₂ q hq).2.1 with hnone | hrl₂
+      · rw [hnone] at hf; exact nomatch hf
+      · rw [hrl₂] at hf
+        obtain ⟨-, -, -, hrules⟩ := ConstantInfo.recInfo.inj (Option.some.inj hf)
+        exact absurd hrules.symm hne)
+    (hinv₂ := ⟨fun q hq => ⟨hresR q hq, Or.inl (hfreshR q hq),
+        fun h => absurd (hfreshR q hq) h⟩,
+      fun _ _ => rfl,
+      fun q hq =>
+        ⟨⟨{}, hFPc (hfindF q _ (hfmGet q hq))⟩, fun rules hrl => hIndRepBase q hq rules hrl⟩⟩)
     (hrepsP := by
       -- the PROVISIONED cons: a rule-less recursor claims its block
       intro env' mp' t ht hfresh hinv m₂ hac
-      obtain ⟨caps, hfq⟩ := (hinv t ht).1
+      obtain ⟨hbook, -, hreps⟩ := hinv
+      obtain ⟨caps, hfq⟩ := (hreps t ht).1
       exact mutualIndRepsHead_of rfl (hrecName t ht)
         (ConLeche.Env.find?_cons_of_fresh hfresh hfq)
-        (((hinv t ht).2 [] (fun h => absurd rfl h)).cross
+        (((hreps t ht).2 [] (fun h => absurd rfl h)).cross
           (c₀ := .recInfo (cvRas.getD t default)
             (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix [])
           (A := prts.leaf mp₂.base2 t) hfresh
-          (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac))
+          (ConsCrossEnv.ofNtc fun _ h => nomatch h) hfq m₂ hac
+          (ConsCrossAt.ofNtc fun _ h => nomatch h)
+          (constsBound_of_constsResolve _ (hbook t ht).1) (fun _ h => absurd rfl h)))
     (hctorStored := by
       -- **`hctorStored`**: a stored rule's constructor is one of the
       -- member's own, hence a constructor of the block, hence stored
@@ -5623,6 +5983,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       -- **the group store's clause** (`mutualIndReps_of`): the prefix's
       -- entries cross the rule-list swap, the block's `k` are its own
       intro mpP hinvP m₃ hac
+      obtain ⟨hbookP, hoffP, hinvP⟩ := hinvP
       have hzipk : ∀ x ∈ cvRas.zipIdx, x.2 < fms.length ∧ x.1 = cvRas.getD x.2 default := by
         intro x hx
         have hget : cvRas[x.2]? = some x.1 :=
@@ -5673,7 +6034,180 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           (cvRas.getD x.2 default).type (rulesOf.getD x.2 []))
         (fun _ => hrulesShape x.2 hxk)
       rw [hxv]
-      exact hrep.swap hcg hac)
+      refine hrep.swap hcg hac ?_
+      -- **the rules' readings at the store** (task #279 M-A′)
+      intro _ hne _
+      have hstoredS : ∀ q, q < prts.k →
+          (Env.find? (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))) (cvRas.getD q default).name).isSome = true := by
+        intro q hq
+        have hmem : (cvRas.getD q default, q) ∈ cvRas.zipIdx :=
+          List.mk_mem_zipIdx_iff_getElem?.mpr (by
+            rw [List.getD_eq_getElem?_getD,
+              List.getElem?_eq_getElem (show q < cvRas.length by rw [hk]; exact hq)]
+            rfl)
+        rw [storeMutualRecs_find?_self hmem hndZ]; rfl
+      have hleafS : ∀ q, q < prts.k → ∀ ψ : Name → Nat,
+          m₃.acval (cvRas.getD q default).name ψ = prts.leaf mp₂.base2 q ψ := by
+        intro q hq ψ
+        rw [hac]
+        refine (hbookP q hq).2.2 ?_ ψ
+        intro hnone
+        have h := hstoredS q hq
+        rw [← hcg.isSomeEq, hnone] at h
+        exact nomatch h
+      have hoffS : ∀ n : Name, (∀ q, q < prts.k → n ≠ (cvRas.getD q default).name) →
+          m₃.acval n = mp₂.base2.acval n := by
+        intro n hn; rw [hac]; exact hoffP n hn
+      refine ⟨fun q hq => ?_, fun J cA hJ hmem => ?_⟩
+      · -- the recursors' names are stored
+        have hq' : q < fms.length := hq
+        have hrn : ((dOf x.2).memberNames.getD q .anonymous).str "rec"
+            = (cvRas.getD q default).name := by
+          rw [hrecName q hq']
+          show (((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD q
+              .anonymous).str "rec" = _
+          rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length q hq']
+        show (Env.find? (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+          p.toBlock fms rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env)))
+          (((dOf x.2).memberNames.getD q .anonymous).str "rec")).isSome = true
+        rw [hrn]
+        exact hstoredS q hq
+      · -- constructor `J`'s rule and its reading
+        have hJ₀ : ctorsA[J]? = some cA := hJ
+        have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ₀).1
+        have hcAJ : ctorsA.getD J default = cA := by rw [List.getD_eq_getElem?_getD, hJ₀]; rfl
+        -- the rule with the constructor's name
+        have hmemName : cA.1.name ∈ ((ctorsA.zipIdx.filter fun y => memF y.2 == x.2).map (·.1)).map
+            (·.1.name) := by
+          refine List.mem_map.mpr ⟨cA, List.mem_map.mpr ⟨(cA, J), List.mem_filter.mpr ⟨?_, ?_⟩, rfl⟩,
+            rfl⟩
+          · exact List.mk_mem_zipIdx_iff_getElem?.mpr (by simpa using hJ₀)
+          · show (memF J == x.2) = true
+            rw [show memF J = x.2 from hmem]; exact beq_self_eq_true _
+        rw [← hrulesShape x.2 hxk] at hmemName
+        obtain ⟨rl, hrl, hctor⟩ := List.mem_map.mp hmemName
+        obtain ⟨cr, hcr, hrlE⟩ := mutualRules_getElem? hrl
+        obtain ⟨hlenU, hallU⟩ := ConLeche.checkMutualAllRules_inv hrules
+        obtain ⟨rulesT, hrget, hrun⟩ := hallU x.2 (by rw [hkF]; exact hxk)
+        have hrD : rulesOf.getD x.2 [] = rulesT := by
+          rw [List.getD_eq_getElem?_getD, hrget]; rfl
+        rw [hrD] at hcr
+        obtain ⟨-, hlenR, hallR⟩ := ConLeche.checkMutualMemberRules_inv hrun
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem hcr
+        obtain ⟨J', c, rhs, hown, hget, hgen, -, -, -, -⟩ :=
+          hallR i (by rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hi).1)
+        obtain rfl : cr = (c, rhs) := Option.some.inj (hi.symm.trans hget)
+        -- `J'` is `c`'s block position, and it is `J`
+        have hownMem := List.mem_filter.mp (List.mem_of_getElem? hown)
+        obtain ⟨y, hy, hye⟩ := List.mem_map.mp hownMem.1
+        obtain ⟨hyc, hyJ⟩ : y.1 = c ∧ y.2 = J' := by
+          constructor
+          · have := congrArg Prod.snd hye; simpa using this
+          · have := congrArg Prod.fst hye; simpa using this
+        have hxget : p.toBlock.ctors[J']? = some c := by
+          have h := List.mk_mem_zipIdx_iff_getElem?.mp
+            (show (y.1, y.2) ∈ p.toBlock.ctors.zipIdx by simpa using hy)
+          rw [hyc, hyJ] at h
+          exact h
+        have hJ'l : J' < ctorsA.length := by
+          rw [hlenA]
+          exact (List.getElem?_eq_some_iff.mp hxget).1
+        have hnmJ' : (ctorsA.getD J' default).1.name = c.cv.name := by
+          have h1 := congrArg (fun l => l[J']?) hnamesC
+          rw [List.getElem?_map, List.getElem?_map, hcAGet J' hJ'l, hxget] at h1
+          simpa using h1
+        have hctorName : rl.ctor = c.cv.name := by rw [hrlE]; rfl
+        have hJJ' : J' = J := by
+          have hnd' : (ctorsA.map (·.1.name)).Nodup := by rw [hnamesC]; exact hndC
+          have hne := List.pairwise_iff_getElem.mp hnd'
+          have heq : (ctorsA.getD J' default).1.name = (ctorsA.getD J default).1.name := by
+            rw [hnmJ', ← hctorName, hctor, hcAJ]
+          simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJ'l,
+            List.getElem?_eq_getElem hJl, Option.getD_some] at heq
+          refine Classical.byContradiction fun hne' => ?_
+          rcases Nat.lt_or_gt_of_ne hne' with h | h
+          · exact hne J' J (by simpa using hJ'l) (by simpa using hJl) h (by simpa using heq)
+          · exact hne J J' (by simpa using hJl) (by simpa using hJ'l) h (by simpa using heq.symm)
+        have hJJ : J = J' := hJJ'.symm
+        subst hJJ
+        have hmemJ : memF J = x.2 := hmem
+        refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
+        rw [show rl.rhs = rhs from by rw [hrlE]; rfl,
+          hreadStore m₃.acval hleafS hoffS m₃ rfl x.2 hxk J c rhs hJl hxget hmemJ hgen ψ]
+        congr 1
+        -- the stage's spelling is the datum's
+        have hnFJ : cA.2 = c.nF := by
+          rw [← hcAJ]
+          have h := (hrunC J _ (hcAGet J hJl)).1
+          rw [h]
+          show (p.toBlock.ctors.getD J default).nF = c.nF
+          rw [show p.toBlock.ctors.getD J default = c from by
+            rw [List.getD_eq_getElem?_getD, hxget]; rfl]
+        have hmemNeS : ∀ q, q < fms.length → ∀ r, r < prts.k →
+            (fms.getD q default).cvTa.name ≠ (cvRas.getD r default).name := by
+          intro q hq r hr hh
+          have h1 := hFPc (hfindF q _ (hfmGet q hq))
+          rw [hh, hfreshR r hr] at h1
+          exact nomatch h1
+        have hLsS : (dOf x.2).Ls m₃ ψ = prts.Ls ψ := by
+          show (List.range fms.length).map (fun q => m₃.acval ((dOf x.2).memberNames.getD q
+            .anonymous) ψ) = (List.range fms.length).map
+            (fun q => mp₂.base2.acval (fms.getD q default).cvTa.name ψ)
+          refine List.map_congr_left fun q hq => ?_
+          have hq' : q < fms.length := List.mem_range.mp hq
+          show m₃.acval (((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD
+            q .anonymous) ψ = _
+          rw [getD_range_map _ _ q hq']
+          exact congrFun (hoffS _ (hmemNeS q hq')) ψ
+        have hcdsS : (dOf x.2).cdsR ψ = prts.cds ψ := by
+          show fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ (ctorsA ++ []) 0 = _
+          rw [List.append_nil]
+        have hacvCdsS : ∀ cd ∈ prts.cds ψ, m₃.acval cd.1 ψ = mp₂.base2.acval cd.1 ψ := by
+          intro cd hcd
+          obtain ⟨J', hJ'⟩ := List.getElem?_of_mem hcd
+          rw [show prts.cds ψ = fixCtorDataList dsF esF (fun J => kindsOf (ksF J)) eissF tssF ψ
+            ctorsA 0 from rfl, fixCtorDataList_getElem?] at hJ'
+          obtain ⟨cA', hcA', hcdEq⟩ := Option.map_eq_some_iff.mp hJ'
+          have hJ'l : J' < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA').1
+          have hname : cd.1 = cA'.1.name := by rw [← hcdEq]
+          rw [hname]
+          refine congrFun (hoffS _ fun r hr hh => ?_) ψ
+          have h1 := (hcons₂ J' cA' hJ'l hcA').1.1
+          rw [hh, hfreshR r hr] at h1
+          exact absurd h1 (by simp)
+        unfold IndRepData.ruleAV MutualRecParts.ruleAV
+        rw [hLsS, hcdsS, show (dOf x.2).pinsOf ψ = fun _ => paramBvarsAt p.toBlock.nP p.toBlock.nP
+            from rfl, show (dOf x.2).nP = p.toBlock.nP from rfl,
+          show (dOf x.2).nIdxs = prts.nIdxs from rfl,
+          show (dOf x.2).elimL = prts.elimL from rfl,
+          show (dOf x.2).ppsM 0 ψ = ppsF 0 ψ from rfl,
+          show (dOf x.2).ipss ψ = prts.ipss ψ from rfl,
+          show (dOf x.2).mems = prts.mems from rfl,
+          show (dOf x.2).tgtsR = prts.tgts from rfl,
+          show (dOf x.2).dsF J ψ = dsF J ψ from rfl,
+          show (dOf x.2).bb ψ = prts.bb ψ from rfl,
+          show (dOf x.2).k = prts.k from rfl, show (dOf x.2).nAll = prts.n from rfl,
+          show (dOf x.2).ksR J = kindsOf (ksF J) from rfl,
+          show (dOf x.2).tssR J ψ = tssF J ψ from rfl,
+          show (dOf x.2).eissR J ψ = eissF J ψ from rfl, hnFJ,
+          ruleDataAVP_params, mutualRuleDataAV_congrm hacvCdsS,
+          mutualRuleCoreAV_congr_Rof (Rof := fun q => m₃.acval ((dOf x.2).recNames q) ψ)
+            (Rof' := fun q => prts.leaf mp₂.base2 q ψ) (fun i _ => ?_)]
+        have htgt : prts.tgts J i < prts.k := (hksJ J _ (hcAGet J hJl)).2.2 i
+        have hrn : ((dOf x.2).memberNames.getD (prts.tgts J i) .anonymous).str "rec"
+            = (cvRas.getD (prts.tgts J i) default).name := by
+          rw [hrecName _ htgt]
+          show (((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD
+              (prts.tgts J i) .anonymous).str "rec" = _
+          rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length _ htgt]
+        show m₃.acval (((dOf x.2).memberNames.getD (prts.tgts J i) .anonymous).str "rec") ψ = _
+        rw [hrn]
+        exact hleafS _ htgt ψ)
   -- the carrier does not move at the group store, off the recursors
   have hagS4 : ∀ n : Name, ((ConLeche.consMutualCtors p.toBlock.nP ctorsA
       (ConLeche.consMutualFormers fms env)).find? n).isSome = true →

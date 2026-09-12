@@ -71238,6 +71238,75 @@ representation, and hence `T`'s, discharge — that half IS used).
   reads them at the ambient valuation, and that is the right reading
   for `T`'s representation (M.4).
 
+#### M.8 M-A′ LANDED on the branch (2026-09-12): the clause records the recursor's shape
+
+**What landed** (`agent/nested-279m`, on top of the merge of the kernel
+lane's `inductives` at `2e2fc245`):
+
+* `Model/Inductives/RecSpell.lean` — the recursor spellings relocated
+  below the clause (the fixpoint route's `fixRecDataAV`/`fixRuleDataAV`
+  and the `k`-motive `mutualRecDataAV`/`mutualRuleDataAV`/
+  `mutualRuleCoreAV` with their pieces, verbatim; the donors re-export);
+  the PINNED spellings (`famAppAV`, `motiveAVP`, `majorAVP`,
+  `motivesDataGoP`, `minorAVAtRMP`, `fixMinorsDataMP`, `recDataAVP`,
+  `ruleDataAVP`), each the original at `pins = paramBvarsAt nP nP`
+  (`*_params`); the fixpoint route's spellings as the `k = 1` instances
+  (`mutualRecDataAV_one`, `mutualRuleDataAV_one`, `mutualRuleCoreAV_one`,
+  `mutualConcAV_one`); and the congruences in the valuation.
+* `Model/IndRep.lean` — `IndRepData` gains `elim` (the elimination
+  level parameter) and the copy-member view with DEFAULTS so that every
+  existing datum is unchanged: `kReal := k`, `ctorsC := []`,
+  `pinsAV := fun _ _ => paramBvarsAt nP nP`, `nPM := fun _ => nP`,
+  `recNames := fun t => (memberNames.getD t .anonymous).str "rec"`,
+  `ksR := ksF`, `tgtsR := tgts`, `eissR := eissF`, `tssR := tssF`; the
+  derived `elimL`, `bb`, `ctorsAll`, `nAll`, `Ls`, `ipss`, `cdsR`,
+  `pinsOf`, `recDataAV`, `ruleAV`.  `IndRep` gains `recRead` (at
+  `nP ≠ 0`: the stored recursor type reads to
+  `mkPisAV (d.recDataAV m ψ mm) (mutualConcAV k nAll nIdx mm)`),
+  `rulesRead` (at `nP ≠ 0`, `rules ≠ []` and the recursor STORED with
+  exactly these rules: the recursors of every member are stored, and
+  each of the member's constructors has a rule whose right-hand side
+  reads to `d.ruleAV m ψ j nF`), `kRealLe`, `memReal`, `recName`,
+  `tgtsRLt`, `membersFound`, `ctorsCFound`, `pinsReal`; `mI`/`rP` count
+  `nAll`.  `rulesRead` sits before the `mI`/`rP`/`rules` FIELDS, whose
+  names shadow the structure's parameters.
+* Discharges: native (`FixRep.indRep_of_stage` takes the recursor's
+  name, its absence from the pre-cons carrier — the rules' readings
+  are vacuous there — and the type reading `hRD.read`; the head cons in
+  `FixStageRec` supplies the LIVE `rulesRead` from `fixRuleData_of`
+  through `sumRules_getElem?_fwd`), mutual (`MutualRep.mutualIndRep_of`
+  likewise; `DeclMutual`'s provision-chain invariant `Inv` gains four
+  conjuncts — the recursors' types resolve, each is absent or stored
+  rule-less, a stored one carries the block's leaf, the carrier is the
+  constructors' off the recursors — so the crossings refute a live
+  `rulesRead` at a rule-less store and the group store proves it from
+  `hreadStore`, the reading step of `hlawsG` factored out), `Eq` (from
+  its pinned readings by `show` + `rfl`), `Nat`/`PUnit`/`Empty`/`False`
+  (exempt at `nP = 0`).  Transports: `IndRep.cross` takes the recursor
+  type's crossing facts and the rules' readings at the extension
+  (`IndRep.rulesRead_cons` for a prefix recursor); `IndRep.swap` takes
+  the target's readings (`IndRep.rulesRead_swap` for an unchanged
+  recursor).
+
+**What was false or awkward and how it was repaired.**  (i) An
+unconditional `rulesRead` is FALSE at a provisioned (rule-less)
+recursor and unprovable at the pre-cons carrier (the right-hand sides
+mention the recursor): the premises `rules ≠ []` and "stored with
+exactly these rules" are what make it true everywhere it is stated.
+(ii) `DeclMutual`'s `Inv` quantified the representation over EVERY
+ctor-shaped rule list — sound for the swap, but a live `rulesRead` at
+a rule-less store would have been claimed for an arbitrary list; the
+Inv's new store-shape conjunct is what refutes it.  (iii) Structure
+literals' defaulted projections (`(fixRepData …).pinsOf ψ`) do not
+`simp`-reduce; the reduced forms are stated as `rfl` lemmas
+(`fixRepData_*`) and rewritten explicitly.
+
+**Docket.**  `hlawsG` still carries its own copy of the reading step
+(`hreadStore` is the factored twin used by the store's clause; making
+`hlawsG` consume it is a mechanical cleanup, not done); `hInv`'s
+name-injectivity is proved twice through `List.pairwise_iff_getElem`
+(no `Nodup.getElem_inj_iff` in core).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
