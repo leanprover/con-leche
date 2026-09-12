@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Semantics.Bridge.Decl
 import ConLeche.Verify.ReducePinInv
 import ConLeche.Verify.DivModInv
 

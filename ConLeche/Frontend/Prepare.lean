@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.NatOpGround
 
 @[expose] public section

@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.Kernel.Canon
-
 @[expose] public section
 
 /-!
