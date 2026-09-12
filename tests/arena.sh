@@ -208,6 +208,14 @@ if tests/shake.sh; then :; else fail=1; fi
 # bare).  `tests/route-census.sh --full` adds init-full.
 if tests/route-census.sh; then :; else fail=1; fi
 
+# THE NESTED ROUTE'S SHADOW GATE (task #279).  The native nested route
+# is not on the dispatch — the accept set may not widen ahead of the
+# model tier's `declNested` — so what it does is OBSERVED beside the
+# install and compared, block by block, with a committed expectation:
+# the probe shapes P1–P31, the arena's two nested tests, and the
+# fixtures that already carry a nested block.  ~25 checker runs.
+if tests/nested-shadow.sh; then :; else fail=1; fi
+
 # THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
 # model source since #207): the raw mutual/nested fixtures through the
 # generator, the debug dump re-checked in both modes, and the off
