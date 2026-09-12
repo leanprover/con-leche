@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.MutualStageRec
-import ConLeche.Model.Inductives.MutualRuleRead
 import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.Inductives.FixRec
 public section
