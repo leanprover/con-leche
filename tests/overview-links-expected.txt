@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L791
-   791  def usage : String := String.intercalate "\n" [
+== Main.lean#L738
+   738  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -82,11 +82,11 @@
    337  def checkRecord {ds : List DeclC} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L192
-   192  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L163
+   163  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L307
-   307  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L278
+   278  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
@@ -94,12 +94,11 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L345-L349
-   345  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   346      (trace : Bool) (noMark : Bool)
-   347      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
-   348      IO (Except (ConLeche.CheckError × Nat)
-   349        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L316-L319
+   316  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   317      (noMark : Bool) (ds : List ConLeche.Cached.DeclC) :
+   318      IO (Except (ConLeche.CheckError × Nat)
+   319        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
    488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :

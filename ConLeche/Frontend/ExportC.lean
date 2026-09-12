@@ -166,8 +166,8 @@ structure StateD where
   /-- in-process modelling of mutual/nested blocks is on (task #200;
   `CON_LECHE_INMODEL=0` turns it off) -/
   inModel : Bool := true
-  /-- the blocks modelled in-process, in stream order (for the receipt
-  and the route trace) -/
+  /-- the blocks modelled in-process, in stream order (for the
+  receipt on stderr) -/
   inModelled : Array Name := #[]
   /-- how many records the in-process modeller GENERATED and pushed
   (task #219): they are declarations of the fold like any other, but

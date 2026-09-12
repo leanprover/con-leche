@@ -27,8 +27,8 @@
 # checker has one two-valued mode: `--verified` (the default — the
 # surface the set model proves) and `--trusted` (the unverified lane:
 # checking-mode front door, infer-only internals, no certificate
-# families; it absorbs the retired --yolo/CON_LECHE_NO_PROOF_CERTS and
-# --infer-only/CON_LECHE_INFER_ONLY).  `--tt-model` selected the seven
+# families; it absorbs the retired --yolo and --infer-only).
+# `--tt-model` selected the seven
 # TT-lane checks for the declarative verification lane; that lane was
 # deleted at #148 T7b and the flag is a hard error now, so its sweep —
 # which had claimed and shown byte-identity with the default on every
@@ -196,17 +196,6 @@ if tests/challenge.sh; then :; else fail=1; fi
 # as a `rfl` that stops closing rather than an unknown identifier.  Needs the
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
-
-# THE INSTALL-ROUTE CENSUS (task #207, the successor of task #193's
-# native-predicate audit).  There is no external predicate to compare
-# the recognisers against any more — the preprocessor and its mirror
-# went together — so this gate pins what the ONE implementation does:
-# every inductive block of every good arena fixture must route
-# `struct`, `sum`, `fix`, `inmodel` or `basis`
-# (`CON_LECHE_ROUTE_TRACE`, Main.lean), never `modeled` (a model out of
-# the stream) and never "no install route" (a block reaching the fold
-# bare).  `tests/route-census.sh --full` adds init-full.
-if tests/route-census.sh; then :; else fail=1; fi
 
 # THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
 # model source since #207): the raw mutual/nested fixtures through the
@@ -418,22 +407,6 @@ mode_case 3 --pre "$SPLIT_BAD"                     # …on a bad stream too
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
-if CON_LECHE_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
-    >/dev/null 2>&1; [ $? = 3 ]; then
-  mode_ok=$((mode_ok+1))                           # retired env var: hard error
-else
-  echo "MODE FAIL: CON_LECHE_NO_PROOF_CERTS=1 did not error"
-  fail=1
-fi
-mode_total=$((mode_total+1))
-if CON_LECHE_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
-    >/dev/null 2>&1; [ $? = 3 ]; then
-  mode_ok=$((mode_ok+1))                           # retired env var: hard error
-else
-  echo "MODE FAIL: CON_LECHE_INFER_ONLY=1 did not error"
-  fail=1
-fi
-mode_total=$((mode_total+1))
 if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 2 ]; then
   mode_ok=$((mode_ok+1))                           # task #271: parse only = DECLINE
@@ -590,16 +563,6 @@ prog_check "--progress=x is a usage error (exit 3)" \
   "$([ "$prog_codeX" = 3 ] && echo ok)"
 prog_check "--progress=0 is a usage error (exit 3)" \
   "$([ "$prog_code0" = 3 ] && echo ok)"
-# THE ENVIRONMENT VARIABLE IS GONE (task #229), not aliased: a stale
-# script that still exports it gets a plain run, heartbeat and all
-# absent, so it cannot keep working silently.
-prog_errEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
-prog_outEnv=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
-prog_codeEnv=$?
-prog_check "CON_LECHE_PROGRESS is ignored: no heartbeat" \
-  "$([ "$(printf '%s\n' "$prog_errEnv" | grep -c '^con-leche: \(install\|check\|parse\|done\)')" = 0 ] && echo ok)"
-prog_check "CON_LECHE_PROGRESS changes no verdict" \
-  "$([ "$prog_outEnv" = "$prog_out" ] && [ "$prog_codeEnv" = "$prog_code" ] && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
