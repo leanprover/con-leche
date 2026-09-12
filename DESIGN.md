@@ -72957,9 +72957,59 @@ work on `inferTypeCore`/`whnf` under `instantiate1`/
 `instantiateLevelParams`, not this lane's.  **The decision is the
 maintainer's**; (A) is asked for.
 
+**(c) `CopyIdxRead` from the alignment** (`b259a717`, resolution (B)
+meanwhile, so that (A)'s arrival closes the record with a read).
+`Model/Inductives/CopyPins.lean`: `former_peel` — the container's
+stored former at the level instantiation, `instPis`'d at the pin's
+annotated components, reads at the aux parameter depth as `instSeq DsA
+(nPJ - 1)` of its index tower (`denoteMeta_instLevels`, the depth lift
+`denoteMeta_depth_of_closed` through `denoteMeta_closed`, the peel with
+`instPisAt_of_instPis`, `peelPis_of_piTeleAV` against
+`stripPisAV_mkPisAV_take`); `interp_instSeq_under` (an instantiation
+sequence under `xs` binders reads at the frame with the values pushed
+under `xs`: `interp_inst`, `shiftE_consList`, `instE_consList`),
+`instSeqDoms`/`instSeq_mkPisAV` (`instSeq` through a Π-tower is
+entrywise), `spineFit_instSeqDoms_iff` (the fit transfer),
+`mkPisAV_sort_inj` (sort-ended towers are equal only entrywise — the
+copy's and the container's index COUNTS need not be assumed equal);
+**`copyIdxRead_of_align`**: from the copy's `FormerData`, the
+container's, and the alignment `openPisAtFvars nP cvT_copy.type 0 =
+some (fvsA, rest)` with `instPis (JtyA[lvls]) argsA = some rest`, the
+record — sorts agree, fits transfer.
+
+**(d) The plumbing** (commit below): `pinRead_of` returns the pin's
+annotated components with their scope and the `DenoteMetaSpine` to
+`DsA` (`WScoped_mkAppN_args`, `looseBVarsBounded_mkAppN_args`);
+`openPisAtFvars_closeTelescope` (Verify): re-opening `closeTelescope bs
+i body` at depth `i` yields its openers (`telescopeOpeners`) and its
+body when body and domains are bvar-closed and consistently annotated
+at the earlier openers (`abstract1_instantiate1` per binder) — the
+closed form (A) would certify, read back into the opened form
+`copyIdxRead_of_align` takes.
+
+**What was false and repaired.**  §M.20's "the peel does not exist"
+(it does, `TowerKit`); §M.19's sizing of the syntactic layer as
+"mechanical" — its central lemma is not a Verify lemma at all but a
+kernel fact (the recomputed bits), which is the finding; M-A′'s
+"`nP = 0` exempt" for the pinned kinds — they were never exempt for a
+reason, only for expedience.
+
+**Docket / next.**  Request 4 (the maintainer); with it,
+`CopyIdxRead` for every copy from `elimNested_copy` + `mkCopy_inv` +
+`nestedAuxModel`'s per-member `FormerData` + the round trip, and then
+`CopyCtorRead` on the same pattern — the constructor's alignment is
+through `elimCtors_getElem?` (`instPis cty params`, the walk
+congruences of §M.20(c), `closeTelescope`) AND `normCtorValM` (the
+field domains are stored whnf-normalised: on the shapes positivity
+leaves, `whnf` of an aux-member application is itself — a lemma to
+state), the target form by `invTg_fold`; then the ψ⁻¹ assembly is
+closed end to end for the scratch block, and ψ waits on finding 1.
+
 **Gates** (per session, landing gates NOT run): `lake build` 593
 jobs, warning-free; `lake test` clean; the eight off-graph modules
-build warning-free; `tests/no-local-paths.sh` OK.
+build warning-free; `tests/no-local-paths.sh` OK.  Landing gates
+(`scripts/pub-import-plan.py --check`, `tests/shake.sh`, arena,
+init-full, the Mathlib cone) NOT run.
 
 #### M.7 Sequence on this branch
 
