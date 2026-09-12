@@ -504,9 +504,9 @@ theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks =
     (hchain.1.2.2 List.nodup_nil) fc.records).1
 
 /-- **The letter on the fully checked environment**: such an environment, in
-a validating mode, holds no constant of type `False`.  The main theorem
-(`ConLeche.no_proof_of_False`, about `checkDecls`) is this under
-`checkDecls_fullyChecked`. -/
+a validating mode, holds no constant of type `False`.  The step the main
+corollary rests on (`ConLeche/MainTheorem.lean`, about `checkDecls`) is
+this under `checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List DeclC}
     (fc : FullyChecked μ ds) :

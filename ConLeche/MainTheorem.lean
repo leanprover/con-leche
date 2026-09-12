@@ -7,16 +7,17 @@ import ConLeche.Verify.Cached.StreamThm
 public section
 
 /-!
-# The main theorem, and the two corollaries it implies
+# The main theorem and the main corollary
 
-What the checker accepts has a model; hence it contains no constant of
-type `False` — and hence a stream that declares a theorem of type
-`False` is not accepted at all.  Those three theorems are all this
-file holds.  The
-statements, with a plain-words account of every name in them, are in
-`ConLeche/Challenge.lean`; the reading of terms and the notion of
-model — and `Denotes_functional`, which says a term has at most one
-denotation — in `ConLeche/Denotes.lean`.
+What the checker accepts has a model; hence a stream that declares a
+theorem of type `False` is not accepted at all — the form a reader can
+check without knowing what an `Env` is.  Those two theorems are all
+this file holds, and the step between them — that an accepted
+environment holds no constant of type `False` — is the body of the
+second.  The statements, with a plain-words account of every name in
+them, are in `ConLeche/Challenge.lean`; the reading of terms and the
+notion of model — and `Denotes_functional`, which says a term has at
+most one denotation — in `ConLeche/Denotes.lean`.
 
 * `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
   fold: it installs every parsed declaration — a definition, theorem
@@ -56,30 +57,23 @@ theorem model_exists (V : Type w) [SetTheory V]
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
-/-- **The main corollary.**  An accepted stream never yields a
-constant of type `False`: its type would denote the empty set, and
-`Model.mem` puts the constant inside it. -/
-theorem no_proof_of_False (V : Type w) [SetTheory V]
-    (ds : List DeclC) (env : Env)
-    (accepted : checkDecls .verified ds = .ok env) :
-    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] := by
-  rintro ⟨c, hc, hty⟩
-  obtain ⟨m⟩ := model_exists V ds env accepted
-  obtain ⟨T, hT, hmem⟩ := m.mem c hc (fun _ => 0) (fun _ => empty)
-  rw [hty] at hT
-  rw [m.false_empty _ _ _ hT] at hmem
-  exact not_mem_empty _ hmem
-
-/-- **The main corollary, at the stream.**  A stream that declares a
-theorem of type `False` is never accepted: the record is installed
-under its own name with its declared type, that constant survives the
-run, and the main corollary forbids it. -/
+/-- **The main corollary.**  A stream that declares a theorem of type
+`False` is never accepted.  Two steps: the record is installed under
+its own name with its declared type and that constant survives the run
+(`checkDecls_thmDecl_const`), so an accepted environment would hold a
+constant of type `False` — and it cannot, because in the model of the
+main theorem that type denotes the empty set, which the constant would
+have to be a member of. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
     (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     ∀ env, checkDecls .verified ds ≠ .ok env := by
   intro env accepted
-  exact no_proof_of_False V ds env accepted
-    (Cached.checkDecls_thmDecl_const hty hmem accepted)
+  obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
+  obtain ⟨m⟩ := model_exists V ds env accepted
+  obtain ⟨T, hT, hcT⟩ := m.mem c hc (fun _ => 0) (fun _ => empty)
+  rw [hcty] at hT
+  rw [m.false_empty _ _ _ hT] at hcT
+  exact not_mem_empty _ hcT
 
 end ConLeche

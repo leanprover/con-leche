@@ -102,7 +102,7 @@ SEED_ATTRS = {"command_elab", "term_elab", "tactic", "builtin_command_elab",
               "implemented_by"}
 
 CAPSTONES = [
-    "ConLeche.no_proof_of_False",
+    "ConLeche.no_False_theorem_accepted",
     "ConLeche.Cached.no_proof_of_False_cached",
     "ConLeche.Model.no_proof_of_False_pure",
     "ConLeche.Cached.no_proof_of_Empty_cached",

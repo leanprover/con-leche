@@ -89,10 +89,10 @@ covered exactly as a run without it, and so is a run on the pool.
 
 ## 1. What is proved
 
-The statement is three theorems about the declaration fold `checkDecls`,
+The statement is two theorems about the declaration fold `checkDecls`,
 the function whose result the `con-leche` binary's driver returns for
 a parsed export stream. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L52-L55):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L53-L56):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -123,26 +123,24 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_proof_of_False` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L62-L65),
-follows in three lines — a constant of type `False` would be a member
-of the empty set:
-
-> … then `env` stores no constant whose type is `False`.
-
-The same corollary is stated a second time over the fold's INPUT,
-[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L77-L80):
+[`no_False_theorem_accepted` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L67-L70):
 
 > … if any record of `ds` declares a theorem whose declared type is
 > `False`, then `checkDecls` accepts `ds` with no environment at all.
 
-It says the extra thing a reader of the first corollary may wonder
-about — that the offending record is not quietly dropped on the way
-in. A theorem record is installed by statement, under its own name,
-with the annotation of its declared type; the annotation of a bare
-constant is that constant; and every later step of the fold only ever
-extends the list of stored constants. So the record's own `False` is
-still in the environment the fold returns, where the first corollary
-forbids it.
+This is the form of the statement a reader can check without knowing
+what an `Env` is: it speaks only of the declarations handed to the
+checker, not of what the checker made of them. It follows from the
+theorem in a handful of lines, through the environment in between. A
+theorem record is installed by statement, under its own name, with the
+annotation of its declared type; the annotation of a bare constant is
+that constant; and every later step of the fold only ever extends the
+list of stored constants — so an accepted stream that declared such a
+theorem would leave a constant of type `False` among the constants of
+the environment the fold returns. It cannot: the model the theorem
+provides puts every stored constant inside what its type denotes, and
+what the built-in `False` denotes is the empty set, which has no
+members.
 
 "Installed under its own name, with the annotation of its declared
 type" is a claim in its own right, and it is proved in general:
@@ -185,7 +183,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L98-L102)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/lech/blob/master/tests/ConLecheTests/Axioms.lean#L96-L100)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -732,7 +730,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and its two corollaries — one about the environment the fold returns, one about the stream it consumes — and the challenge module stating them with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem, and the main corollary about the stream the fold consumes — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
