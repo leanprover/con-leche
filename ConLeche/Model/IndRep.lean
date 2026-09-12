@@ -421,7 +421,13 @@ theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm
 arithmetic, its type reads as the `k`-motive tower at member `t`, its
 rules list member `t`'s constructors of the recursor's block in order,
 and each such constructor's rule reads as the generated core (the
-inductive hypotheses firing the target members' recursor leaves); and
+inductive hypotheses firing the target members' recursor leaves) — a
+REAL constructor's rule fires `.plain` at the block's parameter count
+and the constructor's field count (task #279 M-B′ step 3b: the nested
+route's fold computes through `rec_rules`, which speaks only of a rule
+whose firing mode it knows; the generators set the mode by
+`Expr.recRulePlain`, true of both generated types,
+`Verify/Inductives/ContainerWalk.lean`); and
 **the motive walk** (task #279 M-B′ step 3a): the recursor type's
 body below the parameters, walked by the kernel's `containerMembersGo`
 in ANY environment storing the real members, yields the real members'
@@ -440,6 +446,8 @@ depend on the environment (`Verify/Inductives/ContainerWalk.lean`). -/
     rules'.map (·.ctor) = (d.memberCtorsAll t).map (·.1.name) ∧
     (∀ j cA, d.ctorsAll[j]? = some cA → d.mems j = t →
       ∃ rl : RecRule, rl ∈ rules' ∧ rl.ctor = cA.1.name ∧
+        (j < d.ctorsA.length →
+          rl.fire = .plain ∧ rl.ctorParams = d.nP ∧ rl.nfields = cA.2) ∧
         ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 rl.rhs = some (d.ruleAV m ψ j cA.2)) ∧
     ∃ (bs : List (Expr × BinderMeta)) (body : Expr), cvR'.type.stripPis d.nP = some (bs, body) ∧
       ∀ env' : Env,

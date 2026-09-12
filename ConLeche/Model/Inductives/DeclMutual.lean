@@ -6222,10 +6222,6 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         have hJJ : J = J' := hJJ'.symm
         subst hJJ
         have hmemJ : memF J = t := hmem
-        refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
-        rw [show rl.rhs = rhs from by rw [hrlE]; rfl,
-          hreadStore m₃.acval hleafS hoffS m₃ rfl t htk J c rhs hJl hxget hmemJ hgen ψ]
-        congr 1
         -- the stage's spelling is the datum's
         have hnFJ : cA.2 = c.nF := by
           rw [← hcAJ]
@@ -6234,6 +6230,23 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           show (p.toBlock.ctors.getD J default).nF = c.nF
           rw [show p.toBlock.ctors.getD J default = c from by
             rw [List.getD_eq_getElem?_getD, hxget]; rfl]
+        refine ⟨rl, hrl, hctor, fun _ => ⟨?_, by rw [hrlE]; rfl, by rw [hrlE, hnFJ]; rfl⟩,
+          fun ψ => ?_⟩
+        · -- the generated rule fires `.plain` (task #279 M-B′ step 3b)
+          have hf4 : formers4[t]? = some (formers4.getD t default) := by
+            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlen4F]; exact htk)]
+            rfl
+          have hplain := ConLeche.mutualRecTy_recRulePlain hgenT hf4
+          rw [hget4F t htk, hlen4F, hlen4C, ← hrPG₀, ← show (cvRas.getD t default).type = recTy from by
+            rw [hcvT]] at hplain
+          rw [hrlE]
+          show (if Expr.recRulePlain (cvRas.getD t default).type
+              (p.toBlock.rulePrefix + (fms.getD t default).nIdx) p.toBlock.rulePrefix p.toBlock.nP
+            then RecRuleFire.plain else RecRuleFire.inert) = RecRuleFire.plain
+          rw [if_pos hplain]
+        rw [show rl.rhs = rhs from by rw [hrlE]; rfl,
+          hreadStore m₃.acval hleafS hoffS m₃ rfl t htk J c rhs hJl hxget hmemJ hgen ψ]
+        congr 1
         have hmemNeS : ∀ q, q < fms.length → ∀ r, r < prts.k →
             (fms.getD q default).cvTa.name ≠ (cvRas.getD r default).name := by
           intro q hq r hr hh

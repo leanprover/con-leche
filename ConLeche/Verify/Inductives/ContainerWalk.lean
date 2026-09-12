@@ -335,4 +335,140 @@ theorem structRecTyR_containerMembers {T : Name} {lps : List Name} {elim : Name}
       obtain ⟨rfl, -, -⟩ := Expr.forallE.inj hminors'
       exact structMinorTyR_stops hmty
 
+/-! ## The major premise's parameter spine: the generated rules are `.plain`
+
+A generated rule's firing mode is `if Expr.recRulePlain recTy mI rP nP
+then .plain else .inert` (`sumRules`, `mutualRules`): the rule fires
+canonically when the major premise's domain applies the eliminated
+family to the recursor's own first `nP` telescope variables.  Both
+generators put the major at depth `mI` with exactly that spine
+(`structFamI … (k + n) 0`), so the check is `true` and every generated
+rule is `.plain` — the fact the datum clause `RecReadAt` records for a
+real member's constructors (task #279 M-B′ step 3b: the nested route's
+fold from a container's recursor computes through `rec_rules`, which
+speaks only of a rule whose mode it knows). -/
+
+/-- A motives' telescope strips to its body. -/
+theorem mutualMotivesPis_stripPis {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen} :
+    ∀ (fs : List MutualFormer) (i : Nat) {body r : Expr},
+      mutualMotivesPis lps nP ℓ pw fs i body = some r →
+      ∃ bs : List (Expr × BinderMeta), r.stripPis fs.length = some (bs, body)
+  | [], _, body, r, h => by
+    simp only [mutualMotivesPis, Option.some.injEq] at h
+    subst h
+    exact ⟨[], rfl⟩
+  | f :: fs, i, body, r, h => by
+    simp only [mutualMotivesPis, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hs⟩ := mutualMotivesPis_stripPis fs (i + 1) hrest
+    exact ⟨(mty, ⟨pw⟩) :: bs, by simp only [List.length_cons, Expr.stripPis, hs, Option.map_some]⟩
+
+/-- A mutual minors' telescope strips to its body. -/
+theorem mutualMinorsPis_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ (cs : List MutualCtor4) (o : Nat) {body r : Expr},
+      mutualMinorsPis lps nP pw cs o body = some r →
+      ∃ bs : List (Expr × BinderMeta), r.stripPis cs.length = some (bs, body)
+  | [], _, body, r, h => by
+    simp only [mutualMinorsPis, Option.some.injEq] at h
+    subst h
+    exact ⟨[], rfl⟩
+  | c :: cs, o, body, r, h => by
+    simp only [mutualMinorsPis, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hs⟩ := mutualMinorsPis_stripPis cs (o + 1) hrest
+    exact ⟨(mty, ⟨pw⟩) :: bs, by simp only [List.length_cons, Expr.stripPis, hs, Option.map_some]⟩
+
+/-- A fixpoint-route minors' telescope strips to its body. -/
+theorem structMinorsPisR_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ (cs : List (Name × Nat × Expr × List Nat)) (o : Nat) {body r : Expr},
+      structMinorsPisR lps nP pw cs o body = some r →
+      ∃ bs : List (Expr × BinderMeta), r.stripPis cs.length = some (bs, body)
+  | [], _, body, r, h => by
+    simp only [structMinorsPisR, Option.some.injEq] at h
+    subst h
+    exact ⟨[], rfl⟩
+  | (C, nF, cty, recIdx) :: cs, o, body, r, h => by
+    simp only [structMinorsPisR, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hs⟩ := structMinorsPisR_stripPis cs (o + 1) hrest
+    exact ⟨(mty, ⟨pw⟩) :: bs, by simp only [List.length_cons, Expr.stripPis, hs, Option.map_some]⟩
+
+/-- A successful `replacePisPw` strips its binders to the new body. -/
+theorem replacePisPw_strip {pw : PropWhen} (n : Nat) {e b r : Expr}
+    (h : Expr.replacePisPw pw n e b = some r) :
+    ∃ bs : List (Expr × BinderMeta), r.stripPis n = some (bs, b) := by
+  obtain ⟨bs, body, hs⟩ := replacePisPw_some_stripPis n h
+  exact ⟨_, replacePisPw_stripPis n h hs⟩
+
+/-- The family's leading arguments are the parameter variables at its
+depth. -/
+theorem structFamI_getAppArgs_take (T : Name) (lps : List Name) (nP nIdx e o : Nat) :
+    (structFamI T lps nP nIdx e o).getAppArgs.take nP = structPsAt (o + e + nIdx) nP := by
+  unfold structFamI
+  rw [Expr.getAppArgs_mkAppN, show (Expr.const T (lps.map .param)).getAppArgs = [] from rfl,
+    List.nil_append, List.take_left' (by simp [structPsAt])]
+
+/-- `recRulePlain` from the stripped major premise. -/
+theorem recRulePlain_of_strip {recTy dom rest : Expr} {mb : BinderMeta}
+    {bs : List (Expr × BinderMeta)} {mI rP cnP : Nat}
+    (hs : recTy.stripPis mI = some (bs, .forallE dom rest mb))
+    (hargs : dom.getAppArgs.take cnP = (List.range cnP).map fun k => Expr.bvar (mI - 1 - k))
+    (h1 : cnP ≤ rP) (h2 : rP ≤ mI) : Expr.recRulePlain recTy mI rP cnP = true := by
+  unfold Expr.recRulePlain
+  simp only [hs, hargs, decide_eq_true h1, decide_eq_true h2, beq_self_eq_true, Bool.and_self]
+
+/-- **`structRecTyR`'s rules are plain**: the major premise sits at
+depth `nP + 1 + n + nIdx` and applies the family to the parameter
+variables. -/
+theorem structRecTyR_recRulePlain {T : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx : Nat} {tty : Expr} {ctors : List (Name × Nat × Expr × List Nat)} {recTy : Expr}
+    (h : structRecTyR T lps elim large nP nIdx tty ctors = some recTy) :
+    Expr.recRulePlain recTy (nP + 1 + ctors.length + nIdx) (nP + 1 + ctors.length) nP = true := by
+  unfold structRecTyR at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨q, -, motiveTy, -, major, hmajor, minors, hminors, hrec⟩ := h
+  obtain ⟨bs₀, hs₀⟩ := replacePisPw_strip nP hrec
+  have hs₁ : (Expr.forallE motiveTy minors ⟨Level.zeronessOf (structElimLevel elim large)⟩).stripPis 1
+      = some ([(motiveTy, ⟨Level.zeronessOf (structElimLevel elim large)⟩)], minors) := rfl
+  obtain ⟨bs₂, hs₂⟩ := structMinorsPisR_stripPis ctors 1 hminors
+  obtain ⟨bs₃, hs₃⟩ := replacePisPw_strip nIdx hmajor
+  have hs := stripPis_append _ (stripPis_append _ (stripPis_append _ hs₀ hs₁) hs₂) hs₃
+  refine recRulePlain_of_strip hs ?_ (by omega) (by omega)
+  rw [structFamI_getAppArgs_take]
+  unfold structPsAt
+  refine List.map_congr_left fun k hk => ?_
+  have := List.mem_range.mp hk
+  congr 1
+  omega
+
+/-- **`mutualRecTy`'s rules are plain**: member `m`'s major premise
+sits at depth `nP + k + n + nIdx_m` and applies member `m`'s family to
+the parameter variables. -/
+theorem mutualRecTy_recRulePlain {lps : List Name} {elim : Name} {large : Bool} {nP : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {m : Nat} {recTy : Expr}
+    {f : MutualFormer} (h : mutualRecTy lps elim large nP formers ctors m = some recTy)
+    (hf : formers[m]? = some f) :
+    Expr.recRulePlain recTy (nP + formers.length + ctors.length + f.nIdx)
+      (nP + formers.length + ctors.length) nP = true := by
+  unfold mutualRecTy at h
+  simp only at h
+  split at h
+  · rename_i f' f₀ hf' hf₀
+    obtain rfl : f' = f := Option.some.inj (hf'.symm.trans hf)
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, -, major, hmajor, minors, hminors, motives, hmotives, hrec⟩ := h
+    obtain ⟨bs₀, hs₀⟩ := replacePisPw_strip nP hrec
+    obtain ⟨bs₁, hs₁⟩ := mutualMotivesPis_stripPis formers 0 hmotives
+    obtain ⟨bs₂, hs₂⟩ := mutualMinorsPis_stripPis ctors formers.length hminors
+    obtain ⟨bs₃, hs₃⟩ := replacePisPw_strip f'.nIdx hmajor
+    have hs := stripPis_append _ (stripPis_append _ (stripPis_append _ hs₀ hs₁) hs₂) hs₃
+    refine recRulePlain_of_strip hs ?_ (by omega) (by omega)
+    rw [structFamI_getAppArgs_take]
+    unfold structPsAt
+    refine List.map_congr_left fun k hk => ?_
+    have := List.mem_range.mp hk
+    congr 1
+    omega
+  · exact nomatch h
+
 end ConLeche

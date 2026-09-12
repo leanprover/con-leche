@@ -358,8 +358,8 @@ theorem IndRep.rulesRead_cons {m : EnvModel V env} {T : Name} {cvT cvR : Constan
     fun ψ => ?_, hmap, fun j cA hj hmm => ?_, hwalk⟩
   · rw [hac, h.recDataAV_cons hfresh m₂ hac]
     exact denoteMeta_cons_mono hfresh (hcross.typeOf hf') ψ 0 (hbound _ hmemR').1 (hread ψ)
-  · obtain ⟨rl, hrl, hctor, hread'⟩ := hrules j cA hj hmm
-    refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
+  · obtain ⟨rl, hrl, hctor, hfire, hread'⟩ := hrules j cA hj hmm
+    refine ⟨rl, hrl, hctor, hfire, fun ψ => ?_⟩
     obtain ⟨-, -, -, -, -, hwfR, -⟩ := m.wf _ hmemR'
     obtain ⟨-, -, hres, -⟩ := hwfR cvR' mI' rP' rules' rfl rl hrl
     rw [hac, denoteMeta_cons_mono hfresh (hcross.ruleRhs hmemR' hrl) ψ 0

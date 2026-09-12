@@ -298,8 +298,8 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
         fun j cA hj hmm => ?_, hwalk⟩
       · rw [h.recDataAV_ext hag]
         exact denoteMeta_ext hx hag ψ 0 (hbound _ hmemR').1 (hread ψ)
-      · obtain ⟨rl, hrl, hctor, hread'⟩ := hrules j cA hj hmm
-        refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
+      · obtain ⟨rl, hrl, hctor, hfire, hread'⟩ := hrules j cA hj hmm
+        refine ⟨rl, hrl, hctor, hfire, fun ψ => ?_⟩
         obtain ⟨-, -, -, -, -, hwfR, -⟩ := m₂.wf _ hmemR'
         obtain ⟨-, -, hres, -⟩ := hwfR cvR' mI' rP' rules' rfl rl hrl
         rw [show d.ruleAV m₃ ψ j cA.2 = d.ruleAV m₂ ψ j cA.2 from

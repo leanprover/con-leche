@@ -1530,7 +1530,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     · match j, hj with
       | 0, hj =>
         obtain rfl : cA = (eqReflA.toConstantVal, 0) := (Option.some.inj hj).symm
-        refine ⟨eqRecRule, List.mem_cons_self, rfl, fun ψ => ?_⟩
+        refine ⟨eqRecRule, List.mem_cons_self, rfl, fun _ => ⟨rfl, rfl, rfl⟩, fun ψ => ?_⟩
         rw [hac]
         refine (denoteMeta_eqRec_rhs (m := mp.base2) ψ hE hR hEv hRv).trans ?_
         congr 1

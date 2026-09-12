@@ -122,17 +122,20 @@ theorem sumRules_getElem?_fwd {find? : Name → Option ConstantInfo}
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {j : Nat} {cA : ConstantVal × Nat}
       {rhs : Expr}, ctorsA[j]? = some cA → rhss[j]? = some rhs →
       ∃ r ∈ sumRules find? recName nP mI rP recTy ctorsA rhss,
-        r.ctor = cA.1.name ∧ r.rhs = rhs
+        r.ctor = cA.1.name ∧ r.rhs = rhs ∧
+        r.fire = (if Expr.recRulePlain recTy mI rP nP then .plain else .inert) ∧
+        r.ctorParams = nP ∧ r.nfields = cA.2
   | [], _, _, _, _, h, _ => nomatch h
   | _ :: _, [], _, _, _, _, h => nomatch h
   | c :: cs, r :: rs, 0, cA, rhs, hc, hr => by
     obtain rfl := Option.some.inj hc
     obtain rfl := Option.some.inj hr
-    exact ⟨_, List.mem_cons_self, recRuleBits_ctor _ _ _, recRuleBits_rhs _ _ _⟩
+    exact ⟨_, List.mem_cons_self, recRuleBits_ctor _ _ _, recRuleBits_rhs _ _ _,
+      recRuleBits_fire _ _ _, recRuleBits_ctorParams _ _ _, recRuleBits_nfields _ _ _⟩
   | c :: cs, r :: rs, j + 1, cA, rhs, hc, hr => by
-    obtain ⟨r', hr', hctor, hrhs⟩ :=
+    obtain ⟨r', hr', hctor, hrhs, hfire, hcp, hnf⟩ :=
       sumRules_getElem?_fwd (ctorsA := cs) (rhss := rs) (j := j) hc hr
-    exact ⟨r', List.mem_cons_of_mem _ hr', hctor, hrhs⟩
+    exact ⟨r', List.mem_cons_of_mem _ hr', hctor, hrhs, hfire, hcp, hnf⟩
 
 /-- A stored rule is constructor `j`'s rule at right-hand side `j`. -/
 theorem sumRules_getElem? {find? : Name → Option ConstantInfo}

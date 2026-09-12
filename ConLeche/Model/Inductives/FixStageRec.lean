@@ -1140,8 +1140,15 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         rwa [List.append_nil] at this
       obtain ⟨rhs, hrhs, -, -, -, hread⟩ :=
         fixRuleData_of mp hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hfresh hTR m₂ hac hj'
-      obtain ⟨rl, hrl, hctor, hrhsE⟩ := ConLeche.sumRules_getElem?_fwd hj' hrhs
-      refine ⟨rl, hrl, hctor, fun ψ => ?_⟩
+      obtain ⟨rl, hrl, hctor, hrhsE, hfire, hcp, hnf⟩ := ConLeche.sumRules_getElem?_fwd hj' hrhs
+      refine ⟨rl, hrl, hctor, fun _ => ⟨?_, hcp, hnf⟩, fun ψ => ?_⟩
+      · -- the generated rule fires `.plain` (task #279 M-B′ step 3b)
+        obtain ⟨-, recTy, -, -, -, hgen, -, -, -, -, -, -, -, -, hcvRa⟩ :=
+          ConLeche.checkNativeRec_shape hRec
+        have hplain := ConLeche.structRecTyR_recRulePlain hgen
+        rw [ConLeche.nativeCtors4, List.length_zipWith, hlenK, Nat.min_self, ← hmI, ← hrP,
+          show recTy = cvRa.type from by rw [hcvRa]] at hplain
+        rw [hfire, if_pos hplain]
       rw [hrhsE, hread ψ, fixRepData_ruleAV,
         show m₂.acval (p.cvT.name.str "rec") ψ = A ψ from by
           rw [← hpin, hac]; exact congrFun acvalWith_self ψ]
