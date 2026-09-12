@@ -71998,6 +71998,61 @@ The kit is not nested-specific; the mutual route's own recursor laws
 (`MutualRecLaw`) are the CHECKER-side proofs of the same shapes, and the
 kit re-uses their frame arithmetic verbatim.
 
+**What landed, continued: `Model/Inductives/FoldChoice.lean`** (the
+fold at a motive/minor CHOICE — the ONE shape every nested-route fold
+has, §M.3).  Per member `t` a TARGET `Tg t` (a reading at the fold's
+frame of a function on the member's index telescope into the
+elimination universe) and per constructor `J` a BODY `bodies J` (the
+consumer's rebuild at the minor's leaf frame: the parameters, the
+motives, the earlier minors, the fields and the hypotheses):
+
+* `motChoiceAV` — `λ ı⃗ x, Tg t ı⃗`, constant in the major, spelled over
+  the tower's OWN motive binder data (`motDataAV`, `motiveAVP_eq`) at
+  the parameter spine through `AnnotTerm.instSeq`; `motChoiceAV_mem`
+  (its membership in the tower's motive binder from the binder's
+  grading and `Tg`'s fact) and `motChoiceAV_fold` (its β: the target at
+  the index values);
+* the minor's binder data as a list (`ihDataAVM`, `ihPisAVM_eq_mkPisAV`,
+  `minorDataAV`/`minorConcAV`, `minorAVAtRMP_eq`) with the positional
+  lemmas the assembly reads (`ihDataAVM/fixMinorsDataMP/motivesDataGoP
+  _getElem?`); the ih domain in TARGET form (`tgIhDomAV`,
+  `interp_tgIhDomAV`) and `interp_ihDom_choice` — the tower's ih domain
+  at the choice's motives reads as the target-form domain (the motive's
+  β pointwise under the nested product, `piTele_congr_body'`), whence
+  `spineFit_ihData_tg` (hypothesis spines fit the tower's ih binders
+  iff they fit the target-form ones);
+* `minChoiceAV` — the λ-tower over the tower's own minor binder data
+  with the consumer's body, at the fold's frame through the parameters,
+  the choice's motives and the earlier minors; `minChoiceAV_mem` from
+  the binder's grading, every recursive field's own typing (`hfield`),
+  the constructor's own typing (`hEs`) and the body's leaf fact
+  (`hleaf`: at every spine of fields and TARGET-FORM hypotheses the body
+  is graded and lands in the member's target at the constructor's index
+  readings);
+* `choice_prefix_fit` — the whole prefix spine (`ps ++ motChoiceAVs ++
+  minChoiceAVs nAll`) fits `recPrefixAV`: an induction over the
+  positions, each binder's grading read off ONE member's recursor
+  tower (`type_wellDenotedV`) at the fit of the entries before it
+  (`wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom`).
+
+With `RecFold.lean` this types the fold at the choice (`recFold_mem` at
+`choice_prefix_fit`) and fires it (`recFold_iota_core`); the last
+corollary — the fired minor value β-reduced to `bodies J` at the fields
+and the target-fold hypotheses — is the next line to write (`mkLamsAV_fold`
+at the minor λ-tower, the hypotheses' fits from the target folds'
+typing).  **Two design points fixed by the kit.**  (i) The body takes
+the hypotheses in TARGET form and the fields as they are, so no field
+domain is ever read at a frame holding a hypothesis where a field was —
+the "later domains do not mention recursive field variables" fact
+(`FixOpened.recF`/`reflF`'s `mentionsFvar`) is NOT consumed by the kit;
+it is the CONSUMER's, when it types its body (`J.c Ds` at a mixed spine)
+— the syntactic-to-semantic bridge (`NoBVar`/`interp_congr_noBVar` from
+`mentionsFvar`) is the first lemma the ψ⁻¹ instance needs.  (ii) The
+kit's per-constructor facts are stated in the RECURSOR view (`ksR`,
+`tgtsR`, `eissR`, `tssR`, the member's `pinsOf`); at a real member with
+the defaults they are `FixCtorFactsAt`'s `recEntry`/`reflEntry`, at a
+copy member they are FINDING 3's missing clause.
+
 **FINDING 1 — `ψ_A`'s cross-copy recursion is not well-founded by pin
 size; the honest order is a theorem about the elimination, and the
 cheap source is a kernel conjunct.**  `ψ_A` (container `J` at pins
