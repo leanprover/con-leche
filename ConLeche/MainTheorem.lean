@@ -14,24 +14,26 @@ public section
 /-!
 # The main theorem and the main corollary
 
-What the checker accepts has a model; hence chunks the binary accepts
-do not declare a theorem of type `False` — the form a reader can check
+What the checker accepts has a model; hence a file that declares a
+theorem of type `False` is rejected — the form a reader can check
 without knowing what an `Env` is.  Those two theorems are all this file
-holds.  The corollary's hypothesis is the binary's accept path itself:
-the three pure functions the driver's phases compute, chained — the
-built-in prelude parses, the chunks parse, the verified fold accepts
-the parsed records prepared with the prelude — and what that chain
-accepts declares no such theorem.  The steps between are imported: the parser reads
-such chunks into records holding a theorem record of type `False`
-(`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
-parsed record (`Frontend.mem_preparePrelude`), and a stream holding
-such a record is never accepted (`no_False_theorem_accepted`: the
-record is installed under its own name with its declared type, and in
-the model of the main theorem that type is the empty set).  The
-statements, with a plain-words account of every name in them, are in
-`ConLeche/Challenge.lean`; the reading of terms and the notion of
-model — and `Denotes_functional`, which says a term has at most one
-denotation — in `ConLeche/Denotes.lean`.
+holds.  The corollary's hypothesis is the file: the chunks the binary
+read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
+writing a theorem of type `False` into a JSON export.  Its conclusion
+is the binary's accept path itself, erroring: the three pure functions
+the driver's phases compute, chained — the built-in prelude parses, the
+chunks parse, the verified fold accepts the parsed records prepared
+with the prelude — return an error.  The steps between are imported:
+the parser reads such chunks into records holding a theorem record of
+type `False` (`Frontend.parseChunks_jsonWithTheoremFalse`), the
+preparation keeps every parsed record (`Frontend.mem_preparePrelude`),
+and a stream holding such a record is never accepted
+(`no_False_theorem_accepted`: the record is installed under its own
+name with its declared type, and in the model of the main theorem that
+type is the empty set).  The statements, with a plain-words account of
+every name in them, are in `ConLeche/Challenge.lean`; the reading of
+terms and the notion of model — and `Denotes_functional`, which says a
+term has at most one denotation — in `ConLeche/Denotes.lean`.
 
 * `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
   fold: it installs every parsed declaration — a definition, theorem
@@ -51,13 +53,16 @@ denotation — in `ConLeche/Denotes.lean`.
   `CheckError` with the position of the failure (the input's line
   number for the first two, the fold position for the fold) — so the
   chain is a plain `Except` `do` block with no conversion in it, and
-  the hypothesis is simply that it succeeds.
+  the conclusion is simply that it errors, with no claim about which
+  step erred or why.
 * `Declaration` is a parsed declaration, and the records travel as an
   `Array` of them — what the parse returns and what the fold folds;
   `Env` is the environment the checker builds; `env.consts` are the
   constants it accepted; `.verified` is the default mode.
-* `hasProofOfFalse` (`ConLeche/Accepts.lean`) is the template of a
-  file that declares a theorem of type `False`, over the chunks' bytes.
+* `jsonWithTheoremFalse` (`ConLeche/Accepts.lean`) is one particular
+  JSON file declaring a theorem of type `False`, as a whole-file
+  template over the chunks' concatenation — not every proof of `False`,
+  one shape of one.
 * `False` and `Eq` are built in: the checker installs them from its own
   pins, and a stream that declares them differently is rejected.
 * `SetTheory V` is the set theory the model lives in; the proof works
@@ -84,22 +89,22 @@ theorem model_exists (V : Type w) [SetTheory V]
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
-/-- **The main corollary.**  Accepted chunks declare no theorem of type
-`False`: were the template's four lines there, the parse would read them
-into a theorem record of type `False`, the preparation would keep the
-record, and a stream holding it is never accepted. -/
+/-- **The main corollary.**  A file declaring a theorem of type `False`
+in the shape `jsonWithTheoremFalse` describes is rejected: the parse
+reads the template's four lines into a theorem record of type `False`,
+the preparation keeps the record, and a stream holding it is never
+accepted. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    (accepted : (do
+    (h : jsonWithTheoremFalse chunks) :
+    ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds).isOk) :
-    ¬ hasProofOfFalse chunks := by
-  intro h
-  obtain ⟨env, hacc⟩ := Except.exists_ok_of_isOk accepted
+      checkDecls .verified ds) = .error e := by
+  refine Except.exists_error_of_not_ok fun env hacc => ?_
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
-  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 
 end ConLeche

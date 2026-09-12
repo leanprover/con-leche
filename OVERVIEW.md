@@ -93,7 +93,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L78-L81):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L83-L86):
 
 > For every model `V` of the `SetTheory` interface and every list of
 > declarations `ds`: if `checkDecls`, in the default `--verified` mode,
@@ -124,22 +124,23 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L91-L97):
+[`no_False_declaration` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/MainTheorem.lean#L97-L103):
 
-> … if the chain "the built-in prelude parses; the chunks parse;
-> `checkDecls` accepts the parsed records prepared with the prelude"
-> succeeds, then the chunks do not match `hasProofOfFalse` — a name
-> entry for `False`, an expression entry for the constant `False`, a
-> name entry for the theorem's own name, and a theorem record whose
-> type is that expression, four lines in the exporter's own shapes with
-> any bytes at all before, between and after them.
+> … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
+> `False`, an expression entry for the constant `False`, a name entry
+> for the theorem's own name, and a theorem record whose type is that
+> expression, four lines in the exporter's own shapes, in that order,
+> with anything at all before, between and after them — then the chain
+> "the built-in prelude parses; the chunks parse; `checkDecls` accepts
+> the parsed records prepared with the prelude" returns an error.
 
-The statement's hypothesis is the binary's accept path: the three pure
-functions the driver's phases compute — `Frontend.builtinPreludeE`,
-`Frontend.parseChunks chunks`, `checkDecls .verified` over
-`Frontend.preparePrelude` — written as one `do` block whose `.isOk`
-says it succeeds, and what it accepts declares no theorem of type
-`False`. There is one conversion nowhere in it: the
+The hypothesis is the file, and the conclusion is the binary's accept
+path erroring: the three pure functions the driver's phases compute —
+`Frontend.builtinPreludeE`, `Frontend.parseChunks chunks`,
+`checkDecls .verified` over `Frontend.preparePrelude` — written as one
+`do` block, and `∃ e, … = .error e` says it returns an error, with no
+claim about which of the three produced it. There is one conversion
+nowhere in it: the
 three steps fail in the same type, the checker's own `CheckError`
 paired with the position of the failure, which is the input's line
 number in the frontend's half and the record's position in the fold's.
@@ -152,14 +153,15 @@ and the check driver returns its environment with the evidence that
 `checkDecls` returns it — and prints its success line from nothing
 else. This is the form of the statement a reader can check without
 knowing what an `Env`, or even a declaration record, is: it speaks
-only of the bytes handed to the binary. The predicate is a template
-over the chunks' concatenation
-([`hasProofOfFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L54-L65))
-whose four lines are the UTF-8 of Lean interpolated strings and whose
-parts are any bytes at all. There is no side condition: the chunks
-may be cut anywhere, empty pieces included, and an input the machine
-word cannot address is refused by the parser before any of it is
-read, so an accepted parse is one of a file that fits.
+only of the bytes handed to the binary. The predicate is a whole-file
+template over the chunks' concatenation
+([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Accepts.lean#L62-L72)),
+one interpolated Lean string whose five parts are arbitrary — the name
+says so: it is ONE way of putting a theorem of type `False` into a JSON
+file, not every proof of `False` a file might hold. There is no side
+condition: the chunks may be cut anywhere, empty pieces included, and
+an input the machine word cannot address is refused by the parser
+before any of it is read, which is an error like any other.
 
 The corollary rests on a statement at the stream — the fold's input —
 proved beside the fold
@@ -193,7 +195,7 @@ whole
 with the streaming reader's running byte count as the same guard the
 wholesale parse applies up front); and the template's lines scan to
 exactly the records the fold then forbids
-([`parseChunks_hasProofOfFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L125)).
+([`parseChunks_jsonWithTheoremFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L177)).
 The preparation puts the built-in prelude's records first and hoists
 the ground of the pinned `Nat` operations; it is a permutation of the
 parsed records plus the prelude's, so the record is still there
@@ -806,7 +808,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines). |
-| `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `hasProofOfFalse`, the byte template of a file that declares a theorem of type `False`. |
+| `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |

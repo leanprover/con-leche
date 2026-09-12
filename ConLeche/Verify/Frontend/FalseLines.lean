@@ -8,7 +8,7 @@ public section
 /-!
 # The three lines of the template, read (task #290)
 
-The naive recogniser on the three lines `hasProofOfFalse`
+The naive recogniser on the three lines `jsonWithTheoremFalse`
 (`ConLeche/Accepts.lean`) writes with `s!`:
 
 * `{"in":i,"str":{"pre":0,"str":"False"}}` reads as the name entry
