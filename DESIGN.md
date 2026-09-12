@@ -73011,6 +73011,210 @@ build warning-free; `tests/no-local-paths.sh` OK.  Landing gates
 (`scripts/pub-import-plan.py --check`, `tests/shake.sh`, arena,
 init-full, the Mathlib cone) NOT run.
 
+#### M.22 M-B′ step 3f: the cross-copy recursion has NO syntactic measure — the order is a typing fact, and the multiset claim of §M.17 is false (2026-09-12, session 10)
+
+**What the session set out to do** (brief, verbatim on the point):
+define the cross-copy reference relation on the scratch block's copies
+as §M.17 describes it and PROVE it well-founded — "the measure §M.17
+names (a nested multiset of root-to-member paths) or any simpler one
+you find true (e.g. the mint order from the ledger …)"; then spell `ψ`
+on that recursion.  The maintainer's ruling behind it: no
+kernel-recorded order, the recursion justified by a measure proved in
+the model/Verify tier ("surely we can prove termination of a multiset
+with reasonable effort, and it is more insightful than just putting
+data somewhere").  Sizing the measure against the elimination BEFORE
+building the multiset order turned up that §M.17's measure is false,
+that no measure on the pins can exist without typing, and that the
+tree records neither of the two facts a proof would consume.  The
+findings are the session's result; what they leave for the
+implementation is at the end.
+
+**The relation, fixed.**  `R (A, A')`: some constructor field of the
+copy `A` (container `J` at pins `Ds`) is aux-recursive into the copy
+`A'`; `A'` is not in `A`'s mint group; no pin of `A`'s mint group is a
+subterm of `pin(A')`.  Equivalently on the elimination's data: `A`'s
+raw constructor `instPis (J.c[lvls]) Ds` has a nested-occurrence
+subterm `e` (`e.getAppFn = const I _`, `containerInfo? env I = some
+ci`, `ci.nP ≤ |args|`) with `pin(A') = I (args.take ci.nP)`, and the
+two exclusions.  §M.17's analysis of an R-edge distinguished the
+head `I` being a node of `J`'s constructor type (case (i), the
+container material) from `I` being a node inside a pin component
+(case (ii), a subterm).  Both are right as far as they go.
+
+**FINDING 1 — the third case: a PARAMETER-HEADED field.**  `J`'s
+constructor field is `α e⃗` with `α` a parameter of `J` of Π-kind
+(`Wrap (f : Type → Type) (α : Type) : Type := mk : f α → Wrap f α`,
+the shape of every functor-parametrised record).  At the block
+`T := mk : Wrap MyList T → T` the copy `A₀` (pin `Wrap MyList T`) has
+the field `f α`[MyList, T] `= MyList T`, a nested occurrence whose pin
+is `MyList T` — case (iii): the head of `pin(A')` is the head of a pin
+COMPONENT, and the other components (`T`) become its arguments.
+§M.17's measure: `M(A₀) = {T @ {rank Wrap}}`, `M(A') = {T @ {rank
+MyList}}`; the path multiset `{rank MyList}` is BELOW `{rank Wrap}`
+exactly when `MyList` was declared before `Wrap`, and nothing forces
+that: `MyList` is a constant of the BLOCK's constructor type, not of
+`Wrap`'s.  Mixed shapes (`α (Bar β)`) wrap a component under a
+constructor node and put an arbitrary head on top at once, so no
+lexicographic combination of head rank and component structure works
+either.  The claimed nested Dershowitz–Manna measure is therefore
+FALSE on well-typed, uniform, ordinary streams; §M.17 saw only
+constant-headed fields.
+
+**FINDING 2 — the worklist gives no order.**  A copy refers to copies
+minted BEFORE it (a `find?` hit on an existing pin) and to copies
+minted AFTER it (a fresh mint while its own constructors are walked),
+and which of the two happens is decided by the ORDER OF THE ROOT'S
+FIELDS: at `J α := mk : Foo α → J α` a root with fields `J (T p),
+Foo (T p)` mints the `J`-copy first and it refers forward; with the
+fields swapped it refers backward.  Neither the mint order nor its
+reverse nor the processing position (`qhead`) orients `R`.
+
+**FINDING 3 — syntactically the relation is not even acyclic; typing
+is what excludes the cycles.**  The elimination never type-checks; on
+the raw terms the following is a legitimate run, uniform in official's
+`check_uniform_ind_occs` sense (no partial application of a type being
+declared, and `pinsClosed`/`nestedOccOk` hold): `J (α : Type → Type)
+(β : Type) := mk : α β → J α β`, `Foo (γ δ : Type) := mk : J δ δ →
+Foo γ δ`, block `T := mk : J (Foo X) (Foo X) → T`.  Pins: `A₀ =
+J (Foo X) (Foo X)`, whose field `(Foo X) (Foo X)` is the nested
+occurrence `Foo X (Foo X)` — `A₁`; `A₁`'s field `J δ δ`[X, Foo X] `=
+J (Foo X) (Foo X) = pin(A₀)`, a `find?` hit.  Neither edge is
+excluded (`Foo X (Foo X)` is not a subterm of `A₀`'s pin and
+conversely), so `R` is a 2-cycle, and `ψ_{A₀}` would need `ψ_{A₁}`
+which needs `ψ_{A₀}`.  What refutes the stream is KINDING: `δ` is used
+at `Type` and at `Type → Type` in `J δ δ`, so `Foo` cannot be
+stored.  Hence any proof that `R` is well-founded must consume the
+containers' well-typedness — a kind-level argument (higher-order
+parameters are consumed by application in case (iii), the head's
+declaration order in case (i), subterms in case (ii), and the three
+interleave).  The model tier has the pins' READINGS (post-check (a),
+`pinsOkAux`) but no kind structure to measure them by, and the
+sessions' worth of a kind calculus over `AnnotTerm`s is not what the
+ruling priced.
+
+**FINDING 4 — the tree records neither fact a syntactic proof would
+consume.**  Even case (i) alone needs the container's constructor
+constants to be declared BEFORE the container (`rank J' < rank J`),
+and nothing states it: `EnvWF` resolves every stored type at the WHOLE
+environment (`ConstWF env c` for `c ∈ env.consts`; `EnvWF.cons` takes
+`ConstWF` at the NEW environment because a recursor's rules name its
+own constructors), `EnvModelM.type_reads`/`mem_type` are at the whole
+environment too, and the datum's `env₀` is a ghost witness with no
+clause tying it to `env` (`IndRepData.env₀`, "the ordinary field
+domains resolve in it"); at the mutual site it even HOLDS the formers
+(`consMutualFormers fms env`), so `FixOpened.ord` does not say that an
+ordinary field mentions no member.  A cyclic environment — two stored
+inductives whose constructors mention each other, installed
+separately — satisfies every recorded clause and has an `R`-cycle
+through constant-headed fields alone.  The order on constants is the
+INSTALL order, which no invariant carries; recording it would be a
+new environment invariant (the kind the maintainer has ruled too
+expensive, task #241) or a datum clause (`env₀` a suffix of `env` at
+which the family is fresh, plus the non-mention of members in ordinary
+fields — two clauses with discharges at every producer and transport,
+`IndRep.ext` being stated over the abstract `EnvExt`, not a list
+suffix).
+
+**What is true, and what it costs.**  On a WELL-TYPED stream `R` is
+acyclic — every attempt at a cycle through cases (i)–(iii) either
+hits the group-pin exclusion (a container nested in another that
+re-creates the source pin does so through its own mimic, whose pin
+contains the group pin) or needs a parameter at two kinds.  The
+proof of that is a theorem about typed nested occurrences that the
+literature does not state in this form (official's `elim_nested`
+terminates by fuel-free worklist and never asks; its own soundness
+never needs the order, only ours does — §M.17's Bekić remark: the
+model's `ψ⁻¹`-surjectivity IS the nontrivial direction of Bekić, and
+Bekić's proof itself walks an order).  The two honest routes are the
+ones §M.17 listed as the ALTERNATIVE: (b) the kernel computes `R`
+from the elimination's result — the mint groups, the pins, and the
+copies' processed constructor types (`mentionsConst` of a copy's
+name, minus the group, minus targets whose pin contains a group pin)
+— and emits a topological `order : List Nat` with `∀ (A, A') ∈ R,
+order.idxOf A' < order.idxOf A`, a `.notImplemented` decline when `R`
+is cyclic; or (a) checks acyclicity and the model recurses on `Acc`.
+Cost: `|copies|²` subterm tests per nested block, on lists a few
+dozen long; the decline never fires on a typed stream by the argument
+above (unproved), and the corpus can say so (a K-lane measurement:
+run the check in shadow over the Mathlib cone and init-full).  The
+model then needs NO measure: `ψ` is a fold over `order` (a
+structural recursion on the list, no `WellFounded.fix`), and the one
+theorem is `R_ψ ⊆ R` — a `J`-ordinary field aux-recursive into `A'`
+is an `R`-edge — which is the syntactic-to-datum bridge `ψ`'s typing
+consumes anyway (the aux kind's field domain `A' p⃗ e⃗` is the
+replace walk's output at a nested occurrence, and an ordinary field
+mentions no family member, so the exclusions hold; a `whnf` in
+`normCtorValM` cannot introduce a fresh copy name).  The maintainer's
+"if we don't end up needing it anyways" applies: the order IS needed,
+by the model, for every nested block with a cross-copy reference.
+
+**DECISION ASKED** (the maintainer's): (b) as above — the model lane
+recommends it and will consume `order` as a hypothesis of the ψ
+spelling until it is in `DeclNestedRun`; or a kind-level theorem
+(open-ended, not priced, and it would still need FINDING 4's order on
+constants from somewhere).  The multiset order itself was NOT built:
+Lean core and Std have no Dershowitz–Manna order (only
+`WellFounded.transGen`), and building one for a measure that is false
+would be machinery without a theorem.
+
+**What the session landed** (commit below): this record; the
+relation `CopyRef` as the kernel-facing contract, stated once in
+`Verify/Inductives/NestedOrder.lean` over `ElimState` (a copy's
+processed constructor mentions the copy `A'`'s name, `A'` outside the
+group, no group pin a subterm of `pin(A')` — `Expr.Sub`, the walk's
+subterm relation), with `TopoOrder` (the spec of the list the kernel
+would emit) and the two facts the ψ fold consumes from it
+(`TopoOrder.lt_of_ref`, `TopoOrder.mem`); and the ψ spelling's plan
+against it (below).  The K.4 read (`annotateCore_of_annotRel` under
+`AnnotStable`, task #298 on `inductives` 522a9b88, merged here) is
+consumed when `CopyIdxRead`/`CopyCtorRead` are derived from the run,
+with `AnnotStable` a named premise; the kernel lane measured the
+premise over every container of every nested block of the Mathlib
+cone (276 stored former/constructor types, 22 containers, 41 blocks)
+and init-full (5/5): zero reader-undecidable binders under the
+stronger reading (every binder, not only the `.never` ones) — probe
+and logs in the kernel lane's `_tmp/nested-279k/`, its DOCKET §M1.
+
+**The ψ spelling over `order` (the plan; the kit's consumer).**  For
+the copy `A` (container `J`, family `d_J` at `lvls`, pins `Ds` read
+as `DsA` at the parameter frame by `pinRead_of`): the fold of `J.rec`
+at the choice `Tg t := mkAppN ⟦aux_{c(t)}⟧ pbs` (the copy `c(t)`'s
+carrier at the BLOCK's parameters — the copies' formers take `p⃗`,
+not `Ds` — a function on the member's index telescope, as
+`motChoiceAV` wants; `c(t)` for `t < kReal` the group member, for a
+mimic of `J` the copy at `pin_t[Ds]` through `d_aux.tgts` (§M.14)) and
+`bodies j := mkAppN ⟦A_{mems j}.c_aux⟧ (pbs ++ transported)`, the
+transport per field by the AUX kind of the copy's constructor:
+ordinary — the field variable; recursive into an aux member in the
+family's image — the target-form hypothesis (the kit's ih); recursive
+or reflexive into another copy `A'` — `λ a⃗, Ψ A' ı⃗(a⃗) (x a⃗)` with
+`Ψ A'` the term already built for `A'` (earlier in `order`).  The
+STEP lemma: from `Ψ A'` typed as `Π (p⃗) (ı⃗) (x : ⟦J' Ds'⟧ ı⃗), A'* p⃗ ı⃗`
+for every `A'` with `R (A, A')`, `ψ_A` is typed (`choice_prefix_fit`
++ `recFold_mem`) and fires (`choice_fold_iota`); the FOLD over `order`
+composes the steps, `TopoOrder.lt_of_ref` giving that every reference
+is already built.  Its per-constructor hypotheses are `InvSetup`'s
+mirrored: the copies' `TargetOk` (the carrier's grading at `pbs` and
+the indices — from `formersRead` of the aux datum) and a `CtorAtPins`
+for the AUX constructor at the block's parameters (a real member of
+the aux datum: `ctorAtPins_real`), plus the bridge `R_ψ ⊆ R` above.
+Not started: the finding took the session.
+
+**What was false and repaired.**  §M.3/§M.14's "well-founded on the
+pin's size" (already refuted in §M.17); §M.17's "the relation IS
+acyclic … the measure that works is the multiset of root-to-member
+paths" — the relation is acyclic only on typed streams and the
+measure does not exist on the pins; §M.17's sizing "one to two
+sessions" for the multiset development — the development would not
+have proved the theorem.
+
+**Docket.**  The K-lane request above (compute `R` + `order`, or the
+acyclicity check; the shadow measurement); FINDING 4's constant order
+if a theorem route is ever taken; `CopyCtorRead` via K.4; the
+`d.nP`-uniformity across a family (`ci.nP` is read off one member's
+constructor record; the datum's `formersRead`/`recRead` give it for
+every real member) stays a datum-side lemma for the bridge.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
