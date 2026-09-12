@@ -11,11 +11,11 @@
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L78-L81
-    78  model in every set theory. -/
-    79  theorem model_exists (V : Type w) [SetTheory V]
-    80      (ds : Array Declaration) (env : Env)
-    81      (accepted : checkDecls .verified ds = .ok env) :
+== ConLeche/MainTheorem.lean#L83-L86
+    83  model in every set theory. -/
+    84  theorem model_exists (V : Type w) [SetTheory V]
+    85      (ds : Array Declaration) (env : Env)
+    86      (accepted : checkDecls .verified ds = .ok env) :
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -44,28 +44,27 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L91-L97
-    91  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    92      (accepted : (do
-    93        let pre ← builtinPreludeE
-    94        let r ← parseChunks chunks
-    95        let ds := preparePrelude pre r.decls
-    96        checkDecls .verified ds).isOk) :
-    97      ¬ hasProofOfFalse chunks := by
+== ConLeche/MainTheorem.lean#L97-L103
+    97  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    98      (h : jsonWithTheoremFalse chunks) :
+    99      ∃ e, (do
+   100        let pre ← builtinPreludeE
+   101        let r ← parseChunks chunks
+   102        let ds := preparePrelude pre r.decls
+   103        checkDecls .verified ds) = .error e := by
 
-== ConLeche/Accepts.lean#L54-L65
-    54  def hasProofOfFalse (chunks : List ByteArray) : Prop :=
-    55    ∃ (before between₁ between₂ between₃ after : ByteArray) (i j k v : Nat) (name : String),
-    56      Frontend.concatBytes chunks =
-    57        before ++ "\n".toUTF8 ++
-    58        (s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}").toUTF8 ++ "\n".toUTF8 ++
-    59        between₁ ++ "\n".toUTF8 ++
-    60        (s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}").toUTF8 ++ "\n".toUTF8 ++
-    61        between₂ ++ "\n".toUTF8 ++
-    62        (s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}").toUTF8 ++ "\n".toUTF8 ++
-    63        between₃ ++ "\n".toUTF8 ++
-    64        (s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}").toUTF8 ++ "\n".toUTF8 ++
-    65        after
+== ConLeche/Accepts.lean#L62-L72
+    62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
+    63    ∃ (before between₁ between₂ between₃ after name : String) (i j k v : Nat),
+    64      Frontend.concatBytes chunks = (s!"{before}
+    65  \{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}
+    66  {between₁}
+    67  \{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}
+    68  {between₂}
+    69  \{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}
+    70  {between₃}
+    71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
+    72  {after}").toUTF8
 
 == ConLeche/Verify/Cached/StreamThm.lean#L205-L208
    205  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -76,8 +75,8 @@
 == ConLeche/Verify/Frontend/Chunks.lean#L352
    352  theorem parseChunks_ok_parseBytes {inModel census : Bool} {cs : List ByteArray}
 
-== ConLeche/Verify/Frontend/FileFalse.lean#L125
-   125  theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
+== ConLeche/Verify/Frontend/FileFalse.lean#L177
+   177  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
 
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}

@@ -22,10 +22,10 @@ public section
 /-!
 # The file-level statement: the template is real
 
-`ConLeche/Accepts.lean` states `hasProofOfFalse` as a byte template
-over the exporter's line shapes.  Two things a theorem about it cannot
-show are pinned here: that an actual export matches it — the four
-lines below are `tests/e2e/zero_ctor_false_proof.ndjson`'s, the
+`ConLeche/Accepts.lean` states `jsonWithTheoremFalse` as a whole-file
+template over the exporter's line shapes.  Two things a theorem about
+it cannot show are pinned here: that an actual export matches it — the
+four lines below are `tests/e2e/zero_ctor_false_proof.ndjson`'s, the
 fixture the binary rejects for proving `False` with `Prop` — and that
 the parser reads such chunks, however cut, into a `thmDecl` of type
 `False`, so the template describes what the frontend does and not only
@@ -49,20 +49,19 @@ a second name entry in between. -/
   "{\"ie\":224,\"sort\":0}\n" ++
   "{\"thm\":{\"all\":[84],\"levelParams\":[],\"name\":84,\"type\":223,\"value\":159}}\n"
 
--- the template matches it, with the witnesses spelled out; the byte
+-- the template matches it, with the witnesses spelled out; the string
 -- equation is decided by the kernel
 set_option maxRecDepth 100000 in
-example : hasProofOfFalse [falseFile.toUTF8] :=
-  ⟨"{\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"}}}".toUTF8,
-   "{\"ie\":159,\"sort\":0}".toUTF8,
-   "{\"in\":85,\"str\":{\"pre\":0,\"str\":\"unused\"}}".toUTF8,
-   "{\"ie\":224,\"sort\":0}".toUTF8,
-   "".toUTF8,
-   75, 223, 84, 159, "bogus", by
-    -- the bytes are the UTF-8 of one string, and that string equation
+example : jsonWithTheoremFalse [falseFile.toUTF8] :=
+  ⟨"{\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"}}}",
+   "{\"ie\":159,\"sort\":0}",
+   "{\"in\":85,\"str\":{\"pre\":0,\"str\":\"unused\"}}",
+   "{\"ie\":224,\"sort\":0}",
+   "",
+   "bogus", 75, 223, 84, 159, by
+    -- the file is the UTF-8 of one string, and that string equation
     -- is decided
-    simp only [Frontend.concatBytes, ByteArray.append_empty, String.toUTF8_eq_toByteArray,
-      ← String.toByteArray_append]
+    simp only [Frontend.concatBytes, ByteArray.append_empty, String.toUTF8_eq_toByteArray]
     exact congrArg String.toByteArray (by decide)⟩
 
 /-- The parsed prelude (empty only if it did not parse, which

@@ -21,17 +21,18 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > of its type, `False` is empty, and `Eq` is set equality.
 >
 > **Main corollary.**  Hence a file — the chunks the binary reads —
-> that the checker accepts declares no theorem of type `False`.
+> that declares a theorem of type `False` is rejected.
 
-The corollary's hypothesis is the binary's accept path: the three pure
-functions the driver's phases compute, chained.  The built-in prelude
-parses (`Frontend.builtinPreludeE`); the chunks parse
+The corollary's conclusion is the binary's accept path, erroring: the
+three pure functions the driver's phases compute, chained.  The
+built-in prelude parses (`Frontend.builtinPreludeE`); the chunks parse
 (`Frontend.parseChunks`); the verified fold accepts the parsed records
 prepared with the prelude (`checkDecls .verified` over
-`Frontend.preparePrelude`).  The driver (`Main.lean`) runs the same
-three steps with IO between them — the streaming read loop, the
-heartbeat, the parallel check pool — and prints its success line only
-from an accept of the fold.
+`Frontend.preparePrelude`).  The chain returns an error, and the
+theorem says nothing about which of the three produced it.  The driver
+(`Main.lean`) runs the same three steps with IO between them — the
+streaming read loop, the heartbeat, the parallel check pool — and
+prints its success line only from an accept of the fold.
 
 The corollary follows from the theorem in four steps, from the chunks
 inwards.  Chunks that declare such a theorem are read by the parser
@@ -69,29 +70,35 @@ equation of the two sides' denotations.
   for every `V` implementing that interface and never fixes one.
 * `chunks : List ByteArray` are the pieces the binary's read loop is
   handed — any cut of the file, empty pieces included.
-  `hasProofOfFalse chunks` (`ConLeche/Accepts.lean`) says their
-  concatenation declares a theorem of type `False`: four lines in the
-  exporter's own shapes — a name entry `False`, an expression entry
-  for the constant `False`, a name entry for the theorem's own name,
-  and the theorem record whose type is that expression — with any
-  bytes at all before, between and after them.  It is the statement a
-  reader can check without knowing what an `Env`, or even a
-  declaration record, is: it speaks only of the bytes handed to the
-  binary.
+  `jsonWithTheoremFalse chunks` (`ConLeche/Accepts.lean`) says their
+  concatenation is ONE particular JSON file declaring a theorem of type
+  `False`: four lines in the exporter's own shapes — a name entry
+  `False`, an expression entry for the constant `False`, a name entry
+  for the theorem's own name, and the theorem record whose type is that
+  expression — in that order, with anything at all before, between and
+  after them.  The name says what it is not: it is one way of writing
+  such a theorem into a JSON file, not every proof of `False` a file
+  might hold, and a file that puts the same theorem there differently
+  is outside it.  It is the hypothesis a reader can check without
+  knowing what an `Env`, or even a declaration record, is: it speaks
+  only of the bytes handed to the binary.  The five parts are
+  `String`s, so the file is the UTF-8 of one interpolated Lean string;
+  an export is UTF-8, so this narrows nothing a reader cares about.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks chunks` the parse of the chunks, and
   `Frontend.preparePrelude pre` the preparation of the parsed records
   for the fold.  All three fail in the same error type — the checker's
   `CheckError` paired with the position of the failure, which is the
   input's line number in the frontend's half and the fold position in
-  the fold's — so the chain is one `Except` `do` block, and its
-  `.isOk` — the corollary's one hypothesis — says it succeeds: the
-  binary accepted the file.
+  the fold's — so the chain is one `Except` `do` block, and the
+  corollary's conclusion, `∃ e, … = .error e`, says it returns one of
+  those errors: the binary rejected the file.
 * `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
-  acceptance — not even that the file fits in memory: the parser
-  refuses an input the machine word cannot address before reading it.
+  shape — not even that the file fits in memory: the parser refuses an
+  input the machine word cannot address before reading it, which is an
+  error like any other.
 
 Both statements are about the checking function and the parse, not
 the process, and `--trusted` mode is outside both.  See README.md.
@@ -113,15 +120,15 @@ theorem model_exists (V : Type w) [SetTheory V]
   sorry
 
 open Frontend in
-/-- **The main corollary.**  Accepted chunks declare no theorem of type
-`False`. -/
+/-- **The main corollary.**  A file declaring a theorem of type `False`
+in the shape `jsonWithTheoremFalse` describes is rejected. -/
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
-    (accepted : (do
+    (h : jsonWithTheoremFalse chunks) :
+    ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds).isOk) :
-    ¬ hasProofOfFalse chunks :=
+      checkDecls .verified ds) = .error e :=
   sorry
 
 end ConLeche

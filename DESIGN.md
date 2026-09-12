@@ -70971,3 +70971,194 @@ block now reads
 > `False`.
 
 ("### The Main Theorem" is unchanged from task #295 §7.)
+
+## TASK #297 — ONE JSON FILE, NOT EVERY PROOF OF `False` (2026-09-12, `agent/json-297`)
+
+### 1. The rulings, verbatim
+
+*"the hasProofOfFalse predicate is misleading, as it does not apply to
+*all* proofs of False.  I think we have to go back to putting it in the
+assumption (better narrative), change its name to somehow reflect that
+it describes a particular way of putting that theorem in JSON, not all
+of them.  Maybe `jsonWithTheoremFalse`?  And the conclusion could be
+`∃ e, … = .error e`, most direct maybe."*
+
+Plus: why not ONE interpolation template?  The answer was that the five
+parts were `ByteArray`s and `s!` has no splice for bytes.  So the parts
+became `String`s and the whole file became one `s!` template with a
+single `.toUTF8` at the end.
+
+### 2. The predicate, as landed
+
+`ConLeche/Accepts.lean`:
+
+```lean
+def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
+  ∃ (before between₁ between₂ between₃ after name : String) (i j k v : Nat),
+    Frontend.concatBytes chunks = (s!"{before}
+\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}
+{between₁}
+\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}
+{between₂}
+\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}
+{between₃}
+\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
+{after}").toUTF8
+```
+
+**The template is a real multi-line string literal.**  A Lean string
+literal spans lines, and a raw newline in it is a literal `\n` byte —
+but the indentation of a continuation line is part of the literal (the
+probe: `s!"a{x}b\n     c{x}d"` written over two lines with five spaces
+of indent yields the bytes `… 10, 32, 32, 32, 32, 32, 99 …`).  So every
+continuation line of the template starts at column 0, inside the `def`
+body and against the surrounding indentation.  That is deliberate and
+load-bearing: the source shows the file shape exactly as it is, with no
+escapes to decode.
+
+**The UTF-8 narrowing.**  The five parts are `String`s, so the file is
+the UTF-8 of ONE interpolated Lean string.  A file whose arbitrary parts
+carry bytes that are no UTF-8 at all therefore falls outside the
+predicate, where the old `ByteArray`-parts form covered it.  That is
+immaterial: an export is UTF-8, and the parts are the pieces of a file
+the checker is being handed as an export.  The gain is the one thing the
+maintainer asked for — one template, read off the page.
+
+### 3. The statement, as landed
+
+`ConLeche/MainTheorem.lean` (token-identical in `ConLeche/Challenge.lean`
+with `sorry`, `tests/challenge.sh`):
+
+```lean
+open Frontend in
+theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+    (h : jsonWithTheoremFalse chunks) :
+    ∃ e, (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified ds) = .error e := by
+  refine Except.exists_error_of_not_ok fun env hacc => ?_
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+```
+
+The narrative is the one the maintainer asked for: the FILE is the
+hypothesis, and the binary's accept path erroring is the conclusion.
+Nothing is claimed about which of the three steps errs — `∃ e` over the
+one `CheckError × Nat`.
+
+`ConLeche/Verify/ExceptBind.lean` swapped its one-line helper again, the
+way it did at #296: `Except.exists_ok_of_isOk` is DELETED and replaced by
+
+```lean
+theorem Except.exists_error_of_not_ok {ε α : Type} {x : Except ε α} (h : ∀ a, x ≠ .ok a) :
+    ∃ e, x = .error e
+```
+
+which is what `refine … fun env hacc => ?_` turns into the `False` goal
+the rest of the proof closes.  `exceptBind_ok` is untouched.
+
+### 4. The one piece of new proof: cutting the template up
+
+The line lemmas (`ConLeche/Verify/Frontend/FalseLines.lean`) are stated
+against the PER-LINE `s!` templates, and `s!` fuses each of the
+whole-file template's newlines into the string literal beside it — the
+chunk after `{i}` is `",\"str\":{\"pre\":0,\"str\":\"False\"}}\n"`, not
+the line's own last chunk followed by a newline.  So the whole-file
+template is not syntactically the parts and the lines.
+
+`ConLeche/Verify/Frontend/FileFalse.lean` undoes that in one step.
+Seven fusions, each `by rw [← String.append_assoc]; rfl` (string
+literals reduce under `String.append`), e.g.
+
+```lean
+theorem fuse_nl_in (x : String) : "\n" ++ ("{\"in\":" ++ x) = "\n{\"in\":" ++ x
+```
+
+and then `template_split`, which states the whole-file template as the
+five parts and the four line templates with `"\n"` between them and is
+proved by
+
+```lean
+  simp only [String.append_assoc, toString_id, fuse_nl_in, fuse_strFalse_nl, fuse_nl_ie,
+    fuse_usNil_nl, fuse_quote_nl, fuse_nl_thm, fuse_close_nl]
+```
+
+(`toString_id : toString (s : String) = s := rfl` clears the splices'
+`toString`).  With `template_split` in hand the byte step of
+`parseChunks_jsonWithTheoremFalse` is the old one plus
+`String.toByteArray_append`:
+
+```lean
+    rw [bytes_eq_of_size_lt hsz, heq, template_split]
+    simp only [String.toUTF8_eq_toByteArray, String.toByteArray_append, ByteArray.data_append,
+      Array.toList_append, ← lit_eq_toByteArray, lit_append, lit_nl, List.append_assoc,
+      List.cons_append, List.nil_append]
+```
+
+`parseLines_template` — the walk over the four lines — is UNCHANGED: it
+already took the five parts as `List UInt8`, and they now arrive as
+`lit before`, `lit b₁`, … instead of `before.data.toList`.  The fixture
+example in `tests/ConLecheTests/FileTests.lean` got SHORTER: its five
+witnesses are the strings themselves, and the byte equation is now one
+`congrArg String.toByteArray (by decide)` over the string equation with
+no `← String.toByteArray_append` fold in front of it.
+
+### 5. What else moved
+
+Only names and prose: `parseChunks_hasProofOfFalse` →
+`parseChunks_jsonWithTheoremFalse`, the `MainTheorem.lean` and
+`Challenge.lean` headers and docstrings, `ConLeche/Accepts.lean`'s
+module doc and the predicate's docstring (both now say what the
+predicate is NOT), `FalseLines.lean`'s one citation, OVERVIEW §1's
+citing paragraphs (re-read, then `overview-links.sh --update`; three
+anchors moved and two changed), and the `tests/ConLecheTests/Axioms.lean`
+table row.  `Main.lean` is untouched — its `--verified` help text says
+"a file that declares a theorem of type `False` is never accepted",
+which is the same claim in words, and the e2e gate compares it
+byte-for-byte.
+
+### 6. Gates
+
+`lake build` and `lake test` warning-free, challenge (statements
+identical for both roots), overview-links (88 links, 56 files),
+no-local-paths, proofdeps (UNCHANGED — 4363 module rows across 12
+roots: the pin records the MODULES a proof term reaches, no module was
+added and the swapped `Except` helper lives where the old one did).  No
+arena battery and no checker run: the predicate and the theorem are
+proof tier, and no executable code changed.
+
+### 7. The README's replacement text
+
+`README.md` is the maintainer's.  In "### The Main Corollary" the code
+block now reads
+
+> ```lean
+> open Frontend in
+> theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+>     (h : jsonWithTheoremFalse chunks) :
+>     ∃ e, (do
+>       let pre ← builtinPreludeE
+>       let r ← parseChunks chunks
+>       let ds := preparePrelude pre r.decls
+>       checkDecls .verified ds) = .error e
+> ```
+>
+> The hypothesis is the file: `jsonWithTheoremFalse chunks` says that
+> the bytes the binary read are ONE particular JSON file declaring a
+> theorem of type `False` — a name entry for `False`, an expression
+> entry for the constant `False`, a name entry for the theorem's own
+> name, and the theorem record of that name and type, four lines of the
+> export format in that order with anything at all before, between and
+> after them.  The name is careful: this is one way of writing such a
+> theorem into a JSON file, not every proof of `False` a file might
+> hold.  The conclusion is the binary's accept path — the built-in
+> prelude parses, the chunks parse, the verified fold accepts the
+> prepared records, all three failing in one error type, so the chain is
+> a plain `do` block — returning an error, with no claim about which
+> step produced it.
+
+("### The Main Theorem" is unchanged from task #295 §7.)

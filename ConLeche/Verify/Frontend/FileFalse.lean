@@ -11,9 +11,9 @@ import ConLeche.Frontend.Scan.Equiv.Kit
 public section
 
 /-!
-# From the chunks to the parsed record (task #290, #294)
+# From the chunks to the parsed record (task #290, #294, #297)
 
-The line-level lemma: chunks that match `hasProofOfFalse`
+The line-level lemma: chunks that match `jsonWithTheoremFalse`
 (`ConLeche/Accepts.lean`) and parse, parse to a list holding a
 `thmDecl` of type `False`.
 
@@ -27,10 +27,12 @@ scans to; `applyLine_nameFalse`, `applyLine_constFalse` and
 `applyLine_thmFalse` say what the state does with it.  The name entry
 for the theorem's own name is not read at all: it is absorbed into the
 part before the theorem line, which may be anything.
-`parseChunks_hasProofOfFalse` then puts the chunks' bytes into that
-shape: the streaming parse is the line fold of the concatenation
-(`parseChunks_eq_parseLines`), and the template's `ByteArray`
-concatenation is the list concatenation of the parts and lines.
+`parseChunks_jsonWithTheoremFalse` then puts the chunks' bytes into
+that shape: the streaming parse is the line fold of the concatenation
+(`parseChunks_eq_parseLines`), and `template_split` cuts the one
+interpolated string of the predicate — whose literal chunks fuse each
+newline to the line beside it — back into the five parts and the four
+line templates the line lemmas are stated with.
 -/
 
 namespace ConLeche.Frontend
@@ -54,6 +56,56 @@ theorem lit_nl : lit "\n" = [10] := by rw [lit_eq_toByteArray]; decide
 /-- The bytes of a string's UTF-8 are its literal's. -/
 theorem toUTF8_toList (s : String) : s.toUTF8.data.toList = lit s := by
   rw [String.toUTF8_eq_toByteArray, lit_eq_toByteArray]
+
+/-! ## Cutting the template up
+
+`s!` fuses each of the template's newlines into the literal beside it,
+so the whole-file template is not syntactically the five parts and the
+four line templates.  Each fusion is undone by one `rfl` on string
+literals, and `template_split` then re-associates. -/
+
+/-- `toString` on a `String` is the string. -/
+theorem toString_id (s : String) : toString s = s := rfl
+
+theorem fuse_nl_in (x : String) : "\n" ++ ("{\"in\":" ++ x) = "\n{\"in\":" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_strFalse_nl (x : String) :
+    ",\"str\":{\"pre\":0,\"str\":\"False\"}}" ++ ("\n" ++ x) =
+      ",\"str\":{\"pre\":0,\"str\":\"False\"}}\n" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_nl_ie (x : String) : "\n" ++ ("{\"ie\":" ++ x) = "\n{\"ie\":" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_usNil_nl (x : String) : ",\"us\":[]}}" ++ ("\n" ++ x) = ",\"us\":[]}}\n" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_quote_nl (x : String) : "\"}}" ++ ("\n" ++ x) = "\"}}\n" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_nl_thm (x : String) :
+    "\n" ++ ("{\"thm\":{\"all\":[" ++ x) = "\n{\"thm\":{\"all\":[" ++ x := by
+  rw [← String.append_assoc]; rfl
+theorem fuse_close_nl (x : String) : "}}" ++ ("\n" ++ x) = "}}\n" ++ x := by
+  rw [← String.append_assoc]; rfl
+
+/-- **The template, cut up**: the one interpolated string of
+`jsonWithTheoremFalse` is the five parts and the four line templates,
+newline-separated. -/
+theorem template_split (before between₁ between₂ between₃ after name : String) (i j k v : Nat) :
+    s!"{before}
+\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}
+{between₁}
+\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}
+{between₂}
+\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}
+{between₃}
+\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
+{after}" =
+      before ++ "\n" ++ s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ "\n" ++
+      between₁ ++ "\n" ++ s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ "\n" ++
+      between₂ ++ "\n" ++ s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ "\n" ++
+      between₃ ++ "\n" ++
+      s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}" ++
+      "\n" ++ after := by
+  simp only [String.append_assoc, toString_id, fuse_nl_in, fuse_strFalse_nl, fuse_nl_ie,
+    fuse_usNil_nl, fuse_quote_nl, fuse_nl_thm, fuse_close_nl]
 
 /-! ## The walk -/
 
@@ -122,26 +174,28 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
 
 /-- **The line-level lemma.**  Chunks that match the template and
 parse, parse to records holding a theorem record of type `False`. -/
-theorem parseChunks_hasProofOfFalse {chunks : List ByteArray} (h : hasProofOfFalse chunks)
+theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
+    (h : jsonWithTheoremFalse chunks)
     {inModel census : Bool} {r : ParseResultD}
     (hp : parseChunks chunks inModel census = .ok r) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ r.decls := by
   have hsz := parseChunks_ok_size hp
   rw [parseChunks_eq_parseLines inModel census chunks hsz] at hp
-  obtain ⟨before, b₁, b₂, b₃, after, i, j, k, v, name, heq⟩ := h
+  obtain ⟨before, b₁, b₂, b₃, after, name, i, j, k, v, heq⟩ := h
   -- the bytes: the parts and the four lines, each ended by its newline
-  have hb : bytes (concatBytes chunks) = before.data.toList ++ 10 ::
+  have hb : bytes (concatBytes chunks) = lit before ++ 10 ::
       (lit s!"\{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}" ++ 10 ::
-      (b₁.data.toList ++ 10 ::
+      (lit b₁ ++ 10 ::
       (lit s!"\{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}" ++ 10 ::
-      (b₂.data.toList ++ 10 ::
+      (lit b₂ ++ 10 ::
       (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++ 10 ::
-      (b₃.data.toList ++ 10 ::
+      (lit b₃ ++ 10 ::
       (lit s!"\{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}"
-        ++ 10 :: after.data.toList))))))) := by
-    rw [bytes_eq_of_size_lt hsz, heq]
-    simp only [ByteArray.data_append, Array.toList_append, List.append_assoc, toUTF8_toList,
-      lit_nl, List.cons_append, List.nil_append]
+        ++ 10 :: lit after))))))) := by
+    rw [bytes_eq_of_size_lt hsz, heq, template_split]
+    simp only [String.toUTF8_eq_toByteArray, String.toByteArray_append, ByteArray.data_append,
+      Array.toList_append, ← lit_eq_toByteArray, lit_append, lit_nl, List.append_assoc,
+      List.cons_append, List.nil_append]
   rw [hb] at hp
   cases hpl : parseLines (.init inModel census) _ 0 with
   | error e => rw [hpl] at hp; simp [Except.map] at hp
