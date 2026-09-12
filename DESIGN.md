@@ -69164,3 +69164,49 @@ needed after the merge.  The battery has **no route-census gate** any
 more — #287 deleted `tests/route-census.sh` with the
 `CON_LECHE_ROUTE_TRACE` hook it read; the merged run is the one
 recorded above minus that line.
+
+## TASK #288 — `no_False_theorem_accepted` IS *THE* MAIN COROLLARY (2026-09-12, `agent/maincor-288`)
+
+The maintainer's ruling on the statement task #286 added: *"I want that
+to be **the** main corollary."*  Nothing in any statement changes —
+this is a relabelling of the three theorems, in the docstrings, the
+module headers, `OVERVIEW.md`, the axiom pin's table and the proof-dep
+roots:
+
+| theorem | label before | label now |
+|---|---|---|
+| `model_exists` | **The main theorem.** | **The main theorem.** (unchanged) |
+| `no_proof_of_False` | **The main corollary.** | **The corollary at the environment.** |
+| `no_False_theorem_accepted` | **The main corollary, at the stream.** | **The main corollary.** |
+
+**Why.**  `no_proof_of_False` quantifies over the environment the fold
+RETURNS, so reading it presupposes knowing what an `Env` is and
+trusting that the fold put into it what the stream declared.
+`no_False_theorem_accepted` speaks only of the list of declarations
+handed to the checker: *a stream one of whose records declares a
+theorem of type `False` is never accepted*.  That is the sentence a
+reader can check against their own idea of what the checker is for,
+which is what a main corollary is for.  The environment statement
+keeps its place as the step the main corollary rests on — it is where
+the model argument lands — and stays a pinned, advertised theorem
+(`comparator.json` keeps all three names, in the same order).
+
+**Order.**  The three theorems stay in proof order in both modules
+(main theorem → corollary at the environment → main corollary); the
+prose in `ConLeche/Challenge.lean` now states the theorem and the main
+corollary in the opening quote and explains the environment statement
+as the first of the two steps between them.  `OVERVIEW.md` §1 reads
+the same way, and its module-map row for the pair names all three.
+
+**Gates** (docs only — the docstrings live in the modules): `lake
+build` warning-free, `lake test` warning-free, `tests/challenge.sh` OK
+(the three statements are still token-identical: only docstrings
+moved), `tests/overview-links.sh --update` after re-reading the four
+citing paragraphs — the `MainTheorem.lean` and `Axioms.lean` anchors
+shifted by the reworded docstrings and the reworded pin section, the
+cited text is unchanged — and `tests/no-local-paths.sh`.  No arena
+battery and no checker run: no checker code changed.
+
+**README.md is the maintainer's** and was not touched; its "### The
+Main Corollary" section still shows the environment statement, and the
+replacement text is in this task's report.

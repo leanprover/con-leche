@@ -102,9 +102,12 @@
 #   ConLeche/Challenge.lean            sorry
 #       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
 #       *challenge* half of the Comparator pair (`comparator.json`): the
-#       small readable statement of `ConLeche.no_proof_of_False` that a
-#       reader audits, with `sorry` where the proof goes.  The `sorry`
-#       is the whole point of the file — Comparator's contract is that
+#       small readable statements a reader audits — the main theorem
+#       `ConLeche.model_exists`, the corollary at the environment
+#       `ConLeche.no_proof_of_False` and the main corollary
+#       `ConLeche.no_False_theorem_accepted` — with `sorry` where the
+#       proofs go.  The `sorry` is the whole point of the file —
+#       Comparator's contract is that
 #       the challenge states the theorem and the *solution*
 #       (`ConLeche/MainTheorem.lean`) proves it — and it is harmless
 #       because the module is a TCB dead end: nothing in the tree

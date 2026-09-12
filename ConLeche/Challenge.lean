@@ -18,19 +18,21 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > under which every constant — every theorem included — is a member
 > of its type, `False` is empty, and `Eq` is set equality.
 >
-> **Main corollary.**  Hence that environment contains no constant
-> whose type is `False` — and hence, at the stream, a list of
-> declarations one of whose records declares a theorem of type `False`
-> is never accepted at all.
+> **Main corollary.**  Hence a list of declarations one of whose
+> records declares a theorem of type `False` is never accepted at all.
 
-The second is a corollary of the first: `False` denotes the empty set,
-which has no members.  An accepted stream is therefore not a proof of
-a contradiction, and more: every statement it proves is true in the
-model.  Definitional equalities need no clause of their own — a reader
-who cares that a definition unfolds as declared states that as a
-theorem proved by `rfl`, and `Model`'s `eq_equality` field, which says
-the built-in `Eq` denotes set equality, turns that theorem into the
-equation of the two sides' denotations.
+The corollary follows from the theorem in two steps.  `False` denotes
+the empty set, which has no members, so an accepted environment holds
+no constant whose type is `False` — that is the corollary at the
+environment; and a record declaring such a theorem is installed under
+its own name with its declared type and is never dropped, so it would
+leave exactly such a constant behind.  An accepted stream is therefore
+not a proof of a contradiction, and more: every statement it proves is
+true in the model.  Definitional equalities need no clause of their
+own — a reader who cares that a definition unfolds as declared states
+that as a theorem proved by `rfl`, and `Model`'s `eq_equality` field,
+which says the built-in `Eq` denotes set equality, turns that theorem
+into the equation of the two sides' denotations.
 
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
@@ -48,10 +50,12 @@ equation of the two sides' denotations.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
 * `DeclC.thmDecl cv v ∈ ds` says the stream declares a theorem with
-  header `cv` and value `v`; the stream-side corollary asks only that,
-  and that the header's declared type is `False`.  It says the extra
-  thing the first corollary leaves open — that such a record is not
-  quietly dropped, aliased or re-typed as it is installed.
+  header `cv` and value `v`; the main corollary asks only that, and
+  that the header's declared type is `False`.  It says the extra thing
+  the corollary at the environment leaves open — that such a record is
+  not quietly dropped, aliased or re-typed as it is installed — and it
+  is the statement a reader can check without knowing what an `Env`
+  is: it speaks only of the declarations handed to the checker.
 * `c.toConstantVal.type = .const falseName []` says `c` is a proof of
   `False`.  `False` is built in: the checker installs it from its own
   pin, and a stream that declares `False` or `False.rec` differently is
@@ -78,16 +82,16 @@ theorem model_exists (V : Type w) [SetTheory V]
     Nonempty (Model V env) :=
   sorry
 
-/-- **The main corollary.**  An accepted stream never yields a
-constant of type `False`. -/
+/-- **The corollary at the environment.**  An accepted stream never
+yields a constant of type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry
 
-/-- **The main corollary, at the stream.**  A stream that declares a
-theorem of type `False` is never accepted. -/
+/-- **The main corollary.**  A stream that declares a theorem of type
+`False` is never accepted. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
     (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
