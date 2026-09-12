@@ -360,6 +360,17 @@ def IdTable.insert (t : IdTable α) (i : Nat) (x : α) : IdTable α :=
 `Level.zero` of the format). -/
 def IdTable.singleton (x : α) : IdTable α := { dense := #[x] }
 
+/-- Is the index bound?  The parse asks before every insert (task #290:
+lean4export writes every index once, and a stream that rebinds one is
+malformed — a bound entry never changes, which is what lets a theorem
+about the file read an entry off the line that bound it).  The common
+case — the index is the dense frontier and nothing is sparse — costs
+the two comparisons and no hashing. -/
+def IdTable.bound (t : @& IdTable α) (i : Nat) : Bool :=
+  if i < t.dense.size then true
+  else if t.sparse.isEmpty then false
+  else t.sparse.contains i
+
 /-! ### The table is its naive map
 
 `get?` is the abstraction of the dense-plus-sparse table to the partial
@@ -410,5 +421,18 @@ theorem IdTable.get?_insert (t : IdTable α) (i : Nat) (x : α) (j : Nat) :
         by_cases hji : j = i
         · subst hji; simp
         · simp [hji, Ne.symm hji]
+
+/-- `bound` is `get?` answering: the sparse map's emptiness test is
+only a shortcut. -/
+theorem IdTable.bound_eq (t : IdTable α) (i : Nat) : t.bound i = (t.get? i).isSome := by
+  unfold IdTable.bound IdTable.get?
+  by_cases hi : i < t.dense.size
+  · simp [hi]
+  · simp only [hi, ↓reduceIte, ↓reduceDIte]
+    by_cases he : t.sparse.isEmpty
+    · simp only [he, ↓reduceIte]
+      simp [Std.HashMap.getElem?_of_isEmpty he]
+    · simp only [he, Bool.false_eq_true, ↓reduceIte]
+      exact Std.HashMap.contains_eq_isSome_getElem?
 
 end ConLeche.Frontend

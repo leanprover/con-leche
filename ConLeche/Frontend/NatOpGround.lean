@@ -113,10 +113,10 @@ def isNatOpRecord : DeclC → Option Name
     else none
   | _ => none
 
-/-- **The hoist.**  Returns the reordered records and the names of the
-records moved (empty, and the array untouched, when no operation's
-ground is declared after it). -/
-def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name := Id.run do
+/-- **The hoist's targets**: moved record ↦ the earliest operation
+index it must precede (empty when no operation's ground is declared
+after it). -/
+def hoistTargets (ds : Array DeclC) : Std.HashMap Nat Nat := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}
@@ -142,22 +142,34 @@ def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name := Id.run do
         for n in ds[k]!.usedConsts do
           if let some m := idx[n]? then
             if m > i && m != k then stack := stack.push m
-  if target.isEmpty then return (ds, #[])
-  -- the order: a moved record sorts at its target, just ahead of the
-  -- operation record there (key `(t, 0, k)` against the operation's
-  -- `(t, 1, t)`); everything else keeps its position (`(k, 1, k)`).
-  -- Moved records with the same target keep their relative order,
-  -- which is dependency order.
+  return target
+
+/-- **The hoist.**  Returns the reordered records and the names of the
+records moved (empty, and the array untouched, when no operation's
+ground is declared after it).  The order: a moved record sorts at its
+target, just ahead of the operation record there (key `(t, 0, k)`
+against the operation's `(t, 1, t)`); everything else keeps its
+position (`(k, 1, k)`).  Moved records with the same target keep
+their relative order, which is dependency order.  The keys are
+distinct, so the sort is a permutation of the positions under a
+total order; `Array.mergeSort` has that as a theorem
+(`Array.mem_mergeSort`), which is what
+`ConLeche/Verify/Frontend/Hoist.lean` reads off it (task #290) — and
+the hoist only ever sorts when a target exists, so on a plain export
+this is the untouched array. -/
+def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name :=
+  let target := hoistTargets ds
+  if target.isEmpty then (ds, #[]) else
   let key : Nat → Nat × Nat × Nat := fun k =>
     match target[k]? with
     | some t => (t, 0, k)
     | none => (k, 1, k)
-  let lt : Nat → Nat → Bool := fun a b =>
+  let le : Nat → Nat → Bool := fun a b =>
     let (ta, sa, ka) := key a
     let (tb, sb, kb) := key b
-    ta < tb || (ta == tb && (sa < sb || (sa == sb && ka < kb)))
-  let order := (Array.range ds.size).qsort lt
+    ta < tb || (ta == tb && (sa < sb || (sa == sb && ka ≤ kb)))
+  let order := (Array.range ds.size).mergeSort le
   let moved := (Array.range ds.size).filter (target.contains ·)
-  return (order.map (ds[·]!), moved.flatMap fun k => (ds[k]!.names).toArray)
+  (order.map (ds[·]!), moved.flatMap fun k => (ds[k]!.names).toArray)
 
 end ConLeche.Frontend

@@ -500,15 +500,19 @@ def readNatAt (b : @& ByteArray) (i e : USize) : Nat :=
   if e - i ≤ 18 then (readNat64 b i e 0).toNat else readNat b i 0
 
 /-- The position of the closing quote of the string whose *contents*
-start at `j`; `0` when it is unterminated or holds a raw control byte
-(`0` is not a possible answer — a closing quote is at least one byte
-past the opening one). -/
+start at `j`; `0` when it is unterminated or holds a raw control byte,
+before or after a backslash (task #290: a newline ends the line, inside
+a string too) — `0` is not a possible answer, a closing quote is at
+least one byte past the opening one. -/
 def strClose (b : @& ByteArray) (j : USize) : USize :=
   if h : j < b.usize then
     let c := b.uget j (usizeInBounds b j h)
     if c == 34 then j
     else if c == 92 then
-      if h2 : j + 1 < b.usize then strClose b (j + 1 + 1) else 0
+      if h2 : j + 1 < b.usize then
+        if b.uget (j + 1) (usizeInBounds b (j + 1) h2) < 32 then 0
+        else strClose b (j + 1 + 1)
+      else 0
     else if c < 32 then 0
     else strClose b (j + 1)
   else 0
@@ -741,7 +745,8 @@ reads. -/
 
 /-- Skip a `{`/`[`-opened value whose opening bracket is at `i - 1`,
 counting brackets and stepping over strings; `0` when it does not
-close. -/
+close, or when a newline comes first (task #290: the header is one
+line like every other record). -/
 def skipBraced (b : @& ByteArray) (i : USize) (depth : Nat) : USize :=
   if h : i < b.usize then
     let c := b.uget i (usizeInBounds b i h)
@@ -749,6 +754,7 @@ def skipBraced (b : @& ByteArray) (i : USize) (depth : Nat) : USize :=
       let e := strClose b (i + 1)
       if e == 0 then 0
       else if _hj : i < e + 1 then skipBraced b (e + 1) depth else 0
+    else if c == 10 then 0
     else if c == 123 || c == 91 then skipBraced b (i + 1) (depth + 1)
     else if c == 125 || c == 93 then
       match depth with

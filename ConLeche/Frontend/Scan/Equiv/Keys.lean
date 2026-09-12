@@ -3125,22 +3125,25 @@ theorem naiveSkipBraced_rest_suffix {l r : List UInt8} {d : Nat}
   | case4 c l' d hc body rest hsb hlt =>
     rw [naiveSkipBraced.eq_def] at h
     simp only [hc, ↓reduceIte, hsb, dif_neg hlt, reduceCtorEq] at h
-  | case5 c l' d hc hbr ih =>
+  | case5 c l' d hc hnl =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, hbr, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hnl, ↓reduceIte, Bool.false_eq_true, reduceCtorEq] at h
+  | case6 c l' d hc hnl hbr ih =>
+    rw [naiveSkipBraced.eq_def] at h
+    simp only [hc, hnl, hbr, ↓reduceIte, Bool.false_eq_true] at h
     exact (ih h).trans (List.suffix_cons _ _)
-  | case6 c l' hc hbr hcl =>
+  | case7 c l' hc hnl hbr hcl =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, hbr, hcl, ↓reduceIte, Bool.false_eq_true, Option.some.injEq] at h
+    simp only [hc, hnl, hbr, hcl, ↓reduceIte, Bool.false_eq_true, Option.some.injEq] at h
     rw [← h]
     exact List.suffix_cons _ _
-  | case7 c l' hc hbr hcl d ih =>
+  | case8 c l' hc hnl hbr hcl d ih =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, hbr, hcl, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hnl, hbr, hcl, ↓reduceIte, Bool.false_eq_true] at h
     exact (ih h).trans (List.suffix_cons _ _)
-  | case8 c l' d hc hbr hcl ih =>
+  | case9 c l' d hc hnl hbr hcl ih =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, hbr, hcl, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hnl, hbr, hcl, ↓reduceIte, Bool.false_eq_true] at h
     exact (ih h).trans (List.suffix_cons _ _)
 
 theorem naiveObjLoop_rest_suffix (fields : Key → Option (Slot σ)) (required : UInt32)
@@ -3934,8 +3937,17 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
       rw [usize_step_of_lt (by omega), hscN]
     have hb1 : i.toNat < (strClose b (i + 1) + 1).toNat := by omega
     exact hlt (USize.lt_iff_toNat_lt.mpr hb1)
-  | case4 i depth h c h34 hbr ih =>
+  | case4 i depth h c h34 hnl =>
     have h34' : ¬ (b.uget i (usizeInBounds b i h) == 34) = true := h34
+    have hnl' : (b.uget i (usizeInBounds b i h) == 10) = true := hnl
+    have hres : naiveSkipBraced (tailAt b i) depth = none := by
+      conv => lhs; rw [tailAt_of_lt h]
+      rw [naiveSkipBraced.eq_def]
+      simp only [h34', hnl', ↓reduceIte, Bool.false_eq_true]
+    rw [hres]
+  | case5 i depth h c h34 hnl hbr ih =>
+    have h34' : ¬ (b.uget i (usizeInBounds b i h) == 34) = true := h34
+    have hnl' : ¬ (b.uget i (usizeInBounds b i h) == 10) = true := hnl
     have hbr' : (b.uget i (usizeInBounds b i h) == 123
       || b.uget i (usizeInBounds b i h) == 91) = true := hbr
     have hstep := usizeStep b i h
@@ -3944,11 +3956,12 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
         = naiveSkipBraced (tailAt b (i + 1)) (depth + 1) := by
       conv => lhs; rw [tailAt_of_lt h]
       rw [naiveSkipBraced.eq_def]
-      simp only [h34', hbr', ↓reduceIte, Bool.false_eq_true]
+      simp only [h34', hnl', hbr', ↓reduceIte, Bool.false_eq_true]
     rw [ih]
     exact skipBraced_pos_step (by omega) (by omega) (by omega) hnl
-  | case5 i h c h34 hbr hcl =>
+  | case6 i h c h34 hnl hbr hcl =>
     have h34' : ¬ (b.uget i (usizeInBounds b i h) == 34) = true := h34
+    have hnl' : ¬ (b.uget i (usizeInBounds b i h) == 10) = true := hnl
     have hbr' : ¬ (b.uget i (usizeInBounds b i h) == 123
       || b.uget i (usizeInBounds b i h) == 91) = true := hbr
     have hcl' : (b.uget i (usizeInBounds b i h) == 125
@@ -3956,15 +3969,16 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
     have hnl : naiveSkipBraced (tailAt b i) 0 = some (tailAt b (i + 1)) := by
       conv => lhs; rw [tailAt_of_lt h]
       rw [naiveSkipBraced.eq_def]
-      simp only [h34', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
+      simp only [h34', hnl', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
     have h1 : tailAt b (i + 1) = (tailAt b i).drop 1 := by rw [tailAt_of_lt h]; rfl
     have hlen : 1 ≤ (tailAt b i).length := by rw [tailAt_of_lt h]; simp
     rw [hnl]
     simp only
     rw [h1, pos_drop_eq b i 1 hlen]
     rfl
-  | case6 i h c h34 hbr hcl d ih =>
+  | case7 i h c h34 hnl hbr hcl d ih =>
     have h34' : ¬ (b.uget i (usizeInBounds b i h) == 34) = true := h34
+    have hnl' : ¬ (b.uget i (usizeInBounds b i h) == 10) = true := hnl
     have hbr' : ¬ (b.uget i (usizeInBounds b i h) == 123
       || b.uget i (usizeInBounds b i h) == 91) = true := hbr
     have hcl' : (b.uget i (usizeInBounds b i h) == 125
@@ -3975,11 +3989,12 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
         = naiveSkipBraced (tailAt b (i + 1)) d := by
       conv => lhs; rw [tailAt_of_lt h]
       rw [naiveSkipBraced.eq_def]
-      simp only [h34', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
+      simp only [h34', hnl', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
     rw [ih]
     exact skipBraced_pos_step (by omega) (by omega) (by omega) hnl
-  | case7 i depth h c h34 hbr hcl ih =>
+  | case8 i depth h c h34 hnl hbr hcl ih =>
     have h34' : ¬ (b.uget i (usizeInBounds b i h) == 34) = true := h34
+    have hnl' : ¬ (b.uget i (usizeInBounds b i h) == 10) = true := hnl
     have hbr' : ¬ (b.uget i (usizeInBounds b i h) == 123
       || b.uget i (usizeInBounds b i h) == 91) = true := hbr
     have hcl' : ¬ (b.uget i (usizeInBounds b i h) == 125
@@ -3990,10 +4005,10 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
         = naiveSkipBraced (tailAt b (i + 1)) depth := by
       conv => lhs; rw [tailAt_of_lt h]
       rw [naiveSkipBraced.eq_def]
-      simp only [h34', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
+      simp only [h34', hnl', hbr', hcl', ↓reduceIte, Bool.false_eq_true]
     rw [ih]
     exact skipBraced_pos_step (by omega) (by omega) (by omega) hnl
-  | case8 i depth h =>
+  | case9 i depth h =>
     rw [tailAt_of_not_lt h, naiveSkipBraced.eq_def]
 
 end ConLeche.Frontend

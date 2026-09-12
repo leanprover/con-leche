@@ -275,17 +275,48 @@ def parsePwD (st : StateD) : PwRec → M PropWhen
 
 /-! ## Table entries -/
 
+/-! **An index is bound once** (task #290).  lean4export writes every
+name, level and expression index exactly once, densely and in order;
+the tables used to let a later line overwrite an entry all the same
+(the entries are resolved eagerly, so nothing already built could
+change).  Now a rebinding is a parse error, at every table.  What that
+buys is the one property a theorem about the FILE needs of the tables:
+the entry a line bound is the entry every later line reads, whatever
+else the file holds. -/
+
+/-- The rebinding error, named once. -/
+def reboundError (what : String) (i : Nat) : String :=
+  s!"{what} index {i} is already bound"
+
+/-- The three tests, on a BORROWED state.  Written as separate
+functions rather than inline so that the state is not deconstructed
+before the test: an owned `st.exprs.bound i` at the top of a `do`
+block made the compiler project and `inc` every field of the state
+first (the reset/reuse pass moved the deconstruction ahead of the
+test), which was a 17 % instruction increase on the parse phase;
+against a borrowed parameter the state stays whole until the update
+that consumes it, exactly as before. -/
+@[noinline] def StateD.freshName (st : @& StateD) (i : Nat) : M Unit :=
+  if st.names.bound i then throw (reboundError "name" i) else pure ()
+@[noinline] def StateD.freshLevel (st : @& StateD) (i : Nat) : M Unit :=
+  if st.levels.bound i then throw (reboundError "level" i) else pure ()
+@[noinline] def StateD.freshExpr (st : @& StateD) (i : Nat) : M Unit :=
+  if st.exprs.bound i then throw (reboundError "expression" i) else pure ()
+
 /-- A name-table entry: the name value is built directly. -/
 def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
   | .str pre s => do
     let p ← st.name pre
+    st.freshName i
     pure { st with names := st.names.insert i (Name.str p s) }
   | .num pre n => do
     let p ← st.name pre
+    st.freshName i
     pure { st with names := st.names.insert i (Name.num p n) }
 
 /-- A level-table entry. -/
 def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
+  st.freshLevel i
   let l ← match r with
     | .succ u => do pure (Level.succ (← st.level u))
     | .max a b => do pure (Level.max (← st.level a) (← st.level b))
@@ -314,6 +345,7 @@ beside the `.default` annotation of task #142), so `==` is
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
 def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
+  st.freshExpr i
   let (e, taintConst) ← match r with
     | .bvar k => pure (ExprC.mkBVar k, none)
     | .sort u => do pure (ExprC.mkSort (← st.level u), none)
@@ -945,6 +977,49 @@ decreasing_by
 /-- How many bytes the streaming driver asks for at a time. -/
 def chunkSize : USize := 4 * 1024 * 1024
 
+/-- **One chunk of the stream, applied** (task #290): the carried
+incomplete tail is put in front of the new bytes, every complete line
+of the buffer is fed, and the new incomplete tail is cut off for the
+next chunk.  This is the step the streaming reader takes
+(`parseExportHandleD`), pure, so that `parseChunks` below — the same
+step folded over a list of chunks — is exactly what the binary
+computes and can be compared with the wholesale parse
+(`parseChunks_eq_parseExportD`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
+def chunkStep (st : StateD) (carry : ByteArray) (lineNo : Nat) (buf0 : ByteArray) :
+    Except FrontendError (StateD × ByteArray × Nat) :=
+  let buf := if carry.isEmpty then buf0 else carry ++ buf0
+  match feedChunk st buf 0 lineNo with
+  | .error e => .error e
+  | .ok (st, lineNo, tail) => .ok (st, buf.extract tail.toNat buf.size, lineNo)
+
+/-- The end of the stream: the carried tail, if any, is its last line. -/
+def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
+    Except FrontendError ParseResultD :=
+  if carry.isEmpty then .ok (.ofState st)
+  else
+    match applyFinalLine st carry 0 (lineNo + 1) with
+    | .error e => .error e
+    | .ok st => .ok (.ofState st)
+
+/-- **The streaming parse, purely** (task #290): `chunkStep` folded
+over the chunks a handle hands out, ending at the first empty chunk
+(`IO.FS.Handle.read` returns one at end of file) or when the list runs
+out — which is what `parseExportHandleD` does, minus the reads. -/
+def parseChunks (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) (chunks : List ByteArray) :
+    Except FrontendError ParseResultD :=
+  go (.init prelude inModel census) .empty 0 chunks
+where
+  go (st : StateD) (carry : ByteArray) (lineNo : Nat) :
+      List ByteArray → Except FrontendError ParseResultD
+    | [] => chunkFinish st carry lineNo
+    | c :: cs =>
+      if c.isEmpty then chunkFinish st carry lineNo
+      else
+        match chunkStep st carry lineNo c with
+        | .error e => .error e
+        | .ok (st, carry, lineNo) => go st carry lineNo cs
+
 /-- Wholesale direct parse (tests and small inputs).  `prelude` is the
 built-in prelude the result is prepended with and deduped against
 (task #191; empty for the prelude's own parse). -/
@@ -972,7 +1047,8 @@ The unconsumed tail of a chunk — at most one incomplete line — is
 carried into the next one, and `st` is threaded as a plain argument so
 that the parse tables stay uniquely referenced across steps (task #78:
 a handler that closes over the state holds it at RC 2 and every insert
-inside copies it). -/
+inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
+the loop is `parseChunks.go` with the reads interleaved (task #290). -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) (chunk : USize := chunkSize) :
@@ -981,18 +1057,11 @@ partial def parseExportHandleD (h : IO.FS.Handle)
       IO (Except FrontendError ParseResultD) := do
     let buf0 ← h.read chunk
     if buf0.isEmpty then
-      if carry.isEmpty then
-        return .ok (.ofState st)
-      else
-        match applyFinalLine st carry 0 (lineNo + 1) with
-        | .error e => return .error e
-        | .ok st => return .ok (.ofState st)
+      return chunkFinish st carry lineNo
     else
-      let buf := if carry.isEmpty then buf0 else carry ++ buf0
-      match feedChunk st buf 0 lineNo with
+      match chunkStep st carry lineNo buf0 with
       | .error e => return .error e
-      | .ok (st, lineNo, tail) =>
-        loop st (buf.extract tail.toNat buf.size) lineNo
+      | .ok (st, carry, lineNo) => loop st carry lineNo
   loop (.init prelude inModel census) ByteArray.empty 0
 
 /-- Streaming direct parse of a file. -/

@@ -350,13 +350,20 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
     rw [tailAt_of_lt h, naiveStrBody.eq_def]
     simp only [hc', ↓reduceIte, List.length_nil, Nat.add_zero]
     exact USize.ofNat_toNat.symm
-  | case2 j h c hc hb h2 ih =>
+  | case2 j h c hc hb h2 hd =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
+    have hd' : b.uget (j + 1) (usizeInBounds b (j + 1) h2) < 32 := hd
+    rw [tailAt_of_lt h, tailAt_of_lt h2, naiveStrBody.eq_def]
+    simp only [hc', hb', hd', ↓reduceIte, Bool.false_eq_true]
+  | case3 j h c hc hb h2 hd ih =>
+    have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
+    have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
+    have hd' : ¬ b.uget (j + 1) (usizeInBounds b (j + 1) h2) < 32 := hd
     have hstep := usizeStep b j h
     have hstep2 := usizeStep b (j + 1) h2
     rw [tailAt_of_lt h, tailAt_of_lt h2, naiveStrBody.eq_def]
-    simp only [hc', hb', ↓reduceIte, Bool.false_eq_true]
+    simp only [hc', hb', hd', ↓reduceIte, Bool.false_eq_true]
     cases hs : naiveStrBody (tailAt b (j + 1 + 1)) with
     | none => rw [ih, hs]; simp only [Option.map_none]
     | some p =>
@@ -365,18 +372,18 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
       simp only [Option.map_some, List.length_cons]
       congr 1
       omega
-  | case3 j h c hc hb h2 =>
+  | case4 j h c hc hb h2 =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : (b.uget j (usizeInBounds b j h) == 92) = true := hb
     rw [tailAt_of_lt h, tailAt_of_not_lt h2, naiveStrBody.eq_def]
     simp only [hc', hb', ↓reduceIte, Bool.false_eq_true]
-  | case4 j h c hc hb hlt =>
+  | case5 j h c hc hb hlt =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : ¬ (b.uget j (usizeInBounds b j h) == 92) = true := hb
     have hlt' : b.uget j (usizeInBounds b j h) < 32 := hlt
     rw [tailAt_of_lt h, naiveStrBody.eq_def]
     simp only [hc', hb', hlt', ↓reduceIte, Bool.false_eq_true]
-  | case5 j h c hc hb hlt ih =>
+  | case6 j h c hc hb hlt ih =>
     have hc' : ¬ (b.uget j (usizeInBounds b j h) == 34) = true := hc
     have hb' : ¬ (b.uget j (usizeInBounds b j h) == 92) = true := hb
     have hlt' : ¬ b.uget j (usizeInBounds b j h) < 32 := hlt
@@ -391,7 +398,7 @@ theorem strClose_eq (b : ByteArray) (j : USize) :
       simp only [Option.map_some, List.length_cons]
       congr 1
       omega
-  | case6 j h =>
+  | case7 j h =>
     rw [tailAt_of_not_lt h, naiveStrBody.eq_def]
 
 theorem hasEscape_eq (b : ByteArray) (j e : USize) :
@@ -954,9 +961,10 @@ theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (
     rw [← h.1, ← h.2, hc34]
     rfl
   | case3 c hc hb => simp [naiveStrBody, hc, hb] at h
-  | case4 c hc hb d l' ih =>
+  | case4 c hc hb d l' hd => simp [naiveStrBody, hc, hb, hd] at h
+  | case5 c hc hb d l' hd ih =>
     rw [naiveStrBody.eq_def] at h
-    simp only [hc, hb, ↓reduceIte, Bool.false_eq_true] at h
+    simp only [hc, hb, hd, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with
     | none => simp [hs] at h
     | some p =>
@@ -965,8 +973,8 @@ theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (
       rw [← h.1, ← h.2]
       simp only [List.cons_append]
       rw [← ih hs]
-  | case5 c l' hc hb hlt => rw [naiveStrBody.eq_def] at h; simp [hc, hb, hlt] at h
-  | case6 c l' hc hb hlt ih =>
+  | case6 c l' hc hb hlt => rw [naiveStrBody.eq_def] at h; simp [hc, hb, hlt] at h
+  | case7 c l' hc hb hlt ih =>
     rw [naiveStrBody.eq_def] at h
     simp only [hc, hb, hlt, ↓reduceIte, Bool.false_eq_true] at h
     cases hs : naiveStrBody l' with

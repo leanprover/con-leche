@@ -108,7 +108,10 @@ def naiveBool (l : List UInt8) : NRes Bool :=
 /-- The body of a string whose opening quote has been read — up to the
 closing quote, stepping over every `\x` pair — and the rest after the
 quote; `none` when the string does not close or holds a raw control
-byte. -/
+byte, before or after a backslash.  (A control byte after a backslash
+is no escape the format has, so the escape decoder would refuse it
+anyway; refusing it here is what keeps a line inside its line: no
+scanner of the dialect steps over a newline, task #290.) -/
 def naiveStrBody : List UInt8 → Option (List UInt8 × List UInt8)
   | [] => none
   | c :: l =>
@@ -116,7 +119,9 @@ def naiveStrBody : List UInt8 → Option (List UInt8 × List UInt8)
     else if c == 92 then
       match l with
       | [] => none
-      | d :: l' => (naiveStrBody l').map fun (body, r) => (c :: d :: body, r)
+      | d :: l' =>
+        if d < 32 then none
+        else (naiveStrBody l').map fun (body, r) => (c :: d :: body, r)
     else if c < 32 then none
     else (naiveStrBody l).map fun (body, r) => (c :: body, r)
 
@@ -302,7 +307,10 @@ Validated loosely — a bracket- and string-balanced value — and
 skipped. -/
 
 /-- The rest after a `{`/`[`-opened value whose opening bracket has
-been read; `none` when it does not close. -/
+been read; `none` when it does not close, or when a newline comes
+first — the header is one line like every other record (task #290: no
+scanner of the dialect steps over a newline, so a line ends at the
+first one whatever it holds). -/
 def naiveSkipBraced : List UInt8 → Nat → Option (List UInt8)
   | [], _ => none
   | l@(c :: l'), depth =>
@@ -311,6 +319,7 @@ def naiveSkipBraced : List UInt8 → Nat → Option (List UInt8)
       | none => none
       | some (_, r) =>
         if _h : r.length < l.length then naiveSkipBraced r depth else none
+    else if c == 10 then none
     else if c == 123 || c == 91 then naiveSkipBraced l' (depth + 1)
     else if c == 125 || c == 93 then
       match depth with
