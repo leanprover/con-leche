@@ -551,8 +551,8 @@ prop-ness datum, and does nothing else.  The guards below pin the two
 halves of `Expr.zeta` a reader is most likely to get wrong. -/
 
 -- (a) A `let` is its body with the value substituted.
-#guard Expr.zeta (.letE (.sort .zero) (.const `v []) (.bvar 0))
-  == (.const `v [] : Expr)
+#guard Expr.zeta (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0))
+  == (.const (Name.anonymous.str "v") [] : Expr)
 
 -- (b) Under a binder, a `let` whose value mentions that binder keeps
 -- mentioning it: the substitution is the capture-avoiding one.  The
@@ -568,12 +568,12 @@ halves of `Expr.zeta` a reader is most likely to get wrong. -/
 #guard Expr.zeta
     (.lam (.sort .zero)
       (.letE (.sort .zero) (.bvar 0)
-        (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)))) ⟨.never⟩)
+        (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)) ⟨.never⟩)) ⟨.never⟩)
   == (.lam (.sort .zero)
-       (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0))) ⟨.never⟩ : Expr)
+       (.lam (.sort .zero) (.app (.bvar 1) (.bvar 0)) ⟨.never⟩) ⟨.never⟩ : Expr)
 
 -- (d) So `let x := v; x` is declared where `v` is stored.
 example : ConLeche.AnnotOf
-    (.letE (.sort .zero) (.const `v []) (.bvar 0)) (.const `v []) := rfl
+    (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0)) (.const (Name.anonymous.str "v") []) := rfl
 
 end ConLecheTests
