@@ -73163,9 +73163,21 @@ relation `CopyRef` as the kernel-facing contract, stated once in
 processed constructor mentions the copy `A'`'s name, `A'` outside the
 group, no group pin a subterm of `pin(A')` — `Expr.Sub`, the walk's
 subterm relation), with `TopoOrder` (the spec of the list the kernel
-would emit) and the two facts the ψ fold consumes from it
-(`TopoOrder.lt_of_ref`, `TopoOrder.mem`); and the ψ spelling's plan
-against it (below).  The K.4 read (`annotateCore_of_annotRel` under
+would emit), `TopoOrder.ref_mem_take` (at position `i` every
+reference is among the first `i` entries) and **`orderFold`** with
+`orderFold_spec` — the fold over the order as a LEFT FOLD with a
+table (no `WellFounded.fix`), whose invariant says a per-entry
+property each step establishes from the referenced entries' holds of
+every entry; and the first ψ-specific piece of the spelling,
+`Model/Inductives/PsiFold.lean` (off-graph): the TRANSPORT ENTRY
+`viaEntryAV` — `λ a⃗, Ψ e⃗ (x a⃗)` at the kit's ih frame in the ih
+domain's own re-indexing (`ihTeleAtR`/`ihIdxAtM`), read at the field's
+frame as a `lamTower` (`interp_viaEntryAV`, the shape of
+`choice_fold_iota`'s hypotheses) and typed into the target-form
+product from the ONE fact ψ consumes of the earlier copy's term
+(`viaEntry_mem`: at every telescope spine `Ψ` at the index values and
+the field lands in the target); the field and hypothesis entries are
+ψ⁻¹'s (`mixedVarsAV`).  The ψ spelling's plan against it is below.  The K.4 read (`annotateCore_of_annotRel` under
 `AnnotStable`, task #298 on `inductives` 522a9b88, merged here) is
 consumed when `CopyIdxRead`/`CopyCtorRead` are derived from the run,
 with `AnnotStable` a named premise; the kernel lane measured the
@@ -73175,7 +73187,8 @@ and init-full (5/5): zero reader-undecidable binders under the
 stronger reading (every binder, not only the `.never` ones) — probe
 and logs in the kernel lane's `_tmp/nested-279k/`, its DOCKET §M1.
 
-**The ψ spelling over `order` (the plan; the kit's consumer).**  For
+**The ψ spelling over `order` (the plan; the kit's consumer —
+`viaEntryAV` is its third entry kind, landed).**  For
 the copy `A` (container `J`, family `d_J` at `lvls`, pins `Ds` read
 as `DsA` at the parameter frame by `pinRead_of`): the fold of `J.rec`
 at the choice `Tg t := mkAppN ⟦aux_{c(t)}⟧ pbs` (the copy `c(t)`'s
@@ -73198,7 +73211,9 @@ mirrored: the copies' `TargetOk` (the carrier's grading at `pbs` and
 the indices — from `formersRead` of the aux datum) and a `CtorAtPins`
 for the AUX constructor at the block's parameters (a real member of
 the aux datum: `ctorAtPins_real`), plus the bridge `R_ψ ⊆ R` above.
-Not started: the finding took the session.
+Landed of it: the transport entry (`PsiFold.lean`); the body
+builder with the three entry kinds, the step lemma and the fold are
+next, after the order's source is decided.
 
 **What was false and repaired.**  §M.3/§M.14's "well-founded on the
 pin's size" (already refuted in §M.17); §M.17's "the relation IS
