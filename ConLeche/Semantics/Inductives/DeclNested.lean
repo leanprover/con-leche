@@ -19,7 +19,22 @@ the structure-like members, and official's two remaining post-checks —
 the pins typed at the parameter context (leanprover/lean4#14577) and
 the stream's recursor records against the restored generated ones.
 
-**`copiesFresh`** is the conjunct the model lane asked for: every name
+**`pinsOkAux`** is one of the two conjuncts the model lane asked for:
+post-check (a) is run a SECOND time, at the SCRATCH environment
+`envAux` where the auxiliary block is installed, because both fold
+spellings need the pins `Ds` to fit the container's parameter telescope
+THERE, and the run at the restored environment is about an environment
+whose model is what is being built.  It is ADDED, never substituted, so
+the accept set can only narrow; and the two runs agree on everything a
+pin can MENTION — a pin is a sub-term of a constructor's field domain,
+and `checkMutualCtor` resolves those at the environment holding the
+pre-block constants and the block's FORMERS (never its constructors),
+which both environments hold identically.  The one thing the restore
+respells that a pin could reach is a projection TABLE's bodies, through
+a `.proj T i` node; running both is what makes that case checked rather
+than assumed.
+
+**`copiesFresh`** is the other conjunct the model lane asked for: every name
 the elimination MINTS — each copy's type, its constructors and its
 recursor — is free in the PRE-BLOCK environment, so the scratch
 environment's cons shadows nothing and every constant the restore
@@ -86,6 +101,10 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none = .ok envAux ∧
     auxStoredAll envAux b b.k = some stored ∧
+    -- `pinsOkAux`: the pins typed at the SCRATCH environment
+    (stored.take p.k).head? = some a₀ ∧
+    openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP fvsA.1 st.pins = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -134,9 +153,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
               (fun (cv, a, rs) => (cv, a.mI, a.rP, rs)))
           (consNestedCtors ctorsR.flatten
             (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
-    -- POST-CHECK (a): the pins, typed at the parameter context
-    (stored.take p.k).head? = some a₀ ∧
-    openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+    -- POST-CHECK (a): the same pins at the RESTORED environment
     nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP fvsA.1 st.pins = .ok () ∧
     -- POST-CHECK (c): the stream's records against the generated ones
     (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧

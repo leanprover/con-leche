@@ -71098,8 +71098,62 @@ gate is 23/23.
 **Not done, as instructed**: the dispatch wiring, which waits for
 `declNested`'s signature.
 
+#### K.2 `pinsOkAux`: the pins are type-checked at the SCRATCH environment too (2026-09-12, DESIGN §M.17 finding 2)
+
+**The finding** (model lane): both fold spellings need the pins `Ds` to
+fit the container's parameter telescope at `envAux` — where the
+AUXILIARY block is installed — and the only certificate was post-check
+(a), which runs at `envOut`, an environment whose model is what is being
+built.
+
+**What landed.**  `checkNested` runs `nestedPinsOk` a second time, at
+`envAux`, immediately after the read-back; the parameter variables and
+the telescope it opens (`a₀`, `fvsA`) are computed once there and reused
+by the run at `envOut`.  The fact is an explicit conjunct of
+`checkNested_inv` and `DeclNestedRun`, between `auxStoredAll` and the
+restored constructors.
+
+**Why it is verdict-equivalent, and why it is still ADDED and not
+moved.**  A pin is a sub-term of a constructor's FIELD DOMAIN, and
+`checkMutualCtor` resolves those at the environment holding the
+pre-block constants and the block's FORMERS — never its constructors
+(`ConLeche/Kernel/Inductives/MutualInstall.lean`, the
+`xq.1.all … constsResolve env₁` guard).  Both environments hold exactly
+those, with identical stored types: `envOut`'s formers ARE the
+`indInfo`s the auxiliary install stored (`consNestedFormers` re-adds
+them unchanged, which is official's own "the inductive types themselves
+are added unchanged").  So on everything a pin can mention the two runs
+agree.  The ONE thing the restore respells that a pin could still reach
+is a projection TABLE's bodies, through a `.proj T i` node on a
+structure-like member: `envAux`'s table is spelled at the auxiliary
+names, `envOut`'s at the restored ones.  Running BOTH is what makes that
+case checked rather than assumed — and since the check is added, the
+accept set can only narrow, which is the only direction a shadow lane
+may move at all.
+
+**Cost, measured** (Mathlib nested cone, 41 blocks, 132 pins, the same
+stream and the same `--verified --jobs=1` run, `perf stat -e
+instructions:u`, three runs on one machine):
+
+| run | instructions:u |
+|---|---|
+| shadow OFF (the modelled route alone) | 150.214 G |
+| shadow ON, without `pinsOkAux` (`cef59236`) | 298.725 G |
+| shadow ON, with `pinsOkAux` | 298.867 G |
+
+So the native nested route costs **148.65 G** on this cone AT THE
+UNCACHED CORE the shadow harness runs (not a production number — the
+wiring's cached mirror is what a real cost would be measured on), and
+`pinsOkAux` is **+0.142 G, 0.048 % of the shadowed run** and 0.096 % of
+the route's own cost.  One extra `annotate` + `inferType` per pin, and
+pins are small.
+
+The shadow gate is unchanged at 23/23: nothing in the corpus or the
+fixtures narrows.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
-did not move; re-run after K.1 on `inductives` = `2e2fc245`):
+did not move; re-run after K.1 on `inductives` = `2e2fc245`, and again
+after K.2 on `inductives` = `3640f02e`):
 
 | gate | result |
 |---|---|
