@@ -76,6 +76,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- `pinsOkAux`: the pins typed at the SCRATCH environment
       (stored.take p.k).head? = some a₀ ∧
       openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
+      -- `pinsClosed`: every pin, abstracted over the parameters, is
+      -- fvar-free with its loose bvars inside the telescope
+      pinsClosed p.nP st.pins = true ∧
       nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP fvsA.1 st.pins = .ok () ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
@@ -178,6 +181,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   obtain ⟨fvsA, hfv, h⟩ := exceptBind_ok h
   have hfv' := unwrapOr_ok hfv
   try simp only at h
+  by_cases hpc : pinsClosed p.nP st.pins = true
+  case neg => rw [if_neg hpc] at h; close_throw
+  rw [if_pos hpc] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uA, hpinsAux, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -204,7 +211,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', ha₀', hfv',
+    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', ha₀', hfv', hpc,
     (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

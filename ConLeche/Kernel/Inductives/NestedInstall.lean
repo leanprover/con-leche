@@ -32,6 +32,10 @@ follow see exactly official's environment.
 Three post-checks close the holes the copies would leave (official's,
 in official's order):
 
+* **(a′′)** every pin, abstracted over the block's parameters, is FREE
+  OF free variables and has its loose bound variables within the
+  parameter telescope (`pinsClosed`) — the pair `ConstWF` demands of a
+  nested RULE's stored pins, and the only certificate these have;
 * **(a)** every pin `I Ds` is type-checked at the block's parameter
   context in the RESTORED environment (leanprover/lean4#14577 — the
   parametric arguments do not appear in the auxiliary declaration, so
@@ -464,13 +468,49 @@ def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) (fvsA : List Expr) 
     List NestedPin → m Unit
   | [] => pure ()
   | q :: rest => do
-    let pinA := Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse
+    let pinB := Expr.abstractRange q.pin 0 nP 0
+    -- **THE PIN'S SCOPE** (`pinsClosed`, the model lane's DESIGN §M.20
+    -- finding 1): no free variable, and every loose bound variable
+    -- within the block's parameter telescope.  Nothing else certifies
+    -- it — `annotateBody` certifies only that each `.fvar` it REACHES
+    -- carries an index below the depth, it never descends into an
+    -- fvar's type annotation and never compares it with the opener's,
+    -- and it passes `.bvar` through; and a pin's components appear in
+    -- no other term the route checks.  The precedent is `ConstWF`,
+    -- which demands exactly this pair of a nested RULE's stored pins.
+    unless !pinB.hasFvar && pinB.looseBVarsBounded nP do
+      throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
+    let pinA := Expr.instantiateList pinB fvsA.reverse
     -- official's `tc.check(nested, lparams)`: the pin is TYPE-CHECKED,
     -- not required to be a sort — a pin of an indexed container
     -- (`Vec (T α)`) is a function into one
     let e ← ops.annotate env nP pinA
     let _ty ← ops.inferType env nP e
     nestedPinsOk ops env nP fvsA rest
+
+/-- **The pins' scope, as one Bool over the list** — the same pair of
+tests `nestedPinsOk` throws on, so that the run relation records the
+fact for EVERY pin without inverting that loop.
+
+**It narrows only where official rejects too.**  A pin is
+`J Ds` with `Ds` the container's parameter arguments read out of a
+constructor body that was opened at the block's parameters and at
+NOTHING else (`Expr.instPis cty params`, `params = openPisAtFvars nP
+…`), and the stream's own terms carry no free variable at all
+(`checkConstantVal`).  So the only free variables a pin can hold are
+`0 … nP-1`, which `abstractRange … 0 nP 0` removes — and a pin that
+held a FIELD variable was already rejected by `nestedOccOk`, official's
+"nested inductive datatypes parameters cannot contain local variables".
+Loose bound variables likewise: a pin has none in the opened context
+(`nestedOccOk`'s `looseBVarsBounded 0`), and `abstractRange` introduces
+one only at an abstracted parameter, at a depth-bumped index below
+`nP`.  A pin failing either test is therefore a term no kernel run
+produces, and official — whose own `type_checker` would meet the same
+term — refuses it as well. -/
+def pinsClosed (nP : Nat) (pins : List NestedPin) : Bool :=
+  pins.all fun q =>
+    let pinB := Expr.abstractRange q.pin 0 nP 0
+    !pinB.hasFvar && pinB.looseBVarsBounded nP
 
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED
@@ -548,6 +588,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- pin could reach is a projection TABLE's bodies, through a
   -- `.proj T i` node; running BOTH is what makes that case checked
   -- rather than assumed.
+  -- the pins' SCOPE, once for the whole list (`pinsClosed`); the same
+  -- pair of tests guards each pin inside `nestedPinsOk`, and this pass
+  -- is what the run relation records
+  unless pinsClosed p.nP st.pins do
+    throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
   nestedPinsOk ops envAux p.nP fvsA st.pins
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
