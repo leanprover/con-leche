@@ -72236,6 +72236,207 @@ group; the duplicate pins; the `(d.ksR j).length = nF` and
 recorded as clauses — `IndRep` could gain them, or the consumers derive
 them from `memReal`/`ksLen`).
 
+#### M.18 M-B′ step 3c: the ψ⁻¹ INSTANCE of the kit landed; the fits are the leaf's λ-shape; two datum clauses are missing (2026-09-12, session 6)
+
+**What the session set out to do** (brief): the ψ⁻¹ instance of the
+fold kit — containers-at-pins targets, `J.c Ds` bodies, typing and ι
+through `choice_fold_iota`, under finding 2's hypothesis — with the
+`mentionsFvar → NoBVar` bridge as its first lemma; then (2) R1's
+aux-side induction set up generically, (3) finding 3's recursor-view
+constructor clause, (4) the widening of `declMutualCore`'s conclusion.
+**Step (1) landed in full** (`Model/Inductives/InvFold.lean`, 1 900
+lines, off-graph like the kit, built explicitly); (2)–(4) did not
+start — the ψ⁻¹ instance uncovered two DATUM facts the kit's
+hypotheses consume and the clause does not record (below), whose
+closing is a smaller and earlier task than any of (2)–(4).  The kernel
+lane's `pinsOkAux` (K.2, `inductives` 40ad5bc2) was merged at the
+session's start; `declNestedRun_auxModel` re-destructures the run.
+
+**What landed, in stages (each a commit).**
+
+* *The bridge* (`FixCtorDataI.noBVar_entries`): the datum's
+  `mentionsFvar` facts (`FixOpened.recF`/`reflF`: a recursive variable
+  is a leaf of no later domain nor of the residual) read as `NoBVar`
+  over the recursive slots strictly below the position — of the field
+  domains, a reflexive field's telescope entries and index
+  expressions, and the residual's index readings — standalone over
+  the datum and WITHOUT the `recAt` guard (a non-recursive field's
+  telescope and index expressions are empty, `tssNone`/`ordNone`).
+  The family view proves the same inside `fixChainFacts_of`/
+  `mutualRealChainNb`; the consumer is not a chain walk, so it needed
+  the lemma on its own.  The transport between two field spines
+  agreeing off the recursive slots (`ShadowRel`, `agreeOff_shadow`)
+  under further binders: `agreeOff_consList_exclP`,
+  `interp_congr_shadowRel`(`_at`), `wellDenoted_congr_shadowRel`.
+  The closedness `opened_of_peel` wants (`hasFvar = false`,
+  `looseBVarsBounded`) is IN the model: `EnvModel.wf`'s `ConstWF` at
+  the constructor's `find?`.
+* *The fits from the leaf's λ-shape* (`leafSpineFit_full`,
+  `leafApp_mem_univ`, `CtorFieldFacts`, `ctorFieldFacts_of`): see the
+  finding below.  `CtorFieldFacts` is the kit's `hfield`/`hEs`
+  verbatim; `ctorFieldFacts_of` proves it for a real constructor from
+  `FixCtorFactsAt`, the leaves' shapes (`LeafShape`), the formers'
+  facts (`FormerFacts`: telescope length and bits, the leaf in its
+  tower by `mem_type`, the tower graded) and the constructor's
+  `paramsIff` (the parameters fit the CONSTRUCTOR's own parameter
+  domains through `sat_of_spineFit`/`spineFit_of_sat`,
+  `spineFit_of_paramsIff`).  The `Prop` side conditions of the folds
+  (`mkPisAV_fold_mem`'s `m = 0` clause) are the leaf's sort
+  (`leafApp_mem_univ`).
+* *The targets* (`invTgAV`, `TargetOk`, `invTg_fact`, `targetOk_real`,
+  `invTg_fold`): `invTgAV L pinsT t := λ ı⃗, L t (pinsT t) ı⃗` over the
+  member's index binder data at the never-bit, under `instSeq` at the
+  parameter spine — `motChoiceAV`'s shape, so `motChoiceAV_fold` is
+  its β.  `TargetOk` is the per-member fact the kit's `hTg` reduces to
+  (`invTg_fact`: `mkLamsAV_bits_mem/_wellDenoted/_validV` under
+  `wellDenotedV_instSeq`); a real member's is `targetOk_real` from its
+  former, the copies' is FINDING 2's `pinsOkAux` read through the
+  container's former (the discharge is the next step).
+  `NoBVar_liftN`, `wellDenoted_mkPisAV_rebit`,
+  `annotValid_mkPisAV_rebit_sort`, `annotValid_mkPisAV_body` are the
+  small generic lemmas this needed.
+* *The bodies* (`mixedVarsAV`/`mixedVals`/`interp_mixedVarsAV`,
+  `invBodyAV`, `tgFieldAV`/`tgFieldsAV`, `CtorAtPins`, `invBody_leaf`):
+  the body of constructor `J` is `head J` (at the parameter frame,
+  lifted over the motives, the earlier minors, the fields and the
+  hypotheses) at the MIXED variable spine — the inductive hypothesis
+  where `useIh J i`, the field variable otherwise.  `CtorAtPins` is
+  the ONE hypothesis the body's fact needs, in the aux datum's
+  vocabulary: at the parameter frame the head inhabits a graded
+  Π-tower whose binders accept every spine fitting the TARGET-FORM
+  field domains (the target of the field's member at the field's
+  index readings under its telescope where `useIh`, the field's own
+  domain otherwise) and whose body at such a spine is the member's
+  target at the constructor's index readings.  `invBody_leaf` proves
+  the kit's `hleaf` from it: the mixed values fit the target-form
+  domains, each read at the MIXED prefix — the same as at the fields'
+  by the bridge (this is where §M.17's design point (i) is cashed) —
+  so `wellDenotedV_mkAppN_of_spineFit` at the tower lifted to the leaf
+  frame grades the body and lands it in the target at the index
+  readings (read at the fields, by the bridge again).
+  `ctorAtPins_real`: a real constructor's `CtorAtPins` at the identity
+  choice (head the constructor at the parameter variables, no
+  hypothesis in use) from its own reading.
+* *The assembly* (`KitMin`, `InvSetup`, `spineFit_recPostAV_iff`,
+  `InvSetup.hmin/prefixFit/fold_mem/fold_iota`): `InvSetup` bundles the
+  datum-level hypotheses of the ψ⁻¹ choice over the aux datum
+  (`RecReadAt` for every member, `ctors`, `paramsIff`, `LeafShape`,
+  `FormerFacts`, the aux datum's plain-mutual shape — no copy members,
+  pins the parameter variables, recursor view = family view) and the
+  consumer's choice (`L`/`pinsT` with `TargetOk`, `head`/`useIh` with
+  `CtorAtPins`).  From it: the kit's per-constructor bundle
+  (`hmin`), the whole prefix fit (`prefixFit`), **`fold_mem` — ψ⁻¹ is
+  typed**: member `t`'s recursor at the choice's prefix, at index
+  readings and a major fitting the member's motive binder at the
+  parameter frame, lands in `L t` at `pinsT t` at the indices (the
+  trailer's fit is the motive binder's, `spineFit_recPostAV_iff`; the
+  conclusion at the fired frame is the motive's β, then the target's);
+  **`fold_iota` — ι of ψ⁻¹**: at a real constructor's index readings
+  and at `C p⃗ f⃗`, the fold is the head at the MIXED values — the
+  fields, and at the hypothesis positions the target-fold hypotheses
+  (each recursive field's the λ-tower over its telescope of its
+  member's fold at the same choice).  With `L`/`pinsT`/`head` at the
+  copies' containers this IS ψ⁻¹: `ψ⁻¹_A (A.c p⃗ f⃗) = J.c Ds
+  (ψ⁻¹* f⃗)` and `ψ⁻¹_T = T.c p⃗ f⃗` on a real member — the ι law the
+  design (§M.3) asked for, now a theorem under the two hypotheses the
+  copies still owe (`TargetOk` at a copy: finding 2's conjunct;
+  `CtorAtPins` at a copy's constructor: the container constructor's
+  reading at the pins, through the ledger).
+
+**FINDING A (datum) — the index fits are the leaf's λ-shape, which
+`IndRep` does not record.**  The kit's `hfield`/`hEs` need a
+constructor's index readings (and every recursive field's) to FIT its
+member's index telescope.  `FixCtorFactsAt` records the entries'
+SPELLINGS and GRADINGS (`recEntry`/`reflEntry`, `okTy`), not the fits;
+grading of an application gives `∃ A, value ∈ A` for SOME domain, and a
+function determines its domain only when its Π-set is known.  Both
+routes derive the fits at install from the LEAF's λ-shape — a graded
+application of a λ-tower forces its arguments into the tower's
+binders (`spineFit_of_wellDenoted_lams`, `leafSpineFit`) — from the
+stage's `hleafT` (`FixChainFacts`, `DeclMutual.lean` ~2749
+`mutualTyAVI_eq_mkLamsC`), and the stored clause forgets it.
+`InvFold` takes it as `LeafShape m ψ t := ∃ B, ⟦T_t⟧ = mkLamsC (w+1)
+(ppsM t ψ) B` for every real member.  **Recommendation: `IndRep` gains
+`leafShape : ∀ t < kReal, ∀ ψ, ∃ B, m.acval (memberName t) ψ = mkLamsC
+(d.w ψ + 1) (d.ppsM t ψ) B`** — discharged native/mutual from the
+stages' `hleafT`, `nP = 0` sites trivially (`mkLamsC _ [] B = B`), `Eq`
+from its pinned leaf (to check: `BasisEq`'s leaf is built by
+`lamR`s; if it is not literally `mkLamsC`, the clause can be stated as
+the SEMANTIC consequence `leafSpineFit_full` proves instead —
+"a graded application of the leaf along parameters and indices fits
+the former's telescope" — which every site can discharge and which is
+all `InvFold` consumes); transports pass it on (`acval` of an old name
+is unchanged across the cons/ext/swap).
+
+**FINDING B (datum) — the parameters fit MEMBER `t`'s own parameter
+telescope only for `t = 0`.**  `d.params ψ` is member 0's
+(`(ppsM 0 ψ).take nP`), `paramsIff` relates it to each CONSTRUCTOR's
+parameter domains, and nothing relates it to member `t`'s former
+`(ppsM t ψ).take nP` — which `targetOk_real` needs (the leaf `⟦T_t⟧`
+inhabits ITS tower, `FormerFacts`, so its application along the
+parameters lies in `Sort w` only at a spine fitting ITS binders).  The
+mutual proof has it (`DeclMutual.lean` ~2305: `Sat` of the two
+parameter telescopes are equivalent) and drops it.  `InvFold` takes it
+as `hpIffM`.  **Recommendation: `IndRep` gains `paramsIffM : ∀ t <
+kReal, ∀ ψ ρ, Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM t
+ψ).take d.nP).map (·.2.2)).reverse ρ`** — mutual from ~2305,
+`k = 1` sites by `Iff.rfl`, transports pass it on.
+
+**What was false and repaired.**  §M.17's "(ii) at a real member with
+the defaults [the kit's per-constructor facts] are `FixCtorFactsAt`'s
+`recEntry`/`reflEntry`" — the ENTRIES are, the FITS are not (finding
+A); and the parameters' fit into a sibling former was silently assumed
+(finding B).  Neither needed a kernel change; both are datum clauses
+with trivial discharges at the existing sites.
+
+**Findings 3 and 4 of §M.17, and (2), restated at the instance.**
+`TargetOk` and `CtorAtPins` ARE the consumer statements finding 3
+asked for — at a copy member `t` (of the scratch block; a real member
+of the aux datum) they say what the container's leaf and constructor
+do at the pins, in the aux datum's vocabulary, and the datum clause
+M-D′'s producer must add for `T`'s own representation is their twin
+in the RECURSOR view: for `ksR`-recursive field `i` of constructor
+`j`, the entry reads `mkAppN ⟦J_t⟧ ((pinsAV t).map (liftN i 0) ++
+eissR j i)` under `tssR` — `recEntry`/`reflEntry` with the pins in
+place of `paramBvarsAt`.  It was not stated this session (it belongs
+with M-D′'s datum, whose other clauses are not yet designed).  (4),
+the widening of `declMutualCore`'s conclusion, was not started: the
+aux datum `InvSetup` consumes is exactly the per-member `IndRep` the
+mutual model builds (`dOf x.2` inside `hrepsS`), so the widening's
+shape is `∃ mp : EnvModelM V μ envAux, ∀ t < b.k, ∃ cvT cvR mI rP rules
+d, envAux.find? … ∧ IndRep mp.base2 (memberName t) cvT cvR mI rP rules
+d t` — with `d` ONE datum for the whole block (the mutual construction
+has one), which is what `InvSetup` wants (`hR` for every member of one
+`d`).  (2), R1's generic setup, is the kit at a `Prop` choice (`Tg t
+:= λ ı⃗, ⟦P_t⟧ ı⃗` with `P` the round-trip predicate); nothing beyond
+the kit was needed to state it, and it was left for the session that
+has ψ.
+
+**Gates** (per session, landing gates NOT run): `lake build` 593 jobs,
+0 warnings; `lake test` clean; the seven off-graph modules
+(`DeclNested`, `NestedFacts`, `NestedLedger`, `ContainerRead`,
+`RecFold`, `FoldChoice`, `InvFold`) build; `tests/no-local-paths.sh`
+OK.  Lean gotchas this session: a postponed `by` argument in a `rw`
+term lands in the wrong slot when an implicit of the lemma is not
+determined by the explicit ones (`interp_famAppAV_params`'s `nIdx`) —
+state the instance as a `have` with the implicit pinned; `rw [← h]`
+with `h : l.length = n` rewrites every `n`, including inside
+`List.take n` — derive the shifted identity on a `have`;
+`nIdxAt`/`nIdxs.getD` are only definitionally equal — rewrite by a
+`rfl` equation before matching; `obtain` consumes the hypothesis it
+destructures — take projections instead when it is used again.
+
+**Next** (in order): (a) `IndRep.leafShape` and `IndRep.paramsIffM`
+(findings A/B; small, on-graph, three sites + transports); (b) the
+copies' `TargetOk` from `pinsOkAux` (through `nestedPinsOk`'s
+certified annotation at `envAux` and the container's `formersRead`)
+and the copies' `CtorAtPins` from the container's `ctors` at the level
+instantiation, `instSeq` at the pins, and the ledger
+(`mkCopy_inv`/`elimCtors_getElem?`) — the `denoteMeta`-compositionality
+of `replaceAllNested` on the field shapes the aux positivity leaves
+(§M.14); (c) the widening (4); then ψ (blocked on finding 1) and
+M-C′.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
