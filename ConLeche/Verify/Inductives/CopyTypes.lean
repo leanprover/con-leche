@@ -426,4 +426,254 @@ theorem annotateCore_lam_inv_pw {env : Env} {fuel d : Nat}
     refine Or.inl ⟨?_, h.symm⟩
     simpa using hc
 
+/-! ## `AnnotStable`: the annotation pass's fixed points -/
+
+/-- **A term the annotation pass returns unchanged.**  Every binder's
+datum is either a real input annotation — which the pass keeps by
+construction (`pwWritten`) — or exactly the head reader's answer on the
+opened body, which is what `annotPwPi`/`annotPwLam` write when the
+reader answers.
+
+The datum is required to be the READER's answer even where the input
+datum is a real annotation the pass would keep (`pwWritten`): a written
+datum is not preserved by level instantiation — `substPW` can collapse
+`ifAllZero [u]` to `.never` at `u := 1`, after which the pass recomputes
+— so the reader's answer is the only form that transports.
+
+`.letE` and `.proj` have no clause, and that is not an oversight: the
+pass rewrites a `let` to its ζ reduct and re-spells a projection's
+display name at the type's head, so neither is ever a fixed point in
+general.  Stored types are ζ-free by construction; a `.proj` inside one
+is the restriction this predicate carries. -/
+inductive AnnotStable (find? : Name → Option ConstantInfo) : Nat → Expr → Prop where
+  | bvar {d i} : AnnotStable find? d (.bvar i)
+  | fvar {d idx ty} : AnnotStable find? d (.fvar idx ty)
+  | sort {d u} : AnnotStable find? d (.sort u)
+  | const {d n us} : AnnotStable find? d (.const n us)
+  | lit {d l} : AnnotStable find? d (.lit l)
+  | app {d f a} : AnnotStable find? d f → AnnotStable find? d a →
+      AnnotStable find? d (.app f a)
+  | forallE {d ty body m} :
+      AnnotStable find? d ty →
+      AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
+      typeSortPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      AnnotStable find? d (.forallE ty body m)
+  | lam {d ty body m} :
+      AnnotStable find? d ty →
+      AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
+      proofPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      AnnotStable find? d (.lam ty body m)
+
+/-! ## `AnnotRel`: the same term up to annotated leaves -/
+
+/-- **Two terms that differ only at `R`-related leaves.**  The
+elimination's mint puts the pin's components — RAW, as the stream
+carries them — where the container's stored type had its parameters;
+the auxiliary install annotates the result, and what it produces is the
+same term with each component ANNOTATED.  `R` is the leaf relation
+"raw component ↦ its annotation". -/
+inductive AnnotRel (R : Expr → Expr → Prop) : Expr → Expr → Prop where
+  | base {a b} : R a b → AnnotRel R a b
+  | bvar (i : Nat) : AnnotRel R (.bvar i) (.bvar i)
+  | fvar (idx : Nat) (ty : Expr) : AnnotRel R (.fvar idx ty) (.fvar idx ty)
+  | sort (u : Level) : AnnotRel R (.sort u) (.sort u)
+  | const (n : Name) (us : List Level) : AnnotRel R (.const n us) (.const n us)
+  | lit (l : Literal) : AnnotRel R (.lit l) (.lit l)
+  | app {f f' a a'} : AnnotRel R f f' → AnnotRel R a a' →
+      AnnotRel R (.app f a) (.app f' a')
+  | forallE {ty ty' b b'} (m : BinderMeta) : AnnotRel R ty ty' → AnnotRel R b b' →
+      AnnotRel R (.forallE ty b m) (.forallE ty' b' m)
+  | lam {ty ty' b b'} (m : BinderMeta) : AnnotRel R ty ty' → AnnotRel R b b' →
+      AnnotRel R (.lam ty b m) (.lam ty' b' m)
+  | letE {ty ty' v v' b b'} : AnnotRel R ty ty' → AnnotRel R v v' → AnnotRel R b b' →
+      AnnotRel R (.letE ty v b) (.letE ty' v' b')
+  | proj (s : Name) (i : Nat) {e e'} : AnnotRel R e e' →
+      AnnotRel R (.proj s i e) (.proj s i e')
+
+theorem AnnotRel.refl (R : Expr → Expr → Prop) : ∀ e : Expr, AnnotRel R e e := by
+  intro e
+  induction e with
+  | bvar i => exact .bvar i
+  | fvar idx ty _ => exact .fvar idx ty
+  | sort u => exact .sort u
+  | const n us => exact .const n us
+  | lit l => exact .lit l
+  | app f a ihf iha => exact .app ihf iha
+  | forallE ty b m iht ihb => exact .forallE m iht ihb
+  | lam ty b m iht ihb => exact .lam m iht ihb
+  | letE ty v b iht ihv ihb => exact .letE iht ihv ihb
+  | proj s i e ih => exact .proj s i ih
+
+/-- The relation survives opening a binder: the substituted value is
+the same on both sides, and the `R`-related leaves are bvar-closed, so
+the substitution does not reach them. -/
+theorem AnnotRel.instantiate1 {R : Expr → Expr → Prop}
+    (hRc : ∀ a b, R a b → a.looseBVarsBounded 0 = true ∧ b.looseBVarsBounded 0 = true)
+    (x : Expr) : ∀ {e e' : Expr}, AnnotRel R e e' → ∀ k : Nat,
+      AnnotRel R (e.instantiate1 x k) (e'.instantiate1 x k) := by
+  intro e e' hr
+  induction hr with
+  | base hab =>
+    intro k
+    obtain ⟨ha, hb⟩ := hRc _ _ hab
+    rw [Expr.instantiate1_eq_self (Expr.looseBVarsBounded_mono (Nat.zero_le k) ha),
+      Expr.instantiate1_eq_self (Expr.looseBVarsBounded_mono (Nat.zero_le k) hb)]
+    exact .base hab
+  | bvar i =>
+    intro k
+    show AnnotRel R (if i = k then x else _) (if i = k then x else _)
+    by_cases hi : i = k
+    · rw [if_pos hi]; exact AnnotRel.refl R x
+    · rw [if_neg hi]
+      split <;> exact .bvar _
+  | fvar idx ty => intro k; exact .fvar idx ty
+  | sort u => intro k; exact .sort u
+  | const n us => intro k; exact .const n us
+  | lit l => intro k; exact .lit l
+  | app _ _ ihf iha => intro k; exact .app (ihf k) (iha k)
+  | forallE m _ _ iht ihb => intro k; exact .forallE m (iht k) (ihb (k + 1))
+  | lam m _ _ iht ihb => intro k; exact .lam m (iht k) (ihb (k + 1))
+  | letE _ _ _ iht ihv ihb => intro k; exact .letE (iht k) (ihv k) (ihb (k + 1))
+  | proj s i _ ih => intro k; exact .proj s i (ih k)
+
+/-! ## The pass on a stable term -/
+
+private theorem annot_bvar {env : Env} {f d i : Nat} {r : Expr}
+    (h : annotateCore mode env (f + 1) d (.bvar i) = .ok r) : r = .bvar i := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
+  exact h.symm
+
+private theorem annot_fvar {env : Env} {f d idx : Nat} {ty r : Expr}
+    (h : annotateCore mode env (f + 1) d (.fvar idx ty) = .ok r) : r = .fvar idx ty := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody] at h
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm
+  · simp only [throw, throwThe, MonadExceptOf.throw] at h; exact nomatch h
+
+private theorem annot_sort {env : Env} {f d : Nat} {u : Level} {r : Expr}
+    (h : annotateCore mode env (f + 1) d (.sort u) = .ok r) : r = .sort u := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
+  exact h.symm
+
+private theorem annot_const {env : Env} {f d : Nat} {n : Name} {us : List Level}
+    {r : Expr} (h : annotateCore mode env (f + 1) d (.const n us) = .ok r) :
+    r = .const n us := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
+  exact h.symm
+
+private theorem annot_lit {env : Env} {f d : Nat} {l : Literal} {r : Expr}
+    (h : annotateCore mode env (f + 1) d (.lit l) = .ok r) : r = .lit l := by
+  rw [annotateCore_succ] at h
+  cases l with
+  | natVal n =>
+    simp only [annotateBody] at h
+    split at h
+    · simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm
+    · simp only [throw, throwThe, MonadExceptOf.throw] at h; exact nomatch h
+  | strVal s =>
+    simp only [annotateBody] at h
+    split at h
+    · simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm
+    · simp only [throw, throwThe, MonadExceptOf.throw] at h; exact nomatch h
+
+/-- **THE ANNOTATION THEOREM (task #298).**  Annotating a term whose
+`R`-leaves annotate to their partners, and whose partner is
+`AnnotStable`, returns the partner — *data included*.
+
+Read with `R` = "the pin's raw component ↦ its annotation" it says: the
+auxiliary install's annotation of a minted copy reproduces the
+container's stored type at the ANNOTATED pin, binder data and all.
+Read with `R = ⊥` (`annotateCore_eq_self` below) it says the pass is
+the identity on its own fixed points — the idempotence the copies'
+alignment ultimately rests on.
+
+The hypotheses are the two the leaf relation owes (`hRok`: a raw leaf
+annotates to its partner whenever it annotates at all; `hRc`: both are
+bvar-closed, so no binder opening reaches inside them) and the two the
+term owes (`WScoped`, `looseBVarsBounded`: the open/close roundtrip). -/
+theorem annotateCore_of_annotRel {env : Env} {R : Expr → Expr → Prop}
+    (hRok : ∀ a b, R a b → ∀ (f d' : Nat) (x : Expr),
+      annotateCore mode env f d' a = .ok x → x = b)
+    (hRc : ∀ a b, R a b → a.looseBVarsBounded 0 = true ∧ b.looseBVarsBounded 0 = true) :
+    ∀ (F : Nat) (e e' : Expr) (d : Nat) (r : Expr),
+      AnnotRel R e e' → AnnotStable env.find? d e' →
+      WScoped d e' → e'.looseBVarsBounded 0 = true →
+      annotateCore mode env F d e = .ok r → r = e' := by
+  intro F
+  induction F with
+  | zero =>
+    intro e e' d r _ _ _ _ h
+    rw [annotateCore_zero] at h
+    simp only [throw, throwThe, MonadExceptOf.throw] at h
+    exact nomatch h
+  | succ f ih =>
+    intro e e' d r hrel hst hw hb h
+    cases hrel with
+    | base hab => exact hRok _ _ hab _ _ _ h
+    | bvar i => exact annot_bvar h
+    | fvar idx ty => exact annot_fvar h
+    | sort u => exact annot_sort h
+    | const n us => exact annot_const h
+    | lit l => exact annot_lit h
+    | app hrf hra =>
+      obtain ⟨fA, aA, hf1, ha1, rfl⟩ := annotateCore_app_inv h
+      cases hst with
+      | app hsf hsa =>
+        simp only [WScoped] at hw
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        rw [ih _ _ _ _ hrf hsf hw.1 hb.1 hf1, ih _ _ _ _ hra hsa hw.2 hb.2 ha1]
+    | forallE m hrty hrb =>
+      rename_i ty₀ ty' b₀ b'
+      obtain ⟨tyA, bodyA, hty1, hb1, hcase⟩ := annotateCore_forallE_inv_pw h
+      cases hst with
+      | forallE hsty hsb hpw =>
+        simp only [WScoped] at hw
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        obtain rfl : ty' = tyA := (ih _ _ _ _ hrty hsty hw.1 hb.1 hty1).symm
+        obtain rfl : bodyA = b'.instantiate1 (.fvar d ty') :=
+          ih _ _ _ _ (AnnotRel.instantiate1 hRc _ hrb 0) hsb
+            (WScoped.instantiate1 hw.1 0 hw.2)
+            (looseBVarsBounded_instantiate1 b' 0 hb.2) hb1
+        have hround : (b'.instantiate1 (.fvar d ty')).abstract1 d = b' :=
+          Expr.instantiate1_abstract1 b' 0 hw.2 hb.2
+        rcases hcase with ⟨-, rfl⟩ | ⟨-, pw, hpwEq, rfl⟩
+        · rw [hround]
+        · have hval : pw = m.pw :=
+            Except.ok.inj (hpwEq.symm.trans (annotPwPi_of_reader hpw))
+          rw [hround, hval]
+    | lam m hrty hrb =>
+      rename_i ty₀ ty' b₀ b'
+      obtain ⟨tyA, bodyA, hty1, hb1, hcase⟩ := annotateCore_lam_inv_pw h
+      cases hst with
+      | lam hsty hsb hpw =>
+        simp only [WScoped] at hw
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        obtain rfl : ty' = tyA := (ih _ _ _ _ hrty hsty hw.1 hb.1 hty1).symm
+        obtain rfl : bodyA = b'.instantiate1 (.fvar d ty') :=
+          ih _ _ _ _ (AnnotRel.instantiate1 hRc _ hrb 0) hsb
+            (WScoped.instantiate1 hw.1 0 hw.2)
+            (looseBVarsBounded_instantiate1 b' 0 hb.2) hb1
+        have hround : (b'.instantiate1 (.fvar d ty')).abstract1 d = b' :=
+          Expr.instantiate1_abstract1 b' 0 hw.2 hb.2
+        rcases hcase with ⟨-, rfl⟩ | ⟨-, pw, hpwEq, rfl⟩
+        · rw [hround]
+        · have hval : pw = m.pw :=
+            Except.ok.inj (hpwEq.symm.trans (annotPwLam_of_reader hpw))
+          rw [hround, hval]
+    | letE _ _ _ => exact nomatch hst
+    | proj s i _ => exact nomatch hst
+
+/-- **The annotation pass is the identity on its fixed points.** -/
+theorem annotateCore_eq_self {env : Env} {F : Nat} {e : Expr} {d : Nat} {r : Expr}
+    (hst : AnnotStable env.find? d e) (hw : WScoped d e)
+    (hb : e.looseBVarsBounded 0 = true)
+    (h : annotateCore mode env F d e = .ok r) : r = e :=
+  annotateCore_of_annotRel (R := fun _ _ => False)
+    (fun _ _ hf => nomatch hf) (fun _ _ hf => nomatch hf) F e e d r
+    (AnnotRel.refl _ e) hst hw hb h
+
 end ConLeche
