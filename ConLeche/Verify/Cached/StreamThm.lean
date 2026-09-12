@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Cached.Installed
-public import ConLeche.Verify.Cached.MainC
+public import ConLeche.SetTheory.Core
+import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.BridgeCS4
 

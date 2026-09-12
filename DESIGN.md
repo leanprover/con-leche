@@ -70364,3 +70364,53 @@ expected; the instruction comparison above.  The fixture test
 `zero_ctor_false_proof.ndjson`'s lines matches the template (the
 string equation decided by the kernel), the parser reads it into a
 `thmDecl` of type `False`, and the fold rejects it.
+
+### 6. The merge with master 62b38eef, and the promotion (2026-09-12)
+
+Master moved under the branch four times while it was proved: #285
+(`DeclC`/`ExprC` → `Declaration`/`Expr`), #291 (the environment
+statement dropped), #292 (`sorryAx` is the fold's — the parser's taint
+pre-scan, `taintSkipped`, `applyDeclD`'s three outcomes all gone) and
+#293 (the parser takes no prelude; `preparePrelude` sits between parser
+and fold; the basis-pin match and the prelude dedupe left the parser).
+Merged ONCE, as instructed, with master's `ExportC.lean` and
+`NatOpGround.lean` taken as the base and the branch's edits re-applied
+on master's text: the rebinding checks; the validate/install split of
+the inductive arm — which on master has no pin match any more, so
+`installIndD_frame` lost a `split`; `pushGenList` as a plain fold
+(`pushGenD` returns a state now); `chunkStep`/`chunkFinish`/
+`concatBytes`/`parseChunks` with the loop calling them.  What went:
+`Verify/Frontend/Hoist.lean`, the prelude-dedupe lemmas of
+`ThmLine.lean`, every taint field of `Frame`/`Keeps`, `applyDeclD_cases`
+(now `applyDeclD_frame := processLineCoreD_frame`), the prelude lemmas
+of `FileFalse.lean`.  What came: `mem_preparePrelude` as the step
+between the parse and the stream lemma, the `.quotDecl` arm, and the
+size guard (§1).
+
+**The promotion** (the maintainer's ruling): the public pair is
+`model_exists` + `no_False_declaration` — `Challenge.lean`,
+`MainTheorem.lean` and `comparator.json` state exactly those two, with
+`no_False_declaration_streaming` beside the corollary in
+`MainTheorem.lean` only.  `no_False_theorem_accepted` kept its name,
+statement and docstring and moved to `Verify/Cached/StreamThm.lean`
+next to `checkDecls_thmDecl_const`, proved from
+`no_proof_of_False_cached` (so its closure no longer reaches
+`Denotes`/`Model.Denotes` — a module LEAVING, recorded in the
+regenerated proofdeps expectation).  Proofdeps roots: `main_file_False`
+is the headline, `stream_False` the step (12 roots, 4 362 rows, 0
+doors).  The axiom pin table, `trust-surface.sh`'s challenge note,
+`formalization.yaml`, the arena yaml and `--help` name
+`ConLeche.no_False_declaration`; OVERVIEW §1 presents the file-level
+statement first with the stream-level one as the step it rests on, and
+§2's driver item cites `chunkStep`.  README is the maintainer's and was
+not edited; the replacement text for its "### The Main Corollary"
+section is in the READY report.
+
+**The size guard's cost is nil and the rebinding test's is as
+measured before the merge.**  Against the master binary rebuilt at
+62b38eef, raw init-full, `--verified --jobs=1`, `ulimit -v 16000000`:
+537.655 G → 538.051 G instructions (+0.074 %); the parse phase alone
+(`CON_LECHE_INMODEL_CENSUS=1`, exit 2): 16.441 G → 16.824 G (+2.33 %),
+the rebinding test's borrowed `bound` lookups on every table entry
+(§2 item 1; the guard is one comparison per 4 MiB chunk).  Verdicts
+identical (exit 0, the same success line).

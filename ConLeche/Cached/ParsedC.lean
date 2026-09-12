@@ -27,7 +27,8 @@ the steps and returns its environment together with the proof that
 `ConLeche/Cached/ParsedT.lean` retired 2026-09-06; the trusted lane is
 the same fold at the other mode, and nothing else): acceptance at
 `.verified` is covered by the main corollary
-`no_False_theorem_accepted` (`ConLeche/MainTheorem.lean`), and the two
+`no_False_declaration` (`ConLeche/MainTheorem.lean`, through
+`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and the two
 modes agree on the install skeletons whenever both accept
 (`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 

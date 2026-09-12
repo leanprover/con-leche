@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Frontend.Prepare
 public import ConLeche.Cached.Installed
 
 @[expose] public section
