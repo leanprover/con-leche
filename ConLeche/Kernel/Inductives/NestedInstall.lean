@@ -76,6 +76,11 @@ structure RestoreTbl where
   ctorPins : List (Name × Expr × Name)
   /-- `auxJ.rec ↦ T₁.rec_k` -/
   recMap : List (Name × Name)
+  /-- every name the replace can fire on: the three maps' keys.  A
+  subterm mentioning none of them is its own restoration, which is what
+  lets the walk dismiss a DAG-shared subterm in one memoized
+  `mentionsConst` pass (the task #215 discipline). -/
+  auxNames : List Name
   deriving Repr, Inhabited
 
 /-- The node step of official's `restore_nested` replace: `some e'` —
@@ -123,6 +128,8 @@ def restoreNode (R : RestoreTbl) (d : Nat) (e : Expr) :
 declines. -/
 def restoreWalk (R : RestoreTbl) : Nat → Expr → Except CheckError Expr
   | d, e =>
+    -- the prune (see `RestoreTbl.auxNames`)
+    if !R.auxNames.any (fun n => e.mentionsConst n) then .ok e else
     match restoreNode R d e with
     | .error err => .error err
     | .ok (some e') => .ok e'
@@ -259,7 +266,10 @@ def restoreTbl (p : NestedParts) (st : ElimState) : RestoreTbl :=
             (c.1, Expr.abstractRange q.pin 0 p.nP 0,
               Name.replacePrefix q.aux q.container c.1)
         | none => []) |>.flatten
-    recMap := (st.pins.zipIdx.map fun (q, j) => (q.aux.str "rec", p.mimicRecName j)) }
+    recMap := (st.pins.zipIdx.map fun (q, j) => (q.aux.str "rec", p.mimicRecName j))
+    auxNames := st.pins.map (fun q => q.aux)
+      ++ (st.types.drop p.k).flatMap (fun t => t.ctors.map (·.1))
+      ++ st.pins.map (fun q => q.aux.str "rec") }
 
 /-! ## The install -/
 
