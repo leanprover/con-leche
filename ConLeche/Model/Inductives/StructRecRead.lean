@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructRecKit2
 public import ConLeche.Verify.Inductives.StructRec
+public import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!
@@ -41,33 +42,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AnnotTerm}
-
-/-! ## Bits reset -/
-
-/-- Binder data with every codomain bit reset to `b`. -/
-@[expose] def rebit (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
-  ds.map fun d => (d.1, b, d.2.2)
-
-@[simp] theorem rebit_nil (b : Nat) : rebit b [] = [] := rfl
-
-@[simp] theorem rebit_cons (b : Nat) (d : Nat × Nat × AnnotTerm) (ds : List (Nat × Nat × AnnotTerm)) :
-    rebit b (d :: ds) = (d.1, b, d.2.2) :: rebit b ds := rfl
-
-@[simp] theorem rebit_length (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
-    (rebit b ds).length = ds.length := by simp [rebit]
-
-@[simp] theorem rebit_map_dom (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
-    (rebit b ds).map (·.2.2) = ds.map (·.2.2) := by simp [rebit]
-
-theorem rebit_getD (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) (j : Nat) (hj : j < ds.length) :
-    (rebit b ds).getD j default = ((ds.getD j default).1, b, (ds.getD j default).2.2) := by
-  simp only [rebit, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hj,
-    Option.map_some, Option.getD_some]
-
-theorem mem_rebit {b : Nat} {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × Nat × AnnotTerm}
-    (h : d ∈ rebit b ds) : d.2.1 = b := by
-  obtain ⟨d', -, rfl⟩ := List.mem_map.mp h
-  rfl
 
 /-! ## The binder walks, read -/
 
@@ -254,10 +228,6 @@ theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     rfl⟩
 
 /-! ## The three special entries -/
-
-/-- The field variables' spine at the minor's core. -/
-@[expose] def fieldBvars (nF : Nat) : List AnnotTerm :=
-  (List.range nF).map fun k => AnnotTerm.bvar (nF - 1 - k)
 
 /-! ## The constructor telescope's residual -/
 

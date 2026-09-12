@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualRecRead
+public import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!
@@ -34,51 +35,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
-
-/-! ## The rule's binder data -/
-
-/-- **Rule `J`'s binder data** at a mutual block: the recursor's
-parameter, motive and minor entries (`mutualRecDataAV` without the
-index telescope and the major) and then constructor `J`'s field data
-lifted `k + n` under. -/
-@[expose] def mutualRuleDataAV {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
-    (Ls : List AnnotTerm) (nP : Nat) (nIdxs : List Nat) (ℓ : Level)
-    (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
-    (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat)
-    (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × AnnotTerm) :=
-  (rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-    motivesDataGo (fun t => Ls.getD t default) (fun t => nIdxs.getD t 0) (fun t => ipss.getD t [])
-      ψ nP ℓ (pwBit ψ (Level.zeronessOf ℓ)) Ls.length 0 ++
-    fixMinorsDataM mots tgts m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds Ls.length ++
-    rebit (pwBit ψ (Level.zeronessOf ℓ))
-      (liftDoms (Ls.length + cds.length) 0 (ds.drop nP))).map
-    fun d : Nat × Nat × AnnotTerm => (d.2.1, d.2.2)
-
-/-- Every rule binder carries the elimination level's bit. -/
-theorem mem_mutualRuleDataAV {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
-    {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
-    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
-    {tgts : Nat → Nat → Nat} {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × AnnotTerm}
-    (hd : d ∈ mutualRuleDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts ds) :
-    d.1 = pwBit ψ (Level.zeronessOf ℓ) := by
-  obtain ⟨d', hd', rfl⟩ := List.mem_map.mp hd
-  simp only [List.mem_append] at hd'
-  rcases hd' with ((h | h) | h) | h
-  · exact mem_rebit h
-  · exact mem_motivesDataGo h
-  · exact mem_fixMinorsDataM h
-  · exact mem_rebit h
-
-theorem mutualRuleDataAV_length {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
-    {nP nF : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
-    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
-    {tgts : Nat → Nat → Nat} {ds : List (Nat × Nat × AnnotTerm)} (hp : pps.length = nP)
-    (hd : ds.length = nP + nF) :
-    (mutualRuleDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts ds).length
-      = nP + Ls.length + cds.length + nF := by
-  simp only [mutualRuleDataAV, List.length_map, List.length_append, rebit_length, hp,
-    fixMinorsDataM_length, liftDoms_length, motivesDataGo_length, List.length_drop, hd]
-  omega
 
 /-! ## The generators, unfolded -/
 

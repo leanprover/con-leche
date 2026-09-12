@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixRecRead
+public import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!
@@ -35,128 +36,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
-
-/-! ## The binder data -/
-
-/-- The major premise's domain reading under `k` motives, `n` minors
-and the index variables, at an explicit former leaf: the family at the
-parameters and the index variables (`majorAVAtL` with `k` motives). -/
-@[expose] def majorAVAtK (L : AnnotTerm) (nP nIdx k n : Nat) : AnnotTerm :=
-  AnnotTerm.mkAppN L (paramBvarsAt nP (nP + k + n + nIdx) ++ fieldBvars nIdx)
-
-/-- **The motive entries** of a mutual block, from offset `i`: motive
-`t` is the fixpoint route's motive at member `t`'s leaf, index count
-and index data, lifted `i + t` under — it sits that many binders below
-the parameters. -/
-@[expose] def motivesDataGo (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
-    (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat) (ℓ : Level)
-    (b : Nat) : Nat → Nat → List (Nat × Nat × AnnotTerm)
-  | 0, _ => []
-  | k + 1, i =>
-    (0, b, (motiveAVIL (Lof 0) ψ nP (nIdxOf 0) ℓ (ipsOf 0)).liftN i 0) ::
-      motivesDataGo (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1)) (fun t => ipsOf (t + 1))
-        ψ nP ℓ b k (i + 1)
-
-omit [SetTheory V] in
-theorem motivesDataGo_length (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
-    (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat) (ℓ : Level) (b : Nat) :
-    ∀ (k i : Nat), (motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ b k i).length = k
-  | 0, _ => rfl
-  | k + 1, i => by
-    simp [motivesDataGo,
-      motivesDataGo_length (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1))
-        (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1)]
-
-omit [SetTheory V] in
-theorem mem_motivesDataGo {Lof : Nat → AnnotTerm} {nIdxOf : Nat → Nat}
-    {ipsOf : Nat → List (Nat × Nat × AnnotTerm)} {ψ : Name → Nat} {nP : Nat} {ℓ : Level} {b : Nat} :
-    ∀ {k i : Nat} {d : Nat × Nat × AnnotTerm},
-      d ∈ motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ b k i → d.2.1 = b
-  | 0, _, _, h => nomatch h
-  | k + 1, i, d, h => by
-    simp only [motivesDataGo, List.mem_cons] at h
-    rcases h with rfl | h
-    · rfl
-    · exact mem_motivesDataGo h
-
-omit [SetTheory V] in
-/-- The motive entries, positionally. -/
-theorem motivesDataGo_getElem? (Lof : Nat → AnnotTerm) (nIdxOf : Nat → Nat)
-    (ipsOf : Nat → List (Nat × Nat × AnnotTerm)) (ψ : Name → Nat) (nP : Nat) (ℓ : Level) (b : Nat) :
-    ∀ (k i t : Nat), t < k →
-      (motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ b k i)[t]?
-        = some (0, b, (motiveAVIL (Lof t) ψ nP (nIdxOf t) ℓ (ipsOf t)).liftN (i + t) 0)
-  | 0, _, _, h => absurd h (Nat.not_lt_zero _)
-  | k + 1, i, 0, _ => by simp [motivesDataGo]
-  | k + 1, i, t + 1, h => by
-    simp only [motivesDataGo, List.getElem?_cons_succ]
-    rw [motivesDataGo_getElem? (fun t => Lof (t + 1)) (fun t => nIdxOf (t + 1))
-      (fun t => ipsOf (t + 1)) ψ nP ℓ b k (i + 1) t (by omega),
-      show i + 1 + t = i + (t + 1) from by omega]
-
-omit [SetTheory V] in
-/-- The motive entries depend on the members' data only below `k`. -/
-theorem motivesDataGo_congr {Lof Lof' : Nat → AnnotTerm} {nIdxOf nIdxOf' : Nat → Nat}
-    {ipsOf ipsOf' : Nat → List (Nat × Nat × AnnotTerm)} {ψ : Name → Nat} {nP : Nat} {ℓ : Level}
-    {b : Nat} :
-    ∀ (k i : Nat),
-      (∀ t, t < k → Lof t = Lof' t ∧ nIdxOf t = nIdxOf' t ∧ ipsOf t = ipsOf' t) →
-      motivesDataGo Lof nIdxOf ipsOf ψ nP ℓ b k i
-        = motivesDataGo Lof' nIdxOf' ipsOf' ψ nP ℓ b k i
-  | 0, _, _ => rfl
-  | k + 1, i, h => by
-    obtain ⟨h1, h2, h3⟩ := h 0 (by omega)
-    simp only [motivesDataGo, h1, h2, h3]
-    rw [motivesDataGo_congr (Lof := fun t => Lof (t + 1)) (Lof' := fun t => Lof' (t + 1)) k (i + 1)
-      fun t ht => h (t + 1) (by omega)]
-
-/-- **The generated `k`-motive recursor type's binder data** for member
-`mm`: the parameters, the `k` motives (motive `m'` lifted `m'` under),
-the `n` minors (`mots J` is constructor `J`'s own member, `tgts J i`
-the member field `i` targets), member `mm`'s index telescope lifted
-under the motives and the minors, and its major. -/
-@[expose] def mutualRecDataAV {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
-    (Ls : List AnnotTerm) (nP : Nat) (nIdxs : List Nat) (ℓ : Level)
-    (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
-    (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat) (mm : Nat) :
-    List (Nat × Nat × AnnotTerm) :=
-  rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
-    motivesDataGo (fun t => Ls.getD t default) (fun t => nIdxs.getD t 0) (fun t => ipss.getD t [])
-      ψ nP ℓ (pwBit ψ (Level.zeronessOf ℓ)) Ls.length 0 ++
-    fixMinorsDataM mots tgts m ψ nP (pwBit ψ (Level.zeronessOf ℓ)) cds Ls.length ++
-    rebit (pwBit ψ (Level.zeronessOf ℓ))
-      (liftDoms (Ls.length + cds.length) 0 (ipss.getD mm [])) ++
-    [(0, pwBit ψ (Level.zeronessOf ℓ),
-      majorAVAtK (Ls.getD mm default) nP (nIdxs.getD mm 0) Ls.length cds.length)]
-
-/-- **The conclusion** of member `mm`'s generated recursor type:
-motive `mm` at the index variables and the major (`recConcAV` with `k`
-motives). -/
-@[expose] def mutualConcAV (k n nIdx mm : Nat) : AnnotTerm :=
-  .app (AnnotTerm.mkAppN (.bvar (1 + nIdx + n + k - 1 - mm)) (idxVarsAV nIdx 1)) (.bvar 0)
-
-theorem mem_mutualRecDataAV {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
-    {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
-    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
-    {tgts : Nat → Nat → Nat} {mm : Nat} {d : Nat × Nat × AnnotTerm}
-    (hd : d ∈ mutualRecDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts mm) :
-    d.2.1 = pwBit ψ (Level.zeronessOf ℓ) := by
-  simp only [mutualRecDataAV, List.mem_append, List.mem_singleton] at hd
-  rcases hd with (((h | h) | h) | h) | rfl
-  · exact mem_rebit h
-  · exact mem_motivesDataGo h
-  · exact mem_fixMinorsDataM h
-  · exact mem_rebit h
-  · rfl
-
-theorem mutualRecDataAV_length {m : EnvModel V env} {ψ : Name → Nat} {Ls : List AnnotTerm}
-    {nP : Nat} {nIdxs : List Nat} {ℓ : Level} {pps : List (Nat × Nat × AnnotTerm)}
-    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
-    {tgts : Nat → Nat → Nat} {mm : Nat} (hp : pps.length = nP) :
-    (mutualRecDataAV m ψ Ls nP nIdxs ℓ pps ipss cds mots tgts mm).length
-      = nP + Ls.length + cds.length + (ipss.getD mm []).length + 1 := by
-  simp only [mutualRecDataAV, List.length_append, rebit_length, hp, List.length_singleton,
-    fixMinorsDataM_length, liftDoms_length, motivesDataGo_length]
 
 /-! ## The motive entry, lifted -/
 

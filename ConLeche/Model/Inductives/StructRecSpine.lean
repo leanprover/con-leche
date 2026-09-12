@@ -3,6 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructStageCtor
 public import ConLeche.Model.IndProjKit
+public import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!
@@ -39,26 +40,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-! ## Inference kit -/
 
 /-! ## Lifted Π-towers -/
-
-/-- The binder data of a lifted Π-tower: each domain lifted at its own
-depth. -/
-@[expose] def liftDoms (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
-  | _, [] => []
-  | k, d :: ds => (d.1, d.2.1, d.2.2.liftN n k) :: liftDoms n (k + 1) ds
-
-theorem liftDoms_length (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k : Nat), (liftDoms n k ds).length = ds.length
-  | [], _ => rfl
-  | _ :: ds, k => by simp [liftDoms, liftDoms_length n ds (k + 1)]
-
-theorem liftDoms_getElem? (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k i : Nat),
-      (liftDoms n k ds)[i]? = ds[i]?.map fun d => (d.1, d.2.1, d.2.2.liftN n (k + i))
-  | [], _, _ => rfl
-  | _ :: ds, k, 0 => by simp [liftDoms]
-  | _ :: ds, k, i + 1 => by
-    simp only [liftDoms, List.getElem?_cons_succ, liftDoms_getElem? n ds (k + 1) i]
-    rw [show k + 1 + i = k + (i + 1) from by omega]
 
 theorem liftN_mkPisAV (n : Nat) :
     ∀ (ds : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm) (k : Nat),
