@@ -20,10 +20,11 @@
 #                                                freshness
 #                      * tests/trust-surface.sh  compiler-escape
 #                                                allowlist
-#                      * tests/overview-links.sh OVERVIEW.md's line
+#                      * tests/overview-links.sh OVERVIEW.md's and
+#                                                README.md's line
 #                                                anchors vs. the tree
-#                                                (task #216) — it needs
-#                                                no build and no
+#                                                (tasks #216, #299) — it
+#                                                needs no build and no
 #                                                separate step here:
 #                                                arena.sh is its caller
 #                      * tests/no-local-paths.sh no absolute home paths

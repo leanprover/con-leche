@@ -7,10 +7,12 @@ iteration protocol. Keep it up to date when decisions change.
   warning-free too: it builds the test library, which `lake build` does
   not, so a warning there is invisible to the build gate. Tests: `lake test`
   (`tests/ConLecheTests.lean`, `#guard`/`example`-based, fails at build time).
-* `OVERVIEW.md`'s line-anchored links are gated by
+* `OVERVIEW.md`'s and `README.md`'s line-anchored links are gated by
   `tests/overview-links.sh` (run from `tests/arena.sh` and CI): if you move
   or change linked lines, re-read the citing paragraph and run
-  `tests/overview-links.sh --update`.
+  `tests/overview-links.sh --update`.  `README.md` is the maintainer's,
+  human-written: an agent may turn an existing code name into a link or
+  repoint one that rotted, and may change no other character of it.
 * Goal: the lean kernel arena tutorial tests (without custom axioms) are
   accepted and the checker is verified consistent.
 * Iterate one feature at a time; every feature lands together with its

@@ -581,6 +581,23 @@ adapter.  An adapter *reorders, reshapes, or supplies something the
 telescope failed to give*.  A "no rewriting at all" pass criterion
 would have failed this test and would have been wrong.
 
+### The documents' code links are gated; `README.md` is link-only
+
+`OVERVIEW.md` **and** `README.md` carry line-anchored
+`blob/master/<path>#L<a>-L<b>` links into the source, and both are
+under `tests/overview-links.sh` (task #299): the cited lines are copied
+into `tests/overview-links-expected.txt`, so moving or editing them
+fails the gate and the failure names the document.  Re-read the citing
+paragraph, then `tests/overview-links.sh --update`.  The gate also
+checks that every RELATIVE link's target (`./PERF.md`,
+`./bridge/lean4lean-model`) still exists.
+
+**`README.md` is the maintainer's, and human-written.**  An agent may
+turn an existing code name into a link, and repoint a link whose
+anchor moved — and may change no other character of it: no added
+words, no reflow, no punctuation.  Anything the README ought to *say*
+differently is reported to the maintainer, never written.
+
 ## Environment notes
 
 * Sandbox: `/tmp` and `/home` are tmpfs — large artifacts (repo checkouts,
@@ -71162,3 +71179,157 @@ block now reads
 > step produced it.
 
 ("### The Main Theorem" is unchanged from task #295 §7.)
+
+## TASK #299 — README CODE LINKS UNDER THE LINK GATE (2026-09-12, `agent/readme-links-299`)
+
+**The ruling (maintainer, verbatim).**
+
+> The README could benefit from direct links to the code, like the
+> OVERVIEW does. So include the README in the machinery for keeping
+> such links up to date, and suitable links to the README. Since it
+> should be human written, do not add text to the README, but only turn
+> into a link what is already there and that a user would want to click
+> on (e.g. `theorem foobar`, 'File `MainTheorem`').
+
+### 1. The gate now scans two documents
+
+`tests/overview-links.sh` takes a **list** of documents (`DOCS` at the
+top), `OVERVIEW.md` first and `README.md` second, and writes ONE
+combined expectation (`tests/overview-links-expected.txt`) with a
+`>>> <document>` banner before each document's segments.
+
+**The name is kept.**  The gate is cited by name in `CLAUDE.md`, in
+`tests/arena.sh`, in `.github/workflows/ci.yml`, in the expectation
+file's own name, in its output prefix, and in something over a hundred
+records of this document.  A rename to `tests/doc-links.sh` buys an
+accurate name and costs a permanent one-line shim plus every one of
+those citations; the header now says which documents it scans, which is
+the information the name would have carried.
+
+**OVERVIEW first** so that a document joining the gate *appends* a
+section: the diff of the regenerated expectation at this task is
+exactly the new `>>> README.md` block plus the header rewording, and
+nothing of the existing 88 citations moved.
+
+**The failure names the document.**  On a diff the script splits both
+texts on the banner and compares section by section, so the message
+reads `the cited lines are not what README.md was written against` —
+the document to go re-read, not both.
+
+**New, cheap check: relative link targets.**  A link that is not a
+`blob/master` one and not external — `./PERF.md`,
+`./bridge/lean4lean-model` — has no cited text to pin, but its target
+must exist.  One `os.path.exists` per such link (7 of them today, all
+in `README.md`), which is what catches a renamed or deleted file behind
+a whole-file mention.  It is reported as a structural error, beside the
+dead-anchor errors, not as a diff.
+
+Counts before / after: **88 links, 56 files, 1 document** →
+**103 links, 57 files, 2 documents**.
+
+### 2. The links added to `README.md`
+
+Link-only edits: the link *text* is the existing text, character for
+character, and no other character of the file changed.  Targets are
+`https://github.com/leanprover/con-leche/blob/master/<path>#L<a>-L<b>`
+— **the canonical form for every new code link in this repository**.
+`OVERVIEW.md`'s 88 links spelled the pre-rename `leanprover/lech` and
+resolved only through GitHub's rename redirect; they are normalised to
+`leanprover/con-leche` here (maintainer: "the redirect is not something
+to rely on").  It is a pure URL change: the gate records path and lines
+only, matches owner/repo loosely on purpose, and the expectation is
+byte-identical across it.  The tree holds no other `leanprover/lech`
+URL; the two remaining mentions in this document are HISTORY — a quoted
+`lech: declined:` verdict line and task #216's own statement of the
+link form — and stay as written.
+
+| README § | linked text | target |
+|---|---|---|
+| Design of the implementation | `sorryAx` | `ConLeche/Cached/ParsedC.lean#L223-L224` (the fold's arm: install nothing) |
+| Design of the implementation | `--jobs` | `Main.lean#L776` (the flag's line in `usage`) |
+| The Main Corollary | `False` | `ConLeche/Kernel/Basis/False.lean#L51-L52` (`falseBasis`, the pin) |
+| The Main Corollary | `main` | `Main.lean#L1093` |
+| The Main Theorem | `no_False_declaration` | `ConLeche/MainTheorem.lean#L97-L103` |
+| The Main Theorem | `Model V env` | `ConLeche/Denotes.lean#L270-L290` |
+| The Main Theorem | `Denotes` | `ConLeche/Denotes.lean#L134-L135` |
+| The Main Theorem | `checkDecls` | `ConLeche/Cached/Installed.lean#L417-L421` |
+| The Main Theorem | `preparePrelude` | `ConLeche/Frontend/Prepare.lean#L165-L172` |
+| The Main Theorem | `theorem Frontend.preparePrelude_perm` | `ConLeche/Verify/Frontend/Prepare.lean#L157-L162` |
+| The Main Theorem | `theorem checkDecls_consts` | `ConLeche/Verify/Cached/StreamConsts.lean#L779-L784` |
+| Set theory assumption | `[SetTheory V]` | `ConLeche/SetTheory/Core.lean#L95-L133` (the whole class, which is what the paragraph enumerates) |
+| Set theory assumption | `carneiro_implies_conleche` | `bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202` |
+| Level annotation | `PropWhen` | `ConLeche/Kernel/PropWhen.lean#L413-L415` |
+| The certification tax | `--trusted` | `Main.lean#L759` (the flag's line in `usage`) |
+
+Every anchor was read before it was written, and the gate now pins the
+lines it points at.
+
+**What was NOT linked, and why.**
+
+* **`jsonWithTheoremFalse`, `builtinPreludeE`, `parseChunks`.**  All
+  three occur in `README.md` *only inside the fenced `lean` block* of
+  the main corollary, and a fenced code block cannot contain a link.
+  There is no prose mention to turn into one.  Linking them needs one
+  of the maintainer's own words in the surrounding prose; it is
+  reported, not written.
+* **`model_exists`.**  Same reason: the name appears only in the
+  quoted block.  The prose of "### The Main Theorem" names
+  `no_False_declaration` (linked) but never `model_exists`; the
+  whole-file link `[`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean)`
+  beside it is left relative, as the ruling allows.
+* **`trustCompiler`, `ofReduceBool`, `ofReduceNat`.**  The family has
+  no single defining line — it is a module of pins
+  (`ConLeche/Kernel/TrustAxioms.lean`) — and linking one of the three
+  and not the others reads arbitrary.  Left for the maintainer to ask
+  for.
+* **Second and later mentions** of a name already linked in the same
+  section (`False`, `main`, `checkDecls`, `Model`, `sorryAx`), and
+  words that are not code names ("the parser", "three standard Lean
+  axiom").
+* **The seven relative whole-file links** (`./OVERVIEW.md`,
+  `./ConLeche/MainTheorem.lean` ×2, `./ConLeche/Denotes.lean`,
+  `./ConLeche/SetTheory/Core.lean`, `./bridge/lean4lean-model`,
+  `./PERF.md`) stay relative and unanchored, as the ruling allows —
+  and are now existence-checked by the gate.
+
+**Finding, for the maintainer, not acted on:** `README.md`'s quoted
+`model_exists` block reads `(ds : List DeclC)`, while the tree's
+theorem reads `(ds : Array Declaration)` — stale since the arrays
+landed on the run path (task #295).  The quoted `no_False_declaration`
+block matches the tree.  Both are inside fences, so neither is gated;
+fixing the quotation is a README *text* edit, which is the
+maintainer's.
+
+### 3. Links to the README, and the practice
+
+* `OVERVIEW.md`'s opening now links `README.md` and says what a reader
+  finds there (the main theorem and corollary in the maintainer's own
+  words, with its own links into the source).
+* `DESIGN.md` House practices gained *"The documents' code links are
+  gated; `README.md` is link-only"*: what the gate covers, and the rule
+  that an agent may turn a code name into a link or repoint one that
+  rotted and may change no other character.
+* `CLAUDE.md`'s gate bullet, `tests/arena.sh`'s gate comment and
+  `.github/workflows/ci.yml`'s gate list all name both documents now.
+
+### 4. Gates
+
+| gate | result |
+|---|---|
+| `tests/overview-links.sh` | 103 links, 57 files, 2 documents, OK (one `--update` after every anchor was read; OK again, expectation byte-identical, after the slug normalisation and after merging master's `ed604845`) |
+| failure paths, exercised by hand | a broken relative target is named as a structural error; a citation change in a README-only anchor names `README.md` alone |
+| `tests/arena.sh` (`env -i`, no ulimit) | exit 0 |
+| `tests/no-local-paths.sh` | OK |
+| `lake build` | warning-free, 560 jobs (a cold build: the worktree was fresh and `tests/arena.sh` needs the binary and the oleans — no `.lean` file changed) |
+
+### 5. Master moved under the branch
+
+`ed604845` ("README: Mutli-version NatOps") reworded the last sentence
+of README's "### Nat operations" while this branch was open.  The merge
+is clean and the paragraph carries none of this task's links; the
+maintainer's text stands character for character, and the diff of
+`README.md` against `ed604845` is link markup and nothing else.  The
+reworded sentence names no code, so nothing was re-linked and nothing
+dropped.  `README.md` is a CITING document: its own line numbers appear
+nowhere in the expectation, so an edit to it moves no citation — the
+gate confirms that, not the reasoning.
