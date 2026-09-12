@@ -70821,9 +70821,15 @@ challenge, shake and pub-imports, overview-links regenerated after
 re-reading every citing paragraph (the `CheckError` docstring shifted
 `Kernel/Core.lean`'s anchors by 15), no-local-paths, trust-surface.
 One init-full instruction comparison against the master binary at
-041634af is in the READY report: the accept path's work is unchanged —
-this is a rename plus one fewer list materialisation — so the
-expectation was "unchanged or slightly cheaper".
+041634af (`--verified --jobs=1`, `perf stat -e instructions:u`,
+interleaved old/new/old/new): 538.044 G → 538.106 G, **+0.012 %**,
+both runs accepting the same 53 093 declarations.  Unchanged, as
+expected of a rename: the driver no longer materialises the fold's
+input as a list (one walk and ~15 MB of cons cells saved at Mathlib
+scale), and the prepare step's twelve picks now scan an array twice
+each (`findIdx`, then the erase) where they used to rebuild the whole
+stream as a list once each.  The two cancel to nothing measurable, and
+no published PERF.md number moves.
 
 ### 7. The README's replacement text
 
