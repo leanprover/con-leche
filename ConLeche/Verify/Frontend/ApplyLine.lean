@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Frontend.ExportC
-public import ConLeche.Verify.ExceptBind
-import Std.Data.HashMap.Lemmas
+import ConLeche.Verify.ExceptBind
 
 public section
 

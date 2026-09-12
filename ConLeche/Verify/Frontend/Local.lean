@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Frontend.Scan.Equiv
+public import ConLeche.Frontend.Scan.Naive
+import ConLeche.Frontend.Scan.Equiv
 import ConLeche.Frontend.Scan.Equiv.Scalars
 
 public section

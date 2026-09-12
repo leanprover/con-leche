@@ -3,9 +3,10 @@ module
 public import ConLeche.Accepts
 public import ConLeche.Verify.Frontend.Lines
 public import ConLeche.Verify.Frontend.ApplyLine
-public import ConLeche.Verify.Frontend.ThmLine
-public import ConLeche.Verify.Frontend.FalseLines
-public import ConLeche.Verify.Frontend.Hoist
+import ConLeche.Verify.Frontend.ThmLine
+import ConLeche.Verify.Frontend.FalseLines
+import ConLeche.Verify.Frontend.Hoist
+import ConLeche.Frontend.Scan.Equiv.Kit
 
 public section
 

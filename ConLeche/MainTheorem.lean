@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.MainC
+import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Model.Denotes

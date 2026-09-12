@@ -63,6 +63,12 @@ FALLBACK = {
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
     ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
+    # task #290: every statement of `Verify/Frontend/Local.lean` is over
+    # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
+    # (the private `import Scan.Equiv` covers the constants), but a private
+    # import is invisible to a public statement — the build says
+    # `unknown identifier NRes`.
+    ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

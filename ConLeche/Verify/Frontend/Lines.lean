@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.ExportC
-public import ConLeche.Verify.Frontend.Local
+import ConLeche.Verify.Frontend.Local
 
 public section
 

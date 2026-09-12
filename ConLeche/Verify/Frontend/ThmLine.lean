@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Verify.Frontend.ApplyLine
+public import ConLeche.Frontend.ExportC
+import ConLeche.Verify.Frontend.ApplyLine
+import ConLeche.Verify.ExceptBind
 
 public section
 

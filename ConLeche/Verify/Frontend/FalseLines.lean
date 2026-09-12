@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Frontend.Digits
-public import ConLeche.Verify.Frontend.Local
+import ConLeche.Frontend.Scan.Equiv.Kit
 
 public section
 

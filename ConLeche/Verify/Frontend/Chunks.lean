@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Frontend.Lines
+import ConLeche.Verify.Frontend.Local
 
 public section
 
