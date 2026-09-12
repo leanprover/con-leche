@@ -19,6 +19,16 @@ the structure-like members, and official's two remaining post-checks —
 the pins typed at the parameter context (leanprover/lean4#14577) and
 the stream's recursor records against the restored generated ones.
 
+**`copiesFresh`** is the conjunct the model lane asked for: every name
+the elimination MINTS — each copy's type, its constructors and its
+recursor — is free in the PRE-BLOCK environment, so the scratch
+environment's cons shadows nothing and every constant the restore
+stores is the block's own.  The copies' TYPE names cannot collide in
+the first place (`mkUniqueName` is official's `mk_unique_name` and
+skips a taken one); what the check catches is a constructor or a
+recursor name, which official refuses at `declare_inductive_types`'
+`check_name`.
+
 **What the model tier consumes.**  Every intermediate environment is
 written out as an application of the pure cons/store functions
 (`consNestedFormers`, `consNestedCtors`, `provisionNestedRecs`,
@@ -70,6 +80,8 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
           (p.ctors.filter (fun c => c.member == mIdx)).map
             fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st ∧
     st.pins.length = p.numNested ∧
+    -- every MINTED name is free in the pre-block environment
+    ConLeche.copiesFresh env p.k st = true ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none = .ok envAux ∧
