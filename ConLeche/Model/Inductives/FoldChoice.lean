@@ -920,6 +920,344 @@ theorem minChoiceAV_mem (m : EnvModel V env) {ψ : Name → Nat} {ps : List Anno
   rw [hconc]
   exact ⟨hwdB.1, hmemB, h0B⟩
 
+/-! ## The minor spine -/
+
+/-- The minor spine of the choice at the bodies, by position: minor
+`J`'s value is over the earlier minors. -/
+@[expose] def minChoiceAVs (ψ : Name → Nat) (ps Ms : List AnnotTerm) (bodies : Nat → AnnotTerm) :
+    Nat → List AnnotTerm
+  | 0 => []
+  | J + 1 =>
+    minChoiceAVs ψ ps Ms bodies J ++
+      [d.minChoiceAV ψ ps Ms (minChoiceAVs ψ ps Ms bodies J) J (bodies J)]
+
+omit [SetTheory V] in
+theorem minChoiceAVs_length (ψ : Name → Nat) (ps Ms : List AnnotTerm) (bodies : Nat → AnnotTerm) :
+    ∀ n, (d.minChoiceAVs ψ ps Ms bodies n).length = n
+  | 0 => rfl
+  | n + 1 => by simp [minChoiceAVs, minChoiceAVs_length ψ ps Ms bodies n]
+
+omit [SetTheory V] in
+theorem minChoiceAVs_take (ψ : Name → Nat) (ps Ms : List AnnotTerm) (bodies : Nat → AnnotTerm) :
+    ∀ n J, J ≤ n → (d.minChoiceAVs ψ ps Ms bodies n).take J = d.minChoiceAVs ψ ps Ms bodies J
+  | 0, J, h => by
+    obtain rfl : J = 0 := Nat.le_zero.mp h
+    rfl
+  | n + 1, J, h => by
+    rcases Nat.lt_or_ge J (n + 1) with h' | h'
+    · simp only [minChoiceAVs]
+      rw [List.take_append_of_le_length (by rw [d.minChoiceAVs_length]; omega)]
+      exact minChoiceAVs_take ψ ps Ms bodies n J (by omega)
+    · obtain rfl : J = n + 1 := by omega
+      rw [List.take_of_length_le (by rw [d.minChoiceAVs_length]; exact Nat.le_refl _)]
+
+omit [SetTheory V] in
+theorem minChoiceAVs_getElem? (ψ : Name → Nat) (ps Ms : List AnnotTerm) (bodies : Nat → AnnotTerm) :
+    ∀ n J, J < n →
+      (d.minChoiceAVs ψ ps Ms bodies n)[J]?
+        = some (d.minChoiceAV ψ ps Ms (d.minChoiceAVs ψ ps Ms bodies J) J (bodies J))
+  | 0, _, h => absurd h (Nat.not_lt_zero _)
+  | n + 1, J, h => by
+    rcases Nat.lt_or_ge J n with h' | h'
+    · simp only [minChoiceAVs]
+      rw [List.getElem?_append_left (by rw [d.minChoiceAVs_length]; exact h')]
+      exact minChoiceAVs_getElem? ψ ps Ms bodies n J h'
+    · obtain rfl : J = n := by omega
+      simp only [minChoiceAVs]
+      rw [List.getElem?_append_right (by rw [d.minChoiceAVs_length]; exact Nat.le_refl _),
+        d.minChoiceAVs_length]
+      simp
+
+end IndRepData
+
+/-- A bit-valid Π-tower's binder domain, at a fitting prefix. -/
+theorem annotValid_mkPisAV_dom {T : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
+      AnnotValid V σ (mkPisAV ds T) →
+      ∀ (as : List V) (n : Nat) (d : Nat × Nat × AnnotTerm), ds[n]? = some d →
+        SpineFit σ ((ds.take n).map (·.2.2)) as →
+        AnnotValid V (consList as σ) d.2.2
+  | [], _, _, _, _, _, h, _ => nomatch h
+  | d :: ds, σ, hv, as, 0, d', hd, hsp => by
+    obtain rfl := Option.some.inj hd
+    obtain rfl : as = [] := by
+      cases as with
+      | nil => rfl
+      | cons _ _ => exact hsp.elim
+    simp only [mkPisAV, AnnotValid_pi] at hv
+    exact hv.1
+  | d :: ds, σ, hv, as, n + 1, d', hd, hsp => by
+    simp only [mkPisAV, AnnotValid_pi] at hv
+    cases as with
+    | nil => exact hsp.elim
+    | cons a as =>
+      rw [List.take_succ_cons, List.map_cons] at hsp
+      rw [consList_cons]
+      exact annotValid_mkPisAV_dom (hv.2.1 a hsp.1) as n d' (by simpa using hd) hsp.2
+
+/-- A fit of the first `n` entries extends by entry `n`. -/
+theorem spineFit_take_succ {ρ : Nat → V} {Fs : List AnnotTerm} {vs : List V} {n : Nat}
+    {F : AnnotTerm} {v : V} (hF : Fs[n]? = some F) (hv : vs[n]? = some v)
+    (h : SpineFit ρ (Fs.take n) (vs.take n)) (hmem : v ∈ˢ interp V (consList (vs.take n) ρ) F) :
+    SpineFit ρ (Fs.take (n + 1)) (vs.take (n + 1)) := by
+  rw [List.take_add_one, List.take_add_one, hF, hv]
+  exact SpineFit.append h ⟨hmem, trivial⟩
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **The choice's prefix spine fits the tower**: the parameters (the
+consumer's fit), the motives (`motChoiceAV_mem`) and the minors
+(`minChoiceAV_mem`), each binder's grading read off ONE member's
+recursor tower at the fit of the entries before it.  `hmin` bundles
+the per-constructor facts `minChoiceAV_mem` takes, at the earlier
+minors of the spine. -/
+theorem choice_prefix_fit (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {ρ : Nat → V} (bodies : Nat → AnnotTerm) (hps : ps.length = d.nP)
+    (hk : 0 < d.k) (hpps : ((d.ppsM 0 ψ).take d.nP).length = d.nP)
+    (hipsLen : ∀ t, t < d.k → ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0)
+    {t₀ : Nat} (hTower : WellDenotedV V ρ
+      (mkPisAV (d.recDataAV m ψ t₀) (mutualConcAV d.k d.nAll (d.nIdxAt t₀) t₀)))
+    (hparams : SpineFit ρ ((rebit (d.bb ψ) ((d.ppsM 0 ψ).take d.nP)).map (·.2.2))
+      (ps.map (interp V ρ)))
+    (hTg : ∀ t, t < d.k → WellDenotedV V ρ (Tg t) ∧
+      interp V ρ (Tg t) ∈ˢ interp V (consList (ps.map (interp V ρ)) ρ)
+        (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+          (.sort (d.elimL.eval ψ))))
+    (hmin : ∀ J, J < d.nAll → ∀ (C : Name) (nF : Nat) (ds : List (Nat × Nat × AnnotTerm))
+      (Es : List AnnotTerm) (recIdx : List Nat) (Eiss : List (List AnnotTerm))
+      (tls : List (List (Nat × Nat × AnnotTerm))),
+      (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls) →
+      ds.length = d.nP + nF ∧ d.mems J < d.k ∧ (∀ i ∈ recIdx, i < nF ∧ d.tgtsR J i < d.k) ∧
+      (∀ i ∈ recIdx, ∀ fs : List V,
+        SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+        ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))
+            ((tls.getD i []).map (·.2.2)) as →
+          SpineFit (consList (ps.map (interp V ρ)) ρ)
+              ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.tgtsR J i) [])).map (·.2.2))
+              ((Eiss.getD i []).map
+                (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))) ∧
+            as.foldl SetTheory.app (fs.getD i pt)
+              ∈ˢ interp V (consList ((Eiss.getD i []).map
+                  (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))))
+                  (consList (ps.map (interp V ρ)) ρ))
+                (famAppAV ((d.Ls m ψ).getD (d.tgtsR J i) default) (d.pinsOf ψ (d.tgtsR J i)) d.nP
+                  (d.nP + d.nIdxs.getD (d.tgtsR J i) 0) (d.nIdxs.getD (d.tgtsR J i) 0))) ∧
+      (∀ fs : List V,
+        SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+        SpineFit (consList (ps.map (interp V ρ)) ρ)
+            ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2))
+            (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))) ∧
+          fs.foldl SetTheory.app
+              (interp V (consList (ps.map (interp V ρ)) ρ)
+                (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J))))
+            ∈ˢ interp V (consList (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ))))
+                (consList (ps.map (interp V ρ)) ρ))
+              (famAppAV ((d.Ls m ψ).getD (d.mems J) default) (d.pinsOf ψ (d.mems J)) d.nP
+                (d.nP + d.nIdxs.getD (d.mems J) 0) (d.nIdxs.getD (d.mems J) 0))) ∧
+      (∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+        SpineFit (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++
+            d.minChoiceAVs ψ ps (d.motChoiceAVs m ψ ps Tg) bodies J).map (interp V ρ)) ρ)
+          ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+          (fs ++ ihs) →
+        WellDenotedV V (consList (fs ++ ihs)
+            (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++
+              d.minChoiceAVs ψ ps (d.motChoiceAVs m ψ ps Tg) bodies J).map (interp V ρ)) ρ))
+            (bodies J) ∧
+          interp V (consList (fs ++ ihs)
+              (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++
+                d.minChoiceAVs ψ ps (d.motChoiceAVs m ψ ps Tg) bodies J).map (interp V ρ)) ρ))
+              (bodies J)
+            ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+                SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
+          (d.bb ψ = 0 →
+            (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+                SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)))) :
+    SpineFit ρ ((d.recPrefixAV m ψ).map (·.2.2))
+      ((ps ++ d.motChoiceAVs m ψ ps Tg ++
+        d.minChoiceAVs ψ ps (d.motChoiceAVs m ψ ps Tg) bodies d.nAll).map (interp V ρ)) := by
+  -- the three segments and their lengths
+  generalize hMs : d.motChoiceAVs m ψ ps Tg = Ms at hmin ⊢
+  have hMsLen : Ms.length = d.k := by rw [← hMs]; exact d.motChoiceAVs_length m ψ ps Tg
+  have hNsLen : (d.minChoiceAVs ψ ps Ms bodies d.nAll).length = d.nAll :=
+    d.minChoiceAVs_length ψ ps Ms bodies d.nAll
+  have hpreLen : (d.recPrefixAV m ψ).length = d.nP + d.k + d.nAll := d.recPrefixAV_length m ψ hpps
+  have hvalsLen : ((ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ)).length
+      = d.nP + d.k + d.nAll := by
+    rw [List.length_map, List.length_append, List.length_append, hps, hMsLen, hNsLen]
+  -- the tower's binder data are the prefix followed by the trailer
+  have hsplit := d.recDataAV_split m ψ t₀
+  -- the prefix, positionally
+  have hpreGet : ∀ n, n < d.nP + d.k + d.nAll →
+      (d.recPrefixAV m ψ)[n]? =
+        if n < d.nP then (rebit (d.bb ψ) ((d.ppsM 0 ψ).take d.nP))[n]?
+        else if n < d.nP + d.k then
+          some (0, d.bb ψ, (motiveAVP ((d.Ls m ψ).getD (n - d.nP) default) (d.pinsOf ψ (n - d.nP)) ψ
+            d.nP (d.nIdxs.getD (n - d.nP) 0) d.elimL ((d.ipss ψ).getD (n - d.nP) [])).liftN (n - d.nP) 0)
+        else ((d.cdsR ψ)[n - (d.nP + d.k)]?).map fun cd =>
+          (0, d.bb ψ, minorAVAtRMP (d.mems (n - (d.nP + d.k))) (d.tgtsR (n - (d.nP + d.k))) m cd.1
+            (d.pinsOf ψ (d.mems (n - (d.nP + d.k)))) ψ d.nP cd.2.1 (d.bb ψ) (d.k + (n - (d.nP + d.k)))
+            cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1) := by
+    intro n hn
+    unfold recPrefixAV
+    split
+    · next h =>
+      rw [List.getElem?_append_left (by rw [List.length_append, rebit_length, hpps]; omega),
+        List.getElem?_append_left (by rw [rebit_length, hpps]; exact h)]
+    · next h =>
+      split
+      · next h' =>
+        rw [List.getElem?_append_left (by
+            rw [List.length_append, rebit_length, hpps, motivesDataGoP_length, d.Ls_length]; exact h'),
+          List.getElem?_append_right (by rw [rebit_length, hpps]; omega), rebit_length, hpps,
+          motivesDataGoP_getElem? _ _ _ _ _ _ _ _ _ _ _ (by rw [d.Ls_length]; omega), Nat.zero_add]
+      · next h' =>
+        rw [List.getElem?_append_right (by
+            rw [List.length_append, rebit_length, hpps, motivesDataGoP_length, d.Ls_length]; omega),
+          List.length_append, rebit_length, hpps, motivesDataGoP_length, d.Ls_length,
+          fixMinorsDataMP_getElem?]
+  -- the values, positionally
+  have hvalGet : ∀ n, n < d.nP + d.k + d.nAll →
+      ((ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ))[n]? =
+        if n < d.nP then (ps.map (interp V ρ))[n]?
+        else if n < d.nP + d.k then (Ms.map (interp V ρ))[n - d.nP]?
+        else some (interp V ρ (d.minChoiceAV ψ ps Ms (d.minChoiceAVs ψ ps Ms bodies (n - (d.nP + d.k)))
+          (n - (d.nP + d.k)) (bodies (n - (d.nP + d.k))))) := by
+    intro n hn
+    rw [List.map_append, List.map_append]
+    split
+    · next h =>
+      rw [List.getElem?_append_left (by rw [List.length_append, List.length_map, List.length_map, hps]; omega),
+        List.getElem?_append_left (by rw [List.length_map, hps]; exact h)]
+    · next h =>
+      split
+      · next h' =>
+        rw [List.getElem?_append_left (by
+            rw [List.length_append, List.length_map, List.length_map, hps, hMsLen]; exact h'),
+          List.getElem?_append_right (by rw [List.length_map, hps]; omega), List.length_map, hps]
+      · next h' =>
+        rw [List.getElem?_append_right (by
+            rw [List.length_append, List.length_map, List.length_map, hps, hMsLen]; omega),
+          List.length_append, List.length_map, List.length_map, hps, hMsLen, List.getElem?_map,
+          d.minChoiceAVs_getElem? ψ ps Ms bodies d.nAll _ (by omega)]
+        rfl
+  -- the prefixes of the values
+  have hvalTakeP : ∀ n, n ≤ d.nP →
+      ((ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ)).take n
+        = (ps.map (interp V ρ)).take n := by
+    intro n hn
+    rw [List.map_append, List.map_append, List.take_append_of_le_length (by
+      rw [List.length_append, List.length_map, hps]; omega),
+      List.take_append_of_le_length (by rw [List.length_map, hps]; exact hn)]
+  have hvalTakeM : ∀ t, t ≤ d.k →
+      ((ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ)).take (d.nP + t)
+        = ps.map (interp V ρ) ++ (Ms.map (interp V ρ)).take t := by
+    intro t ht
+    rw [List.map_append, List.map_append, List.append_assoc,
+      show d.nP + t = (ps.map (interp V ρ)).length + t from by rw [List.length_map, hps],
+      List.take_length_add_append, List.take_append_of_le_length (by
+        rw [List.length_map, hMsLen]; exact ht)]
+  have hvalTakeN : ∀ J, J ≤ d.nAll →
+      ((ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ)).take (d.nP + d.k + J)
+        = (ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies J).map (interp V ρ) := by
+    intro J hJ
+    rw [List.map_append, List.map_append, List.map_append, List.map_append,
+      show d.nP + d.k + J = (ps.map (interp V ρ) ++ Ms.map (interp V ρ)).length + J from by
+        rw [List.length_append, List.length_map, List.length_map, hps, hMsLen],
+      List.take_length_add_append, ← List.map_take, d.minChoiceAVs_take ψ ps Ms bodies d.nAll J hJ]
+  generalize hvals : (ps ++ Ms ++ d.minChoiceAVs ψ ps Ms bodies d.nAll).map (interp V ρ) = vals
+    at hvalsLen hvalGet hvalTakeP hvalTakeM hvalTakeN ⊢
+  -- the induction over the positions
+  have hupto : ∀ n, n ≤ d.nP + d.k + d.nAll →
+      SpineFit ρ (((d.recPrefixAV m ψ).map (·.2.2)).take n) (vals.take n) := by
+    intro n
+    induction n with
+    | zero => intro _; exact trivial
+    | succ n ih =>
+      intro hn
+      have hfit := ih (by omega)
+      -- the binder's grading at the fit
+      have hgr : ∀ D, (d.recPrefixAV m ψ)[n]? = some D →
+          WellDenotedV V (consList (vals.take n) ρ) D.2.2 := by
+        intro D hD
+        have hD' : (d.recDataAV m ψ t₀)[n]? = some D := by
+          rw [hsplit, List.getElem?_append_left (by rw [hpreLen]; omega)]; exact hD
+        have hfit' : SpineFit ρ (((d.recDataAV m ψ t₀).take n).map (·.2.2)) (vals.take n) := by
+          rw [hsplit, List.take_append_of_le_length (by rw [hpreLen]; omega), List.map_take]
+          exact hfit
+        exact ⟨wellDenoted_mkPisAV_dom hTower.1 _ n D hD' hfit',
+          annotValid_mkPisAV_dom hTower.2 _ n D hD' hfit'⟩
+      rcases Nat.lt_or_ge n d.nP with h | h
+      · -- a parameter
+        obtain ⟨D, hD⟩ : ∃ D, (rebit (d.bb ψ) ((d.ppsM 0 ψ).take d.nP))[n]? = some D :=
+          ⟨_, List.getElem?_eq_getElem (by rw [rebit_length, hpps]; exact h)⟩
+        obtain ⟨v, hv⟩ : ∃ v, (ps.map (interp V ρ))[n]? = some v :=
+          ⟨_, List.getElem?_eq_getElem (by rw [List.length_map, hps]; exact h)⟩
+        refine spineFit_take_succ (F := D.2.2) (v := v) ?_ ?_ hfit ?_
+        · rw [List.getElem?_map, hpreGet n (by omega), if_pos h, hD]; rfl
+        · rw [hvalGet n (by omega), if_pos h, hv]
+        · rw [hvalTakeP n (by omega)]
+          exact spineFit_getElem? hparams n v D.2.2 hv (by rw [List.getElem?_map, hD]; rfl)
+      · rcases Nat.lt_or_ge n (d.nP + d.k) with h' | h'
+        · -- a motive
+          obtain ⟨t, rfl⟩ : ∃ t, n = d.nP + t := ⟨n - d.nP, by omega⟩
+          have ht : t < d.k := by omega
+          have hpre' : (d.recPrefixAV m ψ)[d.nP + t]? = some (0, d.bb ψ,
+              (motiveAVP ((d.Ls m ψ).getD t default) (d.pinsOf ψ t) ψ d.nP (d.nIdxs.getD t 0)
+                d.elimL ((d.ipss ψ).getD t [])).liftN t 0) := by
+            rw [hpreGet _ (by omega), if_neg (by omega), if_pos h', Nat.add_sub_cancel_left]
+          have hvt : (Ms.map (interp V ρ))[t]? = some (interp V ρ (d.motChoiceAV m ψ ps Tg t)) := by
+            rw [← hMs]; simp [motChoiceAVs, List.getElem?_range ht]
+          have hval' : vals[d.nP + t]? = some (interp V ρ (d.motChoiceAV m ψ ps Tg t)) := by
+            rw [hvalGet _ (by omega), if_neg (by omega), if_pos h', Nat.add_sub_cancel_left, hvt]
+          refine spineFit_take_succ (F := (motiveAVP ((d.Ls m ψ).getD t default) (d.pinsOf ψ t) ψ
+              d.nP (d.nIdxs.getD t 0) d.elimL ((d.ipss ψ).getD t [])).liftN t 0) ?_ hval' hfit ?_
+          · rw [List.getElem?_map, hpre']; rfl
+          · have hsh : shiftE t 0 (consList ((Ms.map (interp V ρ)).take t)
+                (consList (ps.map (interp V ρ)) ρ)) = consList (ps.map (interp V ρ)) ρ := by
+              have hlt : ((Ms.map (interp V ρ)).take t).length = t := by
+                rw [List.length_take, List.length_map, hMsLen]; omega
+              have := shiftE_consList ((Ms.map (interp V ρ)).take t) (consList (ps.map (interp V ρ)) ρ)
+              rw [hlt] at this
+              exact this
+            have hwd := hgr _ hpre'
+            rw [hvalTakeM t (by omega), consList_append] at hwd ⊢
+            rw [interp_liftN, hsh]
+            obtain ⟨hwd1, hwd2⟩ := hwd
+            rw [WellDenoted_liftN, hsh] at hwd1
+            rw [AnnotValid_liftN, hsh] at hwd2
+            exact d.motChoiceAV_mem m hps (hipsLen t ht) ⟨hwd1, hwd2⟩ (hTg t ht)
+        · -- a minor
+          obtain ⟨J, rfl⟩ : ∃ J, n = d.nP + d.k + J := ⟨n - (d.nP + d.k), by omega⟩
+          have hJ : J < d.nAll := by omega
+          obtain ⟨cd, hcd⟩ : ∃ cd, (d.cdsR ψ)[J]? = some cd :=
+            ⟨_, List.getElem?_eq_getElem (by rw [d.cdsR_length]; exact hJ)⟩
+          obtain ⟨C, nF, ds, Es, recIdx, Eiss, tls⟩ := cd
+          have hpre' : (d.recPrefixAV m ψ)[d.nP + d.k + J]? = some (0, d.bb ψ,
+              minorAVAtRMP (d.mems J) (d.tgtsR J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.bb ψ)
+                (d.k + J) ds Es recIdx tls Eiss) := by
+            rw [hpreGet _ (by omega), if_neg (by omega), if_neg (by omega), Nat.add_sub_cancel_left,
+              hcd]
+            rfl
+          have hval' : vals[d.nP + d.k + J]? = some (interp V ρ (d.minChoiceAV ψ ps Ms
+              (d.minChoiceAVs ψ ps Ms bodies J) J (bodies J))) := by
+            rw [hvalGet _ (by omega), if_neg (by omega), if_neg (by omega), Nat.add_sub_cancel_left]
+          obtain ⟨hds, hmot, hrec, hfield, hEs, hleaf⟩ := hmin J hJ C nF ds Es recIdx Eiss tls hcd
+          refine spineFit_take_succ (F := minorAVAtRMP (d.mems J) (d.tgtsR J) m C
+              (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.bb ψ) (d.k + J) ds Es recIdx tls Eiss)
+            ?_ hval' hfit ?_
+          · rw [List.getElem?_map, hpre']; rfl
+          · have hwd := hgr _ hpre'
+            rw [hvalTakeN J (by omega)] at hwd ⊢
+            rw [← hMs] at hwd hleaf ⊢
+            exact d.minChoiceAV_mem m hps hk hipsLen hcd hds hmot hrec
+              (d.minChoiceAVs_length ψ ps _ bodies J) hwd hfield hEs hleaf
+  have := hupto (d.nP + d.k + d.nAll) (Nat.le_refl _)
+  rw [List.take_of_length_le (by rw [List.length_map, hpreLen]; exact Nat.le_refl _),
+    List.take_of_length_le (by rw [hvalsLen]; exact Nat.le_refl _)] at this
+  exact this
+
 end IndRepData
 
 end ConLeche.Model
