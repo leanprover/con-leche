@@ -84,8 +84,9 @@ equation of the two sides' denotations.
   for the fold.  All three fail in the same error type — the checker's
   `CheckError` paired with the position of the failure, which is the
   input's line number in the frontend's half and the fold position in
-  the fold's — so the chain is one `Except` `do` block and
-  `matches .error _` says it never yields an environment.
+  the fold's — so the chain is one `Except` `do` block, and
+  `.isOk = false` says it does not succeed — it never yields an
+  environment.
 * `False` is built in: the checker installs it from its own pin, and a
   stream that declares `False` or `False.rec` differently is rejected,
   so the conclusion needs no hypothesis about the input beyond its
@@ -120,7 +121,7 @@ theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds) matches .error _ :=
+      checkDecls .verified ds).isOk = false :=
   sorry
 
 end ConLeche

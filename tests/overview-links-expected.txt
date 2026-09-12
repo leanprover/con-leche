@@ -51,7 +51,7 @@
     94        let pre ← builtinPreludeE
     95        let r ← parseChunks chunks
     96        let ds := preparePrelude pre r.decls
-    97        checkDecls .verified ds) matches .error _ := by
+    97        checkDecls .verified ds).isOk = false := by
 
 == ConLeche/Accepts.lean#L54-L65
     54  def hasProofOfFalse (chunks : List ByteArray) : Prop :=

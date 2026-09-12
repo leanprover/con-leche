@@ -57,7 +57,7 @@ different things and neither implies the other.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks whose bytes match the `hasProofOfFalse` template — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type — are never accepted by the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) — the chain `matches .error _` |
+| `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks whose bytes match the `hasProofOfFalse` template — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type — are never accepted by the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) — the chain's `.isOk` is `false` |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |

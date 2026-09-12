@@ -21,7 +21,7 @@ all this file holds.  The corollary's statement is the binary's accept
 path itself: the three pure functions the driver's phases compute,
 chained — the built-in prelude parses, the chunks parse, the verified
 fold accepts the parsed records prepared with the prelude — and that
-chain is an error.  The steps between are imported: the parser reads
+chain does not succeed.  The steps between are imported: the parser reads
 such chunks into records holding a theorem record of type `False`
 (`Frontend.parseChunks_hasProofOfFalse`), the preparation keeps every
 parsed record (`Frontend.mem_preparePrelude`), and a stream holding
@@ -51,7 +51,7 @@ denotation — in `ConLeche/Denotes.lean`.
   `CheckError` with the position of the failure (the input's line
   number for the first two, the fold position for the fold) — so the
   chain is a plain `Except` `do` block with no conversion in it, and
-  the conclusion is that it is an error.
+  the conclusion is that it does not succeed.
 * `Declaration` is a parsed declaration, and the records travel as an
   `Array` of them — what the parse returns and what the fold folds;
   `Env` is the environment the checker builds; `env.consts` are the
@@ -94,15 +94,11 @@ theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds) matches .error _ := by
-  split
-  · rfl
-  · next hne =>
-    obtain ⟨env, hacc⟩ := Except.exists_ok hne
-    obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
-    obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
-    obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
-    exact (no_False_theorem_accepted V _ cv vl
-      (Frontend.mem_preparePrelude hmem) hty env hcheck).elim
+      checkDecls .verified ds).isOk = false := by
+  refine Except.isOk_eq_false fun env hacc => ?_
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 
 end ConLeche

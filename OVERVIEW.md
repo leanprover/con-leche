@@ -132,13 +132,14 @@ The main corollary,
 > expression, four lines in the exporter's own shapes with any bytes at
 > all before, between and after them — then the chain "the built-in
 > prelude parses; the chunks parse; `checkDecls` accepts the parsed
-> records prepared with the prelude" is an error.
+> records prepared with the prelude" does not succeed.
 
 The statement's chain is the binary's accept path: the three pure
 functions the driver's phases compute — `Frontend.builtinPreludeE`,
 `Frontend.parseChunks chunks`, `checkDecls .verified` over
-`Frontend.preparePrelude` — written as one `do` block and concluded
-with `matches .error _`. There is one conversion nowhere in it: the
+`Frontend.preparePrelude` — written as one `do` block whose conclusion
+is `.isOk = false`: the chain does not succeed. There is one conversion
+nowhere in it: the
 three steps fail in the same type, the checker's own `CheckError`
 paired with the position of the failure, which is the input's line
 number in the frontend's half and the record's position in the fold's.

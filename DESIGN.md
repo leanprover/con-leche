@@ -70673,7 +70673,8 @@ Two maintainer rulings, one task.
 1. *"Still not happy with `no_False_declaration`.  The `toOption` is
    too noisy.  How different are the error types?  Also, the
    quantifier to prove that it is `.err` is noisy.  Better write
-   `… matches .error _` (or `!….isOk`)."*  Answer to the question in
+   `… matches .error _` (or `!….isOk`)."*  The `isOk` form is the one
+   that landed (§2 says why).  Answer to the question in
    the middle: **not different at all.**  `FrontendError`'s
    `parseError`/`unsupported`/`invalid` and `CheckError`'s
    `internal`/`notImplemented`/`invalid` were the same three verdict
@@ -70700,45 +70701,46 @@ theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds) matches .error _ := by
-  split
-  · rfl
-  · next hne =>
-    obtain ⟨env, hacc⟩ := Except.exists_ok hne
-    obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
-    obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
-    obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
-    exact (no_False_theorem_accepted V _ cv vl
-      (Frontend.mem_preparePrelude hmem) hty env hcheck).elim
+      checkDecls .verified ds).isOk = false := by
+  refine Except.isOk_eq_false fun env hacc => ?_
+  obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
+  obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
+  obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_hasProofOfFalse h hparse
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 ```
 
-**`matches` elaborates, and what it elaborates to matters for the
-proof.**  `x matches .error _` is a `Bool`; in statement position the
-`Bool → Prop` coercion makes it `(match x with | .error _ => true | _
-=> false) = true`, with a matcher generated for the declaration
-(`no_False_declaration.match_1`).  That matcher is what rules out the
-obvious proof: a general lemma `(x matches .error _) ↔ ∀ a, x ≠ .ok a`
-carries its OWN matcher, and `apply`/`refine`/`simp` cannot unify the
-two through a metavariable scrutinee (tried; the error prints the two
-sides identically and still fails).  What works is `split` — it cases
-the goal's own matcher — plus one tiny lemma for the catch-all branch,
-where `split` hands `hne : ∀ e, chain ≠ .error e` rather than the
-positive equation:
+with the one lemma the first step needs
+(`ConLeche/Verify/ExceptBind.lean`, replacing `Except.toOption_eq_some_iff`,
+which nothing else used):
 
 ```lean
-theorem Except.exists_ok {ε α : Type} {x : Except ε α} (h : ∀ e, x ≠ .error e) :
-    ∃ a, x = .ok a
+theorem Except.isOk_eq_false {ε α : Type} {x : Except ε α} (h : ∀ a, x ≠ .ok a) :
+    x.isOk = false
 ```
 
-(`ConLeche/Verify/ExceptBind.lean`, replacing `Except.toOption_eq_some_iff`,
-which nothing else used.)  The alternative the maintainer offered,
-`!(…).isOk`, needs no `split` and no matcher — a one-line `refine`
-through a helper does it, and the elaborated statement is
-`(!Except.isOk …) = true` instead of a matcher application.  `matches`
-was kept because it reads better in the source, which is the thing the
-ruling was about; the matcher is visible only in `#check @…` output
-(the challenge gate's, where BOTH halves generate the same matcher
-name and the comparison passes).
+**Why the `isOk` spelling and not `matches`.**  Both were written and
+both elaborate; the maintainer offered either.  `x matches .error _`
+is a `Bool`, and in statement position the `Bool → Prop` coercion makes
+it `(match x with | .error _ => true | _ => false) = true` — **with a
+matcher generated for the declaration**, `no_False_declaration.match_1`.
+That matcher is then part of the advertised statement (it shows up in
+the challenge gate's `#check @…` output, where both halves happen to
+generate the same name, so the comparison passes), and it blocks the
+tidy proof: a general lemma `(x matches .error _) ↔ ∀ a, x ≠ .ok a`
+carries its OWN matcher, and `apply`/`refine`/`simp` cannot unify the
+two through a metavariable scrutinee — the error prints the two sides
+identically and still fails.  The `matches` proof therefore has to
+`split` on the goal's own matcher and then recover the positive fact
+from what `split` hands the catch-all branch (`∀ e, chain ≠ .error e`)
+through a second lemma: four lines of scaffolding for a statement
+respelling.  `.isOk = false` needs none of it — it is already a `Prop`
+(no coercion, hence no `= true` either), the proof is one `refine`
+through one lemma, and the elaborated statement is
+`Except.isOk (…) = false`.  The maintainer's literal alternative
+`!(…).isOk` proves in exactly the same length but reintroduces the
+`= true`.  Ruling (the maintainer, relayed): take the `isOk` form — a
+`split`/`next` dance over a generated matcher is exactly what this
+file's style rule forbids.
 
 The pure `let` prints as `have ds := …` in the elaborated statement —
 `ds` is used once and nothing depends on its value.
@@ -70846,15 +70848,15 @@ except for the two code blocks, which now read:
 >       let pre ← builtinPreludeE
 >       let r ← parseChunks chunks
 >       let ds := preparePrelude pre r.decls
->       checkDecls .verified ds) matches .error _
+>       checkDecls .verified ds).isOk = false
 > ```
 >
 > The three steps fail in one error type — the checker's own
 > `CheckError` with the position of the failure, which is the input's
 > line number in the parser's half and the record's position in the
 > fold's — so the chain is one plain `do` block and the conclusion is
-> simply that it is an error.  The records travel as an `Array`, which
-> is what the parse returns and what the fold folds.
+> simply that it does not succeed.  The records travel as an `Array`,
+> which is what the parse returns and what the fold folds.
 
 and, in "### The Main Theorem":
 

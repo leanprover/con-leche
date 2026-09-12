@@ -23,14 +23,13 @@ theorem exceptBind_ok {ε α β : Type} {x : Except ε α} {f : α → Except ε
   | error e => exact absurd h (by simp [bind, Except.bind])
   | ok a => exact ⟨a, rfl, h⟩
 
-/-- An `Except` that is no error is an `ok`.  The main corollary's
-`… matches .error _` splits into the two cases, and this is what the
-second one hands the argument: the environment the chain would have
-returned. -/
-theorem Except.exists_ok {ε α : Type} {x : Except ε α} (h : ∀ e, x ≠ .error e) :
-    ∃ a, x = .ok a := by
+/-- An `Except` that returns nothing is no `ok`.  This is how the main
+corollary's conclusion — the chain of the binary's three steps does not
+succeed — is reduced to the argument that it returns no environment. -/
+theorem Except.isOk_eq_false {ε α : Type} {x : Except ε α} (h : ∀ a, x ≠ .ok a) :
+    x.isOk = false := by
   cases x with
-  | error e => exact absurd rfl (h e)
-  | ok a => exact ⟨a, rfl⟩
+  | error e => rfl
+  | ok a => exact absurd rfl (h a)
 
 end ConLeche

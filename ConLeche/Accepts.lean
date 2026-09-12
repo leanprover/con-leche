@@ -25,7 +25,7 @@ three functions of the binary's accept path (`builtinPreludeE`,
 The main corollary `no_False_declaration` (`ConLeche/Challenge.lean`)
 then reads: for chunks that match the template, the chain of the three
 functions — one `Except` `do` block, the three steps failing in one
-error type — is an error.
+error type — does not succeed.
 -/
 
 namespace ConLeche
