@@ -59,7 +59,7 @@ mode.  See README.md.
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (DeclC checkDecls)
+open ConLeche.Cached (DeclC ExprC checkDecls)
 
 universe w
 
@@ -77,6 +77,14 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
     (accepted : checkDecls .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
+  sorry
+
+/-- **The main corollary, at the stream.**  A stream that declares a
+theorem of type `False` is never accepted. -/
+theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+    (ds : List DeclC) (cv : ConstantVal) (v : ExprC)
+    (hmem : DeclC.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+    ∀ env, checkDecls .verified ds ≠ .ok env :=
   sorry
 
 end ConLeche
