@@ -5,6 +5,8 @@ public import ConLeche.Model.Steps.IotaKit
 import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.FixRuleKit
+import ConLeche.Model.Inductives.MutualRecTyping
+import ConLeche.Model.Inductives.FixRecFrames
 public section
 
 /-!
@@ -1259,5 +1261,61 @@ theorem choice_prefix_fit (m : EnvModel V env) {ψ : Name → Nat} {ps : List An
   exact this
 
 end IndRepData
+
+/-! ## ι at the choice -/
+
+/-- **A λ-tower over a telescope inhabits the nested product** over the
+same telescope when its body lands in the product's body at every
+fitting tuple. -/
+theorem lamTower_mem_piTele {b : Nat} {g : (Nat → V) → V} {B : List V → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V} {acc : List V},
+      (∀ as, FitsS (teleOfFields σ (ds.map (·.2.2))) as → g (consList as σ) ∈ˢ B (acc ++ as)) →
+      lamTower b σ ds g ∈ˢ piTele b (teleOfFields σ (ds.map (·.2.2))) B acc
+  | [], σ, acc, h => by
+    have := h [] trivial
+    rw [List.append_nil] at this
+    exact this
+  | d :: ds, σ, acc, h => by
+    show lamR b (interp V σ d.2.2) (fun a => lamTower b (cons a σ) ds g)
+      ∈ˢ piR b (interp V σ d.2.2)
+        (fun a => piTele b (teleOfFields (cons a σ) (ds.map (·.2.2))) B (acc ++ [a]))
+    refine lamR_mem fun a ha => ?_
+    refine lamTower_mem_piTele fun as hfit => ?_
+    have := h (a :: as) ⟨ha, hfit⟩
+    rwa [List.append_cons, consList_cons] at this
+
+/-- The recursor's conclusion at the fired frame: the member's motive at
+the index values and the major. -/
+theorem interp_mutualConcAV_frame {k n nIdx mm : Nat} {ρ : Nat → V} {ps Ms Ns is : List V} {x : V}
+    (hlenK : Ms.length = k) (hlenM : Ns.length = n) (hlenI : is.length = nIdx) (hmm : mm < k) :
+    interp V (consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ) (mutualConcAV k n nIdx mm)
+      = SetTheory.app (is.foldl SetTheory.app (Ms.getD mm pt)) x := by
+  unfold mutualConcAV
+  rw [interp_app, interp_bvar, interp_mkAppN_map, interp_bvar]
+  have hfr : consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ
+      = consList (Ns ++ is ++ [x]) (consList Ms (consList ps ρ)) := by
+    rw [← consList_append, ← consList_append]
+    simp only [List.append_assoc]
+  have h0 : consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ 0 = x := by
+    rw [consList_append, consList_cons, consList_nil, cons_zero]
+  have hidx : (idxVarsAV nIdx 1).map (interp V (consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ)) = is := by
+    rw [map_idxVarsAV_interp (ρ₀ := consList (ps ++ Ms ++ Ns ++ is) ρ) (by
+        show shiftE 1 0 (consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ) = _
+        rw [consList_append (ys := [x]), consList_cons, consList_nil]
+        funext i; simp [shiftE]),
+      ← hlenI, consList_append (xs := ps ++ Ms ++ Ns) (ys := is), frameIdx_consList']
+  have hmot : consList (ps ++ Ms ++ Ns ++ is ++ [x]) ρ (1 + nIdx + n + k - 1 - mm) = Ms.getD mm pt := by
+    rw [hfr, show 1 + nIdx + n + k - 1 - mm = (Ns ++ is ++ [x]).length + Ms.length - 1 - mm from by
+        simp [hlenK, hlenM, hlenI]; omega,
+      consList_motive_apply (by rw [hlenK]; exact hmm)]
+  rw [h0, hidx, hmot]
+
+/-- One member's recursor tower is graded (`type_wellDenotedV` at
+`RecReadAt`'s type reading). -/
+theorem RecReadAt.tower_wellDenotedV {μ : CheckMode} (mp : EnvModelM V μ env) {d : IndRepData V}
+    {lps : List Name} {t : Nat} (hR : RecReadAt mp.base2 d lps t) (ψ : Name → Nat) (ρ : Nat → V) :
+    WellDenotedV V ρ (mkPisAV (d.recDataAV mp.base2 ψ t) (mutualConcAV d.k d.nAll (d.nIdxAt t) t)) := by
+  obtain ⟨cvR', mI', rP', rules', hfind, -, -, -, hread, -, -, -⟩ := hR
+  exact mp.type_wellDenotedV _ (Env.find?_mem hfind) ψ _ (hread ψ) ρ
 
 end ConLeche.Model
