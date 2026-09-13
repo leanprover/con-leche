@@ -243,9 +243,6 @@ structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
       (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
       (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd)) (d.invUseIh p.k)
 
-/-- The datum re-sorted. -/
-@[expose] def IndRepData.withSort (d : IndRepData V) (s : Level) : IndRepData V := {d with resSort := s}
-
 /-- **ψ⁻¹'s fold term** at aux member `t`: the member's recursor at the
 choice `invL`/`invPinsT`/`invHead`/`invUseIh`, the parameters the
 parameter variables, at the datum re-sorted to `s`. -/
@@ -1497,7 +1494,8 @@ theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
   have hfields := hrep'.chainFit_fields (cd j).ψ' hsat hX htup hJlt ⟨hlen, hchainFit, hall⟩
   -- the fields fit the real domains, with the induction hypotheses
   have hfacts := R.ctor_facts tbl₀ hρ hj hJ
-  obtain ⟨hfit, hIH⟩ := fieldsFit_of_chainFit hrepT hsat rfl hDsFit hDsLen hJ hC htgts (hfin J)
+  obtain ⟨hfit, hIH⟩ := fieldsFit_of_chainFit (IndRepData.RepsAt.of_single hrepT) hsat rfl hDsFit hDsLen hJ hC
+    htgts (hfin J)
     (fun i hi => hfacts.2 i (hfin J i hi).1) hlen hfields
   have hO := howed J cA hJ
   have hvsN : fs.length = cA.2 := by

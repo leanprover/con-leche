@@ -59,6 +59,43 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
+/-! ## The members' representations at their own spellings of the sort -/
+
+/-- The datum re-sorted. -/
+@[expose] def IndRepData.withSort (d : IndRepData V) (s : Level) : IndRepData V := {d with resSort := s}
+
+omit [SetTheory V] in
+theorem IndRepData.withSort_w (d : IndRepData V) (s : Level) (ψ : Name → Nat) :
+    (d.withSort s).w ψ = s.eval ψ := rfl
+
+/-- **The block's members represented, each at its OWN spelling of the
+block's sort** (task #279 M-C′ step 5): `MutualBlockReps`' shape — a
+member's `IndRep` pins the member's stored sort syntactically (`strip`,
+`former`, `ctors`), so a mutual block's members are represented at
+`{d with resSort := s_t}` with value-equal `s_t`, never at one datum;
+the round trips' inductions consume only the clauses that depend on
+the sort through its VALUE (`w`). -/
+@[expose] def IndRepData.RepsAt (d : IndRepData V) (m : EnvModel V env) : Prop :=
+  ∀ t, t < d.k → ∃ (s : Level) (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    (∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) ∧
+    IndRep m (d.memberName t) cvT cvR mI rP rules (d.withSort s) t
+
+/-- Representations at ONE datum are representations at the members'
+own spellings (the datum's own). -/
+theorem IndRepData.RepsAt.of_single {d : IndRepData V} {m : EnvModel V env}
+    (h : ∀ t, t < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      IndRep m (d.memberName t) cvT cvR mI rP rules d t) : d.RepsAt m := by
+  intro t ht
+  obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := h t ht
+  exact ⟨d.resSort, cvT, cvR, mI, rP, rules, fun _ => rfl, hrep⟩
+
+/-- **A carrier restricted to a predicate**: the family whose fibre at
+a tuple is the least fixed point's fibre cut down to `P` — what the
+round trips' inductions chain-fit at. -/
+@[expose] noncomputable def predFam (d : IndRepData V) (ψ : Name → Nat) (σ : Nat → V)
+    (P : V → V → Prop) : V :=
+  graph (fun i => sep (SetTheory.app (lfpFamSet (d.w ψ) (d.idx ψ σ) (d.Φ ψ σ)) i) (P i)) (d.idx ψ σ)
+
 /-! ## The statement per group, and the induction predicate -/
 
 /-- **R2 per GROUP**: the container-side round trip at every member `t`
@@ -84,8 +121,7 @@ frame ψ⁻¹'s terms read at. -/
 `carrier_induction` chain-fits at). -/
 @[expose] noncomputable def r2Fam (dJ : IndRepData V) (ψ' : Name → Nat) (ρ σ₀ σ : Nat → V)
     (Ψ Φ : Nat → AnnotTerm) : V :=
-  graph (fun i => sep (SetTheory.app (lfpFamSet (dJ.w ψ') (dJ.idx ψ' σ) (dJ.Φ ψ' σ)) i)
-    (R2Pred dJ ψ' ρ σ₀ σ Ψ Φ i)) (dJ.idx ψ' σ)
+  predFam dJ ψ' σ (R2Pred dJ ψ' ρ σ₀ σ Ψ Φ)
 
 /-- **R2 per group from the step**: every member's `R2At` is the
 predicate at its own tuple, by `carrier_induction` at that member. -/
@@ -219,9 +255,10 @@ tuple, `slotRecover`; the fibre of the least fixed point is the leaf,
 `leaf`) and satisfies the predicate at that tuple
 (`mem_restrictedFam`). -/
 theorem slot_finitary {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Name → Nat}
-    {ρ σ₀ σ : Nat → V} {Ψ Φ : Nat → AnnotTerm}
-    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {tgt : Nat}
-    (hrep : IndRep m T cvT cvR mI rP rules dJ tgt)
+    {σ₀ σ : Nat → V} {P : V → V → Prop}
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {tgt : Nat} {s : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = dJ.resSort.eval φ)
+    (hrep : IndRep m T cvT cvR mI rP rules (dJ.withSort s) tgt)
     (hsat : Sat V (dJ.params ψ').reverse σ)
     {DsAv : List V} (hσ : σ = consList DsAv σ₀) (hDsFit : SpineFit σ₀ (dJ.params ψ') DsAv)
     {J i : Nat} {cA : ConstantVal × Nat} (hJ : dJ.ctorsA[J]? = some cA)
@@ -233,27 +270,33 @@ theorem slot_finitary {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Name → N
       (((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ))))
     {f : V}
     (hf : f ∈ˢ slotSet (dJ.w ψ') (dJ.u ψ') (consList ws σ) (((dJ.tlss ψ').getD J []).getD i [])
-      (((dJ.Eiss ψ').getD J []).getD i []) (r2Fam dJ ψ' ρ σ₀ σ Ψ Φ)) :
+      (((dJ.Eiss ψ').getD J []).getD i []) (predFam dJ ψ' σ P)) :
     f ∈ˢ (DsAv ++ ((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ))).foldl SetTheory.app
         (interp V σ₀ (m.acval T ψ')) ∧
-      R2Pred dJ ψ' ρ σ₀ σ Ψ Φ
-        (dJ.tup ψ' tgt (((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ)))) f := by
+      P (dJ.tup ψ' tgt (((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ)))) f := by
   have hJlt : J < dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
   have htlD : ((dJ.tlss ψ').getD J []).getD i [] = [] := by rw [dJ.tlss_getD ψ' hJ, htl]
   rw [htlD, slotSet_nil] at hf
   have hshift : shiftE (i + ((dJ.tssF J ψ').getD i []).length) 0 (consList ws σ) = σ := by
     rw [htl, List.length_nil, Nat.add_zero, ← hws]
     exact shiftE_consList _ _
-  have hslot := hrep.slotRecover ψ' σ hsat J i hJlt hrec (consList ws σ) hshift hEok
-    (by rw [htgt]; exact hEfit)
+  -- the sorted datum's clauses, at the datum (they mention the sort
+  -- only through `w`)
+  have hslot : tupW (dJ.u ψ') ((((dJ.Eiss ψ').getD J []).getD i []).map (interp V (consList ws σ)))
+      = dJ.tup ψ' (dJ.tgts J i) (((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ))) :=
+    hrep.slotRecover ψ' σ hsat J i hJlt hrec (consList ws σ) hshift hEok
+      (show SpineFit σ (dJ.IdsM (dJ.tgts J i) ψ') _ by rw [htgt]; exact hEfit)
   rw [htgt] at hslot
   rw [hslot] at hf
-  have htup := hrep.tupMem ψ' σ hsat _ hEfit
-  unfold r2Fam at hf
+  have htup : dJ.tup ψ' tgt (((dJ.eissF J ψ').getD i []).map (interp V (consList ws σ))) ∈ˢ dJ.idx ψ' σ :=
+    hrep.tupMem ψ' σ hsat _ hEfit
+  unfold predFam at hf
   rw [mem_restrictedFam htup] at hf
   obtain ⟨hf1, hf2⟩ := hf
   refine ⟨?_, hf2⟩
-  rw [hrep.leaf ψ' σ₀ DsAv _ hDsFit (by rw [← hσ]; exact hEfit), ← hσ]
+  have hleaf := hrep.leaf ψ' σ₀ DsAv _ hDsFit (by rw [← hσ]; exact hEfit)
+  rw [dJ.withSort_w, hs ψ'] at hleaf
+  rw [hleaf, ← hσ]
   exact hf1
 
 /-- **A recursive entry's reading** at the field's frame: the target
@@ -292,9 +335,8 @@ hypothesis at the target's tuple.  The recursive entries' readings are
 graded and fit the target's telescope at any fitting prefix
 (`hEntry`; from the constructor's grading, `idxFit_of_entry`). -/
 theorem fieldsFit_of_chainFit {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Name → Nat}
-    {ρ σ₀ σ : Nat → V} {Ψ Φ : Nat → AnnotTerm}
-    (hrepT : ∀ t, t < dJ.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      IndRep m (dJ.memberName t) cvT cvR mI rP rules dJ t)
+    {σ₀ σ : Nat → V} {P : V → V → Prop}
+    (hrepT : dJ.RepsAt m)
     (hsat : Sat V (dJ.params ψ').reverse σ)
     {DsAv : List V} (hσ : σ = consList DsAv σ₀) (hDsFit : SpineFit σ₀ (dJ.params ψ') DsAv)
     (hDsLen : DsAv.length = dJ.nP)
@@ -314,12 +356,11 @@ theorem fieldsFit_of_chainFit {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Na
     (hfields : ∀ (i : Nat) (F : AnnotTerm), ((dJ.Fss ψ').getD J [])[i]? = some F → ∀ f, fs[i]? = some f →
       ((dJ.rss.getD J []).getD i false = true →
         f ∈ˢ slotSet (dJ.w ψ') (dJ.u ψ') (consList (fs.take i) σ) (((dJ.tlss ψ').getD J []).getD i [])
-          (((dJ.Eiss ψ').getD J []).getD i []) (r2Fam dJ ψ' ρ σ₀ σ Ψ Φ)) ∧
+          (((dJ.Eiss ψ').getD J []).getD i []) (predFam dJ ψ' σ P)) ∧
       ((dJ.rss.getD J []).getD i false = false → f ∈ˢ interp V (consList (fs.take i) σ) F)) :
     SpineFit σ ((dJ.Fss ψ').getD J []) fs ∧
     ∀ i, i ∈ ConLeche.recIdxOf (dJ.ksF J) →
-      R2Pred dJ ψ' ρ σ₀ σ Ψ Φ
-        (dJ.tup ψ' (dJ.tgts J i) (((dJ.eissF J ψ').getD i []).map (interp V (consList (fs.take i) σ))))
+      P (dJ.tup ψ' (dJ.tgts J i) (((dJ.eissF J ψ').getD i []).map (interp V (consList (fs.take i) σ))))
         (fs.getD i pt) := by
   have hJlt : J < dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
   obtain ⟨-, -, hD⟩ := hC
@@ -333,8 +374,7 @@ theorem fieldsFit_of_chainFit {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Na
       fs[n]? = some f → SpineFit σ (((dJ.Fss ψ').getD J []).take n) (fs.take n) →
       f ∈ˢ interp V (consList (fs.take n) σ) F ∧
       (n ∈ ConLeche.recIdxOf (dJ.ksF J) →
-        R2Pred dJ ψ' ρ σ₀ σ Ψ Φ
-          (dJ.tup ψ' (dJ.tgts J n)
+        P (dJ.tup ψ' (dJ.tgts J n)
             (((dJ.eissF J ψ').getD n []).map (interp V (consList (fs.take n) σ))))
           f) := by
     intro n F f hF hf hpre
@@ -357,8 +397,8 @@ theorem fieldsFit_of_chainFit {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Na
       have hslot := (hfields n F hF f hf).1 hrec
       rw [hFs] at hpre
       obtain ⟨hEok, hEfit⟩ := hEntry n hr (fs.take n) htake hpre
-      obtain ⟨cvT', cvR', mI', rP', rules', hrep'⟩ := hrepT _ (htgts n)
-      have h := slot_finitary hrep' hsat hσ hDsFit hJ rfl hrec htl htake hEok hEfit hslot
+      obtain ⟨s', cvT', cvR', mI', rP', rules', hs', hrep'⟩ := hrepT _ (htgts n)
+      have h := slot_finitary hs' hrep' hsat hσ hDsFit hJ rfl hrec htl htake hEok hEfit hslot
       refine ⟨?_, fun _ => h.2⟩
       rw [hFeq, hσ, interp_recEntry hD ψ' hkind hnlt htake hDsLen σ₀, ← hσ]
       exact h.1
@@ -593,15 +633,15 @@ tuple it is, ψ (the table's term at pin `t' - k₀`, `Ψ' t'`) after ψ⁻¹
 /-- The scratch block's carrier restricted to R1's predicate. -/
 @[expose] noncomputable def r1Fam (d : IndRepData V) (ψ : Name → Nat) (ρ σ₀ : Nat → V) (k₀ : Nat)
     (Ψ' Φ' : Nat → AnnotTerm) : V :=
-  graph (fun i => sep (SetTheory.app (lfpFamSet (d.w ψ) (d.idx ψ σ₀) (d.Φ ψ σ₀)) i)
-    (R1Pred d ψ ρ σ₀ k₀ Ψ' Φ' i)) (d.idx ψ σ₀)
+  predFam d ψ σ₀ (R1Pred d ψ ρ σ₀ k₀ Ψ' Φ')
 
 /-- **R1 at a copy from the step**: `carrier_induction` at the copy's
 member of the scratch block. -/
 theorem r1At_of_step (m : EnvModel V env) {d : IndRepData V} {ψ : Name → Nat} {ρ : Nat → V}
     {ps : List AnnotTerm} {k₀ t : Nat} {Ψ' Φ' : Nat → AnnotTerm}
-    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (hrep : IndRep m (d.memberName t) cvT cvR mI rP rules d t) (hk₀ : k₀ ≤ t) (ht : t < d.k)
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {s : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ)
+    (hrep : IndRep m (d.memberName t) cvT cvR mI rP rules (d.withSort s) t) (hk₀ : k₀ ≤ t) (ht : t < d.k)
     (hps : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
     (hstep : ∀ tup, tup ∈ˢ d.idx ψ (consList (ps.map (interp V ρ)) ρ) →
       ∀ (J : Nat) (fs : List V), J < d.ctorsA.length →
@@ -611,7 +651,7 @@ theorem r1At_of_step (m : EnvModel V env) {d : IndRepData V} {ψ : Name → Nat}
     d.R1At m ψ ρ ps t (Ψ' t) (Φ' t) := by
   intro is a his ha
   have h := hrep.carrier_induction ψ hps his (R1Pred d ψ ρ (consList (ps.map (interp V ρ)) ρ) k₀ Ψ' Φ')
-    hstep a ha
+    (by rw [d.withSort_w, hs ψ]; exact hstep) a ha
   exact h t hk₀ ht is his rfl
 
 set_option maxHeartbeats 1600000 in
@@ -635,9 +675,9 @@ its frames' bookkeeping owed; a reflexive position, η) by `hpos`'s
 third arm, NAMED. -/
 theorem r1_step (m : EnvModel V env) {dJ d : IndRepData V} {ψ' ψ : Name → Nat} {ρ σ₀ σ : Nat → V}
     {Ψ Ψ' Φ' : Nat → AnnotTerm} {k₀ base : Nat}
-    -- the scratch block's representations, at every member
-    (hrepT : ∀ t, t < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      IndRep m (d.memberName t) cvT cvR mI rP rules d t)
+    -- the scratch block's representations, at every member (at the
+    -- members' own spellings of the sort)
+    (hrepT : d.RepsAt m)
     (hsat₀ : Sat V (d.params ψ).reverse σ₀)
     (hσ₀ : σ₀ = consList (paramVals d.nP ρ) ρ)
     (hpsFit : SpineFit ρ (d.params ψ) (paramVals d.nP ρ))
@@ -740,14 +780,16 @@ theorem r1_step (m : EnvModel V env) {dJ d : IndRepData V} {ψ' ψ : Name → Na
   have hfsN : vs'.length = cA'.2 := by
     rw [hlenFs, d.Fss_getD ψ hJ', List.length_map, List.length_drop, hlenD']
     omega
-  -- the terminator: the copy member and its readings
-  obtain ⟨cvT', cvR', mI', rP', rules', hrep'⟩ := hrepT t' ht'
+  -- the terminator: the copy member and its readings (the sorted
+  -- datum's clause, at the datum: it mentions no `w`)
+  obtain ⟨s', cvT', cvR', mI', rP', rules', -, hrep'⟩ := hrepT t' ht'
   rw [htup] at hall
-  obtain ⟨hmem, hisE⟩ := hrep'.idxRecover ψ σ₀ hsat₀ is' his' X J' vs' hJ'lt hlenFs hEsOk hEsFit hall
+  obtain ⟨hmem, hisE⟩ : d.mems J' = t' ∧ (d.esF J' ψ).map (interp V (consList vs' σ₀)) = is' :=
+    hrep'.idxRecover ψ σ₀ hsat₀ is' his' X J' vs' hJ'lt hlenFs hEsOk hEsFit hall
   subst hisE
   subst hmem
   -- the injection is the copy constructor's value
-  obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepT _ hmemA'
+  obtain ⟨s, cvT, cvR, mI, rP, rules, -, hrep⟩ := hrepT _ hmemA'
   have hctor : d.inj ψ J' vs'
       = (paramVals d.nP ρ ++ vs').foldl SetTheory.app (interp V ρ (m.acval cA'.1.name ψ)) :=
     (hrep.ctor J' cA' hJ' ψ ρ (paramVals d.nP ρ) vs' hpsFit (by rw [← hσ₀]; exact hfit)).symm
