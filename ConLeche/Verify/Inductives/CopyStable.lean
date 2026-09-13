@@ -1410,4 +1410,540 @@ theorem annotRelS_instPis {find? : Name → Option ConstantInfo} {R : Expr → E
     | .const _ _, _, _, _, hstrip | .app _ _, _, _, _, hstrip | .lam _ _ _, _, _, _, hstrip
     | .lit _, _, _, _, hstrip => simp [Expr.stripPis] at hstrip
 
+/-! ## Through the closed telescope
+
+The mint closes the copy's raw type over the block's parameter binders
+(`closeTelescope pbs 0 body`, `pbs` in de Bruijn form from `stripPis`);
+the install annotates the closed term and the model opens the STORED
+result at the block's openers.  What relates the opened stored body to
+the raw body: the annotation of a closed telescope opens each binder at
+the annotated domain, so the deepest body the pass annotates is the
+raw body with its parameter leaves RE-ANNOTATED to the openers — the
+leaf map at the openers of the stored type (`annotate_closeTelescope_open`).
+
+The telescope's domains may be in de Bruijn form (loose references to
+the enclosing binders, as `stripPis` returns them), in opener form
+(closed, at the openers) or mixed; the invariant is that domain `j`
+has its loose bound variables within `j` and is scoped at its level. -/
+
+/-- The domains of a telescope, each abstracted over one variable at
+its own depth. -/
+@[expose] def absDoms (a : Nat) : Nat → List (Expr × BinderMeta) → List (Expr × BinderMeta)
+  | _, [] => []
+  | k, (dom, m) :: bs => (dom.abstract1 a k, m) :: absDoms a (k + 1) bs
+
+/-- The domains of a telescope, each instantiated at one value at its
+own depth. -/
+@[expose] def instDoms (v : Expr) : Nat → List (Expr × BinderMeta) → List (Expr × BinderMeta)
+  | _, [] => []
+  | k, (dom, m) :: bs => (dom.instantiate1 v k, m) :: instDoms v (k + 1) bs
+
+theorem absDoms_length (a : Nat) : ∀ (k : Nat) (bs : List (Expr × BinderMeta)),
+    (absDoms a k bs).length = bs.length
+  | _, [] => rfl
+  | k, (_, _) :: bs => by simp [absDoms, absDoms_length a (k + 1) bs]
+
+theorem instDoms_length (v : Expr) : ∀ (k : Nat) (bs : List (Expr × BinderMeta)),
+    (instDoms v k bs).length = bs.length
+  | _, [] => rfl
+  | k, (_, _) :: bs => by simp [instDoms, instDoms_length v (k + 1) bs]
+
+theorem absDoms_getElem? (a : Nat) : ∀ (k : Nat) (bs : List (Expr × BinderMeta)) (j : Nat)
+    (b : Expr × BinderMeta), bs[j]? = some b →
+    (absDoms a k bs)[j]? = some (b.1.abstract1 a (k + j), b.2)
+  | _, [], _, _, h => nomatch h
+  | k, (dom, m) :: bs, 0, b, h => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h; rfl
+  | k, (_, _) :: bs, j + 1, b, h => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [absDoms, List.getElem?_cons_succ]
+    rw [absDoms_getElem? a (k + 1) bs j b h, Nat.add_assoc, Nat.add_comm 1 j]
+
+theorem instDoms_getElem? (v : Expr) : ∀ (k : Nat) (bs : List (Expr × BinderMeta)) (j : Nat)
+    (b : Expr × BinderMeta), bs[j]? = some b →
+    (instDoms v k bs)[j]? = some (b.1.instantiate1 v (k + j), b.2)
+  | _, [], _, _, h => nomatch h
+  | k, (dom, m) :: bs, 0, b, h => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h; rfl
+  | k, (_, _) :: bs, j + 1, b, h => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [instDoms, List.getElem?_cons_succ]
+    rw [instDoms_getElem? v (k + 1) bs j b h, Nat.add_assoc, Nat.add_comm 1 j]
+
+/-- Abstractions at different variables commute. -/
+theorem abstract1_comm {a b : Nat} (hab : a ≠ b) :
+    ∀ (e : Expr) (k k' : Nat), (e.abstract1 a k).abstract1 b k' = (e.abstract1 b k').abstract1 a k := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro k k'
+    by_cases ha : idx = a
+    · subst ha; simp [Expr.abstract1, hab]
+    · by_cases hb : idx = b
+      · subst hb; simp [Expr.abstract1, ha]
+      · simp [Expr.abstract1, ha, hb]
+  | app f x ihf ihx => intro k k'; simp [Expr.abstract1, ihf, ihx]
+  | lam ty b m iht ihb => intro k k'; simp [Expr.abstract1, iht, ihb]
+  | forallE ty b m iht ihb => intro k k'; simp [Expr.abstract1, iht, ihb]
+  | letE ty v b iht ihv ihb => intro k k'; simp [Expr.abstract1, iht, ihv, ihb]
+  | proj s i e ih => intro k k'; simp [Expr.abstract1, ih]
+  | _ => intro k k'; rfl
+
+/-- Abstracting at a shallower index and instantiating at a deeper one
+commute (the value carries no leaf at the abstracted variable). -/
+theorem abstract1_instantiate1_comm {a : Nat} {v : Expr}
+    (hv : ∀ l ∈ v.fvarLeaves, l.1 ≠ a) :
+    ∀ (e : Expr) (k₁ k₂ : Nat), k₁ < k₂ →
+      (e.abstract1 a k₁).instantiate1 v k₂ = (e.instantiate1 v k₂).abstract1 a k₁ := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k₁ k₂ hk
+    by_cases h1 : i = k₂
+    · subst h1
+      simp only [Expr.abstract1, Expr.instantiate1, if_true]
+      exact (abstract1_eq_self_of_leaves v k₁ hv).symm
+    · by_cases h2 : i > k₂ <;> simp [Expr.abstract1, Expr.instantiate1, h1, h2]
+  | fvar idx ty _ =>
+    intro k₁ k₂ hk
+    by_cases ha : idx = a
+    · subst ha
+      have hne : ¬ (k₁ = k₂) := Nat.ne_of_lt hk
+      have hgt : ¬ (k₁ > k₂) := Nat.not_lt.mpr (Nat.le_of_lt hk)
+      simp [Expr.abstract1, Expr.instantiate1, hne, hgt]
+    · simp [Expr.abstract1, Expr.instantiate1, ha]
+  | app f x ihf ihx => intro k₁ k₂ hk; simp [Expr.abstract1, Expr.instantiate1, ihf _ _ hk, ihx _ _ hk]
+  | lam ty b m iht ihb =>
+    intro k₁ k₂ hk
+    simp [Expr.abstract1, Expr.instantiate1, iht _ _ hk, ihb _ _ (Nat.succ_lt_succ hk)]
+  | forallE ty b m iht ihb =>
+    intro k₁ k₂ hk
+    simp [Expr.abstract1, Expr.instantiate1, iht _ _ hk, ihb _ _ (Nat.succ_lt_succ hk)]
+  | letE ty w b iht ihw ihb =>
+    intro k₁ k₂ hk
+    simp [Expr.abstract1, Expr.instantiate1, iht _ _ hk, ihw _ _ hk, ihb _ _ (Nat.succ_lt_succ hk)]
+  | proj s i e ih => intro k₁ k₂ hk; simp [Expr.abstract1, Expr.instantiate1, ih _ _ hk]
+  | _ => intro k₁ k₂ _; rfl
+
+/-- Abstracting a variable of a closed telescope abstracts each domain
+at its depth and the body at the telescope's depth. -/
+theorem closeTelescope_abstract1 {a : Nat} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) (k : Nat), a < i →
+      (closeTelescope bs i body).abstract1 a k
+        = closeTelescope (absDoms a k bs) i (body.abstract1 a (k + bs.length))
+  | [], _, _, _, _ => rfl
+  | (dom, m) :: bs, i, body, k, hai => by
+    simp only [closeTelescope, Expr.abstract1, absDoms, List.length_cons]
+    rw [abstract1_comm (Nat.ne_of_lt hai).symm, closeTelescope_abstract1 bs (i + 1) body (k + 1)
+      (Nat.lt_succ_of_lt hai), show k + 1 + bs.length = k + (bs.length + 1) from by omega]
+
+/-- Instantiating a closed telescope at a value carrying no leaf at the
+telescope's own variables instantiates each domain at its depth and the
+body at the telescope's depth. -/
+theorem closeTelescope_instantiate1 {v : Expr} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) (k : Nat),
+      (∀ l ∈ v.fvarLeaves, ∀ j, j < bs.length → l.1 ≠ i + j) →
+      (closeTelescope bs i body).instantiate1 v k
+        = closeTelescope (instDoms v k bs) i (body.instantiate1 v (k + bs.length))
+  | [], _, _, _, _ => rfl
+  | (dom, m) :: bs, i, body, k, hv => by
+    simp only [closeTelescope, Expr.instantiate1, instDoms, List.length_cons]
+    rw [abstract1_instantiate1_comm (fun l hl => by
+        have := hv l hl 0 (by simp)
+        rwa [Nat.add_zero] at this) _ 0 (k + 1) (Nat.succ_pos k),
+      closeTelescope_instantiate1 bs (i + 1) body (k + 1) (fun l hl j hj => by
+        have := hv l hl (j + 1) (by simp; omega)
+        rwa [show i + (j + 1) = i + 1 + j from by omega] at this),
+      show k + 1 + bs.length = k + (bs.length + 1) from by omega]
+
+/-- Abstracting at any variable keeps a scope. -/
+theorem WScoped.abstract1_any {D a : Nat} :
+    ∀ {e : Expr} (k : Nat), WScoped D e → WScoped D (e.abstract1 a k) := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro k hw
+    by_cases ha : idx = a
+    · subst ha; simp [Expr.abstract1, WScoped]
+    · simp only [Expr.abstract1, ha, if_false]; exact hw
+  | app f x ihf ihx => intro k hw; simp only [Expr.abstract1, WScoped] at hw ⊢; exact ⟨ihf k hw.1, ihx k hw.2⟩
+  | lam ty b m iht ihb =>
+    intro k hw; simp only [Expr.abstract1, WScoped] at hw ⊢; exact ⟨iht k hw.1, ihb (k + 1) hw.2⟩
+  | forallE ty b m iht ihb =>
+    intro k hw; simp only [Expr.abstract1, WScoped] at hw ⊢; exact ⟨iht k hw.1, ihb (k + 1) hw.2⟩
+  | letE ty w b iht ihw ihb =>
+    intro k hw; simp only [Expr.abstract1, WScoped] at hw ⊢
+    exact ⟨iht k hw.1, ihw k hw.2.1, ihb (k + 1) hw.2.2⟩
+  | proj s i e ih => intro k hw; simp only [Expr.abstract1, WScoped] at hw ⊢; exact ih k hw
+  | _ => intro k hw; exact hw
+
+/-- Abstracting keeps a bound above the abstraction depth. -/
+theorem looseBVarsBounded_abstract1' {d : Nat} :
+    ∀ (e : Expr) (k K : Nat), k < K → e.looseBVarsBounded K = true →
+      (e.abstract1 d k).looseBVarsBounded K = true := by
+  intro e
+  induction e with
+  | bvar i => intro k K _ hb; exact hb
+  | fvar idx ty _ =>
+    intro k K hk _
+    by_cases hidx : idx = d
+    · subst hidx; simp [Expr.abstract1, Expr.looseBVarsBounded, hk]
+    · simp [Expr.abstract1, hidx, Expr.looseBVarsBounded]
+  | app f x ihf ihx =>
+    intro k K hk hb
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨ihf k K hk hb.1, ihx k K hk hb.2⟩
+  | lam ty b m iht ihb =>
+    intro k K hk hb
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨iht k K hk hb.1, ihb (k + 1) (K + 1) (Nat.succ_lt_succ hk) hb.2⟩
+  | forallE ty b m iht ihb =>
+    intro k K hk hb
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨iht k K hk hb.1, ihb (k + 1) (K + 1) (Nat.succ_lt_succ hk) hb.2⟩
+  | letE ty w b iht ihw ihb =>
+    intro k K hk hb
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨⟨iht k K hk hb.1.1, ihw k K hk hb.1.2⟩, ihb (k + 1) (K + 1) (Nat.succ_lt_succ hk) hb.2⟩
+  | proj s i e ih =>
+    intro k K hk hb
+    simp only [Expr.abstract1, Expr.looseBVarsBounded] at hb ⊢
+    exact ih k K hk hb
+  | _ => intro k K _ hb; exact hb
+
+/-- A closed telescope in mixed form is scoped at its level. -/
+theorem closeTelescope_WScoped :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      (∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b → WScoped (i + j) b.1) →
+      WScoped (i + bs.length) body → WScoped i (closeTelescope bs i body)
+  | [], _, _, _, hb => hb
+  | (dom, m) :: bs, i, body, hbs, hb => by
+    simp only [closeTelescope, WScoped]
+    refine ⟨by simpa using hbs 0 (dom, m) rfl, ?_⟩
+    refine WScoped.abstract1 0 (closeTelescope_WScoped bs (i + 1) body (fun j b hj => ?_) ?_)
+    · have := hbs (j + 1) b (by simpa using hj)
+      rwa [show i + (j + 1) = i + 1 + j from by omega] at this
+    · simp only [List.length_cons] at hb
+      rwa [show i + 1 + bs.length = i + (bs.length + 1) from by omega]
+
+/-- A closed telescope in mixed form is bounded. -/
+theorem closeTelescope_bounded :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) (c : Nat),
+      (∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b → b.1.looseBVarsBounded (c + j) = true) →
+      body.looseBVarsBounded (c + bs.length) = true →
+      (closeTelescope bs i body).looseBVarsBounded c = true
+  | [], _, _, _, _, hb => hb
+  | (dom, m) :: bs, i, body, c, hbs, hb => by
+    simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨by simpa using hbs 0 (dom, m) rfl, ?_⟩
+    refine looseBVarsBounded_abstract1' _ 0 (c + 1) (Nat.succ_pos c)
+      (closeTelescope_bounded bs (i + 1) body (c + 1) (fun j b hj => ?_) ?_)
+    · have := hbs (j + 1) b (by simpa using hj)
+      rwa [show c + (j + 1) = c + 1 + j from by omega] at this
+    · simp only [List.length_cons] at hb
+      rwa [show c + 1 + bs.length = c + (bs.length + 1) from by omega]
+
+/-- Consistency from the recorded leaves. -/
+theorem fvarConsistent_of_leaves {i : Nat} {ty : Expr} :
+    ∀ (e : Expr), (∀ t, (i, t) ∈ e.fvarLeaves → t = ty) → Expr.fvarConsistent i ty e := by
+  intro e
+  induction e with
+  | fvar idx t _ =>
+    intro h
+    show idx = i → t = ty
+    intro hidx
+    subst hidx
+    exact h t (by simp [Expr.fvarLeaves])
+  | app f x ihf ihx =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨ihf fun t ht => h t (Or.inl ht), ihx fun t ht => h t (Or.inr ht)⟩
+  | lam ty' b m iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun t ht => h t (Or.inl ht), ihb fun t ht => h t (Or.inr ht)⟩
+  | forallE ty' b m iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun t ht => h t (Or.inl ht), ihb fun t ht => h t (Or.inr ht)⟩
+  | letE ty' w b iht ihw ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun t ht => h t (Or.inl (Or.inl ht)), ihw fun t ht => h t (Or.inl (Or.inr ht)),
+      ihb fun t ht => h t (Or.inr ht)⟩
+  | proj s j e ih =>
+    intro h
+    simp only [Expr.fvarLeaves] at h
+    exact ih h
+  | _ => intro _; trivial
+
+/-- In a term scoped at `i + 1`, a recorded leaf at index `i` is a
+top-level leaf (annotations are scoped below their own index), so a
+consistent term has every such leaf at the consistent annotation. -/
+theorem leaves_at_of_consistent {i : Nat} {ty : Expr} :
+    ∀ (e : Expr), WScoped (i + 1) e → Expr.fvarConsistent i ty e →
+      ∀ t, (i, t) ∈ e.fvarLeaves → t = ty := by
+  intro e
+  induction e with
+  | fvar idx t' _ =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves, List.mem_cons, Prod.mk.injEq] at ht
+    rcases ht with ⟨rfl, rfl⟩ | ht
+    · exact hc rfl
+    · have := fvarLeaves_fst_lt hw.2 _ ht
+      simp only at this
+      omega
+  | app f x ihf ihx =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves, List.mem_append] at ht
+    rcases ht with ht | ht
+    · exact ihf hw.1 hc.1 t ht
+    · exact ihx hw.2 hc.2 t ht
+  | lam ty' b m iht ihb =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves, List.mem_append] at ht
+    rcases ht with ht | ht
+    · exact iht hw.1 hc.1 t ht
+    · exact ihb hw.2 hc.2 t ht
+  | forallE ty' b m iht ihb =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves, List.mem_append] at ht
+    rcases ht with ht | ht
+    · exact iht hw.1 hc.1 t ht
+    · exact ihb hw.2 hc.2 t ht
+  | letE ty' w b iht ihw ihb =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves, List.mem_append] at ht
+    rcases ht with (ht | ht) | ht
+    · exact iht hw.1 hc.1 t ht
+    · exact ihw hw.2.1 hc.2.1 t ht
+    · exact ihb hw.2.2 hc.2.2 t ht
+  | proj s j e ih =>
+    intro hw hc t ht
+    simp only [WScoped] at hw
+    simp only [Expr.fvarLeaves] at ht
+    exact ih hw hc t ht
+  | bvar j => intro _ _ t ht; simp [Expr.fvarLeaves] at ht
+  | sort u => intro _ _ t ht; simp [Expr.fvarLeaves] at ht
+  | const c us => intro _ _ t ht; simp [Expr.fvarLeaves] at ht
+  | lit l => intro _ _ t ht; simp [Expr.fvarLeaves] at ht
+
+/-- The leaf map at one opener makes the term consistent there. -/
+theorem fvarConsistent_mapFvars_single {i : Nat} {ty : Expr} :
+    ∀ (e : Expr), Expr.fvarConsistent i ty (e.mapFvars (Expr.single i (.fvar i ty))) := by
+  intro e
+  induction e with
+  | fvar idx t _ =>
+    by_cases hidx : idx = i
+    · subst hidx; simp [Expr.mapFvars, Expr.single, Expr.fvarConsistent]
+    · simp [Expr.mapFvars, Expr.single, hidx, Expr.fvarConsistent]
+  | app f x ihf ihx => exact ⟨ihf, ihx⟩
+  | lam ty' b m iht ihb => exact ⟨iht, ihb⟩
+  | forallE ty' b m iht ihb => exact ⟨iht, ihb⟩
+  | letE ty' w b iht ihw ihb => exact ⟨iht, ihw, ihb⟩
+  | proj s j e ih => exact ih
+  | _ => trivial
+
+/-- Abstracting a variable and instantiating it back at an annotation
+makes the term consistent there. -/
+theorem fvarConsistent_instantiate1_abstract1 {i : Nat} {ty : Expr} :
+    ∀ (e : Expr) (k k' : Nat), Expr.fvarConsistent i ty ((e.abstract1 i k).instantiate1 (.fvar i ty) k') := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro k k'
+    simp only [Expr.abstract1, Expr.instantiate1]
+    split
+    · simp [Expr.fvarConsistent]
+    · split <;> simp [Expr.fvarConsistent]
+  | fvar idx t _ =>
+    intro k k'
+    by_cases hidx : idx = i
+    · subst hidx
+      simp only [Expr.abstract1, if_true, Expr.instantiate1]
+      split
+      · simp [Expr.fvarConsistent]
+      · split <;> simp [Expr.fvarConsistent]
+    · simp [Expr.abstract1, hidx, Expr.fvarConsistent]
+  | app f x ihf ihx => intro k k'; exact ⟨ihf k k', ihx k k'⟩
+  | lam ty' b m iht ihb => intro k k'; exact ⟨iht k k', ihb (k + 1) (k' + 1)⟩
+  | forallE ty' b m iht ihb => intro k k'; exact ⟨iht k k', ihb (k + 1) (k' + 1)⟩
+  | letE ty' w b iht ihw ihb => intro k k'; exact ⟨iht k k', ihw k k', ihb (k + 1) (k' + 1)⟩
+  | proj s j e ih => intro k k'; exact ih k k'
+  | _ => intro k k'; trivial
+
+/-- `openPisAtFvars` at a successor, inverted. -/
+theorem openPisAtFvars_succ_inv {n : Nat} {T : Expr} {i : Nat} {fvs : List Expr} {body : Expr}
+    (h : openPisAtFvars (n + 1) T i = some (fvs, body)) :
+    ∃ (dom b : Expr) (m : BinderMeta) (fvs' : List Expr), T = .forallE dom b m ∧
+      openPisAtFvars n (b.instantiate1 (.fvar i dom)) (i + 1) = some (fvs', body) ∧
+      fvs = .fvar i dom :: fvs' := by
+  cases T with
+  | forallE dom b m =>
+    simp only [openPisAtFvars] at h
+    split at h
+    · next fvs' e hrec =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨dom, b, m, fvs', rfl, hrec, rfl⟩
+    · exact nomatch h
+  | _ => exact nomatch h
+
+/-- **Annotating a closed telescope, opened back at its openers**: the
+opened stored body is the annotation (at the telescope's depth, with
+the fuel the walk had left) of the raw body with its parameter leaves
+mapped to the stored openers. -/
+theorem annotate_closeTelescope_open {env : Env} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) {F : Nat} {T : Expr}
+      {fvsT : List Expr} {bodyT : Expr},
+      (∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        b.1.looseBVarsBounded j = true ∧ WScoped (i + j) b.1) →
+      body.looseBVarsBounded 0 = true → WScoped (i + bs.length) body →
+      annotateCore mode env F i (closeTelescope bs i body) = .ok T →
+      openPisAtFvars bs.length T i = some (fvsT, bodyT) →
+      ∃ F', annotateCore mode env F' (i + bs.length)
+        (body.mapFvars (fun k => if i ≤ k then fvsT[k - i]? else none)) = .ok bodyT
+  | [], i, body, F, T, fvsT, bodyT, _, _, _, hann, hop => by
+    simp only [List.length_nil, openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, rfl⟩ := hop
+    refine ⟨F, ?_⟩
+    rw [mapFvars_eq_self body (fun l _ => by simp)]
+    simp only [List.length_nil, Nat.add_zero]
+    exact hann
+  | (dom, m) :: bs, i, body, F, T, fvsT, bodyT, hbs, hb, hw, hann, hop => by
+    cases F with
+    | zero =>
+      rw [annotateCore_zero] at hann
+      simp only [throw, throwThe, MonadExceptOf.throw] at hann
+      exact nomatch hann
+    | succ f =>
+      simp only [closeTelescope] at hann
+      obtain ⟨dom', body', pw, hdom, hbody, rfl⟩ := annotateCore_forallE_inv hann
+      simp only [List.length_cons] at hop hw
+      obtain ⟨dom'', b'', m'', fvs', hT, hop', rfl⟩ := openPisAtFvars_succ_inv hop
+      simp only [Expr.forallE.injEq] at hT
+      obtain ⟨rfl, rfl, -⟩ := hT
+      -- the domain: closed and scoped at `i`, so its annotation is too
+      have hdom0 := hbs 0 (dom, m) rfl
+      simp only [Nat.add_zero] at hdom0
+      have hdom'W : WScoped i dom' := annotateCore_WScoped f _ hdom hdom0.2
+      have hdom'B : dom'.looseBVarsBounded 0 = true := annotateCore_looseBVars f _ hdom hdom0.1
+      have hdom'L : ∀ l ∈ dom'.fvarLeaves, l.1 < i := fvarLeaves_fst_lt hdom'W
+      -- the tail, opened at the annotated domain: a mixed-form telescope
+      -- over the re-annotated body
+      have hshape : ((closeTelescope bs (i + 1) body).abstract1 i 0).instantiate1 (.fvar i dom')
+          = closeTelescope (instDoms (.fvar i dom') 0 (absDoms i 0 bs)) (i + 1)
+              (body.mapFvars (Expr.single i (.fvar i dom'))) := by
+        rw [closeTelescope_abstract1 bs (i + 1) body 0 (Nat.lt_succ_self i),
+          closeTelescope_instantiate1 (absDoms i 0 bs) (i + 1) _ 0 (fun l hl j _ => by
+            simp only [Expr.fvarLeaves, List.mem_cons] at hl
+            rcases hl with rfl | hl
+            · simp; omega
+            · have := hdom'L l hl; omega),
+          absDoms_length]
+        simp only [Nat.zero_add]
+        rw [instantiate1_abstract1_mapFvars body bs.length
+          (looseBVarsBounded_mono (Nat.zero_le _) hb)]
+      -- the mixed tail's invariants
+      have hbs' : ∀ (j : Nat) (b : Expr × BinderMeta),
+          (instDoms (.fvar i dom') 0 (absDoms i 0 bs))[j]? = some b →
+          b.1.looseBVarsBounded j = true ∧ WScoped (i + 1 + j) b.1 := by
+        intro j b hj
+        have hjl : j < bs.length := by
+          have := (List.getElem?_eq_some_iff.mp hj).1
+          rwa [instDoms_length, absDoms_length] at this
+        obtain ⟨b₀, hb₀⟩ : ∃ b₀, bs[j]? = some b₀ := ⟨_, List.getElem?_eq_getElem hjl⟩
+        have h₁ := absDoms_getElem? i 0 bs j b₀ hb₀
+        have h₂ := instDoms_getElem? (.fvar i dom') 0 _ j _ h₁
+        rw [h₂] at hj
+        obtain rfl := Option.some.inj hj
+        obtain ⟨hbb, hbw⟩ := hbs (j + 1) b₀ (by simpa using hb₀)
+        simp only [Nat.zero_add]
+        refine ⟨?_, ?_⟩
+        · exact looseBVarsBounded_instantiate1_gen rfl
+            (looseBVarsBounded_abstract1' _ j (j + 1) (Nat.lt_succ_self j) hbb)
+        · rw [show i + (j + 1) = i + 1 + j from by omega] at hbw
+          exact WScoped.instantiate1_gen (by simp only [WScoped]; exact ⟨by omega, hdom'W⟩) j
+            (WScoped.abstract1_any j hbw)
+      have hbodyM : (body.mapFvars (Expr.single i (.fvar i dom'))).looseBVarsBounded 0 = true :=
+        looseBVarsBounded_mapFvars (fun j v hv => by
+          simp only [Expr.single] at hv; split at hv
+          · obtain rfl := Option.some.inj hv; rfl
+          · exact nomatch hv) body 0 hb
+      have hbodyW : WScoped (i + 1 + bs.length) (body.mapFvars (Expr.single i (.fvar i dom'))) :=
+        WScoped.mapFvars (fun j v hv => by
+          simp only [Expr.single] at hv; split at hv
+          · obtain rfl := Option.some.inj hv
+            simp only [WScoped]; exact ⟨by omega, hdom'W⟩
+          · exact nomatch hv)
+          (by rwa [show i + 1 + bs.length = i + (bs.length + 1) from by omega])
+      -- the input is scoped at `i + 1`, bounded and consistent at `i`;
+      -- so is the annotated body, hence the round trip
+      have hinW : WScoped (i + 1) (((closeTelescope bs (i + 1) body).abstract1 i 0).instantiate1
+          (.fvar i dom')) := by
+        rw [hshape]
+        exact closeTelescope_WScoped _ _ _ (fun j b hj => (hbs' j b hj).2)
+          (by rw [instDoms_length, absDoms_length]; exact hbodyW)
+      have hinB : (((closeTelescope bs (i + 1) body).abstract1 i 0).instantiate1
+          (.fvar i dom')).looseBVarsBounded 0 = true := by
+        rw [hshape]
+        exact closeTelescope_bounded _ _ _ 0 (fun j b hj => by simpa using (hbs' j b hj).1)
+          (looseBVarsBounded_mono (Nat.zero_le _) hbodyM)
+      have hinC : Expr.fvarConsistent i dom' (((closeTelescope bs (i + 1) body).abstract1 i 0).instantiate1
+          (.fvar i dom')) := by
+        rw [hshape]
+        refine fvarConsistent_closeTelescope _ _ _ (Nat.lt_succ_self i)
+          (fvarConsistent_mapFvars_single body) fun b hb' => ?_
+        obtain ⟨j, hj, hjb⟩ := List.getElem_of_mem hb'
+        have hjl : j < bs.length := by rwa [instDoms_length, absDoms_length] at hj
+        obtain ⟨b₀, hb₀⟩ : ∃ b₀, bs[j]? = some b₀ := ⟨_, List.getElem?_eq_getElem hjl⟩
+        have h₁ := absDoms_getElem? i 0 bs j b₀ hb₀
+        have h₂ := instDoms_getElem? (.fvar i dom') 0 _ j _ h₁
+        rw [List.getElem?_eq_getElem hj, hjb] at h₂
+        obtain rfl := Option.some.inj h₂
+        exact fvarConsistent_instantiate1_abstract1 _ _ _
+      have hbody'W : WScoped (i + 1) body' := annotateCore_WScoped f _ hbody hinW
+      have hbody'B : body'.looseBVarsBounded 0 = true := annotateCore_looseBVars f _ hbody hinB
+      have hbody'C : Expr.fvarConsistent i dom' body' :=
+        fvarConsistent_of_leaves body' fun t ht =>
+          leaves_at_of_consistent _ hinW hinC t (annotateCore_leaves_sub f _ hbody hinW hinB _ ht)
+      have hround : (body'.abstract1 i).instantiate1 (.fvar i dom') = body' :=
+        abstract1_instantiate1 body' 0 hbody'C hbody'B
+      rw [hround] at hop'
+      -- the tail by induction
+      rw [hshape] at hbody
+      have hop'' : openPisAtFvars (instDoms (.fvar i dom') 0 (absDoms i 0 bs)).length body' (i + 1)
+          = some (fvs', bodyT) := by
+        rw [instDoms_length, absDoms_length]; exact hop'
+      obtain ⟨F', hF'⟩ := annotate_closeTelescope_open _ (i + 1) _ hbs' hbodyM
+        (by rw [instDoms_length, absDoms_length]; exact hbodyW) hbody hop''
+      refine ⟨F', ?_⟩
+      rw [instDoms_length, absDoms_length, mapFvars_mapFvars] at hF'
+      rw [List.length_cons, show i + (bs.length + 1) = i + 1 + bs.length from by omega]
+      have hmap : (fun k => match Expr.single i (Expr.fvar i dom') k with
+            | some v => some (v.mapFvars (fun k' => if i + 1 ≤ k' then fvs'[k' - (i + 1)]? else none))
+            | none => (fun k' => if i + 1 ≤ k' then fvs'[k' - (i + 1)]? else none) k)
+          = (fun k => if i ≤ k then (Expr.fvar i dom' :: fvs')[k - i]? else none) := by
+        funext k
+        by_cases hk : k = i
+        · subst hk
+          simp [Expr.single, Expr.mapFvars, Nat.not_succ_le_self]
+        · simp only [Expr.single, hk, if_false]
+          by_cases hik : i ≤ k
+          · have hik' : i + 1 ≤ k := by omega
+            simp only [hik, if_true, hik']
+            rw [show k - i = (k - (i + 1)) + 1 from by omega]
+            simp
+          · have hik' : ¬ (i + 1 ≤ k) := by omega
+            simp [hik, hik']
+      rw [hmap] at hF'
+      exact hF'
+
 end ConLeche
