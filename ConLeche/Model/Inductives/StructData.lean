@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructLaws
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Verify.InstLevels
+public import ConLeche.Verify.Inductives.FormerFront
 import ConLeche.Semantics.Tower.TowerWire
 public section
 
@@ -183,23 +184,25 @@ theorem teleLevels_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
 /-! ## The former's data -/
 
 
-/-- The former's data, from its `checkConstantVal` run at the
-pre-block environment and the annotated telescope shape. -/
-theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+/-- The former's data, from EITHER front door's facts (`FormerFront`,
+task #279 K.10) and the checked telescope shape: the reading and its
+grading come from INFERENCE at depth 0 (`acceptedReads_of`,
+`ClaimsAt.inferRow`), never from the annotation pass. -/
+theorem formerData_of_front (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
     {bs : List (Expr × ConLeche.BinderMeta)}
-    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hff : ConLeche.FormerFront μ F env cvT cvTa)
     (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
     ∃ (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (lvls : (Name → Nat) → List Nat),
       FormerData mp.base2 cvTa nP resSort pps lvls := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', htr', hst,
-    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' htp' htr' hst hens hstrip
-  have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
-  have hL : Expr.LeavesBounded type' := Expr.LeavesBounded.of_not_hasFvar htf'
-  have hnil : type'.fvarLeaves = [] :=
+  obtain ⟨stype, u, hst, hens⟩ := hff.infer
+  have htf' := hff.noFvar
+  have hbt' := hff.bounded
+  have htp' := hff.lpsOk
+  have hw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar htf'
+  have hL : Expr.LeavesBounded cvTa.type := Expr.LeavesBounded.of_not_hasFvar htf'
+  have hnil : cvTa.type.fvarLeaves = [] :=
     Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
   obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort nP 0 hstrip
   have hlenF : fvs.length = nP := openPisAtFvars_length nP hop
@@ -212,7 +215,7 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   obtain ⟨us, hlenUs, hus⟩ := piLevels_of_infer nP hop hst hens
   -- per assignment: the reading, its peel, its grading, its universes
   have hper : ∀ ψ : Name → Nat, ∃ pps : List (Nat × Nat × AnnotTerm),
-      denoteMeta mp.base2.acval env ψ 0 type'
+      denoteMeta mp.base2.acval env ψ 0 cvTa.type
         = some (mkPisAV pps (.sort (resSort.eval ψ))) ∧
       pps.length = nP ∧
       (∀ d ∈ pps, d.2.1 ≠ 0) ∧
@@ -274,18 +277,18 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   -- the universes are recorded at the assignment RESTRICTED to those.
   -- The readings do not tell the two assignments apart (`params`), so
   -- the membership at ψ is the membership at its restriction.
-  have hrestr : ∀ ψ : Name → Nat, ∀ p ∈ cvT.levelParams,
-      ψ p = (fun q => if q ∈ cvT.levelParams then ψ q else 0) p := by
+  have hrestr : ∀ ψ : Name → Nat, ∀ p ∈ cvTa.levelParams,
+      ψ p = (fun q => if q ∈ cvTa.levelParams then ψ q else 0) p := by
     intro ψ p hp; simp only [hp, if_pos]
-  have hparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
+  have hparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvTa.levelParams, ψ₁ p = ψ₂ p) →
       Classical.choose (hper ψ₁) = Classical.choose (hper ψ₂) ∧
         resSort.eval ψ₁ = resSort.eval ψ₂ := by
     intro ψ₁ ψ₂ hφ
     have h2 := (Classical.choose_spec (hper ψ₂)).1
-    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 type'
+    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 cvTa.type
         = some (mkPisAV (Classical.choose (hper ψ₁))
           (.sort (resSort.eval ψ₁))) := by
-      rw [← denoteMeta_params_ext mp.base2 hφ 0 type' htp']
+      rw [← denoteMeta_params_ext mp.base2 hφ 0 cvTa.type htp']
       exact (Classical.choose_spec (hper ψ₁)).1
     obtain ⟨hp, hb⟩ := mkPisAV_inj
       (by rw [(Classical.choose_spec (hper ψ₁)).2.1,
@@ -293,7 +296,7 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
       (Option.some.inj (h1.symm.trans h2))
     exact ⟨hp, AnnotTerm.sort.inj hb⟩
   refine ⟨fun ψ => Classical.choose (hper ψ),
-    fun ψ => us.map (Level.eval (fun q => if q ∈ cvT.levelParams then ψ q else 0)),
+    fun ψ => us.map (Level.eval (fun q => if q ∈ cvTa.levelParams then ψ q else 0)),
     ?_, ?_, ?_, ?_, ?_, hparams, ?_, ?_, ?_⟩
   · exact fun ψ => (Classical.choose_spec (hper ψ)).1
   · exact fun ψ => (Classical.choose_spec (hper ψ)).2.1
@@ -305,16 +308,28 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     have he := (hparams ψ _ (hrestr ψ)).1
     rw [getD_map_eval _ us (by omega), he]
     exact (Classical.choose_spec
-      (hper (fun q => if q ∈ cvT.levelParams then ψ q else 0))).2.2.2.2.2 i hi ρ
+      (hper (fun q => if q ∈ cvTa.levelParams then ψ q else 0))).2.2.2.2.2 i hi ρ
       (by rw [← he]; exact hρ)
   · intro ψ₁ ψ₂ hφ
-    have hfun : (fun q => if q ∈ cvT.levelParams then ψ₁ q else 0)
-        = (fun q => if q ∈ cvT.levelParams then ψ₂ q else 0) := by
+    have hfun : (fun q => if q ∈ cvTa.levelParams then ψ₁ q else 0)
+        = (fun q => if q ∈ cvTa.levelParams then ψ₂ q else 0) := by
       funext q
-      by_cases h : q ∈ cvT.levelParams
+      by_cases h : q ∈ cvTa.levelParams
       · simp only [h, if_pos, hφ q h]
       · simp only [h, if_false]
     rw [hfun]
+
+/-- The former's data, from its `checkConstantVal` run at the
+pre-block environment and the annotated telescope shape. -/
+theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
+    ∃ (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (lvls : (Name → Nat) → List Nat),
+      FormerData mp.base2 cvTa nP resSort pps lvls :=
+  formerData_of_front hμ mp (ConLeche.FormerFront.of_checkConstantVal hccv) hstrip
 
 /-- The former's data crosses a cons whose slot does not mention the
 stored type (any block cons after the former's). -/

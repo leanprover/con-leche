@@ -487,7 +487,11 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
     {pinA e ty : ConLeche.Expr}
     (hpinA : pinA = Expr.instantiateList
       (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0) fvsA.reverse)
-    (hann : ConLeche.annotateCore μ env F d.nP pinA = .ok e)
+    -- the annotation may have run at ANOTHER environment and fuel (K.10:
+    -- the re-mint's, the pre-block environment plus the formers); only
+    -- its syntactic transports are used, the reading is inference's
+    {envA : Env} {Fa : Nat}
+    (hann : ConLeche.annotateCore μ envA Fa d.nP pinA = .ok e)
     (hinf : ConLeche.inferTypeCore μ env F d.nP e = .ok ty)
     -- the pin's scope (`pinsClosed`, K.3): abstracted over the parameters
     -- it is fvar-free with its loose bvars inside the telescope
@@ -496,7 +500,7 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
         = true)
     (hlenF : fvsA.length = d.nP) :
     ∃ (argsA : List ConLeche.Expr) (DsA : List AnnotTerm),
-      ConLeche.annotateCore μ env F d.nP pinA = .ok (Expr.mkAppN (.const Jn lvls) argsA) ∧
+      ConLeche.annotateCore μ envA Fa d.nP pinA = .ok (Expr.mkAppN (.const Jn lvls) argsA) ∧
       argsA.length = Ds.length ∧
       (∀ a ∈ argsA, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true) ∧
       DenoteMetaSpine mp.base2.acval env ψ d.nP argsA DsA ∧
@@ -525,13 +529,13 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
   obtain rfl := ConLeche.annotateCore_const_inv hf'
   -- the annotated pin's guards, and its reading
   have hwsE : Expr.WScoped d.nP (Expr.mkAppN (.const Jn lvls) args') :=
-    ConLeche.annotateCore_WScoped F _ hann hws
+    ConLeche.annotateCore_WScoped Fa _ hann hws
   have hbE : (Expr.mkAppN (.const Jn lvls) args').looseBVarsBounded 0 = true :=
-    ConLeche.annotateCore_looseBVars F _ hann hb
+    ConLeche.annotateCore_looseBVars Fa _ hann hb
   have hleafE : ∀ l ∈ (Expr.mkAppN (.const Jn lvls) args').fvarLeaves,
       Expr.fvar l.1 l.2 ∈ fvsA := by
     intro l hl
-    exact hleaf l (ConLeche.annotateCore_leaves_sub F _ hann hws hb l hl)
+    exact hleaf l (ConLeche.annotateCore_leaves_sub Fa _ hann hws hb l hl)
   have hLE : Expr.LeavesBounded (Expr.mkAppN (.const Jn lvls) args') := by
     intro l hl
     exact (hopened.var _ _ (List.getElem?_of_mem (hleafE l hl)).choose_spec).2.2.1

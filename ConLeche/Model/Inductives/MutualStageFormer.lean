@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualRecPre
 import ConLeche.Verify.Inductives.MutualInv
+public import ConLeche.Verify.Inductives.FormerFront
 import ConLeche.Verify.Inductives.MutualWF
 public section
 
@@ -338,6 +339,12 @@ theorem MemberConsOk.ofCheck {F : Nat} {cvT cvTa : ConstantVal}
   exact ⟨by rw [hname]; exact hfind, by rw [hname]; exact hnres,
     by rw [hname]; exact hpshape, htf, htp, htr, htb⟩
 
+/-- Either front door establishes it (task #279 K.10). -/
+theorem MemberConsOk.ofFront {F : Nat} {cvT cvTa : ConstantVal}
+    (h : ConLeche.FormerFront μ F env cvT cvTa) : MemberConsOk env cvTa :=
+  ⟨by rw [h.name]; exact h.fresh, by rw [h.name]; exact h.nres, by rw [h.name]; exact h.pshape,
+    h.noFvar, h.lpsOk, h.resolve, h.bounded⟩
+
 /-- … and it travels across a cons of a DIFFERENT name (freshness by
 the name, resolution by monotonicity). -/
 theorem MemberConsOk.cons {c₀ : ConstantInfo} {cvTa : ConstantVal}
@@ -552,10 +559,10 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
     (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
       (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
-    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
+    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA} {auxRoute : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
-      = .ok (env₁, fms))
+      auxRoute = .ok (env₁, fms))
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       f.cvTa.levelParams = lps ∧
@@ -570,7 +577,7 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
         mp₁.base2.acval n = mp.base2.acval n) := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
   exact stageMutualFormersGo hParams hIdsBelow hchainBelow fms (fun i => i) env mp hE
-    (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
+    (fun f hf => MemberConsOk.ofFront (ConLeche.mutualFormerChecks_front_mem hchecks f hf).choose_spec)
     hnd hmem
 
 end ConLeche.Model

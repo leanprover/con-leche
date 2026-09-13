@@ -74160,6 +74160,116 @@ warning-free; `tests/shake.sh` exit 0 (both halves); `tests/layering.sh`
 301 base / 230 model / 3 caps / 1 umbrella, 0 base→lane, 0
 impl→theory; `tests/no-local-paths.sh` OK.
 
+#### M.25 (b) K.10 merged: the auxiliary install's model at the grade, and the copies' identity restated over the ONE list of annotated pins (2026-09-13, session 13)
+
+**The merge** (`inductives` = `45f3dd85`, K.10).  What K.10 changed for
+this lane: `nestedRemint` returns `(st, pinsA)` — the annotated open pins
+beside the state — and both pin checks (`pinsOkAux`, post-check (a))
+TYPE those pairs by inference alone; `checkMutualCore … none true` — the
+auxiliary install runs at the `auxRoute` grade, where a `_nested`-named
+member's type goes through `checkConstantValPre` (validated, not
+re-annotated); and `nestedCopyFormerType_eq` (Verify/NestedInv) gives
+the copies' stored FORMER types as the re-minted ones, syntactically.
+The umbrella of step (a) did its job: `NestedFacts` broke LOUDLY on the
+new signatures (`nestedPinsOk_inv` over pairs, no openers;
+`remintCopyTypes_inv`/`nestedRemint_inv` over the pair result) and was
+repaired at once — `nestedRemint_inv` now also exposes the re-mint's
+own chain (the first former's annotation `t₀A`, its openers `fvsA₀` and
+binders `pbsA`, the `remintCopyTypes` run at `envF` = the pre-block
+environment plus the formers), and `remintCopyTypes_inv` records, per
+returned pair, that it is pin `j` with the ANNOTATION at `envF` of the
+pin abstracted over the parameters and opened at `fvsA₀`.
+
+**FINDING — K.10 had NO MODEL, and `nestedAuxModel` was its first
+reader.**  The model's mutual chain read the formers stage through
+`checkConstantVal … = .ok f.cvTa` (`mutualFormerChecks_pos`, the
+annotating front door only), and `DeclMutualCoreRun` recorded
+`mutualFormers` at the default grade — so the scratch install at
+`true` could not be modelled at all: `declMutualCoreRun_of hcore`
+does not typecheck.  Closed here, in the model's own vocabulary
+rather than by re-annotation:
+
+* `Verify/Inductives/FormerFront.lean` (NEW, on the graph): the record
+  **`FormerFront mode F env cv cvTa`** — what the model ACTUALLY consumes
+  of a former's check: the declared name's facts (fresh, unreserved,
+  not projection-shaped, nodup level parameters), the checked
+  constant's name and level parameters (the declared ones), its type's
+  syntactic well-formedness at `env`, and its INFERENCE at depth 0 to a
+  sort.  `checkConstantValPre_inv` (the pre-annotated door, inverted),
+  `FormerFront.of_checkConstantVal`/`.of_pre`/`.retype`, and
+  **`mutualFormerChecks_front`** — the stage at EITHER grade,
+  positionally (the head takes the door the grade and the name select;
+  `checkSumTele` either keeps the constant or re-checks its normalised
+  type through `checkConstantVal`, and both land in `FormerFront`).
+  The annotation pass appears nowhere in it.
+* the chain generalised over `{auxRoute : Bool}`: `DeclMutualCoreRun`
+  carries the grade (`DeclMutualRun` fixes `false`),
+  `declMutualCoreRun_of`, `mutualFormers_freshExt`, `stageMembersG`,
+  `stageMutualFormers`, `MemberConsOk.ofFront`, and `declMutualCore`
+  itself; `formerData_of` is now the corollary of
+  **`formerData_of_front`** — the former's reading and grading were
+  ALWAYS inference's (`acceptedReads_of`, `ClaimsAt.inferRow`); the
+  annotation conjunct only transported `hasFvar`/`looseBVars` to the
+  output, which `FormerFront` carries directly.  Every `hposF` site in
+  `declMutualCore` (eleven) reads a `FormerFront` field instead of a
+  `checkConstantVal_inv` conjunct; `mutualFormerChecks_pos` is deleted.
+  The mutual route's behaviour and statements are unchanged (the grade
+  unifies at `false` everywhere it was implicit).
+* `nestedAuxModel`/`declNestedRun_auxModel` at the new run
+  (`… none true`, the pair result), so the scratch environment's model
+  exists again.
+
+**The copies' identity, restated in K.10's form.**  `CopyTypesAsMinted`
+is now over `pinsA`: pin `j`'s annotated form is the annotation at
+`envF` of the pin opened at the STORED first former's openers `fvsA`,
+and copy `k + j`'s stored former opened at `fvsA` is the container's at
+those components.  `pinRead_of` takes its annotation at an ARBITRARY
+environment and fuel (only the syntactic transports of the annotation
+are used; the reading is inference's at the scratch environment) —
+which is exactly K.10's "validate, never recompute" seen from the
+model.  What the DERIVATION of `CopyTypesAsMinted` from the run still
+needs, and where each piece is: (1) `remintCopyTypes`' type ledger —
+the final entry is the left fold of the per-pin rewrite (success arm:
+the container's stored type at `lvls` instantiated at
+`pinA.getAppArgs`, closed over `pbsA`; the three failure arms leave it)
+over the pairs; (2) the arm FIRES: `containerInfo? env q.container`
+succeeds and finds `q.container` — a fact about the pre-block
+environment the run does not record for a group-MATE of the occurrence's
+head (`containerInfo?` re-reads the group off THAT member's recursor),
+so it goes into `ContainersAt` (or the kernel throws in the failure
+arms, K.11 below); the level-length and `instPis` conditions follow from
+`mkCopy_inv` and the components' count; (3) the stored former is the
+checked one: `consMutualFormers_find?_self` carried across the later
+stages' `FreshEtaExt`s (a `find?`-preservation lemma the tree lacks);
+(4) `nestedCopyFormerType_eq` (needs the copy's `_nested` prefix, from
+`mkUniqueName`'s `appendName nestedPrefixName`); (5) the bvar-form
+round trip: `openPisAtFvars nP (closeTelescope pbsA 0 tyI) 0 = some
+(fvsA₀, tyI)` for `pbsA = t₀A.stripPis nP` — `openPisAtFvars_closeTelescope`
+is stated for OPENER-form domains, so a twin is owed; (6) `fvsA = fvsA₀`:
+the STORED first former is its annotation, i.e. `checkSumTele` took its
+identity branch on member 0 — true iff the annotated first former is a
+syntactic telescope ending in a sort (universal on elaborated streams;
+a crafted `T : id Type` takes the other branch and the re-mint's openers
+then differ from the stored former's in their annotations) — ONE named
+syntactic premise, `FirstFormerTele`, or the kernel reads `pbsA`/`fvsA₀`
+off the normalised type (K.11).
+
+**REQUESTS to the kernel lane (K.11), both small and verdict-neutral on
+accepted streams**: (a) `remintCopyTypes`' three failure arms
+(`containerInfo?`/`find?`/`instPis` at the re-mint) become `.internal`
+throws — they cannot fire after a successful elimination of the same
+pins, and a throw is what lets the run relation say the arm fired;
+(b) `nestedRemint` takes the first former's binders and openers from
+the type `checkSumTele` would store (or `checkNested` declines a first
+former whose annotated type is not a syntactic telescope ending in a
+sort), so `fvsA = fvsA₀` holds by construction.
+
+**Gates** (per session; landing gates NOT run): `lake build` warning-free
+(one module more: `FormerFront`); `lake test` clean; the ten off-graph
+modules build; `tests/shake.sh` exit 0 (`FormerFront → MutualInv`
+allowlisted as compensated; the K.10 merge retired the `NestedOrderK`
+line); layering 302/230/3/1, 0/0; no-local-paths OK.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

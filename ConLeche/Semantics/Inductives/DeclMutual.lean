@@ -4,6 +4,7 @@ public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Verify.Inductives.MutualWF
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Inductives.FormerFront
 
 @[expose] public section
 
@@ -40,7 +41,8 @@ of `checkMutualCore` at a block `b` and an optional stream record list
 `DeclMutualRun` is this at the recogniser's block with its records;
 the nested route's auxiliary block is this at `none`. -/
 def DeclMutualCoreRun (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) (env₂ : Env) : Prop :=
+    (streamRecs : Option (List (ConstantVal × List RecRule))) (auxRoute : Bool) (env₂ : Env) :
+    Prop :=
   ∃ (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
     (tq₀ : List Expr × Expr) (ctorsA : List (ConstantVal × Nat))
     (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
@@ -53,7 +55,7 @@ def DeclMutualCoreRun (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock)
     b.ctors.all (fun c => c.member < b.k) = true ∧
     ConLeche.mutualCtorsGrouped b.ctors = true ∧
     -- stage 1: the formers at official's telescope, consed with `{}`
-    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env auxRoute
       = .ok (env₁, fms) ∧
     fms[0]? = some f₀ ∧
     -- stage 2: official's cross-member checks and the eliminator
@@ -90,14 +92,15 @@ recogniser's block with the records. -/
 def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     (p : MutualParts) (env₂ : Env) : Prop :=
   p.recPinned = true ∧
-  DeclMutualCoreRun μ F env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules))) env₂
+  DeclMutualCoreRun μ F env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules))) false
+    env₂
 
 /-- A successful core install is a core run. -/
 theorem declMutualCoreRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {b : MutualBlock}
-    {streamRecs : Option (List (ConstantVal × List RecRule))}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
     (h : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b streamRecs
-      = .ok env₂) :
-    DeclMutualCoreRun μ F env b streamRecs env₂ := by
+      auxRoute = .ok env₂) :
+    DeclMutualCoreRun μ F env b streamRecs auxRoute env₂ := by
   obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, rest⟩ := ConLeche.checkMutualCore_inv h
   exact ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, h0, h1, h2,
@@ -247,17 +250,15 @@ theorem consMutualFormers_freshExt {fms : List MutualFormerA} {env : Env}
 /-- Stage 1: the formers, each checked at the pre-block environment
 and consed with `{}`. -/
 theorem mutualFormers_freshExt {F nP : Nat} {l : List (ConstantVal × Nat)}
-    {env env' : Env} {fms : List MutualFormerA}
-    (h : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env
+    {env env' : Env} {fms : List MutualFormerA} {auxRoute : Bool}
+    (h : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env auxRoute
       = .ok (env', fms)) :
     FreshEtaExt env env' := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv h
   refine consMutualFormers_freshExt (fun f hf => ?_)
-  obtain ⟨cv', hccv'⟩ := ConLeche.mutualFormerChecks_checked hchecks f hf
-  obtain ⟨hfresh, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
-    ConLeche.checkConstantVal_inv hccv'
+  obtain ⟨cv', hff⟩ := ConLeche.mutualFormerChecks_front_mem hchecks f hf
   show env.find? f.cvTa.name = none
-  rw [hTeq]; exact hfresh
+  rw [hff.name]; exact hff.fresh
 
 /-- Stage 3: the constructors' conses. -/
 theorem consMutualCtors_consts {nP : Nat} :

@@ -13,6 +13,7 @@ public import ConLeche.Model.Inductives.MutualRep
 import ConLeche.Model.IndRepCons
 import ConLeche.Model.IndRepSwap
 import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Inductives.FormerFront
 import ConLeche.Verify.Inductives.ContainerWalk
 public section
 
@@ -361,40 +362,6 @@ theorem consMutualCtors_find?_none {nP : Nat} :
     split at h'
     · exact nomatch h'
     · exact h'
-
-/-- **The formers' checks, positionally**: the `t`-th checked former is
-the `t`-th declared one's constant check at the PRE-BLOCK environment
-(its name and level parameters the declared constant's), and its
-annotated type is the telescope ending in its result sort. -/
-theorem mutualFormerChecks_pos {F nP : Nat} :
-    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
-      ConLeche.mutualFormerChecks (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env nP false l
-        = .ok fms →
-      fms.length = l.length ∧
-      ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
-        ∃ (cv cv' : ConstantVal) (bs : List (Expr × BinderMeta)),
-          l[t]? = some (cv, f.nIdx) ∧
-          ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cv' = .ok f.cvTa ∧
-          cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧
-          f.cvTa.type.stripPis (nP + f.nIdx) = some (bs, .sort f.s)
-  | [], _, _, h => by
-    obtain rfl := ConLeche.mutualFormerChecks_nil_inv h
-    exact ⟨rfl, fun t f hf => nomatch hf⟩
-  | (cv, nIdx) :: rest, env, fms, h => by
-    obtain ⟨cvTa₀, cvTa, s, bs, fs, hccv₀, htele, hstrip, hrest, rfl⟩ :=
-      ConLeche.mutualFormerChecks_inv h
-    obtain ⟨hlen, hall⟩ := mutualFormerChecks_pos hrest
-    refine ⟨by simp [hlen], ?_⟩
-    intro t f hf
-    cases t with
-    | zero =>
-      obtain rfl := Option.some.inj hf
-      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, cv, bs, rfl, hccv₀, rfl, rfl, hstrip⟩
-      · exact ⟨cv, { cv with type := ty }, bs, rfl, hccv, rfl, rfl, hstrip⟩
-    | succ t =>
-      simp only [List.getElem?_cons_succ] at hf ⊢
-      exact hall t f hf
 
 /-- **The cross-member checks, at every member**: the result sort is
 the first former's and the parameter domains are compared there. -/
@@ -844,10 +811,10 @@ theorem stageMembersG {F nP : Nat} {resSort : Level} {lps : List Name}
     {Aof : Nat → (Name → Nat) → AnnotTerm}
     {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {lvlsF : Nat → (Name → Nat) → List Nat}
-    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
+    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA} {auxRoute : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
-      = .ok (env₁, fms))
+      auxRoute = .ok (env₁, fms))
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       f.cvTa.levelParams = lps ∧
@@ -864,7 +831,7 @@ theorem stageMembersG {F nP : Nat} {resSort : Level} {lps : List Name}
         mp₁.base2.acval n = mp.base2.acval n) := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
   exact stageMembersGoG fms (fun i => i) env mp hE
-    (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
+    (fun f hf => MemberConsOk.ofFront (ConLeche.mutualFormerChecks_front_mem hchecks f hf).choose_spec)
     hnd hmem
 
 /-! ## Kit: the readings that do not move -/
@@ -1989,8 +1956,9 @@ set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {p : MutualParts} {streamRecs : Option (List (ConstantVal × List RecRule))}
+    {auxRoute : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (h : ConLeche.Semantics.DeclMutualCoreRun μ F env p.toBlock streamRecs env₂)
+    (h : ConLeche.Semantics.DeclMutualCoreRun μ F env p.toBlock streamRecs auxRoute env₂)
     -- the recursors' names (task #279 M-B′): fresh before the block,
     -- not reserved, not a projection function's — the stream-facing
     -- `declMutual` reads them off the stream records' own checks, the
@@ -2005,7 +1973,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     hgd, hrectys, hrules, htbl⟩ := h
   -- stage 1, split: the checks at the PRE-BLOCK environment, the conses after
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
-  obtain ⟨hlenFms, hposF⟩ := mutualFormerChecks_pos hchecks
+  obtain ⟨hlenFms, hposF⟩ := ConLeche.mutualFormerChecks_front hchecks
   -- the checked members carry the declared names and level parameters
   have hnamesF : fms.map (·.cvTa.name) = p.toBlock.memberNames := by
     refine List.ext_getElem? fun t => ?_
@@ -2016,10 +1984,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         rw [List.getElem?_eq_none_iff] at hft ⊢; omega
       simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hn]
     | some f =>
-      obtain ⟨cv, cv', bs, hl, hccv, hn1, -, -⟩ := hposF t f hft
-      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hl, hty, hn1]
+      obtain ⟨cv, bs, hl, hff, -⟩ := hposF t f hft
+      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hl, hff.name]
   -- the block's names are distinct
   have hndM : (p.toBlock.formers.map (·.1.name)).Nodup := by
     have h0 := hNodup
@@ -2036,29 +2002,23 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hlpsF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       f.cvTa.levelParams = p.toBlock.lps := by
     intro t f hft
-    obtain ⟨cv, cv', bs, hl, hccv, -, hl2, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-      ConLeche.checkConstantVal_inv hccv
+    obtain ⟨cv, bs, hl, hff, -⟩ := hposF t f hft
     have hall : (p.toBlock.formers.all fun f => f.1.levelParams == p.toBlock.lps) = true := by
       simpa using (Bool.and_eq_true _ _ |>.mp hlpsAll).1
     have := List.all_eq_true.mp hall (cv, f.nIdx) (List.mem_of_getElem? hl)
-    rw [hty]
-    show cv'.levelParams = _
-    rw [hl2]
+    rw [hff.lps]
     simpa using this
   have hfreshF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       env.find? f.cvTa.name = none := by
     intro t f hft
-    obtain ⟨cv, cv', bs, hl, hccv, -, -, -⟩ := hposF t f hft
-    obtain ⟨hfind, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-      ConLeche.checkConstantVal_inv hccv
-    rw [hty]; exact hfind
+    obtain ⟨cv, bs, hl, hff, -⟩ := hposF t f hft
+    rw [hff.name]; exact hff.fresh
   -- every member's telescope, from its check
   have hstripF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ∃ bs : List (Expr × BinderMeta),
         f.cvTa.type.stripPis (p.toBlock.nP + f.nIdx) = some (bs, .sort f.s) := by
     intro t f hft
-    obtain ⟨cv, cv', bs, -, -, -, -, hstrip⟩ := hposF t f hft
+    obtain ⟨cv, bs, -, -, hstrip⟩ := hposF t f hft
     exact ⟨bs, hstrip⟩
   -- the members' binder data, at the pre-block carrier
   have hFDex : ∀ t : Nat, ∃ (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm))
@@ -2075,8 +2035,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       · intro _ _
         rfl
     | some f =>
-      obtain ⟨cv, cv', bs, -, hccv, -, -, hstrip⟩ := hposF t f hft
-      obtain ⟨pps, lvls, hFD⟩ := formerData_of hμ mp hccv hstrip
+      obtain ⟨cv, bs, -, hff, hstrip⟩ := hposF t f hft
+      obtain ⟨pps, lvls, hFD⟩ := formerData_of_front hμ mp hff hstrip
       exact ⟨pps, lvls, (fun f' hf' => by obtain rfl := Option.some.inj hf'; exact hFD),
         fun hn => nomatch hn⟩
   let ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm) := fun t => (hFDex t).choose
@@ -2142,15 +2102,14 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       mutualNameOf p.toBlock.members3 t = f.cvTa.name ∧
       mutualNIdxOf p.toBlock.members3 t = f.nIdx := by
     intro t f hft
-    obtain ⟨cv, cv', bs, hl, hccv, hn1, -, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨cv, bs, hl, hff, -⟩ := hposF t f hft
     have htk : t < p.toBlock.k := by
       show t < p.toBlock.formers.length
       exact (List.getElem?_eq_some_iff.mp hl).1
     have hgetD : p.toBlock.formers.getD t default = (cv, f.nIdx) := by
       rw [List.getD_eq_getElem?_getD, hl]; rfl
     rw [mutualNameOf_members3 htk, mutualNIdxOf_members3 htk, hgetD]
-    exact ⟨by rw [hty]; exact hn1.symm, rfl⟩
+    exact ⟨hff.name.symm, rfl⟩
   -- the constructors, positionally, and their classified kinds
   obtain ⟨hlenA, hlenS, hallC⟩ := ConLeche.checkMutualCtors_inv hctors
   obtain ⟨hkindsM, -, -, hlenK⟩ := ConLeche.classifyMutualKinds_inv hkinds
@@ -2214,9 +2173,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hcbF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ConstsBound env f.cvTa.type := by
     intro t f hft
-    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    exact constsBound_of_constsResolve _ (by rw [hty]; exact htr)
+    obtain ⟨cv, bs, -, hff, -⟩ := hposF t f hft
+    exact constsBound_of_constsResolve _ hff.resolve
   have hFD₁ : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       FormerData mp₀.base2 f.cvTa (p.toBlock.nP + f.nIdx) f₀.s (ppsF t) (lvlsF t) :=
     fun t f hft => FormerData.crossEnv (hFD t f hft) (hcbF t f hft) hFP hLG hPJ hagree₀
@@ -3100,9 +3058,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hcbF₁ : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ConstsBound (ConLeche.consMutualFormers fms env) f.cvTa.type := by
     intro t f hft
-    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    exact constsBound_of_constsResolve _ (hmono₁ _ (by rw [hty]; exact htr))
+    obtain ⟨cv, bs, -, hff, -⟩ := hposF t f hft
+    exact constsBound_of_constsResolve _ (hmono₁ _ hff.resolve)
   have hFD₃ : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       FormerData mp₂.base2 f.cvTa (p.toBlock.nP + f.nIdx) f₀.s (ppsF t) (lvlsF t) :=
     fun t f hft => FormerData.crossEnv (hFD₂ t f hft) (hcbF₁ t f hft) hFPc hLGc hPJc
@@ -4853,10 +4810,9 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       ConstsBound (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) f.cvTa.type := by
     intro q f hq
-    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF q f hq
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨cv, bs, -, hff, -⟩ := hposF q f hq
     exact constsBound_of_constsResolve _
-      (Expr.constsResolve_le hFPcS (hmono₁ _ (by rw [hty]; exact htr)))
+      (Expr.constsResolve_le hFPcS (hmono₁ _ hff.resolve))
   have hcbCC : ∀ (J' : Nat) (cA : ConstantVal × Nat), ctorsA[J']? = some cA →
       ConstsBound (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) cA.1.type := fun J' cA hJ' =>
@@ -6430,10 +6386,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     have hnpT : ∀ f' ∈ fms, Expr.NoProjAt f.cvTa.name j f'.cvTa.type := by
       intro f' hf'
       obtain ⟨t', hft'⟩ := List.getElem?_of_mem hf'
-      obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t' f' hft'
-      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      exact ConLeche.Expr.noProjAt_of_constsResolve (hfreshF t f hft) _ (by rw [hty]; exact htr)
+      obtain ⟨cv, bs, -, hff, -⟩ := hposF t' f' hft'
+      exact ConLeche.Expr.noProjAt_of_constsResolve (hfreshF t f hft) _ hff.resolve
     have h1 : NoProjEnv (ConLeche.consMutualFormers fms env) f.cvTa.name j :=
       noProjEnv_consMutualFormers h0 hnpT
     have hslot : (ConLeche.consMutualFormers fms env).findProj? f.cvTa.name j = none :=
@@ -6623,20 +6577,16 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         = (Level.isEquiv q.1.s Level.zero == some true)
       exact isPropBit_congr (fun ψ => (hsq ψ).symm)
     · -- the member's name is not a projection function's
-      obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF q.2 q.1 hget
-      obtain ⟨-, -, hsh, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      rw [hty]; exact hsh
+      obtain ⟨cv, bs, -, hff, -⟩ := hposF q.2 q.1 hget
+      rw [hff.name]; exact hff.pshape
     · -- the constructor's name is not a projection function's
       obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrunJ
       obtain ⟨-, -, hsh, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
         ConLeche.checkConstantVal_inv hccv
       rw [hty]; exact hsh
     · -- the member's name is not reserved
-      obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF q.2 q.1 hget
-      obtain ⟨-, hres, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      rw [hty]; exact hres
+      obtain ⟨cv, bs, -, hff, -⟩ := hposF q.2 q.1 hget
+      rw [hff.name]; exact hff.nres
     · -- the member's RECURSOR name is not reserved
       have hnr := hnres q.2 hlt
       rw [hrecNameG q.2 hlt] at hnr
