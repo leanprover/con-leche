@@ -2396,6 +2396,54 @@ theorem instPisAt_of_instPis :
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.instPis] at h
 
+/-- `instPisAt`'s residual is `instPis`. -/
+theorem instPis_of_instPisAt :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) → Expr.instPis e args = some rest
+  | [], e, ds, rest, h => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]; rfl
+  | a :: args, e, ds, rest, h => by
+    match e, h with
+    | .forallE dom body bm, h =>
+      simp only [Expr.instPisAt, Option.map_eq_some_iff] at h
+      obtain ⟨⟨ds', rest'⟩, h', h''⟩ := h
+      simp only [Prod.mk.injEq] at h''
+      obtain ⟨-, rfl⟩ := h''
+      simp only [Expr.instPis]
+      exact instPis_of_instPisAt args h'
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.instPisAt] at h
+
+/-- A stripped telescope strips after level instantiation. -/
+theorem stripPis_instantiateLevelParams_some (ks : List Name) (vs : List Level) (n : Nat)
+    {e : Expr} {bs : List (Expr × BinderMeta)} {r : Expr} (h : e.stripPis n = some (bs, r)) :
+    ∃ bs' r', (e.instantiateLevelParams ks vs).stripPis n = some (bs', r') := by
+  have h1 := stripPis_instantiateLevelParams_isSome ks vs n (e := e) (by rw [h]; rfl)
+  cases h' : (e.instantiateLevelParams ks vs).stripPis n with
+  | none => rw [h'] at h1; exact nomatch h1
+  | some q => exact ⟨q.1, q.2, rfl⟩
+
+/-- `instPisAt` succeeds on a telescope with enough binders. -/
+theorem instPisAt_of_stripPis' :
+    ∀ (args : List Expr) {e : Expr} {n : Nat} {bs : List (Expr × BinderMeta)} {r : Expr},
+      e.stripPis n = some (bs, r) → args.length ≤ n →
+      ∃ ds rest, Expr.instPisAt args e = some (ds, rest)
+  | [], e, _, _, _, _, _ => ⟨[], e, rfl⟩
+  | a :: args, e, n, bs, r, h, hle => by
+    cases n with
+    | zero => simp at hle
+    | succ n =>
+      match e, h with
+      | .forallE dom body bm, h =>
+        simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+        obtain ⟨⟨bs₀, r₀⟩, h₀, -⟩ := h
+        obtain ⟨bs', r', h'⟩ := stripPis_instantiate1 n body a 0 h₀
+        obtain ⟨ds, rest, hds⟩ := instPisAt_of_stripPis' args h' (by simpa using hle)
+        exact ⟨dom :: ds, rest, by simp [Expr.instPisAt, hds]⟩
+      | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+      | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
+
 /-! ## The pin's components, annotated one by one -/
 
 /-- Annotation of a spine, with one run per argument. -/
@@ -2629,13 +2677,7 @@ theorem copyFormer_aligned {env : Env} (henv : EnvWF env) {nP : Nat}
       (looseBVarsBounded_mapFvars hσc _ _ (hDs D (List.mem_of_getElem? hD)))
   have hstrip : ∃ bs r, (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis
       argsA.length = some (bs, r) := by
-    have h1 := stripPis_instantiateLevelParams_isSome cvTJ.levelParams lvls nJ
-      (e := cvTJ.type) (by rw [hJtele]; rfl)
-    obtain ⟨bs₁, r₁, h₁⟩ : ∃ bs₁ r₁, (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis nJ
-        = some (bs₁, r₁) := by
-      cases h : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis nJ with
-      | none => rw [h] at h1; exact nomatch h1
-      | some q => exact ⟨q.1, q.2, rfl⟩
+    obtain ⟨bs₁, r₁, h₁⟩ := stripPis_instantiateLevelParams_some cvTJ.levelParams lvls nJ hJtele
     exact stripPis_of_le nJ argsA.length h₁ (by rw [hargsLen]; exact hDsLen)
   have hnone : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).mapFvars (fun _ => none)
       = cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls :=
