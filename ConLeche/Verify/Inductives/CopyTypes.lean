@@ -97,7 +97,10 @@ theorem Expr.numArgs_instantiate1 (v : Expr) :
     omega
   all_goals rfl
 
-theorem Expr.getAppFn_instantiateLevelParams (ks : List Name) (vs : List Level) :
+/-- (Named apart from `Verify/Denote/IndFrame.lean`'s twin, which takes
+its arguments in another order: this module must be importable beside
+the tree — task #279 M.23.) -/
+theorem Expr.getAppFn_instantiateLevelParams' (ks : List Name) (vs : List Level) :
     ∀ (e : Expr),
       (e.instantiateLevelParams ks vs).getAppFn
         = e.getAppFn.instantiateLevelParams ks vs := by
@@ -303,7 +306,7 @@ theorem typeSortPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
   case app f a =>
     show headTypePW find? ((f.instantiateLevelParams ks vs).getAppFn)
         ((f.instantiateLevelParams ks vs).numArgs + 1) = _
-    rw [Expr.getAppFn_instantiateLevelParams, Expr.numArgs_instantiateLevelParams]
+    rw [Expr.getAppFn_instantiateLevelParams', Expr.numArgs_instantiateLevelParams]
     exact headTypePW_instantiateLevelParams find? hdef
       (hd := f.getAppFn) (n := f.numArgs + 1) h
   all_goals exact nomatch h
@@ -721,7 +724,9 @@ walk — no inference, which is the point. -/
     (ty b : Expr) (m : BinderMeta) :
     typeSortPW find? (.forallE ty b m) = some m.pw := rfl
 
-theorem Expr.getAppFn_mkAppN (f : Expr) :
+/-- (Named apart from `Verify/InferLemmas.lean`'s twin, which takes its
+arguments in another order — task #279 M.23.) -/
+theorem Expr.getAppFn_mkAppN' (f : Expr) :
     ∀ (args : List Expr), (Expr.mkAppN f args).getAppFn = f.getAppFn := by
   intro args
   induction args generalizing f with
@@ -765,7 +770,7 @@ theorem typeSortPW_mkAppN_const (find? : Name → Option ConstantInfo)
   cases args with
   | nil => exact absurd rfl hne
   | cons a as =>
-    rw [hshape (.const I us) a as, Expr.getAppFn_mkAppN, Expr.numArgs_mkAppN]
+    rw [hshape (.const I us) a as, Expr.getAppFn_mkAppN', Expr.numArgs_mkAppN]
     show headTypePW find? (Expr.const I us) (0 + (a :: as).length) = _
     rw [Nat.zero_add, headTypePW_const, hf]
     simp only [hnt, Bool.false_eq_true, if_false, hlen, if_true, hpeel, residualPW,
