@@ -620,15 +620,15 @@ theorem invChoice_group {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLe
     d.invL mpAux.base2 ψ p.k cd (p.k + (cd j).base + t)
         = mpAux.base2.acval ((cd j).dJ.memberName t) (cd j).ψ' ∧
       d.invPinsT p.k cd (p.k + (cd j).base + t) = (cd j).DsA := by
-  obtain ⟨-, -, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, hci, -, -, -, hlenM, hgrp, -, -, -, -, hsp,
-    -, -, hab⟩ := hcd j hj
+  obtain ⟨-, -, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, hci, -, -, -, hlenM, hgrp, -, -, -, -, -,
+    hsp, -, -, hab⟩ := hcd j hj
   obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
   obtain ⟨q', hq', hq'c, hq'p, -, -⟩ := hgrp t J' hJ'
   have hj₂ : (cd j).base + t < st.pins.length := (List.getElem?_eq_some_iff.mp hq').1
   obtain ⟨hname, hacv⟩ := hab t J' hJ'
   obtain ⟨-, -, q₂, I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂, hci₂, hJ₂, hJ₂n, hmn₂, -, -, hqp₂,
-    -, -, -, hsp₂, -, -, hab₂⟩ := hcd _ hj₂
+    -, -, -, -, hsp₂, -, -, hab₂⟩ := hcd _ hj₂
   obtain rfl : q₂ = q' := Option.some.inj (hq₂.symm.trans hq')
   obtain ⟨-, hlv, hDs⟩ := group_pin_eq hq' hq' hq'p hqp₂
   have hDsA : (cd ((cd j).base + t)).DsA = (cd j).DsA := by
@@ -681,8 +681,8 @@ theorem copyCtor_repr {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLech
   have htLt : t < st.types.length := (List.getElem?_eq_some_iff.mp hty).1
   obtain ⟨j, rfl⟩ : ∃ j, t = p.k + j := ⟨t - p.k, by omega⟩
   have hj : j < st.pins.length := by omega
-  obtain ⟨-, hbm, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, -, hJm, -, -, -, -, -, -, -, -, -, hcat,
-    hcst, -⟩ := hcd j hj
+  obtain ⟨-, hbm, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, -, hJm, -, -, -, -, -, -, -, -, -, -,
+    hcat, hcst, -⟩ := hcd j hj
   obtain ⟨tyA, htyA, -, hlenA, -⟩ := hcst
   obtain rfl : tyA = ty := Option.some.inj (htyA.symm.trans hty)
   have hl : l < Jm.ctors.length := by

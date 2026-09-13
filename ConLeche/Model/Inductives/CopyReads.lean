@@ -260,6 +260,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                 (dJ.lvlsM mmJ) →
               ∃ (s : Level) (DsA : List AnnotTerm),
                 (∀ ψ' : Name → Nat, s.eval ψ' = d.resSort.eval ψ') ∧
+                (∀ a ∈ Ds, Expr.WScoped p.nP a ∧ a.looseBVarsBounded 0 = true) ∧
                 DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds DsA ∧
                 ({d with resSort := s} : IndRepData V).PinRead ψ
                   (mpAux.base2.acval J.name (Level.substFn ψ cvTJ.levelParams lvls)) DsA Ds.length ∧
@@ -425,6 +426,10 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     hopened' hfJ hlvls' hFDJ (by rw [hDsLen, hciNP]) (by rw [hdnP]; exact hws) hbQ hleafQ
     (by rw [hdnP]; exact hpinInf) halign
   rw [hdnP] at hsp
-  exact ⟨s', DsA, hsv', hsp, hpin, hidx⟩
+  -- the components' guards (K.3's `pinsClosed`, per component: what
+  -- makes the readings `bvarsBelow p.nP`, `DenoteMetaSpine.bvarsBelow`)
+  have hargs : ∀ a ∈ Ds, Expr.WScoped p.nP a ∧ a.looseBVarsBounded 0 = true := fun a ha =>
+    ⟨(ConLeche.WScoped_mkAppN_args hws).2 a ha, (ConLeche.looseBVarsBounded_mkAppN_args hbQ).2 a ha⟩
+  exact ⟨s', DsA, hsv', hargs, hsp, hpin, hidx⟩
 
 end ConLeche.Model

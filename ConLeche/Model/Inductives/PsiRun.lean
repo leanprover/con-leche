@@ -294,6 +294,9 @@ copy's constructors from the mint to the store (`CopyCtorsStored`). -/
     ElimState.grp st j = ((cd j).base, (cd j).dJ.k) ∧
     envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
     (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
+    -- the components' guards (K.3's `pinsClosed`): the readings are
+    -- `bvarsBelow p.nP` (`DenoteMetaSpine.bvarsBelow`)
+    (∀ a ∈ Ds, Expr.WScoped p.nP a ∧ a.looseBVarsBounded 0 = true) ∧
     DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA ∧
     ContainerCtorsAt ci (cd j).dJ ∧
     ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
@@ -351,6 +354,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         ElimState.grp st j = (c.base, c.dJ.k) ∧
         envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
         c.ψ' = pinAssign c.dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
+        (∀ a ∈ Ds, Expr.WScoped p.nP a ∧ a.looseBVarsBounded 0 = true) ∧
         DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA ∧
         ContainerCtorsAt ci c.dJ ∧
         ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
@@ -368,7 +372,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     have hFDJ : FormerData mpAux.base2 cvTJ (dJ.nP + dJ.nIdxAt i) dJ.resSort (dJ.ppsM i)
         (dJ.lvlsM i) :=
       hrep.formersRead i (by rw [hkR]; exact hik) cvTJ capsJ (by rw [hrep.member]; exact hfJ)
-    obtain ⟨s, DsA, hsv, hsp, hpin, hidx⟩ := hread ψ cvTJ capsJ dJ i hfJ hJty hJlps hciNP hFDJ
+    obtain ⟨s, DsA, hsv, hargs, hsp, hpin, hidx⟩ := hread ψ cvTJ capsJ dJ i hfJ hJty hJlps hciNP hFDJ
     -- the assignment
     obtain ⟨ψ'₀, hψ'₀⟩ : ∃ x, x = Level.substFn ψ cvTJ.levelParams lvls := ⟨_, rfl⟩
     obtain ⟨ψ', hψ'⟩ : ∃ x, x = pinAssign dJ ψ'₀ := ⟨_, rfl⟩
@@ -415,7 +419,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       have hJtty : Jt.type = cvTJ'.type := by rw [htyC, ← htyC', hJty']
       have hJtlps : Jt.lps = cvTJ'.levelParams := by rw [hlpsC, ← hlpsC', hJlps']
       have hcitNP : cit.nP = dJ.nP := by rw [← hDsLent, hDsLen, hciNP]
-      obtain ⟨st', DsA', hsv', hsp', hpin', hidx'⟩ :=
+      obtain ⟨st', DsA', hsv', -, hsp', hpin', hidx'⟩ :=
         hreadt ψ cvTJ' capsJ' dJ t (by rw [hJtn]; exact hfJ') hJtty hJtlps hcitNP hFDJ'
       obtain rfl : DsA = DsA' := denoteMetaSpine_eq hsp hsp'
       -- the assignment agrees on the container's level parameters
@@ -442,7 +446,8 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         fun t ht => by show p.k + j₀ + t < d.k; have := hposGrp t ht; omega, hgrpOk⟩,
       by show j₀ + i = j; omega,
       q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hqc.symm, by rw [hrep.member, hqc], hlenM,
-      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp, hcat, hcst, ?_⟩
+      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hargs, hsp, hcat, hcst,
+      ?_⟩
     · show ElimState.grp st j = (j₀, dJ.k)
       unfold ElimState.grp
       rw [hq]

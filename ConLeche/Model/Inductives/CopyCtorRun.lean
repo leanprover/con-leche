@@ -147,7 +147,7 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨-, -, -, -, -, hview, -, -⟩ := hreps
   obtain ⟨env₁', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, -, hmems⟩ := hchk
   obtain ⟨pf, hbm, q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hJn, hmn, hlenM, hgrp, hqp, hg,
-    hfJ, hψ', hsp, hcat, hcst, -⟩ := hpins j' hj'
+    hfJ, hψ', -, hsp, hcat, hcst, -⟩ := hpins j' hj'
   -- the constructor's member and its container member
   obtain ⟨Jm, c, hJm, hcl, hname, htype, hnF⟩ := hcat.fwd Jc cAJ hJc
   have ht : (cd j').dJ.mems Jc < (cd j').dJ.k := by
@@ -157,7 +157,7 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   have hj₂ : (cd j').base + (cd j').dJ.mems Jc < st.pins.length :=
     (List.getElem?_eq_some_iff.mp hq₂).1
   obtain ⟨pf₂, hbm₂, q₂', I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂', hci₂, hJ₂, hJ₂n, -, -, -, -,
-    hg₂, -, -, -, -, hcst₂, -⟩ := hpins _ hj₂
+    hg₂, -, -, -, -, -, hcst₂, -⟩ := hpins _ hj₂
   obtain rfl : q₂' = q₂ := Option.some.inj (hq₂'.symm.trans hq₂)
   obtain ⟨hbase₂, hmm₂⟩ := groupMate_base hq₂ hq₂b rfl hg₂ hbm₂
   rw [hmm₂] at hJ₂
