@@ -104,11 +104,10 @@ theorem nestedTypes0_length (p : NestedParts) :
 /-- **The three recursor-name facts of the scratch block**, read off the
 run (see the module docstring): fresh before the block, unreserved, not
 projection-shaped. -/
-theorem nestedRecNameFacts (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : Env}
+theorem nestedRecNameFacts {F : Nat} {env envAux : Env}
     {p : NestedParts} {st₀ st : ElimState} {b : MutualBlock} {stored : List AuxStored}
     {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms : List ConstantVal}
     {pinsA : List (ConLeche.NestedPin × Expr)}
-    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (helim : ConLeche.elimNested env p.nP p.lps
       (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
         (⟨cv.name, cv.type,
@@ -233,7 +232,7 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         (stored.take p.k) = .ok cvRms) :
     ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
-  have hfacts := nestedRecNameFacts hμ mp hE helim hremint hfresh hb hcore hstored hrm
+  have hfacts := nestedRecNameFacts helim hremint hfresh hb hcore hstored hrm
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
   obtain ⟨mpAux, d, hreps⟩ := declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)

@@ -1301,6 +1301,54 @@ theorem foldl_remintOne_single (env : Env) (pbsA : List (Expr × BinderMeta)) :
     exact foldl_remintOne_single env pbsA L j qp t h
       (fun j' qp' hj' hne => hothers (j' + 1) qp' (by simpa using hj') (fun hh => hne (Nat.succ.inj hh)))
 
+/-- Consistency at a variable from its leaves: every leaf at the index
+carries the annotation. -/
+theorem fvarConsistent_of_leaves {idx : Nat} {ty : Expr} :
+    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, l.1 = idx → l.2 = ty) → Expr.fvarConsistent idx ty e := by
+  intro e
+  induction e with
+  | bvar i => intro _; trivial
+  | fvar i t _ =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    intro hi
+    exact h (i, t) (by simp [Expr.fvarLeaves]) hi
+  | sort u => intro _; trivial
+  | const n us => intro _; trivial
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨ihf fun l hl => h l (Or.inl hl), iha fun l hl => h l (Or.inr hl)⟩
+  | lam t b bi iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun l hl => h l (Or.inl hl), ihb fun l hl => h l (Or.inr hl)⟩
+  | forallE t b bi iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun l hl => h l (Or.inl hl), ihb fun l hl => h l (Or.inr hl)⟩
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    exact ⟨iht fun l hl => h l (Or.inl (Or.inl hl)), ihv fun l hl => h l (Or.inl (Or.inr hl)),
+      ihb fun l hl => h l (Or.inr hl)⟩
+  | lit l => intro _; trivial
+  | proj sn i pe ih =>
+    intro h
+    simp only [Expr.fvarLeaves] at h
+    exact ih h
+
+/-- Among openers indexed by position, a member at index `idx` is THE
+opener at position `idx`. -/
+theorem openers_mem_eq {fvs : List Expr}
+    (hvar : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty)
+    {idx : Nat} {ty' : Expr} (hmem : Expr.fvar idx ty' ∈ fvs) :
+    fvs[idx]? = some (Expr.fvar idx ty') := by
+  obtain ⟨m, hm⟩ := List.getElem?_of_mem hmem
+  obtain ⟨ty, hty⟩ := hvar m _ hm
+  obtain ⟨rfl, rfl⟩ := Expr.fvar.inj hty
+  exact hm
+
 /-! ### The bvar-form round trip (DESIGN §M.25 piece 5)
 
 `nestedRemint` closes the instantiated container type over the first
@@ -1376,7 +1424,7 @@ theorem abstract1_comm :
     intro d d' k k' hne
     by_cases h1 : idx = d
     · subst h1
-      simp [Expr.abstract1, hne, Ne.symm hne]
+      simp [Expr.abstract1, hne]
     · by_cases h2 : idx = d'
       · subst h2; simp [Expr.abstract1, h1]
       · simp [Expr.abstract1, h1, h2]

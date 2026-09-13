@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualRecPre
 import ConLeche.Verify.Inductives.MutualInv
-public import ConLeche.Verify.Inductives.FormerFront
+import ConLeche.Verify.Inductives.FormerFront
 import ConLeche.Verify.Inductives.MutualWF
 public section
 
