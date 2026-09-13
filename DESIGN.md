@@ -71655,6 +71655,108 @@ again after K.9 on `f14c3dc6` + task #301):
 | Mathlib full | NOT owed before K.9 (the diff touched no file on the accept path: new modules plus one flag-guarded branch in `Main.lean`).  **Run at K.9**: `--verified --jobs=8`, 32 GB, **654 499 declarations accepted, exit 0** — the recorded count |
 | init-full instructions | at K.9, `--verified --jobs=1`, `perf stat -e instructions:u`: **538.4500 G** against the K.6/K.7 binary's **538.4496 G**, **+0.0001 %**, 53 088 accepted both — the noise floor for an unchanged accept path |
 
+#### K.11 THREE PREMISES OF THE MODEL'S COPY READS (2026-09-13, DESIGN §M.25) — (a) and (b) LANDED, (c) BLOCKED WITH EVIDENCE
+
+Three items, each retiring a premise the model lane carries about the
+copies.  Two landed; the third is not deliverable as specified, and the
+measurements that say why are below.
+
+**(a) The re-mint's failure arms are `.internal` throws.**
+`remintCopyTypes` used to return the types UNCHANGED when it could not
+read a pin's container — which silently left that copy at its RAW mint
+and made "a group-mate's own lookup finds it" (`ContainersStored`) a
+premise.  All four arms now throw `.internal`, and the docstring says
+why none can fire: the pin EXISTS only because `replaceIfNested` found
+its container, at the same pre-block environment; `mkCopies` minted the
+whole group and required the container to be one of its members;
+`mkCopy` checked the level count and that `instPis` answers; and the
+annotation pass is structural on applications and returns a `.const`
+node unchanged, so `pinA`'s head and argument count are the mint's.  A
+throw here is a broken invariant, not a stream's fault.
+
+**(b) The openers are the STORED former's, by construction.**
+`nestedRemint` read `pbsA`/`fvsA₀` off the ANNOTATED declared type of the
+first former, while the install stores whatever `checkSumTele` returns —
+the annotated type when it is already a syntactic `nP + nIdx` telescope
+ending in a sort, and otherwise the CHECKED CLOSE of its
+`whnfTelescope` (task #195; official reduces before each binder, so
+`T : id Type` is a correct stream).  The re-mint now RUNS `checkSumTele`
+itself, on the same annotated constant at the same pre-block
+environment, and takes the binders off its result — so
+`FirstFormerStoredAsAnnotated` is retired without a check being added
+anywhere (the declining alternative was refused: universal coverage).
+The index count is `auxIdxCount`'s, the one `auxBlock` will use, and a
+former without one is the ill-formed declaration `auxBlock` refuses,
+thrown here with the same verdict.  On today's corpus the second branch
+cannot fire — `auxIdxCount` reads the DECLARED type and already demands
+a syntactic telescope — but the equation now holds whatever
+`checkSumTele` does, which is what the model tier reads.
+
+**(c) THE CONSTRUCTOR TWIN IS BLOCKED: the copies' CONSTRUCTORS are not
+minted at annotated components.**  The item's premise was that a copy's
+constructor type is "the container's stored constructor type
+instantiated at annotated components with nested occurrences replaced".
+It is not: K.9's re-mint rebuilds a copy's **type** only
+(`remintCopyTypes` sets `{ t with type := … }`).  A copy's CONSTRUCTOR
+is still the elimination's — `closeTelescope pbs₀ 0 (replaceAllNested
+(instPis (c.type at lvls) Ds))` — with THREE raw ingredients: the raw
+components `Ds`, the raw declared binders `pbs₀`, and the raw openers
+inside the replacement's output.  Three measurements, all on
+`tests/nested-shadow.sh` (the 25-row gate), with the constructor stage
+graded exactly as K.10 grades the formers (`checkConstantValPre` at a
+`_nested`-named member, the positivity normalisation kept):
+
+| variant | gate | what it says |
+|---|---|---|
+| skip the annotation walk for a copy's constructors | **24/25** — `nested_pin_prop_cod` DECLINES with `sort-annotation mismatch (forall-cod)` | the binder data in a copy's constructor type is the PARSE PLACEHOLDER where a component supplied it; inference refuses it, exactly as K.9 found for the types |
+| …and re-close the constructor over the ANNOTATED parameter binders `pbsA` | **24/25**, same row | the offending binder is inside the BODY (a component), not only in the `Π p⃗` prefix |
+| re-mint the constructors from the container's stored ones at the annotated components, WITHOUT the worklist replacement | **3/25** | the replacement is essential: a copy's constructor must carry `auxJ p⃗ is` where the container's did `J Ds is` |
+
+So a constructor twin needs the copies' constructors RE-MINTED at
+annotated components *with* the replacement re-applied — and re-running
+`replaceAllNested` on the annotated instantiation matches occurrences
+against the recorded pins, which are the RAW ones (`q.pin == pin` also
+compares binder data and fvar type annotations).  Making that match is
+precisely task #298's commutation (`annotate ∘ instPis` vs `instPis ∘
+annotate`, K.4) — a premise again, not a construction.  **Two designs,
+for the maintainer to choose** (neither taken here):
+
+1. *Annotated pin table.*  Record the annotated closed pin per pin and
+   re-run the replacement against it, throwing `.internal` when the pin
+   count changes (a miss would MINT, and that is detectable).  Cheap,
+   but its correctness is the commutation.
+2. *Annotate the elimination's INPUTS.*  Annotate the block's formers at
+   the pre-block environment and its constructors at the environment
+   holding them, and run `elimNested` on those.  Then every copy — type
+   AND constructors — is built from annotated pieces at annotated
+   components by construction, the pins are annotated, `nestedRemint`
+   collapses to a no-op and BOTH twins are syntactic identities with no
+   commutation anywhere.  This is a redesign of the K.9 interface the
+   model lane is already written against, so it is a scheduling
+   decision, not a drive-by.
+
+**What the constructor stage stores TODAY, for the model lane**: the
+annotation of the positivity-normalised elimination output — `cvCa₀ =
+checkConstantVal env (copy's constructor)`, then `normCtorValM`'s
+`closeTelescope (pbs ++ fbs) 0 resid` with each member-mentioning field
+domain `whnf`'d (and re-checked when the normalisation changed
+anything).  The `whnf` is NOT optional even once the annotation is: at a
+λ-pin (`DMap α (fun _ => PT α)`, four in the Mathlib cone and five in
+the fixtures) the copied field is the redex `(fun _ => PT α) k`, whose
+head is a `.lam` — `mutualPositivity` reads no member application there
+and the block stops being recognised.  Official `whnf`s in the same
+place.
+
+**Gates** (on `inductives` = `45f3dd85`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 with
+none demotable, **nested-shadow 25/25**, e2e **216/216**, arena tutorial
+90/92, annot 15/15, the trusted and both `--jobs` sweeps as expected;
+the Mathlib nested cone `ulimit -v 22000000`, `timeout`, `--jobs=1`:
+exit 0, **4 923 accepted, 41/41 shadow accepts BYTE-IDENTICAL to K.10**.
+No init-full or full-Mathlib run: `Kernel/Inductives/MutualInstall.lean`
+is untouched, the accept path is unchanged, and the route is still
+shadow-only.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
