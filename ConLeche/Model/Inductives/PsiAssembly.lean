@@ -2547,4 +2547,255 @@ theorem viaWD_psi {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} 
 
 end IndRepData
 
+/-! ## The setup, assembled -/
+
+/-- **The copy-side facts of one container constructor** `Jc`, whose
+copy's constructor is `Ja` (`auxOf Jc`) with entry `cAa` in the
+auxiliary datum: the field counts agree, the record (DESIGN §M.25 (c)),
+and the auxiliary datum's facts of `Ja` — its `FixCtorFactsAt`, its
+stored type closed, its parameter telescope the block's, the view
+identities, its targets and member within the block. -/
+structure CopyCtorFacts (m : EnvModel V env) (d dJ : IndRepData V) (ψ ψ' : Name → Nat)
+    (DsA : List AnnotTerm) (k₀ j₀ : Nat) (cd : Nat → CopyData V) (lpsT : List Name)
+    (Jc Ja : Nat) (cAJ cAa : ConstantVal × Nat) : Prop where
+  nF : cAa.2 = cAJ.2
+  read : d.CopyCtorAsRead m dJ ψ ψ' DsA k₀ j₀ (fun j' => (cd j').dJ.memberName (cd j').mm)
+    (fun j' => (cd j').ψ') (fun j' => (cd j').DsA) Jc Ja cAJ.2
+  ctor : FixCtorFactsAt m d.env₀ (d.memberName (d.mems Ja)) lpsT d.nP (d.nIdxAt (d.mems Ja))
+    d.resSort d.isProp d.large d.idxF d.dsF d.esF d.srcsF d.ksF d.fvsPF d.xFvsF d.xrestF d.eissF
+    d.tssF Ja cAa (fun i => d.memberName (d.tgts Ja i)) (fun i => d.nIdxAt (d.tgts Ja i))
+  cf : cAa.1.type.hasFvar = false
+  cb : cAa.1.type.looseBVarsBounded 0 = true
+  pIff : ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+    Sat V (((d.dsF Ja ψ).take d.nP).map (·.2.2)).reverse ρ'
+  view : d.ksR Ja = d.ksF Ja ∧ d.tgtsR Ja = d.tgts Ja ∧ d.eissR Ja = d.eissF Ja ∧ d.tssR Ja = d.tssF Ja
+  tgts : ∀ i, d.tgtsR Ja i < d.k
+  mem : d.mems Ja < d.k
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+set_option maxHeartbeats 3200000 in
+/-- **The ψ setup of one mint group, assembled** (the datum-level twin
+of `invSetup_of_member`): over the container datum `dJ` (its
+representation at the scratch environment) at the pin's readings, with
+the copies' carriers as the targets (`targetOk_psi`), the copies'
+constructors as the heads at the transported domains
+(`ctorAtDoms_psi`), the replaced positions unmentioned (`noBVar_psi`),
+and the transports at the earlier copies' terms (`via_psi`,
+`viaWD_psi`) — from the container's `IndRep`, the auxiliary datum's
+facts of the copies (`CopyCtorFacts` per constructor, the copies'
+formers and leaves), the copies' index reads (`CopyData.Ok` for the
+group and for every transport's target), and the fold's property at
+every transport's target (`PsiTypedPi`, with the target's fold target). -/
+theorem psiSetup_of_group {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name}
+    {ψ ψ' : Name → Nat} {ρ₀ : Nat → V} {psA : List AnnotTerm} (hpsA : psA.length = d.nP)
+    (hparamsA : SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)))
+    -- the auxiliary datum: the copies are real members
+    (hpinsA : ∀ t, d.pinsOf ψ t = paramBvarsAt d.nP d.nP)
+    (hFFA : ∀ t, t < d.k → d.FormerFacts mp.base2 ψ t)
+    (hLSA : ∀ t, t < d.k → d.LeafShape mp.base2 ψ t)
+    (hpIffMA : ∀ t, t < d.k → ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ')
+    -- the container's representation
+    {dJ : IndRepData V} (hctorsCJ : dJ.ctorsC = []) (hkRJ : dJ.kReal = dJ.k)
+    (hpinsAVJ : ∀ (t : Nat) (φ : Name → Nat), dJ.pinsAV t φ = paramBvarsAt dJ.nP dJ.nP)
+    (hviewJ : ∀ J, dJ.ksR J = dJ.ksF J ∧ dJ.tgtsR J = dJ.tgts J ∧ dJ.eissR J = dJ.eissF J ∧
+      dJ.tssR J = dJ.tssF J)
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {t₀ : Nat}
+    (ht₀ : t₀ < dJ.k) (hrules : rules ≠ [])
+    (hfR : env.find? cvR.name = some (.recInfo cvR mI rP rules))
+    (hrepJ : IndRep mp.base2 T cvT cvR mI rP rules dJ t₀)
+    -- the group: its pin, its level assignment, its copies
+    {DsA : List AnnotTerm} (hDsA : DsA.length = dJ.nP) (hlev : dJ.elimL.eval ψ' = dJ.w ψ')
+    {k₀ j₀ : Nat} (hkA : ∀ t, t < dJ.k → k₀ + j₀ + t < d.k)
+    (hgrp : ∀ t, t < dJ.k → CopyData.Ok mp.base2 d ψ k₀ (j₀ + t) ⟨dJ, t, ψ', DsA, j₀⟩)
+    -- the copies' constructors
+    (auxOf : Nat → Nat) (cd : Nat → CopyData V) (tbl : Nat → AnnotTerm)
+    (hctors : ∀ Jc cAJ, dJ.ctorsA[Jc]? = some cAJ → ∃ cAa, d.ctorsA[auxOf Jc]? = some cAa ∧
+      CopyCtorFacts mp.base2 d dJ ψ ψ' DsA k₀ j₀ cd lpsT Jc (auxOf Jc) cAJ cAa)
+    -- the transports' targets
+    (hcd : ∀ Jc cAJ, dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      CopyData.Ok mp.base2 d ψ k₀ (d.tgtsR (auxOf Jc) i - k₀) (cd (d.tgtsR (auxOf Jc) i - k₀)))
+    (htbl : ∀ Jc cAJ, dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.PsiTypedPi mp.base2 (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ'
+        (consList (psA.map (interp V ρ₀)) ρ₀) (cd (d.tgtsR (auxOf Jc) i - k₀)).DsA
+        (d.psiL mp.base2 ψ k₀ (cd (d.tgtsR (auxOf Jc) i - k₀)).base)
+        (d.psiPinsT (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.nP) (cd (d.tgtsR (auxOf Jc) i - k₀)).mm
+        (tbl (d.tgtsR (auxOf Jc) i - k₀)))
+    (htgTg : ∀ Jc cAJ, dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.TargetOk (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ'
+        (consList (psA.map (interp V ρ₀)) ρ₀) (cd (d.tgtsR (auxOf Jc) i - k₀)).DsA
+        (d.psiL mp.base2 ψ k₀ (cd (d.tgtsR (auxOf Jc) i - k₀)).base)
+        (d.psiPinsT (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.nP) (cd (d.tgtsR (auxOf Jc) i - k₀)).mm ∧
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.elimL.eval (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ'
+        = (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.w (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ') :
+    dJ.PsiSetup mp cvT.levelParams cvT.levelParams ψ' (consList (psA.map (interp V ρ₀)) ρ₀) DsA
+      (d.psiL mp.base2 ψ k₀ j₀) (d.psiPinsT dJ.nP) (d.psiHead mp.base2 ψ dJ.nP auxOf) (psiUseIh dJ)
+      (d.psiVia dJ ψ k₀ dJ.nP auxOf (dJ.bb ψ') tbl) (d.psiTgV mp.base2 ψ k₀ auxOf cd) := by
+  have hk : 0 < dJ.k := Nat.lt_of_le_of_lt (Nat.zero_le _) ht₀
+  have hFFJ : ∀ t, t < dJ.k → dJ.FormerFacts mp.base2 ψ' t :=
+    fun t ht => dJ.formerFacts_of_indRep hrepJ hkRJ ψ' ht
+  have hnAllJ : dJ.nAll = dJ.ctorsA.length := by
+    show dJ.ctorsA.length + dJ.ctorsC.length = _
+    rw [hctorsCJ]
+    rfl
+  have hpsALen : (psA.map (interp V ρ₀)).length = d.nP := by simp [hpsA]
+  generalize hσ : consList (psA.map (interp V ρ₀)) ρ₀ = σ at htbl htgTg ⊢
+  have hsatA : Sat V (d.params ψ).reverse σ := by
+    rw [← hσ]
+    have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V _) hparamsA
+    rwa [List.append_nil] at h
+  -- the pin's readings are graded and fit the container's parameters
+  have hc0 := hgrp 0 hk
+  have hDsWD : ∀ p ∈ DsA, WellDenotedV V σ p := (WellDenotedV.mkAppN_args (hc0.pin.wd σ hsatA)).2
+  have hparamsJ : SpineFit σ (dJ.params ψ') (DsA.map (interp V σ)) :=
+    d.pinFit_of_leafShape rfl (hFFJ 0 hk) (hrepJ.leafShape 0 (by rw [hkRJ]; exact hk) ψ') hc0.pin hsatA
+  have hbz : dJ.bb ψ' = 0 ↔ d.resSort.eval ψ = 0 := by
+    have hs : dJ.w ψ' = d.w ψ := hc0.idx.sort
+    unfold IndRepData.bb
+    rw [pwBit_zeronessOf, hlev]
+    show dJ.w ψ' = 0 ↔ d.w ψ = 0
+    rw [hs]
+  -- the container constructor's tower at the pin's readings
+  have hTJ : ∀ Jc cAJ, dJ.ctorsA[Jc]? = some cAJ →
+      WellDenotedV V (consList (DsA.map (interp V σ)) σ)
+        (mkPisAV ((dJ.dsF Jc ψ').drop dJ.nP)
+          (ctorBodyAVI mp.base2 (dJ.memberName (dJ.mems Jc)) dJ.nP cAJ.2 ψ' (dJ.esF Jc ψ'))) ∧
+      (dJ.dsF Jc ψ').length = dJ.nP + cAJ.2 := by
+    intro Jc cAJ hJc
+    obtain ⟨-, -, hDJ⟩ := hrepJ.ctors Jc cAJ hJc
+    have hlenDs := hDJ.len ψ'
+    have hDsLen : (DsA.map (interp V σ)).length = dJ.nP := by simp [hDsA]
+    have hfitP : SpineFit σ (((dJ.dsF Jc ψ').take dJ.nP).map (·.2.2)) (DsA.map (interp V σ)) :=
+      spineFit_of_paramsIff hDsLen (by simp [hlenDs]) hparamsJ (hrepJ.paramsIff Jc cAJ hJc ψ')
+    have hsplitT : mkPisAV (dJ.dsF Jc ψ')
+        (ctorBodyAVI mp.base2 (dJ.memberName (dJ.mems Jc)) dJ.nP cAJ.2 ψ' (dJ.esF Jc ψ'))
+        = mkPisAV ((dJ.dsF Jc ψ').take dJ.nP) (mkPisAV ((dJ.dsF Jc ψ').drop dJ.nP)
+            (ctorBodyAVI mp.base2 (dJ.memberName (dJ.mems Jc)) dJ.nP cAJ.2 ψ' (dJ.esF Jc ψ'))) := by
+      rw [← mkPisAV_append, List.take_append_drop]
+    have h := hDJ.okTy ψ' σ
+    rw [hsplitT] at h
+    exact ⟨⟨wellDenoted_mkPisAV_body h.1 _ hfitP, annotValid_mkPisAV_body h.2 _ hfitP⟩, hlenDs⟩
+  refine
+    { hR := fun t ht => hrepJ.rulesRead hrules hfR t ht, hps := hDsA, hpsWD := hDsWD,
+      hparams := hparamsJ, hpps := ?_, hipsLen := ?_, hk := hk, hctorsC := hctorsCJ,
+      hpins := fun t => hpinsAVJ t ψ', hview := hviewJ,
+      hLS := fun t ht => hrepJ.leafShape t (by rw [hkRJ]; exact ht) ψ', hFF := hFFJ,
+      hctors := fun J cA hJ => hrepJ.ctors J cA hJ, hpIff := fun J cA hJ => hrepJ.paramsIff J cA hJ ψ',
+      hmems := ?_, htgts := ?_, hTg := ?_, huse := ?_, hbits := ?_, hnbP := ?_, hvia := ?_,
+      hviaWD := ?_, hCAD := ?_ }
+  · rw [List.length_take, (hFFJ 0 hk).1]
+    omega
+  · intro t ht
+    rw [dJ.ipss_getD ψ' ht, List.length_drop, (hFFJ t ht).1]
+    show dJ.nP + dJ.nIdxAt t - dJ.nP = dJ.nIdxAt t
+    omega
+  · intro J hJ
+    have h := (hrepJ.memsReal J (by rw [hnAllJ]; exact hJ)).mpr hJ
+    rw [hkRJ] at h
+    exact h
+  · intro J i
+    have h := hrepJ.tgtsRLt J i
+    rw [show dJ.tgtsR J = dJ.tgts J from (hviewJ J).2.1] at h
+    exact h
+  · -- the targets: the copies' carriers
+    intro t ht
+    have hc := hgrp t ht
+    rw [← hσ]
+    rw [← hσ] at hparamsJ
+    refine d.targetOk_psi mp hpsA hparamsA hDsA ht (hFFJ t ht)
+      (hrepJ.paramsIffM t (by rw [hkRJ]; exact ht) ψ') hparamsJ hlev (hFFA _ (hkA t ht))
+      (hpIffMA _ (hkA t ht)) ?_ rfl rfl
+    have h := hc.idx
+    rwa [← Nat.add_assoc] at h
+  · intro J i hu
+    rw [(hviewJ J).1]
+    exact of_decide_eq_true hu
+  · intro J i Ψ Eis tl hv
+    exact psiVia_bits d dJ ψ k₀ dJ.nP auxOf (dJ.bb ψ') tbl J i hv
+  · -- no later reading mentions a replaced position
+    intro J cA hJ C nF ds Es recIdx Eiss tls hcd'
+    have hcd'' := hcd'
+    unfold IndRepData.cdsR at hcd''
+    rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd''
+    have hJall : dJ.ctorsAll[J]? = some cA := by
+      unfold IndRepData.ctorsAll; rw [hctorsCJ, List.append_nil]; exact hJ
+    rw [hJall] at hcd''
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hcd''
+    obtain ⟨-, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hcd''
+    obtain ⟨cAa, hJa, hf⟩ := hctors J cA hJ
+    obtain ⟨-, -, hDJ⟩ := hrepJ.ctors J cA hJ
+    have h := d.noBVar_psi (m := mp.base2) hDsA auxOf cd tbl (dJ.bb ψ') hf.nF hf.read hf.ctor.2.2
+      hf.cf hf.cb hf.view hDJ
+    rw [(hviewJ J).2.2.1, (hviewJ J).2.2.2]
+    exact h
+  · -- the transports' ONE fact
+    intro J cA hJ C nF ds Es recIdx Eiss tls hcd' i hi Ψ Eis tl hv fs hfs as has
+    have hcd'' := hcd'
+    unfold IndRepData.cdsR at hcd''
+    rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd''
+    have hJall : dJ.ctorsAll[J]? = some cA := by
+      unfold IndRepData.ctorsAll; rw [hctorsCJ, List.append_nil]; exact hJ
+    rw [hJall] at hcd''
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hcd''
+    obtain ⟨-, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hcd''
+    obtain ⟨cAa, hJa, hf⟩ := hctors J cA hJ
+    obtain ⟨hTJ', hlenJ⟩ := hTJ J cA hJ
+    refine d.via_psi mp hDsA hDsWD auxOf cd tbl hf.nF hf.read hf.ctor.2.2 hf.view hTJ' hlenJ hbz
+      (hcd J cA hJ) (fun i hi hA hT => ?_) i hi Ψ Eis tl hv fs hfs as has
+    -- the target's pointwise typing from its Π-typing
+    have hc := hcd J cA hJ i hi hA hT
+    obtain ⟨hTg', -⟩ := htgTg J cA hJ i hi hA hT
+    exact (cd (d.tgtsR (auxOf J) i - k₀)).dJ.psiTyped_of_pi mp.base2
+      (by rw [(cd (d.tgtsR (auxOf J) i - k₀)).dJ.ipss_getD _ hc.mm, List.length_drop, hc.ff.1]
+          show _ = (cd (d.tgtsR (auxOf J) i - k₀)).dJ.nIdxAt (cd (d.tgtsR (auxOf J) i - k₀)).mm
+          omega)
+      hTg' (htbl J cA hJ i hi hA hT)
+  · -- the transports are graded
+    intro J cA hJ C nF ds Es recIdx Eiss tls hcd' fs ihs hfs hihs hfit i Ψ Eis tl hv
+    have hcd'' := hcd'
+    unfold IndRepData.cdsR at hcd''
+    rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd''
+    have hJall : dJ.ctorsAll[J]? = some cA := by
+      unfold IndRepData.ctorsAll; rw [hctorsCJ, List.append_nil]; exact hJ
+    rw [hJall] at hcd''
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hcd''
+    obtain ⟨-, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hcd''
+    obtain ⟨cAa, hJa, hf⟩ := hctors J cA hJ
+    obtain ⟨hTJ', hlenJ⟩ := hTJ J cA hJ
+    rw [(hviewJ J).1] at hfit hihs ⊢
+    have h := d.viaWD_psi mp hDsA hDsWD auxOf cd tbl hf.nF hf.read hf.ctor.2.2 hf.view hTJ' hlenJ hbz
+      hsatA hk (hcd J cA hJ) (htbl J cA hJ) (htgTg J cA hJ) (dJ.motChoiceAVs_length _ _ _ _)
+      (dJ.minChoiceAVs_length _ _ _ _ _) (dJ.invTgAV ψ' DsA (d.psiL mp.base2 ψ k₀ j₀) (d.psiPinsT dJ.nP))
+      fs ihs hfs hihs hfit i Ψ Eis tl hv
+    exact h
+  · -- the copy's constructor at the transported domains
+    intro J cA hJ
+    obtain ⟨cAa, hJa, hf⟩ := hctors J cA hJ
+    obtain ⟨-, -, hDJ⟩ := hrepJ.ctors J cA hJ
+    have hmemJ : dJ.mems J < dJ.k := by
+      have h := (hrepJ.memsReal J (by rw [hnAllJ]; exact (List.getElem?_eq_some_iff.mp hJ).1)).mpr
+        (List.getElem?_eq_some_iff.mp hJ).1
+      rw [hkRJ] at h
+      exact h
+    have htgtsJ : ∀ i, dJ.tgts J i < dJ.k := fun i => by
+      have h := hrepJ.tgtsRLt J i
+      rw [(hviewJ J).2.1] at h
+      exact h
+    have hviewA' := hf.view
+    have cff := d.ctorFieldFacts_of mp hpsA hpinsA hLSA hFFA hparamsA hf.ctor hf.pIff hf.mem
+      (fun i => by have := hf.tgts i; rw [hviewA'.2.1] at this; exact this)
+      (fun i => by rw [hviewA'.2.1])
+    rw [← hσ]
+    refine d.ctorAtDoms_psi mp hpsA hparamsA hDsA hlev auxOf cd tbl hJa hf.nF hf.read hf.ctor hf.pIff
+      hf.view hf.tgts hf.mem hFFA hLSA (fun fs hfs => (cff.2 fs hfs).1) ⟨(hviewJ J).2.1, (hviewJ J).2.2.1, (hviewJ J).2.2.2⟩
+      htgtsJ hmemJ (fun i dd hd => hDJ.tssBits ψ' i dd hd) hgrp (hcd J cA hJ)
+
+end IndRepData
+
 end ConLeche.Model
