@@ -369,8 +369,9 @@ the copy's stored field `eA` and the container's instantiated field
 copy-headed application at the block's parameters and index arguments,
 and the container `I` at the pin's components `DsF` and index
 arguments erasure-equal to the copy's; the binders' annotations are
-erasure-equal; the pin `⟨aux, I, I lvls' DsF⟩` is in the table and
-satisfies `P`.  Erasure equality is what the readings are blind to
+erasure-equal and their binder data equal (the walk keeps binder data,
+and the readings' codomain bits are read off it); the pin
+`⟨aux, I, I lvls' DsF⟩` is in the table and satisfies `P`.  Erasure equality is what the readings are blind to
 (`denoteMeta_erasedEq`); the openers' annotations differ between the
 two sides exactly there. -/
 @[expose] def FiredField (st : ElimState) (blvls : List Level) (params : List Expr)
@@ -381,6 +382,10 @@ two sides exactly there. -/
     (eA.piBinders).1.length = n ∧ (eC.piBinders).1.length = n ∧
     (∀ (k : Nat) (a aC : Expr), afvs[k]? = some a → afvsC[k]? = some aC →
       Expr.ErasedEq a.fvarTypeD aC.fvarTypeD) ∧
+    (∃ (bsA bsC : List (Expr × ConLeche.BinderMeta)) (rA rC : Expr),
+      eA.stripPis n = some (bsA, rA) ∧ eC.stripPis n = some (bsC, rC) ∧
+      ∀ (k : Nat) (bA bC : Expr × ConLeche.BinderMeta), bsA[k]? = some bA → bsC[k]? = some bC →
+        bA.2 = bC.2) ∧
     idx.length = idxC.length ∧
     (∀ (k : Nat) (e eC : Expr), idx[k]? = some e → idxC[k]? = some eC → Expr.ErasedEq e eC) ∧
     ∃ q ∈ st.pins, q.aux = aux ∧ q.container = I ∧ q.pin = Expr.mkAppN (.const I lvls') DsF ∧ P q
@@ -440,5 +445,164 @@ structure CopyCtorWalkFacts (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLe
       (fun q => ∀ g, g < dJ.k → q.pin ≠ Expr.mkAppN (.const (dJ.memberName g) lvls) Ds)
       (nP + i) x.fvarTypeD xC.fvarTypeD ∨
     WhnfField μ F env₁ R (nP + i) x.fvarTypeD xC.fvarTypeD
+
+
+/-! ## Kit: the reading peel with its binder bits -/
+
+omit [SetTheory V] in
+/-- Instantiation keeps a telescope's binder data. -/
+theorem stripPis_instantiate1_meta {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Expr × ConLeche.BinderMeta)} {body body' : Expr} (j : Nat),
+      e.stripPis k = some (bs, body) → (e.instantiate1 v j).stripPis k = some (bs', body') →
+      ∀ (i : Nat) (b b' : Expr × ConLeche.BinderMeta), bs[i]? = some b → bs'[i]? = some b' →
+        b'.2 = b.2
+  | 0, e, bs, bs', body, body', j, h, h', i, b, b', hb, hb' => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h h'
+    rw [← h.1] at hb
+    exact nomatch hb
+  | k + 1, .forallE ty bd m, bs, bs', body, body', j, h, h', i, b, b', hb, hb' => by
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+    obtain ⟨⟨bs₀, body₀⟩, h₀, hbs⟩ := h
+    simp only [Prod.mk.injEq] at hbs
+    obtain ⟨rfl, rfl⟩ := hbs
+    simp only [Expr.instantiate1, Expr.stripPis, Option.map_eq_some_iff] at h'
+    obtain ⟨⟨bs₁, body₁⟩, h₁, hbs'⟩ := h'
+    simp only [Prod.mk.injEq] at hbs'
+    obtain ⟨rfl, rfl⟩ := hbs'
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hb hb'
+      subst hb; subst hb'
+      rfl
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at hb hb'
+      exact stripPis_instantiate1_meta k (j + 1) h₀ h₁ i b b' hb hb'
+  | k + 1, .bvar _, _, _, _, _, _, h, _, _, _, _, _, _ | k + 1, .fvar _ _, _, _, _, _, _, h, _, _, _, _, _, _
+  | k + 1, .sort _, _, _, _, _, _, h, _, _, _, _, _, _ | k + 1, .const _ _, _, _, _, _, _, h, _, _, _, _, _, _
+  | k + 1, .app _ _, _, _, _, _, _, h, _, _, _, _, _, _ | k + 1, .lam _ _ _, _, _, _, _, _, h, _, _, _, _, _, _
+  | k + 1, .letE _ _ _, _, _, _, _, _, h, _, _, _, _, _, _ | k + 1, .lit _, _, _, _, _, _, h, _, _, _, _, _, _
+  | k + 1, .proj _ _ _, _, _, _, _, _, h, _, _, _, _, _, _ => nomatch h
+
+/-- **The reading peel, with the binder bits** (`denoteMeta_openPis`
+returning the whole reading as a tower and each binder's codomain bit
+as its stored binder datum's): what identifies a copy's telescope
+entries with the container's instantiated binders' readings bit for
+bit. -/
+theorem denoteMeta_openPis' {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat} :
+    ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr} {ea : AnnotTerm}
+      {bs : List (Expr × ConLeche.BinderMeta)} {r : Expr},
+      ConLeche.openPisAtFvars n e d = some (fvs, o) → e.stripPis n = some (bs, r) →
+      denoteMeta acval env φ d e = some ea →
+      ∃ (pps : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm),
+        ea = mkPisAV pps b ∧ denoteMeta acval env φ (d + n) o = some b ∧ pps.length = n ∧
+        (∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+          ∃ p, pps[i]? = some p ∧ p.1 = 0 ∧
+            (∃ bm, bs[i]? = some bm ∧ p.2.1 = pwBit φ bm.2.pw) ∧
+            denoteMeta acval env φ (d + i) x.fvarTypeD = some p.2.2)
+  | 0, d, e, fvs, o, ea, bs, r, hop, hst, hden => by
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, rfl⟩ := hop
+    exact ⟨[], ea, rfl, by simpa using hden, rfl, fun i x hx => by simp at hx⟩
+  | n + 1, d, .forallE dom body mb, fvs, o, ea, bs, r, hop, hst, hden => by
+    simp only [ConLeche.openPisAtFvars] at hop
+    split at hop
+    · next fvs' o' hop' =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at hop
+      obtain ⟨rfl, rfl⟩ := hop
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
+      obtain ⟨⟨bs₀, r₀⟩, hst₀, hbs⟩ := hst
+      simp only [Prod.mk.injEq] at hbs
+      obtain ⟨rfl, rfl⟩ := hbs
+      obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hden
+      have hsome : ((body.instantiate1 (.fvar d dom)).stripPis n).isSome :=
+        Expr.stripPis_instantiate1_isSome n 0 (by rw [hst₀]; rfl)
+      obtain ⟨⟨bs₁, r₁⟩, hst₁⟩ := Option.isSome_iff_exists.mp hsome
+      obtain ⟨pps, b, rfl, hb, hlen, hbind⟩ := denoteMeta_openPis' n hop' hst₁ hba
+      refine ⟨(0, pwBit φ mb.pw, ta) :: pps, b, rfl, ?_, by simp [hlen], ?_⟩
+      · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hb
+      · intro i x hx
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          subst hx
+          exact ⟨(0, pwBit φ mb.pw, ta), rfl, rfl, ⟨(dom, mb), rfl, rfl⟩, by rw [Nat.add_zero]; exact hta⟩
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx
+          obtain ⟨p, hp, hp1, ⟨bm, hbm, hpb⟩, hpd⟩ := hbind i x hx
+          have hi : i < bs₀.length := by
+            rw [stripPis_length' n hst₀, ← stripPis_length' n hst₁]
+            exact (List.getElem?_eq_some_iff.mp hbm).1
+          obtain ⟨bm₀, hbm₀⟩ : ∃ bm₀, bs₀[i]? = some bm₀ := ⟨_, List.getElem?_eq_getElem hi⟩
+          refine ⟨p, by simpa using hp, hp1, ⟨bm₀, by simpa using hbm₀, ?_⟩,
+            by rw [show d + (i + 1) = d + 1 + i from by omega]; exact hpd⟩
+          rw [hpb, stripPis_instantiate1_meta n 0 hst₀ hst₁ i bm₀ bm hbm₀ hbm]
+    · exact nomatch hop
+  | n + 1, _, .bvar _, _, _, _, _, _, hop, _, _ | n + 1, _, .fvar _ _, _, _, _, _, _, hop, _, _
+  | n + 1, _, .sort _, _, _, _, _, _, hop, _, _ | n + 1, _, .const _ _, _, _, _, _, _, hop, _, _
+  | n + 1, _, .app _ _, _, _, _, _, _, hop, _, _ | n + 1, _, .lam _ _ _, _, _, _, _, _, hop, _, _
+  | n + 1, _, .letE _ _ _, _, _, _, _, _, hop, _, _ | n + 1, _, .lit _, _, _, _, _, _, hop, _, _
+  | n + 1, _, .proj _ _ _, _, _, _, _, _, hop, _, _ => by simp [ConLeche.openPisAtFvars] at hop
+
+/-! ## Kit: injectivities -/
+
+omit [SetTheory V] in
+/-- Distinct positions of a `Nodup` list hold distinct elements. -/
+theorem nodup_getElem?_inj {α : Type} {l : List α} (h : l.Nodup) {i j : Nat} {a : α}
+    (hi : l[i]? = some a) (hj : l[j]? = some a) : i = j := by
+  refine Classical.byContradiction fun hne => ?_
+  have hi' := List.getElem?_eq_some_iff.mp hi
+  have hj' := List.getElem?_eq_some_iff.mp hj
+  have hp := List.pairwise_iff_getElem.mp h
+  rcases Nat.lt_or_gt_of_ne hne with hlt | hlt
+  · exact hp i j hi'.1 hj'.1 hlt (hi'.2.trans hj'.2.symm)
+  · exact hp j i hj'.1 hi'.1 hlt (hj'.2.trans hi'.2.symm)
+
+omit [SetTheory V] in
+/-- The members' names are injective below the block's size. -/
+theorem memberName_inj {d : IndRepData V} (hnd : ((List.range d.k).map d.memberName).Nodup)
+    {a b : Nat} (ha : a < d.k) (hb : b < d.k) (h : d.memberName a = d.memberName b) : a = b := by
+  refine nodup_getElem?_inj hnd (i := a) (j := b) (a := d.memberName b) ?_ ?_
+  · rw [List.getElem?_map, List.getElem?_range ha, Option.map_some, h]
+  · rw [List.getElem?_map, List.getElem?_range hb, Option.map_some]
+
+omit [SetTheory V] in
+/-- Two pins with one term sit at one index (K.15's `Nodup`). -/
+theorem pins_index_inj {st : ElimState} (hnd : (st.pins.map (·.pin)).Nodup) {i j : Nat}
+    {q q' : NestedPin} (hi : st.pins[i]? = some q) (hj : st.pins[j]? = some q') (h : q.pin = q'.pin) :
+    i = j := by
+  refine nodup_getElem?_inj hnd (i := i) (j := j) (a := q'.pin) ?_ ?_
+  · rw [List.getElem?_map, hi, Option.map_some, h]
+  · rw [List.getElem?_map, hj, Option.map_some]
+
+omit [SetTheory V] in
+/-- Two constant-headed spines are one: head name, levels and
+arguments. -/
+theorem mkAppN_const_inj {n n' : Name} {us us' : List Level} {as bs : List Expr}
+    (h : Expr.mkAppN (.const n us) as = Expr.mkAppN (.const n' us') bs) :
+    n = n' ∧ us = us' ∧ as = bs := by
+  have h1 := congrArg Expr.getAppFn h
+  rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at h1
+  have h2 := congrArg Expr.getAppArgs h
+  rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at h2
+  simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.const.injEq] at h1 h2
+  exact ⟨h1.1, h1.2, h2⟩
+
+omit [SetTheory V] in
+/-- A constant-headed term has no Π-prefix. -/
+theorem piBinders_nil_of_getAppFn_const :
+    ∀ (e : Expr) {c : Name} {us : List Level}, e.getAppFn = .const c us → (e.piBinders).1 = []
+  | .app _ _, _, _, _ => rfl
+  | .const _ _, _, _, _ => rfl
+  | .bvar _, _, _, h | .fvar _ _, _, _, h | .sort _, _, _, h | .lam _ _ _, _, _, h
+  | .forallE _ _ _, _, _, h | .letE _ _ _, _, _, h | .lit _, _, _, h | .proj _ _ _, _, _, h => nomatch h
+
+omit [SetTheory V] in
+/-- The arguments of a constant-headed spine after its parameters. -/
+theorem getAppArgs_mkAppN_const_drop {n : Name} {us : List Level} {params idx : List Expr} {nP : Nat}
+    (hlen : params.length = nP) :
+    (Expr.mkAppN (.const n us) (params ++ idx)).getAppArgs.drop nP = idx := by
+  rw [Expr.getAppArgs_mkAppN]
+  simp only [Expr.getAppArgs, List.nil_append]
+  rw [List.drop_left' hlen]
 
 end ConLeche.Model
