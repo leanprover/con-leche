@@ -71663,7 +71663,7 @@ tree, `.lake` and this document's history excluded, comes back **empty**.
 |---|---|
 | `lake build` | 560 jobs, **warning-free**, exit 0 |
 | `lake test` | green, warning-free |
-| `tests/arena.sh` (full, `env -i`, no `ulimit`) | exit 0; **mode flags 10/10** and the retired-flag line gone, every other number master's |
+| `tests/arena.sh` (full, `env -i`, no `ulimit`) | **exit 0.**  layering 294/190/3/1, 0 base→lane, 0 impl→theory; proofdeps **4 363 module rows as pinned across 12 roots, 0 doors** (no module graph change); pindump 3 pinners reproduced; trust surface 13 escapes in 5 allowlisted files (499 scanned), 0 outside; no-local-paths OK; challenge OK; shake 456 proposals all allowlisted; inmodel OK; axioms 20 theorems at the three; arena tutorial **90/92**; e2e **195/195**; annot **15/15**; prelude counts 3/3; progress lane 15/15; worker pool 15/15; DAG-tower 14/14; trusted sweep 138+195+15 with the three recorded divergences; `--jobs=1` and `--jobs=4` sweeps as at the default.  The two numbers that MOVED are this task's removals: the **retired flags 8/8** line is gone with its family, and **mode flags 18/18 → 10/10** |
 | `tests/overview-links.sh` | eight anchors re-anchored, all pure line moves (`usage` L743→L706, `exitCode` L48 unchanged, `installLoop` L107→L106, `checkLoop` L175→L174, `checkPool` L290→L289, `checkDeclsIO` L328-L331→L327-L330, `CheckMode` L69→L59, `indParamsOk` L624-L631→L614-L621; README's `--jobs` L776→L739, `--trusted` L759→L722, `main` L1093→L984).  Every cited TEXT is byte-identical — no citation pointed at a deleted comment — and each citing paragraph was re-read and is still true.  103 links / 57 files OK |
 | `tests/quote-gate.sh` | 2 quoted statements match |
 | `tests/no-local-paths.sh` | OK |
