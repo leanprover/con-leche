@@ -75152,6 +75152,153 @@ input (structural induction on the input; the atom cases go through
 match's non-overlap side goals).  This is the record's `ord` clause's
 syntactic half.  W2 (the fire inversion at a field) not started.
 
+#### M.30 M-B′ step 3m: K.15 merged, the RECORD weakened to the interpretation level, the λ-pin's block-member arm, and the container-side reduction the whnf arm needs (2026-09-13, session 17)
+
+**K.15 merged** (`inductives` d87f88b2, merge 38e8cc12, alignment
+923a5319): `CopyRef`'s mention clause ranges over the mint GROUP
+(`∃ g < (grp j).2, ∃ tg, st.types[k + (grp j).1 + g]? = some tg ∧ ∃ c ∈
+tg.ctors, …`), `copyRef_iff` re-proved against the kernel's
+`any`-over-the-group, `BridgeSyntax`'s mention half restated group-wide
+(`bridgeOfRun_of_syntax` unchanged in substance).  The three facts
+riding in `nestedContainersOk` — pins `Nodup`, `containerGroupOk`
+(K.16), `containerFieldOk` (the three-way field shape) — are NOT yet
+consumed (steps 3–5 of the brief were not reached).
+
+**The record weakened** (`Model/Inductives/CopyCtors.lean`,
+`CopyCtorAsRead`), per the maintainer's ruling on §M.29 finding 2:
+
+* `CopyFieldAgree d ψ Ja i A B` — the two readings of the copy's field
+  `i` agree at every frame of the block's parameters (`Sat (d.params
+  ψ).reverse σ`) and every spine of `i` earlier values fitting the
+  copy's STORED earlier domains **off the copy's recursive positions**
+  (`SpineFitOff`, new: `SpineFit` with the membership skipped at the
+  positions of a set `R`; `spineFitOff_of_spineFit`, `.take`, `.snoc`,
+  `.mem`, `spineFit_of_spineFitOff`).  Why OFF: ψ's `via` obligations
+  (`via_psi`/`viaWD_psi`) are stated at the CONTAINER's field frames,
+  whose values at a container-recursive or transport position are
+  container carriers — not members of the copy's domains — so an
+  equality asked at full copy-side frames is unusable there; the
+  readings mention no such position (positivity), so nothing is lost.
+  `spineFitOff_copy_of_container` (`PsiAssembly.lean`) is the
+  conversion: a container-frame prefix fit gives the copy-side partial
+  fit, by induction along the prefix through `ord` (a position neither
+  side sees as recursive) and `kindR`'s kind equality (a
+  container-recursive position is a copy-recursive one, skipped).
+* `ord` — container-ordinary, copy-ordinary OR copy-recursive into a
+  BLOCK MEMBER (`d.tgtsR Ja i < k₀`) — `CopyFieldAgree` of the stored
+  domain and the substituted container domain.
+* `kindT` — container-ordinary, copy-recursive into a COPY (`k₀ ≤
+  tgt`): target outside the group, `CopyFieldAgree` of the substituted
+  container domain and the Π-tower over the copy's telescope of the
+  target container at the target pin at the copy's index readings, and
+  the tower GRADED at those frames (what `transport_fits` extracts the
+  fits from).
+* `kindR`, `es` — unchanged, SYNTACTIC: a container-recursive field's
+  processed form is `Π tele[Ds], auxJ' p⃗ is[Ds]` (the walk fires at
+  the head) and the normalisation's `whnf` is the identity on it (a
+  Π, `whnf_forallE_eq`; a stuck inductive application — the lemma step
+  3 will need); the residual is untouched.
+* `nbT` — NEW, syntactic: no later container reading (a field domain,
+  a telescope entry, an index reading, the result's) mentions a
+  transport position (`exclP (· = dJ.nP + i) depth`).  This is the
+  residue of the old syntactic `ord`/`kindT`, through which
+  `noBVar_psi` carried the copy's `noBVar_entries` over to the
+  container's readings; now `noBVar_psi` combines the CONTAINER's own
+  `noBVar_entries` (container-recursive positions; needs the container
+  constructor's closedness, `mp.base2.wf` at `hrepJ.ctors`) with `nbT`
+  (transports) through `noBVar_replP_of_cases` +
+  `NoBVar_of_pointwise`/`NoBVar_mono` (new, `CopyCtors.lean`).
+
+**`NormCtorValMReadsAs μ F m names nP nF cv cv'`** (`CopyCtors.lean`)
+— THE ONE NAMED HYPOTHESIS of the whnf arm, stated in code: `normCtorValM
+… cv cv true = .ok cv'` → the two readings are Π-towers of length `nP +
+nF` with the same residual, parameter entries and binder bits, and
+every stored field domain has the original's interpretation at frames
+of the parameters and of earlier values fitting the ORIGINAL earlier
+domains off any set `R` of positions neither domain mentions.  Its
+proof is `WhnfClaim` on the normalisation's own `whnf` run (per field,
+under `normPosDomM`'s Π-walk: `whnf_forallE_eq` at each spine level,
+the instantiate/abstract round trip, the input graded by
+`checkConstantValPre` on the processed constructor) PLUS a frame
+strengthening across the unmentioned positions (a partial frame's
+extension to a `Sat` frame can fail at an EMPTY carrier — the honest
+gap of the partial form; a proof would go by the reduction's own
+steps rather than by extension).  Not attempted.
+
+**Findings (kernel/design).**
+
+1. **The λ-pin's whnf arm produces a copy field recursive into a BLOCK
+   MEMBER** — `(fun _ => PT α) k ↦ PT α` (P2, Mathlib's
+   `DTreeMap.Raw`-style value families): the container (`DMap`) sees
+   `β k` as ordinary, the copy sees `PT α` as recursive with target `0
+   < k₀`.  The ψ builder's `psiVia` classified it as a TRANSPORT to pin
+   `0 - k₀` (Nat subtraction — the fold's leaf of pin 0): a BUG in the
+   builder, invisible while the record was syntactic (no such field
+   satisfied the old `ord`/`kindT`).  Fixed: `psiVia` fires only at `k₀
+   ≤ d.tgtsR (auxOf Jc) i`; the classification `transport = copy-rec ∧
+   ¬container-rec ∧ k₀ ≤ tgt` is carried through `psiVia_isSome`,
+   `psiDom_eq_copyDom`, `ctorAtDoms_psi`, `noBVar_psi`, `via_psi`,
+   `viaWD_psi`, `psiSetup_of_group`, `psiStep_typed`/`psiFold_typed`
+   (`href`), `BridgeOfRun`/`BridgeSyntax` (PsiRun) and `BridgeMention`
+   (CopyCtorRun); the block-member arm is `ord`'s disjunct, and ψ
+   passes the container's value through (`.field`).
+2. **At a transport the whnf arm's content is a CONTAINER-SIDE
+   reduction no kernel run witnesses.**  P22: the processed copy field
+   is `(fun _ => List_aux p⃗) Unit` (the walk fired INSIDE the redex),
+   the stored one `List_aux p⃗`; `kindT` relates the CONTAINER's
+   substituted domain `(fun _ => List T) Unit` to the container-side
+   tower `List T` — the same β/δ steps on the RESTORED terms.
+   `NormCtorValMReadsAs` (copy-side) does not reach it; the bridge is
+   "whnf commutes with `restoreNested`" (a Verify theorem about `whnf`
+   under a constant-application replacement whose beta gate may call
+   `inferType`/`isDefEq` — K.4's frontier, out of reach).  **Kernel
+   request K.17 (a)**: at the auxiliary constructor stage, for every
+   copy field the normalisation CHANGED (`dom' != dom`), also run
+   `whnf` at `env + the block's real formers` on the RESTORED processed
+   domain and require `==` the restored stored domain (`.internal` on
+   failure; measure on the cone) — a real run at an environment whose
+   stage model exists, on which `WhnfClaim` gives `kindT`'s equation.
+   At `ord`'s block-member arm the processed term has no fire inside
+   (the member is the block's own), so the copy-side lemma suffices.
+3. **The erasing case breaks every record shape.**  A later container
+   field mentioning a transport variable under a redex the
+   normalisation erases (`J f := mk : (x : f Nat) → (h : (fun _ : f Nat
+   => Nat) x) → J f`, block `T := mk : J (fun _ => List T) → T`): the
+   stored copy is `(x : List_aux p⃗) → (h : Nat) → …` (accepted by
+   official and by the kernel), but the container's substituted
+   domain of `h` MENTIONS `x` (`nbT` false) and, evaluated in ψ's minor
+   at the transported `x`, is garbage rather than `Nat` — ψ's typing
+   fails; no semantic clause is true of it.  Not in the corpus (the
+   Mathlib λ-pins' later fields do not mention the value).  **K.17
+   (b)**: DECLINE a copy whose PROCESSED (pre-whnf) constructor has a
+   later field or residual mentioning a field the STORED constructor
+   classifies recursive — the mutual check's later-mention condition,
+   asked of the pre-whnf form (measure: expected 0 hits).
+4. `containerDom_transport` no longer needs the container tower's
+   grading (`hDsWD`/`hTJ` dropped from it, `via_psi`, `viaWD_psi`): the
+   tower's grading is the record's.
+
+**Status.**  ψ END TO END under `ContainersRep`, `CopyCtorsRead` (the
+weakened record) and `BridgeSyntax` (group-wide mention).  Not
+reached: W2, the record's clauses from the walk, the sub-term clause
+from `containerFieldOk`, `CopyCtorRead` (ψ⁻¹'s `hCAP`), M-C′.
+
+**Gates**: `lake build` warning-free, `lake test` clean (see the
+session's final commit).  NOT run: shake/pub-import, arena/init-full/
+Mathlib, `overview-links.sh`, `no-local-paths.sh` (landing items).
+Lean gotchas: a def in a Model plain `public section` must be
+`@[expose]` for `trivial`/`rfl` to close its equations from another
+module (`SpineFitOff`); `conv_lhs`/`nth_rewrite` are Mathlib — use
+`calc`; `List.take_succ` is deprecated for `List.take_add_one`;
+`List.length_pos_iff.mpr` for `ne_nil → 0 < length`.
+
+**Next** (session 18): (1) `NestedWalk.lean` W2 (the fire inversion) +
+the no-aux-mention invariant; (2) the record's `kindR`/`es`/`nbT` from
+the walk + the `denoteMeta` transports, `ord`/`kindT` at the identity
+arm (the whnf arm through `NormCtorValMReadsAs` and K.17 (a)); (3) the
+sub-term clause from `containerFieldOk` + pins `Nodup` +
+`containerGroupOk`; (4) `CopyCtorRead`; (5) M-C′.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

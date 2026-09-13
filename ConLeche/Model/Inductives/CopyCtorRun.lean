@@ -249,6 +249,7 @@ respect is this group-wide one — DESIGN §M.29.) -/
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+    k₀ ≤ d.tgtsR (auxOfs j' Jc) i →
     ∀ t' : AuxType, st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' →
       ∃ g, g < (cd j').dJ.k ∧ ∃ t : AuxType, st.types[k₀ + ((cd j').base + g)]? = some t ∧
         ∃ c ∈ t.ctors, (c.2.1).mentionsConst t'.name = true
@@ -281,7 +282,7 @@ theorem bridgeMention_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
     BridgeMention d st p.k st.pins.length cd (auxOfsOf st p.k cd) := by
   have hreps' := hreps
   obtain ⟨-, hkb, -, -, -, -, hnames, hall⟩ := hreps
-  intro j' hj' Jc cAJ hJc i hi hA hT t' ht'
+  intro j' hj' Jc cAJ hJc i hi hA hT _ t' ht'
   have hk0 : 0 < d.k := by
     obtain ⟨pf, -⟩ := hpins j' hj'
     have := pf.kA 0 (Nat.lt_of_lt_of_le (Nat.zero_lt_of_ne_zero (by

@@ -489,6 +489,7 @@ group, no group pin inside its pin). -/
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+    k₀ ≤ d.tgtsR (auxOfs j' Jc) i →
     ConLeche.CopyRef (ElimState.grp st) k₀ st j' (d.tgtsR (auxOfs j' Jc) i - k₀)
 
 /-- **The bridge's SYNTACTIC half**: at every transport — a field the
@@ -506,6 +507,7 @@ of the container's group). -/
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+    k₀ ≤ d.tgtsR (auxOfs j' Jc) i →
     ∀ (t' : AuxType) (q' : NestedPin),
       st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' →
       st.pins[d.tgtsR (auxOfs j' Jc) i - k₀]? = some q' →
@@ -526,9 +528,9 @@ theorem bridgeOfRun_of_syntax {μ : CheckMode} {mp : EnvModelM V μ env} {d : In
     (hgrp : ∀ j, j < n → ElimState.grp st j = ((cd j).base, (cd j).dJ.k))
     (hctors : CopyCtorsOfRun mp d ψ k₀ n lpsT cd auxOfs)
     (hsyn : BridgeSyntax d st k₀ n cd auxOfs) : BridgeOfRun d st k₀ n cd auxOfs := by
-  intro j' hj' Jc cAJ hJc i hi hA hT
+  intro j' hj' Jc cAJ hJc i hi hA hT hk
   obtain ⟨cAa, -, hf⟩ := hctors j' hj' Jc cAJ hJc
-  obtain ⟨j'', hj'', hout, -⟩ := hf.read.kindT i hi hT hA
+  obtain ⟨j'', hj'', hout, -, -⟩ := hf.read.kindT i hi hT hA hk
   have htgt : d.tgtsR (auxOfs j' Jc) i < d.k := hf.tgts i
   have hj''n : d.tgtsR (auxOfs j' Jc) i - k₀ < n := by omega
   have hjE : d.tgtsR (auxOfs j' Jc) i - k₀ = j'' := by omega
@@ -541,7 +543,7 @@ theorem bridgeOfRun_of_syntax {μ : CheckMode} {mp : EnvModelM V μ env} {d : In
   have ht'' : st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' := by
     rw [show d.tgtsR (auxOfs j' Jc) i = k₀ + (d.tgtsR (auxOfs j' Jc) i - k₀) by omega]
     exact ht'
-  obtain ⟨hmention, hsub⟩ := hsyn j' hj' Jc cAJ hJc i hi hA hT t' q' ht'' hq'
+  obtain ⟨hmention, hsub⟩ := hsyn j' hj' Jc cAJ hJc i hi hA hT hk t' q' ht'' hq'
   refine ⟨t, t', q', ht, ht', hq', ?_, ?_, ?_⟩
   · rw [hgrp j' hj']
     exact hmention
