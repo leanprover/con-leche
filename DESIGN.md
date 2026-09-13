@@ -75341,6 +75341,141 @@ sub-term clause from `containerFieldOk` + pins `Nodup` +
   `checkMutualCore`)?  If it does, the model reads it off the run;
   if not, a record is owed (official's `check_name` rejects).
 
+#### M.31 M-B′ step 3n: K.17 merged, the record RESTATED at the container's field frames (the erasing shape covered), ψ's body typed at the copy's own domains, and the walk's per-field kit (2026-09-13, session 18)
+
+**K.17 merged** (`inductives` 215a57d1, merge 1bfc673b): the whnf
+witness `nestedCtorsWhnfOk` is a conjunct of `DeclNestedRun` (two
+`obtain` patterns threaded); K.18 is answered by `mutualShapeOk`'s
+`b.blockNames.Nodup` (`nestedBlockNames_nodup`), which the model
+already consumes as `IndRep.memberNodup` at the auxiliary datum.
+
+**(a) The record restated** (`Model/Inductives/CopyCtors.lean`), per
+the maintainer's ruling on §M.30 finding 3.  The analysis behind it:
+
+* `psiDomAV`'s ordinary arm was the CONTAINER's field domain
+  `ds[nP+i]`, evaluated in `psiBody_leaf` at ψ's TRANSPORTED frame
+  (copy values at the replaced positions), and `hnbP`'s first clause
+  (no later container domain mentions a replaced position) was what
+  moved it back to the container's frame.  The erasing shape
+  `J f := mk : (x : f Nat) → (h : (fun _ : f Nat => Nat) x) → J f` at the
+  λ-pin `f := fun _ => List T` has the container's domain of `h` MENTION
+  the transport `x`, and at a copy value the redex is garbage: no
+  syntactic clause about the container's readings is true there, and
+  the old `ord` (one frame for both readings) is FALSE.
+* What is true: `interp(ws) A = interp(ws) B` at CONTAINER frames
+  (`A = Nat` the stored copy domain, `B` the container's substituted
+  redex; K.17's witness + `WhnfClaim`), and `A` mentions no
+  copy-recursive position (the auxiliary install's own positivity
+  check — `mutualCtorKinds`' `structUsedLater`, recorded as
+  `FixOpened.recF/reflF`'s `mentionsFvar` facts, read as
+  `noBVar_entries` of the COPY).  So the value crosses to ψ's frame
+  through the COPY's domain, not the container's.
+
+The record now: `CopyFieldAgree d ψ dJ ψ' DsA Jc i A B` — at every frame
+of the block's parameters and every spine of `i` earlier values fitting
+the CONTAINER constructor's earlier domains at the pin's readings
+(`SpineFit (consList (DsA-values) σ) (((dJ.dsF Jc ψ').drop dJ.nP).take i)`),
+`interp (consList ws σ) A = interp (consList ws σ) B`; `ord` and
+`kindT` over it (`kindT`'s tower graded at the same frames); `nbT`
+GONE; `SpineFitOff` and its kit gone; `NormCtorValMReadsAs` gone (its
+partial-frame form was the honest gap; the whnf arm is K.17's
+witness, step (d) below).  `kindR`/`es`/`mem` unchanged.
+
+**The consumers** (`PsiBody`/`PsiSetup`/`PsiAssembly`): `psiDomAV`
+takes `domA : Nat → AnnotTerm` — the ordinary arm is `domA i`, the
+copy's own stored domain lifted over the pin's readings
+(`IndRepData.psiDomA ψ nPJ auxOf Jc i := (copy entry).liftN nPJ i`);
+`psiBody_leaf`'s `hnb` became `hnbA` (`domA` mentions no replaced
+position) + `hord` (`domA i` reads as the container's `ds[nP+i]` at
+the container's field prefix, off the replaced positions); `PsiSetup`
+gained `domA`, `hnbA`, `hord`, and `hnbP` lost its domain clause;
+`psiDom_eq_copyDom`'s ordinary case is `interp_liftN_middle` (no record
+clause); `noBVar_psi` derives every container-side clause
+(telescopes, index readings, result) from the COPY's `noBVar_entries`
+through `kindR`/`es` and `NoBVar_instSeq_iff` — the container's
+domains are not mentioned; `containerDom_transport` consumes `kindT`
+at the container's frame directly (`spineFitOff_copy_of_container`
+deleted); `psiSetup_of_group` discharges `hord` from `ord` +
+`interp_instSeq_under` + `interp_liftN_middle`.  ψ END TO END still
+holds under `ContainersRep`, `CopyCtorsRead` (the restated record) and
+`BridgeSyntax` — `psiFold_typed_of_read` unchanged in statement.
+
+**`CtorsChecked` carries the kernel's kinds** (`Model/Inductives/
+DeclMutual.lean`): `classifyMutualKinds b.members3 b.lps b.nP ctorsA =
+.ok kinds`, `mutualFieldsOk env … ctorsA kinds = true` (at the
+PRE-BLOCK environment) and `d.ksF j = kindsOf (kinds.getD j [])` —
+`rfl` at the packaging.  Why: the datum's `env₀` is
+`consMutualFormers fms env` (the environment WITH the formers), so
+`FixOpened.ord`'s "resolves in `env₀`" does not exclude a member; the
+kernel's `mutualFieldsOk` is what says an ordinary copy field resolves
+BEFORE the block (no member, no copy), and `mutualCtorKinds` is what
+makes ordinary ⟺ no member mentioned.  Both are needed by step (c).
+
+**(b) The walk's per-field kit** (`Verify/Inductives/NestedFields.lean`,
+base umbrella): `ElimState.PinsCopyNamed k st` (every pin's `aux` is a
+type name at index `≥ k`), **W1 over the copy names**
+(`replaceAllNested_eq_of_no_copy`: an output mentioning no COPY name is
+the input — `NestedWalk`'s W1 forbids every type name including the
+block's own members, which `ord`'s block-member arm mentions), and
+**`replaceAllNested_stripPis`**: the walk of `Π bs, r` is `Π bs', r'`
+with each binder domain and the residual walked from a state
+`ElimGrows`-reachable from the start and reaching one the end is
+reachable from, binder data kept.
+
+**`PinsIndexed` threaded through the ledger** (`NestedLedger.lean`):
+`ElimState.PinsIndexed k st` (every pin's copy is a type at index
+`≥ k`), kept by `MintStep` (`MintStep.pinsIndexed`), held by every
+ledgered state (`ElimLedger.pinsIndexed`, from `mkCopy_name`), recorded
+in `PinOriginAt`'s processed branch at the state a copy's constructors
+are walked from, exposed by `elimNested_copy`; `elimCtors_getElem?`
+now returns the `MintStep` to each constructor's own walk state (the
+prefix it returned is `MintStep.pins_prefix`); `CopyCtorsStored`
+carries `sta.PinsIndexed p.k` per constructor.  `PinsIndexed` gives
+W2's `PinsNamed` and W1's copy-name form (`PinsIndexed.named`,
+`.copyNamed`).  `PinsNamed`/`PinsCopyNamed`/`PinsIndexed` are
+`@[expose]` (destructured across modules).
+
+**Status.**  ψ END TO END under the RESTATED record.  Not reached this
+session: (c) the record's clauses from the walk (`mem`/`kindR`/`es`
+syntactic; `ord`/`kindT` identity arm; the fired case via W2 on the
+per-field walks of `replaceAllNested_stripPis`, whose `PinsNamed`
+premise is now in `CopyCtorsStored`); (d) the whnf arm as K.17's
+witness read at a model of `env₁` (`WhnfClaim` needs an `EnvModelM` of
+the environment the run is at; `env₁ = consNestedFormers members env`
+is the first stage of the restore chain, whose model M-D′ builds — no
+restriction lemma exists and none is attempted: the arm is stated at
+an abstract `mp₁` agreeing with `mpAux` on `env₁`'s names when (c)
+lands); (e) the sub-term clause; `CopyCtorRead`; M-C′.
+
+**Gates**: `lake build` 620 jobs warning-free, `lake test` clean.  NOT
+run: shake/pub-import (`NestedFields` on the base umbrella — landing
+item), arena/init-full/Mathlib, `overview-links.sh`,
+`no-local-paths.sh`.  Lean gotchas: `nomatch h, x, y` inside an
+anonymous constructor parses `x, y` as discriminants — parenthesise
+`(nomatch h)`; `unfold` on a sealed def from another module fails
+silently as "failed to unfold" — `@[expose]` it; an `induction h with |
+mint …` case shadows the outer `st` — name the constructor's implicit
+states (`@mint st₀ st₁ …`); a background build's notification reports
+the SHELL's exit, not the build's — read the log's last line.
+
+**Next** (session 19): (c) `copyCtorAsRead_of_walk` — per field, from
+`CopyCtorsStored`'s pieces: the round trip `cbody = cI`
+(`openPisAtFvars_closeTelescope_strip` + `openPisAtFvars_instPisAt`),
+`replaceAllNested_stripPis` on `cI`, then per field W1 (copy-ordinary
+and block-member-recursive: `mutualFieldsOk`'s resolve at the pre-block
+env ⇒ no copy name ⇒ same domain ⇒ `ord` syntactically) or W2 (copy-
+recursive into a copy: the opened shape from `recF`/`reflF` pulled back
+through `openPisAtFvars_instSeq`; the pin `J' lvls Ds` = the
+group-mate's by K.15's `Nodup` for `kindR`, the target pin for `kindT`);
+the readings by `denoteMeta_instLevels` + `denoteMeta_instPisAt_peel`
++ `instSeq_mkPisAV` (whole-type) and `denoteMeta_openPis` (per field) +
+`mkPisAV_inj`/`mkAppN_inj_args`; (d) the whnf arm; (e) the sub-term
+clause: `kindT`'s "target outside the group" and `BridgeSyntax`'s
+sub-term half from W2's pin inside the container's ORDINARY field
+(which mentions no group member — `ContainersRep` gains the container's
+kinds fact, as `CtorsChecked` did for the copies) by a size argument
+(`Ds ≠ []` at a fire: `nestedOccOk`'s `isNested`).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
