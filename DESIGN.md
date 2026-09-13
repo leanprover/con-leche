@@ -75978,6 +75978,139 @@ NOT reached: `copyCtorAsRead_of_walk` (§M.31 (c)–(e)).  Gates:
 OK; shake/pub-import, arena, init-full, Mathlib, overview-links NOT run
 (landing items).
 
+#### M.35 M-C′ step 4: R2 ASSEMBLED AT THE RUN — the group clause, the final table, the ι laws off `DeclNestedRun`, five of six owed facts derived (2026-09-13, session 22)
+
+**(1) The group clause** (`PsiRun.lean`, `PinRunFacts`).  Session 21's
+`r2_step` takes the ι law for ψ at `Ψ (dJ.mems J)` with ONE container
+datum `dJ` for the whole group, while the final table's entry at pin
+`base + t` is `psiStep` at `cd (base + t)` — pin `base + t`'s OWN
+`CopyData`, whose datum was a separate `Classical.choose` of
+`ContainersRep`'s existential and hence not provably `c.dJ`.  Fixed at
+the source: `pinFacts_of_run` now chooses the datum, the assignment and
+the readings ONCE per mint group (at the group's base pin,
+`ElimState.grp`; `hone` quantifies over the members `t` of the base's
+container and derives every member's per-pin facts from the base's
+`ContainersRep` instance plus the member's own `CopyCtorsStored`), and
+a pin's data are its base's at its position (`j - (grp st j).1`).  So
+`PinRunFacts` = `PinRunFactsAt` (the per-pin body, over a `CopyData`)
+∧ **`∀ t < c.dJ.k, cd (c.base + t) = ⟨c.dJ, t, c.ψ', c.DsA, c.base⟩`**
+(literally).  `PinFacts` gains `repAll` (every member of the group
+represented at the datum — `r2Grp_of_step`'s `hrepT`).
+
+**(2) The final table at a group** (`RoundTripRun.lean`, new, on the
+Model umbrella).  `psiTerm_congr_tbl`: the step reads the table only
+through `psiVia` at the transports' targets of the copy's REAL
+constructors (`psiBodyAV_congr`/`minChoiceAVs_congr`), so with
+`orderFold_eq_step` (its `hdep` weakened to the entry alone) the final
+table's entry at a listed pin is the step at the FINAL table
+(`psiFinal_eq`), and with the group clause the entry at `base + t` is
+ψ's fold term at pin `j`'s view of member `t` (`psiFinal_group`,
+`NestedRunFacts.final_group`) — the `Ψ t` `r2_step` wants.
+
+**(3) The run's facts, bundled: `NestedRunFacts`** (`reps`, `aux`,
+`lenSt`, `pins` with the group clause, `ctors` = `CopyCtorsOfRun`,
+`bridge`, `ord`, the block's sort `s` with `sortEval`, and `inv` = ψ⁻¹'s
+setup at every parameter frame), built by `nestedRunFacts_of_pinFacts`
+from `pinFacts_of_run`'s output + the record + the bridge's syntactic
+half.  `invSetup_of_run` is split into **`invSetup_of_pinFacts`** with
+the block's sort chosen BEFORE the frame (`invSetup_of_blockReps_nested`
+restated: `∃ s lps lpsT, … ∧ ∀ ρ ps, …`) — one `s` for all frames, so
+ψ⁻¹'s fold term `invFold` (at `d.withSort s`) is a term of the run, not
+of the frame.  Derived: `psiSetup_final` (the group's `PsiSetup` with
+the transports at the FINAL table — `psiStep_typed`'s construction with
+`final_typed` at the referenced entries), `final_below`
+(`psiFold_below`), `psiVia_below`, `ppsM_below`, `pinFit`, `DsA_below`.
+
+**(4) The ι laws AT THE RUN.**  `psi_iota`: `PsiSetup.fold_iota_vals`
+at the group's setup at the pushed frame `consList (paramVals nP σ₀)
+(consList fs σ₀)` (obtained from `psiSetup_final` at `ρ₀ := consList fs
+σ₀`, `psA := paramBvarsAt nP (nP + |fs|)`, `interp_paramBvarsAt_consList`),
+the fold terms rewritten to the final table's entries (`final_group`)
+— exactly `r2_step`'s `hιΨ` with `Ψ t := psiFinal … (base + t)`.
+`inv_iota`: `InvSetup.fold_iota_vals` at `NestedRunFacts.inv` at the
+pushed frame with `ps := paramBvarsAt nP nP` — `r2_step`'s `hιΦ` with
+`Φ' := invFold`.  Frames: the run-level round trip is stated at any
+frame `ρ` whose first `nP` entries fit the parameters
+(`hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)`), `ps :=
+paramBvarsAt nP nP`; ψ's terms read at `σ₀ = consList (paramVals nP ρ)
+ρ`, ψ⁻¹'s at `ρ` (`R2At`'s two frames).
+
+**(5) The assembly: `r2Grp_of_owed`** — `R2Grp` for pin `j`'s group at
+`ρ`, from `r2Grp_of_step` + `fieldsFit_of_chainFit` + `r2_step`, with
+the terminator from `ChainFit`, the ι laws from (4), ψ's head from
+`psiHead_interp` (the copy constructor at the parameter values), and
+the constructor's facts derived: **`ctor_facts`** (the result readings
+graded and fitting at a fitting spine — `wellDenoted_mkPisAV_body` on
+the tower's `okTy`, `ctorFieldFacts_of`; a recursive entry's readings
+graded and fitting the target's telescope under ANY fitting prefix —
+`wellDenoted_mkPisAV_dom` + `recEntry` + `idxFit_of_entry`: what
+`fieldsFit_of_chainFit`'s position-by-position fit needs, since a
+later domain may be empty), **`es_of_record`** (the copy constructor's
+readings at ψ's values are the container's at the fields: the record's
+`es`, `interp_instSeq_under`, `psiVals_shadowRelP` — ψ's values ARE the
+fields off the replaced positions, no fit needed — with `hnbP`'s `Es`
+clause and `interp_congr_shadowRelP`), **`pos_noTransport`** (the
+per-position arms: a container-recursive finitary position is
+recursive on both sides with the readings agreeing at the pushed frame
+— `kindR`, `interp_instSeq_under`, `interp_congr_below` at the pin's
+readings, `interp_congr_shadowRelP_at` at `hnbP`'s `Eiss` clause; an
+ordinary position is ordinary or into a block member on the copy's
+side — `hnoT`), and **`fitCopy_of_run`** (ψ's values fit the copy
+constructor's telescope: `spineFit_ihDataTg_of` — a λ-tower whose
+bodies land in the target fits the target-form ih binder,
+`interp_tgIhDomAV` + `lamTower_mem_piTele`; `PsiSetup.minor_fit` — the
+ι-side spine, the fields lifted over the choice's prefix and the
+fold's λ-towers at the targets, fits the minor's target-form telescope,
+each body in the target by `fold_mem_vals` at the field's own typing
+(`ctorFieldFacts_of`) through `invTg_fold`; then `psiVals_fit`
+(`psiVals_fit_of`) and `psiVals_fit_copy` at the final table, the
+parameters by `spineFit_of_paramsIff`).
+
+**Restrictions named as hypotheses of `r2Grp_of_owed`** (the honest
+statement of what is proved): the container's recursive fields are
+FINITARY (`hfin`), the group has NO TRANSPORT (`hnoT`: a field the
+container sees as ordinary and the copy as recursive targets a block
+member), both elimination bits nonzero (`hbJ`, `hbA`; the `Prop` arm
+is trivial by typing — every carrier there is the point — and is not
+written), and the ONE owed fact **`R2Owed.headφ`**: ψ⁻¹'s head at the
+copy constructor reads as THIS container constructor at THIS pin's
+readings.  `invHead` is `Classical.choose` over the representatives
+`(j'', Jc', cAJ')` with `auxOfsOf st k₀ cd j'' Jc' = auxOfsOf st k₀ cd
+j J` (`invHead_copy`); the recipe: `ctorBase` is injective on
+`(type, position)` pairs with the position below the type's
+constructor count (`ctorBase st a + x = ctorBase st b + y`, `x <
+|types[a].ctors|`, `y < |types[b].ctors|` ⇒ `a = b ∧ x = y`; `posIn dJ
+Jc < |J.ctors|` by `ContainerCtorsAt.fwd`, the aux type's count is the
+member's by `CopyCtorsStored`), so the representative's pin `base'' +
+mems Jc'` is `base + mems J`, both groups contain it hence `base'' =
+base` (`ElimState.grp` at that pin from both `hgrp`s), the group clause
+makes `cd j''`'s data the pin's (`(cd j).at mm''`), `posIn` is injective
+within a member (strictly monotone), so `Jc' = J` and `cAJ' = cA`; the
+head is then `mkAppN (acval cA.1.name (cd j).ψ') (cd j).DsA` at `ρ`,
+i.e. `DsAv.foldl app (acval …)` at `σ₀` (`DsA` bounded at `nP`).  Not
+built this session.
+
+**R1 at the run**: not started; `r1_step`'s hypotheses are the mirror
+(`hιΦ`/`hιΨ` from `inv_iota`/`psi_iota`, `hfitMixed` from
+`InvSetup.fold_mem` at the container-recursive positions and the
+record's `ord` at the ordinary ones, `hEs`/`hpos` as in (5)); the
+scratch block's `hrepT` needs the members' representations at ONE
+datum, where `MutualBlockReps` gives them at `{d with resSort := s_t}`
+per member — an `IndRep.congr_sort` (the clauses depend on the sort
+only through `w`) is the missing lemma there.
+
+**Status.**  R2 at the RUN level for a finitary, transport-free group
+with nonzero elimination bits: PROVED modulo `headφ` (one fact, recipe
+above).  Files: `Model/Inductives/RoundTripRun.lean` (new, ~1 450
+lines); `PsiRun.lean` (group clause, `PinRunFactsAt`, `repAll`);
+`InvCopy.lean`/`CopyPins.lean` (the sort before the frame);
+`FoldValues.lean` (`paramVals` exposed, `hDsA` at the listed pins);
+`NestedOrder.lean` (`orderFold_eq_step`'s `hdep`).  Gates: `lake build`
+warning-free, `lake test` clean, `no-local-paths` OK; shake/pub-import,
+arena, init-full, Mathlib, overview-links NOT run (landing items).  No
+kernel request.  NOT reached: `headφ`, R1 at the run, the TRANSPORT and
+REFLEXIVE arms, `copyCtorAsRead_of_walk`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
