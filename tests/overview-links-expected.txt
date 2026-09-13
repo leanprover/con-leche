@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L743
-   743  def usage : String := String.intercalate "\n" [
+== Main.lean#L706
+   706  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -128,8 +128,8 @@
 == ConLeche/Frontend/ExportC.lean#L857
    857  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L107
-   107  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L106
+   106  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
@@ -140,11 +140,11 @@
    337  def checkRecord {ds : List Declaration} (e : InstalledEnv mode ds) (k : Nat)
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L175
-   175  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L174
+   174  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L290
-   290  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L289
+   289  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List Declaration} (e : InstalledEnv mode ds)
@@ -152,11 +152,11 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L328-L331
-   328  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   329      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   330      IO (Except (ConLeche.CheckError × Nat)
-   331        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L327-L330
+   327  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   328      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   329      IO (Except (ConLeche.CheckError × Nat)
+   330        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L498-L499
    498  theorem fullyChecked_checkDecls {ds : Array Declaration} (fc : FullyChecked mode ds.toList) :
@@ -295,8 +295,8 @@
      2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
      3  # SetR removal, 2026-09-05).
 
-== ConLeche/Kernel/Env.lean#L69
-    69  inductive CheckMode where
+== ConLeche/Kernel/Env.lean#L59
+    59  inductive CheckMode where
 
 == ConLeche/Kernel/Core.lean#L2065
   2065  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
@@ -678,15 +678,15 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Env.lean#L624-L631
-   624  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   625    block.all fun ci => match ci with
-   626      | .indInfo cvT _ =>
-   627        match cvT.type.piSortTeleLen? with
-   628        | some n => decide (nP ≤ n)
-   629        | none => true
-   630      | .ctorInfo _ nPc _ => nPc == nP
-   631      | _ => true
+== ConLeche/Kernel/Env.lean#L614-L621
+   614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   615    block.all fun ci => match ci with
+   616      | .indInfo cvT _ =>
+   617        match cvT.type.piSortTeleLen? with
+   618        | some n => decide (nP ≤ n)
+   619        | none => true
+   620      | .ctorInfo _ nPc _ => nPc == nP
+   621      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
@@ -999,15 +999,15 @@
    223        else if cvA.name = sorryAxName then
    224          pure fe
 
-== Main.lean#L776
-   776    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L739
+   739    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L1093
-  1093  def main (args : List String) : IO UInt32 := do
+== Main.lean#L984
+   984  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L97-L103
     97  theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
@@ -1129,6 +1129,6 @@
    414    private ofRepr ::
    415    private repr : PropWhenRepr
 
-== Main.lean#L759
-   759    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L722
+   722    "  --trusted         the unverified mode: the SAME checker bodies as",
 

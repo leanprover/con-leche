@@ -2015,8 +2015,7 @@ bodies at `cfgR` — every certificate unconditional, the census's part 2
 proof that was the R core's whole reason to exist, and with the
 acceptance delta against the graded core measured at ZERO (B4: 225
 fixtures plus init-full, byte-identical), the core went with its proof.
-`cfgR` is gone (with the whole configuration record, task #185); the flag
-that selected it (`--set-model=r`) is a hard error.
+`cfgR` is gone, with the whole configuration record (task #185).
 
 **`whnf` needs no instantiation and that is a finding, not an
 omission.**  `whnfBodyI` (and `whnfStepI`/`whnfLoopI` under it) reads

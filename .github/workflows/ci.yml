@@ -59,7 +59,7 @@
 #                        (tests/arena/lean-arena-tests.tar.gz — pinned
 #                        and committed, so CI never depends on the live
 #                        arena's progression)
-#                      * the e2e, annot, retired-flag and mode suites
+#                      * the e2e, annot and mode suites
 #                      * the `--trusted` sweep of all three suites
 #
 # WHAT IT DELIBERATELY DOES **NOT** COVER — and why the local battery is

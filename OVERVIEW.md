@@ -28,12 +28,10 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L743)).
-A retired spelling — `--set-model[=p|=r]`, `--no-model`, `--tt-model`,
-`--yolo`, `--infer-only`, `--pre`, `--core[=<c>]`, `--install-only`,
-`--check-range[=<r>]` — is never a silent alias: it is rejected with a
-message naming what stands in its place, so a verdict's provenance can
-be read off the invocation.
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L706)).
+Any other option is a usage error: the run reports it, prints the
+usage text and exits 3 without reading its input, so a verdict's
+provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L48)):
@@ -267,7 +265,7 @@ Read from the outside in:
    — index resolution, the smart constructors, the modeller — is the
    semantic layer the main corollary's line lemmas are about; the
    modeller's output is tested differentially rather than proved. The install loop
-   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L107))
+   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L106))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L136-L138)):
    a definition or opaque is annotated and pushed with its check
@@ -290,10 +288,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L175))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L174))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L290))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L289))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L367-L370))
@@ -305,7 +303,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L328-L331))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L327-L330))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L498-L499)).
@@ -375,7 +373,7 @@ cannot depend on a proof.
 ## 3. The checker
 
 Two modes exist, `--verified` (default) and `--trusted`
-([the type `CheckMode` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L69)).
+([the type `CheckMode` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L59)).
 Trusted mode is verified mode minus certification-only steps; it is
 faster and is outside the theorem. Both use the same core.
 
@@ -519,7 +517,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   block's shape — its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L624-L631)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L614-L621)),
   its index count off what is left of the type former's telescope, as
   official reads them, and
   nothing of the stream's recursor record, which official never reads as
