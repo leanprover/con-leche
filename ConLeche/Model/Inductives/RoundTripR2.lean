@@ -574,4 +574,249 @@ theorem r2_step (m : EnvModel V env) {dJ d : IndRepData V} {ψ' ψ : Name → Na
   rw [hctor, hιΨ fs hfitAll, hheadψ, ← List.foldl_append, ← hVS, hΦ _ hmemJ, ← hmemA, ← hEs,
     hιΦ VSψ hfitCopy, hheadφ, ← List.foldl_append, ← hMIX, hmixed]
 
+/-! ## R1 — the copy-side round trip: the induction over the SCRATCH block
+
+R1 is ONE induction over the scratch block's carriers (DESIGN §M.32
+(4)): every copy at once, no order — a transport's target is another
+copy of the same block, so its round trip is the SAME induction's
+hypothesis at that copy. -/
+
+/-- **R1's induction predicate** over the scratch block's index tuples:
+at every COPY member `t'` (`k₀ ≤ t'`) and fitting spine `is'` whose
+tuple it is, ψ (the table's term at pin `t' - k₀`, `Ψ' t'`) after ψ⁻¹
+(`Φ' t'`) at `is'` is the identity. -/
+@[expose] def R1Pred (d : IndRepData V) (ψ : Name → Nat) (ρ σ₀ : Nat → V) (k₀ : Nat)
+    (Ψ' Φ' : Nat → AnnotTerm) (tup a : V) : Prop :=
+  ∀ t', k₀ ≤ t' → t' < d.k → ∀ is' : List V, SpineFit σ₀ (d.IdsM t' ψ) is' → tup = d.tup ψ t' is' →
+    foldApp σ₀ (Ψ' t') is' (foldApp ρ (Φ' t') is' a) = a
+
+/-- The scratch block's carrier restricted to R1's predicate. -/
+@[expose] noncomputable def r1Fam (d : IndRepData V) (ψ : Name → Nat) (ρ σ₀ : Nat → V) (k₀ : Nat)
+    (Ψ' Φ' : Nat → AnnotTerm) : V :=
+  graph (fun i => sep (SetTheory.app (lfpFamSet (d.w ψ) (d.idx ψ σ₀) (d.Φ ψ σ₀)) i)
+    (R1Pred d ψ ρ σ₀ k₀ Ψ' Φ' i)) (d.idx ψ σ₀)
+
+/-- **R1 at a copy from the step**: `carrier_induction` at the copy's
+member of the scratch block. -/
+theorem r1At_of_step (m : EnvModel V env) {d : IndRepData V} {ψ : Name → Nat} {ρ : Nat → V}
+    {ps : List AnnotTerm} {k₀ t : Nat} {Ψ' Φ' : Nat → AnnotTerm}
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    (hrep : IndRep m (d.memberName t) cvT cvR mI rP rules d t) (hk₀ : k₀ ≤ t) (ht : t < d.k)
+    (hps : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
+    (hstep : ∀ tup, tup ∈ˢ d.idx ψ (consList (ps.map (interp V ρ)) ρ) →
+      ∀ (J : Nat) (fs : List V), J < d.ctorsA.length →
+      d.ChainFit ψ (consList (ps.map (interp V ρ)) ρ)
+        (r1Fam d ψ ρ (consList (ps.map (interp V ρ)) ρ) k₀ Ψ' Φ') tup J fs →
+      R1Pred d ψ ρ (consList (ps.map (interp V ρ)) ρ) k₀ Ψ' Φ' tup (d.inj ψ J fs)) :
+    d.R1At m ψ ρ ps t (Ψ' t) (Φ' t) := by
+  intro is a his ha
+  have h := hrep.carrier_induction ψ hps his (R1Pred d ψ ρ (consList (ps.map (interp V ρ)) ρ) k₀ Ψ' Φ')
+    hstep a ha
+  exact h t hk₀ ht is his rfl
+
+set_option maxHeartbeats 1600000 in
+/-- **R1's STEP** (task #279 M-C′, DESIGN §M.34), the mirror of
+`r2_step` at the scratch block: at a copy constructor `J'` (the copy of
+container constructor `J`) and a spine `vs'` fitting its real domains
+with the induction hypotheses at the recursive positions, the predicate
+holds of `inj J' vs'`: the terminator recovers the copy member and the
+readings (`idxRecover` at the scratch datum); the injection is the copy
+constructor's value (`ctor`); ψ⁻¹'s ι at values sends it to the
+container constructor at the MIXED values (`hιΦ`); those fit the
+container's telescope (`hfitMixed`, ψ⁻¹'s typing and the record's
+`ord`: NAMED) and their index readings are the copy's at the fields
+(`hEs`), so ψ's ι at values sends it to the copy constructor at ψ's
+VALUES (`hιΨ`), which ARE the fields: an ordinary position verbatim,
+a finitary container-recursive position by the induction hypothesis at
+the group-mate's copy (`hpos`'s second arm; the double push reads the
+scratch readings alike at `ρ` and at the pushed frame `σ₀`), the REST
+(a transport — here the SAME induction's hypothesis at the target copy,
+its frames' bookkeeping owed; a reflexive position, η) by `hpos`'s
+third arm, NAMED. -/
+theorem r1_step (m : EnvModel V env) {dJ d : IndRepData V} {ψ' ψ : Name → Nat} {ρ σ₀ σ : Nat → V}
+    {Ψ Ψ' Φ' : Nat → AnnotTerm} {k₀ base : Nat}
+    -- the scratch block's representations, at every member
+    (hrepT : ∀ t, t < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      IndRep m (d.memberName t) cvT cvR mI rP rules d t)
+    (hsat₀ : Sat V (d.params ψ).reverse σ₀)
+    (hσ₀ : σ₀ = consList (paramVals d.nP ρ) ρ)
+    (hpsFit : SpineFit ρ (d.params ψ) (paramVals d.nP ρ))
+    {DsAv : List V}
+    -- the copy constructor and its container constructor
+    {J J' : Nat} {cA cA' : ConstantVal × Nat} (hJ' : d.ctorsA[J']? = some cA')
+    (hlenD' : (d.dsF J' ψ).length = d.nP + cA'.2)
+    (hpIff' : ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.dsF J' ψ).take d.nP).map (·.2.2)).reverse ρ')
+    (hmemA : d.mems J' = k₀ + base + dJ.mems J) (hmemA' : d.mems J' < d.k) (hmemJ : dJ.mems J < dJ.k)
+    (hview' : d.tgtsR J' = d.tgts J')
+    (hΨ : ∀ t, t < dJ.k → Ψ' (k₀ + base + t) = Ψ t)
+    -- the spine: it fits the real domains, the induction hypotheses at
+    -- the recursive positions, the readings' facts, the terminator
+    {vs' : List V} (hfit : SpineFit σ₀ ((d.Fss ψ).getD J' []) vs')
+    (hIH : ∀ i, i ∈ ConLeche.recIdxOf (d.ksF J') →
+      R1Pred d ψ ρ σ₀ k₀ Ψ' Φ'
+        (d.tup ψ (d.tgts J' i)
+          (((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀))))
+        (vs'.getD i pt))
+    (hEsOk : ∀ E ∈ d.esF J' ψ, WellDenoted V (consList vs' σ₀) E)
+    (hEsFit : SpineFit σ₀ (d.IdsM (d.mems J') ψ) ((d.esF J' ψ).map (interp V (consList vs' σ₀))))
+    (hEntryFit : ∀ i, i ∈ ConLeche.recIdxOf (d.ksF J') →
+      SpineFit σ₀ (d.IdsM (d.tgts J' i) ψ)
+        (((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀))))
+    {X tup : V}
+    (hall : EqAll (consList vs' (cons tup (cons X σ₀)))
+      (eqsXI (d.IdsC ψ).length ((d.Fss ψ).getD J' []).length ((d.Ess ψ).getD J' [])))
+    -- ψ⁻¹'s ι at values (`InvSetup.fold_iota_vals`), the fold terms abstracted
+    {head' : Nat → AnnotTerm} {useIhA : Nat → Nat → Bool}
+    (hιΦ : ∀ vs : List V, SpineFit ρ ((d.dsF J' ψ).map (·.2.2)) (paramVals d.nP ρ ++ vs) →
+      ((d.esF J' ψ).map (interp V (consList (paramVals d.nP ρ ++ vs) ρ)) ++
+          [(paramVals d.nP ρ ++ vs).foldl SetTheory.app (interp V ρ (m.acval cA'.1.name ψ))]).foldl
+          SetTheory.app (interp V ρ (Φ' (d.mems J')))
+        = (mixedVals (ConLeche.recIdxOf (d.ksR J')) (useIhA J') vs
+            ((ConLeche.recIdxOf (d.ksR J')).map fun i =>
+              lamTower (d.bb ψ) (consList (vs.take i) ρ) ((d.tssR J' ψ).getD i []) fun σ'' =>
+                (((d.eissR J' ψ).getD i []).map (interp V σ'') ++
+                  [(Semantics.frameIdx (((d.tssR J' ψ).getD i []).length) σ'').foldl SetTheory.app
+                    (vs.getD i pt)]).foldl SetTheory.app (interp V ρ (Φ' (d.tgtsR J' i))))).foldl
+            SetTheory.app (interp V ρ (head' J')))
+    -- ψ's ι at values (`PsiSetup.fold_iota_vals`), the fold terms abstracted
+    {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
+    (hιΨ : ∀ vs : List V, SpineFit σ₀ ((dJ.dsF J ψ').map (·.2.2)) (DsAv ++ vs) →
+      ((dJ.esF J ψ').map (interp V (consList vs σ)) ++
+          [(DsAv ++ vs).foldl SetTheory.app (interp V σ₀ (m.acval cA.1.name ψ'))]).foldl
+          SetTheory.app (interp V σ₀ (Ψ (dJ.mems J)))
+        = (psiVals (dJ.bb ψ') σ (ConLeche.recIdxOf (dJ.ksR J)) (useIh J) (via J) vs
+            ((ConLeche.recIdxOf (dJ.ksR J)).map fun i =>
+              lamTower (dJ.bb ψ') (consList (vs.take i) σ) ((dJ.tssR J ψ').getD i []) fun σ'' =>
+                (((dJ.eissR J ψ').getD i []).map (interp V σ'') ++
+                  [(Semantics.frameIdx (((dJ.tssR J ψ').getD i []).length) σ'').foldl SetTheory.app
+                    (vs.getD i pt)]).foldl SetTheory.app (interp V σ₀ (Ψ (dJ.tgtsR J i))))).foldl
+            SetTheory.app (interp V σ (head J)))
+    -- ψ⁻¹'s mixed values and ψ's values at them, named
+    {MIXED VS : List V}
+    (hMIX : MIXED = mixedVals (ConLeche.recIdxOf (d.ksR J')) (useIhA J') vs'
+      ((ConLeche.recIdxOf (d.ksR J')).map fun i =>
+        lamTower (d.bb ψ) (consList (vs'.take i) ρ) ((d.tssR J' ψ).getD i []) fun σ'' =>
+          (((d.eissR J' ψ).getD i []).map (interp V σ'') ++
+            [(Semantics.frameIdx (((d.tssR J' ψ).getD i []).length) σ'').foldl SetTheory.app
+              (vs'.getD i pt)]).foldl SetTheory.app (interp V ρ (Φ' (d.tgtsR J' i)))))
+    (hVS : VS = psiVals (dJ.bb ψ') σ (ConLeche.recIdxOf (dJ.ksR J)) (useIh J) (via J) MIXED
+      ((ConLeche.recIdxOf (dJ.ksR J)).map fun i =>
+        lamTower (dJ.bb ψ') (consList (MIXED.take i) σ) ((dJ.tssR J ψ').getD i []) fun σ'' =>
+          (((dJ.eissR J ψ').getD i []).map (interp V σ'') ++
+            [(Semantics.frameIdx (((dJ.tssR J ψ').getD i []).length) σ'').foldl SetTheory.app
+              (MIXED.getD i pt)]).foldl SetTheory.app (interp V σ₀ (Ψ (dJ.tgtsR J i)))))
+    -- the constructors' facts at these values: the heads, the mixed
+    -- values fit the container's telescope (NAMED: ψ⁻¹'s typing + `ord`),
+    -- the container's index readings at the mixed values are the copy's
+    -- at the fields (ψ's values need no fit of their own: they ARE the
+    -- fields, `hvs`, before the copy's `ctor` is used)
+    (hheadψ : interp V σ (head J)
+      = (paramVals d.nP ρ).foldl SetTheory.app (interp V ρ (m.acval cA'.1.name ψ)))
+    (hheadφ : interp V ρ (head' J') = DsAv.foldl SetTheory.app (interp V σ₀ (m.acval cA.1.name ψ')))
+    (hfitMixed : SpineFit σ₀ ((dJ.dsF J ψ').map (·.2.2)) (DsAv ++ MIXED))
+    (hEs : (dJ.esF J ψ').map (interp V (consList MIXED σ))
+      = (d.esF J' ψ).map (interp V (consList vs' σ₀)))
+    -- per position: ordinary on both sides; container-recursive and
+    -- FINITARY, the scratch readings read alike at `ρ` and at the pushed
+    -- frame and the container's at the mixed values are the copy's; or
+    -- the REST with its round trip given
+    (hpos : ∀ i, i < cA'.2 →
+      (¬ replaced (useIh J) (via J) i ∧ useIhA J' i = false) ∨
+      (useIh J i = true ∧ via J i = none ∧ useIhA J' i = true ∧
+        i ∈ ConLeche.recIdxOf (dJ.ksR J) ∧ i ∈ ConLeche.recIdxOf (d.ksR J') ∧
+        i ∈ ConLeche.recIdxOf (d.ksF J') ∧
+        (dJ.tssR J ψ').getD i [] = [] ∧ (d.tssR J' ψ).getD i [] = [] ∧
+        d.tgtsR J' i = k₀ + base + dJ.tgtsR J i ∧ dJ.tgtsR J i < dJ.k ∧
+        ((d.eissR J' ψ).getD i []).map (interp V (consList (vs'.take i) ρ))
+          = ((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀)) ∧
+        ((dJ.eissR J ψ').getD i []).map (interp V (consList (MIXED.take i) σ))
+          = ((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀))) ∨
+      VS.getD i pt = vs'.getD i pt) :
+    R1Pred d ψ ρ σ₀ k₀ Ψ' Φ' tup (d.inj ψ J' vs') := by
+  intro t' _ ht' is' his' htup
+  have hJ'lt : J' < d.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ').1
+  have hlenFs : vs'.length = ((d.Fss ψ).getD J' []).length := hfit.length_eq
+  have hfsN : vs'.length = cA'.2 := by
+    rw [hlenFs, d.Fss_getD ψ hJ', List.length_map, List.length_drop, hlenD']
+    omega
+  -- the terminator: the copy member and its readings
+  obtain ⟨cvT', cvR', mI', rP', rules', hrep'⟩ := hrepT t' ht'
+  rw [htup] at hall
+  obtain ⟨hmem, hisE⟩ := hrep'.idxRecover ψ σ₀ hsat₀ is' his' X J' vs' hJ'lt hlenFs hEsOk hEsFit hall
+  subst hisE
+  subst hmem
+  -- the injection is the copy constructor's value
+  obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepT _ hmemA'
+  have hctor : d.inj ψ J' vs'
+      = (paramVals d.nP ρ ++ vs').foldl SetTheory.app (interp V ρ (m.acval cA'.1.name ψ)) :=
+    (hrep.ctor J' cA' hJ' ψ ρ (paramVals d.nP ρ) vs' hpsFit (by rw [← hσ₀]; exact hfit)).symm
+  have hpvLen : (paramVals d.nP ρ).length = d.nP := paramVals_length _ _
+  have hfitP : SpineFit ρ (((d.dsF J' ψ).take d.nP).map (·.2.2)) (paramVals d.nP ρ) :=
+    spineFit_of_paramsIff hpvLen (by rw [List.length_map, List.length_take, hlenD']; omega) hpsFit hpIff'
+  have hfitAll : SpineFit ρ ((d.dsF J' ψ).map (·.2.2)) (paramVals d.nP ρ ++ vs') := by
+    rw [← List.take_append_drop d.nP (d.dsF J' ψ), List.map_append]
+    refine hfitP.append ?_
+    rw [← hσ₀, ← d.Fss_getD ψ hJ']
+    exact hfit
+  have hfr : consList (paramVals d.nP ρ ++ vs') ρ = consList vs' σ₀ := by
+    rw [hσ₀, consList_append]
+  -- ψ's values are the fields
+  have hMIXlen : MIXED.length = vs'.length := by rw [hMIX, mixedVals_length]
+  have hVSlen : VS.length = vs'.length := by rw [hVS, psiVals_length, hMIXlen]
+  have hvs : VS = vs' := by
+    refine list_ext_getD hVSlen fun i hi => ?_
+    have hiN : i < cA'.2 := by rw [← hfsN, ← hVSlen]; exact hi
+    have hifs : i < vs'.length := by rw [hfsN]; exact hiN
+    have hiM : i < MIXED.length := by rw [hMIXlen]; exact hifs
+    rcases hpos i hiN with ⟨hnr, huseA⟩ |
+      ⟨huse, hvia, huseA, hrJ, hrA, hrAF, htlJ, htlA, htgtA, htgtJ, hreadA, hreadJ⟩ | hrest
+    · -- ordinary on both sides
+      have hnu : useIh J i = false := by
+        cases h : useIh J i
+        · rfl
+        · exact absurd (Or.inl h) hnr
+      have hnv : via J i = none := by
+        cases h : via J i with
+        | none => rfl
+        | some v => exact absurd (Or.inr (by rw [h]; rfl)) hnr
+      rw [hVS, psiVals_getD _ _ _ _ _ _ _ hiM, hnv]
+      simp only [hnu, Bool.false_eq_true, if_false]
+      rw [hMIX, mixedVals_getD _ _ _ _ hifs, huseA]
+      simp only [Bool.false_eq_true, if_false]
+    · -- container-recursive, finitary: the round trip inside, at the
+      -- group-mate's copy
+      have hMIXi : MIXED.getD i pt
+          = (((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀)) ++ [vs'.getD i pt]).foldl
+              SetTheory.app (interp V ρ (Φ' (k₀ + base + dJ.tgtsR J i))) := by
+        rw [hMIX, mixedVals_getD _ _ _ _ hifs, huseA]
+        simp only [if_true]
+        rw [getD_map_idxOf hrA, htlA, htgtA]
+        simp only [lamTower, List.length_nil, Semantics.frameIdx, List.range_zero, List.map_nil,
+          List.foldl_nil]
+        rw [hreadA]
+      have hVSi : VS.getD i pt
+          = (((d.eissF J' ψ).getD i []).map (interp V (consList (vs'.take i) σ₀)) ++ [MIXED.getD i pt]).foldl
+              SetTheory.app (interp V σ₀ (Ψ' (k₀ + base + dJ.tgtsR J i))) := by
+        rw [hVS, psiVals_getD _ _ _ _ _ _ _ hiM, hvia]
+        simp only [huse, if_true]
+        rw [getD_map_idxOf hrJ, htlJ]
+        simp only [lamTower, List.length_nil, Semantics.frameIdx, List.range_zero, List.map_nil,
+          List.foldl_nil]
+        rw [hreadJ, hΨ _ htgtJ]
+      rw [hVSi, hMIXi]
+      have htgtE : d.tgts J' i = k₀ + base + dJ.tgtsR J i := by rw [← hview', htgtA]
+      have h := hIH i hrAF (d.tgts J' i) (by rw [htgtE]; omega) (by rw [← hview']; exact hrep.tgtsRLt J' i)
+        _ (hEntryFit i hrAF) rfl
+      unfold foldApp at h
+      rw [htgtE] at h
+      exact h
+    · exact hrest
+  -- assemble
+  unfold foldApp
+  have h1 := hιΦ vs' hfitAll
+  rw [hfr] at h1
+  rw [hctor, h1, hheadφ, ← List.foldl_append, ← hMIX, hmemA, hΨ _ hmemJ, ← hEs, hιΨ MIXED hfitMixed,
+    ← hVS, hheadψ, ← List.foldl_append, hvs]
+
 end ConLeche.Model

@@ -75900,20 +75900,83 @@ container** (`Model/Inductives/RoundTripR2.lean`, on the Model umbrella):
   `piTele_eta`) — by `hpos`'s third arm, `MIXED.getD i pt = fs.getD i pt`,
   NAMED.
 
+
+**(5) R1 — the induction, PROVED at the datum level for a FINITARY
+container** (same module).  **`R1Pred`** — the predicate over the
+SCRATCH block's index tuples: at every COPY member `t'` (`k₀ ≤ t'`)
+and fitting spine whose tuple it is, ψ (`Ψ' t'`, the table's term at
+pin `t' - k₀`) after ψ⁻¹ (`Φ' t'`) is the identity; **`r1Fam`**;
+**`r1At_of_step`** — `R1At` at a copy by `carrier_induction` at the
+copy's member of the scratch datum (the run level has it at the
+re-sorted datum, `MutualBlockReps`; `R1At` is stated at whatever datum
+is passed).  **`r1_step`** — the mirror of `r2_step`: `idxRecover` at
+the scratch datum recovers the copy member and the readings; `ctor` at
+the copy; ψ⁻¹'s ι at values (`hιΦ`) to the container constructor at
+the MIXED values; those fit the container's telescope (`hfitMixed`,
+NAMED: ψ⁻¹'s typing `InvSetup.fold_mem` at the container-recursive
+positions, the record's `ord` at the ordinary ones) and the
+container's index readings at them are the copy's at the fields
+(`hEs`); ψ's ι at values (`hιΨ`) to the copy constructor at ψ's values,
+which ARE the fields — ordinary verbatim, finitary container-recursive
+by the induction hypothesis at the GROUP-MATE's copy (`hpos`'s second
+arm: the copy's readings read alike at `ρ` and at the pushed frame,
+the container's at the mixed values are the copy's at the fields), the
+rest named (`hpos`'s third arm: a transport is the SAME induction's
+hypothesis at the target copy — no order — its frames' bookkeeping
+owed; reflexive positions, η).  `fieldsFit_of_chainFit` serves the
+scratch block unchanged (generic in the datum; the scratch block's
+representations are at every member).  So **R1 and R2 are PROVED at
+the datum level** for a container whose recursive fields are finitary
+and whose group has no self-nesting, modulo the per-position facts
+named in `hpos` and the run-level assembly.
+
+**(3c) done: `TopoOrder.orderFold_eq_step`** (`Verify/Inductives/
+NestedOrder.lean`, with `orderFold_notMem`/`orderFold_append`): the
+folded table's entry at a listed copy is the step at the FINAL table,
+given the step reads only the entries the relation names (`hdep`).
+What is still owed for the group-mate agreement is `psiStep`'s `hdep`
+— `psiTerm` reads the table only through `psiVia` at the transports'
+targets, which are `R`-related by the bridge (`BridgeOfRun`) — a
+congruence of `psiVia` in the table; then `Ψ t := orderFold … (base + t)
+= psiTerm (cd (base + t)) … FINAL` and, by `invChoice_group`, the
+`cd (base + t)` data are the pin's, so the ι law at the group-mate's
+fold term is the ι law at `Ψ t`.
+
+**Owed for the run-level R1/R2 (next session), each a derivation, no
+new fact**: (i) `hιΨ`/`hιΦ` from `psiFold_typed_of_read`'s setup and
+`invSetup_of_run`'s, both at the pushed frame (`fold_iota_vals`; the
+group's `PsiSetup` at member `t` of the group via `psiSetup_of_group`);
+(ii) `hEs` and the per-position readings' agreements from the record
+(`es`, `kindR`) and `hnbP` (`interp_congr_shadowRelP`) plus the double
+push (`push_agree`/`interp_congr_below` on `bvarsBelow` readings);
+(iii) `hheadψ` (`psiHead`'s reading) and `hheadφ` (`invHead`'s
+representative reads as the container constructor at the pin's
+readings — every representative does, by the mint's naming:
+K.16's pins `Nodup` + the ledger); (iv) `hEntry`/`hEsFit`/`hEsOk` from
+the constructor's grading (`idxFit_of_entry`, the entry graded under a
+fitting prefix); (v) `hfitMixed` (R1) from `InvSetup.fold_mem` and the
+record's `ord`; (vi) `psiStep`'s `hdep` (above); (vii) the transports'
+and reflexive positions' round trips (`hpos`'s third arm): a transport
+= R2 at the earlier pin along the order (R2) / the same induction at
+the target copy (R1), with `viaVal`'s frame bookkeeping; reflexive =
+`piTele_eta` under the telescope with the pointwise hypothesis — the
+finitary restriction `hfin` lifts with it.
+
 **Status.**  `PsiCtorFit` derived; `idxRecover`/`slotRecover` landed at
-all nine sites; `R2Grp` stated; R2's induction PROVED at the datum
-level for a finitary, non-self-nested container modulo the named
-per-position facts (transports = R2 at earlier pins along the order,
-reflexive positions = η) and the run-level assembly (`hιΨ`/`hιΦ` from
-the setups at the pushed frame — `fold_iota_vals`; `hEs` from the
-record's `es` + `hnbP`; `hheadψ`/`hheadφ`; `hfitCopy` from
-`psiVals_fit_copy`; `hEntry`/`hEsFit` from the constructor's grading;
-the group agreement of (3c)).  R1 NOT started (the scratch-block
-induction over `d`'s carriers via `carrier_induction` at `d`; ψ⁻¹'s ι
-first, then ψ's; no order).  NOT reached: `copyCtorAsRead_of_walk`
-(§M.31 (c)–(e)).  Gates: `lake build` 625 jobs warning-free, `lake test`
-clean; shake/pub-import, arena, init-full, Mathlib, overview-links,
-no-local-paths NOT run (landing items).
+all nine sites; the pins' guards in `PinRunFacts`; `R2Grp` stated; R2
+AND R1 PROVED at the datum level for a finitary, non-self-nested
+container (`r2_step`, `r1_step`, with `r2Grp_of_step`/`r1At_of_step`
+as the inductions) modulo the named per-position facts (transports,
+reflexive positions) and the run-level assembly listed above;
+`orderFold_eq_step` for the group agreement.  The SELF-NESTED case
+(a container that is itself nested: `ctorsC ≠ []`, mimic fields) is
+outside `ContainersRep` today (it asks `dJ.ctorsC = []`) and would need
+the container's recursor-view constructor clause (§M.17 finding 3) so
+that ψ's ι at a mimic field is the container's own recursor firing.
+NOT reached: `copyCtorAsRead_of_walk` (§M.31 (c)–(e)).  Gates:
+`lake build` 625 jobs warning-free, `lake test` clean, `no-local-paths`
+OK; shake/pub-import, arena, init-full, Mathlib, overview-links NOT run
+(landing items).
 
 #### M.7 Sequence on this branch
 

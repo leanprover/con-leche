@@ -240,6 +240,75 @@ theorem TopoOrder.orderFold_all {α : Type} {R : Nat → Nat → Prop} {n : Nat}
     (fun _ h => nomatch h) j (by simpa using h.complete j hj)
   simpa using this
 
+/-! ## The folded table's entries (task #279 M-C′, DESIGN §M.34 (3c))
+
+The round trips at a group consume ψ's term at EVERY pin of the group
+as `psiTerm` at the FINAL table (the ι law at a target fold term is
+the ι law at the table's entry there): the entry the fold left at a
+pin is the step at the table current when the pin was folded, which
+agrees with the final table on every entry the step reads — those are
+earlier in the order (`lt_of_ref`) and an entry, once set, is never
+touched again (`nodup`). -/
+
+/-- An entry outside the list is untouched by the fold. -/
+theorem orderFold_notMem {α : Type} (step : (Nat → α) → Nat → α) :
+    ∀ (l : List Nat) (tbl : Nat → α) (j : Nat), j ∉ l → orderFold step l tbl j = tbl j
+  | [], _, _, _ => rfl
+  | j₀ :: rest, tbl, j, hj => by
+    simp only [orderFold]
+    rw [orderFold_notMem step rest _ j (fun h => hj (List.mem_cons_of_mem _ h))]
+    simp only [if_neg (fun h : j = j₀ => hj (h ▸ List.mem_cons_self))]
+
+/-- The fold over an appended order is the fold over the second part
+from the first part's table. -/
+theorem orderFold_append {α : Type} (step : (Nat → α) → Nat → α) :
+    ∀ (l₁ l₂ : List Nat) (tbl : Nat → α),
+      orderFold step (l₁ ++ l₂) tbl = orderFold step l₂ (orderFold step l₁ tbl)
+  | [], _, _ => rfl
+  | j :: l₁, l₂, tbl => by
+    simp only [List.cons_append, orderFold]
+    exact orderFold_append step l₁ l₂ _
+
+/-- **The folded table's entry at a listed copy is the step at the FINAL
+table**, when the step reads only the entries the relation names
+(`hdep`): the entry is set once and never touched again (`nodup`), and
+the entries it reads are earlier (`lt_of_ref`), so they are already
+final. -/
+theorem TopoOrder.orderFold_eq_step {α : Type} {R : Nat → Nat → Prop} {n : Nat} {order : List Nat}
+    (h : TopoOrder R n order) (step : (Nat → α) → Nat → α)
+    (hdep : ∀ (tbl tbl' : Nat → α) (j : Nat), (∀ j', R j j' → tbl j' = tbl' j') →
+      step tbl j = step tbl' j)
+    (tbl₀ : Nat → α) {j : Nat} (hj : j < n) :
+    orderFold step order tbl₀ j = step (orderFold step order tbl₀) j := by
+  obtain ⟨pre, rest, hsplit⟩ := List.append_of_mem (h.complete j hj)
+  have hnd := h.nodup
+  rw [hsplit] at hnd
+  obtain ⟨-, hndR, hdisj⟩ := List.nodup_append.mp hnd
+  have hjR : j ∉ rest := (List.nodup_cons.mp hndR).1
+  have hjP : j ∉ pre := fun hm => hdisj j hm j List.mem_cons_self rfl
+  -- the final table, split at `j`
+  have hfinal : orderFold step order tbl₀
+      = orderFold step rest (fun j' => if j' = j then step (orderFold step pre tbl₀) j
+          else orderFold step pre tbl₀ j') := by
+    rw [hsplit, orderFold_append]
+    rfl
+  -- the entry at `j` is the step at the table before `j`
+  have hj_entry : orderFold step order tbl₀ j = step (orderFold step pre tbl₀) j := by
+    rw [hfinal, orderFold_notMem step rest _ j hjR]
+    simp only [if_true]
+  rw [hj_entry]
+  refine hdep _ _ j fun j' hR => ?_
+  -- a referenced entry is in `pre`, hence final
+  have hpos : order[pre.length]? = some j := by
+    rw [hsplit, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]
+    rfl
+  have hmemP : j' ∈ pre := by
+    have := h.ref_mem_take hpos hR
+    rwa [hsplit, List.take_left] at this
+  have hj'R : j' ∉ j :: rest := fun hm => hdisj j' hmemP j' hm rfl
+  rw [hfinal, orderFold_notMem step rest _ j' (fun hm => hj'R (List.mem_cons_of_mem _ hm))]
+  simp only [if_neg (fun hE : j' = j => hj'R (hE ▸ List.mem_cons_self))]
+
 /-! ## The bridge to the kernel's computation (task #279 K.6 / §M.24)
 
 The kernel decides the relation (`copyRefB`, clause for clause) and
