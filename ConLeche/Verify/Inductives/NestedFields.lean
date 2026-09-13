@@ -313,4 +313,124 @@ theorem replaceAllNested_stripPis {env : Env} {blvls : List Level} {params : Lis
           obtain ⟨hbm, s₁, s₂, hg, hw, hg'⟩ := hfields i bb bb' hbb hbb'
           exact ⟨hbm, s₁, s₂, hg₁.trans hg, hw, hg'⟩
 
+
+/-! ## A copy constructor's fields: unfired, or a fire at the top -/
+
+/-- A binder domain's mention is the tower's. -/
+theorem Expr.stripPis_mentionsConst_binder {T : Name} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis n = some (bs, body) → ∀ b ∈ bs, b.1.mentionsConst T = true →
+        e.mentionsConst T = true
+  | 0, e, bs, body, h, b, hb, _ => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1] at hb
+    exact nomatch hb
+  | n + 1, .forallE ty b m, bs, body, h, bb, hbb, hm => by
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+    obtain ⟨⟨bs₀, body₀⟩, h₀, hbs⟩ := h
+    simp only [Prod.mk.injEq] at hbs
+    obtain ⟨rfl, rfl⟩ := hbs
+    simp only [Expr.mentionsConst, Bool.or_eq_true]
+    rcases List.mem_cons.mp hbb with rfl | hbb
+    · exact Or.inl hm
+    · exact Or.inr (Expr.stripPis_mentionsConst_binder n h₀ bb hbb hm)
+  | n + 1, .bvar _, _, _, h, _, _, _ | n + 1, .fvar _ _, _, _, h, _, _, _
+  | n + 1, .sort _, _, _, h, _, _, _ | n + 1, .const _ _, _, _, h, _, _, _
+  | n + 1, .app _ _, _, _, h, _, _, _ | n + 1, .lam _ _ _, _, _, h, _, _, _
+  | n + 1, .letE _ _ _, _, _, h, _, _, _ | n + 1, .lit _, _, _, h, _, _, _
+  | n + 1, .proj _ _ _, _, _, h, _, _, _ => nomatch h
+
+/-- **Every field of a walked constructor is unfired or a fire at the
+top** (task #279 M-B′ step 3n, DESIGN §M.31 (c)).  The walk of the
+instantiated container constructor `cI` (a Π-tower over `nF` field
+domains and a residual) is a Π-tower of the same shape
+(`replaceAllNested_stripPis`); at each field, and at the residual:
+
+* an output mentioning no COPY name of the final state is its input
+  (W1 over the copy names — the copy's ordinary fields and its fields
+  into a BLOCK MEMBER);
+* an output that is, under its own `n` binders whose domains mention
+  no name of the state, a spine headed by a COPY name is a fire at the
+  top (W2): the input's binders are the same, its body a stored
+  container `I` at `nP` components and index arguments, the output the
+  copy at the block's parameters and those arguments, and the pin
+  `I lvls Ds` is in the final table.
+
+The state the walk starts from has its pins indexed (`PinsIndexed`,
+the ledger's), which is what W1/W2 need at every field's own start
+state; the input mentions no copy name (the mint's `MentionInv`). -/
+theorem copyCtorFields_of_walk {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × BinderMeta)} {k nF : Nat} {sta stb : ElimState} {cI body' : Expr}
+    (hwalk : replaceAllNested env blvls params pbs sta cI = .ok (body', stb))
+    (hpi : sta.PinsIndexed k)
+    {fs : List (Expr × BinderMeta)} {resid : Expr} (hcI : cI.stripPis nF = some (fs, resid))
+    (hin : ∀ T ∈ (stb.types.map (·.name)).drop k, cI.mentionsConst T = false) :
+    ∃ (fs' : List (Expr × BinderMeta)) (resid' : Expr),
+      body'.stripPis nF = some (fs', resid') ∧ fs'.length = fs.length ∧
+      (∀ (i : Nat) (b b' : Expr × BinderMeta), fs[i]? = some b → fs'[i]? = some b' →
+        b'.2 = b.2 ∧
+        ((∀ T ∈ (stb.types.map (·.name)).drop k, b'.1.mentionsConst T = false) → b'.1 = b.1) ∧
+        (∀ (n : Nat) (bs' : List (Expr × BinderMeta)) (aux : Name) (ls : List Level)
+            (args : List Expr),
+          b'.1.stripPis n = some (bs', Expr.mkAppN (.const aux ls) args) →
+          aux ∈ (stb.types.map (·.name)).drop k →
+          (∀ bb ∈ bs', ∀ T ∈ stb.newNames, bb.1.mentionsConst T = false) →
+          ∃ (body : Expr) (I : Name) (lvls : List Level) (ci : ContainerInfo),
+            b.1.stripPis n = some (bs', body) ∧ containerInfo? env I = some ci ∧
+            ci.nP ≤ body.getAppArgs.length ∧ body = Expr.mkAppN (.const I lvls) body.getAppArgs ∧
+            ls = blvls ∧ args = params ++ body.getAppArgs.drop ci.nP ∧
+            ∃ q ∈ stb.pins, q.aux = aux ∧
+              q.pin = Expr.mkAppN (.const I lvls) (body.getAppArgs.take ci.nP))) ∧
+      ((∀ T ∈ (stb.types.map (·.name)).drop k, resid'.mentionsConst T = false) → resid' = resid) ∧
+      (∀ (aux : Name) (ls : List Level) (args : List Expr),
+        resid' = Expr.mkAppN (.const aux ls) args → aux ∈ (stb.types.map (·.name)).drop k →
+        ∃ (I : Name) (lvls : List Level) (ci : ContainerInfo),
+          containerInfo? env I = some ci ∧ ci.nP ≤ resid.getAppArgs.length ∧
+          resid = Expr.mkAppN (.const I lvls) resid.getAppArgs ∧ ls = blvls ∧
+          args = params ++ resid.getAppArgs.drop ci.nP ∧
+          ∃ q ∈ stb.pins, q.aux = aux ∧
+            q.pin = Expr.mkAppN (.const I lvls) (resid.getAppArgs.take ci.nP)) := by
+  obtain ⟨fs', resid', hstrip', hlen, hfields, sN, hgN, hr⟩ :=
+    replaceAllNested_stripPis nF cI hwalk hcI
+  have hgAll : ElimGrows sta stb := replaceAllNested_grows cI hwalk
+  have hkb : k ≤ stb.types.length := Nat.le_trans hpi.1 hgAll.types_length_le
+  -- a copy name of the final state is a copy name at any later state
+  refine ⟨fs', resid', hstrip', hlen, ?_, ?_, ?_⟩
+  · intro i b b' hb hb'
+    obtain ⟨hbm, s₁, s₂, hg₁, hw, hg₂⟩ := hfields i b b' hb hb'
+    have hpi₁ : s₁.PinsCopyNamed k := hpi.copyNamed.grows hg₁
+    have hpn₁ : s₁.PinsNamed := hpi.named.grows hg₁
+    have hk₂ : k ≤ s₂.types.length := Nat.le_trans hpi₁.1 (replaceAllNested_grows _ hw).types_length_le
+    refine ⟨hbm, fun hm => ?_, ?_⟩
+    · exact replaceAllNested_eq_of_no_copy b.1 hw hpi₁
+        (fun T hT => hm T (hg₂.copyNames_mono k hk₂ T hT))
+    · intro n bs' aux ls args hstripB haux hbs
+      have hnoB : ∀ T ∈ (stb.types.map (·.name)).drop k, b.1.mentionsConst T = false := by
+        intro T hT
+        refine Bool.eq_false_iff.mpr fun hm => ?_
+        have := hin T hT
+        rw [Expr.stripPis_mentionsConst_binder nF hcI b (List.mem_of_getElem? hb) hm] at this
+        exact nomatch this
+      obtain ⟨body, hstripA, I, lvls, ci, hci, hnP, hfe, hls, hargs, q, hq, hqa, hqp⟩ :=
+        replaceAllNested_pis_inv ((stb.types.map (·.name)).drop k) n b.1 hw hpn₁ hstripB
+          (fun bb hbb T hT => hbs bb hbb T (hg₂.newNames_mono T hT)) rfl haux hnoB
+      refine ⟨body, I, lvls, ci, hstripA, hci, hnP, hfe, hls, hargs, q, ?_, hqa, hqp⟩
+      obtain ⟨new, hpins, -⟩ := hg₂
+      rw [hpins]
+      exact List.mem_append_left _ hq
+  · intro hm
+    have hpiN : sN.PinsCopyNamed k := hpi.copyNamed.grows hgN
+    exact replaceAllNested_eq_of_no_copy resid hr hpiN hm
+  · intro aux ls args hout haux
+    have hpnN : sN.PinsNamed := hpi.named.grows hgN
+    have hnoR : ∀ T ∈ (stb.types.map (·.name)).drop k, resid.mentionsConst T = false := by
+      intro T hT
+      refine Bool.eq_false_iff.mpr fun hm => ?_
+      have := hin T hT
+      rw [Expr.stripPis_mentionsConst nF hcI hm] at this
+      exact nomatch this
+    obtain ⟨-, I, lvls, ci, hci, hnP, hfe, hls, hargs, q, hq, hqa, hqp⟩ :=
+      replaceAllNested_head_inv ((stb.types.map (·.name)).drop k) resid hr hout haux hnoR
+    exact ⟨I, lvls, ci, hci, hnP, hfe, hls, hargs, q, hq, hqa, hqp⟩
+
 end ConLeche
