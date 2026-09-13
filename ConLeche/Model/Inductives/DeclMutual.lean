@@ -1994,6 +1994,25 @@ theorem ctorsNoProj_of_annot {F : Nat} {env : Env} {b : MutualBlock} (mp : EnvMo
   rw [hty]
   exact ConLeche.annotateCore_noProjAt μ hann hnfv hslot
 
+/-- **The datum's constructors are the CHECKED ones** (task #279 M-B′
+step 3l): `declMutualCore` builds its datum out of the constructor
+stage's output, and a consumer reading that stage's identities off the
+run (`nestedCopyCtorType_eq`: the stored constructor is `normCtorValM`'s
+output on the minted one) needs the datum's `ctorsA` to BE the stage's
+list and its `mems` the block's own member assignment.  Stated at the
+run's mode and fuel, beside `MutualBlockReps` (which is mode-free). -/
+@[expose] def CtorsChecked (μ : CheckMode) (F : Nat) (env : Env) (b : ConLeche.MutualBlock)
+    (auxRoute : Bool) (d : IndRepData V) : Prop :=
+  ∃ (env₁ : Env) (fms : List ConLeche.MutualFormerA) (f₀ : ConLeche.MutualFormerA)
+    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)),
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) b.nP b.formers env
+      auxRoute = .ok (env₁, fms) ∧
+    fms[0]? = some f₀ ∧
+    ConLeche.checkMutualCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env₁ b fms
+      (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
+    d.ctorsA = ctorsA ∧
+    ∀ j, d.mems j = (b.ctors.getD j default).member
+
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -2011,7 +2030,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     (hnresRec : ∀ t, t < p.toBlock.k →
       ConLeche.reservedBasisNames.contains (p.toBlock.recName t) = false)
     (hpshapeRec : ∀ t, t < p.toBlock.k → (p.toBlock.recName t).isProjFnShape = false) :
-    ∃ (mp₂ : EnvModelM V μ env₂) (d : IndRepData V), MutualBlockReps mp₂.base2 p.toBlock d := by
+    ∃ (mp₂ : EnvModelM V μ env₂) (d : IndRepData V), MutualBlockReps mp₂.base2 p.toBlock d ∧
+      CtorsChecked μ F env p.toBlock auxRoute d := by
   obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, hNodup,
     hlpsAll, hmemLt, hgrouped, hformers, hf0, htq0, hcross, hlarge, hctors, hkinds, hfo,
     hgd, hrectys, hrules, htbl⟩ := h
@@ -6835,8 +6855,9 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     intro t ht
     show ((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD t .anonymous = _
     rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length t ht]
-  refine ⟨mp₅, dOf 0, rfl, hlenFms, hlenFms, rfl, fun _ _ => rfl, fun _ => ⟨rfl, rfl, rfl, rfl⟩,
-    fun t ht => ?_, fun t ht => ?_⟩
+  refine ⟨mp₅, dOf 0, ⟨rfl, hlenFms, hlenFms, rfl, fun _ _ => rfl, fun _ => ⟨rfl, rfl, rfl, rfl⟩,
+    fun t ht => ?_, fun t ht => ?_⟩, _, fms, f₀, ctorsA, sortss, hformers, hf0, hctors, rfl,
+    fun _ => rfl⟩
   · have ht' : t < fms.length := by rw [hlenFms]; exact ht
     rw [hmemName t ht', ← hnamesF]
     simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem ht',

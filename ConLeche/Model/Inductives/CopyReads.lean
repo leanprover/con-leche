@@ -236,6 +236,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       (∃ (t₀ : AuxType) (body : Expr), st.types[0]? = some t₀ ∧
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body)) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        CtorsChecked μ F env b true d ∧
         ∀ (j : Nat), j < st.pins.length →
           ∃ (q : ConLeche.NestedPin) (I : Name) (ci : ConLeche.ContainerInfo) (i j₀ : Nat)
             (J : ContainerMember) (lvls : List Level) (Ds : List Expr),
@@ -262,7 +263,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                   (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
     hannF, hannC, helim, -, hfresh, -, hord, hb, hcore, hstored, hpc, hpinsAux, -, hrm, -⟩ := h
-  obtain ⟨mpAux, d, hreps⟩ :=
+  obtain ⟨mpAux, d, hreps, hchk⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
   obtain ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, hpbs, htypes⟩ :=
@@ -346,7 +347,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     rwa [Nat.zero_add] at h
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
   refine ⟨st, b, envAux, params, fmsA, ctorsA, order, hb, helim, hord, hlenSt,
-    ⟨tS0, body, htS0, by rw [htS0ty]; exact hop⟩, mpAux, d, hreps₀, ?_⟩
+    ⟨tS0, body, htS0, by rw [htS0ty]; exact hop⟩, mpAux, d, hreps₀, hchk, ?_⟩
   intro j hj
   have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
   -- the copy's origin

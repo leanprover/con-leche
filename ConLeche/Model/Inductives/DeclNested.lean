@@ -247,18 +247,20 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         (ConLeche.restoreTbl p st) p.lps
         ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
         (stored.take p.k) = .ok cvRms) :
-    ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
+    ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+      CtorsChecked μ F env b true d := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   have hfacts := nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
-  obtain ⟨mpAux, d, hreps⟩ := declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)
+  obtain ⟨mpAux, d, hreps, hchk⟩ := declMutualCore (p := auxParts b) hμ mp hE
+    (by rw [hq]; exact hrun)
     (by rw [hq]; exact ctorsNoProj_of_pre mp)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.2)
-  rw [hq] at hreps
-  exact ⟨mpAux, d, hreps⟩
+  rw [hq] at hreps hchk
+  exact ⟨mpAux, d, hreps, hchk⟩
 
 /-! ## The stored formers are the checked ones (K.10, DESIGN §M.25 piece 3)
 
@@ -373,7 +375,8 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ConLeche.auxBlock p st = some b ∧
       ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none true
         = .ok envAux ∧
-      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+      CtorsChecked μ F env b true d := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
     hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore,
