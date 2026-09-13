@@ -121,7 +121,7 @@ abbrev ViaSpec := AnnotTerm × List AnnotTerm × List (Nat × Nat × AnnotTerm)
 /-- The transport's VALUE at field `i`: the λ-tower over the field's
 telescope of the earlier copy's term at the index values and the field
 at the telescope's values (`interp_viaEntryAV`). -/
-noncomputable def viaVal (b : Nat) (ρp : Nat → V) (fs : List V) (i : Nat) : ViaSpec → V
+@[expose] noncomputable def viaVal (b : Nat) (ρp : Nat → V) (fs : List V) (i : Nat) : ViaSpec → V
   | (Ψ, Eis, tl) =>
     lamTower b (consList (fs.take i) ρp) tl fun σ' =>
       (Eis.map (interp V σ') ++
@@ -130,7 +130,7 @@ noncomputable def viaVal (b : Nat) (ρp : Nat → V) (fs : List V) (i : Nat) : V
 
 /-- **ψ's values**: the transport's value, the hypothesis value, or the
 field value. -/
-noncomputable def psiVals (b : Nat) (ρp : Nat → V) (recIdx : List Nat) (useIh : Nat → Bool)
+@[expose] noncomputable def psiVals (b : Nat) (ρp : Nat → V) (recIdx : List Nat) (useIh : Nat → Bool)
     (via : Nat → Option ViaSpec) (fs ihs : List V) : List V :=
   (List.range fs.length).map fun i =>
     match via i with
