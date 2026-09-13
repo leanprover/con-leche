@@ -91,6 +91,59 @@ private def k6Chain : ElimState := k6State (.const k6C1 []) (.sort .zero)
 #guard Expr.subB (.const k6C0 []) (.app (.const k6C1 []) (.const k6C0 []))
 #guard !Expr.subB (.const k6C0 []) (.const k6C1 [])
 
+/-! ## The container walk's overshoot, and the cross-check that sees it
+(task #279 K.20, docket D1)
+
+`containerMembersGo` takes the maximal prefix of binders after the
+parameters whose domain has the MOTIVE shape.  With at least one minor
+premise it stops correctly — a minor's result is headed by a BOUND
+variable, not a sort.  At a group with NO constructors the next binders
+are the recursor's INDEX binders, and an index whose domain is itself
+motive-shaped (`∀ (t : C p⃗), Sort _` with `C` a stored inductive at the
+block's parameter spine) is taken for a second member: the OVERSHOOT the
+model lane found (DESIGN §M.15).  No stream witness was found — the
+obvious candidate is accepted by official AND by this route — so the
+walk is exercised directly, on a hand-built recursor body.
+
+The closure is K.15 (2)'s `containerGroupOk`, which asks every member of
+a recovered group to recover THE SAME group: the guards below show the
+two readings disagreeing exactly at the overshoot. -/
+
+private def d1I : Name := .str .anonymous "D1I"
+private def d1C : Name := .str .anonymous "D1C"
+/-- `(α : Sort 0) → Sort 0`, the former of a zero-constructor block with
+one parameter. -/
+private def d1Ty : Expr := .forallE (.sort .zero) (.sort .zero) ⟨.never⟩
+private def d1Env : Env :=
+  ⟨[.indInfo ⟨d1C, [], d1Ty⟩ {}, .indInfo ⟨d1I, [], d1Ty⟩ {}]⟩
+/-- `∀ (t : C #pIdx), Sort 0` — a motive-shaped domain at the block's
+one parameter. -/
+private def d1Motive (C : Name) (pIdx : Nat) : Expr :=
+  .forallE (.app (.const C []) (.bvar pIdx)) (.sort .zero) ⟨.never⟩
+/-- `I.rec`'s body after `stripPis 1`: the real motive, then an INDEX
+binder whose domain is motive-shaped at the other zero-constructor
+block. -/
+private def d1RecBody : Expr :=
+  .forallE (d1Motive d1I 0) (.forallE (d1Motive d1C 1) (.sort .zero) ⟨.never⟩) ⟨.never⟩
+/-- `C.rec`'s body: its own motive and nothing else. -/
+private def d1RecBodyC : Expr :=
+  .forallE (d1Motive d1C 0) (.sort .zero) ⟨.never⟩
+
+/- **THE OVERSHOOT**: the walk off `I.rec` reads a second member. -/
+#guard containerMembersGo d1Env 1 8 0 d1RecBody == [d1I, d1C]
+
+/- The walk off `C.rec` reads its own group alone — so the two readings
+DISAGREE, which is what `containerGroupOk` (K.15 (2)) compares. -/
+#guard containerMembersGo d1Env 1 8 0 d1RecBodyC == [d1C]
+#guard containerMembersGo d1Env 1 8 0 d1RecBody != containerMembersGo d1Env 1 8 0 d1RecBodyC
+
+/- With a MINOR premise in front the walk stops at the real member: a
+minor's result is an application headed by a bound variable. -/
+#guard containerMembersGo d1Env 1 8 0
+    (.forallE (d1Motive d1I 0) (.forallE (.app (.bvar 0) (.bvar 1)) (.sort .zero) ⟨.never⟩)
+      ⟨.never⟩)
+  == [d1I]
+
 /-! ## Config audit (task #147/#148, vacuity protection)
 
 The mode-relevant compiled constants the verification batteries state
