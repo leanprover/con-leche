@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedLedger
+public import ConLeche.Verify.Inductives.NestedOrderK
 
 public section
 
@@ -219,5 +220,150 @@ theorem orderFold_spec {α : Type} {R : Nat → Nat → Prop} {n : Nat}
       rw [List.take_append_of_le_length (by simp), List.take_left' rfl] at hmem
       exact hpre j' hmem
 
+
+/-! ## The bridge to the kernel's computation (task #279 K.6 / §M.24)
+
+The kernel decides the relation (`copyRefB`, clause for clause) and
+checks its emitted order against `topoOrderOk`, whose four conjuncts
+are `TopoOrder`'s fields; `Verify/Inductives/NestedOrderK.lean` reads
+them back at the `Bool` relation.  What closes the gap is ONE lemma —
+`subB` decides `Sub`, hence `copyRefB` decides `CopyRef` — and then
+`TopoOrder (CopyRef …) n order` is the four fields. -/
+
+/-- **`subB` decides `Sub`.** -/
+theorem Expr.subB_iff_Sub (pat : Expr) : ∀ (e : Expr), Expr.subB pat e = true ↔ Expr.Sub pat e := by
+  intro e
+  constructor
+  · induction e with
+    | app f a ihf iha =>
+      intro h
+      rcases subB_cases h with h | ⟨f', a', heq, h⟩ | ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ |
+        ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩
+      · exact h ▸ .refl _
+      · cases heq
+        rcases h with h | h
+        · exact .appF (ihf h)
+        · exact .appA (iha h)
+      all_goals exact nomatch heq
+    | lam ty b m iht ihb =>
+      intro h
+      rcases subB_cases h with h | ⟨_, _, heq, _⟩ | ⟨_, _, _, heq, h⟩ | ⟨_, _, _, heq, _⟩ |
+        ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩
+      · exact h ▸ .refl _
+      · exact nomatch heq
+      · cases heq
+        rcases h with h | h
+        · exact .lamT (iht h)
+        · exact .lamB (ihb h)
+      all_goals exact nomatch heq
+    | forallE ty b m iht ihb =>
+      intro h
+      rcases subB_cases h with h | ⟨_, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, h⟩ |
+        ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩
+      · exact h ▸ .refl _
+      · exact nomatch heq
+      · exact nomatch heq
+      · cases heq
+        rcases h with h | h
+        · exact .piT (iht h)
+        · exact .piB (ihb h)
+      all_goals exact nomatch heq
+    | letE ty v b iht ihv ihb =>
+      intro h
+      rcases subB_cases h with h | ⟨_, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ |
+        ⟨_, _, _, heq, h⟩ | ⟨_, _, _, heq, _⟩
+      · exact h ▸ .refl _
+      · exact nomatch heq
+      · exact nomatch heq
+      · exact nomatch heq
+      · cases heq
+        rcases h with h | h | h
+        · exact .letT (iht h)
+        · exact .letV (ihv h)
+        · exact .letB (ihb h)
+      · exact nomatch heq
+    | proj s i x ihx =>
+      intro h
+      rcases subB_cases h with h | ⟨_, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ |
+        ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, h⟩
+      · exact h ▸ .refl _
+      · exact nomatch heq
+      · exact nomatch heq
+      · exact nomatch heq
+      · exact nomatch heq
+      · cases heq
+        exact .proj (ihx h)
+    | _ =>
+      intro h
+      rcases subB_cases h with h | ⟨_, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩ |
+        ⟨_, _, _, heq, _⟩ | ⟨_, _, _, heq, _⟩
+      · exact h ▸ .refl _
+      all_goals exact nomatch heq
+  · intro h
+    induction h with
+    | refl => exact subB_self _
+    | appF _ ih => exact subB_app_left ih
+    | appA _ ih => exact subB_app_right ih
+    | lamT _ ih => exact subB_lam_dom ih
+    | lamB _ ih => exact subB_lam_body ih
+    | piT _ ih => exact subB_pi_dom ih
+    | piB _ ih => exact subB_pi_body ih
+    | letT _ ih => exact subB_let_ty ih
+    | letV _ ih => exact subB_let_val ih
+    | letB _ ih => exact subB_let_body ih
+    | proj _ ih => exact subB_proj ih
+
+/-- **`copyRefB` decides `CopyRef`** — the lemma K.6 asked for. -/
+theorem copyRef_iff (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' : Nat) :
+    CopyRef grp k st j j' ↔ copyRefB grp k st j j' = true := by
+  unfold CopyRef copyRefB
+  cases h1 : st.types[k + j]? with
+  | none => simp
+  | some t =>
+  cases h2 : st.types[k + j']? with
+  | none => simp
+  | some t' =>
+  cases h3 : st.pins[j']? with
+  | none => simp
+  | some q' =>
+  simp only [Option.some.injEq, Bool.and_eq_true, List.any_eq_true, List.all_eq_true,
+    List.mem_range]
+  constructor
+  · rintro ⟨t₁, t'₁, q'₁, rfl, rfl, rfl, hm, hg, hsub⟩
+    refine ⟨⟨hm, by simp; omega⟩, fun i hi => ?_⟩
+    cases hp : st.pins[(grp j).1 + i]? with
+    | none => rfl
+    | some g =>
+      show (!Expr.subB g.pin q'.pin) = true
+      cases hsb : Expr.subB g.pin q'.pin with
+      | false => rfl
+      | true => exact absurd ((Expr.subB_iff_Sub _ _).mp hsb) (hsub i g hi hp)
+  · rintro ⟨⟨hm, hg⟩, hsub⟩
+    refine ⟨t, t', q', rfl, rfl, rfl, hm, by simp at hg; intro h; omega, fun i g hi hp hs => ?_⟩
+    have := hsub i hi
+    rw [hp] at this
+    change (!Expr.subB g.pin q'.pin) = true at this
+    rw [(Expr.subB_iff_Sub _ _).mpr hs] at this
+    exact absurd this (by decide)
+
+/-- The relation's sources are pins too, given the ledger's count. -/
+theorem CopyRef.source_lt {grp : Nat → Nat × Nat} {k : Nat} {st : ElimState} {j j' : Nat}
+    (hlen : st.types.length = k + st.pins.length) (h : CopyRef grp k st j j') :
+    j < st.pins.length := by
+  unfold CopyRef at h
+  obtain ⟨t, t', q', h1, -, -, -, -, -⟩ := h
+  have := (List.getElem?_eq_some_iff.mp h1).1
+  omega
+
+/-- **The kernel's order is a `TopoOrder` along `CopyRef`** — the run
+relation's conjunct (`nestedTopoOrder … = .ok order`), read through
+`copyRef_iff` into the four fields. -/
+theorem topoOrder_of_run {st : ElimState} {order : List Nat} {k : Nat}
+    (hlen : st.types.length = k + st.pins.length)
+    (h : nestedTopoOrder (ElimState.grp st) k st = .ok order) :
+    TopoOrder (CopyRef (ElimState.grp st) k st) st.pins.length order :=
+  ⟨nestedTopoOrder_nodup h, nestedTopoOrder_complete h, nestedTopoOrder_bounded h,
+    fun _ _ hR => nestedTopoOrder_ref h (hR.source_lt hlen) hR.target_lt
+      ((copyRef_iff _ _ _ _ _).mp hR)⟩
 
 end ConLeche
