@@ -71529,6 +71529,149 @@ OFF the build graph, as `CopyTypes` is, and is built explicitly:
 proofdeps/shake, init-full) are not owed by a proof-only lane that adds
 one off-graph module.
 
+#### K.7 — the reader is complete at λ heads (2026-09-13, `agent/lamreader-301`, task #301, the kernel lane's DOCKET §M2 finding)
+
+**The finding, and the ruling.**  The kernel lane measured §M.23's
+per-component premise `PinCompsAgree`
+(`Model/Inductives/CopyReads.lean`) over the corpus and found it FALSE
+at every λ-pin: 4 of 121 components on the Mathlib nested cone
+(`Lean.Json` and `Lean.PrefixTreeNode` × `Std.DTreeMap.Raw` and
+`Std.DTreeMap.Internal.Impl`, `i = 1` each) and 5 of 40 on the e2e
+fixtures (`PT`×`DMap`, `P20`×`Subtype`, `P22`, `P26`, `P2`).  The shape
+is not exotic — it is the normal spelling of a *dependent* container's
+pin: the container's family parameter has a Π-typed declared domain
+(`α → Type v`), which `typeSortPW` READS, while the component is an
+ordinary annotated `.lam`, on which **both readers declined** because
+neither had a λ clause.  The annotator therefore inferred there, and the
+copies' data were out of the reader's reach.  The maintainer's ruling:
+"this is just an incompleteness in the pw-inferring code, right? no
+concerns about making that more complete of course!"
+
+**The clause.**  The five readers of `ConLeche/Kernel/PropRead.lean` are
+now arities and grades of ONE structurally recursive reader
+
+```lean
+def typePWAt (find? : Name → Option ConstantInfo) (beta : Bool) :
+    Expr → Nat → Option PropWhen
+  | .const I us, n => …                             -- the stored type, peeled at n
+  | .fvar _ ty, n => residualPW (ty.peelNeverPis n) -- the declared type, peeled
+  | .app f _, n => typePWAt find? beta f (n + 1)    -- an argument joins the arity
+  | .lam _ b _, n + 1 => if beta then typePWAt find? beta b n else none   -- β
+  | .forallE _ _ m, 0 => some m.pw                  -- (forall-cod)
+  | .sort _, 0 => some .never
+  | _, _ => none
+```
+
+with `headTypePW find? beta hd n := typePWAt find? beta hd n` and
+`typeSortPW find? beta T := typePWAt find? beta T 0`, and with the
+matching clause on the term side, `headProofPW find? beta (.lam _ _ m) =
+if beta then some m.pw else none`.
+
+**Why it is sound** (what the reader may answer is what inference would
+compute).  The type side: the sort of `(fun x : α => b) a⃗` is the sort
+of `b`, because `b`'s type's sort is a LEVEL, and a level expression
+never depends on a term — a well-typed substitution for `x` cannot move
+it.  So reading the λ's body with the bound variable still loose is
+reading the redex's own sort; where the body's own head is the bound
+variable the reader declines, as always.  The term side: the type of
+`(fun x => b) a⃗` is the λ's codomain type, whose sort's zero-ness is
+exactly the datum `annotPwLam` writes on the λ (`(lam-cod-leaf)`) — the
+same invariance under application that licenses the constant-head clause
+(`zeronessOf (imax u v) = zeronessOf v`), which is why `proofPW` already
+read an UNAPPLIED λ that way and `headProofPW` now reads an applied one.
+Both clauses feed only writes the front door validates: a wrong datum
+declines, it never passes.
+
+**The two grades, and why the licence keeps the old reader.**  The
+`beta` flag is `true` for the annotation pass (`annotPwPi`,
+`annotPwLam`) and for everything that reasons about that pass
+(`AnnotStable`, `ReaderRun`, `ReaderNoNew`, `SortAgree`, K.4's
+congruences).  It is `false` for the proof-irrelevance fast path,
+`isProofFast`/`notProofFast`: that path's "yes" arm is not a write but a
+**licence**, proved in the model head shape by head shape
+(`prf_of_isProofFast`, `Model/Steps/IrrelFast.lean`: a ∀-typed head is
+the squash product, a type-former-typed one is the one graph-regime
+step, an fvar-typed one comes out of the context) — and a β redex's
+denotation needs a law that lane does not have.  Gating it costs nothing
+measurable (a stored or declared type that is a β redex is not a shape
+real streams carry) and keeps `IrrelFast.lean` untouched, verdicts
+included; it also keeps `ProofAgreeW.fvar_refl` an identity, since the
+premise and the conclusion read at the same grade.  So: the ANNOTATOR's
+reader is complete at λ heads, the LICENCE's reader is exactly what it
+was, and the flag says which is which at every call site.
+
+**The laws.**  `Verify/PropRead.lean` follows the reader: the head case
+splits become inductions over `typePWAt` — `typePWAt_spine` (reading a
+term at `n` further arguments is reading its head at all of them),
+`typePWAt_shiftFrom`, `typePWAt_some_inv_noBeta` (at the licence's grade
+the reader answers only at a constant head, an fvar head, an unapplied
+`∀` or an unapplied `Sort` — a λ head is exactly where it declines) —
+and the old inversions (`typeSortPW_some_inv`, `headProofPW_some_inv`,
+`proofPW_some_inv`, `isProofFast_inv`) are derived from it at
+`beta := false`, in the shapes `IrrelFast.lean` already consumes.
+`typePWAt_instantiateLevelParams` and `typePWAt_envExt` (K.5's
+monotonicity, now one induction with the four readers derived from it)
+are inductions for the same reason.
+
+**K.4, extended** (`Verify/Inductives/CopyTypes.lean`).
+
+* `SortAgree` keeps its statement and gains its arity-indexed form
+  (`SortAgree.at` / `.of_at`, through `typePWAt_spine`), and the
+  substitution congruence is now `typePWAt_instantiate1_congr`: an
+  induction whose λ case IS the β clause (the reading descends into the
+  body, where the induction hypothesis is the same statement one binder
+  down).  `headTypePW_instantiate1_congr` and
+  `typeSortPW_instantiate1_congr` are its spine and its arity-0
+  instances.
+* **The λ-binder twin, which K.4 did not have.**  `AnnotStable`'s λ
+  clause reads `proofPW` of the opened body, so the copies' λ binders
+  need the *proof* reader's substitution congruence too.  At the
+  annotation grade `proofPW` IS its head reader (`proofPW_eq_head` — the
+  new λ clause answers with the same datum `proofPW`'s own λ clause
+  does), so one hypothesis about the head does for both:
+  `ProofAgree find? A v := headProofPW find? true v.getAppFn =
+  typeSortPW find? true A`, with `proofPW_instantiate1_congr` and
+  `proofPW_at_pin` beside `typeSortPW_at_pin`.
+* **The λ rules** — the content of the task.  `SortAgree.lam` (a λ reads
+  like a ∀ whose codomain its body reads like; the ∀'s binder datum must
+  be `.never`, which a *type-family* parameter's always is — its
+  codomain is a `Sort`, whose own sort is a successor) and
+  `ProofAgree.lam` (the λ carries the binder's datum).  In the
+  one-directional grades the ∀-side hypothesis disappears
+  (`SortAgreeW.lam` needs nothing: where the datum is not `.never` the
+  ∀ side reads `none` at every positive arity and there is nothing to
+  match), and `ProofAgreeW.lam`'s obligation is the DATUM's, not the
+  reader's — `m'.pw = m.pw`, which the kernel lane measured equal at
+  every λ-pin of the corpus (both `.never`: a type family's body is a
+  type, and a type is not a proof).
+* **`PinCompsAgree`, discharged.**  `CompReads find? A a` is the closure
+  of the component shapes: `fvar` (an opener — every non-dependent
+  container's pin), `lam` (task #301's rule, closed under nesting, so a
+  family of a family reads too) and `reads` (the two agreements
+  themselves, for a component the readers already agree on).  Its two
+  projections are `CompReads.sortAgreeW` / `.proofAgreeW`, and
+  `pinCompsAgree_of_compReads` is `PinCompsAgree`'s body from the
+  per-component `CompReads` — the model lane's premise, with the λ-pins
+  no longer a reader gap.
+* **What is still owed, honestly.**  `PinCompsAgree` is not provable
+  *outright*: its statement quantifies over the annotation's components
+  without carrying their typing, and a component of an arbitrary shape
+  reads like its parameter only because it is well-typed at it.  What
+  task #301 removes is the READER's half of the obstruction; what
+  remains for the λ rule is the datum equality `m'.pw = m.pw` (an
+  `AnnotStable`-plus-annotation fact, measured true) and, for the
+  general shapes, the components' typing.  `SortAgree`'s *strong* form
+  is still out of reach at a λ over a non-`.never` binder — by design:
+  there the ∀ side declines and the equality is about the λ's side
+  alone, which is what the `…W` grades are for.
+
+**Gate.**  `lake build` and `lake test` warning-free; the off-graph
+nested modules (`CopyTypes`, `AuxFormers`, `NestedInv`) built
+explicitly; `tests/arena.sh` GATE_RESULTS, `tests/nested-shadow.sh`
+SHADOW_RESULT, the Mathlib nested cone in shadow MATHLIB_CONE; one
+init-full `--verified --jobs=1` against the `inductives` binary
+INITFULL; one full Mathlib `--verified --jobs=8` MATHLIB_FULL.
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
