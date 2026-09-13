@@ -464,4 +464,176 @@ theorem psiFold_below {μ : CheckMode} {mp : EnvModelM V μ env} {ψ : Name → 
 
 end IndRepData
 
+omit [SetTheory V] in
+theorem annotMkAppN_append (f : AnnotTerm) :
+    ∀ (as bs : List AnnotTerm), AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
+  | [], _ => rfl
+  | a :: as, bs => by
+    simp only [List.cons_append, AnnotTerm.mkAppN_cons]
+    exact annotMkAppN_append (.app f a) as bs
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-! ## ι at values, ψ⁻¹ -/
+
+/-- The values of a member's fold term applied to index values and an
+element: the fold term read at a frame, applied. -/
+theorem foldTermAV_app (m : EnvModel V env) (ψ : Name → Nat) (ps : List AnnotTerm)
+    (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (bodies : Nat → AnnotTerm) (t : Nat)
+    (σ : Nat → V) (rest : List V) :
+    (ps.map (interp V σ) ++ (d.motChoiceAVs m ψ ps (d.invTgAV ψ ps L pinsT)).map (interp V σ) ++
+        (d.minChoiceAVs ψ ps (d.motChoiceAVs m ψ ps (d.invTgAV ψ ps L pinsT)) bodies d.nAll).map
+          (interp V σ) ++ rest).foldl SetTheory.app (interp V σ (m.acval (d.recNames t) ψ))
+      = rest.foldl SetTheory.app (interp V σ (d.foldTermAV m ψ ps L pinsT bodies t)) := by
+  unfold IndRepData.foldTermAV
+  rw [interp_mkAppN_map, List.map_append, List.map_append, List.foldl_append]
+
+namespace InvSetup
+
+variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
+  {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm}
+  {useIh : Nat → Nat → Bool}
+
+set_option maxHeartbeats 3200000 in
+/-- **ι of ψ⁻¹ at VALUES** (the double push): with the setup at the
+pushed frame `consList (paramVals nP σ) (consList vs σ)` and the
+parameter variables as the parameters, at real constructor `J` and
+field values `vs` fitting its telescope under the parameters, the fold
+term (read at `σ`) at the constructor's index readings and the
+constructor's value is the head at the mixed values — every hypothesis
+the fold at the target member applied under the field's telescope. -/
+theorem fold_iota_vals {σ : Nat → V} {vs : List V}
+    (S : d.InvSetup mp lps lpsT ψ (consList (paramVals d.nP σ) (consList vs σ))
+      (paramBvarsAt d.nP d.nP) L pinsT head useIh)
+    (hb : d.bb ψ ≠ 0) {J : Nat} {cA : ConstantVal × Nat} (hj : d.ctorsA[J]? = some cA)
+    (hvs : vs.length = cA.2)
+    (hfit : SpineFit σ ((d.dsF J ψ).map (·.2.2)) (paramVals d.nP σ ++ vs))
+    (hΦ : ∀ t, t < d.k → Term.bvarsBelow d.nP
+      (d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT (d.invBodyAV head useIh) t).erase)
+    (hhead : Term.bvarsBelow d.nP (head J).erase) :
+    ((d.esF J ψ).map (interp V (consList (paramVals d.nP σ ++ vs) σ)) ++
+        [(paramVals d.nP σ ++ vs).foldl SetTheory.app (interp V σ (mp.base2.acval cA.1.name ψ))]).foldl
+        SetTheory.app
+        (interp V σ (d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT (d.invBodyAV head useIh)
+          (d.mems J)))
+      = (mixedVals (ConLeche.recIdxOf (d.ksR J)) (useIh J) vs
+          ((ConLeche.recIdxOf (d.ksR J)).map fun i =>
+            lamTower (d.bb ψ) (consList (vs.take i) σ) ((d.tssR J ψ).getD i []) fun σ'' =>
+              (((d.eissR J ψ).getD i []).map (interp V σ'') ++
+                [(Semantics.frameIdx (((d.tssR J ψ).getD i []).length) σ'').foldl SetTheory.app
+                  (vs.getD i pt)]).foldl SetTheory.app
+                (interp V σ (d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT
+                  (d.invBodyAV head useIh) (d.tgtsR J i))))).foldl
+          SetTheory.app (interp V σ (head J)) := by
+  obtain ⟨pv, hpv⟩ : ∃ pv, pv = paramVals d.nP σ := ⟨_, rfl⟩
+  have hpvLen : pv.length = d.nP := by rw [hpv]; exact paramVals_length _ _
+  obtain ⟨σ', hσ'⟩ : ∃ σ', σ' = consList pv (consList vs σ) := ⟨_, rfl⟩
+  rw [← hpv] at S hfit ⊢
+  rw [← hσ'] at S
+  have hagree : ∀ i, i < d.nP → σ' i = σ i := by
+    intro i hi; rw [hσ', hpv]; exact push_agree σ _ i hi
+  have hagreeP : ∀ i, i < d.nP → consList pv σ' i = σ i := by
+    intro i hi; rw [hpv]; exact push_agree σ _ i hi
+  obtain ⟨fs, hfs⟩ : ∃ fs : List AnnotTerm, fs = (fieldBvars cA.2).map (·.liftN d.nP 0) := ⟨_, rfl⟩
+  have hfsV : fs.map (interp V σ') = vs := by rw [hfs, hσ']; exact map_liftBvars_push hpvLen hvs σ
+  have hpsV : (paramBvarsAt d.nP d.nP).map (interp V σ') = pv := by
+    rw [hσ']; exact interp_paramBvarsAt_self hpvLen _
+  have hfsLen : fs.length = cA.2 := by rw [hfs]; simp [fieldBvars]
+  have hD := (S.hctors J cA hj).2.2
+  have hJA : J < d.ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenD : (d.dsF J ψ).length = d.nP + cA.2 := hD.len ψ
+  obtain ⟨hks, htgtR, heiss, htss⟩ := S.hview J
+  have hfitC : SpineFit σ' ((d.dsF J ψ).map (·.2.2))
+      ((paramBvarsAt d.nP d.nP ++ fs).map (interp V σ')) := by
+    rw [List.map_append, hpsV, hfsV]
+    exact spineFit_congr_below (hD.below ψ) (fun i hi => absurd hi (Nat.not_lt_zero _)) hfit
+  have hi := IndRepData.InvSetup.fold_iota d S hb hj hfitC
+  -- the abbreviations
+  obtain ⟨Ms, hMs⟩ : ∃ Ms, Ms = d.motChoiceAVs mp.base2 ψ (paramBvarsAt d.nP d.nP)
+    (d.invTgAV ψ (paramBvarsAt d.nP d.nP) L pinsT) := ⟨_, rfl⟩
+  obtain ⟨mins, hmins⟩ : ∃ mins, mins = d.minChoiceAVs ψ (paramBvarsAt d.nP d.nP) Ms
+    (d.invBodyAV head useIh) d.nAll := ⟨_, rfl⟩
+  have hΦeq : ∀ t, d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT (d.invBodyAV head useIh) t
+      = AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ) (paramBvarsAt d.nP d.nP ++ Ms ++ mins) := by
+    intro t; rw [hmins, hMs]; rfl
+  rw [← hMs, ← hmins] at hi
+  -- the fold term's value at the two frames
+  have hΦv : ∀ t, t < d.k →
+      (pv ++ Ms.map (interp V σ') ++ mins.map (interp V σ')).foldl SetTheory.app
+        (interp V σ' (mp.base2.acval (d.recNames t) ψ))
+      = interp V σ (d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT (d.invBodyAV head useIh) t) := by
+    intro t ht
+    rw [← interp_congr_below V _ d.nP σ' σ (hΦ t ht) hagree, hΦeq, interp_mkAppN_map,
+      List.map_append, List.map_append, hpsV]
+  -- the left side
+  rw [List.append_assoc, annotMkAppN_append, interp_mkAppN_map, List.map_append, List.map_singleton,
+    List.foldl_append, interp_mkAppN_map, List.map_append, List.map_append, hpsV, hΦv _ (S.hmems J hJA)]
+    at hi
+  rw [← List.foldl_append] at hi
+  have hidx : (d.ctorIdxAt ψ J (paramBvarsAt d.nP d.nP ++ fs)).map (interp V σ')
+      = (d.esF J ψ).map (interp V (consList (pv ++ vs) σ)) := by
+    unfold IndRepData.ctorIdxAt
+    rw [List.map_map]
+    apply List.map_congr_left
+    intro E hE
+    show interp V σ' (ConLeche.Model.AnnotTerm.instSeq (paramBvarsAt d.nP d.nP ++ fs)
+      ((d.dsF J ψ).length - 1) E) = _
+    have hlen' : (paramBvarsAt d.nP d.nP ++ fs).length = (d.dsF J ψ).length := by
+      rw [List.length_append, hlenD, hfsLen]; simp [paramBvarsAt]
+    rw [← hlen', interp_instSeq_consList, List.map_append, hpsV, hfsV]
+    exact interp_congr_below V E (d.nP + cA.2) _ _ (hD.belowE ψ E hE)
+      (fun i hi => consList_agree_below hagree (pv ++ vs) i
+        (by rw [List.length_append, hpvLen, hvs]; omega))
+  have hC : interp V σ' (AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP ++ fs))
+      = (pv ++ vs).foldl SetTheory.app (interp V σ (mp.base2.acval cA.1.name ψ)) := by
+    rw [interp_mkAppN_map, List.map_append, hpsV, hfsV,
+      interp_congr_below V _ 0 σ' σ (mp.base2.cval_closedL _ ψ) (fun i hi => absurd hi (Nat.not_lt_zero _))]
+  rw [hidx, hC, hfsV] at hi
+  rw [hi]
+  -- the right side: the head and the hypotheses at `σ`
+  rw [interp_congr_below V (head J) d.nP (consList pv σ') σ hhead hagreeP]
+  congr 2
+  apply List.map_congr_left
+  intro i hi_mem
+  obtain ⟨hlt, -⟩ := mem_recIdxOf.mp hi_mem
+  rw [hks, hD.ksLen] at hlt
+  have htake : (vs.take i).length = i := by rw [List.length_take]; omega
+  refine lamTower_congr_agree (n := d.nP) hagreeP ?_ ?_
+  · intro k dd hdd
+    have hk : k < ((d.tssR J ψ).getD i []).length := (List.getElem?_eq_some_iff.mp hdd).1
+    have hget : ((d.tssR J ψ).getD i []).getD k default = dd := by
+      rw [List.getD_eq_getElem?_getD, hdd]; rfl
+    rw [htake, ← hget]
+    rw [htss] at hk ⊢
+    have := (hD.tssBelow ψ i).getD_below k hk
+    rwa [show d.nP + i + k = d.nP + i + k from rfl] at this
+  · intro bs hbs
+    have hbsLen : bs.length = ((d.tssR J ψ).getD i []).length := by
+      have := hbs.length_eq; rwa [List.length_map] at this
+    have hΦv' : List.foldl SetTheory.app (List.foldl SetTheory.app (List.foldl SetTheory.app
+          (interp V σ' (mp.base2.acval (d.recNames (d.tgtsR J i)) ψ)) pv) (Ms.map (interp V σ')))
+          (mins.map (interp V σ'))
+        = interp V σ (d.foldTermAV mp.base2 ψ (paramBvarsAt d.nP d.nP) L pinsT (d.invBodyAV head useIh)
+            (d.tgtsR J i)) := by
+      rw [← List.foldl_append, ← List.foldl_append, ← List.append_assoc]
+      exact hΦv (d.tgtsR J i) (by rw [htgtR]; exact S.htgts J i)
+    simp only [List.foldl_append]
+    rw [hΦv', frameIdx_of _ hbsLen, frameIdx_of _ hbsLen]
+    congr 2
+    apply List.map_congr_left
+    intro E hE
+    rw [heiss] at hE
+    refine interp_congr_below V E (d.nP + i + ((d.tssF J ψ).getD i []).length) _ _
+      (hD.eissBelow ψ i E hE) ?_
+    intro l hl
+    rw [htss] at hbsLen
+    exact consList_agree_below hagreeP (vs.take i ++ bs) l
+      (by rw [List.length_append, htake, hbsLen]; omega)
+
+end InvSetup
+
+end IndRepData
+
 end ConLeche.Model
