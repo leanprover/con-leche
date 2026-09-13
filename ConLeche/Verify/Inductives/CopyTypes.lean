@@ -1,11 +1,11 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedElim
-public import ConLeche.Verify.PropRead
-public import ConLeche.Verify.PropWhen
+import ConLeche.Verify.PropRead
+import ConLeche.Verify.PropWhen
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 
 public section
 
@@ -98,7 +98,10 @@ theorem Expr.numArgs_instantiate1 (v : Expr) :
     omega
   all_goals rfl
 
-theorem Expr.getAppFn_instantiateLevelParams (ks : List Name) (vs : List Level) :
+/-- (Named apart from `Verify/Denote/IndFrame.lean`'s twin, which takes
+its arguments in another order: this module must be importable beside
+the tree — task #279 M.23.) -/
+theorem Expr.getAppFn_instantiateLevelParams' (ks : List Name) (vs : List Level) :
     ∀ (e : Expr),
       (e.instantiateLevelParams ks vs).getAppFn
         = e.getAppFn.instantiateLevelParams ks vs := by

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche
+public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Frontend.ExportC
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
@@ -10,6 +11,7 @@ reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for
 the evaluation). -/
 meta import ConLeche
+meta import ConLeche.Kernel.Inductives.NestedInstall
 meta import ConLeche.Frontend.ExportC
 meta import ConLeche.Cached.Installed
 
@@ -23,6 +25,71 @@ builds this library) fails if any of them break.
 namespace ConLecheTests
 
 open ConLeche
+
+
+/-! ## The copies' order (task #279 K.6)
+
+`nestedTopoOrder` computes the copies' reference relation (DESIGN
+§M.22's `CopyRef`, as a `Bool`) and emits a topological order, declining
+a cyclic block.  No STREAM can reach the decline — a cyclic pair needs
+an ill-kinded container (`J (α : Type → Type) (β : Type) | mk : α β →
+J α β` together with `Foo (γ δ : Type) | mk : J δ δ → Foo γ δ`, whose
+second declaration Lean rejects with an application type mismatch,
+measured at v4.33.0), and an ill-kinded container never enters the
+environment, so `containerInfo?` never recovers it.  These guards
+therefore exercise the walk directly, on a hand-built two-copy state:
+one real member at index 0, the copies at 1 and 2, each in its own mint
+group, with pins that are not subterms of each other. -/
+
+private def k6C0 : Name := .str .anonymous "C0"
+private def k6C1 : Name := .str .anonymous "C1"
+
+private def k6Copy (nm : Name) (ctorTy : Expr) : AuxType :=
+  { name := nm, type := .sort .zero, ctors := [(Name.str nm "mk", ctorTy, 0)] }
+
+/-- Two copies, at indices 1 and 2, groups `(0,1)` and `(1,1)`, pins
+`P0` and `P1` (neither a subterm of the other). -/
+private def k6State (c0 c1 : Expr) : ElimState :=
+  { types := [{ name := Name.str .anonymous "R", type := .sort .zero, ctors := [] },
+              k6Copy k6C0 c0, k6Copy k6C1 c1],
+    pins := [{ aux := k6C0, container := Name.str .anonymous "A",
+               pin := .const (Name.str .anonymous "P0") [], grpBase := 0, grpSize := 1 },
+             { aux := k6C1, container := Name.str .anonymous "B",
+               pin := .const (Name.str .anonymous "P1") [], grpBase := 1, grpSize := 1 }],
+    nextIdx := 3 }
+
+/-- The cyclic state: each copy's constructor mentions the other. -/
+private def k6Cyc : ElimState := k6State (.const k6C1 []) (.const k6C0 [])
+/-- The chain: copy 0 refers to copy 1, copy 1 to nothing. -/
+private def k6Chain : ElimState := k6State (.const k6C1 []) (.sort .zero)
+
+/- The reference relation holds both ways on the cyclic state. -/
+#guard copyRefB (ElimState.grp k6Cyc) 1 k6Cyc 0 1
+#guard copyRefB (ElimState.grp k6Cyc) 1 k6Cyc 1 0
+
+/- A copy does not refer to itself: its own mint group is excluded. -/
+#guard !copyRefB (ElimState.grp k6Cyc) 1 k6Cyc 0 0
+
+/- **The cycle is DECLINED**, naming the two copies' pin indices. -/
+#guard
+  match nestedTopoOrder (ElimState.grp k6Cyc) 1 k6Cyc with
+  | .error (0, 1) => true
+  | _ => false
+
+/- **A chain is ORDERED**, the referee first. -/
+#guard
+  match nestedTopoOrder (ElimState.grp k6Chain) 1 k6Chain with
+  | .ok [1, 0] => true
+  | _ => false
+
+/- The emitted order passes the four `TopoOrder` conjuncts
+(`nestedTopoOrder` checks them before returning). -/
+#guard topoOrderOk (copyRefsOf (ElimState.grp k6Chain) 1 k6Chain k6Chain.pins.length)
+  k6Chain.pins.length [1, 0]
+
+/- `subB` decides the walk's subterm relation. -/
+#guard Expr.subB (.const k6C0 []) (.app (.const k6C1 []) (.const k6C0 []))
+#guard !Expr.subB (.const k6C0 []) (.const k6C1 [])
 
 /-! ## Config audit (task #147/#148, vacuity protection)
 
