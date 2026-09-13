@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.CopyCtorRun
 import ConLeche.Verify.Inductives.NestedCtors
+import ConLeche.Verify.Inductives.NestedLeaves
 
 public section
 
@@ -549,5 +550,255 @@ theorem copyCtorRead_of_asRead {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT 
     rw [interp_famAppAV_pins (hclosedJ _) DsA d.nP (by rw [List.length_map]; exact hnI)]
 
 end IndRepData
+
+/-! ## The heads -/
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+open Classical in
+/-- **ψ⁻¹'s heads**: a real constructor at the parameter variables; a
+copy's constructor `J` the CONTAINER constructor at the pin's readings,
+at a representative `(j', Jc)` of `J` under `auxOfs` (any representative
+gives `CtorAtPins`, `copyCtorRead_of_asRead`; the heads' agreement
+across representatives is M-C′'s coherence, DESIGN §M.32). -/
+@[expose] noncomputable def invHead (m : EnvModel V env) (ψ : Name → Nat) (n : Nat)
+    (cd : Nat → CopyData V) (auxOfs : Nat → Nat → Nat) (J : Nat) : AnnotTerm :=
+  if h : ∃ x : Nat × Nat × (ConstantVal × Nat), x.1 < n ∧ (cd x.1).dJ.ctorsA[x.2.1]? = some x.2.2 ∧
+      auxOfs x.1 x.2.1 = J then
+    AnnotTerm.mkAppN (m.acval (Classical.choose h).2.2.1.name (cd (Classical.choose h).1).ψ')
+      (cd (Classical.choose h).1).DsA
+  else AnnotTerm.mkAppN (m.acval (d.ctorsA.getD J default).1.name ψ) (paramBvarsAt d.nP d.nP)
+
+/-- A real constructor's head, when every copy's constructor index is a
+copy member's. -/
+theorem invHead_real (m : EnvModel V env) (ψ : Name → Nat) {k₀ n : Nat} {cd : Nat → CopyData V}
+    {auxOfs : Nat → Nat → Nat}
+    (hOfs : ∀ j' Jc cAJ, j' < n → (cd j').dJ.ctorsA[Jc]? = some cAJ → k₀ ≤ d.mems (auxOfs j' Jc))
+    {J : Nat} (hJ : d.mems J < k₀) :
+    d.invHead m ψ n cd auxOfs J
+      = AnnotTerm.mkAppN (m.acval (d.ctorsA.getD J default).1.name ψ) (paramBvarsAt d.nP d.nP) := by
+  unfold invHead
+  rw [dif_neg]
+  rintro ⟨⟨j', Jc, cAJ⟩, hj', hJc, hE⟩
+  have := hOfs j' Jc cAJ hj' hJc
+  rw [hE] at this
+  omega
+
+/-- A copy constructor's head: the container constructor of SOME
+representative at that pin's readings. -/
+theorem invHead_copy (m : EnvModel V env) (ψ : Name → Nat) (n : Nat) (cd : Nat → CopyData V)
+    (auxOfs : Nat → Nat → Nat) {J : Nat}
+    (h : ∃ x : Nat × Nat × (ConstantVal × Nat), x.1 < n ∧ (cd x.1).dJ.ctorsA[x.2.1]? = some x.2.2 ∧
+      auxOfs x.1 x.2.1 = J) :
+    ∃ j' Jc cAJ, j' < n ∧ (cd j').dJ.ctorsA[Jc]? = some cAJ ∧ auxOfs j' Jc = J ∧
+      d.invHead m ψ n cd auxOfs J
+        = AnnotTerm.mkAppN (m.acval cAJ.1.name (cd j').ψ') (cd j').DsA := by
+  unfold invHead
+  rw [dif_pos h]
+  obtain ⟨hj', hJc, hE⟩ := Classical.choose_spec h
+  exact ⟨_, _, _, hj', hJc, hE, rfl⟩
+
+end IndRepData
+
+/-! ## The run level -/
+
+/-- **A group-mate's data agree with the pin's**: the copy of member `t`
+of pin `j`'s container (pin `base + t`) has the leaf and the readings
+`invL`/`invPinsT` name for it — its container member's name is
+`j`'s datum's member `t` (`PinRunFacts`' group clause), its leaf at its
+own assignment reads as at the pin's level substitution (both do), and
+its readings are the pin's (`DenoteMetaSpine.unique` at the group's
+one component list). -/
+theorem invChoice_group {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts}
+    {st : ElimState} {b : MutualBlock} {params : List Expr}
+    {pbs : List (Expr × ConLeche.BinderMeta)} {mpAux : EnvModelM V μ envAux} {d : IndRepData V}
+    {ψ : Name → Nat} {cd : Nat → CopyData V}
+    (hcd : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
+    {j : Nat} (hj : j < st.pins.length) {t : Nat} (ht : t < (cd j).dJ.k) :
+    d.invL mpAux.base2 ψ p.k cd (p.k + (cd j).base + t)
+        = mpAux.base2.acval ((cd j).dJ.memberName t) (cd j).ψ' ∧
+      d.invPinsT p.k cd (p.k + (cd j).base + t) = (cd j).DsA := by
+  obtain ⟨-, -, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, hci, -, -, -, hlenM, hgrp, -, -, -, -, hsp,
+    -, -, hab⟩ := hcd j hj
+  obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
+  obtain ⟨q', hq', hq'c, hq'p, -, -⟩ := hgrp t J' hJ'
+  have hj₂ : (cd j).base + t < st.pins.length := (List.getElem?_eq_some_iff.mp hq').1
+  obtain ⟨hname, hacv⟩ := hab t J' hJ'
+  obtain ⟨-, -, q₂, I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂, hci₂, hJ₂, hJ₂n, hmn₂, -, -, hqp₂,
+    -, -, -, hsp₂, -, -, hab₂⟩ := hcd _ hj₂
+  obtain rfl : q₂ = q' := Option.some.inj (hq₂.symm.trans hq')
+  obtain ⟨-, hlv, hDs⟩ := group_pin_eq hq' hq' hq'p hqp₂
+  have hDsA : (cd ((cd j).base + t)).DsA = (cd j).DsA := by
+    rw [← hDs] at hsp₂
+    exact DenoteMetaSpine.unique hsp₂ hsp
+  have hname₂ : (cd ((cd j).base + t)).dJ.memberName (cd ((cd j).base + t)).mm = J'.name := by
+    rw [hmn₂, hq'c]
+  obtain ⟨-, hacv₂⟩ := hab₂ _ J₂ hJ₂
+  have hJ₂name : J₂.name = J'.name := by rw [hJ₂n, hq'c]
+  have hJ₂lps : J₂.lps = J'.lps := by
+    obtain ⟨⟨cv₁, caps₁, hf₁, -, hl₁⟩, -⟩ :=
+      ConLeche.containerInfo?_stored hci₂ J₂ (List.mem_of_getElem? hJ₂)
+    obtain ⟨⟨cv₂, caps₂, hf₂, -, hl₂⟩, -⟩ :=
+      ConLeche.containerInfo?_stored hci J' (List.mem_of_getElem? hJ')
+    rw [hJ₂name] at hf₁
+    obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hf₁.symm.trans hf₂))
+    rw [hl₁, hl₂]
+  rw [hJ₂name, hJ₂lps, ← hlv] at hacv₂
+  refine ⟨?_, ?_⟩
+  · rw [show p.k + (cd j).base + t = p.k + ((cd j).base + t) from Nat.add_assoc _ _ _,
+      d.invL_copy, hname₂, hname, hacv, hacv₂]
+  · rw [show p.k + (cd j).base + t = p.k + ((cd j).base + t) from Nat.add_assoc _ _ _,
+      d.invPinsT_copy, hDsA]
+
+/-- **Every copy's constructor is a container constructor's copy**: an
+auxiliary constructor of a copy member (`p.k ≤ mems J`) is
+`auxOfsOf st p.k cd j' Jc` for its pin `j'` and the container
+constructor `Jc` at its member and position (`auxBlock_ctor_inv` for
+the position, `CopyCtorsStored` for the copy's constructor count,
+`ContainerCtorsAt.inv` for `Jc`). -/
+theorem copyCtor_repr {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts}
+    {st : ElimState} {b : MutualBlock} {params : List Expr}
+    {pbs : List (Expr × ConLeche.BinderMeta)} {mpAux : EnvModelM V μ envAux} {d : IndRepData V}
+    {ψ : Name → Nat} {cd : Nat → CopyData V}
+    (hb : ConLeche.auxBlock p st = some b) (hlenSt : st.types.length = p.k + st.pins.length)
+    (hchk : CtorsChecked μ F env b true d)
+    (hcd : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
+    {J : Nat} {cA : ConstantVal × Nat} (hJ : d.ctorsA[J]? = some cA) (hge : p.k ≤ d.mems J) :
+    ∃ j' Jc cAJ, j' < st.pins.length ∧ (cd j').dJ.ctorsA[Jc]? = some cAJ ∧
+      auxOfsOf st p.k cd j' Jc = J := by
+  obtain ⟨env₁, fms, f₀, ctorsA, sortss, -, -, hctors, hdA, -, hmems⟩ := hchk
+  obtain ⟨hlenC, -, -⟩ := ConLeche.checkMutualCtors_inv hctors
+  have hJlt : J < b.ctors.length := by
+    rw [← hlenC, ← hdA]; exact (List.getElem?_eq_some_iff.mp hJ).1
+  obtain ⟨c, hc⟩ : ∃ c, b.ctors[J]? = some c := ⟨_, List.getElem?_eq_getElem hJlt⟩
+  obtain ⟨t, l, ty, c', hty, hc', hJE, rfl⟩ := ConLeche.auxBlock_ctor_inv hb hc
+  have hmemJ : d.mems J = t := by
+    rw [hmems J, List.getD_eq_getElem?_getD, hc]; rfl
+  rw [hmemJ] at hge
+  have htLt : t < st.types.length := (List.getElem?_eq_some_iff.mp hty).1
+  obtain ⟨j, rfl⟩ : ∃ j, t = p.k + j := ⟨t - p.k, by omega⟩
+  have hj : j < st.pins.length := by omega
+  obtain ⟨-, hbm, q, I, ci, Jm, lvls, Ds, cvTJ, capsJ, -, -, hJm, -, -, -, -, -, -, -, -, -, hcat,
+    hcst, -⟩ := hcd j hj
+  obtain ⟨tyA, htyA, -, hlenA, -⟩ := hcst
+  obtain rfl : tyA = ty := Option.some.inj (htyA.symm.trans hty)
+  have hl : l < Jm.ctors.length := by
+    rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hc').1
+  obtain ⟨cJ, hcJ⟩ : ∃ cJ, Jm.ctors[l]? = some cJ := ⟨_, List.getElem?_eq_getElem hl⟩
+  obtain ⟨Jc, cAJ, hJc, hmm, hpos⟩ := hcat.inv _ l Jm cJ hJm hcJ
+  refine ⟨j, Jc, cAJ, hj, hJc, ?_⟩
+  unfold auxOfsOf
+  rw [hmm, hpos, hbm, hJE]
+
+set_option maxHeartbeats 1600000 in
+/-- **ψ⁻¹'s SETUP FROM THE RUN** (task #279 M-C′): under the containers'
+representation (`ContainersRep`) and the constructor record
+(`CopyCtorsRead`) — the two premises ψ has — at every level assignment
+sending the scratch block's elimination universe to its carrier's rank
+and every parameter frame, `InvSetup` holds for the scratch block at
+the choice `invL`/`invPinsT`/`invHead`/`invUseIh` (at the block's datum
+re-sorted to the member with rules): the real members at the identity
+(`invSetup_of_blockReps_nested`), every copy's target from its pin's
+read (`targetOk_copy` at `CopyData.Ok`), every copy constructor's
+`CtorAtPins` from the record through `copyCtorRead_of_asRead` at a
+representative (`copyCtor_repr`).  Hence ψ⁻¹ is TYPED
+(`InvSetup.fold_mem`) and FIRING (`InvSetup.fold_iota`) end to end. -/
+theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env),
+      ConLeche.auxBlock p st = some b ∧
+      st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        CtorsChecked μ F env b true d ∧
+        ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
+        (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
+          ∃ cd : Nat → CopyData V,
+            (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
+            (CopyCtorsRead mpAux d ψ st p.k st.pins.length cd →
+              d.elimL.eval ψ = d.w ψ →
+              ∀ t₀, t₀ < b.k → d.memberCtors t₀ ≠ [] →
+              ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP →
+                (∀ q ∈ ps, WellDenotedV V ρ q) →
+                SpineFit ρ (d.params ψ) (ps.map (interp V ρ)) →
+                ∃ (s : Level) (lps lpsT : List Name),
+                  (∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) ∧
+                  ({d with resSort := s} : IndRepData V).InvSetup mpAux lps lpsT ψ ρ ps
+                    (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
+                    (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd))
+                    (d.invUseIh p.k))) := by
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, -, hlenSt, mpAux, d, hreps,
+    hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, hb, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
+  intro hcr ψ
+  obtain ⟨cd, hcd⟩ := hpins hcr ψ
+  refine ⟨cd, hcd, ?_⟩
+  intro hread hlev t₀ ht₀ hct₀ ρ ps hps hpsWD hparams
+  have hreps' := hreps
+  obtain ⟨-, hkb, -, -, -, -, -, hall⟩ := hreps
+  have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
+  obtain ⟨-, hFFA, -, hpIffMA⟩ := auxFacts_of_blockReps hreps' ψ
+  have hk0 : 0 < d.k := by rw [hkb]; exact Nat.lt_of_le_of_lt (Nat.zero_le _) ht₀
+  obtain ⟨s₀, cvT₀, cvR₀, caps₀, mI₀, rP₀, rules₀, -, -, -, hsv₀, hrep₀⟩ :=
+    hall 0 (by rw [← hkb]; exact hk0)
+  -- every copy's data are live at its pin
+  have hok : ∀ j, j < st.pins.length → CopyData.Ok mpAux.base2 d ψ p.k j (cd j) := by
+    intro j hj
+    obtain ⟨pf, hbm, -⟩ := hcd j hj
+    have h := pf.grp (cd j).mm pf.mm
+    rw [hbm] at h
+    exact h
+  -- every copy's constructor index is a copy member's
+  have hOfs : ∀ j' Jc cAJ, j' < st.pins.length → (cd j').dJ.ctorsA[Jc]? = some cAJ →
+      p.k ≤ d.mems (auxOfsOf st p.k cd j' Jc) := by
+    intro j' Jc cAJ hj' hJc
+    obtain ⟨cA', -, hf, -⟩ :=
+      copyCtorFacts_of_read hreps' hchk hcd hsv₀ hrep₀ hj' hJc (hread j' hj' Jc cAJ hJc)
+    rw [hf.read.mem]
+    exact Nat.le_add_right_of_le (Nat.le_add_right _ _)
+  refine invSetup_of_blockReps_nested hreps' ht₀ hct₀ hps hpsWD hparams hlev (kR := p.k)
+    ?_ ?_ ?_ ?_ (fun J i h => d.invUseIh_mem h)
+  · -- the real members: their own leaves
+    intro t ht _
+    exact ⟨d.invL_real ht, d.invPinsT_real ht⟩
+  · -- the real constructors: their own heads, no hypothesis in use
+    intro J cA hJ hlt
+    refine ⟨?_, d.invUseIh_real hlt⟩
+    rw [d.invHead_real _ _ hOfs hlt, List.getD_eq_getElem?_getD, hJ]
+    rfl
+  · -- the copies' targets, from their pins' reads
+    intro t hkt ht
+    obtain ⟨j, rfl⟩ : ∃ j, t = p.k + j := ⟨t - p.k, by omega⟩
+    have hj : j < st.pins.length := by omega
+    have hc := hok j hj
+    refine d.targetOk_copy mpAux hps ht (hFFA _ ht) (hpIffMA _ ht) hparams hlev hc.ff hc.ls
+      (d.invL_copy j) (d.invPinsT_copy j) ?_ hc.idx
+    rw [d.invL_copy j]
+    exact hc.pin
+  · -- the copies' constructors, from the record at a representative
+    intro J cA hJ hge
+    obtain ⟨j', Jc, cAJ, hj', hJc, hE⟩ := copyCtor_repr hb hlenSt hchk hcd hJ hge
+    obtain ⟨j'', Jc', cAJ', hj'', hJc', hE', hhead⟩ :=
+      d.invHead_copy mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd)
+        ⟨⟨j', Jc, cAJ⟩, hj', hJc, hE⟩
+    obtain ⟨cA', hget, hf, -, -⟩ :=
+      copyCtorFacts_of_read hreps' hchk hcd hsv₀ hrep₀ hj'' hJc' (hread j'' hj'' Jc' cAJ' hJc')
+    rw [hE'] at hget hf
+    obtain rfl : cA' = cA := Option.some.inj (hget.symm.trans hJ)
+    rw [hhead, hf.nF]
+    obtain ⟨pf, -, -⟩ := hcd j'' hj''
+    obtain ⟨T, cvT, cvR, mI, rP, rules, t₀', ht₀', -, -, hrepJ⟩ := pf.rep
+    refine d.ctorAtPins_copy (d.copyCtorRead_of_asRead mpAux hps hparams hlev pf.kReal pf.pinsAV
+      pf.view ht₀' hrepJ pf.len pf.grp ?_ hJc' hf ?_)
+    · intro t ht
+      exact invChoice_group hcd hj'' ht
+    · intro i hi hA hT hk
+      have htgt : d.tgtsR J i < d.k := hf.tgts i
+      have hj₂ : d.tgtsR J i - p.k < st.pins.length := by omega
+      have h := hok _ hj₂
+      exact h
 
 end ConLeche.Model

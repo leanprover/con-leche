@@ -40,6 +40,7 @@ public import ConLeche.Model.Inductives.FixRep
 -- read of a represented block, §M.15) stands alone.
 public import ConLeche.Model.Inductives.PsiRun
 public import ConLeche.Model.Inductives.CopyCtorRun
+public import ConLeche.Model.Inductives.InvCopy
 public import ConLeche.Model.Inductives.ContainerRead
 public import ConLeche.Model.Annot.ConsMono
 public import ConLeche.Model.NatEqs
