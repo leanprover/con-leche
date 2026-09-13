@@ -116,8 +116,9 @@ block's own member count (the copies are `st.types[k + j]`), `grp j =
 (j₀, n)` the mint group of pin `j` — base and size in the pin list.
 A processed constructor of the source copy mentions the target copy's
 name; the target is outside the source's group; no pin of the source's
-group is a subterm of the target's pin. -/
-def CopyRef (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' : Nat) : Prop :=
+group is a subterm of the target's pin.  (Exposed: the model tier's
+run-level bridge `bridgeOfRun_of_syntax` proves it clause by clause.) -/
+@[expose] def CopyRef (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' : Nat) : Prop :=
   ∃ (t t' : AuxType) (q' : NestedPin),
     st.types[k + j]? = some t ∧ st.types[k + j']? = some t' ∧ st.pins[j']? = some q' ∧
     (∃ c ∈ t.ctors, (c.2.1).mentionsConst t'.name = true) ∧

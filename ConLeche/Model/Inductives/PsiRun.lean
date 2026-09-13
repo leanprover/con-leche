@@ -272,6 +272,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
                 ∃ q', st.pins[(cd j).base + i']? = some q' ∧ q'.container = J'.name ∧
                   q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
               q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
+              ElimState.grp st j = ((cd j).base, (cd j).dJ.k) ∧
               envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
               (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
               DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA) := by
@@ -294,12 +295,13 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           ∃ q', st.pins[c.base + i']? = some q' ∧ q'.container = J'.name ∧
             q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
         q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
+        ElimState.grp st j = (c.base, c.dJ.k) ∧
         envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
         c.ψ' = pinAssign c.dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
         DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA := by
     intro j hj
-    obtain ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hDsLen, hlvls, hread⟩ :=
-      hpins j hj
+    obtain ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls,
+      hread⟩ := hpins j hj
     obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hmem⟩ := hcr I ci hci
     obtain ⟨cvTJ, cvR, capsJ, mI, rP, rules, hfJ, hJty, hJlps, hrules, hfR, hfresh, hrep⟩ :=
       hmem i J hJ
@@ -339,8 +341,8 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           (dJ.lvlsM t) :=
         hrep'.formersRead t (by rw [hkR]; exact ht) cvTJ' capsJ' hfJ''
       -- the read at the group-mate's pin, at this datum
-      obtain ⟨qt, It, cit, it, j₀t, Jt, lvlst, Dst, hqt, hcit, hJt, -, -, hqtc, hqtp, hDsLent, -,
-        hreadt⟩ := hpins (j₀ + t) (hposGrp t ht)
+      obtain ⟨qt, It, cit, it, j₀t, Jt, lvlst, Dst, hqt, hcit, hJt, -, -, hqtc, hqtp, -, -, hDsLent,
+        -, hreadt⟩ := hpins (j₀ + t) (hposGrp t ht)
       obtain ⟨hJtn, hlv, hDsE⟩ := group_pin_eq hqt hq' hqtp hq'p
       rw [hlv, hDsE] at hreadt
       rw [hDsE] at hDsLent
@@ -381,7 +383,12 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         fun t ht => by show p.k + j₀ + t < d.k; have := hposGrp t ht; omega, hgrpOk⟩,
       by show j₀ + i = j; omega,
       q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hqc.symm, by rw [hrep.member, hqc], hlenM,
-      hgrp, by rw [hqp, hqc], by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp⟩
+      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp⟩
+    show ElimState.grp st j = (j₀, dJ.k)
+    unfold ElimState.grp
+    rw [hq]
+    show (q.grpBase, q.grpSize) = (j₀, dJ.k)
+    rw [hqb, hqs, hlenM]
   -- the choice, per pin
   refine ⟨fun j => if hj : j < st.pins.length then Classical.choose (hone j hj)
     else ⟨d, 0, ψ, [], 0⟩, fun j hj => ?_⟩
@@ -444,6 +451,61 @@ def BridgeOfRun (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
     ConLeche.CopyRef (ElimState.grp st) k₀ st j' (d.tgtsR (auxOfs j' Jc) i - k₀)
 
+/-- **The bridge's SYNTACTIC half**: at every transport — a field the
+copy's constructor sees as recursive into pin `j''`'s copy and the
+container's as ordinary — the copy's processed constructor MENTIONS the
+target copy's name, and no pin of the source's group is a sub-term of
+the target's pin.  What the run owes of the elimination's output
+(DESIGN §M.28): the mention from the walk's rewrite at the field
+(`replaceIfNested_some`) through the normalisation, the sub-term clause
+from the container's positivity (an ordinary field mentions no member
+of the container's group). -/
+def BridgeSyntax (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
+    (auxOfs : Nat → Nat → Nat) : Prop :=
+  ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+    i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+    ∀ (t t' : AuxType) (q' : NestedPin), st.types[k₀ + j']? = some t →
+      st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' →
+      st.pins[d.tgtsR (auxOfs j' Jc) i - k₀]? = some q' →
+      (∃ c ∈ t.ctors, (c.2.1).mentionsConst t'.name = true) ∧
+      ∀ (l : Nat) (g : NestedPin), l < (cd j').dJ.k → st.pins[(cd j').base + l]? = some g →
+        ¬ Expr.Sub g.pin q'.pin
+
+/-- **The bridge, from its syntactic half**: the target's position and
+its exclusion from the source's group are the record's `kindT`
+(`CopyCtorFacts.read`), the target is a pin (`CopyCtorFacts.tgts` at
+the block's size), and the source's group is the pin's own
+(`ElimState.grp`). -/
+theorem bridgeOfRun_of_syntax {μ : CheckMode} {mp : EnvModelM V μ env} {d : IndRepData V}
+    {ψ : Name → Nat} {st : ElimState} {k₀ n : Nat} {lpsT : List Name} {cd : Nat → CopyData V}
+    {auxOfs : Nat → Nat → Nat} (hn : st.pins.length = n) (hlenSt : st.types.length = k₀ + n)
+    (hkn : d.k ≤ k₀ + n)
+    (hgrp : ∀ j, j < n → ElimState.grp st j = ((cd j).base, (cd j).dJ.k))
+    (hctors : CopyCtorsOfRun mp d ψ k₀ n lpsT cd auxOfs)
+    (hsyn : BridgeSyntax d st k₀ n cd auxOfs) : BridgeOfRun d st k₀ n cd auxOfs := by
+  intro j' hj' Jc cAJ hJc i hi hA hT
+  obtain ⟨cAa, -, hf⟩ := hctors j' hj' Jc cAJ hJc
+  obtain ⟨j'', hj'', hout, -⟩ := hf.read.kindT i hi hT hA
+  have htgt : d.tgtsR (auxOfs j' Jc) i < d.k := hf.tgts i
+  have hj''n : d.tgtsR (auxOfs j' Jc) i - k₀ < n := by omega
+  have hjE : d.tgtsR (auxOfs j' Jc) i - k₀ = j'' := by omega
+  obtain ⟨t, ht⟩ : ∃ t, st.types[k₀ + j']? = some t :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenSt]; omega)⟩
+  obtain ⟨t', ht'⟩ : ∃ t', st.types[k₀ + (d.tgtsR (auxOfs j' Jc) i - k₀)]? = some t' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenSt]; omega)⟩
+  obtain ⟨q', hq'⟩ : ∃ q', st.pins[d.tgtsR (auxOfs j' Jc) i - k₀]? = some q' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hn]; exact hj''n)⟩
+  have ht'' : st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' := by
+    rw [show d.tgtsR (auxOfs j' Jc) i = k₀ + (d.tgtsR (auxOfs j' Jc) i - k₀) by omega]
+    exact ht'
+  obtain ⟨hmention, hsub⟩ := hsyn j' hj' Jc cAJ hJc i hi hA hT t t' q' ht ht'' hq'
+  refine ⟨t, t', q', ht, ht', hq', hmention, ?_, ?_⟩
+  · rw [hgrp j' hj', hjE]
+    exact hout
+  · intro l g hl hg
+    rw [hgrp j' hj'] at hl hg
+    exact hsub l g hl hg
+
 set_option maxHeartbeats 800000 in
 /-- **ψ AT EVERY PIN, FROM THE RUN** (task #279 M-B′, DESIGN §M.28):
 under the containers' representation (`ContainersRep`), for every
@@ -463,10 +525,11 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
           ∃ cd : Nat → CopyData V,
-            (∀ j, j < st.pins.length → PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j) ∧
+            (∀ j, j < st.pins.length → PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j ∧
+              ElimState.grp st j = ((cd j).base, (cd j).dJ.k)) ∧
             ∀ (lpsT : List Name) (auxOfs : Nat → Nat → Nat),
               CopyCtorsOfRun mpAux d ψ p.k st.pins.length lpsT cd auxOfs →
-              BridgeOfRun d st p.k st.pins.length cd auxOfs →
+              BridgeSyntax d st p.k st.pins.length cd auxOfs →
               ∀ (ρ₀ : Nat → V) (psA : List AnnotTerm), psA.length = d.nP →
                 SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)) →
                 ∀ (tbl₀ : Nat → AnnotTerm) (j' : Nat), j' < st.pins.length →
@@ -477,13 +540,19 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
   refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, fun j hj => ⟨(hcd j hj).1, (hcd j hj).2.1⟩, ?_⟩
-  intro lpsT auxOfs hctors hbridge ρ₀ psA hpsA hparamsA tbl₀ j' hj'
+  have hgrp : ∀ j, j < st.pins.length → ElimState.grp st j = ((cd j).base, (cd j).dJ.k) := by
+    intro j hj
+    obtain ⟨-, -, q, I, ci, J, lvls, Ds, cvTJ, capsJ, -, -, -, -, -, -, -, -, hg, -⟩ := hcd j hj
+    exact hg
+  refine ⟨cd, fun j hj => ⟨(hcd j hj).1, (hcd j hj).2.1, hgrp j hj⟩, ?_⟩
+  intro lpsT auxOfs hctors hsyn ρ₀ psA hpsA hparamsA tbl₀ j' hj'
   obtain ⟨hpinsA, hFFA, hLSA, hpIffMA⟩ := auxFacts_of_blockReps hreps ψ
   obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
   have hkn : d.k ≤ p.k + st.pins.length := by
     rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
     exact Nat.le_refl _
+  have hbridge : BridgeOfRun d st p.k st.pins.length cd auxOfs :=
+    bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn
   have hall : ∀ j, j < st.pins.length →
       GroupFacts mpAux d ψ p.k lpsT cd (cd j) (auxOfs j) ∧ (cd j).base + (cd j).mm = j := by
     intro j hj

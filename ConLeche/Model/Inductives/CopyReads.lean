@@ -245,6 +245,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
               ∃ q', st.pins[j₀ + i']? = some q' ∧ q'.container = J'.name ∧
                 q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
             q.container = J.name ∧ q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
+            q.grpBase = j₀ ∧ q.grpSize = ci.members.length ∧
             Ds.length = ci.nP ∧ lvls.length = J.lps.length ∧
             ∀ (ψ : Name → Nat) (cvTJ : ConstantVal) (capsJ : IndCaps) (dJ : IndRepData V)
               (mmJ : Nat),
@@ -350,8 +351,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
   -- the copy's origin
   obtain ⟨t₀', params', body', pbs', body₀', ht₀', hop', hstrip', I, ci, i, j₀, J, lvls, Ds, q,
-    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, -, hDsLen, hty, -, -, -, -⟩ :=
-    ConLeche.elimNested_copy helim hj
+    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, hDsLen, hty, -, -,
+    -, -⟩ := ConLeche.elimNested_copy helim hj
   rw [ht₀] at ht₀'
   obtain rfl := Option.some.inj ht₀'
   rw [hop] at hop'
@@ -361,7 +362,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   rw [nestedTypes0_length, hfmsLen] at hty
   have ht : p.k + j < b.k := by rw [hk, hlenSt]; omega
   obtain ⟨hlvls, ⟨tyI, htyI, hcopyTy⟩, -, -⟩ := ConLeche.mkCopy_inv hmk
-  refine ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hDsLen, hlvls, ?_⟩
+  refine ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls, ?_⟩
   intro ψ cvTJ capsJ dJ mmJ hfJ hJtype hJlps hciNP hFDJ
   obtain ⟨R, hopened⟩ := IndRepData.opened_params ({d with resSort := s₀} : IndRepData V) ψ hfT₀
     hFD₀ hfv'
