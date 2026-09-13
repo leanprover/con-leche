@@ -117,6 +117,37 @@ theorem auxBlock_ctor_inv {p : NestedParts} {st : ElimState} {b : MutualBlock}
   obtain ⟨c', hc'', rfl⟩ := Option.map_eq_some_iff.mp hc'
   exact ⟨t, l, ty, c', hty, hc'', hJ, rfl⟩
 
+/-- `ctorBase` steps by the type's constructor count. -/
+theorem ctorBase_succ {st : ElimState} {t : Nat} {ty : AuxType} (hty : st.types[t]? = some ty) :
+    ctorBase st (t + 1) = ctorBase st t + ty.ctors.length := by
+  unfold ctorBase
+  rw [List.take_add_one, hty, Option.toList_some, List.map_append, List.sum_append, List.map_cons,
+    List.map_nil, List.sum_cons, List.sum_nil, Nat.add_zero]
+
+/-- `ctorBase` is monotone. -/
+theorem ctorBase_mono (st : ElimState) {a b : Nat} (hab : a ≤ b) : ctorBase st a ≤ ctorBase st b := by
+  obtain ⟨n, rfl⟩ : ∃ n, b = a + n := ⟨b - a, by omega⟩
+  unfold ctorBase
+  rw [List.take_add, List.map_append, List.sum_append]
+  exact Nat.le_add_right _ _
+
+/-- **`ctorBase` is injective on (type, position) pairs** with the
+position below the type's constructor count (task #279 M-C′ step 5:
+ψ⁻¹'s head at a copy constructor is THIS container constructor's, since
+the copy constructor's index recovers its type and position). -/
+theorem ctorBase_inj {st : ElimState} {a b x y : Nat} {tya tyb : AuxType}
+    (hta : st.types[a]? = some tya) (htb : st.types[b]? = some tyb)
+    (hx : x < tya.ctors.length) (hy : y < tyb.ctors.length)
+    (h : ctorBase st a + x = ctorBase st b + y) : a = b ∧ x = y := by
+  rcases Nat.lt_trichotomy a b with hab | rfl | hab
+  · have h1 := ctorBase_succ hta
+    have h2 : ctorBase st (a + 1) ≤ ctorBase st b := ctorBase_mono st hab
+    omega
+  · exact ⟨rfl, by omega⟩
+  · have h1 := ctorBase_succ htb
+    have h2 : ctorBase st (b + 1) ≤ ctorBase st a := ctorBase_mono st hab
+    omega
+
 /-! ## The stored constructor of a copy, from the run -/
 
 /-- **What the run says of a copy's constructors** (pin `j`, container

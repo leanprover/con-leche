@@ -88,6 +88,40 @@ constructors: the earlier constructors of the same member. -/
 @[expose] def posIn (dJ : IndRepData V) (Jc : Nat) : Nat :=
   ((List.range Jc).filter fun i => dJ.mems i == dJ.mems Jc).length
 
+omit [SetTheory V] in
+/-- `posIn` grows strictly along a member's constructors (task #279
+M-C′ step 5: the position recovers the constructor within its member). -/
+theorem posIn_lt_of_lt (dJ : IndRepData V) {Jc J : Nat} (hlt : Jc < J)
+    (hm : dJ.mems Jc = dJ.mems J) : posIn dJ Jc < posIn dJ J := by
+  unfold posIn
+  suffices h : ∀ n, Jc < n →
+      ((List.range Jc).filter fun i => dJ.mems i == dJ.mems Jc).length + 1
+        ≤ ((List.range n).filter fun i => dJ.mems i == dJ.mems J).length from h J hlt
+  intro n hn
+  induction n with
+  | zero => exact absurd hn (Nat.not_lt_zero _)
+  | succ n ih =>
+    rw [List.range_succ, List.filter_append, List.length_append]
+    rcases Nat.lt_or_ge Jc n with h | h
+    · have := ih h
+      omega
+    · obtain rfl : Jc = n := by omega
+      rw [List.filter_congr (fun x _ => by rw [hm] :
+        ∀ x ∈ List.range Jc, (dJ.mems x == dJ.mems Jc) = (dJ.mems x == dJ.mems J))]
+      simp only [List.filter_cons, List.filter_nil, hm, beq_self_eq_true]
+      exact Nat.le_refl _
+
+omit [SetTheory V] in
+/-- `posIn` is injective within a member. -/
+theorem posIn_inj (dJ : IndRepData V) {Jc J : Nat} (hm : dJ.mems Jc = dJ.mems J)
+    (h : posIn dJ Jc = posIn dJ J) : Jc = J := by
+  rcases Nat.lt_trichotomy Jc J with hlt | rfl | hlt
+  · have := posIn_lt_of_lt dJ hlt hm
+    omega
+  · rfl
+  · have := posIn_lt_of_lt dJ hlt hm.symm
+    omega
+
 /-- **The container's constructors as `containerInfo?` read them are
 the datum's**: every constructor `Jc` of the datum is, at its member
 `dJ.mems Jc`, the `posIn dJ Jc`-th constructor `containerInfo?` lists

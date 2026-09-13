@@ -1341,6 +1341,94 @@ theorem fitCopy_of_run (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
   rw [← List.take_append_drop d.nP (d.dsF (auxOfsOf st p.k cd j J) ψ), List.map_append]
   exact hfitP.append hcopy
 
+/-- **A container constructor's position is below its copy's
+constructor count** (task #279 M-C′ step 5): at pin `j`, constructor
+`J` of member `mems J`, the group-mate's pin `base + mems J` names the
+member (`ContainerCtorsAt.fwd` at that pin lists `J` at position
+`posIn`), and the copy's type has the member's constructor count
+(`CopyCtorsStored`). -/
+theorem posIn_lt_ctors {j : Nat} (hj : j < st.pins.length) {J : Nat} {cA : ConstantVal × Nat}
+    (hJ : (cd j).dJ.ctorsA[J]? = some cA) :
+    ∃ tyA : AuxType, st.types[p.k + ((cd j).base + (cd j).dJ.mems J)]? = some tyA ∧
+      posIn (cd j).dJ J < tyA.ctors.length := by
+  have hg := R.groupFacts hj
+  obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, -, -, hrepJ⟩ := hg.rep
+  have hJlt : J < (cd j).dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hmemJ : (cd j).dJ.mems J < (cd j).dJ.k := by
+    have := (hrepJ.memsReal J (by unfold IndRepData.nAll; rw [hg.ctorsC]; simpa using hJlt)).mpr hJlt
+    rw [hg.kReal] at this
+    exact this
+  have hj₂ := R.mate_lt hj hmemJ
+  have hc₂ := (R.pins j hj).2 _ hmemJ
+  obtain ⟨⟨-, -, q₂, I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, -, -, hJ₂, -, -, -, -, -, -, -, -, -, -,
+    hcat₂, hcst₂, -⟩, -⟩ := R.pins _ hj₂
+  rw [hc₂] at hJ₂ hcat₂
+  obtain ⟨tyA, htyA, -, hlenA, -⟩ := hcst₂
+  obtain ⟨J', c, hJ', hc, -⟩ := hcat₂.fwd J cA hJ
+  have hJ₂' : ci₂.members[(cd j).dJ.mems J]? = some J₂ := hJ₂
+  obtain rfl : J' = J₂ := Option.some.inj (hJ'.symm.trans hJ₂')
+  refine ⟨tyA, htyA, ?_⟩
+  rw [hlenA]
+  exact (List.getElem?_eq_some_iff.mp hc).1
+
+/-- **The copy constructor's index recovers the pin's data and the
+container constructor** (task #279 M-C′ step 5, `R2Owed.headφ`'s
+recipe): two representatives of one auxiliary constructor index have
+the same container datum, assignment, readings and constructor —
+`ctorBase` is injective on (type, position) (`ctorBase_inj`), so both
+name the pin `base + mems` and the position; the group clause at both
+pins identifies the group-mate's data with each pin's own; `posIn` is
+injective within a member. -/
+theorem auxOfsOf_inj {j : Nat} (hj : j < st.pins.length) {J : Nat} {cA : ConstantVal × Nat}
+    (hJ : (cd j).dJ.ctorsA[J]? = some cA) {j' : Nat} (hj' : j' < st.pins.length) {Jc : Nat}
+    {cAJ : ConstantVal × Nat} (hJc : (cd j').dJ.ctorsA[Jc]? = some cAJ)
+    (hE : auxOfsOf st p.k cd j' Jc = auxOfsOf st p.k cd j J) :
+    (cd j').dJ = (cd j).dJ ∧ (cd j').ψ' = (cd j).ψ' ∧ (cd j').DsA = (cd j).DsA ∧ Jc = J ∧ cAJ = cA := by
+  obtain ⟨tyA, hty, hlt⟩ := R.posIn_lt_ctors hj hJ
+  obtain ⟨tyA', hty', hlt'⟩ := R.posIn_lt_ctors hj' hJc
+  unfold auxOfsOf at hE
+  obtain ⟨h1, h2⟩ := ConLeche.ctorBase_inj hty' hty hlt' hlt hE
+  have hpin : (cd j').base + (cd j').dJ.mems Jc = (cd j).base + (cd j).dJ.mems J := by omega
+  -- the members are real
+  have hmem : ∀ {j : Nat}, j < st.pins.length → ∀ {J : Nat} {cA : ConstantVal × Nat},
+      (cd j).dJ.ctorsA[J]? = some cA → (cd j).dJ.mems J < (cd j).dJ.k := by
+    intro j hj J cA hJ
+    have hg := R.groupFacts hj
+    obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, -, -, hrepJ⟩ := hg.rep
+    have hJlt : J < (cd j).dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+    have := (hrepJ.memsReal J (by unfold IndRepData.nAll; rw [hg.ctorsC]; simpa using hJlt)).mpr hJlt
+    rw [hg.kReal] at this
+    exact this
+  have hc := (R.pins j hj).2 _ (hmem hj hJ)
+  have hc' := (R.pins j' hj').2 _ (hmem hj' hJc)
+  rw [hpin, hc] at hc'
+  obtain ⟨hdJ, hmm, hψ, hDsA, -⟩ := CopyData.mk.inj hc'.symm
+  rw [hdJ] at hmm h2 hJc
+  have hJcJ : Jc = J := posIn_inj _ hmm h2
+  subst hJcJ
+  exact ⟨hdJ, hψ, hDsA, rfl, Option.some.inj (hJc.symm.trans hJ)⟩
+
+/-- **ψ⁻¹'s head at a copy constructor is THIS container constructor
+at THIS pin's readings** (task #279 M-C′ step 5 — `R2Owed.headφ`
+DERIVED): `invHead`'s representative has the pin's data and the
+constructor (`auxOfsOf_inj`); the constructor's value is closed and
+the readings are bounded at the parameters, so both read alike at the
+frame and at the pushed frame. -/
+theorem headφ_of_run {ρ : Nat → V} {j : Nat} (hj : j < st.pins.length) {J : Nat}
+    {cA : ConstantVal × Nat} (hJ : (cd j).dJ.ctorsA[J]? = some cA) :
+    R2Owed (p := p) (st := st) mpAux d ψ cd ρ j J cA := by
+  refine ⟨?_⟩
+  obtain ⟨j', Jc, cAJ, hj', hJc, hE, hhead⟩ := d.invHead_copy mpAux.base2 ψ st.pins.length cd
+    (auxOfsOf st p.k cd) ⟨(j, J, cA), hj, hJ, rfl⟩
+  obtain ⟨-, hψ, hDsA, hJcJ, hcA⟩ := R.auxOfsOf_inj hj hJ hj' hJc hE
+  subst hJcJ hcA
+  rw [hhead, hψ, hDsA, interp_mkAppN_map,
+    interp_closed (V := V) (mpAux.base2.cval_closedL _ _) ρ (consList (paramVals d.nP ρ) ρ)]
+  congr 1
+  apply List.map_congr_left
+  intro q hq
+  exact interp_congr_below V q d.nP _ _ (R.DsA_below hj q hq) (fun i hi => (push_agree ρ ρ i hi).symm)
+
 set_option maxHeartbeats 3200000 in
 /-- **R2 at the run, per group, modulo the owed facts** (task #279 M-C′
 step 4, DESIGN §M.35): at pin `j`'s group, at any parameter frame `ρ`
@@ -1453,6 +1541,22 @@ theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
     (d.psiHead_interp mpAux.base2 ψ (auxOfsOf st p.k cd j) hget hDsLen) hO.headφ
     (R.fitCopy_of_run tbl₀ hρ hj hJ hfit)
     (R.es_of_record tbl₀ hρ hj hJ hvsN) (R.pos_noTransport tbl₀ hρ hj hJ (hfin J) (hnoT J cA hJ) hvsN)
+
+/-- **R2 AT THE RUN, per group** (task #279 M-C′ step 5): `r2Grp_of_owed`
+with the owed fact derived (`headφ_of_run`) — for a FINITARY container
+without transports, both elimination bits nonzero. -/
+theorem r2Grp (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
+    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) {j : Nat} (hj : j < st.pins.length)
+    (hbJ : (cd j).dJ.bb (cd j).ψ' ≠ 0) (hbA : d.bb ψ ≠ 0)
+    (hfin : ∀ J, ∀ i, i ∈ ConLeche.recIdxOf ((cd j).dJ.ksF J) →
+      ((cd j).dJ.ksF J).getD i .ordinary = .recursive ∧ ((cd j).dJ.tssF J (cd j).ψ').getD i [] = [])
+    (hnoT : ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → ∀ i, i < cA.2 →
+      i ∉ ConLeche.recIdxOf ((cd j).dJ.ksF J) → i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j J)) →
+      d.tgtsR (auxOfsOf st p.k cd j J) i < p.k) :
+    R2Grp mpAux.base2 ρ (paramBvarsAt d.nP d.nP) (cd j)
+      (fun t => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t))
+      (fun t => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s (p.k + (cd j).base + t)) :=
+  R.r2Grp_of_owed tbl₀ hρ hj hbJ hbA hfin hnoT fun _ _ hJ => R.headφ_of_run hj hJ
 
 end NestedRunFacts
 
