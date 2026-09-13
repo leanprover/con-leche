@@ -58,6 +58,45 @@ theorem MintStep.trans {env : Env} {nP : Nat} {pbs₀ : List (Expr × BinderMeta
   | refl => exact h₂
   | mint hci hmk hDs hpbs hDsLen _ ih => exact .mint hci hmk hDs hpbs hDsLen (ih h₂)
 
+/-- `mkUniqueName` returns `base` with SOME index appended (whichever
+the counter reached). -/
+theorem mkUniqueName_shape (env : Env) (base : Name) :
+    ∀ (fuel idx : Nat), ∃ i, (mkUniqueName env base fuel idx).1 = Name.appendIndexAfter base i
+  | 0, idx => ⟨idx, rfl⟩
+  | fuel + 1, idx => by
+    simp only [mkUniqueName]
+    split
+    · exact ⟨idx, rfl⟩
+    · exact mkUniqueName_shape env base fuel (idx + 1)
+
+/-- A prefix survives `appendName`: `pre` is a prefix of `pre ++ n`. -/
+theorem hasPrefixOf_appendName (pre : Name) :
+    ∀ (n : Name), Name.hasPrefixOf pre (Name.appendName pre n) = true
+  | .anonymous => by
+    show Name.hasPrefixOf pre pre = true
+    cases pre <;> simp [Name.hasPrefixOf]
+  | .str p s => by
+    simp only [Name.appendName, Name.hasPrefixOf, Bool.or_eq_true]
+    exact Or.inr (hasPrefixOf_appendName pre p)
+  | .num p k => by
+    simp only [Name.appendName, Name.hasPrefixOf, Bool.or_eq_true]
+    exact Or.inr (hasPrefixOf_appendName pre p)
+
+/-- **The minted names carry the reserved prefix** (K.10 reads it): an
+index appended after `pre ++ n` keeps `pre` as a prefix whenever `n` is
+not anonymous (at `n = .anonymous` the index is glued onto `pre`'s own
+last component). -/
+theorem hasPrefixOf_appendIndexAfter_appendName (pre : Name) :
+    ∀ (n : Name) (i : Nat), n ≠ .anonymous →
+      Name.hasPrefixOf pre (Name.appendIndexAfter (Name.appendName pre n) i) = true
+  | .anonymous, _, h => absurd rfl h
+  | .str p s, i, _ => by
+    simp only [Name.appendName, Name.appendIndexAfter, Name.hasPrefixOf, Bool.or_eq_true]
+    exact Or.inr (hasPrefixOf_appendName pre p)
+  | .num p k, i, _ => by
+    simp only [Name.appendName, Name.appendIndexAfter, Name.hasPrefixOf, Bool.or_eq_true]
+    exact Or.inr (Or.inr (hasPrefixOf_appendName pre p))
+
 /-- What one `mkCopies` call does: one copy per group member, appended
 to the types, and one pin per member, appended to the pins, in member
 order at one level instantiation and one pin list. -/
@@ -72,7 +111,8 @@ theorem mkCopies_spec {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : List
             (⟨c.name, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩ : NestedPin))
           copies members ∧
         ∀ (i : Nat) (J : ContainerMember), members[i]? = some J →
-          ∃ copy : AuxType, copies[i]? = some copy ∧ mkCopy pbs lvls Ds copy.name J = .ok copy
+          ∃ copy : AuxType, copies[i]? = some copy ∧ mkCopy pbs lvls Ds copy.name J = .ok copy ∧
+            (J.name ≠ .anonymous → Name.hasPrefixOf nestedPrefixName copy.name = true)
   | [], st, st', got, h => by
     simp only [mkCopies, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -96,7 +136,12 @@ theorem mkCopies_spec {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : List
           cases i with
           | zero =>
             obtain rfl : J' = J := (Option.some.inj hi).symm
-            exact ⟨copy, rfl, by rw [hname]; exact hcopy⟩
+            refine ⟨copy, rfl, by rw [hname]; exact hcopy, fun hne => ?_⟩
+            rw [hname]
+            obtain ⟨i', hi'⟩ := mkUniqueName_shape env (Name.appendName nestedPrefixName J'.name)
+              1024 st.nextIdx
+            rw [hi']
+            exact hasPrefixOf_appendIndexAfter_appendName _ _ _ hne
           | succ i => exact hall i J' hi
 
 /-- A mint keeps the pin list as a prefix. -/
@@ -412,7 +457,8 @@ def PinOriginAt (env : Env) (k : Nat) (blvls : List Level) (nP : Nat) (params : 
     (qhead ≤ k + j → t.ctors = copy.ctors) ∧
     (k + j < qhead → ∃ (st₁ st₂ : ElimState) (cs' : List (Name × Expr × Nat)),
       elimCtors env blvls nP params pbs copy.ctors st₁ = .ok (cs', st₂) ∧ t.ctors = cs' ∧
-      st₁.pins <+: st.pins ∧ st₂.pins <+: st.pins)
+      st₁.pins <+: st.pins ∧ st₂.pins <+: st.pins) ∧
+    (J.name ≠ .anonymous → Name.hasPrefixOf nestedPrefixName q.aux = true)
 
 /-- **The ledger**: the types are the block's `k` followed by one per
 pin, and every pin has an origin. -/
@@ -429,14 +475,14 @@ theorem PinOriginAt.mono {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
     (hp : st.pins <+: st'.pins) (ht : st.types <+: st'.types) :
     PinOriginAt env k blvls nP params pbs st' qhead j := by
   obtain ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hj, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ht',
-    hn, hty, hraw, hproc⟩ := h
+    hn, hty, hraw, hproc, hpre⟩ := h
   have hpins : ∀ {i : Nat} {q : NestedPin}, st.pins[i]? = some q → st'.pins[i]? = some q := by
     intro i q hq'
     obtain ⟨tl, htl⟩ := hp
     rw [← htl, List.getElem?_append_left (List.getElem?_eq_some_iff.mp hq').1]
     exact hq'
   refine ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hj, fun i' J' hi' => ?_,
-    hpins hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hn, hty, hraw, fun hlt => ?_⟩
+    hpins hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hn, hty, hraw, fun hlt => ?_, hpre⟩
   · obtain ⟨q', hq', hc', hp'⟩ := hgrp i' J' hi'
     exact ⟨q', hpins hq', hc', hp'⟩
   · obtain ⟨tl, htl⟩ := ht
@@ -477,7 +523,7 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
     obtain ⟨copy, hcopy⟩ : ∃ copy, copies[i]? = some copy := ⟨_, List.getElem?_eq_getElem hi⟩
     obtain ⟨J, hJ⟩ : ∃ J, ci.members[i]? = some J :=
       ⟨_, List.getElem?_eq_getElem (by rw [← hclen]; exact hi)⟩
-    obtain ⟨copy', hcopy', hmkc⟩ := hcopies i J hJ
+    obtain ⟨copy', hcopy', hmkc, hpre⟩ := hcopies i J hJ
     obtain rfl : copy = copy' := Option.some.inj (hcopy.symm.trans hcopy')
     have hpinAt : ∀ i' J', ci.members[i']? = some J' →
         st'.pins[st.pins.length + i']? = some
@@ -492,7 +538,7 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
     refine ⟨I, ci, i, st.pins.length, J, lvls, Ds,
       ⟨copy.name, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩, copy, copy, hci, hJ, rfl,
       fun i' J' hi' => ⟨_, hpinAt i' J' hi', rfl, rfl⟩, ?_, rfl, rfl, hmkc, hDs, hpbs, hDsLen, ?_, rfl, rfl,
-      fun _ => rfl, fun hlt => ?_⟩
+      fun _ => rfl, fun hlt => ?_, hpre⟩
     · have := hpinAt i J hJ
       rw [List.getD_eq_getElem?_getD, hcopy] at this
       exact this
@@ -537,9 +583,9 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
       obtain ⟨hlen, hall⟩ := hL
       refine ⟨hlen, fun j hj => ?_⟩
       obtain ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-        hDs, hpbs', hDsLen, ht, hn, hty, hraw, hproc⟩ := hall j hj
+        hDs, hpbs', hDsLen, ht, hn, hty, hraw, hproc, hprefix⟩ := hall j hj
       refine ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-        hDs, hpbs', hDsLen, ht, hn, hty, fun hle => ?_, fun _ => hproc (by omega)⟩
+        hDs, hpbs', hDsLen, ht, hn, hty, fun hle => ?_, fun _ => hproc (by omega), hprefix⟩
       exfalso; omega
     · next t ht =>
       split at h
@@ -557,7 +603,7 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
           refine ⟨by simp [hlen₁], fun j hj => ?_⟩
           have hj' : j < st₁.pins.length := hj
           obtain ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t', hci, hJ, hjE, hgrp, hq, hqc, hqp,
-            hmk, hDs, hpbs', hDsLen, ht', hn, hty, hraw, hproc⟩ := hall₁ j hj
+            hmk, hDs, hpbs', hDsLen, ht', hn, hty, hraw, hproc, hprefix⟩ := hall₁ j hj
           by_cases hjq : k + j = qhead
           · -- the processed entry: it was raw at `st`, and `st` is the
             -- state its `elimCtors` ran from
@@ -571,7 +617,8 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
               exact Option.some.inj (htj.symm.trans ht')
             subst htt
             refine ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, { t with ctors := cs' }, hci, hJ, hjE,
-              hgrp, hq, hqc, hqp, hmk, hDs, hpbs', hDsLen, ?_, hn, hty, fun hle => ?_, fun _ => ?_⟩
+              hgrp, hq, hqc, hqp, hmk, hDs, hpbs', hDsLen, ?_, hn, hty, fun hle => ?_, fun _ => ?_,
+              hprefix⟩
             · show (st₁.types.set qhead { t with ctors := cs' })[k + j]? = some _
               rw [hjq, List.getElem?_set_self (by rw [hlen₁]; omega)]
             · exfalso; omega
@@ -579,7 +626,7 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
               rw [← hraw']; exact hcs
           · refine ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t', hci, hJ, hjE, hgrp, hq, hqc, hqp,
               hmk, hDs, hpbs', hDsLen, ?_, hn, hty, fun hle => hraw (by omega),
-              fun hlt => hproc (by omega)⟩
+              fun hlt => hproc (by omega), hprefix⟩
             show (st₁.types.set qhead { t with ctors := cs' })[k + j]? = some t'
             rw [List.getElem?_set_ne (fun h => hjq h.symm)]
             exact ht'
@@ -612,7 +659,8 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
         (∀ D ∈ Ds, D.looseBVarsBounded 0 = true) ∧ pbs.length = nP ∧ Ds.length = ci.nP ∧
         st.types[types.length + j]? = some { copy with ctors := cs' } ∧
         elimCtors env (lps.map Level.param) nP params pbs copy.ctors st₁ = .ok (cs', st₂) ∧
-        st₁.pins <+: st.pins ∧ st₂.pins <+: st.pins := by
+        st₁.pins <+: st.pins ∧ st₂.pins <+: st.pins ∧
+        (J.name ≠ .anonymous → Name.hasPrefixOf nestedPrefixName q.aux = true) := by
   unfold elimNested at h
   split at h
   · next t₀ ht₀ =>
@@ -625,10 +673,11 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
           ⟨by simp, fun j hj => nomatch hj⟩
         obtain ⟨hlen, hall⟩ := elimLoop_ledger hpbs h hL₀
         obtain ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-          hDs, -, hDsLen, ht, hn, hty, -, hproc⟩ := hall j hj
+          hDs, -, hDsLen, ht, hn, hty, -, hproc, hpre⟩ := hall j hj
         obtain ⟨st₁, st₂, cs', hrun, hcs, h₁, h₂⟩ := hproc (by omega)
         refine ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, I, ci, i, j₀, J, lvls, Ds, q, copy,
-          st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hrun, h₁, h₂⟩
+          st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hrun, h₁, h₂,
+          hpre⟩
         rw [ht]
         congr 1
         cases t with

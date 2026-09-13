@@ -215,6 +215,111 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
   rw [hq] at hreps
   exact ⟨mpAux, d, hreps⟩
 
+/-! ## The stored formers are the checked ones (K.10, DESIGN §M.25 piece 3)
+
+`nestedCopyFormerType_eq` identifies a copy's stored FORMER with the
+checked one `fms[i]`, consed by `consMutualFormers`; what the model
+reads is `envAux.find?`, three stages later.  The stages after the
+formers' conses are fresh extensions by non-formers (`FreshEtaExt`), and
+a fresh extension preserves every lookup it does not shadow. -/
+
+/-- A fresh extension keeps every existing lookup. -/
+theorem FreshEtaExt.find?_some {env env' : Env} (h : FreshEtaExt env env') {n : Name}
+    {c : ConstantInfo} (hf : env.find? n = some c) : env'.find? n = some c := by
+  obtain ⟨new, hc, hfresh, -⟩ := h
+  rw [find?_append_of_new_none hc, hf]
+  rw [List.find?_eq_none]
+  intro c' hc' hn
+  have hn' : c'.name = n := beq_iff_eq.mp hn
+  have := hfresh c' hc'
+  rw [hn', hf] at this
+  exact nomatch this
+
+/-- **Every checked former is stored at the scratch environment** as
+the mutual install consed it (with the empty capability record): from
+the run's formers stage, the block's name discipline, and the three
+later stages' fresh extensions (the recursors' names fresh at the
+pre-block environment, as the nested run supplies them). -/
+theorem auxFormers_stored {F : Nat} {env envAux : Env} {b : MutualBlock} {auxRoute : Bool}
+    (hrun : DeclMutualCoreRun μ F env b none auxRoute envAux)
+    (hfreshRec : ∀ t, t < b.k → env.find? (b.recName t) = none) :
+    ∃ fms : List MutualFormerA,
+      ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) b.nP b.formers env
+        auxRoute = .ok (ConLeche.consMutualFormers fms env, fms) ∧
+      fms.length = b.k ∧
+      (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+        ∃ (cv : ConstantVal) (bs : List (Expr × BinderMeta)),
+          b.formers[t]? = some (cv, f.nIdx) ∧ ConLeche.FormerFront μ F env cv f.cvTa ∧
+          f.cvTa.type.stripPis (b.nP + f.nIdx) = some (bs, .sort f.s)) ∧
+      ∀ f ∈ fms, envAux.find? f.cvTa.name = some (.indInfo f.cvTa {}) := by
+  obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, hNodup,
+    -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys, -, htbl⟩ := hrun
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨hlenFms, hposF⟩ := ConLeche.mutualFormerChecks_front hchecks
+  have hkF : fms.length = b.k := hlenFms
+  -- the checked members carry the declared names
+  have hnamesF : fms.map (·.cvTa.name) = b.memberNames := by
+    refine List.ext_getElem? fun t => ?_
+    rw [List.getElem?_map]
+    cases hft : fms[t]? with
+    | none =>
+      have hn : b.formers[t]? = none := by
+        rw [List.getElem?_eq_none_iff] at hft ⊢
+        exact (by rw [← hkF]; exact hft : b.k ≤ t)
+      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hn]
+    | some f =>
+      obtain ⟨cv, bs, hl, hff, -⟩ := hposF t f hft
+      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hl, hff.name]
+  have hNd := hNodup
+  unfold ConLeche.MutualBlock.blockNames at hNd
+  obtain ⟨hNd₁, hNdRec, hdisj⟩ := List.nodup_append.mp hNd
+  obtain ⟨hNdM, hNdC, hdisjMC⟩ := List.nodup_append.mp hNd₁
+  have hndF : (fms.map (·.cvTa.name)).Nodup := by rw [hnamesF]; exact hNdM
+  -- the constructors' checked names are the declared ones
+  obtain ⟨hlenA, -, hallC⟩ := ConLeche.checkMutualCtors_inv hctors
+  have hctorNames : ∀ cA ∈ ctorsA, cA.1.name ∈ b.ctors.map (·.cv.name) := by
+    intro cA hcA
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+    have hjl : j < b.ctors.length := by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hj).1
+    obtain ⟨c, hc⟩ : ∃ c, b.ctors[j]? = some c := ⟨_, List.getElem?_eq_getElem hjl⟩
+    obtain ⟨-, sorts, -, hrunJ⟩ := hallC j c cA hc hj
+    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrunJ
+    have hn : cA.1.name = c.cv.name := (ConLeche.FormerFront.of_checkConstantVal hccv).name
+    rw [hn]
+    exact List.mem_map_of_mem (List.mem_of_getElem? hc)
+  -- the recursors' names are fresh where they are stored
+  have hfreshR : ∀ q ∈ cvRas.zipIdx,
+      (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
+        (Prod.fst q).name = none := by
+    intro q hq
+    have hget : cvRas[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
+    obtain ⟨hlenR, hallR⟩ := ConLeche.checkMutualRecTys_inv hrectys
+    have hqk : q.2 < b.k := by
+      have := (List.getElem?_eq_some_iff.mp hget).1
+      rw [hlenR] at this; exact this
+    obtain ⟨cvRa, hget', hrunR⟩ := hallR q.2 hqk
+    obtain rfl : q.1 = cvRa := Option.some.inj (hget.symm.trans hget')
+    obtain ⟨recTy, -, -, -, -, -, -, -, -, -, -, hqeq⟩ := ConLeche.checkMutualRecTy_shape hrunR
+    rw [hqeq]
+    show (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
+      (b.recName q.2) = none
+    have hrecMem : b.recName q.2 ∈ (List.range b.k).map b.recName :=
+      List.mem_map_of_mem (List.mem_range.mpr hqk)
+    rw [consMutualCtors_find?_of_ne, consMutualFormers_find?_of_ne]
+    · exact hfreshRec q.2 hqk
+    · intro g hg hh
+      refine hdisj _ (List.mem_append.mpr (Or.inl ?_)) _ hrecMem hh
+      rw [← hnamesF]
+      exact List.mem_map_of_mem hg
+    · intro c hc hh
+      exact hdisj _ (List.mem_append.mpr (Or.inr (hctorNames c hc))) _ hrecMem hh
+  -- the three later stages are fresh extensions
+  have hx : FreshEtaExt (ConLeche.consMutualFormers fms env) envAux :=
+    (consMutualCtors_freshExt (nP := b.nP) (checkMutualCtors_fresh hctors)).trans
+      ((storeMutualRecs_freshExt hfreshR).trans (mutualTables_freshExt htbl))
+  refine ⟨fms, hformers, hkF, hposF, fun f hf => ?_⟩
+  exact FreshEtaExt.find?_some hx (consMutualFormers_find?_self hf hndF)
+
 /-- **The auxiliary model of a nested run**: the scratch environment the
 run's `checkMutualCore` produced carries the P invariant. -/
 theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}

@@ -227,7 +227,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   -- the copy's origin (at the elimination's state)
   have hj₀ : j < st₀.pins.length := by rw [← hpins]; exact hj
   obtain ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, I, ci, i, j₀, J, lvls, Ds, q, copy,
-    st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, hty, hrun, h₁, h₂⟩ :=
+    st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, hty, hrun, h₁, h₂, -⟩ :=
     ConLeche.elimNested_copy helim hj₀
   rw [nestedTypes0_length] at hty
   rw [← hpins] at hq
