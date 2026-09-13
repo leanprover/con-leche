@@ -71273,7 +71273,7 @@ Per the maintainer: NO perf measurement (the corpus is too small to say
 anything).  The Mathlib nested cone is unchanged at **41/41 accept**, so
 no corpus block declines.
 
-**A GATE BLOCKER INHERITED FROM THE K.4/K.5 MERGES, not from K.6.**
+**THE GATE BLOCKER THE K.4/K.5 MERGES BROUGHT — FIXED HERE (K.7).**
 `tests/arena.sh`'s SHAKE gate cannot run its census at `inductives` =
 `dbd53f3c`: the census imports every module of the tree at once, and
 `Verify/Inductives/CopyTypes.lean` (task #298, commit `dbb17f63`)
@@ -71297,8 +71297,37 @@ not CHECK them**.  K.6 fixed that for its own proof file:
 `topoFields_of`, which packages the four `TopoOrder` fields as one fact
 off the run relation's conjunct — so the file is built by `lake build`,
 and the model tier gets the fields rather than the algorithm.  The two
-K.4/K.5 files still need their consumer (or their rename); **that is the
-lane's or the maintainer's call, not this one's.**
+K.4/K.5 files still needed their consumer (or their rename); the
+maintainer's ruling was to fix both here, which K.7 does:
+
+* **the rename**, applied EXACTLY as the model lane made it on its own
+  branch so that the eventual merge is conflict-free —
+  `Expr.getAppFn_mkAppN'` and `Expr.getAppFn_instantiateLevelParams'`,
+  each with the lane's own "named apart from …" docstring.  The file is
+  byte-identical to
+  `agent/nested-279m:ConLeche/Verify/Inductives/CopyTypes.lean` after it.
+* **the umbrella edge**: `ConLeche.lean`, the base umbrella, gains
+  `public import ConLeche.Verify.Inductives.AuxFormers` (which
+  re-exports `CopyTypes`), with the task #209 census's reason on it —
+  ALIVE BY STATEMENT.  Both files are now built by `lake build`, hence
+  CHECKED by the build gate, and the shake census finds their oleans.
+* **the import hygiene those two files had never been shaken for.**
+  Putting them on the graph exposed 6 removals and 5 demotions.  Five
+  `public import`s demoted (`AuxFormers`' three, `CopyTypes`' two), two
+  unused plain imports of `AuxFormers` deleted (`Verify.Mono`,
+  `Kernel.Inductives.NestedElim`), and `CopyTypes`' `public import
+  Verify.Subst` demoted against a compensating
+  `import ConLeche.Verify.Subst` in `AuxFormers` — which is what
+  `stripPis_length` reached it through.  ONE removal is allowlisted,
+  `CopyTypes`' `public import Verify.Abstract`: deleting it loses
+  `Verify.Shift`'s `WScoped`, so it is a compensated removal, the class
+  `tests/shake-allowlist.txt` is for.  `pub-imports: none demotable`;
+  `tests/layering.sh` unchanged at 297 base / 218 model / 3 caps / 1
+  umbrella, 0 base→lane, 0 impl→theory.
+
+None of this touches the binary — `Kernel/*`, `Cached/*`, `Frontend/*`
+and `Main.lean` are untouched by K.7 — so the shadow gate, the cone and
+every verdict stand as K.6 measured them.
 
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
 did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
@@ -71311,7 +71340,7 @@ on `3640f02e`, after K.3 on `40ad5bc2`, and again after K.6 on
 | `lake test` | exit 0, warning-free |
 | `tests/nested-shadow.sh` | **23/23 as expected** (22 before K.1) |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | at K.3 and before: **exit 0** — arena tutorial **90/92** (as recorded), e2e **214/214**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  At K.6 (on `inductives` = `dbd53f3c`): every half green with the same numbers, **nested-shadow 23/23**, and exit 1 on the SHAKE gate's census ALONE, for the `CopyTypes.lean` name clash the K.4/K.5 merges brought — see the blocker note above; it is not K.6's |
+| `tests/arena.sh` | **exit 0** at K.3 and before, and **exit 0 again at K.6+K.7** — arena tutorial **90/92** (as recorded), e2e **214/214**, **nested-shadow 23/23**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  (Between the two, on `inductives` = `dbd53f3c`, the SHAKE gate's census alone failed for the `CopyTypes.lean` name clash the K.4/K.5 merges brought; K.7 fixes it — see the blocker note above) |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
 | Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
