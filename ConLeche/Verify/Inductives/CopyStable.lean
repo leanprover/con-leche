@@ -6,6 +6,8 @@ import ConLeche.Verify.Mono
 import ConLeche.Verify.Deep
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
@@ -2277,16 +2279,18 @@ theorem dummyMap_closed (n : Nat) : ∀ l v, dummyMap n l = some v → v.looseBV
   · rw [← Option.some.inj hv]; rfl
   · exact nomatch hv
 
-/-- A term whose top-level leaves are below `n` is scoped at `n` once
-sanitised. -/
-theorem WScoped_mapFvars_dummy {n : Nat} :
-    ∀ (e : Expr), Expr.TopLeaves (· < n) e → WScoped n (e.mapFvars (dummyMap n)) := by
+/-- A leaf map whose values are scoped at every top-level leaf gives a
+scoped term. -/
+theorem WScoped_mapFvars_of_topLeaves {d : Nat} {σ : Nat → Option Expr} :
+    ∀ (e : Expr), Expr.TopLeaves (fun l => ∃ v, σ l = some v ∧ WScoped d v) e →
+      WScoped d (e.mapFvars σ) := by
   intro e
   induction e with
   | fvar idx ty _ =>
     intro h
-    have h' : idx < n := h
-    simp [Expr.mapFvars, dummyMap, h', WScoped]
+    obtain ⟨v, hv, hw⟩ := h
+    simp only [Expr.mapFvars, hv]
+    exact hw
   | app f a ihf iha => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨ihf h.1, iha h.2⟩
   | lam ty b m iht ihb => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨iht h.1, ihb h.2⟩
   | forallE ty b m iht ihb => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨iht h.1, ihb h.2⟩
@@ -2297,5 +2301,363 @@ theorem WScoped_mapFvars_dummy {n : Nat} :
   | sort u => intro _; simp [Expr.mapFvars, WScoped]
   | const c us => intro _; simp [Expr.mapFvars, WScoped]
   | lit l => intro _; simp [Expr.mapFvars, WScoped]
+
+/-- A term whose top-level leaves are below `m ≤ n` is scoped at `m`
+once sanitised at `n`. -/
+theorem WScoped_mapFvars_dummy {m n : Nat} (hmn : m ≤ n) (e : Expr)
+    (h : Expr.TopLeaves (· < m) e) : WScoped m (e.mapFvars (dummyMap n)) :=
+  WScoped_mapFvars_of_topLeaves e (h.mono fun l hl =>
+    ⟨Expr.fvar l (.sort .zero), by simp [dummyMap, show l < n by omega],
+      by simp only [WScoped]; exact ⟨hl, trivial⟩⟩)
+
+/-- The top-level leaves of an abstracted-range term without free
+variables are within the range. -/
+theorem topLeaves_of_abstractRange_hasFvar {n : Nat} :
+    ∀ (e : Expr) (c : Nat), (e.abstractRange 0 n c).hasFvar = false → Expr.TopLeaves (· < n) e := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro c h
+    simp only [Expr.abstractRange] at h
+    split at h
+    · next hc => show idx < n; have := hc.2; omega
+    · exact nomatch h
+  | app f a ihf iha =>
+    intro c h
+    simp only [Expr.abstractRange, Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ⟨ihf c h.1, iha c h.2⟩
+  | lam ty b m iht ihb =>
+    intro c h
+    simp only [Expr.abstractRange, Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ⟨iht c h.1, ihb (c + 1) h.2⟩
+  | forallE ty b m iht ihb =>
+    intro c h
+    simp only [Expr.abstractRange, Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ⟨iht c h.1, ihb (c + 1) h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro c h
+    simp only [Expr.abstractRange, Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ⟨iht c h.1.1, ihv c h.1.2, ihb (c + 1) h.2⟩
+  | proj s i e ih => intro c h; exact ih c h
+  | _ => intro _ _; trivial
+
+/-- A spine without free variables has none in its arguments. -/
+theorem hasFvar_mkAppN_inv :
+    ∀ (args : List Expr) (f : Expr), (Expr.mkAppN f args).hasFvar = false →
+      f.hasFvar = false ∧ ∀ a ∈ args, a.hasFvar = false
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: args, f, h => by
+    obtain ⟨hfa, hall⟩ := hasFvar_mkAppN_inv args (.app f a) h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfa
+    exact ⟨hfa.1, fun b hb => by
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact hfa.2
+      · exact hall b hb⟩
+
+/-- The top-level leaves of a spine's arguments. -/
+theorem topLeaves_mkAppN_inv {P : Nat → Prop} :
+    ∀ (args : List Expr) (f : Expr), Expr.TopLeaves P (Expr.mkAppN f args) →
+      Expr.TopLeaves P f ∧ ∀ a ∈ args, Expr.TopLeaves P a
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: args, f, h => by
+    obtain ⟨hfa, hall⟩ := topLeaves_mkAppN_inv args (.app f a) h
+    exact ⟨hfa.1, fun b hb => by
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact hfa.2
+      · exact hall b hb⟩
+
+/-- A shorter strip of a stripped telescope. -/
+theorem stripPis_of_le :
+    ∀ (n m : Nat) {T : Expr} {bs : List (Expr × BinderMeta)} {r : Expr},
+      T.stripPis n = some (bs, r) → m ≤ n → ∃ bs' r', T.stripPis m = some (bs', r')
+  | _, 0, T, _, _, _, _ => ⟨[], T, rfl⟩
+  | 0, m + 1, _, _, _, _, hle => by omega
+  | n + 1, m + 1, T, bs, r, h, hle => by
+    match T, h with
+    | .forallE ty body bm, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, r₀⟩, h₀, -⟩ := h
+      obtain ⟨bs', r', h'⟩ := stripPis_of_le n m h₀ (Nat.le_of_succ_le_succ hle)
+      exact ⟨(ty, bm) :: bs', r', by simp [Expr.stripPis, h']⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
+
+/-- `instPis` is the residual of `instPisAt`. -/
+theorem instPisAt_of_instPis :
+    ∀ (args : List Expr) {e rest : Expr}, Expr.instPis e args = some rest →
+      ∃ ds, Expr.instPisAt args e = some (ds, rest)
+  | [], e, rest, h => ⟨[], by simp only [Expr.instPis, Option.some.injEq] at h; rw [h]; rfl⟩
+  | a :: args, e, rest, h => by
+    match e, h with
+    | .forallE dom body bm, h =>
+      simp only [Expr.instPis] at h
+      obtain ⟨ds, hds⟩ := instPisAt_of_instPis args h
+      exact ⟨dom :: ds, by simp [Expr.instPisAt, hds]⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.instPis] at h
+
+/-! ## The pin's components, annotated one by one -/
+
+/-- Annotation of a spine, with one run per argument. -/
+theorem annotateCore_mkAppN_args {env : Env} {d : Nat} :
+    ∀ {args : List Expr} {F : Nat} {f e' : Expr},
+      annotateCore mode env F d (Expr.mkAppN f args) = .ok e' →
+      ∃ (f' : Expr) (args' : List Expr), e' = Expr.mkAppN f' args' ∧ args'.length = args.length ∧
+        (∃ F', annotateCore mode env F' d f = .ok f') ∧
+        ∀ (i : Nat) (a : Expr), args[i]? = some a →
+          ∃ (F' : Nat) (a' : Expr), args'[i]? = some a' ∧ annotateCore mode env F' d a = .ok a'
+  | [], F, f, e', h => ⟨e', [], rfl, rfl, ⟨F, h⟩, fun _ _ h => nomatch h⟩
+  | a :: args, F, f, e', h => by
+    have h' : annotateCore mode env F d (Expr.mkAppN (.app f a) args) = .ok e' := h
+    obtain ⟨g', args', rfl, hlen, ⟨F', hg⟩, hall⟩ := annotateCore_mkAppN_args h'
+    cases F' with
+    | zero =>
+      rw [annotateCore_zero] at hg
+      simp only [throw, throwThe, MonadExceptOf.throw] at hg
+      exact nomatch hg
+    | succ F' =>
+      obtain ⟨f'', a'', hf, ha, rfl⟩ := annotateCore_app_inv hg
+      refine ⟨f'', a'' :: args', rfl, by simp [hlen], ⟨F', hf⟩, fun i x hx => ?_⟩
+      cases i with
+      | zero =>
+        obtain rfl := Option.some.inj hx
+        exact ⟨F', a'', rfl, ha⟩
+      | succ i => exact hall i x hx
+
+/-- Spines of equal length are equal only componentwise. -/
+theorem Expr.mkAppN_inj :
+    ∀ {as bs : List Expr} {f g : Expr}, Expr.mkAppN f as = Expr.mkAppN g bs →
+      as.length = bs.length → f = g ∧ as = bs
+  | [], [], _, _, h, _ => ⟨h, rfl⟩
+  | [], _ :: _, _, _, _, hl => by simp at hl
+  | _ :: _, [], _, _, _, hl => by simp at hl
+  | a :: as, b :: bs, f, g, h, hl => by
+    have h' : Expr.mkAppN (.app f a) as = Expr.mkAppN (.app g b) bs := h
+    obtain ⟨hfg, hab⟩ := Expr.mkAppN_inj h' (by simpa using hl)
+    simp only [Expr.app.injEq] at hfg
+    exact ⟨hfg.1, by rw [hfg.2, hab]⟩
+
+/-- **The leaf certificate**: one run of the annotator at the block's
+depth on a scoped, bvar-closed term fixes the result of every run at
+any depth from there on (depth invariance, fuel monotonicity). -/
+theorem annot_leaf_of_run {env : Env} (henv : EnvWF env) {nP F₀ : Nat} {a b : Expr}
+    (hw : WScoped nP a) (h₀ : annotateCore mode env F₀ nP a = .ok b) :
+    ∀ (f d' : Nat) (x : Expr), nP ≤ d' → annotateCore mode env f d' a = .ok x → x = b := by
+  intro f d' x hd h
+  have hB : a.wscopedB nP = true := hw.to_wscopedB
+  have hB' : a.wscopedB d' = true := (hw.mono hd).to_wscopedB
+  rw [annotateCore_depth_inv henv f hB' hB] at h
+  have h₁ := annotateCore_mono (Nat.le_max_left f F₀) h
+  have h₂ := annotateCore_mono (Nat.le_max_right f F₀) h₀
+  exact Except.ok.inj (h₁.symm.trans h₂)
+
+/-! ## The copy's FORMER, aligned
+
+The whole telescope bookkeeping for the former, from the run's facts:
+the mint (`instPis` of the level-instantiated stored former at the
+closed components, closed over the block's parameter binders), the
+install's annotation of that closed term, the stored former opened at
+the block's openers (the ALIGNMENT PREMISE: the copy's stored former
+opens at the openers the pin check annotates at — the parameter
+telescopes of the block's members agree syntactically, which the
+mutual check compares only definitionally), the pin check's annotation
+of the components at those openers, the container's stability, and the
+per-component reader agreement.  The conclusion is the equation
+`copyIdxRead_of_align` consumes. -/
+
+theorem copyFormer_aligned {env : Env} (henv : EnvWF env) {nP : Nat}
+    -- the container's stored former: a telescope ending in a sort, stable
+    {J : Name} {cvTJ : ConstantVal} {capsJ : IndCaps} (hfJ : env.find? J = some (.indInfo cvTJ capsJ))
+    (hstab : ReaderStable env.find? 0 cvTJ.type)
+    {nJ : Nat} {bsJ : List (Expr × BinderMeta)} {uJ : Level}
+    (hJtele : cvTJ.type.stripPis nJ = some (bsJ, .sort uJ))
+    {lvls : List Level}
+    -- the mint
+    {Ds : List Expr} {tyI : Expr} (hDs : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true)
+    (hDsLen : Ds.length ≤ nJ)
+    (htyI : Expr.instPis (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) Ds = some tyI)
+    {pbs : List (Expr × BinderMeta)} (hpbs : pbs.length = nP)
+    -- the install's annotation of the closed copy former
+    {F : Nat} {Tst : Expr} (hann : annotateCore mode env F 0 (closeTelescope pbs 0 tyI) = .ok Tst)
+    (hcl : (closeTelescope pbs 0 tyI).looseBVarsBounded 0 = true)
+    (hnf : (closeTelescope pbs 0 tyI).hasFvar = false)
+    -- the alignment premise: the stored former opens at the block's openers
+    {fvsA : List Expr} {restC : Expr} (hopen : openPisAtFvars nP Tst 0 = some (fvsA, restC))
+    (hfvsA : ∀ (i : Nat) (x : Expr), fvsA[i]? = some x →
+      ∃ ty, x = .fvar i ty ∧ WScoped i ty ∧ ty.looseBVarsBounded 0 = true)
+    -- the pin's scope and its check at the openers
+    (hpinsClosed : (Expr.abstractRange (Expr.mkAppN (.const J lvls) Ds) 0 nP 0).hasFvar = false)
+    {F₁ : Nat} {argsA : List Expr}
+    (hpin : annotateCore mode env F₁ nP (Expr.mkAppN (.const J lvls)
+      (Ds.map fun D => Expr.instantiateList (D.abstractRange 0 nP 0) fvsA.reverse))
+      = .ok (Expr.mkAppN (.const J lvls) argsA))
+    (hargsLen : argsA.length = Ds.length)
+    -- the per-component premise
+    {dsA : List Expr} {restA : Expr}
+    (hAt : Expr.instPisAt argsA (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls)
+      = some (dsA, restA))
+    (hcomp : ∀ (i : Nat) (A a : Expr), dsA[i]? = some A → argsA[i]? = some a →
+      SortAgreeW env.find? A a ∧ ProofAgreeW env.find? A a) :
+    restC = restA := by
+  -- 0. the container's type
+  have hwfJ := henv _ (find?_mem hfJ)
+  have hJnf : cvTJ.type.hasFvar = false := hwfJ.1
+  have hJb : cvTJ.type.looseBVarsBounded 0 = true := hwfJ.2.2.2.1
+  have hT'nf : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hJnf
+  have hT'b : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).looseBVarsBounded 0 = true := by
+    rw [looseBVarsBounded_instantiateLevelParams]; exact hJb
+  have hT'stab : ReaderStable env.find? 0 (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) :=
+    ReaderStable.instantiateLevelParams henv.storedLevelParamsDefined hstab
+  have hT'W : WScoped 0 (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) :=
+    WScoped.of_not_hasFvar hT'nf
+  have hlenA : fvsA.length = nP := ConLeche.Verify.openPisAtFvars_length nP hopen
+  -- 1. the closed copy former's parts, sanitised
+  obtain ⟨-, hpbsB⟩ := closeTelescope_bounded_inv pbs 0 tyI 0 hcl
+  obtain ⟨htyIL, hpbsL⟩ :=
+    closeTelescope_topLeaves_inv (P := fun _ => False) pbs 0 tyI (topLeaves_of_not_hasFvar hnf)
+  obtain ⟨ds₀, hAt₀⟩ := instPisAt_of_instPis Ds htyI
+  obtain ⟨-, htyIb⟩ := ConLeche.Verify.instPisAt_bounded Ds hAt₀ hT'b hDs
+  have hsan : closeTelescope (mapDoms (dummyMap nP) pbs) 0 (tyI.mapFvars (dummyMap nP))
+      = closeTelescope pbs 0 tyI :=
+    closeTelescope_mapFvars_reannot pbs 0 tyI (dummyMap nP) (dummyMap_fvar nP)
+      (fun l _ => Nat.zero_le l)
+      (htyIL.mono fun l hl _ => by rcases hl with h | ⟨-, h⟩; exact h.elim; simpa using h)
+      (fun j b hj => (hpbsL j b hj).mono fun l hl _ => by
+        rcases hl with h | ⟨-, h⟩; exact h.elim; simpa using h)
+  have hbsS : ∀ (j : Nat) (b : Expr × BinderMeta), (mapDoms (dummyMap nP) pbs)[j]? = some b →
+      b.1.looseBVarsBounded j = true ∧ WScoped (0 + j) b.1 := by
+    intro j b hj
+    have hjl : j < pbs.length := by
+      have := (List.getElem?_eq_some_iff.mp hj).1
+      rwa [mapDoms_length] at this
+    obtain ⟨b₀, hb₀⟩ : ∃ b₀, pbs[j]? = some b₀ := ⟨_, List.getElem?_eq_getElem hjl⟩
+    rw [mapDoms_getElem? _ pbs j b₀ hb₀] at hj
+    obtain rfl := Option.some.inj hj
+    refine ⟨looseBVarsBounded_mapFvars (dummyMap_closed nP) _ _ (by simpa using hpbsB j b₀ hb₀), ?_⟩
+    rw [Nat.zero_add]
+    refine WScoped_mapFvars_dummy (by omega) _ ((hpbsL j b₀ hb₀).mono fun l hl => ?_)
+    rcases hl with h | ⟨-, h⟩; exact h.elim; simpa using h
+  have hbodyS : WScoped (0 + (mapDoms (dummyMap nP) pbs).length) (tyI.mapFvars (dummyMap nP)) := by
+    rw [mapDoms_length, hpbs, Nat.zero_add]
+    refine WScoped_mapFvars_dummy (Nat.le_refl _) _ (htyIL.mono fun l hl => ?_)
+    rcases hl with h | ⟨-, h⟩; exact h.elim; rw [hpbs] at h; simpa using h
+  -- 2. the annotation, opened through the telescope
+  rw [← hsan] at hann
+  have hopen' : openPisAtFvars (mapDoms (dummyMap nP) pbs).length Tst 0 = some (fvsA, restC) := by
+    rw [mapDoms_length, hpbs]; exact hopen
+  obtain ⟨F', hF'⟩ := annotate_closeTelescope_open _ 0 _ hbsS
+    (looseBVarsBounded_mapFvars (dummyMap_closed nP) _ _ htyIb) hbodyS hann hopen'
+  rw [mapDoms_length, hpbs, Nat.zero_add, mapFvars_mapFvars] at hF'
+  have hmapEq : (fun k => match dummyMap nP k with
+        | some v => some (v.mapFvars (fun k' => if 0 ≤ k' then fvsA[k' - 0]? else none))
+        | none => (fun k' => if 0 ≤ k' then fvsA[k' - 0]? else none) k)
+      = (fun k => fvsA[k]?) := by
+    funext k
+    simp only [dummyMap, Nat.zero_le, if_true, Nat.sub_zero]
+    by_cases hk : k < nP
+    · obtain ⟨x, hx⟩ : ∃ x, fvsA[k]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨ty, rfl, -, -⟩ := hfvsA k x hx
+      simp [hk, Expr.mapFvars, hx]
+    · simp [hk]
+  rw [hmapEq] at hF'
+  -- 3. the raw body at the openers is `instPis` at the mapped components
+  have hσc : ∀ (i : Nat) (v : Expr), (fun k => fvsA[k]?) i = some v → v.looseBVarsBounded 0 = true := by
+    intro i v hv
+    obtain ⟨ty, rfl, -, -⟩ := hfvsA i v hv
+    rfl
+  have hraw := instPis_mapFvars hσc Ds htyI
+  rw [mapFvars_of_not_hasFvar hT'nf] at hraw
+  have hDs'eq : (Ds.map fun D => Expr.instantiateList (D.abstractRange 0 nP 0) fvsA.reverse)
+      = Ds.map (·.mapFvars (fun k => fvsA[k]?)) := by
+    apply List.map_congr_left
+    intro D hD
+    exact instantiateList_abstractRange_eq_mapFvars hlenA
+      (fun x hx => by
+        obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hx
+        obtain ⟨ty, h, -, -⟩ := hfvsA i _ (List.getElem?_eq_getElem hi)
+        exact ⟨i, ty, h⟩) D 0 (hDs D hD)
+  rw [hDs'eq] at hpin
+  -- 4. the components' scope and runs
+  have hDsTop : ∀ D ∈ Ds, Expr.TopLeaves (· < nP) D := by
+    rw [abstractRange_mkAppN] at hpinsClosed
+    intro D hD
+    exact topLeaves_of_abstractRange_hasFvar D 0
+      ((hasFvar_mkAppN_inv _ _ hpinsClosed).2 _ (List.mem_map_of_mem hD))
+  have hDs'W : ∀ D ∈ Ds, WScoped nP (D.mapFvars (fun k => fvsA[k]?)) := by
+    intro D hD
+    refine WScoped_mapFvars_of_topLeaves D ((hDsTop D hD).mono fun l hl => ?_)
+    obtain ⟨x, hx⟩ : ∃ x, fvsA[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨ty, rfl, hw, -⟩ := hfvsA l x hx
+    exact ⟨_, hx, by simp only [WScoped]; exact ⟨hl, hw⟩⟩
+  obtain ⟨f', args', heq, hlen', -, hargs⟩ := annotateCore_mkAppN_args hpin
+  obtain ⟨-, rfl⟩ := Expr.mkAppN_inj heq (by rw [hlen', List.length_map, hargsLen])
+  -- 5. the leaf relation and its certificate
+  let R : Expr → Expr → Prop := fun a b =>
+    ∃ i : Nat, (Ds.map (·.mapFvars (fun k => fvsA[k]?)))[i]? = some a ∧ argsA[i]? = some b
+  have hRok : ∀ a b, R a b → ∀ (f d' : Nat) (x : Expr), nP ≤ d' →
+      annotateCore mode env f d' a = .ok x → x = b := by
+    rintro a b ⟨i, ha, hb⟩ f d' x hd h
+    obtain ⟨F₂, b', hb', hrun⟩ := hargs i a ha
+    obtain rfl := Option.some.inj (hb.symm.trans hb')
+    have haW : WScoped nP a := by
+      rw [List.getElem?_map] at ha
+      obtain ⟨D, hD, rfl⟩ := Option.map_eq_some_iff.mp ha
+      exact hDs'W D (List.mem_of_getElem? hD)
+    exact annot_leaf_of_run henv haW hrun f d' x hd h
+  -- 6. the chain: the fused relation between the raw and the annotated bodies
+  have hargsW : ∀ a ∈ argsA, WScoped nP a := by
+    intro a ha
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ha
+    have hi' : i < Ds.length := by rw [← hargsLen]; exact hi
+    obtain ⟨D, hD⟩ : ∃ D, Ds[i]? = some D := ⟨_, List.getElem?_eq_getElem hi'⟩
+    obtain ⟨F₂, b', hb', hrun⟩ := hargs i (D.mapFvars (fun k => fvsA[k]?))
+      (by rw [List.getElem?_map, hD]; rfl)
+    rw [List.getElem?_eq_getElem hi] at hb'
+    obtain rfl := Option.some.inj hb'
+    exact annotateCore_WScoped F₂ _ hrun (hDs'W D (List.mem_of_getElem? hD))
+  have hargsB : ∀ a ∈ argsA, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ha
+    have hi' : i < Ds.length := by rw [← hargsLen]; exact hi
+    obtain ⟨D, hD⟩ : ∃ D, Ds[i]? = some D := ⟨_, List.getElem?_eq_getElem hi'⟩
+    obtain ⟨F₂, b', hb', hrun⟩ := hargs i (D.mapFvars (fun k => fvsA[k]?))
+      (by rw [List.getElem?_map, hD]; rfl)
+    rw [List.getElem?_eq_getElem hi] at hb'
+    obtain rfl := Option.some.inj hb'
+    exact annotateCore_looseBVars F₂ _ hrun
+      (looseBVarsBounded_mapFvars hσc _ _ (hDs D (List.mem_of_getElem? hD)))
+  have hstrip : ∃ bs r, (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis
+      argsA.length = some (bs, r) := by
+    have h1 := stripPis_instantiateLevelParams_isSome cvTJ.levelParams lvls nJ
+      (e := cvTJ.type) (by rw [hJtele]; rfl)
+    obtain ⟨bs₁, r₁, h₁⟩ : ∃ bs₁ r₁, (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis nJ
+        = some (bs₁, r₁) := by
+      cases h : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).stripPis nJ with
+      | none => rw [h] at h1; exact nomatch h1
+      | some q => exact ⟨q.1, q.2, rfl⟩
+    exact stripPis_of_le nJ argsA.length h₁ (by rw [hargsLen]; exact hDsLen)
+  have hnone : (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls).mapFvars (fun _ => none)
+      = cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls :=
+    mapFvars_eq_self _ fun _ _ => rfl
+  have hpair : MapPair R (fun _ => none) (fun _ => none) := by
+    refine ⟨fun _ => rfl, ?_, ?_, ?_⟩
+    · intro _ _ _ h; exact nomatch h
+    · intro _ _ h; exact nomatch h
+    · intro _ _ h; exact nomatch h
+  have hokE : LeafOk env.find? (fun _ => none) (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) := by
+    intro _ _ _ _ h; exact nomatch h
+  have hrel : AnnotRelS R env.find? nP (tyI.mapFvars (fun k => fvsA[k]?)) restA := by
+    refine annotRelS_instPis (R := R) _ argsA (fun _ => none) (fun _ => none) hT'stab hT'W
+      hpair hokE (by rw [List.length_map, hargsLen])
+      (fun i vr va hr ha => ⟨⟨i, hr, ha⟩, ?_, hargsB va (List.mem_of_getElem? ha)⟩)
+      hstrip (by rw [hnone]; exact hAt) (by rw [hnone]; exact hraw) hcomp
+    rw [List.getElem?_map] at hr
+    obtain ⟨D, hD, rfl⟩ := Option.map_eq_some_iff.mp hr
+    exact looseBVarsBounded_mapFvars hσc _ _ (hDs D (List.mem_of_getElem? hD))
+  -- 7. the annotation theorem over the fused relation
+  obtain ⟨-, hWA⟩ := instPisAt_WScoped argsA _ hAt (hT'W.mono (Nat.zero_le _)) hargsW
+  obtain ⟨-, hBA⟩ := ConLeche.Verify.instPisAt_bounded argsA hAt hT'b hargsB
+  exact annotateCore_of_annotRelS hRok F' _ _ nP restC (Nat.le_refl _) hrel hWA hBA hF'
 
 end ConLeche
