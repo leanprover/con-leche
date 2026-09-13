@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.CopyCtors
 import ConLeche.Model.Inductives.FixCtorReads
+import ConLeche.Model.Inductives.FixRuleKit
 import ConLeche.Model.Inductives.MutualChains
 public section
 
@@ -408,6 +409,9 @@ structure CopyData.Ok (m : EnvModel V env) (d : IndRepData V) (ψ : Name → Nat
   ff : c.dJ.FormerFacts m c.ψ' c.mm
   ls : c.dJ.LeafShape m c.ψ' c.mm
   pins : ∀ φ : Name → Nat, c.dJ.pinsAV c.mm φ = paramBvarsAt c.dJ.nP c.dJ.nP
+  pIffM : ∀ ρ' : Nat → V, Sat V (c.dJ.params c.ψ').reverse ρ' ↔
+    Sat V (((c.dJ.ppsM c.mm c.ψ').take c.dJ.nP).map (·.2.2)).reverse ρ'
+  pin : d.PinRead ψ (m.acval (c.dJ.memberName c.mm) c.ψ') c.DsA c.dJ.nP
   idx : d.CopyIdxRead ψ (k₀ + j') c.dJ c.ψ' c.mm c.DsA
 
 namespace IndRepData
@@ -1712,7 +1716,8 @@ substituted for the container's parameters. -/
 through `psiTyped_of_pi`, and the transport's own grading). -/
 @[expose] def PsiTypedPi (m : EnvModel V env) (ψ' : Name → Nat) (σ : Nat → V) (DsA : List AnnotTerm)
     (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (t : Nat) (Ψ : AnnotTerm) : Prop :=
-  WellDenotedV V σ Ψ ∧ interp V σ Ψ ∈ˢ interp V σ (d.psiTyAV m ψ' DsA L pinsT t)
+  WellDenotedV V σ Ψ ∧ WellDenotedV V σ (d.psiTyAV m ψ' DsA L pinsT t) ∧
+    interp V σ Ψ ∈ˢ interp V σ (d.psiTyAV m ψ' DsA L pinsT t)
 
 /-- The Π-type's reading at the pin's readings. -/
 theorem interp_psiTyAV (m : EnvModel V env) (ψ' : Name → Nat) (DsA : List AnnotTerm)
@@ -1733,7 +1738,7 @@ theorem psiTyped_of_pi (m : EnvModel V env) {ψ' : Name → Nat} {σ : Nat → V
     (hTg : d.TargetOk ψ' σ DsA L pinsT t) {Ψ : AnnotTerm}
     (h : d.PsiTypedPi m ψ' σ DsA L pinsT t Ψ) : d.PsiTyped m ψ' σ DsA L pinsT t Ψ := by
   intro is x hfit
-  have hmem := h.2
+  have hmem := h.2.2
   rw [d.interp_psiTyAV] at hmem
   have hfit' : SpineFit (consList (DsA.map (interp V σ)) σ)
       ((rebit (d.bb ψ') (d.motDataAV m ψ' t)).map (·.2.2)) (is ++ [x]) := by
@@ -1764,6 +1769,781 @@ theorem psiTyped_of_pi (m : EnvModel V env) {ψ' : Name → Nat} {σ : Nat → V
   rw [consList_append, consList_cons, consList_nil, interp_liftN, shiftE_succ_cons,
     shiftE_zero_zero] at this
   exact this
+
+end IndRepData
+
+/-- A Π-tower at one bit is bit-valid when its entries are valid under
+fitting prefixes and its body is valid under fitting spines — a truth
+value at the zero bit (`annotValid_mkPisAV_rebit_sort`'s general
+form). -/
+theorem annotValid_mkPisAV_of {b : Nat} {B : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}, (∀ dd ∈ ds, dd.2.1 = b) →
+      (∀ (k : Nat) (dd : Nat × Nat × AnnotTerm), ds[k]? = some dd →
+        ∀ as : List V, SpineFit ρ ((ds.take k).map (·.2.2)) as → AnnotValid V (consList as ρ) dd.2.2) →
+      (∀ as : List V, SpineFit ρ (ds.map (·.2.2)) as →
+        AnnotValid V (consList as ρ) B ∧ (b = 0 → interp V (consList as ρ) B ∈ˢ (univZero : V))) →
+      AnnotValid V ρ (mkPisAV ds B)
+  | [], ρ, _, _, hB => by
+    have := (hB [] trivial).1
+    simp only [consList_nil] at this
+    exact this
+  | d :: ds, ρ, hbits, hds, hB => by
+    simp only [mkPisAV, AnnotValid_pi]
+    refine ⟨by simpa using hds 0 d rfl [] trivial, fun x hx => ?_, fun h0 x hx => ?_⟩
+    · rw [show cons x ρ = consList [x] ρ from rfl]
+      refine annotValid_mkPisAV_of (fun dd hd => hbits dd (List.mem_cons_of_mem _ hd))
+        (fun k dd hk as hsp => ?_) (fun as hsp => ?_)
+      · have := hds (k + 1) dd (by simpa using hk) (x :: as)
+          (by rw [List.take_succ_cons, List.map_cons]; exact ⟨hx, hsp⟩)
+        simpa [consList_cons] using this
+      · have := hB (x :: as) ⟨hx, hsp⟩
+        simpa [consList_cons] using this
+    · have hb0 : b = 0 := by rw [← hbits d List.mem_cons_self]; exact h0
+      cases ds with
+      | nil =>
+        have := (hB [x] ⟨hx, trivial⟩).2 hb0
+        exact this
+      | cons d' ds' =>
+        exact mkPisAV_mem_univZero_of_bits (List.cons_ne_nil _ _)
+          (fun dd hd => by rw [hbits dd (List.mem_cons_of_mem _ hd)]; exact hb0) _
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+set_option maxHeartbeats 6400000 in
+/-- **The transports are graded at the leaf frame** (`PsiSetup.hviaWD`):
+the transport entry is a λ-tower over the copy's telescope (moved to
+the ih frame) whose body is the earlier copy's term at the copy's index
+readings and the field at the telescope's variables.  The telescope's
+entries are graded at the field frame (the container's domain, read as
+the target container at its pin, `containerDom_transport`); the body is
+graded by the earlier term's Π-type (`PsiTypedPi`) at the fit of the
+readings and the field (`transport_fits`); the λ-tower's own type is
+the target-form ih domain, graded by the target's fold target. -/
+theorem viaWD_psi {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} {ψ ψ' : Name → Nat}
+    {σ : Nat → V} {dJ : IndRepData V} {DsA : List AnnotTerm} (hDsA : DsA.length = dJ.nP)
+    (hDsWD : ∀ p ∈ DsA, WellDenotedV V σ p) {k₀ j₀ : Nat} (auxOf : Nat → Nat) (cd : Nat → CopyData V)
+    (tbl : Nat → AnnotTerm) {Jc : Nat} {cAJ cAa : ConstantVal × Nat} (hnF : cAa.2 = cAJ.2)
+    (hrec : d.CopyCtorAsRead mp.base2 dJ ψ ψ' DsA k₀ j₀ (fun j' => (cd j').dJ.memberName (cd j').mm)
+      (fun j' => (cd j').ψ') (fun j' => (cd j').DsA) Jc (auxOf Jc) cAJ.2)
+    (hDA : FixCtorDataI mp.base2 d.env₀ (d.memberName (d.mems (auxOf Jc))) lpsT cAa.1 d.nP cAa.2
+      (d.nIdxAt (d.mems (auxOf Jc))) d.resSort d.isProp d.large (d.idxF (auxOf Jc)) (d.dsF (auxOf Jc))
+      (d.esF (auxOf Jc)) (d.srcsF (auxOf Jc)) (d.ksF (auxOf Jc)) (d.fvsPF (auxOf Jc))
+      (d.xFvsF (auxOf Jc)) (d.xrestF (auxOf Jc)) (d.eissF (auxOf Jc)) (d.tssF (auxOf Jc))
+      (fun i => d.memberName (d.tgts (auxOf Jc) i)) (fun i => d.nIdxAt (d.tgts (auxOf Jc) i)))
+    (hviewA : d.ksR (auxOf Jc) = d.ksF (auxOf Jc) ∧ d.tgtsR (auxOf Jc) = d.tgts (auxOf Jc) ∧
+      d.eissR (auxOf Jc) = d.eissF (auxOf Jc) ∧ d.tssR (auxOf Jc) = d.tssF (auxOf Jc))
+    {bodyJ : AnnotTerm}
+    (hTJ : WellDenotedV V (consList (DsA.map (interp V σ)) σ)
+      (mkPisAV ((dJ.dsF Jc ψ').drop dJ.nP) bodyJ))
+    (hlenJ : (dJ.dsF Jc ψ').length = dJ.nP + cAJ.2)
+    (hbz : dJ.bb ψ' = 0 ↔ d.resSort.eval ψ = 0) (hsatA : Sat V (d.params ψ).reverse σ)
+    (hk : 0 < dJ.k)
+    (hcd : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      CopyData.Ok mp.base2 d ψ k₀ (d.tgtsR (auxOf Jc) i - k₀) (cd (d.tgtsR (auxOf Jc) i - k₀)))
+    (htbl : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.PsiTypedPi mp.base2 (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ' σ
+        (cd (d.tgtsR (auxOf Jc) i - k₀)).DsA
+        (d.psiL mp.base2 ψ k₀ (cd (d.tgtsR (auxOf Jc) i - k₀)).base)
+        (d.psiPinsT (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.nP) (cd (d.tgtsR (auxOf Jc) i - k₀)).mm
+        (tbl (d.tgtsR (auxOf Jc) i - k₀)))
+    (htgTg : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.TargetOk (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ' σ
+        (cd (d.tgtsR (auxOf Jc) i - k₀)).DsA
+        (d.psiL mp.base2 ψ k₀ (cd (d.tgtsR (auxOf Jc) i - k₀)).base)
+        (d.psiPinsT (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.nP) (cd (d.tgtsR (auxOf Jc) i - k₀)).mm ∧
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.elimL.eval (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ'
+        = (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.w (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ')
+    {Ms prior : List AnnotTerm} (hMs : Ms.length = dJ.k) (hprior : prior.length = Jc)
+    (Tg : Nat → AnnotTerm) :
+    ∀ fs ihs : List V, fs.length = cAJ.2 → ihs.length = (ConLeche.recIdxOf (dJ.ksF Jc)).length →
+      SpineFit (consList ((DsA ++ Ms ++ prior).map (interp V σ)) σ)
+        ((minorDataTg Tg (dJ.tgtsR Jc) dJ.nP cAJ.2 (dJ.bb ψ') (dJ.k + Jc) (dJ.dsF Jc ψ')
+          (ConLeche.recIdxOf (dJ.ksF Jc)) (dJ.tssR Jc ψ') (dJ.eissR Jc ψ')).map (·.2.2))
+        (fs ++ ihs) →
+      ∀ i Ψ Eis tl, d.psiVia dJ ψ k₀ dJ.nP auxOf (dJ.bb ψ') tbl Jc i = some (Ψ, Eis, tl) →
+        WellDenotedV V (consList (fs ++ ihs) (consList ((DsA ++ Ms ++ prior).map (interp V σ)) σ))
+          (viaEntryAV Ψ cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl Eis) := by
+  intro fs ihs hfs hihs hfit i Ψ Eis tl hvia
+  obtain ⟨hviewK, hviewT, hviewE, hviewS⟩ := hviewA
+  unfold IndRepData.psiVia at hvia
+  split at hvia
+  · next hT =>
+    simp only [Option.some.injEq, Prod.mk.injEq] at hvia
+    obtain ⟨rfl, rfl, rfl⟩ := hvia
+    have hi : i < cAJ.2 := by
+      obtain ⟨hlt, -⟩ := mem_recIdxOf.mp hT.1
+      rw [hviewK, hDA.ksLen, hnF] at hlt; exact hlt
+    have hc := hcd i hi hT.1 hT.2
+    obtain ⟨hTpiWD, hTyWD, hTpiMem⟩ := htbl i hi hT.1 hT.2
+    obtain ⟨hTg', hlev'⟩ := htgTg i hi hT.1 hT.2
+    have hDsLen : (DsA.map (interp V σ)).length = dJ.nP := by simp [hDsA]
+    -- the copy's index count is the target's
+    have hEl : ((d.eissR (auxOf Jc) ψ).getD i []).length = d.nIdxAt (d.tgtsR (auxOf Jc) i) := by
+      obtain ⟨hlt', hk'⟩ := mem_recIdxOf.mp hT.1
+      rw [hviewK, hDA.ksLen] at hlt'
+      rw [hviewE, hviewT]
+      rw [hviewK] at hk'
+      rcases hk' with hk' | hk'
+      · exact hDA.eisLen ψ i hk' hlt'
+      · exact hDA.eisLenRefl ψ i hk' hlt'
+    have hbitsT : ∀ dd ∈ (d.tssR (auxOf Jc) ψ).getD i [], (dJ.bb ψ' = 0 ↔ dd.2.1 = 0) := by
+      intro dd hd
+      rw [hbz]
+      exact (hDA.tssBits ψ i dd (by rw [← hviewS]; exact hd)).symm
+    -- the container's domain, at the fields' prefix
+    have hfsLen : fs.length = cAJ.2 := hfs
+    have hfsTake : (fs.take i).length = i := by rw [List.length_take]; omega
+    -- the frame: the fields and the hypotheses over the minors, the motives and the pin
+    obtain ⟨M0, Mrest, rfl⟩ : ∃ M0 Mrest, Ms = M0 :: Mrest := by
+      cases Ms with
+      | nil => simp at hMs; omega
+      | cons M0 Mrest => exact ⟨M0, Mrest, rfl⟩
+    have hMrest : Mrest.length + 1 = dJ.k := by simpa using hMs
+    generalize hσ' : consList (DsA.map (interp V σ)) σ = σ' at hTJ ⊢
+    have hframe₀ : consList ((DsA ++ M0 :: Mrest ++ prior).map (interp V σ)) σ
+        = consList (Mrest.map (interp V σ) ++ prior.map (interp V σ)) (cons (interp V σ M0) σ') := by
+      rw [← hσ', List.map_append, List.map_append, consList_append, consList_append,
+        List.map_cons, consList_motives_cons]
+    have hms : (Mrest.map (interp V σ) ++ prior.map (interp V σ)).length + 1 = dJ.k + Jc := by
+      rw [List.length_append, List.length_map, List.length_map, hprior]; omega
+    rw [hframe₀] at hfit
+    rw [hframe₀, consList_append]
+    generalize hmsv : Mrest.map (interp V σ) ++ prior.map (interp V σ) = ms at hms hfit ⊢
+    generalize hM : interp V σ M0 = M at hfit ⊢
+    -- the fields fit the container's field domains at the pin's readings
+    have hfsFit : SpineFit σ' (((dJ.dsF Jc ψ').drop dJ.nP).map (·.2.2)) fs := by
+      unfold minorDataTg at hfit
+      rw [List.map_append] at hfit
+      obtain ⟨fs', ihs', heq, hfitF, -⟩ := spineFit_append_inv hfit
+      have hlenF' : fs'.length = cAJ.2 := by
+        rw [hfitF.length_eq, List.length_map, rebit_length, liftDoms_length, List.length_drop, hlenJ]
+        omega
+      obtain ⟨rfl, -⟩ := List.append_inj heq (by rw [hlenF', hfs])
+      rw [rebit_map_dom, spineFit_liftDoms] at hfitF
+      have hsh : shiftE (dJ.k + Jc) 0 (consList ms (cons M σ')) = σ' := by
+        rw [← consList_cons, show dJ.k + Jc = (M :: ms).length from by simp; omega]
+        exact shiftE_consList _ _
+      rw [hsh] at hfitF
+      exact hfitF
+    have hfit' : SpineFit σ' ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) (fs.take i) := by
+      have h := hfsFit
+      rw [← List.take_append_drop i ((dJ.dsF Jc ψ').drop dJ.nP), List.map_append] at h
+      obtain ⟨as₁, as₂, heq, h₁, -⟩ := spineFit_append_inv h
+      have hlen₁ : as₁.length = i := by
+        rw [h₁.length_eq, List.length_map, List.length_take, List.length_drop, hlenJ]; omega
+      have hfsTake' : fs.take i = as₁ := by
+        rw [heq, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+      rw [hfsTake']
+      exact h₁
+    have hlt : dJ.nP + i < (dJ.dsF Jc ψ').length := by rw [hlenJ]; omega
+    have hmemI : fs.getD i pt ∈ˢ interp V (consList (fs.take i) σ')
+        ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2 :=
+      spineFit_getElem? hfsFit i (fs.getD i pt) ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2
+        (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega : i < fs.length)]; rfl)
+        (by rw [List.getElem?_map, List.getElem?_drop, List.getElem?_eq_getElem hlt,
+          Option.map_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl)
+    obtain ⟨j'', h1, -, hint, hWD⟩ := containerDom_transport d mp.base2 hDsA hDsWD auxOf cd hrec
+      (by rw [hσ']; exact hTJ) hlenJ hi hT.2 hT.1 hfsTake (by rw [hσ']; exact hfit')
+    have hj' : d.tgtsR (auxOf Jc) i - k₀ = j'' := by omega
+    rw [hj'] at hc hTpiWD hTyWD hTpiMem hTg' hlev' ⊢
+    rw [hσ'] at hint
+    generalize htssA : (d.tssR (auxOf Jc) ψ).getD i [] = tssA at hint hWD hbitsT ⊢
+    generalize heissA : (d.eissR (auxOf Jc) ψ).getD i [] = eissA at hint hWD hEl ⊢
+    rw [h1] at hEl
+    -- the telescope, as the transport carries it
+    generalize htl : rebit (dJ.bb ψ') (liftDoms dJ.nP i tssA) = tl
+    have htlLen : tl.length = tssA.length := by rw [← htl, rebit_length, liftDoms_length]
+    have htlBits : ∀ dd ∈ tl, dd.2.1 = dJ.bb ψ' := fun dd hd => by rw [← htl] at hd; exact mem_rebit hd
+    have htlGet : ∀ (k : Nat) (dd : Nat × Nat × AnnotTerm), tl[k]? = some dd →
+        ∃ d' : Nat × Nat × AnnotTerm, tssA[k]? = some d' ∧ dd.2.2 = d'.2.2.liftN dJ.nP (i + k) := by
+      intro k dd hk
+      rw [← htl, rebit_getElem?, liftDoms_getElem?] at hk
+      obtain ⟨d', hd', rfl⟩ := Option.map_eq_some_iff.mp hk
+      obtain ⟨d'', hd'', rfl⟩ := Option.map_eq_some_iff.mp hd'
+      exact ⟨d'', hd'', rfl⟩
+    have htlTake : ∀ k, (tl.take k).map (·.2.2) = (liftDoms dJ.nP i (tssA.take k)).map (·.2.2) := by
+      intro k
+      rw [← htl, List.map_take, rebit_map_dom, ← List.map_take, liftDoms_take]
+    -- a spine fitting a prefix of the moved telescope fits the copy's telescope
+    have hfitTele : ∀ (k : Nat) (as : List V),
+        SpineFit (consList ihs (consList fs (consList ms (cons M σ')))) (((ihTeleAtR cAJ.2 (dJ.k + Jc) i
+          (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).take k).map (·.2.2)) as →
+        SpineFit (consList (fs.take i) σ) ((tssA.take k).map (·.2.2)) as := by
+      intro k as hsp
+      unfold ihTeleAtR at hsp
+      rw [ihTeleAtGo_take] at hsp
+      have h := (spineFit_ihTeleAtGo (M := M) (ρp := σ') hms hfs hihs (Nat.le_of_lt hi) (tl.take k) [] as).mp
+        (by simpa using hsp)
+      simp only [consList_nil] at h
+      have hsh := shiftE_consList_middle (fs.take i) (DsA.map (interp V σ)) σ
+      rw [hfsTake, hDsLen] at hsh
+      rw [htlTake, spineFit_liftDoms, ← hσ', hsh] at h
+      exact h
+    have hfitFull : ∀ as : List V,
+        SpineFit (consList ihs (consList fs (consList ms (cons M σ')))) ((ihTeleAtR cAJ.2 (dJ.k + Jc) i
+          (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).map (·.2.2)) as →
+        SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as := by
+      intro as hsp
+      have := hfitTele tl.length as (by
+        rw [List.take_of_length_le (Nat.le_of_eq (ihTeleAtR_length _ _ _ _ _))]; exact hsp)
+      rw [List.take_of_length_le (l := tssA) (Nat.le_of_eq htlLen.symm)] at this
+      exact this
+    -- the entries of the moved telescope, at the ih frame
+    have hentryWD : ∀ (k : Nat) (dd : Nat × Nat × AnnotTerm),
+        (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl)[k]? = some dd →
+        ∀ as : List V, SpineFit (consList ihs (consList fs (consList ms (cons M σ'))))
+          (((ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).take k).map (·.2.2)) as →
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) dd.2.2 := by
+      intro k dd hk as hsp
+      have hasA := hfitTele k as hsp
+      have hasLen : as.length = k := by
+        rw [hasA.length_eq, List.length_map, List.length_take]
+        have := (List.getElem?_eq_some_iff.mp hk).1
+        rw [ihTeleAtR_length, htlLen] at this
+        omega
+      unfold ihTeleAtR at hk
+      rw [ihTeleAtGo_getElem?] at hk
+      obtain ⟨d₁, hd₁, rfl⟩ := Option.map_eq_some_iff.mp hk
+      obtain ⟨d₂, hd₂, he⟩ := htlGet k d₁ hd₁
+      show WellDenotedV V _ (ihIdxAtM cAJ.2 (dJ.k + Jc) i _ (0 + k) d₁.2.2)
+      rw [Nat.zero_add, ← hasLen]
+      refine ⟨?_, ?_⟩
+      · rw [WellDenoted_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), he, ← hσ',
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+          ← hDsLen, show i + k = (fs.take i ++ as).length from by rw [List.length_append, hfsTake, hasLen],
+          WellDenoted_liftN, shiftE_consList_middle, consList_append]
+        exact (wellDenoted_mkPisAV_dom hWD.1 as k d₂ hd₂ hasA)
+      · rw [AnnotValid_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), he, ← hσ',
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+          ← hDsLen, show i + k = (fs.take i ++ as).length from by rw [List.length_append, hfsTake, hasLen],
+          AnnotValid_liftN, shiftE_consList_middle, consList_append]
+        exact (annotValid_mkPisAV_dom hWD.2 as k d₂ hd₂ hasA)
+    -- the moved readings, at the ih frame under the telescope values
+    have hEisRead : ∀ as : List V, as.length = tl.length →
+        eissA.map (fun E => interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+            (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length
+              (E.liftN dJ.nP (i + tssA.length))))
+          = eissA.map (interp V (consList as (consList (fs.take i) σ))) := by
+      intro as hasLen
+      apply List.map_congr_left
+      intro E _
+      rw [← hasLen, interp_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), ← hσ',
+        ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+        ← consList_append (xs := fs.take i) (ys := as) (ρ := σ), ← hDsLen,
+        show i + tssA.length = (fs.take i ++ as).length from by
+          rw [List.length_append, hfsTake, hasLen, htlLen],
+        interp_liftN_middle]
+    have hEisWD : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        ∀ a ∈ (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+          (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length),
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) a := by
+      intro as hasA a ha
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      rw [List.map_map] at ha
+      obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+      simp only [Function.comp_def]
+      obtain ⟨hbodyWD, -, -, -⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD hasA
+      have hEwd : WellDenotedV V (consList as (consList (fs.take i) σ)) E :=
+        (WellDenotedV.mkAppN_args hbodyWD).2 E (List.mem_append_right _ hE)
+      rw [← hasLen]
+      refine ⟨?_, ?_⟩
+      · rw [WellDenoted_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), ← hσ',
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+          ← hDsLen, show i + tssA.length = (fs.take i ++ as).length from by
+            rw [List.length_append, hfsTake, hasLen, htlLen],
+          WellDenoted_liftN, shiftE_consList_middle, consList_append]
+        exact hEwd.1
+      · rw [AnnotValid_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), ← hσ',
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+          ← hDsLen, show i + tssA.length = (fs.take i ++ as).length from by
+            rw [List.length_append, hfsTake, hasLen, htlLen],
+          AnnotValid_liftN, shiftE_consList_middle, consList_append]
+        exact hEwd.2
+    -- the frame below the telescope values, as one spine over the block's frame
+    have hF₀ : ∀ as : List V, as.length = tl.length →
+        consList as (consList ihs (consList fs (consList ms (cons M σ'))))
+          = consList (DsA.map (interp V σ) ++ (M :: ms ++ fs ++ ihs ++ as)) σ := by
+      intro as _
+      rw [← hσ', consList_append, consList_append, consList_append, consList_append, consList_cons]
+    have hN₀ : ∀ as : List V, as.length = tl.length →
+        dJ.nP + (dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length
+          = (DsA.map (interp V σ) ++ (M :: ms ++ fs ++ ihs ++ as)).length := by
+      intro as hasLen
+      simp only [List.length_append, List.length_cons, hDsLen, hfs, hihs, hasLen]
+      omega
+    have hshiftN₀ : ∀ as : List V, as.length = tl.length →
+        shiftE (dJ.nP + (dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length) 0
+          (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) = σ := by
+      intro as hasLen
+      rw [hF₀ as hasLen, hN₀ as hasLen]; exact shiftE_consList _ _
+    have hshiftO : ∀ as : List V, as.length = tl.length →
+        shiftE ((dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length) 0
+          (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) = σ' := by
+      intro as hasLen
+      rw [← consList_append, ← consList_append, ← consList_append, ← consList_cons,
+        show (dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length
+          = (M :: (ms ++ (fs ++ (ihs ++ as)))).length from by
+            simp only [List.length_append, List.length_cons, hfs, hihs, hasLen]; omega]
+      exact shiftE_consList _ _
+    -- the target: its data
+    have hDsWD'' : ∀ p ∈ (cd j'').DsA, WellDenotedV V σ p :=
+      (WellDenotedV.mkAppN_args (hc.pin.wd σ hsatA)).2
+    have hDsLen'' : ((cd j'').DsA.map (interp V σ)).length = (cd j'').dJ.nP := by
+      rw [List.length_map, hc.len]
+    have hchain : chain V σ (cd j'').DsA = consList ((cd j'').DsA.map (interp V σ)) σ := by
+      unfold chain; exact consN_eq_consList _ _
+    have hTgF := (cd j'').dJ.invTg_fact (cd j'').ψ' (ps := (cd j'').DsA) hDsWD'' hTg'
+    -- the field's value at telescope values, and the moved readings' values
+    have hxVal : ∀ as : List V, as.length = tl.length →
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN (.bvar (cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length))
+            (teleVarsAV tl.length))
+          = as.foldl SetTheory.app (fs.getD i pt) := by
+      intro as hasLen
+      rw [interp_mkAppN_map, interp_bvar, ← hasLen, map_teleVarsAV_interp]
+      congr 1
+      rw [consList_apply_add,
+        show cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length
+          = (cAJ.2 - 1 - i) + ihs.length from by omega,
+        consList_apply_add, consList_apply_lt' fs _ (by omega),
+        show fs.length - 1 - (cAJ.2 - 1 - i) = i from by omega]
+    -- the per-spine facts of a transport
+    have hspine : ∀ as : List V,
+        SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        let EisV := eissA.map (interp V (consList as (consList (fs.take i) σ)))
+        let x := as.foldl SetTheory.app (fs.getD i pt)
+        SpineFit (consList ((cd j'').DsA.map (interp V σ)) σ) ((cd j'').dJ.IdsM (cd j'').mm (cd j'').ψ') EisV ∧
+        SpineFit (consList ((cd j'').DsA.map (interp V σ)) σ)
+          (((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm).map (·.2.2)) (EisV ++ [x]) ∧
+        x ∈ˢ ((cd j'').DsA.map (interp V σ) ++ EisV).foldl SetTheory.app
+          (interp V σ (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')) ∧
+        EisV.length = (cd j'').dJ.nIdxs.getD (cd j'').mm 0 := by
+      intro as hasA
+      obtain ⟨hbodyWD, hval, hfitAll, hfitIdx⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD hasA
+      have hx : as.foldl SetTheory.app (fs.getD i pt)
+          ∈ˢ ((cd j'').DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList (fs.take i) σ)))).foldl
+            SetTheory.app (interp V σ (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')) := by
+        rw [hint] at hmemI
+        have h := mkPisAV_fold_mem (m := dJ.bb ψ') hbitsT
+          (fun h0 as' has' => by
+            obtain ⟨-, hval', hfitAll', -⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD has'
+            rw [hval']
+            obtain ⟨hlenP, hbitsP, hmemL, -⟩ := hc.ff
+            have := mkPisAV_fold_mem (m := 1)
+              (fun dd hd => ⟨fun h => absurd h Nat.one_ne_zero, fun h => absurd h (hbitsP dd hd)⟩)
+              (fun h => absurd h Nat.one_ne_zero) (hmemL σ) hfitAll'
+            rw [interp_sort] at this
+            have hw0 : (cd j'').dJ.w (cd j'').ψ' = 0 := by rw [hc.idx.sort]; exact hbz.mp h0
+            rw [hw0, univ_zero] at this
+            exact this)
+          hmemI hasA
+        rw [hval] at h
+        exact h
+      have hEisLen : (eissA.map (interp V (consList as (consList (fs.take i) σ)))).length
+          = (cd j'').dJ.nIdxs.getD (cd j'').mm 0 := by
+        have := hfitIdx.length_eq
+        unfold IndRepData.IdsM at this
+        simp only [List.length_map, List.length_drop] at this
+        rw [hc.ff.1] at this
+        rw [List.length_map]
+        show eissA.length = (cd j'').dJ.nIdxAt (cd j'').mm
+        omega
+      refine ⟨hfitIdx, ?_, hx, hEisLen⟩
+      unfold IndRepData.motDataAV
+      rw [List.map_append, List.map_singleton, rebit_map_dom, (cd j'').dJ.ipss_getD _ hc.mm]
+      refine SpineFit.append hfitIdx ⟨?_, trivial⟩
+      rw [(cd j'').dJ.Ls_getD_eq mp.base2 _ hc.mm,
+        show (cd j'').dJ.pinsOf (cd j'').ψ' (cd j'').mm = paramBvarsAt (cd j'').dJ.nP (cd j'').dJ.nP from
+          hc.pins _,
+        ← hEisLen, interp_famAppAV_params (mp.base2.cval_closedL _ _) hDsLen'' rfl σ]
+      exact hx
+    -- the target-form body `T`, and the target container's body `TJ`
+    generalize hN : dJ.nP + (dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length = N₀
+      at hshiftN₀ hN₀
+    have hTval : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+            ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+              (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length)))
+          = interp V (consList (eissA.map (interp V (consList as (consList (fs.take i) σ))))
+              (consList ((cd j'').DsA.map (interp V σ)) σ))
+              (famAppAV (d.psiL mp.base2 ψ k₀ (cd j'').base (cd j'').mm)
+                (d.psiPinsT (cd j'').dJ.nP (cd j'').mm) (cd j'').dJ.nP
+                ((cd j'').dJ.nP + (cd j'').dJ.nIdxs.getD (cd j'').mm 0) ((cd j'').dJ.nIdxs.getD (cd j'').mm 0)) := by
+      intro as hasA
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      obtain ⟨hfitIdx, -, -, -⟩ := hspine as hasA
+      rw [interp_mkAppN_map]
+      simp only [List.map_map, Function.comp_def]
+      rw [hEisRead as hasLen, interp_liftN, hshiftN₀ as hasLen]
+      unfold IndRepData.psiTgOf
+      rw [(cd j'').dJ.invTg_fold _ (by rw [rebit_map_dom, (cd j'').dJ.ipss_getD _ hc.mm]; exact hfitIdx)]
+    have hTgraded : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+            ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+              (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length))) ∧
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+            ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+              (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length)))
+          ∈ˢ (univ ((cd j'').dJ.elimL.eval (cd j'').ψ') : V) := by
+      intro as hasA
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      obtain ⟨hfitIdx, -, -, -⟩ := hspine as hasA
+      -- the target's tower at the block's frame, lifted
+      have hTT : WellDenotedV V σ
+          (ConLeche.Model.AnnotTerm.instSeq (cd j'').DsA ((cd j'').DsA.length - 1)
+            (mkPisAV (rebit (pwBit (cd j'').ψ' ConLeche.PropWhen.never) (((cd j'').dJ.ipss (cd j'').ψ').getD (cd j'').mm []))
+              (.sort ((cd j'').dJ.elimL.eval (cd j'').ψ')))) := by
+        refine wellDenotedV_instSeq _ hDsWD'' ?_
+        rw [hchain]; exact hTg'.1
+      have hTTmem : interp V σ (d.psiTgOf mp.base2 ψ k₀ (cd j''))
+          ∈ˢ interp V σ (ConLeche.Model.AnnotTerm.instSeq (cd j'').DsA ((cd j'').DsA.length - 1)
+            (mkPisAV (rebit (pwBit (cd j'').ψ' ConLeche.PropWhen.never) (((cd j'').dJ.ipss (cd j'').ψ').getD (cd j'').mm []))
+              (.sort ((cd j'').dJ.elimL.eval (cd j'').ψ')))) := by
+        rw [interp_instSeq_consList]; exact hTgF.2
+      rw [instSeq_mkPisAV _ _ _ _ (by omega), instSeq_sort] at hTT hTTmem
+      have h := wellDenotedV_mkAppN_of_spineFit
+        (σ := consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+        (ds := liftDoms N₀ 0 (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+          (rebit (pwBit (cd j'').ψ' ConLeche.PropWhen.never) (((cd j'').dJ.ipss (cd j'').ψ').getD (cd j'').mm []))))
+        (C := (AnnotTerm.sort ((cd j'').dJ.elimL.eval (cd j'').ψ')).liftN N₀
+          (0 + (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+            (rebit (pwBit (cd j'').ψ' ConLeche.PropWhen.never) (((cd j'').dJ.ipss (cd j'').ψ').getD (cd j'').mm []))).length))
+        (f := (d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+        (as := (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+          (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length))
+        (by rw [← liftN_mkPisAV, WellDenotedV_liftN, hshiftN₀ as hasLen]; exact hTT)
+        (by rw [WellDenotedV_liftN, hshiftN₀ as hasLen]; exact hTgF.1)
+        (hEisWD as hasA)
+        (by rw [← liftN_mkPisAV, interp_liftN, interp_liftN, hshiftN₀ as hasLen]; exact hTTmem)
+        (by
+          rw [spineFit_liftDoms, hshiftN₀ as hasLen]
+          simp only [List.map_map, Function.comp_def]
+          rw [hEisRead as hasLen]
+          refine (spineFit_instSeqDoms_iff (xs := []) _ _ _ (fun hne => by
+              rw [hc.len, List.length_nil]
+              have : 1 ≤ (cd j'').dJ.nP := by
+                rw [← hc.len]
+                exact Nat.pos_of_ne_zero (fun h0 => hne (List.eq_nil_of_length_eq_zero h0))
+              omega)).mpr ?_
+          simp only [consList_nil, rebit_map_dom]
+          rw [(cd j'').dJ.ipss_getD _ hc.mm]
+          exact hfitIdx)
+      refine ⟨h.1, ?_⟩
+      have h2 := h.2
+      rw [AnnotTerm.liftN_sort, interp_sort] at h2
+      exact h2
+    have hzeroT : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        dJ.bb ψ' = 0 →
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+            ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+              (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length)))
+          ∈ˢ (univZero : V) := by
+      intro as hasA h0
+      have h := (hTgraded as hasA).2
+      have hw0 : (cd j'').dJ.elimL.eval (cd j'').ψ' = 0 := by
+        rw [hlev', hc.idx.sort]; exact hbz.mp h0
+      rw [hw0, univ_zero] at h
+      exact h
+    -- the target container's body at the ih frame, for the field's type
+    generalize hTJbody : AnnotTerm.mkAppN (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')
+        (((cd j'').DsA.map (·.liftN N₀ 0)) ++
+          (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+            (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length)) = TJbody
+    have hTJval : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) TJbody
+          = ((cd j'').DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList (fs.take i) σ)))).foldl
+              SetTheory.app (interp V σ (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')) := by
+      intro as hasA
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      rw [← hTJbody, interp_mkAppN_map, List.map_append]
+      simp only [List.map_map, Function.comp_def]
+      rw [hEisRead as hasLen, interp_closed (V := V) (mp.base2.cval_closedL _ _) _ σ]
+      congr 2
+      apply List.map_congr_left
+      intro D _
+      rw [interp_liftN, hshiftN₀ as hasLen]
+    have hTJwd : ∀ as : List V, SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as →
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) TJbody ∧
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) TJbody
+          ∈ˢ (univ ((cd j'').dJ.w (cd j'').ψ') : V) := by
+      intro as hasA
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      obtain ⟨hbodyWD, hval, hfitAll, -⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD hasA
+      obtain ⟨hlenP, hbitsP, hmemL, hokF⟩ := hc.ff
+      obtain ⟨B, hB⟩ := hc.ls
+      have hclosed : Term.bvarsBelow 0 (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ').erase :=
+        mp.base2.cval_closedL _ _
+      -- the fit of the readings into the leaf's binders, at the ih frame
+      have hargsLen : ((cd j'').DsA.map (·.liftN (i + tssA.length) 0) ++ eissA).length
+          = ((cd j'').dJ.ppsM (cd j'').mm (cd j'').ψ').length := by
+        rw [List.length_append, List.length_map, hc.len, hEl, ← hc.idx.nIdx, hlenP]
+      have hfitIh := spineFit_of_wellDenoted_lams (u := (cd j'').dJ.w (cd j'').ψ' + 1) (Nat.succ_ne_zero _)
+        (b := B) (args := (cd j'').DsA.map (·.liftN (i + tssA.length) 0) ++ eissA)
+        (ds := (cd j'').dJ.ppsM (cd j'').mm (cd j'').ψ')
+        (σ := consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+        (ρ := consList as (consList (fs.take i) σ))
+        (f := mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')
+        (Nat.le_of_eq hargsLen) hbodyWD.1
+        (by rw [hB]; exact interp_closed (V := V) (by rw [← hB]; exact hclosed) _ _)
+      rw [hargsLen, List.take_of_length_le (Nat.le_refl _), List.map_append] at hfitIh
+      have hDsV : ((cd j'').DsA.map (·.liftN (i + tssA.length) 0)).map
+          (interp V (consList as (consList (fs.take i) σ))) = (cd j'').DsA.map (interp V σ) := by
+        rw [List.map_map]
+        apply List.map_congr_left
+        intro D _
+        simp only [Function.comp_def]
+        rw [interp_liftN, ← consList_append, show i + tssA.length = (fs.take i ++ as).length from by
+          rw [List.length_append, hfsTake, hasLen, htlLen], shiftE_consList]
+      rw [hDsV] at hfitIh
+      have h := wellDenotedV_mkAppN_of_spineFit
+        (σ := consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+        (ds := (cd j'').dJ.ppsM (cd j'').mm (cd j'').ψ') (C := .sort ((cd j'').dJ.w (cd j'').ψ'))
+        (f := mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')
+        (as := ((cd j'').DsA.map (·.liftN N₀ 0)) ++
+          (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+            (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length))
+        (hokF _) ⟨mp.base2.acval_wellDenoted _ _ _, mp.acval_validV _ _ _⟩
+        (fun a ha => by
+          rcases List.mem_append.mp ha with ha | ha
+          · obtain ⟨D, hD, rfl⟩ := List.mem_map.mp ha
+            rw [WellDenotedV_liftN, hshiftN₀ as hasLen]
+            exact hDsWD'' D hD
+          · exact hEisWD as hasA a ha)
+        (hmemL _)
+        (by
+          rw [List.map_append]
+          simp only [List.map_map, Function.comp_def]
+          rw [hEisRead as hasLen]
+          have hDsV' : (cd j'').DsA.map (fun x => interp V
+              (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) (AnnotTerm.liftN N₀ x 0))
+              = (cd j'').DsA.map (interp V σ) := by
+            apply List.map_congr_left
+            intro D _
+            rw [interp_liftN, hshiftN₀ as hasLen]
+          rw [hDsV']
+          exact hfitIh)
+      rw [hTJbody] at h
+      refine ⟨h.1, ?_⟩
+      have h2 := h.2
+      rw [interp_sort] at h2
+      exact h2
+    -- the field's type at the ih frame: the tower over the moved telescope of `TJbody`
+    have hTJtower : interp V (consList ihs (consList fs (consList ms (cons M σ'))))
+        (mkPisAV (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl) TJbody)
+        = interp V (consList (fs.take i) σ)
+            (mkPisAV tssA (AnnotTerm.mkAppN (mp.base2.acval ((cd j'').dJ.memberName (cd j'').mm) (cd j'').ψ')
+              (((cd j'').DsA).map (·.liftN (i + tssA.length) 0) ++ eissA))) := by
+      refine interp_mkPisAV_congr (by rw [ihTeleAtR_length, htlLen]) ?_ ?_ ?_
+      · intro k d₁ d₂ h₁ h₂
+        unfold ihTeleAtR at h₁
+        rw [ihTeleAtGo_getElem?] at h₁
+        obtain ⟨d', hd', rfl⟩ := Option.map_eq_some_iff.mp h₁
+        obtain ⟨d'', hd'', -⟩ := htlGet k d' hd'
+        rw [h₂] at hd''
+        obtain rfl := Option.some.inj hd''
+        show d'.2.1 = 0 ↔ d₂.2.1 = 0
+        rw [htlBits d' (List.mem_of_getElem? hd')]
+        exact hbitsT d₂ (List.mem_of_getElem? h₂)
+      · intro k d₁ d₂ as h₁ h₂ hsp
+        have hasA := hfitTele k as hsp
+        have hasLen : as.length = k := by
+          rw [hasA.length_eq, List.length_map, List.length_take]
+          have := (List.getElem?_eq_some_iff.mp h₂).1
+          omega
+        unfold ihTeleAtR at h₁
+        rw [ihTeleAtGo_getElem?] at h₁
+        obtain ⟨d', hd', rfl⟩ := Option.map_eq_some_iff.mp h₁
+        obtain ⟨d'', hd'', he⟩ := htlGet k d' hd'
+        rw [h₂] at hd''
+        obtain rfl := Option.some.inj hd''
+        show interp V _ (ihIdxAtM cAJ.2 (dJ.k + Jc) i _ (0 + k) d'.2.2) = _
+        rw [Nat.zero_add, ← hasLen, interp_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi), he, ← hσ',
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+          ← consList_append (xs := fs.take i) (ys := as) (ρ := σ), ← hDsLen,
+          show i + k = (fs.take i ++ as).length from by rw [List.length_append, hfsTake, hasLen],
+          interp_liftN_middle]
+      · intro as hsp
+        have hasA := hfitFull as hsp
+        obtain ⟨-, hval, -, -⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD hasA
+        rw [hTJval as hasA, hval]
+    have hTJmem : fs.getD i pt ∈ˢ interp V (consList ihs (consList fs (consList ms (cons M σ'))))
+        (mkPisAV (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl) TJbody) := by
+      rw [hTJtower, ← hint]; exact hmemI
+    have hzb : ∀ dd ∈ ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl,
+        (dJ.bb ψ' = 0 ↔ dd.2.1 = 0) := by
+      intro dd hd
+      obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
+      rw [he, htlBits d' hd']
+    have hTJtowerWD : WellDenotedV V (consList ihs (consList fs (consList ms (cons M σ'))))
+        (mkPisAV (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl) TJbody) := by
+      refine ⟨wellDenoted_mkPisAV_of (fun k dd hk as hsp => (hentryWD k dd hk as hsp).1)
+          (fun as hsp => (hTJwd as (hfitFull as hsp)).1.1),
+        annotValid_mkPisAV_of (b := dJ.bb ψ')
+          (fun dd hd => by obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd; rw [he]; exact htlBits d' hd')
+          (fun k dd hk as hsp => (hentryWD k dd hk as hsp).2)
+          (fun as hsp => ⟨(hTJwd as (hfitFull as hsp)).1.2, fun h0 => ?_⟩)⟩
+      have h := (hTJwd as (hfitFull as hsp)).2
+      have hw0 : (cd j'').dJ.w (cd j'').ψ' = 0 := by rw [hc.idx.sort]; exact hbz.mp h0
+      rw [hw0, univ_zero] at h
+      exact h
+    -- the field applied to the telescope's variables is graded
+    have hxWD : ∀ as : List V,
+        SpineFit (consList ihs (consList fs (consList ms (cons M σ'))))
+          ((ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).map (·.2.2)) as →
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (AnnotTerm.mkAppN (.bvar (cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length))
+            (teleVarsAV tl.length)) := by
+      intro as hsp
+      have hasA := hfitFull as hsp
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      have hshiftM : shiftE tl.length 0 (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          = consList ihs (consList fs (consList ms (cons M σ'))) := by
+        rw [← hasLen]; exact shiftE_consList _ _
+      have h := wellDenotedV_mkAppN_of_spineFit
+        (σ := consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+        (ds := liftDoms tl.length 0 (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl))
+        (C := TJbody.liftN tl.length
+          (0 + (ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).length))
+        (f := .bvar (cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length))
+        (as := teleVarsAV tl.length)
+        (by rw [← liftN_mkPisAV, WellDenotedV_liftN, hshiftM]; exact hTJtowerWD)
+        ⟨by simp, by simp⟩
+        (fun a ha => by
+          obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
+          exact ⟨by simp, by simp⟩)
+        (by
+          rw [← liftN_mkPisAV, interp_liftN, hshiftM, interp_bvar, ← hasLen, consList_apply_add,
+            show cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length
+              = (cAJ.2 - 1 - i) + ihs.length from by omega,
+            consList_apply_add, consList_apply_lt' fs _ (by omega),
+            show fs.length - 1 - (cAJ.2 - 1 - i) = i from by omega]
+          exact hTJmem)
+        (by rw [spineFit_liftDoms, hshiftM, ← hasLen, map_teleVarsAV_interp]; exact hsp)
+      exact h.1
+    -- the body: the earlier copy's term at the readings and the field
+    have hbodyFacts : ∀ as : List V,
+        SpineFit (consList ihs (consList fs (consList ms (cons M σ'))))
+          ((ihTeleAtR cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl).map (·.2.2)) as →
+        WellDenotedV V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (viaBodyAV ((tbl j'').liftN dJ.nP 0) cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length
+            tl.length (eissA.map (·.liftN dJ.nP (i + tssA.length)))) ∧
+        interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+          (viaBodyAV ((tbl j'').liftN dJ.nP 0) cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length
+            tl.length (eissA.map (·.liftN dJ.nP (i + tssA.length))))
+          ∈ˢ interp V (consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+            (AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+              ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+                (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length))) := by
+      intro as hsp
+      have hasA := hfitFull as hsp
+      have hasLen : as.length = tl.length := by rw [hasA.length_eq, List.length_map, htlLen]
+      obtain ⟨hfitIdx, hfitM, hx, hEisLen⟩ := hspine as hasA
+      -- ψ's Π-type, lifted to the frame
+      have hpiEq := (cd j'').dJ.interp_psiTyAV mp.base2 (cd j'').ψ' (cd j'').DsA
+        (d.psiL mp.base2 ψ k₀ (cd j'').base) (d.psiPinsT (cd j'').dJ.nP) (cd j'').mm σ
+      have hpos'' : (cd j'').DsA ≠ [] → 1 ≤ (cd j'').dJ.nP := fun hne => by
+        rw [← hc.len]
+        exact Nat.pos_of_ne_zero (fun h0 => hne (List.eq_nil_of_length_eq_zero h0))
+      have hTy : (cd j'').dJ.psiTyAV mp.base2 (cd j'').ψ' (cd j'').DsA (d.psiL mp.base2 ψ k₀ (cd j'').base)
+          (d.psiPinsT (cd j'').dJ.nP) (cd j'').mm
+          = mkPisAV (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+              (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm)))
+              (ConLeche.Model.AnnotTerm.instSeq (cd j'').DsA
+                ((cd j'').DsA.length - 1 +
+                  (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm)).length)
+                ((famAppAV (d.psiL mp.base2 ψ k₀ (cd j'').base (cd j'').mm) (d.psiPinsT (cd j'').dJ.nP (cd j'').mm)
+                  (cd j'').dJ.nP ((cd j'').dJ.nP + (cd j'').dJ.nIdxs.getD (cd j'').mm 0)
+                  ((cd j'').dJ.nIdxs.getD (cd j'').mm 0)).liftN 1 0)) := by
+        unfold IndRepData.psiTyAV
+        rw [instSeq_mkPisAV _ _ _ _ (by omega)]
+      have hshiftO' : shiftE ((dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length) 0
+          (consList as (consList ihs (consList fs (consList ms (cons M σ'))))) = σ' := hshiftO as hasLen
+      have hshiftD : shiftE dJ.nP 0 σ' = σ := by rw [← hσ', ← hDsLen]; exact shiftE_consList _ _
+      unfold viaBodyAV
+      have h := wellDenotedV_mkAppN_of_spineFit
+        (σ := consList as (consList ihs (consList fs (consList ms (cons M σ')))))
+        (ds := liftDoms N₀ 0 (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+          (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm))))
+        (C := (ConLeche.Model.AnnotTerm.instSeq (cd j'').DsA
+            ((cd j'').DsA.length - 1 +
+              (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm)).length)
+            ((famAppAV (d.psiL mp.base2 ψ k₀ (cd j'').base (cd j'').mm) (d.psiPinsT (cd j'').dJ.nP (cd j'').mm)
+              (cd j'').dJ.nP ((cd j'').dJ.nP + (cd j'').dJ.nIdxs.getD (cd j'').mm 0)
+              ((cd j'').dJ.nIdxs.getD (cd j'').mm 0)).liftN 1 0)).liftN N₀
+          (0 + (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+            (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm))).length))
+        (f := ((tbl j'').liftN dJ.nP 0).liftN ((dJ.k + Jc) + cAJ.2 + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length) 0)
+        (as := (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+            (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length) ++
+          [AnnotTerm.mkAppN (.bvar (cAJ.2 - 1 - i + (ConLeche.recIdxOf (dJ.ksF Jc)).length + tl.length))
+            (teleVarsAV tl.length)])
+        (by rw [← liftN_mkPisAV, ← hTy, WellDenotedV_liftN, hshiftN₀ as hasLen]; exact hTyWD)
+        (by rw [WellDenotedV_liftN, hshiftO', WellDenotedV_liftN, hshiftD]; exact hTpiWD)
+        (fun a ha => by
+          rcases List.mem_append.mp ha with ha | ha
+          · exact hEisWD as hasA a ha
+          · rw [List.mem_singleton] at ha
+            rw [ha]; exact hxWD as hsp)
+        (by
+          rw [← liftN_mkPisAV, ← hTy, interp_liftN, interp_liftN, interp_liftN, hshiftN₀ as hasLen,
+            hshiftO', hshiftD]
+          exact hTpiMem)
+        (by
+          rw [spineFit_liftDoms, hshiftN₀ as hasLen, List.map_append, List.map_singleton, hxVal as hasLen]
+          simp only [List.map_map, Function.comp_def]
+          rw [hEisRead as hasLen]
+          refine (spineFit_instSeqDoms_iff (xs := []) _ _ _ (fun hne => by
+              rw [hc.len, List.length_nil]; have := hpos'' hne; omega)).mpr ?_
+          simp only [consList_nil, rebit_map_dom]
+          exact hfitM)
+      refine ⟨h.1, ?_⟩
+      have h2 := h.2
+      rw [List.map_append, List.map_singleton, hxVal as hasLen] at h2
+      simp only [List.map_map, Function.comp_def] at h2
+      rw [hEisRead as hasLen, interp_liftN] at h2
+      rw [hTval as hasA]
+      -- the body's type at the readings is the target at the readings
+      have hlenVals : (eissA.map (interp V (consList as (consList (fs.take i) σ))) ++ [as.foldl SetTheory.app (fs.getD i pt)]).length
+          = (instSeqDoms (cd j'').DsA ((cd j'').DsA.length - 1)
+              (rebit ((cd j'').dJ.bb (cd j'').ψ') ((cd j'').dJ.motDataAV mp.base2 (cd j'').ψ' (cd j'').mm))).length := by
+        rw [instSeqDoms_length, rebit_length, List.length_append, List.length_singleton, hEisLen]
+        unfold IndRepData.motDataAV
+        rw [List.length_append, rebit_length, List.length_singleton, (cd j'').dJ.ipss_getD _ hc.mm,
+          List.length_drop, hc.ff.1]
+        unfold IndRepData.nIdxAt
+        omega
+      rw [Nat.zero_add, ← hlenVals, shiftE_consList_len, hshiftN₀ as hasLen,
+        interp_instSeq_under σ _ _ _ _ (fun hne => by
+          rw [hlenVals, instSeqDoms_length, rebit_length, hc.len]
+          have := hpos'' hne
+          omega),
+        consList_append, consList_cons, consList_nil, interp_liftN, shiftE_succ_cons, shiftE_zero_zero] at h2
+      simp only [List.map_map, Function.comp_def]
+      exact h2
+    -- the λ-tower
+    unfold viaEntryAV
+    refine ⟨mkLamsAV_bits_wellDenoted (m := dJ.bb ψ')
+        (T := AnnotTerm.mkAppN ((d.psiTgOf mp.base2 ψ k₀ (cd j'')).liftN N₀ 0)
+          ((eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+            (ihIdxAtM cAJ.2 (dJ.k + Jc) i (ConLeche.recIdxOf (dJ.ksF Jc)).length tl.length)))
+        hzb ?_, mkLamsAV_bits_validV ?_⟩
+    · refine underTowerOk_of_wellDenoted
+        (wellDenoted_mkPisAV_of (fun k dd hk as hsp => (hentryWD k dd hk as hsp).1)
+          (fun as hsp => (hTgraded as (hfitFull as hsp)).1.1)) ?_
+      intro as hsp
+      exact ⟨(hbodyFacts as hsp).1.1, (hbodyFacts as hsp).2, hzeroT as (hfitFull as hsp)⟩
+    · exact underTowerValid_of (fun k dd hk as hsp => (hentryWD k dd hk as hsp).2)
+        (fun as hsp => (hbodyFacts as hsp).1.2)
+  · exact nomatch hvia
 
 end IndRepData
 
