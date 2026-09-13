@@ -27,7 +27,7 @@ at the pushed frame by `interp_congr_below` — provided the fold term is
 parameter variables).
 
 This module is that bound: `bvarsBelow` through substitution
-(`bvarsBelow_inst`/`bvarsBelow_instSeq`) and through every builder of
+(`bvarsBelow_inst_margin`/`bvarsBelow_instSeq`) and through every builder of
 the choice — `famAppAV`, `motDataAV`/`motChoiceAV`, `invTgAV`, the
 minor data (`ihDomAVM`/`ihDataAVM`/`minorDataAV`), `minChoiceAV(s)`,
 the two bodies (`invBodyAV`, `psiBodyAV` with its transports
@@ -56,7 +56,7 @@ universe w
 open ConLeche.Term.Term in
 /-- Instantiating variable `k` of a term bounded at `k + 1 + m` by a
 term bounded at `m` gives a term bounded at `k + m`. -/
-theorem bvarsBelow_inst : ∀ (e a : Term) (k m : Nat),
+theorem bvarsBelow_inst_margin : ∀ (e a : Term) (k m : Nat),
     Term.bvarsBelow (k + 1 + m) e → Term.bvarsBelow m a →
     Term.bvarsBelow (k + m) (Term.inst e a k)
   | .bvar i, a, k, m, he, ha => by
@@ -75,21 +75,21 @@ theorem bvarsBelow_inst : ∀ (e a : Term) (k m : Nat),
   | .const _ _, _, _, _, _, _ => trivial
   | .prf, _, _, _, _, _ => trivial
   | .app f b, a, k, m, he, ha =>
-    ⟨bvarsBelow_inst f a k m he.1 ha, bvarsBelow_inst b a k m he.2 ha⟩
+    ⟨bvarsBelow_inst_margin f a k m he.1 ha, bvarsBelow_inst_margin b a k m he.2 ha⟩
   | .lam A b, a, k, m, he, ha =>
-    ⟨bvarsBelow_inst A a k m he.1 ha, by
-      have := bvarsBelow_inst b a (k + 1) m
+    ⟨bvarsBelow_inst_margin A a k m he.1 ha, by
+      have := bvarsBelow_inst_margin b a (k + 1) m
         (by rw [show k + 1 + 1 + m = k + 1 + m + 1 by omega]; exact he.2) ha
       rwa [show k + 1 + m = k + m + 1 by omega] at this⟩
   | .pi A B, a, k, m, he, ha =>
-    ⟨bvarsBelow_inst A a k m he.1 ha, by
-      have := bvarsBelow_inst B a (k + 1) m
+    ⟨bvarsBelow_inst_margin A a k m he.1 ha, by
+      have := bvarsBelow_inst_margin B a (k + 1) m
         (by rw [show k + 1 + 1 + m = k + 1 + m + 1 by omega]; exact he.2) ha
       rwa [show k + 1 + m = k + m + 1 by omega] at this⟩
   | .eqE b c, a, k, m, he, ha =>
-    ⟨bvarsBelow_inst b a k m he.1 ha, bvarsBelow_inst c a k m he.2 ha⟩
-  | .fst e, a, k, m, he, ha => bvarsBelow_inst e a k m he ha
-  | .snd e, a, k, m, he, ha => bvarsBelow_inst e a k m he ha
+    ⟨bvarsBelow_inst_margin b a k m he.1 ha, bvarsBelow_inst_margin c a k m he.2 ha⟩
+  | .fst e, a, k, m, he, ha => bvarsBelow_inst_margin e a k m he ha
+  | .snd e, a, k, m, he, ha => bvarsBelow_inst_margin e a k m he ha
 
 /-- An instantiation sequence at cut `t` of a term bounded at
 `t + 1 + m`, by terms bounded at `m`, is bounded at
@@ -104,7 +104,7 @@ theorem bvarsBelow_instSeq :
     simp only [List.length_cons] at hlen
     have h1 : Term.bvarsBelow (t + m) (e.inst w t).erase := by
       rw [AnnotTerm.erase_inst]
-      exact bvarsBelow_inst _ _ t m he (hws w (.head _))
+      exact bvarsBelow_inst_margin _ _ t m he (hws w (.head _))
     cases ws with
     | nil => simpa using h1
     | cons w' ws' =>
@@ -214,7 +214,7 @@ theorem mixedVarsAV_below {recIdx : List Nat} {useIh : Nat → Bool} {nF : Nat} 
 /-- An ih binder's domain, bounded at the minor's frame (`nP` block
 parameters and an outer margin `mm` below the `o` prefix entries, the
 `nF` fields and the `l` earlier hypotheses). -/
-theorem ihDomAVM_below {mot nF o i l nP mm : Nat} {tl : List (Nat × Nat × AnnotTerm)}
+theorem ihDomAVM_below_margin {mot nF o i l nP mm : Nat} {tl : List (Nat × Nat × AnnotTerm)}
     {Eis : List AnnotTerm} (hi : i < nF) (htl : DomsBelow (nP + i + mm) tl)
     (hEis : ∀ E ∈ Eis, Term.bvarsBelow (nP + i + tl.length + mm) E.erase) :
     Term.bvarsBelow (nP + mm + o + nF + l) (ihDomAVM mot nF o i l tl Eis).erase := by
@@ -264,7 +264,7 @@ theorem ihDataAVM_below {moti : Nat → Nat} {nF o b nP mm : Nat}
     simp only [ihDataAVM]
     refine ⟨?_, ?_⟩
     · show Term.bvarsBelow _ (ihDomAVM (moti i) nF o i l (rebit b (tls.getD i [])) (Eiss.getD i [])).erase
-      refine ihDomAVM_below hi ((rebit_below _ _).mpr htl) ?_
+      refine ihDomAVM_below_margin hi ((rebit_below _ _).mpr htl) ?_
       rw [rebit_length]; exact hE
     · have := ihDataAVM_below (moti := moti) (o := o) (b := b) (recIdx := is) (l := l + 1)
         fun j hj => h j (.tail _ hj)
