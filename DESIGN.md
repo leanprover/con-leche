@@ -581,7 +581,7 @@ adapter.  An adapter *reorders, reshapes, or supplies something the
 telescope failed to give*.  A "no rewriting at all" pass criterion
 would have failed this test and would have been wrong.
 
-### The documents' code links are gated; `README.md` is link-only
+### The documents' code links are gated; their quoted code too; `README.md` is otherwise link-only
 
 `OVERVIEW.md` **and** `README.md` carry line-anchored
 `blob/master/<path>#L<a>-L<b>` links into the source, and both are
@@ -592,9 +592,23 @@ paragraph, then `tests/overview-links.sh --update`.  The gate also
 checks that every RELATIVE link's target (`./PERF.md`,
 `./bridge/lean4lean-model`) still exists.
 
+**Quoted code in `README.md`/`OVERVIEW.md` is gated; the fix is to
+re-sync the quote.**  A fenced ```lean block headed by
+`theorem <name>` / `def <name>` is compared TEXTUALLY with that
+declaration's header in the tree — the `open … in` / `@[…]` prefix,
+the `theorem`/`def` line, every continuation line up to the text
+before the statement-ending `:=`, with the docstring skipped and
+indentation significant — by `tests/quote-gate.sh` (task #302).
+Textual and not `#check`: the documents quote SOURCE for a human to
+read, so binder names, notation and line breaks are the whole point,
+and `#check` normalises exactly those away.  There is no `--update`:
+the source is the truth, and a gate over a human-written document does
+not rewrite it.
+
 **`README.md` is the maintainer's, and human-written.**  An agent may
-turn an existing code name into a link, and repoint a link whose
-anchor moved — and may change no other character of it: no added
+turn an existing code name into a link, repoint a link whose anchor
+moved, and — since 2026-09-13 — re-sync a quoted code block the quote
+gate reports as stale.  Everything else is untouchable: no added
 words, no reflow, no punctuation.  Anything the README ought to *say*
 differently is reported to the maintainer, never written.
 
@@ -71333,3 +71347,164 @@ reworded sentence names no code, so nothing was re-linked and nothing
 dropped.  `README.md` is a CITING document: its own line numbers appear
 nowhere in the expectation, so an edit to it moves no citation — the
 gate confirms that, not the reasoning.
+
+## TASK #302 — THE QUOTE GATE (2026-09-13, `agent/quotegate-302`)
+
+**The ruling (maintainer).**  Asked whether the fenced code blocks in
+the human-facing documents should be held against the tree the way
+their line anchors are: *"sure!"*.
+
+### 1. What rots, and why the link gate does not catch it
+
+Task #299 put `README.md` beside `OVERVIEW.md` under
+`tests/overview-links.sh`, so every `blob/master/<path>#L<a>-L<b>`
+citation's text is a committed artefact.  That gate sees LINKS.  The
+README also QUOTES: two fenced ```lean blocks reproduce the statements
+of `no_False_declaration` and `model_exists` so a reader meets the
+theorem on the page instead of on GitHub.
+
+A quote rots on its own schedule and more quietly than an anchor.
+Rename a binder, add a hypothesis, re-indent a continuation line, and
+the link above the block still points at perfectly valid lines — the
+link gate's diff fires only if the CITED range moved or changed, and
+the two README anchors cite `MainTheorem.lean#L97-L103`, not the whole
+statement, and `Denotes.lean`, `Installed.lean`, … for the names in
+the prose.  A statement can change without any cited range changing at
+all.  Nothing in the build reads a markdown fence.  So: a second gate,
+beside the first, over the other half of what the documents copy.
+
+### 2. Textual, not `#check` — and why that is the whole point
+
+`tests/challenge.sh` (task #281) compares the Comparator pair's
+statements by ELABORATING them: `#check @name` under
+`pp.universes`/`pp.explicit`/`pp.proofs` from a probe file per module,
+the outputs diffed.  That is right there, where the question is whether
+two modules state the same proposition and spelling is irrelevant.
+
+Here the question is the opposite one.  The documents quote SOURCE
+TEXT, for a human to read next to the prose, so what must hold is that
+the block IS the source: same binder names, same notation, same line
+breaks, same indentation.  `#check` normalises all of that away, and a
+`#check`-based gate would pass a quote that says `chunks` where the
+tree now says `cs`, or that predates a `{}`→`()` binder change — a
+quote that is wrong for every reader and right for the elaborator.  It
+would also need a built tree and a probe file per document.  The
+comparison is textual, the source is the truth, and the gate costs
+0.1 s with no build.  The script's header states this.
+
+### 3. What the gate scopes and how it delimits a statement
+
+`tests/quote-gate.sh` reads `README.md` and `OVERVIEW.md`.  Every
+fenced ```lean block whose first significant line matches
+`theorem <name>` / `def <name>` is IN scope; the block may carry
+`open … in` lines and `@[…]` attribute lines ahead of that line (the
+two prefixes a statement is written with).  A ```lean block that is not
+declaration-headed — an example, a snippet — is out of scope and is
+COUNTED in the summary as skipped, so a future non-declaration block is
+a visible decision rather than a silent hole.  (OVERVIEW.md has one
+fenced block today, the usage banner, and it is not a ```lean one.)
+
+The source side is the declaration's header as the source writes it:
+
+* start at the `theorem <name>` / `def <name>` line;
+* extend BACKWARDS over the `open … in` and `@[…]` lines directly
+  above it, STEPPING OVER a docstring in between — the tree's order is
+  `open Frontend in`, then `/-- … -/`, then `theorem`, and the
+  docstring is never quoted;
+* end at the first `:=` or `where` **at bracket depth 0**, exclusive.
+
+The depth counter is not decoration.  `no_False_declaration`'s
+statement contains `let ds := preparePrelude pre r.decls` inside its
+`(do …)` block: a "first `:=`" rule would cut the statement four lines
+early and the gate would have failed against a correct quote.  Depth
+also keeps a default argument's `:=` out, and a `--` comment ends a
+line's scan.
+
+Comparison strips TRAILING whitespace from every line and nothing else.
+Indentation is significant on purpose: the continuation indentation is
+what a reader copies, and `README.md` was synced to the tree's
+four-space continuations at `639b3ba6` deliberately.
+
+### 4. Which declaration — the rule that was actually needed
+
+The documents quote a SHORT name (`theorem model_exists`); the tree
+declares `ConLeche.model_exists` inside a `namespace`.  The gate
+collects every file under `ConLeche/**/*.lean` plus `Main.lean` that
+declares that short name.
+
+One candidate: done.  Several: take the LAST markdown link above the
+block whose target is one of the candidates — which is how the
+documents already say which one they mean.  Both link shapes count, the
+`blob/master/<path>` code link and a relative one.
+
+This was not hypothetical.  `no_False_declaration` is declared TWICE —
+in `ConLeche/MainTheorem.lean` and in its sorry'd Comparator twin
+`ConLeche/Challenge.lean` — and the gate's first run reported the
+ambiguity.  The README resolves it a paragraph above the block, with
+`[ConLeche/MainTheorem.lean](./ConLeche/MainTheorem.lean)`, a RELATIVE
+link; so the rule accepts relative destinations, not only code links.
+Excluding `Challenge.lean` by name was the alternative and was
+rejected: a gate that special-cases a file stops working the moment a
+second twin exists.  If no link above the block names a candidate the
+ambiguity is REPORTED with the list, never guessed.
+
+### 5. No `--update`
+
+The link gate has one because its expectation — the cited text — is not
+derivable from the document.  Here it is: the source is the truth, and
+the only fix for a failure is to re-sync the quote in the document.  An
+`--update` would have to WRITE `README.md`, which is the one thing a
+gate over a human-written document must not do on its own.  The failure
+message says the fix instead, and says that an agent is allowed to make
+it (maintainer, 2026-09-13) while the prose around the block is not
+the agent's.
+
+### 6. The failure message
+
+Shaped like the link gate's, one paragraph per bad block:
+
+```
+the quoted statement of `model_exists` in README.md differs from ConLeche/MainTheorem.lean:L84-L87
+    --- ConLeche/MainTheorem.lean:L84-L87
+    +++ README.md:73
+    @@ -1,4 +1,4 @@
+     theorem model_exists (V : Type w) [SetTheory V]
+    -    (ds : Array Declaration) (env : Env)
+    +  (ds : Array Declaration) (env : Env)
+         (accepted : checkDecls .verified ds = .ok env) :
+         Nonempty (Model V env)
+```
+
+`-` is the tree, `+` is the document, and the trailer says so, says how
+to re-sync, and says why there is no `--update`.  Structural failures
+(a name no file declares, an unresolvable ambiguity, a statement whose
+end cannot be delimited, an unterminated fence) are reported the same
+way, with the document and the block's line number.
+
+### 7. Wiring
+
+`tests/arena.sh` calls it directly after `tests/overview-links.sh`;
+`.github/workflows/ci.yml`'s gate header lists it (nine gates → ten) and
+needs no separate step, since `arena.sh` is its caller; `CLAUDE.md`
+gained the bullet after the link-gate bullet; House practices gained the
+paragraph *"Quoted code in `README.md`/`OVERVIEW.md` is gated; the fix
+is to re-sync the quote"*, and the README's own rule now reads
+link-only **plus** re-syncing a stale quote.
+
+### 8. Gates
+
+| gate | result |
+|---|---|
+| `tests/quote-gate.sh` | 2 quoted statements match the tree (`no_False_declaration` → `MainTheorem.lean:L91-L103`, `model_exists` → `L84-L87`); 0.1 s, no build |
+| failure direction: one character in a quote (`chunks` → `chunk`) | FAIL naming `no_False_declaration`, README.md, the source range, with the diff |
+| failure direction: indentation (4 spaces → 2) in a quote | FAIL naming `model_exists`, same shape |
+| failure direction: the SOURCE perturbed instead | FAIL on `model_exists`, `-` showing the tree's new line |
+| structural: a `theorem` no file declares | reported with the document and block line |
+| scope: a non-declaration ```lean block, and a `def` quote | the first counted as skipped, the second checked (`preparePrelude` → `Prepare.lean:L171`) |
+| `tests/arena.sh` (`env -i`, no ulimit) | exit 0 — the new gate reports inside it, one line after the link gate's |
+| `tests/no-local-paths.sh` | OK |
+| `lake build` | warning-free, 560 jobs (a cold build: the worktree was fresh and `tests/arena.sh` needs the binary and the oleans — no `.lean` file changed) |
+
+No `.lean` file changed; `README.md` and `OVERVIEW.md` are byte-identical
+to `639b3ba6` (both quotes already matched, which is what made them the
+acceptance test).

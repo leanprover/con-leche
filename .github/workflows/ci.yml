@@ -12,7 +12,7 @@
 #                    `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
-#   tests/arena.sh   the standard battery, which is itself nine gates
+#   tests/arena.sh   the standard battery, which is itself ten gates
 #                    plus four suites:
 #                      * tests/layering.sh       import fence
 #                      * tests/proofdeps.sh      proof-term module pin
@@ -27,6 +27,14 @@
 #                                                needs no build and no
 #                                                separate step here:
 #                                                arena.sh is its caller
+#                      * tests/quote-gate.sh     the ```lean blocks of
+#                                                README.md and
+#                                                OVERVIEW.md that quote
+#                                                a theorem's statement,
+#                                                compared textually with
+#                                                the source's own header
+#                                                (task #302) — same
+#                                                caller, no build
 #                      * tests/no-local-paths.sh no absolute home paths
 #                                                in tracked files
 #                      * tests/shake.sh          `lake shake`'s import

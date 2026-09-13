@@ -180,6 +180,21 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # exists.  Source-tree only, no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
+# THE DOCUMENT QUOTE GATE (task #302).  The same two documents also
+# QUOTE the code: a fenced ```lean block holding a theorem's statement
+# for the reader.  That rots more quietly than a line anchor — a renamed
+# binder or a re-indented continuation leaves the link pointing at valid
+# lines while the block shows a statement the tree no longer has.  The
+# gate compares every declaration-headed ```lean block TEXTUALLY with
+# the source's own header (from the `theorem`/`def` line, without the
+# docstring, through the text before the statement-ending `:=`).
+# Textual, not `#check`: the documents quote SOURCE for a human, so
+# binder names, notation and indentation are the point, and `#check`
+# normalises exactly those away.  The source is the truth and there is
+# no --update; the fix is to re-sync the QUOTE, which an agent may do
+# (the prose around it is still the maintainer's).  No build, milliseconds.
+if tests/quote-gate.sh; then :; else fail=1; fi
+
 # Repo content must not reference local (absolute home) paths.
 if tests/no-local-paths.sh; then :; else fail=1; fi
 

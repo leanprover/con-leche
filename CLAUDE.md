@@ -13,6 +13,12 @@ iteration protocol. Keep it up to date when decisions change.
   `tests/overview-links.sh --update`.  `README.md` is the maintainer's,
   human-written: an agent may turn an existing code name into a link or
   repoint one that rotted, and may change no other character of it.
+* The same two documents' quoted code is gated by `tests/quote-gate.sh`
+  (also from `tests/arena.sh` and CI): every fenced ```lean block headed
+  by `theorem <name>`/`def <name>` must match the source's statement
+  TEXTUALLY (indentation included). There is no `--update` — the source
+  is the truth; the fix is to re-sync the quote, which an agent may do
+  (the README's prose around it stays the maintainer's).
 * Goal: the lean kernel arena tutorial tests (without custom axioms) are
   accepted and the checker is verified consistent.
 * Iterate one feature at a time; every feature lands together with its
