@@ -71665,12 +71665,65 @@ are inductions for the same reason.
   there the ∀ side declines and the equality is about the λ's side
   alone, which is what the `…W` grades are for.
 
-**Gate.**  `lake build` and `lake test` warning-free; the off-graph
-nested modules (`CopyTypes`, `AuxFormers`, `NestedInv`) built
-explicitly; `tests/arena.sh` GATE_RESULTS, `tests/nested-shadow.sh`
-SHADOW_RESULT, the Mathlib nested cone in shadow MATHLIB_CONE; one
-init-full `--verified --jobs=1` against the `inductives` binary
-INITFULL; one full Mathlib `--verified --jobs=8` MATHLIB_FULL.
+**The measurement, re-run.**  The kernel lane's probe
+(`CON_LECHE_COPYREADS_PROBE`, scratch: built in a throwaway worktree,
+run, discarded) over the same two corpora, with the λ clause in:
+
+| stream | pin rows | AGREE | DISAGREE |
+|---|---|---|---|
+| Mathlib nested cone (41 blocks, 144 components) | 121 | **121** | **0** (was 117 / 4) |
+| e2e nested fixtures | 41 | **41** | **0** (was 35 / 5) |
+
+`AuxOpensAt` is unchanged (121 + 42 copies, 0 disagreements).  The four
+Mathlib λ-pins (`Lean.PrefixTreeNode` and `Lean.Json` × `Std.DTreeMap.Raw`
+and `Std.DTreeMap.Internal.Impl`) and all five fixture λ-pins
+(`InModelNested.PT`×`DMap`, `P20`×`Subtype`, `P22`×`P22T`,
+`P26`×`P26D`, `P2`×`P2D`) now READ — so `PinCompsAgree` holds over the
+whole corpus, not only in the lemma.  The one remaining non-AGREE row is
+the `nested-nonuniform-param` fixture's `ANNOT-FAILED`, the pin the
+route rejects at `check_uniform_ind_occs` (the docket's own note).
+
+**Gate.**  `lake build` (590 jobs) and `lake test` (501) warning-free;
+`Verify/Inductives/{CopyTypes,AuxFormers,NestedInv}` and
+`Semantics/Inductives/DeclNested` built explicitly.  `tests/arena.sh`
+under `env -i`: every line as before the change — arena tutorial 90/92,
+e2e 214/214, annot 15/15, nested-shadow 23/23, route census 90 streams /
+765 blocks (225 fix, 540 basis, 0 modeled), the trusted / `--jobs=1` /
+`--jobs=4` sweeps 138 + 214 + 15, `overview-links` 83 links / 54 files
+OK, `no-local-paths` OK, layering / proofdeps / pindump / trust-surface /
+challenge / inmodel / axioms OK.  The Mathlib nested cone in shadow:
+41/41 accept, exit 0, 4 923 declarations.  init-full
+`--verified --jobs=1` under `ulimit -v 16000000`: 53 088 accepted, exit
+0, **536.10 G instructions against 538.45 G** on the `inductives` binary
+built at dbd53f3c — **−0.44 %**, the reader replacing an inference (PERF
+untouched: this is below the table's grain).  Full Mathlib
+`--verified --jobs=8` under `ulimit -v 32000000`: **654 499 accepted,
+exit 0**, 11.89 T instructions, 334 s wall.
+
+**One gate line is not green, and it is pre-existing.**  `tests/shake.sh`
+half (b) reports five demotable `public import`s in the two off-graph
+nested modules (`AuxFormers`: `NestedElim`, `CopyTypes`, `Verify.Mono`;
+`CopyTypes`: `Verify.PropRead`, `Verify.PropWhen`), so `arena.sh` exits
+1 there.  Reproduced on `inductives` at dbd53f3c with the off-graph
+modules built and the rename below applied: the same five.  It had been
+invisible because the census died before it — `ConLeche.Expr.getAppFn_mkAppN`
+is declared BOTH in `Verify/InferLemmas.lean` and (since K.4) in
+`CopyTypes.lean`, and the census imports every tracked module at once:
+
+    import ConLeche.Verify.Inductives.CopyTypes failed, environment
+    already contains 'ConLeche.Expr.getAppFn_mkAppN' from
+    ConLeche.Verify.InferLemmas
+
+This lane renames `CopyTypes`' copy to `getAppFn_mkAppN'` — the model
+lane's own choice on `agent/nested-279m`, so the branches agree — which
+is what lets the census run at all.  The five demotions themselves were
+tried and NOT taken: each one the tool proposes is individually safe,
+but taking them cascades (demoting `CopyTypes`' `Verify.Abstract` needs
+a direct `public import ConLeche.Verify.Shift` for `WScoped`; demoting
+`AuxFormers`' `CopyTypes` needs direct imports for `stripPis_length`,
+`annotateCore_app_inv`, …), i.e. it is an import-hygiene pass over the
+nested lanes' own files, with its own risk to their in-flight branches.
+Left to them, with the finding recorded here.
 
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
