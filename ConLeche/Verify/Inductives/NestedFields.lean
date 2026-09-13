@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedWalk
+-- `stripPis_instantiate1_full` (the per-binder form of `instantiate1`
+-- through a telescope), used by `instPis_stripPis`
+import ConLeche.Verify.Inductives.StructBody
 public section
 
 /-!
@@ -493,4 +496,67 @@ theorem copyCtorFields_of_walk {env : Env} {blvls : List Level} {params : List E
       replaceAllNested_head_inv ((stb.types.map (·.name)).drop k) resid hr hout haux hnoR
     exact ⟨I, lvls, ci, hci, hnP, hfe, hls, hargs, q, hq, hqa, hqp⟩
 
+/-! ## The instantiated telescope, per field -/
+
+/-- **`instPis` keeps the telescope below the arguments** (task #279
+M-B′ step 3p, DESIGN §M.42): instantiating the leading `|args|`
+binders of a telescope of `|args| + n` binders leaves a telescope of
+`n` binders whose `j`-th domain is the original `|args| + j`-th
+instantiated at the arguments in order (`Expr.instSeq` at the
+descending indices the peel produces), with the BINDER DATA kept, and
+whose residual is the original's instantiated likewise.  This is the
+per-field form of the instantiation the elimination performs on a
+container's stored constructor at a pin. -/
+theorem instPis_stripPis :
+    ∀ (args : List Expr) (n : Nat) {T rest : Expr} {bs : List (Expr × BinderMeta)} {r : Expr},
+      Expr.instPis T args = some rest →
+      T.stripPis (args.length + n) = some (bs, r) →
+      ∃ bs' : List (Expr × BinderMeta),
+        rest.stripPis n = some (bs', Expr.instSeq args (args.length + n - 1) r) ∧
+        ∀ (j : Nat) (b : Expr × BinderMeta), bs[args.length + j]? = some b →
+          bs'[j]? = some (Expr.instSeq args (args.length + j - 1) b.1, b.2)
+  | [], n, T, rest, bs, r, hinst, hstrip => by
+    simp only [Expr.instPis, Option.some.injEq] at hinst
+    subst hinst
+    simp only [List.length_nil, Nat.zero_add] at hstrip ⊢
+    exact ⟨bs, by simpa [Expr.instSeq] using hstrip, fun j b hb => by
+      simpa [Expr.instSeq] using hb⟩
+  | a :: as, n, T, rest, bs, r, hinst, hstrip => by
+    revert hstrip
+    match T, hinst with
+    | .forallE ty body mt, hinst =>
+      intro hstrip
+      simp only [Expr.instPis] at hinst
+      rw [show (a :: as).length + n = (as.length + n) + 1 by simp; omega] at hstrip
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hstrip
+      obtain ⟨⟨bs₁, r₁⟩, hstrip₁, hbs⟩ := hstrip
+      simp only [Prod.mk.injEq] at hbs
+      obtain ⟨rfl, rfl⟩ := hbs
+      obtain ⟨bs₁', hstrip₁', hpt₁⟩ :=
+        stripPis_instantiate1_full (v := a) (as.length + n) (e := body) 0 hstrip₁
+      rw [Nat.zero_add] at hstrip₁'
+      obtain ⟨bs', hrest, hpt⟩ := instPis_stripPis as n hinst hstrip₁'
+      refine ⟨bs', ?_, fun j b hb => ?_⟩
+      · have hres : Expr.instSeq as (as.length + n - 1) (r₁.instantiate1 a (as.length + n))
+            = Expr.instSeq (a :: as) ((a :: as).length + n - 1) r₁ := by
+          rw [show Expr.instSeq (a :: as) ((a :: as).length + n - 1) r₁
+            = Expr.instSeq as ((a :: as).length + n - 1 - 1)
+                (r₁.instantiate1 a ((a :: as).length + n - 1)) from rfl]
+          simp only [List.length_cons]
+          rw [show as.length + 1 + n - 1 = as.length + n by omega]
+        rw [hrest, hres]
+      · have hb₁ : bs₁[as.length + j]? = some b := by
+          have hb' : ((ty, mt) :: bs₁)[(a :: as).length + j]? = some b := hb
+          rw [show (a :: as).length + j = (as.length + j) + 1 by simp; omega] at hb'
+          simpa using hb'
+        have h2 := hpt j _ (hpt₁ (as.length + j) b hb₁)
+        rw [Nat.zero_add] at h2
+        rw [h2]
+        show some (Expr.instSeq as (as.length + j - 1) (b.1.instantiate1 a (as.length + j)), b.2)
+          = some (Expr.instSeq (a :: as) ((a :: as).length + j - 1) b.1, b.2)
+        rw [show Expr.instSeq (a :: as) ((a :: as).length + j - 1) b.1
+          = Expr.instSeq as ((a :: as).length + j - 1 - 1)
+              (b.1.instantiate1 a ((a :: as).length + j - 1)) from rfl]
+        simp only [List.length_cons]
+        rw [show as.length + 1 + j - 1 = as.length + j by omega]
 end ConLeche
