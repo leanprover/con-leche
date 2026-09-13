@@ -444,6 +444,140 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
     obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
     exact ⟨hnorm, hstores, hkeep hproj⟩
 
+/-! ### The restore stores the RESTORE, syntactically (task #279 K.19)
+
+The restore stages run at the pre-annotated grade, so a stored restored
+constant is `restoreNested R` of the auxiliary one and nothing else —
+no annotation pass stands between them, and the model tier owes no
+"annotation commutes with the restore" theorem. -/
+
+/-- The restored CONSTRUCTORS, positionally. -/
+theorem restoreCtors_id {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {cs out : List (ConstantVal × Nat × Nat)},
+      restoreCtors (m := CheckM) (fueledOps mode F) env R lps cs = .ok out →
+      out.length = cs.length ∧
+      ∀ (i : Nat) (c o : ConstantVal × Nat × Nat), cs[i]? = some c → out[i]? = some o →
+        ∃ ty, restoreNested R c.1.type = .ok ty ∧
+          o = ({ c.1 with levelParams := lps, type := ty }, c.2.1, c.2.2) := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro out h
+    simp only [restoreCtors, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h], fun i c o hc _ => by simp at hc⟩
+  | cons hd rest ih =>
+    intro out h
+    obtain ⟨cvCa, nP, nF⟩ := hd
+    unfold restoreCtors at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    have hty' := nestedLift_ok hty
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i c o hc ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc ho
+      obtain rfl := hc
+      obtain rfl := ho
+      exact ⟨ty, hty', by rw [checkConstantValPre_ok hpre]⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hc ho
+      exact hall k c o hc ho
+
+/-- The restored RECURSOR TYPES, positionally: the level parameters are
+the auxiliary recursor's and the type is the restore of its type. -/
+theorem restoreRecTys_id {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {names : List Name} {as : List AuxStored} {out : List ConstantVal},
+      restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out →
+      out.length = as.length ∧
+      ∀ (i : Nat) (a : AuxStored) (o : ConstantVal), as[i]? = some a → out[i]? = some o →
+        o.levelParams = a.cvRa.levelParams ∧ restoreNested R a.cvRa.type = .ok o.type := by
+  intro names as
+  induction as generalizing names with
+  | nil =>
+    intro out h
+    simp only [restoreRecTys, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h]; rfl, fun i a o ha _ => by simp at ha⟩
+  | cons a rest ih =>
+    intro out h
+    unfold restoreRecTys at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    have hty' := nestedLift_ok hty
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i a' o ha ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha ho
+      obtain rfl := ha
+      obtain rfl := ho
+      rw [checkConstantValPre_ok hpre]
+      exact ⟨rfl, hty'⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at ha ho
+      exact hall k a' o ha ho
+
+/-- The restored RULES, positionally: the stored right-hand side is the
+restore of the auxiliary one, and the constructor's name and the rule's
+fields are the ones the restore table names. -/
+theorem restoreRules_id {envR : Env} {R : RestoreTbl} {lps : List Name} {recName : Name}
+    {isMimic : Bool} {recTy : Expr} {mI rP F : Nat} :
+    ∀ {rules out : List RecRule},
+      restoreRules (m := CheckM) (fueledOps mode F) envR R lps recName isMimic recTy mI rP
+          rules = .ok out →
+      out.length = rules.length ∧
+      ∀ (i : Nat) (rl o : RecRule), rules[i]? = some rl → out[i]? = some o →
+        restoreNested R rl.rhs = .ok o.rhs := by
+  intro rules
+  induction rules with
+  | nil =>
+    intro out h
+    simp only [restoreRules, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h], fun i rl o hr _ => by simp at hr⟩
+  | cons rl rest ih =>
+    intro out h
+    unfold restoreRules at h
+    obtain ⟨rhsA, hrhs, h⟩ := exceptBind_ok h
+    have hrhs' := nestedLift_ok hrhs
+    by_cases h1 : (rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
+        rhsA.looseBVarsBounded 0 && !rhsA.hasFvar) = true
+    case neg => rw [if_neg h1] at h; close_throw
+    rw [if_pos h1] at h
+    try simp only [bind, Except.bind] at h
+    by_cases h2 : rhsA.projTablesOk envR = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨_ty, _hty, h⟩ := exceptBind_ok h
+    try simp only at h
+    by_cases h3 : (!isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor)) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i rl' o hr ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hr ho
+      obtain rfl := hr
+      obtain rfl := ho
+      simpa using hrhs'
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hr ho
+      exact hall k rl' o hr ho
+
 /-- **NO BLOCK MEMBER CARRIES A COPY'S NAME** (task #279 K.18, the model
 lane's question).
 
