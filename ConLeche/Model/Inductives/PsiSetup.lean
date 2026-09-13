@@ -383,7 +383,145 @@ theorem fold_iota (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via Tg
       (by rw [List.length_map, hMsLen]; exact S.hk) (S.huse J) hihsLen (S.hbits J),
     hfsLen, interp_liftN, hshiftB]
 
+set_option maxHeartbeats 1600000 in
+/-- **ψ is typed, at VALUE spines**: index values and a major fitting
+the member's motive binder at the parameter frame, applied to the fold
+at the prefix, land in the copy's carrier at the indices. -/
+theorem fold_mem_vals (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) {t : Nat}
+    (ht : t < d.k) {is : List V} {x : V}
+    (hfitM : SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV mp.base2 ψ t).map (·.2.2))
+      (is ++ [x])) :
+    (is ++ [x]).foldl SetTheory.app
+        (interp V ρ (AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ)
+          (ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
+            d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+              (d.psiBodyAV head useIh via) d.nAll)))
+      ∈ˢ interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+          (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)) := by
+  obtain ⟨Ms, hMs⟩ : ∃ Ms, Ms = d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) := ⟨_, rfl⟩
+  obtain ⟨Ns, hNs⟩ : ∃ Ns, Ns = d.minChoiceAVs ψ ps Ms (d.psiBodyAV head useIh via) d.nAll :=
+    ⟨_, rfl⟩
+  have hMsLen : Ms.length = d.k := by rw [hMs]; exact d.motChoiceAVs_length _ _ _ _
+  have hNsLen : Ns.length = d.nAll := by rw [hNs]; exact d.minChoiceAVs_length _ _ _ _ _
+  have hpre := S.prefixFit
+  rw [← hMs, ← hNs] at hpre ⊢
+  have h1 := recFold_mem mp (S.hR t ht) ψ hpre
+  have hframe : consList ((ps ++ Ms ++ Ns).map (interp V ρ)) ρ
+      = consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ := by
+    rw [List.map_append, List.map_append]
+  rw [hframe] at h1
+  have hiff := d.spineFit_recPostAV_iff mp.base2 ψ ht (S.hipsLen t ht) (ρ := ρ)
+    (psV := ps.map (interp V ρ)) (MsV := Ms.map (interp V ρ)) (NsV := Ns.map (interp V ρ))
+    (by rw [List.length_map, hMsLen]) (by rw [List.length_map, hNsLen])
+  have hconc : ∀ vs : List V,
+      SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ)
+        ((d.recPostAV mp.base2 ψ t).map (·.2.2)) vs →
+      ∃ is x, vs = is ++ [x] ∧
+        SpineFit (consList (ps.map (interp V ρ)) ρ)
+          ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])).map (·.2.2)) is ∧
+        interp V (consList vs (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+            Ns.map (interp V ρ)) ρ)) (mutualConcAV d.k d.nAll (d.nIdxAt t) t)
+          = interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+              (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)) := by
+    intro vs hvs
+    have hvsM := (hiff vs).mp hvs
+    have hsplit := hvsM
+    unfold IndRepData.motDataAV at hsplit
+    rw [List.map_append, List.map_singleton, spineFit_append_singleton_iff] at hsplit
+    obtain ⟨is, x, rfl, hisFit, -⟩ := hsplit
+    refine ⟨is, x, rfl, hisFit, ?_⟩
+    have hisLen : is.length = d.nIdxAt t := by
+      rw [hisFit.length_eq, List.length_map, rebit_length]; exact S.hipsLen t ht
+    rw [← consList_append, ← List.append_assoc,
+      interp_mutualConcAV_frame (by rw [List.length_map, hMsLen]) (by rw [List.length_map, hNsLen])
+        hisLen ht,
+      hMs, d.motChoiceAVs_getD mp.base2 ψ ps _ ρ ht]
+    have hfold := d.motChoiceAV_fold mp.base2 (Tg := d.invTgAV ψ ps L pinsT) S.hps (S.hipsLen t ht)
+      hvsM
+    rw [List.foldl_append, List.foldl_cons, List.foldl_nil] at hfold
+    rw [hfold, d.invTg_fold ψ hisFit]
+  have h0 : d.bb ψ = 0 → ∀ vs : List V,
+      SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ)
+        ((d.recPostAV mp.base2 ψ t).map (·.2.2)) vs →
+      interp V (consList vs (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+        Ns.map (interp V ρ)) ρ)) (mutualConcAV d.k d.nAll (d.nIdxAt t) t) ∈ˢ (univZero : V) := by
+    intro hb0 vs hvs
+    obtain ⟨is, x, rfl, hisFit, heq⟩ := hconc vs hvs
+    rw [heq]
+    have h0' : d.elimL.eval ψ = 0 := (pwBit_zeronessOf ψ d.elimL).mp hb0
+    have := ((S.hTg t ht).2 is hisFit).2
+    rw [h0', univ_zero] at this
+    exact this
+  have hfitPost : SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+      Ns.map (interp V ρ)) ρ) ((d.recPostAV mp.base2 ψ t).map (·.2.2)) (is ++ [x]) :=
+    (hiff _).mpr hfitM
+  have h2 := mkPisAV_fold_mem (m := d.bb ψ) (fun dd hd => by rw [d.mem_recPostAV hd]) h0 h1 hfitPost
+  obtain ⟨is₂, x₂, heq, hisFit, hconcEq⟩ := hconc _ hfitPost
+  rw [hconcEq] at h2
+  obtain ⟨rfl, -⟩ := List.append_inj heq (by
+    have h1 := hfitM.length_eq
+    rw [List.length_map, List.length_append, List.length_singleton] at h1
+    unfold IndRepData.motDataAV at h1
+    rw [List.length_append, rebit_length, List.length_singleton, S.hipsLen t ht] at h1
+    have h2 := hisFit.length_eq
+    rw [List.length_map, rebit_length, S.hipsLen t ht] at h2
+    omega)
+  exact h2
+
 end PsiSetup
+
+/-- **ψ is typed** — the ONE fact a later copy's transport consumes of
+an earlier copy's term: at every index spine and major fitting the
+member's motive binder at the parameter frame, the term applied to
+them lands in the copy's carrier `L t` at `pinsT t` at the indices. -/
+@[expose] def PsiTyped (m : EnvModel V env) (ψ : Name → Nat) (ρ : Nat → V) (ps : List AnnotTerm)
+    (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (t : Nat) (Ψ : AnnotTerm) : Prop :=
+  ∀ (is : List V) (x : V),
+    SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV m ψ t).map (·.2.2)) (is ++ [x]) →
+    (is ++ [x]).foldl SetTheory.app (interp V ρ Ψ)
+      ∈ˢ interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+          (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0))
+
+namespace PsiSetup
+
+variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
+  {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
+  {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
+  {TgV : Nat → AnnotTerm}
+
+/-- **The fold at the choice's prefix is typed** (`fold_mem_vals`,
+packaged). -/
+theorem typed (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) {t : Nat}
+    (ht : t < d.k) :
+    d.PsiTyped mp.base2 ψ ρ ps L pinsT t
+      (AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ)
+        (ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
+          d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+            (d.psiBodyAV head useIh via) d.nAll)) :=
+  fun _ _ hfit => fold_mem_vals d S ht hfit
+
+end PsiSetup
+
+/-- **A typed earlier term serves a transport**: lifted over the later
+copy's container parameters (`nP`), applied to the field's index
+values and the field at the telescope's values, it lands in the
+earlier copy's target at those index values — `PsiSetup.hvia`'s shape,
+with the transport's target `invTgAV ψ' ps' L' pinsT' t'`.  The field's
+fit against the earlier container's motive binder (`hfit`) is the
+consumer's, from the field's domain reading as that container's family
+at the pin (the syntactic-to-datum bridge `R_ψ ⊆ CopyRef` of DESIGN
+§M.22). -/
+theorem via_of_typed (m : EnvModel V env) {ψ' : Name → Nat} {ρ : Nat → V} {ps' : List AnnotTerm}
+    {L' : Nat → AnnotTerm} {pinsT' : Nat → List AnnotTerm} {t' : Nat} {Ψ' : AnnotTerm}
+    (hT : d.PsiTyped m ψ' ρ ps' L' pinsT' t' Ψ') {psV : List V} {EisV : List V} {x : V}
+    (hfit : SpineFit (consList (ps'.map (interp V ρ)) ρ) ((d.motDataAV m ψ' t').map (·.2.2))
+      (EisV ++ [x]))
+    (hisFit : SpineFit (consList (ps'.map (interp V ρ)) ρ)
+      ((rebit (pwBit ψ' ConLeche.PropWhen.never) ((d.ipss ψ' ).getD t' [])).map (·.2.2)) EisV) :
+    (EisV ++ [x]).foldl SetTheory.app (interp V (consList psV ρ) (Ψ'.liftN psV.length 0))
+      ∈ˢ EisV.foldl SetTheory.app (interp V ρ (d.invTgAV ψ' ps' L' pinsT' t')) := by
+  rw [interp_liftN, shiftE_consList, d.invTg_fold ψ' hisFit]
+  exact hT EisV x hfit
 
 end IndRepData
 

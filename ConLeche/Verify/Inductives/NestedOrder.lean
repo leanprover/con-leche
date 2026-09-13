@@ -221,6 +221,19 @@ theorem orderFold_spec {α : Type} {R : Nat → Nat → Prop} {n : Nat}
       exact hpre j' hmem
 
 
+/-- **Every entry of the folded table has the property** (`orderFold_spec`
+at `pre = []`, over the order's completeness): the fold over a
+topological order of a step that builds each entry from its references
+gives the property at every index below `n`. -/
+theorem TopoOrder.orderFold_all {α : Type} {R : Nat → Nat → Prop} {n : Nat} {order : List Nat}
+    (h : TopoOrder R n order) (step : (Nat → α) → Nat → α) (P : Nat → α → Prop)
+    (hstep : ∀ (tbl : Nat → α) (j : Nat), (∀ j', R j j' → P j' (tbl j')) → P j (step tbl j))
+    (tbl₀ : Nat → α) : ∀ j, j < n → P j (orderFold step order tbl₀ j) := by
+  intro j hj
+  have := orderFold_spec step P hstep (pre := []) (rest := order) tbl₀ (by simpa using h)
+    (fun _ h => nomatch h) j (by simpa using h.complete j hj)
+  simpa using this
+
 /-! ## The bridge to the kernel's computation (task #279 K.6 / §M.24)
 
 The kernel decides the relation (`copyRefB`, clause for clause) and
