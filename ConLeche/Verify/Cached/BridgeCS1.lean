@@ -32,6 +32,7 @@ open ConLeche
 open ConLeche.Expr
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 section Walks1
 
@@ -350,8 +351,8 @@ theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       v'.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDivModPin (sharedOpsC mode (mkFEnv env)) env env2 c)
-      (checkDivModPin (fueledOpsM mode) env env2 c) := by
+      (checkDivModPin (sharedOpsC mode (mkFEnv env)) pins env env2 c)
+      (checkDivModPin (fueledOpsM mode) pins env env2 c) := by
   unfold checkDivModPin
   by_cases h1 : divModEnvGuard env2 c = true
   case neg => simp only [if_neg h1]; exact SimC.throw

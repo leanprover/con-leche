@@ -603,6 +603,8 @@ namespace Cached
 
 open ConLeche ConLeche.Semantics ConLeche.Model
 
+variable {pins : List NatOpPinSet}
+
 /-- **What a record of the fold's input declares.**  `checkDecls`'s
 input is a list of parsed records, and this says which constant each
 kind of record claims a name and a type for:
@@ -669,7 +671,7 @@ its own level parameters, and with the *annotation* of the declared
 type — `AnnotOf`. -/
 theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     {pd : Declaration}
-    (h : checkDecl μ (fueledOps μ F) env pd = .ok env₂)
+    (h : checkDecl μ (fueledOps μ F) pins env pd = .ok env₂)
     {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c ∈ env₂.consts, c.name = cv.name ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
@@ -739,7 +741,7 @@ there at the end.  The hypotheses are `installRun_model`'s. -/
 theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (hrun : InstallRun μ ds p s q s') :
+    (hrun : InstallRun μ pins ds p s q s') :
     p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
@@ -777,7 +779,7 @@ the same term with every `let` inlined and the binder data rewritten
 (`AnnotOf`).  `basisDecl` records declare nothing, and an `indDecl`
 block's members are outside the claim (see the module docstring). -/
 theorem checkDecls_consts (V : Type w) [SetTheory V]
-    {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified ds = .ok env)
+    {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
     {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c, env.find? cv.name = some c ∧
       c.toConstantVal.levelParams = cv.levelParams ∧

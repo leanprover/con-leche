@@ -38,11 +38,12 @@ open ConLeche.Model (EnvModelM no_constant_of_Empty no_constant_of_False)
 
 universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-- **Acceptance**: what the fold accepts carries the model. -/
 theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
   exact fullyChecked_sound V hμ fc
@@ -53,7 +54,7 @@ has type `Empty`.  Hypotheses are input-level only. -/
 theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
@@ -65,7 +66,7 @@ the pinned `False` block — no hypothesis about how the stream declared
 theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h

@@ -41,6 +41,7 @@ set_option maxHeartbeats 3200000
 namespace ConLeche
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-- Success on the executable side is reproduced at some fuel. -/
 def bridgeRel : MonadRel FueledM CheckM where
@@ -951,8 +952,8 @@ theorem checkDivModPinLoop_datF (env : Env) (c : Name) (value' : Expr)
     · exact checkDivModPinLoop_datF env c value' F rest _
 
 theorem checkDivModPin_datF (env env2 : Env) (c : Name) (F : Nat) :
-    (checkDivModPin (fueledOpsM mode) env env2 c).val F =
-      checkDivModPin (fueledOps mode F) env env2 c := by
+    (checkDivModPin (fueledOpsM mode) pins env env2 c).val F =
+      checkDivModPin (fueledOps mode F) pins env env2 c := by
   unfold checkDivModPin
   repeat (first
     | (rw [checkDivModPinLoop_datF])
@@ -994,8 +995,8 @@ theorem checkBasisDecl_datF (env : Env) (kind : BasisKind) (F : Nat) :
     simp only [installBasisDecl_datF]
 
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
-    (checkDecl mode (fueledOpsM mode) env d).val F =
-      checkDecl mode (fueledOps mode F) env d := by
+    (checkDecl mode (fueledOpsM mode) pins env d).val F =
+      checkDecl mode (fueledOps mode F) pins env d := by
   unfold checkDecl
   cases d with
   | defnDecl cv value hint =>
@@ -1070,8 +1071,8 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
       · rfl
 
 theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :
-    (checkDeclsPure mode (fueledOpsM mode) ds).val F =
-      checkDeclsPure mode (fueledOps mode F) ds := by
+    (checkDeclsPure mode (fueledOpsM mode) pins ds).val F =
+      checkDeclsPure mode (fueledOps mode F) pins ds := by
   unfold checkDeclsPure
   rw [foldlM_atF]
   simp only [checkDecl_datF]

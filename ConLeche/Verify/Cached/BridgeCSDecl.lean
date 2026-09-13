@@ -49,6 +49,7 @@ theorem throwC_bind_eq {α β : Type} (e : CheckError)
 open ConLeche
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-! ## `CheckCM` peels (the `CheckIM` helpers of
 `ConLeche/Verify/CheckerF.lean` at the cached monad) -/
@@ -728,7 +729,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block nP) =
+    ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
       .ok feOut.env := by
   -- the declared parameter count (task #228) is a pure guard shared by
   -- the two drivers: `hok` is the branch both take

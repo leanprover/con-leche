@@ -96,7 +96,7 @@ private def bogusFalse (r : ParseResultD) : Bool :=
 -- … which the fold then rejects (`Prop` is not a proof of `False`)
 #guard
   match parseChunks [falseFile.toUTF8] with
-  | .ok r => match checkDecls .verified (preparePrelude preludeIx r.decls) with
+  | .ok r => match checkDecls .verified natOpPinSets (preparePrelude preludeIx r.decls) with
     | .ok _ => false
     | .error _ => true
   | .error _ => false

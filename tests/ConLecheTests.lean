@@ -80,12 +80,12 @@ def dummyAxiom : Declaration :=
 
 -- An arbitrary custom axiom is a positive decline at its own record
 -- (user ruling: only the tolerated whitelist may be declared).
-#guard checkDecl .verified (pureOps .verified) Env.empty dummyAxiom matches .error (.notImplemented _)
+#guard checkDecl .verified (pureOps .verified) natOpPinSets Env.empty dummyAxiom matches .error (.notImplemented _)
 
 -- A tolerated axiom (whitelist: exactly sorryAx, task #95) is
 -- well-formedness-checked but not installed — the environment is
 -- unchanged (the frontend declines any later use).
-#guard match checkDecl .verified (pureOps .verified) Env.empty
+#guard match checkDecl .verified (pureOps .verified) natOpPinSets Env.empty
     (.axiomDecl { name := .str .anonymous "sorryAx", levelParams := [],
                   type := .sort .zero }) with
   | .ok e => e.consts.isEmpty
@@ -94,19 +94,19 @@ def dummyAxiom : Declaration :=
 -- The compiler-trust family is no longer tolerated: it *installs*
 -- (task #95), so without its pinned prerequisites (the True family)
 -- a trustCompiler record is a positive decline at its own record.
-#guard checkDecl .verified (pureOps .verified) Env.empty
+#guard checkDecl .verified (pureOps .verified) natOpPinSets Env.empty
     (.axiomDecl { name := (Name.anonymous.str "Lean").str "trustCompiler",
                   levelParams := [], type := .sort .zero })
   matches .error (.notImplemented _)
 
 -- A garbage axiom record (its type is not a type) still rejects.
-#guard checkDecl .verified (pureOps .verified) Env.empty
+#guard checkDecl .verified (pureOps .verified) natOpPinSets Env.empty
     (.axiomDecl { name := .str .anonymous "foo", levelParams := [],
                   type := .bvar 0 })
   matches .error _
 
 -- The empty list of declarations is accepted.
-#guard (checkDeclsPure .verified (pureOps .verified) []).toBool == true
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets []).toBool == true
 
 /-! ## Sort-fragment definitions -/
 
@@ -116,34 +116,34 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
     (.regular 0)
 
 -- `def basicDef : Type := Prop` (tutorial test 001)
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
 
 -- `def bad : Prop := Type` is rejected (type mismatch).
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
   matches .error (.invalid _)
 
 -- Duplicate universe parameters are rejected.
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- Undeclared universe parameter in the type is rejected.
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
     (.sort (.param (.str .anonymous "u")))]
   matches .error (.invalid _)
 
 -- Duplicate declarations are rejected.
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
                    mkDef "d" [] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- `def levelComp4.{u} : Type 0 := Sort (imax u 0)` (tutorial test 018)
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
     (.sort (.imax (.param (.str .anonymous "u")) .zero))]).toBool
 
 /-! ## Dependent function types -/
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "arrowType" [] (.sort (.succ .zero))
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "arrowType" [] (.sort (.succ .zero))
   (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
@@ -151,7 +151,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `.ifAllZero []` ("the codomain is always a proposition"): the
 -- verified mode validates annotations and declines a `.never` on a
 -- Prop-codomain binder.
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
@@ -163,18 +163,18 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `"pw": "never"` is indistinguishable from an absent field and is
 -- silently corrected rather than falsified, so the falsifiable claims
 -- are exactly the `ifAllZero` ones (see the `bad*` guards below).
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
-#guard (checkDeclsPure .trusted (pureOps .trusted) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDeclsPure .trusted (pureOps .trusted) natOpPinSets [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "bad2" [] (.sort (.succ .zero))
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "bad2" [] (.sort (.succ .zero))
     (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
-#guard checkDeclsPure .verified (pureOps .verified) [mkDef "sneaky" [] (.sort (.succ .zero))
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "sneaky" [] (.sort (.succ .zero))
     (.fvar 0 (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
@@ -185,18 +185,18 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
-#guard (checkDeclsPure .verified (pureOps .verified) [mkThm "t"
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkThm "t"
     (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)
     (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
-#guard checkDeclsPure .verified (pureOps .verified) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
-#guard (checkDeclsPure .verified (pureOps .verified) [mkDef "prp" [] (.sort .zero)
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets [mkDef "prp" [] (.sort .zero)
     (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
@@ -342,7 +342,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _, _, _, _, _⟩ =>
-    (ConLeche.Cached.checkDecls .verified ds).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets ds).toBool
   | .error _ => false
 
 /-! ## Frontend: `sorryAx` is the fold's
@@ -394,7 +394,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- name it mentions is `sorryAx`.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    match ConLeche.Cached.checkDecls .verified r.decls with
+    match ConLeche.Cached.checkDecls .verified natOpPinSets r.decls with
     | .error (.notImplemented _, _) => true
     | _ => false
   | .error _ => false
@@ -403,7 +403,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- prefix up to the first use folds clean.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    (ConLeche.Cached.checkDecls .verified (r.decls.take 1)).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets (r.decls.take 1)).toBool
   | .error _ => false
 
 

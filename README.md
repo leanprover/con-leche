@@ -52,13 +52,14 @@ At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prov
 
 ```lean
 open Frontend in
-theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+theorem no_False_declaration (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds) = .error e
+      checkDecls .verified pins ds) = .error e
 ```
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51-L52) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
@@ -71,8 +72,8 @@ The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blo
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified ds = .ok env) :
+    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins ds = .ok env) :
     Nonempty (Model V env)
 ```
 

@@ -65,6 +65,14 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   one shape of one.
 * `False` and `Eq` are built in: the checker installs them from its own
   pins, and a stream that declares them differently is rejected.
+* `pins` is the list of `Nat.div`/`Nat.mod` pin variants the fold's
+  install gate tries (task #304).  Both statements are for EVERY list:
+  consistency does not depend on it — under the empty list every
+  stream that declares `Nat.div` simply declines, and under any other
+  what an accept establishes is the certificates' verdict in the
+  accepted environment, which is all the model tier reads.  The
+  shipped `con-leche` binary runs the fold at `natOpPinSets`, the
+  variants this toolchain committed.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 
@@ -80,10 +88,14 @@ open ConLeche.Cached (checkDecls)
 universe w
 
 /-- **The main theorem.**  Every environment the checker accepts has a
-model in every set theory. -/
+model in every set theory — at every `Nat.div`/`Nat.mod` pin list, so
+consistency does not depend on which variants the install gate is
+handed (the empty list included: under it every stream that declares
+`Nat.div` declines).  The shipped binary runs the fold at
+`natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified ds = .ok env) :
+    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
@@ -93,14 +105,16 @@ open Frontend in
 in the shape `jsonWithTheoremFalse` describes is rejected: the parse
 reads the template's four lines into a theorem record of type `False`,
 the preparation keeps the record, and a stream holding it is never
-accepted. -/
-theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
+accepted.  At every pin list, as the main theorem: the shipped binary
+runs the fold at `natOpPinSets`. -/
+theorem no_False_declaration (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified ds) = .error e := by
+      checkDecls .verified pins ds) = .error e := by
   refine Except.exists_error_of_not_ok fun env hacc => ?_
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc

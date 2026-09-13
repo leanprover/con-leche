@@ -121,13 +121,24 @@ def ValueFrontRun (μ : CheckMode) (F : Nat) (env : Env)
 /-- `DivModPinR` without its dead valuation parameter.  The pack was
 already run-only (task #148 T6 recorded the reason: the pin comparison
 is not transposed and the certificates enter as the checker's verdict),
-so this is a re-statement, not a projection. -/
+so this is a re-statement, not a projection.
+
+**The matched variant is existential and unlisted** (task #304): the
+pack used to say `∃ ps ∈ natOpPinSets`, and the install gate's pin
+list is now a parameter of the fold, so naming the shipped list here
+would have tied the whole run tier to it.  Nothing downstream reads
+the membership — the model's conversion (`divMod_install`,
+`ConLeche/Model/DivModCert.lean`) is over an arbitrary
+`ps : NatOpPinSet`, because what it consumes is the certificates'
+verdict *in this environment* and not where the variant came from.  So
+the pack says only that SOME variant's guards passed and certificates
+checked, which is what an install at any pin list establishes. -/
 def DivModPinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
     (c : Name) (value' : Expr) : Prop :=
   divModEnvGuard env₂ c = true ∧
   -- the pin variant that matched (task #273): its guards, its pin
   -- annotated, its certificates checked
-  ∃ ps ∈ natOpPinSets,
+  ∃ ps : NatOpPinSet,
     divModPinGuard ps env c = true ∧
     divModCertsGuard ps env c value' = true ∧
     ∃ pinA, annotateCore μ env F 0 (divModDeclPin ps c) = .ok pinA ∧
