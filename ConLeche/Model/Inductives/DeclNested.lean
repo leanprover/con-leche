@@ -106,14 +106,16 @@ nested run carries the P invariant.  `declMutualCore` at the auxiliary
 block, its recursor-name facts read off the run (see the module
 docstring). -/
 theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : Env}
-    {p : NestedParts} {st : ElimState} {b : MutualBlock} {stored : List AuxStored}
+    {p : NestedParts} {st₀ st : ElimState} {b : MutualBlock} {stored : List AuxStored}
     {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms : List ConstantVal}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (helim : ConLeche.elimNested env p.nP p.lps
       (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
         (⟨cv.name, cv.type,
           (p.ctors.filter (fun (c : MutualCtor) => c.member == mIdx)).map
-            fun (c : MutualCtor) => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st)
+            fun (c : MutualCtor) => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀)
+    (hremint : ConLeche.nestedRemint (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p st₀
+      = .ok st)
     (hfresh : ConLeche.copiesFresh env p.k st = true)
     (hb : ConLeche.auxBlock p st = some b)
     (hcore : ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
@@ -129,9 +131,11 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
   have hrun : DeclMutualCoreRun μ F env b none envAux := declMutualCoreRun_of hcore
   -- the block's shape
   have hk : b.k = st.types.length := ConLeche.auxBlock_k hb
+  obtain ⟨hpins, -, hlenT, -⟩ := ConLeche.nestedRemint_inv hremint
   have hlenSt : st.types.length = p.k + st.pins.length := by
     have := ConLeche.elimNested_length helim
-    rwa [nestedTypes0_length] at this
+    rw [nestedTypes0_length] at this
+    rw [hlenT, hpins]; exact this
   obtain ⟨hstoredLen, -⟩ := ConLeche.auxStoredAll_inv hstored
   have hkp : p.k ≤ b.k := by omega
   -- the formers' checks in the scratch run: every auxiliary former's
@@ -168,7 +172,7 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
     · -- a REAL member: its restored recursor went through `checkConstantVal`
       have hname : ty.name = (p.formers.getD t default).1.name := by
         have h1 := ConLeche.elimNested_name_lt helim (t := t) (by rw [nestedTypes0_length]; exact htk)
-        rw [hty, nestedTypes0_getElem?] at h1
+        rw [← ConLeche.nestedRemint_name hremint, hty, nestedTypes0_getElem?] at h1
         obtain ⟨q, hq⟩ : ∃ q, p.formers[t]? = some q :=
           ⟨_, List.getElem?_eq_getElem (by simpa [NestedParts.k] using htk)⟩
         rw [hq] at h1
@@ -221,8 +225,9 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
         = .ok envAux ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
-  obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim, -, hfresh, hb, hcore, hstored, -, -, -, -, -, hrm, -⟩ := h
-  exact ⟨st, b, envAux, hb, hcore, nestedAuxModel hμ mp hE helim hfresh hb hcore hstored hrm⟩
+  obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, st₀, a₀, fvsA, order,
+    helim, hremint, -, hfresh, -, hb, hcore, hstored, -, -, -, -, -, hrm, -⟩ := h
+  exact ⟨st, b, envAux, hb, hcore,
+    nestedAuxModel hμ mp hE helim hremint hfresh hb hcore hstored hrm⟩
 
 end ConLeche.Model

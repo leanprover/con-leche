@@ -27,5 +27,12 @@ public import ConLeche.Verify.Mono
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin
+-- ALIVE BY STATEMENT (the task #209 census's class): the nested route's
+-- copy-type lemmas (tasks #298/#300, DESIGN K.4/K.5) are proved for the
+-- model tier's fold and nothing in the tree consumes them yet, so the
+-- base umbrella is what puts them on the build graph — without an edge
+-- here `lake build` never checks them and `tests/shake.sh`'s census
+-- dies on the missing olean.  `AuxFormers` re-exports `CopyTypes`.
+public import ConLeche.Verify.Inductives.AuxFormers
 
 @[expose] public section

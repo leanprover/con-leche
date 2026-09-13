@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.CopyTypes
 public import ConLeche.Verify.Inductives.NestedFacts
 import ConLeche.Verify.Mono
+import ConLeche.Verify.PropRead
 import ConLeche.Verify.Deep
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.InstLevels
@@ -503,35 +504,6 @@ component must not change that answer.  Two readers are consulted:
 applied arity) and `proofPW` at a `λ`-binder's body (through
 `headProofPW`). -/
 
-/-- The reader at arity `n` on a term: unapplied, `typeSortPW`; applied
-to `n` further arguments, `headTypePW` at the head. -/
-@[expose] def readAt (find? : Name → Option ConstantInfo) (v : Expr) : Nat → Option PropWhen
-  | 0 => typeSortPW find? v
-  | n + 1 => headTypePW find? v.getAppFn (v.numArgs + (n + 1))
-
-/-- **Where the declared type answers, the value answers the same**
-(the `∀`-binder reader). -/
-@[expose] def SortAgreeW (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
-  ∀ (n : Nat) (pw : PropWhen), residualPW (A.peelNeverPis n) = some pw → readAt find? v n = some pw
-
-/-- The same for the `λ`-binder reader: a variable of type `A` is a
-proof exactly when `A` is a proposition. -/
-@[expose] def ProofAgreeW (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
-  ∀ pw : PropWhen, typeSortPW find? A = some pw → headProofPW find? v.getAppFn = some pw
-
-/-- A variable reads like itself. -/
-theorem SortAgreeW.fvar_refl (find? : Name → Option ConstantInfo) (i : Nat) (ty : Expr) :
-    SortAgreeW find? ty (.fvar i ty) := by
-  intro n pw h
-  cases n with
-  | zero => exact h
-  | succ n =>
-    show headTypePW find? (Expr.fvar i ty) (0 + (n + 1)) = some pw
-    rw [Nat.zero_add]; exact h
-
-theorem ProofAgreeW.fvar_refl (find? : Name → Option ConstantInfo) (i : Nat) (ty : Expr) :
-    ProofAgreeW find? ty (.fvar i ty) := fun _ h => h
-
 /-- A leaf map is OK on a term when every value it puts at one of the
 term's leaves reads like that leaf's annotation, for both readers. -/
 @[expose] def LeafOk (find? : Name → Option ConstantInfo) (σ : Nat → Option Expr) (e : Expr) : Prop :=
@@ -574,22 +546,18 @@ theorem residualPW_mapFvars {σ : Nat → Option Expr} {n : Nat} {ty : Expr} {pw
   obtain ⟨u, hu, rfl⟩ := residualPW_some_inv h
   rw [peelNeverPis_mapFvars n ty u hu]; rfl
 
-/-- The applied reader is a congruence for an OK leaf map. -/
-theorem headTypePW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr} :
+/-- **The arity-indexed reader is a congruence for an OK leaf map**
+(at the annotation grade, where a λ head reads through its body —
+task #301's β clause; the λ case is the induction one binder down). -/
+theorem typePWAt_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr} :
     ∀ (e : Expr), LeafOk find? σ e → ∀ (n : Nat) (pw : PropWhen),
-      headTypePW find? e.getAppFn (e.numArgs + (n + 1)) = some pw →
-      headTypePW find? (e.mapFvars σ).getAppFn ((e.mapFvars σ).numArgs + (n + 1)) = some pw := by
+      typePWAt find? true e n = some pw →
+      typePWAt find? true (e.mapFvars σ) n = some pw := by
   intro e
   induction e with
   | app f a ihf _ =>
     intro hok n pw h
-    have harg : ∀ m : Nat, m + 1 + (n + 1) = m + (n + 1 + 1) := fun m => by omega
-    show headTypePW find? (f.mapFvars σ).getAppFn ((f.mapFvars σ).numArgs + 1 + (n + 1)) = some pw
-    rw [harg]
-    refine ihf hok.app_fn (n + 1) pw ?_
-    have h' : headTypePW find? f.getAppFn (f.numArgs + 1 + (n + 1)) = some pw := h
-    rw [harg] at h'
-    exact h'
+    exact ihf hok.app_fn (n + 1) pw h
   | fvar idx ty _ =>
     intro hok n pw h
     simp only [Expr.mapFvars]
@@ -597,49 +565,50 @@ theorem headTypePW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat →
     | none => exact h
     | some v =>
       have hl : (idx, ty) ∈ (Expr.fvar idx ty).fvarLeaves := by simp [Expr.fvarLeaves]
-      have hres : residualPW (ty.peelNeverPis (n + 1)) = some pw := by
-        have h' : residualPW (ty.peelNeverPis (0 + (n + 1))) = some pw := h
-        rwa [Nat.zero_add] at h'
-      exact (hok idx ty v hl hs).1 (n + 1) pw hres
+      have := (hok idx ty v hl hs).1 n pw h
+      rwa [readAt_eq] at this
+  | lam ty b m _ ihb =>
+    intro hok n pw h
+    cases n with
+    | zero => exact nomatch h
+    | succ n =>
+      have hokB : LeafOk find? σ b := hok.mono fun l hl => by simp [Expr.fvarLeaves, hl]
+      exact ihb hokB n pw h
+  | forallE _ _ _ _ _ =>
+    intro _ n pw h
+    cases n with
+    | zero => exact h
+    | succ n => exact nomatch h
+  | sort u =>
+    intro _ n pw h
+    cases n with
+    | zero => exact h
+    | succ n => exact nomatch h
   | const c us => intro _ n pw h; exact h
-  | bvar i => intro _ n pw h; exact nomatch h
-  | sort u => intro _ n pw h; exact nomatch h
-  | lit l => intro _ n pw h; exact nomatch h
-  | lam _ _ _ _ _ => intro _ n pw h; exact nomatch h
-  | forallE _ _ _ _ _ => intro _ n pw h; exact nomatch h
-  | letE _ _ _ _ _ _ => intro _ n pw h; exact nomatch h
-  | proj _ _ _ _ => intro _ n pw h; exact nomatch h
+  | bvar i => intro _ n pw h; cases n <;> exact nomatch h
+  | lit l => intro _ n pw h; cases n <;> exact nomatch h
+  | letE _ _ _ _ _ _ => intro _ n pw h; cases n <;> exact nomatch h
+  | proj _ _ _ _ => intro _ n pw h; cases n <;> exact nomatch h
+
+/-- The applied reader is a congruence for an OK leaf map. -/
+theorem headTypePW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr}
+    (e : Expr) (hok : LeafOk find? σ e) (n : Nat) (pw : PropWhen)
+    (h : headTypePW find? true e.getAppFn (e.numArgs + (n + 1)) = some pw) :
+    headTypePW find? true (e.mapFvars σ).getAppFn ((e.mapFvars σ).numArgs + (n + 1)) = some pw := by
+  rw [headTypePW, ← typePWAt_spine] at h ⊢
+  exact typePWAt_mapFvars find? e hok (n + 1) pw h
 
 /-- **The `∀`-reader is a congruence for an OK leaf map.** -/
 theorem typeSortPW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr}
-    (e : Expr) (hok : LeafOk find? σ e) {pw : PropWhen} (h : typeSortPW find? e = some pw) :
-    typeSortPW find? (e.mapFvars σ) = some pw := by
-  cases e with
-  | forallE ty b m => exact h
-  | sort u => exact h
-  | const c us => exact h
-  | fvar idx ty =>
-    simp only [Expr.mapFvars]
-    cases hs : σ idx with
-    | none => exact h
-    | some v =>
-      have hl : (idx, ty) ∈ (Expr.fvar idx ty).fvarLeaves := by simp [Expr.fvarLeaves]
-      exact (hok idx ty v hl hs).1 0 pw h
-  | app f a =>
-    have h' : headTypePW find? f.getAppFn (f.numArgs + (0 + 1)) = some pw := h
-    have := headTypePW_mapFvars find? f hok.app_fn 0 pw h'
-    exact this
-  | bvar i => exact nomatch h
-  | lit l => exact nomatch h
-  | lam _ _ _ => exact nomatch h
-  | letE _ _ _ => exact nomatch h
-  | proj _ _ _ => exact nomatch h
+    (e : Expr) (hok : LeafOk find? σ e) {pw : PropWhen} (h : typeSortPW find? true e = some pw) :
+    typeSortPW find? true (e.mapFvars σ) = some pw :=
+  typePWAt_mapFvars find? e hok 0 pw h
 
 /-- The proof reader at the head is a congruence for an OK leaf map. -/
 theorem headProofPW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr} :
     ∀ (e : Expr), LeafOk find? σ e → ∀ (pw : PropWhen),
-      headProofPW find? e.getAppFn = some pw →
-      headProofPW find? (e.mapFvars σ).getAppFn = some pw := by
+      headProofPW find? true e.getAppFn = some pw →
+      headProofPW find? true (e.mapFvars σ).getAppFn = some pw := by
   intro e
   induction e with
   | app f a ihf _ => intro hok pw h; exact ihf hok.app_fn pw h
@@ -656,21 +625,22 @@ theorem headProofPW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat �
   | forallE _ _ _ _ _ => intro _ pw h; exact h
   | lit l => intro _ pw h; exact h
   | bvar i => intro _ pw h; exact nomatch h
-  | lam _ _ _ _ _ => intro _ pw h; exact nomatch h
+  | lam _ _ _ _ _ => intro _ pw h; exact h
   | letE _ _ _ _ _ _ => intro _ pw h; exact nomatch h
   | proj _ _ _ _ => intro _ pw h; exact nomatch h
 
-/-- A head reading is a `proofPW` reading (a λ has no head reading). -/
+/-- A head reading is a `proofPW` reading (at the annotation grade a λ
+head reads its own datum, as `proofPW` does). -/
 theorem proofPW_of_headProofPW (find? : Name → Option ConstantInfo) {v : Expr} {pw : PropWhen}
-    (h : headProofPW find? v.getAppFn = some pw) : proofPW find? v = some pw := by
+    (h : headProofPW find? true v.getAppFn = some pw) : proofPW find? true v = some pw := by
   cases v with
-  | lam _ _ _ => exact nomatch h
+  | lam _ _ _ => exact h
   | _ => exact h
 
 /-- **The `λ`-reader is a congruence for an OK leaf map.** -/
 theorem proofPW_mapFvars (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr}
-    (e : Expr) (hok : LeafOk find? σ e) {pw : PropWhen} (h : proofPW find? e = some pw) :
-    proofPW find? (e.mapFvars σ) = some pw := by
+    (e : Expr) (hok : LeafOk find? σ e) {pw : PropWhen} (h : proofPW find? true e = some pw) :
+    proofPW find? true (e.mapFvars σ) = some pw := by
   cases e with
   | lam ty b m => exact h
   | fvar idx ty =>
@@ -701,12 +671,12 @@ inductive ReaderStable (find? : Name → Option ConstantInfo) : Nat → Expr →
   | forallE {d ty body m} :
       ReaderStable find? d ty →
       ReaderStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
-      typeSortPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      typeSortPW find? true (body.instantiate1 (.fvar d ty)) = some m.pw →
       ReaderStable find? d (.forallE ty body m)
   | lam {d ty body m} :
       ReaderStable find? d ty →
       ReaderStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
-      proofPW find? (body.instantiate1 (.fvar d ty)) = some m.pw →
+      proofPW find? true (body.instantiate1 (.fvar d ty)) = some m.pw →
       ReaderStable find? d (.lam ty body m)
 
 theorem ReaderStable.toAnnotStable {find? : Name → Option ConstantInfo} :
@@ -741,12 +711,12 @@ inductive AnnotRelS (R : Expr → Expr → Prop) (find? : Name → Option Consta
   | forallE {d ty ty' b b'} (m : BinderMeta) :
       AnnotRelS R find? d ty ty' →
       AnnotRelS R find? (d + 1) (b.instantiate1 (.fvar d ty')) (b'.instantiate1 (.fvar d ty')) →
-      typeSortPW find? (b'.instantiate1 (.fvar d ty')) = some m.pw →
+      typeSortPW find? true (b'.instantiate1 (.fvar d ty')) = some m.pw →
       AnnotRelS R find? d (.forallE ty b m) (.forallE ty' b' m)
   | lam {d ty ty' b b'} (m : BinderMeta) :
       AnnotRelS R find? d ty ty' →
       AnnotRelS R find? (d + 1) (b.instantiate1 (.fvar d ty')) (b'.instantiate1 (.fvar d ty')) →
-      proofPW find? (b'.instantiate1 (.fvar d ty')) = some m.pw →
+      proofPW find? true (b'.instantiate1 (.fvar d ty')) = some m.pw →
       AnnotRelS R find? d (.lam ty b m) (.lam ty' b' m)
 
 /-- The relation is monotone in `R`. -/
@@ -906,52 +876,74 @@ theorem Expr.allLevelParamsDefined_getAppFn {ps : List Name} :
     exact ihf h.1
   | _ => intro h; exact h
 
+/-- A reader's answer has its level parameters within the term's (an
+induction over the arity-indexed reader, the λ case one binder down). -/
+theorem typePWAt_paramsDefined (find? : Name → Option ConstantInfo)
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {ps : List Name} :
+    ∀ (e : Expr) (n : Nat) (pw : PropWhen), e.allLevelParamsDefined ps = true →
+      typePWAt find? true e n = some pw → pw.paramsDefined ps = true := by
+  intro e
+  induction e with
+  | const I us =>
+    intro n pw hT h
+    obtain ⟨ci, u, hf, -, hlen, hpeel, rfl⟩ := typePWAt_const_some_inv find? true h
+    have hus : ∀ v ∈ us, v.allParamsDefined ps = true := by
+      simp only [Expr.allLevelParamsDefined, List.all_eq_true] at hT
+      exact hT
+    refine Level.substPW_paramsDefined hlen hus ?_
+    have := Expr.allLevelParamsDefined_peelNeverPis n hpeel (hdef I ci hf)
+    exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
+  | fvar idx ty _ =>
+    intro n pw hT h
+    obtain ⟨u, hu, rfl⟩ := residualPW_some_inv h
+    have := Expr.allLevelParamsDefined_peelNeverPis n hu hT
+    exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
+  | app f a ihf _ =>
+    intro n pw hT h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT
+    exact ihf (n + 1) pw hT.1 h
+  | lam ty b m _ ihb =>
+    intro n pw hT h
+    cases n with
+    | zero => exact nomatch h
+    | succ n =>
+      simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT
+      exact ihb n pw hT.1.2 h
+  | forallE ty b m _ _ =>
+    intro n pw hT h
+    cases n with
+    | zero =>
+      obtain rfl : pw = m.pw := (Option.some.inj h).symm
+      simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT
+      exact hT.2
+    | succ n => exact nomatch h
+  | sort u =>
+    intro n pw hT h
+    cases n with
+    | zero => obtain rfl : pw = .never := (Option.some.inj h).symm; simp
+    | succ n => exact nomatch h
+  | bvar i => intro n pw _ h; cases n <;> exact nomatch h
+  | lit l => intro n pw _ h; cases n <;> exact nomatch h
+  | letE _ _ _ _ _ _ => intro n pw _ h; cases n <;> exact nomatch h
+  | proj _ _ _ _ => intro n pw _ h; cases n <;> exact nomatch h
+
 /-- A reader's answer has its level parameters within the term's. -/
 theorem typeSortPW_paramsDefined (find? : Name → Option ConstantInfo)
     (hdef : ∀ n ci, find? n = some ci →
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
     {ps : List Name} {T : Expr} {pw : PropWhen} (hT : T.allLevelParamsDefined ps = true)
-    (h : typeSortPW find? T = some pw) : pw.paramsDefined ps = true := by
-  have hhead : ∀ {hd : Expr} {k : Nat}, hd.allLevelParamsDefined ps = true →
-      headTypePW find? hd k = some pw → pw.paramsDefined ps = true := by
-    intro hd k hhd hk
-    rcases headTypePW_some_inv find? hk with
-      ⟨I, us, ci, u, rfl, hf, -, hlen, hpeel, rfl⟩ | ⟨idx, ty, u, rfl, hpeel, rfl⟩
-    · have hus : ∀ v ∈ us, v.allParamsDefined ps = true := by
-        simp only [Expr.allLevelParamsDefined, List.all_eq_true] at hhd
-        exact hhd
-      refine Level.substPW_paramsDefined hlen hus ?_
-      have := Expr.allLevelParamsDefined_peelNeverPis k hpeel (hdef I ci hf)
-      exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
-    · have := Expr.allLevelParamsDefined_peelNeverPis k hpeel hhd
-      exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
-  cases T with
-  | forallE ty b m =>
-    obtain rfl : pw = m.pw := (Option.some.inj h).symm
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT
-    exact hT.2
-  | sort u =>
-    obtain rfl : pw = .never := (Option.some.inj h).symm
-    simp
-  | const c us => exact hhead hT h
-  | fvar idx ty => exact hhead hT h
-  | app f a =>
-    have h' : headTypePW find? f.getAppFn (f.numArgs + 1) = some pw := h
-    exact hhead (Expr.allLevelParamsDefined_getAppFn f
-      (by simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT; exact hT.1)) h'
-  | bvar i => exact nomatch h
-  | lit l => exact nomatch h
-  | lam _ _ _ => exact nomatch h
-  | letE _ _ _ => exact nomatch h
-  | proj _ _ _ => exact nomatch h
+    (h : typeSortPW find? true T = some pw) : pw.paramsDefined ps = true :=
+  typePWAt_paramsDefined find? hdef T 0 pw hT h
 
 /-- The proof reader at a head commutes with level instantiation. -/
 theorem headProofPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
     (hdef : ∀ n ci, find? n = some ci →
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
     {ks : List Name} {vs : List Level} {hd : Expr} {pw : PropWhen}
-    (h : headProofPW find? hd = some pw) :
-    headProofPW find? (hd.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
+    (h : headProofPW find? true hd = some pw) :
+    headProofPW find? true (hd.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
   cases hd with
   | const c us =>
     simp only [headProofPW] at h
@@ -965,20 +957,20 @@ theorem headProofPW_instantiateLevelParams (find? : Name → Option ConstantInfo
       · next hnt =>
         split at h
         · next hlen =>
-          cases hts : typeSortPW find? ci.toConstantVal.type with
+          cases hts : typeSortPW find? true ci.toConstantVal.type with
           | none => rw [hts] at h; exact nomatch h
           | some pw₀ =>
             rw [hts] at h
             obtain rfl : pw = Level.substPW ci.toConstantVal.levelParams us pw₀ :=
               (Option.some.inj h).symm
-            show headProofPW find? (.const c (us.map (Level.subst ks vs))) = _
+            show headProofPW find? true (.const c (us.map (Level.subst ks vs))) = _
             simp only [headProofPW, hf, hnt, Bool.false_eq_true, if_false, List.length_map, hlen,
               if_true, hts, Option.map_some]
             exact congrArg some (Level.substPW_comp hlen
               (typeSortPW_paramsDefined find? hdef (hdef c ci hf) hts)).symm
         · exact nomatch h
   | fvar idx ty =>
-    show typeSortPW find? (ty.instantiateLevelParams ks vs) = _
+    show typeSortPW find? true (ty.instantiateLevelParams ks vs) = _
     exact typeSortPW_at_levels find? hdef h
   | sort u =>
     obtain rfl : pw = .never := (Option.some.inj h).symm
@@ -991,7 +983,9 @@ theorem headProofPW_instantiateLevelParams (find? : Name → Option ConstantInfo
     rw [Level.substPW_never]; rfl
   | bvar i => exact nomatch h
   | app _ _ => exact nomatch h
-  | lam _ _ _ => exact nomatch h
+  | lam ty b m =>
+    obtain rfl : pw = m.pw := (Option.some.inj h).symm
+    rfl
   | letE _ _ _ => exact nomatch h
   | proj _ _ _ => exact nomatch h
 
@@ -1000,55 +994,55 @@ theorem proofPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
     (hdef : ∀ n ci, find? n = some ci →
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
     {ks : List Name} {vs : List Level} {e : Expr} {pw : PropWhen}
-    (h : proofPW find? e = some pw) :
-    proofPW find? (e.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
+    (h : proofPW find? true e = some pw) :
+    proofPW find? true (e.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
   cases e with
   | lam ty b m =>
     obtain rfl : pw = m.pw := (Option.some.inj h).symm
     rfl
   | app f a =>
-    have h' : headProofPW find? (Expr.app f a).getAppFn = some pw := h
-    show headProofPW find? ((Expr.app f a).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.app f a).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.app f a).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | bvar i =>
-    have h' : headProofPW find? (Expr.bvar i).getAppFn = some pw := h
-    show headProofPW find? ((Expr.bvar i).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.bvar i).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.bvar i).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | fvar idx ty =>
-    have h' : headProofPW find? (Expr.fvar idx ty).getAppFn = some pw := h
-    show headProofPW find? ((Expr.fvar idx ty).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.fvar idx ty).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.fvar idx ty).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | sort u =>
-    have h' : headProofPW find? (Expr.sort u).getAppFn = some pw := h
-    show headProofPW find? ((Expr.sort u).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.sort u).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.sort u).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | const c us =>
-    have h' : headProofPW find? (Expr.const c us).getAppFn = some pw := h
-    show headProofPW find? ((Expr.const c us).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.const c us).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.const c us).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | lit l =>
-    have h' : headProofPW find? (Expr.lit l).getAppFn = some pw := h
-    show headProofPW find? ((Expr.lit l).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.lit l).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.lit l).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | forallE ty b m =>
-    have h' : headProofPW find? (Expr.forallE ty b m).getAppFn = some pw := h
-    show headProofPW find? ((Expr.forallE ty b m).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.forallE ty b m).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.forallE ty b m).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | letE ty v b =>
-    have h' : headProofPW find? (Expr.letE ty v b).getAppFn = some pw := h
-    show headProofPW find? ((Expr.letE ty v b).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.letE ty v b).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.letE ty v b).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
   | proj s i e =>
-    have h' : headProofPW find? (Expr.proj s i e).getAppFn = some pw := h
-    show headProofPW find? ((Expr.proj s i e).instantiateLevelParams ks vs).getAppFn = _
+    have h' : headProofPW find? true (Expr.proj s i e).getAppFn = some pw := h
+    show headProofPW find? true ((Expr.proj s i e).instantiateLevelParams ks vs).getAppFn = _
     rw [Expr.getAppFn_instantiateLevelParams']
     exact headProofPW_instantiateLevelParams find? hdef h'
 
@@ -1222,7 +1216,7 @@ theorem agree_fvar_mapped (find? : Name → Option ConstantInfo) {σ : Nat → O
   · cases n with
     | zero => exact residualPW_mapFvars h
     | succ n =>
-      show headTypePW find? (Expr.fvar d (ty.mapFvars σ)) (0 + (n + 1)) = some pw
+      show headTypePW find? true (Expr.fvar d (ty.mapFvars σ)) (0 + (n + 1)) = some pw
       rw [Nat.zero_add]
       exact residualPW_mapFvars h
   · exact typeSortPW_mapFvars find? ty hty h

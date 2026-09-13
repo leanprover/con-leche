@@ -1451,7 +1451,7 @@ theorem annotPwPi_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     annotPwPi (pureFns mode env F') env d e = .ok pw := by
   revert h
   unfold annotPwPi
-  cases typeSortPW env.find? e with
+  cases typeSortPW env.find? true e with
   | some p => exact id
   | none =>
     dsimp only
@@ -1475,7 +1475,7 @@ theorem annotPwLam_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     annotPwLam (pureFns mode env F') env d e = .ok pw := by
   revert h
   unfold annotPwLam
-  cases proofPW env.find? e with
+  cases proofPW env.find? true e with
   | some p => exact id
   | none =>
     dsimp only
@@ -1593,7 +1593,7 @@ theorem annotatePisLeaf_sound {d : Nat} {t : Expr}
     rw [hleaf, okB_bind]
     rw [← annotateBindersOut_wrap (mk := fun ty b mb => .forallE ty b mb)
       (fun ty b bi d k c => rfl)
-      (fun e => typeSortPW env.find? e)
+      (fun e => typeSortPW env.find? true e)
       (fun D e => annotPwPi (pureFns mode env F) env D e)
       (fun ty b mb => rfl)
       (fun D e p hp => by unfold annotPwPi; rw [hp])
@@ -1695,7 +1695,7 @@ theorem annotateLamsLeaf_sound {d : Nat} {t : Expr}
     rw [hleaf, okB_bind]
     rw [← annotateBindersOut_wrap (mk := fun ty b mb => .lam ty b mb)
       (fun ty b bi d k c => rfl)
-      (fun e => proofPW env.find? e)
+      (fun e => proofPW env.find? true e)
       (fun D e => annotPwLam (pureFns mode env F) env D e)
       (fun ty b mb => rfl)
       (fun D e p hp => by unfold annotPwLam; rw [hp])

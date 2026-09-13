@@ -70,9 +70,9 @@ theorem mkCopy_name {pbs : List (Expr × BinderMeta)} {lvls : List Level} {Ds : 
 
 /-- `mkCopies` mints one type per container member, each with its pin. -/
 theorem mkCopies_grows {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : List Level}
-    {Ds : List Expr} {I : Name} :
+    {Ds : List Expr} {I : Name} {base size : Nat} :
     ∀ {members : List ContainerMember} {st st' : ElimState} {got : Option Name},
-      mkCopies env pbs lvls Ds I members st = .ok (st', got) → ElimGrows st st'
+      mkCopies env pbs lvls Ds I base size members st = .ok (st', got) → ElimGrows st st'
   | [], st, st', got, h => by
     simp only [mkCopies, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -88,7 +88,7 @@ theorem mkCopies_grows {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : Lis
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, -⟩ := h
         refine ElimGrows.trans ?_ (mkCopies_grows hq)
-        exact ⟨[⟨_, J.name, Expr.mkAppN (.const J.name lvls) Ds⟩], rfl,
+        exact ⟨[⟨_, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩], rfl,
           by simp [mkCopy_name hcopy]⟩
 
 /-- `replaceIfNested` leaves the state alone or mints copies. -/
@@ -295,10 +295,11 @@ theorem replaceAllNested_grows {env : Env} {blvls : List Level} {params : List E
           exact ihx h₁
 
 /-- One type's constructors rewritten: the state grows by copies. -/
-theorem elimCtors_grows {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr} :
+theorem elimCtors_grows {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr}
+    {pbs₀ : List (Expr × BinderMeta)} :
     ∀ {cs : List (Name × Expr × Nat)} {st : ElimState}
       {r : List (Name × Expr × Nat) × ElimState},
-      elimCtors env blvls nP params cs st = .ok r → ElimGrows st r.2
+      elimCtors env blvls nP params pbs₀ cs st = .ok r → ElimGrows st r.2
   | [], st, r, h => by
     simp only [elimCtors, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -323,9 +324,10 @@ theorem elimCtors_grows {env : Env} {blvls : List Level} {nP : Nat} {params : Li
 
 /-- The worklist: every step grows the state by copies and keeps the
 names of the types it rewrites. -/
-theorem elimLoop_grows {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr} :
+theorem elimLoop_grows {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr}
+    {pbs₀ : List (Expr × BinderMeta)} :
     ∀ {fuel qhead : Nat} {st st' : ElimState},
-      elimLoop env blvls nP params fuel qhead st = .ok st' → ElimGrows st st'
+      elimLoop env blvls nP params pbs₀ fuel qhead st = .ok st' → ElimGrows st st'
   | 0, _, _, _, h => nomatch h
   | fuel + 1, qhead, st, st', h => by
     simp only [elimLoop] at h
@@ -994,5 +996,102 @@ theorem openPisAtFvars_closeTelescope :
       rw [show i + (j + 1) = i + 1 + j from by omega] at h
       exact ⟨h.1, fun j' b' hlt hj' =>
         h.2 (j' + 1) b' (Nat.succ_lt_succ hlt) (by rw [List.getElem?_cons_succ]; exact hj')⟩
+
+/-! ## The re-mint (K.9): only the copies' TYPES change -/
+
+/-- A type-only rewrite of the list keeps every entry's name and
+constructors, and the length. -/
+theorem auxTypes_map_type {ts : List AuxType} {f : AuxType → AuxType}
+    (hf : ∀ t, (f t).name = t.name ∧ (f t).ctors = t.ctors) :
+    (ts.map f).length = ts.length ∧
+    ∀ i : Nat, (ts.map f)[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
+      = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors)) := by
+  refine ⟨List.length_map .., fun i => ?_⟩
+  rw [List.getElem?_map]
+  cases ts[i]? with
+  | none => rfl
+  | some t => simp only [Option.map_some, (hf t).1, (hf t).2]
+
+/-- `remintCopyTypes` keeps names, constructors and the length. -/
+theorem remintCopyTypes_inv {F : Nat} {envF env : Env} {nP : Nat} {fvsA : List Expr}
+    {pbsA : List (Expr × BinderMeta)} :
+    ∀ {pins : List NestedPin} {ts ts' : List AuxType},
+      remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env pins ts = .ok ts' →
+      ts'.length = ts.length ∧
+      ∀ i : Nat, ts'[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
+        = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
+  | [], ts, ts', h => by
+    obtain rfl : ts = ts' := Except.ok.inj h
+    exact ⟨rfl, fun _ => rfl⟩
+  | q :: qs, ts, ts', h => by
+    simp only [remintCopyTypes, bind, Except.bind] at h
+    obtain ⟨pinA, -, h⟩ := exceptBind_ok h
+    -- the type-only rewrite of the list, in the one arm that rewrites
+    have hmap : ∀ (f : AuxType → AuxType), (∀ t, (f t).name = t.name ∧ (f t).ctors = t.ctors) →
+        ∀ {ts₂ : List AuxType},
+        remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env qs (ts.map f)
+          = .ok ts₂ →
+        ts₂.length = ts.length ∧
+        ∀ i : Nat, ts₂[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
+          = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors)) := by
+      intro f hf ts₂ h₂
+      have hrest := remintCopyTypes_inv h₂
+      have hstep := auxTypes_map_type (ts := ts) hf
+      exact ⟨hrest.1.trans hstep.1, fun i => (hrest.2 i).trans (hstep.2 i)⟩
+    split at h
+    · split at h
+      · split at h
+        · split at h
+          · simp only [pure, Except.pure] at h
+            exact hmap _ (fun t => by split <;> exact ⟨rfl, rfl⟩) h
+          · simp only [pure, Except.pure] at h
+            exact remintCopyTypes_inv h
+        · simp only [pure, Except.pure] at h
+          exact remintCopyTypes_inv h
+      · simp only [pure, Except.pure] at h
+        exact remintCopyTypes_inv h
+    · simp only [pure, Except.pure] at h
+      exact remintCopyTypes_inv h
+
+/-- **The re-mint changes only the copies' types**: the pins, the name
+counter, every entry's name and constructors, and the length are the
+elimination's. -/
+theorem nestedRemint_inv {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
+    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok st) :
+    st.pins = st₀.pins ∧ st.nextIdx = st₀.nextIdx ∧
+    st.types.length = st₀.types.length ∧
+    ∀ i : Nat, st.types[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
+      = st₀.types[i]?.map (fun (t : AuxType) => (t.name, t.ctors)) := by
+  simp only [nestedRemint, bind, Except.bind] at h
+  obtain ⟨cv₀, -, h⟩ := exceptBind_ok h
+  obtain ⟨t₀A, -, h⟩ := exceptBind_ok h
+  obtain ⟨⟨fvsA₀, r₁⟩, -, h⟩ := exceptBind_ok h
+  obtain ⟨⟨pbsA, r₂⟩, -, h⟩ := exceptBind_ok h
+  obtain ⟨typesA, hA, h⟩ := exceptBind_ok h
+  obtain rfl := (Except.ok.inj h).symm
+  obtain ⟨hlen, hi⟩ := remintCopyTypes_inv hA
+  exact ⟨rfl, rfl, hlen, hi⟩
+
+/-- The re-mint keeps every entry's name. -/
+theorem nestedRemint_name {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
+    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok st) (i : Nat) :
+    st.types[i]?.map (·.name) = st₀.types[i]?.map (·.name) := by
+  have := (nestedRemint_inv h).2.2.2 i
+  generalize st.types[i]? = a at this ⊢
+  generalize st₀.types[i]? = b at this ⊢
+  cases a <;> cases b <;> simp only [Option.map_some, Option.map_none,
+    Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at this ⊢
+  exact this.1
+
+/-- The re-mint keeps every entry's constructors. -/
+theorem nestedRemint_ctors {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
+    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok st) (i : Nat) :
+    st.types[i]?.map (·.ctors) = st₀.types[i]?.map (·.ctors) := by
+  have := (nestedRemint_inv h).2.2.2 i
+  generalize st.types[i]? = a at this ⊢
+  generalize st₀.types[i]? = b at this ⊢
+  cases a <;> cases b <;> simp only [Option.map_some, Option.map_none,
+    Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at this ⊢
+  exact this.2
 
 end ConLeche

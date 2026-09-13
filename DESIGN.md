@@ -71192,9 +71192,259 @@ fixtures narrows.  Cost on the cone: **298.869 G vs 298.867 G
 instructions:u, +0.0019 G = +0.0006 %** (one more `abstractRange` walk
 over 132 small pins), i.e. free beside K.2's own +0.048 %.
 
+#### K.6 THE COPIES' ORDER IS COMPUTED BY THE KERNEL (2026-09-13, DESIGN §M.22, the maintainer's decision)
+
+**The decision.**  The model's forward fold is one term per copy, each
+built from the terms of the copies it REFERS to, and §M.22 records that
+the relation has no syntactic well-founded measure — on the raw terms it
+is not even acyclic, KINDING is what excludes the cycles.  The
+maintainer's ruling: the KERNEL computes the relation and emits a
+topological order, and a cyclic block is a positive DECLINE.
+
+**What landed**, in `checkNested` between the elimination and the
+scratch install:
+
+* **the mint group is recorded**: `NestedPin` gains `grpBase`/`grpSize`,
+  set by `mkCopies` from the group's base in the pin list and the
+  container's member count.  §M.22's `grp` is not recoverable from the
+  pin list afterwards — a container's whole `all`-group is copied at
+  once and the copies are then indistinguishable from separately minted
+  ones — so the mint records it; `ElimState.grp` reads it back.
+* **`copyRefB grp k st j j'`**, the model lane's `CopyRef` clause for
+  clause as a `Bool` (read verbatim off
+  `agent/nested-279m:ConLeche/Verify/Inductives/NestedOrder.lean`): a
+  processed constructor of copy `j` mentions copy `j'`'s name; `j'` is
+  OUTSIDE `j`'s mint group; and no pin of `j`'s group is a subterm of
+  `j'`'s pin — the exclusion that keeps a container's references
+  through its OWN mimics out of the relation.
+* **`Expr.subB`**, deciding the lane's `Expr.Sub` over the positions the
+  replace walk visits (and not an `fvar`'s annotation), with the
+  memoized twin and its `@[csimp]` — the relation is asked of PINS and a
+  pin component can be DAG-shared, so the task #215 discipline applies.
+* **`nestedTopoOrder`**: emit copies whose references are all out
+  already, repeatedly; then CHECK the result against `topoOrderOk`,
+  whose four conjuncts are `TopoOrder`'s four fields, so the fields are
+  facts about the RESULT and not about the algorithm.  A failure to
+  extend reports an edge ON the cycle, and `checkNested` declines
+  (`.notImplemented`, exit 2) naming both copies and their containers.
+* **`Verify/Inductives/NestedOrderK.lean`**: the four fields read back
+  out — `nestedTopoOrder_nodup/_complete/_bounded/_ref` — plus the
+  eleven introduction lemmas and the elimination `subB_cases` that make
+  `Expr.subB pat e = true ↔ Expr.Sub pat e` a two-line induction.
+* the run relation records `nestedTopoOrder (ElimState.grp st) p.k st =
+  .ok order` as an explicit conjunct of `checkNested_inv` and
+  `DeclNestedRun`.
+
+**A DESIGN FORK, stated and taken.**  The request was to record the
+conjunct as `TopoOrder (CopyRef grp k st) n order`.  `TopoOrder` and
+`CopyRef` are the MODEL lane's definitions and its file is not on
+`inductives`, so stating it that way would mean duplicating that file
+here and conflicting with it at the merge.  What landed instead: the
+kernel's Bool equation in the run relation, plus the four
+`TopoOrder`-field facts as theorems.  **What the lane owes to close the
+gap is one lemma about its own `Prop` and this `Bool`** —
+`CopyRef grp k st j j' ↔ copyRefB grp k st j j' = true` — after which
+`TopoOrder R n order` is `⟨nodup, complete, bounded, lt_of_ref⟩`.
+`lt_of_ref` takes `j < n` as a hypothesis, which `CopyRef`'s own first
+conjunct supplies through the lane's ledger.
+
+**NO FIXTURE CAN BE BUILT, and that is the point.**  §M.22's two-cycle
+is `J (α : Type → Type) (β : Type) | mk : α β → J α β` together with
+`Foo (γ δ : Type) | mk : J δ δ → Foo γ δ` and a block nesting at
+`J (Foo T) (Foo T)`.  Traced through the elimination it does cycle:
+copy `_nested.J_1` (pin `J (Foo T) (Foo T)`) mentions copy
+`_nested.Foo_2` (pin `Foo T (Foo T)`), that copy's own field dedups back
+onto `_nested.J_1`, and neither pin is a subterm of the other, so both
+edges survive the group exclusion.  But `Foo` is ILL-KINDED — measured:
+Lean v4.33.0 rejects it with "Application type mismatch: the argument δ
+has type Type", while `J` alone is accepted — so `Foo` never enters ANY
+environment: not official's, and not this checker's, whose own install
+of `Foo` would infer the ill-typed field `J δ δ`.  `containerInfo?`
+therefore never recovers it and the cycle check can never fire on a
+stream at all.  Which is §M.22's kinding argument, now measured on its
+own example.  **So the walk is exercised directly**: six `#guard`s in
+`tests/ConLecheTests.lean` on a hand-built two-copy state — the
+relation both ways, the self-exclusion through the mint group, the
+cycle DECLINED at `.error (0, 1)`, a chain ORDERED as `[1, 0]`, the
+four conjuncts of `topoOrderOk` on that order, and `subB` deciding the
+subterm relation.
+
+Per the maintainer: NO perf measurement (the corpus is too small to say
+anything).  The Mathlib nested cone is unchanged at **41/41 accept**, so
+no corpus block declines.
+
+**THE GATE BLOCKER THE K.4/K.5 MERGES BROUGHT — FIXED HERE (K.7).**
+`tests/arena.sh`'s SHAKE gate cannot run its census at `inductives` =
+`dbd53f3c`: the census imports every module of the tree at once, and
+`Verify/Inductives/CopyTypes.lean` (task #298, commit `dbb17f63`)
+declares two names the tree already has —
+
+    ConLeche.Expr.getAppFn_mkAppN                  also in Verify/InferLemmas.lean
+    ConLeche.Expr.getAppFn_instantiateLevelParams  also in Verify/Denote/IndFrame.lean
+
+— so the dump dies with "environment already contains
+'ConLeche.Expr.getAppFn_mkAppN'".  This is the clash DESIGN §M.23
+reports; the model lane renamed the two in place on its own branch and
+the rename is not on `inductives`.  It is independent of K.6 (both
+declarations predate this task's commits) and it blocks the census for
+any lane.  Before that clash surfaced, the same gate failed one step
+earlier for a related reason: `CopyTypes.lean` and `AuxFormers.lean` are
+imported by NOTHING on `inductives`, so `lake build` never builds them
+and their oleans are missing — which also means **the build gate does
+not CHECK them**.  K.6 fixed that for its own proof file:
+`Semantics/Inductives/DeclNested.lean` imports
+`Verify/Inductives/NestedOrderK.lean` and USES it, through
+`topoFields_of`, which packages the four `TopoOrder` fields as one fact
+off the run relation's conjunct — so the file is built by `lake build`,
+and the model tier gets the fields rather than the algorithm.  The two
+K.4/K.5 files still needed their consumer (or their rename); the
+maintainer's ruling was to fix both here, which K.7 does:
+
+* **the rename**, applied EXACTLY as the model lane made it on its own
+  branch so that the eventual merge is conflict-free —
+  `Expr.getAppFn_mkAppN'` and `Expr.getAppFn_instantiateLevelParams'`,
+  each with the lane's own "named apart from …" docstring.  The file is
+  byte-identical to
+  `agent/nested-279m:ConLeche/Verify/Inductives/CopyTypes.lean` after it.
+* **the umbrella edge**: `ConLeche.lean`, the base umbrella, gains
+  `public import ConLeche.Verify.Inductives.AuxFormers` (which
+  re-exports `CopyTypes`), with the task #209 census's reason on it —
+  ALIVE BY STATEMENT.  Both files are now built by `lake build`, hence
+  CHECKED by the build gate, and the shake census finds their oleans.
+* **the import hygiene those two files had never been shaken for.**
+  Putting them on the graph exposed 6 removals and 5 demotions.  Five
+  `public import`s demoted (`AuxFormers`' three, `CopyTypes`' two), two
+  unused plain imports of `AuxFormers` deleted (`Verify.Mono`,
+  `Kernel.Inductives.NestedElim`), and `CopyTypes`' `public import
+  Verify.Subst` demoted against a compensating
+  `import ConLeche.Verify.Subst` in `AuxFormers` — which is what
+  `stripPis_length` reached it through.  ONE removal is allowlisted,
+  `CopyTypes`' `public import Verify.Abstract`: deleting it loses
+  `Verify.Shift`'s `WScoped`, so it is a compensated removal, the class
+  `tests/shake-allowlist.txt` is for.  `pub-imports: none demotable`;
+  `tests/layering.sh` unchanged at 297 base / 218 model / 3 caps / 1
+  umbrella, 0 base→lane, 0 impl→theory.
+
+None of this touches the binary — `Kernel/*`, `Cached/*`, `Frontend/*`
+and `Main.lean` are untouched by K.7 — so the shadow gate, the cone and
+every verdict stand as K.6 measured them.
+
+#### K.9 THE COPIES' TYPES AND BINDERS (2026-09-13, DESIGN §M.23's two premises, the maintainer's rulings)
+
+**Premise B, implemented.**  Every copy is minted with the BLOCK'S FIRST
+FORMER's parameter binders (`pbs₀`, threaded from `elimNested`) instead
+of the minting constructor's — official uses the constructor's, because
+its copies are built in that constructor's local context, and the two
+are DEFEQ: the mutual install compares every member's parameter domains
+definitionally against the first former's (`mutualDomsOk`, official's
+`check_inductive_types`).  So the change is verdict-neutral, and it
+makes the model lane's `AuxOpensAt` true BY CONSTRUCTION: every copy's
+stored type opens at the binders the pin check opens at.  Only the
+COPIES change; the block's own constructors keep being re-wrapped with
+their own parameter binders, as official does, to preserve binder data.
+
+**Premise A, and WHY THE FIRST ATTEMPT WAS WRONG.**  The first cut of
+K.9 turned premise A into a CHECK — `copiesStoredAsMinted`, "every
+copy's stored type is the minted one", a decline otherwise — on the
+strength of a 164/164 corpus measurement.  **The coordinator rejected
+it, correctly**: a minted type contains RAW pin components, so the check
+declines whenever the annotator's pass over a component is not the
+identity, i.e. whenever a component holds a binder whose true datum is
+not the parse placeholder — a RESTRICTION beyond official, hidden by
+corpus vacuity.  It is deleted.
+
+**Measured while looking for the witness** (two candidates, both
+exported and run): `Wrap (f : True → Type) | mk : f trivial → Wrap f`
+nested at `Wrap (fun (h : True) => T)`, and
+`Wrap (A : Prop) : Prop | mk : A → Wrap A` nested at `Wrap (True → T)`
+with `T : Prop` — official ACCEPTS both (v4.33.0) and both accept here.
+Neither trips the check, and the reason is worth recording: a copy's
+FORMER type contains a pin component only where the container's TYPE
+mentions its parameters, and the datum must additionally differ from the
+placeholder there.  **The export carries no binder datum at all** —
+there is no `"pw"` field in `lean4export` 3.1.0's output, so EVERY
+binder of every stream term arrives as the parse placeholder and the
+pass computes every datum.  The restriction is therefore real even
+though the witness is narrow, and the check is out on the maintainer's
+rule (universal coverage) rather than on a measurement.  Both shapes are
+kept as fixtures, and `nested_pin_prop_cod` turns out to be a FOURTH
+shape the in-process modeller declines and the native route takes.
+
+**What landed instead — steps (1) and (2) of the brief.**  `nestedRemint`,
+run immediately after the elimination:
+
+* the block's FIRST FORMER's type is annotated, and its parameter
+  binders `pbsA` and openers `fvsA₀` are taken from the ANNOTATED type;
+* every pin is moved to those openers and ANNOTATED, at the pre-block
+  environment plus the block's formers — which is all a pin can mention,
+  a pin being a sub-term of a constructor field domain and
+  `checkMutualCtor` resolving those exactly there;
+* every copy's type is RE-MINTED from the container's stored ANNOTATED
+  type at the ANNOTATED components, with `pbsA` (premise B).
+
+A copy's type is therefore annotated throughout, so the aux install's
+own pass keeps every written datum and recomputes the placeholder ones
+to the placeholder — nothing inside a copy's type is rewritten, and
+§M.21 (A) holds.  The pins, their order and the copies' constructors are
+the elimination's, untouched.  The components' TYPING still happens after
+the install (`pinsOkAux` at `envAux`, post-check (a) at the restored
+environment); the pre-install annotation is the same pass at a smaller
+environment, which is what task #300's env-extension theorem for the
+reader branch relates (`Verify/Inductives/AuxFormers.lean`).  The run
+relation records both halves: `elimNested … = .ok st₀` and
+`nestedRemint … env p st₀ = .ok st`, with every later conjunct about the
+re-minted `st`.
+
+**STEP (3) IS NOT DONE, and the cost is why — a fork for the
+maintainer.**  The brief asked for a per-member `preAnnotated` flag, so
+that the equation holds BY CONSTRUCTION rather than because the pass is
+the identity on annotated input.  Every route to it costs another lane's
+plumbing:
+
+* forcing `pwWritten` inside the pass needs the flag in the recursive
+  knot — `coreKnot` has **274 mention sites**, heavily in the cached
+  capstone files;
+* a per-member flag read by `checkMutualCore`'s member loop needs
+  `mutualFormerChecks`/`mutualFormers` to change arity — **83 mention
+  sites across 12 files**, including task #278's landed verified chain
+  (`Verify/Inductives/MutualInv` 16, `Verify/Cached/BridgeCSDecl` 16,
+  `Verify/BridgeDecl` 9, `Verify/Cached/AgreeFloor` 7,
+  `Model/Inductives/DeclMutual` 8).  A default argument does not help:
+  the flag must be consumed in lockstep with the formers list inside the
+  recursion;
+* a second entry point `checkConstantValPre` only helps once the member
+  loop can be told which member to call it on — the same 83-site change.
+
+So the equation is, for now, a fact that holds because the pass is the
+identity on a fully annotated let-free term, not a syntactic identity.
+Closing that means either re-opening #278's formers loop with the flag
+(83 sites, the mutual lane's call) or giving the nested route its own
+former stage (≈60 lines duplicated from `checkMutualCore`, plus a second
+inversion).  Neither is this task's to decide.
+
+**Cost.**  init-full, `--verified --jobs=1`, `perf stat -e
+instructions:u`, against the K.6/K.7 binary (= `inductives`'s checker):
+**538.4500 G vs 538.4496 G, +0.0001 %**, both accepting 53 088
+declarations — the noise floor for an unchanged accept path, which is
+what this is: the diff touches only `checkNested`'s own two kernel
+modules, reachable from the shadow branch alone.  The annotator's front
+door was NOT changed (no `checkConstantVal`, no `annotateCore`), so the
+reason the brief gave for a full Mathlib run does not apply; one was run
+anyway, and its result is in the gates table.
+
+**On task #301.**  K.9 was reworked while #301 (the PropWhen readers in
+two grades) landed on `inductives`; this branch merges it before the
+gates, and the record is numbered K.9 because #301's own is K.8.  None
+of the nested route's code calls the readers, so the merge changed
+nothing here; the two reverted probes of DOCKET §M1/§M2 do call them and
+would now need the annotation pass's grade `beta := true` — noted there.
+Since #301's β clause makes the reader ANSWER at a λ head where it
+previously fell through, §M1's `AnnotStable` census can only widen.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
 did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
-on `3640f02e`, and again after K.3 on `40ad5bc2`):
+on `3640f02e`, after K.3 on `40ad5bc2`, after K.6/K.7 on `dbd53f3c`, and
+again after K.9 on `f14c3dc6` + task #301):
 
 | gate | result |
 |---|---|
@@ -71202,10 +71452,11 @@ on `3640f02e`, and again after K.3 on `40ad5bc2`):
 | `lake test` | exit 0, warning-free |
 | `tests/nested-shadow.sh` | **23/23 as expected** (22 before K.1) |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **214/214** (195 + the 19 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
+| `tests/arena.sh` | **exit 0** at K.3 and before, at K.6+K.7, and at K.9 — arena tutorial **90/92** (as recorded), e2e **214/214**, **nested-shadow 23/23**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  (Between the two, on `inductives` = `dbd53f3c`, the SHAKE gate's census alone failed for the `CopyTypes.lean` name clash the K.4/K.5 merges brought; K.7 fixes it — see the blocker note above) |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
-| Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
+| Mathlib full | NOT owed before K.9 (the diff touched no file on the accept path: new modules plus one flag-guarded branch in `Main.lean`).  **Run at K.9**: `--verified --jobs=8`, 32 GB, **654 499 declarations accepted, exit 0** — the recorded count |
+| init-full instructions | at K.9, `--verified --jobs=1`, `perf stat -e instructions:u`: **538.4500 G** against the K.6/K.7 binary's **538.4496 G**, **+0.0001 %**, 53 088 accepted both — the noise floor for an unchanged accept path |
 ### M. The model lane (`agent/nested-279m`, 2026-09-12) — M-A REPLACED: the retagging is a pair of RECURSOR-DEFINED folds, and the clause must carry the recursor's shape
 
 **Early report (the brief asked for it).**  Milestone M-A as specified —
@@ -73643,6 +73894,358 @@ the model lane's modules) and is built explicitly,
 `tests/no-local-paths.sh` and `tests/layering.sh` OK.  Landing gates
 (arena, proofdeps/shake, init-full) are not owed by a proof-only lane
 that adds one off-graph module.
+
+
+#### K.5 — the two lemmas behind `AuxFormersAnnot` (2026-09-13, `agent/auxannot-300`, task #300, DESIGN §M.23 item 2)
+
+**The question.**  §M.23's premise `AuxFormersAnnot μ F envAux b k`
+(`Model/Inductives/CopyReads.lean`, the model lane) says: the copies'
+STORED formers are the annotations of their MINTED types **at the
+scratch environment**.  The run gives something weaker and elsewhere —
+the mutual install annotates a former at the **pre-block** environment
+(`mutualFormerChecks`, `Kernel/Inductives/MutualInstall.lean`) and
+keeps the annotated constant when its telescope is already `nP + nIdx`
+`∀`s ending in a sort (`checkSumTele`'s first branch,
+`Kernel/Inductives/SumInstall.lean` ~L87).  §M.23 named the two lemmas
+that close the gap and docketed them as Opus-suitable.  Both are now in
+`ConLeche/Verify/Inductives/AuxFormers.lean`; nothing in the kernel
+changed and nothing is owed from it.
+
+**(a) The annotator under a conservative environment extension.**
+`EnvExt env env'` is the checker's own shape of extension (`∀ n ci,
+env.find? n = some ci → env'.find? n = some ci`).  What the pass
+contributes itself is monotone and is proved here: the head readers
+(`typeSortPW_envExt`, `proofPW_envExt` through `headTypePW_envExt` /
+`headProofPW_envExt` — every lookup a reader makes sits on the `some`
+branch of its own answer, so an extension cannot change it), the
+literal-support guards (`natLitSupported_envExt`,
+`strLitSupported_envExt` — each shape predicate rejects `none`) and the
+projection table (`EnvExt.findProj?_mono`).  What the pass does NOT
+contribute is inference, and that splits the result in two.
+
+* **The general form**, `annotateCore_envExt`:
+
+  ```lean
+  theorem annotateCore_envExt {env env' : Env} (hext : EnvExt env env')
+      (hs : SlotsExt mode env env') (hnn : ReaderNoNew env env') :
+      ∀ (F d : Nat) (e r : Expr),
+        annotateCore mode env F d e = .ok r →
+        annotateCore mode env' F d e = .ok r
+  ```
+
+  with the two missing ingredients **named as `def`s, not assumed
+  silently**.  `SlotsExt mode env env'` is "the `whnf`, `inferType`,
+  `inferTypeIO` and `isDefEq` slots transport, at every fuel".  The
+  tree has no lemma of that shape and the reason is not laziness:
+  δ-reduction unfolds a stored value whose own constants need not
+  resolve at the smaller environment, so the transport is not
+  structural — it needs the environment's well-formedness closure
+  (`EnvWF`) beside the extension.  `ReaderNoNew env env'` is the second,
+  subtler one: `annotPwPi` consults the READER FIRST, so a constant
+  absent at `env` (reader declines, inference answers) and present at
+  `env'` (reader answers) makes the two runs write different DATA.  On a
+  term whose constants all resolve at `env` it is vacuous, but "the pass
+  preserves `constsResolve`" is itself an unproved fact about `whnf`'s
+  outputs, so it is named rather than derived.
+
+* **The reader-branch case, in full and with no missing ingredient.**
+  `ReaderRun env F d e r` is the annotation run spelled as a
+  derivation, with the fallbacks forbidden: no `letE`, no `proj`, and at
+  every recomputed binder datum the head reader answers.  It mentions no
+  `CheckMode`, because none of the clauses it keeps does.  Three
+  theorems: `ReaderRun.annotateCore` (it IS a run, at every mode — so
+  the premise is *stronger* than the run by exactly the fallbacks it
+  forbids), `ReaderRun.envExt` (it transports along ANY conservative
+  extension, hypothesis-free), and `ReaderRun.mono` (more fuel).  The
+  composition is `annotateCore_envExt_of_readerRun`.
+
+  This is the form a copy's former wants: a telescope's every codomain
+  is a `∀` or a `Sort` and the reader answers both by `rfl`
+  (`typeSortPW_forallE`, `typeSortPW_sort`, K.4's own file); only the
+  parameter and index DOMAINS can carry a redex- or `proj`-headed
+  binder, and that is exactly K.4's frontier — the same one, met again.
+  Two `example`s in the module witness that the derivation is inhabited
+  (the smallest former shape, `∀ (_ : Type), Prop`), so the predicate is
+  not vacuous.
+
+**(b) The minted former's telescope ends in a sort.**  Four closure
+lemmas, one per thing the mint does to the container's stored type, all
+of the shape "a `∀`-telescope ending in a `Sort` stays one":
+`stripPis_sort_instantiateLevelParams` (the occurrence's levels),
+`stripPis_sort_instPis` (the pin's components — `instPis` on such a
+telescope also SUCCEEDS, which the mint needs),
+`stripPis_sort_closeTelescope` (the block's parameter binders, through
+`stripPis_sort_abstract1`).  Assembled at the mint:
+
+```lean
+theorem mkCopy_type_stripPis_sort
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy) :
+    ∃ bs', copy.type.stripPis (pbs.length + nIdx)
+      = some (bs', .sort (Level.subst J.lps lvls u))
+```
+
+`auxIdxCount_mkCopy` reads the index count back — a sort-terminated
+`stripPis` pins `piBinders` exactly (`piBinders_of_stripPis_sort`),
+which is what `auxIdxCount` (`Kernel/Inductives/NestedInstall.lean`)
+matches on — and `mkCopy_checkSumTele_keeps` closes the loop:
+`annotateCore_stripPis_sort` (the pass preserves the shape, sort
+included: a `∀` is rebuilt as a `∀`, a `Sort` returned unchanged,
+and neither the opening at the binder's free variable nor the closing
+abstraction can disturb the residual) followed by
+`checkSumTele_of_stripPis_sort` (the first branch fires and returns the
+annotated constant untouched).  `auxFormerAnnot_of_readerRun` packages
+(a) and (b) into the conjunction the model lane reads.
+
+**What was false, and repaired.**  §M.23's phrasing "the two
+annotations agree, so the copy's minted former mentions no block
+member" is not by itself enough, and the repair is the point of (a):
+agreement of the two runs is NOT implied by the term mentioning no new
+constant.  The pass's binder datum is written by a reader that consults
+the environment at the head of the *annotated opened body*, and an
+extension can make that reader answer where it previously declined — a
+datum change with no new constant in the input.  Hence `ReaderNoNew` in
+the general form, and hence the reader-branch theorem being the one
+that is unconditional.
+
+**Findings.**  (i) `Verify/Denote/Install.lean` already states this
+relation as `Verify.EnvExtends`, but in a plain `public section`, so its
+body does not unfold outside its own module and it cannot be APPLIED by
+an importer.  Rather than `@[expose]` a definition the Denote tier keeps
+opaque (and rebuild that whole cone for one four-token predicate), the
+notion is restated locally as `EnvExt`, with the reason in its
+docstring.  (ii) `annotateCore_proj_inv` (`Verify/Abstract.lean`) DROPS
+official's `const_name(I) == proj_sname(e)` premise (task #271) from its
+conclusion — every consumer so far was blind to it, but *rebuilding* the
+clause at another environment needs it.  The inversion is repeated here
+as a `private` `annotateCore_proj_inv'` with the conjunct kept; folding
+it back upstream would rebuild the whole Verify cone for one conjunct
+and is left as a cheap cleanup for a lane that is already rebuilding it.
+
+**What remains.**  The general form's two ingredients are unproved BY
+DESIGN of this task, and the honest next steps are separable: `SlotsExt`
+needs an `EnvWF`-carrying transport for `whnf`/`inferType`/`isDefEq`
+(a substantial lane of its own, useful far beyond the nested route);
+`ReaderNoNew` needs "the pass preserves `constsResolve`", which is a
+corollary of the same transport.  Until then the model lane should
+consume the reader-branch form: its premise (`ReaderRun` on each minted
+former at the pre-block environment) is syntactic, decidable and
+measurable on the corpus, where the opaque `AuxFormersAnnot` was
+neither.  The constructor side (§M.23 finding (b)) is untouched: its
+second lemma is `normCtorValM`'s, not `checkSumTele`'s.
+
+**Where it lives, and the gates.**  `ConLeche/Verify/Inductives/AuxFormers.lean`
+imports `Verify.Inductives.CopyTypes`, `Verify.Mono` and the two nested
+kernel modules it speaks about (`Kernel.Inductives.NestedElim` for
+`mkCopy`, `Kernel.Inductives.NestedInstall` for `auxIdxCount`); it is
+OFF the build graph, as `CopyTypes` is, and is built explicitly:
+`lake build ConLeche.Verify.Inductives.AuxFormers`.  Gates run:
+`lake build` and `lake test` warning-free, the module built explicitly,
+`tests/no-local-paths.sh` and `tests/layering.sh` OK; no `sorry`, and
+`#print axioms` on all ten public theorems shows only `propext`,
+`Classical.choice`, `Quot.sound`.  Landing gates (arena,
+proofdeps/shake, init-full) are not owed by a proof-only lane that adds
+one off-graph module.
+
+#### K.8 — the reader is complete at λ heads (2026-09-13, `agent/lamreader-301`, task #301, the kernel lane's DOCKET §M2 finding)
+
+**The finding, and the ruling.**  The kernel lane measured §M.23's
+per-component premise `PinCompsAgree`
+(`Model/Inductives/CopyReads.lean`) over the corpus and found it FALSE
+at every λ-pin: 4 of 121 components on the Mathlib nested cone
+(`Lean.Json` and `Lean.PrefixTreeNode` × `Std.DTreeMap.Raw` and
+`Std.DTreeMap.Internal.Impl`, `i = 1` each) and 5 of 40 on the e2e
+fixtures (`PT`×`DMap`, `P20`×`Subtype`, `P22`, `P26`, `P2`).  The shape
+is not exotic — it is the normal spelling of a *dependent* container's
+pin: the container's family parameter has a Π-typed declared domain
+(`α → Type v`), which `typeSortPW` READS, while the component is an
+ordinary annotated `.lam`, on which **both readers declined** because
+neither had a λ clause.  The annotator therefore inferred there, and the
+copies' data were out of the reader's reach.  The maintainer's ruling:
+"this is just an incompleteness in the pw-inferring code, right? no
+concerns about making that more complete of course!"
+
+**The clause.**  The five readers of `ConLeche/Kernel/PropRead.lean` are
+now arities and grades of ONE structurally recursive reader
+
+```lean
+def typePWAt (find? : Name → Option ConstantInfo) (beta : Bool) :
+    Expr → Nat → Option PropWhen
+  | .const I us, n => …                             -- the stored type, peeled at n
+  | .fvar _ ty, n => residualPW (ty.peelNeverPis n) -- the declared type, peeled
+  | .app f _, n => typePWAt find? beta f (n + 1)    -- an argument joins the arity
+  | .lam _ b _, n + 1 => if beta then typePWAt find? beta b n else none   -- β
+  | .forallE _ _ m, 0 => some m.pw                  -- (forall-cod)
+  | .sort _, 0 => some .never
+  | _, _ => none
+```
+
+with `headTypePW find? beta hd n := typePWAt find? beta hd n` and
+`typeSortPW find? beta T := typePWAt find? beta T 0`, and with the
+matching clause on the term side, `headProofPW find? beta (.lam _ _ m) =
+if beta then some m.pw else none`.
+
+**Why it is sound** (what the reader may answer is what inference would
+compute).  The type side: the sort of `(fun x : α => b) a⃗` is the sort
+of `b`, because `b`'s type's sort is a LEVEL, and a level expression
+never depends on a term — a well-typed substitution for `x` cannot move
+it.  So reading the λ's body with the bound variable still loose is
+reading the redex's own sort; where the body's own head is the bound
+variable the reader declines, as always.  The term side: the type of
+`(fun x => b) a⃗` is the λ's codomain type, whose sort's zero-ness is
+exactly the datum `annotPwLam` writes on the λ (`(lam-cod-leaf)`) — the
+same invariance under application that licenses the constant-head clause
+(`zeronessOf (imax u v) = zeronessOf v`), which is why `proofPW` already
+read an UNAPPLIED λ that way and `headProofPW` now reads an applied one.
+Both clauses feed only writes the front door validates: a wrong datum
+declines, it never passes.
+
+**The two grades, and why the licence keeps the old reader.**  The
+`beta` flag is `true` for the annotation pass (`annotPwPi`,
+`annotPwLam`) and for everything that reasons about that pass
+(`AnnotStable`, `ReaderRun`, `ReaderNoNew`, `SortAgree`, K.4's
+congruences).  It is `false` for the proof-irrelevance fast path,
+`isProofFast`/`notProofFast`: that path's "yes" arm is not a write but a
+**licence**, proved in the model head shape by head shape
+(`prf_of_isProofFast`, `Model/Steps/IrrelFast.lean`: a ∀-typed head is
+the squash product, a type-former-typed one is the one graph-regime
+step, an fvar-typed one comes out of the context) — and a β redex's
+denotation needs a law that lane does not have.  Gating it costs nothing
+measurable (a stored or declared type that is a β redex is not a shape
+real streams carry) and keeps `IrrelFast.lean` untouched, verdicts
+included; it also keeps `ProofAgreeW.fvar_refl` an identity, since the
+premise and the conclusion read at the same grade.  So: the ANNOTATOR's
+reader is complete at λ heads, the LICENCE's reader is exactly what it
+was, and the flag says which is which at every call site.
+
+**The laws.**  `Verify/PropRead.lean` follows the reader: the head case
+splits become inductions over `typePWAt` — `typePWAt_spine` (reading a
+term at `n` further arguments is reading its head at all of them),
+`typePWAt_shiftFrom`, `typePWAt_some_inv_noBeta` (at the licence's grade
+the reader answers only at a constant head, an fvar head, an unapplied
+`∀` or an unapplied `Sort` — a λ head is exactly where it declines) —
+and the old inversions (`typeSortPW_some_inv`, `headProofPW_some_inv`,
+`proofPW_some_inv`, `isProofFast_inv`) are derived from it at
+`beta := false`, in the shapes `IrrelFast.lean` already consumes.
+`typePWAt_instantiateLevelParams` and `typePWAt_envExt` (K.5's
+monotonicity, now one induction with the four readers derived from it)
+are inductions for the same reason.
+
+**K.4, extended** (`Verify/Inductives/CopyTypes.lean`).
+
+* `SortAgree` keeps its statement and gains its arity-indexed form
+  (`SortAgree.at` / `.of_at`, through `typePWAt_spine`), and the
+  substitution congruence is now `typePWAt_instantiate1_congr`: an
+  induction whose λ case IS the β clause (the reading descends into the
+  body, where the induction hypothesis is the same statement one binder
+  down).  `headTypePW_instantiate1_congr` and
+  `typeSortPW_instantiate1_congr` are its spine and its arity-0
+  instances.
+* **The λ-binder twin, which K.4 did not have.**  `AnnotStable`'s λ
+  clause reads `proofPW` of the opened body, so the copies' λ binders
+  need the *proof* reader's substitution congruence too.  At the
+  annotation grade `proofPW` IS its head reader (`proofPW_eq_head` — the
+  new λ clause answers with the same datum `proofPW`'s own λ clause
+  does), so one hypothesis about the head does for both:
+  `ProofAgree find? A v := headProofPW find? true v.getAppFn =
+  typeSortPW find? true A`, with `proofPW_instantiate1_congr` and
+  `proofPW_at_pin` beside `typeSortPW_at_pin`.
+* **The λ rules** — the content of the task.  `SortAgree.lam` (a λ reads
+  like a ∀ whose codomain its body reads like; the ∀'s binder datum must
+  be `.never`, which a *type-family* parameter's always is — its
+  codomain is a `Sort`, whose own sort is a successor) and
+  `ProofAgree.lam` (the λ carries the binder's datum).  In the
+  one-directional grades the ∀-side hypothesis disappears
+  (`SortAgreeW.lam` needs nothing: where the datum is not `.never` the
+  ∀ side reads `none` at every positive arity and there is nothing to
+  match), and `ProofAgreeW.lam`'s obligation is the DATUM's, not the
+  reader's — `m'.pw = m.pw`, which the kernel lane measured equal at
+  every λ-pin of the corpus (both `.never`: a type family's body is a
+  type, and a type is not a proof).
+* **`PinCompsAgree`, discharged.**  `CompReads find? A a` is the closure
+  of the component shapes: `fvar` (an opener — every non-dependent
+  container's pin), `lam` (task #301's rule, closed under nesting, so a
+  family of a family reads too) and `reads` (the two agreements
+  themselves, for a component the readers already agree on).  Its two
+  projections are `CompReads.sortAgreeW` / `.proofAgreeW`, and
+  `pinCompsAgree_of_compReads` is `PinCompsAgree`'s body from the
+  per-component `CompReads` — the model lane's premise, with the λ-pins
+  no longer a reader gap.
+* **What is still owed, honestly.**  `PinCompsAgree` is not provable
+  *outright*: its statement quantifies over the annotation's components
+  without carrying their typing, and a component of an arbitrary shape
+  reads like its parameter only because it is well-typed at it.  What
+  task #301 removes is the READER's half of the obstruction; what
+  remains for the λ rule is the datum equality `m'.pw = m.pw` (an
+  `AnnotStable`-plus-annotation fact, measured true) and, for the
+  general shapes, the components' typing.  `SortAgree`'s *strong* form
+  is still out of reach at a λ over a non-`.never` binder — by design:
+  there the ∀ side declines and the equality is about the λ's side
+  alone, which is what the `…W` grades are for.
+
+**The measurement, re-run.**  The kernel lane's probe
+(`CON_LECHE_COPYREADS_PROBE`, scratch: built in a throwaway worktree,
+run, discarded) over the same two corpora, with the λ clause in:
+
+| stream | pin rows | AGREE | DISAGREE |
+|---|---|---|---|
+| Mathlib nested cone (41 blocks, 144 components) | 121 | **121** | **0** (was 117 / 4) |
+| e2e nested fixtures | 41 | **41** | **0** (was 35 / 5) |
+
+`AuxOpensAt` is unchanged (121 + 42 copies, 0 disagreements).  The four
+Mathlib λ-pins (`Lean.PrefixTreeNode` and `Lean.Json` × `Std.DTreeMap.Raw`
+and `Std.DTreeMap.Internal.Impl`) and all five fixture λ-pins
+(`InModelNested.PT`×`DMap`, `P20`×`Subtype`, `P22`×`P22T`,
+`P26`×`P26D`, `P2`×`P2D`) now READ — so `PinCompsAgree` holds over the
+whole corpus, not only in the lemma.  The one remaining non-AGREE row is
+the `nested-nonuniform-param` fixture's `ANNOT-FAILED`, the pin the
+route rejects at `check_uniform_ind_occs` (the docket's own note).
+
+**Gate.**  `lake build` (590 jobs) and `lake test` (501) warning-free;
+`Verify/Inductives/{CopyTypes,AuxFormers,NestedInv}` and
+`Semantics/Inductives/DeclNested` built explicitly.  `tests/arena.sh`
+under `env -i`: every line as before the change — arena tutorial 90/92,
+e2e 214/214, annot 15/15, nested-shadow 23/23, route census 90 streams /
+765 blocks (225 fix, 540 basis, 0 modeled), the trusted / `--jobs=1` /
+`--jobs=4` sweeps 138 + 214 + 15, `overview-links` 83 links / 54 files
+OK, `no-local-paths` OK, layering / proofdeps / pindump / trust-surface /
+challenge / inmodel / axioms OK.  The Mathlib nested cone in shadow:
+41/41 accept, exit 0, 4 923 declarations.  init-full
+`--verified --jobs=1` under `ulimit -v 16000000`: 53 088 accepted, exit
+0, **536.10 G instructions against 538.45 G** on the `inductives` binary
+built at dbd53f3c — **−0.44 %**, the reader replacing an inference (PERF
+untouched: this is below the table's grain).  Full Mathlib
+`--verified --jobs=8` under `ulimit -v 32000000`: **654 499 accepted,
+exit 0**, 11.89 T instructions, 334 s wall.
+
+**The merge.**  This lane branched at `inductives` = `dbd53f3c` and
+merged `f14c3dc6` (K.6 + K.7) before landing: K.7 put `CopyTypes.lean`
+and `AuxFormers.lean` ON the build graph (through `ConLeche.lean`'s
+umbrella edge) and shook their imports, so both files are now CHECKED by
+`lake build` — which is where this lane's additions to them are checked
+too — and it renamed `Expr.getAppFn_mkAppN` / `getAppFn_instantiateLevelParams`
+apart from their twins in `Verify/InferLemmas.lean` and
+`Verify/Denote/IndFrame.lean`.  This lane had found and fixed the same
+census clash independently, the same way (the model lane's `'` names);
+after the merge the rename is theirs and the two agree.  The only import
+this lane adds is `CopyTypes`' `public import
+ConLeche.Kernel.Inductives.NestedElim` — `pinCompsAgree_of_compReads`
+names `NestedPin` in its statement, so the edge is a re-export the
+public interface needs.
+
+The gate table above is the PRE-merge measurement (the reader's own diff
+against `dbd53f3c`, where `tests/arena.sh` still exited 1 at the census
+clash K.7 then fixed).  The post-merge tree was re-gated in full:
+`lake build` (593 jobs) and `lake test` (506) warning-free with
+`CopyTypes`/`AuxFormers` now ON the graph, **`tests/arena.sh` exit 0**
+(`shake` 508 removals all allowlisted, `pub-imports … none demotable`
+— this lane's one new edge included; every other line as in the
+pre-merge run, layering and the trust-surface scan counting one module
+more because K.7 put `NestedOrderK` on the graph), the Mathlib nested
+cone in shadow **41/41 accept / 4 923 declarations / exit 0**, init-full
+**53 088 / exit 0 / 536.09 G instructions** (the same −0.44 % against
+`dbd53f3c`'s 538.45 G), and one more full Mathlib
+`--verified --jobs=8`: **654 499 accepted, exit 0**.
 
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
