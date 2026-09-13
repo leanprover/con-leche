@@ -409,6 +409,75 @@ def uniformIndOccsOk (indNames : List Name) (lvls : List Level) (nP : Nat)
     (ctorTypes : List Expr) : Bool :=
   ctorTypes.all (uniformIndOccsE indNames lvls nP 0)
 
+/-! ## The containers' facts (task #279 K.14)
+
+Three syntactic facts about the CONTAINERS a nested block nests
+through.  The model tier's ψ needs them and no `IndRep`/`EnvWF` clause
+exposes them (the model lane's DESIGN §M.28); they are facts of every
+container the checker itself installed, so the route RE-ASKS them of the
+stored constants and records the answer — the K.1–K.13 pattern, a
+kernel-recorded fact rather than a new datum field.  A failure is
+`.internal`: it cannot happen on an environment this checker built.  -/
+
+/-- The motive's sort of a stored recursor: strip the `nP` parameter
+binders, take the first motive binder's domain, and read the sort its
+own telescope ends in (`Π ı⃗ (t : C p⃗ ı⃗), Sort w`). -/
+def containerMotiveSort? (nP : Nat) (recTy : Expr) : Option Level :=
+  match recTy.stripPis nP with
+  | some (_, .forallE dom _ _) =>
+    match dom.piBinders with
+    | (_, .sort w) => some w
+    | _ => none
+  | _ => none
+
+/-- **The two recursor facts** the model lane's `ContainersRep` states
+of every container member (§M.28), read off the stored recursor's level
+parameters and type:
+
+* LARGE (the recursor carries one level parameter more than the block —
+  the elimination universe, `u :: lps`): that universe is NOT among the
+  block's own (`large → elim ∉ lps`), so a substitution at the pin's
+  levels leaves it free for the carrier's rank;
+* SMALL (the recursor's level parameters ARE the block's): the motive's
+  sort is `Prop` (`large = false → w = 0`).
+
+Both hold of every recursor the checker generates — the mutual route
+mints the elimination universe with `mkUniqueName`-style freshness and
+sets the motive's sort to `.zero` at a small-eliminating block — and
+neither is exposed by any stored record, which is why they are asked
+here. -/
+def containerRecOk (env : Env) (nP : Nat) (J : ContainerMember) : Bool :=
+  match env.find? (J.name.str "rec") with
+  | some (.recInfo cvR _ _ _) =>
+    if cvR.levelParams == J.lps then
+      match containerMotiveSort? nP cvR.type with
+      | some w => Level.isEquiv w .zero == some true
+      | none => false
+    else
+      match cvR.levelParams with
+      | u :: rest => rest == J.lps && !J.lps.contains u
+      | [] => false
+  | _ => false
+
+/-- **The three facts at one container**: its stored constructors'
+occurrences of the group are UNIFORM — every occurrence of a member is
+applied to the group's parameters and universe levels, which is
+`uniformIndOccsOk`, the very walk official runs over a block being
+declared (`check_uniform_ind_occs`) and this route runs over the nested
+block itself — and the two recursor facts at every member.
+
+The uniformity is what the model lane's `BridgeSyntax` sub-term clause
+rests on: a pin of a group is that group's member applied to the pin's
+components, so a group pin can be a sub-term of another pin only where
+the stored constructor carries the member at the parameter spine, and
+uniformity is exactly the statement that every occurrence is of that
+shape. -/
+def containerFactsOk (env : Env) (ci : ContainerInfo) : Bool :=
+  ci.members.all fun J =>
+    uniformIndOccsOk (ci.members.map (·.name)) (J.lps.map Level.param) ci.nP
+      (J.ctors.map (·.type)) &&
+    containerRecOk env ci.nP J
+
 /-! ## The recogniser -/
 
 /-- The pieces of a recognised NESTED block: the block's own members

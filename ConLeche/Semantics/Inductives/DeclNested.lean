@@ -184,6 +184,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     st.pins.length = p.numNested ∧
     -- every MINTED name is free in the pre-block environment
     ConLeche.copiesFresh env p.k st = true ∧
+    -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
+    -- the stored constructors, and the two recursor facts at every member
+    ConLeche.nestedContainersOk env st.pins = true ∧
     -- the copies' REFERENCE RELATION, topologically sorted: the order
     -- the model's forward fold recurses along (DESIGN §M.22)
     nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
