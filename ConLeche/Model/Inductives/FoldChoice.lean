@@ -119,6 +119,31 @@ theorem wellDenoted_mkPisAV_dom {T : AnnotTerm} :
       rw [consList_cons]
       exact wellDenoted_mkPisAV_dom (hwd.2 a hsp.1) as n d' (by simpa using hd) hsp.2
 
+/-- A bit-valid Π-tower's binder domain, at a fitting prefix. -/
+theorem annotValid_mkPisAV_dom {T : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
+      AnnotValid V σ (mkPisAV ds T) →
+      ∀ (as : List V) (n : Nat) (d : Nat × Nat × AnnotTerm), ds[n]? = some d →
+        SpineFit σ ((ds.take n).map (·.2.2)) as →
+        AnnotValid V (consList as σ) d.2.2
+  | [], _, _, _, _, _, h, _ => nomatch h
+  | d :: ds, σ, hv, as, 0, d', hd, hsp => by
+    obtain rfl := Option.some.inj hd
+    obtain rfl : as = [] := by
+      cases as with
+      | nil => rfl
+      | cons _ _ => exact hsp.elim
+    simp only [mkPisAV, AnnotValid_pi] at hv
+    exact hv.1
+  | d :: ds, σ, hv, as, n + 1, d', hd, hsp => by
+    simp only [mkPisAV, AnnotValid_pi] at hv
+    cases as with
+    | nil => exact hsp.elim
+    | cons a as =>
+      rw [List.take_succ_cons, List.map_cons] at hsp
+      rw [consList_cons]
+      exact annotValid_mkPisAV_dom (hv.2.1 a hsp.1) as n d' (by simpa using hd) hsp.2
+
 /-- A Π-tower's body is graded at every fitting spine. -/
 theorem wellDenoted_mkPisAV_body {T : AnnotTerm} :
     ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
@@ -218,6 +243,132 @@ substitutes the spine for the parameter variables). -/
       (AnnotTerm.mkAppN ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0)
         (idxVarsAV (d.nIdxs.getD t 0) 1)))
 
+/-- **The motive value's tower**: at the parameter frame of the spine,
+the motive's body — the target at the index variables — is graded and
+lands in the elimination sort under the motive's binders
+(`UnderTowerOk`), and is bit-valid there.  `motChoiceAV_mem` and
+`motChoiceAV_wellDenotedV` are its two readings. -/
+theorem motChoiceAV_underTowerOk (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {t : Nat} {ρ : Nat → V} (hps : ps.length = d.nP)
+    (hips : ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0)
+    (hwd : WellDenotedV V (consList (ps.map (interp V ρ)) ρ)
+      (mkPisAV (d.motDataAV m ψ t) (.sort (d.elimL.eval ψ))))
+    (hTg : WellDenotedV V ρ (Tg t) ∧
+      interp V ρ (Tg t) ∈ˢ interp V (consList (ps.map (interp V ρ)) ρ)
+        (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+          (.sort (d.elimL.eval ψ)))) :
+    UnderTowerOk (pwBit ψ ConLeche.PropWhen.never) (consList (ps.map (interp V ρ)) ρ)
+      (AnnotTerm.mkAppN ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) (idxVarsAV (d.nIdxs.getD t 0) 1)) (.sort (d.elimL.eval ψ)) (d.motDataAV m ψ t) ∧
+    ∀ as : List V, SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV m ψ t).map (·.2.2)) as →
+      AnnotValid V (consList as (consList (ps.map (interp V ρ)) ρ)) (AnnotTerm.mkAppN ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) (idxVarsAV (d.nIdxs.getD t 0) 1)) := by
+  have hb : pwBit ψ ConLeche.PropWhen.never ≠ 0 := by rw [pwBit_never_eq]; exact Nat.one_ne_zero
+  -- the parameter frame
+  generalize hσ : consList (ps.map (interp V ρ)) ρ = σ at hwd hTg ⊢
+  have hσlen : ∀ (as : List V), as.length = d.nIdxs.getD t 0 + 1 →
+      shiftE (d.nP + d.nIdxs.getD t 0 + 1) 0 (consList as σ) = ρ := by
+    intro as has
+    rw [← hσ, ← consList_append,
+      show d.nP + d.nIdxs.getD t 0 + 1 = (ps.map (interp V ρ) ++ as).length from by
+        simp [hps, has]; omega,
+      shiftE_consList]
+  have key : ∀ as : List V, SpineFit σ ((d.motDataAV m ψ t).map (·.2.2)) as →
+      WellDenotedV V (consList as σ) (AnnotTerm.mkAppN ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) (idxVarsAV (d.nIdxs.getD t 0) 1)) ∧
+      interp V (consList as σ) (AnnotTerm.mkAppN ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) (idxVarsAV (d.nIdxs.getD t 0) 1)) ∈ˢ interp V (consList as σ) (.sort (d.elimL.eval ψ)) := by
+    intro as hsp
+    -- the spine: the indices, then the major
+    have hsplit : (d.motDataAV m ψ t).map (·.2.2)
+        = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])).map (·.2.2) ++
+          [famAppAV ((d.Ls m ψ).getD t default) (d.pinsOf ψ t) d.nP (d.nP + d.nIdxs.getD t 0)
+            (d.nIdxs.getD t 0)] := by
+      simp [motDataAV]
+    rw [hsplit] at hsp
+    obtain ⟨is, xs, rfl, hfitI, hfitX⟩ := spineFit_append_inv hsp
+    have hlenI : is.length = d.nIdxs.getD t 0 := by
+      rw [SpineFit.length_eq hfitI, List.length_map, rebit_length, hips]
+    obtain ⟨x, rfl⟩ : ∃ x, xs = [x] := by
+      match xs, hfitX with
+      | [x], _ => exact ⟨x, rfl⟩
+    have hlenAs : (is ++ [x]).length = d.nIdxs.getD t 0 + 1 := by simp [hlenI]
+    -- the frame at the leaf and its two shifts
+    have hshiftTg : shiftE (d.nP + d.nIdxs.getD t 0 + 1) 0 (consList (is ++ [x]) σ) = ρ :=
+      hσlen _ hlenAs
+    have hleaf : consList (is ++ [x]) σ = cons x (consList is σ) := by
+      rw [consList_append, consList_cons, consList_nil]
+    have hshift1 : shiftE 1 0 (consList (is ++ [x]) σ) = consList is σ := by
+      rw [hleaf]
+      funext i
+      simp [shiftE]
+    -- the index variables read the index values
+    have hidx : (idxVarsAV (d.nIdxs.getD t 0) 1).map (interp V (consList (is ++ [x]) σ)) = is := by
+      rw [map_idxVarsAV_interp (ρ₀ := consList is σ) hshift1, ← hlenI, frameIdx_consList']
+    -- the lifted target reads the target
+    have hTgL : interp V (consList (is ++ [x]) σ) ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0)
+        = interp V ρ (Tg t) := by
+      rw [interp_liftN, hshiftTg]
+    -- the target's tower, lifted under the indices and the major
+    have hTow : interp V (consList (is ++ [x]) σ)
+        ((mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+          (.sort (d.elimL.eval ψ))).liftN (d.nIdxs.getD t 0 + 1) 0)
+        = interp V σ (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+            (.sort (d.elimL.eval ψ))) := by
+      rw [interp_liftN, ← hlenAs, shiftE_consList]
+    have hfitL : SpineFit (consList (is ++ [x]) σ)
+        ((liftDoms (d.nIdxs.getD t 0 + 1) 0
+          (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))).map (·.2.2))
+        ((idxVarsAV (d.nIdxs.getD t 0) 1).map (interp V (consList (is ++ [x]) σ))) := by
+      rw [hidx, spineFit_liftDoms, ← hlenAs, shiftE_consList]
+      exact hfitI
+    -- the target's tower is graded at the leaf frame: its domains are the
+    -- motive's, its body a sort
+    have hwdP : WellDenotedV V σ
+        (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+          (.sort (d.elimL.eval ψ))) := by
+      have h := hwd
+      unfold motDataAV at h
+      rw [mkPisAV_append] at h
+      exact ⟨wellDenoted_mkPisAV_of_body h.1,
+        annotValid_mkPisAV_of_body hb (fun x hx => mem_rebit hx) h.2⟩
+    have hTowWD : WellDenotedV V (consList (is ++ [x]) σ)
+        (mkPisAV (liftDoms (d.nIdxs.getD t 0 + 1) 0
+          (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])))
+          (.sort (d.elimL.eval ψ))) := by
+      have h : WellDenotedV V (consList (is ++ [x]) σ)
+          ((mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+            (.sort (d.elimL.eval ψ))).liftN (d.nIdxs.getD t 0 + 1) 0) := by
+        refine ⟨?_, ?_⟩
+        · rw [WellDenoted_liftN, ← hlenAs, shiftE_consList]; exact hwdP.1
+        · rw [AnnotValid_liftN, ← hlenAs, shiftE_consList]; exact hwdP.2
+      rw [liftN_mkPisAV, AnnotTerm.liftN_sort] at h
+      exact h
+    have hmem' : interp V ρ (Tg t) ∈ˢ interp V (consList (is ++ [x]) σ)
+        (mkPisAV (liftDoms (d.nIdxs.getD t 0 + 1) 0
+          (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])))
+          (.sort (d.elimL.eval ψ))) := by
+      rw [liftN_mkPisAV, AnnotTerm.liftN_sort] at hTow
+      rw [hTow]
+      exact hTg.2
+    have hfTg : WellDenotedV V (consList (is ++ [x]) σ)
+        ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) := by
+      refine ⟨?_, ?_⟩
+      · rw [WellDenoted_liftN, hshiftTg]; exact hTg.1.1
+      · rw [AnnotValid_liftN, hshiftTg]; exact hTg.1.2
+    refine ⟨(wellDenotedV_mkAppN_of_spineFit hTowWD hfTg
+        (fun a ha => by
+          simp only [idxVarsAV, List.mem_map] at ha
+          obtain ⟨l, -, rfl⟩ := ha
+          exact ⟨trivial, trivial⟩)
+        (by rw [hTgL]; exact hmem') hfitL).1, ?_⟩
+    -- the body's value: the target at the index values, in the universe
+    rw [interp_mkAppN_map, hidx, hTgL]
+    have := mkPisAV_fold_mem (m := pwBit ψ ConLeche.PropWhen.never)
+      (fun x hx => by rw [mem_rebit hx]) (fun h0 => absurd h0 hb) hTg.2 hfitI
+    rw [hleaf, interp_sort]
+    simpa using this
+
+  exact ⟨underTowerOk_of_wellDenoted hwd.1
+      (fun as hsp => ⟨(key as hsp).1.1, (key as hsp).2, fun h0 => absurd h0 hb⟩),
+    fun as hsp => (key as hsp).1.2⟩
+
 /-- **The motive value inhabits the tower's motive binder**, at the
 parameter frame of the spine, from: the tower's motive domain graded
 there, and the target a graded function on the member's index
@@ -236,113 +387,37 @@ theorem motChoiceAV_mem (m : EnvModel V env) {ψ : Name → Nat} {ps : List Anno
       ∈ˢ interp V (consList (ps.map (interp V ρ)) ρ)
           (motiveAVP ((d.Ls m ψ).getD t default) (d.pinsOf ψ t) ψ d.nP (d.nIdxs.getD t 0) d.elimL
             ((d.ipss ψ).getD t [])) := by
-  have hb : pwBit ψ ConLeche.PropWhen.never ≠ 0 := by rw [pwBit_never_eq]; exact Nat.one_ne_zero
   rw [d.motiveAVP_eq] at hwd ⊢
   unfold motChoiceAV
   rw [← hps, interp_instSeq_consList, hps]
-  -- the parameter frame
-  generalize hσ : consList (ps.map (interp V ρ)) ρ = σ at hwd hTg ⊢
-  have hσlen : ∀ (as : List V), as.length = d.nIdxs.getD t 0 + 1 →
-      shiftE (d.nP + d.nIdxs.getD t 0 + 1) 0 (consList as σ) = ρ := by
-    intro as has
-    rw [← hσ, ← consList_append,
-      show d.nP + d.nIdxs.getD t 0 + 1 = (ps.map (interp V ρ) ++ as).length from by
-        simp [hps, has]; omega,
-      shiftE_consList]
-  refine mkLamsAV_bits_mem (m := pwBit ψ ConLeche.PropWhen.never)
-    (fun x hx => by rw [d.mem_motDataAV hx]) ?_
-  refine underTowerOk_of_wellDenoted hwd.1 fun as hsp => ?_
-  -- the spine: the indices, then the major
-  have hsplit : (d.motDataAV m ψ t).map (·.2.2)
-      = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])).map (·.2.2) ++
-        [famAppAV ((d.Ls m ψ).getD t default) (d.pinsOf ψ t) d.nP (d.nP + d.nIdxs.getD t 0)
-          (d.nIdxs.getD t 0)] := by
-    simp [motDataAV]
-  rw [hsplit] at hsp
-  obtain ⟨is, xs, rfl, hfitI, hfitX⟩ := spineFit_append_inv hsp
-  have hlenI : is.length = d.nIdxs.getD t 0 := by
-    rw [SpineFit.length_eq hfitI, List.length_map, rebit_length, hips]
-  obtain ⟨x, rfl⟩ : ∃ x, xs = [x] := by
-    match xs, hfitX with
-    | [x], _ => exact ⟨x, rfl⟩
-  have hlenAs : (is ++ [x]).length = d.nIdxs.getD t 0 + 1 := by simp [hlenI]
-  -- the frame at the leaf and its two shifts
-  have hshiftTg : shiftE (d.nP + d.nIdxs.getD t 0 + 1) 0 (consList (is ++ [x]) σ) = ρ :=
-    hσlen _ hlenAs
-  have hleaf : consList (is ++ [x]) σ = cons x (consList is σ) := by
-    rw [consList_append, consList_cons, consList_nil]
-  have hshift1 : shiftE 1 0 (consList (is ++ [x]) σ) = consList is σ := by
-    rw [hleaf]
-    funext i
-    simp [shiftE]
-  -- the index variables read the index values
-  have hidx : (idxVarsAV (d.nIdxs.getD t 0) 1).map (interp V (consList (is ++ [x]) σ)) = is := by
-    rw [map_idxVarsAV_interp (ρ₀ := consList is σ) hshift1, ← hlenI, frameIdx_consList']
-  -- the lifted target reads the target
-  have hTgL : interp V (consList (is ++ [x]) σ) ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0)
-      = interp V ρ (Tg t) := by
-    rw [interp_liftN, hshiftTg]
-  -- the target's tower, lifted under the indices and the major
-  have hTow : interp V (consList (is ++ [x]) σ)
-      ((mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
-        (.sort (d.elimL.eval ψ))).liftN (d.nIdxs.getD t 0 + 1) 0)
-      = interp V σ (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
-          (.sort (d.elimL.eval ψ))) := by
-    rw [interp_liftN, ← hlenAs, shiftE_consList]
-  have hfitL : SpineFit (consList (is ++ [x]) σ)
-      ((liftDoms (d.nIdxs.getD t 0 + 1) 0
-        (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))).map (·.2.2))
-      ((idxVarsAV (d.nIdxs.getD t 0) 1).map (interp V (consList (is ++ [x]) σ))) := by
-    rw [hidx, spineFit_liftDoms, ← hlenAs, shiftE_consList]
-    exact hfitI
-  -- the target's tower is graded at the leaf frame: its domains are the
-  -- motive's, its body a sort
-  have hwdP : WellDenotedV V σ
-      (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
-        (.sort (d.elimL.eval ψ))) := by
-    have h := hwd
-    unfold motDataAV at h
-    rw [mkPisAV_append] at h
-    exact ⟨wellDenoted_mkPisAV_of_body h.1,
-      annotValid_mkPisAV_of_body hb (fun x hx => mem_rebit hx) h.2⟩
-  have hTowWD : WellDenotedV V (consList (is ++ [x]) σ)
-      (mkPisAV (liftDoms (d.nIdxs.getD t 0 + 1) 0
-        (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])))
-        (.sort (d.elimL.eval ψ))) := by
-    have h : WellDenotedV V (consList (is ++ [x]) σ)
-        ((mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
-          (.sort (d.elimL.eval ψ))).liftN (d.nIdxs.getD t 0 + 1) 0) := by
-      refine ⟨?_, ?_⟩
-      · rw [WellDenoted_liftN, ← hlenAs, shiftE_consList]; exact hwdP.1
-      · rw [AnnotValid_liftN, ← hlenAs, shiftE_consList]; exact hwdP.2
-    rw [liftN_mkPisAV, AnnotTerm.liftN_sort] at h
-    exact h
-  have hmem' : interp V ρ (Tg t) ∈ˢ interp V (consList (is ++ [x]) σ)
-      (mkPisAV (liftDoms (d.nIdxs.getD t 0 + 1) 0
-        (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])))
-        (.sort (d.elimL.eval ψ))) := by
-    rw [liftN_mkPisAV, AnnotTerm.liftN_sort] at hTow
-    rw [hTow]
-    exact hTg.2
-  have hfTg : WellDenotedV V (consList (is ++ [x]) σ)
-      ((Tg t).liftN (d.nP + d.nIdxs.getD t 0 + 1) 0) := by
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_liftN, hshiftTg]; exact hTg.1.1
-    · rw [AnnotValid_liftN, hshiftTg]; exact hTg.1.2
-  refine ⟨?_, ?_, fun h0 => absurd h0 hb⟩
-  · -- the body is graded
-    exact (wellDenotedV_mkAppN_of_spineFit hTowWD hfTg
-      (fun a ha => by
-        simp only [idxVarsAV, List.mem_map] at ha
-        obtain ⟨l, -, rfl⟩ := ha
-        exact ⟨trivial, trivial⟩)
-      (by rw [hTgL]; exact hmem') hfitL).1.1
-  · -- the body's value: the target at the index values, in the universe
-    rw [interp_mkAppN_map, hidx, hTgL]
-    have := mkPisAV_fold_mem (m := pwBit ψ ConLeche.PropWhen.never)
-      (fun x hx => by rw [mem_rebit hx]) (fun h0 => absurd h0 hb) hTg.2 hfitI
-    rw [hleaf, interp_sort]
-    simpa using this
+  exact mkLamsAV_bits_mem (m := pwBit ψ ConLeche.PropWhen.never)
+    (fun x hx => by rw [d.mem_motDataAV hx]) (d.motChoiceAV_underTowerOk m hps hips hwd hTg).1
+
+/-- **The motive value is graded** at the base frame: the λ-tower with
+the motive's own bits (`mkLamsAV_bits_wellDenoted`/`_validV` at
+`motChoiceAV_underTowerOk`), under the parameters' substitution
+(`wellDenotedV_instSeq`). -/
+theorem motChoiceAV_wellDenotedV (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {t : Nat} {ρ : Nat → V} (hps : ps.length = d.nP)
+    (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
+    (hips : ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0)
+    (hwd : WellDenotedV V (consList (ps.map (interp V ρ)) ρ)
+      (mkPisAV (d.motDataAV m ψ t) (.sort (d.elimL.eval ψ))))
+    (hTg : WellDenotedV V ρ (Tg t) ∧
+      interp V ρ (Tg t) ∈ˢ interp V (consList (ps.map (interp V ρ)) ρ)
+        (mkPisAV (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t []))
+          (.sort (d.elimL.eval ψ)))) :
+    WellDenotedV V ρ (d.motChoiceAV m ψ ps Tg t) := by
+  obtain ⟨hUT, hval⟩ := d.motChoiceAV_underTowerOk m hps hips hwd hTg
+  unfold motChoiceAV
+  rw [show d.nP - 1 = ps.length - 1 from by rw [hps]]
+  refine wellDenotedV_instSeq ps hpsWD ?_
+  have hch : chain V ρ ps = consList (ps.map (interp V ρ)) ρ := by
+    unfold chain; exact consN_eq_consList _ _
+  rw [hch]
+  exact ⟨mkLamsAV_bits_wellDenoted (fun x hx => by rw [d.mem_motDataAV hx]) hUT,
+    mkLamsAV_bits_validV (underTowerValid_of
+      (fun k dd hk as hsp => annotValid_mkPisAV_dom hwd.2 as k dd hk hsp) hval)⟩
 
 /-- **The motive value's β**: applied to index values and a major
 fitting the motive's binders, the motive value is the target at the
@@ -739,6 +814,195 @@ through the parameters, the motives and the earlier minors. -/
         ((d.cdsR ψ).getD J default).2.2.2.2.2.2 ((d.cdsR ψ).getD J default).2.2.2.2.2.1).map
       fun x => (x.2.1, x.2.2)) body)
 
+/-- **The minor value's tower**: at the frame of the parameters, the
+choice's motives and the earlier minors, the minor's body is graded and
+lands in the minor's conclusion under the minor's binders
+(`UnderTowerOk`), and is bit-valid there — from the same hypotheses as
+`minChoiceAV_mem`, which is its reading (with
+`minChoiceAV_wellDenotedV`).  **The minor value inhabits the tower's minor binder** — at the
+frame of the parameters, the choice's motives and the earlier minors —
+from: the binder graded there (`hwd`), every recursive field's own
+typing (`hfield`), the constructor's own typing (`hEs`: its index
+readings fit its member's telescope and the constructor at the fields
+lands in the family), and the BODY's fact (`hleaf`): at every spine of
+fields and target-form hypotheses, the body is graded and lands in the
+member's target at the constructor's index readings (a truth value at
+the zero bit). -/
+theorem minChoiceAV_underTowerOk (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {ρ : Nat → V} (hps : ps.length = d.nP) (hk : 0 < d.k)
+    (hipsLen : ∀ t, t < d.k → ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0)
+    {J : Nat} {C : Name} {nF : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    {recIdx : List Nat} {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hds : ds.length = d.nP + nF) (hmot : d.mems J < d.k)
+    (hrec : ∀ i ∈ recIdx, i < nF ∧ d.tgtsR J i < d.k)
+    {prior : List AnnotTerm} (hprior : prior.length = J) {body : AnnotTerm}
+    (hwd : WellDenotedV V (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+      (mkPisAV (minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss) (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length)))
+    (hfield : ∀ i ∈ recIdx, ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))
+          ((tls.getD i []).map (·.2.2)) as →
+        SpineFit (consList (ps.map (interp V ρ)) ρ)
+            ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.tgtsR J i) [])).map (·.2.2))
+            ((Eiss.getD i []).map
+              (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))) ∧
+          as.foldl SetTheory.app (fs.getD i pt)
+            ∈ˢ interp V (consList ((Eiss.getD i []).map
+                (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))))
+                (consList (ps.map (interp V ρ)) ρ))
+              (famAppAV ((d.Ls m ψ).getD (d.tgtsR J i) default) (d.pinsOf ψ (d.tgtsR J i)) d.nP
+                (d.nP + d.nIdxs.getD (d.tgtsR J i) 0) (d.nIdxs.getD (d.tgtsR J i) 0)))
+    (hEs : ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+          ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2))
+          (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))) ∧
+        fs.foldl SetTheory.app
+            (interp V (consList (ps.map (interp V ρ)) ρ)
+              (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J))))
+          ∈ˢ interp V (consList (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ))))
+              (consList (ps.map (interp V ρ)) ρ))
+            (famAppAV ((d.Ls m ψ).getD (d.mems J) default) (d.pinsOf ψ (d.mems J)) d.nP
+              (d.nP + d.nIdxs.getD (d.mems J) 0) (d.nIdxs.getD (d.mems J) 0)))
+    (hleaf : ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+      SpineFit (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) →
+      WellDenotedV V (consList (fs ++ ihs)
+          (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)) body ∧
+        interp V (consList (fs ++ ihs)
+            (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)) body
+          ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+              SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
+        (d.bb ψ = 0 →
+          (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+              SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V))) :
+    UnderTowerOk (d.bb ψ) (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+      body (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length) (minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss) ∧
+    ∀ as : List V,
+      SpineFit (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+        ((minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2)) as →
+      AnnotValid V (consList as (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ))
+        body := by
+  generalize hσ : consList (ps.map (interp V ρ)) ρ = σ at hfield hEs hleaf ⊢
+  have hσJ : consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ
+      = consList (prior.map (interp V ρ))
+          (consList ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)) σ) := by
+    rw [List.map_append, List.map_append, consList_append, consList_append, hσ]
+  rw [hσJ] at hwd hleaf ⊢
+  generalize hMsv : (d.motChoiceAVs m ψ ps Tg).map (interp V ρ) = Msv at hwd hleaf ⊢
+  generalize hpriorv : prior.map (interp V ρ) = priorv at hwd hleaf ⊢
+  have hMsvLen : Msv.length = d.k := by rw [← hMsv]; simp [motChoiceAVs]
+  have hpriorvLen : priorv.length = J := by rw [← hpriorv, List.length_map, hprior]
+  have hms : priorv.length + d.k = d.k + J := by rw [hpriorvLen]; omega
+  have key : ∀ as : List V,
+      SpineFit (consList priorv (consList Msv σ)) ((minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2)) as →
+      WellDenotedV V (consList as (consList priorv (consList Msv σ))) body ∧
+      interp V (consList as (consList priorv (consList Msv σ))) body
+        ∈ˢ interp V (consList as (consList priorv (consList Msv σ))) (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length) ∧
+      (d.bb ψ = 0 →
+        interp V (consList as (consList priorv (consList Msv σ))) (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length) ∈ˢ (univZero : V)) := by
+    intro as hsp
+    -- the spine: the fields, then the hypotheses
+    have hsplitD : (minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2)
+        = (rebit (d.bb ψ) (liftDoms (d.k + J) 0 (ds.drop d.nP))).map (·.2.2) ++
+          (ihDataAVM (d.tgtsR J) nF (d.k + J) (d.bb ψ) tls Eiss recIdx 0).map (·.2.2) := by
+      simp [minorDataAV]
+    rw [hsplitD] at hsp
+    obtain ⟨fs, ihs, rfl, hfitF, hfitI⟩ := spineFit_append_inv hsp
+    have hfs : fs.length = nF := by
+      rw [SpineFit.length_eq hfitF, List.length_map, rebit_length, liftDoms_length, List.length_drop,
+        hds]
+      omega
+    have hihs : ihs.length = recIdx.length := by
+      rw [SpineFit.length_eq hfitI, List.length_map, ihDataAVM_length]
+    -- the fields fit at the parameter frame
+    have hshiftO : shiftE (d.k + J) 0 (consList priorv (consList Msv σ)) = σ := by
+      rw [← consList_append, show d.k + J = (Msv ++ priorv).length from by
+        rw [List.length_append, hMsvLen, hpriorvLen], shiftE_consList]
+    have hfitF' : SpineFit σ ((ds.drop d.nP).map (·.2.2)) fs := by
+      rw [rebit_map_dom, spineFit_liftDoms, hshiftO] at hfitF
+      exact hfitF
+    -- the hypotheses fit in target form
+    have hfitI' : SpineFit (consList fs (consList priorv (consList Msv σ)))
+        ((ihDataTg Tg (d.tgtsR J) d.nP nF (d.k + J) (d.bb ψ) tls Eiss recIdx 0).map (·.2.2)) ihs := by
+      have h := d.spineFit_ihData_tg m (Tg := Tg) (ms := priorv) (fs := fs) hps hipsLen hms hfs
+        recIdx 0 [] rfl
+        (fun i hi => ⟨(hrec i hi).1, (hrec i hi).2, fun as has => by
+          rw [hσ]
+          rw [hσ] at has
+          exact hfield i hi fs hfitF' as has⟩) ihs
+      rw [hMsv, hσ, consList_nil] at h
+      exact h.mp hfitI
+    have hfitTg : SpineFit (consList priorv (consList Msv σ))
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) := by
+      unfold minorDataTg
+      rw [List.map_append]
+      exact SpineFit.append hfitF hfitI'
+    obtain ⟨hwdB, hmemB, h0B⟩ := hleaf fs ihs hfs hihs hfitTg
+    -- the conclusion at the leaf frame: the motive at the index readings
+    -- and the constructor at the fields, β-reduced to the target
+    have hconc : interp V (consList (fs ++ ihs) (consList priorv (consList Msv σ)))
+        (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length)
+        = (Es.map (interp V (consList fs σ))).foldl SetTheory.app (interp V ρ (Tg (d.mems J))) := by
+      unfold minorConcAV
+      rw [consList_append, interp_liftN, ← hihs, shiftE_consList, interp_mkAppN_map, List.map_append,
+        List.map_map, List.map_cons, List.map_nil, interp_bvar]
+      -- the motive
+      have hmotv : consList fs (consList priorv (consList Msv σ)) (nF + (d.k + J) - 1 - d.mems J)
+          = interp V ρ (d.motChoiceAV m ψ ps Tg (d.mems J)) := by
+        rw [← consList_append,
+          show nF + (d.k + J) - 1 - d.mems J = (priorv ++ fs).length + Msv.length - 1 - d.mems J from by
+            rw [List.length_append, hpriorvLen, hfs, hMsvLen]; omega,
+          consList_motive_apply (by rw [hMsvLen]; exact hmot), ← hMsv,
+          d.motChoiceAVs_getD m ψ ps Tg ρ hmot]
+      -- the index readings
+      have hEsv : Es.map (interp V (consList fs (consList priorv (consList Msv σ))) ∘
+          fun E => E.liftN (d.k + J) nF) = Es.map (interp V (consList fs σ)) := by
+        apply List.map_congr_left
+        intro E _
+        simp only [Function.comp_def]
+        rw [interp_liftN, ← hfs, shiftE_consList_len, hshiftO]
+      -- the constructor at the fields
+      have hctor : interp V (consList fs (consList priorv (consList Msv σ)))
+          (famAppAV (m.acval C ψ) (d.pinsOf ψ (d.mems J)) d.nP (d.nP + (d.k + J) + nF) nF)
+          = fs.foldl SetTheory.app
+              (interp V σ (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J)))) := by
+        unfold famAppAV
+        rw [interp_mkAppN_map, interp_mkAppN_map, List.map_append, List.foldl_append,
+          show d.nP + (d.k + J) + nF - d.nP = d.k + J + nF from by omega, List.map_map,
+          show fieldBvars nF = (List.range nF).map (fun q => AnnotTerm.bvar (nF - 1 - q)) from rfl,
+          map_fieldBvars_interp hfs, interp_closed (V := V) (m.cval_closedL C ψ) _ σ]
+        congr 2
+        apply List.map_congr_left
+        intro p _
+        simp only [Function.comp_def]
+        rw [interp_liftN, ← consList_append, ← consList_append,
+          show d.k + J + nF = (Msv ++ (priorv ++ fs)).length from by
+            rw [List.length_append, List.length_append, hMsvLen, hpriorvLen, hfs]; omega,
+          shiftE_consList]
+      rw [hmotv, hEsv, hctor, List.foldl_append, List.foldl_cons, List.foldl_nil]
+      obtain ⟨hE, hx⟩ := hEs fs hfitF'
+      have hsplitM : (d.motDataAV m ψ (d.mems J)).map (·.2.2)
+          = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2) ++
+            [famAppAV ((d.Ls m ψ).getD (d.mems J) default) (d.pinsOf ψ (d.mems J)) d.nP
+              (d.nP + d.nIdxs.getD (d.mems J) 0) (d.nIdxs.getD (d.mems J) 0)] := by
+        simp [motDataAV]
+      have := d.motChoiceAV_fold m (Tg := Tg) hps (hipsLen _ hmot)
+        (is := Es.map (interp V (consList fs σ)))
+        (x := fs.foldl SetTheory.app
+          (interp V σ (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J)))))
+        (by rw [hσ, hsplitM]; exact SpineFit.append hE ⟨hx, trivial⟩)
+      rw [List.foldl_append, List.foldl_cons, List.foldl_nil] at this
+      exact this
+    rw [hconc]
+    exact ⟨hwdB, hmemB, h0B⟩
+
+  exact ⟨underTowerOk_of_wellDenoted hwd.1
+      (fun as hsp => ⟨(key as hsp).1.1, (key as hsp).2.1, (key as hsp).2.2⟩),
+    fun as hsp => (key as hsp).1.2⟩
+
 /-- **The minor value inhabits the tower's minor binder** — at the
 frame of the parameters, the choice's motives and the earlier minors —
 from: the binder graded there (`hwd`), every recursive field's own
@@ -808,119 +1072,87 @@ theorem minChoiceAV_mem (m : EnvModel V env) {ψ : Name → Nat} {ps : List Anno
     rw [List.getD_eq_getElem?_getD, hcd]; rfl
   unfold minChoiceAV
   rw [hget]
-  -- the frames
   have hlen : (ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).length = d.nP + d.k + J := by
     rw [List.length_append, List.length_append, hps, motChoiceAVs_length, hprior]
   rw [← hlen, interp_instSeq_consList]
-  generalize hσ : consList (ps.map (interp V ρ)) ρ = σ at hfield hEs hleaf ⊢
-  have hσJ : consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ
-      = consList (prior.map (interp V ρ))
-          (consList ((d.motChoiceAVs m ψ ps Tg).map (interp V ρ)) σ) := by
-    rw [List.map_append, List.map_append, consList_append, consList_append, hσ]
-  rw [hσJ] at hwd hleaf ⊢
-  generalize hMsv : (d.motChoiceAVs m ψ ps Tg).map (interp V ρ) = Msv at hwd hleaf ⊢
-  generalize hpriorv : prior.map (interp V ρ) = priorv at hwd hleaf ⊢
-  have hMsvLen : Msv.length = d.k := by rw [← hMsv]; simp [motChoiceAVs]
-  have hpriorvLen : priorv.length = J := by rw [← hpriorv, List.length_map, hprior]
-  have hms : priorv.length + d.k = d.k + J := by rw [hpriorvLen]; omega
   rw [minorAVAtRMP_eq] at hwd ⊢
-  refine mkLamsAV_bits_mem (m := d.bb ψ) (fun x hx => by rw [mem_minorDataAV hx]) ?_
-  refine underTowerOk_of_wellDenoted hwd.1 fun as hsp => ?_
-  -- the spine: the fields, then the hypotheses
-  have hsplitD : (minorDataAV (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2)
-      = (rebit (d.bb ψ) (liftDoms (d.k + J) 0 (ds.drop d.nP))).map (·.2.2) ++
-        (ihDataAVM (d.tgtsR J) nF (d.k + J) (d.bb ψ) tls Eiss recIdx 0).map (·.2.2) := by
-    simp [minorDataAV]
-  rw [hsplitD] at hsp
-  obtain ⟨fs, ihs, rfl, hfitF, hfitI⟩ := spineFit_append_inv hsp
-  have hfs : fs.length = nF := by
-    rw [SpineFit.length_eq hfitF, List.length_map, rebit_length, liftDoms_length, List.length_drop,
-      hds]
-    omega
-  have hihs : ihs.length = recIdx.length := by
-    rw [SpineFit.length_eq hfitI, List.length_map, ihDataAVM_length]
-  -- the fields fit at the parameter frame
-  have hshiftO : shiftE (d.k + J) 0 (consList priorv (consList Msv σ)) = σ := by
-    rw [← consList_append, show d.k + J = (Msv ++ priorv).length from by
-      rw [List.length_append, hMsvLen, hpriorvLen], shiftE_consList]
-  have hfitF' : SpineFit σ ((ds.drop d.nP).map (·.2.2)) fs := by
-    rw [rebit_map_dom, spineFit_liftDoms, hshiftO] at hfitF
-    exact hfitF
-  -- the hypotheses fit in target form
-  have hfitI' : SpineFit (consList fs (consList priorv (consList Msv σ)))
-      ((ihDataTg Tg (d.tgtsR J) d.nP nF (d.k + J) (d.bb ψ) tls Eiss recIdx 0).map (·.2.2)) ihs := by
-    have h := d.spineFit_ihData_tg m (Tg := Tg) (ms := priorv) (fs := fs) hps hipsLen hms hfs
-      recIdx 0 [] rfl
-      (fun i hi => ⟨(hrec i hi).1, (hrec i hi).2, fun as has => by
-        rw [hσ]
-        rw [hσ] at has
-        exact hfield i hi fs hfitF' as has⟩) ihs
-    rw [hMsv, hσ, consList_nil] at h
-    exact h.mp hfitI
-  have hfitTg : SpineFit (consList priorv (consList Msv σ))
-      ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
-      (fs ++ ihs) := by
-    unfold minorDataTg
-    rw [List.map_append]
-    exact SpineFit.append hfitF hfitI'
-  obtain ⟨hwdB, hmemB, h0B⟩ := hleaf fs ihs hfs hihs hfitTg
-  -- the conclusion at the leaf frame: the motive at the index readings
-  -- and the constructor at the fields, β-reduced to the target
-  have hconc : interp V (consList (fs ++ ihs) (consList priorv (consList Msv σ)))
-      (minorConcAV (d.mems J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.k + J) Es recIdx.length)
-      = (Es.map (interp V (consList fs σ))).foldl SetTheory.app (interp V ρ (Tg (d.mems J))) := by
-    unfold minorConcAV
-    rw [consList_append, interp_liftN, ← hihs, shiftE_consList, interp_mkAppN_map, List.map_append,
-      List.map_map, List.map_cons, List.map_nil, interp_bvar]
-    -- the motive
-    have hmotv : consList fs (consList priorv (consList Msv σ)) (nF + (d.k + J) - 1 - d.mems J)
-        = interp V ρ (d.motChoiceAV m ψ ps Tg (d.mems J)) := by
-      rw [← consList_append,
-        show nF + (d.k + J) - 1 - d.mems J = (priorv ++ fs).length + Msv.length - 1 - d.mems J from by
-          rw [List.length_append, hpriorvLen, hfs, hMsvLen]; omega,
-        consList_motive_apply (by rw [hMsvLen]; exact hmot), ← hMsv,
-        d.motChoiceAVs_getD m ψ ps Tg ρ hmot]
-    -- the index readings
-    have hEsv : Es.map (interp V (consList fs (consList priorv (consList Msv σ))) ∘
-        fun E => E.liftN (d.k + J) nF) = Es.map (interp V (consList fs σ)) := by
-      apply List.map_congr_left
-      intro E _
-      simp only [Function.comp_def]
-      rw [interp_liftN, ← hfs, shiftE_consList_len, hshiftO]
-    -- the constructor at the fields
-    have hctor : interp V (consList fs (consList priorv (consList Msv σ)))
-        (famAppAV (m.acval C ψ) (d.pinsOf ψ (d.mems J)) d.nP (d.nP + (d.k + J) + nF) nF)
-        = fs.foldl SetTheory.app
-            (interp V σ (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J)))) := by
-      unfold famAppAV
-      rw [interp_mkAppN_map, interp_mkAppN_map, List.map_append, List.foldl_append,
-        show d.nP + (d.k + J) + nF - d.nP = d.k + J + nF from by omega, List.map_map,
-        show fieldBvars nF = (List.range nF).map (fun q => AnnotTerm.bvar (nF - 1 - q)) from rfl,
-        map_fieldBvars_interp hfs, interp_closed (V := V) (m.cval_closedL C ψ) _ σ]
-      congr 2
-      apply List.map_congr_left
-      intro p _
-      simp only [Function.comp_def]
-      rw [interp_liftN, ← consList_append, ← consList_append,
-        show d.k + J + nF = (Msv ++ (priorv ++ fs)).length from by
-          rw [List.length_append, List.length_append, hMsvLen, hpriorvLen, hfs]; omega,
-        shiftE_consList]
-    rw [hmotv, hEsv, hctor, List.foldl_append, List.foldl_cons, List.foldl_nil]
-    obtain ⟨hE, hx⟩ := hEs fs hfitF'
-    have hsplitM : (d.motDataAV m ψ (d.mems J)).map (·.2.2)
-        = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2) ++
-          [famAppAV ((d.Ls m ψ).getD (d.mems J) default) (d.pinsOf ψ (d.mems J)) d.nP
-            (d.nP + d.nIdxs.getD (d.mems J) 0) (d.nIdxs.getD (d.mems J) 0)] := by
-      simp [motDataAV]
-    have := d.motChoiceAV_fold m (Tg := Tg) hps (hipsLen _ hmot)
-      (is := Es.map (interp V (consList fs σ)))
-      (x := fs.foldl SetTheory.app
-        (interp V σ (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J)))))
-      (by rw [hσ, hsplitM]; exact SpineFit.append hE ⟨hx, trivial⟩)
-    rw [List.foldl_append, List.foldl_cons, List.foldl_nil] at this
-    exact this
-  rw [hconc]
-  exact ⟨hwdB.1, hmemB, h0B⟩
+  exact mkLamsAV_bits_mem (m := d.bb ψ) (fun x hx => by rw [mem_minorDataAV hx])
+    (d.minChoiceAV_underTowerOk m hps hk hipsLen hds hmot hrec hprior hwd hfield hEs hleaf).1
+
+/-- **The minor value is graded** at the base frame (`mkLamsAV_bits_wellDenoted`/
+`_validV` at `minChoiceAV_underTowerOk`, under the substitution of the
+parameters, the motives and the earlier minors). -/
+theorem minChoiceAV_wellDenotedV (m : EnvModel V env) {ψ : Name → Nat} {ps : List AnnotTerm}
+    {Tg : Nat → AnnotTerm} {ρ : Nat → V} (hps : ps.length = d.nP) (hk : 0 < d.k)
+    (hipsLen : ∀ t, t < d.k → ((d.ipss ψ).getD t []).length = d.nIdxs.getD t 0)
+    {J : Nat} {C : Name} {nF : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
+    {recIdx : List Nat} {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hcd : (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls))
+    (hds : ds.length = d.nP + nF) (hmot : d.mems J < d.k)
+    (hrec : ∀ i ∈ recIdx, i < nF ∧ d.tgtsR J i < d.k)
+    {prior : List AnnotTerm} (hprior : prior.length = J) {body : AnnotTerm}
+    (hallWD : ∀ p ∈ ps ++ d.motChoiceAVs m ψ ps Tg ++ prior, WellDenotedV V ρ p)
+    (hwd : WellDenotedV V (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+      (minorAVAtRMP (d.mems J) (d.tgtsR J) m C (d.pinsOf ψ (d.mems J)) ψ d.nP nF (d.bb ψ) (d.k + J)
+        ds Es recIdx tls Eiss))
+    (hfield : ∀ i ∈ recIdx, ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))
+          ((tls.getD i []).map (·.2.2)) as →
+        SpineFit (consList (ps.map (interp V ρ)) ρ)
+            ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.tgtsR J i) [])).map (·.2.2))
+            ((Eiss.getD i []).map
+              (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))) ∧
+          as.foldl SetTheory.app (fs.getD i pt)
+            ∈ˢ interp V (consList ((Eiss.getD i []).map
+                (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))))
+                (consList (ps.map (interp V ρ)) ρ))
+              (famAppAV ((d.Ls m ψ).getD (d.tgtsR J i) default) (d.pinsOf ψ (d.tgtsR J i)) d.nP
+                (d.nP + d.nIdxs.getD (d.tgtsR J i) 0) (d.nIdxs.getD (d.tgtsR J i) 0)))
+    (hEs : ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+          ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.mems J) [])).map (·.2.2))
+          (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))) ∧
+        fs.foldl SetTheory.app
+            (interp V (consList (ps.map (interp V ρ)) ρ)
+              (AnnotTerm.mkAppN (m.acval C ψ) (d.pinsOf ψ (d.mems J))))
+          ∈ˢ interp V (consList (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ))))
+              (consList (ps.map (interp V ρ)) ρ))
+            (famAppAV ((d.Ls m ψ).getD (d.mems J) default) (d.pinsOf ψ (d.mems J)) d.nP
+              (d.nP + d.nIdxs.getD (d.mems J) 0) (d.nIdxs.getD (d.mems J) 0)))
+    (hleaf : ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+      SpineFit (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) →
+      WellDenotedV V (consList (fs ++ ihs)
+          (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)) body ∧
+        interp V (consList (fs ++ ihs)
+            (consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ)) body
+          ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+              SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
+        (d.bb ψ = 0 →
+          (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+              SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V))) :
+    WellDenotedV V ρ (d.minChoiceAV ψ ps (d.motChoiceAVs m ψ ps Tg) prior J body) := by
+  have hget : (d.cdsR ψ).getD J default = (C, nF, ds, Es, recIdx, Eiss, tls) := by
+    rw [List.getD_eq_getElem?_getD, hcd]; rfl
+  unfold minChoiceAV
+  rw [hget]
+  have hlen : (ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).length = d.nP + d.k + J := by
+    rw [List.length_append, List.length_append, hps, motChoiceAVs_length, hprior]
+  rw [← hlen]
+  refine wellDenotedV_instSeq _ hallWD ?_
+  have hch : chain V ρ (ps ++ d.motChoiceAVs m ψ ps Tg ++ prior)
+      = consList ((ps ++ d.motChoiceAVs m ψ ps Tg ++ prior).map (interp V ρ)) ρ := by
+    unfold chain; exact consN_eq_consList _ _
+  rw [hch]
+  rw [minorAVAtRMP_eq] at hwd
+  obtain ⟨hUT, hval⟩ :=
+    d.minChoiceAV_underTowerOk m hps hk hipsLen hds hmot hrec hprior hwd hfield hEs hleaf
+  exact ⟨mkLamsAV_bits_wellDenoted (fun x hx => by rw [mem_minorDataAV hx]) hUT,
+    mkLamsAV_bits_validV (underTowerValid_of
+      (fun k dd hk as hsp => annotValid_mkPisAV_dom hwd.2 as k dd hk hsp) hval)⟩
 
 /-! ## The minor spine -/
 
@@ -971,31 +1203,6 @@ theorem minChoiceAVs_getElem? (ψ : Name → Nat) (ps Ms : List AnnotTerm) (bodi
       simp
 
 end IndRepData
-
-/-- A bit-valid Π-tower's binder domain, at a fitting prefix. -/
-theorem annotValid_mkPisAV_dom {T : AnnotTerm} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
-      AnnotValid V σ (mkPisAV ds T) →
-      ∀ (as : List V) (n : Nat) (d : Nat × Nat × AnnotTerm), ds[n]? = some d →
-        SpineFit σ ((ds.take n).map (·.2.2)) as →
-        AnnotValid V (consList as σ) d.2.2
-  | [], _, _, _, _, _, h, _ => nomatch h
-  | d :: ds, σ, hv, as, 0, d', hd, hsp => by
-    obtain rfl := Option.some.inj hd
-    obtain rfl : as = [] := by
-      cases as with
-      | nil => rfl
-      | cons _ _ => exact hsp.elim
-    simp only [mkPisAV, AnnotValid_pi] at hv
-    exact hv.1
-  | d :: ds, σ, hv, as, n + 1, d', hd, hsp => by
-    simp only [mkPisAV, AnnotValid_pi] at hv
-    cases as with
-    | nil => exact hsp.elim
-    | cons a as =>
-      rw [List.take_succ_cons, List.map_cons] at hsp
-      rw [consList_cons]
-      exact annotValid_mkPisAV_dom (hv.2.1 a hsp.1) as n d' (by simpa using hd) hsp.2
 
 /-- A fit of the first `n` entries extends by entry `n`. -/
 theorem spineFit_take_succ {ρ : Nat → V} {Fs : List AnnotTerm} {vs : List V} {n : Nat}
