@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.CopyCtors
 import ConLeche.Model.Inductives.FixCtorReads
 import ConLeche.Model.Inductives.FixRuleKit
 import ConLeche.Model.Inductives.MutualChains
+public import ConLeche.Verify.Inductives.NestedOrder
 public section
 
 /-!
@@ -3101,6 +3102,192 @@ theorem typedPi (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV)
   ⟨fold_wellDenoted d S ht, psiTyAV_wellDenotedV d S hpIffM hlev ht, fold_mem_pi d S ht⟩
 
 end PsiSetup
+
+
+/-! ## The step and the fold over the order
+
+The fold (`orderFold`, `Verify/Inductives/NestedOrder`) builds one term
+per pin along the kernel's topological order; the step for pin `j'`
+builds the copy's term `psiTerm` from the table of the earlier terms
+(through `psiVia`).  Under the group's facts (`GroupFacts`, the
+hypotheses of `psiSetup_of_group` that are the group's own) and the
+BRIDGE — every transport's target is a reference `R j' j''` of the
+order's relation — the step returns `PsiTypedPi` for its copy from
+`PsiTypedPi` at the copies it refers to (`psiStep_typed`), and
+`TopoOrder.orderFold_all` gives it at every pin (`psiFold_typed`).  At
+the run level `R` is `CopyRef` (`topoOrder_of_run`) and the bridge is
+owed from the constructor-side identity (DESIGN §M.26). -/
+
+/-- The fold's term for the copy `c` (its group's `auxOf`) from the
+table `tbl` of the earlier copies' terms. -/
+@[expose] def psiTerm (m : EnvModel V env) (ψ : Name → Nat) (k₀ : Nat) (c : CopyData V)
+    (auxOf : Nat → Nat) (tbl : Nat → AnnotTerm) : AnnotTerm :=
+  AnnotTerm.mkAppN (m.acval (c.dJ.recNames c.mm) c.ψ')
+    (c.DsA ++ c.dJ.motChoiceAVs m c.ψ' c.DsA
+        (c.dJ.invTgAV c.ψ' c.DsA (d.psiL m ψ k₀ c.base) (d.psiPinsT c.dJ.nP)) ++
+      c.dJ.minChoiceAVs c.ψ' c.DsA
+        (c.dJ.motChoiceAVs m c.ψ' c.DsA
+          (c.dJ.invTgAV c.ψ' c.DsA (d.psiL m ψ k₀ c.base) (d.psiPinsT c.dJ.nP)))
+        (c.dJ.psiBodyAV (d.psiHead m ψ c.dJ.nP auxOf) (psiUseIh c.dJ)
+          (d.psiVia c.dJ ψ k₀ c.dJ.nP auxOf (c.dJ.bb c.ψ') tbl)) c.dJ.nAll)
+
+/-- The fold's step: pin `j'`'s term from the table. -/
+@[expose] def psiStep (m : EnvModel V env) (ψ : Name → Nat) (k₀ : Nat) (cd : Nat → CopyData V)
+    (auxOfs : Nat → Nat → Nat) (tbl : Nat → AnnotTerm) (j' : Nat) : AnnotTerm :=
+  d.psiTerm m ψ k₀ (cd j') (auxOfs j') tbl
+
+/-- The fold's property at pin `j'`: the term is `PsiTypedPi` for the
+copy there. -/
+@[expose] def PsiP (m : EnvModel V env) (ψ : Name → Nat) (k₀ : Nat) (σ : Nat → V)
+    (cd : Nat → CopyData V) (j' : Nat) (Ψ : AnnotTerm) : Prop :=
+  (cd j').dJ.PsiTypedPi m (cd j').ψ' σ (cd j').DsA (d.psiL m ψ k₀ (cd j').base)
+    (d.psiPinsT (cd j').dJ.nP) (cd j').mm Ψ
+
+end IndRepData
+
+/-- **A copy's group is live** — `psiSetup_of_group`'s hypotheses that
+are the group's own, at the copy `c` (pin `c.base + c.mm`) with the
+group's `auxOf`: the container's representation and views, the pin's
+level assignment, the members' data, the copies' constructors. -/
+structure GroupFacts {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V) (ψ : Name → Nat)
+    (k₀ : Nat) (lpsT : List Name) (cd : Nat → CopyData V) (c : CopyData V) (auxOf : Nat → Nat) :
+    Prop where
+  mm : c.mm < c.dJ.k
+  ctorsC : c.dJ.ctorsC = []
+  kReal : c.dJ.kReal = c.dJ.k
+  pinsAV : ∀ (t : Nat) (φ : Name → Nat), c.dJ.pinsAV t φ = paramBvarsAt c.dJ.nP c.dJ.nP
+  view : ∀ J, c.dJ.ksR J = c.dJ.ksF J ∧ c.dJ.tgtsR J = c.dJ.tgts J ∧ c.dJ.eissR J = c.dJ.eissF J ∧
+    c.dJ.tssR J = c.dJ.tssF J
+  rep : ∃ (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule) (t₀ : Nat),
+    t₀ < c.dJ.k ∧ rules ≠ [] ∧ env.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
+    IndRep mp.base2 T cvT cvR mI rP rules c.dJ t₀
+  len : c.DsA.length = c.dJ.nP
+  lev : c.dJ.elimL.eval c.ψ' = c.dJ.w c.ψ'
+  kA : ∀ t, t < c.dJ.k → k₀ + c.base + t < d.k
+  grp : ∀ t, t < c.dJ.k → CopyData.Ok mp.base2 d ψ k₀ (c.base + t) ⟨c.dJ, t, c.ψ', c.DsA, c.base⟩
+  ctors : ∀ Jc cAJ, c.dJ.ctorsA[Jc]? = some cAJ → ∃ cAa, d.ctorsA[auxOf Jc]? = some cAa ∧
+    CopyCtorFacts mp.base2 d c.dJ ψ c.ψ' c.DsA k₀ c.base cd lpsT Jc (auxOf Jc) cAJ cAa
+
+namespace GroupFacts
+
+/-- A live copy's data are `CopyData.Ok` at its pin. -/
+theorem ok {μ : CheckMode} {mp : EnvModelM V μ env} {d : IndRepData V} {ψ : Name → Nat} {k₀ : Nat}
+    {lpsT : List Name} {cd : Nat → CopyData V} {c : CopyData V} {auxOf : Nat → Nat}
+    (hg : GroupFacts mp d ψ k₀ lpsT cd c auxOf) {j' : Nat} (hj : c.base + c.mm = j') :
+    CopyData.Ok mp.base2 d ψ k₀ j' c := by
+  have h := hg.grp c.mm hg.mm
+  rw [hj] at h
+  exact h
+
+/-- A live copy's carrier is a fold target for its container
+(`targetOk_psi` at the group's facts). -/
+theorem targetOk {μ : CheckMode} {mp : EnvModelM V μ env} {d : IndRepData V} {ψ : Name → Nat}
+    {ρ₀ : Nat → V} {psA : List AnnotTerm} (hpsA : psA.length = d.nP)
+    (hparamsA : SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)))
+    (hFFA : ∀ t, t < d.k → d.FormerFacts mp.base2 ψ t)
+    (hpIffMA : ∀ t, t < d.k → ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ')
+    {k₀ : Nat} {lpsT : List Name} {cd : Nat → CopyData V} {c : CopyData V} {auxOf : Nat → Nat}
+    (hg : GroupFacts mp d ψ k₀ lpsT cd c auxOf) :
+    c.dJ.TargetOk c.ψ' (consList (psA.map (interp V ρ₀)) ρ₀) c.DsA (d.psiL mp.base2 ψ k₀ c.base)
+      (d.psiPinsT c.dJ.nP) c.mm := by
+  obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, -, -, hrepJ⟩ := hg.rep
+  have hk : 0 < c.dJ.k := Nat.lt_of_le_of_lt (Nat.zero_le _) ht₀
+  have hFFJ : ∀ t, t < c.dJ.k → c.dJ.FormerFacts mp.base2 c.ψ' t :=
+    fun t ht => c.dJ.formerFacts_of_indRep hrepJ hg.kReal c.ψ' ht
+  have hsatA : Sat V (d.params ψ).reverse (consList (psA.map (interp V ρ₀)) ρ₀) := by
+    have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V _) hparamsA
+    rwa [List.append_nil] at h
+  have hc0 := hg.grp 0 hk
+  have hparamsJ : SpineFit (consList (psA.map (interp V ρ₀)) ρ₀) (c.dJ.params c.ψ')
+      (c.DsA.map (interp V (consList (psA.map (interp V ρ₀)) ρ₀))) :=
+    d.pinFit_of_leafShape rfl (hFFJ 0 hk) (hrepJ.leafShape 0 (by rw [hg.kReal]; exact hk) c.ψ')
+      hc0.pin hsatA
+  have hc := hg.grp c.mm hg.mm
+  refine d.targetOk_psi mp hpsA hparamsA hg.len hg.mm (hFFJ c.mm hg.mm)
+    (hrepJ.paramsIffM c.mm (by rw [hg.kReal]; exact hg.mm) c.ψ') hparamsJ hg.lev
+    (hFFA _ (hg.kA c.mm hg.mm)) (hpIffMA _ (hg.kA c.mm hg.mm)) ?_ rfl rfl
+  have h := hc.idx
+  rwa [← Nat.add_assoc] at h
+
+end GroupFacts
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **The step is typed**: under the group's facts, the bridge (every
+transport's target is a reference of `R`) and `PsiTypedPi` at the
+copies referred to, the step's term is `PsiTypedPi` for its copy —
+`psiSetup_of_group` then `PsiSetup.typedPi`. -/
+theorem psiStep_typed {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} {ψ : Name → Nat}
+    {ρ₀ : Nat → V} {psA : List AnnotTerm} (hpsA : psA.length = d.nP)
+    (hparamsA : SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)))
+    (hpinsA : ∀ t, d.pinsOf ψ t = paramBvarsAt d.nP d.nP)
+    (hFFA : ∀ t, t < d.k → d.FormerFacts mp.base2 ψ t)
+    (hLSA : ∀ t, t < d.k → d.LeafShape mp.base2 ψ t)
+    (hpIffMA : ∀ t, t < d.k → ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ')
+    {k₀ n : Nat} (hkn : d.k ≤ k₀ + n) {cd : Nat → CopyData V} {auxOfs : Nat → Nat → Nat}
+    (hall : ∀ j', j' < n → GroupFacts mp d ψ k₀ lpsT cd (cd j') (auxOfs j') ∧
+      (cd j').base + (cd j').mm = j')
+    {R : Nat → Nat → Prop}
+    (href : ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+      R j' (d.tgtsR (auxOfs j' Jc) i - k₀))
+    (tbl : Nat → AnnotTerm) (j' : Nat)
+    (ih : ∀ j'', R j' j'' → j'' < n → d.PsiP mp.base2 ψ k₀ (consList (psA.map (interp V ρ₀)) ρ₀) cd j''
+      (tbl j'')) (hj' : j' < n) :
+    d.PsiP mp.base2 ψ k₀ (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
+      (d.psiStep mp.base2 ψ k₀ cd auxOfs tbl j') := by
+  obtain ⟨hg, hj⟩ := hall j' hj'
+  obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, hrules, hfR, hrepJ⟩ := hg.rep
+  -- the targets of the transports are live, typed and fold targets
+  have htgt : ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+      d.tgtsR (auxOfs j' Jc) i - k₀ < n := by
+    intro Jc cAJ hJc i hi hA hT
+    obtain ⟨cAa, -, hf⟩ := hg.ctors Jc cAJ hJc
+    have := hf.tgts i
+    omega
+  have S := d.psiSetup_of_group mp hpsA hparamsA hpinsA hFFA hLSA hpIffMA hg.ctorsC hg.kReal hg.pinsAV
+    hg.view ht₀ hrules hfR hrepJ hg.len hg.lev hg.kA hg.grp (auxOfs j') cd tbl hg.ctors
+    (fun Jc cAJ hJc i hi hA hT =>
+      (hall _ (htgt Jc cAJ hJc i hi hA hT)).1.ok (hall _ (htgt Jc cAJ hJc i hi hA hT)).2)
+    (fun Jc cAJ hJc i hi hA hT =>
+      ih _ (href j' hj' Jc cAJ hJc i hi hA hT) (htgt Jc cAJ hJc i hi hA hT))
+    (fun Jc cAJ hJc i hi hA hT =>
+      ⟨(hall _ (htgt Jc cAJ hJc i hi hA hT)).1.targetOk hpsA hparamsA hFFA hpIffMA,
+        (hall _ (htgt Jc cAJ hJc i hi hA hT)).1.lev⟩)
+  exact S.typedPi (cd j').dJ (fun t ht => hrepJ.paramsIffM t (by rw [hg.kReal]; exact ht) (cd j').ψ')
+    hg.lev hg.mm
+
+/-- **ψ at every pin** (the datum level): the fold along a topological
+order of `R` from any initial table is `PsiTypedPi` at every pin. -/
+theorem psiFold_typed {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} {ψ : Name → Nat}
+    {ρ₀ : Nat → V} {psA : List AnnotTerm} (hpsA : psA.length = d.nP)
+    (hparamsA : SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)))
+    (hpinsA : ∀ t, d.pinsOf ψ t = paramBvarsAt d.nP d.nP)
+    (hFFA : ∀ t, t < d.k → d.FormerFacts mp.base2 ψ t)
+    (hLSA : ∀ t, t < d.k → d.LeafShape mp.base2 ψ t)
+    (hpIffMA : ∀ t, t < d.k → ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ')
+    {k₀ n : Nat} (hkn : d.k ≤ k₀ + n) {cd : Nat → CopyData V} {auxOfs : Nat → Nat → Nat}
+    (hall : ∀ j', j' < n → GroupFacts mp d ψ k₀ lpsT cd (cd j') (auxOfs j') ∧
+      (cd j').base + (cd j').mm = j')
+    {R : Nat → Nat → Prop}
+    (href : ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+      R j' (d.tgtsR (auxOfs j' Jc) i - k₀))
+    {order : List Nat} (hord : TopoOrder R n order) (tbl₀ : Nat → AnnotTerm) :
+    ∀ j', j' < n → d.PsiP mp.base2 ψ k₀ (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
+      (orderFold (d.psiStep mp.base2 ψ k₀ cd auxOfs) order tbl₀ j') := by
+  intro j' hj'
+  exact hord.orderFold_all (d.psiStep mp.base2 ψ k₀ cd auxOfs)
+    (fun j Ψ => j < n → d.PsiP mp.base2 ψ k₀ (consList (psA.map (interp V ρ₀)) ρ₀) cd j Ψ)
+    (fun tbl j ih hj => d.psiStep_typed mp hpsA hparamsA hpinsA hFFA hLSA hpIffMA hkn hall href tbl j
+      (fun j'' hR hj'' => ih j'' hR hj'') hj)
+    tbl₀ j' hj' hj'
 
 end IndRepData
 
