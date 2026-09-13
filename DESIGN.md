@@ -75626,6 +75626,155 @@ jobs warning-free, `lake test` clean, `no-local-paths` OK; shake/
 pub-import, arena, init-full, Mathlib, overview-links NOT run
 (landing items).
 
+#### M.33 M-C′ step 2: the two ι laws at VALUES (the "double push"), `ChainFit` field by field, and the round-trip step analysed (2026-09-13, session 20)
+
+**(1) ι at values — the route** (`Model/Inductives/FoldBelow.lean`,
+`Model/Inductives/FoldValues.lean`, both on the Model umbrella via
+`RoundTrip`'s successor imports; §M.32 (i)).  `AnnotTerm` has no value
+leaf, so a fold cannot be fired "at values" by substituting terms; the
+kit's ι (`InvSetup.fold_iota`/`PsiSetup.fold_iota`) fires at field TERMS
+read at the setup's frame.  The route taken: the **double push**.  For a
+parameter frame `σ` (the block's parameters at `bvar 0 … nP-1`) and a
+spine of values `vs`, read the SAME fold term at
+`σ' := consList (paramVals nP σ) (consList vs σ)` — the parameter
+values pushed again above the field values — with the parameter
+variables `paramBvarsAt nP nP` as the parameters and the lifted field
+variables `(fieldBvars nF).map (·.liftN nP 0)` as the field terms: the
+former read `paramVals nP σ` at `σ'` (`interp_paramBvarsAt_self`), the
+latter read `vs` (`map_liftBvars_push`), and `σ'` agrees with `σ` below
+`nP` (`push_agree`), so a term `Term.bvarsBelow nP` reads alike at both
+(`interp_congr_below`).  The setup at `σ'` costs nothing: the run-level
+theorems are `∀ ρ ps` (`invSetup_of_run`, `psiFold_typed_of_read`).
+What has to be PROVED is that the fold terms are `bvarsBelow nP`:
+
+* `FoldBelow.lean` — `bvarsBelow` through substitution
+  (`bvarsBelow_inst_margin`, `bvarsBelow_instSeq`/`_full`: an
+  instantiation at cut `t` of a term bounded at `t + 1 + m` by terms
+  bounded at `m` is bounded at `t + 1 - len + m`) and through every
+  builder of the choice, uniformly "bounded at the container depth plus
+  an outer margin `mm`" (`famAppAV_below`, `motDataAV_below`/
+  `motChoiceAV_below`, `invTgAV_below`, `ihDomAVM_below_margin`/
+  `ihDataAVM_below`/`minorDataAV_below` over a per-field record
+  `RecFieldsBelow`, `minChoiceAV(s)_below`, `invBodyAV_below`,
+  `psiBodyAV_below` with `viaEntryAV_below`/`psiVarsAV_below`), and the
+  fold term itself: **`foldTermAV`** (member `t`'s recursor at
+  `ps ++ motChoiceAVs ++ minChoiceAVs`; both folds are instances) with
+  **`foldTermAV_below`**.  The datum's own readings are bounded by its
+  clauses (`FixCtorDataI.below`/`belowE`/`eissBelow`/`tssBelow`,
+  `FormerData.below` through `formersRead`); the choice's terms are the
+  consumer's hypotheses.  The margin is what makes ψ's instance — the
+  CONTAINER's datum under the scratch block's `d.nP` parameters,
+  `mm = d.nP` — the same lemma as ψ⁻¹'s.
+* `FoldValues.lean` — the instances: `InvSetup.foldTerm_below`/
+  `PsiSetup.foldTerm_below` (the constructor data from the setups'
+  `hctors`, `minorData_below_of`/`minorData_length_of`, `ipss` from
+  `formersRead`: `ipss_below_of_indRep`); the ψ⁻¹ choice bounded
+  (`invL_below`, `invPinsT_below`, `invHead_below` — under the copies'
+  pin readings bounded, `hDsA`, see (4)); ψ's terms bounded
+  (`psiPinsT_below`, `psiHead_below`, **`psiTerm_below`** from
+  `GroupFacts` and the scratch block's constructor facts,
+  **`psiFold_below`** along the kernel order — `TopoOrder.orderFold_all`
+  with the bound as the invariant, `psiFold_typed`'s shape); the frame
+  lemmas (`paramVals`, `push_agree`, `consList_agree_below`,
+  `map_liftBvars_push`, `lamTower_congr_agree` = `lamTower_congr_bottom`
+  with a margin); and the two results, **`InvSetup.fold_iota_vals`** and
+  **`PsiSetup.fold_iota_vals`**: with the setup at the pushed frame, at
+  constructor `J` and field values `vs` fitting its telescope, the fold
+  term (read at `σ`) at the constructor's index readings and the
+  constructor's VALUE is the head at the mixed/ψ values, every
+  hypothesis the fold at the target member under the field's telescope
+  — everything restated over `σ` (ψ⁻¹) or over the container's parameter
+  frame `consList (DsA-values) σ` (ψ, whose head and transports live
+  there).  `psiVals`/`viaVal` were exposed for `psiVals_congr`.
+
+**(2) `ChainFit` field by field** (§M.32 (ii)) — `chainXIGo_fields` in
+`Semantics/Tower/FixFamI.lean` (where `chainXIGo`/`SlotsFitX` live): a
+spine fitting the X-chain from position `i` with the recursive slots
+fitting (`SlotsFitX`, what the datum's `chains.hfit` gives at every
+family of the space and every tuple) has, at each position, a
+recursive field's value in `slotSet … X` (under its telescope the
+family's fibre at its container-view index readings) and an ordinary
+field's value in its domain, at the frame of the earlier fields
+(`xEntry_rec`/`xEntry_ord` per position).  Its Model-tier consumer at
+the datum (`IndRep.chainFit_fields`, from `chains` + `lfpFamSpace_eq`)
+and the restricted family's reading (`app_graph` + `mem_sep` on
+`graph (fun t => sep (lfp t) (P t)) idx`) are the induction step's
+access to the hypotheses: a finitary recursive field's value lies in the
+carrier's fibre AND satisfies `P` at the field's tuple; a reflexive one
+pointwise under its telescope (`piTele_fold`).
+
+**(3) The round-trip step, analysed — what R2 at a pin needs**, in the
+order the proof consumes it (R1 is the mirror over the scratch block):
+`x ∈ J(DsA) ı⃗` → (`carrier_induction`) `x = inj j fs`, `ChainFit` at the
+restricted family and the tuple `t = tup mm ı⃗` → (a) the constructor's
+OWN index readings at `fs` are `ı⃗` and `mems j = mm`; (b) the fields
+fit the REAL domains (`Fss`), so (c) `ctor`: `x = C_j DsA fs`; (d) ψ's ι
+at values: `Ψ_j ı⃗ x` = the copy constructor at ψ's values (fields,
+`Ψ_tgt`-hypotheses, transports); (e) the copy constructor at those
+values is the SCRATCH injection (`ctor` at the scratch block — needs the
+ψ-values to fit the copy constructor's telescope, (4) below); (f) ψ⁻¹'s ι
+at values at the scratch constructor `auxOf j`: `Φ_j ı⃗' (inj …)` = the
+container constructor at `DsA` at the mixed values, where at a
+container-recursive position the value is `Φ_tgt (Ψ_tgt (fs[i]))` under
+the telescope = `fs[i]` by the INDUCTION HYPOTHESIS (from (2): the
+field's value is in the restricted fibre at its tuple; the tuple is the
+target member's `tup` at the F-view readings, (4)), at a transport
+position `Φ_j' (Ψ_j' (fs[i]))` = `fs[i]` by R2 at the EARLIER pin `j'`
+(the kernel order), at an ordinary position `fs[i]` itself; the
+reflexive case closes by `lamTower_fold` (β) and `piTele_eta` (η); (g)
+`C_j DsA fs = x`.  The index readings at (f) equal `ı⃗` because the copy
+constructor's readings are the container's (`es`) and mention no
+replaced position (`hnbP`).
+
+**(4) Three facts the step needs that the abstract `IndRep` does not
+state — NAMED, not built around** (each a consequence of the concrete
+constructions `FixRep`/`MutualRep`, opaque at the datum: `tup`, `essC`,
+`eissC` are fields):
+
+* **`IdxRecover`**: `ChainFit ψ ρp X (tup ψ mm ı⃗) j fs → mems j = mm ∧
+  (esF j ψ at fs) = ı⃗`.  At a single family it is
+  `idxValsAt_of_eqsXI` (the terminator's equations against the tuple's
+  projections); at a mutual block the tagged singleton
+  `essC j = [⟨inj (mems j) ⟨esF j ++ [pt]⟩⟩]` against `tup mm ı⃗ =
+  tupW W [inj mm ⟨ı⃗ ++ [pt]⟩]` — sum/tuple injectivity.
+* **`SlotRecover`**: a recursive field's container-view tuple is the
+  target member's `tup` at the F-view readings: `tupW (u ψ)
+  (eissC j i at ρ') = tup ψ (tgts j i) (eissF j i at ρ')` — the same
+  bridge at the slots (what turns the induction hypothesis at the
+  container's tuple into R2 at the target member's index values, and
+  what identifies the slot set at the least fixed point with the real
+  recursive domain through `leaf`).
+* **`PsiCtorFit`**: ψ's values at a container constructor fit the copy
+  constructor's field telescope (an ordinary position is the copy's
+  own domain = the container's, `hord`; a hypothesis position lands in
+  the copy's carrier by `PsiTypedPi` applied; a transport in its target
+  by `hvia`) — expected to be derivable from `PsiSetup` (it is what
+  `psiBody_leaf` types), to check first next session.
+
+Also owed at the run level: the copies' pin readings bounded
+(`hDsA`: `∀ q ∈ DsA, bvarsBelow d.nP q.erase`, from `DenoteMetaSpine`
+at K.3's `pinsClosed` through `denote_bvarsBelow`); the group-mate
+agreement (the table term at pin `base + t` is `psiTerm` at
+`cd (base + t)`, whose data `invChoice_group` identifies with the
+pin's); and R2's statement per GROUP (`P t x` over every member of the
+container block: the induction is over the block's one least fixed
+point, so a recursive field into a sibling member gets its hypothesis
+in the same induction, at the sibling's pin).
+
+**Status.**  (i) and (ii) of §M.32 PROVED (`InvSetup.fold_iota_vals`,
+`PsiSetup.fold_iota_vals`, `chainXIGo_fields` + `IndRep.chainFit_fields`,
+`mem_restrictedFam`); R2/R1 NOT proved — the step is analysed above
+with its three named facts, which are the next session's first items
+(check `PsiCtorFit` against `PsiSetup` first; `IdxRecover`/`SlotRecover`
+are datum-level: either two `IndRep` clauses discharged by construction
+at `FixRep`/`MutualRep`, or hypotheses of the round trips discharged at
+M-D′ — MAINTAINER DECIDES).  NOT reached: `copyCtorAsRead_of_walk`
+(§M.31 (c)–(e)).  Gates: `lake build` 624 jobs warning-free, `lake test`
+clean, `no-local-paths` OK; shake/pub-import, arena, init-full,
+Mathlib, overview-links NOT run (landing items).  New modules
+`FoldBelow`/`FoldValues` are on the Model umbrella through `RoundTrip`;
+`FixFamI.lean` gained one lemma (whole-tree rebuild, 622 jobs, clean).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
