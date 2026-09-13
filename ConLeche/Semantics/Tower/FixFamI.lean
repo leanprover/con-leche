@@ -714,6 +714,48 @@ theorem chainXIGo_tele_sub (hI : IdxOk u ρp Ids) {X Y : V}
       exact chainXIGo_tele_sub hI hX hXY Fs (as.length + 1) (as ++ [a]) (length_snoc' a as)
         (hfit.2 a ha) (by simp at hnF ⊢; omega)
 
+/-- **A chain-fitting spine, field by field** (task #279 M-C′, DESIGN
+§M.33): along a spine fitting the X-chain from position `i` on, with
+the recursive slots fitting there (`SlotsFitX`), a recursive field's
+value lies in the slot set at the family — under its telescope, the
+family's fibre at its index readings — and an ordinary field's value in
+its domain, each at the frame of the earlier fields. -/
+theorem chainXIGo_fields (hI : IdxOk u ρp Ids) {X t : V}
+    {rs : List Bool} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} :
+    ∀ (Fs : List AnnotTerm) (i : Nat) (as fs : List V), as.length = i →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs tls Eis Fs i) fs →
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs →
+      ∀ (j : Nat) (F : AnnotTerm), Fs[j]? = some F → ∀ f, fs[j]? = some f →
+        (rs.getD (i + j) false = true →
+          f ∈ˢ slotSet w u (consList (as ++ fs.take j) ρp) (tls.getD (i + j) []) (Eis.getD (i + j) []) X) ∧
+        (rs.getD (i + j) false = false →
+          f ∈ˢ interp V (consList (as ++ fs.take j) ρp) F)
+  | [], _, _, _, _, _, _, j, _, hF, _, _ => absurd hF (by simp)
+  | F :: Fs, i, as, fs, hi, hsp, hfit, j, F', hF', f, hf => by
+    subst hi
+    cases fs with
+    | nil => exact absurd hf (by simp)
+    | cons a fs =>
+      rw [chainXIGo_cons] at hsp
+      obtain ⟨ha, hrest⟩ := hsp
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hF' hf
+        subst hF' hf
+        simp only [List.take_zero, List.append_nil, Nat.add_zero]
+        refine ⟨fun hri => ?_, fun hri => ?_⟩
+        · rw [xEntry_rec hI F as t hri (hfit.1 hri)] at ha
+          exact ha
+        · rw [xEntry_ord F as t hri] at ha
+          exact ha
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at hF' hf
+        have := chainXIGo_fields hI Fs (as.length + 1) (as ++ [a]) fs (length_snoc' a as)
+          (by rw [consList_snoc'] at hrest; exact hrest) (hfit.2 a ha) j F' hF' f hf
+        rw [show as.length + (j + 1) = as.length + 1 + j by omega, List.take_succ_cons,
+          ← List.singleton_append, ← List.append_assoc]
+        exact this
+
 /-- The fit predicate restricts along a smaller family. -/
 theorem slotsFitX_mono (hI : IdxOk u ρp Ids) {X X' : V} (hX'X : FamLe (idxSet u ρp Ids) X' X)
     {rs : List Bool} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {t : V} :
