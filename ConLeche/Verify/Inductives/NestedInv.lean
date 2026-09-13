@@ -444,6 +444,26 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
     obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
     exact ⟨hnorm, hstores, hkeep hproj⟩
 
+/-- **NO BLOCK MEMBER CARRIES A COPY'S NAME** (task #279 K.18, the model
+lane's question).
+
+The front guard is NOT what gives this: `check_no_nested_aux` rejects a
+block whose declared TYPES MENTION a `_nested`-prefixed constant, not a
+declaration NAMED one — official skips a taken name at the mint
+(`mk_unique_name`) rather than failing, and this route follows it.  What
+gives it is the auxiliary block's own shape check: `checkMutualCore`
+opens with `mutualShapeOk`, whose first conjunct is
+`b.blockNames.Nodup` — and `b.blockNames` is every member name, every
+constructor name and every recursor name of the block, the stream's
+members and the minted copies alike.  A stream member named like a copy
+would put the same name twice in that list and the install would REJECT.
+
+So the fact is carried by the run relation's `checkMutualCore … = .ok
+envAux` conjunct, and this is how to read it off. -/
+theorem nestedBlockNames_nodup {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
+    b.blockNames.Nodup := (checkMutualCore_inv haux).1
+
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (h : checkNested (m := CheckM) (fueledOps mode F) env p = .ok envOut) :
@@ -486,6 +506,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- opened at the block's parameter variables — typed at the SCRATCH
       -- environment
       nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP st.pins = .ok () ∧
+      -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
+      -- block, the STORED field is the weak head normal form of the
+      -- PROCESSED one wherever the stage's normalisation changed it,
+      -- both in the block's own vocabulary
+      nestedCtorsWhnfOk (m := CheckM) (fueledOps mode F)
+          (consNestedFormers (stored.take p.k) env) (restoreTbl p st) p.nP
+          (nestedCtorPairs b stored) = .ok () ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -598,6 +625,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only [bind, Except.bind] at h
   obtain ⟨uA, hpinsAux, h⟩ := exceptBind_ok h
   try simp only at h
+  obtain ⟨uW, hwhnf, h⟩ := exceptBind_ok h
+  try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨cvRms, hrm, h⟩ := exceptBind_ok h
@@ -623,7 +652,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hto', hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases uA; exact hpinsAux), (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche
