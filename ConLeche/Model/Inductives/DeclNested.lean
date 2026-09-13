@@ -196,6 +196,34 @@ theorem nestedRecNameFacts {F : Nat} {env envAux : Env}
       rw [hformerName t ht ty hty] at this
       exact nomatch this
 
+/-- **At the pre-annotated grade the constructors' `.proj` discipline is
+`checkConstantValPre`'s** (K.13): the graded front door validates every
+`.proj` node's structure-name slot against the projection table
+(`Expr.projTablesOk`), `normCtorValM` keeps the fact across the
+normalisation, and a member's slot is empty at the formers' environment
+— so no stored constructor of the scratch block mentions a member
+projection.  With `ctorsNoProj_of_annot` this closes `CtorsNoProj` at
+BOTH grades: it is a read off the run, not a premise. -/
+theorem ctorsNoProj_of_pre {F : Nat} {env : Env} {b : MutualBlock} (mp : EnvModelM V μ env) :
+    CtorsNoProj μ F env b true := by
+  intro env₁ fms ctorsA sortss isProp hformers hctors cA hcA f hf j
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨-, hposF⟩ := ConLeche.mutualFormerChecks_front hchecks
+  obtain ⟨t, hft⟩ := List.getElem?_of_mem hf
+  obtain ⟨cv, bs, -, hff, -⟩ := hposF t f hft
+  have hfresh : env.find? f.cvTa.name = none := by rw [hff.name]; exact hff.fresh
+  have hslot : (ConLeche.consMutualFormers fms env).findProj? f.cvTa.name j = none :=
+    findProj?_none_consMutualFormers (findProj?_none_of_indFresh mp.base2.proj_ok hfresh j)
+  obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcA
+  obtain ⟨hlen, -, hall⟩ := ConLeche.checkMutualCtors_inv hctors
+  have hJl : J < b.ctors.length := by
+    have := (List.getElem?_eq_some_iff.mp hJ).1
+    omega
+  obtain ⟨-, sorts, -, hrun⟩ := hall J b.ctors[J] cA (List.getElem?_eq_getElem hJl) hJ
+  obtain ⟨hnorm, hproj⟩ := ConLeche.checkMutualCtor_true_norm hrun
+  obtain ⟨-, hkeep⟩ := ConLeche.normCtorValM_true_stores hnorm
+  exact Expr.noProjAt_of_projTablesOk hslot _ (hkeep hproj)
+
 /-- **The auxiliary block's model**: the scratch environment of a
 nested run carries the P invariant.  `declMutualCore` at the auxiliary
 block, its recursor-name facts read off the run (see the module
@@ -218,18 +246,14 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
           (ConLeche.consNestedFormers (stored.take p.k) env))
         (ConLeche.restoreTbl p st) p.lps
         ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
-        (stored.take p.k) = .ok cvRms)
-    -- the scratch block's constructors mention no projection of its
-    -- members (K.12: the block is pre-annotated, so this is owed of the
-    -- minted terms, not read off an annotation)
-    (hnp : CtorsNoProj μ F env b true) :
+        (stored.take p.k) = .ok cvRms) :
     ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   have hfacts := nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
   obtain ⟨mpAux, d, hreps⟩ := declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)
-    (by rw [hq]; exact hnp)
+    (by rw [hq]; exact ctorsNoProj_of_pre mp)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.2)
@@ -344,9 +368,7 @@ theorem auxFormers_stored {F : Nat} {env envAux : Env} {b : MutualBlock} {auxRou
 run's `checkMutualCore` produced carries the P invariant. -/
 theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     {p : NestedParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (h : DeclNestedRun μ F env p envOut)
-    (hnp : ∀ (st : ElimState) (b : MutualBlock), ConLeche.auxBlock p st = some b →
-      CtorsNoProj μ F env b true) :
+    (h : DeclNestedRun μ F env p envOut) :
     ∃ (st : ElimState) (b : MutualBlock) (envAux : Env),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none true
@@ -355,6 +377,6 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
     hannF, -, helim, -, hfresh, -, hb, hcore, hstored, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore,
-    nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm (hnp st b hb)⟩
+    nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm⟩
 
 end ConLeche.Model

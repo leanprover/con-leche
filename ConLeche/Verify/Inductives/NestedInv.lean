@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.MutualInv
 public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Verify.ProjSlots
 
 public section
 
@@ -121,6 +122,49 @@ so this narrows nothing — and it is what discharges the model lane's
 theorem checkConstantValPre_projOk {env : Env} {cv cvA : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
     cv.type.projTablesOk env = true := (checkConstantValPre_inv h).2
+
+/-- **The graded-path source of `NoProjAt`** (K.13): an expression whose
+`.proj` nodes are all table-backed at their OWN name and index
+(`Expr.projTablesOk`, what `checkConstantValPre` validates) has no
+`.proj T i` node when the slot `(T, i)` is empty — the scratch block's
+constructors at their formers' environment, where a member's slot is
+still empty.  The twin of `noProjAt_of_constsResolve`. -/
+theorem Expr.noProjAt_of_projTablesOk {env : Env} {T : Name} {i : Nat}
+    (hT : env.findProj? T i = none) :
+    ∀ e : Expr, e.projTablesOk env = true → Expr.NoProjAt T i e := by
+  intro e
+  induction e with
+  | bvar j => intro _; simp
+  | sort u => intro _; simp
+  | lit l => intro _; simp
+  | const n us => intro _; simp
+  | fvar idx ty ih =>
+    intro h
+    rw [Expr.noProjAt_fvar]
+    exact ih (by simpa [Expr.projTablesOk] using h)
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    exact Expr.noProjAt_app.mpr ⟨ihf h.1, iha h.2⟩
+  | lam ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    exact Expr.noProjAt_lam.mpr ⟨ihty h.1, ihb h.2⟩
+  | forallE ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    exact Expr.noProjAt_forallE.mpr ⟨ihty h.1, ihb h.2⟩
+  | letE ty v b ihty ihv ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    exact Expr.noProjAt_letE.mpr ⟨ihty h.1.1, ihv h.1.2, ihb h.2⟩
+  | proj s j e ihe =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    refine Expr.noProjAt_proj.mpr ⟨?_, ihe h.2⟩
+    rintro ⟨rfl, rfl⟩
+    rw [hT] at h
+    exact nomatch h.1
 
 /-- `checkSumTele` is the identity on a type whose telescope already
 ends in a sort (task #218's syntactic-telescope arm). -/

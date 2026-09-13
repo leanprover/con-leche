@@ -42,10 +42,12 @@ local macro_rules
         | (exfalso; exact frontThrow_ne_ok
             (by simpa [bind, Except.bind] using ‹_›)))
 
-/-- **The pre-annotated front door, inverted**: every check of
-`checkConstantVal` on the given type, and the constant returned is the
-input. -/
-theorem checkConstantValPre_inv {env : Env} {cv cvA : ConstantVal} {F : Nat}
+/-- **The pre-annotated front door, inverted in full**: every check of
+`checkConstantVal` on the given type (and K.13's `.proj` slot check),
+and the constant returned is the input.  (`NestedInv`'s
+`checkConstantValPre_inv` is the two-conjunct read; this is the
+`FormerFront` producer's.) -/
+theorem checkConstantValPre_front {env : Env} {cv cvA : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
@@ -55,6 +57,7 @@ theorem checkConstantValPre_inv {env : Env} {cv cvA : ConstantVal} {F : Nat}
     cv.type.hasFvar = false ∧
     cv.type.allLevelParamsDefined cv.levelParams = true ∧
     cv.type.constsResolve env = true ∧
+    cv.type.projTablesOk env = true ∧
     (∃ stype u, inferTypeCore mode env F 0 cv.type = .ok stype ∧
       ensureSortCore mode env F 0 stype = .ok u) ∧
     cvA = cv := by
@@ -83,12 +86,15 @@ theorem checkConstantValPre_inv {env : Env} {cv cvA : ConstantVal} {F : Nat}
   by_cases h8 : cv.type.constsResolve env = true
   case neg => rw [if_neg h8] at h; close_throw
   rw [if_pos h8] at h
+  by_cases h9 : cv.type.projTablesOk env = true
+  case neg => rw [if_neg h9] at h; close_throw
+  rw [if_pos h9] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨sty, hinf, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨u, hens, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  refine ⟨?_, ?_, ?_, h4, h5, ?_, h7, h8, ⟨sty, u, hinf, hens⟩, h.symm⟩
+  refine ⟨?_, ?_, ?_, h4, h5, ?_, h7, h8, h9, ⟨sty, u, hinf, hens⟩, h.symm⟩
   · cases hf : env.find? cv.name with
     | none => rfl
     | some c => exact absurd (by rw [hf]; rfl) h1
@@ -139,8 +145,8 @@ theorem of_checkConstantVal {env : Env} {cv cvTa : ConstantVal} {F : Nat}
 theorem of_pre {env : Env} {cv cvTa : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvTa) :
     FormerFront mode F env cv cvTa := by
-  obtain ⟨hfresh, hnres, hpshape, hnodup, hb, hnf, hlps, hres, ⟨stype, u, hinf, hens⟩, rfl⟩ :=
-    checkConstantValPre_inv h
+  obtain ⟨hfresh, hnres, hpshape, hnodup, hb, hnf, hlps, hres, -, ⟨stype, u, hinf, hens⟩, rfl⟩ :=
+    checkConstantValPre_front h
   exact ⟨hfresh, hnres, hpshape, hnodup, rfl, rfl, hnf, hb, hlps, hres, stype, u, hinf, hens⟩
 
 /-- The record reads only the declared constant's name and level

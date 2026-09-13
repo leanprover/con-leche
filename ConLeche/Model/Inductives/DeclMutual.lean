@@ -1959,7 +1959,7 @@ at the pre-annotated grade — the nested route's scratch block, whose
 constructors are minted out of stored types — the caller owes it of
 the terms it built, since inference alone does not visit every
 argument. -/
-def CtorsNoProj (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock) (auxRoute : Bool) :
+@[expose] def CtorsNoProj (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock) (auxRoute : Bool) :
     Prop :=
   ∀ (env₁ : Env) (fms : List MutualFormerA) (ctorsA : List (ConstantVal × Nat))
     (sortss : List (List Level)) (isProp : Bool),

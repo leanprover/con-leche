@@ -196,9 +196,7 @@ trip (`openPisAtFvars_closeTelescope_strip`) re-opens it at the
 openers. -/
 theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut)
-    (hnp : ∀ (st : ConLeche.ElimState) (b : MutualBlock), ConLeche.auxBlock p st = some b →
-      CtorsNoProj μ F env b true) :
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
     ∃ (st : ConLeche.ElimState) (b : MutualBlock) (envAux : Env) (params : List Expr),
       ConLeche.auxBlock p st = some b ∧
       (∃ (t₀ : AuxType) (body : Expr), st.types[0]? = some t₀ ∧
@@ -217,7 +215,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
     hannF, -, helim, -, hfresh, -, hb, hcore, hstored, hpc, hpinsAux, -, hrm, -⟩ := h
   obtain ⟨mpAux, d, hreps⟩ :=
-    nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm (hnp st b hb)
+    nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
   obtain ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, hpbs, htypes⟩ :=
     ConLeche.elimNested_open helim
