@@ -100,9 +100,8 @@ stream_timeout() { case "$1" in mathlib-full) echo 28800 ;; *) echo "$TIMEOUT" ;
 stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
 
 # THE MATRIX: exactly three columns, every flag explicit, no defaults
-# relied on.  One representation, so there is no core axis; the R column
-# went 2026-09-05 with the R core and `--set-model=r` (a hard error now).
-# Nothing retired is measured and nothing retired is printed.
+# relied on.  One representation and two modes, so there is no core
+# axis and no third column.
 CONFIG_IDS=(official trusted verified)
 # The con-leche cells run at `--jobs=1`: the check phase runs on one
 # worker per hardware thread by default, the pool's atomic reference

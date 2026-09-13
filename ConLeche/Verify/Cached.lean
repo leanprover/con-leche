@@ -34,7 +34,7 @@ public section
 # The cached checker variant's verification (task #163)
 
 Umbrella for `ConLeche/Verify/Cached/*` — the simulation relating the
-cached core (`ConLeche/Cached/*`, the `--core=cached-parsed` variant) to
+cached core (`ConLeche/Cached/*`) to
 the pure fueled checker, landing on the consistency corollaries.  See
 DESIGN.md, "Task #163 CACHED-LIVE P1" for the frozen statement
 inventory; files are added here as their batches seal.

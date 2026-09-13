@@ -9,11 +9,11 @@ public import ConLeche.Cached.Installed
 /-!
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
-preprocessor and no external dependency (task #207): every inductive
-block is installed by the fixed-point route, or through a `_model`
-family the frontend generates in-process at parse time
+preprocessor and no external dependency: every inductive block is
+installed by the fixed-point route, or through a `_model` family the
+frontend generates in-process at parse time
 (`ConLeche/Frontend/InModel/*`) and then checks as ordinary
-declarations; no model is ever read from the input (task #219).
+declarations; no model is ever read from the input.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -21,16 +21,16 @@ Exit codes follow the lean kernel arena convention:
   condition also exits 1: it is the Lean runtime's own panic
   (`lean_internal_panic_out_of_memory` prints "INTERNAL PANIC: out of
   memory" on stderr and calls `exit(1)`), uncatchable in process, so
-  the message on stderr is what tells the two apart (task #230).
+  the message on stderr is what tells the two apart.
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
   A diagnostic run that stops before the fold exits 2 for the same
   reason it is not an accept: `CON_LECHE_INMODEL_CENSUS=1` reports the
   in-process modeller's outcomes after the parse and never checks
-  anything (task #271).
+  anything.
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
 
-**NO TEMPORARY FILES** (task #180, 2026-09-07).  The checker writes
+**NO TEMPORARY FILES.**  The checker writes
 nothing outside its own stdout/stderr, and reads its input strictly
 forward, one `getLine` at a time (`Frontend.parseExportHandleD`), so a
 Mathlib-scale export never materialises anywhere — not on disk, and in
@@ -51,14 +51,14 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
   | .internal _ => 3
 
 /-- The whole input side of a run: the parsed declarations, read
-straight from the file.  Since task #207 there is nothing else —
-no preprocessor detection, no spawn, no pipe. -/
+straight from the file.  There is nothing else — no preprocessor
+detection, no spawn, no pipe. -/
 def parseInput (file : String) (inModel : Bool) :
     IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
   Frontend.parseExportStreamD file inModel census
 
-/-- `declPName` for the direct-parse `Declaration` records (task #171).  The
+/-- `declPName` for the direct-parse `Declaration` records.  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
@@ -82,13 +82,12 @@ Whatever it prints between steps is irrelevant to that type, which is
 why ONE loop serves the plain run and the `--progress` heartbeat
 alike.
 
-**Written tail-recursively, threading `p` and `s` LINEARLY** (task
-#182's finding, `agent/fenv-linear`): a `for … in ds` loop with
-`let mut` accumulators desugars to code that `lean_inc`s both the
-`FEnv` and the `CState` before each step, so `lean_is_exclusive` is
-false at the index inserts and every hashmap copies its bucket array
-per declaration — quadratic at Mathlib scale, which is what made the
-`traceLoopC` probe unusable.  Here the previous `p`/`s` are dead at the
+**Written tail-recursively, threading `p` and `s` LINEARLY**: a
+`for … in ds` loop with `let mut` accumulators desugars to code that
+`lean_inc`s both the `FEnv` and the `CState` before each step, so
+`lean_is_exclusive` is false at the index inserts and every hashmap
+copies its bucket array per declaration — quadratic at Mathlib
+scale.  Here the previous `p`/`s` are dead at the
 recursive call, so the C carries no `lean_inc` of either before the
 step, and the cost per declaration is flat.  The run is carried in the
 SNOC direction (`InstallRun.snoc`) precisely so that the call stays a
@@ -164,8 +163,8 @@ one; at the end every record is checked, which with the installed
 environment IS a `FullyChecked mode ds`, phase B of the fold
 `checkDecls`.  Nothing is shared with any other thread and no counter
 is claimed: this loop is the sequential baseline the pool below is
-measured against.  It runs on ONE DEDICATED WORKER THREAD all the same
-(task #269): the loop's cost is dominated by the per-record memo
+measured against.  It runs on ONE DEDICATED WORKER THREAD all the
+same: the loop's cost is dominated by the per-record memo
 state, that state comes out of the running thread's own mimalloc heap,
 and the main thread's heap after the install phase is two gigabytes of
 live environment with the parse's and the install's freed temporaries
@@ -353,39 +352,22 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed
     -- environment is complete and READ-ONLY from here on: every
     -- recorded check reads a prefix view of it from a fresh memo state
-    -- and writes nothing back.  Handing that graph to a worker makes
-    -- the runtime mark it MULTI-THREADED, and every reference count on
-    -- it becomes an atomic read-modify-write on a cache line all the
-    -- workers touch — pure overhead, since nothing in the graph is
-    -- freed or mutated again.  Marking it PERSISTENT instead removes
-    -- the counting altogether, and on the pool that is worth 19-50 % of
-    -- the run's cycles and 18-32 % of its WALL TIME, growing with the
-    -- worker count.  Only for the pool: in the in-thread lane the
-    -- runtime's inlined single-threaded counting is nearly free and a
-    -- persistent object mispredicts its `m_rc > 0` fast path, so the
-    -- mark LOSES there and `--jobs=1` stays overhead-free.
-    --
-    -- **TASK #269 SUPERSEDES THE `jobs > 1` GUARD.**  The sentence
-    -- above is right about the RC arithmetic and wrong about the
-    -- lane, because at Mathlib scale the RC arithmetic is not what
-    -- the in-thread lane is losing to.  Phase B's per-record memo
-    -- state is allocated out of the thread's own mimalloc heap, and
-    -- the MAIN thread's heap is the one parse and install just built
-    -- and tore down: two gigabytes of live environment with the
-    -- freed parse and install temporaries scattered through it.  The
-    -- check's allocations come back out of that scatter, so every one
-    -- of them touches a cold line.  On the 1.5 GB Mathlib prefix the
-    -- identical computation on a thread whose heap is FRESH retires
-    -- the same instructions (-1.8 %) at 2.68 IPC against 1.29, with
-    -- 24x fewer demand fills from DRAM per instruction (0.045 vs
-    -- 1.081 per thousand) and 22x fewer dTLB load misses: 448 s of
-    -- check phase becomes 210 s (the interleaved shipped-vs-this pair
-    -- on that stream is 454 s -> 210 s, 3/3 repetitions).  So
-    -- `--jobs=1` runs its loop on a dedicated thread too, and once
-    -- it does the graph is
-    -- multi-threaded and the mark is worth having in this lane as
-    -- well (a further -3.5 %).  The measurement is task #269's
-    -- section in DESIGN.md.
+    -- and writes nothing back.  The check phase runs on worker threads
+    -- at every `--jobs=<n>`, so the runtime marks that graph
+    -- MULTI-THREADED and every reference count on it becomes an atomic
+    -- read-modify-write on a cache line all the workers touch — pure
+    -- overhead, since nothing in the graph is freed or mutated again.
+    -- Marking it PERSISTENT instead removes the counting altogether:
+    -- on the pool that is worth 19-50 % of the run's cycles and
+    -- 18-32 % of its WALL TIME, growing with the worker count, and
+    -- 3.5 % at `--jobs=1`.  (The check phase is on a thread of its own
+    -- in that lane too, because phase B's per-record memo state is
+    -- allocated out of the running thread's own mimalloc heap and the
+    -- main thread's heap is the one parse and install have just
+    -- fragmented: the same instructions out of a FRESH heap run at
+    -- 2.68 IPC against 1.29, with 24x fewer demand fills from DRAM per
+    -- instruction — a factor of two in wall time at Mathlib scale.
+    -- The measurement is DESIGN.md's task #269 section.)
     --
     -- The result is DISCARDED and the original `fe`/`pend` are what the
     -- phase below reads: `Runtime.markPersistent` is the identity on
@@ -431,14 +413,10 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
-flag (2026-09-07; a FLAG since task #229 — it selects a run mode, the
-unverified progress fold instead of the verified one, which is what
-flags are for, and it was an environment variable before).  No flag is
-off; bare `--progress` is stride 1.  A value that is not a decimal
-numeral, and `0` — the flag asking for no heartbeat — are usage errors
-(exit 3), per the provenance discipline the retired spellings follow: a
-run's output must be readable off its invocation, never silently
-degraded. -/
+flag.  No flag is off; bare `--progress` is stride 1.  A value that is
+not a decimal numeral, and `0` — the flag asking for no heartbeat —
+are usage errors (exit 3): a run's output must be readable off its
+invocation, never silently degraded. -/
 def progressStride (v : String) : Except String Nat :=
   match v.toNat? with
   | some 0 => .error "--progress takes a declaration stride of at least 1 \
@@ -462,8 +440,8 @@ about 25 MB per worker), so a run under an address-space limit
 16 GB, four under 8 GB — and past that the thread creation fails and
 the runtime aborts ("failed to create thread", exit 134).  Such a run
 lowers the count with the flag; the shipped default is not shaped by
-a development-environment limit (user ruling, task #260), and the
-project's own capped gates pass an explicit count. -/
+a development-environment limit, and the project's own capped gates
+pass an explicit count. -/
 def jobsCount (v : String) : Except String Nat :=
   match v.toNat? with
   | some 0 => .error "--jobs takes a worker count of at least 1 \
@@ -472,17 +450,12 @@ def jobsCount (v : String) : Except String Nat :=
   | none => .error s!"--jobs takes a worker count \
       (a decimal numeral of at least 1), got {repr v}"
 
-/-- The real driver, which `main` calls in process (task #230 removed
-the OOM supervisor that used to re-exec this as a child).  `mode` is
-the three-mode setting (task #147), validated once by the caller and
-consumed here as configuration.
+/-- The real driver, which `main` calls in process.  `mode` is the
+checking mode, validated once by the caller and consumed here as
+configuration.
 
-**One core at two modes, one parse.**  The interned representation
-and every driver over it retired with the arena (task #172), the R
-core retired with the collapsed model (2026-09-05), and the
-hand-written trusted twin retired into an instantiation
-(2026-09-06), so the stream is parsed directly to `Expr`
-(`Frontend.parseExportStreamD`, task #171) and checked by the one
+**One core at two modes, one parse.**  The stream is parsed directly
+to `Expr` (`Frontend.parseExportStreamD`) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
@@ -504,30 +477,30 @@ the evidence `checkDecls mode ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
 which step failed and with what exit code — and none of it touches
 the verdict.  The three steps fail in ONE error type, the checker's
-`CheckError` with the failure's position (task #295), which is why the
+`CheckError` with the failure's position, which is why the
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     (noMark : Bool) : IO UInt32 := do
-    -- The opt-in progress heartbeat (2026-09-07, `--progress[=<stride>]`):
+    -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
-    -- VERDICT IS A COMMAND-LINE FLAG (task #287), so a verdict's
-    -- provenance is readable off the invocation and off nothing else.
+    -- VERDICT IS A COMMAND-LINE FLAG, so a verdict's provenance is
+    -- readable off the invocation and off nothing else.
     -- The only environment variables the binary still reads are the
     -- in-process modeller's four debug switches below, and they go
     -- with the modeller.
     let t0 ← IO.monoMsNow
-    -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
+    -- Every VERDICT line names the mode: a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
     -- `--verified` one in a log, whatever it says.
     let modeTag : String := match mode with
       | .verified => "--verified"
       | .trusted => "--trusted"
-    -- THE BUILT-IN PRELUDE (task #191, `ConLeche/Frontend/Prelude.lean`):
-    -- the pinned basis blocks, `Bool` and `And`, parsed from the
+    -- THE BUILT-IN PRELUDE (`ConLeche/Frontend/Prelude.lean`): the
+    -- pinned basis blocks, `Bool` and `And`, parsed from the
     -- committed `pins/<toolchain>.prelude.ndjson`.  `preparePrelude`
-    -- (task #293) PREPENDS them to the parsed stream, so the fold
+    -- PREPENDS them to the parsed stream, so the fold
     -- installs them first and unconditionally; a stream's own copy of
     -- one is dropped there when identical, and the fold declines the
     -- run when it differs.  A prelude that does not parse is a
@@ -547,11 +520,11 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         IO.eprintln s!"con-leche: the built-in prelude contradicts itself ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
-    -- Streaming frontend (task #57, task #180): the parse reads the
-    -- file line by line, so neither a wholesale text buffer nor a
-    -- scratch file exists in this process.
-    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source, and
-    -- since task #219 the only one there is): mutual and nested blocks
+    -- Streaming frontend: the parse reads the file line by line, so
+    -- neither a wholesale text buffer nor a scratch file exists in
+    -- this process.
+    -- THE IN-PROCESS MODELLER (the ONLY model source there is):
+    -- mutual and nested blocks
     -- get their `_model` family generated at parse time
     -- (`ConLeche/Frontend/InModel.lean`);
     -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
@@ -562,7 +535,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
-    -- TASK #271 (issues #5 and #7): a stream whose inductive block
+    -- A stream whose inductive block
     -- contradicts its own declarations in a REDUNDANT field is
     -- rejected at the parse, as official's replay rejects a recursor
     -- or constructor record that is not the generated one.
@@ -574,7 +547,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       return 3
     | .ok ⟨parsed, projRewrites, inModelled, genRecords, genOwner,
            inModelGen, inModelDeclined⟩ =>
-      -- the in-process modeller's receipt (task #200)
+      -- the in-process modeller's receipt
       if inModelled.size > 0 then
         IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
           in-process: {String.intercalate ", " (inModelled.toList.map toString)} \
@@ -587,7 +560,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           IO.eprintln s!"con-leche: inmodel declined {n}: {why}"
         IO.eprintln s!"con-leche: inmodel census: {inModelled.size} modelled, \
           {inModelDeclined.size} declined ({modeTag}, parse only)"
-        -- TASK #271 (issue #8): exit 2, never 0.  The census stops
+        -- Exit 2, never 0.  The census stops
         -- after the parse, so `Cached.checkDecls` never runs and there
         -- is no accepting fold to report; exit 0 is the code reserved
         -- for one, and a caller that reads the code alone would take
@@ -598,7 +571,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen
           IO.eprintln s!"con-leche: in-process models dumped to {out}"
-      -- **PREPARE** (task #293, `ConLeche/Frontend/Prepare.lean`): the
+      -- **PREPARE** (`ConLeche/Frontend/Prepare.lean`): the
       -- parsed array is the FILE's records (plus the in-process
       -- modeller's); what the fold runs over is `preparePrelude` of it —
       -- the built-in prelude's records, then the stream's, recognised,
@@ -607,8 +580,8 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- the file's own (`parsed.size - genRecords`), which no step
       -- below changes.
       let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed
-      -- the projection-function rewrite's receipt (2026-09-06,
-      -- `ConLeche/Frontend/ProjRec.lean`): how many non-direct
+      -- the projection-function rewrite's receipt
+      -- (`ConLeche/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
       -- recursor applications
       if projRewrites.size > 0 then
@@ -617,14 +590,14 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         if (← IO.getEnv "CON_LECHE_PROJREC_TRACE").isSome then
           for n in projRewrites do
             IO.eprintln s!"con-leche:   rewritten {n}"
-      -- the ground hoist's receipt (task #191,
-      -- `ConLeche/Frontend/NatOpGround.lean`): records moved ahead of a
+      -- the ground hoist's receipt
+      -- (`ConLeche/Frontend/NatOpGround.lean`): records moved ahead of a
       -- pinned Nat operation whose certificate statements they ground
       if hoisted.size > 0 then
         IO.eprintln s!"con-leche: {hoisted.size} declarations hoisted ahead of \
           the pinned Nat operations they ground: \
           {String.intercalate ", " (hoisted.toList.map toString)}"
-      -- ONE driver, two modes (2026-09-06; task #185): the trusted
+      -- ONE driver, two modes: the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **One driver, and it returns its proof.**  `checkDeclsIO`
@@ -642,16 +615,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the file's declaration-record index.  The prepared list
       -- begins with the built-in prelude's records, drops the stream's
-      -- identical copies of them, and — since task #200 — carries the
-      -- records the in-process modeller ADDS, which the file does not
-      -- contain.
-      -- Measured on raw `init-full` (task #293): 53 093 declaration
+      -- identical copies of them, and carries the records the
+      -- in-process modeller ADDS, which the file does not contain.
+      -- Measured on raw `init-full`: 53 093 declaration
       -- records in the file against 53 123 fold positions, the +30
       -- being `Lean.Syntax`'s generated model family — and nothing
       -- else, because that stream declares every prelude declaration
       -- itself, so the preparation synthesised NONE of them and only
       -- moved the stream's own records to the front.
-      -- Since task #219 the generated records are subtracted
+      -- The generated records are subtracted
       -- from the VERDICT's count (they are declarations of the fold,
       -- never records of the file) and a generated record that fails is
       -- named with its block; the fold POSITION still counts them.  The
@@ -673,7 +645,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
-        -- count** (task #187 unit; task #293 arithmetic): the records
+        -- count**: the records
         -- the PARSE produced, which are the file's own, less the
         -- records the in-process modeller generated.  Nothing the
         -- prepare step does — prepending the prelude, dropping a
@@ -682,14 +654,12 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- count as before the prelude existed, and a stream's five
         -- quotient records count as the five records they are.
         --
-        -- What it replaced was `env.consts.length`, the number of
-        -- environment CONSTANTS — an inductive block's type former,
-        -- its constructors, its recursor, its projection table and the
-        -- basis extras counted separately.  That is a property of our
-        -- REPRESENTATION, not of the input: it moved whenever the
-        -- representation moved (task #175 S1's one projection table
-        -- per structure dropped init-full by 499 with no verdict
-        -- change).  The record count is a property of the input.
+        -- The number of environment CONSTANTS is not that number —
+        -- an inductive block's type former, its constructors, its
+        -- recursor, its projection table and the basis extras count
+        -- separately — and it is a property of our REPRESENTATION,
+        -- not of the input: it moves whenever the representation
+        -- moves.  The record count is a property of the input.
         --
         -- It still does not equal the official checker's number, and
         -- it cannot: official prints `constMap.size`, its PARSED
@@ -699,31 +669,24 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- third unit — also a function of the file, just a larger one.
         -- `scripts/stream-census.py` derives BOTH numbers from a
         -- stream and is checked against both checkers' actual output,
-        -- which is where a run's constant count is read off now (task
-        -- #287 retired the stderr line that printed it).
-        -- ... and minus the records the in-process modeller generated
-        -- (task #219): they are checked as declarations, but they are
-        -- not in the file, and the headline number is the FILE's.
+        -- which is where a run's constant count is read off.
         let streamRecords := parsed.size - genRecords
         IO.println s!"con-leche: accepted {streamRecords} \
           declarations ({modeTag})"
         return 0
       | .error (e, i) =>
-        -- **No second pass** (2026-09-07): the fold's error carries
-        -- the failing declaration's FOLD POSITION, so the message is
-        -- read off the record array the driver already holds.  What
-        -- this replaced was a diagnostic re-run (`diagLoopC`) of the
-        -- same step over the same records — a full re-check of the
-        -- accepted prefix, and a lie waiting to happen if the two
-        -- runs ever disagreed.
+        -- **No second pass**: the fold's error carries the failing
+        -- declaration's FOLD POSITION, so the message is read off the
+        -- record array the driver already holds — never a diagnostic
+        -- re-run of the accepted prefix, which would be a lie waiting
+        -- to happen if the two runs ever disagreed.
         --
         -- `i` is the FOLD position.  The file's declaration-record
         -- index is NOT a fixed offset from it: the prepared list
         -- starts with the prelude's records, drops the stream's
         -- identical copies of them and carries the modeller's
         -- generated ones (see above).  The declaration NAME is the
-        -- portable handle (`_tmp/frontier3/decl_index.py <stream>
-        -- <name>` turns it into a record index and a percentage).
+        -- portable handle.
         let loc := if h : i < decls.size then
             let d := decls[i]
             match d.names.findSome? (fun n => genOwner[n]?) with
@@ -802,8 +765,8 @@ def usage : String := String.intercalate "\n" [
   "                    heap is the one parse and install have just",
   "                    fragmented, which at Mathlib scale costs the",
   "                    lane a factor of two in wall time at the same",
-  "                    instruction count (task #269).  0 or a",
-  "                    non-numeral is a usage error.",
+  "                    instruction count.  0 or a non-numeral is a",
+  "                    usage error.",
   "                    The install phase is never parallel: it is the",
   "                    parse and the fold's serial floor.  ADDRESS",
   "                    SPACE: each worker thread reserves about 1 GiB",
@@ -871,7 +834,7 @@ def usage : String := String.intercalate "\n" [
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
-  "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
+  "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off.  By",
   "                    default every mutual or nested inductive block",
   "                    gets a model generated at parse time",
   "                    (ConLeche/Frontend/InModel/*) and pushed ahead of",
@@ -879,12 +842,12 @@ def usage : String := String.intercalate "\n" [
   "                    the fold like any declaration -- and counted as",
   "                    what they are, declarations of the fold rather",
   "                    than records of the file, so the verdict line",
-  "                    reports the file's own count (task #219).  A",
+  "                    reports the file's own count.  A",
   "                    generator decline is the run's decline, naming",
   "                    the class.  DEBUG SWITCH ONLY: the in-process",
   "                    modeller is the checker's only model source --",
   "                    a stream record named `T._model` is an ordinary",
-  "                    declaration and routes nothing (task #219) -- so",
+  "                    declaration and routes nothing -- so",
   "                    with the flag off",
   "                    every mutual or nested block reaches the fold",
   "                    bare and the run declines with 'no install",
@@ -905,7 +868,7 @@ def usage : String := String.intercalate "\n" [
   "                    tests/inmodel.sh).",
   "",
 
-  "THE VERDICT LINE'S COUNT (task #187).  It counts the FILE's accepted",
+  "THE VERDICT LINE'S COUNT.  It counts the FILE's accepted",
   "declaration RECORDS: one per def/theorem/opaque/axiom/inductive/quot",
   "record the file declares.  The built-in prelude's own records are not",
   "counted, and neither are the records the in-process modeller",
@@ -932,7 +895,7 @@ def usage : String := String.intercalate "\n" [
   "non-pinned axiom declines at its own record.",
   "",
 
-  "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",
+  "THE BUILT-IN PRELUDE.  Every run installs, first and",
   "unconditionally, the checker's own little prelude — the six pinned",
   "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
   "Bool and And blocks (pins/<toolchain>.prelude.ndjson, embedded at",
@@ -951,13 +914,13 @@ def usage : String := String.intercalate "\n" [
   "parse itself only decodes, and the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
-  "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",
+  "NO PREPROCESSOR.  The input is a RAW lean4export stream:",
   "there is no external tool, no dependency and no spawn.  Every",
   "inductive block is installed by the fixed-point route — structures,",
   "sums, indexed families, finitary fixed points and reflexive blocks —",
   "or through a `_model` family the frontend generates IN-PROCESS at",
   "parse time and then checks as ordinary declarations.  No model is",
-  "ever read from the input (task #219): a stream record whose name",
+  "ever read from the input: a stream record whose name",
   "carries a `_model` component is an ordinary declaration with no",
   "effect on any block.  The generator is not trusted: a wrong record",
   "is rejected or declined by the fold, never accepted; it decides",
@@ -970,20 +933,12 @@ def usage : String := String.intercalate "\n" [
   "representation and checked by the one driver, which returns its",
   "environment together with the proof that the fold checkDecls — the",
   "function the main theorem ConLeche.model_exists",
-  "(ConLeche/MainTheorem.lean) is stated on — returns it.",
-  "",
-  "RETIRED FLAGS.  --set-model, --set-model=p, --set-model=r,",
-  "--no-model, --tt-model, --yolo, --infer-only, --pre, --core,",
-  "--core=<c>, --install-only, --check-range and --check-range=<r>",
-  "are not part of the synopsis and are never silent aliases: each is",
-  "rejected with a message naming what stands in its place, and the",
-  "run exits 3 without reading the input, so a verdict's provenance",
-  "is readable off the invocation."]
+  "(ConLeche/MainTheorem.lean) is stated on — returns it."]
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
-  /-- The progress heartbeat's stride (`--progress[=<stride>]`, task
-  #229); `0` is "no flag given", i.e. no heartbeat. -/
+  /-- The progress heartbeat's stride (`--progress[=<stride>]`); `0`
+  is "no flag given", i.e. no heartbeat. -/
   progress : Nat := 0
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
@@ -998,39 +953,9 @@ structure Args where
 
 def parseArgs : List String → Args → Args
   | [], a => a
-  -- The verified lane is the GRADED core since the R core's retirement
-  -- (2026-09-05); `no_proof_of_Empty_cached` is its letter.
   | "--verified" :: rest, a => parseArgs rest { a with mode := .verified }
-  -- The retired-spelling discipline (task #172): a verdict's
-  -- provenance must be readable off the invocation, so a retired
-  -- spelling is a hard error naming what replaced it — never a silent
-  -- alias.  The mode rename (2026-09-06) is under the same rule: the
-  -- old spellings name a *vocabulary*, not a different core, but they
-  -- are still errors rather than aliases.
-  | "--set-model" :: _, a =>
-    { a with bad := some "--set-model is retired; the verified mode is \
-        --verified, still the default (mode rename 2026-09-06 — see \
-        DESIGN.md, \"MODE RENAME\")" }
-  | "--set-model=p" :: _, a =>
-    { a with bad := some "--set-model=p is retired; the verified mode is \
-        --verified, still the default (mode rename 2026-09-06 — see \
-        DESIGN.md, \"MODE RENAME\")" }
-  | "--no-model" :: _, a =>
-    { a with bad := some "--no-model is retired; the unverified lane is \
-        --trusted (mode rename 2026-09-06 — see DESIGN.md, \"MODE \
-        RENAME\")" }
-  | "--set-model=r" :: _, a =>
-    { a with bad := some "--set-model=r is retired; the R core (all \
-        certificates unconditional) and the collapsed-model consistency \
-        proof it was the subject of were deleted 2026-09-05 after the \
-        acceptance delta against the graded core measured ZERO. The \
-        verified lane is --verified" }
-  | "--tt-model" :: _, a =>
-    { a with bad := some "--tt-model is retired; the declarative \
-        verification lane it selected was deleted with the mode, and \
-        the certified mode is --verified (default) (task #148 T7b)" }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
-  -- The progress heartbeat (task #229): a FLAG, in either order with
+  -- The progress heartbeat: a FLAG, in either order with
   -- `--verified`/`--trusted`, and independent of them — it turns on
   -- the heartbeat the ONE driver prints between the steps of its two
   -- phases (`installLoop`/`checkLoop`), which is the same driver, at
@@ -1040,38 +965,8 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   -- The persistent mark is on by default on the pool; this turns it off.
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
-  | "--yolo" :: _, a =>
-    { a with bad := some "--yolo is retired; the cert-skipping lane is \
-        --trusted (checking-mode front door included, task #147)" }
-  | "--infer-only" :: _, a =>
-    { a with bad := some "--infer-only is retired; its discipline is part \
-        of --trusted, and the certified mode is --verified \
-        (default) (task #147)" }
-  | "--pre" :: _, a =>
-    { a with bad := some "--pre is retired; there is no preprocessor — \
-        every input is a raw lean4export stream (task #207)" }
-  -- Task #172: `--core`, `--install-only` and `--check-range` are hard
-  -- errors, not silently ignored — the rule the retired mode
-  -- environment variables already follow: a verdict's provenance must
-  -- be readable off the invocation.
-  | "--core" :: _, a =>
-    { a with bad := some "--core is retired; there is one core and one \
-        expression representation since task #172 (the interned arena \
-        and every driver over it were deleted)" }
-  | "--install-only" :: _, a =>
-    { a with bad := some "--install-only is retired; the split \
-        install/check driver was arena machinery and went with the \
-        interned representation (task #172)" }
-  | "--check-range" :: _, a =>
-    { a with bad := some "--check-range is retired; the split \
-        install/check driver was arena machinery and went with the \
-        interned representation (task #172)" }
   | s :: rest, a =>
-    if s.startsWith "--core=" then
-      { a with bad := some "--core is retired; there is one core and one \
-          expression representation since task #172 (the interned arena \
-          and every driver over it were deleted)" }
-    else if s.startsWith "--progress=" then
+    if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
       | .ok n => parseArgs rest { a with progress := n }
       | .error msg => { a with bad := some msg }
@@ -1082,10 +977,6 @@ def parseArgs : List String → Args → Args
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
-    else if s.startsWith "--check-range=" then
-      { a with bad := some "--check-range is retired; the split \
-          install/check driver was arena machinery and went with the \
-          interned representation (task #172)" }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {s}" }
     else parseArgs rest { a with files := a.files.push s }
@@ -1094,9 +985,8 @@ def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
     return 0
-  -- `--verified`/`--trusted`: the mode setting (task #147), validated
-  -- here once and threaded as configuration.  Two cores since the R
-  -- core's retirement (2026-09-05): the graded verified one and the
+  -- `--verified`/`--trusted`: the mode setting, validated here once
+  -- and threaded as configuration — the graded verified core and the
   -- unverified trusted one.
   let a := parseArgs args {}
   if let some msg := a.bad then
@@ -1105,15 +995,11 @@ def main (args : List String) : IO UInt32 := do
     return 3
   match a.files.toList with
   | [file] =>
-    -- The checker runs IN THIS PROCESS.  Task #65 used to re-exec it as
-    -- a supervised child so that the Lean runtime's out-of-memory
-    -- handler (`lean_internal_panic_out_of_memory`, which prints
-    -- "INTERNAL PANIC: out of memory" and calls `exit(1)`, uncatchable
-    -- in process) could be translated from exit 1 into exit 3.  Task
-    -- #230 removed that supervisor: a checker that spawns a copy of
-    -- itself is not what belongs in the finished product, and an
-    -- out-of-memory condition simply exits 1 with the runtime's panic
-    -- message on stderr, which is what distinguishes it from a reject.
+    -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
+    -- and an out-of-memory condition exits 1 with the Lean runtime's
+    -- own panic message on stderr ("INTERNAL PANIC: out of memory",
+    -- uncatchable in process), which is what distinguishes it from a
+    -- reject.
     -- `--jobs=<n>`: the check phase's worker count; without the flag,
     -- one worker per hardware thread (1 if the runtime cannot tell).
     let jobs := a.jobs.getD

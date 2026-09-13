@@ -2,34 +2,19 @@
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
 # "<expectation> <fixture>" — ONE line per fixture.
 #
-# Until task #207 a row could carry a third field, `raw` (run with the
-# preprocessor made unavailable) or `pre` (run with --pre, skipping the
-# spawn), and a fixture could appear twice with two verdicts.  The
-# preprocessor is gone: every RUN is raw, every fixture has one
-# verdict, and where the two disagreed the `raw` row is the one kept.
-# Task #219: stream-provided `_model` records are no longer supported —
-# the in-process modeller is the only model source, and a record whose
+# Every RUN is raw: the checker takes a raw lean4export stream, so a
+# fixture has exactly one verdict and a row carries exactly one exit
+# code.  A stream-provided `_model` record is not a model — the
+# in-process modeller is the only model source, and a record whose
 # name carries a `_model` component is an ordinary declaration with no
-# effect on any inductive block.  The 34 fixture streams that carried
-# preprocessor-era model families were therefore regenerated: three
-# from their `.lean` sources with `scripts/export-fixture.sh`
-# (direct_nested_dep, indexed_nested_aux, nested_pin_names) and 27 —
-# the nat_* slices, trust_*, indexed_one_ctor_proj,
-# presieve_ofarrows_cone — by dropping the model declaration records
-# from the committed slice together with the table entries only they
-# kept alive, which is what a raw slice carries.  No verdict moved.  `direct_nested_dep_broken.ndjson` was DELETED: it was
-# the positive-control's twin with the `Box._model` family head removed,
-# and it existed to pin that a model generator's skip rule must be
-# dependency-aware — there is no such generator and no such rule.  Two
-# fixtures keep `_model` NAMES on purpose: `model_name_plain` (the
-# negative control — a plain `def Foo._model` must accept) and
-# `yolo_decline_vs_accept` (its defective theorem happens to be called
-# `PProd'._model.eta`; it is checked, and rejected, as the ordinary
-# declaration it is).
+# effect on any inductive block.  Two fixtures keep `_model` NAMES on
+# purpose: `model_name_plain` (the negative control — a plain
+# `def Foo._model` must accept) and `yolo_decline_vs_accept` (its
+# defective theorem happens to be called `PProd'._model.eta`; it is
+# checked, and rejected, as the ordinary declaration it is).
 #
-# An expectation is a single exit code.  (The direct simple-structure
-# route is the priority route for every recognised block since task
-# #175 W4c — no master switch, no artifact-absence gate; see
+# (The direct simple-structure route is the priority route for every
+# recognised block: no master switch, no artifact-absence gate; see
 # tests/arena-expected.txt's header and `ConLeche/Kernel/Direct.lean`.)
 0 indexed_vec.ndjson
 0 prop_proj.ndjson

@@ -53,19 +53,9 @@ carried is a function on `CheckMode` below (`ttChecks`,
 the two constructors, so each read reduces by `rfl` at either mode —
 the record's `rfl`-eliminability argument, at the enum itself.
 
-**HISTORY, because the spelling moved twice.**  There were three
-values until 2026-09-05: `.setModel` at `--set-model=r` (the R lane —
-every certificate unconditional), `.setModelP` at `--set-model=p` (the
-graded lane) and `.noModel`.  The user's ruling removed the
-collapsed-model consistency proof, and the R core went with the proof
-it was the subject of, the acceptance delta between the two verified
-lanes having measured **zero**; the graded value then took the retired
-one's name, `.setModel`.  On 2026-09-06 the *vocabulary* was renamed
-to say what the two modes are for rather than which artefact proves
-them: `.setModel` → `.verified` (`--set-model`/`--set-model=p` →
-`--verified`) and `.noModel` → `.trusted` (`--no-model` →
-`--trusted`).  Every retired spelling is a hard error naming its
-successor, never a silent alias (DESIGN.md, "MODE RENAME"). -/
+The two values are spelled `--verified` and `--trusted` on the command
+line, and they say what the modes are FOR rather than which artefact
+proves them. -/
 inductive CheckMode where
   | verified
   | trusted
