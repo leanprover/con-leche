@@ -74,6 +74,116 @@ theorem interp_famAppAV_aux {L : AnnotTerm} (hL : Term.bvarsBelow 0 L.erase)
       (fun j => by have := consList_apply_add Ds σ j; rw [hDs] at this; exact this),
     interp_closed (V := V) hL _ σ]
 
+/-! ## Two Π-towers with the same interpretation -/
+
+/-- **Two Π-towers interpret alike** when their bits agree in zeroness,
+their domains read alike under every fitting prefix (of the first) and
+their bodies alike at every fitting spine. -/
+theorem interp_mkPisAV_congr :
+    ∀ {Γ₁ Γ₂ : List (Nat × Nat × AnnotTerm)} {B₁ B₂ : AnnotTerm} {σ₁ σ₂ : Nat → V},
+      Γ₁.length = Γ₂.length →
+      (∀ (k : Nat) (d₁ d₂ : Nat × Nat × AnnotTerm), Γ₁[k]? = some d₁ → Γ₂[k]? = some d₂ →
+        (d₁.2.1 = 0 ↔ d₂.2.1 = 0)) →
+      (∀ (k : Nat) (d₁ d₂ : Nat × Nat × AnnotTerm) (as : List V), Γ₁[k]? = some d₁ →
+        Γ₂[k]? = some d₂ →
+        SpineFit σ₁ ((Γ₁.take k).map (·.2.2)) as →
+        interp V (consList as σ₁) d₁.2.2 = interp V (consList as σ₂) d₂.2.2) →
+      (∀ as : List V, SpineFit σ₁ (Γ₁.map (·.2.2)) as →
+        interp V (consList as σ₁) B₁ = interp V (consList as σ₂) B₂) →
+      interp V σ₁ (mkPisAV Γ₁ B₁) = interp V σ₂ (mkPisAV Γ₂ B₂)
+  | [], [], B₁, B₂, σ₁, σ₂, _, _, _, hB => by
+    have := hB [] trivial
+    simp only [consList_nil] at this
+    exact this
+  | [], _ :: _, _, _, _, _, hlen, _, _, _ => by simp at hlen
+  | _ :: _, [], _, _, _, _, hlen, _, _, _ => by simp at hlen
+  | d₁ :: Γ₁, d₂ :: Γ₂, B₁, B₂, σ₁, σ₂, hlen, hbits, hdom, hB => by
+    simp only [mkPisAV, interp_pi]
+    have h0 := hdom 0 d₁ d₂ [] rfl rfl trivial
+    simp only [consList_nil] at h0
+    rw [piR_congr_bit (hbits 0 d₁ d₂ rfl rfl) (interp V σ₁ d₁.2.2)
+      (fun x => interp V (cons x σ₁) (mkPisAV Γ₁ B₁)), h0]
+    refine piR_congr fun x hx => ?_
+    rw [← h0] at hx
+    refine interp_mkPisAV_congr (by simpa using hlen) ?_ ?_ ?_
+    · intro k e₁ e₂ h₁ h₂
+      exact hbits (k + 1) e₁ e₂ (by simpa using h₁) (by simpa using h₂)
+    · intro k e₁ e₂ as h₁ h₂ hsp
+      have := hdom (k + 1) e₁ e₂ (x :: as) (by simpa using h₁) (by simpa using h₂)
+        (by rw [List.take_succ_cons, List.map_cons]; exact ⟨hx, hsp⟩)
+      simpa [consList_cons] using this
+    · intro as hsp
+      have := hB (x :: as) ⟨hx, hsp⟩
+      simpa [consList_cons] using this
+
+/-! ## A recursive field's entry, recursive or reflexive -/
+
+/-- A recursive or reflexive field's entry, in ONE shape: the Π-tower
+over its telescope (empty at a recursive one) of the target member's
+leaf at the parameter variables and the field's index readings. -/
+theorem FixCtorDataI.recRefl_entry {env₀ : Env} {m : EnvModel V env} {T : Name} {lps : List Name}
+    {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))} {tgtOf : Nat → Name}
+    {nIdxOf : Nat → Nat}
+    (hD : FixCtorDataI m env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks
+      fvsP xFvs xrest Eiss tss tgtOf nIdxOf)
+    (ψ : Name → Nat) {i : Nat} (hi : i ∈ ConLeche.recIdxOf ks) :
+    ((ds ψ).getD (nP + i) default).2.2
+      = mkPisAV ((tss ψ).getD i [])
+          (AnnotTerm.mkAppN (m.acval (tgtOf i) ψ)
+            (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i [])) := by
+  obtain ⟨hlt, hk⟩ := mem_recIdxOf.mp hi
+  rw [hD.ksLen] at hlt
+  rcases hk with hk | hk
+  · rw [hD.recEntry ψ i hk hlt, hD.tssNone ψ i (by rw [hk]; decide)]
+    rfl
+  · exact hD.reflEntry ψ i hk hlt
+
+/-! ## The index fit of a recursive field, from its graded entry -/
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **A recursive field's index readings fit the target's index
+telescope** at the block's parameter frame, from the field's entry
+graded under fitting earlier fields and telescope values: the entry's
+body is the target's leaf at the parameters and the readings, the leaf
+is a λ-tower (`LeafShape`), so the readings fit its index binders
+(`leafSpineFit_full`). -/
+theorem idxFit_of_entry {m : EnvModel V env} {ψ : Name → Nat} {ρ₀ : Nat → V}
+    {psA : List AnnotTerm} (hpsA : psA.length = d.nP) {tgt : Nat}
+    (hFF : d.FormerFacts m ψ tgt) (hLS : d.LeafShape m ψ tgt)
+    {σas : List V} {e : Nat} (he : σas.length = e) {Eis : List AnnotTerm}
+    (hok : WellDenoted V (consList σas (consList (psA.map (interp V ρ₀)) ρ₀))
+      (AnnotTerm.mkAppN (m.acval (d.memberName tgt) ψ) (paramBvarsAt d.nP (d.nP + e) ++ Eis)))
+    (hEl : Eis.length = d.nIdxAt tgt) :
+    SpineFit (consList (psA.map (interp V ρ₀)) ρ₀) (d.IdsM tgt ψ)
+      (Eis.map (interp V (consList σas (consList (psA.map (interp V ρ₀)) ρ₀)))) := by
+  obtain ⟨hlen, -, -, -⟩ := hFF
+  have hpsALen : (psA.map (interp V ρ₀)).length = d.nP := by simp [hpsA]
+  have hfit := leafSpineFit_full (nIdx := d.nIdxAt tgt) (w := d.w ψ) hlen
+    (m.cval_closedL _ ψ) hLS he hEl hok
+  have hshift : (fun j => consList (psA.map (interp V ρ₀)) ρ₀ (j + d.nP)) = ρ₀ := by
+    funext j
+    rw [← hpsALen, consList_apply_add]
+  rw [hshift, range_reverse_map_consList' hpsALen] at hfit
+  have hsplit : (d.ppsM tgt ψ).map (·.2.2)
+      = ((d.ppsM tgt ψ).take d.nP).map (·.2.2) ++ ((d.ppsM tgt ψ).drop d.nP).map (·.2.2) := by
+    rw [← List.map_append, List.take_append_drop]
+  rw [hsplit] at hfit
+  obtain ⟨as₁, as₂, heq, h₁, h₂⟩ := spineFit_append_inv hfit
+  have hlen₁ : as₁.length = d.nP := by
+    have := SpineFit.length_eq h₁
+    rw [this, List.length_map, List.length_take, hlen]; omega
+  obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hlen₁, hpsALen])
+  exact h₂
+
+end IndRepData
+
 /-! ## The copy's target, from its former and the pin -/
 
 namespace IndRepData
