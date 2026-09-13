@@ -71526,15 +71526,114 @@ re-read (its claim — the install runs official's checks, generates the
 and `checkMutual` still omits the grade, so the mutual route is exactly
 as the paragraph describes) and the expectation regenerated.
 
-**STILL OUTSTANDING, and named**: the CONVENIENCE LEMMA that hands the
-model lane the identity ready-made.  It is derivable today from what the
-run relation already records — `checkMutualCore … true = .ok envAux` plus
-`checkConstantValPre`'s definition (it returns `cv`) and `checkSumTele`'s
-telescope case — but the derivation is the lane's to do until an
-`auxRoute := true` twin of `mutualFormerChecks_inv` is written (a
-mechanical copy with `checkConstantValPre` in place of
-`checkConstantVal`, plus `checkConstantValPre_ok : … = .ok cvTa₀ → cvTa₀
-= cv`).  The CACHED twin's grade (`mutualFormerChecksS`,
+**THE IDENTITY, READY-MADE** (the coordinator's request, same day).  The
+convenience lemma is no longer owed: `Verify/Inductives/NestedInv.lean`
+carries it, and it is the `auxRoute := true` twin plus the two
+definitional facts, packaged so the model lane reads it off two of
+`DeclNestedRun`'s own conjuncts.
+
+    checkConstantValPre_ok        … = .ok cvA → cvA = cv
+    checkSumTele_id               a telescope already ending in a sort
+                                  comes back unchanged
+    mutualFormerChecks_true_tail  the stage at `auxRoute`, whatever the
+                                  front door was: one former per member
+    mutualFormerChecks_true_head_pre   at a `_nested`-named head: the
+                                  front door IS `checkConstantValPre`
+    mutualFormerChecks_true_id    positionally: a `_nested`-named member
+                                  whose type strips to a sort is stored
+                                  with THAT type
+    mapM_option_inv / stripPis_of_piBinders_sort / auxIdxCount_stripPis /
+    auxBlock_former               the four small steps from the block
+                                  record back to `st.types`
+
+    theorem nestedCopyFormerType_eq
+        (hb   : auxBlock p st = some b)
+        (haux : checkMutualCore (fueledOps mode F) env b none true = .ok envAux) :
+        ∀ (i : Nat) (t : AuxType), st.types[i]? = some t →
+          Name.hasPrefixOf nestedPrefixName t.name = true →
+          ∃ (env₁ : Env) (fms : List MutualFormerA) (f : MutualFormerA),
+            mutualFormers (fueledOps mode F) b.nP b.formers env true = .ok (env₁, fms) ∧
+            env₁ = consMutualFormers fms env ∧
+            fms[i]? = some f ∧ f.cvTa.type = t.type
+
+`env₁ = consMutualFormers fms env` is how the stage STORES the former, so
+`f.cvTa.type = t.type` is the stored-type identity, syntactically, with
+no annotation-stability premise anywhere.  `auxIdxCount` supplies the
+telescope premise: it is what `auxBlock` read off the copy's own type.
+
+**The CONSTRUCTOR side has no such identity, and needs none.**  The grade
+is on the FORMERS stage only.  A copy's constructor type is the
+worklist's REWRITE of an instantiated stored type, and `normCtorValM`
+re-annotates it and may `whnf` a field domain (official's dynamic
+nesting), so what the constructors stage stores is the annotation of the
+NORMALISED type — which is exactly what the recursor's rules are built
+from and what post-check (c) compares.  §M.21 (A) is about the copy's
+FORMER type, so nothing there reads the constructor side.
+
+**`checkMutualCore_inv` and `mutualFormers_inv` are now stated over
+`{auxRoute : Bool}`** (`Verify/Inductives/MutualInv.lean`) — a
+generalisation, not a change: a hypothesis written without the grade
+still unifies at `false`, and every existing use compiles untouched.
+
+**THE PINS ARE ONE OBJECT** (the coordinator's second request, the model
+lane's `CopyTypesAsMinted` mismatch).  The model lane's hypothesis was
+stated at the PIN CHECK's annotated components (`pinsOkAux` at `envAux`,
+openers `fvsA`), while K.9's recorded equation is at the RE-MINT's
+(`envF`, `fvsA₀`) — two annotations of the same pins at two
+environments, which is the env-extension question in general.  It is now
+closed BY CONSTRUCTION, on the same principle as the flag itself:
+
+* `remintCopyTypes` RETURNS the annotated open pin beside the types, each
+  paired with its `NestedPin`; `nestedRemint` hands the list back beside
+  the state (`m (ElimState × List (NestedPin × Expr))`).
+* `nestedPinsOk` takes `List (NestedPin × Expr)` and no opener list.  It
+  still runs the pair of scope tests on the RAW abstracted pin, and it
+  then TYPE-CHECKS the annotated component it was given — `ops.inferType`
+  and nothing else.  No `ops.annotate` on this path any more: inference
+  validates every datum, exactly as it does behind `checkConstantValPre`.
+* Both passes (`pinsOkAux` at `envAux`, post-check (a) at `envOut`) take
+  that same list, so the components in the recorded equation and the
+  components the checks type are SYNTACTICALLY THE SAME TERMS.  The
+  equation the run relation records is therefore the re-mint's, once:
+  `stored copy type = closeTelescope pbsA 0 (instPis (J's stored type at
+  lvls) argsA)` with `argsA = pinA.getAppArgs` the annotated components.
+* **Verdict: neutral.**  The same validation runs — only the redundant
+  re-annotation goes.  The `openPisAtFvars` of the scratch former is
+  kept (as `_fvsA`) so no failure path disappears, and the run relation
+  still records it.  Measured: nested-shadow 25/25, e2e 216/216, the
+  Mathlib cone's 41 shadow lines byte-identical to K.10's.
+
+**A FINDING while wiring this up: the three lane modules were NOT on the
+build graph.**  `Verify/Inductives/NestedInv`, `Verify/Inductives/NestedOrderK`
+and `Semantics/Inductives/DeclNested` were imported by nothing, so
+`lake build` never built them — which is how K.10's own `NestedInv` came
+to carry a stale `checkMutualCore … none` (no `true`) and still passed a
+green build.  They are now on `ConLeche/Semantics.lean`, the Semantics
+umbrella, marked *alive by statement*; the file is built by `lake build`
+from here on, and the stale statement is fixed.  The import gate's
+answer, computed rather than guessed (`lake shake --keep-implied --only`):
+`NestedOrderK` imports `public import ConLeche.Kernel.Inductives.NestedElim`
+alone (its subject is the elimination's order), `DeclNested` imports the
+kernel publicly and the two Verify modules plainly, and `NestedInv`'s
+`public import … MutualInv` gets ONE allowlist line — half (b) says the
+module's own public statements reach `Verify.Subst` through that chain,
+so the `public` keyword shake wants removed has to stay.
+
+**Gates for this addendum** (proof + the one verdict-neutral kernel
+change, on `inductives` = `823f80ec`): `lake build` **exit 0,
+warning-free, 595 jobs** (592 before — the three modules are the
+difference); `lake test` exit 0, warning-free; `tests/shake.sh` **exit
+0** (509/509 allowlisted, none demotable); `tests/arena.sh` **EXIT 0** —
+**nested-shadow 25/25**, e2e **216/216**, arena tutorial 90/92, annot
+15/15, `inmodel` OK, the axiom pin unchanged, trusted and both `--jobs`
+sweeps as expected, `tests/overview-links.sh` OK with no anchor moved;
+the Mathlib nested cone `ulimit -v 22000000`, `timeout`, `--jobs=1`:
+**exit 0, 4 923 accepted, shadow 41/41 accept**, the 41 lines
+BYTE-IDENTICAL to K.10's.  No instruction measurement: the accept path is
+untouched (the route is still shadow-only) and the only kernel edit
+REMOVES an annotation walk on the pin components.
+
+The CACHED twin's grade (`mutualFormerChecksS`,
 `checkMutualCoreS`) is deferred with the rest of the cached mirror: the
 shadow runs the PURE core, so the grade cannot be exercised on the cached
 path before the dispatch is wired.

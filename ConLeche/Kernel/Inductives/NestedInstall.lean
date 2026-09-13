@@ -336,15 +336,18 @@ parameter binders (premise B).  The copy's type is then annotated
 throughout, so the aux install's own pass keeps every written datum and
 recomputes the `.never` ones to `.never`.
 
-The components' TYPING still happens after the install (`pinsOkAux` at
-`envAux`, post-check (a) at the restored environment); this is the same
-pass at a smaller environment, which is what task #300's env-extension
-theorem for the reader branch (`Verify/Inductives/AuxFormers.lean`)
-relates. -/
+The components' TYPING still happens after the install — but on THESE
+components: the annotated open pin is RETURNED beside the types, and
+both pin passes (`pinsOkAux` at `envAux`, post-check (a) at the restored
+environment) infer that very term instead of annotating the raw pin
+again (the `checkConstantValPre` discipline: a datum we built ourselves
+is VALIDATED, by inference, not recomputed).  So the components are one
+syntactic object everywhere, and the recorded equation has one form —
+this one. -/
 def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
     (fvsA : List Expr) (pbsA : List (Expr × BinderMeta)) (env : Env) :
-    List NestedPin → List AuxType → m (List AuxType)
-  | [], ts => pure ts
+    List NestedPin → List AuxType → m (List AuxType × List (NestedPin × Expr))
+  | [], ts => pure (ts, [])
   | q :: qs, ts => do
     let pinB := Expr.abstractRange q.pin 0 nP 0
     let pinA ← ops.annotate envF nP (Expr.instantiateList pinB fvsA.reverse)
@@ -363,16 +366,19 @@ def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
           else pure ts
         | none => pure ts
       | _, _ => pure ts
-    remintCopyTypes ops envF nP fvsA pbsA env qs ts'
+    let (ts'', qs') ← remintCopyTypes ops envF nP fvsA pbsA env qs ts'
+    pure (ts'', (q, pinA) :: qs')
 
 /-- **The elimination's state with the copies' types re-minted at
 ANNOTATED pin components** (K.8 steps (1) and (2)): the first former's
 type is annotated, its parameter binders `pbsA` and openers `fvsA₀` are
 taken from it, and every copy's type is rebuilt by `remintCopyTypes`.
 The pins, their order and the copies' constructors are untouched, so
-every guard downstream sees the state the elimination produced. -/
+every guard downstream sees the state the elimination produced; the
+ANNOTATED open pins come back beside the state, paired with the pins
+they belong to, and they are what the two pin passes type-check. -/
 def nestedRemint (ops : CheckerOps m) (env : Env) (p : NestedParts) (st : ElimState) :
-    m ElimState := do
+    m (ElimState × List (NestedPin × Expr)) := do
   let cv₀ ← unwrapOr (p.formers.head?.map (·.1)) (.internal "nested: no former")
   let t₀A ← ops.annotate env 0 cv₀.type
   let (fvsA₀, _) ← unwrapOr (openPisAtFvars p.nP t₀A 0)
@@ -381,8 +387,8 @@ def nestedRemint (ops : CheckerOps m) (env : Env) (p : NestedParts) (st : ElimSt
     (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
   let envF : Env :=
     ⟨(p.formers.map fun f => ConstantInfo.indInfo f.1 {}).reverse ++ env.consts⟩
-  let typesA ← remintCopyTypes ops envF p.nP fvsA₀ pbsA env st.pins st.types
-  pure { st with types := typesA }
+  let (typesA, pinsA) ← remintCopyTypes ops envF p.nP fvsA₀ pbsA env st.pins st.types
+  pure ({ st with types := typesA }, pinsA)
 
 /-- The block's own members' stored records, in member order, then the
 mimics' (whose only stored part the restore keeps is the recursor). -/
@@ -535,10 +541,10 @@ type-checked at the block's parameter context in the RESTORED
 environment.  The parametric arguments `Ds` do not appear in the
 auxiliary declaration, so they escape every other check; the arena's
 `nested-unused-param` is an ill-typed one. -/
-def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) (fvsA : List Expr) :
-    List NestedPin → m Unit
+def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List (NestedPin × Expr) → m Unit
   | [] => pure ()
-  | q :: rest => do
+  | (q, pinA) :: rest => do
     let pinB := Expr.abstractRange q.pin 0 nP 0
     -- **THE PIN'S SCOPE** (`pinsClosed`, the model lane's DESIGN §M.20
     -- finding 1): no free variable, and every loose bound variable
@@ -551,13 +557,16 @@ def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) (fvsA : List Expr) 
     -- which demands exactly this pair of a nested RULE's stored pins.
     unless !pinB.hasFvar && pinB.looseBVarsBounded nP do
       throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
-    let pinA := Expr.instantiateList pinB fvsA.reverse
     -- official's `tc.check(nested, lparams)`: the pin is TYPE-CHECKED,
     -- not required to be a sort — a pin of an indexed container
-    -- (`Vec (T α)`) is a function into one
-    let e ← ops.annotate env nP pinA
-    let _ty ← ops.inferType env nP e
-    nestedPinsOk ops env nP fvsA rest
+    -- (`Vec (T α)`) is a function into one.  The term is the ANNOTATED
+    -- component `nestedRemint` minted the copy's type from, opened at
+    -- the same parameter variables; inference VALIDATES every datum in
+    -- it, so nothing is re-annotated here and the components the model
+    -- tier reads are the components the copies' types were built from
+    -- (task #279 K.10).
+    let _ty ← ops.inferType env nP pinA
+    nestedPinsOk ops env nP rest
 
 /-- **The pins' scope, as one Bool over the list** — the same pair of
 tests `nestedPinsOk` throws on, so that the run relation records the
@@ -627,7 +636,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- and the copies' types re-minted at them, with the block's first
   -- former's ANNOTATED parameter binders — so a copy's type is
   -- annotated throughout and the aux install rewrites nothing in it
-  let st ← nestedRemint ops env p st
+  let (st, pinsA) ← nestedRemint ops env p st
   unless st.pins.length == p.numNested do
     throw (.invalid s!"the block carries {p.numNested} recursor records past its \
       {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
@@ -671,7 +680,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let members := stored.take p.k
   let mimics := stored.drop p.k
   let a₀ ← unwrapOr members.head? (.internal "nested: no member")
-  let (fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
+  let (_fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
     (.internal "nested: the block's parameter telescope")
   -- POST-CHECK (a) AT THE SCRATCH ENVIRONMENT (`pinsOkAux`, the model
   -- lane's request): the same pins, type-checked where the AUXILIARY
@@ -692,7 +701,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is what the run relation records
   unless pinsClosed p.nP st.pins do
     throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
-  nestedPinsOk ops envAux p.nP fvsA st.pins
+  nestedPinsOk ops envAux p.nP pinsA
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
@@ -723,8 +732,9 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
       ((p.formers.getD mIdx default).1.name, a.tbl, cs)) env₃
   -- 8. POST-CHECK (a): the pins, typed at the parameter context of the
   -- RESTORED environment (the variables and the telescope are the ones
-  -- `pinsOkAux` already used, above)
-  nestedPinsOk ops env₄ p.nP fvsA st.pins
+  -- `pinsOkAux` already used, above — the SAME annotated components,
+  -- from the re-mint)
+  nestedPinsOk ops env₄ p.nP pinsA
   -- 9. POST-CHECK (c): the stream's records against the generated ones
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")

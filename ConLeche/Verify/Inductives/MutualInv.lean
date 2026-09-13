@@ -160,9 +160,9 @@ theorem mutualFormerChecks_checked {nP F : Nat} :
 /-- The formers' stage, split: the checks at the pre-block
 environment, the conses after them. -/
 theorem mutualFormers_inv {nP F : Nat} {formers : List (ConstantVal × Nat)}
-    {env env' : Env} {fms : List MutualFormerA}
-    (h : mutualFormers (fueledOps mode F) nP formers env = .ok (env', fms)) :
-    mutualFormerChecks (fueledOps mode F) env nP false formers = .ok fms ∧
+    {env env' : Env} {fms : List MutualFormerA} {auxRoute : Bool}
+    (h : mutualFormers (fueledOps mode F) nP formers env auxRoute = .ok (env', fms)) :
+    mutualFormerChecks (fueledOps mode F) env nP auxRoute formers = .ok fms ∧
       env' = consMutualFormers fms env := by
   unfold mutualFormers at h
   obtain ⟨fs, hchecks, h⟩ := exceptBind_ok h
@@ -677,8 +677,8 @@ theorem mutualParts?_recPinned {nPd : Nat} {block : List ConstantInfo} {p : Mutu
 
 /-- **The whole core chain**, as the install ran it. -/
 theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
-    {streamRecs : Option (List (ConstantVal × List RecRule))}
-    (h : checkMutualCore (fueledOps mode F) env b streamRecs = .ok envOut) :
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs auxRoute = .ok envOut) :
     b.blockNames.Nodup ∧
     (b.formers.all (fun f => f.1.levelParams == b.lps) &&
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true ∧
@@ -689,7 +689,7 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
       (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
       (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
       (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
-      mutualFormers (fueledOps mode F) b.nP b.formers env = .ok (env₁, fms) ∧
+      mutualFormers (fueledOps mode F) b.nP b.formers env auxRoute = .ok (env₁, fms) ∧
       fms[0]? = some f₀ ∧
       openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀ ∧
       mutualCrossChecks (fueledOps mode F) env₁ b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms

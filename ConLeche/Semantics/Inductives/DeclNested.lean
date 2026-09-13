@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedOrderK
+public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Verify.Inductives.NestedInv
+import ConLeche.Verify.Inductives.NestedOrderK
 
 @[expose] public section
 
@@ -57,6 +59,16 @@ local-variable rule already refuses a pin holding a field variable, the
 stream's own terms carry no free variable, and `abstractRange`
 introduces a loose bound variable only at an abstracted parameter.
 
+**The pins the two passes check are ONE object** (K.10).  Both
+`nestedPinsOk` runs take `pinsA`, the list `nestedRemint` returns beside
+the state: each pin paired with the ANNOTATED open component the copy's
+type was minted from.  Neither pass annotates anything — they VALIDATE
+that term by inference, the way `checkConstantValPre` validates a
+pre-annotated declaration — so the components in the recorded equation
+and the components the pin checks type are syntactically the same terms,
+at one environment (`envF`) and one set of openers (`fvsA₀`), and no
+env-extension argument is needed to relate two annotations.
+
 **`pinsOkAux`** is one of the two conjuncts the model lane asked for:
 post-check (a) is run a SECOND time, at the SCRATCH environment
 `envAux` where the auxiliary block is installed, because both fold
@@ -81,6 +93,24 @@ the first place (`mkUniqueName` is official's `mk_unique_name` and
 skips a taken one); what the check catches is a constructor or a
 recursor name, which official refuses at `declare_inductive_types`'
 `check_name`.
+
+**The copies' types are the re-minted types, by construction** (K.10).
+`Verify/Inductives/NestedInv.lean`'s `nestedCopyFormerType_eq` takes
+this relation's `auxBlock p st = some b` and
+`checkMutualCore … b none true = .ok envAux` conjuncts and returns, for
+every copy (a member of `st.types` whose name carries the reserved
+`_nested` prefix), the formers stage's own `f.cvTa.type = t.type` at
+that position, with `env₁ = consMutualFormers fms env` — so the STORED
+former type is the type `nestedRemint` minted, syntactically.  The
+`auxRoute` grade is what makes this a definitional chain rather than an
+annotation-stability hypothesis: `checkConstantValPre` runs every check
+and returns its input, and `checkSumTele` keeps a telescope that already
+ends in a sort.  The CONSTRUCTOR side carries no such identity and needs
+none: a copy's constructor type is the worklist's rewrite of an
+instantiated stored type, `normCtorValM` re-annotates it and may `whnf`
+a field domain (official's dynamic nesting), so what is stored there is
+the annotation of the NORMALISED restored type — which is what the
+recursor's rules are built from and compared against.
 
 **What the model tier consumes.**  Every intermediate environment is
 written out as an application of the pure cons/store functions
@@ -125,7 +155,8 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (cvRms cvRns : List ConstantVal)
     (rulesM rulesN : List (List RecRule))
-    (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
+    (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat)
+    (pinsA : List (ConLeche.NestedPin × Expr)),
     -- the elimination, and the mimic count against the stream's records
     elimNested env p.nP p.lps
       (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
@@ -133,7 +164,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
           (p.ctors.filter (fun c => c.member == mIdx)).map
             fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀ ∧
     -- the copies' types RE-MINTED at annotated pin components (§M.21 (A))
-    nestedRemint (m := CheckM) (fueledOps μ F) env p st₀ = .ok st ∧
+    nestedRemint (m := CheckM) (fueledOps μ F) env p st₀ = .ok (st, pinsA) ∧
     st.pins.length = p.numNested ∧
     -- every MINTED name is free in the pre-block environment
     ConLeche.copiesFresh env p.k st = true ∧
@@ -142,7 +173,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
-    checkMutualCore (m := CheckM) (fueledOps μ F) env b none = .ok envAux ∧
+    checkMutualCore (m := CheckM) (fueledOps μ F) env b none true = .ok envAux ∧
     auxStoredAll envAux b b.k = some stored ∧
     -- `pinsOkAux`: the pins typed at the SCRATCH environment
     (stored.take p.k).head? = some a₀ ∧
@@ -150,7 +181,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- `pinsClosed`: every pin, abstracted over the parameters, is
     -- fvar-free with its loose bvars inside the telescope
     pinsClosed p.nP st.pins = true ∧
-    nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP fvsA.1 st.pins = .ok () ∧
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP pinsA = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -200,7 +231,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
           (consNestedCtors ctorsR.flatten
             (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
     -- POST-CHECK (a): the same pins at the RESTORED environment
-    nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP fvsA.1 st.pins = .ok () ∧
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP pinsA = .ok () ∧
     -- POST-CHECK (c): the stream's records against the generated ones
     (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
     nestedRecsOk (m := CheckM) (fueledOps μ F)
