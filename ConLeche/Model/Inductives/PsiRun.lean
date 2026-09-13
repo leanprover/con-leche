@@ -340,6 +340,12 @@ The per-pin body of `PinRunFacts`. -/
     DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA ∧
     ContainerCtorsAt ci c.dJ ∧
     ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
+    -- the pin's LEVELS against the stored container's (task #279 M-B′
+    -- step 3p): the member's declared level parameters are the stored
+    -- constant's and the pin carries one level per parameter — what
+    -- the constructor read needs to instantiate the container's
+    -- constructor at the pin (`ctor_peel`'s `hlpsC`/`hag`)
+    J.lps = cvTJ.levelParams ∧ lvls.length = cvTJ.levelParams.length ∧
     -- the group's members by name, and their leaves at the pin's
     -- assignment read as at the pin's level substitution (what a
     -- group-mate's own data agree with: `invChoice_group`, `InvCopy.lean`)
@@ -537,7 +543,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     have hlpst : cvTJt.levelParams = cvTJ.levelParams := hlpsOf t ht cvTJt capsJt hfJt'
     -- its stored constructors, from its own run facts
     obtain ⟨qt', It', cit', it', j₀t', Jt', lvlst', Dst', hqt', hcit', hJt', -, -, hqtc', hqtp', -, -,
-      -, -, hcstt, -⟩ := hpins (j₀ + t) (hposGrp t ht)
+      -, hlvlLent, hcstt, -⟩ := hpins (j₀ + t) (hposGrp t ht)
     obtain ⟨hJtn', hlv', hDsE'⟩ := group_pin_eq hqt' hqt hqtp' hqtp
     obtain rfl : qt = qt' := Option.some.inj (hqt.symm.trans hqt')
     have hJtE : Jt = Jt' :=
@@ -545,13 +551,14 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         hJtn').symm
     subst hJtE
     rw [hlv', hDsE'] at hcstt
+    rw [hlv'] at hlvlLent
     refine ⟨⟨ht, hctorsC, hkR, hpinsAV, hview,
         ⟨J.name, cvTJ, cvR, mI, rP, rules, 0, hik, hrules, hfR, hrep⟩, ?_, hlenD, hlev,
         fun t' ht' => by show p.k + j₀ + t' < d.k; have := hposGrp t' ht'; omega, hgrpOk⟩,
       rfl,
       qt, I, ci, Jt, lvls, Ds, cvTJt, capsJt, hqt, hci, hJt, hqtc.symm, by rw [hrept.member, hqtc],
       hlenM, hgrp, by rw [hqtp, hqtc], ?_, by rw [hqtc]; exact hfJt, by rw [hψ', hψ'₀, hlpst], hargs,
-      hsp, hcat, hcstt, hab⟩
+      hsp, hcat, hcstt, hJlpst, by rw [hlvlLent, hJlpst], hab⟩
     · intro t' ht'
       obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t']? = some J' :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht')⟩
