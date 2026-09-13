@@ -194,6 +194,11 @@ structure PinFacts {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V)
   rep : ∃ (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule) (t₀ : Nat),
     t₀ < c.dJ.k ∧ rules ≠ [] ∧ env.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
     IndRep mp.base2 T cvT cvR mI rP rules c.dJ t₀
+  /-- every member of the container's group is represented at the
+  datum (task #279 M-C′: the round trips' inductions run at every
+  member) -/
+  repAll : ∀ t, t < c.dJ.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    IndRep mp.base2 (c.dJ.memberName t) cvT cvR mI rP rules c.dJ t
   len : c.DsA.length = c.dJ.nP
   lev : c.dJ.elimL.eval c.ψ' = c.dJ.w c.ψ'
   kA : ∀ t, t < c.dJ.k → k₀ + c.base + t < d.k
@@ -507,12 +512,19 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     subst hJtE
     rw [hlv', hDsE'] at hcstt
     refine ⟨⟨ht, hctorsC, hkR, hpinsAV, hview,
-        ⟨J.name, cvTJ, cvR, mI, rP, rules, 0, hik, hrules, hfR, hrep⟩, hlenD, hlev,
+        ⟨J.name, cvTJ, cvR, mI, rP, rules, 0, hik, hrules, hfR, hrep⟩, ?_, hlenD, hlev,
         fun t' ht' => by show p.k + j₀ + t' < d.k; have := hposGrp t' ht'; omega, hgrpOk⟩,
       rfl,
       qt, I, ci, Jt, lvls, Ds, cvTJt, capsJt, hqt, hci, hJt, hqtc.symm, by rw [hrept.member, hqtc],
       hlenM, hgrp, by rw [hqtp, hqtc], ?_, by rw [hqtc]; exact hfJt, by rw [hψ', hψ'₀, hlpst], hargs,
       hsp, hcat, hcstt, hab⟩
+    · intro t' ht'
+      obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t']? = some J' :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht')⟩
+      obtain ⟨cvTJ', cvR', capsJ', mI', rP', rules', -, -, -, -, -, -, hrep'⟩ := hmem t' J' hJ'
+      refine ⟨cvTJ', cvR', mI', rP', rules', ?_⟩
+      rw [hrep'.member]
+      exact hrep'
     show ElimState.grp st (j₀ + t) = (j₀, dJ.k)
     unfold ElimState.grp
     rw [hqt]
