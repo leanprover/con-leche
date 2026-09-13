@@ -2710,7 +2710,7 @@ def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
   -- most leaves without inference; the pass is untrusted — `infer`
   -- validates every datum it writes — so the reader owes no licence
   -- here, only the datum's agreement (census: 0 non-equivalent data).
-  match typeSortPW env.find? body' with
+  match typeSortPW env.find? true body' with
   | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
@@ -2725,7 +2725,7 @@ def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
   -- task #168 stage 2: the reader first (it subsumes the `lamPw`
   -- chain read), as in `annotPwPi`
-  match proofPW env.find? body' with
+  match proofPW env.find? true body' with
   | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)

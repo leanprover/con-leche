@@ -963,7 +963,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
   have hl' := hl
   obtain rfl := hl
   rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
-  cases typeSortPW env.find? body' with
+  cases typeSortPW env.find? true body' with
   | some pw => exact SimC.pure hs rfl
   | none =>
     dsimp only
@@ -987,7 +987,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
   have hl' := hl
   obtain rfl := hl
   rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
-  cases proofPW env.find? body' with
+  cases proofPW env.find? true body' with
   | some pw => exact SimC.pure hs rfl
   | none =>
     dsimp only

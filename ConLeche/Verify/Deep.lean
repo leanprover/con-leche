@@ -411,7 +411,7 @@ private theorem annotPwPi_shift (henv : EnvWF env)
     annotPwPi (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwPi (pureFns mode env fuel) env d e := by
   simp only [annotPwPi, typeSortPW_shiftFrom]
-  cases typeSortPW env.find? e with
+  cases typeSortPW env.find? true e with
   | some pwI => rfl
   | none =>
     dsimp only
@@ -431,7 +431,7 @@ private theorem annotPwLam_shift (henv : EnvWF env)
     annotPwLam (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwLam (pureFns mode env fuel) env d e := by
   simp only [annotPwLam, proofPW_shiftFrom]
-  cases proofPW env.find? e with
+  cases proofPW env.find? true e with
   | some pwI => rfl
   | none =>
     dsimp only

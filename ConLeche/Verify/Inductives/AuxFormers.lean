@@ -118,35 +118,50 @@ private theorem constShapeOk_envExt {env env' : Env} (hext : EnvExt env env')
 
 /-- **The head reader's answers survive an extension.**  Every lookup
 the reader makes is on the `some` branch of its own answer, so the
-extension returns the same constant and the same datum. -/
-theorem headTypePW_envExt {env env' : Env} (hext : EnvExt env env')
-    {h : Expr} {n : Nat} {pw : PropWhen}
-    (hr : headTypePW env.find? h n = some pw) :
-    headTypePW env'.find? h n = some pw := by
-  cases h with
+extension returns the same constant and the same datum; the β clause
+(task #301) descends into the λ's body, where the induction hypothesis
+is the same statement. -/
+theorem typePWAt_envExt {env env' : Env} (hext : EnvExt env env') (beta : Bool) :
+    ∀ (e : Expr) (n : Nat) (pw : PropWhen),
+      typePWAt env.find? beta e n = some pw →
+      typePWAt env'.find? beta e n = some pw := by
+  intro e
+  induction e with
   | const I us =>
-    simp only [headTypePW] at hr ⊢
+    intro n pw hr
+    simp only [typePWAt] at hr ⊢
     cases hf : env.find? I with
     | none => rw [hf] at hr; exact nomatch hr
     | some ci => rw [hext I ci hf]; rwa [hf] at hr
-  | _ => exact hr
+  | app f a ihf _ => intro n pw hr; exact ihf (n + 1) pw hr
+  | lam ty b m _ ihb =>
+    intro n pw hr
+    cases n with
+    | zero => exact nomatch hr
+    | succ n =>
+      cases beta with
+      | false => exact nomatch hr
+      | true => exact ihb n pw hr
+  | _ => intro n pw hr; cases n <;> exact hr
+
+theorem headTypePW_envExt {env env' : Env} (hext : EnvExt env env') {beta : Bool}
+    {h : Expr} {n : Nat} {pw : PropWhen}
+    (hr : headTypePW env.find? beta h n = some pw) :
+    headTypePW env'.find? beta h n = some pw :=
+  typePWAt_envExt hext beta h n pw hr
 
 /-- `typeSortPW`'s answers survive an extension. -/
-theorem typeSortPW_envExt {env env' : Env} (hext : EnvExt env env')
-    {T : Expr} {pw : PropWhen} (hr : typeSortPW env.find? T = some pw) :
-    typeSortPW env'.find? T = some pw := by
-  cases T with
-  | forallE ty b m => exact hr
-  | sort u => exact hr
-  | _ =>
-    simp only [typeSortPW] at hr ⊢
-    exact headTypePW_envExt hext hr
+theorem typeSortPW_envExt {env env' : Env} (hext : EnvExt env env') {beta : Bool}
+    {T : Expr} {pw : PropWhen} (hr : typeSortPW env.find? beta T = some pw) :
+    typeSortPW env'.find? beta T = some pw :=
+  typePWAt_envExt hext beta T 0 pw hr
 
 /-- `headProofPW`'s answers survive an extension (through
-`typeSortPW`'s, which it reads off the head's stored type). -/
-theorem headProofPW_envExt {env env' : Env} (hext : EnvExt env env')
-    {h : Expr} {pw : PropWhen} (hr : headProofPW env.find? h = some pw) :
-    headProofPW env'.find? h = some pw := by
+`typeSortPW`'s, which it reads off the head's stored type; a λ head's
+datum is its own and needs no lookup at all). -/
+theorem headProofPW_envExt {env env' : Env} (hext : EnvExt env env') {beta : Bool}
+    {h : Expr} {pw : PropWhen} (hr : headProofPW env.find? beta h = some pw) :
+    headProofPW env'.find? beta h = some pw := by
   cases h with
   | const c us =>
     simp only [headProofPW] at hr ⊢
@@ -156,7 +171,7 @@ theorem headProofPW_envExt {env env' : Env} (hext : EnvExt env env')
       rw [hext c ci hf]
       rw [hf] at hr
       dsimp only at hr ⊢
-      cases hts : typeSortPW env.find? ci.toConstantVal.type with
+      cases hts : typeSortPW env.find? beta ci.toConstantVal.type with
       | none => rw [hts] at hr; simp at hr
       | some pw0 =>
         rw [hts] at hr
@@ -166,9 +181,9 @@ theorem headProofPW_envExt {env env' : Env} (hext : EnvExt env env')
   | _ => exact hr
 
 /-- `proofPW`'s answers survive an extension. -/
-theorem proofPW_envExt {env env' : Env} (hext : EnvExt env env')
-    {a : Expr} {pw : PropWhen} (hr : proofPW env.find? a = some pw) :
-    proofPW env'.find? a = some pw := by
+theorem proofPW_envExt {env env' : Env} (hext : EnvExt env env') {beta : Bool}
+    {a : Expr} {pw : PropWhen} (hr : proofPW env.find? beta a = some pw) :
+    proofPW env'.find? beta a = some pw := by
   cases a with
   | lam ty b m => exact hr
   | _ =>
@@ -234,8 +249,8 @@ runs write different data.  On a term whose constants all resolve at
 itself an unproved fact about `whnf`'s ζ/δ outputs, so the premise is
 named here instead of derived. -/
 @[expose] def ReaderNoNew (env env' : Env) : Prop :=
-  (∀ e, typeSortPW env.find? e = none → typeSortPW env'.find? e = none) ∧
-  (∀ e, proofPW env.find? e = none → proofPW env'.find? e = none)
+  (∀ e, typeSortPW env.find? true e = none → typeSortPW env'.find? true e = none) ∧
+  (∀ e, proofPW env.find? true e = none → proofPW env'.find? true e = none)
 
 /-- `ensureSort` transports with `whnf`. -/
 theorem ensureSortCore_envExt {env env' : Env} (hs : SlotsExt mode env env')
@@ -258,7 +273,7 @@ theorem annotPwPi_envExt {env env' : Env} (hext : EnvExt env env')
     (h : annotPwPi (pureFns mode env f) env d b = .ok pw) :
     annotPwPi (pureFns mode env' f) env' d b = .ok pw := by
   unfold annotPwPi at h ⊢
-  cases hr : typeSortPW env.find? b with
+  cases hr : typeSortPW env.find? true b with
   | some pw0 => rw [hr] at h; rw [typeSortPW_envExt hext hr]; exact h
   | none =>
     rw [hr] at h
@@ -284,7 +299,7 @@ theorem annotPwLam_envExt {env env' : Env} (hext : EnvExt env env')
     (h : annotPwLam (pureFns mode env f) env d b = .ok pw) :
     annotPwLam (pureFns mode env' f) env' d b = .ok pw := by
   unfold annotPwLam at h ⊢
-  cases hr : proofPW env.find? b with
+  cases hr : proofPW env.find? true b with
   | some pw0 => rw [hr] at h; rw [proofPW_envExt hext hr]; exact h
   | none =>
     rw [hr] at h
@@ -536,14 +551,14 @@ inductive ReaderRun (env : Env) : Nat → Nat → Expr → Expr → Prop where
       ReaderRun env F d ty ty' →
       ReaderRun env F (d + 1) (body.instantiate1 (.fvar d ty')) body' →
       (pwWritten m.pw = true ∧ pw = m.pw ∨
-        pwWritten m.pw = false ∧ typeSortPW env.find? body' = some pw) →
+        pwWritten m.pw = false ∧ typeSortPW env.find? true body' = some pw) →
       ReaderRun env (F + 1) d (.forallE ty body m)
         (.forallE ty' (body'.abstract1 d) ⟨pw⟩)
   | lam {F d : Nat} {ty body ty' body' : Expr} {m : BinderMeta} {pw : PropWhen} :
       ReaderRun env F d ty ty' →
       ReaderRun env F (d + 1) (body.instantiate1 (.fvar d ty')) body' →
       (pwWritten m.pw = true ∧ pw = m.pw ∨
-        pwWritten m.pw = false ∧ proofPW env.find? body' = some pw) →
+        pwWritten m.pw = false ∧ proofPW env.find? true body' = some pw) →
       ReaderRun env (F + 1) d (.lam ty body m)
         (.lam ty' (body'.abstract1 d) ⟨pw⟩)
 

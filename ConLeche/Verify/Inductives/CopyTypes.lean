@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Kernel.Inductives.NestedElim
 public import ConLeche.Verify.PropRead
 public import ConLeche.Verify.PropWhen
 public import ConLeche.Verify.EnvWF
@@ -118,99 +119,204 @@ head-symbol reader (`typeSortPW`) answers "what is the zero-ness of the
 sort of this type?" from a head symbol and an arity: at an `fvar` head
 it peels the DECLARED type's never-data binders and reads the residual
 sort (`residualPW (A.peelNeverPis n)`); at a constant head it reads the
-stored type the same way and instantiates.  `SortAgree find? A v` says
-the two answers coincide at every arity — unapplied (where the reader's
-own `∀`/`Sort` cases can fire on `v`, which they never do on a
-variable) and at every positive arity.
+stored type the same way and instantiates; at a λ head it peels the
+binder against an argument (the β clause, task #301).  `SortAgree find?
+A v` says the two answers coincide at every arity — unapplied (where
+the reader's own `∀`/`Sort` cases can fire on `v`, which they never do
+on a variable) and at every positive arity.
 
 This is the ONE hypothesis the substitution congruence below needs of
 the substituted value, and it is what a pin component's typing says in
 the reader's terms: `D : A` gives `typeSortPW find? D = residualPW
-(A.peelNeverPis 0)` wherever the reader is complete for `D`. -/
+(A.peelNeverPis 0)` wherever the reader is complete for `D`.
+
+The readers consulted here are the annotation pass's own grade
+(`beta := true`): these are facts about the data `annotPwPi` writes. -/
 def SortAgree (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
-  typeSortPW find? v = residualPW (A.peelNeverPis 0) ∧
-    ∀ n : Nat, headTypePW find? v.getAppFn (v.numArgs + (n + 1))
+  typeSortPW find? true v = residualPW (A.peelNeverPis 0) ∧
+    ∀ n : Nat, headTypePW find? true v.getAppFn (v.numArgs + (n + 1))
       = residualPW (A.peelNeverPis (n + 1))
 
-theorem headTypePW_bvar (find? : Name → Option ConstantInfo) (i n : Nat) :
-    headTypePW find? (.bvar i) n = none := rfl
+/-- `SortAgree` in the reader's own arity-indexed form: the first
+conjunct is `n = 0`, the second is `n = k + 1` through
+`typePWAt_spine`. -/
+theorem SortAgree.at {find? : Name → Option ConstantInfo} {A v : Expr}
+    (h : SortAgree find? A v) (n : Nat) :
+    typePWAt find? true v n = residualPW (A.peelNeverPis n) := by
+  cases n with
+  | zero => exact h.1
+  | succ n => rw [typePWAt_spine]; exact h.2 n
 
-theorem headTypePW_fvar (find? : Name → Option ConstantInfo) (idx n : Nat)
-    (A : Expr) :
-    headTypePW find? (.fvar idx A) n = residualPW (A.peelNeverPis n) := rfl
+/-- The arity-indexed form IS `SortAgree`. -/
+theorem SortAgree.of_at {find? : Name → Option ConstantInfo} {A v : Expr}
+    (h : ∀ n : Nat, typePWAt find? true v n = residualPW (A.peelNeverPis n)) :
+    SortAgree find? A v :=
+  ⟨h 0, fun n => by rw [headTypePW, ← typePWAt_spine]; exact h (n + 1)⟩
+
+/-- A variable reads like itself. -/
+theorem SortAgree.fvar_refl (find? : Name → Option ConstantInfo) (idx : Nat)
+    (A : Expr) : SortAgree find? A (.fvar idx A) :=
+  SortAgree.of_at fun _ => rfl
+
+/-- **The λ rule** (task #301): a λ reads like a ∀ whose codomain its
+body reads like.  This is the shape a *dependent* container's family
+parameter takes at a pin — `Std.DTreeMap.Raw α (fun a => β a)` against
+the declared domain `α → Type v` — and before the reader had a λ clause
+BOTH readers declined on it, so the annotator inferred and the copies'
+data were out of reach (the kernel lane's measurement, DESIGN `#### K.7`).
+
+The `.never` hypothesis is the ∀ side's: `peelNeverPis` walks only
+never-data binders, and a *type-family* parameter's binder always
+carries `.never` (its codomain is a `Sort`, whose own sort is a
+successor).  Where it fails, the ∀ side reads `none` at every positive
+arity and the equality is about the λ's side alone — which is why the
+one-directional form (`SortAgreeW.lam`) needs no hypothesis at all. -/
+theorem SortAgree.lam {find? : Name → Option ConstantInfo}
+    {ty Ab ty' b : Expr} {m m' : BinderMeta} (hnev : m.pw.isNever = true)
+    (hb : SortAgree find? Ab b) :
+    SortAgree find? (.forallE ty Ab m) (.lam ty' b m') := by
+  refine SortAgree.of_at fun n => ?_
+  cases n with
+  | zero => rfl
+  | succ n =>
+    show typePWAt find? true b n
+      = residualPW ((Expr.forallE ty Ab m).peelNeverPis (n + 1))
+    rw [show (Expr.forallE ty Ab m).peelNeverPis (n + 1) = Ab.peelNeverPis n from by
+      simp only [Expr.peelNeverPis, hnev, if_true]]
+    exact hb.at n
+
+theorem headTypePW_bvar (find? : Name → Option ConstantInfo) (beta : Bool)
+    (i n : Nat) : headTypePW find? beta (.bvar i) n = none := by
+  cases n <;> rfl
+
+theorem headTypePW_fvar (find? : Name → Option ConstantInfo) (beta : Bool)
+    (idx n : Nat) (A : Expr) :
+    headTypePW find? beta (.fvar idx A) n = residualPW (A.peelNeverPis n) := rfl
+
+/-- **The reader cannot see a `SortAgree` substitution.**  Every
+reading the reader makes of a term with the value substituted in is the
+reading it makes with the binder opened at a variable of the declared
+type — which is what makes the annotation pass's *recomputed* data
+agree, node by node, on the two sides.  The λ case is the β clause's:
+the reading descends into the body, where the induction hypothesis is
+the same statement one binder down. -/
+theorem typePWAt_instantiate1_congr (find? : Name → Option ConstantInfo)
+    {A v : Expr} (idx : Nat) (h : SortAgree find? A v) :
+    ∀ (e : Expr) (d n : Nat),
+      typePWAt find? true (e.instantiate1 v d) n
+        = typePWAt find? true (e.instantiate1 (.fvar idx A) d) n := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d n
+    by_cases hi : i = d
+    · show typePWAt find? true (if i = d then v else _) n
+        = typePWAt find? true (if i = d then (Expr.fvar idx A) else _) n
+      rw [if_pos hi, if_pos hi]
+      exact h.at n
+    · show typePWAt find? true (if i = d then v else _) n
+        = typePWAt find? true (if i = d then (Expr.fvar idx A) else _) n
+      rw [if_neg hi, if_neg hi]
+  | app f a ihf _ => intro d n; exact ihf d (n + 1)
+  | lam ty b m _ ihb =>
+    intro d n
+    cases n with
+    | zero => rfl
+    | succ n =>
+      show typePWAt find? true (b.instantiate1 v (d + 1)) n
+        = typePWAt find? true (b.instantiate1 (.fvar idx A) (d + 1)) n
+      exact ihb (d + 1) n
+  | _ => intro d n; cases n <;> rfl
 
 /-- The head reader at a positive arity cannot tell the opened binder
-from a `SortAgree` value: substituting one for the other leaves every
-reading unchanged.  (Positive arity is the *applied* case; the
-unapplied one is `typeSortPW_instantiate1_congr`'s `bvar` branch, which
-is where `SortAgree`'s first conjunct is spent.) -/
+from a `SortAgree` value (`typePWAt_instantiate1_congr` at the spine). -/
 theorem headTypePW_instantiate1_congr (find? : Name → Option ConstantInfo)
     {A v : Expr} (idx : Nat) (h : SortAgree find? A v) :
     ∀ (e : Expr) (d n : Nat),
-      headTypePW find? ((e.instantiate1 v d).getAppFn)
+      headTypePW find? true ((e.instantiate1 v d).getAppFn)
           ((e.instantiate1 v d).numArgs + (n + 1))
-        = headTypePW find? ((e.instantiate1 (.fvar idx A) d).getAppFn)
+        = headTypePW find? true ((e.instantiate1 (.fvar idx A) d).getAppFn)
           ((e.instantiate1 (.fvar idx A) d).numArgs + (n + 1)) := by
-  intro e
-  induction e <;> intro d n
-  case bvar i =>
-    by_cases hi : i = d
-    · have hfv : headTypePW find? (Expr.fvar idx A).getAppFn
-          ((Expr.fvar idx A).numArgs + (n + 1))
-            = residualPW (A.peelNeverPis (n + 1)) := by
-        show residualPW (A.peelNeverPis (0 + (n + 1))) = _
-        rw [Nat.zero_add]
-      show headTypePW find? ((if i = d then v else _).getAppFn)
-          ((if i = d then v else _).numArgs + (n + 1))
-        = headTypePW find? ((if i = d then (Expr.fvar idx A) else _).getAppFn)
-          ((if i = d then (Expr.fvar idx A) else _).numArgs + (n + 1))
-      rw [if_pos hi, if_pos hi, hfv]
-      exact h.2 n
-    · show headTypePW find? ((if i = d then v else _).getAppFn)
-          ((if i = d then v else _).numArgs + (n + 1))
-        = headTypePW find? ((if i = d then (Expr.fvar idx A) else _).getAppFn)
-          ((if i = d then (Expr.fvar idx A) else _).numArgs + (n + 1))
-      rw [if_neg hi, if_neg hi]
-  case app f a ihf _ =>
-    have harg : ∀ m : Nat, m + 1 + (n + 1) = m + (n + 1 + 1) := fun m => by omega
-    show headTypePW find? ((f.instantiate1 v d).getAppFn)
-        ((f.instantiate1 v d).numArgs + 1 + (n + 1))
-      = headTypePW find? ((f.instantiate1 (.fvar idx A) d).getAppFn)
-        ((f.instantiate1 (.fvar idx A) d).numArgs + 1 + (n + 1))
-    rw [harg, harg]
-    exact ihf d (n + 1)
-  all_goals rfl
+  intro e d n
+  rw [headTypePW, headTypePW, ← typePWAt_spine, ← typePWAt_spine]
+  exact typePWAt_instantiate1_congr find? idx h e d (n + 1)
 
-/-- **The reader cannot see a `SortAgree` substitution.**  Every
-reading `typeSortPW` makes of a term with the value substituted in is
-the reading it makes with the binder opened at a variable of the
-declared type — which is what makes the annotation pass's *recomputed*
-data agree, node by node, on the two sides. -/
+/-- **The reader cannot see a `SortAgree` substitution** (the unapplied
+reading). -/
 theorem typeSortPW_instantiate1_congr (find? : Name → Option ConstantInfo)
     {A v : Expr} (idx : Nat) (h : SortAgree find? A v) :
     ∀ (e : Expr) (d : Nat),
-      typeSortPW find? (e.instantiate1 v d)
-        = typeSortPW find? (e.instantiate1 (.fvar idx A) d) := by
-  intro e d
-  cases e
-  case bvar i =>
+      typeSortPW find? true (e.instantiate1 v d)
+        = typeSortPW find? true (e.instantiate1 (.fvar idx A) d) :=
+  fun e d => typePWAt_instantiate1_congr find? idx h e d 0
+
+/-! ## `ProofAgree`: the λ-binder reader's twin
+
+`AnnotStable`'s λ clause reads `proofPW` of the opened body, so the
+copies' λ binders need the same substitution congruence for the *proof*
+reader that `SortAgree` buys for the type reader.  At the annotation
+pass's grade the two readers coincide on a λ (`proofPW_eq_head`), so one
+hypothesis about the head does for both. -/
+
+/-- At the annotation grade (`beta := true`) `proofPW` IS its head
+reader: the λ clause `headProofPW` gained at task #301 answers with the
+same datum `proofPW`'s own λ clause does. -/
+theorem proofPW_eq_head (find? : Name → Option ConstantInfo) (a : Expr) :
+    proofPW find? true a = headProofPW find? true a.getAppFn := by
+  cases a <;> rfl
+
+/-- **`v` reads like a variable declared of type `A` for the λ-binder
+reader**: "is this term a proof?" of the value is "is this type a
+proposition?" of the declared type. -/
+def ProofAgree (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
+  headProofPW find? true v.getAppFn = typeSortPW find? true A
+
+/-- A variable reads like itself. -/
+theorem ProofAgree.fvar_refl (find? : Name → Option ConstantInfo) (idx : Nat)
+    (A : Expr) : ProofAgree find? A (.fvar idx A) := by rfl
+
+/-- **The λ rule for the proof reader** (task #301): a λ reads like a ∀
+whose datum it carries.  The obligation is the DATUM's, not the
+reader's: the annotated component's λ datum and the container's binder
+datum are both "the zero-ness of the sort of the codomain", and the
+kernel lane measured them equal at every λ-pin of the corpus (both
+`.never`: a type family's body is a type, and a type is not a proof). -/
+theorem ProofAgree.lam {find? : Name → Option ConstantInfo}
+    {ty Ab ty' b : Expr} {m m' : BinderMeta} (hpw : m'.pw = m.pw) :
+    ProofAgree find? (.forallE ty Ab m) (.lam ty' b m') := by
+  show headProofPW find? true (.lam ty' b m') = some m.pw
+  rw [show headProofPW find? true (.lam ty' b m') = some m'.pw from rfl, hpw]
+
+/-- **The proof reader cannot see the substitution** either, given both
+agreements at the leaf. -/
+theorem headProofPW_instantiate1_congr (find? : Name → Option ConstantInfo)
+    {A v : Expr} (idx : Nat) (hp : ProofAgree find? A v) :
+    ∀ (e : Expr) (d : Nat),
+      headProofPW find? true ((e.instantiate1 v d).getAppFn)
+        = headProofPW find? true ((e.instantiate1 (.fvar idx A) d).getAppFn) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d
     by_cases hi : i = d
-    · show typeSortPW find? (if i = d then v else _)
-        = typeSortPW find? (if i = d then (Expr.fvar idx A) else _)
+    · show headProofPW find? true ((if i = d then v else _).getAppFn)
+        = headProofPW find? true ((if i = d then (Expr.fvar idx A) else _).getAppFn)
       rw [if_pos hi, if_pos hi]
-      exact h.1
-    · show typeSortPW find? (if i = d then v else _)
-        = typeSortPW find? (if i = d then (Expr.fvar idx A) else _)
+      exact hp
+    · show headProofPW find? true ((if i = d then v else _).getAppFn)
+        = headProofPW find? true ((if i = d then (Expr.fvar idx A) else _).getAppFn)
       rw [if_neg hi, if_neg hi]
-  case app f a =>
-    have hz := headTypePW_instantiate1_congr find? idx h f d 0
-    rw [Nat.zero_add] at hz
-    show headTypePW find? ((f.instantiate1 v d).getAppFn)
-        ((f.instantiate1 v d).numArgs + 1)
-      = headTypePW find? ((f.instantiate1 (.fvar idx A) d).getAppFn)
-        ((f.instantiate1 (.fvar idx A) d).numArgs + 1)
-    exact hz
-  all_goals rfl
+  | app f a ihf _ => intro d; exact ihf d
+  | _ => intro d; rfl
+
+theorem proofPW_instantiate1_congr (find? : Name → Option ConstantInfo)
+    {A v : Expr} (idx : Nat) (hp : ProofAgree find? A v) :
+    ∀ (e : Expr) (d : Nat),
+      proofPW find? true (e.instantiate1 v d)
+        = proofPW find? true (e.instantiate1 (.fvar idx A) d) := by
+  intro e d
+  rw [proofPW_eq_head, proofPW_eq_head]
+  exact headProofPW_instantiate1_congr find? idx hp e d
 
 /-! ## The reader under level instantiation -/
 
@@ -231,9 +337,9 @@ theorem Expr.allLevelParamsDefined_peelNeverPis {ps : List Name} :
     exact ih hb hT.1.2
 
 /-- `headTypePW` unfolded at a constant head. -/
-theorem headTypePW_const (find? : Name → Option ConstantInfo) (I : Name)
-    (us : List Level) (n : Nat) :
-    headTypePW find? (.const I us) n =
+theorem headTypePW_const (find? : Name → Option ConstantInfo) (beta : Bool)
+    (I : Name) (us : List Level) (n : Nat) :
+    headTypePW find? beta (.const I us) n =
       match find? I with
       | some ci =>
         if ci.isTowerEntry then none else
@@ -243,70 +349,120 @@ theorem headTypePW_const (find? : Name → Option ConstantInfo) (I : Name)
         else none
       | none => none := rfl
 
-/-- **The head reader commutes with level instantiation**, through the
-datum's own substitution `substPW`.  The constant-head case is
-`Level.substPW_comp` — the stored type is NOT instantiated, only the
-use-site levels are — and the `fvar` case is `Level.zeronessOf_subst`.
+/-- The reader's answer at a CONSTANT head, inverted: the lookup
+succeeded on a non-tower entry at the right number of levels, and the
+stored type peeled to a sort. -/
+theorem typePWAt_const_some_inv (find? : Name → Option ConstantInfo)
+    (beta : Bool) {I : Name} {us : List Level} {n : Nat} {pw : PropWhen}
+    (h : typePWAt find? beta (.const I us) n = some pw) :
+    ∃ ci u, find? I = some ci ∧ ci.isTowerEntry = false ∧
+      us.length = ci.toConstantVal.levelParams.length ∧
+      ci.toConstantVal.type.peelNeverPis n = some (.sort u) ∧
+      pw = Level.substPW ci.toConstantVal.levelParams us (Level.zeronessOf u) := by
+  simp only [typePWAt] at h
+  cases hf : find? I with
+  | none => rw [hf] at h; exact nomatch h
+  | some ci =>
+    rw [hf] at h
+    dsimp only at h
+    split at h
+    · exact nomatch h
+    · next hnt =>
+      split at h
+      · next hlen =>
+        cases hr : residualPW (ci.toConstantVal.type.peelNeverPis n) with
+        | none => rw [hr] at h; exact nomatch h
+        | some pw0 =>
+          rw [hr] at h
+          obtain ⟨u, hu, rfl⟩ := residualPW_some_inv hr
+          exact ⟨ci, u, rfl, Bool.eq_false_iff.mpr hnt, hlen, hu,
+            (Option.some.inj h).symm⟩
+      · exact nomatch h
+
+/-- **The reader commutes with level instantiation**, at every arity and
+either grade, through the datum's own substitution `substPW`.  The
+constant-head case is `Level.substPW_comp` — the stored type is NOT
+instantiated, only the use-site levels are — the `fvar` case is
+`Level.zeronessOf_subst`, a ∀'s datum is `substPW`'d by
+`Expr.instantiateLevelParams` itself, a `Sort`'s is `.never` either way,
+and the β clause simply descends into the body.
 
 The hypothesis is the environment's: every stored type's levels are
 within its declared parameters (`ConstWF`, hence `EnvWF`). -/
-theorem headTypePW_instantiateLevelParams (find? : Name → Option ConstantInfo)
-    {ks : List Name} {vs : List Level}
+theorem typePWAt_instantiateLevelParams (find? : Name → Option ConstantInfo)
+    (beta : Bool) {ks : List Name} {vs : List Level}
     (hdef : ∀ n ci, find? n = some ci →
-      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
-    {hd : Expr} {n : Nat} {pw : PropWhen} (h : headTypePW find? hd n = some pw) :
-    headTypePW find? (hd.instantiateLevelParams ks vs) n
-      = some (Level.substPW ks vs pw) := by
-  rcases headTypePW_some_inv find? h with
-    ⟨I, us, ci, u, rfl, hf, hnt, hlen, hpeel, rfl⟩ | ⟨idx, ty, u, rfl, hpeel, rfl⟩
-  · have hpd : (Level.zeronessOf u).paramsDefined ci.toConstantVal.levelParams = true := by
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true) :
+    ∀ (e : Expr) (n : Nat) (pw : PropWhen), typePWAt find? beta e n = some pw →
+      typePWAt find? beta (e.instantiateLevelParams ks vs) n
+        = some (Level.substPW ks vs pw) := by
+  intro e
+  induction e with
+  | const I us =>
+    intro n pw h
+    obtain ⟨ci, u, hf, hnt, hlen, hpeel, rfl⟩ := typePWAt_const_some_inv find? beta h
+    have hpd : (Level.zeronessOf u).paramsDefined ci.toConstantVal.levelParams = true := by
       refine Level.zeronessOf_paramsDefined ?_
       have := Expr.allLevelParamsDefined_peelNeverPis n hpeel (hdef I ci hf)
       simpa [Expr.allLevelParamsDefined] using this
-    show headTypePW find? (.const I (us.map (Level.subst ks vs))) n = _
-    rw [headTypePW_const, hf]
+    show typePWAt find? beta (.const I (us.map (Level.subst ks vs))) n = _
+    rw [← headTypePW, headTypePW_const, hf]
     simp only [hnt, Bool.false_eq_true, if_false, List.length_map, hlen, if_true,
       hpeel, residualPW, Option.map_some]
     exact congrArg some
       (Level.substPW_comp (pw := Level.zeronessOf u) hlen hpd).symm
-  · show residualPW ((ty.instantiateLevelParams ks vs).peelNeverPis n) = _
-    rw [Expr.peelNeverPis_instantiateLevelParams n ks vs hpeel]
+  | fvar idx ty _ =>
+    intro n pw h
+    obtain ⟨u, hu, rfl⟩ := residualPW_some_inv h
+    show residualPW ((ty.instantiateLevelParams ks vs).peelNeverPis n) = _
+    rw [Expr.peelNeverPis_instantiateLevelParams n ks vs hu]
     exact congrArg some (Level.zeronessOf_subst ks vs u)
+  | app f a ihf _ => intro n pw h; exact ihf (n + 1) pw h
+  | lam ty b m _ ihb =>
+    intro n pw h
+    cases n with
+    | zero => exact nomatch h
+    | succ n =>
+      cases beta with
+      | false => exact nomatch h
+      | true => exact ihb n pw h
+  | forallE ty b m _ _ =>
+    intro n pw h
+    cases n with
+    | zero => obtain rfl : pw = m.pw := (Option.some.inj h).symm; rfl
+    | succ n => exact nomatch h
+  | sort u =>
+    intro n pw h
+    cases n with
+    | zero =>
+      obtain rfl : pw = PropWhen.never := (Option.some.inj h).symm
+      show typePWAt find? beta (.sort (Level.subst ks vs u)) 0 = _
+      rw [Level.substPW_never]
+      rfl
+    | succ n => exact nomatch h
+  | _ => intro n pw h; cases n <;> exact nomatch h
+
+/-- **The head reader commutes with level instantiation.** -/
+theorem headTypePW_instantiateLevelParams (find? : Name → Option ConstantInfo)
+    (beta : Bool) {ks : List Name} {vs : List Level}
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {hd : Expr} {n : Nat} {pw : PropWhen} (h : headTypePW find? beta hd n = some pw) :
+    headTypePW find? beta (hd.instantiateLevelParams ks vs) n
+      = some (Level.substPW ks vs pw) :=
+  typePWAt_instantiateLevelParams find? beta hdef hd n pw h
 
 /-- **The reader commutes with level instantiation.**  Every datum the
 reader answers with is the instantiated datum of the instantiated
-term — a `∀`'s stored datum is `substPW`'d by
-`Expr.instantiateLevelParams` itself, a `Sort`'s is `.never` either
-way, and a head application's is `headTypePW`'s. -/
+term. -/
 theorem typeSortPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
-    {ks : List Name} {vs : List Level}
+    (beta : Bool) {ks : List Name} {vs : List Level}
     (hdef : ∀ n ci, find? n = some ci →
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
-    {T : Expr} {pw : PropWhen} (h : typeSortPW find? T = some pw) :
-    typeSortPW find? (T.instantiateLevelParams ks vs)
-      = some (Level.substPW ks vs pw) := by
-  cases T
-  case forallE ty b m =>
-    have : pw = m.pw := (Option.some.inj h).symm
-    subst this; rfl
-  case sort u =>
-    have : pw = .never := (Option.some.inj h).symm
-    subst this
-    rw [Level.substPW_never]
-    rfl
-  case const nm us =>
-    show headTypePW find? (Expr.const nm (us.map (Level.subst ks vs))) 0 = _
-    exact headTypePW_instantiateLevelParams find? hdef (hd := .const nm us) h
-  case fvar idx ty =>
-    show headTypePW find? (Expr.fvar idx (ty.instantiateLevelParams ks vs)) 0 = _
-    exact headTypePW_instantiateLevelParams find? hdef (hd := .fvar idx ty) h
-  case app f a =>
-    show headTypePW find? ((f.instantiateLevelParams ks vs).getAppFn)
-        ((f.instantiateLevelParams ks vs).numArgs + 1) = _
-    rw [Expr.getAppFn_instantiateLevelParams, Expr.numArgs_instantiateLevelParams]
-    exact headTypePW_instantiateLevelParams find? hdef
-      (hd := f.getAppFn) (n := f.numArgs + 1) h
-  all_goals exact nomatch h
+    {T : Expr} {pw : PropWhen} (h : typeSortPW find? beta T = some pw) :
+    typeSortPW find? beta (T.instantiateLevelParams ks vs)
+      = some (Level.substPW ks vs pw) :=
+  typePWAt_instantiateLevelParams find? beta hdef T 0 pw h
 
 /-- The reader's environment hypothesis, discharged: every stored
 type's level parameters are within its own declared list (`ConstWF`'s
@@ -343,7 +499,7 @@ theorem Expr.instantiate1_abstract1 {d : Nat} {ty : Expr} :
 /-- The datum `annotPwPi` writes when the head reader answers. -/
 theorem annotPwPi_of_reader {env : Env} {r : CoreFns CheckM} {d : Nat}
     {body' : Expr} {pw : PropWhen}
-    (h : typeSortPW env.find? body' = some pw) :
+    (h : typeSortPW env.find? true body' = some pw) :
     annotPwPi r env d body' = .ok pw := by
   unfold annotPwPi
   rw [h]; rfl
@@ -351,7 +507,7 @@ theorem annotPwPi_of_reader {env : Env} {r : CoreFns CheckM} {d : Nat}
 /-- The datum `annotPwLam` writes when the head reader answers. -/
 theorem annotPwLam_of_reader {env : Env} {r : CoreFns CheckM} {d : Nat}
     {body' : Expr} {pw : PropWhen}
-    (h : proofPW env.find? body' = some pw) :
+    (h : proofPW env.find? true body' = some pw) :
     annotPwLam r env d body' = .ok pw := by
   unfold annotPwLam
   rw [h]; rfl
@@ -480,13 +636,13 @@ inductive AnnotStable (find? : Name → Option ConstantInfo) : Nat → Expr → 
       AnnotStable find? d ty →
       AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
       (pwWritten m.pw = true ∨
-        typeSortPW find? (body.instantiate1 (.fvar d ty)) = some m.pw) →
+        typeSortPW find? true (body.instantiate1 (.fvar d ty)) = some m.pw) →
       AnnotStable find? d (.forallE ty body m)
   | lam {d ty body m} :
       AnnotStable find? d ty →
       AnnotStable find? (d + 1) (body.instantiate1 (.fvar d ty)) →
       (pwWritten m.pw = true ∨
-        proofPW find? (body.instantiate1 (.fvar d ty)) = some m.pw) →
+        proofPW find? true (body.instantiate1 (.fvar d ty)) = some m.pw) →
       AnnotStable find? d (.lam ty body m)
 
 /-! ## `AnnotRel`: the same term up to annotated leaves -/
@@ -714,12 +870,13 @@ applied to the pin and the indices, and the reader answers from the
 container's STORED result sort.  All three are `rfl` or one `mkAppN`
 walk — no inference, which is the point. -/
 
-@[simp] theorem typeSortPW_sort (find? : Name → Option ConstantInfo) (u : Level) :
-    typeSortPW find? (.sort u) = some .never := rfl
+@[simp] theorem typeSortPW_sort (find? : Name → Option ConstantInfo)
+    (beta : Bool) (u : Level) :
+    typeSortPW find? beta (.sort u) = some .never := rfl
 
 @[simp] theorem typeSortPW_forallE (find? : Name → Option ConstantInfo)
-    (ty b : Expr) (m : BinderMeta) :
-    typeSortPW find? (.forallE ty b m) = some m.pw := rfl
+    (beta : Bool) (ty b : Expr) (m : BinderMeta) :
+    typeSortPW find? beta (.forallE ty b m) = some m.pw := rfl
 
 theorem Expr.getAppFn_mkAppN (f : Expr) :
     ∀ (args : List Expr), (Expr.mkAppN f args).getAppFn = f.getAppFn := by
@@ -746,30 +903,18 @@ of `I`'s stored type after `args.length` never-data binders — which is
 what a former's telescope has (`∀ p⃗ ı⃗, Sort u` carries `.never` at
 every binder). -/
 theorem typeSortPW_mkAppN_const (find? : Name → Option ConstantInfo)
-    {I : Name} {us : List Level} {ci : ConstantInfo} {u : Level}
-    {args : List Expr} (hne : args ≠ [])
+    (beta : Bool) {I : Name} {us : List Level} {ci : ConstantInfo} {u : Level}
+    {args : List Expr}
     (hf : find? I = some ci) (hnt : ci.isTowerEntry = false)
     (hlen : us.length = ci.toConstantVal.levelParams.length)
     (hpeel : ci.toConstantVal.type.peelNeverPis args.length = some (.sort u)) :
-    typeSortPW find? (Expr.mkAppN (.const I us) args)
+    typeSortPW find? beta (Expr.mkAppN (.const I us) args)
       = some (Level.substPW ci.toConstantVal.levelParams us (Level.zeronessOf u)) := by
-  have hshape : ∀ (g : Expr) (a : Expr) (as : List Expr),
-      typeSortPW find? (Expr.mkAppN g (a :: as))
-        = headTypePW find? (Expr.mkAppN g (a :: as)).getAppFn
-            (Expr.mkAppN g (a :: as)).numArgs := by
-    intro g a as
-    clear hpeel
-    induction as generalizing g a with
-    | nil => rfl
-    | cons b bs ih => exact ih (.app g a) b
-  cases args with
-  | nil => exact absurd rfl hne
-  | cons a as =>
-    rw [hshape (.const I us) a as, Expr.getAppFn_mkAppN, Expr.numArgs_mkAppN]
-    show headTypePW find? (Expr.const I us) (0 + (a :: as).length) = _
-    rw [Nat.zero_add, headTypePW_const, hf]
-    simp only [hnt, Bool.false_eq_true, if_false, hlen, if_true, hpeel, residualPW,
-      Option.map_some]
+  rw [typeSortPW, typePWAt_spine, Expr.getAppFn_mkAppN, Expr.numArgs_mkAppN]
+  show typePWAt find? beta (.const I us) (0 + args.length + 0) = _
+  rw [Nat.zero_add, Nat.add_zero, ← headTypePW, headTypePW_const, hf]
+  simp only [hnt, Bool.false_eq_true, if_false, hlen, if_true, hpeel, residualPW,
+    Option.map_some]
 
 /-! ## The two transports of the datum obligation
 
@@ -783,9 +928,18 @@ the obligation across, with no inference on either side. -/
 component for the opened parameter leaves the datum alone. -/
 theorem typeSortPW_at_pin (find? : Name → Option ConstantInfo)
     {A v b : Expr} (idx k : Nat) {pw : PropWhen} (hsa : SortAgree find? A v)
-    (h : typeSortPW find? (b.instantiate1 (.fvar idx A) k) = some pw) :
-    typeSortPW find? (b.instantiate1 v k) = some pw :=
+    (h : typeSortPW find? true (b.instantiate1 (.fvar idx A) k) = some pw) :
+    typeSortPW find? true (b.instantiate1 v k) = some pw :=
   (typeSortPW_instantiate1_congr find? idx hsa b k).trans h
+
+/-- The λ twin: substituting a `ProofAgree` component for the opened
+parameter leaves a λ binder's datum alone — the transport
+`AnnotStable`'s λ clause needs, which K.4 did not have. -/
+theorem proofPW_at_pin (find? : Name → Option ConstantInfo)
+    {A v b : Expr} (idx k : Nat) {pw : PropWhen} (hp : ProofAgree find? A v)
+    (h : proofPW find? true (b.instantiate1 (.fvar idx A) k) = some pw) :
+    proofPW find? true (b.instantiate1 v k) = some pw :=
+  (proofPW_instantiate1_congr find? idx hp b k).trans h
 
 /-- The container's reading, at the occurrence's levels: the datum
 travels by its own substitution. -/
@@ -793,9 +947,173 @@ theorem typeSortPW_at_levels (find? : Name → Option ConstantInfo)
     {ks : List Name} {vs : List Level}
     (hdef : ∀ n ci, find? n = some ci →
       ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
-    {b : Expr} {pw : PropWhen} (h : typeSortPW find? b = some pw) :
-    typeSortPW find? (b.instantiateLevelParams ks vs)
+    {b : Expr} {pw : PropWhen} (h : typeSortPW find? true b = some pw) :
+    typeSortPW find? true (b.instantiateLevelParams ks vs)
       = some (Level.substPW ks vs pw) :=
-  typeSortPW_instantiateLevelParams find? hdef h
+  typeSortPW_instantiateLevelParams find? true hdef h
+
+/-! ## The pin components' obligation, and the λ shape (task #301)
+
+The copies read the container's stored former AT THE PIN, so the
+reader's answers have to survive replacing the container's parameters by
+the pin's components — `typeSortPW_at_pin` and `proofPW_at_pin` above,
+whose hypotheses are `SortAgree`/`ProofAgree`.  The model lane states
+the per-component premise in the ONE-DIRECTIONAL grade (`…W`): wherever
+the PARAMETER's side answers, the COMPONENT's side answers the same.
+That is all the transport of an obligation needs — the container's
+binders are the ones that are stable — and it is where a λ component
+used to fail both readers.
+-/
+
+/-- The reader at arity `n` on a term: unapplied, `typeSortPW`; applied
+to `n` further arguments, `headTypePW` at the head.  This is the
+arity-indexed reader itself (`readAt_eq`). -/
+@[expose] def readAt (find? : Name → Option ConstantInfo) (v : Expr) :
+    Nat → Option PropWhen
+  | 0 => typeSortPW find? true v
+  | n + 1 => headTypePW find? true v.getAppFn (v.numArgs + (n + 1))
+
+theorem readAt_eq (find? : Name → Option ConstantInfo) (v : Expr) (n : Nat) :
+    readAt find? v n = typePWAt find? true v n := by
+  cases n with
+  | zero => rfl
+  | succ n => rw [readAt, headTypePW, ← typePWAt_spine]
+
+/-- **Where the declared type answers, the value answers the same** (the
+∀-binder reader). -/
+@[expose] def SortAgreeW (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
+  ∀ (n : Nat) (pw : PropWhen), residualPW (A.peelNeverPis n) = some pw →
+    readAt find? v n = some pw
+
+/-- The same for the λ-binder reader: a variable of type `A` is a proof
+exactly when `A` is a proposition. -/
+@[expose] def ProofAgreeW (find? : Name → Option ConstantInfo) (A v : Expr) : Prop :=
+  ∀ pw : PropWhen, typeSortPW find? true A = some pw →
+    headProofPW find? true v.getAppFn = some pw
+
+theorem SortAgree.toW {find? : Name → Option ConstantInfo} {A v : Expr}
+    (h : SortAgree find? A v) : SortAgreeW find? A v := by
+  intro n pw hpw
+  rw [readAt_eq, h.at n]; exact hpw
+
+theorem ProofAgree.toW {find? : Name → Option ConstantInfo} {A v : Expr}
+    (h : ProofAgree find? A v) : ProofAgreeW find? A v := by
+  intro pw hpw; rw [ProofAgree] at h; rw [h]; exact hpw
+
+/-- A variable reads like itself, for both readers. -/
+theorem SortAgreeW.fvar_refl (find? : Name → Option ConstantInfo) (idx : Nat)
+    (A : Expr) : SortAgreeW find? A (.fvar idx A) :=
+  (SortAgree.fvar_refl find? idx A).toW
+
+theorem ProofAgreeW.fvar_refl (find? : Name → Option ConstantInfo) (idx : Nat)
+    (A : Expr) : ProofAgreeW find? A (.fvar idx A) :=
+  (ProofAgree.fvar_refl find? idx A).toW
+
+/-- **The λ rule, one-directional** (task #301): no hypothesis on the
+∀'s datum — where it is not `.never` the ∀ side reads `none` at every
+positive arity and there is nothing to match. -/
+theorem SortAgreeW.lam {find? : Name → Option ConstantInfo}
+    {ty Ab ty' b : Expr} {m m' : BinderMeta} (hb : SortAgreeW find? Ab b) :
+    SortAgreeW find? (.forallE ty Ab m) (.lam ty' b m') := by
+  intro n pw h
+  cases n with
+  | zero => exact nomatch h
+  | succ n =>
+    simp only [Expr.peelNeverPis] at h
+    split at h
+    · show readAt find? (.lam ty' b m') (n + 1) = some pw
+      rw [readAt_eq]
+      show typePWAt find? true b n = some pw
+      rw [← readAt_eq]
+      exact hb n pw h
+    · exact nomatch h
+
+/-- **The λ rule for the proof reader** (task #301).  The obligation is
+the DATUM's, not the reader's: the annotated component's λ datum and the
+container's binder datum are both "the zero-ness of the sort of the
+codomain", and at every λ-pin of the corpus the kernel lane measured
+them equal (both `.never` — a type family's body is a type, and a type
+is not a proof). -/
+theorem ProofAgreeW.lam {find? : Name → Option ConstantInfo}
+    {ty Ab ty' b : Expr} {m m' : BinderMeta} (hpw : m'.pw = m.pw) :
+    ProofAgreeW find? (.forallE ty Ab m) (.lam ty' b m') :=
+  (ProofAgree.lam (ty := ty) (Ab := Ab) (ty' := ty') (b := b) hpw).toW
+
+/-- **A pin component reads like the parameter it replaces**: the shapes
+that discharge the model lane's per-component premise.
+
+* `fvar` — an OPENER: the component IS the block's parameter variable,
+  declared at the parameter's domain.  Every non-dependent container's
+  pin is made of these.
+* `lam` — a λ against a ∀ (task #301): the body reads like the
+  codomain and the λ carries the binder's datum.  This is a *dependent*
+  container's family parameter, `Std.DTreeMap.Raw α (fun a => β a)`
+  against `α → Type v`; the rule is closed under nesting, so a family
+  of a family reads too.
+* `reads` — the escape hatch: a component the two readers already agree
+  on (a constant-headed one whose stored type peels to the same
+  residual, say). -/
+inductive CompReads (find? : Name → Option ConstantInfo) : Expr → Expr → Prop where
+  | fvar {A : Expr} (idx : Nat) : CompReads find? A (.fvar idx A)
+  | lam {ty Ab ty' b : Expr} {m m' : BinderMeta} :
+      CompReads find? Ab b → m'.pw = m.pw →
+      CompReads find? (.forallE ty Ab m) (.lam ty' b m')
+  | reads {A v : Expr} : SortAgreeW find? A v → ProofAgreeW find? A v →
+      CompReads find? A v
+
+theorem CompReads.sortAgreeW {find? : Name → Option ConstantInfo} :
+    ∀ {A v : Expr}, CompReads find? A v → SortAgreeW find? A v := by
+  intro A v h
+  induction h with
+  | fvar idx => exact SortAgreeW.fvar_refl _ idx _
+  | lam _ _ ihb => exact ihb.lam
+  | reads hs _ => exact hs
+
+theorem CompReads.proofAgreeW {find? : Name → Option ConstantInfo} :
+    ∀ {A v : Expr}, CompReads find? A v → ProofAgreeW find? A v := by
+  intro A v h
+  induction h with
+  | fvar idx => exact ProofAgreeW.fvar_refl _ idx _
+  | lam _ hpw _ => exact ProofAgreeW.lam hpw
+  | reads _ hp => exact hp
+
+/-- **The model lane's per-pin premise, from the components' shapes.**
+The conclusion is `PinCompsAgree`'s body
+(`ConLeche/Model/Inductives/CopyReads.lean`): per pin, of the annotation
+the pin check computes at the block's openers, every component reads
+like the container's parameter domain it replaces, for both readers.
+With the reader's λ clause in place (task #301) the λ components — the
+nine the kernel lane measured, `Lean.Json`/`Lean.PrefixTreeNode` ×
+`Std.DTreeMap.*` and five fixtures — are covered by `CompReads.lam`
+instead of being a reader gap. -/
+theorem pinCompsAgree_of_compReads {F : Nat} {envAux : Env} {nP : Nat}
+    {fvsA : List Expr} {pins : List NestedPin}
+    (h : ∀ q ∈ pins, ∀ (Jn : Name) (lvls : List Level) (Ds : List Expr),
+      q.pin = Expr.mkAppN (.const Jn lvls) Ds →
+      ∀ (cvTJ : ConstantVal) (capsJ : IndCaps),
+        envAux.find? Jn = some (.indInfo cvTJ capsJ) →
+      ∀ (argsA dsA : List Expr) (restA : Expr),
+        annotateCore mode envAux F nP (Expr.instantiateList
+          (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse)
+          = .ok (Expr.mkAppN (.const Jn lvls) argsA) →
+        Expr.instPisAt argsA
+            (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) = some (dsA, restA) →
+        ∀ (i : Nat) (A a : Expr), dsA[i]? = some A → argsA[i]? = some a →
+          CompReads envAux.find? A a) :
+    ∀ q ∈ pins, ∀ (Jn : Name) (lvls : List Level) (Ds : List Expr),
+      q.pin = Expr.mkAppN (.const Jn lvls) Ds →
+      ∀ (cvTJ : ConstantVal) (capsJ : IndCaps),
+        envAux.find? Jn = some (.indInfo cvTJ capsJ) →
+      ∀ (argsA dsA : List Expr) (restA : Expr),
+        annotateCore mode envAux F nP (Expr.instantiateList
+          (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse)
+          = .ok (Expr.mkAppN (.const Jn lvls) argsA) →
+        Expr.instPisAt argsA
+            (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls) = some (dsA, restA) →
+        ∀ (i : Nat) (A a : Expr), dsA[i]? = some A → argsA[i]? = some a →
+          SortAgreeW envAux.find? A a ∧ ProofAgreeW envAux.find? A a :=
+  fun q hq Jn lvls Ds hpin cvTJ capsJ hf argsA dsA restA hann hAt i A a hA ha =>
+    ⟨(h q hq Jn lvls Ds hpin cvTJ capsJ hf argsA dsA restA hann hAt i A a hA ha).sortAgreeW,
+      (h q hq Jn lvls Ds hpin cvTJ capsJ hf argsA dsA restA hann hAt i A a hA ha).proofAgreeW⟩
 
 end ConLeche
