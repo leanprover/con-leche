@@ -77077,20 +77077,33 @@ lines, on the root umbrella):
   `restoreI_eq_self` (no table name mentioned — the block's own formers
   are not table names).
 
-**What D1 still needs** (next session): (c) the Model reading —
-`denoteMeta` of the restored field (`Π afvs, o` with `o ≈ pin idx`,
-`pin = J lvls Ds` at the block's parameter variables) at a model of
-`env₁` whose `acval` is `mpAux`'s on the containers, equated with
-`restoreAV`'s copy-recursive arm (`mkPisAV tss (mkAppN ⟦J⟧ (DsA lifted
-++ eiss))`): `denoteMeta_openPis'` over `afvs` (the datum's `reflOpen`
-readings for the telescope), `denoteMeta_erasedEq` across `o ≈ pin idx`,
-`denoteMeta_mkAppN` with the pin's readings weakened by the field's
-depth (`DenoteMetaSpine.weaken_by`; the pin's `Ds` read at depth `nP`
-as `DsA`, `pinRead_of`) and the index readings `eissF`; plus the
-recursor/rule shapes (D4) through `restoreI_stripPis`/`restoreI_fire`
-and a `restoreI_lam'`/`restoreI_mkAppN_const` pair (a non-table
-constant's spine restores argument-wise) — not yet written.  The whnf
-arm's `WhnfField` restatement (below) is part of the same reading.
+* **the Model reading** (fourth commit, `Model/Inductives/RestoreRead.lean`,
+  new, on the Model umbrella): **`denoteMeta_of_openPis`** — the
+  FORWARD Π-reading (the converse of `denoteMeta_openPis'`): a
+  telescope whose `n` openers read to `ts` at their own depths and
+  whose residual reads to `b` reads as `mkPisAV (zipWith (0, pwBit φ
+  bm.pw, t) bs ts) b`, the bits off `stripPis`' binder data
+  (`stripPis_instantiate1_meta` carries them through the opening);
+  **`restoredCopyField_read`** — a field opening at `n` variables
+  (readings `tss`, bits agreeing with the binder data) to a residual
+  `ErasedEq` to `J lvls Ds idx`, with `Ds` reading to `DsA` and `idx` to
+  `eiss` at the field's depth, reads as
+  `mkPisAV tss (mkAppN (acval J (substFn φ lps lvls)) (DsA ++ eiss))` —
+  `restoreAV`'s copy-recursive arm once `DsA` is the pin's readings
+  weakened by the field's depth (`DenoteMetaSpine.weaken_by`) and the
+  container's leaf is read at the pin's level substitution (the
+  `acval` agreement `hpinAll` already records).  Stated at an ARBITRARY
+  `acval`/`env`: it assembles a reading from readings of the pieces —
+  the agreement of `env₁`'s model with the auxiliary one on the names
+  a field mentions is D2's fact, not a restriction lemma (§M.31 (d)).
+
+**What D1 still needs** (next session): the recursor/rule shapes (D4)
+through `restoreI_stripPis`/`restoreI_fire` and a
+`restoreI_lam'`/`restoreI_mkAppN_const` pair (a non-table constant's
+spine restores argument-wise), plus the `tss` bits' agreement with the
+copy field's binder data at the consumer (`denoteMeta_openPis'` on the
+copy's own reading, `mkPisAV_inj`).  The whnf arm's `WhnfField`
+restatement (below) is part of the same reading.
 
 * **the run's table is `WF`** (third commit): **`restoreTbl_wf`** —
   `(restoreTbl p st).WF` from K.3's `pinsClosed` and the pins' shape
@@ -77142,7 +77155,7 @@ restored constructor's `i`-th opener, exactly what
 `hwhnf`).
 
 **Gates**: `lake build` warning-free, `lake test` clean (both run for
-each of the step's three commits).  NOT run (landing items): shake/pub-import
+each of the step's four commits).  NOT run (landing items): shake/pub-import
 (`NestedRestore` on the root umbrella, its `TeleOpen` import plain),
 arena, init-full, Mathlib, `overview-links.sh`, `no-local-paths.sh`.
 No `sorry`, no axiom, no kernel change.
