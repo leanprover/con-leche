@@ -42,5 +42,8 @@ public import ConLeche.Verify.Inductives.AuxFormers
 -- while they were off the graph).  `NestedOrder` re-exports
 -- `NestedLedger`, which re-exports `NestedFacts`.
 public import ConLeche.Verify.Inductives.NestedOrder
+-- the same class: the elimination's leaf invariant (DESIGN §M.28),
+-- consumed by the model lane's nested modules
+public import ConLeche.Verify.Inductives.NestedLeaves
 
 @[expose] public section

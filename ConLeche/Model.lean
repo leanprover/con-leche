@@ -30,6 +30,16 @@ public import ConLeche.Model.IndRepToolkit
 public import ConLeche.Model.BasisRep
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRep
+-- ALIVE BY STATEMENT: the nested route's model modules (task #279 M-B′,
+-- DESIGN §M.11–§M.28) — the fold kit, the two fold spellings ψ⁻¹/ψ and
+-- their run-level assembly — are consumed by nothing until the route is
+-- wired (M-E); this edge is what makes `lake build` CHECK them.
+-- `PsiRun` re-exports `PsiAssembly` (→ `CopyCtors`, `PsiSetup`,
+-- `CopyPins`, `InvFold`, `FoldChoice`, `RecFold`, `PsiBody`, `PsiFold`)
+-- and `CopyReads` (→ `DeclNested`); `ContainerRead` (the `containerInfo?`
+-- read of a represented block, §M.15) stands alone.
+public import ConLeche.Model.Inductives.PsiRun
+public import ConLeche.Model.Inductives.ContainerRead
 public import ConLeche.Model.Annot.ConsMono
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.NatSem

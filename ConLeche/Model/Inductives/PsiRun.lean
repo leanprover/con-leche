@@ -1,0 +1,494 @@
+module
+
+public import ConLeche.Model.Inductives.PsiAssembly
+public import ConLeche.Model.Inductives.CopyReads
+import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Verify.Inductives.NestedLeaves
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Level
+
+public section
+
+/-!
+# ψ at the RUN level: the pins' group facts from `DeclNestedRun` (task #279 M-B′, DESIGN §M.28)
+
+`PsiAssembly.lean` closes ψ at the DATUM level: `psiFold_typed` gives
+`PsiTypedPi` at every pin from the group facts of every pin
+(`GroupFacts`) and the bridge to the order's relation.  This module
+reads the group facts off the run:
+
+* **`ContainersRep`** — the container-side premise (the successor of
+  `ContainersAt`): every container the elimination recovers is
+  REPRESENTED at the scratch environment by one datum per block, with
+  a non-nested container's view identities, its recursor stored with
+  rules, its elimination universe fresh in its level parameters, and
+  a small-eliminating block Prop-valued.  It comes through the
+  modelled route's `ModeledLeaf` disjunct until that route is deleted
+  (DESIGN §M.19), so it stays a named premise here.
+* **`pinAssign`** — the pin's level assignment: the container's
+  parameters at the pin's levels (`Level.substFn`, what the copy's
+  stored type reads at) and the elimination universe at the carrier's
+  rank (`GroupFacts.lev`, the choice `psiSetup_of_group` needs); the
+  readings the pin fixes see no difference (`acval_params`,
+  `FormerData.params`).
+* **`PinFacts`** — `GroupFacts` without its constructor field: what
+  the pin's read and the container's representation give; and
+  **`pinFacts_of_run`** — every pin has them, with one `CopyData` per
+  pin (`cd`), the group base and member the ledger's, the readings the
+  pin's inference's (`DenoteMetaSpine`, the same for a whole group).
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps RecRule MutualBlock
+  ContainerMember ContainerInfo AuxType NestedPin ElimState)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+/-! ## The sort transfers -/
+
+/-- `FormerFacts` across the block's re-sorting. -/
+theorem FormerFacts.congr_sort {d : IndRepData V} {s s' : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = s'.eval φ) {m : EnvModel V env} {ψ : Name → Nat} {t : Nat}
+    (h : ({d with resSort := s} : IndRepData V).FormerFacts m ψ t) :
+    ({d with resSort := s'} : IndRepData V).FormerFacts m ψ t := by
+  obtain ⟨h1, h2, h3, h4⟩ := h
+  refine ⟨h1, h2, fun ρ => ?_, fun ρ => ?_⟩
+  · have := h3 ρ
+    show interp V ρ (m.acval (d.memberName t) ψ)
+      ∈ˢ interp V ρ (mkPisAV (d.ppsM t ψ) (.sort (s'.eval ψ)))
+    rw [← hs ψ]
+    exact this
+  · have := h4 ρ
+    show WellDenotedV V ρ (mkPisAV (d.ppsM t ψ) (.sort (s'.eval ψ)))
+    rw [← hs ψ]
+    exact this
+
+/-- `LeafShape` across the block's re-sorting. -/
+theorem LeafShape.congr_sort {d : IndRepData V} {s s' : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = s'.eval φ) {m : EnvModel V env} {ψ : Name → Nat} {t : Nat}
+    (h : ({d with resSort := s} : IndRepData V).LeafShape m ψ t) :
+    ({d with resSort := s'} : IndRepData V).LeafShape m ψ t := by
+  obtain ⟨B, hB⟩ := h
+  refine ⟨B, ?_⟩
+  show m.acval (d.memberName t) ψ = mkLamsC (s'.eval ψ + 1) (d.ppsM t ψ) B
+  rw [← hs ψ]
+  exact hB
+
+/-! ## The container-side premise -/
+
+/-- **The containers are represented at the scratch environment**: for
+every container `I` the elimination recovers (`containerInfo?` at the
+pre-block environment) there is ONE datum `dJ` of its block — a
+non-nested container's (empty `ctorsC`, every member real, the pins the
+parameters, the recursor view the functor view), a small-eliminating
+block Prop-valued — such that every member `i` of the group is
+`IndRep` at member `i` of `dJ`: stored at the scratch environment with
+the type and level parameters `containerInfo?` read, its recursor
+stored with rules, its elimination universe not among its level
+parameters.  A named premise (the `ModeledLeaf` disjunct, DESIGN §M.19)
+until the modelled route goes. -/
+def ContainersRep (env envAux : Env) (m : EnvModel V envAux) : Prop :=
+  ∀ (I : Name) (ci : ContainerInfo), ConLeche.containerInfo? env I = some ci →
+    ∃ dJ : IndRepData V,
+      dJ.ctorsC = [] ∧ dJ.kReal = dJ.k ∧ ci.nP = dJ.nP ∧ ci.members.length = dJ.k ∧
+      (∀ (t : Nat) (φ : Name → Nat), dJ.pinsAV t φ = paramBvarsAt dJ.nP dJ.nP) ∧
+      (∀ J, dJ.ksR J = dJ.ksF J ∧ dJ.tgtsR J = dJ.tgts J ∧ dJ.eissR J = dJ.eissF J ∧
+        dJ.tssR J = dJ.tssF J) ∧
+      (dJ.large = false → ∀ φ : Name → Nat, dJ.w φ = 0) ∧
+      ∀ (i : Nat) (J : ContainerMember), ci.members[i]? = some J →
+        ∃ (cvTJ cvR : ConstantVal) (capsJ : IndCaps) (mI rP : Nat) (rules : List RecRule),
+          envAux.find? J.name = some (.indInfo cvTJ capsJ) ∧ J.type = cvTJ.type ∧
+          J.lps = cvTJ.levelParams ∧ rules ≠ [] ∧
+          envAux.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
+          (dJ.large = true → dJ.elim ∉ cvTJ.levelParams) ∧
+          IndRep m J.name cvTJ cvR mI rP rules dJ i
+
+/-! ## The pin's level assignment -/
+
+/-- The pin's level assignment: the container's parameters at the pin's
+levels, and the elimination universe (when the container eliminates
+largely) at the carrier's rank. -/
+@[expose] def pinAssign (dJ : IndRepData V) (ψ' : Name → Nat) : Name → Nat :=
+  fun q => if dJ.large = true ∧ q = dJ.elim then dJ.w ψ' else ψ' q
+
+omit [SetTheory V] in
+/-- The assignment agrees with the pin's substitution on the container's
+level parameters. -/
+theorem pinAssign_agree {dJ : IndRepData V} {ψ' : Name → Nat} {lps : List Name}
+    (hfresh : dJ.large = true → dJ.elim ∉ lps) : ∀ q ∈ lps, pinAssign dJ ψ' q = ψ' q := by
+  intro q hq
+  unfold pinAssign
+  split
+  · next h =>
+    exfalso
+    exact hfresh h.1 (h.2 ▸ hq)
+  · rfl
+
+omit [SetTheory V] in
+/-- The elimination universe reads as the carrier's rank at the pin's
+assignment, given the carrier's rank reads alike at the two
+(`FormerData.params` at the member's stored former). -/
+theorem pinAssign_lev {dJ : IndRepData V} {ψ' : Name → Nat}
+    (hw : dJ.w (pinAssign dJ ψ') = dJ.w ψ')
+    (hprop : dJ.large = false → ∀ φ : Name → Nat, dJ.w φ = 0) :
+    dJ.elimL.eval (pinAssign dJ ψ') = dJ.w (pinAssign dJ ψ') := by
+  unfold IndRepData.elimL ConLeche.structElimLevel
+  cases hl : dJ.large with
+  | true =>
+    simp only [if_true, Level.eval]
+    have h1 : pinAssign dJ ψ' dJ.elim = dJ.w ψ' := by
+      unfold pinAssign
+      rw [if_pos ⟨hl, rfl⟩]
+    rw [h1, hw]
+  | false =>
+    simp only [Bool.false_eq_true, if_false, Level.eval]
+    exact (hprop hl _).symm
+
+/-! ## The pin's facts -/
+
+/-- **A pin's group facts without its constructor field** — what the
+pin's read and the container's representation give of
+`GroupFacts` (`PsiAssembly.lean`). -/
+structure PinFacts {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V) (ψ : Name → Nat)
+    (k₀ : Nat) (c : CopyData V) : Prop where
+  mm : c.mm < c.dJ.k
+  ctorsC : c.dJ.ctorsC = []
+  kReal : c.dJ.kReal = c.dJ.k
+  pinsAV : ∀ (t : Nat) (φ : Name → Nat), c.dJ.pinsAV t φ = paramBvarsAt c.dJ.nP c.dJ.nP
+  view : ∀ J, c.dJ.ksR J = c.dJ.ksF J ∧ c.dJ.tgtsR J = c.dJ.tgts J ∧ c.dJ.eissR J = c.dJ.eissF J ∧
+    c.dJ.tssR J = c.dJ.tssF J
+  rep : ∃ (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule) (t₀ : Nat),
+    t₀ < c.dJ.k ∧ rules ≠ [] ∧ env.find? cvR.name = some (.recInfo cvR mI rP rules) ∧
+    IndRep mp.base2 T cvT cvR mI rP rules c.dJ t₀
+  len : c.DsA.length = c.dJ.nP
+  lev : c.dJ.elimL.eval c.ψ' = c.dJ.w c.ψ'
+  kA : ∀ t, t < c.dJ.k → k₀ + c.base + t < d.k
+  grp : ∀ t, t < c.dJ.k → CopyData.Ok mp.base2 d ψ k₀ (c.base + t) ⟨c.dJ, t, c.ψ', c.DsA, c.base⟩
+
+/-- `GroupFacts` from `PinFacts` and the constructor field. -/
+theorem GroupFacts.of_pinFacts {μ : CheckMode} {mp : EnvModelM V μ env} {d : IndRepData V}
+    {ψ : Name → Nat} {k₀ : Nat} {lpsT : List Name} {cd : Nat → CopyData V} {c : CopyData V}
+    {auxOf : Nat → Nat} (pf : PinFacts mp d ψ k₀ c)
+    (hctors : ∀ Jc cAJ, c.dJ.ctorsA[Jc]? = some cAJ → ∃ cAa, d.ctorsA[auxOf Jc]? = some cAa ∧
+      CopyCtorFacts mp.base2 d c.dJ ψ c.ψ' c.DsA k₀ c.base cd lpsT Jc (auxOf Jc) cAJ cAa) :
+    GroupFacts mp d ψ k₀ lpsT cd c auxOf :=
+  ⟨pf.mm, pf.ctorsC, pf.kReal, pf.pinsAV, pf.view, pf.rep, pf.len, pf.lev, pf.kA, pf.grp, hctors⟩
+
+/-- The two readings of a pin's components agree. -/
+theorem denoteMetaSpine_eq {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
+    {n : Nat} {as : List Expr} {vs vs' : List AnnotTerm}
+    (h : DenoteMetaSpine acval env φ n as vs) (h' : DenoteMetaSpine acval env φ n as vs') :
+    vs = vs' :=
+  DenoteMetaSpine.unique h h'
+
+/-! ## The reads, moved to the block's datum and to the pin's assignment -/
+
+/-- `PinRead` mentions the datum's parameters only: it transfers from
+the re-sorted datum to the block's. -/
+theorem PinRead.of_sort {d : IndRepData V} {s : Level} {ψ : Name → Nat} {L : AnnotTerm}
+    {DsA : List AnnotTerm} {n : Nat}
+    (h : ({d with resSort := s} : IndRepData V).PinRead ψ L DsA n) : d.PinRead ψ L DsA n :=
+  ⟨h.len, h.wd⟩
+
+/-- `CopyIdxRead` from the re-sorted datum to the block's. -/
+theorem CopyIdxRead.of_sort {d : IndRepData V} {s : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) {ψ : Name → Nat} {t : Nat}
+    {dJ : IndRepData V} {ψ' : Name → Nat} {mmJ : Nat} {DsA : List AnnotTerm}
+    (h : ({d with resSort := s} : IndRepData V).CopyIdxRead ψ t dJ ψ' mmJ DsA) :
+    d.CopyIdxRead ψ t dJ ψ' mmJ DsA :=
+  ⟨by
+    have h1 : dJ.w ψ' = s.eval ψ := h.sort
+    show dJ.w ψ' = d.resSort.eval ψ
+    rw [← hs ψ]; exact h1, h.nIdx, h.idxIff⟩
+
+/-- `CopyIdxRead` at another assignment reading the container alike. -/
+theorem CopyIdxRead.congr_assign {d : IndRepData V} {ψ : Name → Nat} {t : Nat}
+    {dJ : IndRepData V} {ψ' ψ'' : Name → Nat} {mmJ : Nat} {DsA : List AnnotTerm}
+    (hw : dJ.w ψ'' = dJ.w ψ') (hIds : dJ.IdsM mmJ ψ'' = dJ.IdsM mmJ ψ')
+    (h : d.CopyIdxRead ψ t dJ ψ' mmJ DsA) : d.CopyIdxRead ψ t dJ ψ'' mmJ DsA :=
+  ⟨hw.trans h.sort, h.nIdx, fun σ hσ is => by rw [hIds]; exact h.idxIff σ hσ is⟩
+
+/-- A member's index telescope reads alike at two assignments agreeing
+on the block's level parameters (`FormerData.params`). -/
+theorem IdsM_congr {m : EnvModel V env} {cvT : ConstantVal} {dJ : IndRepData V} {t : Nat}
+    (hFD : FormerData m cvT (dJ.nP + dJ.nIdxAt t) dJ.resSort (dJ.ppsM t) (dJ.lvlsM t))
+    {ψ' ψ'' : Name → Nat} (hag : ∀ q ∈ cvT.levelParams, ψ'' q = ψ' q) :
+    dJ.IdsM t ψ'' = dJ.IdsM t ψ' := by
+  unfold IndRepData.IdsM
+  rw [(hFD.params ψ'' ψ' hag).1]
+
+/-! ## Every pin's facts, from the run -/
+
+/-- The container member at a group position, and its pin. -/
+theorem group_pin_eq {st : ElimState} {j₀ t : Nat} {q q' : NestedPin} {n n' : Name}
+    {lvls lvls' : List Level} {Ds Ds' : List Expr}
+    (hq : st.pins[j₀ + t]? = some q) (hq' : st.pins[j₀ + t]? = some q')
+    (hp : q.pin = Expr.mkAppN (.const n lvls) Ds) (hp' : q'.pin = Expr.mkAppN (.const n' lvls') Ds') :
+    n = n' ∧ lvls = lvls' ∧ Ds = Ds' := by
+  obtain rfl : q = q' := Option.some.inj (hq.symm.trans hq')
+  rw [hp] at hp'
+  have h1 := congrArg Expr.getAppFn hp'
+  rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at h1
+  have h2 := congrArg Expr.getAppArgs hp'
+  rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at h2
+  simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.const.injEq] at h1 h2
+  exact ⟨h1.1, h1.2, h2⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **Every pin has its group facts, from the run** — one `CopyData` per
+pin (`cd`), its container the datum `ContainersRep` gives for the pin's
+group, its member the ledger's position in the group, its assignment
+`pinAssign` at the pin's levels, its readings the pin's inference's
+(`DenoteMetaSpine`, the same list for a whole group), its base the
+group's; with the pin's own data exposed for the constructor side and
+the bridge. -/
+theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (fmsA ctorsA : List ConstantVal)
+      (order : List Nat),
+      ConLeche.auxBlock p st = some b ∧
+      ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
+      ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
+      st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
+          ∃ cd : Nat → CopyData V, ∀ j, j < st.pins.length →
+            PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j ∧
+            ∃ (q : NestedPin) (I : Name) (ci : ContainerInfo) (J : ContainerMember)
+              (lvls : List Level) (Ds : List Expr) (cvTJ : ConstantVal) (capsJ : IndCaps),
+              st.pins[j]? = some q ∧ ConLeche.containerInfo? env I = some ci ∧
+              ci.members[(cd j).mm]? = some J ∧ J.name = q.container ∧
+              (cd j).dJ.memberName (cd j).mm = q.container ∧
+              ci.members.length = (cd j).dJ.k ∧
+              (∀ i' J', ci.members[i']? = some J' →
+                ∃ q', st.pins[(cd j).base + i']? = some q' ∧ q'.container = J'.name ∧
+                  q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+              q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
+              envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
+              (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
+              DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA) := by
+  obtain ⟨st, b, envAux, params, fmsA, ctorsA, order, hb, helim, hord, hlenSt, -, mpAux, d, hreps,
+    hpins⟩ := copyIdxRead_of_run hμ mp hE h
+  refine ⟨st, b, envAux, fmsA, ctorsA, order, hb, helim, hord, hlenSt, mpAux, d, hreps, ?_⟩
+  intro hcr ψ
+  obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
+  have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
+  -- one pin
+  have hone : ∀ j, j < st.pins.length → ∃ c : CopyData V,
+      PinFacts mpAux d ψ p.k c ∧ c.base + c.mm = j ∧
+      ∃ (q : NestedPin) (I : Name) (ci : ContainerInfo) (J : ContainerMember)
+        (lvls : List Level) (Ds : List Expr) (cvTJ : ConstantVal) (capsJ : IndCaps),
+        st.pins[j]? = some q ∧ ConLeche.containerInfo? env I = some ci ∧
+        ci.members[c.mm]? = some J ∧ J.name = q.container ∧
+        c.dJ.memberName c.mm = q.container ∧
+        ci.members.length = c.dJ.k ∧
+        (∀ i' J', ci.members[i']? = some J' →
+          ∃ q', st.pins[c.base + i']? = some q' ∧ q'.container = J'.name ∧
+            q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+        q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
+        envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
+        c.ψ' = pinAssign c.dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
+        DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA := by
+    intro j hj
+    obtain ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hDsLen, hlvls, hread⟩ :=
+      hpins j hj
+    obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hmem⟩ := hcr I ci hci
+    obtain ⟨cvTJ, cvR, capsJ, mI, rP, rules, hfJ, hJty, hJlps, hrules, hfR, hfresh, hrep⟩ :=
+      hmem i J hJ
+    have hik : i < dJ.k := by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp hJ).1
+    have hFDJ : FormerData mpAux.base2 cvTJ (dJ.nP + dJ.nIdxAt i) dJ.resSort (dJ.ppsM i)
+        (dJ.lvlsM i) :=
+      hrep.formersRead i (by rw [hkR]; exact hik) cvTJ capsJ (by rw [hrep.member]; exact hfJ)
+    obtain ⟨s, DsA, hsv, hsp, hpin, hidx⟩ := hread ψ cvTJ capsJ dJ i hfJ hJty hJlps hciNP hFDJ
+    -- the assignment
+    obtain ⟨ψ'₀, hψ'₀⟩ : ∃ x, x = Level.substFn ψ cvTJ.levelParams lvls := ⟨_, rfl⟩
+    obtain ⟨ψ', hψ'⟩ : ∃ x, x = pinAssign dJ ψ'₀ := ⟨_, rfl⟩
+    have hagree : ∀ q ∈ cvTJ.levelParams, ψ' q = ψ'₀ q := by
+      rw [hψ']; exact pinAssign_agree hfresh
+    have hw : dJ.w ψ' = dJ.w ψ'₀ := (hFDJ.params ψ' ψ'₀ hagree).2
+    have hlev : dJ.elimL.eval ψ' = dJ.w ψ' := by subst hψ'; exact pinAssign_lev hw hprop
+    have hlenD : DsA.length = dJ.nP := by rw [hpin.len, hDsLen, hciNP]
+    -- the group's pins exist
+    have hposGrp : ∀ t, t < dJ.k → j₀ + t < st.pins.length := by
+      intro t ht
+      obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
+      obtain ⟨q', hq', -, -⟩ := hgrp t J' hJ'
+      exact (List.getElem?_eq_some_iff.mp hq').1
+    -- every group-mate's data are live
+    have hgrpOk : ∀ t, t < dJ.k →
+        CopyData.Ok mpAux.base2 d ψ p.k (j₀ + t) ⟨dJ, t, ψ', DsA, j₀⟩ := by
+      intro t ht
+      obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
+      obtain ⟨q', hq', hq'c, hq'p⟩ := hgrp t J' hJ'
+      obtain ⟨cvTJ', cvR', capsJ', mI', rP', rules', hfJ', hJty', hJlps', -, -, -, hrep'⟩ :=
+        hmem t J' hJ'
+      have hfJ'' : envAux.find? (dJ.memberName t) = some (.indInfo cvTJ' capsJ') := by
+        rw [hrep'.member]; exact hfJ'
+      have hlpsT : cvTJ'.levelParams = cvTJ.levelParams := hrep.membersLps t ht cvTJ' capsJ' hfJ''
+      have hFDJ' : FormerData mpAux.base2 cvTJ' (dJ.nP + dJ.nIdxAt t) dJ.resSort (dJ.ppsM t)
+          (dJ.lvlsM t) :=
+        hrep'.formersRead t (by rw [hkR]; exact ht) cvTJ' capsJ' hfJ''
+      -- the read at the group-mate's pin, at this datum
+      obtain ⟨qt, It, cit, it, j₀t, Jt, lvlst, Dst, hqt, hcit, hJt, -, -, hqtc, hqtp, hDsLent, -,
+        hreadt⟩ := hpins (j₀ + t) (hposGrp t ht)
+      obtain ⟨hJtn, hlv, hDsE⟩ := group_pin_eq hqt hq' hqtp hq'p
+      rw [hlv, hDsE] at hreadt
+      rw [hDsE] at hDsLent
+      -- the same stored constant, so the same type and level parameters
+      obtain ⟨⟨cvC, capsC, hfC, htyC, hlpsC⟩, -⟩ := ConLeche.containerInfo?_stored hcit Jt
+        (List.mem_of_getElem? hJt)
+      obtain ⟨⟨cvC', capsC', hfC', htyC', hlpsC'⟩, -⟩ := ConLeche.containerInfo?_stored hci J'
+        (List.mem_of_getElem? hJ')
+      rw [hJtn] at hfC
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
+      have hJtty : Jt.type = cvTJ'.type := by rw [htyC, ← htyC', hJty']
+      have hJtlps : Jt.lps = cvTJ'.levelParams := by rw [hlpsC, ← hlpsC', hJlps']
+      have hcitNP : cit.nP = dJ.nP := by rw [← hDsLent, hDsLen, hciNP]
+      obtain ⟨st', DsA', hsv', hsp', hpin', hidx'⟩ :=
+        hreadt ψ cvTJ' capsJ' dJ t (by rw [hJtn]; exact hfJ') hJtty hJtlps hcitNP hFDJ'
+      obtain rfl : DsA = DsA' := denoteMetaSpine_eq hsp hsp'
+      -- the assignment agrees on the container's level parameters
+      have hagree' : ∀ q ∈ cvTJ'.levelParams, ψ' q = Level.substFn ψ cvTJ'.levelParams lvls q := by
+        rw [hlpsT, ← hψ'₀]; exact hagree
+      have hacv : mpAux.base2.acval Jt.name ψ'
+          = mpAux.base2.acval Jt.name (Level.substFn ψ cvTJ'.levelParams lvls) :=
+        mpAux.base2.acval_params Jt.name (.indInfo cvTJ' capsJ') (by rw [hJtn]; exact hfJ') _ _
+          hagree'
+      refine ⟨by show p.k + j₀ + t = p.k + (j₀ + t); omega, ht, hlenD,
+        IndRepData.formerFacts_of_indRep dJ hrep' hkR ψ' ht,
+        hrep'.leafShape t (by rw [hkR]; exact ht) ψ',
+        hpinsAV t, hrep'.paramsIffM t (by rw [hkR]; exact ht) ψ', ?_, ?_⟩
+      · show d.PinRead ψ (mpAux.base2.acval (dJ.memberName t) ψ') DsA dJ.nP
+        rw [hrep'.member, ← hJtn, hacv]
+        have hpin'' := PinRead.of_sort hpin'
+        rw [hDsLen, hciNP] at hpin''
+        exact hpin''
+      · show d.CopyIdxRead ψ (p.k + (j₀ + t)) dJ ψ' t DsA
+        refine CopyIdxRead.congr_assign ?_ (IdsM_congr hFDJ' hagree') (CopyIdxRead.of_sort hsv' hidx')
+        exact (hFDJ'.params ψ' _ hagree').2
+    refine ⟨⟨dJ, i, ψ', DsA, j₀⟩, ⟨hik, hctorsC, hkR, hpinsAV, hview,
+        ⟨J.name, cvTJ, cvR, mI, rP, rules, i, hik, hrules, hfR, hrep⟩, hlenD, hlev,
+        fun t ht => by show p.k + j₀ + t < d.k; have := hposGrp t ht; omega, hgrpOk⟩,
+      by show j₀ + i = j; omega,
+      q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hqc.symm, by rw [hrep.member, hqc], hlenM,
+      hgrp, by rw [hqp, hqc], by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp⟩
+  -- the choice, per pin
+  refine ⟨fun j => if hj : j < st.pins.length then Classical.choose (hone j hj)
+    else ⟨d, 0, ψ, [], 0⟩, fun j hj => ?_⟩
+  simp only [dif_pos hj]
+  exact Classical.choose_spec (hone j hj)
+
+/-! ## The auxiliary datum's own facts, from the block's representations -/
+
+/-- **The scratch block's real-member facts at its datum**: every member
+is a real member (`MutualBlockReps`), so its former facts, leaf shape
+and parameter equivalence hold at the block's datum — read off the
+member's representation at its re-sorted datum and moved to the
+block's sort (`congr_sort`; the two evaluate alike). -/
+theorem auxFacts_of_blockReps {μ : CheckMode} {mpAux : EnvModelM V μ env} {b : MutualBlock}
+    {d : IndRepData V} (hreps : MutualBlockReps mpAux.base2 b d) (ψ : Name → Nat) :
+    (∀ t, d.pinsOf ψ t = paramBvarsAt d.nP d.nP) ∧
+    (∀ t, t < d.k → d.FormerFacts mpAux.base2 ψ t) ∧
+    (∀ t, t < d.k → d.LeafShape mpAux.base2 ψ t) ∧
+    (∀ t, t < d.k → ∀ ρ' : Nat → V, Sat V (d.params ψ).reverse ρ' ↔
+      Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ') := by
+  obtain ⟨-, hkb, hkRb, -, hpinsAV, -, -, hall⟩ := hreps
+  refine ⟨fun t => hpinsAV t ψ, fun t ht => ?_, fun t ht => ?_, fun t ht => ?_⟩
+  · obtain ⟨s, cvT, cvR, caps, mI, rP, rules, -, -, -, hsv, hrep⟩ := hall t (by rw [← hkb]; exact ht)
+    have hkR : ({d with resSort := s} : IndRepData V).kReal
+        = ({d with resSort := s} : IndRepData V).k := by
+      show d.kReal = d.k
+      rw [hkb, hkRb]
+    have h := IndRepData.formerFacts_of_indRep ({d with resSort := s} : IndRepData V) hrep hkR ψ
+      (t := t) ht
+    exact FormerFacts.congr_sort (d := d) (s' := d.resSort) hsv h
+  · obtain ⟨s, cvT, cvR, caps, mI, rP, rules, -, -, -, hsv, hrep⟩ := hall t (by rw [← hkb]; exact ht)
+    have h := hrep.leafShape t (by show t < d.kReal; rw [hkRb, ← hkb]; exact ht) ψ
+    exact LeafShape.congr_sort (d := d) (s' := d.resSort) hsv h
+  · obtain ⟨s, cvT, cvR, caps, mI, rP, rules, -, -, -, -, hrep⟩ := hall t (by rw [← hkb]; exact ht)
+    exact hrep.paramsIffM t (by show t < d.kReal; rw [hkRb, ← hkb]; exact ht) ψ
+
+/-! ## ψ at every pin, from the run -/
+
+/-- **The constructor-side premise**: at every pin, the container's
+constructors are matched by the copy's (`auxOfs j`) with the facts
+`psiSetup_of_group` consumes (`CopyCtorFacts`: the record
+`CopyCtorAsRead`, the copy's constructor facts in the auxiliary datum,
+its closedness, parameter equivalence, view identities, targets and
+member) — what `nestedCopyCtorType_eq`'s identity arm reads
+(DESIGN §M.26) and the whnf arm owes. -/
+def CopyCtorsOfRun {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V) (ψ : Name → Nat)
+    (k₀ n : Nat) (lpsT : List Name) (cd : Nat → CopyData V) (auxOfs : Nat → Nat → Nat) : Prop :=
+  ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ →
+    ∃ cAa, d.ctorsA[auxOfs j' Jc]? = some cAa ∧
+      CopyCtorFacts mp.base2 d (cd j').dJ ψ (cd j').ψ' (cd j').DsA k₀ (cd j').base cd lpsT Jc
+        (auxOfs j' Jc) cAJ cAa
+
+/-- **The bridge**: every transport's target — a field the copy's
+constructor sees as recursive and the container's as ordinary — is a
+reference of the kernel's relation (`CopyRef`: mentioned, outside the
+group, no group pin inside its pin). -/
+def BridgeOfRun (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
+    (auxOfs : Nat → Nat → Nat) : Prop :=
+  ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+    i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
+    ConLeche.CopyRef (ElimState.grp st) k₀ st j' (d.tgtsR (auxOfs j' Jc) i - k₀)
+
+set_option maxHeartbeats 800000 in
+/-- **ψ AT EVERY PIN, FROM THE RUN** (task #279 M-B′, DESIGN §M.28):
+under the containers' representation (`ContainersRep`), for every
+level assignment and parameter frame of the scratch block, the fold of
+the copies' terms along the KERNEL's order (`nestedTopoOrder`, read as
+`TopoOrder (CopyRef …)` by `topoOrder_of_run`) is `PsiTypedPi` at every
+pin — given the constructor side (`CopyCtorsOfRun`) and the bridge
+(`BridgeOfRun`) at the pins' data `cd` this run reads
+(`pinFacts_of_run`). -/
+theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (order : List Nat),
+      ConLeche.auxBlock p st = some b ∧
+      ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
+      st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
+          ∃ cd : Nat → CopyData V,
+            (∀ j, j < st.pins.length → PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j) ∧
+            ∀ (lpsT : List Name) (auxOfs : Nat → Nat → Nat),
+              CopyCtorsOfRun mpAux d ψ p.k st.pins.length lpsT cd auxOfs →
+              BridgeOfRun d st p.k st.pins.length cd auxOfs →
+              ∀ (ρ₀ : Nat → V) (psA : List AnnotTerm), psA.length = d.nP →
+                SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)) →
+                ∀ (tbl₀ : Nat → AnnotTerm) (j' : Nat), j' < st.pins.length →
+                  d.PsiP mpAux.base2 ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
+                    (ConLeche.orderFold (d.psiStep mpAux.base2 ψ p.k cd auxOfs) order tbl₀ j')) := by
+  obtain ⟨st, b, envAux, fmsA, ctorsA, order, hb, -, hord, hlenSt, mpAux, d, hreps, hpins⟩ :=
+    pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, ?_⟩
+  intro hcr ψ
+  obtain ⟨cd, hcd⟩ := hpins hcr ψ
+  refine ⟨cd, fun j hj => ⟨(hcd j hj).1, (hcd j hj).2.1⟩, ?_⟩
+  intro lpsT auxOfs hctors hbridge ρ₀ psA hpsA hparamsA tbl₀ j' hj'
+  obtain ⟨hpinsA, hFFA, hLSA, hpIffMA⟩ := auxFacts_of_blockReps hreps ψ
+  obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
+  have hkn : d.k ≤ p.k + st.pins.length := by
+    rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
+    exact Nat.le_refl _
+  have hall : ∀ j, j < st.pins.length →
+      GroupFacts mpAux d ψ p.k lpsT cd (cd j) (auxOfs j) ∧ (cd j).base + (cd j).mm = j := by
+    intro j hj
+    exact ⟨GroupFacts.of_pinFacts (hcd j hj).1 (hctors j hj), (hcd j hj).2.1⟩
+  exact d.psiFold_typed mpAux hpsA hparamsA hpinsA hFFA hLSA hpIffMA hkn hall hbridge
+    (ConLeche.topoOrder_of_run hlenSt hord) tbl₀ j' hj'
+
+end ConLeche.Model

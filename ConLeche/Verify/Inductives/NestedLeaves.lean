@@ -276,7 +276,8 @@ theorem containerInfo?_stored {env : Env} {I : Name} {ci : ContainerInfo}
     (h : containerInfo? env I = some ci) :
     ∀ J ∈ ci.members,
       (∃ (cvC : ConstantVal) (caps : IndCaps),
-        env.find? J.name = some (.indInfo cvC caps) ∧ J.type = cvC.type) ∧
+        env.find? J.name = some (.indInfo cvC caps) ∧ J.type = cvC.type ∧
+          J.lps = cvC.levelParams) ∧
       ∀ c ∈ J.ctors, ∃ (cvc : ConstantVal) (nPc nF : Nat),
         env.find? c.name = some (.ctorInfo cvc nPc nF) ∧ c.type = cvc.type := by
   unfold containerInfo? at h
@@ -324,7 +325,7 @@ theorem containerInfo?_stored {env : Env} {I : Name} {ci : ContainerInfo}
                 obtain ⟨ctors, hctors, hf⟩ := hf
                 simp only [Option.some.injEq] at hf
                 subst hf
-                refine ⟨⟨cvC, capsC, hfC, rfl⟩, fun c hc => ?_⟩
+                refine ⟨⟨cvC, capsC, hfC, rfl, rfl⟩, fun c hc => ?_⟩
                 obtain ⟨l, hl⟩ := List.getElem?_of_mem hc
                 obtain ⟨hlenc, hallc⟩ := optionMapM_getElem? hctors
                 have hlr : l < rulesC.length := by
@@ -350,7 +351,7 @@ theorem containerInfo?_stored {env : Env} {I : Name} {ci : ContainerInfo}
 /-- Under `EnvWF` the containers are closed. -/
 theorem containersClosed_of_wf {env : Env} (hwf : EnvWF env) : ContainersClosed env := by
   intro I ci hci J hJ
-  obtain ⟨⟨cvC, caps, hfC, hty⟩, hctors⟩ := containerInfo?_stored hci J hJ
+  obtain ⟨⟨cvC, caps, hfC, hty, -⟩, hctors⟩ := containerInfo?_stored hci J hJ
   refine ⟨by rw [hty]; exact (hwf _ (List.mem_of_find?_eq_some hfC)).1, fun c hc => ?_⟩
   obtain ⟨cvc, nPc, nF, hfc, hty'⟩ := hctors c hc
   rw [hty']
