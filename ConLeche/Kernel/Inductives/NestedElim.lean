@@ -485,15 +485,24 @@ def ElimState.grp (st : ElimState) (j : Nat) : Nat × Nat :=
   | none => (0, 0)
 
 /-- **`CopyRef grp k st j j'`, as a decision** (the model lane's
-`CopyRef`, clause for clause): a processed constructor of copy `j`
-mentions copy `j'`'s name; `j'` is OUTSIDE `j`'s mint group; and no pin
-of `j`'s group is a subterm of `j'`'s pin — the exclusion that keeps a
+`CopyRef`, clause for clause): a processed constructor of a copy of
+`j`'s MINT GROUP mentions copy `j'`'s name (K.15 (1): the group, not
+`j` alone — ψ at `j` folds the group's constructors); `j'` is OUTSIDE
+`j`'s mint group; and no pin of `j`'s group is a subterm of `j'`'s pin — the exclusion that keeps a
 container's references through its OWN mimics out of the relation, since
 a mimic's pin contains a group pin. -/
 def copyRefB (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' : Nat) : Bool :=
   match st.types[k + j]?, st.types[k + j']?, st.pins[j']? with
-  | some t, some t', some q' =>
-    t.ctors.any (fun c => c.2.1.mentionsConst t'.name) &&
+  | some _t, some t', some q' =>
+    -- **THE MENTION RANGES OVER THE WHOLE MINT GROUP** (K.15 (1)): ψ at
+    -- pin `j` folds every constructor of `j`'s group, so a transport
+    -- sitting in a GROUP-MATE's constructor is a reference of `j` too.
+    -- With the mention read off `j`'s own type only, the sort could emit
+    -- `[j, target, mate]`, which the fold at `j` cannot use.
+    (List.range (grp j).2).any (fun g =>
+      match st.types[k + (grp j).1 + g]? with
+      | some tg => tg.ctors.any (fun c => c.2.1.mentionsConst t'.name)
+      | none => false) &&
     !((grp j).1 ≤ j' && j' < (grp j).1 + (grp j).2) &&
     (List.range (grp j).2).all (fun i =>
       match st.pins[(grp j).1 + i]? with
