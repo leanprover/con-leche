@@ -2,13 +2,70 @@ module
 
 public import ConLeche.Verify.Inductives.CopyTypes
 public import ConLeche.Verify.Mono
+public import ConLeche.Kernel.Inductives.NestedElim
+public import ConLeche.Kernel.Inductives.NestedInstall
 
 public section
 
 /-!
 # The two lemmas behind `AuxFormersAnnot` (task #300)
 
-placeholder
+**What this is for.**  The nested route's elimination MINTS a copy of a
+container member at a pin (`mkCopy`,
+`ConLeche/Kernel/Inductives/NestedElim.lean`) and hands the copies to
+the mutual install as an auxiliary block.  That install annotates every
+former at the **pre-block** environment (`mutualFormerChecks`,
+`Kernel/Inductives/MutualInstall.lean`) and KEEPS the annotated
+constant when its telescope is already `nP + nIdx` `∀`s ending in a
+sort (`checkSumTele`'s first branch,
+`Kernel/Inductives/SumInstall.lean`).  The model lane's premise
+`AuxFormersAnnot` (DESIGN §M.23, `Model/Inductives/CopyReads.lean`)
+says that the copies' STORED formers are, at the **scratch**
+environment, the annotations of their minted types — and it named two
+lemmas as what turns the run into that statement.  Both are here.
+
+**(a) The annotator under a conservative environment extension.**  The
+scratch environment extends the pre-block one (it holds the whole
+auxiliary block), so the run the install made at `env` has to be
+replayed at `envAux`.  Two theorems:
+
+* `annotateCore_envExt` — THE GENERAL FORM: an `.ok` run transports,
+  given two hypotheses that are stated here and **not** proved,
+  because the tree does not have them: `SlotsExt` (the
+  reduction/inference/definitional-equality slots transport) and
+  `ReaderNoNew` (the extension creates no head reading where the
+  reader declined).  Everything the pass contributes itself — the head
+  readers (`typeSortPW_envExt`, `proofPW_envExt`), the literal guards,
+  the projection table — is proved monotone here.
+* `ReaderRun` + `annotateCore_envExt_of_readerRun` — THE READER-BRANCH
+  CASE, with no hypothesis at all beyond the extension.  A run that
+  never leaves the head reader (no `letE`, no `proj`, no inference
+  fallback at a binder) transports unconditionally, because every
+  environment lookup it makes is on the `some` branch of its own
+  answer.  `ReaderRun` is a derivation, stronger than the run
+  (`ReaderRun.annotateCore` turns it into one at every mode) by
+  exactly the fallbacks it forbids.
+
+  This is the form a copy's former actually needs: a telescope's every
+  codomain is a `∀` or a `Sort`, and the reader answers both by `rfl`
+  (`typeSortPW_forallE`, `typeSortPW_sort`, `Verify/Inductives/
+  CopyTypes.lean`); only the parameter and index DOMAINS can carry a
+  redex- or `proj`-headed binder, and that is precisely K.4's frontier.
+
+**(b) The minted former's telescope ends in a sort.**
+`mkCopy_type_stripPis_sort` / `auxIdxCount_mkCopy` /
+`mkCopy_checkSumTele_keeps`: level instantiation, `instPis` at the
+pin's components and `closeTelescope` over the block's parameter
+binders are all congruences on `∀` that leave a `Sort` residual a
+`Sort`, so the container's telescope shape is inherited by the copy —
+`auxIdxCount` reads `nIdx` back off `piBinders`, the annotation pass
+preserves the shape (`annotateCore_stripPis_sort`), and
+`checkSumTele`'s first branch fires and keeps the annotated constant.
+
+**Off the build graph**, like the other nested Verify modules
+(`Verify/Inductives/CopyTypes.lean`): nothing in `ConLeche.lean`'s cone
+imports it yet, so it is built explicitly
+(`lake build ConLeche.Verify.Inductives.AuxFormers`).
 -/
 
 namespace ConLeche
@@ -610,5 +667,354 @@ theorem annotateCore_envExt_of_readerRun {env env' : Env} (hext : EnvExt env env
     annotateCore mode env F d e = .ok r ∧
       annotateCore mode env' F d e = .ok r :=
   ⟨h.annotateCore, (h.envExt hext).annotateCore⟩
+
+/-! ### The derivation is inhabited
+
+A two-binder witness, so that `ReaderRun` is not a predicate no term
+satisfies: the smallest former shape, `∀ (_ : Type), Prop`, whose
+codomain the reader answers by `rfl` — which is what every copy's
+telescope node looks like. -/
+
+example (env : Env) : ReaderRun env 2 0
+    (.forallE (.sort (.succ .zero)) (.sort .zero) ⟨.never⟩)
+    (.forallE (.sort (.succ .zero)) (.sort .zero) ⟨.never⟩) :=
+  ReaderRun.forallE (body' := .sort .zero) .sort .sort (Or.inr ⟨by simp [pwWritten], rfl⟩)
+
+example (env : Env) (mode : CheckMode) :
+    annotateCore mode env 2 0
+        (.forallE (.sort (.succ .zero)) (.sort .zero) ⟨.never⟩)
+      = .ok (.forallE (.sort (.succ .zero)) (.sort .zero) ⟨.never⟩) :=
+  ReaderRun.annotateCore
+    (ReaderRun.forallE (body' := .sort .zero) .sort .sort (Or.inr ⟨by simp [pwWritten], rfl⟩))
+
+/-! ## LEMMA (b): the minted former's telescope ends in a sort
+
+`checkSumTele`'s first branch (`Kernel/Inductives/SumInstall.lean`)
+fires exactly when the declared type is ALREADY a syntactic telescope
+of `nP + nIdx` `∀`s ending in a sort — and then it keeps the annotated
+constant untouched, which is what `AuxFormersAnnot` asserts.  A copy
+minted by `mkCopy` always is such a telescope, because the container's
+stored former is one and neither level instantiation, nor `instPis` at
+the pin's components, nor `closeTelescope` over the block's parameter
+binders can disturb the shape: all three are congruences on `∀` that
+leave a `Sort` residual a `Sort`.
+
+The four closure lemmas below are the whole content; `auxIdxCount` then
+reads the index count back off `piBinders`, which a sort-terminated
+`stripPis` pins exactly.
+-/
+
+/-- A `∀`-telescope ending in a sort survives level instantiation. -/
+theorem stripPis_sort_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {u : Level},
+      e.stripPis k = some (bs, .sort u) →
+      ∃ bs', (e.instantiateLevelParams ks us).stripPis k
+        = some (bs', .sort (Level.subst ks us u)) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs u h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact ⟨[], rfl⟩
+  | succ k ih =>
+    intro e bs u h
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      obtain ⟨bs', hbs'⟩ := ih h0
+      refine ⟨(ty.instantiateLevelParams ks us, ⟨Level.substPW ks us m.pw⟩) :: bs', ?_⟩
+      simp only [Expr.instantiateLevelParams, Expr.stripPis, hbs', Option.map_some]
+    | _ => simp only [Expr.stripPis] at h; exact nomatch h
+
+/-- A `∀`-telescope ending in a sort survives substitution. -/
+theorem stripPis_sort_instantiate1 (v : Expr) :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {u : Level} {j : Nat},
+      e.stripPis k = some (bs, .sort u) →
+      ∃ bs', (e.instantiate1 v j).stripPis k = some (bs', .sort u) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs u j h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact ⟨[], rfl⟩
+  | succ k ih =>
+    intro e bs u j h
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      obtain ⟨bs', hbs'⟩ := ih (j := j + 1) h0
+      refine ⟨(ty.instantiate1 v j, m) :: bs', ?_⟩
+      simp only [Expr.instantiate1, Expr.stripPis, hbs', Option.map_some]
+    | _ => simp only [Expr.stripPis] at h; exact nomatch h
+
+/-- A `∀`-telescope ending in a sort survives abstraction. -/
+theorem stripPis_sort_abstract1 :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {u : Level} {d j : Nat},
+      e.stripPis k = some (bs, .sort u) →
+      ∃ bs', (e.abstract1 d j).stripPis k = some (bs', .sort u) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs u d j h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact ⟨[], rfl⟩
+  | succ k ih =>
+    intro e bs u d j h
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      obtain ⟨bs', hbs'⟩ := ih (d := d) (j := j + 1) h0
+      refine ⟨(ty.abstract1 d j, m) :: bs', ?_⟩
+      simp only [Expr.abstract1, Expr.stripPis, hbs', Option.map_some]
+    | _ => simp only [Expr.stripPis] at h; exact nomatch h
+
+/-- Instantiating the leading binders of a sort-terminated telescope
+succeeds and leaves a shorter sort-terminated telescope. -/
+theorem stripPis_sort_instPis :
+    ∀ (as : List Expr) {e : Expr} {k : Nat} {bs : List (Expr × BinderMeta)} {u : Level},
+      e.stripPis (as.length + k) = some (bs, .sort u) →
+      ∃ t bs', Expr.instPis e as = some t ∧ t.stripPis k = some (bs', .sort u) := by
+  intro as
+  induction as with
+  | nil =>
+    intro e k bs u h
+    simp only [List.length_nil, Nat.zero_add] at h
+    exact ⟨e, bs, rfl, h⟩
+  | cons a as ih =>
+    intro e k bs u h
+    cases e with
+    | forallE ty body m =>
+      have hlen : (a :: as).length + k = (as.length + k) + 1 := by
+        simp only [List.length_cons]; omega
+      rw [hlen] at h
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      obtain ⟨bs1, hbs1⟩ := stripPis_sort_instantiate1 a (as.length + k) (j := 0) h0
+      obtain ⟨t, bs', ht, hst⟩ := ih hbs1
+      exact ⟨t, bs', ht, hst⟩
+    | _ =>
+      have hlen : (a :: as).length + k = (as.length + k) + 1 := by
+        simp only [List.length_cons]; omega
+      rw [hlen] at h
+      simp only [Expr.stripPis] at h
+      exact nomatch h
+
+/-- Closing a sort-terminated telescope over a parameter prefix leaves
+a sort-terminated telescope, longer by the prefix. -/
+theorem stripPis_sort_closeTelescope :
+    ∀ (pbs : List (Expr × BinderMeta)) {i : Nat} {t : Expr} {k : Nat}
+      {bs : List (Expr × BinderMeta)} {u : Level},
+      t.stripPis k = some (bs, .sort u) →
+      ∃ bs', (closeTelescope pbs i t).stripPis (pbs.length + k)
+        = some (bs', .sort u) := by
+  intro pbs
+  induction pbs with
+  | nil =>
+    intro i t k bs u h
+    simp only [List.length_nil, Nat.zero_add, closeTelescope]
+    exact ⟨bs, h⟩
+  | cons pb pbs ih =>
+    intro i t k bs u h
+    obtain ⟨bs0, hbs0⟩ := ih (i := i + 1) (t := t) (k := k) h
+    obtain ⟨bs1, hbs1⟩ := stripPis_sort_abstract1 (pbs.length + k) (d := i) (j := 0) hbs0
+    refine ⟨(pb.1, pb.2) :: bs1, ?_⟩
+    have hlen : (pb :: pbs).length + k = (pbs.length + k) + 1 := by
+      simp only [List.length_cons]; omega
+    rw [hlen]
+    simp only [closeTelescope, Expr.stripPis, hbs1, Option.map_some]
+
+/-- A sort-terminated `stripPis` pins `piBinders` exactly: the residual
+is not a `∀`, so the greedy walk stops at the same place. -/
+theorem piBinders_of_stripPis_sort :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {u : Level},
+      e.stripPis k = some (bs, .sort u) → e.piBinders = (bs, .sort u) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs u h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ k ih =>
+    intro e bs u h
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      simp only [Expr.piBinders, ih h0]
+    | _ => simp only [Expr.stripPis] at h; exact nomatch h
+
+/-- **LEMMA (b).**  A copy minted from a container member whose stored
+former is a syntactic telescope of `Ds.length + nIdx` binders ending in
+`Sort u` has, for its own type, a syntactic telescope of
+`pbs.length + nIdx` binders ending in `Sort u[lvls]` — so
+`auxIdxCount pbs.length` returns `nIdx` and `checkSumTele`'s first
+branch fires at `pbs.length + nIdx`. -/
+theorem mkCopy_type_stripPis_sort {pbs : List (Expr × BinderMeta)} {lvls : List Level}
+    {Ds : List Expr} {auxName : Name} {J : ContainerMember} {copy : AuxType}
+    {nIdx : Nat} {bs : List (Expr × BinderMeta)} {u : Level}
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy) :
+    ∃ bs', copy.type.stripPis (pbs.length + nIdx)
+      = some (bs', .sort (Level.subst J.lps lvls u)) := by
+  obtain ⟨bsL, hbsL⟩ := stripPis_sort_instantiateLevelParams J.lps lvls _ hJ
+  obtain ⟨tyI, bsI, htyI, hstI⟩ := stripPis_sort_instPis Ds hbsL
+  obtain ⟨bs', hbs'⟩ := stripPis_sort_closeTelescope pbs (i := 0) hstI
+  refine ⟨bs', ?_⟩
+  -- the mint's own value of `tyI` is this one
+  unfold mkCopy at hmk
+  simp only [bind, Except.bind] at hmk
+  split at hmk
+  case isFalse => simp at hmk
+  case isTrue =>
+    rw [htyI] at hmk
+    dsimp only at hmk
+    split at hmk
+    all_goals simp only [pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hmk
+    rw [← hmk]
+    exact hbs'
+
+/-- The index count the auxiliary block records for a minted copy. -/
+theorem auxIdxCount_mkCopy {pbs : List (Expr × BinderMeta)} {lvls : List Level}
+    {Ds : List Expr} {auxName : Name} {J : ContainerMember} {copy : AuxType}
+    {nIdx : Nat} {bs : List (Expr × BinderMeta)} {u : Level}
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy) :
+    auxIdxCount pbs.length copy.type = some nIdx := by
+  obtain ⟨bs', hbs'⟩ := mkCopy_type_stripPis_sort hJ hmk
+  have hpb := piBinders_of_stripPis_sort _ hbs'
+  have hlen : bs'.length = pbs.length + nIdx := stripPis_length _ hbs'
+  simp only [auxIdxCount, hpb, hlen]
+  rw [if_pos (Nat.le_add_right _ _)]
+  simp
+
+/-! ### From the mint to `checkSumTele`'s first branch -/
+
+/-- **The annotation pass preserves a sort-terminated telescope**, with
+the sort on the nose: a `∀` node is rebuilt as a `∀`, a `Sort` node is
+returned unchanged, and neither the opening at the binder's free
+variable nor the closing abstraction can turn the residual into
+anything else. -/
+theorem annotateCore_stripPis_sort {env : Env} :
+    ∀ (k F d : Nat) {e r : Expr} {bs : List (Expr × BinderMeta)} {u : Level},
+      annotateCore mode env F d e = .ok r →
+      e.stripPis k = some (bs, .sort u) →
+      ∃ bs', r.stripPis k = some (bs', .sort u) := by
+  intro k
+  induction k with
+  | zero =>
+    intro F d e r bs u h hs
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨-, rfl⟩ := hs
+    cases F with
+    | zero =>
+      rw [annotateCore_zero] at h
+      simp only [throw, throwThe, MonadExceptOf.throw] at h
+      exact nomatch h
+    | succ f =>
+      rw [annotateCore_succ] at h
+      simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨[], by rw [← h]; rfl⟩
+  | succ k ih =>
+    intro F d e r bs u h hs
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hs
+      obtain ⟨⟨bs0, r0⟩, h0, heq⟩ := hs
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      cases F with
+      | zero =>
+        rw [annotateCore_zero] at h
+        simp only [throw, throwThe, MonadExceptOf.throw] at h
+        exact nomatch h
+      | succ f =>
+        obtain ⟨ty', body', pw, -, hbody, rfl⟩ := annotateCore_forallE_inv h
+        obtain ⟨bs1, hbs1⟩ :=
+          stripPis_sort_instantiate1 (.fvar d ty') k (j := 0) h0
+        obtain ⟨bs2, hbs2⟩ := ih f (d + 1) hbody hbs1
+        obtain ⟨bs3, hbs3⟩ := stripPis_sort_abstract1 k (d := d) (j := 0) hbs2
+        exact ⟨(ty', ⟨pw⟩) :: bs3, by
+          simp only [Expr.stripPis, hbs3, Option.map_some]⟩
+    | _ => simp only [Expr.stripPis] at hs; exact nomatch hs
+
+/-- **`checkSumTele`'s first branch fires**: an already-syntactic
+telescope of `n` binders ending in a sort is kept as it is, and the
+result sort is the residual's.  This is the step that makes the
+auxiliary install *keep the annotated type* — the premise
+`AuxFormersAnnot` states. -/
+theorem checkSumTele_of_stripPis_sort {m : Type → Type} [Monad m]
+    [MonadExceptOf CheckError m] (ops : CheckerOps m) (env : Env)
+    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal)
+    {bs : List (Expr × BinderMeta)} {s : Level}
+    (h : cvTa₀.type.stripPis n = some (bs, .sort s)) :
+    checkSumTele ops env cv n cvTa₀ = pure (cvTa₀, s) := by
+  unfold checkSumTele
+  rw [h]
+
+/-- **LEMMA (b), assembled.**  A copy minted from a container member
+whose stored former is a `Ds.length + nIdx` telescope ending in a sort
+reaches the auxiliary install's former stage with an ALREADY-syntactic
+telescope — before annotation (`auxIdxCount` reads `nIdx` back) and
+after it (`annotateCore_stripPis_sort`) — so `checkSumTele` keeps the
+annotated constant and the stored former IS the annotation of the
+minted type. -/
+theorem mkCopy_checkSumTele_keeps {env : Env} {pbs : List (Expr × BinderMeta)}
+    {lvls : List Level} {Ds : List Expr} {auxName : Name} {J : ContainerMember}
+    {copy : AuxType} {nIdx F d : Nat} {bs : List (Expr × BinderMeta)} {u : Level}
+    {cv cvTa₀ : ConstantVal}
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy)
+    (hann : annotateCore mode env F d copy.type = .ok cvTa₀.type)
+    {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] (ops : CheckerOps m) :
+    auxIdxCount pbs.length copy.type = some nIdx ∧
+      ∃ s, checkSumTele ops env cv (pbs.length + nIdx) cvTa₀ = pure (cvTa₀, s) := by
+  refine ⟨auxIdxCount_mkCopy hJ hmk, ?_⟩
+  obtain ⟨bs', hbs'⟩ := mkCopy_type_stripPis_sort hJ hmk
+  obtain ⟨bs'', hbs''⟩ := annotateCore_stripPis_sort (mode := mode) _ F d hann hbs'
+  exact ⟨_, checkSumTele_of_stripPis_sort ops env cv _ cvTa₀ hbs''⟩
+
+/-! ## What the model lane consumes
+
+`AuxFormersAnnot`'s three conjuncts for ONE copy, from the mint, the
+container's telescope, the pre-block annotation run and the extension.
+The bvar-closedness and fvar-freedom of the minted type are the mint's
+own business (the elimination's `nestedOccOk` and `pinsClosed` ledger
+entries) and stay with the model lane; what is discharged here is the
+annotation equation and the telescope shape the install's first branch
+tests. -/
+theorem auxFormerAnnot_of_readerRun {env envAux : Env} (hext : EnvExt env envAux)
+    {pbs : List (Expr × BinderMeta)} {lvls : List Level} {Ds : List Expr}
+    {auxName : Name} {J : ContainerMember} {copy : AuxType} {cvT : ConstantVal}
+    {nIdx F : Nat} {bs : List (Expr × BinderMeta)} {u : Level}
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy)
+    (hrun : ReaderRun env F 0 copy.type cvT.type) :
+    annotateCore mode env F 0 copy.type = .ok cvT.type ∧
+      annotateCore mode envAux F 0 copy.type = .ok cvT.type ∧
+      auxIdxCount pbs.length copy.type = some nIdx ∧
+      ∃ bs' : List (Expr × BinderMeta),
+        cvT.type.stripPis (pbs.length + nIdx)
+          = some (bs', .sort (Level.subst J.lps lvls u)) := by
+  obtain ⟨h₁, h₂⟩ := annotateCore_envExt_of_readerRun (mode := mode) hext hrun
+  refine ⟨h₁, h₂, auxIdxCount_mkCopy hJ hmk, ?_⟩
+  obtain ⟨bs', hbs'⟩ := mkCopy_type_stripPis_sort hJ hmk
+  exact annotateCore_stripPis_sort (mode := mode) _ F 0 h₁ hbs'
 
 end ConLeche
