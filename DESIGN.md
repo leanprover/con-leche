@@ -72085,6 +72085,72 @@ consumes any `TopoOrder`).  No init-full or full-Mathlib run: nothing
 outside `checkNested` and the elimination's own `Bool` relation changed,
 and the route is still shadow-only.
 
+#### K.17 THE WHNF WITNESS AT THE CONSTRUCTORS' FIELDS, AND K.18's ANSWER (2026-09-13, the model lane's DESIGN §M.30)
+
+**(a) The witness.**  At a λ-pin the copy's minted constructor carries a
+REDEX where the container's field was ordinary (`DMap α (fun _ => PT α)`
+copies to a field `(fun _ => PT α) k`), and the constructors' stage
+stores the positivity NORMALISATION, which `whnf`s exactly there.  The
+model tier transports the field's denotation across that reduction and
+needs the RUN to witness it, on terms in the block's own vocabulary.  So
+`nestedCtorsWhnfOk` runs after the read-back, at `env₁` (the pre-block
+constants plus the block's formers — where the stage's own normalisation
+ran): for every constructor of the auxiliary block, the block's own and
+every COPY (`nestedCtorPairs`), both the PROCESSED constructor (the
+elimination's, `b.ctors`) and the STORED one (`AuxStored.ctors`) are
+restored with the pure `restoreNested`, opened at `nP + nF` variables,
+and each field compared.  Recorded as a conjunct of `checkNested_inv`
+and `DeclNestedRun`.
+
+**The comparison is guarded by "the stage changed this field", and that
+guard is not cosmetic — MEASURED.**  The literal form ("`whnf` every
+restored processed field and require `==` the stored one") FIRES on
+**7 of the 41 Mathlib cone blocks** — `Lean.Syntax`,
+`Lean.Compiler.LCNF.Alt`, `Lean.Elab.Tactic.RCases.RCasesPatt`,
+`Lean.Meta.Grind.Arith.Cutsat.EqCnstr`, `Lean.Widget.MsgEmbed`,
+`Lean.Widget.HighlightedMsgEmbed`, `ProofWidgets.Html` — because
+`normPosDomM` reduces ONLY a domain that mentions a member and returns
+every other one untouched, while `whnf` here would reduce a field the
+stage never reduced (`whnf` of an ordinary field is not the ordinary
+field).  Guarded by `dm == ds`, the check is exactly the stage's own
+reduction on the stage's own terms and cannot differ — a failure is
+`.internal`.
+
+**It is not vacuous** (negative control: force the branch to fail, gate
+re-run, revert): **6 of the 25 fixtures** and **2 of the 41 cone blocks**
+have a field the normalisation changed — the λ-pins — and those are
+exactly the fields the model tier has to transport.
+
+**(b) The decline the lane asked for is OUT**, by the maintainer's rule
+and the coordinator's ruling: a copy whose processed constructor's later
+fields mention a field the stored constructor classifies recursive under
+a redex the normalisation erases is a shape OFFICIAL ACCEPTS, so the
+route may not decline it.  Nothing was implemented; the model lane
+states its record so the shape is covered.
+
+**(c) K.18 — can a block member be named like a minted copy?**  The
+front guard is not what prevents it: `check_no_nested_aux` rejects a
+block whose declared TYPES MENTION a `_nested`-prefixed constant, not a
+declaration NAMED one (official skips a taken name at `mk_unique_name`
+rather than failing, and this route follows it).  What prevents it is
+the auxiliary block's own shape check: `checkMutualCore` opens with
+`mutualShapeOk`, whose first conjunct is **`b.blockNames.Nodup`** — every
+member, constructor and recursor name of the block, the stream's members
+and the minted copies alike — so a member named like a copy puts the
+same name twice and the install REJECTS.  **The conjunct that carries
+the fact is the run relation's `checkMutualCore … = .ok envAux`**, and
+`Verify/Inductives/NestedInv.lean`'s `nestedBlockNames_nodup` reads it
+off for the model lane.  (`copiesFresh` is the other half: the minted
+names are free in the PRE-BLOCK environment.)
+
+**Gates** (on `inductives` = `d87f88b2`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 25/25**, e2e **216/216**,
+arena tutorial 90/92, the trusted and both `--jobs` sweeps as expected;
+the Mathlib nested cone: exit 0, **4 923 accepted, 41/41 shadow accepts
+BYTE-IDENTICAL to K.10**.  No init-full or full-Mathlib run: the new
+work is inside `checkNested` and the route is still shadow-only.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a

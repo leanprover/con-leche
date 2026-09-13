@@ -613,6 +613,68 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
 
 /-! ## The install -/
 
+/-- **The whnf witness at the constructors' fields** (task #279 K.17 (a),
+the model lane's DESIGN §M.30).
+
+At a λ-pin the copy's minted constructor carries a REDEX where the
+container's field was ordinary — `DMap α (fun _ => PT α)`'s copied field
+is `(fun _ => PT α) k` — and the constructors' stage stores the
+positivity NORMALISATION, which `whnf`s exactly there
+(`normPosDomM`).  The model tier transports the field's denotation
+across that reduction and needs the run to WITNESS it, on terms in the
+block's own vocabulary: so both sides are restored (`restoreNested`, the
+pure constant replacement) and the minted field is `whnf`'d at the
+environment holding the block's formers — the same `ops.whnf` the
+stage's own normalisation used, at the same frame — and compared with
+the stored field.
+
+**It cannot fire**: it is the same reduction, of the same term, at an
+environment that differs from the stage's only by the restore's own
+replacement (aux name ↦ container at the pin), which `whnf` treats
+alike.  A failure is therefore `.internal`. -/
+def nestedFieldWhnfOk (ops : CheckerOps m) (env : Env) (nP : Nat)
+    (fvsM fvsS : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | i + 1 => do
+    nestedFieldWhnfOk ops env nP fvsM fvsS i
+    let dm := (fvsM.getD (nP + i) default).fvarTypeD
+    let ds := (fvsS.getD (nP + i) default).fvarTypeD
+    -- only where the stage's normalisation CHANGED the field: those are
+    -- the fields it `whnf`'d (`normPosDomM` reduces a domain that
+    -- mentions a member and returns every other one untouched), and the
+    -- ones the model tier has to transport a denotation across.  An
+    -- unchanged field is compared as it stands — `whnf`ing it here would
+    -- reduce what the stage never reduced.
+    unless dm == ds do
+      let w ← ops.whnf env (nP + i) dm
+      unless w == ds do
+        throw (.internal "nested: the stored constructor field is not the processed \
+          field's weak head normal form")
+
+/-- The witness at one constructor, then the rest: the processed
+(minted) constructor against the STORED one, both restored. -/
+def nestedCtorsWhnfOk (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (nP : Nat) :
+    List (MutualCtor × (ConstantVal × Nat × Nat)) → m Unit
+  | [] => pure ()
+  | (c, (cvS, _, nF)) :: rest => do
+    let mintedR ← nestedLift (restoreNested R c.cv.type)
+    let storedR ← nestedLift (restoreNested R cvS.type)
+    let (fvsM, _) ← unwrapOr (openPisAtFvars (nP + nF) mintedR 0)
+      (.internal "nested: the processed constructor's telescope")
+    let (fvsS, _) ← unwrapOr (openPisAtFvars (nP + nF) storedR 0)
+      (.internal "nested: the stored constructor's telescope")
+    nestedFieldWhnfOk ops env nP fvsM fvsS nF
+    nestedCtorsWhnfOk ops env R nP rest
+
+/-- The processed/stored constructor pairs of the whole auxiliary
+block, member by member (the block's own members and every copy). -/
+def nestedCtorPairs (b : MutualBlock) (stored : List AuxStored) :
+    List (MutualCtor × (ConstantVal × Nat × Nat)) :=
+  (List.range b.k).flatMap fun mIdx =>
+    match stored[mIdx]? with
+    | some a => ((b.ownCtors mIdx).map (·.2)).zip a.ctors
+    | none => []
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -714,6 +776,12 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
   let env₁ := consNestedFormers members env
+  -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
+  -- block — the block's own and every copy — the STORED field is the
+  -- weak head normal form of the PROCESSED one, both in the block's own
+  -- vocabulary.  It is the stage's own normalisation re-run on its own
+  -- terms, so it cannot differ; a failure is `.internal`.
+  nestedCtorsWhnfOk ops env₁ R p.nP (nestedCtorPairs b stored)
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁
