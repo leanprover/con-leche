@@ -227,6 +227,10 @@ structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
     Prop where
   reps : MutualBlockReps mpAux.base2 b d
   aux : ConLeche.auxBlock p st = some b
+  /-- the datum's constructors are the constructor stage's (R1 at the
+  run: every scratch constructor is a real member's or a copy's,
+  `copyCtor_repr`) -/
+  chk : CtorsChecked μ F env b true d
   lenSt : st.types.length = p.k + st.pins.length
   pins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j
   ctors : CopyCtorsOfRun mpAux d ψ p.k st.pins.length lpsT cd (auxOfsOf st p.k cd)
@@ -277,7 +281,7 @@ theorem nestedRunFacts_of_pinFacts {μ : CheckMode} {F : Nat} {env envAux : Env}
     obtain ⟨⟨-, -, q, I, ci, J, lvls, Ds, cvTJ, capsJ, -, -, -, -, -, -, -, -, hg, -⟩, -⟩ := hcd j hj
     exact hg
   obtain ⟨s, lps, lpsT', hsv, hinv⟩ := invSetup_of_pinFacts hreps hchk hb hlenSt hcd hread hlev ht₀ hct₀
-  exact ⟨lpsT, s, hreps, hb, hlenSt, hcd, hctors, bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn,
+  exact ⟨lpsT, s, hreps, hb, hchk, hlenSt, hcd, hctors, bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn,
     ConLeche.topoOrder_of_run hlenSt hord, hsv, lps, lpsT', hinv⟩
 
 /-- **ψ's FINAL table**: the fold of the copies' terms along the

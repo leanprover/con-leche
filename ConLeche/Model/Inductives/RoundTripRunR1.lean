@@ -631,4 +631,210 @@ theorem fitMixed_of_run (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
 
 end NestedRunFacts
 
+/-! ## The sort transfer of `chainFit_fields` -/
+
+/-- `IndRep.chainFit_fields` at a representation at another spelling
+of the sort, read at the datum (the family space and the slot set
+mention the sort through `w`). -/
+theorem IndRep.chainFit_fields_sorted {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
+    {mI rP : Nat} {rules : List RecRule} {d : IndRepData V} {mm : Nat} {s : Level}
+    (hs : ∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ)
+    (hrep : IndRep m T cvT cvR mI rP rules (d.withSort s) mm) (ψ : Name → Nat) {ρp : Nat → V}
+    (hsat : Sat V (d.params ψ).reverse ρp) {X t : V}
+    (hX : X ∈ˢ famSpace (d.w ψ) (d.idx ψ ρp)) (ht : t ∈ˢ d.idx ψ ρp) {j : Nat}
+    (hj : j < d.ctorsA.length) {fs : List V} (hfit : d.ChainFit ψ ρp X t j fs) :
+    ∀ (i : Nat) (F : AnnotTerm), ((d.Fss ψ).getD j [])[i]? = some F → ∀ f, fs[i]? = some f →
+      ((d.rss.getD j []).getD i false = true →
+        f ∈ˢ slotSet (d.w ψ) (d.u ψ) (consList (fs.take i) ρp) (((d.tlss ψ).getD j []).getD i [])
+          (((d.Eiss ψ).getD j []).getD i []) X) ∧
+      ((d.rss.getD j []).getD i false = false → f ∈ˢ interp V (consList (fs.take i) ρp) F) := by
+  have h := hrep.chainFit_fields ψ hsat (by rw [d.withSort_w, hs ψ]; exact hX) ht hj hfit
+  rw [d.withSort_w, hs ψ] at h
+  exact h
+
+namespace NestedRunFacts
+
+variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState}
+  {b : MutualBlock} {params : List Expr} {pbs : List (Expr × ConLeche.BinderMeta)}
+  {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
+  {lpsT : List Name} {order : List Nat} {s : Level}
+  (R : NestedRunFacts F env p st b params pbs mpAux d ψ cd lpsT order s)
+
+include R
+
+/-! ## R1's step at the run -/
+
+set_option maxHeartbeats 6400000 in
+/-- **R1's STEP at the run** (task #279 M-C′ step 5, DESIGN §M.36): at
+every scratch constructor `J'` and spine `fs` chain-fitting at the
+carrier restricted to R1's predicate, the predicate holds of `inj J'
+fs` — at a copy constructor by `r1_step` with every hypothesis derived
+(`copyCtor_repr` names the pin and the container constructor; the ι
+laws `inv_iota`/`psi_iota`; the heads `psiHead_interp`/`headφ_of_run`;
+`fitMixed_of_run`, `es_inv`, `pos_inv`; the readings' facts
+`ctor_facts_aux`; the fields' fit and the induction hypotheses
+`fieldsFit_of_chainFit` at the sorted representations); at a REAL
+member's constructor vacuously (the terminator recovers a real member,
+`idxRecover`, while the predicate speaks of copies).  Restrictions:
+every container finitary without transports and with a nonzero
+elimination bit (`hfin`, `hnoT`, `hbJ`), the scratch block's own bit
+nonzero (`hbA`), and the scratch block FINITARY (`hfinA`: no reflexive
+field anywhere — a copy's field into a block member may be reflexive,
+the REFLEXIVE arm). -/
+theorem r1_hstep (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
+    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) (hbA : d.bb ψ ≠ 0)
+    (hbJ : ∀ j, j < st.pins.length → (cd j).dJ.bb (cd j).ψ' ≠ 0)
+    (hfin : ∀ j, j < st.pins.length → ∀ J i, i ∈ ConLeche.recIdxOf ((cd j).dJ.ksF J) →
+      ((cd j).dJ.ksF J).getD i .ordinary = .recursive ∧ ((cd j).dJ.tssF J (cd j).ψ').getD i [] = [])
+    (hnoT : ∀ j, j < st.pins.length → ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → ∀ i, i < cA.2 →
+      i ∉ ConLeche.recIdxOf ((cd j).dJ.ksF J) → i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j J)) →
+      d.tgtsR (auxOfsOf st p.k cd j J) i < p.k)
+    (hfinA : ∀ J' i, i ∈ ConLeche.recIdxOf (d.ksF J') →
+      (d.ksF J').getD i .ordinary = .recursive ∧ (d.tssF J' ψ).getD i [] = []) :
+    ∀ tup, tup ∈ˢ d.idx ψ (consList (paramVals d.nP ρ) ρ) →
+      ∀ (J' : Nat) (fs : List V), J' < d.ctorsA.length →
+      d.ChainFit ψ (consList (paramVals d.nP ρ) ρ)
+        (r1Fam d ψ ρ (consList (paramVals d.nP ρ) ρ) p.k
+          (fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+          (fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t')) tup J' fs →
+      R1Pred d ψ ρ (consList (paramVals d.nP ρ) ρ) p.k
+        (fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+        (fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t')
+        tup (d.inj ψ J' fs) := by
+  intro tup htup J' fs hJ'lt hchain
+  obtain ⟨cA', hJ'⟩ : ∃ cA', d.ctorsA[J']? = some cA' := ⟨_, List.getElem?_eq_getElem hJ'lt⟩
+  obtain ⟨lpsI, lpsT', S⟩ := R.invSetup_at hρ
+  have hsat₀ : Sat V (d.params ψ).reverse (consList (paramVals d.nP ρ) ρ) := by
+    have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V _) hρ
+    rwa [List.append_nil] at h
+  have hk : 0 < d.k := S.hk
+  obtain ⟨hlen, hchainFit, hall⟩ := hchain
+  have hX : r1Fam d ψ ρ (consList (paramVals d.nP ρ) ρ) p.k
+      (fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+      (fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t')
+      ∈ˢ famSpace (d.w ψ) (d.idx ψ (consList (paramVals d.nP ρ) ρ)) :=
+    graph_mem_famSpace fun i hi => univ_sep_mem (famSpace_app (lfpFamSet_mem _ _ _) hi)
+  have hmemJ' : d.mems J' < d.k := S.hmems J' hJ'lt
+  obtain ⟨s', cvT', cvR', mI', rP', rules', hs', hrep'⟩ := R.repsAt_of_reps _ hmemJ'
+  have hfields := IndRep.chainFit_fields_sorted hs' hrep' ψ hsat₀ hX htup hJ'lt ⟨hlen, hchainFit, hall⟩
+  have hC := S.hctors J' cA' hJ'
+  have hlenD' : (d.dsF J' ψ).length = d.nP + cA'.2 := hC.2.2.len ψ
+  have hfacts := R.ctor_facts_aux hρ hJ'
+  have htgts : ∀ i, d.tgts J' i < d.k := S.htgts J'
+  obtain ⟨hfit, hIH⟩ := fieldsFit_of_chainFit (P := R1Pred d ψ ρ (consList (paramVals d.nP ρ) ρ) p.k
+      (fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+      (fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t'))
+    R.repsAt_of_reps hsat₀ rfl hρ (paramVals_length _ _) hJ' hC htgts (hfinA J')
+    (fun i hi => hfacts.2 i (hfinA J' i hi).1) hlen hfields
+  have hvsN : fs.length = cA'.2 := by
+    rw [hlen, d.Fss_getD ψ hJ', List.length_map, List.length_drop, hlenD']; omega
+  have hEsOk := (hfacts.1 fs hfit).1
+  have hEsFit := (hfacts.1 fs hfit).2
+  have hEntryFit : ∀ i, i ∈ ConLeche.recIdxOf (d.ksF J') →
+      SpineFit (consList (paramVals d.nP ρ) ρ) (d.IdsM (d.tgts J' i) ψ)
+        (((d.eissF J' ψ).getD i []).map (interp V (consList (fs.take i) (consList (paramVals d.nP ρ) ρ)))) := by
+    intro i hi
+    have hksLen : (d.ksF J').length = cA'.2 := hC.2.2.ksLen
+    have hilt : i < cA'.2 := by
+      have := (mem_recIdxOf.mp hi).1
+      rw [hksLen] at this
+      exact this
+    have htake : (fs.take i).length = i := by rw [List.length_take]; omega
+    have hpre : SpineFit (consList (paramVals d.nP ρ) ρ) ((((d.dsF J' ψ).drop d.nP).map (·.2.2)).take i)
+        (fs.take i) := by
+      rw [← d.Fss_getD ψ hJ']
+      exact spineFit_take' hfit (by rw [← hlen, hvsN]; omega)
+    exact (hfacts.2 i (hfinA J' i hi).1 (fs.take i) htake hpre).2
+  by_cases hge : p.k ≤ d.mems J'
+  · -- a copy constructor
+    obtain ⟨j, Jc, cAJ, hj, hJc, hE⟩ := copyCtor_repr R.aux R.lenSt R.chk R.pins hJ' hge
+    subst hE
+    have hg := R.groupFacts hj
+    obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, -, -, hrepJ⟩ := hg.rep
+    obtain ⟨cA'', hget, hf⟩ := hg.ctors Jc cAJ hJc
+    obtain rfl : cA'' = cA' := Option.some.inj (hget.symm.trans hJ')
+    have hJcA : Jc < (cd j).dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJc).1
+    have hmemJ : (cd j).dJ.mems Jc < (cd j).dJ.k := by
+      have := (hrepJ.memsReal Jc (by unfold IndRepData.nAll; rw [hg.ctorsC]; simpa using hJcA)).mpr hJcA
+      rw [hg.kReal] at this
+      exact this
+    have hDsLen : ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))).length = (cd j).dJ.nP := by
+      rw [List.length_map, hg.len]
+    have hvsN' : fs.length = cAJ.2 := by rw [hvsN, hf.nF]
+    -- ψ⁻¹'s ι at values
+    have hιΦ := fun (vs : List V)
+        (hfitv : SpineFit ρ ((d.dsF (auxOfsOf st p.k cd j Jc) ψ).map (·.2.2)) (paramVals d.nP ρ ++ vs)) =>
+      R.inv_iota hk hρ hbA hJ'
+        (by have := hfitv.length_eq
+            rw [List.length_append, paramVals_length, List.length_map, hlenD'] at this; omega)
+        hfitv
+    -- ψ's ι at values
+    have hιΨ := fun (vs : List V)
+        (hfitv : SpineFit (consList (paramVals d.nP ρ) ρ) (((cd j).dJ.dsF Jc (cd j).ψ').map (·.2.2))
+          ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ)) ++ vs)) =>
+      R.psi_iota tbl₀ hρ rfl hj (hbJ j hj) (fun _ => rfl) hJc
+        (by have := hfitv.length_eq
+            rw [List.length_append, hDsLen, List.length_map, (hrepJ.ctors Jc cAJ hJc).2.2.len (cd j).ψ'] at this
+            omega)
+        hfitv
+    exact r1_step mpAux.base2 (dJ := (cd j).dJ) (ψ' := (cd j).ψ') (cA := cAJ)
+      (σ := consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
+      (Ψ := fun t => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t))
+      (Ψ' := fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+      (Φ' := fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t')
+      R.repsAt_of_reps hsat₀ rfl hρ hJ' hlenD' hf.pIff hf.read.mem hf.mem hmemJ hf.view.2.1
+      (fun t _ => by
+        show d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (p.k + (cd j).base + t - p.k)
+          = d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t)
+        rw [show p.k + (cd j).base + t - p.k = (cd j).base + t by omega])
+      hfit hIH hEsOk hEsFit hEntryFit hall hιΦ hιΨ rfl rfl
+      (d.psiHead_interp mpAux.base2 ψ (auxOfsOf st p.k cd j) hJ' hDsLen)
+      (R.headφ_of_run (ρ := ρ) hj hJc).headφ
+      (R.fitMixed_of_run tbl₀ hρ hj hJc (hfin j hj Jc) (hnoT j hj Jc cAJ hJc) hfit)
+      (R.es_inv (ρ := ρ) hj hJc (hnoT j hj Jc cAJ hJc) hvsN')
+      (fun i hi => (R.pos_inv tbl₀ (ρ := ρ) hj hJc (hfin j hj Jc) (hnoT j hj Jc cAJ hJc) hvsN'
+        (fun _ => False) i (by rw [← hf.nF]; exact hi)).imp_right (Or.imp_right False.elim))
+  · -- a real member's constructor: the predicate speaks of copies
+    intro t' hk₀ ht' is' his' htupE
+    obtain ⟨s'', cvT'', cvR'', mI'', rP'', rules'', -, hrep''⟩ := R.repsAt_of_reps t' ht'
+    rw [htupE] at hall
+    have h := hrep''.idxRecover ψ (consList (paramVals d.nP ρ) ρ) hsat₀ is' his' _ J' fs hJ'lt hlen
+      hEsOk hEsFit hall
+    have hmem : d.mems J' = t' := h.1
+    omega
+
+/-- **R1 AT THE RUN** (task #279 M-C′ step 5, DESIGN §M.36): at pin
+`j`'s group member `t` (the copy `p.k + base + t`), at any parameter
+frame `ρ` (the parameter variables as the parameters), ψ⁻¹'s fold term
+then ψ's final table's entry is the identity on the copy's carrier —
+`r1At_of_step` at the copy's representation with the step `r1_hstep`
+(the induction runs over the whole scratch block: a transport's target
+would be the same induction's hypothesis; none here). -/
+theorem r1At_of_run (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
+    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) (hbA : d.bb ψ ≠ 0)
+    (hbJ : ∀ j, j < st.pins.length → (cd j).dJ.bb (cd j).ψ' ≠ 0)
+    (hfin : ∀ j, j < st.pins.length → ∀ J i, i ∈ ConLeche.recIdxOf ((cd j).dJ.ksF J) →
+      ((cd j).dJ.ksF J).getD i .ordinary = .recursive ∧ ((cd j).dJ.tssF J (cd j).ψ').getD i [] = [])
+    (hnoT : ∀ j, j < st.pins.length → ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → ∀ i, i < cA.2 →
+      i ∉ ConLeche.recIdxOf ((cd j).dJ.ksF J) → i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j J)) →
+      d.tgtsR (auxOfsOf st p.k cd j J) i < p.k)
+    (hfinA : ∀ J' i, i ∈ ConLeche.recIdxOf (d.ksF J') →
+      (d.ksF J').getD i .ordinary = .recursive ∧ (d.tssF J' ψ).getD i [] = [])
+    {j : Nat} (hj : j < st.pins.length) {t : Nat} (ht : t < (cd j).dJ.k) :
+    d.R1At mpAux.base2 ψ ρ (paramBvarsAt d.nP d.nP) (p.k + (cd j).base + t)
+      (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t))
+      (d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s (p.k + (cd j).base + t)) := by
+  have hg := R.groupFacts hj
+  have hlt : p.k + (cd j).base + t < d.k := hg.kA t ht
+  obtain ⟨s', cvT', cvR', mI', rP', rules', hs', hrep'⟩ := R.repsAt_of_reps _ hlt
+  have h := r1At_of_step mpAux.base2 (k₀ := p.k) (ps := paramBvarsAt d.nP d.nP)
+    (Ψ' := fun t' => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (t' - p.k))
+    (Φ' := fun t' => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s t')
+    hs' hrep' (Nat.le_add_right_of_le (Nat.le_add_right _ _)) hlt hρ
+    (R.r1_hstep tbl₀ hρ hbA hbJ hfin hnoT hfinA)
+  rw [show p.k + (cd j).base + t - p.k = (cd j).base + t by omega] at h
+  exact h
+
+end NestedRunFacts
+
 end ConLeche.Model

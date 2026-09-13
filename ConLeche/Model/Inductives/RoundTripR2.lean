@@ -341,8 +341,11 @@ theorem fieldsFit_of_chainFit {m : EnvModel V env} {dJ : IndRepData V} {ψ' : Na
     {DsAv : List V} (hσ : σ = consList DsAv σ₀) (hDsFit : SpineFit σ₀ (dJ.params ψ') DsAv)
     (hDsLen : DsAv.length = dJ.nP)
     {J : Nat} {cA : ConstantVal × Nat} (hJ : dJ.ctorsA[J]? = some cA) {lpsT : List Name}
+    -- the constructor's facts, at ANY spelling of the sort (a scratch
+    -- block's are at the block's, `InvSetup.hctors`)
+    {sJ : Level}
     (hC : FixCtorFactsAt m dJ.env₀ (dJ.memberName (dJ.mems J)) lpsT dJ.nP (dJ.nIdxAt (dJ.mems J))
-      dJ.resSort dJ.isProp dJ.large dJ.idxF dJ.dsF dJ.esF dJ.srcsF dJ.ksF dJ.fvsPF dJ.xFvsF dJ.xrestF
+      sJ dJ.isProp dJ.large dJ.idxF dJ.dsF dJ.esF dJ.srcsF dJ.ksF dJ.fvsPF dJ.xFvsF dJ.xrestF
       dJ.eissF dJ.tssF J cA (fun i => dJ.memberName (dJ.tgts J i)) (fun i => dJ.nIdxAt (dJ.tgts J i)))
     (htgts : ∀ i, dJ.tgts J i < dJ.k)
     (hfin : ∀ i, i ∈ ConLeche.recIdxOf (dJ.ksF J) → (dJ.ksF J).getD i .ordinary = .recursive ∧
