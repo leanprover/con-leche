@@ -63,11 +63,12 @@ exactly the type the elimination minted.  Nothing about the annotation
 pass is used — this is a chain of two definitional facts, and it is what
 the model tier reads instead of an `AnnotStable` hypothesis. -/
 
-/-- The pre-annotated front door returns its input: every check of
-`checkConstantVal` runs, and the stored type is the input type. -/
-theorem checkConstantValPre_ok {env : Env} {cv cvA : ConstantVal} {F : Nat}
+/-- **The pre-annotated front door, inverted** — it returns its input,
+and it has VALIDATED the `.proj` nodes of that input (K.13: the
+structure-name slot, which on the annotated path the walk checks). -/
+theorem checkConstantValPre_inv {env : Env} {cv cvA : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
-    cvA = cv := by
+    cvA = cv ∧ cv.type.projTablesOk env = true := by
   unfold checkConstantValPre at h
   by_cases h1 : (env.find? cv.name).isSome = true
   case pos => rw [if_pos h1] at h; close_throw
@@ -93,12 +94,33 @@ theorem checkConstantValPre_ok {env : Env} {cv cvA : ConstantVal} {F : Nat}
   by_cases h8 : cv.type.constsResolve env = true
   case neg => rw [if_neg h8] at h; close_throw
   rw [if_pos h8] at h
+  by_cases h9 : cv.type.projTablesOk env = true
+  case neg => rw [if_neg h9] at h; close_throw
+  rw [if_pos h9] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨_sty, _hinf, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨_u, _hens, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact h.symm
+  exact ⟨h.symm, h9⟩
+
+/-- The pre-annotated front door returns its input: every check of
+`checkConstantVal` runs, and the stored type is the input type. -/
+theorem checkConstantValPre_ok {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    cvA = cv := (checkConstantValPre_inv h).1
+
+/-- **THE `.proj` FACT THE MODEL TIER READS** (K.13).  On the
+pre-annotated path there is no annotation walk to validate a `.proj`
+node's structure-name slot, so `checkConstantValPre` asks the same
+condition itself: every `.proj sn i e` in the checked type has a
+projection-table entry AT ITS OWN NAME and index.  Whenever the walk
+accepted such a node it had `findProj? T i = some entry` with `T = sn`,
+so this narrows nothing — and it is what discharges the model lane's
+`CtorsNoProj`-style hypothesis at grade `true`. -/
+theorem checkConstantValPre_projOk {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    cv.type.projTablesOk env = true := (checkConstantValPre_inv h).2
 
 /-- `checkSumTele` is the identity on a type whose telescope already
 ends in a sort (task #218's syntactic-telescope arm). -/
@@ -187,7 +209,8 @@ theorem normCtorValM_true_stores {env : Env} {memberNames : List Name} {nP nF F 
     {cvC cvCa cvCa' : ConstantVal}
     (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
       = .ok cvCa') :
-    cvCa' = cvCa ∨ ∃ ty', cvCa' = { cvC with type := ty' } := by
+    (cvCa' = cvCa ∨ ∃ ty', cvCa' = { cvC with type := ty' }) ∧
+      (cvCa.type.projTablesOk env = true → cvCa'.type.projTablesOk env = true) := by
   unfold normCtorValM at h
   obtain ⟨_q, _h1, h⟩ := exceptBind_ok h
   obtain ⟨_cbs, _⟩ := _q
@@ -200,9 +223,14 @@ theorem normCtorValM_true_stores {env : Env} {memberNames : List Name} {nP nF F 
   try simp only at h
   split at h
   · simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl h.symm
+    exact ⟨Or.inl h.symm, by rw [← h]; exact id⟩
   · simp only [if_true] at h
-    exact Or.inr ⟨_, checkConstantValPre_ok h⟩
+    refine ⟨Or.inr ⟨_, checkConstantValPre_ok h⟩, fun _ => ?_⟩
+    -- the re-checked constant went through the same front door, which
+    -- validates the `.proj` nodes of the type it is given (K.13)
+    have hp := checkConstantValPre_projOk h
+    rw [checkConstantValPre_ok h]
+    simpa using hp
 
 /-- One constructor at the grade: the front door is
 `checkConstantValPre`, which returns its input, so what the stage
@@ -214,11 +242,12 @@ theorem checkMutualCtor_true_norm {env : Env} {memberNames : List Name} {T : Nam
     (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
       cvC nF cvTa true = .ok (cvCa, sorts)) :
     normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvC true
-      = .ok cvCa := by
+      = .ok cvCa ∧ cvC.type.projTablesOk env = true := by
   unfold checkMutualCtor at h
   simp only [if_true] at h
   obtain ⟨cvCa₀, hfront, h⟩ := exceptBind_ok h
   obtain ⟨c, hnorm, h⟩ := exceptBind_ok h
+  have hproj := checkConstantValPre_projOk hfront
   rw [checkConstantValPre_ok hfront] at hnorm
   obtain ⟨q, _hq, h⟩ := exceptBind_ok h
   obtain ⟨_cbs, cbody⟩ := q
@@ -248,7 +277,7 @@ theorem checkMutualCtor_true_norm {env : Env} {memberNames : List Name} {T : Nam
   obtain ⟨_sorts', _hsorts, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, -⟩ := h
-  exact hnorm
+  exact ⟨hnorm, hproj⟩
 
 /-! ### From the auxiliary block to the copy's stored former -/
 
@@ -401,7 +430,8 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
         b.ctors[j]? = some c → ctorsA[j]? = some cA →
         normCtorValM (m := CheckM) (fueledOps mode F) env₁ b.memberNames b.nP c.nF
             c.cv c.cv true = .ok cA.1 ∧
-          (cA.1 = c.cv ∨ ∃ ty', cA.1 = { c.cv with type := ty' }) := by
+          (cA.1 = c.cv ∨ ∃ ty', cA.1 = { c.cv with type := ty' }) ∧
+          cA.1.type.projTablesOk env₁ = true := by
   obtain ⟨-, -, -, -, env₁, fms, f₀, -, ctorsA, sortss, -, -, -, -, -,
     hformers, -, -, -, -, hctors, -⟩ := checkMutualCore_inv haux
   obtain ⟨-, henv₁⟩ := mutualFormers_inv hformers
@@ -410,8 +440,9 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
   · intro j c cA hc hcA
     obtain ⟨-, -, hall⟩ := checkMutualCtors_inv hctors
     obtain ⟨-, _sorts, -, hrun⟩ := hall j c cA hc hcA
-    have hnorm := checkMutualCtor_true_norm hrun
-    exact ⟨hnorm, normCtorValM_true_stores hnorm⟩
+    obtain ⟨hnorm, hproj⟩ := checkMutualCtor_true_norm hrun
+    obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
+    exact ⟨hnorm, hstores, hkeep hproj⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}

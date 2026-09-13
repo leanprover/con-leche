@@ -34,17 +34,21 @@ not about the algorithm (`Verify/Inductives/NestedOrderK.lean`).  A
 CYCLE is a positive DECLINE, and it cannot fire on a stream official
 accepts — §M.22 records that kinding excludes the cycles.
 
-**`st` is the RE-MINTED state** (§M.21 (A), K.8): `elimNested` produces
-`st₀`, whose copies' types are the container's stored types at RAW pin
-components — the export carries no binder datum, so every stream binder
-arrives as the parse placeholder and the annotation pass rewrites the
-data inside them.  `nestedRemint` annotates the components first, at the
-pre-block environment plus the block's formers, and re-mints every
-copy's type from the container's stored ANNOTATED type at the ANNOTATED
-components with the first former's ANNOTATED parameter binders (premise
-B).  A copy's type is therefore annotated throughout, and every later
-conjunct is about `st`, the re-minted state; the pins, their order and
-the copies' constructors are `st₀`'s untouched.
+**THE ELIMINATION'S INPUTS ARE ANNOTATED** (K.12), which is why there is
+ONE state here and no re-mint.  `nestedAnnotFormers` puts every former
+through `checkConstantVal` and `checkSumTele` at the pre-block
+environment — the constant the scratch install will store — and
+`nestedAnnotCtors` puts every constructor through `checkConstantVal` at
+`nestedFormerEnv fmsA env`, the environment holding those formers, which
+is where `checkMutualCtor`'s front door runs.  `elimNested` is run on
+those (`nestedTypes0 p fmsA ctorsA`), so it reads its parameter openers
+and binders off the FIRST FORMER'S STORED type, instantiates the
+containers' stored (annotated) types at ANNOTATED components, and
+rewrites `J Ds is ↦ auxJ p⃗ is` — an application with no binders of its
+own.  Every copy's TYPE and every copy's CONSTRUCTORS are therefore
+annotated by construction, the pins are annotated, and nothing is
+re-annotated afterwards: `nestedRemint`, the `st₀`/`st` pair and the
+`pinsA` list are gone.
 
 **`pinsClosed`** is the pins' SCOPE, the pair of Bool tests `ConstWF`
 demands of a nested RULE's stored pins: abstracted over the block's
@@ -59,15 +63,14 @@ local-variable rule already refuses a pin holding a field variable, the
 stream's own terms carry no free variable, and `abstractRange`
 introduces a loose bound variable only at an abstracted parameter.
 
-**The pins the two passes check are ONE object** (K.10).  Both
-`nestedPinsOk` runs take `pinsA`, the list `nestedRemint` returns beside
-the state: each pin paired with the ANNOTATED open component the copy's
-type was minted from.  Neither pass annotates anything — they VALIDATE
-that term by inference, the way `checkConstantValPre` validates a
-pre-annotated declaration — so the components in the recorded equation
-and the components the pin checks type are syntactically the same terms,
-at one environment (`envF`) and one set of openers (`fvsA₀`), and no
-env-extension argument is needed to relate two annotations.
+**The pins the two passes check are ONE object** (K.10, simplified by
+K.12).  Both `nestedPinsOk` runs take `st.pins` itself: a pin is the
+elimination's own term — annotated, and already opened at the block's
+parameter variables — so neither pass annotates or instantiates
+anything.  They VALIDATE the term by inference, the way
+`checkConstantValPre` validates a pre-annotated declaration, and the
+pin in the recorded equation and the pin the checks type are literally
+the same term.
 
 **`pinsOkAux`** is one of the two conjuncts the model lane asked for:
 post-check (a) is run a SECOND time, at the SCRATCH environment
@@ -94,23 +97,37 @@ skips a taken one); what the check catches is a constructor or a
 recursor name, which official refuses at `declare_inductive_types`'
 `check_name`.
 
-**The copies' types are the re-minted types, by construction** (K.10).
-`Verify/Inductives/NestedInv.lean`'s `nestedCopyFormerType_eq` takes
-this relation's `auxBlock p st = some b` and
-`checkMutualCore … b none true = .ok envAux` conjuncts and returns, for
-every copy (a member of `st.types` whose name carries the reserved
-`_nested` prefix), the formers stage's own `f.cvTa.type = t.type` at
-that position, with `env₁ = consMutualFormers fms env` — so the STORED
-former type is the type `nestedRemint` minted, syntactically.  The
-`auxRoute` grade is what makes this a definitional chain rather than an
-annotation-stability hypothesis: `checkConstantValPre` runs every check
-and returns its input, and `checkSumTele` keeps a telescope that already
-ends in a sort.  The CONSTRUCTOR side carries no such identity and needs
-none: a copy's constructor type is the worklist's rewrite of an
-instantiated stored type, `normCtorValM` re-annotates it and may `whnf`
-a field domain (official's dynamic nesting), so what is stored there is
-the annotation of the NORMALISED restored type — which is what the
-recursor's rules are built from and compared against.
+**The stored types are the MINTED types, by construction** (K.10,
+widened by K.12).  `Verify/Inductives/NestedInv.lean`'s
+`nestedCopyFormerType_eq` takes this relation's `auxBlock p st = some b`
+and `checkMutualCore … b none true = .ok envAux` conjuncts and returns,
+for EVERY member of the block — no `_nested`-prefix side condition — the
+formers stage's own `f.cvTa.type = t.type` at that position, with
+`env₁ = consMutualFormers fms env`, so the STORED former type is the
+minted one, syntactically.  The `auxRoute` grade is what makes this a
+definitional chain rather than an annotation-stability hypothesis:
+`checkConstantValPre` runs every check and returns its input, and
+`checkSumTele` keeps a telescope that already ends in a sort.
+
+The CONSTRUCTOR side has its twin, `nestedCopyCtorType_eq`: the
+constructors' stage stores `normCtorValM`'s output ON THE MINTED
+CONSTANT — the positivity normalisation, no annotation walk — which is
+the minted constant itself wherever that normalisation changes nothing.
+The `whnf` behind it stays: at a λ-pin (`DMap α (fun _ => PT α)`) the
+copied field is the redex `(fun _ => PT α) k`, whose head is a `.lam`,
+and `mutualPositivity` reads no member application there; official
+`whnf`s in the same place.
+
+**`.proj` nodes on the graded path** (K.13).  The annotation walk is
+what validates a `.proj` node's structure-name slot (task #271), and the
+graded path skips the walk — so `checkConstantValPre` asks the same
+condition itself: every `.proj sn i e` in the checked type has a
+projection-table entry AT ITS OWN NAME and index
+(`Expr.projTablesOk`).  It narrows nothing (a node the walk accepted
+satisfies it), and `checkConstantValPre_projOk` hands the fact to the
+model tier — `nestedCopyCtorType_eq` carries it for every STORED
+constructor of the block, which is what discharges a `CtorsNoProj`-style
+hypothesis at grade `true`.
 
 **What the model tier consumes.**  Every intermediate environment is
 written out as an application of the pure cons/store functions
