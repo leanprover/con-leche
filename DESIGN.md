@@ -75299,6 +75299,48 @@ arm (the whnf arm through `NormCtorValMReadsAs` and K.17 (a)); (3) the
 sub-term clause from `containerFieldOk` + pins `Nodup` +
 `containerGroupOk`; (4) `CopyCtorRead`; (5) M-C′.
 
+**Addendum (same session): W2 and the no-aux-mention invariant landed**
+(`Verify/Inductives/NestedWalk.lean`, base umbrella).
+
+* **W2** — `replaceIfNested_app_of_fire` (a fire at the head of a
+  spine fires at the wider spine: the occurrence test reads only the
+  first `nP` arguments, `nestedOccOk_append_one`; the state is the
+  same), `replaceAllNested_of_fire`, **`replaceAllNested_head_inv`**:
+  an output that is a spine headed by a name of a set `S` the INPUT
+  does not mention is a FIRE at the top — `replaceIfNested … st e =
+  .ok (some (e', st'))`, the input `I lvls Ds is` with
+  `containerInfo? env I = some ci`, the output `aux blvls params is`,
+  the pin `I lvls Ds ∈ st'.pins`.  The prune arm returns the input
+  (which would mention `aux`); a descent at an application whose head
+  came out copy-headed would have fired at the wider spine (the mono
+  lemma); the other constructors keep their shape.
+  **`replaceAllNested_pis_inv`**: under `n` Π binders whose domains
+  mention no name of the final state, the binders are the input's (W1
+  at each domain) and the body is a fire.
+* **`MentionInv ok qhead st`** — every pin's components and every
+  UNPROCESSED constructor (a type at index ≥ `qhead`) satisfy
+  `Expr.MentionsOnly ok` (every mentioned constant is `ok`);
+  `ContainersMentionOnly env ok` (the containers' names and stored
+  constructors are `ok`); closure lemmas (`MentionsOnly.mkAppN`,
+  `.getAppArgs`, `.instantiate1`, `.instPis`, `.abstract1`,
+  `.instantiateLevelParams`, `mentionsOnly_closeTelescope`,
+  `stripPis_mentionsOnly`, `openPisAtFvars_mentionsOnly`,
+  `MentionsOnly.of_constsResolve`); preservation `mkCopies_mentionInv`
+  → `replaceIfNested_mentionInv` → `replaceAllNested_mentionInv` →
+  `elimCtors_mentionInv` → `elimLoop_mentionInv` → **`elimNested_mentionInv`**
+  (the pins mention only `ok` constants, given the containers, the
+  block's own constructors and the first former's type `ok`).
+  Instantiated at `ok T := (env.find? T).isSome ∨ T ∈ types0.map name`
+  it is W2's premise for a copy's minted constructor (the container's
+  stored constructor at the pin's components over the first former's
+  binders, all `ok`), once `aux ∉ ok`: `aux ∉ env` is `copiesFresh`;
+  `aux ≠` a block member's name is NOT recorded anywhere —
+  **question K.18**: does the auxiliary install reject a block whose
+  own member is named like a minted copy (`mkUniqueName` checks the
+  pre-block environment only; two members of one name in
+  `checkMutualCore`)?  If it does, the model reads it off the run;
+  if not, a record is owed (official's `check_name` rejects).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedLedger
+import ConLeche.Verify.Inductives.NestedCtors
 
 public section
 
@@ -30,6 +31,15 @@ read needs the walk's INPUT back from its OUTPUT, field by field:
   first `nP` arguments).  Under Π binders whose domains mention no new
   name (`replaceAllNested_pis_inv`): the binders are the input's (W1)
   and the body is a fire.
+* **The no-aux-mention invariant** (`MentionInv`): every constant a
+  pin's components or an UNPROCESSED constructor mention satisfies a
+  predicate `ok` — the walk's inputs are the minted constructors (the
+  containers' stored constructors at the pins' components, closed over
+  the first former's binders) and the block's own; a fire's arguments
+  are sub-terms of the input; a mint's new pins and constructors are
+  built from them.  Instantiated at `ok := in the pre-block
+  environment ∨ a block member's name`, it is W2's premise: the walk
+  input mentions no copy's name (fresh at the pre-block environment).
 
 The invariant `ElimState.PinsNamed` is the piece of the ledger this
 needs: every pin's `aux` is a type name of the state, kept across
@@ -641,5 +651,613 @@ theorem replaceAllNested_pis_inv {env : Env} {blvls : List Level} {params : List
     | letE _ _ _ => exact nomatch hstrip
     | lit _ => exact nomatch hstrip
     | proj _ _ _ => exact nomatch hstrip
+
+/-! ## The no-aux-mention invariant -/
+
+/-- Every constant `e` mentions satisfies `ok`. -/
+@[expose] def Expr.MentionsOnly (ok : Name → Prop) (e : Expr) : Prop :=
+  ∀ T, e.mentionsConst T = true → ok T
+
+namespace Expr
+
+variable {ok : Name → Prop}
+
+theorem mentionsOnly_app {f a : Expr} :
+    MentionsOnly ok (.app f a) ↔ MentionsOnly ok f ∧ MentionsOnly ok a := by
+  simp only [MentionsOnly, mentionsConst, Bool.or_eq_true]
+  exact ⟨fun h => ⟨fun T hT => h T (Or.inl hT), fun T hT => h T (Or.inr hT)⟩,
+    fun h T hT => hT.elim (h.1 T) (h.2 T)⟩
+
+theorem mentionsOnly_lam {ty b : Expr} {m : BinderMeta} :
+    MentionsOnly ok (.lam ty b m) ↔ MentionsOnly ok ty ∧ MentionsOnly ok b := by
+  simp only [MentionsOnly, mentionsConst, Bool.or_eq_true]
+  exact ⟨fun h => ⟨fun T hT => h T (Or.inl hT), fun T hT => h T (Or.inr hT)⟩,
+    fun h T hT => hT.elim (h.1 T) (h.2 T)⟩
+
+theorem mentionsOnly_forallE {ty b : Expr} {m : BinderMeta} :
+    MentionsOnly ok (.forallE ty b m) ↔ MentionsOnly ok ty ∧ MentionsOnly ok b := by
+  simp only [MentionsOnly, mentionsConst, Bool.or_eq_true]
+  exact ⟨fun h => ⟨fun T hT => h T (Or.inl hT), fun T hT => h T (Or.inr hT)⟩,
+    fun h T hT => hT.elim (h.1 T) (h.2 T)⟩
+
+theorem mentionsOnly_const {n : Name} {us : List Level} (h : ok n) : MentionsOnly ok (.const n us) := by
+  intro T hT
+  simp only [mentionsConst, beq_iff_eq] at hT
+  rw [← hT]; exact h
+
+theorem MentionsOnly.mkAppN {f : Expr} (hf : MentionsOnly ok f) :
+    ∀ (args : List Expr), (∀ a ∈ args, MentionsOnly ok a) → MentionsOnly ok (Expr.mkAppN f args)
+  | [], _ => hf
+  | a :: as, h =>
+    MentionsOnly.mkAppN (mentionsOnly_app.mpr ⟨hf, h a List.mem_cons_self⟩) as
+      fun x hx => h x (List.mem_cons_of_mem _ hx)
+
+theorem MentionsOnly.getAppArgs : ∀ {e : Expr}, MentionsOnly ok e → ∀ x ∈ e.getAppArgs, MentionsOnly ok x
+  | .app f a, he, x, hx => by
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    rcases hx with hx | rfl
+    · exact MentionsOnly.getAppArgs (mentionsOnly_app.mp he).1 x hx
+    · exact (mentionsOnly_app.mp he).2
+  | .bvar _, _, _, hx => nomatch hx
+  | .fvar _ _, _, _, hx => nomatch hx
+  | .sort _, _, _, hx => nomatch hx
+  | .const _ _, _, _, hx => nomatch hx
+  | .lam _ _ _, _, _, hx => nomatch hx
+  | .forallE _ _ _, _, _, hx => nomatch hx
+  | .letE _ _ _, _, _, hx => nomatch hx
+  | .lit _, _, _, hx => nomatch hx
+  | .proj _ _ _, _, _, hx => nomatch hx
+
+theorem MentionsOnly.instantiate1 {e v : Expr} (he : MentionsOnly ok e) (hv : MentionsOnly ok v)
+    (d : Nat) : MentionsOnly ok (e.instantiate1 v d) := fun T hT =>
+  (Expr.mentionsConst_instantiate1 v e d hT).elim (he T) (hv T)
+
+theorem MentionsOnly.instPis :
+    ∀ {ty : Expr} {args : List Expr} {r : Expr}, Expr.instPis ty args = some r →
+      MentionsOnly ok ty → (∀ a ∈ args, MentionsOnly ok a) → MentionsOnly ok r
+  | ty, [], r, h, hty, _ => by
+    simp only [Expr.instPis, Option.some.injEq] at h
+    subst h; exact hty
+  | .forallE _ body _, a :: as, r, h, hty, hargs =>
+    MentionsOnly.instPis (ty := body.instantiate1 a) h
+      (((mentionsOnly_forallE).mp hty).2.instantiate1 (hargs a List.mem_cons_self) 0)
+      fun x hx => hargs x (List.mem_cons_of_mem _ hx)
+  | .bvar _, _ :: _, _, h, _, _ => nomatch h
+  | .fvar _ _, _ :: _, _, h, _, _ => nomatch h
+  | .sort _, _ :: _, _, h, _, _ => nomatch h
+  | .const _ _, _ :: _, _, h, _, _ => nomatch h
+  | .app _ _, _ :: _, _, h, _, _ => nomatch h
+  | .lam _ _ _, _ :: _, _, h, _, _ => nomatch h
+  | .letE _ _ _, _ :: _, _, h, _, _ => nomatch h
+  | .lit _, _ :: _, _, h, _, _ => nomatch h
+  | .proj _ _ _, _ :: _, _, h, _, _ => nomatch h
+
+/-- Abstracting a variable drops its annotation's mentions and adds none. -/
+theorem mentionsConst_abstract1 {T : Name} :
+    ∀ (e : Expr) (d k : Nat), (e.abstract1 d k).mentionsConst T = true → e.mentionsConst T = true
+  | .bvar _, _, _, h => h
+  | .fvar idx ty, d, k, h => by
+    simp only [Expr.abstract1] at h
+    split at h
+    · exact nomatch h
+    · exact h
+  | .sort _, _, _, h => h
+  | .const _ _, _, _, h => h
+  | .app f a, d, k, h => by
+    simp only [Expr.abstract1, mentionsConst, Bool.or_eq_true] at h ⊢
+    exact h.elim (fun h => Or.inl (mentionsConst_abstract1 f d k h))
+      (fun h => Or.inr (mentionsConst_abstract1 a d k h))
+  | .lam ty b m, d, k, h => by
+    simp only [Expr.abstract1, mentionsConst, Bool.or_eq_true] at h ⊢
+    exact h.elim (fun h => Or.inl (mentionsConst_abstract1 ty d k h))
+      (fun h => Or.inr (mentionsConst_abstract1 b d (k + 1) h))
+  | .forallE ty b m, d, k, h => by
+    simp only [Expr.abstract1, mentionsConst, Bool.or_eq_true] at h ⊢
+    exact h.elim (fun h => Or.inl (mentionsConst_abstract1 ty d k h))
+      (fun h => Or.inr (mentionsConst_abstract1 b d (k + 1) h))
+  | .letE ty v b, d, k, h => by
+    simp only [Expr.abstract1, mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with (h | h) | h
+    · exact Or.inl (Or.inl (mentionsConst_abstract1 ty d k h))
+    · exact Or.inl (Or.inr (mentionsConst_abstract1 v d k h))
+    · exact Or.inr (mentionsConst_abstract1 b d (k + 1) h)
+  | .lit _, _, _, h => h
+  | .proj s i x, d, k, h => by
+    simp only [Expr.abstract1, mentionsConst, Bool.or_eq_true] at h ⊢
+    exact h.elim Or.inl (fun h => Or.inr (mentionsConst_abstract1 x d k h))
+
+theorem MentionsOnly.abstract1 {e : Expr} (he : MentionsOnly ok e) (d k : Nat) :
+    MentionsOnly ok (e.abstract1 d k) := fun T hT => he T (mentionsConst_abstract1 e d k hT)
+
+/-- Level instantiation keeps every constant's name. -/
+theorem mentionsConst_instantiateLevelParams {T : Name} (ks : List Name) (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).mentionsConst T = e.mentionsConst T
+  | .bvar _ => rfl
+  | .fvar idx ty => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    exact mentionsConst_instantiateLevelParams ks us ty
+  | .sort _ => rfl
+  | .const _ _ => rfl
+  | .app f a => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    rw [mentionsConst_instantiateLevelParams ks us f, mentionsConst_instantiateLevelParams ks us a]
+  | .lam ty b _ => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    rw [mentionsConst_instantiateLevelParams ks us ty, mentionsConst_instantiateLevelParams ks us b]
+  | .forallE ty b _ => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    rw [mentionsConst_instantiateLevelParams ks us ty, mentionsConst_instantiateLevelParams ks us b]
+  | .letE ty v b => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    rw [mentionsConst_instantiateLevelParams ks us ty, mentionsConst_instantiateLevelParams ks us v,
+      mentionsConst_instantiateLevelParams ks us b]
+  | .lit _ => rfl
+  | .proj _ _ x => by
+    simp only [Expr.instantiateLevelParams, mentionsConst]
+    rw [mentionsConst_instantiateLevelParams ks us x]
+
+theorem MentionsOnly.instantiateLevelParams {e : Expr} (he : MentionsOnly ok e) (ks : List Name)
+    (us : List Level) : MentionsOnly ok (e.instantiateLevelParams ks us) := fun T hT =>
+  he T (by rw [mentionsConst_instantiateLevelParams] at hT; exact hT)
+
+/-- A term whose constants resolve mentions only stored names. -/
+theorem MentionsOnly.of_constsResolve {env : Env} :
+    ∀ (e : Expr), e.constsResolve env = true → MentionsOnly (fun T => (env.find? T).isSome = true) e
+  | .bvar _, _, _, h => nomatch h
+  | .sort _, _, _, h => nomatch h
+  | .lit _, _, _, h => nomatch h
+  | .const n _, hr, T, h => by
+    simp only [mentionsConst, beq_iff_eq] at h
+    rw [← h]; exact hr
+  | .fvar _ ty, hr, T, h => MentionsOnly.of_constsResolve ty hr T h
+  | .app f a, hr, T, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [mentionsConst, Bool.or_eq_true] at h
+    exact h.elim (MentionsOnly.of_constsResolve f hr.1 T) (MentionsOnly.of_constsResolve a hr.2 T)
+  | .lam ty b _, hr, T, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [mentionsConst, Bool.or_eq_true] at h
+    exact h.elim (MentionsOnly.of_constsResolve ty hr.1 T) (MentionsOnly.of_constsResolve b hr.2 T)
+  | .forallE ty b _, hr, T, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [mentionsConst, Bool.or_eq_true] at h
+    exact h.elim (MentionsOnly.of_constsResolve ty hr.1 T) (MentionsOnly.of_constsResolve b hr.2 T)
+  | .letE ty v b, hr, T, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [mentionsConst, Bool.or_eq_true] at h
+    rcases h with (h | h) | h
+    · exact MentionsOnly.of_constsResolve ty hr.1.1 T h
+    · exact MentionsOnly.of_constsResolve v hr.1.2 T h
+    · exact MentionsOnly.of_constsResolve b hr.2 T h
+  | .proj sn _ x, hr, T, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [mentionsConst, Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h
+    · exact hr.1
+    · exact MentionsOnly.of_constsResolve x hr.2 T h
+
+end Expr
+
+theorem mentionsOnly_closeTelescope {ok : Name → Prop} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) {body : Expr},
+      (∀ b ∈ bs, Expr.MentionsOnly ok b.1) → Expr.MentionsOnly ok body →
+      Expr.MentionsOnly ok (ConLeche.closeTelescope bs i body)
+  | [], _, _, _, hb => hb
+  | (dom, bm) :: bs, i, body, hbs, hb => by
+    show Expr.MentionsOnly ok
+      (.forallE dom ((ConLeche.closeTelescope bs (i + 1) body).abstract1 i 0) bm)
+    refine Expr.mentionsOnly_forallE.mpr ⟨hbs _ List.mem_cons_self, ?_⟩
+    exact (mentionsOnly_closeTelescope bs (i + 1) (fun b hb => hbs b (List.mem_cons_of_mem _ hb))
+      hb).abstract1 i 0
+
+theorem stripPis_mentionsOnly {ok : Name → Prop} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis n = some (bs, body) → Expr.MentionsOnly ok e →
+      (∀ b ∈ bs, Expr.MentionsOnly ok b.1) ∧ Expr.MentionsOnly ok body
+  | 0, e, bs, body, h, he => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun _ hb => nomatch hb), he⟩
+  | n + 1, .forallE ty b m, bs, body, h, he => by
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+    obtain ⟨⟨bs₀, body₀⟩, h₀, hbs⟩ := h
+    simp only [Prod.mk.injEq] at hbs
+    obtain ⟨rfl, rfl⟩ := hbs
+    obtain ⟨hty, hb⟩ := Expr.mentionsOnly_forallE.mp he
+    obtain ⟨hbs₀, hbody⟩ := stripPis_mentionsOnly n h₀ hb
+    refine ⟨fun x hx => ?_, hbody⟩
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact hty
+    · exact hbs₀ x hx
+  | n + 1, .bvar _, _, _, h, _ => nomatch h
+  | n + 1, .fvar _ _, _, _, h, _ => nomatch h
+  | n + 1, .sort _, _, _, h, _ => nomatch h
+  | n + 1, .const _ _, _, _, h, _ => nomatch h
+  | n + 1, .app _ _, _, _, h, _ => nomatch h
+  | n + 1, .lam _ _ _, _, _, h, _ => nomatch h
+  | n + 1, .letE _ _ _, _, _, h, _ => nomatch h
+  | n + 1, .lit _, _, _, h, _ => nomatch h
+  | n + 1, .proj _ _ _, _, _, h, _ => nomatch h
+
+/-- **The invariant**: every pin's components and every UNPROCESSED
+constructor (a type at index `qhead` or later — the worklist processes
+the types in order) mention only `ok` constants. -/
+structure MentionInv (ok : Name → Prop) (qhead : Nat) (st : ElimState) : Prop where
+  pins : ∀ q ∈ st.pins, Expr.MentionsOnly ok q.pin
+  ctors : ∀ i, qhead ≤ i → ∀ t, st.types[i]? = some t → ∀ c ∈ t.ctors, Expr.MentionsOnly ok c.2.1
+
+/-- The containers' names and stored constructors are `ok`. -/
+@[expose] def ContainersMentionOnly (env : Env) (ok : Name → Prop) : Prop :=
+  ∀ (I : Name) (ci : ContainerInfo), containerInfo? env I = some ci →
+    ∀ J ∈ ci.members, ok J.name ∧ ∀ c ∈ J.ctors, Expr.MentionsOnly ok c.type
+
+/-- A mint keeps the invariant. -/
+theorem mkCopies_mentionInv {env : Env} {ok : Name → Prop} {pbs : List (Expr × BinderMeta)}
+    {lvls : List Level} {Ds : List Expr} {I : Name} {base size : Nat} {qhead : Nat}
+    (hpbs : ∀ b ∈ pbs, Expr.MentionsOnly ok b.1) (hDs : ∀ D ∈ Ds, Expr.MentionsOnly ok D) :
+    ∀ {members : List ContainerMember} {st st' : ElimState} {got : Option Name},
+      mkCopies env pbs lvls Ds I base size members st = .ok (st', got) →
+      (∀ J ∈ members, ok J.name ∧ ∀ c ∈ J.ctors, Expr.MentionsOnly ok c.type) →
+      MentionInv ok qhead st → MentionInv ok qhead st' := by
+  intro members st st' got hmk hok hinv
+  obtain ⟨copies, hclen, hty, hpin, hall⟩ := mkCopies_spec hmk
+  refine ⟨fun q hq => ?_, fun i hi t ht c hc => ?_⟩
+  · rw [hpin] at hq
+    rcases List.mem_append.mp hq with hq | hq
+    · exact hinv.pins q hq
+    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hq
+      rw [List.getElem?_zipWith] at hj
+      split at hj
+      · next c J hc hJ =>
+        obtain rfl := Option.some.inj hj
+        exact Expr.MentionsOnly.mkAppN (Expr.mentionsOnly_const (hok J (List.mem_of_getElem? hJ)).1)
+          Ds hDs
+      · exact nomatch hj
+  · rw [hty] at ht
+    rcases Nat.lt_or_ge i st.types.length with hlt | hge
+    · rw [List.getElem?_append_left hlt] at ht
+      exact hinv.ctors i hi t ht c hc
+    · rw [List.getElem?_append_right hge] at ht
+      have hiJ : i - st.types.length < members.length := by
+        rw [← hclen]; exact (List.getElem?_eq_some_iff.mp ht).1
+      obtain ⟨copy, hcopy, hmkc, -⟩ := hall _ _ (List.getElem?_eq_getElem hiJ)
+      obtain rfl : t = copy := Option.some.inj (ht.symm.trans hcopy)
+      obtain ⟨-, -, -, hctors⟩ := mkCopy_inv hmkc
+      obtain ⟨l, hl⟩ := List.getElem?_of_mem hc
+      have hlJ : l < members[i - st.types.length].ctors.length := by
+        have := (List.getElem?_eq_some_iff.mp hl).1
+        rw [(mkCopy_inv hmkc).2.2.1] at this
+        exact this
+      obtain ⟨cI, hcI, hl'⟩ := hctors l _ (List.getElem?_eq_getElem hlJ)
+      obtain rfl := Option.some.inj (hl.symm.trans hl')
+      have hJok := (hok _ (List.getElem_mem hiJ)).2
+      show Expr.MentionsOnly ok (ConLeche.closeTelescope pbs 0 cI)
+      refine mentionsOnly_closeTelescope pbs 0 hpbs (Expr.MentionsOnly.instPis hcI ?_ hDs)
+      exact (hJok _ (List.getElem_mem hlJ)).instantiateLevelParams _ _
+
+/-- The openers of a telescope mention only what the telescope does. -/
+theorem openPisAtFvars_mentionsOnly {ok : Name → Prop} :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) → Expr.MentionsOnly ok e →
+      (∀ x ∈ fvs, Expr.MentionsOnly ok x) ∧ Expr.MentionsOnly ok body
+  | 0, e, d, fvs, body, h, he => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun _ hx => nomatch hx), he⟩
+  | k + 1, .forallE dom b m, d, fvs, body, h, he => by
+    simp only [openPisAtFvars] at h
+    split at h
+    · next fvs₀ body₀ h₀ =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      obtain ⟨hdom, hb⟩ := Expr.mentionsOnly_forallE.mp he
+      have hfv : Expr.MentionsOnly ok (.fvar d dom) := fun T hT => hdom T hT
+      obtain ⟨hfvs, hbody⟩ := openPisAtFvars_mentionsOnly k h₀ (hb.instantiate1 hfv 0)
+      refine ⟨fun x hx => ?_, hbody⟩
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact hfv
+      · exact hfvs x hx
+    · exact nomatch h
+  | k + 1, .bvar _, _, _, _, h, _ => nomatch h
+  | k + 1, .fvar _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .sort _, _, _, _, h, _ => nomatch h
+  | k + 1, .const _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .app _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .lam _ _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .letE _ _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .lit _, _, _, _, h, _ => nomatch h
+  | k + 1, .proj _ _ _, _, _, _, h, _ => nomatch h
+
+/-- A fire keeps the invariant: the new pins' components and the new
+copies' constructors are built from the fired node's arguments. -/
+theorem replaceIfNested_mentionInv {env : Env} {ok : Name → Prop} {blvls : List Level}
+    {params : List Expr} {pbs : List (Expr × BinderMeta)} (hcm : ContainersMentionOnly env ok)
+    (hpbs : ∀ b ∈ pbs, Expr.MentionsOnly ok b.1) {qhead : Nat} {st st' : ElimState} {e r : Expr}
+    (h : replaceIfNested env blvls params pbs st e = .ok (some (r, st')))
+    (he : Expr.MentionsOnly ok e) (hinv : MentionInv ok qhead st) : MentionInv ok qhead st' := by
+  unfold replaceIfNested at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · split at h
+    · next I lvls hfn =>
+      split at h
+      · split at h
+        · exact nomatch h
+        · split at h
+          · split at h
+            · exact nomatch h
+            · exact nomatch h
+          · next ci hci =>
+            split at h
+            · exact nomatch h
+            · split at h
+              · exact nomatch h
+              · next nested hocc =>
+                split at h
+                · exact nomatch h
+                · split at h
+                  · next q hq =>
+                    simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                      Prod.mk.injEq] at h
+                    obtain ⟨rfl, rfl⟩ := h
+                    exact hinv
+                  · split at h
+                    · exact nomatch h
+                    · next p hmk =>
+                      obtain ⟨stq, gotq⟩ := p
+                      split at h
+                      · exact nomatch h
+                      · next auxI hgot =>
+                        simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                          Prod.mk.injEq] at h
+                        obtain ⟨rfl, rfl⟩ := h
+                        exact mkCopies_mentionInv hpbs
+                          (fun D hD => he.getAppArgs D (List.mem_of_mem_take hD)) hmk
+                          (fun J hJ => hcm I ci hci J hJ) hinv
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- The walk keeps the invariant whenever its input mentions only `ok`
+constants (its output may not: that is the point of the walk). -/
+theorem replaceAllNested_mentionInv {env : Env} {ok : Name → Prop} {blvls : List Level}
+    {params : List Expr} {pbs : List (Expr × BinderMeta)} (hcm : ContainersMentionOnly env ok)
+    (hpbs : ∀ b ∈ pbs, Expr.MentionsOnly ok b.1) {qhead : Nat} :
+    ∀ (e : Expr) {st : ElimState} {r : Expr × ElimState},
+      replaceAllNested env blvls params pbs st e = .ok r → Expr.MentionsOnly ok e →
+      MentionInv ok qhead st → MentionInv ok qhead r.2 := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro st r h he hinv
+    unfold replaceAllNested at h
+    simp only at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv
+    · split at h
+      · contradiction
+      · next r' hr' =>
+        obtain rfl := Except.ok.inj h
+        exact replaceIfNested_mentionInv hcm hpbs hr' he hinv
+      · split at h
+        · contradiction
+        · next x₁ st₁ h₁ =>
+          split at h
+          · contradiction
+          · next x₂ st₂ h₂ =>
+            obtain rfl := Except.ok.inj h
+            obtain ⟨hf, ha⟩ := Expr.mentionsOnly_app.mp he
+            exact iha (r := (x₂, st₂)) h₂ ha (ihf (r := (x₁, st₁)) h₁ hf hinv)
+  | lam ty b bm ihty ihb =>
+    intro st r h he hinv
+    unfold replaceAllNested at h
+    simp only at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv
+    · split at h
+      · contradiction
+      · next r' hr' =>
+        obtain rfl := Except.ok.inj h
+        exact replaceIfNested_mentionInv hcm hpbs hr' he hinv
+      · split at h
+        · contradiction
+        · next x₁ st₁ h₁ =>
+          split at h
+          · contradiction
+          · next x₂ st₂ h₂ =>
+            obtain rfl := Except.ok.inj h
+            obtain ⟨hf, ha⟩ := Expr.mentionsOnly_lam.mp he
+            exact ihb (r := (x₂, st₂)) h₂ ha (ihty (r := (x₁, st₁)) h₁ hf hinv)
+  | forallE ty b bm ihty ihb =>
+    intro st r h he hinv
+    unfold replaceAllNested at h
+    simp only at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv
+    · split at h
+      · contradiction
+      · next r' hr' =>
+        obtain rfl := Except.ok.inj h
+        exact replaceIfNested_mentionInv hcm hpbs hr' he hinv
+      · split at h
+        · contradiction
+        · next x₁ st₁ h₁ =>
+          split at h
+          · contradiction
+          · next x₂ st₂ h₂ =>
+            obtain rfl := Except.ok.inj h
+            obtain ⟨hf, ha⟩ := Expr.mentionsOnly_forallE.mp he
+            exact ihb (r := (x₂, st₂)) h₂ ha (ihty (r := (x₁, st₁)) h₁ hf hinv)
+  | letE ty v b ihty ihv ihb =>
+    intro st r h he hinv
+    unfold replaceAllNested at h
+    simp only at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv
+    · split at h
+      · contradiction
+      · next r' hr' =>
+        obtain rfl := Except.ok.inj h
+        exact replaceIfNested_mentionInv hcm hpbs hr' he hinv
+      · split at h
+        · contradiction
+        · next x₁ st₁ h₁ =>
+          split at h
+          · contradiction
+          · next x₂ st₂ h₂ =>
+            split at h
+            · contradiction
+            · next x₃ st₃ h₃ =>
+              obtain rfl := Except.ok.inj h
+              have hty : Expr.MentionsOnly ok ty := fun T hT => he T (by
+                simp only [Expr.mentionsConst, Bool.or_eq_true]; exact Or.inl (Or.inl hT))
+              have hv : Expr.MentionsOnly ok v := fun T hT => he T (by
+                simp only [Expr.mentionsConst, Bool.or_eq_true]; exact Or.inl (Or.inr hT))
+              have hb : Expr.MentionsOnly ok b := fun T hT => he T (by
+                simp only [Expr.mentionsConst, Bool.or_eq_true]; exact Or.inr hT)
+              exact ihb (r := (x₃, st₃)) h₃ hb (ihv (r := (x₂, st₂)) h₂ hv (ihty (r := (x₁, st₁)) h₁ hty hinv))
+  | proj sn i x ihx =>
+    intro st r h he hinv
+    unfold replaceAllNested at h
+    simp only at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv
+    · split at h
+      · contradiction
+      · next r' hr' =>
+        obtain rfl := Except.ok.inj h
+        exact replaceIfNested_mentionInv hcm hpbs hr' he hinv
+      · split at h
+        · contradiction
+        · next x₁ st₁ h₁ =>
+          obtain rfl := Except.ok.inj h
+          have hx : Expr.MentionsOnly ok x := fun T hT => he T (by
+            simp only [Expr.mentionsConst, Bool.or_eq_true]; exact Or.inr hT)
+          exact ihx (r := (x₁, st₁)) h₁ hx hinv
+  | bvar i =>
+    intro st r h _ hinv
+    unfold replaceAllNested at h
+    split at h
+    · obtain rfl := Except.ok.inj h; exact hinv
+    · rw [show replaceIfNested env blvls params pbs st (.bvar i) = .ok none from rfl] at h
+      obtain rfl := Except.ok.inj h; exact hinv
+  | fvar i ty =>
+    intro st r h _ hinv
+    unfold replaceAllNested at h
+    split at h
+    · obtain rfl := Except.ok.inj h; exact hinv
+    · rw [show replaceIfNested env blvls params pbs st (.fvar i ty) = .ok none from rfl] at h
+      obtain rfl := Except.ok.inj h; exact hinv
+  | sort u =>
+    intro st r h _ hinv
+    unfold replaceAllNested at h
+    split at h
+    · obtain rfl := Except.ok.inj h; exact hinv
+    · rw [show replaceIfNested env blvls params pbs st (.sort u) = .ok none from rfl] at h
+      obtain rfl := Except.ok.inj h; exact hinv
+  | const n us =>
+    intro st r h _ hinv
+    unfold replaceAllNested at h
+    split at h
+    · obtain rfl := Except.ok.inj h; exact hinv
+    · rw [show replaceIfNested env blvls params pbs st (.const n us) = .ok none from rfl] at h
+      obtain rfl := Except.ok.inj h; exact hinv
+  | lit l =>
+    intro st r h _ hinv
+    unfold replaceAllNested at h
+    split at h
+    · obtain rfl := Except.ok.inj h; exact hinv
+    · rw [show replaceIfNested env blvls params pbs st (.lit l) = .ok none from rfl] at h
+      obtain rfl := Except.ok.inj h; exact hinv
+
+/-- One type's constructors rewritten: the invariant is kept (the
+walk's inputs are the constructors opened at the openers). -/
+theorem elimCtors_mentionInv {env : Env} {ok : Name → Prop} {blvls : List Level} {nP : Nat}
+    {params : List Expr} {pbs₀ : List (Expr × BinderMeta)} (hcm : ContainersMentionOnly env ok)
+    (hpbs : ∀ b ∈ pbs₀, Expr.MentionsOnly ok b.1) (hpar : ∀ p ∈ params, Expr.MentionsOnly ok p)
+    {qhead : Nat} :
+    ∀ {cs : List (Name × Expr × Nat)} {st : ElimState}
+      {r : List (Name × Expr × Nat) × ElimState},
+      elimCtors env blvls nP params pbs₀ cs st = .ok r →
+      (∀ c ∈ cs, Expr.MentionsOnly ok c.2.1) → MentionInv ok qhead st → MentionInv ok qhead r.2
+  | [], st, r, h, _, hinv => by
+    simp only [elimCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hinv
+  | (c, cty, nF) :: rest, st, r, h, hcs, hinv => by
+    simp only [elimCtors, bind, Except.bind] at h
+    split at h
+    · next pbs rest₀ hstrip =>
+      split at h
+      · next cbody hinst =>
+        split at h
+        · contradiction
+        · next q st₁ hq =>
+          split at h
+          · contradiction
+          · next rest' st₂ hrest =>
+            simp only [pure, Except.pure, Except.ok.injEq] at h
+            subst h
+            have hcty : Expr.MentionsOnly ok cty := hcs _ List.mem_cons_self
+            have hinv₁ := replaceAllNested_mentionInv hcm hpbs _ hq
+              (Expr.MentionsOnly.instPis hinst hcty hpar) hinv
+            have hres := elimCtors_mentionInv hcm hpbs hpar hrest
+              (fun c' hc' => hcs c' (List.mem_cons_of_mem _ hc')) hinv₁
+            exact hres
+      · contradiction
+    · contradiction
+
+/-- The worklist keeps the pins' half of the invariant to the end. -/
+theorem elimLoop_mentionInv {env : Env} {ok : Name → Prop} {blvls : List Level} {nP : Nat}
+    {params : List Expr} {pbs₀ : List (Expr × BinderMeta)} (hcm : ContainersMentionOnly env ok)
+    (hpbs : ∀ b ∈ pbs₀, Expr.MentionsOnly ok b.1) (hpar : ∀ p ∈ params, Expr.MentionsOnly ok p) :
+    ∀ {fuel qhead : Nat} {st st' : ElimState},
+      elimLoop env blvls nP params pbs₀ fuel qhead st = .ok st' →
+      MentionInv ok qhead st → ∀ q ∈ st'.pins, Expr.MentionsOnly ok q.pin
+  | 0, _, _, _, h, _ => nomatch h
+  | fuel + 1, qhead, st, st', h, hinv => by
+    simp only [elimLoop] at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      exact hinv.pins
+    · next t ht =>
+      split at h
+      · exact nomatch h
+      · next cs' st₁ hcs =>
+        have hinv₁ := elimCtors_mentionInv hcm hpbs hpar hcs (hinv.ctors qhead (Nat.le_refl _) t ht) hinv
+        refine elimLoop_mentionInv hcm hpbs hpar h ⟨hinv₁.pins, fun i hi t' ht' c hc => ?_⟩
+        rw [List.getElem?_set_ne (by omega)] at ht'
+        exact hinv₁.ctors i (by omega) t' ht' c hc
+
+/-- **THE PINS MENTION ONLY `ok` CONSTANTS** at the elimination's end,
+given the containers' names and constructors `ok`, the block's own
+constructors `ok` and the first former's type `ok`. -/
+theorem elimNested_mentionInv {env : Env} {ok : Name → Prop} {nP : Nat} {lps : List Name}
+    {types : List AuxType} {st : ElimState} (hcm : ContainersMentionOnly env ok)
+    (h : elimNested env nP lps types = .ok st)
+    (hty : ∀ t ∈ types, ∀ c ∈ t.ctors, Expr.MentionsOnly ok c.2.1)
+    (ht₀ : ∀ t₀ ∈ types.head?, Expr.MentionsOnly ok t₀.type) :
+    ∀ q ∈ st.pins, Expr.MentionsOnly ok q.pin := by
+  unfold elimNested at h
+  split at h
+  · next t₀ hh =>
+    split at h
+    · next params body hop =>
+      split at h
+      · next pbs body₀ hstrip =>
+        have hok : Expr.MentionsOnly ok t₀.type := ht₀ t₀ (by rw [hh]; exact rfl)
+        have hpar : ∀ p ∈ params, Expr.MentionsOnly ok p := (openPisAtFvars_mentionsOnly nP hop hok).1
+        have hpbs : ∀ b ∈ pbs, Expr.MentionsOnly ok b.1 := (stripPis_mentionsOnly nP hstrip hok).1
+        have hinv₀ : MentionInv ok 0 ⟨types, [], 1⟩ :=
+          ⟨(fun q hq => nomatch hq), fun i _ t ht c hc => hty t (List.mem_of_getElem? ht) c hc⟩
+        exact elimLoop_mentionInv hcm hpbs hpar h hinv₀
+      · contradiction
+    · contradiction
+  · contradiction
 
 end ConLeche
