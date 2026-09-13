@@ -74270,6 +74270,138 @@ modules build; `tests/shake.sh` exit 0 (`FormerFront → MutualInv`
 allowlisted as compensated; the K.10 merge retired the `NestedOrderK`
 line); layering 302/230/3/1, 0/0; no-local-paths OK.
 
+#### M.25 (c) `CopyTypesAsMinted` DERIVED from the run — the copies' FORMER side is closed on the run's own conjuncts plus two syntactic premises (2026-09-13, session 13)
+
+**What landed** (`Model/Inductives/CopyReads.lean`,
+`copyTypesAsMinted_of_facts`; `copyIdxRead_of_run` now takes
+`ContainersStored` + `FirstFormerStoredAsAnnotated` in place of
+`CopyTypesAsMinted`, which stays a named record only because it is the
+exact shape `copyIdxRead_of_copy` consumes).  The chain, piece by piece,
+each a theorem:
+
+1. **the re-mint's type ledger** (`Verify/Inductives/NestedFacts.lean`):
+   `remintOne` — the arm of `remintCopyTypes` as a function of one entry
+   — with its laws `remintOne_name`, `remintOne_of_ne` (a pin leaves an
+   entry it does not name), `remintOne_fires` (the four conditions:
+   const head, `containerInfo?` at the pin's container with a member of
+   that name, the level count, `instPis` at the annotated components);
+   `remintCopyTypes_type`: the final entry is the LEFT FOLD of the
+   per-pin rewrites over the returned pairs; `foldl_remintOne_single`:
+   with exactly one naming pair the fold is that pair's rewrite;
+2. **the minted names' reserved prefix**, through the ledger
+   (`NestedLedger.lean`): `mkUniqueName_shape` (whatever the counter
+   reached, the result is `appendIndexAfter base i`),
+   `hasPrefixOf_appendIndexAfter_appendName` (for a NON-anonymous
+   container name — at `.anonymous` the index is glued onto `_nested`
+   itself, so the grade would not read it: `ContainersStored` asks the
+   name), `mkCopies_spec`/`PinOriginAt`/`elimNested_copy` carry it as
+   their last conjunct;
+3. **the stored formers are the checked ones** (`Model/Inductives/DeclNested.lean`):
+   `FreshEtaExt.find?_some` (a fresh extension keeps every lookup) and
+   `auxFormers_stored`: at either grade, `consMutualFormers_find?_self`
+   carried across the constructors', recursors' and tables' stages —
+   the recursors' freshness at the pre-block environment from
+   `nestedRecNameFacts` (extracted from `nestedAuxModel`), lifted across
+   the two conses by the block's name discipline (`blockNames.Nodup`);
+4. **the bvar-form round trip** (`NestedFacts.lean`):
+   `openPisAtFvars_closeTelescope_strip` — a body closed over the
+   binders `T.stripPis n` re-opens at `T`'s depth to `T`'s openers and
+   the body, when the body is bvar-closed and consistent at every opener
+   and the binders mention only variables below the depth; by
+   `closeTelescope_abstract1_instantiate1` (one instantiation commuted
+   through the closing, the binders instantiated by `instAt`) on the
+   three substitution facts `abstract1_eq_self_of_WScoped`,
+   `abstract1_comm`, `instantiate1_abstract1_comm`.  (The lane's earlier
+   `openPisAtFvars_closeTelescope` is the OPENER-form twin; the kernel's
+   `nestedRemint` closes over `t₀A.stripPis nP`, bvar-form.)
+5. the consistency of the instantiated container type at the openers
+   (`fvarConsistent_of_leaves`, `openers_mem_eq`, `mem_fvarLeaves_mkAppN_arg`,
+   `instPisAt_leaves`), its closure (`instPisAt_bounded`), the components'
+   count (`stripPis_sort_instPis` at the container's syntactic telescope),
+   the identification of the given decomposition of the annotated pin
+   with the ledger's (`annotateCore_mkAppN_inv`/`_const_inv`,
+   `getAppFn_mkAppN`/`getAppArgs_mkAppN`), and `nestedCopyFormerType_eq`
+   (K.10) at the re-minted entry.
+
+**The two premises, and why they are premises.**
+*`ContainersStored env envAux`* — for every member `J` of a recovered
+group: `J.name ≠ .anonymous`; `containerInfo? env J.name` succeeds and
+finds `J` with its type and level parameters (the re-mint looks the
+container up AGAIN by the pin's own container name, and `containerInfo?`
+reads the group off THAT member's recursor — the run records only the
+occurrence head's lookup, and no lemma says a group-mate's lookup
+agrees); `envAux.find? J.name` is the recovered type at the recovered
+level parameters (`ContainersAt`'s syntactic half); `J.type` is closed;
+`J.type` is a syntactic telescope ending in a sort over the group's
+parameters and the member's indices.  Every conjunct is universal for
+inductives this checker stored (`mutualFormerChecks_front`'s stripPis
+conjunct, `checkConstantVal`'s guards) but is a property of the
+PRE-BLOCK environment that `EnvWF` does not carry.
+*`FirstFormerStoredAsAnnotated μ F env p a₀`* — the stored first former
+is its annotation, i.e. `checkSumTele` took its identity branch on
+member 0; equivalent to "the block's first former's annotated type is a
+syntactic telescope ending in a sort", true of every elaborated stream
+and false for a crafted `T : id Type`, where the re-mint's openers
+(`fvsA₀`, from the annotated type) differ from the stored former's
+(`fvsA`, from the normalised one) in their annotations, and the read's
+`Opened` context is at the latter.
+
+**REQUESTS to the kernel lane (K.11)** — both small, verdict-neutral on
+accepted streams, and each retires a premise conjunct: (a)
+`remintCopyTypes`' three failure arms become `.internal` throws
+(`containerInfo?` at the pin's container, its `find?`, the `instPis`) —
+then `= .ok` says the arm fired and `ContainersStored`'s second
+conjunct goes; (b) `nestedRemint` reads `pbsA`/`fvsA₀` off the type
+`checkSumTele` would store (or `checkNested` declines a first former
+whose annotated type is not a syntactic telescope ending in a sort) —
+then `FirstFormerStoredAsAnnotated` goes.
+
+**The CONSTRUCTOR side** (for the assembly of `PsiSetup`, DESIGN §M.24's
+`hCAD`/`hnbP`/`hvia`) is NOT covered by K.10 — the K lane records that
+the constructors stage stores the annotation of `normCtorValM`'s
+output, not a syntactic identity.  What the model consumes there, as
+ONE named hypothesis (the shape the kernel lane asked for): for copy
+`k + j` (pin `J.{lvls} Ds`, annotated components `argsA`) and its
+constructor `l` (the container's constructor `c`), the stored
+constructor type `cvC.type`, opened at the block's openers `fvsA`,
+reads — `denoteMeta` at `envAux`, depth `nP`, at every level
+assignment — as the container constructor's stored type at `lvls`,
+instantiated at `argsA` (`instPis (c.type[J.lps := lvls]) argsA`) with
+every nested occurrence `J' Ds' e⃗` in a field domain replaced by the
+copy `auxJ' p⃗ e⃗` the walk minted for it (`replaceAllNested` at the
+elimination's state) — i.e. `CopyCtorRead`'s `dsC`/`bodyC` are the
+readings of the REWRITTEN instantiated constructor, field by field,
+and its head reads as the copy's constructor at the parameters.  Since
+`normCtorValM` may `whnf` a field domain, the identity is up to the
+readings (semantic), which is why it is a read and not a syntactic
+equation; the kernel-side fact that would make it syntactic is
+"`normCtorValM` is the identity on a positivity-shaped constructor
+type" plus the annotation of an already-annotated term — the
+constructor-side twin of K.10, at the constructors stage.
+
+**Gates** (per session; landing gates NOT run): `lake build` 426 jobs
+warning-free; `lake test` clean; the ten off-graph modules build
+warning-free; `tests/shake.sh` exit 0 (`MutualStageFormer → FormerFront`
+demoted on the gate's word); layering 302/230/3/1, 0/0; no-local-paths
+OK.  Lean gotchas this session: `cases h : e with` must list every
+alternative (`cases h : e` + `case c … =>` + `all_goals` instead); a
+triple quote inside a Python heredoc ends the string (write Lean text
+to a file first); `subst` on `a = b` eliminates the variable side, and
+a substituted variable's later mentions must be rewritten by hand;
+`rcases` `-` on an existential witness other conjuncts depend on
+silently shifts the pattern — name every witness; the plan script's
+`--check` accepts a `public import` demotion that the compiler
+refuses when TWO parents each carry the needed re-export (the
+`MutualRecPre` class) — the FALLBACK is the record.
+
+**Next** (session 14): the constructor-side hypothesis above stated as
+a record in `CopyPins.lean` (`CopyCtorsAsRead`), `CopyCtorRead` from
+it (the peel through `replaceAllNested`'s compositionality); then
+`psiSetup_of_member` (the datum-level twin of `invSetup_of_member`),
+`targetOk_psi` (the swapped `targetOk_copy` from `PinRead` +
+`CopyIdxRead`), `viaEntry_wd`, the bridge `R_ψ ⊆ CopyRef` for
+non-nested containers, the step lemma and `orderFold_all`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
