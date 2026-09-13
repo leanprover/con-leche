@@ -341,11 +341,15 @@ The per-pin body of `PinRunFacts`. -/
     ContainerCtorsAt ci c.dJ ∧
     ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
     -- the pin's LEVELS against the stored container's (task #279 M-B′
-    -- step 3p): the member's declared level parameters are the stored
-    -- constant's and the pin carries one level per parameter — what
-    -- the constructor read needs to instantiate the container's
-    -- constructor at the pin (`ctor_peel`'s `hlpsC`/`hag`)
-    J.lps = cvTJ.levelParams ∧ lvls.length = cvTJ.levelParams.length ∧
+    -- step 3p): every member of the group carries the stored
+    -- constant's level parameters, the pin names one level per
+    -- parameter, and the pin's assignment agrees with the level
+    -- substitution there — what the constructor read needs to
+    -- instantiate the container's constructor at the pin
+    -- (`ctor_peel`'s `hlpsC`, `hag` and `hacv`)
+    (∀ (t : Nat) (J' : ContainerMember), ci.members[t]? = some J' → J'.lps = cvTJ.levelParams) ∧
+    lvls.length = cvTJ.levelParams.length ∧
+    (∀ q ∈ cvTJ.levelParams, c.ψ' q = Level.substFn ψ cvTJ.levelParams lvls q) ∧
     -- the group's members by name, and their leaves at the pin's
     -- assignment read as at the pin's level substitution (what a
     -- group-mate's own data agree with: `invChoice_group`, `InvCopy.lean`)
@@ -558,7 +562,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       rfl,
       qt, I, ci, Jt, lvls, Ds, cvTJt, capsJt, hqt, hci, hJt, hqtc.symm, by rw [hrept.member, hqtc],
       hlenM, hgrp, by rw [hqtp, hqtc], ?_, by rw [hqtc]; exact hfJt, by rw [hψ', hψ'₀, hlpst], hargs,
-      hsp, hcat, hcstt, hJlpst, by rw [hlvlLent, hJlpst], hab⟩
+      hsp, hcat, hcstt, ?_, by rw [hlvlLent, hJlpst], ?_, hab⟩
     · intro t' ht'
       obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t']? = some J' :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht')⟩
@@ -566,11 +570,25 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       refine ⟨cvTJ', cvR', mI', rP', rules', ?_⟩
       rw [hrep'.member]
       exact hrep'
-    show ElimState.grp st (j₀ + t) = (j₀, dJ.k)
-    unfold ElimState.grp
-    rw [hqt]
-    show (qt.grpBase, qt.grpSize) = (j₀, dJ.k)
-    rw [hqtb, hqts, hlenM]
+    · show ElimState.grp st (j₀ + t) = (j₀, dJ.k)
+      unfold ElimState.grp
+      rw [hqt]
+      show (qt.grpBase, qt.grpSize) = (j₀, dJ.k)
+      rw [hqtb, hqts, hlenM]
+    · -- every member's declared level parameters are the stored one's
+      intro t' J' hJ'
+      have ht' : t' < dJ.k := by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp hJ').1
+      obtain ⟨cvTJ', cvR', capsJ', mI', rP', rules', hfJ', -, hJlps', -, -, -, hrep'⟩ :=
+        hmem t' J' hJ'
+      have hfJ'' : envAux.find? (dJ.memberName t') = some (.indInfo cvTJ' capsJ') := by
+        rw [hrep'.member]; exact hfJ'
+      rw [hJlps', hlpsOf t' ht' cvTJ' capsJ' hfJ'', hlpst]
+    · -- the pin's assignment agrees with its level substitution
+      show ∀ q ∈ cvTJt.levelParams, ψ' q = Level.substFn ψ cvTJt.levelParams lvls q
+      intro q hq
+      rw [hlpst] at hq ⊢
+      rw [hψ'₀] at hagree
+      exact hagree q hq
   -- the choice, per GROUP: one datum, assignment and readings per base pin
   have hchoice : ∃ (dOf : Nat → IndRepData V) (ψOf : Nat → Name → Nat) (DsOf : Nat → List AnnotTerm),
       ∀ j₀, j₀ < st.pins.length → (ElimState.grp st j₀).1 = j₀ →
