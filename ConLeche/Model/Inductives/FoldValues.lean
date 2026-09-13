@@ -51,6 +51,23 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Frames -/
 
+/-- **A spine's readings are bounded at the reading depth** when its
+components are scoped there and have no loose variables — what makes
+the copies' pin readings `DsA` (read by `DenoteMetaSpine` at the
+block's `nP` from components K.3's `pinsClosed` guards, `pinRead_of`)
+`bvarsBelow nP`: the `hDsA` premise of `invPinsT_below`/`invHead_below`/
+`psiTerm_below`. -/
+theorem DenoteMetaSpine.bvarsBelow {m : EnvModel V env} {ψ : Name → Nat} {n : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine m.acval env ψ n as vs →
+      (∀ a ∈ as, Expr.WScoped n a ∧ a.looseBVarsBounded 0 = true) →
+      ∀ v ∈ vs, Term.bvarsBelow n v.erase
+  | _, _, .nil, _, _, hv => nomatch hv
+  | a :: as, v :: vs, .cons hd hrest, hg, v', hv' => by
+    rcases List.mem_cons.mp hv' with rfl | hv'
+    · obtain ⟨hws, hb⟩ := hg a (.head _)
+      exact denote_bvarsBelow m.cval_closed n a hws hb (denoteMeta_erase m.acval_erase n a hd)
+    · exact DenoteMetaSpine.bvarsBelow hrest (fun x hx => hg x (.tail _ hx)) v' hv'
+
 /-- The parameter values of a parameter frame: the parameter variables
 read there (outermost first). -/
 noncomputable def paramVals (nP : Nat) (σ : Nat → V) : List V :=

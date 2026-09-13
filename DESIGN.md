@@ -75752,8 +75752,13 @@ constructions `FixRep`/`MutualRep`, opaque at the datum: `tup`, `essC`,
   `psiBody_leaf` types), to check first next session.
 
 Also owed at the run level: the copies' pin readings bounded
-(`hDsA`: `∀ q ∈ DsA, bvarsBelow d.nP q.erase`, from `DenoteMetaSpine`
-at K.3's `pinsClosed` through `denote_bvarsBelow`); the group-mate
+(`hDsA`: `∀ q ∈ DsA, bvarsBelow d.nP q.erase` — the semantic half is
+`DenoteMetaSpine.bvarsBelow` (`FoldValues.lean`: a spine's readings are
+bounded at the depth when its components are `WScoped` there with no
+loose variables, `denote_bvarsBelow` through `denoteMeta_erase`), and
+`pinRead_of` already yields exactly those guards per component from
+K.3's `pinsClosed`; what is missing is threading them into
+`PinRunFacts` beside its `DenoteMetaSpine` conjunct); the group-mate
 agreement (the table term at pin `base + t` is `psiTerm` at
 `cd (base + t)`, whose data `invChoice_group` identifies with the
 pin's); and R2's statement per GROUP (`P t x` over every member of the
