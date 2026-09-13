@@ -47,6 +47,7 @@ public import ConLeche.Model.Inductives.RoundTripRun
 public import ConLeche.Model.Inductives.RoundTripRunR1
 public import ConLeche.Model.Inductives.RoundTripProp
 public import ConLeche.Model.Inductives.RoundTripTransport
+public import ConLeche.Model.Inductives.RoundTripTransportR1
 public import ConLeche.Model.Inductives.ContainerRead
 public import ConLeche.Model.Annot.ConsMono
 public import ConLeche.Model.NatEqs
