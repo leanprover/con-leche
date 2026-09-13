@@ -76447,6 +76447,76 @@ request.  Module sizes: `RoundTripRefl` 617, `RoundTripReflRun` 659,
 `r1At_transport`, `fieldsFit_of_chainFit`, `r2_step`/`r1_step`) are now
 subsumed and may be deleted at M-E.
 
+#### M.40 M-C′ step 7 (cont.), the reflexive arm at the TRANSPORTS: the round trips with no field-shape restriction (2026-09-13, session 24)
+
+**The last restriction lifted.**  §M.39 left `hfinT`: a transport
+carried no telescope.  A telescoped transport is a container-ordinary
+field `Nat → List T` of `J` at the pin `J T` — the copy's field is
+recursive into the copy of `List T` under a telescope.  ψ's value there
+is `viaVal`'s λ-tower over the LIFTED, REBITTED copy telescope
+(`rebit bJ (liftDoms nPJ i tlA)`, the readings lifted at `i + |tlA|`,
+the target's entry lifted over the pin's readings), ψ⁻¹'s mixed value
+the λ-tower over the copy telescope whose leaves apply ψ⁻¹'s fold at
+the target copy: the same shape as the container-recursive position
+(§M.39), with R2 at the TARGET PIN (R2 side) or the induction
+hypothesis at the target copy (R1 side) pointwise, and η on the field.
+`Model/Inductives/RoundTripReflT.lean` (new, ~1 600 lines):
+
+* **`mixed_transport'`** (R2): the field's membership in the container's
+  domain is, by `containerDom_transport`, membership in the Π-tower
+  over the copy telescope of the target pin's container application;
+  `interp_mkPisAV_piTele` at the COPY's bits (`tssBits`, the telescope
+  is the copy's) makes it a nested product and `piTele_eta` the tower
+  of the field's applications; the mixed value's tower is compared by
+  `lamTower_congr_tele` (same telescope, the frames ψ's-values-at-`ρ`
+  vs fields-at-the-block's-frame: `push_agree`, `psiVals_shadowRel`
+  with the copy's `noBVar_entries`); at a leaf `bs` — fitting the
+  lifted telescope iff the copy's (`spineFit_liftDoms`,
+  `shiftE_consList_middle`) — ψ's value applied is the target pin's
+  term at the copy's readings and `f bs` (`lamTower_fold`,
+  `interp_liftN_middle` undoing the lifts), the field's application
+  lies in the target pin's carrier at those readings (`piTele_fold` on
+  the nested product, `transport_fits` at `bs`), and R2 at the target
+  pin (`hR2`, the order's hypothesis) closes the leaf.
+* **`pos_refl'`, `r2Grp_refl'`, `r2Grp_order_refl'`, `r2Grp_order_full`**:
+  the R2 assembly with no shape hypothesis at all.
+* **`pos_inv_transport'`** (R1): the mirror — ψ's value at the mixed
+  spine is the tower over the lifted telescope at the MIXED prefix,
+  compared with η's tower over the copy telescope at the fields'
+  prefix (the lifted domains read as the copy's through
+  `interp_liftN_middle`, the mixed values' shadow `mixed_shadowA` and
+  the copy's `noBVar_entries` `tls`/`Eiss` clauses); at a leaf the
+  mixed value applied is the fold at the target copy of `f bs`, and
+  the pointwise induction hypothesis at the target copy closes it.
+* **`fitMixed_full`**: `fitMixed_refl` with the transport position at
+  any telescope — the container's domain at the transport is the
+  nested product over the copy telescope of the target pin's carrier;
+  the mixed value's tower is rewritten at the mixed prefix
+  (`lamTower_congr_tele`, a chosen body) and `lamTower_mem_piTele` is
+  discharged leaf by leaf by `invFold_mem` at the target pin, the
+  readings fitting the target COPY's telescope through
+  `CopyIdxRead.idxIff` (the target pin's `CopyData.Ok`), the field's
+  application in the copy's own entry by `piTele_fold`.
+* **`pos_inv_full`, `r1_hstep_full`, `r1At_full`, `r1At_full_all`**.
+
+**Status of M-C′.**  `r2Grp_order_full` (R2 at every pin along the
+order) and `r1At_full_all` (R1 at every copy): at ANY elimination bit,
+with transports, with reflexive recursive fields and telescoped
+transports on both sides — no restriction on the fields' shapes
+remains.  Outside the statements: SELF-NESTED containers (`ContainersRep`
+asks `ctorsC = []`, §M.34's docket) and MUTUAL containers with
+differently-spelled sorts (`ContainersRep` at `RepsAt`, M-D′).  The
+finitary/transport-free intermediate lemmas (`r2Grp_order`,
+`r1At_transport`, `r2Grp_order_refl`, `r1At_refl`, `fieldsFit_of_chainFit`,
+`r2_step`/`r1_step`, `pos_noTransport`, `pos_inv`/`pos_inv'`,
+`fitMixed_of_run`/`fitMixed_transport`/`fitMixed_refl`, `mixed_transport`,
+`slot_finitary`) are subsumed and are M-E deletions.  Gates: `lake build`
+warning-free, `lake test` clean, `no-local-paths` OK; shake/pub-import,
+arena, init-full, Mathlib, overview-links NOT run (landing items).  No
+kernel request (this session: none).  Remaining before the signature:
+`copyCtorAsRead_of_walk` (§M.31 (c)–(e), the record's Model half);
+M-D′; M-E.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
