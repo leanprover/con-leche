@@ -239,6 +239,9 @@ structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
   /-- the block's sort `s` (the member with rules') evaluates as the
   datum's -/
   sortEval : ∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ
+  /-- the block's elimination level evaluates as its sort (the `Prop`
+  arm reads the elimination bit off it) -/
+  lev : d.elimL.eval ψ = d.w ψ
   /-- ψ⁻¹'s setup at every parameter frame (`invSetup_of_pinFacts`), at
   the datum re-sorted to `s` -/
   inv : ∃ lpsI lpsT' : List Name, ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP →
@@ -282,7 +285,7 @@ theorem nestedRunFacts_of_pinFacts {μ : CheckMode} {F : Nat} {env envAux : Env}
     exact hg
   obtain ⟨s, lps, lpsT', hsv, hinv⟩ := invSetup_of_pinFacts hreps hchk hb hlenSt hcd hread hlev ht₀ hct₀
   exact ⟨lpsT, s, hreps, hb, hchk, hlenSt, hcd, hctors, bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn,
-    ConLeche.topoOrder_of_run hlenSt hord, hsv, lps, lpsT', hinv⟩
+    ConLeche.topoOrder_of_run hlenSt hord, hsv, hlev, lps, lpsT', hinv⟩
 
 /-- **ψ's FINAL table**: the fold of the copies' terms along the
 kernel's order from the initial table `tbl₀`. -/
