@@ -969,7 +969,7 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
       EnvWF env → CSOK mode env s₀ →
       mutualFormerChecksS mode (mkFEnv env) nP l s₀ = .ok (fms, s') →
       CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
-      ∃ F, mutualFormerChecks (fueledOps mode F) env nP l = .ok fms
+      ∃ F, mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms
   | [], env, s₀, fms, s', _, hs, h => by
     unfold mutualFormerChecksS at h
     obtain ⟨hr, rfl⟩ := pureC_ok h
@@ -1030,10 +1030,11 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
         rw [← checkConstantVal_datF]; exact FueledM.up hle₁ hF₁
       have g₂ : checkSumTele (fueledOps mode G) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, sx) := by
         rw [← checkSumTele_datF]; exact FueledM.up hle₂ hF₂
-      have g₃ : mutualFormerChecks (fueledOps mode G) env nP rest = .ok q2 := by
+      have g₃ : mutualFormerChecks (fueledOps mode G) env nP false rest = .ok q2 := by
         rw [← mutualFormerChecks_datF]
         exact FueledM.up hle₃ (by rw [mutualFormerChecks_datF]; exact hF₃)
       unfold mutualFormerChecks
+      simp only [Bool.false_and, Bool.false_eq_true, if_false]
       simp only [Bind.bind, Except.bind, pure, Except.pure]
       rw [g₁]
       simp only [Except.bind]

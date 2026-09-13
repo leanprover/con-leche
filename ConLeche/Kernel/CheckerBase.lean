@@ -96,6 +96,51 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }
 
+/-- **`checkConstantVal` on an input that is ALREADY ANNOTATED** (task
+#279 K.10; the maintainer's ruling: "only terms from the outside need
+annotations inferred, those that we construct ourselves don't — pass a
+flag to the whole install whether the input is annotated or not, and
+skip annotating if it is").
+
+Every check of `checkConstantVal` runs, on `cv.type` itself; the one
+thing that does not is the annotation WALK, so the stored type IS the
+input, syntactically.  Nothing is weakened: `ops.inferType` below is
+what VALIDATES every binder datum — `inferBody`'s ∀ and λ clauses
+compare the stored datum with the sort they infer and DECLINE on a
+mismatch (`Level.zeronessOf v == mb.pw`) — and it re-checks the scope of
+every leaf, so a wrong datum or a dangling variable in a "pre-annotated"
+input is refused exactly as it would have been.
+
+What the skipped walk would additionally have done: the ζ-reduction of a
+`let` (the only caller is the nested route, whose copies are built from
+stored let-free types and annotated components) and the literal-support
+guards (`natLitSupported`/`strLitSupported`, which the container's stored
+type and the annotated components already passed at their own checks).
+It must therefore only be called on a term the checker built itself out
+of already-checked pieces — which is what the `auxRoute` grade at
+`mutualFormerChecks` decides. -/
+def checkConstantValPre (ops : CheckerOps m) (env : Env) (cv : ConstantVal) :
+    m ConstantVal := do
+  if (env.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless cv.type.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if cv.type.hasFvar then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless cv.type.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless cv.type.constsResolve env do
+    throw (.invalid s!"unknown constant in type of {cv.name}")
+  let stype ← ops.inferType env 0 cv.type
+  let _u ← ops.ensureSort env 0 stype
+  pure cv
+
 /-- Check a `def` declaration's value against its checked constant.
 The reducibility hint is stored untouched: it steers only the lazy
 delta unfolding order in `isDefEq`, never a verdict, so nothing about
