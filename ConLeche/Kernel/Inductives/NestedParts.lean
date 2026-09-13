@@ -459,6 +459,63 @@ def containerRecOk (env : Env) (nP : Nat) (J : ContainerMember) : Bool :=
       | [] => false
   | _ => false
 
+/-- The head constant of a field domain, its OWN `Π` binders peeled (a
+reflexive field's `a⃗ : A⃗` prefix), with the peel depth. -/
+def fieldHeadAt (dom : Expr) : Option (Name × List Expr × Nat) :=
+  let (fbs, res) := dom.piBinders
+  match res.getAppFn with
+  | .const C _ => some (C, res.getAppArgs, fbs.length)
+  | _ => none
+
+/-- **A field domain that MENTIONS the group is NOT ORDINARY**
+(task #279 K.15 (3)) — it is one of the two shapes the positivity walk
+leaves: the field's own binders peeled, the residual is an application
+of a GROUP MEMBER whose first `nP` arguments are the block's parameters
+(a recursive or reflexive field, the bound variables at the field's
+frame: `nP` parameters, `i` earlier fields, the peeled binders), or of a
+STORED INDUCTIVE (a NESTED field — the member sits inside that
+container's parameters).  A field that mentions no member is ORDINARY
+and passes.  This is the statement the model lane's `BridgeSyntax`
+sub-term clause needs: a field the container classifies as ordinary
+mentions no member, so a group pin cannot sit inside a pin minted there.
+
+**The nested arm is not slack**, it is the shape a NESTED container
+has: `P4C`'s own stored constructor carries `Array (P4C α)`, which
+mentions the group member `P4C` without being headed by it
+(`tests/e2e/nested_p04.ndjson`, measured — DESIGN K.15). -/
+def containerFieldOk (env : Env) (names : List Name) (nP i : Nat) (dom : Expr) : Bool :=
+  if !names.any (fun T => dom.mentionsConst T) then true else
+  match fieldHeadAt dom with
+  | some (C, args, d) =>
+    (names.contains C && args.length ≥ nP &&
+      (List.range nP).all (fun j => args[j]? == some (Expr.bvar (nP + i - 1 - j + d)))) ||
+    (match env.find? C with | some (.indInfo _ _) => true | _ => false)
+  | none => false
+
+/-- The fields of one stored constructor. -/
+def containerCtorFieldsOk (env : Env) (names : List Name) (nP : Nat) (c : ContainerCtor) :
+    Bool :=
+  match c.type.stripPis (nP + c.nFields) with
+  | some (bs, _) =>
+    (List.range c.nFields).all fun i =>
+      match bs[nP + i]? with
+      | some (dom, _) => containerFieldOk env names nP i dom
+      | none => false
+  | none => false
+
+/-- **A group's members recover the same group** (K.15 (2)): every
+member's own `containerInfo?` reads the same `all`-order and the same
+parameter count — a fact of any environment this checker built (the
+motive prefix of every member's recursor lists the block in block
+order), and one the model tier needs to instantiate a group-mate's
+reads at the group's one datum. -/
+def containerGroupOk (env : Env) (ci : ContainerInfo) : Bool :=
+  ci.members.all fun J =>
+    match containerInfo? env J.name with
+    | some ci' =>
+      ci'.nP == ci.nP && ci'.members.map (·.name) == ci.members.map (·.name)
+    | none => false
+
 /-- **The three facts at one container**: its stored constructors'
 occurrences of the group are UNIFORM — every occurrence of a member is
 applied to the group's parameters and universe levels, which is
@@ -473,10 +530,12 @@ the stored constructor carries the member at the parameter spine, and
 uniformity is exactly the statement that every occurrence is of that
 shape. -/
 def containerFactsOk (env : Env) (ci : ContainerInfo) : Bool :=
+  containerGroupOk env ci &&
   ci.members.all fun J =>
     uniformIndOccsOk (ci.members.map (·.name)) (J.lps.map Level.param) ci.nP
       (J.ctors.map (·.type)) &&
-    containerRecOk env ci.nP J
+    containerRecOk env ci.nP J &&
+    J.ctors.all (containerCtorFieldsOk env (ci.members.map (·.name)) ci.nP)
 
 /-! ## The recogniser -/
 

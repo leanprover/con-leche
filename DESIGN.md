@@ -75517,6 +75517,82 @@ container in the corpus, as the argument says they must.  No init-full
 or full-Mathlib run: nothing outside `checkNested` changed and the route
 is still shadow-only.
 
+#### K.15 THE REFERENCE RELATION RANGES OVER THE GROUP, AND THREE MORE CONTAINER FACTS (2026-09-13, the model lane's DESIGN §M.29)
+
+**(1) `copyRefB`'s MENTION clause now ranges over the source pin's whole
+MINT GROUP.**  ψ at pin `j` folds every constructor of `j`'s group, so a
+transport sitting in a GROUP-MATE's constructor is a reference of `j`
+too; with the mention read off `j`'s own type alone the sort could emit
+`[j, target, mate]`, an order the fold at `j` cannot use.  The clause is
+now
+
+    (List.range (grp j).2).any fun g =>
+      match st.types[k + (grp j).1 + g]? with
+      | some tg => tg.ctors.any (fun c => c.2.1.mentionsConst t'.name)
+      | none    => false
+
+with `(base, size) = grp j`; the other two clauses (the target outside
+`j`'s group, no group pin a sub-term of the target's pin) are unchanged,
+and so are `topoOrderOk`, `topoGo` and `nestedTopoOrder`, which are
+parametric in `refs`.  **The model lane's `CopyRef` follows in lockstep**
+(`Verify/Inductives/NestedOrder.lean`): its first conjunct becomes
+`∃ g, g < (grp j).2 ∧ ∃ tg, st.types[k + (grp j).1 + g]? = some tg ∧
+∃ c ∈ tg.ctors, (c.2.1).mentionsConst t'.name = true`.  The relation is a
+strict SUPERSET of the old one (the old clause is the `g` at which
+`base + g = j`, and `j` is in its own group), so a `TopoOrder` of the new
+one is a `TopoOrder` of the old; **measured: still acyclic everywhere**
+— no block declined, shadow 25/25 and cone 41/41 unchanged.
+
+**(2) Two more recorded facts.**  `nestedContainersOk` now also asks
+
+* `(st.pins.map (·.pin)).Nodup` — the elimination dedupes structurally
+  (`replaceIfNested` mints only on a pin MISS), so this is a fact of the
+  mint;
+* `containerGroupOk`: every member of a pinned container's group
+  recovers THE SAME group and parameter count
+  (`containerInfo? env J.name = some ci'`, `ci'.nP = ci.nP`, the same
+  `all`-order of names) — a fact of any environment this checker built,
+  and what lets the model tier instantiate a group-mate's reads at the
+  group's one datum.
+
+**(3) The ordinary-fields fact, and a FINDING about its shape.**  K.14's
+uniformity constrains the SHAPE of the occurrences, not their ABSENCE
+from ordinary fields, which is what `BridgeSyntax`'s sub-term clause
+needs.  The new `containerFieldOk` asks, of every field domain of every
+stored constructor of the group: it mentions no member, OR — its own `Π`
+binders peeled — it is an application of a group member at the
+PARAMETER SPINE (recursive or reflexive), OR its head is a STORED
+INDUCTIVE (a NESTED field, the member sitting inside that container's
+parameters).
+
+**The third arm is not slack.**  The literal two-way predicate (ordinary
+or recursive-at-spine) FIRES on a nested container: measured on
+`tests/e2e/nested_p04.ndjson`, where the block `P4` nests through `P4C`
+— itself a nested inductive whose own stored constructor carries
+`Array (P4C α)`, a field that mentions the group member `P4C` without
+being headed by it (shadow 24/25, `P4=error`).  The trichotomy is the
+shape the positivity walk actually leaves, and it passes everywhere.
+
+**Negative controls** (one-line forced failures, gate re-run, reverted):
+
+| forced to fail | `tests/nested-shadow.sh` | reading |
+|---|---|---|
+| the pins-`Nodup` arm, when `pins.length ≥ 2` | **16/25** | 9 fixtures pin two or more occurrences — the fact is not trivial |
+| `containerGroupOk` | **3/25** | reached at 22 of 25 |
+| the field arm, at a non-empty constructor | **3/25** | reached at 22 of 25 |
+| the literal (ordinary ∨ recursive-at-spine) field predicate | **24/25** | the nested-container finding above |
+
+**Gates** (on `inductives` = `9ed11edc`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 25/25**, e2e **216/216**,
+arena tutorial 90/92, the trusted and both `--jobs` sweeps as expected;
+the Mathlib nested cone `ulimit -v 22000000`, `timeout`, `--jobs=1`:
+exit 0, **4 923 accepted, 41/41 shadow accepts BYTE-IDENTICAL to K.10**
+— the widened relation reorders nothing the verdicts can see (the fold
+consumes any `TopoOrder`).  No init-full or full-Mathlib run: nothing
+outside `checkNested` and the elimination's own `Bool` relation changed,
+and the route is still shadow-only.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
