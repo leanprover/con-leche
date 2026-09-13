@@ -216,7 +216,7 @@ stored value whose own constants need not resolve at the smaller
 environment, so the equality is not structural — it needs the
 environment's well-formedness closure (`EnvWF`) as well as the
 extension.  No lemma of that shape exists in the tree. -/
-def SlotsExt (mode : CheckMode) (env env' : Env) : Prop :=
+@[expose] def SlotsExt (mode : CheckMode) (env env' : Env) : Prop :=
   (∀ f d e t, whnf mode env f d e = .ok t → whnf mode env' f d e = .ok t) ∧
   (∀ f d e t, inferTypeCore mode env f d e = .ok t →
     inferTypeCore mode env' f d e = .ok t) ∧
@@ -233,7 +233,7 @@ runs write different data.  On a term whose constants all resolve at
 `env` this is vacuous — but "the pass preserves `constsResolve`" is
 itself an unproved fact about `whnf`'s ζ/δ outputs, so the premise is
 named here instead of derived. -/
-def ReaderNoNew (env env' : Env) : Prop :=
+@[expose] def ReaderNoNew (env env' : Env) : Prop :=
   (∀ e, typeSortPW env.find? e = none → typeSortPW env'.find? e = none) ∧
   (∀ e, proofPW env.find? e = none → proofPW env'.find? e = none)
 
