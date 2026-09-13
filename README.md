@@ -34,10 +34,10 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axiom in the input stream.
 
-  For practicality reasons, it silently *ignores* the the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L223-L224) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L226-L227) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L739).
+* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L747).
 * The parser is an agentic-hand-written parser over the input bytes.
 
 ## Design of the checker proof
@@ -64,11 +64,11 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51-L52) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
-The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L984) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
+The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L992) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
 
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L97-L103) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L110-L117) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
@@ -83,11 +83,11 @@ Denotation of terms and types is captured by the inductive relation [`Denotes`](
 
 The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
 
-This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L417-L421) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
+This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L450-L455) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
-* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L779-L784)).
+* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L781-L786)).
 
 ### Set theory assumption
 
@@ -109,7 +109,7 @@ What's more: For functions producing types (but not those that are propositions)
 
 ### The certification tax
 
-For sort-polymorphic functions the checker does perform an extra `infer` of the argument at run time. This happens relatively rarely in practice, so we still get a usable checker, but is part of what we call the *certification tax* in this project: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L722) mode where these checks are omitted to quantify the cost.
+For sort-polymorphic functions the checker does perform an extra `infer` of the argument at run time. This happens relatively rarely in practice, so we still get a usable checker, but is part of what we call the *certification tax* in this project: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L730) mode where these checks are omitted to quantify the cost.
 
 ### Nat operations
 

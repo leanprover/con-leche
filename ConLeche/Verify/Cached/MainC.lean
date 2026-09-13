@@ -17,6 +17,12 @@ environment, and a fully checked environment carries the graded model
 (`fullyChecked_sound`), so no constant of type `False` (or `Empty`) is
 stored in what the fold accepts.
 
+**At every pin list** (task #304): the fold's pin-list parameter is
+free in all three letters below (`checkDecls μ pins ds`), because
+nothing the model tier consumes reads which list the matched
+`Nat.div`/`Nat.mod` variant came from.  The shipped binary's
+statements are these at `pins := natOpPinSets`.
+
 Retired at task #172 with the arena they were fed from: the
 `checkDecls` letters (`SPC_*` and `input_SPC_*`), which took a
 `WFStore` and a `List DeclP` and converted once before folding.
