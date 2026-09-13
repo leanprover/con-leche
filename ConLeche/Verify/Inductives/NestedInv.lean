@@ -112,65 +112,19 @@ theorem checkSumTele_id {env : Env} {cv cvTa₀ cvTa : ConstantVal} {n F : Nat}
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   exact h.1.symm
 
-/-- The formers stage at `auxRoute`, one member, TAIL ONLY: whatever the
-front door was, the result is one former per member and the rest of the
-list ran. -/
-theorem mutualFormerChecks_true_tail {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
+/-- The formers stage at `auxRoute`, one member: the front door is
+`checkConstantValPre` (K.12 — the grade is the block's, no name is
+read), and the stored former is the one `checkSumTele` returned. -/
+theorem mutualFormerChecks_true_cons {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
     {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP true ((cv, nIdx) :: rest) = .ok fms) :
-    ∃ (f : MutualFormerA) (fs : List MutualFormerA),
-      fms = f :: fs ∧
-      mutualFormerChecks (fueledOps mode F) env nP true rest = .ok fs := by
-  unfold mutualFormerChecks at h
-  simp only [Bool.true_and] at h
-  by_cases hp : Name.hasPrefixOf nestedPrefixName cv.name = true
-  case pos =>
-    rw [if_pos hp] at h
-    obtain ⟨_cvTa₀, _hccv, h⟩ := exceptBind_ok h
-    obtain ⟨q, _htele, h⟩ := exceptBind_ok h
-    obtain ⟨cvTa, s⟩ := q
-    try simp only at h
-    obtain ⟨q2, _hq2, h⟩ := exceptBind_ok h
-    obtain ⟨_bs, tbody⟩ := q2
-    try simp only at h
-    by_cases hc : (tbody == Expr.sort s) = true
-    case neg => rw [if_neg hc] at h; close_throw
-    rw [if_pos hc] at h
-    try simp only [bind, Except.bind] at h
-    obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨⟨cvTa, nIdx, s⟩, fs, h.symm, hrec⟩
-  case neg =>
-    rw [if_neg hp] at h
-    obtain ⟨_cvTa₀, _hccv, h⟩ := exceptBind_ok h
-    obtain ⟨q, _htele, h⟩ := exceptBind_ok h
-    obtain ⟨cvTa, s⟩ := q
-    try simp only at h
-    obtain ⟨q2, _hq2, h⟩ := exceptBind_ok h
-    obtain ⟨_bs, tbody⟩ := q2
-    try simp only at h
-    by_cases hc : (tbody == Expr.sort s) = true
-    case neg => rw [if_neg hc] at h; close_throw
-    rw [if_pos hc] at h
-    try simp only [bind, Except.bind] at h
-    obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨⟨cvTa, nIdx, s⟩, fs, h.symm, hrec⟩
-
-/-- The formers stage at `auxRoute`, one `_nested`-named member: the
-front door is `checkConstantValPre`, and the stored former is the one
-`checkSumTele` returned. -/
-theorem mutualFormerChecks_true_head_pre {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
-    {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
-    (hp : Name.hasPrefixOf nestedPrefixName cv.name = true)
     (h : mutualFormerChecks (fueledOps mode F) env nP true ((cv, nIdx) :: rest) = .ok fms) :
     ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (fs : List MutualFormerA),
       checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvTa₀ ∧
       checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
+      mutualFormerChecks (fueledOps mode F) env nP true rest = .ok fs ∧
       fms = ⟨cvTa, nIdx, s⟩ :: fs := by
   unfold mutualFormerChecks at h
-  simp only [Bool.true_and] at h
-  rw [if_pos hp] at h
+  simp only [if_true] at h
   obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
   obtain ⟨q, htele, h⟩ := exceptBind_ok h
   obtain ⟨cvTa, s⟩ := q
@@ -182,40 +136,38 @@ theorem mutualFormerChecks_true_head_pre {nP F : Nat} {cv : ConstantVal} {nIdx :
   case neg => rw [if_neg hc] at h; close_throw
   rw [if_pos hc] at h
   try simp only [bind, Except.bind] at h
-  obtain ⟨fs, _hrec, h⟩ := exceptBind_ok h
+  obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cvTa₀, cvTa, s, fs, hccv, htele, h.symm⟩
+  exact ⟨cvTa₀, cvTa, s, fs, hccv, htele, hrec, h.symm⟩
 
-/-- **THE COPIES' TYPES, READY-MADE** (K.10).  At `auxRoute` a member
-whose name carries the reserved `_nested` prefix — i.e. a copy the kernel
-minted itself — is STORED WITH THE TYPE IT WAS GIVEN, provided that type
-already strips its telescope to a sort, which is exactly what
-`auxIdxCount` read off it when `auxBlock` recorded the copy's index
-count.  No annotation-stability hypothesis anywhere: the walk does not
-run on these members. -/
+/-- **THE MEMBERS' TYPES, READY-MADE** (K.10, widened by K.12).  At
+`auxRoute` EVERY member of the block is stored WITH THE TYPE IT WAS
+GIVEN, provided that type already strips its telescope to a sort —
+which is exactly what `auxIdxCount` read off it when `auxBlock` recorded
+the member's index count.  No annotation-stability hypothesis anywhere:
+the walk does not run on this block at all. -/
 theorem mutualFormerChecks_true_id {nP F : Nat} {env : Env} :
     ∀ {formers : List (ConstantVal × Nat)} {fms : List MutualFormerA},
       mutualFormerChecks (fueledOps mode F) env nP true formers = .ok fms →
       ∀ (i : Nat) (cv : ConstantVal) (nIdx : Nat),
         formers[i]? = some (cv, nIdx) →
-        Name.hasPrefixOf nestedPrefixName cv.name = true →
         (∃ (bs : List (Expr × BinderMeta)) (s : Level),
           cv.type.stripPis (nP + nIdx) = some (bs, Expr.sort s)) →
         ∃ f : MutualFormerA, fms[i]? = some f ∧ f.cvTa.type = cv.type := by
   intro formers
   induction formers with
   | nil =>
-    intro fms _h i cv nIdx hi _ _
+    intro fms _h i cv nIdx hi _
     exact absurd hi (by simp)
   | cons hd rest ih =>
-    intro fms h i cv nIdx hi hp hstrip
+    intro fms h i cv nIdx hi hstrip
     obtain ⟨cv₀, nIdx₀⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, fs, hfront, htele, hrec, rfl⟩ :=
+      mutualFormerChecks_true_cons h
     cases i with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq, Prod.mk.injEq] at hi
       obtain ⟨rfl, rfl⟩ := hi
-      obtain ⟨cvTa₀, cvTa, s, fs, hfront, htele, rfl⟩ :=
-        mutualFormerChecks_true_head_pre hp h
       have e1 := checkConstantValPre_ok hfront
       obtain ⟨bs', s', hs'⟩ := hstrip
       rw [← e1] at hs'
@@ -223,9 +175,80 @@ theorem mutualFormerChecks_true_id {nP F : Nat} {env : Env} :
       exact ⟨_, rfl, by rw [e2, e1]⟩
     | succ k =>
       simp only [List.getElem?_cons_succ] at hi
-      obtain ⟨f₀, fs, rfl, hrec⟩ := mutualFormerChecks_true_tail h
-      obtain ⟨f, hf, hft⟩ := ih hrec k cv nIdx hi hp hstrip
+      obtain ⟨f, hf, hft⟩ := ih hrec k cv nIdx hi hstrip
       exact ⟨f, by simpa using hf, hft⟩
+
+/-! ### The constructors' stage at the grade -/
+
+/-- What the constructors' normalisation STORES at the grade: the
+constant it was given, or that constant with its type replaced by the
+positivity normalisation — never an annotation (K.12). -/
+theorem normCtorValM_true_stores {env : Env} {memberNames : List Name} {nP nF F : Nat}
+    {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa') :
+    cvCa' = cvCa ∨ ∃ ty', cvCa' = { cvC with type := ty' } := by
+  unfold normCtorValM at h
+  obtain ⟨_q, _h1, h⟩ := exceptBind_ok h
+  obtain ⟨_cbs, _⟩ := _q
+  try simp only at h
+  obtain ⟨_r, _h2, h⟩ := exceptBind_ok h
+  obtain ⟨_fvsP, _crest⟩ := _r
+  try simp only at h
+  obtain ⟨_u, _h3, h⟩ := exceptBind_ok h
+  obtain ⟨_fbs, _resid⟩ := _u
+  try simp only at h
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  · simp only [if_true] at h
+    exact Or.inr ⟨_, checkConstantValPre_ok h⟩
+
+/-- One constructor at the grade: the front door is
+`checkConstantValPre`, which returns its input, so what the stage
+stores is `normCtorValM`'s output ON THE MINTED CONSTANT — the
+positivity normalisation and nothing else (K.12). -/
+theorem checkMutualCtor_true_norm {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx nF F : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {sorts : List Level}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa true = .ok (cvCa, sorts)) :
+    normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvC true
+      = .ok cvCa := by
+  unfold checkMutualCtor at h
+  simp only [if_true] at h
+  obtain ⟨cvCa₀, hfront, h⟩ := exceptBind_ok h
+  obtain ⟨c, hnorm, h⟩ := exceptBind_ok h
+  rw [checkConstantValPre_ok hfront] at hnorm
+  obtain ⟨q, _hq, h⟩ := exceptBind_ok h
+  obtain ⟨_cbs, cbody⟩ := q
+  try simp only at h
+  by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+  case neg => rw [if_neg hc] at h; close_throw
+  rw [if_pos hc] at h
+  obtain ⟨cq, _hcq, h⟩ := exceptBind_ok h
+  obtain ⟨fvsP, _crest⟩ := cq
+  obtain ⟨tq, _htq, h⟩ := exceptBind_ok h
+  obtain ⟨_tfvs, _trest⟩ := tq
+  try simp only at h
+  obtain ⟨u, _hdoms, h⟩ := exceptBind_ok h
+  obtain ⟨xq, _hxq, h⟩ := exceptBind_ok h
+  obtain ⟨xFvs, xrest⟩ := xq
+  try simp only at h
+  by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+      xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+  case neg => rw [if_neg h2] at h; close_throw
+  rw [if_pos h2] at h
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; close_throw
+  rw [if_pos h3] at h
+  by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  obtain ⟨_sorts', _hsorts, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, -⟩ := h
+  exact hnorm
 
 /-! ### From the auxiliary block to the copy's stored former -/
 
@@ -310,16 +333,17 @@ theorem auxBlock_former {p : NestedParts} {st : ElimState} {b : MutualBlock}
   obtain ⟨nIdx, hn, rfl⟩ := hft
   exact ⟨nIdx, hfm, hn⟩
 
-/-- **THE IDENTITY THE MODEL TIER READS OFF THE RUN** (task #279 K.10).
+/-- **THE FORMERS' IDENTITY THE MODEL TIER READS OFF THE RUN**
+(task #279 K.10, widened by K.12).
 
-Two of `DeclNestedRun`'s conjuncts — the auxiliary block and its
-install in the scratch environment — already say that every COPY (a
-member of the re-minted `st.types` whose name carries the reserved
-`_nested` prefix) is stored with the type the elimination minted for it,
-SYNTACTICALLY.  No annotation-stability premise: the install's formers
-stage runs `checkConstantValPre` on such a member (the `auxRoute` grade),
-which checks everything `checkConstantVal` checks and returns its input,
-and `checkSumTele` returns it unchanged because a copy's type is a
+Two of `DeclNestedRun`'s conjuncts — the auxiliary block and its install
+in the scratch environment — already say that EVERY member of that block
+(the block's own, and every copy the elimination minted) is stored with
+the type `auxBlock` gave it, SYNTACTICALLY.  No annotation-stability
+premise and no name test: the install's formers stage runs
+`checkConstantValPre` on the whole block (the `auxRoute` grade), which
+checks everything `checkConstantVal` checks and returns its input, and
+`checkSumTele` returns it unchanged because the member's type is a
 syntactic telescope ending in a sort — which is exactly what
 `auxIdxCount` read off it when `auxBlock` recorded the index count.
 
@@ -330,12 +354,11 @@ theorem nestedCopyFormerType_eq {env envAux : Env} {p : NestedParts} {st : ElimS
     (hb : auxBlock p st = some b)
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     ∀ (i : Nat) (t : AuxType), st.types[i]? = some t →
-      Name.hasPrefixOf nestedPrefixName t.name = true →
       ∃ (env₁ : Env) (fms : List MutualFormerA) (f : MutualFormerA),
         mutualFormers (fueledOps mode F) b.nP b.formers env true = .ok (env₁, fms) ∧
         env₁ = consMutualFormers fms env ∧
         fms[i]? = some f ∧ f.cvTa.type = t.type := by
-  intro i t hi hp
+  intro i t hi
   obtain ⟨hnP, hform⟩ := auxBlock_former hb
   obtain ⟨nIdx, hfi, hcnt⟩ := hform i t hi
   obtain ⟨-, -, -, -, env₁, fms, -, -, -, -, -, -, -, -, -, hformers, -⟩ :=
@@ -344,9 +367,51 @@ theorem nestedCopyFormerType_eq {env envAux : Env} {p : NestedParts} {st : ElimS
   obtain ⟨bs, u, hstrip⟩ := auxIdxCount_stripPis hcnt
   refine ⟨env₁, fms, ?_⟩
   obtain ⟨f, hf, hft⟩ :=
-    mutualFormerChecks_true_id hchecks i ⟨t.name, p.lps, t.type⟩ nIdx hfi hp
+    mutualFormerChecks_true_id hchecks i ⟨t.name, p.lps, t.type⟩ nIdx hfi
       ⟨bs, u, by rw [hnP]; exact hstrip⟩
   exact ⟨f, hformers, henv₁, hf, hft⟩
+
+/-- **THE CONSTRUCTORS' IDENTITY** (K.12).  The same two conjuncts say
+what the constructors' stage stores for EVERY constructor of the
+auxiliary block: `normCtorValM`'s output on the MINTED constant — the
+positivity normalisation and nothing else.  No annotation walk runs (the
+grade), so the stored constructor is the minted one, with its type
+replaced by the normalisation exactly where a member-mentioning field
+domain reduced (`normCtorValM_true_stores` states that disjunction, and
+the identity is its left arm).
+
+The `whnf` behind the normalisation is NOT removable: at a λ-pin
+(`DMap α (fun _ => PT α)`) the copied field is the redex
+`(fun _ => PT α) k`, whose head is a `.lam`, and `mutualPositivity`
+reads no member application there.
+
+Only the install conjunct is needed — `b` is the block the run's
+`auxBlock p st = some b` names, and `b.ctors` are the minted
+constructors verbatim (`auxBlock` copies them out of `st.types`). -/
+theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
+    ∃ (env₁ : Env) (fms : List MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+      (sortss : List (List Level)) (isProp : Bool),
+      mutualFormers (fueledOps mode F) b.nP b.formers env true = .ok (env₁, fms) ∧
+      env₁ = consMutualFormers fms env ∧
+      checkMutualCtors (fueledOps mode F) env₁ b fms isProp true b.ctors
+        = .ok (ctorsA, sortss) ∧
+      ctorsA.length = b.ctors.length ∧
+      ∀ (j : Nat) (c : MutualCtor) (cA : ConstantVal × Nat),
+        b.ctors[j]? = some c → ctorsA[j]? = some cA →
+        normCtorValM (m := CheckM) (fueledOps mode F) env₁ b.memberNames b.nP c.nF
+            c.cv c.cv true = .ok cA.1 ∧
+          (cA.1 = c.cv ∨ ∃ ty', cA.1 = { c.cv with type := ty' }) := by
+  obtain ⟨-, -, -, -, env₁, fms, f₀, -, ctorsA, sortss, -, -, -, -, -,
+    hformers, -, -, -, -, hctors, -⟩ := checkMutualCore_inv haux
+  obtain ⟨-, henv₁⟩ := mutualFormers_inv hformers
+  refine ⟨env₁, fms, ctorsA, sortss, _, hformers, henv₁, hctors, ?_, ?_⟩
+  · exact (checkMutualCtors_inv hctors).1
+  · intro j c cA hc hcA
+    obtain ⟨-, -, hall⟩ := checkMutualCtors_inv hctors
+    obtain ⟨-, _sorts, -, hrun⟩ := hall j c cA hc hcA
+    have hnorm := checkMutualCtor_true_norm hrun
+    exact ⟨hnorm, normCtorValM_true_stores hnorm⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
@@ -360,16 +425,17 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       (ctorsR : List (List (ConstantVal × Nat × Nat)))
       (cvRms cvRns : List ConstantVal)
       (rulesM rulesN : List (List RecRule))
-      (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat)
-      (pinsA : List (NestedPin × Expr)),
-      -- the elimination, the re-mint of the copies' types at ANNOTATED
-      -- pin components, and the mimic count against the stream's records
-      elimNested env p.nP p.lps
-        (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
-          (⟨cv.name, cv.type,
-            (p.ctors.filter (fun c => c.member == mIdx)).map
-              fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀ ∧
-      nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok (st, pinsA) ∧
+      (fmsA ctorsA : List ConstantVal) (order : List Nat),
+      -- THE INPUTS, ANNOTATED (K.12): the formers as the install will
+      -- store them, the constructors at the environment holding those
+      -- formers — so every piece the elimination builds a copy out of is
+      -- annotated, and no annotation pass is left to run on a copy
+      nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA ∧
+      nestedAnnotCtors (m := CheckM) (fueledOps mode F) (nestedFormerEnv fmsA env) p.ctors
+        = .ok ctorsA ∧
+      -- the elimination on those, and the mimic count against the
+      -- stream's records
+      elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st ∧
       st.pins.length = p.numNested ∧
       -- every MINTED name is free in the pre-block environment
       copiesFresh env p.k st = true ∧
@@ -379,13 +445,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux ∧
       auxStoredAll envAux b b.k = some stored ∧
-      -- `pinsOkAux`: the pins typed at the SCRATCH environment
-      (stored.take p.k).head? = some a₀ ∧
-      openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
       -- `pinsClosed`: every pin, abstracted over the parameters, is
       -- fvar-free with its loose bvars inside the telescope
       pinsClosed p.nP st.pins = true ∧
-      nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP pinsA = .ok () ∧
+      -- `pinsOkAux`: the pins — the elimination's own, annotated terms
+      -- opened at the block's parameter variables — typed at the SCRATCH
+      -- environment
+      nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP st.pins = .ok () ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -435,7 +501,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
             (consNestedCtors ctorsR.flatten
               (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
       -- POST-CHECK (a): the same pins at the RESTORED environment
-      nestedPinsOk (m := CheckM) (fueledOps mode F) envOut p.nP pinsA = .ok () ∧
+      nestedPinsOk (m := CheckM) (fueledOps mode F) envOut p.nP st.pins = .ok () ∧
       -- POST-CHECK (c): the stream's records against the generated ones
       (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
       nestedRecsOk (m := CheckM) (fueledOps mode F)
@@ -462,11 +528,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hg₁] at h
   refine ⟨hg₀, hg₁, ?_⟩
   try simp only [bind, Except.bind] at h
-  obtain ⟨st₀, helim, h⟩ := exceptBind_ok h
-  have helim' := nestedLift_ok helim
+  obtain ⟨fmsA, hfmsA, h⟩ := exceptBind_ok h
   try simp only at h
-  obtain ⟨stp, hrem, h⟩ := exceptBind_ok h
-  obtain ⟨st, pinsA⟩ := stp
+  obtain ⟨ctorsA, hctorsA, h⟩ := exceptBind_ok h
+  try simp only at h
+  obtain ⟨st, helim, h⟩ := exceptBind_ok h
+  have helim' := nestedLift_ok helim
   try simp only at h
   by_cases hcnt : (st.pins.length == p.numNested) = true
   case neg => rw [if_neg hcnt] at h; close_throw
@@ -486,12 +553,6 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only at h
   obtain ⟨stored, hst, h⟩ := exceptBind_ok h
   have hst' := unwrapOr_ok hst
-  try simp only at h
-  obtain ⟨a₀, ha₀, h⟩ := exceptBind_ok h
-  have ha₀' := unwrapOr_ok ha₀
-  try simp only at h
-  obtain ⟨fvsA, hfv, h⟩ := exceptBind_ok h
-  have hfv' := unwrapOr_ok hfv
   try simp only at h
   by_cases hpc : pinsClosed p.nP st.pins = true
   case neg => rw [if_neg hpc] at h; close_throw
@@ -522,8 +583,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   have henv : env₄ = envOut := by
     simpa [pure, Except.pure] using h
   subst henv
-  exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, st₀, a₀, fvsA,
-    order, pinsA, helim', hrem, beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', ha₀', hfv', hpc,
+  exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
+    order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

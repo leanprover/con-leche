@@ -71757,6 +71757,128 @@ No init-full or full-Mathlib run: `Kernel/Inductives/MutualInstall.lean`
 is untouched, the accept path is unchanged, and the route is still
 shadow-only.
 
+#### K.12 THE ELIMINATION'S INPUTS ARE ANNOTATED (2026-09-13, the coordinator's choice of D4 design 2)
+
+**The principle** (the maintainer's, as applied): *a term we build
+ourselves is built from ANNOTATED pieces and validated afterwards, never
+re-annotated.*  K.9 applied it to a copy's TYPE by re-minting;
+K.11 (c) measured that the same move fails for a copy's CONSTRUCTORS,
+because those are the elimination's raw output.  K.12 applies it at the
+SOURCE instead: the elimination's INPUTS are annotated, so everything it
+mints is annotated by construction and there is no commutation premise
+anywhere.
+
+**What the kernel does.**
+
+* **`nestedAnnotFormers`** — every former through
+  `checkConstantVal` and then `checkSumTele` at the pre-block
+  environment: `mutualFormerChecks`' own pair of steps, so what comes
+  back is the constant the scratch install will STORE (K.11 (b)'s point,
+  now the shape of the stage rather than a call inside a re-mint).
+* **`nestedAnnotCtors`** — every constructor through
+  `checkConstantVal` at `nestedFormerEnv fmsA env`, the pre-block
+  constants plus the block's formers: `checkMutualCtor`'s front door at
+  the environment `checkMutualCtor` uses.  A stream constructor mentions
+  the block's members and stored constants only (a nested occurrence is
+  an application of a STORED container), so this environment suffices,
+  and no copy exists yet to be mentioned (the reserved-prefix guard).
+* **`nestedTypes0`** assembles the elimination's input from those.
+  `elimNested` then reads its parameter openers and binders off the
+  first former's STORED type, mints every copy out of the containers'
+  stored (annotated) types at ANNOTATED components, and rewrites
+  `J Ds is ↦ auxJ p⃗ is` — a replacement of an annotated sub-term by an
+  application with no binders of its own, so every datum around it
+  stays the one the annotation computed.  The copy's type AND its
+  constructors are therefore annotated throughout.
+* **`nestedRemint` and `remintCopyTypes` are DELETED**, and with them
+  the two-state `st₀`/`st` shape and the `pinsA` list: a pin is already
+  annotated and already opened at the block's parameter variables, so
+  `nestedPinsOk` type-checks `q.pin` itself (`ops.inferType env nP
+  q.pin`) — no instantiation, no annotation, at either pass.  The
+  read-back's `a₀`/`fvsA` go too (nothing used them).
+* **THE GRADE IS THE WHOLE BLOCK'S, and the name test is gone.**
+  `mutualFormerChecks` now reads `if auxRoute then checkConstantValPre
+  else checkConstantVal`, and the CONSTRUCTOR stage takes the same grade
+  (`checkMutualCtors`' `auxRoute`, `checkMutualCtor`/`normCtorValM`'s
+  `preAnnotated`).  `auxRoute` says "the caller built every member of
+  this block out of annotated pieces"; `checkNested` is the only caller
+  that passes it.  **This answers the maintainer's opt-in docket item**
+  (D3): nothing interprets a member's name any more, the opt-in is the
+  caller's single explicit Bool, and a stream that names a mutual member
+  `_nested.X` is unaffected because `checkMutual` does not pass it.
+
+**What the constructor stage stores, precisely.**  At the grade, the
+front door returns its input, so the stored constructor is
+`normCtorValM`'s output ON THE MINTED CONSTANT: `closeTelescope (pbs ++
+fbs) 0 resid`, the POSITIVITY NORMALISATION, with each member-mentioning
+field domain `whnf`'d — and the minted constant unchanged when that
+normalisation changes nothing.  **The `whnf` is not removable**, and
+this is where the identity is not syntactic: at a λ-pin (`DMap α (fun _
+=> PT α)`, four in the Mathlib cone, five in the fixtures) the copied
+field is the redex `(fun _ => PT α) k`, whose head is a `.lam`;
+`mutualPositivity` reads no member application there and the block stops
+being recognised.  Official `whnf`s in the same place.  So the recorded
+fact is the normalisation equation, with the identity as its left arm —
+`nestedCopyCtorType_eq` states both.
+
+**The two identities, in `Verify/Inductives/NestedInv.lean`.**
+
+    nestedCopyFormerType_eq   every member of the aux block (no
+                              `_nested` side condition any more): the
+                              formers stage stores the type `auxBlock`
+                              gave it, with `env₁ = consMutualFormers
+                              fms env`
+    nestedCopyCtorType_eq     every constructor: `normCtorValM … c.cv
+                              c.cv true = .ok cA.1`, and `cA.1 = c.cv ∨
+                              ∃ ty', cA.1 = { c.cv with type := ty' }`
+
+with `mutualFormerChecks_true_cons`/`_id`, `checkMutualCtor_true_norm`
+and `normCtorValM_true_stores` underneath, and
+`checkMutualCtors_inv`/`checkMutualCore_inv` generalised over the grade
+(an old use unifies at `false`).  `DeclNestedRun` records the new
+conjuncts — the two annotation stages, one elimination, the pins as the
+elimination's own terms.
+
+**SIGNATURES** (kernel):
+
+    nestedAnnotFormers / nestedAnnotCtors / nestedFormerEnv /
+    nestedTypes0            NEW      NestedInstall.lean
+    nestedRemint            DELETED
+    remintCopyTypes         DELETED
+    nestedPinsOk            … (nP : Nat) : List NestedPin → m Unit
+    mutualFormerChecks      the grade no longer reads the member's name
+    normCtorValM            + (preAnnotated : Bool := false), last
+    checkMutualCtor         + (preAnnotated : Bool := false), last
+    checkMutualCtors        + (auxRoute : Bool := false), BEFORE the list
+    checkMutualCore         passes the grade to BOTH stages
+
+`checkMutualCtors`' grade sits before its matched list, so its mention
+sites gained an explicit `false`: `Verify/BridgeDecl`,
+`Verify/Cached/BridgeCS3`, `Verify/Cached/BridgeCSDecl`,
+`Verify/Inductives/MutualWF` and `Semantics/Inductives/DeclMutual`
+(`checkMutualCtors_datF`, `checkMutualCtorsF_eq`,
+`checkMutualCtorsS_sim`, `checkMutualCtors_typeWF` and the mutual run
+relation stay at the ungraded call — the cached mirror's grade is
+deferred with the rest of the wiring).
+
+**Gates** (on `inductives` = `ac63078b`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, **nested-shadow 25/25**, e2e **216/216**, arena tutorial
+90/92, annot 15/15, route census unchanged, trusted and both `--jobs`
+sweeps as expected; `tests/overview-links.sh` needed one anchor moved
+(`checkMutual` L637 → L652, the grade's comment lines; the citing
+paragraph was re-read and still holds — `checkMutual` does not pass the
+grade, so the mutual route is exactly as described) and the expectation
+regenerated.  The Mathlib nested cone: exit 0, **4 923 accepted, 41/41
+shadow accepts BYTE-IDENTICAL to K.10** — measured twice, once with the
+formers' grade widened and once with the constructors' grade added.
+Full Mathlib `--verified --jobs=8`, 32 GB: **654 499 declarations
+accepted, exit 0** — the recorded count.  init-full
+instructions: `--verified --jobs=1`, `perf stat -e instructions:u`:
+**536.1104 G against the baseline binary's 536.1157 G, −0.00098 %**,
+53 088 accepted both — the noise floor, as it must be: the accept path
+is untouched and the grade is `false` for every stream.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a

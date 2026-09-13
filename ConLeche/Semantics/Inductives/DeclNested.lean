@@ -155,16 +155,15 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (cvRms cvRns : List ConstantVal)
     (rulesM rulesN : List (List RecRule))
-    (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat)
-    (pinsA : List (ConLeche.NestedPin × Expr)),
-    -- the elimination, and the mimic count against the stream's records
-    elimNested env p.nP p.lps
-      (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
-        (⟨cv.name, cv.type,
-          (p.ctors.filter (fun c => c.member == mIdx)).map
-            fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀ ∧
-    -- the copies' types RE-MINTED at annotated pin components (§M.21 (A))
-    nestedRemint (m := CheckM) (fueledOps μ F) env p st₀ = .ok (st, pinsA) ∧
+    (fmsA ctorsA : List ConstantVal) (order : List Nat),
+    -- THE INPUTS, ANNOTATED (K.12): the formers as the install will store
+    -- them, the constructors at the environment holding those formers
+    ConLeche.nestedAnnotFormers (m := CheckM) (fueledOps μ F) env p.nP p.formers = .ok fmsA ∧
+    ConLeche.nestedAnnotCtors (m := CheckM) (fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA ∧
+    -- the elimination on those, and the mimic count against the stream's
+    -- records
+    elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
     st.pins.length = p.numNested ∧
     -- every MINTED name is free in the pre-block environment
     ConLeche.copiesFresh env p.k st = true ∧
@@ -175,13 +174,13 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none true = .ok envAux ∧
     auxStoredAll envAux b b.k = some stored ∧
-    -- `pinsOkAux`: the pins typed at the SCRATCH environment
-    (stored.take p.k).head? = some a₀ ∧
-    openPisAtFvars p.nP a₀.cvTa.type 0 = some fvsA ∧
     -- `pinsClosed`: every pin, abstracted over the parameters, is
     -- fvar-free with its loose bvars inside the telescope
     pinsClosed p.nP st.pins = true ∧
-    nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP pinsA = .ok () ∧
+    -- `pinsOkAux`: the pins — the elimination's own, annotated terms
+    -- opened at the block's parameter variables — typed at the SCRATCH
+    -- environment
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -231,7 +230,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
           (consNestedCtors ctorsR.flatten
             (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
     -- POST-CHECK (a): the same pins at the RESTORED environment
-    nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP pinsA = .ok () ∧
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP st.pins = .ok () ∧
     -- POST-CHECK (c): the stream's records against the generated ones
     (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
     nestedRecsOk (m := CheckM) (fueledOps μ F)

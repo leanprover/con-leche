@@ -471,7 +471,7 @@ Inductive blocks are not trusted from the stream. Four cases:
   the universe bound and the elimination restriction for the block —
   generates the `k` recursors with `k` motives and their rules, and
   compares them with the stream's records
-  ([function `checkMutual` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L637)).
+  ([function `checkMutual` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L652)).
   In the model the block is one least fixed point: the members' index
   towers are summed into a tag type, the auxiliary family over that
   one tagged index is the fixpoint route's family functor at the

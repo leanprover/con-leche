@@ -70,7 +70,7 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     b.large = f₀.s.isNeverZero ∧
     -- stage 3: the constructors, their kinds, and the conses
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) ∧
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) ∧
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds ∧
     ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
@@ -335,7 +335,8 @@ environment (its own constant check's duplicate guard). -/
 theorem checkMutualCtors_fresh {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
     {isProp : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)}
-    (h : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp cs
+    (h : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp
+        false cs
       = .ok (ctorsA, sortss)) :
     ∀ c ∈ ctorsA, env.find? c.1.name = none := by
   obtain ⟨hlen, -, hall⟩ := ConLeche.checkMutualCtors_inv h
