@@ -75458,15 +75458,36 @@ mint …` case shadows the outer `st` — name the constructor's implicit
 states (`@mint st₀ st₁ …`); a background build's notification reports
 the SHELL's exit, not the build's — read the log's last line.
 
+**Addendum (same session): (c)'s Verify half landed** —
+`copyCtorFields_of_walk` (`NestedFields.lean`): for the walk of the
+instantiated container constructor `cI` from a state with its pins
+indexed, whose input mentions no copy name of the final state (the
+mint's `MentionInv`), EVERY field and the residual is either UNFIRED
+(an output mentioning no copy name is its input — the copy's ordinary
+fields and its fields into a block member) or A FIRE AT THE TOP (the
+output, under its own binders whose domains mention no state name, a
+spine headed by a copy name: the input's binders are the same, its
+body a stored container `I` at `nP` components and index arguments,
+the output the copy at the block's parameters and those arguments,
+the pin `I lvls Ds` in the final table).  Per-field W1'/W2 over
+`replaceAllNested_stripPis`, with `PinsIndexed` (ledger) supplying
+W2's `PinsNamed` and W1's copy-name form at each field's own start
+state, and `Expr.stripPis_mentionsConst_binder` carrying the no-mention
+premise to a binder.  Consumed by nothing yet: the Model-tier half
+(`copyCtorAsRead_of_walk`) reads it on the OPENED forms.
+
 **Next** (session 19): (c) `copyCtorAsRead_of_walk` — per field, from
 `CopyCtorsStored`'s pieces: the round trip `cbody = cI`
 (`openPisAtFvars_closeTelescope_strip` + `openPisAtFvars_instPisAt`),
-`replaceAllNested_stripPis` on `cI`, then per field W1 (copy-ordinary
-and block-member-recursive: `mutualFieldsOk`'s resolve at the pre-block
-env ⇒ no copy name ⇒ same domain ⇒ `ord` syntactically) or W2 (copy-
-recursive into a copy: the opened shape from `recF`/`reflF` pulled back
-through `openPisAtFvars_instSeq`; the pin `J' lvls Ds` = the
-group-mate's by K.15's `Nodup` for `kindR`, the target pin for `kindT`);
+`copyCtorFields_of_walk` on `cI`, then per field its unfired arm
+(copy-ordinary and block-member-recursive: `mutualFieldsOk`'s resolve at
+the pre-block env ⇒ no copy name ⇒ same domain ⇒ `ord` syntactically) or
+its fired arm (copy-recursive into a copy: the opened shape from
+`recF`/`reflF` pulled back through the per-binder form of
+`openPisAtFvars_instSeq` — `fvs[j].fvarTypeD = instSeq (fvs.take j)
+(j - 1) bs[j].1`, from `openPisAtFvars_add` + `instSeq_forallE`, a
+lemma still owed; the pin `J' lvls Ds` = the group-mate's by K.15's
+`Nodup` for `kindR`, the target pin for `kindT`);
 the readings by `denoteMeta_instLevels` + `denoteMeta_instPisAt_peel`
 + `instSeq_mkPisAV` (whole-type) and `denoteMeta_openPis` (per field) +
 `mkPisAV_inj`/`mkAppN_inj_args`; (d) the whnf arm; (e) the sub-term
