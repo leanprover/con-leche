@@ -71377,6 +71377,158 @@ the model lane's modules) and is built explicitly,
 (arena, proofdeps/shake, init-full) are not owed by a proof-only lane
 that adds one off-graph module.
 
+
+#### K.5 — the two lemmas behind `AuxFormersAnnot` (2026-09-13, `agent/auxannot-300`, task #300, DESIGN §M.23 item 2)
+
+**The question.**  §M.23's premise `AuxFormersAnnot μ F envAux b k`
+(`Model/Inductives/CopyReads.lean`, the model lane) says: the copies'
+STORED formers are the annotations of their MINTED types **at the
+scratch environment**.  The run gives something weaker and elsewhere —
+the mutual install annotates a former at the **pre-block** environment
+(`mutualFormerChecks`, `Kernel/Inductives/MutualInstall.lean`) and
+keeps the annotated constant when its telescope is already `nP + nIdx`
+`∀`s ending in a sort (`checkSumTele`'s first branch,
+`Kernel/Inductives/SumInstall.lean` ~L87).  §M.23 named the two lemmas
+that close the gap and docketed them as Opus-suitable.  Both are now in
+`ConLeche/Verify/Inductives/AuxFormers.lean`; nothing in the kernel
+changed and nothing is owed from it.
+
+**(a) The annotator under a conservative environment extension.**
+`EnvExt env env'` is the checker's own shape of extension (`∀ n ci,
+env.find? n = some ci → env'.find? n = some ci`).  What the pass
+contributes itself is monotone and is proved here: the head readers
+(`typeSortPW_envExt`, `proofPW_envExt` through `headTypePW_envExt` /
+`headProofPW_envExt` — every lookup a reader makes sits on the `some`
+branch of its own answer, so an extension cannot change it), the
+literal-support guards (`natLitSupported_envExt`,
+`strLitSupported_envExt` — each shape predicate rejects `none`) and the
+projection table (`EnvExt.findProj?_mono`).  What the pass does NOT
+contribute is inference, and that splits the result in two.
+
+* **The general form**, `annotateCore_envExt`:
+
+  ```lean
+  theorem annotateCore_envExt {env env' : Env} (hext : EnvExt env env')
+      (hs : SlotsExt mode env env') (hnn : ReaderNoNew env env') :
+      ∀ (F d : Nat) (e r : Expr),
+        annotateCore mode env F d e = .ok r →
+        annotateCore mode env' F d e = .ok r
+  ```
+
+  with the two missing ingredients **named as `def`s, not assumed
+  silently**.  `SlotsExt mode env env'` is "the `whnf`, `inferType`,
+  `inferTypeIO` and `isDefEq` slots transport, at every fuel".  The
+  tree has no lemma of that shape and the reason is not laziness:
+  δ-reduction unfolds a stored value whose own constants need not
+  resolve at the smaller environment, so the transport is not
+  structural — it needs the environment's well-formedness closure
+  (`EnvWF`) beside the extension.  `ReaderNoNew env env'` is the second,
+  subtler one: `annotPwPi` consults the READER FIRST, so a constant
+  absent at `env` (reader declines, inference answers) and present at
+  `env'` (reader answers) makes the two runs write different DATA.  On a
+  term whose constants all resolve at `env` it is vacuous, but "the pass
+  preserves `constsResolve`" is itself an unproved fact about `whnf`'s
+  outputs, so it is named rather than derived.
+
+* **The reader-branch case, in full and with no missing ingredient.**
+  `ReaderRun env F d e r` is the annotation run spelled as a
+  derivation, with the fallbacks forbidden: no `letE`, no `proj`, and at
+  every recomputed binder datum the head reader answers.  It mentions no
+  `CheckMode`, because none of the clauses it keeps does.  Three
+  theorems: `ReaderRun.annotateCore` (it IS a run, at every mode — so
+  the premise is *stronger* than the run by exactly the fallbacks it
+  forbids), `ReaderRun.envExt` (it transports along ANY conservative
+  extension, hypothesis-free), and `ReaderRun.mono` (more fuel).  The
+  composition is `annotateCore_envExt_of_readerRun`.
+
+  This is the form a copy's former wants: a telescope's every codomain
+  is a `∀` or a `Sort` and the reader answers both by `rfl`
+  (`typeSortPW_forallE`, `typeSortPW_sort`, K.4's own file); only the
+  parameter and index DOMAINS can carry a redex- or `proj`-headed
+  binder, and that is exactly K.4's frontier — the same one, met again.
+  Two `example`s in the module witness that the derivation is inhabited
+  (the smallest former shape, `∀ (_ : Type), Prop`), so the predicate is
+  not vacuous.
+
+**(b) The minted former's telescope ends in a sort.**  Four closure
+lemmas, one per thing the mint does to the container's stored type, all
+of the shape "a `∀`-telescope ending in a `Sort` stays one":
+`stripPis_sort_instantiateLevelParams` (the occurrence's levels),
+`stripPis_sort_instPis` (the pin's components — `instPis` on such a
+telescope also SUCCEEDS, which the mint needs),
+`stripPis_sort_closeTelescope` (the block's parameter binders, through
+`stripPis_sort_abstract1`).  Assembled at the mint:
+
+```lean
+theorem mkCopy_type_stripPis_sort
+    (hJ : J.type.stripPis (Ds.length + nIdx) = some (bs, .sort u))
+    (hmk : mkCopy pbs lvls Ds auxName J = .ok copy) :
+    ∃ bs', copy.type.stripPis (pbs.length + nIdx)
+      = some (bs', .sort (Level.subst J.lps lvls u))
+```
+
+`auxIdxCount_mkCopy` reads the index count back — a sort-terminated
+`stripPis` pins `piBinders` exactly (`piBinders_of_stripPis_sort`),
+which is what `auxIdxCount` (`Kernel/Inductives/NestedInstall.lean`)
+matches on — and `mkCopy_checkSumTele_keeps` closes the loop:
+`annotateCore_stripPis_sort` (the pass preserves the shape, sort
+included: a `∀` is rebuilt as a `∀`, a `Sort` returned unchanged,
+and neither the opening at the binder's free variable nor the closing
+abstraction can disturb the residual) followed by
+`checkSumTele_of_stripPis_sort` (the first branch fires and returns the
+annotated constant untouched).  `auxFormerAnnot_of_readerRun` packages
+(a) and (b) into the conjunction the model lane reads.
+
+**What was false, and repaired.**  §M.23's phrasing "the two
+annotations agree, so the copy's minted former mentions no block
+member" is not by itself enough, and the repair is the point of (a):
+agreement of the two runs is NOT implied by the term mentioning no new
+constant.  The pass's binder datum is written by a reader that consults
+the environment at the head of the *annotated opened body*, and an
+extension can make that reader answer where it previously declined — a
+datum change with no new constant in the input.  Hence `ReaderNoNew` in
+the general form, and hence the reader-branch theorem being the one
+that is unconditional.
+
+**Findings.**  (i) `Verify/Denote/Install.lean` already states this
+relation as `Verify.EnvExtends`, but in a plain `public section`, so its
+body does not unfold outside its own module and it cannot be APPLIED by
+an importer.  Rather than `@[expose]` a definition the Denote tier keeps
+opaque (and rebuild that whole cone for one four-token predicate), the
+notion is restated locally as `EnvExt`, with the reason in its
+docstring.  (ii) `annotateCore_proj_inv` (`Verify/Abstract.lean`) DROPS
+official's `const_name(I) == proj_sname(e)` premise (task #271) from its
+conclusion — every consumer so far was blind to it, but *rebuilding* the
+clause at another environment needs it.  The inversion is repeated here
+as a `private` `annotateCore_proj_inv'` with the conjunct kept; folding
+it back upstream would rebuild the whole Verify cone for one conjunct
+and is left as a cheap cleanup for a lane that is already rebuilding it.
+
+**What remains.**  The general form's two ingredients are unproved BY
+DESIGN of this task, and the honest next steps are separable: `SlotsExt`
+needs an `EnvWF`-carrying transport for `whnf`/`inferType`/`isDefEq`
+(a substantial lane of its own, useful far beyond the nested route);
+`ReaderNoNew` needs "the pass preserves `constsResolve`", which is a
+corollary of the same transport.  Until then the model lane should
+consume the reader-branch form: its premise (`ReaderRun` on each minted
+former at the pre-block environment) is syntactic, decidable and
+measurable on the corpus, where the opaque `AuxFormersAnnot` was
+neither.  The constructor side (§M.23 finding (b)) is untouched: its
+second lemma is `normCtorValM`'s, not `checkSumTele`'s.
+
+**Where it lives, and the gates.**  `ConLeche/Verify/Inductives/AuxFormers.lean`
+imports `Verify.Inductives.CopyTypes`, `Verify.Mono` and the two nested
+kernel modules it speaks about (`Kernel.Inductives.NestedElim` for
+`mkCopy`, `Kernel.Inductives.NestedInstall` for `auxIdxCount`); it is
+OFF the build graph, as `CopyTypes` is, and is built explicitly:
+`lake build ConLeche.Verify.Inductives.AuxFormers`.  Gates run:
+`lake build` and `lake test` warning-free, the module built explicitly,
+`tests/no-local-paths.sh` and `tests/layering.sh` OK; no `sorry`, and
+`#print axioms` on all ten public theorems shows only `propext`,
+`Classical.choice`, `Quot.sound`.  Landing gates (arena,
+proofdeps/shake, init-full) are not owed by a proof-only lane that adds
+one off-graph module.
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
