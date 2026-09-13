@@ -791,6 +791,20 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
+  -- **THE RESTORED FORMERS: FRESH, AND WITHOUT THE η BIT** (K.20).  Every
+  -- member is re-stored with the record the AUXILIARY install stored for
+  -- it, and that install's formers stage conses `{}`
+  -- (`consMutualFormers`), so no restored former carries the η bit; and
+  -- its name is free in the pre-block environment, which the same
+  -- install's front door checked at this very environment.  Both are
+  -- facts of an environment we built, and the model tier needs them to
+  -- keep the η families closed across the install
+  -- (`declNestedRun_etaClosed`); they are RECORDED here rather than
+  -- re-derived through the scratch install's four cons stages, which is
+  -- a `find?`-shadowing argument about our own environment.  A failure
+  -- is `.internal`.
+  unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
+    throw (.internal "nested: a restored former is not a fresh non-eta family")
   let env₁ := consNestedFormers members env
   -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
   -- block — the block's own and every copy — the STORED field is the
