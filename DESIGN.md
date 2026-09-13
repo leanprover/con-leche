@@ -75247,6 +75247,64 @@ No init-full or full-Mathlib run: the accept path is untouched
 `checkConstantValPre` alone, which only the nested route's scratch
 install reaches) and the route is still shadow-only.
 
+#### K.14 THE CONTAINERS' FACTS, RE-ASKED AND RECORDED (2026-09-13, the model lane's DESIGN §M.28)
+
+Three syntactic facts about the CONTAINERS a nested block nests through
+that the model tier's ψ needs and no `IndRep`/`EnvWF` clause exposes
+(`Model/Inductives/PsiRun.lean`: `ContainersRep`'s two recursor
+conjuncts, `BridgeSyntax`'s sub-term clause).  By the K.1–K.13 pattern
+they are RE-ASKED of the stored constants and RECORDED, rather than
+added as a datum field: all three hold of any container this checker
+installed, so a failure is `.internal`.
+
+    containerMotiveSort?   the motive's sort off a stored recursor
+    containerRecOk         the two recursor facts, per member
+    containerFactsOk       those plus uniformity, per container
+    nestedContainersOk     `containerFactsOk` at every pinned container
+
+**(1) Uniformity.**  `uniformIndOccsOk (ci.members.map (·.name))
+(J.lps.map .param) ci.nP (J.ctors.map (·.type))` — the very walk
+official runs over a block being declared (`check_uniform_ind_occs`) and
+this route already runs over the nested block itself, now asked of the
+CONTAINER's stored constructors: every occurrence of a group member is
+applied to the group's parameters and universe levels.  That is what
+`BridgeSyntax`'s sub-term clause rests on: a pin is a group member
+applied to the pin's components, so a group pin can be a sub-term of
+another pin only where the stored constructor carries the member at the
+parameter spine, and uniformity says every occurrence is of that shape.
+
+**(2) The two recursor facts**, verbatim from `ContainersRep`: at a
+LARGE-eliminating member (the stored recursor carries one level
+parameter more than the block — `u :: lps`) the elimination universe is
+NOT among the block's own (`large → elim ∉ lps`), so the pin's level
+substitution leaves it free for the carrier's rank; at a SMALL one (the
+recursor's level parameters ARE the block's) the motive's sort is `Prop`
+(`large = false → w = 0`), read off the first motive binder's own
+telescope.
+
+**Recorded** as one conjunct of `checkNested_inv` and `DeclNestedRun`,
+beside `copiesFresh`: `nestedContainersOk env st.pins = true`.
+
+**Measured — and the arms are not vacuous** (negative controls, each a
+one-line forced failure, gate re-run, then reverted):
+
+| forced to fail | `tests/nested-shadow.sh` | reading |
+|---|---|---|
+| the uniformity conjunct | **3/25** | reached at 22 of the 25 fixtures |
+| the LARGE recursor arm | **3/25** | reached at essentially every container |
+| the SMALL recursor arm | 25/25, cone 41/41 | **no container in the corpus is small-eliminating** — the arm is corpus-vacuous today, and it is kept because `ContainersRep` states it |
+
+**Gates** (on `inductives` = `ec21a42f`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK with no anchor moved, **nested-shadow
+25/25**, e2e **216/216**, arena tutorial 90/92, the trusted and both
+`--jobs` sweeps as expected; the Mathlib nested cone `ulimit -v
+22000000`, `timeout`, `--jobs=1`: exit 0, **4 923 accepted, 41/41 shadow
+accepts BYTE-IDENTICAL to K.10** — the three facts hold of every
+container in the corpus, as the argument says they must.  No init-full
+or full-Mathlib run: nothing outside `checkNested` changed and the route
+is still shadow-only.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a

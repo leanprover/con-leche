@@ -514,6 +514,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       st.pins.length = p.numNested ∧
       -- every MINTED name is free in the pre-block environment
       copiesFresh env p.k st = true ∧
+      -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
+      -- the stored constructors, and the two recursor facts at every member
+      nestedContainersOk env st.pins = true ∧
       -- the copies' REFERENCE RELATION, topologically sorted
       nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
@@ -618,6 +621,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hfresh] at h; close_throw
   rw [if_pos hfresh] at h
   try simp only [bind, Except.bind] at h
+  by_cases hcont : nestedContainersOk env st.pins = true
+  case neg => rw [if_neg hcont] at h; close_throw
+  rw [if_pos hcont] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨order, hto, h⟩ := exceptBind_ok h
   have hto' := mapError_ok (nestedLift_ok hto)
   try simp only at h
@@ -659,7 +666,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', hpc,
+    order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hto', hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
