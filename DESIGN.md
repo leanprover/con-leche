@@ -74402,6 +74402,250 @@ it (the peel through `replaceAllNested`'s compositionality); then
 `CopyIdxRead`), `viaEntry_wd`, the bridge `R_ψ ⊆ CopyRef` for
 non-nested containers, the step lemma and `orderFold_all`.
 
+#### M.26 M-B′ step 3j: the constructor-side record, and `PsiSetup` ASSEMBLED — ψ's six copy-side fields from the datum (2026-09-13, session 14)
+
+**What the session set out to do** (brief): (1) `CopyCtorsAsRead` as a
+record + `CopyCtorRead` from it; (2) `psiSetup_of_member`,
+`targetOk_psi`, `viaEntry_wd`, the bridge `R_ψ ⊆ CopyRef`, the step
+lemma, `PsiTyped` at every copy by `orderFold_all`; (3) M-C′ if time
+allowed.  Landed: (1)'s record and (2)'s assembly of `PsiSetup` for one
+mint group — every field of `PsiSetup` discharged at the datum level,
+including the two the brief singled out (`targetOk_psi`, the transports'
+grading `viaWD_psi`).  NOT landed: `CopyCtorRead` from the record (the
+ψ⁻¹ side; not on ψ's path), the fold's OUTPUT (`fold_mem_pi`/
+`fold_wellDenoted`: the fold term is graded and in ψ's Π-type — what the
+step returns), the step lemma over `orderFold_all`, the bridge
+`R_ψ ⊆ CopyRef` (a hypothesis of the step until K.12's identity is
+consumed), and M-C′.  K.12 landed on `inductives` mid-session and is
+NOT merged (below).
+
+**The record** (`Model/Inductives/CopyCtors.lean`, `CopyCtorAsRead`) —
+DESIGN §M.25 (c)'s sentence "the copy's constructor reads as the
+container's, instantiated at the pin, with every nested occurrence
+replaced by the copy", stated ONCE in the vocabulary of the two data the
+folds run over (the auxiliary datum `d` — the copy's constructor as the
+scratch block stored it — and the container datum `dJ` at the level
+assignment the pin names), field by field, with the substitution
+`AnnotTerm.instSeq DsA` of the pin's readings for the container's
+parameter variables as the bridge between the two frames.  Three kinds
+of field: **`kindR`** (the container sees it recursive: the copy's
+field is recursive into the group-mate's copy, its telescope and index
+readings the container's substituted), **`kindT`** (a TRANSPORT — the
+container sees it ordinary, the copy recursive into a pin OUTSIDE the
+group: the container's substituted domain IS the Π-tower over the
+copy's telescope of the target container at the target pin's readings
+at the copy's index readings), **`ord`** (ordinary on both sides: the
+readings agree under the substitution); and the result's index readings
+agree.  Why this level and not §M.25 (c)'s literal `denoteMeta` identity
+over `replaceAllNested`'s output: (a) the walk runs on RAW openers and
+`==`-matches raw pins, so no run of it at annotated openers exists to
+state; (b) the readings ARE what both folds consume (`psiDom_eq_copyDom`
+below is field-by-field), so a syntactic identity would be peeled to
+exactly this record; (c) with K.12 the copies' constructors are
+syntactic instantiations of annotated pieces (`nestedCopyCtorType_eq`,
+identity arm), so the record becomes a READ — the substitution peel of
+the container's `CtorDataI` reading through `instPis` (the former's
+peel `former_peel`/`denoteMeta_instPisAt_peel` at the constructor), and
+at the whnf arm (λ-pins) the model's whnf soundness.  The transports'
+membership in `CopyRef` (the bridge) is NOT in the record: it is a
+syntactic fact about `st.types`, owed at the run level from K.12's
+identity (`mentionsConst` survives a syntactic instantiation; the target
+is outside the group because a group head is `nestedOccOk`'s own
+reject; the subterm clause by `replaceIfNested_some`).
+
+**The transports** (`CopyCtors.lean`): `shiftE_consList_middle`,
+`interp_liftN_middle`, `WellDenotedV_liftN_middle` (a lift inserting
+binders between two frame segments — the pin's readings sit between the
+block's parameters and the fields); `NoBVar_inst_iff`/
+`NoBVar_instSeq_iff` (a substitution below a cut touches no field
+variable — the copy's `NoBVar` facts transfer to the container's
+readings); `wellDenotedV_instSeq_under` (grading crosses `instSeq`
+under binders).
+
+**The assembly** (`Model/Inductives/PsiAssembly.lean`, 2 800 lines):
+
+* the choice: `CopyData` (a copy's container datum, member, level
+  assignment, pin readings, group base) with `CopyData.Ok` (base and
+  member give the pin; the member is the container's with its former's
+  facts, leaf shape, parameter pins, parameter equivalence; the pin is
+  read (`PinRead`); the copy's index telescope is the container's at
+  the pin (`CopyIdxRead`, now recording the index count `nIdx` —
+  `copyIdxRead_of_align` had the equation and dropped it)); `psiL`
+  (the group's copies as leaves), `psiPinsT` (the block's parameters
+  seen from under the pin's readings), `psiTgOf` (a copy's fold
+  target: its container's `invTgAV` at its pin), `psiHead` (the copy's
+  constructor at the parameters, lifted over the readings), `psiUseIh`
+  (the container's recursive fields), `psiVia` (the transports: a field
+  recursive in the copy's constructor but not the container's, carried
+  by the table's term for the target lifted over the readings, the
+  copy's index readings and telescope lifted at the field's cutoff,
+  bits `rebit`'d to the elimination's), `psiTgV` — and `PsiSetup.TgV`
+  became PER CONSTRUCTOR (`Nat → Nat → AnnotTerm`; it was per field,
+  shared across constructors — a latent bug of §M.24);
+* **`targetOk_psi`** — `targetOk_copy` with the roles swapped: the
+  copy's leaf at the block's parameters and the container's index
+  values (which fit the copy's telescope by `CopyIdxRead.idxIff`) is
+  graded by the copy's former tower and lies in the container's sort,
+  which is the copy's (`CopyIdxRead.sort`);
+* **`psiDom_eq_copyDom`** + **`ctorAtDoms_psi`** (`hCAD`): the copy's
+  constructor tower (a REAL constructor of the auxiliary block, graded
+  at the block's parameter frame — the proof of `ctorAtPins_real`
+  replayed) lifted over the pin's readings; every transported domain
+  interprets as the copy's own field domain — a transport or a
+  container-recursive field by `interp_mkPisAV_congr` (two Π-towers
+  interpret alike when bits, domains and bodies do) at the copy's
+  recursive entry (`FixCtorDataI.recRefl_entry`, the unified rec/refl
+  shape) against the target copy's fold target (`psiTgOf_fold`) at the
+  copy's index readings, whose fit into the target container's
+  telescope comes from the copy's entry graded (`idxFit_of_entry`:
+  `leafSpineFit_full` at the target's `LeafShape`) through
+  `CopyIdxRead.idxIff`; an ordinary field by the record's substitution
+  equation; the body: the container's index readings are the copy's
+  under the substitution, and the container's fold target at them is the
+  copy at the parameters;
+* **`noBVar_psi`** (`hnbP`): the replaced positions of ψ's body are
+  exactly the copy constructor's recursive fields (`psiVia_isSome` +
+  `kindR`), the copy's `NoBVar` facts (`FixCtorDataI.noBVar_entries`)
+  cross the substitution (`NoBVar_instSeq_iff`) to the container's
+  readings (`exclP_replP_iff`/`exclP_recAt_iff`: both exclusions are
+  the same index set), and the transports' own telescope and readings
+  are the copy's lifted (`NoBVar_liftN_below_iff`);
+* **`containerDom_transport`** + **`transport_fits`** + **`via_psi`**
+  (`hvia`): at a prefix fitting the container's earlier fields, the
+  container's field domain at the pin's readings reads as — and is
+  graded like — the transport's Π-tower (`kindT` through
+  `interp_instSeq_under`/`wellDenotedV_instSeq_under`); under telescope
+  values the target container's application is the leaf at the target
+  pin's readings and the copy's index readings, which fit the target's
+  parameter and index telescopes (`spineFit_of_wellDenoted_lams` at the
+  target's `LeafShape`, the index count from `CopyIdxRead.nIdx`); then
+  `via_of_typed` at the target's `PsiTyped` (from its `PsiTypedPi` by
+  `psiTyped_of_pi`);
+* **`viaWD_psi`** (`hviaWD`, the largest): the transport entry
+  `λ a⃗, Ψ e⃗ (x a⃗)` is graded at the leaf frame by
+  `mkLamsAV_bits_wellDenoted`/`_validV` at `UnderTowerOk`/
+  `UnderTowerValid` over the copy's telescope moved to the ih frame
+  (`ihTeleAtGo_getElem?`/`ihTeleAtGo_take`, `spineFit_ihTeleAtGo`,
+  `WellDenoted_ihIdxAtM`/`AnnotValid_ihIdxAtM`): its type the
+  target-form ih domain (the target's fold target at the copy's index
+  readings, graded by the target's `TargetOk` tower `instSeq`'d to the
+  block's frame and lifted), its body typed by the earlier copy's
+  Π-type `psiTyAV` (lifted; `wellDenotedV_mkAppN_of_spineFit` at the
+  fit of the readings and the field, the field's own type the Π-tower
+  over the moved telescope of the target container's application
+  (`hTJtower`, by `interp_mkPisAV_congr` against the field frame));
+  helpers `wellDenoted_mkPisAV_of`/`annotValid_mkPisAV_of` (the
+  converses of the `_dom`/`_body` peels);
+* **`psiTyAV`** (ψ's Π-type at the block's frame: the container's
+  motive binders at the pin, the copy's carrier at the parameters and
+  indices lifted over the major, `instSeq`'d) and **`PsiTypedPi`** (the
+  fold's property at a copy: the term graded, the Π-type graded, the
+  term in it) with **`psiTyped_of_pi`** (`mkPisAV_fold_mem` at the
+  target's `TargetOk`);
+* **`CopyCtorFacts`** (per container constructor: the copy's
+  constructor's entry, the record, its `FixCtorFactsAt`, closedness,
+  parameter equivalence, view identities, targets and member) and
+  **`psiSetup_of_group`**: `dJ.PsiSetup …` for one mint group from the
+  container's `IndRep` (its `rulesRead`/`leafShape`/`ctors`/
+  `paramsIff`/`paramsIffM`/`memsReal`/`tgtsRLt`, as
+  `invSetup_of_member` reads them), the pin read at member 0
+  (`pinFit_of_leafShape` gives `hparams` at `dJ.params` directly), the
+  copies' `FormerFacts`/`LeafShape`/`paramsIffM` in the auxiliary datum,
+  `CopyData.Ok` for the group and for every transport's target, and at
+  every transport's target its `PsiTypedPi` and `TargetOk`.
+
+**Findings.**  (1) `PsiSetup.hviaWD` needs the earlier copy's term
+GRADED and its Π-TYPE, not the pointwise `PsiTyped` of §M.24: the
+entry's body `Ψ e⃗ (x a⃗)` is graded only through `WellDenoted_app`'s
+`piR` membership, so the fold's property became `PsiTypedPi`, and the
+step must return the fold term graded — `PsiSetup.fold_wellDenoted`
+needs the motive and minor choices graded, which `FoldChoice`'s
+`motChoiceAV_mem`/`minChoiceAV_mem` establish INSIDE their proofs
+(`underTowerOk_of_wellDenoted`) and do not return: the next session
+factors those proofs into `UnderTowerOk` lemmas and derives `_mem`,
+`_wellDenoted` and (via `underTowerValid_of`) `_validV` from one.
+(2) `cdsR` is the RECURSOR's view (`ksR`/`eissR`/`tssR`), so
+`PsiSetup`'s `recIdx`/`Eiss`/`tls` are the R-view lists; the container
+lemmas are stated in the F-view and the assembly rewrites with `hview`
+— a non-nested container's only.  (3) The frame juggling of this file is
+one idiom, worth naming: every copy-side reading lives at
+`consList ws σ` (the block's frame), every container-side reading at
+`consList ws (consList DsA σ)`, and `interp_liftN_middle`/
+`interp_instSeq_under` are the two bridges; the ih frame adds the
+motives/minors/fields/hypotheses between, bridged by the `ihIdxAtM`
+lemmas at the `cons M ρp` (one-motive) form through
+`consList_motives_cons`.
+
+**K.12 landed on `inductives` (`05c43fd5`) mid-session and is NOT
+merged.**  What it changes for this lane (coordinator's summary +
+INTERFACE §0/§3): no re-mint (`nestedRemint`/`remintCopyTypes`/`st₀`/
+`pinsA`/`fvsA`/`a₀` gone), the elimination runs on ANNOTATED inputs
+(`nestedAnnotFormers`/`nestedAnnotCtors` at the pre-block env and the
+formers' env), the pins are the elimination's own terms, the grade is
+the WHOLE scratch block's, `nestedCopyFormerType_eq` holds of every
+member with no prefix condition, and `nestedCopyCtorType_eq` records
+the stored constructor as `normCtorValM`'s output on the minted constant
+(identity arm; a whnf arm at λ-pins).  Consequences, for the next
+session's first item: `Verify/Inductives/NestedFacts.lean`'s re-mint
+sections (`remintCopyTypes_inv`, `nestedRemint_inv`, the type ledger
+`remintOne`…, `nestedRemint_name/_ctors`) and
+`Model/Inductives/CopyReads.lean`'s `copyTypesAsMinted_of_facts` +
+`FirstFormerStoredAsAnnotated` + `ContainersStored`'s lookup conjunct
+go; `copyIdxRead_of_run` reads the copies' formers off
+`nestedCopyFormerType_eq` directly (`mkCopy_inv` + the bvar-form round
+trip `openPisAtFvars_closeTelescope_strip` stay); `nestedAuxModel`/
+`declNestedRun_auxModel` lose `hremint`; the umbrella-imported
+`NestedFacts`/`NestedLedger`/`NestedOrder` must build again before
+anything else does.  Then `CopyCtorAsRead` becomes a read of
+`nestedCopyCtorType_eq`'s identity arm (the constructor twin of
+`copyTypesAsMinted_of_facts`: `mkCopy_inv`'s constructor clause,
+`elimCtors_getElem?`, `replaceIfNested_some`, the annotator's peel of
+`instPis`), with the whnf arm a named premise until the model's whnf
+soundness is wired.
+
+**Gates** (per session; landing gates NOT run): `lake build` warning-free
+at session start (602 jobs); the lane's off-graph modules
+(`CopyCtors`, `PsiAssembly` and their imports `PsiSetup`/`CopyPins`/
+`CopyReads`) build warning-free at every commit; `lake test`,
+`tests/shake.sh`, layering and no-local-paths NOT re-run this session
+(the new modules are off-graph; the on-graph tree is unchanged except
+`PsiSetup.lean`'s `TgV` arity, which is off-graph too).  Lean gotchas
+this session: a structure field named `rec` clashes with the generated
+recursor (`(kernel) constant has already been declared`); `rw … at h ⊢`
+reports the ⊢ failure with the ALREADY-rewritten goal when `h` is the
+one that fails; `rw [← hlen]` with `hlen : xs.length = i` rewrites the
+`i` inside `xs.take i` too — instantiate the frame lemma and rewrite
+its statement instead; `spineFit_instSeqDoms_iff (xs := [])` is stated
+at `consList [] σ` (definitional: `refine (…).mpr ?_` unifies, `rw`
+does not); `List.map_map` folds ONE layer per `rw` — `simp only
+[List.map_map, Function.comp_def]` on both sides before a rewrite by a
+composed-map equation; `cases l` on a projection `(c.DsA)` leaves the
+hypothesis about it untouched (use `Nat.pos_of_ne_zero` +
+`List.eq_nil_of_length_eq_zero`); `List.take_of_length_le`'s implicit
+list must be named when two `take`s are in the goal; `le_of_eq` is
+Mathlib (`Nat.le_of_eq`).
+
+**Next** (session 15): (0) merge `inductives` (K.12) and repair the
+ledger/read modules as above; (1) `FoldChoice`: `motChoiceAV_underTowerOk`/
+`minChoiceAV_underTowerOk` factored out, `_wellDenoted`/`_validV`
+twins; `PsiSetup.fold_wellDenoted` (the prefix graded,
+`wellDenotedV_mkAppN_of_spineFit` at the recursor's tower) and
+`PsiSetup.fold_mem_pi` (`recFold_mem`'s residual tower interprets as
+`psiTyAV` by `interp_mkPisAV_congr`: the index binders lifted over the
+motives and minors, the major `majorAVP` vs `famAppAV` at the two lift
+amounts, the body by `interp_mutualConcAV_frame` + `motChoiceAV_fold` +
+`invTg_fold`) and the Π-type's own grading (`psiTyAV_wellDenotedV` from
+`TargetOk` and `targetOk_real` at the pin); (2) the step: per copy `j`
+the group's data (`GroupData j`: `dJ`, `ψ'`, `DsA`, `j₀`, `auxOf`, the
+container's `IndRep`, `CopyCtorFacts`, the bridge `∀ transport, CopyRef
+grp k₀ st j (target)`), `step tbl j := mkAppN (acval (dJ.recNames (j - j₀)) ψ') (DsA ++ Ms ++ Ns)`
+at `via` built from `tbl`, `P j Ψ := (cd j).dJ.PsiTypedPi … Ψ`, and
+`TopoOrder.orderFold_all` — ψ closed for the scratch block at the datum
+level; (3) the run-level `GroupData` from the merged run
+(`copyIdxRead_of_run`'s successor per group, `CopyCtorAsRead` from
+`nestedCopyCtorType_eq`); (4) `CopyCtorRead` (ψ⁻¹'s `hCAP`) from the
+record; then M-C′.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
