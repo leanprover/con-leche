@@ -76350,6 +76350,103 @@ warning-free, `lake test` clean, `no-local-paths` OK; shake/pub-import,
 arena, init-full, Mathlib, overview-links NOT run (landing items).  No
 kernel request.
 
+#### M.39 M-C′ step 7, the REFLEXIVE arm: telescoped recursive fields on both sides (2026-09-13, session 24)
+
+**The arm.**  `r2Grp_order`/`r1At_transport` (§M.38) take every
+container's recursive fields FINITARY (`hfin`) and the scratch block
+finitary (`hfinA`): a recursive slot is the target's carrier and the
+induction hypothesis speaks of the field's value.  A REFLEXIVE field
+(`List (Nat → T)` at `T`: kind `.reflexive`, a telescope `tss`) has
+the slot as the nested product over its telescope (`slotSet` =
+`piTele`) and needs the hypothesis POINTWISE under it; ψ's value and
+ψ⁻¹'s mixed value at such a position are λ-towers whose leaves compose
+the folds at the target, so the round trip inside is pointwise and the
+tower collapses to the field by η (`piTele_eta`).
+
+**Datum level — `Model/Inductives/RoundTripRefl.lean`** (new):
+`slot_general` (a value in a recursive slot at the restricted family,
+ANY telescope, lies in the Π-tower over the telescope of the target's
+leaf at the readings — the field's ENTRY, `recEntry` at a finitary and
+`reflEntry` at a reflexive position, its bits the family's by
+`tssBits`, `interp_mkPisAV_piTele` + `piTele_mono` through
+`slotRecover` and `leaf` — and satisfies the predicate at every fitting
+telescope spine, `piTele_fold` + `mem_restrictedFam`; the family's
+sort nonzero); **`fieldsFit_of_chainFit'`** (`hfin` gone: the entries'
+readings graded and fitting UNDER the telescope, `hEntry`; the
+induction hypotheses pointwise; the constructor facts' spelling of the
+sort evaluates as the datum's, `hsJ`); **`r2_step'`/`r1_step'`** (the
+steps with the container-recursive arm of `hpos` FOLDED into the
+third: every position is ordinary on both sides or has its round trip
+given — no induction hypothesis consumed at the datum level; the
+finitary-arm hypotheses `hIH`/`hEntryFit`/`htgts`/`hview` dropped);
+two telescope congruences, `spineFit_congr_tele` (two telescopes whose
+domains read alike at corresponding frames accept the same spines)
+and **`lamTower_congr_tele`** (two λ-towers over such telescopes agree
+when their bodies agree at corresponding leaves).
+
+**R2 at the run — `Model/Inductives/RoundTripReflRun.lean`** (new):
+`ctor_facts'` (a container constructor's recursive entries graded and
+fitting under the telescope: the entry's shape by kind,
+`wellDenoted_mkPisAV_dom` then `_body`, `idxFit_of_entry` at the
+telescope's depth `σas := ws ++ bs`); **`mixed_recJ`** — THE POSITION:
+at a container-recursive position with telescope `tlJ` (the copy's
+`tlA = instSeqDoms DsA … tlJ`, `kindR`), ψ's value is `lamTower bJ
+(fs-prefix at the pin's frame) tlJ (Ψ_tgt (EisJ) (f bs))`, ψ⁻¹'s mixed
+value `lamTower bA (VS-prefix at ρ) tlA (Φ_tgt (EisA) (VS_i bs))`; the
+towers are compared by `lamTower_congr_tele` after `lamTower_bit_agree`
+— the copy's domains and readings read as the container's through
+`interp_congr_below` (the pushed frame), `interp_instSeq_under` (the
+pin's readings) and `interp_congr_shadowRelP` (ψ's values shadow the
+fields off the replaced positions, which the container's telescope
+and readings do not mention: `hnbP`'s `tls`/`Eiss` clauses) — and at a
+leaf `bs` the value applied is ψ's fold at the target of `f bs`
+(`lamTower_fold`), so the pointwise induction hypothesis (`R2Pred` at
+the target's tuple of the readings under `bs`) gives `f bs`; η on the
+chain's slot (`piTele_eta` at the container's sort, `hslot`) turns the
+tower of applications into `f`.  `pos_refl` (container-recursive by
+`mixed_recJ`, a transport by `mixed_transport` — STILL FINITARY,
+`hfinT`; else ordinary on both sides), **`r2Grp_refl`**
+(`r2Grp_of_r2`'s assembly with `fieldsFit_of_chainFit'`, `ctor_facts'`,
+`r2_step'`), `r2Grp_order_refl`, `r2Grp_order_refl_all`.
+
+**R1 at the run — `Model/Inductives/RoundTripReflRunR1.lean`** (new):
+`ctor_facts_aux'` (the scratch mirror, at `d.withSort s` — the
+`withSort` projections are defeq but not syntactic, so the entry
+equations are restated by ascription before `rw`); `domA_eq_domJ`/
+`readA_eq_readJ` (the copy's telescope domains and readings under a
+telescope spine at the FIELDS' prefix (the block's frame) are the
+container's at the MIXED prefix (the pin's frame): `kindR`,
+`interp_instSeq_under`, `mixed_shadowP` + `hnbP`); **`pos_inv_recJ`**
+(the position for R1: ψ's value at the mixed spine is a tower over
+`tlJ` at the mixed prefix, ψ⁻¹'s mixed value a tower over `tlA` at the
+fields' prefix, compared by `lamTower_congr_tele`; at a leaf the
+pointwise `R1Pred` at the target copy; η on the copy's OWN entry —
+`interp_mkPisAV_piTele` at the copy's `tssBits`, the body left
+syntactic, `piTele_eta` at the block's sort); **`fitMixed_refl`**
+(`fitMixed_transport` with a telescoped container-recursive hypothesis
+position: the container's entry read as a nested product
+(`interp_mkPisAV_piTele` at the container's bits), the mixed value's
+tower rewritten over the container's telescope (`lamTower_congr_tele`
+with a chosen body), then `lamTower_mem_piTele` with `invFold_mem` at
+every leaf — the field's application in the copy's entry by
+`piTele_fold`, its readings fitting by `ctor_facts_aux'`);
+`pos_inv_refl`, **`r1_hstep_refl`**, `r1At_refl`, `r1At_refl_all`.
+
+**Status.**  R2 at the run (`r2Grp_order_refl_all`) and R1 at the run
+(`r1At_refl_all`): every pin / every copy, any bit, transports
+allowed, reflexive recursive fields allowed on BOTH sides.  The ONE
+remaining restriction is **`hfinT`: a TRANSPORT carries no telescope**
+(`Nat → List T` as a container-ordinary field of `J` at the pin `J T`
+is a telescoped transport) — its lift is the same construction as
+`mixed_recJ`/`pos_inv_recJ` over `viaVal`'s tower (`rebit b (liftDoms
+nPJ i tlA)`) and is the next step.  Gates: `lake build` warning-free,
+`lake test` clean, `no-local-paths` OK; shake/pub-import, arena,
+init-full, Mathlib, overview-links NOT run (landing items).  No kernel
+request.  Module sizes: `RoundTripRefl` 617, `RoundTripReflRun` 659,
+`RoundTripReflRunR1` 1 187 lines.  The finitary lemmas (`r2Grp_order`,
+`r1At_transport`, `fieldsFit_of_chainFit`, `r2_step`/`r1_step`) are now
+subsumed and may be deleted at M-E.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
