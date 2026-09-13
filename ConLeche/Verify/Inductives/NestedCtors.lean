@@ -112,7 +112,7 @@ is that constant itself or that constant with a normalised type
           (closeTelescope pbs 0 cI).stripPis p.nP = some (pbs', rest) ∧
           Expr.instPis (closeTelescope pbs 0 cI) params = some cbody ∧
           replaceAllNested env (p.lps.map Level.param) params pbs sta cbody = .ok (body', stb) ∧
-          sta.pins <+: stb.pins ∧ stb.pins <+: st.pins ∧
+          sta.pins <+: stb.pins ∧ stb.pins <+: st.pins ∧ sta.PinsIndexed p.k ∧
           tyA.ctors[l]? = some (Name.replacePrefix J.name q.aux c.name,
             closeTelescope pbs' 0 body', c.nFields) ∧
           b.ctors[ctorBase st (p.k + j) + l]?
@@ -140,7 +140,7 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     (hty : st.types[p.k + j]? = some { copy with ctors := cs' })
     (helimC : elimCtors env (p.lps.map Level.param) p.nP params pbs copy.ctors st₁
       = .ok (cs', st₂))
-    (hst₂ : st₂.pins <+: st.pins) (hb : auxBlock p st = some b)
+    (hst₂ : st₂.pins <+: st.pins) (hpi : st₁.PinsIndexed p.k) (hb : auxBlock p st = some b)
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     CopyCtorsStored mode F env p st b params pbs j J lvls Ds q := by
   obtain ⟨-, -, hlenC, hctorsC⟩ := mkCopy_inv hmk
@@ -166,7 +166,7 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     env₁, fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors, hlenA, ?_⟩
   intro l c hc
   obtain ⟨cI, hcI, hcopyL⟩ := hctorsC l c hc
-  obtain ⟨pbs', rest, cbody, body', sta, stb, hstrip', hinst, hwalk, hcs'l, -, hstb⟩ :=
+  obtain ⟨pbs', rest, cbody, body', sta, stb, hstrip', hinst, hwalk, hcs'l, hms, hstb⟩ :=
     hallCs l _ _ _ hcopyL
   have hb' := auxBlock_ctor_getElem? hb hty hcs'l
   have hlt : ctorBase st (p.k + j) + l < b.ctors.length := (List.getElem?_eq_some_iff.mp hb').1
@@ -174,8 +174,8 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     ⟨_, List.getElem?_eq_getElem (by rw [hlenA]; exact hlt)⟩
   obtain ⟨hnorm, hstores, hproj⟩ := hall _ _ _ hb' hcA
   exact ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalk,
-    (replaceAllNested_mint hpbs _ hwalk).pins_prefix, hstb.trans hst₂, hcs'l, hb', hcA,
-    hnorm, hstores, hproj⟩
+    (replaceAllNested_mint hpbs _ hwalk).pins_prefix, hstb.trans hst₂, hms.pinsIndexed hpi, hcs'l,
+    hb', hcA, hnorm, hstores, hproj⟩
 
 /-- The same, at the ledger's origin of pin `j` (`elimNested_copy`). -/
 theorem copyCtorsStored_of_run {env envAux : Env} {p : NestedParts} {types : List AuxType}
@@ -195,11 +195,11 @@ theorem copyCtorsStored_of_run {env envAux : Env} {p : NestedParts} {types : Lis
         q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧ q.grpBase = j₀ ∧
         CopyCtorsStored mode F env p st b params pbs j J lvls Ds q := by
   obtain ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, I, ci, i, j₀, J, lvls, Ds, q, copy, st₁,
-    st₂, cs', hci, hJ, hjE, -, hq, hqc, hqp, hqb, -, hmk, -, hpbs, -, hty, helimC, -, hst₂, -⟩ :=
+    st₂, cs', hci, hJ, hjE, -, hq, hqc, hqp, hqb, -, hmk, -, hpbs, -, hty, helimC, -, hst₂, hpi, -⟩ :=
     elimNested_copy helim hj
-  rw [hk] at hty
+  rw [hk] at hty hpi
   exact ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, hpbs, I, ci, i, j₀, J, lvls, Ds, q, hci,
-    hJ, hjE, hq, hqc, hqp, hqb, copyCtorsStored_of hpbs hmk hty helimC hst₂ hb haux⟩
+    hJ, hjE, hq, hqc, hqp, hqb, copyCtorsStored_of hpbs hmk hty helimC hst₂ hpi hb haux⟩
 
 
 /-! ## A container member is determined by its name -/

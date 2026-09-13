@@ -37,7 +37,7 @@ namespace ConLeche
 
 /-- **Every pin's copy name is a type of the state at index `≥ k`** —
 the block's own `k` types come first, every mint appends. -/
-def ElimState.PinsCopyNamed (k : Nat) (st : ElimState) : Prop :=
+@[expose] def ElimState.PinsCopyNamed (k : Nat) (st : ElimState) : Prop :=
   k ≤ st.types.length ∧ ∀ q ∈ st.pins, q.aux ∈ (st.types.map (·.name)).drop k
 
 /-- The copy names only grow. -/
@@ -75,6 +75,31 @@ theorem ElimState.PinsCopyNamed.grows {k : Nat} {st st' : ElimState} (hpn : st.P
 theorem ElimState.PinsCopyNamed.init (types : List AuxType) (n : Nat) :
     ElimState.PinsCopyNamed types.length ⟨types, [], n⟩ :=
   ⟨Nat.le_refl _, fun _ hq => nomatch hq⟩
+
+/-- The ledger's `PinsIndexed` (every pin's copy is a type at index
+`≥ k`) is the copy-name form. -/
+theorem ElimState.PinsIndexed.copyNamed {k : Nat} {st : ElimState} (h : st.PinsIndexed k) :
+    st.PinsCopyNamed k := by
+  obtain ⟨hk, hall⟩ := h
+  refine ⟨hk, fun q hq => ?_⟩
+  obtain ⟨j', hj', t, ht, hn⟩ := hall q hq
+  have hlt : j' < st.types.length := (List.getElem?_eq_some_iff.mp ht).1
+  rw [← hn]
+  have hmem : t.name ∈ (st.types.map (·.name)).drop k := by
+    rw [List.mem_iff_getElem?]
+    refine ⟨j' - k, ?_⟩
+    rw [List.getElem?_drop, List.getElem?_map, show k + (j' - k) = j' by omega, ht]
+    rfl
+  exact hmem
+
+/-- … and it gives `PinsNamed` (every pin's copy is SOME type name). -/
+theorem ElimState.PinsIndexed.named {k : Nat} {st : ElimState} (h : st.PinsIndexed k) :
+    st.PinsNamed := by
+  intro q hq
+  obtain ⟨j', -, t, ht, hn⟩ := h.2 q hq
+  show q.aux ∈ st.types.map (·.name)
+  rw [← hn]
+  exact List.mem_map_of_mem (List.mem_of_getElem? ht)
 
 /-- A fire's output mentions the copy it names, a copy name of the
 state it leaves. -/

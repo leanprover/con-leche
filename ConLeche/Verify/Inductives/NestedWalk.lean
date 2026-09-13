@@ -51,7 +51,7 @@ namespace ConLeche
 /-! ## Pins are named by types -/
 
 /-- Every pin's copy name is a name of the growing type list. -/
-def ElimState.PinsNamed (st : ElimState) : Prop :=
+@[expose] def ElimState.PinsNamed (st : ElimState) : Prop :=
   ∀ q ∈ st.pins, q.aux ∈ st.newNames
 
 /-- The type names only grow. -/
