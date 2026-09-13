@@ -75780,6 +75780,141 @@ Mathlib, overview-links NOT run (landing items).  New modules
 `FoldBelow`/`FoldValues` are on the Model umbrella through `RoundTrip`;
 `FixFamI.lean` gained one lemma (whole-tree rebuild, 622 jobs, clean).
 
+#### M.34 M-C′ step 3: the two clauses by construction, `PsiCtorFit` derived, and R2's step PROVED at the datum level (2026-09-13, session 21)
+
+**(1) `PsiCtorFit` — derived, no new fact.**  The fit of ψ's values at
+the copy constructor's field telescope is what `psiBody_leaf` proved on
+its way to the body fact and never exposed.  Its first half is now the
+lemma **`psiVals_fit`** (`PsiBody.lean`; `psiBody_leaf` calls it): at a
+spine of fields and target-form hypotheses, the fields fit the
+constructor's domains, ψ's values shadow the fields off the replaced
+positions (`ShadowRelP`) and fit the TRANSPORTED domains
+(`psiDomsAV`).  At the assembly, the transported domains are the copy's
+own field telescope lifted over the pin's readings (`ctorAtDoms_psi`'s
+witness), so **`psiVals_fit_copy`** (`PsiAssembly.lean`, the same
+hypotheses as `ctorAtDoms_psi`) turns that fit into
+`SpineFit σ₀ (copy telescope) (ψ's values)` — the fit the scratch
+block's `ctor` clause asks (step (e) of §M.33 (3)).
+
+**(2) `IdxRecover`/`SlotRecover` — two `IndRep` clauses, discharged by
+construction** (the ruling: extend the existing invariant with what the
+round trips genuinely need; stated minimally):
+
+* **`idxRecover`**: a spine of constructor `j`'s length whose result
+  readings are graded and fit `j`'s own member's index telescope, and
+  whose terminator equations hold at `tup mm is` for `is` fitting
+  member `mm`'s telescope, belongs to a constructor OF `mm`
+  (`mems j = mm`) and its result readings are `is`.
+* **`slotRecover`**: at a frame `i + |telescope|` binders below a
+  parameter frame, with a recursive field's index readings graded and
+  fitting the target's telescope, the X-chain's slot tuple
+  `tupW u (essC-readings)` IS `tup (tgts j i) (eissF-readings)`.
+
+The graded-and-fitting premises are what the MUTUAL discharge needs to
+decode a tagged tuple (`tagTupleAV_facts` reads a tagged tuple's value
+only at fitting readings); at the native/pinned sites they are unused.
+Discharges: native (`FixRep.lean`) — `idxValsAt_of_eqsXI` against the
+tuple's projections, `slotRecover` definitional (`essC = esF`,
+`eissC = eissF`, `tup = tupW u`); mutual (`MutualRep.lean`) — the tagged
+singleton `[⟨inj (mots j) ⟨e⃗⟩⟩]` against `tupW W [inj mm ⟨is⟩]`
+(`inj_inj`, `mkTower_inj`; `W ≠ 0` from `TagOk`), the slot's tagged
+value at the target; `mutualIndRep_of` gained two hypotheses,
+`hIdssAll` (every member's index telescope is listed — the tag of
+ANOTHER member's constructor decodes against its own telescope; the
+call site had it, `hIdssGet`) and `hnFs` (the spelled field count is
+the stored one); `Eq` — the one field-free constructor's reading is the
+parameter `a` (`eqRepData_eqAll_iff`); `Nat`/`PUnit` — no indices, the
+slot's tuple is the point at index level `0`; zero-constructor blocks
+vacuous; the three transports (`cons`/`ext`/`swap`) pass the clauses
+through (they mention no environment).
+
+**(3) The run-level items.**  (a) `copyIdxRead_of_run` and
+`PinRunFacts` now carry the pins' per-component guards
+(`∀ a ∈ Ds, WScoped p.nP a ∧ looseBVarsBounded 0 a`, K.3's
+`pinsClosed` per component, from `pinRead_of`) beside the
+`DenoteMetaSpine` conjunct — with `DenoteMetaSpine.bvarsBelow` this is
+`hDsA` (the copies' pin readings bounded at `d.nP`, the premise of
+`invPinsT_below`/`psiTerm_below`).  (b) R2 is stated per GROUP:
+**`R2Grp`** (`RoundTripR2.lean`) is `R2At` at every member of the
+group's container block at the group's data, with ψ's term `Ψ t` (the
+table's entry at pin `base + t`) and ψ⁻¹'s `Φ t` (at the copy
+`k₀ + base + t`).  (c) The group-mate table-term agreement is NOT
+built: the fold's entry at pin `base + t` is `psiStep` at the table
+current when that pin was folded, and the datum-level step below takes
+`Ψ` abstractly (the ι law at `Ψ (dJ.tgtsR J i)`), so the agreement
+needed is: the folded table's entry at a listed pin equals the step at
+the FINAL table, given the step reads only the entries the relation
+names (`orderFold_eq_step`, a `TopoOrder` lemma: the entry is set once
+and never touched again by `nodup`, the referenced entries are earlier
+by `lt_of_ref`), plus `psiTerm`'s congruence in the table at the
+transports' targets (through `psiVia`; the targets are `R`-related by
+the bridge).  Named, next session.
+
+**(4) R2 — the induction, PROVED at the datum level for a FINITARY
+container** (`Model/Inductives/RoundTripR2.lean`, on the Model umbrella):
+
+* **`R2Pred`** — the induction predicate over the container's index
+  tuples: at every member `t'` and fitting spine `is'` whose tuple it
+  is, `Φ t'` after `Ψ t'` at `is'` is the identity; **`r2Fam`** the
+  carrier restricted to it.
+* **`r2Grp_of_step`** — `R2Grp` from the step, by `carrier_induction`
+  at every member (the container's representations at every member,
+  `ContainersRep`; the pin's readings fitting its parameters,
+  `PinRead`).
+* **`slot_finitary`** — a value in a finitary recursive slot at the
+  restricted family is in the TARGET member's carrier at the pin's
+  readings and the field's readings (`slotRecover`, then `leaf` at the
+  target) and satisfies the predicate at the target's tuple
+  (`mem_restrictedFam`); **`interp_recEntry`** reads the recursive
+  entry as the target's leaf applied.
+* **`fieldsFit_of_chainFit`** — a chain-fitting spine fits the REAL
+  domains position by position (`spineFit_of_prefix_pointwise`: the
+  fit built along the prefix, since a recursive entry's readings fit
+  only under the earlier fields), with the induction hypothesis at
+  every recursive position.  Premises: the container's recursive fields
+  are finitary (`hfin`), and the recursive entries' readings are
+  graded and fit the target's telescope under any fitting prefix
+  (`hEntry`; the constructor's grading, `idxFit_of_entry` — to be
+  derived at the run level).
+* **`r2_step`** — THE STEP: the terminator recovers the member and the
+  readings (`idxRecover`); the injection is the constructor's value
+  (`ctor`); ψ's ι at values sends it to the copy constructor at ψ's
+  VALUES (`hιΨ`, the shape of `PsiSetup.fold_iota_vals` with the fold
+  terms abstracted to `Ψ`); its index readings there are the
+  container's (`hEs`), so ψ⁻¹'s ι at values (`hιΦ`, the shape of
+  `InvSetup.fold_iota_vals`, fold terms `Φ'`, `Φ t = Φ' (k₀ + base + t)`)
+  sends it to the container constructor at the MIXED values (the
+  copy's head `psiHead` reads as the copy constructor at the block's
+  parameters, `hheadψ`; ψ⁻¹'s `invHead` at the copy as the container
+  constructor at the pin's readings, `hheadφ` — the representative's
+  reading); and the mixed values ARE the fields: an ordinary position
+  verbatim (`mixedVals_getD`/`psiVals_getD`), a finitary
+  container-recursive position by the induction hypothesis at the
+  target member — ψ's value there is `Ψ_tgt` at the readings and the
+  field, ψ⁻¹'s mixed value `Φ_tgt` at the (same) readings and that,
+  the round trip inside (`hpos`'s second arm: the copy's field
+  recursive into the group-mate's copy, `k₀ + base + tgts J i`, its
+  readings the container's — the record's `kindR` off the replaced
+  positions); the REST — a TRANSPORT (its round trip is R2 at the
+  EARLIER pin, the order's induction) and a REFLEXIVE position (η,
+  `piTele_eta`) — by `hpos`'s third arm, `MIXED.getD i pt = fs.getD i pt`,
+  NAMED.
+
+**Status.**  `PsiCtorFit` derived; `idxRecover`/`slotRecover` landed at
+all nine sites; `R2Grp` stated; R2's induction PROVED at the datum
+level for a finitary, non-self-nested container modulo the named
+per-position facts (transports = R2 at earlier pins along the order,
+reflexive positions = η) and the run-level assembly (`hιΨ`/`hιΦ` from
+the setups at the pushed frame — `fold_iota_vals`; `hEs` from the
+record's `es` + `hnbP`; `hheadψ`/`hheadφ`; `hfitCopy` from
+`psiVals_fit_copy`; `hEntry`/`hEsFit` from the constructor's grading;
+the group agreement of (3c)).  R1 NOT started (the scratch-block
+induction over `d`'s carriers via `carrier_induction` at `d`; ψ⁻¹'s ι
+first, then ψ's; no order).  NOT reached: `copyCtorAsRead_of_walk`
+(§M.31 (c)–(e)).  Gates: `lake build` 625 jobs warning-free, `lake test`
+clean; shake/pub-import, arena, init-full, Mathlib, overview-links,
+no-local-paths NOT run (landing items).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

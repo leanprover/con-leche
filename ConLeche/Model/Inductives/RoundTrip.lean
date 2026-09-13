@@ -66,7 +66,7 @@ variable {V : Type w} [SetTheory V]
 /-! ## A fold, applied -/
 
 /-- A fold term at a frame, applied to index values and an element. -/
-noncomputable def foldApp (σ : Nat → V) (Ψ : AnnotTerm) (is : List V) (x : V) : V :=
+@[expose] noncomputable def foldApp (σ : Nat → V) (Ψ : AnnotTerm) (is : List V) (x : V) : V :=
   (is ++ [x]).foldl SetTheory.app (interp V σ Ψ)
 
 /-! ## Structural induction over a carrier -/
