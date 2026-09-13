@@ -75621,7 +75621,7 @@ transports (the earlier pin's R2 is the induction's side fact).
 section) under `ContainersRep` + `CopyCtorsRead` (+ `BridgeSyntax` for
 ψ); R1/R2 stated, coherence and the induction principle proved; R1/R2's
 inductions await (i) and (ii).  NOT reached: the record's Model half
-`copyCtorAsRead_of_walk` (§M.31 (c)–(e)).  Gates: `lake build` 623
+`copyCtorAsRead_of_walk` (§M.31 (c)–(e)).  Gates: `lake build` 622
 jobs warning-free, `lake test` clean, `no-local-paths` OK; shake/
 pub-import, arena, init-full, Mathlib, overview-links NOT run
 (landing items).
