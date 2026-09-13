@@ -272,7 +272,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                 ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
                   (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, -, -, hrm,
+    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, -, -, -, hrm,
     -⟩ := h
   obtain ⟨mpAux, d, hreps, hchk⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm

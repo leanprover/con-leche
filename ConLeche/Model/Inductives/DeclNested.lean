@@ -172,7 +172,7 @@ theorem nestedRecNameFacts {F : Nat} {env envAux : Env}
     obtain ⟨a, ha⟩ : ∃ a, (stored.take p.k)[t]? = some a :=
       ⟨_, List.getElem?_eq_getElem (by rw [List.length_take_of_le (by omega)]; exact htk)⟩
     obtain ⟨tyR, cvA, -, hccv, -⟩ := hallR t a ha
-    obtain ⟨hfind, hres, hsh, -⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨hfind, hres, hsh⟩ := ConLeche.checkConstantValPre_names hccv
     have hnm : (((List.range p.k).map fun mIdx =>
         ((p.formers.getD mIdx default).1.name.str "rec")).drop t).headD a.cvRa.name
           = ty.name.str "rec" := by
@@ -378,7 +378,7 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
       CtorsChecked μ F env b true d := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, -, hrm, -⟩ := h
+    hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore,
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm⟩
 

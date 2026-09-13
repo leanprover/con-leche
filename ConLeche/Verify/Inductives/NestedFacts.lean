@@ -517,9 +517,29 @@ theorem auxStored?_inv {envAux : Env} {b : MutualBlock} {i : Nat} {a : AuxStored
 
 /-! ## The restored recursor types -/
 
+/-- **The pre-annotated front door's NAME checks** (K.19 moved the
+restore's stages onto `checkConstantValPre`): the name is free, not a
+reserved basis name and not projection-shaped — the three facts the
+restored recursors' provision reads. -/
+theorem checkConstantValPre_names {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    env.find? cv.name = none ∧ reservedBasisNames.contains cv.name = false ∧
+    cv.name.isProjFnShape = false := by
+  unfold checkConstantValPre at h
+  by_cases h1 : (env.find? cv.name).isSome = true
+  case pos => rw [if_pos h1] at h; simp [bind, Except.bind] at h
+  rw [if_neg h1] at h
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  case pos => rw [if_pos h2] at h; simp [bind, Except.bind] at h
+  rw [if_neg h2] at h
+  by_cases h3 : cv.name.isProjFnShape = true
+  case pos => rw [if_pos h3] at h; simp [bind, Except.bind] at h
+  exact ⟨by simpa using h1, by simpa using h2, by simpa using h3⟩
+
 /-- **The restored recursor types, read off**: one per stored record,
-each the restored type checked under the name the caller listed at its
-position (the record's own where the list is exhausted). -/
+each the restored type checked (at the pre-annotated grade, K.19) under
+the name the caller listed at its position (the record's own where the
+list is exhausted). -/
 theorem restoreRecTys_inv {F : Nat} {env : Env} {R : RestoreTbl} {lps : List Name} :
     ∀ {names : List Name} {l : List AuxStored} {cvs : List ConstantVal},
       restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names l = .ok cvs →
@@ -527,7 +547,7 @@ theorem restoreRecTys_inv {F : Nat} {env : Env} {R : RestoreTbl} {lps : List Nam
       ∀ (i : Nat) (a : AuxStored), l[i]? = some a →
         ∃ (ty : Expr) (cvA : ConstantVal),
           restoreNested R a.cvRa.type = .ok ty ∧
-          checkConstantVal (fueledOps mode F) env
+          checkConstantValPre (fueledOps mode F) env
             ⟨(names.drop i).headD a.cvRa.name, a.cvRa.levelParams, ty⟩ = .ok cvA ∧
           cvs[i]? = some cvA
   | names, [], cvs, h => by
