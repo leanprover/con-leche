@@ -1946,4 +1946,356 @@ theorem annotate_closeTelescope_open {env : Env} :
       rw [hmap] at hF'
       exact hF'
 
+/-! ## Top-level leaves, and the sanitised telescope
+
+`hasFvar`, `abstract1` and the openings act on the TOP-LEVEL leaves of a
+term (they never enter an fvar's annotation), so the facts the closed
+copy type gives about its raw domains are about top-level leaves: every
+such leaf of the raw body has an index below the parameter count, and
+every such leaf of domain `j` an index below `j` (the closed term is
+fvar-free).  Their ANNOTATIONS are whatever the stream carried, and are
+irrelevant — abstraction is by index — so the closed term is equally
+the closing of the SANITISED domains and body, whose leaves carry a
+fixed closed annotation and are therefore scoped at their level: the
+form `annotate_closeTelescope_open` takes. -/
+
+/-- A predicate on the top-level fvar leaves of a term. -/
+@[expose] def Expr.TopLeaves (P : Nat → Prop) : Expr → Prop
+  | .fvar idx _ => P idx
+  | .app f a => TopLeaves P f ∧ TopLeaves P a
+  | .lam ty b _ | .forallE ty b _ => TopLeaves P ty ∧ TopLeaves P b
+  | .letE ty v b => TopLeaves P ty ∧ TopLeaves P v ∧ TopLeaves P b
+  | .proj _ _ e => TopLeaves P e
+  | _ => True
+
+theorem Expr.TopLeaves.mono {P Q : Nat → Prop} (h : ∀ l, P l → Q l) :
+    ∀ {e : Expr}, Expr.TopLeaves P e → Expr.TopLeaves Q e := by
+  intro e
+  induction e with
+  | fvar idx ty _ => intro hp; exact h idx hp
+  | app f a ihf iha => intro hp; exact ⟨ihf hp.1, iha hp.2⟩
+  | lam ty b m iht ihb => intro hp; exact ⟨iht hp.1, ihb hp.2⟩
+  | forallE ty b m iht ihb => intro hp; exact ⟨iht hp.1, ihb hp.2⟩
+  | letE ty v b iht ihv ihb => intro hp; exact ⟨iht hp.1, ihv hp.2.1, ihb hp.2.2⟩
+  | proj s i e ih => intro hp; exact ih hp
+  | _ => intro _; trivial
+
+theorem topLeaves_of_not_hasFvar {P : Nat → Prop} :
+    ∀ {e : Expr}, e.hasFvar = false → Expr.TopLeaves P e := by
+  intro e
+  induction e with
+  | fvar idx ty _ => intro h; exact nomatch h
+  | app f a ihf iha =>
+    intro h; simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h; exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b m iht ihb =>
+    intro h; simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h; exact ⟨iht h.1, ihb h.2⟩
+  | forallE ty b m iht ihb =>
+    intro h; simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h; exact ⟨iht h.1, ihb h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro h; simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ⟨iht h.1.1, ihv h.1.2, ihb h.2⟩
+  | proj s i e ih => intro h; exact ih h
+  | _ => intro _; trivial
+
+/-- The top-level leaves of an abstraction are the term's other leaves. -/
+theorem topLeaves_abstract1 {P : Nat → Prop} {a : Nat} :
+    ∀ (e : Expr) (k : Nat), Expr.TopLeaves P (e.abstract1 a k) →
+      Expr.TopLeaves (fun l => l = a ∨ P l) e := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro k h
+    by_cases ha : idx = a
+    · exact Or.inl ha
+    · simp only [Expr.abstract1, ha, if_false] at h
+      exact Or.inr h
+  | app f x ihf ihx => intro k h; exact ⟨ihf k h.1, ihx k h.2⟩
+  | lam ty b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE ty b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | letE ty v b iht ihv ihb => intro k h; exact ⟨iht k h.1, ihv k h.2.1, ihb (k + 1) h.2.2⟩
+  | proj s i e ih => intro k h; exact ih k h
+  | _ => intro _ _; trivial
+
+/-- The top-level leaves of a closed telescope: a leaf of the body or
+of a domain either was a leaf of the closed term or is abstracted at
+its level. -/
+theorem closeTelescope_topLeaves_inv {P : Nat → Prop} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      Expr.TopLeaves P (closeTelescope bs i body) →
+      Expr.TopLeaves (fun l => P l ∨ (i ≤ l ∧ l < i + bs.length)) body ∧
+      ∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        Expr.TopLeaves (fun l => P l ∨ (i ≤ l ∧ l < i + j)) b.1
+  | [], _, _, h => ⟨h.mono fun _ hp => Or.inl hp, fun _ _ hj => nomatch hj⟩
+  | (dom, m) :: bs, i, body, h => by
+    obtain ⟨hdom, hX⟩ := h
+    have hin := topLeaves_abstract1 _ 0 hX
+    obtain ⟨hbody, hbs⟩ := closeTelescope_topLeaves_inv bs (i + 1) body hin
+    refine ⟨hbody.mono fun l hl => ?_, fun j b hj => ?_⟩
+    · simp only [List.length_cons]
+      rcases hl with (rfl | hp) | ⟨h1, h2⟩
+      · exact Or.inr ⟨Nat.le_refl _, by omega⟩
+      · exact Or.inl hp
+      · exact Or.inr ⟨by omega, by omega⟩
+    · cases j with
+      | zero =>
+        obtain rfl := Option.some.inj hj
+        exact hdom.mono fun l hp => Or.inl hp
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at hj
+        exact (hbs j b hj).mono fun l hl => by
+          rcases hl with (rfl | hp) | ⟨h1, h2⟩
+          · exact Or.inr ⟨Nat.le_refl _, by omega⟩
+          · exact Or.inl hp
+          · exact Or.inr ⟨by omega, by omega⟩
+
+/-- Abstraction does not change a bound. -/
+theorem looseBVarsBounded_of_abstract1 {a : Nat} :
+    ∀ (e : Expr) (k K : Nat), (e.abstract1 a k).looseBVarsBounded K = true →
+      e.looseBVarsBounded K = true := by
+  intro e
+  induction e with
+  | bvar i => intro k K h; exact h
+  | fvar idx ty _ => intro k K _; rfl
+  | app f x ihf ihx =>
+    intro k K h
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf k K h.1, ihx k K h.2⟩
+  | lam ty b m iht ihb =>
+    intro k K h
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+    exact ⟨iht k K h.1, ihb (k + 1) (K + 1) h.2⟩
+  | forallE ty b m iht ihb =>
+    intro k K h
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+    exact ⟨iht k K h.1, ihb (k + 1) (K + 1) h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro k K h
+    simp only [Expr.abstract1, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨iht k K h.1.1, ihv k K h.1.2⟩, ihb (k + 1) (K + 1) h.2⟩
+  | proj s i e ih =>
+    intro k K h
+    simp only [Expr.abstract1, Expr.looseBVarsBounded] at h ⊢
+    exact ih k K h
+  | _ => intro k K h; exact h
+
+/-- The bounds of a closed telescope's parts. -/
+theorem closeTelescope_bounded_inv :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) (c : Nat),
+      (closeTelescope bs i body).looseBVarsBounded c = true →
+      body.looseBVarsBounded (c + bs.length) = true ∧
+      ∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b → b.1.looseBVarsBounded (c + j) = true
+  | [], _, _, _, h => ⟨h, fun _ _ hj => nomatch hj⟩
+  | (dom, m) :: bs, i, body, c, h => by
+    simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    obtain ⟨hdom, hX⟩ := h
+    obtain ⟨hbody, hbs⟩ :=
+      closeTelescope_bounded_inv bs (i + 1) body (c + 1) (looseBVarsBounded_of_abstract1 _ 0 _ hX)
+    refine ⟨by simpa [Nat.add_assoc, Nat.add_comm 1] using hbody, fun j b hj => ?_⟩
+    cases j with
+    | zero => obtain rfl := Option.some.inj hj; simpa using hdom
+    | succ j =>
+      simp only [List.getElem?_cons_succ] at hj
+      have := hbs j b hj
+      rwa [show c + (j + 1) = c + 1 + j from by omega]
+
+/-- A leaf map whose values are variables at the same index commutes
+with abstraction (the abstracted index is removed from the map). -/
+theorem abstract1_mapFvars_reannot {σ : Nat → Option Expr}
+    (hσ : ∀ l v, σ l = some v → ∃ t, v = Expr.fvar l t) {a : Nat} :
+    ∀ (e : Expr) (k : Nat), (e.mapFvars σ).abstract1 a k
+      = (e.abstract1 a k).mapFvars (fun l => if l = a then none else σ l) := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro k
+    by_cases ha : idx = a
+    · subst ha
+      simp only [Expr.mapFvars]
+      cases hs : σ idx with
+      | none => simp [Expr.abstract1, Expr.mapFvars]
+      | some v =>
+        obtain ⟨t, rfl⟩ := hσ idx v hs
+        simp [Expr.abstract1, Expr.mapFvars]
+    · simp only [Expr.mapFvars, Expr.abstract1, ha, if_false]
+      cases hs : σ idx with
+      | none => simp [Expr.abstract1, ha]
+      | some v =>
+        obtain ⟨t, rfl⟩ := hσ idx v hs
+        simp [Expr.abstract1, ha]
+  | app f x ihf ihx => intro k; simp [Expr.mapFvars, Expr.abstract1, ihf, ihx]
+  | lam ty b m iht ihb => intro k; simp [Expr.mapFvars, Expr.abstract1, iht, ihb]
+  | forallE ty b m iht ihb => intro k; simp [Expr.mapFvars, Expr.abstract1, iht, ihb]
+  | letE ty v b iht ihv ihb => intro k; simp [Expr.mapFvars, Expr.abstract1, iht, ihv, ihb]
+  | proj s i e ih => intro k; simp [Expr.mapFvars, Expr.abstract1, ih]
+  | _ => intro k; rfl
+
+/-- The domains of a telescope, each under a leaf map. -/
+@[expose] def mapDoms (σ : Nat → Option Expr) : List (Expr × BinderMeta) → List (Expr × BinderMeta)
+  | [] => []
+  | (dom, m) :: bs => (dom.mapFvars σ, m) :: mapDoms σ bs
+
+theorem mapDoms_length (σ : Nat → Option Expr) :
+    ∀ (bs : List (Expr × BinderMeta)), (mapDoms σ bs).length = bs.length
+  | [] => rfl
+  | (_, _) :: bs => by simp [mapDoms, mapDoms_length σ bs]
+
+theorem mapDoms_getElem? (σ : Nat → Option Expr) :
+    ∀ (bs : List (Expr × BinderMeta)) (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+      (mapDoms σ bs)[j]? = some (b.1.mapFvars σ, b.2)
+  | [], _, _, h => nomatch h
+  | (dom, m) :: bs, 0, b, h => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h; rfl
+  | (_, _) :: bs, j + 1, b, h => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [mapDoms, List.getElem?_cons_succ]
+    exact mapDoms_getElem? σ bs j b h
+
+/-- A map undefined at every top-level leaf is the identity. -/
+theorem mapFvars_eq_self_top {σ : Nat → Option Expr} :
+    ∀ (e : Expr), Expr.TopLeaves (fun l => σ l = none) e → e.mapFvars σ = e := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro h
+    have h' : σ idx = none := h
+    simp [Expr.mapFvars, h']
+  | app f a ihf iha => intro h; simp [Expr.mapFvars, ihf h.1, iha h.2]
+  | lam ty b m iht ihb => intro h; simp [Expr.mapFvars, iht h.1, ihb h.2]
+  | forallE ty b m iht ihb => intro h; simp [Expr.mapFvars, iht h.1, ihb h.2]
+  | letE ty v b iht ihv ihb => intro h; simp [Expr.mapFvars, iht h.1, ihv h.2.1, ihb h.2.2]
+  | proj s i e ih => intro h; simp [Expr.mapFvars, ih h]
+  | _ => intro _; rfl
+
+/-- Abstracting the mapped domains is mapping the abstracted domains
+(the map without the abstracted index). -/
+theorem absDoms_mapDoms_reannot {σ : Nat → Option Expr}
+    (hσ : ∀ l v, σ l = some v → ∃ t, v = Expr.fvar l t) {a : Nat} :
+    ∀ (k : Nat) (bs : List (Expr × BinderMeta)),
+      absDoms a k (mapDoms σ bs) = mapDoms (fun l => if l = a then none else σ l) (absDoms a k bs)
+  | _, [] => rfl
+  | k, (dom, m) :: bs => by
+    simp only [mapDoms, absDoms]
+    rw [abstract1_mapFvars_reannot hσ, absDoms_mapDoms_reannot hσ (k + 1) bs]
+
+/-- **Re-annotating the leaves a closed telescope abstracts changes
+nothing**: a leaf map whose values are variables at the same index,
+defined only on the telescope's own indices and hitting only leaves
+the closing abstracts (a leaf of domain `j` below level `j`, a leaf of
+the body below the telescope's depth), is invisible to the closing. -/
+theorem closeTelescope_mapFvars_reannot :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr) (σ : Nat → Option Expr),
+      (∀ l v, σ l = some v → ∃ t, v = Expr.fvar l t) →
+      (∀ l, (σ l).isSome = true → i ≤ l) →
+      Expr.TopLeaves (fun l => (σ l).isSome = true → l < i + bs.length) body →
+      (∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        Expr.TopLeaves (fun l => (σ l).isSome = true → l < i + j) b.1) →
+      closeTelescope (mapDoms σ bs) i (body.mapFvars σ) = closeTelescope bs i body
+  | [], i, body, σ, _, hlo, hbody, _ => by
+    show body.mapFvars σ = body
+    refine mapFvars_eq_self_top body (hbody.mono fun l hl => ?_)
+    cases hs : σ l with
+    | none => rfl
+    | some v =>
+      have h1 := hl (by rw [hs]; rfl)
+      have h2 := hlo l (by rw [hs]; rfl)
+      simp only [List.length_nil, Nat.add_zero] at h1
+      omega
+  | (dom, m) :: bs, i, body, σ, hσ, hlo, hbody, hbs => by
+    simp only [mapDoms, closeTelescope]
+    have hdomEq : dom.mapFvars σ = dom := by
+      refine mapFvars_eq_self_top dom ((hbs 0 (dom, m) rfl).mono fun l hl => ?_)
+      cases hs : σ l with
+      | none => rfl
+      | some v =>
+        have h1 := hl (by rw [hs]; rfl)
+        have h2 := hlo l (by rw [hs]; rfl)
+        simp only [Nat.add_zero] at h1
+        omega
+    rw [hdomEq]
+    congr 1
+    -- the inner telescope: remove `i` from the map, then the induction
+    let σ' : Nat → Option Expr := fun l => if l = i then none else σ l
+    have hσ' : ∀ l v, σ' l = some v → ∃ t, v = Expr.fvar l t := by
+      intro l v hv
+      simp only [σ'] at hv
+      split at hv
+      · exact nomatch hv
+      · exact hσ l v hv
+    have hlo' : ∀ l, (σ' l).isSome = true → i + 1 ≤ l := by
+      intro l hl
+      simp only [σ'] at hl
+      split at hl
+      · exact nomatch hl
+      · have := hlo l hl; omega
+    have hbody' : Expr.TopLeaves (fun l => (σ' l).isSome = true → l < i + 1 + bs.length) body := by
+      refine hbody.mono fun l hl hs => ?_
+      simp only [σ'] at hs
+      split at hs
+      · exact nomatch hs
+      · have := hl hs; simp only [List.length_cons] at this; omega
+    have hbs' : ∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        Expr.TopLeaves (fun l => (σ' l).isSome = true → l < i + 1 + j) b.1 := by
+      intro j b hj
+      refine (hbs (j + 1) b (by simpa using hj)).mono fun l hl hs => ?_
+      simp only [σ'] at hs
+      split at hs
+      · exact nomatch hs
+      · have := hl hs; omega
+    have hIH := closeTelescope_mapFvars_reannot bs (i + 1) body σ' hσ' hlo' hbody' hbs'
+    rw [closeTelescope_abstract1 (mapDoms σ bs) (i + 1) _ 0 (Nat.lt_succ_self i),
+      closeTelescope_abstract1 bs (i + 1) body 0 (Nat.lt_succ_self i),
+      absDoms_mapDoms_reannot hσ, abstract1_mapFvars_reannot hσ, mapDoms_length]
+    have hIH' : (closeTelescope (mapDoms σ' bs) (i + 1) (body.mapFvars σ')).abstract1 i 0
+        = (closeTelescope bs (i + 1) body).abstract1 i 0 := by rw [hIH]
+    rw [closeTelescope_abstract1 (mapDoms σ' bs) (i + 1) _ 0 (Nat.lt_succ_self i),
+      closeTelescope_abstract1 bs (i + 1) body 0 (Nat.lt_succ_self i),
+      absDoms_mapDoms_reannot hσ', abstract1_mapFvars_reannot hσ', mapDoms_length] at hIH'
+    have hσ'' : (fun l => if l = i then none else σ' l) = σ' := by
+      funext l
+      simp only [σ']
+      split <;> simp_all
+    rw [hσ''] at hIH'
+    exact hIH'
+
+/-- The sanitising map: every leaf below `n` re-annotated by a closed
+sort. -/
+@[expose] def dummyMap (n : Nat) : Nat → Option Expr :=
+  fun l => if l < n then some (Expr.fvar l (.sort .zero)) else none
+
+theorem dummyMap_fvar (n : Nat) : ∀ l v, dummyMap n l = some v → ∃ t, v = Expr.fvar l t := by
+  intro l v hv
+  simp only [dummyMap] at hv
+  split at hv
+  · exact ⟨_, (Option.some.inj hv).symm⟩
+  · exact nomatch hv
+
+theorem dummyMap_closed (n : Nat) : ∀ l v, dummyMap n l = some v → v.looseBVarsBounded 0 = true := by
+  intro l v hv
+  simp only [dummyMap] at hv
+  split at hv
+  · rw [← Option.some.inj hv]; rfl
+  · exact nomatch hv
+
+/-- A term whose top-level leaves are below `n` is scoped at `n` once
+sanitised. -/
+theorem WScoped_mapFvars_dummy {n : Nat} :
+    ∀ (e : Expr), Expr.TopLeaves (· < n) e → WScoped n (e.mapFvars (dummyMap n)) := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro h
+    have h' : idx < n := h
+    simp [Expr.mapFvars, dummyMap, h', WScoped]
+  | app f a ihf iha => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b m iht ihb => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨iht h.1, ihb h.2⟩
+  | forallE ty b m iht ihb => intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨iht h.1, ihb h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro h; simp only [Expr.mapFvars, WScoped]; exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s i e ih => intro h; simp only [Expr.mapFvars, WScoped]; exact ih h
+  | bvar i => intro _; simp [Expr.mapFvars, WScoped]
+  | sort u => intro _; simp [Expr.mapFvars, WScoped]
+  | const c us => intro _; simp [Expr.mapFvars, WScoped]
+  | lit l => intro _; simp [Expr.mapFvars, WScoped]
+
 end ConLeche
