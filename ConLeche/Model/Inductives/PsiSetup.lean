@@ -52,7 +52,7 @@ variable (d : IndRepData V)
 structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List Name)
     (ψ : Name → Nat) (ρ : Nat → V) (ps : List AnnotTerm) (L : Nat → AnnotTerm)
     (pinsT : Nat → List AnnotTerm) (head : Nat → AnnotTerm) (useIh : Nat → Nat → Bool)
-    (via : Nat → Nat → Option ViaSpec) (TgV : Nat → AnnotTerm) : Prop where
+    (via : Nat → Nat → Option ViaSpec) (TgV : Nat → Nat → AnnotTerm) : Prop where
   hR : ∀ t, t < d.k → RecReadAt mp.base2 d lps t
   hps : ps.length = d.nP
   hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p
@@ -112,7 +112,7 @@ structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List N
             [as.foldl SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
               (interp V (consList (ps.map (interp V ρ)) ρ) Ψ)
             ∈ˢ (Eis.map (interp V (consList as (consList (fs.take i)
-                  (consList (ps.map (interp V ρ)) ρ))))).foldl SetTheory.app (interp V ρ (TgV i))
+                  (consList (ps.map (interp V ρ)) ρ))))).foldl SetTheory.app (interp V ρ (TgV J i))
   /-- the transports are well-denoted at the leaf frame -/
   hviaWD : ∀ J cA, d.ctorsA[J]? = some cA →
     ∀ (C : Name) (nF : Nat) (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm)
@@ -134,7 +134,7 @@ structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List N
   /-- the copy's constructor at the transported domains -/
   hCAD : ∀ J cA, d.ctorsA[J]? = some cA →
     d.CtorAtDoms ρ ps (d.invTgAV ψ ps L pinsT) J (head J) cA.2
-      (psiDomsAV (d.invTgAV ψ ps L pinsT) TgV (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J)
+      (psiDomsAV (d.invTgAV ψ ps L pinsT) (TgV J) (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J)
         (d.dsF J ψ) (d.eissR J ψ) (d.tssR J ψ) cA.2)
       (d.esF J ψ)
 
@@ -143,7 +143,7 @@ namespace PsiSetup
 variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
   {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
   {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
-  {TgV : Nat → AnnotTerm}
+  {TgV : Nat → Nat → AnnotTerm}
 
 /-- Every constructor of the recursor's block is real. -/
 theorem nAll_eq (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
@@ -487,7 +487,7 @@ namespace PsiSetup
 variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
   {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
   {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
-  {TgV : Nat → AnnotTerm}
+  {TgV : Nat → Nat → AnnotTerm}
 
 /-- **The fold at the choice's prefix is typed** (`fold_mem_vals`,
 packaged). -/
