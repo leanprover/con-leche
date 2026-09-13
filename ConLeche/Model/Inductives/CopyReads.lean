@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.CopyPins
 public import ConLeche.Model.Inductives.DeclNested
 import ConLeche.Verify.Inductives.NestedLedger
+import ConLeche.Verify.Inductives.NestedLeaves
 import ConLeche.Verify.Inductives.AuxFormers
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -31,11 +32,12 @@ opened at the first former's openers IS the container's at the pin's
 components — is therefore DERIVED here from the run's ledger
 (`elimNested_copy`, `mkCopy_inv`) and the bvar-form round trip
 (`openPisAtFvars_closeTelescope_strip`), under the containers'
-representation at the scratch environment (`ContainersAt`) and ONE
-named premise, `PinsAtOpeners`: the pins' free-variable leaves are the
-first former's openers, which holds by construction of the elimination
-(every constructor is opened at those openers and a pin is one of its
-sub-terms) and is owed from the ledger.  The pin check
+representation at the scratch environment (`ContainersAt`); the pins'
+free-variable leaves are the first former's openers (`PinsAtOpeners`),
+which holds by construction of the elimination (every constructor is
+opened at those openers and a pin is one of its sub-terms) and is READ
+off the run (`pinsAtOpeners_of_run`, the leaf invariant of
+`Verify/Inductives/NestedLeaves.lean`).  The pin check
 (`nestedPinsOk`) infers the pin itself, so nothing is annotated on the
 way (`pinRead_of` takes the pin's guards and its inference).
 -/
@@ -144,11 +146,55 @@ def ContainersAt (env envAux : Env) (m : EnvModel V envAux) : Prop :=
 
 /-- **The pins carry the block's parameter variables** (K.12: the
 elimination opens every constructor at the first former's openers and
-the pins are its own sub-terms, so this holds by construction; a named
-premise until the elimination's ledger records the pins' leaves): every
-free-variable leaf of a pin is one of the openers `params`. -/
+the pins are its own sub-terms): every free-variable leaf of a pin is
+one of the openers `params`, annotation included.  Proved of the run by
+`Verify/Inductives/NestedLeaves.lean` (`elimNested_leaves`, the leaf
+invariant beside the ledger) — `pinsAtOpeners_of_run` below. -/
 def PinsAtOpeners (st : ElimState) (params : List Expr) : Prop :=
   ∀ q ∈ st.pins, ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ params
+
+/-- **The pins' leaves are the openers, from the run**: the containers'
+stored types are closed under the model's `EnvWF`, the block's own
+annotated types are closed, and `elimNested_leaves` carries the leaf
+invariant through the elimination. -/
+theorem pinsAtOpeners_of_run {μ : CheckMode} {F : Nat} {env : Env} {p : ConLeche.NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} {t₀ : AuxType} {params : List Expr}
+    {body : Expr} (mp : EnvModelM V μ env)
+    (hannC : ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA)
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st)
+    (ht₀ : (ConLeche.nestedTypes0 p fmsA ctorsA).head? = some t₀)
+    (hnf₀ : t₀.type.hasFvar = false)
+    (hop : ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body)) :
+    PinsAtOpeners st params := by
+  have hcc : ConLeche.ContainersClosed env := ConLeche.containersClosed_of_wf mp.base2.wf
+  have hty : ∀ t ∈ ConLeche.nestedTypes0 p fmsA ctorsA, ∀ c ∈ t.ctors,
+      c.2.1.hasFvar = false := by
+    intro t ht c hc
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem ht
+    rw [nestedTypes0_getElem?] at hi
+    obtain ⟨cvT, -, rfl⟩ := Option.map_eq_some_iff.mp hi
+    simp only at hc
+    obtain ⟨⟨c₀, cvCa⟩, hmem, hf⟩ := List.mem_filterMap.mp hc
+    simp only at hf
+    split at hf
+    · obtain rfl := Option.some.inj hf
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem (List.of_mem_zip hmem).2
+      obtain ⟨c', -, hcheck⟩ := (ConLeche.nestedAnnotCtors_inv hannC).2 j cvCa hj
+      exact (ConLeche.checkConstantVal_typeWF hcheck).1
+    · exact nomatch hf
+  have ht₀' : ∀ t₀' ∈ (ConLeche.nestedTypes0 p fmsA ctorsA).head?, t₀'.type.hasFvar = false := by
+    intro t₀' h'
+    rw [ht₀] at h'
+    obtain rfl := Option.mem_some_iff.mp h'
+    exact hnf₀
+  obtain ⟨t₀'', params'', body'', ht₀'', hop'', hleaves⟩ :=
+    ConLeche.elimNested_leaves hcc helim hty ht₀'
+  rw [ht₀] at ht₀''
+  obtain rfl := Option.some.inj ht₀''
+  rw [hop] at hop''
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop'')
+  exact fun q hq l hl => hleaves q hq l hl
 
 /-- A leaf of the head is a leaf of the spine. -/
 theorem mem_fvarLeaves_mkAppN_head : ∀ (args : List Expr) (f : Expr) (l : Nat × Expr),
@@ -202,7 +248,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       (∃ (t₀ : AuxType) (body : Expr), st.types[0]? = some t₀ ∧
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body)) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-      (ContainersAt env envAux mpAux.base2 → PinsAtOpeners st params →
+      (ContainersAt env envAux mpAux.base2 →
         ∀ (j : Nat), j < st.pins.length → ∀ (ψ : Name → Nat),
           ∃ (q : ConLeche.NestedPin) (Jn : Name) (lvls : List Level) (Ds : List Expr)
             (cvTJ : ConstantVal) (dJ : IndRepData V) (mmJ : Nat) (s : Level) (DsA : List AnnotTerm),
@@ -213,7 +259,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
             ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
               (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA) := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, -, helim, -, hfresh, -, hb, hcore, hstored, hpc, hpinsAux, -, hrm, -⟩ := h
+    hannF, hannC, helim, -, hfresh, -, hb, hcore, hstored, hpc, hpinsAux, -, hrm, -⟩ := h
   obtain ⟨mpAux, d, hreps⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
@@ -299,7 +345,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
   refine ⟨st, b, envAux, params, hb, ⟨tS0, body, htS0, by rw [htS0ty]; exact hop⟩, mpAux, d, hreps₀,
     ?_⟩
-  intro hcont hpo j hj ψ
+  intro hcont j hj ψ
+  have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
   obtain ⟨R, hopened⟩ := IndRepData.opened_params ({d with resSort := s₀} : IndRepData V) ψ hfT₀
     hFD₀ hfv'
   -- the copy's origin
