@@ -445,4 +445,170 @@ theorem annotateCore_envExt {env env' : Env} (hext : EnvExt env env')
       rw [if_pos (rfl : sn = sn), if_pos hlen]
       rfl
 
+/-! ## The reader-only fragment: the transfer with no missing ingredient
+
+`SlotsExt` and `ReaderNoNew` are needed only where the pass leaves the
+head reader: the `letE` and `proj` clauses, and a binder whose parse
+placeholder the reader declines.  A run that never does that transports
+along ANY conservative extension, with nothing assumed — and that is
+the run a minted copy's former has (its telescope's every codomain is a
+`∀` or a `Sort`, both of which the reader answers by `rfl`).
+
+`ReaderRun env F d e r` is that run, spelled as a derivation: it is
+*stronger* than `annotateCore mode env F d e = .ok r`
+(`ReaderRun.annotateCore`) by exactly the fallbacks it forbids, and it
+mentions no `CheckMode`, because none of the clauses it keeps does.
+-/
+
+/-- **A reader-only annotation run**: `e` annotates to `r` at depth `d`
+with fuel `F`, using the head reader for every recomputed binder datum
+and never `letE`, `proj` or inference. -/
+inductive ReaderRun (env : Env) : Nat → Nat → Expr → Expr → Prop where
+  | bvar {F d i} : ReaderRun env (F + 1) d (.bvar i) (.bvar i)
+  | fvar {F d idx ty} : idx < d →
+      ReaderRun env (F + 1) d (.fvar idx ty) (.fvar idx ty)
+  | sort {F d u} : ReaderRun env (F + 1) d (.sort u) (.sort u)
+  | const {F d n us} : ReaderRun env (F + 1) d (.const n us) (.const n us)
+  | natLit {F d n} : natLitSupported env = true →
+      ReaderRun env (F + 1) d (.lit (.natVal n)) (.lit (.natVal n))
+  | strLit {F d s} : strLitSupported env = true →
+      ReaderRun env (F + 1) d (.lit (.strVal s)) (.lit (.strVal s))
+  | app {F d f a f' a'} : ReaderRun env F d f f' → ReaderRun env F d a a' →
+      ReaderRun env (F + 1) d (.app f a) (.app f' a')
+  | forallE {F d : Nat} {ty body ty' body' : Expr} {m : BinderMeta} {pw : PropWhen} :
+      ReaderRun env F d ty ty' →
+      ReaderRun env F (d + 1) (body.instantiate1 (.fvar d ty')) body' →
+      (pwWritten m.pw = true ∧ pw = m.pw ∨
+        pwWritten m.pw = false ∧ typeSortPW env.find? body' = some pw) →
+      ReaderRun env (F + 1) d (.forallE ty body m)
+        (.forallE ty' (body'.abstract1 d) ⟨pw⟩)
+  | lam {F d : Nat} {ty body ty' body' : Expr} {m : BinderMeta} {pw : PropWhen} :
+      ReaderRun env F d ty ty' →
+      ReaderRun env F (d + 1) (body.instantiate1 (.fvar d ty')) body' →
+      (pwWritten m.pw = true ∧ pw = m.pw ∨
+        pwWritten m.pw = false ∧ proofPW env.find? body' = some pw) →
+      ReaderRun env (F + 1) d (.lam ty body m)
+        (.lam ty' (body'.abstract1 d) ⟨pw⟩)
+
+/-- A reader-only run tolerates more fuel (the pass's own
+`annotateCore_mono`, at the derivation). -/
+theorem ReaderRun.mono {env : Env} : ∀ {F d e r}, ReaderRun env F d e r →
+    ∀ {F' : Nat}, F ≤ F' → ReaderRun env F' d e r := by
+  intro F d e r h
+  induction h with
+  | bvar => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .bvar
+  | fvar hd => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .fvar hd
+  | sort => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .sort
+  | const => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .const
+  | natLit hn => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .natLit hn
+  | strLit hn => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .strLit hn
+  | app _ _ ihf iha => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .app (ihf (by omega)) (iha (by omega))
+  | forallE _ _ hpw iht ihb => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .forallE (iht (by omega)) (ihb (by omega)) hpw
+  | lam _ _ hpw iht ihb => intro F' hle; cases F' with
+    | zero => omega
+    | succ f => exact .lam (iht (by omega)) (ihb (by omega)) hpw
+
+/-- **A reader-only run IS an annotation run** — at every mode: the
+clauses are the pass's own, with the fallbacks forbidden. -/
+theorem ReaderRun.annotateCore {env : Env} : ∀ {F d e r}, ReaderRun env F d e r →
+    annotateCore mode env F d e = .ok r := by
+  intro F d e r h
+  induction h with
+  | bvar => rfl
+  | fvar hd =>
+    rw [annotateCore_succ]
+    simp only [annotateBody]
+    rw [if_pos hd]
+    rfl
+  | sort => rfl
+  | const => rfl
+  | natLit hn =>
+    rw [annotateCore_succ]
+    simp only [annotateBody]
+    rw [if_pos hn]
+    rfl
+  | strLit hn =>
+    rw [annotateCore_succ]
+    simp only [annotateBody]
+    rw [if_pos hn]
+    rfl
+  | app _ _ ihf iha =>
+    rw [annotateCore_succ]
+    simp only [annotateBody, Bind.bind, Except.bind, annotate_def]
+    rw [ihf]
+    dsimp only
+    rw [iha]
+    rfl
+  | forallE _ _ hpw iht ihb =>
+    rw [annotateCore_succ]
+    simp only [annotateBody, Bind.bind, Except.bind, annotate_def]
+    rw [iht]
+    dsimp only
+    rw [ihb]
+    dsimp only
+    rcases hpw with ⟨hw, rfl⟩ | ⟨hnw, hrd⟩
+    · rw [hw]; rfl
+    · rw [hnw, annotPwPi_of_reader hrd]; rfl
+  | lam _ _ hpw iht ihb =>
+    rw [annotateCore_succ]
+    simp only [annotateBody, Bind.bind, Except.bind, annotate_def]
+    rw [iht]
+    dsimp only
+    rw [ihb]
+    dsimp only
+    rcases hpw with ⟨hw, rfl⟩ | ⟨hnw, hrd⟩
+    · rw [hw]; rfl
+    · rw [hnw, annotPwLam_of_reader hrd]; rfl
+
+/-- **LEMMA (a), the reader-branch case — no missing ingredient.**  A
+reader-only run survives any conservative extension: the readers'
+answers do (`typeSortPW_envExt`, `proofPW_envExt`), the literal guards
+do, and nothing else is consulted. -/
+theorem ReaderRun.envExt {env env' : Env} (hext : EnvExt env env') :
+    ∀ {F d e r}, ReaderRun env F d e r → ReaderRun env' F d e r := by
+  intro F d e r h
+  induction h with
+  | bvar => exact .bvar
+  | fvar hd => exact .fvar hd
+  | sort => exact .sort
+  | const => exact .const
+  | natLit hn => exact .natLit (natLitSupported_envExt hext hn)
+  | strLit hn => exact .strLit (strLitSupported_envExt hext hn)
+  | app _ _ ihf iha => exact .app ihf iha
+  | forallE _ _ hpw iht ihb =>
+    refine .forallE iht ihb ?_
+    rcases hpw with ⟨hw, rfl⟩ | ⟨hnw, hrd⟩
+    · exact Or.inl ⟨hw, rfl⟩
+    · exact Or.inr ⟨hnw, typeSortPW_envExt hext hrd⟩
+  | lam _ _ hpw iht ihb =>
+    refine .lam iht ihb ?_
+    rcases hpw with ⟨hw, rfl⟩ | ⟨hnw, hrd⟩
+    · exact Or.inl ⟨hw, rfl⟩
+    · exact Or.inr ⟨hnw, proofPW_envExt hext hrd⟩
+
+/-- **The reader-branch transfer, assembled.**  The same annotation, at
+the smaller environment and at every conservative extension of it, with
+no hypothesis beyond the extension. -/
+theorem annotateCore_envExt_of_readerRun {env env' : Env} (hext : EnvExt env env')
+    {F d : Nat} {e r : Expr} (h : ReaderRun env F d e r) :
+    annotateCore mode env F d e = .ok r ∧
+      annotateCore mode env' F d e = .ok r :=
+  ⟨h.annotateCore, (h.envExt hext).annotateCore⟩
+
 end ConLeche
