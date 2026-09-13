@@ -4,7 +4,7 @@ import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Semantics.Tower.FixRecI
-public import ConLeche.Model.Inductives.RecSpell
+import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!

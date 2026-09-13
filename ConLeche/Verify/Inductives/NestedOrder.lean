@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedLedger
-public import ConLeche.Verify.Inductives.NestedOrderK
+import ConLeche.Verify.Inductives.NestedOrderK
 
 public section
 

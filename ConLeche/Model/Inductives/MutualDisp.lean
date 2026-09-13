@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Semantics.Tower.FixRecI
+import ConLeche.Semantics.Tower.FixRecI
 import ConLeche.Model.Inductives.StructFrames
 public section
 

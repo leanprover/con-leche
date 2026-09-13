@@ -30,9 +30,10 @@ container's at the pin check's annotated components), and reads
 `PinRead` and `CopyIdxRead` for every copy of the scratch block from
 `DeclNestedRun` under it and the containers' representation at the
 scratch environment (`ContainersAt`).  The earlier route through the
-annotator (`Verify/Inductives/CopyStable.lean`, `copyFormer_aligned`,
-and the premises `AuxFormersAnnot`/`AuxOpensAt`/`PinCompsAgree`) is
-superseded for the formers and no longer consumed here.
+annotator (session 11's `CopyStable.lean` — `copyFormer_aligned` under
+the premises `AuxFormersAnnot`/`AuxOpensAt`/`PinCompsAgree`) was
+superseded for the formers by K.9/K.10 and DELETED in session 13
+(DESIGN §M.25); nothing of it is consumed.
 -/
 
 namespace ConLeche.Model

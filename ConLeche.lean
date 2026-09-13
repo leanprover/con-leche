@@ -34,5 +34,13 @@ public import ConLeche.Verify.OfReducePin
 -- here `lake build` never checks them and `tests/shake.sh`'s census
 -- dies on the missing olean.  `AuxFormers` re-exports `CopyTypes`.
 public import ConLeche.Verify.Inductives.AuxFormers
+-- ALIVE BY STATEMENT, the same class: the nested route's ledger, its
+-- copy-order bridge and the facts behind them (task #279, DESIGN §M.13,
+-- §M.22, §M.25) are consumed only by the model lane's off-graph nested
+-- modules until the route is wired, so this edge is what makes `lake
+-- build` CHECK them (the K.6 merge broke every ledger lemma silently
+-- while they were off the graph).  `NestedOrder` re-exports
+-- `NestedLedger`, which re-exports `NestedFacts`.
+public import ConLeche.Verify.Inductives.NestedOrder
 
 @[expose] public section

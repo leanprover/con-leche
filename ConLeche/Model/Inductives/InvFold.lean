@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.FoldChoice
-public import ConLeche.Semantics.NoBVar
-public import ConLeche.Model.Inductives.FixNoBVar
-public import ConLeche.Model.Inductives.FixShadow
+import ConLeche.Semantics.NoBVar
+import ConLeche.Model.Inductives.FixNoBVar
+import ConLeche.Model.Inductives.FixShadow
 public import ConLeche.Model.Inductives.FixChains
 import ConLeche.Model.Inductives.FixChainFacts
 import ConLeche.Model.Inductives.StructCtorFrames

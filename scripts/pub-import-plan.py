@@ -80,6 +80,16 @@ FALLBACK = {
     # (MutualRecData); the model reads `IndRep`'s and `MutualStageRec`'s
     # closures as carrying it and the compiler wants this one by name.
     ('ConLeche.Model.Inductives.MutualRep','ConLeche.Model.Inductives.MutualRecData'),
+    # task #279 (model lane, DESIGN §M.25): the same class as MutualRecPre —
+    # `NestedOrder` imports `NestedLedger` and `NestedOrderK`, each carrying
+    # `Kernel.Inductives.NestedElim` (`Expr`, `ElimState`) publicly, so each
+    # is demotable ON ITS OWN; demoting both leaves `CopyRef`'s statement
+    # with no `Expr`.  `NestedOrderK` is the demoted one; this edge stays.
+    ('ConLeche.Verify.Inductives.NestedOrder','ConLeche.Verify.Inductives.NestedLedger'),
+    # task #279: `PsiFold`'s public statements take `[SetTheory V]`, which
+    # only `FoldChoice` carries publicly; the model reads the plain
+    # `FixRecFrames` import as covering it and the compiler names the line.
+    ('ConLeche.Model.Inductives.PsiFold','ConLeche.Model.Inductives.FoldChoice'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

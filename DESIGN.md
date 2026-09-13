@@ -73905,6 +73905,64 @@ table, `viaEntry_wd`; then the step lemma and `orderFold_all` give
 and the domains); then M-C′ (R1: ψ⁻¹ ∘ ψ = id by the container's
 induction at a `Prop` choice; R2 by the aux induction; coherence).
 
+#### M.25 M-B′ step 3i (a): the ledger on the build graph, `CopyStable.lean` deleted, the lane's import hygiene (2026-09-13, session 13)
+
+**The rulings this step executes** (the maintainer, at session 12's
+three questions): (1) `Verify/Inductives/CopyStable.lean` is DELETED —
+superseded for the formers by K.9/K.10, imported by nothing; (2) the
+`CopyTypesAsMinted` gap closes KERNEL-SIDE (K.10), no model bridge;
+(3) the lane's Verify-tier nested modules go ON THE BUILD GRAPH now,
+through the umbrella the kernel lane used in K.7.
+
+**The umbrella edge.**  `ConLeche.lean` gains `public import
+ConLeche.Verify.Inductives.NestedOrder` (which re-exports
+`NestedLedger`, which re-exports `NestedFacts`), with the task #209
+census's reason on it — ALIVE BY STATEMENT: the ledger and the order
+bridge are consumed only by the lane's off-graph `Model/Inductives/*`
+nested modules until the route is wired, and the K.6 merge broke
+every ledger lemma silently while they were off the graph (§M.24
+finding 4).  `lake build` now CHECKS them.  The Model-tier nested
+modules (`DeclNested`, `ContainerRead`, `RecFold`, `FoldChoice`,
+`InvFold`, `CopyPins`, `PsiFold`, `PsiBody`, `PsiSetup`, `CopyReads`)
+stay off-graph until the wiring and are built explicitly each session.
+
+**The deletion.**  `CopyStable.lean` (2 700 lines, session 11) is
+gone.  ONE lemma of it was still consumed — `instPisAt_of_instPis`
+(`instPis` is the residual of `instPisAt`), by `CopyPins.former_peel`
+— and it moved there.  Nothing else of the file (the leaf map, the
+directional readers, the fused `AnnotRelS`, `copyFormer_aligned`) had
+a reader.  `CopyReads.lean`'s docstring records the deletion.
+
+**The import hygiene the graph exposed** — the first time the lane's
+files were shaken (the K.7 pattern).  `tests/shake.sh` half (a)
+proposed 17 removals not on the allowlist; each ran task #223's
+criterion (`lake shake --keep-implied --only <Module>` against the
+`--only ConLeche.NoSuchModule` floor): THREE were clean and are deleted
+(`Model/IndRep`'s `Kernel.Inductives.StructParts` and, after the
+demotions, its `Inductives.BlockData`; `FixChains`' `Semantics.Tower.
+FixFamI`; `MutualRep`'s `IndRepSwap`; `RecSpell`'s `FixLeafI` and
+`SumRecCase`), the rest are compensated relocations and are allowlisted
+with their compensating additions as the reason (the nested chain's
+`public import` lines, the lane's `RecSpell` relocation's consumers).
+Half (b) reported 26 individually demotable `public import`s across
+the lane's files (the `RecSpell` relocation of M-A′, the fold kit, the
+copies' modules): 24 demoted, TWO restored on the compiler's word and
+recorded in `scripts/pub-import-plan.py`'s `FALLBACK` with the
+established reasons — `NestedOrder → NestedLedger` (the MutualRecPre
+class: two parents each carry `Kernel.Inductives.NestedElim` publicly,
+so each is demotable alone and not both; `NestedOrderK` is the demoted
+one) and `PsiFold → FoldChoice` (its public statements take
+`[SetTheory V]`; the model reads the plain `FixRecFrames` import as
+covering it).  Result: `shake: 521 removals proposed, all 521
+allowlisted`; `pub-imports: 1047 of 1530 in-tree edges public, none
+demotable (12 dot-notation fallbacks)`.
+
+**Gates** (per session; landing gates NOT run): `lake build` 600 jobs
+warning-free; `lake test` clean; the ten off-graph modules build
+warning-free; `tests/shake.sh` exit 0 (both halves); `tests/layering.sh`
+301 base / 230 model / 3 caps / 1 umbrella, 0 base→lane, 0
+impl→theory; `tests/no-local-paths.sh` OK.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

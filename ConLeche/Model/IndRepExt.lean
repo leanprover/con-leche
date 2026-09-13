@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndRepCons
-public import ConLeche.Model.Annot.BitExtend
+import ConLeche.Model.Annot.BitExtend
 import ConLeche.Model.Annot.BitInstall
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Semantics.EnvFacts

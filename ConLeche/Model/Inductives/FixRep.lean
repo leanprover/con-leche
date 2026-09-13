@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.IndRep
+import ConLeche.Model.IndRep
 import ConLeche.Model.Inductives.FixRuleData
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Verify.Inductives.FixWF

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.MutualRecRead
+import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRecPre2
 public section
 

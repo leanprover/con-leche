@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructRecKit2
 public import ConLeche.Verify.Inductives.StructRec
-public import ConLeche.Model.Inductives.RecSpell
+import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!

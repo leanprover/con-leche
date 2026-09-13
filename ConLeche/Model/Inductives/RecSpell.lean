@@ -1,10 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.Bit
 public import ConLeche.Semantics.Tower.IhSpell
-public import ConLeche.Semantics.Tower.FixLeafI
-public import ConLeche.Semantics.Tower.SumRecCase
 import ConLeche.Model.Annot.BitInst
 public section
 

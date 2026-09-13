@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.RecFold
-public import ConLeche.Model.Steps.IotaKit
+import ConLeche.Model.Steps.IotaKit
 import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.FixRuleKit

@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.InvFold
 public import ConLeche.Model.Inductives.MutualRep
-public import ConLeche.Verify.Inductives.NestedFacts
-import ConLeche.Verify.Inductives.CopyStable
+import ConLeche.Verify.Inductives.NestedFacts
 public section
 
 /-!
@@ -954,6 +953,22 @@ theorem mkPisAV_sort_inj :
     obtain ⟨rfl, rfl, rfl, h⟩ := h
     obtain ⟨rfl, rfl⟩ := mkPisAV_sort_inj h
     exact ⟨rfl, rfl⟩
+
+omit [SetTheory V] in
+/-- `instPis` is the residual of `instPisAt` (relocated from session 11's
+`CopyStable.lean` at its deletion, DESIGN §M.25 — this is its one consumer). -/
+theorem instPisAt_of_instPis :
+    ∀ (args : List ConLeche.Expr) {e rest : ConLeche.Expr}, Expr.instPis e args = some rest →
+      ∃ ds, Expr.instPisAt args e = some (ds, rest)
+  | [], e, rest, h => ⟨[], by simp only [Expr.instPis, Option.some.injEq] at h; rw [h]; rfl⟩
+  | a :: args, e, rest, h => by
+    match e, h with
+    | .forallE dom body bm, h =>
+      simp only [Expr.instPis] at h
+      obtain ⟨ds, hds⟩ := instPisAt_of_instPis args h
+      exact ⟨dom :: ds, by simp [Expr.instPisAt, hds]⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.instPis] at h
 
 /-- **The container's former, peeled at the pin**: at the level
 instantiation the pin names, `instPis` of the stored former at the

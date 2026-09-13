@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.StructStageCtor
 public import ConLeche.Model.IndProjKit
-public import ConLeche.Model.Inductives.RecSpell
+import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!

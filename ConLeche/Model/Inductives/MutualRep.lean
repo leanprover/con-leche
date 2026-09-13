@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.MutualChains
 public import ConLeche.Model.Inductives.MutualRecData
 import ConLeche.Model.Inductives.MutualStageRec
 import ConLeche.Model.Inductives.StructStageCtor
-import ConLeche.Model.IndRepSwap
 public import ConLeche.Model.IndRepExt
 public section
 

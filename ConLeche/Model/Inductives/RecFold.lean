@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.IndRep
-public import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.IndRep
+import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.IndFrame
 public import ConLeche.Semantics.Tower.FixRecCoreI
 import ConLeche.Model.Steps.BitLevels

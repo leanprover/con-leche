@@ -1,9 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.RecSpell
-public import ConLeche.Semantics.Tower.FixFamI
-import ConLeche.Kernel.Inductives.StructParts
+import ConLeche.Semantics.Tower.FixFamI
 public import ConLeche.Kernel.Inductives.NestedParts
 public section
 

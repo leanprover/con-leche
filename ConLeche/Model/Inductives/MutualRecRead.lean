@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixRecRead
-public import ConLeche.Model.Inductives.RecSpell
+import ConLeche.Model.Inductives.RecSpell
 public section
 
 /-!
