@@ -689,8 +689,8 @@
    548          | some q => checkMutual ops env q
    549          | none => checkModeled mode ops env block
 
-== ConLeche/Kernel/Inductives/MutualInstall.lean#L619
-   619  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L637
+   637  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
 
 == ConLeche/Semantics/Tower/MutualLeafI.lean#L54-L76
     54  def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV W (uChains Idss)

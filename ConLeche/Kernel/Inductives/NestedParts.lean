@@ -53,11 +53,6 @@ namespace ConLeche
 
 /-! ## The reserved prefix and the copies' names -/
 
-/-- Official's `g_nested`: the prefix the auxiliary mimic types are
-minted under.  They exist only in the scratch environment, so a stream
-naming one is rejected (`check_no_nested_aux`, leanprover/lean4#14616). -/
-def nestedPrefixName : Name := .str .anonymous "_nested"
-
 /-- `pre ++ n` — official's `name::operator+`. -/
 def Name.appendName (pre : Name) : Name → Name
   | .anonymous => pre
@@ -69,12 +64,6 @@ string component (`_nested.List` ↦ `_nested.List_1`). -/
 def Name.appendIndexAfter : Name → Nat → Name
   | .str p s, i => .str p (s ++ "_" ++ toString i)
   | n, i => .str n ("_" ++ toString i)
-
-/-- Is `pre` a prefix of `n` (`n` itself included)? -/
-def Name.hasPrefixOf (pre : Name) : Name → Bool
-  | .anonymous => (Name.anonymous == pre)
-  | .str p s => (Name.str p s == pre) || Name.hasPrefixOf pre p
-  | .num p k => (Name.num p k == pre) || Name.hasPrefixOf pre p
 
 /-- Official's `name::replace_prefix`: `old` replaced by `new` where it
 is a prefix, the name itself otherwise. -/

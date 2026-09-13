@@ -147,17 +147,33 @@ former's type is checked and read at official's telescope
 as official's `check_inductive_types` does — `declare_inductive_types`
 comes after, so a former type mentioning an earlier member of the same
 block is official's "unknown identifier" and is rejected here too. -/
-def mutualFormerChecks (ops : CheckerOps m) (env : Env) (nP : Nat) :
+def mutualFormerChecks (ops : CheckerOps m) (env : Env) (nP : Nat)
+    (auxRoute : Bool := false) :
     List (ConstantVal × Nat) → m (List MutualFormerA)
   | [] => pure []
   | (cv, nIdx) :: rest => do
-    let cvTa₀ ← checkConstantVal ops env cv
+    -- **THE PRE-ANNOTATED MEMBERS** (task #279 K.10, the maintainer's
+    -- ruling).  At `auxRoute` — the grade the NESTED route's scratch
+    -- install passes, and only it — a member whose name carries the
+    -- reserved `_nested` prefix is one the KERNEL MINTED ITSELF, out of
+    -- the container's stored annotated type at annotated pins
+    -- (`nestedRemint`), so its type needs no annotation inferred: the
+    -- walk is skipped and the stored type IS the minted one,
+    -- syntactically.  Every check still runs, `ops.inferType` included,
+    -- which is what validates each binder datum.  Off `auxRoute` the
+    -- grade is unreadable and every member is annotated as before, so
+    -- the MUTUAL route is untouched — in particular a stream that names
+    -- a member `_nested.X` keeps today's behaviour there.
+    let cvTa₀ ←
+      if auxRoute && Name.hasPrefixOf nestedPrefixName cv.name then
+        checkConstantValPre ops env cv
+      else checkConstantVal ops env cv
     let (cvTa, s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let fs ← mutualFormerChecks ops env nP rest
+    let fs ← mutualFormerChecks ops env nP auxRoute rest
     pure (⟨cvTa, nIdx, s⟩ :: fs)
 
 /-- The formers' conses, in block order (the first former deepest),
@@ -171,8 +187,8 @@ def consMutualFormers : List MutualFormerA → Env → Env
 consed afterwards; returns the environment holding all of them and the
 checked formers in order. -/
 def mutualFormers (ops : CheckerOps m) (nP : Nat) (formers : List (ConstantVal × Nat))
-    (env : Env) : m (Env × List MutualFormerA) := do
-  let fms ← mutualFormerChecks ops env nP formers
+    (env : Env) (auxRoute : Bool := false) : m (Env × List MutualFormerA) := do
+  let fms ← mutualFormerChecks ops env nP auxRoute formers
   pure (consMutualFormers fms env, fms)
 
 /-- Official's `check_inductive_types` parameter check: member `m`'s
@@ -582,11 +598,13 @@ def mutualTables (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
 the module docstring); `streamRecs` are the stream's recursor records
 in member order, compared with the generated recursors when given. -/
 def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) : m Env := do
+    (streamRecs : Option (List (ConstantVal × List RecRule)))
+    (auxRoute : Bool := false) : m Env := do
   let nP := b.nP
   mutualShapeOk b
-  -- 1. the formers, consed
-  let (env₁, fms) ← mutualFormers ops nP b.formers env
+  -- 1. the formers, consed (`auxRoute`: the nested route's scratch
+  -- install, whose `_nested`-named members are pre-annotated — K.10)
+  let (env₁, fms) ← mutualFormers ops nP b.formers env auxRoute
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
   -- 2. the cross-member checks and the eliminator
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")

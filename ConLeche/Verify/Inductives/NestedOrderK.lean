@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedInv
+public import ConLeche.Kernel.Inductives.NestedElim
 
 public section
 

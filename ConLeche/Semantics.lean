@@ -29,6 +29,12 @@ public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Semantics.Inductives.DeclSumEta
+-- The nested route's run relation (task #279) — alive by STATEMENT: it is
+-- the interface the model lane is written over, and nothing imports it
+-- until the dispatch gains its fourth arm.  Here so that `lake build`
+-- builds it (with `Verify/Inductives/NestedInv` and `NestedOrderK`
+-- below it).
+public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
