@@ -316,127 +316,61 @@ def auxStored? (envAux : Env) (b : MutualBlock) (mIdx : Nat) : Option AuxStored 
     | _ => none
   pure ⟨cvTa, caps, nIdx, ctors, cvRa, mI, rP, rules, tbl⟩
 
-/-- **The copies' types, re-minted at ANNOTATED pin components**
-(DESIGN §M.21 (A), task #279 K.8 steps (1) and (2)).
+/-- **The block's FORMERS, checked as the install will store them**
+(task #279 K.12).
 
-`elimNested` mints a copy from the container's STORED (annotated) type
-instantiated at the pin's components, and those components are RAW
-sub-terms of the stream's constructor types — the export carries no
-binder datum at all, so every binder of a stream term arrives with the
-parse placeholder.  The aux install's annotation pass then REWRITES the
-data inside them, and the stored copy type is not the minted one.
+The elimination mints every copy out of the pieces it is given, so the
+pieces are ANNOTATED FIRST — the maintainer's principle: a term we build
+ourselves is built from annotated parts and validated afterwards, never
+re-annotated.  This is `mutualFormerChecks`' own pair of steps at the
+pre-block environment: the front door (`checkConstantVal` — the walk, the
+scope and resolution checks, `inferType` and `ensureSort`) and
+`checkSumTele`, which keeps a type that is already a syntactic `nP +
+nIdx` telescope ending in a sort and otherwise stores the checked close
+of its `whnfTelescope` (task #195; official's `check_inductive_types`
+reduces before each binder, so `T : id Type` is a correct stream).  The
+result is the constant the scratch install will store for that member,
+so the elimination's parameter openers and binders — read off the FIRST
+former — are the stored former's, by construction. -/
+def nestedAnnotFormers (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List (ConstantVal × Nat) → m (List ConstantVal)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
+    let cvTa₀ ← checkConstantVal ops env cv
+    let (cvTa, _s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
+    let restA ← nestedAnnotFormers ops env nP rest
+    pure (cvTa :: restA)
 
-So the components are annotated FIRST, here, by the same pass at the
-smaller environment — the pre-block constants plus the block's formers,
-which is all a component can mention (`checkMutualCtor` resolves a
-field domain there and a pin is a sub-term of one) — and the copy's type
-is re-minted from the container's stored annotated type at the
-ANNOTATED components, with the block's first former's ANNOTATED
-parameter binders (premise B).  The copy's type is then annotated
-throughout, so the aux install's own pass keeps every written datum and
-recomputes the `.never` ones to `.never`.
+/-- **The block's CONSTRUCTORS, annotated at the formers' environment**
+(K.12): `checkMutualCtor`'s front door, at the environment
+`checkMutualCtor` uses — the pre-block constants plus the block's
+formers.  A constructor's type mentions the block's own members and
+constants the environment already carries (a nested occurrence is an
+application of a STORED container), so this environment is all it
+needs; the copies do not exist yet and no constructor of the STREAM
+mentions one (the reserved-prefix guard). -/
+def nestedAnnotCtors (ops : CheckerOps m) (envF : Env) :
+    List MutualCtor → m (List ConstantVal)
+  | [] => pure []
+  | c :: rest => do
+    let cvCa ← checkConstantVal ops envF c.cv
+    let restA ← nestedAnnotCtors ops envF rest
+    pure (cvCa :: restA)
 
-The components' TYPING still happens after the install — but on THESE
-components: the annotated open pin is RETURNED beside the types, and
-both pin passes (`pinsOkAux` at `envAux`, post-check (a) at the restored
-environment) infer that very term instead of annotating the raw pin
-again (the `checkConstantValPre` discipline: a datum we built ourselves
-is VALIDATED, by inference, not recomputed).  So the components are one
-syntactic object everywhere, and the recorded equation has one form —
-this one.
+/-- The environment the constructors are annotated at: the pre-block
+constants plus the block's formers at their CHECKED types, which is
+`consMutualFormers` at the very records the scratch install will cons. -/
+def nestedFormerEnv (fmsA : List ConstantVal) (env : Env) : Env :=
+  ⟨(fmsA.map fun cv => ConstantInfo.indInfo cv {}).reverse ++ env.consts⟩
 
-**EVERY FAILURE ARM HERE IS `.internal`** (task #279 K.11 (a)), because
-none of them can fire on a state the elimination produced — the pin `q`
-EXISTS only because `replaceIfNested` found its container:
-
-* the head — `q.pin` is `mkAppN (.const q.container lvls) Ds` by
-  construction, and the annotation pass is structural on applications
-  and returns a `.const` node unchanged (`annotateBody`), so `pinA`'s
-  head is that same `.const … lvls` and its argument count is `Ds`';
-* the container — `containerInfo? env q.container` is the very lookup
-  that SUCCEEDED at the mint (`replaceIfNested`'s `some ci` arm), at the
-  same pre-block environment;
-* the member — `mkCopies` minted the whole group `ci.members` and
-  required `q.container` to be one of them (its `got = some auxI`);
-* the levels and `instPis` — `mkCopy` checked `lvls.length ==
-  J.lps.length` and that `instPis (J.type at lvls) Ds` answers, and the
-  annotated arguments are as many as `Ds`.
-
-A throw here is therefore a broken invariant, not a stream's fault; the
-arms used to return the types unchanged, which silently left a copy at
-its RAW mint and made "a group-mate's own lookup finds it" a premise the
-model tier had to carry. -/
-def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
-    (fvsA : List Expr) (pbsA : List (Expr × BinderMeta)) (env : Env) :
-    List NestedPin → List AuxType → m (List AuxType × List (NestedPin × Expr))
-  | [], ts => pure (ts, [])
-  | q :: qs, ts => do
-    let pinB := Expr.abstractRange q.pin 0 nP 0
-    let pinA ← ops.annotate envF nP (Expr.instantiateList pinB fvsA.reverse)
-    let ts' ←
-      match pinA.getAppFn, containerInfo? env q.container with
-      | .const _ lvls, some ci =>
-        match ci.members.find? (fun J => J.name == q.container) with
-        | some J =>
-          if lvls.length == J.lps.length then
-            match Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type)
-                (pinA.getAppArgs) with
-            | some tyI =>
-              pure (ts.map fun t =>
-                if t.name == q.aux then { t with type := closeTelescope pbsA 0 tyI } else t)
-            | none => throw (.internal "nested: the re-mint cannot instantiate the \
-                container's type at the pin's annotated components")
-          else throw (.internal "nested: the re-mint sees a pin whose level \
-            instantiation is not the container's")
-        | none => throw (.internal "nested: the re-mint sees a pin whose container \
-          is not a member of its own group")
-      | _, _ => throw (.internal "nested: the re-mint cannot read the pin's container")
-    let (ts'', qs') ← remintCopyTypes ops envF nP fvsA pbsA env qs ts'
-    pure (ts'', (q, pinA) :: qs')
-
-/-- **The elimination's state with the copies' types re-minted at
-ANNOTATED pin components** (K.8 steps (1) and (2)): the first former's
-type is taken AS THE INSTALL WILL STORE IT, its parameter binders `pbsA`
-and openers `fvsA₀` are read off that, and every copy's type is rebuilt
-by `remintCopyTypes`.  The pins, their order and the copies'
-constructors are untouched, so every guard downstream sees the state the
-elimination produced; the ANNOTATED open pins come back beside the
-state, paired with the pins they belong to, and they are what the two
-pin passes type-check.
-
-**The openers are the STORED former's, by construction** (K.11 (b)).
-The install does not store the annotated declared type unconditionally:
-`checkSumTele` stores it only when it is already a syntactic telescope
-of `nP + nIdx` binders ending in a sort, and otherwise stores the
-CHECKED CLOSE of its `whnfTelescope` (task #195 — official's
-`check_inductive_types` reduces before each binder, so `T : id Type` is
-a correct stream official accepts).  So the same function is run here,
-on the same annotated constant at the same pre-block environment, and
-`pbsA`/`fvsA₀` come off ITS result — the model tier no longer needs
-"the first former is stored as annotated" as a premise.  (On today's
-corpus the second branch cannot fire, because `auxBlock` reads the index
-count off the DECLARED type with `auxIdxCount`, which already demands a
-syntactic telescope; the point is that the equation holds whatever
-`checkSumTele` does, not that the branch is reachable.)  The index count
-is `auxIdxCount`'s — the one `auxBlock` will use — and a former without
-one is the ill-formed declaration `auxBlock` refuses, thrown here with
-the same verdict. -/
-def nestedRemint (ops : CheckerOps m) (env : Env) (p : NestedParts) (st : ElimState) :
-    m (ElimState × List (NestedPin × Expr)) := do
-  let cv₀ ← unwrapOr (p.formers.head?.map (·.1)) (.internal "nested: no former")
-  let t₀A ← ops.annotate env 0 cv₀.type
-  let nIdx₀ ← unwrapOr (auxIdxCount p.nP cv₀.type)
-    (.invalid "invalid nested inductive datatype, ill-formed declaration")
-  let (cvT₀, _s₀) ← checkSumTele ops env cv₀ (p.nP + nIdx₀) { cv₀ with type := t₀A }
-  let t₀A := cvT₀.type
-  let (fvsA₀, _) ← unwrapOr (openPisAtFvars p.nP t₀A 0)
-    (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
-  let (pbsA, _) ← unwrapOr (t₀A.stripPis p.nP)
-    (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
-  let envF : Env :=
-    ⟨(p.formers.map fun f => ConstantInfo.indInfo f.1 {}).reverse ++ env.consts⟩
-  let (typesA, pinsA) ← remintCopyTypes ops envF p.nP fvsA₀ pbsA env st.pins st.types
-  pure ({ st with types := typesA }, pinsA)
+/-- **The elimination's input**, built from the annotated formers and
+constructors (K.12): one `AuxType` per member, with its constructors in
+block order. -/
+def nestedTypes0 (p : NestedParts) (fmsA ctorsA : List ConstantVal) : List AuxType :=
+  fmsA.zipIdx.map fun (cvT, mIdx) =>
+    ⟨cvT.name, cvT.type,
+      (p.ctors.zip ctorsA).filterMap fun (c, cvCa) =>
+        if c.member == mIdx then some (cvCa.name, cvCa.type, c.nF) else none⟩
 
 /-- The block's own members' stored records, in member order, then the
 mimics' (whose only stored part the restore keeps is the recursor). -/
@@ -590,9 +524,9 @@ environment.  The parametric arguments `Ds` do not appear in the
 auxiliary declaration, so they escape every other check; the arena's
 `nested-unused-param` is an ill-typed one. -/
 def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) :
-    List (NestedPin × Expr) → m Unit
+    List NestedPin → m Unit
   | [] => pure ()
-  | (q, pinA) :: rest => do
+  | q :: rest => do
     let pinB := Expr.abstractRange q.pin 0 nP 0
     -- **THE PIN'S SCOPE** (`pinsClosed`, the model lane's DESIGN §M.20
     -- finding 1): no free variable, and every loose bound variable
@@ -607,13 +541,14 @@ def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) :
       throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
     -- official's `tc.check(nested, lparams)`: the pin is TYPE-CHECKED,
     -- not required to be a sort — a pin of an indexed container
-    -- (`Vec (T α)`) is a function into one.  The term is the ANNOTATED
-    -- component `nestedRemint` minted the copy's type from, opened at
-    -- the same parameter variables; inference VALIDATES every datum in
-    -- it, so nothing is re-annotated here and the components the model
-    -- tier reads are the components the copies' types were built from
-    -- (task #279 K.10).
-    let _ty ← ops.inferType env nP pinA
+    -- (`Vec (T α)`) is a function into one.  The pin is the
+    -- elimination's own term, ANNOTATED (K.12: the elimination ran on
+    -- annotated inputs) and already opened at the block's parameter
+    -- variables, so nothing is annotated or instantiated here:
+    -- inference VALIDATES every datum in it, which is the
+    -- `checkConstantValPre` discipline applied to a term the kernel
+    -- built itself.
+    let _ty ← ops.inferType env nP q.pin
     nestedPinsOk ops env nP rest
 
 /-- **The pins' scope, as one Bool over the list** — the same pair of
@@ -675,16 +610,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP ctorTypes do
     throw (.invalid "invalid occurrence of datatype being declared: it must be applied \
       to the parameters and universe levels of the mutual declaration")
-  -- 1. the elimination, and the mimic count against the stream's records
-  let types0 : List AuxType := p.formers.zipIdx.map fun ((cv, _), mIdx) =>
-    ⟨cv.name, cv.type,
-      (p.ctors.filter (fun c => c.member == mIdx)).map fun c => (c.cv.name, c.cv.type, c.nF)⟩
-  let st ← nestedLift (m := m) (elimNested env p.nP p.lps types0)
-  -- §M.21 (A) (K.8 steps (1) and (2)): the pin components are ANNOTATED
-  -- and the copies' types re-minted at them, with the block's first
-  -- former's ANNOTATED parameter binders — so a copy's type is
-  -- annotated throughout and the aux install rewrites nothing in it
-  let (st, pinsA) ← nestedRemint ops env p st
+  -- 1. THE ELIMINATION'S INPUTS, ANNOTATED (K.12): the formers as the
+  -- install will store them and the constructors at the environment
+  -- holding those formers — so every piece the elimination instantiates,
+  -- closes over or pins is annotated, and every copy it mints is
+  -- annotated BY CONSTRUCTION, with no annotation pass left to run on it
+  let fmsA ← nestedAnnotFormers ops env p.nP p.formers
+  let ctorsA ← nestedAnnotCtors ops (nestedFormerEnv fmsA env) p.ctors
+  -- 2. the elimination, and the mimic count against the stream's records
+  let st ← nestedLift (m := m) (elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA))
   unless st.pins.length == p.numNested do
     throw (.invalid s!"the block carries {p.numNested} recursor records past its \
       {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
@@ -714,22 +648,22 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
-  -- `auxRoute := true` (K.10): the `_nested`-named members of this block
-  -- are the copies the kernel minted itself, out of the container's
-  -- stored annotated type at annotated pins, so their types are
-  -- PRE-ANNOTATED and the install's front door skips the annotation walk
-  -- for them — the stored copy type is then the minted one,
-  -- syntactically.  Every check still runs, `inferType` included, which
-  -- is what validates each binder datum.
+  -- `auxRoute := true` (K.10, widened by K.12): EVERY member of this
+  -- block is pre-annotated — the real members are the constants the
+  -- input-annotation stage checked, and the copies are minted out of
+  -- them and out of the containers' stored types at annotated pins — so
+  -- the install's front doors (the formers' and the constructors')
+  -- skip the annotation walk throughout and the stored types are the
+  -- minted ones.  Every check still runs, `inferType` included, which
+  -- is what validates each binder datum.  The grade is the CALLER's
+  -- single explicit opt-in for the whole block: no name is
+  -- interpreted.
   let envAux ← checkMutualCore ops env b none true
   let stored ← unwrapOr (auxStoredAll envAux b b.k)
     (.internal "nested: the auxiliary block's stored records")
   let R := restoreTbl p st
   let members := stored.take p.k
   let mimics := stored.drop p.k
-  let a₀ ← unwrapOr members.head? (.internal "nested: no member")
-  let (_fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
-    (.internal "nested: the block's parameter telescope")
   -- POST-CHECK (a) AT THE SCRATCH ENVIRONMENT (`pinsOkAux`, the model
   -- lane's request): the same pins, type-checked where the AUXILIARY
   -- block is installed.  It is ADDED, never substituted for the run at
@@ -749,7 +683,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is what the run relation records
   unless pinsClosed p.nP st.pins do
     throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
-  nestedPinsOk ops envAux p.nP pinsA
+  nestedPinsOk ops envAux p.nP st.pins
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
@@ -782,7 +716,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- RESTORED environment (the variables and the telescope are the ones
   -- `pinsOkAux` already used, above — the SAME annotated components,
   -- from the re-mint)
-  nestedPinsOk ops env₄ p.nP pinsA
+  nestedPinsOk ops env₄ p.nP st.pins
   -- 9. POST-CHECK (c): the stream's records against the generated ones
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")

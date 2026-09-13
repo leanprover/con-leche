@@ -732,7 +732,8 @@ theorem normCtorValMF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Na
     (nP nF : Nat) (cvC cvCa : ConstantVal) :
     normCtorValMF ops (mkFEnv env) memberNames nP nF cvC cvCa
       = normCtorValM ops env memberNames nP nF cvC cvCa := by
-  simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq]
+  simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq,
+    Bool.false_eq_true, if_false]
 
 theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
@@ -741,6 +742,7 @@ theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List
         cvC nF cvTa
       = checkMutualCtor ops env memberNames T lps nP nIdx resSort isProp large cvC nF cvTa := by
   simp only [checkMutualCtorF, checkMutualCtor, checkConstantValF_eq, normCtorValMF_eq,
+    Bool.false_eq_true, if_false,
     checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
     checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, StructWalkers.plain,
     constsResolveF_eq]
@@ -749,7 +751,7 @@ theorem checkMutualCtorsF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
     (fms : List MutualFormerA) (isProp : Bool) :
     ∀ (cs : List MutualCtor),
       checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp cs
-        = checkMutualCtors ops env b fms isProp cs
+        = checkMutualCtors ops env b fms isProp false cs
   | [] => rfl
   | c :: cs => by
     simp only [checkMutualCtorsF, checkMutualCtors, checkMutualCtorF_eq,
@@ -1158,7 +1160,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
         · rw [hm]; rfl) hs₂) (ctorsA, sortss) s₃ hctors
   obtain rfl : (ctorsA, sortss) = r3' := hP3
   have hF₃p : checkMutualCtors (fueledOps mode F₃) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact hF₃
   -- the kinds, classified on the stored constructors
   simp only [] at h
@@ -1218,7 +1220,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     rw [← mutualCrossChecks_datF]
     exact FueledM.up hle₂ hF₂
   have g₃ : checkMutualCtors (fueledOps mode G) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact FueledM.up hle₃ hF₃
   have g₅ : checkMutualRecTys (fueledOps mode G) (consMutualCtors b.nP ctorsA fe₁.env) b
       (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k

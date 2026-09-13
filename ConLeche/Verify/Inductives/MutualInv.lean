@@ -345,10 +345,10 @@ theorem checkMutualCtor_shape {env : Env} {memberNames : List Name} {T : Name}
 the input and every entry is its constructor's run at its own
 member's former. -/
 theorem checkMutualCtors_inv {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
-    {isProp : Bool} {F : Nat} :
+    {isProp auxRoute : Bool} {F : Nat} :
     ∀ {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
       {sortss : List (List Level)},
-      checkMutualCtors (fueledOps mode F) env b fms isProp cs = .ok (ctorsA, sortss) →
+      checkMutualCtors (fueledOps mode F) env b fms isProp auxRoute cs = .ok (ctorsA, sortss) →
       ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
       ∀ (j : Nat) (c : MutualCtor) (cA : ConstantVal × Nat),
         cs[j]? = some c → ctorsA[j]? = some cA →
@@ -357,7 +357,7 @@ theorem checkMutualCtors_inv {env : Env} {b : MutualBlock} {fms : List MutualFor
           checkMutualCtor (fueledOps mode F) env b.memberNames
             (fms.getD c.member default).cvTa.name b.lps b.nP (fms.getD c.member default).nIdx
             (fms.getD c.member default).s isProp b.large c.cv c.nF
-            (fms.getD c.member default).cvTa = .ok (cA.1, sorts)
+            (fms.getD c.member default).cvTa auxRoute = .ok (cA.1, sorts)
   | [], ctorsA, sortss, h => by
     simp only [checkMutualCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
@@ -696,7 +696,7 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         = .ok () ∧
       b.large = f₀.s.isNeverZero ∧
       checkMutualCtors (fueledOps mode F) env₁ b fms
-        (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) ∧
+        (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
       classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
       mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
       mutualGenData b fms ctorsA kinds = (formers4, ctors4) ∧

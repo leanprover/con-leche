@@ -984,8 +984,9 @@ theorem normCtorValM_datF (env : Env) (memberNames : List Name) (nP nF : Nat)
     (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa).val F =
       normCtorValM (fueledOps mode F) env memberNames nP nF cvC cvCa := by
   unfold normCtorValM
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, checkConstantVal_datF, normFieldDomsM_datF]
+  simp only [Bool.false_eq_true, if_false, FueledM.atF_bind, FueledM.atF_pure,
+    FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    normFieldDomsM_datF]
 
 theorem checkMutualCtor_datF (env : Env) (memberNames : List Name) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
@@ -995,15 +996,15 @@ theorem checkMutualCtor_datF (env : Env) (memberNames : List Name) (T : Name)
       checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
         cvC nF cvTa := by
   unfold checkMutualCtor
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, normCtorValM_datF,
-    checkStructFieldSortsI_datF, checkStructDomsAt_datF]
+  simp only [Bool.false_eq_true, if_false, FueledM.atF_bind, FueledM.atF_pure,
+    FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    normCtorValM_datF, checkStructFieldSortsI_datF, checkStructDomsAt_datF]
 
 theorem checkMutualCtors_datF (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
     (isProp : Bool) (F : Nat) :
     ∀ cs : List MutualCtor,
-      (checkMutualCtors (fueledOpsM mode) env b fms isProp cs).val F =
-        checkMutualCtors (fueledOps mode F) env b fms isProp cs
+      (checkMutualCtors (fueledOpsM mode) env b fms isProp false cs).val F =
+        checkMutualCtors (fueledOps mode F) env b fms isProp false cs
   | [] => rfl
   | _ :: cs => by
     unfold checkMutualCtors

@@ -740,8 +740,8 @@ theorem checkMutualCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     (hTf : ∀ m : Nat, ((fms.getD m default).cvTa.type).hasFvar = false) :
     ∀ {cs : List MutualCtor} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkMutualCtors (sharedOpsC mode (mkFEnv env)) env b fms isProp cs)
-        (checkMutualCtors (fueledOpsM mode) env b fms isProp cs)
+        (checkMutualCtors (sharedOpsC mode (mkFEnv env)) env b fms isProp false cs)
+        (checkMutualCtors (fueledOpsM mode) env b fms isProp false cs)
   | [], s₀, hs => SimC.pure hs rfl
   | c :: cs, s₀, hs => by
     unfold checkMutualCtors
