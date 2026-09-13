@@ -76111,6 +76111,121 @@ arena, init-full, Mathlib, overview-links NOT run (landing items).  No
 kernel request.  NOT reached: `headφ`, R1 at the run, the TRANSPORT and
 REFLEXIVE arms, `copyCtorAsRead_of_walk`.
 
+#### M.36 M-C′ step 5: R2 UNCONDITIONAL and R1 ASSEMBLED AT THE RUN — `headφ` derived, the members' own sorts, ψ⁻¹'s mixed values (2026-09-13, session 23)
+
+**(1) `R2Owed.headφ` DERIVED** (`RoundTripRun.lean`; R2 at the run is
+now unconditional for the group shape of §M.35).  The recipe held:
+`ctorBase` is injective on (type, position) pairs with the position
+below the type's constructor count (`Verify/Inductives/NestedCtors.lean`:
+`ctorBase_succ`, `ctorBase_mono`, **`ctorBase_inj`**); `posIn` grows
+strictly along a member's constructors, so it is injective within a
+member (`PsiRun.lean`: `posIn_lt_of_lt`, `posIn_inj`); the position
+of a container constructor is below its copy's constructor count
+(`posIn_lt_ctors`: the group-mate pin `base + mems J` names the member,
+`ContainerCtorsAt.fwd` there lists the constructor at `posIn`, and the
+copy's type has the member's count by `CopyCtorsStored`); hence two
+representatives of one auxiliary constructor index name the same pin
+and position (**`auxOfsOf_inj`**), and the group clause at BOTH pins
+(`cd (base + mems) = ⟨dJ, mems, ψ', DsA, base⟩`) identifies the data
+outright — no detour through `ElimState.grp`: the two `CopyData`
+literals are equal, `CopyData.mk.inj` gives the datum, the member, the
+assignment and the readings, `posIn_inj` the constructor, `Option.some.inj`
+the record.  `headφ_of_run` then reads `invHead_copy`'s representative
+at the pin's data; the readings are `bvarsBelow nP`, so they read alike
+at `ρ` and at the pushed frame.  **`r2Grp`** = `r2Grp_of_owed` with the
+fact supplied.
+
+**(2) `IndRep.congr_sort` is FALSE as a full transfer** — a finding
+that shaped R1's assembly.  `IndRep`'s clauses `strip` (the stored type
+strips to the literal `.sort d.resSort`), `former`/`formersRead`
+(`FormerData` at the spelling) and `ctors` (`FixCtorFactsAt` at the
+spelling) pin the member's SYNTACTIC sort, and a mutual block's members
+spell the block's sort differently (`MutualBlockReps` gives `IndRep` at
+`{d with resSort := s_t}` per member, value-equal by
+`mutualCrossChecks`).  So R1's induction, which runs over ALL scratch
+members at once, cannot have one `IndRep` datum; what it consumes are
+the clauses that depend on the sort through its VALUE (`w`) only, and
+those transfer: the `w`-free ones (`idxRecover`, `ctor`, `tgtsRLt`,
+`paramsIff`, `memsReal`, all data projections) by DEFEQ (the structure
+update's projections reduce), the `w`-bearing ones (`carrier_induction`,
+`chainFit_fields`, `slot_finitary`'s `leaf`) by ONE rewrite
+(`IndRepData.withSort_w`).  `RoundTripR2.lean` now has
+**`IndRepData.RepsAt`** (the members' representations at their own
+spellings, `MutualBlockReps`' shape; `RepsAt.of_single` for a single
+datum by structure eta), **`predFam`** (a carrier restricted to a
+predicate; `r2Fam`/`r1Fam` are its instances), `slot_finitary` and
+`fieldsFit_of_chainFit` generic in the predicate and at `RepsAt` (and
+the latter's constructor facts at ANY spelling of the sort — a scratch
+block's come from ψ⁻¹'s setup at the block's), `r1At_of_step` at a
+sorted representation, `r1_step` at `RepsAt`, `IndRep.chainFit_fields_sorted`
+(`RoundTripRunR1.lean`).  The same gap sits on the CONTAINER side:
+`ContainersRep` asks one `IndRep` datum for every member of a container
+block, which a mutual container with differently-spelled sorts cannot
+provide — its discharge at M-D′ needs `RepsAt` there too (docketed;
+single-member containers, the corpus's, are unaffected).
+
+**(3) R1 AT THE RUN** (`Model/Inductives/RoundTripRunR1.lean`, new, on
+the Model umbrella, ~840 lines).  The pieces, each in `r1_step`'s shape:
+`repsAt_of_reps`, `invSetup_at` (ψ⁻¹'s setup at the parameter
+variables), `ctorFieldFacts_aux`/`ctor_facts_aux` (the scratch
+constructors' readings graded and fitting — `ctorFieldFacts_of` at the
+setup; the mirror of `ctor_facts`); **`invMixed`** (ψ⁻¹'s mixed values
+at a scratch constructor and field values: `r1_step`'s `MIXED`),
+`mixed_shadow`/`mixed_shadowA` (they shadow the fields off the
+container-recursive, resp. the copy's recursive, positions —
+`useIh_recJ`: without transports a hypothesis position is
+container-recursive; `recJ_useIh`: a container-recursive position is a
+hypothesis position, `kindR`); **`es_inv`** (the container's index
+readings at the mixed values are the copy's at the fields: `es`,
+`interp_instSeq_under`, the container's `noBVar_entries` through
+`interp_congr_shadowRel`); **`pos_inv`** (the per-position arms, the
+third generic — `Or.imp_right False.elim` at the call, since a `?P i`
+under the binder is no unification pattern); **`fitMixed_of_run`** (the
+mixed values fit the container constructor's telescope, position by
+position: at a hypothesis position the value is the fold at the target
+applied to the readings and the field, in the container's target
+carrier by the NEW `InvSetup.fold_mem_vals` (`InvFold.lean`, the mirror
+of `PsiSetup.fold_mem_vals`) at the copy's recursive-entry facts,
+`invChoice_group` naming the target's leaf and pins, and that carrier is
+the container's recursive entry read at the mixed prefix
+(`interp_recEntry` with the readings agreeing by `pos_inv`); at a field
+passing its value the copy's own domain at the fields' prefix equals
+its reading at the MIXED prefix (the aux datum's `noBVar_entries`) and
+that is the container's domain under the substitution by the record's
+`ord` — whose frame must fit the CONTAINER's earlier domains, which the
+mixed prefix does and the fields' prefix does NOT: the reason the
+record was restated at the container's frames at §M.31 pays off here).
+**`r1_hstep`**: the step at EVERY scratch constructor — a copy's
+(`copyCtor_repr` names the pin and the container constructor; the run
+gains `chk : CtorsChecked` for it) by `r1_step` with the ι laws
+`inv_iota`/`psi_iota`, the heads `psiHead_interp`/`headφ_of_run`, the
+fields' fit and induction hypotheses by `fieldsFit_of_chainFit` at
+`RepsAt`; a REAL member's constructor vacuously (`idxRecover` recovers
+a real member, the predicate speaks of copies).  **`r1At_of_run`**:
+`R1At` for every copy of every pin at any parameter frame (`ps :=
+paramBvarsAt nP nP`), Ψ' := the final table at `t' - k₀`, Φ' := `invFold`.
+
+**Restrictions** (hypotheses of `r2Grp`/`r1At_of_run`, the honest
+statement): every container FINITARY (`hfin`), NO TRANSPORT (`hnoT`)
+and nonzero-bit (`hbJ`); the scratch block's bit nonzero (`hbA`); and
+for R1 the scratch block FINITARY (`hfinA`) — R1's induction runs over
+every scratch constructor, and a copy's field into a BLOCK MEMBER may
+be reflexive (`List (Nat → T)` at `T`), which `fieldsFit_of_chainFit`
+cannot fit: the REFLEXIVE arm covers it.  The `Prop`-valued arm
+(`bb = 0`) is NOT yet written (ruled trivial by typing; owed).
+
+**Status.**  R2 at the run: UNCONDITIONAL for finitary, transport-free,
+nonzero-bit groups.  R1 at the run: PROVED under the same plus `hfinA`.
+Files: `NestedCtors.lean` (+ `ctorBase_inj`), `PsiRun.lean` (+ `posIn`
+lemmas), `RoundTripR2.lean` (`RepsAt`, `predFam`, the generic kit),
+`RoundTripRun.lean` (`headφ_of_run`, `r2Grp`, `chk`), `InvFold.lean`
+(`InvSetup.fold_mem_vals`), `RoundTripRunR1.lean` (new).  Gates:
+`lake build` warning-free, `lake test` clean, `no-local-paths` OK;
+shake/pub-import, arena, init-full, Mathlib, overview-links NOT run
+(landing items).  No kernel request.  NOT reached: the TRANSPORT arm
+(R2 at the earlier pin along the order + the `viaVal` frames), the
+REFLEXIVE arm (η via `piTele_eta`), the `Prop` arm, `copyCtorAsRead_of_walk`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
