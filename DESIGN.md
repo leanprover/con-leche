@@ -75473,8 +75473,11 @@ the pin `I lvls Ds` in the final table).  Per-field W1'/W2 over
 `replaceAllNested_stripPis`, with `PinsIndexed` (ledger) supplying
 W2's `PinsNamed` and W1's copy-name form at each field's own start
 state, and `Expr.stripPis_mentionsConst_binder` carrying the no-mention
-premise to a binder.  Consumed by nothing yet: the Model-tier half
-(`copyCtorAsRead_of_walk`) reads it on the OPENED forms.
+premise to a binder; and `openPisAtFvars_binder`, the per-binder form
+of `openPisAtFvars_instSeq` (each opened variable's annotation is its
+`stripPis` domain instantiated at the earlier variables), which is how
+the Model-tier half reads the copy's OPENED field domains (its datum's
+`xFvsF`) off the walk's bvar-form output.  Consumed by nothing yet.
 
 **Next** (session 19): (c) `copyCtorAsRead_of_walk` — per field, from
 `CopyCtorsStored`'s pieces: the round trip `cbody = cI`
@@ -75483,10 +75486,10 @@ premise to a binder.  Consumed by nothing yet: the Model-tier half
 (copy-ordinary and block-member-recursive: `mutualFieldsOk`'s resolve at
 the pre-block env ⇒ no copy name ⇒ same domain ⇒ `ord` syntactically) or
 its fired arm (copy-recursive into a copy: the opened shape from
-`recF`/`reflF` pulled back through the per-binder form of
-`openPisAtFvars_instSeq` — `fvs[j].fvarTypeD = instSeq (fvs.take j)
-(j - 1) bs[j].1`, from `openPisAtFvars_add` + `instSeq_forallE`, a
-lemma still owed; the pin `J' lvls Ds` = the group-mate's by K.15's
+`recF`/`reflF` pulled back through the per-binder form of the opening,
+`openPisAtFvars_binder` (`NestedFields.lean`: `fvs[j]? = some (fvar (d
++ j) (instSeq (fvs.take j) (j - 1) bs[j].1))`, landed in the same
+addendum); the pin `J' lvls Ds` = the group-mate's by K.15's
 `Nodup` for `kindR`, the target pin for `kindT`);
 the readings by `denoteMeta_instLevels` + `denoteMeta_instPisAt_peel`
 + `instSeq_mkPisAV` (whole-type) and `denoteMeta_openPis` (per field) +

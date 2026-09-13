@@ -314,6 +314,66 @@ theorem replaceAllNested_stripPis {env : Env} {blvls : List Level} {params : Lis
           exact ⟨hbm, s₁, s₂, hg₁.trans hg, hw, hg'⟩
 
 
+/-! ## The opening, binder by binder -/
+
+/-- **A binder's annotation under `openPisAtFvars`** — the per-binder
+form of `openPisAtFvars_instSeq`: the `j`-th variable is `fvar (d + j)`
+annotated by the `j`-th `stripPis` binder domain instantiated at the
+earlier variables (outermost first, at descending cuts).  What the
+model's constructor read needs to relate the copy's OPENED field
+domains (its datum's `xFvsF`) to the walk's bvar-form output
+(`copyCtorFields_of_walk`). -/
+theorem openPisAtFvars_binder :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body₀ : Expr},
+      openPisAtFvars k e d = some (fvs, body) → e.stripPis k = some (bs, body₀) →
+      ∀ (j : Nat) (b : Expr × BinderMeta), bs[j]? = some b →
+        fvs[j]? = some (.fvar (d + j) (Expr.instSeq (fvs.take j) (j - 1) b.1))
+  | 0, e, d, fvs, body, bs, body₀, _, hs, j, b, hb => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    rw [← hs.1] at hb
+    exact nomatch hb
+  | k + 1, .forallE ty bd m, d, fvs, body, bs, body₀, h, hs, j, b, hb => by
+    simp only [openPisAtFvars] at h
+    split at h
+    · next fvs' body' hop =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hs
+      obtain ⟨⟨bs₀, body₁⟩, hs₀, hbs⟩ := hs
+      simp only [Prod.mk.injEq] at hbs
+      obtain ⟨rfl, rfl⟩ := hbs
+      -- the instantiated body's binders
+      have hsome : ((bd.instantiate1 (.fvar d ty)).stripPis k).isSome :=
+        Expr.stripPis_instantiate1_isSome k 0 (by rw [hs₀]; rfl)
+      obtain ⟨⟨bs₁, body₂⟩, hs₁⟩ := Option.isSome_iff_exists.mp hsome
+      obtain ⟨-, hbin⟩ := Expr.stripPis_instantiate1_eq k 0 hs₀ hs₁
+      have hlen₀ : bs₀.length = k := stripPis_length' k hs₀
+      have hlen₁ : bs₁.length = k := stripPis_length' k hs₁
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hb
+        subst hb
+        simp [Expr.instSeq]
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at hb
+        have hj : j < bs₁.length := by
+          rw [hlen₁, ← hlen₀]; exact (List.getElem?_eq_some_iff.mp hb).1
+        obtain ⟨b₁, hb₁⟩ : ∃ b₁, bs₁[j]? = some b₁ := ⟨_, List.getElem?_eq_getElem hj⟩
+        have hb₁' := hbin j b b₁ hb hb₁
+        have ih := openPisAtFvars_binder k hop hs₁ j b₁ hb₁
+        simp only [List.getElem?_cons_succ, List.take_succ_cons]
+        rw [ih, hb₁', Nat.zero_add]
+        show some (Expr.fvar (d + 1 + j) _) = some (Expr.fvar (d + (j + 1)) _)
+        rw [Nat.add_right_comm d 1 j, Nat.add_assoc d j 1]
+        rfl
+    · exact nomatch h
+  | k + 1, .bvar _, _, _, _, _, _, h, _, _, _, _ | k + 1, .fvar _ _, _, _, _, _, _, h, _, _, _, _
+  | k + 1, .sort _, _, _, _, _, _, h, _, _, _, _ | k + 1, .const _ _, _, _, _, _, _, h, _, _, _, _
+  | k + 1, .app _ _, _, _, _, _, _, h, _, _, _, _ | k + 1, .lam _ _ _, _, _, _, _, _, h, _, _, _, _
+  | k + 1, .letE _ _ _, _, _, _, _, _, h, _, _, _, _ | k + 1, .lit _, _, _, _, _, _, h, _, _, _, _
+  | k + 1, .proj _ _ _, _, _, _, _, _, h, _, _, _, _ => nomatch h
+
 /-! ## A copy constructor's fields: unfired, or a fire at the top -/
 
 /-- A binder domain's mention is the tower's. -/
