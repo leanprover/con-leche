@@ -43,3 +43,9 @@ tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=acc
 # copy's constructor is about to be minted.  Official rejects the block
 # ("already declared"); `copiesFresh` is the route's reject.
 tests/e2e/nested_aux_clash.ndjson 1 P3=reject,
+# --- K.8: pin components with a Prop-ish binder ----------------------
+# The components are ANNOTATED before the copies are minted, so a copy's
+# type is annotated throughout (§M.21 (A)).  `nested_pin_prop_cod` is a
+# fourth shape the modeller declines and the native route takes.
+tests/e2e/nested_lam_pin_prop.ndjson 1 T=accept,
+tests/e2e/nested_pin_prop_cod.ndjson 0 T=accept,
