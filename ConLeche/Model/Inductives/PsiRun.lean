@@ -91,14 +91,23 @@ constructors: the earlier constructors of the same member. -/
 /-- **The container's constructors as `containerInfo?` read them are
 the datum's**: every constructor `Jc` of the datum is, at its member
 `dJ.mems Jc`, the `posIn dJ Jc`-th constructor `containerInfo?` lists
-for that member — the same name, stored type and field count.  (A
-container's `containerInfo?` lists a member's constructors as its
-recursor's rules, in order; the datum's are the block's in order.) -/
-@[expose] def ContainerCtorsAt (ci : ContainerInfo) (dJ : IndRepData V) : Prop :=
-  ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ →
+for that member — the same name, stored type and field count — and
+every listed constructor is such a `Jc`.  (A container's
+`containerInfo?` lists a member's constructors as its recursor's
+rules, in order; the datum's are the block's in order.) -/
+structure ContainerCtorsAt (ci : ContainerInfo) (dJ : IndRepData V) : Prop where
+  fwd : ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ →
     ∃ (J : ContainerMember) (c : ConLeche.ContainerCtor), ci.members[dJ.mems Jc]? = some J ∧
       J.ctors[posIn dJ Jc]? = some c ∧ cAJ.1.name = c.name ∧ cAJ.1.type = c.type ∧
       cAJ.2 = c.nFields
+  /-- and conversely every listed constructor of a member is one of the
+  datum's at that member and position (the datum's constructors of a
+  member are its recursor's rules, `IndRep.rules`, which is what
+  `containerInfo?` lists — task #279 M-C′, the ψ⁻¹ side's heads) -/
+  inv : ∀ (mm l : Nat) (J : ContainerMember) (c : ConLeche.ContainerCtor),
+    ci.members[mm]? = some J → J.ctors[l]? = some c →
+    ∃ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ ∧ dJ.mems Jc = mm ∧
+      posIn dJ Jc = l
 
 /-- **The containers are represented at the scratch environment**: for
 every container `I` the elimination recovers (`containerInfo?` at the
@@ -287,7 +296,14 @@ copy's constructors from the mint to the store (`CopyCtorsStored`). -/
     (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
     DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA ∧
     ContainerCtorsAt ci (cd j).dJ ∧
-    ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q
+    ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
+    -- the group's members by name, and their leaves at the pin's
+    -- assignment read as at the pin's level substitution (what a
+    -- group-mate's own data agree with: `invChoice_group`, `InvCopy.lean`)
+    ∀ (t : Nat) (J' : ContainerMember), ci.members[t]? = some J' →
+      (cd j).dJ.memberName t = J'.name ∧
+      mpAux.base2.acval J'.name (cd j).ψ'
+        = mpAux.base2.acval J'.name (Level.substFn ψ J'.lps lvls)
 
 set_option maxHeartbeats 1600000 in
 /-- **Every pin has its group facts, from the run** — one `CopyData` per
@@ -337,7 +353,11 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         c.ψ' = pinAssign c.dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
         DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA ∧
         ContainerCtorsAt ci c.dJ ∧
-        ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q := by
+        ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
+        ∀ (t : Nat) (J' : ContainerMember), ci.members[t]? = some J' →
+          c.dJ.memberName t = J'.name ∧
+          mpAux.base2.acval J'.name c.ψ'
+            = mpAux.base2.acval J'.name (Level.substFn ψ J'.lps lvls) := by
     intro j hj
     obtain ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls,
       hcst, hread⟩ := hpins j hj
@@ -422,12 +442,26 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         fun t ht => by show p.k + j₀ + t < d.k; have := hposGrp t ht; omega, hgrpOk⟩,
       by show j₀ + i = j; omega,
       q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hqc.symm, by rw [hrep.member, hqc], hlenM,
-      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp, hcat, hcst⟩
-    show ElimState.grp st j = (j₀, dJ.k)
-    unfold ElimState.grp
-    rw [hq]
-    show (q.grpBase, q.grpSize) = (j₀, dJ.k)
-    rw [hqb, hqs, hlenM]
+      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp, hcat, hcst, ?_⟩
+    · show ElimState.grp st j = (j₀, dJ.k)
+      unfold ElimState.grp
+      rw [hq]
+      show (q.grpBase, q.grpSize) = (j₀, dJ.k)
+      rw [hqb, hqs, hlenM]
+    · intro t J' hJ'
+      have ht : t < dJ.k := by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp hJ').1
+      obtain ⟨cvTJ', cvR', capsJ', mI', rP', rules', hfJ', -, hJlps', -, -, -, hrep'⟩ :=
+        hmem t J' hJ'
+      have hfJ'' : envAux.find? (dJ.memberName t) = some (.indInfo cvTJ' capsJ') := by
+        rw [hrep'.member]; exact hfJ'
+      have hlpsT : cvTJ'.levelParams = cvTJ.levelParams := hrep.membersLps t ht cvTJ' capsJ' hfJ''
+      refine ⟨hrep'.member, ?_⟩
+      refine mpAux.base2.acval_params J'.name (.indInfo cvTJ' capsJ') hfJ' _ _ ?_
+      intro q hq
+      have hq' : q ∈ cvTJ.levelParams := by rw [← hlpsT]; exact hq
+      show ψ' q = Level.substFn ψ J'.lps lvls q
+      rw [hJlps', hlpsT, ← hψ'₀]
+      exact hagree q hq'
   -- the choice, per pin
   refine ⟨fun j => if hj : j < st.pins.length then Classical.choose (hone j hj)
     else ⟨d, 0, ψ, [], 0⟩, fun j hj => ?_⟩

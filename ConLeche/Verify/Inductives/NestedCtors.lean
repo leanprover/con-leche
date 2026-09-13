@@ -79,6 +79,44 @@ theorem auxBlock_ctor_getElem? {p : NestedParts} {st : ElimState} {b : MutualBlo
   refine flatten_zipIdx_getElem? (fun x => by cases x; simp) st.types 0 t l ty _ hty ?_
   simp only [Nat.zero_add, List.getElem?_map, hc, Option.map_some]
 
+/-- The inverse of `flatten_zipIdx_getElem?`: an entry of the flattened,
+index-tagged constructor lists is some type's constructor at that
+type's base. -/
+theorem flatten_zipIdx_getElem?_inv {F : AuxType × Nat → List MutualCtor}
+    (hF : ∀ x, (F x).length = x.1.ctors.length) :
+    ∀ (L : List AuxType) (n J : Nat) (c : MutualCtor),
+      ((L.zipIdx n).map F).flatten[J]? = some c →
+      ∃ (t l : Nat) (ty : AuxType), L[t]? = some ty ∧ (F (ty, n + t))[l]? = some c ∧
+        J = ((L.take t).map (·.ctors.length)).sum + l
+  | [], _, _, _, h => by simp at h
+  | ty' :: L, n, J, c, h => by
+    simp only [List.zipIdx_cons, List.map_cons, List.flatten_cons] at h
+    by_cases hJ : J < (F (ty', n)).length
+    · rw [List.getElem?_append_left hJ] at h
+      exact ⟨0, J, ty', rfl, by rw [Nat.add_zero]; exact h, by simp⟩
+    · rw [List.getElem?_append_right (Nat.le_of_not_lt hJ)] at h
+      obtain ⟨t, l, ty, hty, hc, hJ'⟩ := flatten_zipIdx_getElem?_inv hF L (n + 1) _ c h
+      refine ⟨t + 1, l, ty, by simpa using hty,
+        by rw [show n + (t + 1) = n + 1 + t by omega]; exact hc, ?_⟩
+      simp only [List.take_succ_cons, List.map_cons, List.sum_cons]
+      have : (F (ty', n)).length = ty'.ctors.length := hF (ty', n)
+      omega
+
+/-- **Every constructor of the auxiliary block is some type's `l`-th
+constructor at that type's base**, tagged with the type's index — the
+inverse of `auxBlock_ctor_getElem?`. -/
+theorem auxBlock_ctor_inv {p : NestedParts} {st : ElimState} {b : MutualBlock}
+    (hb : auxBlock p st = some b) {J : Nat} {c : MutualCtor} (hc : b.ctors[J]? = some c) :
+    ∃ (t l : Nat) (ty : AuxType) (c' : Name × Expr × Nat), st.types[t]? = some ty ∧
+      ty.ctors[l]? = some c' ∧ J = ctorBase st t + l ∧ c = ⟨⟨c'.1, p.lps, c'.2.1⟩, c'.2.2, t⟩ := by
+  obtain ⟨-, -, -, -, -, -, hctors⟩ := auxBlock_inv hb
+  rw [hctors] at hc
+  obtain ⟨t, l, ty, hty, hc', hJ⟩ :=
+    flatten_zipIdx_getElem?_inv (fun x => by cases x; simp) st.types 0 J c hc
+  simp only [Nat.zero_add, List.getElem?_map] at hc'
+  obtain ⟨c', hc'', rfl⟩ := Option.map_eq_some_iff.mp hc'
+  exact ⟨t, l, ty, c', hty, hc'', hJ, rfl⟩
+
 /-! ## The stored constructor of a copy, from the run -/
 
 /-- **What the run says of a copy's constructors** (pin `j`, container
