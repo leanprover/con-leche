@@ -201,6 +201,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- opened at the block's parameter variables — typed at the SCRATCH
     -- environment
     nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () ∧
+    -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
+    -- block, the STORED field is the weak head normal form of the
+    -- PROCESSED one wherever the stage's normalisation changed it
+    ConLeche.nestedCtorsWhnfOk (m := CheckM) (fueledOps μ F)
+        (consNestedFormers (stored.take p.k) env) (restoreTbl p st) p.nP
+        (ConLeche.nestedCtorPairs b stored) = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
