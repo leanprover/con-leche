@@ -76226,6 +76226,130 @@ shake/pub-import, arena, init-full, Mathlib, overview-links NOT run
 (R2 at the earlier pin along the order + the `viaVal` frames), the
 REFLEXIVE arm (η via `piTele_eta`), the `Prop` arm, `copyCtorAsRead_of_walk`.
 
+#### M.37 M-C′ step 6, the `Prop` arm: the folds typed at values, the round trips at a zero bit (2026-09-13, session 24)
+
+**The arm.**  `r2Grp`/`r1At_of_run` (§M.36) take the elimination
+bits nonzero (`hbJ`, `hbA`): the ι laws at values are stated at a
+nonzero bit.  At a `Prop`-valued group the round trips need no ι law:
+every carrier is a member of `univ 0` and so has at most the point as
+element, and the composed fold lands in the same carrier.
+`Model/Inductives/RoundTripProp.lean` (new, on the Model umbrella):
+
+* **`IndRep.eq_pt_of_mem`** — an element of a member's carrier at a
+  zero sort is `pt` (`leaf`, `famSpace_app` at `lfpFamSet_mem`,
+  `mem_univ_zero`);
+* **`invFold_mem`** — ψ⁻¹'s fold at the copy `p.k + base + t` of pin
+  `j`'s member `t`, applied to index values fitting the copy's
+  telescope and an element of the copy's carrier, lands in the
+  container member's carrier at the pin's readings
+  (`InvSetup.fold_mem_vals` at `invSetup_at`; the motive binder's spine
+  assembled from `IdsM` = `ipss` (`ipss_getD`, `rebit_map_dom`) and the
+  major's domain `famAppAV (Ls t') (pinsOf t')` read by
+  `interp_famAppAV_pins` at `paramVals`; the target's leaf and pins by
+  `invChoice_group`);
+* **`psiFinal_mem`** — ψ's final table's entry at a group-mate, applied
+  to index values fitting the container's telescope at the pin's
+  frame and an element of the container's carrier there, lands in the
+  copy's carrier at the block's parameters (`PsiSetup.fold_mem_vals`
+  at `psiSetup_final`, the entry the group's fold term by
+  `final_group`, the target read by `interp_famAppAV_aux` with
+  `psiL`/`psiPinsT` unfolded);
+* **`bb_iff`** — the block's bit is zero iff the group's container's
+  (`pwBit_zeronessOf` at both, the block's `lev` — `NestedRunFacts`
+  GAINED the field `lev : d.elimL.eval ψ = d.w ψ`, its constructor had
+  it — and the container's `GroupFacts.lev`, the sorts equal by
+  `CopyIdxRead.sort`);
+* **`r2Grp_prop`/`r1At_prop`** — R2 per group and R1 at every copy at
+  a zero bit: the element is the point, the round trip's result is in
+  the same carrier hence the point (`psiFinal_mem` then `invFold_mem`,
+  or the reverse; the index telescopes exchanged by
+  `CopyIdxRead.idxIff`);
+* **`r2Grp_all`/`r1At_all`** — the bit restrictions DROPPED: `by_cases`
+  on the block's bit, the nonzero arm's `hbJ` from `bb_iff`.
+
+The two typing lemmas are also `coherence`'s `hΦ` (§M.32), so the
+inverse-uniqueness statement is now dischargeable at the run.
+
+#### M.38 M-C′ step 6, the TRANSPORT arm: R2 along the kernel's order, R1 at the same induction (2026-09-13, session 24)
+
+**What a transport is.**  A field the container sees as ordinary and
+the copy as recursive into ANOTHER COPY: at `J α := mk : List α → J α`
+copied at the pin `J T`, the copy's field is the copy of `List T`,
+an earlier pin along the kernel's order (K.6's `TopoOrder`, the
+run's `ord`; `BridgeOfRun` says each transport's target is a
+`CopyRef`).  ψ passes the field through the target pin's term (`psiVia`
+→ `viaVal`), ψ⁻¹ through its fold at the target copy (a hypothesis
+position, `invUseIh`).  Their composition at the position is R2 at the
+TARGET PIN (R2 side) or R1 at the target copy (R1 side).  Both modules
+are at a FINITARY scratch block (`hfinA`: a transport carries no
+telescope — the reflexive arm lifts it).
+
+**R2 — `Model/Inductives/RoundTripTransport.lean`** (new).
+`psiVia_transport` (the specification `psiVia` returns at a transport:
+the target's entry lifted over the pin's readings, the copy's readings
+lifted at the field's depth, the copy's telescope lifted and rebitted);
+`replaced_recIdx` (a replaced position is copy-recursive: a hypothesis
+position through `kindR`, a transport through `psiVia`'s guard) and
+`psiVals_shadowRel` (ψ's values shadow the fields off the COPY's
+recursive positions — `ShadowRel` at the copy's kinds, from
+`psiVals_shadowRelP`); **`mixed_transport`** — THE POSITION: ψ's value
+is the target pin's term at the copy's readings and the field
+(`viaVal` at the empty telescope, `interp_liftN`/`shiftE_consList` for
+the term, `interp_liftN_middle` for the readings), ψ⁻¹'s mixed value
+its fold at the target copy at the readings and that (`mixedVals` at a
+hypothesis position), the readings read alike at ψ's frame and ψ⁻¹'s
+(`interp_congr_shadowRel` at `psiVals_shadowRel` with the copy's
+`noBVar_entries`, `push_agree` below the parameters), and the field
+lies in the target pin's carrier at those readings
+(`containerDom_transport` + `transport_fits` at `as := []`), so R2 at
+the target pin (`hR2`, at `cd j'` with `psiFinal j'`/`invFold (p.k +
+j')`) closes it.  `pos_transport` = `r2_step`'s `hpos` with the third
+arm PROVED (the container-recursive arm factored out of
+`pos_noTransport` as **`pos_recJ`**, `RoundTripRun.lean`; `hnoT` gone);
+`r2Grp_of_r2` = `r2Grp_of_owed`'s assembly with `pos_transport`, its
+`hR2` over `CopyRef j j'`; `r2At_of_grp` (R2 at pin `j'` from R2 for
+its group: `j'` is its own group's member `mm`, `base + mm = j'`);
+**`r2Grp_order`** — R2 AT EVERY PIN by induction on the position in the
+order (`TopoOrder.lt_of_ref` through `bridge`: a transport's target is
+earlier; `complete` + `List.idxOf_lt_length_of_mem` seed it);
+`r2Grp_order_all` at any bit (with §M.37's `r2Grp_prop`).
+
+**R1 — `Model/Inductives/RoundTripTransportR1.lean`** (new).  R1 is
+ONE induction over the scratch block, so a transport's round trip is
+the same induction's hypothesis at the target copy — no order.
+`mixed_shadowP` (the mixed values shadow the fields off the REPLACED
+positions); the readings' agreements `readA_agree` (the copy's, at `ρ`
+and at the pushed frame), `readM_agree` (under the mixed prefix and
+the fields' prefix — `mixed_shadowA` + the copy's `noBVar_entries`),
+`readJ_agree` (the container's at a container-recursive position at
+the mixed prefix are the copy's at the fields' — `kindR`,
+`interp_instSeq_under`, and `hnbP`'s `Eiss` clause: the container's
+readings mention no REPLACED position, which `es_inv`'s
+`noBVar_entries` route could not say about a transport position);
+`es_inv'` (`hnbP`'s result clause likewise); **`pos_inv'`** with the
+transport's third arm — ψ's value at the mixed spine is the field:
+the target pin's term at the readings and ψ⁻¹'s mixed value, which is
+the fold at the target copy at the readings and the field, and the
+induction hypothesis `hIH` at the target copy (`R1Pred` at
+`d.tup (tgts i) e⃗`, the readings fitting by `hEntryFit`) closes it;
+**`fitMixed_transport`** (`fitMixed_of_run` with the hypothesis
+positions split: container-recursive as before, a transport placed in
+the container's domain — the target pin's carrier at the copy's
+readings by `containerDom_transport`/`transport_fits` — by
+`invFold_mem` at the target pin, the field in the copy's recursive
+entry by `interp_recEntry`); `r1_hstep'`, `r1At_transport`,
+`r1At_transport_all`.
+
+**Status.**  R2 at the run: EVERY pin along the order, any bit, for
+finitary containers and a finitary scratch block (`r2Grp_order_all`).
+R1 at the run: every copy, any bit, the same restrictions
+(`r1At_transport_all`).  `hnoT` and `hbJ`/`hbA` are gone; what remains
+is `hfin` (the containers' recursive fields finitary) and `hfinA` (the
+scratch block finitary) — the REFLEXIVE arm.  Gates: `lake build`
+warning-free, `lake test` clean, `no-local-paths` OK; shake/pub-import,
+arena, init-full, Mathlib, overview-links NOT run (landing items).  No
+kernel request.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
