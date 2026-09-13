@@ -343,7 +343,29 @@ environment) infer that very term instead of annotating the raw pin
 again (the `checkConstantValPre` discipline: a datum we built ourselves
 is VALIDATED, by inference, not recomputed).  So the components are one
 syntactic object everywhere, and the recorded equation has one form —
-this one. -/
+this one.
+
+**EVERY FAILURE ARM HERE IS `.internal`** (task #279 K.11 (a)), because
+none of them can fire on a state the elimination produced — the pin `q`
+EXISTS only because `replaceIfNested` found its container:
+
+* the head — `q.pin` is `mkAppN (.const q.container lvls) Ds` by
+  construction, and the annotation pass is structural on applications
+  and returns a `.const` node unchanged (`annotateBody`), so `pinA`'s
+  head is that same `.const … lvls` and its argument count is `Ds`';
+* the container — `containerInfo? env q.container` is the very lookup
+  that SUCCEEDED at the mint (`replaceIfNested`'s `some ci` arm), at the
+  same pre-block environment;
+* the member — `mkCopies` minted the whole group `ci.members` and
+  required `q.container` to be one of them (its `got = some auxI`);
+* the levels and `instPis` — `mkCopy` checked `lvls.length ==
+  J.lps.length` and that `instPis (J.type at lvls) Ds` answers, and the
+  annotated arguments are as many as `Ds`.
+
+A throw here is therefore a broken invariant, not a stream's fault; the
+arms used to return the types unchanged, which silently left a copy at
+its RAW mint and made "a group-mate's own lookup finds it" a premise the
+model tier had to carry. -/
 def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
     (fvsA : List Expr) (pbsA : List (Expr × BinderMeta)) (env : Env) :
     List NestedPin → List AuxType → m (List AuxType × List (NestedPin × Expr))
@@ -362,25 +384,51 @@ def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
             | some tyI =>
               pure (ts.map fun t =>
                 if t.name == q.aux then { t with type := closeTelescope pbsA 0 tyI } else t)
-            | none => pure ts
-          else pure ts
-        | none => pure ts
-      | _, _ => pure ts
+            | none => throw (.internal "nested: the re-mint cannot instantiate the \
+                container's type at the pin's annotated components")
+          else throw (.internal "nested: the re-mint sees a pin whose level \
+            instantiation is not the container's")
+        | none => throw (.internal "nested: the re-mint sees a pin whose container \
+          is not a member of its own group")
+      | _, _ => throw (.internal "nested: the re-mint cannot read the pin's container")
     let (ts'', qs') ← remintCopyTypes ops envF nP fvsA pbsA env qs ts'
     pure (ts'', (q, pinA) :: qs')
 
 /-- **The elimination's state with the copies' types re-minted at
 ANNOTATED pin components** (K.8 steps (1) and (2)): the first former's
-type is annotated, its parameter binders `pbsA` and openers `fvsA₀` are
-taken from it, and every copy's type is rebuilt by `remintCopyTypes`.
-The pins, their order and the copies' constructors are untouched, so
-every guard downstream sees the state the elimination produced; the
-ANNOTATED open pins come back beside the state, paired with the pins
-they belong to, and they are what the two pin passes type-check. -/
+type is taken AS THE INSTALL WILL STORE IT, its parameter binders `pbsA`
+and openers `fvsA₀` are read off that, and every copy's type is rebuilt
+by `remintCopyTypes`.  The pins, their order and the copies'
+constructors are untouched, so every guard downstream sees the state the
+elimination produced; the ANNOTATED open pins come back beside the
+state, paired with the pins they belong to, and they are what the two
+pin passes type-check.
+
+**The openers are the STORED former's, by construction** (K.11 (b)).
+The install does not store the annotated declared type unconditionally:
+`checkSumTele` stores it only when it is already a syntactic telescope
+of `nP + nIdx` binders ending in a sort, and otherwise stores the
+CHECKED CLOSE of its `whnfTelescope` (task #195 — official's
+`check_inductive_types` reduces before each binder, so `T : id Type` is
+a correct stream official accepts).  So the same function is run here,
+on the same annotated constant at the same pre-block environment, and
+`pbsA`/`fvsA₀` come off ITS result — the model tier no longer needs
+"the first former is stored as annotated" as a premise.  (On today's
+corpus the second branch cannot fire, because `auxBlock` reads the index
+count off the DECLARED type with `auxIdxCount`, which already demands a
+syntactic telescope; the point is that the equation holds whatever
+`checkSumTele` does, not that the branch is reachable.)  The index count
+is `auxIdxCount`'s — the one `auxBlock` will use — and a former without
+one is the ill-formed declaration `auxBlock` refuses, thrown here with
+the same verdict. -/
 def nestedRemint (ops : CheckerOps m) (env : Env) (p : NestedParts) (st : ElimState) :
     m (ElimState × List (NestedPin × Expr)) := do
   let cv₀ ← unwrapOr (p.formers.head?.map (·.1)) (.internal "nested: no former")
   let t₀A ← ops.annotate env 0 cv₀.type
+  let nIdx₀ ← unwrapOr (auxIdxCount p.nP cv₀.type)
+    (.invalid "invalid nested inductive datatype, ill-formed declaration")
+  let (cvT₀, _s₀) ← checkSumTele ops env cv₀ (p.nP + nIdx₀) { cv₀ with type := t₀A }
+  let t₀A := cvT₀.type
   let (fvsA₀, _) ← unwrapOr (openPisAtFvars p.nP t₀A 0)
     (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
   let (pbsA, _) ← unwrapOr (t₀A.stripPis p.nP)
