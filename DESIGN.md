@@ -71557,15 +71557,27 @@ modeller's four names only.
 
 ### The history out of Main.lean's comments
 
-`task #` mentions **59 → 9**; the file is 1 125 → 1 011 lines (97
-inserted, 211 deleted).  Of the nine, **eight are inside the `--help`
-text**, which this task was told not to edit beyond dropping the
-retired list — flagged here as the one place where the docs rule
-("human-facing docs state the current fact, no task numbers") and the
-brief disagree, for the maintainer to settle.  The ninth is the one
-pointer worth keeping under CLAUDE.md's rule that a task number may
-stand where it points at a DESIGN record explaining a live decision:
-the check phase's dedicated-thread measurement (task #269's section).
+`task #` mentions **59 → 1**; the file is 1 125 → 1 011 lines.  The
+one that stands is the pointer CLAUDE.md allows — a task number may
+stand where it points at a DESIGN record explaining a live decision —
+namely the check phase's dedicated-thread measurement (task #269's
+section), in a code comment.
+
+**The `--help` text is human-facing, so the docs rule reaches it.**
+The first pass left its eight `task #NNN` parentheticals alone, the
+brief having said not to edit the help text beyond the retired list;
+the maintainer then ruled that "no task numbers or history in
+human-facing text" applies to `--help` too.  All eight are gone —
+`--jobs`'s `(task #269)`, `CON_LECHE_INMODEL=0`'s `(task #200)`, two
+`(task #219)` inside that entry, and the section headings THE VERDICT
+LINE'S COUNT `(task #187)`, THE BUILT-IN PRELUDE `(task #191)`, NO
+PREPROCESSOR `(task #207)` and its `(task #219)`.  Each said only
+where a fact was decided, so each was dropped and the sentence closed
+up; nothing else in the help text moved, and the string is still 227
+lines, so no anchor into `Main.lean` shifted (`tests/overview-links.sh`
+passes with the expectation untouched).  **Nothing pins the help
+output** — no test runs `con-leche --help` — so the arena battery was
+not re-run for this edit.
 
 What was rewritten to the present tense or deleted:
 
