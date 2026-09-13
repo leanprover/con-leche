@@ -46,5 +46,6 @@ public import ConLeche.Verify.Inductives.NestedOrder
 -- consumed by the model lane's nested modules
 public import ConLeche.Verify.Inductives.NestedLeaves
 public import ConLeche.Verify.Inductives.NestedWalk
+public import ConLeche.Verify.Inductives.NestedFields
 
 @[expose] public section
