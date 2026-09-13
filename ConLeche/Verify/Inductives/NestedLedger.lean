@@ -691,6 +691,63 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
     · contradiction
   · contradiction
 
+/-- **The worklist keeps every type it started with**: it rewrites
+constructors only, and the mints append. -/
+theorem elimLoop_type_lt {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr}
+    {pbs₀ : List (Expr × BinderMeta)} (hpbs : pbs₀.length = nP) :
+    ∀ {fuel qhead : Nat} {st st' : ElimState},
+      elimLoop env blvls nP params pbs₀ fuel qhead st = .ok st' →
+      ∀ i, i < st.types.length → st'.types[i]?.map (·.type) = st.types[i]?.map (·.type)
+  | 0, _, _, _, h => nomatch h
+  | fuel + 1, qhead, st, st', h => by
+    simp only [elimLoop] at h
+    split at h
+    · obtain rfl := Except.ok.inj h
+      intro i _
+      rfl
+    · next t ht =>
+      split at h
+      · exact nomatch h
+      · next cs' st₁ hcs =>
+        intro i hi
+        have hpre : st.types <+: st₁.types := mintStep_types_prefix (elimCtors_mint hpbs hcs)
+        have hlen : st.types.length ≤ st₁.types.length := hpre.length_le
+        have hq : qhead < st.types.length := (List.getElem?_eq_some_iff.mp ht).1
+        have hset : (st₁.types.set qhead { t with ctors := cs' })[i]?.map (·.type)
+            = st.types[i]?.map (·.type) := by
+          rw [List.getElem?_set]
+          split
+          · next hqi =>
+            subst hqi
+            rw [if_pos (by omega), ht]
+            rfl
+          · obtain ⟨t', ht'⟩ := hpre
+            rw [← ht', List.getElem?_append_left hi]
+        have hih := elimLoop_type_lt hpbs h i (by simp only [List.length_set]; omega)
+        rw [hih, hset]
+
+/-- **The elimination's opening**: the first type, its parameter
+openers and binders, and the block's own types unchanged. -/
+theorem elimNested_open {env : Env} {nP : Nat} {lps : List Name} {types : List AuxType}
+    {st : ElimState} (h : elimNested env nP lps types = .ok st) :
+    ∃ (t₀ : AuxType) (params : List Expr) (body : Expr) (pbs : List (Expr × BinderMeta))
+      (body₀ : Expr),
+      types.head? = some t₀ ∧ openPisAtFvars nP t₀.type 0 = some (params, body) ∧
+      t₀.type.stripPis nP = some (pbs, body₀) ∧ pbs.length = nP ∧
+      ∀ i, i < types.length → st.types[i]?.map (·.type) = types[i]?.map (·.type) := by
+  unfold elimNested at h
+  split at h
+  · next t₀ ht₀ =>
+    split at h
+    · next params body hop =>
+      split at h
+      · next pbs body₀ hstrip =>
+        exact ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, stripPis_length' nP hstrip,
+          fun i hi => elimLoop_type_lt (stripPis_length' nP hstrip) h i hi⟩
+      · contradiction
+    · contradiction
+  · contradiction
+
 /-! ## The replace walk, at a nested occurrence
 
 Where `replaceIfNested` FIRES, the walk is its answer (the top-down

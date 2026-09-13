@@ -182,7 +182,7 @@ theorem mutualFormerChecks_front {nP F : Nat} {auxRoute : Bool} :
         mutualFormerChecks (fueledOps mode F) env nP auxRoute rest = .ok fs ∧
         fms = ⟨cvTa, nIdx, s⟩ :: fs := by
       unfold mutualFormerChecks at h
-      by_cases hg : (auxRoute && Name.hasPrefixOf nestedPrefixName cv.name) = true
+      by_cases hg : auxRoute = true
       · rw [if_pos hg] at h
         obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
         obtain ⟨q, htele, h⟩ := exceptBind_ok h
@@ -242,5 +242,187 @@ theorem mutualFormerChecks_front_mem {nP F : Nat} {auxRoute : Bool}
   obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
   obtain ⟨cv, -, -, hfront, -⟩ := (mutualFormerChecks_front h).2 t f ht
   exact ⟨cv, hfront⟩
+
+
+/-! ## The constructors' front door at either grade (K.12)
+
+At `auxRoute` the constructor stage's front door is
+`checkConstantValPre` and the positivity normalisation re-checks a
+changed type through it too; off the grade both are `checkConstantVal`.
+Either way the stored constructor carries the declared name, which the
+front door found free. -/
+
+/-- `normCtorValM` returns the checked constructor, or re-checks the
+normalised type through a front door. -/
+theorem normCtorValM_front {env : Env} {memberNames : List Name} {nP nF F : Nat}
+    {cvC cvCa cvCa' : ConstantVal} {pre : Bool}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa pre
+      = .ok cvCa') :
+    cvCa' = cvCa ∨ ∃ ty', FormerFront mode F env { cvC with type := ty' } cvCa' := by
+  unfold normCtorValM at h
+  obtain ⟨_q, _h1, h⟩ := exceptBind_ok h
+  obtain ⟨_cbs, _⟩ := _q
+  try simp only at h
+  obtain ⟨_r, _h2, h⟩ := exceptBind_ok h
+  obtain ⟨_fvsP, _crest⟩ := _r
+  try simp only at h
+  obtain ⟨_u, _h3, h⟩ := exceptBind_ok h
+  obtain ⟨_fbs, _resid⟩ := _u
+  try simp only at h
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  · split at h
+    · exact Or.inr ⟨_, FormerFront.of_pre h⟩
+    · exact Or.inr ⟨_, FormerFront.of_checkConstantVal h⟩
+
+/-- **One constructor at either grade**: the stored constructor carries
+the declared name, and that name is free at the environment. -/
+theorem checkMutualCtor_fresh {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx nF F : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {sorts : List Level} {pre : Bool}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa pre = .ok (cvCa, sorts)) :
+    cvCa.name = cvC.name ∧ env.find? cvC.name = none := by
+  unfold checkMutualCtor at h
+  cases pre <;> simp only [if_true, Bool.false_eq_true, if_false] at h <;>
+  obtain ⟨cvCa₀, hfront, h⟩ := exceptBind_ok h <;>
+  obtain ⟨c, hnorm, h⟩ := exceptBind_ok h <;>
+  have hff₀ : FormerFront mode F env cvC cvCa₀ := by
+    first
+    | exact FormerFront.of_pre hfront
+    | exact FormerFront.of_checkConstantVal hfront
+  all_goals
+    have hcname : c.name = cvC.name := by
+      rcases normCtorValM_front hnorm with rfl | ⟨ty', hff⟩
+      · exact hff₀.name
+      · exact hff.name
+    obtain ⟨q, _hq, h⟩ := exceptBind_ok h
+    obtain ⟨_cbs, cbody⟩ := q
+    try simp only at h
+    by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+    case neg => rw [if_neg hc] at h; close_throw
+    rw [if_pos hc] at h
+    obtain ⟨cq, _hcq, h⟩ := exceptBind_ok h
+    obtain ⟨fvsP, _crest⟩ := cq
+    obtain ⟨tq, _htq, h⟩ := exceptBind_ok h
+    obtain ⟨_tfvs, _trest⟩ := tq
+    try simp only at h
+    obtain ⟨u, _hdoms, h⟩ := exceptBind_ok h
+    obtain ⟨xq, _hxq, h⟩ := exceptBind_ok h
+    obtain ⟨xFvs, xrest⟩ := xq
+    try simp only at h
+    by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+        xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+    case neg => rw [if_neg h4] at h; close_throw
+    rw [if_pos h4] at h
+    obtain ⟨_sorts', _hsorts, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, -⟩ := h
+    exact ⟨hcname, hff₀.fresh⟩
+
+
+/-- **One constructor's stage at either grade**, inverted:
+`checkMutualCtor_shape` with its front door read as `FormerFront` (the
+annotating door off the grade, `checkConstantValPre` on it — and the
+positivity normalisation's re-check likewise). -/
+theorem checkMutualCtor_front {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {nF F : Nat} {sorts : List Level} {pre : Bool}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa pre = .ok (cvCa, sorts)) :
+    (∃ ty', FormerFront mode F env { cvC with type := ty' } cvCa) ∧
+    (∃ cbs es, cvCa.type.stripPis (nP + nF)
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (structPsAt nF nP ++ es)) ∧
+      es.length = nIdx) ∧
+    ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
+      (xFvs idxArgs : List Expr),
+      openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
+      openPisAtFvars nP cvTa.type 0 = some (tfvs, trest) ∧
+      checkStructDomsAt (fueledOps mode F) env 0 fvsP
+        (tfvs.map Expr.fvarTypeD) nP = .ok () ∧
+      openPisAtFvars nF crest nP
+        = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)) ∧
+      idxArgs.length = nIdx ∧
+      (∀ x ∈ xFvs, x.fvarTypeD.constsResolve env = true) ∧
+      (∀ e ∈ idxArgs, e.constsResolve env = true) ∧
+      checkStructFieldSortsI (fueledOps mode F) env isProp large resSort
+        nP xFvs idxArgs nF = .ok sorts := by
+  unfold checkMutualCtor at h
+  cases pre <;> simp only [if_true, Bool.false_eq_true, if_false] at h <;>
+  obtain ⟨cvCa₀, hccv₀, h⟩ := exceptBind_ok h <;>
+  obtain ⟨cvCa', hnorm, h⟩ := exceptBind_ok h <;>
+  have hff₀ : FormerFront mode F env cvC cvCa₀ := by
+    first
+    | exact FormerFront.of_pre hccv₀
+    | exact FormerFront.of_checkConstantVal hccv₀
+  all_goals
+    have hccv : ∃ ty', FormerFront mode F env { cvC with type := ty' } cvCa' := by
+      rcases normCtorValM_front hnorm with rfl | ⟨ty', hff⟩
+      · exact ⟨cvC.type, hff₀⟩
+      · exact ⟨ty', hff⟩
+    obtain ⟨q, hq, h⟩ := exceptBind_ok h
+    obtain ⟨cbs, cbody⟩ := q
+    have hq' := unwrapOr_ok hq
+    try simp only at h
+    by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+    case neg => rw [if_neg hc] at h; close_throw
+    rw [if_pos hc] at h
+    obtain ⟨cq, hcq, h⟩ := exceptBind_ok h
+    have hcq' := unwrapOr_ok hcq
+    obtain ⟨fvsP, crest⟩ := cq
+    obtain ⟨tq, htq, h⟩ := exceptBind_ok h
+    have htq' := unwrapOr_ok htq
+    obtain ⟨tfvs, trest⟩ := tq
+    try simp only at h
+    obtain ⟨u, hdoms, h⟩ := exceptBind_ok h
+    obtain ⟨xq, hxq, h⟩ := exceptBind_ok h
+    have hxq' := unwrapOr_ok hxq
+    obtain ⟨xFvs, xrest⟩ := xq
+    try simp only at h
+    by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+        xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+    case neg => rw [if_neg h4] at h; close_throw
+    rw [if_pos h4] at h
+    obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [structCtorResidOk, Bool.and_eq_true, beq_iff_eq] at hc
+    simp only [Bool.and_eq_true, beq_iff_eq] at h2
+    obtain ⟨es, hes, hesl⟩ := residual_shape hc.1.1 hc.2 hc.1.2
+    refine ⟨hccv, ⟨cbs, es, by rw [hq', hes], hesl⟩,
+      fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP,
+      hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, ?_, hsorts⟩
+    · rw [hxq']
+      congr 1
+      rw [← h2.1.2, List.take_append_drop, ← h2.1.1, Expr.mkAppN_getApp]
+    · rw [List.length_drop, h2.2]; omega
+    · intro x hx
+      exact List.all_eq_true.mp h3 x hx
+    · intro e he
+      exact List.all_eq_true.mp h4 e he
+
+/-- The four type-slot facts of a checked constructor, at either grade. -/
+theorem checkMutualCtor_typeWF {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {nF F : Nat} {sorts : List Level} {pre : Bool}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa pre = .ok (cvCa, sorts)) :
+    cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
+    cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
+  obtain ⟨⟨_, hff⟩, -, -⟩ := checkMutualCtor_front h
+  exact ⟨hff.noFvar, hff.lpsOk, hff.resolve, hff.bounded⟩
 
 end ConLeche

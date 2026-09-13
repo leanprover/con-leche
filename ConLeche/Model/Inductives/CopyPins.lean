@@ -475,11 +475,12 @@ theorem opened_params {μ : CheckMode} {mp : EnvModelM V μ env} (ψ : Name → 
   exact ⟨R, hopened⟩
 
 /-- **The pin, read** (the syntactic layer): from the pin's check at the
-scratch environment — the annotation and the inference of
-`nestedPinsOk` — and the pin's syntactic guards (see the section
-docstring), the container's leaf at the pin's annotated components is
-graded at every frame satisfying the block's parameter context, and
-there is one component per pin argument. -/
+scratch environment — the inference of `nestedPinsOk` on the pin
+itself, the elimination's own annotated term (K.12) — and the pin's
+syntactic guards at the openers (well-scoped, bvar-closed, its leaves
+the block's parameter variables), the container's leaf at the pin's
+components is graded at every frame satisfying the block's parameter
+context, and there is one reading per pin argument. -/
 theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvModelM V μ env}
     {F : Nat} {ψ : Name → Nat}
     {cvT : ConstantVal} {fvsA : List ConLeche.Expr} {oA : ConLeche.Expr} {R : AnnotTerm}
@@ -487,76 +488,37 @@ theorem pinRead_of {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mp : EnvMo
     {Jn : Name} {lvls : List ConLeche.Level} {Ds : List ConLeche.Expr} {ci : ConstantInfo}
     (hfJ : env.find? Jn = some ci)
     (hlvls : lvls.length = ci.toConstantVal.levelParams.length)
-    {pinA e ty : ConLeche.Expr}
-    (hpinA : pinA = Expr.instantiateList
-      (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0) fvsA.reverse)
-    -- the annotation may have run at ANOTHER environment and fuel (K.10:
-    -- the re-mint's, the pre-block environment plus the formers); only
-    -- its syntactic transports are used, the reading is inference's
-    {envA : Env} {Fa : Nat}
-    (hann : ConLeche.annotateCore μ envA Fa d.nP pinA = .ok e)
-    (hinf : ConLeche.inferTypeCore μ env F d.nP e = .ok ty)
-    -- the pin's scope (`pinsClosed`, K.3): abstracted over the parameters
-    -- it is fvar-free with its loose bvars inside the telescope
-    (hclosed : (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0).hasFvar = false ∧
-      (Expr.abstractRange (Expr.mkAppN (.const Jn lvls) Ds) 0 d.nP 0).looseBVarsBounded d.nP
-        = true)
-    (hlenF : fvsA.length = d.nP) :
-    ∃ (argsA : List ConLeche.Expr) (DsA : List AnnotTerm),
-      ConLeche.annotateCore μ envA Fa d.nP pinA = .ok (Expr.mkAppN (.const Jn lvls) argsA) ∧
-      argsA.length = Ds.length ∧
-      (∀ a ∈ argsA, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true) ∧
-      DenoteMetaSpine mp.base2.acval env ψ d.nP argsA DsA ∧
+    (hws : Expr.WScoped d.nP (Expr.mkAppN (.const Jn lvls) Ds))
+    (hb : (Expr.mkAppN (.const Jn lvls) Ds).looseBVarsBounded 0 = true)
+    (hleaf : ∀ l ∈ (Expr.mkAppN (.const Jn lvls) Ds).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsA)
+    {ty : ConLeche.Expr}
+    (hinf : ConLeche.inferTypeCore μ env F d.nP (Expr.mkAppN (.const Jn lvls) Ds) = .ok ty) :
+    ∃ DsA : List AnnotTerm,
+      (∀ a ∈ Ds, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true) ∧
+      DenoteMetaSpine mp.base2.acval env ψ d.nP Ds DsA ∧
       DsA.length = Ds.length ∧
       d.PinRead ψ (mp.base2.acval Jn
         (ConLeche.Level.substFn ψ ci.toConstantVal.levelParams lvls)) DsA Ds.length := by
-  -- the pin's three syntactic guards, from its scope at the openers
-  obtain ⟨hws, hb, hleaf⟩ : Expr.WScoped d.nP pinA ∧ pinA.looseBVarsBounded 0 = true ∧
-      ∀ l ∈ pinA.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsA := by
-    rw [hpinA]
-    exact ConLeche.instantiateList_openers_scoped hlenF hclosed.1 hclosed.2 fun i x hx =>
-      let h := hopened.var i x hx
-      ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.2⟩
-  -- the annotated pin is a spine at the same constant
-  have hconst : Expr.instantiateList ((Expr.const Jn lvls).abstractRange 0 d.nP 0) fvsA.reverse
-      = .const Jn lvls := by
-    rw [show (Expr.const Jn lvls).abstractRange 0 d.nP 0 = .const Jn lvls from rfl,
-      Expr.instantiateList]
-  have hspine : pinA = Expr.mkAppN (.const Jn lvls)
-      (Ds.map fun D => Expr.instantiateList (D.abstractRange 0 d.nP 0) fvsA.reverse) := by
-    rw [hpinA, ConLeche.abstractRange_mkAppN, ConLeche.instantiateList_mkAppN, List.map_map,
-      hconst]
-    rfl
-  rw [hspine] at hann hws hb hleaf
-  obtain ⟨f', args', hlenA, rfl, F', hf'⟩ := ConLeche.annotateCore_mkAppN_inv hann
-  obtain rfl := ConLeche.annotateCore_const_inv hf'
-  -- the annotated pin's guards, and its reading
-  have hwsE : Expr.WScoped d.nP (Expr.mkAppN (.const Jn lvls) args') :=
-    ConLeche.annotateCore_WScoped Fa _ hann hws
-  have hbE : (Expr.mkAppN (.const Jn lvls) args').looseBVarsBounded 0 = true :=
-    ConLeche.annotateCore_looseBVars Fa _ hann hb
-  have hleafE : ∀ l ∈ (Expr.mkAppN (.const Jn lvls) args').fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ fvsA := by
-    intro l hl
-    exact hleaf l (ConLeche.annotateCore_leaves_sub Fa _ hann hws hb l hl)
-  have hLE : Expr.LeavesBounded (Expr.mkAppN (.const Jn lvls) args') := by
+  have hwsE := hws
+  have hbE := hb
+  have hleafE := hleaf
+  have hLE : Expr.LeavesBounded (Expr.mkAppN (.const Jn lvls) Ds) := by
     intro l hl
     exact (hopened.var _ _ (List.getElem?_of_mem (hleafE l hl)).choose_spec).2.2.1
   obtain ⟨eA, heA⟩ := acceptedReads_of (V := V) mp.base2 ψ hinf hwsE hbE hLE
   -- the reading is the leaf at the components' readings
   obtain ⟨fa, DsA, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv heA
-  have hlenD : DsA.length = args'.length := (DenoteMetaSpine.length hsp).symm
+  have hlenD : DsA.length = Ds.length := (DenoteMetaSpine.length hsp).symm
   rw [denoteMeta_const hfJ hlvls] at hfa
   obtain rfl := Option.some.inj hfa
   -- graded at the parameter frame
-  have hC : CtxOk mp.base2 ψ d.nP (d.params ψ).reverse (Expr.mkAppN (.const Jn lvls) args') := by
+  have hC : CtxOk mp.base2 ψ d.nP (d.params ψ).reverse (Expr.mkAppN (.const Jn lvls) Ds) := by
     have h := hopened.ctx (Nat.le_refl d.nP) hwsE hleafE
     rwa [Nat.sub_self, List.drop_zero] at h
   obtain ⟨-, -, hok, -, -⟩ := (claimsAt_of hμ mp ψ F).inferRow hinf hwsE hbE hLE hC heA
-  have hargsA : ∀ a ∈ args', Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true := fun a ha =>
+  have hargsA : ∀ a ∈ Ds, Expr.WScoped d.nP a ∧ a.looseBVarsBounded 0 = true := fun a ha =>
     ⟨(ConLeche.WScoped_mkAppN_args hwsE).2 a ha, (ConLeche.looseBVarsBounded_mkAppN_args hbE).2 a ha⟩
-  exact ⟨args', DsA, by rw [hspine]; exact hann, by rw [hlenA, List.length_map], hargsA, hsp,
-    by rw [hlenD, hlenA, List.length_map], ⟨by rw [hlenD, hlenA, List.length_map], hok⟩⟩
+  exact ⟨DsA, hargsA, hsp, hlenD, ⟨hlenD, hok⟩⟩
 
 end IndRepData
 

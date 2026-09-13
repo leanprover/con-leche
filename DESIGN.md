@@ -74674,10 +74674,118 @@ application, the target's pin is a proper argument of it — the
 clause forbids only the other way round; to be checked against
 `CopyRef`'s exact clause when the read is written).
 
-**Next** (session 15): (0) merge `inductives` (K.12) and repair the
-ledger/read modules as above; (1) the run-level `GroupFacts` (i) and
-the bridge (ii) — ψ closed for the scratch block END TO END; (2)
-`CopyCtorRead` (ψ⁻¹'s `hCAP`) from `CopyCtorAsRead`; then M-C′.
+**Next**: see §M.27 (K.12 merged the same session).
+
+#### M.27 K.12 MERGED: the elimination on annotated inputs, read by the model (2026-09-13, session 14, second half)
+
+`inductives` `05c43fd5` (K.12) merged (no textual conflicts; one
+semantic one).  What the model side had to change, and what it found.
+
+**The mechanical repairs.**  `nestedPinsOk_inv` at K.12's shape (the
+pin itself inferred: `∀ q ∈ st.pins, ∃ ty, inferTypeCore … nP q.pin =
+.ok ty`); the re-mint sections of `Verify/Inductives/NestedFacts.lean`
+DELETED (`remintCopyTypes_inv`, `nestedRemint_inv`, the type ledger
+`remintOne`…`foldl_remintOne_single`, `nestedRemint_name/_ctors`; the
+leaf lemmas `fvarConsistent_of_leaves`/`openers_mem_eq` and the
+bvar-form round trip stay); `FormerFront`'s `mutualFormerChecks_front`
+at the grade's new guard (`if auxRoute then`, no name test).  New
+Verify facts: `nestedAnnotFormers_inv`/`nestedAnnotCtors_inv` (the two
+annotation stages, positionally: `FormerFront` per former,
+`checkConstantVal` per constructor), `elimLoop_type_lt`/`elimNested_open`
+(`NestedLedger`: the worklist keeps the block's own TYPES — it rewrites
+constructors only and the mints append — and the elimination's opening:
+first type, openers `params`, binders `pbs₀`), `WScoped_of_leaves`.
+`DeclNested`: `nestedTypes0_getElem?/_length` over `nestedTypes0 p fmsA
+ctorsA`; `nestedRecNameFacts`/`nestedAuxModel`/`declNestedRun_auxModel`
+at the one-state run (`hannF` + `helim`, no `hremint`; a real member's
+name through `nestedAnnotFormers_inv` and `FormerFront.name`).
+
+**The copies' formers, read WITHOUT a re-mint** (`CopyReads.lean`
+rewritten, −250 lines): `CopyTypesAsMinted`, `ContainersStored`,
+`FirstFormerStoredAsAnnotated` and `copyTypesAsMinted_of_facts` are
+GONE.  `copyIdxRead_of_run` now derives the alignment directly: the
+copy's stored former is the minted one (`nestedCopyFormerType_eq` for
+every member + `auxFormers_stored`), the minted one is `closeTelescope
+pbs 0 (instPis (J.type@lvls) Ds)` (`mkCopy_inv` on `elimNested_copy`'s
+origin), and the bvar-form round trip re-opens it at `params`.  The
+stored FIRST former is the annotated first former (`nestedCopyFormerType_eq`
+at 0 + `elimNested_open`'s type clause), so `params` ARE the openers the
+model's `Opened` is stated at — no `fvsA`/`a₀` any more.  `pinRead_of`
+takes the pin's three guards (well-scoped, bvar-closed, leaves among the
+openers) and its inference, nothing annotated.  ONE named premise
+remains, **`PinsAtOpeners st params`**: every free-variable leaf of a
+pin is one of the first former's openers.  K.12 asserts it "by
+construction" (INTERFACE §0: the pins carry the same variables), and it
+is true by construction — every constructor is opened at `params`
+(`instPis cty params`, `elimCtors_getElem?`) and a pin is a sub-term of
+the walk's input — but the ledger does not record it; the model needs
+it because reading inference at the opened frame requires the leaves'
+ANNOTATIONS to be the openers' (`hopened.var`), and `pinsClosed` bounds
+only the leaves' INDICES.  Owed from the ledger: a `leaves ⊆ params`
+clause on `PinOriginAt`/`ElimLedger`, threaded through
+`replaceAllNested_mint` (the walk's outputs' leaves ⊆ its input's ∪
+`params`) and `mkCopy` (the container's stored types are fvar-free) —
+next session's first Verify item.  `copyIdxRead_of_run` exposes
+`params` (the first stored entry's openers) so the premise is stated at
+the right list.
+
+**FINDING (K.12's whole-block grade reaches the model's MUTUAL core).**
+At `auxRoute = true` the CONSTRUCTOR stage now runs `checkConstantValPre`
+(the front door and `normCtorValM`'s re-check), so every consumer of
+`checkMutualCtor_shape`'s first conjunct (`checkConstantVal … = .ok
+cvCa`, the annotation) in the model's mutual chain was at the wrong
+grade — session 13 had generalised the FORMER stage only.  Done:
+`checkMutualCtor_front` (`FormerFront.lean`: `checkMutualCtor_shape` at
+either grade, the front read as `FormerFront` via `normCtorValM_front`),
+`checkMutualCtor_typeWF`, `checkMutualCtor_fresh` (name + freshness,
+whence `checkMutualCtors_fresh` at either grade — the K.12 merge's one
+semantic conflict was `DeclMutualCoreRun`'s ctor clause, `false` →
+`auxRoute`); `ctorDataI_ofFront` (`SumData`: the constructor reading
+from `FormerFront`'s inference facts — the annotation was never used
+beyond hasFvar/bounded/lpsOk/infer); `mutualCtorData_of`,
+`mutualShadowGrading`/`mutualTeleBound_of`/`mutualCtorFrames`,
+`stageMutualCtor`(+ the two `hrun` loops), `mutualChainFacts_at` (+2)
+take the grade; `declMutualCore`'s `hrunC` at `auxRoute`.  ONE fact of
+the annotation has no inference counterpart: the members' `.proj`
+bookkeeping (`NoProjAt f.cvTa.name j cA.1.type`, from
+`annotateCore_noProjAt` at an empty projection slot) — inference does
+not visit every argument, so a pre-annotated constructor could carry a
+`.proj T j` node the checks never see.  It is now the hypothesis
+**`CtorsNoProj μ F env b auxRoute`** of `declMutualCore`: at the
+annotating grade `ctorsNoProj_of_annot` discharges it (the mutual
+route's `declMutual` is unchanged in effect); at the pre-annotated
+grade the nested route owes it of the terms it built
+(`nestedAuxModel`/`declNestedRun_auxModel`/`copyIdxRead_of_run` carry
+it).  Where it comes from: a copy's constructor is
+`closeTelescope pbs (instPis (c.type@lvls) Ds)` rewritten by the walk
+and normalised by `whnf` — every piece is a stored (pre-block) type
+(`noProjAt_of_constsResolve` at the fresh member) or an annotated stream
+term (`annotateCore_noProjAt` at `nestedFormerEnv`) or a variable; the
+`whnf` unfolds pre-block definitions — a ledger over the elimination
+plus a NoProjAt-preservation lemma for the positivity normalisation, OR
+a cheap kernel check (`checkConstantValPre` validating `.proj` slots
+syntactically — the "datum validation" inference does not do).  For the
+MAINTAINER: which (K.13 candidate).
+
+**Gates**: `lake build` and `lake test` warning-free after the merge
+(the on-graph tree: NestedFacts/NestedLedger/NestedOrder/FormerFront/
+DeclMutual/DeclNested/CopyReads all rebuilt); the off-graph lane modules
+(`CopyCtors`, `PsiAssembly`) rebuilt; landing gates not run.  Lean
+gotchas: a structure update `{ c with ctors := cs' }` does not `rw` as
+`c` — state the equation with `show`/a typed `have`; `<+:` is an `∃`
+(`obtain ⟨t, ht⟩` then `List.getElem?_append_left`); `generalize hty : e
+= x at h₁ …` then `subst` (with `x` fresh) reproduces an `rfl`-pattern
+proof written for `checkConstantVal_inv`'s `cv' = {cv with type := …}`;
+a `cases pre <;> simp only [if_true, Bool.false_eq_true, if_false] at h
+<;> obtain … <;> have … := by first | … | …` then `all_goals` handles
+the two front doors in one proof; `openPisAtFvars_WScoped` is at `i + n`
+(`Nat.zero_add`).
+
+**Next** (session 15): (1) the ledger's leaves clause → `PinsAtOpeners`
+discharged; (2) `CtorsNoProj` at the scratch block (maintainer's choice:
+ledger + whnf lemma, or K.13); (3) the run-level `GroupFacts` per pin
+(`CopyCtorAsRead` off `nestedCopyCtorType_eq`'s identity arm) + the
+bridge at `CopyRef` — ψ end to end; (4) `CopyCtorRead`; M-C′.
 
 #### M.7 Sequence on this branch
 
@@ -74689,6 +74797,230 @@ M-C′ ((R1), (R2), coherence) → M-D′ (the restored leaves, typing, rule
 laws, `T`'s representation, capabilities) → M-E (assembly, the fold
 arm, deletions, gates).  Estimate: M-A′ 1–2 sessions, M-B′ 2, M-C′
 1–2, M-D′ 2–3, M-E 1–2 (Opus for the deletions).
+
+#### K.11 THREE PREMISES OF THE MODEL'S COPY READS (2026-09-13, DESIGN §M.25) — (a) and (b) LANDED, (c) BLOCKED WITH EVIDENCE
+
+Three items, each retiring a premise the model lane carries about the
+copies.  Two landed; the third is not deliverable as specified, and the
+measurements that say why are below.
+
+**(a) The re-mint's failure arms are `.internal` throws.**
+`remintCopyTypes` used to return the types UNCHANGED when it could not
+read a pin's container — which silently left that copy at its RAW mint
+and made "a group-mate's own lookup finds it" (`ContainersStored`) a
+premise.  All four arms now throw `.internal`, and the docstring says
+why none can fire: the pin EXISTS only because `replaceIfNested` found
+its container, at the same pre-block environment; `mkCopies` minted the
+whole group and required the container to be one of its members;
+`mkCopy` checked the level count and that `instPis` answers; and the
+annotation pass is structural on applications and returns a `.const`
+node unchanged, so `pinA`'s head and argument count are the mint's.  A
+throw here is a broken invariant, not a stream's fault.
+
+**(b) The openers are the STORED former's, by construction.**
+`nestedRemint` read `pbsA`/`fvsA₀` off the ANNOTATED declared type of the
+first former, while the install stores whatever `checkSumTele` returns —
+the annotated type when it is already a syntactic `nP + nIdx` telescope
+ending in a sort, and otherwise the CHECKED CLOSE of its
+`whnfTelescope` (task #195; official reduces before each binder, so
+`T : id Type` is a correct stream).  The re-mint now RUNS `checkSumTele`
+itself, on the same annotated constant at the same pre-block
+environment, and takes the binders off its result — so
+`FirstFormerStoredAsAnnotated` is retired without a check being added
+anywhere (the declining alternative was refused: universal coverage).
+The index count is `auxIdxCount`'s, the one `auxBlock` will use, and a
+former without one is the ill-formed declaration `auxBlock` refuses,
+thrown here with the same verdict.  On today's corpus the second branch
+cannot fire — `auxIdxCount` reads the DECLARED type and already demands
+a syntactic telescope — but the equation now holds whatever
+`checkSumTele` does, which is what the model tier reads.
+
+**(c) THE CONSTRUCTOR TWIN IS BLOCKED: the copies' CONSTRUCTORS are not
+minted at annotated components.**  The item's premise was that a copy's
+constructor type is "the container's stored constructor type
+instantiated at annotated components with nested occurrences replaced".
+It is not: K.9's re-mint rebuilds a copy's **type** only
+(`remintCopyTypes` sets `{ t with type := … }`).  A copy's CONSTRUCTOR
+is still the elimination's — `closeTelescope pbs₀ 0 (replaceAllNested
+(instPis (c.type at lvls) Ds))` — with THREE raw ingredients: the raw
+components `Ds`, the raw declared binders `pbs₀`, and the raw openers
+inside the replacement's output.  Three measurements, all on
+`tests/nested-shadow.sh` (the 25-row gate), with the constructor stage
+graded exactly as K.10 grades the formers (`checkConstantValPre` at a
+`_nested`-named member, the positivity normalisation kept):
+
+| variant | gate | what it says |
+|---|---|---|
+| skip the annotation walk for a copy's constructors | **24/25** — `nested_pin_prop_cod` DECLINES with `sort-annotation mismatch (forall-cod)` | the binder data in a copy's constructor type is the PARSE PLACEHOLDER where a component supplied it; inference refuses it, exactly as K.9 found for the types |
+| …and re-close the constructor over the ANNOTATED parameter binders `pbsA` | **24/25**, same row | the offending binder is inside the BODY (a component), not only in the `Π p⃗` prefix |
+| re-mint the constructors from the container's stored ones at the annotated components, WITHOUT the worklist replacement | **3/25** | the replacement is essential: a copy's constructor must carry `auxJ p⃗ is` where the container's did `J Ds is` |
+
+So a constructor twin needs the copies' constructors RE-MINTED at
+annotated components *with* the replacement re-applied — and re-running
+`replaceAllNested` on the annotated instantiation matches occurrences
+against the recorded pins, which are the RAW ones (`q.pin == pin` also
+compares binder data and fvar type annotations).  Making that match is
+precisely task #298's commutation (`annotate ∘ instPis` vs `instPis ∘
+annotate`, K.4) — a premise again, not a construction.  **Two designs,
+for the maintainer to choose** (neither taken here):
+
+1. *Annotated pin table.*  Record the annotated closed pin per pin and
+   re-run the replacement against it, throwing `.internal` when the pin
+   count changes (a miss would MINT, and that is detectable).  Cheap,
+   but its correctness is the commutation.
+2. *Annotate the elimination's INPUTS.*  Annotate the block's formers at
+   the pre-block environment and its constructors at the environment
+   holding them, and run `elimNested` on those.  Then every copy — type
+   AND constructors — is built from annotated pieces at annotated
+   components by construction, the pins are annotated, `nestedRemint`
+   collapses to a no-op and BOTH twins are syntactic identities with no
+   commutation anywhere.  This is a redesign of the K.9 interface the
+   model lane is already written against, so it is a scheduling
+   decision, not a drive-by.
+
+**What the constructor stage stores TODAY, for the model lane**: the
+annotation of the positivity-normalised elimination output — `cvCa₀ =
+checkConstantVal env (copy's constructor)`, then `normCtorValM`'s
+`closeTelescope (pbs ++ fbs) 0 resid` with each member-mentioning field
+domain `whnf`'d (and re-checked when the normalisation changed
+anything).  The `whnf` is NOT optional even once the annotation is: at a
+λ-pin (`DMap α (fun _ => PT α)`, four in the Mathlib cone and five in
+the fixtures) the copied field is the redex `(fun _ => PT α) k`, whose
+head is a `.lam` — `mutualPositivity` reads no member application there
+and the block stops being recognised.  Official `whnf`s in the same
+place.
+
+**Gates** (on `inductives` = `45f3dd85`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 with
+none demotable, **nested-shadow 25/25**, e2e **216/216**, arena tutorial
+90/92, annot 15/15, the trusted and both `--jobs` sweeps as expected;
+the Mathlib nested cone `ulimit -v 22000000`, `timeout`, `--jobs=1`:
+exit 0, **4 923 accepted, 41/41 shadow accepts BYTE-IDENTICAL to K.10**.
+No init-full or full-Mathlib run: `Kernel/Inductives/MutualInstall.lean`
+is untouched, the accept path is unchanged, and the route is still
+shadow-only.
+
+#### K.12 THE ELIMINATION'S INPUTS ARE ANNOTATED (2026-09-13, the coordinator's choice of D4 design 2)
+
+**The principle** (the maintainer's, as applied): *a term we build
+ourselves is built from ANNOTATED pieces and validated afterwards, never
+re-annotated.*  K.9 applied it to a copy's TYPE by re-minting;
+K.11 (c) measured that the same move fails for a copy's CONSTRUCTORS,
+because those are the elimination's raw output.  K.12 applies it at the
+SOURCE instead: the elimination's INPUTS are annotated, so everything it
+mints is annotated by construction and there is no commutation premise
+anywhere.
+
+**What the kernel does.**
+
+* **`nestedAnnotFormers`** — every former through
+  `checkConstantVal` and then `checkSumTele` at the pre-block
+  environment: `mutualFormerChecks`' own pair of steps, so what comes
+  back is the constant the scratch install will STORE (K.11 (b)'s point,
+  now the shape of the stage rather than a call inside a re-mint).
+* **`nestedAnnotCtors`** — every constructor through
+  `checkConstantVal` at `nestedFormerEnv fmsA env`, the pre-block
+  constants plus the block's formers: `checkMutualCtor`'s front door at
+  the environment `checkMutualCtor` uses.  A stream constructor mentions
+  the block's members and stored constants only (a nested occurrence is
+  an application of a STORED container), so this environment suffices,
+  and no copy exists yet to be mentioned (the reserved-prefix guard).
+* **`nestedTypes0`** assembles the elimination's input from those.
+  `elimNested` then reads its parameter openers and binders off the
+  first former's STORED type, mints every copy out of the containers'
+  stored (annotated) types at ANNOTATED components, and rewrites
+  `J Ds is ↦ auxJ p⃗ is` — a replacement of an annotated sub-term by an
+  application with no binders of its own, so every datum around it
+  stays the one the annotation computed.  The copy's type AND its
+  constructors are therefore annotated throughout.
+* **`nestedRemint` and `remintCopyTypes` are DELETED**, and with them
+  the two-state `st₀`/`st` shape and the `pinsA` list: a pin is already
+  annotated and already opened at the block's parameter variables, so
+  `nestedPinsOk` type-checks `q.pin` itself (`ops.inferType env nP
+  q.pin`) — no instantiation, no annotation, at either pass.  The
+  read-back's `a₀`/`fvsA` go too (nothing used them).
+* **THE GRADE IS THE WHOLE BLOCK'S, and the name test is gone.**
+  `mutualFormerChecks` now reads `if auxRoute then checkConstantValPre
+  else checkConstantVal`, and the CONSTRUCTOR stage takes the same grade
+  (`checkMutualCtors`' `auxRoute`, `checkMutualCtor`/`normCtorValM`'s
+  `preAnnotated`).  `auxRoute` says "the caller built every member of
+  this block out of annotated pieces"; `checkNested` is the only caller
+  that passes it.  **This answers the maintainer's opt-in docket item**
+  (D3): nothing interprets a member's name any more, the opt-in is the
+  caller's single explicit Bool, and a stream that names a mutual member
+  `_nested.X` is unaffected because `checkMutual` does not pass it.
+
+**What the constructor stage stores, precisely.**  At the grade, the
+front door returns its input, so the stored constructor is
+`normCtorValM`'s output ON THE MINTED CONSTANT: `closeTelescope (pbs ++
+fbs) 0 resid`, the POSITIVITY NORMALISATION, with each member-mentioning
+field domain `whnf`'d — and the minted constant unchanged when that
+normalisation changes nothing.  **The `whnf` is not removable**, and
+this is where the identity is not syntactic: at a λ-pin (`DMap α (fun _
+=> PT α)`, four in the Mathlib cone, five in the fixtures) the copied
+field is the redex `(fun _ => PT α) k`, whose head is a `.lam`;
+`mutualPositivity` reads no member application there and the block stops
+being recognised.  Official `whnf`s in the same place.  So the recorded
+fact is the normalisation equation, with the identity as its left arm —
+`nestedCopyCtorType_eq` states both.
+
+**The two identities, in `Verify/Inductives/NestedInv.lean`.**
+
+    nestedCopyFormerType_eq   every member of the aux block (no
+                              `_nested` side condition any more): the
+                              formers stage stores the type `auxBlock`
+                              gave it, with `env₁ = consMutualFormers
+                              fms env`
+    nestedCopyCtorType_eq     every constructor: `normCtorValM … c.cv
+                              c.cv true = .ok cA.1`, and `cA.1 = c.cv ∨
+                              ∃ ty', cA.1 = { c.cv with type := ty' }`
+
+with `mutualFormerChecks_true_cons`/`_id`, `checkMutualCtor_true_norm`
+and `normCtorValM_true_stores` underneath, and
+`checkMutualCtors_inv`/`checkMutualCore_inv` generalised over the grade
+(an old use unifies at `false`).  `DeclNestedRun` records the new
+conjuncts — the two annotation stages, one elimination, the pins as the
+elimination's own terms.
+
+**SIGNATURES** (kernel):
+
+    nestedAnnotFormers / nestedAnnotCtors / nestedFormerEnv /
+    nestedTypes0            NEW      NestedInstall.lean
+    nestedRemint            DELETED
+    remintCopyTypes         DELETED
+    nestedPinsOk            … (nP : Nat) : List NestedPin → m Unit
+    mutualFormerChecks      the grade no longer reads the member's name
+    normCtorValM            + (preAnnotated : Bool := false), last
+    checkMutualCtor         + (preAnnotated : Bool := false), last
+    checkMutualCtors        + (auxRoute : Bool := false), BEFORE the list
+    checkMutualCore         passes the grade to BOTH stages
+
+`checkMutualCtors`' grade sits before its matched list, so its mention
+sites gained an explicit `false`: `Verify/BridgeDecl`,
+`Verify/Cached/BridgeCS3`, `Verify/Cached/BridgeCSDecl`,
+`Verify/Inductives/MutualWF` and `Semantics/Inductives/DeclMutual`
+(`checkMutualCtors_datF`, `checkMutualCtorsF_eq`,
+`checkMutualCtorsS_sim`, `checkMutualCtors_typeWF` and the mutual run
+relation stay at the ungraded call — the cached mirror's grade is
+deferred with the rest of the wiring).
+
+**Gates** (on `inductives` = `ac63078b`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, **nested-shadow 25/25**, e2e **216/216**, arena tutorial
+90/92, annot 15/15, route census unchanged, trusted and both `--jobs`
+sweeps as expected; `tests/overview-links.sh` needed one anchor moved
+(`checkMutual` L637 → L652, the grade's comment lines; the citing
+paragraph was re-read and still holds — `checkMutual` does not pass the
+grade, so the mutual route is exactly as described) and the expectation
+regenerated.  The Mathlib nested cone: exit 0, **4 923 accepted, 41/41
+shadow accepts BYTE-IDENTICAL to K.10** — measured twice, once with the
+formers' grade widened and once with the constructors' grade added.
+Full Mathlib `--verified --jobs=8`, 32 GB: **654 499 declarations
+accepted, exit 0** — the recorded count.  init-full
+instructions: `--verified --jobs=1`, `perf stat -e instructions:u`:
+**536.1104 G against the baseline binary's 536.1157 G, −0.00098 %**,
+53 088 accepted both — the noise floor, as it must be: the accept path
+is untouched and the grade is `false` for every stream.
 
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 

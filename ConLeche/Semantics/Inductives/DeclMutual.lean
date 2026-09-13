@@ -65,7 +65,7 @@ def DeclMutualCoreRun (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock)
     b.large = f₀.s.isNeverZero ∧
     -- stage 3: the constructors, their kinds, and the conses
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) ∧
+      (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds ∧
     ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
@@ -340,12 +340,14 @@ theorem mutualTables_freshExt {b : MutualBlock} {ctorsA : List (ConstantVal × N
 
 /-! ## The freshness facts the stages leave -/
 
-/-- Every annotated constructor's name is fresh at the formers'
-environment (its own constant check's duplicate guard). -/
+/-- Every checked constructor's name is fresh at the formers'
+environment (its front door's duplicate guard, at either grade —
+K.12). -/
 theorem checkMutualCtors_fresh {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
-    {isProp : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
+    {isProp auxRoute : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)}
-    (h : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp cs
+    (h : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp
+        auxRoute cs
       = .ok (ctorsA, sortss)) :
     ∀ c ∈ ctorsA, env.find? c.1.name = none := by
   obtain ⟨hlen, -, hall⟩ := ConLeche.checkMutualCtors_inv h
@@ -355,10 +357,8 @@ theorem checkMutualCtors_fresh {env : Env} {b : MutualBlock} {fms : List MutualF
     have := (List.getElem?_eq_some_iff.mp hj).1
     omega
   obtain ⟨-, _, -, hrun⟩ := hall j cs[j] c (List.getElem?_eq_getElem hj') hj
-  obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-  obtain ⟨hfresh, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  rw [hCeq]
+  obtain ⟨hn, hfresh⟩ := ConLeche.checkMutualCtor_fresh hrun
+  rw [hn]
   exact hfresh
 
 /-- Every generated recursor's name is fresh at the constructors'

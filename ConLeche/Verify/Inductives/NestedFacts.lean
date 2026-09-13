@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedInv
+public import ConLeche.Verify.Inductives.FormerFront
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Inductives.StructBody
 
@@ -719,25 +720,95 @@ theorem replaceAllNested_lam {env : Env} {blvls : List Level} {params : List Exp
 /-! ## The pins' check -/
 
 /-- **The pins' check, read off** (post-check (a) at either
-environment, `pinsOkAux` at the scratch one; K.10's form): the list is
-the re-mint's `(pin, annotated open pin)` pairs, and every annotated pin
-is given a type at the parameter depth — by inference alone, which
-validates every datum in it.  The scope guard's facts are `pinsClosed`'s
-(`pinsClosed_inv`), so they are not repeated here. -/
+environment, `pinsOkAux` at the scratch one; K.12's form): every pin —
+the elimination's own annotated term, opened at the block's parameter
+variables — is given a type at the parameter depth by inference alone,
+which validates every datum in it.  The scope guard's facts are
+`pinsClosed`'s (`pinsClosed_inv`), so they are not repeated here. -/
 theorem nestedPinsOk_inv {F : Nat} {env : Env} {nP : Nat} :
-    ∀ {pinsA : List (NestedPin × Expr)},
-      nestedPinsOk (m := CheckM) (fueledOps mode F) env nP pinsA = .ok () →
-      ∀ qp ∈ pinsA, ∃ ty : Expr, inferTypeCore mode env F nP qp.2 = .ok ty
-  | [], _, qp, hq => nomatch hq
-  | (q₀, pinA₀) :: rest, h, qp, hq => by
+    ∀ {pins : List NestedPin},
+      nestedPinsOk (m := CheckM) (fueledOps mode F) env nP pins = .ok () →
+      ∀ q ∈ pins, ∃ ty : Expr, inferTypeCore mode env F nP q.pin = .ok ty
+  | [], _, q, hq => nomatch hq
+  | q₀ :: rest, h, q, hq => by
     simp only [nestedPinsOk, bind, Except.bind] at h
     -- the scope guard (K.3): its failure branch is a throw
     split at h
     · obtain ⟨ty, hty, h⟩ := exceptBind_ok h
       rcases List.mem_cons.mp hq with rfl | hq
       · exact ⟨ty, hty⟩
-      · exact nestedPinsOk_inv h qp hq
+      · exact nestedPinsOk_inv h q hq
     · exact nomatch h
+
+/-! ## The annotation stages (K.12): the elimination's inputs -/
+
+/-- **The formers, annotated as the install stores them**: one checked
+former per declared one, with `FormerFront` at the pre-block
+environment (the front door then `checkSumTele`, which either keeps the
+checked constant or re-checks the normalised telescope). -/
+theorem nestedAnnotFormers_inv {F : Nat} {env : Env} {nP : Nat} :
+    ∀ {l : List (ConstantVal × Nat)} {fmsA : List ConstantVal},
+      nestedAnnotFormers (m := CheckM) (fueledOps mode F) env nP l = .ok fmsA →
+      fmsA.length = l.length ∧
+      ∀ (t : Nat) (cvTa : ConstantVal), fmsA[t]? = some cvTa →
+        ∃ (cv : ConstantVal) (nIdx : Nat), l[t]? = some (cv, nIdx) ∧ FormerFront mode F env cv cvTa
+  | [], fmsA, h => by
+    simp only [nestedAnnotFormers, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, fun t f hf => nomatch hf⟩
+  | (cv, nIdx) :: rest, fmsA, h => by
+    unfold nestedAnnotFormers at h
+    obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
+    obtain ⟨q, htele, h⟩ := exceptBind_ok h
+    obtain ⟨cvTa, s⟩ := q
+    try simp only at h
+    obtain ⟨restA, hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hlen, hall⟩ := nestedAnnotFormers_inv hrest
+    have hfront : FormerFront mode F env cv cvTa := by
+      rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv'⟩
+      · exact FormerFront.of_checkConstantVal hccv
+      · exact (FormerFront.of_checkConstantVal hccv').retype
+    refine ⟨by simp [hlen], ?_⟩
+    intro t f hf
+    cases t with
+    | zero =>
+      obtain rfl := Option.some.inj hf
+      exact ⟨cv, nIdx, rfl, hfront⟩
+    | succ t =>
+      simp only [List.getElem?_cons_succ] at hf ⊢
+      exact hall t f hf
+
+/-- **The constructors, annotated at the formers' environment**: one
+checked constructor per declared one, through `checkConstantVal`. -/
+theorem nestedAnnotCtors_inv {F : Nat} {envF : Env} :
+    ∀ {cs : List MutualCtor} {ctorsA : List ConstantVal},
+      nestedAnnotCtors (m := CheckM) (fueledOps mode F) envF cs = .ok ctorsA →
+      ctorsA.length = cs.length ∧
+      ∀ (j : Nat) (cvCa : ConstantVal), ctorsA[j]? = some cvCa →
+        ∃ c : MutualCtor, cs[j]? = some c ∧
+          checkConstantVal (fueledOps mode F) envF c.cv = .ok cvCa
+  | [], ctorsA, h => by
+    simp only [nestedAnnotCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, fun j c hc => nomatch hc⟩
+  | c :: rest, ctorsA, h => by
+    unfold nestedAnnotCtors at h
+    obtain ⟨cvCa, hccv, h⟩ := exceptBind_ok h
+    obtain ⟨restA, hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hlen, hall⟩ := nestedAnnotCtors_inv hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro j c' hc'
+    cases j with
+    | zero =>
+      obtain rfl := Option.some.inj hc'
+      exact ⟨c, rfl, hccv⟩
+    | succ j =>
+      simp only [List.getElem?_cons_succ] at hc' ⊢
+      exact hall j c' hc'
 
 /-! ## The minted names, and the conses -/
 
@@ -872,6 +943,46 @@ theorem instantiateList_openers_scoped {nP : Nat} {fvs : List Expr} {qa : Expr}
         · exact ha
         · exact hlv l hla
 
+/-- A term whose free-variable leaves are all among well-scoped openers
+is well-scoped. -/
+theorem WScoped_of_leaves {d : Nat} {fvs : List Expr} (hfv : ∀ x ∈ fvs, Expr.WScoped d x) :
+    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) → Expr.WScoped d e := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro h
+    exact hfv _ (h (idx, ty) (by simp [Expr.fvarLeaves]))
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp only [Expr.WScoped]
+    exact ⟨ihf (fun l hl => h l (Or.inl hl)), iha (fun l hl => h l (Or.inr hl))⟩
+  | lam ty body m ihty ihbody =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp only [Expr.WScoped]
+    exact ⟨ihty (fun l hl => h l (Or.inl hl)), ihbody (fun l hl => h l (Or.inr hl))⟩
+  | forallE ty body m ihty ihbody =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp only [Expr.WScoped]
+    exact ⟨ihty (fun l hl => h l (Or.inl hl)), ihbody (fun l hl => h l (Or.inr hl))⟩
+  | letE ty val body ihty ihval ihbody =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp only [Expr.WScoped]
+    exact ⟨ihty (fun l hl => h l (Or.inl (Or.inl hl))), ihval (fun l hl => h l (Or.inl (Or.inr hl))),
+      ihbody (fun l hl => h l (Or.inr hl))⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.fvarLeaves] at h
+    simp only [Expr.WScoped]
+    exact ih h
+  | bvar _ => intro _; simp only [Expr.WScoped]
+  | sort _ => intro _; simp only [Expr.WScoped]
+  | const _ _ => intro _; simp only [Expr.WScoped]
+  | lit _ => intro _; simp only [Expr.WScoped]
+
 /-! ## Application spines, scoped -/
 
 /-- The arguments of a scoped spine are scoped. -/
@@ -994,312 +1105,6 @@ theorem openPisAtFvars_closeTelescope :
       rw [show i + (j + 1) = i + 1 + j from by omega] at h
       exact ⟨h.1, fun j' b' hlt hj' =>
         h.2 (j' + 1) b' (Nat.succ_lt_succ hlt) (by rw [List.getElem?_cons_succ]; exact hj')⟩
-
-/-! ## The re-mint (K.9): only the copies' TYPES change -/
-
-/-- A type-only rewrite of the list keeps every entry's name and
-constructors, and the length. -/
-theorem auxTypes_map_type {ts : List AuxType} {f : AuxType → AuxType}
-    (hf : ∀ t, (f t).name = t.name ∧ (f t).ctors = t.ctors) :
-    (ts.map f).length = ts.length ∧
-    ∀ i : Nat, (ts.map f)[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-      = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors)) := by
-  refine ⟨List.length_map .., fun i => ?_⟩
-  rw [List.getElem?_map]
-  cases ts[i]? with
-  | none => rfl
-  | some t => simp only [Option.map_some, (hf t).1, (hf t).2]
-
-/-- **`remintCopyTypes`, read off** (K.9/K.10): names, constructors and
-the length are kept, and the returned pairs are the pins in order, each
-with the ANNOTATION (at `envF`, the pre-block environment plus the
-formers, at the parameter depth) of the pin abstracted over the block's
-parameters and opened at the given openers — the one object both pin
-checks then type. -/
-theorem remintCopyTypes_inv {F : Nat} {envF env : Env} {nP : Nat} {fvsA : List Expr}
-    {pbsA : List (Expr × BinderMeta)} :
-    ∀ {pins : List NestedPin} {ts ts' : List AuxType} {pinsA : List (NestedPin × Expr)},
-      remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env pins ts
-        = .ok (ts', pinsA) →
-      ts'.length = ts.length ∧
-      (∀ i : Nat, ts'[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-        = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors))) ∧
-      pinsA.length = pins.length ∧
-      ∀ (j : Nat) (q : NestedPin) (pinA : Expr), pinsA[j]? = some (q, pinA) →
-        pins[j]? = some q ∧
-        annotateCore mode envF F nP
-          (Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse) = .ok pinA
-  | [], ts, ts', pinsA, h => by
-    simp only [remintCopyTypes, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, fun _ => rfl, rfl, fun j q pinA hj => nomatch hj⟩
-  | q :: qs, ts, ts', pinsA, h => by
-    simp only [remintCopyTypes, bind, Except.bind] at h
-    obtain ⟨pinA, hpinA, h⟩ := exceptBind_ok h
-    -- the tail's run, at whichever list the arm handed it
-    have htail : ∀ {ts₁ : List AuxType},
-        (∀ i : Nat, ts₁[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-          = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors))) →
-        ts₁.length = ts.length →
-        (remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env qs ts₁ >>=
-          fun p => pure (p.1, (q, pinA) :: p.2)) = .ok (ts', pinsA) →
-        ts'.length = ts.length ∧
-        (∀ i : Nat, ts'[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-          = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors))) ∧
-        pinsA.length = (q :: qs).length ∧
-        ∀ (j : Nat) (q' : NestedPin) (pinA' : Expr), pinsA[j]? = some (q', pinA') →
-          (q :: qs)[j]? = some q' ∧
-          annotateCore mode envF F nP
-            (Expr.instantiateList (Expr.abstractRange q'.pin 0 nP 0) fvsA.reverse) = .ok pinA' := by
-      intro ts₁ hi hlen h
-      simp only [bind, Except.bind] at h
-      obtain ⟨⟨ts₂, qs'⟩, h₂, h⟩ := exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      obtain ⟨hlen₂, hi₂, hlenQ, hq⟩ := remintCopyTypes_inv h₂
-      refine ⟨hlen₂.trans hlen, fun i => (hi₂ i).trans (hi i), by simp [hlenQ], ?_⟩
-      intro j q' pinA' hj
-      cases j with
-      | zero =>
-        simp only [List.getElem?_cons_zero, Option.some.injEq, Prod.mk.injEq] at hj
-        obtain ⟨rfl, rfl⟩ := hj
-        exact ⟨rfl, hpinA⟩
-      | succ j =>
-        simp only [List.getElem?_cons_succ] at hj ⊢
-        exact hq j q' pinA' hj
-    have hmapId : ∀ (f : AuxType → AuxType), (∀ t, (f t).name = t.name ∧ (f t).ctors = t.ctors) →
-        (∀ i : Nat, (ts.map f)[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-          = ts[i]?.map (fun (t : AuxType) => (t.name, t.ctors))) ∧ (ts.map f).length = ts.length :=
-      fun f hf => ⟨(auxTypes_map_type hf).2, (auxTypes_map_type hf).1⟩
-    split at h
-    · split at h
-      · split at h
-        · split at h
-          · simp only [pure, Except.pure] at h
-            exact htail (hmapId _ (fun t => by split <;> exact ⟨rfl, rfl⟩)).1
-              (hmapId _ (fun t => by split <;> exact ⟨rfl, rfl⟩)).2 h
-          · simp only [pure, Except.pure] at h
-            exact htail (fun _ => rfl) rfl h
-        · simp only [pure, Except.pure] at h
-          exact htail (fun _ => rfl) rfl h
-      · simp only [pure, Except.pure] at h
-        exact htail (fun _ => rfl) rfl h
-    · simp only [pure, Except.pure] at h
-      exact htail (fun _ => rfl) rfl h
-
-/-- **The re-mint, read off** (K.9/K.10): the block's first former is
-annotated at the pre-block environment, its openers and its binders are
-read off the annotated type, and the copies' types are re-minted at the
-annotated pins by `remintCopyTypes` at `envF` — the pre-block environment
-plus the block's formers with empty capability records.  Only the copies'
-types change: the pins, the name counter, every entry's name and
-constructors, and the length are the elimination's; and the returned
-pairs are the pins with their annotated open forms. -/
-theorem nestedRemint_inv {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
-    {pinsA : List (NestedPin × Expr)}
-    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok (st, pinsA)) :
-    st.pins = st₀.pins ∧ st.nextIdx = st₀.nextIdx ∧
-    st.types.length = st₀.types.length ∧
-    (∀ i : Nat, st.types[i]?.map (fun (t : AuxType) => (t.name, t.ctors))
-      = st₀.types[i]?.map (fun (t : AuxType) => (t.name, t.ctors))) ∧
-    ∃ (cv₀ : ConstantVal) (t₀A : Expr) (fvsA₀ : List Expr) (r₁ : Expr)
-      (pbsA : List (Expr × BinderMeta)) (r₂ : Expr),
-      p.formers.head?.map (·.1) = some cv₀ ∧
-      annotateCore mode env F 0 cv₀.type = .ok t₀A ∧
-      openPisAtFvars p.nP t₀A 0 = some (fvsA₀, r₁) ∧
-      t₀A.stripPis p.nP = some (pbsA, r₂) ∧
-      remintCopyTypes (m := CheckM) (fueledOps mode F)
-        ⟨(p.formers.map fun f => ConstantInfo.indInfo f.1 {}).reverse ++ env.consts⟩
-        p.nP fvsA₀ pbsA env st₀.pins st₀.types = .ok (st.types, pinsA) := by
-  simp only [nestedRemint, bind, Except.bind] at h
-  obtain ⟨cv₀, hcv₀, h⟩ := exceptBind_ok h
-  obtain ⟨t₀A, ht₀A, h⟩ := exceptBind_ok h
-  obtain ⟨⟨fvsA₀, r₁⟩, hop, h⟩ := exceptBind_ok h
-  obtain ⟨⟨pbsA, r₂⟩, hstrip, h⟩ := exceptBind_ok h
-  obtain ⟨⟨typesA, pinsA'⟩, hA, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl⟩ := h
-  obtain ⟨hlen, hi, -, -⟩ := remintCopyTypes_inv hA
-  refine ⟨rfl, rfl, hlen, hi, cv₀, t₀A, fvsA₀, r₁, pbsA, r₂, unwrapOr_ok hcv₀, ht₀A,
-    unwrapOr_ok hop, unwrapOr_ok hstrip, hA⟩
-
-/-! ### The re-mint's TYPE ledger (K.10, DESIGN §M.25): what each pin does to
-each entry, as a function, and the final entry as the fold over the pairs -/
-
-/-- **The re-mint's per-pin rewrite of one entry** — the arm of
-`remintCopyTypes` as a function: at a pin whose annotated form is
-const-headed, whose container the pre-block environment records with a
-member of that name, at the right level count and with the container's
-stored type instantiable at the annotated components, the entry NAMED
-by the pin is re-typed to the instantiated type closed over the first
-former's annotated binders; every other case leaves the entry. -/
-def remintOne (env : Env) (pbsA : List (Expr × BinderMeta)) (q : NestedPin) (pinA : Expr)
-    (t : AuxType) : AuxType :=
-  match pinA.getAppFn, containerInfo? env q.container with
-  | .const _ lvls, some ci =>
-    match ci.members.find? (fun J => J.name == q.container) with
-    | some J =>
-      if lvls.length == J.lps.length then
-        match Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type) pinA.getAppArgs with
-        | some tyI => if t.name == q.aux then { t with type := closeTelescope pbsA 0 tyI } else t
-        | none => t
-      else t
-    | none => t
-  | _, _ => t
-
-/-- **`remintCopyTypes`' type ledger**: the final entry at every position
-is the left fold of the per-pin rewrites over the returned pairs. -/
-theorem remintCopyTypes_type {F : Nat} {envF env : Env} {nP : Nat} {fvsA : List Expr}
-    {pbsA : List (Expr × BinderMeta)} :
-    ∀ {pins : List NestedPin} {ts ts' : List AuxType} {pinsA : List (NestedPin × Expr)},
-      remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env pins ts
-        = .ok (ts', pinsA) →
-      ∀ (i : Nat) (t : AuxType), ts[i]? = some t →
-        ts'[i]? = some (pinsA.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t)
-  | [], ts, ts', pinsA, h, i, t, ht => by
-    simp only [remintCopyTypes, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    simpa using ht
-  | q :: qs, ts, ts', pinsA, h, i, t, ht => by
-    simp only [remintCopyTypes, bind, Except.bind] at h
-    obtain ⟨pinA, -, h⟩ := exceptBind_ok h
-    -- the tail's run at the list the arm handed it
-    have htail : ∀ {ts₁ : List AuxType},
-        ts₁[i]? = some (remintOne env pbsA q pinA t) →
-        (remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env qs ts₁ >>=
-          fun p => pure (p.1, (q, pinA) :: p.2)) = .ok (ts', pinsA) →
-        ts'[i]? = some (pinsA.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t) := by
-      intro ts₁ h₁ h
-      simp only [bind, Except.bind] at h
-      obtain ⟨⟨ts₂, qs'⟩, h₂, h⟩ := exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      simp only [List.foldl_cons]
-      exact remintCopyTypes_type h₂ i _ h₁
-    -- the arm, scrutinee by scrutinee
-    cases hfn : pinA.getAppFn
-    case const n lvls =>
-      cases hci : containerInfo? env q.container with
-      | some ci =>
-        cases hfind : ci.members.find? (fun J => J.name == q.container) with
-        | some J =>
-          by_cases hlen : (lvls.length == J.lps.length) = true
-          · cases hinst : Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type)
-                pinA.getAppArgs with
-            | some tyI =>
-              rw [hfn, hci] at h
-              simp only [hfind, hlen, hinst, if_true, pure, Except.pure] at h
-              refine htail ?_ h
-              rw [List.getElem?_map, ht]
-              simp only [Option.map_some, remintOne, hfn, hci, hfind, hlen, hinst, if_true]
-            | none =>
-              rw [hfn, hci] at h
-              simp only [hfind, hlen, hinst, if_true, pure, Except.pure] at h
-              refine htail ?_ h
-              rw [ht]
-              simp only [remintOne, hfn, hci, hfind, hlen, hinst, if_true]
-          · rw [hfn, hci] at h
-            simp only [hfind, hlen, Bool.false_eq_true, if_false, pure, Except.pure] at h
-            refine htail ?_ h
-            rw [ht]
-            simp only [remintOne, hfn, hci, hfind, hlen, Bool.false_eq_true, if_false]
-        | none =>
-          rw [hfn, hci] at h
-          simp only [hfind, pure, Except.pure] at h
-          refine htail ?_ h
-          rw [ht]
-          simp only [remintOne, hfn, hci, hfind]
-      | none =>
-        rw [hfn, hci] at h
-        simp only [pure, Except.pure] at h
-        refine htail ?_ h
-        rw [ht]
-        simp only [remintOne, hfn, hci]
-    all_goals
-      rw [hfn] at h
-      simp only [pure, Except.pure] at h
-      refine htail ?_ h
-      rw [ht]
-      simp only [remintOne, hfn]
-
-/-- The per-pin rewrite keeps the entry's name. -/
-theorem remintOne_name (env : Env) (pbsA : List (Expr × BinderMeta)) (q : NestedPin)
-    (pinA : Expr) (t : AuxType) : (remintOne env pbsA q pinA t).name = t.name := by
-  unfold remintOne
-  split
-  · split
-    · split
-      · split
-        · split <;> rfl
-        · rfl
-      · rfl
-    · rfl
-  · rfl
-
-/-- The per-pin rewrite leaves an entry the pin does not name. -/
-theorem remintOne_of_ne {env : Env} {pbsA : List (Expr × BinderMeta)} {q : NestedPin}
-    {pinA : Expr} {t : AuxType} (hne : t.name ≠ q.aux) :
-    remintOne env pbsA q pinA t = t := by
-  unfold remintOne
-  split
-  · split
-    · split
-      · split
-        · rw [if_neg]
-          intro h
-          exact hne (beq_iff_eq.mp h)
-        · rfl
-      · rfl
-    · rfl
-  · rfl
-
-/-- **The per-pin rewrite FIRES** at the entry the pin names when the
-arm's four conditions hold. -/
-theorem remintOne_fires {env : Env} {pbsA : List (Expr × BinderMeta)} {q : NestedPin}
-    {pinA : Expr} {t : AuxType} {n : Name} {lvls : List Level} {ci : ContainerInfo}
-    {J : ContainerMember} {tyI : Expr}
-    (hfn : pinA.getAppFn = .const n lvls) (hci : containerInfo? env q.container = some ci)
-    (hfind : ci.members.find? (fun J => J.name == q.container) = some J)
-    (hlen : lvls.length = J.lps.length)
-    (hinst : Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type) pinA.getAppArgs
-      = some tyI)
-    (hname : t.name = q.aux) :
-    remintOne env pbsA q pinA t = { t with type := closeTelescope pbsA 0 tyI } := by
-  unfold remintOne
-  rw [hfn, hci]
-  simp only [hfind, hinst, hname, beq_self_eq_true, if_true, beq_iff_eq.mpr hlen]
-
-/-- A fold of per-pin rewrites over pins naming other entries is the identity. -/
-theorem foldl_remintOne_id (env : Env) (pbsA : List (Expr × BinderMeta)) :
-    ∀ (L : List (NestedPin × Expr)) (t : AuxType), (∀ qp ∈ L, qp.1.aux ≠ t.name) →
-      L.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t = t
-  | [], _, _ => rfl
-  | qp :: L, t, h => by
-    simp only [List.foldl_cons]
-    rw [remintOne_of_ne (fun heq => h qp List.mem_cons_self heq.symm)]
-    exact foldl_remintOne_id env pbsA L t (fun qp' hqp' => h qp' (List.mem_cons_of_mem _ hqp'))
-
-/-- **The fold at ONE naming pin**: when exactly the pair at position `j`
-names the entry, the fold is that pair's rewrite. -/
-theorem foldl_remintOne_single (env : Env) (pbsA : List (Expr × BinderMeta)) :
-    ∀ (L : List (NestedPin × Expr)) (j : Nat) (qp : NestedPin × Expr) (t : AuxType),
-      L[j]? = some qp →
-      (∀ (j' : Nat) (qp' : NestedPin × Expr), L[j']? = some qp' → j' ≠ j → qp'.1.aux ≠ t.name) →
-      L.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t = remintOne env pbsA qp.1 qp.2 t
-  | [], j, _, _, h, _ => nomatch h
-  | e :: L, 0, qp, t, h, hothers => by
-    obtain rfl := Option.some.inj h
-    simp only [List.foldl_cons]
-    refine foldl_remintOne_id env pbsA L _ fun qp' hqp' => ?_
-    rw [remintOne_name]
-    obtain ⟨j', hj'⟩ := List.getElem?_of_mem hqp'
-    exact hothers (j' + 1) qp' (by simpa using hj') (Nat.succ_ne_zero j')
-  | e :: L, j + 1, qp, t, h, hothers => by
-    simp only [List.getElem?_cons_succ] at h
-    simp only [List.foldl_cons]
-    rw [remintOne_of_ne (fun heq => hothers 0 e rfl (Nat.succ_ne_zero j).symm heq.symm)]
-    exact foldl_remintOne_single env pbsA L j qp t h
-      (fun j' qp' hj' hne => hothers (j' + 1) qp' (by simpa using hj') (fun hh => hne (Nat.succ.inj hh)))
 
 /-- Consistency at a variable from its leaves: every leaf at the index
 carries the annotation. -/
@@ -1613,29 +1418,5 @@ theorem openPisAtFvars_closeTelescope_strip :
           (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hcons0 hb, ih]
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
-
-/-- The re-mint keeps every entry's name. -/
-theorem nestedRemint_name {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
-    {pinsA : List (NestedPin × Expr)}
-    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok (st, pinsA)) (i : Nat) :
-    st.types[i]?.map (·.name) = st₀.types[i]?.map (·.name) := by
-  have := (nestedRemint_inv h).2.2.2.1 i
-  generalize st.types[i]? = a at this ⊢
-  generalize st₀.types[i]? = b at this ⊢
-  cases a <;> cases b <;> simp only [Option.map_some, Option.map_none,
-    Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at this ⊢
-  exact this.1
-
-/-- The re-mint keeps every entry's constructors. -/
-theorem nestedRemint_ctors {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
-    {pinsA : List (NestedPin × Expr)}
-    (h : nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok (st, pinsA)) (i : Nat) :
-    st.types[i]?.map (·.ctors) = st₀.types[i]?.map (·.ctors) := by
-  have := (nestedRemint_inv h).2.2.2.1 i
-  generalize st.types[i]? = a at this ⊢
-  generalize st₀.types[i]? = b at this ⊢
-  cases a <;> cases b <;> simp only [Option.map_some, Option.map_none,
-    Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at this ⊢
-  exact this.2
 
 end ConLeche

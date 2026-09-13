@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.MutualChains
 public import ConLeche.Model.Inductives.MutualRecData
 import ConLeche.Model.Inductives.FixCtorsLoop
 import ConLeche.Verify.Inductives.MutualWF
+import ConLeche.Verify.Inductives.FormerFront
 public section
 
 /-!
@@ -219,9 +220,9 @@ theorem stageMutualCtor
     {cvC cvTa cvCa : ConstantVal} {env₀ : Env}
     (mp : EnvModelM V μ env)
     (hE₀ : ConLeche.EtaFamiliesClosed env)
-    {sorts : List Level}
+    {sorts : List Level} {pre : Bool}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env₀ memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa pre = .ok (cvCa, sorts))
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
     (hfresh : env.find? cvCa.name = none)
@@ -259,19 +260,21 @@ theorem stageMutualCtor
     ∃ mp' : EnvModelM V μ ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => sumMkAV (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) := by
-  obtain ⟨⟨_, hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hCtor
-  obtain ⟨-, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', htp, -, -, -, hty⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  have hCname : cvCa.name = cvC.name := by rw [hty]
+  obtain ⟨⟨_, hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hCtor
+  have hnres : ConLeche.reservedBasisNames.contains cvC.name = false := hff.nres
+  have hpshape : cvC.name.isProjFnShape = false := hff.pshape
+  have htf' := hff.noFvar
+  have hbt' := hff.bounded
+  have htp := hff.lpsOk
+  have hCname : cvCa.name = cvC.name := hff.name
   have hcb : ConstsBound env cvCa.type := constsBound_of_constsResolve _ htr
   have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts⟩ := by
     refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF ?_ ?_
       (Expr.constsResolve_mono htr) ?_
       (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq))
-    · show cvCa.type.hasFvar = false; rw [hty]; exact htf'
-    · show cvCa.type.allLevelParamsDefined cvCa.levelParams = true; rw [hty]; exact htp
-    · show cvCa.type.looseBVarsBounded 0 = true; rw [hty]; exact hbt'
+    · exact htf'
+    · exact htp
+    · exact hbt'
   let A : (Name → Nat) → AnnotTerm := fun ψ =>
     sumMkAV (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
   have hAbelow : ∀ ψ, Term.bvarsBelow 0 (A ψ).erase := fun ψ =>
@@ -437,9 +440,10 @@ theorem stageMutualCtorsGo
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {leafT : Nat → (Name → Nat) → AnnotTerm}
     (hnd : (ctorsA.map (·.1.name)).Nodup)
+    {pre : Bool}
     (hrun : ∀ J cA, ctorsA[J]? = some cA → ∃ (cvC : ConstantVal) (sorts : List Level),
       ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env₀ memberNames (Tname (mots J)) lps
-        nP (nIdxOf (mots J)) (resSortOf J) isProp large cvC cA.2 (cvTaOf (mots J))
+        nP (nIdxOf (mots J)) (resSortOf J) isProp large cvC cA.2 (cvTaOf (mots J)) pre
         = .ok (cA.1, sorts))
     (hw : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat, (resSortOf J).eval ψ = w ψ)
     (hfold : ∀ J cA, ctorsA[J]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -634,9 +638,10 @@ theorem stageMutualCtors
     {leafT : Nat → (Name → Nat) → AnnotTerm}
     (mp₁ : EnvModelM V μ env₁)
     (hnd : (ctorsA.map (·.1.name)).Nodup)
+    {pre : Bool}
     (hrun : ∀ J cA, ctorsA[J]? = some cA → ∃ (cvC : ConstantVal) (sorts : List Level),
       ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env₀ memberNames (Tname (mots J)) lps
-        nP (nIdxOf (mots J)) (resSortOf J) isProp large cvC cA.2 (cvTaOf (mots J))
+        nP (nIdxOf (mots J)) (resSortOf J) isProp large cvC cA.2 (cvTaOf (mots J)) pre
         = .ok (cA.1, sorts))
     (hw : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat, (resSortOf J).eval ψ = w ψ)
     (hfold : ∀ J cA, ctorsA[J]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),

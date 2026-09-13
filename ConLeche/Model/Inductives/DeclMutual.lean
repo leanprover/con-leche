@@ -1952,6 +1952,48 @@ theorem fixBodyAVI_validV {u w nIdx : Nat} {ρp : Nat → V} {Ids : List AnnotTe
         exact sumBodyAV_validV (hchains X hX t ht)
   · exact nomatch h
 
+/-- **The constructors mention no projection of a block member** (the
+members' `.proj` bookkeeping, K.12): at the annotating grade this is
+the annotator's projection-slot discipline (`ctorsNoProj_of_annot`);
+at the pre-annotated grade — the nested route's scratch block, whose
+constructors are minted out of stored types — the caller owes it of
+the terms it built, since inference alone does not visit every
+argument. -/
+def CtorsNoProj (μ : CheckMode) (F : Nat) (env : Env) (b : MutualBlock) (auxRoute : Bool) :
+    Prop :=
+  ∀ (env₁ : Env) (fms : List MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (isProp : Bool),
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env auxRoute
+      = .ok (env₁, fms) →
+    ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ b fms isProp auxRoute
+      b.ctors = .ok (ctorsA, sortss) →
+    ∀ cA ∈ ctorsA, ∀ f ∈ fms, ∀ j : Nat, Expr.NoProjAt f.cvTa.name j cA.1.type
+
+/-- At the annotating grade the constructors' `.proj` discipline is the
+annotator's: a member's projection slot is empty at the formers'
+environment, so no annotated constructor mentions it. -/
+theorem ctorsNoProj_of_annot {F : Nat} {env : Env} {b : MutualBlock} (mp : EnvModelM V μ env) :
+    CtorsNoProj μ F env b false := by
+  intro env₁ fms ctorsA sortss isProp hformers hctors cA hcA f hf j
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨-, hposF⟩ := ConLeche.mutualFormerChecks_front hchecks
+  obtain ⟨t, hft⟩ := List.getElem?_of_mem hf
+  obtain ⟨cv, bs, -, hff, -⟩ := hposF t f hft
+  have hfresh : env.find? f.cvTa.name = none := by rw [hff.name]; exact hff.fresh
+  have hslot : (ConLeche.consMutualFormers fms env).findProj? f.cvTa.name j = none :=
+    findProj?_none_consMutualFormers (findProj?_none_of_indFresh mp.base2.proj_ok hfresh j)
+  obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcA
+  obtain ⟨hlen, -, hall⟩ := ConLeche.checkMutualCtors_inv hctors
+  have hJl : J < b.ctors.length := by
+    have := (List.getElem?_eq_some_iff.mp hJ).1
+    omega
+  obtain ⟨-, sorts, -, hrun⟩ := hall J b.ctors[J] cA (List.getElem?_eq_getElem hJl) hJ
+  obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
+  obtain ⟨-, -, -, -, -, hnfv, ty, -, -, hann, -, -, -, -, hty⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  rw [hty]
+  exact ConLeche.annotateCore_noProjAt μ hann hnfv hslot
+
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -1959,6 +2001,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     {auxRoute : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (h : ConLeche.Semantics.DeclMutualCoreRun μ F env p.toBlock streamRecs auxRoute env₂)
+    -- the constructors' `.proj` discipline at the grade (K.12)
+    (hnp : CtorsNoProj μ F env p.toBlock auxRoute)
     -- the recursors' names (task #279 M-B′): fresh before the block,
     -- not reserved, not a projection function's — the stream-facing
     -- `declMutual` reads them off the stream records' own checks, the
@@ -2138,7 +2182,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           (fms.getD (p.toBlock.ctors.getD J default).member default).s
           (Level.isEquiv f₀.s Level.zero == some true) p.toBlock.large
           (p.toBlock.ctors.getD J default).cv cA.2
-          (fms.getD (p.toBlock.ctors.getD J default).member default).cvTa = .ok (cA.1, sorts) := by
+          (fms.getD (p.toBlock.ctors.getD J default).member default).cvTa auxRoute
+          = .ok (cA.1, sorts) := by
     intro J cA hJ
     have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
     obtain ⟨hnF, sorts, hsj, hrun⟩ := hallC J _ cA (hctorGet J hJl) hJ
@@ -2509,12 +2554,11 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     intro J cA hJ
     have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
     obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨⟨ty', hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hrun
     have hall : (p.toBlock.ctors.all fun c => c.cv.levelParams == p.toBlock.lps) = true := by
       simpa using (Bool.and_eq_true _ _ |>.mp hlpsAll).2
     have hthis := List.all_eq_true.mp hall _ (List.mem_of_getElem? (hctorGet J hJl))
-    rw [hty]
+    rw [hff.lps]
     simpa using hthis
   have hCDparams : ∀ J : Nat, J < ctorsA.length → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ p.toBlock.lps, ψ₁ q = ψ₂ q) →
@@ -2935,11 +2979,10 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     | some cA =>
       have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
       obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+      obtain ⟨⟨ty', hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hrun
       rw [hctorGet J hJl]
       simp only [Option.map_some, Option.some.injEq]
-      rw [hty]
+      rw [hff.name]
   have hndA : (ctorsA.map (·.1.name)).Nodup := by rw [hnamesC]; exact hndC
   have hfreshC : ∀ c ∈ ctorsA, (ConLeche.consMutualFormers fms env).find? c.1.name = none :=
     ConLeche.Semantics.checkMutualCtors_fresh hctors
@@ -2947,9 +2990,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       cA.1.type.constsResolve (ConLeche.consMutualFormers fms env) = true := by
     intro J cA hJ
     obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    rw [hty]; exact htr
+    obtain ⟨⟨ty', hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hrun
+    exact hff.resolve
   have hmono₁ : ∀ e : Expr, Expr.constsResolve env e = true →
       Expr.constsResolve (ConLeche.consMutualFormers fms env) e = true :=
     fun e h => constsResolve_consMutualFormers h
@@ -6393,15 +6435,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     have hslot : (ConLeche.consMutualFormers fms env).findProj? f.cvTa.name j = none :=
       findProj?_none_consMutualFormers
         (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshF t f hft) j)
-    have hnpC : ∀ cA ∈ ctorsA, Expr.NoProjAt f.cvTa.name j cA.1.type := by
-      intro cA hcA
-      obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcA
-      obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-      obtain ⟨-, -, -, -, -, hnfv, ty, -, -, hann, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      rw [hty]
-      exact ConLeche.annotateCore_noProjAt μ hann hnfv hslot
+    have hnpC : ∀ cA ∈ ctorsA, Expr.NoProjAt f.cvTa.name j cA.1.type := fun cA hcA =>
+      hnp _ _ _ _ _ hformers hctors cA hcA f (List.mem_of_getElem? hft) j
     have h2 : NoProjEnv (ConLeche.consMutualCtors p.toBlock.nP ctorsA
         (ConLeche.consMutualFormers fms env)) f.cvTa.name j :=
       noProjEnv_consMutualCtors h1 hnpC
@@ -6580,10 +6615,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       obtain ⟨cv, bs, -, hff, -⟩ := hposF q.2 q.1 hget
       rw [hff.name]; exact hff.pshape
     · -- the constructor's name is not a projection function's
-      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrunJ
-      obtain ⟨-, -, hsh, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      rw [hty]; exact hsh
+      obtain ⟨⟨ty', hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hrunJ
+      rw [hff.name]; exact hff.pshape
     · -- the member's name is not reserved
       obtain ⟨cv, bs, -, hff, -⟩ := hposF q.2 q.1 hget
       rw [hff.name]; exact hff.nres
@@ -6596,10 +6629,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           (hmemT q.2 _ hget).1]]
       exact hnr
     · -- the constructor's name is not reserved
-      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrunJ
-      obtain ⟨-, hres, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      rw [hty]; exact hres
+      obtain ⟨⟨ty', hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hrunJ
+      rw [hff.name]; exact hff.nres
     · -- the member's binder data, at the group store
       have hFDq := FormerData.congr_sort (hFD₃ _ _ hget) (fun ψ => (hsq ψ).symm)
       rw [hnIdx] at hFDq
@@ -6868,8 +6899,8 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           exact htm) hmb]
     rw [← hname]
     exact ⟨consMutualFormers_find?_none (consMutualCtors_find?_none hfind), hres, hsh⟩
-  obtain ⟨mp', -, -⟩ := declMutualCore hμ mp hE hrun (fun t ht => (hfacts t ht).1)
-    (fun t ht => (hfacts t ht).2.1) (fun t ht => (hfacts t ht).2.2)
+  obtain ⟨mp', -, -⟩ := declMutualCore hμ mp hE hrun (ctorsNoProj_of_annot mp)
+    (fun t ht => (hfacts t ht).1) (fun t ht => (hfacts t ht).2.1) (fun t ht => (hfacts t ht).2.2)
   exact ⟨mp'⟩
 
 end ConLeche.Model

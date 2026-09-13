@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Verify.Inductives.MutualWF
+import ConLeche.Verify.Inductives.FormerFront
 public section
 
 /-!
@@ -264,9 +265,9 @@ theorem mutualCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List (RecFieldKind × Nat)}
-    {sorts : List Level}
+    {sorts : List Level} {pre : Bool}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa pre = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
@@ -285,16 +286,16 @@ theorem mutualCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
       (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))),
       MutualCtorDataI mp.base2 env₀ members T lps cvCa nP nF nIdx resSort isProp large idxArgs
         ds Es srcs ks fvsP xFvs xrest Eiss tss := by
-  obtain ⟨⟨ty', hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopP, -, -, hopX0, hlenI,
-    -, -, hsorts⟩ := ConLeche.checkMutualCtor_shape hCtor
+  obtain ⟨⟨ty', hff⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopP, -, -, hopX0, hlenI,
+    -, -, hsorts⟩ := ConLeche.checkMutualCtor_front hCtor
   obtain ⟨ds, Es, srcs, hidxEq0, hCD⟩ :=
-    ctorDataI_ofShape hμ mp hccv hresid hopP hopX0 hlenI hsorts hfT hlpsT hstripT
+    ctorDataI_ofFront hμ mp hff hresid hopP hopX0 hlenI hsorts hfT hlpsT hstripT
   obtain ⟨fvsP', crest', xFvs', xrest, hopP', hopX', hO⟩ := mutualOpened_of hopened
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopP'))
   obtain ⟨rfl, hxr⟩ := Prod.mk.inj (Option.some.inj (hopX0.symm.trans hopX'))
   have hopX : openPisAtFvars nF crest nP = some (xFvs, xrest) := by rw [← hxr]; exact hopX0
   have hidxEq : idxArgs = xrest.getAppArgs.drop nP := by rw [← hxr]; exact hidxEq0
-  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.checkMutualCtor_typeWF hCtor
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨-, hrows⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
