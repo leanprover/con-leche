@@ -100,7 +100,7 @@ theorem mutualShapeOk_inv {b : MutualBlock} {u : Unit}
 
 /-- The formers' checks at the empty block: nothing checked. -/
 theorem mutualFormerChecks_nil_inv {nP F : Nat} {env : Env} {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP [] = .ok fms) :
+    (h : mutualFormerChecks (fueledOps mode F) env nP false [] = .ok fms) :
     fms = [] := by
   simp only [mutualFormerChecks, pure, Except.pure, Except.ok.injEq] at h
   exact h.symm
@@ -111,13 +111,13 @@ telescope — ALL at the pre-block environment `env`, as official's
 `check_inductive_types` runs them, and so does the rest of the loop. -/
 theorem mutualFormerChecks_inv {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
     {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP ((cv, nIdx) :: rest) = .ok fms) :
+    (h : mutualFormerChecks (fueledOps mode F) env nP false ((cv, nIdx) :: rest) = .ok fms) :
     ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (bs : List (Expr × BinderMeta))
       (fs : List MutualFormerA),
       checkConstantVal (fueledOps mode F) env cv = .ok cvTa₀ ∧
       checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
       cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s) ∧
-      mutualFormerChecks (fueledOps mode F) env nP rest = .ok fs ∧
+      mutualFormerChecks (fueledOps mode F) env nP false rest = .ok fs ∧
       fms = ⟨cvTa, nIdx, s⟩ :: fs := by
   unfold mutualFormerChecks at h
   obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
@@ -144,7 +144,7 @@ is what the well-formedness, freshness and model steps read off the
 stage. -/
 theorem mutualFormerChecks_checked {nP F : Nat} :
     ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
-      mutualFormerChecks (fueledOps mode F) env nP l = .ok fms →
+      mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms →
       ∀ f ∈ fms, ∃ cv', checkConstantVal (fueledOps mode F) env cv' = .ok f.cvTa
   | [], _, _, h, f, hf => by
     obtain rfl := mutualFormerChecks_nil_inv h
@@ -162,7 +162,7 @@ environment, the conses after them. -/
 theorem mutualFormers_inv {nP F : Nat} {formers : List (ConstantVal × Nat)}
     {env env' : Env} {fms : List MutualFormerA}
     (h : mutualFormers (fueledOps mode F) nP formers env = .ok (env', fms)) :
-    mutualFormerChecks (fueledOps mode F) env nP formers = .ok fms ∧
+    mutualFormerChecks (fueledOps mode F) env nP false formers = .ok fms ∧
       env' = consMutualFormers fms env := by
   unfold mutualFormers at h
   obtain ⟨fs, hchecks, h⟩ := exceptBind_ok h

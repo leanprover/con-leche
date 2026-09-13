@@ -657,7 +657,14 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
-  let envAux ← checkMutualCore ops env b none
+  -- `auxRoute := true` (K.10): the `_nested`-named members of this block
+  -- are the copies the kernel minted itself, out of the container's
+  -- stored annotated type at annotated pins, so their types are
+  -- PRE-ANNOTATED and the install's front door skips the annotation walk
+  -- for them — the stored copy type is then the minted one,
+  -- syntactically.  Every check still runs, `inferType` included, which
+  -- is what validates each binder datum.
+  let envAux ← checkMutualCore ops env b none true
   let stored ← unwrapOr (auxStoredAll envAux b b.k)
     (.internal "nested: the auxiliary block's stored records")
   let R := restoreTbl p st

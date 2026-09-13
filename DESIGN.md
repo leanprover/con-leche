@@ -71441,6 +71441,104 @@ would now need the annotation pass's grade `beta := true` — noted there.
 Since #301's β clause makes the reader ANSWER at a λ head where it
 previously fell through, §M1's `AnnotStable` census can only widen.
 
+#### K.10 THE FLAG: A PRE-ANNOTATED MEMBER IS NOT RE-ANNOTATED (2026-09-13, the maintainer's ruling)
+
+**The ruling** (verbatim): *"only terms from the outside need
+annotations inferred, those that we construct ourselves don't.  Pass a
+flag to the whole install whether the input is annotated or not, and
+skip annotating if it is."*
+
+**What landed.**
+
+* **`checkConstantValPre`** (`Kernel/CheckerBase.lean`): every check of
+  `checkConstantVal` on `cv.type` itself, WITHOUT the annotation walk, so
+  the stored type IS the input syntactically.  Nothing is weakened —
+  `ops.inferType`, which runs right after, is what VALIDATES every binder
+  datum (`inferBody`'s ∀/λ clauses compare the stored datum with the sort
+  they infer and DECLINE on a mismatch) and re-checks every leaf's scope.
+  What the skipped walk would additionally have done is recorded in its
+  docstring: a `let`'s ζ-reduction and the literal-support guards, neither
+  reachable for a term the checker built out of already-checked pieces.
+* **The grade is ONE Bool per install, and the per-member decision is
+  read off the NAME.**  `checkMutualCore` (and `mutualFormers`,
+  `mutualFormerChecks`) take `auxRoute : Bool := false`; at `auxRoute` a
+  member whose name carries the reserved `_nested` prefix is one the
+  KERNEL MINTED ITSELF (`nestedRemint`, K.9) and goes through
+  `checkConstantValPre`.  `nestedPrefixName` and `Name.hasPrefixOf` moved
+  into `Kernel/Name.lean` so the installer can see them.
+  **Why not a per-member flag list**: the grade has to be consumed in
+  lockstep with the formers list inside the recursion, and a list would
+  change `mutualFormerChecks`'s arity for every caller; ONE defaulted
+  Bool changes no call site that does not want it, and the mutual route
+  is untouched — `checkMutual` omits it, so every member is annotated as
+  before.  **Why the name is a sound flag**: the prefix is reserved, the
+  route gates it (`auxRoute` is passed by `checkNested` alone), and
+  `copiesFresh` (K.1) already guarantees the minted names are fresh.  A
+  stream that names a MUTUAL member `_nested.X` keeps today's behaviour,
+  because `auxRoute` is `false` there — no narrowing anywhere.
+* **`checkNested` passes `auxRoute := true`.**  With K.9's `nestedRemint`
+  in front of it, a copy's type is annotated throughout and is now stored
+  UNCHANGED: `checkConstantValPre` returns `cv`, and `checkSumTele`
+  returns a syntactic telescope ending in a sort unchanged — which
+  `auxIdxCount` established when `auxBlock` read the copy's index count.
+  So `stored copy type = the re-minted type` is a chain of two
+  definitional facts, not a property of the annotator, and #300's
+  `ReaderRun`/K.4 are no longer needed for the copies.
+
+**SIGNATURES CHANGED** (all with a DEFAULT, so no call site that does not
+want the grade was touched):
+
+    checkConstantValPre   NEW      Kernel/CheckerBase.lean
+    Name.hasPrefixOf      MOVED    NestedParts.lean → Kernel/Name.lean
+    nestedPrefixName      MOVED    NestedParts.lean → Kernel/Name.lean
+    mutualFormerChecks    + (auxRoute : Bool := false), BEFORE the list
+    mutualFormers         + (auxRoute : Bool := false), last
+    checkMutualCore       + (auxRoute : Bool := false), last
+
+`mutualFormerChecks`' grade sits before its matched list argument (the
+equation compiler requires the list last), so its 25 mention sites gained
+an explicit `false`: `Verify/BridgeDecl`, `Verify/Cached/BridgeCSDecl`,
+`Verify/Inductives/MutualInv`, `Verify/Inductives/MutualWF` and
+`Model/Inductives/DeclMutual`.  **For the model lane**: the lemmas whose
+STATEMENTS now carry that `false` are `mutualFormerChecks_inv`,
+`_nil_inv`, `_checked`, `mutualFormerChecks_typeWF`,
+`mutualFormerChecks_datF` and `mutualFormerChecks_pos` — the proofs are
+unchanged except for one `simp only [Bool.false_and, Bool.false_eq_true,
+if_false]` after each `unfold mutualFormerChecks`, which collapses the
+grade's `if` to the old body.  Nothing about the mutual route's behaviour
+moved.
+
+**Gates** (on `inductives` = `823f80ec`, merged in): `lake build` and
+`lake test` warning-free; `tests/arena.sh` **EXIT 0** — shake 508/508
+with none demotable, layering unchanged, **nested-shadow 25/25**, e2e
+**216/216**, arena tutorial 90/92 as recorded, annot 15/15, the trusted
+and both `--jobs` sweeps as expected; the Mathlib nested cone **41/41
+accept** with the grade ON; **full Mathlib `--verified --jobs=8`, 654 499
+accepted, exit 0**; init-full **536.1134 G against the baseline binary's
+536.1125 G, +0.00017 %**, 53 088 accepted both — the flag is `false` for
+streams, and this is the noise floor.  (The first init-full comparison
+was against the K.6/K.7 binary and read −0.43 %: that is task #301's
+effect, not this one's — the baseline had to be re-measured at
+`823f80ec`.)  `tests/overview-links.sh`: the `checkMutual` anchor moved
+by the grade's comment lines, L619 → L637; the citing paragraph was
+re-read (its claim — the install runs official's checks, generates the
+`k` recursors and compares them with the stream's records — is unchanged,
+and `checkMutual` still omits the grade, so the mutual route is exactly
+as the paragraph describes) and the expectation regenerated.
+
+**STILL OUTSTANDING, and named**: the CONVENIENCE LEMMA that hands the
+model lane the identity ready-made.  It is derivable today from what the
+run relation already records — `checkMutualCore … true = .ok envAux` plus
+`checkConstantValPre`'s definition (it returns `cv`) and `checkSumTele`'s
+telescope case — but the derivation is the lane's to do until an
+`auxRoute := true` twin of `mutualFormerChecks_inv` is written (a
+mechanical copy with `checkConstantValPre` in place of
+`checkConstantVal`, plus `checkConstantValPre_ok : … = .ok cvTa₀ → cvTa₀
+= cv`).  The CACHED twin's grade (`mutualFormerChecksS`,
+`checkMutualCoreS`) is deferred with the rest of the cached mirror: the
+shadow runs the PURE core, so the grade cannot be exercised on the cached
+path before the dispatch is wired.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
 did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
 on `3640f02e`, after K.3 on `40ad5bc2`, after K.6/K.7 on `dbd53f3c`, and

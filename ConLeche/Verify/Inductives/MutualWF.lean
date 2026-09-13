@@ -102,7 +102,7 @@ theorem find?_isSome_cons_mono {c c' : ConstantInfo} {env env' : Env}
 PRE-BLOCK ENVIRONMENT (where the whole stage runs). -/
 theorem mutualFormerChecks_typeWF {nP F : Nat} {l : List (ConstantVal × Nat)} {env : Env}
     {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP l = .ok fms) :
+    (h : mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms) :
     ∀ f ∈ fms, f.cvTa.type.hasFvar = false ∧
       f.cvTa.type.allLevelParamsDefined f.cvTa.levelParams = true ∧
       f.cvTa.type.constsResolve env = true ∧

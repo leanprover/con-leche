@@ -889,12 +889,13 @@ theorem mutualShapeOk_datF (b : MutualBlock) (F : Nat) :
 
 theorem mutualFormerChecks_datF (nP : Nat) (F : Nat) (env : Env) :
     ∀ (fs : List (ConstantVal × Nat)),
-      (mutualFormerChecks (fueledOpsM mode) env nP fs).val F =
-        mutualFormerChecks (fueledOps mode F) env nP fs
+      (mutualFormerChecks (fueledOpsM mode) env nP false fs).val F =
+        mutualFormerChecks (fueledOps mode F) env nP false fs
   | [] => rfl
   | (_, _) :: rest => by
     unfold mutualFormerChecks
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    simp only [Bool.false_and, Bool.false_eq_true, if_false,
+      FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF,
       mutualFormerChecks_datF nP F env rest]
 
