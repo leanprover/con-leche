@@ -80,6 +80,68 @@ theorem ElimState.PinsNamed.init (types : List AuxType) (n : Nat) :
     ElimState.PinsNamed ⟨types, [], n⟩ :=
   fun _ hq => nomatch hq
 
+/-! ## Mentions against resolution -/
+
+/-- **A resolving term mentions only STORED constants** (task #279 M-B′
+step 3p): `constsResolve` asks `find?` of every constant node the term
+carries, and `mentionsConst` finds one — so a term that resolves at an
+environment cannot mention a name that is fresh there.  This is what
+refutes an ORDINARY field on the copy's side at a container-recursive
+position: the field mentions a copy or a block member, both fresh
+before the block, while `mutualFieldsOk`'s ordinary clause demands
+resolution at the pre-block environment. -/
+theorem Expr.find?_isSome_of_mentionsConst {env : Env} {T : Name} :
+    ∀ e : Expr, e.constsResolve env = true → e.mentionsConst T = true →
+      (env.find? T).isSome = true
+  | .bvar _, _, hm => nomatch hm
+  | .sort _, _, hm => nomatch hm
+  | .lit _, _, hm => nomatch hm
+  | .const n _, hr, hm => by
+    simp only [Expr.mentionsConst, beq_iff_eq] at hm
+    subst hm
+    exact hr
+  | .fvar _ ty, hr, hm => find?_isSome_of_mentionsConst ty hr hm
+  | .app f a, hr, hm => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at hm
+    rcases hm with hm | hm
+    · exact find?_isSome_of_mentionsConst f hr.1 hm
+    · exact find?_isSome_of_mentionsConst a hr.2 hm
+  | .lam ty b _, hr, hm => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at hm
+    rcases hm with hm | hm
+    · exact find?_isSome_of_mentionsConst ty hr.1 hm
+    · exact find?_isSome_of_mentionsConst b hr.2 hm
+  | .forallE ty b _, hr, hm => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at hm
+    rcases hm with hm | hm
+    · exact find?_isSome_of_mentionsConst ty hr.1 hm
+    · exact find?_isSome_of_mentionsConst b hr.2 hm
+  | .letE ty v b, hr, hm => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at hm
+    rcases hm with (hm | hm) | hm
+    · exact find?_isSome_of_mentionsConst ty hr.1.1 hm
+    · exact find?_isSome_of_mentionsConst v hr.1.2 hm
+    · exact find?_isSome_of_mentionsConst b hr.2 hm
+  | .proj sn _ e, hr, hm => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.mentionsConst, Bool.or_eq_true, beq_iff_eq] at hm
+    rcases hm with rfl | hm
+    · exact hr.1
+    · exact find?_isSome_of_mentionsConst e hr.2 hm
+
+/-- The contrapositive at a FRESH name: a term resolving at an
+environment where `T` is absent does not mention `T`. -/
+theorem Expr.not_mentionsConst_of_fresh {env : Env} {T : Name} {e : Expr}
+    (hr : e.constsResolve env = true) (hf : env.find? T = none) : e.mentionsConst T = false := by
+  refine Bool.eq_false_iff.mpr fun hm => ?_
+  have := Expr.find?_isSome_of_mentionsConst e hr hm
+  rw [hf] at this
+  exact nomatch this
+
 /-! ## Mentions of a spine's head -/
 
 /-- A spine mentions what its head mentions. -/
