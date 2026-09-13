@@ -76977,6 +76977,167 @@ identification is the SECOND one; a required parameter added after an
 `autoParam` must be passed by name (`(h10 := …)`) or the positional
 arguments shift into the auto-params.
 
+#### M.43 M-D′ D1, the syntactic half: the restore EVALUATED at the opened level (2026-09-13, session 27)
+
+**Context.**  Session 27 merged `inductives` (K.19: the restore stores
+`restoreNested R` of the auxiliary constant syntactically; K.20 parts
+1/2a) — two lane-side casualties repaired in the merge commit
+(`restoreRecTys_inv` restated at `checkConstantValPre`, whose name-side
+facts come from the new `checkConstantValPre_names`; the K.20 conjunct
+added to the two `DeclNestedRun` destructuring sites).  The session's
+main deliverable is D1's syntactic half, which BOTH the constructor
+read's forward fire (§M.42 (1): the copy's stored field, restored, is
+what K.17's witness compares) and every M-D′ reading (D2–D4) consume.
+
+**What landed** (`Verify/Inductives/NestedRestore.lean`, new, ~2 100
+lines, on the root umbrella):
+
+* **`restoreI R`** — `restoreWalk` at the INSTANTIATED level: the same
+  top-down walk (prune on `mentionsConst`, node step, children) with
+  the pins already in the context's own variables and no depth;
+  **`RestoreTbl.instAt R ps`** puts a table's abstracted pins at the
+  parameter variables `ps` (`Expr.instSeq ps (ps.length - 1)`).  The
+  node step is split into a head function on both sides
+  (`restoreHead` = the raw `let head`, `restoreNode_eq`; `restoreHeadI`,
+  `restoreNodeI_eq`) so that both invert and evaluate positionally
+  (`restoreNode_ok_inv`/`restoreHead_ok_inv`; `restoreNodeI_rec`,
+  `restoreNodeI_eq_head`, `restoreHeadI_nonconst`, `restoreHeadI_spine`,
+  `restoreHeadI_instAt_spine`).
+* **`Expr.mentionsConstE`** — `mentionsConst` blind to `fvar`
+  annotations.  THE FINDING behind the whole module: `mentionsConst`
+  looks inside `fvar` annotations, so the prune of an OPENED term can
+  differ from the raw prune (an opener's annotation is a copy-typed
+  earlier field), while the walk's RESULT cannot — a term whose blind
+  mention clears every table name is its own restoration whether or
+  not the prune fires (**`restoreI_eq_self`**).  `mentionsConstE` is
+  invariant under erasure (`mentionsConstE_erasedEq`) and under
+  instantiation at `fvar`s (`mentionsConstE_instSeq_fvars`), and agrees
+  with `mentionsConst` on `fvar`-free terms.
+* **`restoreWalk_instSeq`, THE COMMUTATION**: for a `RestoreTbl.WF`
+  table (keys are table names, pins closed below `nP`, constructor pins
+  constant-headed spines), `restoreWalk R d e = .ok e'` on an
+  `fvar`-free `e`, and any parameter variables `ps` (`|ps| = nP`) and at
+  most `d` inner variables `xs` — all `fvar`s —
+  `instSeq (ps ++ xs) t e' = restoreI (R.instAt ps) (instSeq (ps ++ xs) t e)`
+  ON THE NOSE (with `t + 1 = nP + d` whenever the context is non-empty;
+  the slack `|xs| ≤ d` is what lets the binder cases instantiate only
+  the outer variables, as `instSeq_forallE` does).  The only content is
+  at a fire, where `instSeq_lifted_pin` (from
+  `Expr.instSeq_liftLooseBVars`) puts the lifted pin back at the
+  parameters; everywhere else the two walks prune, decline and descend
+  alike (`restoreNodeI_instAt_of_fire`/`_of_decline`; the head-shape
+  transfer `getAppFn_instSeq_const_iff`).  The proof is one structural
+  induction with a hygiene-free local tactic macro for the shared
+  prelude (prune/fire closed, decline left with the node facts in
+  context).
+* **`restoreI_erasedEq`**: `restoreI` is blind to `fvar` annotations
+  (`restoreNodeI_erasedEq` + `restoreI_erasedEq_node`); with
+  `ErasedEq.getApp`/`.mkAppN`/`.const_left/right`.
+* **`restoreNested_openPis`** — what the Model tier consumes: opening
+  `restoreNested R ty` at `n ≥ nP` variables gives the SAME parameter
+  openers (`fvsR.take nP = fvs.take nP`), then at every later position
+  an opener `fvar i _` whose annotation is `ErasedEq` to
+  `restoreI (R.instAt (fvs.take nP))` of the auxiliary opener's
+  annotation, and a residual likewise.  Through `restoreNested_stripPis`
+  (the `nP` binders kept, the body walked at depth `0`; `stripPisOrLams`
+  is `stripPis` on a `∀`-telescope and the rebuild puts the same
+  binders back) and `restoreWalk_stripPis` (binder `j` walked at depth
+  `d + j`, the residual at `d + n`, binder data kept), then the
+  commutation at each position's own context (`fvs.take i = fvs.take nP
+  ++ (fvs.drop nP).take (i - nP)`), then `instSeq_erasedEq_args` across
+  the two openings' annotations and `restoreI_erasedEq`.
+* the raw walk's kit: `restoreWalk_prune`, `restoreWalk_forallE_inv`/
+  `_lam_inv`, `restoreWalk_stripPis`, `restoreNested_stripPis`; the
+  `instSeq` shapes the tree lacked (`instSeq_lam`, `instSeq_letE`,
+  `instSeq_proj`, `instSeq_closed`, `instSeq_bvar_fvars`,
+  `getAppFn_instSeq`); `stripPis_split`/`stripPis_append'`,
+  `openPisAtFvars_of_stripPis'`, `openers_take_eq`; `List.lookup_map_snd`,
+  `List.mem_of_lookup_some`.
+
+**What D1 still needs** (next session, all mechanical on this kit):
+(a) the EVALUATION lemmas of `restoreI` on the shapes the datum holds —
+`restoreI_fire` (a copy application `auxJ params idx` with `|params| =
+nP` restores to `pin idx`, the table's pin at the parameters:
+`restoreI_of_node` + `restoreHeadI_spine`), `restoreI_forallE'`
+(unconditional descent through a `∀`) and `restoreI_stripPis` (through
+a telescope); (b) the FIELD-SHAPE lemma: a copy field
+`Π afvs, auxJ params idx` opened at the datum's variables
+(`FixOpened.recF`/`reflF`, the telescope domains and index arguments
+resolving before the block, hence blind-mention-free) restores to
+`Π afvs, J lvls Ds idx'` with `idx'` pointwise `ErasedEq` to `idx` — via
+`Verify.openPisAtFvars_stripPis` on the field (the raw body is the
+constant-headed spine, `getAppFn_instSeq_const_iff`), `restoreI_eq_self`
+on the domains, `restoreI_fire` on the body, and the re-opening
+(`openers_take_eq`); an ordinary field or a field into a block member
+is its own restoration (`restoreI_eq_self`: no table name mentioned,
+the block's own formers are not table names); (c) the Model reading:
+`denoteMeta` of `Π afvs, J lvls Ds idx'` at a model of `env₁` whose
+`acval` is `mpAux`'s on the containers = `restoreAV`'s copy-recursive
+arm (`mkPisAV tss (mkAppN ⟦J⟧ (DsA lifted ++ eiss))`) — `denoteMeta_openPis'`
+with the pin's readings weakened by the field's depth
+(`DenoteMetaSpine.weaken_by`) and the index readings `eissF`.
+
+**Where the table's `WF` comes from** (for the wiring, not yet
+written): `restoreTbl p st` has `pins := st.pins.map (aux, abstractRange
+q.pin 0 nP 0)`, closed below `nP` by K.3's `pinsClosed`; `ctorPins`'
+pins are the same abstractions, hence `mkAppN (const J lvls) (Ds.map …)`
+(`abstractRange_mkAppN`); the three key sets are exactly the three
+summands of `auxNames`.  A `RestoreTbl.WF (restoreTbl p st)` lemma
+belongs beside `restoreTbl` in `Verify/Inductives/NestedFacts.lean`.
+
+**Steps (1), D2, D3 of the brief: NOT reached.**  Step (1)
+(`CopyWalkFacts` from `CopyCtorsStored`) was analysed before D1 was
+started and its dependency on D1 is the reason for the order: at a
+container-recursive field the copy's STORED field is compared by
+K.17's witness RESTORED and OPENED (`nestedCtorsWhnfOk`: `restoreNested`
+of both the processed and the stored constructor, opened at `nP + nF`
+variables, field by field, `dm = ds ∨ whnf dm = ds`), so identifying
+the stored field's shape needs exactly `restoreNested_openPis` +
+(b) above.  Two further facts (1) needs, both NAMED here, neither
+built: **`nestedCtorsWhnfOk_inv`** (the Verify inversion of K.17's
+conjunct — none exists yet: per member and constructor,
+`restoreNested R minted = ok mR`, `restoreNested R stored = ok sR`, both
+open at `nP + nF`, and per field `dm = ds ∨ whnf μ env₁ F (nP + i) dm
+= .ok ds`), and **`whnf` is the identity on a `∀` and on an
+inductive-headed constant application** (`whnf_forallE_eq` exists;
+the inductive-headed case does not — needed to turn K.17's `whnf`
+disjunct into equality at a container-recursive field, where the
+restored processed field is `Π bs, J Ds idx` or `J Ds idx`).  Also
+named (§M.42's route): **the pins' components mention a block member**
+(`nestedOccOk` at the fire; the ledger's `PinOriginAt` does not record
+it) — the fact that refutes "the copy's field is ordinary" at a
+container-recursive position.  `WhnfField` (`CopyCtorWalk.lean`) must
+be RESTATED: its conjunct `restoreNested R eA = .ok eR` applies the
+whole-constant restore to a FIELD (`stripPisOrLams nP` on a field is
+not the restore of that field); the right currency is the opened
+restored constructor's `i`-th opener, exactly what
+`restoreNested_openPis` delivers — the restatement is mechanical
+(`WhnfField` is only threaded through `copyCtorAsRead_of_walkFacts` to
+`hwhnf`).
+
+**Gates**: `lake build` warning-free, `lake test` clean (both run for
+this step's commit).  NOT run (landing items): shake/pub-import
+(`NestedRestore` on the root umbrella, its `TeleOpen` import plain),
+arena, init-full, Mathlib, `overview-links.sh`, `no-local-paths.sh`.
+No `sorry`, no axiom, no kernel change.
+
+**Lean gotchas** (session 27): `by_contra`, `push_neg`, `conv_lhs`,
+`List.reverseRecOn`, `List.mem_of_lookup_eq_some` are Mathlib —
+`Classical.byContradiction`, manual `∀`-negation, `have … := …; rw [←
+h] at h0`, plain list induction, a local `List.mem_of_lookup_some`;
+inside `namespace Expr.ErasedEq` a term-level `rfl` resolves to
+`ErasedEq.rfl` (use `Eq.refl _`); `split at h` on the raw
+`restoreNode` picks the `let head`'s inner match first — factor the
+head into its own function and `cases e`; a `·` bullet must close its
+goal, so a shared-prelude macro leaves the open goal at top level after
+`rename_i`; `set_option hygiene false in local macro` cannot carry a
+docstring; a `_` placeholder inside a `have` in a macro is
+unsynthesisable — normalise the hypothesis instead (`simp only
+[Bool.not_eq_eq_eq_not, Bool.not_true, Bool.not_eq_false] at h`);
+`List.take_succ` is deprecated for `List.take_add_one`;
+`List.getElem?_take` is the `if`-form take lemma; Subst/Shift lemmas
+live in `ConLeche.Expr`, OpenVars/TeleOpen in `ConLeche.Verify`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

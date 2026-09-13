@@ -47,5 +47,6 @@ public import ConLeche.Verify.Inductives.NestedOrder
 public import ConLeche.Verify.Inductives.NestedLeaves
 public import ConLeche.Verify.Inductives.NestedWalk
 public import ConLeche.Verify.Inductives.NestedFields
+public import ConLeche.Verify.Inductives.NestedRestore
 
 @[expose] public section
