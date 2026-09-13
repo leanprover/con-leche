@@ -44,7 +44,7 @@ variable {mode : CheckMode}
 
 /-- The elimination's state grows by copies minted together with their
 pins: the new pins, and the new types' names are theirs. -/
-def ElimGrows (st st' : ElimState) : Prop :=
+@[expose] def ElimGrows (st st' : ElimState) : Prop :=
   ∃ new : List NestedPin, st'.pins = st.pins ++ new ∧
     st'.types.map (·.name) = st.types.map (·.name) ++ new.map (·.aux)
 
