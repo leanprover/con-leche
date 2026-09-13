@@ -1683,7 +1683,7 @@ def annotPwPiI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     CheckCM PropWhen := do
   -- task #168 stage 2: the head-symbol reader first (it subsumes the
   -- chain read), as in the spec
-  match typeSortPW fe.find? body' with
+  match typeSortPW fe.find? true body' with
   | some pw => pure pw
   | none => do
     let bt ← r.inferIO depth body'
@@ -1736,7 +1736,7 @@ datum, exactly as `inferLamsLeafI` reads it. -/
 def annotPwLamI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     CheckCM PropWhen := do
   -- task #168 stage 2: the reader first, as in the spec
-  match proofPW fe.find? body' with
+  match proofPW fe.find? true body' with
   | some pw => pure pw
   | none => do
     let bt ← r.inferIO depth body'
