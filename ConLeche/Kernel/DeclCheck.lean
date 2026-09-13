@@ -460,6 +460,185 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-! ## `projTablesOk` through the index (task #279 K.20)
+
+The F twin of `Expr.projTablesOk` (`Kernel/CheckerBase.lean`): the same
+clauses, the projection-table lookup through the index.  It is what
+`checkConstantValPreF` asks of a pre-annotated type, as
+`checkConstantValPre` asks the pure one. -/
+def Expr.projTablesOkF (fe : FEnv) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ | .const _ _ => true
+  | .fvar _ ty => ty.projTablesOkF fe
+  | .app f a => f.projTablesOkF fe && a.projTablesOkF fe
+  | .lam ty body _ | .forallE ty body _ =>
+    ty.projTablesOkF fe && body.projTablesOkF fe
+  | .letE ty val body =>
+    ty.projTablesOkF fe && val.projTablesOkF fe && body.projTablesOkF fe
+  | .proj sn i e => (fe.findProj? sn i).isSome && e.projTablesOkF fe
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def PTFMemoInv (fe : FEnv) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.projTablesOkF fe
+
+theorem PTFMemoInv.empty {fe : FEnv} : PTFMemoInv fe {} := by
+  intro k r h; simp at h
+
+theorem PTFMemoInv.insert {fe : FEnv} {memo : Std.HashMap Expr Bool}
+    (hm : PTFMemoInv fe memo) {e : Expr} {r : Bool} (heq : r = e.projTablesOkF fe) :
+    PTFMemoInv fe (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `projTablesOkF`. -/
+def Expr.projTablesOkFGo (fe : FEnv) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (true, memo)
+  | .sort _ => (true, memo)
+  | .lit _ => (true, memo)
+  | .const _ _ => (true, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => projTablesOkFGo fe memo ty
+        | .app f a =>
+          let (b₁, memo) := projTablesOkFGo fe memo f
+          let (b₂, memo) := projTablesOkFGo fe memo a
+          (b₁ && b₂, memo)
+        | .lam ty body _ =>
+          let (b₁, memo) := projTablesOkFGo fe memo ty
+          let (b₂, memo) := projTablesOkFGo fe memo body
+          (b₁ && b₂, memo)
+        | .forallE ty body _ =>
+          let (b₁, memo) := projTablesOkFGo fe memo ty
+          let (b₂, memo) := projTablesOkFGo fe memo body
+          (b₁ && b₂, memo)
+        | .letE ty val body =>
+          let (b₁, memo) := projTablesOkFGo fe memo ty
+          let (b₂, memo) := projTablesOkFGo fe memo val
+          let (b₃, memo) := projTablesOkFGo fe memo body
+          (b₁ && b₂ && b₃, memo)
+        | .proj sn i sub =>
+          let (b, memo) := projTablesOkFGo fe memo sub
+          ((fe.findProj? sn i).isSome && b, memo)
+        | e => (e.projTablesOkF fe, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `projTablesOkF`.** -/
+theorem Expr.projTablesOkFGo_spec {fe : FEnv} :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), PTFMemoInv fe memo →
+      (projTablesOkFGo fe memo e).1 = e.projTablesOkF fe ∧
+        PTFMemoInv fe (projTablesOkFGo fe memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [projTablesOkF, h1], ?_⟩
+      exact h2.insert (by simp [projTablesOkF, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOkF, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOkF, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOkF, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOkF, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOkF, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOkF, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [projTablesOkF, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [projTablesOkF, h1, h3, h5])
+  | proj sn i sub ih =>
+    intro memo hm
+    rw [projTablesOkFGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [projTablesOkF, h1], ?_⟩
+      exact h2.insert (by simp [projTablesOkF, h1])
+
+/-- The executed `projTablesOkF` (one memoized DAG walk). -/
+def Expr.projTablesOkFFast (fe : FEnv) (e : Expr) : Bool :=
+  (projTablesOkFGo fe {} e).1
+
+@[csimp] theorem Expr.projTablesOkF_eq_projTablesOkFFast :
+    @Expr.projTablesOkF = @Expr.projTablesOkFFast := by
+  funext fe e
+  exact (projTablesOkFGo_spec e {} PTFMemoInv.empty).1.symm
+
+/-- **`checkConstantValPre` through the index** (task #279 K.20): the
+pre-annotated front door's F twin — every check of `checkConstantValF`
+except the annotation walk, so the stored type is the input's. -/
+def checkConstantValPreF (ops : CheckerOps m) (fe : FEnv)
+    (cv : ConstantVal) : m ConstantVal := do
+  if (fe.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless cv.type.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if cv.type.hasFvar then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless cv.type.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless cv.type.constsResolveF fe do
+    throw (.invalid s!"unknown constant in type of {cv.name}")
+  unless cv.type.projTablesOkF fe do
+    throw (.invalid "invalid projection: the node names another structure")
+  let stype ← ops.inferType fe.env 0 cv.type
+  let _u ← ops.ensureSort fe.env 0 stype
+  pure cv
+
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
     (cv : ConstantVal) : m ConstantVal := do

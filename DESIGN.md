@@ -77484,6 +77484,58 @@ the Mathlib nested cone: exit 0, **4 923 accepted, 41/41 shadow accepts
 BYTE-IDENTICAL to K.10**.  No init-full or full-Mathlib run: the new
 work is inside `checkNested` and the route is still shadow-only.
 
+#### K.19 THE RESTORE STORES THE RESTORE (2026-09-13, the model lane's D0, DESIGN §M.41)
+
+K.12's principle — a term we build ourselves is built from ANNOTATED
+pieces and validated afterwards, never re-annotated — had not reached
+the RESTORE.  `restoreCtors` and `restoreRecTys` went through
+`checkConstantVal` and `restoreRules` through `ops.annotate`, so every
+stored restored constant was the ANNOTATION of a restored term and the
+model tier owed an "annotation commutes with the restore" theorem
+(K.4's shape, at the restore's replacement).  All three now run at the
+pre-annotated grade:
+
+* `restoreCtors` and `restoreRecTys` call **`checkConstantValPre`** —
+  every check of `checkConstantVal`, no walk; `inferType` validates each
+  datum, and K.13's `projTablesOk` covers the `.proj` slot the walk used
+  to check;
+* `restoreRules` drops `ops.annotate` and validates the restored
+  right-hand side where it stands: the scope and resolution tests it
+  already made, `projTablesOk`, and `ops.inferType`.
+
+The auxiliary constants are annotated (K.12), and the restore is the
+pure constant replacement `restoreNested R` — `auxJ p⃗ is ↦ J Ds is`,
+with `Ds` the annotated pin components — so the restored term is
+annotated throughout and nothing is left to infer.
+
+**The identities the model tier reads** (`Verify/Inductives/NestedInv.lean`):
+
+    restoreCtors_id    the stored constructor is
+                       `{ c.1 with levelParams := lps, type := ty }`
+                       with `restoreNested R c.1.type = .ok ty`
+    restoreRecTys_id   the stored recursor keeps the auxiliary's level
+                       parameters and `restoreNested R a.cvRa.type
+                       = .ok o.type`
+    restoreRules_id    the stored rule's right-hand side is
+                       `restoreNested R rl.rhs`
+
+each positional, each read off the run relation's own conjunct.  So a
+restored constant IS the restore of the auxiliary one, syntactically,
+and no commutation theorem is owed.
+
+**Gates** (on `inductives` = `215a57d1`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 25/25**, e2e **216/216**,
+arena tutorial 90/92, the trusted and both `--jobs` sweeps as expected;
+the Mathlib nested cone exit 0, **4 923 accepted, 41/41 shadow accepts
+BYTE-IDENTICAL to K.10**; full Mathlib `--verified --jobs=8`, 32 GB:
+**654 499 accepted, exit 0**; init-full `--jobs=1`: **536.1172 G against
+the baseline binary's 536.1016 G, +0.00292 %**, 53 088 accepted both.
+The init-full and Mathlib runs carry NO nested-route work at all — the
+restore is on `checkNested`'s own path, which only the shadow harness
+enters — so both numbers are the noise floor of an unchanged accept
+path, as they must be.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a

@@ -404,7 +404,13 @@ def restoreCtors (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List N
   | [] => pure []
   | (cvCa, nP, nF) :: rest => do
     let ty ← nestedLift (restoreNested R cvCa.type)
-    let cvA ← checkConstantVal ops env { cvCa with levelParams := lps, type := ty }
+    -- **PRE-ANNOTATED** (K.19): the restore is a constant replacement on
+    -- a term the scratch install already stored annotated, so the
+    -- restored type needs no annotation inferred — every check of
+    -- `checkConstantVal` still runs, `inferType` included, and the
+    -- stored constant is `restoreNested R` of the auxiliary one,
+    -- SYNTACTICALLY
+    let cvA ← checkConstantValPre ops env { cvCa with levelParams := lps, type := ty }
     let rest' ← restoreCtors ops env R lps rest
     pure ((cvA, nP, nF) :: rest')
 
@@ -431,11 +437,20 @@ def restoreRules (ops : CheckerOps m) (envR : Env) (R : RestoreTbl) (lps : List 
     List RecRule → m (List RecRule)
   | [] => pure []
   | rl :: rest => do
-    let rhs ← nestedLift (restoreNested R rl.rhs)
-    let rhsA ← ops.annotate envR 0 rhs
+    let rhsA ← nestedLift (restoreNested R rl.rhs)
+    -- **PRE-ANNOTATED** (K.19): the generated rule's right-hand side is
+    -- the scratch install's own annotated term with the auxiliary
+    -- constants replaced, so no annotation is inferred here.  Every
+    -- check the walk's caller made still runs — the scope and
+    -- resolution tests below, the `.proj` structure-name slot the walk
+    -- itself checked (K.13's `projTablesOk`), and `inferType`, which
+    -- VALIDATES every binder datum — and the stored right-hand side is
+    -- `restoreNested R` of the auxiliary one, SYNTACTICALLY.
     unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
         rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
       throw (.invalid s!"nested: the restored rule of {recName} does not scope")
+    unless rhsA.projTablesOk envR do
+      throw (.invalid "invalid projection: the node names another structure")
     let _ty ← ops.inferType envR 0 rhsA
     let ctor : Name :=
       if isMimic then
@@ -469,7 +484,8 @@ def restoreRecTys (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List 
   | a :: rest => do
     let nm := names.headD a.cvRa.name
     let ty ← nestedLift (restoreNested R a.cvRa.type)
-    let cvA ← checkConstantVal ops env ⟨nm, a.cvRa.levelParams, ty⟩
+    -- pre-annotated, as at the constructors (K.19)
+    let cvA ← checkConstantValPre ops env ⟨nm, a.cvRa.levelParams, ty⟩
     let rest' ← restoreRecTys ops env R lps (names.drop 1) rest
     pure (cvA :: rest')
 
@@ -775,6 +791,20 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
+  -- **THE RESTORED FORMERS: FRESH, AND WITHOUT THE η BIT** (K.20).  Every
+  -- member is re-stored with the record the AUXILIARY install stored for
+  -- it, and that install's formers stage conses `{}`
+  -- (`consMutualFormers`), so no restored former carries the η bit; and
+  -- its name is free in the pre-block environment, which the same
+  -- install's front door checked at this very environment.  Both are
+  -- facts of an environment we built, and the model tier needs them to
+  -- keep the η families closed across the install
+  -- (`declNestedRun_etaClosed`); they are RECORDED here rather than
+  -- re-derived through the scratch install's four cons stages, which is
+  -- a `find?`-shadowing argument about our own environment.  A failure
+  -- is `.internal`.
+  unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
+    throw (.internal "nested: a restored former is not a fresh non-eta family")
   let env₁ := consNestedFormers members env
   -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
   -- block — the block's own and every copy — the STORED field is the

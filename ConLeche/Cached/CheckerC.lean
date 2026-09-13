@@ -234,36 +234,42 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
 checked at the block's starting index, so the whole stage runs at ONE
 environment and needs no flush of its own (`mutualFormersS` flushes
 once before it).  The pure comparand is `mutualFormerChecks`. -/
-def mutualFormerChecksS (fe : FEnv) (nP : Nat) : List (ConstantVal × Nat) →
-    CheckCM (List MutualFormerA)
+def mutualFormerChecksS (fe : FEnv) (nP : Nat) (auxRoute : Bool := false) :
+    List (ConstantVal × Nat) → CheckCM (List MutualFormerA)
   | [] => pure []
   | (cv, nIdx) :: rest => do
-    let cvTa₀ ← checkConstantValF (sharedOpsC mode fe) fe cv
+    -- the grade (task #279 K.10/K.12, through the index): at `auxRoute`
+    -- the caller built every member of this block out of annotated
+    -- pieces, so the walk is skipped and the stored type is the given one
+    let cvTa₀ ←
+      if auxRoute then checkConstantValPreF (sharedOpsC mode fe) fe cv
+      else checkConstantValF (sharedOpsC mode fe) fe cv
     let (cvTa, s) ← checkSumTeleF (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let fs ← mutualFormerChecksS fe nP rest
+    let fs ← mutualFormerChecksS fe nP auxRoute rest
     pure (⟨cvTa, nIdx, s⟩ :: fs)
 
 /-- `mutualFormers` through the index: ONE flush entering the stage
 (the driver's environment changed before it), the checks at that one
 index, the conses afterwards — no operation runs between an
 environment change and a flush. -/
-def mutualFormersS (nP : Nat) (formers : List (ConstantVal × Nat)) (fe : FEnv) :
-    CheckCM (FEnv × List MutualFormerA) := do
+def mutualFormersS (nP : Nat) (formers : List (ConstantVal × Nat)) (auxRoute : Bool)
+    (fe : FEnv) : CheckCM (FEnv × List MutualFormerA) := do
   flushC
-  let fms ← mutualFormerChecksS mode fe nP formers
+  let fms ← mutualFormerChecksS mode fe nP auxRoute formers
   pure (consMutualFormersF fms fe, fms)
 
 /-- `checkMutualCore` through the index (task #278): the stages at the
 index's environment, one flush per environment transition. -/
 def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) : CheckCM FEnv := do
+    (streamRecs : Option (List (ConstantVal × List RecRule)))
+    (auxRoute : Bool) : CheckCM FEnv := do
   let nP := b.nP
   mutualShapeOk (m := CheckCM) b
-  let (fe₁, fms) ← mutualFormersS mode nP b.formers fe
+  let (fe₁, fms) ← mutualFormersS mode nP b.formers auxRoute fe
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
   flushC
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
@@ -272,7 +278,7 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
   let isProp := Level.isEquiv f₀.s .zero == some true
   let (ctorsA, sortss) ← checkMutualCtorsF (sharedOpsC mode fe₁) structWalkersC fe₁ b fms isProp
-    b.ctors
+    auxRoute b.ctors
   let kinds ← classifyMutualKinds (m := CheckCM) b.members3 b.lps nP ctorsA
   unless mutualFieldsOkF structWalkersC fe b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")
@@ -293,6 +299,7 @@ def checkMutualS (fe : FEnv) (p : MutualParts) : CheckCM FEnv := do
   unless p.recPinned do
     throw (.invalid "mutual: a recursor record is not the generated recursor")
   checkMutualCoreS mode fe p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules)))
+    false
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

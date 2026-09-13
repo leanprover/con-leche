@@ -111,6 +111,44 @@ theorem checkConstantValPre_ok {env : Env} {cv cvA : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
     cvA = cv := (checkConstantValPre_inv h).1
 
+/-- **THE PRE-ANNOTATED FRONT DOOR'S `typeWF`** (task #279 K.20): the
+four type-slot facts `EnvWF` asks of every stored constant, off the
+no-walk front door.  They are its own guards — the walk contributed
+none of them; `checkConstantVal_typeWF` has to work for them because its
+type is the ANNOTATED one, and here the stored type IS the input. -/
+theorem checkConstantValPre_typeWF {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    cvA.type.hasFvar = false ∧
+    cvA.type.allLevelParamsDefined cvA.levelParams = true ∧
+    cvA.type.constsResolve env = true ∧
+    cvA.type.looseBVarsBounded 0 = true := by
+  rw [checkConstantValPre_ok h]
+  unfold checkConstantValPre at h
+  by_cases h1 : (env.find? cv.name).isSome = true
+  case pos => rw [if_pos h1] at h; close_throw
+  rw [if_neg h1] at h
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  case pos => rw [if_pos h2] at h; close_throw
+  rw [if_neg h2] at h
+  by_cases h3 : cv.name.isProjFnShape = true
+  case pos => rw [if_pos h3] at h; close_throw
+  rw [if_neg h3] at h
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  by_cases h5 : cv.type.looseBVarsBounded 0 = true
+  case neg => rw [if_neg h5] at h; close_throw
+  rw [if_pos h5] at h
+  by_cases h6 : cv.type.hasFvar = true
+  case pos => rw [if_pos h6] at h; close_throw
+  rw [if_neg h6] at h
+  by_cases h7 : cv.type.allLevelParamsDefined cv.levelParams = true
+  case neg => rw [if_neg h7] at h; close_throw
+  rw [if_pos h7] at h
+  by_cases h8 : cv.type.constsResolve env = true
+  case neg => rw [if_neg h8] at h; close_throw
+  exact ⟨Bool.not_eq_true _ |>.mp h6, h7, h8, h5⟩
+
 /-- **THE `.proj` FACT THE MODEL TIER READS** (K.13).  On the
 pre-annotated path there is no annotation walk to validate a `.proj`
 node's structure-name slot, so `checkConstantValPre` asks the same
@@ -488,6 +526,265 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
     obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
     exact ⟨hnorm, hstores, hkeep hproj⟩
 
+/-! ### The restore stores the RESTORE, syntactically (task #279 K.19)
+
+The restore stages run at the pre-annotated grade, so a stored restored
+constant is `restoreNested R` of the auxiliary one and nothing else —
+no annotation pass stands between them, and the model tier owes no
+"annotation commutes with the restore" theorem. -/
+
+/-- The restored CONSTRUCTORS, positionally. -/
+theorem restoreCtors_id {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {cs out : List (ConstantVal × Nat × Nat)},
+      restoreCtors (m := CheckM) (fueledOps mode F) env R lps cs = .ok out →
+      out.length = cs.length ∧
+      ∀ (i : Nat) (c o : ConstantVal × Nat × Nat), cs[i]? = some c → out[i]? = some o →
+        ∃ ty, restoreNested R c.1.type = .ok ty ∧
+          o = ({ c.1 with levelParams := lps, type := ty }, c.2.1, c.2.2) := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro out h
+    simp only [restoreCtors, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h], fun i c o hc _ => by simp at hc⟩
+  | cons hd rest ih =>
+    intro out h
+    obtain ⟨cvCa, nP, nF⟩ := hd
+    unfold restoreCtors at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    have hty' := nestedLift_ok hty
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i c o hc ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc ho
+      obtain rfl := hc
+      obtain rfl := ho
+      exact ⟨ty, hty', by rw [checkConstantValPre_ok hpre]⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hc ho
+      exact hall k c o hc ho
+
+/-- The restored RECURSOR TYPES, positionally: the level parameters are
+the auxiliary recursor's and the type is the restore of its type. -/
+theorem restoreRecTys_id {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {names : List Name} {as : List AuxStored} {out : List ConstantVal},
+      restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out →
+      out.length = as.length ∧
+      ∀ (i : Nat) (a : AuxStored) (o : ConstantVal), as[i]? = some a → out[i]? = some o →
+        o.levelParams = a.cvRa.levelParams ∧ restoreNested R a.cvRa.type = .ok o.type := by
+  intro names as
+  induction as generalizing names with
+  | nil =>
+    intro out h
+    simp only [restoreRecTys, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h]; rfl, fun i a o ha _ => by simp at ha⟩
+  | cons a rest ih =>
+    intro out h
+    unfold restoreRecTys at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    have hty' := nestedLift_ok hty
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i a' o ha ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha ho
+      obtain rfl := ha
+      obtain rfl := ho
+      rw [checkConstantValPre_ok hpre]
+      exact ⟨rfl, hty'⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at ha ho
+      exact hall k a' o ha ho
+
+/-- The restored RULES, positionally: the stored right-hand side is the
+restore of the auxiliary one, and the constructor's name and the rule's
+fields are the ones the restore table names. -/
+theorem restoreRules_id {envR : Env} {R : RestoreTbl} {lps : List Name} {recName : Name}
+    {isMimic : Bool} {recTy : Expr} {mI rP F : Nat} :
+    ∀ {rules out : List RecRule},
+      restoreRules (m := CheckM) (fueledOps mode F) envR R lps recName isMimic recTy mI rP
+          rules = .ok out →
+      out.length = rules.length ∧
+      ∀ (i : Nat) (rl o : RecRule), rules[i]? = some rl → out[i]? = some o →
+        restoreNested R rl.rhs = .ok o.rhs := by
+  intro rules
+  induction rules with
+  | nil =>
+    intro out h
+    simp only [restoreRules, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h], fun i rl o hr _ => by simp at hr⟩
+  | cons rl rest ih =>
+    intro out h
+    unfold restoreRules at h
+    obtain ⟨rhsA, hrhs, h⟩ := exceptBind_ok h
+    have hrhs' := nestedLift_ok hrhs
+    by_cases h1 : (rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
+        rhsA.looseBVarsBounded 0 && !rhsA.hasFvar) = true
+    case neg => rw [if_neg h1] at h; close_throw
+    rw [if_pos h1] at h
+    try simp only [bind, Except.bind] at h
+    by_cases h2 : rhsA.projTablesOk envR = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨_ty, _hty, h⟩ := exceptBind_ok h
+    try simp only at h
+    by_cases h3 : (!isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor)) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i rl' o hr ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hr ho
+      obtain rfl := hr
+      obtain rfl := ho
+      simpa using hrhs'
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hr ho
+      exact hall k rl' o hr ho
+
+/-! ### Freshness, for the η-families' closure (task #279 K.20) -/
+
+/-- A lookup answers with a constant OF THAT NAME. -/
+theorem Env.find?_name {env : Env} {n : Name} {ci : ConstantInfo}
+    (h : env.find? n = some ci) : ci.name = n := by
+  unfold Env.find? at h
+  have := List.find?_some h
+  exact beq_iff_eq.mp this
+
+/-- The pre-annotated front door's FIRST guard: the name is free. -/
+theorem checkConstantValPre_fresh {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    env.find? cv.name = none := by
+  unfold checkConstantValPre at h
+  by_cases h1 : (env.find? cv.name).isSome = true
+  case pos => rw [if_pos h1] at h; close_throw
+  simpa using Option.not_isSome_iff_eq_none.mp (by simpa using h1)
+
+/-- Every member of a block checked at `auxRoute` has a name the
+environment does not carry. -/
+theorem mutualFormerChecks_true_fresh {nP F : Nat} {env : Env} :
+    ∀ {formers : List (ConstantVal × Nat)} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP true formers = .ok fms →
+      ∀ (i : Nat) (cv : ConstantVal) (nIdx : Nat),
+        formers[i]? = some (cv, nIdx) → env.find? cv.name = none := by
+  intro formers
+  induction formers with
+  | nil => intro fms _h i cv nIdx hi; exact absurd hi (by simp)
+  | cons hd rest ih =>
+    intro fms h i cv nIdx hi
+    obtain ⟨cv₀, nIdx₀⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, fs, hfront, -, hrec, -⟩ := mutualFormerChecks_true_cons h
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq, Prod.mk.injEq] at hi
+      obtain ⟨rfl, rfl⟩ := hi
+      exact checkConstantValPre_fresh hfront
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hi
+      exact ih hrec k cv nIdx hi
+
+/-- The restored CONSTRUCTORS' names are free at the environment they
+are checked at. -/
+theorem restoreCtors_fresh {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {cs out : List (ConstantVal × Nat × Nat)},
+      restoreCtors (m := CheckM) (fueledOps mode F) env R lps cs = .ok out →
+      ∀ o ∈ out, env.find? o.1.name = none := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro out h o ho
+    simp only [restoreCtors, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at ho; exact absurd ho (by simp)
+  | cons hd rest ih =>
+    intro out h o ho
+    obtain ⟨cvCa, nP, nF⟩ := hd
+    unfold restoreCtors at h
+    obtain ⟨ty, -, h⟩ := exceptBind_ok h
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    rcases List.mem_cons.mp ho with rfl | ho
+    · show env.find? cvA.name = none
+      rw [checkConstantValPre_ok hpre]
+      exact checkConstantValPre_fresh hpre
+    · exact ih hrest o ho
+
+/-- The restored RECURSOR types' names are free at the environment they
+are checked at. -/
+theorem restoreRecTys_fresh {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {names : List Name} {as : List AuxStored} {out : List ConstantVal},
+      restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out →
+      ∀ o ∈ out, env.find? o.name = none := by
+  intro names as
+  induction as generalizing names with
+  | nil =>
+    intro out h o ho
+    simp only [restoreRecTys, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at ho; exact absurd ho (by simp)
+  | cons a rest ih =>
+    intro out h o ho
+    unfold restoreRecTys at h
+    obtain ⟨ty, -, h⟩ := exceptBind_ok h
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    rcases List.mem_cons.mp ho with rfl | ho
+    · rw [checkConstantValPre_ok hpre]
+      exact checkConstantValPre_fresh hpre
+    · exact ih hrest o ho
+
+/-- The read-back, positionally. -/
+theorem auxStoredAll_get {envAux : Env} {b : MutualBlock} :
+    ∀ {k : Nat} {stored : List AuxStored}, auxStoredAll envAux b k = some stored →
+      stored.length = k ∧
+      ∀ (i : Nat) (a : AuxStored), stored[i]? = some a → auxStored? envAux b i = some a := by
+  intro k
+  induction k with
+  | zero =>
+    intro stored h
+    simp only [auxStoredAll, Option.some.injEq] at h
+    exact ⟨by rw [← h]; rfl, fun i a ha => by rw [← h] at ha; exact absurd ha (by simp)⟩
+  | succ k ih =>
+    intro stored h
+    simp only [auxStoredAll, bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+    obtain ⟨earlier, hearlier, a, ha, rfl⟩ := h
+    obtain ⟨hlen, hall⟩ := ih hearlier
+    refine ⟨by simp [hlen], ?_⟩
+    intro i a' hi
+    by_cases hlt : i < earlier.length
+    · rw [List.getElem?_append_left hlt] at hi
+      exact hall i a' hi
+    · have : i = earlier.length := by
+        have := (List.getElem?_eq_some_iff.mp hi).1
+        simp at this
+        omega
+      subst this
+      rw [List.getElem?_append_right (by omega)] at hi
+      simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq] at hi
+      obtain rfl := hi
+      rw [hlen]
+      exact ha
+
 /-- **NO BLOCK MEMBER CARRIES A COPY'S NAME** (task #279 K.18, the model
 lane's question).
 
@@ -550,6 +847,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- opened at the block's parameter variables — typed at the SCRATCH
       -- environment
       nestedPinsOk (m := CheckM) (fueledOps mode F) envAux p.nP st.pins = .ok () ∧
+      -- the restored formers are fresh and carry no η bit (K.20)
+      (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
+        = true ∧
       -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
       -- block, the STORED field is the weak head normal form of the
       -- PROCESSED one wherever the stage's normalisation changed it,
@@ -669,6 +969,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only [bind, Except.bind] at h
   obtain ⟨uA, hpinsAux, h⟩ := exceptBind_ok h
   try simp only at h
+  by_cases hcaps : (stored.take p.k).all
+      (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true
+  case neg => rw [if_neg hcaps] at h; close_throw
+  rw [if_pos hcaps] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uW, hwhnf, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -696,7 +1001,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hto', hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases uA; exact hpinsAux), hcaps, (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche
