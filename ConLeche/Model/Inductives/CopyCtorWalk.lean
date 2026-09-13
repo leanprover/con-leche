@@ -1191,4 +1191,81 @@ theorem copyCtorAsRead_of_walkFacts {μ : CheckMode} {envAux env env₁ : Env} {
     rw [DenoteMetaSpine.unique hspA hspC]
     exact List.map_congr_left fun e _ => instSeq_cut_congr hDsLen cAJ.2 e
 
+
+/-! ## The container's field at the pin is graded (`hgradeC`) -/
+
+/-- A fit transfers along a `Sat`-implication of the telescopes (the
+values are re-read off the satisfying frame). -/
+theorem spineFit_of_satIff {Γ₁ Γ₂ : List AnnotTerm} {σ : Nat → V} {vals : List V}
+    (hlen : Γ₂.length = Γ₁.length)
+    (hiff : ∀ ρ : Nat → V, Sat V Γ₁.reverse ρ → Sat V Γ₂.reverse ρ)
+    (hfit : SpineFit σ Γ₁ vals) : SpineFit σ Γ₂ vals := by
+  have h1 := sat_of_spineFit (Δ₀ := []) (Sat_nil V σ) hfit
+  rw [List.append_nil] at h1
+  have h2 := hiff _ h1
+  have h3 := spineFit_of_sat (Δ₀ := []) (by rw [List.append_nil]; exact h2)
+  have hv : vals.length = Γ₂.length := by rw [hlen, ← hfit.length_eq]
+  rw [range_reverse_map_consList' hv] at h3
+  have hσ : (fun j => consList vals σ (j + Γ₂.length)) = σ := by
+    funext j; rw [← hv, consList_apply_add]
+  rw [hσ] at h3
+  exact h3
+
+/-- **The container's instantiated field is graded at the record's
+frames** (`copyCtorAsRead_of_walkFacts`'s `hgradeC`): the container's
+constructor tower is graded everywhere (`CtorDataI.okTy`); the pin's
+readings fit its parameter binders (`pinFit_of_leafShape` against the
+member's former, moved to the constructor's own parameter telescope by
+`paramsIffM`/`paramsIff`); with `i` earlier values fitting the field
+domains at the pin the `nPJ + i`-th binder is graded there
+(`wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom`), and the
+substitution moves the frame to the block's (`wellDenotedV_instSeq_under`). -/
+theorem gradeC_of_okTy {μ : CheckMode} {envAux : Env} (mp : EnvModelM V μ envAux)
+    {d dJ : IndRepData V} {ψ ψ' : Name → Nat} {DsA : List AnnotTerm} {Jc mmJ : Nat}
+    {cAJ : ConstantVal × Nat} {T : Name} {lpsJ : List Name} {nIdx : Nat} {isProp large : Bool}
+    {idxArgs : List Expr} {srcs : List (Option Nat)}
+    (hDJ : CtorDataI mp.base2 T lpsJ cAJ.1 dJ.nP cAJ.2 nIdx dJ.resSort isProp large idxArgs
+      (dJ.dsF Jc) (dJ.esF Jc) srcs)
+    (hFFJ : dJ.FormerFacts mp.base2 ψ' mmJ) (hLSJ : dJ.LeafShape mp.base2 ψ' mmJ)
+    (hpin : d.PinRead ψ (mp.base2.acval (dJ.memberName mmJ) ψ') DsA dJ.nP)
+    (hpIffM : ∀ ρ : Nat → V, Sat V (dJ.params ψ').reverse ρ ↔
+      Sat V (((dJ.ppsM mmJ ψ').take dJ.nP).map (·.2.2)).reverse ρ)
+    (hpIffC : ∀ ρ : Nat → V, Sat V (dJ.params ψ').reverse ρ ↔
+      Sat V (((dJ.dsF Jc ψ').take dJ.nP).map (·.2.2)).reverse ρ) :
+    ∀ (i : Nat), i < cAJ.2 → ∀ (σ : Nat → V) (ws : List V), ws.length = i →
+      Sat V (d.params ψ).reverse σ →
+      SpineFit (consList (DsA.map (interp V σ)) σ)
+        ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) ws →
+      WellDenotedV V (consList ws σ) (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i - 1)
+        ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2) := by
+  intro i hi σ ws hws hσ hfit
+  have hlenD : DsA.length = dJ.nP := hpin.len
+  have hDsWD : ∀ w ∈ DsA, WellDenotedV V σ w := WellDenotedV_mkAppN_args DsA (hpin.wd σ hσ)
+  have hfitP := IndRepData.pinFit_of_leafShape d rfl hFFJ hLSJ hpin hσ
+  obtain ⟨hlenPP, -, -, -⟩ := hFFJ
+  have hlenDs := hDJ.len ψ'
+  have hfitC : SpineFit σ (((dJ.dsF Jc ψ').take dJ.nP).map (·.2.2)) (DsA.map (interp V σ)) :=
+    spineFit_of_satIff
+      (by rw [List.length_map, List.length_map, List.length_take, List.length_take, hlenDs, hlenPP]
+          simp)
+      (fun ρ h => (hpIffC ρ).mp ((hpIffM ρ).mpr h)) hfitP
+  have hfitAll : SpineFit σ (((dJ.dsF Jc ψ').take (dJ.nP + i)).map (·.2.2))
+      (DsA.map (interp V σ) ++ ws) := by
+    have := SpineFit.append hfitC hfit
+    rw [← List.map_append, ← List.take_add] at this
+    exact this
+  obtain ⟨dd, hdd⟩ : ∃ dd, (dJ.dsF Jc ψ')[dJ.nP + i]? = some dd :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenDs]; omega)⟩
+  have hgetD : (dJ.dsF Jc ψ').getD (dJ.nP + i) default = dd := by
+    rw [List.getD_eq_getElem?_getD, hdd]; rfl
+  have hok := hDJ.okTy ψ' σ
+  have h1 := wellDenoted_mkPisAV_dom hok.1 _ _ dd hdd hfitAll
+  have h2 := annotValid_mkPisAV_dom hok.2 _ _ dd hdd hfitAll
+  rw [consList_append] at h1 h2
+  rw [hgetD]
+  refine wellDenotedV_instSeq_under σ DsA ws (dJ.nP + i - 1) dd.2.2 (fun hne => ?_) hDsWD ⟨h1, h2⟩
+  have : DsA.length ≠ 0 := fun h0 => hne (List.eq_nil_of_length_eq_zero h0)
+  rw [hlenD, hws]
+  omega
+
 end ConLeche.Model
