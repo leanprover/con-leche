@@ -1016,4 +1016,329 @@ theorem ctorAtDoms_psi {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List N
 
 end IndRepData
 
+/-! ## The replaced positions, as index sets -/
+
+omit [SetTheory V] in
+/-- The excluded slots of the replaced positions below `n`, at depth
+`nP + n + k`: the indices `n + k - 1 - l` for a replaced `l < n`. -/
+theorem exclP_replP_iff {nP : Nat} {P : Nat → Prop} {n k D j : Nat} (hD : D = nP + n + k) :
+    exclP (replP nP P n) D j ↔ ∃ l, l < n ∧ P l ∧ j = n + k - 1 - l := by
+  constructor
+  · rintro ⟨q, ⟨h1, h2, h3⟩, hq, hj⟩
+    exact ⟨q - nP, by omega, h2, by omega⟩
+  · rintro ⟨l, hl, hP, hj⟩
+    refine ⟨nP + l, ⟨Nat.le_add_right _ _, by rw [Nat.add_sub_cancel_left]; exact hP, by omega⟩,
+      by omega, by omega⟩
+
+omit [SetTheory V] in
+/-- A recursive position, as membership in `recIdxOf`. -/
+theorem recAt_add_iff {nP : Nat} {ks : List RecFieldKind} {l : Nat} :
+    recAt nP ks (nP + l) ↔ l ∈ ConLeche.recIdxOf ks := by
+  unfold recAt
+  rw [Nat.add_sub_cancel_left, mem_recIdxOf]
+  constructor
+  · rintro ⟨-, h⟩
+    refine ⟨?_, h⟩
+    refine Classical.byContradiction fun hlt => ?_
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none_iff.mpr (Nat.le_of_not_lt hlt)] at h
+    rcases h with h | h <;> exact nomatch h
+  · rintro ⟨-, h⟩
+    exact ⟨Nat.le_add_right _ _, h⟩
+
+omit [SetTheory V] in
+/-- The excluded slots of the recursive positions below `n`, at depth
+`nP + n + k`. -/
+theorem exclP_recAt_iff {nP : Nat} {ks : List RecFieldKind} {n k D j : Nat} (hD : D = nP + n + k) :
+    exclP (fun q => recAt nP ks q ∧ q < nP + n) D j ↔
+      ∃ l, l < n ∧ l ∈ ConLeche.recIdxOf ks ∧ j = n + k - 1 - l := by
+  constructor
+  · rintro ⟨q, ⟨hr, hlt⟩, hq, hj⟩
+    have hle : nP ≤ q := hr.1
+    refine ⟨q - nP, by omega, ?_, by omega⟩
+    rw [← recAt_add_iff (nP := nP), Nat.add_sub_cancel' hle]
+    exact hr
+  · rintro ⟨l, hl, hm, hj⟩
+    exact ⟨nP + l, ⟨recAt_add_iff.mpr hm, by omega⟩, by omega, by omega⟩
+
+omit [SetTheory V] in
+/-- A position outside `recIdxOf` is neither recursive nor reflexive. -/
+theorem kind_of_not_mem_recIdxOf {ks : List RecFieldKind} {i : Nat} (h : i ∉ ConLeche.recIdxOf ks) :
+    ks.getD i .ordinary ≠ .recursive ∧ ks.getD i .ordinary ≠ .reflexive := by
+  have hlt : ks.getD i .ordinary ≠ .ordinary → i < ks.length := by
+    intro hne
+    refine Classical.byContradiction fun hge => ?_
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none_iff.mpr (Nat.le_of_not_lt hge)] at hne
+    exact hne rfl
+  constructor
+  · intro hk; exact h (mem_recIdxOf.mpr ⟨hlt (by rw [hk]; decide), Or.inl hk⟩)
+  · intro hk; exact h (mem_recIdxOf.mpr ⟨hlt (by rw [hk]; decide), Or.inr hk⟩)
+
+omit [SetTheory V] in
+/-- A lift at a cutoff above every index of `P` changes nothing `P`
+sees. -/
+theorem NoBVar_liftN_below_iff {n : Nat} :
+    ∀ (e : AnnotTerm) {c : Nat} {P : Nat → Prop}, (∀ j, P j → j < c) →
+      (NoBVar P (e.liftN n c) ↔ NoBVar P e)
+  | .bvar i, c, P, hP => by
+    show ¬ P (if i < c then i else i + n) ↔ ¬ P i
+    split
+    · exact Iff.rfl
+    · next hic =>
+      constructor
+      · intro _ h; have := hP _ h; omega
+      · intro _ h; have := hP _ h; omega
+  | .sort _, _, _, _ => Iff.rfl
+  | .const _ _, _, _, _ => Iff.rfl
+  | .prf, _, _, _ => Iff.rfl
+  | .app f a, c, P, hP => by
+    show NoBVar P (f.liftN n c) ∧ NoBVar P (a.liftN n c) ↔ NoBVar P f ∧ NoBVar P a
+    rw [NoBVar_liftN_below_iff f hP, NoBVar_liftN_below_iff a hP]
+  | .lam _ A b, c, P, hP => by
+    show NoBVar P (A.liftN n c) ∧ NoBVar (shiftP P) (b.liftN n (c + 1)) ↔
+      NoBVar P A ∧ NoBVar (shiftP P) b
+    rw [NoBVar_liftN_below_iff A hP, NoBVar_liftN_below_iff b (c := c + 1) (P := shiftP P)
+      fun j hj => by
+        cases j with
+        | zero => exact hj.elim
+        | succ j => have := hP j hj; omega]
+  | .pi _ _ A B, c, P, hP => by
+    show NoBVar P (A.liftN n c) ∧ NoBVar (shiftP P) (B.liftN n (c + 1)) ↔
+      NoBVar P A ∧ NoBVar (shiftP P) B
+    rw [NoBVar_liftN_below_iff A hP, NoBVar_liftN_below_iff B (c := c + 1) (P := shiftP P)
+      fun j hj => by
+        cases j with
+        | zero => exact hj.elim
+        | succ j => have := hP j hj; omega]
+  | .eqE a b, c, P, hP => by
+    show NoBVar P (a.liftN n c) ∧ NoBVar P (b.liftN n c) ↔ NoBVar P a ∧ NoBVar P b
+    rw [NoBVar_liftN_below_iff a hP, NoBVar_liftN_below_iff b hP]
+  | .fst e, c, P, hP => NoBVar_liftN_below_iff e hP
+  | .snd e, c, P, hP => NoBVar_liftN_below_iff e hP
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+set_option maxHeartbeats 3200000 in
+/-- **No later reading mentions a replaced position** (`PsiSetup.hnbP`):
+the replaced positions of ψ's body are exactly the copy constructor's
+recursive fields, whose `NoBVar` facts the auxiliary datum carries
+(`noBVar_entries`); every container reading is the copy's reading
+under the substitution of the pin's readings for the container's
+parameters (the record), which touches no field variable
+(`NoBVar_instSeq_iff`), and the transports' telescopes and readings
+are the copy's lifted over the pin's readings. -/
+theorem noBVar_psi {m : EnvModel V env} {env₀ env₀J : Env} {lpsT lpsJ : List Name} {ψ ψ' : Name → Nat}
+    {dJ : IndRepData V} {DsA : List AnnotTerm} (hDsA : DsA.length = dJ.nP) {k₀ j₀ : Nat}
+    (auxOf : Nat → Nat) (cd : Nat → CopyData V) (tbl : Nat → AnnotTerm) (b : Nat)
+    {Jc : Nat} {cAJ cAa : ConstantVal × Nat} (hnF : cAa.2 = cAJ.2)
+    (hrec : d.CopyCtorAsRead m dJ ψ ψ' DsA k₀ j₀ (fun j' => (cd j').dJ.memberName (cd j').mm)
+      (fun j' => (cd j').ψ') (fun j' => (cd j').DsA) Jc (auxOf Jc) cAJ.2)
+    (hDA : FixCtorDataI m env₀ (d.memberName (d.mems (auxOf Jc))) lpsT cAa.1 d.nP cAa.2
+      (d.nIdxAt (d.mems (auxOf Jc))) d.resSort d.isProp d.large (d.idxF (auxOf Jc)) (d.dsF (auxOf Jc))
+      (d.esF (auxOf Jc)) (d.srcsF (auxOf Jc)) (d.ksF (auxOf Jc)) (d.fvsPF (auxOf Jc))
+      (d.xFvsF (auxOf Jc)) (d.xrestF (auxOf Jc)) (d.eissF (auxOf Jc)) (d.tssF (auxOf Jc))
+      (fun i => d.memberName (d.tgts (auxOf Jc) i)) (fun i => d.nIdxAt (d.tgts (auxOf Jc) i)))
+    (hcf : cAa.1.type.hasFvar = false) (hcb : cAa.1.type.looseBVarsBounded 0 = true)
+    (hviewA : d.ksR (auxOf Jc) = d.ksF (auxOf Jc) ∧ d.tgtsR (auxOf Jc) = d.tgts (auxOf Jc) ∧
+      d.eissR (auxOf Jc) = d.eissF (auxOf Jc) ∧ d.tssR (auxOf Jc) = d.tssF (auxOf Jc))
+    (hDJ : FixCtorDataI m env₀J (dJ.memberName (dJ.mems Jc)) lpsJ cAJ.1 dJ.nP cAJ.2
+      (dJ.nIdxAt (dJ.mems Jc)) dJ.resSort dJ.isProp dJ.large (dJ.idxF Jc) (dJ.dsF Jc) (dJ.esF Jc)
+      (dJ.srcsF Jc) (dJ.ksF Jc) (dJ.fvsPF Jc) (dJ.xFvsF Jc) (dJ.xrestF Jc) (dJ.eissF Jc) (dJ.tssF Jc)
+      (fun i => dJ.memberName (dJ.tgts Jc i)) (fun i => dJ.nIdxAt (dJ.tgts Jc i))) :
+    let P := replaced (psiUseIh dJ Jc) (d.psiVia dJ ψ k₀ dJ.nP auxOf b tbl Jc)
+    (∀ i, i < cAJ.2 →
+      NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i)) ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2) ∧
+    (∀ i, i < cAJ.2 → ∀ k dd, ((dJ.tssF Jc ψ').getD i [])[k]? = some dd →
+      NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + k)) dd.2.2) ∧
+    (∀ i, i < cAJ.2 → ∀ E ∈ (dJ.eissF Jc ψ').getD i [],
+      NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + ((dJ.tssF Jc ψ').getD i []).length)) E) ∧
+    (∀ E ∈ dJ.esF Jc ψ', NoBVar (exclP (replP dJ.nP P cAJ.2) (dJ.nP + cAJ.2)) E) ∧
+    (∀ i, i < cAJ.2 → ∀ Ψ Eis tl, d.psiVia dJ ψ k₀ dJ.nP auxOf b tbl Jc i = some (Ψ, Eis, tl) →
+      (∀ k dd, tl[k]? = some dd → NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + k)) dd.2.2) ∧
+      ∀ E ∈ Eis, NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + tl.length)) E) := by
+  intro P
+  obtain ⟨hviewK, hviewT, hviewE, hviewS⟩ := hviewA
+  obtain ⟨hnb, hnbT, hnbE, hnbEs⟩ := FixCtorDataI.noBVar_entries hDA hcf hcb ψ
+  have hlenK : (d.ksF (auxOf Jc)).length = cAJ.2 := by rw [hDA.ksLen, hnF]
+  have hlenKJ : (dJ.ksF Jc).length = cAJ.2 := hDJ.ksLen
+  -- the replaced positions are the copy's recursive fields
+  have hPiff : ∀ l, P l ↔ l ∈ ConLeche.recIdxOf (d.ksF (auxOf Jc)) := by
+    intro l
+    show psiUseIh dJ Jc l = true ∨ (d.psiVia dJ ψ k₀ dJ.nP auxOf b tbl Jc l).isSome = true ↔ _
+    rw [psiVia_isSome, hviewK]
+    constructor
+    · rintro (h | ⟨h, -⟩)
+      · have hl : l ∈ ConLeche.recIdxOf (dJ.ksF Jc) := of_decide_eq_true h
+        obtain ⟨hkind, -, -, -⟩ := hrec.kindR l hl
+        obtain ⟨hlt, hk⟩ := mem_recIdxOf.mp hl
+        rw [hviewK] at hkind
+        exact mem_recIdxOf.mpr ⟨by rw [hlenK, ← hlenKJ]; exact hlt, by rw [hkind]; exact hk⟩
+      · exact h
+    · intro h
+      by_cases hl : l ∈ ConLeche.recIdxOf (dJ.ksF Jc)
+      · exact Or.inl (decide_eq_true hl)
+      · exact Or.inr ⟨h, hl⟩
+  have hPeq : ∀ n k j, exclP (replP dJ.nP P n) (dJ.nP + n + k) j ↔
+      exclP (fun q => recAt d.nP (d.ksF (auxOf Jc)) q ∧ q < d.nP + n) (d.nP + n + k) j := by
+    intro n k j
+    rw [exclP_replP_iff rfl, exclP_recAt_iff rfl]
+    constructor
+    · rintro ⟨l, hl, hP, hj⟩; exact ⟨l, hl, (hPiff l).mp hP, hj⟩
+    · rintro ⟨l, hl, hP, hj⟩; exact ⟨l, hl, (hPiff l).mpr hP, hj⟩
+  have hPbelow : ∀ n k j, exclP (replP dJ.nP P n) (dJ.nP + n + k) j → j < n + k := by
+    intro n k j h
+    obtain ⟨l, hl, -, hj⟩ := (exclP_replP_iff rfl).mp h
+    omega
+  have hQbelow : ∀ n k j, exclP (fun q => recAt d.nP (d.ksF (auxOf Jc)) q ∧ q < d.nP + n)
+      (d.nP + n + k) j → j < n + k := by
+    intro n k j h
+    obtain ⟨l, hl, -, hj⟩ := (exclP_recAt_iff rfl).mp h
+    omega
+  have hpos : DsA ≠ [] → 1 ≤ dJ.nP := fun hne => by
+    rw [← hDsA]
+    cases DsA with
+    | nil => exact absurd rfl hne
+    | cons _ _ => simp
+  -- a container telescope entry and index reading at a recursive position
+  have htssJ : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (dJ.ksF Jc) →
+      ∀ k dd, ((dJ.tssF Jc ψ').getD i [])[k]? = some dd →
+        NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + k)) dd.2.2 := by
+    intro i hi hR k dd hk
+    obtain ⟨-, -, htss, -⟩ := hrec.kindR i hR
+    have hA : ((d.tssF (auxOf Jc) ψ).getD i [])[k]?
+        = some (dd.1, dd.2.1, ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i - 1 + k) dd.2.2) := by
+      rw [← hviewS, htss, instSeqDoms_getElem?, hk]; rfl
+    have h := hnbT i (by rw [hnF]; exact hi) k _ hA
+    refine NoBVar_congr (fun j => (hPeq i k j).symm) _ ?_
+    exact (NoBVar_instSeq_iff DsA _ _ (fun q hq => by
+      have := hQbelow i k q hq
+      rw [hDsA]
+      rcases Nat.eq_zero_or_pos dJ.nP with h0 | h0
+      · omega
+      · omega)).mp h
+  have heissJ : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (dJ.ksF Jc) →
+      ∀ E ∈ (dJ.eissF Jc ψ').getD i [],
+        NoBVar (exclP (replP dJ.nP P i) (dJ.nP + i + ((dJ.tssF Jc ψ').getD i []).length)) E := by
+    intro i hi hR E hE
+    obtain ⟨-, -, htss, heiss⟩ := hrec.kindR i hR
+    have hlenT : ((d.tssF (auxOf Jc) ψ).getD i []).length = ((dJ.tssF Jc ψ').getD i []).length := by
+      rw [← hviewS, htss, instSeqDoms_length]
+    have hA : ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i + ((dJ.tssF Jc ψ').getD i []).length - 1) E
+        ∈ (d.eissF (auxOf Jc) ψ).getD i [] := by
+      rw [← hviewE, heiss]; exact List.mem_map_of_mem hE
+    have h := hnbE i (by rw [hnF]; exact hi) _ hA
+    rw [hlenT] at h
+    refine NoBVar_congr (fun j => (hPeq i _ j).symm) _ ?_
+    exact (NoBVar_instSeq_iff DsA _ _ (fun q hq => by
+      have := hQbelow i _ q hq
+      rw [hDsA]
+      rcases Nat.eq_zero_or_pos dJ.nP with h0 | h0
+      · omega
+      · omega)).mp h
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · -- the field domains
+    intro i hi
+    by_cases hR : i ∈ ConLeche.recIdxOf (dJ.ksF Jc)
+    · -- a field the container sees as recursive: the container's own entry
+      rw [FixCtorDataI.recRefl_entry hDJ ψ' hR]
+      refine NoBVar_mkPisAV_exclP _ (fun q hq => replP_lt q hq) (htssJ i hi hR) ?_
+      refine NoBVar_mkAppN (NoBVar_of_bvarsBelow (m.cval_closedL _ ψ') (fun j _ => Nat.zero_le _)) _ ?_
+      intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp ha
+        have hk' : k < dJ.nP := List.mem_range.mp hk
+        show ¬ exclP _ _ _
+        intro hq
+        have := hPbelow i _ _ hq
+        omega
+      · exact heissJ i hi hR a ha
+    · by_cases hT : i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc))
+      · -- a transport: the container's substituted domain is the copy's tower
+        obtain ⟨j', -, -, heq⟩ := hrec.kindT i hi hR hT
+        rw [hviewK] at hT
+        have hrhs : NoBVar (exclP (fun q => recAt d.nP (d.ksF (auxOf Jc)) q ∧ q < d.nP + i) (d.nP + i))
+            (mkPisAV ((d.tssR (auxOf Jc) ψ).getD i [])
+              (AnnotTerm.mkAppN (m.acval ((cd j').dJ.memberName (cd j').mm) (cd j').ψ')
+                (((cd j').DsA).map (·.liftN (i + ((d.tssR (auxOf Jc) ψ).getD i []).length) 0) ++
+                  (d.eissR (auxOf Jc) ψ).getD i []))) := by
+          rw [hviewS, hviewE]
+          refine NoBVar_mkPisAV_exclP _ (fun q hq => hq.2) (hnbT i (by rw [hnF]; exact hi)) ?_
+          refine NoBVar_mkAppN (NoBVar_of_bvarsBelow (m.cval_closedL _ _) (fun j _ => Nat.zero_le _)) _ ?_
+          intro a ha
+          rcases List.mem_append.mp ha with ha | ha
+          · obtain ⟨D, -, rfl⟩ := List.mem_map.mp ha
+            exact NoBVar_liftN_zero (fun j hj => hQbelow i _ j hj) D
+          · exact hnbE i (by rw [hnF]; exact hi) a ha
+        rw [← heq] at hrhs
+        refine NoBVar_congr (fun j => (hPeq i 0 j).symm) _ ?_
+        exact (NoBVar_instSeq_iff DsA _ _ (fun q hq => by
+          have := hQbelow i 0 q hq
+          rw [hDsA]
+          rcases Nat.eq_zero_or_pos dJ.nP with h0 | h0
+          · omega
+          · omega)).mp hrhs
+      · -- ordinary on both sides
+        have h := hnb i (by rw [hnF]; exact hi)
+        rw [hrec.ord i hi hR hT] at h
+        refine NoBVar_congr (fun j => (hPeq i 0 j).symm) _ ?_
+        exact (NoBVar_instSeq_iff DsA _ _ (fun q hq => by
+          have := hQbelow i 0 q hq
+          rw [hDsA]
+          rcases Nat.eq_zero_or_pos dJ.nP with h0 | h0
+          · omega
+          · omega)).mp h
+  · -- the container's telescopes
+    intro i hi k dd hk
+    by_cases hR : i ∈ ConLeche.recIdxOf (dJ.ksF Jc)
+    · exact htssJ i hi hR k dd hk
+    · rw [hDJ.tssNone ψ' i (kind_of_not_mem_recIdxOf hR).2] at hk
+      exact nomatch hk
+  · -- the container's index readings
+    intro i hi E hE
+    by_cases hR : i ∈ ConLeche.recIdxOf (dJ.ksF Jc)
+    · exact heissJ i hi hR E hE
+    · rw [hDJ.ordNone ψ' i (kind_of_not_mem_recIdxOf hR).1 (kind_of_not_mem_recIdxOf hR).2] at hE
+      exact nomatch hE
+  · -- the result's index readings
+    intro E hE
+    have hA : ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + cAJ.2 - 1) E ∈ d.esF (auxOf Jc) ψ := by
+      rw [hrec.es]; exact List.mem_map_of_mem hE
+    have h := hnbEs _ hA
+    rw [hnF] at h
+    refine NoBVar_congr (fun j => (hPeq cAJ.2 0 j).symm) _ ?_
+    exact (NoBVar_instSeq_iff DsA _ _ (fun q hq => by
+      have := hQbelow cAJ.2 0 q hq
+      rw [hDsA]
+      rcases Nat.eq_zero_or_pos dJ.nP with h0 | h0
+      · omega
+      · omega)).mp h
+  · -- the transports' telescopes and readings
+    intro i hi Ψ Eis tl hvia
+    unfold IndRepData.psiVia at hvia
+    split at hvia
+    · next hT =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at hvia
+      obtain ⟨-, rfl, rfl⟩ := hvia
+      rw [hviewK] at hT
+      refine ⟨?_, ?_⟩
+      · intro k dd hk
+        rw [rebit_getElem?, liftDoms_getElem?] at hk
+        obtain ⟨d', hd', rfl⟩ := Option.map_eq_some_iff.mp hk
+        obtain ⟨d'', hd'', rfl⟩ := Option.map_eq_some_iff.mp hd'
+        show NoBVar _ (d''.2.2.liftN dJ.nP (i + k))
+        rw [NoBVar_liftN_below_iff _ (fun j hj => hPbelow i k j hj)]
+        rw [hviewS] at hd''
+        exact NoBVar_congr (fun j => (hPeq i k j).symm) _ (hnbT i (by rw [hnF]; exact hi) k d'' hd'')
+      · intro E hE
+        obtain ⟨E', hE', rfl⟩ := List.mem_map.mp hE
+        rw [rebit_length, liftDoms_length]
+        rw [NoBVar_liftN_below_iff _ (fun j hj => hPbelow i _ j hj)]
+        rw [hviewE] at hE'
+        rw [hviewS]
+        exact NoBVar_congr (fun j => (hPeq i _ j).symm) _ (hnbE i (by rw [hnF]; exact hi) E' hE')
+    · exact nomatch hvia
+
+end IndRepData
+
 end ConLeche.Model
