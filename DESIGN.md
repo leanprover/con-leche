@@ -74625,26 +74625,59 @@ hypothesis about it untouched (use `Nat.pos_of_ne_zero` +
 list must be named when two `take`s are in the goal; `le_of_eq` is
 Mathlib (`Nat.le_of_eq`).
 
+**Addendum (same session, after the summary above): the fold's output
+and the fold over the order — ψ CLOSED AT THE DATUM LEVEL.**
+`FoldChoice`: `motChoiceAV_underTowerOk`/`minChoiceAV_underTowerOk`
+factored out of the `_mem` proofs, `_wellDenotedV` twins,
+`choice_prefix_wellDenoted` (every term of `ps ++ Ms ++ Ns` graded, by
+induction over the positions).  `PsiAssembly`: `PsiSetup.fold_wellDenoted`
+(the tower graded, the prefix graded and fitting →
+`wellDenotedV_mkAppN_of_spineFit`), `PsiSetup.fold_mem_pi`
+(`recFold_mem`'s residual tower `mkPisAV (recPostAV t) (mutualConcAV …)`
+at the prefix frame interprets as `psiTyAV` at the parameter frame —
+`interp_mkPisAV_congr` with the index binders through
+`interp_liftN_middle`, the major `majorAVP` vs `famAppAV` through
+`interp_famAppAV_at` at the two `extra`s, the body through
+`interp_mutualConcAV_frame` + `motChoiceAV_fold` + `invTg_fold`),
+`PsiSetup.psiTyAV_wellDenotedV` (ψ's Π-type graded: index binders from
+the target's own tower, the major from `targetOk_real` at the pin, the
+body from the target at the indices), `PsiSetup.typedPi` (= `PsiTypedPi`
+of the fold term).  The step: `psiTerm`/`psiStep` (the copy's recursor
+at the choice from the table of the earlier terms — the term depends on
+the table only through `psiVia`), `PsiP` (`PsiTypedPi` at the pin),
+`GroupFacts` (the group-own hypotheses of `psiSetup_of_group` at a copy:
+`mm`, `ctorsC`, `kReal`, `pinsAV`, `view`, the container's `IndRep`
+(existential), `len`, `lev`, `kA`, `grp`, `ctors`; `.ok` = `CopyData.Ok`
+at the pin, `.targetOk` = `targetOk_psi` at the group), `psiStep_typed`
+(the step returns `PsiP` from `PsiP` at the copies it refers to: every
+transport's target is `< n` by `CopyCtorFacts.tgts` + `d.k ≤ k₀ + n`,
+is live by the target's own `GroupFacts`, and is an `R`-reference by the
+BRIDGE hypothesis `href`), `psiFold_typed` (`TopoOrder.orderFold_all`
+with `P j Ψ := j < n → PsiP j Ψ` — the kit's step has no bound on `j`).
+`PsiAssembly` now imports `Verify/Inductives/NestedOrder` publicly.
+`auxOf` is passed per pin (`auxOfs : Nat → Nat → Nat`) rather than added
+to `CopyData`, so the existing assembly theorems are untouched.
+
+What remains for ψ at the RUN level: (i) the run-level `GroupFacts` for
+every pin (`cd`, `auxOfs` and the eleven fields from the merged K.12
+run — the container side from `ContainersStored`'s successor, the
+copies' `CopyData.Ok` from `copyIdxRead_of_run`'s successor, `ctors` =
+`CopyCtorAsRead` from `nestedCopyCtorType_eq`'s identity arm); (ii) the
+bridge `href` at `R = CopyRef (ElimState.grp st) k st` with
+`topoOrder_of_run`: a transported field's target copy is mentioned by
+the processed constructor (its head is `replaceIfNested`'s copy name),
+lies outside the source's group (a transported field is one the
+container does NOT recurse on, so its pin is not the group's) and no
+group pin is a subterm of its pin (the group's pin is the container's
+application, the target's pin is a proper argument of it — the
+`Expr.Sub` direction is the target's pin INSIDE the source's, which the
+clause forbids only the other way round; to be checked against
+`CopyRef`'s exact clause when the read is written).
+
 **Next** (session 15): (0) merge `inductives` (K.12) and repair the
-ledger/read modules as above; (1) `FoldChoice`: `motChoiceAV_underTowerOk`/
-`minChoiceAV_underTowerOk` factored out, `_wellDenoted`/`_validV`
-twins; `PsiSetup.fold_wellDenoted` (the prefix graded,
-`wellDenotedV_mkAppN_of_spineFit` at the recursor's tower) and
-`PsiSetup.fold_mem_pi` (`recFold_mem`'s residual tower interprets as
-`psiTyAV` by `interp_mkPisAV_congr`: the index binders lifted over the
-motives and minors, the major `majorAVP` vs `famAppAV` at the two lift
-amounts, the body by `interp_mutualConcAV_frame` + `motChoiceAV_fold` +
-`invTg_fold`) and the Π-type's own grading (`psiTyAV_wellDenotedV` from
-`TargetOk` and `targetOk_real` at the pin); (2) the step: per copy `j`
-the group's data (`GroupData j`: `dJ`, `ψ'`, `DsA`, `j₀`, `auxOf`, the
-container's `IndRep`, `CopyCtorFacts`, the bridge `∀ transport, CopyRef
-grp k₀ st j (target)`), `step tbl j := mkAppN (acval (dJ.recNames (j - j₀)) ψ') (DsA ++ Ms ++ Ns)`
-at `via` built from `tbl`, `P j Ψ := (cd j).dJ.PsiTypedPi … Ψ`, and
-`TopoOrder.orderFold_all` — ψ closed for the scratch block at the datum
-level; (3) the run-level `GroupData` from the merged run
-(`copyIdxRead_of_run`'s successor per group, `CopyCtorAsRead` from
-`nestedCopyCtorType_eq`); (4) `CopyCtorRead` (ψ⁻¹'s `hCAP`) from the
-record; then M-C′.
+ledger/read modules as above; (1) the run-level `GroupFacts` (i) and
+the bridge (ii) — ψ closed for the scratch block END TO END; (2)
+`CopyCtorRead` (ψ⁻¹'s `hCAP`) from `CopyCtorAsRead`; then M-C′.
 
 #### M.7 Sequence on this branch
 
