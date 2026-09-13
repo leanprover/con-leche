@@ -51,6 +51,7 @@ Depending on your background and your level of interest you may want to look at 
 At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
 
 ```lean
+open Frontend in
 theorem no_False_declaration (V : Type w) [SetTheory V] (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
@@ -70,9 +71,9 @@ The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blo
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
-  (ds : List DeclC) (env : Env)
-  (accepted : checkDecls .verified ds = .ok env) :
-  Nonempty (Model V env)
+    (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified ds = .ok env) :
+    Nonempty (Model V env)
 ```
 
 This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation [`Model V env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L270-L290) (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
