@@ -692,6 +692,187 @@ theorem IndRepData.cdsR_getElem?_of (d : IndRepData V) {ψ : Name → Nat} (hcto
   rw [fixCtorDataList_getElem?, Nat.zero_add, hctorsC, List.append_nil, hJ]
   rfl
 
+/-! ## The ι-side spine fits the minor's telescope
+
+`psiVals_fit` (the fit of ψ's values at the transported domains) takes
+the fit of the fields and the hypotheses at the minor's TARGET-form
+telescope.  At the ι law the hypotheses are the λ-towers of the fold at
+the fields' targets, and each lies in its target-form ih domain: the
+domain reads as the nested product over the field's telescope of the
+target at the field's index values (`interp_tgIhDomAV`), and the fold
+at the target lands there (`fold_mem_vals` + `invTg_fold`). -/
+
+/-- **λ-towers whose bodies land in the target fit the target-form ih
+binders**, entry by entry along the recursive positions. -/
+theorem spineFit_ihDataTg_of {Tg : Nat → AnnotTerm} {moti : Nat → Nat} {nP nF o b : Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eiss : List (List AnnotTerm)} {ρ : Nat → V}
+    {psv Msv ms fs : List V} (hps : psv.length = nP) (hms : ms.length + Msv.length = o)
+    (hk : 0 < Msv.length) (hfs : fs.length = nF) (g : Nat → (Nat → V) → V) :
+    ∀ (is : List Nat) (l : Nat) (ihs0 : List V), ihs0.length = l →
+      (∀ i ∈ is, i < nF ∧
+        ∀ as, SpineFit (consList (fs.take i) (consList psv ρ)) ((tls.getD i []).map (·.2.2)) as →
+          g i (consList as (consList (fs.take i) (consList psv ρ)))
+            ∈ˢ ((Eiss.getD i []).map (interp V (consList as (consList (fs.take i) (consList psv ρ))))).foldl
+                SetTheory.app (interp V ρ (Tg (moti i)))) →
+      SpineFit (consList ihs0 (consList fs (consList ms (consList Msv (consList psv ρ)))))
+        ((ihDataTg Tg moti nP nF o b tls Eiss is l).map (·.2.2))
+        (is.map fun i => lamTower b (consList (fs.take i) (consList psv ρ)) (tls.getD i []) (g i))
+  | [], _, _, _, _ => trivial
+  | i :: is, l, ihs0, hl, h => by
+    obtain ⟨hi, hmem⟩ := h i List.mem_cons_self
+    simp only [ihDataTg, List.map_cons, SpineFit]
+    refine ⟨?_, ?_⟩
+    · rw [interp_tgIhDomAV hps hms hk hfs hl hi (fun x hx => by rw [mem_rebit hx]) Tg (moti i)
+        (Eiss.getD i []), rebit_map_dom]
+      refine lamTower_mem_piTele fun as hfit => ?_
+      rw [List.nil_append]
+      exact hmem as (fitsS_teleOfFields.mp hfit)
+    · rw [consList_snoc']
+      exact spineFit_ihDataTg_of hps hms hk hfs g is (l + 1) (ihs0 ++ [_]) (by simp [hl])
+        (fun i' hi' => h i' (List.mem_cons_of_mem _ hi'))
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+namespace PsiSetup
+
+variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
+  {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
+  {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
+  {TgV domA : Nat → Nat → AnnotTerm}
+
+set_option maxHeartbeats 1600000 in
+/-- **The ι-side spine fits the minor's target-form telescope**: the
+fields (fitting the real domains, lifted over the choice's prefix) and
+the fold's λ-towers at the fields' targets (`spineFit_ihDataTg_of`,
+the bodies landing in the target by `fold_mem_vals` at the field's
+own typing, `ctorFieldFacts_of`). -/
+theorem minor_fit (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA)
+    {J : Nat} {cA : ConstantVal × Nat} (hj : d.ctorsA[J]? = some cA) {fs : List V}
+    (hfs : SpineFit (consList (ps.map (interp V ρ)) ρ) (((d.dsF J ψ).drop d.nP).map (·.2.2)) fs) :
+    SpineFit (consList ((ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
+        d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+          (d.psiBodyAV head useIh via) J).map (interp V ρ)) ρ)
+      ((minorDataTg (d.invTgAV ψ ps L pinsT) (d.tgtsR J) d.nP cA.2 (d.bb ψ) (d.k + J) (d.dsF J ψ)
+        (ConLeche.recIdxOf (d.ksR J)) (d.tssR J ψ) (d.eissR J ψ)).map (·.2.2))
+      (fs ++ (ConLeche.recIdxOf (d.ksR J)).map fun i =>
+        lamTower (d.bb ψ) (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)) ((d.tssR J ψ).getD i [])
+          fun σ'' =>
+          (((d.eissR J ψ).getD i []).map (interp V σ'') ++
+            [(Semantics.frameIdx (((d.tssR J ψ).getD i []).length) σ'').foldl SetTheory.app
+              (fs.getD i pt)]).foldl SetTheory.app
+            (interp V ρ (d.foldTermAV mp.base2 ψ ps L pinsT (d.psiBodyAV head useIh via) (d.tgtsR J i)))) := by
+  have hJA : J < d.ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
+  have hC := S.hctors J cA hj
+  have hD := hC.2.2
+  obtain ⟨hks, htgtR, heiss, htss⟩ := S.hview J
+  have hlenD : (d.dsF J ψ).length = d.nP + cA.2 := hD.len ψ
+  have hfsLen : fs.length = cA.2 := by
+    rw [hfs.length_eq, List.length_map, List.length_drop, hlenD]; omega
+  have cff := d.ctorFieldFacts_of mp S.hps S.hpins S.hLS S.hFF S.hparams hC (S.hpIff J cA hj)
+    (S.hmems J hJA) (S.htgts J) (fun i => by rw [htgtR])
+  -- the frame: the parameters, the motives, the earlier minors
+  have hσJ : consList ((ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
+      d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+        (d.psiBodyAV head useIh via) J).map (interp V ρ)) ρ
+      = consList ((d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+          (d.psiBodyAV head useIh via) J).map (interp V ρ))
+          (consList ((d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT)).map (interp V ρ))
+            (consList (ps.map (interp V ρ)) ρ)) := by
+    rw [List.map_append, List.map_append, consList_append, consList_append]
+  rw [hσJ]
+  have hMsLen : ((d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT)).map (interp V ρ)).length = d.k := by
+    rw [List.length_map]; exact d.motChoiceAVs_length _ _ _ _
+  have hpriorLen : ((d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+      (d.psiBodyAV head useIh via) J).map (interp V ρ)).length = J := by
+    rw [List.length_map]; exact d.minChoiceAVs_length _ _ _ _ _
+  have hpsLen : (ps.map (interp V ρ)).length = d.nP := by rw [List.length_map, S.hps]
+  have hshiftO : shiftE (d.k + J) 0
+      (consList ((d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+        (d.psiBodyAV head useIh via) J).map (interp V ρ))
+        (consList ((d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT)).map (interp V ρ))
+          (consList (ps.map (interp V ρ)) ρ)))
+      = consList (ps.map (interp V ρ)) ρ := by
+    rw [← consList_append, show d.k + J = ((d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT)).map (interp V ρ) ++
+      (d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+        (d.psiBodyAV head useIh via) J).map (interp V ρ)).length from by
+      rw [List.length_append, hMsLen, hpriorLen]]
+    exact shiftE_consList _ _
+  unfold minorDataTg
+  rw [List.map_append]
+  refine SpineFit.append ?_ ?_
+  · -- the fields, lifted over the prefix
+    rw [rebit_map_dom, spineFit_liftDoms, hshiftO]
+    exact hfs
+  · -- the hypotheses
+    refine spineFit_ihDataTg_of hpsLen (by rw [hMsLen, hpriorLen]; omega) (by rw [hMsLen]; exact S.hk)
+      hfsLen _ (ConLeche.recIdxOf (d.ksR J)) 0 [] rfl ?_
+    intro i hi
+    obtain ⟨hlt, -⟩ := mem_recIdxOf.mp hi
+    rw [hks, hD.ksLen] at hlt
+    refine ⟨hlt, fun as has => ?_⟩
+    have hasLen : as.length = ((d.tssR J ψ).getD i []).length := by
+      rw [has.length_eq, List.length_map]
+    have hiF : i ∈ ConLeche.recIdxOf (d.ksF J) := by rw [← hks]; exact hi
+    rw [htss] at has
+    obtain ⟨hE, hx⟩ := cff.1 i hiF fs hfs as has
+    rw [← htss] at has
+    -- the body is the fold at the target applied
+    show ((((d.eissR J ψ).getD i []).map (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))) ++
+      [(Semantics.frameIdx (((d.tssR J ψ).getD i []).length)
+        (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))).foldl SetTheory.app
+          (fs.getD i pt)]).foldl SetTheory.app
+      (interp V ρ (d.foldTermAV mp.base2 ψ ps L pinsT (d.psiBodyAV head useIh via) (d.tgtsR J i)))) ∈ˢ _
+    rw [← consList_append, frameIdx_of _ hasLen, consList_append]
+    have htgt : d.tgtsR J i < d.k := by rw [htgtR]; exact S.htgts J i
+    rw [heiss]
+    have hfitM : SpineFit (consList (ps.map (interp V ρ)) ρ)
+        ((d.motDataAV mp.base2 ψ (d.tgtsR J i)).map (·.2.2))
+        ((((d.eissF J ψ).getD i []).map (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ))))) ++
+          [as.foldl SetTheory.app (fs.getD i pt)]) := by
+      have hsplit : (d.motDataAV mp.base2 ψ (d.tgtsR J i)).map (·.2.2)
+          = (rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD (d.tgtsR J i) [])).map (·.2.2) ++
+            [famAppAV ((d.Ls mp.base2 ψ).getD (d.tgtsR J i) default) (d.pinsOf ψ (d.tgtsR J i)) d.nP
+              (d.nP + d.nIdxs.getD (d.tgtsR J i) 0) (d.nIdxs.getD (d.tgtsR J i) 0)] := by
+        simp [IndRepData.motDataAV]
+      rw [hsplit]
+      exact SpineFit.append hE ⟨hx, trivial⟩
+    have hmem := IndRepData.PsiSetup.fold_mem_vals d S htgt hfitM
+    rw [d.invTg_fold ψ hE]
+    exact hmem
+
+/-- **ψ's values fit the transported domains** at the ι-side spine
+(`psiVals_fit` at `minor_fit`). -/
+theorem psiVals_fit_of (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA)
+    {J : Nat} {cA : ConstantVal × Nat} (hj : d.ctorsA[J]? = some cA) {fs : List V}
+    (hfs : SpineFit (consList (ps.map (interp V ρ)) ρ) (((d.dsF J ψ).drop d.nP).map (·.2.2)) fs) :
+    SpineFit (consList (ps.map (interp V ρ)) ρ)
+      (psiDomsAV (d.invTgAV ψ ps L pinsT) (TgV J) (domA J) (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J)
+        (d.dsF J ψ) (d.eissR J ψ) (d.tssR J ψ) cA.2)
+      (psiVals (d.bb ψ) (consList (ps.map (interp V ρ)) ρ) (ConLeche.recIdxOf (d.ksR J)) (useIh J) (via J) fs
+        ((ConLeche.recIdxOf (d.ksR J)).map fun i =>
+          lamTower (d.bb ψ) (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)) ((d.tssR J ψ).getD i [])
+            fun σ'' =>
+            (((d.eissR J ψ).getD i []).map (interp V σ'') ++
+              [(Semantics.frameIdx (((d.tssR J ψ).getD i []).length) σ'').foldl SetTheory.app
+                (fs.getD i pt)]).foldl SetTheory.app
+              (interp V ρ (d.foldTermAV mp.base2 ψ ps L pinsT (d.psiBodyAV head useIh via) (d.tgtsR J i))))) := by
+  have hcd := d.cdsR_getElem?_of (ψ := ψ) S.hctorsC hj
+  have hD := (S.hctors J cA hj).2.2
+  obtain ⟨hnbT, hnbE, -, hnbV⟩ := S.hnbP J cA hj _ _ _ _ _ _ _ hcd
+  have hfsLen : fs.length = cA.2 := by
+    rw [hfs.length_eq, List.length_map, List.length_drop, hD.len ψ]; omega
+  have h := d.psiVals_fit S.hps (d.motChoiceAVs_length _ _ _ _) S.hk (d.minChoiceAVs_length _ _ _ _ _)
+    (hD.len ψ) (S.hnbA J cA hj) (S.hord J cA hj) hnbT hnbE hnbV (S.huse J)
+    (S.hvia J cA hj _ _ _ _ _ _ _ hcd) fs _ hfsLen (by rw [List.length_map])
+    (IndRepData.PsiSetup.minor_fit d S hj hfs)
+  exact h.2.2
+
+end PsiSetup
+
+end IndRepData
+
 /-! ## The heads -/
 
 /-- **ψ's head reads as the copy constructor at the block's parameters**:
@@ -769,13 +950,17 @@ variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts
   {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
   {lpsT : List Name} {order : List Nat} {s : Level}
 
-/-- **The facts still owed at a constructor** (task #279 M-C′ step 4),
-at pin `j`, container constructor `J` (its copy `auxOfsOf st p.k cd j J`
-with `cA'`), the frame `ρ` and a spine `fs` fitting the real domains
-at the container's parameter frame — each in `r2_step`'s shape. -/
+/-- **The fact still owed at a constructor** (task #279 M-C′ step 4),
+at pin `j`, container constructor `J` (its copy `auxOfsOf st p.k cd j J`)
+and the frame `ρ` — in `r2_step`'s shape: ψ⁻¹'s head at the copy is
+`invHead`'s REPRESENTATIVE's container constructor at the
+representative's readings, and every representative of the copy
+constructor is THIS container constructor at THIS pin's readings (the
+mint's injectivity: `ctorBase` + `posIn` recover the pin's group member
+and the constructor's position, the group clause makes the
+representative's data the pin's). -/
 structure R2Owed (mpAux : EnvModelM V μ envAux) (d : IndRepData V) (ψ : Name → Nat) (cd : Nat → CopyData V)
-    (order : List Nat) (tbl₀ : Nat → AnnotTerm) (ρ : Nat → V) (j J : Nat)
-    (cA : ConstantVal × Nat) (fs : List V) : Prop where
+    (ρ : Nat → V) (j J : Nat) (cA : ConstantVal × Nat) : Prop where
   /-- ψ⁻¹'s head at the copy reads as the container constructor at the
   pin's readings (the representative's reading: every representative
   of the copy constructor is this container constructor at this pin's
@@ -783,9 +968,6 @@ structure R2Owed (mpAux : EnvModelM V μ envAux) (d : IndRepData V) (ψ : Name �
   headφ : interp V ρ (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd) (auxOfsOf st p.k cd j J))
     = ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))).foldl SetTheory.app
         (interp V (consList (paramVals d.nP ρ) ρ) (mpAux.base2.acval cA.1.name (cd j).ψ'))
-  /-- ψ's values fit the copy constructor's telescope -/
-  fitCopy : SpineFit ρ ((d.dsF (auxOfsOf st p.k cd j J) ψ).map (·.2.2))
-    (paramVals d.nP ρ ++ d.psiValsAt mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (consList (paramVals d.nP ρ) ρ) j J fs)
 
 variable (R : NestedRunFacts F env p st b params pbs mpAux d ψ cd lpsT order s)
 
@@ -1082,13 +1264,91 @@ theorem pos_noTransport (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
       exact absurd h3 (Nat.not_le.mpr (hnoT i hi hA h2))
 
 set_option maxHeartbeats 3200000 in
+/-- **ψ's values fit the copy constructor's telescope** (the owed
+`fitCopy`): the transported domains at the group's setup
+(`psiVals_fit_of` at the final table) are the copy's own field
+telescope lifted over the pin's readings (`psiVals_fit_copy`), the
+parameters fit the copy's parameter domains (`spineFit_of_paramsIff`). -/
+theorem fitCopy_of_run (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
+    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) {j : Nat} (hj : j < st.pins.length)
+    {J : Nat} {cA : ConstantVal × Nat} (hJ : (cd j).dJ.ctorsA[J]? = some cA) {fs : List V}
+    (hfs : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
+      (((cd j).dJ.Fss (cd j).ψ').getD J []) fs) :
+    SpineFit ρ ((d.dsF (auxOfsOf st p.k cd j J) ψ).map (·.2.2))
+      (paramVals d.nP ρ ++
+        d.psiValsAt mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ (consList (paramVals d.nP ρ) ρ) j J fs) := by
+  obtain ⟨lps, S⟩ := R.psiSetup_final (ρ₀ := ρ) (psA := paramBvarsAt d.nP d.nP) (paramBvarsAt_length _ _) hρ
+    tbl₀ hj
+  have hg := R.groupFacts hj
+  obtain ⟨T, cvT, cvR, mI, rP, rules, t₀, ht₀, -, -, hrepJ⟩ := hg.rep
+  obtain ⟨cA', hget, hf⟩ := hg.ctors J cA hJ
+  obtain ⟨hpinsA, hFFA, hLSA, hpIffMA⟩ := auxFacts_of_blockReps R.reps ψ
+  have hDJ := (hrepJ.ctors J cA hJ).2.2
+  have hJA : J < (cd j).dJ.ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hmemJ := S.hmems J hJA
+  have hfs' : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
+      ((((cd j).dJ.dsF J (cd j).ψ').drop (cd j).dJ.nP).map (·.2.2)) fs := by
+    rw [← (cd j).dJ.Fss_getD (cd j).ψ' hJ]; exact hfs
+  -- ψ's values at the transported domains
+  have hvals := IndRepData.PsiSetup.psiVals_fit_of (cd j).dJ S hJ hfs'
+  -- the fold terms are the final table's entries
+  have hmap : ((ConLeche.recIdxOf ((cd j).dJ.ksR J)).map fun i =>
+      lamTower ((cd j).dJ.bb (cd j).ψ') (consList (fs.take i) (consList ((cd j).DsA.map (interp V (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ))) (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ)))
+        (((cd j).dJ.tssR J (cd j).ψ').getD i []) fun σ'' =>
+        ((((cd j).dJ.eissR J (cd j).ψ').getD i []).map (interp V σ'') ++
+          [(Semantics.frameIdx ((((cd j).dJ.tssR J (cd j).ψ').getD i []).length) σ'').foldl
+            SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
+          (interp V (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ)
+            ((cd j).dJ.foldTermAV mpAux.base2 (cd j).ψ' (cd j).DsA (d.psiL mpAux.base2 ψ p.k (cd j).base)
+              (d.psiPinsT (cd j).dJ.nP)
+              ((cd j).dJ.psiBodyAV (d.psiHead mpAux.base2 ψ (cd j).dJ.nP (auxOfsOf st p.k cd j))
+                (IndRepData.psiUseIh (cd j).dJ)
+                (d.psiVia (cd j).dJ ψ p.k (cd j).dJ.nP (auxOfsOf st p.k cd j) ((cd j).dJ.bb (cd j).ψ')
+                  (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀))) ((cd j).dJ.tgtsR J i))))
+      = ((ConLeche.recIdxOf ((cd j).dJ.ksR J)).map fun i =>
+      lamTower ((cd j).dJ.bb (cd j).ψ') (consList (fs.take i) (consList ((cd j).DsA.map (interp V (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ))) (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ)))
+        (((cd j).dJ.tssR J (cd j).ψ').getD i []) fun σ'' =>
+        ((((cd j).dJ.eissR J (cd j).ψ').getD i []).map (interp V σ'') ++
+          [(Semantics.frameIdx ((((cd j).dJ.tssR J (cd j).ψ').getD i []).length) σ'').foldl
+            SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
+          (interp V (consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ) (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀
+            ((cd j).base + (cd j).dJ.tgtsR J i)))) := by
+    apply List.map_congr_left
+    intro i _
+    rw [R.final_group tbl₀ hj (by rw [(S.hview J).2.1]; exact S.htgts J i)]
+  rw [hmap] at hvals
+  -- the transported domains are the copy's own telescope
+  have htgtLt : ∀ Jc cAJ, (cd j).dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
+      i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j Jc)) → i ∉ ConLeche.recIdxOf ((cd j).dJ.ksF Jc) →
+      p.k ≤ d.tgtsR (auxOfsOf st p.k cd j Jc) i → d.tgtsR (auxOfsOf st p.k cd j Jc) i - p.k < st.pins.length := by
+    intro Jc cAJ hJc i hi hA hT hk
+    obtain ⟨cAa, -, hf'⟩ := hg.ctors Jc cAJ hJc
+    have := hf'.tgts i
+    rw [R.dk] at this
+    omega
+  have hcopy := d.psiVals_fit_copy mpAux (ρ₀ := ρ) (psA := paramBvarsAt d.nP d.nP) (paramBvarsAt_length _ _) hρ
+    hg.len hg.lev (auxOfsOf st p.k cd j) cd (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀)
+    hf.nF hf.read hf.ctor hf.pIff hf.view hf.tgts hFFA hLSA
+    ⟨(hg.view J).2.1, (hg.view J).2.2.1, (hg.view J).2.2.2⟩ (S.htgts J)
+    (fun i dd hd => hDJ.tssBits (cd j).ψ' i dd hd) hg.grp
+    (fun i hi hA hT hk => (R.groupFacts (htgtLt J cA hJ i hi hA hT hk)).ok
+      (R.pins _ (htgtLt J cA hJ i hi hA hT hk)).1.2.1)
+    _ hvals
+  -- the parameters
+  have hfitP : SpineFit ρ (((d.dsF (auxOfsOf st p.k cd j J) ψ).take d.nP).map (·.2.2)) (paramVals d.nP ρ) :=
+    spineFit_of_paramsIff (paramVals_length _ _)
+      (by rw [List.length_map, List.length_take, hf.ctor.2.2.len ψ]; omega) hρ hf.pIff
+  rw [← List.take_append_drop d.nP (d.dsF (auxOfsOf st p.k cd j J) ψ), List.map_append]
+  exact hfitP.append hcopy
+
+set_option maxHeartbeats 3200000 in
 /-- **R2 at the run, per group, modulo the owed facts** (task #279 M-C′
 step 4, DESIGN §M.35): at pin `j`'s group, at any parameter frame `ρ`
 (the parameter variables as the parameters), R2 holds of ψ's final
 table (at the group-mates) and ψ⁻¹'s fold terms (at the copies) — for
 a FINITARY container without transports (`hfin`, `hnoT`; the
 container's and the block's elimination bits nonzero), given the owed
-facts at every constructor and fitting spine (`R2Owed`). -/
+fact at every constructor (`R2Owed`: ψ⁻¹'s head). -/
 theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
     (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) {j : Nat} (hj : j < st.pins.length)
     (hbJ : (cd j).dJ.bb (cd j).ψ' ≠ 0) (hbA : d.bb ψ ≠ 0)
@@ -1099,10 +1359,7 @@ theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
     (hnoT : ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → ∀ i, i < cA.2 →
       i ∉ ConLeche.recIdxOf ((cd j).dJ.ksF J) → i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j J)) →
       d.tgtsR (auxOfsOf st p.k cd j J) i < p.k)
-    (howed : ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → ∀ fs : List V,
-      SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
-        (((cd j).dJ.Fss (cd j).ψ').getD J []) fs →
-      R2Owed (p := p) (st := st) mpAux d ψ cd order tbl₀ ρ j J cA fs) :
+    (howed : ∀ J cA, (cd j).dJ.ctorsA[J]? = some cA → R2Owed (p := p) (st := st) mpAux d ψ cd ρ j J cA) :
     R2Grp mpAux.base2 ρ (paramBvarsAt d.nP d.nP) (cd j)
       (fun t => d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t))
       (fun t => d.invFold mpAux.base2 ψ p.k st.pins.length cd (auxOfsOf st p.k cd) s (p.k + (cd j).base + t)) := by
@@ -1154,7 +1411,7 @@ theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
   have hfacts := R.ctor_facts tbl₀ hρ hj hJ
   obtain ⟨hfit, hIH⟩ := fieldsFit_of_chainFit hrepT hsat rfl hDsFit hDsLen hJ hC htgts (hfin J)
     (fun i hi => hfacts.2 i (hfin J i hi).1) hlen hfields
-  have hO := howed J cA hJ fs hfit
+  have hO := howed J cA hJ
   have hvsN : fs.length = cA.2 := by
     rw [hlen, (cd j).dJ.Fss_getD (cd j).ψ' hJ, List.length_map, List.length_drop, hlenD]; omega
   -- the entries' fits at the fields
@@ -1193,7 +1450,8 @@ theorem r2Grp_of_owed (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
   exact r2_step mpAux.base2 (d := d) (ψ := ψ) (cA' := cA') hrepT hsat rfl hDsFit hDsLen hJ hlenD
     (hrepJ.paramsIff J cA hJ (cd j).ψ') hmemJ htgts (hg.view J) hf.read.mem (fun t _ => rfl) hfit hIH
     (hfacts.1 fs hfit).1 (hfacts.1 fs hfit).2 hEntryFit hall hιΨ hιΦ rfl rfl
-    (d.psiHead_interp mpAux.base2 ψ (auxOfsOf st p.k cd j) hget hDsLen) hO.headφ hO.fitCopy
+    (d.psiHead_interp mpAux.base2 ψ (auxOfsOf st p.k cd j) hget hDsLen) hO.headφ
+    (R.fitCopy_of_run tbl₀ hρ hj hJ hfit)
     (R.es_of_record tbl₀ hρ hj hJ hvsN) (R.pos_noTransport tbl₀ hρ hj hJ (hfin J) (hnoT J cA hJ) hvsN)
 
 end NestedRunFacts
