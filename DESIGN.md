@@ -76517,6 +76517,307 @@ kernel request (this session: none).  Remaining before the signature:
 `copyCtorAsRead_of_walk` (§M.31 (c)–(e), the record's Model half);
 M-D′; M-E.
 
+#### M.41 M-B′ step 3o: the RECORD's Model half from the walk — `CopyCtorAsRead` read off `CopyCtorWalkFacts`; the M-D′ plan; `declNested`'s intended signature (2026-09-13, session 25)
+
+**What landed** (`Model/Inductives/CopyCtorWalk.lean`, new, on the
+Model umbrella, ~1 200 lines).
+
+* **`ctor_peel`** — `former_peel`'s constructor twin: the container's
+  stored constructor, level-instantiated and `instPis`'d at the pin's
+  annotated components, reads at the block's parameter depth as
+  `instSeq DsA (nPJ - 1)` of the container's own reading below its
+  parameters (`CtorDataI.read` at the pin's assignment through
+  `CtorDataI.params` and the group's `acval` agreement,
+  `denoteMeta_instLevels`, `denoteMeta_depth_of_closed`,
+  `denoteMeta_instPisAt_peel`, `peelPis_of_piTeleAV`); **`ctorInst_fields`**
+  — that reading opened at the copy's field variables
+  (`denoteMeta_openPis`, `instSeq_mkPisAV`): field `i` reads as
+  `instSeq DsA (nPJ - 1 + i)` of the container's entry `nPJ + i`, the
+  residual as `instSeq DsA (nPJ - 1 + nF)` of the container's body.
+* **The interface `CopyCtorWalkFacts`** — what the walk and K.17 leave
+  at a copy's constructor, stated over the copy's STORED constructor
+  opened at the datum's own variables (`xFvsF`/`xrestF`) against the
+  container's constructor instantiated at the pin and opened at the
+  same variables (`xFvsC`/`xrestC`): the residual a copy application at
+  the block's parameters against the container's at the components,
+  index arguments `ErasedEq`; at a field the container sees as
+  RECURSIVE (`fieldRec`), a fire at the top (`FiredField`) whose pin is
+  the group-mate's, the Π-prefix length the container's own opened
+  field's; at a field the container sees as ORDINARY (`fieldOrd`), one
+  of — unfired and copy-free (`ErasedEq`, no copy name mentioned), a
+  fire whose pin is NOT a group pin, or the normalisation's `whnf`
+  (`WhnfField`: `whnf μ env₁ F (nP + i) xC = .ok dsR` with `dsR`
+  erasure-equal to the RESTORED stored field, the reduction's guards
+  on `xC`).  `FiredField` carries the two openings, the binders'
+  annotations pairwise `ErasedEq` AND their binder data equal
+  (`stripPis` metas — the walk keeps binder data, and the codomain
+  bits `interp` reads (`piR v`) are read off it), the index arguments
+  pairwise `ErasedEq`, the pin's membership.  `Expr.ErasedEq` is the
+  right currency: `denoteMeta` is blind to fvar annotations
+  (`denoteMeta_erasedEq`), and the two sides' openers differ exactly
+  there.
+* **`copyCtorAsRead_of_walkFacts`** — the record's Model half.  From
+  the copy's `FixCtorDataI` at the auxiliary datum, the container's at
+  its datum, the pin's readings, the group's pins, the targets' pins
+  (`hpin`: container name, levels, components, readings, `acval`
+  agreement), the container's instantiated constructor read
+  (`ctor_peel`/`ctorInst_fields`), `CopyCtorWalkFacts`, the `whnf`
+  arm's content (`hwhnf`) and the container field's grading at the pin
+  (`hgradeC`), every clause: `kindR` — the fire's pin IS the
+  group-mate's, so by K.15's `Nodup` (`pins_index_inj`) and the
+  members' name injectivity (`memberName_inj`) the copy's target is
+  the group-mate's copy; the kinds agree through the Π-prefix lengths
+  (`copyKind_of_fire`: a fired field is not ordinary because an
+  ordinary field resolves before the block while the fire's head is a
+  copy name fresh there, and it is recursive iff the fire has no
+  binders); the telescopes agree binder by binder
+  (`denoteMeta_erasedEq` on the openers, the bits by `tssBits`/
+  `tssPiBits` at the two sorts through `CopyIdxRead.sort`); the index
+  readings by the residual's spine (`denoteMeta_mkAppN_inv`,
+  `DenoteMetaSpine.append_inv`, `mkAppN_inj_args`,
+  `DenoteMetaSpine.erasedEq`/`unique`); `es` likewise; `ord` — unfired:
+  one reading; `whnf`: `hwhnf`; a fire: impossible (the copy's target
+  would be a copy); `kindT` — unfired: impossible (the copy's opened
+  field mentions its target, a copy name — `mentionsConst_of_getAppFn`
+  under `openPisAtFvars_mentionsConst`); a fire: the target is the
+  fire's pin (`hpin`), outside the group (`hgroup` at its index), and
+  the container's instantiated reading IS the transport's target term
+  bit for bit (`denoteMeta_openPis'`, the peel returning the whole
+  reading as a tower with each binder's bit off its stored datum;
+  `DenoteMetaSpine.weaken_by` lifts the target pin's readings to the
+  field's depth; `denoteMeta_const` + the `acval` agreement give the
+  head); `whnf`: `hwhnf` with **`restoreAV`** (the restored reading of
+  a copy field: the transport's target term at a copy-recursive field
+  into a copy, the copy's own domain otherwise).
+
+**What remains of the record's read, exactly** (the premises of
+`copyCtorAsRead_of_walkFacts` that are not run-derived yet):
+
+1. **`CopyCtorWalkFacts`** — the SYNTACTIC half, per copy constructor,
+   from `CopyCtorsStored` (its `cbody = cI` round trip
+   `openPisAtFvars_closeTelescope_strip`, `copyCtorFields_of_walk` on
+   `cI`, `openPisAtFvars_binder` twice).  Its three clauses need two
+   Verify lemmas the tree lacks: (a) **`instPis_stripPis`** — `instPis T
+   args = some rest`, `T.stripPis (|args| + n) = some (bs, r)` ⇒
+   `rest.stripPis n = some (bs', r')` with `bs'[j].1 = Expr.instSeq
+   args (|args| - 1 + j) bs[|args| + j].1` (binder data kept) and `r'`
+   likewise — the per-field form of the instantiation the elimination
+   performs; (b) **the forward fire** at a container-recursive field:
+   the container's `FixOpened.recF`/`reflF` shape, taken to bvar form
+   (`instSeq` of fvars inverts on a constant-headed spine: the source
+   head is that constant, its parameter arguments the parameter
+   bvars) and instantiated by (a) is `Π bs, J_tgt lvls' (Ds ++ idx)`
+   whose walk fires at the body (`replaceIfNested` at a container
+   application whose components mention a member — the mint's
+   `nestedOccOk` at the SAME `Ds`, a `MintStep` fact to thread — with
+   the group-mate's pin in the table), the binders walked unchanged
+   (their domains mention no copy: the STORED copy field's telescope
+   domains resolve before the block, `mutualOpenedOk` at the pre-block
+   env, and W1 over the copy names), the index arguments untouched (a
+   fire returns them as they are).  **The level-instantiated head's
+   levels equal the pin's** (`(lps.map param).map (instantiate lps
+   lvls) = lvls`) needs the container's level parameters `Nodup` —
+   `checkConstantVal` rejects duplicates ("duplicate universe
+   parameters") but `EnvWF` does not RECORD it: one more `ConstWF`-style
+   fact to carry, or an explicit hypothesis (`lpsNodup`).  The
+   ordinary-field arms come from `copyCtorFields_of_walk` directly
+   (unfired ⇒ `ErasedEq` after the round trip; fired ⇒ the pin, with
+   "not a group pin" by the SIZE argument — an ordinary field's
+   instantiation cannot reproduce the group's own components — the
+   one clause with no existing kit) and from K.17 (the `whnf` arm:
+   `nestedCtorsWhnfOk` at the pair, the field where `dm ≠ ds`; W1's
+   `restore (walk fs[i]) = fs[i]` makes the witnessed term `xC` itself —
+   the restore's inverse lemma, `Verify` has none about
+   `restoreNested` yet).
+2. **`hwhnf`** — the `whnf` arm's content: `WhnfClaim μ mp₁.base2 ψ F`
+   at an abstract model `mp₁ : EnvModelM V μ env₁` agreeing with
+   `mpAux` on `env₁`'s names (the block's formers and the pre-block
+   constants: `env₁.find? n = envAux.find? n` there, `mp₁.acval n =
+   mpAux.acval n`), the `CtxOk` of `xC` at the context of the
+   container-instantiated earlier domains (their readings by
+   `ctorInst_fields`, lifted to the field's depth), the reading of the
+   RESTORED stored field at `env₁` (equal to the copy's own reading when
+   no copy is mentioned — `restoreNested` is the identity there — and
+   to the transport's target term at a copy-recursive field into a copy
+   — the restore replaces `aux params idx ↦ J' Ds' idx`, read as
+   `⟦J'⟧ Ds'A idx`), and the group exclusion of that target by the size
+   argument again.  Discharged when M-D′ builds `env₁`'s model.
+3. **`hgradeC`** — the container's instantiated field graded at the
+   record's frames: `CtorDataI.okTy` at the pin frame,
+   `wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom` at the
+   `nPJ + i`-th binder with the parameters' fit (the pin fits the
+   container's parameter telescope, `pinFit_of_leafShape`, moved to the
+   constructor's own parameter binders by `IndRep.paramsIff`) and
+   `wellDenotedV_instSeq_under`.  A self-contained Model lemma, next.
+4. The per-constructor plumbing from `PinRunFacts`/`CtorsChecked`/
+   `MutualBlockReps` to the theorem's hypotheses (`hview`, `hmem`,
+   `hnF`, `htgtLt`, `hordRes` from `CtorsChecked`'s `mutualFieldsOk`
+   through `mutualOpenedOk`'s ordinary clause, `hfresh` from
+   `copiesFresh`, `hnodupM` from `memberNodup` at `kReal = k`,
+   `hcopyNames` from `memberName_eq_type`, `hkA`/`hnIdxG`/`hsort` from
+   `PinFacts.grp`'s `CopyData.Ok.idx`, `hgroup`/`hnodupP`/`hpinName`/
+   `hpin` from `PinRunFactsAt` and `CopyCtorsStored`'s type-list
+   clause) — `copyCtorFacts_of_read`'s first half, mechanical.
+
+So `CopyCtorsRead` is a READ modulo (1)–(4); (2) waits for M-D′'s
+`env₁` model; (3)–(4) are mechanical; (1) is the last syntactic
+obligation of the constructor side and needs the two Verify lemmas
+named.  ψ/ψ⁻¹/R1/R2 (`psiFold_typed_of_read`, `invSetup_of_run`,
+`r2Grp_order_full`, `r1At_full_all`) then hold under `ContainersRep` +
+`BridgeSyntax` + the four items above.
+
+**A design point settled while stating `kindT`**: the transport's
+target term carries the COPY's telescope bits (`tssR`), `interp` reads
+a Π's codomain bit (`piR v`), and `AnnotValid` pins a bit's zeroness
+only in one direction — so the bits must agree SYNTACTICALLY, which is
+why `FiredField` carries the binder data and `denoteMeta_openPis'`
+returns the bits: the walk keeps binder data
+(`replaceAllNested_stripPis`), and that is the fact the record's
+`kindT` rests on.
+
+**THE M-D′ PLAN** (the restored leaves, the rule laws, `T`'s
+representation, `declNested`).
+
+*What the restore stores* (`DeclNestedRun`, K.12's shape): `env₁ =
+consNestedFormers (stored.take k) env` — the block's formers as the
+auxiliary install stored them, records unchanged; `env₂ =
+consNestedCtors ctorsR env₁` — each member's constructors with their
+types RESTORED (`restoreNested R`: `auxJ p⃗ is ↦ J Ds is`, `auxJ.c p⃗ ↦
+J.c Ds`, `auxJ.rec ↦ T₁.rec_k`) and re-run through `checkConstantVal`
+at `env₁`; `envR = provisionNestedRecs … env₂` (every recursor
+rule-less), the rules' right-hand sides restored, ANNOTATED
+(`ops.annotate envR 0`) and inferred, the fire `.plain` at a member's
+rule and `.nested lvls pins` at a mimic's (`nestedFireShape` off the
+restored recursor type); `env₃ = storeNestedRecs …`; `env₄ =
+nestedTables …`.  Every stage is a cons chain the model can follow.
+
+*The values* (§M.4, unchanged): a real member's leaf is the AUX leaf
+(`mpAux.acval T ψ`); `T.c ↦ λ p⃗ fs, ⟦T.c_aux⟧ p⃗ (ψ* fs)` — at a
+copy-recursive field the table's term for the target pin
+(`viaVal`-shaped: a transport's tower over the field's telescope), at
+a field into a block member the field itself; `T.rec ↦ λ p⃗ M⃗ m⃗ ı⃗ x,
+⟦R_T⟧ p⃗ M⃗' m⃗' ı⃗ x` with a copy motive `M'_A := λ ı⃗ a, M_A ı⃗ (ψ⁻¹_A a)`
+and minors `m'_c := λ fs ihs, m_c (ψ⁻¹* fs) ihs`; `T₁.rec_k ↦ λ …,
+⟦R_A⟧ … (ψ_A l)`.  All spelt from the two fold TABLES (`psiFinal` per
+pin, `invFold` per copy) the run already produces.
+
+*Steps.*
+* **D0 (kernel, K.19 — requested)**: the restore's three re-annotations
+  (`restoreCtors` → `checkConstantVal`, `restoreRecTys` →
+  `checkConstantVal`, `restoreRules` → `ops.annotate`) run on terms the
+  kernel BUILT from annotated pieces; K.12's principle ("terms we build
+  ourselves are not re-annotated") makes them `checkConstantValPre`
+  (validate, never recompute) and `restoreRules` a validation of the
+  restored rhs.  Then the stored restored constants are
+  `restoreNested R` of the auxiliary ones SYNTACTICALLY, and the model
+  reads them by ONE compositionality lemma (`restore_read` below)
+  instead of an annotation-commutes-with-restore theorem (K.4's shape
+  again).  Verdict-neutral on any stream (the same terms, validated
+  instead of re-annotated), like K.10/K.12.
+* **D1 — `restore_read`** (Model): `denoteMeta m env' ψ d (restoreNested
+  R e)` for `e` an auxiliary stored type/rhs, at a model `m` of the
+  restored environment whose `acval` is `mpAux`'s on the pre-block
+  constants and the formers, and the RESTORED values at the block's
+  own constructors/recursors: the reading of `e` at `mpAux` with the
+  AnnotTerm sub-terms `mkAppN ⟦auxJ⟧ (p⃗ ++ is) ↦ mkAppN ⟦J⟧ (DsA ++ is)`
+  (the pin's readings, `pinRead_of`), `⟦auxJ.c⟧ p⃗ ↦ ⟦J.c⟧ DsA`,
+  `⟦auxJ.rec⟧ ↦ ⟦T₁.rec_k⟧`.  Proof: induction on the walk
+  (`restoreWalk` over `restoreNode`), the prune, the pins' readings at
+  depth `d` by `DenoteMetaSpine.weaken_by`.
+* **D2 — the formers' model** (`env₁`): the cons chain
+  `consNestedFormers` over the REAL members with the AUX leaves:
+  `stageMutualFormer` at each cons, whose per-member data
+  (`MemberChainsOk`, the block's `W/Idss/rss/tlss/Eiss'/Fss₀/Ess'`) are
+  the auxiliary block's — `declMutualCore` must EXPOSE them (a
+  widening like §M.19's `MutualBlockReps`; the datum's `leaf`/`fibre`/
+  `chains` clauses may already carry what the cons obligations need —
+  to check first).  No restriction lemma is attempted (§M.31 (d)).
+  This is where `hwhnf`'s `mp₁` comes from.
+* **D3 — the constructors' model** (`env₂`): a `stageNestedCtor`
+  mirroring `stageMutualCtor` with the value `λ p⃗ fs, ⟦T.c_aux⟧ p⃗
+  (ψ* fs)`: its typing against the restored constructor's reading
+  (D1's shape: the container-instantiated field domains at the copy
+  positions) is ψ's `fold_mem_vals` at each copy position
+  (`psiFinal_mem`) and `T.c_aux`'s own typing (the aux `IndRep.ctors`);
+  the obligations of a ctor cons (`ConsHead`, the `Denotes`/grading
+  claims) as `stageMutualCtor` discharges them, its `hfold` replaced by
+  ψ's typing.  The `.proj` slots: the restored types carry the
+  container's `.proj` nodes only through the pins, table-backed at
+  `env₁` (K.13).
+* **D4 — the recursors' model** (`envR`, `env₃`): `stageMutualRecs`'
+  shape with the values above; the recursor TYPES restored read (D1) as
+  the aux towers with the copy motives' majors at `⟦J⟧ DsA`; typing of
+  the conjugated value by `recRead` of the aux recursor + R1/R2
+  (`M'_A (ψ* g) = M_A g` needs (R2), the minors' typing needs (R1) at
+  the fields); the RULE LAWS: a member's `.plain` rule from the aux
+  `rulesRead`/`rec_rules` + (R2) at the transported fields; a mimic's
+  `.nested lvls pins` rule from `ψ_A`'s own ι (`psi_iota` at the pin)
+  + the aux law + (R2) — the `.nested` conjuncts of `RecRuleLaw` are
+  the pin-row facts `iotaRuleNested` produces for the modelled route
+  (`nestedPinRow`), restated here at the pins' readings from
+  `pinRead_of`.
+* **D5 — `T`'s own `IndRep`** at `env₄` (honest, §M.4): the aux
+  `T`-chains with the copy-targeting fields DEMOTED to ordinary domains
+  read at the ambient container leaves (`Φ'`; `inj' c fs := inj c
+  (ψ* fs)`), `leaf` (`T* = lfp Φ'`) by the aux induction principle,
+  `fibre`/`ctor`/`mkInj` from the aux datum's and ψ bijective (R1/R2).
+  **No new `IndRep` field**: the datum's copy-member fields
+  (`kReal`/`ctorsC`/`pinsAV`/`nPM`/`recNames`/`ksR`/`tgtsR`/`eissR`/
+  `tssR`, M-A′) are exactly the recursor view a self-nested container
+  needs, and the RECURSOR-VIEW CONSTRUCTOR CLAUSE §M.17 finding 3 asks
+  for (a `ksR`-recursive/`ksF`-ordinary field reads as `famAppAV ⟦J_t⟧
+  (pinsAV t) … (eissR j i)` under `tssR`) is a CONSEQUENCE of D3's
+  reading at the copy positions — it is stated as a lemma about the
+  datum M-D′ builds and consumed by `ContainersRep`'s successor, not
+  stored.  `ContainersRep` is restated at `RepsAt` (§M.36: one datum
+  per container block at the members' own sort spellings) and gains
+  the recursor-view clause for self-nested containers, so that a block
+  nesting through a nested block reads its containers off M-D′'s
+  output.
+* **D6 — the tables** (`env₄`): `stageMutualTable` at each
+  structure-like member with the restored constructor.
+* **D7 — `declNested`** = the chain, returning `Nonempty (EnvModelM V μ
+  envOut)`; `declNestedRun_etaClosed` (the formers carry the aux
+  install's capability records) with the wiring.
+
+*`declNested`'s intended signature* (for the kernel lane's wiring):
+
+    theorem declNested (hμ : μ.verifiedChecks = true)
+        (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
+        (h : DeclNestedRun μ F env p envOut) :
+        Nonempty (EnvModelM V μ envOut)
+
+— `declMutual`'s shape, no extra hypothesis.  The container-side
+premise (`ContainersRep`, restated at `RepsAt` per D5) is discharged
+from `mp.base2`'s `IndReps` clause once the MODELLED route is deleted
+(M-E): every stored inductive is then `IndRep`, and `containerInfo?
+env I = some ci` reads its group off stored recursors
+(`containerInfo?_stored`).  Until then the dispatch's fourth arm cannot
+be reached for a container installed by the modelled route, and the
+wiring lands WITH M-E.  `BridgeSyntax`'s sub-term clause is the
+container's positivity at the group's pins (K.15's `containerFieldOk`
+on the group's stored constructors, the size argument at a fire inside
+an ordinary field) — a Verify lemma at M-E's assembly, no datum.
+The `SetTheory` parametricity is untouched (nothing in this session
+names a set-theoretic instance).
+
+**Kernel request K.19** (D0): the restore stages at the pre-annotated
+grade — `restoreCtors`/`restoreRecTys` through `checkConstantValPre`,
+`restoreRules` validating the restored right-hand side (`inferType`
+on it, no `annotate`) — and the run relation records the stored
+constants AS `restoreNested R` of the auxiliary ones.  The reason is
+K.12's own: the restore builds from annotated pieces, and every
+re-annotation of a self-built term is a theorem the model must then
+prove about the annotator (K.4's frontier at a reader-declined binder
+is exactly where such a theorem stops).
+
+**Gates**: `lake build` 635 jobs warning-free, `lake test` clean;
+shake/pub-import (`CopyCtorWalk` on the umbrella — a landing item),
+arena, init-full, Mathlib, overview-links, no-local-paths NOT run
+this session (landing items).  No `sorry`, no axiom.  No kernel
+change this session; K.19 is a request (D0), not a blocker for D1–D3's
+statements.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
