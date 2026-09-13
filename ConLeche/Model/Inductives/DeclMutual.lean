@@ -5722,7 +5722,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (rules := rules) (bsT := bsT)
       ht hmotLt htgtLtG ?hnames ?hnIdxs hstripT (hlpsF t _ hft) ?hProp ?hmI ?hrP hrulesT
       ?hFD ?hfound ?hlpsM ?hnodupM ?hFDall ?hcf hsortJ ?hidxRes ?hUparams ?hpps0 ?hiff ?hiffM
-      ?hiffAll ?hTag ?hX ?hIdss ?hleafT ?hleafAll ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
+      ?hiffAll ?hTag ?hX ?hIdss ?hIdssAll ?hnFs ?hleafT ?hleafAll ?hleafC ?hokB rfl ?htlssD ?hEissD ?hEssD ?hagree
       (hrecName t ht) (hfreshR t ht) (fun ψ => (hRDs' t ht).read ψ)
     case hnames => exact fun q hq => (hmemT q _ (hfmGet q hq)).1.symm
     case hnIdxs => exact fun q hq => (hmemT q _ (hfmGet q hq)).2.symm
@@ -5781,6 +5781,12 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       rw [hsEqAll t ψ ht]
       exact (hXAll 0 f₀ hf0 ψ ρp hρ).1
     case hIdss => exact fun ψ => hIdssGet ψ t ht
+    case hIdssAll => exact fun t' ht' ψ => hIdssGet ψ t' ht'
+    case hnFs =>
+      intro J cA hJ
+      show (ctorsA.getD J default).2 = cA.2
+      rw [List.getD_eq_getElem?_getD, hJ]
+      rfl
     case hleafT =>
       intro ψ
       rw [hsEqAll t ψ ht, hagM t _ hft]

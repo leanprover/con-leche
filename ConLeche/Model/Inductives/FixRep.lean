@@ -555,7 +555,9 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     mkZero := fun ψ hz j fs => by
       show injW (p.resSort.eval ψ) j _ = pt
       rw [show p.resSort.eval ψ = 0 from hz, injW_zero]
-    mkInj := ?_ }
+    mkInj := ?_
+    idxRecover := ?_
+    slotRecover := ?_ }
   · -- the fibre
     intro ψ ρp hρ X hX t ht x
     have hXs : X ∈ˢ lfpFamSpace V (p.resSort.eval ψ)
@@ -650,5 +652,33 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     refine ⟨rfl, ?_⟩
     have := mkTower_inj (by rw [List.length_append, List.length_append, hlen, hlen']) htow
     exact List.append_cancel_right this
+  · -- the tuple recovers the member and the readings (task #279 M-C′):
+    -- the terminator's reading against the tuple's projections
+    intro ψ ρp hρ is hsp X j fs hj hlen _ _ hall
+    obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    have hI : IdxOk (d.u ψ) ρp (d.IdsC ψ) := (hX ψ ρp hρ).hI
+    have hEs : (d.Ess ψ).getD j [] = esF j ψ := by
+      show (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = _
+      rw [List.getD_eq_getElem?_getD, essOfR, List.getElem?_map, fixCtorDataList_getElem?,
+        Nat.zero_add, hjA]
+      rfl
+    have hEsLen : (esF j ψ).length = (d.IdsC ψ).length := by
+      rw [(hcf j cA hjA).2.2.lenE ψ, hIds, List.length_map, List.length_drop, hFD.len ψ]
+      omega
+    have htup : d.tup ψ 0 is = tupW (d.u ψ) is := rfl
+    rw [hEs, ← hlen, htup] at hall
+    have h := idxValsAt_of_eqsXI (u := d.u ψ) hI hsp hEsLen hall
+    exact ⟨rfl, h⟩
+  · -- a slot's tuple is the target's tuple (task #279 M-C′): the
+    -- container view IS the family view at a single family
+    intro ψ ρp _ j i hj _ τ _ _ _
+    obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    have hE : (d.Eiss ψ).getD j [] = eissF j ψ := by
+      show (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = _
+      rw [List.getD_eq_getElem?_getD, eissOfR, List.getElem?_map, fixCtorDataList_getElem?,
+        Nat.zero_add, hjA]
+      rfl
+    rw [hE]
+    rfl
 
 end ConLeche.Model

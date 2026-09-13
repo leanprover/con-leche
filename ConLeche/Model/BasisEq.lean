@@ -1524,7 +1524,26 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
       exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
-    mkInj := fun _ hz => absurd rfl hz }
+    mkInj := fun _ hz => absurd rfl hz
+    -- task #279 M-C′: the one constructor has no fields, its reading is
+    -- the parameter `a`, and the tuple is `⟨a⟩`
+    idxRecover := fun ψ ρp hρ is hsp X j fs hj hlen _ _ hall => by
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      have hlen0 : fs.length = 0 := hlen
+      obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen0
+      have hislen : is.length = 1 := hsp.length_eq
+      obtain ⟨b, rfl⟩ : ∃ b, is = [b] := by
+        match is, hislen with
+        | [b], _ => exact ⟨b, rfl⟩
+      have hb : b ∈ˢ ρp 1 := hsp.1
+      have hI := eqRepData_idxOk (eqRepData_frame hρ).1
+      have hall' : EqAll (cons (tupW (ψ uN) [b]) (cons X ρp)) (eqsXI 1 0 eqEs) := hall
+      have h := (eqRepData_eqAll_iff hI hb).mp hall'
+      exact ⟨rfl, by show [ρp 0] = [b]; rw [h]⟩
+    slotRecover := fun _ _ _ j i hj hri _ _ _ _ => by
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      have hri' : ([] : List Bool).getD i false = true := hri
+      simp at hri' }
   · -- the recursor's readings (task #279 M-A′/M-B′): `Eq.rec`, the one
     -- member, with its one rule
     intro _ _ t ht

@@ -223,7 +223,9 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
       exact tupW_mem hi
     ctor := fun j cA hj => nomatch hj
     mkZero := fun _ _ _ _ => rfl
-    mkInj := fun _ _ j _ _ _ hj => nomatch hj }
+    mkInj := fun _ _ j _ _ _ hj => nomatch hj
+    idxRecover := fun _ _ _ _ _ _ j _ hj _ _ _ _ => absurd hj (Nat.not_lt_zero j)
+    slotRecover := fun _ _ _ j _ hj _ _ _ _ _ => absurd hj (Nat.not_lt_zero j) }
   · -- the leaf
     intro ψ ρ as is hsp₁ hsp₂
     obtain rfl : as = [] := List.length_eq_zero_iff.mp hsp₁.length_eq

@@ -753,7 +753,16 @@ theorem indRepsHead_punitRec (mp : EnvModelM V μ env)
       exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ _ _ _ => rfl
-    mkInj := ?_ }
+    mkInj := ?_
+    -- task #279 M-C′: no indices, no readings, no recursive field
+    idxRecover := fun _ _ _ is hsp _ _ _ _ _ _ _ _ => by
+      have h0 : is.length = 0 := hsp.length_eq
+      obtain rfl : is = [] := List.length_eq_zero_iff.mp h0
+      exact ⟨rfl, rfl⟩
+    slotRecover := fun _ _ _ j i hj hri _ _ _ _ => by
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      have hri' : ([] : List Bool).getD i false = true := hri
+      simp at hri' }
   · -- the recursor's readings (task #279 M-A′/M-B′): `PUnit.rec`, the
     -- one member, with its one rule
     intro _ _ t ht
@@ -2585,7 +2594,18 @@ theorem indRepsHead_natRec (mp : EnvModelM V μ env)
       exact tupW_mem hi
     ctor := ?_
     mkZero := fun _ h => absurd h (Nat.succ_ne_zero 0)
-    mkInj := ?_ }
+    mkInj := ?_
+    -- task #279 M-C′: no indices, no readings; the slot's tuple is the
+    -- point at index level `0`
+    idxRecover := fun _ _ _ is hsp _ _ _ _ _ _ _ _ => by
+      have h0 : is.length = 0 := hsp.length_eq
+      obtain rfl : is = [] := List.length_eq_zero_iff.mp h0
+      exact ⟨rfl, rfl⟩
+    slotRecover := fun ψ _ _ j i _ _ τ _ _ _ => by
+      rw [show (natRepData (V := V) ⟨natRecA :: env.consts⟩).u ψ = 0 from rfl, tupW_zero]
+      show (pt : V) = tupW 0 ((((natRepData (V := V) ⟨natRecA :: env.consts⟩).eissF j ψ).getD i []).map
+        (interp V τ))
+      rw [tupW_zero] }
   · -- the recursor's readings (task #279 M-A′/M-B′): `Nat.rec`, the one
     -- member, with its two rules
     intro _ _ t ht

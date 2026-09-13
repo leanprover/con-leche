@@ -365,7 +365,9 @@ theorem IndRep.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvM
       rw [← hag _ (by rw [hfC]; rfl)]
       exact h.ctor j cA hj ψ ρ as fs h1 h2
     mkZero := h.mkZero
-    mkInj := h.mkInj }
+    mkInj := h.mkInj
+    idxRecover := h.idxRecover
+    slotRecover := h.slotRecover }
 
 theorem ModeledLeaf.ext {env₂ env₃ : Env} {m₂ : EnvModel V env₂} {m₃ : EnvModel V env₃}
     (hx : EnvExt env₂ env₃)

@@ -529,6 +529,13 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
       XChainsOk (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
         (Fss₀ ψ) (Ess' ψ))
     (hIdss : ∀ ψ : Name → Nat, (Idss ψ)[mm]? = some (((ppsOf mm ψ).drop nP).map (·.2.2)))
+    -- every member's index telescope is listed (task #279 M-C′: the
+    -- tagged readings of OTHER members' constructors and slots decode
+    -- against their own member's telescope)
+    (hIdssAll : ∀ t, t < k → ∀ ψ : Name → Nat,
+      (Idss ψ)[t]? = some (((ppsOf t ψ).drop nP).map (·.2.2)))
+    -- a constructor's spelled field count is its stored one
+    (hnFs : ∀ J cA, ctorsA[J]? = some cA → nFs J = cA.2)
     -- the leaves
     (hleafT : ∀ ψ : Name → Nat, m.acval (Tname mm) ψ
       = mutualTyAVI (W ψ) (resSort.eval ψ) (ppsOf mm ψ) (nIdxOf mm) (Idss ψ) rss (tlss ψ)
@@ -676,7 +683,9 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     mkZero := fun ψ hz J fs => by
       show injW (resSort.eval ψ) J _ = pt
       rw [show resSort.eval ψ = 0 from hz, injW_zero]
-    mkInj := ?_ }
+    mkInj := ?_
+    idxRecover := ?_
+    slotRecover := ?_ }
   · -- the constructors' readings
     intro J cA hJ
     have hJlt : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
@@ -829,6 +838,90 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     refine ⟨rfl, ?_⟩
     have := mkTower_inj (by rw [List.length_append, List.length_append, hlen, hlen']) htow
     exact List.append_cancel_right this
+  · -- the tuple recovers the member and the readings (task #279 M-C′):
+    -- the tagged singleton against the tagged tuple
+    intro ψ ρp hρ is hsp X j fs hj hlen hEok hEfit hall
+    have hj' : j < ctorsA.length := hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj'⟩
+    have hρ' : Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp := by
+      rw [← hparams]; exact hρ
+    have hT := hTag ψ ρp hρ'
+    have hI : IdxOk (W ψ) ρp (auxIds (W ψ) (Idss ψ)) := auxIds_idxOk hT
+    have hD := (hcf j cA hjA).toFixCtorFactsAt (hsortJ j) (fun i => hnames _ (htgtLt j i))
+      (fun i => hnIdxs _ (htgtLt j i))
+    have hlenE : (esF j ψ).length = nIdxOf (mots j) := hD.2.2.lenE ψ
+    have hfsLen : fs.length = nFs j := by
+      rw [hlen, hFssD ψ j cA hjA, List.length_map, List.length_drop, hD.2.2.len ψ, hnFs j cA hjA]
+      omega
+    -- the tagged tuple of `is` fits the tag
+    have hspT : SpineFit ρp (auxIds (W ψ) (Idss ψ)) [inj mm (mkTower (is ++ [pt]))] := by
+      refine ⟨?_, trivial⟩
+      rw [(tagTyAV_facts hT).1]
+      exact tagTuple_mem hT (hIdss ψ) (by rw [← hIdsM]; exact hsp)
+    have hEs : (d.Ess ψ).getD j [] = [tagTupleAV (W ψ) (mots j) (nFs j) (Idss ψ) (esF j ψ)] := by
+      rw [hEssL, ← hEssD, essOfR_mutEssC rfl, mutEss'_getD hj']
+    have htup : d.tup ψ mm is = tupW (W ψ) [inj mm (mkTower (is ++ [pt]))] := rfl
+    have hIdsC : d.IdsC ψ = auxIds (W ψ) (Idss ψ) := rfl
+    rw [hEs, ← hlen, htup, hIdsC] at hall
+    have hvals := idxValsAt_of_eqsXI (u := W ψ) hI hspT
+      (Es := [tagTupleAV (W ψ) (mots j) (nFs j) (Idss ψ) (esF j ψ)]) rfl hall
+    -- the tagged reading, decoded
+    have hshift : shiftE (nFs j) 0 (consList fs ρp) = ρp := by
+      rw [← hfsLen]; exact shiftE_consList _ _
+    have hEfit' : SpineFit ρp (((ppsOf (mots j) ψ).drop nP).map (·.2.2))
+        ((esF j ψ).map (interp V (consList fs ρp))) := hEfit
+    have hEok' : ∀ E ∈ esF j ψ, WellDenoted V (consList fs ρp) E := hEok
+    have hfacts := tagTupleAV_facts hT (hIdssAll (mots j) (hmots j hj') ψ) hshift hEok' hEfit'
+    unfold idxValsAt at hvals
+    rw [List.map_cons, List.map_nil, hfacts.1] at hvals
+    obtain ⟨hm, htow⟩ := inj_inj (List.singleton_inj.mp hvals)
+    refine ⟨hm, ?_⟩
+    have hlen2 : ((esF j ψ).map (interp V (consList fs ρp)) ++ [pt]).length
+        = (is ++ [pt]).length := by
+      rw [List.length_append, List.length_append, List.length_map, hlenE, hm, hsp.length_eq,
+        hlenIdsM ψ]
+    exact List.append_cancel_right (mkTower_inj hlen2 htow)
+  · -- a slot's tuple is the target's tuple (task #279 M-C′): the tagged
+    -- singleton's value
+    intro ψ ρp hρ j i hj hri τ hτ hEok hEfit
+    have hj' : j < ctorsA.length := hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj'⟩
+    have hρ' : Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp := by
+      rw [← hparams]; exact hρ
+    have hT := hTag ψ ρp hρ'
+    have hD := (hcf j cA hjA).toFixCtorFactsAt (hsortJ j) (fun i => hnames _ (htgtLt j i))
+      (fun i => hnIdxs _ (htgtLt j i))
+    have hlenAll : ∀ J, J < ctorsA.length → (eissF J ψ).length = nFs J := by
+      intro J hJ
+      obtain ⟨cA', hJA⟩ : ∃ cA', ctorsA[J]? = some cA' := ⟨_, List.getElem?_eq_getElem hJ⟩
+      rw [hnFs J cA' hJA]
+      exact ((hcf J cA' hJA).toFixCtorFactsAt (hsortJ J) (fun i => hnames _ (htgtLt J i))
+        (fun i => hnIdxs _ (htgtLt J i))).2.2.eissLen ψ
+    have hiLt : i < nFs j := by
+      have hrsD : d.rss.getD j [] = rsOf (kindsOf (ksF j)) := by
+        rw [hrssL, ← hrssD]
+        unfold rssOfK
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hj']
+        rfl
+      rcases Nat.lt_or_ge i (nFs j) with h | h
+      · exact h
+      · exfalso
+        have hlenR : (rsOf (kindsOf (ksF j))).length = nFs j := by
+          unfold rsOf
+          rw [List.length_map, hD.2.2.ksLen, hnFs j cA hjA]
+        rw [hrsD, List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hri
+        exact absurd hri (by decide)
+    have hEi : ((d.Eiss ψ).getD j []).getD i []
+        = [tagTupleAV (W ψ) (tgtAt (ksF j) i) (i + ((tssF j ψ).getD i []).length) (Idss ψ)
+            ((eissF j ψ).getD i [])] := by
+      rw [hEissL, ← hEissD, eissOfR_mutEissC rfl hlenAll, mutEiss'_getD hj' hiLt (hlenAll j hj')]
+    have hEfit' : SpineFit ρp (((ppsOf (tgtAt (ksF j) i) ψ).drop nP).map (·.2.2))
+        (((eissF j ψ).getD i []).map (interp V τ)) := hEfit
+    have hτ' : shiftE (i + ((tssF j ψ).getD i []).length) 0 τ = ρp := hτ
+    have hEok' : ∀ E ∈ (eissF j ψ).getD i [], WellDenoted V τ E := hEok
+    have hfacts := tagTupleAV_facts hT (hIdssAll _ (htgtLt j i) ψ) hτ' hEok' hEfit'
+    rw [hEi, List.map_cons, List.map_nil, hfacts.1]
+    rfl
 
 /-! ## The head's obligation, at one recursor's cons -/
 

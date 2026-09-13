@@ -683,6 +683,40 @@ structure IndRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP 
     j < d.ctorsA.length → j' < d.ctorsA.length →
     fs.length = ((d.Fss ψ).getD j []).length → fs'.length = ((d.Fss ψ).getD j' []).length →
     d.inj ψ j fs = d.inj ψ j' fs' → j = j' ∧ fs = fs'
+  /-- **The index tuple recovers the constructor's member and its own
+  index readings** (task #279 M-C′, DESIGN §M.34): a spine of
+  constructor `j`'s length whose result readings are graded and fit
+  `j`'s own member's index telescope, and whose terminator equations
+  hold at the tuple of a spine `is` fitting member `mm`'s telescope,
+  belongs to a constructor OF `mm`, and its result readings are `is`.
+  At a single family it is the terminator's reading
+  (`idxValsAt_of_eqsXI`); at a mutual block the tagged singleton
+  against the tagged tuple (sum and tuple injectivity).  What the
+  round trips' inductions need of the opaque `tup`/`essC`. -/
+  idxRecover : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ is : List V, SpineFit ρp (d.IdsM mm ψ) is →
+    ∀ (X : V) (j : Nat) (fs : List V), j < d.ctorsA.length →
+      fs.length = ((d.Fss ψ).getD j []).length →
+      (∀ E ∈ d.esF j ψ, WellDenoted V (consList fs ρp) E) →
+      SpineFit ρp (d.IdsM (d.mems j) ψ) ((d.esF j ψ).map (interp V (consList fs ρp))) →
+      EqAll (consList fs (cons (d.tup ψ mm is) (cons X ρp)))
+        (eqsXI (d.IdsC ψ).length ((d.Fss ψ).getD j []).length ((d.Ess ψ).getD j [])) →
+      d.mems j = mm ∧ (d.esF j ψ).map (interp V (consList fs ρp)) = is
+  /-- **A recursive slot's container-view tuple is the target member's
+  tuple of its family-view readings** (task #279 M-C′, DESIGN §M.34):
+  at a frame `i + |telescope|` binders below a parameter frame, with
+  the field's index readings graded and fitting the target's index
+  telescope, the slot's tuple (what the X-chain's slot reads,
+  `slotSet`) is `tup` at the target of the readings (what the target's
+  `leaf` reads).  Definitional at a single family; the tagged tuple's
+  value at a mutual block. -/
+  slotRecover : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ (j i : Nat), j < d.ctorsA.length → (d.rss.getD j []).getD i false = true →
+    ∀ τ : Nat → V, shiftE (i + ((d.tssF j ψ).getD i []).length) 0 τ = ρp →
+      (∀ E ∈ (d.eissF j ψ).getD i [], WellDenoted V τ E) →
+      SpineFit ρp (d.IdsM (d.tgts j i) ψ) (((d.eissF j ψ).getD i []).map (interp V τ)) →
+      tupW (d.u ψ) ((((d.Eiss ψ).getD j []).getD i []).map (interp V τ))
+        = d.tup ψ (d.tgts j i) (((d.eissF j ψ).getD i []).map (interp V τ))
 
 /-- **A modeled constant's leaf is its stored model's** — what the
 modeled route establishes for every block member

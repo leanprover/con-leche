@@ -186,7 +186,9 @@ theorem IndRep.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env�
     tupMem := h.tupMem
     ctor := fun j cA hj ψ ρ as fs h1 h2 => by rw [hac]; exact h.ctor j cA hj ψ ρ as fs h1 h2
     mkZero := h.mkZero
-    mkInj := h.mkInj }
+    mkInj := h.mkInj
+    idxRecover := h.idxRecover
+    slotRecover := h.slotRecover }
 
 theorem ModeledLeaf.swap {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)

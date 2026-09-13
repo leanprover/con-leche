@@ -463,7 +463,9 @@ theorem IndRep.cross {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI
       rw [hac, acvalWith_ne (ne_of_stored hfresh hfC)]
       exact h.ctor j cA hj ψ ρ as fs h1 h2
     mkZero := h.mkZero
-    mkInj := h.mkInj }
+    mkInj := h.mkInj
+    idxRecover := h.idxRecover
+    slotRecover := h.slotRecover }
 
 /-- A modeled recursor's leaf fact crosses any fresh cons: the recursor
 and its model are stored, so the head is neither. -/
