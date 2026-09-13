@@ -75500,6 +75500,132 @@ sub-term half from W2's pin inside the container's ORDINARY field
 kinds fact, as `CtorsChecked` did for the copies) by a size argument
 (`Ds ≠ []` at a fire: `nestedOccOk`'s `isNested`).
 
+#### M.32 M-C′ step 1: ψ⁻¹ END TO END (`hCAP` from the record), the round trips STATED, coherence and the carrier induction PROVED (2026-09-13, session 19)
+
+**(1) ψ⁻¹ closed end to end** (`Model/Inductives/InvCopy.lean`, on the
+Model umbrella).  `InvFold`'s `InvSetup` had three copy-side owers;
+`PinRead`/`CopyIdxRead` were already run-level (`CopyData.Ok`); the
+last, **`CopyCtorRead`**, is now DERIVED from the constructor record
+`CopyCtorAsRead` — the same record ψ consumes (§M.31) — by
+`copyCtorRead_of_asRead`, at the choice
+
+* `invL` (a real member's own leaf; a copy's its container member's
+  leaf at the pin's assignment), `invPinsT` (the parameter variables;
+  the pin's readings), `invUseIh` (a copy constructor's fields
+  recursive into a COPY use their hypothesis — container-recursive
+  fields, whose target is the group-mate's copy, and transports; a
+  field into a block member or an ordinary one is passed as-is), and
+  `invHead` (a real constructor at the parameter variables; a copy's
+  the CONTAINER constructor at the pin's readings, at a REPRESENTATIVE
+  `(j', Jc)` of the copy's constructor index chosen classically —
+  every representative gives `CtorAtPins`, and their agreement is the
+  coherence of (3)).
+
+The derivation, field by field at a prefix fitting the instantiated
+container domains (`spineFit_instSeqDoms_iff`): no hypothesis in use
+⇒ the record's `ord` verbatim; a container-recursive field (`kindR`)
+⇒ the container's recursive entry (`recRefl_entry`) under the
+substitution against the group-mate copy's target, the index readings'
+fit transferred through the group-mate's `CopyIdxRead`
+(`idxFit_of_entry` on the container's graded entry); a transport
+(`kindT`) ⇒ the record's own equation against the target copy's
+target, the fit through `transport_fits` and the target's
+`CopyIdxRead`.  The tower is the container constructor's residual
+instantiated at the pin (`instSeq_mkPisAV` — the body's depth is
+`nP - 1 + nF`, `instSeq_congr_depth` reconciles the record's
+`nP + i - 1` at an empty pin), the head is in it by `mem_type` along
+the fitting pin (`paramsIff`), the body is the copy's target at the
+container constructor's index readings (`es`, the fit from the
+container's `CtorFieldFacts` through the group-mate's `CopyIdxRead`).
+Two small changes at the run level: `ContainerCtorsAt` (a
+`ContainersRep` conjunct, a PREMISE) gained the INVERSE clause — every
+listed constructor of a member is one of the datum's at that member
+and position (the datum's constructors of a member are its recursor's
+rules, `IndRep.rules`, which `containerInfo?` lists; owed at M-D′ with
+the rest of `ContainersRep`) — which is what makes every copy
+constructor a container constructor's copy (`copyCtor_repr`, with
+`auxBlock_ctor_inv`, the inverse of the block's constructor layout);
+and `PinRunFacts` gained the group clause (the group's members by name,
+and their leaves at the pin's assignment read as at the pin's level
+substitution), from which `invChoice_group` shows a group-mate's own
+data agree with the pin's (`DenoteMetaSpine.unique` at the group's one
+component list, `containerInfo?_stored` for the level parameters).
+**`invSetup_of_run`**: `InvSetup` for the scratch block from
+`DeclNestedRun` under `ContainersRep` + `CopyCtorsRead` — the SAME two
+premises ψ has — at every level assignment sending the block's
+elimination universe to its carrier's rank and every parameter frame;
+hence ψ⁻¹ TYPED (`InvSetup.fold_mem`) and FIRING (`InvSetup.fold_iota`)
+end to end.  Its one extra premise: a member with a constructor
+(`d.memberCtors t₀ ≠ []`, the datum records recursor reads only there;
+all-zero-constructor blocks stay docketed).
+
+**(2) The round trips, stated** (`Model/Inductives/RoundTrip.lean`).
+With `foldApp σ Ψ ı⃗ x := (ı⃗ ++ [x]).foldl app (interp σ Ψ)`:
+
+* `R2At m ρ ps c Ψ Φ` — the CONTAINER side: for index values fitting
+  the container member's telescope at the pin's readings and `x` in
+  the family there, `foldApp ρ Φ ı⃗ (foldApp σ Ψ ı⃗ x) = x`
+  (σ the block's parameter frame; `Ψ` = ψ's fold term at the pin,
+  `psiFold_typed_of_read`'s `orderFold … j`; `Φ` = ψ⁻¹'s term at the
+  copy, `invSetup_of_run`'s recursor at the choice);
+* `R1At m ψ ρ ps t Ψ Φ` — the COPY side: for index values fitting the
+  copy's telescope and `a` in the copy's carrier,
+  `foldApp σ Ψ ı⃗ (foldApp ρ Φ ı⃗ a) = a`.
+
+**(3) Coherence PROVED** (`coherence`): a term `Φ'` that is a left
+inverse of ψ on the container's carrier (`R2At` for `Φ'`) agrees with
+ψ⁻¹ on the copy's carrier, from ψ⁻¹'s own `R1At` and its typing into
+the container (`fold_mem` read through `CopyIdxRead.idxIff`) — pure
+inverse uniqueness, so `invHead`'s representative is immaterial once
+R1/R2 hold.
+
+**(4) The induction principle PROVED** (`IndRep.carrier_induction`):
+structural induction over a member's carrier at the SET level —
+`lfpFamSet_induction` through the datum's `leaf` (the carrier is the
+least fixed point's fibre), `functor` (monotone, closed) and `fibre`
+(a fibre of `Φ X` is the injections of `ChainFit`ting spines): a
+property holding of every `inj j fs` whose fields chain-fit at the
+carrier restricted to the property holds on the whole carrier.  This
+IS the "recursor at a Prop motive" of §M.3, without a Prop-motive fold
+kit: **R1 is ONE induction over the scratch block's carriers** (every
+copy at once — a transport's target is another copy of the same block,
+so the copy side needs NO order), **R2 one over the container's
+carrier at the pin**, interleaved with the kernel order only at the
+transports (the earlier pin's R2 is the induction's side fact).
+
+**The two facts the inductions still need — NAMED, not built around**
+(neither is a datum or kernel fact):
+
+* **(i) the ι laws at VALUES.**  `InvSetup.fold_iota`/`PsiSetup.fold_iota`
+  fire at field TERMS read at the base frame `ρ`; an induction step
+  holds an arbitrary spine of VALUES `vs`.  The standard route feeds
+  them through the frame `consList vs ρ` with the parameters lifted and
+  the fields as variables — legitimate because `invSetup_of_run` is
+  `∀ ρ ps` — and then needs the fold's PREFIX to read alike at the two
+  frames: the choice's terms must be closed above the parameters
+  (`Term.bvarsBelow d.nP` for `invPinsT` = the pins' readings, from
+  `DenoteMetaSpine` at K.3's `pinsClosed`; for `invHead`; for ψ's
+  `psiPinsT`/`psiHead`/`psiVia` and the table's terms along the
+  order), with `interp_congr_below` as the tool.  One lemma per fold,
+  "ι at values", ≈ a session together.
+* **(ii) `ChainFit`, field by field.**  The datum's `fibre` exposes the
+  chain fit WHOLE (`chainXIGo` over the X-chains); an induction step
+  needs, per field: a recursive field's value under its telescope lies
+  in the chain family's fibre at its index readings (so the restricted
+  family gives the induction hypothesis), an ordinary field's value
+  fits its domain.  A Semantics-tier lemma about `chainXIGo`
+  (`FixFamI.lean`, where the recursor's construction reads the same
+  chains) that the model tier has not imported.
+
+**Status.**  ψ END TO END (§M.29/§M.31) and ψ⁻¹ END TO END (this
+section) under `ContainersRep` + `CopyCtorsRead` (+ `BridgeSyntax` for
+ψ); R1/R2 stated, coherence and the induction principle proved; R1/R2's
+inductions await (i) and (ii).  NOT reached: the record's Model half
+`copyCtorAsRead_of_walk` (§M.31 (c)–(e)).  Gates: `lake build` 623
+jobs warning-free, `lake test` clean, `no-local-paths` OK; shake/
+pub-import, arena, init-full, Mathlib, overview-links NOT run
+(landing items).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
