@@ -39,20 +39,21 @@ namespace ConLeche
 /-! ## Mints -/
 
 /-- A chain of `mkCopies` calls, each on a stored container's group. -/
-inductive MintStep (env : Env) : ElimState → ElimState → Prop
-  | refl (st : ElimState) : MintStep env st st
+inductive MintStep (env : Env) (nP : Nat) : ElimState → ElimState → Prop
+  | refl (st : ElimState) : MintStep env nP st st
   | mint {st st' st'' : ElimState} {I : Name} {ci : ContainerInfo}
       {pbs : List (Expr × BinderMeta)} {lvls : List Level} {Ds : List Expr} {got : Option Name}
       (hci : containerInfo? env I = some ci)
       (hmk : mkCopies env pbs lvls Ds I ci.members st = .ok (st', got))
       (hDs : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true)
-      (hrest : MintStep env st' st'') : MintStep env st st''
+      (hpbs : pbs.length = nP) (hDsLen : Ds.length = ci.nP)
+      (hrest : MintStep env nP st' st'') : MintStep env nP st st''
 
-theorem MintStep.trans {env : Env} {st₁ st₂ st₃ : ElimState}
-    (h₁ : MintStep env st₁ st₂) (h₂ : MintStep env st₂ st₃) : MintStep env st₁ st₃ := by
+theorem MintStep.trans {env : Env} {nP : Nat} {st₁ st₂ st₃ : ElimState}
+    (h₁ : MintStep env nP st₁ st₂) (h₂ : MintStep env nP st₂ st₃) : MintStep env nP st₁ st₃ := by
   induction h₁ with
   | refl => exact h₂
-  | mint hci hmk hDs _ ih => exact .mint hci hmk hDs (ih h₂)
+  | mint hci hmk hDs hpbs hDsLen _ ih => exact .mint hci hmk hDs hpbs hDsLen (ih h₂)
 
 /-- What one `mkCopies` call does: one copy per group member, appended
 to the types, and one pin per member, appended to the pins, in member
@@ -95,11 +96,11 @@ theorem mkCopies_spec {env : Env} {pbs : List (Expr × BinderMeta)} {lvls : List
           | succ i => exact hall i J' hi
 
 /-- A mint keeps the pin list as a prefix. -/
-theorem MintStep.pins_prefix {env : Env} {st st' : ElimState} (h : MintStep env st st') :
-    st.pins <+: st'.pins := by
+theorem MintStep.pins_prefix {env : Env} {nP : Nat} {st st' : ElimState}
+    (h : MintStep env nP st st') : st.pins <+: st'.pins := by
   induction h with
   | refl => exact List.prefix_refl _
-  | @mint s₁ s₂ s₃ _ _ _ _ _ _ _ hmk _ _ ih =>
+  | @mint s₁ s₂ s₃ _ _ _ _ _ _ _ hmk _ _ _ _ ih =>
     obtain ⟨copies, hlen, hty, hpin, hall⟩ := mkCopies_spec hmk
     have h₁ : s₁.pins <+: s₂.pins := by rw [hpin]; exact List.prefix_append _ _
     exact h₁.trans ih
@@ -129,9 +130,9 @@ theorem nestedOccOk_closed_of {I : Name} {names : List Name} {nP : Nat} {args : 
 /-- `replaceIfNested` is a mint (or nothing). -/
 theorem replaceIfNested_mint {env : Env} {blvls : List Level} {params : List Expr}
     {pbs : List (Expr × BinderMeta)} {st : ElimState} {e : Expr}
-    {r : Option (Expr × ElimState)}
+    {r : Option (Expr × ElimState)} {nP : Nat} (hpbs : pbs.length = nP)
     (h : replaceIfNested env blvls params pbs st e = .ok r) :
-    ∀ e' st', r = some (e', st') → MintStep env st st' := by
+    ∀ e' st', r = some (e', st') → MintStep env nP st st' := by
   intro e' st' hr
   subst hr
   unfold replaceIfNested at h
@@ -145,13 +146,14 @@ theorem replaceIfNested_mint {env : Env} {blvls : List Level} {params : List Exp
          first
            | exact MintStep.refl _
            | exact MintStep.mint (by assumption) (by assumption)
-               (nestedOccOk_closed_of (by assumption) (by assumption)) (MintStep.refl _))
+               (nestedOccOk_closed_of (by assumption) (by assumption)) hpbs
+               (by simp only [List.length_take]; omega) (MintStep.refl _))
 
 /-- The top-down replace is a chain of mints. -/
 theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Expr}
-    {pbs : List (Expr × BinderMeta)} :
+    {pbs : List (Expr × BinderMeta)} {nP : Nat} (hpbs : pbs.length = nP) :
     ∀ (e : Expr) {st : ElimState} {r : Expr × ElimState},
-      replaceAllNested env blvls params pbs st e = .ok r → MintStep env st r.2 := by
+      replaceAllNested env blvls params pbs st e = .ok r → MintStep env nP st r.2 := by
   intro e
   induction e with
   | bvar i =>
@@ -165,7 +167,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · obtain rfl := Except.ok.inj h
         exact MintStep.refl _
   | fvar idx ty _ =>
@@ -179,7 +181,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · obtain rfl := Except.ok.inj h
         exact MintStep.refl _
   | sort u =>
@@ -193,7 +195,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · obtain rfl := Except.ok.inj h
         exact MintStep.refl _
   | const n us =>
@@ -207,7 +209,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · obtain rfl := Except.ok.inj h
         exact MintStep.refl _
   | lit l =>
@@ -221,7 +223,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · obtain rfl := Except.ok.inj h
         exact MintStep.refl _
   | app f a ihf iha =>
@@ -235,7 +237,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · split at h
         · contradiction
         · next x₁ st₁ h₁ =>
@@ -243,7 +245,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
           · contradiction
           · next x₂ st₂ h₂ =>
             obtain rfl := Except.ok.inj h
-            show MintStep env st st₂
+            show MintStep env nP st st₂
             exact (ihf h₁).trans (iha h₂)
   | lam ty b bm ihty ihb =>
     intro st r h
@@ -256,7 +258,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · split at h
         · contradiction
         · next x₁ st₁ h₁ =>
@@ -264,7 +266,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
           · contradiction
           · next x₂ st₂ h₂ =>
             obtain rfl := Except.ok.inj h
-            show MintStep env st st₂
+            show MintStep env nP st st₂
             exact (ihty h₁).trans (ihb h₂)
   | forallE ty b bm ihty ihb =>
     intro st r h
@@ -277,7 +279,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · split at h
         · contradiction
         · next x₁ st₁ h₁ =>
@@ -285,7 +287,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
           · contradiction
           · next x₂ st₂ h₂ =>
             obtain rfl := Except.ok.inj h
-            show MintStep env st st₂
+            show MintStep env nP st st₂
             exact (ihty h₁).trans (ihb h₂)
   | letE ty v b ihty ihv ihb =>
     intro st r h
@@ -298,7 +300,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · split at h
         · contradiction
         · next x₁ st₁ h₁ =>
@@ -309,7 +311,7 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
             · contradiction
             · next x₃ st₃ h₃ =>
               obtain rfl := Except.ok.inj h
-              show MintStep env st st₃
+              show MintStep env nP st st₃
               exact ((ihty h₁).trans (ihv h₂)).trans (ihb h₃)
   | proj s i x ihx =>
     intro st r h
@@ -322,31 +324,47 @@ theorem replaceAllNested_mint {env : Env} {blvls : List Level} {params : List Ex
       · contradiction
       · next r' hr' =>
         obtain rfl := Except.ok.inj h
-        exact replaceIfNested_mint hr' _ _ rfl
+        exact replaceIfNested_mint hpbs hr' _ _ rfl
       · split at h
         · contradiction
         · next x₁ st₁ h₁ =>
           obtain rfl := Except.ok.inj h
-          show MintStep env st st₁
+          show MintStep env nP st st₁
           exact ihx h₁
 
 
 
 /-- A mint keeps the type list as a prefix. -/
-theorem mintStep_types_prefix {env : Env} {st st' : ElimState} (h : MintStep env st st') :
-    st.types <+: st'.types := by
+theorem mintStep_types_prefix {env : Env} {nP : Nat} {st st' : ElimState}
+    (h : MintStep env nP st st') : st.types <+: st'.types := by
   induction h with
   | refl => exact List.prefix_refl _
-  | @mint s₁ s₂ s₃ _ _ _ _ _ _ _ hmk _ _ ih =>
+  | @mint s₁ s₂ s₃ _ _ _ _ _ _ _ hmk _ _ _ _ ih =>
     obtain ⟨copies, hlen, hty, hpin, hall⟩ := mkCopies_spec hmk
     have h₁ : s₁.types <+: s₂.types := by rw [hty]; exact List.prefix_append _ _
     exact h₁.trans ih
+
+/-- A stripped telescope has exactly `n` binders. -/
+theorem stripPis_length' : ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+    e.stripPis n = some (bs, body) → bs.length = n
+  | 0, _, bs, _, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]; rfl
+  | n + 1, e, bs, body, h => by
+    match e, h with
+    | .forallE ty b m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, r₀⟩, h₀, h₁⟩ := h
+      simp only [Prod.mk.injEq] at h₁
+      rw [← h₁.1, List.length_cons, stripPis_length' n h₀]
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
 
 /-- One type's constructors rewritten: a chain of mints. -/
 theorem elimCtors_mint {env : Env} {blvls : List Level} {nP : Nat} {params : List Expr} :
     ∀ {cs : List (Name × Expr × Nat)} {st : ElimState}
       {r : List (Name × Expr × Nat) × ElimState},
-      elimCtors env blvls nP params cs st = .ok r → MintStep env st r.2
+      elimCtors env blvls nP params cs st = .ok r → MintStep env nP st r.2
   | [], st, r, h => by
     simp only [elimCtors, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -363,7 +381,7 @@ theorem elimCtors_mint {env : Env} {blvls : List Level} {nP : Nat} {params : Lis
           · next rest' st₂ hrest =>
             simp only [pure, Except.pure, Except.ok.injEq] at h
             subst h
-            have h₁ := replaceAllNested_mint _ hq
+            have h₁ := replaceAllNested_mint (stripPis_length' nP ‹_›) _ hq
             have h₂ := elimCtors_mint hrest
             exact h₁.trans h₂
       · contradiction
@@ -384,7 +402,7 @@ def PinOriginAt (env : Env) (k : Nat) (blvls : List Level) (nP : Nat) (params : 
         q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
     st.pins[j]? = some q ∧ q.container = J.name ∧ q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
     mkCopy pbs lvls Ds q.aux J = .ok copy ∧
-    (∀ D ∈ Ds, D.looseBVarsBounded 0 = true) ∧
+    (∀ D ∈ Ds, D.looseBVarsBounded 0 = true) ∧ pbs.length = nP ∧ Ds.length = ci.nP ∧
     st.types[k + j]? = some t ∧ t.name = copy.name ∧ t.type = copy.type ∧
     (qhead ≤ k + j → t.ctors = copy.ctors) ∧
     (k + j < qhead → ∃ (st₁ st₂ : ElimState) (cs' : List (Name × Expr × Nat)),
@@ -405,7 +423,7 @@ theorem PinOriginAt.mono {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
     (h : PinOriginAt env k blvls nP params st qhead j)
     (hp : st.pins <+: st'.pins) (ht : st.types <+: st'.types) :
     PinOriginAt env k blvls nP params st' qhead j := by
-  obtain ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hj, hgrp, hq, hqc, hqp, hmk, hDs, ht',
+  obtain ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hj, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ht',
     hn, hty, hraw, hproc⟩ := h
   have hpins : ∀ {i : Nat} {q : NestedPin}, st.pins[i]? = some q → st'.pins[i]? = some q := by
     intro i q hq'
@@ -413,7 +431,7 @@ theorem PinOriginAt.mono {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
     rw [← htl, List.getElem?_append_left (List.getElem?_eq_some_iff.mp hq').1]
     exact hq'
   refine ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hj, fun i' J' hi' => ?_,
-    hpins hq, hqc, hqp, hmk, hDs, ?_, hn, hty, hraw, fun hlt => ?_⟩
+    hpins hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hn, hty, hraw, fun hlt => ?_⟩
   · obtain ⟨q', hq', hc', hp'⟩ := hgrp i' J' hi'
     exact ⟨q', hpins hq', hc', hp'⟩
   · obtain ⟨tl, htl⟩ := ht
@@ -430,7 +448,8 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
     {pbs : List (Expr × BinderMeta)} {lvls : List Level} {Ds : List Expr} {got : Option Name}
     (hci : containerInfo? env I = some ci)
     (hmk : mkCopies env pbs lvls Ds I ci.members st = .ok (st', got))
-    (hDs : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true)
+    (hDs : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true) (hpbs : pbs.length = nP)
+    (hDsLen : Ds.length = ci.nP)
     (hL : ElimLedger env k blvls nP params st qhead) (hq : qhead ≤ st.types.length) :
     ElimLedger env k blvls nP params st' qhead := by
   obtain ⟨hlen, hall⟩ := hL
@@ -464,7 +483,7 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
       rfl
     refine ⟨I, ci, i, st.pins.length, J, lvls, Ds, pbs,
       ⟨copy.name, J.name, Expr.mkAppN (.const J.name lvls) Ds⟩, copy, copy, hci, hJ, rfl,
-      fun i' J' hi' => ⟨_, hpinAt i' J' hi', rfl, rfl⟩, ?_, rfl, rfl, hmkc, hDs, ?_, rfl, rfl,
+      fun i' J' hi' => ⟨_, hpinAt i' J' hi', rfl, rfl⟩, ?_, rfl, rfl, hmkc, hDs, hpbs, hDsLen, ?_, rfl, rfl,
       fun _ => rfl, fun hlt => ?_⟩
     · have := hpinAt i J hJ
       rw [List.getD_eq_getElem?_getD, hcopy] at this
@@ -477,12 +496,12 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
 /-- The ledger survives a chain of mints. -/
 theorem ledger_mintStep {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
     {params : List Expr} {st st' : ElimState} {qhead : Nat}
-    (h : MintStep env st st') (hL : ElimLedger env k blvls nP params st qhead)
+    (h : MintStep env nP st st') (hL : ElimLedger env k blvls nP params st qhead)
     (hq : qhead ≤ st.types.length) : ElimLedger env k blvls nP params st' qhead := by
   induction h with
   | refl => exact hL
-  | mint hci hmk hDs _ ih =>
-    have hL' := ledger_mint hci hmk hDs hL hq
+  | mint hci hmk hDs hpbs hDsLen _ ih =>
+    have hL' := ledger_mint hci hmk hDs hpbs hDsLen hL hq
     refine ih hL' ?_
     obtain ⟨copies, hlen, hty, hpin, hall⟩ := mkCopies_spec hmk
     rw [hty, List.length_append]; omega
@@ -510,9 +529,9 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
       obtain ⟨hlen, hall⟩ := hL
       refine ⟨hlen, fun j hj => ?_⟩
       obtain ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-        hDs, ht, hn, hty, hraw, hproc⟩ := hall j hj
+        hDs, hpbs, hDsLen, ht, hn, hty, hraw, hproc⟩ := hall j hj
       refine ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-        hDs, ht, hn, hty, fun hle => ?_, fun _ => hproc (by omega)⟩
+        hDs, hpbs, hDsLen, ht, hn, hty, fun hle => ?_, fun _ => hproc (by omega)⟩
       exfalso; omega
     · next t ht =>
       split at h
@@ -530,7 +549,7 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
           refine ⟨by simp [hlen₁], fun j hj => ?_⟩
           have hj' : j < st₁.pins.length := hj
           obtain ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t', hci, hJ, hjE, hgrp, hq, hqc, hqp,
-            hmk, hDs, ht', hn, hty, hraw, hproc⟩ := hall₁ j hj
+            hmk, hDs, hpbs, hDsLen, ht', hn, hty, hraw, hproc⟩ := hall₁ j hj
           by_cases hjq : k + j = qhead
           · -- the processed entry: it was raw at `st`, and `st` is the
             -- state its `elimCtors` ran from
@@ -544,14 +563,15 @@ theorem elimLoop_ledger {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
               exact Option.some.inj (htj.symm.trans ht')
             subst htt
             refine ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, { t with ctors := cs' }, hci, hJ, hjE,
-              hgrp, hq, hqc, hqp, hmk, hDs, ?_, hn, hty, fun hle => ?_, fun _ => ?_⟩
+              hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hn, hty, fun hle => ?_, fun _ => ?_⟩
             · show (st₁.types.set qhead { t with ctors := cs' })[k + j]? = some _
               rw [hjq, List.getElem?_set_self (by rw [hlen₁]; omega)]
             · exfalso; omega
             · refine ⟨st, st₁, cs', ?_, rfl, hpre, List.prefix_refl _⟩
               rw [← hraw']; exact hcs
           · refine ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t', hci, hJ, hjE, hgrp, hq, hqc, hqp,
-              hmk, hDs, ?_, hn, hty, fun hle => hraw (by omega), fun hlt => hproc (by omega)⟩
+              hmk, hDs, hpbs, hDsLen, ?_, hn, hty, fun hle => hraw (by omega),
+              fun hlt => hproc (by omega)⟩
             show (st₁.types.set qhead { t with ctors := cs' })[k + j]? = some t'
             rw [List.getElem?_set_ne (fun h => hjq h.symm)]
             exact ht'
@@ -579,7 +599,7 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
         st.pins[j]? = some q ∧ q.container = J.name ∧
         q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
         mkCopy pbs lvls Ds q.aux J = .ok copy ∧
-        (∀ D ∈ Ds, D.looseBVarsBounded 0 = true) ∧
+        (∀ D ∈ Ds, D.looseBVarsBounded 0 = true) ∧ pbs.length = nP ∧ Ds.length = ci.nP ∧
         st.types[types.length + j]? = some { copy with ctors := cs' } ∧
         elimCtors env (lps.map Level.param) nP params copy.ctors st₁ = .ok (cs', st₂) ∧
         st₁.pins <+: st.pins ∧ st₂.pins <+: st.pins := by
@@ -592,10 +612,10 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
         ⟨by simp, fun j hj => nomatch hj⟩
       obtain ⟨hlen, hall⟩ := elimLoop_ledger h hL₀
       obtain ⟨I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, t, hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk,
-        hDs, ht, hn, hty, -, hproc⟩ := hall j hj
+        hDs, hpbs, hDsLen, ht, hn, hty, -, hproc⟩ := hall j hj
       obtain ⟨st₁, st₂, cs', hrun, hcs, h₁, h₂⟩ := hproc (by omega)
       refine ⟨t₀, params, body, ht₀, hop, I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, st₁, st₂, cs',
-        hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, ?_, hrun, h₁, h₂⟩
+        hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, ?_, hrun, h₁, h₂⟩
       rw [ht]
       congr 1
       cases t with
@@ -856,7 +876,8 @@ theorem elimCtors_getElem? {env : Env} {blvls : List Level} {nP : Nat} {params :
             simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl⟩ := h
             obtain ⟨hlen, hall⟩ := elimCtors_getElem? hrest
-            have hp₁ : st.pins <+: st₁.2.pins := (replaceAllNested_mint _ hq).pins_prefix
+            have hp₁ : st.pins <+: st₁.2.pins :=
+              (replaceAllNested_mint (stripPis_length' nP hstrip) _ hq).pins_prefix
             have hp₂ : st₁.2.pins <+: st₂.2.pins := (elimCtors_mint hrest).pins_prefix
             refine ⟨by simp [hlen], fun l c' cty' nF' hl => ?_⟩
             cases l with
