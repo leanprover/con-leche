@@ -77092,13 +77092,25 @@ and a `restoreI_lam'`/`restoreI_mkAppN_const` pair (a non-table
 constant's spine restores argument-wise) — not yet written.  The whnf
 arm's `WhnfField` restatement (below) is part of the same reading.
 
-**Where the table's `WF` comes from** (for the wiring, not yet
-written): `restoreTbl p st` has `pins := st.pins.map (aux, abstractRange
-q.pin 0 nP 0)`, closed below `nP` by K.3's `pinsClosed`; `ctorPins`'
-pins are the same abstractions, hence `mkAppN (const J lvls) (Ds.map …)`
-(`abstractRange_mkAppN`); the three key sets are exactly the three
-summands of `auxNames`.  A `RestoreTbl.WF (restoreTbl p st)` lemma
-belongs beside `restoreTbl` in `Verify/Inductives/NestedFacts.lean`.
+* **the run's table is `WF`** (third commit): **`restoreTbl_wf`** —
+  `(restoreTbl p st).WF` from K.3's `pinsClosed` and the pins' shape
+  (every pin a container application, a `PinRunFactsAt`/`PinOriginAt`
+  fact the caller supplies): the pins are their abstractions over the
+  parameters, closed below `nP`; the constructor pins the same
+  abstractions, constant-headed by `abstractRange_mkAppN`; the three
+  key sets the three summands of `auxNames` (the `zipIdx`/`flatten`
+  membership unpacked once, `hctor`).
+* **K.17's witness, inverted** (third commit): **`nestedCtorsWhnfOk_inv`**
+  — for every pair of `nestedCtorPairs b stored` (a member's processed
+  constructor against its stored one) both constructors restore
+  (`restoreNested`), both open at `nP + nF` variables, and
+  **`nestedFieldWhnfOk_inv`** gives per field `i < nF`: the processed
+  and stored openers' annotations agree, or the stored one is
+  `whnf mode env F (nP + i)` of the processed one (`fueledOps`' `whnf`
+  is `whnf mode env F` definitionally; `unwrapOr_ok'` local).  This is
+  the inversion §M.42's step (1) had no kit for; with
+  `restoreNested_openPis` on both sides its openers are `restoreI` of
+  the processed/stored openers up to erasure.
 
 **Steps (1), D2, D3 of the brief: NOT reached.**  Step (1)
 (`CopyWalkFacts` from `CopyCtorsStored`) was analysed before D1 was
@@ -77108,16 +77120,15 @@ K.17's witness RESTORED and OPENED (`nestedCtorsWhnfOk`: `restoreNested`
 of both the processed and the stored constructor, opened at `nP + nF`
 variables, field by field, `dm = ds ∨ whnf dm = ds`), so identifying
 the stored field's shape needs exactly `restoreNested_openPis` +
-(b) above.  Two further facts (1) needs, both NAMED here, neither
-built: **`nestedCtorsWhnfOk_inv`** (the Verify inversion of K.17's
-conjunct — none exists yet: per member and constructor,
-`restoreNested R minted = ok mR`, `restoreNested R stored = ok sR`, both
-open at `nP + nF`, and per field `dm = ds ∨ whnf μ env₁ F (nP + i) dm
-= .ok ds`), and **`whnf` is the identity on a `∀` and on an
-inductive-headed constant application** (`whnf_forallE_eq` exists;
-the inductive-headed case does not — needed to turn K.17's `whnf`
-disjunct into equality at a container-recursive field, where the
-restored processed field is `Π bs, J Ds idx` or `J Ds idx`).  Also
+(b) above.  One further fact (1) needs, NAMED here, not
+built: **`whnf` is the identity on an inductive-headed constant
+application** (`whnf_forallE_eq` exists for the `∀` case; the
+inductive-headed case does not — needed to turn K.17's `whnf` disjunct
+into equality at a container-recursive field, where the restored
+processed field is `Π bs, J Ds idx` or, finitary, `J Ds idx`; a lemma
+about `whnfCore`'s spine loop, `iotaRec` declining at an inductive head
+and `unfoldDefinition` at a value-less constant).  The K.17 inversion
+itself now exists (`nestedCtorsWhnfOk_inv`, above).  Also
 named (§M.42's route): **the pins' components mention a block member**
 (`nestedOccOk` at the fire; the ledger's `PinOriginAt` does not record
 it) — the fact that refutes "the copy's field is ordinary" at a
@@ -77131,7 +77142,7 @@ restored constructor's `i`-th opener, exactly what
 `hwhnf`).
 
 **Gates**: `lake build` warning-free, `lake test` clean (both run for
-each of the step's two commits).  NOT run (landing items): shake/pub-import
+each of the step's three commits).  NOT run (landing items): shake/pub-import
 (`NestedRestore` on the root umbrella, its `TeleOpen` import plain),
 arena, init-full, Mathlib, `overview-links.sh`, `no-local-paths.sh`.
 No `sorry`, no axiom, no kernel change.

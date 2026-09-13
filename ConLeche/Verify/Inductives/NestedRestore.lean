@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.NestedFields
 import ConLeche.Verify.Denote.TeleOpen
+import ConLeche.Verify.Inductives.NestedFacts
 
 public section
 
@@ -2350,5 +2351,128 @@ theorem restoreI_copyField {R : RestoreTbl} (hR : R.Named) {x : Expr} {n dpt : N
       (by rw [Expr.getAppArgs_mkAppN]; simpa [Expr.getAppArgs] using hk)
       (by rw [hrI, Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs, List.getElem?_map, hq])
     exact this.symm
+
+/-! ## The run's table is well-formed -/
+
+/-- **`restoreTbl p st` is `WF`** given K.3's `pinsClosed` and the pins'
+shape (a container application — every pin the elimination records is
+one, `PinRunFactsAt`/`PinOriginAt`): the pins are their abstractions
+over the parameters, closed below `nP`; the constructor pins are the
+same abstractions, constant-headed by `abstractRange_mkAppN`; the
+three key sets are the three summands of `auxNames`. -/
+theorem restoreTbl_wf {p : NestedParts} {st : ElimState}
+    (hclosed : pinsClosed p.nP st.pins = true)
+    (hshape : ∀ q ∈ st.pins, ∃ (J : Name) (lvls : List Level) (Ds : List Expr),
+      q.pin = Expr.mkAppN (.const J lvls) Ds) :
+    (restoreTbl p st).WF := by
+  -- every constructor pin comes from a pin of the state
+  have hctor : ∀ x ∈ (restoreTbl p st).ctorPins, ∃ q ∈ st.pins, ∃ t ∈ st.types.drop p.k, ∃ c ∈ t.ctors,
+      x = (c.1, Expr.abstractRange q.pin 0 p.nP 0, Name.replacePrefix q.aux q.container c.1) := by
+    intro x hx
+    simp only [restoreTbl] at hx
+    obtain ⟨l, hl, hxl⟩ := List.mem_flatten.mp hx
+    obtain ⟨⟨t, j⟩, htj, rfl⟩ := List.mem_map.mp hl
+    obtain ⟨-, hjlt, ht⟩ := List.mem_zipIdx htj
+    simp only [Nat.sub_zero] at ht
+    have htmem : t ∈ st.types.drop p.k := by rw [ht]; exact List.getElem_mem _
+    cases hq : st.pins[j]? with
+    | none => simp only [hq] at hxl; exact nomatch hxl
+    | some q =>
+      simp only [hq] at hxl
+      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hxl
+      exact ⟨q, List.mem_of_getElem? hq, t, htmem, c, hc, rfl⟩
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_⟩
+  · intro q hq
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hq
+    simp only [restoreTbl]
+    exact List.mem_append_left _ (List.mem_append_left _ (List.mem_map_of_mem hq'))
+  · intro x hx
+    obtain ⟨q, hq, t, ht, c, hc, rfl⟩ := hctor x hx
+    simp only [restoreTbl]
+    exact List.mem_append_left _ (List.mem_append_right _
+      (List.mem_flatMap.mpr ⟨t, ht, List.mem_map_of_mem hc⟩))
+  · intro x hx
+    simp only [restoreTbl] at hx ⊢
+    obtain ⟨⟨q, j⟩, hqj, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨-, -, hq⟩ := List.mem_zipIdx hqj
+    simp only [Nat.sub_zero] at hq
+    exact List.mem_append_right _ (List.mem_map_of_mem (by rw [hq]; exact List.getElem_mem _))
+  · intro q hq
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hq
+    exact (pinsClosed_inv hclosed q' hq').2
+  · intro x hx
+    obtain ⟨q, hq, -, -, -, -, rfl⟩ := hctor x hx
+    exact (pinsClosed_inv hclosed q hq).2
+  · intro x hx
+    obtain ⟨q, hq, -, -, -, -, rfl⟩ := hctor x hx
+    obtain ⟨J, lvls, Ds, hpin⟩ := hshape q hq
+    refine ⟨J, lvls, Ds.map (·.abstractRange 0 p.nP 0), ?_⟩
+    show Expr.abstractRange q.pin 0 p.nP 0 = _
+    rw [hpin, abstractRange_mkAppN]
+    rfl
+
+/-! ## K.17's witness, inverted -/
+
+/-- `unwrapOr` succeeds only on a `some`. -/
+theorem unwrapOr_ok' {α : Type} {x : Option α} {e : CheckError} {a : α}
+    (h : (unwrapOr x e : CheckM α) = .ok a) : x = some a := by
+  cases x with
+  | none => exact absurd h (by simp [unwrapOr, throw, throwThe, MonadExceptOf.throw])
+  | some b =>
+    simp only [unwrapOr, pure, Except.pure, Except.ok.injEq] at h
+    rw [h]
+
+/-- **The per-field witness, inverted**: at every field either the
+processed and stored fields agree or the stored one is the `whnf` of
+the processed one. -/
+theorem nestedFieldWhnfOk_inv {env : Env} {nP F : Nat} {fvsM fvsS : List Expr} :
+    ∀ {nF : Nat}, nestedFieldWhnfOk (m := CheckM) (fueledOps mode F) env nP fvsM fvsS nF = .ok () →
+      ∀ i, i < nF →
+        (fvsM.getD (nP + i) default).fvarTypeD = (fvsS.getD (nP + i) default).fvarTypeD ∨
+        whnf mode env F (nP + i) (fvsM.getD (nP + i) default).fvarTypeD
+          = .ok (fvsS.getD (nP + i) default).fvarTypeD
+  | 0, _, i, hi => absurd hi (by omega)
+  | nF + 1, h, i, hi => by
+    simp only [nestedFieldWhnfOk, bind, Except.bind] at h
+    obtain ⟨_, hrec, h⟩ := exceptBind_ok h
+    rcases Nat.lt_or_ge i nF with hlt | hge
+    · exact nestedFieldWhnfOk_inv hrec i hlt
+    · have hi' : i = nF := by omega
+      subst hi'
+      by_cases heq : ((fvsM.getD (nP + i) default).fvarTypeD == (fvsS.getD (nP + i) default).fvarTypeD)
+          = true
+      · exact Or.inl (eq_of_beq heq)
+      · simp only [heq, Bool.false_eq_true, ite_false] at h
+        obtain ⟨w, hw, h⟩ := exceptBind_ok h
+        by_cases hweq : (w == (fvsS.getD (nP + i) default).fvarTypeD) = true
+        · rw [eq_of_beq hweq] at hw
+          exact Or.inr hw
+        · simp only [hweq, Bool.false_eq_true, ite_false] at h
+          exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+
+/-- **K.17's witness, inverted**: for every pair of the list, both
+constructors restore, both open at `nP + nF` variables, and the
+per-field witness holds. -/
+theorem nestedCtorsWhnfOk_inv {env : Env} {R : RestoreTbl} {nP F : Nat} :
+    ∀ {pairs : List (MutualCtor × (ConstantVal × Nat × Nat))},
+      nestedCtorsWhnfOk (m := CheckM) (fueledOps mode F) env R nP pairs = .ok () →
+      ∀ pr ∈ pairs,
+        ∃ (mR sR : Expr) (fvsM : List Expr) (oM : Expr) (fvsS : List Expr) (oS : Expr),
+          restoreNested R pr.1.cv.type = .ok mR ∧ restoreNested R pr.2.1.type = .ok sR ∧
+          openPisAtFvars (nP + pr.2.2.2) mR 0 = some (fvsM, oM) ∧
+          openPisAtFvars (nP + pr.2.2.2) sR 0 = some (fvsS, oS) ∧
+          nestedFieldWhnfOk (m := CheckM) (fueledOps mode F) env nP fvsM fvsS pr.2.2.2 = .ok ()
+  | [], _, pr, hpr => nomatch hpr
+  | (c, (cvS, nP', nF)) :: rest, h, pr, hpr => by
+    simp only [nestedCtorsWhnfOk, bind, Except.bind] at h
+    obtain ⟨mR, hmR, h⟩ := exceptBind_ok h
+    obtain ⟨sR, hsR, h⟩ := exceptBind_ok h
+    obtain ⟨⟨fvsM, oM⟩, hopM, h⟩ := exceptBind_ok h
+    obtain ⟨⟨fvsS, oS⟩, hopS, h⟩ := exceptBind_ok h
+    obtain ⟨_, hfield, hrest⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hpr with rfl | hpr'
+    · exact ⟨mR, sR, fvsM, oM, fvsS, oS, nestedLift_ok hmR, nestedLift_ok hsR, unwrapOr_ok' hopM,
+        unwrapOr_ok' hopS, hfield⟩
+    · exact nestedCtorsWhnfOk_inv hrest pr hpr'
 
 end ConLeche
