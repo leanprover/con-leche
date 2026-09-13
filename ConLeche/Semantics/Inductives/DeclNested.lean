@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedInv
+public import ConLeche.Verify.Inductives.NestedOrderK
 
 @[expose] public section
 
@@ -18,6 +18,19 @@ types and rules at the rule-less provision, the projection tables of
 the structure-like members, and official's two remaining post-checks —
 the pins typed at the parameter context (leanprover/lean4#14577) and
 the stream's recursor records against the restored generated ones.
+
+**`order`** is the copies' TOPOLOGICAL ORDER along their reference
+relation (DESIGN §M.22, the maintainer's decision that the KERNEL
+computes it): `nestedTopoOrder (ElimState.grp st) p.k st = .ok order`,
+where `ElimState.grp` is the mint-group assignment the elimination now
+records on every pin (`NestedPin.grpBase`/`grpSize` — it is not
+recoverable from the pin list afterwards).  `copyRefB` is the model
+lane's `CopyRef` clause for clause, as a `Bool`; `nestedTopoOrder`
+checks its own result against `topoOrderOk`, whose four conjuncts ARE
+`TopoOrder`'s four fields, so the fields are facts about the result and
+not about the algorithm (`Verify/Inductives/NestedOrderK.lean`).  A
+CYCLE is a positive DECLINE, and it cannot fire on a stream official
+accepts — §M.22 records that kinding excludes the cycles.
 
 **`pinsClosed`** is the pins' SCOPE, the pair of Bool tests `ConstWF`
 demands of a nested RULE's stored pins: abstracted over the block's
@@ -100,7 +113,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (cvRms cvRns : List ConstantVal)
     (rulesM rulesN : List (List RecRule))
-    (a₀ : AuxStored) (fvsA : List Expr × Expr),
+    (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
     -- the elimination, and the mimic count against the stream's records
     elimNested env p.nP p.lps
       (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
@@ -110,6 +123,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     st.pins.length = p.numNested ∧
     -- every MINTED name is free in the pre-block environment
     ConLeche.copiesFresh env p.k st = true ∧
+    -- the copies' REFERENCE RELATION, topologically sorted: the order
+    -- the model's forward fold recurses along (DESIGN §M.22)
+    nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none = .ok envAux ∧
@@ -184,6 +200,23 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
             (fun (((sr, cv), rs), j) =>
               (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
       = .ok ()
+
+/-- **The copies' order, as the four `TopoOrder` fields in one place**
+(DESIGN K.6): what the run relation's `nestedTopoOrder … = .ok order`
+conjunct gives the model tier's fold.  The relation is the kernel's
+`Bool` one; the model lane turns it into its own `CopyRef` with one
+decidability lemma (`Verify/Inductives/NestedOrderK.lean`'s header). -/
+theorem topoFields_of {st : ConLeche.ElimState} {order : List Nat} {k : Nat}
+    (h : ConLeche.nestedTopoOrder (ConLeche.ElimState.grp st) k st = .ok order) :
+    order.Nodup ∧
+    (∀ j, j < st.pins.length → j ∈ order) ∧
+    (∀ j ∈ order, j < st.pins.length) ∧
+    (∀ j j', j < st.pins.length → j' < st.pins.length →
+      ConLeche.copyRefB (ConLeche.ElimState.grp st) k st j j' = true →
+      j' ∈ order ∧ order.idxOf j' < order.idxOf j) :=
+  ⟨ConLeche.nestedTopoOrder_nodup h, ConLeche.nestedTopoOrder_complete h,
+    ConLeche.nestedTopoOrder_bounded h,
+    fun _ _ hj hj' hR => ConLeche.nestedTopoOrder_ref h hj hj' hR⟩
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}

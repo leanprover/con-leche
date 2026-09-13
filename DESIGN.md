@@ -71192,9 +71192,147 @@ fixtures narrows.  Cost on the cone: **298.869 G vs 298.867 G
 instructions:u, +0.0019 G = +0.0006 %** (one more `abstractRange` walk
 over 132 small pins), i.e. free beside K.2's own +0.048 %.
 
+#### K.6 THE COPIES' ORDER IS COMPUTED BY THE KERNEL (2026-09-13, DESIGN §M.22, the maintainer's decision)
+
+**The decision.**  The model's forward fold is one term per copy, each
+built from the terms of the copies it REFERS to, and §M.22 records that
+the relation has no syntactic well-founded measure — on the raw terms it
+is not even acyclic, KINDING is what excludes the cycles.  The
+maintainer's ruling: the KERNEL computes the relation and emits a
+topological order, and a cyclic block is a positive DECLINE.
+
+**What landed**, in `checkNested` between the elimination and the
+scratch install:
+
+* **the mint group is recorded**: `NestedPin` gains `grpBase`/`grpSize`,
+  set by `mkCopies` from the group's base in the pin list and the
+  container's member count.  §M.22's `grp` is not recoverable from the
+  pin list afterwards — a container's whole `all`-group is copied at
+  once and the copies are then indistinguishable from separately minted
+  ones — so the mint records it; `ElimState.grp` reads it back.
+* **`copyRefB grp k st j j'`**, the model lane's `CopyRef` clause for
+  clause as a `Bool` (read verbatim off
+  `agent/nested-279m:ConLeche/Verify/Inductives/NestedOrder.lean`): a
+  processed constructor of copy `j` mentions copy `j'`'s name; `j'` is
+  OUTSIDE `j`'s mint group; and no pin of `j`'s group is a subterm of
+  `j'`'s pin — the exclusion that keeps a container's references
+  through its OWN mimics out of the relation.
+* **`Expr.subB`**, deciding the lane's `Expr.Sub` over the positions the
+  replace walk visits (and not an `fvar`'s annotation), with the
+  memoized twin and its `@[csimp]` — the relation is asked of PINS and a
+  pin component can be DAG-shared, so the task #215 discipline applies.
+* **`nestedTopoOrder`**: emit copies whose references are all out
+  already, repeatedly; then CHECK the result against `topoOrderOk`,
+  whose four conjuncts are `TopoOrder`'s four fields, so the fields are
+  facts about the RESULT and not about the algorithm.  A failure to
+  extend reports an edge ON the cycle, and `checkNested` declines
+  (`.notImplemented`, exit 2) naming both copies and their containers.
+* **`Verify/Inductives/NestedOrderK.lean`**: the four fields read back
+  out — `nestedTopoOrder_nodup/_complete/_bounded/_ref` — plus the
+  eleven introduction lemmas and the elimination `subB_cases` that make
+  `Expr.subB pat e = true ↔ Expr.Sub pat e` a two-line induction.
+* the run relation records `nestedTopoOrder (ElimState.grp st) p.k st =
+  .ok order` as an explicit conjunct of `checkNested_inv` and
+  `DeclNestedRun`.
+
+**A DESIGN FORK, stated and taken.**  The request was to record the
+conjunct as `TopoOrder (CopyRef grp k st) n order`.  `TopoOrder` and
+`CopyRef` are the MODEL lane's definitions and its file is not on
+`inductives`, so stating it that way would mean duplicating that file
+here and conflicting with it at the merge.  What landed instead: the
+kernel's Bool equation in the run relation, plus the four
+`TopoOrder`-field facts as theorems.  **What the lane owes to close the
+gap is one lemma about its own `Prop` and this `Bool`** —
+`CopyRef grp k st j j' ↔ copyRefB grp k st j j' = true` — after which
+`TopoOrder R n order` is `⟨nodup, complete, bounded, lt_of_ref⟩`.
+`lt_of_ref` takes `j < n` as a hypothesis, which `CopyRef`'s own first
+conjunct supplies through the lane's ledger.
+
+**NO FIXTURE CAN BE BUILT, and that is the point.**  §M.22's two-cycle
+is `J (α : Type → Type) (β : Type) | mk : α β → J α β` together with
+`Foo (γ δ : Type) | mk : J δ δ → Foo γ δ` and a block nesting at
+`J (Foo T) (Foo T)`.  Traced through the elimination it does cycle:
+copy `_nested.J_1` (pin `J (Foo T) (Foo T)`) mentions copy
+`_nested.Foo_2` (pin `Foo T (Foo T)`), that copy's own field dedups back
+onto `_nested.J_1`, and neither pin is a subterm of the other, so both
+edges survive the group exclusion.  But `Foo` is ILL-KINDED — measured:
+Lean v4.33.0 rejects it with "Application type mismatch: the argument δ
+has type Type", while `J` alone is accepted — so `Foo` never enters ANY
+environment: not official's, and not this checker's, whose own install
+of `Foo` would infer the ill-typed field `J δ δ`.  `containerInfo?`
+therefore never recovers it and the cycle check can never fire on a
+stream at all.  Which is §M.22's kinding argument, now measured on its
+own example.  **So the walk is exercised directly**: six `#guard`s in
+`tests/ConLecheTests.lean` on a hand-built two-copy state — the
+relation both ways, the self-exclusion through the mint group, the
+cycle DECLINED at `.error (0, 1)`, a chain ORDERED as `[1, 0]`, the
+four conjuncts of `topoOrderOk` on that order, and `subB` deciding the
+subterm relation.
+
+Per the maintainer: NO perf measurement (the corpus is too small to say
+anything).  The Mathlib nested cone is unchanged at **41/41 accept**, so
+no corpus block declines.
+
+**THE GATE BLOCKER THE K.4/K.5 MERGES BROUGHT — FIXED HERE (K.7).**
+`tests/arena.sh`'s SHAKE gate cannot run its census at `inductives` =
+`dbd53f3c`: the census imports every module of the tree at once, and
+`Verify/Inductives/CopyTypes.lean` (task #298, commit `dbb17f63`)
+declares two names the tree already has —
+
+    ConLeche.Expr.getAppFn_mkAppN                  also in Verify/InferLemmas.lean
+    ConLeche.Expr.getAppFn_instantiateLevelParams  also in Verify/Denote/IndFrame.lean
+
+— so the dump dies with "environment already contains
+'ConLeche.Expr.getAppFn_mkAppN'".  This is the clash DESIGN §M.23
+reports; the model lane renamed the two in place on its own branch and
+the rename is not on `inductives`.  It is independent of K.6 (both
+declarations predate this task's commits) and it blocks the census for
+any lane.  Before that clash surfaced, the same gate failed one step
+earlier for a related reason: `CopyTypes.lean` and `AuxFormers.lean` are
+imported by NOTHING on `inductives`, so `lake build` never builds them
+and their oleans are missing — which also means **the build gate does
+not CHECK them**.  K.6 fixed that for its own proof file:
+`Semantics/Inductives/DeclNested.lean` imports
+`Verify/Inductives/NestedOrderK.lean` and USES it, through
+`topoFields_of`, which packages the four `TopoOrder` fields as one fact
+off the run relation's conjunct — so the file is built by `lake build`,
+and the model tier gets the fields rather than the algorithm.  The two
+K.4/K.5 files still needed their consumer (or their rename); the
+maintainer's ruling was to fix both here, which K.7 does:
+
+* **the rename**, applied EXACTLY as the model lane made it on its own
+  branch so that the eventual merge is conflict-free —
+  `Expr.getAppFn_mkAppN'` and `Expr.getAppFn_instantiateLevelParams'`,
+  each with the lane's own "named apart from …" docstring.  The file is
+  byte-identical to
+  `agent/nested-279m:ConLeche/Verify/Inductives/CopyTypes.lean` after it.
+* **the umbrella edge**: `ConLeche.lean`, the base umbrella, gains
+  `public import ConLeche.Verify.Inductives.AuxFormers` (which
+  re-exports `CopyTypes`), with the task #209 census's reason on it —
+  ALIVE BY STATEMENT.  Both files are now built by `lake build`, hence
+  CHECKED by the build gate, and the shake census finds their oleans.
+* **the import hygiene those two files had never been shaken for.**
+  Putting them on the graph exposed 6 removals and 5 demotions.  Five
+  `public import`s demoted (`AuxFormers`' three, `CopyTypes`' two), two
+  unused plain imports of `AuxFormers` deleted (`Verify.Mono`,
+  `Kernel.Inductives.NestedElim`), and `CopyTypes`' `public import
+  Verify.Subst` demoted against a compensating
+  `import ConLeche.Verify.Subst` in `AuxFormers` — which is what
+  `stripPis_length` reached it through.  ONE removal is allowlisted,
+  `CopyTypes`' `public import Verify.Abstract`: deleting it loses
+  `Verify.Shift`'s `WScoped`, so it is a compensated removal, the class
+  `tests/shake-allowlist.txt` is for.  `pub-imports: none demotable`;
+  `tests/layering.sh` unchanged at 297 base / 218 model / 3 caps / 1
+  umbrella, 0 base→lane, 0 impl→theory.
+
+None of this touches the binary — `Kernel/*`, `Cached/*`, `Frontend/*`
+and `Main.lean` are untouched by K.7 — so the shadow gate, the cone and
+every verdict stand as K.6 measured them.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
 did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
-on `3640f02e`, and again after K.3 on `40ad5bc2`):
+on `3640f02e`, after K.3 on `40ad5bc2`, and again after K.6 on
+`dbd53f3c`):
 
 | gate | result |
 |---|---|
@@ -71202,7 +71340,7 @@ on `3640f02e`, and again after K.3 on `40ad5bc2`):
 | `lake test` | exit 0, warning-free |
 | `tests/nested-shadow.sh` | **23/23 as expected** (22 before K.1) |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | **exit 0** — arena tutorial **90/92** (as recorded), e2e **214/214** (195 + the 19 new nested fixtures), annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence |
+| `tests/arena.sh` | **exit 0** at K.3 and before, and **exit 0 again at K.6+K.7** — arena tutorial **90/92** (as recorded), e2e **214/214**, **nested-shadow 23/23**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  (Between the two, on `inductives` = `dbd53f3c`, the SHAKE gate's census alone failed for the `CopyTypes.lean` name clash the K.4/K.5 merges brought; K.7 fixes it — see the blocker note above) |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
 | Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |

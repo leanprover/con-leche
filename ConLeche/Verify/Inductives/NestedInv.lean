@@ -47,6 +47,13 @@ theorem nestedLift_ok {α : Type} {r : Except CheckError α} {a : α}
   | ok b => cases h; rfl
   | error e => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
 
+/-- `Except.mapError` does not move an `.ok`. -/
+theorem mapError_ok {α ε ε' : Type} {f : ε → ε'} {x : Except ε α} {a : α}
+    (h : x.mapError f = .ok a) : x = .ok a := by
+  cases x with
+  | ok b => cases h; rfl
+  | error e => exact absurd h (by simp [Except.mapError])
+
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (h : checkNested (m := CheckM) (fueledOps mode F) env p = .ok envOut) :
@@ -59,7 +66,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       (ctorsR : List (List (ConstantVal × Nat × Nat)))
       (cvRms cvRns : List ConstantVal)
       (rulesM rulesN : List (List RecRule))
-      (a₀ : AuxStored) (fvsA : List Expr × Expr),
+      (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
       -- the elimination, and the mimic count against the stream's records
       elimNested env p.nP p.lps
         (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
@@ -69,6 +76,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       st.pins.length = p.numNested ∧
       -- every MINTED name is free in the pre-block environment
       copiesFresh env p.k st = true ∧
+      -- the copies' REFERENCE RELATION, topologically sorted
+      nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none = .ok envAux ∧
@@ -167,6 +176,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hfresh] at h; close_throw
   rw [if_pos hfresh] at h
   try simp only [bind, Except.bind] at h
+  obtain ⟨order, hto, h⟩ := exceptBind_ok h
+  have hto' := mapError_ok (nestedLift_ok hto)
+  try simp only at h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
   try simp only at h
@@ -211,7 +223,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    helim', beq_iff_eq.mp hcnt, hfresh, hb', haux, hst', ha₀', hfv', hpc,
+    order, helim', beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', ha₀', hfv', hpc,
     (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

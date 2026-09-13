@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Verify.Inductives.CopyTypes
-public import ConLeche.Verify.Mono
-public import ConLeche.Kernel.Inductives.NestedElim
+import ConLeche.Verify.Inductives.CopyTypes
+import ConLeche.Verify.Subst
 public import ConLeche.Kernel.Inductives.NestedInstall
 
 public section
