@@ -52,7 +52,8 @@ variable (d : IndRepData V)
 structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List Name)
     (ψ : Name → Nat) (ρ : Nat → V) (ps : List AnnotTerm) (L : Nat → AnnotTerm)
     (pinsT : Nat → List AnnotTerm) (head : Nat → AnnotTerm) (useIh : Nat → Nat → Bool)
-    (via : Nat → Nat → Option ViaSpec) (TgV : Nat → Nat → AnnotTerm) : Prop where
+    (via : Nat → Nat → Option ViaSpec) (TgV : Nat → Nat → AnnotTerm)
+    (domA : Nat → Nat → AnnotTerm) : Prop where
   hR : ∀ t, t < d.k → RecReadAt mp.base2 d lps t
   hps : ps.length = d.nP
   hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p
@@ -78,16 +79,27 @@ structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List N
   huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)
   /-- the transports' telescope bits are the elimination bit -/
   hbits : ∀ J i Ψ Eis tl, via J i = some (Ψ, Eis, tl) → ∀ dd ∈ tl, dd.2.1 = d.bb ψ
+  /-- the ORDINARY domains ψ's body is typed at — the copy's own stored
+  domains (DESIGN §M.31) — mention no REPLACED position, and each reads
+  as the container's at the container's field frame (the record's
+  `ord`): what carries a container field value across to ψ's
+  transported frame -/
+  hnbA : ∀ J cA, d.ctorsA[J]? = some cA → ∀ i, i < cA.2 →
+    NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i)) (domA J i)
+  hord : ∀ J cA, d.ctorsA[J]? = some cA → ∀ i, i < cA.2 → ¬ replaced (useIh J) (via J) i →
+    ∀ fs' : List V, fs'.length = i →
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((((d.dsF J ψ).drop d.nP).take i).map (·.2.2)) fs' →
+      interp V (consList fs' (consList (ps.map (interp V ρ)) ρ)) (domA J i)
+        = interp V (consList fs' (consList (ps.map (interp V ρ)) ρ))
+            (((d.dsF J ψ).getD (d.nP + i) default).2.2)
   /-- no later reading mentions a REPLACED position (a hypothesis or a
-  transport): the datum's `NoBVar` facts over `replaced`, and the
-  transports' own -/
+  transport): the datum's `NoBVar` facts over `replaced` at the
+  telescopes, the index readings and the result, and the transports'
+  own -/
   hnbP : ∀ J cA, d.ctorsA[J]? = some cA →
     ∀ (C : Name) (nF : Nat) (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm)
       (recIdx : List Nat) (Eiss : List (List AnnotTerm)) (tls : List (List (Nat × Nat × AnnotTerm))),
       (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls) →
-      (∀ i, i < nF →
-        NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i))
-          ((ds.getD (d.nP + i) default).2.2)) ∧
       (∀ i, i < nF → ∀ k dd, (tls.getD i [])[k]? = some dd →
         NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + k)) dd.2.2) ∧
       (∀ i, i < nF → ∀ E ∈ Eiss.getD i [],
@@ -134,7 +146,7 @@ structure PsiSetup {μ : CheckMode} (mp : EnvModelM V μ env) (lps lpsT : List N
   /-- the copy's constructor at the transported domains -/
   hCAD : ∀ J cA, d.ctorsA[J]? = some cA →
     d.CtorAtDoms ρ ps (d.invTgAV ψ ps L pinsT) J (head J) cA.2
-      (psiDomsAV (d.invTgAV ψ ps L pinsT) (TgV J) (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J)
+      (psiDomsAV (d.invTgAV ψ ps L pinsT) (TgV J) (domA J) (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J)
         (d.dsF J ψ) (d.eissR J ψ) (d.tssR J ψ) cA.2)
       (d.esF J ψ)
 
@@ -143,20 +155,20 @@ namespace PsiSetup
 variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
   {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
   {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
-  {TgV : Nat → Nat → AnnotTerm}
+  {TgV domA : Nat → Nat → AnnotTerm}
 
 /-- Every constructor of the recursor's block is real. -/
-theorem nAll_eq (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
+theorem nAll_eq (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) :
     d.nAll = d.ctorsA.length := by
   unfold IndRepData.nAll; rw [S.hctorsC]; rfl
 
-theorem ctorsAll_eq (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
+theorem ctorsAll_eq (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) :
     d.ctorsAll = d.ctorsA := by
   unfold IndRepData.ctorsAll; rw [S.hctorsC, List.append_nil]
 
 set_option maxHeartbeats 3200000 in
 /-- **The kit's per-constructor bundle holds of the ψ choice.** -/
-theorem hmin (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
+theorem hmin (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) :
     d.KitMin mp.base2 ψ ρ ps (d.invTgAV ψ ps L pinsT) (d.psiBodyAV head useIh via) := by
   intro J hJ C nF ds Es recIdx Eiss tls hcd
   have hcd' := hcd
@@ -173,7 +185,7 @@ theorem hmin (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
   have htgtR' : ∀ i, d.tgtsR J i = d.tgts J i := fun i => by rw [htgtR]
   have cff := d.ctorFieldFacts_of mp S.hps S.hpins S.hLS S.hFF S.hparams hC (S.hpIff J cA hcA)
     hmemJ (S.htgts J) htgtR'
-  obtain ⟨hnb, hnbT, hnbE, hnbEs, hnbV⟩ := S.hnbP J cA hcA _ _ _ _ _ _ _ hcd
+  obtain ⟨hnbT, hnbE, hnbEs, hnbV⟩ := S.hnbP J cA hcA _ _ _ _ _ _ _ hcd
   refine ⟨hD.len ψ, hmemJ, ?_, ?_, ?_, ?_⟩
   · intro i hi
     rw [hks] at hi
@@ -183,7 +195,9 @@ theorem hmin (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
   · rw [hks, heiss, htss]; exact cff.1
   · exact cff.2
   · refine d.psiBody_leaf S.hps (d.motChoiceAVs_length _ _ _ _) S.hk
-      (d.minChoiceAVs_length _ _ _ _ _) hcd (hD.len ψ) hnb hnbT hnbE hnbEs hnbV (S.huse J)
+      (d.minChoiceAVs_length _ _ _ _ _) hcd (hD.len ψ) (S.hnbA J cA hcA) (S.hord J cA hcA) hnbT hnbE
+      hnbEs hnbV
+      (S.huse J)
       (S.hbits J) (S.hvia J cA hcA _ _ _ _ _ _ _ hcd) (S.hviaWD J cA hcA _ _ _ _ _ _ _ hcd)
       (S.hCAD J cA hcA) ?_
     intro h0 fs hfs
@@ -194,7 +208,7 @@ theorem hmin (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
     exact this
 
 /-- **The choice's prefix fits the recursor tower.** -/
-theorem prefixFit (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) :
+theorem prefixFit (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) :
     SpineFit ρ ((d.recPrefixAV mp.base2 ψ).map (·.2.2))
       ((ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
         d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
@@ -209,7 +223,7 @@ set_option maxHeartbeats 1600000 in
 index readings and a major fitting the member's motive binder at the
 parameter frame, lands in the copy's carrier `L t` at `pinsT t` at the
 index values. -/
-theorem fold_mem (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) {t : Nat}
+theorem fold_mem (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) {t : Nat}
     (ht : t < d.k) {is' : List AnnotTerm} {x' : AnnotTerm}
     (hfitM : SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV mp.base2 ψ t).map (·.2.2))
       ((is' ++ [x']).map (interp V ρ))) :
@@ -301,7 +315,7 @@ hypothesis positions the target-fold hypotheses (each recursive field's
 hypothesis the λ-tower over its telescope of its member's fold at the
 same choice), and at the transport positions the transports' values
 (`viaVal`). -/
-theorem fold_iota (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) (hb : d.bb ψ ≠ 0)
+theorem fold_iota (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) (hb : d.bb ψ ≠ 0)
     {J : Nat} {cA : ConstantVal × Nat} (hj : d.ctorsA[J]? = some cA) {fs : List AnnotTerm}
     (hfitC : SpineFit ρ ((d.dsF J ψ).map (·.2.2)) ((ps ++ fs).map (interp V ρ))) :
     interp V ρ (AnnotTerm.mkAppN (mp.base2.acval (d.recNames (d.mems J)) ψ)
@@ -387,7 +401,7 @@ set_option maxHeartbeats 1600000 in
 /-- **ψ is typed, at VALUE spines**: index values and a major fitting
 the member's motive binder at the parameter frame, applied to the fold
 at the prefix, land in the copy's carrier at the indices. -/
-theorem fold_mem_vals (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) {t : Nat}
+theorem fold_mem_vals (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) {t : Nat}
     (ht : t < d.k) {is : List V} {x : V}
     (hfitM : SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV mp.base2 ψ t).map (·.2.2))
       (is ++ [x])) :
@@ -487,11 +501,11 @@ namespace PsiSetup
 variable {μ : CheckMode} {mp : EnvModelM V μ env} {lps lpsT : List Name} {ψ : Name → Nat}
   {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm}
   {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec}
-  {TgV : Nat → Nat → AnnotTerm}
+  {TgV domA : Nat → Nat → AnnotTerm}
 
 /-- **The fold at the choice's prefix is typed** (`fold_mem_vals`,
 packaged). -/
-theorem typed (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV) {t : Nat}
+theorem typed (S : d.PsiSetup mp lps lpsT ψ ρ ps L pinsT head useIh via TgV domA) {t : Nat}
     (ht : t < d.k) :
     d.PsiTyped mp.base2 ψ ρ ps L pinsT t
       (AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ)

@@ -45,11 +45,12 @@ off the formers' identity (`copyTypesAsMinted_of_facts`).  The reference
 relation the fold recurses along (`CopyRef`, `NestedOrder.lean`) is
 bridged at the run level, not here.
 
-The module also carries the three transports the assembly needs:
+The module also carries the transports the assembly needs:
 `shiftE_consList_middle` (a lift inserting binders between two frame
 segments), `NoBVar_instSeq_iff` (substituting parameters below a cut
-touches no field variable), and `wellDenotedV_instSeq_under` (grading
-crosses a substitution under binders).
+touches no field variable), `wellDenotedV_instSeq_under` (grading
+crosses a substitution under binders), and `NoBVar_mono`/
+`NoBVar_of_pointwise`.
 -/
 
 namespace ConLeche.Model
@@ -202,99 +203,6 @@ theorem wellDenotedV_instSeq_under (σ : Nat → V) :
     · rw [AnnotValid_inst V e w t _ (by rw [hshift]; exact hokw.2), hE]
       exact h.2
 
-/-! ## Spines fitting a telescope OFF a set of positions -/
-
-/-- **A spine fitting a telescope except at the positions `R`** (the
-field indices, counted from `l`): the membership is asked only at a
-position outside `R`; the frames advance as `SpineFit`'s do.  The
-copy-side frame the record's semantic clauses are stated at: ψ's
-container-side values sit at the copy's RECURSIVE positions (the
-hypotheses and the transports), where a container carrier is not the
-copy's — the record's readings mention no such position (positivity),
-so the equality is asked off them. -/
-@[expose] def SpineFitOff (ρ : Nat → V) (R : Nat → Prop) : Nat → List AnnotTerm → List V → Prop
-  | _, [], [] => True
-  | l, F :: Fs, a :: as => (¬ R l → a ∈ˢ interp V ρ F) ∧ SpineFitOff (cons a ρ) R (l + 1) Fs as
-  | _, _, _ => False
-
-theorem SpineFitOff.length_eq :
-    ∀ {ρ : Nat → V} {R : Nat → Prop} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFitOff ρ R l Fs as → as.length = Fs.length
-  | _, _, _, [], [], _ => rfl
-  | _, _, _, _ :: _, _ :: _, h => by
-    simp only [List.length_cons]
-    rw [SpineFitOff.length_eq h.2]
-  | _, _, _, [], _ :: _, h => h.elim
-  | _, _, _, _ :: _, [], h => h.elim
-
-theorem spineFitOff_of_spineFit (R : Nat → Prop) :
-    ∀ {ρ : Nat → V} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFit ρ Fs as → SpineFitOff ρ R l Fs as
-  | _, _, [], [], _ => trivial
-  | _, _, _ :: _, _ :: _, h => ⟨fun _ => h.1, spineFitOff_of_spineFit R h.2⟩
-  | _, _, [], _ :: _, h => h.elim
-  | _, _, _ :: _, [], h => h.elim
-
-/-- A partial fit restricts to a prefix. -/
-theorem SpineFitOff.take :
-    ∀ {ρ : Nat → V} {R : Nat → Prop} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFitOff ρ R l Fs as → ∀ i, SpineFitOff ρ R l (Fs.take i) (as.take i)
-  | _, _, _, [], [], _, _ => by rw [List.take_nil, List.take_nil]; trivial
-  | _, _, _, _ :: _, _ :: _, _, 0 => trivial
-  | _, _, _, _ :: _, _ :: _, h, i + 1 => ⟨h.1, SpineFitOff.take h.2 i⟩
-  | _, _, _, [], _ :: _, h, _ => h.elim
-  | _, _, _, _ :: _, [], h, _ => h.elim
-
-/-- The membership at a position outside `R`. -/
-theorem SpineFitOff.mem :
-    ∀ {ρ : Nat → V} {R : Nat → Prop} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFitOff ρ R l Fs as → ∀ (j : Nat) (F : AnnotTerm) (a : V), Fs[j]? = some F →
-        as[j]? = some a → ¬ R (l + j) → a ∈ˢ interp V (consList (as.take j) ρ) F
-  | _, _, _, [], [], _, _, _, _, hF, _, _ => nomatch hF
-  | _, _, _, _ :: _, _ :: _, h, 0, F, a, hF, ha, hR => by
-    obtain rfl := Option.some.inj hF
-    obtain rfl := Option.some.inj ha
-    exact h.1 (by rw [Nat.add_zero] at hR; exact hR)
-  | _, _, l, _ :: _, _ :: _, h, j + 1, F, a, hF, ha, hR => by
-    simp only [List.getElem?_cons_succ] at hF ha
-    simp only [List.take_succ_cons, consList_cons]
-    exact SpineFitOff.mem h.2 j F a hF ha (by rw [show l + 1 + j = l + (j + 1) by omega]; exact hR)
-  | _, _, _, [], _ :: _, h, _, _, _, _, _, _ => h.elim
-  | _, _, _, _ :: _, [], h, _, _, _, _, _, _ => h.elim
-
-/-- **A full fit from a partial one at the memberships it lacks.** -/
-theorem spineFit_of_spineFitOff :
-    ∀ {ρ : Nat → V} {R : Nat → Prop} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFitOff ρ R l Fs as →
-      (∀ (j : Nat) (F : AnnotTerm) (a : V), Fs[j]? = some F → as[j]? = some a → R (l + j) →
-        a ∈ˢ interp V (consList (as.take j) ρ) F) →
-      SpineFit ρ Fs as
-  | _, _, _, [], [], _, _ => trivial
-  | _, R, l, _ :: _, _ :: _, h, hR => by
-    refine ⟨?_, spineFit_of_spineFitOff h.2 fun j F a hF ha hRj => ?_⟩
-    · by_cases hl : R l
-      · have := hR 0 _ _ rfl rfl (by rw [Nat.add_zero]; exact hl)
-        simpa using this
-      · exact h.1 hl
-    · have := hR (j + 1) F a (by simpa using hF) (by simpa using ha)
-        (by rw [show l + (j + 1) = l + 1 + j by omega]; exact hRj)
-      simpa [List.take_succ_cons, consList_cons] using this
-  | _, _, _, [], _ :: _, h, _ => h.elim
-  | _, _, _, _ :: _, [], h, _ => h.elim
-
-/-- A partial fit extended by one position at its end. -/
-theorem SpineFitOff.snoc :
-    ∀ {ρ : Nat → V} {R : Nat → Prop} {l : Nat} {Fs : List AnnotTerm} {as : List V},
-      SpineFitOff ρ R l Fs as → ∀ (F : AnnotTerm) (a : V),
-        (¬ R (l + Fs.length) → a ∈ˢ interp V (consList as ρ) F) →
-        SpineFitOff ρ R l (Fs ++ [F]) (as ++ [a])
-  | _, _, l, [], [], _, F, a, hm => ⟨fun h => hm (by rw [List.length_nil, Nat.add_zero]; exact h), trivial⟩
-  | _, _, l, _ :: Fs, _ :: as, h, F, a, hm =>
-    ⟨h.1, SpineFitOff.snoc h.2 F a fun hR => hm (by
-      rw [List.length_cons, show l + (Fs.length + 1) = l + 1 + Fs.length by omega]; exact hR)⟩
-  | _, _, _, [], _ :: _, h, _, _, _ => h.elim
-  | _, _, _, _ :: _, [], h, _, _, _ => h.elim
-
 omit [SetTheory V] in
 /-- `NoBVar` is antitone in the predicate. -/
 theorem NoBVar_mono {P Q : Nat → Prop} (h : ∀ j, P j → Q j) :
@@ -347,35 +255,40 @@ theorem NoBVar_of_pointwise :
 
 namespace IndRepData
 
-/-- **Two readings of a copy's field agree at the copy's field frame,
-OFF the copy's recursive positions** (DESIGN §M.30): at every frame of
-the block's parameters (`Sat`) and every spine of `i` earlier values
-fitting the copy's stored earlier field domains at the positions the
-copy does NOT see as recursive, the two interpretations coincide.  The
-copy's RECURSIVE positions are exactly those ψ replaces (the
-container's hypotheses and the transports), where ψ's frame carries a
-CONTAINER value that is not in the copy's domain — the readings mention
-no such position (positivity, `nbT`), so nothing is asked there. -/
-@[expose] def CopyFieldAgree (d : IndRepData V) (ψ : Name → Nat) (Ja i : Nat) (A B : AnnotTerm) : Prop :=
+/-- **Two readings of a copy's field agree at the CONTAINER's field
+frame** (DESIGN §M.31, the maintainer's ruling on §M.30 finding 3): at
+every frame of the block's parameters (`Sat`) and every spine of `i`
+earlier values fitting the CONTAINER constructor's earlier field domains
+at the pin's readings (`dJ.dsF Jc ψ'` under `DsA`), the two
+interpretations coincide.  The frames carry VALUES — a container field
+value at every earlier position, whatever the copy's later reading of
+that position is — so the equation covers the erasing shape
+`(h : (fun _ : f Nat => Nat) x)` at a λ-pin: the copy's stored domain is
+the reduct `Nat` and the container's substituted domain is the redex,
+equal wherever `x` is a container value (`WhnfClaim`, K.17's witness).
+The copy's own no-mention facts (`noBVar_entries`) carry the equation
+from this frame to ψ's transported one (`psiBody_leaf`'s `hord`/`hnbA`). -/
+@[expose] def CopyFieldAgree (d : IndRepData V) (ψ : Name → Nat) (dJ : IndRepData V) (ψ' : Name → Nat)
+    (DsA : List AnnotTerm) (Jc i : Nat) (A B : AnnotTerm) : Prop :=
   ∀ (σ : Nat → V) (ws : List V), ws.length = i → Sat V (d.params ψ).reverse σ →
-    SpineFitOff σ (fun l => l ∈ ConLeche.recIdxOf (d.ksR Ja)) 0
-      ((((d.dsF Ja ψ).drop d.nP).take i).map (·.2.2)) ws →
+    SpineFit (consList (DsA.map (interp V σ)) σ) ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) ws →
     interp V (consList ws σ) A = interp V (consList ws σ) B
 
 /-- **A copy's constructor, read through the container's** (DESIGN
 §M.25 (c) in the two data's vocabulary; weakened to the INTERPRETATION
-level at §M.30, so that the positivity normalisation's `whnf` arm — a
-λ-pin's `(fun _ => PT α) k ↦ PT α`, four in the Mathlib cone — can
-satisfy it).  `d` is the auxiliary datum (the copy's constructor `Ja` is
-its constructor `Ja`, of member `k₀ + j₀ + dJ.mems Jc`: the block's own
-`k₀` members, then the copies, the container's group at pins `j₀ …`),
-`dJ` the container datum (at the level assignment `ψ'` the pin names)
-and `DsA` the pin's readings at the block's parameter frame.  Every
-container reading is at the frame `DsA` over the block's parameters;
-the copy's at the block's parameters alone — `instSeq DsA` at the
-container's parameter depth is the bridge.  For a transport (`kindT`)
-the target pin `j'` comes with its container's name, level assignment
-and readings (`tgtCont`, `tgtLps`, `tgtDsA`).
+level at §M.30 and restated at the CONTAINER's field frames at §M.31,
+so that the positivity normalisation's `whnf` arm — a λ-pin's
+`(fun _ => PT α) k ↦ PT α`, four in the Mathlib cone — and the erasing
+shape are covered).  `d` is the auxiliary datum (the copy's constructor
+`Ja` is its constructor `Ja`, of member `k₀ + j₀ + dJ.mems Jc`: the
+block's own `k₀` members, then the copies, the container's group at pins
+`j₀ …`), `dJ` the container datum (at the level assignment `ψ'` the pin
+names) and `DsA` the pin's readings at the block's parameter frame.
+Every container reading is at the frame `DsA` over the block's
+parameters; the copy's at the block's parameters alone — `instSeq DsA`
+at the container's parameter depth is the bridge.  For a transport
+(`kindT`) the target pin `j'` comes with its container's name, level
+assignment and readings (`tgtCont`, `tgtLps`, `tgtDsA`).
 
 The kinds of field, by the two classifications:
 
@@ -387,22 +300,24 @@ The kinds of field, by the two classifications:
 * **`kindT`** — a TRANSPORT: the container sees the field as ordinary,
   the copy as recursive into a COPY (`k₀ ≤` target): the target is
   outside the group, and the container's substituted domain reads,
-  at the copy's field frame, as the Π-tower over the copy's telescope of
-  the target container at the target pin's readings at the copy's index
-  readings;
+  at the container's field frame, as the Π-tower over the copy's
+  telescope of the target container at the target pin's readings at
+  the copy's index readings, graded there;
 * **`ord`** — the container sees the field as ordinary and the copy as
   ordinary OR as recursive into a BLOCK MEMBER (`< k₀`, the λ-pin's
   `(fun _ => PT α) k ↦ PT α`, where the copy's field is the block's own
   member and ψ passes the container's value through): the readings
-  agree under the substitution at the copy's field frame;
-* **`nbT`** — no later container reading mentions a TRANSPORT position
-  (the container's own recursive positions are covered by its
-  `FixOpened`; this is the syntactic residue the interpretation-level
-  `kindT`/`ord` no longer carry across to the container side).
+  agree at the container's field frame.
+
+No syntactic clause about the container's later readings is asked
+(§M.30's `nbT` is gone): the copy's readings mention none of the copy's
+recursive positions (`noBVar_entries` of the copy, from the auxiliary
+install's own positivity check), and that is what ψ's transported
+frame needs.
 
 The record is a HYPOTHESIS of the assembly, read off the run field by
 field (the identity arm of `nestedCopyCtorType_eq` syntactically, the
-`whnf` arm through `NormCtorValMReadsAs`). -/
+`whnf` arm through K.17's witness, DESIGN §M.31). -/
 structure CopyCtorAsRead (m : EnvModel V env) (d dJ : IndRepData V) (ψ ψ' : Name → Nat)
     (DsA : List AnnotTerm) (k₀ j₀ : Nat)
     (tgtCont : Nat → Name) (tgtLps : Nat → Name → Nat) (tgtDsA : Nat → List AnnotTerm)
@@ -419,13 +334,14 @@ structure CopyCtorAsRead (m : EnvModel V env) (d dJ : IndRepData V) (ψ ψ' : Na
     (d.eissR Ja ψ).getD i [] = ((dJ.eissF Jc ψ').getD i []).map
       (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i + ((dJ.tssF Jc ψ').getD i []).length - 1))
   /-- a TRANSPORT: the copy's field is recursive into the copy of a pin
-  outside the group, and the container's substituted domain reads as the
-  Π-tower over the copy's telescope of that pin's container at the pin's
-  readings at the copy's index readings, graded -/
+  outside the group, and the container's substituted domain reads, at
+  the container's field frame, as the Π-tower over the copy's telescope
+  of that pin's container at the pin's readings at the copy's index
+  readings, graded there -/
   kindT : ∀ i, i < nF → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) → i ∈ ConLeche.recIdxOf (d.ksR Ja) →
     k₀ ≤ d.tgtsR Ja i →
     ∃ j', d.tgtsR Ja i = k₀ + j' ∧ ¬ (j₀ ≤ j' ∧ j' < j₀ + dJ.k) ∧
-      d.CopyFieldAgree ψ Ja i
+      d.CopyFieldAgree ψ dJ ψ' DsA Jc i
         (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i - 1)
           ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2)
         (mkPisAV ((d.tssR Ja ψ).getD i [])
@@ -433,72 +349,25 @@ structure CopyCtorAsRead (m : EnvModel V env) (d dJ : IndRepData V) (ψ ψ' : Na
             ((tgtDsA j').map (·.liftN (i + ((d.tssR Ja ψ).getD i []).length) 0) ++
               (d.eissR Ja ψ).getD i []))) ∧
       ∀ (σ : Nat → V) (ws : List V), ws.length = i → Sat V (d.params ψ).reverse σ →
-        SpineFitOff σ (fun l => l ∈ ConLeche.recIdxOf (d.ksR Ja)) 0
-          ((((d.dsF Ja ψ).drop d.nP).take i).map (·.2.2)) ws →
+        SpineFit (consList (DsA.map (interp V σ)) σ)
+          ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) ws →
         WellDenotedV V (consList ws σ)
           (mkPisAV ((d.tssR Ja ψ).getD i [])
             (AnnotTerm.mkAppN (m.acval (tgtCont j') (tgtLps j'))
               ((tgtDsA j').map (·.liftN (i + ((d.tssR Ja ψ).getD i []).length) 0) ++
                 (d.eissR Ja ψ).getD i [])))
   /-- an ordinary field on the container's side, ordinary or into a
-  block member on the copy's: the readings agree under the substitution -/
+  block member on the copy's: the readings agree at the container's
+  field frame -/
   ord : ∀ i, i < nF → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
     (i ∉ ConLeche.recIdxOf (d.ksR Ja) ∨ d.tgtsR Ja i < k₀) →
-    d.CopyFieldAgree ψ Ja i ((d.dsF Ja ψ).getD (d.nP + i) default).2.2
+    d.CopyFieldAgree ψ dJ ψ' DsA Jc i ((d.dsF Ja ψ).getD (d.nP + i) default).2.2
       (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + i - 1)
         ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2)
   /-- the result's index readings agree under the substitution (the
   residual is untouched by the normalisation) -/
   es : d.esF Ja ψ = (dJ.esF Jc ψ').map (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP + nF - 1))
-  /-- no later container reading — a field domain, a telescope entry, an
-  index reading or the result's — mentions a transport position -/
-  nbT : ∀ i, i < nF → i ∉ ConLeche.recIdxOf (dJ.ksF Jc) → i ∈ ConLeche.recIdxOf (d.ksR Ja) →
-    k₀ ≤ d.tgtsR Ja i →
-    (∀ i', i' < nF →
-      NoBVar (exclP (· = dJ.nP + i) (dJ.nP + i')) ((dJ.dsF Jc ψ').getD (dJ.nP + i') default).2.2) ∧
-    (∀ i', i' < nF → ∀ k dd, ((dJ.tssF Jc ψ').getD i' [])[k]? = some dd →
-      NoBVar (exclP (· = dJ.nP + i) (dJ.nP + i' + k)) dd.2.2) ∧
-    (∀ i', i' < nF → ∀ E ∈ (dJ.eissF Jc ψ').getD i' [],
-      NoBVar (exclP (· = dJ.nP + i) (dJ.nP + i' + ((dJ.tssF Jc ψ').getD i' []).length)) E) ∧
-    (∀ E ∈ dJ.esF Jc ψ', NoBVar (exclP (· = dJ.nP + i) (dJ.nP + nF)) E)
 
 end IndRepData
-
-/-! ## The ONE named hypothesis of the `whnf` arm -/
-
-/-- **The positivity normalisation reads as its input** (DESIGN §M.30,
-the whnf arm of `nestedCopyCtorType_eq`).  `normCtorValM` on a copy's
-processed constructor at the pre-annotated grade stores a constructor
-whose reading is a Π-tower of the same length, with the same parameter
-entries, binder bits and residual (the normalisation replaces field
-DOMAINS only, by their `whnf` walked under their own Π binders); and
-every stored field domain, at a frame of the block's parameters and of
-earlier values fitting the ORIGINAL earlier domains off a set `R` of
-positions that neither domain mentions, has the original domain's
-interpretation.  Stated in code as the hypothesis the record's `ord`
-consumes at a λ-pin; its proof is `Model/Claims`' `WhnfClaim` on the
-normalisation's own `whnf` run (input graded by the constructor's
-check, output graded and equal at satisfying frames) plus the frame
-strengthening across the unmentioned positions — NOT attempted (see
-the DESIGN record for what the transport case needs beyond it). -/
-@[expose] def NormCtorValMReadsAs (μ : CheckMode) (F : Nat) (m : EnvModel V env) (names : List Name)
-    (nP nF : Nat) (cv cv' : ConstantVal) : Prop :=
-  ConLeche.normCtorValM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env names nP nF cv cv true
-      = .ok cv' →
-  ∀ (ψ : Name → Nat) (ds ds' : List (Nat × Nat × AnnotTerm)) (B B' : AnnotTerm),
-    denoteMeta m.acval env ψ 0 cv.type = some (mkPisAV ds B) → ds.length = nP + nF →
-    denoteMeta m.acval env ψ 0 cv'.type = some (mkPisAV ds' B') → ds'.length = nP + nF →
-    B' = B ∧ ds'.take nP = ds.take nP ∧
-    (∀ (i : Nat) (dd dd' : Nat × Nat × AnnotTerm), ds[nP + i]? = some dd → ds'[nP + i]? = some dd' →
-      dd'.1 = dd.1 ∧ dd'.2.1 = dd.2.1) ∧
-    ∀ (i : Nat) (dd dd' : Nat × Nat × AnnotTerm), i < nF → ds[nP + i]? = some dd →
-      ds'[nP + i]? = some dd' →
-      ∀ (R : Nat → Prop),
-        NoBVar (exclP (fun q => nP ≤ q ∧ R (q - nP)) (nP + i)) dd.2.2 →
-        NoBVar (exclP (fun q => nP ≤ q ∧ R (q - nP)) (nP + i)) dd'.2.2 →
-        ∀ (σ : Nat → V) (ws : List V), ws.length = i →
-          Sat V ((ds.take nP).map (·.2.2)).reverse σ →
-          SpineFitOff σ R 0 (((ds.drop nP).take i).map (·.2.2)) ws →
-          interp V (consList ws σ) dd'.2.2 = interp V (consList ws σ) dd.2.2
 
 end ConLeche.Model

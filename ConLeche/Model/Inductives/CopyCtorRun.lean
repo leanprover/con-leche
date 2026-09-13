@@ -145,7 +145,7 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
         st.types[p.k + ((cd j').base + (cd j').dJ.mems Jc)]? = some tyA ∧ c ∈ tyA.ctors ∧
         cA.1.name = c.1 := by
   obtain ⟨-, -, -, -, -, hview, -, -⟩ := hreps
-  obtain ⟨env₁', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, hmems⟩ := hchk
+  obtain ⟨env₁', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, -, hmems⟩ := hchk
   obtain ⟨pf, hbm, q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hJn, hmn, hlenM, hgrp, hqp, hg,
     hfJ, hψ', hsp, hcat, hcst⟩ := hpins j' hj'
   -- the constructor's member and its container member

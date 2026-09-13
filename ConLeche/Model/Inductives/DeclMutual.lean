@@ -2011,6 +2011,15 @@ run's mode and fuel, beside `MutualBlockReps` (which is mode-free). -/
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env₁ b fms
       (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
     d.ctorsA = ctorsA ∧
+    -- the datum's field kinds are the kernel's classification of the
+    -- stage's constructors (`classifyMutualKinds`: ordinary ⟺ no member
+    -- mentioned), re-checked on the opened stored types at the
+    -- PRE-BLOCK environment (`mutualFieldsOk`; task #279 M-B′ step 3n)
+    (∃ kinds : List (List (ConLeche.RecFieldKind × Nat)),
+      ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+        = .ok kinds ∧
+      ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
+      ∀ j, d.ksF j = kindsOf (kinds.getD j [])) ∧
     ∀ j, d.mems j = (b.ctors.getD j default).member
 
 set_option maxHeartbeats 25600000 in
@@ -6857,7 +6866,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length t ht]
   refine ⟨mp₅, dOf 0, ⟨rfl, hlenFms, hlenFms, rfl, fun _ _ => rfl, fun _ => ⟨rfl, rfl, rfl, rfl⟩,
     fun t ht => ?_, fun t ht => ?_⟩, _, fms, f₀, ctorsA, sortss, hformers, hf0, hctors, rfl,
-    fun _ => rfl⟩
+    ⟨kinds, hkinds, hfo, fun _ => rfl⟩, fun _ => rfl⟩
   · have ht' : t < fms.length := by rw [hlenFms]; exact ht
     rw [hmemName t ht', ← hnamesF]
     simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem ht',
