@@ -73230,6 +73230,239 @@ if a theorem route is ever taken; `CopyCtorRead` via K.4; the
 constructor record; the datum's `formersRead`/`recRead` give it for
 every real member) stays a datum-side lemma for the bridge.
 
+#### M.23 M-B′ step 3g: the copies' FORMERS are READ off the run — the telescope bookkeeping of K.4, the fused stability relation, and four named premises (2026-09-13, session 11)
+
+**What the session set out to do** (brief, in order): (1) close ψ⁻¹
+end to end for the scratch block — `CopyIdxRead` and `CopyCtorRead`
+for every copy as READS through K.4's `annotateCore_of_annotRel`, with
+`AnnotStable` of each container a named premise; (2) the generic
+aux-side induction R1; (3) finding 3's recursor-view constructor
+clause.  (1) landed for the FORMERS — `CopyIdxRead` (and `PinRead`)
+for EVERY copy of the scratch block from `DeclNestedRun`
+(`copyIdxRead_of_run`, `Model/Inductives/CopyReads.lean`), under four
+named premises stated once (below) — and NOT for the constructors
+(`CopyCtorRead`: the same route through `elimCtors_getElem?`, the walk
+congruences and `normCtorValM`, not started; sized at the end); (2)
+and (3) were not reached.  Nothing depends on the copies' order.
+
+**What K.4 left to this lane, and how it was done.**  K.4's theorem is
+about ONE annotation run on a term whose `R`-leaves annotate to their
+partners; the model lane owed the bookkeeping that turns the run's
+facts into that shape: the mint (`mkCopy`: `instPis` of the
+container's level-instantiated stored former at the pin's components,
+`closeTelescope`d over the minting constructor's parameter binders),
+the install's annotation of the closed term, the stored former OPENED
+at the block's openers, the pin check's annotation of the components
+at those openers.  `Verify/Inductives/CopyStable.lean` (2 700 lines,
+off-graph) is that bookkeeping; its pieces:
+
+* **The leaf map** (`Expr.mapFvars σ`: replace the top-level leaf
+  `fvar i _` by `σ i`; annotations of other leaves are not entered —
+  exactly as `abstract1`, `instantiate1`, `abstractRange`,
+  `instantiateList` behave).  Re-opening a closed telescope at new
+  openers is a re-annotation of its leaves
+  (`instantiate1_abstract1_mapFvars`); the pin check's
+  `instantiateList (abstractRange · 0 nP 0) fvsA.reverse` IS the map
+  at the openers (`instantiateList_abstractRange_eq_mapFvars`);
+  `instPis` commutes with the map (`instPis_mapFvars`).
+* **The readers are leaf-map congruences, DIRECTIONALLY.**  K.4's
+  `SortAgree` asks a component to read exactly like the parameter it
+  replaces; the transport needs only "where the container's side
+  answers, the component's answers the same" (`SortAgreeW`,
+  `ProofAgreeW`; `LeafOk σ e` = at every leaf `σ` hits, for both
+  readers) — `typeSortPW_mapFvars`, `proofPW_mapFvars`.
+* **Stability fused with the relation** (`ReaderStable`,
+  `AnnotRelS`, `annotateCore_of_annotRelS`).  K.4 takes `AnnotRel R e
+  e'` and `AnnotStable e'` SEPARATELY, so the target must be stable
+  INSIDE the annotated components — neither measured nor needed (at a
+  component the annotation run is the certificate).  A relativised
+  stability predicate with a `leaf` constructor does NOT work: in the
+  theorem's induction a structural `AnnotRel` node against a `leaf`
+  stability node is stuck.  `AnnotRelS R d e e'` fuses the two — the
+  relation with the reader's answer recorded at every STRUCTURAL
+  binder of the right side, nothing asked of the leaves — and K.4's
+  proof goes through verbatim over it (`hRok` owed from the run's
+  depth only).  `ReaderStable` is the STRONG form (the reader answers
+  the datum at every binder; no "written" escape): the written escape
+  does not transport across level instantiation (`substPW` collapses
+  a written datum), the strong form does
+  (`ReaderStable.instantiateLevelParams`, both readers commute through
+  `substPW`; `typeSortPW_paramsDefined`) — and it is the reading the
+  kernel lane measured.
+* **The producer** (`annotRelS_of_readerStable`): the fused relation
+  between the raw and the annotated images of a stable term under a
+  `MapPair` of leaf maps (same domain, `R`-related or identical
+  variables), by ONE induction over the container's stability carrying
+  the maps — at a binder both sides open at the annotated domain, so
+  the maps extend at the fresh index by that opener on both sides
+  (identical), `WScoped` spent on the body having no leaf there.  No
+  second relation, no transport of a stability predicate across a
+  substitution (K.4 tried and abandoned exactly that: the opener's
+  annotation differs on the two sides).  **The chain**
+  (`annotRelS_instPis`): the parameters instantiated one at a time at
+  `R`-related components, the per-component premise stated against
+  the `instPisAt` domains (earlier components substituted).
+* **Through the closed telescope** (`annotate_closeTelescope_open`):
+  the opened STORED body is the annotation, at the telescope's depth,
+  of the raw body with its parameter leaves mapped to the stored
+  openers — an induction over the binders in MIXED form (domain `j`
+  bounded at depth `j` and scoped at its level, so de Bruijn, opener
+  and partly-opened domains are all instances); the kit
+  `absDoms`/`instDoms`, `abstract1_comm`,
+  `abstract1_instantiate1_comm`, `closeTelescope_abstract1`/
+  `_instantiate1`, `closeTelescope_WScoped`/`_bounded`, the round
+  trip's consistency lemmas.  The raw de Bruijn domains from
+  `stripPis` may carry stray top-level leaves (the closed term is
+  fvar-free, which says nothing of a leaf that gets abstracted), so
+  they are SANITISED first: abstraction is by index and ignores
+  annotations (`closeTelescope_mapFvars_reannot`), and the dummy map
+  (`dummyMap`) makes every leaf scoped (`TopLeaves`, the closed
+  telescope's parts by `closeTelescope_topLeaves_inv`/`_bounded_inv`).
+* **The former, aligned** (`copyFormer_aligned`): from the mint, the
+  install's annotation run, the stored former opened at the openers,
+  the pin check's run at the openers (one run per component,
+  `annotateCore_mkAppN_args`; the leaf certificate
+  `annot_leaf_of_run` = depth invariance + fuel monotonicity), the
+  container's stability and telescope, and the per-component
+  agreement: `restC = instPis (JtyA[lvls]) argsA` — the equation
+  `copyIdxRead_of_align` consumes.
+
+**What the model tier reads** (`Model/Inductives/CopyReads.lean`,
+off-graph): `copyIdxRead_of_copy` — `PinRead` and `CopyIdxRead` for a
+copy member from the mint, the install's annotation of the minted
+former at the scratch environment, the alignment premise, the block's
+opened parameter context (`opened_params` at the first member),
+the container's member at the scratch environment, the pin's scope
+and check, and the per-component agreement; `copyIdxRead_of_run` —
+the same for EVERY pin `j` (copy member `p.k + j`) from
+`DeclNestedRun`, the container/stored-former/pin facts drawn from the
+ledger (`elimNested_copy`, extended: the components are bvar-closed —
+`nestedOccOk`'s own rule — and counted, and `pbs.length = nP`;
+`MintStep` now carries `nP`), `auxBlock_inv`, `auxStored?_inv`,
+`nestedPinsOk_inv`, `pinsClosed_inv`.  The record is produced at the
+block's datum re-sorted to the copy's own sort spelling
+(`MutualBlockReps`' existential), with the sort transfer
+`CopyIdxRead.congr_sort`.
+
+**THE FOUR PREMISES** (each a `def` in `CopyReads.lean`, stated once;
+none is a kernel change, none is a `sorry`):
+
+1. `ContainersAt env envAux m` — every container member the
+   elimination recovers is stored at the SCRATCH environment with its
+   former's data at its own datum, is `ReaderStable` (the measured
+   premise: 276/276 + 5/5 stored types over 22 + 2 containers, zero
+   reader-undecidable binders, the kernel lane's `_tmp/nested-279k/
+   DOCKET.md` §M1; the brief's "corpus-vacuous"), and its stored
+   former is a syntactic telescope ending in a sort (every stored
+   former is, by `checkSumTele`, but it is not an environment
+   invariant).  This is the container's representation at `envAux`,
+   which comes through the modelled route's `ModeledLeaf` disjunct
+   until that route is deleted (§M.19) — stated at `envAux` rather
+   than at `env` because neither `EnvExt env envAux` nor the
+   `acval`-agreement of `mp`/`mpAux` is exposed by `declMutualCore`,
+   and `containerInfo?` has no environment-monotonicity lemma.
+2. `AuxFormersAnnot μ F envAux b k` — the copies' stored formers are
+   the annotations of their minted types AT THE SCRATCH ENVIRONMENT.
+   The install annotates a former at the PRE-block environment
+   (`mutualFormerChecks`) and keeps it when its telescope ends in a
+   sort (`checkSumTele`'s first branch).  Two lemmas turn the run into
+   this fact and are DOCKETED: (a) the annotator's stability under a
+   conservative environment extension on a term that resolves at the
+   smaller one (`annotateCore env = annotateCore envAux` — no such
+   lemma exists in `Verify`; on the reader branch it is `find?`-
+   monotonicity, on the inference fallback it is inference's own
+   extension property); (b) the minted former's telescope ends in a
+   sort (from the container's, through `instPis` and
+   `closeTelescope`; `auxIdxCount`'s count), so the first branch
+   fires.  Both are Verify-tier, Opus-suitable.
+3. `AuxOpensAt envAux b k nP fvsA` — THE ALIGNMENT PREMISE: every
+   copy's stored former opens at the block's openers `fvsA` (the
+   stored FIRST member's, the ones the pin check annotates at).  This
+   is a stream property: the copy's parameter binders are the MINTING
+   CONSTRUCTOR's (`mkCopy`'s `pbs`, official's `lctx.mk_pi(As, …)`
+   too), and the mutual install compares members' parameter domains
+   only DEFINITIONALLY (`mutualDomsOk`, `checkStructDomsAt`; official
+   likewise) — a stream spelling `T (α : Type)` with a constructor
+   `c : ∀ (α : id Type), …` would be accepted and its copy's former
+   would open at a different annotation.  An elaborated stream never
+   does that (constructor types are `mkForallFVars` over the type's
+   own binders), so the premise is corpus-vacuous by construction;
+   it is MEASURABLE (a shadow `==` of each aux former's openers
+   against the first's) and, if the maintainer prefers, CHECKABLE (a
+   syntactic `==` on the opened parameter domains, verdict-narrowing
+   only where spellings differ) — the model lane's recommendation is
+   the measurement first.  Without it, `pinRead_of`'s components
+   (annotated at `fvsA`) and the copy's opened body (annotated at its
+   own openers) differ at the fvar annotations, which the head reader
+   CAN see (it reads an fvar head's declared type), so the theorem
+   route has no way across.
+4. `PinCompsAgree μ F envAux nP fvsA pins` — per pin, of the
+   annotation the check computes: wherever the container's parameter
+   domain (with the earlier components substituted) reads as a sort at
+   some arity, the component's head reads the same, for both readers.
+   K.4's frontier is exactly where this fails: a redex-headed component
+   (`tests/e2e/inmodel_nested`'s `PT`, `DMap α (fun _ => PT α)`), where
+   the reader declines and the copy's datum is inference's.  On a
+   typed stream a constant- or variable-headed component satisfies it
+   by the reader's design (it reads the head's stored type, whose
+   residual sort is the typing's); NOT measured — a K-lane
+   measurement over the 41 Mathlib blocks + init-full is asked for.
+
+**Findings.**  (a) K.4's `CopyTypes.lean` could not be imported beside
+the tree: two of its spine lemmas duplicated `Verify/InferLemmas.lean`'s
+and `Verify/Denote/IndFrame.lean`'s under the same names with the
+arguments in another order (`Expr.getAppFn_mkAppN`,
+`Expr.getAppFn_instantiateLevelParams`); renamed apart (`…'`) in
+place, K lane told through this record.  (b) §M.19/§M.21's plan
+"CopyCtorRead on the same pattern" needs, beyond the walk congruences,
+the two docketed lemmas of premise 2 for the CONSTRUCTORS as well —
+and there the second is `normCtorValM`: the stored constructor is the
+annotation of `closeTelescope (pbs ++ fbs) 0 resid` with the field
+domains `whnf`-normalised, equal to the un-normalised one only where
+`whnf` is the identity (an inductive application, a Π), which is the
+shape positivity leaves but needs `whnf` lemmas the tree states for
+`forallE` only.  (c) The ledger's `elimNested_copy` did not record
+that the pin's components are bvar-closed (the elimination's own
+`nestedOccOk` rule) nor the minting constructor's parameter count;
+both are now conjuncts (`MintStep env nP`).
+
+**What was false and repaired.**  §M.21's request 4 (A) "a kernel
+`==` of the copies' stored types against the container's at the
+annotated pins" would ALSO have had to say at WHICH openers — the
+alignment premise (3) is what that check silently assumed; the theorem
+route makes it explicit.  §M.20's "the syntactic layer is mechanical":
+the layer is the fused-stability development above, and its two
+non-mechanical points (the fusion, the directional readers) are what
+made K.4 consumable.
+
+**Docket / next.**  (i) `CopyCtorRead` for every copy: the walk
+congruences (§M.20(c)) + `elimCtors_getElem?` + `instPis_closeTelescope`
+(the constructor's residual opened at `params`) through the same
+fused relation, then `normCtorValM`'s identity on the positivity
+shapes (`whnf` of an inductive application / a Π) — one to two
+sessions; with it `invSetup_of_blockReps_nested`'s caller obligations
+are all discharged and ψ⁻¹ is closed end to end.  (ii) The two lemmas
+of premise 2 (annotator env-extension; the minted telescope's sort).
+(iii) The K-lane measurements: premise 3 (openers agree) and premise 4
+(components read like their parameters) over the Mathlib cone and
+init-full.  (iv) R1 generic and finding 3's clause (steps 2/3 of the
+brief) — untouched.  ψ stays blocked on the order decision (§M.22).
+
+**Gates** (per session; landing gates NOT run): `lake build` 593 jobs
+warning-free; `lake test` clean; the thirteen off-graph modules
+(`DeclNested`, `NestedFacts`, `NestedLedger`, `ContainerRead`,
+`RecFold`, `FoldChoice`, `InvFold`, `CopyPins`, `NestedOrder`,
+`PsiFold`, `CopyTypes`, `CopyStable`, `CopyReads`) build warning-free;
+`tests/no-local-paths.sh` OK.  Lean gotchas this session: a
+well-founded `def` (`WScoped`, `fvarLeaves`, `instantiateList`) is not
+unfolded by `nomatch`/`rfl`/`⟨⟩` — `simp only [WScoped]` first; a
+`def` in a plain `public section` of another module cannot be
+projected (`h.1` on K.4's `SortAgree`), state your own or `@[expose]`;
+`convert` and `by_contra` are Mathlib; `List.getElem_reverse` needs
+the index rewritten by `omega` on a `have` before `simp` closes it;
+`nestedOccOk`'s guard after `split` is `¬ (a && b) = true` with the
+lets already inlined.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
