@@ -316,6 +316,74 @@ def auxStored? (envAux : Env) (b : MutualBlock) (mIdx : Nat) : Option AuxStored 
     | _ => none
   pure ⟨cvTa, caps, nIdx, ctors, cvRa, mI, rP, rules, tbl⟩
 
+/-- **The copies' types, re-minted at ANNOTATED pin components**
+(DESIGN §M.21 (A), task #279 K.8 steps (1) and (2)).
+
+`elimNested` mints a copy from the container's STORED (annotated) type
+instantiated at the pin's components, and those components are RAW
+sub-terms of the stream's constructor types — the export carries no
+binder datum at all, so every binder of a stream term arrives with the
+parse placeholder.  The aux install's annotation pass then REWRITES the
+data inside them, and the stored copy type is not the minted one.
+
+So the components are annotated FIRST, here, by the same pass at the
+smaller environment — the pre-block constants plus the block's formers,
+which is all a component can mention (`checkMutualCtor` resolves a
+field domain there and a pin is a sub-term of one) — and the copy's type
+is re-minted from the container's stored annotated type at the
+ANNOTATED components, with the block's first former's ANNOTATED
+parameter binders (premise B).  The copy's type is then annotated
+throughout, so the aux install's own pass keeps every written datum and
+recomputes the `.never` ones to `.never`.
+
+The components' TYPING still happens after the install (`pinsOkAux` at
+`envAux`, post-check (a) at the restored environment); this is the same
+pass at a smaller environment, which is what task #300's env-extension
+theorem for the reader branch (`Verify/Inductives/AuxFormers.lean`)
+relates. -/
+def remintCopyTypes (ops : CheckerOps m) (envF : Env) (nP : Nat)
+    (fvsA : List Expr) (pbsA : List (Expr × BinderMeta)) (env : Env) :
+    List NestedPin → List AuxType → m (List AuxType)
+  | [], ts => pure ts
+  | q :: qs, ts => do
+    let pinB := Expr.abstractRange q.pin 0 nP 0
+    let pinA ← ops.annotate envF nP (Expr.instantiateList pinB fvsA.reverse)
+    let ts' ←
+      match pinA.getAppFn, containerInfo? env q.container with
+      | .const _ lvls, some ci =>
+        match ci.members.find? (fun J => J.name == q.container) with
+        | some J =>
+          if lvls.length == J.lps.length then
+            match Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type)
+                (pinA.getAppArgs) with
+            | some tyI =>
+              pure (ts.map fun t =>
+                if t.name == q.aux then { t with type := closeTelescope pbsA 0 tyI } else t)
+            | none => pure ts
+          else pure ts
+        | none => pure ts
+      | _, _ => pure ts
+    remintCopyTypes ops envF nP fvsA pbsA env qs ts'
+
+/-- **The elimination's state with the copies' types re-minted at
+ANNOTATED pin components** (K.8 steps (1) and (2)): the first former's
+type is annotated, its parameter binders `pbsA` and openers `fvsA₀` are
+taken from it, and every copy's type is rebuilt by `remintCopyTypes`.
+The pins, their order and the copies' constructors are untouched, so
+every guard downstream sees the state the elimination produced. -/
+def nestedRemint (ops : CheckerOps m) (env : Env) (p : NestedParts) (st : ElimState) :
+    m ElimState := do
+  let cv₀ ← unwrapOr (p.formers.head?.map (·.1)) (.internal "nested: no former")
+  let t₀A ← ops.annotate env 0 cv₀.type
+  let (fvsA₀, _) ← unwrapOr (openPisAtFvars p.nP t₀A 0)
+    (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
+  let (pbsA, _) ← unwrapOr (t₀A.stripPis p.nP)
+    (.invalid "invalid inductive datatype declaration, incorrect number of parameters")
+  let envF : Env :=
+    ⟨(p.formers.map fun f => ConstantInfo.indInfo f.1 {}).reverse ++ env.consts⟩
+  let typesA ← remintCopyTypes ops envF p.nP fvsA₀ pbsA env st.pins st.types
+  pure { st with types := typesA }
+
 /-- The block's own members' stored records, in member order, then the
 mimics' (whose only stored part the restore keeps is the recursor). -/
 def auxStoredAll (envAux : Env) (b : MutualBlock) : Nat → Option (List AuxStored)
@@ -555,6 +623,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
     ⟨cv.name, cv.type,
       (p.ctors.filter (fun c => c.member == mIdx)).map fun c => (c.cv.name, c.cv.type, c.nF)⟩
   let st ← nestedLift (m := m) (elimNested env p.nP p.lps types0)
+  -- §M.21 (A) (K.8 steps (1) and (2)): the pin components are ANNOTATED
+  -- and the copies' types re-minted at them, with the block's first
+  -- former's ANNOTATED parameter binders — so a copy's type is
+  -- annotated throughout and the aux install rewrites nothing in it
+  let st ← nestedRemint ops env p st
   unless st.pins.length == p.numNested do
     throw (.invalid s!"the block carries {p.numNested} recursor records past its \
       {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")

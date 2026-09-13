@@ -32,6 +32,18 @@ not about the algorithm (`Verify/Inductives/NestedOrderK.lean`).  A
 CYCLE is a positive DECLINE, and it cannot fire on a stream official
 accepts — §M.22 records that kinding excludes the cycles.
 
+**`st` is the RE-MINTED state** (§M.21 (A), K.8): `elimNested` produces
+`st₀`, whose copies' types are the container's stored types at RAW pin
+components — the export carries no binder datum, so every stream binder
+arrives as the parse placeholder and the annotation pass rewrites the
+data inside them.  `nestedRemint` annotates the components first, at the
+pre-block environment plus the block's formers, and re-mints every
+copy's type from the container's stored ANNOTATED type at the ANNOTATED
+components with the first former's ANNOTATED parameter binders (premise
+B).  A copy's type is therefore annotated throughout, and every later
+conjunct is about `st`, the re-minted state; the pins, their order and
+the copies' constructors are `st₀`'s untouched.
+
 **`pinsClosed`** is the pins' SCOPE, the pair of Bool tests `ConstWF`
 demands of a nested RULE's stored pins: abstracted over the block's
 parameters, every pin is free of free variables and has its loose bound
@@ -113,13 +125,15 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (cvRms cvRns : List ConstantVal)
     (rulesM rulesN : List (List RecRule))
-    (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
+    (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
     -- the elimination, and the mimic count against the stream's records
     elimNested env p.nP p.lps
       (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
         (⟨cv.name, cv.type,
           (p.ctors.filter (fun c => c.member == mIdx)).map
-            fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st ∧
+            fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀ ∧
+    -- the copies' types RE-MINTED at annotated pin components (§M.21 (A))
+    nestedRemint (m := CheckM) (fueledOps μ F) env p st₀ = .ok st ∧
     st.pins.length = p.numNested ∧
     -- every MINTED name is free in the pre-block environment
     ConLeche.copiesFresh env p.k st = true ∧

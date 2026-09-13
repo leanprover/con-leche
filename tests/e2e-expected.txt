@@ -1370,3 +1370,16 @@
 # which does not look at the name.  The native nested route rejects it
 # at `copiesFresh` (see the shadow gate).
 0 nested_aux_clash.ndjson
+# --- TASK #279 K.8: pin components with a Prop-ish binder ------------
+# nested_lam_pin_prop: `Wrap (f : True → Type) | mk : f trivial → Wrap f`
+# nested as `T | mk : Wrap (fun (h : True) => T) → T` — a λ pin
+# component over a Prop DOMAIN.  Official ACCEPTS (v4.33.0); so does
+# this checker, and so does the native route.
+0 nested_lam_pin_prop.ndjson
+# nested_pin_prop_cod: `Wrap (A : Prop) : Prop | mk : A → Wrap A` nested
+# as `T : Prop | mk : Wrap (True → T) → T` — the pin component is a ∀
+# whose CODOMAIN is a `Prop`, so its binder's datum is `ifAllZero []`
+# and not the parse placeholder.  Official ACCEPTS (v4.33.0); the
+# in-process modeller DECLINES (a nested `Prop` block through a `Prop`
+# container); the native nested route ACCEPTS it — see the shadow gate.
+2 nested_pin_prop_cod.ndjson

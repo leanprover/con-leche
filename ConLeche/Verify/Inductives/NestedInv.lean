@@ -66,13 +66,15 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       (ctorsR : List (List (ConstantVal × Nat × Nat)))
       (cvRms cvRns : List ConstantVal)
       (rulesM rulesN : List (List RecRule))
-      (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
-      -- the elimination, and the mimic count against the stream's records
+      (st₀ : ElimState) (a₀ : AuxStored) (fvsA : List Expr × Expr) (order : List Nat),
+      -- the elimination, the re-mint of the copies' types at ANNOTATED
+      -- pin components, and the mimic count against the stream's records
       elimNested env p.nP p.lps
         (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
           (⟨cv.name, cv.type,
             (p.ctors.filter (fun c => c.member == mIdx)).map
-              fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st ∧
+              fun c => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀ ∧
+      nestedRemint (m := CheckM) (fueledOps mode F) env p st₀ = .ok st ∧
       st.pins.length = p.numNested ∧
       -- every MINTED name is free in the pre-block environment
       copiesFresh env p.k st = true ∧
@@ -165,8 +167,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hg₁] at h
   refine ⟨hg₀, hg₁, ?_⟩
   try simp only [bind, Except.bind] at h
-  obtain ⟨st, helim, h⟩ := exceptBind_ok h
+  obtain ⟨st₀, helim, h⟩ := exceptBind_ok h
   have helim' := nestedLift_ok helim
+  try simp only at h
+  obtain ⟨st, hrem, h⟩ := exceptBind_ok h
   try simp only at h
   by_cases hcnt : (st.pins.length == p.numNested) = true
   case neg => rw [if_neg hcnt] at h; close_throw
@@ -222,8 +226,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   have henv : env₄ = envOut := by
     simpa [pure, Except.pure] using h
   subst henv
-  exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
-    order, helim', beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', ha₀', hfv', hpc,
+  exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, st₀, a₀, fvsA,
+    order, helim', hrem, beq_iff_eq.mp hcnt, hfresh, hto', hb', haux, hst', ha₀', hfv', hpc,
     (by cases uA; exact hpinsAux), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

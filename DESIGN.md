@@ -71329,10 +71329,122 @@ None of this touches the binary — `Kernel/*`, `Cached/*`, `Frontend/*`
 and `Main.lean` are untouched by K.7 — so the shadow gate, the cone and
 every verdict stand as K.6 measured them.
 
+#### K.9 THE COPIES' TYPES AND BINDERS (2026-09-13, DESIGN §M.23's two premises, the maintainer's rulings)
+
+**Premise B, implemented.**  Every copy is minted with the BLOCK'S FIRST
+FORMER's parameter binders (`pbs₀`, threaded from `elimNested`) instead
+of the minting constructor's — official uses the constructor's, because
+its copies are built in that constructor's local context, and the two
+are DEFEQ: the mutual install compares every member's parameter domains
+definitionally against the first former's (`mutualDomsOk`, official's
+`check_inductive_types`).  So the change is verdict-neutral, and it
+makes the model lane's `AuxOpensAt` true BY CONSTRUCTION: every copy's
+stored type opens at the binders the pin check opens at.  Only the
+COPIES change; the block's own constructors keep being re-wrapped with
+their own parameter binders, as official does, to preserve binder data.
+
+**Premise A, and WHY THE FIRST ATTEMPT WAS WRONG.**  The first cut of
+K.9 turned premise A into a CHECK — `copiesStoredAsMinted`, "every
+copy's stored type is the minted one", a decline otherwise — on the
+strength of a 164/164 corpus measurement.  **The coordinator rejected
+it, correctly**: a minted type contains RAW pin components, so the check
+declines whenever the annotator's pass over a component is not the
+identity, i.e. whenever a component holds a binder whose true datum is
+not the parse placeholder — a RESTRICTION beyond official, hidden by
+corpus vacuity.  It is deleted.
+
+**Measured while looking for the witness** (two candidates, both
+exported and run): `Wrap (f : True → Type) | mk : f trivial → Wrap f`
+nested at `Wrap (fun (h : True) => T)`, and
+`Wrap (A : Prop) : Prop | mk : A → Wrap A` nested at `Wrap (True → T)`
+with `T : Prop` — official ACCEPTS both (v4.33.0) and both accept here.
+Neither trips the check, and the reason is worth recording: a copy's
+FORMER type contains a pin component only where the container's TYPE
+mentions its parameters, and the datum must additionally differ from the
+placeholder there.  **The export carries no binder datum at all** —
+there is no `"pw"` field in `lean4export` 3.1.0's output, so EVERY
+binder of every stream term arrives as the parse placeholder and the
+pass computes every datum.  The restriction is therefore real even
+though the witness is narrow, and the check is out on the maintainer's
+rule (universal coverage) rather than on a measurement.  Both shapes are
+kept as fixtures, and `nested_pin_prop_cod` turns out to be a FOURTH
+shape the in-process modeller declines and the native route takes.
+
+**What landed instead — steps (1) and (2) of the brief.**  `nestedRemint`,
+run immediately after the elimination:
+
+* the block's FIRST FORMER's type is annotated, and its parameter
+  binders `pbsA` and openers `fvsA₀` are taken from the ANNOTATED type;
+* every pin is moved to those openers and ANNOTATED, at the pre-block
+  environment plus the block's formers — which is all a pin can mention,
+  a pin being a sub-term of a constructor field domain and
+  `checkMutualCtor` resolving those exactly there;
+* every copy's type is RE-MINTED from the container's stored ANNOTATED
+  type at the ANNOTATED components, with `pbsA` (premise B).
+
+A copy's type is therefore annotated throughout, so the aux install's
+own pass keeps every written datum and recomputes the placeholder ones
+to the placeholder — nothing inside a copy's type is rewritten, and
+§M.21 (A) holds.  The pins, their order and the copies' constructors are
+the elimination's, untouched.  The components' TYPING still happens after
+the install (`pinsOkAux` at `envAux`, post-check (a) at the restored
+environment); the pre-install annotation is the same pass at a smaller
+environment, which is what task #300's env-extension theorem for the
+reader branch relates (`Verify/Inductives/AuxFormers.lean`).  The run
+relation records both halves: `elimNested … = .ok st₀` and
+`nestedRemint … env p st₀ = .ok st`, with every later conjunct about the
+re-minted `st`.
+
+**STEP (3) IS NOT DONE, and the cost is why — a fork for the
+maintainer.**  The brief asked for a per-member `preAnnotated` flag, so
+that the equation holds BY CONSTRUCTION rather than because the pass is
+the identity on annotated input.  Every route to it costs another lane's
+plumbing:
+
+* forcing `pwWritten` inside the pass needs the flag in the recursive
+  knot — `coreKnot` has **274 mention sites**, heavily in the cached
+  capstone files;
+* a per-member flag read by `checkMutualCore`'s member loop needs
+  `mutualFormerChecks`/`mutualFormers` to change arity — **83 mention
+  sites across 12 files**, including task #278's landed verified chain
+  (`Verify/Inductives/MutualInv` 16, `Verify/Cached/BridgeCSDecl` 16,
+  `Verify/BridgeDecl` 9, `Verify/Cached/AgreeFloor` 7,
+  `Model/Inductives/DeclMutual` 8).  A default argument does not help:
+  the flag must be consumed in lockstep with the formers list inside the
+  recursion;
+* a second entry point `checkConstantValPre` only helps once the member
+  loop can be told which member to call it on — the same 83-site change.
+
+So the equation is, for now, a fact that holds because the pass is the
+identity on a fully annotated let-free term, not a syntactic identity.
+Closing that means either re-opening #278's formers loop with the flag
+(83 sites, the mutual lane's call) or giving the nested route its own
+former stage (≈60 lines duplicated from `checkMutualCore`, plus a second
+inversion).  Neither is this task's to decide.
+
+**Cost.**  init-full, `--verified --jobs=1`, `perf stat -e
+instructions:u`, against the K.6/K.7 binary (= `inductives`'s checker):
+**538.4500 G vs 538.4496 G, +0.0001 %**, both accepting 53 088
+declarations — the noise floor for an unchanged accept path, which is
+what this is: the diff touches only `checkNested`'s own two kernel
+modules, reachable from the shadow branch alone.  The annotator's front
+door was NOT changed (no `checkConstantVal`, no `annotateCore`), so the
+reason the brief gave for a full Mathlib run does not apply; one was run
+anyway, and its result is in the gates table.
+
+**On task #301.**  K.9 was reworked while #301 (the PropWhen readers in
+two grades) landed on `inductives`; this branch merges it before the
+gates, and the record is numbered K.9 because #301's own is K.8.  None
+of the nested route's code calls the readers, so the merge changed
+nothing here; the two reverted probes of DOCKET §M1/§M2 do call them and
+would now need the annotation pass's grade `beta := true` — noted there.
+Since #301's β clause makes the reader ANSWER at a λ head where it
+previously fell through, §M1's `AnnotStable` census can only widen.
+
 **Gates** (on `agent/nested-279k` at `inductives` = `62043d8c`, which
 did not move; re-run after K.1 on `inductives` = `2e2fc245`, after K.2
-on `3640f02e`, after K.3 on `40ad5bc2`, and again after K.6 on
-`dbd53f3c`):
+on `3640f02e`, after K.3 on `40ad5bc2`, after K.6/K.7 on `dbd53f3c`, and
+again after K.9 on `f14c3dc6` + task #301):
 
 | gate | result |
 |---|---|
@@ -71340,10 +71452,11 @@ on `3640f02e`, after K.3 on `40ad5bc2`, and again after K.6 on
 | `lake test` | exit 0, warning-free |
 | `tests/nested-shadow.sh` | **23/23 as expected** (22 before K.1) |
 | `tests/overview-links.sh` | OK after `--update` (the six `Main.lean` anchors moved; each citing paragraph re-read, and the driver paragraph now names the shadow beside the heartbeat and the route trace) |
-| `tests/arena.sh` | **exit 0** at K.3 and before, and **exit 0 again at K.6+K.7** — arena tutorial **90/92** (as recorded), e2e **214/214**, **nested-shadow 23/23**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  (Between the two, on `inductives` = `dbd53f3c`, the SHAKE gate's census alone failed for the `CopyTypes.lean` name clash the K.4/K.5 merges brought; K.7 fixes it — see the blocker note above) |
+| `tests/arena.sh` | **exit 0** at K.3 and before, at K.6+K.7, and at K.9 — arena tutorial **90/92** (as recorded), e2e **214/214**, **nested-shadow 23/23**, annot 15/15, route census 90 streams / 765 blocks unchanged, `inmodel` OK, the axiom pin unchanged (18 theorems at the three standard axioms), trusted sweep and both `--jobs` sweeps as expected, no divergence.  (Between the two, on `inductives` = `dbd53f3c`, the SHAKE gate's census alone failed for the `CopyTypes.lean` name clash the K.4/K.5 merges brought; K.7 fixes it — see the blocker note above) |
 | init-full, `--verified --jobs=1` | exit 0, **53 088** declarations; shadow `Lean.Syntax accept` |
 | Mathlib nested cone (41 blocks, 4 926 declarations) | exit 0, **4 923** accepted; shadow **41/41 accept** |
-| Mathlib full | NOT RUN, and not owed: the diff touches no file on the accept path (five new modules plus one flag-guarded branch in `Main.lean`) |
+| Mathlib full | NOT owed before K.9 (the diff touched no file on the accept path: new modules plus one flag-guarded branch in `Main.lean`).  **Run at K.9**: `--verified --jobs=8`, 32 GB, **654 499 declarations accepted, exit 0** — the recorded count |
+| init-full instructions | at K.9, `--verified --jobs=1`, `perf stat -e instructions:u`: **538.4500 G** against the K.6/K.7 binary's **538.4496 G**, **+0.0001 %**, 53 088 accepted both — the noise floor for an unchanged accept path |
 
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
