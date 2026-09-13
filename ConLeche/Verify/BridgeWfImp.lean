@@ -2415,6 +2415,60 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
     ((annotateCore_WScoped F cv.type hann'
       (WScoped.of_not_hasFvar (Bool.not_eq_true _ |>.mp h6))).fvarsBelow)
 
+/-- **A checked constant's level parameters are distinct** (task #279
+M-B′ step 3p): `checkConstantVal` rejects duplicates (`Name.nodup`)
+and the annotation keeps the list — the `ConstWF` clause a level
+substitution at a constant's own parameters needs. -/
+theorem checkConstantVal_nodup {env : Env} {cv cvA : ConstantVal}
+    {F : Nat} (h : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
+    Name.nodup cvA.levelParams = true := by
+  unfold checkConstantVal at h
+  by_cases h1 : (env.find? cv.name).isSome = true
+  · rw [if_pos h1] at h; throwM_elim h
+  rw [if_neg h1] at h
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  · rw [if_pos h2] at h; throwM_elim h
+  rw [if_neg h2] at h
+  by_cases h3 : cv.name.isProjFnShape = true
+  · rw [if_pos h3] at h; throwM_elim h
+  rw [if_neg h3] at h
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg => rw [if_neg h4] at h; throwM_elim h
+  rw [if_pos h4] at h
+  by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
+  case neg => rw [if_neg h5] at h; throwM_elim h
+  rw [if_pos h5] at h
+  by_cases h6 : cv.type.hasFvar = true
+  · rw [if_pos h6] at h; throwM_elim h
+  rw [if_neg h6] at h
+  revert h
+  match hann : (fueledOps mode F).annotate env 0 cv.type with
+  | .error e => intro h; exact nomatch h
+  | .ok type => ?_
+  intro h
+  simp only [Bind.bind, Except.bind] at h
+  by_cases h7 : Expr.allLevelParamsDefined cv.levelParams type = true
+  case neg => rw [if_neg h7] at h; exact nomatch h
+  rw [if_pos h7] at h
+  by_cases h8 : Expr.constsResolve env type = true
+  case neg => rw [if_neg h8] at h; exact nomatch h
+  rw [if_pos h8] at h
+  revert h
+  match hity : (fueledOps mode F).inferType env 0 type with
+  | .error e => intro h; exact nomatch h
+  | .ok stype => ?_
+  intro h
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  match hsty : (fueledOps mode F).ensureSort env 0 stype with
+  | .error e => intro h; exact nomatch h
+  | .ok u => ?_
+  intro h
+  simp only [Bind.bind, Except.bind, pure, Except.pure,
+    Except.ok.injEq] at h
+  subst h
+  exact h4
+
 /-- Peeling a `∀`-telescope (without instantiating) keeps every binder
 domain and the body scoped at the same frame. -/
 theorem stripPis_WScoped {d : Nat} :
