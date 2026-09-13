@@ -111,17 +111,22 @@ theorem Expr.Sub.mentionsConst {T : Name} {e e' : Expr} (h : Expr.Sub e e')
 
 /-! ## The reference relation -/
 
-/-- **Pin `j`'s copy refers to pin `j'`'s** (DESIGN §M.22).  `k` is the
-block's own member count (the copies are `st.types[k + j]`), `grp j =
-(j₀, n)` the mint group of pin `j` — base and size in the pin list.
-A processed constructor of the source copy mentions the target copy's
-name; the target is outside the source's group; no pin of the source's
-group is a subterm of the target's pin.  (Exposed: the model tier's
-run-level bridge `bridgeOfRun_of_syntax` proves it clause by clause.) -/
+/-- **Pin `j`'s copy refers to pin `j'`'s** (DESIGN §M.22, the mention
+over the GROUP at §M.29 finding 1 / K.15).  `k` is the block's own
+member count (the copies are `st.types[k + j]`), `grp j = (j₀, n)` the
+mint group of pin `j` — base and size in the pin list.  A processed
+constructor of SOME copy of the source's mint group mentions the target
+copy's name (ψ at pin `j` folds every constructor of `j`'s group, so a
+transport in a group-mate's constructor is a reference of `j` too); the
+target is outside the source's group; no pin of the source's group is a
+subterm of the target's pin.  In lockstep with the kernel's `copyRefB`
+(`copyRef_iff`).  (Exposed: the model tier's run-level bridge
+`bridgeOfRun_of_syntax` proves it clause by clause.) -/
 @[expose] def CopyRef (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' : Nat) : Prop :=
   ∃ (t t' : AuxType) (q' : NestedPin),
     st.types[k + j]? = some t ∧ st.types[k + j']? = some t' ∧ st.pins[j']? = some q' ∧
-    (∃ c ∈ t.ctors, (c.2.1).mentionsConst t'.name = true) ∧
+    (∃ g, g < (grp j).2 ∧ ∃ tg : AuxType, st.types[k + (grp j).1 + g]? = some tg ∧
+      ∃ c ∈ tg.ctors, (c.2.1).mentionsConst t'.name = true) ∧
     ¬ ((grp j).1 ≤ j' ∧ j' < (grp j).1 + (grp j).2) ∧
     ∀ (i : Nat) (g : NestedPin), i < (grp j).2 → st.pins[(grp j).1 + i]? = some g →
       ¬ Expr.Sub g.pin q'.pin
@@ -342,9 +347,27 @@ theorem copyRef_iff (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' 
   | some q' =>
   simp only [Option.some.injEq, Bool.and_eq_true, List.any_eq_true, List.all_eq_true,
     List.mem_range]
+  -- the group-wide mention, as the kernel's `any` over the group
+  have hmen : (∃ g, g < (grp j).2 ∧ ∃ tg : AuxType, st.types[k + (grp j).1 + g]? = some tg ∧
+        ∃ c ∈ tg.ctors, (c.2.1).mentionsConst t'.name = true) ↔
+      ∃ g, g < (grp j).2 ∧
+        (match st.types[k + (grp j).1 + g]? with
+          | some tg => tg.ctors.any (fun c => c.2.1.mentionsConst t'.name)
+          | none => false) = true := by
+    constructor
+    · rintro ⟨g, hg, tg, htg, hc⟩
+      refine ⟨g, hg, ?_⟩
+      rw [htg]
+      exact List.any_eq_true.mpr hc
+    · rintro ⟨g, hg, h⟩
+      cases htg : st.types[k + (grp j).1 + g]? with
+      | none => rw [htg] at h; exact nomatch h
+      | some tg =>
+        rw [htg] at h
+        exact ⟨g, hg, tg, htg, List.any_eq_true.mp h⟩
   constructor
   · rintro ⟨t₁, t'₁, q'₁, rfl, rfl, rfl, hm, hg, hsub⟩
-    refine ⟨⟨hm, by simp; omega⟩, fun i hi => ?_⟩
+    refine ⟨⟨hmen.mp hm, by simp; omega⟩, fun i hi => ?_⟩
     cases hp : st.pins[(grp j).1 + i]? with
     | none => rfl
     | some g =>
@@ -353,7 +376,8 @@ theorem copyRef_iff (grp : Nat → Nat × Nat) (k : Nat) (st : ElimState) (j j' 
       | false => rfl
       | true => exact absurd ((Expr.subB_iff_Sub _ _).mp hsb) (hsub i g hi hp)
   · rintro ⟨⟨hm, hg⟩, hsub⟩
-    refine ⟨t, t', q', rfl, rfl, rfl, hm, by simp at hg; intro h; omega, fun i g hi hp hs => ?_⟩
+    refine ⟨t, t', q', rfl, rfl, rfl, hmen.mpr hm, by simp at hg; intro h; omega,
+      fun i g hi hp hs => ?_⟩
     have := hsub i hi
     rw [hp] at this
     change (!Expr.subB g.pin q'.pin) = true at this

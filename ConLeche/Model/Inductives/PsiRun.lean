@@ -493,9 +493,11 @@ group, no group pin inside its pin). -/
 
 /-- **The bridge's SYNTACTIC half**: at every transport — a field the
 copy's constructor sees as recursive into pin `j''`'s copy and the
-container's as ordinary — the copy's processed constructor MENTIONS the
-target copy's name, and no pin of the source's group is a sub-term of
-the target's pin.  What the run owes of the elimination's output
+container's as ordinary — SOME copy of the source's mint group has a
+processed constructor MENTIONING the target copy's name (the group-wide
+form of `CopyRef`'s mention clause, K.15: ψ at a pin folds the whole
+group's constructors), and no pin of the source's group is a sub-term
+of the target's pin.  What the run owes of the elimination's output
 (DESIGN §M.28): the mention from the walk's rewrite at the field
 (`replaceIfNested_some`) through the normalisation, the sub-term clause
 from the container's positivity (an ordinary field mentions no member
@@ -504,10 +506,11 @@ of the container's group). -/
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
-    ∀ (t t' : AuxType) (q' : NestedPin), st.types[k₀ + j']? = some t →
+    ∀ (t' : AuxType) (q' : NestedPin),
       st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' →
       st.pins[d.tgtsR (auxOfs j' Jc) i - k₀]? = some q' →
-      (∃ c ∈ t.ctors, (c.2.1).mentionsConst t'.name = true) ∧
+      (∃ g, g < (cd j').dJ.k ∧ ∃ tg : AuxType, st.types[k₀ + (cd j').base + g]? = some tg ∧
+        ∃ c ∈ tg.ctors, (c.2.1).mentionsConst t'.name = true) ∧
       ∀ (l : Nat) (g : NestedPin), l < (cd j').dJ.k → st.pins[(cd j').base + l]? = some g →
         ¬ Expr.Sub g.pin q'.pin
 
@@ -538,8 +541,10 @@ theorem bridgeOfRun_of_syntax {μ : CheckMode} {mp : EnvModelM V μ env} {d : In
   have ht'' : st.types[d.tgtsR (auxOfs j' Jc) i]? = some t' := by
     rw [show d.tgtsR (auxOfs j' Jc) i = k₀ + (d.tgtsR (auxOfs j' Jc) i - k₀) by omega]
     exact ht'
-  obtain ⟨hmention, hsub⟩ := hsyn j' hj' Jc cAJ hJc i hi hA hT t t' q' ht ht'' hq'
-  refine ⟨t, t', q', ht, ht', hq', hmention, ?_, ?_⟩
+  obtain ⟨hmention, hsub⟩ := hsyn j' hj' Jc cAJ hJc i hi hA hT t' q' ht'' hq'
+  refine ⟨t, t', q', ht, ht', hq', ?_, ?_, ?_⟩
+  · rw [hgrp j' hj']
+    exact hmention
   · rw [hgrp j' hj', hjE]
     exact hout
   · intro l g hl hg
