@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.InvCopy
+public import ConLeche.Model.Inductives.FoldValues
 import ConLeche.SetTheory.Derive.LfpFam
+import ConLeche.SetTheory.Derive.Sep
 
 public section
 
@@ -34,20 +36,19 @@ and proves what needs no induction:
   order), R2 one over the CONTAINER's carrier at the pin, interleaved
   with the kernel order at the transports.
 
-**What the inductions still need, named** (DESIGN §M.32): (i) the two
-folds' ι laws at VALUES — `fold_iota` speaks of field TERMS at the base
-frame, so an arbitrary spine of values is fed through the frame
-`consList vs ρ` and the lifted parameters, which reads the choice's
-terms alike only when they are closed above the parameters
-(`Term.bvarsBelow d.nP`: the pins' readings from `DenoteMetaSpine` at
-`pinsClosed`, the heads and the table's terms along the order) — the
-lemma `interp_congr_below` is the tool; (ii) the fields of a
-`ChainFit`ting spine, field by field (a recursive field's value under
-its telescope lies in the chain family's fibre at its index readings;
-an ordinary field's fits its domain) — the datum's `fibre` clause
-exposes `ChainFit` whole, and its per-field reading is a Semantics-tier
-lemma about `chainXIGo` (`FixFamI.lean`) that the model has not yet
-imported.  Neither is a datum or kernel fact.
+**What the inductions consume** (DESIGN §M.32 (i)/(ii), landed §M.33):
+(i) the two folds' ι laws at VALUES — `InvSetup.fold_iota_vals`/
+`PsiSetup.fold_iota_vals` (`FoldValues.lean`, the "double push": the
+same fold term read at `consList psvals (consList vs σ)`, legitimate
+because the fold terms are `Term.bvarsBelow nP`, `FoldBelow.lean`);
+(ii) the fields of a `ChainFit`ting spine, field by field —
+`chainXIGo_fields` (`FixFamI.lean`) at the datum: `IndRep.chainFit_fields`
+below, and the restricted family's fibre read (`mem_restrictedFam`):
+a finitary recursive field's value is in the carrier's fibre AND
+satisfies the induction's property at the field's container-view
+tuple.  What the step still needs beyond these — the C-view/F-view
+tuple bridge (`IdxRecover`/`SlotRecover`) and the fit of ψ's values at
+the copy constructor — is named in DESIGN §M.33 (4).
 -/
 
 namespace ConLeche.Model
@@ -105,6 +106,51 @@ theorem carrier_induction {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR :
     graph_mem_famSpace fun i hi => univ_sep_mem (famSpace_app (lfpFamSet_mem _ _ _) hi)
   obtain ⟨j, fs, hj, hfit, rfl⟩ := (hrep.fibre ψ _ hsat _ hS t ht y).mp hy
   exact hstep t ht j fs hj hfit
+
+end IndRep
+
+/-! ## `ChainFit`, field by field -/
+
+omit [SetTheory V] in
+theorem IndRepData.Fss_length (d : IndRepData V) (ψ : Name → Nat) :
+    (d.Fss ψ).length = d.ctorsA.length := by
+  unfold IndRepData.Fss fssOfR IndRepData.cdsC
+  rw [List.length_map, fixCtorDataList_length]
+
+/-- The fibre of the family restricted to a property: membership is
+membership in the fibre and the property. -/
+theorem mem_restrictedFam {I L : V} {P : V → V → Prop} {t f : V} (ht : t ∈ˢ I) :
+    f ∈ˢ SetTheory.app (graph (fun i => sep (SetTheory.app L i) (P i)) I) t ↔
+      f ∈ˢ SetTheory.app L t ∧ P t f := by
+  rw [app_graph ht, mem_sep]
+
+namespace IndRep
+
+/-- **`ChainFit`, field by field** at the datum (DESIGN §M.33 (2)): at a
+fitting parameter frame, a spine chain-fitting constructor `j` at a
+family `X` of the family space and a tuple `t` has, at each position,
+a recursive field's value in the slot set at `X` (under its telescope
+the fibre of `X` at the field's container-view index readings) and an
+ordinary field's value in its domain, each at the frame of the earlier
+fields. -/
+theorem chainFit_fields {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
+    {mI rP : Nat} {rules : List RecRule} {d : IndRepData V} {mm : Nat}
+    (hrep : IndRep m T cvT cvR mI rP rules d mm) (ψ : Name → Nat) {ρp : Nat → V}
+    (hsat : Sat V (d.params ψ).reverse ρp) {X t : V}
+    (hX : X ∈ˢ famSpace (d.w ψ) (d.idx ψ ρp)) (ht : t ∈ˢ d.idx ψ ρp) {j : Nat}
+    (hj : j < d.ctorsA.length) {fs : List V} (hfit : d.ChainFit ψ ρp X t j fs) :
+    ∀ (i : Nat) (F : AnnotTerm), ((d.Fss ψ).getD j [])[i]? = some F → ∀ f, fs[i]? = some f →
+      ((d.rss.getD j []).getD i false = true →
+        f ∈ˢ slotSet (d.w ψ) (d.u ψ) (consList (fs.take i) ρp) (((d.tlss ψ).getD j []).getD i [])
+          (((d.Eiss ψ).getD j []).getD i []) X) ∧
+      ((d.rss.getD j []).getD i false = false → f ∈ˢ interp V (consList (fs.take i) ρp) F) := by
+  have hch := hrep.chains ψ ρp hsat
+  have hX' : X ∈ˢ lfpFamSpace V (d.w ψ) (idxSet (d.u ψ) ρp (d.IdsC ψ)) := by
+    rw [lfpFamSpace_eq]; exact hX
+  have hslots := hch.hfit X hX' t ht j (by rw [d.Fss_length]; exact hj)
+  intro i F hF f hf
+  have := chainXIGo_fields hch.hI ((d.Fss ψ).getD j []) 0 [] fs rfl hfit.2.1 hslots i F hF f hf
+  simpa using this
 
 end IndRep
 
