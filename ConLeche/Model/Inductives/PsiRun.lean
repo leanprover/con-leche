@@ -83,6 +83,23 @@ theorem LeafShape.congr_sort {d : IndRepData V} {s s' : Level}
 
 /-! ## The container-side premise -/
 
+/-- The position of constructor `Jc` among its own member's
+constructors: the earlier constructors of the same member. -/
+@[expose] def posIn (dJ : IndRepData V) (Jc : Nat) : Nat :=
+  ((List.range Jc).filter fun i => dJ.mems i == dJ.mems Jc).length
+
+/-- **The container's constructors as `containerInfo?` read them are
+the datum's**: every constructor `Jc` of the datum is, at its member
+`dJ.mems Jc`, the `posIn dJ Jc`-th constructor `containerInfo?` lists
+for that member — the same name, stored type and field count.  (A
+container's `containerInfo?` lists a member's constructors as its
+recursor's rules, in order; the datum's are the block's in order.) -/
+@[expose] def ContainerCtorsAt (ci : ContainerInfo) (dJ : IndRepData V) : Prop :=
+  ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ →
+    ∃ (J : ContainerMember) (c : ConLeche.ContainerCtor), ci.members[dJ.mems Jc]? = some J ∧
+      J.ctors[posIn dJ Jc]? = some c ∧ cAJ.1.name = c.name ∧ cAJ.1.type = c.type ∧
+      cAJ.2 = c.nFields
+
 /-- **The containers are represented at the scratch environment**: for
 every container `I` the elimination recovers (`containerInfo?` at the
 pre-block environment) there is ONE datum `dJ` of its block — a
@@ -102,6 +119,7 @@ def ContainersRep (env envAux : Env) (m : EnvModel V envAux) : Prop :=
       (∀ J, dJ.ksR J = dJ.ksF J ∧ dJ.tgtsR J = dJ.tgts J ∧ dJ.eissR J = dJ.eissF J ∧
         dJ.tssR J = dJ.tssF J) ∧
       (dJ.large = false → ∀ φ : Name → Nat, dJ.w φ = 0) ∧
+      ContainerCtorsAt ci dJ ∧
       ∀ (i : Nat) (J : ContainerMember), ci.members[i]? = some J →
         ∃ (cvTJ cvR : ConstantVal) (capsJ : IndCaps) (mI rP : Nat) (rules : List RecRule),
           envAux.find? J.name = some (.indInfo cvTJ capsJ) ∧ J.type = cvTJ.type ∧
@@ -241,6 +259,36 @@ theorem group_pin_eq {st : ElimState} {j₀ t : Nat} {q q' : NestedPin} {n n' : 
   simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.const.injEq] at h1 h2
   exact ⟨h1.1, h1.2, h2⟩
 
+/-- **What the run gives of one pin**, at the pin's `CopyData`: its
+`PinFacts`, its position in its group, and the pin's own data — its
+`NestedPin`, its container's block and member, its levels and
+components, the group's pins, its stored former at the scratch
+environment, its assignment, its readings — together with the
+container's constructors as the datum's (`ContainerCtorsAt`) and the
+copy's constructors from the mint to the store (`CopyCtorsStored`). -/
+@[expose] def PinRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env} (p : ConLeche.NestedParts)
+    (st : ElimState) (b : MutualBlock) (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta))
+    (mpAux : EnvModelM V μ envAux) (d : IndRepData V) (ψ : Name → Nat) (cd : Nat → CopyData V)
+    (j : Nat) : Prop :=
+  PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j ∧
+  ∃ (q : NestedPin) (I : Name) (ci : ContainerInfo) (J : ContainerMember)
+    (lvls : List Level) (Ds : List Expr) (cvTJ : ConstantVal) (capsJ : IndCaps),
+    st.pins[j]? = some q ∧ ConLeche.containerInfo? env I = some ci ∧
+    ci.members[(cd j).mm]? = some J ∧ J.name = q.container ∧
+    (cd j).dJ.memberName (cd j).mm = q.container ∧
+    ci.members.length = (cd j).dJ.k ∧
+    (∀ i' J', ci.members[i']? = some J' →
+      ∃ q', st.pins[(cd j).base + i']? = some q' ∧ q'.container = J'.name ∧
+        q'.pin = Expr.mkAppN (.const J'.name lvls) Ds ∧
+        q'.grpBase = (cd j).base ∧ q'.grpSize = ci.members.length) ∧
+    q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
+    ElimState.grp st j = ((cd j).base, (cd j).dJ.k) ∧
+    envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
+    (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
+    DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA ∧
+    ContainerCtorsAt ci (cd j).dJ ∧
+    ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q
+
 set_option maxHeartbeats 1600000 in
 /-- **Every pin has its group facts, from the run** — one `CopyData` per
 pin (`cd`), its container the datum `ContainersRep` gives for the pin's
@@ -252,8 +300,8 @@ the bridge. -/
 theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
-    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (fmsA ctorsA : List ConstantVal)
-      (order : List Nat),
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (params : List Expr)
+      (pbs : List (Expr × ConLeche.BinderMeta)) (fmsA ctorsA : List ConstantVal) (order : List Nat),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
       ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
@@ -262,24 +310,11 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         CtorsChecked μ F env b true d ∧
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
           ∃ cd : Nat → CopyData V, ∀ j, j < st.pins.length →
-            PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j ∧
-            ∃ (q : NestedPin) (I : Name) (ci : ContainerInfo) (J : ContainerMember)
-              (lvls : List Level) (Ds : List Expr) (cvTJ : ConstantVal) (capsJ : IndCaps),
-              st.pins[j]? = some q ∧ ConLeche.containerInfo? env I = some ci ∧
-              ci.members[(cd j).mm]? = some J ∧ J.name = q.container ∧
-              (cd j).dJ.memberName (cd j).mm = q.container ∧
-              ci.members.length = (cd j).dJ.k ∧
-              (∀ i' J', ci.members[i']? = some J' →
-                ∃ q', st.pins[(cd j).base + i']? = some q' ∧ q'.container = J'.name ∧
-                  q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
-              q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
-              ElimState.grp st j = ((cd j).base, (cd j).dJ.k) ∧
-              envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
-              (cd j).ψ' = pinAssign (cd j).dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
-              DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds (cd j).DsA) := by
-  obtain ⟨st, b, envAux, params, fmsA, ctorsA, order, hb, helim, hord, hlenSt, -, mpAux, d, hreps,
-    hchk, hpins⟩ := copyIdxRead_of_run hμ mp hE h
-  refine ⟨st, b, envAux, fmsA, ctorsA, order, hb, helim, hord, hlenSt, mpAux, d, hreps, hchk, ?_⟩
+            PinRunFacts F env p st b params pbs mpAux d ψ cd j) := by
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, -, mpAux, d,
+    hreps, hchk, hpins⟩ := copyIdxRead_of_run hμ mp hE h
+  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, mpAux, d, hreps,
+    hchk, ?_⟩
   intro hcr ψ
   obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
   have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
@@ -294,16 +329,19 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         ci.members.length = c.dJ.k ∧
         (∀ i' J', ci.members[i']? = some J' →
           ∃ q', st.pins[c.base + i']? = some q' ∧ q'.container = J'.name ∧
-            q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+            q'.pin = Expr.mkAppN (.const J'.name lvls) Ds ∧
+            q'.grpBase = c.base ∧ q'.grpSize = ci.members.length) ∧
         q.pin = Expr.mkAppN (.const q.container lvls) Ds ∧
         ElimState.grp st j = (c.base, c.dJ.k) ∧
         envAux.find? q.container = some (.indInfo cvTJ capsJ) ∧
         c.ψ' = pinAssign c.dJ (Level.substFn ψ cvTJ.levelParams lvls) ∧
-        DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA := by
+        DenoteMetaSpine mpAux.base2.acval envAux ψ p.nP Ds c.DsA ∧
+        ContainerCtorsAt ci c.dJ ∧
+        ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q := by
     intro j hj
     obtain ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls,
-      hread⟩ := hpins j hj
-    obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hmem⟩ := hcr I ci hci
+      hcst, hread⟩ := hpins j hj
+    obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hcat, hmem⟩ := hcr I ci hci
     obtain ⟨cvTJ, cvR, capsJ, mI, rP, rules, hfJ, hJty, hJlps, hrules, hfR, hfresh, hrep⟩ :=
       hmem i J hJ
     have hik : i < dJ.k := by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp hJ).1
@@ -324,7 +362,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       intro t ht
       obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
-      obtain ⟨q', hq', -, -⟩ := hgrp t J' hJ'
+      obtain ⟨q', hq', -, -, -, -⟩ := hgrp t J' hJ'
       exact (List.getElem?_eq_some_iff.mp hq').1
     -- every group-mate's data are live
     have hgrpOk : ∀ t, t < dJ.k →
@@ -332,7 +370,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       intro t ht
       obtain ⟨J', hJ'⟩ : ∃ J', ci.members[t]? = some J' :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact ht)⟩
-      obtain ⟨q', hq', hq'c, hq'p⟩ := hgrp t J' hJ'
+      obtain ⟨q', hq', hq'c, hq'p, -, -⟩ := hgrp t J' hJ'
       obtain ⟨cvTJ', cvR', capsJ', mI', rP', rules', hfJ', hJty', hJlps', -, -, -, hrep'⟩ :=
         hmem t J' hJ'
       have hfJ'' : envAux.find? (dJ.memberName t) = some (.indInfo cvTJ' capsJ') := by
@@ -343,7 +381,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         hrep'.formersRead t (by rw [hkR]; exact ht) cvTJ' capsJ' hfJ''
       -- the read at the group-mate's pin, at this datum
       obtain ⟨qt, It, cit, it, j₀t, Jt, lvlst, Dst, hqt, hcit, hJt, -, -, hqtc, hqtp, -, -, hDsLent,
-        -, hreadt⟩ := hpins (j₀ + t) (hposGrp t ht)
+        -, -, hreadt⟩ := hpins (j₀ + t) (hposGrp t ht)
       obtain ⟨hJtn, hlv, hDsE⟩ := group_pin_eq hqt hq' hqtp hq'p
       rw [hlv, hDsE] at hreadt
       rw [hDsE] at hDsLent
@@ -384,7 +422,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         fun t ht => by show p.k + j₀ + t < d.k; have := hposGrp t ht; omega, hgrpOk⟩,
       by show j₀ + i = j; omega,
       q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hqc.symm, by rw [hrep.member, hqc], hlenM,
-      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp⟩
+      hgrp, by rw [hqp, hqc], ?_, by rw [hqc]; exact hfJ, by rw [hψ', hψ'₀], hsp, hcat, hcst⟩
     show ElimState.grp st j = (j₀, dJ.k)
     unfold ElimState.grp
     rw [hq]
@@ -393,6 +431,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   -- the choice, per pin
   refine ⟨fun j => if hj : j < st.pins.length then Classical.choose (hone j hj)
     else ⟨d, 0, ψ, [], 0⟩, fun j hj => ?_⟩
+  unfold PinRunFacts
   simp only [dif_pos hj]
   exact Classical.choose_spec (hone j hj)
 
@@ -435,7 +474,7 @@ constructors are matched by the copy's (`auxOfs j`) with the facts
 its closedness, parameter equivalence, view identities, targets and
 member) — what `nestedCopyCtorType_eq`'s identity arm reads
 (DESIGN §M.26) and the whnf arm owes. -/
-def CopyCtorsOfRun {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V) (ψ : Name → Nat)
+@[expose] def CopyCtorsOfRun {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V) (ψ : Name → Nat)
     (k₀ n : Nat) (lpsT : List Name) (cd : Nat → CopyData V) (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ →
     ∃ cAa, d.ctorsA[auxOfs j' Jc]? = some cAa ∧
@@ -446,7 +485,7 @@ def CopyCtorsOfRun {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V)
 constructor sees as recursive and the container's as ordinary — is a
 reference of the kernel's relation (`CopyRef`: mentioned, outside the
 group, no group pin inside its pin). -/
-def BridgeOfRun (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
+@[expose] def BridgeOfRun (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
@@ -461,7 +500,7 @@ the target's pin.  What the run owes of the elimination's output
 (`replaceIfNested_some`) through the normalisation, the sub-term clause
 from the container's positivity (an ordinary field mentions no member
 of the container's group). -/
-def BridgeSyntax (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
+@[expose] def BridgeSyntax (d : IndRepData V) (st : ElimState) (k₀ n : Nat) (cd : Nat → CopyData V)
     (auxOfs : Nat → Nat → Nat) : Prop :=
   ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
     i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
@@ -525,10 +564,10 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
       st.types.length = p.k + st.pins.length ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧
+        ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
           ∃ cd : Nat → CopyData V,
-            (∀ j, j < st.pins.length → PinFacts mpAux d ψ p.k (cd j) ∧ (cd j).base + (cd j).mm = j ∧
-              ElimState.grp st j = ((cd j).base, (cd j).dJ.k)) ∧
+            (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
             ∀ (lpsT : List Name) (auxOfs : Nat → Nat → Nat),
               CopyCtorsOfRun mpAux d ψ p.k st.pins.length lpsT cd auxOfs →
               BridgeSyntax d st p.k st.pins.length cd auxOfs →
@@ -537,16 +576,16 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
                 ∀ (tbl₀ : Nat → AnnotTerm) (j' : Nat), j' < st.pins.length →
                   d.PsiP mpAux.base2 ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
                     (ConLeche.orderFold (d.psiStep mpAux.base2 ψ p.k cd auxOfs) order tbl₀ j')) := by
-  obtain ⟨st, b, envAux, fmsA, ctorsA, order, hb, -, hord, hlenSt, mpAux, d, hreps, hchk, hpins⟩ :=
-    pinFacts_of_run hμ mp hE h
-  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, ?_⟩
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, hord, hlenSt, mpAux, d, hreps,
+    hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
   have hgrp : ∀ j, j < st.pins.length → ElimState.grp st j = ((cd j).base, (cd j).dJ.k) := by
     intro j hj
     obtain ⟨-, -, q, I, ci, J, lvls, Ds, cvTJ, capsJ, -, -, -, -, -, -, -, -, hg, -⟩ := hcd j hj
     exact hg
-  refine ⟨cd, fun j hj => ⟨(hcd j hj).1, (hcd j hj).2.1, hgrp j hj⟩, ?_⟩
+  refine ⟨cd, hcd, ?_⟩
   intro lpsT auxOfs hctors hsyn ρ₀ psA hpsA hparamsA tbl₀ j' hj'
   obtain ⟨hpinsA, hFFA, hLSA, hpIffMA⟩ := auxFacts_of_blockReps hreps ψ
   obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps

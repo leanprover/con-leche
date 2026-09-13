@@ -451,7 +451,8 @@ def PinOriginAt (env : Env) (k : Nat) (blvls : List Level) (nP : Nat) (params : 
     containerInfo? env I = some ci ∧ ci.members[i]? = some J ∧ j = j₀ + i ∧
     (∀ i' J', ci.members[i']? = some J' →
       ∃ q', st.pins[j₀ + i']? = some q' ∧ q'.container = J'.name ∧
-        q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+        q'.pin = Expr.mkAppN (.const J'.name lvls) Ds ∧
+        q'.grpBase = j₀ ∧ q'.grpSize = ci.members.length) ∧
     st.pins[j]? = some q ∧ q.container = J.name ∧ q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
     q.grpBase = j₀ ∧ q.grpSize = ci.members.length ∧
     mkCopy pbs lvls Ds q.aux J = .ok copy ∧
@@ -486,8 +487,8 @@ theorem PinOriginAt.mono {env : Env} {k : Nat} {blvls : List Level} {nP : Nat}
     exact hq'
   refine ⟨I, ci, i, j₀, J, lvls, Ds, q, copy, t, hci, hJ, hj, fun i' J' hi' => ?_,
     hpins hq, hqc, hqp, hqb, hqs, hmk, hDs, hpbs, hDsLen, ?_, hn, hty, hraw, fun hlt => ?_, hpre⟩
-  · obtain ⟨q', hq', hc', hp'⟩ := hgrp i' J' hi'
-    exact ⟨q', hpins hq', hc', hp'⟩
+  · obtain ⟨q', hq', hc', hp', hb', hs'⟩ := hgrp i' J' hi'
+    exact ⟨q', hpins hq', hc', hp', hb', hs'⟩
   · obtain ⟨tl, htl⟩ := ht
     rw [← htl, List.getElem?_append_left (List.getElem?_eq_some_iff.mp ht').1]
     exact ht'
@@ -541,7 +542,8 @@ theorem ledger_mint {env : Env} {k : Nat} {blvls : List Level} {nP : Nat} {param
       rfl
     refine ⟨I, ci, i, st.pins.length, J, lvls, Ds,
       ⟨copy.name, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩, copy, copy, hci, hJ, rfl,
-      fun i' J' hi' => ⟨_, hpinAt i' J' hi', rfl, rfl⟩, ?_, rfl, rfl, hbase, hsize, hmkc, hDs, hpbs,
+      fun i' J' hi' => ⟨_, hpinAt i' J' hi', rfl, rfl, hbase, hsize⟩, ?_, rfl, rfl, hbase, hsize,
+      hmkc, hDs, hpbs,
       hDsLen, ?_, rfl, rfl, fun _ => rfl, fun hlt => ?_, hpre⟩
     · have := hpinAt i J hJ
       rw [List.getD_eq_getElem?_getD, hcopy] at this
@@ -656,7 +658,8 @@ theorem elimNested_copy {env : Env} {nP : Nat} {lps : List Name} {types : List A
         containerInfo? env I = some ci ∧ ci.members[i]? = some J ∧ j = j₀ + i ∧
         (∀ i' J', ci.members[i']? = some J' →
           ∃ q', st.pins[j₀ + i']? = some q' ∧ q'.container = J'.name ∧
-            q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+            q'.pin = Expr.mkAppN (.const J'.name lvls) Ds ∧
+            q'.grpBase = j₀ ∧ q'.grpSize = ci.members.length) ∧
         st.pins[j]? = some q ∧ q.container = J.name ∧
         q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
         q.grpBase = j₀ ∧ q.grpSize = ci.members.length ∧

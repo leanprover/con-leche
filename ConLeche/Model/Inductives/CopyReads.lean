@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.CopyPins
 public import ConLeche.Model.Inductives.DeclNested
+public import ConLeche.Verify.Inductives.NestedCtors
 import ConLeche.Verify.Inductives.NestedLedger
 import ConLeche.Verify.Inductives.NestedLeaves
 import ConLeche.Verify.Inductives.AuxFormers
@@ -228,13 +229,14 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
     ∃ (st : ConLeche.ElimState) (b : MutualBlock) (envAux : Env) (params : List Expr)
-      (fmsA ctorsA : List ConstantVal) (order : List Nat),
+      (pbs : List (Expr × BinderMeta)) (fmsA ctorsA : List ConstantVal) (order : List Nat),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
       ConLeche.nestedTopoOrder (ConLeche.ElimState.grp st) p.k st = .ok order ∧
       st.types.length = p.k + st.pins.length ∧
-      (∃ (t₀ : AuxType) (body : Expr), st.types[0]? = some t₀ ∧
-        ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body)) ∧
+      (∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
+        ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
+        t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧
         ∀ (j : Nat), j < st.pins.length →
@@ -244,10 +246,12 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
             ci.members[i]? = some J ∧ j = j₀ + i ∧
             (∀ i' J', ci.members[i']? = some J' →
               ∃ q', st.pins[j₀ + i']? = some q' ∧ q'.container = J'.name ∧
-                q'.pin = Expr.mkAppN (.const J'.name lvls) Ds) ∧
+                q'.pin = Expr.mkAppN (.const J'.name lvls) Ds ∧
+                q'.grpBase = j₀ ∧ q'.grpSize = ci.members.length) ∧
             q.container = J.name ∧ q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧
             q.grpBase = j₀ ∧ q.grpSize = ci.members.length ∧
             Ds.length = ci.nP ∧ lvls.length = J.lps.length ∧
+            ConLeche.CopyCtorsStored μ F env p st b params pbs j J lvls Ds q ∧
             ∀ (ψ : Name → Nat) (cvTJ : ConstantVal) (capsJ : IndCaps) (dJ : IndRepData V)
               (mmJ : Nat),
               envAux.find? J.name = some (.indInfo cvTJ capsJ) → J.type = cvTJ.type →
@@ -346,14 +350,15 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     have h := hwsF₀' x hx
     rwa [Nat.zero_add] at h
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
-  refine ⟨st, b, envAux, params, fmsA, ctorsA, order, hb, helim, hord, hlenSt,
-    ⟨tS0, body, htS0, by rw [htS0ty]; exact hop⟩, mpAux, d, hreps₀, hchk, ?_⟩
+  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt,
+    ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs⟩,
+    mpAux, d, hreps₀, hchk, ?_⟩
   intro j hj
   have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
   -- the copy's origin
   obtain ⟨t₀', params', body', pbs', body₀', ht₀', hop', hstrip', I, ci, i, j₀, J, lvls, Ds, q,
-    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, hDsLen, hty, -, -,
-    -, -⟩ := ConLeche.elimNested_copy helim hj
+    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, hDsLen, hty,
+    helimC, -, hst₂, -⟩ := ConLeche.elimNested_copy helim hj
   rw [ht₀] at ht₀'
   obtain rfl := Option.some.inj ht₀'
   rw [hop] at hop'
@@ -363,7 +368,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   rw [nestedTypes0_length, hfmsLen] at hty
   have ht : p.k + j < b.k := by rw [hk, hlenSt]; omega
   obtain ⟨hlvls, ⟨tyI, htyI, hcopyTy⟩, -, -⟩ := ConLeche.mkCopy_inv hmk
-  refine ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls, ?_⟩
+  refine ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls,
+    ConLeche.copyCtorsStored_of (mode := μ) hpbs hmk hty helimC hst₂ hb hcore, ?_⟩
   intro ψ cvTJ capsJ dJ mmJ hfJ hJtype hJlps hciNP hFDJ
   obtain ⟨R, hopened⟩ := IndRepData.opened_params ({d with resSort := s₀} : IndRepData V) ψ hfT₀
     hFD₀ hfv'

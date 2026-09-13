@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.NestedLedger
 public import ConLeche.Verify.Inductives.NestedInv
+import ConLeche.Verify.Inductives.NestedLeaves
 
 public section
 
@@ -92,16 +93,17 @@ minted one's own binders `pbs'` — the auxiliary block's constructor
 stage STORES `normCtorValM`'s output on the processed constant, which
 is that constant itself or that constant with a normalised type
 (`nestedCopyCtorType_eq`, K.12/K.13). -/
-def CopyCtorsStored (mode : CheckMode) (F : Nat) (env : Env) (p : NestedParts) (st : ElimState)
+@[expose] def CopyCtorsStored (mode : CheckMode) (F : Nat) (env : Env) (p : NestedParts) (st : ElimState)
     (b : MutualBlock) (params : List Expr) (pbs : List (Expr × BinderMeta)) (j : Nat)
     (J : ContainerMember) (lvls : List Level) (Ds : List Expr) (q : NestedPin) : Prop :=
   ∃ tyA : AuxType, st.types[p.k + j]? = some tyA ∧ tyA.name = q.aux ∧
     tyA.ctors.length = J.ctors.length ∧
-    ∃ (env₁ : Env) (fms : List MutualFormerA) (ctorsA : List (ConstantVal × Nat))
-      (sortss : List (List Level)) (isProp : Bool),
+    ∃ (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
+      (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)),
       mutualFormers (fueledOps mode F) b.nP b.formers env true = .ok (env₁, fms) ∧
-      env₁ = consMutualFormers fms env ∧
-      checkMutualCtors (fueledOps mode F) env₁ b fms isProp true b.ctors = .ok (ctorsA, sortss) ∧
+      env₁ = consMutualFormers fms env ∧ fms[0]? = some f₀ ∧
+      checkMutualCtors (fueledOps mode F) env₁ b fms (Level.isEquiv f₀.s .zero == some true) true
+        b.ctors = .ok (ctorsA, sortss) ∧
       ctorsA.length = b.ctors.length ∧
       ∀ (l : Nat) (c : ContainerCtor), J.ctors[l]? = some c →
         ∃ (cI cbody body' : Expr) (pbs' : List (Expr × BinderMeta)) (rest : Expr)
@@ -143,11 +145,25 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     CopyCtorsStored mode F env p st b params pbs j J lvls Ds q := by
   obtain ⟨-, -, hlenC, hctorsC⟩ := mkCopy_inv hmk
   obtain ⟨hlenCs, hallCs⟩ := elimCtors_getElem? hpbs helimC
-  obtain ⟨env₁, fms, ctorsA, sortss, isProp, hformers, henv₁, hctors, hlenA, hall⟩ :=
-    nestedCopyCtorType_eq haux
+  obtain ⟨-, -, -, -, env₁, fms, f₀, -, ctorsA, sortss, -, -, -, -, -, hformers, hf0, -, -, -,
+    hctors, -⟩ := checkMutualCore_inv haux
+  obtain ⟨-, henv₁⟩ := mutualFormers_inv hformers
+  have hlenA : ctorsA.length = b.ctors.length := (checkMutualCtors_inv hctors).1
+  have hall : ∀ (j : Nat) (c : MutualCtor) (cA : ConstantVal × Nat),
+      b.ctors[j]? = some c → ctorsA[j]? = some cA →
+      normCtorValM (m := CheckM) (fueledOps mode F) env₁ b.memberNames b.nP c.nF
+          c.cv c.cv true = .ok cA.1 ∧
+        (cA.1 = c.cv ∨ ∃ ty', cA.1 = { c.cv with type := ty' }) ∧
+        cA.1.type.projTablesOk env₁ = true := by
+    intro j c cA hc hcA
+    obtain ⟨-, -, hall⟩ := checkMutualCtors_inv hctors
+    obtain ⟨-, _sorts, -, hrun⟩ := hall j c cA hc hcA
+    obtain ⟨hnorm, hproj⟩ := checkMutualCtor_true_norm hrun
+    obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
+    exact ⟨hnorm, hstores, hkeep hproj⟩
   refine ⟨{ copy with ctors := cs' }, hty, show copy.name = q.aux from mkCopy_name hmk,
     by show cs'.length = J.ctors.length; rw [hlenCs, hlenC],
-    env₁, fms, ctorsA, sortss, isProp, hformers, henv₁, hctors, hlenA, ?_⟩
+    env₁, fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors, hlenA, ?_⟩
   intro l c hc
   obtain ⟨cI, hcI, hcopyL⟩ := hctorsC l c hc
   obtain ⟨pbs', rest, cbody, body', sta, stb, hstrip', hinst, hwalk, hcs'l, -, hstb⟩ :=
@@ -184,5 +200,246 @@ theorem copyCtorsStored_of_run {env envAux : Env} {p : NestedParts} {types : Lis
   rw [hk] at hty
   exact ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, hpbs, I, ci, i, j₀, J, lvls, Ds, q, hci,
     hJ, hjE, hq, hqc, hqp, hqb, copyCtorsStored_of hpbs hmk hty helimC hst₂ hb haux⟩
+
+
+/-! ## A container member is determined by its name -/
+
+/-- **What `containerInfo?` reads of a member**: its stored former (type
+and level parameters), and its constructors as the stored recursor's
+rules, each a stored constructor record whose parameter count is the
+block's. -/
+theorem containerInfo?_member {env : Env} {I : Name} {ci : ContainerInfo}
+    (h : containerInfo? env I = some ci) :
+    ∀ J ∈ ci.members,
+      ∃ (cvC : ConstantVal) (caps : IndCaps) (cvR : ConstantVal) (mIc rPc : Nat)
+        (rulesC : List RecRule),
+        env.find? J.name = some (.indInfo cvC caps) ∧ J.type = cvC.type ∧
+        J.lps = cvC.levelParams ∧
+        env.find? (J.name.str "rec") = some (.recInfo cvR mIc rPc rulesC) ∧
+        rulesC.mapM (fun r =>
+          match env.find? r.ctor with
+          | some (.ctorInfo cvc nPc nF) =>
+            if nPc == ci.nP then some (⟨r.ctor, cvc.type, nF⟩ : ContainerCtor) else none
+          | _ => none) = some J.ctors := by
+  unfold containerInfo? at h
+  split at h
+  · exact nomatch h
+  simp only [bindOption_eq_some_iff] at h
+  obtain ⟨cT, hfT, h⟩ := h
+  split at h
+  · next cvT caps =>
+    simp only [bindOption_eq_some_iff] at h
+    obtain ⟨cR, hfR, h⟩ := h
+    split at h
+    · next cvR mI rP rules =>
+      split at h
+      · next hle =>
+        simp only [bindOption_eq_some_iff] at h
+        obtain ⟨nP, hnP, h⟩ := h
+        obtain ⟨p, hstrip, h⟩ := h
+        obtain ⟨_, recBody⟩ := p
+        simp only at h
+        split at h
+        · next hnames =>
+          simp only [bindOption_eq_some_iff] at h
+          obtain ⟨members, hmapM, h⟩ := h
+          simp only [Option.some.injEq] at h
+          subst h
+          intro J hJ
+          obtain ⟨i, hi⟩ := List.getElem?_of_mem hJ
+          obtain ⟨hlen, hall⟩ := optionMapM_getElem? hmapM
+          have hiC : i < (containerMembersGo env nP (rP + 1) 0 recBody).length := by
+            rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
+          obtain ⟨J', hJ', hf⟩ := hall i _ (List.getElem?_eq_getElem hiC)
+          obtain rfl : J = J' := Option.some.inj (hi.symm.trans hJ')
+          simp only [bindOption_eq_some_iff] at hf
+          obtain ⟨cC, hfC, hf⟩ := hf
+          split at hf
+          · next cvC capsC =>
+            simp only [bindOption_eq_some_iff] at hf
+            obtain ⟨cRc, hfRc, hf⟩ := hf
+            split at hf
+            · next cvRc mIc rPc rulesC =>
+              split at hf
+              · next hlps =>
+                simp only [bindOption_eq_some_iff] at hf
+                obtain ⟨ctors, hctors, hf⟩ := hf
+                simp only [Option.some.injEq] at hf
+                subst hf
+                exact ⟨cvC, capsC, cvRc, mIc, rPc, rulesC, hfC, rfl, rfl, hfRc, hctors⟩
+              · exact nomatch hf
+            · exact nomatch hf
+          · exact nomatch hf
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **Two container members with one name are one member**: everything
+`containerInfo?` reads of a member is read off the environment at the
+member's name — the parameter count only decides whether the
+constructor list is read at all, never what it holds. -/
+theorem containerInfo?_member_eq {env : Env} {I I' : Name} {ci ci' : ContainerInfo}
+    (h : containerInfo? env I = some ci) (h' : containerInfo? env I' = some ci')
+    {J J' : ContainerMember} (hJ : J ∈ ci.members) (hJ' : J' ∈ ci'.members)
+    (hn : J.name = J'.name) : J = J' := by
+  obtain ⟨cvC, caps, cvR, mIc, rPc, rulesC, hfC, hty, hlps, hfR, hctors⟩ :=
+    containerInfo?_member h J hJ
+  obtain ⟨cvC', caps', cvR', mIc', rPc', rulesC', hfC', hty', hlps', hfR', hctors'⟩ :=
+    containerInfo?_member h' J' hJ'
+  rw [hn] at hfC hfR
+  obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
+  obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj (hfR.symm.trans hfR'))
+  -- the constructor lists agree entry by entry
+  obtain ⟨hlen, hall⟩ := optionMapM_getElem? hctors
+  obtain ⟨hlen', hall'⟩ := optionMapM_getElem? hctors'
+  have hcs : J.ctors = J'.ctors := by
+    refine List.ext_getElem? fun l => ?_
+    by_cases hl : l < rulesC.length
+    · obtain ⟨c, hc, hg⟩ := hall l _ (List.getElem?_eq_getElem hl)
+      obtain ⟨c', hc', hg'⟩ := hall' l _ (List.getElem?_eq_getElem hl)
+      rw [hc, hc']
+      split at hg
+      · next cvc nPc nF hfc =>
+        rw [hfc] at hg'
+        simp only at hg'
+        split at hg
+        · split at hg'
+          · rw [← Option.some.inj hg, ← Option.some.inj hg']
+          · exact nomatch hg'
+        · exact nomatch hg
+      · exact nomatch hg
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+  cases J with
+  | mk n lps ty cs =>
+    cases J' with
+    | mk n' lps' ty' cs' =>
+      simp only at hn hty hlps hty' hlps' hcs
+      subst hn hty hlps hty' hlps' hcs
+      rfl
+
+
+/-! ## Mentions, through instantiation and opening -/
+
+/-- A mention after instantiation is a mention of the term or of the
+value. -/
+theorem Expr.mentionsConst_instantiate1 {T : Name} (v : Expr) :
+    ∀ (e : Expr) (d : Nat), (e.instantiate1 v d).mentionsConst T = true →
+      e.mentionsConst T = true ∨ v.mentionsConst T = true
+  | .bvar i, d, h => by
+    simp only [Expr.instantiate1] at h
+    split at h
+    · exact Or.inr h
+    · split at h <;> simp [Expr.mentionsConst] at h
+  | .fvar _ _, _, h => Or.inl h
+  | .sort _, _, h => by simp [Expr.instantiate1, Expr.mentionsConst] at h
+  | .const _ _, _, h => Or.inl h
+  | .lit _, _, h => by simp [Expr.instantiate1, Expr.mentionsConst] at h
+  | .app f a, d, h => by
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConst_instantiate1 v f d h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConst_instantiate1 v a d h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .lam ty b _, d, h => by
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConst_instantiate1 v ty d h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConst_instantiate1 v b (d + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .forallE ty b _, d, h => by
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConst_instantiate1 v ty d h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConst_instantiate1 v b (d + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .letE ty val b, d, h => by
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with (h | h) | h
+    · rcases mentionsConst_instantiate1 v ty d h with h' | h'
+      · exact Or.inl (Or.inl (Or.inl h'))
+      · exact Or.inr h'
+    · rcases mentionsConst_instantiate1 v val d h with h' | h'
+      · exact Or.inl (Or.inl (Or.inr h'))
+      · exact Or.inr h'
+    · rcases mentionsConst_instantiate1 v b (d + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .proj s i e, d, h => by
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · exact Or.inl (Or.inl h)
+    · rcases mentionsConst_instantiate1 v e d h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+
+/-- A term whose head is the constant `T` mentions `T`. -/
+theorem Expr.mentionsConst_of_getAppFn {T : Name} :
+    ∀ (e : Expr) (us : List Level), e.getAppFn = .const T us → e.mentionsConst T = true
+  | .app f a, us, h => by
+    simp only [Expr.mentionsConst, Bool.or_eq_true]
+    exact Or.inl (mentionsConst_of_getAppFn f us h)
+  | .const n us', us, h => by
+    obtain ⟨rfl, -⟩ := Expr.const.inj h
+    simp [Expr.mentionsConst]
+  | .bvar _, _, h => nomatch h
+  | .fvar _ _, _, h => nomatch h
+  | .sort _, _, h => nomatch h
+  | .lam _ _ _, _, h => nomatch h
+  | .forallE _ _ _, _, h => nomatch h
+  | .letE _ _ _, _, h => nomatch h
+  | .lit _, _, h => nomatch h
+  | .proj _ _ _, _, h => nomatch h
+
+/-- **A mention in an opened telescope is a mention in the closed one**:
+in the body, or in an opener's annotation (an instantiated domain). -/
+theorem openPisAtFvars_mentionsConst {T : Name} :
+    ∀ (k : Nat) (e : Expr) (j : Nat) {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e j = some (fvs, body) →
+      (body.mentionsConst T = true ∨ ∃ x ∈ fvs, x.fvarTypeD.mentionsConst T = true) →
+      e.mentionsConst T = true
+  | 0, e, j, fvs, body, h, hm => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rcases hm with hm | ⟨x, hx, -⟩
+    · exact hm
+    · exact nomatch hx
+  | k + 1, .forallE dom b bm, j, fvs, body, h, hm => by
+    simp only [openPisAtFvars] at h
+    split at h
+    · next fvs' body' hrec =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [Expr.mentionsConst, Bool.or_eq_true]
+      have key : (b.instantiate1 (.fvar j dom)).mentionsConst T = true →
+          dom.mentionsConst T = true ∨ b.mentionsConst T = true := by
+        intro hb
+        rcases Expr.mentionsConst_instantiate1 _ b 0 hb with h1 | h1
+        · exact Or.inr h1
+        · exact Or.inl h1
+      rcases hm with hm | ⟨x, hx, hxm⟩
+      · exact key (openPisAtFvars_mentionsConst k _ (j + 1) hrec (Or.inl hm))
+      · rcases List.mem_cons.mp hx with rfl | hx
+        · exact Or.inl hxm
+        · exact key (openPisAtFvars_mentionsConst k _ (j + 1) hrec (Or.inr ⟨x, hx, hxm⟩))
+    · exact nomatch h
+  | k + 1, .bvar _, _, _, _, h, _ => nomatch h
+  | k + 1, .fvar _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .sort _, _, _, _, h, _ => nomatch h
+  | k + 1, .const _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .app _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .lam _ _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .letE _ _ _, _, _, _, h, _ => nomatch h
+  | k + 1, .lit _, _, _, _, h, _ => nomatch h
+  | k + 1, .proj _ _ _, _, _, _, h, _ => nomatch h
 
 end ConLeche
