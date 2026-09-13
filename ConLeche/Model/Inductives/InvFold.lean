@@ -1821,6 +1821,91 @@ theorem fold_mem (S : d.InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh) {t : N
   exact h2
 
 set_option maxHeartbeats 1600000 in
+/-- **ψ⁻¹ is typed, at VALUES** (task #279 M-C′ step 5, the mirror of
+`PsiSetup.fold_mem_vals`): member `t`'s fold term applied to index
+values and a major fitting the member's motive binder at the parameter
+frame lands in the member's target at those indices. -/
+theorem fold_mem_vals (S : d.InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh) {t : Nat}
+    (ht : t < d.k) {is : List V} {x : V}
+    (hfitM : SpineFit (consList (ps.map (interp V ρ)) ρ) ((d.motDataAV mp.base2 ψ t).map (·.2.2))
+      (is ++ [x])) :
+    (is ++ [x]).foldl SetTheory.app
+        (interp V ρ (AnnotTerm.mkAppN (mp.base2.acval (d.recNames t) ψ)
+          (ps ++ d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) ++
+            d.minChoiceAVs ψ ps (d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT))
+              (d.invBodyAV head useIh) d.nAll)))
+      ∈ˢ interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+          (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)) := by
+  obtain ⟨Ms, hMs⟩ : ∃ Ms, Ms = d.motChoiceAVs mp.base2 ψ ps (d.invTgAV ψ ps L pinsT) := ⟨_, rfl⟩
+  obtain ⟨Ns, hNs⟩ : ∃ Ns, Ns = d.minChoiceAVs ψ ps Ms (d.invBodyAV head useIh) d.nAll := ⟨_, rfl⟩
+  have hMsLen : Ms.length = d.k := by rw [hMs]; exact d.motChoiceAVs_length _ _ _ _
+  have hNsLen : Ns.length = d.nAll := by rw [hNs]; exact d.minChoiceAVs_length _ _ _ _ _
+  have hpre := S.prefixFit
+  rw [← hMs, ← hNs] at hpre ⊢
+  have h1 := recFold_mem mp (S.hR t ht) ψ hpre
+  have hframe : consList ((ps ++ Ms ++ Ns).map (interp V ρ)) ρ
+      = consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ := by
+    rw [List.map_append, List.map_append]
+  rw [hframe] at h1
+  have hiff := d.spineFit_recPostAV_iff mp.base2 ψ ht (S.hipsLen t ht) (ρ := ρ)
+    (psV := ps.map (interp V ρ)) (MsV := Ms.map (interp V ρ)) (NsV := Ns.map (interp V ρ))
+    (by rw [List.length_map, hMsLen]) (by rw [List.length_map, hNsLen])
+  have hconc : ∀ vs : List V,
+      SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ)
+        ((d.recPostAV mp.base2 ψ t).map (·.2.2)) vs →
+      ∃ is x, vs = is ++ [x] ∧
+        SpineFit (consList (ps.map (interp V ρ)) ρ)
+          ((rebit (pwBit ψ ConLeche.PropWhen.never) ((d.ipss ψ).getD t [])).map (·.2.2)) is ∧
+        interp V (consList vs (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+            Ns.map (interp V ρ)) ρ)) (mutualConcAV d.k d.nAll (d.nIdxAt t) t)
+          = interp V (consList is (consList (ps.map (interp V ρ)) ρ))
+              (famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)) := by
+    intro vs hvs
+    have hvsM := (hiff vs).mp hvs
+    have hsplit := hvsM
+    unfold IndRepData.motDataAV at hsplit
+    rw [List.map_append, List.map_singleton, spineFit_append_singleton_iff] at hsplit
+    obtain ⟨is, x, rfl, hisFit, -⟩ := hsplit
+    refine ⟨is, x, rfl, hisFit, ?_⟩
+    have hisLen : is.length = d.nIdxAt t := by
+      rw [hisFit.length_eq, List.length_map, rebit_length]; exact S.hipsLen t ht
+    rw [← consList_append, ← List.append_assoc,
+      interp_mutualConcAV_frame (by rw [List.length_map, hMsLen]) (by rw [List.length_map, hNsLen])
+        hisLen ht,
+      hMs, d.motChoiceAVs_getD mp.base2 ψ ps _ ρ ht]
+    have hfold := d.motChoiceAV_fold mp.base2 (Tg := d.invTgAV ψ ps L pinsT) S.hps (S.hipsLen t ht)
+      hvsM
+    rw [List.foldl_append, List.foldl_cons, List.foldl_nil] at hfold
+    rw [hfold, d.invTg_fold ψ hisFit]
+  have h0 : d.bb ψ = 0 → ∀ vs : List V,
+      SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++ Ns.map (interp V ρ)) ρ)
+        ((d.recPostAV mp.base2 ψ t).map (·.2.2)) vs →
+      interp V (consList vs (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+        Ns.map (interp V ρ)) ρ)) (mutualConcAV d.k d.nAll (d.nIdxAt t) t) ∈ˢ (univZero : V) := by
+    intro hb0 vs hvs
+    obtain ⟨is, x, rfl, hisFit, heq⟩ := hconc vs hvs
+    rw [heq]
+    have h0' : d.elimL.eval ψ = 0 := (pwBit_zeronessOf ψ d.elimL).mp hb0
+    have := ((S.hTg t ht).2 is hisFit).2
+    rw [h0', univ_zero] at this
+    exact this
+  have hfitPost : SpineFit (consList (ps.map (interp V ρ) ++ Ms.map (interp V ρ) ++
+      Ns.map (interp V ρ)) ρ) ((d.recPostAV mp.base2 ψ t).map (·.2.2)) (is ++ [x]) :=
+    (hiff _).mpr hfitM
+  have h2 := mkPisAV_fold_mem (m := d.bb ψ) (fun dd hd => by rw [d.mem_recPostAV hd]) h0 h1 hfitPost
+  obtain ⟨is₂, x₂, heq, hisFit, hconcEq⟩ := hconc _ hfitPost
+  rw [hconcEq] at h2
+  obtain ⟨rfl, -⟩ := List.append_inj heq (by
+    have h1 := hfitM.length_eq
+    rw [List.length_map, List.length_append, List.length_singleton] at h1
+    unfold IndRepData.motDataAV at h1
+    rw [List.length_append, rebit_length, List.length_singleton, S.hipsLen t ht] at h1
+    have h2 := hisFit.length_eq
+    rw [List.length_map, rebit_length, S.hipsLen t ht] at h2
+    omega)
+  exact h2
+
+set_option maxHeartbeats 1600000 in
 /-- **ι of ψ⁻¹**: at real constructor `J`'s index readings and at
 `C p⃗ f⃗`, the fold is the head at the MIXED values — the fields, and at
 the hypothesis positions the target-fold hypotheses (each recursive
