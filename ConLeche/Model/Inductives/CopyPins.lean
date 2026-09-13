@@ -89,6 +89,9 @@ index telescope at the pin's readings. -/
 structure CopyIdxRead (ψ : Name → Nat) (t : Nat) (dJ : IndRepData V) (ψ' : Name → Nat) (mmJ : Nat)
     (DsA : List AnnotTerm) : Prop where
   sort : dJ.w ψ' = d.w ψ
+  /-- the index counts agree (the copy's telescope IS the container's,
+  instantiated) -/
+  nIdx : dJ.nIdxAt mmJ = d.nIdxAt t
   idxIff : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ → ∀ is : List V,
     SpineFit σ (d.IdsM t ψ) is ↔ SpineFit (consList (DsA.map (interp V σ)) σ) (dJ.IdsM mmJ ψ') is
 
@@ -1068,7 +1071,13 @@ theorem copyIdxRead_of_align {μ : CheckMode} (mp : EnvModelM V μ env) {ψ : Na
   have hlenD : DsA.length = dJ.nP := by rw [← DenoteMetaSpine.length hsp, hlenA]
   rw [instSeq_mkPisAV DsA (dJ.nP - 1) _ _ (by omega), instSeq_sort] at hpeel
   obtain ⟨hΓ, hw⟩ := mkPisAV_sort_inj (Option.some.inj hpeel)
-  refine ⟨hw.symm, fun σ _ is => ?_⟩
+  refine ⟨hw.symm, ?_, fun σ _ is => ?_⟩
+  · have h1 := congrArg List.length hΓ
+    rw [instSeqDoms_length, List.length_drop, List.length_drop] at h1
+    have h2 := hFD.len ψ
+    have h3 := hFDJ.len ψ'
+    show dJ.nIdxAt mmJ = d.nIdxAt t
+    omega
   show SpineFit σ (((d.ppsM t ψ).drop d.nP).map (·.2.2)) is ↔
     SpineFit (consList (DsA.map (interp V σ)) σ) (((dJ.ppsM mmJ ψ').drop dJ.nP).map (·.2.2)) is
   rw [hΓ]

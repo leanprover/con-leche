@@ -406,6 +406,8 @@ structure CopyData.Ok (m : EnvModel V env) (d : IndRepData V) (ψ : Name → Nat
   mm : c.mm < c.dJ.k
   len : c.DsA.length = c.dJ.nP
   ff : c.dJ.FormerFacts m c.ψ' c.mm
+  ls : c.dJ.LeafShape m c.ψ' c.mm
+  pins : ∀ φ : Name → Nat, c.dJ.pinsAV c.mm φ = paramBvarsAt c.dJ.nP c.dJ.nP
   idx : d.CopyIdxRead ψ (k₀ + j') c.dJ c.ψ' c.mm c.DsA
 
 namespace IndRepData
@@ -1338,6 +1340,318 @@ theorem noBVar_psi {m : EnvModel V env} {env₀ env₀J : Env} {lpsT lpsJ : List
         rw [hviewS]
         exact NoBVar_congr (fun j => (hPeq i _ j).symm) _ (hnbE i (by rw [hnF]; exact hi) E' hE')
     · exact nomatch hvia
+
+
+/-! ## The transports: the container's field domain at a nested occurrence -/
+
+/-- **A transport's container domain, substituted**: at a prefix
+fitting the container's earlier fields, the container's field domain
+at the pin's readings reads as — and is graded like — the Π-tower over
+the copy's telescope of the target container at the target pin's
+readings at the copy's index readings (the record's `kindT`, through
+`interp_instSeq_under`/`wellDenotedV_instSeq_under`). -/
+theorem containerDom_transport (m : EnvModel V env) {ψ ψ' : Name → Nat} {σ : Nat → V}
+    {dJ : IndRepData V} {DsA : List AnnotTerm} (hDsA : DsA.length = dJ.nP)
+    (hDsWD : ∀ p ∈ DsA, WellDenotedV V σ p) {k₀ j₀ : Nat} (auxOf : Nat → Nat) (cd : Nat → CopyData V)
+    {Jc nF : Nat}
+    (hrec : d.CopyCtorAsRead m dJ ψ ψ' DsA k₀ j₀ (fun j' => (cd j').dJ.memberName (cd j').mm)
+      (fun j' => (cd j').ψ') (fun j' => (cd j').DsA) Jc (auxOf Jc) nF)
+    {bodyJ : AnnotTerm}
+    (hTJ : WellDenotedV V (consList (DsA.map (interp V σ)) σ)
+      (mkPisAV ((dJ.dsF Jc ψ').drop dJ.nP) bodyJ))
+    (hlenJ : (dJ.dsF Jc ψ').length = dJ.nP + nF)
+    {i : Nat} (hi : i < nF) (hT : i ∉ ConLeche.recIdxOf (dJ.ksF Jc))
+    (hA : i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)))
+    {fs' : List V} (hfs' : fs'.length = i)
+    (hfit : SpineFit (consList (DsA.map (interp V σ)) σ)
+      ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) fs') :
+    ∃ j', d.tgtsR (auxOf Jc) i = k₀ + j' ∧ ¬ (j₀ ≤ j' ∧ j' < j₀ + dJ.k) ∧
+      interp V (consList fs' (consList (DsA.map (interp V σ)) σ))
+          ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2
+        = interp V (consList fs' σ)
+            (mkPisAV ((d.tssR (auxOf Jc) ψ).getD i [])
+              (AnnotTerm.mkAppN (m.acval ((cd j').dJ.memberName (cd j').mm) (cd j').ψ')
+                (((cd j').DsA).map (·.liftN (i + ((d.tssR (auxOf Jc) ψ).getD i []).length) 0) ++
+                  (d.eissR (auxOf Jc) ψ).getD i []))) ∧
+      WellDenotedV V (consList fs' σ)
+        (mkPisAV ((d.tssR (auxOf Jc) ψ).getD i [])
+          (AnnotTerm.mkAppN (m.acval ((cd j').dJ.memberName (cd j').mm) (cd j').ψ')
+            (((cd j').DsA).map (·.liftN (i + ((d.tssR (auxOf Jc) ψ).getD i []).length) 0) ++
+              (d.eissR (auxOf Jc) ψ).getD i []))) := by
+  obtain ⟨j', h1, h2, heq⟩ := hrec.kindT i hi hT hA
+  have hDsLen : (DsA.map (interp V σ)).length = dJ.nP := by simp [hDsA]
+  have hlen : DsA ≠ [] → DsA.length + fs'.length = dJ.nP + i - 1 + 1 := by
+    intro hne
+    rw [hDsA, hfs']
+    have : 1 ≤ dJ.nP := by
+      rw [← hDsA]
+      cases DsA with
+      | nil => exact absurd rfl hne
+      | cons _ _ => simp
+    omega
+  have hlt : dJ.nP + i < (dJ.dsF Jc ψ').length := by rw [hlenJ]; omega
+  have hentry : ((dJ.dsF Jc ψ').drop dJ.nP).getD i default = (dJ.dsF Jc ψ').getD (dJ.nP + i) default := by
+    simp [List.getD_eq_getElem?_getD, List.getElem?_drop]
+  have hi' : i < ((dJ.dsF Jc ψ').drop dJ.nP).length := by rw [List.length_drop, hlenJ]; omega
+  have hget : ((dJ.dsF Jc ψ').drop dJ.nP)[i]? = some (((dJ.dsF Jc ψ').drop dJ.nP).getD i default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']; rfl
+  refine ⟨j', h1, h2, ?_, ?_⟩
+  · rw [← heq, interp_instSeq_under σ DsA fs' _ _ hlen]
+  · have hE := wellDenoted_mkPisAV_dom hTJ.1 fs' i _ hget hfit
+    have hE' := annotValid_mkPisAV_dom hTJ.2 fs' i _ hget hfit
+    rw [hentry] at hE hE'
+    rw [← heq]
+    exact wellDenotedV_instSeq_under σ DsA fs' _ _ hlen hDsWD ⟨hE, hE'⟩
+
+/-- **A transport's fits**: under telescope values fitting the copy's
+telescope, the target container's application (graded, by the Π-tower
+of `containerDom_transport`) is the leaf at the target pin's readings
+and the copy's index readings, which fit the target container's
+parameter and index telescopes (`LeafShape`), the index part at the
+target pin's readings. -/
+theorem transport_fits (m : EnvModel V env) {ψ : Name → Nat} {σ : Nat → V} {k₀ j' : Nat}
+    {c : CopyData V} (hc : CopyData.Ok m d ψ k₀ j' c)
+    {tssA : List (Nat × Nat × AnnotTerm)} {eissA : List AnnotTerm}
+    (hEl : eissA.length = d.nIdxAt (k₀ + j')) {fs' : List V} {i : Nat} (hfs' : fs'.length = i)
+    (hWD : WellDenotedV V (consList fs' σ)
+      (mkPisAV tssA (AnnotTerm.mkAppN (m.acval (c.dJ.memberName c.mm) c.ψ')
+        (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA))))
+    {as : List V} (has : SpineFit (consList fs' σ) (tssA.map (·.2.2)) as) :
+    WellDenotedV V (consList as (consList fs' σ))
+        (AnnotTerm.mkAppN (m.acval (c.dJ.memberName c.mm) c.ψ')
+          (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA)) ∧
+      interp V (consList as (consList fs' σ))
+          (AnnotTerm.mkAppN (m.acval (c.dJ.memberName c.mm) c.ψ')
+            (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA))
+        = (c.DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList fs' σ)))).foldl
+            SetTheory.app (interp V σ (m.acval (c.dJ.memberName c.mm) c.ψ')) ∧
+      SpineFit σ ((c.dJ.ppsM c.mm c.ψ').map (·.2.2))
+        (c.DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList fs' σ)))) ∧
+      SpineFit (consList (c.DsA.map (interp V σ)) σ) (c.dJ.IdsM c.mm c.ψ')
+        (eissA.map (interp V (consList as (consList fs' σ)))) := by
+  have hasLen : as.length = tssA.length := by rw [has.length_eq, List.length_map]
+  have hclosed : Term.bvarsBelow 0 (m.acval (c.dJ.memberName c.mm) c.ψ').erase := m.cval_closedL _ c.ψ'
+  have hbodyWD : WellDenotedV V (consList as (consList fs' σ))
+      (AnnotTerm.mkAppN (m.acval (c.dJ.memberName c.mm) c.ψ')
+        (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA)) :=
+    ⟨wellDenoted_mkPisAV_body hWD.1 as has, annotValid_mkPisAV_body hWD.2 as has⟩
+  have hDsV : (c.DsA.map (·.liftN (i + tssA.length) 0)).map (interp V (consList as (consList fs' σ)))
+      = c.DsA.map (interp V σ) := by
+    rw [List.map_map]
+    apply List.map_congr_left
+    intro D _
+    simp only [Function.comp_def]
+    rw [interp_liftN, ← consList_append, show i + tssA.length = (fs' ++ as).length from by
+      rw [List.length_append, hfs', hasLen], shiftE_consList]
+  have hval : interp V (consList as (consList fs' σ))
+      (AnnotTerm.mkAppN (m.acval (c.dJ.memberName c.mm) c.ψ')
+        (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA))
+      = (c.DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList fs' σ)))).foldl
+          SetTheory.app (interp V σ (m.acval (c.dJ.memberName c.mm) c.ψ')) := by
+    rw [interp_mkAppN_map, List.map_append, hDsV, interp_closed (V := V) hclosed _ σ]
+  -- the leaf's tower: the readings fit its binders
+  obtain ⟨hlenP, -, -, -⟩ := hc.ff
+  obtain ⟨B, hB⟩ := hc.ls
+  have hargsLen : (c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA).length
+      = (c.dJ.ppsM c.mm c.ψ').length := by
+    rw [List.length_append, List.length_map, hc.len, hEl, ← hc.idx.nIdx, hlenP]
+  have hfitAll := spineFit_of_wellDenoted_lams (u := c.dJ.w c.ψ' + 1) (Nat.succ_ne_zero _) (b := B)
+    (args := c.DsA.map (·.liftN (i + tssA.length) 0) ++ eissA) (ds := c.dJ.ppsM c.mm c.ψ')
+    (σ := σ) (ρ := consList as (consList fs' σ)) (f := m.acval (c.dJ.memberName c.mm) c.ψ')
+    (Nat.le_of_eq hargsLen) hbodyWD.1
+    (by rw [hB]; exact interp_closed (V := V) (by rw [← hB]; exact hclosed) _ _)
+  rw [hargsLen, List.take_of_length_le (Nat.le_refl _), List.map_append, hDsV] at hfitAll
+  refine ⟨hbodyWD, hval, hfitAll, ?_⟩
+  have hsplit : (c.dJ.ppsM c.mm c.ψ').map (·.2.2)
+      = ((c.dJ.ppsM c.mm c.ψ').take c.dJ.nP).map (·.2.2) ++
+        ((c.dJ.ppsM c.mm c.ψ').drop c.dJ.nP).map (·.2.2) := by
+    rw [← List.map_append, List.take_append_drop]
+  have h := hfitAll
+  rw [hsplit] at h
+  obtain ⟨as₁, as₂, heq, h₁, h₂⟩ := spineFit_append_inv h
+  have hlen₁ : as₁.length = (c.DsA.map (interp V σ)).length := by
+    rw [h₁.length_eq, List.length_map, List.length_take, hlenP, List.length_map, hc.len]
+    omega
+  obtain ⟨rfl, rfl⟩ := List.append_inj heq hlen₁.symm
+  exact h₂
+
+set_option maxHeartbeats 3200000 in
+/-- **The ONE fact of each transport** (`PsiSetup.hvia`): at a spine
+fitting the container's fields and telescope values fitting the
+transport's telescope, the earlier copy's term (lifted over the pin's
+readings) at the copy's index readings and the field lands in the
+target copy's fold target — `via_of_typed` at the target's `PsiTyped`,
+the fits from the container's field domain read as the target
+container at its pin (`containerDom_transport`, `transport_fits`). -/
+theorem via_psi {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} {ψ ψ' : Name → Nat}
+    {σ : Nat → V} {dJ : IndRepData V} {DsA : List AnnotTerm} (hDsA : DsA.length = dJ.nP)
+    (hDsWD : ∀ p ∈ DsA, WellDenotedV V σ p) {k₀ j₀ : Nat} (auxOf : Nat → Nat) (cd : Nat → CopyData V)
+    (tbl : Nat → AnnotTerm) {Jc : Nat} {cAJ cAa : ConstantVal × Nat} (hnF : cAa.2 = cAJ.2)
+    (hrec : d.CopyCtorAsRead mp.base2 dJ ψ ψ' DsA k₀ j₀ (fun j' => (cd j').dJ.memberName (cd j').mm)
+      (fun j' => (cd j').ψ') (fun j' => (cd j').DsA) Jc (auxOf Jc) cAJ.2)
+    (hDA : FixCtorDataI mp.base2 d.env₀ (d.memberName (d.mems (auxOf Jc))) lpsT cAa.1 d.nP cAa.2
+      (d.nIdxAt (d.mems (auxOf Jc))) d.resSort d.isProp d.large (d.idxF (auxOf Jc)) (d.dsF (auxOf Jc))
+      (d.esF (auxOf Jc)) (d.srcsF (auxOf Jc)) (d.ksF (auxOf Jc)) (d.fvsPF (auxOf Jc))
+      (d.xFvsF (auxOf Jc)) (d.xrestF (auxOf Jc)) (d.eissF (auxOf Jc)) (d.tssF (auxOf Jc))
+      (fun i => d.memberName (d.tgts (auxOf Jc) i)) (fun i => d.nIdxAt (d.tgts (auxOf Jc) i)))
+    (hviewA : d.ksR (auxOf Jc) = d.ksF (auxOf Jc) ∧ d.tgtsR (auxOf Jc) = d.tgts (auxOf Jc) ∧
+      d.eissR (auxOf Jc) = d.eissF (auxOf Jc) ∧ d.tssR (auxOf Jc) = d.tssF (auxOf Jc))
+    {bodyJ : AnnotTerm}
+    (hTJ : WellDenotedV V (consList (DsA.map (interp V σ)) σ)
+      (mkPisAV ((dJ.dsF Jc ψ').drop dJ.nP) bodyJ))
+    (hlenJ : (dJ.dsF Jc ψ').length = dJ.nP + cAJ.2)
+    (hbz : dJ.bb ψ' = 0 ↔ d.resSort.eval ψ = 0)
+    (hcd : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      CopyData.Ok mp.base2 d ψ k₀ (d.tgtsR (auxOf Jc) i - k₀) (cd (d.tgtsR (auxOf Jc) i - k₀)))
+    (htbl : ∀ i, i < cAJ.2 → i ∈ ConLeche.recIdxOf (d.ksR (auxOf Jc)) →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.PsiTyped mp.base2 (cd (d.tgtsR (auxOf Jc) i - k₀)).ψ' σ
+        (cd (d.tgtsR (auxOf Jc) i - k₀)).DsA
+        (d.psiL mp.base2 ψ k₀ (cd (d.tgtsR (auxOf Jc) i - k₀)).base)
+        (d.psiPinsT (cd (d.tgtsR (auxOf Jc) i - k₀)).dJ.nP) (cd (d.tgtsR (auxOf Jc) i - k₀)).mm
+        (tbl (d.tgtsR (auxOf Jc) i - k₀))) :
+    ∀ i, i < cAJ.2 → ∀ Ψ Eis tl, d.psiVia dJ ψ k₀ dJ.nP auxOf (dJ.bb ψ') tbl Jc i = some (Ψ, Eis, tl) →
+      ∀ fs : List V,
+        SpineFit (consList (DsA.map (interp V σ)) σ) (((dJ.dsF Jc ψ').drop dJ.nP).map (·.2.2)) fs →
+        ∀ as, SpineFit (consList (fs.take i) (consList (DsA.map (interp V σ)) σ)) (tl.map (·.2.2)) as →
+          (Eis.map (interp V (consList as (consList (fs.take i) (consList (DsA.map (interp V σ)) σ)))) ++
+            [as.foldl SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
+              (interp V (consList (DsA.map (interp V σ)) σ) Ψ)
+            ∈ˢ (Eis.map (interp V (consList as (consList (fs.take i)
+                  (consList (DsA.map (interp V σ)) σ))))).foldl SetTheory.app
+                (interp V σ (d.psiTgV mp.base2 ψ k₀ auxOf cd Jc i)) := by
+  intro i hi Ψ Eis tl hvia fs hfs as has
+  obtain ⟨hviewK, hviewT, hviewE, hviewS⟩ := hviewA
+  unfold IndRepData.psiVia at hvia
+  split at hvia
+  · next hT =>
+    simp only [Option.some.injEq, Prod.mk.injEq] at hvia
+    obtain ⟨rfl, rfl, rfl⟩ := hvia
+    have hc := hcd i hi hT.1 hT.2
+    have hT' := htbl i hi hT.1 hT.2
+    have hDsLen : (DsA.map (interp V σ)).length = dJ.nP := by simp [hDsA]
+    generalize htssA : (d.tssR (auxOf Jc) ψ).getD i [] = tssA at has ⊢
+    generalize heissA : (d.eissR (auxOf Jc) ψ).getD i [] = eissA at ⊢
+    -- the fields' prefix fit and the field's membership
+    have hfsLen : fs.length = cAJ.2 := by
+      rw [hfs.length_eq, List.length_map, List.length_drop, hlenJ]; omega
+    have hfsTake : (fs.take i).length = i := by rw [List.length_take]; omega
+    have hfit' : SpineFit (consList (DsA.map (interp V σ)) σ)
+        ((((dJ.dsF Jc ψ').drop dJ.nP).take i).map (·.2.2)) (fs.take i) := by
+      have h := hfs
+      rw [← List.take_append_drop i ((dJ.dsF Jc ψ').drop dJ.nP), List.map_append] at h
+      obtain ⟨as₁, as₂, heq, h₁, -⟩ := spineFit_append_inv h
+      have hlen₁ : as₁.length = i := by
+        rw [h₁.length_eq, List.length_map, List.length_take, List.length_drop, hlenJ]; omega
+      have hfsTake' : fs.take i = as₁ := by
+        rw [heq, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+      rw [hfsTake']
+      exact h₁
+    have hlt : dJ.nP + i < (dJ.dsF Jc ψ').length := by rw [hlenJ]; omega
+    have hmemI : fs.getD i pt ∈ˢ interp V (consList (fs.take i) (consList (DsA.map (interp V σ)) σ))
+        ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2 :=
+      spineFit_getElem? hfs i (fs.getD i pt) ((dJ.dsF Jc ψ').getD (dJ.nP + i) default).2.2
+        (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega : i < fs.length)]; rfl)
+        (by rw [List.getElem?_map, List.getElem?_drop, List.getElem?_eq_getElem hlt,
+          Option.map_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl)
+    -- the container's domain, substituted
+    obtain ⟨j', h1, -, hint, hWD⟩ := containerDom_transport d mp.base2 hDsA hDsWD auxOf cd hrec hTJ
+      hlenJ hi hT.2 hT.1 hfsTake hfit'
+    rw [htssA, heissA] at hint hWD
+    have hj' : d.tgtsR (auxOf Jc) i - k₀ = j' := by omega
+    rw [hj'] at hc hT' ⊢
+    -- the telescope values fit the copy's telescope at the block's frame
+    have hasA : SpineFit (consList (fs.take i) σ) (tssA.map (·.2.2)) as := by
+      have hsh := shiftE_consList_middle (fs.take i) (DsA.map (interp V σ)) σ
+      rw [hfsTake, hDsLen] at hsh
+      rw [rebit_map_dom, spineFit_liftDoms, hsh] at has
+      exact has
+    have hasLen : as.length = tssA.length := by rw [hasA.length_eq, List.length_map]
+    -- the copy's index count is the target's
+    have hEl : eissA.length = d.nIdxAt (k₀ + j') := by
+      obtain ⟨hlt', hk⟩ := mem_recIdxOf.mp hT.1
+      rw [hviewK, hDA.ksLen] at hlt'
+      rw [← h1, ← heissA, hviewE, hviewT]
+      rw [hviewK] at hk
+      rcases hk with hk | hk
+      · exact hDA.eisLen ψ i hk hlt'
+      · exact hDA.eisLenRefl ψ i hk hlt'
+    obtain ⟨hbodyWD, hval, hfitAll, hfitIdx⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD hasA
+    -- the field's value at the telescope values lands in the target container
+    have hbitsT : ∀ dd ∈ tssA, (dJ.bb ψ' = 0 ↔ dd.2.1 = 0) := by
+      intro dd hd
+      rw [hbz]
+      exact (hDA.tssBits ψ i dd (by rw [← hviewS, htssA]; exact hd)).symm
+    have hx : as.foldl SetTheory.app (fs.getD i pt)
+        ∈ˢ ((cd j').DsA.map (interp V σ) ++ eissA.map (interp V (consList as (consList (fs.take i) σ)))).foldl
+          SetTheory.app (interp V σ (mp.base2.acval ((cd j').dJ.memberName (cd j').mm) (cd j').ψ')) := by
+      rw [hint] at hmemI
+      have h := mkPisAV_fold_mem (m := dJ.bb ψ') hbitsT
+        (fun h0 as' has' => by
+          obtain ⟨-, hval', hfitAll', -⟩ := d.transport_fits mp.base2 hc hEl hfsTake hWD has'
+          rw [hval']
+          obtain ⟨hlenP, hbitsP, hmemL, -⟩ := hc.ff
+          have := mkPisAV_fold_mem (m := 1)
+            (fun dd hd => ⟨fun h => absurd h Nat.one_ne_zero, fun h => absurd h (hbitsP dd hd)⟩)
+            (fun h => absurd h Nat.one_ne_zero) (hmemL σ) hfitAll'
+          rw [interp_sort] at this
+          have hw0 : (cd j').dJ.w (cd j').ψ' = 0 := by
+            rw [hc.idx.sort]; exact hbz.mp h0
+          rw [hw0, univ_zero] at this
+          exact this)
+        hmemI hasA
+      rw [hval] at h
+      exact h
+    -- `via_of_typed` at the target
+    have hDsLen' : ((cd j').DsA.map (interp V σ)).length = (cd j').dJ.nP := by
+      rw [List.length_map, hc.len]
+    have hEisLen : (eissA.map (interp V (consList as (consList (fs.take i) σ)))).length
+        = (cd j').dJ.nIdxs.getD (cd j').mm 0 := by
+      have := hfitIdx.length_eq
+      unfold IndRepData.IdsM at this
+      simp only [List.length_map, List.length_drop] at this
+      rw [hc.ff.1] at this
+      rw [List.length_map]
+      show eissA.length = (cd j').dJ.nIdxAt (cd j').mm
+      omega
+    have hfitM : SpineFit (consList ((cd j').DsA.map (interp V σ)) σ)
+        (((cd j').dJ.motDataAV mp.base2 (cd j').ψ' (cd j').mm).map (·.2.2))
+        (eissA.map (interp V (consList as (consList (fs.take i) σ))) ++ [as.foldl SetTheory.app (fs.getD i pt)]) := by
+      unfold IndRepData.motDataAV
+      rw [List.map_append, List.map_singleton, rebit_map_dom, (cd j').dJ.ipss_getD _ hc.mm]
+      refine SpineFit.append hfitIdx ⟨?_, trivial⟩
+      rw [(cd j').dJ.Ls_getD_eq mp.base2 _ hc.mm,
+        show (cd j').dJ.pinsOf (cd j').ψ' (cd j').mm = paramBvarsAt (cd j').dJ.nP (cd j').dJ.nP from
+          hc.pins _,
+        ← hEisLen, interp_famAppAV_params (mp.base2.cval_closedL _ _) hDsLen' rfl σ]
+      exact hx
+    have hisFit : SpineFit (consList ((cd j').DsA.map (interp V σ)) σ)
+        ((rebit (pwBit (cd j').ψ' ConLeche.PropWhen.never) (((cd j').dJ.ipss (cd j').ψ').getD (cd j').mm [])).map
+          (·.2.2))
+        (eissA.map (interp V (consList as (consList (fs.take i) σ)))) := by
+      rw [rebit_map_dom, (cd j').dJ.ipss_getD _ hc.mm]; exact hfitIdx
+    have hres := (cd j').dJ.via_of_typed mp.base2 hT' (psV := DsA.map (interp V σ)) hfitM hisFit
+    -- the transport's readings are the copy's
+    have hEv : (eissA.map (·.liftN dJ.nP (i + tssA.length))).map
+        (interp V (consList as (consList (fs.take i) (consList (DsA.map (interp V σ)) σ))))
+        = eissA.map (interp V (consList as (consList (fs.take i) σ))) := by
+      rw [List.map_map]
+      apply List.map_congr_left
+      intro E _
+      simp only [Function.comp_def]
+      rw [← consList_append (xs := fs.take i) (ys := as) (ρ := consList (DsA.map (interp V σ)) σ),
+        ← consList_append (xs := fs.take i) (ys := as) (ρ := σ), ← hDsLen,
+        show i + tssA.length = (fs.take i ++ as).length from by
+          rw [List.length_append, hfsTake, hasLen],
+        interp_liftN_middle]
+    rw [hEv, ← hDsLen]
+    have hTg : d.psiTgV mp.base2 ψ k₀ auxOf cd Jc i = d.psiTgOf mp.base2 ψ k₀ (cd j') := by
+      unfold IndRepData.psiTgV; rw [hj']
+    first
+    | (rw [hTg]; exact hres)
+    | exact hres
+  · exact nomatch hvia
 
 end IndRepData
 

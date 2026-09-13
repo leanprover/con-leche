@@ -66,7 +66,7 @@ theorem CopyIdxRead.congr_sort {d : IndRepData V} {s s' : Level}
   ⟨by
     have h1 : dJ.w ψ' = s.eval ψ := h.sort
     show dJ.w ψ' = s'.eval ψ
-    rw [← hs ψ]; exact h1, h.idxIff⟩
+    rw [← hs ψ]; exact h1, h.nIdx, h.idxIff⟩
 
 /-- **`PinRead` and `CopyIdxRead` for a copy member, from the run's
 facts**: the copy's representation in the scratch block, the block's
