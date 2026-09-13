@@ -362,19 +362,27 @@ def checkDivModPinLoop (ops : CheckerOps m) (env : Env) (c : Name)
 /-- The pin-certified operations' install gate, run after the ordinary
 definition check (`env2` is the already-extended environment, `env`
 the pre-insertion one all checks run in): the dependency and
-pinned-`Eq` guards, then the pin variants in `natOpPinSets` order
+pinned-`Eq` guards, then the pin variants in `pins` order
 (`checkDivModPinLoop`) — the stored value against each variant's pin
 of its toolchain's own helper-unfolded definition by definitional
 equality, and on a match that variant's certificates
 (`checkDivModCerts`).  No variant matching is a decline (exit 2),
 never a silent accept; the operation's literal fast path is enabled
-exactly when a variant's certificates checked in this run. -/
-def checkDivModPin (ops : CheckerOps m) (env env2 : Env) (c : Name) :
-    m Unit := do
+exactly when a variant's certificates checked in this run.
+
+**The variant list is a parameter** (task #304): every function from
+here up to the fold takes it, and the shipped checker passes
+`natOpPinSets` — so a statement about the checker can be made for an
+arbitrary list, which is what the pin list being data rather than a
+constant buys.  The parameter sits right after `ops` (the "how to
+check" arguments) all the way up, and right after `mode` in the cached
+driver. -/
+def checkDivModPin (ops : CheckerOps m) (pins : List NatOpPinSet)
+    (env env2 : Env) (c : Name) : m Unit := do
   if divModEnvGuard env2 c then
     match env2.find? c with
     | some (.defnInfo _ value' _) =>
-      checkDivModPinLoop ops env c value' natOpPinSets []
+      checkDivModPinLoop ops env c value' pins []
     | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")
@@ -429,7 +437,8 @@ def checkBasisDecl (env : Env) (kind : BasisKind) : m Env := do
   kind.declsA.foldlM installBasisDecl env
 
 /-- Check a single declaration, extending the environment on success. -/
-def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
+def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
+    (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
     let cv ← checkConstantVal ops env cv
@@ -471,7 +480,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- what each variant failed on — elaborator drift surfaces
     -- visibly, never silently (task #273).
     if natDivModNames.contains cv.name then
-      checkDivModPin ops env env2 cv.name
+      checkDivModPin ops pins env env2 cv.name
     pure env2
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv
@@ -618,7 +627,8 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
-def checkDeclsPure (ops : CheckerOps m) (ds : List Declaration) : m Env :=
-  ds.foldlM (checkDecl mode ops) Env.empty
+def checkDeclsPure (ops : CheckerOps m) (pins : List NatOpPinSet)
+    (ds : List Declaration) : m Env :=
+  ds.foldlM (checkDecl mode ops pins) Env.empty
 
 end ConLeche

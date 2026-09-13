@@ -26,6 +26,8 @@ built it.
 
 namespace ConLeche.Semantics
 open ConLeche.Term ConLeche.Verify
+
+variable {pins : List NatOpPinSet}
 universe w
 
 
@@ -50,7 +52,7 @@ S11b's opener deleted it, consumer-free. -/
 theorem checkDeclRun_ofEnvFactsE
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {d : Declaration}
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    (h : checkDecl μ (fueledOps μ F) pins env d = .ok env₂) :
     DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
   checkDeclRun_of
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`

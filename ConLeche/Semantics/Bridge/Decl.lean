@@ -37,6 +37,8 @@ namespace ConLeche.Semantics
 
 open ConLeche.Term ConLeche.Verify
 
+variable {pins : List NatOpPinSet}
+
 /-- **`certifyNatEqs`, exposed as runs** (task #161 P4 H1 at the
 literal tier): the verdict is one `isDefEqCore` success per equation,
 and the recorded form is the checker's literal call —
@@ -117,7 +119,7 @@ theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
 /-- **`basisDecl`, bridged.** -/
 theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {kind : BasisKind}
-    (h : checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂) :
+    (h : checkDecl μ (fueledOps μ F) pins env (.basisDecl kind) = .ok env₂) :
     DeclBasisRun env kind env₂ := declBasisRunOf h
 
 end ConLeche.Semantics

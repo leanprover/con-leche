@@ -25,7 +25,7 @@ harvest layer builds toward them:
   minimal, the #16 precedent):
 
   `no_proof_of_Empty_pure : ∀ (V) [SetTheory V] {μ}, μ.verifiedChecks = true →
-   ∀ {F ds env'}, checkDeclsPure μ (fueledOps μ F) ds = .ok env' →
+   ∀ {F ds env'}, checkDeclsPure μ (fueledOps μ F) pins ds = .ok env' →
    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] →
    False`
 

@@ -37,6 +37,7 @@ set_option linter.unusedSimpArgs false
 namespace ConLeche
 
 variable {mode : CheckMode}
+variable {pins : List NatOpPinSet}
 
 open Expr
 
@@ -2202,8 +2203,8 @@ theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     {c : Name} (hc : c ∈ natDivModNames)
     (hv'f : ∀ cv' v' h', env2.find? c = some (.defnInfo cv' v' h') →
       v'.hasFvar = false)
-    {u : Unit} (h : (checkDivModPin (wfOpsM mode) env env2 c).val F = .ok u) :
-    checkDivModPin (fueledOps mode F) env env2 c = .ok u := by
+    {u : Unit} (h : (checkDivModPin (wfOpsM mode) pins env env2 c).val F = .ok u) :
+    checkDivModPin (fueledOps mode F) pins env env2 c = .ok u := by
   unfold checkDivModPin at h ⊢
   by_cases h1 : divModEnvGuard env2 c = true
   case neg =>

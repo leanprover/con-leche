@@ -46,6 +46,8 @@ namespace ConLeche.Cached
 
 open ConLeche
 
+variable {pins : List NatOpPinSet}
+
 /-! ## The annotation of a bare constant is the constant -/
 
 /-- The annotation pass's `.const` arm: a bare constant annotates to
@@ -129,7 +131,7 @@ theorem annotStepC_thm_consts {mode : CheckMode} {i : Nat} {fe : FEnv}
     {pend : Array PendingCheck} {cv : ConstantVal} {value : Expr}
     {n : Name} {ls : List Level} {s₀ s' : CState}
     {fe' : FEnv} {pend' : Array PendingCheck} (hty : cv.type = .const n ls)
-    (h : annotStepC mode i fe pend (.thmDecl cv value) s₀ = .ok ((fe', pend'), s')) :
+    (h : annotStepC mode pins i fe pend (.thmDecl cv value) s₀ = .ok ((fe', pend'), s')) :
     fe'.env.consts =
       ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ value ::
         fe.env.consts := by
@@ -156,7 +158,7 @@ theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
     {p q : Nat × FEnv × Array PendingCheck} {s s' : CState}
-    (h : InstallRun mode ds p s q s') (hcanon : p.2.1 = mkFEnv p.2.1.env) :
+    (h : InstallRun mode pins ds p s q s') (hcanon : p.2.1 = mkFEnv p.2.1.env) :
     ∃ c ∈ q.2.1.env.consts, c.toConstantVal.type = .const n ls := by
   induction h with
   | nil p s => exact absurd hmem (List.not_mem_nil)
@@ -181,7 +183,7 @@ that type in the environment. -/
 theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : Array Declaration} {env : Env}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    (h : checkDecls mode ds = .ok env) :
+    (h : checkDecls mode pins ds = .ok env) :
     ∃ c ∈ env.consts, c.toConstantVal.type = .const n ls := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
   obtain ⟨_, _, run⟩ := fc.1.run
@@ -205,7 +207,7 @@ set, which the constant would have to be a member of
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
     (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-    ∀ env, Cached.checkDecls .verified ds ≠ .ok env := by
+    ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
   intro env accepted
   obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
   exact Cached.no_proof_of_False_cached V rfl accepted c hc hcty

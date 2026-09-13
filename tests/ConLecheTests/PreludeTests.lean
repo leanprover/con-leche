@@ -67,7 +67,7 @@ environment: 27 constants (19 basis + `And`, `And.intro`, `And.rec` and
 as the PINS — `checkDecl` recognises them (`basisPinHit`,
 `quotPinHit`), which is the whole of task #293's move. -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
-  match checkDecls mode preludeIx.decls with
+  match checkDecls mode natOpPinSets preludeIx.decls with
   | .ok env => some env.consts.length
   | .error _ => none
 

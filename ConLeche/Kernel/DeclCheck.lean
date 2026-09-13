@@ -900,13 +900,14 @@ def checkDivModPinLoopF (ops : CheckerOps m) (fe : FEnv) (c : Name)
         (tried ++ [s!"{ps.toolchain}: pin or certificate ground constants \
           absent"])
 
-/-- `checkDivModPin` through the index. -/
-def checkDivModPinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name) :
-    m Unit := do
+/-- `checkDivModPin` through the index — the variant list is its
+parameter too (task #304). -/
+def checkDivModPinF (ops : CheckerOps m) (pins : List NatOpPinSet)
+    (fe fe2 : FEnv) (c : Name) : m Unit := do
   if divModEnvGuardF fe2 c then
     match fe2.find? c with
     | some (.defnInfo _ value' _) =>
-      checkDivModPinLoopF ops fe c value' natOpPinSets []
+      checkDivModPinLoopF ops fe c value' pins []
     | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")

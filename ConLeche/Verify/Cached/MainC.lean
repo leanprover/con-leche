@@ -17,6 +17,12 @@ environment, and a fully checked environment carries the graded model
 (`fullyChecked_sound`), so no constant of type `False` (or `Empty`) is
 stored in what the fold accepts.
 
+**At every pin list** (task #304): the fold's pin-list parameter is
+free in all three letters below (`checkDecls μ pins ds`), because
+nothing the model tier consumes reads which list the matched
+`Nat.div`/`Nat.mod` variant came from.  The shipped binary's
+statements are these at `pins := natOpPinSets`.
+
 Retired at task #172 with the arena they were fed from: the
 `checkDecls` letters (`SPC_*` and `input_SPC_*`), which took a
 `WFStore` and a `List DeclP` and converted once before folding.
@@ -38,11 +44,12 @@ open ConLeche.Model (EnvModelM no_constant_of_Empty no_constant_of_False)
 
 universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {pins : List NatOpPinSet}
 
 /-- **Acceptance**: what the fold accepts carries the model. -/
 theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
   exact fullyChecked_sound V hμ fc
@@ -53,7 +60,7 @@ has type `Empty`.  Hypotheses are input-level only. -/
 theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
@@ -65,7 +72,7 @@ the pinned `False` block — no hypothesis about how the stream declared
 theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls μ ds = .ok env') :
+    (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h

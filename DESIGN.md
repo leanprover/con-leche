@@ -71681,3 +71681,153 @@ tree, `.lake` and this document's history excluded, comes back **empty**.
 | `tests/no-local-paths.sh` | OK |
 | proofdeps | unchanged: no import moved, no module added or removed |
 | measurement | **none owed**: no executable line outside `parseArgs`'s deleted arms changed, and the accept path is untouched |
+
+---
+
+## TASK #304 — THE PIN LIST IS A PARAMETER OF THE FOLD (2026-09-13, `agent/pins-304`, for con-ron)
+
+Asked for by the maintainer on behalf of a downstream user (the
+con-ron lane: the Rust port of this checker and its Aeneas refinement
+proof).  Verbatim: *"a downstream user needs our main theorem and
+corollary and verified functions abstracted in the NatOpsPin (it is a
+large constant value, tricky for some formal methods). moreover it is
+actually nice to state that it is actually irrelevant for
+consistency."*  It could not be stated that way: `natOpPinSets` was
+hard-wired at the two install gates (`checkDivModPin`,
+`checkDivModPinF`) and therefore at every statement above them.
+
+**This is a REDO, not a rebase.**  The maintainer wrote the
+implementation himself on branch `pins-param` (one commit on the
+2026-09-12 master) and said *"it may be easier to redo than to
+merge"*; a read-only review agreed — 14 of its 33 files conflicted
+with the 22 landings since (`DeclC`→`Declaration`, `ExprC`→`Expr`,
+`checkDecls` over `Array Declaration`, the main corollary over the
+chunks the binary reads with its `do` chain, `preparePrelude`, one
+error type, the driver cleanups).  Everything below is that blueprint
+reapplied on master, with the one deviation the maintainer asked for
+(no default argument, no `_with` twins — see below).
+
+**Why it is sound, which is the whole point of the task.**  The model
+tier reads a `Nat.div`/`Nat.mod` pin ONLY through the certificates'
+verdict in the accepted environment.  `divMod_install`
+(`ConLeche/Model/DivModCert.lean`) was **already** over an implicit
+`{ps : NatOpPinSet}`; the pin's definitional equality and the two
+guards are carried by the run record and consumed by nothing in
+`Model/*`; `checkDivModCerts` rejects a length mismatch, so no list
+can certify vacuously; and `checkDivModPinLoop`'s `[]` arm throws
+`.notImplemented`, so the EMPTY list makes every `Nat.div`-declaring
+stream decline rather than accept.  That asymmetry is the whole of the
+task: the model never needed the list, so nothing had to be
+generalised, only threaded.
+
+**The parameter and where it sits.**  `pins : List NatOpPinSet` is an
+argument of `checkDivModPin{,F}`, `checkDecl`, `checkDeclsPure`,
+`checkDeclC`, `checkDeclStepC`, `annotStepC`, `annotDeclStep` and
+`checkDecls`, and of the types stated over those steps — `InstallRun`,
+`InstalledEnv`, `FullyChecked`.  The position is uniform: **right
+after the "how to check" arguments** — after `ops` where there is one,
+and after `mode` in the cached driver, `checkDecls` INCLUDED:
+
+```lean
+def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+    (ds : Array Declaration) : Except (CheckError × Nat) Env
+```
+
+with **no default argument**.  Everything the installed environment
+already determines takes it **implicitly** — `GroupChecked`,
+`checkRecord`, `RecordResult`, `collectChecks`, `groupChecked_*`,
+`fullyChecked_checkDecls`, `checkDecls_fullyChecked`,
+`fullyChecked_sound`, the three `MainC` letters, `checkDecls_sound`,
+`checkDecls_thmDecl_const`, `no_False_theorem_accepted`,
+`checkDecls_consts`, `checkDecls_skels` — which is why `Main.lean`'s
+pool, its `collectChecks` call and every downstream `obtain` are
+untouched.
+
+**The advertised statements are the QUANTIFIED ones.**  The blueprint
+kept `checkDecls mode ds` spelled as before (the parameter last, with
+`natOpPinSets` as its default) and added `model_exists_with` /
+`no_proof_of_False_with` beside the shipped pair.  The maintainer
+ruled the other way for this landing: the large constant leaves the
+statement ENTIRELY, and there is one pair of theorems, not two:
+
+```lean
+theorem model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins ds = .ok env) :
+    Nonempty (Model V env)
+
+open Frontend in
+theorem no_False_declaration (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (h : jsonWithTheoremFalse chunks) :
+    ∃ e, (do
+      let pre ← builtinPreludeE
+      let r ← parseChunks chunks
+      let ds := preparePrelude pre r.decls
+      checkDecls .verified pins ds) = .error e
+```
+
+Both proofs are unchanged and still a few lines; `ConLeche/Challenge.lean`
+carries the token-identical `sorry` twins and `comparator.json` is
+unchanged in names.  `tests/challenge.sh`: **statements identical for
+`ConLeche.model_exists` and `ConLeche.no_False_declaration`**.
+
+**The one change that is not threading**: `DivModPinRun`
+(`ConLeche/Semantics/DeclRun.lean`) says `∃ ps : NatOpPinSet` where it
+said `∃ ps ∈ natOpPinSets`.  Threading `pins` into it would have
+carried the parameter through `DeclDefnRun`, `DeclRun`,
+`Bridge/Sound`, `DeclEta`, `Model/Fold` and `Model/Harvest` for a
+hypothesis **nobody reads**.  Dropping the membership is both smaller
+and *more general* — the run record is now what an install at ANY list
+establishes — and it costs two edits: `divModPinRun_of` discards the
+`hmem` that `checkDivModPin_inv` still hands it (the inversion keeps
+`∃ ps ∈ pins`, the honest statement of a loop over `pins`), and
+`harvestDefn`'s `obtain` pattern loses one `-`.  `Model/*` is
+otherwise untouched beyond the threaded argument in `Model/Fold`'s and
+`Model/Capstone`'s `checkDeclsPure` statements.
+
+`Main.lean` names `ConLeche.natOpPinSets` outright at its driver types
+(`InstalledEnv mode ConLeche.natOpPinSets ds`, `annotDeclStep mode
+ConLeche.natOpPinSets p pd`, the `checkDecls`-subtype), and
+`tests/ConLecheTests.lean` passes `natOpPinSets` explicitly at every
+`#guard`.  **The binary's behaviour is unchanged.**
+
+**The documents.**  `README.md` is the maintainer's, but a quoted
+```lean block is an allowed agent edit (`tests/quote-gate.sh`'s own
+ruling): the two quoted statements were re-synced to the new binders
+and no prose character changed.  `OVERVIEW.md` §1 paraphrases the new
+binder and gains a paragraph saying what `pins` is and that
+consistency does not depend on it (the empty list included), and the
+well-founded-operations bullet says the model side reads none of it.
+Thirty-three anchors moved; twenty-four of them because the cited
+STATEMENT itself gained the parameter.  Each was repointed by hand and
+its citing paragraph re-read before `--update`.
+
+### Gates
+
+Every run in the `pins-304` worktree.  `lake build` **560 jobs,
+warning-free**; `lake test` green; `env -i … tests/arena.sh` **exit
+0**:
+
+| gate | result |
+| --- | --- |
+| `tests/layering.sh` | base 294 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory |
+| `tests/proofdeps.sh` | **regenerated: 4363 → 4351 rows**, `ConLeche.Kernel.NatOpPins` LEFT **all twelve** capstone closures |
+| `tests/pindump.sh` | 3 pinners reproduce their committed JSON byte-for-byte |
+| `tests/trust-surface.sh` | 13 escapes in 5 allowlisted files (499 scanned); 0 outside |
+| `tests/overview-links.sh` | 103 links / 57 files / 2 documents, re-anchored |
+| `tests/quote-gate.sh` | 2 quoted statements match |
+| `tests/no-local-paths.sh` | OK |
+| `tests/challenge.sh` | OK — statements identical for both advertised names |
+| `tests/shake.sh` | 456 removals proposed, all 456 allowlisted, 0 new / 0 stale; pub-imports 970 of 1332 public, none demotable |
+| `tests/inmodel.sh` | OK |
+| axioms | pinned (20 theorems at `[propext, Classical.choice, Quot.sound]`) |
+| arena | tutorial 90/92, e2e 195/195, annot 15/15, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14; trusted / `--jobs=1` / `--jobs=4` sweeps as expected |
+| measurement | **init-full `--verified --jobs=1`, `ulimit -v 16000000`, `perf stat -e instructions:u`: 538 104 052 281 instructions against the master binary's (b9a40647) 538 125 262 123 — **−0.004 %**, i.e. nothing.  Both accept 53 093 declarations.  The pin list is an ARGUMENT where it was a global, and at `--jobs=1` that is one extra pointer down the fold; the difference is below this machine's noise |
+
+The proofdeps row is the task's result stated as a measurement: the
+pin dump `ConLeche.Kernel.NatOpPins` is no longer in the proof-term
+closure of ANY capstone — `main_model` and `main_file_False`, the main
+theorem and the main corollary, included.  Before this task it was in
+all twelve, because the fold they are about named the committed list.
+It is still in the BINARY, of course: `Main.lean` passes it.
