@@ -76842,6 +76842,141 @@ this session (landing items).  No `sorry`, no axiom.  No kernel
 change this session; K.19 is a request (D0), not a blocker for D1–D3's
 statements.
 
+#### M.42 M-B′ step 3p: the constructor record's PLUMBING — `CopyCtorsRead` off the run; `instPis_stripPis`; the `lpsNodup` ruling sized (2026-09-13, session 26)
+
+**What landed.**
+
+* **The pin's level data** (`PsiRun.lean`).  `PinRunFactsAt` records
+  three facts `copyIdxRead_of_run` had and `pinFacts_of_run` dropped:
+  every member of the pin's group carries the STORED container's level
+  parameters (`J'.lps = cvTJ.levelParams`), the pin names one level per
+  parameter (`lvls.length = cvTJ.levelParams.length`), and the pin's
+  assignment agrees with its level substitution there
+  (`∀ q ∈ cvTJ.levelParams, c.ψ' q = Level.substFn ψ cvTJ.levelParams lvls q`).
+  They are `ctor_peel`'s `hlpsC`, `hag` and `hacv` at the container's
+  stored constructor, and all three were already in hand inside
+  `pinFacts_of_run` (the `ContainersRep` member clause and the pin's
+  own read).  `pinFacts_of_run`/`copyIdxRead_of_run` also re-expose the
+  run facts the read consumes: `copiesFresh`, `nestedContainersOk` and
+  the openers' length.
+
+* **`Model/Inductives/CopyCtorWalkRun.lean`** (new, on the Model
+  umbrella).  **`copyCtorAsRead_of_run`** discharges EVERY hypothesis of
+  `copyCtorAsRead_of_walkFacts` except the walk's facts and the `whnf`
+  arm's content:
+  the copy's constructor at the auxiliary datum (`CtorsChecked` names
+  the constructor stage's list, the GROUP-MATE's `CopyCtorsStored` its
+  entry, member 0's `IndRep` its `FixCtorDataI` through
+  `FixCtorFactsAt.congr_sort`);
+  the container's at its own datum (`PinFacts.repAll` at the
+  constructor's member, `IndRep.ctors`);
+  the copy's ORDINARY fields' resolution at the pre-block environment
+  (`CtorsChecked`'s `mutualFieldsOk` through `mutualFieldsOk_inv` and
+  `mutualOpened_of`, the openings identified by `FixCtorDataI.opens`);
+  the copies' freshness and names (`copiesFresh_inv`,
+  `memberName_eq_type`); the members' `Nodup` (`IndRep.memberNodup` at
+  `kReal = k`); the pins' structural distinctness (`nestedContainersOk`,
+  K.15); every pin's target data (container, levels, components,
+  readings, `acval` agreement) off `PinRunFactsAt`; and the container's
+  instantiated constructor's READING — `ctor_peel` at the pin's level
+  data followed by `ctorInst_fields` at the walk's own opening.
+  **`copyCtorsRead_of_run`** puts it at the run: from `DeclNestedRun`,
+  under `ContainersRep`, `CopyCtorsRead` — the premise `psiFold_typed_of_read`
+  and `invSetup_of_run` carry — holds for every pin and every
+  constructor of its container, given the two named premises:
+  - **`CopyWalkFacts`** — the syntactic half: at every pin and
+    container constructor, the container's stored constructor
+    instantiated at the pin's components opens at the block's parameter
+    depth and `CopyCtorWalkFacts` holds of the pair;
+  - **`WhnfContent`** — the `whnf` arm's content (M-D′ D2), stated of
+    ANY term the container's field reduces from, so that the premise
+    does not mention the opening the walk produces.
+
+* **`instPis_stripPis`** (`Verify/Inductives/NestedFields.lean`) — the
+  first of §M.41 (1)'s two Verify lemmas: instantiating the leading
+  `|args|` binders of a telescope of `|args| + n` binders leaves a
+  telescope of `n` binders whose `j`-th domain is the original's
+  `|args| + j`-th put through `Expr.instSeq args (|args| + j - 1)` —
+  the descending indices the peel produces — with the BINDER DATA kept,
+  and whose residual is the original's likewise.  Induction on the
+  arguments over `stripPis_instantiate1_full`.  (The index is spelled
+  `|args| + j - 1` rather than §M.41's `|args| - 1 + j`: the two agree,
+  since `instSeq [] t e = e` at any `t`.)
+
+**The `lpsNodup` RULING, sized (not landed).**  The maintainer's rule
+is to record level-parameter distinctness as a clause of `ConstWF`
+rather than carry it as a hypothesis.  The clause itself is one line
+(`Name.nodup c.toConstantVal.levelParams = true`, exactly what
+`checkConstantVal`/`checkConstantValPre` test) and its first brick
+landed — **`checkConstantVal_nodup`** (`Verify/BridgeWfImp.lean`): a
+checked constant's level parameters are distinct.  The DISCHARGE is
+not a by-the-way step: the clause has ~18 producer sites
+(`structConstWF` in `Verify/Inductives/StructWF.lean` with 12 callers,
+`constWF_intro'` in `Verify/Cached/BridgeCS4.lean` with 6, and the
+direct `EnvWF.cons ⟨…⟩` in `Semantics/EnvFactsCons.lean`), and several
+of them do NOT have the fact in hand:
+
+* `direct_table_wf` stores a `.projInfo` whose level parameters are the
+  structure's `lps`, which the table stage never checks — a hypothesis
+  to thread from the caller (3 call sites, two of them Model-tier
+  stage theorems);
+* `envWF_consSumCtors` (and its mutual twin) takes the stored
+  constructors' facts as a four-fact list — the list gains a fifth
+  fact and every caller of the list gains it too;
+* the generated RECURSORS' level parameters are `elim :: lps`, whose
+  distinctness is the elimination universe's freshness, recorded
+  elsewhere (`ContainersRep`'s clause) rather than beside the store.
+
+Where the fact IS in hand it comes either from `checkConstantVal_nodup`
+or — for a constant of a block whose earlier members are already stored
+— from the ambient `EnvWF` itself (the new clause at the member that
+shares the list), which is the self-bootstrapping the ruling intends.
+Sized at about one session; the constructor read's own consumer (the
+level equation `(lps.map param).map (instantiate lps lvls) = lvls`
+inside the forward fire) is not reached this session either, so nothing
+waits on it today.
+
+**What remains of the constructor read** (§M.41 (1)–(4), updated):
+
+1. `CopyWalkFacts` from `CopyCtorsStored` — the FORWARD fire is the one
+   piece with no kit.  A cheaper route than walking `replaceIfNested`
+   forward was found while stating the premise, and its ENGINE landed
+   (`Verify/Inductives/NestedWalk.lean`:
+   `Expr.find?_isSome_of_mentionsConst`, `Expr.not_mentionsConst_of_fresh`
+   — a resolving term mentions only stored constants).  The route: at a
+   container-recursive field the copy's own field CANNOT be ordinary —
+   `mutualFieldsOk`'s ordinary clause demands `constsResolve env`, while
+   the field (unfired: the container's instantiated one, whose pin
+   components mention a block member by the mint's `nestedOccOk`;
+   fired: the copy-headed output) mentions a name that is FRESH before
+   the block (`copiesFresh`, the block's own formers) — so the datum's
+   `FixOpened.recF`/`reflF` gives the copy side of `FiredField`
+   directly, and only the PIN's identification still needs
+   `copyCtorFields_of_walk`'s fired arm (whose premise is then the
+   `recF` shape, not a forward walk).  The level equation inside it
+   (`(lps.map param).map (instantiate lps lvls) = lvls`) is what
+   `lpsNodup` is for.
+2. `WhnfContent` — M-D′ D2's `env₁` model (unchanged).
+3. CLOSED (§M.41 addendum, `gradeC_of_okTy`).
+4. CLOSED (this session, `copyCtorAsRead_of_run`).
+
+**Gates**: `lake build` 636 jobs warning-free, `lake test` clean.  NOT
+run (landing items): shake/pub-import (`CopyCtorWalkRun` on the Model
+umbrella), arena, init-full, Mathlib, `overview-links.sh`,
+`no-local-paths.sh`.  No `sorry`, no axiom, no kernel change.  K.19
+landed on `inductives` mid-session and is NOT merged here (it changes
+nothing this session reads; D1's `restore_read` is the next lane's
+first consumer).
+
+**Lean gotchas** (session 26): a `match T, hinst with` needs the OTHER
+hypotheses about `T` reverted first, and `simp only [Expr.stripPis]`
+does not fire at an index that is not syntactically `?k + 1` (rewrite
+`as.length + 1 + n` to `(as.length + n) + 1` first); `subst (h : a = b)`
+eliminates `b`, so the name that survives a `containerInfo?_member_eq`
+identification is the SECOND one; a required parameter added after an
+`autoParam` must be passed by name (`(h10 := …)`) or the positional
+arguments shift into the auto-params.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
