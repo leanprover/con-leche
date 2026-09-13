@@ -74940,6 +74940,207 @@ same read; the sub-term clause = a positivity fact of the container
 `CopyCtorRead` (ψ⁻¹'s `hCAP`) from the record; (4) M-C′ (R1; R2 over the
 kernel order; coherence) for a non-self-nested container.
 
+#### M.29 M-B′ step 3l: K.14 merged, `CtorsChecked`, the constructor side from the run modulo the RECORD, and four findings (2026-09-13, session 16)
+
+**What landed** (`agent/nested-279m`, five commits, HEAD after this
+record):
+
+* **K.14 merged** (`inductives` 9ed11edc): `DeclNestedRun` gained
+  `nestedContainersOk env st.pins = true` beside `copiesFresh`; two
+  `obtain` patterns threaded.  Not yet consumed (see finding 4).
+* **`CtorsChecked μ F env b auxRoute d`** (`Model/Inductives/DeclMutual`):
+  `declMutualCore` now returns `MutualBlockReps … ∧ CtorsChecked …` —
+  the datum's `ctorsA` IS the constructor stage's list
+  (`checkMutualCtors … = .ok (ctorsA, sortss)` at
+  `Level.isEquiv f₀.s .zero == some true`, `fms[0]? = some f₀`) and
+  `d.mems j = (b.ctors.getD j default).member`; `rfl` at the
+  packaging (`dOf 0 = mutualRepData … ctorsA … memF …`).  Threaded
+  through `nestedAuxModel`, `declNestedRun_auxModel`,
+  `copyIdxRead_of_run`, `pinFacts_of_run`, `psiFold_typed_of_run`.
+  This is how the model identifies the datum's constructor with the
+  stored one `nestedCopyCtorType_eq` speaks of — without it the
+  datum's `ctorsA` was an existential.
+* **`Verify/Inductives/NestedCtors.lean`**: `ctorBase st t` (the
+  earlier types' constructor counts) and `auxBlock_ctor_getElem?`
+  (the `l`-th constructor of type `t` is the auxiliary block's
+  constructor `ctorBase st t + l`, member `t`; `flatten_zipIdx_getElem?`
+  underneath); **`CopyCtorsStored`** — at pin `j`, container member
+  `J`, for every constructor `l` of `J`: the MINTED constructor
+  (`instPis (c.type@lvls) Ds`, closed over the first former's `pbs`),
+  the PROCESSED one (re-opened at `params`, `replaceAllNested` between
+  two states of the elimination, closed over its own `pbs'`), the
+  auxiliary block's entry, the stage's entry `cA`, and the STORE
+  (`normCtorValM … true = .ok cA.1`, the identity/normalised
+  disjunction, `projTablesOk`) — off `checkMutualCore_inv` directly so
+  that the grade's `isProp` is the explicit `f₀` form `CtorsChecked`
+  unifies with; `copyCtorsStored_of` (from the ledger's pieces) and
+  `copyCtorsStored_of_run`; `containerInfo?_member` (everything
+  `containerInfo?` reads of a member) and **`containerInfo?_member_eq`**
+  (two members of one name are one member — the ctor list's parameter
+  guard decides success, not content); the mention lemmas
+  `Expr.mentionsConst_instantiate1`, `Expr.mentionsConst_of_getAppFn`,
+  `openPisAtFvars_mentionsConst` (a mention in an opened telescope,
+  body or opener annotation, is a mention in the closed one).
+* **The ledger's group clause carries the group's base**
+  (`PinOriginAt`/`elimNested_copy`: `q'.grpBase = j₀ ∧ q'.grpSize =
+  ci.members.length` for every group pin; `ledger_mint` off
+  `mkCopies_spec`'s literal pins) — the group-mate copy's `CopyData` is
+  identified through it (`groupMate_base`: `ElimState.grp` reads the
+  base back, so the mate's `base` is the group's and its `mm` its
+  position), NOT through pin uniqueness.
+* **`PsiRun.lean`**: `posIn dJ Jc` (the constructor's position among
+  its member's), **`ContainerCtorsAt ci dJ`** (every datum constructor
+  is, at member `dJ.mems Jc`, the `posIn`-th constructor
+  `containerInfo?` lists: name, stored type, field count — a new
+  conjunct of `ContainersRep`, a fact of any container's own install:
+  `containerInfo?` lists a member's constructors as its recursor's
+  rules in order), **`PinRunFacts`** (the per-pin ∃ of
+  `pinFacts_of_run`, now carrying `ContainerCtorsAt` and
+  `CopyCtorsStored`; `copyIdxRead_of_run` exports `pbs` and the per-pin
+  `CopyCtorsStored`); `CopyCtorsOfRun`/`BridgeOfRun`/`BridgeSyntax`
+  exposed.
+* **`Model/Inductives/CopyCtorRun.lean`** (on the Model umbrella):
+  `FixCtorFactsAt.congr_sort`; `auxOfsOf st k₀ cd j' Jc := ctorBase st
+  (k₀ + (base + dJ.mems Jc)) + posIn dJ Jc`; the premise
+  **`CopyCtorsRead`** (= the record `CopyCtorAsRead` at every pin and
+  container constructor, at `auxOfsOf`); **`copyCtorFacts_of_read`**
+  — everything in `CopyCtorFacts` but the record from the run: the
+  group-mate's pin (ledger group clause) and its `PinRunFacts`, its
+  member is the container member of the constructor
+  (`containerInfo?_member_eq`), its `CopyCtorsStored` at `posIn`, the
+  stage's list is the datum's (`CtorsChecked`, `Except.ok.inj` on the
+  two runs), `d.mems` at `auxOfsOf` is the group-mate copy, the
+  member's `IndRep.ctors`/`paramsIff`/`tgtsRLt` (member `0`'s, sort
+  moved), the front door's closedness (`checkMutualCtor_front`), and
+  the stored constructor's NAME is the processed one's;
+  `copyCtorsOfRun_of_read` (`∃ lpsT, CopyCtorsOfRun …` at member `0`'s
+  level parameters) and **`psiFold_typed_of_read`** — ψ end to end
+  under `ContainersRep`, `CopyCtorsRead` and `BridgeSyntax`;
+  **`CopiesUnnormalised envAux p st`** (every copy's stored constructor
+  has the processed constructor's type — the identity arm at every
+  copy) and **`BridgeMention`** + `bridgeMention_of_read`: at every
+  transport SOME copy of the source's group has a processed constructor
+  mentioning the target's name (the group-mate's, off
+  `FixOpened.recF`/`reflF` through `openPisAtFvars_mentionsConst`).
+
+**Four findings.**
+
+1. **The kernel's reference relation is per PIN; ψ's recursion is per
+   GROUP.**  `copyRefB grp k st j j'` asks a processed constructor of
+   copy `j` ITSELF to mention `j'`, and `BridgeSyntax`'s mention clause
+   repeats it (`st.types[k₀ + j']`).  But ψ at pin `j'` is `J.rec` with
+   minors for EVERY constructor of `J`'s group (`psiSetup_of_group`
+   takes all of `dJ.ctorsA`), so a transport in a GROUP-MATE's
+   constructor (a mutual container whose nested occurrence sits in
+   another member's constructor) references a target the kernel's
+   relation does not put before `j'` — only before the mate.  The order
+   `[j', target, mate]` satisfies `TopoOrder (CopyRef …)` and breaks the
+   fold at `j'`.  The clause must range over the group: `∃ g < size,
+   (st.types[k + base + g]).ctors.any (mentions t'.name)` — a K-lane
+   change to `copyRefB` with the model's `CopyRef` (`NestedOrder.lean`)
+   in lockstep (`copyRef_iff`, `topoOrder_of_run`,
+   `bridgeOfRun_of_syntax`).  `BridgeMention` above is stated in the
+   group-wide form the corrected relation consumes; `BridgeSyntax`'s
+   per-pin mention is NOT dischargeable as stated.  **Kernel request
+   K.15.**
+2. **The whnf arm cannot satisfy the record.**  `CopyCtorAsRead`'s
+   clauses are equalities of ANNOTTERMS (`ord`, `es`, `kindT`'s domain);
+   `normCtorValM`'s normalisation replaces a field domain by its `whnf`
+   (`(fun _ => PT α) k ↦ PT α`), whose READING is a different
+   `AnnotTerm` (`app (lam …) k` vs `acval PT …`) with the same
+   INTERPRETATION.  So the ONE named lemma is at the interpretation
+   level — `normCtorValM_reads_as`: for `normCtorValM … cvC cvC true =
+   .ok cvCa` and readings `denoteMeta … 0 cvC.type = some Ta`,
+   `denoteMeta … 0 cvCa.type = some Ta'`, at every frame `ρ` with `Ta`
+   graded, `interp V ρ Ta' = interp V ρ Ta` and `Ta'` graded — and the
+   record has to be WEAKENED to interpretation-level equalities at
+   every frame before it can consume it (a `PsiAssembly` refactor:
+   `psiDom_eq_copyDom`/`ctorAtDoms_psi`/`via_psi` rewrite with it).
+   Until then the identity arm is the premise `CopiesUnnormalised`
+   (syntactic; K lane measured 4 λ-pin blocks in the Mathlib cone
+   violating it).  **MAINTAINER: weaken the record now, or later.**
+   The lemma is not stated in code (its proof needs `Model/Claims`'
+   whnf soundness on the stored constructor's field domains; not
+   attempted).
+3. **`kindR` needs two environment facts no clause exposes.**  A
+   container-recursive field `J' fvsP is` instantiates to `J' lvls Ds
+   is`; the walk fires there iff `containerInfo? env J' = some ci'`
+   with `ci'.nP = ci.nP` (else the pin differs or the walk errs), and
+   `find?` returns the FIRST pin equal to `J' lvls Ds` — the record's
+   `d.tgtsR Ja i = k₀ + j₀ + dJ.tgts Jc i` names the group-mate at the
+   group's base, so no EARLIER pin may equal it.  Both hold of any
+   environment this checker built (groups read off consistent
+   recursors; a mint happens only on a miss and mints the whole
+   group), neither is derivable in the model tier (group consistency is
+   a syntactic fact about two recursors' motive lists; pin uniqueness
+   needs it).  **Kernel request K.16**: record
+   `(st.pins.map (·.pin)).Nodup` and, per pinned container, `∀ J ∈
+   ci.members, ∃ ci', containerInfo? env J.name = some ci' ∧ ci'.nP =
+   ci.nP` (K.14-style re-asks, `.internal` on failure).
+4. **K.14's uniformity is not what the sub-term clause needs.**  For a
+   NON-self-nested container the clause ("no group pin is a sub-term
+   of a transport's target pin") follows from: the container's ORDINARY
+   field domain mentions no group member (`FixOpened.ord`: it resolves
+   at `dJ.env₀`, plus "the members are not in `env₀`" — no `IndRep`
+   clause says so) — then a group pin inside the instantiated domain
+   sits inside some component `D ∈ Ds`, which is smaller than the pin.
+   Uniformity permits `J' params` INSIDE an ordinary field (a
+   self-nested container: `J α := mk : Foo (J α) → J α`, pin `J (List
+   T)`, target pin `Foo (J (List T))` CONTAINS the group pin — the
+   clause is FALSE there, as it must be for `CopyRef` to exclude a
+   container's own mimics).  What the sub-term clause wants recorded
+   is the container's positivity classification: no group-member
+   occurrence in an ordinary field (`mutualCtorKinds`-style, or
+   `members ∉ env₀` as an `IndRep` clause at M-D′).  And the clause
+   ALSO needs the walk inversion (where the target pin sits inside the
+   field), finding 5.
+5. **The walk inversion is the remaining core** (`NestedWalk.lean`,
+   not started): (W1) an output of `replaceAllNested` that mentions no
+   name of the final `st'.newNames` is its input (a fire's output
+   mentions the pin's `aux`, which is a type name — `PinOriginAt`);
+   (W2) at a field whose output is `Π tele, mkAppN (const aux blvls)
+   (params ++ is)` with `tele`/`is` new-name-free and the input
+   mentioning no aux name (inputs are instantiations of stored
+   constructors at pins whose components mention only original members
+   — an invariant beside `LeafInv`, not yet stated), the input is `Π
+   tele, mkAppN (const I₂ lvls₂) (Ds₂ ++ is)` with a pin `q ∈ st'.pins`,
+   `q.aux = aux`, `q.pin = I₂ lvls₂ Ds₂`.  Then the record's `ord`
+   (W1), `kindT` (W2 + the `denoteMeta` transports: `instLevels`, the
+   `instPisAt` peel at the field level, the Π-tower/`mkAppN`/`const`
+   arms, the copy's `recEntry`/`reflEntry`), `es` (the residual's fire
+   at the copy's own pin — `checkMutualCtor` rejects any other target),
+   `kindR` (W2 + finding 3); the sub-term clause (W2 + finding 4).
+   Two to three sessions.
+
+**Status.**  ψ END TO END under `ContainersRep` (now with
+`ContainerCtorsAt`), `CopyCtorsRead` (the record alone) and
+`BridgeSyntax` (whose mention half is discharged group-wide by
+`bridgeMention_of_read` under `CopiesUnnormalised`, pending K.15; whose
+sub-term half waits for the walk inversion + finding 4).  ψ⁻¹'s
+`CopyCtorRead` (`hCAP`) and M-C′ not reached.
+
+**Gates**: `lake build` 618 jobs warning-free, `lake test` clean,
+`tests/no-local-paths.sh` OK.  NOT run: shake/pub-import (landing
+item: `CopyCtorRun` on the Model umbrella, `NestedCtors` reached
+through `CopyReads`), arena/init-full/Mathlib, `overview-links.sh`.
+Lean gotchas: `subst` on `J₂ = Jm` eliminates `Jm` (write the
+survivor's name); `obtain rfl : q₂' = q₂` keeps `q₂'`; a def in a
+Verify plain section (`CopyCtorsStored`) is not destructurable from the
+Model tier — `@[expose]`; `optionMapM_getElem?` indexes the INPUT list
+and returns the output entry; `(l.drop i)[j]? = l[i + j]?` is
+`List.getElem?_drop`; a `PinRunFacts`-style def wrapping a `Classical.choose`
+needs `unfold` before `simp only [dif_pos]`.
+
+**Next** (session 17): (1) K.15/K.16 as kernel requests (the relation's
+group-wide mention; pins `Nodup` + group `nP`-coherence), consume when
+landed; (2) `NestedWalk.lean` (W1, W2, the no-aux-mention invariant);
+(3) the record's `ord`/`kindT`/`es` from the walk lemmas and the
+`denoteMeta` transports, `kindR` under K.16; (4) the sub-term clause
+under the container's positivity fact (finding 4 — MAINTAINER: `IndRep`
+clause `members ∉ env₀` vs a kernel re-ask); (5) the record's weakening
+to interpretation level + `normCtorValM_reads_as` (finding 2 —
+MAINTAINER: now or after M-C′); then ψ⁻¹'s `hCAP`, M-C′.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
