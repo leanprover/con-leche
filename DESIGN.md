@@ -74787,6 +74787,159 @@ ledger + whnf lemma, or K.13); (3) the run-level `GroupFacts` per pin
 (`CopyCtorAsRead` off `nestedCopyCtorType_eq`'s identity arm) + the
 bridge at `CopyRef` — ψ end to end; (4) `CopyCtorRead`; M-C′.
 
+#### M.28 M-B′ step 3k: K.13 merged, both premises of §M.27 discharged, and ψ AT THE RUN LEVEL under three named premises (2026-09-13, session 15)
+
+**What landed** (four commits, `agent/nested-279m`):
+
+* **(a) `CtorsNoProj` is a read** (K.13 merged, `ec21a42f`): at the
+  pre-annotated grade `checkConstantValPre` validates every `.proj`
+  node's slot (`projTablesOk`), `normCtorValM` keeps it, and a member's
+  slot is empty at the formers' environment —
+  `Expr.noProjAt_of_projTablesOk` (`NestedInv`, the twin of
+  `noProjAt_of_constsResolve`) and `ctorsNoProj_of_pre`
+  (`Model/Inductives/DeclNested`); `nestedAuxModel`,
+  `declNestedRun_auxModel`, `copyIdxRead_of_run` lose `hnp`;
+  `CtorsNoProj` is `@[expose]`d for the cross-module discharge.  Merge
+  fallout: `FormerFront`'s own front-door inversion predated K.13's guard
+  and CLASHED by name with `NestedInv`'s `checkConstantValPre_inv` —
+  renamed `checkConstantValPre_front`, the `projTablesOk` case and
+  conjunct added.
+* **(b) `PinsAtOpeners` is a read** — `Verify/Inductives/NestedLeaves.lean`
+  (on the base umbrella): `Expr.LeavesIn params e` (every free-variable
+  leaf, hereditarily with its annotation, is an opener) and the leaf
+  invariant `LeafInv params st` (every pin and every constructor type of
+  the growing list) beside the ledger: kept by a mint
+  (`mkCopies_leafInv`: the container's CLOSED stored types instantiated
+  at pins that satisfy it, closed over the first former's fvar-free
+  binders), by the walk (`replaceIfNested_leaves`/
+  `replaceAllNested_leaves`: an output replaces a sub-term by the copy
+  at `params` and the occurrence's own index arguments), by the
+  worklist (`elimCtors_leaves`, `elimLoop_leaves`); `elimNested_leaves`
+  at the run.  Sources: `containerInfo?_stored` (every member's type,
+  level parameters and constructors are stored constants' — the
+  `Option` do-block inverted with `bindOption_eq_some_iff` before each
+  `obtain`) + `containersClosed_of_wf` (`EnvWF`'s first conjunct);
+  `openPisAtFvars_leavesIn` (the openers are a leaf-closed set, off
+  `openPisAtFvars_leaves`); `LeavesIn.instPis`/`.closeTelescope`/
+  `.abstract1`/`.instantiateLevelParams`, `stripPis_leavesIn`.  Consumer:
+  `CopyReads.pinsAtOpeners_of_run` (the block's own annotated types are
+  closed by `checkConstantVal_typeWF`/`FormerFront.noFvar`);
+  `copyIdxRead_of_run` loses the premise.
+* **(c) ψ at the run level** — `Model/Inductives/PsiRun.lean`
+  (on the Model umbrella with every other nested Model module):
+  - `ContainersRep env envAux m` — THE container-side premise (the
+    successor of `ContainersAt`, which is deleted): per container `I`
+    ONE datum `dJ` of its block with a non-nested container's view
+    (`ctorsC = []`, `kReal = k`, `pinsAV` = parameters, R-view = F-view),
+    `ci.nP = dJ.nP`, `ci.members.length = dJ.k`, a small-eliminating
+    block Prop-valued (`large = false → w = 0`), and per member `i`:
+    stored at `envAux` with the type and level parameters
+    `containerInfo?` read, recursor stored with rules ≠ [], the
+    elimination universe NOT among the level parameters
+    (`large → elim ∉ lps`), and `IndRep m J.name cvTJ cvR mI rP rules dJ i`.
+    (The `ModeledLeaf` disjunct's successor, §M.19; the two syntactic
+    conjuncts — `elim ∉ lps`, Prop-valued when small — are facts of
+    every stored recursor that no `EnvWF`/`IndRep` clause exposes;
+    candidates for `IndRep` clauses at M-D′.)
+  - `pinAssign dJ ψ'` — the pin's level assignment: `ψ' := substFn ψ
+    lps lvls` (what the copy's stored type reads at, `copyIdxRead_of_run`)
+    overridden at `dJ.elim` by `dJ.w ψ'` when `large` — `GroupFacts.lev`
+    is a CHOICE of the recursor's universe (the motive's sort must be
+    the carrier's rank), and the readings the pin fixes are blind to it:
+    `acval_params` (the leaf), `FormerData.params` (`ppsM`, hence `IdsM`
+    and `w`) — `pinAssign_agree`, `pinAssign_lev`, `IdsM_congr`,
+    `CopyIdxRead.congr_assign`.
+  - the sort transfers: `copyIdxRead_of_run` reads at `{d with resSort
+    := s}` (the member's re-sorted datum, `MutualBlockReps`) while
+    `GroupFacts`/`psiFold_typed` are at `d` — `PinRead.of_sort`,
+    `CopyIdxRead.of_sort`, `FormerFacts.congr_sort`, `LeafShape.congr_sort`
+    (the record types at `{d with …}` and at `d` are DIFFERENT types;
+    the fields' types coincide after projection reduction).
+  - `PinFacts` (= `GroupFacts` minus the constructor field) and
+    **`pinFacts_of_run`**: one `CopyData` per pin (`cd`, by choice from
+    a per-pin existence, default `⟨d, 0, ψ, [], 0⟩`): its container the
+    datum `ContainersRep` gives for the pin's group, its member the
+    ledger's position, its base the group's, its readings the pin's
+    inference's — the SAME `DsA` for a whole group
+    (`DenoteMetaSpine.unique`: `copyIdxRead_of_copy`/`_of_run` now expose
+    the spine, and are stated GENERICALLY in the container datum — any
+    `FormerData` of the member at `envAux` — so the group-mates' reads
+    are instantiated at the group's one datum; the group-mate's own
+    `containerInfo?` record has the same stored type and level
+    parameters, `containerInfo?_stored`); `CopyData.Ok` at every
+    group-mate; `ElimState.grp st j = (base, dJ.k)` from the ledger's
+    new conjuncts (`PinOriginAt`: `q.grpBase = j₀ ∧ q.grpSize =
+    ci.members.length`, threaded through `MintStep.mint`'s `hbase`/
+    `hsize`).
+  - `auxFacts_of_blockReps` (the scratch datum's `pinsOf`/`FormerFacts`/
+    `LeafShape`/`paramsIffM` at `d`), `CopyCtorsOfRun` (the constructor
+    premise: at every pin, `CopyCtorFacts` for the container's
+    constructors with the copy's `auxOfs`), `BridgeSyntax` (per
+    transport: the copy's processed constructor MENTIONS the target
+    copy's name, and no group pin is a `Sub` of the target's pin),
+    `bridgeOfRun_of_syntax` (the rest of `CopyRef` — the target's
+    position and its exclusion from the group are `kindT`, the target is
+    a pin by `CopyCtorFacts.tgts`, the group is the pin's own; `CopyRef`
+    exposed), and **`psiFold_typed_of_run`**: under `ContainersRep`,
+    for every ψ and every parameter frame, the fold of the copies' terms
+    along the KERNEL's order (`nestedTopoOrder` → `topoOrder_of_run`)
+    is `PsiTypedPi` at every pin, given `CopyCtorsOfRun` and
+    `BridgeSyntax` at the `cd` this run reads.
+
+**Status of ψ.**  Closed END TO END up to three named premises:
+`ContainersRep` (container representation at `envAux`; the modelled
+route's disjunct), `CopyCtorsOfRun` (the constructor-side record
+`CopyCtorAsRead` + the copy's aux-datum facts, per pin — the read of
+`nestedCopyCtorType_eq`'s identity arm, §M.26; NOT started this session:
+the read needs the constructor twin of `copyIdxRead_of_align`, i.e. the
+substitution peel of the container's `CtorDataI` reading through
+`instPis` and the walk's rewrite at the fields (`elimCtors_getElem?` +
+`replaceIfNested_some` + `denoteMeta_instPisAt_peel`), 1–2 sessions;
+the whnf arm at λ-pins = the model's whnf soundness, a lemma that does
+not exist: "the reading of `normCtorValM`'s output is the reading of
+its input" — name it `normCtorValM_reads_as` when the identity arm is
+done), and `BridgeSyntax` (the two syntactic clauses: mention — from
+the walk's rewrite at a transported field, through the normalisation
+(the identity arm trivially; the whnf arm needs "normalisation keeps
+member mentions") — and the sub-term exclusion — from the container's
+POSITIVITY: an ordinary field of a non-self-nested container mentions
+no group member, so a group pin `J₂ Ds` cannot sit inside a transport's
+pin (its components are instantiations of sub-terms of that field, or
+sub-terms of `Ds`, which are smaller); no `IndRep` clause records the
+syntactic positivity of a stored container — a candidate `IndRep`
+clause at M-D′, or a run-time check).
+
+**Gates** (per session): `lake build` 616 jobs warning-free (the 13
+nested modules now ON the graph: `NestedLeaves` on the base umbrella,
+`PsiRun` + `ContainerRead` on the Model umbrella — `PsiRun` re-exports
+the rest), `lake test` clean, `tests/no-local-paths.sh` OK.  NOT run:
+`tests/shake.sh`/`pub-import-plan --check` (the new umbrella edges and
+imports were not put through the shake gate — a landing item: the
+lane's earlier allowlist lines may need re-derivation), arena/init-full/
+Mathlib, `overview-links.sh` (the two drifted anchors stand).  Lean
+gotchas: a structure field's `∀ φ` arity (`CopyData.Ok.pins` takes `φ`
+only — pass `hpinsAV t`); `omega` sees a structure literal's projection
+`(⟨…⟩ : CopyData V).base` as an atom — `show` the reduced form first;
+`ElimState.grp`'s `match` needs `rw [hq]` then `show (q.grpBase,
+q.grpSize) = …` before rewriting the fields; `Function.update` is
+Mathlib (write the override as an `if`); `Option`'s `do`-bind is
+inverted by a `>>=`-stated `bind_eq_some_iff` twin applied BEFORE each
+`obtain` (`simp only [bind, Option.bind]` unfolds to a two-discriminant
+`match` that `split` refuses); `nomatch` inside an anonymous constructor
+needs parentheses; a `def` in another module's plain `public section`
+cannot be `intro`ed (`CtorsNoProj`, `LeavesIn`, `CopyRef` — expose).
+
+**Next** (session 16): (1) `CopyCtorsOfRun` from the run — the
+constructor twin of the formers' read (`elimCtors_getElem?`,
+`replaceIfNested_some`, `mkCopy_inv`'s constructor clause, the peel), the
+copy's aux-datum facts from `MutualBlockReps` (its member's `IndRep.ctors`
+at the re-sorted datum → a `FixCtorFactsAt` sort transfer), the whnf arm
+as the ONE named lemma; (2) `BridgeSyntax`'s mention clause from the
+same read; the sub-term clause = a positivity fact of the container
+(decide: `IndRep` clause vs run-time check — MAINTAINER); (3)
+`CopyCtorRead` (ψ⁻¹'s `hCAP`) from the record; (4) M-C′ (R1; R2 over the
+kernel order; coherence) for a non-self-nested container.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
