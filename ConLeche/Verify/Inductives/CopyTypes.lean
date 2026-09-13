@@ -878,7 +878,7 @@ walk — no inference, which is the point. -/
     (beta : Bool) (ty b : Expr) (m : BinderMeta) :
     typeSortPW find? beta (.forallE ty b m) = some m.pw := rfl
 
-theorem Expr.getAppFn_mkAppN (f : Expr) :
+theorem Expr.getAppFn_mkAppN' (f : Expr) :
     ∀ (args : List Expr), (Expr.mkAppN f args).getAppFn = f.getAppFn := by
   intro args
   induction args generalizing f with
@@ -910,7 +910,7 @@ theorem typeSortPW_mkAppN_const (find? : Name → Option ConstantInfo)
     (hpeel : ci.toConstantVal.type.peelNeverPis args.length = some (.sort u)) :
     typeSortPW find? beta (Expr.mkAppN (.const I us) args)
       = some (Level.substPW ci.toConstantVal.levelParams us (Level.zeronessOf u)) := by
-  rw [typeSortPW, typePWAt_spine, Expr.getAppFn_mkAppN, Expr.numArgs_mkAppN]
+  rw [typeSortPW, typePWAt_spine, Expr.getAppFn_mkAppN', Expr.numArgs_mkAppN]
   show typePWAt find? beta (.const I us) (0 + args.length + 0) = _
   rw [Nat.zero_add, Nat.add_zero, ← headTypePW, headTypePW_const, hf]
   simp only [hnt, Bool.false_eq_true, if_false, hlen, if_true, hpeel, residualPW,
