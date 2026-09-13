@@ -75022,6 +75022,78 @@ instructions: `--verified --jobs=1`, `perf stat -e instructions:u`:
 53 088 accepted both — the noise floor, as it must be: the accept path
 is untouched and the grade is `false` for every stream.
 
+#### K.13 THE `.proj` NAME SLOT ON THE GRADED PATH (2026-09-13, the model lane's DESIGN §M.27)
+
+Two items from the model lane's session 14.
+
+**(1) The `.proj` validation the walk did, restored in the no-walk
+path.**  `annotateBody`'s `.proj` clause is where a node's
+STRUCTURE-NAME slot is checked: it infers the subject, reduces the type
+to a head `const T`, looks the table entry up at `T`/`i` and throws
+`invalid projection: the node names another structure` unless the node's
+own name is that `T` (task #271, issue #7).  `checkConstantValPre` skips
+the walk, and inference's own `.proj` clause — which does compare
+`T = sn` — refuses a mismatch as a DECLINE (`projection without a native
+entry`), not as official's REJECT, and its verdict is buried inside an
+`inferType` success that the run relation cannot read.  So the model
+lane had to carry a `CtorsNoProj μ F env b auxRoute` hypothesis.
+
+The condition is now asked directly, syntactically, in
+`checkConstantValPre`:
+
+    Expr.projTablesOk (env : Env) : Expr → Bool
+      | .proj sn i e => (env.findProj? sn i).isSome && e.projTablesOk env
+      | … structural …
+
+with the memoized twin (`projTablesOkGo`, `projTablesOkFast`,
+`@[csimp]`) the task #215 discipline asks for, since the walk runs over
+a whole declared type and a stream may put a DAG-shared tower in one.
+
+**It narrows nothing, and the argument is exact.**  Whenever the
+annotation walk accepted a `.proj sn i e` it had `env.findProj? T i =
+some entry` together with `T = sn` — hence `env.findProj? sn i = some
+entry`, which is this predicate.  Inference asks the same pair again a
+few steps later (its `.proj` clause needs the entry at the inferred head
+AND `T = sn`), so a node this rejects would have been refused anyway;
+what the check adds is official's VERDICT (`.invalid`, not a decline)
+and a decidable fact the run relation carries.  It runs on the graded
+path only — the annotated path still gets the walk's own check, and
+`checkConstantVal` is untouched.
+
+**What the model tier reads** (`Verify/Inductives/NestedInv.lean`):
+
+    checkConstantValPre_inv     … = .ok cvA → cvA = cv ∧
+                                  cv.type.projTablesOk env = true
+    checkConstantValPre_ok      the first half (as before)
+    checkConstantValPre_projOk  the second half — the fact that
+                                discharges `CtorsNoProj` at grade `true`
+
+and it is threaded through the constructors' twin:
+`checkMutualCtor_true_norm` now also returns the minted constructor's
+`projTablesOk`, `normCtorValM_true_stores` carries it across the
+normalisation (the re-checked constant goes through the same front
+door), and **`nestedCopyCtorType_eq` states it of every STORED
+constructor of the auxiliary block**.
+
+**(2) `DeclNestedRun`'s module docstring** was still K.8/K.10 prose (a
+re-minted state, `st₀`/`st`, `pinsA`).  It now describes K.12's shape —
+the annotated inputs, one state, the pins as the elimination's own
+terms, both identities (formers and constructors), and the `.proj` fact
+above.
+
+**Gates** (on `inductives` = `05c43fd5`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK with no anchor moved, **nested-shadow
+25/25**, e2e **216/216**, arena tutorial 90/92, the trusted and both
+`--jobs` sweeps as expected; the Mathlib nested cone `ulimit -v
+22000000`, `timeout`, `--jobs=1`: exit 0, **4 923 accepted, 41/41 shadow
+accepts BYTE-IDENTICAL to K.10** — the graded path now validates a
+`.proj` in a copy's type, and the corpus has none, so no verdict moved.
+No init-full or full-Mathlib run: the accept path is untouched
+(`checkConstantVal` unchanged, the new walk is called from
+`checkConstantValPre` alone, which only the nested route's scratch
+install reaches) and the route is still shadow-only.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
