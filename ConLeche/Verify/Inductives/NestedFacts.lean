@@ -1222,6 +1222,85 @@ theorem remintCopyTypes_type {F : Nat} {envF env : Env} {nP : Nat} {fvsA : List 
       rw [ht]
       simp only [remintOne, hfn]
 
+/-- The per-pin rewrite keeps the entry's name. -/
+theorem remintOne_name (env : Env) (pbsA : List (Expr × BinderMeta)) (q : NestedPin)
+    (pinA : Expr) (t : AuxType) : (remintOne env pbsA q pinA t).name = t.name := by
+  unfold remintOne
+  split
+  · split
+    · split
+      · split
+        · split <;> rfl
+        · rfl
+      · rfl
+    · rfl
+  · rfl
+
+/-- The per-pin rewrite leaves an entry the pin does not name. -/
+theorem remintOne_of_ne {env : Env} {pbsA : List (Expr × BinderMeta)} {q : NestedPin}
+    {pinA : Expr} {t : AuxType} (hne : t.name ≠ q.aux) :
+    remintOne env pbsA q pinA t = t := by
+  unfold remintOne
+  split
+  · split
+    · split
+      · split
+        · rw [if_neg]
+          intro h
+          exact hne (beq_iff_eq.mp h)
+        · rfl
+      · rfl
+    · rfl
+  · rfl
+
+/-- **The per-pin rewrite FIRES** at the entry the pin names when the
+arm's four conditions hold. -/
+theorem remintOne_fires {env : Env} {pbsA : List (Expr × BinderMeta)} {q : NestedPin}
+    {pinA : Expr} {t : AuxType} {n : Name} {lvls : List Level} {ci : ContainerInfo}
+    {J : ContainerMember} {tyI : Expr}
+    (hfn : pinA.getAppFn = .const n lvls) (hci : containerInfo? env q.container = some ci)
+    (hfind : ci.members.find? (fun J => J.name == q.container) = some J)
+    (hlen : lvls.length = J.lps.length)
+    (hinst : Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type) pinA.getAppArgs
+      = some tyI)
+    (hname : t.name = q.aux) :
+    remintOne env pbsA q pinA t = { t with type := closeTelescope pbsA 0 tyI } := by
+  unfold remintOne
+  rw [hfn, hci]
+  simp only [hfind, hinst, hname, beq_self_eq_true, if_true, beq_iff_eq.mpr hlen]
+
+/-- A fold of per-pin rewrites over pins naming other entries is the identity. -/
+theorem foldl_remintOne_id (env : Env) (pbsA : List (Expr × BinderMeta)) :
+    ∀ (L : List (NestedPin × Expr)) (t : AuxType), (∀ qp ∈ L, qp.1.aux ≠ t.name) →
+      L.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t = t
+  | [], _, _ => rfl
+  | qp :: L, t, h => by
+    simp only [List.foldl_cons]
+    rw [remintOne_of_ne (fun heq => h qp List.mem_cons_self heq.symm)]
+    exact foldl_remintOne_id env pbsA L t (fun qp' hqp' => h qp' (List.mem_cons_of_mem _ hqp'))
+
+/-- **The fold at ONE naming pin**: when exactly the pair at position `j`
+names the entry, the fold is that pair's rewrite. -/
+theorem foldl_remintOne_single (env : Env) (pbsA : List (Expr × BinderMeta)) :
+    ∀ (L : List (NestedPin × Expr)) (j : Nat) (qp : NestedPin × Expr) (t : AuxType),
+      L[j]? = some qp →
+      (∀ (j' : Nat) (qp' : NestedPin × Expr), L[j']? = some qp' → j' ≠ j → qp'.1.aux ≠ t.name) →
+      L.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t = remintOne env pbsA qp.1 qp.2 t
+  | [], j, _, _, h, _ => nomatch h
+  | e :: L, 0, qp, t, h, hothers => by
+    obtain rfl := Option.some.inj h
+    simp only [List.foldl_cons]
+    refine foldl_remintOne_id env pbsA L _ fun qp' hqp' => ?_
+    rw [remintOne_name]
+    obtain ⟨j', hj'⟩ := List.getElem?_of_mem hqp'
+    exact hothers (j' + 1) qp' (by simpa using hj') (Nat.succ_ne_zero j')
+  | e :: L, j + 1, qp, t, h, hothers => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [List.foldl_cons]
+    rw [remintOne_of_ne (fun heq => hothers 0 e rfl (Nat.succ_ne_zero j).symm heq.symm)]
+    exact foldl_remintOne_single env pbsA L j qp t h
+      (fun j' qp' hj' hne => hothers (j' + 1) qp' (by simpa using hj') (fun hh => hne (Nat.succ.inj hh)))
+
 /-! ### The bvar-form round trip (DESIGN §M.25 piece 5)
 
 `nestedRemint` closes the instantiated container type over the first

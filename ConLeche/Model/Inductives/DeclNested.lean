@@ -101,11 +101,10 @@ theorem nestedTypes0_length (p : NestedParts) :
 
 /-! ## The auxiliary block's model -/
 
-/-- **The auxiliary block's model**: the scratch environment of a
-nested run carries the P invariant.  `declMutualCore` at the auxiliary
-block, its recursor-name facts read off the run (see the module
-docstring). -/
-theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : Env}
+/-- **The three recursor-name facts of the scratch block**, read off the
+run (see the module docstring): fresh before the block, unreserved, not
+projection-shaped. -/
+theorem nestedRecNameFacts (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : Env}
     {p : NestedParts} {st₀ st : ElimState} {b : MutualBlock} {stored : List AuxStored}
     {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms : List ConstantVal}
     {pinsA : List (ConLeche.NestedPin × Expr)}
@@ -128,7 +127,10 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         (ConLeche.restoreTbl p st) p.lps
         ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
         (stored.take p.k) = .ok cvRms) :
-    ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
+    ∀ t, t < b.k →
+      env.find? (b.recName t) = none ∧
+      ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
+      (b.recName t).isProjFnShape = false := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   -- the block's shape
   have hk : b.k = st.types.length := ConLeche.auxBlock_k hb
@@ -158,54 +160,80 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
     rw [hf] at hl
     obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj hl)
     exact hff.nres
-  -- the three recursor-name facts, member by member
-  have hfacts : ∀ t, t < b.k →
-      env.find? (b.recName t) = none ∧
-      ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
-      (b.recName t).isProjFnShape = false := by
-    intro t ht
-    obtain ⟨ty, hty⟩ : ∃ ty, st.types[t]? = some ty :=
-      ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    have hrecName : b.recName t = ty.name.str "rec" := ConLeche.auxBlock_recName hb hty
-    rw [hrecName]
-    rcases Nat.lt_or_ge t p.k with htk | htk
-    · -- a REAL member: its restored recursor went through `checkConstantVal`
-      have hname : ty.name = (p.formers.getD t default).1.name := by
-        have h1 := ConLeche.elimNested_name_lt helim (t := t) (by rw [nestedTypes0_length]; exact htk)
-        rw [← ConLeche.nestedRemint_name hremint, hty, nestedTypes0_getElem?] at h1
-        obtain ⟨q, hq⟩ : ∃ q, p.formers[t]? = some q :=
-          ⟨_, List.getElem?_eq_getElem (by simpa [NestedParts.k] using htk)⟩
-        rw [hq] at h1
-        simp only [Option.map_some, Option.some.injEq] at h1
-        rw [h1, List.getD_eq_getElem?_getD, hq]
-        rfl
-      obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRecTys_inv hrm
-      obtain ⟨a, ha⟩ : ∃ a, (stored.take p.k)[t]? = some a :=
-        ⟨_, List.getElem?_eq_getElem (by rw [List.length_take_of_le (by omega)]; exact htk)⟩
-      obtain ⟨tyR, cvA, -, hccv, -⟩ := hallR t a ha
-      obtain ⟨hfind, hres, hsh, -⟩ := ConLeche.checkConstantVal_inv hccv
-      have hnm : (((List.range p.k).map fun mIdx =>
-          ((p.formers.getD mIdx default).1.name.str "rec")).drop t).headD a.cvRa.name
-            = ty.name.str "rec" := by
-        rw [List.headD_eq_head?_getD, List.head?_drop, List.getElem?_map,
-          List.getElem?_range htk, hname]
-        rfl
-      simp only [hnm] at hfind hres hsh
-      exact ⟨ConLeche.consNestedFormers_find?_none (ConLeche.consNestedCtors_find?_none hfind),
-        hres, hsh⟩
-    · -- a COPY: free by `copiesFresh`, unreserved through its former
-      have hmem : ty ∈ st.types.drop p.k := by
-        refine List.mem_of_getElem? (i := t - p.k) ?_
-        rw [List.getElem?_drop, Nat.add_sub_cancel' htk]
-        exact hty
-      obtain ⟨-, hfreeRec, -⟩ := ConLeche.copiesFresh_inv hfresh ty hmem
-      refine ⟨hfreeRec, ?_, ConLeche.isProjFnShape_str_rec _⟩
-      cases hc : ConLeche.reservedBasisNames.contains (ty.name.str "rec") with
-      | false => rfl
-      | true =>
-        have := ConLeche.reserved_of_str_rec hc
-        rw [hformerName t ht ty hty] at this
-        exact nomatch this
+  intro t ht
+  obtain ⟨ty, hty⟩ : ∃ ty, st.types[t]? = some ty :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  have hrecName : b.recName t = ty.name.str "rec" := ConLeche.auxBlock_recName hb hty
+  rw [hrecName]
+  rcases Nat.lt_or_ge t p.k with htk | htk
+  · -- a REAL member: its restored recursor went through `checkConstantVal`
+    have hname : ty.name = (p.formers.getD t default).1.name := by
+      have h1 := ConLeche.elimNested_name_lt helim (t := t) (by rw [nestedTypes0_length]; exact htk)
+      rw [← ConLeche.nestedRemint_name hremint, hty, nestedTypes0_getElem?] at h1
+      obtain ⟨q, hq⟩ : ∃ q, p.formers[t]? = some q :=
+        ⟨_, List.getElem?_eq_getElem (by simpa [NestedParts.k] using htk)⟩
+      rw [hq] at h1
+      simp only [Option.map_some, Option.some.injEq] at h1
+      rw [h1, List.getD_eq_getElem?_getD, hq]
+      rfl
+    obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRecTys_inv hrm
+    obtain ⟨a, ha⟩ : ∃ a, (stored.take p.k)[t]? = some a :=
+      ⟨_, List.getElem?_eq_getElem (by rw [List.length_take_of_le (by omega)]; exact htk)⟩
+    obtain ⟨tyR, cvA, -, hccv, -⟩ := hallR t a ha
+    obtain ⟨hfind, hres, hsh, -⟩ := ConLeche.checkConstantVal_inv hccv
+    have hnm : (((List.range p.k).map fun mIdx =>
+        ((p.formers.getD mIdx default).1.name.str "rec")).drop t).headD a.cvRa.name
+          = ty.name.str "rec" := by
+      rw [List.headD_eq_head?_getD, List.head?_drop, List.getElem?_map,
+        List.getElem?_range htk, hname]
+      rfl
+    simp only [hnm] at hfind hres hsh
+    exact ⟨ConLeche.consNestedFormers_find?_none (ConLeche.consNestedCtors_find?_none hfind),
+      hres, hsh⟩
+  · -- a COPY: free by `copiesFresh`, unreserved through its former
+    have hmem : ty ∈ st.types.drop p.k := by
+      refine List.mem_of_getElem? (i := t - p.k) ?_
+      rw [List.getElem?_drop, Nat.add_sub_cancel' htk]
+      exact hty
+    obtain ⟨-, hfreeRec, -⟩ := ConLeche.copiesFresh_inv hfresh ty hmem
+    refine ⟨hfreeRec, ?_, ConLeche.isProjFnShape_str_rec _⟩
+    cases hc : ConLeche.reservedBasisNames.contains (ty.name.str "rec") with
+    | false => rfl
+    | true =>
+      have := ConLeche.reserved_of_str_rec hc
+      rw [hformerName t ht ty hty] at this
+      exact nomatch this
+
+/-- **The auxiliary block's model**: the scratch environment of a
+nested run carries the P invariant.  `declMutualCore` at the auxiliary
+block, its recursor-name facts read off the run (see the module
+docstring). -/
+theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : Env}
+    {p : NestedParts} {st₀ st : ElimState} {b : MutualBlock} {stored : List AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms : List ConstantVal}
+    {pinsA : List (ConLeche.NestedPin × Expr)}
+    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (helim : ConLeche.elimNested env p.nP p.lps
+      (p.formers.zipIdx.map fun ((cv, _), mIdx) =>
+        (⟨cv.name, cv.type,
+          (p.ctors.filter (fun (c : MutualCtor) => c.member == mIdx)).map
+            fun (c : MutualCtor) => (c.cv.name, c.cv.type, c.nF)⟩ : AuxType)) = .ok st₀)
+    (hremint : ConLeche.nestedRemint (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p st₀
+      = .ok (st, pinsA))
+    (hfresh : ConLeche.copiesFresh env p.k st = true)
+    (hb : ConLeche.auxBlock p st = some b)
+    (hcore : ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
+      true = .ok envAux)
+    (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
+    (hrm : ConLeche.restoreRecTys (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consNestedFormers (stored.take p.k) env))
+        (ConLeche.restoreTbl p st) p.lps
+        ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
+        (stored.take p.k) = .ok cvRms) :
+    ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d := by
+  have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
+  have hfacts := nestedRecNameFacts hμ mp hE helim hremint hfresh hb hcore hstored hrm
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
   obtain ⟨mpAux, d, hreps⟩ := declMutualCore (p := auxParts b) hμ mp hE (by rw [hq]; exact hrun)
