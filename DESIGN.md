@@ -75141,6 +75141,17 @@ clause `members ∉ env₀` vs a kernel re-ask); (5) the record's weakening
 to interpretation level + `normCtorValM_reads_as` (finding 2 —
 MAINTAINER: now or after M-C′); then ψ⁻¹'s `hCAP`, M-C′.
 
+**Addendum (same session): W1 landed** — `Verify/Inductives/NestedWalk.lean`
+(base umbrella): `ElimState.PinsNamed` (every pin's copy name is a type
+name of the state; kept across `ElimGrows`, which is now exposed; the
+initial state trivially), `replaceIfNested_mentions` (a fire's output
+mentions the copy it names), and **`replaceAllNested_eq_of_unmentioned`**:
+an output of the walk mentioning none of the FINAL state's names is its
+input (structural induction on the input; the atom cases go through
+`unfold`, since `rw [replaceAllNested]` on a wildcard arm emits the
+match's non-overlap side goals).  This is the record's `ord` clause's
+syntactic half.  W2 (the fire inversion at a field) not started.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
