@@ -77054,28 +77054,43 @@ lines, on the root umbrella):
   `openPisAtFvars_of_stripPis'`, `openers_take_eq`; `List.lookup_map_snd`,
   `List.mem_of_lookup_some`.
 
-**What D1 still needs** (next session, all mechanical on this kit):
-(a) the EVALUATION lemmas of `restoreI` on the shapes the datum holds —
-`restoreI_fire` (a copy application `auxJ params idx` with `|params| =
-nP` restores to `pin idx`, the table's pin at the parameters:
-`restoreI_of_node` + `restoreHeadI_spine`), `restoreI_forallE'`
-(unconditional descent through a `∀`) and `restoreI_stripPis` (through
-a telescope); (b) the FIELD-SHAPE lemma: a copy field
-`Π afvs, auxJ params idx` opened at the datum's variables
-(`FixOpened.recF`/`reflF`, the telescope domains and index arguments
-resolving before the block, hence blind-mention-free) restores to
-`Π afvs, J lvls Ds idx'` with `idx'` pointwise `ErasedEq` to `idx` — via
-`Verify.openPisAtFvars_stripPis` on the field (the raw body is the
-constant-headed spine, `getAppFn_instSeq_const_iff`), `restoreI_eq_self`
-on the domains, `restoreI_fire` on the body, and the re-opening
-(`openers_take_eq`); an ordinary field or a field into a block member
-is its own restoration (`restoreI_eq_self`: no table name mentioned,
-the block's own formers are not table names); (c) the Model reading:
-`denoteMeta` of `Π afvs, J lvls Ds idx'` at a model of `env₁` whose
-`acval` is `mpAux`'s on the containers = `restoreAV`'s copy-recursive
-arm (`mkPisAV tss (mkAppN ⟦J⟧ (DsA lifted ++ eiss))`) — `denoteMeta_openPis'`
-with the pin's readings weakened by the field's depth
-(`DenoteMetaSpine.weaken_by`) and the index readings `eissF`.
+* **the evaluation on the datum's shapes** (second commit of the
+  session): **`restoreI_fire`** — a copy application `auxJ params idx`
+  with `|params| = nP` restores to the table's pin at `idx`
+  (`restoreI_of_node` + `restoreHeadI_spine`, the recursor map out of
+  the way by hypothesis); **`restoreI_forallE'`** (descent through a
+  `∀`, unconditionally: a pruned node's children are their own
+  restorations) and **`restoreI_stripPis`** (through a telescope, the
+  binder data kept); **`restoreI_copyField`**, THE FIELD-SHAPE LEMMA: a
+  field that opens at `n` variables (`openPisAtFvars n x dpt`) to
+  `auxJ params idx` — `FixOpened.recF` (`n = 0`) / `reflF` — whose
+  telescope domains mention no table name, restores to a field that
+  opens at the SAME variables (`afvs`, exactly) to a residual `ErasedEq`
+  to `pin idx` (the raw residual is the constant-headed spine by
+  `ErasedEq.getApp` + `getAppFn_instSeq_const_iff`; the raw domains are
+  blind-mention-free through `openPisAtFvars_binder` +
+  `mentionsConstE_instSeq_fvars`, so `restoreI_eq_self` keeps them;
+  `restoreI_fire` fires the body; the re-opening's openers agree
+  position by position; the residual's index arguments are the
+  original's by `ErasedEq.getApp`'s pointwise clause).  An ordinary
+  field, or a field into a block member, is its own restoration by
+  `restoreI_eq_self` (no table name mentioned — the block's own formers
+  are not table names).
+
+**What D1 still needs** (next session): (c) the Model reading —
+`denoteMeta` of the restored field (`Π afvs, o` with `o ≈ pin idx`,
+`pin = J lvls Ds` at the block's parameter variables) at a model of
+`env₁` whose `acval` is `mpAux`'s on the containers, equated with
+`restoreAV`'s copy-recursive arm (`mkPisAV tss (mkAppN ⟦J⟧ (DsA lifted
+++ eiss))`): `denoteMeta_openPis'` over `afvs` (the datum's `reflOpen`
+readings for the telescope), `denoteMeta_erasedEq` across `o ≈ pin idx`,
+`denoteMeta_mkAppN` with the pin's readings weakened by the field's
+depth (`DenoteMetaSpine.weaken_by`; the pin's `Ds` read at depth `nP`
+as `DsA`, `pinRead_of`) and the index readings `eissF`; plus the
+recursor/rule shapes (D4) through `restoreI_stripPis`/`restoreI_fire`
+and a `restoreI_lam'`/`restoreI_mkAppN_const` pair (a non-table
+constant's spine restores argument-wise) — not yet written.  The whnf
+arm's `WhnfField` restatement (below) is part of the same reading.
 
 **Where the table's `WF` comes from** (for the wiring, not yet
 written): `restoreTbl p st` has `pins := st.pins.map (aux, abstractRange
@@ -77116,7 +77131,7 @@ restored constructor's `i`-th opener, exactly what
 `hwhnf`).
 
 **Gates**: `lake build` warning-free, `lake test` clean (both run for
-this step's commit).  NOT run (landing items): shake/pub-import
+each of the step's two commits).  NOT run (landing items): shake/pub-import
 (`NestedRestore` on the root umbrella, its `TeleOpen` import plain),
 arena, init-full, Mathlib, `overview-links.sh`, `no-local-paths.sh`.
 No `sorry`, no axiom, no kernel change.

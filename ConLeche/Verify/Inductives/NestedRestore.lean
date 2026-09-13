@@ -2140,4 +2140,215 @@ theorem restoreNested_openPis {R : RestoreTbl} (hR : R.WF) {ty tyR : Expr}
     show 0 + k = 0 + k
     rfl
 
+/-! ## `restoreI` on the shapes the datum holds -/
+
+/-- **The fire**: a copy application at the block's parameters restores
+to the table's pin at the remaining arguments. -/
+theorem restoreI_fire {R : RestoreTbl} (hR : R.Named) {aux : Name} {us : List Level}
+    {params idx : List Expr} {pin : Expr} (hpin : R.pins.lookup aux = some pin)
+    (hlen : params.length = R.nP) (hrec : params ++ idx = [] → R.recMap.lookup aux = none) :
+    restoreI R (Expr.mkAppN (.const aux us) (params ++ idx)) = Expr.mkAppN pin idx := by
+  have hn : aux ∈ R.auxNames := hR.pinsNamed (aux, pin) (List.mem_of_lookup_some hpin)
+  have hm := Expr.mentionsConst_mkAppN_const aux us (params ++ idx)
+  refine restoreI_of_node hn hm ?_
+  have hrec' : ∀ (m : Name) (ms : List Level),
+      Expr.mkAppN (.const aux us) (params ++ idx) = .const m ms → R.recMap.lookup m = none := by
+    intro m ms hc
+    have hnil : params ++ idx = [] := by
+      cases hpi : params ++ idx with
+      | nil => rfl
+      | cons a as =>
+        exfalso
+        rw [hpi] at hc
+        rcases Expr.mkAppN_const_shape (n := aux) (ls := us) (a :: as) with h1 | ⟨f, b, h1⟩
+        · have := congrArg Expr.getAppArgs h1
+          rw [Expr.getAppArgs_mkAppN] at this
+          exact nomatch this
+        · rw [h1] at hc; exact nomatch hc
+    rw [hnil] at hc
+    simp only [Expr.mkAppN, Expr.const.injEq] at hc
+    rw [← hc.1]
+    exact hrec hnil
+  rw [restoreNodeI_eq_head hrec', restoreHeadI_spine, hpin]
+  simp only [List.length_append, show ¬ params.length + idx.length < R.nP by omega, ite_false,
+    List.drop_left' hlen]
+
+/-- Descent through a `∀`, unconditionally: a pruned node's children are
+their own restorations. -/
+theorem restoreI_forallE' {R : RestoreTbl} (hR : R.Named) (ty b : Expr) (bm : BinderMeta) :
+    restoreI R (.forallE ty b bm) = .forallE (restoreI R ty) (restoreI R b) bm := by
+  by_cases hp : ∀ n ∈ R.auxNames, (Expr.forallE ty b bm).mentionsConst n = false
+  · rw [restoreI_forallE, restoreStepI_prune hp]
+    have hty : ∀ n ∈ R.auxNames, ty.mentionsConstE n = false := by
+      intro n hn
+      have := hp n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at this
+      cases hE : ty.mentionsConstE n with
+      | false => rfl
+      | true => rw [Expr.mentionsConst_of_mentionsConstE ty hE] at this; exact nomatch this.1
+    have hb : ∀ n ∈ R.auxNames, b.mentionsConstE n = false := by
+      intro n hn
+      have := hp n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at this
+      cases hE : b.mentionsConstE n with
+      | false => rfl
+      | true => rw [Expr.mentionsConst_of_mentionsConstE b hE] at this; exact nomatch this.2
+    rw [restoreI_eq_self hR ty hty, restoreI_eq_self hR b hb]
+  · have hsome : ∃ n ∈ R.auxNames, (Expr.forallE ty b bm).mentionsConst n = true := by
+      refine Classical.byContradiction fun hne => hp fun n hn => ?_
+      cases hm : (Expr.forallE ty b bm).mentionsConst n with
+      | false => rfl
+      | true => exact absurd ⟨n, hn, hm⟩ hne
+    obtain ⟨n, hn, hm⟩ := hsome
+    exact restoreI_of_decline_forallE hn hm (by
+      rw [restoreNodeI_eq_head (fun _ _ h => by simp at h)]
+      exact restoreHeadI_nonconst (fun _ _ h => by simp [Expr.getAppFn] at h))
+
+/-- Descent through a telescope. -/
+theorem restoreI_stripPis {R : RestoreTbl} (hR : R.Named) :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {r : Expr},
+      e.stripPis n = some (bs, r) →
+      (restoreI R e).stripPis n = some (bs.map fun b => (restoreI R b.1, b.2), restoreI R r)
+  | 0, e, bs, r, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | n + 1, e, bs, r, h => by
+    match e, h with
+    | .forallE ty b bm, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₁, r₁⟩, h₁, hbs⟩ := h
+      simp only [Prod.mk.injEq] at hbs
+      obtain ⟨rfl, rfl⟩ := hbs
+      rw [restoreI_forallE' hR]
+      simp only [Expr.stripPis, restoreI_stripPis hR n h₁, Option.map_some, List.map_cons]
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [Expr.stripPis] at h
+
+/-- **A copy field, restored** (the datum's `FixOpened.recF`/`reflF`
+shape): a field that opens at `n` variables to the copy at the block's
+parameters and index arguments, whose telescope domains mention no
+table name, restores to a field that opens at the SAME variables to
+the pin at index arguments erasure-equal to the original's. -/
+theorem restoreI_copyField {R : RestoreTbl} (hR : R.Named) {x : Expr} {n dpt : Nat}
+    {afvs params idx : List Expr} {aux : Name} {us : List Level} {pin : Expr}
+    (hop : openPisAtFvars n x dpt = some (afvs, Expr.mkAppN (.const aux us) (params ++ idx)))
+    (hdoms : ∀ a ∈ afvs, ∀ m ∈ R.auxNames, a.fvarTypeD.mentionsConst m = false)
+    (hpin : R.pins.lookup aux = some pin) (hpinC : pin.looseBVarsBounded 0 = true)
+    (hlen : params.length = R.nP) (hrec : R.recMap.lookup aux = none) :
+    ∃ o, openPisAtFvars n (restoreI R x) dpt = some (afvs, o) ∧
+      Expr.ErasedEq o (Expr.mkAppN pin idx) := by
+  obtain ⟨bs, r, hs, hlenA, hshape, hres⟩ := Verify.openPisAtFvars_stripPis n hop
+  have hFo : Expr.AllFvars (Verify.openFvars dpt n) := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    have hjn : j < n := by rw [← Verify.openFvars_length dpt n]; exact (List.getElem?_eq_some_iff.mp hj).1
+    rw [Verify.openFvars_getElem? hjn] at hj
+    exact ⟨_, _, (Option.some.inj hj).symm⟩
+  have hFa : Expr.AllFvars afvs := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨t, ht⟩ := hshape j (by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hj).1)
+    rw [hj] at ht
+    exact ⟨_, _, Option.some.inj ht⟩
+  have hlenO : (Verify.openFvars dpt n).length ≤ n - 1 + 1 := by
+    rw [Verify.openFvars_length]; omega
+  -- the raw residual is the spine
+  obtain ⟨hfn, hlenArgs, hargs⟩ := hres.getApp
+  have hfnI : (Expr.instSeq (Verify.openFvars dpt n) (n - 1) r).getAppFn = .const aux us := by
+    rw [Expr.getAppFn_mkAppN] at hfn
+    exact (hfn.const_left).symm ▸ rfl
+  have hfnR : r.getAppFn = .const aux us := (getAppFn_instSeq_const_iff hFo hlenO).mp hfnI
+  have hr : r = Expr.mkAppN (.const aux us) r.getAppArgs := by
+    rw [← hfnR]; exact (Expr.mkAppN_getApp r).symm
+  have hrI : Expr.instSeq (Verify.openFvars dpt n) (n - 1) r
+      = Expr.mkAppN (.const aux us) (r.getAppArgs.map (Expr.instSeq (Verify.openFvars dpt n) (n - 1))) := by
+    have h0 : Expr.instSeq (Verify.openFvars dpt n) (n - 1) (Expr.mkAppN (.const aux us) r.getAppArgs)
+        = Expr.mkAppN (.const aux us) (r.getAppArgs.map (Expr.instSeq (Verify.openFvars dpt n) (n - 1))) := by
+      rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ rfl]
+    rw [← hr] at h0
+    exact h0
+  have hlenR : r.getAppArgs.length = params.length + idx.length := by
+    rw [Expr.getAppArgs_mkAppN] at hlenArgs
+    rw [hrI, Expr.getAppArgs_mkAppN] at hlenArgs
+    simpa [Expr.getAppArgs] using hlenArgs.symm
+  -- the domains are their own restorations
+  have hbs : bs.map (fun b => (restoreI R b.1, b.2)) = bs := by
+    apply List.ext_getElem?
+    intro j
+    rw [List.getElem?_map]
+    cases hb : bs[j]? with
+    | none => rfl
+    | some b =>
+      simp only [Option.map_some, Option.some.injEq]
+      have hx := openPisAtFvars_binder n hop hs j b hb
+      have hE : ∀ m ∈ R.auxNames, b.1.mentionsConstE m = false := by
+        intro m hm
+        have h1 := hdoms _ (List.mem_of_getElem? hx) m hm
+        simp only [Expr.fvarTypeD] at h1
+        cases hE : b.1.mentionsConstE m with
+        | false => rfl
+        | true =>
+          exfalso
+          have := Expr.mentionsConst_of_mentionsConstE _ (by
+            rw [← Expr.mentionsConstE_instSeq_fvars (afvs.take j) (fun a ha => hFa a (List.mem_of_mem_take ha)) (j - 1)] at hE
+            exact hE)
+          rw [this] at h1
+          exact nomatch h1
+      rw [restoreI_eq_self hR _ hE]
+  -- the restored field, stripped and opened
+  have hsR := restoreI_stripPis hR n hs
+  rw [hbs] at hsR
+  have hrest : restoreI R r = Expr.mkAppN pin (r.getAppArgs.drop R.nP) := by
+    have h0 := restoreI_fire hR (params := r.getAppArgs.take R.nP) (idx := r.getAppArgs.drop R.nP)
+      (us := us) hpin (by rw [List.length_take]; omega) (fun _ => hrec)
+    rw [List.take_append_drop, ← hr] at h0
+    exact h0
+  rw [hrest] at hsR
+  obtain ⟨afvs', o, hopR⟩ := openPisAtFvars_of_stripPis' n dpt hsR
+  obtain ⟨bsR, rR, hsR', hlenA', hshape', hres'⟩ := Verify.openPisAtFvars_stripPis n hopR
+  rw [hsR] at hsR'
+  simp only [Option.some.injEq, Prod.mk.injEq] at hsR'
+  obtain ⟨rfl, rfl⟩ := hsR'
+  -- the openers agree
+  have hafvs : afvs' = afvs := by
+    have h1 : afvs'.take n = afvs.take n := by
+      -- the same binders at every position: `openers_take_eq` at depth `dpt`
+      have hgen : ∀ i, i ≤ n → afvs'.take i = afvs.take i := by
+        intro i
+        induction i with
+        | zero => intro _; rfl
+        | succ i ih =>
+          intro hi
+          have hprev := ih (by omega)
+          have hbsLen : bs.length = n := stripPis_length' n hs
+          obtain ⟨b, hb⟩ : ∃ b, bs[i]? = some b := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+          have hx := openPisAtFvars_binder n hop hs i b hb
+          have hxR := openPisAtFvars_binder n hopR hsR i b hb
+          rw [List.take_add_one, List.take_add_one, hx, hxR, hprev]
+      exact hgen n (Nat.le_refl n)
+    rwa [List.take_of_length_le (by omega), List.take_of_length_le (by omega)] at h1
+  subst hafvs
+  refine ⟨o, hopR, ?_⟩
+  -- the residual: `o ≈ instSeq openFvars (pin (args.drop nP))`, and those arguments erase to `idx`
+  refine hres'.trans ?_
+  rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ hpinC]
+  refine Expr.ErasedEq.mkAppN _ _ (Expr.ErasedEq.rfl _) (by rw [List.length_map, List.length_drop, hlenR]; omega)
+    (fun k a₁ a₂ h₁ h₂ => ?_)
+  rw [List.getElem?_map, List.getElem?_drop] at h₁
+  -- `a₁` is the `nP + k`-th argument's instantiation, `a₂` is `idx[k]`
+  cases hq : r.getAppArgs[R.nP + k]? with
+  | none => rw [hq] at h₁; exact nomatch h₁
+  | some q =>
+    rw [hq] at h₁
+    simp only [Option.map_some, Option.some.injEq] at h₁
+    subst h₁
+    have hk : (params ++ idx)[R.nP + k]? = some a₂ := by
+      rw [List.getElem?_append_right (by omega), hlen, Nat.add_sub_cancel_left]; exact h₂
+    have := hargs (R.nP + k) a₂ (Expr.instSeq (Verify.openFvars dpt n) (n - 1) q)
+      (by rw [Expr.getAppArgs_mkAppN]; simpa [Expr.getAppArgs] using hk)
+      (by rw [hrI, Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs, List.getElem?_map, hq])
+    exact this.symm
+
 end ConLeche
