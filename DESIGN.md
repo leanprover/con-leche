@@ -76811,6 +76811,30 @@ re-annotation of a self-built term is a theorem the model must then
 prove about the annotator (K.4's frontier at a reader-declined binder
 is exactly where such a theorem stops).
 
+**Addendum (same session): premise (3) CLOSED** — `gradeC_of_okTy`
+(`CopyCtorWalk.lean`): the container's instantiated field is graded at
+the record's frames from `CtorDataI.okTy` at the pin frame, the pin's
+fit against the member's former (`pinFit_of_leafShape`) moved to the
+constructor's own parameter binders by `paramsIffM`/`paramsIff`
+(`spineFit_of_satIff`: a fit transfers along a `Sat`-implication of
+the telescopes), `SpineFit.append`/`List.take_add` for the whole
+prefix, `wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom`, then
+`wellDenotedV_instSeq_under`.  The plumbing (4)'s sources, for the
+next session: `hordRes` is `MutualOpened.ord` (`MutualData.lean`'s
+`mutualOpened_of` on `CtorsChecked`'s `mutualFieldsOk` through
+`mutualFieldsOk_inv`, at the pre-block env, with `kindsOf_getD`);
+`hfresh` is `copiesFresh_inv` (`NestedFacts.lean`) with
+`memberName_eq_type`; `hnodupP` is the `Nodup` conjunct of
+`nestedContainersOk` (K.15); `hpin`'s level-length needs `lvls.length
+= cvTJ.levelParams.length`, which `copyIdxRead_of_run` exposes and
+`pinFacts_of_run` drops — re-expose it in `PinRunFactsAt`; `hag` needs
+`ContainersRep`'s elimination-freshness clause at the pin
+(`pinAssign_agree`); everything else is in `PinRunFacts`/
+`MutualBlockReps`/`CopyCtorsStored` as `copyCtorFacts_of_read` reads
+them.  Session 26 (Opus-suitable): (4), then the two Verify lemmas of
+(1) (`instPis_stripPis`, the forward fire) and `CopyCtorWalkFacts`
+from `CopyCtorsStored`.
+
 **Gates**: `lake build` 635 jobs warning-free, `lake test` clean;
 shake/pub-import (`CopyCtorWalk` on the umbrella — a landing item),
 arena, init-full, Mathlib, overview-links, no-local-paths NOT run
