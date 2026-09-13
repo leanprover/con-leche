@@ -73714,6 +73714,197 @@ the index rewritten by `omega` on a `have` before `simp` closes it;
 `nestedOccOk`'s guard after `split` is `¬ (a && b) = true` with the
 lets already inlined.
 
+#### M.24 M-B′ step 3h: the copies' order consumed, the formers read at K.9's construction, and ψ typed and firing under its setup (2026-09-13, session 12)
+
+**What the session set out to do** (brief): merge `inductives` (K.6/K.7,
+#301/K.8, K.9), then (1) the bridge from the kernel's order to
+`TopoOrder (CopyRef …)`, (2) ψ — the body builder with its three entry
+kinds, the step lemma (`PsiSetup` mirroring `InvSetup`, the bridge
+`R_ψ ⊆ CopyRef`, "a `J`-ordinary field's domain reads as the target's
+pin at the index readings") and the fold over the kernel's `order`,
+(3) if time allowed, R1/R2 and coherence.  (1) landed; (2) landed as
+far as the step's TYPING and ι under a setup whose hypotheses are in
+the datum vocabulary, with the fold over `order` generic in the step;
+the assembly of the setup from the run (the bridge's syntactic half,
+which needs `CopyCtorRead`, which waits for K.10) is next; (3) was
+not reached.
+
+**The merge, and what K.9 changed for this lane** (commit
+`c3727d10`).  Three adaptations.  (a) #301: `CopyStable.lean` drops its
+copies of `readAt`/`SortAgreeW`/`ProofAgreeW` for `CopyTypes.lean`'s,
+every reader mention carries the annotation grade, and the reader
+lemmas that were case splits on the head (`typeSortPW_paramsDefined`,
+`typeSortPW_mapFvars`, the level-instantiation lemmas) become
+inductions over `typePWAt` — the λ case is the induction one binder
+down, as K.8's own proofs.  (b) K.6: `NestedFacts`/`NestedLedger`
+follow `mkCopies`' `base size`, the five-field `NestedPin`, and
+`elimCtors`/`elimLoop`'s `pbs₀`; `MintStep`/`PinOriginAt`/`ElimLedger`
+are now parameterised by the FIRST FORMER's binders, and
+`elimNested_copy` records `t₀.type.stripPis nP = some (pbs, _)` — premise
+B (`AuxOpensAt`, §M.23) is in the ledger by construction.  (c) K.9:
+`nestedRemint_inv` (the re-mint keeps the pins, the counter, every
+entry's name and constructors, and the length; only the copies' types
+change), `nestedAuxModel`/`declNestedRun_auxModel` over the re-minted
+state, and `CopyReads.lean` REWRITTEN: `copyIdxRead_of_copy` is
+`pinRead_of` + `copyIdxRead_of_align` under ONE alignment fact, and
+§M.23's four premises collapse to TWO — `ContainersAt` (the containers'
+representation at the scratch environment, nothing else) and
+**`CopyTypesAsMinted`** (the brief's named hypothesis: copy `k + j`'s
+stored former, opened at the block's openers, is the container's
+stored former at the level instantiation instantiated at the pin's
+components AS THE PIN CHECK ANNOTATES THEM).  Behind it, in order: the
+re-mint's construction (`closeTelescope pbsA 0 (instPis (JtyA[lvls])
+argsA)`), the auxiliary install storing it unchanged (the equation K.10
+records), `openPisAtFvars_closeTelescope`, and the agreement of the
+check's annotation of a component at `envAux` with the re-mint's at the
+pre-block environment plus the formers (the reader branch is
+environment-monotone, K.5).  `AuxFormersAnnot`, `AuxOpensAt`,
+`PinCompsAgree` and `CopyStable.lean`'s route (`copyFormer_aligned`)
+are no longer consumed by the read; `CopyStable.lean` stays on disk
+(it compiles, it is K.4's telescope bookkeeping, and it is the only
+proof that the annotator's pass over `instPis raw` returns `instPis
+annotated` — the maintainer decides whether it lands or goes).
+
+**Step 1 — the order, consumed** (commit `7b4db230`,
+`Verify/Inductives/NestedOrder.lean`, importing K.6's
+`NestedOrderK.lean`): `Expr.subB_iff_Sub` (the eleven introduction
+lemmas one way, `subB_cases` the other), `copyRef_iff` (clause for
+clause, `Bool.and_eq_true`/`List.any_eq_true`/`List.all_eq_true`
+and `omega` at the group clause), `CopyRef.source_lt` (from the
+ledger's count), and **`topoOrder_of_run`**: `nestedTopoOrder
+(ElimState.grp st) k st = .ok order` gives `TopoOrder (CopyRef
+(ElimState.grp st) k st) st.pins.length order` — the four fields K.6
+read back, at the lane's `Prop`.  `TopoOrder.orderFold_all` (commit
+`bb9e5582`, this session's last) is the fold's invariant at every index
+below `n`.
+
+**Step 2 — ψ** (commits `d8a3d478` stage 2a/2b, `e31ebf87` 2c, `bb9e5582` 2d),
+`Model/Inductives/PsiBody.lean` and `PsiSetup.lean` (off-graph):
+
+* *the spine and the body* (`psiVarsAV`, `psiVals`, `psiBodyAV`,
+  `interp_psiVarsAV`): per field the transport (`viaEntryAV` at the
+  kit's ih frame, §M.22), the kit's hypothesis, or the field variable;
+  read at the leaf frame to `psiVals` — the transport's value the
+  λ-tower of `interp_viaEntryAV`;
+* *the bridge at a set of positions* (`ShadowRelP`, `replP`,
+  `agreeOff_shadowP`, `interp_congr_shadowRelP(_at)`): `InvFold`'s
+  recursive-slot bridge with the slots a predicate — the positions ψ
+  REPLACES (`replaced useIh via`: the hypotheses and the transports);
+* *the transported domains and the constructor's tower at them*
+  (`psiDomAV`/`psiDomsAV`, `CtorAtDoms`): at a transport the domain is
+  the product over the field's telescope of the transport's TARGET
+  `TgV i` at the field's index readings; `CtorAtDoms` is `CtorAtPins`
+  with the domains a parameter (`ctorAtDoms_of_ctorAtPins`);
+* **`psiBody_leaf`** — the kit's `hleaf` from `CtorAtDoms`: ψ's values
+  fit the transported domains, each read at the REPLACED prefix, the
+  same as at the fields' by `ShadowRelP` at the datum's and the
+  transports' `NoBVar` facts; the transport's value by
+  `lamTower_mem_piTele` from the ONE fact of the earlier copy's term
+  (`hvia`); the head at ψ's spine is graded and lands in the member's
+  target at the constructor's index readings;
+* **`PsiSetup`** — `InvSetup`'s twin over the CONTAINER's datum for the
+  copy's fold (the frame the block's parameter frame, `ps` the pins'
+  readings, the targets the copies' carriers through `invTgAV`, the
+  bodies `psiBodyAV`) plus the transports' facts: `via` per field,
+  `TgV`, `hvia`, `hviaWD`, `hbits`, `hnbP` (the `NoBVar` facts over the
+  replaced positions, in `psiBody_leaf`'s form), and `hCAD`
+  (`CtorAtDoms` at the transported domains) in place of `hCAP`;
+  **`hmin`**, **`prefixFit`**, **`fold_mem`** (ψ is typed: the
+  container's recursor at the choice's prefix, at index readings and a
+  major, lands in `L t` at `pinsT t` at the indices), **`fold_iota`**
+  (ι: at `C p⃗ f⃗` the fold is the head at ψ's VALUES — fields,
+  target-fold hypotheses, transports), `fold_mem_vals` (at value
+  spines), **`PsiTyped`** with `PsiSetup.typed` (the semantic "ψ is
+  typed" — the one fact a later copy's transport consumes) and
+  **`via_of_typed`** (a typed earlier term, lifted over the later copy's
+  container parameters, serves a transport at the target `invTgAV ψ'
+  ps' L' pinsT' t'`, given the field's fit against the earlier
+  container's motive binder).
+
+**What the fold over `order` is, now.**  `orderFold` over the kernel's
+`order` with the step "copy `j`'s term from the table" and the
+property `PsiTyped` at copy `j`; `TopoOrder.orderFold_all` gives
+`PsiTyped` at every copy once the STEP is proved: from `PsiTyped` at
+every `CopyRef`-referenced copy, `PsiTyped` at `j`.  The step is
+`PsiSetup.typed` at a setup assembled from the run, whose transport
+entries are the table's terms (lifted by the container's `nP`) at the
+`CopyRef`-referenced copies and whose `hvia` facts are `via_of_typed`
+at the referenced copies' `PsiTyped` — so the bridge `R_ψ ⊆ CopyRef`
+is exactly: every transport's target copy is `CopyRef`-referenced
+(syntactic: the copy's processed constructor mentions the target copy's
+name, outside the group, no group pin a subterm of the target's pin —
+the shape the replace walk leaves at a nested occurrence,
+`replaceIfNested_some`), and every transport's field fits the target
+container's motive binder (semantic: "a `J`-ordinary field's domain
+reads as the target's pin at the index readings" — the field's domain
+under its telescope IS `J' Ds' e⃗`, and its reading is the family at
+the pin's readings by `PinRead`).  Both halves consume the COPY's
+constructor shape — `CopyCtorRead`, the walk's output at the pins —
+which the brief holds for K.10.
+
+**What the setup still takes as hypotheses, and where each comes
+from** (the assembly, next): the container datum's clauses (from
+`ContainersAt`, as ψ⁻¹ takes them from `MutualBlockReps`); `hTg`
+(`targetOk_copy`'s twin with the roles swapped — the copy's carrier
+graded against the container's index telescope at the pins, from
+`CopyIdxRead` + the aux datum's `formersRead`); `hCAD` (the aux
+constructor at the block's parameters — `ctorAtPins_real` at the aux
+datum — with its field domains identified with the transported ones by
+`CopyCtorRead`); `hnbP` (the datum's `noBVar_entries` at the
+recursive slots, plus the transports' — from the AUX datum's
+`FixOpened.recF` at the aux-recursive fields carried across the walk,
+which preserves variable mentions off the replaced nodes); `hvia`
+(`via_of_typed`); `hviaWD` (a `viaEntry_wd` lemma: the entry's
+well-denotedness from the earlier term's and the field domain's —
+not yet stated); `hbits` (the transports' telescope bits are the
+elimination bit — the field's telescope is a Type-valued binder list
+whose bits `rebit` fixes).
+
+**Findings.**  (1) `psiBody_leaf` needs NO new bridge beyond
+`ShadowRelP`: on an accepted block a later field domain cannot mention
+a transport's variable (a mention as a parameter of an inductive
+application is `nestedOccOk`'s reject, as an index of a nested
+occurrence puts the block member in the copy's former, which the
+auxiliary install rejects, and at a non-inductive head it is a
+non-positive occurrence) — but the `NoBVar` facts that say so are
+taken as `hnbP` and must be DERIVED from the aux datum, not from the
+container's (the container's `FixOpened` speaks only of ITS recursive
+slots).  (2) The transport's target reads at the FOLD frame (like the
+kit's `Tg`, lifted by `nP + i + tl.length`), while the transport's term
+reads at the PARAMETER frame (like `viaEntryAV`'s `Ψ`); `via_of_typed`
+does the lift.  (3) `CopyStable.lean` (2 700 lines, session 11) is off
+the read's path after K.9; nothing imports it.  (4) The K.6 merge
+broke every ledger lemma silently (off-graph): `NestedFacts`,
+`NestedLedger`, `NestedOrder` and the Model chain are still built by
+hand each session — the landing puts them on the graph.
+
+**Gates** (per session; landing gates NOT run): `lake build` 595 jobs
+warning-free; `lake test` clean; the fifteen off-graph modules
+(`DeclNested`, `NestedFacts`, `NestedLedger`, `NestedOrder`,
+`ContainerRead`, `RecFold`, `FoldChoice`, `InvFold`, `CopyPins`,
+`PsiFold`, `PsiBody`, `PsiSetup`, `CopyStable`, `CopyReads`, and
+`CopyTypes`/`AuxFormers` on the graph since K.7) build warning-free;
+`tests/no-local-paths.sh` OK.  Lean gotchas this session: `obtain ⟨_,
+h, rfl⟩` re-introduces a hypothesis that mentioned the substituted
+variable UNDER ITS OLD NAME after the new binding — name the intro
+apart; `cases hv : e` on a `match e` in BOTH sides needs `dsimp only`
+before `split` (else `split` picks the literal match); `rw` closes a
+goal by reducible `rfl` only — two syntactically equal `match`es need
+`exact`; a `variable (d)` theorem called by dot notation from inside its
+own namespace takes `d` explicitly (`fold_mem_vals d S`); `← consList_append`
+yields RIGHT-nested appends (state `show` lengths right-nested);
+`Option.map_eq_some_iff` after `rebit_getElem?` for the rebit'd entry.
+
+**Next** (session 13): the ASSEMBLY of `PsiSetup` from the run for one
+copy — `hTg` from `CopyIdxRead` (the swapped `targetOk_copy`), the
+transports' spec from the ledger (`elimCtors_getElem?` +
+`replaceIfNested_some`: which fields are nested occurrences, at which
+pin, with which index arguments), `hvia` by `via_of_typed` at the
+table, `viaEntry_wd`; then the step lemma and `orderFold_all` give
+`PsiTyped` at every copy; `CopyCtorRead` when K.10 lands (for `hCAD`
+and the domains); then M-C′ (R1: ψ⁻¹ ∘ ψ = id by the container's
+induction at a `Prop` choice; R2 by the aux induction; coherence).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
