@@ -885,4 +885,529 @@ theorem annotateCore_of_annotRelS {env : Env} {R : Expr → Expr → Prop} {d₀
           Except.ok.inj (hpwEq.symm.trans (annotPwLam_of_reader hpw))
         rw [hround, hval]
 
+/-! ## Stability under level instantiation
+
+The container's stored type is stable; the mint instantiates its level
+parameters at the occurrence's levels.  Both readers commute with level
+instantiation through the datum's own substitution (`typeSortPW`: K.4's
+`typeSortPW_at_levels`; `proofPW`: below), so stability transports —
+the strong form does; the "written" escape of `AnnotStable` would not
+(a written datum is collapsed by `substPW`). -/
+
+theorem Expr.allLevelParamsDefined_getAppFn {ps : List Name} :
+    ∀ (e : Expr), e.allLevelParamsDefined ps = true → e.getAppFn.allLevelParamsDefined ps = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    exact ihf h.1
+  | _ => intro h; exact h
+
+/-- A reader's answer has its level parameters within the term's. -/
+theorem typeSortPW_paramsDefined (find? : Name → Option ConstantInfo)
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {ps : List Name} {T : Expr} {pw : PropWhen} (hT : T.allLevelParamsDefined ps = true)
+    (h : typeSortPW find? T = some pw) : pw.paramsDefined ps = true := by
+  have hhead : ∀ {hd : Expr} {k : Nat}, hd.allLevelParamsDefined ps = true →
+      headTypePW find? hd k = some pw → pw.paramsDefined ps = true := by
+    intro hd k hhd hk
+    rcases headTypePW_some_inv find? hk with
+      ⟨I, us, ci, u, rfl, hf, -, hlen, hpeel, rfl⟩ | ⟨idx, ty, u, rfl, hpeel, rfl⟩
+    · have hus : ∀ v ∈ us, v.allParamsDefined ps = true := by
+        simp only [Expr.allLevelParamsDefined, List.all_eq_true] at hhd
+        exact hhd
+      refine Level.substPW_paramsDefined hlen hus ?_
+      have := Expr.allLevelParamsDefined_peelNeverPis k hpeel (hdef I ci hf)
+      exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
+    · have := Expr.allLevelParamsDefined_peelNeverPis k hpeel hhd
+      exact Level.zeronessOf_paramsDefined (by simpa [Expr.allLevelParamsDefined] using this)
+  cases T with
+  | forallE ty b m =>
+    obtain rfl : pw = m.pw := (Option.some.inj h).symm
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT
+    exact hT.2
+  | sort u =>
+    obtain rfl : pw = .never := (Option.some.inj h).symm
+    simp
+  | const c us => exact hhead hT h
+  | fvar idx ty => exact hhead hT h
+  | app f a =>
+    have h' : headTypePW find? f.getAppFn (f.numArgs + 1) = some pw := h
+    exact hhead (Expr.allLevelParamsDefined_getAppFn f
+      (by simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hT; exact hT.1)) h'
+  | bvar i => exact nomatch h
+  | lit l => exact nomatch h
+  | lam _ _ _ => exact nomatch h
+  | letE _ _ _ => exact nomatch h
+  | proj _ _ _ => exact nomatch h
+
+/-- The proof reader at a head commutes with level instantiation. -/
+theorem headProofPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {ks : List Name} {vs : List Level} {hd : Expr} {pw : PropWhen}
+    (h : headProofPW find? hd = some pw) :
+    headProofPW find? (hd.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
+  cases hd with
+  | const c us =>
+    simp only [headProofPW] at h
+    cases hf : find? c with
+    | none => rw [hf] at h; exact nomatch h
+    | some ci =>
+      rw [hf] at h
+      dsimp only at h
+      split at h
+      · exact nomatch h
+      · next hnt =>
+        split at h
+        · next hlen =>
+          cases hts : typeSortPW find? ci.toConstantVal.type with
+          | none => rw [hts] at h; exact nomatch h
+          | some pw₀ =>
+            rw [hts] at h
+            obtain rfl : pw = Level.substPW ci.toConstantVal.levelParams us pw₀ :=
+              (Option.some.inj h).symm
+            show headProofPW find? (.const c (us.map (Level.subst ks vs))) = _
+            simp only [headProofPW, hf, hnt, Bool.false_eq_true, if_false, List.length_map, hlen,
+              if_true, hts, Option.map_some]
+            exact congrArg some (Level.substPW_comp hlen
+              (typeSortPW_paramsDefined find? hdef (hdef c ci hf) hts)).symm
+        · exact nomatch h
+  | fvar idx ty =>
+    show typeSortPW find? (ty.instantiateLevelParams ks vs) = _
+    exact typeSortPW_at_levels find? hdef h
+  | sort u =>
+    obtain rfl : pw = .never := (Option.some.inj h).symm
+    rw [Level.substPW_never]; rfl
+  | forallE _ _ _ =>
+    obtain rfl : pw = .never := (Option.some.inj h).symm
+    rw [Level.substPW_never]; rfl
+  | lit l =>
+    obtain rfl : pw = .never := (Option.some.inj h).symm
+    rw [Level.substPW_never]; rfl
+  | bvar i => exact nomatch h
+  | app _ _ => exact nomatch h
+  | lam _ _ _ => exact nomatch h
+  | letE _ _ _ => exact nomatch h
+  | proj _ _ _ => exact nomatch h
+
+/-- **The `λ`-reader commutes with level instantiation.** -/
+theorem proofPW_instantiateLevelParams (find? : Name → Option ConstantInfo)
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {ks : List Name} {vs : List Level} {e : Expr} {pw : PropWhen}
+    (h : proofPW find? e = some pw) :
+    proofPW find? (e.instantiateLevelParams ks vs) = some (Level.substPW ks vs pw) := by
+  cases e with
+  | lam ty b m =>
+    obtain rfl : pw = m.pw := (Option.some.inj h).symm
+    rfl
+  | app f a =>
+    have h' : headProofPW find? (Expr.app f a).getAppFn = some pw := h
+    show headProofPW find? ((Expr.app f a).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | bvar i =>
+    have h' : headProofPW find? (Expr.bvar i).getAppFn = some pw := h
+    show headProofPW find? ((Expr.bvar i).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | fvar idx ty =>
+    have h' : headProofPW find? (Expr.fvar idx ty).getAppFn = some pw := h
+    show headProofPW find? ((Expr.fvar idx ty).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | sort u =>
+    have h' : headProofPW find? (Expr.sort u).getAppFn = some pw := h
+    show headProofPW find? ((Expr.sort u).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | const c us =>
+    have h' : headProofPW find? (Expr.const c us).getAppFn = some pw := h
+    show headProofPW find? ((Expr.const c us).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | lit l =>
+    have h' : headProofPW find? (Expr.lit l).getAppFn = some pw := h
+    show headProofPW find? ((Expr.lit l).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | forallE ty b m =>
+    have h' : headProofPW find? (Expr.forallE ty b m).getAppFn = some pw := h
+    show headProofPW find? ((Expr.forallE ty b m).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | letE ty v b =>
+    have h' : headProofPW find? (Expr.letE ty v b).getAppFn = some pw := h
+    show headProofPW find? ((Expr.letE ty v b).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+  | proj s i e =>
+    have h' : headProofPW find? (Expr.proj s i e).getAppFn = some pw := h
+    show headProofPW find? ((Expr.proj s i e).instantiateLevelParams ks vs).getAppFn = _
+    rw [Expr.getAppFn_instantiateLevelParams']
+    exact headProofPW_instantiateLevelParams find? hdef h'
+
+/-- **Stability transports across level instantiation.** -/
+theorem ReaderStable.instantiateLevelParams {find? : Name → Option ConstantInfo}
+    (hdef : ∀ n ci, find? n = some ci →
+      ci.toConstantVal.type.allLevelParamsDefined ci.toConstantVal.levelParams = true)
+    {ks : List Name} {vs : List Level} :
+    ∀ {d : Nat} {e : Expr}, ReaderStable find? d e →
+      ReaderStable find? d (e.instantiateLevelParams ks vs) := by
+  intro d e h
+  induction h with
+  | bvar => exact .bvar
+  | fvar => exact .fvar
+  | sort => exact .sort
+  | const => exact .const
+  | lit => exact .lit
+  | app _ _ ihf iha => exact .app ihf iha
+  | @forallE d ty body m _ _ hpw iht ihb =>
+    refine .forallE iht ?_ ?_
+    · rw [← instantiateLevelParams_instantiate1]; exact ihb
+    · rw [← instantiateLevelParams_instantiate1]
+      exact typeSortPW_at_levels find? hdef hpw
+  | @lam d ty body m _ _ hpw iht ihb =>
+    refine .lam iht ?_ ?_
+    · rw [← instantiateLevelParams_instantiate1]; exact ihb
+    · rw [← instantiateLevelParams_instantiate1]
+      exact proofPW_instantiateLevelParams find? hdef hpw
+
+/-! ## The producer: the fused relation from the container's stability
+
+Two leaf maps with the same domain — raw and annotated values at the
+same indices, `R`-related where they differ and identical variables
+elsewhere — applied to a stable term give the fused relation between
+the two images, PROVIDED the annotated values read like the leaves they
+replace (`LeafOk`).  The induction is over the stability derivation of
+the unmapped term, carrying the maps; at a binder both sides open at the
+annotated domain, so the maps are extended at the fresh index by that
+opener on both sides (identical), which is where `WScoped` is spent:
+the body has no leaf at the fresh index. -/
+
+/-- Two maps agreeing on a term's leaves give the same image. -/
+theorem mapFvars_congr {σ σ' : Nat → Option Expr} :
+    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, σ l.1 = σ' l.1) → e.mapFvars σ = e.mapFvars σ' := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro h
+    have := h (idx, ty) (by simp [Expr.fvarLeaves])
+    simp only [Expr.mapFvars, this]
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp [Expr.mapFvars, ihf (fun l hl => h l (Or.inl hl)), iha (fun l hl => h l (Or.inr hl))]
+  | lam ty b m iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp [Expr.mapFvars, iht (fun l hl => h l (Or.inl hl)), ihb (fun l hl => h l (Or.inr hl))]
+  | forallE ty b m iht ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp [Expr.mapFvars, iht (fun l hl => h l (Or.inl hl)), ihb (fun l hl => h l (Or.inr hl))]
+  | letE ty v b iht ihv ihb =>
+    intro h
+    simp only [Expr.fvarLeaves, List.mem_append] at h
+    simp [Expr.mapFvars, iht (fun l hl => h l (Or.inl (Or.inl hl))),
+      ihv (fun l hl => h l (Or.inl (Or.inr hl))), ihb (fun l hl => h l (Or.inr hl))]
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.fvarLeaves] at h
+    simp [Expr.mapFvars, ih h]
+  | _ => intro _; rfl
+
+/-- The extension of a leaf map at one index. -/
+@[expose] def Expr.extendMap (σ : Nat → Option Expr) (j : Nat) (v : Expr) : Nat → Option Expr :=
+  fun i => if i = j then some v else σ i
+
+theorem Expr.extendMap_self (σ : Nat → Option Expr) (j : Nat) (v : Expr) :
+    Expr.extendMap σ j v j = some v := by simp [Expr.extendMap]
+
+theorem Expr.extendMap_ne (σ : Nat → Option Expr) {j i : Nat} (v : Expr) (h : i ≠ j) :
+    Expr.extendMap σ j v i = σ i := by simp [Expr.extendMap, h]
+
+/-- **The two sides of a leaf map** (raw/annotated): the same domain,
+`R`-related or identical-variable values, both bvar-closed. -/
+structure MapPair (R : Expr → Expr → Prop) (σr σa : Nat → Option Expr) : Prop where
+  dom : ∀ i, (σr i).isNone = (σa i).isNone
+  rel : ∀ i vr va, σr i = some vr → σa i = some va →
+    R vr va ∨ ∃ j t, vr = .fvar j t ∧ va = .fvar j t
+  closedR : ∀ i v, σr i = some v → v.looseBVarsBounded 0 = true
+  closedA : ∀ i v, σa i = some v → v.looseBVarsBounded 0 = true
+
+theorem MapPair.extend {R : Expr → Expr → Prop} {σr σa : Nat → Option Expr}
+    (h : MapPair R σr σa) (j : Nat) (vr va : Expr)
+    (hrel : R vr va ∨ ∃ j' t, vr = .fvar j' t ∧ va = .fvar j' t)
+    (hr : vr.looseBVarsBounded 0 = true) (ha : va.looseBVarsBounded 0 = true) :
+    MapPair R (Expr.extendMap σr j vr) (Expr.extendMap σa j va) where
+  dom i := by
+    by_cases hi : i = j
+    · subst hi; simp [Expr.extendMap]
+    · simp only [Expr.extendMap, hi, if_false]; exact h.dom i
+  rel i vr' va' hr' ha' := by
+    by_cases hi : i = j
+    · subst hi
+      simp only [Expr.extendMap, if_true, Option.some.injEq] at hr' ha'
+      subst hr' ha'
+      exact hrel
+    · simp only [Expr.extendMap, hi, if_false] at hr' ha'
+      exact h.rel i vr' va' hr' ha'
+  closedR i v hv := by
+    by_cases hi : i = j
+    · subst hi; simp only [Expr.extendMap, if_true, Option.some.injEq] at hv; subst hv; exact hr
+    · simp only [Expr.extendMap, hi, if_false] at hv; exact h.closedR i v hv
+  closedA i v hv := by
+    by_cases hi : i = j
+    · subst hi; simp only [Expr.extendMap, if_true, Option.some.injEq] at hv; subst hv; exact ha
+    · simp only [Expr.extendMap, hi, if_false] at hv; exact h.closedA i v hv
+
+/-- Opening a binder under a map: opening at the fresh index and then
+mapping (with the opener's value at that index) is mapping and then
+instantiating at the value — the body has no leaf at the fresh index. -/
+theorem mapFvars_open {σ : Nat → Option Expr}
+    (hσ : ∀ i v, σ i = some v → v.looseBVarsBounded 0 = true)
+    {b : Expr} {j : Nat} (hfresh : ∀ l ∈ b.fvarLeaves, l.1 ≠ j) (ty v : Expr)
+    (hv : v.looseBVarsBounded 0 = true) :
+    (b.instantiate1 (.fvar j ty)).mapFvars (Expr.extendMap σ j v)
+      = (b.mapFvars σ).instantiate1 v := by
+  have hσ' : ∀ i v', Expr.extendMap σ j v i = some v' → v'.looseBVarsBounded 0 = true := by
+    intro i v' hv'
+    by_cases hi : i = j
+    · subst hi
+      simp only [Expr.extendMap, if_true, Option.some.injEq] at hv'
+      subst hv'; exact hv
+    · simp only [Expr.extendMap, hi, if_false] at hv'; exact hσ i v' hv'
+  rw [mapFvars_instantiate1 hσ']
+  have hb : b.mapFvars (Expr.extendMap σ j v) = b.mapFvars σ :=
+    mapFvars_congr b fun l hl => Expr.extendMap_ne σ v (hfresh l hl)
+  rw [hb]
+  show (b.mapFvars σ).instantiate1 (match Expr.extendMap σ j v j with
+    | some v' => v' | none => Expr.fvar j ty) = _
+  rw [Expr.extendMap_self]
+
+/-- The leaves of an opened body: the body's and the opener's. -/
+theorem LeafOk.open {find? : Name → Option ConstantInfo} {σ : Nat → Option Expr} {b ty : Expr}
+    {j : Nat} {v : Expr} (hfresh : ∀ l ∈ b.fvarLeaves, l.1 ≠ j)
+    (hfreshTy : ∀ l ∈ ty.fvarLeaves, l.1 ≠ j)
+    (hb : LeafOk find? σ b) (hty : LeafOk find? σ ty)
+    (hv : SortAgreeW find? ty v ∧ ProofAgreeW find? ty v) :
+    LeafOk find? (Expr.extendMap σ j v) (b.instantiate1 (.fvar j ty)) := by
+  intro i t w hl hs
+  rcases fvarLeaves_instantiate1 b 0 hl with hl' | hl'
+  · have hne := hfresh _ hl'
+    rw [Expr.extendMap_ne σ v hne] at hs
+    exact hb i t w hl' hs
+  · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
+    rcases hl' with hl' | hl'
+    · obtain ⟨rfl, rfl⟩ := Prod.mk.inj hl'
+      rw [Expr.extendMap_self] at hs
+      obtain rfl := Option.some.inj hs
+      exact hv
+    · have hne := hfreshTy _ hl'
+      rw [Expr.extendMap_ne σ v hne] at hs
+      exact hty i t w hl' hs
+
+/-- The mapped domain reads like the domain, for both readers (the
+opener at the mapped domain). -/
+theorem agree_fvar_mapped (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr}
+    {ty : Expr} (hty : LeafOk find? σ ty) (d : Nat) :
+    SortAgreeW find? ty (.fvar d (ty.mapFvars σ)) ∧ ProofAgreeW find? ty (.fvar d (ty.mapFvars σ)) := by
+  refine ⟨fun n pw h => ?_, fun pw h => ?_⟩
+  · cases n with
+    | zero => exact residualPW_mapFvars h
+    | succ n =>
+      show headTypePW find? (Expr.fvar d (ty.mapFvars σ)) (0 + (n + 1)) = some pw
+      rw [Nat.zero_add]
+      exact residualPW_mapFvars h
+  · exact typeSortPW_mapFvars find? ty hty h
+
+/-- A component that reads like the mapped domain reads like the domain. -/
+theorem agree_of_mapped (find? : Name → Option ConstantInfo) {σ : Nat → Option Expr}
+    {ty v : Expr} (hty : LeafOk find? σ ty)
+    (h : SortAgreeW find? (ty.mapFvars σ) v ∧ ProofAgreeW find? (ty.mapFvars σ) v) :
+    SortAgreeW find? ty v ∧ ProofAgreeW find? ty v :=
+  ⟨fun n pw hn => h.1 n pw (residualPW_mapFvars hn),
+    fun pw hpw => h.2 pw (typeSortPW_mapFvars find? ty hty hpw)⟩
+
+/-- **The producer**: the fused relation between the raw and the
+annotated images of a stable term. -/
+theorem annotRelS_of_readerStable {find? : Name → Option ConstantInfo} {R : Expr → Expr → Prop} :
+    ∀ {dA : Nat} {e : Expr}, ReaderStable find? dA e → WScoped dA e →
+      ∀ (d : Nat) (σr σa : Nat → Option Expr), MapPair R σr σa → LeafOk find? σa e →
+        AnnotRelS R find? d (e.mapFvars σr) (e.mapFvars σa) := by
+  intro dA e h
+  induction h with
+  | bvar => intro _ d σr σa _ _; exact .bvar _
+  | @fvar dA idx ty =>
+    intro _ d σr σa hp _
+    simp only [Expr.mapFvars]
+    cases hr : σr idx with
+    | none =>
+      have ha : σa idx = none := by
+        have := hp.dom idx
+        rw [hr] at this
+        simpa [Option.isNone_iff_eq_none] using this.symm
+      rw [ha]; exact .fvar _ _
+    | some vr =>
+      cases ha : σa idx with
+      | none =>
+        have := hp.dom idx
+        rw [hr, ha] at this
+        exact nomatch this
+      | some va =>
+        rcases hp.rel idx vr va hr ha with hR | ⟨j, t, rfl, rfl⟩
+        · exact .base hR
+        · exact .fvar _ _
+  | sort => intro _ d σr σa _ _; exact .sort _
+  | const => intro _ d σr σa _ _; exact .const _ _
+  | lit => intro _ d σr σa _ _; exact .lit _
+  | app _ _ ihf iha =>
+    intro hw d σr σa hp hok
+    simp only [WScoped] at hw
+    exact .app (ihf hw.1 d σr σa hp hok.app_fn) (iha hw.2 d σr σa hp hok.app_arg)
+  | @forallE dA ty b m _ _ hpw iht ihb =>
+    intro hw d σr σa hp hok
+    simp only [WScoped] at hw
+    have hokTy : LeafOk find? σa ty := LeafOk.binder_ty (Or.inl hok)
+    have hokB : LeafOk find? σa b := hok.mono fun l hl => by simp [Expr.fvarLeaves, hl]
+    have hfresh : ∀ l ∈ b.fvarLeaves, l.1 ≠ dA := fun l hl =>
+      Nat.ne_of_lt (fvarLeaves_fst_lt hw.2 l hl)
+    have hfreshTy : ∀ l ∈ ty.fvarLeaves, l.1 ≠ dA := fun l hl =>
+      Nat.ne_of_lt (fvarLeaves_fst_lt hw.1 l hl)
+    -- both sides open at the ANNOTATED domain
+    let ty' := ty.mapFvars σa
+    have hp' : MapPair R (Expr.extendMap σr dA (.fvar d ty')) (Expr.extendMap σa dA (.fvar d ty')) :=
+      hp.extend dA _ _ (Or.inr ⟨d, ty', rfl, rfl⟩) rfl rfl
+    have hok' : LeafOk find? (Expr.extendMap σa dA (.fvar d ty')) (b.instantiate1 (.fvar dA ty)) :=
+      LeafOk.open hfresh hfreshTy hokB hokTy (agree_fvar_mapped find? hokTy d)
+    have hwB : WScoped (dA + 1) (b.instantiate1 (.fvar dA ty)) := WScoped.instantiate1 hw.1 0 hw.2
+    have hopenR := mapFvars_open hp.closedR hfresh ty (.fvar d ty') rfl
+    have hopenA := mapFvars_open hp.closedA hfresh ty (.fvar d ty') rfl
+    simp only [Expr.mapFvars]
+    refine .forallE m (iht hw.1 d σr σa hp hokTy) ?_ ?_
+    · have := ihb hwB (d + 1) _ _ hp' hok'
+      rw [hopenR, hopenA] at this
+      exact this
+    · rw [← hopenA]
+      exact typeSortPW_mapFvars find? _ hok' hpw
+  | @lam dA ty b m _ _ hpw iht ihb =>
+    intro hw d σr σa hp hok
+    simp only [WScoped] at hw
+    have hokTy : LeafOk find? σa ty := LeafOk.binder_ty (Or.inr hok)
+    have hokB : LeafOk find? σa b := hok.mono fun l hl => by simp [Expr.fvarLeaves, hl]
+    have hfresh : ∀ l ∈ b.fvarLeaves, l.1 ≠ dA := fun l hl =>
+      Nat.ne_of_lt (fvarLeaves_fst_lt hw.2 l hl)
+    have hfreshTy : ∀ l ∈ ty.fvarLeaves, l.1 ≠ dA := fun l hl =>
+      Nat.ne_of_lt (fvarLeaves_fst_lt hw.1 l hl)
+    let ty' := ty.mapFvars σa
+    have hp' : MapPair R (Expr.extendMap σr dA (.fvar d ty')) (Expr.extendMap σa dA (.fvar d ty')) :=
+      hp.extend dA _ _ (Or.inr ⟨d, ty', rfl, rfl⟩) rfl rfl
+    have hok' : LeafOk find? (Expr.extendMap σa dA (.fvar d ty')) (b.instantiate1 (.fvar dA ty)) :=
+      LeafOk.open hfresh hfreshTy hokB hokTy (agree_fvar_mapped find? hokTy d)
+    have hwB : WScoped (dA + 1) (b.instantiate1 (.fvar dA ty)) := WScoped.instantiate1 hw.1 0 hw.2
+    have hopenR := mapFvars_open hp.closedR hfresh ty (.fvar d ty') rfl
+    have hopenA := mapFvars_open hp.closedA hfresh ty (.fvar d ty') rfl
+    simp only [Expr.mapFvars]
+    refine .lam m (iht hw.1 d σr σa hp hokTy) ?_ ?_
+    · have := ihb hwB (d + 1) _ _ hp' hok'
+      rw [hopenR, hopenA] at this
+      exact this
+    · rw [← hopenA]
+      exact proofPW_mapFvars find? _ hok' hpw
+
+/-! ## The chain of parameters (`instPis`)
+
+The mint instantiates the container's parameters at the components:
+each step opens one binder of the stable term at the container's fresh
+index and puts the raw component on the left and the annotated one on
+the right — the maps extended by an `R`-related pair.  The per-component
+premise: the annotated component reads like the container's parameter
+domain WITH THE EARLIER COMPONENTS SUBSTITUTED (the domains
+`instPisAt` returns), for both readers. -/
+
+/-- `stripPis` survives an opening. -/
+theorem stripPis_instantiate1 :
+    ∀ (n : Nat) (b v : Expr) (k : Nat) {bs : List (Expr × BinderMeta)} {r : Expr},
+      b.stripPis n = some (bs, r) →
+      ∃ bs' r', (b.instantiate1 v k).stripPis n = some (bs', r')
+  | 0, b, v, k, bs, r, _ => ⟨[], _, rfl⟩
+  | n + 1, b, v, k, bs, r, h => by
+    match b, h with
+    | .forallE ty body m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, r₀⟩, h₀, -⟩ := h
+      obtain ⟨bs', r', h'⟩ := stripPis_instantiate1 n body v (k + 1) h₀
+      exact ⟨(ty.instantiate1 v k, m) :: bs', r', by simp [Expr.instantiate1, Expr.stripPis, h']⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
+
+/-- **The chain**: the fused relation between the raw and the annotated
+`instPis` of a stable Π-telescope at `R`-related components. -/
+theorem annotRelS_instPis {find? : Name → Option ConstantInfo} {R : Expr → Expr → Prop} :
+    ∀ (rawArgs annArgs : List Expr) {dA d : Nat} {e : Expr} (σr σa : Nat → Option Expr),
+      ReaderStable find? dA e → WScoped dA e → MapPair R σr σa → LeafOk find? σa e →
+      rawArgs.length = annArgs.length →
+      (∀ (i : Nat) (vr va : Expr), rawArgs[i]? = some vr → annArgs[i]? = some va →
+        R vr va ∧ vr.looseBVarsBounded 0 = true ∧ va.looseBVarsBounded 0 = true) →
+      (∃ bs r, e.stripPis annArgs.length = some (bs, r)) →
+      ∀ {dsA : List Expr} {restA restR : Expr},
+        Expr.instPisAt annArgs (e.mapFvars σa) = some (dsA, restA) →
+        Expr.instPis (e.mapFvars σr) rawArgs = some restR →
+        (∀ (i : Nat) (A a : Expr), dsA[i]? = some A → annArgs[i]? = some a →
+          SortAgreeW find? A a ∧ ProofAgreeW find? A a) →
+        AnnotRelS R find? d restR restA
+  | [], [], dA, d, e, σr, σa, hst, hw, hp, hok, _, _, _, dsA, restA, restR, hA, hR, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hA
+    simp only [Expr.instPis, Option.some.injEq] at hR
+    obtain ⟨-, rfl⟩ := hA
+    subst hR
+    exact annotRelS_of_readerStable hst hw d σr σa hp hok
+  | [], _ :: _, _, _, _, _, _, _, _, _, _, hlen, _, _, _, _, _, _, _, _ => by simp at hlen
+  | _ :: _, [], _, _, _, _, _, _, _, _, _, hlen, _, _, _, _, _, _, _, _ => by simp at hlen
+  | ar :: rawRest, aa :: annRest, dA, d, e, σr, σa, hst, hw, hp, hok, hlen, hargs, hstrip, dsA,
+    restA, restR, hA, hR, hdoms => by
+    obtain ⟨bs, r, hstrip⟩ := hstrip
+    match e, hst, hw, hok, hstrip with
+    | .forallE ty b m, .forallE _ hstB hpw, hw, hok, hstrip =>
+      rename_i hstTy
+      simp only [WScoped] at hw
+      simp only [Expr.mapFvars, Expr.instPisAt, Option.map_eq_some_iff] at hA
+      obtain ⟨⟨ds', restA'⟩, hA', hA''⟩ := hA
+      simp only [Prod.mk.injEq] at hA''
+      obtain ⟨rfl, rfl⟩ := hA''
+      simp only [Expr.mapFvars, Expr.instPis] at hR
+      have hokTy : LeafOk find? σa ty := LeafOk.binder_ty (Or.inl hok)
+      have hokB : LeafOk find? σa b := hok.mono fun l hl => by simp [Expr.fvarLeaves, hl]
+      have hfresh : ∀ l ∈ b.fvarLeaves, l.1 ≠ dA := fun l hl =>
+        Nat.ne_of_lt (fvarLeaves_fst_lt hw.2 l hl)
+      have hfreshTy : ∀ l ∈ ty.fvarLeaves, l.1 ≠ dA := fun l hl =>
+        Nat.ne_of_lt (fvarLeaves_fst_lt hw.1 l hl)
+      obtain ⟨hRa, hcr, hca⟩ := hargs 0 ar aa rfl rfl
+      have hp' : MapPair R (Expr.extendMap σr dA ar) (Expr.extendMap σa dA aa) :=
+        hp.extend dA ar aa (Or.inl hRa) hcr hca
+      have hagree : SortAgreeW find? ty aa ∧ ProofAgreeW find? ty aa :=
+        agree_of_mapped find? hokTy (hdoms 0 _ aa rfl rfl)
+      have hok' : LeafOk find? (Expr.extendMap σa dA aa) (b.instantiate1 (.fvar dA ty)) :=
+        LeafOk.open hfresh hfreshTy hokB hokTy hagree
+      have hwB : WScoped (dA + 1) (b.instantiate1 (.fvar dA ty)) := WScoped.instantiate1 hw.1 0 hw.2
+      have hopenR := mapFvars_open hp.closedR hfresh ty ar hcr
+      have hopenA := mapFvars_open hp.closedA hfresh ty aa hca
+      rw [← hopenA] at hA'
+      rw [← hopenR] at hR
+      simp only [List.length_cons, Expr.stripPis, Option.map_eq_some_iff] at hstrip
+      obtain ⟨⟨bs₀, r₀⟩, hstrip₀, -⟩ := hstrip
+      refine annotRelS_instPis rawRest annRest _ _ hstB hwB hp' hok' (by simpa using hlen)
+        (fun i vr va hr ha => hargs (i + 1) vr va hr ha)
+        (by
+          obtain ⟨bs', r', h'⟩ := stripPis_instantiate1 annRest.length b (.fvar dA ty) 0 hstrip₀
+          exact ⟨bs', r', h'⟩)
+        hA' hR (fun i A a hAi hai => hdoms (i + 1) A a hAi hai)
+    | .bvar _, _, _, _, hstrip | .fvar _ _, _, _, _, hstrip | .sort _, _, _, _, hstrip
+    | .const _ _, _, _, _, hstrip | .app _ _, _, _, _, hstrip | .lam _ _ _, _, _, _, hstrip
+    | .lit _, _, _, _, hstrip => simp [Expr.stripPis] at hstrip
+
 end ConLeche
