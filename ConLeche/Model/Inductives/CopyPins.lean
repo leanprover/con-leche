@@ -770,24 +770,24 @@ member's is the same value (`MutualBlockReps`). -/
 theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     {b : ConLeche.MutualBlock} {d : IndRepData V} (hreps : MutualBlockReps mp.base2 b d)
     {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ [])
-    {ψ : Name → Nat} {ρ : Nat → V} {ps : List AnnotTerm} {L : Nat → AnnotTerm}
+    {ψ : Name → Nat} {L : Nat → AnnotTerm}
     {pinsT : Nat → List AnnotTerm} {head : Nat → AnnotTerm} {useIh : Nat → Nat → Bool} {kR : Nat}
-    (hps : ps.length = d.nP) (hpsWD : ∀ p ∈ ps, WellDenotedV V ρ p)
-    (hparams : SpineFit ρ (d.params ψ) (ps.map (interp V ρ)))
     (hlev : d.elimL.eval ψ = d.w ψ)
     (hreal : ∀ t, t < kR → t < d.k →
       L t = mp.base2.acval (d.memberName t) ψ ∧ pinsT t = paramBvarsAt d.nP d.nP)
     (hrealC : ∀ J cA, d.ctorsA[J]? = some cA → d.mems J < kR →
       head J = AnnotTerm.mkAppN (mp.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP) ∧
         ∀ i, useIh J i = false)
-    (hTgC : ∀ t, kR ≤ t → t < d.k → d.TargetOk ψ ρ ps L pinsT t)
-    (hCAPC : ∀ J cA, d.ctorsA[J]? = some cA → kR ≤ d.mems J →
-      d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
-        (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ))
     (huse : ∀ J i, useIh J i = true → i ∈ ConLeche.recIdxOf (d.ksR J)) :
     ∃ (s : Level) (lps lpsT : List Name),
       (∀ ψ' : Name → Nat, s.eval ψ' = d.resSort.eval ψ') ∧
-      ({d with resSort := s} : IndRepData V).InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh := by
+      ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP → (∀ p ∈ ps, WellDenotedV V ρ p) →
+        SpineFit ρ (d.params ψ) (ps.map (interp V ρ)) →
+        (∀ t, kR ≤ t → t < d.k → d.TargetOk ψ ρ ps L pinsT t) →
+        (∀ J cA, d.ctorsA[J]? = some cA → kR ≤ d.mems J →
+          d.CtorAtPins ψ ρ ps (d.invTgAV ψ ps L pinsT) (useIh J) J (head J) cA.2 (d.dsF J ψ)
+            (d.esF J ψ) (d.eissR J ψ) (d.tssR J ψ)) →
+        ({d with resSort := s} : IndRepData V).InvSetup mp lps lpsT ψ ρ ps L pinsT head useIh := by
   obtain ⟨hctorsC, hkb, hkRb, -, hpinsAV, hview, -, hall⟩ := hreps
   obtain ⟨s, cvT, cvR, capsT, mI, rP, rules, -, hfR, hrul, hsv, hrep⟩ := hall t₀ ht₀
   have hkR : ({d with resSort := s} : IndRepData V).kReal
@@ -799,7 +799,7 @@ theorem invSetup_of_blockReps_nested {μ : CheckMode} {mp : EnvModelM V μ env}
     show d.elimL.eval ψ = s.eval ψ
     rw [hsv ψ]
     exact hlev
-  refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, ?_⟩
+  refine ⟨s, cvT.levelParams, cvT.levelParams, hsv, fun ρ ps hps hpsWD hparams hTgC hCAPC => ?_⟩
   exact IndRepData.invSetup_of_member_nested ({d with resSort := s} : IndRepData V) hctorsC hkR
     (fun t ψ' => hpinsAV t ψ') hview (show t₀ < d.k by rw [hkb]; exact ht₀) (hrul hct₀) hfR hrep
     hps hpsWD hparams hlev' hreal hrealC hTgC hCAPC huse

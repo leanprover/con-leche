@@ -275,10 +275,9 @@ table**, when the step reads only the entries the relation names
 the entries it reads are earlier (`lt_of_ref`), so they are already
 final. -/
 theorem TopoOrder.orderFold_eq_step {α : Type} {R : Nat → Nat → Prop} {n : Nat} {order : List Nat}
-    (h : TopoOrder R n order) (step : (Nat → α) → Nat → α)
-    (hdep : ∀ (tbl tbl' : Nat → α) (j : Nat), (∀ j', R j j' → tbl j' = tbl' j') →
-      step tbl j = step tbl' j)
-    (tbl₀ : Nat → α) {j : Nat} (hj : j < n) :
+    (h : TopoOrder R n order) (step : (Nat → α) → Nat → α) (tbl₀ : Nat → α) {j : Nat} (hj : j < n)
+    (hdep : ∀ (tbl tbl' : Nat → α), (∀ j', R j j' → tbl j' = tbl' j') →
+      step tbl j = step tbl' j) :
     orderFold step order tbl₀ j = step (orderFold step order tbl₀) j := by
   obtain ⟨pre, rest, hsplit⟩ := List.append_of_mem (h.complete j hj)
   have hnd := h.nodup
@@ -297,7 +296,7 @@ theorem TopoOrder.orderFold_eq_step {α : Type} {R : Nat → Nat → Prop} {n : 
     rw [hfinal, orderFold_notMem step rest _ j hjR]
     simp only [if_true]
   rw [hj_entry]
-  refine hdep _ _ j fun j' hR => ?_
+  refine hdep _ _ fun j' hR => ?_
   -- a referenced entry is in `pre`, hence final
   have hpos : order[pre.length]? = some j := by
     rw [hsplit, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]

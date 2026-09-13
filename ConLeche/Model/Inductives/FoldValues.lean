@@ -70,7 +70,7 @@ theorem DenoteMetaSpine.bvarsBelow {m : EnvModel V env} {ψ : Name → Nat} {n :
 
 /-- The parameter values of a parameter frame: the parameter variables
 read there (outermost first). -/
-noncomputable def paramVals (nP : Nat) (σ : Nat → V) : List V :=
+@[expose] noncomputable def paramVals (nP : Nat) (σ : Nat → V) : List V :=
   (paramBvarsAt nP nP).map (interp V σ)
 
 theorem paramVals_length (nP : Nat) (σ : Nat → V) : (paramVals nP σ).length = nP := by
@@ -323,28 +323,29 @@ theorem invL_below (m : EnvModel V env) (ψ : Name → Nat) (k₀ : Nat) (cd : N
 omit [SetTheory V] in
 /-- The pins of the ψ⁻¹ choice are bounded at the parameters when the
 copies' pin readings are. -/
-theorem invPinsT_below {k₀ : Nat} {cd : Nat → CopyData V}
-    (hDsA : ∀ j, ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase) :
-    ∀ t, ∀ p ∈ d.invPinsT k₀ cd t, Term.bvarsBelow d.nP p.erase := by
-  intro t p hp
+theorem invPinsT_below {k₀ n : Nat} {cd : Nat → CopyData V}
+    (hDsA : ∀ j, j < n → ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase) :
+    ∀ t, t < k₀ + n → ∀ p ∈ d.invPinsT k₀ cd t, Term.bvarsBelow d.nP p.erase := by
+  intro t ht p hp
   unfold IndRepData.invPinsT at hp
   split at hp
   · exact paramBvarsAt_below (Nat.le_refl _) p hp
-  · exact hDsA _ p hp
+  · exact hDsA _ (by omega) p hp
 
 /-- The heads of the ψ⁻¹ choice are bounded at the parameters when the
 copies' pin readings are. -/
 theorem invHead_below (m : EnvModel V env) (ψ : Name → Nat) (n : Nat) {cd : Nat → CopyData V}
-    (auxOfs : Nat → Nat → Nat) (hDsA : ∀ j, ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase) :
+    (auxOfs : Nat → Nat → Nat) (hDsA : ∀ j, j < n → ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase) :
     ∀ J, Term.bvarsBelow d.nP (d.invHead m ψ n cd auxOfs J).erase := by
   intro J
   unfold IndRepData.invHead
   split
-  · rw [AnnotTerm.erase_mkAppN]
+  · rename_i h
+    rw [AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN (Term.bvarsBelow.mono (Nat.zero_le _) (m.cval_closedL _ _)) ?_
     intro a ha
     obtain ⟨a', ha', rfl⟩ := List.mem_map.mp ha
-    exact hDsA _ a' ha'
+    exact hDsA _ (Classical.choose_spec h).1 a' ha'
   · rw [AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN (Term.bvarsBelow.mono (Nat.zero_le _) (m.cval_closedL _ _)) ?_
     intro a ha
@@ -461,7 +462,7 @@ theorem psiFold_below {μ : CheckMode} {mp : EnvModelM V μ env} {ψ : Name → 
     (hviewA : ∀ J, d.ksR J = d.ksF J ∧ d.tgtsR J = d.tgts J ∧ d.eissR J = d.eissF J ∧
       d.tssR J = d.tssF J)
     (htgtsA : ∀ J i, d.tgtsR J i < d.k)
-    (hDsA : ∀ j, ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase)
+    (hDsA : ∀ j, j < n → ∀ q ∈ (cd j).DsA, Term.bvarsBelow d.nP q.erase)
     {R : Nat → Nat → Prop}
     (href : ∀ j', j' < n → ∀ Jc cAJ, (cd j').dJ.ctorsA[Jc]? = some cAJ → ∀ i, i < cAJ.2 →
       i ∈ ConLeche.recIdxOf (d.ksR (auxOfs j' Jc)) → i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
@@ -474,7 +475,7 @@ theorem psiFold_below {μ : CheckMode} {mp : EnvModelM V μ env} {ψ : Name → 
     (fun j Ψ => j < n → Term.bvarsBelow d.nP Ψ.erase) ?_ tbl₀ j' hj' hj'
   intro tbl j ih hj
   unfold IndRepData.psiStep
-  refine d.psiTerm_below (hall j hj) hviewA (hDsA j) tbl ?_
+  refine d.psiTerm_below (hall j hj) hviewA (hDsA j hj) tbl ?_
   intro Jc cAJ hJc i hi hrec hnotJ hk₀
   have hR := href j hj Jc cAJ hJc i hi hrec hnotJ hk₀
   exact ih _ hR (by have := htgtsA (auxOfs j Jc) i; omega)

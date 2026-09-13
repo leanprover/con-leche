@@ -694,49 +694,37 @@ theorem copyCtor_repr {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLech
   rw [hmm, hpos, hbm, hJE]
 
 set_option maxHeartbeats 1600000 in
-/-- **ψ⁻¹'s SETUP FROM THE RUN** (task #279 M-C′): under the containers'
-representation (`ContainersRep`) and the constructor record
-(`CopyCtorsRead`) — the two premises ψ has — at every level assignment
-sending the scratch block's elimination universe to its carrier's rank
-and every parameter frame, `InvSetup` holds for the scratch block at
-the choice `invL`/`invPinsT`/`invHead`/`invUseIh` (at the block's datum
-re-sorted to the member with rules): the real members at the identity
-(`invSetup_of_blockReps_nested`), every copy's target from its pin's
-read (`targetOk_copy` at `CopyData.Ok`), every copy constructor's
-`CtorAtPins` from the record through `copyCtorRead_of_asRead` at a
-representative (`copyCtor_repr`).  Hence ψ⁻¹ is TYPED
-(`InvSetup.fold_mem`) and FIRING (`InvSetup.fold_iota`) end to end. -/
-theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
-    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env),
-      ConLeche.auxBlock p st = some b ∧
-      st.types.length = p.k + st.pins.length ∧
-      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-        CtorsChecked μ F env b true d ∧
-        ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
-        (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
-          ∃ cd : Nat → CopyData V,
-            (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
-            (CopyCtorsRead mpAux d ψ st p.k st.pins.length cd →
-              d.elimL.eval ψ = d.w ψ →
-              ∀ t₀, t₀ < b.k → d.memberCtors t₀ ≠ [] →
-              ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP →
-                (∀ q ∈ ps, WellDenotedV V ρ q) →
-                SpineFit ρ (d.params ψ) (ps.map (interp V ρ)) →
-                ∃ (s : Level) (lps lpsT : List Name),
-                  (∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) ∧
-                  ({d with resSort := s} : IndRepData V).InvSetup mpAux lps lpsT ψ ρ ps
-                    (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
-                    (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd))
-                    (d.invUseIh p.k))) := by
-  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, -, hlenSt, mpAux, d, hreps,
-    hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
-  refine ⟨st, b, envAux, hb, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
-  intro hcr ψ
-  obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, ?_⟩
-  intro hread hlev t₀ ht₀ hct₀ ρ ps hps hpsWD hparams
+/-- **ψ⁻¹'s SETUP FROM THE PINS' FACTS** (task #279 M-C′): at the run's
+pin data (`PinRunFacts`) with the constructor record (`CopyCtorsRead`),
+at a level assignment sending the scratch block's elimination universe
+to its carrier's rank, `InvSetup` holds for the scratch block at the
+choice `invL`/`invPinsT`/`invHead`/`invUseIh` (at the block's datum
+re-sorted to the member with rules) at EVERY parameter frame: the real
+members at the identity (`invSetup_of_blockReps_nested`), every copy's
+target from its pin's read (`targetOk_copy` at `CopyData.Ok`), every
+copy constructor's `CtorAtPins` from the record through
+`copyCtorRead_of_asRead` at a representative (`copyCtor_repr`).  Hence
+ψ⁻¹ is TYPED (`InvSetup.fold_mem`) and FIRING (`InvSetup.fold_iota`)
+end to end.  The sort `s` is the block's, chosen once (member `t₀`'s),
+before the frame. -/
+theorem invSetup_of_pinFacts {μ : CheckMode} {F : Nat} {env envAux : Env}
+    {p : ConLeche.NestedParts} {st : ElimState} {b : MutualBlock} {params : List Expr}
+    {pbs : List (Expr × ConLeche.BinderMeta)} {mpAux : EnvModelM V μ envAux} {d : IndRepData V}
+    {ψ : Name → Nat} {cd : Nat → CopyData V}
+    (hreps : MutualBlockReps mpAux.base2 b d) (hchk : CtorsChecked μ F env b true d)
+    (hb : ConLeche.auxBlock p st = some b) (hlenSt : st.types.length = p.k + st.pins.length)
+    (hcd : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
+    (hread : CopyCtorsRead mpAux d ψ st p.k st.pins.length cd) (hlev : d.elimL.eval ψ = d.w ψ)
+    {t₀ : Nat} (ht₀ : t₀ < b.k) (hct₀ : d.memberCtors t₀ ≠ []) :
+    ∃ (s : Level) (lps lpsT : List Name),
+      (∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) ∧
+      ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP →
+        (∀ q ∈ ps, WellDenotedV V ρ q) →
+        SpineFit ρ (d.params ψ) (ps.map (interp V ρ)) →
+        ({d with resSort := s} : IndRepData V).InvSetup mpAux lps lpsT ψ ρ ps
+          (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
+          (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd))
+          (d.invUseIh p.k) := by
   have hreps' := hreps
   obtain ⟨-, hkb, -, -, -, -, -, hall⟩ := hreps
   have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
@@ -759,16 +747,24 @@ theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       copyCtorFacts_of_read hreps' hchk hcd hsv₀ hrep₀ hj' hJc (hread j' hj' Jc cAJ hJc)
     rw [hf.read.mem]
     exact Nat.le_add_right_of_le (Nat.le_add_right _ _)
-  refine invSetup_of_blockReps_nested hreps' ht₀ hct₀ hps hpsWD hparams hlev (kR := p.k)
-    ?_ ?_ ?_ ?_ (fun J i h => d.invUseIh_mem h)
-  · -- the real members: their own leaves
+  -- the real members: their own leaves
+  have hreal : ∀ t, t < p.k → t < d.k →
+      d.invL mpAux.base2 ψ p.k cd t = mpAux.base2.acval (d.memberName t) ψ ∧
+        d.invPinsT p.k cd t = paramBvarsAt d.nP d.nP := by
     intro t ht _
     exact ⟨d.invL_real ht, d.invPinsT_real ht⟩
-  · -- the real constructors: their own heads, no hypothesis in use
+  -- the real constructors: their own heads, no hypothesis in use
+  have hrealC : ∀ J cA, d.ctorsA[J]? = some cA → d.mems J < p.k →
+      d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd) J
+          = AnnotTerm.mkAppN (mpAux.base2.acval cA.1.name ψ) (paramBvarsAt d.nP d.nP) ∧
+        ∀ i, d.invUseIh p.k J i = false := by
     intro J cA hJ hlt
     refine ⟨?_, d.invUseIh_real hlt⟩
     rw [d.invHead_real _ _ hOfs hlt, List.getD_eq_getElem?_getD, hJ]
     rfl
+  obtain ⟨s, lps, lpsT, hsv, hS⟩ := invSetup_of_blockReps_nested hreps' ht₀ hct₀ hlev (kR := p.k)
+    hreal hrealC (fun J i h => d.invUseIh_mem h)
+  refine ⟨s, lps, lpsT, hsv, fun ρ ps hps hpsWD hparams => hS ρ ps hps hpsWD hparams ?_ ?_⟩
   · -- the copies' targets, from their pins' reads
     intro t hkt ht
     obtain ⟨j, rfl⟩ : ∃ j, t = p.k + j := ⟨t - p.k, by omega⟩
@@ -801,4 +797,51 @@ theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       have h := hok _ hj₂
       exact h
 
+
+set_option maxHeartbeats 1600000 in
+/-- **ψ⁻¹'s SETUP FROM THE RUN** (task #279 M-C′): under the containers'
+representation (`ContainersRep`) and the constructor record
+(`CopyCtorsRead`) — the two premises ψ has — at every level assignment
+sending the scratch block's elimination universe to its carrier's rank
+and every parameter frame, `InvSetup` holds for the scratch block at
+the choice `invL`/`invPinsT`/`invHead`/`invUseIh` (at the block's datum
+re-sorted to the member with rules): the real members at the identity
+(`invSetup_of_blockReps_nested`), every copy's target from its pin's
+read (`targetOk_copy` at `CopyData.Ok`), every copy constructor's
+`CtorAtPins` from the record through `copyCtorRead_of_asRead` at a
+representative (`copyCtor_repr`).  Hence ψ⁻¹ is TYPED
+(`InvSetup.fold_mem`) and FIRING (`InvSetup.fold_iota`) end to end. -/
+theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env),
+      ConLeche.auxBlock p st = some b ∧
+      st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        CtorsChecked μ F env b true d ∧
+        ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
+        (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
+          ∃ cd : Nat → CopyData V,
+            (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
+            (CopyCtorsRead mpAux d ψ st p.k st.pins.length cd →
+              d.elimL.eval ψ = d.w ψ →
+              ∀ t₀, t₀ < b.k → d.memberCtors t₀ ≠ [] →
+              ∃ (s : Level) (lps lpsT : List Name),
+                (∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ) ∧
+                ∀ (ρ : Nat → V) (ps : List AnnotTerm), ps.length = d.nP →
+                  (∀ q ∈ ps, WellDenotedV V ρ q) →
+                  SpineFit ρ (d.params ψ) (ps.map (interp V ρ)) →
+                  ({d with resSort := s} : IndRepData V).InvSetup mpAux lps lpsT ψ ρ ps
+                    (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
+                    (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd))
+                    (d.invUseIh p.k))) := by
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, -, hlenSt, mpAux, d, hreps,
+    hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, hb, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
+  intro hcr ψ
+  obtain ⟨cd, hcd⟩ := hpins hcr ψ
+  refine ⟨cd, hcd, ?_⟩
+  exact invSetup_of_pinFacts hreps hchk hb hlenSt hcd
+
 end ConLeche.Model
+
