@@ -71853,11 +71853,19 @@ ConLeche.Kernel.Inductives.NestedElim` — `pinCompsAgree_of_compReads`
 names `NestedPin` in its statement, so the edge is a re-export the
 public interface needs.
 
-The gate numbers above were measured on the pre-merge tree (the reader's
-own diff against `dbd53f3c`); the post-merge tree was re-gated with
-`lake build`, `lake test`, `tests/arena.sh`, the cone in shadow and one
-init-full — K.6's own numbers (its kernel change is shadow-only) are in
-its record.
+The gate table above is the PRE-merge measurement (the reader's own diff
+against `dbd53f3c`, where `tests/arena.sh` still exited 1 at the census
+clash K.7 then fixed).  The post-merge tree was re-gated in full:
+`lake build` (593 jobs) and `lake test` (506) warning-free with
+`CopyTypes`/`AuxFormers` now ON the graph, **`tests/arena.sh` exit 0**
+(`shake` 508 removals all allowlisted, `pub-imports … none demotable`
+— this lane's one new edge included; every other line as in the
+pre-merge run, layering and the trust-surface scan counting one module
+more because K.7 put `NestedOrderK` on the graph), the Mathlib nested
+cone in shadow **41/41 accept / 4 923 declarations / exit 0**, init-full
+**53 088 / exit 0 / 536.09 G instructions** (the same −0.44 % against
+`dbd53f3c`'s 538.45 G), and one more full Mathlib
+`--verified --jobs=8`: **654 499 accepted, exit 0**.
 
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
