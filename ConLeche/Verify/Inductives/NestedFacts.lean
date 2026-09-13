@@ -488,6 +488,29 @@ theorem auxStoredAll_inv {envAux : Env} {b : MutualBlock} :
       rw [List.getElem?_append_right (by omega), ha]
       simp [hlen]
 
+/-- One stored record, read off: the member's former is FOUND at its
+name, as an inductive, with the record's checked former. -/
+theorem auxStored?_inv {envAux : Env} {b : MutualBlock} {i : Nat} {a : AuxStored}
+    (h : auxStored? envAux b i = some a) :
+    ∃ (cv : ConstantVal) (nIdx : Nat) (caps : IndCaps),
+      b.formers[i]? = some (cv, nIdx) ∧ envAux.find? cv.name = some (.indInfo a.cvTa caps) := by
+  unfold auxStored? at h
+  simp only [bind, Option.bind_eq_some_iff] at h
+  obtain ⟨x, hf, ci, hci, h⟩ := h
+  split at h
+  · next cvTa caps =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨ci', -, h⟩ := h
+    split at h
+    · next cvRa mI rP rules =>
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨ctors, -, h⟩ := h
+      simp only [pure, Option.some.injEq] at h
+      subst h
+      exact ⟨x.1, x.2, caps, hf, hci⟩
+    · exact nomatch h
+  · exact nomatch h
+
 /-! ## The restored recursor types -/
 
 /-- **The restored recursor types, read off**: one per stored record,

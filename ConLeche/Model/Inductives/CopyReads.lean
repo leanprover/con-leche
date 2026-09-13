@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.CopyPins
+public import ConLeche.Model.Inductives.DeclNested
 public import ConLeche.Verify.Inductives.CopyStable
 import ConLeche.Verify.Inductives.NestedLedger
 public section
@@ -170,5 +171,182 @@ theorem copyIdxRead_of_copy {μ : CheckMode} (hμ : μ.verifiedChecks = true) {e
     rfl (by rw [hlenA, hDsLen]) hargs hsp hopen ?_
   rw [halign]
   exact ConLeche.instPis_of_instPisAt argsA hAt
+
+/-! ## The premises, as the run's consumer states them
+
+Four facts the copies' reads take of the run and its environment; each
+is stated once here so that `copyIdxRead_of_run` reads every copy of
+the scratch block from `DeclNestedRun` under exactly these. -/
+
+/-- **The containers at the scratch environment**: every container
+member the elimination recovers is stored there with the data the read
+consumes (its former's data at its own datum), is STABLE under the head
+reader (the property the kernel lane measured, corpus-vacuous) and is a
+syntactic telescope ending in a sort (every stored former is, by
+`checkSumTele`; not an environment invariant).  This is the container's
+representation at the scratch environment, which comes through the
+modelled route's `ModeledLeaf` disjunct until that route is deleted
+(DESIGN §M.19). -/
+def ContainersAt (env envAux : Env) (m : EnvModel V envAux) : Prop :=
+  ∀ (I : Name) (ci : ConLeche.ContainerInfo), ConLeche.containerInfo? env I = some ci →
+    ∀ (i : Nat) (J : ContainerMember), ci.members[i]? = some J →
+      ∃ (cvTJ : ConstantVal) (capsJ : IndCaps) (dJ : IndRepData V) (mmJ : Nat)
+        (bsJ : List (Expr × BinderMeta)) (uJ : Level),
+        envAux.find? J.name = some (.indInfo cvTJ capsJ) ∧ J.type = cvTJ.type ∧
+        J.lps = cvTJ.levelParams ∧ ci.nP = dJ.nP ∧
+        FormerData m cvTJ (dJ.nP + dJ.nIdxAt mmJ) dJ.resSort (dJ.ppsM mmJ) (dJ.lvlsM mmJ) ∧
+        ConLeche.ReaderStable envAux.find? 0 cvTJ.type ∧
+        cvTJ.type.stripPis (dJ.nP + dJ.nIdxAt mmJ) = some (bsJ, .sort uJ)
+
+/-- **The copies' stored formers are the annotations of their minted
+types at the scratch environment.**  The install annotates a former at
+the PRE-block environment (`mutualFormerChecks`) and keeps it when its
+telescope ends in a sort (`checkSumTele`'s first branch); the copy's
+minted former mentions no block member, so the two annotations agree,
+and its telescope does end in a sort (the container's does).  The two
+lemmas that turn the run into this statement — the annotator's
+stability under a conservative environment extension on a resolving
+term, and the minted former's telescope shape — are docketed. -/
+def AuxFormersAnnot (μ : CheckMode) (F : Nat) (envAux : Env) (b : MutualBlock) (k : Nat) : Prop :=
+  ∀ t, k ≤ t → t < b.k → ∀ (cv : ConstantVal) (nIdx : Nat), b.formers[t]? = some (cv, nIdx) →
+    ∀ (cvT : ConstantVal) (caps : IndCaps), envAux.find? cv.name = some (.indInfo cvT caps) →
+      ConLeche.annotateCore μ envAux F 0 cv.type = .ok cvT.type ∧
+      cv.type.looseBVarsBounded 0 = true ∧ cv.type.hasFvar = false
+
+/-- **The alignment premise**: every copy's stored former opens at the
+block's openers — the ones the pin check annotates at (the stored first
+member's).  The parameter telescopes of the scratch block's members
+agree syntactically on an elaborated stream (the constructors' binders
+are the type's); the mutual install compares them only definitionally. -/
+def AuxOpensAt (envAux : Env) (b : MutualBlock) (k : Nat) (nP : Nat) (fvsA : List Expr) : Prop :=
+  ∀ t, k ≤ t → t < b.k → ∀ (cv : ConstantVal) (nIdx : Nat), b.formers[t]? = some (cv, nIdx) →
+    ∀ (cvT : ConstantVal) (caps : IndCaps), envAux.find? cv.name = some (.indInfo cvT caps) →
+      ∃ restC, ConLeche.openPisAtFvars nP cvT.type 0 = some (fvsA, restC)
+
+/-- **The components read like the parameters they replace**, per pin,
+of the annotation the pin check computes at the openers: wherever the
+container's parameter domain (with the earlier components substituted)
+reads as a sort, the component reads the same, for both readers.
+K.4's frontier is exactly where this fails (a redex-headed component). -/
+def PinCompsAgree (μ : CheckMode) (F : Nat) (envAux : Env) (nP : Nat) (fvsA : List Expr)
+    (pins : List ConLeche.NestedPin) : Prop :=
+  ∀ q ∈ pins, ∀ (Jn : Name) (lvls : List Level) (Ds : List Expr),
+    q.pin = Expr.mkAppN (.const Jn lvls) Ds →
+    ∀ (cvTJ : ConstantVal) (capsJ : IndCaps), envAux.find? Jn = some (.indInfo cvTJ capsJ) →
+    ∀ (argsA dsA : List Expr) (restA : Expr),
+      ConLeche.annotateCore μ envAux F nP
+        (Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse)
+        = .ok (Expr.mkAppN (.const Jn lvls) argsA) →
+      Expr.instPisAt argsA (cvTJ.type.instantiateLevelParams cvTJ.levelParams lvls)
+        = some (dsA, restA) →
+      ∀ (i : Nat) (A a : Expr), dsA[i]? = some A → argsA[i]? = some a →
+        ConLeche.SortAgreeW envAux.find? A a ∧ ConLeche.ProofAgreeW envAux.find? A a
+
+/-! ## Every copy of the scratch block, read off the run -/
+
+/-- A member's name in the auxiliary block is its former's. -/
+theorem memberNames_getD {b : MutualBlock} {t : Nat} {cv : ConstantVal} {nIdx : Nat}
+    (h : b.formers[t]? = some (cv, nIdx)) : b.memberNames.getD t .anonymous = cv.name := by
+  unfold MutualBlock.memberNames
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, h]
+  rfl
+
+/-- **`PinRead` and `CopyIdxRead` for EVERY copy of the scratch block,
+from the run**, under the four premises above: for pin `j` the copy
+member `p.k + j` has its pin `J.{lvls} Ds` read at the block's parameter
+frame and its index telescope the container's at the pin's readings. -/
+theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ConLeche.ElimState) (b : MutualBlock) (envAux : Env) (fvsA : List Expr),
+      ConLeche.auxBlock p st = some b ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+      (ContainersAt env envAux mpAux.base2 → AuxFormersAnnot μ F envAux b p.k →
+        AuxOpensAt envAux b p.k p.nP fvsA → PinCompsAgree μ F envAux p.nP fvsA st.pins →
+        ∀ (j : Nat), j < st.pins.length → ∀ (ψ : Name → Nat),
+          ∃ (q : ConLeche.NestedPin) (Jn : Name) (lvls : List Level) (Ds : List Expr)
+            (cvTJ : ConstantVal) (dJ : IndRepData V) (mmJ : Nat) (s : Level) (DsA : List AnnotTerm),
+            st.pins[j]? = some q ∧ q.pin = Expr.mkAppN (.const Jn lvls) Ds ∧
+            (∀ ψ' : Name → Nat, s.eval ψ' = d.resSort.eval ψ') ∧
+            ({d with resSort := s} : IndRepData V).PinRead ψ
+              (mpAux.base2.acval Jn (Level.substFn ψ cvTJ.levelParams lvls)) DsA Ds.length ∧
+            ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
+              (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA) := by
+  obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, a₀, fvsA,
+    helim, -, hfresh, hb, hcore, hstored, ha₀, hfv, hpc, hpinsAux, -, hrm, -⟩ := h
+  obtain ⟨mpAux, d, hreps⟩ := nestedAuxModel hμ mp hE helim hfresh hb hcore hstored hrm
+  refine ⟨st, b, envAux, fvsA.1, hb, mpAux, d, hreps, ?_⟩
+  intro hcont hannAll hopens hcomps j hj ψ
+  -- the block's shape
+  obtain ⟨hbnP, -, -, -, hblen, hbformers, -⟩ := ConLeche.auxBlock_inv hb
+  have hk : b.k = st.types.length := ConLeche.auxBlock_k hb
+  have hlenSt : st.types.length = p.k + st.pins.length := by
+    have := ConLeche.elimNested_length helim
+    rwa [nestedTypes0_length] at this
+  have hreps₀ := hreps
+  obtain ⟨hctorsC, hkb, hkRb, hnP, -, -, hnames, hall⟩ := hreps
+  -- the copy's origin
+  obtain ⟨t₀, params, body, ht₀, hop, I, ci, i, j₀, J, lvls, Ds, pbs, q, copy, st₁, st₂, cs',
+    hci, hJ, hjE, hgrp, hq, hqc, hqp, hmk, hDs, hpbs, hDsLen, hty, hrun, h₁, h₂⟩ :=
+    ConLeche.elimNested_copy helim hj
+  rw [nestedTypes0_length] at hty
+  have ht : p.k + j < b.k := by rw [hk, hlenSt]; omega
+  -- the copy's former in the auxiliary block, and its stored form
+  obtain ⟨nIdx, -, hform⟩ := hbformers (p.k + j) _ hty
+  have hname : d.memberName (p.k + j) = copy.name := by
+    rw [hnames _ ht, memberNames_getD hform]
+  obtain ⟨s, cvT, cvR, capsT, mI, rP, rules, hfT, -, -, hsv, hrep⟩ := hall (p.k + j) ht
+  have hfTc : envAux.find? copy.name = some (.indInfo cvT capsT) := by rw [← hname]; exact hfT
+  obtain ⟨hann, hcl, hnf⟩ := hannAll (p.k + j) (Nat.le_add_right _ _) ht _ _ hform cvT capsT hfTc
+  obtain ⟨restC, hopen⟩ := hopens (p.k + j) (Nat.le_add_right _ _) ht _ _ hform cvT capsT hfTc
+  -- the first member's opened parameter context
+  have hk0 : 0 < b.k := Nat.lt_of_le_of_lt (Nat.zero_le _) ht
+  obtain ⟨s₀, cvT₀, cvR₀, caps₀, mI₀, rP₀, rules₀, hfT₀, -, -, -, hrep₀⟩ := hall 0 hk0
+  obtain ⟨hstoredLen, hstoredAt⟩ := ConLeche.auxStoredAll_inv hstored
+  have hkp : p.k ≤ b.k := by rw [hk, hlenSt]; omega
+  have hkpos : 0 < p.k := Nat.pos_of_ne_zero fun h0 => by
+    rw [h0, List.take_zero] at ha₀
+    exact nomatch ha₀
+  have ha₀' : stored[0]? = some a₀ := by
+    rw [List.head?_eq_getElem?, List.getElem?_take_of_lt hkpos] at ha₀
+    exact ha₀
+  rw [hstoredAt 0 (by omega)] at ha₀'
+  obtain ⟨cv₀, nIdx₀, capsA₀, hform₀, hfA₀⟩ := ConLeche.auxStored?_inv ha₀'
+  have hname₀ : d.memberName 0 = cv₀.name := by rw [hnames 0 hk0, memberNames_getD hform₀]
+  rw [hname₀] at hfT₀
+  obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT₀.symm.trans hfA₀))
+  have hFD₀ : FormerData mpAux.base2 a₀.cvTa
+      (({d with resSort := s₀} : IndRepData V).nP + ({d with resSort := s₀} : IndRepData V).nIdxAt 0)
+      ({d with resSort := s₀} : IndRepData V).resSort
+      (({d with resSort := s₀} : IndRepData V).ppsM 0) (({d with resSort := s₀} : IndRepData V).lvlsM 0) :=
+    hrep₀.formersRead 0 (by show 0 < d.kReal; rw [hkRb]; exact hk0) a₀.cvTa caps₀
+      (by rw [← hname₀] at hfT₀; exact hfT₀)
+  have hdnP : d.nP = p.nP := by rw [hnP, hbnP]
+  have hfv' : ConLeche.openPisAtFvars ({d with resSort := s₀} : IndRepData V).nP a₀.cvTa.type 0
+      = some (fvsA.1, fvsA.2) := by
+    show ConLeche.openPisAtFvars d.nP a₀.cvTa.type 0 = some (fvsA.1, fvsA.2)
+    rw [hdnP]; exact hfv
+  obtain ⟨R, hopened⟩ := IndRepData.opened_params ({d with resSort := s₀} : IndRepData V) ψ
+    (by rw [← hname₀] at hfT₀; exact hfT₀) hFD₀ hfv'
+  -- the pin's check and scope
+  have hqmem : q ∈ st.pins := List.mem_of_getElem? hq
+  obtain ⟨e, ty, hpinAnn, hpinInf⟩ := ConLeche.nestedPinsOk_inv hpinsAux q hqmem
+  have hclosed := ConLeche.pinsClosed_inv hpc q hqmem
+  rw [hqp] at hpinAnn hclosed
+  -- the container's member at the scratch environment
+  obtain ⟨cvTJ, capsJ, dJ, mmJ, bsJ, uJ, hfJ, hJtype, hJlps, hciNP, hFDJ, hstab, hJtele⟩ :=
+    hcont I ci hci i J hJ
+  have hcomp := hcomps q hqmem J.name lvls Ds hqp cvTJ capsJ hfJ
+  rw [hqp] at hcomp
+  -- the read
+  have hdnP' : d.nP = p.nP := hdnP
+  have hopened' : Opened mpAux.base2 ψ d.nP a₀.cvTa.type fvsA.1 fvsA.2 (d.params ψ).reverse R :=
+    hopened
+  obtain ⟨s', DsA, hsv', hpin, hidx⟩ := copyIdxRead_of_copy hμ hreps₀ (ψ := ψ) ht hmk hDs
+    (by rw [hpbs, hdnP]) hfT hann hcl hnf (by rw [hdnP]; exact hopen)
+    hopened' hfJ hJtype hJlps hFDJ (by rw [hDsLen, hciNP]) hstab hJtele
+    (by rw [hdnP]; exact hclosed) (by rw [hdnP]; exact hpinAnn) (by rw [hdnP]; exact hpinInf)
+    (fun argsA dsA restA hA hB => hcomp argsA dsA restA (by rw [← hdnP]; exact hA) hB)
+  exact ⟨q, J.name, lvls, Ds, cvTJ, dJ, mmJ, s', DsA, hq, hqp, hsv', hpin, hidx⟩
 
 end ConLeche.Model
