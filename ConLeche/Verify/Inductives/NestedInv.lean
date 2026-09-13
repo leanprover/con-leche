@@ -110,6 +110,44 @@ theorem checkConstantValPre_ok {env : Env} {cv cvA : ConstantVal} {F : Nat}
     (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
     cvA = cv := (checkConstantValPre_inv h).1
 
+/-- **THE PRE-ANNOTATED FRONT DOOR'S `typeWF`** (task #279 K.20): the
+four type-slot facts `EnvWF` asks of every stored constant, off the
+no-walk front door.  They are its own guards — the walk contributed
+none of them; `checkConstantVal_typeWF` has to work for them because its
+type is the ANNOTATED one, and here the stored type IS the input. -/
+theorem checkConstantValPre_typeWF {env : Env} {cv cvA : ConstantVal} {F : Nat}
+    (h : checkConstantValPre (m := CheckM) (fueledOps mode F) env cv = .ok cvA) :
+    cvA.type.hasFvar = false ∧
+    cvA.type.allLevelParamsDefined cvA.levelParams = true ∧
+    cvA.type.constsResolve env = true ∧
+    cvA.type.looseBVarsBounded 0 = true := by
+  rw [checkConstantValPre_ok h]
+  unfold checkConstantValPre at h
+  by_cases h1 : (env.find? cv.name).isSome = true
+  case pos => rw [if_pos h1] at h; close_throw
+  rw [if_neg h1] at h
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  case pos => rw [if_pos h2] at h; close_throw
+  rw [if_neg h2] at h
+  by_cases h3 : cv.name.isProjFnShape = true
+  case pos => rw [if_pos h3] at h; close_throw
+  rw [if_neg h3] at h
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  by_cases h5 : cv.type.looseBVarsBounded 0 = true
+  case neg => rw [if_neg h5] at h; close_throw
+  rw [if_pos h5] at h
+  by_cases h6 : cv.type.hasFvar = true
+  case pos => rw [if_pos h6] at h; close_throw
+  rw [if_neg h6] at h
+  by_cases h7 : cv.type.allLevelParamsDefined cv.levelParams = true
+  case neg => rw [if_neg h7] at h; close_throw
+  rw [if_pos h7] at h
+  by_cases h8 : cv.type.constsResolve env = true
+  case neg => rw [if_neg h8] at h; close_throw
+  exact ⟨Bool.not_eq_true _ |>.mp h6, h7, h8, h5⟩
+
 /-- **THE `.proj` FACT THE MODEL TIER READS** (K.13).  On the
 pre-annotated path there is no annotation walk to validate a `.proj`
 node's structure-name slot, so `checkConstantValPre` asks the same

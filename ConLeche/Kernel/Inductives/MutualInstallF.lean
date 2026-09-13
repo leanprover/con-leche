@@ -26,7 +26,7 @@ def consMutualFormersF : List MutualFormerA → FEnv → FEnv
 
 /-- `normCtorValM` through the index. -/
 def normCtorValMF (ops : CheckerOps m) (fe : FEnv) (memberNames : List Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) : m ConstantVal := do
+    (cvC cvCa : ConstantVal) (preAnnotated : Bool := false) : m ConstantVal := do
   let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
     (.notImplemented "mutual: constructor telescope")
   let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
@@ -35,15 +35,17 @@ def normCtorValMF (ops : CheckerOps m) (fe : FEnv) (memberNames : List Name) (nP
   let (fbs, resid) ← normFieldDomsM ops fe.env memberNames nP nF crest
   let ty' := closeTelescope (pbs ++ fbs) 0 resid
   if ty' == cvCa.type then pure cvCa
+  else if preAnnotated then checkConstantValPreF ops fe { cvC with type := ty' }
   else checkConstantValF ops fe { cvC with type := ty' }
 
 /-- `checkMutualCtor` through the index. -/
 def checkMutualCtorF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (memberNames : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level)
-    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    m (ConstantVal × List Level) := do
-  let cvCa₀ ← checkConstantValF ops fe cvC
-  let cvCa ← normCtorValMF ops fe memberNames nP nF cvC cvCa₀
+    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal)
+    (preAnnotated : Bool := false) : m (ConstantVal × List Level) := do
+  let cvCa₀ ←
+    if preAnnotated then checkConstantValPreF ops fe cvC else checkConstantValF ops fe cvC
+  let cvCa ← normCtorValMF ops fe memberNames nP nF cvC cvCa₀ preAnnotated
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "mutual: constructor telescope")
   unless structCtorResidOk T lps nP nF nIdx cbody do
@@ -68,14 +70,14 @@ def checkMutualCtorF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
 
 /-- `checkMutualCtors` through the index. -/
 def checkMutualCtorsF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (b : MutualBlock)
-    (fms : List MutualFormerA) (isProp : Bool) :
+    (fms : List MutualFormerA) (isProp : Bool) (auxRoute : Bool := false) :
     List MutualCtor → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
     let f := fms.getD c.member default
     let (cvCa, sorts) ← checkMutualCtorF ops w fe b.memberNames f.cvTa.name b.lps b.nP f.nIdx
-      f.s isProp b.large c.cv c.nF f.cvTa
-    let (rest, srest) ← checkMutualCtorsF ops w fe b fms isProp cs
+      f.s isProp b.large c.cv c.nF f.cvTa auxRoute
+    let (rest, srest) ← checkMutualCtorsF ops w fe b fms isProp auxRoute cs
     pure ((cvCa, c.nF) :: rest, sorts :: srest)
 
 /-- `mutualOpenedOk` through the index. -/
