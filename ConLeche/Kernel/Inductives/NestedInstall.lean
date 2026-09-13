@@ -292,6 +292,10 @@ impossible here for the reason K.11 (a) records: the pin exists only
 because `replaceIfNested` recovered its container at this same
 environment. -/
 def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
+  -- the pins are STRUCTURALLY DISTINCT (K.15 (2)): the elimination
+  -- dedupes — `replaceIfNested` mints only on a pin MISS — so this is a
+  -- fact of the mint, recorded for the model tier
+  decide ((pins.map (·.pin)).Nodup) &&
   pins.all fun q =>
     match containerInfo? env q.container with
     | some ci => containerFactsOk env ci
