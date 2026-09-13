@@ -835,8 +835,8 @@ theorem invSetup_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
                     (d.invL mpAux.base2 ψ p.k cd) (d.invPinsT p.k cd)
                     (d.invHead mpAux.base2 ψ st.pins.length cd (auxOfsOf st p.k cd))
                     (d.invUseIh p.k))) := by
-  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, -, hlenSt, mpAux, d, hreps,
-    hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, -, hlenSt, -, -, -, mpAux, d,
+    hreps, hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, hb, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ

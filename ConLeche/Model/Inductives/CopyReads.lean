@@ -234,6 +234,11 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
       ConLeche.nestedTopoOrder (ConLeche.ElimState.grp st) p.k st = .ok order ∧
       st.types.length = p.k + st.pins.length ∧
+      -- the copies' names are fresh before the block and the pins are
+      -- structurally distinct at their containers (K.15) — run facts the
+      -- constructor read consumes (task #279 M-B′ step 3p)
+      ConLeche.copiesFresh env p.k st = true ∧
+      ConLeche.nestedContainersOk env st.pins = true ∧
       (∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
         t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP) ∧
@@ -267,7 +272,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                 ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
                   (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, hannC, helim, -, hfresh, -, hord, hb, hcore, hstored, hpc, hpinsAux, -, -, hrm, -⟩ := h
+    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, -, -, hrm,
+    -⟩ := h
   obtain ⟨mpAux, d, hreps, hchk⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
@@ -351,7 +357,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     have h := hwsF₀' x hx
     rwa [Nat.zero_add] at h
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
-  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt,
+  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfresh, hcont,
     ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs⟩,
     mpAux, d, hreps₀, hchk, ?_⟩
   intro j hj

@@ -41,6 +41,7 @@ public import ConLeche.Model.Inductives.FixRep
 public import ConLeche.Model.Inductives.PsiRun
 public import ConLeche.Model.Inductives.CopyCtorRun
 public import ConLeche.Model.Inductives.CopyCtorWalk
+public import ConLeche.Model.Inductives.CopyCtorWalkRun
 public import ConLeche.Model.Inductives.InvCopy
 public import ConLeche.Model.Inductives.RoundTrip
 public import ConLeche.Model.Inductives.RoundTripR2
