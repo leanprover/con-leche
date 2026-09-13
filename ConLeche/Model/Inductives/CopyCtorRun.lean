@@ -146,8 +146,8 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
         cA.1.name = c.1 := by
   obtain ⟨-, -, -, -, -, hview, -, -⟩ := hreps
   obtain ⟨env₁', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, -, hmems⟩ := hchk
-  obtain ⟨pf, hbm, q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hJn, hmn, hlenM, hgrp, hqp, hg,
-    hfJ, hψ', -, hsp, hcat, hcst, -⟩ := hpins j' hj'
+  obtain ⟨⟨pf, hbm, q, I, ci, J, lvls, Ds, cvTJ, capsJ, hq, hci, hJ, hJn, hmn, hlenM, hgrp, hqp, hg,
+    hfJ, hψ', -, hsp, hcat, hcst, -⟩, -⟩ := hpins j' hj'
   -- the constructor's member and its container member
   obtain ⟨Jm, c, hJm, hcl, hname, htype, hnF⟩ := hcat.fwd Jc cAJ hJc
   have ht : (cd j').dJ.mems Jc < (cd j').dJ.k := by
@@ -156,8 +156,8 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨q₂, hq₂, hq₂c, hq₂p, hq₂b, hq₂s⟩ := hgrp _ Jm hJm
   have hj₂ : (cd j').base + (cd j').dJ.mems Jc < st.pins.length :=
     (List.getElem?_eq_some_iff.mp hq₂).1
-  obtain ⟨pf₂, hbm₂, q₂', I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂', hci₂, hJ₂, hJ₂n, -, -, -, -,
-    hg₂, -, -, -, -, -, hcst₂, -⟩ := hpins _ hj₂
+  obtain ⟨⟨pf₂, hbm₂, q₂', I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂', hci₂, hJ₂, hJ₂n, -, -, -, -,
+    hg₂, -, -, -, -, -, hcst₂, -⟩, -⟩ := hpins _ hj₂
   obtain rfl : q₂' = q₂ := Option.some.inj (hq₂'.symm.trans hq₂)
   obtain ⟨hbase₂, hmm₂⟩ := groupMate_base hq₂ hq₂b rfl hg₂ hbm₂
   rw [hmm₂] at hJ₂
@@ -215,7 +215,7 @@ theorem copyCtorsOfRun_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   · exact ⟨[], fun j' hj' => by omega⟩
   -- member 0's representation carries the block's facts
   have hk0 : 0 < d.k := by
-    obtain ⟨pf, -⟩ := hpins 0 (by omega)
+    obtain ⟨⟨pf, -⟩, -⟩ := hpins 0 (by omega)
     have := pf.kA 0 (Nat.lt_of_lt_of_le (Nat.zero_lt_of_ne_zero (by
       intro h0; have := pf.mm; omega)) (Nat.le_refl _))
     omega
@@ -284,7 +284,7 @@ theorem bridgeMention_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨-, hkb, -, -, -, -, hnames, hall⟩ := hreps
   intro j' hj' Jc cAJ hJc i hi hA hT _ t' ht'
   have hk0 : 0 < d.k := by
-    obtain ⟨pf, -⟩ := hpins j' hj'
+    obtain ⟨⟨pf, -⟩, -⟩ := hpins j' hj'
     have := pf.kA 0 (Nat.lt_of_lt_of_le (Nat.zero_lt_of_ne_zero (by
       intro h0; have := pf.mm; omega)) (Nat.le_refl _))
     omega
