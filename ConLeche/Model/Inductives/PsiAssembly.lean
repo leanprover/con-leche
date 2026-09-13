@@ -1655,4 +1655,116 @@ theorem via_psi {μ : CheckMode} (mp : EnvModelM V μ env) {lpsT : List Name} {�
 
 end IndRepData
 
+/-! ## Towers at the ih frame, entry by entry -/
+
+omit [SetTheory V] in
+theorem ihTeleAtGo_take (nF o i l : Nat) :
+    ∀ (k₀ : Nat) (tl : List (Nat × Nat × AnnotTerm)) (k : Nat),
+      (ihTeleAtGo nF o i l k₀ tl).take k = ihTeleAtGo nF o i l k₀ (tl.take k)
+  | _, [], _ => by simp [ihTeleAtGo]
+  | k₀, d :: tl, 0 => rfl
+  | k₀, d :: tl, k + 1 => by
+    simp only [ihTeleAtGo, List.take_succ_cons, ihTeleAtGo_take nF o i l (k₀ + 1) tl k]
+
+/-- A Π-tower is graded when its entries are graded under every
+fitting prefix and its body under every fitting spine (the converse of
+`wellDenoted_mkPisAV_dom`/`wellDenoted_mkPisAV_body`). -/
+theorem wellDenoted_mkPisAV_of {B : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
+      (∀ (k : Nat) (dd : Nat × Nat × AnnotTerm), ds[k]? = some dd →
+        ∀ as : List V, SpineFit ρ ((ds.take k).map (·.2.2)) as → WellDenoted V (consList as ρ) dd.2.2) →
+      (∀ as : List V, SpineFit ρ (ds.map (·.2.2)) as → WellDenoted V (consList as ρ) B) →
+      WellDenoted V ρ (mkPisAV ds B)
+  | [], ρ, _, hB => by
+    have := hB [] trivial
+    simp only [consList_nil] at this
+    exact this
+  | d :: ds, ρ, hds, hB => by
+    simp only [mkPisAV, WellDenoted_pi]
+    refine ⟨by simpa using hds 0 d rfl [] trivial, fun x hx => ?_⟩
+    rw [show cons x ρ = consList [x] ρ from rfl]
+    refine wellDenoted_mkPisAV_of (fun k dd hk as hsp => ?_) (fun as hsp => ?_)
+    · have := hds (k + 1) dd (by simpa using hk) (x :: as)
+        (by rw [List.take_succ_cons, List.map_cons]; exact ⟨hx, hsp⟩)
+      simpa [consList_cons] using this
+    · have := hB (x :: as) ⟨hx, hsp⟩
+      simpa [consList_cons] using this
+
+/-! ## ψ's Π-type, and the fold's property -/
+
+namespace IndRepData
+
+variable (d : IndRepData V)
+
+/-- **ψ's Π-type** at the block's parameter frame: over the container's
+motive binders at the pin (its index telescope, then the major
+`J DsA ı⃗`) at the elimination bit, the copy's carrier at the parameters
+and the indices (lifted over the major) — the pin's readings
+substituted for the container's parameters. -/
+@[expose] def psiTyAV (m : EnvModel V env) (ψ' : Name → Nat) (DsA : List AnnotTerm)
+    (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (t : Nat) : AnnotTerm :=
+  ConLeche.Model.AnnotTerm.instSeq DsA (DsA.length - 1)
+    (mkPisAV (rebit (d.bb ψ') (d.motDataAV m ψ' t))
+      ((famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)).liftN 1 0))
+
+/-- **The fold's property at a copy**: the term is graded and inhabits
+ψ's Π-type — what a later copy's transport consumes (`via_of_typed`
+through `psiTyped_of_pi`, and the transport's own grading). -/
+@[expose] def PsiTypedPi (m : EnvModel V env) (ψ' : Name → Nat) (σ : Nat → V) (DsA : List AnnotTerm)
+    (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (t : Nat) (Ψ : AnnotTerm) : Prop :=
+  WellDenotedV V σ Ψ ∧ interp V σ Ψ ∈ˢ interp V σ (d.psiTyAV m ψ' DsA L pinsT t)
+
+/-- The Π-type's reading at the pin's readings. -/
+theorem interp_psiTyAV (m : EnvModel V env) (ψ' : Name → Nat) (DsA : List AnnotTerm)
+    (L : Nat → AnnotTerm) (pinsT : Nat → List AnnotTerm) (t : Nat) (σ : Nat → V) :
+    interp V σ (d.psiTyAV m ψ' DsA L pinsT t)
+      = interp V (consList (DsA.map (interp V σ)) σ)
+          (mkPisAV (rebit (d.bb ψ') (d.motDataAV m ψ' t))
+            ((famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)).liftN 1 0)) := by
+  unfold psiTyAV
+  rw [interp_instSeq_consList]
+
+/-- **The pointwise typing from the Π-typing** (`mkPisAV_fold_mem` at
+the target's `TargetOk`: at the zero bit the target is a truth
+value). -/
+theorem psiTyped_of_pi (m : EnvModel V env) {ψ' : Name → Nat} {σ : Nat → V} {DsA : List AnnotTerm}
+    {L : Nat → AnnotTerm} {pinsT : Nat → List AnnotTerm} {t : Nat}
+    (hips : ((d.ipss ψ').getD t []).length = d.nIdxs.getD t 0)
+    (hTg : d.TargetOk ψ' σ DsA L pinsT t) {Ψ : AnnotTerm}
+    (h : d.PsiTypedPi m ψ' σ DsA L pinsT t Ψ) : d.PsiTyped m ψ' σ DsA L pinsT t Ψ := by
+  intro is x hfit
+  have hmem := h.2
+  rw [d.interp_psiTyAV] at hmem
+  have hfit' : SpineFit (consList (DsA.map (interp V σ)) σ)
+      ((rebit (d.bb ψ') (d.motDataAV m ψ' t)).map (·.2.2)) (is ++ [x]) := by
+    rw [rebit_map_dom]; exact hfit
+  have hisLen : is.length = d.nIdxs.getD t 0 := by
+    have := hfit.length_eq
+    unfold IndRepData.motDataAV at this
+    rw [List.length_append, List.length_singleton, List.length_map, List.length_append,
+      rebit_length, List.length_singleton, hips] at this
+    omega
+  have hzero : d.bb ψ' = 0 → ∀ vs : List V,
+      SpineFit (consList (DsA.map (interp V σ)) σ) ((rebit (d.bb ψ') (d.motDataAV m ψ' t)).map (·.2.2)) vs →
+      interp V (consList vs (consList (DsA.map (interp V σ)) σ))
+        ((famAppAV (L t) (pinsT t) d.nP (d.nP + d.nIdxs.getD t 0) (d.nIdxs.getD t 0)).liftN 1 0)
+        ∈ˢ (univZero : V) := by
+    intro h0 vs hvs
+    rw [rebit_map_dom] at hvs
+    unfold IndRepData.motDataAV at hvs
+    rw [List.map_append, List.map_singleton, spineFit_append_singleton_iff] at hvs
+    obtain ⟨is', x', rfl, hisFit, -⟩ := hvs
+    rw [consList_append, consList_cons, consList_nil, interp_liftN, shiftE_succ_cons,
+      shiftE_zero_zero]
+    have := ((hTg.2 is' hisFit).2)
+    have h0' : d.elimL.eval ψ' = 0 := (pwBit_zeronessOf ψ' d.elimL).mp h0
+    rw [h0', univ_zero] at this
+    exact this
+  have := mkPisAV_fold_mem (m := d.bb ψ') (fun dd hd => by rw [mem_rebit hd]) hzero hmem hfit'
+  rw [consList_append, consList_cons, consList_nil, interp_liftN, shiftE_succ_cons,
+    shiftE_zero_zero] at this
+  exact this
+
+end IndRepData
+
 end ConLeche.Model
