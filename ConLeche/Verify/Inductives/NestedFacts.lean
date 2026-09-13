@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Inductives.StructBody
 
 public section
 
@@ -1121,6 +1122,370 @@ theorem nestedRemint_inv {F : Nat} {env : Env} {p : NestedParts} {st₀ st : Eli
   obtain ⟨hlen, hi, -, -⟩ := remintCopyTypes_inv hA
   refine ⟨rfl, rfl, hlen, hi, cv₀, t₀A, fvsA₀, r₁, pbsA, r₂, unwrapOr_ok hcv₀, ht₀A,
     unwrapOr_ok hop, unwrapOr_ok hstrip, hA⟩
+
+/-! ### The re-mint's TYPE ledger (K.10, DESIGN §M.25): what each pin does to
+each entry, as a function, and the final entry as the fold over the pairs -/
+
+/-- **The re-mint's per-pin rewrite of one entry** — the arm of
+`remintCopyTypes` as a function: at a pin whose annotated form is
+const-headed, whose container the pre-block environment records with a
+member of that name, at the right level count and with the container's
+stored type instantiable at the annotated components, the entry NAMED
+by the pin is re-typed to the instantiated type closed over the first
+former's annotated binders; every other case leaves the entry. -/
+def remintOne (env : Env) (pbsA : List (Expr × BinderMeta)) (q : NestedPin) (pinA : Expr)
+    (t : AuxType) : AuxType :=
+  match pinA.getAppFn, containerInfo? env q.container with
+  | .const _ lvls, some ci =>
+    match ci.members.find? (fun J => J.name == q.container) with
+    | some J =>
+      if lvls.length == J.lps.length then
+        match Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type) pinA.getAppArgs with
+        | some tyI => if t.name == q.aux then { t with type := closeTelescope pbsA 0 tyI } else t
+        | none => t
+      else t
+    | none => t
+  | _, _ => t
+
+/-- **`remintCopyTypes`' type ledger**: the final entry at every position
+is the left fold of the per-pin rewrites over the returned pairs. -/
+theorem remintCopyTypes_type {F : Nat} {envF env : Env} {nP : Nat} {fvsA : List Expr}
+    {pbsA : List (Expr × BinderMeta)} :
+    ∀ {pins : List NestedPin} {ts ts' : List AuxType} {pinsA : List (NestedPin × Expr)},
+      remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env pins ts
+        = .ok (ts', pinsA) →
+      ∀ (i : Nat) (t : AuxType), ts[i]? = some t →
+        ts'[i]? = some (pinsA.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t)
+  | [], ts, ts', pinsA, h, i, t, ht => by
+    simp only [remintCopyTypes, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simpa using ht
+  | q :: qs, ts, ts', pinsA, h, i, t, ht => by
+    simp only [remintCopyTypes, bind, Except.bind] at h
+    obtain ⟨pinA, -, h⟩ := exceptBind_ok h
+    -- the tail's run at the list the arm handed it
+    have htail : ∀ {ts₁ : List AuxType},
+        ts₁[i]? = some (remintOne env pbsA q pinA t) →
+        (remintCopyTypes (m := CheckM) (fueledOps mode F) envF nP fvsA pbsA env qs ts₁ >>=
+          fun p => pure (p.1, (q, pinA) :: p.2)) = .ok (ts', pinsA) →
+        ts'[i]? = some (pinsA.foldl (fun t qp => remintOne env pbsA qp.1 qp.2 t) t) := by
+      intro ts₁ h₁ h
+      simp only [bind, Except.bind] at h
+      obtain ⟨⟨ts₂, qs'⟩, h₂, h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [List.foldl_cons]
+      exact remintCopyTypes_type h₂ i _ h₁
+    -- the arm, scrutinee by scrutinee
+    cases hfn : pinA.getAppFn
+    case const n lvls =>
+      cases hci : containerInfo? env q.container with
+      | some ci =>
+        cases hfind : ci.members.find? (fun J => J.name == q.container) with
+        | some J =>
+          by_cases hlen : (lvls.length == J.lps.length) = true
+          · cases hinst : Expr.instPis (Expr.instantiateLevelParams J.lps lvls J.type)
+                pinA.getAppArgs with
+            | some tyI =>
+              rw [hfn, hci] at h
+              simp only [hfind, hlen, hinst, if_true, pure, Except.pure] at h
+              refine htail ?_ h
+              rw [List.getElem?_map, ht]
+              simp only [Option.map_some, remintOne, hfn, hci, hfind, hlen, hinst, if_true]
+            | none =>
+              rw [hfn, hci] at h
+              simp only [hfind, hlen, hinst, if_true, pure, Except.pure] at h
+              refine htail ?_ h
+              rw [ht]
+              simp only [remintOne, hfn, hci, hfind, hlen, hinst, if_true]
+          · rw [hfn, hci] at h
+            simp only [hfind, hlen, Bool.false_eq_true, if_false, pure, Except.pure] at h
+            refine htail ?_ h
+            rw [ht]
+            simp only [remintOne, hfn, hci, hfind, hlen, Bool.false_eq_true, if_false]
+        | none =>
+          rw [hfn, hci] at h
+          simp only [hfind, pure, Except.pure] at h
+          refine htail ?_ h
+          rw [ht]
+          simp only [remintOne, hfn, hci, hfind]
+      | none =>
+        rw [hfn, hci] at h
+        simp only [pure, Except.pure] at h
+        refine htail ?_ h
+        rw [ht]
+        simp only [remintOne, hfn, hci]
+    all_goals
+      rw [hfn] at h
+      simp only [pure, Except.pure] at h
+      refine htail ?_ h
+      rw [ht]
+      simp only [remintOne, hfn]
+
+/-! ### The bvar-form round trip (DESIGN §M.25 piece 5)
+
+`nestedRemint` closes the instantiated container type over the first
+former's binders in BVAR form (`pbsA = t₀A.stripPis nP`), so
+`openPisAtFvars_closeTelescope` — stated for opener-form domains — does
+not apply.  What holds instead: closing a body over the binders of a
+telescope `T` and re-opening at the depth `T` opens at yields `T`'s own
+openers and the body back, provided the body is bvar-closed and its
+leaves at the openers' indices carry the openers' annotations.  The
+proof commutes one instantiation at a time through the closing
+(`closeTelescope_abstract1_instantiate1`), which needs the three
+substitution facts below. -/
+
+/-- A stripped telescope has as many binders as were asked for. -/
+theorem stripPis_len : ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+    e.stripPis n = some (bs, body) → bs.length = n
+  | 0, _, bs, _, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]; rfl
+  | n + 1, e, bs, body, h => by
+    match e, h with
+    | .forallE ty b m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, h', hbs⟩ := h
+      simp only [Prod.mk.injEq] at hbs
+      obtain ⟨rfl, -⟩ := hbs
+      simp [stripPis_len n h']
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
+
+/-- `abstract1` at an index a term does not mention is the identity. -/
+theorem abstract1_eq_self_of_WScoped :
+    ∀ (e : Expr) {d : Nat} (k : Nat), Expr.WScoped d e → e.abstract1 d k = e := by
+  intro e
+  induction e with
+  | bvar i => intro d k _; rfl
+  | fvar idx ty _ =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, if_neg (Nat.ne_of_lt h.1)]
+  | sort u => intro d k _; rfl
+  | const n us => intro d k _; rfl
+  | app f a ihf iha =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, ihf k h.1, iha k h.2]
+  | lam ty body bi ihty ihb =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, ihty k h.1, ihb (k + 1) h.2]
+  | forallE ty body bi ihty ihb =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, ihty k h.1, ihb (k + 1) h.2]
+  | letE ty val body ihty ihv ihb =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, ihty k h.1, ihv k h.2.1, ihb (k + 1) h.2.2]
+  | lit l => intro d k _; rfl
+  | proj sn i pe ih =>
+    intro d k h
+    simp only [Expr.WScoped] at h
+    simp only [Expr.abstract1, ih k h]
+
+/-- Two abstractions at different variables commute. -/
+theorem abstract1_comm :
+    ∀ (e : Expr) {d d' : Nat} (k k' : Nat), d ≠ d' →
+      (e.abstract1 d k).abstract1 d' k' = (e.abstract1 d' k').abstract1 d k := by
+  intro e
+  induction e with
+  | bvar i => intro d d' k k' _; rfl
+  | fvar idx ty _ =>
+    intro d d' k k' hne
+    by_cases h1 : idx = d
+    · subst h1
+      simp [Expr.abstract1, hne, Ne.symm hne]
+    · by_cases h2 : idx = d'
+      · subst h2; simp [Expr.abstract1, h1]
+      · simp [Expr.abstract1, h1, h2]
+  | sort u => intro d d' k k' _; rfl
+  | const n us => intro d d' k k' _; rfl
+  | app f a ihf iha =>
+    intro d d' k k' hne
+    simp only [Expr.abstract1, ihf k k' hne, iha k k' hne]
+  | lam ty body bi ihty ihb =>
+    intro d d' k k' hne
+    simp only [Expr.abstract1, ihty k k' hne, ihb (k + 1) (k' + 1) hne]
+  | forallE ty body bi ihty ihb =>
+    intro d d' k k' hne
+    simp only [Expr.abstract1, ihty k k' hne, ihb (k + 1) (k' + 1) hne]
+  | letE ty val body ihty ihv ihb =>
+    intro d d' k k' hne
+    simp only [Expr.abstract1, ihty k k' hne, ihv k k' hne, ihb (k + 1) (k' + 1) hne]
+  | lit l => intro d d' k k' _; rfl
+  | proj sn i pe ih =>
+    intro d d' k k' hne
+    simp only [Expr.abstract1, ih k k' hne]
+
+/-- An instantiation ABOVE an abstraction's index commutes with it,
+when the value is invariant under the abstraction. -/
+theorem instantiate1_abstract1_comm :
+    ∀ (e : Expr) {d : Nat} {v : Expr} (m k : Nat), m < k →
+      (∀ m', v.abstract1 d m' = v) →
+      (e.abstract1 d m).instantiate1 v k = (e.instantiate1 v k).abstract1 d m := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1]
+    by_cases h1 : i = k
+    · simp [h1, hv]
+    · by_cases h2 : i > k
+      · simp [h1, h2, Expr.abstract1]
+      · simp [h1, h2, Expr.abstract1]
+  | fvar idx ty _ =>
+    intro d v m k hmk hv
+    by_cases h1 : idx = d
+    · subst h1
+      simp only [Expr.abstract1, if_true, Expr.instantiate1]
+      have : ¬ (m = k) := Nat.ne_of_lt hmk
+      have : ¬ (m > k) := Nat.not_lt.mpr (Nat.le_of_lt hmk)
+      simp [*]
+    · simp [Expr.abstract1, Expr.instantiate1, h1]
+  | sort u => intro d v m k _ _; rfl
+  | const n us => intro d v m k _ _; rfl
+  | app f a ihf iha =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1, ihf m k hmk hv, iha m k hmk hv]
+  | lam ty body bi ihty ihb =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1, ihty m k hmk hv,
+      ihb (m + 1) (k + 1) (Nat.succ_lt_succ hmk) hv]
+  | forallE ty body bi ihty ihb =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1, ihty m k hmk hv,
+      ihb (m + 1) (k + 1) (Nat.succ_lt_succ hmk) hv]
+  | letE ty val body ihty ihv ihb =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1, ihty m k hmk hv, ihv m k hmk hv,
+      ihb (m + 1) (k + 1) (Nat.succ_lt_succ hmk) hv]
+  | lit l => intro d v m k _ _; rfl
+  | proj sn i pe ih =>
+    intro d v m k hmk hv
+    simp only [Expr.abstract1, Expr.instantiate1, ih m k hmk hv]
+
+/-- The binders of a bvar-form telescope, instantiated at `v` from
+index `k` on: binder `m` at `k + m`. -/
+def instAt (v : Expr) : Nat → List (Expr × BinderMeta) → List (Expr × BinderMeta)
+  | _, [] => []
+  | k, (dom, bm) :: bs => (dom.instantiate1 v k, bm) :: instAt v (k + 1) bs
+
+theorem instAt_length (v : Expr) :
+    ∀ (k : Nat) (bs : List (Expr × BinderMeta)), (instAt v k bs).length = bs.length
+  | _, [] => rfl
+  | k, (_, _) :: bs => by simp [instAt, instAt_length v (k + 1) bs]
+
+theorem instAt_getElem? (v : Expr) :
+    ∀ (k : Nat) (bs : List (Expr × BinderMeta)) (m : Nat) (b : Expr × BinderMeta),
+      bs[m]? = some b → (instAt v k bs)[m]? = some (b.1.instantiate1 v (k + m), b.2)
+  | _, [], m, _, h => nomatch h
+  | k, (dom, bm) :: bs, 0, b, h => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h
+    rfl
+  | k, (_, _) :: bs, m + 1, b, h => by
+    simp only [List.getElem?_cons_succ] at h
+    simp only [instAt, List.getElem?_cons_succ]
+    rw [instAt_getElem? v (k + 1) bs m b h, Nat.add_assoc, Nat.add_comm 1 m]
+
+/-- **One instantiation through the closing**: abstracting a closed
+telescope (bvar-form binders mentioning only variables below `i`, a
+bvar-closed body consistent at `i`) over `i` and re-instantiating at
+`fvar i dom` instantiates the binders and leaves the body. -/
+theorem closeTelescope_abstract1_instantiate1 {i : Nat} {dom : Expr} :
+    ∀ (bs : List (Expr × BinderMeta)) (j k : Nat) (body : Expr), i < j →
+      (∀ b ∈ bs, Expr.WScoped i b.1) →
+      Expr.fvarConsistent i dom body → body.looseBVarsBounded 0 = true →
+      ((closeTelescope bs j body).abstract1 i k).instantiate1 (.fvar i dom) k
+        = closeTelescope (instAt (.fvar i dom) k bs) j body
+  | [], j, k, body, _, _, hc, hb =>
+    abstract1_instantiate1 body k hc (Expr.looseBVarsBounded_mono (Nat.zero_le k) hb)
+  | (d, b) :: bs, j, k, body, hij, hbs, hc, hb => by
+    simp only [closeTelescope, instAt, Expr.abstract1, Expr.instantiate1]
+    have hd : d.abstract1 i k = d :=
+      abstract1_eq_self_of_WScoped d k (hbs _ List.mem_cons_self)
+    rw [hd]
+    congr 1
+    rw [abstract1_comm _ 0 (k + 1) (Nat.ne_of_lt hij).symm,
+      instantiate1_abstract1_comm _ 0 (k + 1) (Nat.succ_pos k)
+        (fun m' => by simp [Expr.abstract1, Nat.ne_of_lt hij]),
+      closeTelescope_abstract1_instantiate1 bs (j + 1) (k + 1) body (Nat.lt_succ_of_lt hij)
+        (fun b' hb' => hbs b' (List.mem_cons_of_mem _ hb')) hc hb]
+
+/-- **The bvar-form round trip**: a body closed over the binders of a
+telescope `T` re-opens, at the depth `T` opens at, to `T`'s openers and
+the body — when the body is bvar-closed and consistent at every opener,
+and the binders mention only variables below the depth. -/
+theorem openPisAtFvars_closeTelescope_strip :
+    ∀ (n : Nat) {T : Expr} {bs : List (Expr × BinderMeta)} {r : Expr} {i : Nat}
+      {fvs : List Expr} {rT body : Expr},
+      T.stripPis n = some (bs, r) →
+      openPisAtFvars n T i = some (fvs, rT) →
+      (∀ b ∈ bs, Expr.WScoped i b.1) →
+      body.looseBVarsBounded 0 = true →
+      (∀ x ∈ fvs, ∀ (idx : Nat) (ty : Expr), x = .fvar idx ty → Expr.fvarConsistent idx ty body) →
+      openPisAtFvars n (closeTelescope bs i body) i = some (fvs, body)
+  | 0, T, bs, r, i, fvs, rT, body, hst, hop, _, _, _ => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
+    obtain ⟨rfl, -⟩ := hst
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    rfl
+  | n + 1, T, bs, r, i, fvs, rT, body, hst, hop, hbs, hb, hcons => by
+    match T, hst with
+    | .forallE dom bT bm, hst =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
+      obtain ⟨⟨bs', r'⟩, hst', hbs'⟩ := hst
+      simp only [Prod.mk.injEq] at hbs'
+      obtain ⟨rfl, rfl⟩ := hbs'
+      simp only [openPisAtFvars] at hop
+      cases hop' : openPisAtFvars n (bT.instantiate1 (.fvar i dom)) (i + 1) with
+      | none => rw [hop'] at hop; exact nomatch hop
+      | some p =>
+        obtain ⟨fvs', rT'⟩ := p
+        rw [hop'] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hdomW : Expr.WScoped i dom := hbs _ List.mem_cons_self
+        have hcons0 : Expr.fvarConsistent i dom body :=
+          hcons _ List.mem_cons_self i dom rfl
+        -- the instantiated tail strips to the instantiated binders
+        obtain ⟨bs'', hst'', hpt⟩ := stripPis_instantiate1_full n 0 (v := .fvar i dom) hst'
+        have hbsEq : bs'' = instAt (.fvar i dom) 0 bs' := by
+          refine List.ext_getElem? fun m => ?_
+          cases hm : bs'[m]? with
+          | none =>
+            have h1 : bs''.length = bs'.length := by
+              rw [stripPis_len n hst'', stripPis_len n hst']
+            have hm' := List.getElem?_eq_none_iff.mp hm
+            rw [List.getElem?_eq_none_iff.mpr (by rw [h1]; exact hm'),
+              List.getElem?_eq_none_iff.mpr (by rw [instAt_length]; exact hm')]
+          | some b =>
+            rw [hpt m b hm, instAt_getElem? _ 0 bs' m b hm]
+        -- the tail, by the induction hypothesis
+        have ih := openPisAtFvars_closeTelescope_strip n (T := bT.instantiate1 (.fvar i dom) 0)
+          (bs := instAt (.fvar i dom) 0 bs') (r := r'.instantiate1 (.fvar i dom) (0 + n))
+          (i := i + 1) (fvs := fvs') (rT := rT') (body := body) (by rw [← hbsEq]; exact hst'') hop'
+          (fun b hb' => by
+            obtain ⟨m, hm⟩ := List.getElem?_of_mem hb'
+            have hlen : m < bs'.length := by
+              have := (List.getElem?_eq_some_iff.mp hm).1
+              rw [instAt_length] at this; exact this
+            obtain ⟨b₀, hb₀⟩ : ∃ b₀, bs'[m]? = some b₀ := ⟨_, List.getElem?_eq_getElem hlen⟩
+            rw [instAt_getElem? _ 0 bs' m b₀ hb₀] at hm
+            obtain rfl := Option.some.inj hm
+            exact Expr.WScoped.instantiate1_gen
+              (by simp only [Expr.WScoped]; exact ⟨Nat.lt_succ_self i, hdomW⟩) _
+              (Expr.WScoped.mono (Nat.le_succ i) (hbs b₀ (List.mem_cons_of_mem _ (List.mem_of_getElem? hb₀)))))
+          hb (fun x hx => hcons x (List.mem_cons_of_mem _ hx))
+        simp only [closeTelescope, openPisAtFvars]
+        rw [closeTelescope_abstract1_instantiate1 bs' (i + 1) 0 body (Nat.lt_succ_self i)
+          (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hcons0 hb, ih]
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [Expr.stripPis] at h
 
 /-- The re-mint keeps every entry's name. -/
 theorem nestedRemint_name {F : Nat} {env : Env} {p : NestedParts} {st₀ st : ElimState}
