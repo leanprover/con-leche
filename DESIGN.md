@@ -71508,3 +71508,164 @@ link-only **plus** re-syncing a stale quote.
 No `.lean` file changed; `README.md` and `OVERVIEW.md` are byte-identical
 to `639b3ba6` (both quotes already matched, which is what made them the
 acceptance test).
+
+## TASK #303 — MAIN.LEAN: RETIRED FLAGS GONE WITHOUT TRACE, HISTORY OUT OF THE COMMENTS (2026-09-13, `agent/mainclean-303`)
+
+The maintainer's ruling, verbatim: *"we still support and error on
+cmdline flags from long before the public release? remove them all with
+no trace in the code! and while you look at the main module, remove
+comments that are purely historical (e.g. on process forking)"*.  The
+repository went public 2026-09-10; no user has a retired invocation to
+protect, and a tombstone for something nobody ever shipped is noise —
+the same principle task #287 applied to the environment-variable hooks,
+which kept the FLAG tombstones because "a flag spelling is what a stale
+command line carries".  That exemption is withdrawn.
+
+### The spellings removed
+
+`--set-model`, `--set-model=p`, `--set-model=r`, `--no-model`,
+`--tt-model`, `--yolo`, `--infer-only`, `--pre`, `--core`,
+`--core=<c>`, `--install-only`, `--check-range`, `--check-range=<r>` —
+thirteen, each an arm of `parseArgs` carrying a message that named its
+successor.  Gone with them: the "retired-spelling discipline" comment
+above the first arm, and the `--help` text's closing RETIRED FLAGS
+paragraph.
+
+**What a retired spelling does now**: it falls through to the
+pre-existing generic arm (`s.startsWith "-"`), so
+
+```
+$ con-leche --pre stream.ndjson
+con-leche: unknown option --pre
+<the usage text>
+$ echo $?
+3
+```
+
+— exit 3 without reading the input, and the message names nothing
+retired.  No live spelling moved: `--verified`, `--trusted`,
+`--jobs[=<n>]`, `--progress[=<stride>]`, `--no-mark-persistent`,
+`--help` and the bare-`--jobs` / bad-stride / bad-count usage errors are
+untouched, and all thirteen retired spellings were re-run against the
+built binary to confirm the fall-through (the `=`-carrying ones too:
+`--core=x`, `--check-range=0:2`, `--set-model=p`, `--set-model=r`).
+
+**No regression to report**: the `CON_LECHE_NO_PROOF_CERTS` /
+`CON_LECHE_INFER_ONLY` tombstones task #287 deleted are still absent —
+no merge resurrected them, and `IO.getEnv` in `Main.lean` is still the
+modeller's four names only.
+
+### The history out of Main.lean's comments
+
+`task #` mentions **59 → 9**; the file is 1 125 → 1 011 lines (97
+inserted, 211 deleted).  Of the nine, **eight are inside the `--help`
+text**, which this task was told not to edit beyond dropping the
+retired list — flagged here as the one place where the docs rule
+("human-facing docs state the current fact, no task numbers") and the
+brief disagree, for the maintainer to settle.  The ninth is the one
+pointer worth keeping under CLAUDE.md's rule that a task number may
+stand where it points at a DESIGN record explaining a live decision:
+the check phase's dedicated-thread measurement (task #269's section).
+
+What was rewritten to the present tense or deleted:
+
+* the process-forking era — "Task #65 used to re-exec it as a
+  supervised child … Task #230 removed that supervisor" → the checker
+  runs in this process, spawns no copy of itself, and an OOM exits 1
+  with the runtime's own panic message;
+* "**TASK #269 SUPERSEDES THE `jobs > 1` GUARD.**  The sentence above
+  is right about the RC arithmetic and wrong about the lane …" — a
+  comment narrating the correction of the comment above it: the two are
+  now one paragraph stating why the mark is taken at every `--jobs=<n>`
+  and why the check phase gets a thread of its own, with the
+  measurement's DESIGN pointer;
+* "The interned representation and every driver over it retired with
+  the arena (task #172), the R core retired with the collapsed model
+  (2026-09-05), and the hand-written trusted twin retired into an
+  instantiation (2026-09-06), so …" → "One core at two modes, one
+  parse.  The stream is parsed directly to `Expr` … and checked by the
+  one driver";
+* "What this replaced was a diagnostic re-run (`diagLoopC`) …" → "never
+  a diagnostic re-run of the accepted prefix, which would be a lie
+  waiting to happen if the two runs ever disagreed" (the reason the
+  design is what it is, without the thing it replaced);
+* "What it replaced was `env.consts.length` … (task #175 S1's one
+  projection table per structure dropped init-full by 499)" → the live
+  contrast alone: the record count is a property of the input, the
+  constant count of our representation;
+* "Since task #207 there is nothing else", "since task #219", "a FLAG
+  since task #229 — and it was an environment variable before", "the
+  three-mode setting", "the GRADED core since the R core's retirement",
+  and every `(task #NNN)` / `(2026-09-0N)` parenthetical whose only
+  content was when something changed;
+* `_tmp/frontier3/decl_index.py` — a pointer into a gitignored scratch
+  directory, dead for any reader.
+
+Two live facts that KEPT their comment, with the history stripped: the
+input is read strictly forward in chunks and no scratch file exists
+anywhere (**NO TEMPORARY FILES**), and the install loop is written tail
+-recursively because a `for … in ds` loop with `let mut` accumulators
+`lean_inc`s the `FEnv` and the `CState` before each step and every
+hashmap then copies its bucket array per declaration.
+
+### The gates' rows
+
+`tests/arena.sh` loses the whole **retired flags 8/8** family: six rows
+asserted a retired spelling errors, and the two that did not
+(`SPLIT_GOOD` accepts, `SPLIT_BAD` rejects with no flag at all) move
+into the mode section, which is where `SPLIT_GOOD`/`SPLIT_BAD` are
+defined now.  The mode section loses its twelve retired-spelling rows
+and **gains two** — `--not-a-flag` and `--trusted --not-a-flag`, exit 3
+— because the generic unknown-option arm is now the only thing standing
+where thirteen named arms stood and nothing else gated it.  So **mode
+flags 18/18 → 10/10**: 2 bare + 4 mode + 2 unknown-option + 2
+`CON_LECHE_INMODEL_CENSUS`.  Every other count on the battery is
+master's.  (The two added rows are the one place this task did more
+than remove; they are two lines to drop if the maintainer would rather
+have the removals alone.)
+
+`tests/e2e-expected.txt`'s header loses the `raw`/`pre` third-field
+paragraph and the fixture-regeneration history, and states the fact
+they were explaining: every run is raw, so a fixture has exactly one
+verdict and a row carries exactly one exit code.
+
+### Statements elsewhere the change would have falsified
+
+Fixed in the same commit, because each asserted that a retired spelling
+is a hard error or named one as a live variant:
+
+| file | was | is |
+|---|---|---|
+| `OVERVIEW.md` §0 | the nine-spelling retired list, "rejected with a message naming what stands in its place" | "Any other option is a usage error: the run reports it, prints the usage text and exits 3 without reading its input" |
+| `ConLeche/Kernel/Env.lean` | "**HISTORY, because the spelling moved twice**" — three mode values, two renames, "Every retired spelling is a hard error naming its successor" | the two values are spelled `--verified` and `--trusted`, and say what the modes are FOR |
+| `ConLeche/Cached/CoreC.lean` | "the flag that selected it (`--set-model=r`) is a hard error" | `cfgR` is gone with the configuration record |
+| `ConLeche/Verify/Cached.lean` | "the `--core=cached-parsed` variant" | "the cached core" |
+| `scripts/perf-tables.sh` | "the R column went … with `--set-model=r` (a hard error now)" | one representation and two modes, so no core axis |
+| `lakefile.toml` | "the consistency corollaries for `--core=cached-parsed`" | "for the cached core" |
+| `.github/workflows/ci.yml` | "the e2e, annot, retired-flag and mode suites" | "the e2e, annot and mode suites" |
+
+**Second commit, separable**: `tests/pilot-measure.sh`,
+`tests/pilot-parity.sh` and `tests/pilot-scale.sh` deleted.  Each passes
+`--core=<variant>` on every checker invocation it makes, so all three
+have exited 3 on every run since task #172 deleted the selector and the
+cores it chose between; nothing calls them (`tests/arena.sh`,
+`.github/workflows/ci.yml`, `scripts/` do not), and the only other
+mentions are this document's dated records of the pilot they measured.
+They were the last `--core=` spellings in the tree.  The ruling did not
+name them, which is why they are their own commit.
+
+After both: `grep -rn` for any of the thirteen spellings over the whole
+tree, `.lake` and this document's history excluded, comes back **empty**.
+
+### Gates
+
+| gate | result |
+|---|---|
+| `lake build` | 560 jobs, **warning-free**, exit 0 |
+| `lake test` | green, warning-free |
+| `tests/arena.sh` (full, `env -i`, no `ulimit`) | exit 0; **mode flags 10/10** and the retired-flag line gone, every other number master's |
+| `tests/overview-links.sh` | eight anchors re-anchored, all pure line moves (`usage` L743→L706, `exitCode` L48 unchanged, `installLoop` L107→L106, `checkLoop` L175→L174, `checkPool` L290→L289, `checkDeclsIO` L328-L331→L327-L330, `CheckMode` L69→L59, `indParamsOk` L624-L631→L614-L621; README's `--jobs` L776→L739, `--trusted` L759→L722, `main` L1093→L984).  Every cited TEXT is byte-identical — no citation pointed at a deleted comment — and each citing paragraph was re-read and is still true.  103 links / 57 files OK |
+| `tests/quote-gate.sh` | 2 quoted statements match |
+| `tests/no-local-paths.sh` | OK |
+| proofdeps | unchanged: no import moved, no module added or removed |
+| measurement | **none owed**: no executable line outside `parseArgs`'s deleted arms changed, and the accept path is untouched |

@@ -111,7 +111,7 @@ roots = ["ConLeche.Model"]
 
 # The capstone assembly (task #163): the cached checker variant's
 # verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`
-# simulation, and the consistency corollaries for `--core=cached-parsed`.
+# simulation, and the consistency corollaries for the cached core.
 # `Verify/Cached/MainC.lean` carries the shipped driver's capstone; it
 # was the two-lane assembly until the SetR removal left one lane.
 # `ConLeche.Verify.Frontend.Prepare` (task #293) is rooted here and not
