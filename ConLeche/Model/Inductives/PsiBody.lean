@@ -296,47 +296,39 @@ theorem ctorAtDoms_of_ctorAtPins {ψ : Name → Nat} {ρ : Nat → V} {ps : List
       Es := h
 
 set_option maxHeartbeats 3200000 in
-/-- **ψ's body fact** (the kit's `hleaf`) from `CtorAtDoms` at the
-transported domains: at a spine of fields and target-form hypotheses,
-ψ's values fit the transported domains — each read at the REPLACED
-prefix, the same as at the fields' by `ShadowRelP` at the datum's and
-the transports' `NoBVar` facts — the transport's value by
-`lamTower_mem_piTele` from the ONE fact of the earlier copy's term
-(`hvia`); so the head at ψ's spine is graded and lands in the member's
-target at the constructor's index readings.  The transports'
-well-denotedness at the leaf frame (`hviaWD`) is the consumer's, from
-the earlier term's and the field's domain's. -/
-theorem psiBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List AnnotTerm}
+/-- **ψ's values fit the transported domains** (the first half of
+`psiBody_leaf`; task #279 M-C′, DESIGN §M.34 — `PsiCtorFit`'s datum
+half): at a spine of fields and target-form hypotheses, the fields fit
+the constructor's domains at the parameter frame, ψ's values shadow
+the fields off the replaced positions (`ShadowRelP`), and they fit the
+TRANSPORTED domains — each read at the replaced prefix, the same as at
+the fields' by `ShadowRelP` at the datum's and the transports'
+`NoBVar` facts, a transport's value by `lamTower_mem_piTele` from the
+ONE fact of the earlier copy's term (`hvia`).  Through `CtorAtDoms`
+(`ctorAtDoms_psi`'s telescope, `psiVals_fit_copy`) this is the fit of
+ψ's values at the copy constructor's own field telescope. -/
+theorem psiVals_fit {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List AnnotTerm}
     (hps : ps.length = d.nP) (hMs : Ms.length = d.k) (hk : 0 < d.k) {J : Nat}
-    (hprior : prior.length = J) {Tg TgV domA : Nat → AnnotTerm} {head : Nat → AnnotTerm}
-    {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec} {C : Name} {nF : Nat}
-    {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm} {recIdx : List Nat}
+    (hprior : prior.length = J) {Tg TgV domA : Nat → AnnotTerm}
+    {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec} {nF : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {recIdx : List Nat}
     {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
-    (hcd : (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls))
     (hds : ds.length = d.nP + nF)
-    -- no ordinary domain (the copy's own) mentions a replaced position,
-    -- and it reads as the container's at the container's field frame
     (hnbA : ∀ i, i < nF →
       NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i)) (domA i))
     (hord : ∀ i, i < nF → ¬ replaced (useIh J) (via J) i → ∀ fs' : List V, fs'.length = i →
       SpineFit (consList (ps.map (interp V ρ)) ρ) (((ds.drop d.nP).take i).map (·.2.2)) fs' →
       interp V (consList fs' (consList (ps.map (interp V ρ)) ρ)) (domA i)
         = interp V (consList fs' (consList (ps.map (interp V ρ)) ρ)) ((ds.getD (d.nP + i) default).2.2))
-    -- no later reading mentions a replaced position
     (hnbT : ∀ i, i < nF → ∀ k dd, (tls.getD i [])[k]? = some dd →
       NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + k)) dd.2.2)
     (hnbE : ∀ i, i < nF → ∀ E ∈ Eiss.getD i [],
       NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + (tls.getD i []).length)) E)
-    (hnbEs : ∀ E ∈ Es, NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) nF) (d.nP + nF)) E)
     (hnbV : ∀ i, i < nF → ∀ Ψ Eis tl, via J i = some (Ψ, Eis, tl) →
       (∀ k dd, tl[k]? = some dd →
         NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + k)) dd.2.2) ∧
       ∀ E ∈ Eis, NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + tl.length)) E)
     (huse : ∀ i, useIh J i = true → i ∈ recIdx)
-    (hbits : ∀ i Ψ Eis tl, via J i = some (Ψ, Eis, tl) → ∀ dd ∈ tl, dd.2.1 = d.bb ψ)
-    -- the ONE fact of each transport: at every telescope spine the
-    -- earlier copy's term at the index values and the field lands in the
-    -- transport's target
     (hvia : ∀ i, i < nF → ∀ Ψ Eis tl, via J i = some (Ψ, Eis, tl) → ∀ fs : List V,
       SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
       ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)) (tl.map (·.2.2)) as →
@@ -344,44 +336,18 @@ theorem psiBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List An
           [as.foldl SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
             (interp V (consList (ps.map (interp V ρ)) ρ) Ψ)
           ∈ˢ (Eis.map (interp V (consList as (consList (fs.take i)
-                (consList (ps.map (interp V ρ)) ρ))))).foldl SetTheory.app (interp V ρ (TgV i)))
-    (hviaWD : ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
-      SpineFit (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ)
-        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
-        (fs ++ ihs) →
-      ∀ i Ψ Eis tl, via J i = some (Ψ, Eis, tl) →
-        WellDenotedV V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
-          (viaEntryAV Ψ nF (d.k + J) i recIdx.length tl Eis))
-    (hCAD : d.CtorAtDoms ρ ps Tg J (head J) nF
-      (psiDomsAV Tg TgV domA (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF) Es)
-    (hzero : d.bb ψ = 0 → ∀ fs : List V,
-      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
-      (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
-        SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) :
+                (consList (ps.map (interp V ρ)) ρ))))).foldl SetTheory.app (interp V ρ (TgV i))) :
     ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
       SpineFit (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ)
         ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
         (fs ++ ihs) →
-      WellDenotedV V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
-        (d.psiBodyAV head useIh via J) ∧
-      interp V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
-          (d.psiBodyAV head useIh via J)
-        ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
-            SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
-      (d.bb ψ = 0 →
-        (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
-          SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) := by
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs ∧
+      ShadowRelP (replaced (useIh J) (via J)) fs
+        (psiVals (d.bb ψ) (consList (ps.map (interp V ρ)) ρ) recIdx (useIh J) (via J) fs ihs) ∧
+      SpineFit (consList (ps.map (interp V ρ)) ρ)
+        (psiDomsAV Tg TgV domA (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF)
+        (psiVals (d.bb ψ) (consList (ps.map (interp V ρ)) ρ) recIdx (useIh J) (via J) fs ihs) := by
   intro fs ihs hfs hihs hfit
-  have hfit₀ := hfit
-  -- the constructor's shape from the datum list
-  have hcd' := hcd
-  unfold cdsR at hcd'
-  rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd'
-  obtain ⟨cA, hcA, hcAeq⟩ := Option.map_eq_some_iff.mp hcd'
-  simp only [Prod.mk.injEq] at hcAeq
-  obtain ⟨-, hnFc, -, -, hrec, -, -⟩ := hcAeq
-  have hnFget : (d.ctorsAll.getD J default).2 = nF := by
-    rw [List.getD_eq_getElem?_getD, hcA]; exact hnFc
   -- the frames
   have hpsLen : (ps.map (interp V ρ)).length = d.nP := by simp [hps]
   have hσ' : consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ
@@ -551,6 +517,108 @@ theorem psiBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List An
           interp_congr_shadowRelP_at hSR _ (by rw [hfs]; exact Nat.le_of_lt hn) (nP := d.nP)
           (hnbA n hn)] at hm
         exact hm
+  subst hvs
+  exact ⟨hfsFit, hSR, hvsFit⟩
+
+set_option maxHeartbeats 3200000 in
+/-- **ψ's body fact** (the kit's `hleaf`) from `CtorAtDoms` at the
+transported domains: at a spine of fields and target-form hypotheses,
+ψ's values fit the transported domains — each read at the REPLACED
+prefix, the same as at the fields' by `ShadowRelP` at the datum's and
+the transports' `NoBVar` facts — the transport's value by
+`lamTower_mem_piTele` from the ONE fact of the earlier copy's term
+(`hvia`); so the head at ψ's spine is graded and lands in the member's
+target at the constructor's index readings.  The transports'
+well-denotedness at the leaf frame (`hviaWD`) is the consumer's, from
+the earlier term's and the field's domain's. -/
+theorem psiBody_leaf {ψ : Name → Nat} {ρ : Nat → V} {ps Ms prior : List AnnotTerm}
+    (hps : ps.length = d.nP) (hMs : Ms.length = d.k) (hk : 0 < d.k) {J : Nat}
+    (hprior : prior.length = J) {Tg TgV domA : Nat → AnnotTerm} {head : Nat → AnnotTerm}
+    {useIh : Nat → Nat → Bool} {via : Nat → Nat → Option ViaSpec} {C : Name} {nF : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm} {recIdx : List Nat}
+    {Eiss : List (List AnnotTerm)} {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hcd : (d.cdsR ψ)[J]? = some (C, nF, ds, Es, recIdx, Eiss, tls))
+    (hds : ds.length = d.nP + nF)
+    -- no ordinary domain (the copy's own) mentions a replaced position,
+    -- and it reads as the container's at the container's field frame
+    (hnbA : ∀ i, i < nF →
+      NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i)) (domA i))
+    (hord : ∀ i, i < nF → ¬ replaced (useIh J) (via J) i → ∀ fs' : List V, fs'.length = i →
+      SpineFit (consList (ps.map (interp V ρ)) ρ) (((ds.drop d.nP).take i).map (·.2.2)) fs' →
+      interp V (consList fs' (consList (ps.map (interp V ρ)) ρ)) (domA i)
+        = interp V (consList fs' (consList (ps.map (interp V ρ)) ρ)) ((ds.getD (d.nP + i) default).2.2))
+    -- no later reading mentions a replaced position
+    (hnbT : ∀ i, i < nF → ∀ k dd, (tls.getD i [])[k]? = some dd →
+      NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + k)) dd.2.2)
+    (hnbE : ∀ i, i < nF → ∀ E ∈ Eiss.getD i [],
+      NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + (tls.getD i []).length)) E)
+    (hnbEs : ∀ E ∈ Es, NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) nF) (d.nP + nF)) E)
+    (hnbV : ∀ i, i < nF → ∀ Ψ Eis tl, via J i = some (Ψ, Eis, tl) →
+      (∀ k dd, tl[k]? = some dd →
+        NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + k)) dd.2.2) ∧
+      ∀ E ∈ Eis, NoBVar (exclP (replP d.nP (replaced (useIh J) (via J)) i) (d.nP + i + tl.length)) E)
+    (huse : ∀ i, useIh J i = true → i ∈ recIdx)
+    (hbits : ∀ i Ψ Eis tl, via J i = some (Ψ, Eis, tl) → ∀ dd ∈ tl, dd.2.1 = d.bb ψ)
+    -- the ONE fact of each transport: at every telescope spine the
+    -- earlier copy's term at the index values and the field lands in the
+    -- transport's target
+    (hvia : ∀ i, i < nF → ∀ Ψ Eis tl, via J i = some (Ψ, Eis, tl) → ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      ∀ as, SpineFit (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)) (tl.map (·.2.2)) as →
+        (Eis.map (interp V (consList as (consList (fs.take i) (consList (ps.map (interp V ρ)) ρ)))) ++
+          [as.foldl SetTheory.app (fs.getD i pt)]).foldl SetTheory.app
+            (interp V (consList (ps.map (interp V ρ)) ρ) Ψ)
+          ∈ˢ (Eis.map (interp V (consList as (consList (fs.take i)
+                (consList (ps.map (interp V ρ)) ρ))))).foldl SetTheory.app (interp V ρ (TgV i)))
+    (hviaWD : ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+      SpineFit (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ)
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) →
+      ∀ i Ψ Eis tl, via J i = some (Ψ, Eis, tl) →
+        WellDenotedV V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
+          (viaEntryAV Ψ nF (d.k + J) i recIdx.length tl Eis))
+    (hCAD : d.CtorAtDoms ρ ps Tg J (head J) nF
+      (psiDomsAV Tg TgV domA (useIh J) (via J) d.nP (d.bb ψ) (d.tgtsR J) ds Eiss tls nF) Es)
+    (hzero : d.bb ψ = 0 → ∀ fs : List V,
+      SpineFit (consList (ps.map (interp V ρ)) ρ) ((ds.drop d.nP).map (·.2.2)) fs →
+      (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+        SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) :
+    ∀ fs ihs : List V, fs.length = nF → ihs.length = recIdx.length →
+      SpineFit (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ)
+        ((minorDataTg Tg (d.tgtsR J) d.nP nF (d.bb ψ) (d.k + J) ds recIdx tls Eiss).map (·.2.2))
+        (fs ++ ihs) →
+      WellDenotedV V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
+        (d.psiBodyAV head useIh via J) ∧
+      interp V (consList (fs ++ ihs) (consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ))
+          (d.psiBodyAV head useIh via J)
+        ∈ˢ (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+            SetTheory.app (interp V ρ (Tg (d.mems J))) ∧
+      (d.bb ψ = 0 →
+        (Es.map (interp V (consList fs (consList (ps.map (interp V ρ)) ρ)))).foldl
+          SetTheory.app (interp V ρ (Tg (d.mems J))) ∈ˢ (univZero : V)) := by
+  intro fs ihs hfs hihs hfit
+  have hfit₀ := hfit
+  -- the constructor's shape from the datum list
+  have hcd' := hcd
+  unfold cdsR at hcd'
+  rw [fixCtorDataList_getElem?, Nat.zero_add] at hcd'
+  obtain ⟨cA, hcA, hcAeq⟩ := Option.map_eq_some_iff.mp hcd'
+  simp only [Prod.mk.injEq] at hcAeq
+  obtain ⟨-, hnFc, -, -, hrec, -, -⟩ := hcAeq
+  have hnFget : (d.ctorsAll.getD J default).2 = nF := by
+    rw [List.getD_eq_getElem?_getD, hcA]; exact hnFc
+  -- the frames
+  have hσ' : consList ((ps ++ Ms ++ prior).map (interp V ρ)) ρ
+      = consList (prior.map (interp V ρ)) (consList (Ms.map (interp V ρ))
+          (consList (ps.map (interp V ρ)) ρ)) := by
+    rw [List.map_append, List.map_append, consList_append, consList_append]
+  -- ψ's values, fitting the transported domains (`psiVals_fit`)
+  obtain ⟨vs, hvs⟩ : ∃ vs, vs = psiVals (d.bb ψ) (consList (ps.map (interp V ρ)) ρ) recIdx (useIh J)
+    (via J) fs ihs := ⟨_, rfl⟩
+  have hvsLen : vs.length = nF := by rw [hvs, psiVals_length, hfs]
+  obtain ⟨hfsFit, hSR, hvsFit⟩ := d.psiVals_fit hps hMs hk hprior hds hnbA hord hnbT hnbE hnbV
+    huse hvia fs ihs hfs hihs hfit₀
+  rw [← hvs] at hSR hvsFit
   -- the constructor at the transported domains
   obtain ⟨dsC, bodyC, hdsC, hTC, hheadWD, hheadMem, hvsC⟩ := hCAD
   obtain ⟨hvsFitC, hbodyC⟩ := hvsC vs hvsFit
