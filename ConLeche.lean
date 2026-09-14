@@ -45,6 +45,7 @@ public import ConLeche.Verify.Inductives.NestedOrder
 -- the same class: the elimination's leaf invariant (DESIGN §M.28),
 -- consumed by the model lane's nested modules
 public import ConLeche.Verify.Inductives.NestedLeaves
+public import ConLeche.Verify.Inductives.NestedProj
 public import ConLeche.Verify.Inductives.NestedWalk
 public import ConLeche.Verify.Inductives.NestedFields
 public import ConLeche.Verify.Inductives.NestedRestore
