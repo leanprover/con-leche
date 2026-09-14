@@ -795,6 +795,98 @@ theorem checkMutualAllRulesF_eq (envR : Env) (b : MutualBlock)
     simp only [checkMutualAllRulesF, checkMutualAllRules, checkMutualMemberRulesF_eq,
       checkMutualAllRulesF_eq envR b formers4 ctors4 streamRecs k]
 
+/-! ### The nested route's mirrors (task #279 K.20) -/
+
+theorem checkConstantValPreF_eq (ops : CheckerOps CheckCM) (env : Env) (cv : ConstantVal) :
+    checkConstantValPreF (m := CheckCM) ops (mkFEnv env) cv = checkConstantValPre ops env cv := by
+  simp only [checkConstantValPreF, checkConstantValPre, mkFEnv_env, mkFEnv_find?,
+    constsResolveF_eq, projTablesOkF_eq]
+
+theorem nestedAnnotFormersF_eq (ops : CheckerOps CheckCM) (env : Env) (nP : Nat) :
+    ∀ (l : List (ConstantVal × Nat)),
+      nestedAnnotFormersF (m := CheckCM) ops (mkFEnv env) nP l = nestedAnnotFormers ops env nP l
+  | [] => rfl
+  | (cv, nIdx) :: rest => by
+    simp only [nestedAnnotFormersF, nestedAnnotFormers, checkConstantValF_eq,
+      checkSumTeleF_pushC, nestedAnnotFormersF_eq ops env nP rest]
+
+theorem nestedAnnotCtorsF_eq (ops : CheckerOps CheckCM) (env : Env) :
+    ∀ (l : List MutualCtor),
+      nestedAnnotCtorsF (m := CheckCM) ops (mkFEnv env) l = nestedAnnotCtors ops env l
+  | [] => rfl
+  | c :: rest => by
+    simp only [nestedAnnotCtorsF, nestedAnnotCtors, checkConstantValF_eq,
+      nestedAnnotCtorsF_eq ops env rest]
+
+theorem nestedFormerEnvF_mkFEnv :
+    ∀ (fmsA : List ConstantVal) (env : Env),
+      nestedFormerEnvF fmsA (mkFEnv env) = mkFEnv (nestedFormerEnv fmsA env)
+  | [], env => by simp [nestedFormerEnvF, nestedFormerEnv]
+  | cv :: cvs, env => by
+    simp only [nestedFormerEnvF, push_mkFEnv, nestedFormerEnvF_mkFEnv cvs _]
+    congr 1
+    simp [nestedFormerEnv]
+
+theorem consNestedFormersF_mkFEnv :
+    ∀ (as : List AuxStored) (env : Env),
+      consNestedFormersF as (mkFEnv env) = mkFEnv (consNestedFormers as env)
+  | [], _ => rfl
+  | a :: rest, env => by
+    simp only [consNestedFormersF, consNestedFormers, push_mkFEnv,
+      consNestedFormersF_mkFEnv rest _]
+
+theorem consNestedCtorsF_mkFEnv :
+    ∀ (cs : List (ConstantVal × Nat × Nat)) (env : Env),
+      consNestedCtorsF cs (mkFEnv env) = mkFEnv (consNestedCtors cs env)
+  | [], _ => rfl
+  | (cv, nP, nF) :: cs, env => by
+    simp only [consNestedCtorsF, consNestedCtors, push_mkFEnv,
+      consNestedCtorsF_mkFEnv cs _]
+
+theorem provisionNestedRecsF_mkFEnv :
+    ∀ (l : List (ConstantVal × Nat × Nat)) (env : Env),
+      provisionNestedRecsF l (mkFEnv env) = mkFEnv (provisionNestedRecs l env)
+  | [], _ => rfl
+  | (cvRa, mI, rP) :: rest, env => by
+    simp only [provisionNestedRecsF, provisionNestedRecs, push_mkFEnv,
+      provisionNestedRecsF_mkFEnv rest _]
+
+theorem storeNestedRecsF_mkFEnv :
+    ∀ (l : List (ConstantVal × Nat × Nat × List RecRule)) (env : Env),
+      storeNestedRecsF l (mkFEnv env) = mkFEnv (storeNestedRecs l env)
+  | [], _ => rfl
+  | (cvRa, mI, rP, rules) :: rest, env => by
+    simp only [storeNestedRecsF, storeNestedRecs, push_mkFEnv,
+      storeNestedRecsF_mkFEnv rest _]
+
+theorem restoreCtorsF_eq (ops : CheckerOps CheckCM) (env : Env) (R : RestoreTbl) (lps : List Name) :
+    ∀ (cs : List (ConstantVal × Nat × Nat)),
+      restoreCtorsF (m := CheckCM) ops (mkFEnv env) R lps cs = restoreCtors ops env R lps cs
+  | [] => rfl
+  | (cvCa, nP, nF) :: rest => by
+    simp only [restoreCtorsF, restoreCtors, checkConstantValPreF_eq,
+      restoreCtorsF_eq ops env R lps rest]
+
+theorem restoreRecTysF_eq (ops : CheckerOps CheckCM) (env : Env) (R : RestoreTbl) (lps : List Name) :
+    ∀ (names : List Name) (as : List AuxStored),
+      restoreRecTysF (m := CheckCM) ops (mkFEnv env) R lps names as = restoreRecTys ops env R lps names as
+  | _, [] => rfl
+  | names, a :: rest => by
+    simp only [restoreRecTysF, restoreRecTys, checkConstantValPreF_eq,
+      restoreRecTysF_eq ops env R lps (names.drop 1) rest]
+
+theorem restoreRulesF_eq (ops : CheckerOps CheckCM) (envR : Env) (R : RestoreTbl) (lps : List Name)
+    (recName : Name) (isMimic : Bool) (recTy : Expr) (mI rP : Nat) :
+    ∀ (rules : List RecRule),
+      restoreRulesF (m := CheckCM) ops (mkFEnv envR) R lps recName isMimic recTy mI rP rules
+        = restoreRules ops envR R lps recName isMimic recTy mI rP rules
+  | [] => rfl
+  | rl :: rest => by
+    simp only [restoreRulesF, restoreRules, mkFEnv_env, mkFEnv_find?, mkFEnv_find?_fun,
+      constsResolveF_eq, projTablesOkF_eq,
+      restoreRulesF_eq ops envR R lps recName isMimic recTy mI rP rest]
+    rfl
+
 end MutualMirrors
 
 theorem consMutualFormersF_mkFEnv :

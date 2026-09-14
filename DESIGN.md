@@ -72203,6 +72203,91 @@ restore is on `checkNested`'s own path, which only the shadow harness
 enters — so both numbers are the noise floor of an unchanged accept
 path, as they must be.
 
+#### K.20 THE WIRING PREPARATION (2026-09-13/14)
+
+Everything the dispatch needs that does not need `declNested` itself.
+Landed in three parts.
+
+**Part 1 — the cached grade, the front door's `typeWF`, the walk
+guards.**  `checkConstantValPreF` (the index twin of the pre-annotated
+front door) with `Expr.projTablesOkF` beside it — K.13's `.proj` walk
+through the index, memoised with its own `@[csimp]` — and the grade
+threaded through `mutualFormerChecksS`, `mutualFormersS`,
+`checkMutualCoreS` and the F constructor twins.  On the S side the grade
+is an EXPLICIT parameter: those functions return a `CheckCM`, so a
+trailing optional argument would swallow the state.
+`checkConstantValPre_typeWF` gives `EnvWF`'s four type-slot facts off the
+no-walk door.  DOCKET D1 (the `containerMembersGo` overshoot) is closed —
+the cross-check landed at K.15 (2), and since no stream witness exists
+the walk itself is exercised by four `#guard`s on a hand-built
+zero-constructor recursor body.
+
+**Part 2a — `declNestedRun_etaClosed`.**  The restored formers are
+RECORDED as fresh and without the η bit (`members.all (fun a =>
+!a.caps.eta && (env.find? a.cvTa.name).isNone)`, `.internal`): both are
+facts of an environment this checker built — the auxiliary install's
+formers stage conses `{}`, and its own front door checked the name at
+this very environment — so recording them replaces a `find?`-shadowing
+argument through the scratch install's four cons stages.  With the
+freshness lemmas off the pre-annotated doors, the `_consts` shapes and
+`FreshEtaExt` for the four restore stages, the chain closes:
+`EtaFamiliesClosed env → DeclNestedRun μ F env p envOut →
+EtaFamiliesClosed envOut`.
+
+**Part 2b — the mirror and the chain.**
+
+* `Kernel/Inductives/NestedInstallF.lean`: the F twins of every monadic
+  stage.  What is mirrored and what is not: the per-constant front doors
+  and every cons go through the index; the route's own pure readers (the
+  elimination, the container recovery, the read-back, the restore table,
+  the fire shape) take `fe.env`, as the mutual mirror already does for
+  `mutualCrossChecks` — they run a handful of times per nested block (41
+  in all of Mathlib) where the front doors run once per stored constant.
+  `nestedPinsOk` and `nestedCtorsWhnfOk` need no lookup and are shared.
+* `Cached/CheckerC.lean`: **`checkNestedS`**, the whole route at the
+  driver's `FEnv`, one flush per environment transition, the scratch
+  install at `checkMutualCoreS … true`.
+* `Verify/CheckerF.lean` + `Verify/Cached/BridgeCSDecl.lean`: the
+  `…F_eq` family — `projTablesOkF_eq`, `checkConstantValPreF_eq`, and
+  one equation per stage, each saying the index twin at `mkFEnv env` IS
+  the pure stage at `env`.  (A byte-level find on the way:
+  `restoreRules`' "not a constructor of an auxiliary type" message
+  carried a literal run of spaces where a `\` continuation was meant, so
+  the twin's message differed and the equation would not close; both are
+  now the continuation.)
+* `Verify/BridgeDecl.lean`: the `_datF` family through the fuel index,
+  closing with **`checkNested_datF`**.  The mutual chain's `_datF`s are
+  generalised over the grade, which is what lets the nested one rewrite
+  its scratch install at `true`.
+* **The shadow harness runs the CACHED route** (`Main.lean`):
+  `checkNestedS mode p.2.1 q s`, at the driver's own index and memo
+  state, whose returned state is DISCARDED — nothing of the shadow
+  reaches the install.  With it **`tests/e2e/tower_nested.ndjson` comes
+  out of the gate's exclusion**: the depth-60 DAG tower exhausted memory
+  inside `checkMutualCore` under the pure uncached core and accepts
+  under the cached one.  The gate is **26/26**.
+
+**What the cone measures.**  The Mathlib nested cone's 41 shadow lines
+are BYTE-IDENTICAL to K.10's with the shadow on the cached route — an
+empirical check, block by block, of exactly what `checkNestedS_run`
+states.
+
+**STILL OWED, and named**: `checkNestedS_run` (the cached run yields a
+pure one at some fuel) and `checkNestedS_skels`.  Both need the nested
+`…S_sim` family and an `EnvWF` story for the restored block — the same
+development the dispatch will need — and neither is required before the
+dispatch arm lands.
+
+**Gates** (on `inductives` = `0a7bbbef`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, **nested-shadow 26/26**, e2e **216/216**, arena tutorial
+90/92, overview-links OK after two `Main.lean` anchors moved (paragraphs
+re-read, claims unchanged), no-local-paths OK, the trusted and both
+`--jobs` sweeps as expected; the Mathlib nested cone exit 0, **4 923
+accepted, 41/41 byte-identical to K.10**.  No init-full or full-Mathlib
+run: the route is still shadow-only and nothing on the accept path
+changed.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a

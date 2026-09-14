@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Kernel.Inductives.NestedInstall
 import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.NestedOrderK
 public import ConLeche.Semantics.Inductives.DeclMutual
