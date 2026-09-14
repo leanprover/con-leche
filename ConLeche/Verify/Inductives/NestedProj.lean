@@ -15,15 +15,20 @@ public section
 
 The model reads a pin's inference at the opened frame of the block's
 first former, and a `.proj T i` node whose slot the environment does
-not answer has no denotation.  Two facts close that gap for the nested
-route, both about a slot `T, i` the PRE-BLOCK environment does not
-carry:
+not answer has no denotation.  Three facts close that gap for the
+nested route:
 
 * `checkMutualCore_findProj_fresh` — the SCRATCH install adds a
   projection table only for a member of the block it installs, and
   those names are fresh at the environment it started from.  So a slot
   that the auxiliary environment answers and the pre-block one does not
   belongs to a member name the pre-block environment does not carry.
+* `checkMutualCore_reserved_fresh` — that install introduces no
+  reserved basis name: the formers' and the constructors' front doors
+  refuse one, a projection table's name is `.num`-shaped, and the
+  recursors carry the block's own generated names, which the caller
+  supplies as unreserved.  Both install facts are corollaries of ONE
+  reading of the stage chain (`checkMutualCore_new`).
 * `elimNested_pins_noProjAt` — every pin the elimination mints carries
   no `.proj T i` node, given that the block's own constructors and the
   first former's type carry none.  This is the `NoProjAt` twin of
