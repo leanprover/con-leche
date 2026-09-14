@@ -496,8 +496,8 @@ theorem auxStoredAll_inv {envAux : Env} {b : MutualBlock} :
 name, as an inductive, with the record's checked former. -/
 theorem auxStored?_inv {envAux : Env} {b : MutualBlock} {i : Nat} {a : AuxStored}
     (h : auxStored? envAux b i = some a) :
-    ∃ (cv : ConstantVal) (nIdx : Nat) (caps : IndCaps),
-      b.formers[i]? = some (cv, nIdx) ∧ envAux.find? cv.name = some (.indInfo a.cvTa caps) := by
+    ∃ (cv : ConstantVal) (nIdx : Nat),
+      b.formers[i]? = some (cv, nIdx) ∧ envAux.find? cv.name = some (.indInfo a.cvTa a.caps) := by
   unfold auxStored? at h
   simp only [bind, Option.bind_eq_some_iff] at h
   obtain ⟨x, hf, ci, hci, h⟩ := h
@@ -511,7 +511,7 @@ theorem auxStored?_inv {envAux : Env} {b : MutualBlock} {i : Nat} {a : AuxStored
       obtain ⟨ctors, -, h⟩ := h
       simp only [pure, Option.some.injEq] at h
       subst h
-      exact ⟨x.1, x.2, caps, hf, hci⟩
+      exact ⟨x.1, x.2, hf, hci⟩
     · exact nomatch h
   · exact nomatch h
 

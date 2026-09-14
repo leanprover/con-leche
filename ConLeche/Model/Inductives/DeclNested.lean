@@ -248,19 +248,19 @@ theorem nestedAuxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env envAux : 
         ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
         (stored.take p.k) = .ok cvRms) :
     ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-      CtorsChecked μ F env b true d := by
+      CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   have hfacts := nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm
   -- `declMutualCore` at the dressed block
   have hq : (auxParts b).toBlock = b := auxParts_toBlock b
-  obtain ⟨mpAux, d, hreps, hchk⟩ := declMutualCore (p := auxParts b) hμ mp hE
+  obtain ⟨mpAux, d, hreps, hchk, hag⟩ := declMutualCore (p := auxParts b) hμ mp hE
     (by rw [hq]; exact hrun)
     (by rw [hq]; exact ctorsNoProj_of_pre mp)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.1)
     (fun t ht => by rw [hq] at ht ⊢; exact (hfacts t ht).2.2)
-  rw [hq] at hreps hchk
-  exact ⟨mpAux, d, hreps, hchk⟩
+  rw [hq] at hreps hchk hag
+  exact ⟨mpAux, d, hreps, hchk, hag⟩
 
 /-! ## The stored formers are the checked ones (K.10, DESIGN §M.25 piece 3)
 
@@ -269,18 +269,6 @@ checked one `fms[i]`, consed by `consMutualFormers`; what the model
 reads is `envAux.find?`, three stages later.  The stages after the
 formers' conses are fresh extensions by non-formers (`FreshEtaExt`), and
 a fresh extension preserves every lookup it does not shadow. -/
-
-/-- A fresh extension keeps every existing lookup. -/
-theorem FreshEtaExt.find?_some {env env' : Env} (h : FreshEtaExt env env') {n : Name}
-    {c : ConstantInfo} (hf : env.find? n = some c) : env'.find? n = some c := by
-  obtain ⟨new, hc, hfresh, -⟩ := h
-  rw [find?_append_of_new_none hc, hf]
-  rw [List.find?_eq_none]
-  intro c' hc' hn
-  have hn' : c'.name = n := beq_iff_eq.mp hn
-  have := hfresh c' hc'
-  rw [hn', hf] at this
-  exact nomatch this
 
 /-- **Every checked former is stored at the scratch environment** as
 the mutual install consed it (with the empty capability record): from
@@ -376,7 +364,7 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none true
         = .ok envAux ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-      CtorsChecked μ F env b true d := by
+      CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
     hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore,

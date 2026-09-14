@@ -148,6 +148,24 @@ theorem find?_append_of_new_none {new : List ConstantInfo} {env envOut : Env} {n
 theorem FreshEtaExt.rfl' (env : Env) : FreshEtaExt env env :=
   ⟨[], by simp, by simp, by simp⟩
 
+/-- A fresh extension keeps every existing lookup. -/
+theorem FreshEtaExt.find?_some {env env' : Env} (h : FreshEtaExt env env') {n : Name}
+    {c : ConstantInfo} (hf : env.find? n = some c) : env'.find? n = some c := by
+  obtain ⟨new, hc, hfresh, -⟩ := h
+  rw [find?_append_of_new_none hc, hf]
+  rw [List.find?_eq_none]
+  intro c' hc' hn
+  have hn' : c'.name = n := beq_iff_eq.mp hn
+  have := hfresh c' hc'
+  rw [hn', hf] at this
+  exact nomatch this
+
+/-- … hence every `isSome` lookup. -/
+theorem FreshEtaExt.isSome {env env' : Env} (h : FreshEtaExt env env') {n : Name}
+    (hn : (env.find? n).isSome = true) : (env'.find? n).isSome = true := by
+  obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+  rw [h.find?_some hc]; rfl
+
 /-- One fresh cons of a non-η-former. -/
 theorem FreshEtaExt.cons {env : Env} {c : ConstantInfo}
     (hfresh : env.find? c.name = none)

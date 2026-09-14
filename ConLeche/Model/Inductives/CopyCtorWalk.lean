@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.CopyCtorRun
+public import ConLeche.Verify.Inductives.NestedRestore
 import ConLeche.Verify.Inductives.NestedCtors
 import ConLeche.Verify.Inductives.NestedFields
 import ConLeche.Verify.Inductives.NestedLeaves
@@ -391,15 +392,21 @@ two sides exactly there. -/
     ∃ q ∈ st.pins, q.aux = aux ∧ q.container = I ∧ q.pin = Expr.mkAppN (.const I lvls') DsF ∧ P q
 
 /-- **A field the positivity normalisation `whnf`'d** (K.17's witness
-at the field): the container's instantiated field `eC` reduces, at the
-environment holding the block's formers, to the RESTORED copy field
-(the copy's stored field with every copy application put back to its
-container at the pin), and `eC` carries the reduction's guards. -/
-@[expose] def WhnfField (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLeche.RestoreTbl) (dpt : Nat)
-    (eA eC : Expr) : Prop :=
-  ∃ (dsR eR : Expr), ConLeche.whnf μ env₁ F dpt eC = .ok dsR ∧
-    ConLeche.restoreNested R eA = .ok eR ∧ Expr.ErasedEq dsR eR ∧
-    Expr.WScoped dpt eC ∧ eC.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded eC
+at the field, in the OPENED-CONSTRUCTOR currency — DESIGN §M.44): a
+term `dm` erasure-equal to the container's instantiated field `eC` (the
+restored PROCESSED constructor's opener, which the walk's inverse makes
+the container's field again) reduces, at the environment holding the
+block's formers, to a term erasure-equal to the copy's stored field
+RESTORED at the instantiated level — `restoreI (R.instAt params) eA`,
+exactly what `restoreNested_openPis` says of the restored STORED
+constructor's opener — and `dm` carries the reduction's guards.  The
+whole-constant `restoreNested R` on a FIELD is the wrong currency
+(`stripPisOrLams nP` on a field is not the restore of that field). -/
+@[expose] def WhnfField (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLeche.RestoreTbl)
+    (params : List Expr) (dpt : Nat) (eA eC : Expr) : Prop :=
+  ∃ (dm dsR : Expr), Expr.ErasedEq dm eC ∧ ConLeche.whnf μ env₁ F dpt dm = .ok dsR ∧
+    Expr.ErasedEq dsR (ConLeche.restoreI (R.instAt params) eA) ∧
+    Expr.WScoped dpt dm ∧ dm.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded dm
 
 /-- **What the walk leaves of a copy's constructor** (DESIGN §M.41): the
 copy's STORED constructor opened at the block's parameters and its own
@@ -444,7 +451,7 @@ structure CopyCtorWalkFacts (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLe
     FiredField st blvls params
       (fun q => ∀ g, g < dJ.k → q.pin ≠ Expr.mkAppN (.const (dJ.memberName g) lvls) Ds)
       (nP + i) x.fvarTypeD xC.fvarTypeD ∨
-    WhnfField μ F env₁ R (nP + i) x.fvarTypeD xC.fvarTypeD
+    WhnfField μ F env₁ R params (nP + i) x.fvarTypeD xC.fvarTypeD
 
 
 /-! ## Kit: the reading peel with its binder bits -/
@@ -776,7 +783,8 @@ theorem copyCtorAsRead_of_walkFacts {μ : CheckMode} {envAux env env₁ : Env} {
       (dJ.memberName (dJ.mems Jc)) lvls Ds (d.xFvsF Ja) xFvsC (d.xrestF Ja) xrestC)
     -- the `whnf` arm's content
     (hwhnf : ∀ (i : Nat) (x xC : Expr), (d.xFvsF Ja)[i]? = some x → xFvsC[i]? = some xC →
-      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) → WhnfField μ F env₁ R (d.nP + i) x.fvarTypeD xC.fvarTypeD →
+      i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+      WhnfField μ F env₁ R params (d.nP + i) x.fvarTypeD xC.fvarTypeD →
       (i ∈ ConLeche.recIdxOf (d.ksR Ja) → k₀ ≤ d.tgtsR Ja i →
         ¬ (j₀ ≤ d.tgtsR Ja i - k₀ ∧ d.tgtsR Ja i - k₀ < j₀ + dJ.k)) ∧
       ∀ (σ : Nat → V) (ws : List V), ws.length = i → Sat V (d.params ψ).reverse σ →

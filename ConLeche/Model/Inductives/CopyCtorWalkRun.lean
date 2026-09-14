@@ -66,20 +66,28 @@ datum's own variables against it. -/
           (cd j').dJ Jc ((cd j').dJ.memberName ((cd j').dJ.mems Jc)) lvls Ds
           (d.xFvsF (auxOfsOf st p.k cd j' Jc)) xFvsC (d.xrestF (auxOfsOf st p.k cd j' Jc)) xrestC
 
-/-- **The `whnf` arm's content** (M-D′ D2): at a field the positivity
-normalisation reduced, the target's group exclusion and the reading of
-the RESTORED stored field — stated of ANY term the container's field
-reduces from, so that the premise does not mention the opening the
-walk produces. -/
+/-- **The `whnf` arm's content** (M-D′ D2, DESIGN §M.44): at a field
+the positivity normalisation reduced — the container's stored
+constructor instantiated at the pin and opened at the block's parameter
+depth, the copy's stored field against the container's opener `xC` —
+the target's group exclusion and the reading of the RESTORED stored
+field.  Quantified over the SAME opening `CopyWalkFacts` names, so that
+the two premises speak of one pair of terms. -/
 @[expose] def WhnfContent {μ : CheckMode} {envAux : Env} (F : Nat) (env₁ : Env)
-    (p : ConLeche.NestedParts) (st : ElimState) (R : ConLeche.RestoreTbl)
+    (p : ConLeche.NestedParts) (st : ElimState) (params : List Expr) (R : ConLeche.RestoreTbl)
     (mpAux : EnvModelM V μ envAux) (d : IndRepData V) (ψ : Name → Nat)
     (cd : Nat → CopyData V) : Prop :=
-  ∀ (j' : Nat), j' < st.pins.length → ∀ (Jc : Nat) (cAJ : ConstantVal × Nat),
-    (cd j').dJ.ctorsA[Jc]? = some cAJ →
-    ∀ (i : Nat) (x eC : Expr), (d.xFvsF (auxOfsOf st p.k cd j' Jc))[i]? = some x →
+  ∀ (j' : Nat), j' < st.pins.length → ∀ (q : NestedPin) (lvls : List Level) (Ds : List Expr),
+    st.pins[j']? = some q → q.pin = Expr.mkAppN (.const q.container lvls) Ds →
+    ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), (cd j').dJ.ctorsA[Jc]? = some cAJ →
+    ∀ cI : Expr,
+      Expr.instPis (cAJ.1.type.instantiateLevelParams cAJ.1.levelParams lvls) Ds = some cI →
+    ∀ (xFvsC : List Expr) (xrestC : Expr),
+      ConLeche.openPisAtFvars cAJ.2 cI d.nP = some (xFvsC, xrestC) →
+    ∀ (i : Nat) (x xC : Expr), (d.xFvsF (auxOfsOf st p.k cd j' Jc))[i]? = some x →
+      xFvsC[i]? = some xC →
       i ∉ ConLeche.recIdxOf ((cd j').dJ.ksF Jc) →
-      WhnfField μ F env₁ R (d.nP + i) x.fvarTypeD eC →
+      WhnfField μ F env₁ R params (d.nP + i) x.fvarTypeD xC.fvarTypeD →
       (i ∈ ConLeche.recIdxOf (d.ksR (auxOfsOf st p.k cd j' Jc)) →
         p.k ≤ d.tgtsR (auxOfsOf st p.k cd j' Jc) i →
         ¬ ((cd j').base ≤ d.tgtsR (auxOfsOf st p.k cd j' Jc) i - p.k ∧
@@ -123,7 +131,7 @@ theorem copyCtorAsRead_of_run {μ : CheckMode} {F : Nat} {env envAux env₁ : En
     (hparamsLen : params.length = p.nP)
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hwalk : CopyWalkFacts μ F env₁ p st params R d cd)
-    (hwhnfC : WhnfContent F env₁ p st R mpAux d ψ cd)
+    (hwhnfC : WhnfContent F env₁ p st params R mpAux d ψ cd)
     {j' : Nat} (hj' : j' < st.pins.length) {Jc : Nat} {cAJ : ConstantVal × Nat}
     (hJc : (cd j').dJ.ctorsA[Jc]? = some cAJ) :
     d.CopyCtorAsRead mpAux.base2 (cd j').dJ ψ (cd j').ψ' (cd j').DsA p.k (cd j').base
@@ -351,7 +359,9 @@ theorem copyCtorAsRead_of_run {μ : CheckMode} {F : Nat} {env envAux env₁ : En
   exact copyCtorAsRead_of_walkFacts mpAux hdk (by rw [hparamsLen, hnP]) hD hview
     (by rw [hmemJa]; omega) hnF htgtLt hordRes hfresh hnodupM hcopyNames hDJ hmemsJ htgtJLt
     pf.kA hnIdxG hsort pf.len hspD hgroup hnodupP hpinName hpinAll hreadC hreadRC hw
-    (fun i x xC hx hxC hnr hwf => hwhnfC j' hj' Jc cAJ hJc i x xC.fvarTypeD hx hnr hwf) hgradeC
+    (fun i x xC hx hxC hnr hwf =>
+      hwhnfC j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI' xFvsC xrestC hopen i x xC hx hxC hnr hwf)
+    hgradeC
 
 /-- **`CopyCtorsRead` is a READ off `DeclNestedRun`**, modulo the walk's
 facts and the `whnf` arm's content (DESIGN §M.42): at every pin and
@@ -365,18 +375,18 @@ theorem copyCtorsRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
       ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
       st.types.length = p.k + st.pins.length ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-        CtorsChecked μ F env b true d ∧
+        CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
           (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
               ∀ (env₁ : Env) (R : ConLeche.RestoreTbl),
                 CopyWalkFacts μ F env₁ p st params R d cd →
-                WhnfContent F env₁ p st R mpAux d ψ cd →
+                WhnfContent F env₁ p st params R mpAux d ψ cd →
                 CopyCtorsRead mpAux d ψ st p.k st.pins.length cd) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, hord, hlenSt, hfreshC, hcontC,
-    hparamsLen, mpAux, d, hreps, hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
-  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
+    hparamsLen, mpAux, d, hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
   exact ⟨cd, hcd, fun env₁ R hwalk hwhnfC j' hj' Jc cAJ hJc =>

@@ -2022,6 +2022,26 @@ run's mode and fuel, beside `MutualBlockReps` (which is mode-free). -/
       ∀ j, d.ksF j = kindsOf (kinds.getD j [])) ∧
     ∀ j, d.mems j = (b.ctors.getD j default).member
 
+/-- **What the nested route reads off the auxiliary block's model
+beyond its representations** (task #279 M-D′ D2, DESIGN §M.44): the
+install's carrier agrees with the PRE-BLOCK one on every name stored
+before the block (every stage conses fresh names only), and every
+checked former's data — as `FormerData` at the pre-block carrier — is
+the datum's own (`ppsM`/`lvlsM` at the block's result sort).  The
+nested route builds the model of the environment holding the REAL
+members alone from these two facts: the members' leaves are the
+auxiliary model's, consed at the pre-block carrier
+(`Model/Inductives/NestedFormers.lean`). -/
+@[expose] def AuxBlockAgree {μ : CheckMode} {env env₂ : Env} (F : Nat)
+    (mp : EnvModelM V μ env) (mp₂ : EnvModelM V μ env₂) (b : ConLeche.MutualBlock)
+    (auxRoute : Bool) (d : IndRepData V) : Prop :=
+  (∀ n : Name, (env.find? n).isSome = true → mp₂.base2.acval n = mp.base2.acval n) ∧
+  ∀ (env₁ : Env) (fms : List ConLeche.MutualFormerA),
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) b.nP b.formers env
+      auxRoute = .ok (env₁, fms) →
+    ∀ (t : Nat) (f : ConLeche.MutualFormerA), fms[t]? = some f →
+      FormerData mp.base2 f.cvTa (b.nP + f.nIdx) d.resSort (d.ppsM t) (d.lvlsM t)
+
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a mutual install.** -/
 theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -2040,7 +2060,8 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       ConLeche.reservedBasisNames.contains (p.toBlock.recName t) = false)
     (hpshapeRec : ∀ t, t < p.toBlock.k → (p.toBlock.recName t).isProjFnShape = false) :
     ∃ (mp₂ : EnvModelM V μ env₂) (d : IndRepData V), MutualBlockReps mp₂.base2 p.toBlock d ∧
-      CtorsChecked μ F env p.toBlock auxRoute d := by
+      CtorsChecked μ F env p.toBlock auxRoute d ∧
+      AuxBlockAgree F mp mp₂ p.toBlock auxRoute d := by
   obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, hNodup,
     hlpsAll, hmemLt, hgrouped, hformers, hf0, htq0, hcross, hlarge, hctors, hkinds, hfo,
     hgd, hrectys, hrules, htbl⟩ := h
@@ -6836,7 +6857,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- nothing stored mentions (`MutualTableOk`'s `NoProjEnv`), so each
   -- member's representation crosses it exactly as `IndReps.cons`
   -- crosses every stored one
-  obtain ⟨mp₅, -, -, hreps₅⟩ := stageMutualTables (d := dBlk) (capsOf := fun _ => {}) mp₄ rfl rfl hE₃
+  obtain ⟨mp₅, -, hoff₅, -, hreps₅⟩ := stageMutualTables (d := dBlk) (capsOf := fun _ => {}) mp₄ rfl rfl hE₃
     htbl hndF hmemTbl
     (Inv := fun {env'} m' => ∀ t, t < fms.length → ∃ caps : IndCaps,
       env'.find? (fms.getD t default).cvTa.name = some (.indInfo (fms.getD t default).cvTa caps) ∧
@@ -6870,9 +6891,44 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     intro t ht
     show ((List.range fms.length).map (fun q => (fms.getD q default).cvTa.name)).getD t .anonymous = _
     rw [getD_range_map (fun q => (fms.getD q default).cvTa.name) fms.length t ht]
+  -- **the carrier agrees with the pre-block one off the block** (task
+  -- #279 M-D′ D2): every stage conses fresh names, so a name stored
+  -- before the block is none of theirs
+  have hxAux : FreshEtaExt env (ConLeche.storeMutualRecs
+      (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+      p.toBlock fms rulesOf cvRas.zipIdx
+      (ConLeche.consMutualCtors p.toBlock.nP ctorsA
+        (ConLeche.consMutualFormers fms env))) :=
+    (mutualFormers_freshExt hformers).trans
+      ((consMutualCtors_freshExt (nP := p.toBlock.nP) (checkMutualCtors_fresh hctors)).trans
+        (storeMutualRecs_freshExt fun q hq => by
+          have hget : cvRas[q.2]? = some q.1 :=
+            List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
+          have hqk : q.2 < prts.k := by
+            have := (List.getElem?_eq_some_iff.mp hget).1
+            rw [hk] at this; exact this
+          rw [show q.1 = cvRas.getD q.2 default from by
+            rw [List.getD_eq_getElem?_getD, hget]; rfl]
+          exact hfreshR q.2 hqk))
+  have hagreeAux : ∀ n : Name, (env.find? n).isSome = true →
+      mp₅.base2.acval n = mp.base2.acval n := by
+    intro n hn
+    have hnc : ∀ cA ∈ ctorsA, n ≠ cA.1.name := by
+      intro cA hcA hh
+      have h1 := (mutualFormers_freshExt hformers).isSome hn
+      rw [hh, checkMutualCtors_fresh hctors cA hcA] at h1
+      exact nomatch h1
+    have hnr : ∀ t, t < prts.k → n ≠ (cvRas.getD t default).name := by
+      intro t ht hh
+      have htk : t < p.toBlock.k := by rw [hkF]; exact ht
+      rw [hh, hrecNameG t ht, hfreshRec t htk] at hn
+      exact nomatch hn
+    rw [hoff₅ n (hxAux.isSome hn), hoff₄ n hnr, hag₂ n hnc, ← hagreeM1 n hn]
+  have hf0' : fms.getD 0 default = f₀ := by
+    rw [List.getD_eq_getElem?_getD, hf0]; rfl
   refine ⟨mp₅, dOf 0, ⟨rfl, hlenFms, hlenFms, rfl, fun _ _ => rfl, fun _ => ⟨rfl, rfl, rfl, rfl⟩,
-    fun t ht => ?_, fun t ht => ?_⟩, _, fms, f₀, ctorsA, sortss, hformers, hf0, hctors, rfl,
-    ⟨kinds, hkinds, hfo, fun _ => rfl⟩, fun _ => rfl⟩
+    fun t ht => ?_, fun t ht => ?_⟩, ⟨_, fms, f₀, ctorsA, sortss, hformers, hf0, hctors, rfl,
+    ⟨kinds, hkinds, hfo, fun _ => rfl⟩, fun _ => rfl⟩, hagreeAux, ?_⟩
   · have ht' : t < fms.length := by rw [hlenFms]; exact ht
     rw [hmemName t ht', ← hnamesF]
     simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem ht',
@@ -6889,6 +6945,16 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [hr, List.map_nil] at h
     show (ctorsA.zipIdx.filter fun x => memF x.2 == t).map (·.1) = []
     exact List.map_eq_nil_iff.mp h.symm
+  · -- the formers' data at the pre-block carrier is the datum's
+    intro env₁' fms' hformers' t f hft
+    -- the stage's list, by determinism — rewritten into `hft` alone (a
+    -- `subst` would eliminate the run's `fms` across the whole context)
+    have hfe : fms' = fms := (Prod.mk.inj (Except.ok.inj (hformers'.symm.trans hformers))).2
+    rw [hfe] at hft
+    show FormerData mp.base2 f.cvTa (p.toBlock.nP + f.nIdx) (fms.getD 0 default).s (ppsF t)
+      (lvlsF t)
+    rw [hf0']
+    exact hFD t f hft
 
 /-- **The mutual arm of the fold** (the stream-facing entry): the run
 relation's pin and stream checks supply `declMutualCore`'s recursor
@@ -6935,7 +7001,7 @@ theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           exact htm) hmb]
     rw [← hname]
     exact ⟨consMutualFormers_find?_none (consMutualCtors_find?_none hfind), hres, hsh⟩
-  obtain ⟨mp', -, -⟩ := declMutualCore hμ mp hE hrun (ctorsNoProj_of_annot mp)
+  obtain ⟨mp', -, -, -⟩ := declMutualCore hμ mp hE hrun (ctorsNoProj_of_annot mp)
     (fun t ht => (hfacts t ht).1) (fun t ht => (hfacts t ht).2.1) (fun t ht => (hfacts t ht).2.2)
   exact ⟨mp'⟩
 

@@ -77177,6 +77177,193 @@ unsynthesisable — normalise the hypothesis instead (`simp only
 `List.getElem?_take` is the `if`-form take lemma; Subst/Shift lemmas
 live in `ConLeche.Expr`, OpenVars/TeleOpen in `ConLeche.Verify`.
 
+#### M.44 M-D′ D2: the formers' model at `env₁`, the auxiliary model's agreement with the pre-block carrier, `WhnfField` restated (2026-09-14, session 28)
+
+**Context.**  Session 28 started on `inductives` 0a7bbbef (merged;
+`whnf_indApp_eq` — task #305 — landed there at 549af46e DURING the
+session and is NOT merged here: the whnf-identity fact stays a named
+hypothesis this session, to be swapped at the next merge).  The
+session's deliverable is M-D′ D2: the model of `env₁ =
+consNestedFormers (stored.take p.k) env`, the environment holding the
+block's REAL formers alone, at which K.17's `whnf` witness is read.
+
+**The design point, decided (the brief's question).**  Neither
+`declMutualCore`'s per-member chain data (`W/Idss/rss/tlss/Eiss'/Fss₀/
+Ess'`, built ~600 lines into a 4 800-line proof from a chain-free first
+pass) nor the datum's `chains`/`fibre` clauses (stated at the datum's
+own spellings, `ChainsOk`/`SlotsFitX`, not `MemberChainsOk`'s
+`SumFieldsValid`) are what D2 consumes.  The cons chain is
+`stageMembersGoG` — the formers' loop at an ARBITRARY closed leaf,
+which `declMutualCore`'s chain-free pass already uses — with each real
+member's leaf the AUXILIARY model's own `mpAux.acval T`.  What a cons
+of an `indInfo` with leaf `A` asks (`stageMemberConsG`) is: `A` closed
+and level-parametric, `WellDenotedV`, and `A ∈ ⟦former's type⟧` — the
+auxiliary model's OWN rows (`cval_closedL`, `acval_params`,
+`acval_wellDenoted`/`acval_validV`, `mem_type` at the reading
+`IndRep.formersRead` records) — plus the former's `FormerData` at the
+CURRENT carrier, which the loop crosses from the pre-block one.  So
+exactly TWO facts about the auxiliary model are needed beyond its
+representations, and both are one-liners INSIDE `declMutualCore`:
+
+* **`AuxBlockAgree F mp mp₂ b auxRoute d`** (`DeclMutual.lean`, beside
+  `CtorsChecked`): (i) the install's carrier agrees with the pre-block
+  one on every name stored before the block (`(env.find? n).isSome →
+  mp₂.acval n = mp.acval n`); (ii) every checked former's data at the
+  pre-block carrier is the datum's (`FormerData mp.base2 f.cvTa (b.nP +
+  f.nIdx) d.resSort (d.ppsM t) (d.lvlsM t)` for `fms[t]? = some f`,
+  the formers stage's list identified by `mutualFormers`'
+  determinism).  `declMutualCore`'s conclusion gains it as a third
+  conjunct: (ii) is the proof's own `hFD` at `dOf 0` (`ppsM := ppsF`,
+  `lvlsM := lvlsF`, `resSort := f₀.s`); (i) chains the four stages'
+  off-clauses — `hagreeM1` (formers), `hag₂` (constructors, fresh at the
+  formers' environment by `checkMutualCtors_fresh`), `hoff₄` (recursors,
+  fresh at the pre-block environment by `hfreshRec` + `hrecNameG`) and
+  the tables' — through `FreshEtaExt env (storeMutualRecs …)`
+  (`mutualFormers_freshExt`/`consMutualCtors_freshExt`/
+  `storeMutualRecs_freshExt`, the chain `hE₃` already builds).
+* **the table stage's off-clause in the `isSome` form**
+  (`MutualStageTable.lean`: `stageMutualTablesGo`/`stageMutualTables`
+  gain `∀ n, (env.find? n).isSome → mp'.acval n = mp.acval n`): the old
+  clause quantifies over every member's table NAME whether or not a
+  table was stored, which a pre-block name cannot be excluded from; a
+  table is consed only where `checkStructProjTable` found its name
+  fresh (`hfreshTbl`), so a stored name is never it.
+* `FreshEtaExt.find?_some` moved from `Model/Inductives/DeclNested.lean`
+  to `Semantics/Inductives/DeclMutual.lean` (the fact is upstream of
+  `declMutualCore` now), with `FreshEtaExt.isSome`.
+
+The conjunct is threaded, as the SAME existential's, through
+`nestedAuxModel`, `declNestedRun_auxModel`, `copyIdxRead_of_run`,
+`pinFacts_of_run` and `copyCtorsRead_of_run` (each `∃ mpAux d,
+MutualBlockReps ∧ CtorsChecked ∧ AuxBlockAgree ∧ …`), so a consumer
+holding `mpAux` from any of them holds the agreement for that `mpAux`.
+
+**What landed** (`Model/Inductives/NestedFormers.lean`, new, on the
+Model umbrella):
+
+* `consNestedFormers_eq_consMutualFormers`: at records carrying the
+  checked formers with the empty capability record, `consNestedFormers`
+  IS `consMutualFormers` (pointwise, by `auxStoredAll_get` +
+  `auxStored?_inv` against `auxFormers_stored`'s `envAux.find?
+  f.cvTa.name = some (.indInfo f.cvTa {})` — so the K.20 conjunct's
+  `caps` are `{}` syntactically, not just η-free).
+* **`nestedFormersModel`**: from `mp`, the run's `auxBlock`/
+  `checkMutualCore`/`auxStoredAll` conjuncts, the recursor-name
+  freshness (`nestedRecNameFacts`), the K.20 conjunct, `p.k ≤ b.k`, and
+  `mpAux`, `d` with `MutualBlockReps` + `AuxBlockAgree`:
+  `∃ mp₁ : EnvModelM V μ (consNestedFormers (stored.take p.k) env)`
+  with `EtaFamiliesClosed` (K.20's `consNestedFormers_freshExt`), the
+  real members' leaves `mpAux`'s (`mp₁.acval (d.memberName t) =
+  mpAux.acval (d.memberName t)` for `t < p.k`), and the pre-block
+  names' leaves `mp`'s.  `stageMembersGoG` at `fms.take p.k`, `Aof t :=
+  mpAux.acval (d.memberName t)`, `ppsF := d.ppsM`, `lvlsF := d.lvlsM`,
+  `resSort := d.resSort`: `MemberConsOk` from `FormerFront`
+  (`auxFormers_stored`'s `hposF`), names `Nodup` from
+  `b.blockNames.Nodup`, the leaf's closedness/parametricity/grading
+  from `mpAux`'s rows, its membership from `mem_type` at
+  `IndRep.formersRead`'s reading (the per-member sort `s` re-evaluated
+  to `d.resSort` by `MutualBlockReps`' sort clause).  No restriction
+  lemma, no reading crosses the scratch environment's later stages.
+
+**`WhnfField` RESTATED** (`CopyCtorWalk.lean`, the brief's (iii)) in
+the opened-constructor currency:
+`WhnfField μ F env₁ R params dpt eA eC := ∃ dm dsR, ErasedEq dm eC ∧
+whnf μ env₁ F dpt dm = .ok dsR ∧ ErasedEq dsR (restoreI (R.instAt
+params) eA) ∧ WScoped dpt dm ∧ dm.looseBVarsBounded 0 ∧ LeavesBounded
+dm` — `dm` is the restored PROCESSED constructor's opener (erasure-equal
+to the container's instantiated field once the walk's inverse is in
+hand), `dsR` the restored STORED constructor's opener, which
+`restoreNested_openPis` says is `restoreI (R.instAt params)` of the
+stored opener up to erasure; the guards on `dm`, the term `whnf` runs
+on.  `CopyCtorWalkFacts.fieldOrd`, `copyCtorAsRead_of_walkFacts`'s
+`hwhnf` and `WhnfContent` take `params`; **`WhnfContent` is
+re-quantified over the SAME opening `CopyWalkFacts` names** (the pin's
+`lvls`/`Ds`, the container constructor instantiated `cI`, its opening
+`xFvsC`/`xrestC`, the opener `xC`) instead of "any term the field
+reduces from": the old form left `eC` unrelated to the container's
+reading its conclusion mentions, and was not dischargeable.
+
+**A proof blow-up, found and fixed** (the session's cost): the first
+version of the `FormerData` conjunct's proof identified the stage's
+list by `obtain ⟨-, rfl⟩ := Prod.mk.inj (Except.ok.inj (hformers'.symm.trans
+hformers))` — and the `rfl` pattern on `fms' = fms` `subst`s the RUN's
+`fms` (the right-hand variable) across the whole 4 800-line context,
+which made `declMutualCore` grow past 12 GB without finishing (four
+builds killed by the machine's memory watchdog).  Located by
+heartbeat-capped probes (`lake env lean` at `maxHeartbeats 4000000`,
+`timeout 600`: HEAD's proof finishes, the edited one does not; the
+tail bisected by `sorry`s in scratch copies — the sink was the
+`obtain` alone).  The fix is `have hfe : fms' = fms := …; rw [hfe] at
+hft` — the equation rewritten into the one small hypothesis; the
+whole file then compiles at the 4 M budget in under 600 s.  Rule:
+never `subst` an existential variable of the run inside
+`declMutualCore` (the §M.42 gotcha "`subst (h : a = b)` keeps `a`" in
+its expensive form).  `ulimit -v` (8 or 16 GB) cannot bound a Lean
+compile on this tree: `lean` aborts at thread creation ("failed to
+create thread") under a virtual-memory limit.
+
+**What remains of D2's second half — `WhnfContent`'s discharge** (the
+brief's "discharges `WhnfContent`"; STATED, not built):
+`whnfContent_of_formersModel`: from `nestedFormersModel`'s `mp₁`, the
+whnf claim of ANY `EnvModelM` (`claimsAt_of hμ mp₁ ψ F |>.whnf`), the
+container's instantiated field's reading at `mpAux`
+(`ctorInst_fields`, `hreadC`), the restored stored field's reading
+(`restoredCopyField_read` at `mp₁` on `restoreI (R.instAt params)
+x.fvarTypeD`, evaluated by `restoreI_copyField`/`restoreI_eq_self`),
+the grading `gradeC_of_okTy`, and `CtxOk` of `dm` at the context of the
+container-instantiated earlier domains (`ctxOk_of_openers`, the
+`Sat`/`SpineFit` bridge `sat_of_spineFit`/`spineFit_of_sat`), the
+conclusion's interp equality and `WellDenotedV`.  It needs TWO facts
+that do not exist, NAMED here:
+
+* **the DOWNWARD reading transfer** `envAux → env₁`: a term whose
+  constants are stored at `env₁` and whose `.proj sn i` nodes name only
+  slots `env₁` tables (`env₁.findProj? sn i = none → NoProjAt sn i e`)
+  reads at `mp₁` what it reads at `mpAux` —
+  `denoteMeta mpAux.acval envAux ψ d e = some ea → denoteMeta mp₁.acval
+  env₁ ψ d e = some ea`.  The tree's crossings (`denoteMeta_envExtend_mono`,
+  `denoteMeta_ext`, `denoteMeta_cons_mono`) all go UP a fresh
+  extension from an existing base reading; nothing goes down, because
+  `denoteMeta` is total and a `.proj` node at a slot the smaller
+  environment lacks reads a DIFFERENT value (`projPair?`), not `none`.
+  The lemma is a `denoteMeta` induction with the `.proj` side condition
+  (~150 lines, `Model/Annot`); its side conditions at the subjects (the
+  container's instantiated field, the copy's stored field's pieces)
+  come from K.13's `projTablesOk` of the annotated inputs, threaded
+  through the elimination — the `.proj T i` nodes of a term checked
+  where `T` had no table are absent (`noProjAt_of_projTablesOk`), and
+  `MutualTableOk`'s `NoProjEnv` gives it outright for the STORED copy
+  constructors.
+* **the group exclusion at a `whnf`'d field**: a container-ordinary
+  field of a copy that is copy-recursive into a pin of the SAME group
+  (`Ds' = Ds`, `J'` a group-mate).  At the fired/unfired arms this is
+  the SIZE argument (`J' Ds` a proper sub-term of a component of
+  `Ds`); at the `whnf` arm the sub-term relation is lost — `F[Ds] ↝*
+  J' Ds idx` would make a component of `Ds` reduce to a term
+  containing itself, impossible in a normalising theory but not a
+  fact this model can state.  The exclusion is what `kindT` rests on
+  (ψ's fold treats the field as data, the copy's constructor expects a
+  copy value).  Options for the maintainer: a kernel check at the
+  auxiliary block (per copy constructor field: container-ordinary +
+  copy-recursive ⇒ the target pin is not a group-mate — a syntactic
+  test on stored data, a positive decline, never firing on a stream
+  official accepts), or a named hypothesis of `declNested`.
+
+**The whnf-identity fact** (the brief's (i)): #305's `whnf_indApp_eq`
+landed on `inductives` at 549af46e — `theorem whnf_indApp_eq {env fuel
+d J lvls args cv caps e'} (hJ : env.find? J = some (.indInfo cv caps))
+(h : whnf mode env fuel d (mkAppN (.const J lvls) args) = .ok e') : e'
+= mkAppN (.const J lvls) args` — exactly the shape step (1) needs (the
+restored processed field at a container-recursive position is `Π bs,
+J Ds idx` or, finitary, `J Ds idx`; the `∀` case is `whnf_forallE_eq`).
+Not merged this session; step (1) was not reached.
+
+**Gates**: `lake build` warning-free, `lake test` clean.
+NOT run (landing items): shake/pub-import (`NestedFormers` on the
+Model umbrella), arena, init-full, Mathlib, `overview-links.sh`,
+`quote-gate.sh`, `no-local-paths.sh`.  No `sorry`, no axiom, no kernel
+change.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

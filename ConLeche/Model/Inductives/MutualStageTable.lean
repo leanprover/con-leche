@@ -900,13 +900,17 @@ theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
       ∃ mp' : EnvModelM V μ env',
         (∀ n : Name, (∀ p ∈ l, n ≠ projTableName p.1.cvTa.name) →
           mp'.base2.acval n = mp.base2.acval n) ∧
+        -- … and off every name already stored (task #279 M-D′ D2: a
+        -- table is consed only where its name is fresh)
+        (∀ n : Name, (env.find? n).isSome = true →
+          mp'.base2.acval n = mp.base2.acval n) ∧
         ConLeche.EtaFamiliesClosed env' ∧ Inv mp'.base2 := by
   intro l
   induction l with
   | nil =>
     intro env mp env' hE h _ _ hinv
     obtain rfl := ConLeche.mutualTables_nil_inv h
-    exact ⟨mp, fun _ _ => rfl, hE, hinv⟩
+    exact ⟨mp, fun _ _ => rfl, fun _ _ => rfl, hE, hinv⟩
   | cons p rest ih =>
     intro env mp env' hE h hnd hmem hinv
     obtain ⟨f, mIdx⟩ := p
@@ -914,9 +918,10 @@ theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
     rw [List.map_cons, List.nodup_cons] at hnd
     rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
     · -- the member conses nothing
-      obtain ⟨mp', hoff, hE', hinv'⟩ :=
+      obtain ⟨mp', hoff, hoffS, hE', hinv'⟩ :=
         ih mp hE hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq)) hinv
-      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hE', hinv'⟩
+      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hoffS, hE',
+        hinv'⟩
     · -- the member conses its table
       obtain ⟨hnp, hfT, hrest⟩ := hmem (f, mIdx) List.mem_cons_self
       obtain ⟨cvCa, pps, ds, Es, lvls, hCeq, hCname, hcaps, hlpsT, hfC, hlpsC, hstripC, hProp,
@@ -952,10 +957,23 @@ theorem stageMutualTablesGo {d : TableBlockData} {capsOf : Nat → IndCaps}
           hfreshTbl (fun tbl' heq i => by
             obtain rfl := ConstantInfo.projInfo.inj heq
             exact hnp i) hinv mpI.base2 hacI
-      obtain ⟨mp', hoff, hE'', hinv'⟩ := ih mpI hE' hrestRun hnd.2 hmemI hinvI
-      refine ⟨mp', fun n hn => ?_, hE'', hinv'⟩
-      rw [hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hacI,
-        acvalWith_ne (hn (f, mIdx) List.mem_cons_self)]
+      obtain ⟨mp', hoff, hoffS, hE'', hinv'⟩ := ih mpI hE' hrestRun hnd.2 hmemI hinvI
+      refine ⟨mp', fun n hn => ?_, fun n hn => ?_, hE'', hinv'⟩
+      · rw [hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hacI,
+          acvalWith_ne (hn (f, mIdx) List.mem_cons_self)]
+      · -- a stored name is not the fresh table's
+        have hne : n ≠ projTableName f.cvTa.name := by
+          intro hh
+          rw [hh] at hn
+          have : (env.find? (projTableName f.cvTa.name)).isSome = true := hn
+          rw [hfreshTbl] at this
+          exact nomatch this
+        have hnI : ((⟨.projInfo ⟨f.cvTa.name, d.lps, d.nP, cvCa.name, c.nF, f.s, bodies,
+            ConLeche.structProjGuards cvCa.type d.nP c.nF (sortss.getD J []), 1⟩
+            :: env.consts⟩ : Env).find? n).isSome = true := by
+          rw [ConLeche.Env.find?_cons, if_neg (fun hh => hne hh.symm)]
+          exact hn
+        rw [hoffS n hnI, hacI, acvalWith_ne hne]
 
 /-- **The table stage** (task #278 M2.5e): the run's final environment
 carries an `EnvModelM` whose carrier agrees with the recursor store's
@@ -978,6 +996,8 @@ theorem stageMutualTables {d : TableBlockData} {capsOf : Nat → IndCaps}
     ∃ mp' : EnvModelM V μ env',
       (∀ n : Name, (∀ f ∈ fms, n ≠ projTableName f.cvTa.name) →
         mp'.base2.acval n = mp.base2.acval n) ∧
+      (∀ n : Name, (env.find? n).isSome = true →
+        mp'.base2.acval n = mp.base2.acval n) ∧
       ConLeche.EtaFamiliesClosed env' ∧ Inv mp'.base2 := by
   have hnd' : ((fms.zipIdx).map (·.1.cvTa.name)).Nodup := by
     rw [show fms.zipIdx.map (·.1.cvTa.name) = fms.map (·.cvTa.name) from by
@@ -985,9 +1005,9 @@ theorem stageMutualTables {d : TableBlockData} {capsOf : Nat → IndCaps}
         = (fun f : MutualFormerA => f.cvTa.name) ∘ Prod.fst from rfl, ← List.map_map,
         List.zipIdx_map_fst]]
     exact hnd
-  obtain ⟨mp', hoff, hE', hinv'⟩ :=
+  obtain ⟨mp', hoff, hoffS, hE', hinv'⟩ :=
     stageMutualTablesGo hlps hnP Inv hInv fms.zipIdx mp hE hrun hnd' hmem hinv
-  refine ⟨mp', fun n hn => hoff n fun q hq => hn q.1 ?_, hE', hinv'⟩
+  refine ⟨mp', fun n hn => hoff n fun q hq => hn q.1 ?_, hoffS, hE', hinv'⟩
   have hget : fms[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
   exact List.mem_of_getElem? hget
 

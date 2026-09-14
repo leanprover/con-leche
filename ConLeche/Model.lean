@@ -43,6 +43,7 @@ public import ConLeche.Model.Inductives.CopyCtorRun
 public import ConLeche.Model.Inductives.CopyCtorWalk
 public import ConLeche.Model.Inductives.CopyCtorWalkRun
 public import ConLeche.Model.Inductives.RestoreRead
+public import ConLeche.Model.Inductives.NestedFormers
 public import ConLeche.Model.Inductives.InvCopy
 public import ConLeche.Model.Inductives.RoundTrip
 public import ConLeche.Model.Inductives.RoundTripR2

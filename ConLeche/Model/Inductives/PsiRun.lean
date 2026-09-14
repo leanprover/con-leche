@@ -396,15 +396,15 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       ConLeche.nestedContainersOk env st.pins = true ∧
       params.length = p.nP ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
-        CtorsChecked μ F env b true d ∧
+        CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
           ∃ cd : Nat → CopyData V, ∀ j, j < st.pins.length →
             PinRunFacts F env p st b params pbs mpAux d ψ cd j) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfreshC, hcontC,
-    ⟨t₀, body₀, body₀₀, ht₀, hop₀, -, -⟩, mpAux, d, hreps, hchk, hpins⟩ :=
+    ⟨t₀, body₀, body₀₀, ht₀, hop₀, -, -⟩, mpAux, d, hreps, hchk, hag, hpins⟩ :=
     copyIdxRead_of_run hμ mp hE h
   refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfreshC, hcontC,
-    openPisAtFvars_length _ hop₀, mpAux, d, hreps, hchk, ?_⟩
+    openPisAtFvars_length _ hop₀, mpAux, d, hreps, hchk, hag, ?_⟩
   intro hcr ψ
   obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
   have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
@@ -794,7 +794,7 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
                   d.PsiP mpAux.base2 ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
                     (ConLeche.orderFold (d.psiStep mpAux.base2 ψ p.k cd auxOfs) order tbl₀ j')) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, hord, hlenSt, -, -, -, mpAux, d,
-    hreps, hchk, hpins⟩ := pinFacts_of_run hμ mp hE h
+    hreps, hchk, -, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
