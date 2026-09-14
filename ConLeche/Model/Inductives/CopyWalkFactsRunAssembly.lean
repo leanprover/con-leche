@@ -112,6 +112,87 @@ through the run. -/
       Expr.instPis (cAJ.1.type.instantiateLevelParams cAJ.1.levelParams lvls) Ds = some cI →
       ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, cI.mentionsConstE n = false
 
+
+/-! ## A recovered group holds its own name -/
+
+omit [SetTheory V] in
+/-- **`containerInfo?` recovers a group holding the name it was looked
+up at** (the `names.contains I` guard, through the members' `mapM`). -/
+theorem containerInfo?_self_mem {env : Env} {I : Name} {ci : ContainerInfo}
+    (h : ConLeche.containerInfo? env I = some ci) :
+    ∃ (i : Nat) (J : ContainerMember), ci.members[i]? = some J ∧ J.name = I := by
+  unfold ConLeche.containerInfo? at h
+  split at h
+  · exact nomatch h
+  simp only [ConLeche.bindOption_eq_some_iff] at h
+  obtain ⟨cT, hfT, h⟩ := h
+  split at h
+  · next cvT caps =>
+    simp only [ConLeche.bindOption_eq_some_iff] at h
+    obtain ⟨cR, hfR, h⟩ := h
+    split at h
+    · next cvR mI rP rules =>
+      split at h
+      · next hle =>
+        simp only [ConLeche.bindOption_eq_some_iff] at h
+        obtain ⟨nP, hnP, h⟩ := h
+        obtain ⟨pp, hstrip, h⟩ := h
+        obtain ⟨bsR, recBody⟩ := pp
+        simp only at h
+        split at h
+        · next hnames =>
+          simp only [ConLeche.bindOption_eq_some_iff] at h
+          obtain ⟨members, hmapM, h⟩ := h
+          simp only [Option.some.injEq] at h
+          subst h
+          simp only [Bool.and_eq_true] at hnames
+          have hIn : I ∈ ConLeche.containerMembersGo env nP (rP + 1) 0 recBody := by
+            have := hnames.1
+            simpa using this
+          obtain ⟨i, hi⟩ := List.getElem?_of_mem hIn
+          obtain ⟨hlen, hall⟩ := optionMapM_getElem? hmapM
+          obtain ⟨J, hJ, hf⟩ := hall i I hi
+          refine ⟨i, J, hJ, ?_⟩
+          simp only [ConLeche.bindOption_eq_some_iff] at hf
+          obtain ⟨cC, hfC, hf⟩ := hf
+          split at hf
+          · next cvC capsC =>
+            simp only [ConLeche.bindOption_eq_some_iff] at hf
+            obtain ⟨cRc, hfRc, hf⟩ := hf
+            split at hf
+            · next cvRc mIc rPc rulesC =>
+              split at hf
+              · simp only [ConLeche.bindOption_eq_some_iff] at hf
+                obtain ⟨ctors, hctors, hf⟩ := hf
+                simp only [Option.some.injEq] at hf
+                rw [← hf]
+              · exact nomatch hf
+            · exact nomatch hf
+          · exact nomatch hf
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+omit [SetTheory V] in
+/-- **A group the pins cover recovers itself at every member** (K.15's
+`containerGroupOk`, at the run): the group's own name is a member
+(`containerInfo?_self_mem`), the pins carry every member's group, and
+`nestedContainersOk` checked the facts at every pin's container. -/
+theorem containerGroupOk_of_pins {env : Env} {st : ElimState} {ci : ContainerInfo} {I : Name}
+    {base : Nat} (hcont : ConLeche.nestedContainersOk env st.pins = true)
+    (hci : ConLeche.containerInfo? env I = some ci)
+    (hgrp : ∀ (i' : Nat) (J' : ContainerMember), ci.members[i']? = some J' →
+      ∃ q', st.pins[base + i']? = some q' ∧ q'.container = J'.name) :
+    ConLeche.containerGroupOk env ci = true := by
+  obtain ⟨i, J, hJ, hn⟩ := containerInfo?_self_mem hci
+  obtain ⟨q', hq', hq'c⟩ := hgrp i J hJ
+  obtain ⟨-, hall⟩ := ConLeche.nestedContainersOk_inv' hcont
+  obtain ⟨ci₀, hci₀, hok⟩ := hall q' (List.mem_of_getElem? hq')
+  rw [hq'c, hn, hci] at hci₀
+  obtain rfl := Option.some.inj hci₀
+  exact hok
+
 /-! ## The walk's facts, at the run -/
 
 set_option maxHeartbeats 1600000 in
@@ -124,12 +205,13 @@ carries — modulo the named ones this module states. -/
 theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     {p : ConLeche.NestedParts} {st : ElimState} {b : MutualBlock} {params : List Expr}
     {pbs : List (Expr × ConLeche.BinderMeta)} {stored : List AuxStored}
+    {fmsA ctorsA : List ConstantVal}
     {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
     (hb : ConLeche.auxBlock p st = some b)
     (hlenSt : st.types.length = p.k + st.pins.length)
     (hcopies : ConLeche.copiesFresh env p.k st = true)
     (hcont : ConLeche.nestedContainersOk env st.pins = true)
-    (hcc : ConLeche.ContainersClosed env)
+    (hwf : EnvWF env)
     (hcore : ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
       true = .ok envAux)
     (hstoredAll : ConLeche.auxStoredAll envAux b b.k = some stored)
@@ -138,6 +220,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (hK17 : ConLeche.nestedCtorsWhnfOk (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
       (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.nP
       (ConLeche.nestedCtorPairs b stored) = .ok ())
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st)
     (hparamsLen : params.length = p.nP)
     (hpo : PinsAtOpeners st params)
     (hhead : ∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
@@ -164,7 +247,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨⟨pf, hbm, q₀, I, ci, J, lvls₀, Ds₀, cvTJ, capsJ, hq₀, hci, hJ, hJn, hmn, hlenM, hgrp,
       hqp₀, hgq, hfJ, hψ', hDsW, hsp, hcat, hcst, hlpsAll, hlvlsLen, hagLvl, hmemNames⟩, hgrpCd⟩ :=
     hpins j' hj'
-  obtain rfl : q₀ = q := Option.some.inj (hq₀.symm.trans hq)
+  obtain rfl : q = q₀ := Option.some.inj (hq.symm.trans hq₀)
   obtain ⟨rfl, rfl⟩ : lvls = lvls₀ ∧ Ds = Ds₀ := by
     rw [hqp₀] at hqp
     have h1 := congrArg Expr.getAppFn hqp
@@ -186,7 +269,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (List.getElem?_eq_some_iff.mp hq₂).1
   obtain ⟨⟨pf₂, hbm₂, q₂', I₂, ci₂, J₂, lvls₂, Ds₂, cvTJ₂, capsJ₂, hq₂', hci₂, hJ₂, hJ₂n, -, -, -,
     hqp₂, hg₂, -, -, -, -, -, hcst₂, -, -, -, -⟩, -⟩ := hpins _ hj₂
-  obtain rfl : q₂' = q₂ := Option.some.inj (hq₂'.symm.trans hq₂)
+  obtain rfl : q₂ = q₂' := Option.some.inj (hq₂.symm.trans hq₂')
   obtain ⟨hbase₂, hmm₂⟩ := groupMate_base hq₂ hq₂b rfl hg₂ hbm₂
   rw [hmm₂] at hJ₂
   have hJ₂m : J₂ = Jm :=
@@ -318,7 +401,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     rw [← hJmLps, hlpsCC]; exact hlpsNodup _ cvC capsC hfC
   have hJnf : cAJ.1.type.hasFvar = false := by
     rw [htypeC]
-    exact (hcc _ ci hci J₂ (List.mem_of_getElem? hJm)).2 c (List.mem_of_getElem? hcl)
+    exact (ConLeche.containersClosed_of_wf hwf _ ci hci J₂
+      (List.mem_of_getElem? hJm)).2 c (List.mem_of_getElem? hcl)
   have hlvlsLen' : lvls.length = cvTm.levelParams.length := by rw [hlvlsLen, hlpsJ]
   -- the container's constructor at the pin, stripped at the fields
   obtain ⟨fs, idx₀, hstripC⟩ := containerResid_at_pin mpAux hDJ hlpsJnodup hlvlsLen' hDsLenE hDsC
@@ -394,6 +478,73 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       refine hdisjMR _ (List.mem_append_left _ (hmemNameB t (by omega)).1) _ ?_ hEq
       rw [← hnm]
       exact hrecNameB _ (by omega)
+  -- ## every pin's group recovers itself, and its components count
+  have hpinArity : ∀ (jq : Nat) (qq : NestedPin), st.pins[jq]? = some qq →
+      ∃ ciq : ContainerInfo, ConLeche.containerInfo? env qq.container = some ciq ∧
+        qq.pin.getAppArgs.length = ciq.nP := by
+    intro jq qq hqq
+    have hjq : jq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
+    obtain ⟨t₀e, paramse, bodye, pbse, body₀e, ht₀e, hope, hstripe, Ie, cie, ie, j₀e, Je, lvlse,
+      Dse, qe, copye, st₁e, st₂e, cs'e, hcie, hJe, hjEe, hgrpe, hqe, hqce, hqpe, hqbe, hqse, hmke,
+      hDse, hpbse, hDsLene, htye, helimCe, -, hst₂e, hpie, -⟩ := ConLeche.elimNested_copy helim hjq
+    obtain rfl : qe = qq := Option.some.inj (hqe.symm.trans hqq)
+    have hgrpOke : ConLeche.containerGroupOk env cie = true :=
+      containerGroupOk_of_pins hcont hcie (fun i' J' hJ' => by
+        obtain ⟨q', hq', hq'c, -, -, -⟩ := hgrpe i' J' hJ'
+        exact ⟨q', hq', hq'c⟩)
+    obtain ⟨ciq, hciq, hnPq, -⟩ :=
+      ConLeche.containerGroupOk_inv hgrpOke Je (List.mem_of_getElem? hJe)
+    refine ⟨ciq, by rw [hqce]; exact hciq, ?_⟩
+    rw [hqpe, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+    rw [hnPq]
+    exact hDsLene
+  -- ## this pin's group recovers itself (K.15)
+  have hgrpOkCi : ConLeche.containerGroupOk env ci = true :=
+    containerGroupOk_of_pins hcont hci (fun i' J' hJ' => by
+      obtain ⟨q', hq', hq'c, -, -, -⟩ := hgrp i' J' hJ'
+      exact ⟨q', hq', hq'c⟩)
+  have hciNP : ci.nP = (cd j').dJ.nP := by
+    obtain ⟨ciq, hciq, hlenq⟩ := hpinArity j' q hq
+    obtain ⟨ci₁, hci₁, hnP₁, -⟩ :=
+      ConLeche.containerGroupOk_inv hgrpOkCi J (List.mem_of_getElem? hJ)
+    rw [hJn] at hci₁
+    have hcieq : ci₁ = ciq := Option.some.inj (hci₁.symm.trans hciq)
+    rw [← hnP₁, hcieq, ← hlenq, hqp₀, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+    exact hDsLenE
+  -- ## a pin on this group's member carries the group's components
+  have hpinLen : ∀ qq ∈ st.pins, ∀ g, g < (cd j').dJ.k →
+      qq.container = (cd j').dJ.memberName g → qq.pin.getAppArgs.length = (cd j').dJ.nP := by
+    intro qq hqq g hg hcname
+    obtain ⟨jq, hjq⟩ := List.getElem?_of_mem hqq
+    obtain ⟨ciq, hciq, hlenq⟩ := hpinArity jq qq hjq
+    obtain ⟨J', hJ'⟩ : ∃ J', ci.members[g]? = some J' :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenM]; exact hg)⟩
+    obtain ⟨ci₁, hci₁, hnP₁, -⟩ :=
+      ConLeche.containerGroupOk_inv hgrpOkCi J' (List.mem_of_getElem? hJ')
+    rw [← (hmemNames g J' hJ').1, ← hcname] at hci₁
+    have hcieq : ci₁ = ciq := Option.some.inj (hci₁.symm.trans hciq)
+    rw [hlenq, ← hcieq, hnP₁, hciNP]
+  -- ## K.23's group data at the group-mate's pin
+  obtain ⟨ci'', hci''₀, hnP'', hnames''⟩ :=
+    ConLeche.containerGroupOk_inv hgrpOkCi J₂ (List.mem_of_getElem? hJm)
+  have hci'' : ConLeche.containerInfo? env q₂.container = some ci'' := by
+    rw [hq₂c]; exact hci''₀
+  have hJ₂'' : J₂ ∈ ci''.members := by
+    have hmn₂ : J₂.name ∈ ci''.members.map (·.name) := by
+      rw [hnames'']; exact List.mem_map_of_mem (List.mem_of_getElem? hJm)
+    obtain ⟨J₃, hJ₃, hJ₃n⟩ := List.mem_map.mp hmn₂
+    obtain rfl : J₃ = J₂ :=
+      ConLeche.containerInfo?_member_eq hci''₀ hci hJ₃ (List.mem_of_getElem? hJm) hJ₃n
+    exact hJ₃
+  have hmemNames'' : ∀ C, C ∈ ci''.members.map (·.name) →
+      ∃ t, t < (cd j').dJ.k ∧ (cd j').dJ.memberName t = C := by
+    intro C hC
+    rw [hnames''] at hC
+    obtain ⟨J₃, hJ₃, rfl⟩ := List.mem_map.mp hC
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hJ₃
+    exact ⟨t, by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp ht).1, (hmemNames t J₃ ht).1⟩
   sorry
 
 end ConLeche.Model
