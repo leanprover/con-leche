@@ -660,4 +660,35 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 #guard (inferTypeCore .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
 
+/-! ## `whnf` is the identity on an inductive-headed application (task #279 K.22)
+
+`whnf_indApp_eq` (`ConLeche/Verify/InferLemmas.lean`) proves that a
+stored inductive type FORMER is whnf-stuck at any spine: no arm of
+`whnfCore` applies, the literal acceleration declines and there is no
+value to unfold.  These guards run the real reduction on a hand-built
+environment holding one such former and read the subject back
+unchanged, in both modes.
+
+The negative control puts a stored DEFINITION at the head of the same
+spine, where the delta step DOES fire — so the positive guards are not
+measuring an environment in which `whnf` happens to be the identity on
+everything. -/
+
+private def k22I : Name := .str .anonymous "K22I"
+private def k22D : Name := .str .anonymous "K22D"
+
+private def k22Env : Env :=
+  ⟨[.indInfo ⟨k22I, [], .sort (.succ .zero)⟩ {},
+    .defnInfo ⟨k22D, [], .sort (.succ .zero)⟩ (.const k22I []) (.regular 1)]⟩
+
+private def k22Spine (hd : Name) : Expr :=
+  Expr.mkAppN (.const hd []) [.sort .zero, .sort (.succ .zero)]
+
+#guard (whnf .verified k22Env 100 0 (k22Spine k22I)).toOption == some (k22Spine k22I)
+#guard (whnf .trusted k22Env 100 0 (k22Spine k22I)).toOption == some (k22Spine k22I)
+
+-- NEGATIVE CONTROL: the definition-headed spine reduces (to the
+-- former-headed one, which is then stuck).
+#guard (whnf .verified k22Env 100 0 (k22Spine k22D)).toOption == some (k22Spine k22I)
+
 end ConLecheTests
