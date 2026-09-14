@@ -862,4 +862,126 @@ theorem copyResid_of_stored {env : Env} {blvls : List Level} {params : List Expr
     obtain rfl := Option.some.inj hty₂
     exact rfl
 
+
+/-! ## The group exclusion: K.23 through the datum's field shapes -/
+
+omit [SetTheory V] in
+/-- `fieldHeadAt` at a known Π-prefix and constant head. -/
+theorem fieldHeadAt_of_piBinders {e res : Expr} {fbs : List (Expr × ConLeche.BinderMeta)}
+    (hpb : e.piBinders = (fbs, res)) {C : Name} {us : List Level}
+    (hhead : res.getAppFn = .const C us) :
+    ConLeche.fieldHeadAt e = some (C, res.getAppArgs, fbs.length) := by
+  unfold ConLeche.fieldHeadAt
+  rw [hpb]
+  simp only [hhead]
+
+omit [SetTheory V] in
+/-- A datum's field the copy classifies RECURSIVE or REFLEXIVE has its
+target's name at the head of its opened annotation. -/
+theorem fieldHeadAt_of_opened {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx nF : Nat}
+    {ks : List ConLeche.RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
+    {tgtOf : Nat → Name} {nIdxOf : Nat → Nat}
+    (hMO : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest tgtOf nIdxOf)
+    {i : Nat} (hi : i ∈ ConLeche.recIdxOf ks) {x : Expr} (hx : xFvs[i]? = some x) :
+    ∃ (args : List Expr) (n : Nat),
+      ConLeche.fieldHeadAt x.fvarTypeD = some (tgtOf i, args, n) := by
+  rcases (mem_recIdxOf.mp hi).2 with hrec | hrefl
+  · obtain ⟨hhead, -⟩ := hMO.recF i x hx hrec
+    exact ⟨_, _, fieldHeadAt_of_piBinders (piBinders_eq_of_getAppFn_const hhead) hhead⟩
+  · obtain ⟨afvs, body, hop, -, -, hhead, -⟩ := hMO.reflF i x hx hrefl
+    obtain ⟨bs, body₀, hs, -, -, hbody⟩ := Verify.openPisAtFvars_stripPis _ hop
+    have hhead₀ : body₀.getAppFn = .const (tgtOf i) (lps.map Level.param) := by
+      have := (Expr.ErasedEq.getAppFn_const_iff hbody).mp hhead
+      exact (ConLeche.getAppFn_instSeq_const_iff (ConLeche.openFvars_allFvars _ _)
+        (by rw [Verify.openFvars_length]; omega)).mp this
+    have hpb := ConLeche.piBinders_of_stripPis _ hs
+    rw [piBinders_eq_of_getAppFn_const hhead₀, List.append_nil] at hpb
+    exact ⟨_, _, fieldHeadAt_of_piBinders hpb hhead₀⟩
+
+set_option maxHeartbeats 3200000 in
+/-- **The group exclusion from K.23 and the container datum's shapes**
+(DESIGN §M.45): a field the CONTAINER classifies ordinary and the COPY
+classifies recursive does not target a group-mate.  The copy's stored
+binder has the target's name at its head (`fieldHeadAt_of_opened`
+through the openers, `fieldHeadAt_instSeq`); were the target in the
+group, K.23 says the container's stored binder at that field is a
+member at the exact parameter variables — which `OrdNotRec` rules out
+at an ordinary field of the container's datum. -/
+theorem groupExclusion_of_K23 {μ : CheckMode} {envAux : Env} (mp : EnvModelM V μ envAux)
+    {env : Env} {p : ConLeche.NestedParts} {st : ElimState}
+    (hK23 : NestedGroupExclusionOk env envAux p st)
+    {d dJ : IndRepData V} (hONR : dJ.OrdNotRec)
+    {Ja Jc : Nat} {cA cAJ : ConstantVal × Nat} {lpsT : List Name}
+    (hD : FixCtorDataI mp.base2 d.env₀ (d.memberName (d.mems Ja)) lpsT cA.1 d.nP cA.2
+      (d.nIdxAt (d.mems Ja)) d.resSort d.isProp d.large (d.idxF Ja) (d.dsF Ja) (d.esF Ja)
+      (d.srcsF Ja) (d.ksF Ja) (d.fvsPF Ja) (d.xFvsF Ja) (d.xrestF Ja) (d.eissF Ja)
+      (d.tssF Ja) (fun i => d.memberName (d.tgts Ja i)) (fun i => d.nIdxAt (d.tgts Ja i)))
+    (hJc : dJ.ctorsA[Jc]? = some cAJ)
+    (hfind : envAux.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
+    {k₀ j' : Nat} (hk₀ : k₀ = p.k) {q : NestedPin} (hq : st.pins[j']? = some q)
+    {tyA : AuxType} (htyA : st.types[p.k + j']? = some tyA)
+    {l : Nat} {cty : Expr} {nFc : Nat} (hctorA : tyA.ctors[l]? = some (cA.1.name, cty, nFc))
+    {base : Nat} (hgb : q.grpBase = base) (hgs : q.grpSize = dJ.k)
+    (hpinName : ∀ t, t < dJ.k → ∃ q', st.pins[base + t]? = some q' ∧
+      q'.aux = d.memberName (k₀ + (base + t)))
+    {ci : ContainerInfo} {J : ContainerMember} {c : ContainerCtor}
+    (hci : ConLeche.containerInfo? env q.container = some ci) (hJ : J ∈ ci.members)
+    (hJn : J.name = q.container) (hcl : J.ctors[l]? = some c) (htypeC : c.type = cAJ.1.type)
+    (hnFC : c.nFields = cAJ.2) (hciNP : ci.nP = dJ.nP)
+    (hmemNames : ∀ C, C ∈ ci.members.map (·.name) → ∃ t, t < dJ.k ∧ dJ.memberName t = C)
+    {bsJ : List (Expr × ConLeche.BinderMeta)} {rJ : Expr}
+    (hsJ : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bsJ, rJ)) (hnF : cA.2 = cAJ.2) :
+    ∀ i, i ∉ ConLeche.recIdxOf (dJ.ksF Jc) → i ∈ ConLeche.recIdxOf (d.ksF Ja) →
+      k₀ ≤ d.tgts Ja i →
+      ¬ (base ≤ d.tgts Ja i - k₀ ∧ d.tgts Ja i - k₀ < base + dJ.k) := by
+  intro i hiJ hiA hk0 ⟨hlo, hhi⟩
+  have hiA' : i < cA.2 := by rw [← hD.ksLen]; exact (mem_recIdxOf.mp hiA).1
+  -- the copy's stored constructor: the field's binder, its head the target
+  obtain ⟨crest, hopP, hopF⟩ := hD.opens
+  have hopA : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0
+      = some (d.fvsPF Ja ++ d.xFvsF Ja, d.xrestF Ja) :=
+    ConLeche.openPisAtFvars_add' _ hopP (by rw [Nat.zero_add]; exact hopF)
+  obtain ⟨bsS, rS, hsS, hlenS, hshS, -⟩ := Verify.openPisAtFvars_stripPis _ hopA
+  obtain ⟨domS, hdomS⟩ : ∃ domS, bsS[d.nP + i]? = some domS :=
+    ⟨_, List.getElem?_eq_getElem (by rw [stripPis_length' _ hsS]; omega)⟩
+  obtain ⟨x, hx⟩ : ∃ x, (d.xFvsF Ja)[i]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hD.xLen]; exact hiA')⟩
+  have hxA : (d.fvsPF Ja ++ d.xFvsF Ja)[d.nP + i]? = some x := by
+    rw [List.getElem?_append_right (by rw [hD.pLen]; omega), hD.pLen, Nat.add_sub_cancel_left]
+    exact hx
+  have hx' := openPisAtFvars_binder _ hopA hsS (d.nP + i) domS hdomS
+  rw [hxA] at hx'
+  obtain rfl := Option.some.inj hx'
+  obtain ⟨args, n, hfh⟩ := fieldHeadAt_of_opened hD.opened hiA hx
+  simp only [Expr.fvarTypeD] at hfh
+  have hXSlen : ((d.fvsPF Ja ++ d.xFvsF Ja).take (d.nP + i)).length = d.nP + i := by
+    rw [List.length_take, List.length_append, hD.pLen, hD.xLen]; omega
+  have hXS : Expr.AllFvars ((d.fvsPF Ja ++ d.xFvsF Ja).take (d.nP + i)) := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    have hj' : j < d.nP + i := by
+      have := (List.getElem?_eq_some_iff.mp hj).1; rw [hXSlen] at this; exact this
+    rw [List.getElem?_take_of_lt hj'] at hj
+    obtain ⟨ty, hty⟩ := hshS j (by omega)
+    rw [hj] at hty
+    exact ⟨_, _, Option.some.inj hty⟩
+  rw [ConLeche.fieldHeadAt_instSeq hXS domS.1 (d.nP + i - 1) (by rw [hXSlen]; omega)] at hfh
+  obtain ⟨⟨T₀, args₀, n₀⟩, hfh₀, hfhE⟩ := Option.map_eq_some_iff.mp hfh
+  simp only [Prod.mk.injEq] at hfhE
+  obtain ⟨rfl, -, rfl⟩ := hfhE
+  -- the target is a group pin
+  obtain ⟨q', hq', hq'aux⟩ := hpinName (d.tgts Ja i - k₀ - base) (by omega)
+  rw [show k₀ + (base + (d.tgts Ja i - k₀ - base)) = d.tgts Ja i by omega] at hq'aux
+  -- K.23: the container's binder at this field is a member at the exact parameters
+  have hsJ' : c.type.stripPis (ci.nP + c.nFields) = some (bsJ, rJ) := by
+    rw [htypeC, hnFC, hciNP]; exact hsJ
+  obtain ⟨domJ, hdomJ⟩ : ∃ domJ, bsJ[dJ.nP + i]? = some domJ :=
+    ⟨_, List.getElem?_eq_getElem (by rw [stripPis_length' _ hsJ]; omega)⟩
+  obtain ⟨C, argsJ, nJ, hfhJ, hCmem, hlenJ, hexact⟩ :=
+    hK23 j' q hq tyA htyA l cA.1.name cty nFc hctorA cA.1 d.nP cA.2 hfind bsS rS hsS i domS hdomS
+      _ args₀ n₀ hfh₀ ⟨d.tgts Ja i - k₀ - base, by omega, q', by rw [hgb]; exact hq', hq'aux⟩
+      ci J c hci hJ hJn hcl bsJ rJ hsJ' domJ (by rw [hciNP]; exact hdomJ)
+  rw [hciNP] at hlenJ hexact
+  exact hONR Jc cAJ hJc bsJ rJ hsJ i hiJ domJ hdomJ C argsJ nJ hfhJ (hmemNames C hCmem) hlenJ hexact
+
 end ConLeche.Model

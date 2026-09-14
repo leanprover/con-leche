@@ -77364,6 +77364,217 @@ Model umbrella), arena, init-full, Mathlib, `overview-links.sh`,
 `quote-gate.sh`, `no-local-paths.sh`.  No `sorry`, no axiom, no kernel
 change.
 
+#### M.45 M-D′ step (1): `CopyWalkFacts` from the STORED data — no forward fire; the pieces of the run-level assembly (2026-09-14, session 29)
+
+**Context.**  Session 29 started at fb722f63, merged `inductives`
+549af46e (task #305's `whnf_indApp_eq`/`whnf_ctorApp_eq`/
+`whnf_indApp_ok`, merge 056978c6) and `agent/downread-306` d5569b47
+(task #306's `denoteMeta_envExtend_down`, merge c108806e; not yet
+consumed — D2's `WhnfContent` discharge is where it goes).
+`inductives` 53057833 (K.20 part 2b) is NOT merged (nothing here needs
+it).  The deliverable is M-D′ step (1): `CopyWalkFacts` — the syntactic
+half of the constructor record — from `CopyCtorsStored`.
+
+**The design point, decided.**  THE FORWARD FIRE IS NOT NEEDED.  The
+walk's facts follow from three things the run already gives: K.17's
+witness (`nestedCtorsWhnfOk_inv`: the restored PROCESSED and the
+restored STORED constructors' openers agree field by field, `=` or
+`whnf`), W1 in the RESTORE form (`restoreI_walk`: `restoreI R (instSeq
+xs t (walk e)) ≈ instSeq xs t e` — the restore of the walked binder is
+the pin's constructor's binder up to erasure, so the restored processed
+field IS the container's field at the pin), and the auxiliary datum's
+stored field shapes (`FixOpened.recF`/`reflF` at the copy: a fired
+field's head is its target's name).  Per field this reads: the stored
+copy field restored at the copy's parameter openers `≈` the container's
+field at the pin, or its `whnf` is (`copyFields_of_whnfOk`).  At a
+CONTAINER-RECURSIVE field the container's field is a Π-tower over an
+inductive-headed application (`containerRecField_shape`), on which
+`whnf` is the identity (`whnf_eq_of_erasedEq_pis_indApp`, from #305's
+`whnf_indApp_eq`), so the `whnf` arm collapses to the `=` arm and the
+datum's `recF`/`reflF` gives `FiredField`'s copy side; at a
+container-ORDINARY field the three arms of `fieldOrd` are: unfired
+(copy-ordinary, or a fire into a REAL member — both `restoreI_eq_self`),
+a fire outside the group (the exclusion `hexcl`), or `WhnfField`
+verbatim.  The residual is W2 from the STORED residual's head
+(`copyResid_of_stored`): `checkMutualCtor_front` says the stored residual
+is `aux (fvsP ++ idx)`, `normCtorValM_residual` says it is `≈` the
+processed one, whose head is therefore the copy's — so the walk FIRED at
+the top with the index arguments VERBATIM (`copyCtorFields_of_walk`'s
+residual clause), and the container's residual at the pin opened at the
+copy's own field openers carries the same index arguments up to the
+openers' annotations.
+
+**Two restatements.**  (i) `CopyWalkFacts`/`WhnfContent`
+(`CopyCtorWalkRun.lean`) no longer take `params`: the record is stated
+at the copy's OWN parameter openers `d.fvsPF (auxOfsOf st p.k cd j' Jc)`
+(the stored copy constructor's, `hD.opens`) — proving the stored
+constructor's parameter openers equal the head former's `params` is
+avoided entirely; `copyCtorAsRead_of_run` lost `hparamsLen`.  (ii)
+`CopyCtorWalkFacts.fieldOrd`'s unfired arm is BLIND: `∀ T ∈ copies,
+x.fvarTypeD.mentionsConstE T = false`.  The non-blind form
+(`mentionsConst`) is FALSE — an earlier FIRED field's opener annotates a
+later field's `fvar` leaves with the copy name.  The consumer
+(`copyCtorAsRead_of_walkFacts`) needed only `mentionsConstE_of_getAppFn`/
+`openPisAtFvars_mentionsConstE`.
+
+**What landed** (commits 20ee774f, 9ae088d6, d625135c; `lake build`
+644 jobs warning-free, `lake test` clean).
+
+* `Verify/Inductives/NestedRestoreWalk.lean` (new, root umbrella): the
+  walk's inversions (`replaceAllNested_app'`: prune ∨ fire ∨
+  children-with-`replaceIfNested = .ok none`; `_letE`/`_proj`; the leaf
+  lemmas `= .ok (e, st)`), `replaceAllNested_head_of_nofire`, the
+  restore's descent (`restoreI_app'`/`_lam'`/`_letE'`/`_proj'`),
+  **`restoreI_walk`** (W1 in the restore form, over `R.Named`, `R.nP =
+  params.length`, closed params, and exact pin lookups for the state's
+  pins), the pin round trip `instSeq_abstractRange` (exact under
+  `fvarConsistent`, from `LeavesIn params`), `restoreTbl_instAt_lookup`
+  (exact) and `restoreTbl_instAt_recMap`.
+* `Verify/Inductives/NestedCopyStored.lean` (new, root umbrella): K.17's
+  pairs (`nestedCtorPairs_mem`, `ownCtors_mem`, `auxStored?_ctors`), the
+  `closeTelescope` round trips (`openPisAtFvars_closeTelescope_leaves`,
+  `instPis_closeTelescope_leaves`, `stripPis_closeTelescope_of_not_hasFvar`),
+  erasure at the openers (`ErasedEq.eq_of_leavesIn`, `openers_erasedEq`,
+  `ErasedEq.eq_of_leaves_below` — ASYMMETRIC), the whnf identity on a
+  Π-tower over an inductive-headed application
+  (`whnf_eq_of_erasedEq_pis_indApp`), levels at `Nodup` parameters
+  (`map_subst_params_nodup`), `stripPis`/`piBinders`/`fieldHeadAt` through
+  `instSeq` (`stripPis_instSeq`, `stripPis_instSeq_inv`, `piBinders_instSeq`,
+  `fieldHeadAt_instSeq`), `replaceAllNested_leavesIn`/
+  `_looseBVarsBounded`, **`normCtorValM_residual`** (the stored residual
+  `≈` the processed one), `checkMutualCtor_pre_input`, the raw restore's
+  closedness (`restoreNested_closed`), `restoreTbl_instAt_lookup_erasedEq`,
+  and the mention kit (`openPisAtFvars_mentionsConstE`,
+  `mentionsConstE_mkAppN_const_iff`, …).
+* `Model/Inductives/CopyWalkFactsRun.lean` (new, Model umbrella):
+  `NestedGroupExclusionOk` (K.23's exact shape), `IndRepData.OrdNotRec`,
+  and **`copyCtorWalkFacts_of_stored`** — `CopyCtorWalkFacts` from the
+  stored data under ~35 syntactic hypotheses (the datum's `FixCtorDataI`
+  at the copy and at the container, the kernel kinds, the pins' shapes,
+  the table at the copy's openers, `hexcl`, `hfields`, `hresid`,
+  `hCshape`, `hDsMention`).
+* `Model/Inductives/CopyWalkFactsAssembly.lean` (new, Model umbrella):
+  THE PIECES that discharge `copyCtorWalkFacts_of_stored`'s derived
+  hypotheses — `instSeq_bvar_gt`/`_window`, `bvar_of_instSeq_fvar`,
+  `params_of_opened_spine` (an opened spine at parameter VARIABLES has
+  the parameter BOUND variables in its binder: `B.getAppArgs.take nPJ =
+  structPsAt (XS.length - nPJ) nPJ`), `spine_at_components` (depth `t`
+  with `0 < nP → t = nP + o - 1`), `instantiateLevelParams_spine`,
+  **`containerRecField_shape`** (`hCshape`: the container's constructor
+  at the pin, at a container-recursive field, is a Π-tower of the
+  container's own Π-length over the target at the components and index
+  arguments — recursive and reflexive cases), **`copyFields_of_whnfOk`**
+  (`hfields`: K.17 → per field `≈` or `WhnfField`, with the `WScoped`/
+  bounded/`LeavesBounded` guards from the restored processed constant's
+  closedness), `containerResid_at_pin` + **`copyResid_of_stored`**
+  (`hresid`), `fieldHeadAt_of_piBinders`/`fieldHeadAt_of_opened` +
+  **`groupExclusion_of_K23`** (`hexcl` from `NestedGroupExclusionOk` +
+  `OrdNotRec` + the datum's field heads).
+* `Model/Inductives/CopyCtorWalk.lean`: `fieldOrd` arm 1 blind (above);
+  `Verify/Inductives/NestedRestore.lean`: `Expr.AllFvars` `@[expose]`
+  (a sealed `def` cannot be `intro`'d from another module).
+
+**Named hypotheses this session** (each stated once, at its consumer;
+the run-level assembly below discharges none of them):
+
+1. `NestedGroupExclusionOk env envAux p st` — K.23, exactly the
+   kernel check's shape (`CopyWalkFactsRun.lean`): at a copy
+   constructor's stored field whose head is a GROUP pin's copy, the
+   container's constructor's field at the same position is a member of
+   the group applied to the exact parameter variables under its
+   Π-prefix.  Consumed by `groupExclusion_of_K23`.
+2. `IndRepData.OrdNotRec dJ` — the container datum's side of K.23: at a
+   field its `ksF` classifies ORDINARY the stored binder is not a member
+   at the exact parameters.  A planned `ContainersRep` conjunct (one
+   destructuring site, `PsiRun.lean`'s `pinFacts_of_run`) and a
+   `PinFacts` field; at M-E its discharge is an `IndRep` clause (the
+   kernel's `mutualCtorKinds`: ordinary ⟺ no member mentioned) or a
+   kernel record — report either way.
+3. `hlpsNodup : lpsJ.Nodup` — K.21 (the containers' level parameters are
+   distinct; `FormerFront.lpsNodup` has it at the container's OWN
+   install, which the model's `IndRep` does not record).
+4. `hDsMention : ∃ D ∈ Ds, ∃ t < k₀, D.mentionsConstE (d.memberName t)
+   = true` — the pins-mention-a-real-member fact, a LEDGER conjunct
+   (`NestedLedger`'s `MintStep`/`PinOriginAt`/`elimLoop_ledger`, with the
+   `MentionInv` upgrade) — NOT implemented; a named hypothesis of
+   `copyCtorWalkFacts_of_stored`.
+5. `hin : ∀ T ∈ copies, cI.mentionsConst T = false` (non-blind, W2's
+   input) and `hcIaux : ∀ n ∈ R.auxNames, cI.mentionsConstE n = false`
+   — from `elimNested_mentionInv` at `ok n := (env.find? n).isSome ∨ n ∈
+   fmsA.map (·.name)` with `ContainersMentionOnly` (the containers'
+   stored constructors resolve in `env`) and `copiesFresh_inv`; not yet
+   threaded.
+
+**What remains of step (1): `copyWalkFacts_of_run`**, the run-level
+assembly at `env₁ = consNestedFormers (stored.take p.k) env` and `R =
+restoreTbl p st`, i.e. `copyCtorsRead_of_run` restated with the two
+premises DISCHARGED (`WhnfContent` still named).  Every input of the four
+pieces and of `copyCtorWalkFacts_of_stored` has its source:
+
+* the pin's constructor, walked and stored: `CopyCtorsStored`'s clause
+  (`hallC l c hcl`: `hcI`, `hstrip'`, `hinst`, `hwalk`, `sta.PinsIndexed
+  p.k`, `stb.pins <+: st.pins`, the stored `cA` with `normCtorValM` and
+  the name/type relation) — `copyCtorAsRead_of_run`'s preamble
+  (`CopyCtorWalkRun.lean` lines 140–330) has all of it;
+* K.17's pair: `nestedCtorPairs_mem (ownCtors_mem …) (auxStored?_ctors
+  …)`, the stored constant from `FixCtorFactsAt.1`; the witness and
+  `stored` are `checkNested_inv`'s conjuncts — `pinFacts_of_run` does not
+  expose them, so the restated theorem destructures `DeclNestedRun` again
+  (`st`/`b`/`envAux` identified through `Except.ok.inj` on `elimNested`/
+  `checkMutualCore`);
+* the table: `restoreTbl_wf (pinsClosed) (shapes)`; `R.nP = p.nP` by
+  `rfl`; `hpF/hcF/hpB/hcB` from `pinsClosed_inv` (`abstractRange q.pin 0
+  p.nP 0` is fvar-free and bounded `p.nP`; `ctorPins` carry the same
+  terms); `hP` at the head former's `params` by `restoreTbl_instAt_lookup`
+  (`(st.pins.map (·.aux)).Nodup` from `nestedBlockNames_nodup`, `LeavesIn
+  params q.pin` from `elimNested_leaves`, closedness from `pinsClosed`) +
+  `restoreTbl_instAt_recMap`; `hlookS`/`hrecS` at `d.fvsPF Ja` by
+  `restoreTbl_instAt_lookup_erasedEq` (openers' shape `hD.pIdx`);
+* the head former's telescope (`hst₀`/`hop₀`/`hnf₀`): `elimNested_copy`'s
+  first conjuncts and `FormerFront.noFvar` of the annotated former;
+* the processed constructor closed/bounded: `checkMutualCtor_pre_input`
+  on `checkMutualCtors_inv`'s per-constructor run; the STORED one
+  fvar-free: `checkMutualCtor_front`'s `FormerFront … cvCa`.noFvar;
+* `hcIL`/`hcIB`/`hDsL`: `instPis` of the container's fvar-free
+  constructor at the components, whose leaves are the pins' =
+  `elimNested_leaves`;
+* `hxrestS` (the stored residual `aux (fvsP ++ idx)`):
+  `checkMutualCtor_front`'s third conjunct, openings identified with
+  `hD.opens`, `T = d.memberName (d.mems Ja)` = the copy's name
+  (`memberName_eq_type`); `hE`: `normCtorValM_residual` +
+  `openPisAtFvars_add'`; `haux`: `hcopyNames` at `stb` (names stable
+  along `ElimGrows.copyNames_mono`); `hpinOf`: the pins' aux names
+  `Nodup`;
+* `hciNP : ci.nP = dJ.nP`: `elimNested_copy`'s `Ds.length = ci.nP`
+  against `DenoteMetaSpine.length` + `PinFacts.len` — no new
+  `PinRunFactsAt` conjunct is needed (adding `ci.nP = c.dJ.nP` after
+  `ci.members.length = c.dJ.k` is the convenient alternative, ~4
+  destructuring patterns);
+* `hstoredJ`: `containerInfo?_stored` + `consNestedFormers_freshExt`;
+  K.23's inputs (`hctorA` from `CopyCtorsStored`'s `tyA.ctors[l]?`,
+  `hgb`/`hgs`/`hmemNames` from `PinRunFactsAt`).
+
+Sized at one session (Opus-suitable: no design left, ~600 lines of
+plumbing in `copyCtorAsRead_of_run`'s style).
+
+**Findings, with cost.**  (a) `instSeq`'s truncated subtraction: `instSeq
+(a :: as) 0 (bvar 1)` hits the NEXT argument, so `instSeq_bvar_gt` is
+FALSE without `args.length ≤ t + 1`; the opened-spine lemma needs `hlen :
+XS ≠ [] → XS.length = t + 1` (not `t + 1 - XS.length`); a
+component-instantiation lemma must take its depth `t` with `0 < nP → t =
+nP + o - 1` (at `nP = 0` the depth is free); and the reflexive case's
+COMBINED depth is `nP + i + n - 1`, not `nP + i - 1 + n` (they differ at
+`nP + i = 0`) — three omega failures, ~1 h.  (b) `.2.1` on an `∃`
+ELABORATES (structure-eta projection) but the KERNEL rejects the
+constant ("(kernel) invalid projection") — `obtain` the witness.  (c)
+`obtain ⟨-, …⟩` on an existential's witnesses shifts the pattern (name
+them); a `rfl` pattern on `a = b` eliminates the RHS variable, so state
+the equation as `Jn = I` to keep `Jn`.  (d) `mentionsConst` (non-blind)
+is the wrong currency for the unfired arm (above).  (e) `Expr.AllFvars`
+needed `@[expose]`.
+
+**Gates**: `lake build` (644 jobs) warning-free; `lake test` clean.
+
 #### K/M — task #306: the downward reading transfer (2026-09-14)
 
 M.44 named `denoteMeta`'s DOWNWARD crossing as a missing fact: every
