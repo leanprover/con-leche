@@ -6,10 +6,10 @@
 # link or the prose, then regenerate.
 
 == Main.lean#L825
-   825  def usage : String := String.intercalate "\n" [
+   825  
 
 == Main.lean#L49
-    49  def ConLeche.CheckError.exitCode : CheckError → UInt32
+    49    | .notImplemented _ => 2
 
 == ConLeche/MainTheorem.lean#L49-L52
     49  theorem model_exists (V : Type w) [SetTheory V]
@@ -71,7 +71,7 @@
   1000  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
 == Main.lean#L101
-   101  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+   101      (stride total t0 : Nat) (trace : Bool) (shadow : Bool) (inModelled : Array Name)
 
 == ConLeche/Cached/Installed.lean#L136-L138
    136  def annotStepC (i : Nat) (fe : FEnv) (pend : Array PendingCheck) :
@@ -83,10 +83,10 @@
    338      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
 == Main.lean#L221
-   221  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+   221  With `--progress`, one line per `stride` completed checks. -/
 
-== Main.lean#L336
-   336  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L337
+   337  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L367-L370
    367  def collectChecks {ds : List DeclC} (e : InstalledEnv mode ds)
@@ -94,12 +94,12 @@
    369      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    370        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L374-L378
-   374  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   375      (trace : Bool) (shadow : Bool) (noMark : Bool)
-   376      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
-   377      IO (Except (ConLeche.CheckError × Nat)
-   378        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
+== Main.lean#L375-L379
+   375  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   376      (trace : Bool) (shadow : Bool) (noMark : Bool)
+   377      (inModelled : Array Name) (ds : List ConLeche.Cached.DeclC) :
+   378      IO (Except (ConLeche.CheckError × Nat)
+   379        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L488-L489
    488  theorem fullyChecked_checkDecls {ds : List DeclC} (fc : FullyChecked mode ds) :

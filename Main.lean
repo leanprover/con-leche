@@ -167,8 +167,10 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
         | some q =>
           let nm := (block.head?.map (·.name)).getD .anonymous
           let verdict : String :=
-            match ConLeche.checkNested (m := ConLeche.CheckM)
-                (ConLeche.fueledOps mode ConLeche.checkFuel) p.2.1.env q with
+            -- the CACHED route, at the driver's own index and memo
+            -- state; the state it returns is DISCARDED, so nothing of
+            -- the shadow reaches the install
+            match ConLeche.Cached.checkNestedS mode p.2.1 q s with
             | .ok _ => "accept"
             | .error (.invalid msg) => s!"reject {msg}"
             | .error (.notImplemented what) => s!"decline {what}"
