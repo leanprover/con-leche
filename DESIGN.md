@@ -77364,6 +77364,78 @@ Model umbrella), arena, init-full, Mathlib, `overview-links.sh`,
 `quote-gate.sh`, `no-local-paths.sh`.  No `sorry`, no axiom, no kernel
 change.
 
+#### K/M — task #306: the downward reading transfer (2026-09-14)
+
+M.44 named `denoteMeta`'s DOWNWARD crossing as a missing fact: every
+transfer in the tree (`denoteMeta_envExtend_mono`,
+`denoteMeta_envExtend_mono_at`, `denoteMeta_cons_mono`) carries a
+reading UP a fresh extension, and D2's `whnfContent_of_formersModel`
+needs a term read at the scratch environment `envAux` to read the same
+at `env₁`.  It lands as `ConLeche/Model/Annot/BitExtendDown.lean`
+(`denoteMeta_envExtend_down`, on the `Model` umbrella beside
+`BitExtend`):
+
+```
+theorem denoteMeta_envExtend_down {env₀ env : Env}
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    (hF : FindPreserved env₀ env) (hG : LitGuardsMono env env₀) :
+    ∀ (d : Nat) (e : Expr), ConstsBound env₀ e →
+      (∀ (sn : Name) (i : Nat), env₀.findProj? sn i = none →
+        Expr.NoProjAt sn i e) →
+      ∀ {ea : AnnotTerm}, denoteMeta acval env φ d e = some ea →
+        denoteMeta acval env₀ φ d e = some ea
+```
+
+`env₀` is the SMALLER environment (the lane's `env₁`), `env` the
+larger (`envAux`); one `acval`, as the brief asked — the lane composes
+with its own valuation-agreement lemma.  The induction is
+`denoteMeta.induct (env := env₀)`: both side conditions are phrased at
+the smaller environment, so the `.const` arms match the `ConstsBound`
+clause node for node and the `.proj` arm's `none` case is the one the
+side condition closes; the larger environment's reading is consumed
+through the environment-generic inversions (`denoteMeta_proj_inv` and
+friends).
+
+**Why the side condition.** `denoteMeta` is total and its `.proj`
+clause has no failure branch: at a slot the environment does not table
+the node reads `AnnotTerm.projPair?`, not `none`.  A `.proj sn i` node
+at a slot `env` tables and `env₀` does not therefore reads a
+DIFFERENT value below, and no environment hypothesis repairs it —
+hence `NoProjAt` at every slot `env₀` lacks.  Where `env₀` does table
+the slot, `FindPreserved`/`findProj?_of_table` transport the entry up
+and the two readings agree.  Only the *newly tabled* slots are used in
+the proof, so the condition may be weakened to
+`env₀.findProj? sn i = none → (env.findProj? sn i).isSome → …` if a
+consumer ever needs the slack; the stated form is what K.13's
+`projTablesOk` supplies.
+
+**Hypotheses dropped and added.**  The brief's `hproj`
+(`env₀.findProj? sn i = none → env.findProj? sn i = none`, the upward
+crossing's premise) is DROPPED: the side condition already refutes the
+only node that could see a new slot.  The literal guards are asked in
+the other direction — `LitGuardsMono env env₀`, i.e.
+`natLitSupported env = true → natLitSupported env₀ = true` and its
+string twin — because a support-completing extension makes a literal
+read `some` above and `none` below.  The upward direction is never
+needed: at a literal `env₀` supports, the arm splits on `env`'s own
+guard and the unsupported branch refutes the hypothesis.  `hF` stays
+(the `.const` entry and, through `levelParamsAt_congr`, the string
+spine's level parameters); `ConstsBound env₀ e` stays (it excludes a
+constant stored only above).
+
+Beside it, `Expr.NoProjAt.instSeq` — the absence of a slot's node
+survives instantiating a whole spine (`Expr.instSeq`, the iterated
+`instantiate1`).  The single step, the application spine and the level
+pass already had theirs (`NoProjAt.instantiate1`,
+`NoProjAt.mkAppN`, `NoProjAt.instantiateLevelParams`,
+`NoProjAt.openPisAtFvars`).
+
+**Not done** (deliberately): nothing threads `projTablesOk` — the side
+condition's discharge at D2's subjects is the model lane's; no
+`instantiateList` transport (its `vs.take` recursion is not a
+three-line induction, and no subject points at it); no generalisation
+over two valuations.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

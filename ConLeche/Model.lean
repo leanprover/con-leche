@@ -138,6 +138,7 @@ public import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Model.Annot.BitInstall
 public import ConLeche.Model.Annot.BitExtend
+public import ConLeche.Model.Annot.BitExtendDown
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.ValidSpine
 public import ConLeche.Model.Steps.BitLevels
