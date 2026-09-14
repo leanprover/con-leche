@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.NestedLedger
 import ConLeche.Verify.Inductives.NestedLeaves
 public import ConLeche.Verify.Inductives.NestedMention
 import ConLeche.Verify.Inductives.NestedProj
+public import ConLeche.Verify.Inductives.NestedLits
 import ConLeche.Verify.Inductives.AuxFormers
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -302,6 +303,55 @@ theorem pinsNoProj_of_run {μ : CheckMode} {F : Nat} {env : Env} {p : ConLeche.N
     obtain ⟨cv₀, nIdx, -, hff⟩ := (ConLeche.nestedAnnotFormers_inv hannF).2 0 cvT hcvT
     rw [← hEq]
     exact ConLeche.Expr.noProjAt_of_constsResolve hT _ hff.resolve
+
+/-- **The pins' components' literals are guarded at an environment
+holding the formers** (task #311): the elimination's inputs are the
+ANNOTATED formers and constructors (K.12), and they RESOLVE — the
+first former's type at `env`, every constructor's at
+`nestedFormerEnv fmsA env` (`checkConstantVal`'s front door) — so
+their literals' support is stored there and, by `hm`, at `envL`.  The
+walk mints no literal of its own, so the invariant travels through the
+elimination (`elimNested_pins_litsOk`) and a pin's components are
+sub-terms of a pin. -/
+theorem pinsLits_of_run {μ : CheckMode} {F : Nat} {env envL : Env} {p : ConLeche.NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} (mp : EnvModelM V μ env)
+    (hm : ∀ n : Name, ((ConLeche.nestedFormerEnv fmsA env).find? n).isSome = true →
+      (envL.find? n).isSome = true)
+    (hannF : ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p.nP
+      p.formers = .ok fmsA)
+    (hannC : ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA)
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st) :
+    ∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs, ConLeche.litsResolve envL a = true := by
+  have hmEnv : ∀ n : Name, (env.find? n).isSome = true → (envL.find? n).isSome = true :=
+    fun n hn => hm n (ConLeche.nestedFormerEnv_find?_isSome hn)
+  intro q hq a ha
+  refine ConLeche.Expr.LitsOk.getAppArgs
+    (ConLeche.elimNested_pins_litsOk mp.base2.wf hmEnv helim ?_ ?_ q hq) a ha
+  · -- the block's ANNOTATED constructors resolve at the formers' environment
+    intro t ht c hc
+    obtain ⟨t', ht'⟩ := List.getElem?_of_mem ht
+    rw [nestedTypes0_getElem?] at ht'
+    obtain ⟨cvT, -, rfl⟩ := Option.map_eq_some_iff.mp ht'
+    simp only at hc
+    obtain ⟨⟨c₀, cvCa⟩, hmem, hf⟩ := List.mem_filterMap.mp hc
+    simp only at hf
+    split at hf
+    · obtain rfl := Option.some.inj hf
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem (List.of_mem_zip hmem).2
+      obtain ⟨c', -, hcheck⟩ := (ConLeche.nestedAnnotCtors_inv hannC).2 j cvCa hj
+      exact ConLeche.Expr.LitsOk.mono hm (ConLeche.Expr.LitsOk.of_constsResolve
+        (ConLeche.FormerFront.of_checkConstantVal (mode := μ) hcheck).resolve)
+    · exact nomatch hf
+  · -- the first ANNOTATED former's type resolves before the block
+    intro t₀ h0
+    have h0' : (ConLeche.nestedTypes0 p fmsA ctorsA)[0]? = some t₀ := by
+      rw [← List.head?_eq_getElem?]; exact Option.mem_def.mp h0
+    rw [nestedTypes0_getElem?] at h0'
+    obtain ⟨cvT, hcvT, hEq⟩ := Option.map_eq_some_iff.mp h0'
+    obtain ⟨cv₀, nIdx, -, hff⟩ := (ConLeche.nestedAnnotFormers_inv hannF).2 0 cvT hcvT
+    rw [← hEq]
+    exact ConLeche.Expr.LitsOk.mono hmEnv (ConLeche.Expr.LitsOk.of_constsResolve hff.resolve)
 
 /-- A leaf of the head is a leaf of the spine. -/
 theorem mem_fvarLeaves_mkAppN_head : ∀ (args : List Expr) (f : Expr) (l : Nat × Expr),

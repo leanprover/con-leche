@@ -898,6 +898,18 @@ theorem nestedFormerEnv_find? {fmsA : List ConstantVal} {env : Env} {n : Name}
     obtain ⟨cv, hcv, rfl⟩ := hmem
     exact Or.inr (List.mem_map.mpr ⟨cv, hcv, beq_iff_eq.mp hn⟩)
 
+/-- … and a name stored below is stored there (the formers only
+extend). -/
+theorem nestedFormerEnv_find?_isSome {fmsA : List ConstantVal} {env : Env} {n : Name}
+    (h : (env.find? n).isSome = true) :
+    ((nestedFormerEnv fmsA env).find? n).isSome = true := by
+  unfold nestedFormerEnv Env.find?
+  rw [List.find?_append]
+  cases hf : List.find? (fun c => c.name == n)
+      ((fmsA.map fun cv => ConstantInfo.indInfo cv {}).reverse) with
+  | none => rw [Option.none_or]; rw [Env.find?] at h; exact h
+  | some c => rfl
+
 /-! ## The minted names, and the conses -/
 
 /-- **The minted names are free**: every copy's type, its recursor and

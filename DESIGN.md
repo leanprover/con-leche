@@ -78841,6 +78841,111 @@ sessions.  D4 (the recursors' model) 2–3; D5
 (`declNested` + dispatch) 1; M-E 1–2; `hpinsLits` 1 (Verify, parallel).
 The intended `declNested` signature is unchanged.
 
+#### M.53 — task #311: `hpinsLits` off the run (2026-09-14)
+
+**Brief.**  §M.52's one named fact, discharged:
+
+    hpinsLits : ∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs,
+      litsResolve (consNestedFormers (stored.take p.k) env) a = true
+
+is now read off `DeclNestedRun`, and `copyCtorsRead_of_run''` carries
+`ContainersRep env envAux mpAux.base2` alone.  Sized at one Verify
+session; landed there.
+
+**The route** (as §M.52 sketched it, `LeafInv`-style).
+
+* **`ConLeche/Verify/Lits.lean`** (new) is the guard's home.
+  `litsResolve`, `litsResolve_of_constsResolve` and
+  `litsResolve_instantiate1` MOVED here from
+  `Model/Annot/BitExtendDown.lean` — they are statements about
+  `Env.find?` alone, and the tier that must PROVE them (the
+  elimination's walk) sits below the tier that states them.  The name
+  moved from `ConLeche.Model` to `ConLeche`, which every consumer
+  resolves unchanged (they all sit inside `namespace ConLeche.Model`).
+  Beside them the closure kit the walks need: **`Expr.LitsOk env e`**
+  (the `Prop` form), its clause equations, and `mono` (UP an
+  extension — the support names stay stored), `of_constsResolve`,
+  `instantiate1`, `mkAppN`, `getAppArgs`, `instPis`, `abstract1`,
+  `instantiateLevelParams`, `stripPis_doms`.
+* **`ConLeche/Verify/Inductives/NestedLits.lean`** (new) is the
+  instance at the elimination — the fourth copy of the walk invariant
+  (`LeafInv`, `MentionInv`, `ProjInv`, now `LitInv`), the same shape as
+  #309's `elimNested_pins_noProjAt` throughout: `containersLitsOk_of_wf`
+  (the containers' stored constructor types RESOLVE at `env`, hence are
+  guarded there and at every environment `env` extends into),
+  `mkCopies_litInv`, `replaceIfNested_lits`, `replaceAllNested_lits`,
+  `elimCtors_lits`, `elimLoop_lits`, and
+  **`elimNested_pins_litsOk`**.  THE WALK MINTS NO LITERAL: a pin is
+  the container applied to arguments of a walked constructor type, a
+  copy's constructors are the container's stored types instantiated at
+  those arguments and closed over the first former's binders, and the
+  answer of a fired replacement is the aux constant applied to the
+  openers and the index arguments.  The guard is blind to `fvar`
+  annotations, so an opening's variables carry it outright
+  (`litsOk_openPisAtFvars`) — the one place this instance is SHORTER
+  than #309's.
+* **`pinsLits_of_run`** (`Model/Inductives/CopyReads.lean`, beside
+  `pinsNoProj_of_run`) is the run-level read, at a parametric `envL`
+  under one hypothesis — every name of `nestedFormerEnv fmsA env` is
+  stored at `envL`.  The elimination's inputs are the ANNOTATED
+  formers and constructors (K.12) and they RESOLVE (the first former's
+  type at `env`, every constructor's at `nestedFormerEnv fmsA env`,
+  `checkConstantVal`'s front door), so their literals are guarded
+  there; `Expr.LitsOk.getAppArgs` takes the pin's guard to its
+  components.
+* **`copyCtorsRead_of_run''`** discharges it.  The environment
+  hypothesis at `envL := consNestedFormers (stored.take p.k) env` is
+  `nestedFormerEnv_find?` (a name there is a pre-block name or a
+  former's) plus, on the former branch, the chain
+  `fmsA[t].name = nestedTypes0[t].name = st.types[t].name =
+  d.memberName t` (`nestedTypes0_getElem?`, `elimNested_name_lt`,
+  `memberName_eq_type`) into `hrealStored` — the real members ARE
+  stored at `env₁`.  `nestedFormerEnv_find?_isSome` (the converse
+  direction, `Verify/Inductives/NestedFacts.lean`) is new beside
+  `nestedFormerEnv_find?`.
+  The `stored` witness left the theorem's existential: with the
+  literal clause gone nothing in the statement mentioned it.
+
+`pinsData_of_run` and `whnfContent_of_run` keep `hpinsLits` as a
+parameter — they are parametric in `env`/`st`/`stored` and cannot
+reach the run's `helim` — and `copyCtorsRead_of_run''` supplies it.
+No fact is named on this lane's frontier statement any more except
+`ContainersRep` (M-E's).
+
+**Findings, with cost.**
+
+(a) The guard could NOT stay in `Model/Annot`: a Verify-tier walk may
+not import a Model module (`Verify/Cached/InstalledC.lean` does, but
+the Annot tier imports Verify, so this one would cycle).  Moving the
+definition down is what makes the layering work, and it costs nothing
+at the call sites — Lean resolves `litsResolve` from inside
+`namespace ConLeche.Model` against `ConLeche.litsResolve`.
+(b) `Verify/ProjSlots.lean` does not re-export `Kernel/CheckerBase`
+(its `import ConLeche.Kernel.TypeChecker` is private), so
+`openPisAtFvars` is not in scope there; `litsOk_openPisAtFvars` lives
+in `NestedLits.lean` instead of beside the rest of the kit.  One
+compile.
+(c) A `reservedBasisNames` route would NOT have worked: the list
+carries the `Nat` trio but none of the seven STRING support names, so
+a block former could in principle shadow `String`/`List`/`Char` and
+the guard's names cannot be assumed pre-block.  The environment
+hypothesis is the honest form.
+(d) The three existing walk instances (`LeafInv`, `MentionInv`,
+`ProjInv`) and this one differ only in the predicate and its clause
+lemmas; a generic walk over a closure record (≈12 fields: the four
+binder arms up and down, `.proj` up/down, `mkAppN`/`getAppArgs`,
+`instPis`, `abstract1`, `instantiateLevelParams`, `fvar`) would
+replace ~1400 lines with ~400.  NOT done here (a four-way refactor is
+not a one-session job); DOCKETED as a cleanup for M-E.
+
+**Gates**: `lake build` warning-free (659 jobs); `lake test` clean
+(526); `tests/no-local-paths.sh` OK.  `tests/overview-links.sh` fails
+at `Model/IndRep.lean#L374-L383` — pre-existing on this branch, in a
+file this task does not touch.  `#print axioms` on
+`copyCtorsRead_of_run''` and `elimNested_pins_litsOk`: `propext`,
+`Classical.choice`, `Quot.sound` only.  No `sorry`, no kernel change,
+no new `IndRep` field, no `maxHeartbeats` raise.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

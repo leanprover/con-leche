@@ -28,8 +28,8 @@ The `whnf` arm's content — the last premise of `copyCtorsRead_of_run'`
   auxiliary carrier at the pin's assignment, and its components'
   readings transferred down under the pins' blind mentions (K.15,
   `PinsMentionReal`), the pins' `NoProjAt` at fresh names (task #309)
-  and the pins' LITERAL SUPPORT at `env₁` — the one NAMED run fact of
-  this module (`hpinsLits`; a `litsResolve` invariant through the
+  and the pins' LITERAL SUPPORT at `env₁` (task #311's
+  `pinsLits_of_run`: a `litsResolve` invariant through the
   elimination, `NestedLeaves.lean`'s `LeafInv` style);
 * **`whnfContent_of_run`** — per pin, container constructor and
   container-ordinary field the walk `whnf`'d: the group exclusion is
@@ -40,7 +40,7 @@ The `whnf` arm's content — the last premise of `copyCtorsRead_of_run'`
   field's reading (`restoredFieldsRead_of_stored`);
 * **`copyCtorsRead_of_run''`** — `copyCtorsRead_of_run'` with
   `WhnfContent` DISCHARGED: `CopyCtorsRead` off `DeclNestedRun` under
-  `ContainersRep` and `hpinsLits` alone.
+  `ContainersRep` alone.
 -/
 
 namespace ConLeche.Model
@@ -143,8 +143,8 @@ carrier at the pin's assignment (`PinRunFactsAt`'s last clause through
 the agreement on `env₁`'s names), the components' scope, and the
 components' readings transferred down: their blind mentions are
 pre-block names and real members (K.15), their projection nodes sit at
-no fresh name's slot (task #309), and their literals' support is the
-NAMED `hpinsLits`. -/
+no fresh name's slot (task #309), and their literals' support is
+`hpinsLits` — task #311's `pinsLits_of_run`, at the run. -/
 theorem pinsData_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     {p : ConLeche.NestedParts} {st : ElimState} {b : MutualBlock} {params : List Expr}
     {pbs : List (Expr × ConLeche.BinderMeta)} {stored : List AuxStored}
@@ -159,7 +159,7 @@ theorem pinsData_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       Expr.NoProjAt T i q.pin)
     (hreps : MutualBlockReps mpAux.base2 b d)
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
-    -- NAMED (DESIGN §M.52): the pins' literal support at the formers' environment
+    -- the pins' literal support at the formers' environment (task #311)
     (hpinsLits : ∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs,
       litsResolve (ConLeche.consNestedFormers (stored.take p.k) env) a = true)
     (mp₁ : EnvModelM V μ (ConLeche.consNestedFormers (stored.take p.k) env))
@@ -250,8 +250,8 @@ constructor's reading down and peeling it at the pin
 (`ctor_peel_of_read`, `ctorInst_fields`), the container's field graded
 (`gradeC_of_okTy`), and the restored stored field read by kind
 (`restoredFieldsRead_of_stored` at the pins' data, `pinsData_of_run`).
-The pins' literal support at `env₁` (`hpinsLits`) is the one NAMED run
-fact. -/
+The pins' literal support at `env₁` (`hpinsLits`) is task #311's, read
+off the run by `pinsLits_of_run`. -/
 theorem whnfContent_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState} {b : MutualBlock}
     {params : List Expr} {pbs : List (Expr × ConLeche.BinderMeta)} {stored : List AuxStored}
@@ -273,7 +273,7 @@ theorem whnfContent_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hwalk : CopyWalkFacts μ F env (ConLeche.consNestedFormers (stored.take p.k) env) p st
       (ConLeche.restoreTbl p st) params d cd)
-    -- NAMED (DESIGN §M.52): the pins' literal support at the formers' environment
+    -- the pins' literal support at the formers' environment (task #311)
     (hpinsLits : ∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs,
       litsResolve (ConLeche.consNestedFormers (stored.take p.k) env) a = true)
     (mp₁ : EnvModelM V μ (ConLeche.consNestedFormers (stored.take p.k) env))
@@ -444,15 +444,16 @@ theorem whnfContent_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
 `copyCtorsRead_of_run'` with `WhnfContent` DISCHARGED — the formers'
 model from `nestedFormersModel`, the walk's facts from
 `copyWalkFacts_of_run`, the `whnf` arm's content from
-`whnfContent_of_run`.  What remains named: `ContainersRep` (M-E's, the
-containers' representation at the scratch model) and the pins' literal
-support at the formers' environment (`hpinsLits`, a `litsResolve`
-invariant through the elimination). -/
+`whnfContent_of_run`, and the pins' literal support from
+`pinsLits_of_run` (task #311), whose environment hypothesis is the
+formers' conses against `nestedFormerEnv`: a name of either is a
+pre-block name or a real member's, and the real members are stored at
+`env₁` (`hrealStored`).  What remains named: `ContainersRep` alone
+(M-E's, the containers' representation at the scratch model). -/
 theorem copyCtorsRead_of_run'' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
-    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
-      (order : List Nat),
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (order : List Nat),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
       st.types.length = p.k + st.pins.length ∧
@@ -462,20 +463,50 @@ theorem copyCtorsRead_of_run'' {μ : CheckMode} (hμ : μ.verifiedChecks = true)
           (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
-              ((∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs,
-                  litsResolve (ConLeche.consNestedFormers (stored.take p.k) env) a = true) →
-                CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)) := by
+              CopyCtorsRead mpAux d ψ st p.k st.pins.length cd) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
     hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hmo, hhead, hfreshRec, hpinsNP,
-    -, mpAux, d, hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
-  refine ⟨st, b, envAux, stored, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs,
-    ?_⟩
+    hrest, mpAux, d, hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
+  obtain ⟨-, -, hannF, hannC, -⟩ := hrest
+  refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, fun hpinsLits => ?_⟩
+  refine ⟨cd, hcd, ?_⟩
   have hkp : p.k ≤ b.k := by rw [ConLeche.auxBlock_k hb, hlenSt]; omega
   obtain ⟨mp₁, -, -, -, hag₁, hF, hrealStored⟩ := nestedFormersModel mp hE hcore hstoredA
     (fun t ht => (hfreshRec t ht).1) hK20 hkp mpAux d hreps hag
+  -- ## the pins' literal support at the formers' environment (task #311)
+  have hup : ∀ n : Name, (env.find? n).isSome = true →
+      ((ConLeche.consNestedFormers (stored.take p.k) env).find? n).isSome = true := by
+    intro n hn
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+    rw [(consNestedFormers_freshExt hK20).find?_some hc]; rfl
+  have hfmsLen : fmsA.length = p.k := by
+    have h1 := ConLeche.elimNested_length helim
+    rw [ConLeche.nestedTypes0_length, hlenSt] at h1
+    omega
+  have hrepsN := hreps
+  obtain ⟨-, -, -, -, -, -, hnames, -⟩ := hrepsN
+  have hmono : ∀ n : Name, ((ConLeche.nestedFormerEnv fmsA env).find? n).isSome = true →
+      ((ConLeche.consNestedFormers (stored.take p.k) env).find? n).isSome = true := by
+    intro n hn
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+    rcases ConLeche.nestedFormerEnv_find? hc with h1 | h1
+    · exact hup n h1
+    · obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp h1
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hcv
+      have htf : t < fmsA.length := (List.getElem?_eq_some_iff.mp ht).1
+      have htk : t < p.k := by omega
+      have htb : t < b.k := by rw [ConLeche.auxBlock_k hb, hlenSt]; omega
+      have hnm := ConLeche.elimNested_name_lt helim (t := t)
+        (by rw [ConLeche.nestedTypes0_length]; exact htf)
+      rw [ConLeche.nestedTypes0_getElem?, ht] at hnm
+      simp only [Option.map_some] at hnm
+      obtain ⟨ty, hty, htyn⟩ := Option.map_eq_some_iff.mp hnm
+      obtain ⟨cv', caps, hfind, -⟩ := hrealStored t htk
+      rw [memberName_eq_type hb hnames hty htb, htyn] at hfind
+      rw [hfind]; rfl
+  have hpinsLits := pinsLits_of_run mp hmono hannF hannC helim
   have hwalk := copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20
     hK17 helim hparamsLen hpo hmo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23)
     (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec)

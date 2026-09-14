@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.BitExtend
-public import ConLeche.Verify.ProjSlots
+public import ConLeche.Verify.Lits
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.EnvWF
@@ -281,94 +281,13 @@ environment, and a caller that transfers a term *blind to annotations*
 `.const` and `.proj` names in the currency of blind mentions
 (`Expr.mentionsConstE`) already.  What that currency does NOT carry is
 the literal clauses — `constsResolve` minus its `.const` and `.proj`
-clauses, and blind to `fvar` annotations exactly as the blank is. -/
+clauses, and blind to `fvar` annotations exactly as the blank is.
 
-/-- The literal-support clauses of `Expr.constsResolve`, blind to
-`fvar` annotations: every `Nat` literal outside an annotation has the
-`Nat` trio stored, and every `String` literal the seven string names
-on top of it. -/
-@[expose] def litsResolve (env : Env) : Expr → Bool
-  | .bvar _ | .sort _ | .fvar _ _ | .const _ _ => true
-  | .lit (.natVal _) =>
-    (env.find? ConLeche.natName).isSome && (env.find? ConLeche.natZeroName).isSome &&
-      (env.find? ConLeche.natSuccName).isSome
-  | .lit (.strVal _) =>
-    (env.find? ConLeche.natName).isSome && (env.find? ConLeche.natZeroName).isSome &&
-      (env.find? ConLeche.natSuccName).isSome && (env.find? ConLeche.stringName).isSome &&
-      (env.find? ConLeche.stringOfListName).isSome && (env.find? ConLeche.listName).isSome &&
-      (env.find? ConLeche.listNilName).isSome && (env.find? ConLeche.listConsName).isSome &&
-      (env.find? ConLeche.charName).isSome && (env.find? ConLeche.charOfNatName).isSome
-  | .app f a => litsResolve env f && litsResolve env a
-  | .lam ty body _ | .forallE ty body _ => litsResolve env ty && litsResolve env body
-  | .letE ty val body =>
-    litsResolve env ty && litsResolve env val && litsResolve env body
-  | .proj _ _ e => litsResolve env e
-
-/-- A resolving term resolves its literals (`constsResolve`'s literal
-clauses ARE these, and its other clauses only add). -/
-theorem litsResolve_of_constsResolve {env : Env} :
-    ∀ e : Expr, e.constsResolve env = true → litsResolve env e = true
-  | .bvar _, _ | .sort _, _ | .const _ _, _ => rfl
-  | .fvar _ _, _ => rfl
-  | .lit (.natVal _), h => by simpa [litsResolve, Expr.constsResolve] using h
-  | .lit (.strVal _), h => by simpa [litsResolve, Expr.constsResolve] using h
-  | .app f a, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    simp only [litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_of_constsResolve f h.1, litsResolve_of_constsResolve a h.2⟩
-  | .lam ty b _, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    simp only [litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_of_constsResolve ty h.1, litsResolve_of_constsResolve b h.2⟩
-  | .forallE ty b _, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    simp only [litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_of_constsResolve ty h.1, litsResolve_of_constsResolve b h.2⟩
-  | .letE ty v b, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    simp only [litsResolve, Bool.and_eq_true]
-    exact ⟨⟨litsResolve_of_constsResolve ty h.1.1, litsResolve_of_constsResolve v h.1.2⟩,
-      litsResolve_of_constsResolve b h.2⟩
-  | .proj _ _ e, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    simp only [litsResolve]
-    exact litsResolve_of_constsResolve e h.2
-
-/-- The literal clauses survive an instantiation whose value carries
-them (the sequenced subjects of the nested route are built this
-way). -/
-theorem litsResolve_instantiate1 {env : Env} {v : Expr}
-    (hv : litsResolve env v = true) :
-    ∀ (e : Expr) (k : Nat), litsResolve env e = true →
-      litsResolve env (e.instantiate1 v k) = true
-  | .bvar i, k, _ => by
-    simp only [ConLeche.Expr.instantiate1]
-    split
-    · exact hv
-    · split <;> rfl
-  | .fvar _ _, _, _ | .sort _, _, _ | .const _ _, _, _ => rfl
-  | .lit _, _, h => h
-  | .app f a, k, h => by
-    simp only [litsResolve, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_instantiate1 hv f k h.1, litsResolve_instantiate1 hv a k h.2⟩
-  | .lam ty b _, k, h => by
-    simp only [litsResolve, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_instantiate1 hv ty k h.1, litsResolve_instantiate1 hv b (k + 1) h.2⟩
-  | .forallE ty b _, k, h => by
-    simp only [litsResolve, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, litsResolve, Bool.and_eq_true]
-    exact ⟨litsResolve_instantiate1 hv ty k h.1, litsResolve_instantiate1 hv b (k + 1) h.2⟩
-  | .letE ty v' b, k, h => by
-    simp only [litsResolve, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, litsResolve, Bool.and_eq_true]
-    exact ⟨⟨litsResolve_instantiate1 hv ty k h.1.1, litsResolve_instantiate1 hv v' k h.1.2⟩,
-      litsResolve_instantiate1 hv b (k + 1) h.2⟩
-  | .proj _ _ e, k, h => by
-    simp only [litsResolve] at h
-    simp only [ConLeche.Expr.instantiate1, litsResolve]
-    exact litsResolve_instantiate1 hv e k h
+`litsResolve` itself, `litsResolve_of_constsResolve` and
+`litsResolve_instantiate1` are statements about `Env.find?` alone, and
+the inductive-elimination walks establish them for terms this tier
+never sees (task #311): they live in `ConLeche/Verify/Lits.lean`,
+beside the closure kit (`Expr.LitsOk`) those walks carry. -/
 
 end ConLeche.Model
 
