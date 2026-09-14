@@ -78343,6 +78343,195 @@ copy's field kind → the exclusion (finding 3) → the assembly and its
 consumption in `copyCtorsRead_of_run'`.  Two to three sessions, not
 one.
 
+#### M.50 M-D′ D3: the restored constructors' stage and the restored constructor's leaf, typed; `OrdNotRec` read off the run; #308/#309 merged (2026-09-14, session 31)
+
+**Context.**  Session 31 started at 481dbdbc (#307 merged).  Tasks #308
+(`agent/ledger-308` 724633a1) and #309 (`agent/whnfrun-309` 4ed60ea3)
+ran in parallel and are MERGED at the end of the session (records
+§M.48 and §M.49; merge notes below).  The deliverable is M-D′ D3 (the
+plan of §M.41): the model of `env₂ = consNestedCtors ctorsR.flatten
+env₁`, the environment holding the block's real formers and their
+RESTORED constructors.
+
+**Step 1 — `OrdNotRec` is a `ContainersRep` conjunct** (commit
+97bc0ebe).  `IndRepData.OrdNotRec` moved from `CopyWalkFactsRun.lean`
+to `PsiRun.lean`, above `ContainersRep`, which gains the conjunct
+`dJ.OrdNotRec` after the small-elimination clause; `PinFacts` gains
+the field `ordNotRec : c.dJ.OrdNotRec` (built at
+`pinFacts_of_run`'s one `ContainersRep` destructuring);
+`copyCtorsRead_of_run'` loses its per-pin premise `∀ j' <
+st.pins.length, OrdNotRec (cd j').dJ` — it is `(hcd j' hj').1.1.ordNotRec`.
+No `IndRep` field, no kernel record: the fact is the container's own
+kinds classification, and its discharge from `mp.base2`'s `IndReps`
+is M-E's (the `ContainersRep` premise as a whole).
+
+**Step 2 — the stage** (`Model/Inductives/NestedCtorStage.lean`,
+commit 7503f16d):
+
+* **the transport entry at the LEAF frame**: `viaEntryAV Ψ nF o i l
+  tl Eis` is ψ's transport at a MINOR's frame (`o` motives and earlier
+  minors, `l` hypotheses; its readers `interp_ihIdxAtM`/
+  `interp_viaEntryAV` take a NONEMPTY motive block).  A constructor's
+  own leaf frame has none: `interp_ihIdxAtM_leaf`,
+  `interp_viaBodyAV_leaf`, `interp_viaEntryAV_leaf` and
+  `viaEntry_mem_leaf` are the four at `o = l = 0`, over the frame
+  `consList as (consList fs ρp)` (`shiftE_fieldsFrame`,
+  `shiftE_leafFrame`);
+* **`NestedCtorLeaf mp₁ cvA A ta`** — what one restored constructor's
+  cons asks: the leaf `A` closed, level-parametric, graded, bit-valid;
+  the restored type reading at `mp₁` as `ta`, graded; `A` a member of
+  `ta`'s reading;
+* **`stageNestedCtor`** — the P step at one restored constructor
+  (`stageMutualCtor`'s tail at a GIVEN leaf: `EnvWF.cons` +
+  `structConstWF` from the pre-annotated front door's four facts,
+  `denoteMeta_cons_mono` for the reading, `declStep_preserves_of_ind_member_cons`,
+  `capsOk_cons_native` vacuous);
+* **`stageNestedCtorsGo`** — the cons chain: every pending
+  constructor fresh at the environment, resolving there and reading at
+  the environment's model as `taOf`; each cons keeps the rest's facts
+  (`denoteMeta_cons_mono`, `constsResolve_mono`, the names DISTINCT —
+  `RestoredCtorStatic` bundles the static facts) and leaves every
+  other name's leaf untouched (`acvalWith_ne`);
+* **`nestedCtorsModel`** — the stage at the run: from `env₁`'s model
+  and `NestedCtorLeaf` at every restored constructor (position `i` of
+  `ctorsR.flatten`, leaves `Aof i`, readings `taOf i`), a model of
+  `env₂` with η families closed, carrier `mp₁`'s off the constructors'
+  names and `Aof i` at constructor `i`.  The freshness, scope and names
+  are the restore stage's own: `restoreCtors_fresh`,
+  **`restoreCtors_pre`** (the restored constant IS its own front-door
+  answer, `checkConstantValPre_names`/`_typeWF`) and
+  **`nestedRestoredCtors_nodup`** (`Verify/Inductives/NestedCtorNames.lean`,
+  an Opus subagent's, one session-hour: the real members' restored
+  constructors are `b.ownCtors t`'s at the scratch environment
+  (`auxStored?_ctors`, `restoreCtors_id`, `Env.find?_name`), and
+  `b.blockNames.Nodup` read through the block indices — a filter of
+  `zipIdx` within a member, the members separating them across).
+
+**Step 3 — the leaf, typed** (`Model/Inductives/NestedCtorLeaf.lean`,
+commit 36ba1d58).  The values (§M.4/§M.41, unchanged): a real member's
+constructor `T.c ↦ λ p⃗ f⃗, ⟦T.c⟧_aux p⃗ (ψ* f⃗)`.
+
+* `copyPos k₀ Ja i` — a copy-recursive position (recursive in the
+  recursor's view into a member at or past `k₀`);
+  **`restoreVia`** — ψ*'s transports (`Ψ (tgtsR Ja i - k₀)`, the pin's
+  fold term, over `tssR Ja i` at `eissR Ja i`); **`restoreVarsAV`** =
+  `psiVarsAV [] (fun _ => false) restoreVia nF 0` (ψ*'s spine — the
+  existing spine former with no hypotheses; nothing new is spelt) and
+  **`restoreVals`** = `psiVals …` (its values;
+  `interp_restoreVarsAV`, `restoreVals_shadow` = `psiVals_shadowRelP`);
+  **`dsRestored`** — the auxiliary domains `d.dsF Ja ψ` with
+  `restoreAV` at every field position (the auxiliary domain itself off
+  the copy positions: `restoreAV_of_not_copy`), the BITS the auxiliary
+  ones (`dsRestored_bits`); **`restoredCtorAV`** — the λ-tower over
+  `dsRestored` (the telescope's own bits) of the auxiliary
+  constructor's leaf at `paramBvars ++ restoreVarsAV`.
+* **`restoreVals_fit`** — the fields at the restored domains give ψ*'s
+  values at the AUXILIARY domains (the leaf-frame twin of
+  `psiVals_fit`): off a copy position the domains coincide and the
+  frames agree (`ShadowRelP` over `copyPos` at the datum's `NoBVar`
+  facts — `FixCtorDataI.noBVar_entries` over the recursive slots,
+  monotone to the copy positions, `noBVar_copyPos_of_recAt`); at a copy
+  position the value is `lamTower` over the telescope of ψ at the index
+  values applied to the field, in the target copy's carrier by the ONE
+  fact of ψ (`hΨ`; `interp_mkPisAV_piTele` + `lamTower_mem_piTele`).
+* **`restoredCtor_typed`** — the leaf is closed below the parameters
+  and, at every frame, graded, bit-valid and a member of
+  `mkPisAV dsRestored (ctorBodyAVI mpAux T nP nF ψ (Es ψ))`: at a
+  spine `p⃗ ++ f⃗` fitting `dsRestored`, `p⃗ ++ ψ*f⃗` fits the auxiliary
+  domains (`restoreVals_fit` at the parameter frame, moved to the leaf
+  frame by `spineFit_congr_below`; the parameter domains are the
+  auxiliary ones, `dsRestored_getElem?_lt`), so the auxiliary leaf at
+  the spine is graded and lands in the auxiliary body
+  (`wellDenotedV_mkAppN_of_spineFit` at `mpAux.mem_type`/`type_wellDenotedV`
+  of the STORED auxiliary constructor), and the body at ψ*'s values is
+  the body at the fields (bounded at the fields, `interp_closed_bottom`;
+  the index readings mention no copy position, `interp_congr_shadowRelP`);
+  then `underTowerOk_of_wellDenoted`/`underTowerValid_of` and
+  `mkLamsAV_bits_mem`/`_wellDenoted`/`_validV`.
+
+**Named at D3** (each a hypothesis of `restoredCtor_typed`, in the
+currency the run delivers; discharged at D5's assembly):
+
+1. `hΨ` — the ONE fact of ψ at every parameter frame: at a copy
+   position, ψ of the target pin at the index values applied to a
+   container value lands in the target copy's carrier at the
+   parameters and those values.  This is `psiFinal_mem` (§M.37) at the
+   pin — its `his` (the index values fit the container member's index
+   telescope) from the restored domain's grading and the container's
+   `leafShape` (`spineFit_of_wellDenoted_lams`), as `pinFit`/
+   `idxFit_of_entry` do.
+2. `hviaWD` — the transports are graded at the leaf frame
+   (`PsiSetup.hviaWD`'s twin; from ψ's typing `final_typed`).
+3. `hokR` — the restored tower is graded (the copy positions from
+   `whnfContent_field`'s second conjunct, the others from the auxiliary
+   `okTy` moved across the copy positions by `WellDenoted_congr_noBVar`).
+4. `hzero` — at a zero sort the body is a truth value (the member's
+   former at `Sort 0`).
+5. `hbelowR`, `hΨB` — the restored domains bounded at their own depth
+   (the pins' readings bounded at the parameters, `DsA_below`) and ψ's
+   terms bounded at the parameters (`final_below`).
+6. `NestedCtorLeaf.params` — the leaf reads only the block's level
+   parameters.  `restoredCtorAV` depends on ψ through the pins' data
+   `cd` (chosen PER ψ by `pinFacts_of_run`), so the agreement is not a
+   congruence of the pieces; the assembly discharges it by
+   CANONICALISATION (`Aof i ψ := A₀ (canon ψ)` with `canon` restricting
+   ψ to the block's level parameters, the reading `denoteMeta …
+   (canon ψ)` transported by `denoteMeta_params_ext`).
+7. `NestedCtorLeaf.read` — the restored type's whole reading at `mp₁`
+   as `mkPisAV dsRestored body`: `denoteMeta_of_openPis` over
+   `restoreNested_openPis` with the parameter openers' readings
+   transferred down (`denoteMeta_down_blind`, task #310's revised side
+   condition), the fields' as `restoredField_read_self`/`_copy` (§M.47,
+   stated for any `Ja`), the residual's the auxiliary body (a real
+   member's leaf agrees, `nestedFormersModel`); the binder metas kept
+   by the restore (`restoreWalk_stripPis`).  This is the same plumbing
+   as D2's `whnfContent_of_run` (§M.47's sourcing, revised by §M.49) —
+   ONE per-field reading lemma generic in the constructor serves both;
+   it is NOT built this session.
+
+**Findings, with cost.**
+
+(a) `set … with` and `conv_lhs` are Mathlib tactics — not available
+here (`obtain ⟨x, hx⟩ : ∃ x, x = e := ⟨_, rfl⟩` and a rewritten
+equation instead); a `rw … at h₁ h₂ ⊢` fails when ANY location lacks
+the pattern — split by location.  `spineFit_getD_mem'` lives in
+`ConLeche.Semantics.FixKI`, `bvarsBelow_mkAppN` in
+`ConLeche.Semantics.VExprAux`, `erase_mkAppN` in `AnnotTerm`, and
+`FixRuleKit`'s `mkLamsAV_bits_*`/`underTowerValid_of` are not on the
+umbrella's public path (import the module).  ~1 h.
+(b) The transport machinery's readers all assume a nonempty motive
+block (`hk : 0 < Ms.length`), because the ih-index mover
+`ihIdxAtM` was only ever read at a minor's frame; the leaf-frame
+readers are 90 lines.  No finding against the design.
+(c) The Opus subagent for the Verify names lemma was cut off by the
+session limit after writing a compiling file (one unused variable);
+the pattern (a subagent writing ONE new file in the worktree, compiled
+by `lake env lean`) held.
+
+**#308 MERGED** (agent/ledger-308 724633a1; §M.48): conflicts in
+`CopyReads.lean`/`PsiRun.lean` (the K.23 conjunct of session 30 beside
+#308's `PinsMentionReal` conjunct — the destructurings carry both,
+`hK23` then `hmo`) and in `CopyWalkFactsRunAssembly.lean` (the premise
+list: #308 deleted `PinsMentionMember`/`ContainerCtorsNoAux`/
+`ResidContent`, step 1 above deleted `OrdNotRec`; the remaining
+premises of `copyCtorsRead_of_run'` after the merge: `ContainerLpsNodup
+env` and `WhnfContent`).  **#309 MERGED** (agent/whnfrun-309 4ed60ea3;
+§M.49): `ContainerLpsNodup` DELETED (`containerLps_nodup_of_pin`), the
+two new `pinFacts_of_run` conjuncts (recursor names fresh + unreserved;
+the pins' `NoProjAt` at fresh names) threaded through the
+destructurings; `copyCtorsRead_of_run'`'s only remaining premise is
+`WhnfContent`.  Its blocker (the DOWNWARD transfer's `LitGuardsMono` is
+false for a block declaring `String`) is task #310's.
+
+**Gates**: `lake build` warning-free; `lake test` clean;
+`tests/no-local-paths.sh` OK.  NOT run (landing items): shake/pub-import
+(three new modules on the umbrellas), arena, init-full, Mathlib,
+`overview-links.sh` (fails on the lane branch at two anchors — #308's
+report), `quote-gate.sh`.  No `sorry`, no axiom, no kernel change, no
+new `IndRep` field.  D4 (the recursors' model) NOT started; its shapes
+are the plan's (§M.41 D4).  The intended `declNested` signature is
+unchanged.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
