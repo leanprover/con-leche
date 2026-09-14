@@ -205,6 +205,10 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the restored formers are fresh and carry no η bit (K.20)
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
       = true ∧
+    -- THE GROUP EXCLUSION (K.23): a stored copy field headed by a
+    -- group-mate's copy comes from a container field that is a member
+    -- occurrence at the parameters
+    ConLeche.nestedGroupExclusionOk env envAux p st = true ∧
     -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
     -- block, the STORED field is the weak head normal form of the
     -- PROCESSED one wherever the stage's normalisation changed it
@@ -435,7 +439,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    order, -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, hctors, hrm, hrn, -, -, htbl,
+    order, -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
