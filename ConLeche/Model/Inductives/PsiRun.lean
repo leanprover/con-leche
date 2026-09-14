@@ -413,9 +413,12 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
         t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧
         t₀.type.hasFvar = false) ∧
-      -- the block's RECURSOR names are fresh before the block (task #309):
-      -- what the formers' model of `env₁` is built from (`nestedFormersModel`)
-      (∀ t, t < b.k → env.find? (b.recName t) = none) ∧
+      -- the block's RECURSOR names (task #309): fresh before the block —
+      -- what the formers' model of `env₁` is built from
+      -- (`nestedFormersModel`) — and unreserved, which is what says the
+      -- scratch install introduces no reserved name
+      (∀ t, t < b.k → env.find? (b.recName t) = none ∧
+        ConLeche.reservedBasisNames.contains (b.recName t) = false) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,

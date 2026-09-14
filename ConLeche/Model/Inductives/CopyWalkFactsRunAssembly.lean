@@ -33,7 +33,6 @@ Three facts stay NAMED (DESIGN §M.46), each stated once here:
 
 * `NestedGroupExclusionOk env envAux p st` and `IndRepData.OrdNotRec`
   (K.23, the kernel lane's record and the container datum's side);
-* the containers' level parameters are distinct (K.21);
 * `PinsMentionMember` — the pins' components mention a block member
   (the ledger's conjunct: a pin exists because `replaceIfNested` found
   a member mention);
@@ -90,14 +89,6 @@ lists), so the clause is named here. -/
         idx.length = idxC.length ∧
         ∀ (k : Nat) (e eC : Expr), idx[k]? = some e → idxC[k]? = some eC → Expr.ErasedEq e eC
 
-/-- **The containers' level parameters are distinct** (K.21): what a
-container's own install checked (`FormerFront.lpsNodup`) and the
-model's `IndRep` does not record. -/
-@[expose] def ContainerLpsNodup (env : Env) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (caps : IndCaps), env.find? n = some (.indInfo cv caps) →
-    cv.levelParams.Nodup
-
-
 /-- **The container's instantiated constructor mentions no table name**
 (DESIGN §M.46, item (ii)): the pin's constructor, instantiated at the
 pin's components, mentions none of the restore table's names — the
@@ -153,7 +144,6 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hK23 : NestedGroupExclusionOk env envAux p st)
     (hONR : ∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ)
-    (hlpsNodup : ContainerLpsNodup env)
     (hmention : PinsMentionMember d st p.k)
     (hnoAux : ContainerCtorsNoAux p st cd)
     (hresidC : ResidContent p st d cd) :
@@ -321,7 +311,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨⟨cvC, capsC, hfC, htyC, hlpsCC⟩, hctorsC⟩ :=
     ConLeche.containerInfo?_stored hci J₂ (List.mem_of_getElem? hJm)
   have hlpsJnodup : cvTm.levelParams.Nodup := by
-    rw [← hJmLps, hlpsCC]; exact hlpsNodup _ cvC capsC hfC
+    rw [← hJmLps, hlpsCC]
+    exact containerLps_nodup_of_pin hcont (List.mem_of_getElem? hq₂) hq₂c hfC
   have hJnf : cAJ.1.type.hasFvar = false := by
     rw [htypeC]
     exact (ConLeche.containersClosed_of_wf hwf _ ci hci J₂
@@ -702,7 +693,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
 `env₁ = consNestedFormers (stored.take p.k) env` and
 `R = restoreTbl p st`, with the syntactic half of the constructor
 record proved from the run (`copyWalkFacts_of_run`) and the `whnf`
-arm's content (`WhnfContent`, M-D′ D2) and the five named facts of this
+arm's content (`WhnfContent`, M-D′ D2) and the named facts of this
 module still premises. -/
 theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
@@ -719,7 +710,6 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
               ((∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) →
-                ContainerLpsNodup env →
                 PinsMentionMember d st p.k →
                 ContainerCtorsNoAux p st cd →
                 ResidContent p st d cd →
@@ -733,10 +723,10 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
     ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, fun hONR hlps hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
+  refine ⟨cd, hcd, fun hONR hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
   exact copyCtorAsRead_of_run hb hlenSt hfreshC hcontC hreps hchk hcd
     (copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20 hK17 helim
-      hparamsLen hpo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23) hONR hlps hmention
+      hparamsLen hpo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23) hONR hmention
       hnoAux hresidC)
     hwhnfC hj' hJc
 

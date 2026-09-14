@@ -129,4 +129,50 @@ theorem containerGroupOk_of_pins {env : Env} {st : ElimState} {ci : ContainerInf
   obtain rfl := Option.some.inj hci₀
   exact hok
 
+
+/-! ## K.21's record, read (task #279) -/
+
+/-- `Name.nodup` decides `List.Nodup`. -/
+theorem nodup_of_nameNodup : ∀ {l : List Name}, ConLeche.Name.nodup l = true → l.Nodup
+  | [], _ => List.nodup_nil
+  | n :: ns, h => by
+    rw [ConLeche.Name.nodup, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h
+    refine List.nodup_cons.mpr ⟨fun hn => ?_, nodup_of_nameNodup h.2⟩
+    rw [← List.contains_iff_mem, h.1] at hn
+    exact Bool.noConfusion hn
+
+omit [SetTheory V] in
+/-- **K.21's record at a pinned container** (task #279 K.21): the
+install decided `Name.nodup J.lps` at every member of every pin's group
+(`nestedContainersOk`'s `containerFactsOk`), the group recovered at a
+pin's own container holds that container as a member
+(`containerInfo?_self_mem`), and `containerInfo?` reads a member's
+level parameters off the stored constant — so the stored container's
+`levelParams` are distinct.  What the model lane carried as the named
+`ContainerLpsNodup`. -/
+theorem containerLps_nodup_of_pin {env : Env} {pins : List NestedPin} {q : NestedPin}
+    {n : Name} {cv : ConstantVal} {caps : IndCaps}
+    (hcont : ConLeche.nestedContainersOk env pins = true)
+    (hq : q ∈ pins) (hqc : q.container = n)
+    (hfind : env.find? n = some (.indInfo cv caps)) :
+    cv.levelParams.Nodup := by
+  unfold ConLeche.nestedContainersOk at hcont
+  rw [Bool.and_eq_true, List.all_eq_true] at hcont
+  have h := hcont.2 q hq
+  cases hci : ConLeche.containerInfo? env q.container with
+  | none => rw [hci] at h; exact nomatch h
+  | some ci =>
+    rw [hci] at h
+    obtain ⟨iSelf, J, hJ, hJn⟩ := containerInfo?_self_mem hci
+    unfold ConLeche.containerFactsOk at h
+    rw [Bool.and_eq_true, List.all_eq_true] at h
+    have hJa := h.2 J (List.mem_of_getElem? hJ)
+    rw [Bool.and_eq_true, Bool.and_eq_true, Bool.and_eq_true] at hJa
+    obtain ⟨⟨cvC, capsC, hfC, -, hlpsC⟩, -⟩ :=
+      ConLeche.containerInfo?_stored hci J (List.mem_of_getElem? hJ)
+    rw [hJn, hqc, hfind] at hfC
+    obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfC)
+    rw [← hlpsC]
+    exact nodup_of_nameNodup hJa.1.1.1
+
 end ConLeche.Model
