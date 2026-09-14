@@ -7,33 +7,36 @@ import ConLeche.Verify.Inductives.NestedCopyStored
 import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.NestedLeaves
 import ConLeche.Verify.Inductives.NestedFields
+import ConLeche.Verify.Inductives.NestedProj
 
 public section
 
 /-!
-# The `whnf` arm's content AT THE RUN (task #279 M-D′ D2, DESIGN §M.49)
+# The `whnf` arm's content AT THE RUN: the run-level reads (task #279
+M-D′ D2, DESIGN §M.49)
 
 `WhnfContentRun.lean` proves `WhnfContent`'s reading conjunct at ONE
 field (`whnfContent_field`) from the container-side readings at the
 formers' model `mp₁`, the restored field's reading and the field's
-`WhnfField`.  This module assembles it AT THE RUN: at
-`env₁ = consNestedFormers (stored.take p.k) env` and
-`R = restoreTbl p st` every input is a fact `DeclNestedRun` carries —
-the formers' model itself (`nestedFormersModel`), the head former's
-parameter openers' readings and the container's instantiated
-constructor's, both transferred DOWN from the scratch environment
-(`denoteMeta_down_blind`), the entries' grading, the restored field's
-reading by the copy's own field kind (`restoreI_eq_self` at an
-unfired field, `restoredField_read_copy` at a fired one) and the group
-exclusion (K.23 through `groupExclusion_of_K23`).
+`WhnfField`.  This module collects what the RUN supplies for that
+assembly at `env₁ = consNestedFormers (stored.take p.k) env` and
+`R = restoreTbl p st`:
 
-Two environment-shape facts are the Verify tier's
-(`Verify/Inductives/NestedProj.lean`): the scratch install's new
-projection tables are the block's members' (fresh at `env`), and the
-pins carry no projection node at a slot of a name fresh at `env`.
+* **`nestedTbl_fresh_of_run`** — the scratch environment's projection
+  tables beyond `env₁`'s are the auxiliary block's members', whose
+  names are fresh before the block (the `.proj` side condition of the
+  DOWNWARD reading transfer, `denoteMeta_down_blind`);
+* **`containerLps_nodup_of_pin`** — K.21's record at a pinned
+  container, which retired the model lane's `ContainerLpsNodup`;
+* **`containerInfo?_self_mem`** and **`containerGroupOk_of_pins`** —
+  a recovered group holds the name it was looked up at, hence
+  `containerGroupOk` at every group the pins cover.  They live here
+  because the group exclusion is read at BOTH assemblies;
+  `CopyWalkFactsRunAssembly.lean` imports them.
 
-The two container lemmas below travel with this module because the
-exclusion is read here; `CopyWalkFactsRunAssembly.lean` imports them.
+The run-level assembly `whnfContent_of_run` itself is NOT here: the
+DOWNWARD reading transfer it rests on asks `LitGuardsMono envAux env₁`,
+which is not a fact of this run (DESIGN §M.49, finding 1).
 -/
 
 namespace ConLeche.Model
@@ -129,6 +132,35 @@ theorem containerGroupOk_of_pins {env : Env} {st : ElimState} {ci : ContainerInf
   obtain rfl := Option.some.inj hci₀
   exact hok
 
+
+/-! ## The scratch environment's new projection slots (task #309) -/
+
+omit [SetTheory V] in
+/-- **The scratch environment's tables beyond the formers' environment's
+are the auxiliary block's members'**, whose names are fresh before the
+block (DESIGN §M.47 item 6): `checkMutualCore_findProj_fresh` decides it
+at `env`, and the formers' conses only ADD lookups (K.20's freshness),
+so a slot empty at `env₁` is empty at `env`. -/
+theorem nestedTbl_fresh_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
+    {b : MutualBlock} {p : ConLeche.NestedParts} {stored : List AuxStored}
+    (hcore : ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none
+      true = .ok envAux)
+    (hK20 : (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
+      = true) :
+    ∀ (sn : Name) (i : Nat),
+      (ConLeche.consNestedFormers (stored.take p.k) env).findProj? sn i = none →
+      (envAux.findProj? sn i).isSome = true → env.find? sn = none := by
+  have hx : ConLeche.Semantics.FreshEtaExt env
+      (ConLeche.consNestedFormers (stored.take p.k) env) :=
+    ConLeche.Semantics.consNestedFormers_freshExt hK20
+  intro sn i h1 h2
+  refine ConLeche.checkMutualCore_findProj_fresh hcore ?_ h2
+  cases hf : env.findProj? sn i with
+  | none => rfl
+  | some entry =>
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some hf
+    rw [ConLeche.Env.findProj?_of_table (hx.find?_some hf0) hi] at h1
+    exact nomatch h1
 
 /-! ## K.21's record, read (task #279) -/
 
