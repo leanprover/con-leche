@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedInstall
-public import ConLeche.Kernel.DeclCheck
+import ConLeche.Kernel.DeclCheck
 public import ConLeche.Kernel.Inductives.SumInstallF
-public import ConLeche.Kernel.Inductives.StructInstallF
 
 @[expose] public section
 

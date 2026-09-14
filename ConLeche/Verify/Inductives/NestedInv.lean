@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.MutualInv
-public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Kernel.Inductives.NestedInstall
 
 public section
 

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
