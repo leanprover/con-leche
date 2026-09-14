@@ -229,7 +229,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
     ∃ (st : ConLeche.ElimState) (b : MutualBlock) (envAux : Env) (params : List Expr)
-      (pbs : List (Expr × BinderMeta)) (fmsA ctorsA : List ConstantVal) (order : List Nat),
+      (pbs : List (Expr × BinderMeta)) (fmsA ctorsA : List ConstantVal)
+      (stored : List ConLeche.AuxStored) (order : List Nat),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
       ConLeche.nestedTopoOrder (ConLeche.ElimState.grp st) p.k st = .ok order ∧
@@ -239,9 +240,22 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       -- constructor read consumes (task #279 M-B′ step 3p)
       ConLeche.copiesFresh env p.k st = true ∧
       ConLeche.nestedContainersOk env st.pins = true ∧
+      -- the auxiliary install, the stored records, K.3's `pinsClosed`,
+      -- K.20's formers and K.17's witness — what the walk's facts are
+      -- read from (task #279 M-D′ step (1), DESIGN §M.46)
+      ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none true
+        = .ok envAux ∧
+      ConLeche.auxStoredAll envAux b b.k = some stored ∧
+      ConLeche.pinsClosed p.nP st.pins = true ∧
+      (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true ∧
+      ConLeche.nestedCtorsWhnfOk (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+        (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.nP
+        (ConLeche.nestedCtorPairs b stored) = .ok () ∧
+      PinsAtOpeners st params ∧
       (∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
-        t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP) ∧
+        t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧
+        t₀.type.hasFvar = false) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         ∀ (j : Nat), j < st.pins.length →
@@ -272,8 +286,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                 ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
                   (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, -, -, -, hrm,
-    -⟩ := h
+    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, hK20, hK17, -,
+    hrm, -⟩ := h
   obtain ⟨mpAux, d, hreps, hchk, hag⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
@@ -357,11 +371,13 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     have h := hwsF₀' x hx
     rwa [Nat.zero_add] at h
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
-  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfresh, hcont,
-    ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs⟩,
+  have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
+  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfresh,
+    hcont, hcore, hstored, hpc, hK20, hK17, hpo,
+    ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs,
+      by rw [htS0ty]; exact hnf₀'⟩,
     mpAux, d, hreps₀, hchk, hag, ?_⟩
   intro j hj
-  have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
   -- the copy's origin
   obtain ⟨t₀', params', body', pbs', body₀', ht₀', hop', hstrip', I, ci, i, j₀, J, lvls, Ds, q,
     copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, hDsLen, hty,

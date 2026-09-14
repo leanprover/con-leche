@@ -386,7 +386,8 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
     ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (params : List Expr)
-      (pbs : List (Expr × ConLeche.BinderMeta)) (fmsA ctorsA : List ConstantVal) (order : List Nat),
+      (pbs : List (Expr × ConLeche.BinderMeta)) (fmsA ctorsA : List ConstantVal)
+      (stored : List ConLeche.AuxStored) (order : List Nat),
       ConLeche.auxBlock p st = some b ∧
       ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st ∧
       ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
@@ -395,16 +396,34 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       ConLeche.copiesFresh env p.k st = true ∧
       ConLeche.nestedContainersOk env st.pins = true ∧
       params.length = p.nP ∧
+      -- the auxiliary install, the stored records, K.3, K.20 and K.17's
+      -- witness, with the pins' leaves and the head former's telescope —
+      -- what the walk's facts are read from (DESIGN §M.46)
+      ConLeche.checkMutualCore (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env b none true
+        = .ok envAux ∧
+      ConLeche.auxStoredAll envAux b b.k = some stored ∧
+      ConLeche.pinsClosed p.nP st.pins = true ∧
+      (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true ∧
+      ConLeche.nestedCtorsWhnfOk (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+        (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.nP
+        (ConLeche.nestedCtorPairs b stored) = .ok () ∧
+      PinsAtOpeners st params ∧
+      (∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
+        ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
+        t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧
+        t₀.type.hasFvar = false) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
           ∃ cd : Nat → CopyData V, ∀ j, j < st.pins.length →
             PinRunFacts F env p st b params pbs mpAux d ψ cd j) := by
-  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfreshC, hcontC,
-    ⟨t₀, body₀, body₀₀, ht₀, hop₀, -, -⟩, mpAux, d, hreps, hchk, hag, hpins⟩ :=
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
+    hcontC, hcore, hstoredA, hpc, hK20, hK17, hpo, hhead, mpAux, d, hreps, hchk, hag, hpins⟩ :=
     copyIdxRead_of_run hμ mp hE h
-  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, helim, hord, hlenSt, hfreshC, hcontC,
-    openPisAtFvars_length _ hop₀, mpAux, d, hreps, hchk, hag, ?_⟩
+  obtain ⟨t₀, body₀, body₀₀, ht₀, hop₀, hst₀, hpbs₀, hnf₀⟩ := hhead
+  refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
+    hcontC, openPisAtFvars_length _ hop₀, hcore, hstoredA, hpc, hK20, hK17, hpo,
+    ⟨t₀, body₀, body₀₀, ht₀, hop₀, hst₀, hpbs₀, hnf₀⟩, mpAux, d, hreps, hchk, hag, ?_⟩
   intro hcr ψ
   obtain ⟨-, hkb, -, -, -, -, -, -⟩ := hreps
   have hdk : d.k = p.k + st.pins.length := by rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
@@ -793,8 +812,8 @@ theorem psiFold_typed_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
                 ∀ (tbl₀ : Nat → AnnotTerm) (j' : Nat), j' < st.pins.length →
                   d.PsiP mpAux.base2 ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd j'
                     (ConLeche.orderFold (d.psiStep mpAux.base2 ψ p.k cd auxOfs) order tbl₀ j')) := by
-  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, order, hb, -, hord, hlenSt, -, -, -, mpAux, d,
-    hreps, hchk, -, hpins⟩ := pinFacts_of_run hμ mp hE h
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, -, hord, hlenSt, -, -, -, -,
+    -, -, -, -, -, -, mpAux, d, hreps, hchk, -, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, params, pbs, ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
