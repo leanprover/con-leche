@@ -179,7 +179,7 @@ theorem Expr.mentionsConstE_instantiate1_fvar {T : Name} {k : Nat} {ty : Expr} :
     simp only [Expr.instantiate1, Expr.mentionsConstE, mentionsConstE_instantiate1_fvar e]
 
 /-- A list of `fvar`s. -/
-def Expr.AllFvars (xs : List Expr) : Prop := ∀ a ∈ xs, ∃ k ty, a = Expr.fvar k ty
+@[expose] def Expr.AllFvars (xs : List Expr) : Prop := ∀ a ∈ xs, ∃ k ty, a = Expr.fvar k ty
 
 theorem Expr.mentionsConstE_instSeq_fvars {T : Name} :
     ∀ (xs : List Expr), Expr.AllFvars xs → ∀ (t : Nat) (e : Expr),

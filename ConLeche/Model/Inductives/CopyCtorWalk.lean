@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.CopyCtorRun
 public import ConLeche.Verify.Inductives.NestedRestore
+import ConLeche.Verify.Inductives.NestedCopyStored
+import ConLeche.Verify.Inductives.NestedRestoreWalk
 import ConLeche.Verify.Inductives.NestedCtors
 import ConLeche.Verify.Inductives.NestedFields
 import ConLeche.Verify.Inductives.NestedLeaves
@@ -447,7 +449,7 @@ structure CopyCtorWalkFacts (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLe
   fieldOrd : ∀ (i : Nat) (x xC : Expr), xFvs[i]? = some x → xFvsC[i]? = some xC →
     i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
     (Expr.ErasedEq x.fvarTypeD xC.fvarTypeD ∧
-      ∀ T ∈ (st.types.map (·.name)).drop k₀, x.fvarTypeD.mentionsConst T = false) ∨
+      ∀ T ∈ (st.types.map (·.name)).drop k₀, x.fvarTypeD.mentionsConstE T = false) ∨
     FiredField st blvls params
       (fun q => ∀ g, g < dJ.k → q.pin ≠ Expr.mkAppN (.const (dJ.memberName g) lvls) Ds)
       (nP + i) x.fvarTypeD xC.fvarTypeD ∨
@@ -992,13 +994,13 @@ theorem copyCtorAsRead_of_walkFacts {μ : CheckMode} {envAux env env₁ : Env} {
     rcases hw.fieldOrd i x xC hx hxC hT with ⟨-, hnoCopy⟩ | hF | hW
     · -- unfired: the copy mentions its target, a copy
       exfalso
-      have hmention : x.fvarTypeD.mentionsConst (d.memberName (d.tgts Ja i)) = true := by
+      have hmention : x.fvarTypeD.mentionsConstE (d.memberName (d.tgts Ja i)) = true := by
         rcases hkA with hk' | hk'
         · obtain ⟨hhead, -⟩ := hD.opened.recF i x hx hk'
-          exact ConLeche.Expr.mentionsConst_of_getAppFn _ _ hhead
+          exact ConLeche.Expr.mentionsConstE_of_getAppFn _ _ hhead
         · obtain ⟨afvs, body, hopen, -, -, hhead, -⟩ := hD.opened.reflF i x hx hk'
-          exact ConLeche.openPisAtFvars_mentionsConst _ _ _ hopen
-            (Or.inl (ConLeche.Expr.mentionsConst_of_getAppFn _ _ hhead))
+          exact ConLeche.openPisAtFvars_mentionsConstE _ _ _ hopen
+            (Or.inl (ConLeche.Expr.mentionsConstE_of_getAppFn _ _ hhead))
       have := hnoCopy _ (hcopyNames (d.tgts Ja i) hk (htgtLt i))
       rw [this] at hmention
       exact nomatch hmention
