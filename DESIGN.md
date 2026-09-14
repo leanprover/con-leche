@@ -78532,6 +78532,87 @@ new `IndRep` field.  D4 (the recursors' model) NOT started; its shapes
 are the plan's (§M.41 D4).  The intended `declNested` signature is
 unchanged.
 
+#### M.51 — task #310: the literal guard as a subject condition (2026-09-14)
+
+**Brief.**  §M.49's finding 1.  `denoteMeta_envExtend_down` (task #306)
+asked `LitGuardsMono env env₀` — the two literal guards DOWNWARD — and
+for this lane's pair (`envAux` the scratch install, `env₁` the block's
+real formers) that is refutable: a block CONSTRUCTOR can complete the
+string support at `envAux` and not at `env₁`.  The hypothesis is now a
+condition on the SUBJECT, exactly as the `.proj` side condition already
+was.  Sized at half a session; landed there.
+
+**The transfer, restated** (`Model/Annot/BitExtendDown.lean`).
+
+```lean
+theorem denoteMeta_envExtend_down {env₀ env : Env}
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    (hF : FindPreserved env₀ env) :
+    ∀ (d : Nat) (e : Expr), e.constsResolve env₀ = true →
+      (∀ (sn : Name) (i : Nat), env₀.findProj? sn i = none →
+        (env.findProj? sn i).isSome = true → Expr.NoProjAt sn i e) →
+      ∀ {ea : AnnotTerm}, denoteMeta acval env φ d e = some ea →
+        denoteMeta acval env₀ φ d e = some ea
+```
+
+`ConstsBound env₀ e` became `e.constsResolve env₀ = true` and `hG` is
+gone; the `.proj` side condition is session 30's weakened form,
+unchanged.  **Why the subject suffices**: at a literal node the
+reading hypothesis at `env` forces `env`'s own guard (the arm is
+`if natLitSupported env then … else none`), `constsResolve`'s literal
+clauses name exactly the support constants (the `Nat` trio, and the
+seven string names on top of it), `FindPreserved` identifies each of
+those entries with `env₀`'s, and the guards' read-set lemmas transport
+the guard DOWN.  Nothing else in the statement moved: the `.const`
+clause of `constsResolve` IS `ConstsBound`'s, the binder arms go
+through `Expr.constsResolve_instantiate1` (`Verify/EnvWF.lean`) in
+place of `ConstsBound.instantiate1`, and the `.proj` arm uses only the
+recursive clause (the structure's own slot comes along unused).
+
+* **`strLitSupported_congr`** is new (`Verify/EnvGuards.lean`, beside
+  `natLitSupported_congr`): the string guard reads the three `Nat`
+  slots and the seven string slots and nothing else.
+
+**The consumers** (`Model/Inductives/WhnfContentRun.lean`).  The
+blind transfer `denoteMeta_down_blind` transfers `Expr.blank e`, whose
+`.const` and `.proj` names are the term's BLIND mentions — the
+currency the run supplies (`elimNested_mentionInv`, §M.49 finding 4).
+What that currency does not carry is the literal clauses, so the
+smaller hypothesis of §M.49 is the one taken:
+
+* **`litsResolve env e`** (`Model/Annot/BitExtendDown.lean`) —
+  `constsResolve` minus its `.const` and `.proj` clauses and blind to
+  `fvar` annotations exactly as `Expr.blank` is, with
+  `litsResolve_of_constsResolve` (a resolving term resolves its
+  literals — the run's route, since `EnvWF` gives the stored types'
+  `constsResolve`) and `litsResolve_instantiate1` (the closure the
+  sequenced subjects need).
+* `Expr.constsBound_blank` became **`Expr.constsResolve_blank`**: the
+  blank resolves wherever the blind mentions are stored and the
+  literals' support names are.
+* `denoteMeta_down_blind`, `restoredField_read_self` and
+  `DenoteMetaSpine.down_blind` drop `hG : LitGuardsMono envAux env₁`
+  and take `hlit` (`litsResolve env₁ e = true`, resp. `∀ a ∈ as, …`)
+  beside the blind mentions they already had.  `LitGuardsMono` itself
+  stays: the UPWARD crossings (`denoteMeta_envExtend_mono`, the tower
+  refinement, `DeclMutual`'s install conjuncts, `IndRepExt`'s `guards`
+  field) are unaffected — upward is the direction `FindPreserved`
+  makes free.
+
+**Not discharged, and why.**  `hlit` is a NAMED hypothesis at all
+three consumers: the run-level assembly `whnfContent_of_run` does not
+exist yet (§M.49's findings 2–4 are its remaining inputs), so there is
+no run to thread it through.  Its shape is the one the run will meet —
+per subject, at `env₁`, with the bridge from `constsResolve` and the
+`instantiate1` closure already in the kit.  No environment-level
+literal hypothesis survives anywhere below the assembly.
+
+**Gates**: `lake build` warning-free; `lake test` clean;
+`tests/no-local-paths.sh` OK (`tests/overview-links.sh` fails on this
+branch at a pre-existing `DeclMutual.lean` anchor, not this task's).
+No `sorry`, no axiom, no kernel change, no new `IndRep` field, no
+`maxHeartbeats` raise.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
