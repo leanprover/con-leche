@@ -709,4 +709,160 @@ theorem whnfContent_field {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F :
   rw [← instSeq_cut_congr hlenD]
   exact hmain
 
+
+/-! ## Glue for the run-level assembly (DESIGN §M.47) -/
+
+/-- A read spine at one carrier is a read spine at a carrier agreeing
+on the stored names. -/
+theorem DenoteMetaSpine.acval_congr {env : Env} {φ : Name → Nat} {d : Nat}
+    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    (hag : ∀ n, (env.find? n).isSome = true → acval₁ n = acval₂ n) :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env φ d as vs →
+      DenoteMetaSpine acval₂ env φ d as vs
+  | _, _, .nil => .nil
+  | _, _, .cons ha hrest =>
+    .cons (by rw [← denoteMeta_acval_congr hag]; exact ha) (DenoteMetaSpine.acval_congr hag hrest)
+
+/-- A read spine at the larger environment is one at the smaller,
+component by component (`denoteMeta_down_blind`). -/
+theorem DenoteMetaSpine.down_blind {env₁ envAux : Env}
+    (hF : FindPreserved env₁ envAux) (hG : LitGuardsMono envAux env₁)
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm},
+      (∀ a ∈ as, ∀ T, a.mentionsConstE T = true → (env₁.find? T).isSome = true) →
+      (∀ a ∈ as, ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
+        (envAux.findProj? sn i).isSome = true → Expr.NoProjAt sn i (Expr.blank a)) →
+      DenoteMetaSpine acval envAux φ d as vs → DenoteMetaSpine acval env₁ φ d as vs
+  | _, _, _, _, .nil => .nil
+  | a :: _, _, hcb, hnp, .cons ha hrest =>
+    .cons (denoteMeta_down_blind hF hG d a (hcb a List.mem_cons_self) (hnp a List.mem_cons_self) ha)
+      (DenoteMetaSpine.down_blind hF hG (fun a' ha' => hcb a' (List.mem_cons_of_mem _ ha'))
+        (fun a' ha' => hnp a' (List.mem_cons_of_mem _ ha')) hrest)
+
+namespace Expr
+
+/-- A blind mention of an instantiation is one of the body or of the
+substituted term. -/
+theorem mentionsConstE_instantiate1 {T : Name} {v : Expr} :
+    ∀ (e : Expr) (k : Nat), (e.instantiate1 v k).mentionsConstE T = true →
+      e.mentionsConstE T = true ∨ v.mentionsConstE T = true
+  | .bvar i, k, h => by
+    simp only [ConLeche.Expr.instantiate1] at h
+    split at h
+    · exact Or.inr h
+    · split at h <;> simp [ConLeche.Expr.mentionsConstE] at h
+  | .fvar _ _, _, h => by simp [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE] at h
+  | .sort _, _, h => by simp [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE] at h
+  | .lit _, _, h => by simp [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE] at h
+  | .const _ _, _, h => by
+    simp only [ConLeche.Expr.instantiate1] at h
+    exact Or.inl h
+  | .app f a, k, h => by
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConstE_instantiate1 f k h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConstE_instantiate1 a k h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .lam ty b _, k, h => by
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConstE_instantiate1 ty k h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConstE_instantiate1 b (k + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .forallE ty b _, k, h => by
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases mentionsConstE_instantiate1 ty k h with h' | h'
+      · exact Or.inl (Or.inl h')
+      · exact Or.inr h'
+    · rcases mentionsConstE_instantiate1 b (k + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .letE t v' b, k, h => by
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE, Bool.or_eq_true] at h ⊢
+    rcases h with (h | h) | h
+    · rcases mentionsConstE_instantiate1 t k h with h' | h'
+      · exact Or.inl (Or.inl (Or.inl h'))
+      · exact Or.inr h'
+    · rcases mentionsConstE_instantiate1 v' k h with h' | h'
+      · exact Or.inl (Or.inl (Or.inr h'))
+      · exact Or.inr h'
+    · rcases mentionsConstE_instantiate1 b (k + 1) h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+  | .proj _ _ e, k, h => by
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.mentionsConstE, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · exact Or.inl (Or.inl h)
+    · rcases mentionsConstE_instantiate1 e k h with h' | h'
+      · exact Or.inl (Or.inr h')
+      · exact Or.inr h'
+
+/-- A blind mention of `instPis` is one of the telescope or of an
+argument. -/
+theorem mentionsConstE_instPis {T : Name} :
+    ∀ (Ds : List Expr) (e e' : Expr), ConLeche.Expr.instPis e Ds = some e' →
+      e'.mentionsConstE T = true →
+      e.mentionsConstE T = true ∨ ∃ D ∈ Ds, D.mentionsConstE T = true
+  | [], e, e', h, hm => by
+    simp only [ConLeche.Expr.instPis, Option.some.injEq] at h
+    subst h
+    exact Or.inl hm
+  | D :: Ds, e, e', h, hm => by
+    match e, h with
+    | .forallE ty body bm, h =>
+      simp only [ConLeche.Expr.instPis] at h
+      rcases mentionsConstE_instPis Ds _ e' h hm with h' | ⟨D', hD', hm'⟩
+      · rcases mentionsConstE_instantiate1 body 0 h' with h'' | h''
+        · exact Or.inl (by simp [ConLeche.Expr.mentionsConstE, h''])
+        · exact Or.inr ⟨D, List.mem_cons_self, h''⟩
+      · exact Or.inr ⟨D', List.mem_cons_of_mem _ hD', hm'⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h | .lam _ _ _, h
+    | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [ConLeche.Expr.instPis] at h
+
+/-- `instPis` keeps the absence of a slot's node. -/
+theorem NoProjAt.instPis {T : Name} {i : Nat} :
+    ∀ (Ds : List Expr) (e e' : Expr), ConLeche.Expr.instPis e Ds = some e' →
+      ConLeche.Expr.NoProjAt T i e → (∀ D ∈ Ds, ConLeche.Expr.NoProjAt T i D) →
+      ConLeche.Expr.NoProjAt T i e'
+  | [], e, e', h, he, _ => by
+    simp only [ConLeche.Expr.instPis, Option.some.injEq] at h
+    subst h
+    exact he
+  | D :: Ds, e, e', h, he, hDs => by
+    match e, h with
+    | .forallE ty body bm, h =>
+      simp only [ConLeche.Expr.instPis] at h
+      simp only [ConLeche.Expr.noProjAt_forallE] at he
+      exact NoProjAt.instPis Ds _ e' h
+        (ConLeche.Expr.NoProjAt.instantiate1 (hDs D List.mem_cons_self) _ _ he.2)
+        (fun D' hD' => hDs D' (List.mem_cons_of_mem _ hD'))
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h | .lam _ _ _, h
+    | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => simp [ConLeche.Expr.instPis] at h
+
+end Expr
+
+/-- Consing formers changes no projection lookup (a former's name is
+not proj-table-shaped). -/
+theorem findProj?_consMutualFormers {T : Name} {i : Nat} :
+    ∀ {fms : List ConLeche.MutualFormerA} {env : Env},
+      (∀ f ∈ fms, f.cvTa.name.isProjFnShape = false) →
+      (ConLeche.consMutualFormers fms env).findProj? T i = env.findProj? T i
+  | [], _, _ => rfl
+  | f :: fms, env, h => by
+    show (ConLeche.consMutualFormers fms ⟨.indInfo f.cvTa {} :: env.consts⟩).findProj? T i = _
+    rw [findProj?_consMutualFormers (fun g hg => h g (List.mem_cons_of_mem _ hg))]
+    refine ConLeche.Env.findProj?_cons_ne (fun hn => ?_) i
+    have h1 := h f List.mem_cons_self
+    have h2 := projTableName_isProjFnShape T
+    rw [show (ConstantInfo.indInfo f.cvTa {}).name = f.cvTa.name from rfl] at hn
+    rw [hn, h2] at h1
+    exact nomatch h1
+
 end ConLeche.Model

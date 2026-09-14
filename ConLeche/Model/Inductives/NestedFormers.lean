@@ -85,7 +85,11 @@ theorem nestedFormersModel {μ : CheckMode} {F : Nat} {env envAux : Env}
       (∀ t, t < p.k →
         mp₁.base2.acval (d.memberName t) = mpAux.base2.acval (d.memberName t)) ∧
       (∀ n : Name, (env.find? n).isSome = true →
-        mp₁.base2.acval n = mp.base2.acval n) := by
+        mp₁.base2.acval n = mp.base2.acval n) ∧
+      -- the combined agreement (task #279 M-D′ D2, DESIGN §M.47): on
+      -- every name `env₁` stores, the carrier is the auxiliary one
+      (∀ n : Name, ((ConLeche.consNestedFormers (stored.take p.k) env).find? n).isSome = true →
+        mp₁.base2.acval n = mpAux.base2.acval n) := by
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   obtain ⟨fms, hformers, hkF, hposF, hstoredF⟩ := auxFormers_stored hrun hfreshRec
   obtain ⟨hstLen, hstGet⟩ := ConLeche.auxStoredAll_get hstored
@@ -190,19 +194,39 @@ theorem nestedFormersModel {μ : CheckMode} {F : Nat} {env envAux : Env}
           rw [hsv, ← hname] at hmem
           exact hmem
       · exact nomatch hfi)
-  refine ⟨mp₁, hE₁, fun t ht => ?_, fun n hn => ?_⟩
-  · obtain ⟨f, hft⟩ : ∃ f, fms[t]? = some f :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hkF]; exact Nat.lt_of_lt_of_le ht hkp)⟩
-    have h := hleaf t f (by rw [List.getElem?_take, if_pos ht]; exact hft)
-    rw [hmemName t f (Nat.lt_of_lt_of_le ht hkp) hft]
-    rw [hmemName t f (Nat.lt_of_lt_of_le ht hkp) hft] at h
-    exact h
-  · refine hoff n fun i f hfi hh => ?_
+  have hoffEnv : ∀ n : Name, (env.find? n).isSome = true →
+      mp₁.base2.acval n = mp.base2.acval n := by
+    intro n hn
+    refine hoff n fun i f hfi hh => ?_
     rw [List.getElem?_take] at hfi
     split at hfi
     · obtain ⟨cv, bs, -, hff, -⟩ := hposF i f hfi
       rw [hh, hff.name, hff.fresh] at hn
       exact nomatch hn
     · exact nomatch hfi
+  have hleafM : ∀ t, t < p.k →
+      mp₁.base2.acval (d.memberName t) = mpAux.base2.acval (d.memberName t) := by
+    intro t ht
+    obtain ⟨f, hft⟩ : ∃ f, fms[t]? = some f :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hkF]; exact Nat.lt_of_lt_of_le ht hkp)⟩
+    have h := hleaf t f (by rw [List.getElem?_take, if_pos ht]; exact hft)
+    rw [hmemName t f (Nat.lt_of_lt_of_le ht hkp) hft]
+    rw [hmemName t f (Nat.lt_of_lt_of_le ht hkp) hft] at h
+    exact h
+  refine ⟨mp₁, hE₁, hleafM, hoffEnv, fun n hn => ?_⟩
+  by_cases hmem : ∃ (i : Nat) (f : MutualFormerA), (fms.take p.k)[i]? = some f ∧ n = f.cvTa.name
+  · obtain ⟨i, f, hfi, rfl⟩ := hmem
+    have hik : i < p.k := by
+      have := (List.getElem?_eq_some_iff.mp hfi).1
+      rw [List.length_take] at this; omega
+    rw [List.getElem?_take_of_lt hik] at hfi
+    rw [← hmemName i f (Nat.lt_of_lt_of_le hik hkp) hfi]
+    exact hleafM i hik
+  · have hne : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ n := by
+      intro g hg hgn
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem hg
+      exact hmem ⟨i, g, hi, hgn.symm⟩
+    rw [consMutualFormers_find?_of_ne hne] at hn
+    rw [hoffEnv n hn, hag.1 n hn]
 
 end ConLeche.Model

@@ -77785,6 +77785,12 @@ build` warning-free, `lake test` clean).
 * `Model/Inductives/CopyCtorWalk.lean`, `CopyCtorWalkRun.lean`,
   `CopyWalkFactsRun.lean`, `CopyWalkFactsAssembly.lean`: the leaf
   clause (finding 1).
+* Glue for the assembly (second commit): `nestedFormersModel` EXPORTS
+  the combined agreement `∀ n, (env₁.find? n).isSome = true →
+  mp₁.acval n = mpAux.acval n`; `DenoteMetaSpine.acval_congr`,
+  `DenoteMetaSpine.down_blind`, `Expr.mentionsConstE_instantiate1`,
+  `Expr.mentionsConstE_instPis`, `Expr.NoProjAt.instPis`,
+  `findProj?_consMutualFormers` (`WhnfContentRun.lean`).
 
 **What remains of D2: the run-level `whnfContent_of_run`** —
 `WhnfContent F env₁ p st R params mpAux d ψ cd` from the run, i.e.
@@ -77794,11 +77800,8 @@ built yet (sized at one session, in `copyCtorAsRead_of_run`'s style;
 the transfers make it longer than §M.45's assembly):
 
 * the model `mp₁`: `nestedFormersModel` (its inputs are `DeclNestedRun`
-  conjuncts); it should EXPORT the combined agreement `∀ n,
-  (env₁.find? n).isSome = true → mp₁.acval n = mpAux.acval n` (real
-  members by its second conclusion, pre-block names by the third +
-  `AuxBlockAgree` (i); a stored name of `env₁` is one or the other —
-  one inversion of `consNestedFormers`), `FindPreserved env₁ envAux`
+  conjuncts) with its combined agreement (exported, fourth
+  conclusion), `FindPreserved env₁ envAux`
   (pre-block names by the aux chain's `FreshEtaExt`, the taken formers
   by `auxStored?_inv` against `consMutualFormers_find?_self`) and
   `LitGuardsMono envAux env₁` (`natLitSupported_congr`: the three `Nat`
