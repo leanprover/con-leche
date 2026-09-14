@@ -43,23 +43,6 @@ the block's own `k` types come first, every mint appends. -/
 @[expose] def ElimState.PinsCopyNamed (k : Nat) (st : ElimState) : Prop :=
   k ≤ st.types.length ∧ ∀ q ∈ st.pins, q.aux ∈ (st.types.map (·.name)).drop k
 
-/-- The copy names only grow. -/
-theorem ElimGrows.copyNames_mono {st st' : ElimState} (h : ElimGrows st st') (k : Nat)
-    (hk : k ≤ st.types.length) :
-    ∀ T ∈ (st.types.map (·.name)).drop k, T ∈ (st'.types.map (·.name)).drop k := by
-  obtain ⟨new, -, hnames⟩ := h
-  intro T hT
-  rw [hnames, List.drop_append_of_le_length (by rw [List.length_map]; exact hk)]
-  exact List.mem_append_left _ hT
-
-/-- The type list only grows. -/
-theorem ElimGrows.types_length_le {st st' : ElimState} (h : ElimGrows st st') :
-    st.types.length ≤ st'.types.length := by
-  obtain ⟨new, -, hnames⟩ := h
-  have := congrArg List.length hnames
-  simp only [List.length_map, List.length_append] at this
-  omega
-
 /-- `PinsCopyNamed` across a growth: the old pins' names are kept, the
 new pins' names are the appended types', all at index `≥ k`. -/
 theorem ElimState.PinsCopyNamed.grows {k : Nat} {st st' : ElimState} (hpn : st.PinsCopyNamed k)

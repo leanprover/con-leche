@@ -58,6 +58,55 @@ theorem ElimGrows.trans {st₁ st₂ st₃ : ElimState}
   exact ⟨n₁ ++ n₂, by rw [hp₂, hp₁, List.append_assoc],
     by rw [ht₂, ht₁, List.map_append, List.append_assoc]⟩
 
+/-- The pins only grow, as a prefix. -/
+theorem ElimGrows.pins_prefix {st st' : ElimState} (h : ElimGrows st st') :
+    st.pins <+: st'.pins := by
+  obtain ⟨new, hpins, -⟩ := h
+  exact ⟨new, hpins.symm⟩
+
+/-- The type names only grow. -/
+theorem ElimGrows.newNames_mono {st st' : ElimState} (h : ElimGrows st st') :
+    ∀ T ∈ st.newNames, T ∈ st'.newNames := by
+  obtain ⟨new, -, hnames⟩ := h
+  intro T hT
+  show T ∈ st'.types.map (·.name)
+  rw [hnames]
+  exact List.mem_append_left _ hT
+
+/-- The copy names only grow. -/
+theorem ElimGrows.copyNames_mono {st st' : ElimState} (h : ElimGrows st st') (k : Nat)
+    (hk : k ≤ st.types.length) :
+    ∀ T ∈ (st.types.map (·.name)).drop k, T ∈ (st'.types.map (·.name)).drop k := by
+  obtain ⟨new, -, hnames⟩ := h
+  intro T hT
+  rw [hnames, List.drop_append_of_le_length (by rw [List.length_map]; exact hk)]
+  exact List.mem_append_left _ hT
+
+/-- The type list only grows. -/
+theorem ElimGrows.types_length_le {st st' : ElimState} (h : ElimGrows st st') :
+    st.types.length ≤ st'.types.length := by
+  obtain ⟨new, -, hnames⟩ := h
+  have := congrArg List.length hnames
+  simp only [List.length_map, List.length_append] at this
+  omega
+
+/-- Rewriting a type's CONSTRUCTORS in place changes no name, so the
+state grows by nothing (the worklist's step). -/
+theorem elimGrows_set {st : ElimState} {i : Nat} {t : AuxType}
+    {cs : List (Name × Expr × Nat)} (h : st.types[i]? = some t) :
+    ElimGrows st { st with types := st.types.set i { t with ctors := cs } } := by
+  refine ⟨[], by simp, ?_⟩
+  show (st.types.set i { t with ctors := cs }).map (·.name) = st.types.map (·.name) ++ []
+  rw [List.append_nil]
+  refine List.ext_getElem? fun n => ?_
+  rw [List.getElem?_map, List.getElem?_map, List.getElem?_set]
+  split
+  · next hn =>
+    subst hn
+    rw [if_pos (List.getElem?_eq_some_iff.mp h).1, h]
+    rfl
+  · rfl
+
 /-- A copy carries the name it was minted under. -/
 theorem mkCopy_name {pbs : List (Expr × BinderMeta)} {lvls : List Level} {Ds : List Expr}
     {auxName : Name} {J : ContainerMember} {copy : AuxType}
@@ -829,6 +878,25 @@ theorem nestedAnnotCtors_inv {F : Nat} {envF : Env} :
     | succ j =>
       simp only [List.getElem?_cons_succ] at hc' ⊢
       exact hall j c' hc'
+
+/-- A lookup in the environment holding the annotated formers is a
+lookup below or a former's name. -/
+theorem nestedFormerEnv_find? {fmsA : List ConstantVal} {env : Env} {n : Name}
+    {c : ConstantInfo} (h : (nestedFormerEnv fmsA env).find? n = some c) :
+    (env.find? n).isSome = true ∨ n ∈ fmsA.map (·.name) := by
+  unfold nestedFormerEnv Env.find? at h
+  rw [List.find?_append] at h
+  cases hf : List.find? (fun c => c.name == n) (fmsA.map fun cv => ConstantInfo.indInfo cv {}).reverse with
+  | none =>
+    rw [hf] at h
+    simp only [Option.none_or] at h
+    exact Or.inl (by rw [Env.find?, h]; rfl)
+  | some c' =>
+    have hmem := List.mem_of_find?_eq_some hf
+    have hn := List.find?_some hf
+    rw [List.mem_reverse, List.mem_map] at hmem
+    obtain ⟨cv, hcv, rfl⟩ := hmem
+    exact Or.inr (List.mem_map.mpr ⟨cv, hcv, beq_iff_eq.mp hn⟩)
 
 /-! ## The minted names, and the conses -/
 

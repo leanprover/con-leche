@@ -282,7 +282,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨tyA, htyA, htyAn, hlenA, env₁', fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors,
     hlenCA, hallC⟩ := hcst₂
   obtain ⟨cI₀, cbody, body', pbs', rest, sta, stb, cA, hcI₀, hstrip', hinst, hwalkC, hsta, hstb,
-    hpi, htyl, hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
+    hpi, hauxIn, htyl, hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
   -- the stage's list is the datum's
   obtain ⟨env₁'', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, hkinds, hmems⟩ := hchk
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj (hformers'.symm.trans hformers))
@@ -486,7 +486,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     have hjq : jq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
     obtain ⟨t₀e, paramse, bodye, pbse, body₀e, ht₀e, hope, hstripe, Ie, cie, ie, j₀e, Je, lvlse,
       Dse, qe, copye, st₁e, st₂e, cs'e, hcie, hJe, hjEe, hgrpe, hqe, hqce, hqpe, hqbe, hqse, hmke,
-      hDse, hpbse, hDsLene, htye, helimCe, -, hst₂e, hpie, -⟩ := ConLeche.elimNested_copy helim hjq
+      hDse, -, hpbse, hDsLene, htye, helimCe, -, hst₂e, hpie, -, -⟩ :=
+      ConLeche.elimNested_copy helim hjq
     obtain rfl : qe = qq := Option.some.inj (hqe.symm.trans hqq)
     have hgrpOke : ConLeche.containerGroupOk env cie = true :=
       containerGroupOk_of_pins hcont hcie (fun i' J' hJ' => by
@@ -760,7 +761,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       (ConLeche.nestedCtorPairs b stored) = .ok () := by rw [hnP]; exact hK17
   have hfields := copyFields_of_whnfOk hRwf hRwf.toNamed hRnP hpF hcF hpB hRwf.ctorPinsBounded
     hst₀' hop₀' hnf₀ hP hK17' hpairMem rfl hstrip'' hinst hwalkC
-    (fun qq hqq => hstb.subset hqq) hcvF hcvB hcIL hcIB
+    (fun qq hqq => hstb.pins_prefix.subset hqq) hcvF hcvB hcIL hcIB
     (hnoAux j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI) hopenS hop1 hop2 hffS.noFvar
   have hlpsT : cvT₀.levelParams = p.lps := by
     rw [← hDfacts.2.1]

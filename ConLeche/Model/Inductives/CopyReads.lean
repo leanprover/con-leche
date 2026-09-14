@@ -380,19 +380,19 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   intro j hj
   -- the copy's origin
   obtain ⟨t₀', params', body', pbs', body₀', ht₀', hop', hstrip', I, ci, i, j₀, J, lvls, Ds, q,
-    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, hDsLen, hty,
-    helimC, -, hst₂, hpi, -⟩ := ConLeche.elimNested_copy helim hj
+    copy, st₁, st₂, cs', hci, hJ, hjE, hgrp, hq, hqc, hqp, hqb, hqs, hmk, hDs, -, -, hDsLen, hty,
+    helimC, hst₁, hst₂, hpi, hlt₁, -⟩ := ConLeche.elimNested_copy helim hj
   rw [ht₀] at ht₀'
   obtain rfl := Option.some.inj ht₀'
   rw [hop] at hop'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop')
   rw [hstrip] at hstrip'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hstrip')
-  rw [nestedTypes0_length, hfmsLen] at hty hpi
+  rw [nestedTypes0_length, hfmsLen] at hty hpi hlt₁
   have ht : p.k + j < b.k := by rw [hk, hlenSt]; omega
   obtain ⟨hlvls, ⟨tyI, htyI, hcopyTy⟩, -, -⟩ := ConLeche.mkCopy_inv hmk
   refine ⟨q, I, ci, i, j₀, J, lvls, Ds, hq, hci, hJ, hjE, hgrp, hqc, hqp, hqb, hqs, hDsLen, hlvls,
-    ConLeche.copyCtorsStored_of (mode := μ) hpbs hmk hty helimC hst₂ hpi hb hcore, ?_⟩
+    ConLeche.copyCtorsStored_of (mode := μ) hpbs hmk hty helimC hst₁ hst₂ hlt₁ hpi hb hcore, ?_⟩
   intro ψ cvTJ capsJ dJ mmJ hfJ hJtype hJlps hciNP hFDJ
   obtain ⟨R, hopened⟩ := IndRepData.opened_params ({d with resSort := s₀} : IndRepData V) ψ hfT₀
     hFD₀ hfv'

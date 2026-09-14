@@ -181,7 +181,8 @@ is that constant itself or that constant with a normalised type
           (closeTelescope pbs 0 cI).stripPis p.nP = some (pbs', rest) ∧
           Expr.instPis (closeTelescope pbs 0 cI) params = some cbody ∧
           replaceAllNested env (p.lps.map Level.param) params pbs sta cbody = .ok (body', stb) ∧
-          sta.pins <+: stb.pins ∧ stb.pins <+: st.pins ∧ sta.PinsIndexed p.k ∧
+          sta.pins <+: stb.pins ∧ ElimGrows stb st ∧ sta.PinsIndexed p.k ∧
+          q.aux ∈ (stb.types.map (·.name)).drop p.k ∧
           tyA.ctors[l]? = some (Name.replacePrefix J.name q.aux c.name,
             closeTelescope pbs' 0 body', c.nFields) ∧
           b.ctors[ctorBase st (p.k + j) + l]?
@@ -209,7 +210,8 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     (hty : st.types[p.k + j]? = some { copy with ctors := cs' })
     (helimC : elimCtors env (p.lps.map Level.param) p.nP params pbs copy.ctors st₁
       = .ok (cs', st₂))
-    (hst₂ : st₂.pins <+: st.pins) (hpi : st₁.PinsIndexed p.k) (hb : auxBlock p st = some b)
+    (hst₁ : ElimGrows st₁ st) (hst₂ : ElimGrows st₂ st) (hlt₁ : p.k + j < st₁.types.length)
+    (hpi : st₁.PinsIndexed p.k) (hb : auxBlock p st = some b)
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     CopyCtorsStored mode F env p st b params pbs j J lvls Ds q := by
   obtain ⟨-, -, hlenC, hctorsC⟩ := mkCopy_inv hmk
@@ -230,6 +232,18 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
     obtain ⟨hnorm, hproj⟩ := checkMutualCtor_true_norm hrun
     obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
     exact ⟨hnorm, hstores, hkeep hproj⟩
+  -- the copy's own name is a type of the state the walk starts from: the
+  -- ledger's entry at `p.k + j`, an index the pre-walk state already has
+  have hauxIn : q.aux ∈ (st₁.types.map (·.name)).drop p.k := by
+    obtain ⟨new₁, -, hnames₁⟩ := hst₁
+    have hname : copy.name = q.aux := mkCopy_name hmk
+    have hgetSt : (st.types.map (·.name))[p.k + j]? = some q.aux := by
+      rw [List.getElem?_map, hty]
+      exact congrArg some hname
+    rw [hnames₁, List.getElem?_append_left (by rw [List.length_map]; exact hlt₁)] at hgetSt
+    refine List.mem_of_getElem? (i := j) ?_
+    rw [List.getElem?_drop]
+    exact hgetSt
   refine ⟨{ copy with ctors := cs' }, hty, show copy.name = q.aux from mkCopy_name hmk,
     by show cs'.length = J.ctors.length; rw [hlenCs, hlenC],
     env₁, fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors, hlenA, ?_⟩
@@ -242,9 +256,14 @@ theorem copyCtorsStored_of {env envAux : Env} {p : NestedParts} {st st₁ st₂ 
   obtain ⟨cA, hcA⟩ : ∃ cA, ctorsA[ctorBase st (p.k + j) + l]? = some cA :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenA]; exact hlt)⟩
   obtain ⟨hnorm, hstores, hproj⟩ := hall _ _ _ hb' hcA
+  have hkle : p.k ≤ st₁.types.length := by omega
+  have hga : ElimGrows st₁ sta := hms.grows
+  have hgb : ElimGrows sta stb := replaceAllNested_grows _ hwalk
   exact ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalk,
-    (replaceAllNested_mint hpbs _ hwalk).pins_prefix, hstb.trans hst₂, hms.pinsIndexed hpi, hcs'l,
-    hb', hcA, hnorm, hstores, hproj⟩
+    (replaceAllNested_mint hpbs _ hwalk).pins_prefix, hstb.trans hst₂, hms.pinsIndexed hpi,
+    hgb.copyNames_mono p.k (Nat.le_trans hkle hga.types_length_le) _
+      (hga.copyNames_mono p.k hkle _ hauxIn),
+    hcs'l, hb', hcA, hnorm, hstores, hproj⟩
 
 /-- The same, at the ledger's origin of pin `j` (`elimNested_copy`). -/
 theorem copyCtorsStored_of_run {env envAux : Env} {p : NestedParts} {types : List AuxType}
@@ -264,11 +283,12 @@ theorem copyCtorsStored_of_run {env envAux : Env} {p : NestedParts} {types : Lis
         q.pin = Expr.mkAppN (.const J.name lvls) Ds ∧ q.grpBase = j₀ ∧
         CopyCtorsStored mode F env p st b params pbs j J lvls Ds q := by
   obtain ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, I, ci, i, j₀, J, lvls, Ds, q, copy, st₁,
-    st₂, cs', hci, hJ, hjE, -, hq, hqc, hqp, hqb, -, hmk, -, hpbs, -, hty, helimC, -, hst₂, hpi, -⟩ :=
-    elimNested_copy helim hj
-  rw [hk] at hty hpi
+    st₂, cs', hci, hJ, hjE, -, hq, hqc, hqp, hqb, -, hmk, -, -, hpbs, -, hty, helimC, hst₁,
+    hst₂, hpi, hlt₁, -⟩ := elimNested_copy helim hj
+  rw [hk] at hty hpi hlt₁
   exact ⟨t₀, params, body, pbs, body₀, ht₀, hop, hstrip, hpbs, I, ci, i, j₀, J, lvls, Ds, q, hci,
-    hJ, hjE, hq, hqc, hqp, hqb, copyCtorsStored_of hpbs hmk hty helimC hst₂ hpi hb haux⟩
+    hJ, hjE, hq, hqc, hqp, hqb,
+    copyCtorsStored_of hpbs hmk hty helimC hst₁ hst₂ hlt₁ hpi hb haux⟩
 
 
 /-! ## A container member is determined by its name -/
