@@ -262,7 +262,7 @@ theorem openPisAtFvars_leavesIn {k : Nat} {e : Expr} {d : Nat} {fvs : List Expr}
 
 /-- What the elimination copies out of a container is closed: every
 member's stored former and constructor types have no free variable. -/
-def ContainersClosed (env : Env) : Prop :=
+@[expose] def ContainersClosed (env : Env) : Prop :=
   ∀ (I : Name) (ci : ContainerInfo), containerInfo? env I = some ci →
     ∀ J ∈ ci.members, J.type.hasFvar = false ∧ ∀ c ∈ J.ctors, c.type.hasFvar = false
 

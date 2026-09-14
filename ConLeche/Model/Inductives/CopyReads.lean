@@ -135,7 +135,7 @@ the pins are its own sub-terms): every free-variable leaf of a pin is
 one of the openers `params`, annotation included.  Proved of the run by
 `Verify/Inductives/NestedLeaves.lean` (`elimNested_leaves`, the leaf
 invariant beside the ledger) — `pinsAtOpeners_of_run` below. -/
-def PinsAtOpeners (st : ElimState) (params : List Expr) : Prop :=
+@[expose] def PinsAtOpeners (st : ElimState) (params : List Expr) : Prop :=
   ∀ q ∈ st.pins, ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ params
 
 /-- **The pins' leaves are the openers, from the run**: the containers'
