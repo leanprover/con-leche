@@ -214,16 +214,17 @@ end IndRepData
 
 /-! ## The run's facts, bundled -/
 
-/-- **The run's facts the round trips consume**, at one level
-assignment `ψ` and the run's pin data `cd`: the scratch block's
-representations, the pins' facts with the group clause, the
-constructor side (`CopyCtorsOfRun`, from the record), the bridge and
-the kernel's order — everything `psiFold_typed_of_read`,
-`invSetup_of_run` and the ι laws are assembled from. -/
-structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
+/-- **The run's facts ψ's side consumes**, at one level assignment `ψ`
+and the run's pin data `cd`: the scratch block's representations, the
+pins' facts with the group clause, the constructor side
+(`CopyCtorsOfRun`, from the record), the bridge and the kernel's order
+— everything `psiFold_typed_of_read` and ψ's ι law are assembled from.
+Stated at EVERY level assignment (no condition on the block's
+elimination level; task #279 M-D′ D3, DESIGN §M.54). -/
+structure NestedRunCore {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
     (p : ConLeche.NestedParts) (st : ElimState) (b : MutualBlock) (params : List Expr)
     (pbs : List (Expr × ConLeche.BinderMeta)) (mpAux : EnvModelM V μ envAux) (d : IndRepData V)
-    (ψ : Name → Nat) (cd : Nat → CopyData V) (lpsT : List Name) (order : List Nat) (s : Level) :
+    (ψ : Name → Nat) (cd : Nat → CopyData V) (lpsT : List Name) (order : List Nat) :
     Prop where
   reps : MutualBlockReps mpAux.base2 b d
   aux : ConLeche.auxBlock p st = some b
@@ -236,6 +237,19 @@ structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
   ctors : CopyCtorsOfRun mpAux d ψ p.k st.pins.length lpsT cd (auxOfsOf st p.k cd)
   bridge : BridgeOfRun d st p.k st.pins.length cd (auxOfsOf st p.k cd)
   ord : TopoOrder (ConLeche.CopyRef (ElimState.grp st) p.k st) st.pins.length order
+
+/-- **The run's facts the round trips consume** — the core (ψ's side:
+what `psiFinal_mem`, `final_typed`, `final_below` and `psi_iota` are
+assembled from; M-D′ D3 reads the restored constructors' typing off it
+at EVERY level assignment, DESIGN §M.54) extended by ψ⁻¹'s side, which
+holds only where the block's elimination level reads as its sort
+(`lev`: a block eliminating into `Prop` alone has it at the assignments
+where its sort is zero). -/
+structure NestedRunFacts {μ : CheckMode} (F : Nat) (env : Env) {envAux : Env}
+    (p : ConLeche.NestedParts) (st : ElimState) (b : MutualBlock) (params : List Expr)
+    (pbs : List (Expr × ConLeche.BinderMeta)) (mpAux : EnvModelM V μ envAux) (d : IndRepData V)
+    (ψ : Name → Nat) (cd : Nat → CopyData V) (lpsT : List Name) (order : List Nat) (s : Level) :
+    Prop extends NestedRunCore F env p st b params pbs mpAux d ψ cd lpsT order where
   /-- the block's sort `s` (the member with rules') evaluates as the
   datum's -/
   sortEval : ∀ φ : Name → Nat, s.eval φ = d.resSort.eval φ
@@ -257,6 +271,34 @@ parameter variables, at the datum re-sorted to `s`. -/
     (cd : Nat → CopyData V) (auxOfs : Nat → Nat → Nat) (s : Level) (t : Nat) : AnnotTerm :=
   (d.withSort s).foldTermAV m ψ (paramBvarsAt d.nP d.nP) (d.invL m ψ k₀ cd) (d.invPinsT k₀ cd)
     ((d.withSort s).invBodyAV (d.invHead m ψ n cd auxOfs) (d.invUseIh k₀)) t
+
+/-- **The run's core facts from the pins' facts** (task #279 M-D′ D3,
+DESIGN §M.54): the constructor side from the record
+(`copyCtorsOfRun_of_read`), the bridge from its syntactic half
+(`bridgeOfRun_of_syntax`), the order from the kernel's
+(`topoOrder_of_run`) — at every level assignment. -/
+theorem nestedRunCore_of_pinFacts {μ : CheckMode} {F : Nat} {env envAux : Env}
+    {p : ConLeche.NestedParts} {st : ElimState} {b : MutualBlock} {params : List Expr}
+    {pbs : List (Expr × ConLeche.BinderMeta)} {mpAux : EnvModelM V μ envAux} {d : IndRepData V}
+    {ψ : Name → Nat} {cd : Nat → CopyData V} {order : List Nat}
+    (hreps : MutualBlockReps mpAux.base2 b d) (hchk : CtorsChecked μ F env b true d)
+    (hb : ConLeche.auxBlock p st = some b) (hlenSt : st.types.length = p.k + st.pins.length)
+    (hord : ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order)
+    (hcd : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
+    (hread : CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)
+    (hsyn : BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)) :
+    ∃ lpsT : List Name, NestedRunCore F env p st b params pbs mpAux d ψ cd lpsT order := by
+  obtain ⟨lpsT, hctors⟩ := copyCtorsOfRun_of_read hreps hchk hcd hread
+  have hkn : d.k ≤ p.k + st.pins.length := by
+    obtain ⟨-, hkb, -⟩ := hreps
+    rw [hkb, ConLeche.auxBlock_k hb, hlenSt]
+    exact Nat.le_refl _
+  have hgrp : ∀ j, j < st.pins.length → ElimState.grp st j = ((cd j).base, (cd j).dJ.k) := by
+    intro j hj
+    obtain ⟨⟨-, -, q, I, ci, J, lvls, Ds, cvTJ, capsJ, -, -, -, -, -, -, -, -, hg, -⟩, -⟩ := hcd j hj
+    exact hg
+  exact ⟨lpsT, hreps, hb, hchk, hlenSt, hcd, hctors, bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn,
+    ConLeche.topoOrder_of_run hlenSt hord⟩
 
 /-- **The run's facts from the pins' facts**: the constructor side from
 the record (`copyCtorsOfRun_of_read`), the bridge from its syntactic
@@ -284,8 +326,9 @@ theorem nestedRunFacts_of_pinFacts {μ : CheckMode} {F : Nat} {env envAux : Env}
     obtain ⟨⟨-, -, q, I, ci, J, lvls, Ds, cvTJ, capsJ, -, -, -, -, -, -, -, -, hg, -⟩, -⟩ := hcd j hj
     exact hg
   obtain ⟨s, lps, lpsT', hsv, hinv⟩ := invSetup_of_pinFacts hreps hchk hb hlenSt hcd hread hlev ht₀ hct₀
-  exact ⟨lpsT, s, hreps, hb, hchk, hlenSt, hcd, hctors, bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn,
-    ConLeche.topoOrder_of_run hlenSt hord, hsv, hlev, lps, lpsT', hinv⟩
+  exact ⟨lpsT, s, ⟨hreps, hb, hchk, hlenSt, hcd, hctors,
+    bridgeOfRun_of_syntax rfl hlenSt hkn hgrp hctors hsyn, ConLeche.topoOrder_of_run hlenSt hord⟩,
+    hsv, hlev, lps, lpsT', hinv⟩
 
 /-- **ψ's FINAL table**: the fold of the copies' terms along the
 kernel's order from the initial table `tbl₀`. -/
@@ -297,13 +340,13 @@ kernel's order from the initial table `tbl₀`. -/
 /-- Pin `j`'s view of member `t` of its group. -/
 @[expose] def CopyData.at (c : CopyData V) (t : Nat) : CopyData V := ⟨c.dJ, t, c.ψ', c.DsA, c.base⟩
 
-namespace NestedRunFacts
+namespace NestedRunCore
 
 variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState}
   {b : MutualBlock} {params : List Expr} {pbs : List (Expr × ConLeche.BinderMeta)}
   {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
-  {lpsT : List Name} {order : List Nat} {s : Level}
-  (R : NestedRunFacts F env p st b params pbs mpAux d ψ cd lpsT order s)
+  {lpsT : List Name} {order : List Nat}
+  (R : NestedRunCore F env p st b params pbs mpAux d ψ cd lpsT order)
 
 include R
 
@@ -584,6 +627,18 @@ theorem psi_iota (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
     rw [hg _ (by rw [(S.hview J).2.1]; exact S.htgts J i)]
   rw [← hmap _ (fun _ _ _ x => x) (fun t ht => (hΨm t ht).symm)]
   exact h
+
+end NestedRunCore
+
+namespace NestedRunFacts
+
+variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState}
+  {b : MutualBlock} {params : List Expr} {pbs : List (Expr × ConLeche.BinderMeta)}
+  {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
+  {lpsT : List Name} {order : List Nat} {s : Level}
+  (R : NestedRunFacts F env p st b params pbs mpAux d ψ cd lpsT order s)
+
+include R
 
 set_option maxHeartbeats 1600000 in
 /-- **ψ⁻¹'s ι at values, at the run** (the shape `r2_step`/`r1_step`

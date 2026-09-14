@@ -72,6 +72,88 @@ theorem eq_pt_of_mem {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : Cons
 
 end IndRep
 
+namespace NestedRunCore
+
+variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState}
+  {b : MutualBlock} {params : List Expr} {pbs : List (Expr × ConLeche.BinderMeta)}
+  {mpAux : EnvModelM V μ envAux} {d : IndRepData V} {ψ : Name → Nat} {cd : Nat → CopyData V}
+  {lpsT : List Name} {order : List Nat}
+  (R : NestedRunCore F env p st b params pbs mpAux d ψ cd lpsT order)
+
+include R
+
+/-- **ψ's final table's entry at a group-mate is typed at values**: at
+pin `j`'s group member `t`, index values fitting the container's
+telescope at the pin's frame and an element of the container's carrier
+there, the entry applied lands in the copy `p.k + base + t`'s carrier
+at the block's parameters (`PsiSetup.fold_mem_vals` at the group's
+setup at the final table, the entry the group's fold term by
+`final_group`). -/
+theorem psiFinal_mem (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
+    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) {j : Nat} (hj : j < st.pins.length)
+    {t : Nat} (ht : t < (cd j).dJ.k) {is : List V}
+    (his : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
+      ((cd j).dJ.IdsM t (cd j).ψ') is) {x : V}
+    (hx : x ∈ˢ ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ)) ++ is).foldl SetTheory.app
+      (interp V (consList (paramVals d.nP ρ) ρ) (mpAux.base2.acval ((cd j).dJ.memberName t) (cd j).ψ'))) :
+    foldApp (consList (paramVals d.nP ρ) ρ)
+        (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t)) is x
+      ∈ˢ (paramVals d.nP ρ ++ is).foldl SetTheory.app
+          (interp V ρ (mpAux.base2.acval (d.memberName (p.k + (cd j).base + t)) ψ)) := by
+  obtain ⟨lps, S⟩ := R.psiSetup_final (ρ₀ := ρ) (psA := paramBvarsAt d.nP d.nP) (paramBvarsAt_length _ _) hρ
+    tbl₀ hj
+  have hg := R.groupFacts hj
+  have hσ₀ : consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ = consList (paramVals d.nP ρ) ρ := rfl
+  rw [hσ₀] at S
+  have hDsLen : ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))).length = (cd j).dJ.nP := by
+    rw [List.length_map, hg.len]
+  have hisLen : is.length = (cd j).dJ.nIdxs.getD t 0 := by
+    rw [his.length_eq]
+    unfold IndRepData.IdsM
+    rw [List.length_map, ← (cd j).dJ.ipss_getD (cd j).ψ' ht]
+    exact S.hipsLen _ ht
+  -- the motive binder's spine: the indices and the major
+  have hfitM : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
+      (((cd j).dJ.motDataAV mpAux.base2 (cd j).ψ' t).map (·.2.2)) (is ++ [x]) := by
+    have hsplit : ((cd j).dJ.motDataAV mpAux.base2 (cd j).ψ' t).map (·.2.2)
+        = (rebit (pwBit (cd j).ψ' ConLeche.PropWhen.never) (((cd j).dJ.ipss (cd j).ψ').getD t [])).map (·.2.2) ++
+          [famAppAV (((cd j).dJ.Ls mpAux.base2 (cd j).ψ').getD t default)
+            ((cd j).dJ.pinsOf (cd j).ψ' t) (cd j).dJ.nP ((cd j).dJ.nP + (cd j).dJ.nIdxs.getD t 0)
+            ((cd j).dJ.nIdxs.getD t 0)] := by
+      simp [IndRepData.motDataAV]
+    rw [hsplit]
+    refine SpineFit.append ?_ ⟨?_, trivial⟩
+    · rw [rebit_map_dom, (cd j).dJ.ipss_getD (cd j).ψ' ht]
+      exact his
+    · rw [(cd j).dJ.Ls_getD_eq mpAux.base2 (cd j).ψ' ht,
+        interp_famAppAV_pins (mpAux.base2.cval_closedL _ _) _ _ hisLen]
+      unfold IndRepData.pinsOf
+      rw [hg.pinsAV, interp_paramBvarsAt_self hDsLen,
+        interp_closed (V := V) (mpAux.base2.cval_closedL _ _) _ (consList (paramVals d.nP ρ) ρ)]
+      exact hx
+  have hmem := IndRepData.PsiSetup.fold_mem_vals (cd j).dJ S ht hfitM
+  have hmem' : foldApp (consList (paramVals d.nP ρ) ρ)
+        ((cd j).dJ.foldTermAV mpAux.base2 (cd j).ψ' (cd j).DsA (d.psiL mpAux.base2 ψ p.k (cd j).base)
+          (d.psiPinsT (cd j).dJ.nP)
+          ((cd j).dJ.psiBodyAV (d.psiHead mpAux.base2 ψ (cd j).dJ.nP (auxOfsOf st p.k cd j))
+            (IndRepData.psiUseIh (cd j).dJ)
+            (d.psiVia (cd j).dJ ψ p.k (cd j).dJ.nP (auxOfsOf st p.k cd j) ((cd j).dJ.bb (cd j).ψ')
+              (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀))) t) is x
+      ∈ˢ interp V (consList is (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ)))
+            (consList (paramVals d.nP ρ) ρ)))
+          (famAppAV (d.psiL mpAux.base2 ψ p.k (cd j).base t) (d.psiPinsT (cd j).dJ.nP t) (cd j).dJ.nP
+            ((cd j).dJ.nP + (cd j).dJ.nIdxs.getD t 0) ((cd j).dJ.nIdxs.getD t 0)) := hmem
+  rw [← R.final_group tbl₀ hj ht] at hmem'
+  unfold IndRepData.psiPinsT IndRepData.psiL at hmem'
+  rw [interp_famAppAV_aux (mpAux.base2.cval_closedL _ _) hDsLen hisLen,
+    range_reverse_map_consList' (paramVals_length _ _),
+    interp_closed (V := V) (mpAux.base2.cval_closedL _ _) _ ρ] at hmem'
+  exact hmem'
+
+/-! ## The round trips at a zero bit -/
+
+end NestedRunCore
+
 namespace NestedRunFacts
 
 variable {μ : CheckMode} {F : Nat} {env envAux : Env} {p : ConLeche.NestedParts} {st : ElimState}
@@ -161,76 +243,6 @@ theorem invFold_mem {ρ : Nat → V} (hρ : SpineFit ρ (d.params ψ) (paramVals
             (d.nP + d.nIdxs.getD (p.k + (cd j).base + t) 0) (d.nIdxs.getD (p.k + (cd j).base + t) 0)) := hmem
   rw [hL, hpins, interp_famAppAV_pins (mpAux.base2.cval_closedL _ _) _ _ hisLen] at hmem'
   exact hmem'
-
-/-- **ψ's final table's entry at a group-mate is typed at values**: at
-pin `j`'s group member `t`, index values fitting the container's
-telescope at the pin's frame and an element of the container's carrier
-there, the entry applied lands in the copy `p.k + base + t`'s carrier
-at the block's parameters (`PsiSetup.fold_mem_vals` at the group's
-setup at the final table, the entry the group's fold term by
-`final_group`). -/
-theorem psiFinal_mem (tbl₀ : Nat → AnnotTerm) {ρ : Nat → V}
-    (hρ : SpineFit ρ (d.params ψ) (paramVals d.nP ρ)) {j : Nat} (hj : j < st.pins.length)
-    {t : Nat} (ht : t < (cd j).dJ.k) {is : List V}
-    (his : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
-      ((cd j).dJ.IdsM t (cd j).ψ') is) {x : V}
-    (hx : x ∈ˢ ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ)) ++ is).foldl SetTheory.app
-      (interp V (consList (paramVals d.nP ρ) ρ) (mpAux.base2.acval ((cd j).dJ.memberName t) (cd j).ψ'))) :
-    foldApp (consList (paramVals d.nP ρ) ρ)
-        (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀ ((cd j).base + t)) is x
-      ∈ˢ (paramVals d.nP ρ ++ is).foldl SetTheory.app
-          (interp V ρ (mpAux.base2.acval (d.memberName (p.k + (cd j).base + t)) ψ)) := by
-  obtain ⟨lps, S⟩ := R.psiSetup_final (ρ₀ := ρ) (psA := paramBvarsAt d.nP d.nP) (paramBvarsAt_length _ _) hρ
-    tbl₀ hj
-  have hg := R.groupFacts hj
-  have hσ₀ : consList ((paramBvarsAt d.nP d.nP).map (interp V ρ)) ρ = consList (paramVals d.nP ρ) ρ := rfl
-  rw [hσ₀] at S
-  have hDsLen : ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))).length = (cd j).dJ.nP := by
-    rw [List.length_map, hg.len]
-  have hisLen : is.length = (cd j).dJ.nIdxs.getD t 0 := by
-    rw [his.length_eq]
-    unfold IndRepData.IdsM
-    rw [List.length_map, ← (cd j).dJ.ipss_getD (cd j).ψ' ht]
-    exact S.hipsLen _ ht
-  -- the motive binder's spine: the indices and the major
-  have hfitM : SpineFit (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ))) (consList (paramVals d.nP ρ) ρ))
-      (((cd j).dJ.motDataAV mpAux.base2 (cd j).ψ' t).map (·.2.2)) (is ++ [x]) := by
-    have hsplit : ((cd j).dJ.motDataAV mpAux.base2 (cd j).ψ' t).map (·.2.2)
-        = (rebit (pwBit (cd j).ψ' ConLeche.PropWhen.never) (((cd j).dJ.ipss (cd j).ψ').getD t [])).map (·.2.2) ++
-          [famAppAV (((cd j).dJ.Ls mpAux.base2 (cd j).ψ').getD t default)
-            ((cd j).dJ.pinsOf (cd j).ψ' t) (cd j).dJ.nP ((cd j).dJ.nP + (cd j).dJ.nIdxs.getD t 0)
-            ((cd j).dJ.nIdxs.getD t 0)] := by
-      simp [IndRepData.motDataAV]
-    rw [hsplit]
-    refine SpineFit.append ?_ ⟨?_, trivial⟩
-    · rw [rebit_map_dom, (cd j).dJ.ipss_getD (cd j).ψ' ht]
-      exact his
-    · rw [(cd j).dJ.Ls_getD_eq mpAux.base2 (cd j).ψ' ht,
-        interp_famAppAV_pins (mpAux.base2.cval_closedL _ _) _ _ hisLen]
-      unfold IndRepData.pinsOf
-      rw [hg.pinsAV, interp_paramBvarsAt_self hDsLen,
-        interp_closed (V := V) (mpAux.base2.cval_closedL _ _) _ (consList (paramVals d.nP ρ) ρ)]
-      exact hx
-  have hmem := IndRepData.PsiSetup.fold_mem_vals (cd j).dJ S ht hfitM
-  have hmem' : foldApp (consList (paramVals d.nP ρ) ρ)
-        ((cd j).dJ.foldTermAV mpAux.base2 (cd j).ψ' (cd j).DsA (d.psiL mpAux.base2 ψ p.k (cd j).base)
-          (d.psiPinsT (cd j).dJ.nP)
-          ((cd j).dJ.psiBodyAV (d.psiHead mpAux.base2 ψ (cd j).dJ.nP (auxOfsOf st p.k cd j))
-            (IndRepData.psiUseIh (cd j).dJ)
-            (d.psiVia (cd j).dJ ψ p.k (cd j).dJ.nP (auxOfsOf st p.k cd j) ((cd j).dJ.bb (cd j).ψ')
-              (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀))) t) is x
-      ∈ˢ interp V (consList is (consList ((cd j).DsA.map (interp V (consList (paramVals d.nP ρ) ρ)))
-            (consList (paramVals d.nP ρ) ρ)))
-          (famAppAV (d.psiL mpAux.base2 ψ p.k (cd j).base t) (d.psiPinsT (cd j).dJ.nP t) (cd j).dJ.nP
-            ((cd j).dJ.nP + (cd j).dJ.nIdxs.getD t 0) ((cd j).dJ.nIdxs.getD t 0)) := hmem
-  rw [← R.final_group tbl₀ hj ht] at hmem'
-  unfold IndRepData.psiPinsT IndRepData.psiL at hmem'
-  rw [interp_famAppAV_aux (mpAux.base2.cval_closedL _ _) hDsLen hisLen,
-    range_reverse_map_consList' (paramVals_length _ _),
-    interp_closed (V := V) (mpAux.base2.cval_closedL _ _) _ ρ] at hmem'
-  exact hmem'
-
-/-! ## The round trips at a zero bit -/
 
 /-- **R2 at a `Prop`-valued group** (task #279 M-C′ step 6, the `Prop`
 arm): at pin `j`'s group, when the block's bit is zero, every element
