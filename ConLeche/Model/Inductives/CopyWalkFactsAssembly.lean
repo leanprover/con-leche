@@ -683,4 +683,183 @@ theorem copyFields_of_whnfOk {μ : CheckMode} {F : Nat} {env env₁ : Env}
     simp only [Expr.fvarTypeD] at hbnd hlb
     exact ⟨tyM, tyS, hdmE, hwh, hxRE, hws.2, hbnd, hlb⟩
 
+
+/-! ## The residual: W2 through the stored constructor's shape -/
+
+/-- The container's constructor at the pin, stripped at the fields:
+the target at the pin's components and the container's index
+expressions instantiated at the components. -/
+theorem containerResid_at_pin {μ : CheckMode} {envAux : Env} (mp : EnvModelM V μ envAux)
+    {dJ : IndRepData V} {Jc : Nat} {cAJ : ConstantVal × Nat} {lpsJ : List Name}
+    {lvls : List Level} {Ds : List Expr} {cI : Expr}
+    (hDJ : FixCtorDataI mp.base2 dJ.env₀ (dJ.memberName (dJ.mems Jc)) lpsJ cAJ.1 dJ.nP cAJ.2
+      (dJ.nIdxAt (dJ.mems Jc)) dJ.resSort dJ.isProp dJ.large (dJ.idxF Jc) (dJ.dsF Jc) (dJ.esF Jc)
+      (dJ.srcsF Jc) (dJ.ksF Jc) (dJ.fvsPF Jc) (dJ.xFvsF Jc) (dJ.xrestF Jc) (dJ.eissF Jc)
+      (dJ.tssF Jc) (fun i => dJ.memberName (dJ.tgts Jc i)) (fun i => dJ.nIdxAt (dJ.tgts Jc i)))
+    (hlpsNodup : lpsJ.Nodup) (hlvlsLen : lvls.length = lpsJ.length)
+    (hDsLen : Ds.length = dJ.nP) (hDsC : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true)
+    (hcI : Expr.instPis (cAJ.1.type.instantiateLevelParams lpsJ lvls) Ds = some cI) :
+    ∃ (fs : List (Expr × ConLeche.BinderMeta)) (idx₀ : List Expr),
+      cI.stripPis cAJ.2 = some (fs,
+        Expr.mkAppN (.const (dJ.memberName (dJ.mems Jc)) lvls) (Ds ++ idx₀)) := by
+  obtain ⟨cbs, es, hsJ, -⟩ := hDJ.resid
+  obtain ⟨⟨bsJ', rJ'⟩, hsJ'⟩ := Option.isSome_iff_exists.mp
+    (Expr.stripPis_instantiateLevelParams_isSome lpsJ lvls _ (by rw [hsJ]; rfl))
+  obtain ⟨hrJ', -⟩ := Expr.stripPis_instantiateLevelParams_eq lpsJ lvls _ hsJ hsJ'
+  subst hrJ'
+  have hsJ'' : (cAJ.1.type.instantiateLevelParams lpsJ lvls).stripPis (Ds.length + cAJ.2)
+      = some (bsJ', (Expr.mkAppN (.const (dJ.memberName (dJ.mems Jc)) (lpsJ.map Level.param))
+        (ConLeche.structPsAt cAJ.2 dJ.nP ++ es)).instantiateLevelParams lpsJ lvls) := by
+    rw [hDsLen]; exact hsJ'
+  obtain ⟨bsC₀, hsC₀, -⟩ := ConLeche.instPis_stripPis Ds cAJ.2 hcI hsJ''
+  have hconst : (Expr.const (dJ.memberName (dJ.mems Jc)) (lpsJ.map Level.param)).instantiateLevelParams
+      lpsJ lvls = .const (dJ.memberName (dJ.mems Jc)) lvls := by
+    simp only [Expr.instantiateLevelParams]
+    rw [ConLeche.map_subst_params_nodup hlpsNodup hlvlsLen.symm]
+  have hlenSP : (ConLeche.structPsAt cAJ.2 dJ.nP).length = dJ.nP := by simp [ConLeche.structPsAt]
+  refine ⟨bsC₀, (es.map (Expr.instantiateLevelParams lpsJ lvls)).map
+    (Expr.instSeq Ds (dJ.nP + cAJ.2 - 1)), ?_⟩
+  rw [hsC₀, ConLeche.instantiateLevelParams_mkAppN, List.map_append, structPsAt_instantiateLevelParams,
+    hconst, hDsLen, spine_at_components (o := cAJ.2) (List.take_left' hlenSP)
+      (by rw [List.length_append, hlenSP]; omega) hDsLen hDsC (fun _ => rfl), List.drop_left' hlenSP]
+
+set_option maxHeartbeats 3200000 in
+/-- **The residual from the stored constructor's shape and W2**
+(DESIGN §M.45): the stored copy constructor's residual is the copy at
+its parameter openers and index arguments (`checkMutualCtor_front`),
+erasure-equal to the processed constructor's opened residual
+(`normCtorValM_residual`); the processed residual is the walk's output
+at the pin's constructor's residual, whose head is the copy — so the
+walk FIRED at the top (W2), with the index arguments VERBATIM; the
+container's residual at the pin opened at the copy's own field openers
+carries the same index arguments up to the openers' annotations. -/
+theorem copyResid_of_stored {env : Env} {blvls : List Level} {params : List Expr}
+    {pbs : List (Expr × ConLeche.BinderMeta)} {k₀ nP nF : Nat} {sta stb : ElimState}
+    {cI body' : Expr}
+    (hwalk : ConLeche.replaceAllNested env blvls params pbs sta cI = .ok (body', stb))
+    (hpi : sta.PinsIndexed k₀)
+    (hin : ∀ T ∈ (stb.types.map (·.name)).drop k₀, cI.mentionsConst T = false)
+    {fs : List (Expr × ConLeche.BinderMeta)} {Jn : Name} {lvls : List Level} {Ds idx₀ : List Expr}
+    (hsI : cI.stripPis nF = some (fs, Expr.mkAppN (.const Jn lvls) (Ds ++ idx₀)))
+    (hDsC : ∀ D ∈ Ds, D.looseBVarsBounded 0 = true)
+    (hparC : ∀ p ∈ params, p.looseBVarsBounded 0 = true) (hparamsLen : params.length = nP)
+    {xFvsC : List Expr} {xrestC : Expr}
+    (hopenC : ConLeche.openPisAtFvars nF cI nP = some (xFvsC, xrestC))
+    {fvsW : List Expr} {restW : Expr}
+    (hopW : ConLeche.openPisAtFvars nF body' nP = some (fvsW, restW))
+    {aux : Name} {fvsP idxArgs : List Expr} {xrestS : Expr}
+    (hxrestS : xrestS = Expr.mkAppN (.const aux blvls) (fvsP ++ idxArgs))
+    (hfvsPlen : fvsP.length = nP) (hE : Expr.ErasedEq xrestS restW)
+    (haux : aux ∈ (stb.types.map (·.name)).drop k₀)
+    (hpinOf : ∀ q ∈ stb.pins, q.aux = aux → q.pin = Expr.mkAppN (.const Jn lvls) Ds) :
+    ∃ (idx idxC : List Expr),
+      xrestS = Expr.mkAppN (.const aux blvls) (fvsP ++ idx) ∧
+      xrestC = Expr.mkAppN (.const Jn lvls) (Ds ++ idxC) ∧
+      idx.length = idxC.length ∧
+      ∀ (k : Nat) (e eC : Expr), idx[k]? = some e → idxC[k]? = some eC → Expr.ErasedEq e eC := by
+  -- ## the container's residual at the copy's field openers
+  obtain ⟨fs₁, resid₁, hsI₁, hlenC, hshC, -⟩ := Verify.openPisAtFvars_stripPis nF hopenC
+  rw [hsI] at hsI₁
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hsI₁)
+  have hxrestC := Verify.openPisAtFvars_instSeq nF hopenC hsI
+  have hxCF : Expr.AllFvars xFvsC := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨ty, hty⟩ := hshC j (by rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1)
+    rw [hj] at hty
+    exact ⟨_, _, Option.some.inj hty⟩
+  -- ## the processed residual: the walk's output at the residual, opened
+  obtain ⟨fs', resid', hsW, -, -, -⟩ := ConLeche.replaceAllNested_stripPis nF cI hwalk hsI
+  obtain ⟨fs'', resid'', hsW', hlenW, hshW, -⟩ := Verify.openPisAtFvars_stripPis nF hopW
+  rw [hsW] at hsW'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hsW')
+  have hrestW := Verify.openPisAtFvars_instSeq nF hopW hsW
+  have hWF : Expr.AllFvars fvsW := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨ty, hty⟩ := hshW j (by rw [← hlenW]; exact (List.getElem?_eq_some_iff.mp hj).1)
+    rw [hj] at hty
+    exact ⟨_, _, Option.some.inj hty⟩
+  -- its head is the copy's: the stored residual's, up to erasure
+  have hheadS : xrestS.getAppFn = .const aux blvls := by
+    rw [hxrestS, Expr.getAppFn_mkAppN]; rfl
+  have hheadW : resid'.getAppFn = .const aux blvls := by
+    have := (Expr.ErasedEq.getAppFn_const_iff hE).mp hheadS
+    rw [hrestW] at this
+    exact (ConLeche.getAppFn_instSeq_const_iff hWF (by rw [hlenW]; omega)).mp this
+  have hspineW := Expr.mkAppN_getApp resid'
+  rw [hheadW] at hspineW
+  -- ## W2: the walk fired at the top, the index arguments verbatim
+  obtain ⟨fs₂, resid₂, hsW₂, -, -, -, hW2⟩ := ConLeche.copyCtorFields_of_walk hwalk hpi hsI hin
+  rw [hsW] at hsW₂
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hsW₂)
+  obtain ⟨I, lvls', ci, -, hciLe, hresidI, -, hargs, q, hq, hqaux, hqpin⟩ :=
+    hW2 aux blvls resid'.getAppArgs hspineW.symm haux
+  have hheadI : Jn = I ∧ lvls = lvls' := by
+    have := congrArg Expr.getAppFn hresidI
+    rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at this
+    exact Expr.const.inj this
+  obtain ⟨rfl, rfl⟩ := hheadI
+  have hargsI : (Expr.mkAppN (.const Jn lvls) (Ds ++ idx₀)).getAppArgs = Ds ++ idx₀ := by
+    rw [Expr.getAppArgs_mkAppN]; rfl
+  rw [hargsI] at hciLe hargs hqpin
+  have hDsCi : Ds.length = ci.nP := by
+    have h₁ := hpinOf q hq hqaux
+    rw [hqpin] at h₁
+    have h₂ := congrArg Expr.getAppArgs h₁
+    rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at h₂
+    have h₃ : (Ds ++ idx₀).take ci.nP = Ds := List.append_cancel_left h₂
+    have h₄ := congrArg List.length h₃
+    rw [List.length_take, List.length_append] at h₄
+    rw [List.length_append] at hciLe
+    omega
+  rw [List.drop_left' hDsCi] at hargs
+  -- ## the two residuals at the openers
+  have hrestW' : restW = Expr.mkAppN (.const aux blvls)
+      (params ++ idx₀.map (Expr.instSeq fvsW (nF - 1))) := by
+    rw [hrestW, ← hspineW, hargs, Expr.instSeq_mkAppN,
+      Expr.instSeq_eq_self _ _ (e := .const aux blvls) rfl, List.map_append,
+      List.map_congr_left (fun p hp => Expr.instSeq_eq_self _ _ (hparC p hp)), List.map_id']
+  have hxrestC' : xrestC = Expr.mkAppN (.const Jn lvls)
+      (Ds ++ idx₀.map (Expr.instSeq xFvsC (nF - 1))) := by
+    rw [hxrestC, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (e := .const Jn lvls) rfl,
+      List.map_append, List.map_congr_left (fun D hD => Expr.instSeq_eq_self _ _ (hDsC D hD)),
+      List.map_id']
+  refine ⟨idxArgs, idx₀.map (Expr.instSeq xFvsC (nF - 1)), hxrestS, hxrestC', ?_, ?_⟩
+  · rw [hxrestS, hrestW'] at hE
+    obtain ⟨-, hlenE, -⟩ := hE.getApp
+    rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at hlenE
+    simp only [List.length_append, List.length_map] at hlenE
+    rw [List.length_map]
+    have : (Expr.const aux blvls).getAppArgs.length = 0 := rfl
+    omega
+  · intro k e eC he heC
+    rw [hxrestS, hrestW'] at hE
+    obtain ⟨-, hlenE, hargsE⟩ := hE.getApp
+    rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at hargsE
+    have hnil : (Expr.const aux blvls).getAppArgs = [] := rfl
+    rw [hnil, List.nil_append, List.nil_append] at hargsE
+    have hk : k < idx₀.length := by
+      rw [List.getElem?_map] at heC
+      obtain ⟨a, ha, -⟩ := Option.map_eq_some_iff.mp heC
+      exact (List.getElem?_eq_some_iff.mp ha).1
+    obtain ⟨e₀, he₀⟩ : ∃ e₀, idx₀[k]? = some e₀ := ⟨_, List.getElem?_eq_getElem hk⟩
+    have hE₁ := hargsE (nP + k) e (Expr.instSeq fvsW (nF - 1) e₀)
+      (by rw [List.getElem?_append_right (by omega), hfvsPlen, Nat.add_sub_cancel_left]; exact he)
+      (by rw [List.getElem?_append_right (by omega), hparamsLen, Nat.add_sub_cancel_left,
+        List.getElem?_map, he₀]; rfl)
+    have heC' : eC = Expr.instSeq xFvsC (nF - 1) e₀ := by
+      rw [List.getElem?_map, he₀] at heC
+      exact (Option.some.inj heC).symm
+    rw [heC']
+    refine hE₁.trans (Expr.instSeq_erasedEq_args _ _ _ (Expr.ErasedEq.rfl _) ?_ (by rw [hlenW, hlenC]))
+    intro j a₁ a₂ ha₁ ha₂
+    obtain ⟨ty₁, hty₁⟩ := hshW j (by rw [← hlenW]; exact (List.getElem?_eq_some_iff.mp ha₁).1)
+    obtain ⟨ty₂, hty₂⟩ := hshC j (by rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp ha₂).1)
+    rw [ha₁] at hty₁
+    rw [ha₂] at hty₂
+    obtain rfl := Option.some.inj hty₁
+    obtain rfl := Option.some.inj hty₂
+    exact rfl
+
 end ConLeche.Model
