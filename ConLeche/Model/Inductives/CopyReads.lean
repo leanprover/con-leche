@@ -258,6 +258,9 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
         t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧
         t₀.type.hasFvar = false) ∧
+      -- the block's RECURSOR names are fresh before the block (task #309):
+      -- what the formers' model of `env₁` is built from (`nestedFormersModel`)
+      (∀ t, t < b.k → env.find? (b.recName t) = none) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         ∀ (j : Nat), j < st.pins.length →
@@ -379,6 +382,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     hcont, hcore, hstored, hpc, hK20, hK23, hK17, hpo,
     ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs,
       by rw [htS0ty]; exact hnf₀'⟩,
+    fun t ht => (nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm t ht).1,
     mpAux, d, hreps₀, hchk, hag, ?_⟩
   intro j hj
   -- the copy's origin
