@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclMutual
 public import ConLeche.Semantics.Inductives.DeclNested
 import ConLeche.Verify.Inductives.NestedFacts
+import ConLeche.Verify.Inductives.NestedMention
 import ConLeche.Verify.Extend.Inversions
 public section
 
@@ -72,27 +73,6 @@ theorem auxParts_toBlock (b : MutualBlock) : (auxParts b).toBlock = b := by
   cases b with
   | mk formers ctors nP lps large elim =>
     simp [auxParts, MutualParts.toBlock, List.map_map, Function.comp_def]
-
-/-! ## The block's own types, as the elimination takes them -/
-
-/-- The block's own types as `elimNested` takes them (K.12: built from
-the ANNOTATED formers and constructors): member `mIdx`'s annotated
-former with its own annotated constructors. -/
-theorem nestedTypes0_getElem? (p : NestedParts) (fmsA ctorsA : List ConstantVal) (t : Nat) :
-    (ConLeche.nestedTypes0 p fmsA ctorsA)[t]? = (fmsA[t]?).map fun cvT =>
-      (⟨cvT.name, cvT.type,
-        (p.ctors.zip ctorsA).filterMap fun (c, cvCa) =>
-          if c.member == t then some (cvCa.name, cvCa.type, c.nF) else none⟩ : AuxType) := by
-  unfold ConLeche.nestedTypes0
-  rw [List.getElem?_map, List.getElem?_zipIdx]
-  cases fmsA[t]? with
-  | none => rfl
-  | some q => simp
-
-/-- The block's own types are as many as its annotated formers. -/
-theorem nestedTypes0_length (p : NestedParts) (fmsA ctorsA : List ConstantVal) :
-    (ConLeche.nestedTypes0 p fmsA ctorsA).length = fmsA.length := by
-  simp [ConLeche.nestedTypes0]
 
 /-! ## The auxiliary block's model -/
 

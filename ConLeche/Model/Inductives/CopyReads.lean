@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.DeclNested
 public import ConLeche.Verify.Inductives.NestedCtors
 import ConLeche.Verify.Inductives.NestedLedger
 import ConLeche.Verify.Inductives.NestedLeaves
+public import ConLeche.Verify.Inductives.NestedMention
 import ConLeche.Verify.Inductives.AuxFormers
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -138,6 +139,48 @@ invariant beside the ledger) — `pinsAtOpeners_of_run` below. -/
 @[expose] def PinsAtOpeners (st : ElimState) (params : List Expr) : Prop :=
   ∀ q ∈ st.pins, ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ params
 
+/-- **The pins mention only pre-block constants and the block's own
+REAL members** (task #308, DESIGN §M.48): the block's parameter
+openers carry annotations that resolve before the block, and every
+pin's components mention only constants the pre-block environment
+carries or the block's own members — never a COPY.  Proved of the run
+by `Verify/Inductives/NestedMention.lean`
+(`elimNested_pinsMentionOnly`, the instance of the elimination's
+mention invariant) — `pinsMentionReal_of_run` below. -/
+@[expose] def PinsMentionReal (env : Env) (st : ConLeche.ElimState) (params : List Expr)
+    (k : Nat) : Prop :=
+  (∀ x ∈ params, Expr.MentionsOnly (fun n => (env.find? n).isSome = true) x) ∧
+  ∀ q ∈ st.pins, Expr.MentionsOnly
+    (fun n => (env.find? n).isSome = true ∨ n ∈ (st.types.map (·.name)).take k) q.pin
+
+/-- **The mention invariant, from the run**: the containers resolve in
+`env` (`EnvWF`), the block's own annotated formers and constructors
+resolve at their own environments (`checkConstantVal`'s front door),
+and `elimNested_mentionInv` carries the invariant to the pins. -/
+theorem pinsMentionReal_of_run {μ : CheckMode} {F : Nat} {env : Env} {p : ConLeche.NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ConLeche.ElimState} {t₀ : AuxType}
+    {params : List Expr} {body : Expr} (mp : EnvModelM V μ env)
+    (hannF : ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p.nP
+      p.formers = .ok fmsA)
+    (hannC : ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA)
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st)
+    (ht₀ : (ConLeche.nestedTypes0 p fmsA ctorsA).head? = some t₀)
+    (hop : ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body))
+    (hk : fmsA.length = p.k) :
+    PinsMentionReal env st params p.k := by
+  obtain ⟨hres, hpins⟩ :=
+    ConLeche.elimNested_pinsMentionOnly mp.base2.wf hannF hannC helim
+  have hres₀ : t₀.type.constsResolve env = true := hres t₀ (by rw [ht₀]; exact rfl)
+  refine ⟨(ConLeche.openPisAtFvars_mentionsOnly p.nP hop
+    (Expr.mentionsOnly_of_constsResolve hres₀)).1, fun q hq => ?_⟩
+  -- the real members' names are the elimination's first `p.k` type names
+  have hnames : (st.types.map (·.name)).take p.k = fmsA.map (·.name) := by
+    rw [ConLeche.elimNested_names helim, ConLeche.nestedTypes0_names,
+      List.take_left' (by rw [List.length_map]; exact hk)]
+  rw [hnames]
+  exact hpins q hq
+
 /-- **The pins' leaves are the openers, from the run**: the containers'
 stored types are closed under the model's `EnvWF`, the block's own
 annotated types are closed, and `elimNested_leaves` carries the leaf
@@ -252,6 +295,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
         (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.nP
         (ConLeche.nestedCtorPairs b stored) = .ok () ∧
       PinsAtOpeners st params ∧
+      PinsMentionReal env st params p.k ∧
       (∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
         ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
         t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧
@@ -372,8 +416,10 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     rwa [Nat.zero_add] at h
   obtain ⟨hbsNF, -⟩ := ConLeche.stripPis_not_hasFvar p.nP hstrip hnf₀'
   have hpo : PinsAtOpeners st params := pinsAtOpeners_of_run mp hannC helim ht₀ hnf₀' hop
+  have hmo : PinsMentionReal env st params p.k :=
+    pinsMentionReal_of_run mp hannF hannC helim ht₀ hop hfmsLen
   refine ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfresh,
-    hcont, hcore, hstored, hpc, hK20, hK17, hpo,
+    hcont, hcore, hstored, hpc, hK20, hK17, hpo, hmo,
     ⟨tS0, body, body₀, htS0, by rw [htS0ty]; exact hop, by rw [htS0ty]; exact hstrip, hpbs,
       by rw [htS0ty]; exact hnf₀'⟩,
     mpAux, d, hreps₀, hchk, hag, ?_⟩
