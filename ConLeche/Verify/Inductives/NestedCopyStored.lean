@@ -709,25 +709,6 @@ theorem openPisAtFvars_leavesBounded {k : Nat} {e : Expr} {d : Nat} {fvs : List 
   simp only [Expr.fvarTypeD] at hl
   simp [Expr.fvarLeaves, hl]
 
-/-- A lookup in the environment holding the annotated formers is a
-lookup below or a former's name. -/
-theorem nestedFormerEnv_find? {fmsA : List ConstantVal} {env : Env} {n : Name}
-    {c : ConstantInfo} (h : (nestedFormerEnv fmsA env).find? n = some c) :
-    (env.find? n).isSome = true ∨ n ∈ fmsA.map (·.name) := by
-  unfold nestedFormerEnv Env.find? at h
-  rw [List.find?_append] at h
-  cases hf : List.find? (fun c => c.name == n) (fmsA.map fun cv => ConstantInfo.indInfo cv {}).reverse with
-  | none =>
-    rw [hf] at h
-    simp only [Option.none_or] at h
-    exact Or.inl (by rw [Env.find?, h]; rfl)
-  | some c' =>
-    have hmem := List.mem_of_find?_eq_some hf
-    have hn := List.find?_some hf
-    rw [List.mem_reverse, List.mem_map] at hmem
-    obtain ⟨cv, hcv, rfl⟩ := hmem
-    exact Or.inr (List.mem_map.mpr ⟨cv, hcv, beq_iff_eq.mp hn⟩)
-
 /-! ## The pin round trip, up to erasure -/
 
 /-- Closing then re-opening a binder body is the identity up to

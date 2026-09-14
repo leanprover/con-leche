@@ -77717,6 +77717,147 @@ needs `(d := d)` given explicitly.
 clean; `tests/no-local-paths.sh` OK.  No `sorry`, no axiom, no kernel
 change, no new `IndRep` field.
 
+#### M.48 — task #308: the ledger conjuncts, and the three facts they discharge (2026-09-14)
+
+**Context.**  §M.46 (task #307) assembled `copyWalkFacts_of_run` and
+left five facts NAMED, three of them for want of data the ledger did
+not record: `PinsMentionMember` (finding (a): the ledger keeps the
+mint's data but not the `nestedOccOk` test that caused it),
+`ResidContent` (finding (b): `CopyCtorsStored` relates the walk's
+states to the final one by their PIN lists only) and
+`ContainerCtorsNoAux` (finding (c): `ContainersMentionOnly` had no
+instantiation in the tree).  This session records what was missing and
+discharges all three.  No kernel change, no new `IndRep` field.
+
+**The ledger's new conjuncts** (`Verify/Inductives/NestedLedger.lean`).
+
+* **The fire's own witness.**  `MintStep.mint` gains
+  `∃ D ∈ Ds, ∃ T ∈ st.newNames, D.mentionsConst T = true` —
+  `nestedOccOk`'s `isNested`, read off the same split
+  `nestedOccOk_closed_of` already uses (`nestedOccOk_mention_of`).  It
+  travels to `PinOriginAt` at the AMBIENT state and is preserved by a
+  mint and by the worklist's `set` through `ElimGrows.newNames_mono`,
+  so `PinOriginAt.mono` takes an `ElimGrows st st'` as well.
+* **The states, by NAMES not just pins.**  `PinOriginAt`'s processed
+  clause now says `ElimGrows st₁ st ∧ ElimGrows st₂ st` (replacing the
+  two pin prefixes) and `k + j < st₁.types.length` (the worklist
+  reached the copy's own entry — `elimLoop`'s `st.types[qhead]?`).
+  `elimCtors_getElem?` reports `ElimGrows stb st'` for the same reason.
+* **`CopyCtorsStored`** therefore carries `ElimGrows stb st` and the
+  copy's own name `q.aux ∈ (stb.types.map (·.name)).drop p.k` — the
+  two inputs `copyResid_of_stored` was missing.  Five destructuring
+  sites take one more binder.
+
+`ElimGrows`' kit moves down to `NestedFacts` beside its definition
+(`newNames_mono`, `copyNames_mono`, `types_length_le`, plus
+`pins_prefix` and `elimGrows_set`: rewriting a type's CONSTRUCTORS
+in place changes no name), and `nestedFormerEnv_find?` with it.
+
+**The mention invariant, instantiated**
+(`Verify/Inductives/NestedMention.lean`, new, on the root umbrella).
+`elimNested_mentionInv` had no instance anywhere; this file gives it
+one, at
+
+```
+ok n := (env.find? n).isSome = true ∨ n ∈ the block's own member names
+```
+
+and proves its three hypotheses of the run: `containersMentionOnly_of_wf`
+(a container's members are stored inductives and their constructors
+stored constructors, whose types `constsResolve env` by `EnvWF`); the
+block's own annotated formers and constructors resolve at their own
+environments — `checkConstantVal` asks `constsResolve` of the
+ANNOTATED type (`FormerFront.resolve`), the formers at `env` and the
+constructors at `nestedFormerEnv fmsA env`, and a lookup there is a
+lookup below or a former's name.  The conclusion
+(`elimNested_pinsMentionOnly`) is that a pin's components mention only
+pre-block constants and the block's REAL members — never a copy, which
+is minted fresh (`copiesFresh`) and is not a member (`nestedBlockNames_nodup`).
+
+Beside it, the bridge the consumers need:
+`Expr.mentionsConstE_of_mentionsConst` — when no `fvar` leaf's
+annotation mentions `T`, a `mentionsConst` is a BLIND `mentionsConstE`
+(the converse of `mentionsConst_of_mentionsConstE`).
+`nestedTypes0_getElem?`/`_length` move here from
+`Model/Inductives/DeclNested.lean`, with `nestedTypes0_names`.
+
+At the run the invariant is `PinsMentionReal env st params p.k`
+(`Model/Inductives/CopyReads.lean`, beside `PinsAtOpeners`, proved by
+`pinsMentionReal_of_run` and threaded through `copyIdxRead_of_run` and
+`pinFacts_of_run` exactly as `PinsAtOpeners` is).  Its first component
+— the parameter openers mention only constants `env` carries — is what
+makes the blind bridge apply: a component's `fvar` leaves ARE those
+openers (`PinsAtOpeners`), and a block member is fresh before the
+block, so it can never sit inside an annotation.
+
+**The three discharges** (`Model/Inductives/CopyWalkFactsRunAssembly.lean`,
+all inline at their single use, so the three definitions are deleted).
+
+1. `PinsMentionMember`: the ledger's witness gives `D.mentionsConst T`
+   for a `T` among the state's type names; `PinsMentionReal` says `T`
+   is `ok`, and a copy is neither stored nor a real member, so `T` is
+   `d.memberName t` with `t < p.k`; the bridge makes the mention blind.
+2. `ContainerCtorsNoAux`: the container's constructor at the pin is its
+   stored type (which resolves in `env`) instantiated at the
+   components, so `MentionsOnly ok cI`; every table name is fresh and
+   is no real member, hence `¬ ok`, hence not mentioned — blindly
+   either.
+3. `ResidContent`: `copyResid_of_stored` at last has its inputs —
+   `hin` from `ElimGrows stb st` + `ElimGrows.copyNames_mono` +
+   `MentionsOnly ok cI`, `haux` from `CopyCtorsStored`'s new conjunct,
+   `hxrestS` from `checkMutualCtor_front`'s third conjunct read at the
+   datum's own openers (`FixCtorDataI.opens`) with the head identified
+   through `FormerFront.name`/`memberNames_getD`/`hpinName`, `hE` from
+   `normCtorValM_residual` against `openPisAtFvars_add'`, and
+   `hpinOf` from `memberName_inj` (a pin is determined by its copy's
+   name).
+
+**What `copyCtorsRead_of_run'` still asks**, verbatim:
+
+```
+NestedGroupExclusionOk env envAux p st →
+(∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) →
+ContainerLpsNodup env →
+WhnfContent F (consNestedFormers (stored.take p.k) env) p st
+  (restoreTbl p st) mpAux d ψ cd →
+CopyCtorsRead mpAux d ψ st p.k st.pins.length cd
+```
+
+i.e. K.23 with the container datum's side, K.21, and M-D′ D2's
+`WhnfContent` — another lane's.  Nothing of §M.46's items 3, 4 and 5
+remains.
+
+**Findings, with cost.**
+
+(a) The mention invariant is cheaper than the "components never mention
+a copy" induction §M.46 sketched over the walk's top-down discipline:
+`elimNested_mentionInv` already carries exactly that, and the only work
+is choosing `ok` and feeding it — two hours, against a fresh induction
+on `replaceAllNested`.  The choice matters: the `_nested` reserved
+PREFIX is NOT usable as `ok` (the environment may hold a `_nested`-named
+declaration — only a block's declared types are guarded against
+MENTIONING one), while "resolves in `env`" is, because
+`mkUniqueName` never returns a name `env` carries.
+
+(b) `ElimGrows st₁ st` rather than §M.46's suggested
+`ElimGrows ⟨types0, [], 1⟩ st₁`: the relative form is what
+`copyResid_of_stored` consumes, it needs no `types0` in `PinOriginAt`,
+and it is preserved by the worklist's `set` for free
+(`elimGrows_set`).
+
+(c) Lean traps met again: `obtain rfl : qe = q` deletes the theorem's
+own `q` (state the equation with the name to KEEP on the left); an
+`obtain ⟨rfl, rfl⟩` on `fvsPS = d.fvsPF Ja ∧ crestS = crest` keeps the
+NON-variable side, so the later reference is `crestS`, not `crest`; and
+`b.nP`/`p.nP`/`d.nP` need their rewrites in the right order
+(`auxBlock_inv` first, then `hnP`) — a `rw` list is applied left to
+right and the second step fails once the first has consumed the
+pattern.
+
+**Gates**: `lake build` 646 jobs warning-free; `lake test` 523 jobs
+clean; `tests/no-local-paths.sh` OK.  No `sorry`, no axiom, no kernel
+change, no new `IndRep` field, no `maxHeartbeats` raise.
+
 #### K/M — task #306: the downward reading transfer (2026-09-14)
 
 M.44 named `denoteMeta`'s DOWNWARD crossing as a missing fact: every

@@ -169,7 +169,7 @@ theorem copyCtorFacts_of_read {μ : CheckMode} {F : Nat} {env envAux : Env}
   -- the copy's constructor, from the mint to the store
   obtain ⟨tyA, htyA, htyAn, hlenA, env₁, fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors,
     hlenCA, hallC⟩ := hcst₂
-  obtain ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalk, hsta, hstb, -, htyl,
+  obtain ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalk, hsta, hstb, -, -, htyl,
     hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
   -- the stage's list is the datum's
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj (hformers'.symm.trans hformers))

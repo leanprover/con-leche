@@ -54,15 +54,6 @@ namespace ConLeche
 @[expose] def ElimState.PinsNamed (st : ElimState) : Prop :=
   ∀ q ∈ st.pins, q.aux ∈ st.newNames
 
-/-- The type names only grow. -/
-theorem ElimGrows.newNames_mono {st st' : ElimState} (h : ElimGrows st st') :
-    ∀ T ∈ st.newNames, T ∈ st'.newNames := by
-  obtain ⟨new, -, hnames⟩ := h
-  intro T hT
-  show T ∈ st'.types.map (·.name)
-  rw [hnames]
-  exact List.mem_append_left _ hT
-
 /-- `PinsNamed` across a growth: the old pins' names are kept, the new
 pins' names are the appended types'. -/
 theorem ElimState.PinsNamed.grows {st st' : ElimState} (hpn : st.PinsNamed)

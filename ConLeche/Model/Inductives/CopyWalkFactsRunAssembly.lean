@@ -28,20 +28,22 @@ pair (`nestedCtorPairs_mem`), the table's well-formedness
 block's name discipline — so `CopyWalkFacts` is a READ off the run and
 `copyCtorsRead_of_run` loses its first premise.
 
-Three facts stay NAMED (DESIGN §M.46), each stated once here:
+Two facts stay NAMED, each stated once here:
 
 * `NestedGroupExclusionOk env envAux p st` (K.23, the kernel lane's
   record; discharged at `copyCtorsRead_of_run'` by
   `nestedGroupExclusionOk_inv`) — the container datum's side
   `IndRepData.OrdNotRec` is `ContainersRep`'s conjunct, read off
   `PinFacts.ordNotRec` (task #279 M-D′ D3);
-* the containers' level parameters are distinct (K.21);
-* `PinsMentionMember` — the pins' components mention a block member
-  (the ledger's conjunct: a pin exists because `replaceIfNested` found
-  a member mention);
-* `ResidContent` — the residual's W2 clause, which `copyResid_of_stored`
-  proves from the walk's states and whose two inputs the run does not
-  expose (DESIGN §M.46's finding).
+* the containers' level parameters are distinct (K.21).
+
+The three DESIGN §M.46 left named at this step are gone (task #308,
+DESIGN §M.48): the ledger records the occurrence test that made the
+walk fire and the walk's states against the final one, and
+`Verify/Inductives/NestedMention.lean` carries the elimination's
+mention invariant to the run (`PinsMentionReal`), so the pins' mention
+of a REAL member, the container constructors' blindness to the table's
+names and the residual clause (W2) are all read off the run here.
 -/
 
 namespace ConLeche.Model
@@ -59,62 +61,12 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The named facts of this step -/
 
-/-- **The pins' components mention a block member** (DESIGN §M.46, the
-ledger's conjunct): a pin exists because `replaceIfNested` fired, and
-it fires only where a container's PARAMETER argument mentions a type of
-the growing list.  Not recorded: `MintStep`/`PinOriginAt` keep the
-mint's data, not the occurrence check that caused it. -/
-@[expose] def PinsMentionMember (d : IndRepData V) (st : ElimState) (k₀ : Nat) : Prop :=
-  ∀ q ∈ st.pins, ∃ D ∈ q.pin.getAppArgs, ∃ t, t < k₀ ∧ D.mentionsConstE (d.memberName t) = true
-
-/-- **The residual of a copy's constructor, against the container's at
-the pin** (DESIGN §M.46): W2 — the walk fired at the top of the
-constructor's body, so the stored residual is the copy at its own
-parameter openers and the container's index arguments up to erasure.
-`copyResid_of_stored` proves it of the walk's states; the run does not
-relate those states' TYPE lists to the final one (only their pin
-lists), so the clause is named here. -/
-@[expose] def ResidContent (p : ConLeche.NestedParts) (st : ElimState) (d : IndRepData V)
-    (cd : Nat → CopyData V) : Prop :=
-  ∀ (j' : Nat), j' < st.pins.length → ∀ (q : NestedPin) (lvls : List Level) (Ds : List Expr),
-    st.pins[j']? = some q → q.pin = Expr.mkAppN (.const q.container lvls) Ds →
-    ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), (cd j').dJ.ctorsA[Jc]? = some cAJ →
-    ∀ cI : Expr,
-      Expr.instPis (cAJ.1.type.instantiateLevelParams cAJ.1.levelParams lvls) Ds = some cI →
-    ∀ (xFvsC : List Expr) (xrestC : Expr),
-      ConLeche.openPisAtFvars cAJ.2 cI d.nP = some (xFvsC, xrestC) →
-      ∃ (aux : Name) (idx idxC : List Expr),
-        d.xrestF (auxOfsOf st p.k cd j' Jc)
-          = Expr.mkAppN (.const aux (p.lps.map Level.param))
-              (d.fvsPF (auxOfsOf st p.k cd j' Jc) ++ idx) ∧
-        xrestC = Expr.mkAppN (.const ((cd j').dJ.memberName ((cd j').dJ.mems Jc)) lvls)
-            (Ds ++ idxC) ∧
-        idx.length = idxC.length ∧
-        ∀ (k : Nat) (e eC : Expr), idx[k]? = some e → idxC[k]? = some eC → Expr.ErasedEq e eC
-
 /-- **The containers' level parameters are distinct** (K.21): what a
 container's own install checked (`FormerFront.lpsNodup`) and the
 model's `IndRep` does not record. -/
 @[expose] def ContainerLpsNodup (env : Env) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (caps : IndCaps), env.find? n = some (.indInfo cv caps) →
     cv.levelParams.Nodup
-
-
-/-- **The container's instantiated constructor mentions no table name**
-(DESIGN §M.46, item (ii)): the pin's constructor, instantiated at the
-pin's components, mentions none of the restore table's names — the
-copies, their constructors and their recursors.  The elimination's
-mention invariant (`elimNested_mentionInv` at `ok n := (env.find? n).isSome
-∨ n ∈ the block's own members`) is what proves it; it is not threaded
-through the run. -/
-@[expose] def ContainerCtorsNoAux (p : ConLeche.NestedParts) (st : ElimState)
-    (cd : Nat → CopyData V) : Prop :=
-  ∀ (j' : Nat), j' < st.pins.length → ∀ (q : NestedPin) (lvls : List Level) (Ds : List Expr),
-    st.pins[j']? = some q → q.pin = Expr.mkAppN (.const q.container lvls) Ds →
-    ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), (cd j').dJ.ctorsA[Jc]? = some cAJ →
-    ∀ cI : Expr,
-      Expr.instPis (cAJ.1.type.instantiateLevelParams cAJ.1.levelParams lvls) Ds = some cI →
-      ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, cI.mentionsConstE n = false
 
 
 /-! ## A recovered group holds its own name -/
@@ -226,7 +178,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       (ConLeche.nestedCtorPairs b stored) = .ok ())
     (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st)
     (hparamsLen : params.length = p.nP)
-    (hpo : PinsAtOpeners st params)
+    (hpo : PinsAtOpeners st params) (hmo : PinsMentionReal env st params p.k)
     (hhead : ∃ (t₀ : AuxType) (body body₀ : Expr), st.types[0]? = some t₀ ∧
       ConLeche.openPisAtFvars p.nP t₀.type 0 = some (params, body) ∧
       t₀.type.stripPis p.nP = some (pbs, body₀) ∧ pbs.length = p.nP ∧ t₀.type.hasFvar = false)
@@ -234,13 +186,11 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hK23 : NestedGroupExclusionOk env envAux p st)
     (hONR : ∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ)
-    (hlpsNodup : ContainerLpsNodup env)
-    (hmention : PinsMentionMember d st p.k)
-    (hnoAux : ContainerCtorsNoAux p st cd)
-    (hresidC : ResidContent p st d cd) :
+    (hlpsNodup : ContainerLpsNodup env) :
     CopyWalkFacts μ F (ConLeche.consNestedFormers (stored.take p.k) env) p st
       (ConLeche.restoreTbl p st) params d cd := by
   intro j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI
+  obtain ⟨hmoP, hmoQ⟩ := hmo
   -- the block's shape
   have hreps' := hreps
   obtain ⟨-, hkb, hkRb, hnPb, -, hviewAll, hnames, hall⟩ := hreps
@@ -286,7 +236,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨tyA, htyA, htyAn, hlenA, env₁', fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors,
     hlenCA, hallC⟩ := hcst₂
   obtain ⟨cI₀, cbody, body', pbs', rest, sta, stb, cA, hcI₀, hstrip', hinst, hwalkC, hsta, hstb,
-    hpi, htyl, hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
+    hpi, hauxIn, htyl, hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
   -- the stage's list is the datum's
   obtain ⟨env₁'', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, hkinds, hmems⟩ := hchk
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj (hformers'.symm.trans hformers))
@@ -482,6 +432,33 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       refine hdisjMR _ (List.mem_append_left _ (hmemNameB t (by omega)).1) _ ?_ hEq
       rw [← hnm]
       exact hrecNameB _ (by omega)
+  -- ## the block's REAL members, and the table's names against them
+  -- (task #308: the mention invariant's `ok` predicate, at this run)
+  have hmemTake : ∀ n, n ∈ (st.types.map (·.name)).take p.k ↔ ∃ t, t < p.k ∧ d.memberName t = n := by
+    intro n
+    constructor
+    · intro hn
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hn
+      have htlt : t < p.k := by
+        have := (List.getElem?_eq_some_iff.mp ht).1
+        rw [List.length_take] at this; omega
+      rw [List.getElem?_take_of_lt htlt, List.getElem?_map] at ht
+      obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp ht
+      exact ⟨t, htlt, hmemberTy t ty hty (by omega)⟩
+    · rintro ⟨t, htlt, rfl⟩
+      obtain ⟨ty, hty⟩ : ∃ ty, st.types[t]? = some ty :=
+        ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      refine List.mem_of_getElem? (i := t) ?_
+      rw [List.getElem?_take_of_lt htlt, List.getElem?_map, hty, hmemberTy t ty hty (by omega)]
+      rfl
+  have hnotOk : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames,
+      ¬ ((env.find? n).isSome = true ∨ n ∈ (st.types.map (·.name)).take p.k) := by
+    intro n hn hok
+    obtain ⟨hfr, hne⟩ := hauxFresh n hn
+    rcases hok with hok | hok
+    · rw [hfr] at hok; exact nomatch hok
+    · obtain ⟨t, htlt, hEq⟩ := (hmemTake n).mp hok
+      exact hne t htlt hEq
   -- ## every pin's group recovers itself, and its components count
   have hpinArity : ∀ (jq : Nat) (qq : NestedPin), st.pins[jq]? = some qq →
       ∃ ciq : ContainerInfo, ConLeche.containerInfo? env qq.container = some ciq ∧
@@ -490,7 +467,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     have hjq : jq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
     obtain ⟨t₀e, paramse, bodye, pbse, body₀e, ht₀e, hope, hstripe, Ie, cie, ie, j₀e, Je, lvlse,
       Dse, qe, copye, st₁e, st₂e, cs'e, hcie, hJe, hjEe, hgrpe, hqe, hqce, hqpe, hqbe, hqse, hmke,
-      hDse, hpbse, hDsLene, htye, helimCe, -, hst₂e, hpie, -⟩ := ConLeche.elimNested_copy helim hjq
+      hDse, -, hpbse, hDsLene, htye, helimCe, -, hst₂e, hpie, -, -⟩ :=
+      ConLeche.elimNested_copy helim hjq
     obtain rfl : qe = qq := Option.some.inj (hqe.symm.trans hqq)
     have hgrpOke : ConLeche.containerGroupOk env cie = true :=
       containerGroupOk_of_pins hcont hcie (fun i' J' hJ' => by
@@ -615,11 +593,63 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     refine ConLeche.instPis_looseBVarsBounded Ds hcI' ?_ hDsC
     rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams, htypeC]
     exact hcTyB
+  -- ## the container's constructor at the pin mentions no table name
+  -- (task #308, DESIGN §M.46's item (ii)): the stored constructor
+  -- resolves in `env` and the components mention only pre-block
+  -- constants and the block's REAL members, while every table name is
+  -- fresh and is none of those
+  have hcIok : Expr.MentionsOnly
+      (fun n => (env.find? n).isSome = true ∨ n ∈ (st.types.map (·.name)).take p.k) cI := by
+    refine Expr.MentionsOnly.instPis hcI' (Expr.MentionsOnly.instantiateLevelParams ?_ _ _) ?_
+    · rw [htypeC, hctyEq]
+      exact (Expr.mentionsOnly_of_constsResolve hcWF.2.2.1).mono (fun _ h => Or.inl h)
+    · intro D hD
+      refine (hmoQ q (List.mem_of_getElem? hq)).getAppArgs D ?_
+      rw [hqp₀, Expr.getAppArgs_mkAppN]
+      simpa [Expr.getAppArgs] using hD
+  have hcIaux : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, cI.mentionsConstE n = false := by
+    intro n hn
+    refine Bool.eq_false_iff.mpr fun hm => hnotOk n hn ?_
+    exact hcIok n (Expr.mentionsConst_of_mentionsConstE cI hm)
+  -- ## the pin's components mention a REAL member (task #308, item (i)):
+  -- the ledger records the occurrence test that made the walk fire, and
+  -- the name it found is not a copy's
   have hDsMention : ∃ D ∈ Ds, ∃ t, t < p.k ∧ D.mentionsConstE (d.memberName t) = true := by
-    obtain ⟨D, hD, hmt⟩ := hmention q (List.mem_of_getElem? hq)
-    refine ⟨D, ?_, hmt⟩
-    rw [hqp₀, Expr.getAppArgs_mkAppN] at hD
-    simpa [Expr.getAppArgs] using hD
+    obtain ⟨t₀e, paramse, bodye, pbse, body₀e, ht₀e, hope, hstripe, Ie, cie, ie, j₀e, Je, lvlse,
+      Dse, qe, copye, st₁e, st₂e, cs'e, hcie, hJe, hjEe, hgrpe, hqe, hqce, hqpe, hqbe, hqse, hmke,
+      hDse, hocce, hpbse, hDsLene, htye, helimCe, -, -, -, -, -⟩ :=
+      ConLeche.elimNested_copy helim hj'
+    obtain rfl : q = qe := (Option.some.inj (hqe.symm.trans hq)).symm
+    have hDsE : Dse = Ds := by
+      have h₂ := congrArg Expr.getAppArgs (hqpe.symm.trans hqp₀)
+      rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN] at h₂
+      simpa [Expr.getAppArgs] using h₂
+    rw [hDsE] at hocce
+    obtain ⟨D, hD, T, hT, hm⟩ := hocce
+    have hDargs : D ∈ q.pin.getAppArgs := by
+      rw [hqp₀, Expr.getAppArgs_mkAppN]
+      simpa [Expr.getAppArgs] using hD
+    have hokT := (hmoQ q (List.mem_of_getElem? hq)).getAppArgs D hDargs T hm
+    have hTreal : ∃ t, t < p.k ∧ d.memberName t = T := by
+      refine (hmemTake T).mp ?_
+      have hTmem : T ∈ st.types.map (·.name) := hT
+      rw [← List.take_append_drop p.k (st.types.map (·.name))] at hTmem
+      rcases List.mem_append.mp hTmem with h | h
+      · exact h
+      · exact absurd hokT (hnotOk T (hcopyAux T h))
+    obtain ⟨t, htlt, rfl⟩ := hTreal
+    refine ⟨D, hD, t, htlt, ?_⟩
+    -- the mention is BLIND: the components' leaves are the block's
+    -- parameter openers, whose annotations resolve before the block
+    refine Expr.mentionsConstE_of_mentionsConst D (fun l hl => ?_) hm
+    have hlq : l ∈ q.pin.fvarLeaves := by
+      rw [hqp₀]; exact mem_fvarLeaves_mkAppN_arg Ds _ hD l hl
+    have hlp : Expr.fvar l.1 l.2 ∈ params := hpo q (List.mem_of_getElem? hq) l hlq
+    refine Bool.eq_false_iff.mpr fun hml => ?_
+    have hres : (env.find? (d.memberName t)).isSome = true := hmoP _ hlp (d.memberName t)
+      (show Expr.mentionsConst (d.memberName t) (Expr.fvar l.1 l.2) = true from hml)
+    rw [hrealFresh t (by omega)] at hres
+    exact nomatch hres
   -- ## the pins' shapes
   have hpinAll2 : ∀ (jq : Nat) (qq : NestedPin), st.pins[jq]? = some qq →
       ∃ (lvls' : List Level) (Ds' : List Expr),
@@ -764,27 +794,128 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       (ConLeche.nestedCtorPairs b stored) = .ok () := by rw [hnP]; exact hK17
   have hfields := copyFields_of_whnfOk hRwf hRwf.toNamed hRnP hpF hcF hpB hRwf.ctorPinsBounded
     hst₀' hop₀' hnf₀ hP hK17' hpairMem rfl hstrip'' hinst hwalkC
-    (fun qq hqq => hstb.subset hqq) hcvF hcvB hcIL hcIB
-    (hnoAux j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI) hopenS hop1 hop2 hffS.noFvar
+    (fun qq hqq => hstb.pins_prefix.subset hqq) hcvF hcvB hcIL hcIB
+    hcIaux hopenS hop1 hop2 hffS.noFvar
   have hlpsT : cvT₀.levelParams = p.lps := by
     rw [← hDfacts.2.1]
     rcases hstores with h | ⟨ty', h⟩ <;> rw [h]
+  -- ## the residual (W2, DESIGN §M.48, §M.46's item (i)): the stored
+  -- residual is the copy at its own openers, `≈` the processed one,
+  -- whose head is the copy — so the walk FIRED at the top
+  have hcbody : cbody = cI :=
+    Option.some.inj (hinst.symm.trans
+      (ConLeche.instPis_closeTelescope_leaves hst₀' hop₀' hnf₀ hcIL hcIB))
+  have hwalkI : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs sta cI
+      = .ok (body', stb) := by rw [← hcbody]; exact hwalkC
+  have hparC : ∀ x ∈ params, x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
+    obtain ⟨ty, rfl⟩ := hshape i x hi
+    rfl
+  have hparL : ∀ x ∈ params, Expr.LeavesIn params x :=
+    ConLeche.openPisAtFvars_leavesIn hop₀' hnf₀
+  have hbody'L : Expr.LeavesIn params body' :=
+    ConLeche.replaceAllNested_leavesIn hparL cI hwalkI hcIL
+  have hbody'B : body'.looseBVarsBounded 0 = true :=
+    ConLeche.replaceAllNested_looseBVarsBounded hparC cI hwalkI hcIB
+  -- the processed constructor's binders ARE the head former's
+  have hpbsF : ∀ bb ∈ pbs, bb.1.hasFvar = false := (ConLeche.stripPis_not_hasFvar _ hst₀' hnf₀).1
+  obtain ⟨r₀, hr₀⟩ := ConLeche.stripPis_closeTelescope_of_not_hasFvar pbs 0 cI hpbsF
+  rw [show pbs.length = d.nP from by rw [hnP]; exact hpbsLen] at hr₀
+  have hpbsE : pbs' = pbs := (Prod.mk.inj (Option.some.inj (hstrip''.symm.trans hr₀))).1
+  -- the processed constructor, opened at the block's parameters
+  have hopM₁ : ConLeche.openPisAtFvars d.nP
+      (ConLeche.closeTelescope pbs' 0 body') 0 = some (params, body') := by
+    rw [hpbsE]
+    exact ConLeche.openPisAtFvars_closeTelescope_leaves hst₀' hop₀' hnf₀ hbody'L hbody'B
+  -- the walked body, per field
+  obtain ⟨fsI, residI, hsI', -, -, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis cAJ.2 hopen
+  obtain ⟨fsW, residW, hsW, -, -, -⟩ :=
+    ConLeche.replaceAllNested_stripPis cAJ.2 cI hwalkI hsI'
+  obtain ⟨fvsW, restW, hopW⟩ := ConLeche.openPisAtFvars_of_stripPis' cAJ.2 d.nP hsW
+  -- the STORED residual: `checkMutualCtor_front`'s third conjunct
+  obtain ⟨-, -, fvsPS, crestS, tfvsS, trestS, xFvsS, idxArgsS, hopS1, -, -, hopS2, -, -, -, -⟩ :=
+    ConLeche.checkMutualCtor_front hrun
+  rw [(ConLeche.auxBlock_inv hb).1, ← hnP] at hopS1 hopS2
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopS1.symm.trans hop1))
+  rw [(ConLeche.auxBlock_inv hb).2.1, ← hnF', hnF] at hopS2
+  have hxrestS : d.xrestF (auxOfsOf st p.k cd j' Jc)
+      = Expr.mkAppN (.const (fms'.getD (p.k + ((cd j').base + (cd j').dJ.mems Jc)) default).cvTa.name
+          (p.lps.map Level.param)) (d.fvsPF (auxOfsOf st p.k cd j' Jc) ++ idxArgsS) := by
+    have h₂ : ConLeche.openPisAtFvars cAJ.2 crestS d.nP
+        = some (d.xFvsF (auxOfsOf st p.k cd j' Jc), d.xrestF (auxOfsOf st p.k cd j' Jc)) := by
+      rw [← hnF]; exact hop2
+    exact (Prod.mk.inj (Option.some.inj (h₂.symm.trans hopS2))).2
+  -- that head IS the copy's name
+  obtain ⟨fT, hfT'⟩ : ∃ fT, fms'[p.k + ((cd j').base + (cd j').dJ.mems Jc)]? = some fT :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenFms]; exact hmIdxLt)⟩
+  obtain ⟨cvT', bsT', hlT', hffT', -⟩ := hposF _ fT hfT'
+  have hauxName : (fms'.getD (p.k + ((cd j').base + (cd j').dJ.mems Jc)) default).cvTa.name
+      = q₂.aux := by
+    rw [List.getD_eq_getElem?_getD, hfT']
+    show fT.cvTa.name = q₂.aux
+    rw [hffT'.name, ← memberNames_getD hlT', ← hnames _ hmIdxLt, hpinName _ q₂ hq₂]
+  rw [hauxName] at hxrestS
+  -- the two residuals agree up to erasure (`normCtorValM`)
+  obtain ⟨fvsN, xrestN, hopN, hEN⟩ := ConLeche.normCtorValM_residual hnorm
+    (by rw [(ConLeche.auxBlock_inv hb).1, ← hnP]; exact hopM₁)
+    (by rw [(ConLeche.auxBlock_inv hb).1, ← hnP, ← hnF', hnF]; exact hopW) hcvB
+  have hopAll : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0
+      = some (d.fvsPF (auxOfsOf st p.k cd j' Jc) ++ d.xFvsF (auxOfsOf st p.k cd j' Jc),
+        d.xrestF (auxOfsOf st p.k cd j' Jc)) :=
+    ConLeche.openPisAtFvars_add' _ hop1 (by rw [Nat.zero_add]; exact hop2)
+  have hE : Expr.ErasedEq (d.xrestF (auxOfsOf st p.k cd j' Jc)) restW := by
+    have hopN' : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0 = some (fvsN, xrestN) := by
+      rw [hnP, ← (ConLeche.auxBlock_inv hb).1, hnF']; exact hopN
+    rw [hopAll] at hopN'
+    obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hopN'.symm)
+    exact hEN
+  -- the copies of the walk's intermediate state are the final state's
+  have hkStb : p.k ≤ stb.types.length :=
+    Nat.le_trans hpi.1 (ConLeche.replaceAllNested_grows _ hwalkI).types_length_le
+  have hin : ∀ T ∈ (stb.types.map (·.name)).drop p.k, cI.mentionsConst T = false := by
+    intro T hT
+    refine Bool.eq_false_iff.mpr fun hm =>
+      hnotOk T (hcopyAux T (hstb.copyNames_mono p.k hkStb T hT)) ?_
+    exact hcIok T hm
+  -- a pin is determined by its copy's name
+  have hpinAuxInj : ∀ (i₁ i₂ : Nat) (a₁ a₂' : NestedPin), st.pins[i₁]? = some a₁ →
+      st.pins[i₂]? = some a₂' → a₁.aux = a₂'.aux → a₁ = a₂' := by
+    intro i₁ i₂ a₁ a₂' h₁ h₂ hEq
+    have hl₁ : i₁ < st.pins.length := (List.getElem?_eq_some_iff.mp h₁).1
+    have hl₂ : i₂ < st.pins.length := (List.getElem?_eq_some_iff.mp h₂).1
+    have hn₁ := hpinName i₁ a₁ h₁
+    have hn₂ := hpinName i₂ a₂' h₂
+    have : p.k + i₁ = p.k + i₂ :=
+      memberName_inj hnodupM (by omega) (by omega) (by rw [hn₁, hn₂, hEq])
+    obtain rfl : i₁ = i₂ := by omega
+    exact Option.some.inj (h₁.symm.trans h₂)
+  have hpinOf : ∀ qq ∈ stb.pins, qq.aux = q₂.aux →
+      qq.pin = Expr.mkAppN
+        (.const ((cd j').dJ.memberName ((cd j').dJ.mems Jc)) lvls) Ds := by
+    intro qq hqq hEq
+    obtain ⟨jq, hjq⟩ := List.getElem?_of_mem (hstb.pins_prefix.subset hqq)
+    obtain rfl : qq = q₂ := hpinAuxInj _ _ _ _ hjq hq₂ hEq
+    rw [hq₂p, (hmemNames _ J₂ hJm).1]
+  have hresid := copyResid_of_stored (blvls := p.lps.map Level.param) hwalkI hpi hin hstripC hDsC
+    hparC (by rw [hnP]; exact hparamsLen) hopen hopW hxrestS hD.pLen hE hauxIn hpinOf
+  obtain ⟨idx, idxC, hxS, hxC, hlenI, hEI⟩ := hresid
   -- ## the assembly
   exact copyCtorWalkFacts_of_stored (d := d) (dJ := (cd j').dJ) mpAux hD hlpsT hMO hnPb.symm hks hnF htgtLt hdk
     (fun t ht => hrealFresh t (by omega)) hcopyAux hDJ htgtJLt hstoredJ hopen hcIL hshape
     (by rw [hnP]; exact hparamsLen) hDsLenE hDsC hDsL hDsMention hCshape hgroup hnodupP hpinName
     hpinShape hpinLen (hRwf.toNamed.instAt _) hRnP hlookS hrecS hauxFresh hexcl hfields
-    (hresidC j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI xFvsC xrestC hopen)
+    ⟨q₂.aux, idx, idxC, hxS, hxC, hlenI, hEI⟩
 
 /-! ## The constructor record off the run, the walk's facts discharged -/
 
-/-- **`CopyCtorsRead` is a READ off `DeclNestedRun`** (DESIGN §M.46),
-`CopyWalkFacts` discharged: `copyCtorsRead_of_run` restated at
+/-- **`CopyCtorsRead` is a READ off `DeclNestedRun`** (DESIGN §M.46,
+§M.48), `CopyWalkFacts` discharged: `copyCtorsRead_of_run` restated at
 `env₁ = consNestedFormers (stored.take p.k) env` and
 `R = restoreTbl p st`, with the syntactic half of the constructor
-record proved from the run (`copyWalkFacts_of_run`) and the `whnf`
-arm's content (`WhnfContent`, M-D′ D2) and the four named facts of this
-module still premises (`OrdNotRec` is read off `PinFacts`, M-D′ D3). -/
+record proved from the run (`copyWalkFacts_of_run`); the `whnf` arm's
+content (`WhnfContent`, M-D′ D2) and K.21 are the only premises left
+(K.23 and `OrdNotRec` are read off the run and `PinFacts`). -/
 theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
@@ -800,24 +931,21 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
               (ContainerLpsNodup env →
-                PinsMentionMember d st p.k →
-                ContainerCtorsNoAux p st cd →
-                ResidContent p st d cd →
                 WhnfContent F (ConLeche.consNestedFormers (stored.take p.k) env) p st
                   (ConLeche.restoreTbl p st) params mpAux d ψ cd →
                 CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
-    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hhead, mpAux, d, hreps, hchk,
+    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hmo, hhead, mpAux, d, hreps, hchk,
     hag, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, stored, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs,
     ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, fun hlps hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
+  refine ⟨cd, hcd, fun hlps hwhnfC j' hj' Jc cAJ hJc => ?_⟩
   exact copyCtorAsRead_of_run hb hlenSt hfreshC hcontC hreps hchk hcd
     (copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20 hK17 helim
-      hparamsLen hpo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23)
-      (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec) hlps hmention hnoAux hresidC)
+      hparamsLen hpo hmo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23)
+      (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec) hlps)
     hwhnfC hj' hJc
 
 end ConLeche.Model

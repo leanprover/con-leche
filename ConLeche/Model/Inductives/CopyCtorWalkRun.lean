@@ -172,7 +172,7 @@ theorem copyCtorAsRead_of_run {μ : CheckMode} {F : Nat} {env envAux env₁ : En
   -- the copy's constructor, from the mint to the store
   obtain ⟨tyA, htyA, htyAn, hlenA, env₁', fms, f₀, ctorsA, sortss, hformers, henv₁, hf0, hctors,
     hlenCA, hallC⟩ := hcst₂
-  obtain ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalkC, hsta, hstb, -,
+  obtain ⟨cI, cbody, body', pbs', rest, sta, stb, cA, hcI, hstrip', hinst, hwalkC, hsta, hstb, -, -,
     htyl, hbl, hcA, hnorm, hstores, hproj⟩ := hallC (posIn (cd j').dJ Jc) c hcl
   -- the stage's list is the datum's
   obtain ⟨env₁'', fms', f₀', ctorsA', sortss', hformers', hf0', hctors', hdA, hkinds, hmems⟩ := hchk
@@ -386,7 +386,7 @@ theorem copyCtorsRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {
                 WhnfContent F env₁ p st R params mpAux d ψ cd →
                 CopyCtorsRead mpAux d ψ st p.k st.pins.length cd) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, -, hord, hlenSt, hfreshC,
-    hcontC, hparamsLen, -, -, -, -, -, -, -, -, mpAux, d, hreps, hchk, hag, hpins⟩ :=
+    hcontC, hparamsLen, -, -, -, -, -, -, -, -, -, mpAux, d, hreps, hchk, hag, hpins⟩ :=
     pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs, ?_⟩
   intro hcr ψ
