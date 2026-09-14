@@ -78946,6 +78946,260 @@ file this task does not touch.  `#print axioms` on
 `Classical.choice`, `Quot.sound` only.  No `sorry`, no kernel change,
 no new `IndRep` field, no `maxHeartbeats` raise.
 
+#### M.54 M-D′ D3 ASSEMBLED modulo three named premises: `NestedRunCore`, the restored constructors READ and TYPED at the run, the model of `env₂` off `DeclNestedRun`; #311 merged (2026-09-14, session 33)
+
+**Context.**  Session 33 started at 4cf22e6b (session 32's `restoredCtor_read`
+and `copyCtorsRead_of_run''`).  Task #311 (`agent/pinslits-311` f88de4c9,
+§M.53) was READY at the start and is MERGED first (fast-forward; the
+lane had no commit of its own yet): `hpinsLits` is off the run
+(`pinsLits_of_run`), `copyCtorsRead_of_run''` carries `ContainersRep`
+alone.  The deliverable is D3's assembly (§M.52's re-sizing: 1–2
+sessions): `NestedCtorLeaf` at every restored constructor, so that
+`nestedCtorsModel` is instantiated at the run.  It IS instantiated —
+`nestedCtorsModel_of_run` — under three named premises, listed at the
+end with their run-level consumers.
+
+**Step 0 — `NestedRunCore`** (commit 45878d8c).  The ψ-side facts D3
+needs (`final_typed`, `final_below`, `DsA_below`, `psiFinal_mem`) sat
+under `NestedRunFacts`, whose `lev` field (`d.elimL.eval ψ = d.w ψ`) is
+FALSE at an arbitrary assignment when the block eliminates into `Prop`
+alone (`large = false`: `elimL = zero` while `w ψ` is whatever the sort
+evaluates to — a `Sort u` block, `b.large = f₀.s.isNeverZero`), so the
+record cannot be built at every ψ, which `NestedCtorLeaf` demands.
+Finding: ψ (the forward fold, spelt from the CONTAINERS' recursors at
+their own pin assignments) never needed the block's elimination level;
+only ψ⁻¹'s setup does.  `NestedRunFacts` now `extends` a parent
+**`NestedRunCore`** (the eight ψ-side fields: `reps aux chk lenSt pins
+ctors bridge ord`) with `sortEval`/`lev`/`inv` in the child; the first
+section of `RoundTripRun.lean` (`ctorsC` … `psi_iota`) and
+`RoundTripProp.lean`'s `psiFinal_mem` moved under the parent (dot
+notation resolves through `extends`, probed); **`nestedRunCore_of_pinFacts`**
+builds the core from `MutualBlockReps`/`CtorsChecked`/`auxBlock`/the
+order/`PinRunFacts`/`CopyCtorsRead`/`BridgeSyntax` — no `hlev`, no
+member-with-constructors.  R1/R2 and ψ⁻¹ unchanged.
+
+**Step 1 — the restored constructors READ at the run** (commit
+831ede6b).  Three modules on the Model umbrella:
+
+* **`Model/Inductives/RestoreTblRun.lean`** (an Opus subagent's, one
+  session-hour, extracted verbatim from `copyWalkFacts_of_run`'s
+  preamble): `RestoreTblRun env p st params d` — the table's
+  constructor-GENERIC facts `wf`, `nP`, `auxFresh`, `pinName`,
+  `auxNodup`, `recNe`, `pinShape` — with `RestoreTblRun.at_openers`
+  (the table's entries at ANY fvar-shaped parameter openers: every pin
+  looked up, erased-equal and bounded; no recursor name a pin's) and
+  `restoreTblRun_of_run` off the ledger (`pinName` and the pins' shape
+  from `elimNested_copy`, not from the per-ψ pin facts).
+  `copyWalkFacts_of_run` untouched (a landing-time simplification: its
+  preamble now duplicates this module, ~250 lines).
+* **`Model/Inductives/NestedCtorKit.lean`** (an Opus subagent's):
+  `openPisAtFvars_fvarTypeD_constsResolve`, `Expr.projTablesOk_instantiate1`,
+  `openPisAtFvars_projTablesOk` (resolution and K.13's table discipline
+  through an opening), **`down_of_resolve₁`** (the DOWNWARD transfer at
+  `env₁`-RESOLUTION: a term resolving at `env₁` with `projTablesOk env₁`
+  reads at `mp₁` as at `mpAux` — no pre-block environment in sight,
+  `noProjAt_of_projTablesOk` discharging the `.proj` premise),
+  `annotValid_mkPisAV_zero` (a Π-tower's body is a truth value under
+  zero codomain bits — `AnnotValid`'s `pi` clause records it,
+  `WellDenoted`'s does not), **`IndRep.app_mem_univ`** (a member's leaf
+  at fitting parameters and index values lands in `univ (w ψ)`:
+  `eq_pt_of_mem`'s chain stopped one step early), `restoredCtor_pos`
+  (the position bookkeeping `ctorsR.flatten ∋ c` ↔ `d.ctorsA[J]`,
+  `d.mems J < p.k`, `restoreNested R cA.1.type = .ok c.1.type`, the
+  name/levels/counts), `ctorFieldsRes_of_chk` (a constructor's fields'
+  resolution before the block by kind, and its residual's index
+  arguments', off `CtorsChecked`'s `mutualFieldsOk`).
+* **`Model/Inductives/NestedCtorRun.lean`**: `restoredCtor_resid` (the
+  opened residual is the member at the constructor's own openers and
+  index arguments — `checkMutualCtor_front`'s opened-residual conjunct
+  at the constructor stage the datum records; NOTE its resolution there
+  is at the FORMERS' environment, the pre-block one comes from
+  `mutualFieldsOk`) and **`restoredCtorRead_of_run`**: every
+  `c ∈ ctorsR.flatten` is `cA` at datum position `J` with its
+  `FixCtorDataI`, and its restored type reads at `mp₁` as
+  `mkPisAV (dsRestored …) (ctorBodyAVI …)`, GRADED — `restoredCtor_read`
+  with: `hreadP` = the constructor's OWN parameter openers read at the
+  scratch model (`denoteMeta_openPis` at `hD.read`) and transferred
+  down by `down_of_resolve₁` (the openers' types resolve at `env₁` and
+  are table-disciplined there by the restored constant's front door,
+  `checkConstantValPre_front` through `openPisAtFvars_fvarTypeD_constsResolve`/
+  `openPisAtFvars_projTablesOk` — the parameter binders are the
+  CONSTRUCTOR's, defeq to the former's by `checkStructDomsAt`, not
+  syntactically the ledger's `params`: §M.52's "one small Verify
+  lemma" was the wrong shape); `hfields` = `restoredFieldsRead_of_stored`
+  at `RestoreTblRun.at_openers (d.fvsPF J)`, `ctorFieldsRes_of_chk`,
+  `pinsData_of_run` (with `hpinsLits` from `pinsLits_of_run`);
+  `hresid` = the residual its own restoration (`restoreI_eq_self`: the
+  head is a real member, the openers are variables, the index
+  arguments resolve before the block) read from its PIECES
+  (`denoteMeta_mkAppN` over `denoteMetaSpine_params` and the index
+  spine transferred down, the head at `env₁` with the block's level
+  parameters); the grading from the front door's inference at `mp₁`
+  (`claimsAt_of`/`acceptedReads_of`/`ClaimsAt.sortRow`).  `hokTy` is
+  therefore FREE, as `stageMutualCtor`'s is.
+
+**Step 2 — the leaf TYPED at the run** (commit 5651d437;
+`Model/Inductives/NestedCtorTypedRun.lean`).  `restoredCtor_typed`'s
+facts (§M.50's items 1–5) off `NestedRunCore`:
+
+* `hbits` — the telescope bits are the family's regime bit
+  (`tssBits`/`tssPiBits`, `bit_eq_of_le_one`);
+* `hΨB` — `NestedRunCore.final_below` at the copy targets, which are
+  pins (`restoredCtor_typed`'s bound NARROWED to `∀ i < nF, copyPos →`:
+  the final table is bounded only at the pins);
+* `hbelowR` — `domsBelow_of_getD` over `dsRestored_getElem?`: the
+  auxiliary entries by `hD.below`, the fired arms by `tssBelow`,
+  `DsA_below` lifted (`bvarsBelow_liftN`) and `eissBelow`, through the
+  new forward `bvarsBelow_mkPisAV`;
+* `hzero` — `IndRep.app_mem_univ` at the constructor's member: the
+  restored tower's grading gives the body graded at the leaf frame
+  (`wellDenoted_mkPisAV_body`), whose index readings fit the member's
+  telescope by the leaf's λ-shape (`leafSpineFit_full` at `leafShape`)
+  and whose parameters fit by `paramsIff` + the new
+  `spineFit_params_of_sat`;
+* `hΨ` — `NestedRunCore.psiFinal_mem` at the target pin: the field's
+  value in the restored domain's reading is a member of the Π-tower
+  over the telescope of the container at the pin's readings and the
+  copy's index readings (`restoreAV`'s fired arm, `interp_mkPisAV_piTele`),
+  eliminated at a nonzero bit by `piTele_fold` and at bit zero by the
+  new **`piTele_fold_zero`** (the member and its partial applications
+  are the point, the bodies inhabited truth values); the index fit
+  (`his`) and the parameter fit from `spineFit_of_wellDenoted_lams` at
+  the CONTAINER member's `leafShape`, the restored entry graded at the
+  telescope frame by reconstructing a full spine of the restored tower
+  from ρp (`consList_range_reverse`: `ρp = consList (paramVals nP ρp)
+  (shift ρp)`) and `wellDenoted_mkPisAV_dom`; `CopyData.Ok.pIffM` moves
+  member `mm`'s parameter frame to the container's; the frames pushed
+  twice agree below the parameters (`consList_paramVals_lt`,
+  `interp_paramFrame`).
+  `restoredCtor_typed` gained `hpIff` (the constructor's parameter
+  telescope is the block's, as frames — `IndRep.paramsIff`) and `hΨ`
+  takes `Sat (d.params ψ).reverse ρp`: ψ's typing holds only at
+  parameter frames, which the proof site had (`hps`) and the statement
+  did not say.
+
+`hviaWD` (§M.50 item 2, the transports graded at the leaf frame) is
+NOT built; it is the one NAMED premise of `restoredCtorLeaf_of_run`.
+
+**Step 3 — the model of `env₂` off the run** (this commit;
+`Model/Inductives/NestedCtorsModelRun.lean`).  `nestedCtorLeaf_of_run`
+(per assignment ψ at the pins' data `cd` the run chooses: the leaf and
+reading of every restored constructor, from `nestedRunCore_of_pinFacts`
+at `copyCtorsRead_of_run''`'s inline `CopyCtorsRead`), the
+canonicalisation `canonLps p.lps ψ` (`NestedCtorLeaf.params` is
+`canonLps_ext`; `read` at ψ from the reading at `canonLps ψ` by
+`denoteMeta_params_ext` at the restored constant's
+`allLevelParamsDefined p.lps`, its level parameters being the block's
+— `restoreCtors_id`), and **`nestedCtorsModel_of_run`**:
+
+    theorem nestedCtorsModel_of_run (hμ) (mp : EnvModelM V μ env) (hE) (h : DeclNestedRun μ F env p envOut) :
+      ∃ st b envAux stored ctorsR order, auxBlock p st = some b ∧ nestedTopoOrder … = .ok order ∧
+        st.types.length = p.k + st.pins.length ∧ (restoreCtors … = .ok ctorsR) ∧
+        ∃ mpAux d, MutualBlockReps mpAux.base2 b d ∧ CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
+        ∃ params pbs,
+          (ContainersRep env envAux mpAux.base2 →
+            (∀ ψ cd, (∀ j < st.pins.length, PinRunFacts F env p st b params pbs mpAux d ψ cd j) →
+              BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)) →
+            (∀ ψ cd, (∀ j < st.pins.length, PinRunFacts … ψ cd j) →
+              ∀ J cA, d.ctorsA[J]? = some cA → d.mems J < p.k →
+              ∀ ρ ps fs, ps.length = d.nP → fs.length = cA.2 →
+              SpineFit ρ ((d.dsRestored mpAux.base2 ψ p.k J (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
+                (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA)).map (·.2.2)) (ps ++ fs) →
+              ∀ i, i < cA.2 → d.copyPos p.k J i →
+                WellDenotedV V (consList (ps ++ fs) ρ)
+                  (viaEntryAV (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order (fun _ => .sort 0)
+                    (d.tgtsR J i - p.k)) cA.2 0 i 0 ((d.tssR J ψ).getD i []) ((d.eissR J ψ).getD i []))) →
+            ∃ (mp₁ : EnvModelM V μ (consNestedFormers (stored.take p.k) env))
+              (mp₂ : EnvModelM V μ (consNestedCtors ctorsR.flatten (consNestedFormers (stored.take p.k) env))),
+              EtaFamiliesClosed (consNestedCtors ctorsR.flatten (consNestedFormers (stored.take p.k) env)) ∧
+              (∀ n, (env.find? n).isSome = true → mp₁.base2.acval n = mp.base2.acval n) ∧
+              (∀ t, t < p.k → mp₁.base2.acval (d.memberName t) = mpAux.base2.acval (d.memberName t)) ∧
+              (∀ n, (∀ c ∈ ctorsR.flatten, n ≠ c.1.name) → mp₂.base2.acval n = mp₁.base2.acval n))
+
+**The three NAMED premises** (each consumed at the run by
+`nestedCtorsModel_of_run`; the naming rule of §M.52 applied):
+
+1. `ContainersRep env envAux mpAux.base2` — M-E's, unchanged.
+2. `BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)` at every
+   assignment's pin data — ψ's STANDING premise since §M.31 (e)
+   (`psiFold_typed_of_run`, `nestedRunFacts_of_pinFacts`, `invSetup_of_run`
+   all take it); it had no run-level discharge before and has none now;
+   its content is the elimination's (the group-wide mention of a
+   transport's target, K.15's form, and the no-sub-term clause from the
+   container's positivity).  Sized in §M.31 at ~1 Verify session
+   (`hDsMention`-style ledger read + the size argument); a candidate for
+   an Opus lane.
+3. `hvia` — the transports graded at every restored constructor's leaf
+   frame (verbatim above).  Its proof is `viaWD_psi`'s at the leaf frame
+   (`o = l = 0`, no motives, minors or hypotheses): `viaEntryAV` is
+   `mkLamsAV` over `ihTeleAtR nF 0 i 0 tss` (the telescope lifted by
+   `nF - i`) of `viaBodyAV`; `mkLamsAV_bits_wellDenoted`/`_validV` at
+   `UnderTowerOk`/`UnderTowerValid` with target `T` the aux entry's body
+   (`hentry`) lifted: `WellDenoted (mkPisAV (ihTeleAtR …) T)` at the
+   leaf frame = the aux entry at the field frame with the RESTORED
+   fields (`WellDenoted_liftN` + `shiftE_fieldsFrame`; the entry mentions
+   no copy position, `WellDenoted_congr_noBVar` over `restoreVals_shadow`
+   from the ψ*-values' fit `restoreVals_fit`); the body graded by
+   `wellDenotedV_mkAppN_of_spineFit` at ψ's Π-type
+   (`PsiTypedPi` from `NestedRunCore.final_typed`, `psiTyAV` a literal
+   `mkPisAV` by `instSeq_mkPisAV`) at the fit `restoredCtorLeaf_of_run`'s
+   `hfits` already builds; the zero clause by `IndRep.app_mem_univ` at
+   the target COPY member (the copy's index telescope is the container's
+   at the pin, `CopyIdxRead.idxIff`).  ~150–200 lines in
+   `NestedCtorTypedRun.lean`, all ingredients in place; ONE session, or
+   an Opus lane off this HEAD.
+
+**Findings, with cost.**
+
+(a) `NestedRunFacts.lev` is refutable at an arbitrary assignment for a
+`Sort u` block eliminating into `Prop` alone — the ψ side never needed
+it (the parent split, half a session; would have been a wall for
+`NestedCtorLeaf`'s `∀ ψ`).
+(b) The constructor's parameter binders are NOT the head former's
+(`checkStructDomsAt` is a defeq check); the reading transfers by
+resolution at `env₁` plus K.13's `projTablesOk` (the front door
+validates both at the restored constant) — `down_of_resolve₁`, whose
+`.proj` premise needs NO pre-block environment.  One compile.
+(c) `checkMutualCtor_front`'s index-argument resolution is at the
+FORMERS' environment, not the pre-block one (the stage runs there);
+the pre-block fact is `mutualFieldsOk`'s (`MutualOpened.residRes`).
+One compile.
+(d) `obtain ⟨x, hx⟩ : ∃ x, x = e` (the Mathlib-`set` substitute) makes
+`x` OPAQUE: a lemma stated with the abbreviation does not unify with one
+stated with `e`; `subst` the abbreviations back before the final
+application.  One compile.  A `-` pattern on an existential witness in
+`obtain` silently clears later hypotheses mentioning it (the kit
+subagent's finding; `_`-prefixed names instead).
+(e) `AnnotValid`'s `pi` clause carries `v = 0 → B ∈ univZero`;
+`WellDenoted`'s does not — the zero clauses come from `AnnotValid` or
+from the members' universes (`IndRep.app_mem_univ`), and the latter is
+uniform in the tower's length.
+(f) A background `lake build`'s notification exit is the shell's (again);
+the split's first build failed on the flat anonymous constructor of an
+`extends` structure — nest it.
+
+**#311 MERGED** (fast-forward to f88de4c9, no conflict).
+
+**Gates**: `lake build` warning-free (664 jobs); `lake test` clean.
+NOT run (landing items): shake/pub-import (six new modules on the Model
+umbrella), arena, init-full, Mathlib, `overview-links.sh` (fails on the
+lane branch at drifted anchors — pre-existing), `quote-gate.sh`,
+`no-local-paths.sh` (no path in the new files).  No `sorry`, no axiom,
+no kernel change, no new `IndRep` field, no `maxHeartbeats` above
+3200000 (`restoredCtorLeaf_of_run`, the lane's ceiling).
+
+**What is left, re-sized.**  `hvia` (1 session, above); `BridgeSyntax`
+(1 Verify session, Opus-suitable); D4 (the recursors' model:
+`stageMutualRecs`' shape at the restored recursor types `cvRms`/`cvRns`
+off `DeclNestedRestore`, the conjugated values, the rule laws from
+`rulesRead`/`rec_rules` + R1/R2 and `psi_iota` — now with
+`NestedRunCore` at every assignment for ψ's side and `NestedRunFacts`
+where ψ⁻¹ enters) 2–3; D5 (`T`'s `IndRep`, `ContainersRep` at `RepsAt`)
+2; D6 (tables) 1; D7 (`declNested` + dispatch) 1; M-E 1–2.  The
+intended `declNested` signature is unchanged:
+`declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
+  (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
