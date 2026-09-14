@@ -50,6 +50,7 @@ public import ConLeche.Model.Inductives.WhnfContentRun
 public import ConLeche.Model.Inductives.NestedCtorStage
 public import ConLeche.Model.Inductives.NestedCtorLeaf
 public import ConLeche.Model.Inductives.NestedCtorRead
+public import ConLeche.Model.Inductives.WhnfContentOfRun
 public import ConLeche.Model.Inductives.WhnfContentRunAssembly
 public import ConLeche.Model.Inductives.RestoreRead
 public import ConLeche.Model.Inductives.NestedFormers

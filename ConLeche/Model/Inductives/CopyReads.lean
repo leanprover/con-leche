@@ -459,7 +459,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
   -- the stored formers are the checked ones
   have hrun : DeclMutualCoreRun μ F env b none true envAux := declMutualCoreRun_of hcore
   have hfacts := nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm
-  obtain ⟨fms, hformers, hkF, hposF, hstoredF⟩ :=
+  obtain ⟨fms, hformers, hkF, hposF, hstoredF, -⟩ :=
     auxFormers_stored hrun (fun t ht => (hfacts t ht).1)
   -- a stored former is the checked one at its entry
   have hstoredTy : ∀ (i : Nat) (tS : AuxType), i < b.k → st.types[i]? = some tS →

@@ -266,7 +266,10 @@ theorem auxFormers_stored {F : Nat} {env envAux : Env} {b : MutualBlock} {auxRou
         ∃ (cv : ConstantVal) (bs : List (Expr × BinderMeta)),
           b.formers[t]? = some (cv, f.nIdx) ∧ ConLeche.FormerFront μ F env cv f.cvTa ∧
           f.cvTa.type.stripPis (b.nP + f.nIdx) = some (bs, .sort f.s)) ∧
-      ∀ f ∈ fms, envAux.find? f.cvTa.name = some (.indInfo f.cvTa {}) := by
+      (∀ f ∈ fms, envAux.find? f.cvTa.name = some (.indInfo f.cvTa {})) ∧
+      -- the scratch environment extends the pre-block one by fresh
+      -- names only (task #279 M-D′ D2, DESIGN §M.52)
+      FreshEtaExt env envAux := by
   obtain ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf, hNodup,
     -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys, -, htbl⟩ := hrun
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
@@ -331,8 +334,13 @@ theorem auxFormers_stored {F : Nat} {env envAux : Env} {b : MutualBlock} {auxRou
   have hx : FreshEtaExt (ConLeche.consMutualFormers fms env) envAux :=
     (consMutualCtors_freshExt (nP := b.nP) (checkMutualCtors_fresh hctors)).trans
       ((storeMutualRecs_freshExt hfreshR).trans (mutualTables_freshExt htbl))
-  refine ⟨fms, hformers, hkF, hposF, fun f hf => ?_⟩
-  exact FreshEtaExt.find?_some hx (consMutualFormers_find?_self hf hndF)
+  refine ⟨fms, hformers, hkF, hposF, fun f hf => ?_, ?_⟩
+  · exact FreshEtaExt.find?_some hx (consMutualFormers_find?_self hf hndF)
+  · refine (consMutualFormers_freshExt fun f hf => ?_).trans hx
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hf
+    obtain ⟨cv, bs, -, hff, -⟩ := hposF i f hi
+    rw [hff.name]
+    exact hff.fresh
 
 /-- **The auxiliary model of a nested run**: the scratch environment the
 run's `checkMutualCore` produced carries the P invariant. -/
