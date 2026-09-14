@@ -72725,6 +72725,122 @@ cone in shadow **41/41 accept / 4 923 declarations / exit 0**, init-full
 `dbd53f3c`'s 538.45 G), and one more full Mathlib
 `--verified --jobs=8`: **654 499 accepted, exit 0**.
 
+#### K.22 — `whnf` is the identity on an inductive-headed application (2026-09-14, `agent/whnfind-305`, task #305, the model lane's K.17 witness)
+
+**What the lane asked for.**  K.17's witness compares a RESTORED
+processed constructor field with the restored stored one through
+`ops.whnf`, at `env₁` — the pre-block constants plus the block's own
+formers.  At a container-recursive field the restored field is an
+application of a stored INDUCTIVE type former `J` to arguments, and the
+model lane needs the run there to be the IDENTITY, so that the field's
+denotation transports across nothing at all.
+
+**The statements, as landed** (`ConLeche/Verify/InferLemmas.lean`, next
+to `whnf_forallE_eq`, whose shape they follow):
+
+```lean
+theorem whnf_indApp_eq {env : Env} {fuel d : Nat} {J : Name} {lvls : List Level}
+    {args : List Expr} {cv : ConstantVal} {caps : IndCaps} {e' : Expr}
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (h : whnf mode env fuel d (Expr.mkAppN (.const J lvls) args) = .ok e') :
+    e' = Expr.mkAppN (.const J lvls) args
+```
+
+**The fuel condition is `whnf_forallE_eq`'s: there is none.**  The RUN
+is the hypothesis, at an arbitrary fuel; the proof lifts it with
+`whnf_mono` to `fuel + args.length + 2`, where the reduction provably
+returns the subject, and reads the equation off.  A run the caller
+could not perform — fuel exhausted, or a positive decline — leaves the
+conclusion vacuous, which is exactly what a consumer holding
+`whnf … = .ok dsR` wants.
+
+**The statement is over `env.find? J`, so it is environment-generic.**
+Nothing in it is special to a particular `env`: a consumer reducing at
+the pre-block constants extended by the block's own formers (the
+`consNestedFormers` shape) supplies the `find?` of the EXTENDED
+environment and gets the statement at it.  No cons-list lemma is owed.
+
+**Proof shape** — the spine identity, three declines and a loop peel,
+each its own lemma so the corollaries reuse them:
+
+* `whnfCore_constApp_eq` — **`whnfCore` is the identity on a
+  constant-headed spine whose head is not a stored recursor**, by
+  induction on the fuel with the spine peeled from the right
+  (`Expr.mkAppN_append_one`): the head returns itself, no prefix is a λ
+  (`Expr.mkAppN_const_ne_lam`, via `getAppFn`) so the β arm cannot fire,
+  and `iotaRec` declines at every prefix.  One fuel level per spine
+  argument plus one for the head; this one IS positive, and owes no
+  `Nat` side condition.
+* `iotaRec_none_of_head` — **an iota step declines at every head that is
+  not a stored recursor**: `iotaRec` reads the head's declaration and
+  every other arm of that `find?` match returns `none` without looking
+  at the spine.
+* `reduceNat_constApp_ne_some` / `reduceNat_constApp_none` — the
+  literal-acceleration declines (below).
+* `unfoldDefinition_constApp_none` — the delta step reads the head's
+  declaration and unfolds a `defnInfo` only; an `indInfo` carries no
+  value.
+* `whnf_eq_of_stuck` / `whnf_stuck_ok` — one iteration of the reduction
+  loop (`whnfLoopFuel_succ` peels the `irreducible` step budget, as
+  `whnf_sort` does) returns the subject when those three decline.
+
+**The corollaries.**
+
+* `whnf_ctorApp_eq` — the same at a stored CONSTRUCTOR head, **plus
+  `C ≠ natSuccName`**, and that hypothesis is not decoration:
+  `Nat.succ` applied to one argument is precisely the
+  literal-acceleration arm's redex (`reduceNat` packs `Nat.succ ⟨n⟩`
+  back into `⟨n+1⟩`), so a constructor head is stuck only away from that
+  name.  At an INDUCTIVE head the same hypothesis is DERIVED rather than
+  assumed: `natLitSupported` asks `natSuccOk` of `env.find? natSuccName`,
+  which demands a `ctorInfo`, so an environment storing that name as a
+  former has the capability off and the packing arm's guard is false.
+* `whnf_indApp_ok` — the positive form, for a caller with no run in
+  hand.  It owes the fuel (`args.length + 1 < F`) and ONE more side
+  condition, which is a genuine finding, not a proof artefact.
+
+**THE FINDING: `natOpWfNames` reads the NAME, not the declaration.**
+`reduceNat`'s last arm is the *safety net* for the pin-certified
+WF-recursive `Nat` operations (`Nat.div`, `Nat.mod`, `Nat.gcd`, the four
+bitwise ones, the two shifts): its guard is
+`natOpWfNames.contains c ∧ natLitSupported env` — the NAME and the `Nat`
+capability, and NOT the head's stored declaration.  So on an environment
+that stored one of those eight names as an inductive FORMER, a
+two-argument application of it whose arguments both reduce to literals
+is positively DECLINED (`.notImplemented`, arena exit 2) rather than
+returned unchanged.  The other two arms do read the declaration
+(`natSuccOk` wants a `ctorInfo`, `natOpStored` a `defnInfo`) and are
+therefore refuted by `indInfo` for free.
+
+This is why the INVERSION form is the primary statement and the
+positive one carries `natOpWfNames.contains J = false`: a decline is an
+error, so it makes the inversion's hypothesis — and its conclusion —
+vacuous, while the positive form has to exclude the shape.  A caller
+with a concrete `J` discharges the hypothesis by `decide`; the model
+lane, which holds a run, never needs it.  **No kernel change is
+proposed**: the arm exists so that a literal application of an
+uncertified operation declines instead of grinding unarily through the
+fuel, and the shape it costs is a stream that declares an INDUCTIVE
+under one of those eight names and then applies it to two arguments
+that reduce to literals — whose outcome is a DECLINE (exit 2), never an
+unsound accept.  Recorded because the asymmetry — two of `reduceNat`'s
+three arms read the head's declaration, the third reads only its name —
+is invisible at the call site.
+
+**The guards** (`tests/ConLecheTests.lean`, the battery's
+vacuity-protection discipline): the real reduction runs on a hand-built
+environment holding one former, in both modes, and reads the subject
+back unchanged; the NEGATIVE CONTROL puts a stored DEFINITION at the
+head of the same spine, where the delta step does fire — so the
+positive guards are not measuring an environment in which `whnf` is the
+identity on everything.
+
+**Gates** (proof-only; no checker code changed, so the binary is the
+integration branch's): `lake build` and `lake test` exit 0,
+warning-free; `tests/no-local-paths.sh` OK.  No arena, init-full or
+Mathlib run: the change adds theorems to `ConLeche/Verify` and three
+`#guard`s, and touches no executable path.
+
 ## TASK #281 — THE COMPARATOR PAIR IS GATED (2026-09-11, `agent/challenge-281`)
 
 **The breakage.**  `ConLeche/Challenge.lean` — the challenge half of the
