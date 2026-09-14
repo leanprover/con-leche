@@ -772,4 +772,49 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     hpinShape hpinLen (hRwf.toNamed.instAt _) hRnP hlookS hrecS hauxFresh hexcl hfields
     (hresidC j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI xFvsC xrestC hopen)
 
+/-! ## The constructor record off the run, the walk's facts discharged -/
+
+/-- **`CopyCtorsRead` is a READ off `DeclNestedRun`** (DESIGN §M.46),
+`CopyWalkFacts` discharged: `copyCtorsRead_of_run` restated at
+`env₁ = consNestedFormers (stored.take p.k) env` and
+`R = restoreTbl p st`, with the syntactic half of the constructor
+record proved from the run (`copyWalkFacts_of_run`) and the `whnf`
+arm's content (`WhnfContent`, M-D′ D2) and the five named facts of this
+module still premises. -/
+theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+    ∃ (st : ElimState) (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+      (order : List Nat),
+      ConLeche.auxBlock p st = some b ∧
+      ConLeche.nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
+      st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
+        ∃ (params : List Expr) (pbs : List (Expr × ConLeche.BinderMeta)),
+          (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
+            ∃ cd : Nat → CopyData V,
+              (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
+              (NestedGroupExclusionOk env envAux p st →
+                (∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) →
+                ContainerLpsNodup env →
+                PinsMentionMember d st p.k →
+                ContainerCtorsNoAux p st cd →
+                ResidContent p st d cd →
+                WhnfContent F (ConLeche.consNestedFormers (stored.take p.k) env) p st
+                  (ConLeche.restoreTbl p st) mpAux d ψ cd →
+                CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)) := by
+  obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
+    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK17, hpo, hhead, mpAux, d, hreps, hchk, hag,
+    hpins⟩ := pinFacts_of_run hμ mp hE h
+  refine ⟨st, b, envAux, stored, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs,
+    ?_⟩
+  intro hcr ψ
+  obtain ⟨cd, hcd⟩ := hpins hcr ψ
+  refine ⟨cd, hcd, fun hK23 hONR hlps hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
+  exact copyCtorAsRead_of_run hb hlenSt hfreshC hcontC hreps hchk hcd
+    (copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20 hK17 helim
+      hparamsLen hpo hhead hreps hchk hcd hK23 hONR hlps hmention hnoAux hresidC)
+    hwhnfC hj' hJc
+
 end ConLeche.Model
