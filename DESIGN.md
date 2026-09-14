@@ -78613,6 +78613,215 @@ branch at a pre-existing `DeclMutual.lean` anchor, not this task's).
 No `sorry`, no axiom, no kernel change, no new `IndRep` field, no
 `maxHeartbeats` raise.
 
+#### M.52 M-D′ D2 COMPLETE modulo two named facts: the restore stages exposed, the restored constructor READ, `WhnfContent` at the run; #310 merged (2026-09-14, session 32)
+
+**Context.**  Session 32 started at 11a88515 (session 31's D3 stage and
+leaf).  Task #310 (`agent/litguard-310` 95a6c592, §M.51) was READY at
+the start and is MERGED first (0b4a789a; the only conflict was the two
+DESIGN records, both kept): the DOWNWARD transfer's literal guard is a
+SUBJECT condition (`litsResolve env₁ e`), so §M.49's hard stop is gone.
+The deliverable is §M.49's route to `whnfContent_of_run`, and the ONE
+generic per-constructor reading §M.50 item 7 asked for.
+
+**Step 1 — the restore stages exposed** (commit 2b9a75c5).
+`Semantics/Inductives/DeclNested.lean` gains **`DeclNestedRestore μ F env p
+st b envAux stored fmsA ctorsA envOut`** — every conjunct of
+`DeclNestedRun` the reads did not carry (the two header checks, the
+annotated inputs K.12, the mimic count, K.2's `pinsOkAux`, and the
+restore stages: `restoreCtors` (`ctorsR`), `restoreRecTys` (`cvRms`,
+`cvRns`), `restoreRules`, `nestedTables = .ok envOut`, the two
+post-checks), at the run's OWN witnesses.  `copyIdxRead_of_run` and
+`pinFacts_of_run` carry it as ONE conjunct after the pins' `NoProjAt`;
+five destructurings took one more dash (`PsiRun` ×2, `InvCopy`,
+`CopyCtorWalkRun`, `CopyWalkFactsRunAssembly`).  §M.49 finding 2's
+reason stands: a second `DeclNestedRun` destructuring cannot identify
+its ∃-witnesses with the first's, so D3–D7 read `ctorsR`/`cvRms`/… off
+this conjunct.
+
+**Step 2 — the restored constructor, READ** (commit 5c3d57bc;
+`Model/Inductives/NestedCtorRead.lean`, Model umbrella).
+
+* **`down_of_resolve`** — task #310's three subject conditions at once:
+  a term resolving BEFORE the block has its blind mentions stored at
+  `env₁`, its literals' support there, and no projection node at a slot
+  `envAux` tables and `env₁` does not (`hTbl` → the name is fresh at
+  `env` → `noProjAt_of_constsResolve`); the reading moves to `mp₁`'s
+  carrier by the agreement on `env₁`'s names.  `Expr.constsResolve_of_find?_mono`
+  (resolution up an extension) and `denoteMetaSpine_down_of_resolve`.
+* **`RestoredFieldsRead mp₁ mpAux ψ k₀ Ja R tgt…`** — every field of
+  constructor `Ja`, restored at the constructor's own parameter
+  openers, reads at `mp₁` as `restoreAV`'s arm: the currency BOTH
+  `whnfContent_field`'s `hrest` and D3's `NestedCtorLeaf.read` consume.
+* **`restoredCtor_read`** — from it, the parameter openers' readings
+  and the residual's, the restored constant reads as
+  `mkPisAV dsRestored body`: `restoreNested_openPis` opens the restored
+  constant at the auxiliary openers with the restore at every field
+  position; `denoteMeta_of_openPis` reads it forward; the restored
+  binders keep the auxiliary binder data (`restoreNested_stripPis` +
+  `restoreWalk_stripPis` through `stripPis_split`/`stripPis_append'`),
+  which carry the auxiliary reading's bits (`denoteMeta_openPis'` +
+  `mkPisAV_inj` against the auxiliary reading).  `dsRestored_getElem?`
+  is the positional law both halves use.
+* **`restoredFieldsRead_of_stored`** — `RestoredFieldsRead` from the
+  constructor's STORED data, by kind (`FixOpened.kinds`):
+  - ORDINARY: the field mentions no table name (it resolves before the
+    block), so it is its own restoration (`restoreI_eq_self`) and its
+    reading transfers down whole (`down_of_resolve` at `domRead`);
+  - RECURSIVE or REFLEXIVE into a REAL member: its own restoration
+    (`hblindReal`'s argument), read FROM ITS PIECES —
+    `restoredCopyField_read` at the member's own head with `Ds := fvsP`
+    (the parameter openers read as `paramBvarsAt`,
+    `denoteMetaSpine_params`), the telescope domains and index
+    arguments resolving before the block and transferred down, the
+    head stored at `env₁` with the block's level parameters
+    (`Level.substFn_map_param` + `acval_params` + the agreement) — which
+    is the datum's entry (`recEntry`/`reflEntry`) at the formers'
+    carrier;
+  - into a COPY: `restoredField_read_copy` at the target pin's data
+    (`hpinAll`: shape, stored constant, level count, the container's
+    leaf at the pin's level substitution agreeing with the auxiliary
+    carrier at the pin's assignment, the components' scope and
+    readings at `mp₁`, weakened by `DenoteMetaSpine.weaken_by`).
+  The one continuation `key` serves both non-ordinary kinds.
+* **`ctor_peel_of_read`** — `ctor_peel` from a READING (its own proof
+  from `hread0` on): the peel of the container's constructor at the
+  pin needs of the model only the constructor type's reading at the
+  pin's level substitution and the components' readings — so it runs
+  at `mp₁` from the container's stored reading transferred down.
+
+**Step 3 — `WhnfContent` at the run** (commits be4e99ff, f913e9ef).
+
+* §M.49 finding 3 ("the exclusion cannot be passed to both") is
+  resolved by EXPORTING, not rebuilding: **`CopyCtorSyn env p st R d cd
+  j' Jc cAJ cA`** (`CopyCtorWalkRun.lean`) bundles what
+  `copyWalkFacts_of_run`'s preamble establishes of the copy's stored
+  constructor — position (`get`), level parameters, field count, the
+  fields' resolution before the block BY KIND (`res`, `mutualFieldsOk`
+  in the `d.ksF` currency; `restoredFieldsRead_of_stored` is stated
+  at it, so `MutualOpened`/`kindAt`/`b` never reach the Model side),
+  `tgtLt`, `dk`, `auxFresh`, `named`, `RnP`, `pinName`, `lookS`,
+  `recS`, and the GROUP EXCLUSION `excl` (K.23 through `OrdNotRec`) —
+  and `CopyWalkFacts` (now with `env` as a parameter) carries
+  `∃ cA, CopyCtorSyn …` beside `CopyCtorWalkFacts`; the assembly's
+  final `refine` supplies it from context.  The new assembly is 330
+  lines against the preamble's 500.
+* `auxFormers_stored` exports **`FreshEtaExt env envAux`** (proved
+  inside it since #279 M-B′, never exported); `nestedFormersModel`
+  exports **`FindPreserved env₁ envAux`** (a real member's slot is the
+  checked former's on both sides, any other name's the pre-block one's)
+  and **the real members' slots at `env₁`** with the block's level
+  parameters.
+* **`Model/Inductives/WhnfContentOfRun.lean`** (Model umbrella):
+  - **`paramsRead_of_run`** — the head former's parameter openers read
+    at `mp₁` as `d.params ψ`, graded (`params_graded_of_formerData`):
+    member 0's stored former is the state's first type
+    (`nestedCopyFormerType_eq` against `auxFormers_stored`), its
+    reading at the scratch model (`IndRep.former.read`) transfers down
+    WHOLE (`FormerFront.resolve`) and peels at the openers
+    (`denoteMeta_openPis` + `stripPisAV_mkPisAV_take`);
+  - **`pinsData_of_run`** — every pin's data at `mp₁`: the container's
+    slot at `env₁` is the scratch one's (`containerInfo?_stored` through
+    both `FreshEtaExt`s), the leaf agreement from `PinRunFactsAt`'s
+    last clause and `hag`, the components' readings by
+    `DenoteMetaSpine.down_blind` under the pins' blind mentions
+    (`PinsMentionReal`: pre-block names or real members, the latter
+    stored at `env₁`), the pins' `NoProjAt` at fresh names (#309,
+    `NoProjAt.getAppArgs`) and the NAMED **`hpinsLits`** (below);
+  - **`whnfContent_of_run`** — per pin, container constructor and
+    container-ordinary field the walk `whnf`'d: the exclusion is
+    `CopyCtorSyn.excl` moved to the recursor view (`hview`); the
+    reading conjunct is `whnfContent_field` at `paramsRead_of_run`,
+    the container's instantiated field read at `mp₁` — the container's
+    stored constructor's reading at the pin's level substitution
+    (`CtorDataI.read`/`.params`, the leaf moved by `PinRunFactsAt`'s
+    agreement) transferred down (`down_of_resolve`, the constructor
+    resolves before the block by `EnvWF`) and peeled at the pin
+    (`ctor_peel_of_read` + `ctorInst_fields`) — the container's field
+    graded (`gradeC_of_okTy`, as `copyCtorAsRead_of_run`), and the
+    restored stored field's reading (`restoredFieldsRead_of_stored` at
+    `CopyCtorSyn` and `pinsData_of_run`);
+  - **`copyCtorsRead_of_run''`** — `CopyCtorsRead` off `DeclNestedRun`:
+    `copyCtorsRead_of_run'` with `WhnfContent` DISCHARGED (the formers'
+    model from `nestedFormersModel`, the walk from
+    `copyWalkFacts_of_run`, the content from `whnfContent_of_run`).
+
+**The design pattern that made D2 one session, not three.**  Transfer
+CLOSED terms that resolve BEFORE the block down whole, and peel at
+`mp₁`; never transfer an OPENED piece whose closed form does not
+resolve.  `hreadP` (the former's type), `hreadC` (the container's
+stored constructor) and the ordinary fields go down whole; a field
+into a real member is read from pieces that resolve before the block
+(telescope domains, index arguments) plus the head stored at `env₁`;
+the pins' components are the only subjects whose literal clause is not
+a consequence of resolution before the block — hence the one named
+fact.  No `litsResolve`/`NoProjAt`/`mentionsConstE` lemma in the
+CONVERSE direction through an opening was needed.
+
+**NAMED this session** (one fact, stated at `pinsData_of_run`,
+`whnfContent_of_run` and `copyCtorsRead_of_run''`):
+
+    hpinsLits : ∀ q ∈ st.pins, ∀ a ∈ q.pin.getAppArgs,
+      litsResolve (consNestedFormers (stored.take p.k) env) a = true
+
+the pins' components' literal support names are stored at the formers'
+environment.  Source: the elimination's inputs are annotated at
+`nestedFormerEnv fmsA env` (K.12) and resolve there
+(`checkConstantVal`'s front door), whose names are `env₁`'s (the
+pre-block names and the real members); the walk only instantiates the
+containers' constructors, which resolve at `env`, and substitutes
+openers — so a `LitsResolve` invariant through `elimNested` in
+`NestedLeaves.lean`'s `LeafInv` style (as #309's
+`elimNested_pins_noProjAt`) discharges it.  ~one session on the Verify
+tier, Opus-suitable; NOT a kernel request (the fact is derivable).
+`ContainersRep` stays M-E's.
+
+**Findings, with cost.**
+
+(a) `obtain rfl : q' = q := …` eliminated the theorem's own `q` again
+(§M.46 (d)); one compile.  The `hlpsT`/`p` parameters of the first
+draft of `restoredFieldsRead_of_stored` were unused once `res` replaced
+`MutualOpened` — the linter caught it.
+(b) `restoreNested_openPis` does not export the restored binders'
+metas; `restoreNested_stripPis` + `restoreWalk_stripPis` do, through
+`stripPis_split`/`stripPis_append'` (the same route its own proof
+takes).  Twenty lines.
+(c) The `hexcl`/preamble problem of §M.49 finding 3 was a false
+dichotomy: a THIRD option, exporting the preamble's facts through the
+existing conjunct, costs one structure and one `refine`.
+(d) `DeclNestedRun`'s `restoreRecTys` conjunct for the members names
+the recursors as `(p.formers.getD mIdx default).1.name.str "rec"` and
+the mimics' as `p.mimicRecName`; D4 will read `cvRms`/`cvRns` off
+`DeclNestedRestore` — no further exposure needed.
+
+**Gates**: `lake build` warning-free (656 jobs); `lake test` clean
+(526).  NOT run (landing items): shake/pub-import (two new modules on
+the Model umbrella), arena, init-full, Mathlib, `overview-links.sh`
+(fails on the lane branch at two anchors — pre-existing),
+`quote-gate.sh`, `no-local-paths.sh` (no path in the new files).  No
+`sorry`, no axiom, no kernel change, no new `IndRep` field, no
+`maxHeartbeats` raise beyond the lane's usual 1600000 on the two
+run-level assemblies.
+
+**What is left, re-sized.**  D3's assembly (`NestedCtorLeaf` at every
+restored constructor): `read` = `restoredCtor_read` at the real
+constructor's auxiliary data (`hall t` → `hD`; the position bookkeeping
+`ctorsR.flatten[i]` ↔ `d.ctorsA[Ja]` through `restoreCtors_id`/
+`auxStored?_ctors`/`ownCtors`; `RestoredFieldsRead` by
+`restoredFieldsRead_of_stored` — its `res`-facts from `CtorsChecked`'s
+`mutualFieldsOk` as for copies, the table facts at `d.fvsPF Ja` as
+`copyWalkFacts_of_run` builds them, `hpinAll` = `pinsData_of_run`;
+`hreadP` at the constructor's OWN openers: the normalisation keeps the
+original parameter binders (`normCtorValM`'s `pbs`), which are the head
+former's, resolving before the block — one small Verify lemma; the
+residual `T fvsP idx` its own restoration, read from its pieces as the
+reflexive arm does), then `restoredCtor_typed`'s named facts
+(`hΨ`/`hviaWD`/`hokR`/`hzero`/bounds from `psiFinal_mem`/`final_typed`/
+the field readings/`DsA_below`/`final_below`) and `params` by
+canonicalisation — 1–2 sessions.  D4 (the recursors' model) 2–3; D5
+(`T`'s `IndRep`, `ContainersRep` at `RepsAt`) 2; D6 (tables) 1; D7
+(`declNested` + dispatch) 1; M-E 1–2; `hpinsLits` 1 (Verify, parallel).
+The intended `declNested` signature is unchanged.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
