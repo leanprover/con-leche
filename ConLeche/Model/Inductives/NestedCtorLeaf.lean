@@ -439,7 +439,7 @@ theorem restoredCtor_typed {μ : CheckMode} {envAux : Env} (mpAux : EnvModelM V 
     -- the restored domains are bounded at their own depth, ψ's terms at
     -- the parameters
     (hbelowR : DomsBelow 0 (d.dsRestored mpAux.base2 ψ k₀ Ja tgtCont tgtLps tgtDsA))
-    (hΨB : ∀ j', Term.bvarsBelow d.nP (Ψ j').erase) :
+    (hΨB : ∀ i, i < cA.2 → d.copyPos k₀ Ja i → Term.bvarsBelow d.nP (Ψ (d.tgtsR Ja i - k₀)).erase) :
     Term.bvarsBelow 0
       (d.restoredCtorAV mpAux.base2 Ψ ψ k₀ Ja cA.2 cA.1.name tgtCont tgtLps tgtDsA).erase ∧
     ∀ ρ : Nat → V,
@@ -617,7 +617,7 @@ theorem restoredCtor_typed {μ : CheckMode} {envAux : Env} (mpAux : EnvModelM V 
             obtain ⟨h1, h2⟩ := Prod.mk.inj h
             obtain ⟨h3, h4⟩ := Prod.mk.inj h2
             subst h1 h3 h4
-            refine ⟨by rw [Nat.add_zero]; exact hΨB _, ?_, ?_⟩
+            refine ⟨by rw [Nat.add_zero]; exact hΨB i hi hc, ?_, ?_⟩
             · rw [Nat.add_zero, htss]; exact hD.tssBelow ψ i
             · intro E hE
               rw [Nat.add_zero, htss, heiss] at *
