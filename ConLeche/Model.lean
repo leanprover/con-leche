@@ -44,6 +44,7 @@ public import ConLeche.Model.Inductives.CopyCtorWalk
 public import ConLeche.Model.Inductives.CopyCtorWalkRun
 public import ConLeche.Model.Inductives.CopyWalkFactsRun
 public import ConLeche.Model.Inductives.CopyWalkFactsAssembly
+public import ConLeche.Model.Inductives.CopyWalkFactsRunAssembly
 public import ConLeche.Model.Inductives.GroupExclusionRun
 public import ConLeche.Model.Inductives.WhnfContentRun
 public import ConLeche.Model.Inductives.RestoreRead

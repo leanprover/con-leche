@@ -77575,6 +77575,148 @@ needed `@[expose]`.
 
 **Gates**: `lake build` (644 jobs) warning-free; `lake test` clean.
 
+#### M.46 — task #307: `copyWalkFacts_of_run` (2026-09-14, session 30)
+
+**Context.**  Session 29 (§M.45) proved `CopyCtorWalkFacts` from one
+copy constructor's STORED data under ~35 syntactic hypotheses and
+discharged four of them (`containerRecField_shape`,
+`copyFields_of_whnfOk`, `copyResid_of_stored`, `groupExclusion_of_K23`).
+This session assembles the two AT THE RUN:
+`Model/Inductives/CopyWalkFactsRunAssembly.lean` (new, on the Model
+umbrella, ~820 lines) holds **`copyWalkFacts_of_run`** — `CopyWalkFacts
+μ F (consNestedFormers (stored.take p.k) env) p st (restoreTbl p st) d
+cd` from the run's own facts — and **`copyCtorsRead_of_run'`**, the
+restatement of `copyCtorsRead_of_run` with that premise DISCHARGED.
+
+**Plumbing (first commit).**  `copyIdxRead_of_run` and
+`pinFacts_of_run` now carry what the walk's facts are read from:
+`stored` (`auxStoredAll`), the auxiliary install (`checkMutualCore`),
+K.3's `pinsClosed`, K.20's formers conjunct, K.17's
+`nestedCtorsWhnfOk`, the pins' leaves (`PinsAtOpeners`) and the head
+former's telescope with `hasFvar = false`.  Three destructuring sites
+took a `-` each (`psiFold_typed_of_run`, `copyCtorsRead_of_run`,
+`invSetup_of_run`).  `ContainersClosed` and `PinsAtOpeners` gained
+`@[expose]` (a sealed `def` cannot be applied from another module).
+
+**What the run discharges** (all of `copyCtorWalkFacts_of_stored`'s
+hypotheses except the named ones below): the copy's constructor at the
+auxiliary datum and the container's at its own (`copyCtorAsRead_of_run`'s
+preamble, reused verbatim), `hlpsT` (the stored constructor's level
+parameters are the block's, off `CopyCtorsStored`'s `hstores`),
+`hrealFresh` (every block member is fresh before the block —
+`mutualFormerChecks_front`'s `FormerFront.fresh`, no recursor-name
+freshness needed), `hcopyAux`/`hauxFresh` (the table's three name sets
+against `copiesFresh` and `b.blockNames.Nodup`), `hopen` (the
+container's constructor at the pin strips at the fields by
+`containerResid_at_pin`, then `openPisAtFvars_of_stripPis'`),
+`hcIL`/`hcIB` (`LeavesIn.instPis`/`instPis_looseBVarsBounded` over
+`EnvWF`'s row for the container's stored constructor and the pins'
+leaves), `hDsMention` (the named `PinsMentionMember` at the pin's
+spine), the table's facts (`restoreTbl_wf`, `restoreTbl_instAt_lookup`
+at `params` and `_lookup_erasedEq` at the copy's own openers, the
+recursor map empty by the block's name discipline), and the four
+pieces of §M.45.
+
+**Two lemmas the tree lacked**, both in the new file:
+
+* **`containerInfo?_self_mem`** — a recovered group holds the name it
+  was looked up at (`containerInfo?`'s `names.contains I` guard,
+  through the members' `mapM`);
+* **`containerGroupOk_of_pins`** — hence, when a group's members all
+  have pins, `nestedContainersOk`'s check at the pin of the group's own
+  name IS `containerGroupOk env ci` for the run's `ci`.
+
+That pair closes the gap §M.45 left open between the run's
+`containerInfo? env I = some ci` and K.23's `containerInfo? env
+q.container = some ci'`: `containerGroupOk_inv` transports `ci.nP` and
+the member NAMES to every member's own recovery, which is exactly what
+`groupExclusion_of_K23` asks (`hciNP`, `hmemNames`).  The same
+transport gives `hciNP : ci.nP = dJ.nP` (no new `PinRunFactsAt`
+conjunct — `elimNested_copy`'s `Ds.length = ci.nP` at the pin, moved
+across the group) and `hpinLen` (a pin on a member of this group
+carries `dJ.nP` components), both of which §M.45 had sourced only
+optimistically.
+
+**What stays NAMED** (each stated once, in
+`CopyWalkFactsRunAssembly.lean`, and threaded through
+`copyCtorsRead_of_run'`):
+
+1. `NestedGroupExclusionOk env envAux p st` (K.23, the kernel lane's
+   shape) and `∀ j' < st.pins.length, IndRepData.OrdNotRec (cd j').dJ`
+   — unchanged from §M.45.
+2. `ContainerLpsNodup env := ∀ n cv caps, env.find? n = some (.indInfo
+   cv caps) → cv.levelParams.Nodup` — K.21 at the environment (the
+   container's own install checked `FormerFront.lpsNodup`; the model's
+   `IndRep` does not record it).
+3. `PinsMentionMember d st k₀ := ∀ q ∈ st.pins, ∃ D ∈ q.pin.getAppArgs,
+   ∃ t, t < k₀ ∧ D.mentionsConstE (d.memberName t) = true` — the
+   ledger's conjunct, at the run.
+4. `ContainerCtorsNoAux p st cd` — at every pin and container
+   constructor, `∀ n ∈ (restoreTbl p st).auxNames, cI.mentionsConstE n
+   = false` for the instantiated constructor `cI`.
+5. `ResidContent p st d cd` — the residual clause (W2) at the run:
+   the stored residual is the copy at its own parameter openers and
+   index arguments, the container's at the pin, the two index lists
+   erasure-equal position by position.
+6. `WhnfContent …` at `env₁ = consNestedFormers (stored.take p.k) env`
+   and `R = restoreTbl p st` — M-D′ D2's, another lane's.
+
+**Findings, with cost.**
+
+(a) **The ledger records no fire condition.**  `PinsMentionMember`
+(item 3) cannot be discharged as §M.45 hoped: `MintStep`/`PinOriginAt`
+keep the mint's data (`mkCopies`, the components, the group) but NOT
+the `nestedOccOk` test that caused the fire, so nothing says a
+component mentions a block member.  Worse, two shapes are involved:
+the fire gives `mentionsConst` (annotation-sensitive) where the
+assembly needs `mentionsConstE` (blind), and the fire's mention is of
+a name in `st.newNames` — a REAL member only if components never
+mention a copy (true, because the walk is top-down and never re-walks
+its own output, but that is an elimination invariant nobody has
+stated).  Discharging item 3 is therefore: a `nestedOccOk` conjunct in
+`MintStep`, carried through `replaceIfNested_mint`/`elimLoop_ledger`/
+`elimNested_copy`; a blind-vs-annotated bridge (the components' leaves
+are `params`, whose annotations resolve before the block); and the
+copy-freeness invariant.  Sized at one session on the Verify tier.
+
+(b) **`CopyCtorsStored` relates the walk's states to the final one by
+their PIN lists only** (`stb.pins <+: st.pins`).  `copyResid_of_stored`
+needs two facts about the intermediate states' TYPE lists — `hin`
+(`cI` mentions none of `stb`'s copies) and `haux` (the copy's own name
+IS one of them) — and neither is derivable: nothing bounds
+`sta.types`/`stb.types` against `st.types`.  The fix is one conjunct
+at the ledger (`ElimGrows ⟨types0, [], 1⟩ st₁`, i.e. `st₁.types.map
+(·.name) = types0.map (·.name) ++ st₁.pins.map (·.aux)`, which
+`elimNested_names` proves of the FINAL state), threaded through
+`PinOriginAt` → `elimNested_copy` → `copyCtorsStored_of` →
+`CopyCtorsStored`; with it, `hin` follows from the pins' prefix and
+`haux` from a length bound.  Until then the residual clause is named
+(item 5) and `copyResid_of_stored` stays unconsumed.  ~2 h of analysis;
+the fix is Verify-tier, ~1 session with the pattern shifts at the five
+`CopyCtorsStored` destructuring sites.
+
+(c) **`cI`'s blindness to the table's names** (item 4) needs
+`elimNested_mentionInv` at `ok n := (env.find? n).isSome ∨ n ∈ the
+block's own members` — `ContainersMentionOnly env ok` has no
+instantiation anywhere in the tree, and the components' half needs the
+same invariant as (a).  The container-constructor half alone is free
+(`EnvWF`'s `constsResolve` row plus `not_mentionsConst_of_fresh`).
+
+(d) Lean traps (all §M.45's, met again): a `rfl` pattern on `a = b`
+eliminates the RIGHT-hand variable — `obtain rfl : q₀ = q` deletes the
+theorem's own `q`, so every later mention breaks (state the equation
+with the name to KEEP on the left); `obtain ⟨-, rfl⟩` on a pair of
+equations drops the identification the consumer needs (here `fvsP' =
+d.fvsPF Ja`, which `copyCtorWalkFacts_of_stored` demands literally);
+`List.nodup_append`'s third component is `∀ a ∈ l₁, ∀ b ∈ l₂, a ≠ b`,
+not `Disjoint`; and a datum re-sorted as `{d with resSort := s₀}`
+makes every projection print as a record update — the application
+needs `(d := d)` given explicitly.
+
+**Gates**: `lake build` 645 jobs warning-free; `lake test` 522 jobs
+clean; `tests/no-local-paths.sh` OK.  No `sorry`, no axiom, no kernel
+change, no new `IndRep` field.
+
 #### K/M — task #306: the downward reading transfer (2026-09-14)
 
 M.44 named `denoteMeta`'s DOWNWARD crossing as a missing fact: every
@@ -77862,6 +78004,21 @@ the transfers make it longer than §M.45's assembly):
   transferred down component by component (`elimNested_mentionInv`,
   `hpinsNoProj`) and moved to `mp₁`'s carrier (a `DenoteMetaSpine`
   twin of `denoteMeta_acval_congr`, ten lines).
+
+**#307 MERGED** (third commit; `agent/walkrun-307` 6c358a6b, its record
+§M.46): `copyWalkFacts_of_run` and `copyCtorsRead_of_run'` adapted to
+the leaf clause (`CopyWalkFacts`/`WhnfContent` at the ledger's `params`;
+its `copyFields_of_whnfOk` call unchanged in shape); its K.23 premise
+`NestedGroupExclusionOk env envAux p st` is DISCHARGED — the run's
+K.23 conjunct is exposed through `copyIdxRead_of_run`/`pinFacts_of_run`
+(between K.20 and K.17; five destructurings shifted) and read by
+`nestedGroupExclusionOk_inv` inside `copyCtorsRead_of_run'`.  Its
+remaining named premises: `OrdNotRec` (per pin; the `ContainersRep`
+conjunct), `ContainerLpsNodup env` (K.21's record, on `inductives`
+45b41830 — the `_inv` swap is a follow-up), `PinsMentionMember`,
+`ContainerCtorsNoAux`, `ResidContent` (task #308's ledger conjuncts),
+and `WhnfContent` (this session's one-field content, the run-level
+assembly owed).
 
 **Named this session** (both environment-shape facts, provable, not
 built; stated where consumed):
