@@ -97,23 +97,6 @@ data; the decline never fires on a stream official accepts. -/
     C ∈ ci.members.map (·.name) ∧ ci.nP ≤ argsJ.length ∧
     ∀ k, k < ci.nP → argsJ[k]? = some (.bvar (ci.nP + i - 1 - k + nJ))
 
-/-- **An ordinary field of a container datum is not recursive-shaped**
-(the container-side bridge of K.23, DESIGN §M.45): at a constructor's
-field the datum classifies ORDINARY, the stored constructor's binder is
-not a group member applied to the exact parameter variables under its
-Π-prefix — what the kernel's classification gives (`mutualCtorKinds`:
-ordinary ⟺ no member mentioned) and no `IndRep` clause records.  A
-conjunct of the container-side premise `ContainersRep`. -/
-@[expose] def IndRepData.OrdNotRec (dJ : IndRepData V) : Prop :=
-  ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ →
-  ∀ (bsJ : List (Expr × ConLeche.BinderMeta)) (rJ : Expr),
-    cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bsJ, rJ) →
-  ∀ (i : Nat), i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
-  ∀ (domJ : Expr × ConLeche.BinderMeta), bsJ[dJ.nP + i]? = some domJ →
-  ∀ (C : Name) (args : List Expr) (n : Nat), ConLeche.fieldHeadAt domJ.1 = some (C, args, n) →
-    (∃ t, t < dJ.k ∧ dJ.memberName t = C) → dJ.nP ≤ args.length →
-    (∀ k, k < dJ.nP → args[k]? = some (.bvar (dJ.nP + i - 1 - k + n))) → False
-
 /-! ## Kit -/
 
 omit [SetTheory V] in

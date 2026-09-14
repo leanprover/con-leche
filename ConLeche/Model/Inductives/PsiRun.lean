@@ -143,6 +143,24 @@ structure ContainerCtorsAt (ci : ContainerInfo) (dJ : IndRepData V) : Prop where
     ∃ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ ∧ dJ.mems Jc = mm ∧
       posIn dJ Jc = l
 
+/-- **An ordinary field of a container datum is not recursive-shaped**
+(the container-side bridge of K.23, DESIGN §M.45): at a constructor's
+field the datum classifies ORDINARY, the stored constructor's binder is
+not a group member applied to the exact parameter variables under its
+Π-prefix — what the kernel's classification gives (`mutualCtorKinds`:
+ordinary ⟺ no member mentioned) and no `IndRep` clause records.  A
+conjunct of the container-side premise `ContainersRep` (task #279 M-D′ D3,
+DESIGN §M.50: read off the run through `PinFacts.ordNotRec`). -/
+@[expose] def IndRepData.OrdNotRec (dJ : IndRepData V) : Prop :=
+  ∀ (Jc : Nat) (cAJ : ConstantVal × Nat), dJ.ctorsA[Jc]? = some cAJ →
+  ∀ (bsJ : List (Expr × ConLeche.BinderMeta)) (rJ : Expr),
+    cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bsJ, rJ) →
+  ∀ (i : Nat), i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
+  ∀ (domJ : Expr × ConLeche.BinderMeta), bsJ[dJ.nP + i]? = some domJ →
+  ∀ (C : Name) (args : List Expr) (n : Nat), ConLeche.fieldHeadAt domJ.1 = some (C, args, n) →
+    (∃ t, t < dJ.k ∧ dJ.memberName t = C) → dJ.nP ≤ args.length →
+    (∀ k, k < dJ.nP → args[k]? = some (.bvar (dJ.nP + i - 1 - k + n))) → False
+
 /-- **The containers are represented at the scratch environment**: for
 every container `I` the elimination recovers (`containerInfo?` at the
 pre-block environment) there is ONE datum `dJ` of its block — a
@@ -162,6 +180,7 @@ def ContainersRep (env envAux : Env) (m : EnvModel V envAux) : Prop :=
       (∀ J, dJ.ksR J = dJ.ksF J ∧ dJ.tgtsR J = dJ.tgts J ∧ dJ.eissR J = dJ.eissF J ∧
         dJ.tssR J = dJ.tssF J) ∧
       (dJ.large = false → ∀ φ : Name → Nat, dJ.w φ = 0) ∧
+      dJ.OrdNotRec ∧
       ContainerCtorsAt ci dJ ∧
       ∀ (i : Nat) (J : ContainerMember), ci.members[i]? = some J →
         ∃ (cvTJ cvR : ConstantVal) (capsJ : IndCaps) (mI rP : Nat) (rules : List RecRule),
@@ -237,6 +256,10 @@ structure PinFacts {μ : CheckMode} (mp : EnvModelM V μ env) (d : IndRepData V)
   lev : c.dJ.elimL.eval c.ψ' = c.dJ.w c.ψ'
   kA : ∀ t, t < c.dJ.k → k₀ + c.base + t < d.k
   grp : ∀ t, t < c.dJ.k → CopyData.Ok mp.base2 d ψ k₀ (c.base + t) ⟨c.dJ, t, c.ψ', c.DsA, c.base⟩
+  /-- an ordinary field of the container is not recursive-shaped (the
+  container-side bridge of K.23, `ContainersRep`'s conjunct; task #279
+  M-D′ D3) -/
+  ordNotRec : c.dJ.OrdNotRec
 
 /-- `GroupFacts` from `PinFacts` and the constructor field. -/
 theorem GroupFacts.of_pinFacts {μ : CheckMode} {mp : EnvModelM V μ env} {d : IndRepData V}
@@ -463,7 +486,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     subst hj₀'
     have hi0 : i = 0 := by omega
     subst hi0
-    obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hcat, hmem⟩ := hcr I ci hci
+    obtain ⟨dJ, hctorsC, hkR, hciNP, hlenM, hpinsAV, hview, hprop, hONR, hcat, hmem⟩ := hcr I ci hci
     obtain ⟨cvTJ, cvR, capsJ, mI, rP, rules, hfJ, hJty, hJlps, hrules, hfR, hfresh, hrep⟩ :=
       hmem 0 J hJ
     have hik : 0 < dJ.k := by rw [← hlenM]; exact (List.getElem?_eq_some_iff.mp hJ).1
@@ -583,7 +606,7 @@ theorem pinFacts_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     rw [hlv'] at hlvlLent
     refine ⟨⟨ht, hctorsC, hkR, hpinsAV, hview,
         ⟨J.name, cvTJ, cvR, mI, rP, rules, 0, hik, hrules, hfR, hrep⟩, ?_, hlenD, hlev,
-        fun t' ht' => by show p.k + j₀ + t' < d.k; have := hposGrp t' ht'; omega, hgrpOk⟩,
+        fun t' ht' => by show p.k + j₀ + t' < d.k; have := hposGrp t' ht'; omega, hgrpOk, hONR⟩,
       rfl,
       qt, I, ci, Jt, lvls, Ds, cvTJt, capsJt, hqt, hci, hJt, hqtc.symm, by rw [hrept.member, hqtc],
       hlenM, hgrp, by rw [hqtp, hqtc], ?_, by rw [hqtc]; exact hfJt, by rw [hψ', hψ'₀, hlpst], hargs,

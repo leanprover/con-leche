@@ -30,8 +30,11 @@ block's name discipline — so `CopyWalkFacts` is a READ off the run and
 
 Three facts stay NAMED (DESIGN §M.46), each stated once here:
 
-* `NestedGroupExclusionOk env envAux p st` and `IndRepData.OrdNotRec`
-  (K.23, the kernel lane's record and the container datum's side);
+* `NestedGroupExclusionOk env envAux p st` (K.23, the kernel lane's
+  record; discharged at `copyCtorsRead_of_run'` by
+  `nestedGroupExclusionOk_inv`) — the container datum's side
+  `IndRepData.OrdNotRec` is `ContainersRep`'s conjunct, read off
+  `PinFacts.ordNotRec` (task #279 M-D′ D3);
 * the containers' level parameters are distinct (K.21);
 * `PinsMentionMember` — the pins' components mention a block member
   (the ledger's conjunct: a pin exists because `replaceIfNested` found
@@ -780,8 +783,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
 `env₁ = consNestedFormers (stored.take p.k) env` and
 `R = restoreTbl p st`, with the syntactic half of the constructor
 record proved from the run (`copyWalkFacts_of_run`) and the `whnf`
-arm's content (`WhnfContent`, M-D′ D2) and the five named facts of this
-module still premises. -/
+arm's content (`WhnfContent`, M-D′ D2) and the four named facts of this
+module still premises (`OrdNotRec` is read off `PinFacts`, M-D′ D3). -/
 theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
@@ -796,8 +799,7 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
           (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
-              ((∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) →
-                ContainerLpsNodup env →
+              (ContainerLpsNodup env →
                 PinsMentionMember d st p.k →
                 ContainerCtorsNoAux p st cd →
                 ResidContent p st d cd →
@@ -811,11 +813,11 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
     ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, fun hONR hlps hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
+  refine ⟨cd, hcd, fun hlps hmention hnoAux hresidC hwhnfC j' hj' Jc cAJ hJc => ?_⟩
   exact copyCtorAsRead_of_run hb hlenSt hfreshC hcontC hreps hchk hcd
     (copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20 hK17 helim
-      hparamsLen hpo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23) hONR hlps hmention
-      hnoAux hresidC)
+      hparamsLen hpo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23)
+      (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec) hlps hmention hnoAux hresidC)
     hwhnfC hj' hJc
 
 end ConLeche.Model
