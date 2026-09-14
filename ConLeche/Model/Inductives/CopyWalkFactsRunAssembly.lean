@@ -905,13 +905,13 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
 
 /-! ## The constructor record off the run, the walk's facts discharged -/
 
-/-- **`CopyCtorsRead` is a READ off `DeclNestedRun`** (DESIGN §M.46),
-`CopyWalkFacts` discharged: `copyCtorsRead_of_run` restated at
+/-- **`CopyCtorsRead` is a READ off `DeclNestedRun`** (DESIGN §M.46,
+§M.48), `CopyWalkFacts` discharged: `copyCtorsRead_of_run` restated at
 `env₁ = consNestedFormers (stored.take p.k) env` and
 `R = restoreTbl p st`, with the syntactic half of the constructor
-record proved from the run (`copyWalkFacts_of_run`) and the `whnf`
-arm's content (`WhnfContent`, M-D′ D2) and the five named facts of this
-module still premises. -/
+record proved from the run (`copyWalkFacts_of_run`); the `whnf` arm's
+content (`WhnfContent`, M-D′ D2) and the two named facts of this module
+(K.23 with `OrdNotRec`, and K.21) are the only premises left. -/
 theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
