@@ -355,6 +355,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   nestedPinsOk (sharedOpsC mode feAux) feAux.env p.nP st.pins
   unless members.all (fun a => !a.caps.eta && (fe.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
+  -- the group exclusion (K.23), as in the pure route
+  unless nestedGroupExclusionOk fe.env feAux.env p st do
+    throw (.internal "nested: a stored copy field is recursive into its own mint group \
+      where the container's field is not a member occurrence")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe

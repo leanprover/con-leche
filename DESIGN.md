@@ -72320,6 +72320,109 @@ arena tutorial 90/92, no-local-paths OK; the Mathlib nested cone exit 0,
 route is shadow-only and nothing outside `checkNested`'s own reader
 changed.
 
+#### K.23 THE GROUP EXCLUSION, RECORDED (2026-09-14, the model lane's DESIGN §M.44/§M.45)
+
+The request: a kernel check at the auxiliary block, a positive DECLINE,
+for the model's `kindT` — at a copy-constructor field that is
+CONTAINER-ORDINARY and COPY-RECURSIVE into a pin of the SAME mint group,
+the target pin must not be a group-mate — with the standing precondition
+that official must REJECT every stream the test could fire on.  **Read
+against official** (`src/kernel/inductive.cpp`, v4.34.0-rc2, at
+`_tmp/nested-279k/inductive-rc2.cpp`): the precondition holds for one
+shape, fails for the other, and the other is structurally unreachable.
+**Nothing was added.**
+
+**Shape 1 — the occurrence official never replaced.**
+`elim_nested_inductive_fn::replace_all_nested` is `replace(e,
+replace_if_nested)`, a SYNTACTIC traversal, and `is_nested_inductive_app`
+reads `get_app_fn`/`get_app_args` with no `whnf` anywhere.  So a nested
+occurrence that exists only up to reduction — behind a definition, a
+projection, a redex whose head is not syntactically the container — is
+NOT replaced.  The auxiliary declaration then goes through
+`add_inductive_fn` (`inductive.cpp:1252`), whose `check_constructors`
+runs `check_positivity` on every field; that function DOES `whnf` first,
+and then: not occurrence-free (the components mention a type being
+declared), not a `Π`, and `is_valid_ind_app` fails because the head is
+the CONTAINER rather than a member of the auxiliary block — so it throws
+"contains a non valid occurrence of the datatypes being declared".
+**Official rejects**, exactly as the coordinator's reading said.  (Our
+route rejects it too, at `mutualPositivity`'s non-member head.)
+
+**Shape 2 — the occurrence official did replace.**  If the nested
+occurrence IS syntactic, the elimination replaced it by `auxJ'' p⃗ …`,
+and `check_positivity`'s `whnf` now lands on an application whose head is
+a member of the auxiliary block, at the block's parameters, with
+occurrence-free indices: `is_valid_ind_app` HOLDS and the field is a
+recursive argument.  **Official accepts.**  A decline of that shape would
+be a narrowing, which the rulings forbid — so the precondition fails for
+the shape the model's `kindT` actually worries about (the whnf arm).
+
+**But shape 2 at the SAME GROUP cannot arise.**  "Same mint group" means
+the target pin's components ARE the source pin's `Ds` — the same term
+(the elimination looks a pin up by structural equality on `I Ds`, as
+official does on `replace_params(IAs, As)`).  A copy's constructor body
+is the container's stored constructor type instantiated at `Ds`, so every
+occurrence of `Ds` in it comes from that instantiation; for a field of it
+to REDUCE to `J'' Ds idx` the term `J'' Ds` would have to be a reduct of a
+subterm of `Ds` itself — that is, `Ds` would have to contain itself, which
+no finite term does.  The one escape would be for `Ds` to come out of a
+stored constant's body, and it cannot: `Ds` mentions a type of the block
+being declared, so no constant in the environment contains it.
+
+**Verdict on the precondition.**  A DECLINE is out — shape 2 is
+official's accept.  But "no check needed" does not follow for the MODEL:
+the impossibility argument above is STRONG NORMALISATION (`D ↝* C[D]`
+would be an infinite reduction), and the model tier has no normalisation
+fact and cannot state one.  So (the coordinator's ruling) the fact is
+RECORDED, exactly as K.21's is: one more Bool, `.internal` on failure —
+not a decline and not a narrowing, since no well-formed stream reaches
+it.
+
+**What is recorded** (`nestedGroupExclusionOk env envAux p st`, the
+model lane's `NestedGroupExclusionOk` decided on stored data, session
+29's statement at `agent/nested-279m:6ead11bd`
+`Model/Inductives/CopyWalkFactsRun.lean`): at every pin `j`, every
+constructor `l` of its copy and every field `i` of that constructor's
+STORED type, if the field's head — its own `Π` binders peeled,
+`fieldHeadAt` — is the `aux` of a pin of the SAME mint group
+(`q.grpBase ≤ · < q.grpBase + q.grpSize`), then the CONTAINER's
+constructor field at the same position is headed by a member of the
+container's group applied to the exact parameter variables
+(`ci.nP ≤ argsJ.length` and `argsJ[k]? = some (.bvar (ci.nP + i - 1 - k
++ nJ))`) — `containerFieldOk`'s first arm, K.15.  Contrapositively: a
+container-ORDINARY field is never copy-recursive into a group-mate.
+
+**`fieldHeadAt` is SHARED, not mirrored**: it is the kernel's own
+(`Kernel/Inductives/NestedParts.lean`, K.15), and the model lane's
+statement names `ConLeche.fieldHeadAt` — the same function, so there is
+nothing to keep in step by hand.
+
+**Every missing datum answers `true`.**  The model's statement is a
+chain of implications, so a hypothesis that does not hold makes it
+vacuous; only the container field's head is a conclusion, and its
+absence is the failure.  The Bool follows that exactly.
+
+**Measured.**  `tests/nested-shadow.sh` **26/26** and the Mathlib nested
+cone's 41 shadow lines BYTE-IDENTICAL to K.10's — it never fires, as the
+argument says it cannot.  Negative controls (one-line forced failures,
+gate re-run, reverted):
+
+| forced to fail | gate | reading |
+|---|---|---|
+| every stored field whose head `fieldHeadAt` reads | **3/26** | the field walk is reached at 23 of the 26 fixtures |
+| the GROUP-MATE branch (the `then`) | **7/26** | a stored copy field headed by a group-mate's copy occurs at **19** of the 26 — the conclusion is exercised, not vacuous |
+
+**A divergence caught by those controls.**  The first control did not
+fire at all until the check was added to `checkNestedS` as well: the
+shadow gate runs the CACHED route since K.20, and the new guard had gone
+into the pure `checkNested` only.  Both routes carry it now, and that is
+the standing obligation for every future guard — the gate measures the
+cached one.  **It was invisible to the proofs too**: the top-level
+pure/cached agreement is `checkNestedS_run`, the theorem deferred in
+K.20 2b, and the `_datF`/`…F_eq` chain covers the STAGES, not the route's
+guard list — so until `checkNestedS_run` exists, the shadow gate's
+negative control is the only thing that detects a one-route guard.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
