@@ -50,5 +50,6 @@ public import ConLeche.Verify.Inductives.NestedFields
 public import ConLeche.Verify.Inductives.NestedRestore
 public import ConLeche.Verify.Inductives.NestedRestoreWalk
 public import ConLeche.Verify.Inductives.NestedCopyStored
+public import ConLeche.Verify.Inductives.NestedCtorNames
 
 @[expose] public section

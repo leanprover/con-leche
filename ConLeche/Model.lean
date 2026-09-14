@@ -47,6 +47,7 @@ public import ConLeche.Model.Inductives.CopyWalkFactsAssembly
 public import ConLeche.Model.Inductives.CopyWalkFactsRunAssembly
 public import ConLeche.Model.Inductives.GroupExclusionRun
 public import ConLeche.Model.Inductives.WhnfContentRun
+public import ConLeche.Model.Inductives.NestedCtorStage
 public import ConLeche.Model.Inductives.RestoreRead
 public import ConLeche.Model.Inductives.NestedFormers
 public import ConLeche.Model.Inductives.InvCopy
