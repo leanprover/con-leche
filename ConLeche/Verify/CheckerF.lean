@@ -66,6 +66,29 @@ theorem constsResolveF_eq (env : Env) :
     simp only [Expr.constsResolveF, Expr.constsResolve, mkFEnv_find?,
       constsResolveF_eq env e]
 
+/-- The index twin of the `.proj` structure-name walk agrees with it
+(task #279 K.20). -/
+theorem projTablesOkF_eq (env : Env) :
+    ∀ (e : Expr), e.projTablesOkF (mkFEnv env) = e.projTablesOk env
+  | .bvar _ | .sort _ | .lit _ | .const _ _ => rfl
+  | .fvar _ ty => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk, projTablesOkF_eq env ty]
+  | .app f a => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env f, projTablesOkF_eq env a]
+  | .lam ty b _ => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env b]
+  | .forallE ty b _ => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env b]
+  | .letE ty v b => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env v, projTablesOkF_eq env b]
+  | .proj sn i e => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk, mkFEnv_findProj?,
+      projTablesOkF_eq env e]
+
 /-- `constsResolveF` under `mkFEnv`, as a function equation. -/
 theorem constsResolveF_eq_fun (env : Env) :
     (Expr.constsResolveF (mkFEnv env)) = (Expr.constsResolve env ·) :=

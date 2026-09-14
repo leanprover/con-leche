@@ -366,7 +366,7 @@ theorem declNestedRun_auxModel (hμ : μ.verifiedChecks = true) {F : Nat} {env e
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
       CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, -, -, hrm, -⟩ := h
+    hannF, -, helim, -, hfresh, -, -, hb, hcore, hstored, -, -, -, -, -, -, hrm, -⟩ := h
   exact ⟨st, b, envAux, hb, hcore,
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm⟩
 

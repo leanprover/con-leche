@@ -516,7 +516,7 @@ def containerGroupOk (env : Env) (ci : ContainerInfo) : Bool :=
       ci'.nP == ci.nP && ci'.members.map (·.name) == ci.members.map (·.name)
     | none => false
 
-/-- **The three facts at one container**: its stored constructors'
+/-- **The four facts at one container**: its stored constructors'
 occurrences of the group are UNIFORM — every occurrence of a member is
 applied to the group's parameters and universe levels, which is
 `uniformIndOccsOk`, the very walk official runs over a block being
@@ -528,10 +528,20 @@ rests on: a pin of a group is that group's member applied to the pin's
 components, so a group pin can be a sub-term of another pin only where
 the stored constructor carries the member at the parameter spine, and
 uniformity is exactly the statement that every occurrence is of that
-shape. -/
+shape.
+
+**`Name.nodup J.lps`** (task #279 K.21) is the fourth: a member's
+declared LEVEL PARAMETERS are pairwise distinct.  `checkConstantVal`
+asks it of every constant at its own install, so it holds of any
+container this checker stored; no record exposes it, and the model
+tier's forward fire needs it for the level equation (a repeated
+parameter would make the substitution at the pin's levels ambiguous).
+The alternative — an `EnvWF`/`ConstWF` clause — was sized at a session
+and reverted, so it is recorded here like the other three. -/
 def containerFactsOk (env : Env) (ci : ContainerInfo) : Bool :=
   containerGroupOk env ci &&
   ci.members.all fun J =>
+    Name.nodup J.lps &&
     uniformIndOccsOk (ci.members.map (·.name)) (J.lps.map Level.param) ci.nP
       (J.ctors.map (·.type)) &&
     containerRecOk env ci.nP J &&

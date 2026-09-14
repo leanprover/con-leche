@@ -20,12 +20,11 @@
 # lets the declaration reach the install loop, where the shadow does.
 # Those rows are exactly the coverage the native route adds.
 #
-# `tests/e2e/tower_nested.ndjson` is deliberately NOT here: the shadow
-# harness runs the PURE uncached core (`fueledOps`) where the driver
-# runs the cached one, and the fixture's depth-60 DAG tower exhausts
-# memory inside `checkMutualCore` before the restore is reached.  It is
-# the harness, not the route; it goes when the F twins and the cached
-# mirror land with the dispatch.
+# `tests/e2e/tower_nested.ndjson` is IN the gate since task #279 K.20:
+# the shadow harness runs the CACHED route (`checkNestedS`, at the
+# driver's own index and memo state, whose returned state is discarded),
+# so the fixture's depth-60 DAG tower no longer exhausts memory inside
+# `checkMutualCore` the way the pure uncached core did.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

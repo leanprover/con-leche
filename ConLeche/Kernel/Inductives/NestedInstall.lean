@@ -459,7 +459,8 @@ def restoreRules (ops : CheckerOps m) (envR : Env) (R : RestoreTbl) (lps : List 
         | none => rl.ctor
       else rl.ctor
     unless !isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor) do
-      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a         constructor of an auxiliary type")
+      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a \
+        constructor of an auxiliary type")
     let cnP : Nat :=
       match envR.find? ctor with
       | some (.ctorInfo _ n _) => n
@@ -628,6 +629,78 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
     nestedTables rest env'
 
 /-! ## The install -/
+
+/-- **THE GROUP EXCLUSION** (task #279 K.23, the model lane's
+`NestedGroupExclusionOk`, DESIGN §M.45), as a decision on STORED data.
+
+At every pin `j`, every constructor `l` of its copy and every field `i`
+of that constructor's STORED type: if the field's head — its own `Π`
+binders peeled — is the `aux` name of a pin of the SAME MINT GROUP, then
+the CONTAINER's constructor field at the same position is
+RECURSIVE-SHAPED: headed by a member of the container's group applied to
+the exact parameter variables (`containerFieldOk`'s first arm, K.15).
+Contrapositively: a container-ORDINARY field is never copy-recursive
+into a group-mate.
+
+**Why it is recorded and not argued.**  It cannot fire — a group-mate
+target needs the target pin's components to BE the source's `Ds`, and a
+copy's constructor body is the container's stored constructor
+instantiated at `Ds`, so such a reduct would need `Ds` to contain
+itself.  That argument is STRONG NORMALISATION (`D ↝* C[D]` is an
+infinite reduction), and the model tier has no normalisation fact and
+cannot state one — which is exactly why the fact is recorded here
+instead.  A failure is `.internal`: not a decline, and not a narrowing,
+because no well-formed stream reaches it.
+
+Every missing datum answers `true`: the model lane's statement is a
+chain of implications, so a hypothesis that does not hold makes it
+vacuous.  Only the final shape — the container field's head — is a
+conclusion, and its absence is the failure. -/
+def nestedGroupExclusionOk (env envAux : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.zipIdx.all fun (q, j) =>
+    match st.types[p.k + j]?, containerInfo? env q.container with
+    | some tyA, some ci =>
+      ci.members.all fun J =>
+        !(J.name == q.container) ||
+        tyA.ctors.zipIdx.all fun (c, l) =>
+          match envAux.find? c.1 with
+          | some (.ctorInfo cvS nPS nFS) =>
+            match cvS.type.stripPis (nPS + nFS) with
+            | some (bsS, _) =>
+              (List.range nFS).all fun i =>
+                match bsS[nPS + i]? with
+                | some domS =>
+                  match fieldHeadAt domS.1 with
+                  | some (aux, _, _) =>
+                    -- is the stored field's head a GROUP-MATE's copy?
+                    if (List.range q.grpSize).any (fun t =>
+                        match st.pins[q.grpBase + t]? with
+                        | some q' => q'.aux == aux
+                        | none => false) then
+                      -- then the container's own field is a member
+                      -- occurrence at the parameters
+                      match J.ctors[l]? with
+                      | some cJ =>
+                        match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                        | some (bsJ, _) =>
+                          match bsJ[ci.nP + i]? with
+                          | some domJ =>
+                            match fieldHeadAt domJ.1 with
+                            | some (C, argsJ, nJ) =>
+                              (ci.members.map (·.name)).contains C &&
+                                ci.nP ≤ argsJ.length &&
+                                (List.range ci.nP).all fun k =>
+                                  argsJ[k]? == some (Expr.bvar (ci.nP + i - 1 - k + nJ))
+                            | none => false
+                          | none => true
+                        | none => true
+                      | none => true
+                    else true
+                  | none => true
+                | none => true
+            | none => true
+          | _ => true
+    | _, _ => true
 
 /-- **The whnf witness at the constructors' fields** (task #279 K.17 (a),
 the model lane's DESIGN §M.30).
@@ -805,6 +878,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is `.internal`.
   unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
+  -- **THE GROUP EXCLUSION** (K.23): a stored copy-constructor field
+  -- headed by a GROUP-MATE's copy comes from a container field that is
+  -- itself a member occurrence at the parameters.  It cannot fire (a
+  -- group-mate target would need the pin's components to contain
+  -- themselves — strong normalisation), and the model tier cannot state
+  -- that argument, so the fact is recorded here.
+  unless nestedGroupExclusionOk env envAux p st do
+    throw (.internal "nested: a stored copy field is recursive into its own mint group \
+      where the container's field is not a member occurrence")
   let env₁ := consNestedFormers members env
   -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
   -- block — the block's own and every copy — the STORED field is the

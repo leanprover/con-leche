@@ -78206,6 +78206,226 @@ restore is on `checkNested`'s own path, which only the shadow harness
 enters — so both numbers are the noise floor of an unchanged accept
 path, as they must be.
 
+#### K.20 THE WIRING PREPARATION (2026-09-13/14)
+
+Everything the dispatch needs that does not need `declNested` itself.
+Landed in three parts.
+
+**Part 1 — the cached grade, the front door's `typeWF`, the walk
+guards.**  `checkConstantValPreF` (the index twin of the pre-annotated
+front door) with `Expr.projTablesOkF` beside it — K.13's `.proj` walk
+through the index, memoised with its own `@[csimp]` — and the grade
+threaded through `mutualFormerChecksS`, `mutualFormersS`,
+`checkMutualCoreS` and the F constructor twins.  On the S side the grade
+is an EXPLICIT parameter: those functions return a `CheckCM`, so a
+trailing optional argument would swallow the state.
+`checkConstantValPre_typeWF` gives `EnvWF`'s four type-slot facts off the
+no-walk door.  DOCKET D1 (the `containerMembersGo` overshoot) is closed —
+the cross-check landed at K.15 (2), and since no stream witness exists
+the walk itself is exercised by four `#guard`s on a hand-built
+zero-constructor recursor body.
+
+**Part 2a — `declNestedRun_etaClosed`.**  The restored formers are
+RECORDED as fresh and without the η bit (`members.all (fun a =>
+!a.caps.eta && (env.find? a.cvTa.name).isNone)`, `.internal`): both are
+facts of an environment this checker built — the auxiliary install's
+formers stage conses `{}`, and its own front door checked the name at
+this very environment — so recording them replaces a `find?`-shadowing
+argument through the scratch install's four cons stages.  With the
+freshness lemmas off the pre-annotated doors, the `_consts` shapes and
+`FreshEtaExt` for the four restore stages, the chain closes:
+`EtaFamiliesClosed env → DeclNestedRun μ F env p envOut →
+EtaFamiliesClosed envOut`.
+
+**Part 2b — the mirror and the chain.**
+
+* `Kernel/Inductives/NestedInstallF.lean`: the F twins of every monadic
+  stage.  What is mirrored and what is not: the per-constant front doors
+  and every cons go through the index; the route's own pure readers (the
+  elimination, the container recovery, the read-back, the restore table,
+  the fire shape) take `fe.env`, as the mutual mirror already does for
+  `mutualCrossChecks` — they run a handful of times per nested block (41
+  in all of Mathlib) where the front doors run once per stored constant.
+  `nestedPinsOk` and `nestedCtorsWhnfOk` need no lookup and are shared.
+* `Cached/CheckerC.lean`: **`checkNestedS`**, the whole route at the
+  driver's `FEnv`, one flush per environment transition, the scratch
+  install at `checkMutualCoreS … true`.
+* `Verify/CheckerF.lean` + `Verify/Cached/BridgeCSDecl.lean`: the
+  `…F_eq` family — `projTablesOkF_eq`, `checkConstantValPreF_eq`, and
+  one equation per stage, each saying the index twin at `mkFEnv env` IS
+  the pure stage at `env`.  (A byte-level find on the way:
+  `restoreRules`' "not a constructor of an auxiliary type" message
+  carried a literal run of spaces where a `\` continuation was meant, so
+  the twin's message differed and the equation would not close; both are
+  now the continuation.)
+* `Verify/BridgeDecl.lean`: the `_datF` family through the fuel index,
+  closing with **`checkNested_datF`**.  The mutual chain's `_datF`s are
+  generalised over the grade, which is what lets the nested one rewrite
+  its scratch install at `true`.
+* **The shadow harness runs the CACHED route** (`Main.lean`):
+  `checkNestedS mode p.2.1 q s`, at the driver's own index and memo
+  state, whose returned state is DISCARDED — nothing of the shadow
+  reaches the install.  With it **`tests/e2e/tower_nested.ndjson` comes
+  out of the gate's exclusion**: the depth-60 DAG tower exhausted memory
+  inside `checkMutualCore` under the pure uncached core and accepts
+  under the cached one.  The gate is **26/26**.
+
+**What the cone measures.**  The Mathlib nested cone's 41 shadow lines
+are BYTE-IDENTICAL to K.10's with the shadow on the cached route — an
+empirical check, block by block, of exactly what `checkNestedS_run`
+states.
+
+**STILL OWED, and named**: `checkNestedS_run` (the cached run yields a
+pure one at some fuel) and `checkNestedS_skels`.  Both need the nested
+`…S_sim` family and an `EnvWF` story for the restored block — the same
+development the dispatch will need — and neither is required before the
+dispatch arm lands.
+
+**Gates** (on `inductives` = `0a7bbbef`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, **nested-shadow 26/26**, e2e **216/216**, arena tutorial
+90/92, overview-links OK after two `Main.lean` anchors moved (paragraphs
+re-read, claims unchanged), no-local-paths OK, the trusted and both
+`--jobs` sweeps as expected; the Mathlib nested cone exit 0, **4 923
+accepted, 41/41 byte-identical to K.10**.  No init-full or full-Mathlib
+run: the route is still shadow-only and nothing on the accept path
+changed.
+
+#### K.21 THE CONTAINER MEMBERS' LEVEL PARAMETERS ARE DISTINCT (2026-09-14, the model lane's request)
+
+One more Bool inside `containerFactsOk`, so one more fact inside the
+`nestedContainersOk env st.pins = true` conjunct the run relation already
+carries: **`Name.nodup J.lps`** at every member of every pinned
+container.
+
+**Why it is recorded rather than derived.**  `checkConstantVal` asks it
+of every constant at its own install ("duplicate universe parameters"),
+so it holds of any container this checker stored — but no stored record
+exposes it, and the model tier's FORWARD FIRE needs it for the level
+equation: a repeated level parameter would make the substitution at the
+pin's levels ambiguous.  The alternative the model lane tried — an
+`EnvWF`/`ConstWF` clause, threaded through its 18 sites — was sized at a
+session and reverted.  A failure is `.internal`: it cannot happen on an
+environment this checker built.
+
+**Measured.**  `tests/nested-shadow.sh` **26/26** and the Mathlib nested
+cone's 41 shadow lines BYTE-IDENTICAL to K.10's — the fact holds
+everywhere, as the argument says it must.  Negative control (force the
+conjunct to fail wherever a member has a non-empty `lps`, re-run,
+revert): **13 of the 26 fixtures** break, so half the corpus pins
+containers with level parameters and the conjunct is reached there.
+
+**Gates** (on `inductives` = `53057833`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 26/26**, e2e **216/216**,
+arena tutorial 90/92, no-local-paths OK; the Mathlib nested cone exit 0,
+**4 923 accepted, 41/41 byte-identical**.  No accept-path change: the
+route is shadow-only and nothing outside `checkNested`'s own reader
+changed.
+
+#### K.23 THE GROUP EXCLUSION, RECORDED (2026-09-14, the model lane's DESIGN §M.44/§M.45)
+
+The request: a kernel check at the auxiliary block, a positive DECLINE,
+for the model's `kindT` — at a copy-constructor field that is
+CONTAINER-ORDINARY and COPY-RECURSIVE into a pin of the SAME mint group,
+the target pin must not be a group-mate — with the standing precondition
+that official must REJECT every stream the test could fire on.  **Read
+against official** (`src/kernel/inductive.cpp`, v4.34.0-rc2, at
+`_tmp/nested-279k/inductive-rc2.cpp`): the precondition holds for one
+shape, fails for the other, and the other is structurally unreachable.
+**Nothing was added.**
+
+**Shape 1 — the occurrence official never replaced.**
+`elim_nested_inductive_fn::replace_all_nested` is `replace(e,
+replace_if_nested)`, a SYNTACTIC traversal, and `is_nested_inductive_app`
+reads `get_app_fn`/`get_app_args` with no `whnf` anywhere.  So a nested
+occurrence that exists only up to reduction — behind a definition, a
+projection, a redex whose head is not syntactically the container — is
+NOT replaced.  The auxiliary declaration then goes through
+`add_inductive_fn` (`inductive.cpp:1252`), whose `check_constructors`
+runs `check_positivity` on every field; that function DOES `whnf` first,
+and then: not occurrence-free (the components mention a type being
+declared), not a `Π`, and `is_valid_ind_app` fails because the head is
+the CONTAINER rather than a member of the auxiliary block — so it throws
+"contains a non valid occurrence of the datatypes being declared".
+**Official rejects**, exactly as the coordinator's reading said.  (Our
+route rejects it too, at `mutualPositivity`'s non-member head.)
+
+**Shape 2 — the occurrence official did replace.**  If the nested
+occurrence IS syntactic, the elimination replaced it by `auxJ'' p⃗ …`,
+and `check_positivity`'s `whnf` now lands on an application whose head is
+a member of the auxiliary block, at the block's parameters, with
+occurrence-free indices: `is_valid_ind_app` HOLDS and the field is a
+recursive argument.  **Official accepts.**  A decline of that shape would
+be a narrowing, which the rulings forbid — so the precondition fails for
+the shape the model's `kindT` actually worries about (the whnf arm).
+
+**But shape 2 at the SAME GROUP cannot arise.**  "Same mint group" means
+the target pin's components ARE the source pin's `Ds` — the same term
+(the elimination looks a pin up by structural equality on `I Ds`, as
+official does on `replace_params(IAs, As)`).  A copy's constructor body
+is the container's stored constructor type instantiated at `Ds`, so every
+occurrence of `Ds` in it comes from that instantiation; for a field of it
+to REDUCE to `J'' Ds idx` the term `J'' Ds` would have to be a reduct of a
+subterm of `Ds` itself — that is, `Ds` would have to contain itself, which
+no finite term does.  The one escape would be for `Ds` to come out of a
+stored constant's body, and it cannot: `Ds` mentions a type of the block
+being declared, so no constant in the environment contains it.
+
+**Verdict on the precondition.**  A DECLINE is out — shape 2 is
+official's accept.  But "no check needed" does not follow for the MODEL:
+the impossibility argument above is STRONG NORMALISATION (`D ↝* C[D]`
+would be an infinite reduction), and the model tier has no normalisation
+fact and cannot state one.  So (the coordinator's ruling) the fact is
+RECORDED, exactly as K.21's is: one more Bool, `.internal` on failure —
+not a decline and not a narrowing, since no well-formed stream reaches
+it.
+
+**What is recorded** (`nestedGroupExclusionOk env envAux p st`, the
+model lane's `NestedGroupExclusionOk` decided on stored data, session
+29's statement at `agent/nested-279m:6ead11bd`
+`Model/Inductives/CopyWalkFactsRun.lean`): at every pin `j`, every
+constructor `l` of its copy and every field `i` of that constructor's
+STORED type, if the field's head — its own `Π` binders peeled,
+`fieldHeadAt` — is the `aux` of a pin of the SAME mint group
+(`q.grpBase ≤ · < q.grpBase + q.grpSize`), then the CONTAINER's
+constructor field at the same position is headed by a member of the
+container's group applied to the exact parameter variables
+(`ci.nP ≤ argsJ.length` and `argsJ[k]? = some (.bvar (ci.nP + i - 1 - k
++ nJ))`) — `containerFieldOk`'s first arm, K.15.  Contrapositively: a
+container-ORDINARY field is never copy-recursive into a group-mate.
+
+**`fieldHeadAt` is SHARED, not mirrored**: it is the kernel's own
+(`Kernel/Inductives/NestedParts.lean`, K.15), and the model lane's
+statement names `ConLeche.fieldHeadAt` — the same function, so there is
+nothing to keep in step by hand.
+
+**Every missing datum answers `true`.**  The model's statement is a
+chain of implications, so a hypothesis that does not hold makes it
+vacuous; only the container field's head is a conclusion, and its
+absence is the failure.  The Bool follows that exactly.
+
+**Measured.**  `tests/nested-shadow.sh` **26/26** and the Mathlib nested
+cone's 41 shadow lines BYTE-IDENTICAL to K.10's — it never fires, as the
+argument says it cannot.  Negative controls (one-line forced failures,
+gate re-run, reverted):
+
+| forced to fail | gate | reading |
+|---|---|---|
+| every stored field whose head `fieldHeadAt` reads | **3/26** | the field walk is reached at 23 of the 26 fixtures |
+| the GROUP-MATE branch (the `then`) | **7/26** | a stored copy field headed by a group-mate's copy occurs at **19** of the 26 — the conclusion is exercised, not vacuous |
+
+**A divergence caught by those controls.**  The first control did not
+fire at all until the check was added to `checkNestedS` as well: the
+shadow gate runs the CACHED route since K.20, and the new guard had gone
+into the pure `checkNested` only.  Both routes carry it now, and that is
+the standing obligation for every future guard — the gate measures the
+cached one.  **It was invisible to the proofs too**: the top-level
+pure/cached agreement is `checkNestedS_run`, the theorem deferred in
+K.20 2b, and the `_datF`/`…F_eq` chain covers the STAGES, not the route's
+guard list — so until `checkNestedS_run` exists, the shadow gate's
+negative control is the only thing that detects a one-route guard.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
