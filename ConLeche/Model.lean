@@ -54,6 +54,7 @@ public import ConLeche.Model.Inductives.WhnfContentOfRun
 public import ConLeche.Model.Inductives.RestoreTblRun
 public import ConLeche.Model.Inductives.NestedCtorKit
 public import ConLeche.Model.Inductives.NestedCtorRun
+public import ConLeche.Model.Inductives.NestedCtorTypedRun
 public import ConLeche.Model.Inductives.WhnfContentRunAssembly
 public import ConLeche.Model.Inductives.RestoreRead
 public import ConLeche.Model.Inductives.NestedFormers

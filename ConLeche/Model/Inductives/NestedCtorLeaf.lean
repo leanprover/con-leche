@@ -410,8 +410,12 @@ theorem restoredCtor_typed {μ : CheckMode} {envAux : Env} (mpAux : EnvModelM V 
     (hstored : envAux.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
     (hcf : cA.1.type.hasFvar = false) (hcb : cA.1.type.looseBVarsBounded 0 = true)
     (hbits : ∀ i, d.copyPos k₀ Ja i → ∀ dd ∈ (d.tssR Ja ψ).getD i [], dd.2.1 = b)
+    -- the constructor's parameter telescope is the block's, as a frame
+    (hpIff : ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ ↔
+      Sat V (((d.dsF Ja ψ).take d.nP).map (·.2.2)).reverse ρ)
     -- the ONE fact of ψ at every parameter frame
-    (hΨ : ∀ (ρp : Nat → V) (i : Nat), i < cA.2 → d.copyPos k₀ Ja i → ∀ fs : List V, fs.length = cA.2 →
+    (hΨ : ∀ (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ (i : Nat), i < cA.2 → d.copyPos k₀ Ja i → ∀ fs : List V, fs.length = cA.2 →
       SpineFit ρp (((d.dsRestored mpAux.base2 ψ k₀ Ja tgtCont tgtLps tgtDsA).drop d.nP).map (·.2.2)) fs →
       ∀ as, SpineFit (consList (fs.take i) ρp) (((d.tssR Ja ψ).getD i []).map (·.2.2)) as →
         (((d.eissR Ja ψ).getD i []).map (interp V (consList as (consList (fs.take i) ρp))) ++
@@ -529,7 +533,11 @@ theorem restoredCtor_typed {μ : CheckMode} {envAux : Env} (mpAux : EnvModelM V 
       (tgtLps := tgtLps) (tgtDsA := tgtDsA) (ρp := consList ps ρ) hlenD
       (fun i hi => d.noBVar_copyPos_of_recAt (hnb₁ i hi)) hbits hentry
       (fun i => mpAux.base2.cval_closedL _ ψ)
-      (fun i hi hc fs' hfs' hfit'' as' hsp => hΨ (consList ps ρ) i hi hc fs' hfs' (by rw [hdsR]; exact hfit'') as' hsp)
+      (fun i hi hc fs' hfs' hfit'' as' hsp => hΨ (consList ps ρ)
+        ((hpIff _).mpr (by
+          have h := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hps
+          rwa [List.append_nil] at h))
+        i hi hc fs' hfs' (by rw [hdsR]; exact hfit'') as' hsp)
       fs hfsLen (by rw [hdsR] at hfs; exact hfs)
     obtain ⟨vals, hvalsD⟩ : ∃ x, x = d.restoreVals b (consList ps ρ) Ψ ψ k₀ Ja fs := ⟨_, rfl⟩
     rw [← hvalsD] at hvals
