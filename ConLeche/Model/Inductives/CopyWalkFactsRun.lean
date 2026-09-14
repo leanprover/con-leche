@@ -279,15 +279,15 @@ theorem copyCtorWalkFacts_of_stored {μ : CheckMode} {envAux env env₁ : Env} {
     -- K.17 composed with the restore and W1, per field
     (hfields : ∀ (i : Nat) (x xC : Expr), (d.xFvsF Ja)[i]? = some x → xFvsC[i]? = some xC →
       Expr.ErasedEq (ConLeche.restoreI (R.instAt (d.fvsPF Ja)) x.fvarTypeD) xC.fvarTypeD ∨
-      WhnfField μ F env₁ R (d.fvsPF Ja) (d.nP + i) x.fvarTypeD xC.fvarTypeD)
+      WhnfField μ F env₁ R (d.fvsPF Ja) (params ++ xFvsC) (d.nP + i) x.fvarTypeD xC.fvarTypeD)
     -- the residual
     (hresid : ∃ (aux : Name) (idx idxC : List Expr),
       d.xrestF Ja = Expr.mkAppN (.const aux (p.lps.map Level.param)) (d.fvsPF Ja ++ idx) ∧
       xrestC = Expr.mkAppN (.const (dJ.memberName (dJ.mems Jc)) lvls) (Ds ++ idxC) ∧
       idx.length = idxC.length ∧
       ∀ (k : Nat) (e eC : Expr), idx[k]? = some e → idxC[k]? = some eC → Expr.ErasedEq e eC) :
-    CopyCtorWalkFacts μ F env₁ R st k₀ d.nP cAJ.2 (p.lps.map Level.param) (d.fvsPF Ja) dJ Jc
-      (dJ.memberName (dJ.mems Jc)) lvls Ds (d.xFvsF Ja) xFvsC (d.xrestF Ja) xrestC := by
+    CopyCtorWalkFacts μ F env₁ R st k₀ d.nP cAJ.2 (p.lps.map Level.param) (d.fvsPF Ja) params dJ
+      Jc (dJ.memberName (dJ.mems Jc)) lvls Ds (d.xFvsF Ja) xFvsC (d.xrestF Ja) xrestC := by
   have hxLen : (d.xFvsF Ja).length = cA.2 := hD.xLen
   have hxCLen : xFvsC.length = cAJ.2 := openPisAtFvars_length _ hopen
   have hpLen : (d.fvsPF Ja).length = d.nP := hD.pLen

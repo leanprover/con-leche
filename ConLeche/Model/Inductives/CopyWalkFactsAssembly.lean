@@ -523,7 +523,7 @@ theorem copyFields_of_whnfOk {μ : CheckMode} {F : Nat} {env env₁ : Env}
     (hSF : cvS.type.hasFvar = false) :
     ∀ (i : Nat) (x xC : Expr), xFvs[i]? = some x → xFvsC[i]? = some xC →
       Expr.ErasedEq (ConLeche.restoreI (R.instAt fvsP) x.fvarTypeD) xC.fvarTypeD ∨
-      WhnfField μ F env₁ R fvsP (nP + i) x.fvarTypeD xC.fvarTypeD := by
+      WhnfField μ F env₁ R fvsP (params ++ xFvsC) (nP + i) x.fvarTypeD xC.fvarTypeD := by
   intro i x xC hx hxC
   have hi : i < nF := by
     rw [← openPisAtFvars_length _ hopS₂]; exact (List.getElem?_eq_some_iff.mp hx).1
@@ -582,11 +582,77 @@ theorem copyFields_of_whnfOk {μ : CheckMode} {F : Nat} {env env₁ : Env}
   obtain ⟨fvsW, restW, hopW⟩ := ConLeche.openPisAtFvars_of_stripPis' nF nP hsW
   have hopM' : ConLeche.openPisAtFvars (nP + nF) c.cv.type 0 = some (params ++ fvsW, restW) :=
     ConLeche.openPisAtFvars_add' _ hopM₁ (by rw [Nat.zero_add]; exact hopW)
-  obtain ⟨fvsM', restM', hopM'', hlenM', -, hfieldM', -⟩ :=
+  obtain ⟨fvsM', restM', hopM'', hlenM', htakeM', hfieldM', -⟩ :=
     ConLeche.restoreNested_openPis hR hmR hcvF (n := nP + nF) (by omega) hopM'
   rw [hopM''] at hopM
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hopM)
   have hfsLen : fs.length = nF := stripPis_length' _ hsI
+  -- ## W1 at EVERY field: the restored walked binder is the pin's binder
+  have hW1all : ∀ (k : Nat), k < nF → ∀ (y yC : Expr), fvsW[k]? = some y → xFvsC[k]? = some yC →
+      Expr.ErasedEq (ConLeche.restoreI (R.instAt params) y.fvarTypeD) yC.fvarTypeD := by
+    intro k hk y yC hyk hyCk
+    obtain ⟨bW, hbW⟩ : ∃ bW, fs'[k]? = some bW :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenW, hfsLen]; exact hk)⟩
+    obtain ⟨bI, hbI⟩ : ∃ bI, fs[k]? = some bI :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hfsLen]; exact hk)⟩
+    have hy := openPisAtFvars_binder _ hopW hsW k bW hbW
+    have hxC' := openPisAtFvars_binder _ hopenC hsI k bI hbI
+    rw [hyk] at hy
+    rw [hyCk] at hxC'
+    obtain rfl := Option.some.inj hy
+    obtain rfl := Option.some.inj hxC'
+    simp only [Expr.fvarTypeD]
+    obtain ⟨-, s₁, s₂, -, hwalkB, hgrow₂⟩ := hfsW k bI bW hbI hbW
+    have hs₂ : ∀ q ∈ s₂.pins, q ∈ P := by
+      intro q hq
+      obtain ⟨new, hnew, -⟩ := hgrow₂
+      exact hstb q (by rw [hnew]; exact List.mem_append_left _ hq)
+    obtain ⟨-, -, -, hlenWo, hshW, -⟩ := Verify.openPisAtFvars_stripPis nF hopW
+    have hfvsWF : Expr.AllFvars (fvsW.take k) := by
+      intro a ha
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+      have hj' : j < k := by
+        have := (List.getElem?_eq_some_iff.mp hj).1; rw [List.length_take] at this; omega
+      rw [List.getElem?_take_of_lt hj'] at hj
+      obtain ⟨ty, hty⟩ := hshW j (by omega)
+      rw [hj] at hty
+      exact ⟨_, _, Option.some.inj hty⟩
+    have hbIaux : ∀ n ∈ R.auxNames, bI.1.mentionsConstE n = false := by
+      intro n hn
+      have hxCF : Expr.AllFvars (xFvsC.take k) := by
+        intro a ha
+        obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+        have hj' : j < k := by
+          have := (List.getElem?_eq_some_iff.mp hj).1; rw [List.length_take] at this; omega
+        rw [List.getElem?_take_of_lt hj'] at hj
+        obtain ⟨ty, hty⟩ := hshC j (by omega)
+        rw [hj] at hty
+        exact ⟨_, _, Option.some.inj hty⟩
+      rw [← Expr.mentionsConstE_instSeq_fvars (xFvsC.take k) hxCF (k - 1) bI.1]
+      cases hm : (Expr.instSeq (xFvsC.take k) (k - 1) bI.1).mentionsConstE n with
+      | false => rfl
+      | true =>
+        exact absurd (ConLeche.openPisAtFvars_mentionsConstE nF cbody nP hopenC
+          (Or.inr ⟨_, List.mem_of_getElem? hyCk, hm⟩)) (by rw [hcIaux n hn]; decide)
+    have hW1 := ConLeche.restoreI_walk (hRN.instAt params)
+      (by show R.nP = params.length; rw [hRnP, hparamsLen]) hparC hP bI.1 hwalkB hs₂ hbIaux
+      (fvsW.take k) (k - 1) hfvsWF (by rw [List.length_take]; omega)
+    have hxCE : Expr.ErasedEq (Expr.instSeq (fvsW.take k) (k - 1) bI.1)
+        (Expr.instSeq (xFvsC.take k) (k - 1) bI.1) := by
+      refine Expr.instSeq_erasedEq_args _ _ _ (Expr.ErasedEq.rfl _) ?_ ?_
+      · intro k' a₁ a₂ ha₁ ha₂
+        have hk' : k' < k := by
+          have := (List.getElem?_eq_some_iff.mp ha₁).1; rw [List.length_take] at this; omega
+        rw [List.getElem?_take_of_lt hk'] at ha₁ ha₂
+        obtain ⟨ty₁, hty₁⟩ := hshW k' (by omega)
+        obtain ⟨ty₂, hty₂⟩ := hshC k' (by omega)
+        rw [ha₁] at hty₁
+        rw [ha₂] at hty₂
+        obtain rfl := Option.some.inj hty₁
+        obtain rfl := Option.some.inj hty₂
+        exact rfl
+      · rw [List.length_take, List.length_take, hlenWo, openPisAtFvars_length _ hopenC]
+    exact hW1.trans hxCE
   obtain ⟨bW, hbW⟩ : ∃ bW, fs'[i]? = some bW :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenW, hfsLen]; exact hi)⟩
   obtain ⟨bI, hbI⟩ : ∃ bI, fs[i]? = some bI :=
@@ -681,7 +747,55 @@ theorem copyFields_of_whnfOk {μ : CheckMode} {F : Nat} {env env₁ : Env}
     have hbnd := (Verify.openPisAtFvars_bounded (nP + nF) hopM'' hmRB).2 _ hyMem
     have hlb := (ConLeche.openPisAtFvars_leavesBounded hopM'' hmRF hmRB).1 _ hyMem
     simp only [Expr.fvarTypeD] at hbnd hlb
-    exact ⟨tyM, tyS, hdmE, hwh, hxRE, hws.2, hbnd, hlb⟩
+    -- ## the leaves: the restored processed constructor's openers, each
+    -- the container-side opener up to its annotation
+    have hshapeM : ∀ (j : Nat) (z : Expr), fvsM'[j]? = some z → ∃ ty, z = .fvar j ty := by
+      intro j z hz
+      by_cases hjP : j < nP
+      · have hjR : j < R.nP := by rw [hRnP]; exact hjP
+        rw [← List.getElem?_take_of_lt (l := fvsM') hjR, htakeM', htakeM] at hz
+        exact hparSh j z hz
+      · have hjl : j < nP + nF := by
+          rw [← hlenM']; exact (List.getElem?_eq_some_iff.mp hz).1
+        obtain ⟨x', hx'⟩ : ∃ x', (params ++ fvsW)[j]? = some x' :=
+          ⟨_, List.getElem?_eq_getElem (by rw [List.length_append, hparamsLen, hlenWo]; exact hjl)⟩
+        obtain ⟨ty, hty, -⟩ := hfieldM' j x' z (by omega) hx' hz
+        exact ⟨ty, hty⟩
+    have hleaves : ∀ l ∈ tyM.fvarLeaves,
+        ∃ tyC, (params ++ xFvsC)[l.1]? = some (.fvar l.1 tyC) ∧ Expr.ErasedEq l.2 tyC := by
+      intro l hl
+      have hLI := ConLeche.openPisAtFvars_leavesIn hopM'' hmRF _ hyMem
+      have hmemM : Expr.fvar l.1 l.2 ∈ fvsM' := hLI l (by
+        show l ∈ Expr.fvarLeaves (.fvar (nP + i) tyM)
+        simp only [Expr.fvarLeaves]
+        exact List.mem_cons_of_mem _ hl)
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem hmemM
+      obtain ⟨ty, hty⟩ := hshapeM j _ hj
+      obtain ⟨rfl, rfl⟩ : l.1 = j ∧ l.2 = ty := by
+        injection hty with h1 h2
+        exact ⟨h1, h2⟩
+      by_cases hjP : l.1 < nP
+      · refine ⟨l.2, ?_, Expr.ErasedEq.rfl _⟩
+        have hjR : l.1 < R.nP := by rw [hRnP]; exact hjP
+        rw [← List.getElem?_take_of_lt (l := fvsM') hjR, htakeM', htakeM] at hj
+        rw [List.getElem?_append_left (by rw [hparamsLen]; exact hjP)]
+        exact hj
+      · have hjl : l.1 < nP + nF := by
+          rw [← hlenM']; exact (List.getElem?_eq_some_iff.mp hj).1
+        obtain ⟨y, hy'⟩ : ∃ y, fvsW[l.1 - nP]? = some y :=
+          ⟨_, List.getElem?_eq_getElem (by rw [hlenWo]; omega)⟩
+        have hyapp' : (params ++ fvsW)[l.1]? = some y := by
+          rw [List.getElem?_append_right (by omega), hparamsLen]; exact hy'
+        obtain ⟨tyX, htyX, hE⟩ := hfieldM' l.1 y _ (by omega) hyapp' hj
+        obtain rfl : tyX = l.2 := (Expr.fvar.inj htyX).2.symm
+        rw [htakeM] at hE
+        obtain ⟨tyC, htyC⟩ := hshC (l.1 - nP) (by omega)
+        rw [show nP + (l.1 - nP) = l.1 by omega] at htyC
+        refine ⟨tyC, ?_, ?_⟩
+        · rw [List.getElem?_append_right (by omega), hparamsLen]; exact htyC
+        · simp only [Expr.fvarTypeD] at hE
+          exact hE.trans (hW1all (l.1 - nP) (by omega) y _ hy' htyC)
+    exact ⟨tyM, tyS, hdmE, hwh, hxRE, hws.2, hbnd, hlb, hleaves⟩
 
 
 /-! ## The residual: W2 through the stored constructor's shape -/

@@ -403,12 +403,21 @@ RESTORED at the instantiated level — `restoreI (R.instAt params) eA`,
 exactly what `restoreNested_openPis` says of the restored STORED
 constructor's opener — and `dm` carries the reduction's guards.  The
 whole-constant `restoreNested R` on a FIELD is the wrong currency
-(`stripPisOrLams nP` on a field is not the restore of that field). -/
+(`stripPisOrLams nP` on a field is not the restore of that field).
+
+**The leaves** (task #279 M-D′ D2, DESIGN §M.47): `dm` is the restored
+PROCESSED constructor's opener, so every `fvar` leaf it carries — the
+earlier openers, hereditarily through their annotations — is one of the
+CONTAINER-side openers `fvsC` (the head former's parameter openers
+followed by the container's instantiated field openers) up to erasure
+of the annotation.  `ErasedEq dm eC` alone is blind to the leaves'
+annotations, and the `whnf` claim's context (`CtxOk`) reads them. -/
 @[expose] def WhnfField (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLeche.RestoreTbl)
-    (params : List Expr) (dpt : Nat) (eA eC : Expr) : Prop :=
+    (params fvsC : List Expr) (dpt : Nat) (eA eC : Expr) : Prop :=
   ∃ (dm dsR : Expr), Expr.ErasedEq dm eC ∧ ConLeche.whnf μ env₁ F dpt dm = .ok dsR ∧
     Expr.ErasedEq dsR (ConLeche.restoreI (R.instAt params) eA) ∧
-    Expr.WScoped dpt dm ∧ dm.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded dm
+    Expr.WScoped dpt dm ∧ dm.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded dm ∧
+    ∀ l ∈ dm.fvarLeaves, ∃ tyC, fvsC[l.1]? = some (.fvar l.1 tyC) ∧ Expr.ErasedEq l.2 tyC
 
 /-- **What the walk leaves of a copy's constructor** (DESIGN §M.41): the
 copy's STORED constructor opened at the block's parameters and its own
@@ -430,7 +439,7 @@ The syntactic half (`Verify`) produces this from `copyCtorFields_of_walk`,
 the container's `FixOpened` shapes instantiated at the pin, K.17's
 witness and the ledger; the Model half below reads the record off it. -/
 structure CopyCtorWalkFacts (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLeche.RestoreTbl)
-    (st : ElimState) (k₀ nP nF : Nat) (blvls : List Level) (params : List Expr)
+    (st : ElimState) (k₀ nP nF : Nat) (blvls : List Level) (params params₀ : List Expr)
     (dJ : IndRepData V) (Jc : Nat) (Jn : Name) (lvls : List Level) (Ds : List Expr)
     (xFvs xFvsC : List Expr) (xrest xrestC : Expr) : Prop where
   lenC : xFvsC.length = nF
@@ -453,7 +462,7 @@ structure CopyCtorWalkFacts (μ : CheckMode) (F : Nat) (env₁ : Env) (R : ConLe
     FiredField st blvls params
       (fun q => ∀ g, g < dJ.k → q.pin ≠ Expr.mkAppN (.const (dJ.memberName g) lvls) Ds)
       (nP + i) x.fvarTypeD xC.fvarTypeD ∨
-    WhnfField μ F env₁ R params (nP + i) x.fvarTypeD xC.fvarTypeD
+    WhnfField μ F env₁ R params (params₀ ++ xFvsC) (nP + i) x.fvarTypeD xC.fvarTypeD
 
 
 /-! ## Kit: the reading peel with its binder bits -/
@@ -728,7 +737,7 @@ theorem copyCtorAsRead_of_walkFacts {μ : CheckMode} {envAux env env₁ : Env} {
     (mp : EnvModelM V μ envAux) {R : ConLeche.RestoreTbl} {st : ElimState}
     {d dJ : IndRepData V} {ψ ψ' : Name → Nat} {DsA : List AnnotTerm} {Ds : List Expr}
     {k₀ j₀ Jc Ja : Nat} {cA cAJ : ConstantVal × Nat}
-    {lpsT lpsJ : List Name} {lvls blvls : List Level} {params : List Expr}
+    {lpsT lpsJ : List Name} {lvls blvls : List Level} {params params₀ : List Expr}
     {tgtCont : Nat → Name} {tgtLps : Nat → Name → Nat} {tgtDsA : Nat → List AnnotTerm}
     -- sizes
     (hdk : d.k = k₀ + st.pins.length) (hparams : params.length = d.nP)
@@ -781,12 +790,12 @@ theorem copyCtorAsRead_of_walkFacts {μ : CheckMode} {envAux env env₁ : Env} {
       = some (ConLeche.Model.AnnotTerm.instSeq DsA (dJ.nP - 1 + cAJ.2)
           (ctorBodyAVI mp.base2 (dJ.memberName (dJ.mems Jc)) dJ.nP cAJ.2 ψ' (dJ.esF Jc ψ'))))
     -- the walk
-    (hw : CopyCtorWalkFacts μ F env₁ R st k₀ d.nP cAJ.2 blvls params dJ Jc
+    (hw : CopyCtorWalkFacts μ F env₁ R st k₀ d.nP cAJ.2 blvls params params₀ dJ Jc
       (dJ.memberName (dJ.mems Jc)) lvls Ds (d.xFvsF Ja) xFvsC (d.xrestF Ja) xrestC)
     -- the `whnf` arm's content
     (hwhnf : ∀ (i : Nat) (x xC : Expr), (d.xFvsF Ja)[i]? = some x → xFvsC[i]? = some xC →
       i ∉ ConLeche.recIdxOf (dJ.ksF Jc) →
-      WhnfField μ F env₁ R params (d.nP + i) x.fvarTypeD xC.fvarTypeD →
+      WhnfField μ F env₁ R params (params₀ ++ xFvsC) (d.nP + i) x.fvarTypeD xC.fvarTypeD →
       (i ∈ ConLeche.recIdxOf (d.ksR Ja) → k₀ ≤ d.tgtsR Ja i →
         ¬ (j₀ ≤ d.tgtsR Ja i - k₀ ∧ d.tgtsR Ja i - k₀ < j₀ + dJ.k)) ∧
       ∀ (σ : Nat → V) (ws : List V), ws.length = i → Sat V (d.params ψ).reverse σ →

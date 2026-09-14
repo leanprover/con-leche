@@ -84,7 +84,7 @@ theorem denoteMeta_envExtend_down {env₀ env : Env}
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env env₀) :
     ∀ (d : Nat) (e : Expr), ConstsBound env₀ e →
       (∀ (sn : Name) (i : Nat), env₀.findProj? sn i = none →
-        Expr.NoProjAt sn i e) →
+        (env.findProj? sn i).isSome = true → Expr.NoProjAt sn i e) →
       ∀ {ea : AnnotTerm}, denoteMeta acval env φ d e = some ea →
         denoteMeta acval env₀ φ d e = some ea := by
   -- a slot tabled below is tabled above, with the same entry
@@ -116,43 +116,48 @@ theorem denoteMeta_envExtend_down {env₀ env : Env}
   | case6 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_forallE] at hc
-    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none) =>
-      Expr.noProjAt_forallE.mp (hnp sn i h0)
+    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none)
+        (hs : (env.findProj? sn i).isSome = true) =>
+      Expr.noProjAt_forallE.mp (hnp sn i h0 hs)
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
     have hnpb : ∀ (sn : Name) (i : Nat), env₀.findProj? sn i = none →
+        (env.findProj? sn i).isSome = true →
         Expr.NoProjAt sn i (body.instantiate1 (.fvar d ty)) :=
-      fun sn i h0 => Expr.NoProjAt.instantiate1
-        (Expr.noProjAt_fvar.mpr (hnp' sn i h0).1) _ _ (hnp' sn i h0).2
+      fun sn i h0 hs => Expr.NoProjAt.instantiate1
+        (Expr.noProjAt_fvar.mpr (hnp' sn i h0 hs).1) _ _ (hnp' sn i h0 hs).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
-    rw [denoteMeta, ihty hc.1 (fun sn i h0 => (hnp' sn i h0).1) hta,
+    rw [denoteMeta, ihty hc.1 (fun sn i h0 hs => (hnp' sn i h0 hs).1) hta,
       ihbody hcb hnpb hba]
     rfl
   | case7 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_lam] at hc
-    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none) =>
-      Expr.noProjAt_lam.mp (hnp sn i h0)
+    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none)
+        (hs : (env.findProj? sn i).isSome = true) =>
+      Expr.noProjAt_lam.mp (hnp sn i h0 hs)
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
     have hnpb : ∀ (sn : Name) (i : Nat), env₀.findProj? sn i = none →
+        (env.findProj? sn i).isSome = true →
         Expr.NoProjAt sn i (body.instantiate1 (.fvar d ty)) :=
-      fun sn i h0 => Expr.NoProjAt.instantiate1
-        (Expr.noProjAt_fvar.mpr (hnp' sn i h0).1) _ _ (hnp' sn i h0).2
+      fun sn i h0 hs => Expr.NoProjAt.instantiate1
+        (Expr.noProjAt_fvar.mpr (hnp' sn i h0 hs).1) _ _ (hnp' sn i h0 hs).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_lam_inv h
-    rw [denoteMeta, ihty hc.1 (fun sn i h0 => (hnp' sn i h0).1) hta,
+    rw [denoteMeta, ihty hc.1 (fun sn i h0 hs => (hnp' sn i h0 hs).1) hta,
       ihbody hcb hnpb hba]
     rfl
   | case8 d f a ihf iha =>
     intro hc hnp ea h
     rw [constsBound_app] at hc
-    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none) =>
-      Expr.noProjAt_app.mp (hnp sn i h0)
+    have hnp' := fun (sn : Name) (i : Nat) (h0 : env₀.findProj? sn i = none)
+        (hs : (env.findProj? sn i).isSome = true) =>
+      Expr.noProjAt_app.mp (hnp sn i h0 hs)
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv h
-    rw [denoteMeta, ihf hc.1 (fun sn i h0 => (hnp' sn i h0).1) hfa,
-      iha hc.2 (fun sn i h0 => (hnp' sn i h0).2) haa]
+    rw [denoteMeta, ihf hc.1 (fun sn i h0 hs => (hnp' sn i h0 hs).1) hfa,
+      iha hc.2 (fun sn i h0 hs => (hnp' sn i h0 hs).2) haa]
     rfl
   | case9 d ty val body =>
     intro _ _ ea h
@@ -161,19 +166,29 @@ theorem denoteMeta_envExtend_down {env₀ env : Env}
   | case10 d sn i e ihe =>
     intro hc hnp ea h
     rw [constsBound_proj] at hc
-    have hnp' := fun (sn' : Name) (i' : Nat) (h0 : env₀.findProj? sn' i' = none) =>
-      Expr.noProjAt_proj.mp (hnp sn' i' h0)
+    have hnp' := fun (sn' : Name) (i' : Nat) (h0 : env₀.findProj? sn' i' = none)
+        (hs : (env.findProj? sn' i').isSome = true) =>
+      Expr.noProjAt_proj.mp (hnp sn' i' h0 hs)
     cases hfp0 : env₀.findProj? sn i with
     | none =>
-      -- the side condition forbids the node whose reading moves
-      exact absurd ⟨rfl, rfl⟩ (hnp' sn i hfp0).1
+      cases hfpE : env.findProj? sn i with
+      | none =>
+        -- untabled on both sides: both readings take the pair branch
+        obtain ⟨ea', hea', hcase⟩ := denoteMeta_proj_inv h
+        rcases hcase with ⟨entry', hfp, rfl⟩ | ⟨-, hdec⟩
+        · rw [hfpE] at hfp; exact nomatch hfp
+        · rw [denoteMeta, ihe hc (fun sn' i' h0 hs => (hnp' sn' i' h0 hs).2) hea', hfp0]
+          exact hdec
+      | some entry =>
+        -- the side condition forbids the node whose reading moves
+        exact absurd ⟨rfl, rfl⟩ (hnp' sn i hfp0 (by rw [hfpE]; rfl)).1
     | some entry =>
       have hfpE : env.findProj? sn i = some entry := hmono sn i entry hfp0
       obtain ⟨ea', hea', hcase⟩ := denoteMeta_proj_inv h
       rcases hcase with ⟨entry', hfp, rfl⟩ | ⟨hnt, hdec⟩
       · rw [hfpE] at hfp
         obtain rfl : entry' = entry := (Option.some.inj hfp).symm
-        rw [denoteMeta, ihe hc (fun sn' i' h0 => (hnp' sn' i' h0).2) hea', hfp0]
+        rw [denoteMeta, ihe hc (fun sn' i' h0 hs => (hnp' sn' i' h0 hs).2) hea', hfp0]
         rfl
       · rw [hfpE] at hnt
         exact nomatch hnt
