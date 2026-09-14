@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.CopyWalkFactsAssembly
 public import ConLeche.Model.Inductives.GroupExclusionRun
 public import ConLeche.Model.Inductives.CopyCtorWalkRun
+public import ConLeche.Model.Inductives.WhnfContentRunAssembly
 import ConLeche.Verify.Inductives.NestedCopyStored
 import ConLeche.Verify.Inductives.NestedRestoreWalk
 import ConLeche.Verify.Inductives.NestedLeaves
@@ -28,14 +29,13 @@ pair (`nestedCtorPairs_mem`), the table's well-formedness
 block's name discipline — so `CopyWalkFacts` is a READ off the run and
 `copyCtorsRead_of_run` loses its first premise.
 
-Two facts stay NAMED, each stated once here:
+One fact stays NAMED, stated once here:
 
 * `NestedGroupExclusionOk env envAux p st` (K.23, the kernel lane's
   record; discharged at `copyCtorsRead_of_run'` by
   `nestedGroupExclusionOk_inv`) — the container datum's side
   `IndRepData.OrdNotRec` is `ContainersRep`'s conjunct, read off
   `PinFacts.ordNotRec` (task #279 M-D′ D3);
-* the containers' level parameters are distinct (K.21).
 
 The three DESIGN §M.46 left named at this step are gone (task #308,
 DESIGN §M.48): the ledger records the occurrence test that made the
@@ -61,93 +61,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The named facts of this step -/
 
-/-- **The containers' level parameters are distinct** (K.21): what a
-container's own install checked (`FormerFront.lpsNodup`) and the
-model's `IndRep` does not record. -/
-@[expose] def ContainerLpsNodup (env : Env) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (caps : IndCaps), env.find? n = some (.indInfo cv caps) →
-    cv.levelParams.Nodup
-
-
-/-! ## A recovered group holds its own name -/
-
-omit [SetTheory V] in
-/-- **`containerInfo?` recovers a group holding the name it was looked
-up at** (the `names.contains I` guard, through the members' `mapM`). -/
-theorem containerInfo?_self_mem {env : Env} {I : Name} {ci : ContainerInfo}
-    (h : ConLeche.containerInfo? env I = some ci) :
-    ∃ (i : Nat) (J : ContainerMember), ci.members[i]? = some J ∧ J.name = I := by
-  unfold ConLeche.containerInfo? at h
-  split at h
-  · exact nomatch h
-  simp only [ConLeche.bindOption_eq_some_iff] at h
-  obtain ⟨cT, hfT, h⟩ := h
-  split at h
-  · next cvT caps =>
-    simp only [ConLeche.bindOption_eq_some_iff] at h
-    obtain ⟨cR, hfR, h⟩ := h
-    split at h
-    · next cvR mI rP rules =>
-      split at h
-      · next hle =>
-        simp only [ConLeche.bindOption_eq_some_iff] at h
-        obtain ⟨nP, hnP, h⟩ := h
-        obtain ⟨pp, hstrip, h⟩ := h
-        obtain ⟨bsR, recBody⟩ := pp
-        simp only at h
-        split at h
-        · next hnames =>
-          simp only [ConLeche.bindOption_eq_some_iff] at h
-          obtain ⟨members, hmapM, h⟩ := h
-          simp only [Option.some.injEq] at h
-          subst h
-          simp only [Bool.and_eq_true] at hnames
-          have hIn : I ∈ ConLeche.containerMembersGo env nP (rP + 1) 0 recBody := by
-            have := hnames.1
-            simpa using this
-          obtain ⟨i, hi⟩ := List.getElem?_of_mem hIn
-          obtain ⟨hlen, hall⟩ := optionMapM_getElem? hmapM
-          obtain ⟨J, hJ, hf⟩ := hall i I hi
-          refine ⟨i, J, hJ, ?_⟩
-          simp only [ConLeche.bindOption_eq_some_iff] at hf
-          obtain ⟨cC, hfC, hf⟩ := hf
-          split at hf
-          · next cvC capsC =>
-            simp only [ConLeche.bindOption_eq_some_iff] at hf
-            obtain ⟨cRc, hfRc, hf⟩ := hf
-            split at hf
-            · next cvRc mIc rPc rulesC =>
-              split at hf
-              · simp only [ConLeche.bindOption_eq_some_iff] at hf
-                obtain ⟨ctors, hctors, hf⟩ := hf
-                simp only [Option.some.injEq] at hf
-                rw [← hf]
-              · exact nomatch hf
-            · exact nomatch hf
-          · exact nomatch hf
-        · exact nomatch h
-      · exact nomatch h
-    · exact nomatch h
-  · exact nomatch h
-
-omit [SetTheory V] in
-/-- **A group the pins cover recovers itself at every member** (K.15's
-`containerGroupOk`, at the run): the group's own name is a member
-(`containerInfo?_self_mem`), the pins carry every member's group, and
-`nestedContainersOk` checked the facts at every pin's container. -/
-theorem containerGroupOk_of_pins {env : Env} {st : ElimState} {ci : ContainerInfo} {I : Name}
-    {base : Nat} (hcont : ConLeche.nestedContainersOk env st.pins = true)
-    (hci : ConLeche.containerInfo? env I = some ci)
-    (hgrp : ∀ (i' : Nat) (J' : ContainerMember), ci.members[i']? = some J' →
-      ∃ q', st.pins[base + i']? = some q' ∧ q'.container = J'.name) :
-    ConLeche.containerGroupOk env ci = true := by
-  obtain ⟨i, J, hJ, hn⟩ := containerInfo?_self_mem hci
-  obtain ⟨q', hq', hq'c⟩ := hgrp i J hJ
-  obtain ⟨-, hall⟩ := ConLeche.nestedContainersOk_inv' hcont
-  obtain ⟨ci₀, hci₀, hok⟩ := hall q' (List.mem_of_getElem? hq')
-  rw [hq'c, hn, hci] at hci₀
-  obtain rfl := Option.some.inj hci₀
-  exact hok
 
 /-! ## The walk's facts, at the run -/
 
@@ -185,8 +98,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (hreps : MutualBlockReps mpAux.base2 b d) (hchk : CtorsChecked μ F env b true d)
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hK23 : NestedGroupExclusionOk env envAux p st)
-    (hONR : ∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ)
-    (hlpsNodup : ContainerLpsNodup env) :
+    (hONR : ∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) :
     CopyWalkFacts μ F (ConLeche.consNestedFormers (stored.take p.k) env) p st
       (ConLeche.restoreTbl p st) params d cd := by
   intro j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI
@@ -352,7 +264,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
   obtain ⟨⟨cvC, capsC, hfC, htyC, hlpsCC⟩, hctorsC⟩ :=
     ConLeche.containerInfo?_stored hci J₂ (List.mem_of_getElem? hJm)
   have hlpsJnodup : cvTm.levelParams.Nodup := by
-    rw [← hJmLps, hlpsCC]; exact hlpsNodup _ cvC capsC hfC
+    rw [← hJmLps, hlpsCC]
+    exact containerLps_nodup_of_pin hcont (List.mem_of_getElem? hq₂) hq₂c hfC
   have hJnf : cAJ.1.type.hasFvar = false := by
     rw [htypeC]
     exact (ConLeche.containersClosed_of_wf hwf _ ci hci J₂
@@ -914,8 +827,8 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
 `env₁ = consNestedFormers (stored.take p.k) env` and
 `R = restoreTbl p st`, with the syntactic half of the constructor
 record proved from the run (`copyWalkFacts_of_run`); the `whnf` arm's
-content (`WhnfContent`, M-D′ D2) and K.21 are the only premises left
-(K.23 and `OrdNotRec` are read off the run and `PinFacts`). -/
+content (`WhnfContent`, M-D′ D2) is the only premise left (K.21, K.23
+and `OrdNotRec` are read off the run and `PinFacts`). -/
 theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env envOut : Env} {p : ConLeche.NestedParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
@@ -930,22 +843,21 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
           (ContainersRep env envAux mpAux.base2 → ∀ ψ : Name → Nat,
             ∃ cd : Nat → CopyData V,
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
-              (ContainerLpsNodup env →
-                WhnfContent F (ConLeche.consNestedFormers (stored.take p.k) env) p st
+              (WhnfContent F (ConLeche.consNestedFormers (stored.take p.k) env) p st
                   (ConLeche.restoreTbl p st) params mpAux d ψ cd →
                 CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
-    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hmo, hhead, mpAux, d, hreps, hchk,
-    hag, hpins⟩ := pinFacts_of_run hμ mp hE h
+    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hmo, hhead, hfreshRec, hpinsNP,
+    mpAux, d, hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, stored, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs,
     ?_⟩
   intro hcr ψ
   obtain ⟨cd, hcd⟩ := hpins hcr ψ
-  refine ⟨cd, hcd, fun hlps hwhnfC j' hj' Jc cAJ hJc => ?_⟩
+  refine ⟨cd, hcd, fun hwhnfC j' hj' Jc cAJ hJc => ?_⟩
   exact copyCtorAsRead_of_run hb hlenSt hfreshC hcontC hreps hchk hcd
     (copyWalkFacts_of_run hb hlenSt hfreshC hcontC mp.base2.wf hcore hstoredA hpc hK20 hK17 helim
       hparamsLen hpo hmo hhead hreps hchk hcd (nestedGroupExclusionOk_inv hK23)
-      (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec) hlps)
+      (fun j'' hj'' => (hcd j'' hj'').1.1.ordNotRec))
     hwhnfC hj' hJc
 
 end ConLeche.Model

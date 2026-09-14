@@ -78188,6 +78188,161 @@ arena, init-full, Mathlib, `overview-links.sh`, `quote-gate.sh`,
 `no-local-paths.sh` (checked by grep on the new files).  No `sorry`,
 no axiom, no kernel change, no new `IndRep` field.  D3/D4 not started.
 
+#### M.49 — task #309: the run-level reads for `whnfContent_of_run`; the DOWNWARD transfer's literal guards are NOT a fact of this run (2026-09-14)
+
+**Brief.**  `whnfContent_of_run` (§M.47's "what remains of D2"), plus
+the two environment-shape facts §M.47 named (`hTbl`, `hpinsNoProj`) and
+K.21's `_inv` swap.  Sized at one session with every input sourced.
+**What landed**: the two named facts, K.21's swap, and the run-level
+plumbing the assembly needs.  **What did not**: the assembly itself —
+finding 1 below is a hard stop that no amount of plumbing removes, and
+findings 2–4 are three more inputs §M.47 sourced optimistically.
+
+**Finding 1 — `LitGuardsMono envAux env₁` is not a fact of this run,
+and is refutable in principle (cost: ~1 h, the whole assembly).**
+`denoteMeta_down_blind` (§M.47) — the DOWNWARD reading transfer every
+container-side reading of D2 goes through — asks
+`LitGuardsMono envAux env₁`, i.e. `strLitSupported envAux = true →
+strLitSupported env₁ = true` (and the `Nat` twin).  `env₁` holds the
+block's real FORMERS; `envAux` holds its formers, constructors,
+recursors and projection tables.  So a support constant can be stored
+at `envAux` and absent from `env₁` whenever it is a block CONSTRUCTOR:
+`strLitSupported` names `String`, `String.ofList`, `List`, `List.nil`,
+`List.cons`, `Char` and `Char.ofNat`, and none of them is in
+`reservedBasisNames` — a nested block declaring `String` with its own
+constructor, in an environment already holding `List` and `Char`,
+completes the string support at `envAux` and not at `env₁`.  The `Nat`
+half IS provable (`natName`, `natZeroName`, `natSuccName` are reserved,
+and `checkMutualCore_reserved_fresh` below says the scratch install
+introduces no reserved name); the string half is not.
+
+**The fix, sized.**  `denoteMeta_envExtend_down`'s literal hypothesis
+must become a SUBJECT condition, exactly as its `.proj` hypothesis
+already is: at a literal node the hypothesis `denoteMeta acval envAux
+φ d e = some ea` already forces `envAux`'s guard, and
+`Expr.constsResolve env₁ e = true` forces the support NAMES stored at
+`env₁`, whose entries `FindPreserved env₁ envAux` identifies with
+`envAux`'s — so the two guards agree and `hG` is redundant.  Concretely:
+replace `ConstsBound env₀ e` by `e.constsResolve env₀ = true` and DROP
+`hG` (the `.const`, `.proj` and binder arms are unaffected; the binder
+arms need `constsResolve` through `instantiate1`).  `denoteMeta_down_blind`
+then wants `(Expr.blank e).constsResolve env₁ = true` in place of its
+blind-mention hypothesis, i.e. the blind mentions AND the `.proj`
+names AND the literals' support names stored at `env₁`.  If that turns
+out heavier than the subjects supply, the LITERAL clauses alone are
+what the proof uses: a `LitsResolve env e` predicate (`constsResolve`
+without its `.const` and `.proj` clauses, so blind to annotations by
+`Expr.blank`) with an `instantiate1` closure lemma is the smaller
+hypothesis, and `e.constsResolve env = true` implies it.  ~half a
+session, in `Model/Annot/BitExtendDown.lean` and
+`Model/Inductives/WhnfContentRun.lean` (two consumers:
+`restoredField_read_self`, and `whnfContent_field`'s callers).
+`Expr.constsResolve_instantiate1` (`Verify/EnvWF.lean`) and
+`natLitSupported_congr` (`Verify/EnvGuards.lean`) are the kit; the
+string twin `strLitSupported_congr` does not exist yet.
+
+**Finding 2 — the run did not expose `nestedAnnotFormers`/
+`restoreRecTys`, so three of §M.47's inputs were unreachable.**
+`nestedFormersModel` (the formers' model of `env₁`, the assembly's
+first input) needs `∀ t < b.k, env.find? (b.recName t) = none`
+(`auxFormers_stored`); `hpinsNoProj` needs the elimination's INPUTS
+annotated, i.e. `nestedAnnotFormers`/`nestedAnnotCtors`.  Neither is a
+conjunct of `copyIdxRead_of_run`/`pinFacts_of_run`, and neither is
+derivable from what they do expose (the ∃-witnesses of a second
+`DeclNestedRun` destructuring cannot be identified with the first's).
+Both are now conjuncts (below); four destructuring sites take one more
+`-` each.
+
+**Finding 3 — the group exclusion cannot be "passed to both"
+assemblies (cost: the file layering).**  §M.47 planned one `hexcl`
+proof shared by `copyWalkFacts_of_run` and `whnfContent_of_run`.  The
+exclusion is `groupExclusion_of_K23` at some fifteen inputs that
+`copyWalkFacts_of_run` builds inside its own per-pin body (the
+group-mate's pin and its stored constructor, `containerGroupOk` at the
+pin's group, `ci.nP = dJ.nP`, the container constructor's telescope);
+there is no ∀-quantified statement of it to hand over, and the new
+module must sit BELOW `CopyWalkFactsRunAssembly.lean` so that
+`copyCtorsRead_of_run'` can consume its result.  Either the exclusion
+is rebuilt in the new module (≈200 lines of the same preamble, which
+the assembly needs anyway) or `copyWalkFacts_of_run` is refactored to
+take it as a hypothesis.  `containerInfo?_self_mem` and
+`containerGroupOk_of_pins` MOVED to the new module for that reason.
+
+**Finding 4 — `hreadC`'s `ConstsBound` is within reach after all.**
+§M.46 (c) recorded `ContainersMentionOnly env ok` as having "no
+instantiation anywhere in the tree".  For the assembly's need —
+`ok n := (env.find? n).isSome ∨ n is a real member` — every input IS
+free: the containers' members are stored at `env` and their
+constructors resolve there (`EnvWF`), and the block's annotated types
+resolve at `nestedFormerEnv fmsA env`, whose names are `env`'s and the
+real members'.  So `elimNested_mentionInv` applies and the pins'
+components mention only names stored at `env₁`.  (§M.46 (c)'s hard case
+is a DIFFERENT `ok`, one that must EXCLUDE the table's aux names.)
+
+**What landed** (branch `agent/whnfrun-309`, five commits).
+
+* `Verify/Inductives/NestedProj.lean` (new, 779 lines, on the
+  `ConLeche` umbrella; an Opus subagent's).  One private kit —
+  `NewExt P env envOut`, "an extension by constants all satisfying
+  `P`", with one lemma per consing stage of `checkMutualCore_inv`'s
+  chain — read once at
+  `ScratchNew env b c := (∀ tbl, c = .projInfo tbl →
+  env.find? tbl.structName = none) ∧ ((∃ t < b.k, c.name = b.recName t)
+  ∨ reservedBasisNames.contains c.name = false)`, yielding:
+  - **`checkMutualCore_findProj_fresh`** — a slot empty at `env` and
+    tabled at `envAux` names a constant fresh at `env` (§M.47's
+    `hTbl`);
+  - **`checkMutualCore_reserved_fresh`** — the scratch install
+    introduces no reserved name (the `Nat` half of finding 1, and what
+    `natLitSupported` monotonicity would rest on);
+  - **`elimNested_pins_noProjAt`** — the `NoProjAt T i` twin of
+    `NestedLeaves.lean`'s `LeafInv` chain, invariant by invariant
+    (`ProjInv`, `mkCopies_projInv`, `replaceIfNested_noProj`,
+    `replaceAllNested_noProj`, `elimCtors_noProj`, `elimLoop_noProj`,
+    with `ContainersNoProj`/`containersNoProj_of_wf` off `EnvWF`).
+  A Verify module may not import Semantics (no file in the tree does),
+  so the stage plumbing is re-proved file-locally rather than reusing
+  `Semantics/Inductives/DeclMutual.lean`'s `FreshEtaExt` lemmas; three
+  `NoProjAt` congruences whose twins live under `Model/*` are likewise
+  re-proved there (`noProjAt_instPis`, `noProjAt_openPisAtFvars`, and a
+  new `noProjAt_closeTelescope`, which had no twin anywhere).
+* `Model/Inductives/CopyReads.lean`: **`pinsNoProj_of_run`** (§M.47's
+  `hpinsNoProj`) — the elimination's inputs are annotated at the
+  formers' environment, where a fresh name's slot is still empty
+  (`annotateCore_noProjAt`, through the new
+  `findProj?_nestedFormerEnv`), and the first former's type resolves
+  before the block (`FormerFront.resolve`).
+* `copyIdxRead_of_run`/`pinFacts_of_run` carry two more conjuncts:
+  the recursor names' freshness AND unreservedness (finding 2), and
+  the pins' `NoProjAt`.
+* `Model/Inductives/WhnfContentRunAssembly.lean` (new, on the Model
+  umbrella; `CopyWalkFactsRunAssembly.lean` imports it):
+  - **`nestedTbl_fresh_of_run`** — `hTbl` at `env₁`;
+  - **`containerLps_nodup_of_pin`** — K.21's record at a pinned
+    container, read through `containerInfo?_self_mem` +
+    `containerFactsOk`; `copyWalkFacts_of_run` consumes it at the
+    group-mate's pin and the named `ContainerLpsNodup env` is DELETED
+    from it and from `copyCtorsRead_of_run'`;
+  - `containerInfo?_self_mem`, `containerGroupOk_of_pins` (moved).
+
+`copyCtorsRead_of_run'`'s remaining named premises: `OrdNotRec`,
+`PinsMentionMember`, `ContainerCtorsNoAux`, `ResidContent` (task #308's)
+and `WhnfContent` (this one's, still owed).
+
+**Gates**: `lake build` warning-free; `lake test` clean;
+`tests/no-local-paths.sh` OK.  No `sorry`, no axiom, no kernel change,
+no new `IndRep` field, no `maxHeartbeats` raise.
+
+**What D2 now needs, in order**: the literal-guard fix (finding 1,
+~½ session) → `nestedFormersModel` at the run and the two transfers
+(`FindPreserved env₁ envAux` off the aux chain's `FreshEtaExt`, the
+carrier agreement is already `nestedFormersModel`'s fourth conclusion)
+→ `hreadP` (upward from `AuxBlockAgree`'s `FormerData` at `mp`, no
+downward transfer needed) → `hreadC` (finding 4) → `hrest` by the
+copy's field kind → the exclusion (finding 3) → the assembly and its
+consumption in `copyCtorsRead_of_run'`.  Two to three sessions, not
+one.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
