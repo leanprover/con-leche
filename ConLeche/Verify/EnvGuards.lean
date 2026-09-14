@@ -105,6 +105,25 @@ theorem natLitSupported_congr {env₁ env₂ : Env}
   unfold natLitSupported
   rw [h1, h2, h3]
 
+/-- The string guard only reads the three `Nat` slots and the seven
+string-support slots (task #310: the DOWNWARD reading transfer's
+literal arms compare the two environments' guards at the SUBJECT's
+support names, which `FindPreserved` identifies entry by entry). -/
+theorem strLitSupported_congr {env₁ env₂ : Env}
+    (h1 : env₁.find? natName = env₂.find? natName)
+    (h2 : env₁.find? natZeroName = env₂.find? natZeroName)
+    (h3 : env₁.find? natSuccName = env₂.find? natSuccName)
+    (h4 : env₁.find? stringName = env₂.find? stringName)
+    (h5 : env₁.find? stringOfListName = env₂.find? stringOfListName)
+    (h6 : env₁.find? listName = env₂.find? listName)
+    (h7 : env₁.find? listNilName = env₂.find? listNilName)
+    (h8 : env₁.find? listConsName = env₂.find? listConsName)
+    (h9 : env₁.find? charName = env₂.find? charName)
+    (h10 : env₁.find? charOfNatName = env₂.find? charOfNatName) :
+    strLitSupported env₁ = strLitSupported env₂ := by
+  unfold strLitSupported
+  rw [natLitSupported_congr h1 h2 h3, h4, h5, h6, h7, h8, h9, h10]
+
 /-- Everything `strLitSupported` checked beyond `natLitSupported`, as
 separate facts (level-parameter lists and exact annotated types of the
 seven string-support constants). -/

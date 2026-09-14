@@ -34,9 +34,15 @@ assembly at `env₁ = consNestedFormers (stored.take p.k) env` and
   because the group exclusion is read at BOTH assemblies;
   `CopyWalkFactsRunAssembly.lean` imports them.
 
-The run-level assembly `whnfContent_of_run` itself is NOT here: the
-DOWNWARD reading transfer it rests on asks `LitGuardsMono envAux env₁`,
-which is not a fact of this run (DESIGN §M.49, finding 1).
+The run-level assembly `whnfContent_of_run` itself is NOT here.  What
+blocked it in §M.49 no longer does: the DOWNWARD reading transfer asked
+`LitGuardsMono envAux env₁` — refutable for this pair, since a block
+CONSTRUCTOR can complete the string support at the scratch environment
+and not at the formers' — and task #310 made that a condition on the
+SUBJECT instead (`litsResolve env₁`, beside the blind mentions).  The
+assembly waits on the inputs §M.49 lists in order: the formers' model
+at the run, the two transfers, `hreadP`/`hreadC`/`hrest` and the group
+exclusion.
 -/
 
 namespace ConLeche.Model

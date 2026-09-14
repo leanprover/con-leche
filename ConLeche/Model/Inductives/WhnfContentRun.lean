@@ -25,9 +25,10 @@ this module assembles it.  Three kits precede the assembly:
 * **the blank** — `Expr.blank` erases every `fvar` annotation.
   `denoteMeta` is blind to annotations (`denoteMeta_erasedEq`), so a
   reading transfers DOWN from the scratch environment to `env₁`
-  (`denoteMeta_envExtend_down`, task #306) through the blank, whose
-  `ConstsBound`/`NoProjAt` obligations are those of the term's
-  NON-annotation nodes alone (`denoteMeta_down_blind`);
+  (`denoteMeta_envExtend_down`, tasks #306/#310) through the blank,
+  whose `constsResolve`/`NoProjAt` obligations are those of the term's
+  NON-annotation nodes alone: the blind mentions, and the literal
+  nodes' support names (`litsResolve`) — `denoteMeta_down_blind`;
 * **`CtxOk` at erased leaves** — `ctxOk_of_leaves_erased`: the context
   correlation `WhnfClaim` needs, from readings of the container-side
   openers, when the subject's leaves are those openers UP TO ERASURE
@@ -86,37 +87,59 @@ theorem erasedEq_blank : ∀ e : ConLeche.Expr, ConLeche.Expr.ErasedEq e (blank 
     simp only [blank, ConLeche.Expr.ErasedEq]
     exact ⟨trivial, trivial, erasedEq_blank e⟩
 
-/-- The blank's constants are the term's blind mentions. -/
-theorem constsBound_blank {env : Env} :
+/-- The blank's constants are the term's blind mentions, and its
+literal nodes are the term's own (task #310): so the blank RESOLVES
+wherever the blind mentions are stored and the literals' support names
+are, which is what the downward transfer asks of the subject. -/
+theorem constsResolve_blank {env : Env} :
     ∀ e : ConLeche.Expr, (∀ T, e.mentionsConstE T = true → (env.find? T).isSome = true) →
-      ConstsBound env (blank e)
-  | .bvar _, _ => by simp [blank]
-  | .fvar _ _, _ => by simp [blank]
-  | .sort _, _ => by simp [blank]
-  | .lit _, _ => by simp [blank]
-  | .const n _, h => by
-    simp only [blank, constsBound_const]
+      litsResolve env e = true → (blank e).constsResolve env = true
+  | .bvar _, _, _ => rfl
+  | .fvar _ _, _, _ => rfl
+  | .sort _, _, _ => rfl
+  | .lit (.natVal _), _, hl => by
+    simpa [blank, ConLeche.Expr.constsResolve, litsResolve] using hl
+  | .lit (.strVal _), _, hl => by
+    simpa [blank, ConLeche.Expr.constsResolve, litsResolve] using hl
+  | .const n _, h, _ => by
+    simp only [blank, ConLeche.Expr.constsResolve]
     exact h n (by simp [ConLeche.Expr.mentionsConstE])
-  | .app f a, h => by
-    simp only [blank, constsBound_app]
-    exact ⟨constsBound_blank f fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT]),
-      constsBound_blank a fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT])⟩
-  | .lam ty b _, h => by
-    simp only [blank, constsBound_lam]
-    exact ⟨constsBound_blank ty fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT]),
-      constsBound_blank b fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT])⟩
-  | .forallE ty b _, h => by
-    simp only [blank, constsBound_forallE]
-    exact ⟨constsBound_blank ty fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT]),
-      constsBound_blank b fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT])⟩
-  | .letE t v b, h => by
-    simp only [blank, constsBound_letE]
-    exact ⟨constsBound_blank t fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT]),
-      constsBound_blank v fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT]),
-      constsBound_blank b fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT])⟩
-  | .proj _ _ e, h => by
-    simp only [blank, constsBound_proj]
-    exact constsBound_blank e fun T hT => h T (by simp [ConLeche.Expr.mentionsConstE, hT])
+  | .app f a, h, hl => by
+    simp only [litsResolve, Bool.and_eq_true] at hl
+    simp only [blank, ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨constsResolve_blank f (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.1,
+      constsResolve_blank a (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.2⟩
+  | .lam ty b _, h, hl => by
+    simp only [litsResolve, Bool.and_eq_true] at hl
+    simp only [blank, ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨constsResolve_blank ty (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.1,
+      constsResolve_blank b (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.2⟩
+  | .forallE ty b _, h, hl => by
+    simp only [litsResolve, Bool.and_eq_true] at hl
+    simp only [blank, ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨constsResolve_blank ty (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.1,
+      constsResolve_blank b (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.2⟩
+  | .letE t v b, h, hl => by
+    simp only [litsResolve, Bool.and_eq_true] at hl
+    simp only [blank, ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨⟨constsResolve_blank t (fun T hT =>
+          h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.1.1,
+        constsResolve_blank v (fun T hT =>
+          h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.1.2⟩,
+      constsResolve_blank b (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl.2⟩
+  | .proj sn _ e, h, hl => by
+    simp only [litsResolve] at hl
+    simp only [blank, ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨h sn (by simp [ConLeche.Expr.mentionsConstE]),
+      constsResolve_blank e (fun T hT =>
+        h T (by simp [ConLeche.Expr.mentionsConstE, hT])) hl⟩
 
 /-- A name the term does not mention blindly heads none of the blank's
 projection nodes. -/
@@ -182,19 +205,25 @@ end Expr
 
 /-- **The downward reading transfer, blind**: a reading at the larger
 environment is a reading at the smaller one, when the term's BLIND
-mentions are stored below and no projection node of the term's blank
-sits at a slot tabled above but not below.  The annotations play no
-part: `denoteMeta` reads the blank alike. -/
+mentions are stored below, its literal nodes' support constants are
+stored below (`litsResolve`, task #310), and no projection node of the
+term's blank sits at a slot tabled above but not below.  The
+annotations play no part: `denoteMeta` reads the blank alike.
+
+All three premises are conditions on the SUBJECT — the environment-
+level `LitGuardsMono envAux env₁` the literal arms used to ask is
+refutable for this lane's pair (DESIGN §M.49, finding 1). -/
 theorem denoteMeta_down_blind {env₁ envAux : Env}
-    (hF : FindPreserved env₁ envAux) (hG : LitGuardsMono envAux env₁)
+    (hF : FindPreserved env₁ envAux)
     {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} (d : Nat) (e : Expr)
     (hcb : ∀ T, e.mentionsConstE T = true → (env₁.find? T).isSome = true)
+    (hlit : litsResolve env₁ e = true)
     (hnp : ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
       (envAux.findProj? sn i).isSome = true → Expr.NoProjAt sn i (Expr.blank e))
     {ea : AnnotTerm} (h : denoteMeta acval envAux φ d e = some ea) :
     denoteMeta acval env₁ φ d e = some ea := by
   rw [denoteMeta_erasedEq (Expr.erasedEq_blank e)] at h ⊢
-  exact denoteMeta_envExtend_down hF hG d _ (Expr.constsBound_blank e hcb) hnp h
+  exact denoteMeta_envExtend_down hF d _ (Expr.constsResolve_blank e hcb hlit) hnp h
 
 /-! ## `CtxOk` at erased leaves -/
 
@@ -511,7 +540,7 @@ second arm: the datum's reading at the scratch model transferred DOWN
 (`denoteMeta_acval_congr`). -/
 theorem restoredField_read_self {μ : CheckMode} {env₁ envAux : Env}
     (mp₁ : EnvModelM V μ env₁) (mpAux : EnvModelM V μ envAux)
-    (hF : FindPreserved env₁ envAux) (hG : LitGuardsMono envAux env₁)
+    (hF : FindPreserved env₁ envAux)
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → mp₁.base2.acval n = mpAux.base2.acval n)
     {ψ : Name → Nat} {d : IndRepData V} {k₀ Ja i : Nat}
     {tgtCont : Nat → Name} {tgtLps : Nat → Name → Nat} {tgtDsA : Nat → List AnnotTerm}
@@ -521,13 +550,14 @@ theorem restoredField_read_self {μ : CheckMode} {env₁ envAux : Env}
     (hread : denoteMeta mpAux.base2.acval envAux ψ (d.nP + i) x.fvarTypeD
       = some ((d.dsF Ja ψ).getD (d.nP + i) default).2.2)
     (hmention : ∀ T, x.fvarTypeD.mentionsConstE T = true → (env₁.find? T).isSome = true)
+    (hlit : litsResolve env₁ x.fvarTypeD = true)
     (hproj : ∀ (sn : Name) (i' : Nat), env₁.findProj? sn i' = none →
       (envAux.findProj? sn i').isSome = true → Expr.NoProjAt sn i' (Expr.blank x.fvarTypeD)) :
     denoteMeta mp₁.base2.acval env₁ ψ (d.nP + i) (ConLeche.restoreI (R.instAt fvsP) x.fvarTypeD)
       = some (d.restoreAV mpAux.base2 ψ k₀ Ja tgtCont tgtLps tgtDsA i) := by
   unfold IndRepData.restoreAV
   rw [if_neg hnotArm, hself, denoteMeta_acval_congr hag]
-  exact denoteMeta_down_blind hF hG _ _ hmention hproj hread
+  exact denoteMeta_down_blind hF _ _ hmention hlit hproj hread
 
 /-- **The fired arm**: a copy field recursive into a COPY restores to a
 field opening at the same variables to the target pin at the index
@@ -726,17 +756,20 @@ theorem DenoteMetaSpine.acval_congr {env : Env} {φ : Name → Nat} {d : Nat}
 /-- A read spine at the larger environment is one at the smaller,
 component by component (`denoteMeta_down_blind`). -/
 theorem DenoteMetaSpine.down_blind {env₁ envAux : Env}
-    (hF : FindPreserved env₁ envAux) (hG : LitGuardsMono envAux env₁)
+    (hF : FindPreserved env₁ envAux)
     {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} {d : Nat} :
     ∀ {as : List Expr} {vs : List AnnotTerm},
       (∀ a ∈ as, ∀ T, a.mentionsConstE T = true → (env₁.find? T).isSome = true) →
+      (∀ a ∈ as, litsResolve env₁ a = true) →
       (∀ a ∈ as, ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
         (envAux.findProj? sn i).isSome = true → Expr.NoProjAt sn i (Expr.blank a)) →
       DenoteMetaSpine acval envAux φ d as vs → DenoteMetaSpine acval env₁ φ d as vs
-  | _, _, _, _, .nil => .nil
-  | a :: _, _, hcb, hnp, .cons ha hrest =>
-    .cons (denoteMeta_down_blind hF hG d a (hcb a List.mem_cons_self) (hnp a List.mem_cons_self) ha)
-      (DenoteMetaSpine.down_blind hF hG (fun a' ha' => hcb a' (List.mem_cons_of_mem _ ha'))
+  | _, _, _, _, _, .nil => .nil
+  | a :: _, _, hcb, hlit, hnp, .cons ha hrest =>
+    .cons (denoteMeta_down_blind hF d a (hcb a List.mem_cons_self) (hlit a List.mem_cons_self)
+        (hnp a List.mem_cons_self) ha)
+      (DenoteMetaSpine.down_blind hF (fun a' ha' => hcb a' (List.mem_cons_of_mem _ ha'))
+        (fun a' ha' => hlit a' (List.mem_cons_of_mem _ ha'))
         (fun a' ha' => hnp a' (List.mem_cons_of_mem _ ha')) hrest)
 
 namespace Expr
