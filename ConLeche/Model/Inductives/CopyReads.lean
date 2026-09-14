@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.DeclNested
 public import ConLeche.Verify.Inductives.NestedCtors
 import ConLeche.Verify.Inductives.NestedLedger
 import ConLeche.Verify.Inductives.NestedLeaves
+import ConLeche.Verify.Inductives.NestedProj
 import ConLeche.Verify.Inductives.AuxFormers
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -181,6 +182,84 @@ theorem pinsAtOpeners_of_run {μ : CheckMode} {F : Nat} {env : Env} {p : ConLech
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop'')
   exact fun q hq l hl => hleaves q hq l hl
 
+/-! ## The pins carry no projection node at a fresh name's slot (task #309) -/
+
+omit [SetTheory V] in
+/-- Consing the ANNOTATED formers changes no projection lookup: a
+former's name is not projection-function-shaped, so none of the consed
+constants is a projection table. -/
+theorem findProj?_nestedFormerEnv {T : Name} {i : Nat} {fmsA : List ConstantVal} {env : Env}
+    (h : ∀ cv ∈ fmsA, cv.name.isProjFnShape = false) :
+    (ConLeche.nestedFormerEnv fmsA env).findProj? T i = env.findProj? T i := by
+  have hfind : (ConLeche.nestedFormerEnv fmsA env).find? (ConLeche.projTableName T)
+      = env.find? (ConLeche.projTableName T) := by
+    refine ConLeche.Semantics.find?_append_of_new_none (new := (fmsA.map
+      fun cv => ConstantInfo.indInfo cv {}).reverse) rfl ?_
+    rw [List.find?_eq_none]
+    intro c hc hbeq
+    rw [List.mem_reverse, List.mem_map] at hc
+    obtain ⟨cv, hcv, rfl⟩ := hc
+    have hn : cv.name = ConLeche.projTableName T := beq_iff_eq.mp hbeq
+    have h1 := h cv hcv
+    have h2 : (ConLeche.projTableName T).isProjFnShape = true := rfl
+    rw [hn, h2] at h1
+    exact Bool.noConfusion h1
+  unfold ConLeche.Env.findProj?
+  rw [hfind]
+
+/-- **The pins carry no projection node at a slot of a name fresh
+before the block** (task #309): the elimination's inputs are the
+ANNOTATED formers and constructors (K.12), whose `.proj` nodes are
+table-backed at the formers' environment — where a fresh name's slot is
+still empty (`annotateCore_noProjAt`) — the first former's type
+resolves before the block (`FormerFront.resolve`), and the invariant
+travels through the elimination (`elimNested_pins_noProjAt`). -/
+theorem pinsNoProj_of_run {μ : CheckMode} {F : Nat} {env : Env} {p : ConLeche.NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} (mp : EnvModelM V μ env)
+    (hannF : ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p.nP
+      p.formers = .ok fmsA)
+    (hannC : ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA)
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA) = .ok st) :
+    ∀ q ∈ st.pins, ∀ (T : Name) (i : Nat), env.find? T = none → Expr.NoProjAt T i q.pin := by
+  intro q hq T i hT
+  have hslot : env.findProj? T i = none := findProj?_none_of_indFresh mp.base2.proj_ok hT i
+  have hpshape : ∀ cv ∈ fmsA, cv.name.isProjFnShape = false := by
+    intro cv hcv
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hcv
+    obtain ⟨cv₀, nIdx, -, hff⟩ := (ConLeche.nestedAnnotFormers_inv hannF).2 t cv ht
+    rw [hff.name]; exact hff.pshape
+  have hslotF : (ConLeche.nestedFormerEnv fmsA env).findProj? T i = none := by
+    rw [findProj?_nestedFormerEnv hpshape]; exact hslot
+  refine ConLeche.elimNested_pins_noProjAt mp.base2.wf hT hslot helim ?_ ?_ q hq
+  · -- the block's ANNOTATED constructors: `.proj` nodes are table-backed
+    intro t ht c hc
+    obtain ⟨t', ht'⟩ := List.getElem?_of_mem ht
+    rw [nestedTypes0_getElem?] at ht'
+    obtain ⟨cvT, -, rfl⟩ := Option.map_eq_some_iff.mp ht'
+    simp only at hc
+    obtain ⟨⟨c₀, cvCa⟩, hmem, hf⟩ := List.mem_filterMap.mp hc
+    simp only at hf
+    split at hf
+    · obtain rfl := Option.some.inj hf
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem (List.of_mem_zip hmem).2
+      obtain ⟨c', -, hcheck⟩ := (ConLeche.nestedAnnotCtors_inv hannC).2 j cvCa hj
+      obtain ⟨-, -, -, -, -, hnfv, ty, -, -, hann, -, -, -, -, hty⟩ :=
+        ConLeche.checkConstantVal_inv hcheck
+      show Expr.NoProjAt T i cvCa.type
+      rw [hty]
+      exact ConLeche.annotateCore_noProjAt μ hann hnfv hslotF
+    · exact nomatch hf
+  · -- the first ANNOTATED former: its type resolves before the block
+    intro t₀ h0
+    have h0' : (ConLeche.nestedTypes0 p fmsA ctorsA)[0]? = some t₀ := by
+      rw [← List.head?_eq_getElem?]; exact Option.mem_def.mp h0
+    rw [nestedTypes0_getElem?] at h0'
+    obtain ⟨cvT, hcvT, hEq⟩ := Option.map_eq_some_iff.mp h0'
+    obtain ⟨cv₀, nIdx, -, hff⟩ := (ConLeche.nestedAnnotFormers_inv hannF).2 0 cvT hcvT
+    rw [← hEq]
+    exact ConLeche.Expr.noProjAt_of_constsResolve hT _ hff.resolve
+
 /-- A leaf of the head is a leaf of the spine. -/
 theorem mem_fvarLeaves_mkAppN_head : ∀ (args : List Expr) (f : Expr) (l : Nat × Expr),
     l ∈ f.fvarLeaves → l ∈ (Expr.mkAppN f args).fvarLeaves
@@ -264,6 +343,10 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       -- scratch install introduces no reserved name
       (∀ t, t < b.k → env.find? (b.recName t) = none ∧
         ConLeche.reservedBasisNames.contains (b.recName t) = false) ∧
+      -- the pins carry no projection node at a slot of a name fresh
+      -- before the block (task #309, `pinsNoProj_of_run`)
+      (∀ q ∈ st.pins, ∀ (T : Name) (i : Nat), env.find? T = none →
+        Expr.NoProjAt T i q.pin) ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         ∀ (j : Nat), j < st.pins.length →
@@ -387,6 +470,7 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       by rw [htS0ty]; exact hnf₀'⟩,
     fun t ht => ⟨(nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm t ht).1,
       (nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm t ht).2.1⟩,
+    pinsNoProj_of_run mp hannF hannC helim,
     mpAux, d, hreps₀, hchk, hag, ?_⟩
   intro j hj
   -- the copy's origin

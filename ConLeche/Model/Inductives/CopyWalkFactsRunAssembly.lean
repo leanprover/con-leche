@@ -717,8 +717,8 @@ theorem copyCtorsRead_of_run' {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
                   (ConLeche.restoreTbl p st) params mpAux d ψ cd →
                 CopyCtorsRead mpAux d ψ st p.k st.pins.length cd)) := by
   obtain ⟨st, b, envAux, params, pbs, fmsA, ctorsA, stored, order, hb, helim, hord, hlenSt, hfreshC,
-    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hhead, hfreshRec, mpAux, d,
-    hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
+    hcontC, hparamsLen, hcore, hstoredA, hpc, hK20, hK23, hK17, hpo, hhead, hfreshRec, hpinsNP,
+    mpAux, d, hreps, hchk, hag, hpins⟩ := pinFacts_of_run hμ mp hE h
   refine ⟨st, b, envAux, stored, order, hb, hord, hlenSt, mpAux, d, hreps, hchk, hag, params, pbs,
     ?_⟩
   intro hcr ψ
