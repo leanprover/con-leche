@@ -78775,6 +78775,24 @@ openers — so a `LitsResolve` invariant through `elimNested` in
 tier, Opus-suitable; NOT a kernel request (the fact is derivable).
 `ContainersRep` stays M-E's.
 
+**The naming rule (maintainer, 2026-09-14, during this session): a fact
+is NAMED only when something at the RUN level consumes it** — the
+consumer's terms the run's concrete `env`/`env₁`/`envAux`/`st`/`stored`,
+not a parametric lemma's variables; a fact consumed only abstractly is
+a GAP, stated in the report.  Applied here: task #310's `hlit` subject
+conditions are all CONSUMED AT THE RUN in this session — at
+`paramsRead_of_run`, `whnfContent_of_run` (through `down_of_resolve`:
+`litsResolve_of_constsResolve` at a term resolving before the block) and
+`pinsData_of_run` — and are discharged everywhere except at the pins'
+components, where they ARE `hpinsLits`; `hpinsLits` qualifies (three
+run-level consumers, `copyCtorsRead_of_run''` carries it from
+`DeclNestedRun` to `CopyCtorsRead`).  §M.50's six items (`hΨ`, `hviaWD`,
+`hokR`, `hzero`, `hbelowR`/`hΨB`, `params`) are NOT named: D3's assembly
+did not reach the run this session, so they are its obligations, listed
+under "What is left" below; §M.50's item 7 (`read`) is now the
+parametric `restoredCtor_read`, likewise to be consumed at the run by
+D3.
+
 **Findings, with cost.**
 
 (a) `obtain rfl : q' = q := …` eliminated the theorem's own `q` again
@@ -78814,10 +78832,11 @@ constructor's auxiliary data (`hall t` → `hD`; the position bookkeeping
 original parameter binders (`normCtorValM`'s `pbs`), which are the head
 former's, resolving before the block — one small Verify lemma; the
 residual `T fvsP idx` its own restoration, read from its pieces as the
-reflexive arm does), then `restoredCtor_typed`'s named facts
+reflexive arm does), then `restoredCtor_typed`'s obligations
 (`hΨ`/`hviaWD`/`hokR`/`hzero`/bounds from `psiFinal_mem`/`final_typed`/
 the field readings/`DsA_below`/`final_below`) and `params` by
-canonicalisation — 1–2 sessions.  D4 (the recursors' model) 2–3; D5
+canonicalisation — GAPS under the naming rule, not hypotheses — 1–2
+sessions.  D4 (the recursors' model) 2–3; D5
 (`T`'s `IndRep`, `ContainersRep` at `RepsAt`) 2; D6 (tables) 1; D7
 (`declNested` + dispatch) 1; M-E 1–2; `hpinsLits` 1 (Verify, parallel).
 The intended `declNested` signature is unchanged.
