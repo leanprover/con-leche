@@ -72288,6 +72288,38 @@ accepted, 41/41 byte-identical to K.10**.  No init-full or full-Mathlib
 run: the route is still shadow-only and nothing on the accept path
 changed.
 
+#### K.21 THE CONTAINER MEMBERS' LEVEL PARAMETERS ARE DISTINCT (2026-09-14, the model lane's request)
+
+One more Bool inside `containerFactsOk`, so one more fact inside the
+`nestedContainersOk env st.pins = true` conjunct the run relation already
+carries: **`Name.nodup J.lps`** at every member of every pinned
+container.
+
+**Why it is recorded rather than derived.**  `checkConstantVal` asks it
+of every constant at its own install ("duplicate universe parameters"),
+so it holds of any container this checker stored — but no stored record
+exposes it, and the model tier's FORWARD FIRE needs it for the level
+equation: a repeated level parameter would make the substitution at the
+pin's levels ambiguous.  The alternative the model lane tried — an
+`EnvWF`/`ConstWF` clause, threaded through its 18 sites — was sized at a
+session and reverted.  A failure is `.internal`: it cannot happen on an
+environment this checker built.
+
+**Measured.**  `tests/nested-shadow.sh` **26/26** and the Mathlib nested
+cone's 41 shadow lines BYTE-IDENTICAL to K.10's — the fact holds
+everywhere, as the argument says it must.  Negative control (force the
+conjunct to fail wherever a member has a non-empty `lps`, re-run,
+revert): **13 of the 26 fixtures** break, so half the corpus pins
+containers with level parameters and the conjunct is reached there.
+
+**Gates** (on `inductives` = `53057833`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 26/26**, e2e **216/216**,
+arena tutorial 90/92, no-local-paths OK; the Mathlib nested cone exit 0,
+**4 923 accepted, 41/41 byte-identical**.  No accept-path change: the
+route is shadow-only and nothing outside `checkNested`'s own reader
+changed.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
