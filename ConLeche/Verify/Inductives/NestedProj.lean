@@ -6,6 +6,7 @@ public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.Inductives.StructRec
 import ConLeche.Verify.Inductives.FixRec
 import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
 
 public section
 
@@ -533,25 +534,26 @@ theorem elimNested_pins_noProjAt {env : Env} {nP : Nat} {lps : List Name}
     · contradiction
   · contradiction
 
-/-! ## The scratch install adds only the block's own projection tables
+/-! ## The scratch install's new constants
 
 The auxiliary (scratch) install of the elimination's block is
 `checkMutualCore`.  Its five stages cons constants: the formers
 (`.indInfo`), the constructors (`.ctorInfo`), the recursors
 (`.recInfo`) and — only at the structure-like members — the projection
-tables (`.projInfo`).  So a table the scratch environment answers and
-the pre-block environment does not is a BLOCK MEMBER's, and the
-members' names were found free by the formers' front door
-(`FormerFront.fresh`).
+tables (`.projInfo`).  `checkMutualCore_new` reads that off the stage
+chain once, as the two facts the model lane needs of every constant
+the install adds (`ScratchNew`): a projection table is a MEMBER's,
+whose own name the pre-block environment does not carry (the formers'
+front door found it free), and every new name is either one of the
+block's recursor names or unreserved (the front doors again, and a
+table's name is `.num`-shaped).
 -/
 
 variable {mode : CheckMode}
 
-/-- An extension of `env` that adds constants only, none of which is a
-projection table of a structure whose own name `env₀` carries. -/
-private def TableExt (env₀ env envOut : Env) : Prop :=
-  ∃ new : List ConstantInfo, envOut.consts = new ++ env.consts ∧
-    ∀ c ∈ new, ∀ tbl : ProjTable, c = .projInfo tbl → env₀.find? tbl.structName = none
+/-- An extension of `env` by constants that all satisfy `P`. -/
+private def NewExt (P : ConstantInfo → Prop) (env envOut : Env) : Prop :=
+  ∃ new : List ConstantInfo, envOut.consts = new ++ env.consts ∧ ∀ c ∈ new, P c
 
 /-- A lookup the extension does not answer from its own constants is
 the base's. -/
@@ -562,19 +564,18 @@ private theorem find?_of_new_none {new : List ConstantInfo} {env envOut : Env} {
   rw [Env.find?, hc, List.find?_append, hn]
   rfl
 
-private theorem TableExt.rfl' (env₀ env : Env) : TableExt env₀ env env :=
+private theorem NewExt.rfl' (P : ConstantInfo → Prop) (env : Env) : NewExt P env env :=
   ⟨[], by simp, by simp⟩
 
-private theorem TableExt.cons {env₀ env : Env} {c : ConstantInfo}
-    (h : ∀ tbl : ProjTable, c = .projInfo tbl → env₀.find? tbl.structName = none) :
-    TableExt env₀ env ⟨c :: env.consts⟩ :=
+private theorem NewExt.cons {P : ConstantInfo → Prop} {env : Env} {c : ConstantInfo}
+    (h : P c) : NewExt P env ⟨c :: env.consts⟩ :=
   ⟨[c], rfl, by
     intro c' hc'
     obtain rfl := List.mem_singleton.mp hc'
     exact h⟩
 
-private theorem TableExt.trans {env₀ env env₁ env₂ : Env}
-    (h₁ : TableExt env₀ env env₁) (h₂ : TableExt env₀ env₁ env₂) : TableExt env₀ env env₂ := by
+private theorem NewExt.trans {P : ConstantInfo → Prop} {env env₁ env₂ : Env}
+    (h₁ : NewExt P env env₁) (h₂ : NewExt P env₁ env₂) : NewExt P env env₂ := by
   obtain ⟨new₁, hc₁, hn₁⟩ := h₁
   obtain ⟨new₂, hc₂, hn₂⟩ := h₂
   refine ⟨new₂ ++ new₁, by rw [hc₂, hc₁, List.append_assoc], ?_⟩
@@ -584,87 +585,146 @@ private theorem TableExt.trans {env₀ env env₁ env₂ : Env}
   · exact hn₁ c hc'
 
 /-- Stage 1: the formers are `.indInfo`. -/
-private theorem consMutualFormers_tableExt {env₀ : Env} :
-    ∀ {fms : List MutualFormerA} {env : Env}, TableExt env₀ env (consMutualFormers fms env)
-  | [], env => TableExt.rfl' _ _
-  | f :: fs, env => by
-    show TableExt env₀ env (consMutualFormers fs ⟨.indInfo f.cvTa {} :: env.consts⟩)
-    exact (TableExt.cons (fun _ heq => ConstantInfo.noConfusion heq)).trans consMutualFormers_tableExt
+private theorem consMutualFormers_newExt {P : ConstantInfo → Prop} :
+    ∀ {fms : List MutualFormerA} {env : Env}, (∀ f ∈ fms, P (.indInfo f.cvTa {})) →
+      NewExt P env (consMutualFormers fms env)
+  | [], env, _ => NewExt.rfl' _ _
+  | f :: fs, env, hP => by
+    show NewExt P env (consMutualFormers fs ⟨.indInfo f.cvTa {} :: env.consts⟩)
+    exact (NewExt.cons (hP f List.mem_cons_self)).trans
+      (consMutualFormers_newExt (fun g hg => hP g (List.mem_cons_of_mem _ hg)))
 
 /-- Stage 3: the constructors are `.ctorInfo`. -/
-private theorem consMutualCtors_tableExt {env₀ : Env} {nP : Nat} :
+private theorem consMutualCtors_newExt {P : ConstantInfo → Prop} {nP : Nat} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
-      TableExt env₀ env (consMutualCtors nP ctorsA env)
-  | [], env => TableExt.rfl' _ _
-  | c :: cs, env => by
-    show TableExt env₀ env (consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩)
-    exact (TableExt.cons (fun _ heq => ConstantInfo.noConfusion heq)).trans consMutualCtors_tableExt
+      (∀ cA ∈ ctorsA, P (.ctorInfo cA.1 nP cA.2)) →
+      NewExt P env (consMutualCtors nP ctorsA env)
+  | [], env, _ => NewExt.rfl' _ _
+  | cA :: cs, env, hP => by
+    show NewExt P env (consMutualCtors nP cs ⟨.ctorInfo cA.1 nP cA.2 :: env.consts⟩)
+    exact (NewExt.cons (hP cA List.mem_cons_self)).trans
+      (consMutualCtors_newExt (fun c' hc' => hP c' (List.mem_cons_of_mem _ hc')))
 
 /-- Stage 4: the recursors are `.recInfo`. -/
-private theorem storeMutualRecs_tableExt {env₀ env₂ : Env} {b : MutualBlock}
+private theorem storeMutualRecs_newExt {P : ConstantInfo → Prop} {env₂ : Env} {b : MutualBlock}
     {fms : List MutualFormerA} {rulesOf : List (List (MutualCtor × Expr))} :
     ∀ {l : List (ConstantVal × Nat)} {env : Env},
-      TableExt env₀ env (storeMutualRecs env₂ b fms rulesOf l env)
-  | [], env => TableExt.rfl' _ _
-  | (cvRa, mIdx) :: rest, env => by
-    show TableExt env₀ env (storeMutualRecs env₂ b fms rulesOf rest ⟨_ :: env.consts⟩)
-    exact (TableExt.cons (fun _ heq => ConstantInfo.noConfusion heq)).trans storeMutualRecs_tableExt
+      (∀ q ∈ l, ∀ (mI rP : Nat) (rules : List RecRule), P (.recInfo q.1 mI rP rules)) →
+      NewExt P env (storeMutualRecs env₂ b fms rulesOf l env)
+  | [], env, _ => NewExt.rfl' _ _
+  | (cvRa, mIdx) :: rest, env, hP => by
+    show NewExt P env (storeMutualRecs env₂ b fms rulesOf rest
+      ⟨.recInfo cvRa (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix
+        (mutualRules env₂.find? cvRa.name b.nP (b.rulePrefix + (fms.getD mIdx default).nIdx)
+          b.rulePrefix cvRa.type (rulesOf.getD mIdx [])) :: env.consts⟩)
+    exact (NewExt.cons (hP (cvRa, mIdx) List.mem_cons_self _ _ _)).trans
+      (storeMutualRecs_newExt (fun q hq => hP q (List.mem_cons_of_mem _ hq)))
 
-/-- Stage 5: a table is a member's, and the member's name is fresh at
-the pre-block environment. -/
-private theorem mutualTables_tableExt {env₀ : Env} {b : MutualBlock}
+/-- Stage 5: a table is a member's. -/
+private theorem mutualTables_newExt {P : ConstantInfo → Prop} {b : MutualBlock}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} :
     ∀ {l : List (MutualFormerA × Nat)} {env env' : Env},
       mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
-      (∀ q ∈ l, env₀.find? q.1.cvTa.name = none) → TableExt env₀ env env'
+      (∀ q ∈ l, ∀ tbl : ProjTable, tbl.structName = q.1.cvTa.name → P (.projInfo tbl)) →
+      NewExt P env env'
   | [], env, env', h, _ => by
     obtain rfl := mutualTables_nil_inv h
-    exact TableExt.rfl' _ _
-  | (f, mIdx) :: rest, env, env', h, hfresh => by
+    exact NewExt.rfl' _ _
+  | (f, mIdx) :: rest, env, env', h, hP => by
     obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
-    refine TableExt.trans ?_ (mutualTables_tableExt hrest
-      (fun q hq => hfresh q (List.mem_cons_of_mem _ hq)))
+    refine NewExt.trans ?_ (mutualTables_newExt hrest
+      (fun q hq => hP q (List.mem_cons_of_mem _ hq)))
     rcases mutualMemberTable_inv hI with rfl | ⟨J, c, -, -, htbl⟩
-    · exact TableExt.rfl' _ _
+    · exact NewExt.rfl' _ _
     · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
-      refine TableExt.cons (fun tbl heq => ?_)
+      exact NewExt.cons (hP (f, mIdx) List.mem_cons_self _ rfl)
+
+/-- **What the scratch install's new constants are**: a projection
+table is a member's, whose structure name the pre-block environment
+does not carry; and every new name is one of the block's recursor
+names or unreserved. -/
+private def ScratchNew (env : Env) (b : MutualBlock) (c : ConstantInfo) : Prop :=
+  (∀ tbl : ProjTable, c = .projInfo tbl → env.find? tbl.structName = none) ∧
+  ((∃ t, t < b.k ∧ c.name = b.recName t) ∨ reservedBasisNames.contains c.name = false)
+
+/-- **The scratch install's stage chain**, read once: `envAux` is `env`
+grown by constants that all satisfy `ScratchNew`. -/
+private theorem checkMutualCore_new {env envAux : Env} {b : MutualBlock} {F : Nat}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
+    (h : checkMutualCore (m := CheckM) (fueledOps mode F) env b streamRecs auxRoute = .ok envAux) :
+    NewExt (ScratchNew env b) env envAux := by
+  obtain ⟨-, -, -, -, env₁, fms, _f₀, _tq₀, ctorsA, _sortss, _kinds, _formers4, _ctors4,
+    cvRas, rulesOf, hformers, -, -, -, -, hctors, -, -, -, hrectys, -, htbl⟩ :=
+    checkMutualCore_inv h
+  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv hformers
+  -- the members: found free and unreserved by the formers' front door
+  have hform : ∀ f ∈ fms, env.find? f.cvTa.name = none ∧
+      reservedBasisNames.contains f.cvTa.name = false := by
+    intro f hf
+    obtain ⟨cv, hff⟩ := mutualFormerChecks_front_mem hchecks f hf
+    rw [hff.name]
+    exact ⟨hff.fresh, hff.nres⟩
+  -- the constructors: unreserved by their own front door, at either grade
+  have hctorNres : ∀ cA ∈ ctorsA, reservedBasisNames.contains cA.1.name = false := by
+    intro cA hcA
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+    obtain ⟨hlen, -, hall⟩ := checkMutualCtors_inv hctors
+    have hj' : j < b.ctors.length := by
+      have := (List.getElem?_eq_some_iff.mp hj).1
+      omega
+    obtain ⟨-, sorts, -, hrun⟩ := hall j b.ctors[j] cA (List.getElem?_eq_getElem hj') hj
+    obtain ⟨⟨ty', hff⟩, -, -⟩ := checkMutualCtor_front hrun
+    rw [hff.name]
+    exact hff.nres
+  -- the recursors: the generated name at the member's index
+  have hrecName : ∀ q ∈ cvRas.zipIdx, ∃ t, t < b.k ∧ (Prod.fst q).name = b.recName t := by
+    intro q hq
+    obtain ⟨cvRa, mIdx⟩ := q
+    have hget : cvRas[mIdx]? = some cvRa := List.mk_mem_zipIdx_iff_getElem?.mp hq
+    obtain ⟨hlen, hall⟩ := checkMutualRecTys_inv hrectys
+    have hlt : mIdx < b.k := by
+      have := (List.getElem?_eq_some_iff.mp hget).1
+      omega
+    obtain ⟨cvRa', hget', hrun⟩ := hall mIdx hlt
+    obtain rfl : cvRa = cvRa' := Option.some.inj (hget.symm.trans hget')
+    obtain ⟨_recTy, _sty, _u, -, -, -, -, -, -, -, -, hshape⟩ := checkMutualRecTy_shape hrun
+    exact ⟨mIdx, hlt, by rw [hshape]⟩
+  have e1 : NewExt (ScratchNew env b) env (consMutualFormers fms env) :=
+    consMutualFormers_newExt (fun f hf =>
+      ⟨fun _ heq => ConstantInfo.noConfusion heq, Or.inr (hform f hf).2⟩)
+  have e2 : NewExt (ScratchNew env b) (consMutualFormers fms env)
+      (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) :=
+    consMutualCtors_newExt (fun cA hcA =>
+      ⟨fun _ heq => ConstantInfo.noConfusion heq, Or.inr (hctorNres cA hcA)⟩)
+  have e3 : NewExt (ScratchNew env b) (consMutualCtors b.nP ctorsA (consMutualFormers fms env))
+      (storeMutualRecs (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) b fms rulesOf
+        cvRas.zipIdx (consMutualCtors b.nP ctorsA (consMutualFormers fms env))) :=
+    storeMutualRecs_newExt (fun q hq _ _ _ =>
+      ⟨fun _ heq => ConstantInfo.noConfusion heq, Or.inl (hrecName q hq)⟩)
+  have e4 : NewExt (ScratchNew env b)
+      (storeMutualRecs (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) b fms rulesOf
+        cvRas.zipIdx (consMutualCtors b.nP ctorsA (consMutualFormers fms env))) envAux :=
+    mutualTables_newExt htbl (by
+      intro q hq tbl hst
+      obtain ⟨f, m⟩ := q
+      have hmem : f ∈ fms := List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hq)
+      refine ⟨fun tbl' heq => ?_, Or.inr (reservedBasisNames_not_num _ _)⟩
       obtain rfl := ConstantInfo.projInfo.inj heq
-      exact hfresh (f, mIdx) List.mem_cons_self
+      rw [hst]
+      exact (hform f hmem).1)
+  exact (e1.trans e2).trans (e3.trans e4)
 
 /-- **A projection slot the scratch install answers is a block
-member's, fresh at the environment it started from**: the stages cons
-only formers, constructors, recursors and the members' own projection
-tables, and every member's name was found free by the formers' front
-door. -/
+member's, fresh at the environment it started from**: only the table
+stage conses a `.projInfo`, and it does so for a member whose name the
+formers' front door found free. -/
 theorem checkMutualCore_findProj_fresh {env envAux : Env} {b : MutualBlock} {F : Nat}
     {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
     (h : checkMutualCore (m := CheckM) (fueledOps mode F) env b streamRecs auxRoute = .ok envAux)
     {sn : Name} {i : Nat}
     (h₁ : env.findProj? sn i = none) (h₂ : (envAux.findProj? sn i).isSome = true) :
     env.find? sn = none := by
-  obtain ⟨-, -, -, -, env₁, fms, _f₀, _tq₀, ctorsA, _sortss, _kinds, _formers4, _ctors4,
-    cvRas, rulesOf, hformers, -, -, -, -, -, -, -, -, -, -, htbl⟩ := checkMutualCore_inv h
-  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv hformers
-  have hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none := by
-    intro f hf
-    obtain ⟨cv, hff⟩ := mutualFormerChecks_front_mem hchecks f hf
-    rw [hff.name]
-    exact hff.fresh
-  have e1 : TableExt env env (consMutualFormers fms env) := consMutualFormers_tableExt
-  have e2 : TableExt env (consMutualFormers fms env)
-      (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) := consMutualCtors_tableExt
-  have e3 : TableExt env (consMutualCtors b.nP ctorsA (consMutualFormers fms env))
-      (storeMutualRecs (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) b fms rulesOf
-        cvRas.zipIdx (consMutualCtors b.nP ctorsA (consMutualFormers fms env))) :=
-    storeMutualRecs_tableExt
-  have e4 : TableExt env
-      (storeMutualRecs (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) b fms rulesOf
-        cvRas.zipIdx (consMutualCtors b.nP ctorsA (consMutualFormers fms env))) envAux :=
-    mutualTables_tableExt htbl (by
-      intro q hq
-      obtain ⟨f, m⟩ := q
-      exact hfresh f (List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hq)))
-  obtain ⟨new, hc, hnew⟩ := (e1.trans e2).trans (e3.trans e4)
+  obtain ⟨new, hc, hnew⟩ := checkMutualCore_new h
   obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp h₂
   obtain ⟨tbl, hft, hi, -⟩ := Env.findProj?_some he
   cases hfind : List.find? (fun c => c.name == projTableName sn) new with
@@ -681,7 +741,34 @@ theorem checkMutualCore_findProj_fresh {env envAux : Env} {b : MutualBlock} {F :
     simp only [beq_iff_eq] at hb
     have hname : projTableName tbl.structName = projTableName sn := hb
     have hst : env.find? tbl.structName = none :=
-      hnew _ (List.mem_of_find?_eq_some hfind) tbl rfl
+      (hnew _ (List.mem_of_find?_eq_some hfind)).1 tbl rfl
     rwa [projTableName_inj hname] at hst
+
+/-- **The scratch install introduces no reserved basis name**: the
+formers' and constructors' front doors refuse one, a table's name is
+`.num`-shaped, and the recursors' names are the block's own — which
+the caller's `hrecNres` says are unreserved. -/
+theorem checkMutualCore_reserved_fresh {env envAux : Env} {b : MutualBlock} {F : Nat}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
+    (h : checkMutualCore (m := CheckM) (fueledOps mode F) env b streamRecs auxRoute = .ok envAux)
+    (hrecNres : ∀ t, t < b.k → reservedBasisNames.contains (b.recName t) = false)
+    {n : Name} (hres : reservedBasisNames.contains n = true) (hfresh : env.find? n = none) :
+    envAux.find? n = none := by
+  obtain ⟨new, hc, hnew⟩ := checkMutualCore_new h
+  cases hfind : List.find? (fun c => c.name == n) new with
+  | none =>
+    rw [find?_of_new_none hc hfind]
+    exact hfresh
+  | some c =>
+    exfalso
+    have hb := List.find?_some hfind
+    simp only [beq_iff_eq] at hb
+    rcases (hnew c (List.mem_of_find?_eq_some hfind)).2 with ⟨t, ht, hname⟩ | hnres
+    · rw [hb] at hname
+      rw [hname, hrecNres t ht] at hres
+      exact Bool.noConfusion hres
+    · rw [hb] at hnres
+      rw [hnres] at hres
+      exact Bool.noConfusion hres
 
 end ConLeche
