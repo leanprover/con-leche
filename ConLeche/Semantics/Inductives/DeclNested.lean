@@ -279,6 +279,97 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
               (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
       = .ok ()
 
+/-- **The restore stages of a nested run, bundled** (task #279 M-D′,
+DESIGN §M.52): the annotated inputs (K.12), the mimic count, K.2's
+`pinsOkAux`, and every stage after the scratch install — the restored
+constructors, recursor types and rules, the tables, and the two
+post-checks — at the run's OWN witnesses `st`/`b`/`envAux`/`stored`/
+`fmsA`/`ctorsA`.  The model tier's reads (`copyIdxRead_of_run`,
+`pinFacts_of_run`) carry it as ONE conjunct, so that D3–D7 read the
+restore's outputs (`ctorsR`, `cvRms`, …) at the same witnesses the
+pins' facts are stated at: a second destructuring of `DeclNestedRun`
+cannot identify its ∃-witnesses with the first's (DESIGN §M.49,
+finding 2). -/
+def DeclNestedRestore (μ : CheckMode) (F : Nat) (env : Env) (p : NestedParts)
+    (st : ElimState) (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (fmsA ctorsA : List ConstantVal) (envOut : Env) : Prop :=
+  (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
+    (p.ctors.map (fun c => c.cv.type)).all
+      (fun t => !t.mentionsNestedAux)) = true ∧
+  uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP
+    (p.ctors.map (fun c => c.cv.type)) = true ∧
+  ConLeche.nestedAnnotFormers (m := CheckM) (fueledOps μ F) env p.nP p.formers = .ok fmsA ∧
+  ConLeche.nestedAnnotCtors (m := CheckM) (fueledOps μ F)
+    (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA ∧
+  st.pins.length = p.numNested ∧
+  nestedPinsOk (m := CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () ∧
+  ∃ (ctorsR : List (List (ConstantVal × Nat × Nat)))
+    (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)),
+    -- the restored constructors, at the environment holding the formers
+    (stored.take p.k).mapM (fun a =>
+        restoreCtors (m := CheckM) (fueledOps μ F)
+          (consNestedFormers (stored.take p.k) env) (restoreTbl p st) p.lps a.ctors)
+      = .ok ctorsR ∧
+    -- the restored recursor types
+    restoreRecTys (m := CheckM) (fueledOps μ F)
+        (consNestedCtors ctorsR.flatten
+          (consNestedFormers (stored.take p.k) env))
+        (restoreTbl p st) p.lps
+        ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
+        (stored.take p.k) = .ok cvRms ∧
+    restoreRecTys (m := CheckM) (fueledOps μ F)
+        (consNestedCtors ctorsR.flatten
+          (consNestedFormers (stored.take p.k) env))
+        (restoreTbl p st) p.lps
+        ((List.range p.numNested).map p.mimicRecName)
+        (stored.drop p.k) = .ok cvRns ∧
+    -- the restored rules, at the rule-less provision
+    (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
+        restoreRules (m := CheckM) (fueledOps μ F)
+          (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env)))
+          (restoreTbl p st) cvRa.levelParams cvRa.name false cvRa.type a.mI a.rP a.rules)
+      = .ok rulesM ∧
+    (cvRns.zip (stored.drop p.k)).mapM (fun (cvRa, a) =>
+        restoreRules (m := CheckM) (fueledOps μ F)
+          (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env)))
+          (restoreTbl p st) cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules)
+      = .ok rulesN ∧
+    -- the projection tables, on the stored recursors
+    nestedTables (m := CheckM)
+        (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
+          ((p.formers.getD mIdx default).1.name, a.tbl, cs))
+        (storeNestedRecs
+          ((cvRms.zip ((stored.take p.k).zip rulesM)).map
+              (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
+            ++ (cvRns.zip ((stored.drop p.k).zip rulesN)).map
+              (fun (cv, a, rs) => (cv, a.mI, a.rP, rs)))
+          (consNestedCtors ctorsR.flatten
+            (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
+    -- POST-CHECK (a): the same pins at the RESTORED environment
+    nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP st.pins = .ok () ∧
+    -- POST-CHECK (c): the stream's records against the generated ones
+    (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
+    nestedRecsOk (m := CheckM) (fueledOps μ F)
+        (consNestedCtors ctorsR.flatten
+          (consNestedFormers (stored.take p.k) env))
+        p.nP b.k b.n
+        ((((p.memberRecs.zip cvRms).zip rulesM).zipIdx.map
+            (fun (((sr, cv), rs), mIdx) =>
+              (sr, (b.ownCtors mIdx).map (fun (J, c) => (J, c.nF)), cv, rs)))
+          ++ (((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
+            (fun (((sr, cv), rs), j) =>
+              (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
+      = .ok ()
+
 /-- **The copies' order, as the four `TopoOrder` fields in one place**
 (DESIGN K.6): what the run relation's `nestedTopoOrder … = .ok order`
 conjunct gives the model tier's fold.  The relation is the kernel's

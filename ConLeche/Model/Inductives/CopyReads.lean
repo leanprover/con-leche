@@ -391,6 +391,10 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
       -- before the block (task #309, `pinsNoProj_of_run`)
       (∀ q ∈ st.pins, ∀ (T : Name) (i : Nat), env.find? T = none →
         Expr.NoProjAt T i q.pin) ∧
+      -- the annotated inputs and the restore stages at these witnesses
+      -- (task #279 M-D′, DESIGN §M.52): what D3–D7 read the restored
+      -- constructors, recursors and rules from
+      DeclNestedRestore μ F env p st b envAux stored fmsA ctorsA envOut ∧
       ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
         CtorsChecked μ F env b true d ∧ AuxBlockAgree F mp mpAux b true d ∧
         ∀ (j : Nat), j < st.pins.length →
@@ -420,10 +424,9 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
                   (mpAux.base2.acval J.name (Level.substFn ψ cvTJ.levelParams lvls)) DsA Ds.length ∧
                 ({d with resSort := s} : IndRepData V).CopyIdxRead ψ (p.k + j) dJ
                   (Level.substFn ψ cvTJ.levelParams lvls) mmJ DsA := by
-  obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
-    hannF, hannC, helim, -, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, hK20, hK23, hK17,
-    -,
-    hrm, -⟩ := h
+  obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA, order,
+    hannF, hannC, helim, hnum, hfresh, hcont, hord, hb, hcore, hstored, hpc, hpinsAux, hK20, hK23,
+    hK17, hctorsR, hrm, hrn, hrulesM, hrulesN, htbl, hpost, hlenR, hrecs⟩ := h
   obtain ⟨mpAux, d, hreps, hchk, hag⟩ :=
     nestedAuxModel hμ mp hE hannF helim hfresh hb hcore hstored hrm
   -- the elimination's opening
@@ -517,6 +520,8 @@ theorem copyIdxRead_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F 
     fun t ht => ⟨(nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm t ht).1,
       (nestedRecNameFacts hannF helim hfresh hb hcore hstored hrm t ht).2.1⟩,
     pinsNoProj_of_run mp hannF hannC helim,
+    ⟨h0, h1, hannF, hannC, hnum, hpinsAux, ctorsR, cvRms, cvRns, rulesM, rulesN, hctorsR, hrm, hrn,
+      hrulesM, hrulesN, htbl, hpost, hlenR, hrecs⟩,
     mpAux, d, hreps₀, hchk, hag, ?_⟩
   intro j hj
   -- the copy's origin
