@@ -459,7 +459,8 @@ def restoreRules (ops : CheckerOps m) (envR : Env) (R : RestoreTbl) (lps : List 
         | none => rl.ctor
       else rl.ctor
     unless !isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor) do
-      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a         constructor of an auxiliary type")
+      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a \
+        constructor of an auxiliary type")
     let cnP : Nat :=
       match envR.find? ctor with
       | some (.ctorInfo _ n _) => n
