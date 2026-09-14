@@ -99,7 +99,7 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     (hpins : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hK23 : NestedGroupExclusionOk env envAux p st)
     (hONR : ∀ j', j' < st.pins.length → IndRepData.OrdNotRec (cd j').dJ) :
-    CopyWalkFacts μ F (ConLeche.consNestedFormers (stored.take p.k) env) p st
+    CopyWalkFacts μ F env (ConLeche.consNestedFormers (stored.take p.k) env) p st
       (ConLeche.restoreTbl p st) params d cd := by
   intro j' hj' q lvls Ds hq hqp Jc cAJ hJc cI hcI
   obtain ⟨hmoP, hmoQ⟩ := hmo
@@ -814,11 +814,22 @@ theorem copyWalkFacts_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     hparC (by rw [hnP]; exact hparamsLen) hopen hopW hxrestS hD.pLen hE hauxIn hpinOf
   obtain ⟨idx, idxC, hxS, hxC, hlenI, hEI⟩ := hresid
   -- ## the assembly
-  exact copyCtorWalkFacts_of_stored (d := d) (dJ := (cd j').dJ) mpAux hD hlpsT hMO hnPb.symm hks hnF htgtLt hdk
+  refine ⟨copyCtorWalkFacts_of_stored (d := d) (dJ := (cd j').dJ) mpAux hD hlpsT hMO hnPb.symm hks hnF htgtLt hdk
     (fun t ht => hrealFresh t (by omega)) hcopyAux hDJ htgtJLt hstoredJ hopen hcIL hshape
     (by rw [hnP]; exact hparamsLen) hDsLenE hDsC hDsL hDsMention hCshape hgroup hnodupP hpinName
     hpinShape hpinLen (hRwf.toNamed.instAt _) hRnP hlookS hrecS hauxFresh hexcl hfields
-    ⟨q₂.aux, idx, idxC, hxS, hxC, hlenI, hEI⟩
+    ⟨q₂.aux, idx, idxC, hxS, hxC, hlenI, hEI⟩, cA, ?_⟩
+  refine ⟨hget, by rw [hDfacts.2.1]; exact hlpsT, hnF, fun i x hx => ?_, htgtLt, hdk, hauxFresh,
+    hRwf.toNamed.instAt _, hRnP, hpinName, hlookS, hrecS, hexcl⟩
+  have hi : i < cA.2 := by rw [← hxLen]; exact (List.getElem?_eq_some_iff.mp hx).1
+  refine ⟨fun h => hMO.ord i x hx (by rw [← hks i hi]; exact h), fun h => ?_, fun h => ?_⟩
+  · obtain ⟨-, -, -, hres, -, -⟩ := hMO.recF i x hx (by rw [← hks i hi]; exact h)
+    rw [← hnPb] at hres
+    exact hres
+  · obtain ⟨afvs, body, hop, -, hres₁, -, -, -, hres₂, -, -⟩ :=
+      hMO.reflF i x hx (by rw [← hks i hi]; exact h)
+    rw [← hnPb] at hop hres₂
+    exact ⟨afvs, body, hop, hres₁, hres₂⟩
 
 /-! ## The constructor record off the run, the walk's facts discharged -/
 

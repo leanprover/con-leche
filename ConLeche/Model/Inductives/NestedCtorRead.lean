@@ -327,18 +327,26 @@ theorem restoredFieldsRead_of_stored {μ : CheckMode} {env env₁ envAux : Env}
     (hTbl : ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
       (envAux.findProj? sn i).isSome = true → env.find? sn = none)
     (hup : ∀ n, (env.find? n).isSome = true → (env₁.find? n).isSome = true)
-    {st : ElimState} {b : MutualBlock}
+    {st : ElimState}
     {d : IndRepData V} {k₀ Ja : Nat} {cA : ConstantVal × Nat} {lpsT : List Name}
-    {ks : List (RecFieldKind × Nat)} {R : ConLeche.RestoreTbl} {ψ : Name → Nat}
+    {R : ConLeche.RestoreTbl} {ψ : Name → Nat}
     {tgtCont : Nat → Name} {tgtLps : Nat → Name → Nat} {tgtDsA : Nat → List AnnotTerm}
-    -- the constructor at the auxiliary datum, and its kernel kinds
+    -- the constructor at the auxiliary datum, and its fields' resolution
+    -- before the block by kind (`CopyCtorSyn.res`)
     (hD : FixCtorDataI mpAux.base2 d.env₀ (d.memberName (d.mems Ja)) lpsT cA.1 d.nP cA.2
       (d.nIdxAt (d.mems Ja)) d.resSort d.isProp d.large (d.idxF Ja) (d.dsF Ja) (d.esF Ja)
       (d.srcsF Ja) (d.ksF Ja) (d.fvsPF Ja) (d.xFvsF Ja) (d.xrestF Ja) (d.eissF Ja) (d.tssF Ja)
       (fun i => d.memberName (d.tgts Ja i)) (fun i => d.nIdxAt (d.tgts Ja i)))
-    (hMO : MutualOpened env b.members3 b.lps b.nP cA.2 ks (d.fvsPF Ja) (d.xFvsF Ja) (d.xrestF Ja))
-    (hbnP : b.nP = d.nP)
-    (hks : ∀ i, i < cA.2 → (d.ksF Ja).getD i .ordinary = kindAt ks i)
+    (hres : ∀ (i : Nat) (x : Expr), (d.xFvsF Ja)[i]? = some x →
+      ((d.ksF Ja).getD i .ordinary = .ordinary → x.fvarTypeD.constsResolve env = true) ∧
+      ((d.ksF Ja).getD i .ordinary = .recursive →
+        ∀ e ∈ x.fvarTypeD.getAppArgs.drop d.nP, e.constsResolve env = true) ∧
+      ((d.ksF Ja).getD i .ordinary = .reflexive →
+        ∃ (afvs : List Expr) (body : Expr),
+          ConLeche.openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (d.nP + i)
+            = some (afvs, body) ∧
+          (∀ a ∈ afvs, a.fvarTypeD.constsResolve env = true) ∧
+          ∀ e ∈ body.getAppArgs.drop d.nP, e.constsResolve env = true))
     (hview : d.ksR Ja = d.ksF Ja ∧ d.tgtsR Ja = d.tgts Ja ∧ d.eissR Ja = d.eissF Ja ∧
       d.tssR Ja = d.tssF Ja)
     (htgtLt : ∀ i, d.tgts Ja i < d.k) (hdk : d.k = k₀ + st.pins.length)
@@ -508,22 +516,21 @@ theorem restoredFieldsRead_of_stored {μ : CheckMode} {env env₁ envAux : Env}
       intro h
       obtain ⟨hmem, -⟩ := h
       rcases (mem_recIdxOf.mp hmem).2 with h | h <;> rw [hord] at h <;> exact nomatch h
-    have hres := hMO.ord i x hx (by rw [← hks i hi]; exact hord)
+    have hresO := (hres i x hx).1 hord
     have hself : ConLeche.restoreI (R.instAt (d.fvsPF Ja)) x.fvarTypeD = x.fvarTypeD :=
       ConLeche.restoreI_eq_self hRS _ (fun m hm =>
-        Expr.mentionsConstE_eq_false_of_fresh hres (hauxFresh m hm).1)
+        Expr.mentionsConstE_eq_false_of_fresh hresO (hauxFresh m hm).1)
     rw [hself, d.restoreAV_of_not_copy _ hnotCopy]
-    exact down_of_resolve mp₁ mpAux hF hag hTbl hup hres (hD.domRead ψ i x hx)
+    exact down_of_resolve mp₁ mpAux hF hag hTbl hup hresO (hD.domRead ψ i x hx)
   · -- RECURSIVE: the field IS the member application
     obtain ⟨hhead, htake, -, -, -, -⟩ := hD.opened.recF i x hx hrec
-    obtain ⟨-, -, -, hres, -, -⟩ := hMO.recF i x hx (by rw [← hks i hi]; exact hrec)
-    rw [hbnP] at hres
+    have hresR := (hres i x hx).2.1 hrec
     have hxE : x.fvarTypeD = Expr.mkAppN (.const (d.memberName (d.tgts Ja i)) (lpsT.map Level.param))
         (d.fvsPF Ja ++ x.fvarTypeD.getAppArgs.drop d.nP) := by
       rw [← htake, List.take_append_drop, ← hhead, Expr.mkAppN_getApp]
     have htss : ((d.tssF Ja ψ).getD i []).length = 0 := by
       rw [hD.tssNone ψ i (by rw [hrec]; decide)]; rfl
-    refine key 0 [] (x.fvarTypeD.getAppArgs.drop d.nP) ?_ (fun a ha => absurd ha (by simp)) hres
+    refine key 0 [] (x.fvarTypeD.getAppArgs.drop d.nP) ?_ (fun a ha => absurd ha (by simp)) hresR
       htss (fun k a ha => by simp at ha) ?_ ?_ ?_
     · show some ([], x.fvarTypeD) = _
       exact congrArg (fun z => some ([], z)) hxE
@@ -533,11 +540,9 @@ theorem restoredFieldsRead_of_stored {μ : CheckMode} {env env₁ envAux : Env}
     · exact mem_recIdxOf.mpr ⟨by rw [hksLen]; exact hi, Or.inl hrec⟩
   · -- REFLEXIVE: the field opens over its telescope to the member application
     obtain ⟨afvs, body, hop, -, -, hhead, htake, -, -, -, -⟩ := hD.opened.reflF i x hx hrefl
-    obtain ⟨afvs', body', hop', -, hres₁, -, -, -, hres₂, -, -⟩ :=
-      hMO.reflF i x hx (by rw [← hks i hi]; exact hrefl)
-    rw [hbnP, hop] at hop'
+    obtain ⟨afvs', body', hop', hres₁, hres₂⟩ := (hres i x hx).2.2 hrefl
+    rw [hop] at hop'
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop')
-    rw [hbnP] at hres₂
     obtain ⟨afvs'', body'', hopT, htssLen, hdomsReadA, hidxReadA⟩ := hD.reflOpen ψ i x hx hrefl
     rw [htssLen, hop] at hopT
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hopT)
@@ -548,5 +553,50 @@ theorem restoredFieldsRead_of_stored {μ : CheckMode} {env env₁ envAux : Env}
       hdomsReadA (by rw [← htssLen]; exact hidxReadA) ?_ ?_
     · rw [hD.reflEntry ψ i hrefl hi, htssLen]
     · exact mem_recIdxOf.mpr ⟨by rw [hksLen]; exact hi, Or.inr hrefl⟩
+
+/-! ## The container's constructor, peeled at the pin, at ANY model -/
+
+/-- **`ctor_peel` from a reading** (task #279 M-D′ D2, DESIGN §M.52):
+the peel of the container's constructor at the pin's components needs
+of the model only the constructor type's reading at the pin's level
+substitution — which the `whnf` arm's assembly obtains at the formers'
+model by transferring the container's stored reading DOWN (the
+constructor resolves before the block) — and the components' readings
+there.  `ctor_peel`'s own proof from its `hread0` on. -/
+theorem ctor_peel_of_read {μ : CheckMode} {env₁ : Env} (mp₁ : EnvModelM V μ env₁)
+    {ψ : Name → Nat} {lps : List Name} {cvC : ConstantVal} {nPJ : Nat}
+    {ds : List (Nat × Nat × AnnotTerm)} {B : AnnotTerm}
+    (hnf : cvC.type.hasFvar = false) (hb : cvC.type.looseBVarsBounded 0 = true)
+    (hle : nPJ ≤ ds.length) {lvls : List Level}
+    (hread : denoteMeta mp₁.base2.acval env₁ (Level.substFn ψ lps lvls) 0 cvC.type
+      = some (mkPisAV ds B))
+    {nP : Nat} {argsA : List Expr} {DsA : List AnnotTerm} (hlenA : argsA.length = nPJ)
+    (hargs : ∀ a ∈ argsA, Expr.WScoped nP a ∧ a.looseBVarsBounded 0 = true)
+    (hsp : DenoteMetaSpine mp₁.base2.acval env₁ ψ nP argsA DsA)
+    {rest : Expr}
+    (hrest : Expr.instPis (cvC.type.instantiateLevelParams lps lvls) argsA = some rest) :
+    denoteMeta mp₁.base2.acval env₁ ψ nP rest
+      = some (ConLeche.Model.AnnotTerm.instSeq DsA (nPJ - 1) (mkPisAV (ds.drop nPJ) B)) := by
+  have hnf' : (cvC.type.instantiateLevelParams lps lvls).hasFvar = false := by
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hnf
+  have hb' : (cvC.type.instantiateLevelParams lps lvls).looseBVarsBounded 0 = true := by
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hb
+  have hread0 : denoteMeta mp₁.base2.acval env₁ ψ 0 (cvC.type.instantiateLevelParams lps lvls)
+      = some (mkPisAV ds B) := by
+    rw [denoteMeta_instLevels (acvalParamsAt_of_core mp₁.base2) ψ]; exact hread
+  have hreadN : denoteMeta mp₁.base2.acval env₁ ψ nP (cvC.type.instantiateLevelParams lps lvls)
+      = some (mkPisAV ds B) :=
+    denoteMeta_depth_of_closed mp₁.base2.acval_closed hnf'
+      (fun k => denoteMeta_closed mp₁.base2.acval_erase mp₁.base2.cval_closed hnf' hb' hread0 1 k)
+      hread0 nP
+  obtain ⟨dsI, hpr⟩ := instPisAt_of_instPis argsA hrest
+  obtain ⟨restA, hrestA, hpeel⟩ := denoteMeta_instPisAt_peel mp₁.base2.acval_closed
+    (acval_inst_self mp₁.base2) argsA hpr (Expr.WScoped.of_not_hasFvar hnf') hargs hreadN hsp
+  have hlenD : DsA.length = nPJ := by rw [← DenoteMetaSpine.length hsp, hlenA]
+  have htele : PiTeleAV nPJ (mkPisAV ds B) ((((ds.take nPJ).map (·.2.2)).reverse))
+      (mkPisAV (ds.drop nPJ) B) :=
+    piTeleAV_of_stripPisAV (stripPisAV_mkPisAV_take nPJ ds _ hle)
+  rw [peelPis_of_piTeleAV nPJ htele hlenD] at hpeel
+  rw [hrestA, Option.some.inj hpeel]
 
 end ConLeche.Model
