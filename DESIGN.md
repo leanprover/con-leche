@@ -77647,6 +77647,246 @@ condition's discharge at D2's subjects is the model lane's; no
 three-line induction, and no subject points at it); no generalisation
 over two valuations.
 
+#### M.47 M-D′ D2, second half: the `whnf` arm's content at one field — the leaves of `WhnfField`, the blank, the claim at the formers' model; K.21/K.23 merged (2026-09-14, session 30)
+
+**Context.**  Session 30 started at 6ead11bd, merged `inductives`
+45b41830 (K.21 `Name.nodup J.lps` in `containerFactsOk`; K.23
+`nestedGroupExclusionOk` as a `DeclNestedRun` conjunct — merge
+9fc3e22c, two Model destructurings shifted by the new conjunct).
+Task #307 (`agent/walkrun-307`, the run-level assembly
+`copyWalkFacts_of_run`) runs in parallel and is NOT merged; its record
+is §M.46.  The deliverable is D2's second half: `WhnfContent`'s
+discharge (§M.44), whose two named facts were the DOWNWARD reading
+transfer (landed as task #306, `denoteMeta_envExtend_down`) and the
+group exclusion at a `whnf`'d field (K.23).
+
+**Finding 1 — `WhnfField` was too weak for the claim (cost ~1 h of
+reading).**  `WhnfClaim` (`Model/Claims.lean`) takes `CtxOk m φ d Δa
+e`: every `fvar` leaf of the SUBJECT `dm` — hereditarily through
+annotations, `Expr.fvarLeaves` descends into them — must carry an
+annotation READING to the context's entry.  `WhnfField` related `dm`
+to the container's instantiated field only by `Expr.ErasedEq`, which
+is BLIND to annotations (`.fvar i _, .fvar j _ => i = j`), so nothing
+tied `dm`'s leaves' annotations to anything readable.  The fix is a
+leaf clause on `WhnfField` — `dm` is the restored PROCESSED
+constructor's opener, and its leaves are the earlier openers of that
+constant, which `restoreNested_openPis` relates to the auxiliary
+constructor's openers up to erasure: the first `nP` are LITERALLY the
+head former's parameter openers (`fvsR.take R.nP = fvs.take R.nP`),
+the later ones erasure-equal to the restore of the walked field
+binders, hence (W1 at EVERY index, `hW1all`) to the CONTAINER's
+instantiated field openers.  So:
+
+    WhnfField μ F env₁ R params fvsC dpt eA eC := ∃ dm dsR, … ∧
+      ∀ l ∈ dm.fvarLeaves, ∃ tyC, fvsC[l.1]? = some (.fvar l.1 tyC) ∧ ErasedEq l.2 tyC
+
+with `fvsC := params₀ ++ xFvsC` — the HEAD FORMER's parameter openers
+(the ledger's `params`, `PinsAtOpeners`) followed by the container's
+instantiated field openers.  `CopyCtorWalkFacts` gained the parameter
+`params₀`; `CopyWalkFacts`/`WhnfContent` (`CopyCtorWalkRun.lean`) take
+the ledger's `params`; `copyCtorAsRead_of_walkFacts`,
+`copyCtorAsRead_of_run`, `copyCtorsRead_of_run`,
+`copyCtorWalkFacts_of_stored` (#307's `CopyWalkFactsRun.lean`) and
+`copyFields_of_whnfOk` (`CopyWalkFactsAssembly.lean`) were adapted —
+the last one PROVES the clause (`hshapeM`: the restored processed
+openers are `fvar j _` at every position; `hleaves`: a leaf of the
+opener is an element of that list, at its own index, literally a
+parameter opener below `nP` and erasure-equal to the container's
+opener above it).  These are the "forced" edits to #307's files; the
+statements' shapes are otherwise unchanged.
+
+**Why the head former's openers and not the copy's own.**  The record
+is stated at the copy's own parameter openers `d.fvsPF Ja` (§M.45's
+restatement, so that the equality of the two parameter opener lists is
+never proved), but the leaves of the restored processed constructor's
+openers ARE the head former's (`restoreNested_openPis`'s take clause
+against `openPisAtFvars_add'` of the mint's `params ++ fvsW`).  Reading
+them at the formers' model needs member 0's former (`FormerData.read`
++ `denoteMeta_openPis`), whose entries ARE `d.params ψ` — exactly the
+frame the record's `Sat (d.params ψ).reverse σ` speaks of.  Stating
+the clause at `d.fvsPF Ja` instead would have needed
+`normCtorValM` to keep the parameter binders syntactically (true, not
+proved) and the Sat-equivalence `paramsIff` (not a pointwise reading
+equality).
+
+**Finding 2 — the `.proj` side condition needs the WEAK form.**  #306
+stated `env₀.findProj? sn i = none → NoProjAt sn i e`, with the remark
+that only the newly tabled slots are used.  The container's stored
+constructor type carries `constsResolve env` (`EnvWF`), which gives
+`NoProjAt sn i` only for `sn` UNSTORED at `env`; a `.proj sn i` node
+at a stored `sn` whose slot `i` is untabled cannot be excluded from
+`EnvWF` (no clause records that stored types were annotated).  With
+the premise `(envAux.findProj? sn i).isSome = true` added, the slots in
+question are the scratch environment's NEW tables — the auxiliary
+block's members', fresh at `env` — and `noProjAt_of_constsResolve`
+closes them.  `denoteMeta_envExtend_down`'s side condition is now
+`env₀.findProj? sn i = none → (env.findProj? sn i).isSome = true →
+NoProjAt sn i e` (`BitExtendDown.lean`; the `.proj` arm's `none` case
+splits on the larger environment's slot: both readings take the pair
+branch when it is `none` too).
+
+**What landed** (commit e596e429 after the merge 9fc3e22c; `lake
+build` warning-free, `lake test` clean).
+
+* `Model/Inductives/WhnfContentRun.lean` (new, Model umbrella):
+  - **the blank** `Expr.blank` (every `fvar` annotation `↦ Sort 0`),
+    `erasedEq_blank`, `constsBound_blank` (`ConstsBound env e.blank`
+    from the term's BLIND mentions `mentionsConstE` being stored),
+    `noProjAt_blank_of_not_mentionsConstE`, `noProjAt_blank`, and
+    **`denoteMeta_down_blind`** — the downward transfer with the
+    obligations on the term's non-annotation nodes alone (`denoteMeta`
+    is blind, `denoteMeta_erasedEq`);
+  - **`ctxOk_of_leaves_erased`** — `CtxOk` from the openers' readings
+    at their own depth when the subject's leaves are the openers UP TO
+    ERASURE (`ctxOk_of_openers`'s transpose at `WhnfField`'s clause;
+    the leaf's reading is its opener's, lifted by `denoteMeta_lift`);
+  - **the frame**: `entryCtx ps Cs i` (the `i` container-instantiated
+    entries over the block's parameters, innermost first), its
+    `getElem?`/`drop` laws, `instSeqDoms_map_range`, **`sat_of_frame`**
+    (the record's `Sat`/`SpineFit` pair satisfies the context at
+    `consList ws σ`, via `spineFit_instSeqDoms_iff` + `sat_of_spineFit`)
+    and **`frame_of_sat`** (the converse: a satisfying valuation IS the
+    record's frame, via `spineFit_of_sat` + `consList_range_reverse`);
+  - **`params_graded_of_formerData`** — a former's parameter entries
+    are graded at their own frames (`FormerData.okTy` peeled by
+    `wellDenoted_mkPisAV_dom`/`annotValid_mkPisAV_dom`);
+  - **`whnfField_reading`** — THE CLAIM: at a `WhnfField`, from the
+    container-side openers' readings at `env₁`'s model (`hreadP` at the
+    parameters, `hreadC` at the fields), the entries' grading (`hokP`,
+    `hokC`) and the restored field's reading `dsRa`, at every
+    valuation satisfying `entryCtx` the container entry `Cs i` and
+    `dsRa` interpret alike and `dsRa` is graded — `claimsAt_of hμ mp₁
+    ψ F |>.whnf` at the context `ctxOk_of_leaves_erased` builds;
+  - **`restoredField_read_self`** (the unfired arms: the restore is
+    the identity, the copy's own entry transfers down and moves to
+    `mp₁`'s carrier by `denoteMeta_acval_congr`) and
+    **`restoredField_read_copy`** (the fired arm: `restoreI_copyField`
+    + `restoredCopyField_read`; the telescope's bits off the copy's own
+    reading at the scratch model through `denoteMeta_openPis'` and
+    `mkPisAV_inj`; `restoreI_stripPis` keeps the binder data) — each
+    concluding the restored stored field reads at `mp₁` as
+    `restoreAV`'s arm;
+  - **`whnfContent_field`** — `WhnfContent`'s reading conjunct at ONE
+    field, from the container-side readings at `mp₁`, `hgradeC`
+    (`gradeC_of_okTy`'s shape), the field's `WhnfField` and the
+    restored field's reading as `restoreAV`'s arm: the record's frame →
+    `sat_of_frame` → `whnfField_reading` → back through
+    `instSeq_cut_congr`; the entries' grading at arbitrary satisfying
+    valuations via `frame_of_sat` + `hgradeC`.
+* `Model/Inductives/GroupExclusionRun.lean` (new, Model umbrella; an
+  Opus subagent's, one session-hour): **`nestedGroupExclusionOk_inv`**
+  — K.23's recorded `Bool` is the model's `NestedGroupExclusionOk`.
+  The K.23 named hypothesis (§M.45 item 1) is DISCHARGED from the run
+  relation; #307 keeps consuming it as a hypothesis until its merge.
+  Trap recorded there: restating a kernel `match` in a `have` mints a
+  NEW matcher constant, so `rw`/`simp` cannot close the kernel's own
+  guard with it — `split at` the kernel's term instead.
+* `Model/Annot/BitExtendDown.lean`: the weak side condition (finding 2).
+* `Model/Inductives/CopyCtorWalk.lean`, `CopyCtorWalkRun.lean`,
+  `CopyWalkFactsRun.lean`, `CopyWalkFactsAssembly.lean`: the leaf
+  clause (finding 1).
+
+**What remains of D2: the run-level `whnfContent_of_run`** —
+`WhnfContent F env₁ p st R params mpAux d ψ cd` from the run, i.e.
+`whnfContent_field` at every pin/constructor/container-ordinary field
+plus the exclusion conjunct.  Every input has its source; none is
+built yet (sized at one session, in `copyCtorAsRead_of_run`'s style;
+the transfers make it longer than §M.45's assembly):
+
+* the model `mp₁`: `nestedFormersModel` (its inputs are `DeclNestedRun`
+  conjuncts); it should EXPORT the combined agreement `∀ n,
+  (env₁.find? n).isSome = true → mp₁.acval n = mpAux.acval n` (real
+  members by its second conclusion, pre-block names by the third +
+  `AuxBlockAgree` (i); a stored name of `env₁` is one or the other —
+  one inversion of `consNestedFormers`), `FindPreserved env₁ envAux`
+  (pre-block names by the aux chain's `FreshEtaExt`, the taken formers
+  by `auxStored?_inv` against `consMutualFormers_find?_self`) and
+  `LitGuardsMono envAux env₁` (`natLitSupported_congr`: the three `Nat`
+  slots and the string trio are RESERVED names (`reservedBasisNames`),
+  which no former/constructor of the block carries —
+  `FormerFront.nres` — so their lookups agree between `env` and
+  `envAux`, hence `env₁`);
+* the exclusion conjunct: `groupExclusion_of_K23` with
+  `nestedGroupExclusionOk_inv` at the run's K.23 conjunct and
+  `IndRepData.OrdNotRec` (§M.45 item 2, still a `ContainersRep`
+  conjunct to add) — the SAME `hexcl` #307's assembly builds; pass one
+  proof to both;
+* `hreadP` at `mp₁`: member 0's `FormerData.read` (`hall 0`) opened by
+  `denoteMeta_openPis d.nP hop₀` (readings at depth `k` of the head
+  former's openers = `((d.ppsM 0 ψ).take d.nP)[k]` = `(d.params ψ)[k]`),
+  transferred down by `denoteMeta_down_blind`: blind mentions from
+  `FormerFront.resolve` (`constsResolve env`) through
+  `openPisAtFvars_mentionsConstE`; the `.proj` condition from the same
+  resolution + **`hTbl`** (below) + `noProjAt_of_constsResolve` through
+  `NoProjAt.openPisAtFvars` and `noProjAt_blank`; then
+  `denoteMeta_acval_congr`;
+* `hreadC` at `mp₁`: `copyCtorAsRead_of_run`'s `hreadC`
+  (`ctor_peel`/`ctorInst_fields` at `mpAux`) transferred down: blind
+  mentions of `cI = instPis (cAJ.type@lvls) Ds` are the container
+  constructor's (stored at `env`, `EnvWF env` — `mp.base2.wf`) and the
+  pins' (`elimNested_mentionInv`: stored at `env` or a real member —
+  both stored at `env₁`); the `.proj` condition at a name fresh at
+  `env`: the constructor's by `noProjAt_of_constsResolve`, the pins'
+  by **`hpinsNoProj`** (below), composed through
+  `NoProjAt.instantiateLevelParams`, a (missing, ten-line)
+  `NoProjAt.instPis` and `NoProjAt.openPisAtFvars`;
+* `hokP`: `params_graded_of_formerData (hall 0).former`; `hgradeC`:
+  `gradeC_of_okTy` as in `copyCtorAsRead_of_run`;
+* `hrest` by the copy's field kind (`hcopyShape`/`hblindReal`/`hfire`
+  of `copyCtorWalkFacts_of_stored` are the patterns): unfired arms —
+  `restoredField_read_self` with `restoreI_eq_self` (copy-ordinary:
+  `MutualOpened.ord` at `env` + `mentionsConstE_eq_false_of_fresh`;
+  into a real member: head a real name, telescope and index arguments
+  resolving at `env` by `MutualOpened.recF/reflF`), `hD.domRead`, the
+  blind mentions stored at `env₁` (real members by
+  `consMutualFormers_find?_self`), the `.proj` condition from
+  `CopyCtorsStored`'s `cA.1.type.projTablesOk env₁' = true`
+  (`noProjAt_of_projTablesOk` at the slot untabled in `env₁'`, which
+  has `env`'s tables like `env₁` — `findProj?_none_consMutualFormers`
+  and a converse `findProj?_consMutualFormers` with
+  `FormerFront.pshape` against `projTableName_isProjFnShape`) through
+  the two openings `hD.opens` (`NoProjAt.openPisAtFvars`); fired arm —
+  `restoredField_read_copy` with the table at `d.fvsPF Ja`
+  (`restoreTbl_instAt_lookup_erasedEq`, `restoreTbl_instAt_recMap`,
+  #307's `hlookS`/`hrecS`), the target pin's data (`hpinAll`:
+  container name, levels, components' readings at `p.nP`, the
+  assignment's agreement), `containerInfo?_stored` for the container at
+  `env` → `env₁`, `htss` from `tssNone` (recursive) or `reflOpen`
+  (reflexive), `hreadA` from `domRead` + `recEntry`/`reflEntry`, the
+  telescope domains' and index arguments' readings from `reflOpen`/
+  `eisRead` transferred down (resolution at `env`; `.proj` as above),
+  the components' spine `DenoteMetaSpine.weaken_by (i + n)` then
+  transferred down component by component (`elimNested_mentionInv`,
+  `hpinsNoProj`) and moved to `mp₁`'s carrier (a `DenoteMetaSpine`
+  twin of `denoteMeta_acval_congr`, ten lines).
+
+**Named this session** (both environment-shape facts, provable, not
+built; stated where consumed):
+
+6. **`hTbl`** : `∀ sn i, env₁.findProj? sn i = none →
+   (envAux.findProj? sn i).isSome = true → env.find? sn = none` — the
+   scratch environment's tables beyond the formers' environment's are
+   the auxiliary block's members' (fresh at `env`).  Source:
+   `checkMutualCore_inv`'s chain — formers and constructors carry
+   `FormerFront.pshape` (not proj-table-shaped), recursor names are
+   `.str _ "rec"` (never a `projTableName`, a `.num`), and
+   `mutualTables` conses `projTableName f.cvTa.name` per member
+   (`projTableName_inj`); ~150 lines of Verify plumbing.
+7. **`hpinsNoProj`** : `∀ q ∈ st.pins, ∀ T i, env.find? T = none →
+   NoProjAt T i q.pin` — the pins carry no projection node at a slot of
+   a name fresh at `env`.  Source: the inputs are annotated at
+   `nestedFormerEnv fmsA env` (K.12), where every such slot is untabled
+   (`annotateCore_noProjAt`), and the elimination only instantiates the
+   containers' constructors (`constsResolve env`, hence `NoProjAt` at
+   fresh names) at sub-terms — an invariant through `elimNested` in
+   `NestedLeaves.lean`'s style (`LeafInv`).
+
+**Gates**: `lake build` (648 jobs) warning-free; `lake test` clean.
+NOT run (landing items): shake/pub-import (two new umbrella modules),
+arena, init-full, Mathlib, `overview-links.sh`, `quote-gate.sh`,
+`no-local-paths.sh` (checked by grep on the new files).  No `sorry`,
+no axiom, no kernel change, no new `IndRep` field.  D3/D4 not started.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
