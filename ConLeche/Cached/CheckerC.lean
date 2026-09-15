@@ -359,6 +359,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless nestedGroupExclusionOk fe.env feAux.env p st do
     throw (.internal "nested: a stored copy field is recursive into its own mint group \
       where the container's field is not a member occurrence")
+  -- the field kinds (K.26), as in the pure route
+  unless nestedCopyKindsOk b stored do
+    throw (.internal "nested: a stored field of the auxiliary block is not classified \
+      ordinary, recursive or reflexive")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe

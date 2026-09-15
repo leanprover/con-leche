@@ -72571,6 +72571,87 @@ auxiliary block, which needs no unit table and no unit order; §M.58's
 units are the fallback.  The measurement above stands either way — it is
 what says the fallback is buildable, and what it would cost.
 
+#### K.26 THE AUXILIARY BLOCK'S FIELD KINDS, RECORDED (2026-09-15, the direct nested lane's DESIGN §DR.1 (b), task #314)
+
+The direct route's step 2 needs (P): the composed functor
+`X ↦ ⟦J⟧(Ds[X])` is monotone in the block's frame.  The direct lane
+asked for it two ways — **variant B**, a per-pin syntactic positivity
+walk over the CONTAINER's stored constructors (`nestedParamPosOk`,
+declining `.notImplemented` at a non-positive parameter position), and
+**variant C**, RECORD the classification the auxiliary install already
+made.  The maintainer ruled **C**, and the reason is the one this lane
+has been applying all along: **variant B can decline a stream official
+accepts.**  Official's `check_positivity` runs on the COPY's field, that
+is on the container's field with the components SUBSTITUTED, where a
+field that inspects a parameter reduces; B's walk runs with the
+parameter FREE and is whnf-stuck on it, so a block-mentioning component
+at a container parameter that some field inspects declines here and
+installs there.  The lane's shape, corpus-vacuous or not, is out: a
+check that can fire on a correct stream is forbidden.
+
+**What is recorded.**  `checkMutualCore` classifies every field of every
+constructor of the auxiliary block by `mutualCtorKinds` and installs the
+block only if no field is `.negative` or `.unsupported`
+(`classifyMutualKinds`).  That classification is the elimination's whole
+point at a copy: a copy field is `.ordinary` — it mentions no member of
+the auxiliary block — or `.recursive`/`.reflexive` INTO a named member,
+which is either a real member of the block (a container-parameter
+position, `head : α` at `α := Tree`) or another copy one container level
+down (`toList : List α` in `Array.mk`).  The install does not return it,
+so it is recomputed on the constructors the install STORED —
+`auxStoredAll`'s records, read back out of the scratch environment —
+with the same function on the same data:
+
+    nestedCopyKinds (b : MutualBlock) (stored : List AuxStored) :
+        Option (List (List (List (RecFieldKind × Nat))))
+
+per member in block order (the block's own members, then one entry per
+copy at `drop p.k`), inside a member one entry per constructor and one
+kind per field.  The conjunct is the Bool `nestedCopyKindsOk b stored =
+true`: the kinds exist, and every one of them is `.ordinary`,
+`.recursive` or `.reflexive`.  The model reads the VALUE as
+`nestedCopyKinds b stored`, a function of witnesses the run relation
+already binds, so no new existential was needed — the same shape K.21
+and K.23 used.
+
+**It cannot fire, and it cannot decline.**  `nestedCopyKinds` answers
+`none` only if a stored constructor's type fails to strip its own
+`nP + nF` binders — the telescope `checkMutualCtors` opened to check it;
+and a `.negative` or `.unsupported` kind is exactly what
+`classifyMutualKinds` threw on, at this block, on these very types.  A
+failure is `.internal`.  Unlike variant B it adds no verdict at all: it
+re-reads a decision already made, so the accept set is unchanged by
+construction, not by measurement.
+
+**Both routes** (the K.23 lesson): the line is in pure `checkNested` and
+in the cached `checkNestedS`.  No F twin is needed — `nestedCopyKinds`
+and `nestedCopyKindsOk` take no lookup and no `ops`, so the two routes
+share the very same functions, the way `nestedGroupExclusionOk` does;
+`checkNested_datF` goes through unchanged (a pure `unless` is
+`FueledM.atF_ite`).
+
+**What the model gets, and what it costs.**  Through K.12 (the copy's
+stored field is the container's field at the pin) and K.17 (its whnf),
+the kinds are a statement about the CONTAINER's fields at the
+components, which is where (P) is needed: `.ordinary` is constant in the
+frame, `.recursive`/`.reflexive` read the target member, and a target
+that is another copy is the same statement one container level down.
+The direct lane prices consuming it at the (N1a)-shaped congruence
+(2–3 sessions) against variant B's 1-session reflection; the two
+sessions are the price of not declining a stream official accepts.
+
+**Gates** (on `inductives` = `4140e113`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links 83/83, no-local-paths OK, **nested-shadow
+26/26**, e2e 216/216, arena 90/92; the Mathlib nested cone exit 0,
+**4 923 accepted**, its 41 shadow lines byte-identical to the K.10
+baseline.  **Negative control**: with the kinds' predicate narrowed to
+`.ordinary` alone, 23 of the 26 fixtures turn `error` with `nested: a
+stored field of the auxiliary block is not classified ordinary,
+recursive or reflexive` (the other three decline or reject before the
+route reaches it) — so the conjunct is reached and it reads the copies'
+real kinds, not an empty list.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
