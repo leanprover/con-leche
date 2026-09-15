@@ -79670,6 +79670,398 @@ tables, off the exposed `nestedTables … = .ok envOut`) 1; D7 1; M-E
 `declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
   (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
 
+#### M.58 M-C″: the fold's unit is the ROOT CONTAINER'S RECURSOR FAMILY, not the pin — the design after #312's refutation (2026-09-15, session 35)
+
+**Context.**  Session 35 started at fbc0e810 (§M.57) and merged
+`agent/bridge-312` (4c1b7368, §M.55: `BridgeSyntax` is FALSE at the run
+on `nested_p04`'s `P4` and on 5 of 41 Mathlib cone blocks),
+`agent/hvia-313` (9cdb14a0, §M.56: `hvia` discharged) and `inductives`
+4140e113 (K.24: `restoreRules` resolves the restored constructor
+positively).  The merge fix-ups (de35572f): `restoreRules_shape`'s
+`ctorParams` conjunct is now `∃ cv n nF, envR.find? o.ctor = some
+(.ctorInfo cv n nF) ∧ o.ctorParams = n`; §M.57's premise (2) is
+RETIRED — `nestedRecsModel_of_facts` derives it at the run by
+`restoreRules_ctorStored` ∘ `provisionNestedRecs_find?_ctorInfo`;
+`nestedRecsModel_of_run` lost the `hvia` premise (#313 discharged it,
+the replicated D3 body still passed it).  `NestedRecsModelAt` now
+names FOUR premises (leaves, D5's two, the laws).
+
+**The maintainer's argument (approved 2026-09-15), in the lane's
+names.**  NOTE the naming: the maintainer's text calls the
+container→copy map ψ⁻¹ and the copy→container map ψ; the lane's
+convention since §M.5 is the OPPOSITE (`R2At`: `Φ (Ψ x) = x` on the
+CONTAINER's carrier, `Ψ` = ψ = the container's recursor at copy-carrier
+motives, `Φ` = ψ⁻¹ = the auxiliary block's recursor).  Everything below
+is in the lane's convention.  (1) The auxiliary block is an ordinary
+strictly positive mutual inductive; its model is the least fixed point
+of one monotone operator on tuples, no order among members enters
+(`declMutualCore` proves this — unchanged).  (2) The copies ARE the
+containers at the parameters, and the simultaneous fixed point of a
+cyclic group of copies is the staged one in any order.  (3) Per cyclic
+group: ψ (container → copies) is ONE application of the root
+container's own NESTED recursor family (`P4C.rec`, `P4C.rec_1`,
+`P4C.rec_2` at `α := P4`), landing on all copies of the group at once;
+ψ⁻¹ (copies → container) is the auxiliary block's mutual recursor, as
+today; the round trips are one mutual induction on the auxiliary block
+(R1, as today) and one NESTED induction on the container (R2).  So the
+fix is a change of GROUPING: the unit of the forward fold is one
+container's recursor family, the container's functor absorbing its own
+inner nestings.  A singleton unit is today's case.
+
+**(a) The grouping, precisely.**
+
+*The transport relation without the sub-term conjunct.*  `CopyRef`
+(`Verify/Inductives/NestedOrder.lean`) minus its last conjunct:
+
+    CopyRef⁻ grp k st j j' :=
+      ∃ t t' q', st.types[k + j]? = some t ∧ st.types[k + j']? = some t' ∧ st.pins[j']? = some q' ∧
+        (∃ g < (grp j).2, ∃ tg, st.types[k + (grp j).1 + g]? = some tg ∧
+          ∃ c ∈ tg.ctors, (c.2.1).mentionsConst t'.name = true) ∧
+        ¬ ((grp j).1 ≤ j' ∧ j' < (grp j).1 + (grp j).2)
+
+— the group-wide mention (K.15 (1)), target outside the mint group.
+Its strongly connected components are taken on the MINT-GROUP quotient
+(a group's pins are one node: ψ folds a group's constructors together
+and the mention already ranges over the group).
+
+*Two kinds of edge.*  An edge `j → j'` exists because the walk of the
+container's stored constructor at pin `j`'s parameters `Ds` FIRED at a
+field the container classifies ORDINARY (a transport).  By K.15's
+trichotomy that field is one of:
+
+* **N (nested arm)** — `I Es` with `Es` mentioning the container's
+  group at the parameter spine (K.14 uniformity); the target pin is
+  `I Es[Ds]`, which CONTAINS the source pin `J_t Ds`.  The sub-term
+  conjunct DROPS every N-edge (`Expr.Sub (J_t Ds) (I Es[Ds])`).
+* **P (parameter arm)** — a field mentioning no group member but some
+  parameter, so that instantiation at `Ds` puts the block inside; the
+  target pin is `X[Ds]` for a parameter-only term `X`, and it contains
+  NO `J_t Ds` (`J_t Ds ⊑ X[Ds]` would force `J_t Ds ⊑ Ds_i`, a proper
+  sub-term of itself).  The sub-term conjunct KEEPS every P-edge.
+
+So the sub-term conjunct drops EXACTLY the N-edges — and NOT all
+intra-cycle edges: in `P4` the cycle `0 →N 1 →P 2 →P 0` loses only
+`0 → 1`, and `1 → 2`, `2 → 0` stay in the kernel's relation (§M.55's
+`refs`), which is why the kernel's order is `[0, 2, 1]` and why it is
+useless as a fold order there (ψ at `0` needs the entry at `1`).
+
+*The family of a root.*  For a pin `r` whose container `J` is itself a
+NESTED inductive, `J`'s stored recursor family `J.rec, J.rec_1, …` has
+one motive per member of `J`'s OWN auxiliary block: `J`'s group
+(`containerInfo?`'s `members`), then `J`'s own pins `I Es` (the mimic
+motives, whose majors are `I.{lvls} Es ı⃗` with `Es` over `J`'s
+parameters).  The FAMILY of `r` at its parameters `Ds` is the set of
+pins `{J_t Ds} ∪ {(I Es)[Ds]}` — one per motive of `J.rec`, in motive
+order.  (For a non-nested container the family is the mint group.)
+Claims, checked on the corpus' three shapes:
+
+| block | root pin | family at `Ds` | SCC of `CopyRef⁻` |
+|---|---|---|---|
+| `P4` | `0 = P4C P4` (`P4C.append : Array (P4C α) → …`) | `1 = Array (P4C P4)` (motive 2), `2 = List (P4C P4)` (motive 3) | `{0, 1, 2}` = the family |
+| `MsgEmbed` | `0 = TaggedText MsgEmbed` (`append : Array (TaggedText α)`) | `2 = Array (…)`, `3 = List (…)` | `{0, 2, 3}` = the family; `1 = StrictOrLazy (Array (TaggedText MsgEmbed)) …` a singleton with an edge INTO it |
+| `InfoTree` | `1 = PersistentArrayNode InfoTree` (`node : Array (PersistentArrayNode α)`) | `3 = Array (…)`, `5 = List (…)` | `{1, 3, 5}` = the family; `0 = PersistentArray InfoTree`, `2 = Array InfoTree`, `4 = List InfoTree` singletons |
+
+In all three the non-singleton SCC is exactly one root's family, the
+root's container is a stored nested inductive, and the other members
+are the root container's own pins at the root's parameters.
+
+*Is it a theorem of the elimination?*  Two halves.  (i) `SCC(r) ⊆
+family(r)` and the root's uniqueness: every family pin contains some
+`J_t Ds` (N-edges go UP into `J`'s family: `I₂ Es₂[Es[Ds]]` is `J`'s
+own pin `I₂ Es₂[Es]` at `Ds` because `Es₂[Es]` mentions `J`'s group —
+`J`'s elimination is transitive; P-edges out of the family go to
+terms containing no `J_t Ds`, and nothing reachable from such a term
+contains one), so a cycle through `r` stays inside `family(r)`, and a
+second root `r'` in the same SCC would need `J' Ds' ⊑ J Ds ⊑ J' Ds'`.
+This is a size/declaration-order argument of the K.23 kind (a stored
+container's inner containers were stored BEFORE it; `Expr.Sub` is
+well-founded): the model tier has neither fact and cannot state the
+walk's transitivity — so it is a KERNEL RECORD (K.25 below), `.internal`
+on failure, never firing on an accepted stream.  (ii) `family(r) ⊆
+SCC(r)` is FALSE in general — a phantom parameter (`I α := | mk : Nat →
+I α`, `J` nested through `I (J α)`) puts `I (J Ds)` in the family with
+no edge back — and it is not needed: the UNIT is the family, not the
+SCC.  A family pin outside the SCC gets its term from the root's
+recursor like the others (its own container's recursor would give a
+second term; `coherence` says they agree on the carrier — no consumer
+needs the fact).  Families NEST (a nested `I` inside `J`'s family has
+its own family at `Es[Ds]`, contained in `J`'s); the units are the
+MAXIMAL families: `roots := { r | r ∉ family(r') for every r' ≠ r }`;
+the units partition the pins (overlap of two maximal families is
+excluded by the same size argument as the root's uniqueness — recorded,
+not proved).
+
+**(b) What the kernel must record — K.25** (exact statement in
+`_tmp/nested-279m/K25.md`, summarised; consumer named at the run in
+(e)).  A unit table and a unit order, in `checkNested` where
+`nestedTopoOrder` runs today, both routes:
+
+    structure NestedUnit where
+      root : Nat            -- a pin index
+      members : List Nat    -- pin indices in the root container's recursor MOTIVE order:
+                            -- the mint group first (members[t] = grpBase + t for t < grpSize),
+                            -- then the mimic motives' pins at the root's parameters
+
+* **U1 (partition)**: `units.flatMap (·.members)` is a permutation of
+  `range st.pins.length`.
+* **U2 (the family is the recursor family at the parameters)**: per
+  unit, with `q := st.pins[u.root]`, `ci := containerInfo? env
+  q.container`: `u.members.take ci.members.length = (range
+  ci.members.length).map (q.grpBase + ·)`, `u.root = q.grpBase + (index
+  of q.container in ci.members)`, and for each mimic motive `t ≥
+  ci.members.length` of the first member's stored recursor type —
+  binder `nP + t`, of the shape `Π ı⃗ (x : D.{lvls} pinsT ı⃗), Sort _`
+  read as `containerMotiveMember?` does but without the bare-parameter
+  test, `pinsT` over `J`'s parameters — `st.pins[u.members[t]].pin =
+  (mkAppN (const D lvls) pinsT)[params := q.pin.getAppArgs.take ci.nP]`
+  (structural equality — the pins are dedup'd structurally, K.15 (2)),
+  and `st.pins[u.members[t]].container = D`.
+* **U3 (the mimic motives' telescopes are the containers' at the
+  pins)**: motive `t`'s index binders are `(instPis (D's stored
+  type)[D.lps := lvls] pinsT).stripPis`'s binders, syntactically — what
+  the model needs to move index values between `J.rec`'s motive `t`
+  (`ipss t`) and the copy's own telescope (`CopyIdxRead` at pin
+  `members[t]`, whose container is `D`).  Official builds the mimic
+  motive from the auxiliary former `Π p⃗, D's type at pinsT` (K.10's
+  `nestedCopyFormerType_eq` at `J`'s install), so it never fires.
+* **U4 (the recursor family's inductive hypotheses ARE the unit's
+  recursive structure)**: per unit, per member position `t` (pin `s :=
+  u.members[t]`), per constructor `l` of the copy `st.types[k + s]`,
+  per field `i`: `J.rec`'s minor for `(t, l)` has an inductive
+  hypothesis for field `i` with motive `t'` ⟺ the copy's PROCESSED
+  constructor `l`'s field `i` (own `Π` binders peeled, `fieldHeadAt`)
+  is headed by `st.pins[u.members[t']].aux`.  (Read either off the
+  minor binders of the stored recursor type — the ih binders follow
+  the fields, each `Π bs, motive_{t'} idx' (f_i bs)` — or off the
+  stored rule's right-hand side, whose ih terms are `J.rec_{t'} …
+  (f_i bs)`, the reader `recRulePlain`/`nestedFireShape` already parse.)
+  This is `kindR` at the unit level: the fire at an N-position lands on
+  the family pin the recursor's ih names.  The kernel side of §M.55's
+  structural paragraph; a violation would be a broken environment.
+* **The unit order**: `nestedUnitOrder units k st = .ok order` — the
+  relation `unitRefB u u' := u ≠ u' ∧ ∃ s ∈ u.members, ∃ c ∈
+  (st.types[k + s]).ctors, ∃ s' ∈ u'.members, c.2.1.mentionsConst
+  (st.pins[s'].aux)` (the mention over the UNIT's copies; NO sub-term
+  conjunct), `topoGo`/`topoOrderOk` over unit indices, a cycle a
+  positive decline as K.6 — it cannot fire (a unit's out-edges go to
+  pins containing none of its root's `J_t Ds`, argument (a)(i)); to be
+  MEASURED on the corpus and the cone by the kernel lane's probe.
+
+The run relation records `nestedUnitsOk env p.k st units = true ∧
+nestedUnitOrder units p.k st = .ok order`; `nestedTopoOrder`,
+`copyRefB`'s sub-term conjunct, `Expr.subB` and `ElimState.grp`'s use as
+the fold's group become DEAD (landing item, after the model consumes
+the units; `grpBase`/`grpSize` survive inside U2).  **Is the existing
+kernel order the unit order?**  No: it is over PINS and keeps the
+intra-family P-edges, so a unit's pins need not be contiguous in it
+(`[0, 2, 1]` for `P4` happens to be; a singleton pin `s` created before
+a family's inner pins with an edge into the root — `mk : P4C T → Q
+(P4C T) → T`, pins `0 = P4C T`, `1 = Q (P4C T)`, `2 = Array (P4C T)`,
+`3 = List (P4C T)` — gives `[0, 1, 3, 2]`).  The model needs the order
+over UNITS, so it is a new record, not a reading of the old one.
+
+**(c) The replacement of `BridgeSyntax`.**  `UnitBridge d st k₀ n cd
+auxOfs unitOf`: at every transport — a field the copy's constructor
+sees as recursive into pin `j''`'s copy and the container's as ordinary
+— whose target is OUTSIDE the source's unit (`unitOf j'' ≠ unitOf j'`),
+some copy of the source's UNIT has a processed constructor mentioning
+the target copy's name.  That is the surviving mention conjunct, over
+the unit instead of the group; its discharge is §M.55's:
+`bridgeMention_of_read` modulo `CopiesUnnormalised` (the record reads
+the STORED constructor, the conjunct speaks of the PROCESSED one; the
+K-record "the positivity normalisation introduces no copy name the
+processed field does not carry" if wanted).  The sub-term conjunct is
+GONE.  A transport whose target is INSIDE the unit has NO bridge
+obligation: by U4 it is an inductive-hypothesis position of the root's
+recursor family — "within a unit, transports are covered by the root's
+recursor family".
+
+**(d) ψ, ψ⁻¹, R1, R2 — per pin → per unit.**
+
+* **ψ (`PsiBody`/`PsiSetup`/`PsiAssembly`/`PsiRun`).**  The unit's
+  term is `psiTerm`'s shape at the ROOT's container datum `dJ` with the
+  RECURSOR VIEW (`Model/Inductives/PsiUnitRun.lean`, this session):
+
+      psiUnitTerm d m ψ k₀ c ms auxOf tbl t :=
+        mkAppN (m.acval (c.dJ.recNames t) c.ψ')
+          (c.DsA ++ motChoiceAVs (invTgAV c.ψ' c.DsA (psiLU m ψ k₀ ms) (psiPinsT c.dJ.nP))
+                ++ minChoiceAVs (…) (psiBodyAV (psiHead m ψ c.dJ.nP auxOf) (psiUseIhU c.dJ)
+                                       (psiViaU c.dJ ψ k₀ c.dJ.nP auxOf (c.dJ.bb c.ψ') tbl)) c.dJ.nAll)
+
+  with `psiLU t := m.acval (d.memberName (k₀ + ms t)) ψ` (the leaf of
+  the block's copy for unit member `t`, `ms` = U2's table), `psiUseIhU
+  dJ Jc i := i ∈ recIdxOf (dJ.ksR Jc)` (the RECURSOR view: an N-position
+  of a real constructor and every recursive position of a copy
+  constructor use the hypothesis), `psiViaU` = `psiVia` with `ksF ↦ ksR`
+  (a transport is copy-recursive and NOT recursor-recursive: its target
+  is outside the unit), `auxOf` over `ctorsAll` (the real constructors
+  and the family's, `ctorsC`), and the unit's entries `s = ms t` set to
+  `psiUnitTerm … t` all at once.  At a singleton unit (`kReal = k`,
+  `ctorsC = []`, `ksR = ksF`, `ms t = base + t`) this is `psiTerm`
+  syntactically — today's case survives as the `rfl` lemma
+  `psiUnitTerm_singleton`.  What is RESTATED: `PsiSetup` loses
+  `hctorsC`/`hpins`/`hview` (its `nAll_eq`/`ctorsAll_eq` and the ~20
+  sites of `hctorsCJ`/`hkRJ`/`hviewJ` in `psiSetup_of_group`), its
+  `hLS`/`hFF` become real-member facts, and the copy members `t ≥
+  kReal` get their facts from the FAMILY PIN's own record (`cd (ms t)`
+  with ITS container `D`'s datum: `CopyIdxRead`, `PinRead`, the
+  constructor record at `ms t`) through TWO reading links —
+  (i) `J.rec`'s motive-`t` major reads as the ambient `⟦D⟧` at the pin's
+  readings (`famAppAV (Ls t) (pinsAV t)` against the stored motive
+  binder `D lvls pinsT ı⃗`, by `recRead` + `mkPisAV_inj`/`mkAppN_inj_args`
+  on U2's syntactic shape, then instantiated at `DsA`), and (ii) `J.rec`'s
+  minor `(t, l)` field domains are `D`'s constructor `l`'s at `pinsAV t`
+  (`ctorsC[jc]` IS `D`'s stored constructor — the same constant,
+  `ctorsCFound` — read through `ctor_peel` at `pinsAV t` then `DsA`);
+  `GroupFacts` → `UnitFacts` (`kA`/`grp`/`ctors` at `ms t`);
+  `psiStep_typed`/`psiFold_typed` over the unit fold;
+  `psiFold_typed_of_run` → `psiUnitFold_typed_of_run` ((e) below).
+  What is NEW: U4 consumed as the unit-level `kindR` (the copy at `ms t`
+  is copy-recursive at a `ksR`-position `i` exactly into `ms (dJ.tgtsR
+  Jc i)`), and `ContainersRep` admitting a NESTED container (its
+  conjuncts `ctorsC = [] ∧ kReal = k ∧ pinsAV = params ∧ view` go; the
+  `PinFacts` fields of the same names go with them — they were the
+  §M.40 "self-nested containers outside" restriction, which turns out
+  to be the SAME gap as #312's: a nested container's pins are its
+  family, and today's ψ neither folds the family nor may read a datum
+  with copies).
+* **ψ⁻¹ (`InvFold`/`InvCopy`) — UNCHANGED.**  The auxiliary block's
+  recursor at `invTgAV`/`invHead`/`invUseIh` takes every aux-recursive
+  field of a copy's constructor as an inductive hypothesis, transports
+  included, with no order; `CtorAtPins` (the container's constructor
+  at the pins typed at the mixed spine) is today's record's `kindT` at
+  the pin's own container.  Nothing about units enters.
+* **R1 (`r1At_full_all`) — the induction unchanged**: one structural
+  induction over the SCRATCH block's carriers; the step at a transport
+  position uses R2 at the TARGET — an in-unit target is a unit-mate of
+  the same R2 induction below, an out-of-unit target is the target
+  unit's R2, earlier in the unit order.
+* **R2 (`r2Grp_order_full`) — RESTATED at the unit.**  Today: induction
+  over the container's carrier (`IndRep.carrier_induction`, the
+  FUNCTOR view of `dJ`) interleaved with the kernel order at the
+  transports.  At a unit the functor view is blind: `P4C`'s `leaf` says
+  `⟦P4C⟧ P4 = lfp Φ` with `append`'s field an ORDINARY domain read at
+  the ambient `⟦Array⟧ (P4C P4)` — the induction gives nothing at
+  `parts`, and the three ambient carriers' separate inductions chase
+  each other (`Array` needs `List` needs `P4C` needs `Array`).  The
+  maintainer's (2) — the tuple of ambient carriers is the simultaneous
+  least fixed point — is NOT derivable from the three `leaf` clauses
+  ("each an lfp in its own variable at the others' final values" does
+  not determine the tuple: `(⊤, ⊤, ⊤)` satisfies it for `F_P(P, A) =
+  A, F_A(A, L) = L, F_L(L, P) = P`); what makes it true here is the
+  bijection with `P4C`'s OWN auxiliary block at `P4C`'s install, which
+  `P4C`'s `IndRep` no longer carries.  **What IS derivable, and is the
+  "nested induction on the container" of (3): the recursor family at
+  Prop-valued motives.**  `rulesRead` gives `RecReadAt` for EVERY member
+  `t < dJ.k` of the recursor's block, mimics included (`recRead`: the
+  stored `J.rec_t` reads as the `k`-motive tower); `recFold_mem`
+  (`FoldChoice.lean`) types the recursor's leaf at ANY spine fitting
+  the tower — so at motives `M_t := λ ı⃗ x, [P_t ı⃗ x]` (a truth value,
+  `univ 0 = {∅, {pt}}`, put in the frame as VALUES, not spelt as
+  `AnnotTerm`s) and constant-`pt` minors, whose fit IS the induction
+  step (`pt ∈ M_t (c fs)` at every spine of fields and hypotheses that
+  fit — a hypothesis at a `ksR`-position fits iff `P` holds there), the
+  body `J.rec_t … ı⃗ x ∈ M_t ı⃗ x` for every `x` in member `t`'s carrier
+  says `P_t ı⃗ x`.  New module `Model/Inductives/RecInduction.lean`:
+
+      IndRep.famInduction : (hrep : IndRep m T cvT cvR mI rP rules dJ mm) (hrules : rules ≠ [])
+        (P : Nat → List V → V → Prop)
+        (hstep : ∀ Jc ∈ ctorsAll, ∀ fs fitting Jc's domains at the recursor view,
+          (∀ i ∈ recIdxOf (dJ.ksR Jc), P (dJ.tgtsR Jc i) (index readings at i) (fs[i] under its telescope)) →
+          P (dJ.mems Jc) (Jc's result readings) (⟦Jc⟧ p⃗ fs)) :
+        ∀ t < dJ.k, ∀ ı⃗ fitting ipss t, ∀ x ∈ ⟦Ls t⟧ (pinsAV t) ı⃗, P t ı⃗ x
+
+  — derived from the EXISTING `IndRep`, no new clause; `carrier_induction`
+  (functor view, real members) is the case `kReal = k`.  R2 at a unit is
+  then ONE `famInduction` at the root's datum with `P_t x := Φ_{ms t}
+  (Ψ_{ms t} x) = x`, the step by the two ι laws (ψ's from `rulesRead`,
+  ψ⁻¹'s from the auxiliary `rulesRead`) and, at a transport OUT of the
+  unit, R2 at the target unit (`r2Grp_order`'s interleaving, now along
+  the unit order); the per-unit statement replaces `r2Grp_order_full`
+  and `R2At` is stated at the root's datum and member `t` (its `c.dJ`
+  the root's, `c.mm := t`).
+
+**(e) The run-level CONSUMER, stated first** (`Model/Inductives/
+PsiUnitRun.lean`, this session, PROVED; the unit fold kit in
+`Verify/Inductives/NestedUnits.lean`: `NestedUnit`, `unitOwns`,
+`UnitTable`, `UnitRef`, `unitFold` with `unitFold_spec`/
+`TopoOrder.unitFold_all`/`unitFold_notOwned`/`unitFold_append`/
+`TopoOrder.unitFold_eq_step` — `orderFold`'s lemmas over a step that
+writes a whole unit, under an ownership relation and a frame
+condition):
+
+    theorem psiUnitFold_typed_of_run (hμ) (mp : EnvModelM V μ env) (hE) (h : DeclNestedRun μ F env p envOut) :
+      ∃ st b envAux, auxBlock p st = some b ∧ st.types.length = p.k + st.pins.length ∧
+      ∃ mpAux d, MutualBlockReps mpAux.base2 b d ∧ CtorsChecked μ F env b true d ∧
+      ∃ params pbs, (ContainersRep env envAux mpAux.base2 → ∀ ψ, ∃ cd,
+        (∀ j < st.pins.length, PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
+        ∀ (units : List NestedUnit) (order : List Nat),
+          UnitTable st.pins.length units →                               -- NAMED: K.25 U1 read at the run
+          TopoOrder (UnitRef p.k st units) units.length order →           -- NAMED: K.25's unit order read at the run
+          ∀ ρ₀ psA, psA.length = d.nP → SpineFit ρ₀ (d.params ψ) (psA.map (interp V ρ₀)) →
+          ∀ auxOfs,
+          UnitStepTyped mpAux d ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd auxOfs units
+            (UnitRef p.k st units) →                                      -- NAMED: (d)'s datum-level step
+          ∀ tbl₀ j', j' < st.pins.length →
+            PsiPU d mpAux.base2 ψ p.k (consList (psA.map (interp V ρ₀)) ρ₀) cd units j'
+              (unitFold (d.psiUnitStep mpAux.base2 ψ p.k cd auxOfs units) order tbl₀ j'))
+
+Each named fact is consumed HERE at the run's own `st`/`d`/`cd`:
+`UnitTable` by the fold's indexing (`complete`/`disj` — which unit
+writes which entry), the order by `unitFold_spec`, `UnitStepTyped` by
+the step (`psiUnitFold_typed`, the datum-level twin of `psiFold_typed`:
+`TopoOrder.unitFold_all` at `owns := unitOwns units` and the frame
+`psiUnitStep_frame`).  `PsiPU d m ψ k₀ σ cd units j Ψ` — for every unit
+`U ∋ j`, `Ψ` is `PsiTypedPi` at the ROOT's datum `(cd U.root).dJ`, the
+root pin's assignment and readings, the unit's leaves `psiLU` and `j`'s
+member position `U.members.idxOf j`; at a singleton unit this is
+today's `PsiP`.  `psiUnitStep` writes, at unit `u = ⟨root, members⟩`,
+entry `j ∈ members` to `psiUnitTerm … (cd root) (members.getD · 0)
+(auxOfs root) tbl (members.idxOf j)` and leaves every other entry
+(`psiUnitStep_frame`).  `UnitStepTyped mp d ψ k₀ σ cd auxOfs units R`
+is the step's typing: at a table `PsiPU` at the entries of the units
+`R`-referenced, the step's term at each of the unit's pins is `PsiPU`.
+NOT named here, by the rule: `CopyCtorsOfRun` and `UnitBridge` (the
+mention conjunct at the out-of-unit transports, (c)) — they are
+INPUTS of `UnitStepTyped`'s discharge (`psiSetup_of_unit`, (d)), where
+the run-level consumer is `psiUnitStep_typed`; they are named when
+that lands.  `psiUnitTerm_singleton` (`rfl` up to `Nat.add_assoc` and
+`ksR = ksF`): today's `psiTerm` is the unit term at a singleton unit,
+so `psiFold_typed_of_run` and its consumers are the special case and
+stay until the step is discharged.
+
+**(f) Sizing, and the falsifying experiment.**  Kernel: K.25 (the unit
+table, U1–U4, the unit order; the probe over the 26 fixtures and the
+41-block cone first) 1–2 sessions.  Model: the fold kit + this consumer
+0.5 (this session); `RecInduction.lean` (`famInduction` from `recRead`)
+1–2; `PsiSetup`/`PsiAssembly` in the recursor view (`psiSetup_of_unit`:
+`hctorsC`/`hpins`/`hview` gone, copy-member facts through the family
+pins' records and the reading links (i)/(ii), `ContainersRep` admitting
+nested containers, the `PinFacts` fields with it) 3–4 — the largest
+item, PsiAssembly's 3 400 lines carry the assumptions at ~20 sites;
+`UnitFacts`/`psiUnitStep_typed` (discharging `UnitStepTyped`) 1;
+`unitTable_of_run`/`unitOrder_of_run` off K.25 + `UnitBridge` off
+`bridgeMention_of_run` 1–2; R2 at the unit 2–3; R1 adaptation 1;
+`NestedRunCore`/D3/D4 consumers over units (`psiFinal` →
+`psiUnitFinal`, `dsRestored` unchanged) 1–2.  **Total 11–16 model
+sessions + 1–2 kernel**, against the narrowing alternative's 0 (5 of 41
+Mathlib nested blocks declined).  The design assumes nothing not listed:
+no new `IndRep` clause (`famInduction` is derived), no new datum field
+(D5's `assignM` stays a separate decision).
+
+*The cheap falsifying experiments* (each ≤ 1 session):
+(E1, kernel, Opus) the K.25 probe: compute the unit table and check
+U1/U2/U4 with `dbg_trace` over the 26 fixtures and the cone; a
+violation of U2 (a family pin not minted, or minted with another
+container) or U4 (an ih position not copy-recursive into the family
+pin, or conversely) falsifies (a)/(b) outright.
+(E2, model) `PsiSetup` in the recursor view: drop `hctorsC`/`hview`/
+`hpins`, replace `hLS`/`hFF` by real-member facts plus the two reading
+links (i)/(ii) as hypotheses, and re-prove `PsiSetup.hmin`/`typedPi` —
+if the typing of the copy-member minors needs anything beyond (i)/(ii)
+and U3/U4, the experiment names it.  Started in this session if the
+budget allows (§M.58 addendum otherwise records the state).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
