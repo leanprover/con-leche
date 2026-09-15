@@ -8,6 +8,7 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
+import ConLeche.Model.Inductives.DeclInductive
 import ConLeche.Model.BasisFalse
 public section
 
@@ -211,15 +212,10 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
     · exact basisStepPB_of mp hrun
-    · have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
-      unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-      cases hdf : ConLeche.nativeParts? nP block with
-      | some p =>
-        rw [hdf] at hrun'
-        exact declNative hμ mp hE hdf hrun'
-      | none =>
-        rw [hdf] at hrun'
-        exact indStepPB_of hμ mp hE hrun'
+    · -- task #315: ONE statement for every block kind (`declInductive`,
+      -- `Model/Inductives/DeclInductive.lean`); the two-way case split
+      -- lives there
+      exact declInductive hμ mp hE hrun
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

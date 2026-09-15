@@ -71831,3 +71831,410 @@ closure of ANY capstone — `main_model` and `main_file_False`, the main
 theorem and the main corollary, included.  Before this task it was in
 all twelve, because the fold they are about named the committed list.
 It is still in the BINARY, of course: `Main.lean` passes it.
+
+## TASK #315 — UNIFORM INDUCTIVES: one datum, one construction, one theorem for every block (2026-09-15, `agent/uniform-315`, fresh start off master)
+
+The maintainer's decision (2026-09-15, after the three nested lanes
+`agent/nested-279m`, `agent/direct-nested`, `inductives` were paused):
+*"a fresh start, off master, with that design please! uniform modelling
+of inductives should hopefully help a lot."*  The design: every
+inductive — single, mutual, nested, indexed, reflexive, structure-like,
+`Prop` or `Type` — **looks locally the same**.  A block is the
+simultaneous least fixed point of ONE operator on a TUPLE of families,
+one per member, each over its own plain index tuples; by Bekić a
+member's carrier is the least fixed point of its own SECTION, so its
+datum is the single-family datum with the other members read the way
+parameters are; a nested block composes the containers into the
+operator; the recursors are the recursion theorem applied ONCE over the
+disjoint union of the members' (and pins') values — the union inside
+the recursor's construction only.  No member tag in an index, no flat
+constructor tag, no copies, no re-indexing, no auxiliary block in the
+proof.  Base: master `c431b1ca`.  The parked lanes are hedges and
+cherry-pick sources (list in (e)).
+
+#### U.1 — the design made concrete; the falsifying experiment; the statement (session U-1, 2026-09-15)
+
+**Reading list consulted** (read-only in the other worktrees): the
+`#210` record and the master fix kit; the `inductives` branch's `#278`
+(`checkMutualCore`), `#280` (`IndRep`) and `K.1`–`K.26` records; the
+`nested-279m` branch's §M.10, §M.55, §M.58–§M.60 and
+`SetTheory/Derive/Bekic*.lean`; the `direct-nested` branch's §DR.1–§DR.2,
+`SetModel/DirectTreeList.lean`, `DirectP4.lean`, and the assessment
+document; the memory notes of the three lanes.  Two findings from those
+records drive everything below:
+
+* **§M.58's negative:** "each member's carrier is the lfp of its
+  section at the others' final values" does NOT determine the tuple
+  (`(⊤, ⊤, ⊤)` satisfies it for the cyclic identity operator).  So the
+  block's datum must record the TUPLE's leastness; the section form is
+  a derived law (Bekić), not the clause.
+* **§DR.2's lesson:** a container's datum is `Sat`-guarded — its
+  `functor`/`fibre`/`leaf` hold only where the parameter value lies in
+  the parameter's domain — and the fit of a FAMILY VARIABLE in a
+  container's parameter domain is a LEVEL fact (`w ≤ w'`) that no
+  claim of the run carries: it must be a recorded fact (K.27).  A pure
+  experiment with a total container cannot see this; this session's
+  experiment takes the container `Sat`-guarded.
+
+##### (a) THE ONE DATUM — `BlockRep`
+
+`IndRep` (task #280, on `inductives`, never on master) is the datum of
+ONE stored family: `leaf = lfpFamSet Φ`, `functor`, `fibre`, `ctor`,
+the chains (`chainXIGo`, `ChainFit`), an abstract injection `inj`.  The
+uniform datum is the same thing at a BLOCK of `k` members, with the
+family functor replaced by a TUPLE functor:
+
+```
+structure BlockRepData V where
+  nP k : Nat;  resSort; isProp; large; env₀            -- as IndRepData
+  nIdxs   : Nat → Nat                                   -- member m's index count
+  idx     : ψ → ρp → Nat → V                            -- member m's index-tuple SET (plain tuples, `tup ψ m is`)
+  ctors   : Nat → List (…)                              -- member m's constructors with their readings (idxF dsF esF srcsF ksF …, kinds with TARGET member, nested slots)
+  Φ       : ψ → ρp → (Nat → V) → Nat → V                -- THE TUPLE OPERATOR (meta-level tuple; component m a set-level family over `idx ψ ρp m`)
+  inj     : ψ → Nat → Nat → List V → V                  -- member m's j-th constructor's injection (member-LOCAL j; abstract, as #280 ruled)
+```
+
+and `BlockRep (m : EnvModel V env) (block data) (d : BlockRepData V) : Prop` with, per member `mm < k`:
+
+* SURVIVE VERBATIM IN SHAPE (from `IndRep`): `member`, `strip`,
+  `isProp`, the index arithmetic (`mI = nP + k + Σ|ctors| + nIdxs mm`,
+  `rP = nP + k + Σ|ctors|`), `rules` (still conditioned on
+  `rules ≠ []`: the kernel provisions a block's recursors rule-less
+  together — official's order — before the rules are stored),
+  `former`, `ctors` (per-field kinds WITH the target member, exactly
+  #278's `mutualCtorKinds`), `memsFound`, `idxRes`, `uParams`,
+  `paramsIff`, `chains` (`ChainsOk` per member), `tupMem`, `ctor`
+  (`(as ++ fs).foldl app ⟦C⟧ = d.inj ψ mm j fs`), `mkZero` (`w = 0 →
+  inj = pt`), `mkInj` (injective in `(mm, j, fs)`).
+* RESTATED AT THE TUPLE: `functor` becomes `MonoTuple w k idx (Φ ψ ρp)
+  ∧ MapsTuple … ∧ ∃ L, IsClosedTuple …` (`LfpTuple.lean`); `fibre`
+  becomes `x ∈ˢ app (Φ ψ ρp X mm) t ↔ ∃ j fs, ChainFit mm ψ ρp X t j fs
+  ∧ x = inj ψ mm j fs` — `ChainFit`'s recursive slot for target member
+  `m'` reads `X m'`, its nested slot reads the container's leaf at the
+  pin with the members abstracted to `X` (below); `leaf` becomes
+  `(as ++ is).foldl app ⟦T_mm⟧ = app (lfpTuple w k (idx ψ ρp) (Φ ψ ρp)
+  mm) (tup ψ mm is)`.
+* GO: `essC`/`eissC` (the constructors' index readings held TWICE,
+  "as the members read them" and "as the tagged container reads them"
+  — the doubled reading existed only because #278 tagged the members
+  into one family; with per-member index sets there is one reading),
+  the container-level `IdsC`/`u`/`tup` at a tag, the `ModeledLeaf`
+  disjunct (at M-E), and every flat constructor position (the
+  injection is member-local by type).
+* NEW: (i) the **nested-slot arm** of `chainXIGo`/`ChainFit`
+  (`direct-nested` D-2a): a field whose domain is a pin `J Ds` with
+  members inside `Ds` is read as `⟦J⟧ (Ds[T⃗ := curry X⃗])` — the pin
+  ABSTRACTED at the members (`absMembersGo`, §DR.2 (X.1), cherry-pick)
+  and instantiated at the frame's family variables; carried as a
+  parallel `List (Option NestedSlot)` per constructor because
+  `RecFieldKind` is checker code; (ii) the **recursion-class table**
+  for the recursors: classes = the members followed by the pins, each
+  with its motive; the pins' recursors (`T.rec_j`, official's mimics)
+  are the union recursor's pin components; (iii) the derived
+  **section view** `BlockRep.ofMember d mm` — Bekić
+  (`lfpTuple_eq_section`): `leaf_mm = lfpFamSet w (idx mm) (secF w idx
+  (Φ ψ ρp) L mm)` with the section's fibre reading the other members
+  as CONSTANTS (their leaves), i.e. `IndRep`'s exact shape — the view a
+  later block's composed operator consumes when it nests through
+  member `mm`.
+
+**Basis blocks fit as `k = 1` blocks.**  `lfpTuple_one` (landed): `lfpTuple w 1 (fun _ => I)
+(oneTuple F) 0 = lfpFamSet w I F` with NO hypothesis, so a single
+family IS a one-member block by definition, and `fixFamI_eq_lfpTuple`
+(landed, `Semantics/Tower/FixTuple.lean`) says every native leaf on
+master already is one.  `Nat`'s von Neumann injections (`inductives`'s
+`BasisRep*`, D-3 of §M.60) are no obstacle: `inj` stays ABSTRACT, and
+the uniform route never identifies a copy with a container, so no
+injection law (`inj = injW w j (mkTower …)`) is ever needed — D-3 is
+moot on this route.  `Empty`/`False` (zero constructors), `PUnit`
+(constant functor), `Eq` (indexed) and `Bool`/`And` are `k = 1` blocks
+as they are today.
+
+##### (b) THE CONSTRUCTION
+
+* **Carriers** — `ConLeche/SetTheory/Derive/LfpTuple.lean` (LANDED
+  this session, 357 lines): `InTupleSpace`, `TupleLe`, `IsClosedTuple`,
+  `MonoTuple`, `MapsTuple`; `lfpTuple` (formation total, as
+  `lfpFamSet`), `lfpTuple_le/_closed/_fixed/_eq`, **simultaneous
+  structural induction** `lfpTuple_induction` (one property per
+  member), and **Bekić's section law** `lfpTuple_eq_section` (with
+  `secF`, `updTuple`; the section is monotone/space-preserving when the
+  tuple functor is, `secF_mono/_maps`).  Nothing tagged: the tuple is a
+  meta-level `Nat → V`.
+* **Closed member (W)** — the tuple generalisation of
+  `container_closed_exists` (`SetModel/Container.lean:598`), stated for
+  a tuple functor presented as a member container per component
+  (shapes, positions, targets `(m', i')`, `mk`).  Its PROOF may use the
+  tagged union `Σ_m idx m` as the code space's index set — a
+  proof-internal device, never a carrier or a datum.  For a NESTED
+  block the composed operator's closed member follows from the
+  auxiliary tuple's (`closed_composed_of_closed_aux`, experiment item
+  6): if `(L_T, L_J)` is closed for `Ψ (X_T, X_J) = (node-arm at X_J,
+  Φ_J X_T at X_J)`, then `L_T` is closed for `X ↦ node-arm at ⟦J⟧(X)`,
+  because `⟦J⟧(L_T) ⊆ L_J` by leastness — the auxiliary tuple operator
+  exists only inside this lemma.  (W-ω, the ω-iterate, is finitary-only
+  and would decline P10/P31 — not used.)
+* **Recursors** — `ConLeche/SetModel/UnionRec.lean` (LANDED this
+  session, 257 lines): `tagged c i x`, `unionSet k Is L` (the disjoint
+  union of the tuple's values), `PredsFrom` (an element `Φ` builds from
+  `X` has all predecessors in `X`'s union — what `fibre` supplies:
+  predecessors = recursive fields, read at `X`), `unionAcc_all`
+  (accessibility of every value by `lfpTuple_induction`),
+  `unionRec` = `recSel` of `recGraph` over the union,
+  `unionRec_exists_unique`, `unionRec_mem_B` (typed), `unionRec_eq`
+  (the recursion equation = every member's ι rule).  Member `c`'s
+  recursor is `unionRec … c`; at a nested block the classes are the
+  members followed by the pins, a pin's accessibility comes from the
+  CONTAINER's induction (`lfpFamSet_induction` at the parameter `S` =
+  the accessible members — experiment item 5), and the pins' recursors
+  are the union's pin components (official's `T.rec_j` fold over the
+  real `List Tree`).  The term-level LEAF stays `fixSelAVI` (the chosen
+  fixed point of the one-step unfolding, `FixRecCoreI.lean`) per
+  member, at member-local constructor tags; the union is the EXISTENCE
+  proof of that fixed point — `FixElemI.lean`'s `elemGraph` and
+  `FixSquashI.lean`'s `sqGraph` are its `k = 1` instances and are
+  restated over `unionRec`.
+* REUSED VERBATIM: `LfpFam`, `Lfp`, `RecGraph`, `TaggedSum` (a
+  member's OWN constructor tags — the native route's, local by
+  construction), `TupleTower`, `TowerMono`, `Iter`, `Container`
+  (extended), `FixRecCoreI`'s Step/Σ/Sel spelling, the `Struct*`
+  capability kits at structure-like members, `chainXIGo`/`ChainFit`
+  (+ the nested arm), the `Sum*` stage kits for the former/ctor
+  stages, `Bekic.lean`/`BekicUnit.lean` (cherry-pick; the
+  restriction/join vocabulary for composing a container's section).
+* RESTATED at `k` components: `fixFunVI`/`fixFamI` → a tuple-valued
+  `blockFunV`/`blockFamI`; `fixStepI_mono`, `fixFamI_app_eq`,
+  `fixFamI_app_eq_sum` per component; `fixRecBodyAVI` with `k` motives
+  (one member at a time — the union never appears in a term); the
+  `DeclNative` stages (`stageFixFormer`, `ctorsLoopGen`, `stageFixRec`,
+  `stageFixTable`) at `k` members.
+* DIE (never on master; listed so nobody cherry-picks them): the sum
+  encoding of a mutual block — `MutualRep`, `tagTyAV`, `auxBodyAV`,
+  `motDispAV`/`MutualDisp`, `Model/Inductives/Mutual*.lean` (~14k) and
+  `DeclMutual.lean` (6.1k) on `inductives`; the copies/ψ world —
+  `Psi*`, `InvFold`, `RoundTrip*`, `Fold*`, `CopyCtorRun`, the units
+  (§M.58), `SectionAgree`, the tag table (D-1, §M.60), `essC/eissC`
+  (~40k on `nested-279m`); on master, at M-E, the modeled route:
+  `Kernel/Inductives/Modeled.lean`, `Frontend/InModel/*`,
+  `Model/DeclInd.lean` and its tiers (`IndMembers`, `IndCaps`,
+  `IndOpenRev`, `IndDomGrade`, `IndPinGrade`, `IndPinProbe`),
+  `Verify/Extend/{Modeled,Ind,Block,Proj}.lean`, `Semantics/DeclIndRun.lean`.
+
+##### (c) THE KERNEL SIDE FOR NESTED — shape check, record, verdict policy
+
+*Mutual* is #278's `checkMutualCore` (official's checks, no encoding —
+the model's tags lived only in the model), cherry-picked (e).
+
+*Nested* — verdict policy: **official's reduction stays the VERDICT
+SOURCE and runs OUTSIDE the modelled world.**  The kernel eliminates
+the nesting on annotated inputs (K.12's `elimNested`), installs the
+auxiliary block through `checkMutualCore … auxRoute` at a SCRATCH
+environment, restores the generated recursor types and rules
+(`restoreNested`) and compares the STREAM's records against them
+(`nestedRecsOk`, K.24's constructor verdict) — exactly `checkNested`
+on `inductives` up to and including (c).  What is STORED is the
+stream's records (= official's); the scratch environment is discarded
+and never modelled.  That is "the reduction outside the verified
+world for verdict parity": the checker's accept set is official's by
+construction (shadow 26/26 fixtures, Mathlib cone 41/41), and the
+theorem is over the SHAPE facts the run records about the ORIGINAL
+block, never about a copy.
+
+RECORDED (the conjuncts of the nested run relation the model consumes):
+1. the block's annotated formers/constructors (`nestedAnnotFormers/Ctors`) and `uniformIndOccsOk`;
+2. `pinsClosed` (K.3) — every pin, abstracted over the `nP` parameters, is fvar-free with loose bvars `< nP`: what makes `⟦Ds⟧[T⃗ := X⃗]` a function of `X⃗`;
+3. `nestedPinsOk` at the block's parameter context (post-check (a)) and **K.27 `nestedPinsAbsOk`** (the pin infers at the PRE-block environment with the members as fvars of their former types) — the level fit of the family variable in the container's parameter domain (§DR.2 (b); probe 26/26 + 41/41; the K.27 order stands: argument over `inferTypeCore`'s arms first, arm 6 (η/unit-like/K shortcuts) is the open one, land `.internal`);
+4. `nestedContainersOk` (K.14: uniform occurrences in the container's constructors; a large-eliminating member's universe ∉ the block's `lps`; small ⇒ `Prop` motive) and K.15 (2)(3) (`containerGroupOk`, `containerFieldOk`'s trichotomy: ordinary ∨ group member at the parameter spine ∨ headed by a stored inductive);
+5. K.21 (`Name.nodup J.lps` at every pinned container);
+6. **the field kinds at the pins** (K.26 variant C re-keyed): per pin, per container constructor, per field, `(kind, target)` with `target ∈ members ++ pins`, RECOMPUTED on the instantiated container constructors (= the aux constructors — official's positivity runs on the substituted field, a free-parameter walk is whnf-stuck: variant B is ruled out, K.26); one Bool conjunct, cannot fire;
+7. the stored recursors' types and rules are `restoreNested` of the aux-generated ones (`k + numNested` motives, minors in aux order) — the SHAPE the model reads for the recursion classes;
+8. `nestedTables` at structure-like members.
+
+DIES with the copies: K.1 (nothing persistent is minted; `copiesFresh`
+stays as the scratch install's own check), K.6's order and its cycle
+DECLINE (`nestedTopoOrder`, `copyRefB`, `Expr.subB` — nothing folds;
+P4's cycle is one lfp), K.9–K.11, K.13's grade, K.17's whnf witness
+(the model owes a β step at a λ-pin instead — an equality of sets),
+K.19 (restore-stores-restore), K.23's Bool, K.25's units.  SURVIVE
+route-independently: K.8 (λ reader, on the accept path), K.22
+(`whnf_indApp_eq`), K.20's SHAPE (F twins, `_datF` chain, η-closure).
+
+Rule kept from all three lanes: every guard goes into BOTH the pure
+and the cached mirror; a fallback where official has a verdict is a
+divergence in the making; the containers' facts are recorded, never
+inferred from a copy.
+
+##### (d) THE MAIN THEOREM — ONE statement
+
+LANDED this session, `ConLeche/Model/Inductives/DeclInductive.lean`:
+
+```lean
+theorem declInductive (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nP : Nat} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (h : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂) :
+    Nonempty (EnvModelM V μ env₂)
+```
+
+— the `.indDecl` arm of `declStep_preserves` (`Model/Fold.lean`), which
+now calls it.  Today its proof is the dispatch's two-way split
+(`declNative` at a recognised single block, `declInd` for the modeled
+rest).  The route changes what stands UNDER the statement, milestone by
+milestone, and never the statement: the dispatch's native arm becomes
+`declBlock (h : DeclBlockRun μ F env p env₂)` at `k ≥ 1` members
+(mutual), a nested block is `declBlock` at the shape run of (c) with
+the composed datum, and the modeled arm is deleted at M-E.
+Decomposition of `declBlock`: the former stage (`k` formers at the
+pre-block environment, official's order), the constructor stage
+(member-aware kinds, nested slots), the carrier (`BlockRep` with
+`lfpTuple` + (W)), the recursors (`unionRec` over the classes), the
+rules (`unionRec_eq` instances → `RecRuleLaw`), tables/caps
+(`Struct*` at structure-like members), `ind_reps := BlockRep` and the
+`EnvModelM` assembly.  The run relation keeps `DeclNativeRun`'s shape:
+a conjunction of the kernel stages' `.ok` equations over their
+intermediate outputs plus recorded Bool facts.
+
+`tests/proofdeps.sh`: `ConLeche.Model.Inductives.DeclInductive` ENTERS
+all ten capstone closures — a door, justified: the module holds the
+`.indDecl` case split that was inline in `declStep_preserves`, imports
+nothing the fold did not already import, and adds no machinery; the
+expectation is regenerated in this batch (10 rows).
+
+##### (e) MIGRATION — master never worse
+
+Principle: kernel routes are cherry-picked UNWIRED (the dispatch keeps
+its current arms) until the uniform model theorem covers them; a
+flip is one line in `nativeParts?`/the dispatch; the modeled route
+stays until the last flip.
+
+| milestone | content | sessions |
+| --- | --- | --- |
+| M0 (this session) | `LfpTuple`, `UnionRec`, the experiment, `declInductive`, `lfpTuple_one`, `fixFamI_eq_lfpTuple`, this record | 1 |
+| M1 | cherry-pick #278's kernel: `afd10251` (MutualParts/MutualInstall), `5fac0127` (wiring; keep the dispatch to modeled), `12cc2648` (the native-shaped rework — THE design), `15d0e1f2` (formers at the pre-block env), `ec115fc0` (`Semantics/Inductives/DeclMutual.lean` `DeclMutualRun`, `Verify/Inductives/MutualInv|MutualWF`); NOT `06d827e5`/`72251897`/`c95d1ae0` (the `auxRoute` grade — comes with M5); adapt to #285/#295/#304 renames; shadow gate | 1–2 (kernel lane) |
+| M2 | `BlockRepData`/`BlockRep`; the tuple Semantics (`blockFunV`/`blockFamI`, mono/maps/fibre per component, `xChainsOk` at `k`); (W) = tuple `container_closed_exists`; at `k = 1` identified with the fix kit through `lfpTuple_one` | 3–4 |
+| M3 | recursors at `k`: `fixRecBodyAVI` with `k` motives at local tags, existence via `unionRec`, `nativeRecAVI_iota` per member, the squash regime | 3–4 |
+| M4 | `declBlock` assembly over `DeclMutualRun` (stages at `k`), flip mutual to native; `BasisRep*` (cherry-pick from `inductives` `Model/BasisRep*.lean`, rewritten through `lfpTuple_one`) so `ind_reps` holds at every stored recursor | 3–4 |
+| M5 | nested kernel: cherry-pick the surviving K-subset (K.3 `34489e6c`, K.12 `72251897`, K.14 `eb6284ae`, K.15 `466e5970`, K.21 `0e052597`, K.24 `f1bab5c3`, K.26 `522ec560` re-keyed to pins, K.8 `3cc45861`+`04280d8b` if not already, K.22 `#305`), `elimNested` (`14839638`, `2d75aea3`, `320f68f9`), the cached mirror shape (`c95d1ae0`, `a35016df`…); DROP `nestedTopoOrder`/K.6, restore-stores (K.19), K.23's Bool; add K.27 `.internal`; the shape run `DeclNestedRun'`; shadow 26/26 + cone 41/41 | 2–3 (kernel lane) |
+| M6 | the composed datum: nested arm (D-2a) in `chainXIGo`/`ChainFit` with the `fibre` consumers' census; (X) via `absMembersGo`/`denoteMeta_absMembers` (cherry-pick `992a53bf`'s Semantics half); (P) from the pins' kinds; (W) composed | 3–5 |
+| M7 | nested recursors: classes = members ++ pins, pin accessibility through the containers' induction, mimic rules; `declBlock` at the nested shape run; flip nested to native | 3–4 |
+| M8 (M-E) | delete the modeled route, `Frontend/InModel/*`, `DeclInd` tiers; docs and gates | 1–2 |
+
+Total **20–29 sessions** (kernel lanes Opus-able, in parallel).  The
+previous nested lanes overran 4–5×; the risk here concentrates in
+three items, each with a pure falsifier before its milestone: (W)
+at tuples (M2), D-2a's `fibre`-consumer census (M6), K.27's arm 6
+(M5).  The previous arcs' sunk work that transfers unchanged: the
+kernel of #278 (1.3k), the K-subset above (~1.5k kernel + Verify),
+`Bekic*.lean` (760 pure), `absMembersGo` (Semantics), and the two
+direct experiments as reference proofs.
+
+##### (f) THE FALSIFYING EXPERIMENT OF THIS SESSION — BOTH HALVES PASS
+
+Pure `SetModel`, no `Expr`, no `sorry`, axioms `[propext, Classical.choice,
+Quot.sound]`; both files on the build graph (`ConLeche/SetModel.lean`).
+
+**(1) `ConLeche/SetModel/MutualPair.lean` (517 lines)** — the two-member
+MUTUAL block `A ::= a0 | a1 (b : B)`, `B ::= b0 (a : A)`, no parameters, no
+indices, abstract injections bounded by an ambient `U ∈ univ w`
+(`PairSig`).  The tuple operator `pairPhi` (component 0 = `sep U (· = mkA0
+∨ ∃ b ∈ X 1, · = mkA1 b)`, component 1 = `sep U (∃ a ∈ X 0, · = mkB0 a)`);
+carrier `pairL = lfpTuple w 2 _ pairPhi`, `A* = app (pairL 0) pt`, `B*`.
+Proved: `pairPhi_mono/_maps/_closed`; the fixed-point equations
+`mem_Astar`, `mem_Bstar`; **Bekić at each member** `pairL_eq_section_A :
+pairL 0 = lfpFamSet w unitSet (secF w _ pairPhi pairL 0)` (one line of
+`lfpTuple_eq_section`) and `app_secF_A`: the section's functor at any
+family `X` is `graph (_ ↦ sep U (· = mkA0 ∨ ∃ b ∈ B*, · = mkA1 b))
+unitSet` — **the other member appears as the CONSTANT `B*`**, exactly
+the single-family reading with a parameter; the union recursor
+(`PairRel`-defined predecessors, `pairPred_from : PredsFrom …`, bound
+`pairB`, step `pairSt`, `PairRecData` = motives + three typed minors):
+typing `pairRecA_mem : a ∈ A* → pairRecA a ∈ MA a`, `pairRecB_mem`, and
+the THREE ι RULES `pairRecA_a0 : pairRecA mkA0 = mA0`, `pairRecA_a1 : b ∈
+B* → pairRecA (mkA1 b) = mA1 b (pairRecB b)`, `pairRecB_b0`.  Nothing
+resisted.  WHAT THE PURE LEMMAS NEEDED beyond the kit: the closed tuple
+from the bound `U ∈ univ w` ALONE (the constant tuple `_ ↦ graph (_ ↦ U)
+unitSet`; no constructor hypothesis); the constructors' closure
+(`mkA0/mkA1/mkB0 ∈ U`) only to drop the `sep`'s `∈ U` conjunct;
+`PredsFrom` from injectivity and disjointness WITHIN a member
+(`mkA1_inj`, `mkB0_inj`, `mkA0 ≠ mkA1 b`) — **cross-member disjointness
+is NOT needed: the union's class tag separates the members** (that is
+the datum's `mkInj` per member, and it is why no block-position tag is
+ever needed); the recursor from the six `PairRecData` fields and nothing
+else.
+
+**(2) `ConLeche/SetModel/NestedTreeList.lean` (753 lines)** — `Tree ::=
+node (l : List Tree)` with `List` an ABSTRACT, `Sat`-GUARDED container
+datum (`NestedSig`/`ContainerOk`): parameter domain `univ w'`, values in
+`univ w`, injections `mkNil`/`mkCons`, a set-level family functor `LΦ α`
+whose four clauses `hLmono/hLmaps/hLcl/hLfibre` hold ONLY under `α ∈ univ
+w'` — the datum's `functor`/`fibre` shape (`hLfibre` stated at every
+family `Y ∈ famSpace`, not only at the fixed point); the container's
+leaf `listAt α := app (lfpFamSet w unitSet (LΦ α)) pt`.  Tree's operator
+COMPOSES the container: `treeΦ X 0 = graph (_ ↦ sep UT (∃ l ∈ listAt (app
+(X 0) pt), · = mkNode l)) unitSet`; carrier `T*`, pin value `LT* = listAt
+T*`.  Proved: `listAt_mono` (**(P) the map action, from `fibre` at BOTH
+parameters** under both guards, by leastness), `treeΦ_mono/_maps/_closed`,
+`mem_treeT`, `mem_treeLs` (the container's fixed-point equation at the
+carrier); the recursor family over the union of TWO classes (trees, and
+the PIN's values `LT*`, which is NOT a tuple component): accessibility
+of every tree by `lfpTuple_induction` whose step reads the container's
+induction `lfpFamSet_induction` at the parameter `S₀` = the accessible
+trees (`treeAccL_of_param`), then all of `LT*` at `S₀ := T*`; the union
+recursor by `recGraph_exists_unique`; typing `recT_mem`, `recL_mem`, and
+the THREE ι RULES of official's simultaneous fold: `treeRec_node : recT
+(mkNode l) = mNode l (recL l)`, `treeRec_nil : recL mkNil = mNil`,
+`treeRec_cons : recL (mkCons h t) = mCons h t (recT h) (recL t)`.  And
+(W): `closed_composed_of_closed_aux : IsClosedTuple w 2 _ auxΦ L →
+IsClosedTuple w 1 _ treeΦfree (fun _ => L 0)` — the composed operator's
+closed member from the auxiliary tuple's, by `lfpFamSet_le` alone
+(unconditional: no container law, no level fact) — so the general route
+discharges (W) at a nested block from the auxiliary tuple's closed
+member, itself the tuple `container_closed_exists`, with no `sep UT`.
+Nothing resisted.  WHAT THE PURE LEMMAS NEEDED: **the level fact `hw : w
+≤ w'`**, used (via `univ_mono`) at `treeΦ_mono` TWICE (both tuple-space
+values `app (X 0) pt`, `app (Y 0) pt` must enter the guard — without it
+the composed operator is not monotone and NOTHING below exists: closure,
+fixed point, induction), at the carrier's guard, at the SEPARATED tuple's
+value in the accessibility step, and at the container's induction at
+`T*`; NOT needed for the closed tuple (`UT ∈ univ w` suffices) nor for
+`treeΦ_maps`.  **The container's `fibre` is consumed at FAMILY-VARIABLE
+values, not only at the carrier** — at `α`/`α'` arbitrary tuple-space
+values in `listAt_mono`, and at `S₀` (the accessibility separation)
+against the induction's own separated family — so a datum whose `fibre`
+held only at the carrier would be useless.  This is §DR.2's K.27 finding
+reproduced in the uniform setting with a guarded container: the fit of
+the family variable in the container's parameter domain is a LEVEL fact
+of the run, to be RECORDED (K.27 in (c)), and every container clause the
+model reads must be stated at every guarded frame (the `IndRep` clauses
+already are: `∀ ψ ρp, Sat … → …`).
+
+**Kit findings from the two instances** (to do at M2, none blocking):
+`unionAcc_all` is the instance of a class-wise obligation — the nested
+file states the general form `unionAcc_of_classAcc` (accessibility of
+every union element from per-class accessibility), which belongs in
+`UnionRec.lean` with `unionAcc_all` as its tuple-induction corollary;
+relation-defined predecessors (`relPred`, `mem_relPred`) and a bundled
+`UnionRecKit` (the `hB`/`hst` premises are spelled four times) would
+remove the instances' boilerplate; `unionGraph_mem_B`; a `rfl` lemma
+`recSel_tagged`; `sepTuple_mem/_le` belong in `LfpTuple.lean`.
+
+##### (g) THE CONSUMER STATEMENT, AND WHAT IS NOT NAMED
+
+The run-level consumer landed is `declInductive` ((d) above): the ONE
+statement over master's dispatch, proved from the two arms, and called
+by the fold.  Its `k = 1` instance is tied to the uniform datum by
+`fixFamI_eq_lfpTuple` (`Semantics/Tower/FixTuple.lean`): the native
+leaf IS the one-member tuple lfp, by `lfpTuple_one`, with no
+hypothesis.
+
+The MUTUAL consumer `declBlock (hμ) (mp) (hE) (h : DeclMutualRun μ F env
+p env₂) : Nonempty (EnvModelM V μ env₂)` — the shape is #278's
+`declMutual` on `inductives` — cannot be stated on master: master has
+no native mutual run relation (`DeclMutualRun` and `checkMutualCore`
+arrive with M1's cherry-pick).  Under the consumer-first rule
+(2026-09-14: a fact is NAMED only with a run-level consumer in the same
+session) **no run fact is named this session**; the candidates the
+design will need are listed in (c) as the run relation's conjuncts,
+unnamed.  The block datum `BlockRep` is likewise a design in (a), not a
+Lean structure yet: it is built at M2 on the new route's own datum,
+and its first consumer is `declBlock` at M4.

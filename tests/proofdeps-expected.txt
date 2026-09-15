@@ -130,6 +130,7 @@ main_model :: ConLeche.Model.IndTransport
 main_model :: ConLeche.Model.IndUnitLaw
 main_model :: ConLeche.Model.IndZipField
 main_model :: ConLeche.Model.IndZipper
+main_model :: ConLeche.Model.Inductives.DeclInductive
 main_model :: ConLeche.Model.Inductives.DeclNative
 main_model :: ConLeche.Model.Inductives.DeclStruct
 main_model :: ConLeche.Model.Inductives.DeclSum
@@ -583,6 +584,7 @@ main_file_False :: ConLeche.Model.IndTransport
 main_file_False :: ConLeche.Model.IndUnitLaw
 main_file_False :: ConLeche.Model.IndZipField
 main_file_False :: ConLeche.Model.IndZipper
+main_file_False :: ConLeche.Model.Inductives.DeclInductive
 main_file_False :: ConLeche.Model.Inductives.DeclNative
 main_file_False :: ConLeche.Model.Inductives.DeclStruct
 main_file_False :: ConLeche.Model.Inductives.DeclSum
@@ -1025,6 +1027,7 @@ stream_False :: ConLeche.Model.IndTransport
 stream_False :: ConLeche.Model.IndUnitLaw
 stream_False :: ConLeche.Model.IndZipField
 stream_False :: ConLeche.Model.IndZipper
+stream_False :: ConLeche.Model.Inductives.DeclInductive
 stream_False :: ConLeche.Model.Inductives.DeclNative
 stream_False :: ConLeche.Model.Inductives.DeclStruct
 stream_False :: ConLeche.Model.Inductives.DeclSum
@@ -1458,6 +1461,7 @@ False_cached :: ConLeche.Model.IndTransport
 False_cached :: ConLeche.Model.IndUnitLaw
 False_cached :: ConLeche.Model.IndZipField
 False_cached :: ConLeche.Model.IndZipper
+False_cached :: ConLeche.Model.Inductives.DeclInductive
 False_cached :: ConLeche.Model.Inductives.DeclNative
 False_cached :: ConLeche.Model.Inductives.DeclStruct
 False_cached :: ConLeche.Model.Inductives.DeclSum
@@ -1890,6 +1894,7 @@ Empty_cached :: ConLeche.Model.IndTransport
 Empty_cached :: ConLeche.Model.IndUnitLaw
 Empty_cached :: ConLeche.Model.IndZipField
 Empty_cached :: ConLeche.Model.IndZipper
+Empty_cached :: ConLeche.Model.Inductives.DeclInductive
 Empty_cached :: ConLeche.Model.Inductives.DeclNative
 Empty_cached :: ConLeche.Model.Inductives.DeclStruct
 Empty_cached :: ConLeche.Model.Inductives.DeclSum
@@ -2322,6 +2327,7 @@ sound_cached :: ConLeche.Model.IndTransport
 sound_cached :: ConLeche.Model.IndUnitLaw
 sound_cached :: ConLeche.Model.IndZipField
 sound_cached :: ConLeche.Model.IndZipper
+sound_cached :: ConLeche.Model.Inductives.DeclInductive
 sound_cached :: ConLeche.Model.Inductives.DeclNative
 sound_cached :: ConLeche.Model.Inductives.DeclStruct
 sound_cached :: ConLeche.Model.Inductives.DeclSum
@@ -2842,6 +2848,7 @@ False_checked :: ConLeche.Model.IndTransport
 False_checked :: ConLeche.Model.IndUnitLaw
 False_checked :: ConLeche.Model.IndZipField
 False_checked :: ConLeche.Model.IndZipper
+False_checked :: ConLeche.Model.Inductives.DeclInductive
 False_checked :: ConLeche.Model.Inductives.DeclNative
 False_checked :: ConLeche.Model.Inductives.DeclStruct
 False_checked :: ConLeche.Model.Inductives.DeclSum
@@ -3273,6 +3280,7 @@ fullyChecked_sound :: ConLeche.Model.IndTransport
 fullyChecked_sound :: ConLeche.Model.IndUnitLaw
 fullyChecked_sound :: ConLeche.Model.IndZipField
 fullyChecked_sound :: ConLeche.Model.IndZipper
+fullyChecked_sound :: ConLeche.Model.Inductives.DeclInductive
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclNative
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclStruct
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclSum
@@ -3691,6 +3699,7 @@ False_pure :: ConLeche.Model.IndTransport
 False_pure :: ConLeche.Model.IndUnitLaw
 False_pure :: ConLeche.Model.IndZipField
 False_pure :: ConLeche.Model.IndZipper
+False_pure :: ConLeche.Model.Inductives.DeclInductive
 False_pure :: ConLeche.Model.Inductives.DeclNative
 False_pure :: ConLeche.Model.Inductives.DeclStruct
 False_pure :: ConLeche.Model.Inductives.DeclSum
@@ -4078,6 +4087,7 @@ Empty_pure :: ConLeche.Model.IndTransport
 Empty_pure :: ConLeche.Model.IndUnitLaw
 Empty_pure :: ConLeche.Model.IndZipField
 Empty_pure :: ConLeche.Model.IndZipper
+Empty_pure :: ConLeche.Model.Inductives.DeclInductive
 Empty_pure :: ConLeche.Model.Inductives.DeclNative
 Empty_pure :: ConLeche.Model.Inductives.DeclStruct
 Empty_pure :: ConLeche.Model.Inductives.DeclSum

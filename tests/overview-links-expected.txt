@@ -274,18 +274,18 @@
   2916            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2917          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L308-L315
-   308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   309      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   310      {ds : List Declaration} {env' : Env}
-   311      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   312      ∀ c ∈ env'.consts,
-   313        c.toConstantVal.type = .const falseName [] → False := by
-   314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   315    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L304-L311
+   304  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   305      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   306      {ds : List Declaration} {env' : Env}
+   307      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   308      ∀ c ∈ env'.consts,
+   309        c.toConstantVal.type = .const falseName [] → False := by
+   310    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   311    exact fun c hc hty => no_constant_of_False mp c hc hty
 
 == ConLeche/Model/Fold.lean#L165
-   165  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+   165  reads, and no step below changed a line. -/
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
