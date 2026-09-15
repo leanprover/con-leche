@@ -80449,6 +80449,56 @@ K.20 2b, and the `_datF`/`…F_eq` chain covers the STAGES, not the route's
 guard list — so until `checkNestedS_run` exists, the shadow gate's
 negative control is the only thing that detects a one-route guard.
 
+#### K.24 A FALLBACK BECOMES A VERDICT: THE RESTORED RULE'S CONSTRUCTOR IS STORED (2026-09-15, the model lane's DESIGN §M.57)
+
+`restoreRules` read a mimic rule's parameter count as
+
+    match envR.find? ctor with
+    | some (.ctorInfo _ n _) => n
+    | _ => rl.ctorParams          -- a FALLBACK
+
+where official reads the same record with `env.get`, which THROWS on an
+unknown constant.  A fallback where official has a verdict is a
+divergence in the making, and it also denied the model tier the fact it
+needs.  It is now the verdict: `.invalid` — official's — when the
+restored constructor name is not a stored constructor at that
+environment.
+
+**Verdict-neutral on well-formed streams.**  The block's constructors
+were stored two stages earlier (`consNestedCtors`), and a mimic's
+constructor name comes from the restore table's own `ctorPins` row,
+whose entries were built from the copies' constructors; so the lookup
+answers on every stream the route accepts.  Measured: nested-shadow
+**26/26**, the Mathlib nested cone **41/41 byte-identical**.  Negative
+control (make the successful read throw, re-run, revert): **3/26** — the
+read is reached at 23 of the 26 fixtures, so the check is not vacuous.
+
+**BOTH ROUTES**, per K.23's lesson: `restoreRules` and `restoreRulesF`
+carry it, and the shadow gate — which runs the CACHED route — is what
+the negative control exercised.
+
+**How the model tier gets its premise 2** (`∀ r ∈ stores, ∀ rl ∈
+r.2.2.2, ∃ cv nP nF, env₂.find? rl.ctor = some (.ctorInfo cv nP nF)`):
+**no new conjunct** — it is DERIVABLE from the check's position in the
+chain, and the two steps are in `Verify/Inductives/NestedInv.lean`:
+
+    restoreRules_ctorStored           every rule the stage returns has
+                                      `envR.find? o.ctor = some (.ctorInfo …)`
+    provisionNestedRecs_find?_ctorInfo  a `ctorInfo` found past the
+                                      rule-less provision was found
+                                      BELOW it (the provision adds only
+                                      recursors)
+
+and `envR = provisionNestedRecs provisions env₂`, so the two compose to
+the premise at `env₂`.  The run relation already records both
+`restoreRules` mapMs, which is where the first lemma applies.
+
+**Gates** (on `inductives` = `45b41830`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links OK, **nested-shadow 26/26**, e2e **216/216**,
+no-local-paths OK; the Mathlib nested cone exit 0, **4 923 accepted,
+41/41 byte-identical**.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
