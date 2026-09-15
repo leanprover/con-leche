@@ -14,12 +14,16 @@ fixpoint route installs a single block — official's checks, the
 recursors generated, compared with the stream's records, stored:
 
 1. **the formers**, each checked and read at official's telescope
-   (`checkSumTele`, task #195) and consed with the block's capability
-   record (none: K never fires on a mutual block, η/unit-likeness at a
-   recursion-free block's structure-like members are a later task);
-   then official's cross-member checks (`check_inductive_types`): the
-   parameter domains definitionally the first former's, the result
-   sorts equivalent, one level-parameter list;
+   (`checkSumTele`, task #195) **at the pre-block environment** — as
+   official's `check_inductive_types` runs before
+   `declare_inductive_types`, so a former type mentioning an earlier
+   member is rejected — and consed afterwards with the block's
+   capability record (none: K never fires on a mutual block,
+   η/unit-likeness at a recursion-free block's structure-like members
+   are a later task); then official's cross-member checks
+   (`check_inductive_types`): the parameter domains definitionally the
+   first former's, the result sorts equivalent, one level-parameter
+   list;
 2. **the eliminator**: a mutual block whose sort is not provably
    nonzero eliminates into `Prop` only (`elim_only_at_universe_zero`);
    the stream's recursors must carry the generated level parameters
@@ -138,22 +142,39 @@ def mutualShapeOk (b : MutualBlock) : m Unit := do
     throw (.invalid "mutual: a constructor returns a member other than the one it is \
       listed under")
 
-/-- Stage 1: the formers at official's telescope (`checkSumTele`), each
-consed with the block's capability record (`{}`) as the fixpoint
-route's `checkSumInd` conses its one former; returns the environment
-holding all of them and the checked formers in order. -/
-def mutualFormers (ops : CheckerOps m) (nP : Nat) :
-    List (ConstantVal × Nat) → Env → m (Env × List MutualFormerA)
-  | [], env => pure (env, [])
-  | (cv, nIdx) :: rest, env => do
+/-- **Stage 1's checks, all at the pre-block environment**: every
+former's type is checked and read at official's telescope
+(`checkSumTele`, task #195) in the environment the block starts from,
+as official's `check_inductive_types` does — `declare_inductive_types`
+comes after, so a former type mentioning an earlier member of the same
+block is official's "unknown identifier" and is rejected here too. -/
+def mutualFormerChecks (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List (ConstantVal × Nat) → m (List MutualFormerA)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
     let cvTa₀ ← checkConstantVal ops env cv
     let (cvTa, s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let (env', fs) ← mutualFormers ops nP rest ⟨.indInfo cvTa {} :: env.consts⟩
-    pure (env', ⟨cvTa, nIdx, s⟩ :: fs)
+    let fs ← mutualFormerChecks ops env nP rest
+    pure (⟨cvTa, nIdx, s⟩ :: fs)
+
+/-- The formers' conses, in block order (the first former deepest),
+each with the block's capability record (`{}`) as the fixpoint route's
+`checkSumInd` conses its one former. -/
+def consMutualFormers : List MutualFormerA → Env → Env
+  | [], env => env
+  | f :: fs, env => consMutualFormers fs ⟨.indInfo f.cvTa {} :: env.consts⟩
+
+/-- Stage 1: the formers checked at the pre-block environment and
+consed afterwards; returns the environment holding all of them and the
+checked formers in order. -/
+def mutualFormers (ops : CheckerOps m) (nP : Nat) (formers : List (ConstantVal × Nat))
+    (env : Env) : m (Env × List MutualFormerA) := do
+  let fms ← mutualFormerChecks ops env nP formers
+  pure (consMutualFormers fms env, fms)
 
 /-- Official's `check_inductive_types` parameter check: member `m`'s
 parameter domains, opened at variables, are definitionally the first
