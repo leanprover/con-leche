@@ -73808,3 +73808,205 @@ removal).
    already closed reports "no progress".  A nested
    `Classical.choose` in a definition makes every `rw` on the outer
    choice ill-typed — decode into a PAIR (`decodeE`).
+
+#### U.8 — M4 session 3: the assembly — stages 0–3 discharged, the recursors' stage named (session U-7, 2026-09-15)
+
+`MutualCoreModeled`'s proof, modulo ONE named fact for its last
+stage.  No checker code changed; no `sorry`, no axioms, no
+`maxHeartbeats`; one recorded datum deviation ((e) 4).  New:
+`Model/Inductives/MutualCore.lean` (2 368 lines — the three stage
+theorems and their facts), `MutualIdxUniv.lean` (360, the index
+universe), `MutualStageCtor.lean` (739, #278's constructor stage
+cherry-picked), `Verify/Inductives/MutualGrouped.lean` (307, the
+grouped constructors' positions), and `TupleLfp.lean` +448 (the sealed
+fibre law and the assembly's seam).
+
+##### (a) THE FIBRE LAW — `tupleLfpΦ_fibre`, sealed (`TupleLfp.lean`)
+
+The datum's `fibre` clause at the derived former, stated over the
+UNTAGGED lists in the block's global constructor order: component
+`mm`'s fibre at `(X, t)` is the set of the tagged towers `injW w J
+⟨f⃗, pt⟩` of the spines `f⃗` fitting a constructor `J` of member `mm`
+at `(X, t)`, a recursive field read at the TARGET member's component of
+`X` (`FitsFrom` at `slotSet … (X (tgts J i))`), the constructor's
+index expressions at the spine the components of `t`.  Inside the
+module the tag is translated away in three steps: `slotSet_tag_eq` (a
+slot at the one tagged expression, at the join of `X`, is the raw slot
+at the target's component — the tagged tuple's value comes from
+`tagTupleAV_facts`, whose fit is READ OFF the tagged slot's own
+grading: `tagTupleAV_fit_of_wellDenoted`, `spineFit_of_wellDenoted_lams`
+at the tupler's λ-tower), `fitsFrom_tag_iff` (`spineFit_chainXIGo_iff`'s
+translation, by the same induction), and `tagTerm_iff` (the one tagged
+terminator equation ⇔ the constructor's member is the tuple's and the
+raw expressions' values are its components — `inj_inj`, `mkTower_inj`).
+The lists' shape is a public record `TupleLfpShape` (lengths, members
+and targets below `k`, the expressions of their member's arity).
+Finding: an equation chain `idxEqAV` is graded only at its HEAD — the
+tail sits under the head's equality, whose domain may be empty
+(`wellDenoted_idxEqAV_head`); the tagged terminator has exactly one
+equation, which is why the elimination direction can read the tag's
+grading off `FixChainsOkI` at the fitting prefix.
+
+##### (b) THE INDEX UNIVERSE FINDING — `MutualIdxUniv.lean`
+
+The members' index telescopes must be graded at one universe `W`
+(`TupleLfpOk`'s `TagOk`).  The fixpoint route reads it off the kernel's
+own sort row (`checkStructFieldSortsI` at the formers' environment,
+`idxOk_of`); **the mutual kernel runs no index sort row** —
+`checkMutualCore` has no such call, and `checkSumTele` returns the
+result sort only.  `inductives` took the universes from a `lvls`
+field of its `FormerData`, dropped at the cherry-pick (§U.7 (e)).  The
+source is the former's own `checkConstantVal`: inferring a Π-tower
+infers each binder's domain sort (`piLevels_of_infer`, ported), and
+the claims' sort row grades each domain at its sort along the opening
+(`teleLevels_walk`, ported) — `formerLevels_of` states it at the
+assignment RESTRICTED to the block's parameters (`restrictΨ`: the
+checker's levels are not known to mention only those), and
+`formerIdxOk` (ported) takes the level fact as an explicit hypothesis
+instead of the field.  `W ψ := 1 + max_t max_j (us_t[nP + j]).eval
+(restrictΨ lps ψ)`, stable under the parameters by `restrictΨ_congr`.
+
+##### (c) THE ASSEMBLY'S SEAM
+
+The constructors' stage consumes REPRESENTATION-level facts: the
+constructor's residual folds to the auxiliary family's fibre at the
+tagged index tuple (`mutualCtorFold`, `hfold`), and the real chains
+against the X-source ones live at `auxFamI` (`ChainsRealI`); the target
+members' leaves must be read as `mutualTyAVI`.  So `TupleLfp.lean`
+exports, for the assembly and nothing else (§U.7 (c)'s seam, now with
+three laws beside the `of_tagged` intros): `tupleLfpAV_repr` (the
+former IS `mutualTyAVI` at the tagged data — `:= by rfl` in the private
+view), `tupleLfpAV_lams` (a λ-tower over its data), and
+`TupleLfpStageOk.tagged` (`of_tagged`'s inverse).  Every consumer of
+the DATUM still sees no tag.
+
+##### (d) THE STAGES — `MutualCore.lean`
+
+The reference proof (`inductives`' `declMutual`, 4 100 lines under a
+128× heartbeat raise) is split into three theorems and a facts
+record, every one within the default budget:
+
+* **`mutualFormersStage`** (stages 0–2, ~600 lines): the chain-free
+  first pass (`stageMembersG`), the constructors' readings at it
+  (`mutualCtorData_of`), the cross-member frames (`paramFrames`), the
+  index universe ((b)), the block's chain facts
+  (`mutualChainFacts_at`/`_ValidFacts_at`, `xChainsOk_of`,
+  `MemberChainsOk`), the stability and closedness facts, the real
+  conses through the API (`stageTupleFormers` at `TupleLfpBlockOk.of_tagged`/
+  `TupleLfpStageOk.of_tagged`), the readings at the real model
+  (`mutualCtorDataI_ident`) and the block's lists restated at them —
+  packaged as **`MutualFormersFacts`** (30 fields: the members'
+  checks, data and leaves `mutMemberLeaf`, the constructors' readings
+  `CD`, the frames `frame`, the tag `idxAll`, the premises
+  `blockOk`/`stageOk`).  Derived over it: `chainJ`, `chainFull` (the
+  real chains, via `mutualChainReal_at` through the seam), `framesJ`
+  (`mutualCtorFrames`), `fold` (`mutualCtorFold`), `fssOkP`.
+* **`mutualCtorsStage`** (stage 3): #278's `stageMutualCtors` at the
+  derived leaves — its `env₀` is the formers' environment (the check
+  ran there; `MutualCtorDataI.monoEnv₀`), and the datum's pre-block
+  witness is restored afterwards by swapping the model-free `opened`
+  field (`MutualCtorDataI.withOpened`).  Outputs: every constructor's
+  `MutualCtorFactsAt`, its residuals resolving, its leaf `sumMkAV` at
+  the global position, the members' leaves untouched (their names are
+  no constructor's, `blockNames.Nodup`), agreement off the constructors.
+* **`blockReps_of`** (the datum): `mutualDatum` = `BlockRepData.ofMutual`
+  at the run's data, keyed per member through the block's own
+  constructor positions — `ownOffset mm + j`, the global index
+  (`MutualGrouped`: `ownCtors_getElem?_idx`, `ownCtors_of_ctors` under
+  `mutualCtorsGrouped`; `mutualDatum_ctorsM_get`, `mutualDatum_ofCtor`,
+  `mutualDatum_minorIdx`).  `BlockRep` at every member: `former`
+  (crossed by `consMutualCtors_extend`), `ctors` (`congr_sort` +
+  `withOpened` + `toBlock`, the target readers identified through
+  `memT`), `memsFound`/`idxRes`/`uParams`/`paramsIff`/`idxOk`,
+  `functor` (`ofMutual_functor` at `TupleLfpOk.of_tagged` from
+  `idxAll`/`chainFull`), `fibre` (the law (a) translated to the
+  member-local form by `fitsFrom_congr` over the positional readers —
+  the shadow and the real domains agree off the recursive positions),
+  `leaf` (`ofMutual_leaf` at the member's own frame,
+  `spineFit_of_frames`), `ctor` (`sumMkAV_fold`; at `w = 0`
+  `sumMkAV_zero`), `mkZero`/`mkInj`; `FormersTyped`/`CtorsTyped` from
+  the model's `mem_type` at the stored members and constructors.
+  Deviation 4: `BlockRep.strip` now asks for a sort EQUIVALENT to the
+  block's — a member's stored type ends in its OWN declared sort, which
+  official's cross-member check makes `isEquiv` to the first member's,
+  not equal; the clause has no consumer on the branch.
+
+##### (e) THE RECURSORS' STAGE, NAMED — `MutualRecsModeled` (stage 4)
+
+```lean
+theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
+    MutualCoreModeled V μ F
+```
+
+`MutualRecsModeled V μ F`: at a model of the constructors' environment
+carrying the datum (`MutualDatumOf`, `BlockReps`, the members and
+constructors typed, every other leaf the pre-block model's), the
+recursor types, the rules at the rule-less provision and the group
+store cons a model of the recursors' environment at which the datum
+still holds, every other leaf untouched — the core's run facts
+verbatim.  Consumers: `mutualCoreModeled_of` (the assembly of stages
+0–3 above, the agreement composed through the constructors' and the
+members' names) and `declBlock_of_recs` (= `declBlock` at it).  Its
+discharge is M4 sessions 4a–4b:
+
+| step | source |
+| --- | --- |
+| `BlockReadings` at the datum | the datum's readers (`cdsAt` at `ownOffset`), `MutualRecData.below` |
+| `hT` | `mutualRecData_of` (cherry-pick `inductives`' `MutualRecData.lean` lines 100–475: `MutualFormerFacts`, `formerReadsM_of`, `mutualCtorReadsM_of`) + the claims' sort row at `checkMutualRecTy_shape`'s `ensureSortCore` |
+| the tuple | `blockRecsAt` (§U.6 (c)) |
+| the `k` provision conses | `declStep_preserves_of_ind_rec_cons` at `blockLeafAV`; needs the leaf's closedness, ψ-stability and `AnnotValid` — `SigChainI` has none: `blockRecAVI_below/_params/_validV` to write |
+| `RecRuleLaw` per stored rule | `blockRecs_iota` + the `specRuleCoreAV → mutualRuleCoreAV` bridge (§U.4) + `denoteMeta_mutualRecRhs` |
+| the store | ONE swap from the provisioned model: a rule's right-hand side names the sibling recursors, so no per-cons model of `storeMutualRecs` exists — port `MutualStageRec.lean`'s `storeHead`/`swapShList_provision_store`/`storeMutualRecs_find?_inv`/`swapFacts_of_shList`/`stageMutualRecsStore` (leaf-agnostic) |
+| the datum at `mp₃` | `FormerData.crossEnv`; a `BlockCtorData.cross` to write; the semantic clauses read only the members' and constructors' leaves |
+
+##### (f) M4 RE-SIZED
+
+Session 3 DONE (this).  **Session 4a** = readings, `hT`, `blockRecsAt`,
+the provision conses; **session 4b** = the rule law, the store swap, the
+datum transported — `MutualRecsModeled` discharged; **session 5** (was
+4) = `MutualTablesModeled` + the FLIP + the full gates + the landing.
+New table: M4 3 left; M5 2–3; M6 3–5; M7 3–4; M8 1–2.  Total remaining
+**12–18** (was 11–17): the recursors' stage is two sessions, not one —
+the store's swap and the chosen-tuple leaf's laws are new on this
+branch.
+
+##### (g) GATES, FINDINGS, TRAPS
+
+Gates at HEAD: `lake build` 607 jobs warning-free (was 603), `lake test`
+green, layering 0/0 edges, trust surface 13/13 allowlisted,
+overview-links 103, quote-gate 2, no-local-paths OK, proofdeps 4361
+rows / 0 doors, shake 478 removals all allowlisted / `pub-imports: none
+demotable` (11 fallbacks).  The import gate on the new modules under
+the #223 criterion: `MutualIdxUniv`'s `FixChainFacts` and
+`BlockRepMutual`'s `BlockRep` CLEAN and deleted; `MutualGrouped`
+narrowed to the kernel's `MutualInstall`; `MutualStageCtor`'s four and
+`MutualData`'s `FixData` compensated / `--only`-silent, allowlisted;
+the plan's twelve demotions applied, two of which the build refused —
+`MutualIdxUniv`'s one public import is its whole view (`SetTheory`,
+§U.6 finding 4's class) and its STATEMENTS name `restrictΨ`/`IdxOk`
+through `FixStageRec` (task #290's class) — recorded in `FALLBACK`.
+
+1. **The mutual kernel runs no index sort row** ((b)); the universe is
+   the former's own Π-inference, which `formerLevels_of` reads back.
+2. **An equation chain's tail is graded only under its head** ((a)).
+3. **The assembly is representation-aware by necessity** ((c)): the
+   constructors' stage folds to the auxiliary fibre.
+4. **The store admits no per-cons model** ((e)): the rules name the
+   siblings; `inductives`' swap is the way.
+5. **A member's stored type ends in its own sort** ((d), deviation).
+6. **Heartbeats**: the reference's single theorem needed 25.6 M; the
+   three-theorem split needs no raise at all.
+7. Lean traps: a structure FIELD named like a parameter (`f₀`) shadows
+   it for the later fields; a section variable `(hμ)` `include`d before
+   `(h)` makes `h.lemma …` feed the next argument into `hμ`'s slot —
+   theorem-level binders instead; `convert` and `set … with` are
+   absent; `rw` rewrites every instance of the pattern at once
+   (`consList_snoc'` twice fails); `simp only [getD_eq_getElem?_getD]`
+   normalises the goal and a later `rw` with a `getD`-stated hypothesis
+   stops matching (convert the hypothesis first); `Option.noConfusion`
+   on `none = some f` elaborates at a wrong universe — `simp at hf`;
+   the `omit h in` readers (`BlockRep.Fss_getD`) take no instance;
+   `ofMutual_*` are stated at `BlockRepData.ofMutual`, so at
+   `mutualDatum` restate by `show` before `rw`; an anonymous-constructor
+   component `fun f hf => nomatch hf` fails with unresolved binder
+   types — `refine` it.
