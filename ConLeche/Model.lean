@@ -112,6 +112,8 @@ public import ConLeche.Model.Inductives.MutualChains
 public import ConLeche.Model.Inductives.MutualLeafBelow
 public import ConLeche.Model.Inductives.MutualStageFormer
 public import ConLeche.Model.Inductives.MutualFormersKit
+public import ConLeche.Model.Inductives.MutualIdxUniv
+public import ConLeche.Model.Inductives.MutualStageCtor
 public import ConLeche.Model.Inductives.TupleLfp
 public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.MutualRecData

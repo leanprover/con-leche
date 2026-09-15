@@ -403,8 +403,12 @@ structure BlockRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI r
   /-- `T` is member `mm` -/
   member : d.memberName mm = T
   /-- the stored type is the telescope over the parameters and the
-  member's own indices, ending in the result sort -/
-  strip : ∃ bs, cvT.type.stripPis (d.nP + d.nIdxAt mm) = some (bs, .sort d.resSort)
+  member's own indices, ending in a sort EQUIVALENT to the block's
+  result sort — the member's own declared sort, which official's
+  cross-member check makes `isEquiv`, not equal, to the first
+  member's (task #315 U-7, a recorded deviation without a consumer) -/
+  strip : ∃ bs s, cvT.type.stripPis (d.nP + d.nIdxAt mm) = some (bs, .sort s) ∧
+    ∀ ψ : Name → Nat, s.eval ψ = d.resSort.eval ψ
   /-- the `Prop` bit is the result sort's -/
   isProp : d.isProp = (Level.isEquiv d.resSort .zero == some true)
   /-- the recursor's major position: one motive per member, one minor

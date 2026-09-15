@@ -3,7 +3,9 @@ module
 public import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.SetTheory.Derive.LfpSplit
 public import ConLeche.Model.Inductives.MutualStageFormer
+public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Inductives.MutualFormersKit
+import ConLeche.Model.Inductives.BlockRepOne
 public section
 
 /-!
@@ -535,5 +537,409 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
   · intro ψ ρ
     rw [hleaf t f hf]
     exact tupleLfpAV_mem hFD hC ψ ρ
+
+/-! ## The fibre law (sealed)
+
+The datum's `fibre` clause at the derived former: component `mm`'s
+fibre of the operator at `(X, t)` is the set of the tagged towers of
+the spines fitting one of member `mm`'s constructors at `(X, t)` — a
+recursive field read at the TARGET member's component of `X`, the
+constructor's index expressions at the spine the components of `t`.
+Stated over the UNTAGGED lists, positionally in the block's global
+constructor order (`J`); the representation's tag is translated away
+inside (`slotSet_tag_eq`, `fitsFrom_tag_iff`, `tagTerm_iff`). -/
+
+section Fibre
+
+variable {W w : Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm}
+
+/-- A tagged tuple's arguments fit its member's index telescope when
+the tuple is graded (the tupler is a λ-tower over that telescope). -/
+theorem tagTupleAV_fit_of_wellDenoted {Idss : List (List AnnotTerm)} (hT : TagOk W ρp Idss)
+    {m : Nat} {IdsT : List AnnotTerm} (hm : Idss[m]? = some IdsT)
+    {d : Nat} {τ : Nat → V} (hfr : shiftE d 0 τ = ρp) {Es : List AnnotTerm}
+    (hlen : Es.length = IdsT.length) (hok : WellDenoted V τ (tagTupleAV W m d Idss Es)) :
+    SpineFit ρp IdsT (Es.map (interp V τ)) := by
+  have hg : Idss.getD m [] = IdsT := by rw [List.getD_eq_getElem?_getD, hm]; rfl
+  have hf : interp V τ ((tagTuplerAV W m Idss).liftN d 0)
+      = interp V ρp (mkLamsC W (tuplerData W IdsT)
+          (sumInjAtAV W (uChains Idss) IdsT.length (numeralAV m)
+            (mkTowerGoU W IdsT (idxEqAV [])))) := by
+    rw [interp_liftN, hfr]
+    unfold tagTuplerAV sumMkAV
+    rw [hg]
+  have hlenT : Es.length ≤ (tuplerData W IdsT).length := by
+    rw [hlen]; simp [tuplerData]
+  unfold tagTupleAV at hok
+  have := spineFit_of_wellDenoted_lams (u := W) hT.1 hlenT hok hf
+  rwa [List.take_of_length_le (by rw [hlen]; simp [tuplerData]), tuplerData_doms] at this
+
+/-- **A tagged recursive slot is the target member's untagged slot**:
+at the auxiliary family's join of a tuple `X`, the slot at the one
+tagged index expression is the slot at the raw expressions on the
+target's component. -/
+theorem slotSet_tag_eq (hT : TagOk W ρp (tupleIdss k Ids)) {X : Nat → V}
+    {tgt : Nat} (htgt : tgt < k) {i : Nat} {as : List V} (hlen : as.length = i)
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis₀ : List AnnotTerm}
+    (hlenE : Eis₀.length = (Ids tgt).length)
+    (hfit : SlotFit W w ρp (auxIds W (tupleIdss k Ids)) tl
+      [tagTupleAV W tgt (i + tl.length) (tupleIdss k Ids) Eis₀] as) :
+    slotSet w W (consList as ρp) tl [tagTupleAV W tgt (i + tl.length) (tupleIdss k Ids) Eis₀]
+        (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+      = slotSet w W (consList as ρp) tl Eis₀ (X tgt) := by
+  have henc := tagEnc_idxEnc hT
+  have hW := hT.1
+  have hm := tupleIdss_getElem? (Ids := Ids) htgt
+  have hbody : ∀ bs : List V, FitsS (teleOfFields (consList as ρp) (tl.map (·.2.2))) bs →
+      SetTheory.app
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+          (tupW W ([tagTupleAV W tgt (i + tl.length) (tupleIdss k Ids) Eis₀].map
+            (interp V (consList bs (consList as ρp)))))
+        = SetTheory.app (X tgt) (tupW W (Eis₀.map (interp V (consList bs (consList as ρp))))) := by
+    intro bs hbs
+    have hsp : SpineFit (consList as ρp) (tl.map (·.2.2)) bs := fitsS_teleOfFields.mp hbs
+    obtain ⟨hokTag, -⟩ := hfit.2.2 bs hsp
+    have hokT : WellDenoted V (consList (as ++ bs) ρp)
+        (tagTupleAV W tgt (i + tl.length) (tupleIdss k Ids) Eis₀) :=
+      hokTag _ (List.mem_singleton.mpr rfl)
+    have hfr : shiftE (i + tl.length) 0 (consList (as ++ bs) ρp) = ρp := by
+      rw [show i + tl.length = (as ++ bs).length from by
+        rw [List.length_append, hlen, hsp.length_eq, List.length_map]]
+      exact shiftE_consList _ _
+    have hfitU := tagTupleAV_fit_of_wellDenoted hT hm hfr hlenE hokT
+    obtain ⟨-, hEok⟩ := WellDenoted.mkAppN_inv hokT
+    obtain ⟨hval, -⟩ := tagTupleAV_facts hT hm hfr hEok hfitU
+    rw [← consList_append, List.map_singleton, hval]
+    have hvals : (Eis₀.map (interp V (consList (as ++ bs) ρp))).length = (Ids tgt).length := by
+      rw [List.length_map, hlenE]
+    rw [← tagEnc_mkTower W hvals, app_joinE henc htgt (mkTower_mem_teleOfFields hW hfitU),
+      tupW_pos hW]
+  unfold slotSet
+  refine Subset.antisymm (piTele_mono fun bs hbs => ?_) (piTele_mono fun bs hbs => ?_)
+  · rw [List.nil_append, hbody bs hbs]; exact Subset.refl _
+  · rw [List.nil_append, hbody bs hbs]; exact Subset.refl _
+
+/-- **The tagged fit is the untagged fit**: along a constructor's
+domains, a spine fits the tagged slots at the join of `X` iff it fits
+the raw slots at the target members' components of `X`
+(`spineFit_chainXIGo_iff`'s tag translation). -/
+theorem fitsFrom_tag_iff (hT : TagOk W ρp (tupleIdss k Ids)) {X : Nat → V} {t : V}
+    {rs : List Bool} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eis' Eis₀ : List (List AnnotTerm)} {tgtOf : Nat → Nat} {n : Nat}
+    (hE : ∀ i, i < n → rs.getD i false = true →
+      Eis'.getD i []
+          = [tagTupleAV W (tgtOf i) (i + (tls.getD i []).length) (tupleIdss k Ids) (Eis₀.getD i [])] ∧
+        tgtOf i < k ∧ (Eis₀.getD i []).length = (Ids (tgtOf i)).length) :
+    ∀ (Fs : List AnnotTerm) (i : Nat) (as fs : List V), as.length = i → i + Fs.length ≤ n →
+      SlotsFitX W w ρp (auxIds W (tupleIdss k Ids)) rs tls Eis'
+        (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+        t i as Fs →
+      (FitsFrom rs (fun i ρ => slotSet w W ρ (tls.getD i []) (Eis'.getD i [])
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X))
+          i (consList as ρp) Fs fs ↔
+        FitsFrom rs (fun i ρ => slotSet w W ρ (tls.getD i []) (Eis₀.getD i []) (X (tgtOf i)))
+          i (consList as ρp) Fs fs)
+  | [], _, _, [], _, _, _ => Iff.rfl
+  | [], _, _, _ :: _, _, _, _ => Iff.rfl
+  | _ :: _, _, _, [], _, _, _ => Iff.rfl
+  | F :: Fs, i, as, a :: fs, hi, hn, hfit => by
+    subst hi
+    have hI : IdxOk W ρp (auxIds W (tupleIdss k Ids)) := auxIds_idxOk hT
+    have hlt : as.length < n := by simp at hn; omega
+    show a ∈ˢ (if rs.getD as.length false then
+          slotSet w W (consList as ρp) (tls.getD as.length []) (Eis'.getD as.length [])
+            (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+        else interp V (consList as ρp) F) ∧
+        FitsFrom rs _ (as.length + 1) (cons a (consList as ρp)) Fs fs ↔
+      a ∈ˢ (if rs.getD as.length false then
+          slotSet w W (consList as ρp) (tls.getD as.length []) (Eis₀.getD as.length [])
+            (X (tgtOf as.length))
+        else interp V (consList as ρp) F) ∧
+        FitsFrom rs _ (as.length + 1) (cons a (consList as ρp)) Fs fs
+    have hhead : (if rs.getD as.length false then
+          slotSet w W (consList as ρp) (tls.getD as.length []) (Eis'.getD as.length [])
+            (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+        else interp V (consList as ρp) F)
+        = (if rs.getD as.length false then
+          slotSet w W (consList as ρp) (tls.getD as.length []) (Eis₀.getD as.length [])
+            (X (tgtOf as.length))
+        else interp V (consList as ρp) F) := by
+      by_cases hri : rs.getD as.length false = true
+      · rw [if_pos hri, if_pos hri]
+        obtain ⟨hE', htgt, hlenE⟩ := hE _ hlt hri
+        rw [hE']
+        exact slotSet_tag_eq hT htgt rfl hlenE (by rw [← hE']; exact hfit.1 hri)
+      · have hri' : rs.getD as.length false = false := by simpa using hri
+        rw [if_neg (by rw [hri']; exact Bool.false_ne_true),
+          if_neg (by rw [hri']; exact Bool.false_ne_true)]
+    have hx : interp V (consList as (cons t (cons
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+          ρp))) (xEntry W (auxIds W (tupleIdss k Ids)) rs tls Eis' F as.length)
+        = (if rs.getD as.length false then
+          slotSet w W (consList as ρp) (tls.getD as.length []) (Eis'.getD as.length [])
+            (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+        else interp V (consList as ρp) F) := by
+      by_cases hri : rs.getD as.length false = true
+      · rw [xEntry_rec hI F as t hri (hfit.1 hri), if_pos hri]
+      · have hri' : rs.getD as.length false = false := by simpa using hri
+        rw [xEntry_ord F as t hri', if_neg (by rw [hri']; exact Bool.false_ne_true)]
+    rw [hhead, consList_snoc']
+    refine and_congr_right fun ha => ?_
+    have ha' : a ∈ˢ interp V (consList as (cons t (cons
+        (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+        ρp))) (xEntry W (auxIds W (tupleIdss k Ids)) rs tls Eis' F as.length) := by
+      rw [hx, hhead]; exact ha
+    exact fitsFrom_tag_iff hT hE Fs (as.length + 1) (as ++ [a]) fs (length_snoc' a as)
+      (by simp at hn ⊢; omega) (hfit.2 a ha')
+
+/-- The tagged slots' expressions, positionally. -/
+theorem tupleEiss_getD_getD {Idss : List (List AnnotTerm)} {tgts : List (List Nat)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss₀ : List (List (List AnnotTerm))}
+    {J i : Nat} (hJ : J < Eiss₀.length) (hi : i < (Eiss₀.getD J []).length) :
+    ((tupleEiss W Idss tgts tlss Eiss₀).getD J []).getD i []
+      = [tagTupleAV W ((tgts.getD J []).getD i 0) (i + ((tlss.getD J []).getD i []).length) Idss
+          ((Eiss₀.getD J []).getD i [])] := by
+  have hi' : i < (Eiss₀[J]?.getD []).length := by rwa [List.getD_eq_getElem?_getD] at hi
+  unfold tupleEiss mutualEiss
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hJ,
+    List.getElem?_range hi', Option.map_some, Option.getD_some]
+
+/-- The tagged terminators, positionally. -/
+theorem tupleEss_getD {Idss : List (List AnnotTerm)} {mems nFs : List Nat}
+    {Ess₀ : List (List AnnotTerm)} {J : Nat} (hJ : J < Ess₀.length) :
+    (tupleEss W Idss mems nFs Ess₀).getD J []
+      = [tagTupleAV W (mems.getD J 0) (nFs.getD J 0) Idss (Ess₀.getD J [])] := by
+  unfold tupleEss mutualEss
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hJ]
+  rfl
+
+/-- The first equation's sides are graded when the equation chain is
+(the tail sits under the head's equality, whose domain may be empty). -/
+theorem wellDenoted_idxEqAV_head {a b : AnnotTerm} {r : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V}
+    (hok : WellDenoted V ρ (idxEqAV ((a, b) :: r))) : WellDenoted V ρ a ∧ WellDenoted V ρ b := by
+  unfold idxEqAV negAV at hok
+  rw [WellDenoted_pi] at hok
+  have hc : WellDenoted V ρ (.pi 0 0 (.eqE a b) ((eqChainAV r).liftN 1 0)) := hok.1
+  rw [WellDenoted_pi, WellDenoted_eqE] at hc
+  exact hc.1
+
+/-- **The block's lists are well-shaped** (the untagged data): the
+per-constructor lists have the constructors' length, every
+constructor's member and every recursive field's target are members,
+and the index expressions have their member's arity. -/
+structure TupleLfpShape (k : Nat) (Ids : Nat → List AnnotTerm) (mems nFs : List Nat)
+    (tgts : List (List Nat)) (rss : List (List Bool)) (Eiss₀ : List (List (List AnnotTerm)))
+    (Fss₀ Ess₀ : List (List AnnotTerm)) : Prop where
+  lenE : Ess₀.length = Fss₀.length
+  lenEi : Eiss₀.length = Fss₀.length
+  nF : ∀ J, J < Fss₀.length → nFs.getD J 0 = (Fss₀.getD J []).length
+  eiLen : ∀ J, J < Fss₀.length → (Eiss₀.getD J []).length = (Fss₀.getD J []).length
+  memLt : ∀ J, J < Fss₀.length → mems.getD J 0 < k
+  esLen : ∀ J, J < Fss₀.length → (Ess₀.getD J []).length = (Ids (mems.getD J 0)).length
+  tgtOk : ∀ J, J < Fss₀.length → ∀ i, i < (Fss₀.getD J []).length →
+    (rss.getD J []).getD i false = true →
+    (tgts.getD J []).getD i 0 < k ∧
+      ((Eiss₀.getD J []).getD i []).length = (Ids ((tgts.getD J []).getD i 0)).length
+
+/-- **The tagged terminator at a fitting spine**: its one equation
+holds iff the constructor's member is the tuple's and the raw index
+expressions' values are the tuple's components. -/
+theorem tagTerm_iff (hT : TagOk W ρp (tupleIdss k Ids)) {mem : Nat} (hmem : mem < k)
+    {mm : Nat} {t : V} (ht : t ∈ˢ idxSet W ρp (Ids mm)) {Y : V} {fs : List V} {nF : Nat}
+    (hlen : fs.length = nF) {Es₀ : List AnnotTerm} (hlenE : Es₀.length = (Ids mem).length)
+    (hok : WellDenoted V (consList fs ρp) (tagTupleAV W mem nF (tupleIdss k Ids) Es₀)) :
+    EqAll (consList fs (cons (tagEnc W Ids mm t) (cons Y ρp)))
+        (eqsXI (auxIds W (tupleIdss k Ids)).length nF
+          [tagTupleAV W mem nF (tupleIdss k Ids) Es₀]) ↔
+      mem = mm ∧ ∀ l, l < (Ids mm).length →
+        interp V (consList fs ρp) (Es₀.getD l default) = projS l t := by
+  have hW := hT.1
+  have hm := tupleIdss_getElem? (Ids := Ids) hmem
+  have hfr : shiftE nF 0 (consList fs ρp) = ρp := by rw [← hlen]; exact shiftE_consList _ _
+  have hfitU := tagTupleAV_fit_of_wellDenoted hT hm hfr hlenE hok
+  obtain ⟨-, hEok⟩ := WellDenoted.mkAppN_inv hok
+  obtain ⟨hval, -⟩ := tagTupleAV_facts hT hm hfr hEok hfitU
+  obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hW ht
+  generalize hisdef : projList (Ids mm).length t = is at hsp heq
+  have hlenIs : is.length = (Ids mm).length := hsp.length_eq
+  have hproj : projS 0 (tagEnc W Ids mm t) = inj mm (mkTower (is ++ [pt])) := by
+    rw [heq, tagEnc_mkTower W hlenIs, tupW_pos hW]
+    exact projS_mkTower 0 [inj mm (mkTower (is ++ [pt]))] (by simp)
+  have hlenV : (Es₀.map (interp V (consList fs ρp))).length = (Ids mem).length := by
+    rw [List.length_map, hlenE]
+  rw [EqAll_eqsXI_gen hlen]
+  have h1 : (∀ l, l < (auxIds W (tupleIdss k Ids)).length →
+      interp V (consList fs ρp) (([tagTupleAV W mem nF (tupleIdss k Ids) Es₀]).getD l default)
+        = projS l (tagEnc W Ids mm t)) ↔
+      inj mem (mkTower (Es₀.map (interp V (consList fs ρp)) ++ [pt]))
+        = inj mm (mkTower (is ++ [pt])) := by
+    constructor
+    · intro h
+      have := h 0 (by simp [auxIds])
+      rwa [List.getD_cons_zero, hval, hproj] at this
+    · intro h l hl
+      have hl0 : l = 0 := by simp [auxIds] at hl; omega
+      subst hl0
+      rw [List.getD_cons_zero, hval, hproj]
+      exact h
+  rw [h1]
+  constructor
+  · intro h
+    obtain ⟨rfl, h2⟩ := inj_inj h
+    have h3 := List.append_cancel_right (mkTower_inj (by simp [hlenV, hlenIs]) h2)
+    refine ⟨rfl, fun l hl => ?_⟩
+    have hlE : l < Es₀.length := by rw [hlenE]; exact hl
+    have hlI : l < is.length := by rw [hlenIs]; exact hl
+    have := congrArg (fun L => L[l]?) h3
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hlE, List.getElem?_eq_getElem hlI,
+      Option.map_some, Option.some.injEq] at this
+    rw [heq, projS_mkTower l is hlI, ← this, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem hlE]
+    rfl
+  · rintro ⟨rfl, h⟩
+    have hv : Es₀.map (interp V (consList fs ρp)) = is := by
+      apply List.ext_getElem (by rw [hlenV, hlenIs])
+      intro l hl₁ hl₂
+      have hlE : l < Es₀.length := by rw [List.length_map] at hl₁; exact hl₁
+      have hl' : l < (Ids mem).length := by rw [hlenIs] at hl₂; exact hl₂
+      have := h l hl'
+      rw [heq, projS_mkTower l is hl₂, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem hlE] at this
+      rw [List.getElem_map]
+      exact this
+    rw [hv]
+
+/-- **The fibre of the operator** (the datum's `fibre` clause):
+component `mm`'s fibre at `(X, t)` is the set of the tagged towers
+`injW w J ⟨f⃗, pt⟩` of the spines `f⃗` fitting one of member `mm`'s
+constructors `J` at `(X, t)` — a recursive field read at the target
+member's component of `X`, the constructor's index expressions at the
+spine the components of `t`. -/
+theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss₀ : List (List (List AnnotTerm))}
+    {Fss₀ Ess₀ : List (List AnnotTerm)}
+    (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (hS : TupleLfpShape k Ids mems nFs tgts rss Eiss₀ Fss₀ Ess₀)
+    {X : Nat → V} (hX : InTupleSpace w k (fun m => idxSet W ρp (Ids m)) X)
+    {mm : Nat} (hmm : mm < k) {t : V} (ht : t ∈ˢ idxSet W ρp (Ids mm)) (x : V) :
+    x ∈ˢ SetTheory.app (tupleLfpΦ W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ X mm) t ↔
+      ∃ J fs, J < Fss₀.length ∧ mems.getD J 0 = mm ∧
+        FitsFrom (rss.getD J []) (fun i ρ => slotSet w W ρ ((tlss.getD J []).getD i [])
+            ((Eiss₀.getD J []).getD i []) (X ((tgts.getD J []).getD i 0))) 0 ρp (Fss₀.getD J []) fs ∧
+        (∀ l, l < (Ids mm).length →
+          interp V (consList fs ρp) ((Ess₀.getD J []).getD l default) = projS l t) ∧
+        x = injW w J (mkTower (fs ++ [pt])) := by
+  have hT := h.1
+  have hW := hT.1
+  have henc := tagEnc_idxEnc hT
+  have hY : joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X
+      ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W (tupleIdss k Ids))) := by
+    rw [lfpFamSpace_eq]; exact joinE_mem henc hX
+  have hτ : tagEnc W Ids mm t ∈ˢ idxSet W ρp (auxIds W (tupleIdss k Ids)) := henc.mem mm hmm t ht
+  unfold tupleLfpΦ
+  rw [app_splitFun ht, fixFunVI_app hY, famFI_app hτ]
+  -- the tagged chain fit is the untagged fit
+  have hfitJ : ∀ J, J < Fss₀.length → ∀ fs : List V,
+      SpineFit (cons (tagEnc W Ids mm t) (cons
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+          ρp))
+        (chainXIGo W (auxIds W (tupleIdss k Ids)) (rss.getD J []) (tlss.getD J [])
+          ((tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀).getD J []) (Fss₀.getD J []) 0) fs ↔
+      FitsFrom (rss.getD J []) (fun i ρ => slotSet w W ρ ((tlss.getD J []).getD i [])
+          ((Eiss₀.getD J []).getD i []) (X ((tgts.getD J []).getD i 0))) 0 ρp (Fss₀.getD J []) fs := by
+    intro J hJ fs
+    have hsx := h.2.hfit _ hY _ hτ J hJ
+    exact (spineFit_chainXIGo_iff (w := w) h.2.hI (Fss₀.getD J []) 0 [] fs rfl hsx).trans
+      (fitsFrom_tag_iff hT (n := (Fss₀.getD J []).length) (fun i hi hri =>
+        ⟨tupleEiss_getD_getD (by rw [hS.lenEi]; exact hJ) (by rw [hS.eiLen J hJ]; exact hi),
+          (hS.tgtOk J hJ i hi hri).1, (hS.tgtOk J hJ i hi hri).2⟩)
+        (Fss₀.getD J []) 0 [] fs rfl (by simp) hsx)
+  -- the tagged terminator at a fitting spine is the untagged equations
+  have htermJ : ∀ J, J < Fss₀.length → ∀ fs : List V, fs.length = (Fss₀.getD J []).length →
+      SpineFit (cons (tagEnc W Ids mm t) (cons
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+          ρp))
+        (chainXIGo W (auxIds W (tupleIdss k Ids)) (rss.getD J []) (tlss.getD J [])
+          ((tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀).getD J []) (Fss₀.getD J []) 0) fs →
+      (EqAll (consList fs (cons (tagEnc W Ids mm t) (cons
+          (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
+          ρp)))
+        (eqsXI (auxIds W (tupleIdss k Ids)).length (Fss₀.getD J []).length
+          ((tupleEss W (tupleIdss k Ids) mems nFs Ess₀).getD J [])) ↔
+        mems.getD J 0 = mm ∧ ∀ l, l < (Ids mm).length →
+          interp V (consList fs ρp) ((Ess₀.getD J []).getD l default) = projS l t) := by
+    intro J hJ fs hlenfs hsp
+    rw [tupleEss_getD (by rw [hS.lenE]; exact hJ), hS.nF J hJ]
+    -- the terminator is graded at the fitting prefix
+    have hok0 := h.2.hok _ hY _ hτ
+    have hchain : chainXI W (auxIds W (tupleIdss k Ids)) (auxIds W (tupleIdss k Ids)).length
+        (rss.getD J []) (tlss.getD J []) ((tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀).getD J [])
+        (Fss₀.getD J []) ((tupleEss W (tupleIdss k Ids) mems nFs Ess₀).getD J [])
+        ∈ chainsXI W (auxIds W (tupleIdss k Ids)) (auxIds W (tupleIdss k Ids)).length rss tlss
+          (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀
+          (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) :=
+      List.mem_of_getElem? (by rw [chainsXI_getElem?, if_pos hJ])
+    have hFok := hok0 _ hchain
+    unfold chainXI at hFok
+    have hlenC := chainXIGo_length (rss.getD J []) (tlss.getD J [])
+      ((tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀).getD J []) (u := W)
+      (Ids := auxIds W (tupleIdss k Ids)) (Fss₀.getD J []) 0
+    have hwd := fieldsOkB_getD hFok (j := (Fss₀.getD J []).length)
+      (by rw [List.length_append, hlenC, List.length_singleton]; exact Nat.lt_succ_self _)
+      (bs := fs) (by rw [← hlenC, List.take_left]; exact hsp)
+    rw [← hlenC, List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _),
+      Nat.sub_self] at hwd
+    rw [hlenC, tupleEss_getD (by rw [hS.lenE]; exact hJ), hS.nF J hJ] at hwd
+    simp only [List.getElem?_cons_zero, Option.getD_some] at hwd
+    have heqs : eqsXI (auxIds W (tupleIdss k Ids)).length (Fss₀.getD J []).length
+        [tagTupleAV W (mems.getD J 0) (Fss₀.getD J []).length (tupleIdss k Ids) (Ess₀.getD J [])]
+        = [((tagTupleAV W (mems.getD J 0) (Fss₀.getD J []).length (tupleIdss k Ids)
+            (Ess₀.getD J [])).liftN 2 (Fss₀.getD J []).length,
+          projAV 0 (.bvar (Fss₀.getD J []).length))] := by
+      simp only [eqsXI, auxIds, List.length_singleton, List.range_succ, List.range_zero,
+        List.nil_append, List.map_cons, List.map_nil, List.getD_cons_zero]
+    rw [heqs] at hwd
+    obtain ⟨hokT, -⟩ := wellDenoted_idxEqAV_head hwd
+    rw [← hlenfs, WellDenoted_chainXI_ord] at hokT
+    rw [hlenfs] at hokT
+    exact tagTerm_iff hT (hS.memLt J hJ) ht hlenfs (hS.esLen J hJ) hokT
+  by_cases hw : w = 0
+  · subst hw
+    constructor
+    · intro hx
+      obtain ⟨rfl, J, fs, hJ, hlen, hsp, hall⟩ := fixStepI_zero_elim hx
+      obtain ⟨hmemJ, heqs⟩ := (htermJ J hJ fs hlen hsp).mp hall
+      refine ⟨J, fs, hJ, hmemJ, (hfitJ J hJ fs).mp hsp, heqs, ?_⟩
+      rw [injW_zero]
+    · rintro ⟨J, fs, hJ, hmemJ, hf, hall, rfl⟩
+      have hsp := (hfitJ J hJ fs).mpr hf
+      have hlen : fs.length = (Fss₀.getD J []).length := hf.length_eq
+      rw [injW_zero]
+      unfold fixStepI
+      refine pt_mem_sumSet_zero (i := J) (a := pt) ?_
+      unfold sumFibre
+      rw [chainsXI_getElem?, if_pos hJ]
+      unfold chainXI
+      refine pt_mem_tower_teleOfFields (as := fs ++ [pt]) ?_
+      exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ J hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
+  · constructor
+    · intro hx
+      obtain ⟨J, fs, rfl, hJ, hlen, hsp, hall⟩ := fixStepI_elim hw hx
+      obtain ⟨hmemJ, heqs⟩ := (htermJ J hJ fs hlen hsp).mp hall
+      refine ⟨J, fs, hJ, hmemJ, (hfitJ J hJ fs).mp hsp, heqs, ?_⟩
+      rw [injW_pos hw]
+    · rintro ⟨J, fs, hJ, hmemJ, hf, hall, rfl⟩
+      have hsp := (hfitJ J hJ fs).mpr hf
+      have hlen : fs.length = (Fss₀.getD J []).length := hf.length_eq
+      rw [injW_pos hw]
+      unfold fixStepI
+      refine inj_mem hw ?_
+      unfold sumFibre
+      rw [chainsXI_getElem?, if_pos hJ]
+      unfold chainXI
+      refine mkTower_mem hw (fitsS_teleOfFields.mpr ?_)
+      exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ J hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
+
+end Fibre
 
 end ConLeche.Model
