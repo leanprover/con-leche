@@ -76,7 +76,7 @@ j f⃗)` has, for each recursive field `i'` of constructor `j` and each
 spine `b⃗` fitting the field's telescope, the predecessor at the target
 member, at the tuple of the field's index expressions, with value the
 field applied to the spine. -/
-def PredRel (ψ : Name → Nat) (ρp : Nat → V) (u v : V) : Prop :=
+@[expose] def PredRel (ψ : Name → Nat) (ρp : Nat → V) (u v : V) : Prop :=
   ∃ (c : Nat) (i : V) (j : Nat) (fs : List V) (i' : Nat) (bs : List V),
     c < d.k ∧ j < (d.ctorsM c).length ∧ fs.length = ((d.Fss c ψ).getD j []).length ∧
     u = tagged c i (d.inj ψ c j fs) ∧
@@ -89,13 +89,13 @@ def PredRel (ψ : Name → Nat) (ρp : Nat → V) (u v : V) : Prop :=
 
 /-- **The predecessor map**: the relation, separated off the carrier's
 union. -/
-noncomputable def kitPred (ψ : Name → Nat) (ρp : Nat → V) (u : V) : V :=
+@[expose] noncomputable def kitPred (ψ : Name → Nat) (ρp : Nat → V) (u : V) : V :=
   relPred (unionSet d.k (d.idx ψ ρp) (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
     (d.PredRel ψ ρp) u
 
 /-- **The bound**: at `tagged c i x`, motive `c` at the index spine of
 `i` and at `x`. -/
-noncomputable def kitB (ψ : Name → Nat) (Ms : Nat → V) (u : V) : V :=
+@[expose] noncomputable def kitB (ψ : Name → Nat) (Ms : Nat → V) (u : V) : V :=
   SetTheory.app
     ((isOfW (d.uM (natIdx (sfst u)) ψ) (d.nIdxAt (natIdx (sfst u))) (sfst (ssnd u))).foldl
       SetTheory.app (Ms (natIdx (sfst u))))
@@ -105,7 +105,7 @@ noncomputable def kitB (ψ : Name → Nat) (Ms : Nat → V) (u : V) : V :=
 the field spine `f⃗`, from a choice `g` of the predecessors' values:
 per recursive field, the λ-tower over its telescope of `g` at the
 call's element. -/
-noncomputable def kitIhs (ψ : Name → Nat) (ρp : Nat → V) (ℓ c j : Nat) (fs : List V) (g : V) :
+@[expose] noncomputable def kitIhs (ψ : Name → Nat) (ρp : Nat → V) (ℓ c j : Nat) (fs : List V) (g : V) :
     List V :=
   (recIdx ((d.rss c).getD j []) ((d.Fss c ψ).getD j []).length).map fun i' =>
     lamTower ℓ (consList (fs.take i') ρp) (d.teleAt ψ c j i') fun σ' =>
@@ -117,7 +117,7 @@ noncomputable def kitIhs (ψ : Name → Nat) (ρp : Nat → V) (ℓ c j : Nat) (
 
 /-- The value's constructor and fields, when it has them (unique by
 `BlockRep.mkInj` at `w ≠ 0`). -/
-def Decodes (ψ : Name → Nat) (c : Nat) (x : V) : Prop :=
+@[expose] def Decodes (ψ : Name → Nat) (c : Nat) (x : V) : Prop :=
   ∃ (j : Nat) (fs : List V), j < (d.ctorsM c).length ∧
     fs.length = ((d.Fss c ψ).getD j []).length ∧ x = d.inj ψ c j fs
 
@@ -125,7 +125,7 @@ open Classical in
 /-- **The step**: at `tagged c i x` with `x = inj c j f⃗`, minor
 `minorIdx c j` at the fields and the inductive hypotheses; junk
 elsewhere. -/
-noncomputable def kitSt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : Nat → V) (u g : V) : V :=
+@[expose] noncomputable def kitSt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : Nat → V) (u g : V) : V :=
   if h : d.Decodes ψ (natIdx (sfst u)) (ssnd (ssnd u)) then
     (Classical.choose (Classical.choose_spec h) ++
       d.kitIhs ψ ρp ℓ (natIdx (sfst u)) (Classical.choose h)
@@ -136,7 +136,7 @@ noncomputable def kitSt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : 
 /-- **The block's recursor at the frame's data**: the union recursor
 of the carrier at the kit's predecessor map, bound and step, at class
 `c`, index tuple `i`, value `x`. -/
-noncomputable def blockRecAt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (Ms ms : Nat → V)
+@[expose] noncomputable def blockRecAt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (Ms ms : Nat → V)
     (c : Nat) (i x : V) : V :=
   unionRec ℓ (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) (d.kitPred ψ ρp) (d.kitB ψ Ms)
     (d.kitSt ψ ρp ℓ ms) c i x
@@ -147,7 +147,7 @@ parameter frame below the frame's `1 + nIdx + n + k` innermost
 binders, with motive `c` at `σ (1 + nIdx + n + (k - 1 - c))`, minor
 `J` at `σ (1 + nIdx + n - 1 - J)`, the index tuple of the `nIdx`
 binders above the major, and the major `σ 0`. -/
-noncomputable def blockLeafV (ψ : Name → Nat) (ℓ mm : Nat) (σ : Nat → V) : V :=
+@[expose] noncomputable def blockLeafV (ψ : Name → Nat) (ℓ mm : Nat) (σ : Nat → V) : V :=
   d.blockRecAt ψ (shiftE (1 + d.nIdxAt mm + d.nCtors + d.k) 0 σ) ℓ
     (fun c => σ (1 + d.nIdxAt mm + d.nCtors + (d.k - 1 - c)))
     (fun J => σ (1 + d.nIdxAt mm + d.nCtors - 1 - J))
@@ -156,7 +156,7 @@ noncomputable def blockLeafV (ψ : Name → Nat) (ℓ mm : Nat) (σ : Nat → V)
 /-- **The candidate recursor of member `mm`**: the λ-tower over its
 recursor type's binder data `rds` (at the elimination bit `ℓ`) whose
 leaf is the union recursor at the frame. -/
-noncomputable def blockCand (ψ : Name → Nat) (ℓ : Nat) (rds : List (Nat × Nat × AnnotTerm))
+@[expose] noncomputable def blockCand (ψ : Name → Nat) (ℓ : Nat) (rds : List (Nat × Nat × AnnotTerm))
     (mm : Nat) (ρ : Nat → V) : V :=
   lamTower ℓ ρ rds (d.blockLeafV ψ ℓ mm)
 
