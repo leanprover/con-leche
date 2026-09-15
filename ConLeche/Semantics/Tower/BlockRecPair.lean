@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Semantics.Tower.FixRecCoreI
+public import ConLeche.Semantics.Tower.SigChainI
 public import ConLeche.SetModel.MutualPair
 @[expose] public section
 
@@ -134,10 +135,6 @@ def eqA1 (w ℓ : Nat) : AnnotTerm :=
 /-- The ι equation of `b0`. -/
 def eqB0 (w ℓ : Nat) : AnnotTerm :=
   mkPisAV (rds5 w ℓ 0 2 ++ [(w, 0, tA 7)]) (.eqE lhsB0 rhsB0)
-
-/-- Conjunction of propositions: `Σ' (_ : P), Q` at `Prop`. -/
-def andAV (P Q : AnnotTerm) : AnnotTerm :=
-  AnnotTerm.mkAppN (.const .psigma [0, 0]) [P, .lam 1 P (Q.liftN 1 0)]
 
 /-- The three ι equations. -/
 def eqs (w ℓ : Nat) : AnnotTerm := andAV (eqA0 w ℓ) (andAV (eqA1 w ℓ) (eqB0 w ℓ))
@@ -524,12 +521,6 @@ theorem interp_rhsB0 (ρ₂ : Nat → V) (MA MB mA0 mA1 mB0 a : V) :
     interp V (cons a (cons mB0 (cons mA1 (cons mA0 (cons MB (cons MA ρ₂)))))) rhsB0
       = app (app mB0 a) ([MA, MB, mA0, mA1, mB0, a].foldl SetTheory.app (ρ₂ 1)) := rfl
 
-/-- Elimination at a `Prop`-valued product. -/
-theorem piR_zero_elim {A f x : V} {B : V → V} (hf : f ∈ˢ piR 0 A B) (hx : x ∈ˢ A) :
-    ∃ y, y ∈ˢ B x := by
-  rw [piR_zero] at hf
-  exact of_mem_truthVal hf x hx
-
 variable (S ℓ)
 
 /-! ## The equations hold at the candidate -/
@@ -623,55 +614,6 @@ theorem eqB0_univZero (ρ' : Nat → V) : interp V ρ' (eqB0 S.w ℓ) ∈ˢ (uni
   show piR 0 _ _ ∈ˢ _
   exact piR_zero_mem_univZero
 
-/-- `PSigma'.{0,0}` is a graph on `Prop`. -/
-theorem psigmaV_00_mem :
-    psigmaV V 0 0 ∈ˢ piR 1 (univ 0 : V)
-      (fun A => piR 1 (psigmaFibreSpace V 0 A) fun _ => (univ 0 : V)) :=
-  lamR_mem fun _ hA => lamR_mem fun _ hB =>
-    sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
-
-/-- `PSigma'.{u,v}` is a graph. -/
-theorem psigmaV_mem (u v : Nat) :
-    psigmaV V u v ∈ˢ piR (Nat.max u v + 1) (univ u : V)
-      (fun A => piR (Nat.max u v + 1) (psigmaFibreSpace V v A) fun _ => (univ (Nat.max u v) : V)) :=
-  lamR_mem fun _ hA => lamR_mem fun _ hB =>
-    sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
-
-/-- The conjunction reads as the `Prop`-level pair set. -/
-theorem interp_andAV {P Q : AnnotTerm} {ρ' : Nat → V}
-    (hP : interp V ρ' P ∈ˢ (univZero : V)) (hQ : interp V ρ' Q ∈ˢ (univZero : V)) :
-    interp V ρ' (andAV P Q) = sigmaSet 0 (interp V ρ' P) fun _ => interp V ρ' Q := by
-  have hP' : interp V ρ' P ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hP
-  have hlam : interp V ρ' (.lam 1 P (Q.liftN 1 0)) = lamR 1 (interp V ρ' P) fun _ => interp V ρ' Q := by
-    rw [interp_lam]
-    exact lamR_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
-  have hfib : (lamR 1 (interp V ρ' P) fun _ => interp V ρ' Q) ∈ˢ psigmaFibreSpace V 0 (interp V ρ' P) :=
-    lamR_mem fun _ _ => by rw [univ_zero]; exact hQ
-  show SetTheory.app (SetTheory.app (psigmaV V 0 0) (interp V ρ' P)) (interp V ρ' (.lam 1 P (Q.liftN 1 0))) = _
-  rw [hlam, psigmaV_app V hP' hfib]
-  exact sigma_congr fun x hx => app_lamR_pos Nat.one_ne_zero hx
-
-theorem andAV_univZero {P Q : AnnotTerm} {ρ' : Nat → V}
-    (hP : interp V ρ' P ∈ˢ (univZero : V)) (hQ : interp V ρ' Q ∈ˢ (univZero : V)) :
-    interp V ρ' (andAV P Q) ∈ˢ (univZero : V) := by
-  rw [interp_andAV hP hQ, sigmaSet_zero]
-  exact truthVal_mem_univZero _
-
-theorem pt_mem_andAV {P Q : AnnotTerm} {ρ' : Nat → V}
-    (hP : interp V ρ' P ∈ˢ (univZero : V)) (hQ : interp V ρ' Q ∈ˢ (univZero : V))
-    (hp : (pt : V) ∈ˢ interp V ρ' P) (hq : (pt : V) ∈ˢ interp V ρ' Q) :
-    (pt : V) ∈ˢ interp V ρ' (andAV P Q) := by
-  rw [interp_andAV hP hQ]
-  exact pt_mem_sigma hp hq
-
-theorem of_mem_andAV {P Q : AnnotTerm} {ρ' : Nat → V}
-    (hP : interp V ρ' P ∈ˢ (univZero : V)) (hQ : interp V ρ' Q ∈ˢ (univZero : V)) {z : V}
-    (hz : z ∈ˢ interp V ρ' (andAV P Q)) :
-    (pt : V) ∈ˢ interp V ρ' P ∧ (pt : V) ∈ˢ interp V ρ' Q := by
-  rw [interp_andAV hP hQ] at hz
-  obtain ⟨a, b, ha, hb, -, -⟩ := mem_sigma_elim hz
-  exact ⟨eq_pt_of_mem_univZero hP ha ▸ ha, eq_pt_of_mem_univZero hQ hb ▸ hb⟩
-
 theorem eqs_univZero (ρ' : Nat → V) : interp V ρ' (eqs S.w ℓ) ∈ˢ (univZero : V) :=
   andAV_univZero (eqA0_univZero ρ') (andAV_univZero (eqA1_univZero ρ') (eqB0_univZero ρ'))
 
@@ -679,15 +621,8 @@ theorem pt_mem_eqs_iff (ρ' : Nat → V) :
     (pt : V) ∈ˢ interp V ρ' (eqs S.w ℓ) ↔
       (pt : V) ∈ˢ interp V ρ' (eqA0 S.w ℓ) ∧ (pt : V) ∈ˢ interp V ρ' (eqA1 S.w ℓ) ∧
         (pt : V) ∈ˢ interp V ρ' (eqB0 S.w ℓ) := by
-  constructor
-  · intro h
-    obtain ⟨h0, h12⟩ := of_mem_andAV (eqA0_univZero ρ')
-      (andAV_univZero (eqA1_univZero ρ') (eqB0_univZero ρ')) h
-    obtain ⟨h1, h2⟩ := of_mem_andAV (eqA1_univZero ρ') (eqB0_univZero ρ') h12
-    exact ⟨h0, h1, h2⟩
-  · rintro ⟨h0, h1, h2⟩
-    exact pt_mem_andAV (eqA0_univZero ρ') (andAV_univZero (eqA1_univZero ρ') (eqB0_univZero ρ'))
-      h0 (pt_mem_andAV (eqA1_univZero ρ') (eqB0_univZero ρ') h1 h2)
+  rw [eqs, pt_mem_andAV_iff (eqA0_univZero ρ') (andAV_univZero (eqA1_univZero ρ') (eqB0_univZero ρ')),
+    pt_mem_andAV_iff (eqA1_univZero ρ') (eqB0_univZero ρ')]
 
 /-! ## The recursor types are graded and formed -/
 
@@ -815,12 +750,6 @@ theorem wd_TB : WellDenoted V (pairFrame S ρ) (TB S.w ℓ) := by
         ⟨trivial, fun t ht => wd_concB hMB' ht⟩⟩⟩⟩
 
 /-! ## Formation: the recursor types live in `univ sLev` -/
-
-omit [SetTheory V] in
-theorem natMax_self (n : Nat) : Nat.max n n = n := Nat.max_self n
-
-omit [SetTheory V] in
-theorem natMax_zero (n : Nat) : Nat.max n 0 = n := Nat.max_zero n
 
 /-- A product at a bit `v ≤ s` (both nonzero) over domains in `univ s`
 lives in `univ s`. -/
@@ -1035,15 +964,6 @@ theorem sigV_inhabited : ∃ x, x ∈ˢ sigV S ℓ ρ := by
   · exact ⟨spair (candA S ℓ ρ) (spair (candB S ℓ ρ) pt), spair_mem hs (candA_mem S ℓ ρ)
       (spair_mem hs (candB_mem S ℓ ρ) (pt_mem_eqsV_cand S ℓ ρ))⟩
 
-/-- `pt` witnesses the double negation of an inhabited set. -/
-theorem pt_mem_dnegSpace_of {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
-  unfold dnegSpace
-  have h1 : piR 0 A (fun _ => (empty : V)) = empty := by
-    rw [piR_zero]
-    exact truthVal_eq_empty fun hf => not_mem_empty _ (hf x hx).choose_spec
-  rw [h1, piR_zero_empty]
-  exact pt_mem_unitSet
-
 theorem interp_sel : interp V (pairFrame S ρ) (sel S.w ℓ) = schoice (sigV S ℓ ρ) := by
   show SetTheory.app (SetTheory.app (choiceV V (sLev S.w ℓ))
     (interp V (pairFrame S ρ) (sig S.w ℓ))) pt = _
@@ -1209,32 +1129,6 @@ theorem wd_eqB0 {a b : V} (ha : a ∈ˢ TAv S ℓ ρ) (hb : b ∈ˢ TBv S ℓ ρ
     · have := app_mem_piR_pos (Nat.succ_ne_zero ℓ) hMB' (mkB0_mem_Bstar S ha')
       rwa [h0, univ_zero] at this
 
-/-- The `Prop`-level pair is graded. -/
-theorem wd_andAV {P Q : AnnotTerm} {ρ' : Nat → V} (hP : WellDenoted V ρ' P) (hQ : WellDenoted V ρ' Q)
-    (hPu : interp V ρ' P ∈ˢ (univZero : V)) (hQu : interp V ρ' Q ∈ˢ (univZero : V)) :
-    WellDenoted V ρ' (andAV P Q) := by
-  have hP' : interp V ρ' P ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hPu
-  have hQ' : interp V ρ' Q ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hQu
-  have hlam : interp V ρ' (.lam 1 P (Q.liftN 1 0)) = lamR 1 (interp V ρ' P) fun _ => interp V ρ' Q := by
-    rw [interp_lam]
-    exact lamR_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
-  show WellDenoted V ρ' (.app (.app (.const .psigma [0, 0]) P) (.lam 1 P (Q.liftN 1 0)))
-  rw [WellDenoted_app]
-  refine ⟨?_, ?_, 1, psigmaFibreSpace V 0 (interp V ρ' P), fun _ => (univ 0 : V), ?_, ?_,
-    fun h0 => absurd h0 Nat.one_ne_zero⟩
-  · rw [WellDenoted_app]
-    exact ⟨trivial, hP, 1, univ 0, fun A => piR 1 (psigmaFibreSpace V 0 A) fun _ => (univ 0 : V),
-      psigmaV_00_mem, hP', fun h0 => absurd h0 Nat.one_ne_zero⟩
-  · rw [WellDenoted_lam]
-    refine ⟨hP, fun x _ => ?_, fun _ => (univ 0 : V), fun x _ => ?_,
-      fun h0 => absurd h0 Nat.one_ne_zero⟩
-    · rw [WellDenoted_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hQ
-    · rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hQ'
-  · show SetTheory.app (psigmaV V 0 0) (interp V ρ' P) ∈ˢ _
-    exact app_mem_piR_pos Nat.one_ne_zero psigmaV_00_mem hP'
-  · rw [hlam]
-    exact lamR_mem fun _ _ => hQ'
-
 theorem wd_eqs {a b : V} (ha : a ∈ˢ TAv S ℓ ρ) (hb : b ∈ˢ TBv S ℓ ρ) :
     WellDenoted V (cons b (cons a (pairFrame S ρ))) (eqs S.w ℓ) :=
   wd_andAV (wd_eqA0 ρ ha) (wd_andAV (wd_eqA1 ρ ha hb) (wd_eqB0 ρ ha hb) (eqA1_univZero _)
@@ -1289,24 +1183,19 @@ theorem wd_sig : WellDenoted V (pairFrame S ρ) (sig S.w ℓ) := by
     exact app_mem_piR_pos (Nat.succ_ne_zero _) hps (TAv_univ S ℓ ρ)
   · rw [interp_sigLam]; exact sigLam_mem S ℓ ρ
 
-theorem choiceV_mem :
-    choiceV V (sLev S.w ℓ) ∈ˢ piR (sLev S.w ℓ) (univ (sLev S.w ℓ) : V)
-      (fun A => piR (sLev S.w ℓ) (dnegSpace V A) fun _ => A) :=
-  lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg V hh).choose_spec
-
 theorem wd_sel : WellDenoted V (pairFrame S ρ) (sel S.w ℓ) := by
   show WellDenoted V (pairFrame S ρ) (.app (.app (.const .choice [sLev S.w ℓ]) (sig S.w ℓ)) .prf)
   rw [WellDenoted_app]
   refine ⟨?_, trivial, sLev S.w ℓ, dnegSpace V (sigV S ℓ ρ), fun _ => sigV S ℓ ρ, ?_, ?_, ?_⟩
   · rw [WellDenoted_app]
     refine ⟨trivial, wd_sig S ℓ ρ, sLev S.w ℓ, univ (sLev S.w ℓ),
-      fun A => piR (sLev S.w ℓ) (dnegSpace V A) fun _ => A, choiceV_mem S ℓ, ?_, fun h0 A _ => ?_⟩
+      fun A => piR (sLev S.w ℓ) (dnegSpace V A) fun _ => A, choiceV_mem (V := V) (sLev S.w ℓ), ?_, fun h0 A _ => ?_⟩
     · rw [interp_sig]; exact sigV_univ S ℓ ρ
     · show piR (sLev S.w ℓ) _ _ ∈ˢ _
       rw [h0]; exact piR_zero_mem_univZero
   · show SetTheory.app (choiceV V (sLev S.w ℓ)) (interp V (pairFrame S ρ) (sig S.w ℓ)) ∈ˢ _
     rw [interp_sig]
-    refine app_mem_piR (choiceV_mem S ℓ) (sigV_univ S ℓ ρ) (fun h0 A _ => ?_)
+    refine app_mem_piR (choiceV_mem (V := V) (sLev S.w ℓ)) (sigV_univ S ℓ ρ) (fun h0 A _ => ?_)
     show piR (sLev S.w ℓ) _ _ ∈ˢ _
     rw [h0]; exact piR_zero_mem_univZero
   · exact pt_mem_dnegSpace_of (sigV_inhabited S ℓ ρ).choose_spec
