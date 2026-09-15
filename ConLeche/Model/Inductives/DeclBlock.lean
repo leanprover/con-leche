@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclMutual
 public import ConLeche.Model.Inductives.BlockRecWD
-public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Verify.Inductives.SumRec
 public section
 

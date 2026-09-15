@@ -105,6 +105,15 @@ public import ConLeche.Model.Inductives.BlockRecTyped
 public import ConLeche.Model.Inductives.BlockRecEq
 public import ConLeche.Model.Inductives.BlockRecWD
 public import ConLeche.Model.Inductives.DeclBlock
+public import ConLeche.Model.Inductives.MutualCtorShape
+public import ConLeche.Model.Inductives.MutualData
+public import ConLeche.Model.Inductives.MutualShadow
+public import ConLeche.Model.Inductives.MutualChains
+public import ConLeche.Model.Inductives.MutualLeafBelow
+public import ConLeche.Model.Inductives.MutualStageFormer
+public import ConLeche.Model.Inductives.MutualFormersKit
+public import ConLeche.Model.Inductives.TupleLfp
+public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

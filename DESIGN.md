@@ -73482,3 +73482,329 @@ finding 4).
    "expected `List …`" — pass `(tl := …)`; `rw [← consList_append]`
    needs its lists; `rw` closes a goal by `rfl` and a trailing `; omega`
    then reports "no goals".
+
+#### U.7 — M4 session 2: the `k`-ary fixed point as a DERIVED term former; the formers' stage at its API (session U-6, 2026-09-15)
+
+M4's formers' half, under two maintainer rulings received mid-session
+(the term language is ours to adjust; the preferred shape is a derived
+`k`-ary former with an API, no new `AnnotTerm` constructor).  No
+checker code changed; no `sorry`, no axioms, no `maxHeartbeats`
+raised; the datum unchanged.  New: `SetTheory/Derive/LfpSplit.lean`
+(237 lines, the split/join theorem), `Model/Inductives/TupleLfp.lean`
+(539, the sealed former and its API, the formers' stage),
+`Model/Inductives/BlockRepMutual.lean` (250, `ofMutual`), and #278's
+proofs BELOW its datum cherry-picked (5 145 lines, (e)).
+
+##### (a) THE LEAF DECISION, MEASURED — a derived former, not a primitive
+
+The first ruling asked for the blast radius of a tuple-lfp
+PRIMITIVE.  Measured: `lfpFam` is not a syntactic constructor but a
+basis constant (`BConst.lfpFam`), so a new constant costs FIVE
+exhaustive match sites (`Term/Syntax.lean` arity, `Term/Const.lean`
+type, `SetModel/Value.lean` value, `Semantics/BasisType.lean`
+annotated type, `Semantics/BasisOk.lean` inhabitation) plus its
+value/type/`bval_mem` (~400 lines) — cheap.  The EXPENSIVE part is
+elsewhere: a primitive over `k` families needs the `k`-family
+SYNTACTIC functor (the recursive slot of a field targeting member
+`m'` reads the `m'`-th family variable) and its laws — `FixFamI.lean`
+(1 144), `FixLeafI.lean` (553) and `FixAssemblyKit.lean` (605)
+regeneralised at `k` variables, ~2 900 lines of proof rework
+(3–4 sessions) — whereas the tagged-sum spelling REUSES the
+one-family kit at the union (`fixFunVI` at `[tagTyAV]`) and #278's
+proofs of exactly that term exist.  Decision: the split/join bridge
+over `mutualTyAVI`, at ~1–1.5 sessions.
+
+The second ruling fixed the PACKAGING: the `k`-ary lfp is a DERIVED
+term former with an API, its representation (the tagged sum, the
+encoding, split/join) private to one module — the `Std.HashMap`/
+`PropWhen` pattern.  Built this session ((c)); the `28`
+`interp`-unfolding sites are untouched; the term language gains no
+constructor; consumers of the datum never see a tag.
+
+##### (b) THE SPLIT/JOIN THEOREM — `SetTheory/Derive/LfpSplit.lean` (the session's first falsifier: PASSED)
+
+Over an ENCODING `IdxEnc k Is U e` (`e m i ∈ U`, every element of `U`
+is some `e m i`, `e` injective), `splitE Is e Y m := graph (i ↦ app Y
+(e m i)) (Is m)`, `joinE k Is U e X := graph (u ↦ app (X m) i at the
+decoded (m, i)) U` (the decoding a pair-valued `decodeE`, so that
+rewriting one component leaves the other's type alone — the nested
+`Classical.choose` motive trap), and the induced tuple operator
+`splitFun k Is U e F := splitE ∘ app F ∘ joinE`:
+
+```lean
+theorem lfpTuple_splitFun (henc : IdxEnc k Is U e) (hmono : MonoFam w U F)
+    (hmaps : MapsFam w U F) (hcl : ∃ L, IsClosedFam w U F L) :
+    ∀ m, m < k → lfpTuple w k Is (splitFun k Is U e F) m = splitE Is e (lfpFamSet w U F) m
+```
+
+with `splitFun_mono/_maps/_closed_exists`, `joinE_splitE`/`splitE_joinE`
+(the two identities on the spaces), `splitE_le`/`joinE_le` (no space
+hypothesis: split and join are pure reindexings), `splitE_closedTuple`,
+`joinE_closedFam`, and the fibre form `app_lfpTuple_splitFun : app
+(lfpTuple … m) i = app (lfpFamSet w U F) (e m i)`.  Stated in the
+"`F` given" form (the family functor over the union is what the leaf
+reads); §U.6 (e)'s "`Φ` given" form is its instance at `F := join Φ`
+and has no consumer.  Proof: the split of the family's lfp is a
+closed tuple (leastness one way), the join of any closed tuple is a
+closed family (leastness the other way), antisymmetry per fibre —
+111 lines, an Opus lane, no deviation from the plan.
+
+##### (c) `tupleLfpAV` — THE DERIVED FORMER AND ITS API (`Model/Inductives/TupleLfp.lean`)
+
+A plain `public section` module (Model tier: bodies private by
+default), so `tupleLfpAV`, `tupleLfpΦ` and the premises are SEALED —
+a consumer cannot unfold them (the compiler refuses: "definition is
+not exposed"), which is why the stage half lives in the same module.
+The API, for a block of `k` members with index telescopes `Ids : Nat
+→ List AnnotTerm` at the parameter frame and the constructors' data
+in GLOBAL order (`mems`, `nFs`, `tgts`, `rss`, `tlss`, `Eiss₀`, `Fss₀`,
+`Ess₀` — UNTAGGED: the plain index expressions):
+
+```lean
+def tupleLfpAV (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx k : Nat)
+    (Ids : Nat → List AnnotTerm) (mems nFs : List Nat) (tgts : List (List Nat))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss₀ : List (List (List AnnotTerm))) (Fss₀ Ess₀ : List (List AnnotTerm)) (m : Nat) :
+    AnnotTerm
+```
+
+member `m`'s leaf (the λ-tower over the parameters and its `nIdx`
+indices); `tupleLfpΦ W w ρp k Ids … : (Nat → V) → Nat → V` the block's
+tuple operator at a parameter frame; `TupleLfpOk W w ρp k Ids …` the
+premise at a frame; and the laws — the session's second falsifier,
+PASSED:
+
+* **`tupleLfpAV_fold`** (the interp law = the datum's `leaf`):
+  `(as ++ is).foldl app (interp ρ (tupleLfpAV … m)) = app (lfpTuple w k
+  (m ↦ idxSet W ρp (Ids m)) (tupleLfpΦ …) m) (mkTower is)` at spines
+  fitting the member's parameters and indices;
+* **`tupleLfpΦ_functor`** (= the datum's `functor`): `MonoTuple`,
+  `MapsTuple`, a closed tuple;
+* `tupleLfpAV_below` (closed), `tupleLfpAV_wellDenotedV` (graded and
+  valid under its tower), `tupleLfpAV_mem` (inhabits its former's
+  type) — under `TupleLfpBlockOk` (level stability, closedness of the
+  block's data) and per member `TupleLfpStageOk` (the chains graded at
+  the member's parameter frames);
+* **`stageTupleFormers`** — the formers' stage of the mutual install at
+  the API ((f)).
+
+The representation: member `m`'s leaf is #278's `mutualTyAVI` at the
+tagged data (`tupleEss`/`tupleEiss` = `mutualEss`/`mutualEiss`: the
+constructors' and slots' index expressions wrapped in the member's
+tagged tuple), the operator `splitFun` of `fixFunVI` at the one index
+telescope `[tagTyAV]` along the **tagged encoding** `tagEnc W Ids m i
+:= ⟨inj m ⟨projS 0 i, …, projS (nIdx_m − 1) i, pt⟩⟩` — an `IdxEnc`
+(`tagEnc_idxEnc`: `mem_tupleU`, `tagSet_elim`, `tagTuple_mem`, the
+towers' and tags' injectivity), which is what puts `lfpTuple_splitFun`
+under the leaf.  Consequence for the datum: every member's index-tuple
+sort is the block's index universe `W` (`TupleLfpOk`'s `TagOk`: the
+members' telescopes share a positive universe), so a member's index
+tuple is always a TOWER and the encoding decodes it by `projS`.
+
+What the premises seal, and their one leak: `TupleLfpOk`,
+`TupleLfpBlockOk` and `TupleLfpStageOk` are `Prop`s whose bodies are
+the representation's facts (`TagOk`, `XChainsOk`/`MemberChainsOk` at
+the tagged lists, the tagged chains' closedness); their introductions
+`of_tagged` take those facts VERBATIM.  The recursor stage's ASSEMBLY
+(session 3) is their only client — it establishes them from the
+constructors' readings exactly as #278's assembly did
+(`MutualChains.lean`, cherry-picked) — so the tag is visible to that
+proof and to nothing that consumes the datum.  Replacing the intros by
+untagged ones (the chain facts restated over `Eiss₀`/`Ess₀`) is a
+cleanup the assembly can do once it stands, not before.
+
+##### (d) THE DATUM INSTANCE — `BlockRepData.ofMutual` (`Model/Inductives/BlockRepMutual.lean`)
+
+`ofNative`'s twin: the per-member/per-constructor readings as
+parameters, `uM := W` (the block's index universe), `Φ := tupleLfpΦ`
+at `blockIds nP ppsM ψ` (member `t`'s index telescope off its
+reading), `inj ψ mm j fs := injW w (blockMinorIdx ctorsM mm j) ⟨f⃗, pt⟩`
+— the sum route's tagged tower at the constructor's GLOBAL position
+(the minor's index; `ofMutual_minorIdx : d.minorIdx = blockMinorIdx`
+by `rfl`).  Proved at the datum: `ofMutual_functor`, `ofMutual_leaf`
+(the API's laws, the `Is` and `Φ` matching the datum's `idx`/`Φ` by
+`rfl` because the API is stated over the FUNCTION `Ids`, the list
+`tupleIdss k Ids` being the representation's), `ofMutual_mkZero`,
+`ofMutual_mkInj` (a member's global positions are distinct, `omega` on
+the prefix sum), and the run-level shape:
+
+```lean
+theorem mutualDatumOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
+    (ctorsA : List (ConstantVal × Nat)) {f₀ : MutualFormerA} (hf₀ : fms[0]? = some f₀) … :
+    MutualDatumOf env b fms ctorsA (BlockRepData.ofMutual b.nP b.k f₀.s isProp b.large env
+      (fms.map (·.cvTa.name)) (fms.map (·.nIdx)) ppsM W
+      (fun t => (b.ownCtors t).map fun q => ctorsA.getD q.1 default) …)
+```
+
+— eight `rfl`s and one `getD`.  `ofMutual_leaf`'s parameter spine
+fits the MEMBER's own telescope (`((ppsM mm ψ).take nP)`), where
+`BlockRep.leaf` asks for the block's `d.params ψ` (member `0`'s): the
+cross-member identification of the parameter telescopes as spines is
+a run fact of `mutualCrossChecks` (the domains are `isDefEq`, hence
+equal in the model) — session 3's, listed in (g).
+
+##### (e) #278's PROOFS BELOW ITS DATUM, CHERRY-PICKED (an Opus lane)
+
+§U.6 (e) sized the formers' stage as "`MutualLeafI` terms only,
+nothing of #278's Model tier".  Reading `inductives`' Model tier
+showed that everything BELOW `MutualRep` is about the same term
+`mutualTyAVI` and about READING the constructors — and the two
+branches share the merge base `3e004805`, so the drift is small.
+Taken, as new files, byte-identical modulo the adaptations listed:
+`Semantics/Tower/MutualLeafI.lean` (432; unchanged),
+`MutualLeafFacts.lean` (81), `Model/Inductives/MutualData.lean` (699:
+`MutualOpened`, `MutualCtorDataI`, `mutualCtorData_of`),
+`MutualShadow.lean` (499), `MutualChains.lean` (1 195: the chain facts
+at the tagged data from the readings — `mutualChainFacts_at`,
+`mutualChainValidFacts_at`, `mutualChainReal_at`, `mutualChainFacts_of`,
+`mutualCtorFold`), `MutualStageFormer.lean` (573: `mutualTyAVI_below`,
+`mutualLeafWalks`, `MemberChainsOk`, `stageMutualFormers`),
+`MutualLeafBelow.lean` (50: the two closedness lemmas
+`MutualStageFormer` took from the dispatch tier), `MutualCtorShape.lean`
+(260: `ctorDataI_ofShape`, the sum route's reading argument as
+`inductives` refactored it out of `sumCtorData_of` — DUPLICATED here
+because `SumData.lean` was not to be edited; the refactor is a
+two-file cleanup, docketed), `MutualFormersKit.lean` (1 292: 45 kit
+lemmas out of `inductives`' `DeclMutual.lean` lines 97–1335 — the
+generic member cons at an ARBITRARY leaf `stageMemberConsG`/
+`stageMembersGoG`/`stageMembersG` (the chain-free first pass), the
+extension facts `consMutualFormers_extend`/`consMutualCtors_extend`,
+`FormerData.crossEnv`, `denoteMeta_congr_of_resolve`,
+`mutualCtorDataI_ident`, the `members3` readers, `mutualCtorKinds_tgt`,
+`mutualFieldsOk_inv`, `FormerReadM.crossEnv`, `CtorReadRT.crossEnv`).
+Adaptations: `FormerData`'s `lvls` argument (an `inductives`-only
+field) removed everywhere; `mutualFormerChecks`'s nested flag dropped;
+`find?_cons_of_name_ne` added to the kit (its `inductives` home is the
+recursor stage's file — a later cherry-pick must drop that copy);
+`MutualCtorDataI.toBlock`/`MutualOpened.toBlock` added (the conversion
+to this branch's target-aware `BlockCtorData` — `kinds : List
+(RecFieldKind × Nat)` split into `kindsOf ks` and `tgtAt ks`;
+`kindsOf_getD'` unconditional).  Skipped: `formerIdxOk`/
+`formerParamsOk`/`entriesOk_of_rows` (about the deleted `lvls`; this
+branch's index-telescope grading comes from the checker's sort rows,
+as the fixpoint route's does) and `agreeOffRec_shadowFs` (its
+conclusion is `FixRep`'s, on the DIE list).  **Every inherited
+`set_option maxHeartbeats` (8 of them, up to 25 600 000) proved
+unnecessary on this branch and was removed** — the `lvls` removal is
+the likely reason.  Nothing of `MutualRep`, `IndRep`, `MutualDisp`,
+`motDispAV`, the recursor/rule/table stages or `declMutual` was taken.
+
+##### (f) THE FORMERS' STAGE AT THE API — `stageTupleFormers`
+
+```lean
+theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
+    {W : (Name → Nat) → Nat} {k : Nat} {Ids : (Name → Nat) → Nat → List AnnotTerm}
+    {mems nFs : List Nat} {tgts : List (List Nat)} {rss : List (List Bool)}
+    {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
+    {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
+    {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
+    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
+      = .ok (env₁, fms))
+    (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
+    (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      f.cvTa.levelParams = lps ∧
+      FormerData mp.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) ∧
+      TupleLfpStageOk V nP t resSort W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ (ppsF t)) :
+    ∃ mp₁ : EnvModelM V μ env₁,
+      (∀ t f, fms[t]? = some f → mp₁.base2.acval f.cvTa.name = fun ψ => tupleLfpAV … t) ∧
+      (∀ n, (∀ t f, fms[t]? = some f → n ≠ f.cvTa.name) → mp₁.base2.acval n = mp.base2.acval n) ∧
+      (∀ t f, fms[t]? = some f →
+        env₁.find? f.cvTa.name = some (.indInfo f.cvTa {}) ∧
+        FormerData mp₁.base2 f.cvTa (nP + f.nIdx) resSort (ppsF t) ∧
+        ∀ ψ ρ, interp V ρ (mp₁.base2.acval f.cvTa.name ψ)
+          ∈ˢ interp V ρ (mkPisAV (ppsF t ψ) (.sort (resSort.eval ψ))))
+```
+
+— the run of stage 1 conses the `k` members with their `k`-ary
+leaves (`stageMutualFormers` read through the former: the `k` conses
+through `IndCons.lean`'s generic member cons with the block's empty
+capability record `{}`), the model's leaves off the block are the
+pre-block model's, and every member is stored at `env₁` (`find?`),
+its binder data crossed to the formers' model (`FormerData.crossEnv`
+at `consMutualFormers_extend`, agreement off the block by freshness)
+and its leaf typed at its former's reading — the three facts
+`BlockRep.member`/`former` and `FormersTyped` read at the datum.  The
+`strip` and `isProp` clauses are the block record's (`mutualFormerChecks_pos`,
+`MutualDatumOf`).
+
+##### (g) REMAINING PREMISES, WITH THEIR CONSUMERS; M4 RE-SIZED
+
+`MutualCoreModeled` is still `declBlock`'s hypothesis (consumer-first:
+nothing new was named at the run level).  What its proof — session 3
+— assembles, in the shape it has it:
+
+| fact | source | consumer |
+| --- | --- | --- |
+| the chain-free first pass (formers at a dummy leaf) | `stageMembersG` at `sumTyAV … []`, as `inductives` did | reading the constructors at `env₁` |
+| the constructors' readings | `mutualCtorData_of` → `MutualCtorDataI` → `.toBlock` | `BlockRep.ctors` (via `BlockCtorFacts`), the datum's `dsF/esF/ksF/tgts/…` |
+| `TupleLfpBlockOk`, `TupleLfpStageOk` (per member), `TupleLfpOk` (per frame) | `mutualChainFacts_at`/`mutualChainValidFacts_at`/`mutualChainFacts_of` (cherry-picked) through the `of_tagged` intros | `stageTupleFormers`, `ofMutual_functor/_leaf` |
+| the real conses = `stageTupleFormers` | (f) | `BlockRep.former`, `FormersTyped`, `memsFound` |
+| the readings at the real model = at the dummy model with the leaves substituted | `mutualCtorDataI_ident` (kit) | the datum's readings at `mp₁` |
+| the parameter telescopes agree as spines across members | `mutualCrossChecks` (`isDefEq` of the domains) at the model | `BlockRep.leaf` at `d.params` from `ofMutual_leaf`; `paramsIff` |
+| `fibre` | `fixStepI_elim` at the tagged data read through `tagEnc` and `slotFit_tag` (`MutualChains`) = the API's `tupleLfpΦ_fibre`, sealed | `BlockRep.fibre` |
+| `ctor` | `sumMkAV_fold` at the global position (`mutualCtorFold`, cherry-picked) | `BlockRep.ctor` |
+| the constructors' conses | `ctorsLoopGen`'s twin at `k` (`inductives`' `stageMutualCtors`, NOT taken — it reads `MutualRep`'s invariant; restate over `BlockRep`'s `ctors` clause) | `CtorsTyped`, `BlockCtorFacts` |
+| `BlockReadings`, `hT`, the recursors' conses, `RecRuleLaw` via `blockRecs_iota` | §U.6 (c)'s table | `blockRecsAt` → `BlockReps` at the recursors' env |
+
+M4: session 2 DONE (this); **session 3** = the assembly above
+(`MutualCoreModeled` discharged) — its size is now that of `inductives`'
+`declMutual` proof lines 1966–3560 minus the `MutualRep` bookkeeping,
+i.e. one heavy session, possibly two; **session 4** = tables + the
+FLIP + gates + landing, unchanged.  New table: M4 2–3 left; M5 2–3;
+M6 3–5; M7 3–4; M8 1–2.  Total remaining **11–17** (was 12–17): the
+cherry-pick bought the formers' stage back at a discount, the API
+packaging cost it.
+
+##### (h) GATES, FINDINGS, TRAPS
+
+Gates at HEAD: `lake build` 603 jobs warning-free (was 591),
+`lake test` green, layering 0/0 edges, trust surface 13/13
+allowlisted, overview-links 103, quote-gate 2, no-local-paths OK,
+proofdeps 4361 rows / 0 doors, shake 476 removals all allowlisted /
+`pub-imports: none demotable` (the new modules are registered in
+`ConLeche/Model.lean` and `ConLeche/Semantics.lean`).  The import
+gate on the cherry-pick: twelve proposals run through task #223's
+criterion — ten COMPENSATED (allowlisted with their compensating
+additions), two `--only`-silent (`MutualShadow`'s `FixTeleBound`,
+`MutualStageFormer`'s `MutualWF`); `MutualFormersKit`'s
+`DeclMutual`/`MutualInv` imports and `DeclBlock`'s `EnvModelM` import
+CLEAN under the criterion and deleted (the latter after the model
+asked for its demotion first — a demoted edge can then be a clean
+removal).
+
+1. **A basis constant is cheap, a `k`-family syntactic functor is not**
+   ((a)): the primitive's blast radius is five match sites; the cost
+   of the primitive route is the kit at `k` variables (~2 900 lines).
+   The derived former gets the same interface at the split/join
+   theorem's price (237 lines) and reuses the one-family kit.
+2. **Sealing works through the module system, and it decides where
+   proofs live**: a plain `public section` hides `tupleLfpAV`'s body
+   from every other module ("definition is not exposed"), so every
+   law that unfolds it — the grading, the stage — must be in the
+   defining module.  `TupleLfp.lean` therefore imports the Model tier
+   (`MutualStageFormer`) although its statement half is Semantics
+   material.
+3. **#278's Model tier splits along `MutualRep`**: everything below
+   the datum (5 145 lines) transfers as-is because the leaf TERM is
+   the same; the `lvls` field is the only drift, and removing it made
+   eight heartbeat raises unnecessary.  `MutualCtorShape.lean`
+   duplicates `sumCtorData_of`'s reading argument (an `inductives`
+   refactor of `SumData.lean` not on master) — docketed cleanup.
+4. **The tag is visible to the assembly, not to the datum's
+   consumers** ((c)): the `of_tagged` intros are the honest seam;
+   untagged intros are a cleanup after session 3.
+5. Lean traps: a `local notation` survives its `section`'s `end`
+   when the section is re-opened with the same variables — "ambiguous
+   term" with both instances; one section per notation.  `rw` with a
+   lemma whose implicit `Ids.length` is definitionally `1` fails to
+   find the pattern at `1` — state the datum's `Φ` at
+   `(auxIds …).length` (the API's `tupleLfpΦ` does).  `mkTower_inj rfl
+   h` elaborates the length proof before `h` fixes the lists — pass
+   `(by rfl)`.  `simp` on a goal that a preceding `rw [← hlen]`
+   already closed reports "no progress".  A nested
+   `Classical.choose` in a definition makes every `rw` on the outer
+   choice ill-typed — decode into a PAIR (`decodeE`).
