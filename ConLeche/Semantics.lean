@@ -47,6 +47,7 @@ public import ConLeche.Semantics.Tower.TowerMk
 public import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
 public import ConLeche.Semantics.Tower.FixTuple
+public import ConLeche.Semantics.Tower.BlockRecPair
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun
