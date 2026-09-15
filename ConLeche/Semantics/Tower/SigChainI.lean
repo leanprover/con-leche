@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Semantics.Tower.TowerMk
-public import ConLeche.Semantics.Kit
+public import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Kit
 @[expose] public section
 
 /-!
@@ -186,6 +187,53 @@ theorem pt_mem_andChainAV_iff {ρ : Nat → V} :
       · exact h2 e' he'
     · intro h'
       exact ⟨h' e (.head _), fun e' he' => h' e' (.tail _ he')⟩
+
+/-! ## An equation under a `Prop`-valued Π-tower -/
+
+/-- A `Prop`-valued Π-tower over an equation is inhabited by `pt` iff
+the equation holds at every fitting spine. -/
+theorem pt_mem_mkPisAV_eqE_iff :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {l r : AnnotTerm} {ρ : Nat → V},
+      (∀ d ∈ ds, d.2.1 = 0) →
+      ((pt : V) ∈ˢ interp V ρ (mkPisAV ds (.eqE l r)) ↔
+        ∀ xs : List V, SpineFit ρ (ds.map (·.2.2)) xs →
+          interp V (consList xs ρ) l = interp V (consList xs ρ) r)
+  | [], l, r, ρ, _ => by
+    show (pt : V) ∈ˢ eqv (interp V ρ l) (interp V ρ r) ↔ _
+    constructor
+    · intro h xs hsp
+      cases xs with
+      | nil => exact eq_of_mem_eqv h
+      | cons x xs => exact hsp.elim
+    · intro h
+      have := h [] trivial
+      simp only [consList_nil] at this
+      rw [this]; exact pt_mem_eqv_self _
+  | d :: ds, l, r, ρ, hz => by
+    have hd : d.2.1 = 0 := hz d (.head _)
+    have hrest : ∀ x, interp V (cons x ρ) (mkPisAV ds (.eqE l r)) ∈ˢ (univZero : V) := by
+      intro x
+      cases ds with
+      | nil => exact eqv_mem_univZero _ _
+      | cons d' ds' =>
+        show piR d'.2.1 _ _ ∈ˢ _
+        rw [hz d' (.tail _ (.head _))]
+        exact piR_zero_mem_univZero
+    show (pt : V) ∈ˢ piR d.2.1 (interp V ρ d.2.2) (fun x => interp V (cons x ρ) (mkPisAV ds (.eqE l r))) ↔ _
+    rw [hd]
+    constructor
+    · intro h xs hsp
+      cases xs with
+      | nil => exact hsp.elim
+      | cons x xs =>
+        obtain ⟨y, hy⟩ := piR_zero_elim h hsp.1
+        have hy' : (pt : V) ∈ˢ interp V (cons x ρ) (mkPisAV ds (.eqE l r)) :=
+          eq_pt_of_mem_univZero (hrest x) hy ▸ hy
+        exact (pt_mem_mkPisAV_eqE_iff (fun d' hd' => hz d' (.tail _ hd'))).mp hy' xs hsp.2
+    · intro h
+      refine pt_mem_piR_zero_of fun x hx => ?_
+      exact (pt_mem_mkPisAV_eqE_iff (fun d' hd' => hz d' (.tail _ hd'))).mpr
+        fun xs hsp => h (x :: xs) ⟨hx, hsp⟩
 
 /-! ## The Σ'-chain -/
 
@@ -476,12 +524,12 @@ theorem blockTs_drop_nil {k : Nat} (T : Nat → AnnotTerm) {p : Nat} (hpl : k �
   rw [List.drop_eq_nil_of_le (by rw [List.length_range]; exact hpl)]
   rfl
 
-theorem getD_append_snoc (pre : List V) (r : V) (i : Nat) :
+theorem getD_snoc_at (pre : List V) (r : V) (i : Nat) :
     (pre ++ [r]).getD (pre.length + i) pt = [r].getD i pt := by
   simp only [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_add_right _ _),
     Nat.add_sub_cancel_left]
 
-theorem getD_append_lt (pre : List V) (r : V) {i : Nat} (hi : i < pre.length) :
+theorem getD_snoc_lt (pre : List V) (r : V) {i : Nat} (hi : i < pre.length) :
     (pre ++ [r]).getD i pt = pre.getD i pt := by
   simp only [List.getD_eq_getElem?_getD, List.getElem?_append_left hi]
 
@@ -579,9 +627,9 @@ theorem chainOk_block_go {s : Nat} {ρ : Nat → V} {k : Nat} (T : Nat → Annot
     have ih := chainOk_block_go (k := k) T eqs hT heq n (pre ++ [r]) (by simp; omega) fun mm hmm => by
       simp only [List.length_append, List.length_singleton] at hmm
       rcases Nat.lt_or_ge mm pre.length with h | h
-      · rw [getD_append_lt pre r h]; exact hpre mm h
+      · rw [getD_snoc_lt pre r h]; exact hpre mm h
       · have : mm = pre.length + 0 := by omega
-        rw [this, getD_append_snoc]
+        rw [this, getD_snoc_at]
         simpa using hr
     rw [consList_append] at ih
     simpa using ih

@@ -97,6 +97,11 @@ public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Inductives.BlockRepOne
+public import ConLeche.Model.Inductives.BlockRecCand
+public import ConLeche.Model.Inductives.BlockRec
+public import ConLeche.Model.Inductives.MutualRecData
+public import ConLeche.Model.Inductives.MutualRecRead
+public import ConLeche.Model.Inductives.MutualRuleRead
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitShift
