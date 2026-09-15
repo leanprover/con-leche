@@ -98,29 +98,28 @@ theorem mutualShapeOk_inv {b : MutualBlock} {u : Unit}
 
 /-! ## Stage 1: the formers -/
 
-/-- The formers' loop at the empty block: nothing consed. -/
-theorem mutualFormers_nil_inv {nP F : Nat} {env env' : Env} {fms : List MutualFormerA}
-    (h : mutualFormers (fueledOps mode F) nP [] env = .ok (env', fms)) :
-    env' = env ∧ fms = [] := by
-  simp only [mutualFormers, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  exact ⟨h.1.symm, h.2.symm⟩
+/-- The formers' checks at the empty block: nothing checked. -/
+theorem mutualFormerChecks_nil_inv {nP F : Nat} {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP [] = .ok fms) :
+    fms = [] := by
+  simp only [mutualFormerChecks, pure, Except.pure, Except.ok.injEq] at h
+  exact h.symm
 
-/-- **The formers' loop, one member at a time**: the constant check,
-the telescope stage (task #195), the result sort read off the
-telescope, and the rest of the loop at the environment holding this
-former with the block's capability record (`{}`). -/
-theorem mutualFormers_inv {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
-    {rest : List (ConstantVal × Nat)} {env env' : Env} {fms : List MutualFormerA}
-    (h : mutualFormers (fueledOps mode F) nP ((cv, nIdx) :: rest) env = .ok (env', fms)) :
+/-- **The formers' checks, one member at a time**: the constant check,
+the telescope stage (task #195) and the result sort read off the
+telescope — ALL at the pre-block environment `env`, as official's
+`check_inductive_types` runs them, and so does the rest of the loop. -/
+theorem mutualFormerChecks_inv {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
+    {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP ((cv, nIdx) :: rest) = .ok fms) :
     ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (bs : List (Expr × BinderMeta))
       (fs : List MutualFormerA),
       checkConstantVal (fueledOps mode F) env cv = .ok cvTa₀ ∧
       checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
       cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s) ∧
-      mutualFormers (fueledOps mode F) nP rest ⟨.indInfo cvTa {} :: env.consts⟩
-        = .ok (env', fs) ∧
+      mutualFormerChecks (fueledOps mode F) env nP rest = .ok fs ∧
       fms = ⟨cvTa, nIdx, s⟩ :: fs := by
-  unfold mutualFormers at h
+  unfold mutualFormerChecks at h
   obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
   obtain ⟨q, htele, h⟩ := exceptBind_ok h
   obtain ⟨cvTa, s⟩ := q
@@ -133,11 +132,51 @@ theorem mutualFormers_inv {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
   case neg => rw [if_neg hc] at h; close_throw
   rw [if_pos hc] at h
   try simp only [bind, Except.bind] at h
-  obtain ⟨q3, hrec, h⟩ := exceptBind_ok h
-  obtain ⟨env'', fs⟩ := q3
+  obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain rfl := h
+  exact ⟨cvTa₀, cvTa, s, bs, fs, hccv, htele, by rw [hq2', beq_iff_eq.mp hc], hrec, rfl⟩
+
+/-- **Every checked former is the check of SOME constant at the
+pre-block environment**: `checkSumTele` either leaves the checked
+constant alone or re-checks its normalised type, both at `env`.  This
+is what the well-formedness, freshness and model steps read off the
+stage. -/
+theorem mutualFormerChecks_checked {nP F : Nat} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP l = .ok fms →
+      ∀ f ∈ fms, ∃ cv', checkConstantVal (fueledOps mode F) env cv' = .ok f.cvTa
+  | [], _, _, h, f, hf => by
+    obtain rfl := mutualFormerChecks_nil_inv h
+    exact nomatch hf
+  | (cv, nIdx) :: rest, env, fms, h, f, hf => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hccv₀, htele, -, hrest, rfl⟩ := mutualFormerChecks_inv h
+    rcases List.mem_cons.mp hf with rfl | hf
+    · rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hccv₀⟩
+      · exact ⟨{ cv with type := ty }, hccv⟩
+    · exact mutualFormerChecks_checked hrest f hf
+
+/-- The formers' stage, split: the checks at the pre-block
+environment, the conses after them. -/
+theorem mutualFormers_inv {nP F : Nat} {formers : List (ConstantVal × Nat)}
+    {env env' : Env} {fms : List MutualFormerA}
+    (h : mutualFormers (fueledOps mode F) nP formers env = .ok (env', fms)) :
+    mutualFormerChecks (fueledOps mode F) env nP formers = .ok fms ∧
+      env' = consMutualFormers fms env := by
+  unfold mutualFormers at h
+  obtain ⟨fs, hchecks, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨cvTa₀, cvTa, s, bs, fs, hccv, htele, by rw [hq2', beq_iff_eq.mp hc], hrec, rfl⟩
+  exact ⟨hchecks, rfl⟩
+
+/-- The formers' stage at the empty block: nothing consed. -/
+theorem mutualFormers_nil_inv {nP F : Nat} {env env' : Env} {fms : List MutualFormerA}
+    (h : mutualFormers (fueledOps mode F) nP [] env = .ok (env', fms)) :
+    env' = env ∧ fms = [] := by
+  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv h
+  obtain rfl := mutualFormerChecks_nil_inv hchecks
+  exact ⟨rfl, rfl⟩
 
 /-! ## Stage 2: the cross-member checks -/
 

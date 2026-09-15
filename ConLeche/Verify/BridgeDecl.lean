@@ -888,16 +888,22 @@ theorem mutualShapeOk_datF (b : MutualBlock) (F : Nat) :
   unfold mutualShapeOk
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
 
-theorem mutualFormers_datF (nP : Nat) (F : Nat) :
-    ∀ (fs : List (ConstantVal × Nat)) (env : Env),
-      (mutualFormers (fueledOpsM mode) nP fs env).val F =
-        mutualFormers (fueledOps mode F) nP fs env
-  | [], _ => rfl
-  | (_, _) :: rest, _ => by
-    unfold mutualFormers
+theorem mutualFormerChecks_datF (nP : Nat) (F : Nat) (env : Env) :
+    ∀ (fs : List (ConstantVal × Nat)),
+      (mutualFormerChecks (fueledOpsM mode) env nP fs).val F =
+        mutualFormerChecks (fueledOps mode F) env nP fs
+  | [] => rfl
+  | (_, _) :: rest => by
+    unfold mutualFormerChecks
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF,
-      mutualFormers_datF nP F rest]
+      mutualFormerChecks_datF nP F env rest]
+
+theorem mutualFormers_datF (nP : Nat) (F : Nat) (fs : List (ConstantVal × Nat)) (env : Env) :
+    (mutualFormers (fueledOpsM mode) nP fs env).val F =
+      mutualFormers (fueledOps mode F) nP fs env := by
+  unfold mutualFormers
+  simp only [FueledM.atF_bind, FueledM.atF_pure, mutualFormerChecks_datF]
 
 theorem mutualDomsOk_datF (env : Env) (fvs doms : List Expr) (F : Nat) :
     ∀ j : Nat,
