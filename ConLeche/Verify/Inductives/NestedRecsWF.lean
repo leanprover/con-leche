@@ -126,9 +126,11 @@ theorem restoreRules_shape {envR : Env} {R : RestoreTbl} {lps : List Name} {recN
           o.fire = (match nestedFireShape envR lps recTy mI rP o.ctorParams with
             | some (lvls, pins) => RecRuleFire.nested lvls pins
             | none => RecRuleFire.inert)) ∧
-        o.ctorParams = (match envR.find? o.ctor with
-          | some (.ctorInfo _ n _) => n
-          | _ => rl.ctorParams) ∧
+        -- **the constructor is stored** (task #279 K.24: the fallback became
+        -- a verdict) — the restored rule's constructor is a stored
+        -- `ctorInfo` at `envR`, whose parameter count the rule carries
+        (∃ (cv : ConstantVal) (n nF : Nat),
+          envR.find? o.ctor = some (.ctorInfo cv n nF) ∧ o.ctorParams = n) ∧
         o.k = recRuleKOf envR.find? o.ctor ∧
         o.eta = recRuleEtaOf envR.find? recName o.ctor := by
   intro rules
@@ -157,8 +159,13 @@ theorem restoreRules_shape {envR : Env} {R : RestoreTbl} {lps : List Name} {recN
     case neg => rw [if_neg h3] at h; close_throw
     rw [if_pos h3] at h
     try simp only [bind, Except.bind] at h
+    -- K.24: the constructor's record is read positively
+    split at h
+    case h_2 => close_throw
+    rename_i cvj cnP cnF hfind
+    try simp only [pure, Except.pure] at h
     obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
+    simp only [Except.ok.injEq] at h
     obtain rfl := h
     obtain ⟨hlen, hall⟩ := ih hrest
     refine ⟨by simp [hlen], ?_⟩
@@ -173,7 +180,7 @@ theorem restoreRules_shape {envR : Env} {R : RestoreTbl} {lps : List Name} {recN
         recRuleBits_k, recRuleBits_eta]
       simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
       refine ⟨hrhs', h1.1.1.1, h1.1.1.2, h1.1.2, h1.2, h2, by trivial, by trivial, ?_, ?_,
-        by trivial, by trivial, by trivial⟩
+        ⟨cvj, cnP, cnF, by simpa using hfind, rfl⟩, by trivial, by trivial⟩
       · intro hm
         subst hm
         exact ⟨rfl, rfl⟩

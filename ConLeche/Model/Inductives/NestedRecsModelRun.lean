@@ -338,9 +338,11 @@ stated at the run's own environments:
   from the auxiliary recursors' leaves conjugated by ψ/ψ⁻¹) and the
   readings `taOf`, `NestedCtorLeaf mp₂` at every provisioned recursor
   (D4's next step; `okTy` is free by the first conjunct);
-* `hctorStored` — every stored rule's constructor is stored at `env₂`
-  (K.24: `restoreRules` is to positively resolve the restored
-  constructor name — official's `env.get` throws there);
+* (K.24, LANDED and consumed: every stored rule's constructor is a
+  stored `ctorInfo` at `env₂` — `restoreRules` resolves the restored
+  constructor name positively, so `restoreRules_ctorStored` reads it
+  off the run at the provision and `provisionNestedRecs_find?_ctorInfo`
+  brings it down to `env₂`; no longer a premise);
 * `hrepP`/`hrepS` — the real members' representations (D5's): rule-less
   at `mp₂`, and with the restored rules at every carrier of the store
   agreeing with the provision's leaves;
@@ -361,9 +363,6 @@ elsewhere. -/
     -- NAMED: the leaves' content at every provisioned recursor
     (∀ (i : Nat) (x : ConstantVal × Nat × Nat), (nestedProvs cvRms cvRns stored p.k)[i]? = some x →
       NestedCtorLeaf mp₂ x.1 (Aof i) (taOf i)) →
-    -- NAMED (K.24): every stored rule's constructor is stored
-    (∀ r ∈ nestedStores cvRms cvRns stored rulesM rulesN p.k, ∀ rl ∈ r.2.2.2,
-      ∃ cvj cnP cnF, env₂.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF)) →
     -- NAMED (D5): the real members' representations, rule-less at `mp₂`
     (∀ t, t < p.k → ∀ x : ConstantVal × Nat × Nat, (nestedProvs cvRms cvRns stored p.k)[t]? = some x →
       ∃ (cvT : ConstantVal) (caps : IndCaps) (dT : IndRepData V),
@@ -540,9 +539,44 @@ theorem nestedRecsModel_of_facts {μ : CheckMode} (hμ : μ.verifiedChecks = tru
         omega)⟩
       obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hk, heta⟩ := hpos l rl₀ rl hrl₀ hl
       exact ⟨fun h => by rw [hk] at h; exact h, fun h => by rw [heta] at h; exact h⟩
+  -- ## every stored rule's constructor is stored at `env₂` (K.24, off the run)
+  have hctorStored : ∀ r ∈ nestedStores cvRms cvRns stored rulesM rulesN p.k, ∀ rl ∈ r.2.2.2,
+      ∃ cvj cnP cnF, (ConLeche.consNestedCtors ctorsR.flatten
+        (ConLeche.consNestedFormers (stored.take p.k) env)).find? (RecRule.ctor rl)
+          = some (.ctorInfo cvj cnP cnF) := by
+    intro r hr rl hrl
+    rcases nestedStores_mem hr with ⟨i, cv, a, rs, hi, rfl⟩ | ⟨i, cv, a, rs, hi, rfl⟩
+    · obtain ⟨hcv, hzip⟩ := List.getElem?_zip_eq_some.mp hi
+      obtain ⟨ha, hrs⟩ := List.getElem?_zip_eq_some.mp hzip
+      obtain ⟨-, hall⟩ := ConLeche.mapM_except_inv hrulesM
+      obtain ⟨ab, rs', hab, hrs', hrun⟩ := hall i (by
+        rw [List.length_zip, hlenM, hlenT, Nat.min_self]
+        have := (List.getElem?_eq_some_iff.mp hcv).1
+        omega)
+      obtain ⟨hab₁, hab₂⟩ := List.getElem?_zip_eq_some.mp hab
+      obtain rfl : ab.1 = cv := Option.some.inj (hab₁.symm.trans hcv)
+      obtain rfl : ab.2 = a := Option.some.inj (hab₂.symm.trans ha)
+      obtain rfl : rs = rs' := Option.some.inj (hrs.symm.trans hrs')
+      dsimp only at hrl
+      obtain ⟨cvj, cnP, cnF, hf⟩ := ConLeche.restoreRules_ctorStored hrun rl hrl
+      exact ⟨cvj, cnP, cnF, ConLeche.provisionNestedRecs_find?_ctorInfo _ hf⟩
+    · obtain ⟨hcv, hzip⟩ := List.getElem?_zip_eq_some.mp hi
+      obtain ⟨ha, hrs⟩ := List.getElem?_zip_eq_some.mp hzip
+      obtain ⟨-, hall⟩ := ConLeche.mapM_except_inv hrulesN
+      obtain ⟨ab, rs', hab, hrs', hrun⟩ := hall i (by
+        rw [List.length_zip, hlenN, hlenD, Nat.min_self]
+        have := (List.getElem?_eq_some_iff.mp hcv).1
+        omega)
+      obtain ⟨hab₁, hab₂⟩ := List.getElem?_zip_eq_some.mp hab
+      obtain rfl : ab.1 = cv := Option.some.inj (hab₁.symm.trans hcv)
+      obtain rfl : ab.2 = a := Option.some.inj (hab₂.symm.trans ha)
+      obtain rfl : rs = rs' := Option.some.inj (hrs.symm.trans hrs')
+      dsimp only at hrl
+      obtain ⟨cvj, cnP, cnF, hf⟩ := ConLeche.restoreRules_ctorStored hrun rl hrl
+      exact ⟨cvj, cnP, cnF, ConLeche.provisionNestedRecs_find?_ctorInfo _ hf⟩
   -- ## the clause
   refine ⟨fun i x hx => restoredRecTy_reads hμ mp₂ (hentry i x hx).1, ?_⟩
-  intro Aof taOf hleaves hctorStored hrepP hrepS hlaws
+  intro Aof taOf hleaves hrepP hrepS hlaws
   have hfacts : ∀ (i : Nat) (x : ConstantVal × Nat × Nat),
       (nestedProvs cvRms cvRns stored p.k)[i]? = some x →
       (ConLeche.consNestedCtors ctorsR.flatten
@@ -656,9 +690,9 @@ set_option maxHeartbeats 1600000 in
 `DeclNestedRun`** (M-D′ D4, consumer-first): the run's restore stages
 exposed (the recursor types, the rules, the tables on the store — what
 D6 consumes), the constructors' model `mp₂` as D3 builds it
-(`nestedCtorsModel_of_run`'s route, under its three premises kept
+(`nestedCtorsModel_of_run`'s route, under its two premises kept
 verbatim — `ContainersRep`, `BridgeSyntax` at every assignment's pin
-data, `hvia`), and at it D4's clause `NestedRecsModelAt`: the restored
+data; `hvia` is discharged since task #313), and at it D4's clause `NestedRecsModelAt`: the restored
 recursor types read graded, and the model of `env₃` under the
 remaining premises named there (DESIGN §M.57). -/
 theorem nestedRecsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -714,20 +748,6 @@ theorem nestedRecsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true)
             (∀ (ψ : Name → Nat) (cd : Nat → CopyData V),
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) →
               BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)) →
-            -- NAMED (D3, unchanged): the transports are graded at every
-            -- restored constructor's leaf frame
-            (∀ (ψ : Name → Nat) (cd : Nat → CopyData V),
-              (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) →
-              ∀ (J : Nat) (cA : ConstantVal × Nat), d.ctorsA[J]? = some cA → d.mems J < p.k →
-              ∀ (ρ : Nat → V) (ps fs : List V), ps.length = d.nP → fs.length = cA.2 →
-              SpineFit ρ ((d.dsRestored mpAux.base2 ψ p.k J
-                (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
-                (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA)).map (·.2.2)) (ps ++ fs) →
-              ∀ i, i < cA.2 → d.copyPos p.k J i →
-                WellDenotedV V (consList (ps ++ fs) ρ)
-                  (viaEntryAV (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order
-                    (fun _ => .sort 0) (d.tgtsR J i - p.k)) cA.2 0 i 0
-                    ((d.tssR J ψ).getD i []) ((d.eissR J ψ).getD i []))) →
             ∃ (mp₁ : EnvModelM V μ (ConLeche.consNestedFormers (stored.take p.k) env))
               (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
                 (ConLeche.consNestedFormers (stored.take p.k) env))),
@@ -746,7 +766,7 @@ theorem nestedRecsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     hrulesM, hrulesN, htables, -, -, -⟩ := hrest
   refine ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, order, hb, hord, hlenSt, hcnt,
     hctors, hrm, hrn, hrulesM, hrulesN, htables, mpAux, d, hreps, hchk, hag, params, pbs, ?_⟩
-  intro hcr hsyn hvia
+  intro hcr hsyn
   have hkp : p.k ≤ b.k := by rw [ConLeche.auxBlock_k hb, hlenSt]; omega
   obtain ⟨mp₁, hE₁, hagReal, hagPre, hag₁, hF, hrealStored⟩ := nestedFormersModel mp hE hcore hstoredA
     (fun t ht => (hfreshRec t ht).1) hK20 hkp mpAux d hreps hag
@@ -761,7 +781,7 @@ theorem nestedRecsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     obtain ⟨cd, hcd⟩ := hpins hcr ψ
     exact nestedCtorLeaf_of_run hμ mp hb helim hord hlenSt hfreshC hcontC hparamsLen hcore hstoredA
       hpc hK20 hK23 hK17 hpo hmo hhead (fun t ht => (hfreshRec t ht).1) hpinsNP hannF hannC hctors
-      hreps hchk hcd (hsyn ψ cd hcd) (hvia ψ cd hcd) mp₁ hF hag₁ hrealStored
+      hreps hchk hcd (hsyn ψ cd hcd) mp₁ hF hag₁ hrealStored
   -- ## the restored constructors' front door: the level parameters are the block's
   have hpre : ∀ c ∈ ctorsR.flatten,
       ConLeche.checkConstantValPre (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
