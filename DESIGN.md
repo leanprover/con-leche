@@ -72473,6 +72473,104 @@ demotable, overview-links OK, **nested-shadow 26/26**, e2e **216/216**,
 no-local-paths OK; the Mathlib nested cone exit 0, **4 923 accepted,
 41/41 byte-identical**.
 
+#### K.25 (PROBE ONLY) THE UNIT TABLE AND THE UNIT ORDER, MEASURED (2026-09-15, the model lane's DESIGN §M.58 (b)/(f) E1)
+
+The model lane asked for a unit table — per pin, the root container's
+recursor family at the root's parameters — and a unit order replacing
+`nestedTopoOrder`'s pin order, and asked for it to be MEASURED before
+anything was built.  It was: `NestedUnit`, `familyPins`, the maximal
+families, U1, U2 and the RHS of U4, and the unit order
+(`unitRefB` without the sub-term conjunct, `topoGo` over unit indices)
+were implemented as a `dbg_trace` probe on the cached route and run over
+the 26 shadow fixtures (30 nested blocks) and the 41-block Mathlib cone.
+**Nothing was landed**; the probe is kept out of the tree, in
+`_tmp/nested-279k/probe-k25.lean` (the branch is at the K.24 state).
+
+**The table.**
+
+| corpus | blocks | U1 partition | U2 family = recursor family at the parameters | unit order |
+| --- | --- | --- | --- | --- |
+| 26 shadow fixtures | 30 | 30/30 | 30/30 | 30/30 acyclic, 0 cycles |
+| Mathlib nested cone | 41 | 41/41 | 41/41 | 41/41 acyclic, 0 cycles |
+
+No block has a family that is not a partition and no block fails U2.
+The §M.55 predictions are reproduced exactly: `P4 units=[(0, [0, 1, 2])]`;
+`Lean.Widget.MsgEmbed units=[(0, [0, 2, 3]), (1, [1])] order=[0, 1]` (the
+same shape at `Lean.Widget.HighlightedMsgEmbed` and the two
+`Lean.Server.Test.Runner.Client` twins); `Lean.Elab.InfoTree units=[(0,
+[0]), (1, [1, 3, 5]), (2, [2]), (4, [4])] order=[3, 2, 1, 0]`.  One shape
+the request did not predict: the fixture `P5` has `units=[(0, [0, 1])]`,
+a unit whose non-singleton part is the MINT GROUP of a mutual container,
+not a set of mimic motives.  All 66 other units are singletons.
+
+**Two corrections to the request, both found by running it.**
+
+1. *The root rule as written does not work.*  The literal `roots := { r |
+   r ∉ family(r') for every r' ≠ r }` leaves a mutual container group with
+   NO root (`P5`: the two pins share one mint group, so each is in the
+   other's family), and deduplicating by head instead invents roots at
+   `P4`.  The rule that works — a root is a pin in no family other than
+   its own family CLASS, one root per class, the first index of the class:
+
+       roots := (List.range n).filter fun r =>
+         ((List.range n).all fun r' =>
+           (famOf r' == famOf r) || !((famOf r').contains r)) &&
+           ((List.range r).all fun r' => !((famOf r') == (famOf r)))
+
+2. *`familyPins` is missing a level instantiation.*  The container
+   recursor's stored type must have its LEVEL parameters instantiated at
+   the pin's levels before the parameters are instantiated:
+
+       let lvls := match q.pin.getAppFn with | .const _ us => us | _ => []
+       let recTyL := Expr.instantiateLevelParams J₀.lps lvls cvR.type
+       let recTyI ← Expr.instPis recTyL Ds
+
+   Without it the family pins' heads differ from the block's pins by
+   levels alone, U2's structural equality fails, the five §M.55 blocks
+   degenerate to all-singleton units and the unit order is CYCLIC — the
+   spec as written would have DECLINED `Lean.Elab.InfoTree` and its
+   fellows, on a stream official accepts.  (The comparison is against
+   `restoreNested R q.pin`: the family pins are in the container's
+   vocabulary, the block's pins in the post-replacement one.)
+
+**The U3/U4 gap.**  U3 (the mimic motives' index telescopes) was NOT
+measured; it is near-vacuous on this corpus (every mimic motive here is
+index-free) but needs its own reader.  Of U4 only the RIGHT side was
+read: per unit member, constructor and field, the family position the
+stored field's head names.  Within a unit the positions are exactly the
+expected recursive structure (`P4`: `[[(0, [[], [1]]), (1, [[2]]), (2,
+[[], [0, 2]])]]`; `MsgEmbed`: `[[(0, [[], [1], [0]]), (1, [[2]]), (2,
+[[], [0, 2]])], [(0, [[], []])]]`), which is §M.58 (d)'s `kindR` shape.
+But fields whose head is the aux of a pin in ANOTHER unit are common —
+**5 of 30 fixture blocks and 35 of 41 cone blocks** have at least one:
+`Array → List` (32 cone blocks, `Array.mk`'s `toList`), `List → Prod`,
+`Option → Array`, `Std.TreeMap.Raw → Std.DTreeMap.Raw`,
+`Lean.PersistentArray → Lean.PersistentArrayNode`, `List → List`,
+`Prod → Prod`, and a dozen more.  Each of these is a container-PARAMETER
+position, so U4's `⟺` demands that the root container's minor have NO
+inductive hypothesis there — which is the LEFT side, and the left side
+was not read in this probe.  **U4 is confirmed in the `⇐` direction
+only.**  Nothing measured falsifies §M.58's grouping; nothing measured
+establishes U4 either.
+
+**Sizing for the full K.25 (kernel lane): 2–3 sessions**, not the 1–2 the
+model lane estimated — ½ for the units, `familyPins`, U1 and U2 (the
+probe code, productionised); ½–1 for U4's left side, a new reader over
+`J₀.rec`'s minors (or `recRulePlain`/`nestedFireShape`) that must get the
+cross-unit "no hypothesis" side right, with U3's binder reader riding
+along; ½ for the unit order, its `.notImplemented` cycle arm and the
+wiring into BOTH routes with a negative control per conjunct (K.23's
+lesson); ½–1 for the run relation, `checkNested_datF`, the `…F_eq` twin
+and the four `TopoOrder`-field theorems.  Both spec bugs above were
+caught only because the probe ran on the corpus, so the same
+probe-before-land order is worth keeping for the U4 reader.
+
+**Status: HELD.**  The model lane pivoted (session 36) to a set-equality
+identification via a functoriality fact and Bekić over the whole
+auxiliary block, which needs no unit table and no unit order; §M.58's
+units are the fallback.  The measurement above stands either way — it is
+what says the fallback is buildable, and what it would cost.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
