@@ -209,6 +209,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- group-mate's copy comes from a container field that is a member
     -- occurrence at the parameters
     ConLeche.nestedGroupExclusionOk env envAux p st = true ∧
+    -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
+    -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
+    -- `nestedCopyKinds b stored` is that classification — the kinds the
+    -- direct route's monotonicity reads at the copies
+    ConLeche.nestedCopyKindsOk b stored = true ∧
     -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
     -- block, the STORED field is the weak head normal form of the
     -- PROCESSED one wherever the stage's normalisation changed it
@@ -530,7 +535,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    order, -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, hctors, hrm, hrn, -, -, htbl,
+    order, -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

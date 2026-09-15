@@ -81352,6 +81352,185 @@ demotable, overview-links OK, **nested-shadow 26/26**, e2e **216/216**,
 no-local-paths OK; the Mathlib nested cone exit 0, **4 923 accepted,
 41/41 byte-identical**.
 
+#### K.25 (PROBE ONLY) THE UNIT TABLE AND THE UNIT ORDER, MEASURED (2026-09-15, the model lane's DESIGN §M.58 (b)/(f) E1)
+
+The model lane asked for a unit table — per pin, the root container's
+recursor family at the root's parameters — and a unit order replacing
+`nestedTopoOrder`'s pin order, and asked for it to be MEASURED before
+anything was built.  It was: `NestedUnit`, `familyPins`, the maximal
+families, U1, U2 and the RHS of U4, and the unit order
+(`unitRefB` without the sub-term conjunct, `topoGo` over unit indices)
+were implemented as a `dbg_trace` probe on the cached route and run over
+the 26 shadow fixtures (30 nested blocks) and the 41-block Mathlib cone.
+**Nothing was landed**; the probe is kept out of the tree, in
+`_tmp/nested-279k/probe-k25.lean` (the branch is at the K.24 state).
+
+**The table.**
+
+| corpus | blocks | U1 partition | U2 family = recursor family at the parameters | unit order |
+| --- | --- | --- | --- | --- |
+| 26 shadow fixtures | 30 | 30/30 | 30/30 | 30/30 acyclic, 0 cycles |
+| Mathlib nested cone | 41 | 41/41 | 41/41 | 41/41 acyclic, 0 cycles |
+
+No block has a family that is not a partition and no block fails U2.
+The §M.55 predictions are reproduced exactly: `P4 units=[(0, [0, 1, 2])]`;
+`Lean.Widget.MsgEmbed units=[(0, [0, 2, 3]), (1, [1])] order=[0, 1]` (the
+same shape at `Lean.Widget.HighlightedMsgEmbed` and the two
+`Lean.Server.Test.Runner.Client` twins); `Lean.Elab.InfoTree units=[(0,
+[0]), (1, [1, 3, 5]), (2, [2]), (4, [4])] order=[3, 2, 1, 0]`.  One shape
+the request did not predict: the fixture `P5` has `units=[(0, [0, 1])]`,
+a unit whose non-singleton part is the MINT GROUP of a mutual container,
+not a set of mimic motives.  All 66 other units are singletons.
+
+**Two corrections to the request, both found by running it.**
+
+1. *The root rule as written does not work.*  The literal `roots := { r |
+   r ∉ family(r') for every r' ≠ r }` leaves a mutual container group with
+   NO root (`P5`: the two pins share one mint group, so each is in the
+   other's family), and deduplicating by head instead invents roots at
+   `P4`.  The rule that works — a root is a pin in no family other than
+   its own family CLASS, one root per class, the first index of the class:
+
+       roots := (List.range n).filter fun r =>
+         ((List.range n).all fun r' =>
+           (famOf r' == famOf r) || !((famOf r').contains r)) &&
+           ((List.range r).all fun r' => !((famOf r') == (famOf r)))
+
+2. *`familyPins` is missing a level instantiation.*  The container
+   recursor's stored type must have its LEVEL parameters instantiated at
+   the pin's levels before the parameters are instantiated:
+
+       let lvls := match q.pin.getAppFn with | .const _ us => us | _ => []
+       let recTyL := Expr.instantiateLevelParams J₀.lps lvls cvR.type
+       let recTyI ← Expr.instPis recTyL Ds
+
+   Without it the family pins' heads differ from the block's pins by
+   levels alone, U2's structural equality fails, the five §M.55 blocks
+   degenerate to all-singleton units and the unit order is CYCLIC — the
+   spec as written would have DECLINED `Lean.Elab.InfoTree` and its
+   fellows, on a stream official accepts.  (The comparison is against
+   `restoreNested R q.pin`: the family pins are in the container's
+   vocabulary, the block's pins in the post-replacement one.)
+
+**The U3/U4 gap.**  U3 (the mimic motives' index telescopes) was NOT
+measured; it is near-vacuous on this corpus (every mimic motive here is
+index-free) but needs its own reader.  Of U4 only the RIGHT side was
+read: per unit member, constructor and field, the family position the
+stored field's head names.  Within a unit the positions are exactly the
+expected recursive structure (`P4`: `[[(0, [[], [1]]), (1, [[2]]), (2,
+[[], [0, 2]])]]`; `MsgEmbed`: `[[(0, [[], [1], [0]]), (1, [[2]]), (2,
+[[], [0, 2]])], [(0, [[], []])]]`), which is §M.58 (d)'s `kindR` shape.
+But fields whose head is the aux of a pin in ANOTHER unit are common —
+**5 of 30 fixture blocks and 35 of 41 cone blocks** have at least one:
+`Array → List` (32 cone blocks, `Array.mk`'s `toList`), `List → Prod`,
+`Option → Array`, `Std.TreeMap.Raw → Std.DTreeMap.Raw`,
+`Lean.PersistentArray → Lean.PersistentArrayNode`, `List → List`,
+`Prod → Prod`, and a dozen more.  Each of these is a container-PARAMETER
+position, so U4's `⟺` demands that the root container's minor have NO
+inductive hypothesis there — which is the LEFT side, and the left side
+was not read in this probe.  **U4 is confirmed in the `⇐` direction
+only.**  Nothing measured falsifies §M.58's grouping; nothing measured
+establishes U4 either.
+
+**Sizing for the full K.25 (kernel lane): 2–3 sessions**, not the 1–2 the
+model lane estimated — ½ for the units, `familyPins`, U1 and U2 (the
+probe code, productionised); ½–1 for U4's left side, a new reader over
+`J₀.rec`'s minors (or `recRulePlain`/`nestedFireShape`) that must get the
+cross-unit "no hypothesis" side right, with U3's binder reader riding
+along; ½ for the unit order, its `.notImplemented` cycle arm and the
+wiring into BOTH routes with a negative control per conjunct (K.23's
+lesson); ½–1 for the run relation, `checkNested_datF`, the `…F_eq` twin
+and the four `TopoOrder`-field theorems.  Both spec bugs above were
+caught only because the probe ran on the corpus, so the same
+probe-before-land order is worth keeping for the U4 reader.
+
+**Status: HELD.**  The model lane pivoted (session 36) to a set-equality
+identification via a functoriality fact and Bekić over the whole
+auxiliary block, which needs no unit table and no unit order; §M.58's
+units are the fallback.  The measurement above stands either way — it is
+what says the fallback is buildable, and what it would cost.
+
+#### K.26 THE AUXILIARY BLOCK'S FIELD KINDS, RECORDED (2026-09-15, the direct nested lane's DESIGN §DR.1 (b), task #314)
+
+The direct route's step 2 needs (P): the composed functor
+`X ↦ ⟦J⟧(Ds[X])` is monotone in the block's frame.  The direct lane
+asked for it two ways — **variant B**, a per-pin syntactic positivity
+walk over the CONTAINER's stored constructors (`nestedParamPosOk`,
+declining `.notImplemented` at a non-positive parameter position), and
+**variant C**, RECORD the classification the auxiliary install already
+made.  The maintainer ruled **C**, and the reason is the one this lane
+has been applying all along: **variant B can decline a stream official
+accepts.**  Official's `check_positivity` runs on the COPY's field, that
+is on the container's field with the components SUBSTITUTED, where a
+field that inspects a parameter reduces; B's walk runs with the
+parameter FREE and is whnf-stuck on it, so a block-mentioning component
+at a container parameter that some field inspects declines here and
+installs there.  The lane's shape, corpus-vacuous or not, is out: a
+check that can fire on a correct stream is forbidden.
+
+**What is recorded.**  `checkMutualCore` classifies every field of every
+constructor of the auxiliary block by `mutualCtorKinds` and installs the
+block only if no field is `.negative` or `.unsupported`
+(`classifyMutualKinds`).  That classification is the elimination's whole
+point at a copy: a copy field is `.ordinary` — it mentions no member of
+the auxiliary block — or `.recursive`/`.reflexive` INTO a named member,
+which is either a real member of the block (a container-parameter
+position, `head : α` at `α := Tree`) or another copy one container level
+down (`toList : List α` in `Array.mk`).  The install does not return it,
+so it is recomputed on the constructors the install STORED —
+`auxStoredAll`'s records, read back out of the scratch environment —
+with the same function on the same data:
+
+    nestedCopyKinds (b : MutualBlock) (stored : List AuxStored) :
+        Option (List (List (List (RecFieldKind × Nat))))
+
+per member in block order (the block's own members, then one entry per
+copy at `drop p.k`), inside a member one entry per constructor and one
+kind per field.  The conjunct is the Bool `nestedCopyKindsOk b stored =
+true`: the kinds exist, and every one of them is `.ordinary`,
+`.recursive` or `.reflexive`.  The model reads the VALUE as
+`nestedCopyKinds b stored`, a function of witnesses the run relation
+already binds, so no new existential was needed — the same shape K.21
+and K.23 used.
+
+**It cannot fire, and it cannot decline.**  `nestedCopyKinds` answers
+`none` only if a stored constructor's type fails to strip its own
+`nP + nF` binders — the telescope `checkMutualCtors` opened to check it;
+and a `.negative` or `.unsupported` kind is exactly what
+`classifyMutualKinds` threw on, at this block, on these very types.  A
+failure is `.internal`.  Unlike variant B it adds no verdict at all: it
+re-reads a decision already made, so the accept set is unchanged by
+construction, not by measurement.
+
+**Both routes** (the K.23 lesson): the line is in pure `checkNested` and
+in the cached `checkNestedS`.  No F twin is needed — `nestedCopyKinds`
+and `nestedCopyKindsOk` take no lookup and no `ops`, so the two routes
+share the very same functions, the way `nestedGroupExclusionOk` does;
+`checkNested_datF` goes through unchanged (a pure `unless` is
+`FueledM.atF_ite`).
+
+**What the model gets, and what it costs.**  Through K.12 (the copy's
+stored field is the container's field at the pin) and K.17 (its whnf),
+the kinds are a statement about the CONTAINER's fields at the
+components, which is where (P) is needed: `.ordinary` is constant in the
+frame, `.recursive`/`.reflexive` read the target member, and a target
+that is another copy is the same statement one container level down.
+The direct lane prices consuming it at the (N1a)-shaped congruence
+(2–3 sessions) against variant B's 1-session reflection; the two
+sessions are the price of not declining a stream official accepts.
+
+**Gates** (on `inductives` = `4140e113`): `lake build` and `lake test`
+exit 0, warning-free; `tests/arena.sh` **EXIT 0** — shake 509/509 none
+demotable, overview-links 83/83, no-local-paths OK, **nested-shadow
+26/26**, e2e 216/216, arena 90/92; the Mathlib nested cone exit 0,
+**4 923 accepted**, its 41 shadow lines byte-identical to the K.10
+baseline.  **Negative control**: with the kinds' predicate narrowed to
+`.ordinary` alone, 23 of the 26 fixtures turn `error` with `nested: a
+stored field of the auxiliary block is not classified ordinary,
+recursive or reflexive` (the other three decline or reject before the
+route reaches it) — so the conjunct is reached and it reads the copies'
+real kinds, not an empty list.
+
 #### K.4 — the copies' stored types are the container's at the pins: annotation commutes with pin instantiation (2026-09-12, `agent/pwcomm-298`, task #298, DESIGN §M.21 request 4)
 
 **The question, and the maintainer's ruling.**  The elimination MINTS a
