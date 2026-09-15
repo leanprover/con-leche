@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRecKit
 public import ConLeche.Model.Inductives.BlockRec
 public import ConLeche.Model.Inductives.MutualRuleRead
+import ConLeche.Model.Inductives.BlockRecFrames
 public section
 
 /-!

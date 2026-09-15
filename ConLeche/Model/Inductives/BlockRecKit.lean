@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecCand
-public import ConLeche.Model.Inductives.BlockRecFrames
+import ConLeche.Model.Inductives.BlockRecFrames
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.FixRecFrames
 public section

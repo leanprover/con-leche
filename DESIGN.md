@@ -72968,3 +72968,253 @@ census) stands as the next risk.
    subagent's own build passed.  Rule for the record: while a subagent
    owns Model-tier files, the parent compiles only leaf files whose
    imports are already built, and never `lake build`s.
+
+#### U.5 — M3 session 2: `hcand` and `hceq` discharged at the datum (session U-4, 2026-09-15)
+
+M3's second session: the union recursor's remaining two obligations
+at the datum (the bound, the step), the inhabitation induction at a
+`Prop`-valued block, and `blockRecs`'s premises `hcand` (the
+candidate tuple typed at the `k`-motive readings) and `hceq` (the
+rules' equations at the candidate) DISCHARGED at the concrete readings
+M4 assembles.  No checker code changed; no `sorry`, no axioms; the
+datum `BlockRep` unchanged (one clause NOT added — (b) below).  Four
+new modules, 2 705 lines: `BlockRecFrames.lean` (467),
+`BlockRecKit.lean` (1 204), `BlockRecTyped.lean` (414),
+`BlockRecEq.lean` (620); two definitional changes in
+`BlockRecCand.lean` ((c) and (d)).
+
+##### (a) WHAT IS PROVED, VERBATIM
+
+`hcand` at the concrete readings (`ConLeche/Model/Inductives/BlockRecTyped.lean`):
+
+```lean
+theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
+    (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts) (ρ : Nat → V) {mm : Nat}
+    (hmm : mm < d.k) :
+    d.blockCand ψ (elimL.eval ψ) (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm)
+        mm ρ
+      ∈ˢ interp V ρ (mkPisAV (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm)
+          (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm))
+```
+
+`hceq` at the concrete readings, per rule `(c, j)` (`ConLeche/Model/Inductives/BlockRecEq.lean`):
+
+```lean
+theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
+    (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts) (ρ : Nat → V) {c : Nat}
+    (hc : c < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) :
+    (pt : V) ∈ˢ interp V
+        (consList ((List.range d.k).map fun mm =>
+          d.blockCand ψ (elimL.eval ψ)
+            (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm) mm ρ) ρ)
+        (specEqAV (mutualRuleDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts (d.dsF c j ψ))
+          (specLhsAV d.k d.nP d.nCtors cA.2 c (d.esF c j ψ) (m.acval cA.1.name ψ))
+          (specRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) d.k (d.tgts c j) d.nP d.nCtors cA.2
+            (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)))
+```
+
+The shapes are `blockRecs`'s `hcand`/`hceq` at `rdsM mm ψ :=
+mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm`,
+`concM mm := mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm`, `ℓ ψ :=
+elimL.eval ψ`, `eqs ψ :=` the `specEqAV` per rule — M4 assembles the
+`rdsM`/`concM` from `denoteMeta_mutualRecTy` (its `Ls.length`,
+`cds.length`, `nIdxs.getD mm 0` rewritten by `BlockReadings`) and the
+per-rule list from the rules' shapes.  Three premises:
+
+* **`BlockReps m d`** (`∀ c < k, ∃ cvT cvR mI rP rules, BlockRep m
+  (memberName c) … d c`): the block at EVERY member.  The recursor of
+  one member ranges over all members' motives and its minors' fields
+  target all members, so one `BlockRep` (a per-member clause set) is
+  not enough; M4's `declBlock` installs all `k` at once.  Not a datum
+  change.
+* **`FormersTyped m d ψ`** (`∀ t < k, ∀ ρ, interp ρ (acval (memberName t)
+  ψ) ∈ interp ρ (mkPisAV (ppsM t ψ) (.sort (w ψ)))`): the members'
+  values typed at their formers' readings — the run's
+  `EnvModelM.acval_memType` at each member (with `former.read`).  A
+  fact of the MODEL'S INVARIANT, not of the datum; see (b) for why it
+  is needed and why nothing in `BlockRep` replaces it.
+* **`hwℓ : w ψ = 0 → elimL.eval ψ = 0`**: the regime fact of §U.4 (a),
+  M4's (`b.large = f₀.s.isNeverZero`).
+* **`BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts`**: the
+  readings are the datum's — `Ls.length = k`, the leaves
+  `Ls.getD t = acval (memberName t)`, `nIdxs.getD t = nIdxAt t`, the
+  parameter data's domains `= d.params ψ`, `ipss.getD t = (ppsM t
+  ψ).drop nP`, `cds.length = nCtors`, `cds[minorIdx c j]? = some
+  (name, nF, dsF, esF, recIdxOf ksF, eissF, tssF)`, `mots (minorIdx c
+  j) = c`, `tgts (minorIdx c j) = d.tgts c j`, and `DomsBelow 0` of
+  every member's `mutualRecDataAV` (`MutualRecData.below`).  All are
+  M4's assembly from `FormerReadsM`/`MutualCtorReadsM` and the datum's
+  construction (the kernel's flat constructor list is in block order,
+  `minorIdx`).
+
+##### (b) THE FITS FINDING — what the kit needs beyond the datum, and where it comes from
+
+Stated before building (`_tmp/uniform-315/u4-plan.md`): the step's
+obligation needs a recursive field's INDEX READINGS to fit the target
+member's index telescope, and the constructor's RESULT index readings
+to fit its own — at an index sort `Prop` (`u = 0`) the tuple is `pt`
+and `ChainFit` says nothing about them, so neither `fibre` nor `leaf`
+determines them.  The plan named the recursor type's `WellDenoted`
+(`hT`'s second half) as the source; that is CIRCULAR: reaching an ih
+domain's `WellDenoted` needs the fields to fit their real domains, a
+recursive field's real domain is the target's former at its index
+readings, and that fit is what was wanted.  The non-circular source is
+the native route's own (`FixChainFacts.lean`): the CONSTRUCTOR type's
+`WellDenoted` (`CtorDataI.okTy`, in `BlockRep` via `ctors`) at the field
+prefix, against the FORMER'S VALUE typed at its reading — the run's
+`EnvModelM.acval_memType`.  Hence `FormersTyped`, and
+`spineFit_of_wellDenoted_mkAppN_pis` (an application chain graded
+against a graph-regime Π-tower has its arguments fitting the tower's
+domains: each node's package puts the argument in the function's
+graph's domain, and a graph's domain is rigid).  With it
+(`BlockRecKit.lean`): `rec_eis_fit`, `refl_eis_fit`, `res_es_fit`; the
+recursive slots ARE the fields' real domains (`real_dom_eq`: finitary
+by `leaf_app'`, reflexive by `interp_mkPisAV_piTele` at the telescope's
+bits), `slotAt_mono` (a slot at a tuple below the carrier is within the
+slot at the carrier), `spineFit_of_fitsFrom` (a `ChainFit` at any
+tuple below the carrier is a fit of the real domains) and
+`fitsFrom_of_spineFit` (the converse at the carrier), and **`inj_mem`**
+(the fibre's converse: a constructor's injection at a fitting field
+spine is in the carrier's fibre at the tuple of its result readings,
+the index equations by `projS_mkTower` / `projS_pt` with the fit at
+`u = 0`).  The recursor type's `WellDenoted` is NOT used anywhere in
+M3; `hT` stays M4's for `blockRecs` alone.  `BlockRep` gains no clause.
+
+##### (c) THE REGIME FINDING — the union recursor is a `Type`-valued block's, the induction a `Prop`-valued one's
+
+`PredsFrom` (`BlockRep.kitPred_from`, §U.4 (e)) holds at `w ≠ 0` only:
+at a `Prop`-valued block every injection is the point (`mkZero`), the
+decode of `tagged c i pt` is ANY constructor at ANY spine of the right
+length, and the predecessor relation over-approximates — no
+predecessor map can satisfy `PredsFrom` there.  So the kit is the
+`w ≠ 0` tool (`kitB_mem` at every `ℓ`; `kitSt_mem` at `w ≠ 0` and every
+`ℓ`, the decode the decomposition by `mkInj`, the minor folded along
+the fields by `mkPisAV_fold_mem` and along the inductive hypotheses by
+`ihPisAVM_fold_mem` — `BlockRecFrames.lean`'s `k`-motive twins of
+`FixRecFrames.lean`: `interp_ihDomAVM`, `interp_minorConcAVM`,
+`ihPisAVM_fold_mem` with each ih value in its domain by `kitIhs_mem`
+(the graph's values are bounded by the motives, `unionGraph_mem_B`);
+`blockRecAt_mem_B`, `blockRecAt_eq`), and at `w = 0` — hence `ℓ = 0` —
+the argument is the SIMULTANEOUS INDUCTION `inhab_all`
+(`lfpTuple_induction` with the predicate "the motive at the tuple's
+spine and the value is inhabited"; the step decomposes at the
+restricted tuple, the recursive fields' motives are inhabited by the
+induction hypothesis, the minor at the fields and the points
+inhabits its conclusion — the same `minor_fold_mem`, `vs := replicate
+pt`).  `hcand` at `w = 0`: the candidate is the point (`lamR_zero`) and
+the recursor type is inhabited at every fitting spine
+(`pt_mem_mkPisAV_zero_of`); `hceq` at `ℓ = 0`: both sides are the
+point (`minor_eq_pt`).  Definitional change in `BlockRecCand.lean`: the
+step is spelled through `kitStAt` (the decoded class and value as
+arguments) so the projections of `tagged c i x` rewrite in
+non-dependent positions (`kitSt_tagged`, an existential over the
+chosen decode — a `generalize` on the nested `Classical.choose` is not
+type-correct).
+
+##### (d) THE EQUATIONS — read positionally at the rule's frame, moved by closedness
+
+`blockCand_eq`'s proof (`BlockRecEq.lean`): `pt_mem_specEqAV_iff` asks
+the ι rule at every fitting spine of the rule's binder data AT THE
+TUPLE FRAME `consList cands ρ`; the candidates live at the BASE frame
+`ρ`, so the spine's fit is moved (`spineFit_transport₀`, the prefix's
+`BlockReadings.below`; the fields' `CtorDataI.below`) and the index
+readings inside the sides moved likewise (`interp_closed_bottom` at
+`belowE`/`eissBelow`/`tssBelow`).  The left-hand side reads
+(`interp_specLhsAV_at`, `map_recPrefixBvarsMK_interp`) to the
+candidate at `p⃗ M⃗ m⃗ e⃗(f⃗) (inj c j f⃗)` (the constructor by `ctor`), which
+`lamTower_fold` folds to the leaf at that spine — the spine fitting
+member `c`'s recursor type by `spineFit_recData_of` (the converse of
+`spineFit_recData_inv`, sharing the prefix fit with the rule's) — the
+union recursor at the frame (`blockLeafV_at`), whose recursion
+equation is the step at the decoded value.  The right-hand side reads
+to the minor at the fields and the ih applications, each
+(`interp_ihAppAVK_at`: `interp_mkLamsAV_bits`, `lamTower_rebit`,
+`lamTower_ihTeleAtGo` — `piTele_ihTeleAtGo`'s λ twin) a λ-tower over
+the field's telescope at the field's own frame of the target's
+candidate at `p⃗ M⃗ m⃗ e⃗_i (f b⃗)`, folded to the target's leaf, which is
+the graph's value at the predecessor (`app_graph` at `kitPred_mem`) —
+`kitIhs`'s leaf.  Definitional change in `BlockRecCand.lean`:
+`blockLeafV` reads the motives and minors with an explicit bound
+(`if c < k … else pt`, `if J < nCtors … else pt`) so the leaf's data
+functions are the SAME functions at every frame carrying the same
+motives and minors (the equation compares leaves read off two
+different spines — the rule's and the target's — whose junk beyond the
+block would otherwise differ).
+
+##### (e) REMAINING PREMISES, WITH THEIR CONSUMERS
+
+| fact | consumer | status |
+| --- | --- | --- |
+| `hT`: the `k` recursor types' readings formed at a sort `s ψ` and graded | `blockRecs` | M4: `MutualRecData` (`read`/`okTy`) + the kernel's `ensureSort` through the claims' sort row |
+| `heq`: the rules' equations graded at every fitting tuple | `blockRecs` | M3 session 3: `∈ univZero` is `specEqAV_univZero`; `WellDenoted` = the binders' gradings (the prefix from `hT`'s `WellDenoted` under closedness, the fields from `ctor_okB`) and the two sides' application chains graded against the tuple components' Π-towers at the spines this session built (`spineFit_recData_of`) — a `WellDenoted_mkAppN_of_fit` kit lemma and the ih applications' λ-towers (`WellDenoted_lam` with the fibre `B` the ih domain's) |
+| `hcand` | `blockRecs` | DONE (`blockCand_mem`) |
+| `hceq` | `blockRecs` | DONE (`blockCand_eq`, per rule; M4 maps it over the rules' list) |
+| `w = 0 → ℓ = 0` at a mutual block | `blockCand_mem`, `blockCand_eq` | M4: `b.large = f₀.s.isNeverZero` (`DeclMutualRun` stage 2) |
+| `FormersTyped m d ψ` | `rec_eis_fit`, `refl_eis_fit`, `res_es_fit` → `kitSt_mem`, `inhab_all` | M4: `EnvModelM.acval_memType` at each member's stored constant + `former.read` |
+| `BlockReps m d` | every kit lemma | M4: `declBlock` installs all `k` members |
+| `BlockReadings …` | `blockCand_mem`, `blockCand_eq` | M4: from `FormerReadsM`, `MutualCtorReadsM`, the datum's construction, `MutualRecData.below` |
+
+Not named beyond these, by the rule.
+
+##### (f) GATES, RE-SIZING
+
+Gates at HEAD: `lake build` 589 jobs warning-free, `lake test` green,
+layering 0/0 edges, trust surface 13/13 allowlisted, overview-links
+103, quote-gate 2, no-local-paths OK, proofdeps 4361 rows / 0 doors,
+shake 464 removals all allowlisted (two new lines, both compensated: `BlockRecFrames`'s `MutualRecRead` moves down to `FixRecReadDefs`, `BlockRecTyped`'s `BlockRec` to `SigChainI` + `BlockRecEq`; `BlockRecCand`'s two `Semantics.Tower` imports were clean and are gone) / `pub-imports: none demotable` (seven public edges demoted — three of them `MutualRecData`'s, two the candidate's — with the private imports `BlockRecTyped`/`BlockRecEq` then need).
+
+M3 was 3 sessions (1 done at U-3, 2 left).  This session did the two
+kit obligations, the `Prop`-regime induction, `hcand` and `hceq` —
+session 2's AND session 3's `hceq`.  What remains of M3: `heq` alone
+(the grading of the equations), one session at most, likely a half.
+**M3: 1 session left** (was 2).  New table: M3 1 left; M4 3–4; M5 2–3;
+M6 3–5; M7 3–4; M8 1–2.  Total remaining **13–19** (was 14–20).  M4
+lands on master as an intermediate milestone with the full gates
+before any nested work (maintainer ruling 2026-09-15); everything left
+for M4 above is stated in the shape M4 consumes off `DeclMutualRun`.
+
+##### (g) FINDINGS
+
+1. **The index readings' fits are the constructors' typing, not the
+   recursor's** (see (b)): the plan's source (the recursor type's
+   `WellDenoted`) is circular for a recursive field; the constructor
+   type's `WellDenoted` against the former's typed VALUE is not, and
+   the former's typing is the model's invariant (`acval_memType`), a
+   run fact with the kit as its consumer.  Consequence for M6 (nested):
+   a container pin's index readings need the same fact at the pin's
+   former — the K.27-shaped premise's sibling, not a new mechanism.
+2. **The union recursor is the `Type`-valued block's tool only**
+   (see (c)): `PredsFrom` fails at `w = 0`, where every injection is the
+   point; the `Prop`-valued block's recursors are typed by
+   `lfpTuple_induction` at the inhabitation predicate.  The candidate
+   needs no second construction: at `ℓ = 0` it IS the point, and the
+   Σ'-chain's leaves at level `0` are inhabitation facts (§U.4 (a)).
+3. **Two definitional adjustments to the candidate, both for
+   rewriting**: the bounded readers in `blockLeafV` (the equation
+   compares leaves off two spines) and `kitStAt` (the decode's
+   projections in non-dependent positions).  Neither changes the
+   datum or the consumer.
+4. **`obtain ⟨x, rfl, h⟩` reverts and re-introduces hypotheses
+   mentioning the substituted variable, renaming them**: after
+   `obtain ⟨t, rfl, ht⟩ := spineFit_singleton ht` the OLD `ht` (whose
+   type mentioned the substituted list) came back as `ht` and the new
+   membership as `ht✝`.  Name the new hypothesis differently.
+5. **`consList_apply_add` needs the index parenthesised innermost-list
+   LAST**: at `consList bs (consList fs (consList msl (consList Msl ρ)))`
+   the index must read `(((i + Msl.length) + msl.length) + fs.length) +
+   bs.length` — the outermost `consList` strips first.  Wrong order:
+   "did not find an occurrence" at the second rewrite.
+6. **`rw [← consList_append]` matches the innermost `consList`**: give
+   the lists explicitly (`← consList_append ps fs ρ`).
+7. **Model-tier `def`s applied across modules need `@[expose]`**
+   (`BlockReps`, `FormersTyped`, the candidate's `kitB`/`kitSt`/…):
+   "proof code is private by default" — an unexposed `def BlockReps …
+   := ∀ …` cannot be applied as a function from another file.

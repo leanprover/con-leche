@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualRecRead
-public import ConLeche.Model.Inductives.SumData
+import ConLeche.Model.Inductives.SumData
 import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.FixChains

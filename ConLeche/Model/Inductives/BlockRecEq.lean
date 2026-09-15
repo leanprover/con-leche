@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecTyped
 import ConLeche.Model.Inductives.FixRecPre
+import ConLeche.Model.Inductives.BlockRecFrames
 public section
 
 /-!

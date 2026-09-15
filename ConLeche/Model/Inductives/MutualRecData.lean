@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.MutualRecRead
-public import ConLeche.Model.Annot.BitConsCross
-public import ConLeche.Semantics.ConstsBound
-public import ConLeche.Semantics.Install
+import ConLeche.Model.Annot.BitConsCross
+import ConLeche.Semantics.ConstsBound
+import ConLeche.Semantics.Install
 import ConLeche.Model.Install
 public section
 

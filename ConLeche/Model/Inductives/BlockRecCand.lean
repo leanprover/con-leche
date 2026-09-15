@@ -2,8 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.SetModel.UnionRec
-public import ConLeche.Semantics.Tower.FixRecCoreI
-public import ConLeche.Semantics.Tower.FixSquashI
 public section
 
 /-!
