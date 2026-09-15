@@ -79200,6 +79200,84 @@ intended `declNested` signature is unchanged:
 `declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
   (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
 
+#### M.56 — task #313: `hvia` at the run (2026-09-15)
+
+**Deliverable.**  §M.54 item 3: the transports graded at every restored
+constructor's leaf frame.  `restoredCtorVia_of_run`
+(`ConLeche/Model/Inductives/NestedCtorViaRun.lean`, new, 908 lines
+including the kit) proves `restoredCtor_typed`'s `hviaWD` off
+`NestedRunCore`, the restored tower's grading and boundedness
+(`hokTy`/`hbelowR`, both already at hand where it is consumed) and the
+ONE fact of ψ (`hΨ`, proved beside it).  `restoredCtorLeaf_of_run` lost
+its `hviaWD` premise (it derives it right after its `subst`), so
+`nestedCtorLeaf_of_run` and `nestedCtorsModel_of_run` lost theirs; the
+consumer's remaining named premises are `ContainersRep` (M-E's) and
+`BridgeSyntax` (#312's).
+
+**The proof**, as §M.54 planned it, at `o = l = 0`:
+`mkLamsAV_bits_wellDenoted`/`_validV` at `UnderTowerOk`/`UnderTowerValid`;
+the target `T` the COPY member's leaf at the block's parameters and the
+field's index readings (`hentry`'s body, lifted); the body
+`wellDenotedV_mkAppN_of_spineFit` at ψ's Π-type (`PsiTypedPi` from
+`NestedRunCore.final_typed`, a literal `mkPisAV` by `instSeq_mkPisAV`);
+the body's membership in `T` is `hΨ` itself
+(`interp_viaBodyAV_leaf`); the zero clause `IndRep`-free, off
+`FormerFacts`' membership in `univ (d.w ψ)`.
+
+**Findings, with cost.**
+
+(a) `final_typed` delivers ψ's Π-type at `consList (paramVals nP ρp) ρp`
+— one parameter block BELOW the leaf's own parameter frame, and there
+is no `paramVals`-free form (`psiFold_typed` is tied to a SYNTACTIC
+parameter spine, and the leaf's parameters are arbitrary values).  `Ψ`
+itself moves between the two frames (`final_below` at `nP`), but
+`psiTyAV` has no boundedness fact — it is `instSeq DsA …` over the
+CONTAINER's data.  So the whole argument runs at the deeper frame and
+the CONCLUSION is moved back: the entry is bounded at `nP + nF`
+(`viaEntryAV_below` at `mm = o = l = 0`) and the two frames agree below
+it (`consList_paramVals_lt`).  ~25 lines; proving `psiTyAV` bounded
+through `instSeq` was not attempted and is not needed.
+(b) At a leaf frame `ihTeleAtR nF 0 i 0 = liftDoms (nF - i) 0`
+(`ihTeleAtR_leaf`: the `o`-lift is `liftN 0`).  So the moved telescope
+IS the restored field entry's own, lifted past the remaining fields,
+`liftN_mkPisAV` turns the whole ih tower into the lifted entry, and the
+telescope's grading is `wellDenoted_mkPisAV_dom` at it — none of the
+per-entry `ihIdxAtM` bookkeeping `viaWD_psi` needs at a minor frame
+(~40 lines there, 6 here).
+(c) TWO towers live at the leaf frame and must not be confused: the
+CONTAINER's (the field's own type, for the field applied to its
+telescope — `piTele_fold`/`piTele_fold_zero` at `restoreAV`'s fired arm)
+and the COPY's (the transport's type `T`, and the zero clause).  The
+index readings move from one to the other by `CopyIdxRead.idxIff` at
+the pin, the parameters by `FormerFacts`/`pIffM`.  One compile.
+(d) `map_teleVarsAV_interp'` takes its length premise EXPLICITLY; used
+as a bare `rw` it leaves an `as.length = as.length` side goal that the
+surrounding chain does not discharge — pass the premise
+(`map_teleVarsAV_interp' hasLen`).  Two compiles.  Same shape: a
+`rw [← hasLen]` meant for one bvar index silently rewrites the
+`tssA.length` inside the ARGUMENT terms of a `wellDenotedV_mkAppN_of_spineFit`
+application and the explicit `C` no longer matches — do the index
+arithmetic in a separate `have`.
+(e) Module kit: `bvarsBelow_mkPisAV`, `piTele_fold_zero`,
+`spineFit_params_of_sat`, `consList_paramVals_lt` and
+`interp_paramFrame` moved from `NestedCtorTypedRun.lean` to
+`NestedCtorViaRun.lean` — a module cannot import its importer, and both
+files need them.  No other change to `NestedCtorTypedRun.lean` beyond
+deleting the premise and adding the one `have`.
+
+**Gates**: `lake build` warning-free (665 jobs); `lake test`
+warning-free; `tests/no-local-paths.sh` OK.  `#print axioms` on
+`restoredCtorVia_of_run`, `restoredCtorLeaf_of_run` and
+`nestedCtorsModel_of_run`: `propext`, `Classical.choice`, `Quot.sound`
+only.  `tests/overview-links.sh` fails on this branch at drifted
+anchors in files this task does not touch (pre-existing; none of the
+three files here is cited).  No `sorry`, no new axiom, no kernel
+change, no new `IndRep` field, no `maxHeartbeats` above 3200000
+(`restoredCtorVia_of_run` is at the lane's ceiling).
+
+**What is left.**  `BridgeSyntax` (#312) and `ContainersRep` (M-E) at
+`nestedCtorsModel_of_run`; D4–D7 and M-E as re-sized in §M.54.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
