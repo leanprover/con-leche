@@ -80733,6 +80733,87 @@ there); `caseRecAVI`/`caseBaseAVI`/`FixIhI`/the K-frame; every
 `IndRep` clause statement but `mkInj`; the nested lane's reads (they
 consume `fibre`/`ctor`/`leaf`, never `inj`'s value).
 
+**(i) Session 37's build record — Phase A.**  The kit is at the general
+table and its certificate is re-proved: `rStar_fixed` (`FixRecI.lean`)
+closes at an arbitrary `tbl` with `body_facts`/`body_iota`/`leaf_eq`
+reading the major through `recScrutAV_facts` (the member off the first
+index binder's tag, the local tag off the major) and the motive
+reconstructing the major at `locAt tbl n j i` — so the falsifier of (g)
+PASSED.  What the build of the kit taught, beyond §M.60 (a)–(h):
+
+* **The tag map is a table with a validity premise, not an offset.**
+  `TblOk tbl` (rows `Nodup`, distinct rows disjoint) is what the
+  round trip `locOf tbl (tagOf tbl n t jc) = jc` needs (`locOf_tagOf`,
+  live positions `< n` only); it sits in `OffOk` beside `u ≠ 0`,
+  `Ids ≠ []` and the tag-tuple shape, so the kit asks it once at the
+  parameter frame and every consumer has it through `XChainsOk.hoff`.
+* **The K-frame's coherence is two semantic clauses of `RecHypCore`**,
+  at an abstract retag `τ` (the mutual instance passes `tagOf tbl n
+  (tupW u (frameIdx nIdx ρ₀))`): `hfam` (the frame's carrier is the
+  tagged union at `τ`), `hcoh` (an inhabited flat chain `j` at the
+  frame has `τ (locOf tbl j) = j` — the index equation says the
+  frame's member is `j`'s), `hcoh'` (the converse, from `TblOk`).  The
+  case recursor's motive at stage `j` lands the branch in `Mot ı⃗ (inj
+  (locOf tbl j) y)` through `hcoh` (`RecHypCore.injLoc_mem`); the
+  native instance has `τ = id` and both clauses by `rfl`.
+* **The motive's fibre λ is constant** (`psigmaMkAV w (case (j + k) at
+  D + 3) (locTagAV tbl n j (.bvar 1)) (.bvar 0)`): the pair constructor's
+  laws were factored through `psigmaMkAV_interp`/`_wellDenoted`
+  (generic in the fibre λ, `SumMk.lean`) and `sumInjAtAV` is their
+  instance; nothing in the natrec tower changed.
+* **The retagged elimination shape** is `∃ jc j fs, j = tagOf tbl
+  Fss.length t jc ∧ x = inj jc … ∧ j < Fss.length ∧ …` (`fixStepI_elim`,
+  `famK_elim`, `fixStepI_iffT`); the native consumers rewrite `hJ` by
+  `tagOf_nil` and `subst`.  `fixFamI_app_eq_sum` is retagged
+  (`sumFibre … (tagOf tbl Fss.length (tupW u is) jc)`), with
+  `fixFamI_app_eq_sum_nil` the old statement at `[]`.
+* The Model tier is threaded with `[]` (both routes, Phase A); the
+  residual fixes are the (S) sites of `_tmp`'s note (Opus lane).
+
+**(j) Phase B, exactly (next session).**  The table of a mutual block
+is `mutTagTbl k memF n := (List.range k).map (fun m => (List.range
+n).filter (memF · = m))`; at the datum `IndRepData.tagTbl d` is the
+same over `d.mems`/`d.nAll`/`d.k` and `d.locIdx J := locOf d.tagTbl J`
+(both DERIVED; no field).  Its laws are list lemmas: `TblOk
+(mutTagTbl …)`, `J ∈ row (memF J)` for `J < n`, `flatOf tbl n (memF J)
+(locOf tbl J) = J`.  The instance, site by site: `mutualRepData` — `Φ
+:= fixFunVI tbl …`, `inj := injW w (locOf tbl J) (mkTower (fs ++
+[pt]))`; `OffOk tbl W ρp (auxIds W Idss)` from `TagOk` (`W ≠ 0`; the
+tag tuple `mkTower [inj m ⟨ı⃗⟩]` is a `TagTuple` by the tower's and the
+sum's `sigmaSet`s); `MutualStageCtor` — the leaf `sumMkAV tbl (memF J)
+w (locOf tbl J) …` with `MkPreS` at `Fss[J]?` through `flatOf_locOf`;
+`MutualRecPre2`/`MutualRecTyping` — `FixPre tbl` whose `hK` builds
+`FixKI₀ tbl` with `hfam` from the retagged `fixFamI_app_eq_sum`, `hcoh`
+from the restricted chain's index equation (`restricted_member_elim` +
+`tagTupleAV_facts`: the frame's first index is `inj (memF j) …`, so
+`memTag = memF j`) and `hcoh'` from `locOf_tagOf`; `MutualRuleFires`/
+`MutualRecLaw` — `nativeRecAVI_iota`'s `hJ` from the same coherence;
+`MutualRep`'s discharge — `fibre` via `fixStepI_iffT` and the
+coherence both ways, `ctor` via the local `sumMkAV_fold`, `mkInj`
+FIBREWISE (`d.mems j = d.mems j'` premise; `locOf` injective within a
+row), `idxRecover`/`slotRecover` unchanged (index side);
+`declMutualCore`'s `MutualBlockReps` gains the injection-law conjunct
+`∀ ψ J fs, d.inj ψ J fs = injW (d.w ψ) (d.locIdx J) (mkTower (fs ++
+[pt]))` (`rfl`).  1–2 sessions.
+
+**(k) Landed this session.**  `14ce09ea` — Phase A: the kit at the
+general table, both routes at `[]`, `lake build`/`lake test` warning-free
+(Opus lane for the Model tier's residual sites; its four frictions —
+`RecHypCore.hfam` at `τ` pointwise needs `simp only [tagOf_nil]` before
+`rw [← hfam]`, `nativeRecAVI_iota` wants `(jc := j) (j := j) rfl`,
+`MkPreS`'s chain premise at `flatOf`, `ctorValI` at `locOf` — are the
+`_nil` conveniences to add when the kit is next touched).  Then Phase
+B's foundations: `ConLeche/Model/Inductives/TagTable.lean` (on the
+graph through `MutualChains`) — `mutTagTbl k memF n`, its rows
+(`mem_mutTagTbl_row`), `mutTagTbl_tblOk`, `flatOf_locOf_of_mem`/
+`mutTagTbl_flatOf_locOf` (a constructor's local tag maps back to it),
+`mutTagTbl_locOf_lt`, `tagTuple_of_mem` (every auxiliary index tuple is
+a tag tuple) and `offOk_of_tagOk` (the kit's premise at the tag index
+from `TagOk` + `TblOk`).  What Phase B still builds is (j)'s list from
+`mutualRepData` on; the K-frame coherence `hcoh` (the restricted chain's
+index equation names the frame's member) is its first lemma.
+
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,

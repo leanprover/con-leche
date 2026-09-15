@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.MutualShadow
 import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Model.Inductives.FixAssemblyKit
 public import ConLeche.Semantics.Tower.MutualLeafFacts
+public import ConLeche.Model.Inductives.TagTable
 import ConLeche.Verify.Inductives.FormerFront
 public section
 
