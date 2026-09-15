@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.MutualInv
+public import ConLeche.Kernel.Inductives.MutualInstall
 
 public section
 

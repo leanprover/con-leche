@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualLeafBelow
 import ConLeche.Verify.Inductives.MutualInv

@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Semantics.Tower.MutualLeafI
+import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.SetTheory.Derive.LfpSplit
 public import ConLeche.Model.Inductives.MutualStageFormer
-public import ConLeche.Model.Inductives.BlockRep
+import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.BlockRepOne
 public section

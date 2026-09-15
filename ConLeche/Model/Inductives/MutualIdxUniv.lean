@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.StructData
-public import ConLeche.Model.Inductives.FixChainFacts
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Model.Inductives.StructTele

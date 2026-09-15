@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.TupleLfp
 public section

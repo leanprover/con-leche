@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.FixData
-public import ConLeche.Model.Inductives.MutualCtorShape
+import ConLeche.Model.Inductives.FixData
+import ConLeche.Model.Inductives.MutualCtorShape
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Verify.Inductives.MutualWF
 public section

@@ -77,6 +77,15 @@ FALLBACK = {
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
+    # file's whole public view — demoting it kills its own
+    # `variable [SetTheory V]` (`unknown identifier SetTheory`).
+    ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.StructData'),
+    # task #315 U-7: `MutualIdxUniv`'s public STATEMENTS name `restrictΨ`
+    # (`formerLevels_of`) and `IdxOk` (`formerIdxOk`), which reach the file
+    # only through `FixStageRec`'s closure — task #290's class: a private
+    # import is invisible to a public statement (`unknown identifier`).
+    ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.FixStageRec'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through

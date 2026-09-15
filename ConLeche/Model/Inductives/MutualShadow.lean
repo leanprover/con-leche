@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MutualData
-public import ConLeche.Model.Inductives.FixTeleBound
+import ConLeche.Model.Inductives.FixTeleBound
 public section
 
 /-!
