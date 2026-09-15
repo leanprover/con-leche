@@ -3,7 +3,6 @@ module
 public import ConLeche.SetModel.RecGraph
 public import ConLeche.SetTheory.Derive.LfpTuple
 public import ConLeche.SetModel.TaggedSum
-import ConLeche.SetTheory.Derive.Pt
 @[expose] public section
 
 /-!
@@ -129,17 +128,20 @@ def AccAt (k : Nat) (Is : Nat → V) (L : Nat → V) (pred : V → V) (Cond : V 
     (c : Nat) (i x : V) : Prop :=
   ∃ y, y ∈ˢ app (accFam (unionSet k Is L) pred Cond) (tagged c i x)
 
-/-- The separated tuple is in the space and below the carrier. -/
-theorem sepTuple_mem (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
-    (P : Nat → V → V → Prop) : InTupleSpace w k Is (sepTuple w k Is Φ P) := fun m hm =>
-  graph_mem_famSpace fun _ hi => univ_sep_mem (famSpace_app (lfpTuple_mem w k Is Φ m hm) hi)
-
-theorem sepTuple_le (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
-    (P : Nat → V → V → Prop) : TupleLe k Is (sepTuple w k Is Φ P) (lfpTuple w k Is Φ) := by
-  intro m hm i hi y hy
-  unfold sepTuple at hy
-  rw [app_graph hi] at hy
-  exact (mem_sep.mp hy).1
+/-- **Accessibility over the union is a class-wise obligation**: every
+union element is accessible once every class is, at any tuple of
+classes `C` — nothing forces a class to be a component of a tuple lfp.
+`unionAcc_all` below discharges it for a tuple's own components by
+simultaneous induction; a nested block discharges it for a container
+pin's class by the container's own induction at a parameter
+(`SetModel/NestedTreeList.lean`, `treeAccL_of_param`). -/
+theorem unionAcc_of_classAcc {k : Nat} {Is C : Nat → V} {pred : V → V} {Cond : V → Prop}
+    (h : ∀ c, c < k → ∀ i, i ∈ˢ Is c → ∀ x, x ∈ˢ app (C c) i →
+      ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred Cond) (tagged c i x)) :
+    ∀ u, u ∈ˢ unionSet k Is C → ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred Cond) u := by
+  intro u hu
+  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
+  exact h c hc i hi x hx
 
 /-- **Every value of the carrier is accessible** along `pred`, by
 simultaneous structural induction on the tuple. -/
@@ -171,7 +173,27 @@ theorem unionAcc_all (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w
   rw [app_graph hi'] at hx'
   exact (mem_sep.mp hx').2
 
+/-- Every element of the carrier's union is accessible: the class-wise
+obligation discharged by `unionAcc_all`. -/
+theorem unionAcc_all_union (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (hmaps : MapsTuple w k Is Φ) (hpf : PredsFrom w k Is Φ pred) (Cond : V → Prop)
+    (hCond : ∀ u, u ∈ˢ unionSet k Is (lfpTuple w k Is Φ) → Cond u) :
+    ∀ u, u ∈ˢ unionSet k Is (lfpTuple w k Is Φ) →
+      ∃ y, y ∈ˢ app (accFam (unionSet k Is (lfpTuple w k Is Φ)) pred Cond) u :=
+  unionAcc_of_classAcc (unionAcc_all h hmono hmaps hpf Cond hCond)
+
 end Acc
+
+/-! ## Relation-defined predecessors -/
+
+/-- The predecessor SET of a predecessor RELATION `R`, separated off
+the union `U`: what every instance spells (`PairRel`, `TreeRel`). -/
+noncomputable def relPred (U : V) (R : V → V → Prop) (u : V) : V := sep U (R u)
+
+theorem mem_relPred {U : V} {R : V → V → Prop} {u v : V} :
+    v ∈ˢ relPred U R u ↔ v ∈ˢ U ∧ R u v := mem_sep
+
+theorem relPred_subset (U : V) (R : V → V → Prop) (u : V) : relPred U R u ⊆ˢ U := sep_subset
 
 /-! ## The recursor -/
 
@@ -186,6 +208,22 @@ Member `c`'s recursor is `unionRec … c`. -/
 noncomputable def unionRec (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
     (pred : V → V) (B : V → V) (st : V → V → V) (c : Nat) (i x : V) : V :=
   recSel (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) pred B st) (tagged c i x)
+
+/-- The recursor IS the graph's selector at the tagged value (by
+definition). -/
+theorem recSel_tagged (c : Nat) (i x : V) :
+    unionRec ℓ w k Is Φ pred B st c i x
+      = recSel (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) pred B st) (tagged c i x) := rfl
+
+/-- **The graph's values are typed**: a value of the recursion graph at
+a union element lies in the bound there. -/
+theorem unionGraph_mem_B (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (hmaps : MapsTuple w k Is Φ) (hpf : PredsFrom w k Is Φ pred)
+    (hB : ∀ u, u ∈ˢ unionSet k Is (lfpTuple w k Is Φ) → B u ∈ˢ (univ ℓ : V))
+    {u v : V} (hu : u ∈ˢ unionSet k Is (lfpTuple w k Is Φ))
+    (hv : v ∈ˢ app (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) pred B st) u) : v ∈ˢ B u := by
+  rw [app_recGraph_eq hB (pred_sub_union h hmono hmaps hpf) hu] at hv
+  exact (mem_recGraphFibre.mp hv).1
 
 /-- **The recursion theorem for a block**: at every value of every
 member, the recursion graph over the union has exactly one value. -/
@@ -251,6 +289,51 @@ theorem unionRec_eq (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w 
   obtain ⟨c', hc', i', hi', x', hx', rfl⟩ :=
     mem_unionSet.mp (hpredU _ (tagged_mem_unionSet hc hi hx) j hj)
   exact unionRec_exists_unique h hmono hmaps hpf hB hst c' hc' i' hi' x' hx'
+
+/-! ### The bundled kit -/
+
+/-- **The recursion data of a block, bundled**: the predecessor map,
+the bound and the step with their three obligations — what
+`unionRec_mem_B`/`unionRec_eq` read (the instances spell `hB`/`hst`
+four times each without it). -/
+structure UnionRecKit (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) where
+  pred : V → V
+  B : V → V
+  st : V → V → V
+  predsFrom : PredsFrom w k Is Φ pred
+  hB : ∀ u, u ∈ˢ unionSet k Is (lfpTuple w k Is Φ) → B u ∈ˢ (univ ℓ : V)
+  hst : ∀ u, u ∈ˢ unionSet k Is (lfpTuple w k Is Φ) → ∀ g,
+    g ∈ˢ piSet (pred u) (fun j => app (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) pred B st) j) →
+    st u g ∈ˢ B u
+
+namespace UnionRecKit
+
+variable (K : UnionRecKit ℓ w k Is Φ)
+
+/-- The kit's recursor at class `c`. -/
+noncomputable def recAt (c : Nat) (i x : V) : V := unionRec ℓ w k Is Φ K.pred K.B K.st c i x
+
+theorem rec_mem_B (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (hmaps : MapsTuple w k Is Φ) {c : Nat} (hc : c < k) {i x : V} (hi : i ∈ˢ Is c)
+    (hx : x ∈ˢ app (lfpTuple w k Is Φ c) i) : K.recAt c i x ∈ˢ K.B (tagged c i x) :=
+  unionRec_mem_B h hmono hmaps K.predsFrom K.hB K.hst hc hi hx
+
+theorem rec_eq (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (hmaps : MapsTuple w k Is Φ) {c : Nat} (hc : c < k) {i x : V} (hi : i ∈ˢ Is c)
+    (hx : x ∈ˢ app (lfpTuple w k Is Φ c) i) :
+    K.recAt c i x
+      = K.st (tagged c i x)
+          (graph (fun j => recSel (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) K.pred K.B K.st) j)
+            (K.pred (tagged c i x))) :=
+  unionRec_eq h hmono hmaps K.predsFrom K.hB K.hst hc hi hx
+
+theorem graph_mem_B (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (hmaps : MapsTuple w k Is Φ) {u v : V} (hu : u ∈ˢ unionSet k Is (lfpTuple w k Is Φ))
+    (hv : v ∈ˢ app (recGraph ℓ (unionSet k Is (lfpTuple w k Is Φ)) K.pred K.B K.st) u) :
+    v ∈ˢ K.B u :=
+  unionGraph_mem_B h hmono hmaps K.predsFrom K.hB hu hv
+
+end UnionRecKit
 
 end Rec
 

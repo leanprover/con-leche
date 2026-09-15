@@ -169,6 +169,19 @@ noncomputable def sepTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Na
     (P : Nat → V → V → Prop) : Nat → V :=
   fun m => graph (fun i => sep (app (lfpTuple w k Is Φ m) i) (P m i)) (Is m)
 
+/-- The separated tuple is in the tuple space. -/
+theorem sepTuple_mem (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
+    (P : Nat → V → V → Prop) : InTupleSpace w k Is (sepTuple w k Is Φ P) := fun m hm =>
+  graph_mem_famSpace fun _ hi => univ_sep_mem (famSpace_app (lfpTuple_mem w k Is Φ m hm) hi)
+
+/-- The separated tuple lies below the carrier. -/
+theorem sepTuple_le (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
+    (P : Nat → V → V → Prop) : TupleLe k Is (sepTuple w k Is Φ P) (lfpTuple w k Is Φ) := by
+  intro m hm i hi y hy
+  unfold sepTuple at hy
+  rw [app_graph hi] at hy
+  exact (mem_sep.mp hy).1
+
 /-- **Simultaneous structural induction**: a family of properties, one
 per member, closed under the functor on the carrier holds on the whole
 carrier. -/
@@ -178,13 +191,8 @@ theorem lfpTuple_induction (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoT
       x ∈ˢ app (Φ (sepTuple w k Is Φ P) m) i → P m i x) :
     ∀ m, m < k → ∀ i, i ∈ˢ Is m → ∀ x, x ∈ˢ app (lfpTuple w k Is Φ m) i → P m i x := by
   intro m hm i hi x hx
-  have hSmem : InTupleSpace w k Is (sepTuple w k Is Φ P) := fun m hm =>
-    graph_mem_famSpace fun i hi => univ_sep_mem (famSpace_app (lfpTuple_mem w k Is Φ m hm) hi)
-  have hSle : TupleLe k Is (sepTuple w k Is Φ P) (lfpTuple w k Is Φ) := by
-    intro m hm i hi y hy
-    unfold sepTuple at hy
-    rw [app_graph hi] at hy
-    exact (mem_sep.mp hy).1
+  have hSmem := sepTuple_mem w k Is Φ P
+  have hSle := sepTuple_le w k Is Φ P
   have hS : IsClosedTuple w k Is Φ (sepTuple w k Is Φ P) := by
     refine ⟨hSmem, fun m hm i hi y hy => ?_⟩
     show y ∈ˢ app (graph (fun i => sep (app (lfpTuple w k Is Φ m) i) (P m i)) (Is m)) i
@@ -332,6 +340,34 @@ theorem isClosedTuple_one_iff {w : Nat} {I F : V} {X : Nat → V} :
       exact hX
     · obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
       exact hle
+
+theorem inTupleSpace_one_iff {w : Nat} {I : V} {X : Nat → V} :
+    InTupleSpace w 1 (fun _ => I) X ↔ X 0 ∈ˢ famSpace w I := by
+  constructor
+  · intro h; exact h 0 Nat.zero_lt_one
+  · intro h m hm
+    obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+    exact h
+
+/-- A monotone family functor is a monotone one-member tuple functor. -/
+theorem monoTuple_one_of {w : Nat} {I F : V} (h : MonoFam w I F) :
+    MonoTuple w 1 (fun _ => I) (oneTuple F) := by
+  intro X Y hX hY hle m hm
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  exact h _ _ (inTupleSpace_one_iff.mp hX) (inTupleSpace_one_iff.mp hY) (hle 0 Nat.zero_lt_one)
+
+/-- A space-preserving family functor is a space-preserving one-member
+tuple functor. -/
+theorem mapsTuple_one_of {w : Nat} {I F : V} (h : MapsFam w I F) :
+    MapsTuple w 1 (fun _ => I) (oneTuple F) := by
+  intro X hX m hm
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  exact h _ (inTupleSpace_one_iff.mp hX)
+
+/-- A closed family is a closed one-member tuple. -/
+theorem closedTuple_one_of {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L) :
+    ∃ L, IsClosedTuple w 1 (fun _ => I) (oneTuple F) L :=
+  ⟨fun _ => Classical.choose h, isClosedTuple_one_iff.mpr (Classical.choose_spec h)⟩
 
 /-- **A single family IS the one-member block**: `lfpFamSet` is the
 `k = 1` case of `lfpTuple`, with no hypothesis at all. -/

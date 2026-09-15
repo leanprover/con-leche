@@ -60,8 +60,9 @@ simultaneous recursor with the stream's three ι rules
 
 The kit's `unionAcc_all` does NOT apply: it assumes every class is a
 component of the tuple lfp, and the pin class is not.  The
-generalisation that does is `unionAcc_of_classAcc` below — a class
-whose carrier comes with its own accessibility proof.
+generalisation that does is the kit's `unionAcc_of_classAcc`
+(`UnionRec.lean`) — a class whose carrier comes with its own
+accessibility proof.
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
@@ -329,12 +330,13 @@ def TreeRel (S : NestedSig V) (u v : V) : Prop :=
 
 /-- The predecessor sets, as a relation-defined separation of the
 index set. -/
-noncomputable def treePred (S : NestedSig V) (u : V) : V := sep (treeIdx S) (TreeRel S u)
+noncomputable def treePred (S : NestedSig V) (u : V) : V := relPred (treeIdx S) (TreeRel S) u
 
-theorem treePred_subset (S : NestedSig V) (u : V) : treePred S u ⊆ˢ treeIdx S := sep_subset
+theorem treePred_subset (S : NestedSig V) (u : V) : treePred S u ⊆ˢ treeIdx S :=
+  relPred_subset _ _ u
 
 theorem mem_treePred {S : NestedSig V} {u v : V} :
-    v ∈ˢ treePred S u ↔ v ∈ˢ treeIdx S ∧ TreeRel S u v := mem_sep
+    v ∈ˢ treePred S u ↔ v ∈ˢ treeIdx S ∧ TreeRel S u v := mem_relPred
 
 theorem mem_treePred_node {S : NestedSig V} (hS : ContainerOk S) {l v : V} :
     v ∈ˢ treePred S (tagged 0 pt (S.mkNode l)) ↔ v ∈ˢ treeIdx S ∧ v = tagged 1 pt l := by
@@ -367,22 +369,6 @@ The kit's `unionAcc_all` does not apply: it derives accessibility from
 `lfpTuple_induction` alone, which reaches only classes that ARE
 components of the tuple.  Class `1` here is the pin's values, reached
 by the CONTAINER's own induction at a parameter. -/
-
-/-- **The generalisation of the kit's `unionAcc_all`** that a nested
-block needs: accessibility over the union is a CLASS-WISE obligation,
-and nothing forces a class to be a component of a tuple lfp.
-`unionAcc_all` discharges the obligation for the tuple's components by
-`lfpTuple_induction`; a nested block discharges it for the container
-pin's class by the CONTAINER's own induction at a parameter
-(`treeAccL_of_param` below).  Stated here rather than in
-`UnionRec.lean`, which this file does not edit. -/
-theorem unionAcc_of_classAcc {k : Nat} {Is C : Nat → V} {pred : V → V} {Cond : V → Prop}
-    (h : ∀ c, c < k → ∀ i, i ∈ˢ Is c → ∀ x, x ∈ˢ app (C c) i →
-      ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred Cond) (tagged c i x)) :
-    ∀ u, u ∈ˢ unionSet k Is C → ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred Cond) u := by
-  intro u hu
-  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
-  exact h c hc i hi x hx
 
 /-- The accessibility family over the recursion's index set. -/
 noncomputable def treeAccFam (S : NestedSig V) : V :=

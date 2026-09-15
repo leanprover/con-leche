@@ -277,13 +277,13 @@ def PairRel (S : PairSig V) (u v : V) : Prop :=
 
 /-- The predecessor SET: the relation separated off the union. -/
 noncomputable def pairPred (S : PairSig V) (u : V) : V :=
-  sep (unionSet 2 pairIs (pairL S)) (PairRel S u)
+  relPred (unionSet 2 pairIs (pairL S)) (PairRel S) u
 
 theorem pairPred_subset (S : PairSig V) (u : V) :
-    pairPred S u ⊆ˢ unionSet 2 pairIs (pairL S) := sep_subset
+    pairPred S u ⊆ˢ unionSet 2 pairIs (pairL S) := relPred_subset _ _ u
 
 theorem mem_pairPred {S : PairSig V} {u v : V} :
-    v ∈ˢ pairPred S u ↔ v ∈ˢ unionSet 2 pairIs (pairL S) ∧ PairRel S u v := mem_sep
+    v ∈ˢ pairPred S u ↔ v ∈ˢ unionSet 2 pairIs (pairL S) ∧ PairRel S u v := mem_relPred
 
 theorem not_mem_pairPred_a0 (S : PairSig V) {v : V} : ¬ v ∈ˢ pairPred S (tagged 0 pt S.mkA0) := by
   intro h

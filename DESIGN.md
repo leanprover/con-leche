@@ -72238,3 +72238,226 @@ design will need are listed in (c) as the run relation's conjuncts,
 unnamed.  The block datum `BlockRep` is likewise a design in (a), not a
 Lean structure yet: it is built at M2 on the new route's own datum,
 and its first consumer is `declBlock` at M4.
+
+#### U.3 — M2: the one datum `BlockRep`, (W) at tuples, the section view (session U-2, 2026-09-15)
+
+M2's falsifier first, then the datum, then the datum at `k = 1`, then
+the section view; U.2 is M1's record (the `#278` kernel cherry-pick,
+`agent/uniform-m1`, concurrent).  No checker code changed; no run fact
+named (no mutual/nested run relation on this branch yet); no `sorry`,
+no axioms.
+
+##### (a) (W) AT TUPLES — PASSED, three forms (`ConLeche/SetModel/TupleContainer.lean`, pure)
+
+The closed tuple the datum's `functor` clause records
+(`∃ L, IsClosedTuple w k Is Φ L`) is supplied for every block whose
+operator is presented as a **member container per component**:
+
+```
+theorem tupleContainer_closed_exists (hw : w ≠ 0) (Φ) (A : Nat → V → V) (B : V → V)
+    (tgtM : V → V → Nat) (tgtI : V → V → V) (mk : Nat → V → V → V)
+    (hA : ∀ m < k, ∀ i ∈ Is m, A m i ∈ univ w)
+    (hB : ∀ m < k, ∀ i a, i ∈ Is m → a ∈ A m i → B a ∈ univ w)
+    (htgt : … p ∈ B a → tgtM a p < k ∧ tgtI a p ∈ Is (tgtM a p))
+    (hmkU : … g ∈ univ w → mk m a g ∈ univ w)
+    (helim : ∀ X, InTupleSpace w k Is X → ∀ m < k, ∀ i ∈ Is m, ∀ x ∈ app (Φ X m) i,
+      ∃ a ∈ A m i, ∃ g ∈ piSet (B a) (fun p => app (X (tgtM a p)) (tgtI a p)), x = mk m a g) :
+    ∃ L, IsClosedTuple w k Is Φ L
+```
+
+— a target is a MEMBER with an index of that member: a mutual block's
+recursive field reads the component of the member it targets.  The
+PROOF is `container_closed_exists` (`SetModel/Container.lean`) at the
+disjoint union of the index sets `unionIdx k Is = {⟨m, i⟩}`: a tuple
+of families is one family over the union (`splitFam`/`joinFun`), the
+operator is one container there with the shapes TAGGED by their
+member (`kpair (vnat m) a` — so `mk` may depend on the member, as the
+native witness's `mkShape` does on the member's `rss/tlss/Fss`), and
+the closed family splits back.  The union is a device of this proof
+only (as `UnionRec`'s union of values is the recursor's index set
+only); nothing tagged survives into the datum.  Two more forms:
+
+* `closedTuple_zero : MapsTuple 0 k Is Φ → ∃ L, IsClosedTuple 0 k Is Φ L`
+  — the `Prop` regime, the top tuple, no container presentation;
+* **the nested slot** `closedTuple_composeAt`: with `composeAt w Is Ψ c
+  X := Ψ (updTuple X c (lfpFamSet w (Is c) (secF w Is Ψ X c)))` (the
+  auxiliary operator with pin component `c` replaced by the least
+  pre-fixed family of `Ψ`'s section there — at `Tree ::= node (List
+  Tree)`, component `0` of `composeAt … auxΦ 1` is the node arm at
+  `⟦List⟧(X 0)`), a closed tuple of `Ψ` on `k + 1` components is a
+  closed tuple of `composeAt w Is Ψ k` on the `k` members, given ONLY
+  `Ψ`'s monotonicity at the MEMBER components (nothing of the pin's
+  component: no container law, no level fact) — by leastness of the
+  section's lfp below `L k`.  The experiment's
+  `closed_composed_of_closed_aux` (`NestedTreeList.lean`) is its
+  instance.
+
+At `k = 1` the theorem is the native witness itself: `closedTuple_one_of
+(fixClosed_of …)` (`ofNative_functor` below).  At `k ≥ 2` with the
+native shapes the presentation is `FixWitness.lean`'s (shapes = shadow
+tuples, positions = the recursive fields' spines, targets = the calls'
+tuples, builder = the curried slots) per member with `tgtM` the field's
+target member — the M4 obligation, mechanical.  At a nested block (M6)
+the composed operator's closed tuple is `closedTuple_composeAt` at the
+auxiliary tuple's, itself `tupleContainer_closed_exists` at `k +
+numPins` — and THAT needs the pin's functor presented as a container
+at FAMILY-VARIABLE parameters (the container's `fibre` at guarded
+frames + the K.27 level fit, §U.1 (f)).  This is the one fact (W)
+needs that no run on this branch gives; its consumer is M6's composed
+datum; it is NOT named here (the naming rule).  So (W)'s outcome:
+**no kernel record candidate for the mutual case; for the nested case
+the already-listed K.27.**
+
+##### (b) THE ONE DATUM — `BlockRepData`/`BlockRep` (`ConLeche/Model/Inductives/BlockRep.lean`)
+
+`BlockRepData V`: `nP k resSort isProp large env₀ memberNames nIdxs`;
+per member `ppsM uM ctorsM`; per member AND member-local constructor
+`idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF` and per field
+`tgts : Nat → Nat → Nat → Nat` (the target member); `Φ : ψ → ρp → (Nat
+→ V) → Nat → V` THE TUPLE OPERATOR; `inj : ψ → Nat → Nat → List V → V`
+member-local.  Derived: `w`, `memberName`, `nIdxAt`, `params`, `IdsM`,
+`nCtors` (the recursors' minor count), `cds`/`rss`/`tlss`/`Eiss`/
+`Fss`/`Ess` per member (the fixpoint route's lists at the member's own
+constructors), `idx ψ ρp : Nat → V` (the tuple of index-tuple sets),
+`tup`, `slotAt`, and `ChainFit ψ ρp X t mm j fs := FitsFrom (rss mm)[j]
+(slotAt ψ X mm j) 0 ρp (Fss mm ψ)[j] fs ∧ ∀ l < |IdsM mm|, ⟦Es_j[l]⟧(fs)
+= projS l t` — **semantic**: `FitsFrom` is `SpineFit`'s shape with
+`chainXIGo`'s branching, a recursive position in its slot `slotSet w
+(uM tgt) ρ tl Eis (X tgt)` (the TARGET member's component at the tuple
+of the index expressions under the field's telescope), an ordinary
+one in its domain's reading; the terminator is the projection form
+(`EqAll_eqsXI_gen`'s RHS, regime-free: at `u = 0` it says the index
+values are `pt`, as `EqAll` does).
+
+`BlockRep m T cvT cvR mI rP rules d mm`, clauses verbatim:
+`memberLt`, `member`, `strip`, `isProp`, `mI = nP + k + nCtors +
+nIdxAt mm`, `rP = nP + k + nCtors`, `rules` (conditioned on `rules ≠
+[]`), `former : FormerData m cvT (nP + nIdxAt mm) resSort (ppsM mm)`,
+`ctors : ∀ mm' < k, ∀ j cA, (ctorsM mm')[j]? = some cA → BlockCtorFacts m
+d cvT.levelParams mm' j cA`, `memsFound`, `tgtsLt`, `idxRes`,
+`uParams`, `paramsIff`, `idxOk : ∀ ψ ρp, Sat … → ∀ mm' < k, IdxOk (uM
+mm' ψ) ρp (IdsM mm' ψ)`, **`functor : ∀ ψ ρp, Sat … → MonoTuple (w ψ) k
+(idx ψ ρp) (Φ ψ ρp) ∧ MapsTuple … ∧ ∃ L, IsClosedTuple …`**, **`fibre :
+… ∀ X, InTupleSpace … X → ∀ mm' < k, ∀ t ∈ idx ψ ρp mm', ∀ x, x ∈ app (Φ
+ψ ρp X mm') t ↔ ∃ j fs, j < |ctorsM mm'| ∧ ChainFit ψ ρp X t mm' j fs ∧ x
+= inj ψ mm' j fs`**, **`leaf : … (as ++ is).foldl app ⟦T⟧ = app (lfpTuple
+(w ψ) k (idx ψ (consList as ρ)) (Φ ψ (consList as ρ)) mm) (tup ψ mm
+is)`**, `ctor : … (as ++ fs).foldl app ⟦c_j⟧ = inj ψ mm' j fs`, `mkZero`,
+`mkInj` (WITHIN a member).  `BlockCtorFacts` = stored as `ctorInfo` +
+level params + `BlockCtorData`, the target-aware twin of
+`FixCtorDataI` (`BlockOpened` twin of `FixOpened`: a recursive or
+reflexive field's head is `Tof i` with `nIdxOf i`; `recEntry`/
+`reflEntry`/`eisLen`/`eisLenRefl` at the target); `BlockCtorData.ofFix`,
+`BlockOpened.ofFix` are the `k = 1` identities (field for field).
+
+Against §U.1 (a): GONE as planned (`essC/eissC`, `IdsC/u/tup` at a tag,
+`ModeledLeaf`, flat positions); ALSO GONE, a decision of this session:
+**`chains` (the syntactic X-chain grading `ChainsOk`)** — its semantic
+content is `functor`'s `MapsTuple` and `idxOk`, and the census of the
+uniform consumers (M4's assembly SUPPLIES the datum; M6/M7 READ
+`functor`/`fibre`/`leaf`/`ctor`/`mkInj`/`mkZero`/`tupMem` and the
+kinds/targets, never a chain's syntax) found no reader; and `tupMem`,
+now DERIVED (`BlockRepData.tupMem`, from `tupW_mem`).  The nested-slot
+arm is not a placeholder clause: it is the `slotAt` arm M6 extends
+(a field whose domain is a pin through a stored container reads that
+container's leaf at the pin with the members abstracted to `X`);
+nothing in `BlockRep` needs reserving for it.  `FixOpened` itself is
+NOT generalised (it is consumed by ~20 native files); the twin lives
+beside the datum and the native route keeps its own until M4 rebases
+it.
+
+##### (c) `BlockRep` AT `k = 1` REPRODUCES THE NATIVE DATUM (`ConLeche/Model/Inductives/BlockRepOne.lean`)
+
+`BlockRepData.ofNative nP resSort isProp large env₀ T nIdx ppsAll uAV
+ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF`: `k = 1`,
+`memberNames = [T]`, every `tgts = 0`, `Φ ψ ρp = oneTuple (fixFunVI
+(uAV ψ) (w ψ) ρp Ids |Ids| (rssOfK ksF n) (tlssOfR cds) (eissOfR cds)
+(fssOfR nP cds) (essOfR cds))` at the datum's OWN lists (`= d.rss 0`,
+`d.tlss 0 ψ`, … by `rfl`), `inj ψ _ j fs = injW (w ψ) j (mkTower (fs ++
+[pt]))`.  PROVED, over the native route's own facts in the shape it
+has them:
+
+* `ofNative_functor (hX : XChainsOk …) : MonoTuple ∧ MapsTuple ∧ ∃ closed`
+  (`fixFunVI_mono/_maps/_closed_exists` through `monoTuple_one_of`,
+  `mapsTuple_one_of`, `closedTuple_one_of` — new in `LfpTuple.lean`
+  beside `lfpTuple_one`);
+* `ofNative_fibre (hX : XChainsOk …) (hXs : InTupleSpace …) (ht) (x) : x ∈
+  app (Φ ψ ρp X 0) t ↔ ∃ j fs, j < |ctorsA| ∧ ChainFit ψ ρp X t 0 j fs ∧ x
+  = inj ψ 0 j fs`, both regimes — from `fixStepI_elim`/`_zero_elim` and
+  the intros (`inj_mem`/`pt_mem_sumSet_zero`, `mkTower_mem`/
+  `pt_mem_tower_teleOfFields`, `spineFit_append_idxEq`), with **the
+  X-chain fit read semantically: `spineFit_chainXIGo_iff`** (along the
+  domains from position `i` at prefix `as`, under `SlotsFitX` there:
+  `SpineFit (consList as (cons t (cons X ρp))) (chainXIGo … Fs i) fs ↔
+  FitsFrom rs (slotSet w u · · X) i (consList as ρp) Fs fs` — entry by
+  entry `xEntry_rec` is the slot and `xEntry_ord` the domain) and the
+  terminator by `EqAll_eqsXI_gen`;
+* `ofNative_leaf (hsp) (hi) (hbase : FixBaseI … (consList (as ++ is) ρ)
+  …) : (as ++ is).foldl app ⟦nativeTyAVI …⟧ = app (lfpTuple (w ψ) 1 (idx
+  ψ (consList as ρ)) (Φ ψ (consList as ρ)) 0) (tup ψ 0 is)` —
+  `nativeTyAVI_fold` + `fixFamI_eq_lfpTuple` (the seed);
+* `ofNative_ctor (hw : w ≠ 0) (hsp) (hsp₂) (hok : SumFieldsOkB … (uChains
+  (Fss 0 ψ))) (hjF) (hds) : (as ++ fs).foldl app ⟦sumMkAV …⟧ = inj ψ 0 j
+  fs` — `sumMkAV_fold`;
+* `ofNative_mkZero`, `ofNative_mkInj` — `injW_zero`, `inj_inj`,
+  `mkTower_inj`.
+
+So every SEMANTIC fact the native proofs read of a single family is a
+clause of the one-member datum; the syntactic clauses are the native
+reading structures themselves (`FormerData`, `FixCtorFactsAt` via
+`BlockCtorData.ofFix`).  The `BlockRep` ASSEMBLY (a `BlockRep` value
+for a native block) is M4's, together with its first consumer
+(`ind_reps := BlockRep` in `EnvModelM`; master's `EnvModelM` has no
+representation field today).
+
+##### (d) THE SECTION VIEW — a derived law
+
+`BlockRep.ofMember (h) (hρp) : let L := lfpTuple …; let F := secF (w ψ)
+(idx ψ ρp) (Φ ψ ρp) L mm; MonoFam (w ψ) (idx ψ ρp mm) F ∧ MapsFam … F ∧
+(∃ L', IsClosedFam … F L') ∧ (∀ X ∈ famSpace …, ∀ t ∈ idx ψ ρp mm, ∀ x, x ∈
+app (app F X) t ↔ ∃ j fs, j < |ctorsM mm| ∧ ChainFit ψ ρp (updTuple L mm
+X) t mm j fs ∧ x = inj ψ mm j fs) ∧ L mm = lfpFamSet (w ψ) (idx ψ ρp mm)
+F` — `IndRep`'s single-family `functor`/`fibre`/`leaf` shape with the
+other members read as CONSTANTS (`updTuple L mm X`: component `mm` is
+the variable, the rest the carriers), from `secF_mono/_maps`,
+`lfpTuple_closedFam_secF`, `app_secF`, `lfpTuple_eq_section`; and
+`BlockRep.leaf_section`: the member's leaf IS `app (lfpFamSet … F)
+(tup ψ mm is)`.  This is the view a later block's composed operator
+consumes when it nests through member `mm`; it is derived, never
+stated (§M.58).
+
+##### (e) KIT DEBTS (from §U.1 (f)) — done
+
+`sepTuple_mem/_le` moved to `LfpTuple.lean` (used inside
+`lfpTuple_induction` now); `UnionRec.lean`: `unionAcc_of_classAcc`
+(moved from the nested experiment, which now cites the kit),
+`unionAcc_all_union` (the class-wise obligation discharged for a
+tuple's own components), `relPred`/`mem_relPred`/`relPred_subset`
+(`pairPred`/`treePred` rebased), `recSel_tagged` (rfl),
+`unionGraph_mem_B`, and the bundle `UnionRecKit ℓ w k Is Φ` (`pred B st
+predsFrom hB hst`) with `recAt`, `rec_mem_B`, `rec_eq`, `graph_mem_B`
+(`hB`/`hst` spelled once).  `TupleContainer.lean` on the `SetModel`
+root; `BlockRepOne` on the `Model` root.
+
+##### (f) REMAINING PREMISES, WITH THEIR CONSUMERS — none named
+
+| fact | consumer | status |
+| --- | --- | --- |
+| the mutual run relation `DeclMutualRun` (the kernel's stage equations + `mutualCtorKinds`' `(kind, target)` per field) | M4 `declBlock`: supplies `BlockRep` (`tgts` from the kinds, `ctors` via a target-aware `fixCtorData_of`) | M1's cherry-pick (`agent/uniform-m1`), merged when READY |
+| the member container presentation at `k ≥ 2` (FixWitness per member, `tgtM` = the field's target) | M4: `functor`'s closed tuple via `tupleContainer_closed_exists` | mechanical, unstarted |
+| the pin's `fibre`/`functor` at FAMILY-VARIABLE parameters + K.27 (`w ≤ w'`) | M6: the auxiliary tuple's container presentation for `closedTuple_composeAt`; the composed operator's monotonicity | §U.1 (c) 3, unchanged |
+| the k-member syntactic chains (`blockFunV`/`blockFamI`, `xChainsOk` at `k`) | M3's recursors (`fixRecBodyAVI` with `k` motives) — NOT the datum: `ChainFit` is semantic | M2's remaining sessions or M3 |
+
+##### (g) RE-SIZING
+
+M2 was 3–4 sessions: this session did (W) (the risk item, PASSED at
+all three shapes), the datum, its `k = 1` semantic reproduction and the
+section view — **one session**.  What stays of M2: the tuple Semantics
+(`blockFunV`/`blockFamI` — the k-member SYNTACTIC functor spelling,
+needed by the recursors' terms, not by the datum) — 1–2 sessions,
+better counted under M3 (which needs it first).  New table: M2 DONE
+(1); M3 recursors at `k` (incl. the tuple spelling) 4–5; M4 3–4; M5
+2–3; M6 3–5 (with (W) composed now a one-line instance); M7 3–4; M8
+1–2.  Total remaining **16–23** (was 20–29 at U-1; the two lanes M1
+and U-2 ran in parallel).  The M6 falsifier (D-2a's `fibre`-consumer
+census) stands as the next risk; (W) is retired as a risk.
