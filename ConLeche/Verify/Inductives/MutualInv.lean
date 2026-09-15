@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.SumInv
-public import ConLeche.Kernel.Inductives.MutualInstall
+import ConLeche.Kernel.Inductives.MutualInstall
 import ConLeche.Verify.Inductives.FixParts
 
 public section
