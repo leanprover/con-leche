@@ -122,16 +122,21 @@ call's element. -/
     fs.length = ((d.Fss c ψ).getD j []).length ∧ x = d.inj ψ c j fs
 
 open Classical in
-/-- **The step**: at `tagged c i x` with `x = inj c j f⃗`, minor
+/-- **The step at a class and a value**: with `x = inj c j f⃗`, minor
 `minorIdx c j` at the fields and the inductive hypotheses; junk
 elsewhere. -/
-@[expose] noncomputable def kitSt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : Nat → V) (u g : V) : V :=
-  if h : d.Decodes ψ (natIdx (sfst u)) (ssnd (ssnd u)) then
+@[expose] noncomputable def kitStAt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : Nat → V) (c : Nat)
+    (x g : V) : V :=
+  if h : d.Decodes ψ c x then
     (Classical.choose (Classical.choose_spec h) ++
-      d.kitIhs ψ ρp ℓ (natIdx (sfst u)) (Classical.choose h)
-        (Classical.choose (Classical.choose_spec h)) g).foldl SetTheory.app
-      (ms (d.minorIdx (natIdx (sfst u)) (Classical.choose h)))
+      d.kitIhs ψ ρp ℓ c (Classical.choose h) (Classical.choose (Classical.choose_spec h)) g).foldl
+      SetTheory.app (ms (d.minorIdx c (Classical.choose h)))
   else empty
+
+/-- **The step**: at `tagged c i x`, the step at class `c` and value
+`x`. -/
+@[expose] noncomputable def kitSt (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat) (ms : Nat → V) (u g : V) : V :=
+  d.kitStAt ψ ρp ℓ ms (natIdx (sfst u)) (ssnd (ssnd u)) g
 
 /-- **The block's recursor at the frame's data**: the union recursor
 of the carrier at the kit's predecessor map, bound and step, at class
