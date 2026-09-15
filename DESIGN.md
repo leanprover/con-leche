@@ -80143,6 +80143,386 @@ run-level consumer; the unit route's, then D4/D5's):
 Kernel requests open: K.25 (`_tmp/nested-279m/K25.md`).  The
 `declNested` signature is unchanged.
 
+#### M.59 M-F: the SET-EQUALITY route — Bekić at a component (proved), the section agreement (the one named fact), and the TAG obstacle that blocks its discharge (2026-09-15, session 36)
+
+**Context.**  Session 36 started at 616ae7ce (§M.58 + addendum) as a
+DESIGN-AND-EXPERIMENT session on the maintainer's decision (2026-09-15):
+replace ψ's BIJECTION by a SET EQUALITY — for every pin, `⟦copy⟧ =
+⟦container⟧` at the pin's parameter values — with three ingredients:
+(i) `Φ_J` explicit in the parameter VALUES (`⟦J⟧(X) = lfp (Φ_J X)`,
+composed for a nested container), (ii) the copy's operator `= Φ_J` at
+the pin's values from K.10/K.12's syntactic copy identities, (iii)
+Bekić in the pure set model, order-free.  "The functoriality fact is
+needed anyway, so build it — this session establishes it or shows what
+is missing."  Two rulings arrived mid-session: the MODELED route is
+not a wall (every container will carry a native-/nested-route `IndRep`
+after M-E; take that as a named premise meanwhile — `ContainersRep`
+already is exactly that premise), and the K.25 probe CONFIRMED §M.58's
+grouping empirically (U1/U2 on 30/30 fixtures + 41/41 cone blocks,
+acyclic unit order; cross-unit field heads in 35/41 cone blocks —
+container-parameter positions like `Array → List`; K.25 HELD pending
+this report).
+
+**The result in one paragraph.**  The pure half is DONE and is the
+reusable lemma: `bekic_component`/`bekic_component'`
+(`ConLeche/SetTheory/Derive/BekicUnit.lean`) — the simultaneous least
+fixed point's fibre at a component `S` is the container's least fixed
+point's fibre, along a bijection of index sets, whenever the
+`S`-section at the fixed point's OTHER components agrees with the
+container's functor; order-free, `n` components at once (`S` is any
+subset).  The run-level consumer is COMPILED (`copyLeafEq_of_run`,
+`Model/Inductives/CopyEqRun.lean`) under ONE named fact, the section
+agreement `SectionAgree`.  **That fact is FALSE at `w ≠ 0` with
+today's tags**: the auxiliary block's injections carry BLOCK-POSITION
+tags (`MutualRep.lean:386`, `inj := fun ψ J fs => injW (resSort.eval ψ)
+J (mkTower (fs ++ [pt]))`, `J` the position in the block's
+concatenated constructor list) and the container's carry LOCAL ones
+(`FixRep.lean:270`, `inj := fun ψ j fs => injW … j …`); at `w ≠ 0`
+`injW w i a = inj i a = spair (vnat i) a` (`SumMk.lean:47`,
+`TaggedSum.lean:76`) and `inj_inj` (`TaggedSum.lean:129`) makes
+`inj (J₀ + j) x ≠ inj j x` for `J₀ ≠ 0`.  For `Tree := node (List
+Tree)`: the copy's `cons` is `inj 2 ⟨h, t, pt⟩`, `List.cons` is
+`inj 1 ⟨h, t, pt⟩` — the two carriers are DIFFERENT SETS, so no
+equality of sets between `⟦_nested.List_1⟧_{mpAux} α` and `⟦List⟧ (Tree
+α)` exists, whatever the operators do.  This is §M.1–M.5's finding
+("(M2) as sets — FALSE (tags)") met again at the operator level, and it
+is precisely where the brief's (ii) bites: the copy's operator and
+`Φ_J` at the pin agree on WHICH SPINES FIT (the `ChainFit` half, true,
+K.10/K.12 + the reads) and disagree on WHAT THEY INJECT (the `inj`
+half).  What would make the fact true is MEMBER-LOCAL tags in the
+mutual reduction — a change to the ONE route's sum/fixpoint kits
+(sized below at 5–8 sessions, all-routes risk) — and that is the
+decision item.  Nothing else this session found is a wall; the
+composed-datum output (D5) and the unit ORDER (K.25) survive as
+described in (f)/(g).
+
+**(a) The run-level consumer, stated first** (`Model/Inductives/
+CopyEqRun.lean`, PROVED off `pinFacts_of_run`):
+
+    theorem copyLeafEq_of_run (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+        (hE : EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut) :
+      ∃ st b envAux params pbs, auxBlock p st = some b ∧ st.types.length = p.k + st.pins.length ∧
+      ∃ (mpAux : EnvModelM V μ envAux) (d : IndRepData V), MutualBlockReps mpAux.base2 b d ∧
+        AuxBlockAgree F mp mpAux b true d ∧
+        (ContainersRep env envAux mpAux.base2 → ∀ ψ, ∃ cd : Nat → CopyData V,
+          (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) ∧
+          ∀ j, j < st.pins.length →
+            d.SectionAgree ψ p.k j (cd j) →                     -- NAMED: the operator identity
+            d.CopyLeafEq mpAux.base2 ψ p.k j (cd j))
+
+with the two objects, precisely:
+
+    CopyLeafEq m ψ k₀ j c := ∀ ρ as is, SpineFit ρ (d.params ψ) as →
+        SpineFit (consList as ρ) (d.IdsM (k₀ + j) ψ) is →
+        (as ++ is).foldl app (interp V ρ (m.acval (d.memberName (k₀ + j)) ψ))
+          = (c.DsA.map (interp V (consList as ρ)) ++ is).foldl app
+              (interp V (consList as ρ) (m.acval (c.dJ.memberName c.mm) c.ψ'))
+
+— LEFT: the aux datum `d`'s copy member `k₀ + j` (the block's `k₀ =
+p.k` real members first), its leaf in the scratch model `mpAux` at the
+block's parameter frame `ρp = as ∷ ρ` and its own index spine `is`;
+RIGHT: the pin's container member (`c.dJ`, member `c.mm`, the datum
+`ContainersRep` gives the pin's group; `c.ψ'` the pin's assignment
+`pinAssign`) at the pin's readings `⟦DsA⟧ρp` (the container's frame
+`ρp' = ⟦DsA⟧ρp ∷ ρp`) and the SAME `is` (the copy's index telescope is
+the container's at the pin, `CopyIdxRead.idxIff`).  Both leaves read
+in `mpAux` (the container's agrees with `mp`'s by `AuxBlockAgree`).
+The named fact:
+
+    SectionAgree ψ k₀ j c := ∀ ρ as, SpineFit ρ (d.params ψ) as → ∃ f g : V → V,
+        (f : c.dJ.idx c.ψ' ρp' → d.copyIdxS ψ (k₀ + j) ρp) ∧ (g back) ∧ (g ∘ f = id) ∧ (f ∘ g = id) ∧
+        (∀ is fitting, f (c.dJ.tup c.ψ' c.mm is) = d.tup ψ (k₀ + j) is) ∧
+        ∀ Y ∈ famSpace (d.w ψ) (d.copyIdxS ψ (k₀ + j) ρp), ∀ i ∈ c.dJ.idx c.ψ' ρp',
+          app (app (d.Φ ψ ρp) (famJoin S C Y (famRestr (lfpFamSet (d.w ψ) (d.idx ψ ρp) (d.Φ ψ ρp)) C))) (f i)
+            = app (app (c.dJ.Φ c.ψ' ρp') (famPull f Y (c.dJ.idx c.ψ' ρp'))) i
+
+with `S := d.copyIdxS ψ (k₀ + j) ρp` (the copy's index component: the
+tuples `d.tup ψ (k₀ + j) is` of its fitting spines, `sep` of the
+block's index set) and `C := d.copyIdxC …` its complement.  The
+datum-level theorem `copyLeafEq_of_sectionAgree` is `bekic_component'`
+at `I := d.idx ψ ρp`, `J := c.dJ.idx c.ψ' ρp'`, `G := c.dJ.Φ c.ψ' ρp'`
+(the functor laws from both `functor` clauses, the sort agreement from
+`CopyIdxRead.sort`), the aux member's `leaf` (`MutualBlockReps` at
+`t := k₀ + j`, the re-sorted datum's `w` rewritten by the sort
+agreement) and the container's `leaf` at the pin's readings
+(`pinFit_of_leafShape` + `pIffM` through `spineFit_of_satIff` for the
+parameter fit, `CopyIdxRead.idxIff` for the index fit).  What it feeds:
+D3's `restoredCtorLeaf_of_run` (`NestedCtorTypedRun.lean:58`) carries
+ψ's one fact `hΨ : psiFinal_mem` — with ψ* = id the restored
+constructor `T.c := λ p⃗ f⃗, T.c_aux p⃗ f⃗` is typed iff a field reading
+`⟦List⟧ (T p⃗)` is in the copy's carrier, i.e. `CopyLeafEq` at the
+pin with `as := ⟦p⃗⟧` and `is` the field's index readings; D4's
+`nestedRecsModel_of_run` (`NestedRecsModelRun.lean:698`) needs the
+copy motive `M'_A := M_A` well-typed on the copy's carrier and the
+mimic `.nested` rules from the aux `.plain` ones — both are
+`CopyLeafEq` at the pin, no round trip.  `psiFold_typed_of_run`,
+`CopyCtorsRead`'s ψ-consumers, `InvFold`, `RoundTrip*` and
+`PsiUnitRun` are not consulted.
+
+**(b) The obstacle, exactly, and what is missing.**  `SectionAgree`'s
+last conjunct is an equality of FIBRES — sets of values.  Unfolding
+both sides by `fibre`: the left fibre at the copy's tuple is `{d.inj ψ
+J fs | J a copy constructor, fs a ChainFit at (ρp, Y ⊔ μ|_C, t)}`, the
+right `{c.dJ.inj c.ψ' jc fs | jc a container constructor, fs a ChainFit
+at (ρp', Y ∘ f, i)}`.  Two halves:
+
+* **(N1a) the `ChainFit` half — TRUE, syntactic content, not built.**
+  For the copy's constructor `J = J₀ + jc` (K.9's mint order: the
+  container's constructors in order) and the container's `jc`, a
+  spine fits one iff it fits the other, field by field: an ordinary
+  field of both reads alike (K.12: the copy's field is the container's
+  instantiated at the pin; `copyCtorAsRead_of_walkFacts`, `ctor_peel`,
+  `ctorInst_fields`, §M.41); an N-position (the copy recursive into a
+  REAL member, the container ordinary at `α`) reads `μ|_T`'s fibre on
+  the left and `⟦α⟧ρp' = μ_T` on the right; a copy-recursive field into
+  ANOTHER pin `j'` (the container's field mentions a nested
+  occurrence, depth ≥ 2) reads `μ|_{A_{j'}}` on the left and
+  `⟦J'⟧(…)` on the right — equal by `CopyLeafEq` at `j'`, so the
+  agreement at `j` needs the equality at the pins `j` REFERENCES
+  (§M.58's order, K.6/K.25; see (f)); the container-recursive field
+  reads `Y`'s fibre on both sides through `famPull`; reflexive and
+  telescoped slots likewise under `piTele`; the index equations agree
+  through `f`.  The lemma is a `ChainFit` congruence between two
+  datums along per-field slot-set agreement, on top of the §M.41–M.52
+  reads.  Sized 2–3 sessions.
+
+* **(N1b) the injection half — FALSE at `w ≠ 0`.**  `d.inj ψ (J₀ + jc)
+  fs = injW w (J₀ + jc) (mkTower (fs ++ [pt]))` against `c.dJ.inj c.ψ'
+  jc fs = injW w jc (mkTower (fs ++ [pt]))`; `J₀ ≥ 1` (the real members'
+  constructors precede every copy's, and a block nesting through a
+  container has a constructor).  At `w = 0` both are `pt` (`mkZero`),
+  so the Prop-valued corpus (`ind_nest_prop`) is unaffected; every
+  `Type`-valued nested block (`Tree`, `Lean.Syntax`, the 41-block cone)
+  is.  No transport, reindexing or order helps: the two carriers
+  contain differently-tagged pairs.
+
+**What is missing, as a decision item (D-1): member-local tags in the
+mutual reduction.**  `inj ψ J fs := injW w (J - J₀ (mems J)) (mkTower
+(fs ++ [pt]))` — the constructor's position WITHIN ITS MEMBER — makes
+(N1b) an identity (same `injW`, same `mkTower`, same `pt`), and with
+(N1a) the set equality holds.  Consequences: (1) `IndRep.mkInj` as
+stated (injective across ALL constructors of the block) is FALSE for a
+mutual block with local tags — `A := a : Nat → A`, `B := b : Nat → B`
+give `inj 0 ⟨5, pt⟩` twice — and must be restated FIBREWISE (at one
+member's tuple); its consumers are three transports
+(`IndRepCons`/`IndRepExt`/`IndRepSwap`) and the round trips (dead
+under this route).  (2) The tags are the ONE route's: `sumMkAV w j`
+(the constructor leaf, `SumMk.lean:555`), `caseAVAt` (the fibre
+selector by `natrec` on the tag, `SumCase.lean:216`), `fixStepAVI`
+(the recursor's one-step case split selecting the `j`-th minor,
+`FixRecCoreI.lean:733`), `fixFamI_app_eq_sum` (the fibre as a disjoint
+sum, `FixFamI.lean:989`) — all over a FLAT constructor list whose
+positions are the tags.  Local tags need a TWO-LEVEL selection: the
+member from the INDEX's tag (`⟨inj m ⟨ı⃗⟩⟩`, which the mutual reduction
+already dispatches on for the motives, `motDispAV`,
+`MutualDisp.lean:108`), then the local tag within the member's own
+constructor sublist with the member's own minors.  That is a new
+spelling of the mutual block's recursor Step, whose fixed-point
+certificate (`fixSigAVI`/`fixSelAVI`, `rStar_fixed`) and fibre
+identification must be re-proved for the two-level shape — either as
+a generalisation of the kit (every native block's model changes) or
+as a mutual-only variant beside it.  **5–8 sessions, on the ONE
+route's Semantics/Model kits, with this lane's overrun history**; no
+kernel change (tags are the model's).  I did not start it: it is a
+change to #278's reduction and to the kits every route shares, and
+the maintainer's word is needed.
+
+**(c) The pure lemma — Bekić at one component (PROVED).**
+`ConLeche/SetTheory/Derive/BekicUnit.lean` (new, 141 lines): `famPull`
+(a family over `S` pulled back along `f : J → S`), and
+
+    theorem bekic_component (hmono : MonoFam w (binUnion S C) Φ) (hmaps) (hcl)
+        (hGmono : MonoFam w J G) (hGmaps) (hGcl) (f g : V → V)
+        (hf : ∀ i ∈ J, f i ∈ S) (hg : ∀ s ∈ S, g s ∈ J) (hgf : ∀ i ∈ J, g (f i) = i) (hfg : ∀ s ∈ S, f (g s) = s)
+        (hagree : ∀ Y ∈ famSpace w S, ∀ i ∈ J,
+          app (app Φ (famJoin S C Y (famRestr (lfpFamSet w (binUnion S C) Φ) C))) (f i)
+            = app (app G (famPull f Y J)) i) :
+        ∀ i ∈ J, app (lfpFamSet w (binUnion S C) Φ) (f i) = app (lfpFamSet w J G) i
+
+(`bekic_component'`: the same over an index set `I ⊇ S` with `C := I ∖
+S`).  Proof: `bekic_restr` (μ|_S = lfp of the S-section at μ|_C), then
+the pull-back of `μ|_S` is `G`-closed (so `lfp G ≤ μ|_S ∘ f`) and the
+push-forward of `lfp G` is closed under the section (so `μ|_S ≤ lfp G
+∘ g`).  No order among components: `μ|_C` is whatever the fixed point
+makes it.  **This IS the general `n`-component statement**: `S` is any
+subset of the index set — a single copy's component, or a whole
+UNIT's (the union of a root container's family components, (f)) —
+and `C` the rest.  Experiment (2)'s concrete instance
+(`ConLeche/SetTheory/Derive/BekicTreeList.lean`, Opus, 332 lines):
+`Tree := node (List Tree)` with an abstract datum-shaped `List` —
+`TOp X_L := {mkT l | l ∈ X_L}`, `LOp α Y := {mkNil} ∪ {mkCons h t | h ∈
+α, t ∈ Y}` as `sep`s of a bounding `U ∈ univ w`, the two-component
+functor `treeListPhi` over `{0} ∪ {1}`, the container's functor `listG
+α` over `{0}`; `treeListPhi_mono/_maps/_closed`, `listG_*` (the
+constant-`U` family is the closed member — free);
+**`treeList_copy_eq_container : app μ (vnat 1) = app (lfp (listG (app μ
+(vnat 0)))) (vnat 0)`** by `bekic_component` at `f := λ _, vnat 1`; and
+`treeListMu_tree_eq_container : app μ (vnat 0) = TOp (app (lfp (listG
+(app μ (vnat 0)))) (vnat 0))` — the Tree component is a fixed point of
+the COMPOSED operator `X ↦ TOp (⟦List⟧ X)` (leastness NOT claimed, see
+(e)).  Both at `[propext, Classical.choice, Quot.sound]`.  So (iii) is
+established in the pure model, including at cycles — a unit's
+components enter as one `S` — and the only thing Bekić asks of the
+block is `MonoFam` of the AUX functor, which its `functor` clause
+gives; no monotonicity in any PARAMETER is used anywhere on this
+route.
+
+**(d) Milestone 0 experiment (1): `leaf_mono` at a `List`-shaped datum.**
+`ConLeche/Model/IndRepParamMono.lean` (new, Opus, 130 lines):
+`IndRep.leaf_mono_listShaped` — from `IndRep m T … d 0` and the SHAPE
+of `List`'s datum (`IdsC ψ = []`, `IdsM 0 ψ = []`, `Fss ψ = [[], [.bvar
+0, F₁]]` with the recursive reading `F₁` free, `rss = [[], [false,
+true]]`, `tlss`/`Eiss` the empty telescopes/index lists), `X ⊆ X' →
+app ⟦List⟧ X ⊆ app ⟦List⟧ X'` at fitting `X`, `X'`, PROVED via
+`IndRep.leaf_mono` with `hle` discharged from `fibre` at both frames
+(`nP = 1` and `Ess` were not needed: the spine fixes the parameter
+count, the empty index list kills the terminator).  Outcome, exactly:
+the chain computes by `rfl` to `[.bvar 2, .app (.bvar 2) ((tuplerAV u
+[]).liftN 3 0)]` (`tuplerAV u [] = .const .punitUnit []`, new
+`tuplerAV_nil`), the recursive slot is LITERALLY the same proposition
+at the two frames (it points at the family variable `Y`, not at the
+parameter), and the whole comparison is ONE step, `hle a ha`, at the
+ordinary field — provable ONLY because that domain is the parameter
+variable itself (`.bvar 0`).  For any other ordinary domain `F` the
+residual goal is `interp V (cons X ρ) F ⊆ˢ interp V (cons X' ρ) F` —
+monotonicity of an arbitrary reading in one frame slot — FALSE in
+general (`α → Nat` is antitone) and supported by NO clause of
+`IndRep` (every clause is at ONE frame; `env₀` is a resolution fact).
+So the brief's fallback fires for the direct route's (P): "if it
+fails, state the missing fact as a datum record" — the exact clause
+would be a per-ordinary-domain stored monotonicity `∀ σ σ', (∀ q ≠ p,
+σ q = σ' q) → σ p ⊆ˢ σ' p → interp V σ F ⊆ˢ interp V σ' F` (or a
+syntactic strict-positivity predicate on `Fss` with a reflection lemma
+whose `app` case recurses into the nested container's own
+`leaf_mono` through `IndReps`).  **Its only consumer is the DIRECT
+route's (P) (`ASSESSMENT.md` §2.4); the SET-EQUALITY route does not
+use monotonicity in a parameter anywhere ((c): Bekić asks the
+agreement at the fixed point's other components, and only the AUX
+functor's `MonoFam`), so under the naming rule it is a GAP of the
+direct route, not a clause requested here.**
+
+**(e) The functoriality clause: no new clause for "`Φ_J` as a function
+of the parameter values"; a NEW clause for a NESTED container's
+composed form.**  `IndRep.fibre` already makes `Φ ψ ρp`'s fibres a
+function of the frame through `ChainFit` — the chain readings
+interpreted at `ρp` — so `Φ_J` IS explicit in the parameter values
+today, and (N1a) is a `ChainFit`-congruence LEMMA between two datums
+(the copy's, in the aux datum; the container's) along per-field
+slot-set agreement, not a clause: `ChainFit_d ψ ρp X t (J₀ + jc) fs ↔
+ChainFit_{dJ} ψ' ρp' (famPull f X J) (g t) jc fs` under the field
+readings' agreement of (b).  What a NESTED container `J` (itself
+installed through an aux block) must carry for a later block to nest
+through it at a non-singleton unit is different, and is the composed
+form of the brief's (i): the identification at a unit `{P4C_1,
+Array_2, List_3}` (§M.55) is `bekic_component'` at `S := the unit`
+against the ROOT's datum `Φ_{P4C}` — which must then be P4C's AUX
+BLOCK's simultaneous functor (three members: `P4C`, its `Array` copy,
+its `List` copy), NOT a single-component operator: a single-component
+composed `X ↦ Φ_{P4C}[append ↦ ⟦Array⟧ X]` cannot be matched with the
+unit's section (the section reads `append` at the `Array_2`
+COMPONENT, the composed operator at `⟦Array⟧ X`; they agree only at
+the fixed point, which is what is being proved — the circularity of
+§M.58 (d)'s `(⊤,⊤,⊤)` in another guise).  So D5 must OUTPUT, for a
+nested block `T`, the datum with COPY MEMBERS (`kReal < k`, `ctorsC ≠
+[]`, M-A′'s fields already exist) and, NEW, the leaf/fibre/ctor laws
+AT THE COPY MEMBERS: `leafC : ∀ t ≥ kReal, ⟦pinsAV t⟧ρp ı⃗ = app (lfp
+(Φ ψ ρp)) (tup ψ t ı⃗)` (a copy member's "former" is its PIN, a term),
+`fibre` over `ctorsAll`, `ctor` for `ctorsC` (the container's
+constructor at the pin injects as the aux copy's `inj` — TRUE only
+with local tags, (b)).  **Decision item (D-2): three new `IndRep`
+clauses** (`leafC`, `fibreAll`, `ctorC`), consumed by the later
+block's (N1a) at a non-singleton unit; NOT added.  For a NON-nested
+container (36/41 of the cone's units are singletons; every container
+of the 26 fixtures but P4C/MsgEmbed/InfoTree's roots) `ContainersRep`'s
+present arm (`ctorsC = [] ∧ kReal = k`) is the right hypothesis and
+nothing new is needed.  The maintainer's mid-session ruling applies
+here: a container installed by the MODELED route has no datum;
+`ContainersRep` is the named premise that every container has one,
+and it disappears with the modeled route at M-E.
+
+**(f) Units and the order under the set-equality route.**  Bekić is
+order-free WITHIN a unit (the unit is one `S`), but the agreement at a
+unit reads the copies its members REFERENCE OUTSIDE the unit
+(cross-unit field heads in 35/41 cone blocks, K.25 probe): those
+components' values enter the section as `μ|_C`, and (N1a) identifies
+them with the container's readings `⟦J'⟧(…)` only if `CopyLeafEq`
+holds at those pins already.  So the UNIT ORDER of K.25 (topological
+over the group-wide mention, no sub-term conjunct) is consumed —
+inner units first — and the unit TABLE (U2: the unit is the root's
+recursor family at the pin's parameters; U3/U4: the family members'
+telescopes and inductive-hypothesis positions) is what matches the
+unit's section components with the root's aux-shaped datum's members.
+What DIES is ψ's fold over units (`psiUnitTerm`, `PsiPU`,
+`UnitStepTyped`, `psiUnitFold_typed_of_run`), not K.25.  K.25's two
+spec bugs from the probe (the root rule; `familyPins` at the pin's
+levels) stand as reported.
+
+**(g) The exact remaining premises before the signature under the new
+plan, each with its consumer; the re-sizing; the dead code.**
+
+    SectionAgree d ψ p.k j (cd j)          -- copyLeafEq_of_run; discharge = (N1a) 2–3 sessions + (N1b) = D-1
+    ContainersRep env envAux mpAux.base2   -- unchanged (named until M-E); at a nested container: + D-2's clauses
+    UnitTable / TopoOrder over units       -- K.25 (HELD): the order (N1a)'s cross-unit readings need, the table (N1a)'s matching
+    NestedRecsModelAt's (1) leaves, (3)/(4) D5, (5) laws   -- §M.57 verbatim, with `hΨ`/psiFinal replaced by CopyLeafEq
+
+Re-sizing, IF D-1 is taken: D-1 local tags 5–8; (N1a) the `ChainFit`
+congruence + its run-level assembly 2–3; unit-level assembly off K.25
+(the section at a unit, the order induction) 1–2; D3/D4 with ψ* = id
+(their leaves become the aux ones, `hΨ` → `CopyLeafEq`; the mimic
+rules from the aux `.plain` laws + the equality) 2–3; D5 with the
+aux-shaped composed datum (D-2, three clauses; `functor`/`fibre`/`leaf`
+from the aux datum verbatim, `leafC` from `CopyLeafEq`) 2–3; D6 1; D7
+1; M-E 1–2 (the deletions below).  **Total 15–23 sessions**, against
+§M.58's units 11–16 (+1–2 kernel) and the direct route's 13–20
+(`_tmp/direct-nested/ASSESSMENT.md` §6).  IF D-1 is NOT taken the
+set-equality route does not exist (there is no equality of sets to
+prove), and the choice is back to §M.58 vs the direct route; what this
+session built stays useful to both (Bekić at a component is what
+(W-aux)/(M2) of the direct route and the composed datum need; the
+consumer's shape is the direct route's (C6) at the copies).  The
+lighter artifact under D-1: DEAD would be ψ/ψ⁻¹/R1/R2 and everything
+built for them — `PsiBody`, `PsiSetup`, `PsiAssembly`, `PsiRun`'s
+`psiFold_typed_of_run` and `PsiPU`-side (the `ContainersRep`/
+`PinFacts`/`PinRunFacts`/`pinFacts_of_run` half of `PsiRun.lean`
+SURVIVES: `copyLeafEq_of_run` reads it), `PsiFold`, `PsiUnitRun`,
+`Verify/Inductives/NestedUnits.lean`'s fold kit (the `UnitTable`/
+`UnitRef`/`TopoOrder` half survives for (f)), `InvFold`, `InvCopy`,
+`RoundTrip`, `RoundTripProp`, `RoundTripR2`, `RoundTripRefl`,
+`RoundTripReflRun`, `RoundTripReflRunR1`, `RoundTripReflT`,
+`RoundTripRun`, `RoundTripRunR1`, `RoundTripTransport`, `FoldBelow`,
+`FoldValues`, `FoldChoice` (ψ's minor/motive choice kit; `RecFold`'s
+`recFold_mem`/`recFold_app_mem` survive for `famInduction` if anything
+still wants it), `CopyCtorRun` (`psiFold_typed_of_read`), and in
+D3/D4 the `hΨ`/`psiFinal`/`psiVals`/`restoreVia` plumbing of
+`NestedCtorLeaf`/`NestedCtorTypedRun`/`NestedCtorViaRun` (the `read`
+half — `restoredCtor_read`, `RestoredFieldsRead`, `NestedCtorKit` —
+survives).  Listed, NOT deleted.
+
+**(h) Findings with cost.**  (1) The tag obstacle: found by reading
+`MutualRep.lean:386` against `FixRep.lean:270` before building — the
+brief's (ii) had assumed the injections agree; ~1 h of analysis
+including the alternatives that do not work (retagging = ψ; reordering
+the aux block puts at most one copy at `J₀ = 0`; a name-based global
+tag collides for two copies of one container and still needs the
+member in the case split; changing the container's tags is
+impossible, they are the pre-block model's).  (2) `bekic_component'`'s
+`subst` trap: `binUnion S (sep I …) = I` cannot `subst I` (it occurs
+on the left) — `obtain ⟨C, hC⟩ : ∃ C, C = sep I …` to make the
+complement opaque first, then `rw [← hI] at *`.  (3) The consumer's
+plumbing is light (60 lines): `pinFit_of_leafShape` + `pIffM` through
+`spineFit_of_satIff` for the pin's fit at `dJ.params` (lengths by
+`FormerData.len` at member `0` through `formersRead`), and the
+re-sorted aux datum's `w`/`idx`/`Φ`/`tup` are `rfl`-rewritten
+(`IndRepData.w {d with resSort := s} ψ = d.w ψ` is `hs ψ`
+definitionally).  (4) `lake env lean` produces no olean: a NEW module
+another new module imports must be `lake build`-t explicitly (and
+again after every edit) or the importer sees the stale olean as an
+"unknown identifier".  (5) The Opus subagent for the pure instance
+took 6 min; its two notes: `hagree`'s goal arrives with `i`
+un-substituted on the right (a `rcases … with rfl` first), and the
+constructors' closure hypotheses (`mkT l ∈ U` …) are NOT needed for
+the identification, only for non-vacuity (`mkT_mem_TOp` …).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
