@@ -83116,3 +83116,581 @@ result.  A mismatched binary fails inside the sandbox as an opaque
 diagnosis it looks like.
 
 No checker code changed, so the binary is master's.
+
+## TASK #314 — THE DIRECT NESTED ROUTE (2026-09-15, `agent/direct-nested`, base `agent/nested-279m` b6de48ad)
+
+The maintainer's decision (2026-09-15): RACE two approaches to a
+verified nested route on separate branches — the model lane's D-1
+(member-local tags + the set equality via Bekić, `agent/nested-279m`)
+and this DIRECT route (the read-only assessment of 2026-09-14,
+`_tmp/direct-nested/ASSESSMENT.md`, sharpened by §M.59).  Whichever
+lands a `declNested`-equivalent first wins; the other is the hedge.
+The route in one line: the block's carrier is the least fixed point of
+the COMPOSED operator (the block's functor with the containers' leaves
+at the pins' readings in the nested slots, built with the native
+route's local tags — no auxiliary block in the proof); the recursors
+exist by the EXISTING recursion theorem `recGraph_exists_unique`
+instantiated ONCE over the disjoint union of the restored motive
+domains; the mimic recursors are DEFINED through the containers'
+recursors; the kernel's elimination/`checkMutualCore`/restore stays
+the SHAPE CHECK the theorem is over.
+
+#### DR.1 — the consumer, K.26, the composed datum, the shape checks, the falsifying experiment (session DR-1, 2026-09-15)
+
+**The result in one paragraph.**  The falsifying experiment PASSES
+at `Tree := node (List Tree)` (`ConLeche/SetModel/DirectTreeList.lean`,
+575 lines, axioms propext/choice/Quot.sound): with the container given
+as a datum-shaped operator in its parameter and ONE assumed fact — the
+map action in the parameter at the FUNCTOR level (`LOp_mono`, the K.26
+shape of (b)) — the composed operator `X ↦ TOp (⟦List⟧ X)` is
+monotone, its least fixed point `T*` exists, every index of the
+disjoint union `{0} × T* ∪ {1} × ⟦List⟧ T*` is accessible by TWO NESTED
+lfp inductions (the composed operator's, with the container's at the
+parameter `S := {accessible trees}` inside — `treeAccL_of_param`,
+`treeAcc_tree`), the recursion theorem instantiates, and the selector's
+three ι rules are the stream's (`treeRec_node`, `treeRec_nil`,
+`treeRec_cons`); `treeRec_fold_agree` identifies any fold with
+`List.rec`'s rule shapes with the engine's second component.  What the
+pure lemma needs from the container, exactly: (P) at the functor level,
+`fibre` (the constructor decomposition at every parameter frame),
+`mkInj`, the container's lfp induction at every parameter frame (its
+`functor` clause), and the closed member (W) — here the bounding set
+`U`.  NOT needed: the container's recursor `List.rec` (the existence
+proof never consults it; it enters only when the mimic LEAF is spelled,
+(a) step 5), the map action anywhere in the accessibility argument, any
+copy carrier, any tag comparison, any order among pins.  The P4
+instance (a block nesting through a container that is itself nested,
+composed twice: P4 → P4C → Array → List) is in
+`ConLeche/SetModel/DirectP4.lean` — see (e) for its outcome.  The
+run-level consumer is STATED in (a) and its (P) half compiled
+(`ConLeche/Model/Inductives/DirectRun.lean`, (a) step 1); the rest of
+the consumer waits on Milestone 1's (X) — the nested slot's reading at
+the X-frame — which this session found to be the FIRST item, not the
+second: nothing at the run can be spelled about the composed functor
+before it (see (a), "what blocks").  K.26 is in (b), written to
+`_tmp/direct-nested/K26.md` for the kernel lane; the composed datum's
+new clauses are decision items in (c); sizing in (e); the comparison
+with D-1 in (f).
+
+**(a) The run-level consumer, stated first.**  The signature is the
+one the current arc intends (§M.54/§M.57), with NO new run-time
+conjunct beyond K.26:
+
+    theorem declNestedDirect (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+        (hE : EtaFamiliesClosed env) (h : DeclNestedRun μ F env p envOut)
+        (hK26 : nestedParamPosOk env p.nP p.memberNames st.pins = true)   -- K.26, (b); a conjunct of `DeclNestedRun` once landed
+        (hrep : ContainersRep env env mp.base2) :                           -- named until M-E (every container has a datum)
+      Nonempty (EnvModelM V μ envOut)
+
+Two differences from the model lane's premises: `ContainersRep` is
+taken at the PRE-BLOCK model `mp.base2` (the direct route never builds
+a model of `envAux`; the scratch install is consumed only through
+`checkMutualCore_inv`'s syntactic facts), and there is no
+`SectionAgree`, no `CopyLeafEq`, no ψ fact of any kind.  The run
+relation consumed is `DeclNestedRun` verbatim (K.1–K.23) plus K.26;
+what each conjunct is FOR under this route is in (d).
+
+*The model theorem's decomposition* — the pure experiment's structure
+lifted to the run, in the order the proof needs it; every step names
+what it reads.  Write `T⃗` for the real members, `A_j := J_j.{lvls_j}
+Ds_j` for the pins (K.14: uniform), `ρp` a parameter frame.
+
+1. **(P) the containers' map action** — `pinParamMono_of_run`
+   (`DirectRun.lean`, COMPILED this session): for every pin `j`, its
+   container's datum `dJ` (from `hrep` at `containerInfo? env
+   q.container`, which `nestedContainersOk` gives) is monotone in
+   every PINNED parameter position at the functor level, hence at the
+   carrier level (`IndRep.leaf_mono`).  Consumes K.26's record through
+   the reflection lemma `paramPos_mono` of (b) — this session the
+   reflection is the NAMED fact `IndRepData.ParamMono dJ ps` (the
+   semantic content of K.26 at the datum), consumed at the run by
+   this theorem; its discharge from the syntactic record is Milestone
+   1's (P) item.
+2. **(X) the composed functor at the run** — `Φ_c ψ ρp : V`, the real
+   members' X-chains with the nested slots read at `⟦J_j⟧(⟦Ds_j⟧[T⃗ ↦
+   X])`: the restored constructor's field domains (D3's
+   `RestoredFieldsRead`/`restoredCtor_read`, which the model lane
+   built and which this route keeps) read under the valuation
+   `acval[T_m ↦ λ p⃗ ı⃗, X ⟨ı⃗⟩]` — the recursive slot's own device
+   (`chainXI`'s `X ⟨e⃗_i⟩`), extended to a slot whose domain MENTIONS
+   the family variable inside a container application.  This is the
+   (c) chain arm.  Laws: `MonoFam` from step 1 + the copy kinds
+   (§DR.1 (b), "the copy-vocabulary kinds"), `MapsFam` from the
+   containers' `functor.MapsFam` at the frame, the closed member (W)
+   from `container_closed_exists` on the UNTAGGED auxiliary
+   presentation (positions = the copy fields of kind
+   recursive/reflexive, shapes = the rest; `mk` through the
+   containers' abstract `inj`; `helim` from their `fibre`) — the
+   assessment's (W-aux), whose only ingredient beyond `fibre` is the
+   copy kinds.
+3. **The carrier** — `T⃗* := lfpFamSet (Φ_c ψ ρp)` over the members'
+   tagged index set (the native route's `lfpFam` at the composed
+   functor; at `k > 1` members #278's tagged sum is harmless here —
+   no copy carrier is ever compared with a container's).  The
+   constructors: the injections with LOCAL tags (`inj j (mkTower (fs
+   ++ [pt]))`, `sumMkAV`), exactly the native route's.
+4. **The recursion** — engine E of the experiment at the run: the
+   index set `I := Σ_{m<k} {m} × T_m* ∪ Σ_j {k+j} × ⟦J_j⟧(⟦Ds_j⟧[T⃗*])`
+   (ONE component per restored motive — the stream's `numMotives = k +
+   numNested`), `pred` by the constructor decompositions (a member's
+   from our `inj`; a pin's from the container's `fibre` + `mkInj` at
+   the frame `⟦Ds_j⟧[T⃗*] ∷ ρp`, the fields of kind recursive/reflexive
+   into a member or a pin — the copy kinds — being the predecessors,
+   telescoped fields pointwise), `B` the motives' fibres, `st` the
+   minors at the predecessors' values; accessibility by the composed
+   operator's lfp induction with, at each nested slot, the container's
+   lfp induction at the parameter `⟦Ds_j⟧[S]` (`S` the accessible
+   members, `sep`), nested along the containers' own nesting (P4:
+   three deep); `recGraph_exists_unique`, `recSel`.  No map action
+   enters here (experiment, both instances).
+5. **The leaves** — a real member's `T_m.rec := (choice Σ prf).1`
+   with the native `Step` (`fixStepAVI`'s case split on OUR tagged
+   tuples) extended by ONE arm: at a nested field the inductive
+   hypothesis is the container's recursor FOLD at the stream's choice
+   with `r` (the fixed-point variable) at the member positions —
+   `⟦J_j.rec_i⟧[lvls_j] Ds_j (motives ↦ M_{c(i)}) (minors ↦ the
+   stream's, `r_{T_m} … f` at a field of kind recursive-into-member,
+   `ih` at J's own) f` — the assessment's (C3) at the choice.  `prf`
+   (the Σ-type inhabited) is `recSel`'s component `m` extended to the
+   λ-tower, and the fixed-point equation at `node a` is
+   `fold_agree`: the fold at `r := recSel` equals `recSel`'s pin
+   component, ONE container induction per pin (`treeRec_fold_agree`;
+   at a nested container one simultaneous induction over its recursor
+   family, `p4Rec_fold_agree`).  A mimic's `T_1.rec_j := λ p⃗ M⃗ m⃗ ı⃗ l,
+   ⟦J_j.rec_i⟧ … l` is a DEFINITION through the container's recursor
+   at the selected members' recursors — no choice, no Σ.  Typing:
+   `J.rec`'s `mem_type` at the choice (minors typed by `T_m.rec`'s
+   typing at the member positions); the mimic's `.nested lvls pins`
+   ι laws are `J.rec`'s own `rec_rules` at the pins (`.plain` for a
+   native `J`, its stored `.nested` for a nested one) plus the
+   definition; the members' `.plain` laws are the Step's by definition
+   (`nativeRecAVI_iota`'s argument).  At `w = 0` the squash arm:
+   values `pt`, typing = the induction principle by the same nested
+   inductions at `ℓ = 0` (`fixRecBodyAVI_zero`).
+6. **The representation** — `T_m`'s `IndRep` in the composed form
+   ((c), D-2 for this route), tables, capabilities (the restored
+   block's `nativeCaps`, the tower kits at the demoted reading),
+   `EnvModelM envOut` — the arc's D5–D7, unchanged in content.
+
+*What blocks, in order.*  Nothing at the run can be spelled about
+`Φ_c` before (X): the pins' readings the run gives (`pinFacts_of_run`'s
+`DsA`, `DenoteMetaSpine mpAux.base2.acval envAux …`) are `denoteMeta`
+outputs with the SCRATCH model's member leaves already substituted —
+`denoteMeta` replaces every constant by its leaf — so the family
+variable cannot be re-opened in them; the X-frame reading has to be
+produced by `denoteMeta` under the X-valuation from the RESTORED
+syntax (D3's reads), which is (X).  So Milestone 1 starts with (X),
+then (P)'s reflection, then (W-aux).  Step 1 is the only run-level
+piece independent of (X) and is what this session compiled.
+
+**(b) K.26 — the stored fact for (P), a kernel record REQUEST**
+(written to `_tmp/direct-nested/K26.md`; the kernel lane is idle and
+takes it).  Two facts were established this session about where (P)
+can come from, and the request follows from them.
+
+*Fact 1 — it is NOT in the datum* (§M.59 (d), confirmed at the
+experiment's shape): `IndRep` is per-frame; nothing relates `Φ ψ ρp`
+to `Φ ψ ρp'`; `IndRep.leaf_mono`'s premise `hle` is exactly (P) at the
+functor level and must be supplied.
+
+*Fact 2 — it IS in the run, at a price*: `checkMutualCore` on the
+auxiliary block classifies every COPY field by `mutualPositivity`
+(`Kernel/Inductives/MutualInstall.lean:347`: `.ordinary` — mentions no
+aux member; `.recursive m'`/`.reflexive m'` — a member application at
+the block's parameters, TARGETING aux member `m'`, which is a real
+member at an N-position (the container's parameter position, `head :
+α` at `α := Tree`) or a copy (another pin, `toList : List α` in
+`Array.mk` at depth 2); anything else declines the block), and K.12
+makes the copy's field the container's field at the pin, K.17 its
+`whnf`.  The composite `X ↦ ⟦J⟧(Ds[X])` is monotone iff every copy
+field reads monotonically at the X-frame, and the kinds say it does:
+`.ordinary` is constant in `X`, `.recursive`/`.reflexive` into a real
+member reads `X ⟨e⃗⟩` (under a telescope), into a copy reads
+`⟦J'⟧(Ds'[X])` — the SAME statement one container level down.  So (P)
+is derivable at the run with NO new record, through the copy reads —
+and that derivation is the (N1a) `ChainFit` congruence the model lane
+priced at 2–3 sessions (§M.59 (b)): the identification of the copy's
+stored fields with the container's fields at the pin, at the level of
+readings, including the `whnf` arm.  It is the reads' cost the review
+called the arc's largest accidental one.
+
+*The request, K.26 (variant B, the one recommended): a per-pin
+parameter-positivity CHECK in the CONTAINER's vocabulary, so that the
+model consumes a syntactic fact about the container's STORED
+constructors and never touches the copies.*
+
+    nestedParamPosOk (env : Env) (nP : Nat) (members : List Name) (pins : List NestedPin) : Bool :=
+      pins.all fun q =>
+        let (J, lvls, Ds) := (q.container, q.pin.getAppFn levels, q.pin.getAppArgs)   -- `q.pin = J.{lvls} Ds`, K.14 uniformity
+        (List.range Ds.length).all fun p =>
+          !(Ds[p] mentions a member or an aux name) ||             -- unpinned position: nothing to check
+          (paramPositive env J p && blockPositive env members nP Ds[p])
+
+    paramPositive env J p : Bool   -- the p-th PARAMETER of the stored inductive J occurs only strictly positively
+      -- in every constructor field of J's whole `all`-group, and not at all in the group's index telescopes
+      := (index telescope domains of every member of J's group do not mention param p) &&
+         every field domain `dom` of every constructor of the group satisfies `posIn env x dom`, x = the p-th parameter variable
+
+    posIn env x dom : Bool :=
+      if ¬ dom mentions x then true else
+      match whnf env dom with                                       -- the pre-block environment, x free (an fvar)
+      | .forallE d b _   => ¬ d mentions x && posIn env x b
+      | e with e.getAppFn = x            => (e.getAppArgs mention no x)                        -- the parameter applied (a λ-pin's `β k`)
+      | e with e.getAppFn = .const J' _ , J' in J's own group => true                           -- a recursive occurrence (uniform, K.14)
+      | e with e.getAppFn = .const I' _ , env.find? I' = .indInfo …, args = e.getAppArgs, nP' = I''s parameter count =>
+          (args.drop nP' mention no x) &&                                                       -- never inside an index
+          (List.range nP').all fun p' => ¬ args[p'] mentions x || (paramPositive env I' p' && posIn env x args[p'])
+      | _ => false
+
+    blockPositive env members nP D : Bool :=   -- the pin's COMPONENT is positive in the block
+      if ¬ D mentions a member then true else
+      match whnf env D with
+      | .lam _ _ b _      => blockPositive env members nP b                                    -- the λ-pin (`fun _ => PT α`)
+      | .forallE d b _    => ¬ d mentions a member && blockPositive env members nP b
+      | `T_m p⃗ e⃗` with p⃗ the block's parameters and e⃗ member-free => true                        -- a member occurrence (uniformity)
+      | `I' args`, I' stored inductive => (args.drop nP' member-free) && ∀ p', ¬ args[p'] mentions a member ||
+                                            (paramPositive env I' p' && blockPositive env members nP args[p'])
+      | _ => false
+
+`paramPositive` recurses into EARLIER stored inductives (fuel: the
+environment's size; a stored inductive's constructors mention only
+earlier constants).  It is decided on stored data only — the
+containers' stored constructor and former types at the pre-block
+environment — and on the pins the elimination records; it runs once
+per pin, after `elimNested`, before `checkMutualCore` (or after; it
+reads nothing of the scratch environment).  A failure is a
+`.notImplemented` DECLINE ("nested occurrence at a container parameter
+that is not strictly positive"), never a reject: it is the checker
+positively detecting a shape the model tier does not cover.
+
+*Consumer.*  `IndRepData.ParamMono dJ ps` (`DirectRun.lean`):
+
+    ParamMono d ps := ∀ ψ ρp ρp', Sat V (d.params ψ).reverse ρp → Sat V (d.params ψ).reverse ρp' →
+        (∀ q, q ∉ ps → ρp q = ρp' q) → (∀ q ∈ ps, ρp q ⊆ˢ ρp' q) →
+        d.idx ψ ρp = d.idx ψ ρp' ∧
+        ∀ Y, Y ∈ˢ famSpace (d.w ψ) (d.idx ψ ρp) → FamLe (d.idx ψ ρp) (app (d.Φ ψ ρp) Y) (app (d.Φ ψ ρp') Y)
+
+— the functor-level (P) at the pinned positions `ps` (frame slots,
+the parameters in the frame's order), with the index set unchanged
+(the index-telescope conjunct).  `pinParamMono_of_run` turns it into
+the carrier-level inclusion at every fitting frame through
+`IndRep.leaf_mono`; step 2's `MonoFam Φ_c` consumes the carrier-level
+form at the pin's readings, and `blockPositive` reflects (through the
+same lemma, one level up) into the monotonicity of `X ↦ ⟦Ds_p⟧[X]`.
+The discharge of `ParamMono` from `paramPositive = true` is ONE
+reflection lemma by induction over the walk (Milestone 1): the datum's
+`Fss` are the readings of the stored constructor's field domains
+(`dsF`/`IndRep.ctors`), the `.bvar` case is the frame slot, the
+`forallE` case is `piTele_mono` (the reflexive kit's), the recursive
+case reads `Y` (frame-independent), the stored-inductive case is
+`leaf_mono` of `I'`'s datum (`ContainersRep`) at the arguments'
+readings — which is why `paramPositive` recurses exactly where the
+reflection lemma does.  The `whnf` arm is the one place the syntactic
+and the semantic walks must be aligned (`WhnfField`'s pattern, K.17):
+the reading of `dom` equals the reading of `whnf dom` by the model's
+defeq claim.
+
+*Why it cannot fire on a stream official accepts — with the ONE
+exception, characterised.*  Official's `check_positivity` runs on the
+COPY's field `whnf_aux(F[α⃗ := D⃗])` (the container's field at the
+components, in the scratch environment) and accepts iff, after
+`whnf`, the field is block-free, or a Π with a block-free domain into
+an accepted codomain, or a valid application of an aux member (where
+the elimination has already turned every `I' args` with the block in
+`args` into a copy).  `nestedParamPosOk` walks `whnf_pre(F)` with the
+parameter FREE and the component `D` separately.  Whenever
+`whnf_pre(F)` is in one of `posIn`'s accepted forms, substituting `D`
+and reducing lands in official's accepted forms (a free type variable
+in head position or under binders is inert; the parameter-applied
+case reduces the λ-pin's redex, which is official's `whnf` too), and
+conversely official's accepted forms at the copy all come from those,
+EXCEPT when the substitution ENABLES a reduction the free walk cannot
+perform: `whnf_pre(F)` is STUCK on the parameter variable (a
+non-type parameter that a field inspects — `J (n : Nat)` with a field
+`Nat.rec … n`; a `Decidable` instance parameter under an `ite` in a
+field) and the component `D` is a closed term at which the copy's field
+reduces the block occurrence away or into a positive position (`J
+(List.length [T])` — a type as a list element inside a `Nat`-valued
+argument).  Official accepts such a stream; K.26 declines it.  The
+shape is: **a block-mentioning pin component at a container parameter
+that some container field inspects, or a component in which the block
+occurs inside a non-inductive, non-reducing application**.  On the
+corpus (22 containers, 132 copies, DESIGN #279 §3; the 41-block
+Mathlib cone; the 30 fixture blocks) every pinned component is a type
+expression — `T p⃗`, a container of one, a λ-pin `fun _ => T p⃗` — at a
+`Sort`-typed parameter of a container whose fields never inspect it,
+so the expected count is ZERO declines; the kernel lane's landing
+item is to MEASURE it (a probe over the shadow gate and the cone,
+K.25's method) before the check goes in.  If the maintainer refuses
+any decline beyond official, **variant C** is the verdict-neutral
+fallback: RECORD the copy kinds (`mutualCtorKinds`' output per copy
+constructor, already computed by `checkMutualCore` — an exposure, no
+new check, cannot decline) and consume them through the restored
+reads — (P) then costs the (N1a)-shaped congruence, 2–3 sessions,
+instead of the 1-session reflection.  Variant B is recommended: it
+is cheaper to consume by two sessions, its decline shape is precise
+and corpus-vacuous, and it is decided on stored data alone.
+
+*Why it is a kernel record and not a model theorem.*  (P) is a
+property of the container's stored constructors — syntactic, decided
+once per pin on data the pre-block environment holds — and its
+consumer is the composed functor's monotonicity, an invariant needed
+at install.  "Invariants over runtime gates": the check runs once at
+the nested block's install, not at any use site, and the model reads
+its verdict as a hypothesis of the run relation.
+
+**(c) The composed-operator datum — D-2 for this route.**  A nested
+block's `IndRep` must let a LATER block nest through it: the later
+block's accessibility and fold-agreement inductions run the earlier
+block's `functor` (its lfp induction) at a PARAMETER FRAME and
+decompose its elements by `fibre` at that frame, and at a nested slot
+they need the slot's set to be the inner container's leaf at the
+FAMILY VARIABLE — `P4COp α Y = {text s | s ∈ α} ∪ {append ps | ps ∈
+⟦Array⟧ Y}`, consumed by `p4cL_induction` with `Y := sep (p4cL S) P'`
+in the experiment.  The demoted datum of the assessment's (C6) (the
+nested slot read at the AMBIENT leaf `⟦Array⟧(⟦P4C⟧ α)`, a constant)
+has the right `leaf` but a useless induction principle (no hypothesis
+at the `append` slot) and is therefore NOT enough for a later block —
+the same conclusion §M.59 (e) reached for the model lane's D-2, in a
+different form.  What the direct route's datum needs, as decision
+items (nothing added):
+
+* **D-2a: a fourth chain arm** in `chainXIGo` (`Semantics/Tower/
+  FixLeafI.lean:214`, a Semantics change, not checker code): today an
+  ordinary domain is `F.liftN 2 i` — lifted past `X` and `t`, so it
+  CANNOT mention the family variable — and a recursive slot is
+  `slotXI` (`X ⟨e⃗⟩` under a telescope).  A NESTED slot is a term that
+  mentions `X` inside a container application: `⟦J⟧ (Ds[T ↦ X ⟨·⟩])`
+  — the restored field's reading with every member occurrence `T_m
+  p⃗ e⃗` replaced by `X ⟨e⃗⟩` (the recursive slot's own spelling, one
+  level in).  Datum: a parallel per-constructor list of nested-slot
+  readings (`Nss : Nat → (Name → Nat) → List (Option AnnotTerm)`, or
+  the kinds' fourth value with the reading beside it); `ChainFit`
+  unchanged in shape (`SpineFit` over the extended chain).  Consumer:
+  the later block's step 4 inductions and the `fibre` clause at the
+  frame.  Consumers of `fibre` to re-check for the new arm: the
+  structure/η kits (`Struct*`), `idxRecover`, the tower kits — each
+  reads the chain by kind; an arm they do not know is a silent
+  mismatch, so this is a census item, not a risk.
+* **D-2b: `functor` at every parameter frame is the COMPOSED
+  operator** — automatic once `Φ ψ ρp` is DEFINED as the composed
+  operator (the nested slot's set varies with `ρp` through the inner
+  containers' leaves at the components' readings); the clause's laws
+  (`MonoFam` in the family, `MapsFam`, the closed member) hold at
+  every frame by the same proofs as at install, PROVIDED (P) of the
+  inner containers holds at every frame — i.e. the nested block's own
+  `paramPositive` is what K.26 asks of it when it is later a
+  container.  So a nested block gets (P) in ITS parameters from the
+  same reflection lemma over its restored constructors, and `ParamMono`
+  is a THEOREM of its datum, not a stored clause.
+* **D-2c: no copy members, no `leafC`/`fibreAll`/`ctorC`** (§M.59
+  (e)'s three clauses are the model lane's D-2 and are not needed
+  here): the composed datum has `kReal = k`, `ctorsC = []`, the
+  containers' constructors never appear as the block's — a later block
+  reads the inner containers through THEIR datums along the nesting,
+  which is what the recursion's index set (one component per restored
+  motive) already enumerates.  The datum does need the PINS as data
+  (`pinsAV` exists) so that the later block can name the inner
+  containers' leaves at the components' readings — the nested slot's
+  reading of D-2a carries them.
+
+**(d) The kernel-side shape checks — what the theorem is OVER.**
+`DeclNestedRun` verbatim (K.1–K.23), read as a shape check, conjunct
+by conjunct, plus K.26:
+
+* the annotated inputs (K.12) and `elimNested` — REQUIRED: the pins
+  (`st.pins`), the copies' types (their FIELD KINDS are the
+  predecessor structure of step 4 and the shapes/positions of (W));
+* `checkMutualCore` on the auxiliary block — REQUIRED as the shape
+  check that GENERATES the `k + numNested` recursor types and rules
+  (#278's generator) and decides positivity/universe/eliminator; the
+  model reads `checkMutualCore_inv`'s syntactic conjuncts (the copy
+  kinds) and never models `envAux`;
+* `restore_nested`, post-check (b) — REQUIRED (the stored constants);
+* post-check (c) `nestedRecsOk` — REQUIRED: this IS the theorem's
+  shape check; the stream's records are compared structurally against
+  the generated restored ones, and the model reads the GENERATED
+  spelling (`restoreRecTys`/`restoreRules`'s output, D4's read half);
+* (a) `nestedPinsOk` at the restored environment — REQUIRED (the
+  pins' readings fit the containers' parameter telescopes: the frame
+  `⟦Ds_j⟧ ∷ ρp` satisfies `dJ.params`); K.2's `pinsOkAux` at the
+  scratch environment — UNCONSUMED here (verdict-neutral to keep);
+* (o) `nestedTopoOrder` — UNCONSUMED: the direct route has no fold
+  along the pins (the recursion is one simultaneous graph over all
+  motives; the nested inductions follow the containers' OWN nesting,
+  not the pin order; P4's cycle `0 → 1 → 2 → 0` is one lfp);
+  verdict-neutral to keep (it declines nothing official accepts);
+  K.25's unit table/order — NOT NEEDED (the unit is the container's
+  recursor family, which the fold-agreement induction takes as one
+  simultaneous induction through the container's datum, without a
+  table);
+* (a′′) `pinsClosed`, (a′) `copiesFresh`, K.14 `nestedContainersOk`
+  (uniform occurrences; `containerInfo?` at every pin; the recursor
+  facts), K.17 `nestedCtorsWhnfOk`, K.23 `nestedGroupExclusionOk` —
+  REQUIRED by the restored reads (X) consumes;
+* **K.26 `nestedParamPosOk`** — REQUIRED, NEW ((b)).
+
+*The rule shapes the checker must verify* (measured on the fixtures
+this session, `tests/e2e/nested_rec.ndjson` / `nested_p04.ndjson`,
+decoded; `Λ` the parameters/motives/minors prefix):
+
+    Tree.rec   @ Tree.node  : Λ λ a xs. node a xs (Tree.rec_1 … xs)
+    Tree.rec_1 @ List.nil   : Λ nil
+    Tree.rec_1 @ List.cons  : Λ λ h t. cons h t (Tree.rec … h) (Tree.rec_1 … t)
+
+    P4.rec   @ P4.mk       : Λ λ a. mk a (P4.rec_1 … a)
+    P4.rec_1 @ P4C.text    : Λ λ s. text s (P4.rec … s)              -- the container's PARAMETER position: an ih from the block
+    P4.rec_1 @ P4C.append  : Λ λ parts. append parts (P4.rec_2 … parts)
+    P4.rec_2 @ Array.mk    : Λ λ l. mk l (P4.rec_3 … l)
+    P4.rec_3 @ List.nil    : Λ nil
+    P4.rec_3 @ List.cons   : Λ λ h t. cons h t (P4.rec_1 … h) (P4.rec_3 … t)
+
+with `P4.rec`'s four motives over `P4`, `P4C P4`, `Array (P4C P4)`,
+`List (P4C P4)` and six minors, and `P4C`'s OWN family `P4C.rec,
+P4C.rec_1, P4C.rec_2` (three motives, five minors) — the mimic
+`P4.rec_1` is `⟦P4C.rec⟧ [u] P4 (M_2, M_3, M_4) (text ↦ λ s, text s
+(P4.rec … s); append ↦ λ ps ih, append ps ih; mk ↦ λ l ih, mk l ih;
+nil; cons ↦ λ h t ih₁ ih₂, cons h t ih₁ ih₂)`, `P4.rec_2` the same
+choice at `P4C.rec_1`, `P4.rec_3` at `P4C.rec_2`: ONE choice of
+motives/minors for the whole recursor family of the root container
+(§M.58's unit, as a definition).  The shape check is `nestedRecsOk`:
+the generator produces exactly these from the auxiliary block, and
+the stream's records are compared against them; the model then reads
+the generated form, never the stream's term.
+
+**(e) Sizing per milestone, and the experiment.**
+
+*The falsifying experiment (this session).*  `Tree`: PASSES, as
+described in the opening paragraph; the file's hypotheses are the
+exact list of what the pure lemma needs of the container.  Two
+findings about the engine: (i) the recursion's index set must be the
+disjoint union of ALL restored motive domains (the containers' values
+are indices of the recursion, contrary to the assessment's (C5),
+which put only the members there and handled containers inside `st`
+through `J.rec` — that form needs the partial predecessor function
+typed at a container fold, which forces either a "support" lemma or
+fold-parametricity in the parameter; the disjoint-union form needs
+neither, and matches official's recursor: a SIMULTANEOUS fold over
+all motives); (ii) the container's recursor is not consulted by the
+existence proof at all — it enters only in the leaf's spelling, and
+`fold_agree` (one induction per container family) closes the gap.
+`P4` (`DirectP4.lean`, Opus, 1 091 lines, axioms
+propext/choice/Quot.sound): PASSES.  `P4C` in its COMPOSED form
+(`p4COp α Y`, the `append` slot at `⟦Array⟧ Y`, `⟦Array⟧ β = {mk l | l
+∈ ⟦List⟧ β}` — no lfp, Array has no recursive field), `P4* := lfp (X ↦
+{mk a | a ∈ ⟦P4C⟧ X})`, the recursion over the FOUR restored motive
+domains, accessibility by THREE nested lfp inductions (`p4T_induction`
+⊃ `p4CL_induction` at `S := sep P4* acc` ⊃ `p4ListL_induction` at
+`S₁ := sep (⟦P4C⟧ S) acc₁`, with the `Array` step inside the `append`
+case), the stream's six ι rules in their exact shapes (`p4Rec_text :
+R* (1, text s) = text' s (R* (0, s))` — the container's PARAMETER
+position, an ih from the block), and `p4Rec_fold_agree`: three folds
+with `P4C.rec`/`P4C.rec_1`/`P4C.rec_2`'s rule shapes at ONE choice are
+the engine's components 1–3 — the mimic leaves through the root
+container's whole recursor family, §M.58's unit as a definition, by
+one `p4CL_induction` at `P4*` with `p4ListL_induction` inside.  The
+map action in the parameter is used in `p4ArrayL_mono`/`p4CL_mono`
+(leastness, from `LOp_mono`) and `p4F_mono` only.  Hypotheses: seven
+injectivity/disjointness facts (`mkP4`, `text`, `append`, `amk`,
+`mkCons` injective; `text ≠ append`; `nil ≠ cons`), the bounding set's
+closure under each constructor, the motives' grading, the six minors'
+typing — the datum's `mkInj`/`fibre`/`functor` and (W), nothing
+else.  Two notes from the build: the `*_of_param` helpers take a
+COMBINED hypothesis `∀ a ∈ S, a ∈ C₁ ∧ acc (1, a)` so that the
+parameter set `S` unifies at the call site; in `p4Rec_fold_agree`'s
+`append` case the `amk` rule is applied BACKWARDS (`← p4Rec_amk`) to
+fold `amk' l (R* (3, l))` into `R* (2, amk l)` before `p4Rec_append`
+fires.  No deviation from the plan.
+
+*Sizing to a landed `declNestedDirect`* (Fable sessions; the kernel
+lane's K.26 separately):
+
+| milestone | content | sessions |
+|---|---|---|
+| K.26 (kernel lane) | `nestedParamPosOk`, its Verify twin (`…_inv`: the per-pin syntactic facts), the corpus probe (expected 0 declines), the `DeclNestedRun` conjunct | 1–2 |
+| M1 (X) | the nested slot's X-frame reading from D3's restored reads; `Φ_c` spelled at the run; D-2a's chain arm; `MapsFam` | 2–3 |
+| M1 (P) | the reflection lemma `paramPositive → ParamMono` (the `whnf` arm through `WhnfField`); `MonoFam Φ_c` from step 1 + the copy kinds | 1–2 |
+| M1 (W) | (W-aux): the untagged auxiliary presentation as a container from the copy kinds; `container_closed_exists`; the composed closed member | 1–2 |
+| M2 (E) | engine E at the run: index set, `pred` from the containers' `fibre`/`mkInj` at the frame, accessibility by the nested inductions, `recGraph_exists_unique`, `recSel`, typing | 2–3 |
+| M2 (C4)+(C5) | the members' Step with the nested-ih arm, `fixSig/fixSel_facts` re-run, the Σ-certificate from `recSel` + fold agreement | 1–2 |
+| M3 (C3) | the mimic leaves through `J.rec` at the choice (`FoldChoice`/`RecFold` kit), typing by `mem_type`, `.nested` laws from `rec_rules` | 1–2 |
+| M4 | D4's read half (shared), D5 the composed datum (D-2a/b), D6 tables/caps, D7 `declNestedDirect` + dispatch, M-E deletions/gates | 4–6 |
+| **total** | | **12–20** (+1–2 kernel) |
+
+Against the model lane's 15–23 under D-1 (§M.59 (g)) and the
+assessment's 13–20 for this route.  The honest caveat on both numbers:
+every nested lane so far has run 4–5× over its estimates, and this
+lane starts with zero run-level assembly, whereas the model lane has
+D1–D3 landed and D4 designed (§M.57).  What this lane REUSES of the
+branch: all of `Kernel/`, `Verify/`, `Semantics/`; `RestoreTblRun`,
+`NestedCtor*`, `NestedFormers`, `RestoreRead` (D1–D3's reads),
+`FoldChoice`/`RecFold`, `CopyPins`' semantic half, `pinFacts_of_run`'s
+`ContainersRep` plumbing; `BekicUnit.lean`/`BekicTreeList.lean` (the
+composed-operator `LOp`/`TOp` are shared with the experiment).  DEAD
+under this route (parked, not deleted): the ψ/ψ⁻¹/R1/R2 modules of
+§M.59 (g)'s list, `CopyEqRun`, `IndRepParamMono`'s consumer,
+`nestedAuxModel`, `declMutualCore`'s datum-exposing widening,
+`MutualBlockReps` at `envAux`, `PsiUnitRun`, `NestedUnits`' fold kit.
+
+**(f) Findings with cost, and the comparison with D-1.**
+
+1. *The engine's index set is the disjoint union of the restored
+   motives* (½ h of design, saved a whole lemma family): the
+   assessment's (C5) — members only, containers inside `st` through
+   `J.rec` — needs a partial choice function typed at a container
+   fold, which does not type without either "every container value
+   is a value over its own support" (needs (P) plus a fold at a
+   power-set motive) or fold-parametricity in the parameter; with
+   the containers' values as indices the step is typed by the minors
+   alone and the container's recursor is never consulted.  Official's
+   recursor IS this simultaneous fold (§2.1 of the assessment), so the
+   shape is also the natural one.
+2. *(P) is used exactly once* — in the composed operator's
+   monotonicity (`treeF_mono`), i.e. for `T*` to EXIST as an lfp with
+   laws; nowhere in accessibility, the step, the rules or the fold
+   agreement.  That is what makes K.26 a small record with one
+   consumer, and it is why the route does not need monotonicity "along
+   the kernel's order": P4's cycle is one lfp induction at the root
+   container's composed datum.
+3. *`denoteMeta` bakes the leaves in* (found while stating the
+   run-level `Φ_c`, ¼ h): the run's pin readings cannot be re-opened
+   at a family variable, so (X) is the first run-level item, not
+   (P).  The assessment had (X) at 1–2 sessions; that stands, but it
+   gates everything after step 1.
+4. *Local notations are not expanded inside `variable` binders* (the
+   binders silently elaborated to `sorry`, flagged only as
+   "declaration uses sorry" with no error — 20 min): spell carriers
+   out in `variable`, keep notations to statements and proofs.
+   `Classical.choose` on a two-field constructor: use a `V ×
+   V`-valued existential (a dependent second `choose` breaks `rw`'s
+   motive).
+5. *K.26's one decline shape* ((b)): reported, not designed around;
+   variant C is the verdict-neutral fallback at +2 sessions.
+
+*Comparison with D-1, as far as DESIGN shows it.*  The model lane's
+position after session 36: Bekić proved, the consumer `copyLeafEq_of_run`
+compiled under `SectionAgree`, which is FALSE at today's tags; D-1
+(member-local tags) is a change to the ONE route's sum/fixpoint kits
+that every native block's model shares — `sumMkAV`, `caseAVAt`,
+`fixStepAVI`, `fixFamI_app_eq_sum` re-proved for a two-level
+selection — sized 5–8 sessions with all-routes risk, and after it the
+(N1a) congruence (2–3), the unit-level assembly off K.25 (1–2, plus
+K.25's own 2–3 kernel sessions), then D3/D4/D5 at ψ* = id (4–6) and
+D6/D7/M-E: 15–23.  The direct route changes NO shared kit (one new
+chain arm in `chainXIGo`, one engine instantiation, one kernel check),
+its theory risk was the carrier — (P)/(W)/(E) — and this session
+retired (E) at two instances and reduced (P) to a one-consumer kernel
+record with a corpus-vacuous decline shape; (W) and (X) remain
+unspelled (the assessment's own risk items, 1–2 sessions each).  Where
+the direct route is BEHIND: it has no run-level assembly beyond step
+1, and its Milestone 1 is Semantics work of a kind this branch has
+found expensive (readings at a modified valuation); where it is
+AHEAD: no bijection, no round trip, no tag change, no order, no unit
+table, and a final artifact roughly 17k lines lighter.  If D-1 goes
+through in its 5–8 sessions the model lane is ahead by its landed
+D1–D4; if D-1 overruns as the lane's history predicts, the direct
+route's 12–20 from zero is the shorter path.  This session's honest
+reading: the two are within each other's error bars; the direct
+route's remaining risk is concentrated in ONE item ((X), first), and
+that item can be falsified in a single session — which is the
+recommended next step before either lane commits its Milestone 2.
