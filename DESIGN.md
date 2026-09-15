@@ -83694,3 +83694,321 @@ reading: the two are within each other's error bars; the direct
 route's remaining risk is concentrated in ONE item ((X), first), and
 that item can be falsified in a single session — which is the
 recommended next step before either lane commits its Milestone 2.
+
+#### DR.2 — (X) at the run: the reading law PROVED, the fit at a family variable is NOT a fact of the run → K.27 (session DR-2, 2026-09-15)
+
+**The result in one paragraph.**  (X) — the nested slot's reading at
+the X-frame — splits into two equations, and the session settled
+both.  **(X.1)**, the reading law, is PROVED at the run for every
+shape (`ConLeche/Model/Inductives/DirectSlot.lean`,
+`denoteMeta_absMembers`): a term whose members are stored reads at
+the model exactly as its ABSTRACTION — every `T_m.{lps}` replaced by
+a fresh variable `nP + m` above the parameter openers
+(`Expr.absMembersGo`) — read one level deeper per member and
+interpreted at the frame whose fresh slots hold the members' leaves'
+values; the proof is `denoteMeta_substFvarAt` (`Model/Annot/
+BitInst.lean`) folded over the members and `interp_inst` at cut `0`,
+no new induction over `denoteMeta`.  **(X.2)**, the FIT of the
+abstracted components in the container's parameter telescope at a
+family VARIABLE — what the composed functor's laws are stated over —
+is NOT derivable from any fact `DeclNestedRun` records: the kernel
+establishes it INSIDE the pin's inference as a level comparison
+(`T : Sort w` against `α : Sort w'`, `isDefEq` on sorts = level
+equivalence), and every claim the model tier can read off an
+inference is about the WHOLE term at the constants' leaves, which
+loses the levels ((b) below has the argument and the three
+workarounds that fail).  The record that gives it is **K.27**: the
+pins' components type-checked with the members ABSTRACTED at the
+pre-block environment (`NestedPinsAbsOk`, (c)) — a re-run of
+`nestedPinsOk` with fvars for the members; its `_inv` is the model's
+standard inference row at an fvar context, which is frame-quantified,
+so the fit holds at EVERY value of the member variables in their
+former types, the family's curried tower included.  Its run-level
+consumer is COMPILED (`pinFitAbs_of_run`), under K.27 named in the
+`nestedPinsOk_inv` shape; the STOP rule of the brief applies: K.27 is
+a decision item, not added.  What is also settled: `denoteMeta` is
+parametric in the valuation but NOT re-openable at a variable under
+binders (a closed leaf inserted at every depth cannot mention a frame
+slot), so the Expr-level abstraction to an `fvar` — which `denoteMeta`
+reads as a de Bruijn LEVEL and shifts correctly under binders — is
+THE device, and the same abstracted term is both the reading's
+subject and K.27's subject.  The composed datum's fourth chain arm
+(D-2a) now has a concrete spelling ((d)); (W-aux) was not started.
+
+**(a) (X), stated.**  Fix a nested run, a real member's restored
+constructor `c`, and a field `i` of kind "into a copy" at pin `q =
+J.{lvls} Ds` (K.12, K.14).  The restored field domain opens at its
+own telescope to `J.{lvls} Ds e⃗` (`restoreI_copyField`); `Ds` are the
+pin's components at the block's parameter openers (`PinsAtOpeners`),
+mentioning the members only as `T_m.{lps} p⃗` (K.14: `uniformIndOccs`,
+the levels the block's own).  Two readings of `Ds`:
+
+* the BAKED reading at a model `m'` of an environment storing the
+  members: `DsA` with `denoteMeta m'.acval env' φ nP Ds_p = some
+  DsA_p` — every `T_m` node is `m'.acval T_m φ`, the member's leaf;
+  D3's `restoredCopyField_read` reads the whole field as
+  `mkPisAV tss (mkAppN (acval J ψ') (DsA ++ eiss))`, `ψ' :=
+  Level.substFn φ lpsJ lvls`;
+* the ABSTRACTED reading at the PRE-BLOCK model: `DsX` with
+  `denoteMeta mp.acval env φ (nP + k) (absMembersGo us nP L Ds_p) =
+  some DsX_p`, `L := memberNames.zip (fmsA.map (·.type))`, `us :=
+  lps.map .param` — a term over the openers `0 … nP-1` and the member
+  variables `nP … nP+k-1`, mentioning no member constant, hence read
+  where the containers live.
+
+    (X.1)  ∀ ρ, interp ρ DsA_p = interp (consList [⟦acval T_0 φ⟧, …, ⟦acval T_{k-1} φ⟧] ρ) DsX_p
+           — PROVED: `denoteMeta_absMembers` (any model of any environment storing the members;
+             premises: `Ds_p` reads, its variables lie below `nP`)
+    (X.2)  ∀ ρp x⃗, Sat Δ (consList x⃗ ρp) → SpineFit (consList x⃗ ρp) (dJ.params ψ') ⟦DsX⟧
+           — PROVED under K.27: `pinFitAbs_of_run`; `Δ` = the members' former types (closed
+             readings) above the openers' entries, `x_m ∈ ⟦Π p⃗ ı⃗, Sort w_m⟧`
+
+and, by `J`'s `leaf` at the fitting frame, **the nested slot at any
+member values `x⃗` is the container's least fixed point at the
+components' readings**:
+
+    interp (consList x⃗ ρp) (mkAppN (acval J ψ') (DsX ++ eiss))
+      = app (lfpFamSet (dJ.w ψ') (dJ.idx ψ' ρJ) (dJ.Φ ψ' ρJ)) (dJ.tup ψ' mm ⟦eiss⟧),   ρJ := consList ⟦DsX⟧ (consList x⃗ ρp)
+
+— "`⟦J⟧(Ds[X])`" at `x_m := curry_m X := Λ p⃗ ı⃗. X ⟨inj m ı⃗⟩` (the
+member's former tower with the family variable in place of the fixed
+point), and the restored field's own reading at `x_m := ⟦acval T_m
+φ⟧` by (X.1).  The consumer at step 2 of §DR.1 (a): the composed
+functor's nested arm is spelled at the frame `(ρp, X, t, f⃗)` as
+
+    N_i := mkPisAV (liftTele2 i tl) (mkAppN (mkAppN (mkLamsAV curryDoms (mkAppN LJ (DsX lifted))) curryAV⃗) (eiss lifted))
+
+— a β-redex over the curry towers (the `tuplerAV` idiom: "no
+substitution is ever performed"), `curryDoms` the members' former
+types' readings (the `Δ` entries), `curryAV_m := mkLamsAV pps_m (.app
+(bvar X) (tupler …))` with `X` at `bvar (i + 1 + |tl| + …)`.  Its
+value at `X` is the display above with `x⃗ := curry⃗ X` (β at the set
+level, `app_lamR_pos`, which needs `curry_m X ∈ ⟦Π p⃗ ı⃗, Sort w_m⟧` —
+`X ∈ famSpace w idx` gives `app X t ∈ univ w`, `tupMem` gives the
+tuple in `idx`; the native leaf's membership argument
+(`nativeTyAVI_mem`) at a variable, a Semantics lemma not yet written,
+GAP with its consumer being this instantiation); its GRADING is
+unconditional (`lfpFamSet_mem_space`, `dJ.w ψ' = w` by the aux block's
+same-sort check); its MONOTONICITY in `X` is (P) at the frame
+(`ParamMono` → `pinParamMono_of_run`); and at `X := T*` its value is
+the restored field's reading once the leaf is DEFINED as `curryAV_m`
+at the composed fixed point — (X.1) is exactly the equation the
+constructor's typing row then needs.
+
+**(b) The finding: (X.2) is not a fact of the run.**  The composed
+functor is a function on the WHOLE family space `famSpace w idx`
+(`lfpFamSet` is the meet of the pre-fixed families there; `MonoFam`,
+`MapsFam` and the closed member are stated over it), so at every
+`X ∈ famSpace w idx` the nested slot must be `J`'s lfp at the frame
+`Ds[curry X]`, i.e. `curry X` must FIT `J`'s parameter domain
+`⟦Sort w'⟧ = univ w'` (for `List`: `α : Type u`, `w' = u + 1`).  `X`'s
+fibres lie in `univ w`; the fit at every `X` is `w ≤ w'`, and the
+only fact that gives it is the kernel's `isDefEq (Sort w) (Sort w')`
+inside `inferType (J.{lvls} Ds)` (post-check (a), K.2), which is
+`w ≡ w'` as LEVELS.  Nothing the model reads survives that: the
+inference row of a CLOSED term (`ClaimsAt.inferRow`, `sortRow`) says
+`⟦pin⟧ ∈ ⟦Type⟧` and `WellDenoted ⟦pin⟧` — the latter gives
+`⟦acval T⟧ ∈ univ w'` for the ONE set the leaf is, not `univ w ⊆
+univ w'`; the aux block's same-sort check gives `wJ = w` (the
+container's RESULT sort at the pin), and `J`'s own install gives
+`w' ≤ wJ` where a field mentions `α` — the WRONG direction; the copy
+kinds (K.26-C) classify the copy's fields, not the pin.  Three
+workarounds were tried on paper and fail: (i) truncating the family
+to `univ w'` (`sep (app X t) (· ∈ univ w')` is a SUBSET of `univ w'`,
+not a member — `univ w'` itself is such a fibre); (ii) meeting with
+the closed member `L` (needs `curry L ∈ univ w'`, i.e. the same level
+fact for `L`'s fibres, `univ (w-1)` at the native closed member);
+(iii) the family space at `min(w, w')` (the fibre of `Φ_c X` at a
+constructor with a nested field then lands in `univ wJ = univ w`, not
+`univ w'`, in the unreal case `w' < w`).  The experiment
+(`DirectTreeList.lean`, `DirectP4.lean`) could not see this: its
+container was a TOTAL operator in its parameter (`LOp α Y` for every
+`α`), whereas `IndRep.functor/fibre/leaf` are stated at `Sat`-frames
+only.  So a kernel record is REQUIRED for the direct route — the
+first such item the route did not foresee (DR-1 sized (X) at 1–2
+sessions of Semantics work with no record).
+
+**(c) K.27 — the pins at ABSTRACTED members (a kernel record
+REQUEST; `_tmp/direct-nested/K27.md`).**  ONE conjunct of
+`DeclNestedRun`, after K.12's annotation and the elimination:
+
+    nestedPinsAbsOk (ops : CheckerOps m) (env : Env) (p : NestedParts) (fmsA : List ConstantVal) :
+        List NestedPin → m Unit
+      | [] => pure ()
+      | q :: rest => do
+        let _ty ← ops.inferType env (p.nP + p.k) (absPin p fmsA q)     -- `nestedPinsOk`'s check, the members as VARIABLES
+        nestedPinsAbsOk ops env p fmsA rest
+
+    absPin p fmsA q := Expr.absMembersGo (p.lps.map .param) p.nP (p.memberNames.zip (fmsA.map (·.type))) q.pin
+      -- every `.const T_m (lps.map .param)` ↦ `.fvar (nP + m) fmsA[m].type`; `Expr.absMembersGo`/`absConstAt`
+      -- are in `Model/Inductives/DirectSlot.lean` and move to the kernel with the check (a structural walk,
+      -- fvar annotations not descended, `abstract1`'s convention)
+
+at the PRE-BLOCK environment `env` (the members are not stored there;
+the abstracted term mentions only pre-block constants, K.15).  Its
+`_inv` twin is `nestedPinsOk_inv`'s shape and is the NAMED hypothesis
+of this session's consumer:
+
+    NestedPinsAbsOk μ F env p fmsA pins := ∀ q ∈ pins, ∃ ty, inferTypeCore μ env F (p.nP + p.k) (absPin p fmsA q) = .ok ty
+
+*Consumer* (`pinFitAbs_of_run`, COMPILED): from the annotated formers
+(K.12), the elimination, the head former's openers and the
+containers' datums (`ContainersRepPre`), with K.27 named — at every
+pin: its container member `J` and datum `dJ`, `q.pin = J.{lvls} Ds`,
+`Ds.length = dJ.nP`, the abstracted components' readings `DsX` at
+the pre-block model at depth `nP + k`, and at every frame satisfying
+`Δ` (the members' former types over the openers' entries) the
+application `mkAppN (acval J ψ') DsX` is graded, `⟦DsX⟧` fits
+`(dJ.ppsM mm ψ').take nP` and `Sat (dJ.params ψ').reverse (consList
+⟦DsX⟧ ρ)` — the premise of `IndRep.leaf/fibre/functor` at the frame.
+The proof: `ctxOk_of_openers` at the context `Δ` (the head former
+opened at the pre-block model by `opened_of`; the members' types'
+readings closed by `denoteMeta_closed`/`denoteMeta_depth_of_closed`),
+`acceptedReads_of` for the abstracted term's reading, `ClaimsAt.
+inferRow` for its grading at every `Sat Δ` frame, `denoteMeta_mkAppN_
+inv` + `denoteMeta_const_arity` for the shape `mkAppN (acval J ψ')
+DsX`, and `spineFit_of_wellDenotedV_mkAppN_lam_prefix` (the
+`StructEntryKit` lemma at a PREFIX of the tower) against the leaf's
+λ-shape (`IndRep.leafShape`) for the fit; `paramsIffM` for the `Sat`
+form.
+
+*Why it is a record and why it cannot decline where official accepts
+— to be MEASURED.*  Official types the pin as a subterm of the block's
+constructor types at the scratch environment where `T_m` is a former
+CONSTANT with no constructors and no recursor; K.27 types the same
+term with `T_m` an fvar of the same type at the pre-block
+environment.  The checker's inference on the two differs only at the
+head's lookup (`inferConst` instantiates the stored former type at
+`lps.map .param` = the annotation): `whnfCore` reduces neither an
+inductive-headed nor an fvar-headed application, `lazyDeltaReduction`
+unfolds neither, `isDefEq` on both goes by congruence; proof
+irrelevance and structure η look at the TERMS' types, and the
+components are types (their types are sorts); no `T.rec`, `T.casesOn`
+or `T`-projection can occur in a pin (the block's constructor types
+are checked before those exist, `hpinsNP`).  So K.27 accepts exactly
+when the pin's own inference accepts, modulo the checker's uniformity
+on opaque heads — which the kernel lane MEASURES on the corpus (the
+25-row shadow gate and the 41-block cone) before landing, as K.26-B
+was to be; the expected count is ZERO.  Against the maintainer's rule
+("no check that can fire on a stream official accepts"): K.26-B's
+decline shape EXISTED (a component inspected by a container field);
+K.27's, if any, is a con-leche implementation difference between a
+constant and a variable of the same type, which is a bug to fix, not
+a shape to decline.  If the maintainer nevertheless refuses any
+re-check, the alternative is a Verify-tier theorem that
+`inferTypeCore` is invariant under renaming an opaque constant to an
+fvar of the same type — the whole inference/whnf/defeq walk, many
+sessions — and the direct route stalls on it.
+
+*Relation to K.26-C* (the kernel lane's shape, landing on
+`inductives`: `nestedCopyKinds b stored : Option (List (List (List
+(RecFieldKind × Nat))))` — `mutualCtorKinds` recomputed on the stored
+copies, per member in block order, own members then copies at
+`drop p.k`, per constructor, per field — and the conjunct
+`nestedCopyKindsOk b stored = true`; the model reads the kinds as
+`nestedCopyKinds b stored` at the run's bound `b`/`stored`; NAMED in
+that shape until merge).  K.26-C feeds (P) (the composed functor's
+monotonicity, through `ParamMono` and the copy reads' congruence);
+K.27 feeds (X.2) (the functor's DOMAIN: the frames at which the
+containers' clauses hold).  Both are records the model consumes as
+run conjuncts; neither is used by the other.
+
+**(d) D-2a, concretely.**  The datum entry per nested field of a real
+constructor (decision item, unchanged in status): the container's
+name and level substitution (`tgtCont`/`tgtLps` as in `restoreAV`),
+the abstracted components' readings `DsX` (at depth `nP + k`, lifted
+into the arm's frame by `liftN (2 + i + |tl|) k`), and the members'
+former types' readings (`Δ`'s member entries: the curry domains);
+`tl`/`eiss` are `tssF`/`eissF`.  The arm is the β-redex of (a); the
+kinds vector `rss : List (List Bool)` cannot carry a third value
+without touching `RecFieldKind` (checker code), so the arm is keyed
+by a parallel per-constructor `List (Option NestedSlot)` — `none` at
+an ordinary or recursive position.  `ChainFit` keeps its shape; the
+`fibre` consumers' census (`Struct*`, `idxRecover`, the tower kits)
+stands as the item's risk.  Not built this session (STOP).
+
+**(e) The remaining premises before `declNestedDirect`, each with
+its consumer.**
+
+| premise | shape | consumer | status |
+|---|---|---|---|
+| K.26-C | `nestedCopyKindsOk b stored = true`, kinds read as `nestedCopyKinds b stored` | (P): `ParamMono dJ (pinnedSlots …)` → `pinParamMono_of_run` → `MonoFam Φ_c` | landing (kernel lane); the discharge through the copy reads (N1a-shaped) is M1 (P), 2–3 |
+| **K.27** | `NestedPinsAbsOk μ F env p fmsA st.pins` (the `_inv` of `nestedPinsAbsOk`) | `pinFitAbs_of_run` → the nested arm's fit at every `X` → `Φ_c`'s `functor`/`fibre` at the frame, the accessibility inductions | REQUESTED this session; measure, then 1 kernel session |
+| `ContainersRepPre env mp.base2` | every container has a datum at the pre-block model | `pinParamMono_of_run`, `pinFitAbs_of_run` | named until M-E |
+| curry membership | `curry_m X ∈ ⟦Π p⃗ ı⃗, Sort w_m⟧` for `X ∈ famSpace w idx` | the instantiation of `pinFitAbs_of_run` at `x⃗ := curry⃗ X` (step 2) | GAP: pure Semantics, `nativeTyAVI_mem`'s argument; with D-2a |
+| (W-aux) | the composed functor's closed member from the copy kinds | `Φ_c`'s `functor` clause | not started |
+
+**(f) Re-sizing** (Fable sessions; the kernel lane's items
+separately).  M1 (X): DONE at the reading and the fit modulo K.27;
+left: D-2a's arm + `ChainFit` + the curry membership + `MapsFam`,
+1–2.  M1 (P) under variant C: 2–3 (unchanged).  M1 (W-aux): 1–2.
+M2 engine E at the run: 2–3; Step + Σ: 1–2.  M3 mimic leaves: 1–2.
+M4 D4-read/D5/D6/D7/M-E: 4–6.  **Total 12–20 from here** (DR-1 said
+12–20 from zero; the session spent one and added one item (K.27 is
+kernel-side, +1 there, and its consumer is already compiled).  The
+honest reading: the sizing held because (X.1) was cheaper than the
+1–2 sessions foreseen (an existing lemma folded) and (X.2) moved out
+of the model tier into a record; the risk it carried moves to the
+maintainer's decision on K.27.
+
+**(g) Findings, with cost.**
+
+1. *`denoteMeta` is parametric in the valuation but a valuation
+   cannot re-open a leaf at a frame slot* (¼ h): `acval T ψ` is
+   inserted closed at every depth, so a family variable in a
+   closed-leaf slot would read a different slot under each binder
+   (the λ-pin, a Π-field).  The Expr-level `fvar` — a de Bruijn LEVEL
+   in `denoteMeta` — is shifted correctly, which is why the device is
+   an ABSTRACTION of the syntax and not a modified valuation.
+2. *(X.1) is `denoteMeta_substFvarAt` folded* (found after designing
+   a fresh `denoteMeta.induct` proof, ½ h saved): the BitInst battery
+   already has the substitution law at the top variable with the
+   annotation instantiated at cut `0`; the round trip
+   `instMembersGo_absMembersGo` reduces the k-member statement to it.
+3. *The fit at a variable needs the levels, and the levels are not
+   in any claim* (1 h of design — the session's main finding, (b)).
+   Corollary for the experiment's method: a pure-set experiment with
+   a TOTAL container operator cannot falsify a domain condition of
+   the datum; the next experiment of this kind should take the
+   container as an `IndRep`-shaped datum with `Sat`-guarded clauses.
+4. *K.27's subject and (X)'s subject coincide* (the design's
+   economy): the abstracted pin is read by `denoteMeta` (the
+   reading), typed by the kernel (the fit), and instantiated at the
+   leaves (the restored field) — one term, three uses.
+5. *`ctxOk_of_openers` handles an extended context in one call*: the
+   openers plus fresh closed variables, with the entries' grading
+   from `Opened.okΓ` at the dropped context (`Sat_drop`,
+   `List.drop_left'`) and from the closed readings at every frame.
+6. `pinFitAbs_of_run` takes its run facts in `pinsData_of_run`'s
+   style (the run's conjuncts as hypotheses: `hannF`, `hannC`,
+   `helim`, `ht₀`, `hop`) rather than destructuring `DeclNestedRun`,
+   so that `t₀`/`params` are the caller's; `elimNested_copy` gives
+   the pin's shape and `Ds.length = ci.nP`; `hrep` at the container
+   ROOT `I` (not at `q.container`, whose own `containerInfo?` would
+   need a self-membership lemma).
+
+**(h) The comparison with D-1, from what DESIGN shows.**  The model
+lane's §M.60: D-1 is member-local tags as a TABLE threaded through
+the fixpoint kit (`tagOf/locOf/flatTagAV/locTagAV`, native = the
+empty table), the case recursor's motive reconstructing the major at
+the local tag, decision D-3 (the injection law against Nat's basis
+datum), phases A/B/C, sizing 5–6, falsifier = the recursor layer at
+the general table; after it the N1a congruence, the unit assembly off
+K.25, D3–D5 at ψ* = id, D6/D7/M-E (15–23 from §M.59, of which D-1 is
+the first 5–6).  This lane after DR-2: the engine retired at two
+instances (DR-1), (X.1) proved, (X.2) a compiled consumer of a
+requested record; the kernel-facing residue is now fully enumerated
+(K.26-C, shared; K.27, its own) and both are verdict-neutral records
+whose consumers exist; the model-tier residue is D-2a (Semantics), (P)
+(shared with the model lane's N1a in content), (W-aux), the engine at
+the run, the leaves, D4–D7.  Where the direct route is BEHIND: no
+`Φ_c` at the run yet (D-2a is the next falsifier, one session: the
+arm compiled through `ChainFit` with the fibre consumers' census), no
+run-level assembly beyond steps 1 and the fit; the model lane has
+D1–D4 designed with D1–D3 landed.  Where it is AHEAD: no tag change
+to any kit, no bijection, no order, no unit table, and its next
+kernel dependency is a re-check of a term already checked rather than
+a new syntactic invariant.  If the maintainer takes K.27, the two
+lanes are within error bars with the direct route's risk now
+concentrated in D-2a + (P); if K.27 is refused, the direct route
+stalls on a checker-invariance theorem and D-1 is the only path.
