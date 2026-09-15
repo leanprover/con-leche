@@ -3,6 +3,12 @@ module
 public import ConLeche.SetModel.Ops
 public import ConLeche.SetModel.Value
 public import ConLeche.SetModel.TupleTower
+-- ALIVE BY STATEMENT: the direct nested route's falsifying experiments
+-- (task #314, DESIGN §DR.1 (e)) — pure set-model instances consumed by
+-- nothing until the route is wired; this edge is what makes `lake build`
+-- CHECK them.  `DirectTreeList` re-exports `RecGraph` and the model
+-- lane's `BekicTreeList` (→ `BekicUnit`), which were off the graph.
+public import ConLeche.SetModel.DirectTreeList
 
 @[expose] public section
 

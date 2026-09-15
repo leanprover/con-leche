@@ -39,6 +39,10 @@ public import ConLeche.Model.Inductives.FixRep
 -- and `CopyReads` (→ `DeclNested`); `ContainerRead` (the `containerInfo?`
 -- read of a represented block, §M.15) stands alone.
 public import ConLeche.Model.Inductives.PsiRun
+-- ALIVE BY STATEMENT, the same class: the direct nested route's run-level
+-- consumer (task #314, DESIGN §DR.1 (a) step 1), consumed by nothing
+-- until `declNestedDirect` is wired.
+public import ConLeche.Model.Inductives.DirectRun
 public import ConLeche.Model.Inductives.CopyCtorRun
 public import ConLeche.Model.Inductives.CopyCtorWalk
 public import ConLeche.Model.Inductives.CopyCtorWalkRun
