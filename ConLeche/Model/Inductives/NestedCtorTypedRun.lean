@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestedCtorRun
+public import ConLeche.Model.Inductives.NestedCtorViaRun
 public import ConLeche.Model.Inductives.RoundTripProp
 import ConLeche.Semantics.Tower.FixRecCoreI
 import ConLeche.Semantics.Tower.FixSquashI
@@ -48,92 +48,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## Kit -/
-
-omit [SetTheory V] in
-/-- A Π-tower over domains bounded at their depths, with a body bounded
-under them, is bounded (the converse of `bvarsBelow_mkPisAV_inv`). -/
-theorem bvarsBelow_mkPisAV {b : AnnotTerm} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {k : Nat}, DomsBelow k ds →
-      Term.bvarsBelow (k + ds.length) b.erase → Term.bvarsBelow k (mkPisAV ds b).erase
-  | [], _, _, hb => by simpa [mkPisAV] using hb
-  | d :: ds, k, hds, hb => by
-    simp only [mkPisAV, AnnotTerm.erase_pi]
-    refine ⟨hds.1, bvarsBelow_mkPisAV (k := k + 1) hds.2 ?_⟩
-    rw [List.length_cons] at hb
-    rwa [show k + 1 + ds.length = k + (ds.length + 1) from by omega]
-
-/-- **A member of a zero-level nested product folds along a fitting
-tuple into the body** when the bodies are truth values: the member and
-every partial application are the point (`piR_zero`, `app_pt`), and
-the point inhabits an inhabited truth value. -/
-theorem piTele_fold_zero {B : List V → V} :
-    ∀ {k : Nat} {T : TeleS V k} {acc : List V} {x : V}, x ∈ˢ piTele 0 T B acc →
-      (∀ as, FitsS T as → B (acc ++ as) ∈ˢ (univZero : V)) →
-      ∀ as, FitsS T as → as.foldl SetTheory.app x ∈ˢ B (acc ++ as)
-  | _, .nil, acc, x, hx, _, [], _ => by simpa [piTele] using hx
-  | _, .nil, _, _, _, _, _ :: _, hfit => hfit.elim
-  | _, .cons _ _, _, _, _, _, [], hfit => hfit.elim
-  | _, .cons A T, acc, x, hx, hB, a :: as, hfit => by
-    have hx' : x ∈ˢ piR 0 A (fun a => piTele 0 (T a) B (acc ++ [a])) := hx
-    rw [piR_zero] at hx'
-    obtain ⟨hall, rfl⟩ := mem_truthVal.mp hx'
-    obtain ⟨y, hy⟩ := hall a hfit.1
-    have hzero : piTele 0 (T a) B (acc ++ [a]) ∈ˢ (univZero : V) :=
-      piTele_zero_mem_univZero fun as' hfit' => by
-        have := hB (a :: as') ⟨hfit.1, hfit'⟩
-        rwa [List.append_cons] at this
-    have hy' : y = pt := eq_pt_of_mem_univZero hzero hy
-    rw [hy'] at hy
-    have := piTele_fold_zero (T := T a) (acc := acc ++ [a]) hy
-      (fun as' hfit' => by
-        have := hB (a :: as') ⟨hfit.1, hfit'⟩
-        rwa [List.append_cons] at this) as hfit.2
-    rw [List.foldl_cons, app_pt]
-    rwa [List.append_assoc, List.singleton_append] at this
-
-/-- The block's parameters fit their own telescope at a frame
-satisfying it (`spineFit_of_sat`, the frame shifted back by the
-domains' closedness). -/
-theorem spineFit_params_of_sat {d : IndRepData V} {ψ : Name → Nat}
-    (hlen : (d.params ψ).length = d.nP) (hbelow : DomsBelow 0 ((d.ppsM 0 ψ).take d.nP))
-    {ρ : Nat → V} (hsat : Sat V (d.params ψ).reverse ρ) :
-    SpineFit ρ (d.params ψ) (paramVals d.nP ρ) := by
-  have h := spineFit_of_sat (Δ₀ := []) (by rw [List.append_nil]; exact hsat)
-  rw [hlen] at h
-  have hvals : (List.range d.nP).reverse.map ρ = paramVals d.nP ρ := by
-    unfold paramVals
-    have h0 := map_paramBvarsAt_interp (nP := d.nP) (e := 0) (ρp := ρ) (σ := ρ)
-      (fun j => by rw [Nat.add_zero])
-    rw [Nat.add_zero] at h0
-    exact h0.symm
-  rw [hvals] at h
-  have hshift : ∀ i, i < 0 → (fun j => ρ (j + d.nP)) i = ρ i := fun i hi => absurd hi (Nat.not_lt_zero _)
-  unfold IndRepData.params at h ⊢
-  exact spineFit_congr_below hbelow hshift h
-
-/-- The parameter values pushed back onto their frame agree with it
-below the parameter count. -/
-theorem consList_paramVals_lt {nP : Nat} (ρ ρ' : Nat → V) {k : Nat} (hk : k < nP) :
-    consList (paramVals nP ρ) ρ' k = ρ k := by
-  have hlen : (paramVals nP ρ).length = nP := by
-    unfold paramVals paramBvarsAt; simp
-  rw [consList_apply_lt' _ _ (by rw [hlen]; exact hk), hlen]
-  unfold paramVals paramBvarsAt
-  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_map,
-    List.getElem?_range (by omega)]
-  simp only [Option.map_some, Option.getD_some, interp_bvar]
-  congr 1
-  omega
-
-/-- A term bounded at the parameters reads alike at a frame and at the
-frame with its parameter values pushed back. -/
-theorem interp_paramFrame {nP : Nat} {E : AnnotTerm} (hE : Term.bvarsBelow nP E.erase)
-    (ρ ρ' : Nat → V) :
-    interp V (consList (paramVals nP ρ) ρ') E = interp V ρ E :=
-  interp_congr_noBVar E (NoBVar_of_bvarsBelow hE fun _ hi => hi)
-    (fun _ hk => consList_paramVals_lt ρ ρ' (Nat.lt_of_not_le hk))
-
 /-! ## The leaf, typed at the run -/
 
 set_option maxHeartbeats 3200000 in
@@ -157,18 +71,7 @@ theorem restoredCtorLeaf_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
       (d.dsRestored mpAux.base2 ψ p.k J (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
         (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA))
       (ctorBodyAVI mpAux.base2 (d.memberName (d.mems J)) d.nP cA.2 ψ (d.esF J ψ))))
-    (tbl₀ : Nat → AnnotTerm)
-    -- NAMED (DESIGN §M.54): the transports are graded at the leaf frame
-    -- — ψ's term at the target pin over the field's telescope at the
-    -- copy's index readings, applied to the field (`viaEntryAV` at the
-    -- leaf frame); consumed at the run by `nestedCtorsModel_of_run`
-    (hviaWD : ∀ (ρ : Nat → V) (ps fs : List V), ps.length = d.nP → fs.length = cA.2 →
-      SpineFit ρ ((d.dsRestored mpAux.base2 ψ p.k J (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
-        (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA)).map (·.2.2)) (ps ++ fs) →
-      ∀ i, i < cA.2 → d.copyPos p.k J i →
-        WellDenotedV V (consList (ps ++ fs) ρ)
-          (viaEntryAV (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀
-            (d.tgtsR J i - p.k)) cA.2 0 i 0 ((d.tssR J ψ).getD i []) ((d.eissR J ψ).getD i []))) :
+    (tbl₀ : Nat → AnnotTerm) :
     Term.bvarsBelow 0
       (d.restoredCtorAV mpAux.base2 (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order tbl₀)
         ψ p.k J cA.2 cA.1.name (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
@@ -202,7 +105,6 @@ theorem restoredCtorLeaf_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     ⟨_, rfl⟩
   rw [← hΨdef, ← htgtCont, ← htgtLps, ← htgtDsA, ← hdsR, ← hbody]
   rw [← htgtCont, ← htgtLps, ← htgtDsA, ← hdsR, ← hbody] at hokTy
-  rw [← hΨdef, ← htgtCont, ← htgtLps, ← htgtDsA, ← hdsR] at hviaWD
   -- ## the block's facts
   have hreps := R.reps
   obtain ⟨-, hkb, hkRb, hnPb, -, -, -, hall⟩ := R.reps
@@ -606,6 +508,8 @@ theorem restoredCtorLeaf_of_run {μ : CheckMode} {F : Nat} {env envAux : Env}
     exact hmain
   -- ## the leaf, typed
   subst hdsR hbody hΨdef htgtCont htgtLps htgtDsA
+  -- the transports, graded at the leaf frame (`NestedCtorViaRun`)
+  have hviaWD := restoredCtorVia_of_run R hJ hmemJ hD hokTy hbelowR tbl₀ hΨ
   exact d.restoredCtor_typed mpAux hD hview.1 hview.2.1 hview.2.2.1 hview.2.2.2 hstoredC hcf
     hcb hbits hpIff hΨ hviaWD hokTy hzero hbelowR hΨB
 

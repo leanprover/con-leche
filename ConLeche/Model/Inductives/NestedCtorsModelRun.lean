@@ -29,10 +29,9 @@ instantiates it at the run:
   (`denoteMeta_params_ext`: the restored type's level parameters are the
   block's), which is `NestedCtorLeaf.params`;
 * **`nestedCtorsModel_of_run`** — the model of `env₂` off
-  `DeclNestedRun`, under `ContainersRep` (M-E's), the bridge's syntactic
-  half at every assignment's pin data (`BridgeSyntax`, ψ's standing
-  premise) and the transports' grading at every restored constructor
-  (`hvia`, DESIGN §M.54).
+  `DeclNestedRun`, under `ContainersRep` (M-E's) and the bridge's
+  syntactic half at every assignment's pin data (`BridgeSyntax`, ψ's
+  standing premise).
 -/
 
 namespace ConLeche.Model
@@ -120,15 +119,6 @@ theorem nestedCtorLeaf_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
     (hreps : MutualBlockReps mpAux.base2 b d) (hchk : CtorsChecked μ F env b true d)
     (hcd : ∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j)
     (hsyn : BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd))
-    -- NAMED (DESIGN §M.54): the transports are graded at the leaf frame
-    (hvia : ∀ (J : Nat) (cA : ConstantVal × Nat), d.ctorsA[J]? = some cA → d.mems J < p.k →
-      ∀ (ρ : Nat → V) (ps fs : List V), ps.length = d.nP → fs.length = cA.2 →
-      SpineFit ρ ((d.dsRestored mpAux.base2 ψ p.k J (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
-        (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA)).map (·.2.2)) (ps ++ fs) →
-      ∀ i, i < cA.2 → d.copyPos p.k J i →
-        WellDenotedV V (consList (ps ++ fs) ρ)
-          (viaEntryAV (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order (fun _ => .sort 0)
-            (d.tgtsR J i - p.k)) cA.2 0 i 0 ((d.tssR J ψ).getD i []) ((d.eissR J ψ).getD i [])))
     (mp₁ : EnvModelM V μ (ConLeche.consNestedFormers (stored.take p.k) env))
     (hF : FindPreserved (ConLeche.consNestedFormers (stored.take p.k) env) envAux)
     (hag₁ : ∀ n : Name, ((ConLeche.consNestedFormers (stored.take p.k) env).find? n).isSome = true →
@@ -191,7 +181,6 @@ theorem nestedCtorLeaf_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) 
       hmo hpinsNP hreps hchk hcd hpinsLits hctors mp₁ hF hag₁ (nestedTbl_fresh_of_run hcore hK20)
       hrealStored c hc
   obtain ⟨hbelow, hall⟩ := restoredCtorLeaf_of_run R hJ hmemJ hD hstoredC hokTy (fun _ => .sort 0)
-    (hvia J cA hJ hmemJ)
   exact ⟨_, _, hbelow, fun ρ => (hall ρ).1, fun ρ => (hall ρ).2.1, hreadC, hokTy,
     fun ρ => (hall ρ).2.2⟩
 
@@ -202,8 +191,7 @@ set_option maxHeartbeats 1600000 in
 `DeclNestedRun`** (M-D′ D3): `nestedCtorsModel` at the contents of
 `nestedCtorLeaf_of_run`, canonicalised to the block's level parameters
 (`canonLps`), under `ContainersRep` (M-E's), the bridge's syntactic
-half at every assignment's pin data and the transports' grading at
-every restored constructor (both NAMED, DESIGN §M.54).  The carrier is
+half at every assignment's pin data (NAMED, DESIGN §M.54).  The carrier is
 the formers' model's off the constructors' names, which is the
 pre-block one's off the block. -/
 theorem nestedCtorsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -226,20 +214,6 @@ theorem nestedCtorsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true
             (∀ (ψ : Name → Nat) (cd : Nat → CopyData V),
               (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) →
               BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)) →
-            -- NAMED: the transports are graded at every restored
-            -- constructor's leaf frame
-            (∀ (ψ : Name → Nat) (cd : Nat → CopyData V),
-              (∀ j, j < st.pins.length → PinRunFacts F env p st b params pbs mpAux d ψ cd j) →
-              ∀ (J : Nat) (cA : ConstantVal × Nat), d.ctorsA[J]? = some cA → d.mems J < p.k →
-              ∀ (ρ : Nat → V) (ps fs : List V), ps.length = d.nP → fs.length = cA.2 →
-              SpineFit ρ ((d.dsRestored mpAux.base2 ψ p.k J
-                (fun j'' => (cd j'').dJ.memberName (cd j'').mm)
-                (fun j'' => (cd j'').ψ') (fun j'' => (cd j'').DsA)).map (·.2.2)) (ps ++ fs) →
-              ∀ i, i < cA.2 → d.copyPos p.k J i →
-                WellDenotedV V (consList (ps ++ fs) ρ)
-                  (viaEntryAV (d.psiFinal mpAux.base2 ψ p.k cd (auxOfsOf st p.k cd) order
-                    (fun _ => .sort 0) (d.tgtsR J i - p.k)) cA.2 0 i 0
-                    ((d.tssR J ψ).getD i []) ((d.eissR J ψ).getD i []))) →
             ∃ (mp₁ : EnvModelM V μ (ConLeche.consNestedFormers (stored.take p.k) env))
               (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
                 (ConLeche.consNestedFormers (stored.take p.k) env))),
@@ -255,7 +229,7 @@ theorem nestedCtorsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true
   obtain ⟨-, -, hannF, hannC, -, -, ctorsR, _cvRms, _cvRns, _rulesM, _rulesN, hctors, -⟩ := hrest
   refine ⟨st, b, envAux, stored, ctorsR, order, hb, hord, hlenSt, hctors, mpAux, d, hreps, hchk, hag,
     params, pbs, ?_⟩
-  intro hcr hsyn hvia
+  intro hcr hsyn
   have hkp : p.k ≤ b.k := by rw [ConLeche.auxBlock_k hb, hlenSt]; omega
   obtain ⟨mp₁, hE₁, hagReal, hagPre, hag₁, hF, hrealStored⟩ := nestedFormersModel mp hE hcore hstoredA
     (fun t ht => (hfreshRec t ht).1) hK20 hkp mpAux d hreps hag
@@ -270,7 +244,7 @@ theorem nestedCtorsModel_of_run {μ : CheckMode} (hμ : μ.verifiedChecks = true
     obtain ⟨cd, hcd⟩ := hpins hcr ψ
     exact nestedCtorLeaf_of_run hμ mp hb helim hord hlenSt hfreshC hcontC hparamsLen hcore hstoredA
       hpc hK20 hK23 hK17 hpo hmo hhead (fun t ht => (hfreshRec t ht).1) hpinsNP hannF hannC hctors
-      hreps hchk hcd (hsyn ψ cd hcd) (hvia ψ cd hcd) mp₁ hF hag₁ hrealStored
+      hreps hchk hcd (hsyn ψ cd hcd) mp₁ hF hag₁ hrealStored
   -- ## the restored constructors' front door: the level parameters are the block's
   have hpre : ∀ c ∈ ctorsR.flatten,
       ConLeche.checkConstantValPre (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
