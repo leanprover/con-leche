@@ -80523,6 +80523,216 @@ un-substituted on the right (a `rcases … with rfl` first), and the
 constructors' closure hypotheses (`mkT l ∈ U` …) are NOT needed for
 the identification, only for non-vacuity (`mkT_mem_TOp` …).
 
+#### M.60 D-1: member-local constructor tags in the mutual reduction — the design (2026-09-15, session 37)
+
+**The decision this implements** (maintainer, 2026-09-15): D-1 of
+§M.59 — the auxiliary mutual block tags a value by the constructor's
+position WITHIN ITS MEMBER, so that a copy's carrier in the aux block
+EQUALS the container's at the pin's readings and §M.59 (b)'s injection
+half (N1b) becomes an identity.  This record fixes the exact shape
+before anything is built (consumer-first), lists what changes
+statement and what changes proof only, sizes the steps, and names the
+step that would falsify the plan.  Nothing in the kernel changes: the
+tags are the model's (`injW`, a set).
+
+**(a) The shape, in one paragraph.**  Today's fixpoint kit builds ONE
+family over the block's FLAT constructor list `Fss` (the members'
+constructors concatenated, `mutFss`) and the value's tag IS the flat
+position: the family's fibre at `(X, t)` is `sumSet w (sumFibre …
+chains)` (`fixStepI`, `FixLeafI.lean`), constructor `J`'s leaf injects at
+the numeral `J` (`sumMkAV w J …`), the recursor's body case-splits on
+the major's tag with the `n` minors in flat order (`caseRecAVI … (.fst
+(.bvar 0))`), and the case recursor's MOTIVE at stage `j` reconstructs
+the major as `inj (j + k) y` (`caseMotiveBodyAV`, `succsAV j`).  The
+member of a value is NOT in its tag: it is in the INDEX component
+(`tup ψ m ı⃗ = ⟨inj m ⟨ı⃗⟩⟩`, `MutualRep.lean`), which the reduction
+already dispatches on for the motives (`motDispAV`).  D-1 keeps every
+one of these spellings and threads ONE new datum through the kit — a
+**tag table** `tbl : List (List Nat)`, row `m` = the flat positions of
+member `m`'s constructors in order — so that:
+
+* the value built by flat constructor `J` of member `m` is
+  `inj (locOf tbl J) ⟨fs, pt⟩` with `locOf tbl J` its position in row
+  `m` (the `jc` of §M.59);
+* the family's fibre at `(X, t)` is the tagged union whose `jc`-th
+  fibre is the FLAT chain `tagOf tbl n t jc := (tbl.getD (memTag t)
+  []).getD jc n` — the member read off the index tuple
+  (`memTag t := natIdx (sfst (sfst t))`: `t = ⟨inj m ⟨ı⃗⟩⟩ = mkTower [inj
+  m …]`, so `sfst t` is the tag and `sfst (sfst t) = vnat m`; `W ≠ 0`
+  always, `TagOk`), the dead position `n = Fss.length` beyond the row
+  (its fibre is `empty`, `sumFibre_of_ge`);
+* the recursor's case split stays the FLAT `caseRecAVI` over the flat
+  minors: its scrutinee becomes `flatTagAV tbl n (.fst (.bvar nIdx))
+  (.fst (.bvar 0))` — the flat position computed from the first index
+  binder's tag and the major's local tag — and its motive at stage
+  `j` reconstructs the major with the LOCAL tag, `inj (locOf tbl (j +
+  k)) y` (`locTagAV tbl n j k`, a numeral table on `k`), so the branch
+  lands in `Mot ı⃗ major` for the major that actually has local tags;
+* `tbl = []` is the NATIVE route: `tagOf [] n t jc = jc`, `locOf [] J =
+  J`, `flatTagAV [] _ _ k = k` by definition (a `match` on the table),
+  so every native spelling is the OLD TERM on the nose and the native
+  route's stored values do not change — only the kit's proofs are
+  re-run at the general table.
+
+Two-level dispatch, but with the second level FLAT: the member enters
+only through the tag map, never as a second `natrec` over minors, so
+`caseRecAVI`, `caseBaseAVI`, the ih spellings (`FixIhI`), the K-frame
+(`frMs`, `frM`, `frP`) and `FixKI` keep their shapes.
+
+**(b) Why a table and not an offset.**  `MutualParts.ctors` is "member
+by member, as the parser orders them", but the model reads each
+constructor's member OFF ITS TYPE (`mutualCtorMember`, `memF J :=
+(ctors.getD J default).member`) and records no contiguity; an offset
+`J − J₀(m)` would need a monotonicity fact about the stream's order
+threaded into `mutualIndRep_of` and discharged in `declMutualCore`
+(6 500 lines).  The table is computed from `mems` alone (`row m :=
+(List.range n).filter (mems · = m)`), `locOf` is `idxOf` in the row,
+and every law is a list lemma (`row m` strictly increasing and Nodup,
+`(row (mems J))[locOf tbl J] = J`, `locOf` injective within a row).
+The spelled terms are numeral tables (`natSelAV`, `caseAVAt`'s shape
+with motive `Nat`), size `O(n)` per site.
+
+**(c) Why the motive changes and not only the scrutinee** (the finding
+that sized this record): the natrec's motive at stage `j`,
+`λ k, Π (y : case (j + k)), Mot ı⃗ (inj (j + k) y)`, must be GRADED —
+`Mot ı⃗ : aux ı⃗ → Sort ℓ` applied to `inj (j + k) y`, which at local
+tags is NOT in the fibre `aux ı⃗` (only `inj (locOf (j + k)) y` is), so
+`WellDenoted` fails at the flat reconstruction.  The reconstructed
+major's fibre λ (`sumInjAtAV`'s `λ k, case k`) is replaced there by the
+CONSTANT `λ _, case (j + k)` — the pi's own domain lifted under the λ
+— which is what grading needs (`payload ∈ B tag`) and needs no table;
+the constructor LEAF keeps `sumInjAtAV`'s selector with the leaf's
+member as a numeral (`flatTagAV tbl n (numeralAV m) (.bvar 0)`).
+`ctorValI`/`concI` (the minor's conclusion at the K-frame) carry
+`locOf tbl j`; `motSem` likewise.  This makes `RecHypI.hms` — minor
+`j` inhabits its space ending in `Mot e⃗ (inj (locOf tbl j) ⟨fs⟩)` —
+exactly what the stored minor type reads to once the constructor leaf
+folds to the local tag (`sumMkAV_fold`), so the mutual instance's
+`FixPre` discharge (`MutualRecPre2`) changes at those two points only.
+
+**(d) The kit, file by file — statement changes (S) vs proof-only
+(P).**  Semantics tier (`ConLeche/Semantics/Tower/`):
+
+    SumCase.lean   (+) natSelAV ts dflt d k  — the numeral/term selector (caseAVAt's shape, motive Nat at level 1):
+                       reads ⟦ts.getD i dflt⟧ at the retracted frame when ⟦k⟧ = vnat i; graded; in ω when its leaves are
+                   (+) flatTagAV tbl dead mem k := match tbl with | [] => k | _ => natSelAV (tbl.map (row ↦ natSelAV (row.map numeralAV) (numeralAV dead) 0 k)) (numeralAV dead) 0 mem
+                   (+) locTagAV tbl n j k := match tbl with | [] => succsAV j k | _ => natSelAV (((List.range n).drop j).map (numeralAV ∘ locOf tbl)) (numeralAV 0) 0 k
+                   (+) natIdx (moved up from FixRecCoreI), memTag t := natIdx (sfst (sfst t)), tagOf tbl n t jc, flatOf tbl n m jc, locOf tbl J; their laws
+    SumLeaf.lean   (S) sumBodyAV tbl w Fss: the selector's scrutinee is flatTagAV tbl Fss.length (.fst (.fst (.bvar 1))) (.bvar 0)
+                   (S) sumBodyAV_interp: = sumSet w (fun jc => sumFibre w ρ Fss (tagOf tbl Fss.length (ρ 0) jc)); premise TagTuple (ρ 0) when tbl ≠ []
+                   (S) case_fibre(_at): at the new scrutinee
+    SumMk.lean     (S) sumInjAtAV tbl m w Fss d tag payload (selector at the numeral m); sumMkAV tbl m w jc ds Fs Fss (local tag jc)
+                   (S) MkPreS tbl m w jc … : Fss[flatOf tbl Fss.length m jc]? = some (Fs ++ [idxEqAV []]) ∧ … tuple ∈ f jc
+                   (S) sumInj_at_fields / sumMkAV_mem / _wellDenoted / _fold (= inj jc (mkTower (fs ++ [pt]))) / _zero
+    SumWire.lean   (+) _below for natSelAV/flatTagAV/locTagAV; (S) sumBodyAV_below/sumInjAtAV_below/sumMkAV_below
+    FixLeafI.lean  (S) fixFunAVI/fixBodyAVI/nativeTyAVI tbl; fixStepI tbl … X t := sumSet w (fun jc => sumFibre w (cons t (cons X ρp)) (chainsXI …) (tagOf tbl Fss.length t jc))
+                   (S) famFI/fixFunVI/fixFamI tbl; (+) OffOk tbl u ρp Ids := tbl ≠ [] → u ≠ 0 ∧ Ids ≠ [] ∧ ∀ t ∈ idxSet u ρp Ids, TagTuple t
+                       (TagTuple t: t and sfst t are sigma members with graded components, sfst (sfst t) ∈ ω — what WellDenoted (.fst (.fst _)) and the natrec ask)
+                   (S) FixBaseI gains OffOk; fixFunAVI_facts/fixBodyAVI_facts take hoff; (P) the rest
+    FixFamI.lean   (S) XChainsOk gains hoff; fixStepI_elim: ∃ jc fs, x = inj jc … ∧ tagOf tbl n t jc < Fss.length ∧ (chain at tagOf …); _zero_elim likewise
+                   (S) fixFamI_app_eq_sum: = sumSet w (fun jc => sumFibre … (rChains …) (tagOf tbl n (tupW u is) jc)); (P) mono/maps/closed/fitsXI/spineFit_real_of_XI
+    SumRecCase.lean (S) ctorValI tbl w j acc := … inj (locOf tbl j) …; concI tbl; motSem tbl (Mi (injW w (locOf tbl (j + i)) y))
+                   (S) caseMotiveBodyAV tbl: major reconstructed as psigmaMk Nat (λ _, case (j+k)) (locTagAV tbl n j (.bvar 1)) (.bvar 0); (P) motive_facts, motiveBody_facts
+    FixCaseI.lean  (S) RecHypI/IhArgsOk/base_factsI/caseRec_factsI at concI tbl / motSem tbl; (P) proofs
+    FixRecCoreI.lean (S) fixRecBodyAVI tbl (scrutinee flatTagAV tbl Fss.length (.fst (.bvar Ids.length)) (.fst (.bvar 0))); fixStepAVI/fixSigAVI/fixSelAVI tbl; FixKI₀/FixKI/FixPre tbl (+ hoff); famK tbl
+    FixElemI.lean  (S) elemFlat tbl Fss e := tagOf tbl Fss.length (sfst e) (elemTag e) replaces elemTag in elemFields/elemPred/elemSt; (P) famK_elim, elemK_facts
+    FixRecI.lean   (S) body_iota (major inj jc …, flat J = tagOf …), gStar/rStar/stepVI/sigKI/nativeRecAVI tbl; (P) body_facts (the scrutinee's grading via flatTagAV_facts + OffOk), leaf_eq, rStar_fixed, fixSigAVI_facts, fixSelAVI_facts, nativeRecAVI_iota(_sq)
+    FixSquashI.lean (P) at w = 0 the values are pt; the flat position obtained from the elims is tagOf …; statements keep ∃ j < n
+    FixWire.lean   (S) fixRecBodyAVI_below/nativeRecAVI_below tbl
+    MutualLeafI.lean (S) auxBodyAV/mutualTyAVI tbl; tagTyAV = sumBodyAV [] W …, tagTuplerAV = sumMkAV [] 0 W m … (the TAG's own sum keeps flat = member tags)
+
+Model tier: every native site passes `[]` (`FixRep`, `FixStage*`,
+`FixRec*`, `FixIntro`, `FixLeafOk`, `FixWitness`, `FixEntryLaw`,
+`FixZeroField`, `FixRealChains`, `FixAssemblyKit`, `FixRuleOk`,
+`FixRecKFrame`, `FixRecPre`, `FixCtorsLoop`, `DeclNative`, `SumIntro`,
+`Basis*`) — signature threading, proofs unchanged except where a kit
+lemma's statement changed (`fixStepI_iff`, the `fibre` discharges).
+The mutual instance (`MutualRep`, `MutualStageCtor`, `MutualStageRec`,
+`MutualRec*`, `MutualRule*`, `MutualChains`, `MutualDisp`,
+`MutualData`, `DeclMutual`) passes `[]` in PHASE A and the block's
+table in PHASE B (below).
+
+**(e) The datum.**  `IndRepData` gains NO field.  `IndRepData.locIdx J
+:= ((List.range J).filter (fun J' => d.mems J' = d.mems J)).length` and
+`IndRepData.tagTbl := (List.range d.k).map (fun m => (List.range
+d.nAll).filter (d.mems · = m))` are DERIVED.  `mutualRepData`: `Φ :=
+fixFunVI (tagTbl) …`, `inj := fun ψ J fs => injW (resSort.eval ψ)
+(locIdx J) (mkTower (fs ++ [pt]))`; `fixRepData`: `Φ := fixFunVI [] …`,
+`inj` unchanged (`locIdx J = J` at `mems ≡ 0`).  The clauses `fibre`,
+`ctor`, `leaf`, `tupMem`, `idxRecover`, `slotRecover` keep their
+statements (`j` stays the FLAT position; only `inj`'s VALUE changes).
+`mkInj` (no consumer besides the three transports, and FALSE across
+members at local tags: `A := a : Nat → A`, `B := b : Nat → B` give
+`inj 0 ⟨5, pt⟩` twice) is restated FIBREWISE — the extra premise
+`d.mems j = d.mems j'`; the transports pass it through; `mkZero`
+unchanged.  **Decision item D-3 (reported, NOT taken here): the
+injection LAW.**  N1b needs, of BOTH datums, `inj ψ J fs = injW (w ψ)
+(locIdx J) (mkTower (fs ++ [pt]))`.  It is not an `IndRep` clause
+today and cannot be an unconditional one: `Nat`'s basis datum has the
+von Neumann injections (`BasisBlocks.lean:2378`, `natzero`/`natsucc`)
+and the other basis datums inject the point.  This lane states it
+where it is FREE and where it is already NAMED: as a conjunct of
+`MutualBlockReps` (the aux datum IS `mutualRepData`; `rfl` in
+`declMutualCore`) and as a conjunct of `ContainersRep` (the named
+premise "every container carries a route datum", gone at M-E).  What
+M-E will need to discharge the latter from `mp.base2 : IndReps` is
+one of: (i) a guarded clause `injTagged : d.tagged = true → …` with a
+Bool datum field set `false` by the basis blocks, plus `IndReps`
+recording `tagged = true` for every non-basis recursor; (ii) keeping
+the conjunct in the dispatch's fourth-arm premise.  Maintainer's
+call at M-E; nothing here forecloses either.
+
+**(f) The consumer (deliverable 4), stated now.**  `SectionAgree`
+(§M.59 (a)) splits: its last conjunct — an equality of FIBRES — is
+replaced by the `ChainFit` congruence along the member-position
+correspondence, and the fibre equality is DERIVED from it with the two
+`fibre` clauses and the injection law:
+
+    ChainFitAgree ψ k₀ j c := ∀ ρ as, SpineFit ρ (d.params ψ) as → ∃ f g : V → V,
+        (f into copyIdxS) ∧ (g back) ∧ (g ∘ f = id) ∧ (f ∘ g = id) ∧ (f (dJ.tup ψ' mm is) = d.tup ψ (k₀+j) is) ∧
+        ∀ Y ∈ famSpace (d.w ψ) (copyIdxS), ∀ i ∈ dJ.idx ψ' ρp', ∀ jc fs,
+          (∃ J, (d.tagTbl.getD (k₀ + j) [])[jc]? = some J ∧ d.ChainFit ψ ρp (famJoin S C Y (famRestr μ C)) (f i) J fs)
+            ↔ (∃ J', (dJ.tagTbl.getD mm [])[jc]? = some J' ∧ dJ.ChainFit ψ' ρp' (famPull f Y (dJ.idx ψ' ρp')) i J' fs)
+
+`sectionAgree_of_chainFitAgree` (the fibre equality: `fibre` on both
+sides, `x = inj (locIdx J) fs` with `locIdx J = jc` for the row's
+`jc`-th entry, the injection law of both datums, `d.w ψ = dJ.w ψ'`),
+and `copyLeafEq_of_run` consumes `ChainFitAgree` (NAMED — the
+residual `SectionAgree`, = N1a verbatim) plus `ContainersRep`'s new
+conjunct.  Its own discharge is §M.59 (N1a): 2–3 sessions, unchanged.
+
+**(g) Phasing, sizing, and the falsifier.**
+
+* PHASE A — the kit at a general table, both routes at `tbl = []`
+  (this session and the next): SumCase/SumLeaf/SumMk/SumWire/FixLeafI/
+  FixFamI (the leaf/family layer, ~450 changed lines) + SumRecCase/
+  FixCaseI/FixRecCoreI/FixElemI/FixRecI/FixSquashI/FixWire/MutualLeafI
+  (the recursor layer, ~400) + the Model tier's `[]` threading (~40
+  files, mechanical, Opus).  2–3 sessions.  **The falsifier is the
+  recursor layer's `body_facts`/`body_iota`/`leaf_eq` at the general
+  table** — if the scrutinee's grading (`OffOk`) or the motive's
+  constant fibre λ does not close `caseRec_factsI`'s premises, the
+  design of (c) is wrong; it is built FIRST after the leaf layer, before
+  any Model threading beyond what compiles.
+* PHASE B — the mutual instance at its table: `mutualRepData` (e),
+  `MutualStageCtor` (`sumMkAV tbl m … (locIdx J)`), `MutualRecPre2`/
+  `MutualRecTyping`/`MutualRuleOk`/`MutualRecLaw` (FixPre's `hoff` from
+  `TagOk`; `RecHypI.hms` at the local `concI`), `MutualRep`'s discharge
+  (`fibre` via the table laws; `ctor`; fibrewise `mkInj`),
+  `declMutualCore`'s `MutualBlockReps` conjunct.  2 sessions.
+* PHASE C — (f): 1 session (with `ContainersRep`'s conjunct and the
+  nested lane's reads that mention `MutualBlockReps`/`ContainersRep`:
+  `CopyEqRun`, `PsiRun`'s consumers compile unchanged — `d.inj` is
+  opaque to them).
+* Total 5–6 sessions, inside §M.59's 5–8.
+
+**(h) What does NOT change.**  The kernel (no tag anywhere); the
+NATIVE route's stored terms and values (`tbl = []` is the old term);
+the TAG type and tag tupler (their sum is the members' — flat = local
+there); `caseRecAVI`/`caseBaseAVI`/`FixIhI`/the K-frame; every
+`IndRep` clause statement but `mkInj`; the nested lane's reads (they
+consume `fibre`/`ctor`/`leaf`, never `inj`'s value).
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
