@@ -79307,6 +79307,57 @@ keeping the conjunct and admitting that ψ does not cover blocks whose
 transport graph cycles — leaves `declNested` conditional, which
 §"conditional forms are not solutions" rules out.
 
+**Addendum (same session): the MATHLIB NESTED CONE.**  The same probe,
+re-applied and reverted, over the 41-block cone
+(`scripts/slice-cone.py`'s cut of `mathlib-full.ndjson`, 134 MB, 4 926
+declarations; `ulimit -v 22000000`, `timeout 7200`, `--jobs=1`): exit 0,
+**4 923 accepted, 41/41 shadow accepts** — the probe moves no verdict.
+Over its **121 pins**:
+
+| | blocks |
+|---|---|
+| some off-diagonal `Expr.subB` true | 16 |
+| a TRANSPORT edge dropped by the sub-term conjunct | **5** |
+| cyclic once the conjunct is dropped | **5** (the same five) |
+
+The five are `Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`,
+`Lean.Widget.HighlightedMsgEmbed`,
+`Lean.Server.Test.Runner.Client.MsgEmbed` and
+`Lean.Server.Test.Runner.Client.HighlightedMsgEmbed` — exactly the five
+DESIGN records as "the copies of containers that are THEMSELVES nested"
+(`Lean.Widget.TaggedText` ×4 and `PersistentArrayNode` under
+`InfoTree`).  Their shape is `nested_p04`'s verbatim: at `MsgEmbed` the
+pins are `TaggedText …`, `StrictOrLazy …`, `Array …`, `List …`, the
+kernel's relation is `0 ↦ [], 1 ↦ [2], 2 ↦ [3], 3 ↦ [0]` and the
+transport relation is that plus `0 → 2`, i.e. the cycle `0 → 2 → 3 → 0`;
+at `InfoTree` the dropped edge is `PersistentArrayNode → Array` and the
+cycle is `1 → 3 → 5 → 1`.  So the corpus ratio (1 of 30) is not a
+fluke of the fixtures: **5 of 41 (12 %) of Mathlib's nested blocks carry
+a transport the sub-term conjunct drops, and every one of them is
+cyclic without it** — dropping the conjunct would turn those five from
+`accept` into `nestedTopoOrder` DECLINES, the other 36 keeping their
+verdict and their order.
+
+**What a P4-like block needs, structurally.**  The block `B` must nest
+through a container `C` that is ITSELF a nested inductive whose stored
+constructor carries an ordinary field re-nesting through a second
+container at `C`'s OWN parameter spine — `F (C p⃗)` with `F` a stored
+inductive and `C p⃗` at the group's parameters, which is
+`containerFieldOk`'s THIRD arm (K.15 (3)) and which uniformity forces
+into exactly that shape.  Then the pin `C D⃗` (minted because some `Dᵢ`
+mentions `B`) instantiates that field to `F (C D⃗)` = `F` applied to the
+SOURCE PIN, so the walk fires there and mints a pin that syntactically
+CONTAINS the source pin — `Expr.subB (C D⃗) (F (C D⃗)) = true` — and the
+new copy's own fields re-nest at the same argument until they reach `C
+D⃗` again, closing the cycle.  Nothing about `B` is special: the trigger
+is a property of the CONTAINER alone (a nested inductive whose nesting
+is at its own parameters — `TaggedText`, `PersistentArrayNode`, `P4C`,
+and every `Array`/`List`-of-itself wrapper), so a block hits it exactly
+when it pins such a container.  These are common data structures, not
+pathologies, which is why 12 % of the Mathlib cone is affected; the
+count outside the corpus scales with how many such containers a
+development defines, not with how many blocks nest.
+
 **Gates** (nothing but this record changed): `lake build` 664 jobs
 warning-free, `lake test` clean, `tests/no-local-paths.sh` OK,
 `tests/nested-shadow.sh` 26/26.  Not run: `overview-links.sh` (drifted
