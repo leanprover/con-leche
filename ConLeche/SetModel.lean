@@ -9,6 +9,7 @@ public import ConLeche.SetModel.TupleTower
 -- CHECK them.  `DirectTreeList` re-exports `RecGraph` and the model
 -- lane's `BekicTreeList` (→ `BekicUnit`), which were off the graph.
 public import ConLeche.SetModel.DirectTreeList
+public import ConLeche.SetModel.DirectP4
 
 @[expose] public section
 
