@@ -79200,6 +79200,120 @@ intended `declNested` signature is unchanged:
 `declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
   (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
 
+#### M.55 — task #312: `BridgeSyntax` at the run — REFUTED, with the measurement (2026-09-15)
+
+**The premise.**  `nestedCtorsModel_of_run`'s second named premise
+(§M.54) is, at every assignment's pin data,
+
+    BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)
+
+— `Model/Inductives/PsiRun.lean`, two conjuncts at every TRANSPORT (a
+field the copy's constructor sees as recursive into a COPY and the
+container's as ordinary):
+
+* **mention** — some copy of the SOURCE's mint group has a processed
+  constructor `mentionsConst`-ing the target copy's name (K.15's
+  group-wide form);
+* **sub-term** — no pin of the source's mint group is an `Expr.Sub` of
+  the TARGET's pin.
+
+The task was to discharge it at the run.  **It cannot be discharged:
+the sub-term conjunct is FALSE at a run the checker ACCEPTS.**
+
+**The counterexample, measured.**  `tests/e2e/nested_p04.ndjson`,
+block `P4` (`P4.mk : P4C P4 → P4`, `P4C.append : (α : Type) →
+Array (P4C α) → P4C α`).  The elimination mints three copies; the probe
+(five `dbg_trace` lines in the cached nested route, printing the pins,
+`copyRefsOf`, `Expr.subB` at every pin pair, each processed
+constructor's field heads via `fieldHeadAt`, and `copyRefB` with its
+third conjunct dropped — built, run over `tests/nested-shadow-expected.txt`,
+then REVERTED; nothing of it is committed) reads:
+
+    pins   = [(_nested.P4C_1, P4C, grp (0,1)), (_nested.Array_2, Array, grp (1,1)),
+              (_nested.List_3, List, grp (2,1))]
+    heads  = P4            : [[P4C_1]]
+             _nested.P4C_1 : [[P4], [_nested.Array_2]]
+             _nested.Array_2 : [[_nested.List_3]]
+             _nested.List_3  : [[], [_nested.P4C_1, _nested.List_3]]
+    subB   = (0,1) true, (0,2) true; every other off-diagonal false
+    refs   = 0 ↦ [],  1 ↦ [2],  2 ↦ [0]        (the kernel's `copyRefB`)
+    refs⁻  = 0 ↦ [1], 1 ↦ [2],  2 ↦ [0]        (`copyRefB` minus the sub-term conjunct)
+
+Pin `0`'s copy has the field `_nested.Array_2` where the container's own
+field is `Array (P4C α)` — head `Array`, not a member, so ORDINARY: a
+TRANSPORT, `0 → 1`.  Its mention conjunct HOLDS (`_nested.P4C_1`'s
+second constructor mentions `_nested.Array_2`).  Its sub-term conjunct
+FAILS: the source group's only pin is `P4C P4`, the target's pin is
+`Array (P4C P4)`, and `Expr.subB (P4C P4) (Array (P4C P4)) = true`.
+Hence `BridgeSyntax` is false at this run, `copyRefB 0 1 = false`, and
+`refs 0 = []`.
+
+**It is not incidental.**  The real transport graph of this block is
+`0 → 1 → 2 → 0` — a CYCLE (`refs⁻` above).  The sub-term conjunct is
+precisely what cuts it, which is why `nestedTopoOrder` does not decline
+the block and the shadow verdict is `accept`.  So ψ — a fold along
+`nestedTopoOrder` — cannot exist for `P4` at all: the premise is not
+un-proved, it is unsatisfiable there, and no model-tier work, exposure
+or kernel record can make it true.  (The §M.31 reading — "an ordinary
+field of a non-self-nested container mentions no group member" — is
+sound; what it misses is that `containerFieldOk`'s THIRD arm, the
+NESTED field (K.15 (3), measured on this very fixture), puts a group
+member inside an ordinary field at the group's PARAMETERS, so the
+instantiated field contains the group's own pin.)
+
+**The corpus.**  Over the 30 nested blocks the shadow gate exercises
+(26 fixtures):
+
+| | blocks |
+|---|---|
+| some off-diagonal `subB` true | 5 |
+| a TRANSPORT edge dropped by the sub-term conjunct | **1** (`nested_p04`'s `P4`) |
+| cyclic once the conjunct is dropped | **1** (the same block) |
+
+So exactly one block in the corpus is affected, and it is the same one
+in both columns: dropping the conjunct costs no accept anywhere else
+and turns that block into a `nestedTopoOrder` DECLINE.
+
+**The mention conjunct** is TRUE at every transport of the corpus and
+is already provable at the run modulo ONE premise:
+`bridgeMention_of_read` (`Model/Inductives/CopyCtorRun.lean`) derives it
+from the record under `CopiesUnnormalised` (every stored copy
+constructor has the PROCESSED type), which is false at a λ-pin.  The
+gap is exactly one step: the record reads the STORED constructor, the
+conjunct speaks of the PROCESSED one, and `normCtorValM`/`normPosDomM`
+run `ops.whnf` between them.  Closing it needs "the positivity
+normalisation introduces no copy name the processed field does not
+carry" — a fact about `whnf` at `env₁`, where every copy is a former
+and every pre-block constant is copy-free.  The model tier cannot state
+it (it is the K.23/K.17 situation verbatim); it is a KERNEL RECORD in
+that style if it is wanted (`.internal`, an `all` over the table's aux
+names comparing the processed and the stored constructor of every
+copy).  NOT requested here: with the sub-term conjunct refuted, the
+premise as a whole is dead and the mention half has no consumer until
+the relation is repaired.
+
+**What this asks of the lane (maintainer's call, nothing done here).**
+The relation `copyRefB` is what ψ folds along, so it must be at least
+the transport relation.  The one repair that keeps the two in step is
+to DROP the sub-term conjunct from `copyRefB`/`CopyRef` and let
+`nestedTopoOrder` decline the blocks that are then cyclic — measured
+cost on the corpus: `nested_p04`'s `P4` block alone moves from
+`accept` to `decline` (the shadow gate's row becomes
+`P4C=accept,P4=decline`), every other block keeps its verdict and its
+order.  `BridgeSyntax` then collapses to its mention conjunct, whose
+run-level discharge is the K-record above plus a one-session
+`bridgeMention_of_run` off `copyCtorsRead_of_run''`.  The alternative —
+keeping the conjunct and admitting that ψ does not cover blocks whose
+transport graph cycles — leaves `declNested` conditional, which
+§"conditional forms are not solutions" rules out.
+
+**Gates** (nothing but this record changed): `lake build` 664 jobs
+warning-free, `lake test` clean, `tests/no-local-paths.sh` OK,
+`tests/nested-shadow.sh` 26/26.  Not run: `overview-links.sh` (drifted
+anchors, pre-existing on this branch), shake/pub-import, arena,
+init-full, Mathlib.  No `sorry`, no axiom, no kernel change, no new
+`IndRep` field, no `maxHeartbeats` change.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
