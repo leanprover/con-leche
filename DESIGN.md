@@ -72659,3 +72659,312 @@ better counted under M3 (which needs it first).  New table: M2 DONE
 1–2.  Total remaining **16–23** (was 20–29 at U-1; the two lanes M1
 and U-2 ran in parallel).  The M6 falsifier (D-2a's `fibre`-consumer
 census) stands as the next risk; (W) is retired as a risk.
+
+#### U.4 — M3: the recursors at `k` members — the ι-specified chosen tuple (session U-3, 2026-09-15)
+
+M3's first session: the DESIGN DECISION that removes the case-split
+tower from the uniform route, its falsifier (PASSED), the generic
+Σ'-chain kit at every `k` and `n`, the `k`-motive reading layer of
+#278 cherry-picked (encoding-free), and the run-level consumer
+`blockRecs` compiled with its facts named.  No checker code changed;
+no `sorry`, no axioms.
+
+##### (a) THE DECISION — the recursors are ONE chosen tuple, pinned by its ι EQUATIONS
+
+§U.1 (b) said "the term-level leaf stays `fixSelAVI` per member, at
+member-local constructor tags; the union is the existence proof of
+that fixed point".  That cannot be literal at `k ≥ 2`: member `mm`'s
+one-step unfolding mentions the SIBLING recursors (the inductive
+hypothesis of a field targeting `m'` is `T_{m'}.rec …`), so a
+per-member `Σ' (r : RecTy_mm), Step_mm r = r` is circular, and the only
+term-level object that is a fixed point of a step is a TUPLE of the
+`k` recursors.  Once the tuple is a term anyway, the step itself is
+dispensable.  The uniform route's spelling (`Semantics/Tower/SigChainI.lean`):
+
+```
+Tup  := Σ' (r₀ : RecTy₀) … (r_{k-1} : RecTy_{k-1}), Eqs        -- sigChainAV s Ts Q
+Eqs  := ⋀_J  Π p⃗ M⃗ m⃗ f⃗_J, r_{m_J} p⃗ M⃗ m⃗ e⃗_J(f⃗) (C_J p⃗ f⃗) = rhs_J p⃗ M⃗ m⃗ f⃗   -- andChainAV
+Sel  := choice Tup prf                                            -- selChainAV
+A mm := fst (snd^mm Sel)                                          -- projChainAV mm
+```
+
+Existence of a member of `Tup` is the block's union recursor
+(`UnionRecKit`, §U.1 (b)); typing of every leaf and every ι rule are
+READ OFF the Σ' membership of the chosen element.  What this buys,
+against the native route's `fixSelAVI = fst (choice (Σ' r, Step r = r))`:
+the recursor's TERM has no case split (`caseRecAVI`/`natRecAV` on the
+tag, `caseMotiveAV`, `caseBaseAVI`), no K-frame body (`fixRecBodyAVI`,
+`FixKI`, `body_facts`, `body_iota`, the `frP/frM/frMs/frR` frame
+arithmetic with ONE motive), no candidate-is-a-fixed-point proof
+(`rStar_fixed`, `leaf_eq`), and no squash body (`sqFixBodyAV`,
+`FixSquashI.lean`): the whole `FixCase*/FixRec*/FixElem*/FixSquash*`
+tower (~10 k lines, all stated at one motive) is NOT generalised to
+`k` motives.  What the ι-equation form loses: nothing the model
+consumes — `RecRuleLaw` is the ι equation at fitting spines, the
+leaf's typing is the Σ' component's, and uniqueness of the recursor
+is not a consistency claim.  Two regime notes: at `ℓ = 0` the whole
+chain is `pt` (`psigma` at `[0, 0]`), the leaves are `pt`, and the
+leaves' typing is the INHABITATION of the recursor types, which the
+union recursor at level `0` supplies; the squash regime (`w = 0`,
+`ℓ ≠ 0`) is VACUOUS at `k ≥ 2` — official's `elim_only_at_universe_zero`
+returns true for every mutual block (`m_ind_types.size() > 1`), and
+the kernel's `b.large = f₀.s.isNeverZero` makes `w = 0 → ℓ = 0` a
+recorded fact of the run (consumer: `blockRecs`'s candidate, (f)).
+The datum is unchanged: `BlockRep`'s `inj` stays abstract; the
+candidate's step decodes a value into `(j, f⃗)` through `mkInj`
+(classical choice), as `MutualPair`'s `pairSt` does.
+
+##### (b) THE FALSIFIER F3 — PASSED (`ConLeche/Semantics/Tower/BlockRecPair.lean`)
+
+Stated before building (`_tmp/uniform-315/u3-plan.md`): the two-member
+block `A ::= a0 | a1 (b : B)`, `B ::= b0 (a : A)` of `MutualPair.lean`
+at the TERM level — the two recursor types at official's shape
+(motives for BOTH members, minors for ALL constructors, the major per
+member), the Σ'-chain `Σ' (rA : T_A) (rB : T_B), eqA0 ∧ eqA1 ∧ eqB0`,
+the chosen tuple, `recA := fst sel`, `recB := fst (snd sel)`; the
+carriers and constructors are the five values of a base frame
+referenced by de Bruijn index (the closed-term analogue of the
+constructors' leaves).  FAIL would have been: the chosen element
+cannot be typed at official's shape with member-local minors, or the
+ι law does not follow from the Σ' membership.  `pairRecTerms`: at
+every elimination level `ℓ` (both regimes) and every ambient frame,
+`⟦recA⟧ ∈ ⟦T_A⟧`, `⟦recB⟧ ∈ ⟦T_B⟧`, both graded, and the three ι rules
+at every official spine `(MA, MB, mA0, mA1, mB0)`.  What it needed
+beyond `MutualPair`: the candidate tuple's components are the λ-towers
+over the recursor types' binder data with the union recursor at the
+leaf (`candA/candB`, typed by `lamTower_mem` + `pairRecA_mem`), the
+equations at the candidate by `lamTower_fold` + `pairRecA_a1` etc.,
+the types' formation (`piR_mem_univ` along the tower at the common
+sort `sLev = if ℓ = 0 then 0 else max w (ℓ + 1)`), and the `Prop`
+regime by "everything is `pt`" (`lamR_zero`, `eq_pt_of_mem_piR_zero`).
+Nothing resisted; 1 330 lines (after the rebase onto the kit), one session-third.
+
+##### (c) THE KIT — `ConLeche/Semantics/Tower/SigChainI.lean`, generic in `k` and `n`
+
+`sigChainAV s Ts Q`, `selChainAV`, `projChainAV i`; the semantic chain
+`sigChainV` (the nested `sigmaSet`), the formation premise `ChainOk`
+(each component's reading in `univ s` and graded at every earlier
+fit, the proposition a truth value and graded at every full fit);
+`interp_sigChainAV`, `sigChainV_univ`, `wd_sigChainAV`,
+`sigChainV_inhabited` (a fitting spine satisfying `Q` inhabits the
+chain — `spair`s above level `0`, `pt` at it), `mem_sigChainV` (a chain
+element's components: a fitting spine satisfying `Q`, component `i`
+the `i`-th projection, the `i`-th tail in the chain of the remaining
+types), `wd_projChainAV`, `selChainAV_facts`, and **`sigChain_choice`**:
+at a formed, inhabited chain the chosen element's projections are a
+fitting spine satisfying `Q`, each graded.  The block shape: `blockTsAV
+k T` (the `k` closed types lifted under the earlier binders),
+`andChainAV eqs` (`PUnit` at `[]`), `blockRecAVI s k T eqs mm`, and
+**`blockRecAVI_facts`**: from the types' formation, the equations'
+grading at every fitting tuple, and a candidate tuple, the members'
+leaves are typed at their types, graded, and their tuple satisfies
+every equation.  Plus `pt_mem_mkPisAV_eqE_iff` (a `Prop`-valued
+Π-tower over an equation is inhabited iff the equation holds at every
+fitting spine — the ι law's extraction) and the `Prop`-pair kit
+(`andAV`, `interp_andAV`, `pt_mem_andAV_iff`, `wd_andAV`).  The
+falsifier was rebased onto the kit's `andAV`/`natMax_*`/`choiceV_mem`.
+
+##### (d) THE READING LAYER — #278's `k`-motive readings, cherry-picked (encoding-free)
+
+Item 3 of the session (`RecReadAt`-style reading of the block's
+recursors) is #278's, and it reads the KERNEL's generators
+(`mutualRecTy`, `mutualRecRhs`, `mutualIhApp`, `mutualRuleBody`,
+`mutualMinorTy`, `mutualMotiveTy`, …, `Kernel/Inductives/MutualParts.lean`,
+on this branch since M1 and byte-identical to `inductives`'), not the
+sum encoding — so it transfers whole.  Brought over by an Opus lane
+against this worktree's oleans (reference commits in parentheses):
+
+* `Model/Inductives/FixRecReadDefs.lean`, a new section, the `k = 1`
+  definitions untouched: `ihDomAVM`, `ihPisAVM`, `minorAVAtRM`,
+  `fixMinorsDataM` (+ `_length`, `mem_`, `_getElem?`) (`bddd49c8`);
+  `recPrefixBvarsMK`, `ihAppAVK`, `mutualRuleCoreAV` (`d11015fe`); and
+  — NEW here, because the reference REDEFINED each `k = 1` name as its
+  `M`/`K` instance, which the additive constraint forbids — the seven
+  identities `ihDomAV_eq_M`, `ihPisAV_eq_M`, `minorAVAtR_eq_M`,
+  `fixMinorsData_eq_M`, `recPrefixBvarsM_eq_MK`, `ihAppAV_eq_K`,
+  `fixRuleCoreAV_eq_mutual`.
+* `Model/Inductives/FixRecRead.lean`, appended: `fieldReadAt_ofE`
+  (`9840baaf`), `denoteMeta_ihDomM`, `denoteMeta_ihPisM`,
+  `structIhPis_eq_mutualIhPis`, `structMinorTyR_eq_mutualMinorTy`,
+  `mutualMinorTy_unfold`, `denoteMeta_minorAtRM` (`bddd49c8`),
+  `denoteMeta_mutualIhApp`, `denoteMeta_mutualRuleBody` (`d11015fe`).
+* `Model/Inductives/SumRecRead.lean`: `motiveAVIL`, `majorAVAtL`
+  (`94405139`) + `motiveAVI_eq_L`, `majorAVAt_eq_L` (`rfl`).
+* NEW files, copied whole: `MutualRecRead.lean` (`374f9efb`:
+  `majorAVAtK`, `motivesDataGo`, `mutualRecDataAV`, `mutualConcAV`,
+  `FormerReadsM`, `MutualCtorReadsM`, `mutualRecTy_unfold`,
+  `denoteMeta_mutualMotiveTy/_MotivesPis/_MinorsPis`,
+  **`denoteMeta_mutualRecTy`**), `MutualRuleRead.lean` (`a2adb197`:
+  `mutualRuleDataAV`, `mutualRecRhs_unfold`,
+  `denoteMeta_mutualMotivesLams/_MinorsLams`, **`denoteMeta_mutualRecRhs`**);
+  and `MutualRecData.lean` written fresh with ONLY the reading part of
+  the reference's (`9144423d`): `mutualRdsAV`, `structure MutualRecData`
+  (the `k`-motive `SumRecData`: `read`/`len`/`bits`/`okTy`/`below`/`params`),
+  `MutualRecData.cross` — nothing of `MutualFormerFacts`,
+  `MutualCtorFactsAt`, `mutualRecData_of` (the sum encoding's).
+  `MutualData.lean` was not needed.
+* Three adaptations, exact: (1) `Verify/Inductives/SumRec.lean` taken
+  byte-identical from the reference (`bddd49c8`): `instSeq_minorBody_at`/
+  `instSeq_minorBodyI_at` generalised from `extras[0]?`/`.bvar (nF +
+  extras.length - 1)` to `extras[mot]?`/`.bvar (… - mot)`; the one
+  `k = 1` call site (`denoteMeta_minorAtR`) takes `(mot := 0)` and a
+  `Nat.sub_zero`.  (2) `motiveAVI` is not redefined through
+  `motiveAVIL` here, so three rewrite sites in the copied files use
+  `motiveAVI_eq_L`.  (3) `minorAVAtR_eq_M` needs a `Nat.sub_zero`.  No
+  #285/#295/#304 rename touched anything.
+
+With these, (N1) `hT`'s reading half is `MutualRecData.read`/`okTy`
+and (the rules') `denoteMeta_mutualRecRhs` gives the STORED rules'
+readings in the `mutualRuleCoreAV (fun t => acval (recOf t) ψ)` shape
+that `RecRuleLaw`'s bridge from `specRuleCoreAV` targets.
+
+##### (e) THE CONSUMER — `blockRecs` (`ConLeche/Model/Inductives/BlockRec.lean`) and the candidate (`BlockRecCand.lean`)
+
+The rules' equations at official's `k`-motive shape, over the
+cherry-picked spellings: `tupleVarAV k dp t` (member `t`'s recursor
+variable of the Σ'-specification, `dp` binders above the `k` tuple
+binders), `specRuleCoreAV b k tgtsJ nP n nF J recIdx tls Eiss`
+(`mutualRuleCoreAV` with the recursor of the member field `i` targets
+the TUPLE's variable at the ih's depth — the equation mentions no
+leaf), `specLhsAV k nP n nF mJ Es C` (`r_{mJ} p⃗ M⃗ m⃗ e⃗_J(f⃗) (C p⃗ f⃗)`
+with `recPrefixBvarsMK`, the constructor's index readings moved under
+the `k + n` extras as `minorAVAtR` moves them, the constructor's leaf
+at `paramBvarsAt`/`fieldBvars`), `specEqAV ruleData lhs rhs` (the
+`Prop`-valued Π-tower over the rule's binder data — `mutualRuleDataAV`
+at bits `0` — of `lhs = rhs`), with `specEqAV_univZero` and
+`pt_mem_specEqAV_iff` (the equation holds at a frame iff the ι rule
+holds at every fitting spine there).  `blockLeafAV s k rdsM concM eqs
+mm := blockRecAVI s k (fun t => mkPisAV (rdsM t) (concM t)) eqs mm`.
+
+**The candidate over the datum** (`BlockRecCand.lean`): the union
+recursor's data at a frame — `kitPred` (the predecessor relation
+`PredRel`, separated off the carrier's union: `tagged c i (inj c j f⃗)`
+has, per recursive field and per spine fitting its telescope, the
+predecessor at the target member at the tuple of the field's index
+expressions, value the field at the spine), `kitB` (motive `c` at the
+index spine of the tuple — `isOfW` — and the value), `kitIhs`/`kitSt`
+(the step: the value decoded into `(j, f⃗)` through `Decodes` by
+classical choice, minor `minorIdx c j` at the fields and the λ-towers
+of the choice's values at the calls; junk off the decodable values),
+`blockRecAt` (= `unionRec` at them), `blockLeafV` (member `mm`'s value
+at a leaf frame `(p⃗, M⃗, m⃗, ı⃗_mm, t)` of its recursor type, the
+frame's motives/minors/indices/major read by position) and
+`blockCand ψ ℓ rds mm ρ := lamTower ℓ ρ rds (blockLeafV ψ ℓ mm)`.
+PROVED there: the kit's first obligation, **`BlockRep.kitPred_from :
+PredsFrom (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) (d.kitPred ψ ρp)`** at
+`w ≠ 0` — the datum's `fibre` read at the recursive positions
+(`FitsFrom.rec_mem`), the decode unique by `mkInj`, the field's value
+in its `slotSet`, its fold along a fitting telescope spine in the
+target's component (`slotSet_fold_mem`), the tuple in the target's
+index set because a family-space graph is empty off its domain
+(`mem_idx_of_app_famSpace`).  NOTE the consumer this found for a fact
+M2 dropped: the recursor needs the predecessor's index tuple IN the
+target's index set — the syntactic chains' `SlotsFitX` supplied it on
+the native route; here it falls out of the family space (no `chains`
+clause needed, M2's decision stands).
+
+**The statement**, verbatim:
+
+```lean
+theorem blockRecs (d : BlockRepData V) (s ℓ : (Name → Nat) → Nat)
+    (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm)
+    (eqs : (Name → Nat) → List AnnotTerm)
+    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →
+      interp V ρ (mkPisAV (rdsM mm ψ) (concM mm)) ∈ˢ (univ (s ψ) : V) ∧
+      WellDenoted V ρ (mkPisAV (rdsM mm ψ) (concM mm)))
+    (heq : ∀ (ψ : Name → Nat) (ρ : Nat → V) (rs : List V), rs.length = d.k →
+      (∀ mm, mm < d.k → rs.getD mm pt ∈ˢ interp V ρ (mkPisAV (rdsM mm ψ) (concM mm))) →
+      ∀ e ∈ eqs ψ, interp V (consList rs ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList rs ρ) e)
+    (hcand : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →
+      d.blockCand ψ (ℓ ψ) (rdsM mm ψ) mm ρ ∈ˢ interp V ρ (mkPisAV (rdsM mm ψ) (concM mm)))
+    (hceq : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ e ∈ eqs ψ,
+      (pt : V) ∈ˢ interp V
+        (consList ((List.range d.k).map fun mm => d.blockCand ψ (ℓ ψ) (rdsM mm ψ) mm ρ) ρ) e) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V), ∃ a : Nat → V,
+      (∀ mm, mm < d.k →
+        a mm ∈ˢ interp V ρ (mkPisAV (rdsM mm ψ) (concM mm)) ∧
+        interp V ρ (blockLeafAV (s ψ) d.k (fun t => rdsM t ψ) concM (eqs ψ) mm) = a mm ∧
+        WellDenoted V ρ (blockLeafAV (s ψ) d.k (fun t => rdsM t ψ) concM (eqs ψ) mm)) ∧
+      ∀ e ∈ eqs ψ, (pt : V) ∈ˢ interp V (consList ((List.range d.k).map a) ρ) e
+```
+
+— the leaves are typed at the recursor types' readings, graded, and
+their tuple satisfies every rule's equation; `blockRecs_iota` turns an
+equation's membership into the ι rule at every fitting spine.  The
+proof is `blockRecAVI_facts` at the candidate: ONE line.  What the
+statement fixes for M4: the recursor stage supplies `rdsM`/`concM` from
+`denoteMeta_mutualRecTy` (`mutualRecDataAV`, `mutualConcAV`), `eqs`
+from the rules' shapes (`specEqAV` at `mutualRuleDataAV`), and
+`RecRuleLaw` from `blockRecs_iota` after the LHS's application chain
+and the RHS's `specRuleCoreAV`-to-`mutualRuleCoreAV` bridge (the
+tuple's variable reads to the leaf's value — `interp_specRuleCore`,
+M4).
+
+##### (f) REMAINING PREMISES, WITH THEIR CONSUMERS
+
+| fact | consumer | status |
+| --- | --- | --- |
+| `hT`: the `k` recursor types' readings formed at a sort `s ψ` and graded | `blockRecs` | from `MutualRecData` (the cherry-picked `k`-motive `RecReadAt`: `read`/`okTy`/`bits`/`below`) + the kernel's `ensureSort` through the claims' sort row (`fixRecData_of`'s pattern, M4's assembly) |
+| `heq`: the rules' equations graded at every fitting tuple | `blockRecs` | M3 session 3: `ihAppAVK`-style grading with the TUPLE's variable as the recursor (the `k`-motive `ihAppAV_facts`, #278's `MutualRuleOk.lean` shape); the `∈ univZero` half is `specEqAV_univZero` |
+| `hcand`: the candidate typed at the readings | `blockRecs` | M3 session 2: `lamTower_mem` over `rdsM` with the leaf `blockLeafV` in `kitB` — `unionRec_mem_B` from the kit's three obligations (`kitPred_from` DONE; `kitB` in `univ ℓ` from the frame's motives' typing; `kitSt` in the bound from the frame's minors' typing — `elemSt_mem`'s shape at `k` members, `minorSpI_fold` + `ihSpL_fold` + `lamTower_mem_piTele`); the `ℓ = 0` regime by inhabitation |
+| `hceq`: the equations at the candidate | `blockRecs` | M3 session 2–3: `lamTower_fold` at the rule's spine, `unionRec_eq` (the step at the decoded `(j, f⃗)` — `mkInj`), the ih towers' values against `kitIhs` |
+| `w = 0 → ℓ = 0` at a mutual block | the candidate's step (the decode needs `mkInj` at `w ≠ 0`) | the kernel's `b.large = f₀.s.isNeverZero` (`DeclMutualRun` stage 2) — M4 supplies; recorded here as the regime fact of (a) |
+| the mutual run relation's readings (`FormerReadsM`, `MutualCtorReadsM`) | `denoteMeta_mutualRecTy`/`_Rhs` (cherry-picked, (d)) | M4's stages |
+
+Not named, by the rule: nothing beyond the four `blockRecs` premises,
+each with `blockRecs` as its consumer in this session.
+
+##### (g) GATES, RE-SIZING
+
+Gates at HEAD: `lake build` 585 jobs warning-free, `lake test` green
+(485), shake 462 removals all allowlisted / `pub-imports: none
+demotable` (the two new files' imports are shake's own proposal:
+`SigChainI` re-exports `TowerLeaf` and imports `TowerMk`/`Kit` privately;
+`MutualRecData` names `BitConsCross`/`ConstsBound`/`Semantics.Install`
+publicly and `Model.Install` privately), proofdeps 4361 rows / 0 doors,
+layering 0/0 edges, trust surface 13/13 allowlisted, overview-links
+103, quote-gate 2, no-local-paths OK.  Sizes: the kit 686 lines, the
+falsifier 1 328, the candidate 260, the consumer 164, the reading
+layer 2 766 (+18 changed).
+
+
+M3 was 4–5 sessions (the case-split tower at `k` motives).  With the
+ι-specification the tower is not generalised at all: this session did
+the decision, the falsifier, the kit at every `k`/`n`, the readings
+(cherry-pick), the consumer with its four facts named, and the
+predecessors' obligation.  What remains of M3: session 2 — the kit's
+`kitB`/`kitSt` obligations and the candidate's typing (`hcand`) —, session
+3 — the equations at the candidate (`hceq`) and their grading (`heq`).
+**M3: 3 sessions total (1 done, 2 left)**, down from 4–5.  New table:
+M3 2 left; M4 3–4; M5 2–3; M6 3–5; M7 3–4; M8 1–2.  Total remaining
+**14–20** (was 16–23).  The M6 falsifier (D-2a's `fibre`-consumer
+census) stands as the next risk.
+
+##### (h) FINDINGS
+
+1. **The one-step-unfolding fixed point is the wrong object at `k ≥ 2`,
+   and dispensable at `k = 1`.**  The ι-equation specification is
+   strictly cheaper than the native route's `fixSelAVI` (no case
+   split, no K-frame body, no squash body, no `rStar_fixed`) and loses
+   nothing the model consumes.  Consequence for later milestones: when
+   the uniform route covers `k = 1` (M8's successor, if the native route
+   is ever rebased onto `declBlock`), the whole `FixCase*/FixRec*/
+   FixElem*/FixSquash*` tower (~10 k lines) becomes deletable; the
+   former's leaf `nativeTyAVI` and the constructors' `sumMkAV` stay.
+2. **The squash regime is vacuous at `k ≥ 2`**: official's
+   `elim_only_at_universe_zero` returns true for every mutual block, so
+   `w = 0 → ℓ = 0` is a fact of every mutual run
+   (`b.large = f₀.s.isNeverZero`), and the uniform candidate needs no
+   index-sourced step (`sqPred`/`sqSt`).  At `k = 1` the native route
+   keeps its own.
+3. **The datum's `chains` clause stays dropped**: the recursor's one
+   syntactic-looking need — the predecessor's index tuple in the
+   target's index set — is semantic (a family-space graph is empty off
+   its domain, `mem_idx_of_app_famSpace`).
+4. **Building the Model tier while a subagent edits it is not
+   composable**: a `lake build` of one new module rebuilt the
+   subagent's half-edited `FixRecRead.lean`, failed, and left no olean,
+   blocking every `lake env lean` of a Model-tier file until the
+   subagent's own build passed.  Rule for the record: while a subagent
+   owns Model-tier files, the parent compiles only leaf files whose
+   imports are already built, and never `lake build`s.
