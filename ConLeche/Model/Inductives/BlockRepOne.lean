@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Semantics.Tower.FixTuple
-public import ConLeche.Semantics.Tower.SumMk
 public section
 
 /-!

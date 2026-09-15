@@ -1,8 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixCtorReads
 public import ConLeche.Model.Inductives.FixStageRec
-public import ConLeche.Semantics.Tower.FixFamI
 public import ConLeche.SetTheory.Derive.LfpTuple
 public section
 
