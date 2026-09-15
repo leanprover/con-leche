@@ -52,7 +52,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The block at every member**: each member is a stored inductive
 represented at the datum — what `declBlock` installs (M4). -/
-def BlockReps (m : EnvModel V env) (d : BlockRepData V) : Prop :=
+@[expose] def BlockReps (m : EnvModel V env) (d : BlockRepData V) : Prop :=
   ∀ c, c < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     BlockRep m (d.memberName c) cvT cvR mI rP rules d c
 
@@ -175,7 +175,7 @@ theorem BlockReps.kitB_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : Bl
 `EnvModelM.acval_memType` at each member (a fact of the model's
 invariant, not of the datum: `leaf` fixes the former at fitting spines
 only).  Consumer: the index readings' fits below. -/
-def FormersTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
+@[expose] def FormersTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
   ∀ t, t < d.k → ∀ ρ : Nat → V,
     interp V ρ (m.acval (d.memberName t) ψ) ∈ˢ interp V ρ (mkPisAV (d.ppsM t ψ) (.sort (d.w ψ)))
 

@@ -101,6 +101,7 @@ public import ConLeche.Model.Inductives.BlockRecCand
 public import ConLeche.Model.Inductives.BlockRec
 public import ConLeche.Model.Inductives.BlockRecFrames
 public import ConLeche.Model.Inductives.BlockRecKit
+public import ConLeche.Model.Inductives.BlockRecTyped
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

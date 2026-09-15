@@ -150,12 +150,14 @@ of the carrier at the kit's predecessor map, bound and step, at class
 `(p⃗, M⃗, m⃗, ı⃗_mm, t)`: the union recursor at class `mm`, at the
 parameter frame below the frame's `1 + nIdx + n + k` innermost
 binders, with motive `c` at `σ (1 + nIdx + n + (k - 1 - c))`, minor
-`J` at `σ (1 + nIdx + n - 1 - J)`, the index tuple of the `nIdx`
-binders above the major, and the major `σ 0`. -/
+`J` at `σ (1 + nIdx + n - 1 - J)` (the point beyond the block's `k`
+motives and `n` minors, so the readers are the same functions at every
+frame carrying the same motives and minors), the index tuple of the
+`nIdx` binders above the major, and the major `σ 0`. -/
 @[expose] noncomputable def blockLeafV (ψ : Name → Nat) (ℓ mm : Nat) (σ : Nat → V) : V :=
   d.blockRecAt ψ (shiftE (1 + d.nIdxAt mm + d.nCtors + d.k) 0 σ) ℓ
-    (fun c => σ (1 + d.nIdxAt mm + d.nCtors + (d.k - 1 - c)))
-    (fun J => σ (1 + d.nIdxAt mm + d.nCtors - 1 - J))
+    (fun c => if c < d.k then σ (1 + d.nIdxAt mm + d.nCtors + (d.k - 1 - c)) else pt)
+    (fun J => if J < d.nCtors then σ (1 + d.nIdxAt mm + d.nCtors - 1 - J) else pt)
     mm (d.tup ψ mm (ConLeche.Semantics.frameIdx (d.nIdxAt mm) (shiftE 1 0 σ))) (σ 0)
 
 /-- **The candidate recursor of member `mm`**: the λ-tower over its
