@@ -121,10 +121,22 @@ def restoreRulesF (ops : CheckerOps m) (feR : FEnv) (R : RestoreTbl) (lps : List
     unless !isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor) do
       throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a \
         constructor of an auxiliary type")
-    let cnP : Nat :=
+    -- **THE CONSTRUCTOR IS STORED** (task #279 K.24): official reads the
+    -- rule's constructor with `env.get`, which THROWS on an unknown
+    -- constant; this read used to fall back on the stream's own
+    -- `ctorParams`, which is a fallback where official has a verdict.
+    -- It is now the verdict: a restored rule whose constructor is not a
+    -- stored constructor at this environment is INVALID.  On a
+    -- well-formed stream it cannot fire — the constructors were stored
+    -- two stages earlier (`consNestedCtors`) and the mimics' names come
+    -- from the restore table — so the accept set does not move; what it
+    -- buys is the model tier's premise, that every restored rule's
+    -- constructor is a stored `ctorInfo`.
+    let cnP : Nat ←
       match feR.find? ctor with
-      | some (.ctorInfo _ n _) => n
-      | _ => rl.ctorParams
+      | some (.ctorInfo _ n _) => pure n
+      | _ => throw (.invalid s!"failed to restore nested inductive types, '{ctor}' is not \
+          a constructor")
     let fire : RecRuleFire :=
       if isMimic then
         match nestedFireShape feR.env lps recTy mI rP cnP with
