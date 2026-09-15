@@ -43,6 +43,7 @@ public import ConLeche.Model.Inductives.PsiRun
 -- consumer (task #314, DESIGN §DR.1 (a) step 1), consumed by nothing
 -- until `declNestedDirect` is wired.
 public import ConLeche.Model.Inductives.DirectRun
+public import ConLeche.Model.Inductives.DirectSlot
 public import ConLeche.Model.Inductives.CopyCtorRun
 public import ConLeche.Model.Inductives.CopyCtorWalk
 public import ConLeche.Model.Inductives.CopyCtorWalkRun
