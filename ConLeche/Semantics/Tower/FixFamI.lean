@@ -298,7 +298,7 @@ end Slot
 
 section Fam
 
-variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
+variable {tbl : List (List Nat)} {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
   {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
 
 /-- The X-chain entry at position `i` (the head of `chainXIGo` there). -/
@@ -646,7 +646,7 @@ def SlotsFitX (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rs : List Bo
 /-- **The functor's full premise**: the index telescope graded, the
 X-chains graded at every family and tuple, the recursive slots
 fitting there. -/
-structure XChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+structure XChainsOk (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : Prop where
   hI : IdxOk u ρp Ids
   hok : FixChainsOkI u w ρp Ids Ids.length rss tlss Eiss Fss Ess
@@ -656,7 +656,9 @@ structure XChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : 
   /-- the closure witness: a closed member family (task #202 Stage B:
   supplied by the tower's container instance at `w ≠ 0`,
   `fixFunVI_closed_zero` at a `Prop`-valued block) -/
-  hclosed : ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L
+  hclosed : ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L
+  /-- the tag table's premise (task #279 D-1): vacuous at the empty table -/
+  hoff : OffOk tbl u ρp Ids
 
 theorem lfpFamSpace_eq (w : Nat) (I : V) : lfpFamSpace V w I = famSpace w I :=
   piR_pos (Nat.succ_ne_zero w)
@@ -777,13 +779,14 @@ theorem slotsFitX_mono (hI : IdxOk u ρp Ids) {X X' : V} (hX'X : FamLe (idxSet u
     exact slotsFitX_mono hI hX'X Fs (as.length + 1) (as ++ [a]) (length_snoc' a as) (hfit.2 a ha')
 
 /-- **The functor is monotone** in the family. -/
-theorem fixStepI_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
+theorem fixStepI_mono (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (hXY : FamLe (idxSet u ρp Ids) X Y) {t : V}
     (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t
-      ⊆ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y t := by
-  unfold fixStepI
-  refine sumSet_mono fun j => ?_
+    fixStepI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t
+      ⊆ˢ fixStepI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y t := by
+  rw [fixStepI_eq, fixStepI_eq]
+  refine sumSet_mono fun jc => ?_
+  generalize tagOf tbl Fss.length t jc = j
   unfold sumFibre
   by_cases hj : j < Fss.length
   · rw [chainsXI_getElem?, if_pos hj]
@@ -796,37 +799,37 @@ theorem fixStepI_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V
   · rw [chainsXI_getElem?, if_neg hj]
     exact Subset.refl _
 
-theorem famFI_le (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
+theorem famFI_le (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (hXY : FamLe (idxSet u ρp Ids) X Y) :
-    FamLe (idxSet u ρp Ids) (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X)
-      (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y) := by
+    FamLe (idxSet u ρp Ids) (famFI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess X)
+      (famFI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y) := by
   intro t ht
   rw [famFI_app ht, famFI_app ht]
   exact fixStepI_mono h hX hXY ht
 
-theorem fixFunVI_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
-    MonoFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
+theorem fixFunVI_mono (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) :
+    MonoFam w (idxSet u ρp Ids) (fixFunVI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
   intro X Y hX hY hXY
   rw [← lfpFamSpace_eq] at hX hY
   rw [fixFunVI_app hX, fixFunVI_app hY]
   exact famFI_le h hX hXY
 
-theorem fixFunVI_maps (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
-    MapsFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
+theorem fixFunVI_maps (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) :
+    MapsFam w (idxSet u ρp Ids) (fixFunVI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
   intro X hX
   rw [← lfpFamSpace_eq] at hX ⊢
   rw [fixFunVI_app hX]
   exact famFI_mem h.hok hX
 
 /-- **A closed family exists** (the premise's witness). -/
-theorem fixFunVI_closed_exists (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
-    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L :=
+theorem fixFunVI_closed_exists (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) :
+    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L :=
   h.hclosed
 
 /-- **The top family `i ↦ {pt}` is closed at a `Prop`-valued block**
 (every fibre at `w = 0` is a subset of `{pt}`). -/
 theorem fixFunVI_closed_zero (hok : FixChainsOkI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess) :
-    ∃ L, IsClosedFam 0 (idxSet u ρp Ids) (fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+    ∃ L, IsClosedFam 0 (idxSet u ρp Ids) (fixFunVI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
   have htop : graph (fun _ => unitSet) (idxSet u ρp Ids) ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := by
     rw [lfpFamSpace_eq]
     exact graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact mem_univZero.mpr (Subset.refl _)
@@ -835,22 +838,22 @@ theorem fixFunVI_closed_zero (hok : FixChainsOkI u 0 ρp Ids Ids.length rss tlss
   intro t ht x hx
   rw [famFI_app ht] at hx
   rw [app_graph ht]
-  have := fixStepI_univ hok htop ht
+  have := fixStepI_univ (tbl := tbl) hok htop ht
   rw [univ_zero] at this
   exact mem_univZero.mp this x hx
 
 /-! ## The carrier's laws -/
 
-theorem fixFamI_mem (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+theorem fixFamI_mem (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) :
-    fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
+    fixFamI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
   lfpFamSet_mem_space V w _ _
 
 /-- **The fixed-point equation**, fibrewise: the fibre at `t` is the
 functor's fibre at the carrier. -/
-theorem fixFamI_app_eq (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t
-      = SetTheory.app (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t := by
+theorem fixFamI_app_eq (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
+    fixStepI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess (fixFamI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t
+      = SetTheory.app (fixFamI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t := by
   have := app_lfpFamSet_eq (fixFunVI_closed_exists h) (fixFunVI_mono h) (fixFunVI_maps h) ht
   unfold fixFamI at this ⊢
   rwa [fixFunVI_app (lfpFamSet_mem_space V w _ _), famFI_app ht] at this
@@ -985,15 +988,18 @@ def ChainsRealI (μ : V) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (r
     ChainRealI μ u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) 0 [] (Fss₀.getD j []) (Fss.getD j [])
 
 /-- **The carrier's fibre at an index spine is the indexed sum route's
-restricted tagged union** there. -/
-theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {Fss' : List (List AnnotTerm)}
-    (hreal : ChainsRealI (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) u w ρp Ids rss tlss Eiss Fss Fss' Ess)
+restricted tagged union** there — at the tag map: the `jc`-th fibre is
+the flat chain `tagOf tbl Fss.length (tupW u is) jc`'s restricted
+tower. -/
+theorem fixFamI_app_eq_sum (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) {Fss' : List (List AnnotTerm)}
+    (hreal : ChainsRealI (fixFamI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) u w ρp Ids rss tlss Eiss Fss Fss' Ess)
     {is : List V} (hsp : SpineFit ρp Ids is) :
-    SetTheory.app (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (tupW u is)
-      = sumSet w (sumFibre w (consList is ρp) (rChains Ids.length Ids.length Fss' Ess)) := by
-  rw [← fixFamI_app_eq h (tupW_mem hsp)]
-  unfold fixStepI
-  refine sumSet_congr fun j => ?_
+    SetTheory.app (fixFamI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (tupW u is)
+      = sumSet w fun jc => sumFibre w (consList is ρp) (rChains Ids.length Ids.length Fss' Ess)
+          (tagOf tbl Fss.length (tupW u is) jc) := by
+  rw [← fixFamI_app_eq h (tupW_mem hsp), fixStepI_eq]
+  refine sumSet_congr fun jc => ?_
+  generalize tagOf tbl Fss.length (tupW u is) jc = j
   obtain ⟨hl₀, hlE, hEs, hlen, hc⟩ := hreal
   unfold sumFibre
   by_cases hj : j < Fss'.length
@@ -1015,6 +1021,15 @@ theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {Fs
     simpa only [consList_nil] using this
   · have hjF : ¬ j < Fss.length := by omega
     rw [chainsXI_getElem?, if_neg hjF, rChains_getElem?, List.getElem?_eq_none (by omega)]
+
+/-- The flat instance: at the empty table the `jc`-th fibre is chain `jc`'s. -/
+theorem fixFamI_app_eq_sum_nil (h : XChainsOk [] u w ρp Ids rss tlss Eiss Fss Ess) {Fss' : List (List AnnotTerm)}
+    (hreal : ChainsRealI (fixFamI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess) u w ρp Ids rss tlss Eiss Fss Fss' Ess)
+    {is : List V} (hsp : SpineFit ρp Ids is) :
+    SetTheory.app (fixFamI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (tupW u is)
+      = sumSet w (sumFibre w (consList is ρp) (rChains Ids.length Ids.length Fss' Ess)) := by
+  rw [fixFamI_app_eq_sum h hreal hsp]
+  rfl
 
 /-! ## Elimination at a stage -/
 
@@ -1119,13 +1134,15 @@ theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (i
 fibre at `(X, t)` is the injection of a point-terminated tuple fitting
 constructor `j`'s X-chain, with the index equation holding. -/
 theorem fixStepI_elim {w : Nat} (hw : w ≠ 0) {X t x : V}
-    (hx : x ∈ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
-    ∃ j fs, x = inj j (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
+    (hx : x ∈ˢ fixStepI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
+    ∃ jc j fs, j = tagOf tbl Fss.length t jc ∧ x = inj jc (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
       fs.length = (Fss.getD j []).length ∧
       SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
-  unfold fixStepI at hx
-  obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
+  rw [fixStepI_eq] at hx
+  obtain ⟨jc, a, ha, rfl⟩ := sumSet_elim hw hx
+  refine ⟨jc, tagOf tbl Fss.length t jc, ?_⟩
+  generalize tagOf tbl Fss.length t jc = j at ha ⊢
   unfold sumFibre at ha
   by_cases hj : j < Fss.length
   · rw [chainsXI_getElem?, if_pos hj] at ha
@@ -1135,20 +1152,21 @@ theorem fixStepI_elim {w : Nat} (hw : w ≠ 0) {X t x : V}
     have hlen : fs.length = (Fss.getD j []).length := by
       have := hsp.length_eq
       rwa [chainXIGo_length] at this
-    refine ⟨j, fs, ?_, hj, hlen, hsp, hall⟩
+    refine ⟨fs, rfl, ?_, hj, hlen, hsp, hall⟩
     rw [heta, hfs]
   · rw [chainsXI_getElem?, if_neg hj] at ha
     exact absurd ha (not_mem_empty _)
 
 /-- **Stage elimination** (squash regime). -/
 theorem fixStepI_zero_elim {X t x : V}
-    (hx : x ∈ˢ fixStepI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
-    x = pt ∧ ∃ j fs, j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
+    (hx : x ∈ˢ fixStepI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
+    x = pt ∧ ∃ jc j fs, j = tagOf tbl Fss.length t jc ∧ j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
       SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
-  unfold fixStepI at hx
-  obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
-  refine ⟨rfl, ?_⟩
+  rw [fixStepI_eq] at hx
+  obtain ⟨rfl, jc, a, ha⟩ := sumSet_zero_elim hx
+  refine ⟨rfl, jc, tagOf tbl Fss.length t jc, ?_⟩
+  generalize tagOf tbl Fss.length t jc = j at ha ⊢
   unfold sumFibre at ha
   by_cases hj : j < Fss.length
   · rw [chainsXI_getElem?, if_pos hj] at ha
@@ -1159,7 +1177,7 @@ theorem fixStepI_zero_elim {X t x : V}
     have hlen : fs.length = (Fss.getD j []).length := by
       have := hsp.length_eq
       rwa [chainXIGo_length] at this
-    exact ⟨j, fs, hj, hlen, hsp, hall⟩
+    exact ⟨fs, rfl, hj, hlen, hsp, hall⟩
   · rw [chainsXI_getElem?, if_neg hj] at ha
     exact absurd ha (not_mem_empty _)
 

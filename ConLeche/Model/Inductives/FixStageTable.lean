@@ -176,14 +176,14 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {eiss : (Name → Nat) → List (List (List AnnotTerm))} {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
-      = nativeTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
+      = nativeTyAVI [] (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
     (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
-      = sumMkAV (p.resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop p.nP).map (·.2.2))
           (uChains [((ds ψ).drop p.nP).map (·.2.2)]))
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
+          (nativeTyAVI [] (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
         = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ) (consList ts ρ)
             [((ds ψ).drop p.nP).map (·.2.2) ++ [idxEqAV []]]))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -430,7 +430,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
             (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
         fun h0 => hguardSem i hi _ (hguardAt h0)
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = nativeTyAVI (u (Level.substFn φ p.cvT.levelParams us))
+          = nativeTyAVI [] (u (Level.substFn φ p.cvT.levelParams us))
             (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
             (pps (Level.substFn φ p.cvT.levelParams us)) [] rss
             (tlss (Level.substFn φ p.cvT.levelParams us))
@@ -453,7 +453,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
         exact hCDread₂ _
       · intro hguardAt ρ ys rest hlen hok hfit
         have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
-            = sumMkAV (p.resSort.eval (Level.substFn φ p.cvT.levelParams us)) 0
+            = sumMkAV [] 0 (p.resSort.eval (Level.substFn φ p.cvT.levelParams us)) 0
               (ds (Level.substFn φ p.cvT.levelParams us))
               (((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2))
               (uChains [((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2)]) := by
@@ -482,7 +482,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     · intro ρ ts rest x hlents hfit hmem
       have hsp := spineFit_of_teleFit (by rw [hFD.len]; exact hlents) hfit
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = nativeTyAVI (u (Level.substFn φ p.cvT.levelParams us))
+          = nativeTyAVI [] (u (Level.substFn φ p.cvT.levelParams us))
             (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
             (pps (Level.substFn φ p.cvT.levelParams us)) [] rss
             (tlss (Level.substFn φ p.cvT.levelParams us))
@@ -492,7 +492,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
         show m₂.acval p.cvT.name (Level.substFn φ p.cvT.levelParams us) = _
         rw [hacT, hleafT]
       have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
-          = sumMkAV (p.resSort.eval (Level.substFn φ p.cvT.levelParams us)) 0
+          = sumMkAV [] 0 (p.resSort.eval (Level.substFn φ p.cvT.levelParams us)) 0
             (ds (Level.substFn φ p.cvT.levelParams us))
             (((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2))
             (uChains [((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2)]) := by
@@ -562,12 +562,12 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF j cA)
     {uAV : (Name → Nat) → Nat} {fssZ : (Name → Nat) → List (List AnnotTerm)}
     (hleafT : ∀ ψ, mpC.base2.acval p.cvT.name ψ
-      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
+      = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mpC.base2.acval cA.1.name ψ
-      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     (hframes : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       (∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -593,11 +593,11 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
             ∈ˢ (univ ((sorts.getD k .zero).eval ψ) : V)))
     (hXR : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
         (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
+      ChainsRealI (fixFamI [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
@@ -767,14 +767,14 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         rw [hEsNil]
       -- the leaves at the recursor's carrier
       have hleafT₃ : ∀ ψ, mp₃.base2.acval p.cvT.name ψ
-          = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
+          = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
               (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
               (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
               (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) := by
         intro ψ
         rw [hac₃, acvalWith_ne hTR, hleafT ψ, hIds ψ]
       have hleafC₃ : ∀ ψ, mp₃.base2.acval cA.1.name ψ
-          = sumMkAV (p.resSort.eval ψ) 0 (dsF 0 ψ) (((dsF 0 ψ).drop p.nP).map (·.2.2))
+          = sumMkAV [] 0 (p.resSort.eval ψ) 0 (dsF 0 ψ) (((dsF 0 ψ).drop p.nP).map (·.2.2))
               (uChains [((dsF 0 ψ).drop p.nP).map (·.2.2)]) := by
         intro ψ
         rw [hac₃, acvalWith_ne hCR, hleafC 0 cA rfl ψ, hFssEq ψ]
@@ -782,7 +782,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
       have hfoldAt : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
           SpineFit ρ ((ppsAll ψ).map (·.2.2)) ts →
           ts.foldl SetTheory.app (interp V ρ
-              (nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
+              (nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
                 (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
                 (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
                 (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))))
@@ -799,15 +799,15 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         have hsh : shiftE ([] : List AnnotTerm).length 0 (consList ts ρ) = consList ts ρ :=
           shiftE_zero_zero _
         have hfr : ConLeche.Semantics.frameIdx ([] : List AnnotTerm).length (consList ts ρ) = [] := rfl
-        have hbase : FixBaseI (uAV ψ) (p.resSort.eval ψ) (consList ts ρ) [] (rssOfK ksF [cA].length)
+        have hbase : FixBaseI [] (uAV ψ) (p.resSort.eval ψ) (consList ts ρ) [] (rssOfK ksF [cA].length)
             (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
             (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
             (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) := by
-          refine ⟨?_, ?_, ?_⟩
+          refine ⟨?_, ?_, ?_, offOk_nil _ _ _⟩
           · rw [hsh]; exact hX.hI
           · rw [hsh]; exact hX.hok
           · rw [hsh, hfr]; trivial
-        rw [nativeTyAVI_fold hsp hbase, hsh, hfr, fixFamI_app_eq_sum hX hreal (is := []) trivial,
+        rw [nativeTyAVI_fold hsp hbase, hsh, hfr, fixFamI_app_eq_sum_nil hX hreal (is := []) trivial,
           consList_nil, hFssEq ψ, hEssEq ψ]
         show sumSet _ (sumFibre _ _ (rChains 0 0 [_] [[]])) = _
         rw [rChains_single_nil]

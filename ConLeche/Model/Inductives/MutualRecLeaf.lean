@@ -38,7 +38,7 @@ at `auxRecDataAV`, elimination level `ℓ`, sort `s`). -/
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (FssR Fss₀ Ess' : List (List AnnotTerm)) (mems : Nat → Nat) (tgts : Nat → Nat → Nat)
     (cds : List CtorDatumR) : AnnotTerm :=
-  nativeRecAVI ℓ w nP FssR Ess' (auxIds W Idss) rss tlss Eiss'
+  nativeRecAVI [] ℓ w nP FssR Ess' (auxIds W Idss) rss tlss Eiss'
     (auxRecDataAV m ψ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds) s
 
 /-- **The member recursor's body** at the frame `(p⃗, M⃗, S⃗, ı⃗, t)`

@@ -64,31 +64,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-! ## Numerals under successors -/
-
-/-- `Nat.succ^j k`. -/
-def succsAV : Nat → AnnotTerm → AnnotTerm
-  | 0, k => k
-  | j + 1, k => .app (.const .natSucc []) (succsAV j k)
-
-theorem interp_succsAV : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat},
-    interp V σ k = vnat i → interp V σ (succsAV j k) = vnat (i + j)
-  | 0, _, _, _, h => h
-  | j + 1, k, σ, i, h => by
-    show SetTheory.app (natSuccV V) (interp V σ (succsAV j k)) = vsucc (vnat (i + j))
-    rw [interp_succsAV j h, natSuccV_app V (vnat_mem_omega _), natsucc_eq_vsucc]
-
-theorem succsAV_wellDenoted : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat},
-    WellDenoted V σ k → interp V σ k = vnat i → WellDenoted V σ (succsAV j k)
-  | 0, _, _, _, hok, _ => hok
-  | j + 1, k, σ, i, hok, h => by
-    show WellDenoted V σ (.app (.const .natSucc []) (succsAV j k))
-    rw [WellDenoted_app]
-    refine ⟨trivial, succsAV_wellDenoted j hok h, 1, omega, fun _ => omega, natSuccV_mem V, ?_,
-      fun h => absurd h Nat.one_ne_zero⟩
-    rw [interp_succsAV j h]
-    exact vnat_mem_omega _
-
 /-! ## The nested product over a telescope -/
 
 /-- The nested product over a semantic telescope, the body at the
@@ -192,16 +167,18 @@ noncomputable def minorSpI (ℓ : Nat) (c : List V → V) :
       fun a => minorSpI ℓ c Fs (cons a ρf) (acc ++ [a])
 
 /-- Constructor `j`'s value at a field tuple: the injection of the
-point-terminated tupler, the point at squash. -/
-noncomputable def ctorValI (w j : Nat) (acc : List V) : V :=
-  if w = 0 then pt else inj j (mkTower (acc ++ [pt]))
+point-terminated tupler at the constructor's MEMBER-LOCAL tag (`locOf
+tbl j`, task #279 D-1; `j` itself at the empty table), the point at
+squash. -/
+noncomputable def ctorValI (tbl : List (List Nat)) (w j : Nat) (acc : List V) : V :=
+  if w = 0 then pt else inj (locOf tbl j) (mkTower (acc ++ [pt]))
 
 /-- Constructor `j`'s minor conclusion at a field tuple: the motive at
 the constructor's index tuple (read at the parameter frame), applied
 to the constructor's value. -/
-noncomputable def concI (w : Nat) (ρp : Nat → V) (M : V) (Es : List AnnotTerm) (j : Nat)
-    (acc : List V) : V :=
-  SetTheory.app ((idxValsAt ρp Es acc).foldl SetTheory.app M) (ctorValI w j acc)
+noncomputable def concI (tbl : List (List Nat)) (w : Nat) (ρp : Nat → V) (M : V) (Es : List AnnotTerm)
+    (j : Nat) (acc : List V) : V :=
+  SetTheory.app ((idxValsAt ρp Es acc).foldl SetTheory.app M) (ctorValI tbl w j acc)
 
 theorem minorSpI_zero_univZero {ℓ : Nat} {c : List V → V} (h0 : ℓ = 0)
     (hc : ∀ acc, c acc ∈ˢ (univZero : V)) :
@@ -388,9 +365,12 @@ theorem mkAppN_wellDenoted_of_chain :
 
 /-- The stage-`j` motive body, under the motive's own tag binder
 (`k = bvar 0`), at depth `D`: `Π (y : case (drop j) k), M ı⃗ (mk k y)`. -/
-def caseMotiveBodyAV (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) : AnnotTerm :=
+def caseMotiveBodyAV (tbl : List (List Nat)) (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) :
+    AnnotTerm :=
   .pi w ℓ (caseAVAt w ((Fss.map (towerBodyAV w)).drop j) (D + 1) (.bvar 0))
-    (.app (motAppAV n nIdx (D + 2)) (sumInjAtAV w Fss (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
+    (.app (motAppAV n nIdx (D + 2))
+      (psigmaMkAV w (caseAVAt w ((Fss.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2))
+        (locTagAV tbl n j (.bvar 1)) (.bvar 0)))
 
 /-- The numeral `imax w ℓ`. -/
 def imaxN (w ℓ : Nat) : Nat := if ℓ = 0 then 0 else Nat.max w ℓ
@@ -403,18 +383,20 @@ theorem imaxN_eq_zero_iff (w ℓ : Nat) : imaxN w ℓ = 0 ↔ ℓ = 0 := by
     exact ⟨fun h' => absurd (Nat.le_zero.mp (h' ▸ Nat.le_max_right w ℓ)) h, fun h' => absurd h' h⟩
 
 /-- The stage-`j` motive. -/
-def caseMotiveAV (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) : AnnotTerm :=
-  .lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w Fss n nIdx D j)
+def caseMotiveAV (tbl : List (List Nat)) (ℓ w : Nat) (Fss : List (List AnnotTerm)) (n nIdx D j : Nat) :
+    AnnotTerm :=
+  .lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV tbl ℓ w Fss n nIdx D j)
 
 /-! ## The semantic pieces -/
 
 /-- The stage-`j` motive at a tag: the product over the `(j + i)`-th
 fibre into the motive (at the frame's indices) at the injection. -/
-noncomputable def motSem (ℓ w : Nat) (f : Nat → V) (Mi : V) (j : Nat) (k : V) : V :=
-  natFibre (fun i => piR ℓ (f (j + i)) fun y => SetTheory.app Mi (injW w (j + i) y)) k
+noncomputable def motSem (tbl : List (List Nat)) (n ℓ w : Nat) (f : Nat → V) (Mi : V) (j : Nat) (k : V) : V :=
+  natFibre (fun i => piR ℓ (f (j + i)) fun y => SetTheory.app Mi (injW w (locAt tbl n j i) y)) k
 
-theorem motSem_vnat (ℓ w : Nat) (f : Nat → V) (Mi : V) (j i : Nat) :
-    motSem ℓ w f Mi j (vnat i) = piR ℓ (f (j + i)) fun y => SetTheory.app Mi (injW w (j + i) y) :=
+theorem motSem_vnat (tbl : List (List Nat)) (n ℓ w : Nat) (f : Nat → V) (Mi : V) (j i : Nat) :
+    motSem tbl n ℓ w f Mi j (vnat i)
+      = piR ℓ (f (j + i)) fun y => SetTheory.app Mi (injW w (locAt tbl n j i) y) :=
   natFibre_vnat _ i
 
 /-! ## The hypotheses of the stage facts -/
@@ -427,8 +409,8 @@ tagged union of the restricted chains), the frame's index tuple
 fitting the telescope, every minor in its space (over the field chain
 at the parameter frame, with the conclusion `concI`), and the
 counts. -/
-structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AnnotTerm))
-    (Ids : List AnnotTerm) (famAt : List V → V) : Prop where
+structure RecHypCore (tbl : List (List Nat)) (τ : Nat → Nat) (ℓ w : Nat) (ρ₀ : Nat → V)
+    (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm) (famAt : List V → V) : Prop where
   hok : SumFieldsOkB w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
   hEs : ∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length
   hlenE : Ess.length = Fss.length
@@ -436,84 +418,120 @@ structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List Ann
     ∈ˢ piTele (ℓ + 1) (teleOfFields (frP Fss.length Ids.length ρ₀) Ids)
       (fun is' => piR (ℓ + 1) (famAt is') fun _ => (univ ℓ : V)) []
   hfit : SpineFit (frP Fss.length Ids.length ρ₀) Ids (frameIdx Ids.length ρ₀)
+  /-- the frame's tuple's carrier is the tagged union of the restricted
+  chains at the frame's tag map `τ` (task #279 D-1: the `jc`-th fibre is
+  the flat chain `τ jc`'s; the identity at the native route) -/
   hfam : famAt (frameIdx Ids.length ρ₀)
-    = sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+    = sumSet w fun jc => sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc)
+  /-- the tag map is coherent with the chains: a constructor whose
+  restricted chain is inhabited at the frame is the frame's member's,
+  so its local tag maps back to it -/
+  hcoh : ∀ j, j < Fss.length →
+    ∀ y, y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j →
+      τ (locOf tbl j) = j
+  /-- and conversely: a local tag whose flat chain is inhabited at the
+  frame is the local tag of that chain -/
+  hcoh' : ∀ jc y, y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc) →
+      locOf tbl (τ jc) = jc
 
 namespace RecHypCore
 
-variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
-  {famAt : List V → V}
+variable {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)}
+  {Ids : List AnnotTerm} {famAt : List V → V}
 
 /-- The motive at the frame's index tuple is in its space. -/
-theorem hM (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem hM (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) :
     frMi Fss.length Ids.length ρ₀
-      ∈ˢ piR (ℓ + 1) (sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)))
+      ∈ˢ piR (ℓ + 1) (sumSet w fun jc =>
+          sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc))
         fun _ => (univ ℓ : V) := by
   have := piTele_fold (Nat.succ_ne_zero ℓ) h.hMtele (fitsS_teleOfFields.mpr h.hfit)
   rw [List.nil_append, h.hfam] at this
   exact this
 
+/-- A constructor value at its local tag is in the frame's carrier. -/
+theorem injLoc_mem (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length)
+    {y : V} (hy : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j) :
+    injW w (locOf tbl j) y
+      ∈ˢ sumSet w fun jc =>
+          sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc) := by
+  refine injW_mem (f := fun jc =>
+    sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc)) ?_
+  show y ∈ˢ sumFibre w ρ₀ _ (τ (locOf tbl j))
+  rw [h.hcoh j hj y hy]
+  exact hy
+
 /-- The motive's index applications are graded. -/
-theorem hMchain (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem hMchain (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) :
     AppChainOk (frM Fss.length Ids.length ρ₀) (frameIdx Ids.length ρ₀) :=
   piTele_chainOk (Nat.succ_ne_zero ℓ) h.hMtele (fitsS_teleOfFields.mpr h.hfit)
 
 /-- The motive's applications are truth values at a zero elimination
 level, at any index tuple of the right length. -/
-theorem hMapp0 (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {is' : List V}
+theorem hMapp0 (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {is' : List V}
     (hlen : is'.length = Ids.length) (x : V) :
     SetTheory.app (is'.foldl SetTheory.app (frM Fss.length Ids.length ρ₀)) x ∈ˢ (univZero : V) :=
   piTele_app_univZero h0 h.hMtele hlen x
 
 /-- The motive's applications are truth values at a zero elimination
 level (at the frame's tuple). -/
-theorem hM0 (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) :
+theorem hM0 (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) :
     ∀ y : V, SetTheory.app (frMi Fss.length Ids.length ρ₀) y ∈ˢ (univZero : V) :=
   fun y => h.hMapp0 h0 (frameIdx_length _ _) y
 
 /-- The motive at a carrier member lives in `univ ℓ`. -/
-theorem hMapp (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) {y : V}
-    (hy : y ∈ˢ sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))) :
+theorem hMapp (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) {y : V}
+    (hy : y ∈ˢ sumSet w fun jc =>
+      sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (τ jc)) :
     SetTheory.app (frMi Fss.length Ids.length ρ₀) y ∈ˢ (univ ℓ : V) :=
   app_mem_piR_pos (Nat.succ_ne_zero ℓ) h.hM hy
 
+/-- The motive at a constructor value at its local tag lives in `univ ℓ`. -/
+theorem hMappLoc (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length)
+    {y : V} (hy : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j) :
+    SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w (locOf tbl j) y) ∈ˢ (univ ℓ : V) :=
+  h.hMapp (h.injLoc_mem hj hy)
+
 /-- The fibres live in `univ w`. -/
-theorem fibre_univ (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (i : Nat) :
+theorem fibre_univ (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (i : Nat) :
     sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) i ∈ˢ (univ w : V) := by
   unfold sumFibre
   cases hi : (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)[i]? with
   | none => exact empty_mem_univ w
   | some Fs => exact towerSet_univ_of_okB (fun hw => (h.hok Fs (List.mem_of_getElem? hi)).toBound hw)
 
-/-- The stage motive at a numeral lives in `univ (imax w ℓ)`. -/
-theorem motSem_univ (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j i : Nat) :
-    motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-      (frMi Fss.length Ids.length ρ₀) j (vnat i) ∈ˢ (univ (imaxN w ℓ) : V) := by
-  rw [motSem_vnat]
-  have := piR_mem_univ (u := w) (v := ℓ) (h.fibre_univ (j + i))
-    (fun y hy => h.hMapp (injW_mem hy))
-  exact this
-
-/-- The conclusion at a zero elimination level is a truth value. -/
-theorem conc_univZero (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
-    (hj : j < Fss.length) :
-    ∀ acc, concI w (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀)
-      (Ess.getD j []) j acc ∈ˢ (univZero : V) := by
-  intro acc
-  show SetTheory.app ((idxValsAt _ _ acc).foldl SetTheory.app _) (ctorValI w j acc) ∈ˢ _
-  exact h.hMapp0 h0 (by rw [idxValsAt, List.length_map]; exact h.hEs j hj) _
-
 /-- Constructor `j`'s restricted chain. -/
-theorem rChain_getElem? (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length) :
+theorem rChain_getElem? (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length) :
     (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)[j]?
       = some (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])) := by
   rw [rChains_getElem?, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
     List.getElem?_eq_getElem hj, List.getElem?_eq_getElem (by rw [h.hlenE]; exact hj)]
   rfl
 
-theorem rChains_length' (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem rChains_length' (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) :
     (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).length = Fss.length := by
   rw [rChains_length, h.hlenE]; simp
+
+/-- The stage motive at a numeral lives in `univ (imax w ℓ)`. -/
+theorem motSem_univ (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (j i : Nat) :
+    motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+      (frMi Fss.length Ids.length ρ₀) j (vnat i) ∈ˢ (univ (imaxN w ℓ) : V) := by
+  rw [motSem_vnat]
+  refine piR_mem_univ (u := w) (v := ℓ) (h.fibre_univ (j + i)) fun y hy => ?_
+  have hji : j + i < Fss.length := Classical.byContradiction fun hge => by
+    rw [sumFibre_of_ge (by rw [h.rChains_length']; omega)] at hy
+    exact not_mem_empty _ hy
+  rw [locAt_eq_locOf hji]
+  exact h.hMappLoc hji hy
+
+/-- The conclusion at a zero elimination level is a truth value. -/
+theorem conc_univZero (h : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
+    (hj : j < Fss.length) :
+    ∀ acc, concI tbl w (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀)
+      (Ess.getD j []) j acc ∈ˢ (univZero : V) := by
+  intro acc
+  show SetTheory.app ((idxValsAt _ _ acc).foldl SetTheory.app _) (ctorValI tbl w j acc) ∈ˢ _
+  exact h.hMapp0 h0 (by rw [idxValsAt, List.length_map]; exact h.hEs j hj) _
 
 end RecHypCore
 
@@ -528,9 +546,9 @@ end RecHypS
 
 /-- The motive's index application at a frame: its value and its
 grading. -/
-theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D' ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem motApp_facts {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w D' : Nat} {ρ₀ σ : Nat → V}
+    {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {famAt : List V → V}
+    (hfr : RecFrameS D' ρ₀ σ) (hyp : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) :
     interp V σ (motAppAV Fss.length Ids.length D') = frMi Fss.length Ids.length ρ₀ ∧
     WellDenoted V σ (motAppAV Fss.length Ids.length D') := by
   have hmot : interp V σ (.bvar (D' + Ids.length + Fss.length)) = frM Fss.length Ids.length ρ₀ := by
@@ -550,19 +568,22 @@ theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (Li
   rfl
 
 /-- The stage-`j` motive body at a tag in `ω` reads to `motSem`, and
-is graded. -/
-theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) {k : V}
+is graded: the codomain reconstructs the major at the constructor's
+LOCAL tag with the constant fibre λ `λ _, case (j + k)` (task #279
+D-1, DESIGN §M.60 (c)). -/
+theorem motiveBody_facts {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w D : Nat} {ρ₀ σ : Nat → V}
+    {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) {k : V}
     (hk : k ∈ˢ (omega : V)) :
     interp V (cons k σ)
-        (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+        (caseMotiveBodyAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j)
-      = motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+      = motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
           (frMi Fss.length Ids.length ρ₀) j k ∧
     WellDenoted V (cons k σ)
-      (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (caseMotiveBodyAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
+  have hlenR := hyp.rChains_length'
   generalize hR : rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess = Fss' at *
   have hok : SumFieldsOkB w ρ₀ Fss' := hR ▸ hyp.hok
   obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
@@ -572,15 +593,19 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
     fun T hT' => hT T (List.mem_of_mem_drop hT')
   have hokTd : ∀ T ∈ (Fss'.map (towerBodyAV w)).drop j, WellDenoted V ρ₀ T :=
     fun T hT' => hokT T (List.mem_of_mem_drop hT')
-  -- the domain: the `(j + i)`-th fibre
-  have hdom := caseAVAt_facts (w := w) (Ts := (Fss'.map (towerBodyAV w)).drop j) (d := D + 1)
-    (k := .bvar 0) (σ := cons (vnat i) σ) (by rw [hsh1]; exact hTd) (by rw [hsh1]; exact hokTd)
-    trivial (by rw [interp_bvar]; exact hk)
-  rw [hsh1] at hdom
-  have hdomv : interp V (cons (vnat i) σ)
-      (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 1) (.bvar 0))
-      = sumFibre w ρ₀ Fss' (j + i) := by
-    rw [hdom.2.1 i (by rw [interp_bvar]; rfl)]
+  -- the `(j + i)`-th fibre, read by the selector at any frame retracting to `ρ₀`
+  have hsel : ∀ (τ' : Nat → V) (d : Nat) (kx : AnnotTerm), shiftE d 0 τ' = ρ₀ →
+      WellDenoted V τ' kx → interp V τ' kx = vnat i →
+      interp V τ' (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) d kx) = sumFibre w ρ₀ Fss' (j + i) ∧
+      interp V τ' (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) d kx) ∈ˢ (univ w : V) ∧
+      WellDenoted V τ' (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) d kx) := by
+    intro τ' d kx hsh hokk hkx
+    have h := caseAVAt_facts (w := w) (Ts := (Fss'.map (towerBodyAV w)).drop j) (d := d) (k := kx)
+      (σ := τ') (by rw [hsh]; exact hTd) (by rw [hsh]; exact hokTd) hokk
+      (by rw [hkx]; exact vnat_mem_omega i)
+    rw [hsh] at h
+    refine ⟨?_, h.1, h.2.2⟩
+    rw [h.2.1 i hkx]
     unfold selFibre sumFibre
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop, List.getElem?_map]
     cases hj : Fss'[j + i]? with
@@ -588,75 +613,118 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
     | some Fs =>
       simp only [Option.map_some, Option.getD_some]
       exact towerBodyAV_interp (fun hw => (hok Fs (List.mem_of_getElem? hj)).toBound hw)
-  -- the codomain: the motive at the injection
+  -- the domain
+  have hdom := hsel (cons (vnat i) σ) (D + 1) (.bvar 0) hsh1 trivial (by rw [interp_bvar]; rfl)
+  -- the codomain: the motive at the injection at the local tag
   have hfr2 : ∀ y : V, RecFrameS (D + 2) ρ₀ (cons y (cons (vnat i) σ)) := fun y => hfr.step y _
-  have hsh2 : ∀ y : V, shiftE (D + 2) 0 (cons y (cons (vnat i) σ)) = ρ₀ := fun y => hfr2 y
-  have htag : ∀ y : V, interp V (cons y (cons (vnat i) σ)) (succsAV j (.bvar 1)) = vnat (i + j) :=
-    fun y => interp_succsAV j (by rw [interp_bvar]; rfl)
+  have htag : ∀ y : V,
+      interp V (cons y (cons (vnat i) σ)) (locTagAV tbl Fss.length j (.bvar 1)) = vnat (locAt tbl Fss.length j i) ∧
+      WellDenoted V (cons y (cons (vnat i) σ)) (locTagAV tbl Fss.length j (.bvar 1)) := by
+    intro y
+    have h := locTagAV_facts (tbl := tbl) (n := Fss.length) (j := j) (k := .bvar 1)
+      (σ := cons y (cons (vnat i) σ)) (i := i) (by rw [interp_bvar]; rfl) trivial
+    exact ⟨h.1, h.2.2⟩
   have hMi := hR ▸ hyp.hM
+  -- the constant fibre λ at the payload frame
+  have hfib : ∀ y : V,
+      interp V (cons y (cons (vnat i) σ))
+          (.lam (w + 1) natAV (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2)))
+        = lamR (w + 1) omega (fun _ => sumFibre w ρ₀ Fss' (j + i)) ∧
+      lamR (w + 1) (omega : V) (fun _ => sumFibre w ρ₀ Fss' (j + i)) ∈ˢ psigmaFibreSpace V w omega ∧
+      WellDenoted V (cons y (cons (vnat i) σ))
+        (.lam (w + 1) natAV (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2))) := by
+    intro y
+    have hc : ∀ k' : V, k' ∈ˢ (omega : V) →
+        interp V (cons k' (cons y (cons (vnat i) σ)))
+            (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2)) = sumFibre w ρ₀ Fss' (j + i) ∧
+        interp V (cons k' (cons y (cons (vnat i) σ)))
+            (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2)) ∈ˢ (univ w : V) ∧
+        WellDenoted V (cons k' (cons y (cons (vnat i) σ)))
+          (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2)) := by
+      intro k' _
+      refine hsel (cons k' (cons y (cons (vnat i) σ))) (D + 3) (.bvar 2) ?_ trivial (by rw [interp_bvar]; rfl)
+      rw [show D + 3 = (D + 2) + 1 from rfl, shiftE_succ_cons]
+      exact hfr2 y
+    refine ⟨?_, ?_, ?_⟩
+    · rw [interp_lam]
+      exact lamR_congr fun k' hk' => (hc k' hk').1
+    · exact lamR_mem fun k' hk' => by rw [← (hc k' hk').1]; exact (hc k' hk').2.1
+    · rw [WellDenoted_lam]
+      exact ⟨trivial, fun k' hk' => (hc k' hk').2.2, fun _ => (univ w : V),
+        fun k' hk' => (hc k' hk').2.1, fun h => absurd h (Nat.succ_ne_zero _)⟩
   have hcod : ∀ y : V, y ∈ˢ sumFibre w ρ₀ Fss' (j + i) →
       interp V (cons y (cons (vnat i) σ))
           (.app (motAppAV Fss.length Ids.length (D + 2))
-            (sumInjAtAV w Fss' (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
-        = SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w (j + i) y) ∧
+            (psigmaMkAV w (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2))
+              (locTagAV tbl Fss.length j (.bvar 1)) (.bvar 0)))
+        = SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w (locAt tbl Fss.length j i) y) ∧
       WellDenoted V (cons y (cons (vnat i) σ))
         (.app (motAppAV Fss.length Ids.length (D + 2))
-          (sumInjAtAV w Fss' (D + 2) (succsAV j (.bvar 1)) (.bvar 0))) := by
+          (psigmaMkAV w (caseAVAt w ((Fss'.map (towerBodyAV w)).drop j) (D + 3) (.bvar 2))
+            (locTagAV tbl Fss.length j (.bvar 1)) (.bvar 0))) := by
     intro y hy
+    obtain ⟨hBv, hBm, hBok⟩ := hfib y
     have hpay : w ≠ 0 → interp V (cons y (cons (vnat i) σ)) (.bvar 0)
-        ∈ˢ sumFibre w ρ₀ Fss' (i + j) := by
-      intro _; rw [interp_bvar, Nat.add_comm]; exact hy
-    have hv := sumInjAtAV_interp (hsh2 y) hok (htag y) hpay
+        ∈ˢ sumFibre w ρ₀ Fss' (j + i) := by
+      intro _; rw [interp_bvar]; exact hy
+    have hv := psigmaMkAV_interp (B := fun _ => sumFibre w ρ₀ Fss' (j + i)) hBv hBm (htag y).1 hpay
     rw [interp_bvar] at hv
-    have hij : i + j = j + i := Nat.add_comm i j
     obtain ⟨hMv, hMok⟩ := motApp_facts (hfr2 y) hyp
+    have hji : j + i < Fss.length := Classical.byContradiction fun hge => by
+      rw [sumFibre_of_ge (by rw [hlenR]; omega)] at hy
+      exact not_mem_empty _ hy
+    have hyR : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) (j + i) := by
+      rw [hR]; exact hy
     refine ⟨?_, ?_⟩
-    · rw [interp_app, hMv, hv, hij, cons_zero]
+    · rw [interp_app, hMv, hv, cons_zero]
     · rw [WellDenoted_app]
-      refine ⟨hMok, sumInjAtAV_wellDenoted (hsh2 y) hok (succsAV_wellDenoted j trivial
-        (by rw [interp_bvar]; rfl)) (htag y) trivial hpay,
-        ℓ + 1, sumSet w (sumFibre w ρ₀ Fss'), fun _ => (univ ℓ : V), ?_, ?_,
+      refine ⟨hMok, psigmaMkAV_wellDenoted (B := fun _ => sumFibre w ρ₀ Fss' (j + i)) hBv hBm hBok
+          (htag y).2 (htag y).1 trivial hpay,
+        ℓ + 1, sumSet w (fun jc => sumFibre w ρ₀ Fss' (τ jc)), fun _ => (univ ℓ : V), ?_, ?_,
         fun h => absurd h (Nat.succ_ne_zero _)⟩
       · rw [hMv]; exact hMi
-      · rw [hv, hij, cons_zero]; exact injW_mem hy
+      · rw [hv, cons_zero, locAt_eq_locOf hji]
+        have := hyp.injLoc_mem hji hyR
+        rw [hR] at this
+        exact this
   refine ⟨?_, ?_⟩
   · show piR ℓ _ _ = _
-    rw [motSem_vnat, hdomv]
+    rw [motSem_vnat, hdom.1]
     exact piR_congr fun y hy => (hcod y hy).1
   · show WellDenoted V (cons (vnat i) σ) (.pi w ℓ _ _)
     rw [WellDenoted_pi]
     refine ⟨hdom.2.2, fun y hy => ?_⟩
-    rw [hdomv] at hy
+    rw [hdom.1] at hy
     exact (hcod y hy).2
 
 /-- The stage-`j` motive: its value, its membership in the motive space,
 its applications, its grading. -/
-theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) :
-    interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+theorem motive_facts {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w D : Nat} {ρ₀ σ : Nat → V}
+    {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) :
+    interp V σ (caseMotiveAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j)
         = lamR (imaxN w ℓ + 1) omega
-            (motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+            (motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
               (frMi Fss.length Ids.length ρ₀) j) ∧
-      interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      interp V σ (caseMotiveAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j) ∈ˢ natMotiveSpace V (imaxN w ℓ) ∧
       (∀ k, k ∈ˢ (omega : V) →
-        SetTheory.app (interp V σ (caseMotiveAV ℓ w
+        SetTheory.app (interp V σ (caseMotiveAV tbl ℓ w
             (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) Fss.length Ids.length D j)) k
-          = motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+          = motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
               (frMi Fss.length Ids.length ρ₀) j k) ∧
-      WellDenoted V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      WellDenoted V σ (caseMotiveAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
-  have hv : interp V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+  have hv : interp V σ (caseMotiveAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j)
       = lamR (imaxN w ℓ + 1) omega
-          (motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+          (motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
             (frMi Fss.length Ids.length ρ₀) j) := by
-    show lamR (imaxN w ℓ + 1) omega (fun k => interp V (cons k σ) (caseMotiveBodyAV ℓ w _ _ _ D j)) = _
+    show lamR (imaxN w ℓ + 1) omega (fun k => interp V (cons k σ) (caseMotiveBodyAV tbl ℓ w _ _ _ D j)) = _
     exact lamR_congr fun k hk => (motiveBody_facts hfr hyp j hk).1
   have hmot : ∀ k, k ∈ˢ (omega : V) →
-      motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+      motSem tbl Fss.length ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
         (frMi Fss.length Ids.length ρ₀) j k ∈ˢ (univ (imaxN w ℓ) : V) := by
     intro k hk
     obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
@@ -668,7 +736,7 @@ theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (Lis
   · intro k hk
     rw [hv]
     exact app_lamR_pos (Nat.succ_ne_zero _) hk
-  · show WellDenoted V σ (.lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w _ _ _ D j))
+  · show WellDenoted V σ (.lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV tbl ℓ w _ _ _ D j))
     rw [WellDenoted_lam]
     refine ⟨trivial, fun k hk => (motiveBody_facts hfr hyp j hk).2,
       fun _ => (univ (imaxN w ℓ) : V), fun k hk => ?_, fun h => absurd h (Nat.succ_ne_zero _)⟩

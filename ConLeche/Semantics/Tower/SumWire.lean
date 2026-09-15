@@ -51,6 +51,89 @@ theorem caseAVAt_below {w K : Nat} :
         (show (1 : Nat) < K + (d + 2) by omega)
       rwa [show K + (d + 2) = K + d + 1 + 1 from by omega] at this
 
+/-! ## The numeral selector and the tag map (task #279 D-1) -/
+
+theorem natNatMotiveAV_below (k : Nat) : Term.bvarsBelow k natNatMotiveAV.erase :=
+  ⟨trivial, trivial⟩
+
+/-- The numeral selector at depth `K + d` over terms bounded at `K`. -/
+theorem natSelAV_below {K : Nat} :
+    ∀ {ts : List AnnotTerm} {dflt : AnnotTerm} {d : Nat} {kx : AnnotTerm},
+      (∀ T ∈ ts, Term.bvarsBelow K T.erase) → Term.bvarsBelow K dflt.erase →
+      Term.bvarsBelow (K + d) kx.erase →
+      Term.bvarsBelow (K + d) (natSelAV ts dflt d kx).erase
+  | [], dflt, d, _, _, hd, _ => by
+    show Term.bvarsBelow (K + d) (dflt.liftN d 0).erase
+    rw [AnnotTerm.erase_liftN]
+    exact VExprAux.bvarsBelow_liftN d dflt.erase K 0 hd
+  | T :: Ts, dflt, d, kx, hT, hd, hk => by
+    refine natRecAV_below (natNatMotiveAV_below _) ?_ ?_ hk
+    · rw [AnnotTerm.erase_liftN]
+      exact VExprAux.bvarsBelow_liftN d T.erase K 0 (hT T List.mem_cons_self)
+    · refine ⟨trivial, trivial, ?_⟩
+      have := natSelAV_below (K := K) (ts := Ts) (dflt := dflt) (d := d + 2) (kx := .bvar 1)
+        (fun T' hT' => hT T' (List.mem_cons_of_mem _ hT')) hd
+        (show (1 : Nat) < K + (d + 2) by omega)
+      rwa [show K + (d + 2) = K + d + 1 + 1 from by omega] at this
+
+theorem flatTagAV_below {tbl : List (List Nat)} {dead : Nat} {mem kx : AnnotTerm} {K : Nat}
+    (hm : Term.bvarsBelow K mem.erase) (hk : Term.bvarsBelow K kx.erase) :
+    Term.bvarsBelow K (flatTagAV tbl dead mem kx).erase := by
+  cases tbl with
+  | nil => exact hk
+  | cons r rs =>
+    show Term.bvarsBelow K (natSelAV _ (numeralAV dead) 0 mem).erase
+    have := natSelAV_below (K := K) (d := 0) (kx := mem)
+      (ts := (r :: rs).map fun row => natSelAV (row.map numeralAV) (numeralAV dead) 0 kx)
+      (dflt := numeralAV dead)
+      (by
+        intro T hT
+        obtain ⟨row, -, rfl⟩ := List.mem_map.mp hT
+        have := natSelAV_below (K := K) (d := 0) (kx := kx) (ts := row.map numeralAV)
+          (dflt := numeralAV dead)
+          (by
+            intro T' hT'
+            obtain ⟨c, -, rfl⟩ := List.mem_map.mp hT'
+            exact numeralAV_erase_below c K)
+          (numeralAV_erase_below dead K) hk
+        exact this)
+      (numeralAV_erase_below dead K) hm
+    exact this
+
+theorem locTagAV_below {tbl : List (List Nat)} {n j : Nat} {kx : AnnotTerm} {K : Nat}
+    (hk : Term.bvarsBelow K kx.erase) :
+    Term.bvarsBelow K (locTagAV tbl n j kx).erase := by
+  cases tbl with
+  | nil =>
+    show Term.bvarsBelow K (succsAV j kx).erase
+    induction j with
+    | zero => exact hk
+    | succ j ih => exact ⟨trivial, ih⟩
+  | cons r rs =>
+    show Term.bvarsBelow K (natSelAV _ (numeralAV 0) 0 kx).erase
+    have := natSelAV_below (K := K) (d := 0) (kx := kx)
+      (ts := ((List.range n).drop j).map fun J => numeralAV (locOf (r :: rs) J))
+      (dflt := numeralAV 0)
+      (by
+        intro T hT
+        obtain ⟨J, -, rfl⟩ := List.mem_map.mp hT
+        exact numeralAV_erase_below _ K)
+      (numeralAV_erase_below 0 K) hk
+    exact this
+
+theorem leafScrutAV_below {tbl : List (List Nat)} {n m K : Nat} (hK : 0 < K) :
+    Term.bvarsBelow K (leafScrutAV tbl n m).erase :=
+  flatTagAV_below (numeralAV_erase_below m K) hK
+
+theorem bodyScrutAV_below {tbl : List (List Nat)} {n K : Nat} (hK : 0 < K)
+    (hK1 : tbl ≠ [] → 1 < K) :
+    Term.bvarsBelow K (bodyScrutAV tbl n).erase := by
+  cases tbl with
+  | nil => exact hK
+  | cons r rs =>
+    exact flatTagAV_below (tbl := r :: rs) (mem := .fst (.fst (.bvar 1)))
+      (show (1 : Nat) < K from hK1 (List.cons_ne_nil r rs)) hK
+
 /-! ## The carrier -/
 
 theorem towers_below {w K : Nat} {Fss : List (List AnnotTerm)}
@@ -60,28 +143,30 @@ theorem towers_below {w K : Nat} {Fss : List (List AnnotTerm)}
   obtain ⟨Fs, hFs, rfl⟩ := List.mem_map.mp hT
   exact towerBodyAV_below (h Fs hFs)
 
-theorem sumBodyAVPos_below {w K : Nat} {Fss : List (List AnnotTerm)}
-    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow K (sumBodyAVPos w Fss).erase := by
+theorem sumBodyAVPos_below {tbl : List (List Nat)} {w K : Nat} {Fss : List (List AnnotTerm)}
+    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) (hK : tbl ≠ [] → 1 ≤ K) :
+    Term.bvarsBelow K (sumBodyAVPos tbl w Fss).erase := by
   refine ⟨⟨trivial, trivial⟩, trivial, ?_⟩
   have := caseAVAt_below (w := w) (K := K) (Ts := Fss.map (towerBodyAV w)) (d := 1)
-    (kx := .bvar 0) (towers_below h) (show (0 : Nat) < K + 1 by omega)
+    (kx := bodyScrutAV tbl Fss.length) (towers_below h)
+    (bodyScrutAV_below (show (0 : Nat) < K + 1 by omega) fun hne => by have := hK hne; omega)
   exact this
 
-theorem sqSumBodyAV_below {K : Nat} {Fss : List (List AnnotTerm)}
-    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow K (sqSumBodyAV Fss).erase := by
+theorem sqSumBodyAV_below {tbl : List (List Nat)} {K : Nat} {Fss : List (List AnnotTerm)}
+    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) (hK : tbl ≠ [] → 1 ≤ K) :
+    Term.bvarsBelow K (sqSumBodyAV tbl Fss).erase := by
   refine ⟨⟨trivial, ⟨?_, trivial⟩⟩, trivial⟩
   have := caseAVAt_below (w := 0) (K := K) (Ts := Fss.map (towerBodyAV 0)) (d := 1)
-    (kx := .bvar 0) (towers_below h) (show (0 : Nat) < K + 1 by omega)
+    (kx := bodyScrutAV tbl Fss.length) (towers_below h)
+    (bodyScrutAV_below (show (0 : Nat) < K + 1 by omega) fun hne => by have := hK hne; omega)
   exact this
 
-theorem sumBodyAV_below {w K : Nat} {Fss : List (List AnnotTerm)}
-    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow K (sumBodyAV w Fss).erase := by
+theorem sumBodyAV_below {tbl : List (List Nat)} {w K : Nat} {Fss : List (List AnnotTerm)}
+    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) (hK : tbl ≠ [] → 1 ≤ K) :
+    Term.bvarsBelow K (sumBodyAV tbl w Fss).erase := by
   by_cases hw : w = 0
-  · subst hw; rw [sumBodyAV_zero]; exact sqSumBodyAV_below h
-  · rw [sumBodyAV_pos hw]; exact sumBodyAVPos_below h
+  · subst hw; rw [sumBodyAV_zero]; exact sqSumBodyAV_below h hK
+  · rw [sumBodyAV_pos hw]; exact sumBodyAVPos_below h hK
 
 /-- **The type-former leaf is bounded.** -/
 theorem sumTyAV_below {w : Nat} {pps : List (Nat × Nat × AnnotTerm)}
@@ -90,7 +175,7 @@ theorem sumTyAV_below {w : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     Term.bvarsBelow k (sumTyAV w pps Fss).erase :=
   mkLamsAV_below hp.mapC (by
     rw [List.length_map]
-    exact sumBodyAV_below hF)
+    exact sumBodyAV_below hF fun h => absurd rfl h)
 
 /-- The restricted chains of a family are bounded at a frame `K + d`
 when the field chains are bounded at `K` and the index expressions at
@@ -129,13 +214,14 @@ theorem succsAV_below {k : Nat} : ∀ (j : Nat) {kx : AnnotTerm},
   | 0, _, h => h
   | j + 1, _, h => ⟨trivial, succsAV_below j h⟩
 
-theorem sumInjAtAV_below {w K : Nat} {Fss : List (List AnnotTerm)} {d : Nat}
+theorem sumInjAtAV_below {tbl : List (List Nat)} {m w K : Nat} {Fss : List (List AnnotTerm)} {d : Nat}
     {tag payload : AnnotTerm} (h : ∀ Fs ∈ Fss, FieldsBelow K Fs)
     (ht : Term.bvarsBelow (K + d) tag.erase) (hp : Term.bvarsBelow (K + d) payload.erase) :
-    Term.bvarsBelow (K + d) (sumInjAtAV w Fss d tag payload).erase := by
+    Term.bvarsBelow (K + d) (sumInjAtAV tbl m w Fss d tag payload).erase := by
   refine ⟨⟨⟨⟨trivial, trivial⟩, trivial, ?_⟩, ht⟩, hp⟩
   have := caseAVAt_below (w := w) (K := K) (Ts := Fss.map (towerBodyAV w)) (d := d + 1)
-    (kx := .bvar 0) (towers_below h) (show (0 : Nat) < K + (d + 1) by omega)
+    (kx := leafScrutAV tbl Fss.length m) (towers_below h)
+    (leafScrutAV_below (show (0 : Nat) < K + (d + 1) by omega))
   rwa [show K + (d + 1) = K + d + 1 from by omega] at this
 
 /-- The point-terminated tupler (graph regime): bounded at the full
@@ -186,16 +272,16 @@ theorem uChains_below {K : Nat} {Fss : List (List AnnotTerm)} (h : ∀ Fs ∈ Fs
 
 /-- **The constructor leaf is bounded** (`hlen` is the frame
 accounting: the field frame ends at the binder tower's). -/
-theorem sumMkAV_below {w j : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+theorem sumMkAV_below {tbl : List (List Nat)} {m w jc : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     {Fs : List AnnotTerm} {Fss : List (List AnnotTerm)} {k nP : Nat} (hd : DomsBelow k ds)
     (hF : FieldsBelow (k + nP) Fs) (hFss : ∀ Fs' ∈ Fss, FieldsBelow (k + nP) Fs')
     (hlen : nP + Fs.length = ds.length) :
-    Term.bvarsBelow k (sumMkAV w j ds Fs Fss).erase :=
+    Term.bvarsBelow k (sumMkAV tbl m w jc ds Fs Fss).erase :=
   mkLamsC_below hd (by
     have hmk := mkTowerGoU_below (w := w) (E := idxEqAV [])
       (FieldsBelow_append_idxEq hF fun _ h => nomatch h)
-    have := sumInjAtAV_below (w := w) (K := k + nP) (Fss := Fss) (d := Fs.length)
-      (tag := numeralAV j) (payload := mkTowerGoU w Fs (idxEqAV [])) hFss (numeralAV_below j _) hmk
+    have := sumInjAtAV_below (tbl := tbl) (m := m) (w := w) (K := k + nP) (Fss := Fss) (d := Fs.length)
+      (tag := numeralAV jc) (payload := mkTowerGoU w Fs (idxEqAV [])) hFss (numeralAV_below jc _) hmk
     rwa [show k + nP + Fs.length = k + ds.length from by omega] at this)
 
 /-! ## The recursor -/
@@ -217,10 +303,10 @@ theorem motAppAV_below {n nIdx D' K : Nat} (h : nIdx + n < K) :
   obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha
   exact idxVarsAV_below (by omega) ea hea
 
-theorem caseMotiveBodyAV_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
+theorem caseMotiveBodyAV_below {tbl : List (List Nat)} {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
     {Fss : List (List AnnotTerm)} {D j : Nat}
     (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow (K + D + 1) (caseMotiveBodyAV ℓ w Fss n nIdx D j).erase := by
+    Term.bvarsBelow (K + D + 1) (caseMotiveBodyAV tbl ℓ w Fss n nIdx D j).erase := by
   refine ⟨?_, ?_⟩
   · have := caseAVAt_below (w := w) (K := K) (Ts := (Fss.map (towerBodyAV w)).drop j)
       (d := D + 1) (kx := .bvar 0)
@@ -230,16 +316,18 @@ theorem caseMotiveBodyAV_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
   · refine ⟨?_, ?_⟩
     · have := motAppAV_below (n := n) (nIdx := nIdx) (D' := D + 2) (K := K) hK
       rwa [show K + (D + 2) = K + D + 1 + 1 from by omega] at this
-    · have := sumInjAtAV_below (w := w) (K := K) (Fss := Fss) (d := D + 2)
-        (tag := succsAV j (.bvar 1)) (payload := .bvar 0) h
-        (succsAV_below j (show (1 : Nat) < K + (D + 2) by omega))
-        (show (0 : Nat) < K + (D + 2) by omega)
-      rwa [show K + (D + 2) = K + D + 1 + 1 from by omega] at this
+    · refine ⟨⟨⟨⟨trivial, trivial⟩, trivial, ?_⟩, ?_⟩, show (0 : Nat) < K + D + 1 + 1 by omega⟩
+      · have := caseAVAt_below (w := w) (K := K) (Ts := (Fss.map (towerBodyAV w)).drop j)
+          (d := D + 3) (kx := .bvar 2)
+          (fun T hT => towers_below h T (List.mem_of_mem_drop hT))
+          (show (2 : Nat) < K + (D + 3) by omega)
+        rwa [show K + (D + 3) = K + D + 1 + 1 + 1 from by omega] at this
+      · exact locTagAV_below (show (1 : Nat) < K + D + 1 + 1 by omega)
 
-theorem caseMotiveAV_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
+theorem caseMotiveAV_below {tbl : List (List Nat)} {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
     {Fss : List (List AnnotTerm)} {D j : Nat}
     (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow (K + D) (caseMotiveAV ℓ w Fss n nIdx D j).erase :=
+    Term.bvarsBelow (K + D) (caseMotiveAV tbl ℓ w Fss n nIdx D j).erase :=
   ⟨trivial, caseMotiveBodyAV_below hK h⟩
 
 end ConLeche.Semantics

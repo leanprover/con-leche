@@ -766,7 +766,7 @@ noncomputable def sqGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List An
 
 section Singleton
 
-variable {ℓ u nF : Nat} {ρp : Nat → V} {M m : V} {Fss Ess Fss₀ : List (List AnnotTerm)}
+variable {tbl : List (List Nat)} {ℓ u nF : Nat} {ρp : Nat → V} {M m : V} {Fss Ess Fss₀ : List (List AnnotTerm)}
   {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss : List (List (List AnnotTerm))} {src : List (Option Nat)}
 
@@ -777,8 +777,8 @@ spine fitting the X-chain there; its recursive slots lie in the
 is inhabited, hence a singleton of the graph; the spine is the source
 spine (the subsingleton criterion, `hsrc`), so the predecessors are
 `sqPred`'s and the local step applies. -/
-theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+theorem sqGraph_singleton (hX : XChainsOk tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
       Eiss Fss₀ Fss Ess)
     (hsingle : Fss.length = 1) (hlenF : (Fss.getD 0 []).length = nF)
     (hEs : (Ess.getD 0 []).length = Ids.length)
@@ -794,7 +794,7 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
       sqSt ℓ u ρp Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 []) nF src m t g
         ∈ˢ sqB u Ids.length M t) :
     ∀ (is : List V) (t : V), SpineFit ρp Ids is →
-      t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) →
+      t ∈ˢ SetTheory.app (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) →
       (∃ v, v ∈ˢ SetTheory.app
         (sqGraph ℓ u ρp M Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 []) nF src m)
         (tupW u is)) ∧
@@ -816,7 +816,7 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
       sqPred u ρp Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 []) nF src t ⊆ˢ idxSet u ρp Ids :=
     fun _ _ => sep_subset
   have hind := lfpFamSet_induction (w := 0) (I := idxSet u ρp Ids)
-    (F := fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (fixFunVI_closed_exists hX)
+    (F := fixFunVI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (fixFunVI_closed_exists hX)
     (fixFunVI_mono hX) P ?_
   · intro is t hsp ht
     exact hind (tupW u is) (tupW_mem hsp) t ht is hsp rfl
@@ -824,10 +824,10 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
   subst hi'
   -- the induction family
   let S := graph (fun i => sep (SetTheory.app (lfpFamSet 0 (idxSet u ρp Ids)
-    (fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess)) i) (P i)) (idxSet u ρp Ids)
-  have hμS : fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess
-      ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := fixFamI_mem u 0 ρp Ids rss tlss Eiss Fss₀ Ess
-  have hfibre : ∀ t', SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+    (fixFunVI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess)) i) (P i)) (idxSet u ρp Ids)
+  have hμS : fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess
+      ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := fixFamI_mem tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess
+  have hfibre : ∀ t', SetTheory.app (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univZero : V) := by
     intro t'
     by_cases ht' : t' ∈ˢ idxSet u ρp Ids
@@ -842,12 +842,12 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
     refine graph_mem_famSpace fun i hi => ?_
     rw [univ_zero]
     exact mem_univZero.mpr fun z hz => mem_univZero.mp (hfibre i) z (mem_sep.mp hz).1
-  have hSle : FamLe (idxSet u ρp Ids) S (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
+  have hSle : FamLe (idxSet u ρp Ids) S (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
     intro i hi y hy
     rw [app_graph hi] at hy
     exact (mem_sep.mp hy).1
   rw [fixFunVI_app hSmem, famFI_app (tupW_mem hsp)] at hx
-  obtain ⟨rfl, j, fs, hj₀, hlen₀, hspX, hall⟩ := fixStepI_zero_elim hx
+  obtain ⟨rfl, jc, j, fs, -, hj₀, hlen₀, hspX, hall⟩ := fixStepI_zero_elim hx
   have hj : j = 0 := by rw [hl₀, hsingle] at hj₀; omega
   subst hj
   -- the spine fits the real fields, its index values are the tuple's
@@ -889,28 +889,28 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
 
 /-- With no constructor the family is empty (task #210 Part B: the
 zero-constructor blocks on the fixpoint route). -/
-theorem fam_empty_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+theorem fam_empty_of_mem (hX : XChainsOk tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
       Eiss Fss₀ Fss Ess)
     (hnil : Fss.length = 0) {is : List V} (hsp : SpineFit ρp Ids is) {t : V}
-    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    (ht : t ∈ˢ SetTheory.app (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     False := by
   obtain ⟨hl₀, -, -, -, -⟩ := hreal
-  have hμ := fixFamI_mem u 0 ρp Ids rss tlss Eiss Fss₀ Ess
+  have hμ := fixFamI_mem tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess
   have hfix := lfpFamSet_fixed (fixFunVI_closed_exists hX) (fixFunVI_mono hX) (fixFunVI_maps hX) _
     (tupW_mem hsp) t ht
   unfold fixFamI at hμ
   rw [fixFunVI_app hμ, famFI_app (tupW_mem hsp)] at hfix
-  obtain ⟨-, j, -, hj₀, -⟩ := fixStepI_zero_elim hfix
+  obtain ⟨-, jc, j, -, -, hj₀, -⟩ := fixStepI_zero_elim hfix
   rw [hl₀, hnil] at hj₀
   exact Nat.not_lt_zero _ hj₀
 
 /-- At most one constructor and a member: exactly one. -/
-theorem fam_single_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+theorem fam_single_of_mem (hX : XChainsOk tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
       Eiss Fss₀ Fss Ess)
     (hle : Fss.length ≤ 1) {is : List V} (hsp : SpineFit ρp Ids is) {t : V}
-    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    (ht : t ∈ˢ SetTheory.app (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     Fss.length = 1 := by
   rcases Nat.lt_or_eq_of_le hle with h0 | h1
   · exact (fam_empty_of_mem hX hreal (by omega) hsp ht).elim
@@ -919,21 +919,21 @@ theorem fam_single_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
 /-- A proof at a tuple of the family (squash regime) is the point, and
 some spine fits the (only) constructor's fields with the tuple as its
 index values. -/
-theorem fam_spine_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+theorem fam_spine_of_mem (hX : XChainsOk tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
       Eiss Fss₀ Fss Ess)
     (hsingle : Fss.length = 1) (hEs : (Ess.getD 0 []).length = Ids.length)
     {is : List V} (hsp : SpineFit ρp Ids is) {t : V}
-    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    (ht : t ∈ˢ SetTheory.app (fixFamI tbl u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     t = pt ∧ ∃ fs : List V, SpineFit ρp (Fss.getD 0 []) fs ∧ idxValsAt ρp (Ess.getD 0 []) fs = is := by
   have hI : IdxOk u ρp Ids := hX.hI
   obtain ⟨hl₀, hlE, hEs', hlenj, hc⟩ := hreal
-  have hμ := fixFamI_mem u 0 ρp Ids rss tlss Eiss Fss₀ Ess
+  have hμ := fixFamI_mem tbl u 0 ρp Ids rss tlss Eiss Fss₀ Ess
   have hfix := lfpFamSet_fixed (fixFunVI_closed_exists hX) (fixFunVI_mono hX) (fixFunVI_maps hX) _
     (tupW_mem hsp) t ht
   unfold fixFamI at hμ
   rw [fixFunVI_app hμ, famFI_app (tupW_mem hsp)] at hfix
-  obtain ⟨rfl, j, fs, hj₀, hlen₀, hspX, hall⟩ := fixStepI_zero_elim hfix
+  obtain ⟨rfl, jc, j, fs, -, hj₀, hlen₀, hspX, hall⟩ := fixStepI_zero_elim hfix
   have hj : j = 0 := by rw [hl₀, hsingle] at hj₀; omega
   subst hj
   have hfit := hX.hfit _ hμ _ (tupW_mem hsp) 0 hj₀
@@ -1007,7 +1007,7 @@ noncomputable def sqIhValsK (ℓ : Nat) (ρP : Nat → V) (ps ms : List V) (M r 
 
 section Body
 
-variable {ℓ u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
+variable {tbl : List (List Nat)} {ℓ u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss : List (List (List AnnotTerm))} {rds : List (Nat × Nat × AnnotTerm)}
 
@@ -1018,10 +1018,10 @@ the (only) minor at the source spine and the ih values (`sqIhValsK`,
 the function at the predecessors), and lies in the conclusion. -/
 theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb : Nat → V}
     (hlenP : ps.length = nP) (hlenM : ms.length = Fss.length) (hlenI : is.length = Ids.length)
-    (h : FixKI ℓ 0 u nP (consList is (consList ms (cons M (consList ps (cons r ρb))))) Fss Ess Fss₀
+    (h : FixKI tbl ℓ 0 u nP (consList is (consList ms (cons M (consList ps (cons r ρb))))) Fss Ess Fss₀
       Ids rss tlss Eiss rds)
     (ht : t ∈ˢ SetTheory.app
-      (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+      (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     WellDenoted V (cons t (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 [])) ∧
@@ -1090,9 +1090,9 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   have hfs₀ : fs = srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) :=
     srcVals_of_fit hprop hfsfit hfsidx
   -- the family's fibres are truth values
-  have hμ := fixFamI_mem u 0 (consList ps (cons r ρb)) Ids rss tlss Eiss Fss₀ Ess
+  have hμ := fixFamI_mem tbl u 0 (consList ps (cons r ρb)) Ids rss tlss Eiss Fss₀ Ess
   have hfam : ∀ t', SetTheory.app
-      (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+      (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univZero : V) := by
     intro t'
     have := famApp_mem_univ hμ t'
@@ -1105,7 +1105,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
           (fs'.take i) ∧
         fs'.getD i pt ∈ˢ slotSet 0 u (consList (fs'.take i) (consList ps (cons r ρb)))
           ((tlss.getD 0 []).getD i []) ((Eiss.getD 0 []).getD i [])
-          (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
+          (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
     intro fs' hfit' i hi
     obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
     have := chainRealI_at (Fss₀.getD 0 []) (Fss.getD 0 []) 0 [] fs' rfl (hc 0 (by omega)) hfit' i hik
@@ -1127,7 +1127,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       interp V (consList as' (cons r ρb)) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V) :=
     fun h0 => absurd h0 hℓ
   have hfam' : ∀ t', SetTheory.app
-      (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+      (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univ 0 : V) := by
     intro t'; rw [univ_zero]; exact hfam t'
   -- the frame under the major, in the reading's shape
@@ -1567,13 +1567,13 @@ theorem kframe_split3 {as : List V} {nP n nIdx : Nat} (h : as.length = nP + 1 + 
 
 /-- The recursive slots along a fitting spine at a K-frame (squash
 regime): the slot fits and the field lies in the slot's value. -/
-theorem fixKI₀_slot {K ρP : Nat → V} (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
+theorem fixKI₀_slot {K ρP : Nat → V} (h : FixKI₀ tbl ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
     (hfrP : frP Fss.length Ids.length K = ρP) (hsingle : Fss.length = 1) :
     ∀ fs' : List V, SpineFit ρP (Fss.getD 0 []) fs' →
       ∀ i ∈ recIdx (rss.getD 0 []) (Fss.getD 0 []).length,
         SlotFit u 0 ρP Ids ((tlss.getD 0 []).getD i []) ((Eiss.getD 0 []).getD i []) (fs'.take i) ∧
         fs'.getD i pt ∈ˢ slotSet 0 u (consList (fs'.take i) ρP) ((tlss.getD 0 []).getD i [])
-          ((Eiss.getD 0 []).getD i []) (fixFamI u 0 ρP Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
+          ((Eiss.getD 0 []).getD i []) (fixFamI tbl u 0 ρP Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
   obtain ⟨hl₀, -, -, -, hc⟩ := h.hreal
   rw [hfrP] at hc
   intro fs' hfit' i hi
@@ -1588,9 +1588,9 @@ theorem fixKI₀_slot {K ρP : Nat → V} (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀
 /-- At a tuple of the family (squash regime) the major is the point,
 and the source spine fits the fields with the tuple as its index
 values. -/
-theorem sqK_source (hℓ : ℓ ≠ 0) {K ρP : Nat → V} (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
+theorem sqK_source (hℓ : ℓ ≠ 0) {K ρP : Nat → V} (h : FixKI₀ tbl ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
     (hfrP : frP Fss.length Ids.length K = ρP) {is : List V} (hsp : SpineFit ρP Ids is) {t : V}
-    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρP Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    (ht : t ∈ˢ SetTheory.app (fixFamI tbl u 0 ρP Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     t = pt ∧ SpineFit ρP (Fss.getD 0 []) (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)) ∧
       idxValsAt ρP (Ess.getD 0 []) (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)) = is := by
   obtain ⟨hle, -, hprop⟩ := h.hsq rfl hℓ
@@ -1612,12 +1612,12 @@ motive's fibre at the tuple, and satisfies the recursion equation —
 the minor at the source spine and, for each recursive field, the
 λ-tower over its telescope of the selector at the call's tuple. -/
 theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
-    (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (h : FixKI₀ tbl ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
     (hfrP : frP Fss.length Ids.length K = ρP)
     (hfrM : frM Fss.length Ids.length K = M)
     (hfrMs : frMs Fss.length Ids.length K 0 = m) :
     ∀ (is : List V) (t : V), SpineFit (ρP) Ids is →
-      t ∈ˢ SetTheory.app (fixFamI u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess)
+      t ∈ˢ SetTheory.app (fixFamI tbl u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess)
         (tupW u is) →
       (∃ v, v ∈ˢ SetTheory.app
         (sqGraph ℓ u (ρP) M Ids (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
@@ -1650,9 +1650,9 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
     exact (fam_empty_of_mem hX hreal (by omega) hsp ht).elim
   have hI : IdxOk u (ρP) Ids := hX.hI
   have hEs0 : (Ess.getD 0 []).length = Ids.length := h.hyp.hEs 0 (by omega)
-  have hμ := fixFamI_mem u 0 (ρP) Ids rss tlss Eiss Fss₀ Ess
+  have hμ := fixFamI_mem tbl u 0 (ρP) Ids rss tlss Eiss Fss₀ Ess
   have hfam : ∀ t', SetTheory.app
-      (fixFamI u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+      (fixFamI tbl u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univZero : V) := by
     intro t'
     have := famApp_mem_univ hμ t'
@@ -1665,7 +1665,7 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
           (fs'.take i) ∧
         fs'.getD i pt ∈ˢ slotSet 0 u (consList (fs'.take i) (ρP))
           ((tlss.getD 0 []).getD i []) ((Eiss.getD 0 []).getD i [])
-          (fixFamI u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
+          (fixFamI tbl u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
     intro fs' hfit' i hi
     obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
     have := chainRealI_at (Fss₀.getD 0 []) (Fss.getD 0 []) 0 [] fs' rfl (hc 0 (by omega)) hfit' i hik
@@ -1686,7 +1686,7 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
     have hM' := piTele_fold (Nat.succ_ne_zero ℓ) hMtele (fitsS_teleOfFields.mpr hsp')
     rw [List.nil_append] at hM'
     by_cases hpt : (pt : V) ∈ˢ SetTheory.app
-        (fixFamI u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is')
+        (fixFamI tbl u 0 (ρP) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is')
     · exact app_mem_piR_pos (Nat.succ_ne_zero ℓ) hM' hpt
     · rw [app_off_dom_piR_pos (Nat.succ_ne_zero ℓ) hM' hpt]
       exact empty_mem_univ ℓ

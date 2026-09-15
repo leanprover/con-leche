@@ -96,6 +96,74 @@ theorem caseAVAt_validV {w : Nat} :
       rw [shiftE_step]
       exact fun T' hT' => hT T' (List.mem_cons_of_mem _ hT')
 
+/-! ## The numeral selector and the tag map (task #279 D-1) -/
+
+theorem natNatMotiveAV_validV (σ : Nat → V) : AnnotValid V σ natNatMotiveAV := by
+  show AnnotValid V σ (.lam 1 natAV natAV)
+  rw [AnnotValid_lam]
+  exact ⟨trivial, fun _ _ => trivial⟩
+
+theorem natSelAV_validV :
+    ∀ {ts : List AnnotTerm} {dflt : AnnotTerm} {d : Nat} {kx : AnnotTerm} {σ : Nat → V},
+      (∀ T ∈ ts, AnnotValid V (shiftE d 0 σ) T) → AnnotValid V (shiftE d 0 σ) dflt →
+      AnnotValid V σ kx → AnnotValid V σ (natSelAV ts dflt d kx)
+  | [], dflt, d, _, σ, _, hd, _ => by
+    show AnnotValid V σ (dflt.liftN d 0)
+    rw [AnnotValid_liftN]; exact hd
+  | T :: Ts, dflt, d, kx, σ, hT, hd, hk => by
+    refine natRecAV_validV (natNatMotiveAV_validV σ) ?_ ?_ hk
+    · rw [AnnotValid_liftN]; exact hT T List.mem_cons_self
+    · rw [AnnotValid_lam]
+      refine ⟨trivial, fun b _ => ?_⟩
+      rw [AnnotValid_lam]
+      refine ⟨trivial, fun a _ => ?_⟩
+      refine natSelAV_validV (ts := Ts) (dflt := dflt) (d := d + 2) (kx := .bvar 1)
+        (σ := cons a (cons b σ)) ?_ ?_ trivial
+      · rw [shiftE_step]; exact fun T' hT' => hT T' (List.mem_cons_of_mem _ hT')
+      · rw [shiftE_step]; exact hd
+
+theorem numeralTable_validV (row : List Nat) (dflt : Nat) {kx : AnnotTerm} {σ : Nat → V}
+    (hk : AnnotValid V σ kx) :
+    AnnotValid V σ (natSelAV (row.map numeralAV) (numeralAV dflt) 0 kx) :=
+  natSelAV_validV (d := 0)
+    (by
+      intro T hT
+      obtain ⟨c, -, rfl⟩ := List.mem_map.mp hT
+      exact numeralAV_validV c _)
+    (numeralAV_validV dflt _) hk
+
+theorem flatTagAV_validV {tbl : List (List Nat)} {dead : Nat} {mem kx : AnnotTerm} {σ : Nat → V}
+    (hm : AnnotValid V σ mem) (hk : AnnotValid V σ kx) :
+    AnnotValid V σ (flatTagAV tbl dead mem kx) := by
+  cases tbl with
+  | nil => exact hk
+  | cons r rs =>
+    show AnnotValid V σ (natSelAV _ (numeralAV dead) 0 mem)
+    refine natSelAV_validV (d := 0) ?_ (numeralAV_validV dead _) hm
+    intro T hT
+    obtain ⟨row, -, rfl⟩ := List.mem_map.mp hT
+    rw [shiftE_zero_zero]
+    exact numeralTable_validV row dead hk
+
+theorem locTagAV_validV {tbl : List (List Nat)} {n j : Nat} {kx : AnnotTerm} {σ : Nat → V}
+    (hk : AnnotValid V σ kx) : AnnotValid V σ (locTagAV tbl n j kx) := by
+  cases tbl with
+  | nil => exact succsAV_validV j hk
+  | cons r rs =>
+    show AnnotValid V σ (natSelAV _ (numeralAV 0) 0 kx)
+    refine natSelAV_validV (d := 0) ?_ (numeralAV_validV 0 _) hk
+    intro T hT
+    obtain ⟨J, -, rfl⟩ := List.mem_map.mp hT
+    exact numeralAV_validV _ _
+
+theorem bodyScrutAV_validV (tbl : List (List Nat)) (n : Nat) (σ : Nat → V) :
+    AnnotValid V σ (bodyScrutAV tbl n) :=
+  flatTagAV_validV (by rw [AnnotValid_fst, AnnotValid_fst]; trivial) trivial
+
+theorem leafScrutAV_validV (tbl : List (List Nat)) (n m : Nat) (σ : Nat → V) :
+    AnnotValid V σ (leafScrutAV tbl n m) :=
+  flatTagAV_validV (numeralAV_validV m _) trivial
+
 /-! ## The index equation -/
 
 /-- The equation chain is a truth value (every node is a
@@ -220,32 +288,40 @@ theorem towers_validV {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
   obtain ⟨Fs, hFs, rfl⟩ := List.mem_map.mp hT
   exact towerBodyAV_validV (hv Fs hFs)
 
-theorem case_validV_at {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
-    {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρp Fss) (k : V) :
-    AnnotValid V (cons k σ) (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)) := by
-  refine caseAVAt_validV ?_ trivial
-  rw [shiftE_succ_cons, hsh]
+theorem case_validV_sel {w : Nat} {ρp τ : Nat → V} {d : Nat} (hsh : shiftE (d + 1) 0 τ = ρp)
+    {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρp Fss) {kx : AnnotTerm}
+    (hk : AnnotValid V τ kx) :
+    AnnotValid V τ (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) kx) := by
+  refine caseAVAt_validV ?_ hk
+  rw [hsh]
   exact towers_validV hv
 
-theorem sumBodyAVPos_validV {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
-    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sumBodyAVPos w Fss) := by
+theorem case_validV_at {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
+    {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρp Fss) (k : V) :
+    AnnotValid V (cons k σ) (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)) :=
+  case_validV_sel (by rw [shiftE_succ_cons, hsh]) hv trivial
+
+theorem sumBodyAVPos_validV {tbl : List (List Nat)} {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
+    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sumBodyAVPos tbl w Fss) := by
   unfold sumBodyAVPos
   rw [AnnotValid_app, AnnotValid_app, AnnotValid_lam]
-  exact ⟨⟨trivial, trivial⟩, trivial, fun k _ => case_validV_at (shiftE_zero_zero ρ) hv k⟩
+  exact ⟨⟨trivial, trivial⟩, trivial, fun k _ =>
+    case_validV_sel (d := 0) (by rw [shiftE_succ_cons, shiftE_zero_zero]) hv (bodyScrutAV_validV tbl _ _)⟩
 
-theorem sqSumBodyAV_validV {ρ : Nat → V} {Fss : List (List AnnotTerm)}
-    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sqSumBodyAV Fss) := by
+theorem sqSumBodyAV_validV {tbl : List (List Nat)} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
+    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sqSumBodyAV tbl Fss) := by
   unfold sqSumBodyAV negAV
   rw [AnnotValid_pi]
   refine ⟨?_, fun _ _ => by simp, fun _ _ _ => by rw [← univ_zero]; exact empty_mem_univ 0⟩
   rw [AnnotValid_pi]
   refine ⟨trivial, fun k _ => ?_, fun _ k _ => piR_zero_mem_univZero⟩
   rw [AnnotValid_pi]
-  exact ⟨case_validV_at (shiftE_zero_zero ρ) hv k, fun _ _ => by simp,
+  exact ⟨case_validV_sel (d := 0) (by rw [shiftE_succ_cons, shiftE_zero_zero]) hv
+      (bodyScrutAV_validV tbl _ _), fun _ _ => by simp,
     fun _ _ _ => by rw [← univ_zero]; exact empty_mem_univ 0⟩
 
-theorem sumBodyAV_validV {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
-    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sumBodyAV w Fss) := by
+theorem sumBodyAV_validV {tbl : List (List Nat)} {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)}
+    (hv : SumFieldsValid ρ Fss) : AnnotValid V ρ (sumBodyAV tbl w Fss) := by
   by_cases hw : w = 0
   · subst hw; rw [sumBodyAV_zero]; exact sqSumBodyAV_validV hv
   · rw [sumBodyAV_pos hw]; exact sumBodyAVPos_validV hv
@@ -254,20 +330,26 @@ theorem sumBodyAV_validV {w : Nat} {ρ : Nat → V} {Fss : List (List AnnotTerm)
 theorem sumTyAV_wellDenotedV {w : Nat} {Fss : List (List AnnotTerm)}
     {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
     (hok : ParamsOkS w ρ Fss pps)
-    (hval : UnderTowerValid ρ (sumBodyAV w Fss) pps) :
+    (hval : UnderTowerValid ρ (sumBodyAV [] w Fss) pps) :
     WellDenotedV V ρ (sumTyAV w pps Fss) :=
   ⟨sumTyAV_wellDenoted hok, mkLamsC_validV hval⟩
 
 /-! ## The constructor -/
 
-theorem sumInjAtAV_validV {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
-    {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρp Fss) {tag payload : AnnotTerm}
-    (ht : AnnotValid V σ tag) (hp : AnnotValid V σ payload) :
-    AnnotValid V σ (sumInjAtAV w Fss d tag payload) := by
-  show AnnotValid V σ (.app (.app (.app (.app (.const .psigmaMk [w, w]) natAV)
-    (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))) tag) payload)
+theorem psigmaMkAV_validV {w : Nat} {σ : Nat → V} {fib tag payload : AnnotTerm}
+    (hf : ∀ k : V, AnnotValid V (cons k σ) fib) (ht : AnnotValid V σ tag) (hp : AnnotValid V σ payload) :
+    AnnotValid V σ (psigmaMkAV w fib tag payload) := by
+  show AnnotValid V σ (.app (.app (.app (.app (.const .psigmaMk [w, w]) natAV) (.lam (w + 1) natAV fib)) tag)
+    payload)
   simp only [AnnotValid_app, AnnotValid_const, AnnotValid_lam]
-  exact ⟨⟨⟨⟨trivial, trivial⟩, trivial, fun k _ => case_validV_at hsh hv k⟩, ht⟩, hp⟩
+  exact ⟨⟨⟨⟨trivial, trivial⟩, trivial, fun k _ => hf k⟩, ht⟩, hp⟩
+
+theorem sumInjAtAV_validV {tbl : List (List Nat)} {m w : Nat} {ρp σ : Nat → V} {d : Nat}
+    (hsh : shiftE d 0 σ = ρp) {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρp Fss)
+    {tag payload : AnnotTerm} (ht : AnnotValid V σ tag) (hp : AnnotValid V σ payload) :
+    AnnotValid V σ (sumInjAtAV tbl m w Fss d tag payload) :=
+  psigmaMkAV_validV (fun k => case_validV_sel (by rw [shiftE_succ_cons, hsh]) hv
+    (leafScrutAV_validV tbl _ m _)) ht hp
 
 /-- The proof-field-terminated tupler is bit-valid at a fitting frame
 (graph regime). -/
@@ -326,26 +408,26 @@ theorem mkTowerGoU_validV {w : Nat} {E : AnnotTerm} {Fs : List AnnotTerm} {ρp :
   · rw [mkTowerGoU_pos hw]; exact mkTowerGoUPos_validV hv hsp
 
 /-- The constructor's body is bit-valid at a fitting field frame. -/
-theorem sumInj_validV_at_fields {w j : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
+theorem sumInj_validV_at_fields {tbl : List (List Nat)} {m w jc : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
     {Fss : List (List AnnotTerm)} {bs : List V}
     (hv : SumFieldsValid ρp Fss) (hvF : FieldsValid ρp Fs) (hsp : SpineFit ρp Fs bs) :
     AnnotValid V (consList bs ρp)
-      (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV []))) := by
+      (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV []))) := by
   have hlen : bs.length = Fs.length := hsp.length_eq
   have hsh : shiftE Fs.length 0 (consList bs ρp) = ρp := by rw [← hlen]; exact shiftE_consList bs ρp
-  exact sumInjAtAV_validV hsh hv (numeralAV_validV j _)
+  exact sumInjAtAV_validV hsh hv (numeralAV_validV jc _)
     (mkTowerGoU_validV (FieldsValid_append_one hvF fun _ _ => idxEqAV_nil_validV _) hsp)
 
 /-- The constructor leaf's P currency. -/
-theorem sumMkAV_wellDenotedV {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
+theorem sumMkAV_wellDenotedV {tbl : List (List Nat)} {m w jc : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
     {Fss : List (List AnnotTerm)} {pds fds : List (Nat × Nat × AnnotTerm)}
     (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPreS w j ρ (fds.map (·.2.2)) Fss bodyC pds)
+    (hpre : MkPreS tbl m w jc ρ (fds.map (·.2.2)) Fss bodyC pds)
     (hval : UnderTowerValid ρ
-      (sumInjAtAV w Fss (fds.map (·.2.2)).length (numeralAV j)
+      (sumInjAtAV tbl m w Fss (fds.map (·.2.2)).length (numeralAV jc)
         (mkTowerGoU w (fds.map (·.2.2)) (idxEqAV [])))
       (pds ++ fds)) :
-    WellDenotedV V ρ (sumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss) :=
+    WellDenotedV V ρ (sumMkAV tbl m w jc (pds ++ fds) (fds.map (·.2.2)) Fss) :=
   ⟨sumMkAV_wellDenoted hz hpre, mkLamsC_validV hval⟩
 
 /-! ## The recursor -/
@@ -368,39 +450,41 @@ theorem srcAV_validV (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) :
 
 /-- The stage motive body is bit-valid at a tag in `ω`: its `.pi`
 node's zero clause is the motive's application being a truth value. -/
-theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
+theorem motiveBody_validV {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w D : Nat} {ρ₀ σ : Nat → V}
+    {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (j : Nat) (k : V) :
     AnnotValid V (cons k σ)
-      (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (caseMotiveBodyAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
   have hsh1 : shiftE (D + 1) 0 (cons k σ) = ρ₀ := by rw [shiftE_succ_cons]; exact hfr
+  have hvd : SumFieldsValid ρ₀ ((rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).drop j) :=
+    fun Fs hFs => hv Fs (List.mem_of_mem_drop hFs)
   show AnnotValid V (cons k σ) (.pi w ℓ _ _)
   rw [AnnotValid_pi]
   refine ⟨?_, fun y _ => ?_, fun h0 y hy => ?_⟩
-  · refine caseAVAt_validV ?_ trivial
-    rw [hsh1]
-    exact fun T hT => towers_validV hv T (List.mem_of_mem_drop hT)
+  · rw [← List.map_drop]
+    exact case_validV_sel hsh1 hvd trivial
   · rw [AnnotValid_app]
-    refine ⟨motAppAV_validV _ _ _ _, sumInjAtAV_validV (by rw [shiftE_step]; exact hfr) hv
-      (succsAV_validV j trivial) trivial⟩
+    refine ⟨motAppAV_validV _ _ _ _, psigmaMkAV_validV (fun k' => ?_) (locTagAV_validV trivial) trivial⟩
+    rw [← List.map_drop]
+    refine case_validV_sel (d := D + 2) ?_ hvd trivial
+    rw [show D + 2 + 1 = (D + 2) + 1 from rfl, shiftE_succ_cons]
+    exact hfr.step y k
   · -- the zero clause: the motive's application is a truth value
     show interp V (cons y (cons k σ))
-      (.app (motAppAV Fss.length Ids.length (D + 2))
-        (sumInjAtAV w _ (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
+      (.app (motAppAV Fss.length Ids.length (D + 2)) (psigmaMkAV w _ _ _))
       ∈ˢ (univZero : V)
     rw [interp_app, (motApp_facts (hfr.step y k) hyp).1]
     exact hyp.hM0 h0 _
 
-theorem motive_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
-    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-    (j : Nat) :
+theorem motive_validV {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w D : Nat} {ρ₀ σ : Nat → V}
+    {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore tbl τ ℓ w ρ₀ Fss Ess Ids famAt)
+    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) (j : Nat) :
     AnnotValid V σ
-      (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (caseMotiveAV tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         Fss.length Ids.length D j) := by
   show AnnotValid V σ (.lam (imaxN w ℓ + 1) natAV _)
   rw [AnnotValid_lam]

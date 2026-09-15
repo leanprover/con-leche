@@ -203,12 +203,12 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     -- the leaf and its facts
     {A : (Name → Nat) → AnnotTerm} {sAV : (Name → Nat) → Nat} {uAV : (Name → Nat) → Nat}
     {fssZ : (Name → Nat) → List (List AnnotTerm)}
-    (hA : ∀ ψ, A ψ = nativeRecAVI ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ)
+    (hA : ∀ ψ, A ψ = nativeRecAVI [] ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ)
       p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
       (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ))
-    (hpre : ∀ ψ, FixPre V ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) (uAV ψ)
+    (hpre : ∀ ψ, FixPre V [] ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) (uAV ψ)
       p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (fssZ ψ)
@@ -221,7 +221,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       SumFieldsOkB (p.resSort.eval ψ) ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mp.base2.acval cA.1.name ψ
-      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     -- a constructor's parameter domains and the former's are the same
     -- `Sat`, so the law needs no comparison of the two parameter spines
@@ -368,7 +368,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     rw [this, hdsjEq, hesjEq]
   -- the constructor's leaf at the extension
   have hleafC₂ : m₂.acval cA.1.name ψC
-      = sumMkAV (p.resSort.eval ψR) j (dsF j ψR) (((dsF j ψR).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψR) j (dsF j ψR) (((dsF j ψR).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0))) := by
     rw [hac]
     show acvalWith mp.base2.acval cvRa.name _ cA.1.name ψC = _
@@ -379,7 +379,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     rw [acvalWith_self]
   -- the fits, as spines
   have hspR : SpineFit ρ ((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).map (·.2.2))
-      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.resSort.eval ψR) j (dsF j ψR)
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 (p.resSort.eval ψR) j (dsF j ψR)
         (((dsF j ψR).drop p.nP).map (·.2.2))
         (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)))) ys]).map
         (interp V ρ)) := by
@@ -556,7 +556,7 @@ theorem fieldsBoundSrc_at {ρ : Nat → V} :
     (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (ctorsA : List (ConstantVal × Nat))
     (sAV : (Name → Nat) → Nat) (ψ : Name → Nat) : AnnotTerm :=
-  nativeRecAVI ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) p.nP
+  nativeRecAVI [] ((ConLeche.structElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) p.nP
     (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
     (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
     (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
@@ -607,23 +607,23 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     {uAV : (Name → Nat) → Nat} {fssZ : (Name → Nat) → List (List AnnotTerm)}
     (_hUparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂)
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
-      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
+      = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mp.base2.acval cA.1.name ψ
-      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
         Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ)
     (hframes : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
         (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
+      ChainsRealI (fixFamI [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
@@ -693,7 +693,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       = fixRecDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx elimL ((ppsAll ψ).take p.nP)
           ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) := by
     intro ψ; unfold fixRdsAV; rw [hElimL]
-  have hA : ∀ ψ, A ψ = nativeRecAVI (elimL.eval ψ) (p.resSort.eval ψ) p.nP
+  have hA : ∀ ψ, A ψ = nativeRecAVI [] (elimL.eval ψ) (p.resSort.eval ψ) p.nP
       (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
       (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
@@ -819,11 +819,11 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
   -- the frames at a parameter valuation, in `fixPre_of`'s shape
   have hframes' : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V ((((ppsAll ψ).take p.nP).map (·.2.2)).reverse) ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
         (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
+      ChainsRealI (fixFamI [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
@@ -842,7 +842,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
             (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs)) ∧
       (∀ σ : Nat → V, interp V σ (mp.base2.acval p.cvT.name ψ)
         = interp V (fun k => ρp (k + p.nP))
-            (nativeTyAVI (uAV ψ) (p.resSort.eval ψ) ((ppsAll ψ).take p.nP ++ (ppsAll ψ).drop p.nP)
+            (nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) ((ppsAll ψ).take p.nP ++ (ppsAll ψ).drop p.nP)
               (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
               (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
               (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
@@ -855,7 +855,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
               cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
               cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
           = minorSpI (elimL.eval ψ) (fun fs => ihSpL (elimL.eval ψ)
-              (concI (p.resSort.eval ψ) ρp M ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) j fs)
+              (concI [] (p.resSort.eval ψ) ρp M ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) j fs)
               (ihDomsI (elimL.eval ψ) ρp M (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
                 (fun j' => ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j' []).length) j fs))
             ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) ρp []) := by
@@ -938,7 +938,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       exact (hcf j cA hjA).2.2.tssBelow ψ i
     · rw [hTlsNone ψ j hj]; trivial
   -- the premise, the leaf's facts, the leaf's closedness
-  have hpre : ∀ ψ, FixPre V (elimL.eval ψ) (p.resSort.eval ψ) (uAV ψ) p.nP
+  have hpre : ∀ ψ, FixPre V [] (elimL.eval ψ) (p.resSort.eval ψ) (uAV ψ) p.nP
       (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (fssZ ψ)

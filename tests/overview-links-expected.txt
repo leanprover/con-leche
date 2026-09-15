@@ -507,17 +507,17 @@
     99  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
    100  function the carrier already owns, so no model content is
 
-== ConLeche/Model/IndRep.lean#L374-L383
-   374  @[expose] def IndReps (m : EnvModel V env) : Prop :=
-   375    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-   376      env.find? n = some (.recInfo cvR mI rP rules) →
-   377      ∀ T : Name, n = T.str "rec" →
-   378      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
-   379        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
-   380      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
-   381      -- deleted with that route (tasks #278 mutual, #279 nested); until it
-   382      -- is gone no consumer may extract `IndRep` for an arbitrary block
-   383      ModeledLeaf m n
+== ConLeche/Model/IndRep.lean#L735-L744
+   735  @[expose] def IndReps (m : EnvModel V env) : Prop :=
+   736    ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+   737      env.find? n = some (.recInfo cvR mI rP rules) →
+   738      ∀ T : Name, n = T.str "rec" →
+   739      (∃ (cvT : ConstantVal) (caps : IndCaps) (d : IndRepData V) (mm : Nat),
+   740        env.find? T = some (.indInfo cvT caps) ∧ IndRep m T cvT cvR mI rP rules d mm) ∨
+   741      -- TRANSITIONAL: the right disjunct is the modeled route's fact and is
+   742      -- deleted with that route (tasks #278 mutual, #279 nested); until it
+   743      -- is gone no consumer may extract `IndRep` for an arbitrary block
+   744      ModeledLeaf m n
 
 == ConLeche/Model/Denotes.lean#L221-L227
    221  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
@@ -693,7 +693,7 @@
    652  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
 
 == ConLeche/Semantics/Tower/MutualLeafI.lean#L54-L76
-    54  def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV W (uChains Idss)
+    54  def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV [] W (uChains Idss)
     55  
     56  /-- The tag set at the parameter frame. -/
     57  noncomputable def tagSet (W : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm)) : V :=
@@ -703,7 +703,7 @@
     61  constructor leaf at the tag family, over member `m`'s index telescope
     62  alone). -/
     63  def tagTuplerAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
-    64    sumMkAV W m (tuplerData W (Idss.getD m [])) (Idss.getD m []) (uChains Idss)
+    64    sumMkAV [] 0 W m (tuplerData W (Idss.getD m [])) (Idss.getD m []) (uChains Idss)
     65  
     66  /-- The tag tupler's type: `Π ı⃗_m, tag`. -/
     67  def tagTuplerTyAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
@@ -717,8 +717,8 @@
     75  /-- The auxiliary family's index telescope: the tag, and nothing else. -/
     76  def auxIds (W : Nat) (Idss : List (List AnnotTerm)) : List AnnotTerm := [tagTyAV W Idss]
 
-== ConLeche/Model/Inductives/DeclMutual.lean#L1966
-  1966  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/DeclMutual.lean#L6964
+  6964  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

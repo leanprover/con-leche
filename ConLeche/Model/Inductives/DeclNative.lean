@@ -396,7 +396,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rfl
   have hX₀ : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
       ∀ X, X ∈ˢ lfpFamSpace V (p.resSort.eval ψ) (idxSet (uAV ψ) ρp (Ids ψ)) →
         ∀ t, t ∈ˢ idxSet (uAV ψ) ρp (Ids ψ) →
         SumFieldsValid (cons t (cons X ρp))
@@ -415,7 +415,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         hTlss₀D ψ j cA hjA]
       exact (hC₀ j cA hjA ψ ρp hρp).2
   let leafT : (Name → Nat) → AnnotTerm := fun ψ =>
-    nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
+    nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   -- the laws at the fixpoint leaf: unit-likeness (one fieldless
   -- index-free constructor) folds the leaf to the one tagged empty
   -- tuple (`FixZeroFieldP`); η stays vacuous by the family's freshness
@@ -428,7 +428,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
           SpineFit ρ ((ppsAll ψ).map (·.2.2)) ts →
           ts.foldl SetTheory.app (interp V ρ
-              (nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
+              (nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
                 (Fss₀ ψ) (Ess₀ ψ)))
             = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ) (consList ts ρ)
                 [[] ++ [idxEqAV []]])) ∧
@@ -477,9 +477,9 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro env' m' hFD' hleaf hu φ'
     obtain ⟨c, cA, hc, hA, h0, hI, hz, hzA, hfoldZ, hIds0⟩ := hzero hu
     have hleaf' : ∀ ψ, m'.acval p.cvT.name ψ
-        = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
+        = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
             (Fss₀ ψ) (Ess₀ ψ) := by
-      intro ψ; rw [hleaf ψ]; show nativeTyAVI _ _ _ (Ids ψ) _ _ _ _ _ = _; rw [hIds0]
+      intro ψ; rw [hleaf ψ]; show nativeTyAVI [] _ _ _ (Ids ψ) _ _ _ _ _ = _; rw [hIds0]
     exact fixFibreUnitLaw (u := uAV) (w := fun ψ => p.resSort.eval ψ) (rss := rss)
       (tlss := Tlss₀) (eiss := Eiss₀) (Fss₀ := Fss₀) (Ess := Ess₀) hleaf' hfoldZ hFD'.read
       hFD'.okTy (fun ψ => hunitParams ψ hu)
@@ -549,14 +549,14 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT m₂ hac)
         (fun ψ => by rw [hac, ← hTname]; exact congrFun acvalWith_self ψ))
   have hacI' : mpI.base2.acval = acvalWith mp.base2.acval p.cvT.name
-      (fun ψ => nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
+      (fun ψ => nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
         (Ess₀ ψ)) := by
     rw [hacI, hTname]
   have hacI₀' : mpI₀.base2.acval = acvalWith mp.base2.acval p.cvT.name
       (fun ψ => sumTyAV (p.resSort.eval ψ) (ppsAll ψ) []) := by
     rw [hacI₀, hTname]
   have hleafT_I : ∀ ψ, mpI.base2.acval p.cvT.name ψ
-      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
+      = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
           (Ess₀ ψ) := by
     intro ψ
     rw [hacI', acvalWith_self]
@@ -565,7 +565,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro ψ
     rw [hleafT_I ψ]
     exact ⟨_, rfl⟩
-  have hleafClosed : ∀ ψ, Term.bvarsBelow 0 (nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ)
+  have hleafClosed : ∀ ψ, Term.bvarsBelow 0 (nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ)
       (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)).erase := by
     intro ψ
     have := mpI.base2.cval_closedL p.cvT.name ψ
@@ -661,7 +661,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- the real chains against the leaf's
   have hreal : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) (Ids ψ).length rss (Tlss₀ ψ) (Eiss₀ ψ)
+      ChainsRealI (fixFamI [] (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) (Ids ψ).length rss (Tlss₀ ψ) (Eiss₀ ψ)
           (Fss₀ ψ) (Ess₀ ψ)) (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
         (Fss ψ) (Ess₀ ψ) := by
     intro ψ ρp hρp
@@ -709,7 +709,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           rw [hnone] at hfitS
           obtain ⟨-, hspE⟩ := SlotFit.fin hfitS
           have := fixLeafApp (nP := p.nP) (hlenPps ψ) (hX₀ ψ ρp hρp).1 hρp
-            (A := nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
+            (A := nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
               (Fss₀ ψ) (Ess₀ ψ))
             (fun σ => interp_closed V (hleafClosed ψ) σ _) (as := as)
             (Eis := (eissF₀ j ψ).getD i []) hspE
@@ -727,7 +727,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           have hlenAB : (as ++ bs).length = i + ((tssF₀ j ψ).getD i []).length := by
             rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
           have := fixLeafApp (nP := p.nP) (hlenPps ψ) (hX₀ ψ ρp hρp).1 hρp
-            (A := nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
+            (A := nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
               (Fss₀ ψ) (Ess₀ ψ))
             (fun σ => interp_closed V (hleafClosed ψ) σ _) (as := as ++ bs)
             (Eis := (eissF₀ j ψ).getD i []) hspE
@@ -809,7 +809,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       (∀ cA, ctorsA = [cA] → ∀ ψ, m'.acval cA.1.name ψ
-        = sumMkAV (p.resSort.eval ψ) 0 (dsF 0 ψ) (((dsF 0 ψ).drop p.nP).map (·.2.2))
+        = sumMkAV [] 0 (p.resSort.eval ψ) 0 (dsF 0 ψ) (((dsF 0 ψ).drop p.nP).map (·.2.2))
             (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))) →
       CapsLawsAt m' p.cvT.name cvTa (ConLeche.nativeCaps p) := by
     intro env' m' hfr hFD' hleaf hC
@@ -817,9 +817,9 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     · refine ⟨fun _ _ φ' => ?_, hunitFix m' hFD' hleaf⟩
       obtain ⟨c, cA, hc, hA, h0, hI, hz, hzA, hfoldZ, hIds0⟩ := hzero hu
       have hleaf' : ∀ ψ, m'.acval p.cvT.name ψ
-          = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
+          = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
               (Fss₀ ψ) (Ess₀ ψ) := by
-        intro ψ; rw [hleaf ψ]; show nativeTyAVI _ _ _ (Ids ψ) _ _ _ _ _ = _; rw [hIds0]
+        intro ψ; rw [hleaf ψ]; show nativeTyAVI [] _ _ _ (Ids ψ) _ _ _ _ _ = _; rw [hIds0]
       obtain ⟨c', hc', hCname, -, -, -, -, -, -, -⟩ := hrunOf 0 cA h0
       have hcc : c = c' := by rw [hc] at hc'; simpa using hc'
       subst hcc
@@ -839,7 +839,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         simp only [List.getElem?_cons_zero, Option.some.injEq] at h0'
         rw [hFs, h0']
       have hleafC : ∀ ψ, m'.acval (ConLeche.nativeCaps p).etaCtor ψ
-          = sumMkAV (p.resSort.eval ψ) 0 (dsF 0 ψ) [] (uChains [[]]) := by
+          = sumMkAV [] 0 (p.resSort.eval ψ) 0 (dsF 0 ψ) [] (uChains [[]]) := by
         intro ψ
         rw [ConLeche.nativeCaps_single hc]
         show m'.acval c.1.name ψ = _
@@ -943,13 +943,13 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     fun j cA hj => (hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj).2.1
   have hleafC_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA → ∀ ψ,
       mpC.base2.acval cA.1.name ψ
-      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))) := by
     intro j cA hj ψ
     rw [fssOfR_fixCtorDataList]
     exact (hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj).2.2 ψ
   have hleafT_C' : ∀ ψ, mpC.base2.acval p.cvT.name ψ
-      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss
+      = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss
           (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) := by
@@ -962,11 +962,11 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     simp only [InductiveShape.rulePrefix, hlenA]
   have hframesR : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss
         (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) p.nIdx rss
+      ChainsRealI (fixFamI [] (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) p.nIdx rss
           (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))

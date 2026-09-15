@@ -51,7 +51,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- The tag type at the parameter frame: the tagged union of the
 members' index towers. -/
-def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV W (uChains Idss)
+def tagTyAV (W : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm := sumBodyAV [] W (uChains Idss)
 
 /-- The tag set at the parameter frame. -/
 noncomputable def tagSet (W : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm)) : V :=
@@ -61,7 +61,7 @@ noncomputable def tagSet (W : Nat) (ρp : Nat → V) (Idss : List (List AnnotTer
 constructor leaf at the tag family, over member `m`'s index telescope
 alone). -/
 def tagTuplerAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
-  sumMkAV W m (tuplerData W (Idss.getD m [])) (Idss.getD m []) (uChains Idss)
+  sumMkAV [] 0 W m (tuplerData W (Idss.getD m [])) (Idss.getD m []) (uChains Idss)
 
 /-- The tag tupler's type: `Π ı⃗_m, tag`. -/
 def tagTuplerTyAV (W m : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
@@ -89,7 +89,8 @@ theorem tagTyAV_facts {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
     (h : TagOk W ρp Idss) :
     interp V ρp (tagTyAV W Idss) = tagSet W ρp Idss ∧
       tagSet W ρp Idss ∈ˢ (univ W : V) ∧ WellDenoted V ρp (tagTyAV W Idss) :=
-  ⟨sumBodyAV_interp h.sumOk, sumSet_univ_of_okB h.sumOk, sumBodyAV_wellDenoted h.sumOk⟩
+  ⟨by unfold tagTyAV; rw [sumBodyAV_interp h.sumOk (noOff ρp), sumFibreT_nil]; rfl,
+    sumSet_univ_of_okB h.sumOk, by unfold tagTyAV; exact sumBodyAV_wellDenoted h.sumOk (noOff ρp)⟩
 
 /-- The auxiliary family's index telescope is graded. -/
 theorem auxIds_idxOk {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
@@ -114,8 +115,8 @@ theorem tagTuple_mem {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} 
 binders, the body the tag type lifted under the index binders). -/
 theorem tagTupler_pre {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} (h : TagOk W ρp Idss)
     {m : Nat} {Ids : List AnnotTerm} (hm : Idss[m]? = some Ids) :
-    MkPreS W m ρp Ids (uChains Idss) ((tagTyAV W Idss).liftN Ids.length 0) [] := by
-  refine ⟨h.sumOk, by rw [uChains_getElem?, hm]; rfl, fun bs hsp => ?_⟩
+    MkPreS [] 0 W m ρp Ids (uChains Idss) ((tagTyAV W Idss).liftN Ids.length 0) [] := by
+  refine ⟨h.sumOk, by show (uChains Idss)[m]? = _; rw [uChains_getElem?, hm]; rfl, fun bs hsp => ?_⟩
   refine ⟨sumFibre W ρp (uChains Idss), ?_, ?_⟩
   · rw [interp_liftN, ← hsp.length_eq, shiftE_consList]
     exact (tagTyAV_facts h).1
@@ -141,12 +142,12 @@ theorem tagTuplerAV_facts {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTe
   have hpre := tagTupler_pre h hm
   have hIds : Ids = (tuplerData W Ids).map (·.2.2) := (tuplerData_doms W Ids).symm
   constructor
-  · have := sumMkAV_mem (pds := []) (fds := tuplerData W Ids) (ρ := ρp)
-      (bodyC := (tagTyAV W Idss).liftN Ids.length 0) (Fss := uChains Idss) (j := m)
+  · have := sumMkAV_mem (tbl := []) (m := 0) (pds := []) (fds := tuplerData W Ids) (ρ := ρp)
+      (bodyC := (tagTyAV W Idss).liftN Ids.length 0) (Fss := uChains Idss) (jc := m)
       (tagTuplerData_zero W Ids) (by rw [← hIds]; exact hpre)
     simpa [← hIds] using this
-  · have := sumMkAV_wellDenoted (pds := []) (fds := tuplerData W Ids) (ρ := ρp)
-      (bodyC := (tagTyAV W Idss).liftN Ids.length 0) (Fss := uChains Idss) (j := m)
+  · have := sumMkAV_wellDenoted (tbl := []) (m := 0) (pds := []) (fds := tuplerData W Ids) (ρ := ρp)
+      (bodyC := (tagTyAV W Idss).liftN Ids.length 0) (Fss := uChains Idss) (jc := m)
       (tagTuplerData_zero W Ids) (by rw [← hIds]; exact hpre)
     simpa [← hIds] using this
 
@@ -161,9 +162,10 @@ theorem tagTuplerAV_fold {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTer
   unfold tagTuplerAV
   rw [hg]
   have hIds : Ids = (tuplerData W Ids).map (·.2.2) := (tuplerData_doms W Ids).symm
-  have := sumMkAV_fold (w := W) h.1 (pds := []) (fds := tuplerData W Ids) (Fss := uChains Idss)
-    (ρ := ρp) (as := []) (bs := is) (j := m) trivial (by rw [← hIds]; exact hsp)
-    (by simpa [consList] using h.sumOk) (by rw [← hIds, uChains_getElem?, hm]; rfl)
+  have := sumMkAV_fold (tbl := []) (m := 0) (w := W) h.1 (pds := []) (fds := tuplerData W Ids)
+    (Fss := uChains Idss) (ρ := ρp) (as := []) (bs := is) (jc := m) trivial (by rw [← hIds]; exact hsp)
+    (by simpa [consList] using h.sumOk)
+    (by show (uChains Idss)[m]? = _; rw [← hIds, uChains_getElem?, hm]; rfl)
   simpa [← hIds] using this
 
 /-- **A tagged tuple at index expressions**, `d` binders below the
@@ -194,7 +196,7 @@ theorem tagTupleAV_facts {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTer
     unfold tagTuplerTyAV at hmem
     rw [hg] at hmem ⊢
     refine appChainOk_of_mkPisAV (m := W) (ds := tuplerData W Ids)
-      (b := sumInjAtAV W (uChains Idss) Ids.length (numeralAV m) (mkTowerGoU W Ids (idxEqAV [])))
+      (b := sumInjAtAV [] 0 W (uChains Idss) Ids.length (numeralAV m) (mkTowerGoU W Ids (idxEqAV [])))
       (C := (tagTyAV W Idss).liftN Ids.length 0) (tagTuplerData_zero W Ids) ?_ hmem
       (by rw [tuplerData_doms]; exact hsp)
     have := underTowerOk_of_mkPreS (pds := []) (fds := tuplerData W Ids) (tagTupler_pre h hm) hIds
@@ -231,16 +233,16 @@ def mutualEiss (W : Nat) (Idss : List (List AnnotTerm)) (tgts : List (List Nat))
 
 /-- The auxiliary family at the parameter frame: the fixpoint route's
 family at the tag index and the tagged expressions. -/
-def auxBodyAV (W w : Nat) (Idss : List (List AnnotTerm)) (rss : List (List Bool))
+def auxBodyAV (tbl : List (List Nat)) (W w : Nat) (Idss : List (List AnnotTerm)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) : AnnotTerm :=
-  fixBodyAVI W w (auxIds W Idss) 1 rss tlss Eiss' Fss Ess'
+  fixBodyAVI tbl W w (auxIds W Idss) 1 rss tlss Eiss' Fss Ess'
 
 /-- The auxiliary family's semantic value at the parameter frame. -/
-noncomputable def auxFamI (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
+noncomputable def auxFamI (tbl : List (List Nat)) (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) : V :=
-  fixFamI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss Ess'
+  fixFamI tbl W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss Ess'
 
 /-- The 1-tuple around a tagged tuple, as the auxiliary family's index
 tuple. -/
@@ -250,12 +252,12 @@ noncomputable def auxTup (W : Nat) (t : V) : V := tupW W [t]
 member `m`'s index binders (`pps` — the parameters, then `Ids_m`,
 `nIdx` of them), returning the auxiliary family at the 1-tuple of the
 tagged tuple of the index variables. -/
-def mutualTyAVI (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx : Nat)
+def mutualTyAVI (tbl : List (List Nat)) (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx : Nat)
     (Idss : List (List AnnotTerm)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) (m : Nat) : AnnotTerm :=
   mkLamsAV (pps.map fun d => (w + 1, d.2.2))
-    (.app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+    (.app ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
       (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
         [tagTupleAV W m nIdx Idss (teleVarsAV nIdx)]))
 
@@ -263,23 +265,24 @@ def mutualTyAVI (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx : Nat)
 binders are member `m`'s index variables: the tag and the chains
 graded at the parameter frame `shiftE nIdx 0 ρ`, and the index
 variables a fitting spine of member `m`'s telescope. -/
-def MutualBaseI (W w : Nat) (ρ : Nat → V) (nIdx : Nat) (Idss : List (List AnnotTerm))
+def MutualBaseI (tbl : List (List Nat)) (W w : Nat) (ρ : Nat → V) (nIdx : Nat) (Idss : List (List AnnotTerm))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) (m : Nat) : Prop :=
   TagOk W (shiftE nIdx 0 ρ) Idss ∧
   FixChainsOkI W w (shiftE nIdx 0 ρ) (auxIds W Idss) 1 rss tlss Eiss' Fss Ess' ∧
+  OffOk tbl W (shiftE nIdx 0 ρ) (auxIds W Idss) ∧
   ∃ Ids, Idss[m]? = some Ids ∧ Ids.length = nIdx ∧
     SpineFit (shiftE nIdx 0 ρ) Ids (frameIdx nIdx ρ)
 
 /-- The member leaf's hereditary premise: the parameter and index
 binders graded, `MutualBaseI` at the base. -/
-def ParamsOkMI (W w : Nat) (ρ : Nat → V) (nIdx : Nat) (Idss : List (List AnnotTerm))
+def ParamsOkMI (tbl : List (List Nat)) (W w : Nat) (ρ : Nat → V) (nIdx : Nat) (Idss : List (List AnnotTerm))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) (m : Nat) :
     List (Nat × Nat × AnnotTerm) → Prop
-  | [] => MutualBaseI W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m
+  | [] => MutualBaseI tbl W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m
   | d :: pps => d.2.1 ≠ 0 ∧ WellDenoted V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp V ρ d.2.2 → ParamsOkMI W w (cons a ρ) nIdx Idss rss tlss Eiss' Fss Ess' m pps
+      ∀ a, a ∈ˢ interp V ρ d.2.2 → ParamsOkMI tbl W w (cons a ρ) nIdx Idss rss tlss Eiss' Fss Ess' m pps
 
 /-- The index variables of the last `nIdx` binders read to the frame's
 index tuple (`map_idxVarsAV_interp`'s shape at the leaf's frame). -/
@@ -297,19 +300,19 @@ variables — its membership in the block's universe, and its grading. -/
 theorem mutualLeafBody_facts {W w : Nat} {ρ : Nat → V} {nIdx : Nat} {Idss : List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)} {m : Nat}
-    (h : MutualBaseI W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m) :
-    interp V ρ (.app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+    (h : MutualBaseI tbl W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m) :
+    interp V ρ (.app ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
         (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
           [tagTupleAV W m nIdx Idss (teleVarsAV nIdx)]))
-      = SetTheory.app (auxFamI W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess')
+      = SetTheory.app (auxFamI tbl W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess')
           (auxTup W (inj m (mkTower (frameIdx nIdx ρ ++ [pt])))) ∧
-    interp V ρ (.app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+    interp V ρ (.app ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
         (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
           [tagTupleAV W m nIdx Idss (teleVarsAV nIdx)])) ∈ˢ (univ w : V) ∧
-    WellDenoted V ρ (.app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+    WellDenoted V ρ (.app ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
         (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
           [tagTupleAV W m nIdx Idss (teleVarsAV nIdx)])) := by
-  obtain ⟨hT, hok, Ids, hm, hlen, hsp⟩ := h
+  obtain ⟨hT, hok, hoff, Ids, hm, hlen, hsp⟩ := h
   have hI : IdxOk W (shiftE nIdx 0 ρ) (auxIds W Idss) := auxIds_idxOk hT
   -- the frame is `consList (frameIdx nIdx ρ) (shiftE nIdx 0 ρ)`
   have hρ : ρ = consList (frameIdx nIdx ρ) (shiftE nIdx 0 ρ) := (consList_frameIdx nIdx ρ).symm
@@ -324,11 +327,11 @@ theorem mutualLeafBody_facts {W w : Nat} {ρ : Nat → V} {nIdx : Nat} {Idss : L
     hvok (by rw [hvars]; exact hsp)
   rw [hvars] at htag
   -- the 1-tuple: the auxiliary tupler applied to the tagged tuple
-  have hbody := fixBodyAVI_facts hI hok
-  have hfv : interp V ρ ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
-      = interp V (shiftE nIdx 0 ρ) (auxBodyAV W w Idss rss tlss Eiss' Fss Ess') := by
+  have hbody := fixBodyAVI_facts hI hok hoff
+  have hfv : interp V ρ ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+      = interp V (shiftE nIdx 0 ρ) (auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess') := by
     rw [interp_liftN]
-  have hfok : WellDenoted V ρ ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0) := by
+  have hfok : WellDenoted V ρ ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0) := by
     rw [WellDenoted_liftN]; exact hbody.2.2
   have htv : interp V ρ ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
       = interp V (shiftE nIdx 0 ρ) (tuplerAV W (auxIds W Idss)) := by rw [interp_liftN]
@@ -354,12 +357,12 @@ theorem mutualLeafBody_facts {W w : Nat} {ρ : Nat → V} {nIdx : Nat} {Idss : L
     exact tuplerAV_fold hI hsp1
   have hmemT : auxTup W (inj m (mkTower (frameIdx nIdx ρ ++ [pt])))
       ∈ˢ idxSet W (shiftE nIdx 0 ρ) (auxIds W Idss) := tupW_mem hsp1
-  have hfam : auxFamI W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess'
+  have hfam : auxFamI tbl W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess'
       ∈ˢ lfpFamSpace V w (idxSet W (shiftE nIdx 0 ρ) (auxIds W Idss)) := hbody.2.1
-  have hval : interp V ρ (.app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
+  have hval : interp V ρ (.app ((auxBodyAV tbl W w Idss rss tlss Eiss' Fss Ess').liftN nIdx 0)
         (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
           [tagTupleAV W m nIdx Idss (teleVarsAV nIdx)]))
-      = SetTheory.app (auxFamI W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess')
+      = SetTheory.app (auxFamI tbl W w (shiftE nIdx 0 ρ) Idss rss tlss Eiss' Fss Ess')
           (auxTup W (inj m (mkTower (frameIdx nIdx ρ ++ [pt])))) := by
     rw [interp_app, htupv, hfv]
     unfold auxBodyAV auxFamI
@@ -381,8 +384,8 @@ theorem mutualTyAVI_mem {W w nIdx : Nat} {Idss : List (List AnnotTerm)} {rss : L
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss Ess' : List (List AnnotTerm)} {m : Nat} :
     ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkMI W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m pps →
-      interp V ρ (mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss Ess' m)
+      ParamsOkMI tbl W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m pps →
+      interp V ρ (mutualTyAVI tbl W w pps nIdx Idss rss tlss Eiss' Fss Ess' m)
         ∈ˢ interp V ρ (mkPisAV pps (.sort w))
   | [], ρ, h => (mutualLeafBody_facts h).2.1
   | d :: pps, ρ, h => by
@@ -398,8 +401,8 @@ theorem mutualTyAVI_wellDenoted {W w nIdx : Nat} {Idss : List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)} {m : Nat} :
     ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkMI W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m pps →
-      WellDenoted V ρ (mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss Ess' m)
+      ParamsOkMI tbl W w ρ nIdx Idss rss tlss Eiss' Fss Ess' m pps →
+      WellDenoted V ρ (mutualTyAVI tbl W w pps nIdx Idss rss tlss Eiss' Fss Ess' m)
   | [], _, h => (mutualLeafBody_facts h).2.2
   | d :: pps, ρ, h => by
     show WellDenoted V ρ (.lam (w + 1) d.2.2 (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) _))
@@ -417,9 +420,9 @@ theorem mutualTyAVI_fold {W w nIdx : Nat} {Idss : List (List AnnotTerm)} {rss : 
     {Fss Ess' : List (List AnnotTerm)} {m : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ρ : Nat → V} {as : List V}
     (hsp : SpineFit ρ (pps.map (·.2.2)) as)
-    (hbase : MutualBaseI W w (consList as ρ) nIdx Idss rss tlss Eiss' Fss Ess' m) :
-    as.foldl SetTheory.app (interp V ρ (mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss Ess' m))
-      = SetTheory.app (auxFamI W w (shiftE nIdx 0 (consList as ρ)) Idss rss tlss Eiss' Fss Ess')
+    (hbase : MutualBaseI tbl W w (consList as ρ) nIdx Idss rss tlss Eiss' Fss Ess' m) :
+    as.foldl SetTheory.app (interp V ρ (mutualTyAVI tbl W w pps nIdx Idss rss tlss Eiss' Fss Ess' m))
+      = SetTheory.app (auxFamI tbl W w (shiftE nIdx 0 (consList as ρ)) Idss rss tlss Eiss' Fss Ess')
           (auxTup W (inj m (mkTower (frameIdx nIdx (consList as ρ) ++ [pt])))) := by
   have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
     rwa [List.map_map]

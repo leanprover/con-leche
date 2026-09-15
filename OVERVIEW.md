@@ -356,7 +356,7 @@ former's leaf, applied to parameters and indices, is a fibre of the
 least fixed point of a container functor spelled from the block's
 stored constructor types, and its constructors' leaves are that fixed
 point's injections
-([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L374-L383)).
+([the representation clause in `ConLeche/Model/IndRep.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/IndRep.lean#L735-L744)).
 Nothing of the representation is stored: it is a fact the proof keeps
 about the block, discharged by the install that built the block's
 leaves — definitionally for the fixpoint route, by one lemma for each
@@ -481,7 +481,7 @@ Inductive blocks are not trusted from the stream. Four cases:
   a member's recursor is the auxiliary recursor with the `k` motives
   dispatched on the tag. The model-tier theorem for the whole install
   is
-  [theorem `declMutual` in `ConLeche/Model/Inductives/DeclMutual.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclMutual.lean#L1966);
+  [theorem `declMutual` in `ConLeche/Model/Inductives/DeclMutual.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclMutual.lean#L6964);
   it instantiates the single-family fixpoint theorems at the tagged
   sum, so no new model construction is involved.
 * **Nested blocks** — more recursors than formers — are handled by an

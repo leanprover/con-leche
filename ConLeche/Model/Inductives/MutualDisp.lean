@@ -53,7 +53,7 @@ binders below the parameter frame. -/
 @[expose] def auxAtAV (W w d : Nat) (Idss : List (List AnnotTerm)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) (i : AnnotTerm) : AnnotTerm :=
-  .app ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN d 0)
+  .app ((auxBodyAV [] W w Idss rss tlss Eiss' Fss Ess').liftN d 0)
     (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN d 0) [i])
 
 /-- The tag motive at the parameter frame: `λ (i : tag), Π (x : aux ⟨i⟩), Sort ℓ`. -/
@@ -79,7 +79,7 @@ variable and `m'` earlier minors): `Π ı⃗_{m'}, Mv (inj m' ⟨ı⃗_{m'}⟩)`
 `(p⃗, Mv, M'⃗)`: the case split on the tag applied to the payload. -/
 @[expose] def dispBodyAV (ℓ W w k : Nat) (Idss : List (List AnnotTerm)) : AnnotTerm :=
   .app
-    (caseRecAVI (dispLevel w ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
+    (caseRecAVI [] (dispLevel w ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
       (fun j => (Idss.getD j []).length) (fun _ _ => []) k 0 k 1 0 (.fst (.bvar 0)))
     (.snd (.bvar 0))
 
@@ -118,7 +118,7 @@ recursor applied to the tag motive and the block's motives. -/
 @[expose] noncomputable def auxFib (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) (i : V) : V :=
-  SetTheory.app (auxFamI W w ρp Idss rss tlss Eiss' Fss Ess') (auxTup W i)
+  SetTheory.app (auxFamI [] W w ρp Idss rss tlss Eiss' Fss Ess') (auxTup W i)
 
 /-- The tag motive's value: the fibre's function space into `Sort ℓ`,
 at every tag element. -/
@@ -192,9 +192,9 @@ variable {ℓ W w D mOff k : Nat} {ρp σ : Nat → V} {Idss : List (List AnnotT
 /-- The auxiliary family at the parameter frame is in the family space. -/
 theorem auxFamI_mem_space (hT : TagOk W ρp Idss)
     (hok : FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss Ess') :
-    auxFamI W w ρp Idss rss tlss Eiss' Fss Ess'
+    auxFamI [] W w ρp Idss rss tlss Eiss' Fss Ess'
       ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)) :=
-  (fixBodyAVI_facts (auxIds_idxOk hT) hok).2.1
+  (fixBodyAVI_facts (tbl := []) (auxIds_idxOk hT) hok (offOk_nil _ _ _)).2.1
 
 /-- A tag-set element's 1-tuple is in the auxiliary index set. -/
 theorem auxTup_mem (hT : TagOk W ρp Idss) {i : V} (hi : i ∈ˢ tagSet W ρp Idss) :
@@ -221,11 +221,11 @@ theorem auxAtAV_facts (hT : TagOk W ρp Idss)
       interp V τ (auxAtAV W w d Idss rss tlss Eiss' Fss Ess' i) ∈ˢ (univ w : V) ∧
       WellDenoted V τ (auxAtAV W w d Idss rss tlss Eiss' Fss Ess' i) := by
   have hI : IdxOk W ρp (auxIds W Idss) := auxIds_idxOk hT
-  have hbody := fixBodyAVI_facts hI hok
-  have hfv : interp V τ ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN d 0)
-      = interp V ρp (auxBodyAV W w Idss rss tlss Eiss' Fss Ess') := by
+  have hbody := fixBodyAVI_facts (tbl := []) hI hok (offOk_nil _ _ _)
+  have hfv : interp V τ ((auxBodyAV [] W w Idss rss tlss Eiss' Fss Ess').liftN d 0)
+      = interp V ρp (auxBodyAV [] W w Idss rss tlss Eiss' Fss Ess') := by
     rw [interp_liftN, hfr]
-  have hfok : WellDenoted V τ ((auxBodyAV W w Idss rss tlss Eiss' Fss Ess').liftN d 0) := by
+  have hfok : WellDenoted V τ ((auxBodyAV [] W w Idss rss tlss Eiss' Fss Ess').liftN d 0) := by
     rw [WellDenoted_liftN, hfr]; exact hbody.2.2
   have htv : interp V τ ((tuplerAV W (auxIds W Idss)).liftN d 0)
       = interp V ρp (tuplerAV W (auxIds W Idss)) := by rw [interp_liftN, hfr]
@@ -571,7 +571,7 @@ route's core (the chains graded, the motive in its space, the frame's
 tuple the empty one, the carrier the tagged union) and the minors in
 their spaces read as the tag recursor's minor spaces. -/
 theorem tagRecHyp :
-    RecHypI (dispLevel w ℓ) W (tagKFrame ρp Mv ms)
+    RecHypI [] (fun jc => jc) (dispLevel w ℓ) W (tagKFrame ρp Mv ms)
       Idss (List.replicate k []) [] (fun _ => tagSet W ρp Idss) (fun _ _ => []) := by
   have hfrP := tagKFrame_frP (ρp := ρp) (Mv := Mv) h.hlen
   have hfrM := tagKFrame_frM (ρp := ρp) (Mv := Mv) h.hlen
@@ -583,7 +583,8 @@ theorem tagRecHyp :
     intro j hj
     rw [List.getD_eq_getElem?_getD, List.getElem?_replicate, if_pos (by rw [← h.hk]; exact hj)]
     rfl
-  refine ⟨⟨?_, hEs, hlenE, ?_, ?_, ?_⟩, ?_, fun h0 => absurd h0 (dispLevel_ne_zero w ℓ)⟩
+  refine ⟨⟨?_, hEs, hlenE, ?_, ?_, ?_, fun _ _ _ _ => rfl, fun _ _ _ => rfl⟩, ?_,
+    fun h0 => absurd h0 (dispLevel_ne_zero w ℓ)⟩
   · -- the restricted chains at the K-frame are graded
     simp only [List.length_nil, Nat.zero_add]
     rw [h.hk]
@@ -632,13 +633,13 @@ theorem tagRecHyp :
       (B := fun is => SetTheory.app Mv (inj j (mkTower (is ++ [pt]))))]
     · exact hM
     · intro fs hsp
-      show ihSpL _ (concI W ρp _ ((List.replicate k ([] : List AnnotTerm)).getD j []) j fs) [] = _
+      show ihSpL _ (concI [] W ρp _ ((List.replicate k ([] : List AnnotTerm)).getD j []) j fs) [] = _
       have hEj : (List.replicate k ([] : List AnnotTerm)).getD j [] = [] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_replicate, if_pos hjk]; rfl
       rw [hEj]
-      show concI W ρp _ [] j fs = _
+      show concI [] W ρp _ [] j fs = _
       unfold concI ctorValI idxValsAt
-      rw [List.map_nil, List.foldl_nil, if_neg hW, List.nil_append]
+      rw [List.map_nil, List.foldl_nil, if_neg hW, List.nil_append, locOf_nil]
 
 omit h in
 /-- A term whose value is in the tagged union is graded (graph regime)
@@ -720,7 +721,7 @@ theorem dispBody_facts {i : V} (hi : i ∈ˢ tagSet W ρp Idss) :
   rw [hMi] at hmem
   -- the case split applied to the payload
   have hbase : SetTheory.app (interp V (cons (inj m y) ρ₀)
-        (caseRecAVI (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
+        (caseRecAVI [] (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
           (fun j => (Idss.getD j []).length) (fun _ _ => []) Idss.length 0 Idss.length 1 0
           (.fst (.bvar 0)))) y
       = ((List.range (Idss.getD m []).length).map fun l => projS l y).foldl SetTheory.app
@@ -729,7 +730,7 @@ theorem dispBody_facts {i : V} (hi : i ∈ˢ tagSet W ρp Idss) :
     unfold baseSemI
     rw [app_lamR_pos hℓ' hy, List.append_nil, hfrMs hm]
   have hbaseMem : SetTheory.app (interp V (cons (inj m y) ρ₀)
-        (caseRecAVI (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
+        (caseRecAVI [] (dispLevel w ℓ) W (rChains (Idss.length + 1) 0 Idss (List.replicate Idss.length []))
           (fun j => (Idss.getD j []).length) (fun _ _ => []) Idss.length 0 Idss.length 1 0
           (.fst (.bvar 0)))) y
       ∈ˢ SetTheory.app Mv (inj m y) := by

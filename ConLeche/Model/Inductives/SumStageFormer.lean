@@ -40,7 +40,7 @@ theorem formerWalksS {m : EnvModel V env} {cvT : ConstantVal} {nP : Nat}
       SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
     (ψ : Name → Nat) (ρ : Nat → V) :
     ParamsOkS (resSort.eval ψ) ρ (Fss ψ) (pps ψ) ∧
-      UnderTowerValid ρ (sumBodyAV (resSort.eval ψ) (Fss ψ)) (pps ψ) := by
+      UnderTowerValid ρ (sumBodyAV [] (resSort.eval ψ) (Fss ψ)) (pps ψ) := by
   have hst := stripPisAV_mkPisAV (pps ψ) (.sort (resSort.eval ψ))
   rw [hFD.len ψ] at hst
   have htele := piTeleAV_of_stripPisAV hst
@@ -66,7 +66,7 @@ theorem formerWalksS {m : EnvModel V env} {cvT : ConstantVal} {nP : Nat}
       0 (Nat.zero_le _) ρ (by rw [hΓnil]; exact Sat_nil V ρ)
     simpa using hw
   · have hw := hereditaryWalk (V := V)
-      (Q := fun ρ ds => UnderTowerValid ρ (sumBodyAV (resSort.eval ψ) (Fss ψ)) ds)
+      (Q := fun ρ ds => UnderTowerValid ρ (sumBodyAV [] (resSort.eval ψ) (Fss ψ)) ds)
       hlenΓ (hFD.len ψ) hent okΓ
       (fun ρ hρ => sumBodyAV_validV (hFssOk ψ ρ hρ).2)
       (fun ρ d ds hd hok hrec => ⟨hok.2, hrec⟩)

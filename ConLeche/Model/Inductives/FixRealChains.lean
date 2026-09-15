@@ -38,14 +38,14 @@ expressions** reads, under `as` field values at the parameter frame
 theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)} {ρp : Nat → V}
     (hlen : pps.length = nP + (((pps.drop nP).map (·.2.2))).length)
-    (hX : XChainsOk u w ρp ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess)
+    (hX : XChainsOk [] u w ρp ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess)
     (hρp : Sat V ((pps.take nP).map (·.2.2)).reverse ρp)
     {A : AnnotTerm} (hA : ∀ σ : Nat → V, interp V σ A
-      = interp V (fun j => ρp (j + nP)) (nativeTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess))
+      = interp V (fun j => ρp (j + nP)) (nativeTyAVI [] u w pps ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess))
     {as : List V} {Eis : List AnnotTerm}
     (hsp : SpineFit ρp ((pps.drop nP).map (·.2.2)) (Eis.map (interp V (consList as ρp)))) :
     interp V (consList as ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
-      = SetTheory.app (fixFamI u w ρp ((pps.drop nP).map (·.2.2)) ((pps.drop nP).map (·.2.2)).length
+      = SetTheory.app (fixFamI [] u w ρp ((pps.drop nP).map (·.2.2)) ((pps.drop nP).map (·.2.2)).length
           rss tlss Eiss Fss Ess) (tupW u (Eis.map (interp V (consList as ρp)))) := by
   have hlenI : (Eis.map (interp V (consList as ρp))).length
       = ((pps.drop nP).map (·.2.2)).length := hsp.length_eq
@@ -78,11 +78,11 @@ theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)} {rss : 
   have hfr : frameIdx ((pps.drop nP).map (·.2.2)).length
       (consList (Eis.map (interp V (consList as ρp))) ρp) = Eis.map (interp V (consList as ρp)) := by
     rw [← hlenI]; exact frameIdx_consList' _ ρp
-  have hbase : FixBaseI u w (consList ((List.range nP).reverse.map ρp ++
+  have hbase : FixBaseI [] u w (consList ((List.range nP).reverse.map ρp ++
       Eis.map (interp V (consList as ρp))) (fun j => ρp (j + nP)))
       ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess := by
     rw [hframe]
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, offOk_nil _ _ _⟩
     · rw [hsh]; exact hX.hI
     · rw [hsh]; exact hX.hok
     · rw [hsh, hfr]; exact hsp

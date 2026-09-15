@@ -196,18 +196,18 @@ theorem caseBaseAVI_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
       exact projAV_below (show (0 : Nat) < K + D + 1 by omega)
     · exact hih a ha
 
-theorem caseRecAVI_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K) {Fss : List (List AnnotTerm)}
+theorem caseRecAVI_below {tbl : List (List Nat)} {ℓ w n nIdx K : Nat} (hK : nIdx + n < K) {Fss : List (List AnnotTerm)}
     {ar : Nat → Nat} {ihArgs : Nat → Nat → List AnnotTerm}
     (h : ∀ Fs ∈ Fss, FieldsBelow K Fs)
     (hih : ∀ D j, ∀ a ∈ ihArgs D j, Term.bvarsBelow (K + D + 1) a.erase) :
     ∀ (r : Nat) {D j : Nat} {kx : AnnotTerm},
       Term.bvarsBelow (K + D) kx.erase →
-      Term.bvarsBelow (K + D) (caseRecAVI ℓ w Fss ar ihArgs n nIdx r D j kx).erase
+      Term.bvarsBelow (K + D) (caseRecAVI tbl ℓ w Fss ar ihArgs n nIdx r D j kx).erase
   | 0, _, _, _, _ => ⟨trivial, trivial⟩
   | r + 1, D, j, _, hk => by
     refine natRecAV_below (caseMotiveAV_below hK h) (caseBaseAVI_below hK h (hih D j)) ?_ hk
     refine ⟨trivial, caseMotiveBodyAV_below hK h, ?_⟩
-    have := caseRecAVI_below (ℓ := ℓ) (w := w) hK (ar := ar) (ihArgs := ihArgs) h hih r
+    have := caseRecAVI_below (tbl := tbl) (ℓ := ℓ) (w := w) hK (ar := ar) (ihArgs := ihArgs) h hih r
       (D := D + 2) (j := j + 1) (kx := .bvar 1) (show (1 : Nat) < K + (D + 2) by omega)
     rwa [show K + (D + 2) = K + D + 1 + 1 from by omega] at this
 
@@ -355,7 +355,7 @@ theorem sqFixBodyAV_below {ℓ k nP n nIdx : Nat} {Fs Es : List AnnotTerm} {rs :
 
 /-- The recursor body is bounded one below the K-frame
 `K = k + 1 + nP + 1 + n + nIdx`. -/
-theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AnnotTerm)}
+theorem fixRecBodyAVI_below {tbl : List (List Nat)} {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AnnotTerm)}
     {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     (hIds : Ids.length = nIdx)
     (h : ∀ Fs' ∈ rChains (nIdx + Fss.length + 1) nIdx Fss Ess,
@@ -365,7 +365,7 @@ theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AnnotT
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
       Term.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase) :
     Term.bvarsBelow (k + 1 + nP + 1 + Fss.length + nIdx + 1)
-      (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss).erase := by
+      (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss).erase := by
   by_cases hw : w = 0
   · subst hw
     by_cases hℓ : ℓ = 0
@@ -378,13 +378,15 @@ theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AnnotT
       | some Fs => rw [List.getD_eq_getElem?_getD, hF0]; exact hFs Fs (List.mem_of_getElem? hF0)
   · rw [fixRecBodyAVI_pos hw, hIds]
     refine ⟨?_, show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega⟩
-    have := caseRecAVI_below (ℓ := ℓ) (w := w) (K := k + 1 + nP + 1 + Fss.length + nIdx)
+    have := caseRecAVI_below (tbl := tbl) (ℓ := ℓ) (w := w) (K := k + 1 + nP + 1 + Fss.length + nIdx)
       (ar := fun j => (Fss.getD j []).length)
       (ihArgs := ihArgsI ℓ nP Fss.length nIdx rss tlss Eiss (fun j => (Fss.getD j []).length))
       (show nIdx + Fss.length < k + 1 + nP + 1 + Fss.length + nIdx by omega) h
       (fun D j => ihArgsI_below (k := k) (rss := rss) (ar := fun j => (Fss.getD j []).length) hT hE D j)
       Fss.length (D := 1) (j := 0)
-      (kx := .fst (.bvar 0)) (show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega)
+      (kx := recScrutAV tbl Fss.length nIdx)
+      (flatTagAV_below (show (nIdx : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega)
+        (show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega))
     exact this
 
 /-! ## The leaf -/
@@ -403,7 +405,7 @@ theorem mkPisAV_below_of {C : AnnotTerm} :
 /-- **The recursor leaf is closed**: its binder data are closed, its
 conclusion mentions the motive, the indices and the major, its body is
 the case split one below the K-frame. -/
-theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
+theorem nativeRecAVI_below {tbl : List (List Nat)} {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
     {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {rds : List (Nat × Nat × AnnotTerm)} (k : Nat)
     (hd : DomsBelow 0 rds) (hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1)
@@ -414,7 +416,7 @@ theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
     (hT : ∀ j i, DomsBelow (nP + i) ((tlss.getD j []).getD i []))
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
       Term.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase) :
-    Term.bvarsBelow k (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
+    Term.bvarsBelow k (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
   have hconc : ∀ m, Term.bvarsBelow (m + rds.length) (recConcAV Fss.length Ids.length).erase := by
     intro m
     have hlt : Ids.length + Fss.length < m + rds.length - 1 := by rw [hlen]; omega
@@ -423,16 +425,16 @@ theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
     exact ⟨this, show (0 : Nat) < m + rds.length by rw [hlen]; omega⟩
   have hTy : ∀ m, Term.bvarsBelow m (recTyAV Fss.length Ids.length rds).erase := fun m =>
     mkPisAV_below_of (domsBelow_mono (Nat.zero_le m) hd) (hconc m)
-  have hstep : ∀ m, Term.bvarsBelow m (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
+  have hstep : ∀ m, Term.bvarsBelow m (fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     intro m
     refine ⟨hTy m, ?_⟩
     refine mkLamsC_below (domsBelow_mono (Nat.zero_le (m + 1)) hd) ?_
-    have := fixRecBodyAVI_below (ℓ := ℓ) (w := w) (k := m) (nP := nP) (nIdx := Ids.length)
+    have := fixRecBodyAVI_below (tbl := tbl) (ℓ := ℓ) (w := w) (k := m) (nP := nP) (nIdx := Ids.length)
       (Fss := Fss) (Ess := Ess) (Ids := Ids) (rss := rss) (tlss := tlss) (Eiss := Eiss) rfl
       (fun Fs' hFs' => fieldsBelow_mono (by omega) (hFss Fs' hFs')) hFs hT hE
     rwa [show m + 1 + nP + 1 + Fss.length + Ids.length + 1 = m + 1 + rds.length from by
       rw [hlen]; omega] at this
-  have hsig : Term.bvarsBelow k (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
+  have hsig : Term.bvarsBelow k (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     refine ⟨⟨trivial, hTy k⟩, hTy k, ?_⟩
     refine ⟨⟨?_, show (0 : Nat) < k + 1 by omega⟩, show (0 : Nat) < k + 1 by omega⟩
     rw [AnnotTerm.erase_liftN]

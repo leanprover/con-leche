@@ -73,13 +73,13 @@ theorem underTowerValid_of_fieldsValid {b : AnnotTerm} :
 
 section IhValid
 
-variable {ℓ w nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
+variable {tbl : List (List Nat)} {τ : Nat → Nat} {ℓ w nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {famAt : List V → V} {ihDoms : Nat → List V → List V} {rss : List (List Bool)}
   {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {D : Nat}
 
 /-- The payload of constructor `j`'s fibre projects to a fitting field
 spine at the parameter frame. -/
-theorem fibre_projList_fit (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+theorem fibre_projList_fit (hyp : RecHypI tbl τ ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
     {j : Nat} (hj : j < Fss.length) {y : V}
     (hy : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j) :
     SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) (projList (Fss.getD j []).length y) := by
@@ -131,7 +131,7 @@ theorem fieldsValid_ihTeleAt (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (tl 
 constructor's fibre: λ-towers over the moved telescopes (valid at the
 fitting projections) whose leaves apply the function at the block, the
 index expressions (valid under the telescope) and the field. -/
-theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+theorem ihArgsI_validV (hyp : RecHypI tbl τ ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
     (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length)
     (hEV : ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length, ∀ fs : List V,
       SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -170,7 +170,7 @@ theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
     trivial
 
 /-- Constructor `j`'s branch with ih arguments is bit-valid. -/
-theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+theorem fixBase_validV (hyp : RecHypI tbl τ ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
     (hfr : RecFrameS D ρ₀ σ)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
@@ -223,7 +223,7 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
         exact (List.not_mem_nil ha).elim
 
 /-- **The case recursor with ih arguments is bit-valid.** -/
-theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+theorem fixCaseRec_validV (hyp : RecHypI tbl τ ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -236,7 +236,7 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
     ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {kx : AnnotTerm},
       RecFrameS D ρ₀ σ → AnnotValid V σ kx →
       AnnotValid V σ
-        (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+        (caseRecAVI tbl ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length)
           (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
           Fss.length Ids.length r D j kx)
@@ -253,9 +253,13 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
     refine ⟨motiveBody_validV hfr hyp.toRecHypCore hv j b, fun a _ => ?_⟩
     exact fixCaseRec_validV hyp hw hv hEV r (hfr.step a b) trivial
 
+theorem recScrutAV_validV (tbl : List (List Nat)) (n nIdx : Nat) (σ : Nat → V) :
+    AnnotValid V σ (recScrutAV tbl n nIdx) :=
+  flatTagAV_validV (by rw [AnnotValid_fst]; trivial) (by rw [AnnotValid_fst]; trivial)
+
 /-- **The recursor body is bit-valid** at the frame under the K-frame,
 all three regimes (the squash regime's body by `hsq`, task #202 A2). -/
-theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
+theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI tbl τ ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : w ≠ 0 → ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -268,7 +272,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     (hsq : w = 0 → ℓ ≠ 0 → AnnotValid V σ
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 []))) :
-    AnnotValid V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
+    AnnotValid V σ (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   by_cases hw : w = 0
   · subst hw
     by_cases hℓ : ℓ = 0
@@ -277,7 +281,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     · rw [fixRecBodyAVI_sq hℓ]
       exact hsq rfl hℓ
   · rw [fixRecBodyAVI_pos hw, AnnotValid_app]
-    exact ⟨fixCaseRec_validV hyp hw hv (hEV hw) Fss.length hfr (major_fst_validV σ),
+    exact ⟨fixCaseRec_validV hyp hw hv (hEV hw) Fss.length hfr (recScrutAV_validV tbl _ _ σ),
       major_snd_validV σ⟩
 
 /-! ## The ih-moved telescopes' validity (task #202) -/
@@ -408,18 +412,18 @@ end IhValid
 
 /-- **The recursor leaf is bit-valid**: from the type's validity and the
 body's validity under the binder data over every function value. -/
-theorem fixSelAVI_validV {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
+theorem fixSelAVI_validV {tbl : List (List Nat)} {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
     {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {rds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
     (hTy : AnnotValid V ρ (recTyAV Fss.length Ids.length rds))
     (hbody : ∀ r : V, r ∈ˢ interp V ρ (recTyAV Fss.length Ids.length rds) →
-      UnderTowerValid (cons r ρ) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) rds) :
-    AnnotValid V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
-  have hstep : AnnotValid V ρ (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+      UnderTowerValid (cons r ρ) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss) rds) :
+    AnnotValid V ρ (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+  have hstep : AnnotValid V ρ (fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
     show AnnotValid V ρ (.lam s (recTyAV Fss.length Ids.length rds) _)
     rw [AnnotValid_lam]
     exact ⟨hTy, fun r hr => mkLamsC_validV (hbody r hr)⟩
-  have hsig : AnnotValid V ρ (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+  have hsig : AnnotValid V ρ (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
     show AnnotValid V ρ (.app (.app (.const .psigma [s, 0]) (recTyAV Fss.length Ids.length rds))
       (.lam 1 (recTyAV Fss.length Ids.length rds) _))
     simp only [AnnotValid_app, AnnotValid_const, AnnotValid_lam, AnnotValid_eqE,

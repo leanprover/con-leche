@@ -34,7 +34,7 @@ data. -/
 theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AnnotTerm)}
     {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {rds : List (Nat × Nat × AnnotTerm)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+    (h : FixPre V [] ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hvFss : ∀ ρp : Nat → V, Sat V (((rds.take nP).map (·.2.2)).reverse) ρp →
       SumFieldsValid ρp Fss ∧
@@ -46,7 +46,7 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
         ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValid V (consList bs (consList (fs.take i) ρp)) E))
     (σ : Nat → V) (hsat : Sat V (((rds.map (·.2.2)).reverse)) σ) :
-    AnnotValid V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
+    AnnotValid V σ (fixRecBodyAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   have hsp := spineFit_of_sat (Δ₀ := []) (Ds := rds.map (·.2.2))
     (by rw [List.append_nil]; exact hsat)
   have hσ0 : consList (((List.range (rds.map (·.2.2)).length).reverse).map σ)
@@ -128,7 +128,7 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
 theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AnnotTerm)}
     {Ids : List AnnotTerm} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {rds : List (Nat × Nat × AnnotTerm)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+    (h : FixPre V [] ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (okΓ : ∀ i, i < nP + n + nIdx + 2 → ∀ ρ : Nat → V,
       Sat V ((((rds.map (·.2.2)).reverse)).drop (nP + n + nIdx + 2 - i)) ρ →
@@ -144,8 +144,8 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
         ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValid V (consList bs (consList (fs.take i) ρp)) E)) :
     ∀ ρ : Nat → V,
-      WellDenotedV V ρ (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
-      interp V ρ (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
+      WellDenotedV V ρ (nativeRecAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
+      interp V ρ (nativeRecAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
         ∈ˢ interp V ρ (mkPisAV rds (recConcAV n nIdx)) := by
   intro ρ
   have hlenR : rds.length = nP + n + nIdx + 2 := by have := h.hlen; omega
@@ -162,10 +162,10 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
     exact ⟨_, List.getElem?_eq_getElem hil,
       by rw [getD_reverse_of_peel hlenR hi (List.getElem?_eq_getElem hil)]⟩
   have hwalk : ∀ ρ' : Nat → V,
-      UnderTowerValid ρ' (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) rds := by
+      UnderTowerValid ρ' (fixRecBodyAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss) rds := by
     intro ρ'
     have hw := hereditaryWalk (V := V)
-      (Q := fun ρ ds' => UnderTowerValid ρ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) ds')
+      (Q := fun ρ ds' => UnderTowerValid ρ (fixRecBodyAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss) ds')
       hΓlen hlenR hent okΓ
       (fun σ hσ => fixRecBodyValid_of_sat h hFss hIds hvFss σ hσ)
       (fun ρ d ds' _ hok hrec => ⟨hok.2, hrec⟩)
@@ -174,7 +174,7 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
         exact Sat_nil V ρ')
     rw [List.drop_zero] at hw
     exact hw
-  show AnnotValid V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
+  show AnnotValid V ρ (fixSelAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
   refine fixSelAVI_validV ?_ fun r _ => hwalk (cons r ρ)
   show AnnotValid V ρ (mkPisAV rds (recConcAV Fss.length Ids.length))
   rw [hFss, hIds]

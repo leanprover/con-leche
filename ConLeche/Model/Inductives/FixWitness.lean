@@ -613,12 +613,13 @@ theorem fixStep_elim_container {X : V} (hX : X ∈ˢ lfpFamSpace V w (idxSet u �
     (ht : t ∈ˢ idxSet u ρp Ids)
     (hfitX : ∀ j, j < Fss.length →
       SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j []))
-    {x : V} (hx : x ∈ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
+    {x : V} (hx : x ∈ˢ fixStepI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
     ∃ a, a ∈ˢ shapeSet u w nP ρp Ids ksF Fss Ess t ∧
       ∃ g, g ∈ˢ piSet (posSet w ρp rss tlss Fss a) (fun p => app X (posTgt u ρp tlss Eiss Fss a p)) ∧
         x = mkShape w ρp rss tlss Fss a g := by
   obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim ht
-  obtain ⟨j, fs, rfl, hj, hlen, hfs, hall⟩ := fixStepI_elim hw hx
+  obtain ⟨j, jF, fs, hJ, rfl, hj, hlen, hfs, hall⟩ := fixStepI_elim hw hx
+  rw [tagOf_nil] at hJ; subst jF
   have hEs : (Ess.getD j []).length = Ids.length := (hC j hj).hEs
   have hfam : ∀ t', app X t' ∈ˢ (univ w : V) := fun t' => famApp_mem_univ hX t'
   -- the shape: the shadow tuple
@@ -781,7 +782,7 @@ sort): the family functor is a container — shapes the shadow tuples,
 positions the recursive fields' spines, targets the calls' tuples, the
 builder the curried slots — so `container_closed_exists` applies. -/
 theorem fixClosed_of :
-    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
   have hfitX : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
       ∀ j, j < Fss.length →
         SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j []) := by
@@ -789,7 +790,7 @@ theorem fixClosed_of :
     rw [hrss j hj]
     exact (fixChain_of hI hX ht (hC j hj)).2
   obtain ⟨L, hL, hclosed⟩ := container_closed_exists hw (I := idxSet u ρp Ids)
-    (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (shapeSet u w nP ρp Ids ksF Fss Ess)
+    (famFI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (shapeSet u w nP ρp Ids ksF Fss Ess)
     (posSet w ρp rss tlss Fss) (posTgt u ρp tlss Eiss Fss) (mkShape w ρp rss tlss Fss)
     (fun t _ => shapeSet_mem hw hC t) (fun _ a _ ha => posSet_mem hw hrss hC ha)
     (fun _ a p _ ha hp => posTgt_mem hw hrss hC ha hp) (fun _ a g _ ha hg => mkShape_mem hw hrss hC ha hg)

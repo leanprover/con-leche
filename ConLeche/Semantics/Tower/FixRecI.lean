@@ -29,7 +29,7 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-variable {ℓ w u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
+variable {tbl : List (List Nat)} {ℓ w u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
   {rds : List (Nat × Nat × AnnotTerm)} {s : Nat}
 
@@ -37,11 +37,11 @@ section Rec
 
 /-- **The recursor body's facts** at a walk leaf: graded, in the
 conclusion, a truth value at level zero. -/
-theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) {r : V}
+theorem body_facts (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) {r : V}
     (hr : r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds)) {as : List V} {t : V}
     (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t])) :
-    WellDenoted V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
-    interp V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
+    WellDenoted V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
+    interp V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
       ∈ˢ interp V (consList (as ++ [t]) (cons r ρb)) (recConcAV Fss.length Ids.length) ∧
     (ℓ = 0 → interp V (consList (as ++ [t]) (cons r ρb)) (recConcAV Fss.length Ids.length)
       ∈ˢ (univZero : V)) := by
@@ -57,14 +57,15 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     unfold recConcAV
     rw [interp_app, hMv, interp_bvar, cons_zero]
   have hfitI := hKI.hyp.hfit
-  have ht' : t ∈ˢ sumSet w (sumFibre w (consList as (cons r ρb))
-      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) := by
+  have ht' : t ∈ˢ sumSet w fun jc => sumFibre w (consList as (cons r ρb))
+      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc) := by
     rw [← hKI.hyp.hfam]
     exact ht
   -- the squash regime: the body's facts from `sqFixBody_facts`
   have hsqfacts : w = 0 → ℓ ≠ 0 →
-      WellDenoted V (cons t (consList as (cons r ρb))) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
-      interp V (cons t (consList as (cons r ρb))) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
+      WellDenoted V (cons t (consList as (cons r ρb))) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
+      interp V (cons t (consList as (cons r ρb))) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
         ∈ˢ SetTheory.app (frMi Fss.length Ids.length (consList as (cons r ρb))) t := by
     intro hw hℓ
     subst hw
@@ -78,7 +79,7 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     have ht₁ := ht
     rw [consList_kframe] at hKI' ht₁ ⊢
     have ht' : t ∈ˢ SetTheory.app
-        (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) := by
+        (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) := by
       unfold famK at ht₁
       rwa [kframe_frP' hlenI hlenM, kframe_frameIdx' hlenI] at ht₁
     have hf := sqFixBody_facts hℓ hlenP hlenM hlenI hKI' ht'
@@ -86,7 +87,7 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     unfold frMi
     rw [kframe_frameIdx' hlenI, kframe_frM' hlenI hlenM]
     have hfam' := famApp_mem_univ
-      (fixFamI_mem u 0 (consList ps (cons r ρb)) Ids rss tlss Eiss Fss₀ Ess) (tupW u is)
+      (fixFamI_mem tbl u 0 (consList ps (cons r ρb)) Ids rss tlss Eiss Fss₀ Ess) (tupW u is)
     rw [univ_zero] at hfam'
     have htpt : t = pt := eq_pt_of_mem_univZero hfam' ht'
     subst htpt
@@ -100,21 +101,32 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     · rw [fixRecBodyAVI_pos hw]
       have hcase := caseRec_factsI hw hKI.hyp
         (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-        (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
-      have hok0 := major_fst_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
-      have hok1 := major_snd_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
-      obtain ⟨i, a, ha, hta⟩ := sumSet_elim hw ht'
-      have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat i := by
-        rw [interp_fst, interp_bvar, cons_zero, hta, sfst_inj]
+        (σ := cons t (consList as (cons r ρb))) (k := recScrutAV tbl Fss.length Ids.length) hfr
+        (Nat.zero_add _)
+      have hok0 := major_fst_wellDenotedT hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
+      have hok1 := major_snd_wellDenotedT hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
+      obtain ⟨jc, a, ha, hta⟩ := sumSet_elim hw ht'
+      obtain ⟨hsv, hsω, hsok⟩ := recScrutAV_facts (tbl := tbl) (n := Fss.length) (u := u)
+        (ρ₀ := consList as (cons r ρb)) rfl hKI.hX.hoff hKI.hyp.hfit hta hok0
       have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = a := by
         rw [interp_snd, interp_bvar, cons_zero, hta, ssnd_inj]
-      have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
-        rw [htag]; exact vnat_mem_omega i
-      obtain ⟨hmem, -⟩ := hcase.1 hkω
-      rw [htag, motSem_vnat, Nat.zero_add] at hmem
+      obtain ⟨hmem, -⟩ := hcase.1 hsω
+      rw [hsv, motSem_vnat, Nat.zero_add] at hmem
+      -- the payload lies in the selected flat chain's fibre
+      have haf : a ∈ˢ sumFibre w (consList as (cons r ρb))
+          (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+          (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc) := ha
+      have hloc : locAt tbl Fss.length 0
+          (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc) = jc := by
+        have hlt : tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc
+            < Fss.length := Classical.byContradiction fun hge => by
+          rw [sumFibre_of_ge (by rw [hKI.hyp.rChains_length']; omega)] at haf
+          exact not_mem_empty _ haf
+        rw [locAt_eq_locOf (by omega), Nat.zero_add]
+        exact hKI.hyp.hcoh' jc a haf
       rw [WellDenoted_app]
-      refine ⟨hcase.2 hok0 (fun _ => hkω), hok1, ℓ, _, _, hmem, ?_, ?_⟩
-      · rw [hpay]; exact ha
+      refine ⟨hcase.2 hsok (fun _ => hsω), hok1, ℓ, _, _, hmem, ?_, ?_⟩
+      · rw [hpay]; exact haf
       · intro h0 y _
         exact hKI.hyp.hM0 h0 _
   · -- in the conclusion
@@ -131,39 +143,50 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     · rw [fixRecBodyAVI_pos hw]
       have hcase := caseRec_factsI hw hKI.hyp
         (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-        (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
-      obtain ⟨i, a, ha, hta⟩ := sumSet_elim hw ht'
-      have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat i := by
-        rw [interp_fst, interp_bvar, cons_zero, hta, sfst_inj]
+        (σ := cons t (consList as (cons r ρb))) (k := recScrutAV tbl Fss.length Ids.length) hfr
+        (Nat.zero_add _)
+      have hok0 := major_fst_wellDenotedT hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
+      obtain ⟨jc, a, ha, hta⟩ := sumSet_elim hw ht'
+      obtain ⟨hsv, hsω, -⟩ := recScrutAV_facts (tbl := tbl) (n := Fss.length) (u := u)
+        (ρ₀ := consList as (cons r ρb)) rfl hKI.hX.hoff hKI.hyp.hfit hta hok0
       have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = a := by
         rw [interp_snd, interp_bvar, cons_zero, hta, ssnd_inj]
-      have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
-        rw [htag]; exact vnat_mem_omega i
-      obtain ⟨hmem, -⟩ := hcase.1 hkω
-      rw [htag, motSem_vnat, Nat.zero_add] at hmem
+      obtain ⟨hmem, -⟩ := hcase.1 hsω
+      rw [hsv, motSem_vnat, Nat.zero_add] at hmem
+      have haf : a ∈ˢ sumFibre w (consList as (cons r ρb))
+          (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+          (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc) := ha
+      have hloc : locAt tbl Fss.length 0
+          (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc) = jc := by
+        have hlt : tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc
+            < Fss.length := Classical.byContradiction fun hge => by
+          rw [sumFibre_of_ge (by rw [hKI.hyp.rChains_length']; omega)] at haf
+          exact not_mem_empty _ haf
+        rw [locAt_eq_locOf (by omega), Nat.zero_add]
+        exact hKI.hyp.hcoh' jc a haf
       rw [interp_app, hpay]
-      have := app_mem_piR hmem ha (fun h0 y _ => hKI.hyp.hM0 h0 _)
-      rwa [injW_pos hw, ← hta] at this
+      have := app_mem_piR hmem haf (fun h0 y _ => hKI.hyp.hM0 h0 _)
+      rwa [hloc, injW_pos hw, ← hta] at this
 
 /-- The semantic step at a bottom. -/
-noncomputable def stepVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
+noncomputable def stepVI (tbl : List (List Nat)) (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat)
     (ρb : Nat → V) : V :=
   lamR s (interp V ρb (recTyAV Fss.length Ids.length rds)) fun r =>
-    lamTower ℓ (cons r ρb) rds fun σ => interp V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
+    lamTower ℓ (cons r ρb) rds fun σ => interp V σ (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
 
 /-- **The step's facts**: its value, its membership in
 `RecTy → RecTy`, its grading. -/
-theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    interp V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∧
-    stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb
+theorem stepAV_facts (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    interp V ρb (fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∧
+    stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb
       ∈ˢ piR (s) (interp V ρb (recTyAV Fss.length Ids.length rds))
           (fun _ => interp V ρb (recTyAV Fss.length Ids.length rds)) ∧
-    WellDenoted V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+    WellDenoted V ρb (fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
   have hleaf : ∀ r, r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) →
       ∀ bs, SpineFit (cons r ρb) (rds.map (·.2.2)) bs →
-        WellDenoted V (consList bs (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
-        interp V (consList bs (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
+        WellDenoted V (consList bs (cons r ρb)) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss) ∧
+        interp V (consList bs (cons r ρb)) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
           ∈ˢ interp V (consList bs (cons r ρb)) (recConcAV Fss.length Ids.length) ∧
         (ℓ = 0 → interp V (consList bs (cons r ρb)) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V)) := by
     intro r hr bs hsp
@@ -174,7 +197,7 @@ theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss r
     · rw [List.concat_eq_append] at hsp ⊢
       exact body_facts h ρb hr hsp
   have hmemTower : ∀ r, r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) →
-      lamTower ℓ (cons r ρb) rds (fun σ => interp V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss))
+      lamTower ℓ (cons r ρb) rds (fun σ => interp V σ (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss))
         ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) := by
     intro r hr
     rw [recTy_bottom h ρb (cons r ρb)]
@@ -199,7 +222,7 @@ theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss r
 
 /-- The recursive route's data at a K-frame `(ρb, r, p⃗, M, m⃗, ı⃗)`:
 the block `(p⃗, M, m⃗)` and the index tuple. -/
-theorem kframe_split (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) {ρ : Nat → V} {as : List V}
+theorem kframe_split (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) {ρ : Nat → V} {as : List V}
     {t : V} (hsp : SpineFit ρ (rds.map (·.2.2)) (as ++ [t])) :
     ∃ as₀ is, as = as₀ ++ is ∧ as₀.length = nP + 1 + Fss.length ∧ is.length = Ids.length := by
   have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
@@ -225,12 +248,13 @@ theorem frP_block {ρb : Nat → V} {as₀ is : List V} (hl₀ : as₀.length = 
 value: the minor at the fields and the ih values (the λ-towers over the
 recursive fields' telescopes of the function at the block, the calls'
 index values and the field applied to the telescope's values). -/
-theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
+theorem body_iota (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
     (ρb : Nat → V) {r : V} (hr : r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds))
     {as : List V} {t : V} (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t]))
-    {j : Nat} (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
-    (hmaj : t = inj j (mkTower (fs ++ [pt]))) :
-    interp V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
+    {jc j : Nat} (hJ : j = tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc)
+    (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
+    (hmaj : t = inj jc (mkTower (fs ++ [pt]))) :
+    interp V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
       = (fs ++ (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
           lamTower ℓ (consList (fs.take i) (frP Fss.length Ids.length (consList as (cons r ρb))))
             ((tlss.getD j []).getD i []) fun σ' =>
@@ -245,9 +269,20 @@ theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds 
   have hfr : RecFrameS 1 (consList as (cons r ρb)) (cons t (consList as (cons r ρb))) := by
     unfold RecFrameS
     rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
-  have ht' : t ∈ˢ sumSet w (sumFibre w (consList as (cons r ρb))
-      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) := by
+  have ht' : t ∈ˢ sumSet w fun jc' => sumFibre w (consList as (cons r ρb))
+      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc') := by
     rw [← hKI.hyp.hfam]; exact ht
+  have hok0 : WellDenoted V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) := by
+    rw [WellDenoted_fst]
+    refine ⟨trivial, w, w, omega, natFibre (fun jc' => sumFibre w (consList as (cons r ρb))
+      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as (cons r ρb)))) jc')),
+      ?_, omega_mem_univ_pos hw, ?_⟩
+    · rw [interp_bvar, show Nat.max w w = w from Nat.max_self w]; exact ht'
+    · intro k hk
+      obtain ⟨i', rfl, hfib⟩ := natFibre_of_mem _ hk
+      rw [hfib]; exact hKI.hyp.fibre_univ _
   have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
     have := hsp.length_eq
     rw [List.length_append, List.length_singleton, List.length_map, h.hlen] at this
@@ -255,20 +290,20 @@ theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds 
   rw [fixRecBodyAVI_pos hw]
   have hcase := caseRec_factsI hw hKI.hyp
     (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-    (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
-  have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat j := by
-    rw [interp_fst, interp_bvar, cons_zero, hmaj, sfst_inj]
+    (σ := cons t (consList as (cons r ρb))) (k := recScrutAV tbl Fss.length Ids.length) hfr
+    (Nat.zero_add _)
+  obtain ⟨hsv, hsω, hsok⟩ := recScrutAV_facts (tbl := tbl) (n := Fss.length) (u := u)
+    (ρ₀ := consList as (cons r ρb)) rfl hKI.hX.hoff hKI.hyp.hfit hmaj hok0
   have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = mkTower (fs ++ [pt]) := by
     rw [interp_snd, interp_bvar, cons_zero, hmaj, ssnd_inj]
-  have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
-    rw [htag]; exact vnat_mem_omega j
-  have hsel := (hcase.1 hkω).2 j htag hj
+  have hsel := (hcase.1 hsω).2 j (by rw [hsv, hJ]) hj
   rw [Nat.zero_add] at hsel
   rw [interp_app, hsel, hpay]
   -- the payload is in the fibre
-  obtain ⟨j', a, ha, hta⟩ := sumSet_elim hw ht'
+  obtain ⟨jc', a, ha, hta⟩ := sumSet_elim hw ht'
   rw [hmaj] at hta
   obtain ⟨rfl, rfl⟩ := inj_inj hta
+  rw [← hJ] at ha
   unfold baseSemI
   rw [app_lamR_pos hℓ ha, ihValsI_mk hlen, frR_of nP Fss.length Ids.length hlen_as]
   congr 2
@@ -284,7 +319,7 @@ theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds 
 /-- The candidate's body at a leaf frame: the point at level zero,
 else the recursor's graph's selector at the major's element (the
 squash regime's at the tuple). -/
-noncomputable def gStar (ℓ u w : Nat) (Fss Ess Fss₀ : List (List AnnotTerm)) (Ids : List AnnotTerm)
+noncomputable def gStar (tbl : List (List Nat)) (ℓ u w : Nat) (Fss Ess Fss₀ : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (σ : Nat → V) : V :=
   if ℓ = 0 then pt
   else if w = 0 then
@@ -293,23 +328,23 @@ noncomputable def gStar (ℓ u w : Nat) (Fss Ess Fss₀ : List (List AnnotTerm))
       (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) (frMs Fss.length Ids.length (shiftE 1 0 σ) 0))
       (tupW u (frameIdx Ids.length (shiftE 1 0 σ)))
   else
-    recSel (elemGraph ℓ u (frP Fss.length Ids.length (shiftE 1 0 σ)) (frM Fss.length Ids.length (shiftE 1 0 σ)) Ids
+    recSel (elemGraph tbl ℓ u (frP Fss.length Ids.length (shiftE 1 0 σ)) (frM Fss.length Ids.length (shiftE 1 0 σ)) Ids
       rss tlss Eiss Fss (frMsL Fss.length Ids.length (shiftE 1 0 σ))
-      (famK u w (shiftE 1 0 σ) Fss Ess Fss₀ Ids rss tlss Eiss))
+      (famK tbl u w (shiftE 1 0 σ) Fss Ess Fss₀ Ids rss tlss Eiss))
       (kpair (tupW u (frameIdx Ids.length (shiftE 1 0 σ))) (σ 0))
 
 /-- The candidate: the semantic tower over the recursor's binder data. -/
-noncomputable def rStar (ℓ w u : Nat) (Fss Ess Fss₀ : List (List AnnotTerm)) (Ids : List AnnotTerm)
+noncomputable def rStar (tbl : List (List Nat)) (ℓ w u : Nat) (Fss Ess Fss₀ : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm))
     (ρb : Nat → V) : V :=
-  lamTower ℓ ρb rds (gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss)
+  lamTower ℓ ρb rds (gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss)
 
 omit [SetTheory V] in
 theorem leaf_zero (as : List V) (t : V) (ρb : Nat → V) : consList (as ++ [t]) ρb 0 = t := by
   rw [← consList_snoc', cons_zero]
 
 /-- The conclusion at a walk leaf over a K-frame with the core package. -/
-theorem conc_leaf {K : Nat → V} (h0 : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (t : V) :
+theorem conc_leaf {K : Nat → V} (h0 : FixKI₀ tbl ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (t : V) :
     interp V (cons t K) (recConcAV Fss.length Ids.length)
       = SetTheory.app ((frameIdx Ids.length K).foldl SetTheory.app (frM Fss.length Ids.length K)) t := by
   have hfr : RecFrameS 1 K (cons t K) := by
@@ -322,9 +357,9 @@ theorem conc_leaf {K : Nat → V} (h0 : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rs
 
 /-- **The candidate's body lands in the conclusion** at every walk
 leaf. -/
-theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V)
+theorem gStar_leaf (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V)
     {as : List V} {t : V} (hsp : SpineFit ρb (rds.map (·.2.2)) (as ++ [t])) :
-    gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb)
+    gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb)
       ∈ˢ interp V (consList (as ++ [t]) ρb) (recConcAV Fss.length Ids.length) := by
   obtain ⟨h0, ht⟩ := h.hK ρb as t hsp
   rw [← consList_snoc', conc_leaf h0 t]
@@ -346,7 +381,7 @@ theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     · subst hw
       rw [if_pos rfl]
       have hfam' := famApp_mem_univ
-        (fixFamI_mem u 0 (frP Fss.length Ids.length (consList as ρb)) Ids rss tlss Eiss Fss₀ Ess)
+        (fixFamI_mem tbl u 0 (frP Fss.length Ids.length (consList as ρb)) Ids rss tlss Eiss Fss₀ Ess)
         (tupW u (frameIdx Ids.length (consList as ρb)))
       rw [univ_zero] at hfam'
       have ht' := ht
@@ -358,8 +393,8 @@ theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
       exact (elemK_facts h0 hw hℓ hfit ht).1
 
 /-- **The candidate inhabits the recursor's type.** -/
-theorem rStar_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) := by
+theorem rStar_mem (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) := by
   unfold rStar recTyAV
   refine lamTower_mem h.hz (towerWalk_of_leaves fun bs hsp => ?_)
   rcases List.eq_nil_or_concat bs with rfl | ⟨as, t, rfl⟩
@@ -370,10 +405,10 @@ theorem rStar_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds 
     exact ⟨gStar_leaf h ρb hsp, fun h0 => h.hconc0 h0 ρb _ hsp⟩
 
 /-- The candidate's application along a fitting spine (nonzero level). -/
-theorem rStar_fold (_h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hℓ : ℓ ≠ 0) (ρb : Nat → V)
+theorem rStar_fold (_h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hℓ : ℓ ≠ 0) (ρb : Nat → V)
     {bs : List V} (hsp : SpineFit ρb (rds.map (·.2.2)) bs) :
-    bs.foldl SetTheory.app (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb)
-      = gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList bs ρb) :=
+    bs.foldl SetTheory.app (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb)
+      = gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList bs ρb) :=
   lamTower_fold hℓ hsp
 
 omit [SetTheory V] in
@@ -388,14 +423,14 @@ theorem frMs_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.len
 /-- The elements' graph at a K-frame depends on the block only. -/
 theorem elemGraph_block {ρb : Nat → V} {as₀ is is' : List V}
     (hli : is.length = Ids.length) (hli' : is'.length = Ids.length) :
-    elemGraph ℓ u (frP Fss.length Ids.length (consList (as₀ ++ is) ρb))
+    elemGraph tbl ℓ u (frP Fss.length Ids.length (consList (as₀ ++ is) ρb))
         (frM Fss.length Ids.length (consList (as₀ ++ is) ρb)) Ids rss tlss Eiss Fss
         (frMsL Fss.length Ids.length (consList (as₀ ++ is) ρb))
-        (famK u w (consList (as₀ ++ is) ρb) Fss Ess Fss₀ Ids rss tlss Eiss)
-      = elemGraph ℓ u (frP Fss.length Ids.length (consList (as₀ ++ is') ρb))
+        (famK tbl u w (consList (as₀ ++ is) ρb) Fss Ess Fss₀ Ids rss tlss Eiss)
+      = elemGraph tbl ℓ u (frP Fss.length Ids.length (consList (as₀ ++ is') ρb))
         (frM Fss.length Ids.length (consList (as₀ ++ is') ρb)) Ids rss tlss Eiss Fss
         (frMsL Fss.length Ids.length (consList (as₀ ++ is') ρb))
-        (famK u w (consList (as₀ ++ is') ρb) Fss Ess Fss₀ Ids rss tlss Eiss) := by
+        (famK tbl u w (consList (as₀ ++ is') ρb) Fss Ess Fss₀ Ids rss tlss Eiss) := by
   have hMs : frMsL Fss.length Ids.length (consList (as₀ ++ is) ρb)
       = frMsL Fss.length Ids.length (consList (as₀ ++ is') ρb) := by
     unfold frMsL
@@ -414,35 +449,38 @@ major's fields and the ih towers, the body's folding the candidate
 along the recursive calls' spines (which land at the leaf frames over
 the tower's own bottom), the candidate's the graph's selector at the
 calls' elements (the recursion equation). -/
-theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
+theorem leaf_eq (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
     (ρb : Nat → V) {as : List V} {t : V}
-    (hsp : SpineFit (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (rds.map (·.2.2)) (as ++ [t])) :
-    interp V (consList (as ++ [t]) (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
-        (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
-      = gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb) := by
+    (hsp : SpineFit (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (rds.map (·.2.2)) (as ++ [t])) :
+    interp V (consList (as ++ [t]) (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
+        (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
+      = gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb) := by
   have hR := rStar_mem h ρb
   have hcl : ∀ k d, rds[k]? = some d → Term.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
     simpa using h.hclosed
   have hsp₀ : SpineFit ρb (rds.map (·.2.2)) (as ++ [t]) :=
-    spineFit_closed_bottom (as := []) (ρ₁ := cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) hcl hsp
+    spineFit_closed_bottom (as := []) (ρ₁ := cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) hcl hsp
   obtain ⟨h0, ht⟩ := h.hK ρb as t hsp₀
   obtain ⟨as₀, is, rfl, hl₀, hli⟩ := kframe_split h hsp₀
   have hfi : frameIdx Ids.length (consList (as₀ ++ is) ρb) = is := frameIdx_of Ids.length hli ρb
   have hfit : SpineFit (frP Fss.length Ids.length (consList (as₀ ++ is) ρb)) Ids is := by
     have := h0.hyp.hfit; rwa [hfi] at this
   rw [hfi] at ht
-  have hfam : ∀ t', SetTheory.app (famK u w (consList (as₀ ++ is) ρb) Fss Ess Fss₀ Ids rss tlss Eiss) t'
+  have hfam : ∀ t', SetTheory.app (famK tbl u w (consList (as₀ ++ is) ρb) Fss Ess Fss₀ Ids rss tlss Eiss) t'
       ∈ˢ (univ w : V) :=
-    fun t' => famApp_mem_univ (fixFamI_mem u w (frP Fss.length Ids.length (consList (as₀ ++ is) ρb)) Ids rss tlss
+    fun t' => famApp_mem_univ (fixFamI_mem tbl u w (frP Fss.length Ids.length (consList (as₀ ++ is) ρb)) Ids rss tlss
       Eiss Fss₀ Ess) t'
-  obtain ⟨j, fs, hmaj, hj, hlen, hspR, hidx, hslots⟩ := famK_elim h0 hw hfit ht
+  obtain ⟨jc, j, fs, hJ, hmaj, hj, hlen, hspR, hidx, hslots⟩ := famK_elim h0 hw hfit ht
+  have hJ' : j = tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList (as₀ ++ is)
+      (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)))) jc := by
+    rw [frameIdx_of Ids.length hli]; exact hJ
   -- the left-hand side: the body's iota
-  rw [body_iota h hw hℓ ρb hR hsp hj hlen hmaj, frMs_bottom (nP := nP) hl₀ hli (cons _ ρb) ρb hj]
+  rw [body_iota h hw hℓ ρb hR hsp hJ' hj hlen hmaj, frMs_bottom (nP := nP) hl₀ hli (cons _ ρb) ρb hj]
   -- the right-hand side: the recursion equation
   unfold gStar
   rw [if_neg hℓ, if_neg hw, shiftE_leaf, leaf_zero, hfi, (elemK_facts h0 hw hℓ hfit ht).2, hmaj]
   unfold elemSt
-  rw [elemTag_mk, elemFields_mk _ hlen, frMsL_getD Fss.length Ids.length _ hj]
+  rw [elemFlat_mk, ← hJ, elemFields_mk _ hJ hlen, frMsL_getD Fss.length Ids.length _ hj]
   congr 2
   unfold elemIhs
   apply List.map_congr_left
@@ -473,7 +511,7 @@ theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
   have hlenbs : bs.length = ((tlss.getD j []).getD i []).length := by rw [hbs.length_eq, List.length_map]
   have hEq : ((Eiss.getD j []).getD i []).map
       (interp V (consList (as₀.take nP ++ fs.take i ++ bs)
-        (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)))
+        (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)))
       = ((Eiss.getD j []).getD i []).map (interp V (consList (as₀.take nP ++ fs.take i ++ bs) ρb)) := by
     apply List.map_congr_left
     intro E hE
@@ -490,7 +528,7 @@ theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
   obtain ⟨-, hvsp⟩ := hslot.2.2 bs hbs₃
   rw [consList_append (fs.take i) bs] at hvsp
   have hfmem := slotSet_fold_mem hfam hmem hbs₃
-  have hpred := (mem_elemPred_mk (t := tupW u is) hlen).mpr
+  have hpred := (mem_elemPred_mk (t := tupW u is) hJ hlen).mpr
     ⟨mk_mem_elemSet (tupW_mem hvsp) hfmem, i, hi, bs, hbs₃, rfl⟩
   have hspi := h.hspine ρb as₀ hpre _ (bs.foldl SetTheory.app (fs.getD i pt)) (by rw [hshift]; exact hvsp)
     (by rw [hshift]; exact hfmem)
@@ -508,21 +546,21 @@ set_option maxHeartbeats 3200000 in
 recursor at the predecessors — the body's ih towers fold the candidate
 along the recursive calls' spines, which land at the leaf frames over
 the tower's own bottom. -/
-theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w = 0) (hℓ : ℓ ≠ 0)
+theorem leaf_eq_sq (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w = 0) (hℓ : ℓ ≠ 0)
     (ρb : Nat → V) {as : List V} {t : V}
-    (hsp : SpineFit (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (rds.map (·.2.2)) (as ++ [t])) :
-    interp V (consList (as ++ [t]) (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
-        (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss)
-      = gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb) := by
+    (hsp : SpineFit (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (rds.map (·.2.2)) (as ++ [t])) :
+    interp V (consList (as ++ [t]) (cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
+        (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss)
+      = gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss (consList (as ++ [t]) ρb) := by
   subst hw
   have hR := rStar_mem h ρb
   have hcl : ∀ k d, rds[k]? = some d → Term.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
     simpa using h.hclosed
   have hsp₀ : SpineFit ρb (rds.map (·.2.2)) (as ++ [t]) :=
-    spineFit_closed_bottom (as := []) (ρ₁ := cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) hcl hsp
+    spineFit_closed_bottom (as := []) (ρ₁ := cons (rStar tbl ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) hcl hsp
   obtain ⟨h0, ht⟩ := h.hK ρb as t hsp₀
   have hKI := fixKI_of h ρb hR hsp
-  obtain ⟨-, ht₁⟩ := h.hK (cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) as t hsp
+  obtain ⟨-, ht₁⟩ := h.hK (cons (rStar tbl ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) as t hsp
   have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
     have := hsp₀.length_eq
     rw [List.length_append, List.length_singleton, List.length_map, h.hlen] at this
@@ -533,15 +571,15 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
   obtain ⟨hle, -, -⟩ := h0.hsq rfl hℓ
   rw [consList_kframe] at hKI ht₁ h0 ht
   have hfrP₀ := kframe_frP' (ρP := consList ps ρb) (M := M) hlenI hlenM
-  have hfrP₁ := kframe_frP' (ρP := consList ps (cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
+  have hfrP₁ := kframe_frP' (ρP := consList ps (cons (rStar tbl ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
     (M := M) hlenI hlenM
   have hfrM₀ := kframe_frM' (ρP := consList ps ρb) (M := M) hlenI hlenM
   have hfrI₀ := kframe_frameIdx' (nIdx := Ids.length) hlenI (consList ms (cons M (consList ps ρb)))
-  have ht' : t ∈ˢ SetTheory.app (fixFamI u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess)
+  have ht' : t ∈ˢ SetTheory.app (fixFamI tbl u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess)
       (tupW u is) := by
     unfold famK at ht; rwa [hfrP₀, hfrI₀] at ht
   have ht₁' : t ∈ˢ SetTheory.app
-      (fixFamI u 0 (consList ps (cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)) Ids Ids.length
+      (fixFamI tbl u 0 (consList ps (cons (rStar tbl ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)) Ids Ids.length
         rss tlss Eiss Fss₀ Ess) (tupW u is) := by
     unfold famK at ht₁; rwa [hfrP₁, kframe_frameIdx' hlenI] at ht₁
   have hfit : SpineFit (consList ps ρb) Ids is := by
@@ -557,7 +595,7 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
   have hf := sqFixBody_facts hℓ hlenP hlenM hlenI hKI ht₁'
   rw [hf.2.1]
   -- the right-hand side: the selector's recursion equation
-  have hfam' := famApp_mem_univ (fixFamI_mem u 0 (consList ps ρb) Ids rss tlss Eiss Fss₀ Ess) (tupW u is)
+  have hfam' := famApp_mem_univ (fixFamI_mem tbl u 0 (consList ps ρb) Ids rss tlss Eiss Fss₀ Ess) (tupW u is)
   rw [univ_zero] at hfam'
   have htpt : t = pt := eq_pt_of_mem_univZero hfam' ht'
   subst htpt
@@ -566,12 +604,12 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
   have hK := sqK_facts hℓ (ρP := consList ps ρb) (M := M) (m := ms.getD 0 pt) h0 hfrP₀ hfrM₀ hfrMs₀ is pt hfit ht'
   rw [hK.2.2]
   obtain ⟨-, hfit₀, -⟩ := sqK_source hℓ h0 hfrP₀ hfit ht'
-  have hfam : ∀ t', SetTheory.app (fixFamI u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+  have hfam : ∀ t', SetTheory.app (fixFamI tbl u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univZero : V) := by
     intro t'
-    have := famApp_mem_univ (fixFamI_mem u 0 (consList ps ρb) Ids rss tlss Eiss Fss₀ Ess) t'
+    have := famApp_mem_univ (fixFamI_mem tbl u 0 (consList ps ρb) Ids rss tlss Eiss Fss₀ Ess) t'
     rwa [univ_zero] at this
-  have hfam₀ : ∀ t', SetTheory.app (fixFamI u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
+  have hfam₀ : ∀ t', SetTheory.app (fixFamI tbl u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess) t'
       ∈ˢ (univ 0 : V) := by
     intro t'; rw [univ_zero]; exact hfam t'
   have hlenF₀ : (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).length = (Fss.getD 0 []).length := by
@@ -610,7 +648,7 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
   have hlenbs : bs.length = ((tlss.getD 0 []).getD i []).length := by rw [hbs.length_eq, List.length_map]
   have hEq : ((Eiss.getD 0 []).getD i []).map
       (interp V (consList (ps ++ (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).take i ++ bs)
-        (cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)))
+        (cons (rStar tbl ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb)))
       = ((Eiss.getD 0 []).getD i []).map
         (interp V (consList (ps ++ (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).take i ++ bs) ρb)) := by
     apply List.map_congr_left
@@ -636,9 +674,9 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     kframe_frameIdx' hv.length_eq]
 
 /-- **The candidate is a fixed point of the step.** -/
-theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb)
-      = rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb := by
+theorem rStar_fixed (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb)
+      = rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb := by
   by_cases hu : s = 0
   · have hℓ : ℓ = 0 := (recSort_zero_iff h).mp hu
     unfold stepVI rStar
@@ -654,9 +692,9 @@ theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rd
     have hcl : ∀ k d, rds[k]? = some d → Term.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
       simpa using h.hclosed
     have := lamTower_congr_bottom (m := ℓ) (ds := rds) (as := [])
-      (ρ₁ := cons (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (ρ₂ := ρb)
-      (g₁ := fun σ => interp V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss))
-      (g₂ := gStar ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss) hcl ?_
+      (ρ₁ := cons (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb) (ρ₂ := ρb)
+      (g₁ := fun σ => interp V σ (fixRecBodyAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss))
+      (g₂ := gStar tbl ℓ u w Fss Ess Fss₀ Ids rss tlss Eiss) hcl ?_
     · exact this
     · intro bs hsp
       simp only [List.nil_append, consList_nil] at hsp ⊢
@@ -672,26 +710,26 @@ theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rd
 /-! ## The selection -/
 
 /-- The sigma type's fibre function. -/
-noncomputable def sigBKI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
+noncomputable def sigBKI (tbl : List (List Nat)) (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat)
     (ρb : Nat → V) : V :=
   lamR 1 (interp V ρb (recTyAV Fss.length Ids.length rds)) fun r =>
-    eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r
+    eqv (SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r
 
 /-- The sigma type's value. -/
-noncomputable def sigKI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
+noncomputable def sigKI (tbl : List (List Nat)) (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat)
     (ρb : Nat → V) : V :=
   sigmaSet s (interp V ρb (recTyAV Fss.length Ids.length rds))
-    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r
+    fun r => SetTheory.app (sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r
 
 theorem sigBKI_app {ρb : Nat → V} {r : V} (hr : r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds)) :
-    SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r
-      = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r :=
+    SetTheory.app (sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r
+      = eqv (SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r :=
   app_lamR_pos Nat.one_ne_zero hr
 
 theorem sigBKI_mem (ρb : Nat → V) :
-    sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb
+    sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb
       ∈ˢ psigmaFibreSpace V 0 (interp V ρb (recTyAV Fss.length Ids.length rds)) :=
   lamR_mem fun _ _ => by rw [univ_zero]; exact eqv_mem_univZero _ _
 
@@ -713,10 +751,10 @@ theorem pt_mem_dnegSpace2' {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace
   exact pt_mem_unitSet
 
 /-- **The sigma type's facts**: its value, its formation, its grading. -/
-theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∧
-      sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∈ˢ (univ (s) : V) ∧
-      WellDenoted V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+theorem fixSigAVI_facts (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    interp V ρb (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∧
+      sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb ∈ˢ (univ (s) : V) ∧
+      WellDenoted V ρb (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
   obtain ⟨hTu, hTok⟩ := h.hRecTy ρb
   obtain ⟨hsv, hsm, hsok⟩ := stepAV_facts h ρb
   have hu0 : s = 0 → interp V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
@@ -725,17 +763,17 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
   have hT1 : ∀ r : V, interp V (cons r ρb) ((recTyAV Fss.length Ids.length rds).liftN 1 0)
       = interp V ρb (recTyAV Fss.length Ids.length rds) := by
     intro r; rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
-  have hs1 : ∀ r : V, interp V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0)
-      = stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
+  have hs1 : ∀ r : V, interp V (cons r ρb) ((fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0)
+      = stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
     intro r; rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero, hsv]
-  have hs1ok : ∀ r : V, WellDenoted V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) := by
+  have hs1ok : ∀ r : V, WellDenoted V (cons r ρb) ((fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) := by
     intro r; rw [WellDenoted_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hsok
   have hbody : ∀ r : V, r ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) →
       interp V (cons r ρb) (.eqE
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))
-        = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r ∧
+        (.app ((fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))
+        = eqv (SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r) r ∧
       WellDenoted V (cons r ρb) (.eqE
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)) := by
+        (.app ((fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)) := by
     intro r hr
     refine ⟨?_, ?_⟩
     · rw [interp_eqE, interp_app, hs1, interp_bvar, cons_zero]
@@ -746,21 +784,21 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
       · rw [interp_bvar, cons_zero]; exact hr
   have hlamv : interp V ρb (.lam 1 (recTyAV Fss.length Ids.length rds)
       (.eqE
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)))
-      = sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
+        (.app ((fixStepAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)))
+      = sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
     unfold sigBKI
     rw [interp_lam]
     exact lamR_congr fun r hr => (hbody r hr).1
   have hps := psigmaV_mem_gen (V := V) (s) 0
   rw [max_zero'] at hps
-  have hv : interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
+  have hv : interp V ρb (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
     show SetTheory.app (SetTheory.app (psigmaV V (s) 0)
       (interp V ρb (recTyAV Fss.length Ids.length rds))) (interp V ρb (.lam 1 _ _)) = _
     rw [hlamv, psigmaV_app V hTu (sigBKI_mem ρb), max_zero']
     rfl
   refine ⟨hv, ?_, ?_⟩
   · have := sigma_mem_univ (u := s) (v := 0) hTu
-      (fun r hr => psigmaFibre_apply V (sigBKI_mem (ℓ := ℓ) (w := w) (nP := nP) (Fss := Fss) (Ess := Ess)
+      (fun r hr => psigmaFibre_apply V (sigBKI_mem (tbl := tbl) (ℓ := ℓ) (w := w) (nP := nP) (Fss := Fss) (Ess := Ess)
         (Ids := Ids) (rss := rss) (tlss := tlss) (Eiss := Eiss) (rds := rds) (s := s) ρb) hr)
     rwa [max_zero'] at this
   · show WellDenoted V ρb (.app (.app (.const .psigma [s, 0]) _) _)
@@ -782,13 +820,13 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
 
 /-- **The selected fixed point** — the recursor leaf's value: in the
 recursor's type, a fixed point of the step, graded. -/
-theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
+theorem fixSelAVI_facts (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
         ∈ˢ interp V ρb (recTyAV Fss.length Ids.length rds) ∧
-      SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb)
-          (interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
-        = interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
-      WellDenoted V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+      SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb)
+          (interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
+        = interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
+      WellDenoted V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
   obtain ⟨hSv, hSu, hSok⟩ := fixSigAVI_facts h ρb
   obtain ⟨hTu, hTok⟩ := h.hRecTy ρb
   have hu0 : s = 0 → interp V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
@@ -796,26 +834,26 @@ theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
   -- the sigma type is inhabited by the candidate
   have hr₀ := rStar_mem h ρb
   have hfix₀ := rStar_fixed h ρb
-  have hSne : ∃ x, x ∈ˢ sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
+  have hSne : ∃ x, x ∈ˢ sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
     by_cases hu : s = 0
     · refine ⟨pt, ?_⟩
       unfold sigKI
       subst hu
-      exact pt_mem_sigma (a := rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) (b := pt) hr₀
+      exact pt_mem_sigma (a := rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) (b := pt) hr₀
         (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
-    · refine ⟨spair (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) pt, ?_⟩
+    · refine ⟨spair (rStar tbl ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) pt, ?_⟩
       exact spair_mem hu hr₀ (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
   have hchoice : interp V ρb (AnnotTerm.mkAppN (.const .choice [s])
-      [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]) = schoice (sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) := by
+      [fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]) = schoice (sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) := by
     show SetTheory.app (SetTheory.app (choiceV V (s))
-      (interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))) pt = _
+      (interp V ρb (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))) pt = _
     rw [hSv]
     exact choiceV_app V hSu (pt_mem_dnegSpace2' hSne.choose_spec)
   have hsel := schoice_mem hSne.choose_spec
   obtain ⟨a, b, ha, hb, hz, hpos⟩ := mem_sigma_elim hsel
   rw [sigBKI_app ha] at hb
-  have hfixa : SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) a = a := eq_of_mem_eqv hb
-  have hval : interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = a := by
+  have hfixa : SetTheory.app (stepVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) a = a := eq_of_mem_eqv hb
+  have hval : interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = a := by
     show sfst (interp V ρb (AnnotTerm.mkAppN (.const .choice [s]) [_, .prf])) = a
     rw [hchoice]
     by_cases hu : s = 0
@@ -827,20 +865,20 @@ theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
       (fun A => piR (s) (dnegSpace V A) fun _ => A) :=
     lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg V hh).choose_spec
   show WellDenoted V ρb (.fst (AnnotTerm.mkAppN (.const .choice [s])
-    [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]))
+    [fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]))
   rw [WellDenoted_fst]
   refine ⟨?_, s, 0, interp V ρb (recTyAV Fss.length Ids.length rds),
-    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r, ?_, ?_, ?_⟩
+    fun r => SetTheory.app (sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r, ?_, ?_, ?_⟩
   · show WellDenoted V ρb (.app (.app (.const .choice [s]) _) .prf)
     rw [WellDenoted_app]
-    refine ⟨?_, trivial, s, dnegSpace V (sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb),
-      fun _ => sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb, ?_, ?_, ?_⟩
+    refine ⟨?_, trivial, s, dnegSpace V (sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb),
+      fun _ => sigKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb, ?_, ?_, ?_⟩
     · rw [WellDenoted_app]
       refine ⟨trivial, hSok, s, univ (s),
         fun A => piR (s) (dnegSpace V A) fun _ => A, hchoiceV, hSv ▸ hSu, fun hu0 A _ => ?_⟩
       show piR (s) _ _ ∈ˢ _
       rw [hu0]; exact piR_zero_mem_univZero
-    · show SetTheory.app (choiceV V (s)) (interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ∈ˢ _
+    · show SetTheory.app (choiceV V (s)) (interp V ρb (fixSigAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ∈ˢ _
       rw [hSv]
       refine app_mem_piR hchoiceV hSu (fun hu0 A _ => ?_)
       show piR (s) _ _ ∈ˢ _
@@ -852,26 +890,26 @@ theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
   · rw [hchoice, max_zero']; exact hsel
   · exact hTu
   · intro r hr
-    show SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r ∈ˢ _
+    show SetTheory.app (sigBKI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r ∈ˢ _
     rw [sigBKI_app hr, univ_zero]; exact eqv_mem_univZero _ _
 
 /-! ## The leaf -/
 
 /-- The recursor leaf: the selected fixed point (a closed term). -/
-def nativeRecAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
+def nativeRecAVI (tbl : List (List Nat)) (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat) :
     AnnotTerm :=
-  fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s
+  fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s
 
 /-- **The leaf inhabits the recursor's type's reading.** -/
-theorem nativeRecAVI_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    interp V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
+theorem nativeRecAVI_mem (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    interp V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
       ∈ˢ interp V ρb (mkPisAV rds (recConcAV Fss.length Ids.length)) :=
   (fixSelAVI_facts h ρb).1
 
 /-- **The leaf is graded.** -/
-theorem nativeRecAVI_wellDenoted (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
-    WellDenoted V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) :=
+theorem nativeRecAVI_wellDenoted (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (ρb : Nat → V) :
+    WellDenoted V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s) :=
   (fixSelAVI_facts h ρb).2.2
 
 /-- **The recursor's iota**: at a fitting spine whose major is
@@ -879,11 +917,12 @@ constructor `j`'s value, the recursor at the spine is minor `j` at the
 fields and at the inductive hypotheses — the λ-towers over the
 recursive fields' telescopes of the recursor itself at the block, the
 calls' index values and the field applied to the telescope's values. -/
-theorem nativeRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0)
+theorem nativeRecAVI_iota (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) (hw : w ≠ 0)
     (hℓ : ℓ ≠ 0) (ρb : Nat → V) {as : List V} {t : V} (hsp : SpineFit ρb (rds.map (·.2.2)) (as ++ [t]))
-    {j : Nat} (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
-    (hmaj : t = inj j (mkTower (fs ++ [pt]))) :
-    (as ++ [t]).foldl SetTheory.app (interp V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
+    {jc j : Nat} (hJ : j = tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList as ρb))) jc)
+    (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
+    (hmaj : t = inj jc (mkTower (fs ++ [pt]))) :
+    (as ++ [t]).foldl SetTheory.app (interp V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
       = (fs ++ (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
           lamTower ℓ (consList (fs.take i) (frP Fss.length Ids.length (consList as ρb)))
             ((tlss.getD j []).getD i []) fun σ' =>
@@ -891,23 +930,28 @@ theorem nativeRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss E
                 (((Eiss.getD j []).getD i []).map (interp V σ')) ++
                 [(frameIdx ((tlss.getD j []).getD i []).length σ').foldl SetTheory.app (fs.getD i pt)]).foldl
                 SetTheory.app
-                (interp V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))).foldl SetTheory.app
+                (interp V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))).foldl SetTheory.app
           (frMs Fss.length Ids.length (consList as ρb) j) := by
   obtain ⟨hR, hfix, -⟩ := fixSelAVI_facts h ρb
   have hu : s ≠ 0 := fun h0 => hℓ ((recSort_zero_iff h).mp h0)
   have hcl : ∀ k d, rds[k]? = some d → Term.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
     simpa using h.hclosed
   -- the spine fits over the function too
-  have hsp' : SpineFit (cons (interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ρb)
+  have hsp' : SpineFit (cons (interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ρb)
       (rds.map (·.2.2)) (as ++ [t]) :=
     spineFit_closed_bottom (as := []) (ρ₁ := ρb) hcl hsp
   obtain ⟨as₀, is, rfl, hl₀, hli⟩ := kframe_split h hsp
+  have hJ' : j = tagOf tbl Fss.length (tupW u (frameIdx Ids.length (consList (as₀ ++ is)
+      (cons (interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ρb)))) jc := by
+    rw [frameIdx_of Ids.length hli]
+    rw [frameIdx_of Ids.length hli] at hJ
+    exact hJ
   -- unfold once, then fold the tower along the spine
   unfold nativeRecAVI
   conv => lhs; rw [← hfix]
   unfold stepVI
   rw [app_lamR_pos hu hR, lamTower_fold hℓ hsp']
-  rw [body_iota h hw hℓ ρb hR hsp' hj hlen hmaj]
+  rw [body_iota h hw hℓ ρb hR hsp' hJ' hj hlen hmaj]
   rw [frMs_bottom (nP := nP) hl₀ hli (cons _ ρb) ρb hj]
   congr 2
   apply List.map_congr_left
@@ -929,7 +973,7 @@ theorem nativeRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss E
   have hlenbs : bs.length = ((tlss.getD j []).getD i []).length := by rw [hbs.length_eq, List.length_map]
   have hEq : ((Eiss.getD j []).getD i []).map
       (interp V (consList (as₀.take nP ++ fs.take i ++ bs)
-        (cons (interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ρb)))
+        (cons (interp V ρb (fixSelAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ρb)))
       = ((Eiss.getD j []).getD i []).map (interp V (consList (as₀.take nP ++ fs.take i ++ bs) ρb)) := by
     apply List.map_congr_left
     intro E hE
@@ -943,7 +987,7 @@ theorem nativeRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss E
 /-- **The squash body's ih values do not see the bottom**: the
 telescopes and the index expressions are scoped at the field's frame
 (task #202 A2). -/
-theorem sqIhValsK_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+theorem sqIhValsK_bottom (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     {ps : List V} (hlenP : ps.length = nP) (ms : List V) (M r : V) {fs : List V}
     (hlenF : fs.length = (Fss.getD 0 []).length) (ρ₁ ρ₂ : Nat → V) :
     sqIhValsK ℓ (consList ps ρ₁) ps ms M r (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
@@ -985,15 +1029,15 @@ fitting spine `p⃗ M m⃗ ı⃗ t` (the major a proof), the recursor is the
 values — and the ih values, the λ-towers over the recursive fields'
 telescopes of the recursor at the block, the calls' index values and
 the field applied along the telescope. -/
-theorem nativeRecAVI_iota_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+theorem nativeRecAVI_iota_sq (h : FixPre V tbl ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hw : w = 0) (hℓ : ℓ ≠ 0) (ρb : Nat → V) {ps ms is : List V} {M t : V}
     (hlenP : ps.length = nP) (hlenM : ms.length = Fss.length) (hlenI : is.length = Ids.length)
     (hsp : SpineFit ρb (rds.map (·.2.2)) (ps ++ [M] ++ ms ++ is ++ [t])) :
     (ps ++ [M] ++ ms ++ is ++ [t]).foldl SetTheory.app
-        (interp V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
+        (interp V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
       = (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) ++
           sqIhValsK ℓ (consList ps ρb) ps ms M
-            (interp V ρb (nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
+            (interp V ρb (nativeRecAVI tbl ℓ w nP Fss Ess Ids rss tlss Eiss rds s))
             (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 []) (Fss.getD 0 []).length
             (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length))).foldl
           SetTheory.app (ms.getD 0 pt) := by
@@ -1003,7 +1047,7 @@ theorem nativeRecAVI_iota_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tls
   have hcl : ∀ k d, rds[k]? = some d → Term.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
     simpa using h.hclosed
   unfold nativeRecAVI
-  generalize hr : interp V ρb (fixSelAVI ℓ 0 nP Fss Ess Ids rss tlss Eiss rds s) = r at hR hfix ⊢
+  generalize hr : interp V ρb (fixSelAVI tbl ℓ 0 nP Fss Ess Ids rss tlss Eiss rds s) = r at hR hfix ⊢
   have hsp' : SpineFit (cons r ρb) (rds.map (·.2.2)) (ps ++ [M] ++ ms ++ is ++ [t]) :=
     spineFit_closed_bottom (as := []) (ρ₁ := ρb) hcl hsp
   -- unfold once, then fold the tower along the spine
@@ -1015,7 +1059,7 @@ theorem nativeRecAVI_iota_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tls
   obtain ⟨-, ht₁⟩ := h.hK (cons r ρb) (ps ++ [M] ++ ms ++ is) t hsp'
   rw [consList_kframe] at hKI ht₁
   have ht₁' : t ∈ˢ SetTheory.app
-      (fixFamI u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) := by
+      (fixFamI tbl u 0 (consList ps (cons r ρb)) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is) := by
     unfold famK at ht₁
     rwa [kframe_frP' (M := M) hlenI hlenM, kframe_frameIdx' hlenI] at ht₁
   rw [← consList_snoc', consList_kframe, fixRecBodyAVI_sq hℓ]

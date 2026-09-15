@@ -36,12 +36,53 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## The injection, spelled at a frame -/
 
-/-- `PSigma'.mk Nat (λ k, case k) tag payload`, spelled `d` binders below
-the parameter frame (the tower bodies are scoped there). -/
-def sumInjAtAV (w : Nat) (Fss : List (List AnnotTerm)) (d : Nat) (tag payload : AnnotTerm) : AnnotTerm :=
-  AnnotTerm.mkAppN (.const .psigmaMk [w, w])
-    [natAV, .lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)),
-      tag, payload]
+/-- The constructor leaf's fibre-selector scrutinee (task #279 D-1,
+DESIGN §M.60): the flat position of member `m`'s constructor at the
+local tag `.bvar 0`; the local tag itself at the empty table. -/
+def leafScrutAV (tbl : List (List Nat)) (n m : Nat) : AnnotTerm :=
+  flatTagAV tbl n (numeralAV m) (.bvar 0)
+
+/-- The scrutinee at the tag frame `cons k σ`: the flat position
+`flatOf tbl n m (natIdx k)`, in `ω`, graded. -/
+theorem leafScrutAV_facts {tbl : List (List Nat)} {n m : Nat} {σ : Nat → V} {k : V}
+    (hk : k ∈ˢ (omega : V)) :
+    interp V (cons k σ) (leafScrutAV tbl n m) = vnat (flatOf tbl n m (natIdx k)) ∧
+    interp V (cons k σ) (leafScrutAV tbl n m) ∈ˢ (omega : V) ∧
+    WellDenoted V (cons k σ) (leafScrutAV tbl n m) := by
+  cases tbl with
+  | nil =>
+    show interp V (cons k σ) (.bvar 0) = vnat (natIdx k) ∧ interp V (cons k σ) (.bvar 0) ∈ˢ _ ∧
+      WellDenoted V (cons k σ) (.bvar 0)
+    rw [interp_bvar, cons_zero, vnat_natIdx_of_mem hk]
+    exact ⟨rfl, hk, trivial⟩
+  | cons r rs =>
+    exact flatTagAV_facts (tbl := r :: rs) (List.cons_ne_nil r rs) (dead := n)
+      (mem := numeralAV m) (k := .bvar 0) (σ := cons k σ) (m := m) (i := natIdx k)
+      (interp_numeralAV m _) (numeralAV_wellDenoted m _)
+      (by rw [interp_bvar, cons_zero, vnat_natIdx_of_mem hk]) trivial
+
+/-- **Member `m`'s fibre function**: its `jc`-th fibre is the flat
+chain `flatOf tbl n m jc`'s. -/
+noncomputable def sumFibreM (tbl : List (List Nat)) (m w : Nat) (ρp : Nat → V)
+    (Fss : List (List AnnotTerm)) (jc : Nat) : V :=
+  sumFibre w ρp Fss (flatOf tbl Fss.length m jc)
+
+@[simp] theorem sumFibreM_nil (m w : Nat) (ρp : Nat → V) (Fss : List (List AnnotTerm)) :
+    sumFibreM [] m w ρp Fss = sumFibre w ρp Fss := by
+  funext jc; rfl
+
+/-- `PSigma'.mk Nat (λ k, fib) tag payload` at an arbitrary fibre body
+`fib` (scoped one binder below). -/
+def psigmaMkAV (w : Nat) (fib tag payload : AnnotTerm) : AnnotTerm :=
+  AnnotTerm.mkAppN (.const .psigmaMk [w, w]) [natAV, .lam (w + 1) natAV fib, tag, payload]
+
+/-- `PSigma'.mk Nat (λ k, case (flat m k)) tag payload`, spelled `d` binders
+below the parameter frame (the tower bodies are scoped there); the
+selector is member `m`'s. -/
+def sumInjAtAV (tbl : List (List Nat)) (m w : Nat) (Fss : List (List AnnotTerm)) (d : Nat)
+    (tag payload : AnnotTerm) : AnnotTerm :=
+  psigmaMkAV w (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (leafScrutAV tbl Fss.length m))
+    tag payload
 
 /-- The semantic injection, both regimes: the point at squash. -/
 noncomputable def injW (w i : Nat) (a : V) : V := if w = 0 then pt else inj i a
@@ -56,59 +97,76 @@ theorem injW_mem {w : Nat} {f : Nat → V} {i : Nat} {a : V} (ha : a ∈ˢ f i) 
   · subst hw; rw [injW_zero]; exact pt_mem_sumSet_zero ha
   · rw [injW_pos hw]; exact inj_mem hw ha
 
-/-- The case-split fibre λ at a frame. -/
-theorem sumFibreLam_facts {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
-    {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss) :
-    interp V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))
-        = lamR (w + 1) omega (natFibre (sumFibre w ρp Fss)) ∧
-      lamR (w + 1) (omega : V) (natFibre (sumFibre w ρp Fss)) ∈ˢ psigmaFibreSpace V w omega ∧
-      WellDenoted V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0))) := by
+/-- The case-split fibre λ at a frame: member `m`'s fibre function. -/
+theorem sumFibreLam_facts {tbl : List (List Nat)} {m w : Nat} {ρp σ : Nat → V} {d : Nat}
+    (hsh : shiftE d 0 σ = ρp) {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss) :
+    interp V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1)
+          (leafScrutAV tbl Fss.length m)))
+        = lamR (w + 1) omega (natFibre (sumFibreM tbl m w ρp Fss)) ∧
+      lamR (w + 1) (omega : V) (natFibre (sumFibreM tbl m w ρp Fss)) ∈ˢ psigmaFibreSpace V w omega ∧
+      WellDenoted V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1)
+        (leafScrutAV tbl Fss.length m))) := by
+  have hcase : ∀ k : V, k ∈ˢ (omega : V) →
+      interp V (cons k σ) (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (leafScrutAV tbl Fss.length m))
+          = natFibre (sumFibreM tbl m w ρp Fss) k ∧
+        interp V (cons k σ) (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (leafScrutAV tbl Fss.length m))
+          ∈ˢ (univ w : V) ∧
+        WellDenoted V (cons k σ)
+          (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (leafScrutAV tbl Fss.length m)) := by
+    intro k hk
+    obtain ⟨hsv, hsω, hsok⟩ := leafScrutAV_facts (tbl := tbl) (n := Fss.length) (m := m) (σ := σ) hk
+    have hsh' : shiftE (d + 1) 0 (cons k σ) = ρp := by rw [shiftE_succ_cons, hsh]
+    have h := case_sel hsh' hok hsok hsω
+    refine ⟨?_, h.2.1, h.2.2⟩
+    rw [h.1, hsv, natFibre_vnat]
+    obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
+    rw [natFibre_vnat]
+    unfold sumFibreM
+    rw [natIdx_vnat]
   refine ⟨?_, ?_, ?_⟩
   · rw [interp_lam]
-    exact lamR_congr fun k hk => (case_fibre_at hsh hok hk).1
+    exact lamR_congr fun k hk => (hcase k hk).1
   · refine lamR_mem fun k hk => ?_
-    rw [← (case_fibre_at hsh hok hk).1]
-    exact (case_fibre_at hsh hok hk).2.1
+    rw [← (hcase k hk).1]
+    exact (hcase k hk).2.1
   · rw [WellDenoted_lam]
-    exact ⟨trivial, fun k hk => (case_fibre_at hsh hok hk).2.2, fun _ => (univ w : V),
-      fun k hk => (case_fibre_at hsh hok hk).2.1, fun h => absurd h (Nat.succ_ne_zero _)⟩
+    exact ⟨trivial, fun k hk => (hcase k hk).2.2, fun _ => (univ w : V),
+      fun k hk => (hcase k hk).2.1, fun h => absurd h (Nat.succ_ne_zero _)⟩
 
-/-- **The injection reads to `injW`**: the pair at a numeral tag with
-a fitting payload, the point at squash. -/
-theorem sumInjAtAV_interp {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
-    {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss) {tag payload : AnnotTerm} {i : Nat}
-    (htag : interp V σ tag = vnat i)
-    (hpay : w ≠ 0 → interp V σ payload ∈ˢ sumFibre w ρp Fss i) :
-    interp V σ (sumInjAtAV w Fss d tag payload) = injW w i (interp V σ payload) := by
-  obtain ⟨hBv, hBm, -⟩ := sumFibreLam_facts hsh hok
+/-- **The pair reads to `injW`** at any fibre λ reading to some
+`lamR (w + 1) ω B`: the pair at a numeral tag with a payload in `B`'s
+fibre there, the point at squash. -/
+theorem psigmaMkAV_interp {w : Nat} {σ : Nat → V} {fib tag payload : AnnotTerm} {B : V → V}
+    (hBv : interp V σ (.lam (w + 1) natAV fib) = lamR (w + 1) omega B)
+    (hBm : lamR (w + 1) (omega : V) B ∈ˢ psigmaFibreSpace V w omega) {i : Nat}
+    (htag : interp V σ tag = vnat i) (hpay : w ≠ 0 → interp V σ payload ∈ˢ B (vnat i)) :
+    interp V σ (psigmaMkAV w fib tag payload) = injW w i (interp V σ payload) := by
   show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (bval V .psigmaMk [w, w])
-    omega) (interp V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))))
-    (interp V σ tag)) (interp V σ payload) = _
+    omega) (interp V σ (.lam (w + 1) natAV fib))) (interp V σ tag)) (interp V σ payload) = _
   rw [hBv, htag]
   by_cases hw : w = 0
   · subst hw
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V 0 0) _) _) _) _ = _
     rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt,
       injW_zero]
-  · have hpay' : interp V σ payload
-        ∈ˢ SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) (vnat i) := by
-      rw [app_lamR_pos (Nat.succ_ne_zero w) (vnat_mem_omega i), natFibre_vnat]
+  · have hpay' : interp V σ payload ∈ˢ SetTheory.app (lamR (w + 1) omega B) (vnat i) := by
+      rw [app_lamR_pos (Nat.succ_ne_zero w) (vnat_mem_omega i)]
       exact hpay hw
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V w w) _) _) _) _ = _
     rw [psigmaMkV_app V (omega_mem_univ_pos hw) hBm (vnat_mem_omega i) hpay',
       show Nat.max w w = w from Nat.max_self w, if_neg hw, injW_pos hw]
     rfl
 
-/-- **The injection is graded**: in the graph regime the four slots
-are the pair constructor's product chain, at squash the head is the
-point and the slots are trivial. -/
-theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE d 0 σ = ρp)
-    {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss) {tag payload : AnnotTerm} {i : Nat}
+/-- **The pair is graded**: in the graph regime the four slots are the
+pair constructor's product chain, at squash the head is the point and
+the slots are trivial. -/
+theorem psigmaMkAV_wellDenoted {w : Nat} {σ : Nat → V} {fib tag payload : AnnotTerm} {B : V → V}
+    (hBv : interp V σ (.lam (w + 1) natAV fib) = lamR (w + 1) omega B)
+    (hBm : lamR (w + 1) (omega : V) B ∈ˢ psigmaFibreSpace V w omega)
+    (hBok : WellDenoted V σ (.lam (w + 1) natAV fib)) {i : Nat}
     (hoktag : WellDenoted V σ tag) (htag : interp V σ tag = vnat i)
-    (hokpay : WellDenoted V σ payload)
-    (hpay : w ≠ 0 → interp V σ payload ∈ˢ sumFibre w ρp Fss i) :
-    WellDenoted V σ (sumInjAtAV w Fss d tag payload) := by
-  obtain ⟨hBv, hBm, hBok⟩ := sumFibreLam_facts hsh hok
+    (hokpay : WellDenoted V σ payload) (hpay : w ≠ 0 → interp V σ payload ∈ˢ B (vnat i)) :
+    WellDenoted V σ (psigmaMkAV w fib tag payload) := by
   by_cases hw : w = 0
   · subst hw
     refine (mkAppN_wellDenoted_of_pt_head (f := .const .psigmaMk [0, 0]) (σ := σ) trivial ?_ ?_).1
@@ -132,25 +190,21 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
           fun _ => sigmaSet w omega fun x => SetTheory.app B x) ∈ˢ (univZero : V) :=
       fun h => absurd h hw
     have hz3 : w = 0 → ∀ a, a ∈ˢ (omega : V) →
-        piR w (SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) a)
-          (fun _ => sigmaSet w omega
-            fun x => SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) x)
+        piR w (SetTheory.app (lamR (w + 1) omega B) a)
+          (fun _ => sigmaSet w omega fun x => SetTheory.app (lamR (w + 1) omega B) x)
           ∈ˢ (univZero : V) := fun h => absurd h hw
-    have hz4 : w = 0 → ∀ x,
-        x ∈ˢ SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) (vnat i) →
-        sigmaSet w omega
-          (fun y => SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) y)
+    have hz4 : w = 0 → ∀ x, x ∈ˢ SetTheory.app (lamR (w + 1) omega B) (vnat i) →
+        sigmaSet w omega (fun y => SetTheory.app (lamR (w + 1) omega B) y)
           ∈ˢ (univZero : V) := fun h => absurd h hw
     have hm0 := psigmaMkV_ww_mem (V := V) w
     have hm1 := app_mem_piR hm0 hA hz1
     have hm2 := app_mem_piR hm1 hBm hz2
     have hm3 := app_mem_piR hm2 (vnat_mem_omega i) hz3
-    have hpay' : interp V σ payload
-        ∈ˢ SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) (vnat i) := by
-      rw [app_lamR_pos (Nat.succ_ne_zero w) (vnat_mem_omega i), natFibre_vnat]
+    have hpay' : interp V σ payload ∈ˢ SetTheory.app (lamR (w + 1) omega B) (vnat i) := by
+      rw [app_lamR_pos (Nat.succ_ne_zero w) (vnat_mem_omega i)]
       exact hpay hw
     show WellDenoted V σ (.app (.app (.app (.app (.const .psigmaMk [w, w]) natAV)
-      (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))) tag) payload)
+      (.lam (w + 1) natAV fib)) tag) payload)
     rw [WellDenoted_app]
     refine ⟨?_, hokpay, w, _, _, ?_, hpay', hz4⟩
     · rw [WellDenoted_app]
@@ -162,13 +216,33 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
         · show SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega ∈ˢ _
           rw [hbv]; exact hm1
       · show SetTheory.app (SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega)
-          (interp V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0))))
-          ∈ˢ _
+          (interp V σ (.lam (w + 1) natAV fib)) ∈ˢ _
         rw [hbv, hBv]; exact hm2
     · show SetTheory.app (SetTheory.app (SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega)
-        (interp V σ (.lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))))
-        (interp V σ tag) ∈ˢ _
+        (interp V σ (.lam (w + 1) natAV fib))) (interp V σ tag) ∈ˢ _
       rw [hbv, hBv, htag]; exact hm3
+
+/-- **The injection reads to `injW`**: the pair at a numeral tag with
+a fitting payload, the point at squash. -/
+theorem sumInjAtAV_interp {tbl : List (List Nat)} {m w : Nat} {ρp σ : Nat → V} {d : Nat}
+    (hsh : shiftE d 0 σ = ρp) {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss)
+    {tag payload : AnnotTerm} {i : Nat} (htag : interp V σ tag = vnat i)
+    (hpay : w ≠ 0 → interp V σ payload ∈ˢ sumFibreM tbl m w ρp Fss i) :
+    interp V σ (sumInjAtAV tbl m w Fss d tag payload) = injW w i (interp V σ payload) := by
+  obtain ⟨hBv, hBm, -⟩ := sumFibreLam_facts (tbl := tbl) (m := m) hsh hok
+  exact psigmaMkAV_interp hBv hBm htag (by intro hw; rw [natFibre_vnat]; exact hpay hw)
+
+/-- **The injection is graded.** -/
+theorem sumInjAtAV_wellDenoted {tbl : List (List Nat)} {m w : Nat} {ρp σ : Nat → V} {d : Nat}
+    (hsh : shiftE d 0 σ = ρp) {Fss : List (List AnnotTerm)} (hok : SumFieldsOkB w ρp Fss)
+    {tag payload : AnnotTerm} {i : Nat}
+    (hoktag : WellDenoted V σ tag) (htag : interp V σ tag = vnat i)
+    (hokpay : WellDenoted V σ payload)
+    (hpay : w ≠ 0 → interp V σ payload ∈ˢ sumFibreM tbl m w ρp Fss i) :
+    WellDenoted V σ (sumInjAtAV tbl m w Fss d tag payload) := by
+  obtain ⟨hBv, hBm, hBok⟩ := sumFibreLam_facts (tbl := tbl) (m := m) hsh hok
+  exact psigmaMkAV_wellDenoted hBv hBm hBok hoktag htag hokpay
+    (by intro hw; rw [natFibre_vnat]; exact hpay hw)
 
 /-! ## The tupler with the proof-field terminator
 
@@ -549,64 +623,71 @@ theorem pt_mem_idxEqAV_nil (ρ : Nat → V) : (pt : V) ∈ˢ interp V ρ (idxEqA
 
 /-! ## The constructor leaf -/
 
-/-- **Constructor `j`'s leaf**: the constant-bit λ-tower (bit `w`)
-over the constructor type reading's binder data with the injection
-of the point-terminated tupler at the numeral `j`. -/
-def sumMkAV (w j : Nat) (ds : List (Nat × Nat × AnnotTerm)) (Fs : List AnnotTerm)
-    (Fss : List (List AnnotTerm)) : AnnotTerm :=
-  mkLamsC w ds (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV [])))
+/-- **Constructor `jc`'s leaf** (member `m`'s `jc`-th, task #279 D-1):
+the constant-bit λ-tower (bit `w`) over the constructor type reading's
+binder data with the injection of the point-terminated tupler at the
+numeral `jc` — the member-LOCAL tag; the empty table's `jc` is the flat
+position. -/
+def sumMkAV (tbl : List (List Nat)) (m w jc : Nat) (ds : List (Nat × Nat × AnnotTerm))
+    (Fs : List AnnotTerm) (Fss : List (List AnnotTerm)) : AnnotTerm :=
+  mkLamsC w ds
+    (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV [])))
 
 /-- `MkPreS`: the constructor leaf's ONE hereditary premise — each
 parameter domain graded, and under every fitting parameter spine every
-constructor's chain is graded, this constructor's chain is the `j`-th,
-and the type reading's body reads back as SOME tagged union whose
-`j`-th fibre holds the point-terminated tuple. -/
-def MkPreS (w j : Nat) (ρ : Nat → V) (Fs : List AnnotTerm) (Fss : List (List AnnotTerm))
-    (bodyC : AnnotTerm) : List (Nat × Nat × AnnotTerm) → Prop
-  | [] => SumFieldsOkB w ρ Fss ∧ Fss[j]? = some (Fs ++ [idxEqAV []]) ∧ ∀ bs, SpineFit ρ Fs bs →
+constructor's chain is graded, this constructor's chain is the one at
+the FLAT position `flatOf tbl n m jc`, and the type reading's body reads
+back as SOME tagged union whose `jc`-th fibre holds the point-terminated
+tuple. -/
+def MkPreS (tbl : List (List Nat)) (m w jc : Nat) (ρ : Nat → V) (Fs : List AnnotTerm)
+    (Fss : List (List AnnotTerm)) (bodyC : AnnotTerm) : List (Nat × Nat × AnnotTerm) → Prop
+  | [] => SumFieldsOkB w ρ Fss ∧ Fss[flatOf tbl Fss.length m jc]? = some (Fs ++ [idxEqAV []]) ∧
+      ∀ bs, SpineFit ρ Fs bs →
       ∃ f : Nat → V, interp V (consList bs ρ) bodyC = sumSet w f ∧
-        (if w = 0 then (pt : V) else mkTower (bs ++ [pt])) ∈ˢ f j
+        (if w = 0 then (pt : V) else mkTower (bs ++ [pt])) ∈ˢ f jc
   | d :: pds => WellDenoted V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp V ρ d.2.2 → MkPreS w j (cons a ρ) Fs Fss bodyC pds
+      ∀ a, a ∈ˢ interp V ρ d.2.2 → MkPreS tbl m w jc (cons a ρ) Fs Fss bodyC pds
 
 /-- The injection body at a fitting field frame: its value and its
 grading. -/
-theorem sumInj_at_fields {w j : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
+theorem sumInj_at_fields {tbl : List (List Nat)} {m w jc : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
     {Fss : List (List AnnotTerm)} {bs : List V}
-    (hok : SumFieldsOkB w ρp Fss) (hj : Fss[j]? = some (Fs ++ [idxEqAV []]))
+    (hok : SumFieldsOkB w ρp Fss) (hj : Fss[flatOf tbl Fss.length m jc]? = some (Fs ++ [idxEqAV []]))
     (hsp : SpineFit ρp Fs bs) :
     interp V (consList bs ρp)
-        (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV [])))
-        = injW w j (if w = 0 then pt else mkTower (bs ++ [pt])) ∧
+        (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV [])))
+        = injW w jc (if w = 0 then pt else mkTower (bs ++ [pt])) ∧
       WellDenoted V (consList bs ρp)
-        (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV []))) := by
+        (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV []))) := by
   have hokF : FieldsOkB w ρp (Fs ++ [idxEqAV []]) := hok _ (List.mem_of_getElem? hj)
   have hlen : bs.length = Fs.length := hsp.length_eq
   have hsh : shiftE Fs.length 0 (consList bs ρp) = ρp := by rw [← hlen]; exact shiftE_consList bs ρp
   have hpt : (pt : V) ∈ˢ interp V (consList bs ρp) (idxEqAV []) := pt_mem_idxEqAV_nil _
   have hmk := mkTowerGoU_interp (w := w) (fun hw => hokF.toBound hw) hsp hpt
   have hpay : w ≠ 0 → interp V (consList bs ρp) (mkTowerGoU w Fs (idxEqAV []))
-      ∈ˢ sumFibre w ρp Fss j := by
+      ∈ˢ sumFibreM tbl m w ρp Fss jc := by
     intro hw
-    rw [hmk, if_neg hw, sumFibre_of_getElem? hj]
+    rw [hmk, if_neg hw]
+    unfold sumFibreM
+    rw [sumFibre_of_getElem? hj]
     exact mkTower_mem_teleOfFields hw (hsp.append ⟨hpt, trivial⟩)
-  have hv := sumInjAtAV_interp hsh hok (interp_numeralAV j _) hpay
+  have hv := sumInjAtAV_interp (tbl := tbl) (m := m) hsh hok (interp_numeralAV jc _) hpay
   rw [hmk] at hv
-  exact ⟨hv, sumInjAtAV_wellDenoted hsh hok (numeralAV_wellDenoted j _) (interp_numeralAV j _)
+  exact ⟨hv, sumInjAtAV_wellDenoted hsh hok (numeralAV_wellDenoted jc _) (interp_numeralAV jc _)
     (mkTowerGoU_wellDenoted hokF hsp hpt) hpay⟩
 
 /-- The field phase of the constructor leaf's premise (the walk
 carries the prefix spine, as `underTowerOk_fields`). -/
-theorem underTowerOkS_fields {w j : Nat} {bodyC : AnnotTerm} {ρp : Nat → V}
+theorem underTowerOkS_fields {tbl : List (List Nat)} {m w jc : Nat} {bodyC : AnnotTerm} {ρp : Nat → V}
     {Fs : List AnnotTerm} {Fss : List (List AnnotTerm)}
-    (hok : SumFieldsOkB w ρp Fss) (hj : Fss[j]? = some (Fs ++ [idxEqAV []]))
+    (hok : SumFieldsOkB w ρp Fss) (hj : Fss[flatOf tbl Fss.length m jc]? = some (Fs ++ [idxEqAV []]))
     (hbody : ∀ bs : List V, SpineFit ρp Fs bs →
       ∃ f : Nat → V, interp V (consList bs ρp) bodyC = sumSet w f ∧
-        (if w = 0 then (pt : V) else mkTower (bs ++ [pt])) ∈ˢ f j) :
+        (if w = 0 then (pt : V) else mkTower (bs ++ [pt])) ∈ˢ f jc) :
     ∀ {rest : List (Nat × Nat × AnnotTerm)} {pre : List AnnotTerm} {bs : List V},
       Fs = pre ++ rest.map (·.2.2) → SpineFit ρp pre bs →
       UnderTowerOk w (consList bs ρp)
-        (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV []))) bodyC rest
+        (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV []))) bodyC rest
   | [], pre, bs, hsplit, hsp => by
     have hspF : SpineFit ρp Fs bs := by
       rw [hsplit, List.map_nil, List.append_nil]; exact hsp
@@ -625,18 +706,18 @@ theorem underTowerOkS_fields {w j : Nat} {bodyC : AnnotTerm} {ρp : Nat → V}
       exact this
     refine ⟨hd.1, fun a ha => ?_⟩
     have hstep : UnderTowerOk w (consList (bs ++ [a]) ρp)
-        (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV []))) bodyC rest :=
+        (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV []))) bodyC rest :=
       underTowerOkS_fields hok hj hbody (pre := pre ++ [d.2.2])
         (by rw [hsplit, List.map_cons, List.append_assoc, List.singleton_append])
         (hsp.append ⟨ha, trivial⟩)
     rwa [consList_append, consList_cons, consList_nil] at hstep
 
 /-- The parameter phase: `MkPreS` walks down to the field phase. -/
-theorem underTowerOk_of_mkPreS {w j : Nat} {bodyC : AnnotTerm}
+theorem underTowerOk_of_mkPreS {tbl : List (List Nat)} {m w jc : Nat} {bodyC : AnnotTerm}
     {Fs : List AnnotTerm} {Fss : List (List AnnotTerm)} {fds : List (Nat × Nat × AnnotTerm)} :
     ∀ {pds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      MkPreS w j ρ Fs Fss bodyC pds → Fs = fds.map (·.2.2) →
-      UnderTowerOk w ρ (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV [])))
+      MkPreS tbl m w jc ρ Fs Fss bodyC pds → Fs = fds.map (·.2.2) →
+      UnderTowerOk w ρ (sumInjAtAV tbl m w Fss Fs.length (numeralAV jc) (mkTowerGoU w Fs (idxEqAV [])))
         bodyC (pds ++ fds)
   | [], ρ, h, hFs =>
     underTowerOkS_fields h.1 h.2.1 h.2.2 (pre := []) (bs := []) (by simpa using hFs) trivial
@@ -644,35 +725,35 @@ theorem underTowerOk_of_mkPreS {w j : Nat} {bodyC : AnnotTerm}
     ⟨h.1, fun a ha => underTowerOk_of_mkPreS (h.2 a ha) hFs⟩
 
 /-- **The constructor leaf inhabits its type's reading.** -/
-theorem sumMkAV_mem {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
+theorem sumMkAV_mem {tbl : List (List Nat)} {m w jc : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
     {Fss : List (List AnnotTerm)} {pds fds : List (Nat × Nat × AnnotTerm)}
     (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPreS w j ρ (fds.map (·.2.2)) Fss bodyC pds) :
-    interp V ρ (sumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss)
+    (hpre : MkPreS tbl m w jc ρ (fds.map (·.2.2)) Fss bodyC pds) :
+    interp V ρ (sumMkAV tbl m w jc (pds ++ fds) (fds.map (·.2.2)) Fss)
       ∈ˢ interp V ρ (mkPisAV (pds ++ fds) bodyC) :=
   mkLamsC_mem hz (underTowerOk_of_mkPreS hpre rfl)
 
 /-- **The constructor leaf is graded.** -/
-theorem sumMkAV_wellDenoted {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
+theorem sumMkAV_wellDenoted {tbl : List (List Nat)} {m w jc : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
     {Fss : List (List AnnotTerm)} {pds fds : List (Nat × Nat × AnnotTerm)}
     (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPreS w j ρ (fds.map (·.2.2)) Fss bodyC pds) :
-    WellDenoted V ρ (sumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss) :=
+    (hpre : MkPreS tbl m w jc ρ (fds.map (·.2.2)) Fss bodyC pds) :
+    WellDenoted V ρ (sumMkAV tbl m w jc (pds ++ fds) (fds.map (·.2.2)) Fss) :=
   mkLamsC_wellDenoted hz (underTowerOk_of_mkPreS hpre rfl)
 
 /-- **The constructor leaf's application fold** (graph regime): along
 a fitting parameter + field spine the leaf computes the injection of
-the point-terminated tupler. -/
-theorem sumMkAV_fold {w j : Nat} (hw : w ≠ 0)
+the point-terminated tupler at the LOCAL tag. -/
+theorem sumMkAV_fold {tbl : List (List Nat)} {m w jc : Nat} (hw : w ≠ 0)
     {pds fds : List (Nat × Nat × AnnotTerm)} {Fss : List (List AnnotTerm)} {ρ : Nat → V}
     {as bs : List V}
     (hsp₁ : SpineFit ρ (pds.map (·.2.2)) as)
     (hsp₂ : SpineFit (consList as ρ) (fds.map (·.2.2)) bs)
     (hok : SumFieldsOkB w (consList as ρ) Fss)
-    (hj : Fss[j]? = some (fds.map (·.2.2) ++ [idxEqAV []])) :
+    (hj : Fss[flatOf tbl Fss.length m jc]? = some (fds.map (·.2.2) ++ [idxEqAV []])) :
     (as ++ bs).foldl SetTheory.app
-        (interp V ρ (sumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss))
-      = inj j (mkTower (bs ++ [pt])) := by
+        (interp V ρ (sumMkAV tbl m w jc (pds ++ fds) (fds.map (·.2.2)) Fss))
+      = inj jc (mkTower (bs ++ [pt])) := by
   have hsp : SpineFit ρ
       (((pds ++ fds).map fun d => (w, d.2.2)).map (·.2)) (as ++ bs) := by
     have h2 : (((pds ++ fds).map fun d => (w, d.2.2)).map (·.2))
@@ -687,12 +768,12 @@ theorem sumMkAV_fold {w j : Nat} (hw : w ≠ 0)
     consList_append, (sumInj_at_fields hok hj hsp₂).1, if_neg hw, injW_pos hw]
 
 /-- **The constructor leaf at a squash instantiation is the point.** -/
-theorem sumMkAV_zero {j : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Fs : List AnnotTerm}
-    {Fss : List (List AnnotTerm)} {ρ : Nat → V} :
-    interp V ρ (sumMkAV 0 j ds Fs Fss) = (pt : V) := by
+theorem sumMkAV_zero {tbl : List (List Nat)} {m jc : Nat} {ds : List (Nat × Nat × AnnotTerm)}
+    {Fs : List AnnotTerm} {Fss : List (List AnnotTerm)} {ρ : Nat → V} :
+    interp V ρ (sumMkAV tbl m 0 jc ds Fs Fss) = (pt : V) := by
   match ds with
   | [] =>
-    show interp V ρ (sumInjAtAV 0 Fss Fs.length (numeralAV j) (mkTowerGoU 0 Fs (idxEqAV []))) = pt
+    show interp V ρ (sumInjAtAV tbl m 0 Fss Fs.length (numeralAV jc) (mkTowerGoU 0 Fs (idxEqAV []))) = pt
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V 0 0) _) _) _) _ = _
     rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt]
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ

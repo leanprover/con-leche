@@ -408,10 +408,10 @@ structure ChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (rss : L
     ∀ j, j < Fss.length →
       SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j [])
 
-theorem xChainsOk_toChainsOk {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+theorem xChainsOk_toChainsOk {tbl : List (List Nat)} {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
     {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
-    (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) : ChainsOk u w ρp Ids rss tlss Eiss Fss Ess :=
+    (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess) : ChainsOk u w ρp Ids rss tlss Eiss Fss Ess :=
   ⟨h.hI, h.hok, h.hfit⟩
 
 /-- **Member `t`'s recursor, read** (task #279 M-B′): the recursor

@@ -154,7 +154,7 @@ theorem mutualLeafApp (hlenP : pps.length = nP)
     (hIds : Idss[t]? = some Ids)
     (hleafM : ∀ σ : Nat → V, interp V σ L
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t))
+          (mutualTyAVI [] W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t))
     {as : List V} {Eis : List AnnotTerm}
     (hsp : SpineFit ρp Ids (Eis.map (interp V (consList as ρp)))) :
     interp V (consList as ρp) (AnnotTerm.mkAppN L (paramBvarsAt nP (nP + as.length) ++ Eis))
@@ -187,11 +187,12 @@ theorem mutualLeafApp (hlenP : pps.length = nP)
   have hfrIdx : ConLeche.Semantics.frameIdx nIdx
       (consList (Eis.map (interp V (consList as ρp))) ρp)
       = Eis.map (interp V (consList as ρp)) := frameIdx_consList hlenIs ρp
-  have hbase : MutualBaseI W w
+  have hbase : MutualBaseI [] W w
       (consList ((List.range nP).reverse.map ρp ++ Eis.map (interp V (consList as ρp)))
         (fun j => ρp (j + nP))) nIdx Idss rss tlss Eiss' Fss₀ Ess' t := by
     rw [hframe]
-    refine ⟨by rw [hsh]; exact hT, by rw [hsh]; exact hok, Ids, hIds, hlenIds, ?_⟩
+    refine ⟨by rw [hsh]; exact hT, by rw [hsh]; exact hok, offOk_nil _ _ _,
+      Ids, hIds, hlenIds, ?_⟩
     rw [hsh, hfrIdx]
     exact hsp
   rw [mutualTyAVI_fold hspAll hbase, hframe, hsh, hfrIdx]
@@ -207,7 +208,7 @@ theorem interp_majorAVAtK {k n : Nat} {Ms Ss : List V} (hlenP : pps.length = nP)
     (hIds : Idss[t]? = some Ids)
     (hleafM : ∀ σ : Nat → V, interp V σ L
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t))
+          (mutualTyAVI [] W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t))
     (hlenMs : Ms.length = k) (hlenSs : Ss.length = n)
     {is : List V} (hfit : SpineFit ρp Ids is) :
     interp V (consList is (consList Ss (consList Ms ρp))) (majorAVAtK L nP nIdx k n)
@@ -234,7 +235,7 @@ theorem interp_memberMotive {ψ : Name → Nat} {elimL : Level} {ℓ : Nat}
     (hIds : Idss[t]? = some Ids)
     (hleafM : ∀ σ : Nat → V, interp V σ L
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t)) :
+          (mutualTyAVI [] W w (pps ++ ips) nIdx Idss rss tlss Eiss' Fss₀ Ess' t)) :
     interp V ρp (motiveAVIL L ψ nP nIdx elimL ips)
       = memberMotSp ℓ W w ρp Idss rss tlss Eiss' Fss₀ Ess' t := by
   have hm : t < Idss.length := (List.getElem?_eq_some_iff.mp hIds).1
@@ -330,7 +331,7 @@ theorem dispCaseRec_validV (h : TagFrameHyp ℓ W w k ρp Idss Mv ms)
     ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {kx : AnnotTerm},
       RecFrameS D (tagKFrame ρp Mv ms) σ → AnnotValid V σ kx →
       AnnotValid V σ
-        (caseRecAVI (dispLevel w ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
+        (caseRecAVI [] (dispLevel w ℓ) W (rChains (k + 1) 0 Idss (List.replicate k []))
           (fun j => (Idss.getD j []).length) (fun _ _ => []) k 0 r D j kx)
   | 0, _, _, σ, _, _, _ => by
     show AnnotValid V σ (.lam (dispLevel w ℓ) (.const .empty [W]) .prf)
@@ -451,7 +452,7 @@ theorem dispTowerAV_validV (hT : TagOk W ρp Idss) (hk : Idss.length = k)
 
 /-- The tag motive is bit-valid at the parameter frame. -/
 theorem tagMotAV_validV (hT : TagOk W ρp Idss) (hv : SumFieldsValid ρp Idss)
-    (hAux : AnnotValid V ρp (auxBodyAV W w Idss rss tlss Eiss' Fss₀ Ess')) :
+    (hAux : AnnotValid V ρp (auxBodyAV [] W w Idss rss tlss Eiss' Fss₀ Ess')) :
     AnnotValid V ρp (tagMotAV ℓ W w Idss rss tlss Eiss' Fss₀ Ess') := by
   have hI := auxIds_idxOk (V := V) (ρp := ρp) hT
   unfold tagMotAV
@@ -471,7 +472,7 @@ theorem tagMotAV_validV (hT : TagOk W ρp Idss) (hv : SumFieldsValid ρp Idss)
 /-- **The motive dispatch is bit-valid.** -/
 theorem motDispAV_validV {D mOff : Nat} {σ : Nat → V} (hfr : shiftE D 0 σ = ρp)
     (hT : TagOk W ρp Idss) (hk : Idss.length = k) (hv : SumFieldsValid ρp Idss)
-    (hAux : AnnotValid V ρp (auxBodyAV W w Idss rss tlss Eiss' Fss₀ Ess')) :
+    (hAux : AnnotValid V ρp (auxBodyAV [] W w Idss rss tlss Eiss' Fss₀ Ess')) :
     AnnotValid V σ (motDispAV ℓ W w D mOff k Idss rss tlss Eiss' Fss₀ Ess') := by
   unfold motDispAV
   refine AnnotValid_mkAppN (by rw [AnnotValid_liftN, hfr]; exact dispTowerAV_validV hT hk hv) ?_
@@ -544,7 +545,7 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
     (hctor : ∀ fs : List V, SpineFit ρp Fs fs →
       (∀ E ∈ Es, WellDenoted V (consList fs ρp) E) ∧
       SpineFit ρp IdsC (idxValsAt ρp Es fs) ∧
-      ctorValI w J fs ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
+      ctorValI [] w J fs ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
         (inj (mems J) (mkTower (idxValsAt ρp Es fs ++ [pt]))))
     (hslot : ∀ i ∈ recIdx (rss.getD J []) nF, ∀ fs : List V, SpineFit ρp Fs fs →
       ∀ as : List V, SpineFit (consList (fs.take i) ρp)
@@ -557,11 +558,11 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
       as.foldl SetTheory.app (fs.getD i pt) ∈ˢ auxFib W w ρp Idss rss tlss Eiss' Fss₀ Ess'
         (inj (tgts J i) (mkTower ((((EissO.getD J []).getD i []).map
           (interp V (consList as (consList (fs.take i) ρp)))) ++ [pt])))) :
-    minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp (Ms.getD (mems J) pt) Es J fs)
+    minorSpI ℓ (fun fs => ihSpL ℓ (concI [] w ρp (Ms.getD (mems J) pt) Es J fs)
         (ihDomsIM ℓ ρp (fun i => Ms.getD (tgts J i) pt) rss tlss EissO
           (fun j' => (FssR.getD j' []).length) J fs)) Fs ρp []
       = minorSpI ℓ (fun fs => ihSpL ℓ
-          (concI w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs)
+          (concI [] w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs)
           (ihDomsI ℓ ρp dispV rss tlss Eiss' (fun j' => (FssR.getD j' []).length) J fs))
         Fs ρp [] := by
   refine minorSpI_congr_body fun fs hfs => ?_
@@ -569,8 +570,8 @@ theorem minor_space_eq (hT : TagOk W ρp Idss)
   have hlenfs : fs.length = nF := by rw [hfs.length_eq, hnF]
   obtain ⟨hEok, hEfit, hfib⟩ := hctor fs hfs
   -- the conclusions agree
-  have hconc : concI w ρp (Ms.getD (mems J) pt) Es J fs
-      = concI w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs := by
+  have hconc : concI [] w ρp (Ms.getD (mems J) pt) Es J fs
+      = concI [] w ρp dispV [tagTupleAV W (mems J) nF Idss Es] J fs := by
     have hsh : shiftE nF 0 (consList fs ρp) = ρp := by
       rw [← hlenfs]; exact shiftE_consList fs ρp
     have htup := tagTupleAV_facts hT hIdsC (d := nF) (τ := consList fs ρp) hsh hEok hEfit
@@ -631,8 +632,8 @@ structure MutualFrameOkM (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V 
   tag : TagOk W ρp Idss
   tagValid : SumFieldsValid ρp Idss
   chains : FixChainsOkI W wB ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess'
-  xchains : XChainsOk W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
-  auxValid : AnnotValid V ρp (auxBodyAV W wB Idss rss tlss Eiss' Fss₀ Ess')
+  xchains : XChainsOk [] W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
+  auxValid : AnnotValid V ρp (auxBodyAV [] W wB Idss rss tlss Eiss' Fss₀ Ess')
   fieldsB : SumFieldsOkB wB ρp FssR
   /-- the constructor's index expressions: graded, fitting its member's
   telescope, and its value in the auxiliary fibre there -/
@@ -640,7 +641,7 @@ structure MutualFrameOkM (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V 
     ∀ fs : List V, SpineFit ρp ((cd.2.2.1.drop nP).map (·.2.2)) fs →
       (∀ E ∈ cd.2.2.2.1, WellDenoted V (consList fs ρp) E) ∧
       (∀ Ids, Idss[mems J]? = some Ids → SpineFit ρp Ids (idxValsAt ρp cd.2.2.2.1 fs)) ∧
-      ctorValI wB J fs ∈ˢ auxFib W wB ρp Idss rss tlss Eiss' Fss₀ Ess'
+      ctorValI [] wB J fs ∈ˢ auxFib W wB ρp Idss rss tlss Eiss' Fss₀ Ess'
         (inj (mems J) (mkTower (idxValsAt ρp cd.2.2.2.1 fs ++ [pt])))
   /-- a recursive slot's index expressions: the same, at the target member -/
   slot : ∀ (J : Nat) (cd : CtorDatumR), cds[J]? = some cd →
@@ -687,14 +688,14 @@ structure MutualLeafHyp (V : Type w) [SetTheory V] {env : Env} (m : EnvModel V e
   hleafM : ∀ t, t < k → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
     ∀ σ : Nat → V, interp V σ (Ls.getD t default)
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W wB (pps ++ ipss.getD t []) (nIdxs.getD t 0) Idss rss tlss Eiss'
+          (mutualTyAVI [] W wB (pps ++ ipss.getD t []) (nIdxs.getD t 0) Idss rss tlss Eiss'
             Fss₀ Ess' t)
   /-- the constructors' data, positionally -/
   hcd : ∀ J cd, cds[J]? = some cd →
     cd.2.2.1.length = nP + cd.2.1 ∧
     (∀ ρp : Nat → V, Sat V (((cd.2.2.1.take nP).map (·.2.2)).reverse) ρp ↔
       Sat V ((pps.map (·.2.2)).reverse) ρp) ∧
-    m.acval cd.1 ψ = sumMkAV wB J cd.2.2.1 ((cd.2.2.1.drop nP).map (·.2.2)) (uChains FssR) ∧
+    m.acval cd.1 ψ = sumMkAV [] 0 wB J cd.2.2.1 ((cd.2.2.1.drop nP).map (·.2.2)) (uChains FssR) ∧
     Term.bvarsBelow 0 (m.acval cd.1 ψ).erase ∧
     FssR[J]? = some ((cd.2.2.1.drop nP).map (·.2.2)) ∧
     cd.2.2.2.2.1 = recIdx (rss.getD J []) cd.2.1 ∧

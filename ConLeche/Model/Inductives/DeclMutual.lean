@@ -23,7 +23,7 @@ public section
 `declMutual`: the P carrier survives the mutual install's run
 (`DeclMutualRun`).  The stages are `DeclNative.lean`'s twins —
 `stageMutualFormers` (the `k` members' conses, member `t`'s leaf the
-fibre `mutualTyAVI … t` of the ONE auxiliary family), the constructor
+fibre `mutualTyAVI [] … t` of the ONE auxiliary family), the constructor
 loop (`stageMutualCtors`, constructor `J` at its GLOBAL block
 position), `stageMutualRecs` (the `k` recursors, provisioned rule-less
 and stored as a group) and `stageMutualTables` (the structure-like
@@ -1313,8 +1313,8 @@ theorem paramsOkXI_append {u w : Nat} {Ids : List AnnotTerm} {rss : List (List B
     ∀ {ds rest : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
       (∀ d ∈ ds, d.2.1 ≠ 0) → FieldsOkB 0 ρ (ds.map (·.2.2)) →
       (∀ as : List V, SpineFit ρ (ds.map (·.2.2)) as →
-        ParamsOkXI u w (consList as ρ) Ids rss tlss Eiss Fss Ess rest) →
-      ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess (ds ++ rest)
+        ParamsOkXI [] u w (consList as ρ) Ids rss tlss Eiss Fss Ess rest) →
+      ParamsOkXI [] u w ρ Ids rss tlss Eiss Fss Ess (ds ++ rest)
   | [], _, _, _, _, h => by simpa using h [] trivial
   | d :: ds, rest, ρ, hb, hok, h => by
     refine ⟨hb d List.mem_cons_self, hok.1, fun a ha => ?_⟩
@@ -1881,7 +1881,7 @@ theorem mutualRuleOk_of {env : Env} {m : EnvModel V env} {ψ : Name → Nat} {el
     have hmot := hmotSp ρp hsatP Ms hspM (mems J) (hh.hmems J hJn)
     rw [memberMotSp_eq hF.tag (by rw [hh.hk]; exact hh.hmems J hJn)] at hmot
     show SetTheory.app ((idxValsAt ρp cd.2.2.2.1 acc).foldl SetTheory.app
-      (Ms.getD (mems J) pt)) (ctorValI wB J acc) ∈ˢ (univZero : V)
+      (Ms.getD (mems J) pt)) (ctorValI [] wB J acc) ∈ˢ (univZero : V)
     exact piTele_app_univZero h0 hmot
       (by rw [idxValsAt, List.length_map, hEsLenJ, hIdsLen _ (hh.hmems J hJn)]) _
   · -- `hzeroD`: a `Prop` ih domain is a truth value
@@ -1929,7 +1929,7 @@ theorem fixBodyAVI_validV {u w nIdx : Nat} {ρp : Nat → V} {Ids : List AnnotTe
     (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids)
     (hchains : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
       SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)) :
-    AnnotValid V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
+    AnnotValid V ρp (fixBodyAVI [] u w Ids nIdx rss tlss Eiss Fss Ess) := by
   unfold fixBodyAVI
   refine mkAppN_validV (by simp) ?_
   intro a ha
@@ -2514,7 +2514,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         mp₀.base2.acval (fms.getD (memF J) default).cvTa.name ψ'
           = mkLamsC ((fms.getD (memF J) default).s.eval ψ' + 1) (ppsF (memF J) ψ') B := by
       intro ψ'
-      refine ⟨sumBodyAV (f₀.s.eval ψ') [], ?_⟩
+      refine ⟨sumBodyAV [] (f₀.s.eval ψ') [], ?_⟩
       rw [hsEq _ _ hmtG ψ', hleaf₀ _ _ hmtG]
       rfl
     have hPropJ : (Level.isEquiv f₀.s Level.zero == some true) = true →
@@ -2539,7 +2539,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       have htl := htgt i
       have htG := hfmGet _ htl
       obtain ⟨hnm, hni⟩ := hmemT _ _ htG
-      refine ⟨ppsF (tgtAt (ksF J) i) ψ, sumBodyAV (f₀.s.eval ψ) [], ?_, ?_, hIdssGet ψ _ htl⟩
+      refine ⟨ppsF (tgtAt (ksF J) i) ψ, sumBodyAV [] (f₀.s.eval ψ) [], ?_, ?_, hIdssGet ψ _ htl⟩
       · rw [hni]; exact (hFD₁ _ _ htG).len ψ
       · rw [hnm, hsEq _ _ hmtG ψ, hleaf₀ _ _ htG]
         rfl
@@ -2567,7 +2567,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hXAll : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ∀ (ψ : Name → Nat) (ρp : Nat → V),
         Sat V (((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp →
-        XChainsOk (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf (tlssf ψ) (Eissf ψ)
+        XChainsOk [] (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ) ∧
           ∀ X, X ∈ˢ lfpFamSpace V (f₀.s.eval ψ) (idxSet (Wf ψ) ρp (auxIds (Wf ψ) (Idssf ψ))) →
             ∀ τ, τ ∈ˢ idxSet (Wf ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) →
@@ -2809,7 +2809,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         Sat V (((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp →
         FixChainsOkI (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) 1 rssf (tlssf ψ)
           (Eissf ψ) (Fss0f ψ) (Essf ψ) ∧
-        ChainsRealI (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        ChainsRealI (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf
           (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ) (Essf ψ) ∧
         (∀ X, X ∈ˢ lfpFamSpace V (f₀.s.eval ψ) (idxSet (Wf ψ) ρp (auxIds (Wf ψ) (Idssf ψ))) →
@@ -2886,7 +2886,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           rw [List.length_map, List.length_drop, (hFD₂ _ _ htG).len ψ]
           exact Nat.add_sub_cancel_left _ _
         have h1 : mp₁.base2.acval (fms.getD (tgtAt (ksF J) i) default).cvTa.name ψ
-            = mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF (tgtAt (ksF J) i) ψ)
+            = mutualTyAVI [] (Wf ψ) (f₀.s.eval ψ) (ppsF (tgtAt (ksF J) i) ψ)
                 (fms.getD (tgtAt (ksF J) i) default).nIdx (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
                 (Fss0f ψ) (Essf ψ) (tgtAt (ksF J) i) := by
           rw [hleaf₁ _ _ htG]
@@ -2894,7 +2894,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hReal : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ∀ (ψ : Name → Nat) (ρp : Nat → V),
         Sat V (((ppsF t ψ).take p.toBlock.nP).map (·.2.2)).reverse ρp →
-        ChainsRealI (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        ChainsRealI (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp (auxIds (Wf ψ) (Idssf ψ)) rssf
           (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ) (Essf ψ) :=
     fun t f hft ψ ρp hρ => (hChainFull t f hft ψ ρp hρ).2.1
@@ -2932,7 +2932,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     exact ⟨h1, h2⟩
   -- the member leaves, as the constructor stage reads them
   let leafT : Nat → (Name → Nat) → AnnotTerm := fun J ψ =>
-    mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ) (fms.getD (memF J) default).nIdx
+    mutualTyAVI [] (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ) (fms.getD (memF J) default).nIdx
       (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ) (memF J)
   have hleafTJ : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
       ∀ ψ : Name → Nat,
@@ -2973,7 +2973,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     obtain ⟨hEok, hfit⟩ := hfr.2.2.2 bs hsp
     have hA : ∀ σ : Nat → V, interp V σ (leafT J ψ)
         = interp V (fun j => ρ (j + p.toBlock.nP))
-            (mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ)
+            (mutualTyAVI [] (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ)
               (((ppsF (memF J) ψ).drop p.toBlock.nP).map (·.2.2)).length (Idssf ψ) rssf
               (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ) (memF J)) := by
       intro σ
@@ -3392,7 +3392,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           refine ⟨?_, trivial⟩
           rw [(tagTyAV_facts hTag).1]
           exact tagTuple_mem hTag hIdsM hfit
-        have hsum := fixFamI_app_eq_sum hX hRealρ hsp1
+        have hsum := fixFamI_app_eq_sum_nil hX hRealρ hsp1
         rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl] at hsum
         have hchain : (rChains 1 1 (FssRf ψ) (Essf ψ))[J]?
             = some (rChain 1 1 (((dsF J ψ).drop p.toBlock.nP).map (·.2.2))
@@ -3415,7 +3415,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
             show idxValsAt ρp [tagTupleAV (Wf ψ) (memF J) cA.2 (Idssf ψ) (esF J ψ)] fs = _
             rw [idxValsAt, List.map_singleton, hval]
             rfl
-        show ctorValI (f₀.s.eval ψ) J fs ∈ˢ _
+        show ctorValI [] (f₀.s.eval ψ) J fs ∈ˢ _
         unfold auxFib auxTup auxFamI
         rw [hsum]
         unfold ctorValI
@@ -3558,16 +3558,16 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       have hfield : fs.getD i pt ∈ˢ slotSet (f₀.s.eval ψ) (Wf ψ)
           (consList (fs.take i) ρp) (((tlssf ψ).getD J []).getD i [])
           (((Eissf ψ).getD J []).getD i [])
-          (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+          (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ)) := by
         have h := FixKI.spineFit_getD_mem' (by rw [hFssJ]; exact hfs)
           (show i < ((FssRf ψ).getD J []).length by rw [hFssJ, hlenF]; exact hilt)
         rwa [heqF] at h
       have hfamU : ∀ t : V, SetTheory.app
-          (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+          (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
             (Fss0f ψ) (Essf ψ)) t ∈ˢ (univ (f₀.s.eval ψ) : V) := by
         intro t'
-        exact famApp_mem_univ (fixFamI_mem _ _ _ _ _ _ _ _ _) t'
+        exact famApp_mem_univ (fixFamI_mem [] _ _ _ _ _ _ _ _ _) t'
       have hfold := slotSet_fold_mem hfamU hfield (by rw [htlsJ]; exact hbs')
       rw [hEisJ] at hfold
       have hfrT : shiftE (i + ((tssF J ψ).getD i []).length) 0
@@ -3652,11 +3652,11 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- **the auxiliary former's typing** (`AuxFrameOk.former`): its leaf
   -- is the fixpoint route's at the parameter-and-TAG telescope
   have hAuxParamsG : ∀ (ψ : Name → Nat) (σ : Nat → V),
-      ParamsOkXI (Wf ψ) (f₀.s.eval ψ) σ (auxIds (Wf ψ) (Idssf ψ)) rssf (tlssf ψ) (Eissf ψ)
+      ParamsOkXI [] (Wf ψ) (f₀.s.eval ψ) σ (auxIds (Wf ψ) (Idssf ψ)) rssf (tlssf ψ) (Eissf ψ)
         (Fss0f ψ) (Essf ψ)
         ((ppsF 0 ψ).take p.toBlock.nP ++ tagIps (Wf ψ) (Idssf ψ)) ∧
       UnderTowerValid σ
-        (.app ((fixBodyAVI (Wf ψ) (f₀.s.eval ψ) (auxIds (Wf ψ) (Idssf ψ))
+        (.app ((fixBodyAVI [] (Wf ψ) (f₀.s.eval ψ) (auxIds (Wf ψ) (Idssf ψ))
             (auxIds (Wf ψ) (Idssf ψ)).length rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ)).liftN
               (auxIds (Wf ψ) (Idssf ψ)).length 0)
           (mkTowerGo (Wf ψ) (auxIds (Wf ψ) (Idssf ψ))))
@@ -3685,7 +3685,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         obtain ⟨hFix, -, hXV⟩ := hChainFull 0 f₀ hf0 ψ (consList ps σ) (hstep ps hps)
         refine ⟨hTag.1, (tagTyAV_facts hTag).2.2, fun a' ha' => ?_⟩
         rw [(tagTyAV_facts hTag).1] at ha'
-        refine ⟨?_, ?_, ?_⟩
+        refine ⟨?_, ?_, ?_, offOk_nil _ _ _⟩
         · show IdxOk (Wf ψ) (shiftE 1 0 (cons a' (consList ps σ))) (auxIds (Wf ψ) (Idssf ψ))
           rw [show shiftE 1 0 (cons a' (consList ps σ)) = consList ps σ from by
             rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]]
@@ -3727,7 +3727,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (by rw [List.length_take, (hFD₂ 0 f₀ hf0).len ψ]; omega)
         (hIdsBelow ψ) (hchainBelow ψ)
     refine ⟨fun σ => ⟨?_, ?_⟩, fun σ => ?_, ?_⟩
-    · show WellDenoted V σ (nativeTyAVI (Wf ψ) (f₀.s.eval ψ)
+    · show WellDenoted V σ (nativeTyAVI [] (Wf ψ) (f₀.s.eval ψ)
         ((ppsF 0 ψ).take p.toBlock.nP ++ tagIps (Wf ψ) (Idssf ψ)) (auxIds (Wf ψ) (Idssf ψ))
         rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ))
       exact nativeTyAVI_wellDenoted (hAuxParamsG ψ σ).1
@@ -4023,16 +4023,16 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     have hfield : fs.getD i pt ∈ˢ slotSet (f₀.s.eval ψ) (Wf ψ)
         (consList (fs.take i) ρp) (((tlssf ψ).getD J []).getD i [])
         (((Eissf ψ).getD J []).getD i [])
-        (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
           (Fss0f ψ) (Essf ψ)) := by
       have h := FixKI.spineFit_getD_mem' (by rw [hFssJ]; exact hfs)
         (show i < ((FssRf ψ).getD J []).length by rw [hFssJ, hlenF]; exact hilt)
       rwa [heqF] at h
     have hfamU : ∀ t : V, SetTheory.app
-        (auxFamI (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
+        (auxFamI [] (Wf ψ) (f₀.s.eval ψ) ρp (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
           (Fss0f ψ) (Essf ψ)) t ∈ˢ (univ (f₀.s.eval ψ) : V) := by
       intro t'
-      exact famApp_mem_univ (fixFamI_mem _ _ _ _ _ _ _ _ _) t'
+      exact famApp_mem_univ (fixFamI_mem [] _ _ _ _ _ _ _ _ _) t'
     refine ⟨hSlotFit.1, by rw [htlsJ]; exact hTV.1,
       tgtAt (ksF J) i, (eissF J ψ).getD i [], by rw [hEisJ, htlsJ], fun bs hbs => ?_⟩
     have hbs' : SpineFit (consList (fs.take i) ρp)
@@ -4129,9 +4129,9 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- (`auxRecLeafFacts`' `hchains`)
   have hchainsG : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V ((((ppsF 0 ψ).take p.toBlock.nP).map (·.2.2)).reverse) ρp →
-      XChainsOk (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) rssf (tlssf ψ)
+      XChainsOk [] (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) rssf (tlssf ψ)
           (Eissf ψ) (Fss0f ψ) (Essf ψ) ∧
-      ChainsRealI (fixFamI (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) 1
+      ChainsRealI (fixFamI [] (Wf ψ) (f₀.s.eval ψ) ρp ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) 1
           rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ)) (Wf ψ) (f₀.s.eval ψ) ρp
           ((tagIps (Wf ψ) (Idssf ψ)).map (·.2.2)) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (FssRf ψ)
           (Essf ψ) ∧
@@ -4188,7 +4188,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
               cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
           = minorSpI (p.toBlock.elimLevel.eval ψ)
               (fun fs => ihSpL (p.toBlock.elimLevel.eval ψ)
-                (concI (f₀.s.eval ψ) ρp M ((Essf ψ).getD j []) j fs)
+                (concI [] (f₀.s.eval ψ) ρp M ((Essf ψ).getD j []) j fs)
                 (ihDomsI (p.toBlock.elimLevel.eval ψ) ρp M rssf (tlssf ψ) (Eissf ψ)
                   (fun j' => ((FssRf ψ).getD j' []).length) j fs))
               ((FssRf ψ).getD j []) ρp [] := by
@@ -4335,7 +4335,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         omega]
       exact tagTupleAV_belowM (nP := p.toBlock.nP) (W := Wf ψ) (m := memF j) (d := nFs j)
         (hIdsBelow ψ) (fun E hE => (hCD₀ j _ (hcAGet j hj)).belowE ψ E hE)
-    show Term.bvarsBelow 0 (nativeRecAVI _ _ _ (FssRf ψ) (Essf ψ) (auxIds (Wf ψ) (Idssf ψ))
+    show Term.bvarsBelow 0 (nativeRecAVI [] _ _ _ (FssRf ψ) (Essf ψ) (auxIds (Wf ψ) (Idssf ψ))
       rssf (tlssf ψ) (Eissf ψ) (auxRecDataAV mp₂.base2 ψ (Wf ψ) (f₀.s.eval ψ) p.toBlock.nP
         p.toBlock.elimLevel ((ppsF 0 ψ).take p.toBlock.nP) (Idssf ψ) rssf (tlssf ψ) (Eissf ψ)
         (Fss0f ψ) (Essf ψ) memF (fun J => tgtAt (ksF J))
@@ -4573,7 +4573,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       have hqf := hfmGet q hq
       -- the leaf as it is STORED: member `q`'s OWN parameter telescope
       have hLq : (prts.Ls ψ).getD q default
-          = mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF q ψ) (fms.getD q default).nIdx
+          = mutualTyAVI [] (Wf ψ) (f₀.s.eval ψ) (ppsF q ψ) (fms.getD q default).nIdx
               (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ) q := by
         rw [show (prts.Ls ψ).getD q default = prts.Lof q ψ from getD_range_map _ _ _ hq _]
         show mp₂.base2.acval (fms.getD q default).cvTa.name ψ = _
@@ -4910,7 +4910,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (ConLeche.consMutualFormers fms env)) cA.1.type := fun J' cA hJ' =>
     constsBound_of_constsResolve _ (Expr.constsResolve_le hFPcS (hresC J' cA hJ'))
   -- **the auxiliary recursor's premise** (`auxFixPre_of`, `ruleFires_of`'s `hpre`)
-  have hpreG : ∀ ψ : Name → Nat, FixPre V (prts.ℓ ψ) (prts.wB ψ) (prts.W ψ) prts.nP
+  have hpreG : ∀ ψ : Name → Nat, FixPre V [] (prts.ℓ ψ) (prts.wB ψ) (prts.W ψ) prts.nP
       (prts.FssR ψ) (prts.Ess' ψ) (prts.Fss₀ ψ) (auxIds (prts.W ψ) (prts.Idss ψ)) prts.rss
       (prts.tlss ψ) (prts.Eiss' ψ)
       (auxRecDataAV mp₂.base2 ψ (prts.W ψ) (prts.wB ψ) prts.nP prts.elimL (prts.ppsOf 0 ψ)
@@ -6734,7 +6734,7 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       rw [hmemD] at h
       show mp₂.base2.acval q.1.cvTa.name ψ = _
       rw [h]
-      show mutualTyAVI (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ)
+      show mutualTyAVI [] (Wf ψ) (f₀.s.eval ψ) (ppsF (memF J) ψ)
           (fms.getD (memF J) default).nIdx (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ)
           (Essf ψ) (memF J) = _
       rw [hmemJ, hgetD, hnIdx, hsq ψ]
@@ -6760,22 +6760,22 @@ theorem declMutualCore (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         rwa [show ((ppsF q.2 ψ).drop p.toBlock.nP).map (·.2.2) = [] from by
           rw [List.drop_eq_nil_of_le (by rw [(hFD₂ _ _ hget).len ψ, hnIdx]; omega),
             List.map_nil]] at h
-      have hbase : MutualBaseI (Wf ψ) (f₀.s.eval ψ) (consList ts ρ) 0 (Idssf ψ) rssf (tlssf ψ)
+      have hbase : MutualBaseI [] (Wf ψ) (f₀.s.eval ψ) (consList ts ρ) 0 (Idssf ψ) rssf (tlssf ψ)
           (Eissf ψ) (Fss0f ψ) (Essf ψ) q.2 :=
         ⟨by rw [shiftE_zero_zero]; exact hTag, by rw [shiftE_zero_zero]; exact hFix,
-          [], hIdsQ, rfl, by rw [shiftE_zero_zero]; exact trivial⟩
+          offOk_nil _ _ _, [], hIdsQ, rfl, by rw [shiftE_zero_zero]; exact trivial⟩
       have hsp1 : SpineFit (consList ts ρ) (auxIds (Wf ψ) (Idssf ψ))
           [inj q.2 (mkTower [pt])] := by
         refine ⟨?_, trivial⟩
         rw [(tagTyAV_facts hTag).1]
         exact tagTuple_mem hTag hIdsQ (show SpineFit (consList ts ρ) [] [] from trivial)
-      have hsum := fixFamI_app_eq_sum hX hRealρ hsp1
+      have hsum := fixFamI_app_eq_sum_nil hX hRealρ hsp1
       rw [show (auxIds (Wf ψ) (Idssf ψ)).length = 1 from rfl] at hsum
-      show ts.foldl SetTheory.app (interp V ρ (mutualTyAVI (Wf ψ) (q.1.s.eval ψ) (ppsF q.2 ψ) 0
+      show ts.foldl SetTheory.app (interp V ρ (mutualTyAVI [] (Wf ψ) (q.1.s.eval ψ) (ppsF q.2 ψ) 0
           (Idssf ψ) rssf (tlssf ψ) (Eissf ψ) (Fss0f ψ) (Essf ψ) q.2))
         = mutualCarrierAt (q.1.s.eval ψ) q.2 (FssRf ψ) (Essf ψ) (consList ts ρ)
       rw [hsq ψ, mutualTyAVI_fold hsp hbase, shiftE_zero_zero]
-      show SetTheory.app (auxFamI (Wf ψ) (f₀.s.eval ψ) (consList ts ρ) (Idssf ψ) rssf (tlssf ψ)
+      show SetTheory.app (auxFamI [] (Wf ψ) (f₀.s.eval ψ) (consList ts ρ) (Idssf ψ) rssf (tlssf ψ)
           (Eissf ψ) (Fss0f ψ) (Essf ψ)) (auxTup (Wf ψ) (inj q.2 (mkTower [pt]))) = _
       unfold auxFamI auxTup
       rw [hsum]

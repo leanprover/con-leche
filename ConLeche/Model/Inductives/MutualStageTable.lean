@@ -359,15 +359,15 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
     (hleafT : ∀ ψ, mp.base2.acval T ψ
-      = mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) 0 (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+      = mutualTyAVI [] (W ψ) (resSort.eval ψ) (pps ψ) 0 (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
           (Ess' ψ) mIdx)
     (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
-      = sumMkAV (resSort.eval ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ)))
+      = sumMkAV [] 0 (resSort.eval ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ)))
     -- the member's carrier at fitting parameters
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ
-          (mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) 0 (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+          (mutualTyAVI [] (W ψ) (resSort.eval ψ) (pps ψ) 0 (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
             (Ess' ψ) mIdx))
         = mutualCarrierAt (resSort.eval ψ) mIdx (FssR ψ) (Ess' ψ) (consList ts ρ))
     -- the own constructor's chain sits at `J`, every other
@@ -633,7 +633,7 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
             (sorts.getD j .zero).eval (Level.substFn φ lps us) = 0 :=
         fun h0 => hguardSem i hi _ (hguardAt h0)
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = mutualTyAVI (W (Level.substFn φ lps us))
+          = mutualTyAVI [] (W (Level.substFn φ lps us))
             (resSort.eval (Level.substFn φ lps us))
             (pps (Level.substFn φ lps us)) 0 (Idss (Level.substFn φ lps us)) rss
             (tlss (Level.substFn φ lps us)) (Eiss' (Level.substFn φ lps us))
@@ -653,7 +653,7 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
         exact hCDread₂ _
       · intro hguardAt ρ ys rest hlen hok hfit
         have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
-            = sumMkAV (resSort.eval (Level.substFn φ lps us)) J
+            = sumMkAV [] 0 (resSort.eval (Level.substFn φ lps us)) J
               (ds (Level.substFn φ lps us))
               (((ds (Level.substFn φ lps us)).drop nP).map (·.2.2))
               (uChains (FssR (Level.substFn φ lps us))) := by
@@ -679,7 +679,7 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
     · intro ρ ts rest x hlents hfit hmem
       have hsp := spineFit_of_teleFit (by rw [hFD.len]; exact hlents) hfit
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = mutualTyAVI (W (Level.substFn φ lps us))
+          = mutualTyAVI [] (W (Level.substFn φ lps us))
             (resSort.eval (Level.substFn φ lps us))
             (pps (Level.substFn φ lps us)) 0 (Idss (Level.substFn φ lps us)) rss
             (tlss (Level.substFn φ lps us)) (Eiss' (Level.substFn φ lps us))
@@ -687,7 +687,7 @@ theorem stageMutualTable (mp : EnvModelM V μ env)
         show m₂.acval T (Level.substFn φ lps us) = _
         rw [hacT, hleafT]
       have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
-          = sumMkAV (resSort.eval (Level.substFn φ lps us)) J
+          = sumMkAV [] 0 (resSort.eval (Level.substFn φ lps us)) J
             (ds (Level.substFn φ lps us))
             (((ds (Level.substFn φ lps us)).drop nP).map (·.2.2))
             (uChains (FssR (Level.substFn φ lps us))) := by
@@ -764,14 +764,14 @@ conses have already grown (`MutualTableOk.cross`). -/
       (∀ k, k < c.nF → d.isProp = false →
         Level.leq ((sortss.getD J []).getD k .zero) f.s = some true) ∧
       (∀ ψ, m.acval f.cvTa.name ψ
-        = mutualTyAVI (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
+        = mutualTyAVI [] (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
             (d.Fss₀ ψ) (d.Ess' ψ) mIdx) ∧
       (∀ ψ, m.acval cvCa.name ψ
-        = sumMkAV (f.s.eval ψ) J (ds ψ) (((ds ψ).drop d.nP).map (·.2.2)) (uChains (d.FssR ψ))) ∧
+        = sumMkAV [] 0 (f.s.eval ψ) J (ds ψ) (((ds ψ).drop d.nP).map (·.2.2)) (uChains (d.FssR ψ))) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((pps ψ).map (·.2.2)) ts →
         ts.foldl SetTheory.app (interp V ρ
-            (mutualTyAVI (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
+            (mutualTyAVI [] (d.W ψ) (f.s.eval ψ) (pps ψ) 0 (d.Idss ψ) d.rss (d.tlss ψ) (d.Eiss' ψ)
               (d.Fss₀ ψ) (d.Ess' ψ) mIdx))
           = mutualCarrierAt (f.s.eval ψ) mIdx (d.FssR ψ) (d.Ess' ψ) (consList ts ρ)) ∧
       (∀ ψ, (d.FssR ψ)[J]? = some (((ds ψ).drop d.nP).map (·.2.2))) ∧

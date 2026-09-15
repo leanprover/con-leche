@@ -462,7 +462,7 @@ theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s
     (hdisp : interp V (consList (as₁ ++ Ms ++ ms ++ is ++ [t]) ρ)
         (motDispAV ℓ W w (Ls.length + cds.length + nIdxs.getD mm 0 + 1)
           (cds.length + nIdxs.getD mm 0 + 1) Ls.length Idss rss tlss Eiss' Fss₀ Ess') = dispV)
-    (hpre : FixPre V ℓ w W nP FssR Ess' Fss₀ (auxIds W Idss) rss tlss Eiss'
+    (hpre : FixPre V [] ℓ w W nP FssR Ess' Fss₀ (auxIds W Idss) rss tlss Eiss'
       (auxRecDataAV m ψ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds) s)
     (hspAux : SpineFit ρ
       ((auxRecDataAV m ψ W w nP elimL pps Idss rss tlss Eiss' Fss₀ Ess' mems tgts cds).map (·.2.2))
@@ -502,7 +502,7 @@ theorem mutualRecIotaCore {m : EnvModel V env} {ψ : Name → Nat} {ℓ W w nP s
       (by rw [← hRof mm hmm]; exact hokR mm hmm ρ) hspPub hT hIdss hidxFit hclA, hdisp]
   -- the auxiliary recursor's iota
   unfold auxRecAV
-  rw [nativeRecAVI_iota hpre hw hℓ ρ hspAux (by rw [hlenFss]; exact hj)
+  rw [nativeRecAVI_iota hpre hw hℓ ρ hspAux (jc := j) (j := j) rfl (by rw [hlenFss]; exact hj)
     (show as₂.length = (FssR.getD j []).length from by rw [hlenF, hFsj]) hmajV]
   -- the K-frame's accessors
   have hfrK : consList (as₁ ++ [dispV] ++ ms ++ [inj mm (mkTower (is ++ [pt]))]) ρ

@@ -349,7 +349,7 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
     (hi : i < nF)
     -- the family at the parameters is the one-constructor fibre
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps.map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
+      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess))
         = sumSet w (sumFibre w (consList ts ρ)
             [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]))
     (hres : ∀ ρ : Nat → V,
@@ -364,10 +364,10 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
       WellDenotedV V ρ R) :
     ∀ (ρ : Nat → V) (vs : List AnnotTerm) (x rest : AnnotTerm),
       vs.length = nP →
-      WellDenotedV V ρ (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+      WellDenotedV V ρ (AnnotTerm.mkAppN (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess) vs) →
       WellDenotedV V ρ x →
       interp V ρ x ∈ˢ interp V ρ
-        (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+        (AnnotTerm.mkAppN (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess) vs) →
       ConLeche.Model.AnnotTerm.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
       WellDenotedV V ρ (projAV (i + 1) x) ∧ WellDenotedV V ρ rest ∧
         interp V ρ (projAV (i + 1) x) ∈ˢ interp V ρ rest :=
@@ -389,13 +389,13 @@ theorem fixEntryIotaCoreT {w J nP nF i : Nat} {ds : List (Nat × Nat × AnnotTer
       SumFieldsOkB w ρ' (uChains Fss))
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
     (hok : WellDenotedV V ρ (AnnotTerm.mkAppN
-      (sumMkAV w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys)) :
+      (sumMkAV [] 0 w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys)) :
     interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
-        (sumMkAV w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys))
+        (sumMkAV [] 0 w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys))
       = interp V ρ (ys.getD (nP + i) default) := by
   have hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ)) := by
     have h := spineFit_of_wellDenotedV_mkAppN_lam (lds := ds.map fun d => (w, d.2.2))
-      (b := sumInjAtAV w (uChains Fss) ((ds.drop nP).map (·.2.2)).length
+      (b := sumInjAtAV [] 0 w (uChains Fss) ((ds.drop nP).map (·.2.2)).length
         (numeralAV J) (mkTowerGoU w ((ds.drop nP).map (·.2.2)) (idxEqAV [])))
       (σ := ρ)
       (fun d hd => by obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd; exact hw)
@@ -409,8 +409,8 @@ theorem fixEntryIotaCoreT {w J nP nF i : Nat} {ds : List (Nat × Nat × AnnotTer
   have hsat : Sat V ((ds.take nP).map (·.2.2)).reverse (consList as ρ) := by
     have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp₁
     rwa [List.append_nil] at this
-  have hfold := sumMkAV_fold (pds := ds.take nP) (fds := ds.drop nP) (j := J) hw hsp₁ hsp₂
-    (hokU _ hsat) (by rw [uChains_getElem?, hFss]; rfl)
+  have hfold := sumMkAV_fold (tbl := []) (m := 0) (pds := ds.take nP) (fds := ds.drop nP) (jc := J) hw hsp₁ hsp₂
+    (hokU _ hsat) (by rw [flatOf_nil, uChains_getElem?, hFss]; rfl)
   rw [List.take_append_drop] at hfold
   rw [projAV_interp, interp_mkAppN_foldl, heq, hfold, projS_succ_inj,
     projS_mkTower_getD (by rw [hlenBs]; exact hi)]
@@ -431,9 +431,9 @@ theorem fixEntryIotaCore {w nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm)}
       FieldsOkB w ρ ((ds.drop nP).map (·.2.2)))
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
     (hok : WellDenotedV V ρ (AnnotTerm.mkAppN
-      (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys)) :
+      (sumMkAV [] 0 w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys)) :
     interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
-        (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
+        (sumMkAV [] 0 w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
       = interp V ρ (ys.getD (nP + i) default) :=
   fixEntryIotaCoreT hw hlenDs hi rfl
     (fun ρ' hρ' => SumFieldsOkB_uChains (by
@@ -458,7 +458,7 @@ theorem fixEntryIotaCoreZeroT {J nP nF i : Nat} {ds : List (Nat × Nat × AnnotT
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
     (hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ))) :
     interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
-        (sumMkAV 0 J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys))
+        (sumMkAV [] 0 0 J ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys))
       = interp V ρ (ys.getD (nP + i) default) := by
   rw [projAV_interp, interp_mkAppN_foldl, sumMkAV_zero, foldl_app_pt, projS_pt]
   rw [show ds.map (·.2.2) = (ds.take nP).map (·.2.2) ++ (ds.drop nP).map (·.2.2) from by
@@ -500,7 +500,7 @@ theorem fixEntryIotaCoreZero {nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
     (hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ))) :
     interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
-        (sumMkAV 0 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
+        (sumMkAV [] 0 0 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
       = interp V ρ (ys.getD (nP + i) default) :=
   fixEntryIotaCoreZeroT hlenDs hi hsorts hz ys hlen hsp
 
@@ -525,7 +525,7 @@ theorem fixEntryEtaCoreT {w J nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTe
     (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
     (hx : x ∈ˢ ts.foldl SetTheory.app (interp V ρ L)) :
     x = (ts ++ (List.range nF).map fun j => projS (j + 1) x).foldl SetTheory.app
-      (interp V ρ (sumMkAV w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss))) := by
+      (interp V ρ (sumMkAV [] 0 w J ds ((ds.drop nP).map (·.2.2)) (uChains Fss))) := by
   rw [hfold ρ ts hsp] at hx
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hsp₁ : SpineFit ρ ((ds.take nP).map (·.2.2)) ts :=
@@ -539,8 +539,8 @@ theorem fixEntryEtaCoreT {w J nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTe
     rw [hpt, sumMkAV_zero, foldl_app_pt]
   · obtain ⟨fs, heq, hspF⟩ := (hfib _ hsat).graph hw _ hx
     have hlenF : fs.length = nF := by rw [hspF.length_eq, hlenFs]
-    have hfold' := sumMkAV_fold (pds := ds.take nP) (fds := ds.drop nP) (j := J) hw hsp₁ hspF
-      (hokU _ hsat) (by rw [uChains_getElem?, hFss]; rfl)
+    have hfold' := sumMkAV_fold (tbl := []) (m := 0) (pds := ds.take nP) (fds := ds.drop nP) (jc := J) hw hsp₁ hspF
+      (hokU _ hsat) (by rw [flatOf_nil, uChains_getElem?, hFss]; rfl)
     rw [List.take_append_drop] at hfold'
     -- the projections past the tag are the tuple's fields
     have hprojs : ((List.range nF).map fun j => projS (j + 1) x) = fs := by
@@ -562,14 +562,14 @@ theorem fixEntryEtaCore {u w nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTer
     (hokB : ∀ ρ : Nat → V, Sat V ((ds.take nP).map (·.2.2)).reverse ρ →
       FieldsOkB w ρ ((ds.drop nP).map (·.2.2)))
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps.map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
+      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess))
         = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]))
     (ts : List V) (x : V) (hlen : ts.length = nP)
     (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
     (hx : x ∈ˢ ts.foldl SetTheory.app
-      (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))) :
+      (interp V ρ (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess))) :
     x = (ts ++ (List.range nF).map fun j => projS (j + 1) x).foldl SetTheory.app
-      (interp V ρ (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2))
+      (interp V ρ (sumMkAV [] 0 w 0 ds ((ds.drop nP).map (·.2.2))
         (uChains [(ds.drop nP).map (·.2.2)]))) :=
   fixEntryEtaCoreT (J := 0)
     (S := fun ρ' => sumSet w (sumFibre w ρ' [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]))

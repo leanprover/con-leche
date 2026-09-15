@@ -39,21 +39,21 @@ theorem fixFoldSingle {u w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)} {Fs 
     {eiss : List (List (List AnnotTerm))} {Fss₀ Ess : List (List AnnotTerm)} {ρ : Nat → V} {ts : List V}
     (hlenP : pps.length = nP) (hEss : Ess = [[]])
     (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
-    (hX : XChainsOk u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u w (consList ts ρ) [] 0 rss tlss eiss Fss₀ Ess)
+    (hX : XChainsOk [] u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI [] u w (consList ts ρ) [] 0 rss tlss eiss Fss₀ Ess)
       u w (consList ts ρ) [] rss tlss eiss Fss₀ [Fs] Ess) :
-    ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
+    ts.foldl SetTheory.app (interp V ρ (nativeTyAVI [] u w pps [] rss tlss eiss Fss₀ Ess))
       = sumSet w (sumFibre w (consList ts ρ) [Fs ++ [idxEqAV []]]) := by
   have hsh : shiftE ([] : List AnnotTerm).length 0 (consList ts ρ) = consList ts ρ :=
     shiftE_zero_zero _
   have hfr : ConLeche.Semantics.frameIdx ([] : List AnnotTerm).length (consList ts ρ) = [] := rfl
-  have hbase : FixBaseI u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess := by
-    refine ⟨?_, ?_, ?_⟩
+  have hbase : FixBaseI [] u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess := by
+    refine ⟨?_, ?_, ?_, offOk_nil _ _ _⟩
     · rw [hsh]; exact hX.hI
     · rw [hsh]; exact hX.hok
     · rw [hsh, hfr]; trivial
   have hlenP' : (pps.map (·.2.2)).length = nP := by rw [List.length_map, hlenP]
-  rw [nativeTyAVI_fold hsp hbase, hsh, hfr, fixFamI_app_eq_sum hX hreal (is := []) trivial,
+  rw [nativeTyAVI_fold hsp hbase, hsh, hfr, fixFamI_app_eq_sum_nil hX hreal (is := []) trivial,
     consList_nil, hEss]
   show sumSet _ (sumFibre _ _ (rChains 0 0 [_] [[]])) = _
   rw [rChains_single_nil]
@@ -114,11 +114,11 @@ theorem fixFibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {eiss : (Name → Nat) → List (List (List AnnotTerm))} {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
     (hleaf : ∀ ψ, m.acval T ψ
-      = nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
+      = nativeTyAVI [] (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
+          (nativeTyAVI [] (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
         = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
     (hread : ∀ ψ, denoteMeta m.acval env ψ 0 cvT.type
       = some (mkPisAV (pps ψ) (.sort (w ψ))))
@@ -159,13 +159,13 @@ theorem fixFibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {eiss : (Name → Nat) → List (List (List AnnotTerm))} {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
     (hfields : caps.etaFields = 0)
     (hleaf : ∀ ψ, m.acval T ψ
-      = nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
+      = nativeTyAVI [] (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
+          (nativeTyAVI [] (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
         = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
-    (hleafC : ∀ ψ, m.acval caps.etaCtor ψ = sumMkAV (w ψ) 0 (ds ψ) [] (uChains [[]]))
+    (hleafC : ∀ ψ, m.acval caps.etaCtor ψ = sumMkAV [] 0 (w ψ) 0 (ds ψ) [] (uChains [[]]))
     (hread : ∀ ψ, denoteMeta m.acval env ψ 0 cvT.type
       = some (mkPisAV (pps ψ) (.sort (w ψ))))
     (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -193,7 +193,8 @@ theorem fixFibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
       cases fs with
       | cons _ _ => exact hspx.elim
       | nil =>
-        have hfd := sumMkAV_fold hw (j := 0) (pds := ds _) (fds := []) (Fss := uChains [[]])
+        have hfd := sumMkAV_fold hw (tbl := []) (m := 0) (jc := 0) (pds := ds _) (fds := [])
+          (Fss := uChains [[]])
           (ρ := ρ) (as := ts) (bs := []) (by simpa using hfit _ ρ ts hsp) trivial
           (SumFieldsOkB_uChains fun _ h => by
             simp only [List.mem_singleton] at h

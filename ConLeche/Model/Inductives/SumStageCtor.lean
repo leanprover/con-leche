@@ -9,7 +9,7 @@ public section
 
 `stageSumCtor`: the P step at constructor `j`'s cons — onto the
 environment holding the former and the earlier constructors — with
-the leaf `sumMkAV (resSort.eval ψ) j (ds ψ) Fs_j (uChains Fss)`.
+the leaf `sumMkAV [] 0 (resSort.eval ψ) j (ds ψ) Fs_j (uChains Fss)`.
 The constructor's run was taken at the former's environment
 (`checkSumCtor`) and its data crossed to the cons's environment
 (`CtorDataI.cross`); the family application at the bottom — the
@@ -77,10 +77,10 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
         SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))
     (ψ : Name → Nat) (ρ : Nat → V) :
-    MkPreS (resSort.eval ψ) j ρ (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))
+    MkPreS [] 0 (resSort.eval ψ) j ρ (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))
         (ctorBodyAVI m T nP nF ψ (Es ψ)) ((ds ψ).take nP) ∧
       UnderTowerValid ρ
-        (sumInjAtAV (resSort.eval ψ) (uChains (Fss ψ)) (((ds ψ).drop nP).map (·.2.2)).length
+        (sumInjAtAV [] 0 (resSort.eval ψ) (uChains (Fss ψ)) (((ds ψ).drop nP).map (·.2.2)).length
           (numeralAV j) (mkTowerGoU (resSort.eval ψ) (((ds ψ).drop nP).map (·.2.2)) (idxEqAV [])))
         ((ds ψ).take nP ++ (ds ψ).drop nP) := by
   have hlenDs := hCD.len ψ
@@ -119,7 +119,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
     rw [rChains_getElem?, hFsj ψ, hEsj ψ]
   constructor
   · have hw := hereditaryWalk (V := V)
-      (Q := fun ρ pds => MkPreS (resSort.eval ψ) j ρ Fs (uChains (Fss ψ))
+      (Q := fun ρ pds => MkPreS [] 0 (resSort.eval ψ) j ρ Fs (uChains (Fss ψ))
         (ctorBodyAVI m T nP nF ψ (Es ψ)) pds)
       hΓplen hlenP hentP okΓp
       (fun ρ hρ => ?_)
@@ -131,7 +131,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
     -- the base: at the parameter frame
     have hρt : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ := (hiff ψ ρ).mpr hρ
     have hokFss := (hFssOkP ψ ρ hρ).1
-    refine ⟨SumFieldsOkB_uChains hokFss, by rw [uChains_getElem?, hFsj ψ]; rfl, fun bs hsp => ?_⟩
+    refine ⟨SumFieldsOkB_uChains hokFss, by rw [flatOf_nil, uChains_getElem?, hFsj ψ]; rfl, fun bs hsp => ?_⟩
     have hlenI : (idxValsAt ρ (Es ψ) bs).length = nIdx := by
       simp [idxValsAt, hCD.lenE ψ]
     refine ⟨sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
@@ -147,7 +147,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
       · rw [EqAll_idxEqsAt (hCD.lenE ψ) hsp.length_eq, hshift, frameIdx_consList hlenI]
   · have hw := hereditaryWalk (V := V)
       (Q := fun ρ ds' => UnderTowerValid ρ
-        (sumInjAtAV (resSort.eval ψ) (uChains (Fss ψ)) Fs.length (numeralAV j)
+        (sumInjAtAV [] 0 (resSort.eval ψ) (uChains (Fss ψ)) Fs.length (numeralAV j)
           (mkTowerGoU (resSort.eval ψ) Fs (idxEqAV []))) ds')
       hΓlen hlenDs hent okΓ
       (fun ρ' hρ' => ?_)
@@ -170,7 +170,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
     obtain ⟨-, hvAll⟩ := hFssOkP ψ _ hρp
     have hvF : FieldsValid (fun j => ρ' (j + nF)) Fs :=
       hvAll _ (List.mem_of_getElem? (hFsj ψ))
-    have := sumInj_validV_at_fields (w := resSort.eval ψ) (j := j) (uChains_validV hvAll) hvF hspF
+    have := sumInj_validV_at_fields (tbl := []) (m := 0) (w := resSort.eval ψ) (jc := j) (uChains_validV hvAll) hvF hspF
     rwa [consList_range_reverse] at this
 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
@@ -200,7 +200,7 @@ theorem stageCtorGen {T : Name}
     (hTlaws : ∀ m₂ : EnvModel V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
       (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) →
       (∀ ψ, m₂.acval cvCa.name ψ
-        = sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))) →
+        = sumMkAV [] 0 (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))) →
       CapsLawsAt m₂ T cvTa caps)
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll lvlsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
@@ -227,7 +227,7 @@ theorem stageCtorGen {T : Name}
         SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs)) :
     ∃ mp' : EnvModelM V μ ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
-        (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
+        (fun ψ => sumMkAV [] 0 (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains (Fss ψ))) := by
   obtain ⟨⟨_, hccv⟩, -, -⟩ := ConLeche.checkSumCtor_shape hCtor
   obtain ⟨-, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', htp, -, -, -, hty⟩ :=
@@ -245,7 +245,7 @@ theorem stageCtorGen {T : Name}
     · show cvCa.type.looseBVarsBounded 0 = true; rw [hty]; exact hbt'
   let Fs : (Name → Nat) → List AnnotTerm := fun ψ => ((ds ψ).drop nP).map (·.2.2)
   let A : (Name → Nat) → AnnotTerm :=
-    fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (Fs ψ) (uChains (Fss ψ))
+    fun ψ => sumMkAV [] 0 (resSort.eval ψ) j (ds ψ) (Fs ψ) (uChains (Fss ψ))
   have hAbelow : ∀ ψ, Term.bvarsBelow 0 (A ψ).erase := fun ψ =>
     sumMkAV_below (hCD.below ψ)
       ((DomsBelow.drop nP (hCD.below ψ)).fields)
@@ -282,8 +282,8 @@ theorem stageCtorGen {T : Name}
   · intro ψ₁ ψ₂ hφ
     have hφT : ∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q := by rw [hlpsT, ← hlpsC]; exact hφ
     obtain ⟨-, hw⟩ := hFD.params ψ₁ ψ₂ hφT
-    show sumMkAV _ j (ds ψ₁) (((ds ψ₁).drop nP).map (·.2.2)) (uChains (Fss ψ₁))
-      = sumMkAV _ j (ds ψ₂) (((ds ψ₂).drop nP).map (·.2.2)) (uChains (Fss ψ₂))
+    show sumMkAV [] 0 _ j (ds ψ₁) (((ds ψ₁).drop nP).map (·.2.2)) (uChains (Fss ψ₁))
+      = sumMkAV [] 0 _ j (ds ψ₂) (((ds ψ₂).drop nP).map (·.2.2)) (uChains (Fss ψ₂))
     rw [hw, (hCD.params ψ₁ ψ₂ hφ).1, hFssParams ψ₁ ψ₂ (by rw [← hlpsC]; exact hφ)]
   · intro ψ ρ
     have := sumMkAV_wellDenotedV (V := V) (hz ψ) (hwalks ψ ρ).1 (hwalks ψ ρ).2

@@ -474,14 +474,14 @@ written yet, and until it is this is the stage's one open premise. -/
   ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs ys : List AnnotTerm),
     xs.length = mI → ys.length = p.nP + (cdF ψ).2.1 →
     SpineFit ρ ((p.rds m₀ t ψ).map (·.2.2))
-      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
         (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]).map (interp V ρ)) →
     SpineFit ρ ((cdF ψ).2.2.1.map (·.2.2)) (ys.map (interp V ρ)) →
     (∀ i, i < p.nIdxOf t →
       interp V (consList (ys.map (interp V ρ)) ρ) ((cdF ψ).2.2.2.1.getD i default)
         = interp V ρ (xs.getD (rP + i) default)) →
     interp V ρ (AnnotTerm.mkAppN (p.leaf m₀ t ψ)
-        (xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
           (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]))
       = interp V ρ (AnnotTerm.mkAppN (p.ruleAV m₀ J (cdF ψ) ψ)
           (xs.take rP ++ ys.drop p.nP)) ∧
@@ -516,7 +516,7 @@ theorem mutualRecRuleLaw (p : MutualRecParts) {env₀ envE : Env} {m₀ : EnvMod
     (hlpsC : cvC.levelParams = lps)
     (hfC : envE.find? C = some (.ctorInfo cvC p.nP nF))
     (hleafR : ∀ ψ : Name → Nat, m.acval cvRa.name ψ = p.leaf m₀ t ψ)
-    (hleafC : ∀ ψ : Name → Nat, m.acval C ψ = sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+    (hleafC : ∀ ψ : Name → Nat, m.acval C ψ = sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
       (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ)))
     (hdataParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       cdF ψ₁ = cdF ψ₂ ∧ p.FssR ψ₁ = p.FssR ψ₂ ∧ p.wB ψ₁ = p.wB ψ₂)
@@ -565,12 +565,12 @@ theorem mutualRecRuleLaw (p : MutualRecParts) {env₀ envE : Env} {m₀ : EnvMod
     have h2 := Option.some.inj (h.symm.trans (hCread ψC))
     rw [h2, hcdEq]
   -- the constructor's leaf at this assignment
-  have hleafC₂ : m.acval C ψC = sumMkAV (p.wB ψR) J (cdF ψR).2.2.1
+  have hleafC₂ : m.acval C ψC = sumMkAV [] 0 (p.wB ψR) J (cdF ψR).2.2.1
       (((cdF ψR).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψR)) := by
     rw [hleafC ψC, hcdEq, hwEq, hFssEq]
   -- the recursor's spine fit
   have hspR : SpineFit ρ ((p.rds m₀ t ψR).map (·.2.2))
-      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψR) J (cdF ψR).2.2.1
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψR) J (cdF ψR).2.2.1
         (((cdF ψR).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψR))) ys]).map
         (interp V ρ)) := by
     have hst := stripPisAV_mkPisAV (p.rds m₀ t ψR) (p.conc t)
@@ -1016,7 +1016,7 @@ theorem dispTowerAV_below {ℓ W w k nP : Nat} {Idss : List (List AnnotTerm)}
     have := VExprAux.bvarsBelow_liftN (k + 1) (tagTyAV W Idss : AnnotTerm).erase nP 0
       (tagTyAV_below hIds)
     exact Term.bvarsBelow.mono (by omega) this
-  · have := caseRecAVI_below (ℓ := dispLevel w ℓ) (w := W) (K := nP + (k + 1))
+  · have := caseRecAVI_below (tbl := []) (ℓ := dispLevel w ℓ) (w := W) (K := nP + (k + 1))
       (Fss := rChains (k + 1) 0 Idss (List.replicate k []))
       (ar := fun j => (Idss.getD j []).length) (ihArgs := fun _ _ => [])
       (n := k) (nIdx := 0) (by omega) hchains (fun _ _ a ha => nomatch ha) k

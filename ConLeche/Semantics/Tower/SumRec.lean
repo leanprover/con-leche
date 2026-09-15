@@ -118,6 +118,41 @@ theorem major_snd_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V}
   rw [WellDenoted_snd]
   exact ⟨trivial, major_sigma hw hok ht⟩
 
+/-- The major's `sigmaSet` package at a RETAGGED fibre function
+(task #279 D-1: the mutual reduction's carrier at the frame's tag map
+`τ`). -/
+theorem major_sigmaT {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss' : List (List AnnotTerm)}
+    (hok : SumFieldsOkB w ρ₀ Fss') {τ : Nat → Nat}
+    (ht : σ 0 ∈ˢ sumSet w fun jc => sumFibre w ρ₀ Fss' (τ jc)) :
+    ∃ u v A Bf, interp V σ (.bvar 0) ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ (univ u : V) ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V) := by
+  refine ⟨w, w, omega, natFibre (fun jc => sumFibre w ρ₀ Fss' (τ jc)), ?_, omega_mem_univ_pos hw, ?_⟩
+  · rw [interp_bvar, show Nat.max w w = w from Nat.max_self w]
+    exact ht
+  · intro k hk
+    obtain ⟨i', rfl, hfib⟩ := natFibre_of_mem (fun jc => sumFibre w ρ₀ Fss' (τ jc)) hk
+    rw [hfib]
+    show sumFibre w ρ₀ Fss' (τ i') ∈ˢ _
+    unfold sumFibre
+    cases hi' : Fss'[τ i']? with
+    | none => exact empty_mem_univ w
+    | some Fs =>
+      exact towerSet_univ_teleOfFields ((hok Fs (List.mem_of_getElem? hi')).toBound hw)
+
+theorem major_fst_wellDenotedT {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V}
+    {Fss' : List (List AnnotTerm)} (hok : SumFieldsOkB w ρ₀ Fss') {τ : Nat → Nat}
+    (ht : σ 0 ∈ˢ sumSet w fun jc => sumFibre w ρ₀ Fss' (τ jc)) :
+    WellDenoted V σ (.fst (.bvar 0)) := by
+  rw [WellDenoted_fst]
+  exact ⟨trivial, major_sigmaT hw hok ht⟩
+
+theorem major_snd_wellDenotedT {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V}
+    {Fss' : List (List AnnotTerm)} (hok : SumFieldsOkB w ρ₀ Fss') {τ : Nat → Nat}
+    (ht : σ 0 ∈ˢ sumSet w fun jc => sumFibre w ρ₀ Fss' (τ jc)) :
+    WellDenoted V σ (.snd (.bvar 0)) := by
+  rw [WellDenoted_snd]
+  exact ⟨trivial, major_sigmaT hw hok ht⟩
+
 /-! ## The body -/
 
 theorem foldl_app_pt_sum : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt

@@ -1221,7 +1221,7 @@ is the second parameter, and the fixpoint route's own functor. -/
   IdsC := fun _ => eqIds
   u := fun ψ => ψ uN
   tup := fun ψ _ is => tupW (ψ uN) is
-  Φ := fun ψ ρp => fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
+  Φ := fun ψ ρp => fixFunVI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
   inj := fun _ _ _ => pt
 
 section
@@ -1266,7 +1266,7 @@ One constructor, no fields: its X-chain is the single index equation
 chain is the index equation, whose two sides read off the frame. -/
 theorem eqRepData_chainsOk {ψ : Name → Nat} {ρp : Nat → V}
     (hI : IdxOk (ψ uN) ρp eqIds) :
-    XChainsOk (ψ uN) 0 ρp eqIds [[]] [[]] [[]] [[]] [eqEs] := by
+    XChainsOk [] (ψ uN) 0 ρp eqIds [[]] [[]] [[]] [[]] [eqEs] := by
   have hok : FixChainsOkI (ψ uN) 0 ρp eqIds eqIds.length [[]] [[]] [[]] [[]] [eqEs] := by
     intro X _ t ht Fs hFs
     rcases List.mem_cons.mp hFs with rfl | h
@@ -1277,7 +1277,7 @@ theorem eqRepData_chainsOk {ψ : Name → Nat} {ρp : Nat → V}
       · exact trivial
       · exact nomatch hE'
     · exact nomatch h
-  refine ⟨hI, hok, fun _ _ _ _ j hj => ?_, fixFunVI_closed_zero hok⟩
+  refine ⟨hI, hok, fun _ _ _ _ j hj => ?_, fixFunVI_closed_zero hok, offOk_nil _ _ _⟩
   obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
   exact trivial
 
@@ -1289,11 +1289,11 @@ which is what makes the least fixed point the functor's own value. -/
 
 /-- **The fibre's membership**, spelled at the block's data. -/
 theorem eqRepData_step_iff {ψ : Name → Nat} {ρp : Nat → V} {X t x : V} :
-    x ∈ˢ fixStepI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs] X t ↔
+    x ∈ˢ fixStepI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs] X t ↔
       x = pt ∧ EqAll (cons t (cons X ρp)) (eqsXI 1 0 eqEs) := by
   constructor
   · intro hx
-    obtain ⟨rfl, j, fs, hj, hlen, -, hall⟩ := fixStepI_zero_elim (Ids := eqIds) hx
+    obtain ⟨rfl, jc, j, fs, -, hj, hlen, -, hall⟩ := fixStepI_zero_elim (Ids := eqIds) hx
     obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
     obtain rfl : fs = [] := List.length_eq_zero_iff.mp hlen
     exact ⟨rfl, hall⟩
@@ -1332,7 +1332,7 @@ equation** — the `Eq` leaf. -/
 theorem eqRepData_lfp {ψ : Name → Nat} {ρp : Nat → V}
     (hA : ρp 1 ∈ˢ (univ (ψ uN) : V)) {b : V} (hb : b ∈ˢ ρp 1) :
     app (lfpFamSet 0 (idxSet (ψ uN) ρp eqIds)
-      (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
+      (fixFunVI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
       = eqv (ρp 0) b := by
   have hI : IdxOk (ψ uN) ρp eqIds := eqRepData_idxOk hA
   have hX := eqRepData_chainsOk (V := V) hI
@@ -1340,9 +1340,9 @@ theorem eqRepData_lfp {ψ : Name → Nat} {ρp : Nat → V}
   have ht : tupW (ψ uN) [b] ∈ˢ idxSet (ψ uN) ρp eqIds := tupW_mem hsp
   have hfix := fixFamI_app_eq (V := V) (Ids := eqIds) hX ht
   have hgoal : app (lfpFamSet 0 (idxSet (ψ uN) ρp eqIds)
-        (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
-      = fixStepI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
-          (fixFamI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) (tupW (ψ uN) [b]) := hfix.symm
+        (fixFunVI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs])) (tupW (ψ uN) [b])
+      = fixStepI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]
+          (fixFamI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) (tupW (ψ uN) [b]) := hfix.symm
   rw [hgoal]
   refine Eq.symm (Subset.antisymm (fun x hx => ?_) (fun x hx => ?_))
   · have hxpt : x = pt := eq_pt_of_mem_univZero (eqv_mem_univZero _ _) hx
@@ -1719,7 +1719,7 @@ theorem indRepsHead_eqRec (mp : EnvModelM V μ env)
     have hXs : X ∈ˢ lfpFamSpace V 0 (idxSet (ψ uN) ρp eqIds) := by
       rw [lfpFamSpace_eq]; exact hX
     have ht' : t ∈ˢ idxSet (ψ uN) ρp eqIds := ht
-    show x ∈ˢ app (app (fixFunVI (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) X) t ↔ _
+    show x ∈ˢ app (app (fixFunVI [] (ψ uN) 0 ρp eqIds 1 [[]] [[]] [[]] [[]] [eqEs]) X) t ↔ _
     rw [fixFunVI_app hXs, famFI_app ht', eqRepData_step_iff]
     constructor
     · rintro ⟨rfl, hall⟩

@@ -105,24 +105,24 @@ theorem chainsXI_congr {nIdx : Nat} {rss : List (List Bool)}
   intro j hj
   exact chainXI_congr (h.2 j (List.mem_range.mp hj))
 
-theorem fixStepI_congr {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
+theorem fixStepI_congr {tbl : List (List Nat)} {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Fss Fss' Ess : List (List AnnotTerm)} (h : AgreeOffRecs rss Fss Fss') (X t : V) :
-    fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
-      = fixStepI u w ρp Ids nIdx rss tlss Eiss Fss' Ess X t := by
-  unfold fixStepI; rw [chainsXI_congr h]
+    fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
+      = fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss' Ess X t := by
+  unfold fixStepI sumFibreT; rw [chainsXI_congr h, chainsXI_length]
 
-theorem fixFunVI_congr {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
+theorem fixFunVI_congr {tbl : List (List Nat)} {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Fss Fss' Ess : List (List AnnotTerm)} (h : AgreeOffRecs rss Fss Fss') :
-    fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess = fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss' Ess := by
+    fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess = fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss' Ess := by
   unfold fixFunVI famFI
   simp only [fixStepI_congr h]
 
-theorem fixFamI_congr {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
+theorem fixFamI_congr {tbl : List (List Nat)} {w : Nat} {ρp : Nat → V} {nIdx : Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Fss Fss' Ess : List (List AnnotTerm)} (h : AgreeOffRecs rss Fss Fss') :
-    fixFamI u w ρp Ids nIdx rss tlss Eiss Fss Ess = fixFamI u w ρp Ids nIdx rss tlss Eiss Fss' Ess := by
+    fixFamI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess = fixFamI tbl u w ρp Ids nIdx rss tlss Eiss Fss' Ess := by
   unfold fixFamI; rw [fixFunVI_congr h]
 
 theorem slotsFitX_congr {w : Nat} {ρp : Nat → V} {X t : V} :
@@ -141,11 +141,11 @@ theorem slotsFitX_congr {w : Nat} {ρp : Nat → V} {X t : V} :
       exact ⟨h1, fun a ha => (slotsFitX_congr Fs Fs' (i + 1) (as ++ [a]) h.tail).mpr (h2 a ha)⟩
 
 /-- The functor's premise is congruent off the recursive positions. -/
-theorem xChainsOk_congr {w : Nat} {ρp : Nat → V} {rss : List (List Bool)}
+theorem xChainsOk_congr {tbl : List (List Nat)} {w : Nat} {ρp : Nat → V} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
-    {Fss Fss' Ess : List (List AnnotTerm)} (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess)
+    {Fss Fss' Ess : List (List AnnotTerm)} (h : XChainsOk tbl u w ρp Ids rss tlss Eiss Fss Ess)
     (hag : AgreeOffRecs rss Fss Fss') :
-    XChainsOk u w ρp Ids rss tlss Eiss Fss' Ess where
+    XChainsOk tbl u w ρp Ids rss tlss Eiss Fss' Ess where
   hI := h.hI
   hok := by
     intro X hX t ht
@@ -158,47 +158,70 @@ theorem xChainsOk_congr {w : Nat} {ρp : Nat → V} {rss : List (List Bool)}
   hclosed := by
     rw [← fixFunVI_congr hag]
     exact h.hclosed
+  hoff := h.hoff
 
 end Congr
 
 /-! ## The fibre's membership, both regimes -/
 
-/-- **The functor's fibre**: a member is the injection of a field spine
-fitting some constructor's X-chain at `(X, t)`, and conversely. -/
+/-- **The functor's fibre at a tag table**: a member is the injection,
+at a LOCAL tag `jc`, of a field spine fitting the flat constructor
+`tagOf tbl Fss.length t jc`'s X-chain at `(X, t)`, and conversely. -/
+theorem fixStepI_iffT {tbl : List (List Nat)} {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)} {X t x : V} :
+    x ∈ˢ fixStepI tbl u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t ↔
+      ∃ jc j fs, j = tagOf tbl Fss.length t jc ∧ j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
+        SpineFit (cons t (cons X ρp))
+          (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
+        EqAll (consList fs (cons t (cons X ρp)))
+          (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) ∧
+        x = injW w jc (mkTower (fs ++ [pt])) := by
+  by_cases hw : w = 0
+  · subst hw
+    constructor
+    · intro hx
+      obtain ⟨rfl, jc, j, fs, hJ, hj, hlen, hsp, hall⟩ := fixStepI_zero_elim hx
+      exact ⟨jc, j, fs, hJ, hj, hlen, hsp, hall, (injW_zero _ _).symm⟩
+    · rintro ⟨jc, j, fs, hJ, hj, hlen, hsp, hall, rfl⟩
+      rw [injW_zero, fixStepI_eq]
+      refine pt_mem_sumSet_zero (i := jc) (a := pt) ?_
+      rw [← hJ, sumFibre_of_getElem? (by rw [chainsXI_getElem?, if_pos hj])]
+      unfold chainXI
+      exact pt_mem_tower_teleOfFields (spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩)
+  · constructor
+    · intro hx
+      obtain ⟨jc, j, fs, hJ, rfl, hj, hlen, hsp, hall⟩ := fixStepI_elim hw hx
+      exact ⟨jc, j, fs, hJ, hj, hlen, hsp, hall, (injW_pos hw _ _).symm⟩
+    · rintro ⟨jc, j, fs, hJ, hj, hlen, hsp, hall, rfl⟩
+      rw [injW_pos hw, fixStepI_eq]
+      refine inj_mem hw (f := fun jc => sumFibre w (cons t (cons X ρp)) _ (tagOf tbl Fss.length t jc)) ?_
+      show mkTower (fs ++ [pt]) ∈ˢ sumFibre w (cons t (cons X ρp)) _ (tagOf tbl Fss.length t jc)
+      rw [← hJ, sumFibre_of_getElem? (by rw [chainsXI_getElem?, if_pos hj])]
+      unfold chainXI
+      exact mkTower_mem_teleOfFields hw (spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩)
+
+/-- **The functor's fibre** (the flat instance): a member is the injection
+of a field spine fitting some constructor's X-chain at `(X, t)`, and
+conversely. -/
 theorem fixStepI_iff {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Fss Ess : List (List AnnotTerm)} {X t x : V} :
-    x ∈ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t ↔
+    x ∈ˢ fixStepI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t ↔
       ∃ j fs, j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
         SpineFit (cons t (cons X ρp))
           (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
         EqAll (consList fs (cons t (cons X ρp)))
           (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) ∧
         x = injW w j (mkTower (fs ++ [pt])) := by
-  by_cases hw : w = 0
-  · subst hw
-    constructor
-    · intro hx
-      obtain ⟨rfl, j, fs, hj, hlen, hsp, hall⟩ := fixStepI_zero_elim hx
-      exact ⟨j, fs, hj, hlen, hsp, hall, (injW_zero _ _).symm⟩
-    · rintro ⟨j, fs, hj, hlen, hsp, hall, rfl⟩
-      rw [injW_zero]
-      unfold fixStepI
-      refine pt_mem_sumSet_zero (i := j) (a := pt) ?_
-      rw [sumFibre_of_getElem? (by rw [chainsXI_getElem?, if_pos hj])]
-      unfold chainXI
-      exact pt_mem_tower_teleOfFields (spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩)
-  · constructor
-    · intro hx
-      obtain ⟨j, fs, rfl, hj, hlen, hsp, hall⟩ := fixStepI_elim hw hx
-      exact ⟨j, fs, hj, hlen, hsp, hall, (injW_pos hw _ _).symm⟩
-    · rintro ⟨j, fs, hj, hlen, hsp, hall, rfl⟩
-      rw [injW_pos hw]
-      unfold fixStepI
-      refine inj_mem hw ?_
-      rw [sumFibre_of_getElem? (by rw [chainsXI_getElem?, if_pos hj])]
-      unfold chainXI
-      exact mkTower_mem_teleOfFields hw (spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩)
+  rw [fixStepI_iffT]
+  constructor
+  · rintro ⟨jc, j, fs, hJ, hj, hlen, hsp, hall, rfl⟩
+    rw [tagOf_nil] at hJ
+    subst hJ
+    exact ⟨j, fs, hj, hlen, hsp, hall, rfl⟩
+  · rintro ⟨j, fs, hj, hlen, hsp, hall, rfl⟩
+    exact ⟨j, j, fs, rfl, hj, hlen, hsp, hall, rfl⟩
 
 /-! ## The rules' constructors -/
 
@@ -261,7 +284,7 @@ data, the functor `fixFunVI` and the tagged-tower injections. -/
   u := uAV
   tup := fun ψ _ is => tupW (uAV ψ) is
   Φ := fun ψ ρp =>
-    fixFunVI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+    fixFunVI [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
       (((ppsAll ψ).drop p.nP).map (·.2.2)).length (rssOfK ksF ctorsA.length)
       (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
@@ -436,21 +459,21 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     (hUparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂)
     {fssZ : (Name → Nat) → List (List AnnotTerm)}
     (hleafT : ∀ ψ, m.acval p.cvT.name ψ
-      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
+      = nativeTyAVI [] (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
           (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
           (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hagree : ∀ ψ, AgreeOffRecs (rssOfK ksF ctorsA.length) (fssZ ψ)
       (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, m.acval cA.1.name ψ
-      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+      = sumMkAV [] 0 (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
         Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ)
     (hframes : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+      XChainsOk [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
         (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
@@ -494,7 +517,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     rfl
   -- the chains at the datum's readings
   have hX : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      XChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) :=
+      XChainsOk [] (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) :=
     fun ψ ρp hρ => xChainsOk_congr (hframes ψ ρp hρ).1 (hagree ψ)
   have hlenP : ∀ ψ, (d.params ψ).length = p.nP := by
     intro ψ
@@ -564,7 +587,7 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
         (idxSet (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))) := by
       rw [lfpFamSpace_eq]; exact hX
     have ht' : t ∈ˢ idxSet (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) := ht
-    show x ∈ˢ app (app (fixFunVI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+    show x ∈ˢ app (app (fixFunVI [] (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
       (((ppsAll ψ).drop p.nP).map (·.2.2)).length (rssOfK ksF ctorsA.length)
       (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
@@ -595,9 +618,9 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
     have hfr : ConLeche.Semantics.frameIdx (d.IdsC ψ).length (consList (as ++ is) ρ) = is := by
       rw [hframe, ← hislen]; exact frameIdx_consList' _ _
     have hXZ := (hframes ψ (consList as ρ) hsat).1
-    have hbase : FixBaseI (uAV ψ) (p.resSort.eval ψ) (consList (as ++ is) ρ) (d.IdsC ψ) d.rss
+    have hbase : FixBaseI [] (uAV ψ) (p.resSort.eval ψ) (consList (as ++ is) ρ) (d.IdsC ψ) d.rss
         (d.tlss ψ) (d.Eiss ψ) (fssZ ψ) (d.Ess ψ) := by
-      refine ⟨?_, ?_, ?_⟩
+      refine ⟨?_, ?_, ?_, offOk_nil _ _ _⟩
       · rw [hshift]; exact hXZ.hI
       · rw [hshift]; exact hXZ.hok
       · rw [hshift, hfr]; exact hsp₂
@@ -639,8 +662,8 @@ theorem indRep_of_stage {p : NativeParts} (m : EnvModel V env)
       have hjU : (uChains (d.Fss ψ))[j]? = some ((((dsF j ψ).drop p.nP).map (·.2.2)) ++ [idxEqAV []]) := by
         rw [uChains_getElem?, hFssE ψ j cA hj]; rfl
       rw [hFssD ψ j cA hj] at hsp₂
-      have := sumMkAV_fold (V := V) hz (pds := (dsF j ψ).take p.nP) (fds := (dsF j ψ).drop p.nP)
-        (Fss := uChains (d.Fss ψ)) (ρ := ρ) hsp₁' hsp₂ hok hjU
+      have := sumMkAV_fold (V := V) (tbl := []) (m := 0) (jc := j) hz (pds := (dsF j ψ).take p.nP)
+        (fds := (dsF j ψ).drop p.nP) (Fss := uChains (d.Fss ψ)) (ρ := ρ) hsp₁' hsp₂ hok hjU
       rw [← hsplit] at this
       exact this
   · -- injectivity

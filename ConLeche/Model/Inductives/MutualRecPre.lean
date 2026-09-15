@@ -59,7 +59,7 @@ fixpoint route's former leaf over the parameters and the tag binder. -/
     (Idss : List (List AnnotTerm)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss₀ Ess' : List (List AnnotTerm)) : AnnotTerm :=
-  nativeTyAVI W w (pps ++ tagIps W Idss) (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
+  nativeTyAVI [] W w (pps ++ tagIps W Idss) (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
 
 /-- A constructor datum at the tagged index expressions: constructor
 `J` of member `mem` with fields `nF` gets the one index expression
@@ -131,7 +131,7 @@ theorem tagTyAV_below {W nP : Nat} {Idss : List (List AnnotTerm)}
     (h : ∀ Ids ∈ Idss, FieldsBelow nP Ids) :
     Term.bvarsBelow nP (tagTyAV W Idss).erase := by
   unfold tagTyAV
-  refine sumBodyAV_below fun Fs hFs => ?_
+  refine sumBodyAV_below (fun Fs hFs => ?_) (fun h => absurd rfl h)
   obtain ⟨Ids, hIds, rfl⟩ := List.mem_map.mp hFs
   exact FieldsBelow_append_idxEq (h Ids hIds) (fun e he => nomatch he)
 
@@ -166,7 +166,7 @@ theorem auxFormer_hleafT {W w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     (ρp : Nat → V) :
     ∀ σ : Nat → V, interp V σ (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess')
       = interp V (fun k => ρp (k + nP))
-          (nativeTyAVI W w (pps ++ tagIps W Idss) ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+          (nativeTyAVI [] W w (pps ++ tagIps W Idss) ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
             Fss₀ Ess') :=
   fun σ => interp_closed (V := V) hcl σ _
 
@@ -181,7 +181,7 @@ theorem auxMotive_interp {ψ : Name → Nat} {elimL : Level} {ℓ W w nP : Nat}
     {Fss₀ Ess' : List (List AnnotTerm)} {ρp : Nat → V}
     (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
     (hT : TagOk W ρp Idss)
-    (hX : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (hX : XChainsOk [] W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
     (hcl : Term.bvarsBelow 0 (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess').erase) :
     interp V ρp (motiveAVIL (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess') ψ nP 1 elimL
         (tagIps W Idss))
@@ -195,7 +195,7 @@ theorem auxMotive_interp {ψ : Name → Nat} {elimL : Level} {ℓ W w nP : Nat}
       exact ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ),
         fun h => absurd h (Nat.succ_ne_zero _)⟩)
     (B := fun is' => piR (ℓ + 1)
-      (SetTheory.app (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') (tupW W is'))
+      (SetTheory.app (auxFamI [] W w ρp Idss rss tlss Eiss' Fss₀ Ess') (tupW W is'))
       fun _ => (univ ℓ : V)) (acc := []) ?_, rebit_map_dom, tagIps_doms]
   · unfold auxIds
     simp only [teleOfFields_cons, teleOfFields_nil, piTele, hTv.1, List.nil_append]

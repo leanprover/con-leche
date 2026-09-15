@@ -190,12 +190,12 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     {rds ds : List (Nat × Nat × AnnotTerm)}
     {Fss₀ Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Es : List AnnotTerm}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+    (h : FixPre V [] ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hlenDs : ds.length = nP + nF) (hjn : j < n)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2))) (hEsj : Ess[j]? = some Es)
     (hEs : Es.length = nIdx)
-    {R : AnnotTerm} (hR : R = nativeRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
+    {R : AnnotTerm} (hR : R = nativeRecAVI [] ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
     (hRcl : Term.bvarsBelow 0 R.erase)
     (hokFss : ∀ ρp : Nat → V, Sat V (((rds.take nP).map (·.2.2)).reverse) ρp →
       SumFieldsOkB w ρp Fss)
@@ -223,14 +223,14 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     (hokRa : ∀ ρ : Nat → V, WellDenotedV V ρ Ra)
     {ρ : Nat → V} {xs ys : List AnnotTerm} (hxl : xs.length = nP + 1 + n + nIdx) (hyl : ys.length = nP + nF)
     (hspR : SpineFit ρ (rds.map (·.2.2))
-      ((xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]).map
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]).map
         (interp V ρ)))
     (hspC : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ)))
     (hpin : ∀ i, i < nIdx →
       interp V (consList (ys.map (interp V ρ)) ρ) (Es.getD i default)
         = interp V ρ (xs.getD (nP + 1 + n + i) default)) :
     interp V ρ (AnnotTerm.mkAppN R
-        (xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
       = interp V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP)) ∧
     ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
       WellDenotedV V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))) := by
@@ -252,7 +252,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
   rw [List.map_append, List.map_cons, List.map_nil] at hspR'
   generalize hvs : xs.map (interp V ρ) = vs at hspR'
   generalize htv : interp V ρ
-    (AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys) = t at hspR'
+    (AnnotTerm.mkAppN (sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys) = t at hspR'
   have hlenvs : vs.length = nP + 1 + n + nIdx := by rw [← hvs, List.length_map, hxl]
   obtain ⟨as₀, is, rfl, hl₀, hli⟩ := kframe_split h hspR'
   rw [hFss] at hl₀
@@ -309,8 +309,8 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp₁
     rwa [List.append_nil] at this
   -- the constructor leaf's value, at its own parameters
-  have hleafC' : sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)
-      = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
+  have hleafC' : sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)
+      = sumMkAV [] 0 w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
     rw [List.take_append_drop]
   have hokU : SumFieldsOkB w (consList as₁ ρ) (uChains Fss) := SumFieldsOkB_uChains (hokFss _ hsatC)
   have hjU : (uChains Fss)[j]? = some ((ds.drop nP).map (·.2.2) ++ [idxEqAV []]) := by
@@ -321,11 +321,13 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     rcases Nat.eq_zero_or_pos w with hw0 | hwpos
     · rw [hw0, sumMkAV_zero, foldl_app_pt_sum, if_pos rfl]
     · have hw : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
-      rw [sumMkAV_fold hw hsp₁ hsp₂ hokU hjU, if_neg hw]
+      rw [sumMkAV_fold (tbl := []) (m := 0) (jc := j) hw hsp₁ hsp₂ hokU hjU, if_neg hw]
   -- the major in the fibre, in sum form (recursor side)
   have ht' : t ∈ˢ sumSet w (sumFibre w (consList (((bs₁ ++ [M]) ++ ms) ++ is) ρ)
       (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) := by
-    rw [← hK.hyp.hfam]
+    have hfam := hK.hyp.hfam
+    simp only [tagOf_nil] at hfam
+    rw [← hfam]
     exact htK
   have hRj : (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)[j]?
       = some (rChain (Ids.length + Fss.length + 1) Ids.length ((ds.drop nP).map (·.2.2)) Es) := by
@@ -452,7 +454,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
       mkLamsAV_fold_graded (by rw [← hRa]; exact (hokRa ρ).1) (hfitOf hfitB'), hframeR]
   -- the left-hand side: the recursor's fold
   have hLHS : interp V ρ (AnnotTerm.mkAppN R
-        (xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
       = ((((bs₁ ++ [M]) ++ ms) ++ is) ++ [t]).foldl SetTheory.app (interp V ρ R) := by
     rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app),
       List.map_append, List.map_cons, List.map_nil, hxsv, htv]
@@ -503,7 +505,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
           ← has₂sq rfl hℓ0]
       · rw [hRHSOf (hfitB hw)]
         have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
-        have hiota := nativeRecAVI_iota h hw hℓ0 ρ hspR' hjF
+        have hiota := nativeRecAVI_iota h hw hℓ0 ρ hspR' (jc := j) (j := j) rfl hjF
           (fs := as₂) (by rw [hFsjD, hlen₂, hlenFs]) hmaj
         rw [← hR] at hiota
         rw [hiota, hKfr, hfrMs, hfrK, hfrP, hFsjD, hlenFs,

@@ -784,12 +784,12 @@ theorem mutualLeafAppC {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)
     {A : AnnotTerm}
     (hA : ∀ σ : Nat → V, interp V σ A
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W w ppsT ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess'
+          (mutualTyAVI [] W w ppsT ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess'
             m''))
     {as : List V} {Eis : List AnnotTerm}
     (hsp : SpineFit ρp ((ppsT.drop nP).map (·.2.2)) (Eis.map (interp V (consList as ρp)))) :
     interp V (consList as ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
-      = SetTheory.app (auxFamI W w ρp Idss rss tlss Eiss' Fss Ess')
+      = SetTheory.app (auxFamI [] W w ρp Idss rss tlss Eiss' Fss Ess')
           (auxTup W (inj m'' (mkTower (Eis.map (interp V (consList as ρp)) ++ [pt])))) := by
   have hlenI : (Eis.map (interp V (consList as ρp))).length
       = ((ppsT.drop nP).map (·.2.2)).length := hsp.length_eq
@@ -821,11 +821,11 @@ theorem mutualLeafAppC {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)
       (consList (Eis.map (interp V (consList as ρp))) ρp)
       = Eis.map (interp V (consList as ρp)) := by
     rw [← hlenI]; exact frameIdx_consList' _ ρp
-  have hbase : MutualBaseI W w (consList ((List.range nP).reverse.map ρp ++
+  have hbase : MutualBaseI [] W w (consList ((List.range nP).reverse.map ρp ++
       Eis.map (interp V (consList as ρp))) (fun j => ρp (j + nP)))
       ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess' m'' := by
     rw [hframe]
-    refine ⟨by rw [hsh]; exact hTag, by rw [hsh]; exact hok,
+    refine ⟨by rw [hsh]; exact hTag, by rw [hsh]; exact hok, offOk_nil _ _ _,
       (ppsT.drop nP).map (·.2.2), hIdsT, rfl, ?_⟩
     rw [hsh, hfr]
     exact hsp
@@ -927,10 +927,10 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         Idss[tgtAt ks i]? = some ((ppsT.drop nP).map (·.2.2)) ∧
         Sat V ((ppsT.take nP).map (·.2.2)).reverse ρp ∧
         mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ
-          = mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
+          = mutualTyAVI [] W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
               rss tlss Eiss' Fss₀ Ess' (tgtAt ks i))
     (hokFix : FixChainsOkI W (resSort.eval ψ) ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess') :
-    ChainRealI (auxFamI W (resSort.eval ψ) ρp Idss rss tlss Eiss' Fss₀ Ess') W (resSort.eval ψ)
+    ChainRealI (auxFamI [] W (resSort.eval ψ) ρp Idss rss tlss Eiss' Fss₀ Ess') W (resSort.eval ψ)
       ρp (auxIds W Idss) (rsOf (kindsOf ks)) (tss ψ)
       ((List.range nF).map fun i =>
         [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
@@ -967,7 +967,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     obtain ⟨ppsT, hnIdxT, hlenT, hIdsT, hρpT, hAT⟩ := hAM i hi ((recAt_kindsOf hD.ksLen hi).mp hr)
     have hA : ∀ σ : Nat → V, interp V σ (mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ)
         = interp V (fun j => ρp (j + nP))
-            (mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
+            (mutualTyAVI [] W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
               rss tlss Eiss' Fss₀ Ess' (tgtAt ks i)) := by
       intro σ
       rw [← hAT]
@@ -1054,12 +1054,12 @@ theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (Lis
       (tlss.getD J []) (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
     (hCV : ∀ J, J < n → ChainValidFacts nP (nFs J) ρp (kindsOf (ksF J)) (tlss.getD J [])
       (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
-    (hreal : ∀ J, J < n → ChainRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp
+    (hreal : ∀ J, J < n → ChainRealI (auxFamI [] W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp
       (auxIds W Idss) (rss.getD J []) (tlss.getD J []) (Eiss'.getD J []) 0 []
       (Fss₀.getD J []) (Fss.getD J [])) :
-    XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess' ∧
+    XChainsOk [] W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess' ∧
     FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess' ∧
-    ChainsRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp (auxIds W Idss) rss tlss
+    ChainsRealI (auxFamI [] W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp (auxIds W Idss) rss tlss
       Eiss' Fss₀ Fss Ess' ∧
     (∀ X, X ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)) →
       ∀ t, t ∈ˢ idxSet W ρp (auxIds W Idss) →
@@ -1096,14 +1096,14 @@ theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTe
     (hlenM : ppsM.length = nP + ((ppsM.drop nP).map (·.2.2)).length)
     (hIdsM : Idss[mem]? = some ((ppsM.drop nP).map (·.2.2)))
     (hTag : TagOk W ρ Idss)
-    (hX : XChainsOk W w ρ (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
-    (hreal : ChainsRealI (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess') W w ρ (auxIds W Idss)
+    (hX : XChainsOk [] W w ρ (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (hreal : ChainsRealI (auxFamI [] W w ρ Idss rss tlss Eiss' Fss₀ Ess') W w ρ (auxIds W Idss)
       rss tlss Eiss' Fss₀ Fss Ess')
     (hρ : Sat V ((ppsM.take nP).map (·.2.2)).reverse ρ)
     {A : AnnotTerm}
     (hA : ∀ σ : Nat → V, interp V σ A
       = interp V (fun j => ρ (j + nP))
-          (mutualTyAVI W w ppsM ((ppsM.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss₀ Ess'
+          (mutualTyAVI [] W w ppsM ((ppsM.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss₀ Ess'
             mem))
     {bs : List V} {Es : List AnnotTerm} (hlenbs : bs.length = nF)
     (hEok : ∀ E ∈ Es, WellDenoted V (consList bs ρ) E)
@@ -1122,9 +1122,9 @@ theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTe
   have hfold := mutualLeafAppC hlenM hIdsM hTag hX.hok hρ hA (as := bs) (Eis := Es) hfit
   rw [hlenbs] at hfold
   rw [hfold]
-  have hsum := fixFamI_app_eq_sum hX hreal hsp1
+  have hsum := fixFamI_app_eq_sum_nil hX hreal hsp1
   rw [show (auxIds W Idss).length = 1 from rfl] at hsum
-  show SetTheory.app (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess')
+  show SetTheory.app (auxFamI [] W w ρ Idss rss tlss Eiss' Fss₀ Ess')
       (auxTup W (inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt])))) = _
   unfold auxFamI auxTup
   rw [hsum]
@@ -1149,7 +1149,7 @@ theorem mutualCtorMkPre {nP nF J w : Nat}
         interp V (consList bs ρ) bodyC
           = sumSet w (sumFibre w (consList (idxValsAt ρ Es' bs) ρ) (rChains 1 1 Fss Ess')))
     (ρ : Nat → V) :
-    MkPreS w J ρ ((ds.drop nP).map (·.2.2)) (uChains Fss) bodyC (ds.take nP) := by
+    MkPreS [] 0 w J ρ ((ds.drop nP).map (·.2.2)) (uChains Fss) bodyC (ds.take nP) := by
   have hlenP : (ds.take nP).length = nP := List.length_take_of_le (by omega)
   let Fs : List AnnotTerm := (ds.drop nP).map (·.2.2)
   have hFsE : Fs = (ds.drop nP).map (·.2.2) := rfl
@@ -1177,7 +1177,7 @@ theorem mutualCtorMkPre {nP nF J w : Nat}
   have hchain : (rChains 1 1 Fss Ess')[J]? = some (rChain 1 1 Fs Es') := by
     rw [rChains_getElem?, hFsE, hFsj, hEsj]
   have hw := hereditaryWalk (V := V)
-    (Q := fun ρ' pds => MkPreS w J ρ' Fs (uChains Fss) bodyC pds)
+    (Q := fun ρ' pds => MkPreS [] 0 w J ρ' Fs (uChains Fss) bodyC pds)
     hΓplen hlenP hentP okΓp
     (fun ρ' hρ' => ?_)
     (fun ρ' d ds' _ hok hrec => ⟨hok.1, hrec⟩)
@@ -1186,7 +1186,7 @@ theorem mutualCtorMkPre {nP nF J w : Nat}
       exact Sat_nil V ρ)
   · rw [List.drop_zero] at hw; exact hw
   -- the base: at the parameter frame
-  refine ⟨SumFieldsOkB_uChains (hFssOk ρ' hρ'), by rw [uChains_getElem?, hFsE, hFsj]; rfl,
+  refine ⟨SumFieldsOkB_uChains (hFssOk ρ' hρ'), by rw [flatOf_nil, uChains_getElem?, hFsE, hFsj]; rfl,
     fun bs hsp => ?_⟩
   have hlenI : (idxValsAt ρ' Es' bs).length = 1 := by simp [idxValsAt, hlenE']
   refine ⟨sumFibre w (consList (idxValsAt ρ' Es' bs) ρ') (rChains 1 1 Fss Ess'), ?_, ?_⟩

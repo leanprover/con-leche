@@ -108,7 +108,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
     -- the mutual regime: a `Prop`-valued block eliminates into `Prop` only
     (hregime : ∀ ψ : Name → Nat, p.wB ψ = 0 → p.ℓ ψ = 0)
     -- the AUXILIARY recursor's premise (`auxFixPre_of`)
-    (hpre : ∀ ψ : Name → Nat, FixPre V (p.ℓ ψ) (p.wB ψ) (p.W ψ) p.nP (p.FssR ψ) (p.Ess' ψ)
+    (hpre : ∀ ψ : Name → Nat, FixPre V [] (p.ℓ ψ) (p.wB ψ) (p.W ψ) p.nP (p.FssR ψ) (p.Ess' ψ)
       (p.Fss₀ ψ) (auxIds (p.W ψ) (p.Idss ψ)) p.rss (p.tlss ψ) (p.Eiss' ψ)
       (auxRecDataAV m₀ ψ (p.W ψ) (p.wB ψ) p.nP p.elimL (p.ppsOf 0 ψ) (p.Idss ψ) p.rss
         (p.tlss ψ) (p.Eiss' ψ) (p.Fss₀ ψ) (p.Ess' ψ) p.mems p.tgts (p.cds ψ)) (p.s ψ)) :
@@ -136,7 +136,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
   rw [show p.rds m₀ t ψ = mutualRecDataAV m₀ ψ (p.Ls ψ) p.nP p.nIdxs p.elimL (p.ppsOf 0 ψ)
       (p.ipss ψ) (p.cds ψ) p.mems p.tgts t from rfl,
     mutualRecDataAV_doms hh.hb hLs hh.hn] at hspR'
-  generalize hvs : (xs ++ [AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+  generalize hvs : (xs ++ [AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
     (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys]).map (interp V ρ) = vs
     at hspR'
   obtain ⟨as₃, ts, rfl, hsp₃, hspT⟩ := spineFit_append_inv hspR'
@@ -165,7 +165,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
     simpa only [List.append_assoc] using h
   -- the values of `xs` and of the major
   have hxsv : xs.map (interp V ρ) = ps ++ Ms ++ Ss ++ is ∧
-      tv = interp V ρ (AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+      tv = interp V ρ (AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
         (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys) := by
     rw [List.map_append, List.map_cons, List.map_nil] at hvs
     have h := hvs
@@ -251,9 +251,9 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
       rw [uChains_getElem?, hFssJ]; rfl
     have hmajV : tv = inj J (mkTower ((ys.drop p.nP).map (interp V ρ) ++ [pt])) := by
       rw [htv, interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hysv,
-        show sumMkAV (p.wB ψ) J (cdF ψ).2.2.1 (((cdF ψ).2.2.1.drop p.nP).map (·.2.2))
+        show sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1 (((cdF ψ).2.2.1.drop p.nP).map (·.2.2))
             (uChains (p.FssR ψ))
-          = sumMkAV (p.wB ψ) J ((cdF ψ).2.2.1.take p.nP ++ (cdF ψ).2.2.1.drop p.nP)
+          = sumMkAV [] 0 (p.wB ψ) J ((cdF ψ).2.2.1.take p.nP ++ (cdF ψ).2.2.1.drop p.nP)
               (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ)) from by
           rw [List.take_append_drop]]
       exact sumMkAV_fold hw hspq hspf hokU hjU
@@ -320,7 +320,9 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
               (p.Fss₀ ψ) (p.Ess' ψ))] ++ Ss ++ [inj t (mkTower (is ++ [pt]))]) ρ)
         (rChains ((auxIds (p.W ψ) (p.Idss ψ)).length + (p.FssR ψ).length + 1)
           (auxIds (p.W ψ) (p.Idss ψ)).length (p.FssR ψ) (p.Ess' ψ))) := by
-      rw [← hK.hyp.hfam]
+      have hfam := hK.hyp.hfam
+      simp only [tagOf_nil] at hfam
+      rw [← hfam]
       exact htK
     obtain ⟨Es', hEsj⟩ : ∃ Es', (p.Ess' ψ)[J]? = some Es' :=
       ⟨_, List.getElem?_eq_getElem (by rw [hK.hreal.2.1, hlenFss]; exact hJn)⟩
@@ -410,7 +412,7 @@ theorem ruleFires_of (p : MutualRecParts) {env₀ : Env} {m₀ : EnvModel V env�
         (p.cds ψ) p.mems p.tgts (cdF ψ).2.2.1)
       (Ra := p.ruleAV m₀ J (cdF ψ) ψ) (ρ := ρ) (as₁ := ps) (Ms := Ms) (ms := Ss) (is := is)
       (as₂ := (ys.drop p.nP).map (interp V ρ)) (t := tv) (xs := xs) (ys := ys)
-      (ctor := AnnotTerm.mkAppN (sumMkAV (p.wB ψ) J (cdF ψ).2.2.1
+      (ctor := AnnotTerm.mkAppN (sumMkAV [] 0 (p.wB ψ) J (cdF ψ).2.2.1
         (((cdF ψ).2.2.1.drop p.nP).map (·.2.2)) (uChains (p.FssR ψ))) ys)
       hh.hbz (by omega) rfl hldsBits hldsLen hlenPs hlenMs hlenSs hxv rfl htv.symm
       (hRuleOk ψ) hfitRa (fun h => absurd h hℓ0)

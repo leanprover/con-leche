@@ -95,7 +95,7 @@ theorem ihArgAV_eq (ℓ nP n nIdx D i : Nat) (tl : List (Nat × Nat × AnnotTerm
 
 section IhFrame
 
-variable {ℓ w u nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
+variable {tbl : List (List Nat)} {ℓ w u nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {D : Nat}
 
 /-- A field's index expression, moved under `bs` telescope binders at
@@ -355,7 +355,7 @@ theorem ihValsI_mk {ℓ : Nat} {ρp : Nat → V} {rV : V} {kspine : List V} {rss
 
 namespace FixKI
 
-variable {ℓ w u nP : Nat} {ρ₀ : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
+variable {tbl : List (List Nat)} {ℓ w u nP : Nat} {ρ₀ : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {rds : List (Nat × Nat × AnnotTerm)}
 
 set_option maxHeartbeats 3200000 in
@@ -364,7 +364,7 @@ split (graph regime), every field: the ih argument reads to the ih
 value, is graded (a constant-bit λ-tower over the moved telescope whose
 leaf is the function's graded application chain) and lies in the ih
 domain (the nested product of the motive at the calls). -/
-theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss rds) (hw : w ≠ 0)
+theorem ihArgsOk_tele (h : FixKI tbl ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss rds) (hw : w ≠ 0)
     {D : Nat} {σ : Nat → V} (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length) :
     IhArgsOk w ρ₀ σ Fss Ess Ids
       (ihDomsI ℓ (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
@@ -382,8 +382,8 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
   have hlenR : (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])).length
       = (Fss.getD j []).length + 1 := rChain_length _ _ _ _
   have hfam : ∀ t, SetTheory.app
-      (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess) t ∈ˢ (univ w : V) :=
-    fun t => famApp_mem_univ (fixFamI_mem u w (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Ess) t
+      (fixFamI tbl u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess) t ∈ˢ (univ w : V) :=
+    fun t => famApp_mem_univ (fixFamI_mem tbl u w (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Ess) t
   -- the payload's projections fit the real chain at the parameter frame
   have helim := restricted_member_elim hw
     (Fs := liftFields (Ids.length + Fss.length + 1) 0 (Fss.getD j []))
@@ -414,7 +414,7 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
         (projList i y) ∧
       projS i y ∈ˢ slotSet w u (consList (projList i y) (frP Fss.length Ids.length ρ₀))
         ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])
-        (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
+        (fixFamI tbl u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess) := by
     intro i hi
     obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
     have hc := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] (projList (Fss.getD j []).length y)
@@ -436,7 +436,7 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
       (∀ E ∈ (Eiss.getD j []).getD i [],
         WellDenoted V (consList bs (consList (projList i y) (frP Fss.length Ids.length ρ₀))) E) ∧
       bs.foldl SetTheory.app (projS i y) ∈ˢ SetTheory.app
-        (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess)
+        (fixFamI tbl u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess)
         (tupW u (((Eiss.getD j []).getD i []).map
           (interp V (consList bs (consList (projList i y) (frP Fss.length Ids.length ρ₀)))))) := by
     intro i hi bs hbs

@@ -72,7 +72,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll lvlsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
       (∀ ψ, m'.acval cA.1.name ψ
-        = sumMkAV (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP).map (·.2.2))
+        = sumMkAV [] 0 (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP).map (·.2.2))
             (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))) →
       CapsLawsAt m' p.cvT.name cvTa caps)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),

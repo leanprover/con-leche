@@ -501,7 +501,7 @@ omit [SetTheory V] in
 theorem fixBodyAVI_below {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Fss Ess : List (List AnnotTerm)} (hIds : FieldsBelow nP Ids)
     (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
-    Term.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess).erase := by
+    Term.bvarsBelow nP (fixBodyAVI [] u w Ids nIdx rss tlss Eiss Fss Ess).erase := by
   unfold fixBodyAVI
   rw [AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [Term.bvarsBelow]) ?_
@@ -514,7 +514,7 @@ theorem fixBodyAVI_below {rss : List (List Bool)} {tlss : List (List (List (Nat 
     refine ⟨⟨towerBodyAV_below hIds, trivial⟩, ?_, ?_⟩
     · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN 1 (towerBodyAV u Ids).erase nP 0 (towerBodyAV_below hIds)
-    · exact sumBodyAV_below hchains
+    · exact sumBodyAV_below hchains (fun h => absurd rfl h)
   · exact nomatch h
 
 omit [SetTheory V] in
@@ -525,7 +525,7 @@ theorem nativeTyAVI_below {pps : List (Nat × Nat × AnnotTerm)} {rss : List (Li
     (hIdsLen : (((pps.drop nP).map (·.2.2))).length = nIdx)
     (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain)
     (hIds : Ids = (pps.drop nP).map (·.2.2)) :
-    Term.bvarsBelow 0 (nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess).erase := by
+    Term.bvarsBelow 0 (nativeTyAVI [] u w pps Ids rss tlss Eiss Fss Ess).erase := by
   have hIdsB : FieldsBelow nP Ids := by
     rw [hIds]
     have := (DomsBelow.drop nP hp).fields
@@ -537,7 +537,7 @@ theorem nativeTyAVI_below {pps : List (Nat × Nat × AnnotTerm)} {rss : List (Li
   refine ⟨?_, ?_⟩
   · rw [AnnotTerm.erase_liftN]
     have := VExprAux.bvarsBelow_liftN Ids.length
-      (fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).erase nP 0
+      (fixBodyAVI [] u w Ids Ids.length rss tlss Eiss Fss Ess).erase nP 0
       (fixBodyAVI_below (w := w) (nIdx := Ids.length) hIdsB (by rw [hIL]; exact hchains))
     rw [hIL] at this ⊢
     exact this
@@ -560,7 +560,7 @@ theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsVal
       SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess))
     {is : List V} (hsp : SpineFit ρp Ids is) :
     AnnotValid V (consList is ρp)
-      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI [] u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) := by
   have hsh : shiftE Ids.length 0 (consList is ρp) = ρp := by
     rw [← hsp.length_eq]; exact shiftE_consList is ρp
@@ -592,11 +592,11 @@ theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsVal
 /-- **The former leaf's P currency**: graded at the hereditary premise,
 valid under the tower. -/
 theorem nativeTyAVI_wellDenotedV {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    (hok : ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps)
+    (hok : ParamsOkXI [] u w ρ Ids rss tlss Eiss Fss Ess pps)
     (hval : UnderTowerValid ρ
-      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI [] u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) pps) :
-    WellDenotedV V ρ (nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess) :=
+    WellDenotedV V ρ (nativeTyAVI [] u w pps Ids rss tlss Eiss Fss Ess) :=
   ⟨nativeTyAVI_wellDenoted hok, mkLamsC_validV (m := w + 1) hval⟩
 
 end Currency

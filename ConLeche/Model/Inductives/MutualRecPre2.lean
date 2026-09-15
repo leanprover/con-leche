@@ -587,7 +587,7 @@ theorem auxMotive_facts {ψ : Name → Nat} {elimL : Level} {ℓ W w nP : Nat}
     {Fss₀ Ess' : List (List AnnotTerm)} {ρp : Nat → V}
     (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
     (hT : TagOk W ρp Idss) (hTV : SumFieldsValid ρp Idss)
-    (hX : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (hX : XChainsOk [] W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
     (hok : FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess')
     (hcl : Term.bvarsBelow 0 (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess').erase)
     (hL : LeafTyping (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess') w (pps ++ tagIps W Idss)
@@ -649,7 +649,7 @@ theorem auxMajor_facts {W w nP n : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {Fss₀ Ess' : List (List AnnotTerm)} {ρp : Nat → V}
     (hsatP : Sat V ((pps.map (·.2.2)).reverse) ρp)
     (hT : TagOk W ρp Idss)
-    (hX : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (hX : XChainsOk [] W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
     (hok : FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess')
     (hcl : Term.bvarsBelow 0 (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess').erase)
     (hL : LeafTyping (auxFormerAV W w pps Idss rss tlss Eiss' Fss₀ Ess') w (pps ++ tagIps W Idss)
@@ -1122,7 +1122,7 @@ theorem interp_ctorAppAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name} {nP
     {ρp : Nat → V} {ms : List V} {M : V} (hms : ms.length + 1 = o)
     {ds : List (Nat × Nat × AnnotTerm)} (hlenDs : ds.length = nP + nF)
     {Fss : List (List AnnotTerm)}
-    (hleafC : m.acval C ψ = sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hleafC : m.acval C ψ = sumMkAV [] 0 w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
     (hclC : Term.bvarsBelow 0 (m.acval C ψ).erase)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
     (hokB : SumFieldsOkB w ρp Fss)
@@ -1130,7 +1130,7 @@ theorem interp_ctorAppAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name} {nP
     {as : List V} (hsp : SpineFit ρp ((ds.drop nP).map (·.2.2)) as) :
     interp V (consList as (consList ms (cons M ρp)))
         (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF))
-      = ctorValI w j as := by
+      = ctorValI [] w j as := by
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
   have hσ : ∀ k, consList as (consList ms (cons M ρp)) (k + (o + nF)) = ρp k := by
@@ -1139,7 +1139,7 @@ theorem interp_ctorAppAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name} {nP
       show k + o = (k + 1) + ms.length from by omega, consList_apply_add]
     rfl
   have hleafC' : m.acval C ψ
-      = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
+      = sumMkAV [] 0 w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
     rw [hleafC, List.take_append_drop]
   rw [interp_mkAppN,
     ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
@@ -1157,7 +1157,7 @@ theorem interp_ctorAppAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name} {nP
   · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
     rw [sumMkAV_fold hw' hsp₁ (by rw [consList_range_reverse]; exact hsp)
       (by rw [consList_range_reverse]; exact SumFieldsOkB_uChains hokB)
-      (by rw [uChains_getElem?, hFsj]; rfl), if_neg hw']
+      (by rw [flatOf_nil, uChains_getElem?, hFsj]; rfl), if_neg hw', locOf_nil]
 
 /-- **The minor's conclusion at a tagged constructor**: the motive at
 the tagged index tuple, applied to the constructor's value — graded,
@@ -1524,7 +1524,7 @@ structure AuxFrameOk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
   tag : TagOk W ρp Idss
   tagValid : SumFieldsValid ρp Idss
   chains : FixChainsOkI W wB ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess'
-  xchains : XChainsOk W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
+  xchains : XChainsOk [] W wB ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess'
   former : LeafTyping (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') wB
     (pps ++ tagIps W Idss) (fun k => ρp (k + nP))
   minors : ∀ (j : Nat) (cd : CtorDatumR), cds[j]? = some cd →
@@ -1675,7 +1675,7 @@ theorem auxConc_facts {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
         interp V (consList ms (cons M ρp))
             (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
               cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI [] wB ρp M (Ess'.getD j []) j fs)
               (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
             (Fss.getD j []) ρp [])
     (ρb : Nat → V) (as' : List V)
@@ -1837,8 +1837,8 @@ theorem auxFixPre_of (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeroness
     (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
       AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp)
     (hchains : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
-      XChainsOk W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
-      ChainsRealI (fixFamI W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
+      XChainsOk [] W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
+      ChainsRealI (fixFamI [] W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
         W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Fss Ess' ∧
       (∀ j, j < n → FieldsOkB wB ρp (Fss.getD j []) ∧
         ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
@@ -1849,10 +1849,10 @@ theorem auxFixPre_of (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeroness
         interp V (consList ms (cons M ρp))
             (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
               cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI [] wB ρp M (Ess'.getD j []) j fs)
               (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
             (Fss.getD j []) ρp []) :
-    FixPre V ℓ wB W nP Fss Ess' Fss₀ ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+    FixPre V [] ℓ wB W nP Fss Ess' Fss₀ ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
       (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
         (tagIps W Idss) cds) s := by
   have hentries := auxRecData_entriesOk hℓ hb hs0 hsW hsw hsℓ hlenP hclL hpps hfrm
@@ -1912,8 +1912,8 @@ theorem auxRecLeafFacts (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeron
     (hfrm : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
       AuxFrameOk m ψ ℓ W wB b nP pps Idss rss tlss Eiss' Fss₀ Ess' cds ρp)
     (hchains : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
-      XChainsOk W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
-      ChainsRealI (fixFamI W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
+      XChainsOk [] W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Ess' ∧
+      ChainsRealI (fixFamI [] W wB ρp ((tagIps W Idss).map (·.2.2)) 1 rss tlss Eiss' Fss₀ Ess')
         W wB ρp ((tagIps W Idss).map (·.2.2)) rss tlss Eiss' Fss₀ Fss Ess' ∧
       (∀ j, j < n → FieldsOkB wB ρp (Fss.getD j []) ∧
         ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
@@ -1924,7 +1924,7 @@ theorem auxRecLeafFacts (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeron
         interp V (consList ms (cons M ρp))
             (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
               cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp M (Ess'.getD j []) j fs)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI [] wB ρp M (Ess'.getD j []) j fs)
               (ihDomsI ℓ ρp M rss tlss Eiss' (fun j' => (Fss.getD j' []).length) j fs))
             (Fss.getD j []) ρp [])
     (hvFss : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
@@ -1938,10 +1938,10 @@ theorem auxRecLeafFacts (hℓ : elimL.eval ψ = ℓ) (hb : pwBit ψ (Level.zeron
           (((tlss.getD j []).getD i []).map (·.2.2)) bs →
         ∀ E ∈ (Eiss'.getD j []).getD i [], AnnotValid V (consList bs (consList (fs.take i) ρp)) E)) :
     ∀ ρ : Nat → V,
-      WellDenotedV V ρ (nativeRecAVI ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+      WellDenotedV V ρ (nativeRecAVI [] ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
         (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
           (tagIps W Idss) cds) s) ∧
-      interp V ρ (nativeRecAVI ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
+      interp V ρ (nativeRecAVI [] ℓ wB nP Fss Ess' ((tagIps W Idss).map (·.2.2)) rss tlss Eiss'
         (fixRecDataAVL m ψ (auxFormerAV W wB pps Idss rss tlss Eiss' Fss₀ Ess') nP 1 elimL pps
           (tagIps W Idss) cds) s)
         ∈ˢ interp V ρ (mkPisAV

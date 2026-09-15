@@ -78,7 +78,7 @@ theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}
     CtorFactsAt m T lps nP nIdx resSort isProp large idxF dsF esF srcsF i cA ∧
     (∀ e ∈ idxF i, e.constsResolve env = true) ∧
     ∀ ψ, m.acval cA.1.name ψ
-      = sumMkAV (resSort.eval ψ) i (dsF i ψ) (((dsF i ψ).drop nP).map (·.2.2))
+      = sumMkAV [] 0 (resSort.eval ψ) i (dsF i ψ) (((dsF i ψ).drop nP).map (·.2.2))
           (uChains (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))
 
 /-! ## The assembly -/

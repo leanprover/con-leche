@@ -299,7 +299,7 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
       (Fss.getD j []) (Eiss.getD j []) (Ess.getD j []))
     (hCV : ∀ j, j < n → ChainValidFacts nP (Fss.getD j []).length ρp (ksF j) (tlss.getD j [])
       (Fss.getD j []) (Eiss.getD j []) (Ess.getD j [])) :
-    XChainsOk u w ρp Ids rss tlss Eiss Fss Ess ∧
+    XChainsOk [] u w ρp Ids rss tlss Eiss Fss Ess ∧
     ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
       SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess) := by
   have hmem : ∀ chain ∈ chainsXI u Ids Ids.length rss tlss Eiss Fss Ess, ∃ j, j < n ∧
@@ -320,12 +320,12 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
     exact (fixChain_of hI hX ht (hC j hj)).1
   -- the closure witness: the container instance, or the top family at `w = 0`
   have hclosed : ∃ L, IsClosedFam w (idxSet u ρp Ids)
-      (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+      (fixFunVI [] u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
     rcases Nat.eq_zero_or_pos w with rfl | hw
     · exact fixFunVI_closed_zero hok
     · exact fixClosed_of (Nat.pos_iff_ne_zero.mp hw) hI (fun j hj => hrss j (by omega))
         (fun j hj => hC j (by omega))
-  refine ⟨⟨hI, hok, fun X hX t ht j hj => ?_, hclosed⟩,
+  refine ⟨⟨hI, hok, fun X hX t ht j hj => ?_, hclosed, offOk_nil _ _ _⟩,
     fun X hX t ht chain hc => ?_⟩
   · rw [hrss j (by omega)]
     exact (fixChain_of hI hX ht (hC j (by omega))).2

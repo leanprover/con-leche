@@ -381,7 +381,7 @@ by value (`mutualIndRep_of`'s `hsortJ`). -/
   u := W
   tup := fun ψ mm is => tupW (W ψ) [inj mm (mkTower (is ++ [pt]))]
   Φ := fun ψ ρp =>
-    fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ) (Eiss' ψ)
+    fixFunVI [] (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ) (Eiss' ψ)
       (mutFss nP ctorsA.length dsF ψ) (Ess' ψ)
   inj := fun ψ J fs => injW (resSort.eval ψ) J (mkTower (fs ++ [pt]))
 
@@ -526,7 +526,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp → TagOk (W ψ) ρp (Idss ψ))
     (hX : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp →
-      XChainsOk (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
+      XChainsOk [] (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
         (Fss₀ ψ) (Ess' ψ))
     (hIdss : ∀ ψ : Name → Nat, (Idss ψ)[mm]? = some (((ppsOf mm ψ).drop nP).map (·.2.2)))
     -- every member's index telescope is listed (task #279 M-C′: the
@@ -538,14 +538,14 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
     (hnFs : ∀ J cA, ctorsA[J]? = some cA → nFs J = cA.2)
     -- the leaves
     (hleafT : ∀ ψ : Name → Nat, m.acval (Tname mm) ψ
-      = mutualTyAVI (W ψ) (resSort.eval ψ) (ppsOf mm ψ) (nIdxOf mm) (Idss ψ) rss (tlss ψ)
+      = mutualTyAVI [] (W ψ) (resSort.eval ψ) (ppsOf mm ψ) (nIdxOf mm) (Idss ψ) rss (tlss ψ)
           (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) mm)
     -- every member's leaf is a constant-bit λ-tower over its own data
     -- (task #279 M-B′ step 3c, `IndRep.leafShape`)
     (hleafAll : ∀ t, t < k → ∀ ψ : Name → Nat,
       ∃ B, m.acval (Tname t) ψ = mkLamsC (resSort.eval ψ + 1) (ppsOf t ψ) B)
     (hleafC : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat, m.acval cA.1.name ψ
-      = sumMkAV (resSort.eval ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2))
+      = sumMkAV [] 0 (resSort.eval ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2))
           (uChains (mutFss nP ctorsA.length dsF ψ)))
     (hokB : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp →
@@ -600,7 +600,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
   -- the functor's premise at the datum's REAL chains
   have hXr : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf 0 ψ).take nP).map (·.2.2)).reverse ρp →
-      XChainsOk (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
+      XChainsOk [] (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ)) rss (tlss ψ) (Eiss' ψ)
         (mutFss nP ctorsA.length dsF ψ) (Ess' ψ) :=
     fun ψ ρp hρ => xChainsOk_congr (hX ψ ρp hρ) (hagree ψ)
   have hlenIdsM : ∀ ψ, (d.IdsM mm ψ).length = nIdxOf mm := by
@@ -727,7 +727,7 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
         (idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ))) := by
       rw [lfpFamSpace_eq]; exact hXm
     have ht' : t ∈ˢ idxSet (W ψ) ρp (auxIds (W ψ) (Idss ψ)) := ht
-    show x ∈ˢ app (app (fixFunVI (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ))
+    show x ∈ˢ app (app (fixFunVI [] (W ψ) (resSort.eval ψ) ρp (auxIds (W ψ) (Idss ψ))
       (auxIds (W ψ) (Idss ψ)).length rss (tlss ψ) (Eiss' ψ) (mutFss nP ctorsA.length dsF ψ)
       (Ess' ψ)) X) t ↔ _
     rw [fixFunVI_app hXs, famFI_app ht', fixStepI_iff]
@@ -766,10 +766,10 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
       rw [hframe, ← hislen]; exact shiftE_consList _ _
     have hfr : ConLeche.Semantics.frameIdx (nIdxOf mm) (consList (as ++ is) ρ) = is := by
       rw [hframe, ← hislen]; exact frameIdx_consList' _ _
-    have hbase : MutualBaseI (W ψ) (resSort.eval ψ) (consList (as ++ is) ρ) (nIdxOf mm) (Idss ψ)
+    have hbase : MutualBaseI [] (W ψ) (resSort.eval ψ) (consList (as ++ is) ρ) (nIdxOf mm) (Idss ψ)
         rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) mm := by
       refine ⟨by rw [hshift]; exact hTag ψ _ hsat0, by rw [hshift]; exact (hX ψ _ hsat0).hok,
-        ((ppsOf mm ψ).drop nP).map (·.2.2), hIdss ψ, ?_, ?_⟩
+        offOk_nil _ _ _, ((ppsOf mm ψ).drop nP).map (·.2.2), hIdss ψ, ?_, ?_⟩
       · rw [← hIdsM]; exact hlenIdsM ψ
       · rw [hshift, hfr, ← hIdsM]; exact hsp₂
     have hfold := mutualTyAVI_fold hspAll hbase
@@ -825,7 +825,8 @@ theorem mutualIndRep_of {m : EnvModel V env} {env₀ : Env}
         rw [uChains_getElem?, mutFss, List.getElem?_map, List.getElem?_range hJlt]
         rfl
       rw [hFssD ψ J cA hJ] at hsp₂
-      have := sumMkAV_fold (V := V) hz (pds := (dsF J ψ).take nP) (fds := (dsF J ψ).drop nP)
+      have := sumMkAV_fold (V := V) (tbl := []) (m := 0) (jc := J) hz
+        (pds := (dsF J ψ).take nP) (fds := (dsF J ψ).drop nP)
         (Fss := uChains (mutFss nP ctorsA.length dsF ψ)) (ρ := ρ) hsp₁' hsp₂ hok hjU
       rw [← hsplit] at this
       exact this

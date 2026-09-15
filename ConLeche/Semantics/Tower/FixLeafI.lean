@@ -249,48 +249,92 @@ theorem chainsXI_getElem? (u : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : L
 omit [SetTheory V] in
 
 /-- The functor's λ: `λ (X : I → Sort w) (t : I). Σ_j tower_j(X, t)`. -/
-def fixFunAVI (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
+def fixFunAVI (tbl : List (List Nat)) (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : AnnotTerm :=
   .lam (Nat.max u (w + 1)) (famTyAV u w Ids)
-    (.lam (w + 1) ((idxTyAV u Ids).liftN 1 0) (sumBodyAV w (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)))
+    (.lam (w + 1) ((idxTyAV u Ids).liftN 1 0) (sumBodyAV tbl w (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)))
 
-/-- The family: `lfpFam.{u,w} I F` at the parameter frame. -/
-def fixBodyAVI (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
+/-- The family: `lfpFam.{u,w} I F` at the parameter frame.  The tag
+table `tbl` (task #279 D-1, DESIGN §M.60) is the mutual reduction's
+member-local tag map; `[]` at every other route. -/
+def fixBodyAVI (tbl : List (List Nat)) (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : AnnotTerm :=
-  AnnotTerm.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess]
+  AnnotTerm.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess]
 
 /-- The type-former leaf: the λ-tower over the parameter and index
 domains, the family at the tuple of the index variables. -/
-def nativeTyAVI (u w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (Ids : List AnnotTerm)
+def nativeTyAVI (tbl : List (List Nat)) (u w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) :
     AnnotTerm :=
   mkLamsAV (pps.map fun d => (w + 1, d.2.2))
-    (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) (mkTowerGo u Ids))
+    (.app ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) (mkTowerGo u Ids))
 
 /-! ## The semantic functor -/
 
-/-- The functor's fibre at `(X, t)`. -/
-noncomputable def fixStepI (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
+/-- The functor's fibre at `(X, t)`: the tagged union whose `jc`-th
+fibre is the FLAT chain `tagOf tbl n t jc`'s (task #279 D-1) — the
+flat sum itself at the empty table. -/
+noncomputable def fixStepI (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm))
     (X t : V) : V :=
-  sumSet w (sumFibre w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess))
+  sumSet w (sumFibreT tbl w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess))
 
 /-- The functor on families (as a set-level function of `X`). -/
-noncomputable def famFI (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
+noncomputable def famFI (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm))
     (X : V) : V :=
-  lamR (w + 1) (idxSet u ρp Ids) fun t => fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
+  lamR (w + 1) (idxSet u ρp Ids) fun t => fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
 
 /-- The functor as a set. -/
-noncomputable def fixFunVI (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
+noncomputable def fixFunVI (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : V :=
   lamR (Nat.max u (w + 1)) (lfpFamSpace V w (idxSet u ρp Ids))
-    fun X => famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X
+    fun X => famFI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X
 
 /-- The least pre-fixed family. -/
-noncomputable def fixFamI (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
+noncomputable def fixFamI (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : V :=
-  lfpFamSet w (idxSet u ρp Ids) (fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess)
+  lfpFamSet w (idxSet u ρp Ids) (fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess)
+
+/-- **The tag table's premise**: at a nonempty table the index level is
+positive, there is an index, and every index tuple is a tag tuple
+(`t = ⟨inj m ⟨ı⃗⟩⟩`: the member is read off it by `.fst (.fst _)`).
+Vacuous at the empty table. -/
+def OffOk (tbl : List (List Nat)) (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) : Prop :=
+  tbl ≠ [] → u ≠ 0 ∧ Ids ≠ [] ∧ TblOk tbl ∧ ∀ t, t ∈ˢ idxSet u ρp Ids → TagTuple t
+
+theorem offOk_nil (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) : OffOk [] u ρp Ids :=
+  fun h => absurd rfl h
+
+/-- The tuple's premise for the body at the functor's frame. -/
+theorem OffOk.tuple {tbl : List (List Nat)} {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    (h : OffOk tbl u ρp Ids) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) (X : V) :
+    tbl ≠ [] → TagTuple ((cons t (cons X ρp)) 0) :=
+  fun hne => (h hne).2.2.2 t ht
+
+/-- The table's validity, from the premise. -/
+theorem OffOk.tbl {tbl : List (List Nat)} {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    (h : OffOk tbl u ρp Ids) : tbl ≠ [] → TblOk tbl :=
+  fun hne => (h hne).2.2.1
+
+omit [SetTheory V] in
+theorem chainsXI_length (u : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss Ess : List (List AnnotTerm)) :
+    (chainsXI u Ids nIdx rss tlss Eiss Fss Ess).length = Fss.length := by
+  unfold chainsXI; rw [List.length_map, List.length_range]
+
+/-- The functor's fibre with the tag map explicit: the `jc`-th fibre
+is the flat chain `tagOf tbl Fss.length t jc`'s. -/
+theorem fixStepI_eq (tbl : List (List Nat)) (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Nat)
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm)))
+    (Fss Ess : List (List AnnotTerm)) (X t : V) :
+    fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
+      = sumSet w fun jc => sumFibre w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)
+          (tagOf tbl Fss.length t jc) := by
+  unfold fixStepI sumFibreT
+  rw [chainsXI_length]
+  rfl
 
 /-- The grading premise: at every family `X` and tuple `t` the X-chains
 are graded. -/
@@ -302,31 +346,31 @@ def FixChainsOkI (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (nIdx : Na
 
 section Facts
 
-variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {nIdx : Nat} {rss : List (List Bool)}
+variable {tbl : List (List Nat)} {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {nIdx : Nat} {rss : List (List Bool)}
   {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
 
 theorem fixStepI_univ (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t ∈ˢ (univ w : V) :=
-  sumSet_univ_of_okB (hok X hX t ht)
+    fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X t ∈ˢ (univ w : V) :=
+  sumSetT_univ_of_okB (hok X hX t ht)
 
 theorem famFI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) :
-    famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
+    famFI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
   lamR_mem fun _ ht => fixStepI_univ hok hX ht
 
 theorem famFI_app {X t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    SetTheory.app (famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X) t
-      = fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t :=
+    SetTheory.app (famFI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X) t
+      = fixStepI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X t :=
   app_lamR_pos (a := t) (Nat.succ_ne_zero w) ht
 
 theorem fixFunVI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
-    fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamFunSpace V u w (idxSet u ρp Ids) :=
+    fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamFunSpace V u w (idxSet u ρp Ids) :=
   lamR_mem fun _ hX => famFI_mem hok hX
 
 theorem fixFunVI_app {X : V} (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) :
-    SetTheory.app (fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess) X
-      = famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X :=
+    SetTheory.app (fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess) X
+      = famFI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess X :=
   app_lamR_pos (max_succ_ne_zero u w) hX
 
 /-- The frame under the functor's two binders. -/
@@ -337,9 +381,10 @@ theorem idxTyAV_lift1 (h : IdxOk u ρp Ids) (X : V) :
   exact ⟨(idxTyAV_facts h).1, (idxTyAV_facts h).2.2⟩
 
 /-- **The functor's λ**: its value, its membership, its grading. -/
-theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
-    interp V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess) = fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
-      WellDenoted V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
+theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess)
+    (hoff : OffOk tbl u ρp Ids) :
+    interp V ρp (fixFunAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess) = fixFunVI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
+      WellDenoted V ρp (fixFunAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess) := by
   obtain ⟨hfv, hfu, hfok⟩ := famTyAV_facts (w := w) hI
   refine ⟨?_, ?_⟩
   · unfold fixFunAVI fixFunVI
@@ -348,7 +393,7 @@ theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids n
     unfold famFI
     rw [interp_lam, (idxTyAV_lift1 hI X).1]
     refine lamR_congr fun t ht => ?_
-    exact sumBodyAV_interp (hok X hX t ht)
+    exact sumBodyAV_interp (hok X hX t ht) (hoff.tuple ht X)
   · unfold fixFunAVI
     rw [WellDenoted_lam]
     refine ⟨hfok, fun X hX => ?_, fun _ => lfpFamSpace V w (idxSet u ρp Ids), fun X hX => ?_,
@@ -358,27 +403,28 @@ theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids n
       refine ⟨(idxTyAV_lift1 hI X).2, fun t ht => ?_, fun _ => (univ w : V), fun t ht => ?_,
         fun h => absurd h (Nat.succ_ne_zero w)⟩
       · rw [(idxTyAV_lift1 hI X).1] at ht
-        exact sumBodyAV_wellDenoted (hok X hX t ht)
+        exact sumBodyAV_wellDenoted (hok X hX t ht) (hoff.tuple ht X)
       · rw [(idxTyAV_lift1 hI X).1] at ht
-        rw [sumBodyAV_interp (hok X hX t ht)]
+        rw [sumBodyAV_interp (hok X hX t ht) (hoff.tuple ht X)]
         exact fixStepI_univ hok hX ht
     · rw [hfv] at hX
       rw [interp_lam, (idxTyAV_lift1 hI X).1]
       refine lamR_mem fun t ht => ?_
-      rw [sumBodyAV_interp (hok X hX t ht)]
+      rw [sumBodyAV_interp (hok X hX t ht) (hoff.tuple ht X)]
       exact fixStepI_univ hok hX ht
 
 /-- **The family**: its value, its membership, its grading. -/
-theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
-    interp V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) = fixFamI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
-      fixFamI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) ∧
-      WellDenoted V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
+theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess)
+    (hoff : OffOk tbl u ρp Ids) :
+    interp V ρp (fixBodyAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess) = fixFamI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
+      fixFamI tbl u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) ∧
+      WellDenoted V ρp (fixBodyAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess) := by
   obtain ⟨hiv, hiu, hiok⟩ := idxTyAV_facts hI
-  obtain ⟨hfv, hfok⟩ := fixFunAVI_facts hI hok
+  obtain ⟨hfv, hfok⟩ := fixFunAVI_facts hI hok hoff
   have hc : interp V ρp (.const .lfpFam [u, w]) = lfpFamV V u w := rfl
   refine ⟨?_, lfpFamSet_mem_space V w _ _, ?_⟩
   · show SetTheory.app (SetTheory.app (interp V ρp (.const .lfpFam [u, w]))
-      (interp V ρp (idxTyAV u Ids))) (interp V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess)) = _
+      (interp V ρp (idxTyAV u Ids))) (interp V ρp (fixFunAVI tbl u w Ids nIdx rss tlss Eiss Fss Ess)) = _
     rw [hc, hiv, hfv]
     exact lfpFamV_app V hiu (fixFunVI_mem hok)
   · show WellDenoted V ρp (.app (.app (.const .lfpFam [u, w]) _) _)
@@ -401,20 +447,21 @@ end Facts
 /-- The base of the leaf's premise, at the frame below the parameters
 AND the index binders: the index telescope graded at the parameter
 frame, the X-chains graded there, the frame's index tuple fitting. -/
-def FixBaseI (u w : Nat) (ρ : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+def FixBaseI (tbl : List (List Nat)) (u w : Nat) (ρ : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : Prop :=
   IdxOk u (shiftE Ids.length 0 ρ) Ids ∧
   FixChainsOkI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess ∧
-  SpineFit (shiftE Ids.length 0 ρ) Ids (frameIdx Ids.length ρ)
+  SpineFit (shiftE Ids.length 0 ρ) Ids (frameIdx Ids.length ρ) ∧
+  OffOk tbl u (shiftE Ids.length 0 ρ) Ids
 
 /-- `ParamsOkXI`: the leaf's one hereditary premise — the parameter
 and index telescope graded, `FixBaseI` at the base. -/
-def ParamsOkXI (u w : Nat) (ρ : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
+def ParamsOkXI (tbl : List (List Nat)) (u w : Nat) (ρ : Nat → V) (Ids : List AnnotTerm) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) :
     List (Nat × Nat × AnnotTerm) → Prop
-  | [] => FixBaseI u w ρ Ids rss tlss Eiss Fss Ess
+  | [] => FixBaseI tbl u w ρ Ids rss tlss Eiss Fss Ess
   | d :: pps => d.2.1 ≠ 0 ∧ WellDenoted V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp V ρ d.2.2 → ParamsOkXI u w (cons a ρ) Ids rss tlss Eiss Fss Ess pps
+      ∀ a, a ∈ˢ interp V ρ d.2.2 → ParamsOkXI tbl u w (cons a ρ) Ids rss tlss Eiss Fss Ess pps
 
 omit [SetTheory V] in
 theorem frameIdx_succ (n : Nat) (ρ : Nat → V) : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := by
@@ -461,25 +508,25 @@ theorem consList_frameIdx : ∀ (n : Nat) (ρ : Nat → V),
 
 /-- The body's reading at the base frame: the family at the frame's
 tuple. -/
-theorem fixLeafBody_facts {u w : Nat} {ρ : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
+theorem fixLeafBody_facts {tbl : List (List Nat)} {u w : Nat} {ρ : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
-    (h : FixBaseI u w ρ Ids rss tlss Eiss Fss Ess) :
-    interp V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+    (h : FixBaseI tbl u w ρ Ids rss tlss Eiss Fss Ess) :
+    interp V ρ (.app ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids))
-      = SetTheory.app (fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess)
+      = SetTheory.app (fixFamI tbl u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess)
           (tupW u (frameIdx Ids.length ρ)) ∧
-    interp V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+    interp V ρ (.app ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) ∈ˢ (univ w : V) ∧
-    WellDenoted V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+    WellDenoted V ρ (.app ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) := by
-  obtain ⟨hI, hok, hsp⟩ := h
-  obtain ⟨hbv, hbm, hbok⟩ := fixBodyAVI_facts hI hok
+  obtain ⟨hI, hok, hsp, hoff⟩ := h
+  obtain ⟨hbv, hbm, hbok⟩ := fixBodyAVI_facts hI hok hoff
   have hρ : consList (frameIdx Ids.length ρ) (shiftE Ids.length 0 ρ) = ρ :=
     consList_frameIdx Ids.length ρ
-  have hlift : interp V ρ ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
-      = fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess := by
+  have hlift : interp V ρ ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+      = fixFamI tbl u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess := by
     rw [interp_liftN, hbv]
-  have hliftok : WellDenoted V ρ ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) := by
+  have hliftok : WellDenoted V ρ ((fixBodyAVI tbl u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) := by
     rw [WellDenoted_liftN]; exact hbok
   have htv : interp V ρ (mkTowerGo u Ids) = tupW u (frameIdx Ids.length ρ) := by
     have h1 := mkTowerGo_interp (ρp := shiftE Ids.length 0 ρ) (bs := frameIdx Ids.length ρ)
@@ -502,11 +549,11 @@ theorem fixLeafBody_facts {u w : Nat} {ρ : Nat → V} {Ids : List AnnotTerm} {r
     · rw [htv]; exact htmem
 
 /-- **The leaf inhabits its type's reading.** -/
-theorem nativeTyAVI_mem {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
+theorem nativeTyAVI_mem {tbl : List (List Nat)} {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)} :
     ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps →
-      interp V ρ (nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess) ∈ˢ interp V ρ (mkPisAV pps (.sort w))
+      ParamsOkXI tbl u w ρ Ids rss tlss Eiss Fss Ess pps →
+      interp V ρ (nativeTyAVI tbl u w pps Ids rss tlss Eiss Fss Ess) ∈ˢ interp V ρ (mkPisAV pps (.sort w))
   | [], ρ, h => (fixLeafBody_facts h).2.1
   | d :: pps, ρ, h => by
     show (lamR (w + 1) (interp V ρ d.2.2)
@@ -517,11 +564,11 @@ theorem nativeTyAVI_mem {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Boo
       (fun a ha => nativeTyAVI_mem (h.2.2 a ha))
 
 /-- **The leaf is graded.** -/
-theorem nativeTyAVI_wellDenoted {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
+theorem nativeTyAVI_wellDenoted {tbl : List (List Nat)} {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)} :
     ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps →
-      WellDenoted V ρ (nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess)
+      ParamsOkXI tbl u w ρ Ids rss tlss Eiss Fss Ess pps →
+      WellDenoted V ρ (nativeTyAVI tbl u w pps Ids rss tlss Eiss Fss Ess)
   | [], _, h => (fixLeafBody_facts h).2.2
   | d :: pps, ρ, h => by
     show WellDenoted V ρ (.lam (w + 1) d.2.2 (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) _))
@@ -533,14 +580,14 @@ theorem nativeTyAVI_wellDenoted {u w : Nat} {Ids : List AnnotTerm} {rss : List (
 
 /-- **The leaf's application fold**: along a fitting parameter-and-
 index spine the leaf computes the family at the spine's tuple. -/
-theorem nativeTyAVI_fold {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
+theorem nativeTyAVI_fold {tbl : List (List Nat)} {u w : Nat} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
     {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {as : List V}
     (hsp : SpineFit ρ (pps.map (·.2.2)) as)
-    (hbase : FixBaseI u w (consList as ρ) Ids rss tlss Eiss Fss Ess) :
-    as.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess))
+    (hbase : FixBaseI tbl u w (consList as ρ) Ids rss tlss Eiss Fss Ess) :
+    as.foldl SetTheory.app (interp V ρ (nativeTyAVI tbl u w pps Ids rss tlss Eiss Fss Ess))
       = SetTheory.app
-          (fixFamI u w (shiftE Ids.length 0 (consList as ρ)) Ids Ids.length rss tlss Eiss Fss Ess)
+          (fixFamI tbl u w (shiftE Ids.length 0 (consList as ρ)) Ids Ids.length rss tlss Eiss Fss Ess)
           (tupW u (frameIdx Ids.length (consList as ρ))) := by
   have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
     rwa [List.map_map]

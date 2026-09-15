@@ -359,7 +359,7 @@ theorem mutualBlock_split {m : EnvModel V env} {ψ : Name → Nat} {elimL : Leve
         interp V (consList ms (consList Ms ρp))
             (minorAVAtRM (mems q) (tgts q) m cd.1 ψ nP cd.2.1 b (k + q) cd.2.2.1 cd.2.2.2.1
               cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI [] wB ρp (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
               (ihDomsIM ℓ ρp (fun i => Ms.getD (tgts q i) pt) rss tlss Eiss
                 (fun r => (Fss.getD r []).length) q fs))
             (Fss.getD q []) ρp [])
@@ -377,7 +377,7 @@ theorem mutualBlock_split {m : EnvModel V env} {ψ : Name → Nat} {elimL : Leve
         ((motivesDataGo Lof nIdxOf ipsOf ψ nP elimL b k 0).map (·.2.2)) Ms ∧
       (∀ q, q < n → ms.getD q pt ∈ˢ minorSpI ℓ
         (fun fs => ihSpL ℓ
-          (concI wB (consList ps ρb) (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
+          (concI [] wB (consList ps ρb) (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
           (ihDomsIM ℓ (consList ps ρb) (fun i => Ms.getD (tgts q i) pt) rss tlss Eiss
             (fun r => (Fss.getD r []).length) q fs))
         (Fss.getD q []) (consList ps ρb) []) := by
@@ -429,7 +429,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     (hlenDs : ds.length = nP + nF) (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
     (hEsj : Ess[j]? = some Es) (hrecIdx : recIdxJ = recIdx (rss.getD j []) nF)
     (hEissJ : Eiss.getD j [] = EissJ) (htlsJ : tlss.getD j [] = tlsJ)
-    (hleafC : m.acval C ψ = sumMkAV wB j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hleafC : m.acval C ψ = sumMkAV [] 0 wB j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
     (hclC : Term.bvarsBelow 0 (m.acval C ψ).erase)
     (hiff : ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp ↔
       Sat V (((ds.take nP).map (·.2.2)).reverse) ρp)
@@ -455,7 +455,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
         interp V (consList ms (consList Ms ρp))
             (minorAVAtRM (mems q) (tgts q) m cd.1 ψ nP cd.2.1 b (k + q) cd.2.2.1 cd.2.2.2.1
               cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
-          = minorSpI ℓ (fun fs => ihSpL ℓ (concI wB ρp (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI [] wB ρp (Ms.getD (mems q) pt) (Ess.getD q []) q fs)
               (ihDomsIM ℓ ρp (fun i => Ms.getD (tgts q i) pt) rss tlss Eiss
                 (fun r => (Fss.getD r []).length) q fs))
             (Fss.getD q []) ρp [])
@@ -499,7 +499,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     (hzeroC : ℓ = 0 → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
       ∀ Ms : List V, SpineFit ρp ((motivesDataGo (fun t => Ls.getD t default)
           (fun t => nIdxs.getD t 0) (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) Ms →
-        ∀ acc : List V, concI wB ρp (Ms.getD (mems j) pt) Es j acc ∈ˢ (univZero : V))
+        ∀ acc : List V, concI [] wB ρp (Ms.getD (mems j) pt) Es j acc ∈ˢ (univZero : V))
     (hzeroD : ℓ = 0 → ∀ ρp : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρp →
       ∀ Ms : List V, SpineFit ρp ((motivesDataGo (fun t => Ls.getD t default)
           (fun t => nIdxs.getD t 0) (fun t => ipss.getD t []) ψ nP elimL b k 0).map (·.2.2)) Ms →
@@ -608,14 +608,14 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
     have hsatC : Sat V (((ds.take nP).map (·.2.2)).reverse) (consList as₁ ρ) := (hiff _).mp hρp
     -- the conclusion's value
     have hTv : interp V (consList as₂ (consList ms (consList Ms (consList as₁ ρ)))) TC
-        = concI wB (consList as₁ ρ) (Ms.getD (mems j) pt) Es j as₂ := by
+        = concI [] wB (consList as₁ ρ) (Ms.getD (mems j) pt) Es j as₂ := by
       rw [← hTC]
       exact interp_minorConcAVM (o := k + n) (by omega) (by omega) hlenDs hleafC hclC hFsj hokB
         hsatC hspD
     -- the minor at the fields
     have hmj := hms j hjn
     have hc0 : ℓ = 0 → ∀ acc : List V,
-        ihSpL ℓ (concI wB (consList as₁ ρ) (Ms.getD (mems j) pt) (Ess.getD j []) j acc)
+        ihSpL ℓ (concI [] wB (consList as₁ ρ) (Ms.getD (mems j) pt) (Ess.getD j []) j acc)
           (ihDomsIM ℓ (consList as₁ ρ) (fun i => Ms.getD (tgts j i) pt) rss tlss Eiss
             (fun r => (Fss.getD r []).length) j acc) ∈ˢ (univZero : V) := by
       intro h0 acc
@@ -682,7 +682,7 @@ theorem mutualRuleOk {m : EnvModel V env} {ψ : Name → Nat} {elimL : Level}
       unfold ihDomsIM
       simp only [har]
     have hsp_ih := ihSpL_spine (V := V) (ℓ := ℓ)
-      (C := concI wB (consList as₁ ρ) (Ms.getD (mems j) pt) (Ess.getD j []) j as₂)
+      (C := concI [] wB (consList as₁ ρ) (Ms.getD (mems j) pt) (Ess.getD j []) j as₂)
       (As := ihDomsIM ℓ (consList as₁ ρ) (fun i => Ms.getD (tgts j i) pt) rss tlss Eiss
         (fun r => (Fss.getD r []).length) j as₂)
       (args := (recIdx (rss.getD j []) nF).map fun i =>

@@ -64,8 +64,9 @@ theorem chainsXI_nil (u : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (
 theorem fixStepI_nil {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
     {Ess : List (List AnnotTerm)} (X t : V) :
-    fixStepI u w ρp Ids Ids.length rss tlss Eiss [] Ess X t = empty := by
+    fixStepI [] u w ρp Ids Ids.length rss tlss Eiss [] Ess X t = empty := by
   unfold fixStepI
+  rw [sumFibreT_nil]
   refine sumSet_of_empty fun i => ?_
   unfold sumFibre
   rw [chainsXI_nil]
@@ -110,7 +111,7 @@ its type reading is bitted (task #279 M-B′, session 9). -/
   IdsC := fun _ => []
   u := fun _ => 0
   tup := fun _ _ is => tupW 0 is
-  Φ := fun ψ ρp => fixFunVI 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []
+  Φ := fun ψ ρp => fixFunVI [] 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []
   inj := fun _ _ _ => pt
 
 /-- **A zero-constructor block is represented**: its stored type is
@@ -137,14 +138,15 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
   have hidx : ∀ ρp : Nat → V, d.idx (fun _ => 0) ρp = unitSet := fun _ => rfl
   have hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V), IdxOk (d.u ψ) ρp (d.IdsC ψ) := fun _ _ => ⟨trivial, trivial⟩
   have hX : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      XChainsOk (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) := by
+      XChainsOk [] (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) d.rss (d.tlss ψ) (d.Eiss ψ) (d.Fss ψ) (d.Ess ψ) := by
     intro ψ ρp
-    refine ⟨hIdx ψ ρp, (fun X _ t _ Fs hFs => nomatch hFs), (fun _ _ _ _ j hj => nomatch hj), ?_⟩
+    refine ⟨hIdx ψ ρp, (fun X _ t _ Fs hFs => nomatch hFs), (fun _ _ _ _ j hj => nomatch hj), ?_,
+      offOk_nil _ _ _⟩
     refine ⟨graph (fun _ => empty) (idxSet 0 ρp []), graph_mem_famSpace fun _ _ => empty_mem_univ _,
       fun i hi x hx => ?_⟩
     rw [fixFunVI_app (by rw [lfpFamSpace_eq]; exact graph_mem_famSpace fun _ _ => empty_mem_univ _),
       famFI_app hi] at hx
-    have : fixStepI (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) (d.IdsC ψ).length d.rss (d.tlss ψ) (d.Eiss ψ)
+    have : fixStepI [] (d.u ψ) (d.w ψ) ρp (d.IdsC ψ) (d.IdsC ψ).length d.rss (d.tlss ψ) (d.Eiss ψ)
         (d.Fss ψ) (d.Ess ψ) (graph (fun _ => empty) (idxSet 0 ρp [])) i = empty :=
       fixStepI_nil (Ids := []) _ _
     rw [this] at hx
@@ -155,7 +157,7 @@ theorem indRep_zeroCtor (m : EnvModel V env) {T : Name} {cvT cvR : ConstantVal}
     have hX' : X ∈ˢ lfpFamSpace V (resSort.eval ψ) (idxSet 0 ρp []) := by
       rw [lfpFamSpace_eq]; exact hX
     have ht' : t ∈ˢ idxSet 0 ρp [] := ht
-    show app (app (fixFunVI 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []) X) t = empty
+    show app (app (fixFunVI [] 0 (resSort.eval ψ) ρp [] 0 [] [] [] [] []) X) t = empty
     rw [fixFunVI_app hX', famFI_app ht']
     exact fixStepI_nil (Ids := []) X t
   have hFDb : FormerData m cvT (d.nP + d.nIdxAt 0) resSort (d.ppsM 0) (d.lvlsM 0) := by

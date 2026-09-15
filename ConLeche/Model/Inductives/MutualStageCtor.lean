@@ -11,7 +11,7 @@ public section
 # The mutual block's constructor stage (task #278, M2.5c)
 
 `stageMutualCtor`: the P step at ONE constructor's cons — the sum
-route's constructor leaf `sumMkAV (w ψ) J …` at the constructor's
+route's constructor leaf `sumMkAV [] 0 (w ψ) J …` at the constructor's
 GLOBAL block position `J` (the tag the auxiliary family's tagged union
 carries), over the whole block's REAL field chains `FssR`.  It is
 `stageCtorGen` (`Model/Inductives/SumStageCtor.lean`) with three
@@ -156,7 +156,7 @@ theorem ctorUnderValid {nP nF J w : Nat} {ds : List (Nat × Nat × AnnotTerm)}
       SumFieldsValid ρ Fss)
     (ρ : Nat → V) :
     UnderTowerValid ρ
-      (sumInjAtAV w (uChains Fss) ((ds.drop nP).map (·.2.2)).length (numeralAV J)
+      (sumInjAtAV [] 0 w (uChains Fss) ((ds.drop nP).map (·.2.2)).length (numeralAV J)
         (mkTowerGoU w ((ds.drop nP).map (·.2.2)) (idxEqAV [])))
       (ds.take nP ++ ds.drop nP) := by
   let Fs : List AnnotTerm := (ds.drop nP).map (·.2.2)
@@ -175,7 +175,7 @@ theorem ctorUnderValid {nP nF J w : Nat} {ds : List (Nat × Nat × AnnotTerm)}
       by rw [getD_reverse_of_peel hlenDs hi (List.getElem?_eq_getElem hil)]⟩
   have hw := hereditaryWalk (V := V)
     (Q := fun ρ ds' => UnderTowerValid ρ
-      (sumInjAtAV w (uChains Fss) Fs.length (numeralAV J)
+      (sumInjAtAV [] 0 w (uChains Fss) Fs.length (numeralAV J)
         (mkTowerGoU w Fs (idxEqAV []))) ds')
     hΓlen hlenDs hent okΓ
     (fun ρ' hρ' => ?_)
@@ -198,7 +198,7 @@ theorem ctorUnderValid {nP nF J w : Nat} {ds : List (Nat × Nat × AnnotTerm)}
   have hvAll := hvalid _ hρp
   have hvF : FieldsValid (fun j => ρ' (j + nF)) Fs :=
     hvAll _ (List.mem_of_getElem? hFsJ)
-  have := sumInj_validV_at_fields (w := w) (j := J) (uChains_validV hvAll) hvF hspF
+  have := sumInj_validV_at_fields (tbl := []) (m := 0) (w := w) (jc := J) (uChains_validV hvAll) hvF hspF
   rwa [consList_range_reverse] at this
 
 /-! ## One constructor's cons -/
@@ -207,7 +207,7 @@ set_option maxHeartbeats 1600000 in
 /-- **The P step at a mutual constructor's cons**: constructor `J` (its
 GLOBAL block position — the tag the auxiliary family's tagged union
 carries) of member `mem`, consed with the sum route's constructor leaf
-`sumMkAV (w ψ) J (ds ψ) Fs (uChains (FssR ψ))` over the WHOLE block's
+`sumMkAV [] 0 (w ψ) J (ds ψ) Fs (uChains (FssR ψ))` over the WHOLE block's
 real field chains.  `hfold` is `mutualCtorFold`'s conclusion at the
 member's own parameter frame (the constructor's residual reads to the
 auxiliary family's fibre at the tagged index tuple), `hiff` the
@@ -259,7 +259,7 @@ theorem stageMutualCtor
       SumFieldsOkB (w ψ) ρ (FssR ψ) ∧ SumFieldsValid ρ (FssR ψ)) :
     ∃ mp' : EnvModelM V μ ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
-        (fun ψ => sumMkAV (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) := by
+        (fun ψ => sumMkAV [] 0 (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) := by
   obtain ⟨⟨_, hff⟩, -, -⟩ := ConLeche.checkMutualCtor_front hCtor
   have hnres : ConLeche.reservedBasisNames.contains cvC.name = false := hff.nres
   have hpshape : cvC.name.isProjFnShape = false := hff.pshape
@@ -276,7 +276,7 @@ theorem stageMutualCtor
     · exact htp
     · exact hbt'
   let A : (Name → Nat) → AnnotTerm := fun ψ =>
-    sumMkAV (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
+    sumMkAV [] 0 (w ψ) J (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
   have hAbelow : ∀ ψ, Term.bvarsBelow 0 (A ψ).erase := fun ψ =>
     sumMkAV_below (hCD.below ψ)
       ((DomsBelow.drop nP (hCD.below ψ)).fields)
@@ -285,7 +285,7 @@ theorem stageMutualCtor
           simp [hCD.len ψ])
   -- the two hereditary premises
   have hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      MkPreS (w ψ) J ρ (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
+      MkPreS [] 0 (w ψ) J ρ (((ds ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
         (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ)) ((ds ψ).take nP) := by
     intro ψ ρ
     refine mutualCtorMkPre (hCD.len ψ) (fun ρ' => hCD.okTy ψ ρ') (hFsJ ψ) (hEsJ ψ) rfl
@@ -293,7 +293,7 @@ theorem stageMutualCtor
     exact hfold ψ ρ' ((hiff ψ ρ').mpr hρ') bs hsp
   have hval : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       UnderTowerValid ρ
-        (sumInjAtAV (w ψ) (uChains (FssR ψ)) ((((ds ψ).drop nP).map (·.2.2))).length
+        (sumInjAtAV [] 0 (w ψ) (uChains (FssR ψ)) ((((ds ψ).drop nP).map (·.2.2))).length
           (numeralAV J) (mkTowerGoU (w ψ) (((ds ψ).drop nP).map (·.2.2)) (idxEqAV [])))
         ((ds ψ).take nP ++ (ds ψ).drop nP) := fun ψ ρ =>
     ctorUnderValid (hCD.len ψ) (fun ρ' => hCD.okTy ψ ρ') (hFsJ ψ)
@@ -328,8 +328,8 @@ theorem stageMutualCtor
   · intro ψ₁ ψ₂ hφ
     have hφ' : ∀ q ∈ lps, ψ₁ q = ψ₂ q := by rw [← hlpsC]; exact hφ
     obtain ⟨hwe, hFe⟩ := hFssParams ψ₁ ψ₂ hφ'
-    show sumMkAV _ J (ds ψ₁) (((ds ψ₁).drop nP).map (·.2.2)) (uChains (FssR ψ₁))
-      = sumMkAV _ J (ds ψ₂) (((ds ψ₂).drop nP).map (·.2.2)) (uChains (FssR ψ₂))
+    show sumMkAV [] 0 _ J (ds ψ₁) (((ds ψ₁).drop nP).map (·.2.2)) (uChains (FssR ψ₁))
+      = sumMkAV [] 0 _ J (ds ψ₂) (((ds ψ₂).drop nP).map (·.2.2)) (uChains (FssR ψ₂))
     rw [hwe, hFe, (hCD.params ψ₁ ψ₂ hφ).1]
   · intro ψ ρ
     have := sumMkAV_wellDenotedV (V := V) (hz ψ) (hpre ψ ρ) (hval ψ ρ)
@@ -411,7 +411,7 @@ position as the tag). -/
       idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF J cA ∧
     (∀ e ∈ idxF J, e.constsResolve env = true) ∧
     ∀ ψ, m.acval cA.1.name ψ
-      = sumMkAV (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
+      = sumMkAV [] 0 (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
 
 /-! ## The constructors' conses, in block order -/
 
@@ -692,7 +692,7 @@ theorem stageMutualCtors
       Inv mp₂.base2 ∧
       (∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
         mp₂.base2.acval cA.1.name ψ
-          = sumMkAV (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) ∧
+          = sumMkAV [] 0 (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) ∧
       (∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) →
         mp₂.base2.acval n = mp₁.base2.acval n) := by
   obtain ⟨mp₂, hE₂, hfound₂, hleaf₂, hcons₂, hinv₂, hag⟩ :=
