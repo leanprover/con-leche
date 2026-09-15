@@ -80062,6 +80062,87 @@ if the typing of the copy-member minors needs anything beyond (i)/(ii)
 and U3/U4, the experiment names it.  Started in this session if the
 budget allows (§M.58 addendum otherwise records the state).
 
+**Addendum (same session): the experiments, analysed; the exact
+remaining premises.**
+
+*E2, analysed (not compiled).*  The recursor-view restatement of
+`PsiSetup` is UNIFORM: `ctorFieldFacts_of` (`InvFold.lean`) and
+`FixCtorFactsAt` are parametric in the view functions (`d.ksF d.eissF
+d.tssF` and `tgts` are ARGUMENTS), so `hctors` + `hview` collapse into
+ONE hypothesis over `ctorsAll` in the recursor view —
+`hctorsR : ∀ J cA, d.ctorsAll[J]? = some cA → FixCtorFactsAt … d.ksR …
+d.eissR d.tssR J cA (fun i => d.memberName (d.tgtsR J i)) …` — and
+`hctorsC`/`nAll_eq`/`ctorsAll_eq` go (three sites in `PsiSetup.lean`:
+`hmin`'s `cdsR` read, `hJA`, `hjAll`).  What does NOT generalise for
+free: `hpins` (`pinsOf t = params`, used at `ctorFieldFacts_of` and at
+`typedPi`'s fit `S.hpins (d.mems J)` — a copy constructor's residual
+reads as `famAppAV (L t) (pinsOf t)`, so the pin-aware readers
+`interp_famAppAV_at`/`motiveAVP` replace the `_params` specialisations),
+and `hLS`/`hFF`/`hpIffM` at `t ≥ kReal` (`FormerFacts`/`LeafShape` are
+`IndRep` clauses of REAL members; at a copy member they are the
+family pin's container `D`'s, at `pinsAV t`, through the reading link
+(i)).  So E2's answer: the copy-member facts are exactly `FormerFacts`-
+and `FixCtorFactsAt`-SHAPED statements in the root datum's currency,
+derivable from the family pin's own `PinFacts`/`CopyCtorFacts` (its
+container `D`) by `ctor_peel`/`former_peel` at `pinsAV t` — the two
+links of (d); nothing beyond U2–U4 is needed.  The `hpins` sites are
+the mechanical cost (the `_params` lemmas have `P`-twins in
+`RecSpell.lean` already: `motiveAVP`, `majorAVP`, `recDataAVP`).
+
+*E3, confirmed on the kit.*  `RecFold.lean`'s `recFold_mem` types the
+recursor's leaf at ANY prefix spine fitting `recPrefixAV` (parameters,
+motives, minors) into the trailer tower, and `recFold_app_mem` lands an
+application at index values and a major in `mutualConcAV` — the
+motive at the indices and the major — with the zero-bit side condition
+left to the consumer.  So `famInduction` is:
+
+    theorem IndRep.famInduction (hrep : IndRep m T cvT cvR mI rP rules d mm) (hrules : rules ≠ [])
+        (hfind : env.find? cvR.name = some (.recInfo cvR mI rP rules))
+        (hfresh : d.large = true → d.elim ∉ cvT.levelParams)
+        (ψ : Name → Nat) {ρp : Nat → V} (hsat : Sat V (d.params ψ).reverse ρp)
+        (P : Nat → List V → V → Prop)
+        (hstep : ∀ J cA, d.ctorsAll[J]? = some cA → ∀ fs : List V,
+          SpineFit ρp (((d.dsF J ψ).drop d.nP).map (·.2.2)) fs →
+          (∀ i ∈ recIdxOf (d.ksR J), ∀ as, SpineFit (consList (fs.take i) ρp) (((d.tssR J ψ).getD i []).map (·.2.2)) as →
+            P (d.tgtsR J i) (((d.eissR J ψ).getD i []).map (interp V (consList as (consList (fs.take i) ρp))))
+              (as.foldl app (fs.getD i pt))) →
+          P (d.mems J) ((d.esF J ψ).map (interp V (consList fs ρp))) (fs.foldl app (interp V ρp (⟦cA⟧ p⃗)))) :
+        ∀ t, t < d.k → ∀ is, SpineFit ρp (d.IdsM t ψ) is →
+          ∀ x, x ∈ˢ ((d.pinsOf ψ t).map (interp V ρp) ++ is).foldl app (interp V ρp ((d.Ls m ψ).getD t default)) →
+            P t is x
+
+with the proof: `ψ₀ := ψ` with `d.elim ↦ 0` (the recursor at `Prop`
+motives; `hfresh` keeps the carriers at `ψ` — `elim ∉ lps`; at a small
+eliminator `elimL = zero` already); the frame `ρ` = `ρp` extended by
+the motive VALUES `M_t := graph (λ (ı⃗, x), sep {pt} (P t ı⃗ x))` over
+`ipss t`'s telescope and the minor VALUES `N_J :=` the constant-`pt`
+graph over minor `J`'s domain; the spine `as` the bvars at those
+slots; `SpineFit ρ (recPrefixAV …)` — a motive value is in
+`piTele (ipss t) (univ 0)` (its fibres are truth values), a minor
+value is in its `Π`-domain iff at every fitting `(fs, ihs)` the body
+`M_{mems J} … (⟦cA⟧ p⃗ fs) ∋ pt`, i.e. `P` at the constructor, which
+`hstep` gives from the hypotheses' fit (`ih_i ∈ M_{tgt} … = {pt}` iff
+`P` there); then `recFold_mem` and `recFold_app_mem` at `(is, x)` give
+`⟦rec_t⟧ … is x ∈ M_t is x`, so `M_t is x ≠ ∅`, so `P t is x`.  One
+to two sessions (`RecInduction.lean`); `carrier_induction` stays for
+the functor-view consumers.
+
+*The exact remaining premises before the signature* (each with its
+run-level consumer; the unit route's, then D4/D5's):
+
+    UnitTable st.pins.length units                                 -- K.25 U1; psiUnitFold_typed_of_run
+    TopoOrder (UnitRef p.k st units) units.length order            -- K.25 order; psiUnitFold_typed_of_run
+    UnitStepTyped mpAux d ψ p.k σ cd auxOfs units (UnitRef p.k st units)   -- (d); psiUnitFold_typed_of_run
+    ContainersRep env envAux mpAux.base2                           -- M-E's, to be WIDENED to nested containers
+    BridgeSyntax d st p.k st.pins.length cd (auxOfsOf st p.k cd)   -- REFUTED (#312): its consumers
+                                                                   -- (psiFold_typed_of_run, nestedRunCore_of_pinFacts,
+                                                                   -- nestedCtorsModel_of_run, nestedRecsModel_of_run)
+                                                                   -- move to the unit route when UnitStepTyped lands
+    NestedRecsModelAt's (1) leaves, (3)/(4) D5, (5) laws            -- §M.57 verbatim minus (2) (K.24 consumed)
+
+Kernel requests open: K.25 (`_tmp/nested-279m/K25.md`).  The
+`declNested` signature is unchanged.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
