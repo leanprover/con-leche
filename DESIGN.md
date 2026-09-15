@@ -72239,6 +72239,204 @@ unnamed.  The block datum `BlockRep` is likewise a design in (a), not a
 Lean structure yet: it is built at M2 on the new route's own datum,
 and its first consumer is `declBlock` at M4.
 
+#### U.2 — M1: the native mutual kernel route, cherry-picked unwired (session U-2, 2026-09-15)
+
+§U.1 (e)'s M1, as built.  The kernel and the kernel-facing proof tier
+of task #278 (`inductives`, never on master) are now on this branch;
+**the accept path is byte-identical to master's** — a mutual block
+still installs through the modeled route, and will until the uniform
+model covers it (M4).
+
+##### (a) What was cherry-picked
+
+Eight commits, each with its `-x` provenance line.  The five of §U.1
+(e)'s list, in order, and three companions the list does not name but
+without which the named ones do not compile:
+
+| commit | content | kept / dropped |
+| --- | --- | --- |
+| `afd10251` | `MutualKit`/`MutualParts`/`MutualInstall` (the scaffold design) | kernel files only |
+| `5fac0127` | `MutualInstallF`, the cached twin `checkMutualCoreS`/`checkMutualS` | kernel + cached twin only |
+| `12cc2648` | **the native-shaped rework** — member-aware constructor stage (`normPosDomM`, `mutualCtorKinds`, `mutualFieldsOk`), the `k` recursor types and rules generated and compared, no scaffold, no synthetic definitions, no certification; `MutualKit` deleted | whole (kernel + cached) |
+| `15d0e1f2` | the formers checked at the PRE-block environment (official's `check_inductive_types` before `declare_inductive_types`) — the kernel | whole |
+| `9be288f4` | the same fix's Verify half: `mutualFormers_inv` as the stage's SPLIT, `mutualFormerChecks_{nil_inv,inv,checked,typeWF,datF}`, `envWF_mutualFormers` | whole (companion) |
+| `5d3ed220` | the same fix's Semantics half: `mutualFormers_freshExt` through `consMutualFormers_{consts,freshExt}` | whole (companion) |
+| `7ad7b777` | the `_datF` chain: `mapM_atF` and the nineteen `mutual*_datF` lemmas | all but `checkDecl_datF`'s third arm |
+| `04b88fc6` | the `_datF` chain regrounded on the native-shaped install | whole (companion) |
+| `ec115fc0` | `Semantics/Inductives/DeclMutual.lean` (`DeclMutualRun`, `declMutualRun_of`, `declMutualRun_etaClosed`), `Verify/Inductives/Mutual{Inv,WF}.lean` | the three files; the dispatch dropped |
+
+The three companions are not optional: `ec115fc0` predates `15d0e1f2`
+by three hours (it is the Opus lane of the same day), so the named
+order lands `MutualInv`/`DeclMutual` against a formers stage that
+`15d0e1f2` then splits — `9be288f4` and `5d3ed220` are that split's
+inversion and freshness halves.  `9be288f4`'s `BridgeDecl.lean` hunk
+EDITS `mutualFormers_datF`, which is `7ad7b777`+`04b88fc6`'s; those two
+are the `_datF` chain §U.1's M1 row names.
+
+The series is buildable from `12cc2648` on.  The two scaffold-era
+commits before it (`afd10251`, `5fac0127`) call `checkDefnVal` — the
+definitions the scaffold installed — and this branch leaves it in
+`Kernel/Checker.lean`, which the install does not import, because
+`12cc2648` deletes every use of it.  Rather than carry a code move
+that the next commit makes pointless, the two are kept as the
+provenance of the files they introduce and the tree compiles at the
+third.  Nothing downstream reads their intermediate state.
+
+##### (b) What was dropped, and why — the route is UNWIRED
+
+Nothing that could move a verdict was taken:
+
+* **the dispatch**, in all four places it lives: `checkDecl`'s
+  (`Kernel/Checker.lean`), the cached driver's (`Cached/ParsedC.lean`),
+  the run relation's (`DeclIndRunDispatch` in
+  `Semantics/Inductives/DeclNative.lean`, with its
+  `checkDeclRun_ofEnvFactsE` case in `Semantics/Bridge/Sound.lean` and
+  its η case in `DeclSumEta.lean`) and the fuel bridge's
+  (`checkDecl_datF`'s third arm).  The run-level dispatch MIRRORS the
+  kernel's; it gains its mutual arm in the milestone the kernel does.
+* **the frontend**: `InModel/Mutual.lean` is alive, `InModel.wants` is
+  unchanged, `InModel/{Kit,Block}.lean` untouched.  The modeller is
+  what installs mutual blocks on this branch.
+* **`Main.lean`'s route label** and the test expectations `5fac0127`
+  moved (`tests/e2e-expected.txt`'s `mutual_struct_proj` 2→0 and
+  `ind_defhead_mutual` 2→0, `tests/inmodel.sh`,
+  `tests/route-census.sh` — which master no longer has).  Those two
+  fixtures still exit 2 here, as on master.
+* **the `checkDefnVal` move** `Checker.lean` → `CheckerBase.lean`
+  (`afd10251`): the scaffold install needed it below the checker, the
+  reworked install of `12cc2648` installs no definitions at all.
+* **the whole Model tier** of #278 — `MutualRep`, the tag/aux sum
+  encoding (`tagTyAV`, `auxBodyAV`, `motDispAV`),
+  `Model/Inductives/Mutual*.lean` and `Model/Inductives/DeclMutual.lean`.
+  §U.1 (a) replaces it with the uniform datum: the members are the
+  components of ONE `lfpTuple`, not fibres of a tagged single family,
+  and `MutualRep` is on §U.1 (b)'s DIE list.
+* **the cached route's `…F_eq`/simulation chain** (`90f44444`,
+  `f620292b`: `BridgeCSDecl`'s `checkMutual*F_eq`, `BridgeCS3.lean`,
+  the `AgreeFloor`/`PushChain` skeletons and `checkMutualCoreS_run`).
+  It is ~1.5 k lines of cached-tier proof whose front door is the
+  three-way `checkModeledOrNativeSF_run` — i.e. the dispatch — so it
+  lands WITH the wiring, at M4.  What is here is the cached twin
+  itself (`checkMutualCoreS`), unproved and uncalled.
+
+##### (c) Adaptations
+
+Three, all mechanical; the cherry-picked files are otherwise
+BYTE-IDENTICAL to `inductives`'s (`MutualParts`, `MutualInstall`,
+`MutualInstallF`, `MutualInv`, `MutualWF`, `DeclMutual` all diff
+empty against their upstream state, and `Cached/CheckerC.lean`'s
+mutual region does too):
+
+1. `Verify/BridgeDecl.lean` gains `public import
+   ConLeche.Kernel.Inductives.MutualInstall`.  On `inductives` the
+   install arrives through `Kernel.Checker` (the dispatch imports it);
+   unwired, it does not — and the failure mode is worth recording:
+   with `autoImplicit` on, `mutualShapeOk` and friends did not fail to
+   resolve, they became BOUND VARIABLES, so the errors read "Invalid
+   argument name `m`" and "Local variable `mutualShapeOk` has no
+   definition" thirty lines away from the missing import.
+2. `ConLeche/Semantics.lean` gains `public import
+   ConLeche.Semantics.Inductives.DeclMutual`, which is what puts
+   `DeclMutual`, `MutualInv` and `MutualWF` on the build graph:
+   nothing imports them while the dispatch has no mutual arm.
+3. `Cached/CheckerC.lean`'s import moves from `NativeInstallF` to
+   `MutualInstallF` (which re-exports it), as upstream.
+
+**The #285/#295/#303/#304 drift cost nothing.**  Master's one-`Expr`
+rename, the arrays at the fold, the flag cleanup and the pin-list
+parameter all landed after `inductives` forked, and the expectation
+was renames through the cherry-picks; in fact the mutual install
+touches none of those surfaces — it is stated over `ConstantVal`,
+`Expr`, `Env` and `CheckerOps`, which did not move.  The only textual
+conflicts were in the files whose hunks were dropped anyway (plus one
+stage boundary in `CheckerC.lean`).
+
+##### (d) The shadow: what stands in for it
+
+On `inductives` the unwired nested route was observed through
+`CON_LECHE_NESTED_SHADOW=1` in the driver.  **That hook may not be
+reproduced here**: task #287's ruling is that the binary reads no
+environment variables (the modeller's four debug switches are the
+stated exception, and they go with the modeller), and #303 removed the
+retired flags without trace.  So M1 ships no driver hook and no gate
+of its own; the route's entry points (`checkMutual`, `checkMutualCore`,
+`checkMutualS`) are ordinary library functions, reachable from a
+scratch harness and from the milestone that wires them.
+
+What was RUN this session, out of tree (`_tmp/`, not committed): a
+harness that folds the prepared stream with `annotDeclStep` and, at
+every block `mutualParts?` recognises, runs `checkMutual (pureOps
+.verified)` at the pre-block environment and prints the verdict.  Its
+readings on the mutual fixtures are in (e).
+
+##### (e) Gates
+
+`lake build` and `lake test` warning-free (575 and 485 jobs);
+`tests/arena.sh` green — layering 0/0 edges, proofdeps 4361 rows /
+0 doors, pindump, trust surface 13/13 allowlisted, overview-links
+103, quote-gate 2, no-local-paths, challenge, **shake 462 removals
+all allowlisted** and `pub-imports: none demotable`, inmodel,
+axioms pinned (20 theorems at `[propext, Classical.choice,
+Quot.sound]`), **arena tutorial 90/92, e2e 195/195, annot 15/15**,
+mode flags 10/10, prelude 3/3, progress 15/15, worker pool 15/15,
+DAG tower 14/14, the trusted and `--jobs` sweeps as at the default.
+The e2e and tutorial numbers are master's, unchanged — which is the
+milestone's whole claim.
+
+The import gate cost six allowlist lines and two demotions.  The
+demotions (`MutualInv`'s `MutualInstall`, `MutualWF`'s `SumWF`, both to
+plain `import`) are `pub-import-plan.py --check`'s and are exactly the
+two #278 itself made later (`88aeec0c`).  The six removals were each
+run through task #223's criterion (`lake shake --keep-implied --only
+<M>` against the `--only ConLeche.NoSuchModule` floor) and each is
+COMPENSATED — the edge moves, it does not go away — so they are
+allowlisted with their compensating additions, as on `inductives`.
+
+##### (f) The shadow readings, and three findings
+
+The scratch harness of (d), over every mutual fixture in `tests/e2e`
+(`mutual-shadow <block> <verdict>`; `noinmodel` = the modeller off, so
+that a block the modeller declines at PARSE time still reaches the
+fold):
+
+* **18 blocks ACCEPTED** by the native route: `ind_mutual_idxsort` (3),
+  `inmodel_mutual_idx` (4), `inmodel_mutual` (3), `ind_mutual_three`
+  (2), `ind_mutual_zero_ctor`, `ind_mutual_param_defeq`,
+  `ind_mutual_sort_defeq`, `ind_proj_mutual_nested`'s `MA`, and — with
+  the modeller off — `mutual_struct_proj`'s reflexive-member structure
+  pair and `ind_defhead_mutual`'s `MA`.
+* **3 blocks REJECTED**, each with official's reason and each on a
+  fixture whose expected exit is 1: `ind_mutual_param_bad`
+  ("parameters of all inductive datatypes must match"),
+  `ind_mutual_sort_bad` ("mutually inductive types must live in the
+  same universe"), `ind_mutual_idxsort_bad` ("expected a sort").
+
+The last two accepts are the two fixtures #278's wiring moved 2→0.
+They still exit 2 here, and that is the milestone's point: **the
+widening is built and measured, and not taken** — it is taken when
+`declBlock` can model it (M4).
+
+FINDINGS.
+
+1. **`tower_mutual` is not shadowable on the PURE core.**  The harness
+   ran >4 min on it before it was killed, while every other fixture
+   answers in seconds — the DAG-tower fixture's block re-walks a shared
+   graph without the driver's memo.  This is the same wall the nested
+   lane hit (§K.20 part 2b: the shadow harness was moved to the CACHED
+   route for exactly this fixture).  Whatever observes the mutual route
+   at M4 should call `checkMutualS`, not `checkMutual`.
+2. **An unwired route makes `autoImplicit` dangerous**, (c) item 1: a
+   missing import of kernel code does not fail to resolve in a Verify
+   module, it silently becomes a bound variable and the errors land
+   somewhere else entirely.  Any milestone that imports kernel stages
+   into a proof module before the dispatch does should expect this.
+3. **The `_datF` chain is severable, the `…F_eq` chain is not.**  The
+   fuel-family bridge is stated per stage and needed none of the
+   dispatch (one arm dropped, nothing else); the cached simulation
+   bridge is stated through `checkModeledOrNativeSF_run`, which IS the
+   dispatch, so it cannot land unwired at all.  That asymmetry is why
+   (b)'s two "cached" items go to different milestones.
+
 #### U.3 — M2: the one datum `BlockRep`, (W) at tuples, the section view (session U-2, 2026-09-15)
 
 M2's falsifier first, then the datum, then the datum at `k = 1`, then
@@ -72443,7 +72641,7 @@ root; `BlockRepOne` on the `Model` root.
 
 | fact | consumer | status |
 | --- | --- | --- |
-| the mutual run relation `DeclMutualRun` (the kernel's stage equations + `mutualCtorKinds`' `(kind, target)` per field) | M4 `declBlock`: supplies `BlockRep` (`tgts` from the kinds, `ctors` via a target-aware `fixCtorData_of`) | M1's cherry-pick (`agent/uniform-m1`), merged when READY |
+| the mutual run relation `DeclMutualRun` (the kernel's stage equations + `mutualCtorKinds`' `(kind, target)` per field) | M4 `declBlock`: supplies `BlockRep` (`tgts` from the kinds, `ctors` via a target-aware `fixCtorData_of`) | M1's cherry-pick (`agent/uniform-m1` ba4c7e8f, §U.2), MERGED here — `DeclMutualRun` now exists on the branch; no fact named against it this session |
 | the member container presentation at `k ≥ 2` (FixWitness per member, `tgtM` = the field's target) | M4: `functor`'s closed tuple via `tupleContainer_closed_exists` | mechanical, unstarted |
 | the pin's `fibre`/`functor` at FAMILY-VARIABLE parameters + K.27 (`w ≤ w'`) | M6: the auxiliary tuple's container presentation for `closedTuple_composeAt`; the composed operator's monotonicity | §U.1 (c) 3, unchanged |
 | the k-member syntactic chains (`blockFunV`/`blockFamI`, `xChainsOk` at `k`) | M3's recursors (`fixRecBodyAVI` with `k` motives) — NOT the datum: `ChainFit` is semantic | M2's remaining sessions or M3 |
