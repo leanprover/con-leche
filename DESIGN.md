@@ -73218,3 +73218,267 @@ for M4 above is stated in the shape M4 consumes off `DeclMutualRun`.
    (`BlockReps`, `FormersTyped`, the candidate's `kitB`/`kitSt`/…):
    "proof code is private by default" — an unexposed `def BlockReps …
    := ∀ …` cannot be applied as a function from another file.
+
+#### U.6 — M3 closed (`heq`), M4 opened (`declBlock` stated) (session U-5, 2026-09-15)
+
+M3's last item and M4's first: the rules' equations GRADED at every
+typed tuple (`heq`, `blockRecs`'s fourth premise), `blockRecs` closed
+at the datum's readings modulo the run facts (`blockRecsAt`), and THE
+run-level consumer of M4 — `declBlock` over `DeclMutualRun` — stated
+and decomposed into its two named facts.  No checker code changed; no
+`sorry`, no axioms; the datum unchanged.  Two new modules:
+`BlockRecWD.lean` (947 lines), `DeclBlock.lean` (160).
+
+##### (a) `heq` DISCHARGED — `BlockReps.blockEq_wd` (`ConLeche/Model/Inductives/BlockRecWD.lean`)
+
+```lean
+theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ) {elimL : Level}
+    {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
+    {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
+    {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
+    (hokT : ∀ mm, mm < d.k → ∀ ρ : Nat → V,
+      WellDenoted V ρ (mkPisAV (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)))
+    (ρ : Nat → V) {rs : List V} (hlen : rs.length = d.k)
+    (hrs : ∀ mm, mm < d.k → rs.getD mm pt ∈ˢ interp V ρ
+      (mkPisAV (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)))
+    {c : Nat} (hc : c < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) :
+    WellDenoted V (consList rs ρ)
+      (specEqAV (mutualRuleDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts (d.dsF c j ψ))
+        (specLhsAV d.k d.nP d.nCtors cA.2 c (d.esF c j ψ) (m.acval cA.1.name ψ))
+        (specRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) d.k (d.tgts c j) d.nP d.nCtors cA.2
+          (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)))
+```
+
+The equation is a `Prop`-regime Π-tower (`WellDenoted_mkPisAV_of` at
+`w = 0`): its DOMAINS are the recursor type's prefix — graded by the
+type's own grading at the tuple frame (`hokT`, `WellDenoted_mkPisAV_inv`,
+`FieldsOkB.append_left`) — and the constructor's fields lifted under
+the `k + n` motive and minor binders (`ctor_okB`'s `FieldsOkB` moved by
+`fieldsOkB_liftDoms`); its BODY at a fitting spine `p⃗ M⃗ m⃗ f⃗` is the
+equation of two application chains (`mkAppN_wellDenoted_of_chain`):
+
+* the LEFT-HAND SIDE applies the tuple's component `r_c` to
+  `p⃗ M⃗ m⃗ e⃗(f⃗) (C p⃗ f⃗)`, a spine fitting `r_c`'s recursor type
+  (`spineFit_recData_of` at `res_es_fit` and `inj_mem`, the prefix's
+  fit moved to the base frame by closedness) — the chain is
+  `appChainOk_of_mkPisAV'` at `hrs c`, the `Prop`-regime side condition
+  the conclusion's truth-value-ness (`conc_univZero`); the last
+  argument, the constructor's application, needs the CONSTRUCTOR typed
+  (see (b));
+* the RIGHT-HAND SIDE applies the frame's minor to the fields and the
+  inductive hypotheses' applications: the chain along the fields is the
+  minor type's leading Π-tower (`appChainOk_of_mkPisAV'` at
+  `hF.minors`), the chain along the hypotheses the ih Π-tower with each
+  value in its binder's domain (`ihPisAVM_appChainOk`, new); an ih
+  application `ihAppAVK` is a λ-tower over the field's moved telescope
+  (`mkLamsAV_bits_wellDenoted` at `underTowerOk_of_walk`: the walk from
+  the field's telescope graded — reflexive field: `reflEntry` +
+  `WellDenoted_mkPisAV_inv`; finitary: `tssNone` — moved by
+  `fieldsOkB_ihTeleAtGo`), whose body applies the target's component to
+  `p⃗ M⃗ m⃗ e⃗_i (f b⃗)` — a spine fitting ITS recursor type (`eis_fit`,
+  the field's value in the target's carrier by `kitPred_mem` +
+  `relPred_subset`), the field's own chain `f b⃗` along its domain
+  (`appChainOk_of_mkPisAV'` at the reflexive entry, with the target's
+  carrier bound `carrier_app_mem_univ` at `w = 0`); the tower's value
+  is in the ih domain's reading (`interp_ihDomAVM`, `lamTower_mem_piTele`,
+  `interp_ihAppAVK_at`, moved to the base frame by
+  `lamTower_congr_bottom`) — `BlockReps.ihApp_facts`.
+
+##### (b) THE CONSTRUCTORS-TYPED FINDING — `CtorsTyped`
+
+The left-hand side's last argument `C p⃗ f⃗` must itself be graded, and
+`WellDenoted` of an application asks the function's value in a
+Π-graph with the argument in its domain: the constructor's VALUE must
+be typed at its type's reading.  Nothing in `BlockRep` says so (`ctor`
+fixes the fold's VALUE, `inj_mem` puts it in the carrier; neither is
+a chain fact), and the constructor's `WellDenoted` (`CtorDataI.okTy`)
+is about its TYPE.  The source is the model's invariant at the stored
+constructor — `EnvModelM.mem_type` with `CtorDataI.read` — exactly as
+`FormersTyped` is `acval_memType` at the stored former (§U.5 (b)):
+
+```lean
+@[expose] def CtorsTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
+  ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+    ∀ ρ : Nat → V,
+      interp V ρ (m.acval cA.1.name ψ)
+        ∈ˢ interp V ρ (mkPisAV (d.dsF c j ψ) (ctorBodyAVI m (d.memberName c) d.nP cA.2 ψ (d.esF c j ψ)))
+```
+
+(`BlockReps.ctor_chainOk`: the chain at a fitting parameter-and-field
+spine, the `Prop`-regime side condition the carrier's bound.)  Named
+with its consumer (`blockEq_wd` → `blockRecsAt` → the recursor stage);
+not a datum clause: a run fact of the same kind as `FormersTyped`.
+
+##### (c) `blockRecs` CLOSED MODULO THE RUN FACTS — `BlockReps.blockRecsAt`
+
+```lean
+theorem BlockReps.blockRecsAt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+    (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
+    (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0) {Ls : (Name → Nat) → List AnnotTerm}
+    {nIdxs : List Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {ipss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {cds : (Name → Nat) → List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    (hR : ∀ ψ, BlockReadings m d ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts)
+    {s : (Name → Nat) → Nat}
+    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →
+      interp V ρ (mkPisAV (mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)) ∈ˢ (univ (s ψ) : V) ∧
+      WellDenoted V ρ (mkPisAV (mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm))) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V), ∃ a : Nat → V, …
+```
+
+— `blockRecs` at the readings `mutualRecDataAV`/`mutualConcAV` and the
+equations `d.specEqs` (the block's rules in the kernel's constructor
+order, `minorIdx`; `mem_specEqs` reads an equation back as a rule's),
+its four premises `hT`/`heq`/`hcand`/`hceq` discharged by `hT`,
+`blockEq_wd`, `blockCand_mem`, `blockCand_eq`.  The readings are
+ψ-indexed because `blockRecs` quantifies the candidate over EVERY
+assignment: a constant-ψ instance is not an instance at all (finding
+(g) 3).  What the recursor stage supplies, in the shape it has it:
+
+| fact | source (M4) |
+| --- | --- |
+| `BlockReps m d` | the datum's assembly at the recursors' environment (session 3) |
+| `FormersTyped`, `CtorsTyped` | `EnvModelM.acval_memType` at the stored members and constructors with `FormerData.read`/`CtorDataI.read` |
+| `BlockReadings` | `FormerReadsM`/`MutualCtorReadsM` and the datum's construction; `MutualRecData.below` |
+| `hwℓ` | DONE: `elimLevel_zero_of_w_zero` at the run's `b.large = f₀.s.isNeverZero` (`DeclBlock.lean`) |
+| `hT` | `MutualRecData.read`/`okTy` + the kernel's `ensureSort` through the claims' sort row (`checkMutualRecTy_shape`'s `inferTypeCore`/`ensureSortCore`) |
+
+##### (d) M4 OPENED — `declBlock` (`ConLeche/Model/Inductives/DeclBlock.lean`)
+
+```lean
+theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hcore : MutualCoreModeled V μ F) (htables : MutualTablesModeled V μ)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
+    Nonempty (EnvModelM V μ envOut)
+```
+
+The run's stage decomposition with TWO named facts, each a
+`Prop`-valued `def` stated over the run's stage equations verbatim:
+
+* **`MutualCoreModeled V μ F`** — stages 0–4 (the shape, the formers at
+  the pre-block environment, the cross-member checks and the
+  eliminator, the constructors with their kinds, the recursor types
+  and rules) keep the model: from a model of `env` a model of
+  `storeMutualRecs (consMutualCtors …) …` whose leaves agree with the
+  pre-block model's off the block's names, at which THE DATUM holds —
+  `∃ d, MutualDatumOf env b fms ctorsA d ∧ BlockReps mp₃.base2 d ∧ ∀ ψ,
+  FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ` (`MutualDatumOf`:
+  the datum's arities, names, sort and constructors are the block
+  record's and the stages' outputs).  Consumer: `declBlock`; its proof
+  is M4 sessions 2–3 (the interface to (e) below).
+* **`MutualTablesModeled V μ`** — stage 5: at a model carrying the
+  datum, the structure-like members' projection tables cons a model of
+  `envOut`.  Consumer: `declBlock`; M4 session 4.  Its inputs are the
+  datum facts alone; the table stage's proof (the fixpoint route's
+  `stageFixTable` at the member's leaf) may need the CONCRETE injection
+  (the tagged tower, (e)) — then the fact's interface grows at its
+  consumer, not before.
+
+The proof of `declBlock`: destructure the run, `hcore` at stages 0–4,
+`htables` at stage 5 — twelve lines.  `hwℓ` is `elimLevel_zero_of_w_zero`:
+`structElimLevel elim large` is `.zero` unless `large`, and `large =
+s.isNeverZero` makes `w = s.eval ψ ≠ 0` there (`Level.isNeverZero_sound`).
+
+##### (e) THE LEAF FINDING — the members' term-level leaves
+
+The datum's `leaf` clause needs, for each member, an `AnnotTerm` whose
+value at fitting parameters and indices is `app (lfpTuple w k Is Φ mm)
+(tup mm is)`.  `interp` has ONE fixpoint primitive, `BConst.lfpFam`
+(`lfpFam.{u,w} : Π I, ((I → Sort w) → (I → Sort w)) → I → Sort w`),
+over a SINGLE index type; there is no tuple primitive, and adding one
+would touch `interp`, `WellDenoted`, `AnnotValid`, `erase` and every
+tier above.  Two spellings without a new primitive:
+
+1. **the union** — one `lfpFam` over the tagged sum of the members'
+   index tuples, member `mm`'s leaf its fibre at tag `mm`: #278's
+   `mutualTyAVI` with `tagTyAV W Idss := sumBodyAV W (uChains Idss)`
+   (`Semantics/Tower/MutualLeafI.lean` on `inductives`, encoding-free
+   at the term level — the sum route's tagged tower).  The datum's
+   `leaf` then needs `lfpTuple w k Is Φ = split (lfpFamSet w (unionIdx k
+   Is) (join Φ))`: `TupleContainer.lean`'s proof device (`splitFam`/
+   `joinFun`) stated as a theorem — pure, `tuple_ext` + leastness both
+   ways, ~200 lines;
+2. **nested Bekić** — member `mm`'s leaf a nested `lfpFam` (`L₀ = μX₀.
+   Φ₀(X₀, μX₁. Φ₁(X₀, X₁, …), …)`): no tags, but the term is
+   exponential in `k` and the identification with `lfpTuple` is a new
+   pure theorem (Bekić's iterated form).
+
+**Decision: the union (1).**  What §U.1 rejected was the tag encoding
+as the DATUM (positions, copies, re-indexing in the proofs); a
+term-level spelling whose identification with the tuple is one
+proof-internal lemma is exactly `tupleContainer_closed_exists`'s
+device, already accepted at (W).  Consequence for M4's sizing: the
+formers' stage cherry-picks `MutualLeafI.lean` (terms only) and adds
+the split/join theorem; nothing of #278's Model tier.  The
+constructors' leaves are the sum route's `sumMkAV` at the member's
+tagged tower — so the datum instance M4 assembles (`BlockRepData.ofMutual`,
+`ofNative`'s twin) carries the CONCRETE injection `injW w j (mkTower
+(fs ++ [pt]))`, which is also what the table stage (d) reads.
+
+##### (f) M4's PLAN, RE-SIZED
+
+M3: DONE in 3 sessions (as re-sized at §U.5).  M4 (this session = 1 of
+4): **session 2** — the formers' stage: `MutualLeafI` cherry-picked,
+the split/join theorem, the dummy-then-real former conses through
+`IndCons.lean`'s generic member cons (`declStep_preserves_of_ind_member_cons`,
+caps `{}`), the constructors' readings at the dummy formers
+(`FormerReadsM`/`MutualCtorReadsM`, `CtorReadRT`); **session 3** — the
+constructors' conses (`ctorsLoopGen`'s twin) and the recursors: the
+datum instance `ofMutual` with `BlockReps` at every member (the
+container presentation per member for `functor`'s closed tuple via
+`tupleContainer_closed_exists`, `fibre`/`leaf`/`ctor`/`mkInj`/`mkZero`
+from the sum route's facts as `ofNative_*` does at `k = 1`),
+`BlockReadings`, `hT` from `MutualRecData` and the sort row,
+`blockRecsAt`, the recursors' conses with `RecRuleLaw` through
+`blockRecs_iota` and the `specRuleCoreAV → mutualRuleCoreAV` bridge —
+`MutualCoreModeled` discharged; **session 4** — `MutualTablesModeled`
+(the table stage at the tagged tower), the FLIP (the dispatch in its
+four places, §U.2 (b); the cached `…F_eq`/simulation chain `90f44444`/
+`f620292b`; `tests/e2e-expected.txt`'s two 2→0 moves; `Main.lean`'s
+route label; the modeled route's MUTUAL arm deleted — the modeller
+keeps nested blocks until M7), the full landing gates (arena,
+init-full, Mathlib) and the landing on master.  New table: M4 3 left;
+M5 2–3; M6 3–5; M7 3–4; M8 1–2.  Total remaining **12–17** (was 13–19).
+
+##### (g) GATES, FINDINGS
+
+Gates at HEAD: `lake build` 591 jobs warning-free, `lake test` green,
+layering 0/0 edges, trust surface 13/13 allowlisted, overview-links
+103, quote-gate 2, no-local-paths OK, proofdeps 4361 rows / 0 doors,
+shake 464 removals all allowlisted / `pub-imports: none demotable`
+(`BlockRecEq` private in `BlockRecWD` with `BlockRecTyped` public, per
+the #223 criterion — compensated; one dot-notation fallback added,
+finding 4).
+
+1. **The left-hand side's grading needs the constructors typed** ((b)):
+   a run fact of `FormersTyped`'s kind, not a datum clause; the model
+   invariant supplies both at the stored constants.  For M6 the same
+   holds of a container pin's constructors.
+2. **`blockRecs` is closed modulo six run facts**, all in the shape M4
+   has them ((c)); `hwℓ` is already the kernel's `b.large =
+   f₀.s.isNeverZero`.
+3. **`blockRecs` quantifies over the assignment, so its instance needs
+   ψ-INDEXED readings**: the candidate at assignment ψ′ is typed at the
+   readings AT ψ′; a constant-ψ instantiation leaves `hcand` at the
+   wrong readings.  `blockRecsAt` takes `Ls pps ipss cds : (Name → Nat)
+   → …`, which is how M4's readings come anyway.
+4. **The import model's blind spot at a one-import file**: `BlockRecWD`'s
+   only public import is its whole public view (`SetTheory` included);
+   the plan called it demotable (the downstream needs are in exposed
+   `def … : Prop` bodies, #253's class) and the demotion fails the
+   file's own `variable [SetTheory V]`.  Recorded in the plan's
+   `FALLBACK` with its reason, as `PushChain`'s.
+5. Lean traps: `interp_ihDomBodyM … (ihs := [])` infers `l := [].length`,
+   not `0` — pass `(l := 0)`; `mkAppN_wellDenoted_of_chain trivial …`
+   elaborates `trivial` before the head is known — name the head
+   (`(f := .bvar …)`) or use a lemma (`tupleVarAV_wellDenoted`); a
+   lemma's implicit `{tl}` left open makes a later `exact hb` fail with
+   "expected `List …`" — pass `(tl := …)`; `rw [← consList_append]`
+   needs its lists; `rw` closes a goal by `rfl` and a trailing `; omega`
+   then reports "no goals".
