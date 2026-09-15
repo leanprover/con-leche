@@ -1162,9 +1162,13 @@ theorem restoreRules_datF (envR : Env) (R : RestoreTbl) (lps : List Name) (recNa
   | [] => rfl
   | rl :: rest => by
     unfold restoreRules
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      nestedLift_atF, fueledOpsM_inferType_atF,
+    simp only [nestedLift_atF, fueledOpsM_inferType_atF,
       restoreRules_datF envR R lps recName isMimic recTy mI rP F rest]
+    datF_tac
+    all_goals
+      simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        nestedLift_atF, fueledOpsM_inferType_atF,
+        restoreRules_datF envR R lps recName isMimic recTy mI rP F rest]
 
 theorem nestedPinsOk_datF (env : Env) (nP F : Nat) :
     ∀ (pins : List NestedPin),

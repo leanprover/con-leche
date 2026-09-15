@@ -600,8 +600,13 @@ theorem restoreRules_id {envR : Env} {R : RestoreTbl} {lps : List Name} {recName
     case neg => rw [if_neg h3] at h; close_throw
     rw [if_pos h3] at h
     try simp only [bind, Except.bind] at h
+    -- K.24: the rule's constructor must be a stored constructor here
+    split at h
+    case h_2 => close_throw
+    rename_i cvj cnP cnF hfind
+    try simp only [pure, Except.pure] at h
     obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
+    simp only [Except.ok.injEq] at h
     obtain rfl := h
     obtain ⟨hlen, hall⟩ := ih hrest
     refine ⟨by simp [hlen], ?_⟩
@@ -740,6 +745,76 @@ theorem auxStoredAll_get {envAux : Env} {b : MutualBlock} :
       obtain rfl := hi
       rw [hlen]
       exact ha
+
+/-! ### The restored rules' constructors are stored (task #279 K.24) -/
+
+/-- **Every restored rule's constructor is a STORED CONSTRUCTOR** at the
+environment the rules were restored at: `restoreRules` reads its
+parameter count with `envR.find?` and now REJECTS when that is not a
+`ctorInfo`, where it used to fall back on the stream's own count (K.24 —
+official reads the same record with `env.get`, which throws). -/
+theorem restoreRules_ctorStored {envR : Env} {R : RestoreTbl} {lps : List Name}
+    {recName : Name} {isMimic : Bool} {recTy : Expr} {mI rP F : Nat} :
+    ∀ {rules out : List RecRule},
+      restoreRules (m := CheckM) (fueledOps mode F) envR R lps recName isMimic recTy mI rP
+          rules = .ok out →
+      ∀ o ∈ out, ∃ (cv : ConstantVal) (n nF : Nat),
+        envR.find? o.ctor = some (.ctorInfo cv n nF) := by
+  intro rules
+  induction rules with
+  | nil =>
+    intro out h o ho
+    simp only [restoreRules, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at ho; exact absurd ho (by simp)
+  | cons rl rest ih =>
+    intro out h o ho
+    unfold restoreRules at h
+    obtain ⟨rhsA, _hrhs, h⟩ := exceptBind_ok h
+    by_cases h1 : (rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
+        rhsA.looseBVarsBounded 0 && !rhsA.hasFvar) = true
+    case neg => rw [if_neg h1] at h; close_throw
+    rw [if_pos h1] at h
+    try simp only [bind, Except.bind] at h
+    by_cases h2 : rhsA.projTablesOk envR = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨_ty, _hty, h⟩ := exceptBind_ok h
+    try simp only at h
+    by_cases h3 : (!isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor)) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    try simp only [bind, Except.bind] at h
+    split at h
+    case h_2 => close_throw
+    rename_i cvj cnP cnF hfind
+    try simp only [pure, Except.pure] at h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [Except.ok.injEq] at h
+    obtain rfl := h
+    rcases List.mem_cons.mp ho with rfl | ho
+    · exact ⟨cvj, cnP, cnF, by simpa using hfind⟩
+    · exact ih hrest o ho
+
+/-- A `ctorInfo` found past the rule-less provision was found below it:
+the provision adds only recursors. -/
+theorem provisionNestedRecs_find?_ctorInfo :
+    ∀ (l : List (ConstantVal × Nat × Nat)) {env : Env} {n : Name} {cv : ConstantVal}
+      {nP nF : Nat},
+      (provisionNestedRecs l env).find? n = some (.ctorInfo cv nP nF) →
+      env.find? n = some (.ctorInfo cv nP nF) := by
+  intro l
+  induction l with
+  | nil => intro env n cv nP nF h; exact h
+  | cons hd rest ih =>
+    intro env n cv nP nF h
+    obtain ⟨cvRa, mI, rP⟩ := hd
+    have h' := ih h
+    unfold Env.find? at h' ⊢
+    simp only [List.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
 
 /-- **NO BLOCK MEMBER CARRIES A COPY'S NAME** (task #279 K.18, the model
 lane's question).
