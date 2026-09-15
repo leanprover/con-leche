@@ -104,6 +104,7 @@ public import ConLeche.Model.Inductives.BlockRecKit
 public import ConLeche.Model.Inductives.BlockRecTyped
 public import ConLeche.Model.Inductives.BlockRecEq
 public import ConLeche.Model.Inductives.BlockRecWD
+public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

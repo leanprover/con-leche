@@ -77,6 +77,13 @@ FALLBACK = {
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #315: `BlockRecWD`'s one public import is the file's whole
+    # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
+    # the model calls it demotable (nothing downstream re-exports through
+    # it that a STATEMENT names — `DeclBlock`'s needs are in exposed
+    # `def … : Prop` BODIES, task #253's class), and demoting it makes the
+    # file's own `variable [SetTheory V]` fail to resolve.
+    ('ConLeche.Model.Inductives.BlockRecWD','ConLeche.Model.Inductives.BlockRecTyped'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecEq
+public import ConLeche.Model.Inductives.BlockRecTyped
+import ConLeche.Model.Inductives.BlockRecEq
 import ConLeche.Model.Inductives.FixRuleKit
 import ConLeche.Model.Inductives.BlockRecFrames
 public section
@@ -859,5 +860,88 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
           (tl := rebit (pwBit ψ (Level.zeronessOf elimL)) ((d.tssF c j ψ).getD (ConLeche.recIdxOf (d.ksF c j))[l] []))
           (fun d' hd' => by rw [mem_rebit hd']; exact hb) _, rebit_map_dom]
         exact (hih _ hiI).2
+
+/-! ## `blockRecs` at the datum's readings — closed modulo the run facts -/
+
+/-- **The block's rule equations**, in the kernel's constructor order
+(`minorIdx`): member by member, constructor by constructor. -/
+@[expose] def BlockRepData.specEqs {env : Env} (d : BlockRepData V) (m : EnvModel V env)
+    (ψ : Name → Nat) (elimL : Level) (Ls : List AnnotTerm) (nIdxs : List Nat)
+    (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
+    (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat) : List AnnotTerm :=
+  (List.range d.k).flatMap fun c => (List.range (d.ctorsM c).length).map fun j =>
+    specEqAV (mutualRuleDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts (d.dsF c j ψ))
+      (specLhsAV d.k d.nP d.nCtors ((d.ctorsM c).getD j default).2 c (d.esF c j ψ)
+        (m.acval ((d.ctorsM c).getD j default).1.name ψ))
+      (specRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) d.k (d.tgts c j) d.nP d.nCtors
+        ((d.ctorsM c).getD j default).2 (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j))
+        (d.tssF c j ψ) (d.eissF c j ψ))
+
+/-- An equation of the block is a rule's. -/
+theorem BlockRepData.mem_specEqs {env : Env} {d : BlockRepData V} {m : EnvModel V env}
+    {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
+    {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
+    {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {e : AnnotTerm}
+    (he : e ∈ d.specEqs m ψ elimL Ls nIdxs pps ipss cds mots tgts) :
+    ∃ (c j : Nat) (cA : ConstantVal × Nat), c < d.k ∧ (d.ctorsM c)[j]? = some cA ∧
+      e = specEqAV (mutualRuleDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts (d.dsF c j ψ))
+        (specLhsAV d.k d.nP d.nCtors cA.2 c (d.esF c j ψ) (m.acval cA.1.name ψ))
+        (specRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) d.k (d.tgts c j) d.nP d.nCtors cA.2
+          (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)) := by
+  unfold BlockRepData.specEqs at he
+  obtain ⟨c, hc, he⟩ := List.mem_flatMap.mp he
+  obtain ⟨j, hj, rfl⟩ := List.mem_map.mp he
+  have hj' : j < (d.ctorsM c).length := List.mem_range.mp hj
+  refine ⟨c, j, (d.ctorsM c).getD j default, List.mem_range.mp hc, ?_, rfl⟩
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj']; rfl
+
+/-- **The block's recursors at the datum's readings** — `blockRecs`
+with its four premises discharged (`blockCand_mem`, `blockCand_eq`,
+`blockEq_wd`) from the run-level facts at every level assignment: the
+datum at every member (`BlockReps`), the members and constructors
+typed (`FormersTyped`, `CtorsTyped`), the readings the datum's
+(`BlockReadings`), the regime fact `w = 0 → ℓ = 0`, and the recursor
+types' formation (`hT`).  What M4's recursor stage consumes. -/
+theorem BlockReps.blockRecsAt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+    (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
+    (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0) {Ls : (Name → Nat) → List AnnotTerm}
+    {nIdxs : List Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {ipss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {cds : (Name → Nat) → List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
+    (hR : ∀ ψ, BlockReadings m d ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts)
+    {s : (Name → Nat) → Nat}
+    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →
+      interp V ρ (mkPisAV (mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)) ∈ˢ (univ (s ψ) : V) ∧
+      WellDenoted V ρ (mkPisAV (mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts mm)
+        (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm))) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V), ∃ a : Nat → V,
+      (∀ mm, mm < d.k →
+        a mm ∈ˢ interp V ρ
+          (mkPisAV (mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts mm)
+            (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)) ∧
+        interp V ρ (blockLeafAV (s ψ) d.k
+          (fun t => mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts t)
+          (fun mm => mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)
+          (d.specEqs m ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts) mm) = a mm ∧
+        WellDenoted V ρ (blockLeafAV (s ψ) d.k
+          (fun t => mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts t)
+          (fun mm => mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)
+          (d.specEqs m ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts) mm)) ∧
+      ∀ e ∈ d.specEqs m ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts,
+        (pt : V) ∈ˢ interp V (consList ((List.range d.k).map a) ρ) e :=
+  blockRecs d s (fun ψ => elimL.eval ψ)
+    (fun t ψ => mutualRecDataAV m ψ (Ls ψ) d.nP nIdxs elimL (pps ψ) (ipss ψ) (cds ψ) mots tgts t)
+    (fun mm => mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)
+    (fun ψ => d.specEqs m ψ elimL (Ls ψ) nIdxs (pps ψ) (ipss ψ) (cds ψ) mots tgts)
+    hT
+    (fun ψ ρ rs hlen hrs e he => by
+      obtain ⟨c, j, cA, hc, hj, rfl⟩ := d.mem_specEqs he
+      exact ⟨specEqAV_univZero _ _ _ _,
+        hreps.blockEq_wd (hfT ψ) (hcT ψ) (hR ψ) (fun mm hmm ρ => (hT ψ ρ mm hmm).2) ρ hlen hrs hc hj⟩)
+    (fun ψ ρ mm hmm => hreps.blockCand_mem (hfT ψ) (hwℓ ψ) (hR ψ) ρ hmm)
+    (fun ψ ρ e he => by
+      obtain ⟨c, j, cA, hc, hj, rfl⟩ := d.mem_specEqs he
+      exact hreps.blockCand_eq (hfT ψ) (hwℓ ψ) (hR ψ) ρ hc hj)
 
 end ConLeche.Model
