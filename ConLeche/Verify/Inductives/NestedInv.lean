@@ -885,6 +885,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- group-mate's copy comes from a container field that is a member
       -- occurrence at the parameters
       nestedGroupExclusionOk env envAux p st = true ∧
+      -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
+      -- classified `.ordinary`, `.recursive` or `.reflexive`, and
+      -- `nestedCopyKinds b stored` is that classification
+      nestedCopyKindsOk b stored = true ∧
       -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
       -- block, the STORED field is the weak head normal form of the
       -- PROCESSED one wherever the stage's normalisation changed it,
@@ -1013,6 +1017,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hgx] at h; close_throw
   rw [if_pos hgx] at h
   try simp only [bind, Except.bind] at h
+  by_cases hkd : nestedCopyKindsOk b stored = true
+  case neg => rw [if_neg hkd] at h; close_throw
+  rw [if_pos hkd] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uW, hwhnf, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -1040,7 +1048,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hto', hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), hcaps, hgx, (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases uA; exact hpinsAux), hcaps, hgx, hkd, (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche

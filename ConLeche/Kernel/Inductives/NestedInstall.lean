@@ -714,6 +714,60 @@ def nestedGroupExclusionOk (env envAux : Env) (p : NestedParts) (st : ElimState)
           | _ => true
     | _, _ => true
 
+/-- **THE AUXILIARY BLOCK'S FIELD KINDS** (task #279 K.26, the direct
+nested lane's DESIGN §DR.1 (b), variant C), read off the STORED
+constructors.
+
+`checkMutualCore` classifies every field of every constructor of the
+auxiliary block — the block's own members' and every copy's — by
+`mutualCtorKinds`, and installs the block only if no field is
+`.negative` (official's "non positive or non valid occurrence") or
+`.unsupported` (a nested occurrence inside the auxiliary block).  That
+classification is the elimination's whole point at a copy: a copy field
+is `.ordinary` (it mentions no member of the auxiliary block), or
+`.recursive`/`.reflexive` INTO a named member — a real member of the
+block at a container-parameter position, or another copy one container
+level down.
+
+The classification is not returned by the install, so it is recomputed
+here on the very constructors the install STORED (`stored`, read back
+out of the scratch environment by `auxStoredAll`), with the same
+function on the same data.  `nestedCopyKinds b stored` is per member, in
+block order: the block's own members first, then one entry per copy
+(`drop p.k`), and inside a member one entry per constructor and one kind
+per field.
+
+**Why it is recorded and not derived.**  The model tier's composed
+functor `X ↦ ⟦J⟧(Ds[X])` is monotone exactly when every copy field reads
+monotonically at the block's frame, and the kinds say which ones do:
+`.ordinary` is constant in the frame, `.recursive`/`.reflexive` read the
+target member.  Deriving the same fact from the container's stored
+constructors would need a syntactic positivity walk of its own, and such
+a walk can DECLINE a stream official accepts — official's positivity
+runs after the parameters are substituted, where a field that inspects a
+parameter reduces, and a walk with the parameter free is stuck on it.
+Recording what the install already decided cannot decline at all.
+
+**It cannot fire.**  `nestedCopyKinds` answers `none` only if a stored
+constructor's type does not strip its own `nP + nF` binders, which is
+the telescope `checkMutualCtors` opened to check it; and a `.negative`
+or `.unsupported` kind is exactly what `classifyMutualKinds` threw on,
+at this block, on these types.  A failure is therefore `.internal`. -/
+def nestedCopyKinds (b : MutualBlock) (stored : List AuxStored) :
+    Option (List (List (List (RecFieldKind × Nat)))) :=
+  stored.mapM fun a =>
+    a.ctors.mapM fun (cvCa, _nP, nF) => mutualCtorKinds b.members3 b.lps b.nP (cvCa, nF)
+
+/-- The kinds exist and every field of the auxiliary block is
+`.ordinary`, `.recursive` or `.reflexive` — the classification
+`classifyMutualKinds` let through (K.26). -/
+def nestedCopyKindsOk (b : MutualBlock) (stored : List AuxStored) : Bool :=
+  match nestedCopyKinds b stored with
+  | some kinds =>
+    kinds.all fun ks => ks.all fun k => k.all fun (r, _) =>
+      r == .ordinary || r == .recursive || r == .reflexive
+  | none => false
+
 /-- **The whnf witness at the constructors' fields** (task #279 K.17 (a),
 the model lane's DESIGN §M.30).
 
@@ -899,6 +953,13 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless nestedGroupExclusionOk env envAux p st do
     throw (.internal "nested: a stored copy field is recursive into its own mint group \
       where the container's field is not a member occurrence")
+  -- **THE FIELD KINDS** (K.26): the classification the scratch install
+  -- decided, recomputed on the constructors it stored, so that the model
+  -- tier reads a copy field's kind off the run instead of re-deciding
+  -- positivity at the container.  A failure is `.internal`.
+  unless nestedCopyKindsOk b stored do
+    throw (.internal "nested: a stored field of the auxiliary block is not classified \
+      ordinary, recursive or reflexive")
   let env₁ := consNestedFormers members env
   -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
   -- block — the block's own and every copy — the STORED field is the
