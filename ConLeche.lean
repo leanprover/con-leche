@@ -53,5 +53,7 @@ public import ConLeche.Verify.Inductives.NestedRestore
 public import ConLeche.Verify.Inductives.NestedRestoreWalk
 public import ConLeche.Verify.Inductives.NestedCopyStored
 public import ConLeche.Verify.Inductives.NestedCtorNames
+public import ConLeche.Verify.Inductives.NestedRecsWF
+public import ConLeche.Verify.Inductives.NestedRecNames
 
 @[expose] public section
