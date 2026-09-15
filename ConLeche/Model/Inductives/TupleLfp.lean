@@ -405,6 +405,16 @@ theorem TupleLfpStageOk.of_tagged {t : Nat} {resSort : Level}
     TupleLfpStageOk V nP t resSort W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ pps :=
   h
 
+/-- The member premise, read back at the representation (the
+assembly's seam, `of_tagged`'s inverse). -/
+theorem TupleLfpStageOk.tagged {t : Nat} {resSort : Level}
+    {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (h : TupleLfpStageOk V nP t resSort W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ pps) :
+    MemberChainsOk V nP t resSort W (fun ψ => tupleIdss k (Ids ψ)) rss tlss
+      (fun ψ => tupleEiss (W ψ) (tupleIdss k (Ids ψ)) tgts (tlss ψ) (Eiss₀ ψ)) Fss₀
+      (fun ψ => tupleEss (W ψ) (tupleIdss k (Ids ψ)) mems nFs (Ess₀ ψ)) pps :=
+  h
+
 /-- The block's data are stable under the level parameters. -/
 theorem TupleLfpBlockOk.params (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
     {ψ₁ ψ₂ : Name → Nat} (hφ : ∀ q ∈ lps, ψ₁ q = ψ₂ q) :
@@ -941,5 +951,37 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
       exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ J hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
 
 end Fibre
+
+/-! ## The seam for the assembly
+
+The recursor stage's ASSEMBLY (`MutualCore.lean`) reads the
+constructors' chains at the auxiliary family and folds the
+constructors' residuals to its fibre (#278's `mutualCtorFold`), so it
+sees the representation — through these two laws and the `of_tagged`
+intros, and nothing else does (DESIGN §U.7 (c)). -/
+
+section Seam
+
+variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {mems nFs : List Nat}
+  {tgts : List (List Nat)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eiss₀ : List (List (List AnnotTerm))} {Fss₀ Ess₀ : List (List AnnotTerm)}
+
+/-- **The representation** (the assembly's seam): member `m`'s leaf
+is #278's `mutualTyAVI` at the tagged data. -/
+theorem tupleLfpAV_repr (pps : List (Nat × Nat × AnnotTerm)) (nIdx m : Nat) :
+    tupleLfpAV W w pps nIdx k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m
+      = mutualTyAVI W w pps nIdx (tupleIdss k Ids) rss tlss
+          (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀
+          (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) m := by
+  rfl
+
+/-- The leaf is a λ-tower over its binder data. -/
+theorem tupleLfpAV_lams (pps : List (Nat × Nat × AnnotTerm)) (nIdx m : Nat) :
+    ∃ B : AnnotTerm,
+      tupleLfpAV W w pps nIdx k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m = mkLamsC (w + 1) pps B := by
+  rw [tupleLfpAV_repr]
+  exact ⟨_, mutualTyAVI_eq_mkLamsC _ _ _ _ _ _ _ _ _ _ _⟩
+
+end Seam
 
 end ConLeche.Model
