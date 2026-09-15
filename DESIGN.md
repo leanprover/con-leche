@@ -79200,6 +79200,233 @@ intended `declNested` signature is unchanged:
 `declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
   (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
 
+#### M.57 M-D′ D4 CONSUMER-FIRST: the recursors' cons chain, the run's recursor facts, the model of `env₃` under four named premises (2026-09-15, session 34)
+
+**Context.**  Session 34 started at a8edcad5 (§M.54's `nestedCtorsModel_of_run`).
+Tasks #312 (`BridgeSyntax` at the run) and #313 (`hvia`) run in parallel
+off the same HEAD; neither is merged here, and both premises are kept
+NAMED verbatim in what this session builds on top.  Mid-session #312
+reported `BridgeSyntax` FALSE at the run on an accepted fixture
+(`tests/e2e/nested_p04.ndjson`, `P4`: the transports form a 3-cycle the
+kernel's `copyRefB` cuts only by its sub-term conjunct, so
+`nestedTopoOrder` accepts while ψ as a fold along that order cannot
+exist there); the maintainer decides between narrowing and a simultaneous
+ψ.  Nothing built here folds along the order or assumes acyclic
+transports: D4's chain is generic in the leaves, and the only order
+dependence is INHERITED through `mp₂` (D3's route, taken verbatim).  The
+leaves' spelling — D4's next step — will depend on the ruling.
+
+**The naming rule applied.**  D4's deliverable is stated CONSUMER-FIRST:
+`nestedRecsModel_of_run` consumes, at the run's own environments, every
+fact D4 still owes, and this session proves the syntactic ones (the
+provision's front doors, the names, the store's `EnvWF`, the rules'
+rescue bits, the readings' existence and grading, the representation
+clause's plumbing) and NAMES the semantic ones (below, verbatim).
+
+**Step 0 — three modules from Opus subagents** (one session-hour each,
+against this lane's oleans):
+
+* **`Verify/Inductives/NestedRecsWF.lean`** — `nestedFireShape_some_inv`
+  (the `.nested` sub-clause of `ConstWF`, read off `nestedFireShape`'s
+  guards), **`restoreRules_shape`** (`restoreRules` positionally: the
+  rhs's five scope facts at the provision, `nfields`, `paramsBlind`, the
+  constructor and fire per `isMimic`, `ctorParams`, and the rescue bits
+  `k`/`eta` = `recRuleBits` at the provision's lookups), the lookup
+  lemmas (`provisionNestedRecs_find?_of_ne`, `storeNestedRecs_find?_of_ne`,
+  `storeNestedRecs_mem`, `storeNestedRecs_le`, `provisionNestedRecs_store_le`),
+  `nested_stores_provs` (the store's triples are the provision's, given
+  the lengths) and **`nested_recs_wf`** — `EnvWF` of
+  `storeNestedRecs (…) env₂` at the run's own spellings, the twin of
+  `mutual_recs_wf`, through one parametric `nested_rec_constWF` (a
+  member rule's fire is `.plain`/`.inert`, a mimic's is
+  `nestedFireShape`'s).
+* **`Verify/Inductives/NestedRecNames.lean`** — `Nat.toDigits_ten_inj`
+  (core 4.33's `Nat.ofDigitChars_ten_toDigits` is a left inverse — no
+  induction), `Nat.repr_inj`, `Name.appendIndexAfter_inj`,
+  `Name.appendIndexAfter_ne_str_rec` (by the underscore, NOT by length:
+  `"a_5"` has length 3), `NestedParts.mimicRecName_inj`,
+  `mimicRecName_ne_str_rec`, `mimicRecNames_nodup`, and
+  **`nestedRecNames_nodup`** (the members' names under `.rec` then the
+  mimics' are distinct).
+* **`Model/Inductives/NestedRecStage.lean`** — the nested route's
+  recursor cons chain, GENERIC in the leaves (the content is
+  `NestedCtorLeaf`, reused as is — it is environment-generic):
+  `stageNestedRecProvision` (one rule-less cons, `stageMutualRecProvision`'s
+  twin with the leaf abstract), `stageNestedRecsProvisionGo` (the loop,
+  `stageNestedCtorsGo`'s positional shape with `stageMutualRecsProvisionGo`'s
+  invariant device `Inv`/`hInv`/`hreps`), the swap lemmas
+  (`swapShList_provisionN_storeN`, `swapNResS_provisionN_storeN`,
+  `storeNestedRecs_find?_inv`, `provisionNestedRecs_find?_of_ne`),
+  `stageNestedRecsStore` (`EnvModelM.swapP` with the store's `EnvWF`
+  TAKEN, the rescue bits at the provision, the laws and `IndReps` at the
+  store from the caller) and **`nestedRecsModel`** (provision + store
+  back to back).
+
+**Step 1 — `Model/Inductives/NestedRecsModelRun.lean`** (this session's
+own, all proved):
+
+* `nestedProvs`/`nestedStores` — the two lists as `checkNested` zips
+  them (`@[expose]`, so the run's `provisionNestedRecs (…) env₂` and
+  `storeNestedRecs (…) env₂` are these by `rfl`);
+* `restoreRecTys_entry`, **`nestedProvs_entry`** — every provisioned
+  recursor went through `checkConstantValPre` at `env₂` AS ITSELF
+  (K.19), is named the member's `<T_i>.rec` (`i < p.k`) or the mimic's
+  `p.mimicRecName (i - p.k)`, and carries the auxiliary record's level
+  parameters, `mI`, `rP` and the restore of its type;
+* `nestedMemberName_eq` (the elimination's member `t` is the declared
+  former, `nestedRecNameFacts`' reading factored out),
+  `nestedMemberNames_nodup` (the first `p.k` of `b.memberNames`),
+  **`nestedProvs_names`** (the names as a list) — with
+  `nestedRecNames_nodup` the provision's names are distinct;
+* `storeNestedRecs_envExt` (the Model tier's `EnvExt` across the store:
+  fresh, distinct, non-table conses);
+* **`restoredRecTy_reads`** — a restored recursor type READS at `mp₂`,
+  graded: `acceptedReads_of` + `ClaimsAt.sortRow` at the front door's
+  inference, D3's `hokTy`-free trick; the reading's SHAPE is D4's next
+  step;
+* `nestedStores_mem`;
+* **`NestedRecsModelAt p stored cvRms cvRns rulesM rulesN d mp₂`** — D4's
+  clause at a model of `env₂`: the readings graded (proved) and, for any
+  leaves `Aof`/readings `taOf`, the model of `env₃` under the four named
+  premises;
+* **`nestedRecsModel_of_facts`** — the clause off the run facts:
+  `nestedRecsModel` at `nestedProvs_entry`'s front doors, the names, the
+  store's `EnvWF`, `restoreRules_shape`'s rescue bits; the invariant
+  `Inv m' := EnvExt env₂ env' ∧ (the types resolve at env') ∧ (the real
+  members' rule-less representations at m')` crossing each cons by
+  `IndRep.cross` (`hrr` vacuous at `rules = []`), `IndRepsHead` at a
+  member's cons from it (`T = d.memberName i` by `Name.str.inj`) and
+  vacuous at a mimic's (`mimicRecName_ne_str_rec`); at the store
+  `IndReps.ext` over `mp₂.ind_reps` with `hrepS` for the block's
+  recursors;
+* **`nestedRecsModel_of_run`** — off `DeclNestedRun`: the restore
+  stages exposed (`hrm`, `hrn`, `hrulesM`, `hrulesN`, and the tables on
+  the store `= .ok envOut`, D6's stage), `mp₂` by D3's route REPLICATED
+  (finding (f)), and `NestedRecsModelAt … mp₂`.
+
+**The NAMED premises of `NestedRecsModelAt`** (each consumed at the run
+by `nestedRecsModel_of_facts`; with
+`provs := nestedProvs cvRms cvRns stored p.k`,
+`stores := nestedStores cvRms cvRns stored rulesM rulesN p.k`,
+`env₂ := consNestedCtors ctorsR.flatten (consNestedFormers (stored.take p.k) env)`,
+`env₃ := storeNestedRecs stores env₂`), quantified over
+`Aof taOf : Nat → (Name → Nat) → AnnotTerm`:
+
+    -- (1) the leaves' content — D4's next step: spell `Aof` (the auxiliary
+    --     recursors' leaves conjugated by ψ/ψ⁻¹) and prove it; `okTy` is
+    --     free by the proved first conjunct
+    ∀ (i : Nat) (x : ConstantVal × Nat × Nat), provs[i]? = some x →
+      NestedCtorLeaf mp₂ x.1 (Aof i) (taOf i)
+    -- (2) every stored rule's constructor is stored — K.24
+    ∀ r ∈ stores, ∀ rl ∈ r.2.2.2,
+      ∃ cvj cnP cnF, env₂.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF)
+    -- (3) D5: the real members' representations, rule-less at mp₂
+    ∀ t, t < p.k → ∀ x : ConstantVal × Nat × Nat, provs[t]? = some x →
+      ∃ (cvT : ConstantVal) (caps : IndCaps) (dT : IndRepData V),
+        env₂.find? (d.memberName t) = some (.indInfo cvT caps) ∧
+        IndRep mp₂.base2 (d.memberName t) cvT x.1 x.2.1 x.2.2 [] dT t
+    -- (4) D5: the real members' representations with the restored rules,
+    --     at every carrier of the store agreeing with the provision
+    ∀ t, t < p.k → ∀ r : ConstantVal × Nat × Nat × List RecRule, stores[t]? = some r →
+      ∀ m₃ : EnvModel V env₃,
+        (∀ (i : Nat) (x : ConstantVal × Nat × Nat), provs[i]? = some x → m₃.acval x.1.name = Aof i) →
+        (∀ n : Name, (∀ x ∈ provs, n ≠ x.1.name) → m₃.acval n = mp₂.base2.acval n) →
+        ∃ (cvT : ConstantVal) (caps : IndCaps) (dT : IndRepData V),
+          env₃.find? (d.memberName t) = some (.indInfo cvT caps) ∧
+          IndRep m₃ (d.memberName t) cvT r.1 r.2.1 r.2.2.1 r.2.2.2 dT t
+    -- (5) D4's semantic core: the rule laws at the store
+    ∀ m₃ : EnvModel V env₃,
+      (∀ (i : Nat) (x : ConstantVal × Nat × Nat), provs[i]? = some x → m₃.acval x.1.name = Aof i) →
+      (∀ n : Name, (∀ x ∈ provs, n ≠ x.1.name) → m₃.acval n = mp₂.base2.acval n) →
+      ∀ (φ : Name → Nat) (r : ConstantVal × Nat × Nat × List RecRule), r ∈ stores →
+        ∀ rl ∈ r.2.2.2, RecRule.fire rl ≠ .inert →
+          RecRuleLaw m₃ φ r.1.name r.1 r.2.1 r.2.2.1 rl
+
+and the conclusion `∃ mp₃ : EnvModelM V μ env₃, (∀ i x, provs[i]? = some x
+→ mp₃.base2.acval x.1.name = Aof i) ∧ (∀ n, (∀ x ∈ provs, n ≠ x.1.name)
+→ mp₃.base2.acval n = mp₂.base2.acval n)`.  D3's three premises
+(`ContainersRep`, `BridgeSyntax` at every assignment's pin data, `hvia`)
+stand in front of it, verbatim as in §M.54.
+
+**Kernel request K.24** (the kernel lane; verdict-neutral on every
+well-formed stream).  `restoreRules` computes a mimic rule's
+`ctorParams` by `match envR.find? ctor with | some (.ctorInfo _ n _) => n
+| _ => rl.ctorParams` — a FALLBACK where official's
+`restore_constructor_name` + `env.get` throws.  Make the resolution
+positive: throw `.invalid` when the restored constructor name is not a
+stored constructor at `envR`.  Then premise (2) is a fact of the run
+(`restoreRules_shape` gains `∃ cvj cnP cnF, envR.find? o.ctor = some
+(.ctorInfo cvj cnP cnF) ∧ o.ctorParams = cnP`, and a `ctorInfo` answer
+at the provision is `env₂`'s), for the members' rules too — whose
+constructors are the restored constructors (same names, stored at
+`env₂`), a ~80-line datum-to-`ownCtors` plumbing otherwise.  The model
+needs (2) for `EnvModel.rec_ctors` at the store, so it is not optional.
+
+**Findings, with cost.**
+
+(a) **The datum's `Ls` is at the block's assignment** (`IndRepData.Ls m ψ
+:= (range k).map fun t => m.acval (memberName t) ψ`), and `recDataAVP`'s
+copy motive `motiveAVP (Lof t) (pinsOf t) …` reads the family at that
+leaf — so a copy member whose pin instantiates the container's LEVELS
+(`List.{0} T` under a block at `u`) cannot be expressed in the T-datum
+currency M-A′ prepared (`kReal`/`ctorsC`/`pinsAV`/`recNames`…): the
+container's leaf at the pin is `acval J (substFn ψ lps lvls)`, not
+`acval J ψ`.  D5's datum genuinely needs one more field — a per-member
+assignment `assignM : Nat → (Name → Nat) → (Name → Nat) := fun _ ψ =>
+ψ` with `Ls` reading `m.acval (memberName t) (assignM t ψ)` — the
+hygiene ruling's "genuinely needed" case, or D4/D5 state the recursor
+readings with explicit `Lof`/`pinsOf` lists.  NOT added this session
+(no datum field without the maintainer's word); reported.  Half a
+session of reading to find.
+(b) The restored recursors' names are checked fresh at `env₂` ONLY
+(`restoreRecTys` runs every front door at the same `env₂`); their
+distinctness among themselves — which each provision cons needs — is a
+fact of `Nat.repr` (`NestedRecNames.lean`), not of the kernel.  One
+subagent-hour; no kernel request.
+(c) The `ctorParams` fallback in `restoreRules` (K.24 above).
+(d) `obtain rfl : rs' = rs` eliminated `rs` (the RIGHT variable, the
+recount trap again) and left `((cv, a.mI, a.rP, rs').2.2.2).length` an
+atom `omega` cannot see through — `dsimp only at h` on the projected
+hypothesis, or eliminate the other way.  One compile.
+(e) `IndRep.cross` with a `nomatch` discharge of `ConsCrossEnv.ofNtc`
+needs its `c₀` given (`(c₀ := .recInfo …)`): with `c₀` a metavariable
+the `nomatch` has no cases.  One compile.
+(f) **`mp₂` can only be produced by REPLICATING D3's body**: a second
+destructuring of `DeclNestedRun` cannot identify its ∃-witnesses with
+the first's (§M.49 finding 2), so `nestedRecsModel_of_run` repeats the
+~50 lines of `nestedCtorsModel_of_run` after `intro hcr hsyn hvia`.
+Landing item: split `nestedCtorsModel_of_run` into a facts-taking core
+and the wrapper — AFTER #312/#313 land (both edit that theorem's
+premise list).
+(g) The subagents' files have no oleans after `lake env lean`; a
+consumer module must `lake build <those modules>` first (seconds).
+
+**Gates**: `lake build` warning-free; `lake test` clean.  NOT run
+(landing items): shake/pub-import (four new modules on the umbrellas),
+arena, init-full, Mathlib, `overview-links.sh` (pre-existing drift),
+`quote-gate.sh`, `no-local-paths.sh` (no path in the new files).  No
+`sorry`, no axiom, no kernel change, no new `IndRep` field, no
+`maxHeartbeats` above 1600000 in the new files.
+
+**What is left, re-sized.**  D4: (i) the restored recursor type's SHAPE
+reading — the restore walk on the auxiliary tower (`recDataAVP` with
+the copies' families at the pins' readings and the mimics' majors
+restored; `restoredCopyField_read`'s pattern at the motive, minor and
+major positions) and the leaves' spelling `Aof` (the auxiliary
+recursor's leaf at conjugated motives `λ ı⃗ y, M_j ı⃗ (ψ⁻¹ y)`, minors
+`λ f⃗ ih⃗, m_c (ψ⁻¹* f⃗) ih⃗`, and for a mimic the major through ψ) with
+premise (1) — 1–2 sessions, the typing from the auxiliary `recRead`
+tower peeled at the conjugated arguments, `psiFinal_mem`/`invFold_mem`,
+R1/R2; (ii) premise (5), the rule laws — the members' from the
+auxiliary ι (`rulesRead`/`rec_rules`) and R2, the mimics' from ψ's ι
+(`psi_iota`) and R2 — 1–2 sessions, and its ψ side waits on the
+`BridgeSyntax` ruling.  D4 total 3–4 sessions (was 2–3).  D5: the
+datum (finding (a)'s field), premises (3)/(4) — 2 sessions.  D6 (the
+tables, off the exposed `nestedTables … = .ok envOut`) 1; D7 1; M-E
+1–2.  The intended `declNested` signature is unchanged:
+`declNested (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
+  (h : DeclNestedRun μ F env p envOut) : Nonempty (EnvModelM V μ envOut)`.
+
 #### M.7 Sequence on this branch
 
 M-A′ (`recRead`/`rulesRead`, the copy-member datum, the relocation,
