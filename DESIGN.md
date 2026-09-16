@@ -79827,3 +79827,109 @@ refused by the compiler in a test build and allowlisted with their
 reasons; pub-imports none demotable.  Standard axioms only
 (`normPosDomM_read`, `normPosDomM_read_of`, `normPosDomM_pres`,
 and the unchanged `nestedPinsStaged_of`/`nestedPinsIdent_of`).
+
+#### U.32 — L-B session 3: K.32 merged, the copies' constructor PAIR built, `len` discharged; the group's members found un-identified (lane L-B, 2026-09-16)
+
+`nestedPinsInst_of` is **not** built.  The session merged
+`agent/uniform-315` `bf10dfcd` (K.32 + M7-1), named the entry identity
+once (`CopyEntry`), found and closed a second gap in the abstract block
+model, and landed the first step of the per-field assembly — the step
+all five arms of `CopyCtorInst` share.
+
+##### (a) `CopyEntry` — the entry identity, named once
+
+`CopyCtorInst.ordF`'s right arm and `.pinF` carried the SAME third
+conjunct verbatim (a `FitsFrom` premise and an `interp`/`slotSet`
+identity, fifteen lines each).  It is now one `@[expose] def`,
+`CopyEntry … dJ ψJ Ds q₀ kJ Y i j l` (`NestedFit.lean`), so the
+residual `NestedPinsEntry` states it once instead of restating it; it
+unfolds, so `fit_iff_at`/`fit_imp` are unchanged.
+
+##### (b) FINDING — the block model's constructors were not identified with the container's
+
+The assembly reads the container's constructor record `cc` positionally
+(`mkCopy` copies `cc.type` and `cc.nFields`), and must know that the
+BLOCK MODEL's constructor `j` of member `i'` IS that record.  Nothing in
+the tree said so:
+
+* `ContainerModeled.member` gave `(d.ctorsM i).length = M.ctors.length`
+  — the COUNT only;
+* `IsBlockModel.rules` ties `(d.ctorsM mm).map (·.1.name)` to a
+  `rules : List RecRule` that the structure takes as a PARAMETER — and
+  no clause ties that list to the environment's recursor, so it cannot
+  reach `containerInfo?`'s `rulesC`.
+
+Two things were needed and are now in the tree:
+
+1. `containerInfo?_member_det` (`Verify/Inductives/NestedGroupInv.lean`):
+   **a member record is a function of the environment at its name and
+   the group's `nP`** — the type and level parameters off its own
+   `indInfo`, the constructors off its own recursor's rules and their
+   `ctorInfo`s.  Two groups with the same `nP` therefore agree on a
+   member they share by name.  This is what lets a pin's OWN
+   `containerInfo?` group (K.28) and the group's BASE `containerInfo?`
+   (K.29) be used interchangeably — K.29 ties them only by the members'
+   NAMES.
+2. `ContainerModeled.member`'s second conjunct strengthened to
+   `(d.ctorsM i).map (·.1.name) = M.ctors.map (·.name)` (the names IN
+   ORDER, which implies the count), and a new `NestedPinGroupSyn` field
+   carrying it at the group:
+
+```lean
+  ctorsOf : ∀ i', i' < kJ → ∀ (ciJ : ContainerInfo) (J : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i')).J = some ciJ →
+    J ∈ ciJ.members → J.name = ((D).pinAt (q₀ + i')).J →
+    (dJ.ctorsM i').map (·.1.name) = J.ctors.map (·.name) ∧ dJ.nP = ciJ.nP
+```
+
+   proved in `groupSyn` from the strengthened premise and (1).  M7's
+   `EnvModelM` field makes the strengthened clause by construction, as
+   it does the other three (§U.30 (c)).
+
+##### (c) THE PROVENANCE PAIR, and `len`
+
+`Model/Inductives/NestedCopyInst.lean` (NEW):
+
+* `NestedPinsRun.ctorRecord` — the block model's constructor `j` of
+  member `i'` is the pin's container member's `j`-th entry: same name
+  (by `ctorsOf`), same type and field count (the two stored
+  `ctorInfo`s, `BlockCtorFacts`' at the prefix environment against
+  `containerInfo?`'s at the pre-block one, crossed by
+  `NestedPinsRun.cross`).
+* `NestedPinsRun.ctorPair` — **the pair**: that record, `mkCopy`'s
+  pre-image `Expr.instPis (instantiateLevelParams J.lps lvls cc.type)
+  Ds = some cI`, the copy's stored constructor at `j`, the auxiliary
+  block's flattened position `b.ownOffset (p.k + q₀ + i') + j` with its
+  record, the stage's constant there, and `cA.2 = cc.nFields`.
+  (`PinData.own` = K.28 at the pin, `mkCopy_inv`,
+  `auxBlock_ctors_getElem?` under the grouping guard,
+  `MutualFormersFacts.runC`.)
+* `NestedPinsRun.copyLen` — **`CopyCtorInst.len` DISCHARGED**: the
+  block's shadow chain is as long as the constructor has fields
+  (`shadowFs_length`), the stage records that count, and the pair says
+  it is the container's.
+
+##### (d) WHAT REMAINS (the next session's four arms)
+
+`es`, `recF`, `ordF` and `pinF`, each on top of the pair:
+`elimNested_copyCtors` for the stored constructor's `replaceAllNested`
+run, `instPis_mkPisB`/`closeTelescope_eq_mkPisB`/
+`instSeq_abstractRange_fvs` to turn the opened body back into `cI`
+EXACTLY, `replaceAllNested_mkPisB` for the per-domain runs, then the
+per-kind arms of §U.23 (e) — with `ordF`'s LEFT arm now closing at the
+reading through `normPosDomM_read_of` (§U.30 (b)) and its RIGHT arm and
+`pinF` over K.32's conjunct (in the tree since the merge) and the one
+residual `NestedPinsEntry` (stated as `CopyEntry` at the guarded
+positions, still unnamed for want of its consumer).
+
+##### (e) GATES
+
+`lake build` 685 jobs warning-free; `lake test` warning-free; layering
+base 344 / model 258 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(617 scanned); overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4955 / 12 / 0 doors; shake 509/509 allowlisted (the new
+module's one-import-view re-export refused by the compiler in a test
+build and allowlisted); pub-imports none demotable.  Standard axioms
+only.  The chain probe still closes: `nestedPinsStaged_of
+(nestedPinsIdent_of hI)` and `declNested_of hμ mp hE hpins hcore htail
+h` compile unchanged after the merge and the two structure changes.
