@@ -52,7 +52,7 @@ parsed declaration:
   field, `T._model.proj_i.iota : ∀ …, @Eq.{ℓ} α _ _` — the `Eq` level
   IS the field's sort.  Since task #207 the ONLY source of that
   artifact is the in-process modeller
-  (`ConLeche/Frontend/InModel/Mutual.lean`, which emits `proj_i` and
+  (`ConLeche/Frontend/InModel/Nested.lean`, which emits `proj_i` and
   `proj_i.iota` for the structure-like non-`Prop` members of the
   families it generates), over model types that match the public ones
   syntactically by the modeller's own contract.  No artifact, no
