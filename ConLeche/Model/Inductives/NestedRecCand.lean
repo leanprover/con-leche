@@ -928,24 +928,33 @@ theorem IsBlockModel.pinIds_length {env : Env} {m : EnvModel V env} {T : Name} {
   rw [List.length_map, List.length_drop, (h.pinShape q hq ψ).2.2]
   omega
 
-/-- **The bound's obligation over the classes**: at every element of
-the extended union the bound is in `univ ℓ` — every class's motive,
-at a fitting index spine of the class's telescope at its frame and a
-value of the class's carrier there, a set at the level (the frame's
-motives typed at their readings, read SEMANTICALLY; the readings'
-form is the stage's). -/
-theorem IsBlockModel.kitBT_mem {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
+/-- **The frame's motives typed, read SEMANTICALLY**: at every class,
+every fitting index spine of the class's telescope at its frame and
+every value of the class's carrier there, the motive folded along the
+spine applies to a set at the level.  The premise of the bound's
+obligation; the readings' form — a pin's motive reads the container at
+the pin's components — is the stage's (DESIGN §U.25 (e) 2). -/
+@[expose] def BlockModel.MotivesTypedT (d : BlockModel V) (ψ : Name → Nat) (ρp : Nat → V)
+    (ℓ : Nat) (Ms : Nat → V) : Prop :=
+  ∀ c, c < d.kT → ∀ is, SpineFit (d.frameT c ψ ρp) (d.IdsT c ψ) is → ∀ x,
+    x ∈ˢ app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) (d.tupT ψ c is) →
+    app (is.foldl app (Ms c)) x ∈ˢ (univ ℓ : V)
+
+/-- **The motive at a class's value**, read off the index tuple: at a
+value of the class's carrier at a tuple `t`, the class's motive folded
+along `t`'s components is a set at the level — the tuple is an index
+tuple because the fibre is inhabited, and its components are the
+fitting spine (`isOfW_tupW` at the class's `idxOk`). -/
+theorem IsBlockModel.motiveT_mem {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
     {mI rP : Nat} {rules : List RecRule} {d : BlockModel V} {mm : Nat}
     (h : IsBlockModel m T cvT cvR mI rP rules d mm) (hreps : IsBlockModels m d)
     {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat}
     {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) {ℓ : Nat} {Ms : Nat → V}
-    (hMs : ∀ c, c < d.kT → ∀ is, SpineFit (d.frameT c ψ ρp) (d.IdsT c ψ) is → ∀ x,
-      x ∈ˢ app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) (d.tupT ψ c is) →
-      app (is.foldl app (Ms c)) x ∈ˢ (univ ℓ : V)) :
-    ∀ u, u ∈ˢ d.unionT ψ ρp → d.kitBT ψ Ms u ∈ˢ (univ ℓ : V) := by
-  intro u hu
-  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
-  rw [BlockModel.kitBT_tagged]
+    (hMs : d.MotivesTypedT ψ ρp ℓ Ms) {c : Nat} (hc : c < d.kT) {i x : V}
+    (hx : x ∈ˢ app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) i) :
+    app ((isOfW (d.uT c ψ) (d.nIdxT c) i).foldl app (Ms c)) x ∈ˢ (univ ℓ : V) := by
+  have hi : i ∈ˢ d.idxT ψ ρp c :=
+    mem_idx_of_app_famSpace (h.famAt_mem hρp (lfpTuple_mem _ _ _ _) hc) hx
   by_cases hck : c < d.k
   · obtain ⟨cvT', cvR', mI', rP', rules', h'⟩ := hreps c hck
     rw [d.idxT_of_mem hck] at hi
@@ -970,6 +979,21 @@ theorem IsBlockModel.kitBT_mem {env : Env} {m : EnvModel V env} {T : Name} {cvT 
       exact hsp
     · rw [BlockModel.tupT, BlockModel.uT_of_pin hck]
       exact hx
+
+/-- **The bound's obligation over the classes**: at every element of
+the extended union the bound is in `univ ℓ` — the motive at the
+class's value (`motiveT_mem`) read off the tag. -/
+theorem IsBlockModel.kitBT_mem {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal}
+    {mI rP : Nat} {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+    (h : IsBlockModel m T cvT cvR mI rP rules d mm) (hreps : IsBlockModels m d)
+    {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat}
+    {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) {ℓ : Nat} {Ms : Nat → V}
+    (hMs : d.MotivesTypedT ψ ρp ℓ Ms) :
+    ∀ u, u ∈ˢ d.unionT ψ ρp → d.kitBT ψ Ms u ∈ˢ (univ ℓ : V) := by
+  intro u hu
+  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
+  rw [BlockModel.kitBT_tagged]
+  exact h.motiveT_mem hreps hp hρp hMs hc hx
 
 /-! ## The step's obligation -/
 
@@ -998,6 +1022,40 @@ theorem BlockModel.graphT_mem_B (d : BlockModel V) (pc : Nat → PinCtors V) {ψ
       (d.kitStT pc ψ ρp ℓ ms)) u) : v ∈ˢ d.kitBT ψ Ms u := by
   rw [app_recGraph_eq hB (d.kitPredT_sub pc ψ ρp) hu] at hv
   exact (mem_recGraphFibre.mp hv).1
+
+/-- **The frame's minors typed, read SEMANTICALLY**: at every class's
+constructor, every index tuple and field spine fitting at the
+carrier's extended tuple, and every choice of the inductive
+hypotheses in their domains — the TARGET CLASS's motive at the call's
+index tuple, under the field's telescope — the minor folded along the
+fields and the hypotheses lands in the class's motive at the index
+tuple and the constructor's value.  The premise of the step's
+obligation; the readings' form — a pin's minor names the container's
+constructor at the pin's components — is the stage's
+(DESIGN §U.25 (e) 3). -/
+@[expose] def BlockModel.MinorsTypedT (d : BlockModel V) (pc : Nat → PinCtors V) (ψ : Name → Nat)
+    (ρp : Nat → V) (ℓ : Nat) (Ms ms : Nat → V) : Prop :=
+  ∀ c, c < d.kT → ∀ j, j < (d.ctorsT pc c).length → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ fs,
+    d.ChainFitT pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) t c j fs →
+    ∀ vs : List V,
+    vs.length = (recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length).length →
+    (∀ l, l < vs.length →
+      vs.getD l pt ∈ˢ piTele ℓ
+        (teleOfFields
+          (consList (fs.take ((recIdx ((d.rssT pc c).getD j [])
+            ((d.FssT pc ψ c).getD j []).length).getD l 0)) ρp)
+          ((d.teleAtT pc ψ c j ((recIdx ((d.rssT pc c).getD j [])
+            ((d.FssT pc ψ c).getD j []).length).getD l 0)).map (·.2.2)))
+        (fun bs =>
+          let i' := (recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length).getD l 0
+          app
+            ((isOfW (d.uT (d.tgtsT pc c j i') ψ) (d.nIdxT (d.tgtsT pc c j i'))
+              (d.tupT ψ (d.tgtsT pc c j i')
+                ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp)))))).foldl
+              app (Ms (d.tgtsT pc c j i')))
+            (bs.foldl app (fs.getD i' pt))) []) →
+    (fs ++ vs).foldl app (ms (d.minorIdxT pc c j))
+      ∈ˢ app ((isOfW (d.uT c ψ) (d.nIdxT c) t).foldl app (Ms c)) (d.injT pc ψ c j fs)
 
 namespace IsBlockModel
 
@@ -1106,27 +1164,7 @@ constructor at the pin's components — is the stage's). -/
 theorem kitStT_mem (hreps : IsBlockModels m d) {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc)
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {ℓ : Nat}
     {Ms ms : Nat → V} (hB : ∀ u, u ∈ˢ d.unionT ψ ρp → d.kitBT ψ Ms u ∈ˢ (univ ℓ : V))
-    (hms : ∀ c, c < d.kT → ∀ j, j < (d.ctorsT pc c).length → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ fs,
-      d.ChainFitT pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) t c j fs →
-      ∀ vs : List V,
-      vs.length = (recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length).length →
-      (∀ l, l < vs.length →
-        vs.getD l pt ∈ˢ piTele ℓ
-          (teleOfFields
-            (consList (fs.take ((recIdx ((d.rssT pc c).getD j [])
-              ((d.FssT pc ψ c).getD j []).length).getD l 0)) ρp)
-            ((d.teleAtT pc ψ c j ((recIdx ((d.rssT pc c).getD j [])
-              ((d.FssT pc ψ c).getD j []).length).getD l 0)).map (·.2.2)))
-          (fun bs =>
-            let i' := (recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length).getD l 0
-            app
-              ((isOfW (d.uT (d.tgtsT pc c j i') ψ) (d.nIdxT (d.tgtsT pc c j i'))
-                (d.tupT ψ (d.tgtsT pc c j i')
-                  ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp)))))).foldl
-                app (Ms (d.tgtsT pc c j i')))
-              (bs.foldl app (fs.getD i' pt))) []) →
-      (fs ++ vs).foldl app (ms (d.minorIdxT pc c j))
-        ∈ˢ app ((isOfW (d.uT c ψ) (d.nIdxT c) t).foldl app (Ms c)) (d.injT pc ψ c j fs)) :
+    (hms : d.MinorsTypedT pc ψ ρp ℓ Ms ms) :
     ∀ u, u ∈ˢ d.unionT ψ ρp → ∀ g,
       g ∈ˢ piSet (d.kitPredT pc ψ ρp u) (fun v =>
         app (recGraph ℓ (d.unionT ψ ρp) (d.kitPredT pc ψ ρp) (d.kitBT ψ Ms)
@@ -1189,6 +1227,239 @@ theorem kitStT_mem (hreps : IsBlockModels m d) {pc : Nat → PinCtors V} (hp : P
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl, Option.getD_some]
     rw [hgetD]
     exact h.kitIhsT_mem hp hρp hB hc hj hfit.1 (List.getElem_mem hl) hg
+
+end IsBlockModel
+
+/-! ## The induction over the classes -/
+
+/-- **The classes' induction step**: at every class, index tuple,
+constructor and field spine fitting at the CARRIER's extended tuple,
+`P` holds of the constructor's value once it holds of every recursive
+field's value along every spine fitting that field's telescope (the
+inductive hypotheses).  The step of `classInd_all` — the recursion's
+own data, with no separation in sight: what a semantic consumer
+(a motive's inhabitation at `Prop`, say) can discharge. -/
+@[expose] def BlockModel.ClassStep (d : BlockModel V) (pc : Nat → PinCtors V) (ψ : Name → Nat)
+    (ρp : Nat → V) (P : Nat → V → V → Prop) : Prop :=
+  ∀ c, c < d.kT → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ j, j < (d.ctorsT pc c).length → ∀ fs,
+    d.ChainFitT pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) t c j fs →
+    (∀ i', i' ∈ recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length →
+      ∀ bs, SpineFit (consList (fs.take i') ρp) ((d.teleAtT pc ψ c j i').map (·.2.2)) bs →
+        P (d.tgtsT pc c j i')
+          (d.tupT ψ (d.tgtsT pc c j i')
+            ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp)))))
+          (bs.foldl app (fs.getD i' pt))) →
+    P c t (d.injT pc ψ c j fs)
+
+/-- **A recursive field's value lies in its target class's family**: at
+a fit over an extended tuple `Y` of families, the field applied to a
+spine fitting its telescope is a member of `Y (tgtsT c j i')` at the
+call's index tuple. -/
+theorem BlockModel.chainFitT_slot_mem (d : BlockModel V) (pc : Nat → PinCtors V) {ψ : Name → Nat}
+    {ρp : Nat → V} {Y : Nat → V}
+    (hY : ∀ c', c' < d.kT → ∀ t', app (Y c') t' ∈ˢ (univ (d.w ψ) : V)) {t : V} {c j : Nat}
+    (htgt : ∀ i, i < ((d.FssT pc ψ c).getD j []).length →
+      ((d.rssT pc c).getD j []).getD i false = true → d.tgtsT pc c j i < d.kT)
+    {fs : List V} (hf : d.ChainFitT pc ψ ρp Y t c j fs) {i' : Nat}
+    (hi' : i' ∈ recIdx ((d.rssT pc c).getD j []) ((d.FssT pc ψ c).getD j []).length)
+    {bs : List V}
+    (hbs : SpineFit (consList (fs.take i') ρp) ((d.teleAtT pc ψ c j i').map (·.2.2)) bs) :
+    bs.foldl app (fs.getD i' pt) ∈ˢ app (Y (d.tgtsT pc c j i'))
+      (d.tupT ψ (d.tgtsT pc c j i')
+        ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp))))) := by
+  obtain ⟨hi'F, hrec⟩ := mem_recIdx.mp hi'
+  have hmem := hf.1.rec_mem i' hi'F (by rw [Nat.zero_add]; exact hrec)
+  rw [Nat.zero_add] at hmem
+  unfold BlockModel.slotAtT at hmem
+  exact slotSet_fold_mem (fun t' => hY _ (htgt i' hi'F hrec) t') hmem hbs
+
+namespace IsBlockModel
+
+variable {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
+include h
+
+/-- **The extended tuple is monotone**: below a tuple of the space it
+is below the extended tuple there, at every class (the members by the
+tuple order, the pins by `pinMono`). -/
+theorem famAt_le {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
+    {X Z : Nat → V} (hX : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X)
+    (hZ : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) Z) (hXZ : TupleLe d.k (d.idx ψ ρp) X Z) :
+    ∀ c, c < d.kT → ∀ t, app (d.famAt ψ ρp X c) t ⊆ˢ app (d.famAt ψ ρp Z c) t := by
+  intro c hc t y hy
+  by_cases ht : t ∈ˢ d.idxT ψ ρp c
+  · by_cases hck : c < d.k
+    · rw [d.famAt_of_mem hck] at hy ⊢
+      rw [d.idxT_of_mem hck] at ht
+      exact hXZ c hck t ht y hy
+    · rw [d.famAt_of_pin hck] at hy ⊢
+      rw [d.idxT_of_pin hck] at ht
+      exact h.pinMono ψ ρp hρp X Z hX hZ hXZ (c - d.k)
+        (by unfold BlockModel.kT at hc; omega) t ht y hy
+  · exfalso
+    rw [app_famSpace_of_not_mem (h.famAt_mem hρp hX hc) ht] at hy
+    exact not_mem_empty y hy
+
+/-- **The pins' classes satisfy `P` at a tuple whose members do**: the
+pins' own induction (`PinRecLaws.ind`) at `X`, its step discharged by
+the classes' step — the fit at the step's tuple (members at `X`, pins
+separated) lies below the carrier's (`ChainFitT_mono` through
+`famAt_le`), and every recursive field's value is a member value at
+`X` (`hmem`) or a separated pin value (`P` by the separation). -/
+theorem pinsInd_of {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) {X : Nat → V}
+    (hX : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X)
+    (hXL : TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+    {P : Nat → V → V → Prop} (hstep : d.ClassStep pc ψ ρp P)
+    (hmem : ∀ c, c < d.k → ∀ i, i ∈ˢ d.idx ψ ρp c → ∀ x, x ∈ˢ app (X c) i → P c i x) :
+    ∀ q, q < d.nPins → ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x, x ∈ˢ app (d.pinCar ψ ρp X q) t →
+      P (d.k + q) t x := by
+  have hLmem := lfpTuple_mem (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)
+  refine hp.ind ψ ρp hρp X hX (fun q t x => P (d.k + q) t x) ?_
+  intro q hq t ht j fs hj hfit
+  have hnk : ¬ d.k + q < d.k := by omega
+  have hq' : d.k + q - d.k = q := Nat.add_sub_cancel_left _ _
+  have hcT : d.k + q < d.kT := by unfold BlockModel.kT; omega
+  obtain ⟨Y, hY⟩ : ∃ Y, Y = segJoin d.k d.nPins (d.famAt ψ ρp X)
+      (d.sepPins ψ ρp X fun q t x => P (d.k + q) t x) := ⟨_, rfl⟩
+  rw [← hY] at hfit
+  have hYm : ∀ c', c' < d.k → Y c' = X c' := by
+    intro c' hc'
+    rw [hY, segJoin_lt _ _ hc', d.famAt_of_mem hc']
+  have hYp : ∀ c', c' < d.kT → ¬ c' < d.k →
+      Y c' = d.sepPins ψ ρp X (fun q t x => P (d.k + q) t x) (c' - d.k) := by
+    intro c' hc' hck
+    rw [hY, segJoin_in _ _ ⟨Nat.le_of_not_lt hck, by unfold BlockModel.kT at hc'; exact hc'⟩]
+  have hYfam : ∀ c', c' < d.kT → Y c' ∈ˢ famSpace (d.w ψ) (d.idxT ψ ρp c') := by
+    intro c' hc'
+    by_cases hck : c' < d.k
+    · rw [hYm c' hck, d.idxT_of_mem hck]; exact hX c' hck
+    · rw [hYp c' hc' hck, d.idxT_of_pin hck]
+      exact h.sepPins_mem_famSpace hρp hX _ (by unfold BlockModel.kT at hc'; omega)
+  have hYu : ∀ c', c' < d.kT → ∀ t', app (Y c') t' ∈ˢ (univ (d.w ψ) : V) :=
+    fun c' hc' t' => app_famSpace_mem_univ (hYfam c' hc') t'
+  -- the step's tuple lies below the extended tuple at `X`, hence at the carrier
+  have hYX : ∀ c', c' < d.kT → ∀ t', app (Y c') t' ⊆ˢ app (d.famAt ψ ρp X c') t' := by
+    intro c' hc' t' y hy
+    by_cases hck : c' < d.k
+    · rw [hYm c' hck] at hy; rw [d.famAt_of_mem hck]; exact hy
+    · rw [hYp c' hc' hck] at hy
+      rw [d.famAt_of_pin hck]
+      exact d.sepPins_le _ t' y hy
+  have hYle : ∀ c', c' < d.kT → ∀ t', app (Y c') t' ⊆ˢ
+      app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c') t' :=
+    fun c' hc' t' y hy => h.famAt_le hρp hX hLmem hXL c' hc' t' y (hYX c' hc' t' y hy)
+  -- `P` holds of every value of the step's tuple
+  have hYP : ∀ c', c' < d.kT → ∀ t' y, y ∈ˢ app (Y c') t' → P c' t' y := by
+    intro c' hc' t' y hy
+    by_cases ht' : t' ∈ˢ d.idxT ψ ρp c'
+    · by_cases hck : c' < d.k
+      · rw [hYm c' hck] at hy
+        rw [d.idxT_of_mem hck] at ht'
+        exact hmem c' hck t' ht' y hy
+      · rw [hYp c' hc' hck] at hy
+        rw [d.idxT_of_pin hck] at ht'
+        unfold BlockModel.sepPins at hy
+        rw [app_graph ht'] at hy
+        have hP : P (d.k + (c' - d.k)) t' y := (mem_sep.mp hy).2
+        rwa [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)] at hP
+    · exfalso
+      rw [app_famSpace_of_not_mem (hYfam c' hc') ht'] at hy
+      exact not_mem_empty y hy
+  have hjT : j < (d.ctorsT pc (d.k + q)).length := by
+    rw [BlockModel.ctorsT_of_pin hnk, hq']; exact hj
+  have htgts : ∀ i, i < ((d.FssT pc ψ (d.k + q)).getD j []).length →
+      ((d.rssT pc (d.k + q)).getD j []).getD i false = true → d.tgtsT pc (d.k + q) j i < d.kT :=
+    fun i hi hr => h.tgtsT_lt hp ψ hcT hjT hi hr
+  have htT : t ∈ˢ d.idxT ψ ρp (d.k + q) := by rw [d.idxT_of_pin hnk, hq']; exact ht
+  have hinj : d.injT pc ψ (d.k + q) j fs = (pc q).inj ψ j fs := by
+    rw [BlockModel.injT_of_pin hnk, hq']
+  rw [← hinj]
+  refine hstep (d.k + q) hcT t htT j hjT fs (d.ChainFitT_mono pc hYle htgts hfit)
+    fun i' hi' bs hbs => ?_
+  exact hYP _ (htgts i' (mem_recIdx.mp hi').1 (mem_recIdx.mp hi').2) _ _
+    (d.chainFitT_slot_mem pc hYu htgts hfit hi' hbs)
+
+/-- **The members' classes satisfy `P`** at the carrier: the block's
+simultaneous induction, its step discharged by the classes' step — the
+fit at the separated tuple lies below the carrier's, a member
+predecessor carries `P` by the separation and a pin predecessor by the
+pins' induction at the separated tuple (`pinsInd_of`). -/
+theorem memInd_all {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) {P : Nat → V → V → Prop}
+    (hstep : d.ClassStep pc ψ ρp P) :
+    ∀ c, c < d.k → ∀ i, i ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) c) i → P c i x := by
+  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hρp
+  have hLmem := lfpTuple_mem (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)
+  refine lfpTuple_induction hcl hmono P ?_
+  intro c hc i hi x hx
+  have hSmem := sepTuple_mem (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) P
+  have hSle := sepTuple_le (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) P
+  have hcT : c < d.kT := by unfold BlockModel.kT; omega
+  -- the separated members carry `P`
+  have hmemS : ∀ c', c' < d.k → ∀ i', i' ∈ˢ d.idx ψ ρp c' → ∀ x',
+      x' ∈ˢ app (sepTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) P c') i' → P c' i' x' := by
+    intro c' _ i' hi' x' hx'
+    unfold sepTuple at hx'
+    rw [app_graph hi'] at hx'
+    exact (mem_sep.mp hx').2
+  obtain ⟨j, fs, hj, hfit, rfl⟩ := (h.fibre ψ ρp hρp _ hSmem c hc i hi x).mp hx
+  have hfitT := d.chainFitT_of_chainFit pc hc hfit
+  have hjT : j < (d.ctorsT pc c).length := by rw [BlockModel.ctorsT_of_mem hc]; exact hj
+  have htgts : ∀ i₀, i₀ < ((d.FssT pc ψ c).getD j []).length →
+      ((d.rssT pc c).getD j []).getD i₀ false = true → d.tgtsT pc c j i₀ < d.kT :=
+    fun i₀ hi₀ hr => h.tgtsT_lt hp ψ hcT hjT hi₀ hr
+  have hiT : i ∈ˢ d.idxT ψ ρp c := by rw [d.idxT_of_mem hc]; exact hi
+  have hSu : ∀ c', c' < d.kT → ∀ t', app (d.famAt ψ ρp (sepTuple (d.w ψ) d.k (d.idx ψ ρp)
+      (d.Φ ψ ρp) P) c') t' ∈ˢ (univ (d.w ψ) : V) :=
+    fun c' hc' t' => app_famSpace_mem_univ (h.famAt_mem hρp hSmem hc') t'
+  have hinj : d.injT pc ψ c j fs = d.inj ψ c j fs := by rw [BlockModel.injT_of_mem hc]
+  rw [← hinj]
+  refine hstep c hcT i hiT j hjT fs
+    (d.ChainFitT_mono pc (h.famAt_le hρp hSmem hLmem hSle) htgts hfitT) fun i' hi' bs hbs => ?_
+  have htgt := htgts i' (mem_recIdx.mp hi').1 (mem_recIdx.mp hi').2
+  have hval := d.chainFitT_slot_mem pc hSu htgts hfitT hi' hbs
+  by_cases hck : d.tgtsT pc c j i' < d.k
+  · rw [d.famAt_of_mem hck] at hval
+    by_cases ht' : d.tupT ψ (d.tgtsT pc c j i')
+        ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp))))
+        ∈ˢ d.idx ψ ρp (d.tgtsT pc c j i')
+    · exact hmemS _ hck _ ht' _ hval
+    · exfalso
+      rw [app_famSpace_of_not_mem (hSmem _ hck) ht'] at hval
+      exact not_mem_empty _ hval
+  · rw [d.famAt_of_pin hck] at hval
+    have ht' : d.tupT ψ (d.tgtsT pc c j i')
+        ((d.eisAtT pc ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp))))
+        ∈ˢ d.pinIdx (d.tgtsT pc c j i' - d.k) ψ ρp := by
+      exact mem_idx_of_app_famSpace (w := d.w ψ)
+        (h.pinMem ψ ρp hρp _ hSmem _ (by unfold BlockModel.kT at htgt; omega)) hval
+    have := h.pinsInd_of hp hρp hSmem hSle hstep hmemS (d.tgtsT pc c j i' - d.k)
+      (by unfold BlockModel.kT at htgt; omega) _ ht' _ hval
+    rwa [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)] at this
+
+/-- **Induction over the classes**: a property closed under every
+class's constructors — the members' AND the pins' — holds of every
+value of the extended tuple at the carrier (the members by
+`memInd_all`, the pins by `pinsInd_of` at the carrier). -/
+theorem classInd_all {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) {P : Nat → V → V → Prop}
+    (hstep : d.ClassStep pc ψ ρp P) :
+    ∀ c, c < d.kT → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ x,
+      x ∈ˢ app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) t → P c t x := by
+  intro c hc t ht x hx
+  by_cases hck : c < d.k
+  · rw [d.famAt_of_mem hck] at hx
+    rw [d.idxT_of_mem hck] at ht
+    exact h.memInd_all hp hρp hstep c hck t ht x hx
+  · rw [d.famAt_of_pin hck] at hx
+    rw [d.idxT_of_pin hck] at ht
+    have := h.pinsInd_of hp hρp (lfpTuple_mem (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))
+      (TupleLe.refl _ _ _) hstep (h.memInd_all hp hρp hstep) (c - d.k)
+      (by unfold BlockModel.kT at hc; omega) t ht x hx
+    rwa [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)] at this
 
 end IsBlockModel
 
