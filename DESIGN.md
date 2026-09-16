@@ -79333,3 +79333,162 @@ compiler in one test build and entered as `FALLBACK`s.  Gates on the merged
 tree: build 681 warning-free, test clean, layering 343/255/3/1 0/0, trust
 13/5 (613), links 112, quote 2, paths OK, proofdeps 4955/12/0, shake
 506/506, pub-imports none demotable (35 fallbacks).
+
+#### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
+
+Three maintainer rulings opened this session; the first two are landed,
+the third is the finding that reshapes the `inst` assembly.
+
+##### (a) K.33 REJECTED as a check — the ordinary arm moves to the reading
+
+`CopyCtorInst.ordF`'s left arm was a SYNTACTIC `AnnotTerm` equality
+between the copy's stored field domain and the container's
+instantiated.  K.33 (a Bool asking `normCtorValM`'s positivity
+normalisation to be the identity on the copies) is REJECTED: it would
+DECLINE a shape official accepts — the λ-pin domain
+`(fun _ => PT α) k`, whose `whnf` the normalisation takes.  The kernel
+lane's measurement confirms the arm is false as stated: the stored
+copy constructor differs from the minted one at 6 of 27 fixtures
+(`tests/e2e/nested_p02.ndjson`'s `_nested.P2D_1.node`: minted field
+`(fun (_ : Nat) => P2) (bvar 0)`, stored field `P2`) and at two
+Mathlib containers (`Std.DTreeMap.Internal.Impl_3/_5.inner`).
+
+So the arm is now the READING, at exactly the frame the fits are taken
+at (`NestedFit.lean`):
+
+```lean
+    ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = false ∧
+      ∀ fs₁ : List V, fs₁.length = l →
+        interp V (consList fs₁ ρp) (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default)
+          = interp V (consList fs₁ ρp)
+              (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
+```
+
+`CopyCtorInst.fit_iff_at` and `.fit_imp` take it at the spine's own
+`fs₁` (`rw [hF fs₁ rfl, interp_instAll]`, two lines); no other
+consumer reads that arm, and `nestedPinsStaged_of (nestedPinsIdent_of
+hI)` still typechecks (probe).
+
+##### (b) FINDING — the model tier had NO law relating `normCtorValM`'s output to its input.  PROVED
+
+`normCtorValM`'s only lemmas were syntactic or plumbing:
+`normCtorValM_inv`/`normCtorValMG_inv` ("the output went through the
+door at SOME type"), `normCtorValM_true_stores` ("the minted constant,
+or that constant with its type replaced"), `_datF` (the fuel bridge)
+and `_sim` (the cached lane).  Nothing said the two READ the same —
+the mutual route never needed it (its block model is DEFINED off the
+stored data; only the nested route must relate a copy's stored data to
+its container's).  The exact missing statement is now a theorem, in
+two pieces:
+
+* `ConLeche/Verify/Inductives/MutualNormPres.lean` —
+  `normPosDomM_pres`: the walk preserves the frame (scope at the same
+  depth, no loose bvar, `fvar` leaves among the input's).  Each step is
+  `whnf_WScoped`/`whnf_looseBVars`/`whnf_fvarLeaves`; the Π step opens
+  at `.fvar d dom` (whose leaf is the domain's own) and closes with
+  `abstract1`, which removes exactly the index-`d` leaves
+  (`Expr.fvarLeaves_abstract1_ne`).
+* `ConLeche/Model/Inductives/MutualNorm.lean` — `normPosDomM_read`:
+
+```lean
+theorem normPosDomM_read {m : EnvModel V env} {F : Nat}
+    (hwc : WhnfClaim μ m φ F) (hwr : WhnfReads m μ φ F) {memberNames : List Name} :
+    ∀ (fuel : Nat) {d : Nat} {e e' : Expr} {Δa : List AnnotTerm} {ea ea' : AnnotTerm},
+      ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env memberNames d fuel e
+        = .ok e' →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
+      CtxOk m φ d Δa e →
+      denoteMeta m.acval env φ d e = some ea →
+      denoteMeta m.acval env φ d e' = some ea' →
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
+      ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ ea'
+```
+
+  and `normPosDomM_read_of hμ mp φ F …`, which takes the two claims
+  off a verified-mode `EnvModelM` (`claimsAt_of`, `whnfReads_of` at
+  `(TierInputsAt.ofSem mp φ).reads`) — so a consumer inside the nested
+  stage needs only `R.hμ` and its model package.
+
+  The proof: `whnf` at each step is one `WhnfClaim` (the reduct reads
+  the same) after one `WhnfReads` (it reads at all); the Π step reads
+  both sides through `denoteMeta`'s own `.forallE` clause, identifies
+  the output's body by the `abstract1`/`instantiate1` round trip
+  (`abstract1_instantiate1` at the `LeafCond` the frame preservation
+  supplies — the λ arms of the four quarters run the same three
+  lines), extends the context with `CtxOk.open`, takes the two graded
+  readings out of `WellDenoted_pi`/`AnnotValid_pi` under `Sat_tail` +
+  `cons_eta`, and splits the codomains with `piR_congr`.  Standard
+  axioms only.
+
+  **The proofdeps trap of §U.23 (f), reproduced and avoided.**  The
+  first draft inverted the run with `rw [normPosDomM]`, which realizes
+  the kernel matcher's equation lemmas inside a non-capstone module —
+  and `proofdeps` immediately reported `MutualNormPres` as a door of
+  all eight capstones.  The fix is the rule: use the tree's OWN
+  inversion.  `normPosDomM_inv` (`Verify/Inductives/MutualInv.lean`)
+  gives the three-way disjunction directly, at the cost of strong
+  recursion on the walk's fuel (`Nat.strongRecOn`, since the inversion
+  returns `fuel = fuel' + 1`).
+
+##### (c) `ContainerModeled`'s three clauses (ruling 3)
+
+Added at the END of the structure (`DeclNestedCore.lean`), all three
+MODEL-FREE so `ContainerModeled.crossEnv` passes them through
+unchanged:
+
+```lean
+  ordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
+    ConLeche.mentionsMember d.memberNames x.fvarTypeD = false
+  pinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames
+  pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
+```
+
+`pinNP` names the block's OWN pre-block environment `d.env₀` and not
+the model's `env`, for a reason worth recording: `containerInfo?`
+reads a `recInfo`, and `crossEnv`'s `hF` explicitly EXCLUDES `recInfo`
+— stated at the model's environment the clause would not cross to the
+prefix-formers model, in either direction.  `d.env₀` is where
+`BlockOpened.nestF` already resolves the pin's index arguments.  The
+residual for the assembly is the bridge `containerInfo? env
+(pinAt q).J = containerInfo? d.env₀ (pinAt q).J` at a pin's container;
+M7's `EnvModelM` field makes all three by construction.
+
+##### (d) What the assembly still owes, and what it now has
+
+`nestedPinsInst_of` is NOT built.  Session 2 spent itself on (a)–(c),
+because the ordinary arm — the commonest field kind — was unreachable
+until (b) existed, and (b) was a lemma the tree did not have.  The
+assembly's plan of §U.23 (e) stands unchanged except that its step
+(1) now ends at the READING rather than at a syntactic identity: the
+stored field's reading is `normPosDomM_read`'s left side, the
+elimination's rewritten field its right.
+
+K.32 LANDED on `agent/uniform-m5` at `084b4d2e` as
+`nestedCopyTargetsOk env p b st stored : Bool`
+(`Kernel/Inductives/NestedInstall.lean`), one conjunct
+`ConLeche.nestedCopyTargetsOk env p b st stored = true` of
+`DeclNestedRun` and of `checkNested_inv` — no separate `_inv` lemma.
+The assembly states its hypothesis in exactly that shape (with the
+run's own `stored`) so the integration swaps it for the conjunct with
+no edit; it is NOT named on this branch, because naming a fact without
+a run-level consumer in the same session is what the rule forbids.
+The semantic residual `NestedPinsEntry` is likewise still unnamed for
+the same reason.
+
+##### (e) GATES
+
+`lake build` 684 jobs warning-free (was 681: `MutualNormPres`,
+`MutualNorm`); `lake test` warning-free; layering base 344 / model 256
+/ caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files (615 scanned); overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots / 0
+doors UNCHANGED (after the door of (b) was removed); shake 508/508
+allowlisted — the four `public import`s of `MutualNormPres` and
+`MutualNorm`'s `MutualNormPres` DEMOTED, the two one-import-view
+re-exports (`MutualNormPres`→`MutualInv`, `MutualNorm`→`StructRows`)
+refused by the compiler in a test build and allowlisted with their
+reasons; pub-imports none demotable.  Standard axioms only
+(`normPosDomM_read`, `normPosDomM_read_of`, `normPosDomM_pres`,
+and the unchanged `nestedPinsStaged_of`/`nestedPinsIdent_of`).
