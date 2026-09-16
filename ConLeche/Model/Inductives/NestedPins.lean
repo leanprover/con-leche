@@ -337,6 +337,9 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
   same : ∀ i, i < kJ →
     ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls ∧
     ((D).pinAt (q₀ + i)).DsE = ((D).pinAt q₀).DsE
+  /-- the group's pins share the components' READINGS (task #315 L-E:
+  `PinGroupView.same`'s second half) -/
+  sameDs : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
   w : ∀ i, i < kJ → ∀ ψ : Name → Nat, dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ
   ctorCount : ∀ i', i' < kJ → (dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length
   DsFit : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
@@ -427,6 +430,7 @@ theorem NestedPinGroupSyn.ofParts {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : 
       exact ⟨cvT, cvR, mI, rP, rules, hI⟩
     typed := S.typed, pinsTyped := S.pinsTyped, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
     pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, idx := I.idx
+    same := fun i hi ψ => ⟨S.ψJEq i 0 hi S.kpos ψ, S.sameDs i hi ψ⟩
     ctorCount := S.ctorCount, DsFit := S.DsFit, shape := I.shape, entry := I.entry }
 
 local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
@@ -1174,6 +1178,11 @@ theorem NestedPinsRun.groupSyn
         rw [Nat.add_zero] at h0
         rw [hpinAt, hpinAt, hgp i hi, h0]
         exact ⟨rfl, rfl⟩
+      sameDs := fun i hi ψ => by
+        have h0 := hgp 0 hkpos
+        rw [Nat.add_zero] at h0
+        rw [hpinAt, hpinAt, hgp i hi, h0]
+        rfl
       w := ?_
       ctorCount := ?_
       DsFit := ?_

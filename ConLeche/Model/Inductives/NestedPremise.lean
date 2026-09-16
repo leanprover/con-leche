@@ -270,6 +270,29 @@ theorem PinShapes.congrB {env : Env} {m : EnvModel V env} {B B' : ContainerInfo 
   rw [← hBB q hq ci hci] at hgv hsh
   exact ⟨q₀, kJ, i, ci, hqe, hi, hci, hgv, hsh⟩
 
+/-- **The leastness law is not vacuous** (the check DESIGN §U.36 records
+against the `Prop` countermodel of the maintainer's plan, `PLAN` §5): at
+a tuple `X` at which NO spine fits any of pin `q`'s constructors, the
+pin's carrier at `X` is EMPTY — `PinRecLaws.ind` at the property
+`False`.  A model whose `pinCar` is constant (its carrier value at every
+tuple, the "weird" `EnvModel` that satisfies every clause of
+`IsBlockModel`/`ContainerModeled`) violates it at the bottom tuple of a
+container whose pin's constructors all take a member field. -/
+theorem PinRecLaws.pinCar_empty_of_noFit {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (h : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) {X : Nat → V}
+    (hX : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X) {q : Nat} (hq : q < d.nPins)
+    (hnofit : ∀ Y : Nat → V, (∀ mm, mm < d.k → Y mm = X mm) →
+      ∀ (t : V) (j : Nat) (fs : List V), j < (pc q).ctors.length →
+        ¬ d.ChainFitT pc ψ ρp Y t (d.k + q) j fs) :
+    ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x, ¬ x ∈ˢ SetTheory.app (d.pinCar ψ ρp X q) t := by
+  intro t ht x hx
+  refine h.ind ψ ρp hρp X hX (fun q' _ _ => q' ≠ q) (fun q' _ t' _ j fs hj hfit hqq => ?_)
+    q hq t ht x hx rfl
+  subst hqq
+  refine hnofit _ (fun mm hmm => ?_) t' j fs hj hfit
+  rw [segJoin_lt _ _ hmm, d.famAt_of_mem hmm]
+
 /-- `PinRecLaws` reads no model: it crosses any change of model. -/
 theorem PinRecLaws.cross {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinRecLaws m₁ d pc) : PinRecLaws m₂ d pc :=

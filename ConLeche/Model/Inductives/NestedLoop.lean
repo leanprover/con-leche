@@ -108,6 +108,7 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     pinPps := G.pinPps
     pinDsLen := G.pinDsLen
     w := G.w
+    same := G.same
     idx := G.idx
     ctorCount := G.ctorCount
     DsFit := G.DsFit

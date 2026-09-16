@@ -5,7 +5,7 @@ public import ConLeche.Semantics.Tower.InstAll
 public section
 
 /-!
-# The instantiation law at the pins — `hfit` (task #315, M6 s5; L-C)
+# The instantiation law at the pins — `hfit` (task #315, M6 s5; L-C; L-E)
 
 `ofNested_pin_block_of_fit_at` (`BlockComposed.lean`) reduced `pinLeaf`'s
 set equality to TWO fit hypotheses: a field spine fits the COPY's
@@ -15,14 +15,21 @@ joined tuple `segJoin (k + q₀) kJ L⁺ Y` iff it is the CONTAINER's
 container's least tuple `Y = LJ` — and one direction (container to
 copy) at the tuples `Y` below it; both at the pin's frame `ρJ =
 consList ⟦Ds⟧ ρp`.  This module proves them from the INSTANTIATION
-IDENTITIES of the copy's readings (DESIGN §U.17, §U.24):
+IDENTITIES of the copy's readings (DESIGN §U.17, §U.24, §U.36):
 
 * `fitsFrom_iff_frames`: `FitsFrom` across TWO frames is a congruence
   of the per-field ENTRY SETS at every fitting prefix;
   `fitsFrom_iff_frames_spine`/`fitsFrom_imp_frames_spine` the twins
   that carry the first chain's REAL-domain fit (`SpineFit`) along —
   what the container's slot laws at its carrier need;
-* `CopyCtorInst`: per constructor, the copy's readings are the
+* `TargetView`: the block's targets as a copy sees them — the members'
+  and pins' counts, the block's sort, a target's index universe, index
+  telescope and (for a pin) components, and every target's STORED
+  READING (`targetRead`) at the parameter depth; instantiated at the
+  auxiliary lists (`nestedTV`) and at a stored block model
+  (`BlockModel.targetView`, `NestedPremise.lean`);
+* `CopyCtorShape` (task #315 L-E, the ENTRY-FREE half of what used to be
+  `CopyCtorInst`): per constructor, the copy's readings are the
   container's with the pin's components substituted at the field's
   depth (`AnnotTerm.instAll`, `Semantics/Tower/InstAll.lean`): a
   container-recursive field at a MEMBER target is copy-recursive at
@@ -31,24 +38,40 @@ IDENTITIES of the copy's readings (DESIGN §U.17, §U.24):
   copy-ordinary whose domain READS as the container's instantiated
   (the stored copy is the elimination's rewrite only up to the
   constructors' positivity normalisation, which `whnf`s), or
-  copy-recursive at a MEMBER or a pin OUTSIDE the group — the elimination's rewrite of an
-  occurrence inside the components — whose entry at the auxiliary
-  carrier is the container's domain read at the pin's frame (`ordF`);
-  a container-recursive field at one of the CONTAINER'S OWN PINS (a
-  container that is itself nested) is copy-recursive at a pin outside
-  the group with the same entry identity (`pinF`); the result's index
-  readings instantiated (`es`);
-* `CopyCtorInst.fit_iff_at`/`.fit_imp` = the fits at one constructor:
-  at the carrier a container-recursive field's slot IS its real domain
-  (`IsBlockModels.real_dom_eq` — the container's own `leaf`/`pinLeaf`,
-  what DESIGN §U.18 (e) called `pinFix`), below it the slot is within
-  the real domain (`IsBlockModels.slotAt_mono` — `pinMono` at a pin
-  target); `hfit_at_of_inst`/`hfit_le_of_inst` = the two hypotheses
+  copy-recursive at a target OUTSIDE the group — the elimination's
+  rewrite of an occurrence inside the components — whose entry is the
+  TARGET'S STORED READING (`EntryRead`: the container's domain read at
+  the pin's frame is the Π-tower over the copy's telescope of the
+  target's reading at the copy's index expressions, with the index fit
+  and the bits) (`ordF`); a container-recursive field at one of the
+  CONTAINER'S OWN PINS (a container that is itself nested) is
+  copy-recursive at the block's CORRESPONDING pin (`PinCorr`: the same
+  stored reading at the instantiated components, the same index
+  universe and telescope), outside the group (`pinF`); the result's
+  index readings instantiated (`es`);
+* `CopyEntryAt`/`CopyEntryOut`: the ENTRY identities at a tuple `Z` —
+  at a prefix fitting the container's real domains, the container's
+  domain read at the pin's frame IS the copy's slot at `Z`, at every
+  copy-recursive field targeting outside the group; the residual the
+  fits need beyond the shape, a theorem of the WHOLE block
+  (`nestedPinLeaf_all`), since a pin target's entry is another
+  group's `pinLeaf` and the pin reference graph is cyclic at a
+  self-nested container (DESIGN §U.36); `copyEntryAt_of_read` turns an
+  `EntryRead` into the entry at any tuple whose target family reads
+  the stored reading;
+* `CopyCtorShape.fit_iff_at`/`.fit_imp` = the fits at one constructor,
+  from the shape and the entries: at the carrier a container-recursive
+  field's slot IS its real domain (`IsBlockModels.real_dom_eq` — the
+  container's own `leaf`/`pinLeaf`, what DESIGN §U.18 (e) called
+  `pinFix`), below it the slot is within the real domain
+  (`IsBlockModels.slotAt_mono` — `pinMono` at a pin target);
+  `CopyShapeA`/`CopyEntryA` the shape and the entries at the auxiliary
+  lists; `hfit_at_of_inst`/`hfit_le_of_inst` = the two hypotheses
   verbatim; **`ofNested_pin_block_of_inst`** and
   **`ofNested_pinLeaf_of`**: `pinLeaf` for `ofNested` at a pin group,
-  the container's pin list FREE, from the identities, the universe
-  facts, the container's block model and its typing (`FormersTyped`,
-  `PinsTyped`); `ofNested_pinLeaf_of_one_pin` the `P4` shape.
+  the container's pin list FREE, from the shape, the entries, the
+  universe facts, the container's block model and its typing
+  (`FormersTyped`, `PinsTyped`).
 
 The universe facts: the block's sort EQUALS the container's at the
 pin's level assignment (`hw`, `mutualCrossChecks`' `isEquiv` at the
