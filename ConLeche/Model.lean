@@ -129,6 +129,7 @@ public import ConLeche.Model.Inductives.NestedStageCtor
 public import ConLeche.Model.Inductives.NestedLoop
 public import ConLeche.Model.Inductives.NestedPins
 public import ConLeche.Model.Inductives.NestedCopyIdx
+public import ConLeche.Model.Inductives.NestedCopyRead
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead
