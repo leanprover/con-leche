@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.MutualShadow
 import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Model.Inductives.FixAssemblyKit
-public import ConLeche.Model.Inductives.CaseWitness
+import ConLeche.Model.Inductives.CaseWitness
 public import ConLeche.Semantics.Tower.MutualLeafFacts
 public section
 

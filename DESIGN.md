@@ -75942,3 +75942,300 @@ the formers' stage of the assembly 1–2; **s6** = the constructors'
 stage and `blockReps_of`'s nested twin → `NestedCoreModeled` 1–2 →
 M6 6–8 (unchanged).  M7 4–5; M8 1–2.  Remaining **10–13** (was
 11–15): s4 came in at one session with the shape of `pinLeaf` settled.
+
+#### U.17 — M6 session 5: `hfit` — the instantiation law at the pins, `pinLeaf` for `ofNested` closed at pin-free containers (session U-15, 2026-09-16)
+
+M6 s5 = §U.16 (j)'s "s5": the hypothesis `hfit` that
+`ofNested_pin_block_of_fit` left open (a spine fits the COPY's
+constructor at the joined tuple iff it is the CONTAINER's `ChainFit`
+at the pin's frame) is PROVED from the instantiation identities of the
+copy's readings, the index-set fact `hIs` with it, the same-universe
+fact stated as an EQUALITY of sorts, the cased witness at the nested
+block read off the auxiliary block's formers' stage, and `pinLeaf` for
+`ofNested` is CLOSED at a pin group whose container is PIN-FREE
+(`ofNested_pinLeaf_of`).  Two findings limit the general case and are
+recorded in (g): the index universes' `= 0` agreement is NOT derivable
+in general, and a container that is itself nested needs a different
+segment.  No checker code changed; no `sorry`, no axioms, no
+`maxHeartbeats`.
+
+##### (a) THE PURE HALF — `Semantics/Tower/InstAll.lean` (NEW, 140)
+
+The copy's field at position `l` is the container's field with the
+container's parameters substituted UNDER the `l` earlier fields:
+`AnnotTerm.instAll ds k e` substitutes the parameter list `ds` — the
+outermost first, at cut `k + (ds.length - 1)`, the innermost last at
+cut `k` (`inst` lifts each substituted term past the cut, so `ds` are
+stated at the base context); `instTele ds c ts` is the same along a
+telescope (entry `m` at cut `c + m`).  The laws:
+
+```lean
+theorem interp_instAll :
+    ∀ (ds : List AnnotTerm) (fs : List V) (ρ : Nat → V) (e : AnnotTerm),
+      interp V (consList fs ρ) (AnnotTerm.instAll ds fs.length e)
+        = interp V (consList fs (consList (ds.map (interp V ρ)) ρ)) e
+```
+
+— the copy's reading at the block's frame (the fields `fs` above `ρ`)
+IS the container's at the pin's frame (the fields above the
+components' values above `ρ`); `towerSet_instTele` and
+`piTele_instTele` are the law at the tower set and the nested
+product, each under `hz : w = 0 ↔ w' = 0` (`sigmaSet`, `piR`, `tupW`
+read their universe only through `= 0`: `sigmaSet_zero_agree`,
+`piR_zero_agree`, `tupW_zero_agree`).
+
+##### (b) `hfit` — `Model/Inductives/NestedFit.lean` (NEW, 502)
+
+1. **`fitsFrom_iff_frames`**: `FitsFrom` across TWO frames is a
+   congruence of the per-field ENTRY sets (the slot at a recursive
+   position, the domain's reading otherwise) at every prefix fitting
+   both chains — the induction carries both prefix fits, so an entry
+   identity may assume either side's fit (the members' `leaf` needs
+   the index readings graded, which the copy's chain facts give at a
+   fitting prefix only).
+2. **`slotSet_instTele`**: a recursive slot whose telescope and index
+   expressions are the container's instantiated at the fields' depth
+   equals the container's slot at the same family, under `hw`/`hu`
+   (`= 0` agreements of the sort and the index universe);
+   `idxSet_instTele` likewise for the index-tuple set.
+3. **`CopyCtorInst dJ ψJ Ds q₀ kJ Y i j`** — THE IDENTITIES of the copy
+   `offs (k + q₀ + i) + j` of the container `dJ`'s member `i`,
+   constructor `j`, at the pin group `[q₀, q₀ + kJ)` with components
+   `Ds` (read at the block's frame) and level assignment `ψJ`:
+   * `len`: the copy has the container's field count;
+   * `recF`: a container-recursive field is copy-recursive at
+     `k + q₀ + dJ.tgts i j l` (the group's copy of its target), its
+     telescope `instTele Ds l` of the container's, its index
+     expressions `instAll Ds (l + |tls|)` of the container's;
+   * `ordF`: a container-ordinary field is EITHER copy-ordinary with
+     its domain `instAll Ds l` of the container's, OR copy-recursive at
+     a target OUTSIDE the group (the elimination's rewrite of an
+     occurrence of a member or of another pin's container inside the
+     components — `Tree` in `List Tree`'s `cons`) whose ENTRY at the
+     auxiliary carrier `L⁺` equals the container's domain read at the
+     pin's frame, at every prefix fitting the copy's chain (the
+     members' `leaf` via `ofNested_lfp`, the other pins' `pinLeaf` —
+     the assembly's induction, well-founded because a container's
+     stored constructors mention only EARLIER constants, so a copy
+     references pins of containers declared before its own);
+   * `es`: the result's index readings `instAll Ds nF` of the
+     container's.
+4. **`CopyCtorInst.fit_iff`** = `hfit` at one constructor (the
+   entries by case on the container's flag: `recF` → `segJoin_add` +
+   `slotAt_of_mem` + `slotSet_instTele`; `ordF` left → `interp_instAll`;
+   `ordF` right → `segJoin_out` + the entry identity; the index
+   equations by `es` + `interp_instAll` at the full spine, whose length
+   is the constructor's by the fit); **`hfit_of_inst`** = `hfit`
+   verbatim, with the grouping `hgrp` (`offs (k+q₀+i) + j` ranges over
+   the copy's constructors iff `j < |dJ.ctorsM i|`); **`hfit_of_inst_one`**
+   at `kJ = 1` (the `Tree`/`List` shape the brief asked for first —
+   subsumed).
+5. **`ofNested_pin_block_of_inst`**: `ofNested_pin_block_of_fit` at
+   the container's block model — `hmapsJ`/`hfibJ` from `dJ.functor`/
+   `dJ.fibre` at the pin's frame (`hρJ`), `hinj` from
+   `EnvBlockModels`' tag shape, `hIs` from `hidx : blockIds … (k+q₀+i)
+   = instTele Ds 0 (dJ.IdsM i ψJ)` + `idxSet_instTele`, `hfit` from
+   (4); conclusion `pinCar L (q₀ + i) = lfpTuple (dJ.w ψJ) dJ.k (dJ.idx
+   ψJ ρJ) (dJ.Φ ψJ ρJ) i`.
+6. **`ofNested_pinLeaf_of`** — THE CLAUSE: `IsBlockModel.pinLeaf` for
+   `ofNested` at pin `q₀ + i`, from (5) and the container's `leaf` at
+   the pin's frame (`interp_closed` moves the leaf's frame,
+   `dJ.satOfSpine hDsFit` the parameter fit, `tupW_zero_agree` the
+   tuple's universe).  Hypotheses beyond (5): the pin record is the
+   container's (`hpJ`/`hpψ`/`hpDs`/`hpu : u = W ψ`/`hpIds`) and the
+   components fit the container's parameter telescope at the block's
+   frame (`hDsFit`).
+
+##### (c) THE CASED WITNESS AT THE NESTED BLOCK — `Model/Inductives/NestedAux.lean` (NEW, 118)
+
+No new witness: the nested route checks its auxiliary block with the
+SAME installer (`checkMutualCore … b none true`), so the nested
+assembly runs the mutual formers' stage on `b` and reads the premise
+off `MutualFormersFacts`.  `MutualCore.lean` gains the two readers
+`MutualFormersFacts.tupleOk` (`TupleLfpOk` at the block's lists: the
+tag, `chainFull`, `chainClosed`) and `MutualFormersFacts.shape`
+(`TupleLfpShape`), factored out of `blockReps_of` (which now calls
+them); `nestedLfpOk_of_formers` / `nestedShape_of_formers` are these at
+`b.k = k + pins.length` — `NestedLfpOk`/`TupleLfpShape` at the
+auxiliary lists (`mutMems`/`mutNFs`/`mutTgts`/`blkRss`/`mutTlss`/
+`mutEiss0`/`blkFss0`/`mutEss0`, `offs := b.ownOffset`, `resSort :=
+f₀.s`, `ppsA := ppsF`).  So the assembly's `ofNested` is instantiated
+at EXACTLY the mutual stage's lists, and its `NestedLfpOk` is free.
+
+##### (d) THE SAME-UNIVERSE FACT — an equality, half syntactic
+
+`ofNested_pin_block_of_fit` compares tuple SPACES (`famSpace (w) …`,
+`InTupleSpace w …`), which read the sort itself, not its `= 0` — so
+the fact is `hw : dJ.w (ψJ ψ) = (D).w ψ`, an EQUALITY.  It holds: the
+copy's former ends in the container's sort with the levels
+instantiated (`mkCopy` — `Verify/Inductives/NestedCopySort.lean`,
+`mkCopy_stripPis_sort`: `closeTelescope`/`instPis`/
+`instantiateLevelParams` preserve a telescope's sort), the auxiliary
+block's `mutualCrossChecks` makes every member's sort `isEquiv` the
+first's (`MutualFormersFacts.sEq`: `f.s.eval ψ = f₀.s.eval ψ`), and
+`Level.eval_subst` turns the instantiated sort's value at `ψ` into the
+container's sort at `substFn ψ lps lvls = ψJ ψ`, which `dJ.strip`
+identifies with `dJ.w (ψJ ψ)`.  The middle piece is
+`copySort_eval` (`NestedAux.lean`: the copy's sort at `ψ` is the
+container's at `substFn ψ J.lps lvls`, from `mkCopy_stripPis_sort` +
+`Level.eval_subst`); the Verify module (207 lines, an Opus lane:
+`stripPis_abstract1_sort`, `stripPis_instantiate1_sort`,
+`stripPis_instantiateLevelParams_sort`, `instPis_stripPis_sort`,
+`stripPis_closeTelescope`, `mkCopy_type`, `mkCopy_stripPis_sort`) hangs
+under `NestedAux` — there is no `Verify` root; the tree reaches the
+Verify tier through its consumers.  The assembly of the three pieces
+(through `nestedCopyFormerType_eq`'s `f.cvTa.type = t.type`) is s6's,
+with the elimination inversion it needs ((g) 3).
+
+##### (e) WHAT THE RUN MUST SUPPLY — the named interface, with consumers
+
+| fact | consumer | discharge |
+| --- | --- | --- |
+| `CopyCtorInst` at every `(Y, i, j)` of the group | `hfit_of_inst` → `ofNested_pin_block_of_inst` → `ofNested_pinLeaf_of` | the ANNOTATED-term identities of K.12's instantiation: (g) 3 |
+| `hidx` (the copy's index telescope `= instTele Ds 0` of the container's) | `hIs` in `ofNested_pin_block_of_inst`; `ofNested_pinMem/_pinMono`'s `hPinIdx` | the same identities at the former's type |
+| `hgrp` (the copy's constructors are the container member's, in order) | `hfit_of_inst` | `mkCopy` maps `J.ctors`; `mutualCtorsGrouped` at `b` |
+| `hw : dJ.w ψJ = resSort.eval ψ` | the spaces, `hinj`, `hmapsJ`, `hfibJ` | (d) |
+| `hu : W ψ = 0 ↔ dJ.uM i ψJ = 0` | `slotSet_instTele`, `idxSet_instTele`, `tupW_zero_agree` | **(g) 1: not derivable in general** |
+| `hρJ`/`hDsFit` (the components fit the container's parameters at the block's frame) | `dJ.functor`/`dJ.fibre`/`dJ.leaf` at the pin's frame | `PinsTyped` + `nestedPinsOk` through `spineFit_of_wellDenoted_mkAppN_pis` (as `nest_fit`) |
+| the pin record (`hpJ`/`hpψ`/`hpDs`/`hpu`/`hpIds`) | `ofNested_pinLeaf_of` | the assembly's `PinSyn` construction from `st.pins` (`NestedBlockModelOf.pin`) |
+| `hnp : dJ.pins = []`, `hkJ : dJ.k = kJ` | `slotAt_of_mem`, the segment | **(g) 2**; `containerInfo?`'s group = the block's members |
+| `NestedLfpOk`/`TupleLfpShape` | everything | (c), free |
+
+##### (f) WHAT DID NOT CHANGE
+
+`BlockComposed.lean`, `BlockRep.lean`, the seal, `DeclNestedCore.lean`
+are untouched; `MutualCore.lean` only gained the two readers (its
+`blockReps_of` calls them, −60 lines inline).  No premise of the block
+model moved.
+
+##### (g) FINDINGS, WITH COST
+
+1. **The index universes need not agree on `= 0`** — a REAL gap of
+   §U.13's arm as built.  `ofNested` gives every component of the
+   auxiliary tuple ONE index universe `W` (the sealed former's
+   `TagOk W`, the max over the `k + n` members' index-binder sorts),
+   while the container's block model reads its own `uM i` (its block's
+   max).  `hIs` needs `idxSet (W ψ) ρp IdsC = idxSet (dJ.uM i ψJ) ρJ
+   IdsJ`, and `towerSet` at `u = 0` is a truth value where at `u ≠ 0`
+   it is a set of pairs — so a container whose indices are ALL
+   `Prop`-sorted at the pin (`uM i ψJ = 0`), copied into a block with a
+   `Type`-indexed member (`W ψ ≠ 0`), has a pin carrier over towers
+   `⟨pt, …⟩` where the container's least tuple is over `{pt}`: the
+   two are isomorphic and NOT equal, and `pinLeaf`'s shape
+   (`tupW ((pinAt q).u ψ) is` with `hPinIdx` forcing `u = W`) compares
+   them.  Example: `inductive T : Nat → Prop | mk : Eq (T 0 → T 0) id
+   id → T 1` — `Eq`'s index `α : Sort u` at `u := 0`, `T`'s index
+   `Nat`.  Every zero-index container (`List`, `Array`, `Option`,
+   `Prod`, …) is unaffected (`towerSet` of the empty telescope is
+   `unitSet` at every universe), and the `hu` hypothesis is TRUE
+   whenever the container has a `Type`-sorted index or the block has
+   none — the corpus case.  Fixes, for the maintainer: (i) a
+   per-component index universe inside the seal (`Ws : Nat → Nat` in
+   `tupleLfpAV`/`tupleLfpΦ`/`TagOk`, the encoding `tagEnc`/`tupleU` at
+   the max) — the honest one, ~1 session through `CaseFamI`/`MutualTagI`/
+   `MutualLeafI`; (ii) a re-indexing bijection in `ofNested_pin_block`
+   (`hIs` as an isomorphism of index sets) — touches `lfpTuple_seg_congr`
+   and the arm's `pinIdx`/`pinLeaf` shapes; (iii) normalising every
+   block model's index universe to `≠ 0` — changes master's `ofNative`/
+   `ofMutual`.  Until ruled, `hu` is a NAMED hypothesis with its
+   consumers listed in (e).
+2. **A container that is itself NESTED is outside `ofNested_pin_block_
+   of_fit`'s segment** — a second real gap, of the SHAPE.  Official
+   copies a container's `all`-group only (a nested container's group is
+   its real members), and a copy's occurrence of the container's own
+   pin (`List (Rose α)` inside `Rose`'s copy at `Tree`) becomes a
+   TOP-LEVEL pin of the nested block, solved simultaneously with the
+   others (the clamp's one `lfpTuple` over all pins).  The container's
+   block model `dJ` reads that field as `dJ.pinCar ψJ ρJ Y q` — its
+   pin's carrier at the TUPLE `Y` — while the copy's operator reads
+   `L⁺ (k + q'')`, a constant in `Y`; `hΦ` (agreement as OPERATORS on
+   the container's whole space) is then FALSE off the carrier, and
+   `lfpTuple_seg_congr` at the segment `[k + q₀, k + q₀ + kJ)` cannot
+   close it.  The fix is a LARGER segment — the copy's transitive pin
+   closure `{aux_Rose, aux_List''}` against the container's own
+   AUXILIARY operator (`Rose`'s `nestedΨ` at `k_J + n_J`) — which the
+   abstract `IsBlockModel` does not expose (`pinCar` is abstract; only
+   `pinMem`/`pinMono`/`pinLeaf` tie it down).  Either `EnvBlockModels`
+   carries `ofNested`-shaped models with their auxiliary lists (an
+   `ind_reps`-like field that records the composed representation), or
+   `IsBlockModel` gains a `pinFix` clause (`pinCar X q` is the pin
+   container's least tuple at `X` — `(X.1)`'s abstraction device at
+   every tuple).  For s6 the assembly is stated at `hnp : dJ.pins = []`
+   (every container of the corpus's nested blocks that is not itself
+   nested: `List`, `Array`, `Option`, `Prod`, `Sum`, mutual groups);
+   the nested-through-nested case (`Lean.Syntax`-shaped containers
+   nested again) is DOCKETED as M7/M8's, sized 1–2 sessions after the
+   maintainer's choice.
+3. **The identities are ANNOTATED-term identities, and the run does
+   not yet state them.**  `CopyCtorInst` speaks of `dJ.Fss/tlss/Eiss/
+   Ess` (the container's readings at `env`) against the auxiliary lists
+   (the copies' readings at the scratch model); their discharge is the
+   chain K.12 → readings: (a) an inversion of `elimNested`/`mkCopies`
+   — `st.types[k + q]` IS `mkCopy pbs₀ lvls Ds aux J` for pin `q`'s
+   container member, and `st.pins[q]` its pin — which `Verify/
+   Inductives/` does not have (the kernel's identities are by
+   construction, not theorems; `nestedCopyFormerType_eq`/`nestedCopy
+   CtorType_eq` start at `st.types`); (b) `denoteMeta`'s commutation
+   with `instantiateLevelParams`, `instPis` and `closeTelescope`
+   (BitInst-style, `denoteMeta_substFvarAt` iterated: the copy's
+   `dsF` entries are `instAll Ds l` of the container's); (c)
+   `replaceAllNested`'s action on the copy's constructors — each
+   occurrence `J' Ds' is` with `Ds'` structurally the group's `Ds`
+   becomes the group's pin, another pin's `Ds'` becomes that pin
+   (the target map of `recF`/`ordF`); (d) `normCtorValM`'s identity
+   (`nestedCopyCtorType_eq`'s left arm).  Sized 2 sessions (s6 + one),
+   the elimination inversion the largest.  A kernel-lane alternative:
+   have `mkCopies` RECORD `(J, lvls, Ds)` per copy in `AuxType` so (a)
+   is a field read — exact statement for the lane: `AuxType.src :
+   Option (Name × List Level × List Expr)` set by `mkCopy`, with
+   `nestedCopyFormerType_eq` extended to return it.
+4. **`fitsFrom_iff_frames` carries BOTH prefix fits** on purpose: the
+   entry identity of `ordF`'s right arm is discharged by the members'
+   `leaf` at the copy's index readings, graded only along a prefix
+   fitting the COPY's chain (`XChainsOk` at the auxiliary block), so
+   the lemma hands the entry proof the copy-side fit; the container
+   side's is there for symmetry (the other pins' `pinLeaf` will want
+   the container's).
+5. Lean traps: a `local notation` whose expansion projects another
+   notation (`(D).w ψ`) fails the quotation precheck — spell the
+   auxiliary tuple over `resSort.eval ψ`/`nestedIs` (the block model's
+   readers are `rfl`) and let the D-spelled consumer unify by delta; a
+   structure field named `rec` clashes with the auto-generated
+   recursor (`recF`/`ordF`); `obtain rfl : i' = 0 := by omega; exact h`
+   inside a `fun … => by` swallows the `exact` into the inner `by`
+   (`rw [Nat.lt_one_iff.mp hi']`); `instE_consList'` must fire BEFORE
+   `List.length_map` (its statement is at `(map f l).length`); the
+   `TeleS`-equality form of the telescope law needs a `▸` across
+   lengths — state the laws at `towerSet`/`piTele` instead.
+
+##### (h) GATES
+
+`lake build` 646 jobs warning-free (was 642: `InstAll`, `NestedFit`,
+`NestedAux`, `NestedCopySort`), `lake test` 545 warning-free EXIT 0;
+layering base 324 / model 238 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (578
+scanned); overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4945 rows / 12 roots / 0 doors UNCHANGED (nothing new
+reaches a capstone: the nested route is not on the dispatch).  shake:
+two new removal proposals, both COMPENSATED demotions applied at once
+rather than allowlisted (`InstAll`: `public import FixIhI` → `import
+FixIhI` + `public import SumRecCase`; `NestedCopySort`: `InstLevels`
+private), and the pub-import fixpoint moved with the new files (as in
+§U.15 finding 6): `MutualChains`' `public import CaseWitness` became
+demotable → demoted, its allowlist line (no longer proposed) deleted;
+495 removals all allowlisted, none demotable (19 fallbacks).
+
+##### (i) RE-SIZING
+
+M6: s1–s5 done; **s6** = the assembly's formers' stage at the
+auxiliary block (`mutualFormersStage` on `b`, `nestedLfpOk_of_formers`),
+the `PinSyn` records and `hw`/`hgrp`/`hidx`/`hDsFit` from the run, the
+constructors' stage and `blockReps_of`'s nested twin (`IsBlockModels`
+for `ofNested` with `pinLeaf` from `ofNested_pinLeaf_of` at `hnp`,
+`hu` as a premise pending (g) 1) → `NestedCoreModeled` **2 sessions**
+(was 1–2; (g) 3's identities are the extra: the elimination inversion
++ the `denoteMeta` commutation, or the kernel-lane record).  M7
+(`NestedTailModeled`: the `k + nPins`-class recursor kit, the
+`EnvBlockModels` field on `EnvModelM`, the flip) 4–5; M8 1–2; the two
+gaps of (g) 1–2 +1–2 after the rulings.  Remaining **11–15** (was
+10–13).

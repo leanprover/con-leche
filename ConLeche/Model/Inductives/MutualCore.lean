@@ -1499,6 +1499,68 @@ theorem fssOkP (hμ : μ.verifiedChecks = true) {J : Nat} (hJl : J < ctorsA.leng
       (fun J => ((dsF J ψ).drop b.nP).map (·.2.2)) from hFs)
     exact (hall J' (List.mem_range.mp hJ')).2
 
+/-- **The derived former's premise at a parameter frame** (`TupleLfpOk`
+at the block's lists): the tag, the chains' grading and the cased
+witness — what `blockReps_of` reads, and what the NESTED assembly reads
+at the auxiliary block (`nestedLfpOk_of_formers`, task #315 M6 s5). -/
+theorem tupleOk (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    TupleLfpOk (W ψ) (f₀.s.eval ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
+      (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+      (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+      (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
+      (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) :=
+  TupleLfpOk.of_tagged (h.idxAll 0 f₀ h.first ψ ρp hρp).1
+    (h.chainFull hμ h.first ψ ρp hρp).1 (h.chainClosed hμ h.first ψ ρp hρp)
+
+/-- **The lists' shape** (`TupleLfpShape` at the block's lists): the
+lengths, the members and the targets below the block, the recursive
+fields' index readings as long as their targets' telescopes. -/
+theorem shape (ψ : Name → Nat) :
+    TupleLfpShape b.k (blockIds b.nP ppsF ψ) (mutMems ctorsA.length (mutMemF b))
+      (mutNFs ctorsA.length (mutNFOf ctorsA))
+      (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+      (mutEiss0 ctorsA.length eissF ψ) (blkFss0 b ctorsA kinds dsF ψ)
+      (mutEss0 ctorsA.length esF ψ) := by
+  have hkT : b.k = fms.length := h.lenFms.symm
+  have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
+    show ((List.range ctorsA.length).map _).length = _; simp
+  refine ⟨by rw [hlenF]; exact mutEss0_length, by rw [hlenF]; exact mutEiss0_length,
+    fun J hJ => ?_, fun J hJ => ?_, fun J hJ => ?_, fun J hJ => ?_, fun J hJ i hi hr => ?_⟩
+  · rw [hlenF] at hJ
+    rw [mutNFs_getD hJ, blkFss0_getD hJ, shadowFs_length]
+  · rw [hlenF] at hJ
+    rw [mutEiss0_getD hJ, blkFss0_getD hJ, shadowFs_length]
+    exact (h.CD J _ (ctorsA_get hJ)).eissLen ψ
+  · rw [hlenF] at hJ
+    rw [mutMems_getD hJ, hkT]
+    exact h.motLt J hJ
+  · rw [hlenF] at hJ
+    have hmt := h.motLt J hJ
+    rw [mutMems_getD hJ, mutEss0_getD hJ, (h.CD J _ (ctorsA_get hJ)).lenE ψ]
+    show (fms.getD (mutMemF b J) default).nIdx = (((ppsF (mutMemF b J) ψ).drop b.nP).map (·.2.2)).length
+    rw [List.length_map, List.length_drop, (h.FD _ _ (fms_get hmt)).len ψ]
+    omega
+  · rw [hlenF] at hJ
+    have hJg := ctorsA_get hJ
+    rw [blkFss0_getD hJ, shadowFs_length] at hi
+    rw [blkRss_getD hJ] at hr
+    have hksl : (kindsOf (mutKsOf kinds J)).length = mutNFOf ctorsA J := by
+      rw [kindsOf_length]; exact (h.ksJ J _ hJg).1
+    have hkind := (rsOf_getD_iff (by rw [hksl]; exact hi)).mp hr
+    rw [kindsOf_getD (by rw [(h.ksJ J _ hJg).1]; exact hi)] at hkind
+    obtain ⟨-, -, htgt⟩ := h.ksJ J _ hJg
+    have htl := htgt i
+    have htG := fms_get htl
+    refine ⟨by rw [mutTgts_getD hJ hi, hkT]; exact htl, ?_⟩
+    rw [mutTgts_getD hJ hi, mutEiss0_getD hJ]
+    show ((eissF J ψ).getD i []).length = (((ppsF (tgtAt (mutKsOf kinds J) i) ψ).drop b.nP).map (·.2.2)).length
+    rw [List.length_map, List.length_drop, (h.FD _ _ htG).len ψ,
+      Nat.add_sub_cancel_left, ← (h.memT _ _ htG).2]
+    rcases hkind with hk | hk
+    · exact (h.CD J _ hJg).eisLen ψ i hk hi
+    · exact (h.CD J _ hJg).eisLenRefl ψ i hk hi
+
 end MutualFormersFacts
 
 /-! ## The constructors' stage -/
@@ -2023,55 +2085,14 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
         (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
-        (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) := by
-    intro ψ ρp hρp
-    exact TupleLfpOk.of_tagged (h.idxAll 0 f₀ h.first ψ ρp hρp).1
-      (h.chainFull hμ h.first ψ ρp hρp).1 (h.chainClosed hμ h.first ψ ρp hρp)
+        (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) := fun ψ ρp hρp => h.tupleOk hμ ψ ρp hρp
   -- the lists' shape
   have hS : ∀ ψ : Name → Nat,
       TupleLfpShape b.k (blockIds b.nP ppsF ψ) (mutMems ctorsA.length (mutMemF b))
         (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutEiss0 ctorsA.length eissF ψ) (blkFss0 b ctorsA kinds dsF ψ)
-        (mutEss0 ctorsA.length esF ψ) := by
-    intro ψ
-    have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
-      show ((List.range ctorsA.length).map _).length = _; simp
-    refine ⟨by rw [hlenF]; exact mutEss0_length, by rw [hlenF]; exact mutEiss0_length,
-      fun J hJ => ?_, fun J hJ => ?_, fun J hJ => ?_, fun J hJ => ?_, fun J hJ i hi hr => ?_⟩
-    · rw [hlenF] at hJ
-      rw [mutNFs_getD hJ, blkFss0_getD hJ, shadowFs_length]
-    · rw [hlenF] at hJ
-      rw [mutEiss0_getD hJ, blkFss0_getD hJ, shadowFs_length]
-      exact (h.CD J _ (ctorsA_get hJ)).eissLen ψ
-    · rw [hlenF] at hJ
-      rw [mutMems_getD hJ, hkT]
-      exact h.motLt J hJ
-    · rw [hlenF] at hJ
-      have hmt := h.motLt J hJ
-      rw [mutMems_getD hJ, mutEss0_getD hJ, (h.CD J _ (ctorsA_get hJ)).lenE ψ]
-      show (fms.getD (mutMemF b J) default).nIdx = (((ppsF (mutMemF b J) ψ).drop b.nP).map (·.2.2)).length
-      rw [List.length_map, List.length_drop, (h.FD _ _ (fms_get hmt)).len ψ]
-      omega
-    · rw [hlenF] at hJ
-      have hJg := ctorsA_get hJ
-      rw [blkFss0_getD hJ, shadowFs_length] at hi
-      rw [blkRss_getD hJ] at hr
-      have hksl : (kindsOf (mutKsOf kinds J)).length = mutNFOf ctorsA J := by
-        rw [kindsOf_length]; exact (h.ksJ J _ hJg).1
-      have hkind := (rsOf_getD_iff (by rw [hksl]; exact hi)).mp hr
-      rw [kindsOf_getD (by rw [(h.ksJ J _ hJg).1]; exact hi)] at hkind
-      obtain ⟨-, -, htgt⟩ := h.ksJ J _ hJg
-      have htl := htgt i
-      have htG := fms_get htl
-      refine ⟨by rw [mutTgts_getD hJ hi, hkT]; exact htl, ?_⟩
-      rw [mutTgts_getD hJ hi, mutEiss0_getD hJ]
-      show ((eissF J ψ).getD i []).length = (((ppsF (tgtAt (mutKsOf kinds J) i) ψ).drop b.nP).map (·.2.2)).length
-      rw [List.length_map, List.length_drop, (h.FD _ _ htG).len ψ,
-        Nat.add_sub_cancel_left, ← (h.memT _ _ htG).2]
-      rcases hkind with hk | hk
-      · exact (h.CD J _ hJg).eisLen ψ i hk hi
-      · exact (h.CD J _ hJg).eisLenRefl ψ i hk hi
+        (mutEss0 ctorsA.length esF ψ) := fun ψ => h.shape ψ
   -- the per-member facts
   have hrep : ∀ mm : Nat, mm < b.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel mp₂.base2 ((D).memberName mm) cvT cvR mI rP rules (D) mm := by
