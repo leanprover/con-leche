@@ -1155,6 +1155,17 @@ local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 local notation "ENV₂" => (ConLeche.consNestedCtors ctorsR.flatten
   (ConLeche.consMutualFormers (fms.take p.k) env))
 
+/-- A read spine transfers along a per-term reading transfer (the loop's
+`hde`: a reading at the prefix model is one at the restored model). -/
+theorem DenoteMetaSpine.transfer {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {φ : Name → Nat} {dp : Nat}
+    (hde : ∀ (e : Expr) {ea : AnnotTerm}, denoteMeta acval₁ env₁ φ dp e = some ea →
+      denoteMeta acval₂ env₂ φ dp e = some ea) :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env₁ φ dp as vs →
+      DenoteMetaSpine acval₂ env₂ φ dp as vs
+  | _, _, .nil => .nil
+  | _, _, .cons ha hrest => .cons (hde _ ha) (DenoteMetaSpine.transfer hde hrest)
+
 /-- **The restored constructors' stage's outputs** at a model `mp₂` of
 the restored environment (the members re-consed with the records the
 scratch install stored, the restored constructors after them) — the
@@ -1170,6 +1181,12 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- the pins' components read at the block's parameter depth, at the
+  restored model (task #315 M7-2: the recursors' readings' walk needs
+  the components' syntactic form `DsE` tied to their readings `Ds`) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
@@ -1213,6 +1230,10 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- the pins' components read at the restored model (M7-2) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
   find : FindPreserved ENV₁ ENV₂
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
@@ -1519,7 +1540,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, names := hnames, agree := ?_
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, names := hnames, agree := ?_
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
