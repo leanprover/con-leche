@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecWD
-public import ConLeche.Model.Annot.Valid
+import ConLeche.Model.Annot.Valid
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Semantics.Tower.SumWire
 import ConLeche.Model.Inductives.MutualLeafBelow

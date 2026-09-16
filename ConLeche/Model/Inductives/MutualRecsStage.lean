@@ -1,11 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.MutualRecs
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualCore
-public import ConLeche.Verify.Inductives.MutualGrouped
 import ConLeche.Model.Inductives.MutualRecsProvision
-public import ConLeche.Model.Inductives.FixStageRec
+import ConLeche.Model.Inductives.FixStageRec
 import ConLeche.Model.Inductives.BlockRecKit
 import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.Inductives.BlockRecValid

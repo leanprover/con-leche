@@ -125,6 +125,11 @@ public import ConLeche.Model.Inductives.MutualRuleRead
 public import ConLeche.Model.Inductives.MutualRecs
 public import ConLeche.Model.Inductives.MutualRecsProvision
 public import ConLeche.Model.Inductives.MutualRecsStage
+public import ConLeche.Model.Inductives.BlockRecBridge
+public import ConLeche.Model.Inductives.BlockRepCross
+public import ConLeche.Model.Inductives.MutualRecsSwap
+public import ConLeche.Model.Inductives.MutualRecsLaw
+public import ConLeche.Model.Inductives.MutualRecsStore
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitShift
