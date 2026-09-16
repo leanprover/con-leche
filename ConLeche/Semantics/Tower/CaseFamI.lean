@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.MutualLeafI
+public import ConLeche.Semantics.Tower.MutualTagI
 public import ConLeche.Semantics.Tower.FixRecCoreI
 
 @[expose] public section
@@ -14,7 +14,7 @@ and the functor it inherits from the fixpoint route (`fixFunAVI`,
 `FixLeafI.lean`) sums, at EVERY index tuple, over the ONE global list
 of constructor chains: an element's tag is then the constructor's
 position in the whole block, so member `m`'s first constructor carries
-the tag `offs.getD m 0` rather than `0`.
+the tag `offs m` rather than `0`.
 
 The **cased** functor keeps the one global chain list but sums, at an
 index tuple whose member is `m`, only over the SUFFIX of that list
@@ -50,22 +50,22 @@ variable {V : Type w} [SetTheory V]
 /-! ## The cased chains and the member tag -/
 
 /-- Member `m`'s chain suffix: the global X-chains from its first
-constructor on (`offs.getD m 0`). -/
-def caseChains (W : Nat) (Idss : List (List AnnotTerm)) (offs : List Nat)
+constructor on (`offs m`). -/
+def caseChains (W : Nat) (Idss : List (List AnnotTerm)) (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) (m : Nat) :
     List (List AnnotTerm) :=
-  (chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss Ess').drop (offs.getD m 0)
+  (chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss Ess').drop (offs m)
 
-/-- The suffix's entry `j` is the global entry `offs.getD m 0 + j`. -/
-theorem caseChains_getElem? (W : Nat) (Idss : List (List AnnotTerm)) (offs : List Nat)
+/-- The suffix's entry `j` is the global entry `offs m + j`. -/
+theorem caseChains_getElem? (W : Nat) (Idss : List (List AnnotTerm)) (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) (m j : Nat) :
     (caseChains W Idss offs rss tlss Eiss' Fss Ess' m)[j]?
-      = if offs.getD m 0 + j < Fss.length then
-          some (chainXI W (auxIds W Idss) 1 (rss.getD (offs.getD m 0 + j) [])
-            (tlss.getD (offs.getD m 0 + j) []) (Eiss'.getD (offs.getD m 0 + j) [])
-            (Fss.getD (offs.getD m 0 + j) []) (Ess'.getD (offs.getD m 0 + j) []))
+      = if offs m + j < Fss.length then
+          some (chainXI W (auxIds W Idss) 1 (rss.getD (offs m + j) [])
+            (tlss.getD (offs m + j) []) (Eiss'.getD (offs m + j) [])
+            (Fss.getD (offs m + j) []) (Ess'.getD (offs m + j) []))
         else none := by
   unfold caseChains
   rw [List.getElem?_drop, chainsXI_getElem?]
@@ -82,7 +82,7 @@ noncomputable def caseTag (t : V) : Nat := natIdx (sfst (sfst t))
 
 /-- The cased sum bodies: member `m`'s tagged sum over its own chain
 suffix, one per member of the block. -/
-def caseBodies (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : List Nat)
+def caseBodies (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) :
     List AnnotTerm :=
@@ -90,7 +90,7 @@ def caseBodies (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : List
 
 /-- **The cased functor's λ**: `λ X t`, the case split on the tuple's
 member `fst (fst t)` selecting that member's own tagged sum. -/
-def caseFunAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : List Nat)
+def caseFunAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) : AnnotTerm :=
   .lam (Nat.max W (w + 1)) (famTyAV W w (auxIds W Idss))
@@ -98,7 +98,7 @@ def caseFunAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : List
       (caseAVAt w (caseBodies W w Idss k offs rss tlss Eiss' Fss Ess') 0 (.fst (.fst (.bvar 0)))))
 
 /-- The cased family: `lfpFam.{W,w} I F` at the parameter frame. -/
-def caseBodyAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : List Nat)
+def caseBodyAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss Ess' : List (List AnnotTerm)) : AnnotTerm :=
   AnnotTerm.mkAppN (.const .lfpFam [W, w])
@@ -109,7 +109,7 @@ def caseBodyAVI (W w : Nat) (Idss : List (List AnnotTerm)) (k : Nat) (offs : Lis
 /-- The cased functor's fibre at `(X, t)`: the tagged sum over the
 tuple's OWN member's chain suffix. -/
 noncomputable def caseStepI (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
-    (offs : List Nat) (rss : List (List Bool))
+    (offs : Nat → Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) (X t : V) : V :=
   sumSet w (sumFibre w (cons t (cons X ρp))
@@ -117,7 +117,7 @@ noncomputable def caseStepI (W w : Nat) (ρp : Nat → V) (Idss : List (List Ann
 
 /-- The cased functor on families (as a set-level function of `X`). -/
 noncomputable def caseFamFI (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
-    (offs : List Nat) (rss : List (List Bool))
+    (offs : Nat → Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) (X : V) : V :=
   lamR (w + 1) (idxSet W ρp (auxIds W Idss)) fun t =>
@@ -125,7 +125,7 @@ noncomputable def caseFamFI (W w : Nat) (ρp : Nat → V) (Idss : List (List Ann
 
 /-- The cased functor as a set. -/
 noncomputable def caseFunVI (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
-    (offs : List Nat) (rss : List (List Bool))
+    (offs : Nat → Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) : V :=
   lamR (Nat.max W (w + 1)) (lfpFamSpace V w (idxSet W ρp (auxIds W Idss)))
@@ -133,14 +133,14 @@ noncomputable def caseFunVI (W w : Nat) (ρp : Nat → V) (Idss : List (List Ann
 
 /-- The cased least pre-fixed family. -/
 noncomputable def caseFamI (W w : Nat) (ρp : Nat → V) (Idss : List (List AnnotTerm))
-    (offs : List Nat) (rss : List (List Bool))
+    (offs : Nat → Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss Ess' : List (List AnnotTerm)) : V :=
   lfpFamSet w (idxSet W ρp (auxIds W Idss)) (caseFunVI W w ρp Idss offs rss tlss Eiss' Fss Ess')
 
 section Facts
 
-variable {W w k : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} {offs : List Nat}
+variable {W w k : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} {offs : Nat → Nat}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss' : List (List (List AnnotTerm))} {Fss Ess' : List (List AnnotTerm)}
 
@@ -400,7 +400,7 @@ theorem caseBodyAVI_facts (hT : TagOk W ρp Idss) (hk : Idss.length = k)
 /-! ### Monotonicity -/
 
 /-- **The cased functor is monotone** in the family: each suffix chain
-`j` is the global chain `offs.getD (caseTag t) 0 + j`. -/
+`j` is the global chain `offs (caseTag t) + j`. -/
 theorem caseStepI_mono (h : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss Ess') {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)))
     (hXY : FamLe (idxSet W ρp (auxIds W Idss)) X Y) {t : V}
@@ -410,24 +410,24 @@ theorem caseStepI_mono (h : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss
   unfold caseStepI
   refine sumSet_mono fun j => ?_
   unfold sumFibre
-  by_cases hj : offs.getD (caseTag t) 0 + j < Fss.length
+  by_cases hj : offs (caseTag t) + j < Fss.length
   · rw [caseChains_getElem?, if_pos hj]
     show towerSet w (teleOfFields (cons t (cons X ρp))
-        (chainXI W (auxIds W Idss) 1 (rss.getD (offs.getD (caseTag t) 0 + j) [])
-          (tlss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Eiss'.getD (offs.getD (caseTag t) 0 + j) [])
-          (Fss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Ess'.getD (offs.getD (caseTag t) 0 + j) [])))
+        (chainXI W (auxIds W Idss) 1 (rss.getD (offs (caseTag t) + j) [])
+          (tlss.getD (offs (caseTag t) + j) [])
+          (Eiss'.getD (offs (caseTag t) + j) [])
+          (Fss.getD (offs (caseTag t) + j) [])
+          (Ess'.getD (offs (caseTag t) + j) [])))
       ⊆ˢ towerSet w (teleOfFields (cons t (cons Y ρp))
-        (chainXI W (auxIds W Idss) 1 (rss.getD (offs.getD (caseTag t) 0 + j) [])
-          (tlss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Eiss'.getD (offs.getD (caseTag t) 0 + j) [])
-          (Fss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Ess'.getD (offs.getD (caseTag t) 0 + j) [])))
+        (chainXI W (auxIds W Idss) 1 (rss.getD (offs (caseTag t) + j) [])
+          (tlss.getD (offs (caseTag t) + j) [])
+          (Eiss'.getD (offs (caseTag t) + j) [])
+          (Fss.getD (offs (caseTag t) + j) [])
+          (Ess'.getD (offs (caseTag t) + j) [])))
     refine towerSet_mono ?_
     unfold chainXI
-    exact chainXIGo_tele_sub h.hI hX hXY (Fss.getD (offs.getD (caseTag t) 0 + j) []) 0 [] rfl
-      (h.hfit X hX t ht (offs.getD (caseTag t) 0 + j) hj) (by simp)
+    exact chainXIGo_tele_sub h.hI hX hXY (Fss.getD (offs (caseTag t) + j) []) 0 [] rfl
+      (h.hfit X hX t ht (offs (caseTag t) + j) hj) (by simp)
   · rw [caseChains_getElem?, if_neg hj]
     exact Subset.refl _
 
@@ -463,15 +463,15 @@ theorem caseFunVI_maps (h : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss
 satisfying tuple of member-local chain `j` injects into the cased
 fibre at its OWN tag `j`. -/
 theorem caseStepI_intro (hw : w ≠ 0) {X t : V} {j : Nat} {fs : List V}
-    (hJ : offs.getD (caseTag t) 0 + j < Fss.length)
+    (hJ : offs (caseTag t) + j < Fss.length)
     (hsp : SpineFit (cons t (cons X ρp))
-      (chainXIGo W (auxIds W Idss) (rss.getD (offs.getD (caseTag t) 0 + j) [])
-        (tlss.getD (offs.getD (caseTag t) 0 + j) [])
-        (Eiss'.getD (offs.getD (caseTag t) 0 + j) [])
-        (Fss.getD (offs.getD (caseTag t) 0 + j) []) 0) fs)
+      (chainXIGo W (auxIds W Idss) (rss.getD (offs (caseTag t) + j) [])
+        (tlss.getD (offs (caseTag t) + j) [])
+        (Eiss'.getD (offs (caseTag t) + j) [])
+        (Fss.getD (offs (caseTag t) + j) []) 0) fs)
     (heq : EqAll (consList fs (cons t (cons X ρp)))
-      (eqsXI 1 (Fss.getD (offs.getD (caseTag t) 0 + j) []).length
-        (Ess'.getD (offs.getD (caseTag t) 0 + j) []))) :
+      (eqsXI 1 (Fss.getD (offs (caseTag t) + j) []).length
+        (Ess'.getD (offs (caseTag t) + j) []))) :
     inj j (mkTower (fs ++ [pt]))
       ∈ˢ caseStepI W w ρp Idss offs rss tlss Eiss' Fss Ess' X t := by
   unfold caseStepI
@@ -483,29 +483,29 @@ theorem caseStepI_intro (hw : w ≠ 0) {X t : V} {j : Nat} {fs : List V}
 
 /-- **Stage elimination** (graph regime): a member of the cased fibre
 is the injection, at a MEMBER-LOCAL tag `j`, of a point-terminated
-tuple fitting the global chain `offs.getD (caseTag t) 0 + j`. -/
+tuple fitting the global chain `offs (caseTag t) + j`. -/
 theorem caseStepI_elim (hw : w ≠ 0) {X t x : V}
     (hx : x ∈ˢ caseStepI W w ρp Idss offs rss tlss Eiss' Fss Ess' X t) :
     ∃ j fs, x = inj j (mkTower (fs ++ [pt])) ∧
-      offs.getD (caseTag t) 0 + j < Fss.length ∧
-      fs.length = (Fss.getD (offs.getD (caseTag t) 0 + j) []).length ∧
+      offs (caseTag t) + j < Fss.length ∧
+      fs.length = (Fss.getD (offs (caseTag t) + j) []).length ∧
       SpineFit (cons t (cons X ρp))
-        (chainXIGo W (auxIds W Idss) (rss.getD (offs.getD (caseTag t) 0 + j) [])
-          (tlss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Eiss'.getD (offs.getD (caseTag t) 0 + j) [])
-          (Fss.getD (offs.getD (caseTag t) 0 + j) []) 0) fs ∧
+        (chainXIGo W (auxIds W Idss) (rss.getD (offs (caseTag t) + j) [])
+          (tlss.getD (offs (caseTag t) + j) [])
+          (Eiss'.getD (offs (caseTag t) + j) [])
+          (Fss.getD (offs (caseTag t) + j) []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp)))
-        (eqsXI 1 (Fss.getD (offs.getD (caseTag t) 0 + j) []).length
-          (Ess'.getD (offs.getD (caseTag t) 0 + j) [])) := by
+        (eqsXI 1 (Fss.getD (offs (caseTag t) + j) []).length
+          (Ess'.getD (offs (caseTag t) + j) [])) := by
   unfold caseStepI at hx
   obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
   unfold sumFibre at ha
-  by_cases hj : offs.getD (caseTag t) 0 + j < Fss.length
+  by_cases hj : offs (caseTag t) + j < Fss.length
   · rw [caseChains_getElem?, if_pos hj] at ha
     obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
     unfold chainXI at hfit heta
     obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
-    have hlen : fs.length = (Fss.getD (offs.getD (caseTag t) 0 + j) []).length := by
+    have hlen : fs.length = (Fss.getD (offs (caseTag t) + j) []).length := by
       have hl := hsp.length_eq
       rwa [chainXIGo_length] at hl
     refine ⟨j, fs, ?_, hj, hlen, hsp, hall⟩
@@ -516,27 +516,27 @@ theorem caseStepI_elim (hw : w ≠ 0) {X t x : V}
 /-- **Stage elimination** (squash regime). -/
 theorem caseStepI_zero_elim {X t x : V}
     (hx : x ∈ˢ caseStepI W 0 ρp Idss offs rss tlss Eiss' Fss Ess' X t) :
-    x = pt ∧ ∃ j fs, offs.getD (caseTag t) 0 + j < Fss.length ∧
-      fs.length = (Fss.getD (offs.getD (caseTag t) 0 + j) []).length ∧
+    x = pt ∧ ∃ j fs, offs (caseTag t) + j < Fss.length ∧
+      fs.length = (Fss.getD (offs (caseTag t) + j) []).length ∧
       SpineFit (cons t (cons X ρp))
-        (chainXIGo W (auxIds W Idss) (rss.getD (offs.getD (caseTag t) 0 + j) [])
-          (tlss.getD (offs.getD (caseTag t) 0 + j) [])
-          (Eiss'.getD (offs.getD (caseTag t) 0 + j) [])
-          (Fss.getD (offs.getD (caseTag t) 0 + j) []) 0) fs ∧
+        (chainXIGo W (auxIds W Idss) (rss.getD (offs (caseTag t) + j) [])
+          (tlss.getD (offs (caseTag t) + j) [])
+          (Eiss'.getD (offs (caseTag t) + j) [])
+          (Fss.getD (offs (caseTag t) + j) []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp)))
-        (eqsXI 1 (Fss.getD (offs.getD (caseTag t) 0 + j) []).length
-          (Ess'.getD (offs.getD (caseTag t) 0 + j) [])) := by
+        (eqsXI 1 (Fss.getD (offs (caseTag t) + j) []).length
+          (Ess'.getD (offs (caseTag t) + j) [])) := by
   unfold caseStepI at hx
   obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
   refine ⟨rfl, ?_⟩
   unfold sumFibre at ha
-  by_cases hj : offs.getD (caseTag t) 0 + j < Fss.length
+  by_cases hj : offs (caseTag t) + j < Fss.length
   · rw [caseChains_getElem?, if_pos hj] at ha
     obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _ ha
     have hfit' := fitsS_teleOfFields.mp hfit
     unfold chainXI at hfit'
     obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp hfit'
-    have hlen : fs.length = (Fss.getD (offs.getD (caseTag t) 0 + j) []).length := by
+    have hlen : fs.length = (Fss.getD (offs (caseTag t) + j) []).length := by
       have hl := hsp.length_eq
       rwa [chainXIGo_length] at hl
     exact ⟨j, fs, hj, hlen, hsp, hall⟩
@@ -557,6 +557,125 @@ theorem caseFamI_app_eq (h : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fs
   have heq := app_lfpFamSet_eq hcl (caseFunVI_mono h) (caseFunVI_maps h) ht
   unfold caseFamI at heq ⊢
   rwa [caseFunVI_app (lfpFamSet_mem_space V w _ _), caseFamFI_app ht] at heq
+
+/-! ### The tagged tuple's tag, the chain suffixes, and the sum reading -/
+
+/-- **The tagged tuple's member tag**: the 1-tower over member `m`'s
+tagged index tuple is tagged `m` (the graph regime — `W ≠ 0`). -/
+theorem caseTag_tupW (hW : W ≠ 0) (m : Nat) (x : V) :
+    caseTag (tupW W [inj m x]) = m := by
+  unfold caseTag
+  rw [tupW_pos hW]
+  show natIdx (sfst (sfst (spair (inj m x) pt))) = m
+  rw [sfst_spair, sfst_inj, natIdx_vnat]
+
+/-- The restricted chains of a suffix are the suffix of the restricted
+chains: entry `j` of the dropped lists is entry `o + j` of the whole. -/
+theorem rChains_drop_getElem? (d n o j : Nat) (Fss₀ Ess₀ : List (List AnnotTerm)) :
+    (rChains d n (Fss₀.drop o) (Ess₀.drop o))[j]? = (rChains d n Fss₀ Ess₀)[o + j]? := by
+  rw [rChains_getElem?, rChains_getElem?, List.getElem?_drop, List.getElem?_drop]
+
+/-- **The top family `t ↦ {pt}` is closed** at a `Prop`-valued block
+(every fibre at `w = 0` is a subset of `{pt}`) — the cased twin of
+`fixFunVI_closed_zero`. -/
+theorem caseFunVI_closed_zero
+    (hok : FixChainsOkI W 0 ρp (auxIds W Idss) 1 rss tlss Eiss' Fss Ess') :
+    ∃ L, IsClosedFam 0 (idxSet W ρp (auxIds W Idss))
+      (caseFunVI W 0 ρp Idss offs rss tlss Eiss' Fss Ess') L := by
+  have htop : graph (fun _ => unitSet) (idxSet W ρp (auxIds W Idss))
+      ∈ˢ lfpFamSpace V 0 (idxSet W ρp (auxIds W Idss)) := by
+    rw [lfpFamSpace_eq]
+    exact graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact mem_univZero.mpr (Subset.refl _)
+  refine ⟨graph (fun _ => unitSet) (idxSet W ρp (auxIds W Idss)),
+    by rw [← lfpFamSpace_eq]; exact htop, ?_⟩
+  rw [caseFunVI_app htop]
+  intro t ht x hx
+  rw [caseFamFI_app ht] at hx
+  rw [app_graph ht]
+  have hu := caseStepI_univ (offs := offs) hok htop ht
+  rw [univ_zero] at hu
+  exact mem_univZero.mp hu x hx
+
+/-- **The carrier's fibre at a member's tagged index tuple** is the
+indexed sum route's restricted tagged union over that MEMBER's own
+chain suffix — the cased twin of `fixFamI_app_eq_sum`, with the
+element tags shifted down by `offs m`. -/
+theorem caseFamI_app_eq_sum (hW : W ≠ 0)
+    (h : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss Ess')
+    (hcl : ∃ L, IsClosedFam w (idxSet W ρp (auxIds W Idss))
+      (caseFunVI W w ρp Idss offs rss tlss Eiss' Fss Ess') L)
+    {Fss' : List (List AnnotTerm)}
+    (hreal : ChainsRealI (caseFamI W w ρp Idss offs rss tlss Eiss' Fss Ess') W w ρp
+      (auxIds W Idss) rss tlss Eiss' Fss Fss' Ess')
+    {m : Nat} {x : V} (hsp : SpineFit ρp (auxIds W Idss) [inj m x]) :
+    SetTheory.app (caseFamI W w ρp Idss offs rss tlss Eiss' Fss Ess') (tupW W [inj m x])
+      = sumSet w (sumFibre w (consList [inj m x] ρp)
+        (rChains 1 1 (Fss'.drop (offs m)) (Ess'.drop (offs m)))) := by
+  rw [← caseFamI_app_eq h hcl (tupW_mem hsp)]
+  unfold caseStepI
+  rw [caseTag_tupW hW]
+  refine sumSet_congr fun j => ?_
+  obtain ⟨hl₀, hlE, hEs, hlen, hc⟩ := hreal
+  unfold sumFibre
+  by_cases hj : offs m + j < Fss'.length
+  · have hjF : offs m + j < Fss.length := by omega
+    have hjE : offs m + j < Ess'.length := by omega
+    rw [caseChains_getElem?, if_pos hjF, rChains_drop_getElem?, rChains_getElem?,
+      List.getElem?_eq_getElem hj, List.getElem?_eq_getElem hjE]
+    show towerSet w (teleOfFields (cons (tupW W [inj m x]) (cons _ ρp))
+        (chainXI W (auxIds W Idss) 1 (rss.getD (offs m + j) []) (tlss.getD (offs m + j) [])
+          (Eiss'.getD (offs m + j) []) (Fss.getD (offs m + j) []) (Ess'.getD (offs m + j) [])))
+      = towerSet w (teleOfFields (consList [inj m x] ρp)
+        (rChain 1 1 Fss'[offs m + j] Ess'[offs m + j]))
+    have hg1 : Fss'[offs m + j] = Fss'.getD (offs m + j) [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some]
+    have hg2 : Ess'[offs m + j] = Ess'.getD (offs m + j) [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjE, Option.getD_some]
+    rw [hg1, hg2]
+    unfold chainXI rChain
+    have heq := towerSet_chainXI_eq (w := w) (nF := (Fss.getD (offs m + j) []).length) h.hI hsp
+      (hEs (offs m + j) hj) (Fss.getD (offs m + j) []) (Fss'.getD (offs m + j) []) 0 [] rfl
+      (hc (offs m + j) hj)
+      (by simp only [List.length_nil, Nat.zero_add]; exact (hlen (offs m + j) hj).symm)
+    rw [auxIds_length] at heq
+    rw [← hlen (offs m + j) hj]
+    simpa only [consList_nil] using heq
+  · have hjF : ¬ offs m + j < Fss.length := by omega
+    rw [caseChains_getElem?, if_neg hjF, rChains_drop_getElem?, rChains_getElem?,
+      List.getElem?_eq_none (by omega : Fss'.length ≤ offs m + j)]
+
+open ConLeche.Term in
+/-- **The cased family's leaf is closed**: bounded at the parameter
+frame when the index telescope is and every global X-chain is bounded
+under the functor's two binders — the cased twin of `fixBodyAVI_below`
+(each member's sum runs over a SUFFIX of the global chains). -/
+theorem caseBodyAVI_below {nP : Nat} (hIds : FieldsBelow nP (auxIds W Idss))
+    (hchains : ∀ chain ∈ chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss Ess',
+      FieldsBelow (nP + 2) chain) :
+    Term.bvarsBelow nP (caseBodyAVI W w Idss k offs rss tlss Eiss' Fss Ess').erase := by
+  unfold caseBodyAVI
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN (by simp [Term.bvarsBelow]) ?_
+  intro a ha
+  simp only [List.map_cons, List.map_nil, List.mem_cons] at ha
+  rcases ha with rfl | rfl | hx
+  · exact towerBodyAV_below hIds
+  · unfold caseFunAVI famTyAV
+    simp only [AnnotTerm.erase_lam, AnnotTerm.erase_pi, AnnotTerm.erase_sort, Term.bvarsBelow]
+    refine ⟨⟨towerBodyAV_below hIds, trivial⟩, ?_, ?_⟩
+    · rw [AnnotTerm.erase_liftN]
+      exact VExprAux.bvarsBelow_liftN 1 (towerBodyAV W (auxIds W Idss)).erase nP 0
+        (towerBodyAV_below hIds)
+    · have hsel := caseAVAt_below (w := w) (K := nP + 2)
+        (Ts := caseBodies W w Idss k offs rss tlss Eiss' Fss Ess') (d := 0)
+        (kx := (.fst (.fst (.bvar 0)) : AnnotTerm))
+        (fun T hT => by
+          obtain ⟨m, -, rfl⟩ := List.mem_map.mp hT
+          exact sumBodyAV_below fun Fs hFs => hchains Fs (List.mem_of_mem_drop hFs))
+        (show Term.bvarsBelow (nP + 2 + 0) (AnnotTerm.erase (.fst (.fst (.bvar 0))))
+          from show (0 : Nat) < nP + 2 + 0 by omega)
+      rwa [Nat.add_zero] at hsel
+  · exact nomatch hx
 
 end Facts
 

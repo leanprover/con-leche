@@ -151,6 +151,7 @@ main_model :: ConLeche.Model.Inductives.BlockStageTable
 main_model :: ConLeche.Model.Inductives.BlockStageTables
 main_model :: ConLeche.Model.Inductives.BlockTableMember
 main_model :: ConLeche.Model.Inductives.BlockTableOf
+main_model :: ConLeche.Model.Inductives.CaseWitness
 main_model :: ConLeche.Model.Inductives.DeclBlock
 main_model :: ConLeche.Model.Inductives.DeclInductive
 main_model :: ConLeche.Model.Inductives.DeclNative
@@ -322,6 +323,7 @@ main_model :: ConLeche.Semantics.ProjPhase
 main_model :: ConLeche.Semantics.Sat
 main_model :: ConLeche.Semantics.Skeleton
 main_model :: ConLeche.Semantics.Syntax
+main_model :: ConLeche.Semantics.Tower.CaseFamI
 main_model :: ConLeche.Semantics.Tower.FixCaseI
 main_model :: ConLeche.Semantics.Tower.FixElemI
 main_model :: ConLeche.Semantics.Tower.FixFamI
@@ -335,6 +337,7 @@ main_model :: ConLeche.Semantics.Tower.IdxEq
 main_model :: ConLeche.Semantics.Tower.IhSpell
 main_model :: ConLeche.Semantics.Tower.MutualLeafFacts
 main_model :: ConLeche.Semantics.Tower.MutualLeafI
+main_model :: ConLeche.Semantics.Tower.MutualTagI
 main_model :: ConLeche.Semantics.Tower.SigChainI
 main_model :: ConLeche.Semantics.Tower.SigChainWire
 main_model :: ConLeche.Semantics.Tower.SumCase
@@ -660,6 +663,7 @@ main_file_False :: ConLeche.Model.Inductives.BlockStageTable
 main_file_False :: ConLeche.Model.Inductives.BlockStageTables
 main_file_False :: ConLeche.Model.Inductives.BlockTableMember
 main_file_False :: ConLeche.Model.Inductives.BlockTableOf
+main_file_False :: ConLeche.Model.Inductives.CaseWitness
 main_file_False :: ConLeche.Model.Inductives.DeclBlock
 main_file_False :: ConLeche.Model.Inductives.DeclInductive
 main_file_False :: ConLeche.Model.Inductives.DeclNative
@@ -831,6 +835,7 @@ main_file_False :: ConLeche.Semantics.ProjPhase
 main_file_False :: ConLeche.Semantics.Sat
 main_file_False :: ConLeche.Semantics.Skeleton
 main_file_False :: ConLeche.Semantics.Syntax
+main_file_False :: ConLeche.Semantics.Tower.CaseFamI
 main_file_False :: ConLeche.Semantics.Tower.FixCaseI
 main_file_False :: ConLeche.Semantics.Tower.FixElemI
 main_file_False :: ConLeche.Semantics.Tower.FixFamI
@@ -844,6 +849,7 @@ main_file_False :: ConLeche.Semantics.Tower.IdxEq
 main_file_False :: ConLeche.Semantics.Tower.IhSpell
 main_file_False :: ConLeche.Semantics.Tower.MutualLeafFacts
 main_file_False :: ConLeche.Semantics.Tower.MutualLeafI
+main_file_False :: ConLeche.Semantics.Tower.MutualTagI
 main_file_False :: ConLeche.Semantics.Tower.SigChainI
 main_file_False :: ConLeche.Semantics.Tower.SigChainWire
 main_file_False :: ConLeche.Semantics.Tower.SumCase
@@ -1158,6 +1164,7 @@ stream_False :: ConLeche.Model.Inductives.BlockStageTable
 stream_False :: ConLeche.Model.Inductives.BlockStageTables
 stream_False :: ConLeche.Model.Inductives.BlockTableMember
 stream_False :: ConLeche.Model.Inductives.BlockTableOf
+stream_False :: ConLeche.Model.Inductives.CaseWitness
 stream_False :: ConLeche.Model.Inductives.DeclBlock
 stream_False :: ConLeche.Model.Inductives.DeclInductive
 stream_False :: ConLeche.Model.Inductives.DeclNative
@@ -1329,6 +1336,7 @@ stream_False :: ConLeche.Semantics.ProjPhase
 stream_False :: ConLeche.Semantics.Sat
 stream_False :: ConLeche.Semantics.Skeleton
 stream_False :: ConLeche.Semantics.Syntax
+stream_False :: ConLeche.Semantics.Tower.CaseFamI
 stream_False :: ConLeche.Semantics.Tower.FixCaseI
 stream_False :: ConLeche.Semantics.Tower.FixElemI
 stream_False :: ConLeche.Semantics.Tower.FixFamI
@@ -1342,6 +1350,7 @@ stream_False :: ConLeche.Semantics.Tower.IdxEq
 stream_False :: ConLeche.Semantics.Tower.IhSpell
 stream_False :: ConLeche.Semantics.Tower.MutualLeafFacts
 stream_False :: ConLeche.Semantics.Tower.MutualLeafI
+stream_False :: ConLeche.Semantics.Tower.MutualTagI
 stream_False :: ConLeche.Semantics.Tower.SigChainI
 stream_False :: ConLeche.Semantics.Tower.SigChainWire
 stream_False :: ConLeche.Semantics.Tower.SumCase
@@ -1647,6 +1656,7 @@ False_cached :: ConLeche.Model.Inductives.BlockStageTable
 False_cached :: ConLeche.Model.Inductives.BlockStageTables
 False_cached :: ConLeche.Model.Inductives.BlockTableMember
 False_cached :: ConLeche.Model.Inductives.BlockTableOf
+False_cached :: ConLeche.Model.Inductives.CaseWitness
 False_cached :: ConLeche.Model.Inductives.DeclBlock
 False_cached :: ConLeche.Model.Inductives.DeclInductive
 False_cached :: ConLeche.Model.Inductives.DeclNative
@@ -1818,6 +1828,7 @@ False_cached :: ConLeche.Semantics.ProjPhase
 False_cached :: ConLeche.Semantics.Sat
 False_cached :: ConLeche.Semantics.Skeleton
 False_cached :: ConLeche.Semantics.Syntax
+False_cached :: ConLeche.Semantics.Tower.CaseFamI
 False_cached :: ConLeche.Semantics.Tower.FixCaseI
 False_cached :: ConLeche.Semantics.Tower.FixElemI
 False_cached :: ConLeche.Semantics.Tower.FixFamI
@@ -1831,6 +1842,7 @@ False_cached :: ConLeche.Semantics.Tower.IdxEq
 False_cached :: ConLeche.Semantics.Tower.IhSpell
 False_cached :: ConLeche.Semantics.Tower.MutualLeafFacts
 False_cached :: ConLeche.Semantics.Tower.MutualLeafI
+False_cached :: ConLeche.Semantics.Tower.MutualTagI
 False_cached :: ConLeche.Semantics.Tower.SigChainI
 False_cached :: ConLeche.Semantics.Tower.SigChainWire
 False_cached :: ConLeche.Semantics.Tower.SumCase
@@ -2135,6 +2147,7 @@ Empty_cached :: ConLeche.Model.Inductives.BlockStageTable
 Empty_cached :: ConLeche.Model.Inductives.BlockStageTables
 Empty_cached :: ConLeche.Model.Inductives.BlockTableMember
 Empty_cached :: ConLeche.Model.Inductives.BlockTableOf
+Empty_cached :: ConLeche.Model.Inductives.CaseWitness
 Empty_cached :: ConLeche.Model.Inductives.DeclBlock
 Empty_cached :: ConLeche.Model.Inductives.DeclInductive
 Empty_cached :: ConLeche.Model.Inductives.DeclNative
@@ -2306,6 +2319,7 @@ Empty_cached :: ConLeche.Semantics.ProjPhase
 Empty_cached :: ConLeche.Semantics.Sat
 Empty_cached :: ConLeche.Semantics.Skeleton
 Empty_cached :: ConLeche.Semantics.Syntax
+Empty_cached :: ConLeche.Semantics.Tower.CaseFamI
 Empty_cached :: ConLeche.Semantics.Tower.FixCaseI
 Empty_cached :: ConLeche.Semantics.Tower.FixElemI
 Empty_cached :: ConLeche.Semantics.Tower.FixFamI
@@ -2319,6 +2333,7 @@ Empty_cached :: ConLeche.Semantics.Tower.IdxEq
 Empty_cached :: ConLeche.Semantics.Tower.IhSpell
 Empty_cached :: ConLeche.Semantics.Tower.MutualLeafFacts
 Empty_cached :: ConLeche.Semantics.Tower.MutualLeafI
+Empty_cached :: ConLeche.Semantics.Tower.MutualTagI
 Empty_cached :: ConLeche.Semantics.Tower.SigChainI
 Empty_cached :: ConLeche.Semantics.Tower.SigChainWire
 Empty_cached :: ConLeche.Semantics.Tower.SumCase
@@ -2623,6 +2638,7 @@ sound_cached :: ConLeche.Model.Inductives.BlockStageTable
 sound_cached :: ConLeche.Model.Inductives.BlockStageTables
 sound_cached :: ConLeche.Model.Inductives.BlockTableMember
 sound_cached :: ConLeche.Model.Inductives.BlockTableOf
+sound_cached :: ConLeche.Model.Inductives.CaseWitness
 sound_cached :: ConLeche.Model.Inductives.DeclBlock
 sound_cached :: ConLeche.Model.Inductives.DeclInductive
 sound_cached :: ConLeche.Model.Inductives.DeclNative
@@ -2794,6 +2810,7 @@ sound_cached :: ConLeche.Semantics.ProjPhase
 sound_cached :: ConLeche.Semantics.Sat
 sound_cached :: ConLeche.Semantics.Skeleton
 sound_cached :: ConLeche.Semantics.Syntax
+sound_cached :: ConLeche.Semantics.Tower.CaseFamI
 sound_cached :: ConLeche.Semantics.Tower.FixCaseI
 sound_cached :: ConLeche.Semantics.Tower.FixElemI
 sound_cached :: ConLeche.Semantics.Tower.FixFamI
@@ -2807,6 +2824,7 @@ sound_cached :: ConLeche.Semantics.Tower.IdxEq
 sound_cached :: ConLeche.Semantics.Tower.IhSpell
 sound_cached :: ConLeche.Semantics.Tower.MutualLeafFacts
 sound_cached :: ConLeche.Semantics.Tower.MutualLeafI
+sound_cached :: ConLeche.Semantics.Tower.MutualTagI
 sound_cached :: ConLeche.Semantics.Tower.SigChainI
 sound_cached :: ConLeche.Semantics.Tower.SigChainWire
 sound_cached :: ConLeche.Semantics.Tower.SumCase
@@ -3205,6 +3223,7 @@ False_checked :: ConLeche.Model.Inductives.BlockStageTable
 False_checked :: ConLeche.Model.Inductives.BlockStageTables
 False_checked :: ConLeche.Model.Inductives.BlockTableMember
 False_checked :: ConLeche.Model.Inductives.BlockTableOf
+False_checked :: ConLeche.Model.Inductives.CaseWitness
 False_checked :: ConLeche.Model.Inductives.DeclBlock
 False_checked :: ConLeche.Model.Inductives.DeclInductive
 False_checked :: ConLeche.Model.Inductives.DeclNative
@@ -3376,6 +3395,7 @@ False_checked :: ConLeche.Semantics.ProjPhase
 False_checked :: ConLeche.Semantics.Sat
 False_checked :: ConLeche.Semantics.Skeleton
 False_checked :: ConLeche.Semantics.Syntax
+False_checked :: ConLeche.Semantics.Tower.CaseFamI
 False_checked :: ConLeche.Semantics.Tower.FixCaseI
 False_checked :: ConLeche.Semantics.Tower.FixElemI
 False_checked :: ConLeche.Semantics.Tower.FixFamI
@@ -3389,6 +3409,7 @@ False_checked :: ConLeche.Semantics.Tower.IdxEq
 False_checked :: ConLeche.Semantics.Tower.IhSpell
 False_checked :: ConLeche.Semantics.Tower.MutualLeafFacts
 False_checked :: ConLeche.Semantics.Tower.MutualLeafI
+False_checked :: ConLeche.Semantics.Tower.MutualTagI
 False_checked :: ConLeche.Semantics.Tower.SigChainI
 False_checked :: ConLeche.Semantics.Tower.SigChainWire
 False_checked :: ConLeche.Semantics.Tower.SumCase
@@ -3692,6 +3713,7 @@ fullyChecked_sound :: ConLeche.Model.Inductives.BlockStageTable
 fullyChecked_sound :: ConLeche.Model.Inductives.BlockStageTables
 fullyChecked_sound :: ConLeche.Model.Inductives.BlockTableMember
 fullyChecked_sound :: ConLeche.Model.Inductives.BlockTableOf
+fullyChecked_sound :: ConLeche.Model.Inductives.CaseWitness
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclBlock
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclInductive
 fullyChecked_sound :: ConLeche.Model.Inductives.DeclNative
@@ -3863,6 +3885,7 @@ fullyChecked_sound :: ConLeche.Semantics.ProjPhase
 fullyChecked_sound :: ConLeche.Semantics.Sat
 fullyChecked_sound :: ConLeche.Semantics.Skeleton
 fullyChecked_sound :: ConLeche.Semantics.Syntax
+fullyChecked_sound :: ConLeche.Semantics.Tower.CaseFamI
 fullyChecked_sound :: ConLeche.Semantics.Tower.FixCaseI
 fullyChecked_sound :: ConLeche.Semantics.Tower.FixElemI
 fullyChecked_sound :: ConLeche.Semantics.Tower.FixFamI
@@ -3876,6 +3899,7 @@ fullyChecked_sound :: ConLeche.Semantics.Tower.IdxEq
 fullyChecked_sound :: ConLeche.Semantics.Tower.IhSpell
 fullyChecked_sound :: ConLeche.Semantics.Tower.MutualLeafFacts
 fullyChecked_sound :: ConLeche.Semantics.Tower.MutualLeafI
+fullyChecked_sound :: ConLeche.Semantics.Tower.MutualTagI
 fullyChecked_sound :: ConLeche.Semantics.Tower.SigChainI
 fullyChecked_sound :: ConLeche.Semantics.Tower.SigChainWire
 fullyChecked_sound :: ConLeche.Semantics.Tower.SumCase
@@ -4165,6 +4189,7 @@ False_pure :: ConLeche.Model.Inductives.BlockStageTable
 False_pure :: ConLeche.Model.Inductives.BlockStageTables
 False_pure :: ConLeche.Model.Inductives.BlockTableMember
 False_pure :: ConLeche.Model.Inductives.BlockTableOf
+False_pure :: ConLeche.Model.Inductives.CaseWitness
 False_pure :: ConLeche.Model.Inductives.DeclBlock
 False_pure :: ConLeche.Model.Inductives.DeclInductive
 False_pure :: ConLeche.Model.Inductives.DeclNative
@@ -4336,6 +4361,7 @@ False_pure :: ConLeche.Semantics.ProjPhase
 False_pure :: ConLeche.Semantics.Sat
 False_pure :: ConLeche.Semantics.Skeleton
 False_pure :: ConLeche.Semantics.Syntax
+False_pure :: ConLeche.Semantics.Tower.CaseFamI
 False_pure :: ConLeche.Semantics.Tower.FixCaseI
 False_pure :: ConLeche.Semantics.Tower.FixElemI
 False_pure :: ConLeche.Semantics.Tower.FixFamI
@@ -4349,6 +4375,7 @@ False_pure :: ConLeche.Semantics.Tower.IdxEq
 False_pure :: ConLeche.Semantics.Tower.IhSpell
 False_pure :: ConLeche.Semantics.Tower.MutualLeafFacts
 False_pure :: ConLeche.Semantics.Tower.MutualLeafI
+False_pure :: ConLeche.Semantics.Tower.MutualTagI
 False_pure :: ConLeche.Semantics.Tower.SigChainI
 False_pure :: ConLeche.Semantics.Tower.SigChainWire
 False_pure :: ConLeche.Semantics.Tower.SumCase
@@ -4607,6 +4634,7 @@ Empty_pure :: ConLeche.Model.Inductives.BlockStageTable
 Empty_pure :: ConLeche.Model.Inductives.BlockStageTables
 Empty_pure :: ConLeche.Model.Inductives.BlockTableMember
 Empty_pure :: ConLeche.Model.Inductives.BlockTableOf
+Empty_pure :: ConLeche.Model.Inductives.CaseWitness
 Empty_pure :: ConLeche.Model.Inductives.DeclBlock
 Empty_pure :: ConLeche.Model.Inductives.DeclInductive
 Empty_pure :: ConLeche.Model.Inductives.DeclNative
@@ -4778,6 +4806,7 @@ Empty_pure :: ConLeche.Semantics.ProjPhase
 Empty_pure :: ConLeche.Semantics.Sat
 Empty_pure :: ConLeche.Semantics.Skeleton
 Empty_pure :: ConLeche.Semantics.Syntax
+Empty_pure :: ConLeche.Semantics.Tower.CaseFamI
 Empty_pure :: ConLeche.Semantics.Tower.FixCaseI
 Empty_pure :: ConLeche.Semantics.Tower.FixElemI
 Empty_pure :: ConLeche.Semantics.Tower.FixFamI
@@ -4791,6 +4820,7 @@ Empty_pure :: ConLeche.Semantics.Tower.IdxEq
 Empty_pure :: ConLeche.Semantics.Tower.IhSpell
 Empty_pure :: ConLeche.Semantics.Tower.MutualLeafFacts
 Empty_pure :: ConLeche.Semantics.Tower.MutualLeafI
+Empty_pure :: ConLeche.Semantics.Tower.MutualTagI
 Empty_pure :: ConLeche.Semantics.Tower.SigChainI
 Empty_pure :: ConLeche.Semantics.Tower.SigChainWire
 Empty_pure :: ConLeche.Semantics.Tower.SumCase

@@ -75624,3 +75624,321 @@ formers' stage 1–2; s6 = the assembly's constructors' stage and
 kit, the rules, the tables, the `EnvBlockModels` field) + the flip 4–5;
 M8 1–2.  Remaining **11–15** (was 7–11): the tag finding costs 2–3
 sessions, all mechanical.
+
+#### U.16 — M6 session 4: member-local constructor tags INSIDE the seal — the re-base that makes `pinLeaf`'s shape true (session U-14, 2026-09-16)
+
+M6 s4 = §U.15 (c) executed: the sealed `k`-ary former's sum body is
+the CASED one (`CaseFamI`), its exported fibre law tags by the
+constructor's MEMBER-LOCAL position, the mutual half's three global
+tag sites are member-local, and everything landed on master re-proves
+through the seal's changed laws — `declMutual` included.  With that,
+`ofNested_pin_block`'s hypothesis `hΦ`, refuted in §U.15 (a), is a
+FIBREWISE statement whose two sides carry the same tagged towers, and
+it reduces to the fit equivalence the instantiation law will supply
+((e), `ofNested_pin_block_of_fit`).  No checker code changed; no
+`sorry`, no axioms, no `maxHeartbeats`; the mutual route's verdicts
+are untouched (the tag is a model-side datum).
+
+##### (a) THE SEAL, RE-BASED — `Model/Inductives/TupleLfp.lean`
+
+The API gains ONE argument, `offs : Nat → Nat` (member `m ↦` the
+global position of its first constructor; for a run's block,
+`b.ownOffset`), right after `Ids` in `tupleLfpAV`, `tupleLfpΦ` and
+`TupleLfpOk`; the premise gains the cased functor's closed family as a
+third conjunct.  The representation: `tupleLfpAV := mutualTyAVI … offs
+…` whose auxiliary body is now `caseBodyAVI` (MutualLeafI re-based,
+(b)); `tupleLfpΦ := splitFun … (caseFunVI …)`.  The exported laws
+whose STATEMENTS changed, verbatim:
+
+```lean
+def TupleLfpOk (W w : Nat) (ρp : Nat → V) (k : Nat) (Ids : Nat → List AnnotTerm)
+    (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat)) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss₀ : List (List (List AnnotTerm)))
+    (Fss₀ Ess₀ : List (List AnnotTerm)) : Prop :=
+  TagOk W ρp (tupleIdss k Ids) ∧
+  XChainsOk W w ρp (auxIds W (tupleIdss k Ids)) rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
+    Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) ∧
+  ∃ L, IsClosedFam w (idxSet W ρp (auxIds W (tupleIdss k Ids)))
+    (caseFunVI W w ρp (tupleIdss k Ids) offs rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
+      Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀)) L
+```
+
+`TupleLfpOk.of_tagged hT hX hcl` takes the witness; `tupleLfpΦ_functor`,
+`tupleLfpAV_fold`, `tupleLfpAV_below/_wellDenotedV/_mem` (explicit
+`offs`), `stageTupleFormers hB offs …`, `tupleLfpAV_repr`,
+`tupleLfpAV_lams` change only by the argument.  THE law:
+
+```lean
+theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss₀ : List (List (List AnnotTerm))}
+    {Fss₀ Ess₀ : List (List AnnotTerm)}
+    (h : TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (hS : TupleLfpShape k Ids mems nFs tgts rss Eiss₀ Fss₀ Ess₀)
+    {X : Nat → V} (hX : InTupleSpace w k (fun m => idxSet W ρp (Ids m)) X)
+    {mm : Nat} (hmm : mm < k) {t : V} (ht : t ∈ˢ idxSet W ρp (Ids mm)) (x : V) :
+    x ∈ˢ SetTheory.app (tupleLfpΦ W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ X mm) t ↔
+      ∃ j fs, offs mm + j < Fss₀.length ∧ mems.getD (offs mm + j) 0 = mm ∧
+        FitsFrom (rss.getD (offs mm + j) [])
+          (fun i ρ => slotSet w W ρ ((tlss.getD (offs mm + j) []).getD i [])
+            ((Eiss₀.getD (offs mm + j) []).getD i []) (X ((tgts.getD (offs mm + j) []).getD i 0)))
+          0 ρp (Fss₀.getD (offs mm + j) []) fs ∧
+        (∀ l, l < (Ids mm).length →
+          interp V (consList fs ρp) ((Ess₀.getD (offs mm + j) []).getD l default) = projS l t) ∧
+        x = injW w j (mkTower (fs ++ [pt]))
+```
+
+— was `∃ J fs, J < Fss₀.length ∧ mems.getD J 0 = mm ∧ … ∧ x = injW w J
+…`: the element is tagged by `j`, its constructor is the global `offs
+mm + j`.  `TupleLfpBlockOk`, `TupleLfpStageOk`, `TupleLfpShape`, the
+`Fibre` section's translation lemmas (`slotSet_tag_eq`,
+`fitsFrom_tag_iff`, `tagTerm_iff`) are unchanged: the proof of the law
+is the old one with `caseStepI_elim/_intro/_zero_elim` in place of
+`fixStepI_*` and the tuple's member read off by `caseTag_tupW` after
+`tagEnc_mkTower` (the sealed tag `caseTag (tagEnc W Ids mm t) = mm`).
+
+##### (b) THE LEAF, THE STAGE, THE CHAINS — the representation's files
+
+* `Semantics/Tower/MutualLeafI.lean` (263, was 432): `auxBodyAV W w Idss
+  offs … := caseBodyAVI W w Idss Idss.length offs …`, `auxFamI := caseFamI`,
+  `mutualTyAVI … Idss offs …`; `MutualBaseI`/`ParamsOkMI` unchanged; the
+  laws' proofs change in ONE line (`caseBodyAVI_facts (offs := offs) hT
+  rfl hok` for `fixBodyAVI_facts hI hok`).  The import cycle
+  (`CaseFamI` read the tag family from `MutualLeafI`) is broken by the
+  split `Semantics/Tower/MutualTagI.lean` (NEW, 214: the tag family,
+  the tuplers, `mutualEss`/`mutualEiss`, moved verbatim): `FixFamI →
+  MutualTagI → CaseFamI → MutualLeafI`.
+* `Semantics/Tower/CaseFamI.lean` (682, +119): `offs : Nat → Nat` (was a
+  list), `caseTag_tupW`, `rChains_drop_getElem?`,
+  `caseFunVI_closed_zero`, **`caseFamI_app_eq_sum`** (the cased fixed
+  point at member `m`'s tag tuple is the sum over `rChains 1 1
+  (Fss'.drop (offs m)) (Ess'.drop (offs m))` — the member's SUFFIX of
+  the real chains), `caseBodyAVI_below`.
+* `Model/Inductives/MutualStageFormer.lean`: `auxBodyAV_validV`
+  reproved for the cased body (`caseAVAt_validV` + `sumBodyAV_validV`
+  per suffix + `AnnotValid_fst` at the discriminant; the unused index
+  spine premise dropped); `stageMutualFormer(s)(Go)` take `offs`.
+* `Model/Inductives/MutualChains.lean`: `mutualLeafAppC`,
+  `mutualChainReal_at`, `mutualChainFacts_of` thread `offs`;
+  `mutualCtorFold` takes the cased witness `hcl` and concludes at the
+  member's suffix; NEW **`mutualCaseClosed_of`** (the (W) below).
+* `Model/Inductives/MutualStageCtor.lean`: `MutualConsedAt`,
+  `stageMutualCtorsGo`, `stageMutualCtors` take `off : Nat → Nat`;
+  constructor `J`'s leaf is `sumMkAV (w ψ) (J - off J) (dsF J ψ) …
+  (uChains ((FssR ψ).drop (off J)))` over its member's SUFFIX of the
+  real chains, `hfold`/`hFsJ`/`hEsJ` at the dropped lists; the
+  per-constructor step `stageMutualCtor` is UNCHANGED — instantiated at
+  the local tag and the dropped list (the suffix-side premises are
+  `List.mem_of_mem_drop` instances of the global ones).
+
+##### (c) THE (W) WRAPPER — `Model/Inductives/CaseWitness.lean` (NEW, 169)
+
+`caseClosed_of hw hI hrss hC offs : ∃ L, IsClosedFam w (idxSet W ρp
+(auxIds W Idss)) (caseFunVI W w ρp Idss offs …) L` under `FixWitness`'s
+per-block container facts — `container_closed_exists` at the SAME
+container with the tuple's member paired into the shape (`sigmaPairs
+(natSingle (caseTag t)) (fun _ => shapeSet … t)`), the same positions
+and targets, and the builder RE-TAGGED (`retag o (inj J y) = inj (J -
+o) y`, `o := offs (caseTag t)`): `helim` is `caseStepI_elim` → the
+element at the GLOBAL tag lies in `fixStepI`'s fibre →
+`fixStep_elim_container` (FixWitness's exported elimination) → the
+shape's tag is the global one (`mkShape_tag`, ONE new export of
+`FixWitness`: the builder's value is `inj (shapeTag a) _`, its body
+being sealed) → `omega`.  `caseClosed_all` adds `w = 0`
+(`caseFunVI_closed_zero`).  No re-proof of the container argument;
+119 lines of wrapper.
+
+##### (d) THE THREE GLOBAL TAG SITES, NOW LOCAL
+
+1. `BlockModel.ofMutual` (`BlockRepMutual.lean`): `inj := fun ψ _ j fs =>
+   injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))` (was `blockMinorIdx
+   ctorsM mm j`); `ofMutual_inj` local by `rfl`; `ofMutual_mkInj` no
+   longer needs the prefix-sum arithmetic; `offs` before `mems` in
+   `ofMutual` and `mutualBlockModelOf_ofMutual`.  `BlockModel.ofNested`
+   (`BlockComposed.lean`) the same, and `nestedΨ`/`NestedLfpOk`/
+   `ofNested_fibre` at `offs` with the local `j`; the falsifiers
+   `ofNested_pin_tag/_lt` are DELETED with the tag they refuted.
+2. `MutualTableFacts.inj` (`DeclBlock.lean`): `d.inj ψ mm j fs = injW
+   (d.w ψ) j (mkTower (fs ++ [pt]))` (was `b.ownOffset mm + j`); the
+   table bundle's tag argument becomes `0` at a structure-like member
+   (`tableMember_of`, `MemberTableOk`: `TableMember … c.nF 0 …`) —
+   `TableMember` is abstract in its tag, the P step `stageBlockTable`
+   untouched.
+3. The constructor stage (`MutualCore.lean`): `mutualCtorsStage` conses
+   `sumMkAV (f₀.s.eval ψ) (J - b.ownOffset (mutMemF b J)) …
+   (uChains ((mutFss …).drop (b.ownOffset (mutMemF b J))))` (needs the
+   grouping guard `h3` for `b.ownOffset (mutMemF b J) ≤ J`);
+   `MutualFormersFacts.fold` at the member's suffix, NEW
+   `MutualFormersFacts.chainClosed` (= `mutualCaseClosed_of` at the
+   run's chain facts) feeding `TupleLfpOk.of_tagged`'s third argument;
+   `blockReps_of`'s `fibre` is SIMPLER (the law's `j` is the clause's
+   `j`; `mutualBlockModel_ofCtor` at `b.ownOffset mm' + j` decodes the
+   member's constructor) and its `ctor` folds `sumMkAV` at the local
+   tag over the suffix (`List.getElem?_drop`); `mutualTableFacts_of.inj
+   := rfl`; `mutMemberLeaf`/`mutualBlockModel` pass `b.ownOffset`.
+   `ofNative` was local already.
+
+`IsBlockModel.mkInj`'s injectivity is in `(mm, j, fs)`, which the
+block model already stated; `BlockModel.minorIdx` (the recursors'
+minor index, `blockMinorIdx`) is untouched — it never was the tag.
+
+##### (e) `pinLeaf` RE-ATTEMPTED — the outcome, exactly
+
+Proved, in `BlockComposed.lean`:
+
+```lean
+theorem ofNested_pin_block_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs
+      tgtsG rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    {q₀ kJ : Nat} (hseg : q₀ + kJ ≤ pins.length) {IsJ : Nat → V} {ΦJ : (Nat → V) → Nat → V}
+    (hmapsJ : MapsTuple ((D).w ψ) kJ IsJ ΦJ)
+    (hIs : ∀ i, i < kJ → (D).idx ψ ρp (k + q₀ + i) = IsJ i)
+    {injJ : Nat → Nat → List V → V}
+    (hinj : ∀ i j fs, injJ i j fs = injW ((D).w ψ) j (mkTower (fs ++ [pt])))
+    {nCJ : Nat → Nat} {FitJ : (Nat → V) → V → Nat → Nat → List V → Prop}
+    (hfibJ : ∀ Y, InTupleSpace ((D).w ψ) kJ IsJ Y → ∀ i, i < kJ → ∀ t, t ∈ˢ IsJ i → ∀ x,
+      x ∈ˢ SetTheory.app (ΦJ Y i) t ↔ ∃ j fs, j < nCJ i ∧ FitJ Y t i j fs ∧ x = injJ i j fs)
+    (hfit : ∀ Y, InTupleSpace ((D).w ψ) kJ IsJ Y → ∀ i, i < kJ → ∀ t, t ∈ˢ IsJ i → ∀ j fs,
+      (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
+        mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i ∧
+        FitsFrom … (segJoin (k + q₀) kJ (lfpTuple … (ΨA ψ ρp)) Y …) … fs ∧
+        (∀ l, … = projS l t))
+      ↔ (j < nCJ i ∧ FitJ Y t i j fs))
+    {i : Nat} (hi : i < kJ) :
+    (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
+      = lfpTuple ((D).w ψ) kJ IsJ ΦJ i
+```
+
+(`hfit`'s left side abbreviated: it is `tupleLfpΦ_fibre`'s conjuncts at
+the joined tuple, verbatim in the source.)  It is `ofNested_pin_block`
+with `hΦ` discharged by `famSpace_ext` over the two fibre laws: an
+element of the copy's fibre is `injW w j ⟨f⃗, pt⟩` with the copy's
+constructor `offs (k + q₀ + i) + j` fitting, an element of the
+container's is `injJ i j fs = injW wJ j ⟨f⃗, pt⟩` with its `ChainFit`
+— the SAME tower whenever the fits agree (`hfit`), no injectivity of
+the tags needed (at `w = 0` both sides are `pt`).  The container's
+side is exactly `IsBlockModel.fibre` + `EnvBlockModels`' tag shape at
+`(ψJ ψ, ρJ)` with `dJ.w (ψJ ψ) = (D).w ψ` (the same-universe fact) —
+`hfibJ`/`hinj` are stated abstractly so the container may be any
+block model, `ofNative`'s (`List`) or `ofMutual`'s.
+
+So: **`pinLeaf`'s set equality is TRUE in shape and reduced to the
+fits**.  NOT proved this session: `hfit` itself — the copy's chain at
+frame `ρp` with slots at `segJoin L⁺ Y` against the container's
+`ChainFit` at frame `ρJ[L]` and tuple `Y`: ordinary fields by the
+instantiation law `interp_inst` iterated, member-targeting fields by
+`leaf`, pin-targeting fields at `Y`'s components (`segJoin_add`), the
+index equation by the same substitution, the same-universe fact from
+`mutualCrossChecks`' `isEquiv` — §U.14 (e) 2–4 unchanged, the
+assembly's (M6 s5), and `hIs`/`hPinIdx` with it.  The Tree/List check
+asked for in the session brief is not a separate object: the pure
+instance (`TreeListCompose.lean`) has no tags and passed at s2; the
+block-model-level check IS `ofNested_pin_block_of_fit` at
+`kJ := 1`, `ΦJ := List`'s `ofNative` operator — its `hfit` is the
+instantiation law at `List Tree`, which no term-level fixture on the
+branch produces yet (the readings come from the run, M6 s5).
+
+##### (f) WHAT RE-PROVED
+
+19 files, +1272/−689: `TupleLfp` (259 lines touched), `MutualLeafI`
+(277: the split), `MutualTagI` (+214), `CaseFamI` (241),
+`CaseWitness` (+169), `FixWitness` (+7), `MutualStageFormer` (122),
+`MutualChains` (84), `MutualStageCtor` (95), `MutualCore` (156),
+`BlockRepMutual` (67), `BlockComposed` (211: −42 falsifiers, +81
+`ofNested_pin_block_of_fit`), `DeclBlock` (2), `MutualTables` (6),
+`BlockTableMember` (15), the two roots, the two gate pins.  Every proof
+that reads the seal — `declMutual`'s whole chain (`mutualFormersStage`,
+`mutualCtorsStage`, `blockReps_of`, `mutualTableFacts_of`,
+`mutualCoreModeled_of`, the tables) — re-proved; the recursor kits
+(`BlockRec*`), `MutualRecsStage/Store`, `DeclBlock`'s theorems and
+`DeclNestedCore` untouched (they read `d.inj` abstractly).  The
+per-constructor P step `stageMutualCtor` and the container witness
+`fixClosed_of` are reused, not re-proved.
+
+##### (g) THE GAPS — §U.15 (e) revised
+
+| gap | consumer | status |
+| --- | --- | --- |
+| **the tags** | `pinLeaf` | **CLOSED**: the seal tags member-locally; `pinLeaf`'s shape reduced to the fits (`ofNested_pin_block_of_fit`) |
+| `hfit`: the copy's chain fit at the joined tuple = the container's `ChainFit` at `Y` | `ofNested_pin_block_of_fit` | the instantiation law at fields and index equation (§U.14 (e) 2); assembly, M6 s5 |
+| `hIs`/`hPinIdx` | `ofNested_pin_block_of_fit`, `ofNested_pinMem/_pinMono` | the instantiation law at the index telescopes; assembly |
+| the same-universe fact `dJ.w (ψJ ψ) = (D).w ψ` | `hinj`/`hfibJ` at the container's model | `mutualCrossChecks`' `isEquiv`; assembly |
+| the cased witness at the NESTED block | `NestedLfpOk` (third conjunct) | `mutualCaseClosed_of` at the auxiliary block's chain facts (the scratch `checkMutualCore` run's), as the mutual assembly does — s5/s6 |
+| the members' constructors' field kinds; the pins' components; `PinsTyped`; the containers' block models (`EnvBlockModels`); the restored recursors' shape | as in §U.15 (e) | unchanged |
+
+##### (h) FINDINGS, WITH COST
+
+1. **The fix is where §U.15 (c) said, and costs what it said**: the
+   representation's ONE global chain list, its readings, the tuple
+   encoding and the premise are untouched; the cased body replaces
+   the sum's discriminant, and every consumer of the seal re-proves by
+   threading `offs` (~1 session of five Opus lanes + the seal by
+   hand).  The one design decision not in (c): `offs` is an explicit
+   API ARGUMENT (`Nat → Nat`, `b.ownOffset` for a run), not derived
+   from `mems` inside the seal — the fibre law then states the chain
+   as `offs mm + j` and the grouping guard `mutualCtorsGrouped`
+   (`mutualBlockModel_ofCtor`) is what makes `offs mm + j` range over
+   member `mm`'s constructors, exactly as before for the global `J`.
+2. **The (W) is a wrapper** (c): the container's shapes/positions/
+   targets are reused; only the builder is re-tagged and the tuple's
+   member is carried in the shape.  One export was missing from
+   `FixWitness` (`mkShape_tag`: the builder's value is `inj (shapeTag
+   a) _`), because its `mkShape` is sealed by the Model tier's default
+   privacy — the pattern of §U.7 finding 2 again.
+3. **The seal needs the witness as a PREMISE**: `XChainsOk.hclosed` is
+   the fixpoint functor's witness and does not transfer to the cased
+   functor (closure is hereditary: a re-tagged element's fields are
+   re-tagged elements, so a family closed under one functor is not
+   closed under the other); the assembly, which has the container
+   facts, supplies it (`mutualCaseClosed_of`) — a third conjunct of
+   `TupleLfpOk`, honest and cheap.
+4. **`pinLeaf` at the block model is now a statement about fits, not
+   tags** (e): the two fibre laws are stated with the same `injW w j`,
+   so `famSpace_ext` closes the set equality from the pointwise
+   equivalence with no use of `mkInj`.  What remains is the
+   instantiation law — the reading of the container's constructors at
+   the pin's components — which is an assembly fact, not a seal fact.
+5. **Import graph**: `CaseFamI` sits between the tag family and the
+   leaf; the split `MutualTagI` was forced by the cycle (`CaseFamI`
+   needs `tagTyAV`, `MutualLeafI` needs `caseBodyAVI`).  The shake
+   gate's fixpoint moved with it — run after every root change (§U.15
+   finding 6 again).
+6. Lean traps: `caseBodyAVI_facts`'s `offs` is not determined by its
+   hypotheses — pass `(offs := offs)`; likewise `mutualLeafWalks`;
+   `mutualTyAVI_eq_mkLamsC` gained an argument (one more `_`); the
+   `Iff.mp` of a law stated at `eqsXI (auxIds …).length` accepts a
+   hypothesis at `eqsXI 1` (defeq), but `rw` does not; a `rw [hIs]` on
+   a membership stated at `nestedIs …` fails against `(D).idx …` —
+   state the `have` with the block model's spelling and let the defeq
+   check do the rest; `lake build` of the table targets pulls in
+   `MutualCore` (they import it) — build a lane's imports by name.
+
+##### (i) GATES
+
+`lake build` 642 jobs warning-free (was 640: `MutualTagI`,
+`CaseWitness`), `lake test` 545 warning-free EXIT 0; layering base 323
+/ model 236 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust
+surface 13 escapes in 5 allowlisted files (574 scanned);
+overview-links 112; quote-gate 2; no-local-paths OK.  **proofdeps: 30
+rows ENTERED** — `MutualTagI`, `CaseFamI` and `CaseWitness` in every
+capstone's proof-term closure (10 roots × 3), pinned at 4945 rows /
+12 roots / 0 doors after regeneration.  JUSTIFIED, not a door: they
+are the seal's new REPRESENTATION, reached exactly as `MutualLeafI`
+and `FixWitness` already were — through `declMutual`'s assembly
+(`mutualCtorFold`, `mutualCaseClosed_of`) into the main theorem; no
+capstone acquired machinery it did not need, the mutual route's
+representation changed.  No row left.  shake: 496 removals all
+allowlisted — 3 NEW proposals run through the #223 criterion
+(`MutualTagI`'s `FixFamI`, `CaseWitness`'s `FixWitness`,
+`MutualChains`'s `CaseWitness`: each a demotion paired with narrower
+re-exports = COMPENSATED, allowlisted with the compensation) and 1
+stale line (`MutualLeafI`'s `FixFamI`, no longer proposed after the
+split) deleted; pub-imports none demotable (19 fallbacks).
+
+##### (j) RE-SIZING
+
+M6: s1–s4 done; **s5** = `hfit` (the instantiation law at fields,
+targets and index equation), `hIs`/`hPinIdx`, the same-universe fact,
+the cased witness at the nested block → `pinLeaf` for `ofNested` +
+the formers' stage of the assembly 1–2; **s6** = the constructors'
+stage and `blockReps_of`'s nested twin → `NestedCoreModeled` 1–2 →
+M6 6–8 (unchanged).  M7 4–5; M8 1–2.  Remaining **10–13** (was
+11–15): s4 came in at one session with the shape of `pinLeaf` settled.
