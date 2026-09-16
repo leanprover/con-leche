@@ -343,7 +343,7 @@ theorem nestedPinKindsOk_inv {p : NestedParts} {b : MutualBlock} {st : ElimState
 a kind that is recursive or reflexive with a target INSIDE the group
 forces the container member's stored constructor `j` to MENTION, at
 field `l`, the container-group member the target names. -/
-theorem nestedCopyTargetsOk_mentions {env : Env} {p : NestedParts} {b : MutualBlock}
+theorem nestedCopyTargetsOk_head {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
     (h : nestedCopyTargetsOk env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
@@ -361,11 +361,13 @@ theorem nestedCopyTargetsOk_mentions {env : Env} {p : NestedParts} {b : MutualBl
     (hr : r = .recursive ∨ r = .reflexive)
     (hlo : p.k + qn.grpBase ≤ t) (hhi : t < p.k + qn.grpBase + qn.grpSize) :
     ∃ (jbs : List (Expr × BinderMeta)) (rJ : Expr) (domJ : Expr × BinderMeta)
-      (Jt : ContainerMember),
+      (Jt : ContainerMember) (d : Nat) (tbs : List (Expr × BinderMeta)) (jres : Expr)
+      (us : List Level),
       cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ) ∧
       jbs[ci.nP + l]? = some domJ ∧
       ci.members[t - p.k - qn.grpBase]? = some Jt ∧
-      domJ.1.mentionsConst Jt.name = true := by
+      domJ.1.stripPis d = some (tbs, jres) ∧
+      jres.getAppFn = .const Jt.name us := by
   unfold nestedCopyTargetsOk at h
   rw [hk] at h
   simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
@@ -418,23 +420,56 @@ theorem nestedCopyTargetsOk_mentions {env : Env} {p : NestedParts} {b : MutualBl
   rw [hpk, hJt] at hlv
   simp only [Bool.and_eq_true] at hlv
   obtain ⟨hhead, -⟩ := hlv
-  -- the peeled body is headed by the target member, so the domain mentions it
-  have hjm : jres.mentionsConst Jt.name = true := by
-    cases hfn : jres.getAppFn with
+  -- the peeled body is headed by the target member
+  obtain ⟨us, hfn⟩ : ∃ us, jres.getAppFn = .const Jt.name us := by
+    cases hf : jres.getAppFn with
     | const nm us =>
-      rw [hfn] at hhead
+      rw [hf] at hhead
       simp only [beq_iff_eq] at hhead
-      subst hhead
-      have := mentionsConst_mkAppN_of_fn (T := Jt.name) jres.getAppArgs jres.getAppFn
-        (by rw [hfn]; simp [Expr.mentionsConst])
-      rw [Expr.mkAppN_getApp jres] at this
-      exact this
-    | _ => rw [hfn] at hhead; simp only at hhead; exact nomatch hhead
-  refine ⟨jbs, rJ, domJ, Jt, ?_, ?_, ?_, ?_⟩
+      exact ⟨us, by rw [hhead]⟩
+    | _ => rw [hf] at hhead; simp only at hhead; exact nomatch hhead
+  refine ⟨jbs, rJ, domJ, Jt, (Expr.piBinders domC.1).1.length, tbs, jres, us, ?_, ?_, ?_, ?_, ?_⟩
   · first | exact hsJ | rfl
   · first | exact hdJ | rfl
   · first | exact hJt | rfl
-  · rw [stripPis_mkPisB _ hpk]
-    exact mentionsConst_mkPisB tbs jres hjm
+  · exact hpk
+  · exact hfn
+
+/-- **K.32's clause as a mention** — the `ordF` right arm's form: the
+container member's stored constructor `j` MENTIONS, at field `l`, the
+container-group member the target names. -/
+theorem nestedCopyTargetsOk_mentions {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedCopyTargetsOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {a : AuxStored} (ha : stored[p.k + q]? = some a)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {J : ContainerMember} (hJ : ci.members[q - qn.grpBase]? = some J)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cv : ConstantVal} {nPc nF : Nat} (hc : a.ctors[j]? = some (cv, nPc, nF))
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    (hr : r = .recursive ∨ r = .reflexive)
+    (hlo : p.k + qn.grpBase ≤ t) (hhi : t < p.k + qn.grpBase + qn.grpSize) :
+    ∃ (jbs : List (Expr × BinderMeta)) (rJ : Expr) (domJ : Expr × BinderMeta)
+      (Jt : ContainerMember),
+      cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ) ∧
+      jbs[ci.nP + l]? = some domJ ∧
+      ci.members[t - p.k - qn.grpBase]? = some Jt ∧
+      domJ.1.mentionsConst Jt.name = true := by
+  obtain ⟨jbs, rJ, domJ, Jt, d, tbs, jres, us, hsJ, hdJ, hJt, hpk, hfn⟩ :=
+    nestedCopyTargetsOk_head h hk hq hqn hks ha hci hJ hj hkf hc hcJ hl hr hlo hhi
+  refine ⟨jbs, rJ, domJ, Jt, hsJ, hdJ, hJt, ?_⟩
+  have hjm : jres.mentionsConst Jt.name = true := by
+    have := mentionsConst_mkAppN_of_fn (T := Jt.name) jres.getAppArgs jres.getAppFn
+      (by rw [hfn]; simp [Expr.mentionsConst])
+    rw [Expr.mkAppN_getApp jres] at this
+    exact this
+  rw [stripPis_mkPisB _ hpk]
+  exact mentionsConst_mkPisB tbs jres hjm
 
 end ConLeche
