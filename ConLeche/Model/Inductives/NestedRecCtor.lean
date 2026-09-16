@@ -4,6 +4,10 @@ public import ConLeche.Model.Inductives.NestedRecFibre
 public import ConLeche.Model.Inductives.NestedRecWalk
 public import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Verify.Inductives.NestedCopyGlue
+import ConLeche.Model.Inductives.MutualFormersKit
+import ConLeche.Model.Inductives.NestedTransfer
 public section
 
 /-!
@@ -207,6 +211,134 @@ theorem NestedTailIn.ctorPinInv (hnames : NestedCtorPinNames env p st)
     hccj, ?_, hpos.2⟩
   rw [hnn, ← hn, ← hpos.1, htn]
   exact (hnames q qn hqn ci J hci hJmem hJname cc (List.mem_of_getElem? hccj)).symm
+
+
+omit I in
+private theorem auxCtorNames_flat (lps : List Name) : ∀ (ts : List AuxType) (s : Nat),
+    (((ts.zipIdx s).map fun (tm : AuxType × Nat) =>
+        tm.1.ctors.map fun cc =>
+          (⟨⟨cc.1, lps, cc.2.1⟩, cc.2.2, tm.2⟩ : ConLeche.MutualCtor)).flatten).map (·.cv.name)
+      = (ts.flatMap (·.ctors)).map (·.1)
+  | [], _ => rfl
+  | t :: ts, s => by
+    rw [List.zipIdx_cons, List.map_cons, List.flatten_cons, List.map_append,
+      auxCtorNames_flat lps ts (s + 1), List.flatMap_cons, List.map_append, List.map_map]
+    rfl
+
+
+omit I in
+private theorem hasFvar_mkAppN_inv : ∀ (args : List Expr) (g : Expr),
+    (Expr.mkAppN g args).hasFvar = false → g.hasFvar = false ∧ ∀ x ∈ args, x.hasFvar = false
+  | [], g, h => ⟨h, fun x hx => absurd hx (by simp)⟩
+  | a :: as, g, h => by
+    obtain ⟨hg, has⟩ := hasFvar_mkAppN_inv as _ h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hg
+    exact ⟨hg.1, fun x hx => by
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact hg.2
+      · exact has x hx'⟩
+
+/-- The pin's level parameters are the container's constructor's
+(step (iii)): both are the stored container member's. -/
+theorem NestedTailIn.ctorPinLps
+    {q : Nat} {qn : NestedPin} {jc : Nat} {ci : ContainerInfo} {J : ContainerMember}
+    {cc : ContainerCtor} {cvc : ConstantVal}
+    (hqn : st.pins[q]? = some qn)
+    (hci : ConLeche.containerInfo? env qn.container = some ci) (hJmem : J ∈ ci.members)
+    (hccj : J.ctors[jc]? = some cc)
+    (hfindcc : env.find? cc.name = some (.ctorInfo cvc ci.nP cc.nFields)) :
+    cvc.levelParams = J.lps := by
+  obtain ⟨d₀, CM⟩ := I.hPM qn (List.mem_of_getElem? hqn) ci hci
+  obtain ⟨i₀, hi₀⟩ := List.getElem?_of_mem hJmem
+  obtain ⟨-, hnm, cvR', mI', rP', rules', hI'⟩ := CM.member i₀ J hi₀
+  have hjlt : jc < (d₀.ctorsM i₀).length := by
+    have := congrArg List.length hnm
+    simp only [List.length_map] at this
+    rw [this]
+    exact (List.getElem?_eq_some_iff.mp hccj).1
+  obtain ⟨cA₀, hcA₀⟩ : ∃ cA₀, (d₀.ctorsM i₀)[jc]? = some cA₀ :=
+    ⟨_, List.getElem?_eq_getElem hjlt⟩
+  have hname : cA₀.1.name = cc.name := by
+    have h1 : ((d₀.ctorsM i₀).map (·.1.name))[jc]? = some cA₀.1.name := by
+      rw [List.getElem?_map, hcA₀]; rfl
+    have h2 : ((J.ctors).map (·.name))[jc]? = some cc.name := by
+      rw [List.getElem?_map, hccj]; rfl
+    rw [hnm] at h1
+    exact Option.some.inj (h1.symm.trans h2)
+  have hi₀k : i₀ < d₀.k := by rw [CM.k]; exact (List.getElem?_eq_some_iff.mp hi₀).1
+  obtain ⟨hfind₀, hlps₀, -⟩ := hI'.ctors i₀ jc cA₀ hi₀k hcA₀
+  rw [hname] at hfind₀
+  rw [hfindcc] at hfind₀
+  obtain ⟨hcv, -, -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfind₀)
+  rw [← hcv] at hlps₀
+  exact hlps₀
+
+theorem NestedTailIn.ctorPinRead
+    {q : Nat} {qn : NestedPin} {jc : Nat} {ci : ContainerInfo} {J : ContainerMember}
+    {cc : ContainerCtor}
+    (hqn : st.pins[q]? = some qn) (hq : q < pinsS.length)
+    (hci : ConLeche.containerInfo? env qn.container = some ci) (hJmem : J ∈ ci.members)
+    (hccj : J.ctors[jc]? = some cc)
+    (ψ : Name → Nat) :
+    ∀ (fvsP fvs : List Expr) (d : Nat), OpenersFrom fvsP 0 b.nP → OpenersFrom fvs b.nP d →
+      denoteMeta mp₂.base2.acval (ENV₂) ψ (b.nP + d) (Expr.instSeq (fvsP ++ fvs) (b.nP + d - 1)
+          (Expr.mkAppN (.const cc.name ((D).pinAt q).lvls)
+            (((Expr.abstractRange qn.pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs)))
+        = some (AnnotTerm.mkAppN (mp₂.base2.acval cc.name (((D).pinAt q).ψJ ψ))
+            ((((D).pinAt q).Ds ψ).map (·.liftN d 0))) := by
+  intro fvsP fvs d hfvsP hfvs
+  obtain ⟨hnP, -, -, -⟩ := ConLeche.auxBlock_fields I.hb
+  obtain ⟨hPJ, hpinEq⟩ := I.out.stage.pinRec q qn hqn
+  have hpinDs : DenoteMetaSpine mp₂.base2.acval (ENV₂) ψ b.nP ((D).pinAt q).DsE
+      (((D).pinAt q).Ds ψ) := I.out.stage.pinDs q hq ψ
+  have hndNames : (fms.map (·.cvTa.name)).Nodup := by
+    rw [I.out.facts.names]
+    have h0 := I.out.nodup
+    unfold ConLeche.MutualBlock.blockNames at h0
+    exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
+  have hfv0 := (ConLeche.pinsClosed_inv I.hclosed qn (List.mem_of_getElem? hqn)).1
+  rw [hpinEq, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const] at hfv0
+  obtain ⟨-, hfvArgs⟩ := hasFvar_mkAppN_inv _ _ hfv0
+  have hfv : (Expr.abstractRange (Expr.mkAppN (.const cc.name ((D).pinAt q).lvls)
+      ((D).pinAt q).DsE) 0 b.nP 0).hasFvar = false := by
+    rw [hnP, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const]
+    exact ConLeche.hasFvar_mkAppN _ _ rfl hfvArgs
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfindI, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfindJ, -, hJlps, -, hlpsEq, -, hccs⟩ := hmembers J hJmem
+  obtain ⟨r, cvc, -, hccr, hfindcc, -⟩ := hccs jc cc hccj
+  rw [← hccr] at hfindcc
+  have hcvc : cvc.levelParams = cvT.levelParams := by
+    rw [I.ctorPinLps hqn hci hJmem hccj hfindcc, hJlps, hlpsEq]
+  have hFE1 : FindPreserved env (ENV₁) :=
+    (consMutualFormers_extend (fms := fms.take p.k) (env := env)
+      (fun f hf => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
+        exact I.out.facts.fresh t f ht)
+      (by
+        have := hndNames
+        rw [← List.take_append_drop p.k fms, List.map_append] at this
+        exact (List.nodup_append.mp this).1)).1
+  have hfindI1 : (ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps) := by
+    rw [hPJ]; exact hFE1 hfindI
+  obtain ⟨hlvlsLen, hψJ₀⟩ := I.out.stage.pinψ q hq cvT caps hfindI1
+  have hψJ : ∀ ψ' : Name → Nat, ((D).pinAt q).ψJ ψ'
+      = Level.substFn ψ' cvT.levelParams ((D).pinAt q).lvls := hψJ₀
+  have hfindcc2 : (ENV₂).find? cc.name = some (.ctorInfo cvc ci.nP cc.nFields) :=
+    I.out.stage.find (hFE1 hfindcc)
+  have hidx : ∀ k, k < b.nP → ∃ ty, fvsP[k]? = some (.fvar k ty) := by
+    intro k hk
+    obtain ⟨x, hx⟩ : ∃ x, fvsP[k]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hfvsP.1]; exact hk)⟩
+    obtain ⟨ty, rfl⟩ := hfvsP.2 k x hx
+    exact ⟨ty, by simpa using hx⟩
+  rw [hpinEq, ← hnP,
+    ConLeche.instSeq_ctorPin_open hfvsP.1 hfvs.1 hfvsP.closed (nt_pin_bounded hpinDs)]
+  rw [nt_denoteMeta_restoredPin mp₂.base2 hfvsP.1 hidx hfv hfindcc2
+    (by show ((D).pinAt q).lvls.length = cvc.levelParams.length; rw [hcvc]; exact hlvlsLen)
+    hpinDs]
+  rw [show (ConstantInfo.ctorInfo cvc ci.nP cc.nFields).toConstantVal.levelParams
+      = cvT.levelParams from hcvc, ← hψJ ψ]
 
 
 end Run
