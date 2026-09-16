@@ -342,6 +342,9 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
       (∀ l ∈ cI.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) ∧
       ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁ cI
         = .ok (cbody', st₂) ∧
+      ((srcAtE st p (q₀ + i')).2.2.any fun a =>
+        st₁.newNames.any fun T => a.mentionsConst T) = true ∧
+      (∀ a ∈ (srcAtE st p (q₀ + i')).2.2, a.looseBVarsBounded 0 = true) ∧
       st₁.pins <+: st₂.pins ∧ st₂.pins <+: st.pins ∧
       ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
       b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
@@ -372,7 +375,7 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
   subst hlv' hDs'
   -- the copy's stored constructor at `j`
   obtain ⟨c₀, pbs', rest, cbody, cbody', st₁, st₂, hc0, hstrip0, hinstp, hrep, hcjEq, hp1, hp2,
-    -⟩ := hallj j _ hcj
+    -, hmint⟩ := hallj j _ hcj
   -- `mkCopy`'s own pre-image at the ELIMINATION's container record
   obtain ⟨-, -, -, -, hclen'', hallc⟩ := ConLeche.mkCopy_inv hmk'
   have hjlt : j < J'.ctors.length := by
@@ -456,7 +459,7 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
     exact congrArg ContainerInfo.nP (Option.some.inj (((by rw [← hJc] at hci₂; exact hci₂ :
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci₂)).symm.trans hciP))
   refine ⟨cc, J, cI, cbody', o, params, pbs₀, st₁, st₂, cA, cname, hcc, hn, hty, hnf, hJname,
-    hDsnP, hopb, hinst, hcIb, hcIl, hrep, hp1, hp2, hcA, hnF, ?_⟩
+    hDsnP, hopb, hinst, hcIb, hcIl, hrep, hmint, hloose', hp1, hp2, hcA, hnF, ?_⟩
   rw [hbc]
   have : (copyAtE st p (q₀ + i')).ctors[j]!.2.1 = closeTelescope pbs₀ 0 cbody' := by
     have hb2 : (copyAtE st p (q₀ + i')).ctors[j]! = (cname,
@@ -494,6 +497,8 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
       pcs.length = dJ.nP ∧ fcs.length = cc.nFields ∧ esJ.length = dJ.nIdxAt i' ∧
       -- the block's parameter openers
       ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) ∧
+      -- the pin's components: closed, and mentioning a minted name
+      (∀ a ∈ (srcAtE st p (q₀ + i')).2.2, a.looseBVarsBounded 0 = true) ∧
       -- the copy's fields: one rewrite run per instantiated domain
       Fs'.length = cc.nFields ∧
       (∀ l, l < cc.nFields → ∃ st₁ st₂ : ElimState,
@@ -501,14 +506,18 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
             (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
               (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
                 (fcs.getD l default).1))
-          = .ok ((Fs'.getD l default).1, st₂) ∧ st₂.pins <+: st.pins) ∧
+          = .ok ((Fs'.getD l default).1, st₂) ∧ st₂.pins <+: st.pins ∧
+        ((srcAtE st p (q₀ + i')).2.2.any fun a =>
+          st₁.newNames.any fun T => a.mentionsConst T) = true) ∧
       (∃ st₁ st₂ : ElimState,
         ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
             (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
               (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
                 (Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
                   (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ))))
-          = .ok (resid', st₂) ∧ st₂.pins <+: st.pins) ∧
+          = .ok (resid', st₂) ∧ st₂.pins <+: st.pins ∧
+        ((srcAtE st p (q₀ + i')).2.2.any fun a =>
+          st₁.newNames.any fun T => a.mentionsConst T) = true) ∧
       -- the block's entry, the rewritten telescope closed over `pbs₀`
       cbody'.stripPis cc.nFields = some (Fs', resid') ∧
       ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
@@ -516,7 +525,8 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
         = some ⟨⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩, cc.nFields, p.k + q₀ + i'⟩ := by
   classical
   obtain ⟨cc, J, cI, cbody', o, params, pbs₀, stA, stB, cA, cname, hcc, hn, hty, hnf, hJname,
-    hDsnP, hopb, hinst, -, -, hrep, -, hp2, hcA, hnF, hbc⟩ := R.copyBody SF S hPD hi' hj
+    hDsnP, hopb, hinst, -, -, hrep, hmint, hDsB, -, hp2, hcA, hnF, hbc⟩ :=
+    R.copyBody SF S hPD hi' hj
   -- the container's constructor telescope, off the block model
   obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
   obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
@@ -546,7 +556,7 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
             (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)))) :=
     Option.some.inj (hinst.symm.trans hinst2)
   -- the rewrite, domain by domain
-  obtain ⟨Fs', resid', hcb, hlenF, hfields, stC, stD, hres, -, hresP, -⟩ :=
+  obtain ⟨Fs', resid', hcb, hlenF, hfields, stC, stD, hres, -, hresP, hresN⟩ :=
     ConLeche.replaceAllNested_mkPisB _ hrep
   have hmapGet : ∀ (L : List (Expr × ConLeche.BinderMeta)) (l : Nat), l < L.length →
       ((L.map fun bb =>
@@ -571,10 +581,11 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
   have hlenF' : Fs'.length = cc.nFields := by rw [hlenF, hbsLen]
   refine ⟨cc, J, cvT.levelParams, cbs.take dJ.nP, cbs.drop dJ.nP, Fs', esJ, cbody', resid', o,
     params, pbs₀, cA, cname, hn, hty, hnf, hJname, hDsnP, by rw [hsplit]; exact hstripJ, hpl, hfl,
-    hesJ, hopb, hlenF', ?_, ⟨stC, stD, ?_, hresP.trans hp2⟩, ?_, hcA, hnF, hbc⟩
+    hesJ, hopb, hDsB, hlenF', ?_,
+    ⟨stC, stD, ?_, hresP.trans hp2, ConLeche.elimMint_mono hresN hmint⟩, ?_, hcA, hnF, hbc⟩
   · intro l hl
-    obtain ⟨-, st₁, st₂, hrun, -, hpre, -⟩ := hfields l (by rw [hbsLen]; exact hl)
-    refine ⟨st₁, st₂, ?_, hpre.trans hp2⟩
+    obtain ⟨-, st₁, st₂, hrun, -, hpre, hnm⟩ := hfields l (by rw [hbsLen]; exact hl)
+    refine ⟨st₁, st₂, ?_, hpre.trans hp2, ConLeche.elimMint_mono hnm hmint⟩
     rw [ConLeche.instTeleSeq_getD _ _ _ _ (by rw [List.length_map, hfl]; exact hl),
       hmapGet _ l (by rw [hfl]; exact hl), hDsnP] at hrun
     exact hrun
