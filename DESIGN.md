@@ -81100,3 +81100,171 @@ the landing note.  Standard axioms only on every new theorem
 `blockCtorFieldMentions`, `os_instSeq_head`,
 `NestedPinsRun.copyGroupTargetHead`, `.copyOrdFRight_shape`,
 `.copyPinF_shape`).
+
+#### U.38 — L-B session 8: obstacle (1) CLOSED, the copy's residual identified; the three arms NOT proved (lane L-B, 2026-09-16)
+
+**No arm of `CopyCtorInst` beyond `len` and the two shape conjuncts is
+proved.**  What landed is §U.37 (e)'s first obstacle — closed, not
+worked around — the syntactic half of `es` on top of it, and the two
+copy-side normalisation facts the reading half will need.  (c) says
+where the session stopped and re-sizes the rest; the sizing in §U.23
+and in `_tmp/plan-lb/PLAN.md` §3 is wrong for `es`, `recF` and
+`ordF`-left for one reason, named there.
+
+##### (a) The mint verdict AT THE RUN'S OWN STATE — where the history is read, not a new argument
+
+§U.37 (e) named the obstacle: `elimNested_copyCtors` records the
+occurrence test's mint condition (`(Ds.any fun a => st.newNames.any
+…) = true`) at the FINAL elimination state, while
+`replaceAllNested_occurrence` wants it at the state the constructor's
+own rewrite STARTS from, and `newNames` grows the wrong way.  The
+route §U.37 proposed (the copy's residual head is its own former, so a
+descending walk cannot have produced it) is NOT the one that was
+taken, and is not needed: **the copy is minted before the worklist
+reaches it**, so the verdict already holds at the state `elimCtors` is
+called with.  The fix is three lines of bookkeeping in the file that
+owns the history:
+
+* `CtorsDone` (`Verify/Inductives/NestedCopyProv.lean`) gains a clause
+  keyed on `t.src` — which no step of the worklist changes, so no two
+  mint records have to be matched up:
+
+```lean
+      ∀ (Jn : Name) (lvls : List Level) (Ds : List Expr), t.src = some (Jn, lvls, Ds) →
+        (Ds.any fun a => st₁.newNames.any fun T => a.mentionsConst T) = true
+```
+
+* `cpElimCtors_ctor` gains `st.types.map (·.name) <+: stA.types.map
+  (·.name)` (the call's input state's names sit inside each
+  constructor's own run state's), which carries the loop's verdict to
+  each constructor;
+* `elimMint_mono` is the public twin of the file's private
+  `cpAny_mono`, so the verdict travels further to the per-domain runs
+  `replaceAllNested_mkPisB` splits out.
+
+`NestedPinsRun.copyBody` and `.copyFields` now hand the verdict over —
+per field and for the residual — together with the components'
+closedness.  **Obstacle (1) is closed for every arm**, not only for
+`es`: `recF`'s and `pinF`'s field occurrences read the same verdict.
+
+##### (b) `NestedPinsRun.copyResid` — the syntactic half of `es`
+
+`Model/Inductives/NestedCopyInst.lean`, `copyFields`' package with the
+residual computed:
+
+```lean
+      cbody'.stripPis cc.nFields = some (Fs',
+        Expr.mkAppN (Expr.mkAppN (.const qn.aux (p.lps.map Level.param)) params)
+          (esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+            (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)))
+```
+
+`ilp_mkAppN` + `ilp_structPsAt` + `instSeq_mkAppN_const` +
+`instSeq_structPsAt` turn the instantiated residual into
+`memberName i'` applied to the components followed by the index
+arguments; (a)'s verdict and the components' closedness are
+`replaceAllNested_occurrence`'s remaining two hypotheses; the walk
+returns the firing's result unchanged, so the index arguments come
+back VERBATIM — §U.37 (e)'s settlement, now a theorem.
+
+Two things the proof did NOT need, worth recording because the plan
+said it would:
+
+* **no level bookkeeping.**  The occurrence lemma takes the head's
+  level arguments as they come, so `J.lps ↦ lvls` is never computed
+  and neither K.21's `Name.nodup J.lps` nor a length agreement is
+  read.  The price is that the pin is returned as `qn` with
+  `qn.pin = mkAppN (.const (dJ.memberName i') usJ) Ds` for an
+  unanalysed `usJ`, rather than identified with `pinAtE st (q₀ + i')`.
+  `es` does not care (it reads the ARGUMENTS past `b.nP`); `recF`'s
+  TARGET conjunct does — see (c).
+* **`0 < nP` is free at a pinned container**: its components mention a
+  minted name, so the component list is not empty.  That is where the
+  cut `dJ.nP - 1 + l` meets `instSeq_structPsAt`'s `l + Ds.length - 1`.
+
+##### (c) FINDING — the remaining blocker is ONE round trip, and it holds only up to `ErasedEq`
+
+The reading half of `es` — and, for the same reason, `recF`'s
+telescope/index conjuncts and `ordF`-left — is not "B4 at a spine"
+alone.  Between (b)'s output and what the model reads there is a
+**copy-side open/close round trip** that the plan never counted:
+
+* `copyFields`/`copyResid` speak of `Fs'`/`resid'` — the rewrite's
+  output, in the ELIMINATION's own openers `params`;
+* the block's entry is `closeTelescope pbs₀ 0 cbody'`, and the stage
+  stores `normCtorValM`'s output on it;
+* what `MutualCtorDataI` (hence `Fss₀`, `Eiss₀`, `Ess₀`) reads is the
+  STORED type opened AGAIN — `opens`/`idxEq`/`domRead` are all at
+  `openPisAtFvars b.nP …` followed by `openPisAtFvars nF …`.
+
+Two of the three steps are now theorems (`Verify/Inductives/`):
+
+* `closeTelescope_mkPisB_strip` (`NestedCopyKinds`, in tree since
+  §U.32) — the entry type strips back to the parameter binders, the
+  telescope abstracted, and the body abstracted under everything;
+* `normFieldDomsM_open` + `normCtorValM_resid` (this session,
+  `MutualInv`/`NestedInv`) — the normalisation peels exactly `nF`
+  binders at `openPisAtFvars`' OWN openers, so **its residual is the
+  two-stage opening's residual on the nose**, and what the stage
+  stores is either its input or that input's telescope re-closed
+  around that very residual, with only the field domains replaced.
+  This is what DESIGN has been asserting at every copy-reading step
+  ("the residual is not normalised") without a proof.
+
+The third step is the round trip `openPisAtFvars n (closeTelescope bs
+0 r) 0`, and **it is not an identity**: `closeTelescope` leaves each
+binder's domain where it stands and the re-opening plants
+`.fvar i (bs.getD i).1`, so every `fvar` the body carries comes back
+with the CLOSING telescope's annotation.  At the parameters that is
+harmless (`normCtorValM`'s `pbs` is literally
+`fvsP[i].fvarTypeD`), but at the fields the closing domain is the
+NORMALISED one `dom'_l` while the minted opening planted `dom_l` — so
+the round trip holds only up to `Expr.ErasedEq`, and
+`closeTelescope_eq_mkPisB` is unavailable here (its `hasFvar = false`
+hypothesis is false of a constructor's field domains).  This is the
+same phenomenon that forced `openPisAtFvars_stripPis`'s body half to
+be stated up to `ErasedEq` (§U.35 (a)).
+
+Consequences for the next session, and the corrected sizing:
+
+1. `ErasedEq` is enough for the READINGS (`denoteMeta_erasedEq`) and
+   for a `const` HEAD and its level arguments, but NOT for
+   `mentionsConst` — an annotation may mention a constant the erased
+   term does not.  So `ordF`-left's prune (`replaceAllNested_of_no_
+   mention`) and `ordF`-right's `ordFree` contradiction must be taken
+   on the CLOSED side (where §U.37 (b) already puts them), never
+   across this round trip.
+2. The round trip itself is one `Verify` induction over
+   `closeTelescope`/`openPisAtFvars` with `abstract1_instantiate1` at
+   each step, stated up to `ErasedEq` — **0.5–1 session**, and it is
+   the next item; every one of the three arms crosses it.
+3. B4 at a spine (§U.37 (e)) is unchanged and still missing:
+   `denoteMeta` of the container's index argument, instantiated at the
+   components and re-opened at the BLOCK's openers, against its
+   reading at the CONTAINER's openers — two models, two ψ, two depths
+   AND a change of opener list.  **1–1.5 sessions.**
+4. `recF`'s TARGET conjunct (`tgtsG = k + q₀ + dJ.tgts i j l`) needs
+   the pin IDENTIFIED, which (b) deliberately avoided: it needs
+   `(J.lps.map .param).map (Level.subst J.lps lvls) = lvls`, i.e.
+   K.21's `Name.nodup J.lps` read back (no consumer in the tree today)
+   **and** `J.lps.length = lvls.length`, which nothing records — the
+   only plausible source is `nestedPinsOk`'s `inferType` on the pin,
+   an inversion into the inference tier.  **Flagged as a NEW gap**;
+   `rss = true` alone does not need it.
+5. So: `es` = round trip + B4 = 1.5–2 sessions; `recF` = that plus B3
+   (in tree), the kinds, and (4) = 2 sessions; `ordF`-left = round
+   trip + B4 + B6/`NormErasure` + B7 = 1.5 sessions.  The five arms
+   are 5–6 sessions from here, not 3.
+
+##### (d) GATES
+
+`lake build` 693 jobs warning-free; `lake test` warning-free; layering
+base 346 / model 264 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(625); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
+4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted (one fewer
+proposal: `NestedCopyProv`'s new public lemma gives `NestedCopyInst`'s
+import of it a second consumer); pub-imports 1256 of 1979 public, none
+demotable.  Standard axioms only on every new theorem
+(`elimMint_mono`, `normFieldDomsM_open`, `normCtorValM_resid`,
+`NestedPinsRun.copyResid`, and the restated `elimNested_copyCtors`,
+`copyBody`, `copyFields`).
