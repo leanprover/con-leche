@@ -3,11 +3,13 @@ module
 public import ConLeche.Model.Inductives.NestedFit
 public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.MutualCore
-public import ConLeche.Kernel.Inductives.NestedParts
+import ConLeche.Kernel.Inductives.NestedParts
 import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.BlockRecFrames
+import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Verify.Inductives.NestedRecNames
 public section
 
 /-!
@@ -1024,7 +1026,414 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     exact mp₂.mem_type _ (ConLeche.Semantics.Env.find?_mem hBF.1) ψ _ hread ρ
 
 
+/-! ## The stage's outputs -/
+
+local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
+local notation "ENV₂" => (ConLeche.consNestedCtors ctorsR.flatten
+  (ConLeche.consMutualFormers (fms.take p.k) env))
+
+/-- **The restored constructors' stage's outputs** at a model `mp₂` of
+the restored environment (the members re-consed with the records the
+scratch install stored, the restored constructors after them) — the
+inputs of `nestedBlockReps_of`, and the run-level readers
+`nestedCoreModeled_of` needs beyond them (the pins' records, the
+members' names, the agreement off the block).  Fields named after the
+data they constrain: `pinsLen`/`pinRec` (the pin records are the
+elimination's pins), `names`, `agree`, `findM`/`leafM`/`FD` (the
+members at `mp₂`), `ctorsLen`/`ctorFacts`/`domFacts` (the restored
+constructors: THE RESTORE READING LAW), `groups` (the pin groups). -/
+structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Prop where
+  pinsLen : pinsS.length = st.pins.length
+  pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
+    ((D).pinAt q).J = pin.container ∧
+    pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
+  agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
+    ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
+  findM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+    (ENV₂).find? f.cvTa.name = some (ConstantInfo.indInfo f.cvTa {})
+  leafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+    mp₂.base2.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t
+  FD : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+    FormerData mp₂.base2 f.cvTa (b.nP + f.nIdx) f₀.s (ppsF t)
+  ctorsLen : ∀ mm, mm < p.k → (ctorsR.getD mm []).length = (b.ownCtors mm).length
+  ctorFacts : ∀ (mm j : Nat) (c : ConstantVal × Nat × Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    ∃ cA : ConstantVal × Nat, ctorsA[b.ownOffset mm + j]? = some cA ∧ c.2.2 = cA.2 ∧
+      (∀ ψ : Name → Nat, mp₂.base2.acval c.1.name ψ
+        = sumMkAV (f₀.s.eval ψ) j (dsF (b.ownOffset mm + j) ψ)
+            (((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2))
+            (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm)))) ∧
+      (∀ e ∈ idxF (b.ownOffset mm + j), e.constsResolve ENV₂ = true) ∧
+      BlockCtorFacts mp₂.base2 (D) b.lps mm j (c.1, c.2.2)
+  domFacts : ∀ (mm j : Nat) (ψ : Name → Nat), mm < p.k → j < (ctorsR.getD mm []).length →
+    (dsR mm j ψ).length = (dsF (b.ownOffset mm + j) ψ).length ∧
+    (dsR mm j ψ).take b.nP = (dsF (b.ownOffset mm + j) ψ).take b.nP ∧
+    ∀ i, ((D).nestOf mm j i = none ∨
+        (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD i false = false) →
+      (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
+  groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+    q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+
+/-- **The restored constructors' LOOP's outputs** — what the named fact
+`NestedCtorsStaged` supplies, at a model `mp₁` of the members' prefix
+environment (the formers' stage at the prefix, `stageTupleFormers`)
+and the model `mp₂` it conses: the pin records, the extension facts of
+the constructors' conses (`find`, `hde`: a reading at the prefix model
+survives), the members' leaves untouched, the agreement off the
+restored constructors' names, the reading law (`ctorFacts`/`domFacts`)
+and the pin groups.  `NestedStageFacts` is derived from it
+(`nestedStageFacts_of`). -/
+structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp₂ : EnvModelM V μ ENV₂) :
+    Prop where
+  pinsLen : pinsS.length = st.pins.length
+  pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
+    ((D).pinAt q).J = pin.container ∧
+    pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  find : FindPreserved ENV₁ ENV₂
+  hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+    denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
+    denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
+  leafKeep : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+    mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name
+  agreeC : ∀ n : Name, (∀ c ∈ ctorsR.flatten, n ≠ c.1.name) →
+    mp₂.base2.acval n = mp₁.base2.acval n
+  ctorFacts : ∀ (mm j : Nat) (c : ConstantVal × Nat × Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    ∃ cA : ConstantVal × Nat, ctorsA[b.ownOffset mm + j]? = some cA ∧ c.2.2 = cA.2 ∧
+      (∀ ψ : Name → Nat, mp₂.base2.acval c.1.name ψ
+        = sumMkAV (f₀.s.eval ψ) j (dsF (b.ownOffset mm + j) ψ)
+            (((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2))
+            (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm)))) ∧
+      (∀ e ∈ idxF (b.ownOffset mm + j), e.constsResolve ENV₂ = true) ∧
+      BlockCtorFacts mp₂.base2 (D) b.lps mm j (c.1, c.2.2)
+  domFacts : ∀ (mm j : Nat) (ψ : Name → Nat), mm < p.k → j < (ctorsR.getD mm []).length →
+    (dsR mm j ψ).length = (dsF (b.ownOffset mm + j) ψ).length ∧
+    (dsR mm j ψ).take b.nP = (dsF (b.ownOffset mm + j) ψ).take b.nP ∧
+    ∀ i, ((D).nestOf mm j i = none ∨
+        (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD i false = false) →
+      (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
+  groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+    q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+
 end Assembly
+
+/-! ## The named fact -/
+
+/-- **The restored constructors' loop** (NAMED, DESIGN §U.19 (c)): at
+the run's conjuncts through `restoreCtors`, the auxiliary block's
+formers' facts (`MutualFormersFacts` at the `auxRoute` grade), and a
+model of the members' PREFIX environment whose leaves are the
+auxiliary members' (the formers' stage at the prefix), the restored
+constructors cons a model with their leaves the AUXILIARY leaves and
+their types read through the nested arm (`NestedLoopFacts`).
+Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
+@[expose] def NestedCtorsStaged (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  μ.verifiedChecks = true →
+  ∀ {env : Env} (mp : EnvModelM V μ env), ConLeche.EtaFamiliesClosed env →
+  ∀ (p : NestedParts) (st : ElimState) (b : MutualBlock) (envAux : Env)
+    (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
+    (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
+    PinsModeled mp.base2 st.pins →
+    (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
+      (p.ctors.map (fun c => c.cv.type)).all (fun t => !t.mentionsNestedAux)) = true →
+    uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP
+      (p.ctors.map (fun c => c.cv.type)) = true →
+    ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (fueledOps μ F) env p.nP p.formers
+      = .ok fmsA →
+    ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA₀ →
+    ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA₀) = .ok st →
+    st.pins.length = p.numNested →
+    ConLeche.copiesFresh env p.k st = true →
+    ConLeche.nestedContainersOk env st.pins = true →
+    ConLeche.auxBlock p st = some b →
+    ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true = .ok envAux →
+    ConLeche.auxStoredAll envAux b b.k = some stored →
+    ConLeche.pinsClosed p.nP st.pins = true →
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () →
+    (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
+    ConLeche.nestedCopySrcOk env p st = true →
+    ConLeche.nestedPinKindsOk p b st stored = true →
+    -- the auxiliary block's formers' stage, at the scratch run
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
+      = .ok (ConLeche.consMutualFormers fms env, fms) →
+    MutualFormersFacts V F true mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF →
+    b.k = p.k + st.pins.length →
+    ConLeche.mutualCtorsGrouped b.ctors = true →
+    -- the prefix formers' model: the members' leaves the auxiliary
+    -- block's, agreeing with the pre-block model off the members,
+    -- the members stored with their data
+    (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      mp₁'.base2.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t) →
+    (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f → n ≠ f.cvTa.name) →
+      mp₁'.base2.acval n = mp.base2.acval n) →
+    (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? f.cvTa.name = some (.indInfo f.cvTa {}) ∧
+      FormerData mp₁'.base2 f.cvTa (b.nP + f.nIdx) f₀.s (ppsF t)) →
+    -- the restored constructors, checked at the prefix environment
+    (stored.take p.k).mapM (fun a =>
+        ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consMutualFormers (fms.take p.k) env) (ConLeche.restoreTbl p st) p.lps
+          a.ctors)
+      = .ok ctorsR →
+    ∃ (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env)))
+      (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
+      NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂
+
+section Stage
+
+variable {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {b : MutualBlock}
+  {fms : List MutualFormerA} {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+  {sortss : List (List Level)} {kinds : List (List (RecFieldKind × Nat))}
+  {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+  {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
+  {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+  {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+  {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+  {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+  {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+  {ctorsR : List (List (ConstantVal × Nat × Nat))}
+
+/-- **The stage's outputs from the loop's** (the derivable fields of
+DESIGN §U.18 (c)): the members' prefix stage (`stageTupleFormers` at
+`mutualFormersG_take`) supplies the loop's model of the prefix
+environment; the members' records, leaves and data at `mp₂` are the
+prefix stage's crossed by the loop's extension facts; the names are
+the elimination's; the constructors' counts are the read-back's; the
+agreement off the block composes the two stages'. -/
+theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedChecks = true)
+    (hE : ConLeche.EtaFamiliesClosed env) {st : ElimState} {envAux : Env}
+    {stored : List AuxStored} {fmsA ctorsA₀ : List ConstantVal}
+    (hPM : PinsModeled mp.base2 st.pins)
+    (h0 : (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
+      (p.ctors.map (fun c => c.cv.type)).all (fun t => !t.mentionsNestedAux)) = true)
+    (h1 : uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP
+      (p.ctors.map (fun c => c.cv.type)) = true)
+    (hfA : ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (fueledOps μ F) env p.nP p.formers
+      = .ok fmsA)
+    (hcA : ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA₀)
+    (helim : ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hcount : st.pins.length = p.numNested)
+    (hfresh : ConLeche.copiesFresh env p.k st = true)
+    (hcont : ConLeche.nestedContainersOk env st.pins = true)
+    (hb : ConLeche.auxBlock p st = some b)
+    (haux : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true
+      = .ok envAux)
+    (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
+    (hclosed : ConLeche.pinsClosed p.nP st.pins = true)
+    (hpinsAux : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) envAux p.nP st.pins
+      = .ok ())
+    (hcaps : (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
+    (hsrc : ConLeche.nestedCopySrcOk env p st = true)
+    (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
+      = .ok (ConLeche.consMutualFormers fms env, fms))
+    (hctorsA : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) true b.ctors
+      = .ok (ctorsA, sortss))
+    (h : MutualFormersFacts V F true mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + st.pins.length)
+    (hctors : (stored.take p.k).mapM (fun a =>
+        ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consMutualFormers (fms.take p.k) env) (ConLeche.restoreTbl p st) p.lps
+          a.ctors)
+      = .ok ctorsR) :
+    ∃ (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env)))
+      (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
+      NestedStageFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₂ := by
+  -- the members' names are the block's, nodup
+  have hndM : (fms.map (·.cvTa.name)).Nodup := by
+    rw [h.names]
+    have hnd' := hnd
+    unfold ConLeche.MutualBlock.blockNames at hnd'
+    exact (List.nodup_append.mp (List.nodup_append.mp hnd').1).1
+  have hndF : ((fms.take p.k).map (·.cvTa.name)).Nodup := by
+    rw [List.map_take]
+    exact List.Nodup.sublist (List.take_sublist _ _) hndM
+  have hkle : p.k ≤ fms.length := by rw [h.lenFms, hbk]; exact Nat.le_add_right _ _
+  -- the formers' stage at the prefix
+  obtain ⟨mp₁', hleaf₁, hoff₁, hstored₁⟩ := stageTupleFormers (V := V) (μ := μ) (F := F) h.blockOk
+    b.ownOffset mp hE (ConLeche.mutualFormersG_take hformers p.k) hndF (fun t f hft => by
+      have ht : t < p.k := by
+        have := (List.getElem?_eq_some_iff.mp hft).1
+        rw [List.length_take] at this
+        omega
+      rw [List.getElem?_take_of_lt ht] at hft
+      exact ⟨h.lps t f hft, h.FD₀ t f hft, h.stageOk t f hft⟩)
+  have hleafM' : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      mp₁'.base2.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t := by
+    intro t f ht hft
+    rw [hleaf₁ t f (by rw [List.getElem?_take_of_lt ht]; exact hft)]
+    funext ψ
+    unfold mutMemberLeaf
+    rw [show (fms.getD t default).nIdx = f.nIdx by rw [List.getD_eq_getElem?_getD, hft]; rfl]
+  have hoff' : ∀ n : Name,
+      (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f → n ≠ f.cvTa.name) →
+      mp₁'.base2.acval n = mp.base2.acval n := by
+    intro n hn
+    refine hoff₁ n fun t f hft => ?_
+    have ht : t < p.k := by
+      have := (List.getElem?_eq_some_iff.mp hft).1
+      rw [List.length_take] at this
+      omega
+    rw [List.getElem?_take_of_lt ht] at hft
+    exact hn t f ht hft
+  have hfind' : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? f.cvTa.name = some (.indInfo f.cvTa {}) ∧
+      FormerData mp₁'.base2 f.cvTa (b.nP + f.nIdx) f₀.s (ppsF t) := by
+    intro t f ht hft
+    obtain ⟨hf, hFD, -⟩ := hstored₁ t f (by rw [List.getElem?_take_of_lt ht]; exact hft)
+    exact ⟨hf, hFD⟩
+  -- the loop
+  obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
+    ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hkinds hformers h
+    hbk h3 hleafM' hoff' hfind' hctors
+  -- the names
+  have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
+    rw [List.map_take, h.names]
+    exact ConLeche.auxBlock_memberNames hfA helim hb
+  -- the restored constructors, positionally
+  obtain ⟨hlenR, hposR⟩ := ConLeche.mapM_except_inv hctors
+  have hlenS : stored.length = b.k := (ConLeche.auxStoredAll_get hstored).1
+  have hlenT : (stored.take p.k).length = p.k := by
+    rw [List.length_take, hlenS]; omega
+  have hmemR : ∀ mm, mm < p.k → ∃ (a : AuxStored) (cs : List (ConstantVal × Nat × Nat)),
+      stored[mm]? = some a ∧ ctorsR[mm]? = some cs ∧
+      ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
+        (ConLeche.consMutualFormers (fms.take p.k) env) (ConLeche.restoreTbl p st) p.lps a.ctors
+        = .ok cs := by
+    intro mm hmm
+    obtain ⟨a, cs, ha, hcs, hrun⟩ := hposR mm (by rw [hlenT]; exact hmm)
+    rw [List.getElem?_take_of_lt hmm] at ha
+    exact ⟨a, cs, ha, hcs, hrun⟩
+  have hctorsLen : ∀ mm, mm < p.k → (ctorsR.getD mm []).length = (b.ownCtors mm).length := by
+    intro mm hmm
+    obtain ⟨a, cs, ha, hcs, hrun⟩ := hmemR mm hmm
+    rw [List.getD_eq_getElem?_getD, hcs, Option.getD_some, (ConLeche.restoreCtors_id hrun).1]
+    exact (ConLeche.auxStored_ctor_eq haux hformers hctorsA h3 hstored ha).1
+  -- a restored constructor's name is one of the block's constructors'
+  have hnameR : ∀ c ∈ ctorsR.flatten, c.1.name ∈ p.ctors.map (·.cv.name) := by
+    intro c hc
+    obtain ⟨cs, hcs, hcin⟩ := List.mem_flatten.mp hc
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hcs
+    have hmmk : mm < p.k := by
+      have := (List.getElem?_eq_some_iff.mp hmm).1
+      rw [hlenR, hlenT] at this
+      exact this
+    obtain ⟨a, cs', ha, hcs', hrun⟩ := hmemR mm hmmk
+    obtain rfl : cs' = cs := Option.some.inj (hcs'.symm.trans hmm)
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcin
+    have hjl : j < a.ctors.length := by
+      rw [← (ConLeche.restoreCtors_id hrun).1]; exact (List.getElem?_eq_some_iff.mp hj).1
+    obtain ⟨c₀, hc₀⟩ : ∃ c₀, a.ctors[j]? = some c₀ := ⟨_, List.getElem?_eq_getElem hjl⟩
+    obtain ⟨ty, -, hco⟩ := (ConLeche.restoreCtors_id hrun).2 j c₀ c hc₀ hj
+    obtain ⟨cA, hcA', hc1, -, -⟩ :=
+      (ConLeche.auxStored_ctor_eq haux hformers hctorsA h3 hstored ha).2 j c₀ hc₀
+    have hname : c.1.name = cA.1.name := by rw [hco, ← hc1]
+    rw [hname]
+    have hJl : b.ownOffset mm + j < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA').1
+    have hJb : b.ownOffset mm + j < b.ctors.length := by rw [← h.lenA]; exact hJl
+    have hcJ : b.ctors[b.ownOffset mm + j]? = some (b.ctors.getD (b.ownOffset mm + j) default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
+    have hnm : cA.1.name = (b.ctors.getD (b.ownOffset mm + j) default).cv.name := by
+      have := congrArg (fun l => l[b.ownOffset mm + j]?) h.namesC
+      simp only [List.getElem?_map, hcA', hcJ, Option.map_some] at this
+      exact Option.some.inj this
+    rw [hnm]
+    refine ConLeche.auxBlock_ctorName_mem hfA hcA helim hb _ _ hcJ ?_
+    obtain ⟨-, hown⟩ := ConLeche.ownCtors_of_ctors h3 hcJ
+    have hjl' : j < (b.ownCtors mm).length := by rw [← hctorsLen mm hmmk, List.getD_eq_getElem?_getD, hmm]; exact (List.getElem?_eq_some_iff.mp hj).1
+    have hown' : (b.ownCtors mm)[j]? = some ((b.ownCtors mm)[j]) := List.getElem?_eq_getElem hjl'
+    rcases hx : (b.ownCtors mm)[j] with ⟨J', c'⟩
+    rw [hx] at hown'
+    have hJ' := ConLeche.ownCtors_getElem?_idx h3 hown'
+    obtain ⟨hcJ', hmemc⟩ := ConLeche.ownCtors_getElem?_ctors hown'
+    subst hJ'
+    rw [hcJ] at hcJ'
+    obtain rfl := Option.some.inj hcJ'
+    rw [hmemc]
+    exact hmmk
+  refine ⟨mp₂, dsR, xFvsR, pinsS,
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, names := hnames, agree := ?_
+      findM := fun t f ht hft => L.find (hfind' t f ht hft).1
+      leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
+      FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
+      ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
+      groups := L.groups }⟩
+  intro n hn ψ
+  have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)
+  have hnC : n ∉ p.ctors.map (·.cv.name) := fun hc => hn (List.mem_append_right _ hc)
+  rw [L.agreeC n (fun c hc heq => hnC (heq ▸ hnameR c hc)),
+    hoff' n (fun t f ht hft heq => hnM (by
+      rw [← hnames, heq]
+      exact List.mem_map_of_mem (List.mem_of_getElem? (by rw [List.getElem?_take_of_lt ht]; exact hft))))]
+
+end Stage
+
+/-! ## The consumer -/
+
+/-- **The nested core, modulo the restored constructors' loop**: the
+scratch run's formers' stage (`mutualFormersStage` at the `auxRoute`
+grade), the prefix stage and the loop (`nestedStageFacts_of`), the
+block model at every member (`nestedBlockReps_of`), and the block
+model's record (`NestedBlockModelOf`: arities off `auxBlock`, names
+off the elimination, pins off the loop's records). -/
+theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
+    NestedCoreModeled V μ F := by
+  intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hkinds hctors
+  obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
+    ConLeche.checkMutualCore_inv haux
+  obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, h⟩ :=
+    mutualFormersStage hμ mp hE b hnd hlp hmem hformers hf₀ htq₀ hcross hctorsA hkindsA hfo
+  have hbk : b.k = p.k + st.pins.length := ConLeche.auxBlock_k_count hfA helim hb
+  obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
+  rw [henv] at hctors
+  obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hkinds hnd h3 hformers hctorsA h hbk hctors
+  have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
+  obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
+    S.ctorFacts S.domFacts S.groups
+  rw [henv]
+  refine ⟨mp₂, S.agree, _, ?_, hreps, htyped⟩
+  exact
+    { k := rfl
+      nP := (ConLeche.auxBlock_fields hb).1
+      env₀ := rfl
+      memberNames := S.names
+      large := (ConLeche.auxBlock_fields hb).2.2.1
+      nPins := S.pinsLen
+      pin := S.pinRec
+      ctors := fun _ _ => rfl }
+
 
 
 end ConLeche.Model

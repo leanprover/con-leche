@@ -95,6 +95,12 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.EnvModel'),
     ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.Bit'),
     ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Verify.Subst'),
+    # task #315 U-17: `auxStored_ctor_eq`'s PUBLIC statement projects
+    # `b.ownOffset` (dot-notation on `MutualBlock.ownOffset`, MutualGrouped);
+    # the census cannot attribute a field projection, the checker asks for
+    # the demotion and the compiler refuses it ("environment does not
+    # contain `MutualBlock.ownOffset`").
+    ('ConLeche.Verify.Inductives.NestedAuxInv','ConLeche.Verify.Inductives.MutualGrouped'),
     ('ConLeche.Model.Inductives.BlockRecBridge','ConLeche.Model.Inductives.BlockRecWD'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Model.Inductives.TowerCons'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Verify.Inductives.MutualInv'),

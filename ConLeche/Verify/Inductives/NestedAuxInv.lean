@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Verify.Inductives.MutualGrouped
 import ConLeche.Verify.Inductives.NestedInv
 
 public section
@@ -27,7 +28,14 @@ that what comes back IS what the formers' stage checked:
   it as its own member's;
 * **the restored formers' environment**
   (`consNestedFormers_take_eq`): the read-back records cons the very
-  environment the formers' stage consed, prefix by prefix.
+  environment the formers' stage consed, prefix by prefix;
+* **the constructors' records survive it too**
+  (`consMutualCtors_find?_self`, `checkMutualCore_ctor_record`): the
+  constructors' conses answer at every checked constructor's own name,
+  and neither the recursors' group nor the projection tables touches
+  that answer — so the read-back at a member's constructors
+  (`auxStored?_ctors`) IS the constructors' stage's own run of
+  `b.ctors`, positionally (`auxStored_ctor_eq`).
 -/
 
 namespace ConLeche
@@ -448,5 +456,394 @@ theorem consNestedFormers_take_eq {env envOut : Env} {b : MutualBlock} {F : Nat}
       exact ⟨h1, h2⟩
     · rw [if_neg hik] at ha
       exact absurd ha (by simp)
+
+/-! ## The constructors' conses, at a constructor's own name -/
+
+/-- A lookup past the constructors' conses of other names. -/
+private theorem consMutualCtors_find?_of_ne {nP : Nat} :
+    ∀ {cs : List (ConstantVal × Nat)} {env : Env} {n : Name},
+      (∀ c ∈ cs, c.1.name ≠ n) →
+      (consMutualCtors nP cs env).find? n = env.find? n
+  | [], _, _, _ => rfl
+  | c :: cs, env, n, hne => by
+    show (consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩).find? n = _
+    rw [consMutualCtors_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx)),
+      Env.find?_cons]
+    exact if_neg (hne c List.mem_cons_self)
+
+/-- **Every consed constructor is found at its own name**, with the
+block's parameter count and its own field count. -/
+theorem consMutualCtors_find?_self {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {J : Nat} {cA : ConstantVal × Nat},
+      (ctorsA.map (·.1.name)).Nodup → ctorsA[J]? = some cA →
+      (consMutualCtors nP ctorsA env).find? cA.1.name = some (.ctorInfo cA.1 nP cA.2)
+  | [], _, _, _, _, hJ => absurd hJ (by simp)
+  | c :: cs, env, J, cA, hnd, hJ => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    cases J with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hJ
+      obtain rfl := hJ
+      show (consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩).find? c.1.name = _
+      rw [consMutualCtors_find?_of_ne (fun x hx hh => hnd.1 (by
+        rw [← hh]; exact List.mem_map_of_mem hx))]
+      exact Env.find?_cons_self _ _
+    | succ J =>
+      simp only [List.getElem?_cons_succ] at hJ
+      show (consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩).find? cA.1.name = _
+      exact consMutualCtors_find?_self hnd.2 hJ
+
+/-! ## A `ctorInfo` through the scratch install's later stages -/
+
+/-- A cons at another name keeps a successful lookup. -/
+private theorem find?_cons_of_ne {c : ConstantInfo} {env : Env} {n : Name} {ci : ConstantInfo}
+    (hne : c.name ≠ n) (h : env.find? n = some ci) :
+    Env.find? ⟨c :: env.consts⟩ n = some ci := by
+  rw [Env.find?_cons, if_neg hne]
+  exact h
+
+/-- The recursors' store keeps a `ctorInfo` answer at every name it
+does not cons itself. -/
+theorem storeMutualRecs_find?_ctorInfo {env₂ : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {rulesOf : List (List (MutualCtor × Expr))} :
+    ∀ (l : List (ConstantVal × Nat)) {env : Env} {n : Name} {cv : ConstantVal} {nP nF : Nat},
+      (∀ p ∈ l, p.1.name ≠ n) →
+      env.find? n = some (.ctorInfo cv nP nF) →
+      (storeMutualRecs env₂ b fms rulesOf l env).find? n = some (.ctorInfo cv nP nF) := by
+  intro l
+  induction l with
+  | nil => intro env n cv nP nF _ hf; exact hf
+  | cons hd rest ih =>
+    intro env n cv nP nF hne hf
+    obtain ⟨cvRa, mIdx⟩ := hd
+    exact ih (fun p hp => hne p (List.mem_cons_of_mem _ hp))
+      (find?_cons_of_ne (hne (cvRa, mIdx) List.mem_cons_self) hf)
+
+/-- The projection tables keep a `ctorInfo` answer: a table is consed
+at a name the stage's own guard found free. -/
+theorem mutualTables_find?_ctorInfo {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env} {n : Name} {cv : ConstantVal}
+      {nP nF : Nat},
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
+      env.find? n = some (.ctorInfo cv nP nF) →
+      env'.find? n = some (.ctorInfo cv nP nF) := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' n cv nP nF h hf
+    obtain rfl := mutualTables_nil_inv h
+    exact hf
+  | cons hd rest ih =>
+    intro env env' n cv nP nF h hf
+    obtain ⟨f, mIdx⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
+    refine ih hrest ?_
+    rcases mutualMemberTable_inv hI with rfl | ⟨J, c, -, -, htbl⟩
+    · exact hf
+    · obtain ⟨bodies, -, -, -, hfresh, rfl⟩ := checkStructProjTable_inv htbl
+      exact Env.find?_cons_of_fresh hfresh hf
+
+/-! ## The constructors' stage, at two grades of `isProp` -/
+
+/-- A thrown step never succeeds. -/
+private theorem auxThrow_ne_ok {α : Type} {e : CheckError} {a : α}
+    (h : (throw e : CheckM α) = .ok a) : False := by
+  simp [throw, throwThe, MonadExceptOf.throw] at h
+
+local syntax "close_throw" : tactic
+local macro_rules
+  | `(tactic| close_throw) =>
+    `(tactic| first
+        | (exfalso; exact auxThrow_ne_ok (by assumption))
+        | (exfalso; exact auxThrow_ne_ok
+            (by simpa [bind, Except.bind] using ‹_›)))
+
+/-- **What one constructor's stage STORES**: the door's constant, run
+through the positivity normalisation — neither step reads `isProp`,
+which enters only at the fields' sorts. -/
+private theorem checkMutualCtorG_stored {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {nF F : Nat} {g : Bool} {sorts : List Level}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa g = .ok (cvCa, sorts)) :
+    ∃ cvCa₀ : ConstantVal,
+      (if g then checkConstantValPre (m := CheckM) (fueledOps mode F) env cvC
+        else checkConstantVal (fueledOps mode F) env cvC) = .ok cvCa₀ ∧
+      normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa₀ g
+        = .ok cvCa := by
+  unfold checkMutualCtor at h
+  cases g <;> simp only [if_true, Bool.false_eq_true, if_false] at h ⊢
+  all_goals
+  obtain ⟨cvCa₀, hccv₀, h⟩ := exceptBind_ok h
+  obtain ⟨cvCa', hnorm, h⟩ := exceptBind_ok h
+  obtain ⟨q, -, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cbody⟩ := q
+  try simp only at h
+  by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+  case neg => rw [if_neg hc] at h; close_throw
+  rw [if_pos hc] at h
+  obtain ⟨cq, -, h⟩ := exceptBind_ok h
+  obtain ⟨fvsP, crest⟩ := cq
+  obtain ⟨tq, -, h⟩ := exceptBind_ok h
+  obtain ⟨tfvs, trest⟩ := tq
+  try simp only at h
+  obtain ⟨u, -, h⟩ := exceptBind_ok h
+  obtain ⟨xq, -, h⟩ := exceptBind_ok h
+  obtain ⟨xFvs, xrest⟩ := xq
+  try simp only at h
+  by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+      xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+  case neg => rw [if_neg h2] at h; close_throw
+  rw [if_pos h2] at h
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; close_throw
+  rw [if_pos h3] at h
+  by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  obtain ⟨sorts', -, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  exact ⟨cvCa₀, hccv₀, hnorm⟩
+
+/-- The constructors' stage stores the same constants at every
+`isProp`: both runs go through the same door and the same
+normalisation. -/
+private theorem checkMutualCtorsG_ctorsA_det {env : Env} {b : MutualBlock}
+    {fms : List MutualFormerA} {isProp₁ isProp₂ g : Bool} {F : Nat} {cs : List MutualCtor}
+    {ctorsA₁ ctorsA₂ : List (ConstantVal × Nat)} {sortss₁ sortss₂ : List (List Level)}
+    (h₁ : checkMutualCtors (fueledOps mode F) env b fms isProp₁ g cs = .ok (ctorsA₁, sortss₁))
+    (h₂ : checkMutualCtors (fueledOps mode F) env b fms isProp₂ g cs = .ok (ctorsA₂, sortss₂)) :
+    ctorsA₁ = ctorsA₂ := by
+  obtain ⟨hlen₁, -, hall₁⟩ := checkMutualCtors_inv h₁
+  obtain ⟨hlen₂, -, hall₂⟩ := checkMutualCtors_inv h₂
+  refine List.ext_getElem? fun J => ?_
+  cases hJ₁ : ctorsA₁[J]? with
+  | none =>
+    have hn : ctorsA₂[J]? = none := by
+      rw [List.getElem?_eq_none_iff] at hJ₁ ⊢; omega
+    rw [hn]
+  | some cA₁ =>
+    have hJl : J < cs.length := by
+      have := (List.getElem?_eq_some_iff.mp hJ₁).1
+      omega
+    obtain ⟨c, hc⟩ : ∃ c, cs[J]? = some c := ⟨cs[J]'hJl, List.getElem?_eq_getElem hJl⟩
+    obtain ⟨cA₂, hJ₂⟩ : ∃ cA₂, ctorsA₂[J]? = some cA₂ :=
+      ⟨ctorsA₂[J]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨hnF₁, s₁, -, hrun₁⟩ := hall₁ J c cA₁ hc hJ₁
+    obtain ⟨hnF₂, s₂, -, hrun₂⟩ := hall₂ J c cA₂ hc hJ₂
+    obtain ⟨cvCa₀₁, hd₁, hn₁⟩ := checkMutualCtorG_stored hrun₁
+    obtain ⟨cvCa₀₂, hd₂, hn₂⟩ := checkMutualCtorG_stored hrun₂
+    obtain rfl : cvCa₀₂ = cvCa₀₁ := Except.ok.inj (hd₂.symm.trans hd₁)
+    have hfst : cA₁.1 = cA₂.1 := Except.ok.inj (hn₁.symm.trans hn₂)
+    rw [hJ₂]
+    have : cA₁ = cA₂ := by
+      obtain ⟨a₁, b₁⟩ := cA₁
+      obtain ⟨a₂, b₂⟩ := cA₂
+      simp only at hfst hnF₁ hnF₂
+      rw [hfst, hnF₁, hnF₂]
+    rw [this]
+
+/-- **The checked constructors' names are the block record's**
+(`checkMutualCtors`' constant check keeps the name). -/
+private theorem ctorsA_names_eq {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {isProp g : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)}
+    (h : checkMutualCtors (fueledOps mode F) env b fms isProp g cs = .ok (ctorsA, sortss)) :
+    ctorsA.map (·.1.name) = cs.map (·.cv.name) := by
+  obtain ⟨hlen, -, hall⟩ := checkMutualCtors_inv h
+  refine List.ext_getElem? fun J => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  cases hJ : ctorsA[J]? with
+  | none =>
+    have hn : cs[J]? = none := by
+      rw [List.getElem?_eq_none_iff] at hJ ⊢; omega
+    rw [hn]
+    rfl
+  | some cA =>
+    have hJl : J < cs.length := by
+      have := (List.getElem?_eq_some_iff.mp hJ).1
+      omega
+    obtain ⟨c, hc⟩ : ∃ c, cs[J]? = some c := ⟨cs[J]'hJl, List.getElem?_eq_getElem hJl⟩
+    obtain ⟨-, sorts, -, hrun⟩ := hall J c cA hc hJ
+    obtain ⟨⟨ty', hccv⟩, -, -⟩ := checkMutualCtorG_shape hrun
+    rw [hc]
+    simp only [Option.map_some, Option.some.injEq]
+    exact hccv.name
+
+/-- **The constructors' records survive the scratch install**: the
+constructors' conses answer at every checked constructor's own name,
+and neither the recursors' group (the block's `Nodup` keeps the
+recursor names off the constructors') nor the projection tables (each
+consed at a name its own guard found free) touches that answer. -/
+theorem checkMutualCore_ctor_record {env envOut : Env} {b : MutualBlock} {F : Nat}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {g : Bool}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs g = .ok envOut)
+    {fms : List MutualFormerA}
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env g
+      = .ok (consMutualFormers fms env, fms))
+    {isProp : Bool} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hctors : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp g
+      b.ctors = .ok (ctorsA, sortss))
+    {J : Nat} {cA : ConstantVal × Nat} (hJ : ctorsA[J]? = some cA) :
+    envOut.find? cA.1.name = some (.ctorInfo cA.1 b.nP cA.2) := by
+  obtain ⟨hnd, -, -, -, env₁, fms', f₀, -, ctorsA', sortss', -, formers4, ctors4, cvRas,
+    rulesOf, hformers', -, -, -, -, hctors', -, -, -, hrectys, -, htables⟩ :=
+    checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers'
+  obtain rfl : fms = fms' := congrArg Prod.snd (Except.ok.inj (hformers.symm.trans hformers'))
+  obtain rfl : ctorsA = ctorsA' := checkMutualCtorsG_ctorsA_det hctors hctors'
+  -- the constructors' names are the block record's, and the block's
+  -- `Nodup` says they are distinct and none of them is a recursor's
+  have hnames : ctorsA.map (·.1.name) = b.ctors.map (·.cv.name) := ctorsA_names_eq hctors
+  unfold MutualBlock.blockNames MutualBlock.memberNames at hnd
+  have hndC : (ctorsA.map (·.1.name)).Nodup := by
+    rw [hnames]
+    exact (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.1
+  have hmemC : cA.1.name ∈ b.ctors.map (·.cv.name) := by
+    rw [← hnames]
+    exact List.mem_map_of_mem (List.mem_of_getElem? hJ)
+  have hneRec : ∀ r ∈ (List.range b.k).map b.recName, cA.1.name ≠ r := fun r hr =>
+    (List.nodup_append.mp hnd).2.2 cA.1.name (List.mem_append_right _ hmemC) r hr
+  have hne : ∀ p ∈ cvRas.zipIdx, p.1.name ≠ cA.1.name := by
+    intro p hp hpn
+    obtain ⟨cvRa, mIdx⟩ := p
+    have hget : cvRas[mIdx]? = some cvRa := List.mk_mem_zipIdx_iff_getElem?.mp hp
+    obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
+    have hlt : mIdx < b.k := by
+      have hm := (List.getElem?_eq_some_iff.mp hget).1
+      rw [hlenR] at hm
+      exact hm
+    obtain ⟨cvRa', hget', hrec⟩ := hallR mIdx hlt
+    obtain rfl := Option.some.inj (hget.symm.trans hget')
+    obtain ⟨recTy, -, -, -, -, -, -, -, -, -, -, rfl⟩ := checkMutualRecTy_shape hrec
+    exact hneRec (b.recName mIdx) (List.mem_map_of_mem (List.mem_range.mpr hlt)) hpn.symm
+  exact mutualTables_find?_ctorInfo fms.zipIdx htables
+    (storeMutualRecs_find?_ctorInfo cvRas.zipIdx hne (consMutualCtors_find?_self hndC hJ))
+
+/-! ## The read-back at one member's CONSTRUCTORS -/
+
+/-- An `Option`-`mapM` keeps its list's length (`NestedElimInv`'s
+`mapM_option_length`, re-proved here: this module does not import it). -/
+private theorem mapM_option_len {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {r : List β}, l.mapM f = some r → r.length = l.length
+  | [], r, h => by
+    simp only [List.mapM_nil, pure, Option.some.injEq] at h
+    subst h; rfl
+  | a :: l, r, h => by
+    simp only [List.mapM_cons, bind, Option.bind_eq_some_iff, pure,
+      Option.some.injEq] at h
+    obtain ⟨b, -, bs, hbs, rfl⟩ := h
+    simp [mapM_option_len hbs]
+
+/-- **The read-back at one member's constructors**: as many as the
+member owns, each the `ctorInfo` the scratch environment answers at the
+declared constructor's own name. -/
+theorem auxStored?_ctors {envAux : Env} {b : MutualBlock} {mIdx : Nat} {a : AuxStored}
+    (h : auxStored? envAux b mIdx = some a) :
+    a.ctors.length = (b.ownCtors mIdx).length ∧
+    ∀ (j : Nat) (c : ConstantVal × Nat × Nat), a.ctors[j]? = some c →
+      ∃ (J : Nat) (mc : MutualCtor), (b.ownCtors mIdx)[j]? = some (J, mc) ∧
+        envAux.find? mc.cv.name = some (.ctorInfo c.1 c.2.1 c.2.2) := by
+  unfold auxStored? at h
+  cases hfm : b.formers[mIdx]? with
+  | none => rw [hfm] at h; exact absurd h (by simp [bind, Option.bind])
+  | some p =>
+    obtain ⟨cv, nIdx⟩ := p
+    rw [hfm] at h
+    simp only [bind, Option.bind] at h
+    cases hfi : envAux.find? cv.name with
+    | none => rw [hfi] at h; exact absurd h (by simp)
+    | some ci =>
+      rw [hfi] at h
+      cases ci with
+      | indInfo cvTa caps =>
+        simp only [] at h
+        cases hfr : envAux.find? (cv.name.str "rec") with
+        | none => rw [hfr] at h; exact absurd h (by simp)
+        | some cir =>
+          rw [hfr] at h
+          cases cir with
+          | recInfo cvRa mI rP rules =>
+            simp only [] at h
+            split at h
+            · exact absurd h (by simp)
+            · next ctors hm =>
+              simp only [pure, Option.some.injEq] at h
+              obtain rfl := h
+              refine ⟨mapM_option_len hm, fun j c hc => ?_⟩
+              have hj : j < (b.ownCtors mIdx).length := by
+                have hjc := (List.getElem?_eq_some_iff.mp hc).1
+                rw [mapM_option_len hm] at hjc
+                exact hjc
+              obtain ⟨q, hq⟩ : ∃ q, (b.ownCtors mIdx)[j]? = some q :=
+                ⟨(b.ownCtors mIdx)[j]'hj, List.getElem?_eq_getElem hj⟩
+              obtain ⟨J, mc⟩ := q
+              obtain ⟨c', hc', hf⟩ := mapM_option_inv hm j (J, mc) hq
+              obtain rfl := Option.some.inj (hc.symm.trans hc')
+              refine ⟨J, mc, hq, ?_⟩
+              simp only [] at hf
+              cases hfc : envAux.find? mc.cv.name with
+              | none => rw [hfc] at hf; exact absurd hf (by simp)
+              | some cic =>
+                rw [hfc] at hf
+                cases cic with
+                | ctorInfo cvCa nPc nFc =>
+                  simp only [pure, Option.some.injEq] at hf
+                  obtain rfl := hf
+                  rfl
+                | _ => exact absurd hf (by simp)
+          | _ => exact absurd h (by simp)
+      | _ => exact absurd h (by simp)
+
+/-! ## The restored constructors, against the stage's -/
+
+/-- **THE READ-BACK AT THE CONSTRUCTORS** (task #315 M6 s6): member
+`mm`'s stored constructors are the constructors' stage's own run of
+`b.ctors`, positionally — the member owns as many as the block groups
+under it, and the `j`-th of them is the checked constructor at the
+block's global index `b.ownOffset mm + j`, with the block's parameter
+count and that constructor's field count.
+
+The chain: the read-back inverts to the scratch environment's
+`ctorInfo` at the DECLARED constructor's name
+(`auxStored?_ctors`), the grouping guard places that constructor at
+`b.ownOffset mm + j` (`ownCtors_getElem?_idx`), and the install's own
+record at that name is the checked constructor
+(`checkMutualCore_ctor_record`); the two answers are one. -/
+theorem auxStored_ctor_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (h : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {fms : List MutualFormerA}
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env true
+      = .ok (consMutualFormers fms env, fms))
+    {isProp : Bool} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hctors : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    (hg : mutualCtorsGrouped b.ctors = true)
+    {stored : List AuxStored} (hst : auxStoredAll envAux b b.k = some stored)
+    {mm : Nat} {a : AuxStored} (ha : stored[mm]? = some a) :
+    a.ctors.length = (b.ownCtors mm).length ∧
+    ∀ (j : Nat) (c : ConstantVal × Nat × Nat), a.ctors[j]? = some c →
+      ∃ cA : ConstantVal × Nat, ctorsA[b.ownOffset mm + j]? = some cA ∧
+        c.1 = cA.1 ∧ c.2.1 = b.nP ∧ c.2.2 = cA.2 := by
+  obtain ⟨-, hall⟩ := auxStoredAll_get hst
+  obtain ⟨hlenA, hallA⟩ := auxStored?_ctors (hall mm a ha)
+  refine ⟨hlenA, fun j c hc => ?_⟩
+  obtain ⟨J, mc, hown, hfind⟩ := hallA j c hc
+  obtain ⟨hct, -⟩ := ownCtors_getElem?_ctors hown
+  obtain ⟨hlenC, -, hallC⟩ := checkMutualCtors_inv hctors
+  obtain ⟨cA, hcA⟩ : ∃ cA, ctorsA[J]? = some cA := by
+    have hJl : J < ctorsA.length := by
+      have hJc := (List.getElem?_eq_some_iff.mp hct).1
+      rw [← hlenC] at hJc
+      exact hJc
+    exact ⟨ctorsA[J]'hJl, List.getElem?_eq_getElem hJl⟩
+  obtain ⟨-, sorts, -, hrun⟩ := hallC J mc cA hct hcA
+  obtain ⟨⟨ty', hccv⟩, -, -⟩ := checkMutualCtorG_shape hrun
+  have hrec := checkMutualCore_ctor_record h hformers hctors hcA
+  rw [hccv.name] at hrec
+  obtain ⟨e1, e2, e3⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfind.symm.trans hrec))
+  exact ⟨cA, by rw [← ownCtors_getElem?_idx hg hown]; exact hcA, e1, e2, e3⟩
 
 end ConLeche
