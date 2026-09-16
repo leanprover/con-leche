@@ -28,8 +28,10 @@ IDENTITIES of the copy's readings (DESIGN §U.17, §U.24):
   container-recursive field at a MEMBER target is copy-recursive at
   the copy of its target with the telescope and index expressions
   instantiated (`recF`); a container-ordinary field is either
-  copy-ordinary with its domain instantiated, or copy-recursive at a
-  MEMBER or a pin OUTSIDE the group — the elimination's rewrite of an
+  copy-ordinary whose domain READS as the container's instantiated
+  (the stored copy is the elimination's rewrite only up to the
+  constructors' positivity normalisation, which `whnf`s), or
+  copy-recursive at a MEMBER or a pin OUTSIDE the group — the elimination's rewrite of an
   occurrence inside the components — whose entry at the auxiliary
   carrier is the container's domain read at the pin's frame (`ordF`);
   a container-recursive field at one of the CONTAINER'S OWN PINS (a
@@ -336,14 +338,18 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
     (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
       = (((dJ.Eiss i ψJ).getD j []).getD l []).map
           (AnnotTerm.instAll Ds (l + (((dJ.tlss i ψJ).getD j []).getD l []).length))
-  /-- a container-ordinary field: copy-ordinary with the domain
-  instantiated, or copy-recursive outside the group with the entry
-  identity at the auxiliary carrier -/
+  /-- a container-ordinary field: copy-ordinary whose domain READS as
+  the container's instantiated (at the frame the fits are taken at —
+  the stored copy is the elimination's rewrite only up to the
+  constructors' positivity normalisation), or copy-recursive outside
+  the group with the entry identity at the auxiliary carrier -/
   ordF : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
     ((dJ.rss i).getD j []).getD l false = false →
     ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = false ∧
-      ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default
-        = AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default)) ∨
+      ∀ fs₁ : List V, fs₁.length = l →
+        interp V (consList fs₁ ρp) (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default)
+          = interp V (consList fs₁ ρp)
+              (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
     ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
       ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
         (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
@@ -475,7 +481,7 @@ theorem CopyCtorInst.fit_iff_at {env : Env} {m : EnvModel V env} {q₀ kJ : Nat}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, hent⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent fs₁ rfl hf'
   -- the index equations
@@ -552,7 +558,7 @@ theorem CopyCtorInst.fit_imp {env : Env} {m : EnvModel V env} {q₀ kJ : Nat} {Y
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, hent⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout, hent fs₁ rfl hf']
         exact Subset.refl _
