@@ -48,6 +48,7 @@ public import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
 public import ConLeche.Semantics.Tower.FixTuple
 public import ConLeche.Semantics.Tower.SigChainI
+public import ConLeche.Semantics.Tower.SigChainWire
 public import ConLeche.Semantics.Tower.BlockRecPair
 public import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.Semantics.Tower.MutualLeafFacts

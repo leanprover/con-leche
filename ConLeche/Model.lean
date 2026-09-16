@@ -104,6 +104,8 @@ public import ConLeche.Model.Inductives.BlockRecKit
 public import ConLeche.Model.Inductives.BlockRecTyped
 public import ConLeche.Model.Inductives.BlockRecEq
 public import ConLeche.Model.Inductives.BlockRecWD
+public import ConLeche.Model.Inductives.BlockRecLeaf
+public import ConLeche.Model.Inductives.BlockRecValid
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.MutualCtorShape
 public import ConLeche.Model.Inductives.MutualData
@@ -120,6 +122,9 @@ public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead
+public import ConLeche.Model.Inductives.MutualRecs
+public import ConLeche.Model.Inductives.MutualRecsProvision
+public import ConLeche.Model.Inductives.MutualRecsStage
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitShift

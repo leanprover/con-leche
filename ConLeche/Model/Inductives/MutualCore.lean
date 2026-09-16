@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.MutualStageCtor
+public import ConLeche.Model.Inductives.MutualRecs
 import ConLeche.Model.Inductives.MutualIdxUniv
 public import ConLeche.Verify.Inductives.MutualGrouped
 import ConLeche.Model.Inductives.MutualFormersKit
@@ -1894,7 +1895,10 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     (hleafM : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name)
     (hag₂ : ∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) → mp₂.base2.acval n = mp₁.base2.acval n) :
-    BlockReps mp₂.base2 (D) ∧ ∀ ψ : Name → Nat, FormersTyped mp₂.base2 (D) ψ ∧ CtorsTyped mp₂.base2 (D) ψ := by
+    BlockReps mp₂.base2 (D) ∧
+    (∀ ψ : Name → Nat, FormersTyped mp₂.base2 (D) ψ ∧ CtorsTyped mp₂.base2 (D) ψ) ∧
+    ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      MemberStored mp₂.base2 b.lps b.nP f (D).resSort ((D).ppsM t) := by
   have hlenA : ctorsA.length = b.ctors.length := h.lenA
   have hkT : b.k = fms.length := h.lenFms.symm
   have hndA : (ctorsA.map (·.1.name)).Nodup := by
@@ -2236,7 +2240,8 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     · -- mkInj
       intro ψ hw' mm' hmm' j fs j' fs' hj hj' hlen hlen' heq
       exact ofMutual_mkInj ψ hw' hlen hlen' heq
-  refine ⟨hrep, fun ψ => ⟨?_, ?_⟩⟩
+  refine ⟨hrep, fun ψ => ⟨?_, ?_⟩, fun t f hft => ⟨⟨{}, hFP₂ (h.find _ _ hft)⟩, h.lps _ _ hft,
+    h.strip _ _ hft, h.sEq _ _ hft, hFD₂ _ _ hft⟩⟩
   · -- FormersTyped
     intro t ht ρ
     have hft := fms_get (by rw [← hkT]; exact ht)
@@ -2263,11 +2268,15 @@ end Reps
 `mutualCoreModeled_of` (M4 session 4): at a model of the
 constructors' environment carrying the datum (the block at every
 member, the members and constructors typed, every other leaf the
-pre-block model's), the recursor types, the rules at the rule-less
-provision and the group store cons a model of the recursors'
-environment at which the datum still holds, every other leaf
-untouched.  The run facts are the core's, verbatim.  Consumer:
-`mutualCoreModeled_of`. -/
+pre-block model's; the recursors' names fresh, unreserved and no
+projection's there; the members stored at the datum's readings,
+`MemberStored`; the datum's kinds the run's classification), the
+recursor types, the rules at the rule-less provision and the group
+store cons a model of the recursors' environment at which the datum
+still holds, every other leaf untouched.  The run facts are the
+core's, verbatim.  Consumer: `mutualCoreModeled_of`; discharged
+modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
+(`MutualRecsStage.lean`, M4 session 4a). -/
 @[expose] def MutualRecsModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   μ.verifiedChecks = true →
   ∀ {env : Env} (mp : EnvModelM V μ env), ConLeche.EtaFamiliesClosed env →
@@ -2309,6 +2318,19 @@ untouched.  The run facts are the core's, verbatim.  Consumer:
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ) →
       ∀ d : BlockRepData V, MutualDatumOf env b fms ctorsA d → BlockReps mp₂.base2 d →
         (∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ) →
+        -- the recursors' names are fresh, unreserved and no projection's
+        (∀ t, t < b.k →
+          (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
+            (b.recName t) = none ∧
+          ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
+          (b.recName t).isProjFnShape = false) →
+        -- the members are stored at the datum's readings
+        (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+          MemberStored mp₂.base2 b.lps b.nP f d.resSort (d.ppsM t)) →
+        -- the datum's kinds are the run's classification
+        (∀ mm j, mm < b.k → j < (d.ctorsM mm).length →
+          d.ksF mm j = kindsOf (mutKsOf kinds (b.ownOffset mm + j)) ∧
+          ∀ i, d.tgts mm j i = tgtAt (mutKsOf kinds (b.ownOffset mm + j)) i) →
         ∃ mp₃ : EnvModelM V μ
             (ConLeche.storeMutualRecs
               (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b fms
@@ -2326,11 +2348,12 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
     MutualCoreModeled V μ F := by
   intro hμ env mp hE b streamRecs env₁ fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas
     rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
+    hrecNames
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
   obtain ⟨mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, h⟩ :=
     mutualFormersStage hμ mp hE b h0 h1 h2 hformers hf₀ htq₀ hcross hctors hkinds hfo
   obtain ⟨mp₂, hE₂, hcons, hleafM, hag₂⟩ := mutualCtorsStage h hμ hE h0
-  obtain ⟨hreps, htyped⟩ := blockReps_of hμ h0 h2 h3 h mp₂ hcons hleafM hag₂
+  obtain ⟨hreps, htyped, hstored⟩ := blockReps_of hμ h0 h2 h3 h mp₂ hcons hleafM hag₂
   -- the model agrees with the pre-block model off the block
   have hagree : ∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat,
       mp₂.base2.acval n ψ = mp.base2.acval n ψ := by
@@ -2352,7 +2375,8 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
     mutualDatumOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
   obtain ⟨mp₃, hag₃, hreps₃, htyped₃⟩ := hrec hμ mp hE b streamRecs fms f₀ tq₀ ctorsA sortss kinds
     formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd
-    hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped
+    hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored
+    (fun mm j _ _ => ⟨rfl, fun _ => rfl⟩)
   exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, hreps₃, htyped₃⟩
 
 /-- **`declBlock` at the recursors' stage's fact**: the model survives
@@ -2360,9 +2384,10 @@ a mutual block, given stage 4 (`MutualRecsModeled`) and stage 5
 (`MutualTablesModeled`). -/
 theorem declBlock_of_recs (hμ : μ.verifiedChecks = true) {F : Nat} {envOut : Env}
     {p : ConLeche.MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
     (hrec : MutualRecsModeled V μ F) (htables : MutualTablesModeled V μ)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) :=
-  declBlock hμ mp hE (mutualCoreModeled_of hrec) htables h
+  declBlock hμ mp hE hpinOk (mutualCoreModeled_of hrec) htables h
 
 end ConLeche.Model

@@ -3,6 +3,8 @@ module
 public import ConLeche.Semantics.Inductives.DeclMutual
 public import ConLeche.Model.Inductives.BlockRecWD
 import ConLeche.Verify.Inductives.SumRec
+import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Extend.Inversions
 public section
 
 /-!
@@ -118,6 +120,12 @@ model's.  Consumer: `declBlock`. -/
       (ConLeche.provisionMutualRecs b fms cvRas.zipIdx
         (ConLeche.consMutualCtors b.nP ctorsA env₁))
       b formers4 ctors4 streamRecs b.k = .ok rulesOf →
+    -- the recursors' names are fresh, unreserved and no projection's
+    -- (the stream's records are checked at the constructors' environment)
+    (∀ t, t < b.k →
+      (ConLeche.consMutualCtors b.nP ctorsA env₁).find? (b.recName t) = none ∧
+      ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
+      (b.recName t).isProjFnShape = false) →
     ∃ mp₃ : EnvModelM V μ
         (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
           cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)),
@@ -141,12 +149,51 @@ second named fact (M4 session 4).  Consumer: `declBlock`. -/
 
 /-! ## The consumer -/
 
+/-- **The recursors' names are fresh, unreserved and no projection's**
+at the constructors' environment: the stream's recursor records are
+checked there (`checkMutualRecTy`'s `checkConstantVal` at the record
+the pin ties to the generated name). -/
+theorem recNames_of {F : Nat} {env₂ : Env} {p : MutualParts}
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4} {cvRas : List ConstantVal}
+    (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F) env₂ p.toBlock
+      formers4 ctors4 (some (p.members.map fun mb => (mb.cvR, mb.rules))) p.toBlock.k
+      = .ok cvRas) :
+    ∀ t, t < p.toBlock.k →
+      env₂.find? (p.toBlock.recName t) = none ∧
+      ConLeche.reservedBasisNames.contains (p.toBlock.recName t) = false ∧
+      (p.toBlock.recName t).isProjFnShape = false := by
+  obtain ⟨-, hall⟩ := ConLeche.checkMutualRecTys_inv hrectys
+  intro t ht
+  have hltk : t < p.k := by
+    simpa [ConLeche.MutualBlock.k, ConLeche.MutualParts.toBlock, ConLeche.MutualParts.k] using ht
+  obtain ⟨cvRa, -, hrec⟩ := hall t ht
+  obtain ⟨mb, hmb⟩ : ∃ mb, p.members[t]? = some mb := by
+    have : t < p.members.length := by simpa [ConLeche.MutualParts.k] using hltk
+    exact ⟨p.members[t], List.getElem?_eq_getElem this⟩
+  have hsr : (some (p.members.map fun mb => (mb.cvR, mb.rules))).bind
+      (fun rs => (rs[t]?).map (·.1)) = some mb.cvR := by
+    simp only [Option.bind_some]
+    rw [List.getElem?_map, hmb]
+    rfl
+  rw [hsr] at hrec
+  obtain ⟨recTy, sty, u, -, -, -, -, -, -, -, hcmp, rfl⟩ := ConLeche.checkMutualRecTy_shape hrec
+  obtain ⟨cvRi, hccv, -⟩ := hcmp mb.cvR rfl
+  obtain ⟨hfresh, hnres, hpshape, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  rw [ConLeche.MutualParts.toBlock_recName hmb,
+    ← ConLeche.mutualRecPinOk_name (p := p) hpinOk hltk hmb]
+  exact ⟨hfresh, hnres, hpshape⟩
+
 /-- **The model survives a mutual block** (M4's run-level consumer):
 the run's stages 0–4 keep the model and leave the datum
 (`MutualCoreModeled`), the tables keep it from there
-(`MutualTablesModeled`). -/
+(`MutualTablesModeled`).  The recursor records' pin (`mutualRecPinOk`,
+the dispatch's, as for `declMutualRun_etaClosed`) makes the stream's
+recursor names the generated ones. -/
 theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     {p : MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
     (hcore : MutualCoreModeled V μ F) (htables : MutualTablesModeled V μ)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) := by
@@ -154,7 +201,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
     hfo, hgd, hrectys, hrules, htbl⟩ := h
   obtain ⟨mp₃, -, d, hd, hreps, hT⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3
-    hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
+    hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules (recNames_of hpinOk hrectys)
   exact htables hμ _ _ _ sortss mp₃ d hd hreps hT htbl
 
 end ConLeche.Model
