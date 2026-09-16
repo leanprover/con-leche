@@ -323,6 +323,21 @@ theorem nestedPinKinds_get {p : NestedParts} {b : MutualBlock} {stored : List Au
   rw [hk']
   exact hfj.symm
 
+/-- K.26's Bool, inverted: the kinds table exists, has one entry per
+pin, and classifies every field ordinary, recursive or reflexive into
+the auxiliary block. -/
+theorem nestedPinKindsOk_inv {p : NestedParts} {b : MutualBlock} {st : ElimState}
+    {stored : List AuxStored} (h : nestedPinKindsOk p b st stored = true) :
+    ∃ kinds : List (List (List (RecFieldKind × Nat))),
+      nestedPinKinds p b stored = some kinds ∧ kinds.length = st.pins.length := by
+  unfold nestedPinKindsOk at h
+  cases hk : nestedPinKinds p b stored with
+  | none => rw [hk] at h; exact nomatch h
+  | some kinds =>
+    rw [hk] at h
+    simp only [Bool.and_eq_true, beq_iff_eq] at h
+    exact ⟨kinds, rfl, h.1⟩
+
 /-- **K.32's clause, read back**: at pin `q` of the group
 `[qn.grpBase, qn.grpBase + qn.grpSize)`, constructor `j` and field `l`,
 a kind that is recursive or reflexive with a target INSIDE the group
